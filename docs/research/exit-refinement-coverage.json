@@ -131,13 +131,16 @@
         "ref": "trail stays 5.0 (no passing cell), memo §7.2"
       },
       "stale_stop": {
-        "status": "pending"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
       },
       "giveback_stop": {
-        "status": "pending"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
       },
       "exit_ladder": {
-        "status": "pending"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — banking parked (memo §7.2)"
       },
       "exit_head_ml": {
         "status": "honest_negative",
@@ -150,20 +153,24 @@
       "tf": "2h",
       "execution": "live",
       "trail_geometry": {
-        "status": "pending"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — all symbols fail"
       },
       "stale_stop": {
-        "status": "pending"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — all symbols fail"
       },
       "giveback_stop": {
-        "status": "pending"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — all symbols fail"
       },
       "exit_ladder": {
-        "status": "pending"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — banking parked"
       },
       "exit_head_ml": {
         "status": "pending",
-        "ref": "needs per-symbol harness trades in E0 (some symbols lack candle history — MB-20260712-EXIT-ANALYSIS-COVERAGE)"
+        "ref": "E0/E1 for the 2h alt symbols — future exit-head round (pooled pullback head failed E1)"
       }
     },
     {
@@ -172,20 +179,24 @@
       "tf": "4h",
       "execution": "live",
       "trail_geometry": {
-        "status": "pending"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — eth/sol/xrp/ada/avax all fail"
       },
       "stale_stop": {
-        "status": "pending"
+        "status": "passed_unshipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): XRP-4h stale8 PASS 5/6 (stale12 4/6) — Tier-3 PR #6229; eth/sol/ada/avax fail"
       },
       "giveback_stop": {
-        "status": "pending"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
       },
       "exit_ladder": {
-        "status": "pending"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — banking parked"
       },
       "exit_head_ml": {
-        "status": "blocked",
-        "ref": "no 4h harness datasets yet; XRP/ADA/AVAX candle coverage gap (MB-20260712-EXIT-ANALYSIS-COVERAGE)"
+        "status": "pending",
+        "ref": "4h E0 datasets — future exit-head round"
       }
     },
     {
@@ -194,16 +205,20 @@
       "tf": "4h",
       "execution": "live",
       "trail_geometry": {
-        "status": "pending"
+        "status": "blocked",
+        "ref": "harness lacks exit levers (fleet sweep skip: no_harness_levers) — needs harness lever support first"
       },
       "stale_stop": {
-        "status": "pending"
+        "status": "blocked",
+        "ref": "harness lacks exit levers (fleet sweep skip: no_harness_levers) — needs harness lever support first"
       },
       "giveback_stop": {
-        "status": "pending"
+        "status": "blocked",
+        "ref": "harness lacks exit levers (fleet sweep skip: no_harness_levers) — needs harness lever support first"
       },
       "exit_ladder": {
-        "status": "pending"
+        "status": "blocked",
+        "ref": "harness lacks exit levers (fleet sweep skip: no_harness_levers) — needs harness lever support first"
       },
       "exit_head_ml": {
         "status": "pending"
@@ -215,16 +230,20 @@
       "tf": "15m",
       "execution": "live",
       "trail_geometry": {
-        "status": "pending"
+        "status": "blocked",
+        "ref": "harness lacks exit levers (fleet sweep skip: no_harness_levers) — needs harness lever support first"
       },
       "stale_stop": {
-        "status": "pending"
+        "status": "blocked",
+        "ref": "harness lacks exit levers (fleet sweep skip: no_harness_levers) — needs harness lever support first"
       },
       "giveback_stop": {
-        "status": "pending"
+        "status": "blocked",
+        "ref": "harness lacks exit levers (fleet sweep skip: no_harness_levers) — needs harness lever support first"
       },
       "exit_ladder": {
-        "status": "pending"
+        "status": "blocked",
+        "ref": "harness lacks exit levers (fleet sweep skip: no_harness_levers) — needs harness lever support first"
       },
       "exit_head_ml": {
         "status": "pending"
@@ -236,24 +255,24 @@
       "tf": "1d",
       "execution": "live",
       "trail_geometry": {
-        "status": "blocked",
-        "ref": "IBKR futures candle history not in the trainer store (task #27)"
+        "status": "passed_unshipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [ES/GC/HG PROXY data]: MES trail3 4/6 + MHG trail3 5/6 PASS — Tier-3 PR #6229; MGC fails"
       },
       "stale_stop": {
-        "status": "blocked",
-        "ref": "same"
+        "status": "passed_unshipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [PROXY]: MHG stale12 5/6 PASS (not combined with trail3 — combos untested); MES/MGC fail"
       },
       "giveback_stop": {
-        "status": "blocked",
-        "ref": "same"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — [PROXY] MGC gb@MFE2 wf 3/6 fails"
       },
       "exit_ladder": {
-        "status": "blocked",
-        "ref": "same"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — banking parked"
       },
       "exit_head_ml": {
-        "status": "blocked",
-        "ref": "same"
+        "status": "pending",
+        "ref": "needs native IBKR history for E0 (proxy OK for levers, not for head training)"
       }
     },
     {
@@ -288,24 +307,24 @@
       "tf": "1d",
       "execution": "live",
       "trail_geometry": {
-        "status": "blocked",
-        "ref": "equities candle history not in the trainer store (task #27)"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — ALL 1d equities legs fail every lever — existing trails already capture the exit value"
       },
       "stale_stop": {
-        "status": "blocked",
-        "ref": "same"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — ALL 1d equities legs fail every lever — existing trails already capture the exit value"
       },
       "giveback_stop": {
-        "status": "blocked",
-        "ref": "same"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — ALL 1d equities legs fail every lever — existing trails already capture the exit value"
       },
       "exit_ladder": {
-        "status": "blocked",
-        "ref": "same"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — banking parked"
       },
       "exit_head_ml": {
-        "status": "blocked",
-        "ref": "same"
+        "status": "pending",
+        "ref": "equities E0 datasets — future exit-head round"
       }
     },
     {
@@ -314,24 +333,24 @@
       "tf": "1h",
       "execution": "live",
       "trail_geometry": {
-        "status": "blocked",
-        "ref": "same as 1d fleet (task #27)"
+        "status": "passed_unshipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): TLT-1h trail3 PASS — Tier-3 PR #6229; gld/spy/qqq/slv fail"
       },
       "stale_stop": {
-        "status": "blocked",
-        "ref": "same"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
       },
       "giveback_stop": {
-        "status": "blocked",
-        "ref": "same"
+        "status": "passed_unshipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): USO-1h gb1R@MFE1R PASS — BLOCKED on monitor implementation (giveback lever exists only in the harness; live monitor lacks it) — queued follow-up"
       },
       "exit_ladder": {
-        "status": "blocked",
-        "ref": "same"
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — banking parked"
       },
       "exit_head_ml": {
-        "status": "blocked",
-        "ref": "same"
+        "status": "pending",
+        "ref": "equities E0 datasets — future exit-head round"
       }
     },
     {
@@ -344,7 +363,8 @@
         "ref": "lower priority — no live orders; process before any promotion to live"
       },
       "stale_stop": {
-        "status": "pending"
+        "status": "passed_unshipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): trend_donchian_1h (disabled shadow) stale8 4/6 PASS — note only; prop variants fail"
       },
       "giveback_stop": {
         "status": "pending"
@@ -352,6 +372,31 @@
       "exit_ladder": {
         "status": "pending",
         "ref": "turtle_soup is the only ladder-declaring strategy (memo §5)"
+      },
+      "exit_head_ml": {
+        "status": "pending"
+      }
+    },
+    {
+      "strategy": "xauusd_trend_1h / mgc_trend_1h",
+      "symbol": "XAUUSD/MGC",
+      "tf": "1h",
+      "execution": "disabled / shadow",
+      "trail_geometry": {
+        "status": "passed_unshipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [GC=F PROXY]: trail4 PASS 6/6 on BOTH; xauusd leg is disabled (note only); mgc_trend_1h (shadow) trail 3->4 in Tier-3 PR #6229"
+      },
+      "stale_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+      },
+      "exit_ladder": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) — banking parked"
       },
       "exit_head_ml": {
         "status": "pending"

@@ -925,6 +925,8 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
+    stale_exit_bars: 8
+    stale_exit_below_r: 0.0
     tp_r: 50.0
     min_confidence: 0.60
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
@@ -1003,7 +1005,7 @@ strategies:
     donchian: 30
     atr_period: 14
     atr_stop_mult: 2.5
-    trail_mult: 4.0
+    trail_mult: 3.0
     tp_r: 50.0
     min_confidence: 0.0
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
@@ -1087,7 +1089,7 @@ strategies:
     pullback_frac: 0.5
     atr_period: 14
     atr_stop_mult: 2.0
-    trail_mult: 4.0
+    trail_mult: 3.0
     timeout_bars: 200
     tp_r: 50.0
     min_confidence: 0.0
@@ -1188,7 +1190,7 @@ strategies:
     donchian: 20
     atr_period: 14
     atr_stop_mult: 2.5
-    trail_mult: 3.0
+    trail_mult: 4.0
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
     min_confidence: 0.0
     shadow_model_ids: []     # opt out of ML shadow auto-wiring while this
@@ -1525,7 +1527,7 @@ strategies:
     pullback_frac: 0.5
     atr_period: 14
     atr_stop_mult: 2.5
-    trail_mult: 4.0
+    trail_mult: 3.0
     min_confidence: 0.0
     shadow_model_ids: []
 

@@ -157,6 +157,11 @@
    "date": "2026-06-01",
    "ref": "Overnight strategy-research campaign (this PR) - DRAFT, Tier-3, execution: shadow",
    "summary": "New strategy wired execution: shadow on the IBKR ib_paper account. MES daily LONG-ONLY trend-follower: Donchian 30 / trail_mult 4.0 on the 1d candle, reusing the trend_donchian unit with short signals suppressed (the equity-index edge is long-only). Validated on SPX500-CFD (the proxy, 2020-2026): long-only trend net-positive IS+OOS across three independent families (trend/TSMOM/MA-cross), near-zero correlation to the BTC roster, tiny drawdown (2-7R). CAVEAT - validated on the CFD proxy, NOT live MES (short ~16mo history); shadow collects the live-instrument data needed before any promotion. Routed to ib_paper (IBKR paper) ONLY; never real money. Evidence: docs/research/overnight-strategy-research-2026-06-01.md (PERF-20260531-001)."
+  },
+  {
+   "date": "2026-07-12",
+   "ref": "M20 fleet-wide config-exact exit-lever sweep (runtime_logs/m20_fleet/2026-07-12), Tier-3",
+   "summary": "trail_mult 4 -> 3 — walk-forward 4/6 folds [ES=F proxy data]. IS/OOS gate + yearly walk-forward per scripts/research/m20_fleet_exit_sweep.py; evidence in verdicts.json."
   }
  ],
  "trend_donchian_sol": [
@@ -231,6 +236,34 @@
    "date": "2026-07-04",
    "ref": "health-review follow-up 2026-07-04 (operator-approved disable)",
    "summary": "enabled true->false: explicit disable of silent-enabled debris -- only routed account oanda_practice shelved since 2026-06-12 (BL-20260611-007); zero audit events while loaded. Edge preserved for re-enable; gold covered by mgc_trend_1h + GLD."
+  }
+ ],
+ "trend_donchian_xrp_4h": [
+  {
+   "date": "2026-07-12",
+   "ref": "M20 fleet-wide config-exact exit-lever sweep (runtime_logs/m20_fleet/2026-07-12), Tier-3",
+   "summary": "stale_exit_bars: 8 added — walk-forward 5/6 folds (net_R AND maxDD vs base). IS/OOS gate + yearly walk-forward per scripts/research/m20_fleet_exit_sweep.py; evidence in verdicts.json."
+  }
+ ],
+ "mhg_pullback_1d": [
+  {
+   "date": "2026-07-12",
+   "ref": "M20 fleet-wide config-exact exit-lever sweep (runtime_logs/m20_fleet/2026-07-12), Tier-3",
+   "summary": "trail_mult 4 -> 3 — walk-forward 5/6 folds [HG=F proxy data]; stale12 also passed 5/6 but combos are untested — single lever shipped. IS/OOS gate + yearly walk-forward per scripts/research/m20_fleet_exit_sweep.py; evidence in verdicts.json."
+  }
+ ],
+ "tlt_pullback_1h": [
+  {
+   "date": "2026-07-12",
+   "ref": "M20 fleet-wide config-exact exit-lever sweep (runtime_logs/m20_fleet/2026-07-12), Tier-3",
+   "summary": "trail_mult 4 -> 3 — walk-forward pass. IS/OOS gate + yearly walk-forward per scripts/research/m20_fleet_exit_sweep.py; evidence in verdicts.json."
+  }
+ ],
+ "mgc_trend_1h": [
+  {
+   "date": "2026-07-12",
+   "ref": "M20 fleet-wide config-exact exit-lever sweep (runtime_logs/m20_fleet/2026-07-12), Tier-3",
+   "summary": "trail_mult 3 -> 4 — walk-forward 6/6 folds [GC=F proxy data; shadow-execution leg]. IS/OOS gate + yearly walk-forward per scripts/research/m20_fleet_exit_sweep.py; evidence in verdicts.json."
   }
  ]
 }
