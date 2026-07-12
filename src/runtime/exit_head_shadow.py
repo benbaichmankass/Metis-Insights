@@ -31,8 +31,13 @@ from __future__ import annotations
 import json
 import logging
 import math
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
+
+# bar length per artifact ``tf`` — used to trim the current forming bar so
+# the scorer only ever sees CLOSED bars (live == train)
+_TF_SECONDS = {"5m": 300, "15m": 900, "30m": 1800, "1h": 3600,
+               "2h": 7200, "4h": 14400, "1d": 86400}
 
 logger = logging.getLogger(__name__)
 
@@ -221,6 +226,22 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
 
         if "timestamp" not in getattr(candles_df, "columns", []):
             return None
+        # Score the last CLOSED bar only. The monitor's fetch includes the
+        # current forming bar as the final row; the E0 training rows are all
+        # closed bars, so scoring the partial bar is train/serve skew (caught
+        # live 2026-07-12: two records for the same bar with drifting open_r).
+        # A bar whose open + tf hasn't elapsed yet is partial — trim it.
+        tf_s = _TF_SECONDS.get(tf)
+        if tf_s:
+            last_ts = pd.to_datetime(candles_df["timestamp"].iloc[-1],
+                                     utc=True, errors="coerce")
+            if not pd.isna(last_ts):
+                now = datetime.now(timezone.utc)
+                if last_ts.to_pydatetime() + timedelta(seconds=tf_s) > now:
+                    candles_df = candles_df.iloc[:-1]
+                    if len(candles_df) < 2:
+                        return None
+
         ts = pd.to_datetime(candles_df["timestamp"], utc=True, errors="coerce")
         cutoff = pd.to_datetime(meta.get("entry_time"), utc=True, errors="coerce")
         if pd.isna(cutoff):
