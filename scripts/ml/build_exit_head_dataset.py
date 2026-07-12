@@ -177,44 +177,63 @@ def load_harness_trades(paths: List[Path]) -> List[dict]:
     return trades
 
 
-def load_live_trades(db: Path) -> List[dict]:
-    """Closed, non-backtest, strategy-attributed trades with resolvable
-    entry/sl geometry. final_R prefers journal pnl / (risk*qty); rows where
-    that isn't derivable fall back to the last bar mark (tagged)."""
+def _load_multipliers(path: Path) -> Dict[str, float]:
+    """contract_value_usd per symbol from instruments.yaml — tiny indent
+    parser (no yaml dep on the trainer's system python); same shape as
+    scripts/research/m20_exit_analysis.py."""
+    import re
+    out: Dict[str, float] = {}
+    if not path.exists():
+        return out
+    sym = None
+    for line in path.read_text().splitlines():
+        m = re.match(r"^  ([A-Z0-9_]+):\s*$", line)
+        if m:
+            sym = m.group(1)
+            continue
+        m = re.match(r"^\s+contract_value_usd:\s*([0-9.]+)", line)
+        if m and sym:
+            out[sym] = float(m.group(1))
+    return out
+
+
+def load_live_trades(db: Path, instruments: Path) -> List[dict]:
+    """Closed, non-backtest, strategy-attributed journal trades with
+    resolvable entry/sl geometry (same exclusions as m20_exit_analysis:
+    intent_reduce legs, adopted orphans, superseded flap rows). final_R
+    prefers journal pnl / (|entry-sl| * qty * contract multiplier); rows
+    where that isn't derivable fall back to the last bar mark (tagged)."""
+    mult = _load_multipliers(instruments)
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     con.row_factory = sqlite3.Row
     rows = con.execute(
-        """SELECT t.id, t.symbol, t.direction, t.entry_price, t.stop_loss,
-                  t.qty, t.pnl, t.created_at, t.closed_at, t.strategy,
-                  op.updated_at AS op_updated
-           FROM trades t LEFT JOIN order_packages op
-                ON t.order_package_id = op.order_package_id
-           WHERE t.status='closed'
-             AND COALESCE(t.is_backtest,0)=0
-             AND t.strategy IS NOT NULL AND t.strategy != ''
-             AND COALESCE(t.setup_type,'') NOT IN ('adopted_orphan')
-             AND COALESCE(t.reconcile_status,'') != 'superseded'"""
+        "SELECT id, timestamp, closed_at, symbol, direction, entry_price, "
+        "stop_loss, position_size, pnl, strategy_name "
+        "FROM trades WHERE status='closed' AND COALESCE(is_backtest,0)=0 "
+        "AND strategy_name IS NOT NULL AND strategy_name != '' "
+        "AND COALESCE(setup_type,'') NOT IN ('intent_reduce','adopted_orphan') "
+        "AND COALESCE(notes,'') NOT LIKE '%\"intent_reduce\": true%' "
+        "AND COALESCE(reconcile_status,'') != 'superseded'"
     ).fetchall()
     con.close()
     out = []
     for r in rows:
-        t0 = _epoch(r["created_at"])
-        t1 = _epoch(r["closed_at"]) or _epoch(r["op_updated"])
+        t0 = _epoch(r["timestamp"])
+        t1 = _epoch(r["closed_at"])
         entry, sl = _f(r["entry_price"]), _f(r["stop_loss"])
         if None in (t0, t1, entry, sl) or t1 <= t0:
             continue
-        risk = abs(entry - sl)
-        qty, pnl = _f(r["qty"]), _f(r["pnl"])
+        qty, pnl = _f(r["position_size"]), _f(r["pnl"])
+        risk_usd = (abs(entry - sl) * abs(qty)
+                    * mult.get(str(r["symbol"]), 1.0)) if qty else 0.0
         final_r = None
         src = "last_mark"
-        if risk > 0 and qty and pnl is not None:
-            denom = risk * qty
-            if denom > 0:
-                final_r = pnl / denom
-                src = "journal_pnl"
+        if risk_usd > 0 and pnl is not None:
+            final_r = pnl / risk_usd
+            src = "journal_pnl"
         out.append({
             "source": "live", "trade_id": r["id"],
-            "strategy": r["strategy"], "symbol": r["symbol"],
+            "strategy": r["strategy_name"], "symbol": r["symbol"],
             "direction": (r["direction"] or "long").lower(),
             "t_open": t0, "t_close": t1, "entry": entry, "sl": sl,
             "final_r": final_r, "final_r_source": src,
@@ -313,6 +332,8 @@ def main(argv: List[str]) -> int:
                    help="Harness --emit-trades JSONL (repeatable).")
     p.add_argument("--db", default=None,
                    help="trade_journal.db for live closed trades.")
+    p.add_argument("--instruments", default="config/instruments.yaml",
+                   help="instruments.yaml for contract_value_usd multipliers.")
     p.add_argument("--candles", action="append", default=[],
                    metavar="SYMBOL=CSV",
                    help="Per-symbol candle CSV the trades ran on (repeatable).")
@@ -331,7 +352,7 @@ def main(argv: List[str]) -> int:
 
     trades = load_harness_trades([Path(t) for t in a.trades])
     if a.db:
-        trades += load_live_trades(Path(a.db))
+        trades += load_live_trades(Path(a.db), Path(a.instruments))
     if not trades:
         print("no trades loaded", file=sys.stderr)
         return 1
