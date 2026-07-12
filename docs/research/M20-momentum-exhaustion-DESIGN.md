@@ -145,6 +145,24 @@ Tier-3 to change any live exit.
   and it must also beat the P4.1 pure-tighten arm to justify the added
   execution complexity (partial closes are a new order path on some venues).
 
+### P4.7 — Sequence-model exit head (GPU-burst tier, conditional)
+
+*Only if the tree-based peak-is-in head (P4.2+P4.3) plateaus below the gate.*
+The hold is a sequence; LightGBM sees per-bar snapshots. A small sequence
+model (TCN / GRU over the per-bar feature path, ~10-50k params) may read
+exhaustion shapes the snapshots can't. Train on the M19 spot-GPU burst
+workflow; export a compact artifact (ONNX or hand-rolled forward pass) that
+serves within the live VM's budget — the SERVING constraint is binding
+(aarch64, monitor-tick latency), the TRAINING constraint is not.
+
+**Resources & budget (operator directive, 2026-07-12):** models must fit the
+current live VM at inference time, but training may exceed local resources —
+the M19 spot-GPU burst service is autonomously usable for this project up to
+**$10** (the standing monthly cap; extendable on ask). Spend rides the
+existing ledger + gate (`comms/gpu_spend_ledger.json`, surfaced at
+`/api/bot/gpu/spend`); free CPU work on the trainer stays the default —
+burst only where GPU materially shortens or strengthens a training run.
+
 ## 3. Sequencing & gates
 
 | step | item | where | gate to proceed |
