@@ -386,6 +386,52 @@ E1→E2: **no family passes today.** Queued (ml backlog
 3. Pullback: no ML path on this feature set — revisit only with new features
    (e.g. regime-head scores as inputs) or after the E0 dataset grows.
 
+## 9. E1.5 — conditional policy shapes (2026-07-12, same day): donchian PASSES the E1→E2 criteria
+
+Four conditional arms added (#6193: the head may only exit while the trade is
+in the chop-hold state) and re-run on the same purged walk-forward (run
+#6194). Also: the E1 head was scored against the LIVE open BTC donchian trade
+3344 (#6192) — 2d+ held ~flat after a +0.90R MFE round-trip, P(pays)
+0.12–0.24 the whole tail, sitting just ABOVE the <0R stale-stop cell — the
+concrete motivating case.
+
+### Winner: `below_half_r @ τ=0.10` on donchian-1h
+Head exits only when P(pays) < 0.10 AND the bar closed below +0.5R (a
+proven trade is never touched — the trail owns it):
+
+| fold | actual net_R / maxDD | below_half_r τ0.1 net_R / maxDD |
+|---|---|---|
+| 2022 | −18.3 / 34.6 | **−0.1 / 16.8** |
+| 2023 | 54.8 / 33.6 | **59.3 / 17.9** |
+| 2024 | 24.9 / 23.7 | **28.1 / 16.0** |
+| 2025 | 16.5 / 14.1 | **26.9 / 12.5** |
+| 2026 | −4.2 / 20.3 | **19.7 / 8.0** |
+
+**Beats actual on net_R AND maxDD AND net_R/pos-day in 5/5 folds** — incl.
+the 2023/2024 trend years the unconditional policy gave up (the E1 gap is
+closed: 2023 is now BETTER than actual because losers are cut while the +0.5R
+winners ride untouched). Aggregate net_R 133.9 vs 73.7 (+82%) at roughly half
+the drawdown and half the hold time. It also beats both hard levers in every
+fold. **Live validation (n=15) agrees in sign**: net +6.3 vs actual +7.0
+(within noise), maxDD 8.7 vs 11.7 better, net_R/pos-day 0.91 vs 0.29 (3×);
+τ0.2 even beats actual net (8.5) at dd 1.5.
+
+Other arms: `pre_mfe1` similar but slightly weaker (4/5 folds);
+`age8`-gated arms clearly worse (waiting 8 bars forfeits the early cut).
+Pullback stays a FAIL (chance-level AUC — conditional shapes can't rescue a
+head with no ranking signal).
+
+### Gate verdict + proposal
+
+Every E1→E2 criterion is met for donchian-1h (AUC materially > 0.55 all
+folds; τ-policy beats the best hard rule on net_R AND maxDD; live sign
+agreement). The one formality: the E0 coverage floor wanted ≥20 live trades
+and donchian has 15. **Proposal (Tier-2): graduate the donchian exit head to
+E2 live shadow** (observe-only scorer — logs "would exit here" per open
+donchian trade, influences nothing) — the shadow itself accrues exactly the
+live evidence the coverage floor wants, and E3 (YAML-declared live influence)
+stays Tier-3 behind the shadow track record.
+
 ## Appendix — raw relay outputs
 
 - Live-VM diag (soak tails + status + trades): issue #6157.

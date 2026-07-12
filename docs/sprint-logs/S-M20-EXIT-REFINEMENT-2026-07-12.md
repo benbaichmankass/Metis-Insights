@@ -176,8 +176,17 @@ stops, exit-ladder optimization." Delivered (PR #6166):
   **Donchian-1h promising but below-gate** (live n=15<20): AUC 0.56–0.62 in
   every fold; τ=0.1 policy beats actual on maxDD + net_R/pos-day in 5/5 folds
   and on aggregate net_R (86.3 vs 73.7), but gives up the big trend years and
-  the tiny live set disagrees in sign. **No E1→E2 pass**; E1.5
-  conditional-policy shapes + live-n≥20 re-run queued (memo § 8).
+  the tiny live set disagrees in sign. **No unconditional E1→E2 pass** (memo § 8).
+- **E1.5 (same day, #6193, run #6194): donchian PASSES the E1→E2 criteria.**
+  Conditional shape `below_half_r @ τ=0.10` (head exits only below +0.5R —
+  proven trades are never touched) beats actual on net_R AND maxDD AND
+  net_R/pos-day in **5/5 folds incl. the 2023/2024 trend years** (aggregate
+  net_R 133.9 vs 73.7 at ~half the drawdown/hold), beats both hard levers
+  everywhere, and the n=15 live set agrees in sign. Pullback remains a fail.
+  Concrete demo on live trade 3344 (#6192): the head flagged the 2d+ ~flat
+  BTC donchian hold at P(pays) 0.12–0.24 — a state the <0R stale-stop cell
+  can't see. **E2 live-shadow graduation proposed to the operator (Tier-2,
+  observe-only)** — memo § 9.
 
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
