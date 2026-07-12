@@ -58,12 +58,58 @@ def main() -> int:
                     help="Run the phase-2 grids: trailing-stop geometry "
                          "(trail_mult) and partial-TP ladder (bank_frac × "
                          "bank_at_r) instead of the phase-1 lever cells.")
+    ap.add_argument("--phase3", action="store_true",
+                    help="Run the phase-3 giveback-stop grid (min-MFE × "
+                         "giveback R) on the CONFIG-EXACT live cells "
+                         "(SOL long-only), + SOL long-only stale-stop detail.")
     a = ap.parse_args()
 
     def windows() -> list[list[str]]:
         return [["--end", a.split], ["--start", a.split]]
 
     print("== M20 exit-lever sweep (IS = through %s, OOS = after) ==" % a.split)
+
+    if a.phase3:
+        # ---- phase 3: giveback-stop ("grab the PnL") grid, config-exact ----
+        gb_cells = [("base", []), ("stale8b<0R", ["--stale-exit-bars", "8"])] + [
+            (f"gb{g}R_afterMFE{m}R",
+             ["--giveback-min-mfe-r", str(m), "--giveback-r", str(g)])
+            for m in (1.0, 2.0) for g in (0.75, 1.0, 1.5)
+        ] + [
+            ("gb1R@MFE1R+stale8b<0R",
+             ["--giveback-min-mfe-r", "1.0", "--giveback-r", "1.0",
+              "--stale-exit-bars", "8"]),
+        ]
+        don_syms3 = [
+            ("BTCUSDT", a.btc, ["--long-only", "--min-confidence", "0.6"]),
+            ("ETHUSDT", a.eth, ["--min-confidence", "0.6"]),
+            ("SOLUSDT", a.sol, ["--long-only", "--min-confidence", "0.6"]),
+        ]
+        for sym, data, extra in don_syms3:
+            if not data:
+                continue
+            print(f"-- P3 trend_donchian 1h {sym} (config-exact) --")
+            for tag, cell in gb_cells:
+                res = [run_cell("scripts/research/backtest_trend.py",
+                                ["--data", data, "--resample", "1h",
+                                 "--symbol", sym, "--timeframe", "1h",
+                                 "--donchian", "20", "--trail-mult", "5.0",
+                                 *extra, *cell, *w]) for w in windows()]
+                print(line(f"donchian|{sym}|{tag}", res[0], res[1]))
+        for sym, data, extra in [("BTCUSDT", a.btc, []),
+                                 ("ETHUSDT", a.eth, ["--adx-min", "25"])]:
+            if not data:
+                continue
+            print(f"-- P3 htf_pullback 2h {sym} --")
+            for tag, cell in gb_cells:
+                if "stale" in tag and "gb" not in tag:
+                    continue  # stale-only already covered in phase 1
+                res = [run_cell("scripts/backtest_pullback.py",
+                                ["--data", data, "--resample", "2h",
+                                 "--symbol", sym, "--timeframe", "2h",
+                                 *extra, *cell, *w]) for w in windows()]
+                print(line(f"pullback|{sym}|{tag}", res[0], res[1]))
+        return 0
 
     if a.phase2:
         # ---- phase 2: trailing-stop geometry + partial-TP ladder grids ----

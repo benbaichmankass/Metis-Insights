@@ -129,7 +129,9 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  stale_exit_below_r: float = 0.0,
                  flip_exit_bars: Optional[int] = None,
                  bank_frac: float = 0.0,
-                 bank_at_r: float = 1.0) -> Dict[str, Any]:
+                 bank_at_r: float = 1.0,
+                 giveback_min_mfe_r: float = 0.0,
+                 giveback_r: float = 1.0) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
     # Trend filter: Donchian midline of the prior trend_lb bars (shift(1) — no
@@ -258,6 +260,13 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                 mfe = max(mfe, (entry - ext) / risk)
             # Lever exits fire at bar close, only when the stop did not hit
             # this bar (a stop hit breaks above) — stop-first stays intact.
+            if giveback_min_mfe_r > 0.0:
+                # M20 giveback-stop: once peak open profit >= min_mfe R, exit
+                # when >= giveback_r R has been surrendered from the peak.
+                if mfe >= giveback_min_mfe_r and (mfe - open_r) >= giveback_r:
+                    exit_price, exit_idx = bc, j
+                    exit_reason = "giveback_stop"
+                    break
             if flip_exit_bars is not None and flip_streak >= flip_exit_bars:
                 exit_price, exit_idx = bc, j
                 exit_reason = "trend_flip"
@@ -427,6 +436,11 @@ def main(argv: List[str]) -> int:
                         "banked at +bank_at_r R (0=off, legacy behaviour).")
     p.add_argument("--bank-at-r", type=float, default=1.0,
                    help="R-multiple of the bank rung for --bank-frac (default 1.0).")
+    p.add_argument("--giveback-min-mfe-r", type=float, default=0.0,
+                   help="M20 giveback-stop lever: arm once peak open profit reaches "
+                        "this many R (0=off, legacy behaviour).")
+    p.add_argument("--giveback-r", type=float, default=1.0,
+                   help="R surrendered from the peak that triggers the exit (default 1.0).")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for regime tagging.")
@@ -460,7 +474,9 @@ def main(argv: List[str]) -> int:
                        stale_exit_below_r=args.stale_exit_below_r,
                        flip_exit_bars=args.flip_exit_bars,
                        bank_frac=args.bank_frac,
-                       bank_at_r=args.bank_at_r)
+                       bank_at_r=args.bank_at_r,
+                       giveback_min_mfe_r=args.giveback_min_mfe_r,
+                       giveback_r=args.giveback_r)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)
