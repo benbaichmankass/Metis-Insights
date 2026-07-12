@@ -280,6 +280,11 @@
           "at": "2026-07-08T08:05:00+00:00",
           "by": "claude (/system-review 2026-07-08, operator-requested)",
           "note": "PARTIAL REPO-SIDE FIX landed this session (operator ask): scripts/ops/diag_fetch.sh now self-heals a DIAG_BASE_URL pointing at the retired micro 158.178.210.252 by rewriting the host to the canonical live Ampere IP 141.145.193.91 (with a stderr warning) before the direct fetch — so a Full-network session is no longer broken by the stale env. This does NOT close the item: the PERMANENT fix is the operator updating DIAG_BASE_URL in the cloud-environment settings to http://141.145.193.91:8001 (takes effect on a NEW session). Note the direct path ALSO needs Network access = Full; at the default Trusted level egress to the VM is firewalled regardless, so this session still used the relay. Also confirmed still-stale again this session."
+        },
+        {
+          "at": "2026-07-12T05:15:00+00:00",
+          "by": "claude (/health-review 2026-07-12)",
+          "note": "Reconfirmed still stale this session: DIAG_BASE_URL=http://158.178.210.252:8001 (the terminated x86 micro). diag_fetch.sh auto-rewrites micro->141.145.193.91 but the direct fetch still times out (env not at Full network access) so all pulls used the issue relay. Repo-side mitigation (the rewrite) is in place; remaining action is operator-only (edit the Claude Code cloud-environment settings). Left open."
         }
       ]
     },
@@ -3721,9 +3726,15 @@
       "title": "[docs] ARCHITECTURE-CANONICAL.md's \"12 strategies registered (verified 2026-06-10)\" strategy-count claim is stale — the roster has grown well past 12 since (ETF family, ADA/XRP/AVAX crypto cells, options overlay, etc.)",
       "description": "Not caused by this session's work and out of its scope to fix (a full re-audit of the strategy roster count + per-instrument breakdown), but flagged per the CLAUDE.md 'log anything noticed but not fixed' mandate. The same paragraph's per-instrument bullets (Crypto / Index-metals-futures) are also missing several strategies that exist in config/strategies.yaml today (e.g. mgc_trend_1h is on ib_paper but absent from the Index/metals bullet). Fix: re-count the live roster from config/strategies.yaml and rewrite the 'Current roster, by instrument' block + the '12 strategies' claim to match, or replace the hardcoded count with a pointer to the live /api/bot/strategies endpoint so it can't drift again.",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-12T05:15:00+00:00",
+          "by": "claude (/health-review 2026-07-12)",
+          "note": "RESOLVED. The stale '12 strategies registered (verified 2026-06-10)' claim was already corrected in the 2026-07-09 full-system audit (S-AUDIT-A): docs/ARCHITECTURE-CANONICAL.md line 181 now reads '48 strategy cells registered' and the per-cell enumeration was replaced with a family-level shape + a pointer to the authoritative source (config/strategies.yaml // /api/bot/strategies) so it can't re-drift. Live runtime_status this session loaded 45 strategies (delta = prop-variant/alt cells that don't load without prop infra) — consistent with the doc's delegated-count approach."
+        }
+      ]
     },
     {
       "id": "BL-20260708-ALPACA-PIPELINE-VERIFICATION-WATCH",
@@ -3808,7 +3819,21 @@
       "resolution_note": null,
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "BL-20260712-HEALTH-RELAY-FETCH-FAILED",
+      "opened_at": "2026-07-12T05:15:00+00:00",
+      "opened_by": "claude (/health-review 2026-07-12)",
+      "source": "vm-diag-request batch #6152: the 'health/latest' and 'health/services' relay paths both returned {\"error\":\"fetch_failed\"} while all 9 other paths in the same batch fetched cleanly. These two paths are exactly what the health-review SKILL.md batch example instructs pulling.",
+      "title": "[observability] vm-diag-snapshot relay 'health/latest' + 'health/services' paths return fetch_failed — the cron health-snapshot convenience endpoints are unreachable via the relay",
+      "description": "The canonical live diag pulls (status/services/exchange_positions/ib_state/db_info) all succeed, so this is a convenience-endpoint gap, not a live-system health issue. Likely the relay's health-flavour maps these to /api/bot/health/* differently than the /api/diag/* paths, or ict-health-snapshot hasn't written artifacts/health/latest.json recently (timer is active on the VM). Fix: verify the relay path mapping for health/* and whether artifacts/health/latest.json is being written; either repair the relay flavour or drop these from the SKILL.md batch example so future reviews don't chase a false gap. Non-blocking (Tier-1 observability).",
+      "tier": 1,
+      "trigger_condition": "Next health-review re-requests health/latest via the relay.",
+      "resolution_criteria": "health/latest returns a real snapshot (or the SKILL batch example is corrected).",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-11T14:30:00+00:00"
+  "updated_at": "2026-07-12T05:15:00+00:00"
 }
