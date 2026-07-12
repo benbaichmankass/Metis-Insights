@@ -60,9 +60,10 @@ def _load_shadow_scores(path: Path) -> dict:
         mid = str(r.get("model_id") or "")
         if "regime" not in mid:
             continue
-        t = _epoch(r.get("ts") or r.get("timestamp"))
+        t = _epoch(r.get("predicted_at_utc") or r.get("ts") or r.get("timestamp"))
         s = _f(r.get("score"))
-        sym = str(r.get("symbol") or "")
+        fr = r.get("feature_row") or {}
+        sym = str(r.get("symbol") or fr.get("symbol") or "")
         if t is None or s is None or not sym:
             continue
         out.setdefault(sym, []).append((t, mid, s))
