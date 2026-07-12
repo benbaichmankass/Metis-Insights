@@ -35,8 +35,13 @@ def test_yaml_entry_pins_validated_params():
     # decision/meta models; the symbol filter keeps BTC/MES regime heads off.
     assert "shadow_model_ids" not in s
     btc = cfg["htf_pullback_trend_2h"]
+    # trail_mult diverges DELIBERATELY since M20 (2026-07-12, Tier-3
+    # operator-approved): the per-year walk-forward passed trail 4.0 on the
+    # BTC leg only (4/6 folds incl. 2025+2026); the ETH folds did not pass,
+    # so ETH stays at the WS-C-validated 5.0. Pinned per leg, not by equality.
+    assert btc["trail_mult"] == 4.0, "htf_pullback_trend_2h trail_mult drifted from the M20-approved 4.0"
     for k in ("trend_lookback", "pullback_lookback", "pullback_frac",
-              "atr_period", "atr_stop_mult", "trail_mult"):
+              "atr_period", "atr_stop_mult"):
         assert s[k] == btc[k], f"eth_pullback_2h {k} drifted from the BTC leg"
 
 
