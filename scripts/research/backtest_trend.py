@@ -114,7 +114,9 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
              min_confidence: float = 0.0,
              stale_exit_bars: int = 0, stale_exit_below_r: float = 0.0,
              bank_frac: float = 0.0, bank_at_r: float = 1.0,
-             giveback_min_mfe_r: float = 0.0, giveback_r: float = 1.0
+             giveback_min_mfe_r: float = 0.0, giveback_r: float = 1.0,
+             trail_decay_arm_r: float = 0.0, trail_decay_stall_bars: int = 0,
+             trail_decay_tight_mult: float = 0.0
              ) -> List[Trade]:
     atr = _atr(df, atr_p)
     sig = _signal(df, donchian)
@@ -151,16 +153,34 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                     rung = pos['entry'] - bank_at_r * pos['risk']
                     if lo <= rung:
                         pos['banked'] = True
+            # M20 P4.1 trail-decay lever (tight_mult 0 = off, byte-identical):
+            # the EFFECTIVE trail mult tightens once the move shows exhaustion —
+            # R-armed (peak_r >= arm_r; one-way, peak_r only grows) and/or
+            # stall-armed (>= stall_bars since the last new favourable extreme;
+            # the mult re-loosens if a new peak prints, but the price ratchet
+            # below never loosens the STOP itself). Design:
+            # docs/research/M20-momentum-exhaustion-DESIGN.md § P4.1.
+            new_peak = (max(pos['peak'], hi) if pos['direction'] == 'long'
+                        else min(pos['peak'], lo))
+            if new_peak != pos['peak']:
+                pos['peak'], pos['peak_i'] = new_peak, i
+            _tm = trail_mult
+            if trail_decay_tight_mult > 0.0:
+                peak_r_now = ((pos['peak'] - pos['entry'])
+                              if pos['direction'] == 'long'
+                              else (pos['entry'] - pos['peak'])) / pos['risk']
+                if ((trail_decay_arm_r > 0.0 and peak_r_now >= trail_decay_arm_r)
+                        or (trail_decay_stall_bars > 0
+                            and (i - pos['peak_i']) >= trail_decay_stall_bars)):
+                    _tm = trail_decay_tight_mult
             if pos['direction'] == 'long':
-                pos['peak'] = max(pos['peak'], hi)
-                trail = pos['peak'] - trail_mult * a
+                trail = pos['peak'] - _tm * a
                 pos['sl'] = max(pos['sl'], trail)
                 hit = lo <= pos['sl']
                 exit_px = pos['sl'] if hit else cl
                 r = (exit_px - pos['entry']) / pos['risk']
             else:
-                pos['peak'] = min(pos['peak'], lo)
-                trail = pos['peak'] + trail_mult * a
+                trail = pos['peak'] + _tm * a
                 pos['sl'] = min(pos['sl'], trail)
                 hit = hi >= pos['sl']
                 exit_px = pos['sl'] if hit else cl
@@ -228,7 +248,7 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                     continue
                 pos = {'direction': direction, 'entry': entry, 'sl': sl, 'sl_init': sl,
                        'risk': risk, 'peak': hi if direction == 'long' else lo,
-                       'entry_i': i, 'entry_time': bar['timestamp']}
+                       'peak_i': i, 'entry_i': i, 'entry_time': bar['timestamp']}
     return trades
 
 
@@ -300,6 +320,16 @@ def main(argv: List[str]) -> int:
     p.add_argument('--giveback-r', type=float, default=1.0,
                    help='R given back from the peak that triggers the exit '
                         '(default 1.0).')
+    p.add_argument('--trail-decay-arm-r', type=float, default=0.0,
+                   help='M20 P4.1 trail-decay lever: tighten the trail once '
+                        'peak open profit reaches this many R (0=off).')
+    p.add_argument('--trail-decay-stall-bars', type=int, default=0,
+                   help='M20 P4.1: tighten the trail after this many bars '
+                        'without a new favourable extreme (0=off; re-loosens '
+                        'the MULT on a new peak, never the stop).')
+    p.add_argument('--trail-decay-tight-mult', type=float, default=0.0,
+                   help='The tightened trail mult once armed (0 disables the '
+                        'whole decay lever, byte-identical).')
     p.add_argument('--emit-trades', default=None, metavar='PATH',
                    help='Write per-trade JSONL (entry_time/direction/net_r/'
                         'entry/sl/exit_time/exit_reason) for the M20 E0 '
@@ -319,7 +349,9 @@ def main(argv: List[str]) -> int:
                       a.trail_mult, a.timeout_bars, a.long_only, a.min_confidence,
                       a.stale_exit_bars, a.stale_exit_below_r,
                       a.bank_frac, a.bank_at_r,
-                      a.giveback_min_mfe_r, a.giveback_r)
+                      a.giveback_min_mfe_r, a.giveback_r,
+                      a.trail_decay_arm_r, a.trail_decay_stall_bars,
+                      a.trail_decay_tight_mult)
     params = {'symbol': a.symbol, 'timeframe': a.timeframe, 'donchian': a.donchian,
               'atr_stop_mult': a.atr_stop_mult, 'trail_mult': a.trail_mult,
               'long_only': a.long_only}
