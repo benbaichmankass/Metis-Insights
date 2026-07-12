@@ -134,6 +134,25 @@ def test_monitor_still_returns_trail_verdict(tmp_path, monkeypatch):
                                                      "exit_price"})
 
 
+def test_partial_bar_is_trimmed(tmp_path, monkeypatch):
+    """The current forming bar must not be scored — training rows are closed
+    bars (train/serve parity). A frame ending in a partial bar (timestamp =
+    now, i.e. its 1h window hasn't elapsed) scores the PRIOR closed bar."""
+    logs = _artifact(tmp_path, monkeypatch)
+    df, entry_time = _frame()
+    partial = {"timestamp": datetime.now(timezone.utc).isoformat(),
+               "open": 200.0, "high": 260.0, "low": 190.0, "close": 250.0}
+    df = pd.concat([df, pd.DataFrame([partial])], ignore_index=True)
+    meta, pkg = _pkg(entry_time)
+    ehs.maybe_score_exit_head(meta, pkg, df, "long")
+    rec = json.loads(
+        (logs / ehs.SHADOW_LOG_NAME).read_text().strip().splitlines()[-1])
+    # with risk 2.0 the partial bar's close=250 would be ~74R; the closed
+    # bars top out near 0R — a trimmed frame can't show the spike
+    assert rec["feature_row"]["open_r"] < 5.0
+    assert rec["feature_row"]["mfe_r"] < 5.0
+
+
 def test_timeframe_mismatch_skips(tmp_path, monkeypatch):
     """An out-of-family monitor call (e.g. a 1d equities donchian variant)
     must not be scored by the 1h crypto head."""

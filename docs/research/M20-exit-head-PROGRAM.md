@@ -81,11 +81,26 @@ equities-1d blocked on the candle-coverage backlog `MB-20260712-EXIT-ANALYSIS-CO
   the monitor path (same budget pattern as `regime_bar_scoring`) scores every
   open position's current row, logging to `shadow_predictions.jsonl` +
   would-exit rows to `exit_lever_soak.jsonl` (`lever: "exit_head"`).
-- Soak 2–4 weeks: (1) live-vs-offline feature parity (live rows re-scored
-  offline must match), (2) would-exit signals' realized `future_r_delta` —
-  the same read the annotate soak gives the stale-stop.
-- Nothing reads it back; standard stage-gate applies (shadow never
-  influences orders).
+- **Gate doctrine (revised 2026-07-12, operator directive): the OFFLINE
+  validation is the confidence gate — the live shadow is a MECHANICAL
+  verification, measured in hours-to-days, not weeks.** The purged
+  walk-forward + truncation-honest replay harness exists precisely so a
+  passing head doesn't need a long calendar soak; the only genuinely new
+  risks the live phase retires are (a) **train/serve feature skew** — the
+  live scorer computes features in a different code path than the E0
+  builder — and (b) plumbing correctness. Both are verified directly:
+  1. **Feature-parity check:** diff the live records' `feature_row` against
+     the E0 builder's row for the same trade/bars. Match ⇒ skew risk retired.
+  2. **First-decision mechanics:** the first live scores are sanity-read
+     (score in-distribution, dedup working, in-family guard holding).
+  Once both pass, E3 proceeds; the head then keeps "soaking" ONLINE (live,
+  order-influencing) under the standing monitoring — the next health-review
+  MUST check the first real head-driven exit's mechanics, and the
+  shadow/soak logs keep accruing the realized `future_r_delta` record for
+  ongoing review. A long observe-only calendar soak is reserved for cases
+  where offline validation was weak or impossible — not the default.
+- Nothing reads it back while at shadow; standard stage-gate applies
+  (shadow never influences orders).
 
 ## Phase E3 — graduation (Tier-3, operator-gated)
 
@@ -94,8 +109,13 @@ equities-1d blocked on the candle-coverage backlog `MB-20260712-EXIT-ANALYSIS-CO
   `exit_head_action: close | tighten_to_breakeven`. Absent = off; rollback =
   delete the lines. Monitor consults the ADVISORY-stage head only (the
   existing ladder is the safety rail).
-- Evidence pack to the operator: E1 walk-forward table + E2 soak read +
+- Evidence pack to the operator: E1/E1.5 walk-forward table + the E2
+  mechanical verification (feature parity + first-decision sanity) +
   per-account compat (`account_compat_matrix`) — then the promotion decision.
+- Post-flip: the first head-driven exit is a mandatory health-review check
+  (mechanics working as designed); the live track record is reviewed in the
+  standard /ml-review cadence, with demotion (delete the YAML lines) as the
+  cheap rollback if live diverges from the walk-forward.
 
 ## Sequencing & compute
 
@@ -103,8 +123,8 @@ equities-1d blocked on the candle-coverage backlog `MB-20260712-EXIT-ANALYSIS-CO
 |---|---|---|---|
 | E0 dataset builder + first build | trainer, free CPU | one session | now |
 | E1 train + policy replay | trainer nightly cycles | free CPU (LightGBM) | 1–2 sessions |
-| E2 shadow scorer + soak | live VM (Tier-2 deploy) | negligible per-tick | 2–4 weeks calendar |
-| E3 graduation | PR + operator | — | after E2 |
+| E2 shadow scorer + mechanical verification | live VM (Tier-2 deploy) | negligible per-tick | hours–days (feature parity + first-decision sanity; revised 2026-07-12) |
+| E3 graduation | PR + operator | — | after E2's mechanical checks pass |
 
 Backlog anchor: `MB-20260712-ML-EXIT-HEAD` (updated to point here). Related:
 `MB-20260712-SHADOW-LOG-HISTORY` (history horizon),
