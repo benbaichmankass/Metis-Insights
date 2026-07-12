@@ -290,6 +290,56 @@ issue is `MB-20260712-SHADOW-LOG-HISTORY`. A second experiment —
 fc-range-scaled **trail distance** — rides the same harness-lever pattern and
 the fc soak re-check (2026-08-25).
 
+## 7. Phase 3 (same day) — go-live, config-exact re-validation, giveback-stop
+
+Operator orders (in-chat, 2026-07-12): flip SOL/ETH live (soak waived), decide
+trail4, build the exit head, keep pushing on proactive profit realization.
+
+### 7.1 Stale-stop is LIVE (activation verified)
+
+`stale_exit_bars: 8` / `stale_exit_below_r: 0.0` declared on
+`trend_donchian_sol` + `trend_donchian_eth` (#6172, merged), activated via
+`pull-and-deploy` (#6173): live VM HEAD `4ff5dd4 → 5b86e14`,
+`ict-trader-live.service` restarted and active 08:54 UTC. Rollback = delete
+the two YAML lines + restart.
+
+**Config-exact re-validation run before the flip (relay #6170):** ETH (live
+config) — clean PASS (IS −69.1→−49.8, OOS −2.1→+7.2). **SOL under its live
+`long_only: true` is MIXED** — OOS +6.9→+15.5 (better net_R AND maxDD
+13.9→8.7) but IS softens +27.1→+22.1 (maxDD still improves 24.8→17.1); part
+of the phase-1 both-directions pass came from cutting shorts SOL never takes
+live. Flip proceeded per the operator's explicit order with this on the
+record; the realized stale_stop closes (journal `exit_reason='stale_stop'`)
+are the live check.
+
+### 7.2 Trail4 walk-forward (the requested decision input)
+
+Per-year folds, pullback BTC 2h (relay #6170): trail4 beats trail5 in **4/6
+folds** — 2021 +9.0→+13.0, 2022 +3.8→−1.4, 2023 +6.5→+11.5, 2024 +29.7→+28.4,
+**2025 −0.4→+2.2, 2026 −4.3→+6.2**; 5y total 44.3→59.9 (+35%).
+**Recommendation: flip `trail_mult: 5.0 → 4.0` on `htf_pullback_trend_2h`**
+(Tier-3, one line, awaiting the operator's go).
+
+### 7.3 Giveback-stop ("grab the PnL") — 44-cell config-exact grid (relay #6174)
+
+- **Donchian (BTC/ETH/SOL, config-exact incl. long-only): FAILS.** The
+  chandelier trail already implements a price-based giveback; the R-based
+  overlay only cuts winners (BTC IS +51.8 → ≤ +33 in every cell). The
+  stale-stop remains the donchian family's validated lever.
+- **Pullback BTC: PASSES the spirit of the gate.** `gb 1.0R after MFE ≥ 1R`:
+  IS net_R 43.1 vs 43.6 (flat), **OOS −3.7 → +7.4**, win rate 33→50%;
+  `gb 0.75R` similar with OOS maxDD 9.0 vs 10.2. Independent confirmation of
+  the trail4 read: pullback-BTC's exit is too loose OOS.
+- **Pullback ETH: base still best** (giveback cuts IS badly). No change.
+- The gb+stale combo stack is WORSE than either alone everywhere tested — do
+  not stack levers without a fresh A/B.
+
+**Pullback-BTC decision framing for the operator:** two validated candidates
+that overlap (both tighten the exit) — `trail_mult 4.0` (walk-forward PASS,
+§ 7.2) or `giveback 1.0R@MFE1R` (grid PASS). Recommend trail4 first (simpler,
+param already exists live); the trail4+giveback combo needs its own A/B before
+stacking.
+
 ## Appendix — raw relay outputs
 
 - Live-VM diag (soak tails + status + trades): issue #6157.
