@@ -80,7 +80,7 @@
       },
       "stale_stop": {
         "status": "shipped",
-        "ref": "8 bars <0R, live 2026-07-12 (#6172/#6173); SOL long-only re-validation mixed, memo §7.1"
+        "ref": "8 bars <0R live 2026-07-12 (#6172/#6173); 8->12 UPGRADE walk-forward 6/6 (fleet sweep 2026-07-12) — Tier-3 PR pending operator approval"
       },
       "giveback_stop": {
         "status": "honest_negative",
