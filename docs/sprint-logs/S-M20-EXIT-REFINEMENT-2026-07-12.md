@@ -375,6 +375,19 @@ these families' existing exits already capture the exit value. Matrix
 updated (exit_head_ml → honest_negative for both rows). Remaining exit-head
 gaps: equities E0 rounds + MES/MGC/MHG pending native IBKR history.
 
+## Phase 4 planned: momentum-exhaustion exits (operator-acked, late evening)
+
+Operator direction: "can we tell when the momentum's over and where we should
+start exiting ... make sure we have a full design doc and it's added to the
+roadmap ... then start according to the priorities." Design of record committed:
+`docs/research/M20-momentum-exhaustion-DESIGN.md` — six work items (trail-decay
+lever first, then the peak-is-in head + exhaustion features, then percentile /
+regime-flip / conditioned-banking variants), each with mechanics, gates,
+tiering, and guardrails (one lever per leg; live-parity twins in the same PR;
+no proxy-data heads). ROADMAP M20 row carries the phase-4 plan so the program
+survives session loss. Execution starts with P4.1 (harness lever + fleet decay
+sweep) and the P4.2+P4.3 E0/E1 round on donchian/1h.
+
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
 - ROADMAP.md M20 row → status update (this session's outcome + next gate).
