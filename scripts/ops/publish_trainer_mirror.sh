@@ -101,6 +101,11 @@ CALIBRATION_ROOT="${CALIBRATION_ROOT:-$REPO_ROOT/artifacts/calibration}"
 # with train==live parity. Empty/absent → the push below is a fail-permissive
 # no-op (no forecasts have been produced yet).
 FORECASTS_ROOT="${FORECASTS_ROOT:-$REPO_ROOT/runtime_logs/trainer_mirror/forecasts}"
+# M20 E2 exit-head shadow artifact (scripts/ml/export_exit_head.py writes the
+# self-contained LightGBM JSON here). Mirrored to <mirror>/exit_head/ where
+# src/runtime/exit_head_shadow.py loads it on the live VM (observe-only;
+# stage=shadow). Absent -> fail-permissive no-op.
+EXIT_HEAD_ROOT="${EXIT_HEAD_ROOT:-$REPO_ROOT/runtime_logs/trainer_mirror/exit_head}"
 
 iso_now() { date -u +'%Y-%m-%dT%H:%M:%S+00:00'; }
 
@@ -440,7 +445,7 @@ SSH_OPTS="-i ${VM_SSH_KEY} -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o B
 # `models/` is read by the WS7 shadow factory; `trainer/` +
 # `experiments-runs/` are read by the dashboard router.
 ssh ${SSH_OPTS} "${LIVE_VM_USER}@${LIVE_VM_IP}" \
-  "mkdir -p '${LIVE_VM_MIRROR_PATH}/trainer' '${LIVE_VM_MIRROR_PATH}/experiments-runs' '${LIVE_VM_MIRROR_PATH}/models' '${LIVE_VM_MIRROR_PATH}/calibration' '${LIVE_VM_MIRROR_PATH}/forecasts'" \
+  "mkdir -p '${LIVE_VM_MIRROR_PATH}/trainer' '${LIVE_VM_MIRROR_PATH}/experiments-runs' '${LIVE_VM_MIRROR_PATH}/models' '${LIVE_VM_MIRROR_PATH}/calibration' '${LIVE_VM_MIRROR_PATH}/forecasts' '${LIVE_VM_MIRROR_PATH}/exit_head'" \
   || { emit "$(printf '{"ts":"%s","status":"mkdir_failed"}' "$(iso_now)")"; exit 1; }
 
 push_one() {
@@ -550,6 +555,18 @@ if [ -d "$FORECASTS_ROOT" ]; then
     --exclude='*' \
     "${FORECASTS_ROOT}/" \
     "${LIVE_VM_USER}@${LIVE_VM_IP}:${LIVE_VM_MIRROR_PATH}/forecasts/" \
+    || overall_rc=1
+fi
+
+# M20 E2 exit-head artifact — same shape as the forecasts push (small JSON
+# only; -d guard keeps this a no-op until the first export).
+if [ -d "$EXIT_HEAD_ROOT" ]; then
+  rsync -az --no-perms --no-owner --no-group \
+    -e "ssh ${SSH_OPTS}" \
+    --include='*.json' \
+    --exclude='*' \
+    "${EXIT_HEAD_ROOT}/" \
+    "${LIVE_VM_USER}@${LIVE_VM_IP}:${LIVE_VM_MIRROR_PATH}/exit_head/" \
     || overall_rc=1
 fi
 

@@ -497,6 +497,17 @@ def monitor(cfg, candles_df, open_pkg):
     if stale_verdict is not None:
         return stale_verdict
 
+    # 2.6 M20 E2 exit-head SHADOW (observe-only; memo § 9). Scores this open
+    # trade's in-trade state once per closed bar with the trainer-exported
+    # LightGBM head and logs it — NEVER returns a verdict, never raises. A
+    # missing artifact (mirror not published / dev sandbox) is a cheap no-op.
+    try:
+        from src.runtime.exit_head_shadow import maybe_score_exit_head
+
+        maybe_score_exit_head(meta, open_pkg, candles_df, direction)
+    except Exception:  # noqa: BLE001 — shadow must never affect the monitor
+        pass
+
     # 3. Chandelier trail ratchet.
     atr = _coerce_float(meta.get("atr"))
     if atr is None or atr <= 0:
