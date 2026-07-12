@@ -48,7 +48,7 @@ REPO = Path(__file__).resolve().parents[2]
 DONCHIAN_HARNESS = "scripts/research/backtest_trend.py"
 PULLBACK_HARNESS = "scripts/backtest_pullback.py"
 
-PROXY_DATA = {"MGC": "GC_F", "XAUUSD": "GC_F"}
+PROXY_DATA = {"MGC": "GC_F", "XAUUSD": "GC_F", "MES": "ES_F", "MHG": "HG_F"}
 DATA_GRAIN = ["5m", "15m", "1h", "1d"]
 TF_MINUTES = {"5m": 5, "15m": 15, "1h": 60, "2h": 120, "4h": 240, "1d": 1440}
 
