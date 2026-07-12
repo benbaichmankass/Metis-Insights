@@ -127,6 +127,35 @@ def policy_model(bars: List[dict], probs: np.ndarray, tau: float) -> dict:
     return replay_trade(bars, idx)
 
 
+# E1.5 conditional shapes (memo § 8 queued item 1): arm the head ONLY in the
+# states where the chop-hold loss lives, so a running trend is never
+# truncated by a low score alone. Motivated by live trade 3344 (BTC donchian
+# held 2d+ around flat, P(pays) ~0.12-0.24 the whole tail, but the trade sat
+# marginally ABOVE the stale-stop's <0R reference cell).
+_SHAPES = {
+    # only cut while the trade has not proven itself (< +0.5R at the bar close)
+    "below_half_r": lambda b, i: float(b[i]["open_r"]) < 0.5,
+    # only cut before the trade ever reached +1R MFE (past that, the
+    # chandelier trail / giveback owns the exit)
+    "pre_mfe1": lambda b, i: float(b[i]["mfe_r"]) < 1.0,
+    # only cut mature trades (>= 8 bars — the stale-stop's age gate)
+    "age8": lambda b, i: b[i]["age_bars"] >= 8,
+    # combined: mature AND unproven
+    "age8_below_half_r": lambda b, i: (b[i]["age_bars"] >= 8
+                                       and float(b[i]["open_r"]) < 0.5),
+}
+
+
+def policy_model_cond(bars: List[dict], probs: np.ndarray, tau: float,
+                      cond) -> dict:
+    idx = None
+    for i in range(len(bars)):
+        if probs[i] < tau and cond(bars, i):
+            idx = i
+            break
+    return replay_trade(bars, idx)
+
+
 def policy_stale(bars: List[dict], n: int = 8, below_r: float = 0.0) -> dict:
     idx = None
     for i, b in enumerate(bars):
@@ -183,6 +212,13 @@ def eval_split(model, trades: Dict[str, List[dict]], tf_s: int) -> dict:
     for tau in TAUS:
         out["model"][f"tau_{tau}"] = agg(
             [policy_model(b, probs[tk], tau) for tk, b in trades.items()], tf_s)
+    # E1.5 conditional shapes on a focused tau grid
+    out["model_cond"] = {}
+    for shape, cond in _SHAPES.items():
+        for tau in (0.10, 0.15, 0.20):
+            out["model_cond"][f"{shape}_tau_{tau}"] = agg(
+                [policy_model_cond(b, probs[tk], tau, cond)
+                 for tk, b in trades.items()], tf_s)
     return out
 
 
