@@ -346,6 +346,35 @@ including flipping the disabled `xauusd_trend_1h` to trail4 (its own cell
 passed 6/6) so the mgc/xauusd sibling-parity contract stays true. PR #6229
 green on all 18 checks at head `35a6690`.
 
+## Package merged + activated; exit-head rounds 2-3 verdicts (evening wrap)
+
+**PR #6229 MERGED (operator: "yes, merge whatever is ready and continue") and
+ACTIVATED** — squash `5015ebb`, merge-protocol slot claimed/released,
+`pull-and-deploy` #6237 confirmed live HEAD `d042223 → 5015ebb` with
+`ict-trader-live.service` active after restart. Live effect: 8 exit cells
+(sol stale12, xrp-4h stale8, mes/mhg/tlt trail3, mgc/xauusd trail4, uso
+giveback 1R@MFE1R) + the giveback monitor lever (annotate-only where
+undeclared).
+
+**Exit-head rounds 2-3 (m20_exit_head_round.py driver, merged same PR):**
+E0→E1 on the trainer for the 4h donchians (ETH/SOL/XRP/ADA/AVAX, 953 harness
+trades) and the 2h alt pullbacks (SOL/XRP/ADA/AVAX, 934 trades) — relays
+#6236/#6238/#6239/#6240. **Both GATE FAIL — honest negatives:**
+
+- **donchian/4h:** AUC mean ~0.55 with the two big trend years <0.50; the
+  naive τ-policy wins chop years (2022: −29.3R→+20.2R) but destroys trend
+  years (2023: +67.8→−7.5; 2024: +111.2→+24.0). The E1.5 conditional shape
+  (below_half_r@τ0.15) rescues 4/5 folds on both axes but still gives back
+  2023 (+3.0R vs actual +67.8R — even the plain stale-8 hard rule gets
+  +37.2R there). The 1h head's success does not transfer to 4h.
+- **pullback/2h:** AUC ~0.54; no naive or conditional shape beats actual on
+  net_R AND maxDD in ≥3/5 folds (2023: +95.6R actual vs +72.2R best arm).
+
+Consistent with the fleet-sweep hard-lever negatives for the same legs:
+these families' existing exits already capture the exit value. Matrix
+updated (exit_head_ml → honest_negative for both rows). Remaining exit-head
+gaps: equities E0 rounds + MES/MGC/MHG pending native IBKR history.
+
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
 - ROADMAP.md M20 row → status update (this session's outcome + next gate).

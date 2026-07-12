@@ -169,8 +169,8 @@
         "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
       },
       "exit_head_ml": {
-        "status": "pending",
-        "ref": "E0/E1 for the 2h alt symbols \u2014 future exit-head round (pooled pullback head failed E1)"
+        "status": "honest_negative",
+        "ref": "exit-head round 3 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 934 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.54; no naive or conditional shape beats actual on net_R AND maxDD in >=3/5 folds (2023: +95.6R actual vs +72.2R best arm). Honest negative \u2014 the existing trail exits already capture the value"
       }
     },
     {
@@ -195,8 +195,8 @@
         "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
       },
       "exit_head_ml": {
-        "status": "pending",
-        "ref": "4h E0 datasets \u2014 future exit-head round"
+        "status": "honest_negative",
+        "ref": "exit-head round 2 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 953 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.55 (2023/2024 folds <0.50); best conditional shape below_half_r@tau0.15 beats actual 4/5 folds on both axes but gives back the 2023 trend year (+67.8R actual vs +3.0R; the plain stale-8 hard rule gets +37.2R there). Honest negative \u2014 no E2"
       }
     },
     {
