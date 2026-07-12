@@ -760,7 +760,7 @@ strategies:
     # evidence: docs/research/M20-exit-refinement-2026-07-12.md § 4-6;
     # 5y IS/OOS PASS on net_R AND maxDD). Close a position >= 8 native
     # bars old still below 0R at bar close. Rollback = delete these 2 lines.
-    stale_exit_bars: 8
+    stale_exit_bars: 12
     stale_exit_below_r: 0.0
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
     # SOLUSDT signals auto-wire the symbol-agnostic decision/meta models (no
@@ -925,6 +925,8 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
+    stale_exit_bars: 8
+    stale_exit_below_r: 0.0
     tp_r: 50.0
     min_confidence: 0.60
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
@@ -1003,7 +1005,7 @@ strategies:
     donchian: 30
     atr_period: 14
     atr_stop_mult: 2.5
-    trail_mult: 4.0
+    trail_mult: 3.0
     tp_r: 50.0
     min_confidence: 0.0
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
@@ -1087,7 +1089,7 @@ strategies:
     pullback_frac: 0.5
     atr_period: 14
     atr_stop_mult: 2.0
-    trail_mult: 4.0
+    trail_mult: 3.0
     timeout_bars: 200
     tp_r: 50.0
     min_confidence: 0.0
@@ -1143,7 +1145,10 @@ strategies:
     donchian: 20
     atr_period: 14
     atr_stop_mult: 2.5
-    trail_mult: 3.0
+    trail_mult: 4.0          # 3 -> 4 (M20 fleet sweep 2026-07-12, walk-forward
+                             # 6/6 on the GC=F proxy) — moves with the
+                             # mgc_trend_1h sibling (parity contract). Leg is
+                             # disabled; a re-enable resumes this cell.
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
     min_confidence: 0.0
     shadow_model_ids: []     # opt out of ML shadow auto-wiring while this
@@ -1188,7 +1193,7 @@ strategies:
     donchian: 20
     atr_period: 14
     atr_stop_mult: 2.5
-    trail_mult: 3.0
+    trail_mult: 4.0
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
     min_confidence: 0.0
     shadow_model_ids: []     # opt out of ML shadow auto-wiring while this
@@ -1525,7 +1530,7 @@ strategies:
     pullback_frac: 0.5
     atr_period: 14
     atr_stop_mult: 2.5
-    trail_mult: 4.0
+    trail_mult: 3.0
     min_confidence: 0.0
     shadow_model_ids: []
 
@@ -1553,6 +1558,14 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 4.0
+    # M20 giveback-stop (fleet sweep 2026-07-12, cell gb1R_afterMFE1R):
+    # once the trade has seen >= 1R of open profit, exit at bar close when
+    # it has given back >= 1R from that peak. Config-exact IS 50.3R/dd12.8
+    # vs base 48.7R/dd13.9, OOS 9.0R/dd4.3 vs 5.5R/dd4.8, walk-forward 4/6
+    # folds no-worse on net_R AND maxDD. Enforced by trend_donchian's
+    # _giveback_verdict; remove these two lines to roll back.
+    giveback_min_mfe_r: 1.0
+    giveback_r: 1.0
     tp_r: 50.0
     min_confidence: 0.0
     shadow_model_ids: []

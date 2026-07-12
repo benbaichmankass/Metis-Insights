@@ -275,6 +275,77 @@ stops, exit-ladder optimization." Delivered (PR #6166):
   head-driven exit is a mandatory health-review mechanics check; realized
   `future_r_delta` accrues in the standard soak logs for /ml-review.
 
+## Fleet-wide sweep results (42 legs, task #27 — 2026-07-12 evening)
+
+The `m20_fleet_exit_sweep.py` engine (#6219) ran every donchian/pullback-family
+leg config-exact on the trainer (equities/futures candle gaps filled via
+yfinance, #6220; ES=F/GC=F/HG=F proxies for MES/XAUUSD-MGC/MHG). 36 legs
+runnable + 6 skipped (`no_harness_levers`: squeeze/fade/vwap/scalp/fvg/turtle
+— matrix-blocked pending harness lever support). **Six cells pass the full
+IS/OOS + walk-forward gate** (consolidated Tier-3 package: PR #6229, draft):
+SOL stale12 (6/6), XRP-4h stale8 (5/6), MES trail3 (4/6, proxy), MHG trail3
+(5/6, proxy), TLT-1h trail3, MGC-1h trail4 (6/6, proxy, shadow leg). Two
+passes deliberately NOT shipped: USO-1h giveback (live monitors lack a
+giveback lever — implementation queued) and XAUUSD trail4 6/6 (leg disabled).
+**Everything else is an honest negative** — notably the ENTIRE equities 1d
+fleet passes nothing (their existing trails already capture the exit value),
+and all 2h alt pullbacks fail. Full verdicts:
+`runtime_logs/m20_fleet/2026-07-12/` (trainer) + the coverage matrix.
+
+## Giveback-stop monitor lever + USO-1h declare (Tier-3 draft, late evening)
+
+The one fleet-sweep PASS blocked on implementation is unblocked:
+`trend_donchian._giveback_verdict` ports the harness's giveback lever
+(`scripts/research/backtest_trend.py` `gb`: fire at bar close when
+`peak_r >= giveback_min_mfe_r AND (peak_r − r_close) >= giveback_r`, peak =
+since-entry favourable extreme in R) into the live monitor with the exact
+`_stale_stop_verdict` contract — YAML-declared (BOTH params positive) ⇒ real
+`giveback_stop` close; undeclared ⇒ reference-cell (1R/1R) annotate row into
+`exit_lever_soak.jsonl`; fail-safe skips on missing entry/risk/entry_time and
+on the unrestrictable-window ambiguity (a pre-entry extreme must never fake a
+peak). Checked AFTER stale-stop, matching the harness's exit precedence.
+`order_package` threads `giveback_min_mfe_r`/`giveback_r` into meta; the
+monitor's live-cfg default (#6211) covers already-open packages. 11 new tests
+(`tests/test_giveback_stop_lever.py`) incl. short-side, pre-entry-peak
+exclusion, stale-precedence, and annotate-dedup; full donchian suite 62 pass.
+
+Evidence for the `uso_trend_1h` declare (trainer relay #6232, cell
+`gb1R_afterMFE1R` config-exact at trail4 long-only): IS 50.33R / maxDD 12.78
+vs base 48.68R / 13.87; OOS 9.04R / 4.28 vs 5.48R / 4.81 (both better on both
+axes); walk-forward 4/6 folds no-worse on net_R AND maxDD (2021/2022/2025/2026
+better — 2022 flips −1.0R→+1.8R; 2023/2024 marginally lower net_R). Shipped as
+a draft Tier-3 PR (lever code + YAML declare together), **awaiting operator
+approval — not merged**.
+
+## Round-2 sweep: squeeze/fvg harness levers (the last two blocked LIVE legs)
+
+The only live legs the 42-leg sweep skipped as `no_harness_levers` were
+`squeeze_breakout_4h` and `fvg_range_15m`. Round 2 unblocked them:
+`backtest_squeeze.py` + `backtest_fvg_range.py` grew the same stale/giveback
+levers (default 0 = off, byte-identical — verified on the sample data:
+lever-off output byte-equal to base; giveback-on changes the trade set), and
+`m20_fleet_exit_sweep.py` learned the two families (`FAMILY_HARNESS`,
+config-exact arg mapping). BTC 15m history didn't exist as a harness CSV on
+the trainer — converted from the E0 dataset side-stream
+(`market_raw_to_csv.py` → `data/BTCUSDT_15m.csv`, 175k rows 2021-07→2026-07,
+relay #6234). Verdicts (relays #6233/#6234/#6235, config-exact):
+
+- **squeeze_breakout_4h — ALL 6 cells FAIL IS/OOS** (stale8/stale12/gb@MFE1/
+  gb@MFE2/trail2.5/trail4.5): a clean honest negative; the live trail3.5
+  already captures the exit value.
+- **fvg_range_15m — ALL 4 cells FAIL IS/OOS** (stale8/stale12/gb@MFE1/
+  gb@MFE2; no trail lever — the strategy exits on stop/target/timeout):
+  honest negative on native (non-proxy) data.
+
+With these, **every LIVE leg in the fleet has now been exit-processed** —
+the remaining matrix gaps are shadow/disabled legs pending harness levers
+(turtle/fade/vwap/scalp) and future exit-head E0/E1 rounds. Also this round:
+the mid-run CI failure on PR #6229 (config-pin tests contradicting the
+Tier-3 cells) was fixed by moving the tlt/mgc/xauusd pins WITH the proposal —
+including flipping the disabled `xauusd_trend_1h` to trail4 (its own cell
+passed 6/6) so the mgc/xauusd sibling-parity contract stays true. PR #6229
+green on all 18 checks at head `35a6690`.
+
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
 - ROADMAP.md M20 row → status update (this session's outcome + next gate).

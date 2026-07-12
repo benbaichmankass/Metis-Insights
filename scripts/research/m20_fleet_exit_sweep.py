@@ -44,9 +44,13 @@ import yaml
 REPO = Path(__file__).resolve().parents[2]
 
 # families with harness exit-lever support; everything else is reported
-# no_harness_levers (squeeze/fvg/vwap/ict_scalp/turtle_soup/fade)
+# no_harness_levers (vwap/ict_scalp/turtle_soup/fade — pending harness levers)
 DONCHIAN_HARNESS = "scripts/research/backtest_trend.py"
 PULLBACK_HARNESS = "scripts/backtest_pullback.py"
+SQUEEZE_HARNESS = "scripts/backtest_squeeze.py"
+FVG_HARNESS = "scripts/backtest_fvg_range.py"
+FAMILY_HARNESS = {"donchian": DONCHIAN_HARNESS, "pullback": PULLBACK_HARNESS,
+                  "squeeze": SQUEEZE_HARNESS, "fvg": FVG_HARNESS}
 
 PROXY_DATA = {"MGC": "GC_F", "XAUUSD": "GC_F", "MES": "ES_F", "MHG": "HG_F"}
 DATA_GRAIN = ["5m", "15m", "1h", "1d"]
@@ -62,6 +66,10 @@ def classify(name: str) -> str | None:
         return "pullback"
     if "htf_pullback" in name:
         return "pullback"
+    if "squeeze" in name:
+        return "squeeze"
+    if "fvg" in name:
+        return "fvg"
     if "donchian" in name or "_trend" in name:
         return "donchian"
     return None
@@ -128,6 +136,30 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None) -
         opt("--min-confidence", "min_confidence")
         if cfg.get("long_only"):
             a.append("--long-only")
+    elif fam == "squeeze":
+        for flag, key in (("--bb-period", "bb_period"), ("--bb-std", "bb_std"),
+                          ("--kc-mult", "kc_mult"), ("--atr-period", "atr_period"),
+                          ("--atr-stop-mult", "atr_stop_mult"),
+                          ("--trail-mult", "trail_mult"),
+                          ("--timeout-bars", "timeout_bars"),
+                          ("--min-confidence", "min_confidence")):
+            opt(flag, key)
+    elif fam == "fvg":
+        for flag, key in (("--range-lookback", "range_lookback"),
+                          ("--atr-period", "atr_period"),
+                          ("--adx-period", "adx_period"), ("--adx-max", "adx_max"),
+                          ("--min-width-pct", "min_width_pct"),
+                          ("--max-width-pct", "max_width_pct"),
+                          ("--touch-tol-pct", "touch_tol_pct"),
+                          ("--min-touches", "min_touches"),
+                          ("--third-frac", "third_frac"),
+                          ("--fvg-search", "fvg_search"),
+                          ("--min-fvg-size-bps", "min_fvg_size_bps"),
+                          ("--atr-stop-buffer", "atr_stop_buffer"),
+                          ("--exit-style", "exit_style"), ("--tp-r", "tp_r"),
+                          ("--timeout-bars", "timeout_bars"),
+                          ("--min-confidence", "min_confidence")):
+            opt(flag, key)
     else:
         opt("--trend-lookback", "trend_len")
         opt("--pullback-lookback", "pullback_len")
@@ -220,7 +252,7 @@ def main(argv: list[str]) -> int:
         if data is None:
             skipped.append({"leg": name, "reason": f"data_missing:{sym}"})
             continue
-        harness = DONCHIAN_HARNESS if fam == "donchian" else PULLBACK_HARNESS
+        harness = FAMILY_HARNESS[fam]
         plan.append({"leg": name, "family": fam, "symbol": sym, "tf": tf,
                      "harness": harness, "data": data, "proxy": proxy,
                      "resample": resample,

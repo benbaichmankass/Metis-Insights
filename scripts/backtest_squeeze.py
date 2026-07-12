@@ -100,7 +100,10 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                  trail_mult: float, timeout_bars: int, cooldown_bars: int,
                  timeframe: str, symbol: str,
                  emit_path: Optional[str] = None,
-                 min_confidence: float = 0.0) -> Dict[str, Any]:
+                 min_confidence: float = 0.0,
+                 stale_exit_bars: int = 0, stale_exit_below_r: float = 0.0,
+                 giveback_min_mfe_r: float = 0.0,
+                 giveback_r: float = 1.0) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
     basis = df["close"].rolling(bb_period).mean()
@@ -172,6 +175,20 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                 ext = min(ext, bl)
                 trail = min(trail, ext + trail_mult * atr)
                 mfe = max(mfe, (entry - ext) / risk)
+            # M20 exit levers (default 0 = off, byte-identical): checked at
+            # bar close, never pre-empting the intrabar trail hit above —
+            # same precedence as scripts/research/backtest_trend.py.
+            cl = float(df["close"].iloc[j])
+            r_close = ((cl - entry) / risk if direction == "long"
+                       else (entry - cl) / risk)
+            stale = (stale_exit_bars > 0 and (j - i) >= stale_exit_bars
+                     and r_close < stale_exit_below_r)
+            gb = (giveback_min_mfe_r > 0.0 and mfe >= giveback_min_mfe_r
+                  and (mfe - r_close) >= giveback_r)
+            if stale or gb:
+                exit_price, exit_idx = cl, j
+                exit_reason = "stale_stop" if stale else "giveback_stop"
+                break
         if exit_price is None:
             exit_price = float(df["close"].iloc[exit_idx])
         r = ((exit_price - entry) / risk if direction == "long"
@@ -346,6 +363,13 @@ def main(argv):
                    help="Skip entries whose live-parity confidence (|close-basis|/ATR) is below this.")
     p.add_argument("--confidence-sweep", default=None, metavar="GRID",
                    help="Sweep min_confidence over GRID ('0:0.5:0.05' or '0,0.1,0.2') and tabulate.")
+    p.add_argument("--stale-exit-bars", type=int, default=0,
+                   help="M20 stale-stop: close at bar close after N bars if still below --stale-exit-below-r (0=off).")
+    p.add_argument("--stale-exit-below-r", type=float, default=0.0)
+    p.add_argument("--giveback-min-mfe-r", type=float, default=0.0,
+                   help="M20 giveback-stop: arm once peak open profit reaches this many R (0=off).")
+    p.add_argument("--giveback-r", type=float, default=1.0,
+                   help="Close at bar close once the trade gives back this many R from its peak.")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None)
     a = p.parse_args(argv[1:])
@@ -362,7 +386,10 @@ def main(argv):
                      atr_period=a.atr_period, atr_stop_mult=a.atr_stop_mult,
                      trail_mult=a.trail_mult, timeout_bars=a.timeout_bars,
                      cooldown_bars=a.cooldown_bars, timeframe=a.timeframe,
-                     symbol=a.symbol)
+                     symbol=a.symbol, stale_exit_bars=a.stale_exit_bars,
+                     stale_exit_below_r=a.stale_exit_below_r,
+                     giveback_min_mfe_r=a.giveback_min_mfe_r,
+                     giveback_r=a.giveback_r)
     if a.confidence_sweep:
         out = _confidence_sweep(df, _parse_grid(a.confidence_sweep), bt_kwargs)
         print(_fmt_sweep(out))

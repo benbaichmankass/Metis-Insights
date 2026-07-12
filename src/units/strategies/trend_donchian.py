@@ -280,7 +280,8 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     # the package meta because run_monitor_tick passes cfg={} in production —
     # meta is the only channel monitor() reliably sees. Absent = the lever is
     # annotate-only (see _stale_stop_verdict); declared = a real close path.
-    for _key in ("stale_exit_bars", "stale_exit_below_r"):
+    for _key in ("stale_exit_bars", "stale_exit_below_r",
+                 "giveback_min_mfe_r", "giveback_r"):
         if cfg.get(_key) is not None:
             package["meta"][_key] = cfg[_key]
     return package
@@ -444,6 +445,107 @@ def _stale_stop_verdict(
         return None
 
 
+# M20 giveback-stop reference params — the fleet-sweep-validated cell
+# (exit at close once the trade has SEEN >= 1R of open profit and given
+# back >= 1R from that peak; "grab the PnL" instead of riding the full
+# retrace to the chandelier trail). Used ONLY for the observe-only
+# annotate soak when a strategy has not declared its own params; a
+# declared strategy uses exactly what its YAML says.
+_GIVEBACK_REF_MIN_MFE_R = 1.0
+_GIVEBACK_REF_GIVEBACK_R = 1.0
+
+
+def _giveback_verdict(
+    meta: Dict[str, Any],
+    cfg_dict: Dict[str, Any],
+    open_pkg: Dict[str, Any],
+    candles_df: pd.DataFrame,
+    current_price: float,
+    direction: str,
+) -> Optional[Dict[str, Any]]:
+    """M20 giveback-stop — close a position that has seen at least
+    ``giveback_min_mfe_r`` R of open profit (peak basis, since entry) and
+    has given back at least ``giveback_r`` R from that peak at bar close.
+    An R-based profit lock, distinct from the price/ATR chandelier trail —
+    the harness reference is ``scripts/research/backtest_trend.py``'s
+    ``gb`` lever (identical peak_r/r_close math).
+
+    Declared (BOTH ``giveback_min_mfe_r`` AND ``giveback_r`` positive in
+    meta/cfg) ⇒ may return a real ``{"action": "close", "reason":
+    "giveback_stop"}`` verdict. Undeclared ⇒ evaluates the reference cell
+    (1R giveback after 1R MFE) and writes one observe-only annotate row
+    when it would fire, returning ``None`` (behaviour unchanged).
+    Fail-safe: any missing input (entry, frozen risk, entry_time, an
+    unrestrictable candle window whose pre-entry bars would fake the
+    peak) skips both paths — never a spurious close. **Never raises.**
+    """
+    try:
+        declared_min_mfe = _coerce_float(
+            meta.get("giveback_min_mfe_r")
+            if meta.get("giveback_min_mfe_r") is not None
+            else cfg_dict.get("giveback_min_mfe_r")
+        )
+        declared_gb = _coerce_float(
+            meta.get("giveback_r") if meta.get("giveback_r") is not None
+            else cfg_dict.get("giveback_r")
+        )
+        declared = (declared_min_mfe is not None and declared_min_mfe > 0
+                    and declared_gb is not None and declared_gb > 0)
+        min_mfe_r = declared_min_mfe if declared else _GIVEBACK_REF_MIN_MFE_R
+        giveback_r = declared_gb if declared else _GIVEBACK_REF_GIVEBACK_R
+
+        entry = _coerce_float(open_pkg.get("entry"))
+        risk = _coerce_float(meta.get("risk_per_unit"))
+        if entry is None or risk is None or risk <= 0:
+            return None
+        if not meta.get("entry_time"):
+            return None  # peak window unanchorable — fail-safe skip
+        window = _since_entry(candles_df, open_pkg)
+        # Same ambiguity guard as _stale_stop_verdict: a full-frame
+        # "restriction" means _since_entry fell back, and a pre-entry
+        # extreme would fake a peak the trade never actually saw.
+        if len(window) >= len(candles_df) and len(candles_df) > 0:
+            return None
+        if direction == "long":
+            peak = _coerce_float(window["high"].max())
+            if peak is None:
+                return None
+            peak_r = (peak - entry) / risk
+            r_close = (current_price - entry) / risk
+        else:
+            peak = _coerce_float(window["low"].min())
+            if peak is None:
+                return None
+            peak_r = (entry - peak) / risk
+            r_close = (entry - current_price) / risk
+        if not (peak_r >= min_mfe_r and (peak_r - r_close) >= giveback_r):
+            return None
+        if declared:
+            return {"action": "close", "reason": "giveback_stop",
+                    "exit_price": current_price}
+        # Annotate-only path (undeclared): observe, never act.
+        try:
+            from src.runtime.exit_lever_soak import record_exit_lever_annotation
+
+            record_exit_lever_annotation(
+                lever="giveback_stop",
+                strategy=str(meta.get("strategy_label")
+                             or open_pkg.get("strategy_name") or "trend_donchian"),
+                symbol=str(open_pkg.get("symbol") or ""),
+                direction=direction,
+                order_package_id=open_pkg.get("order_package_id"),
+                params={"giveback_min_mfe_r": min_mfe_r,
+                        "giveback_r": giveback_r},
+                state={"peak_r": round(peak_r, 4), "open_r": round(r_close, 4),
+                       "price": current_price, "entry": entry},
+            )
+        except Exception:  # noqa: BLE001 — annotate must never affect the path
+            pass
+        return None
+    except Exception:  # noqa: BLE001 — monitor must never crash on this lever
+        return None
+
+
 def _since_entry(candles_df: pd.DataFrame, open_pkg: Dict[str, Any]) -> pd.DataFrame:
     """Restrict the candle window to bars at/after the package entry time.
 
@@ -549,6 +651,19 @@ def monitor(cfg, candles_df, open_pkg):
     )
     if stale_verdict is not None:
         return stale_verdict
+
+    # 2.55 M20 giveback-stop (fleet-sweep evidence: runtime_logs/m20_fleet/
+    # 2026-07-12 — USO-1h gb1R@MFE1R walk-forward PASS). Same YAML-declared
+    # contract as the stale-stop above: `giveback_min_mfe_r` + `giveback_r`
+    # declared (threaded into meta by order_package; live cfg covers
+    # already-open packages) ⇒ a REAL close; undeclared ⇒ reference-cell
+    # annotate row only. Checked AFTER stale-stop, matching the harness's
+    # exit precedence.
+    giveback_verdict = _giveback_verdict(
+        meta, cfg_dict, open_pkg, candles_df, current_price, direction
+    )
+    if giveback_verdict is not None:
+        return giveback_verdict
 
     # 2.6 M20 exit head — E2 shadow scoring + E3 apply (memo § 9; program
     # doc § E3). Scoring logs once per closed bar and never raises; a

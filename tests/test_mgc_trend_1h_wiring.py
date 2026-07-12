@@ -44,9 +44,12 @@ def test_strategy_yaml_pins_sweep_params():
     assert cfg["execution"] == "shadow"
     assert cfg["symbols"] == ["MGC"]
     assert cfg["timeframe"] == "1h"
-    # exactly the sweep-validated xauusd_trend_1h defaults (same gold underlying)
+    # exactly the sweep-validated xauusd_trend_1h defaults (same gold underlying);
+    # trail_mult 3 -> 4: M20 fleet sweep 2026-07-12 walk-forward 6/6 on the
+    # GC=F proxy (runtime_logs/m20_fleet; Tier-3 exit-lever package) — the
+    # xauusd sibling passed the same cell 6/6 and moves with it (parity kept).
     assert (cfg["donchian"], cfg["atr_period"]) == (20, 14)
-    assert (cfg["atr_stop_mult"], cfg["trail_mult"]) == (2.5, 3.0)
+    assert (cfg["atr_stop_mult"], cfg["trail_mult"]) == (2.5, 4.0)
     assert cfg["min_confidence"] == 0.0
     assert cfg["shadow_model_ids"] == []
 
