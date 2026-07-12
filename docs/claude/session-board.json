@@ -24,13 +24,6 @@
       "intent": "Full-system audit Phase-4 EXECUTE. RISK-3 Task 1 (async-route event-loop blocking): 44 no-await FastAPI routes -> sync def + to_thread offload for the 6 real-await routes + busy_timeout + prop graceful-degrade + AST CI guard (check_async_route_blocking). Continuing lead-session audit program (findings: docs/audits/full-system-audit-2026-07-09.md).",
       "started_at": "2026-07-09T10:47:04Z",
       "updated_at": "2026-07-09T10:47:04Z"
-    },
-    {
-      "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
-      "branch": "claude/exit-refinement-sprint-l74k6o",
-      "intent": "M20 Exit Refinement sprint (operator-directed): read exit_ladder + fc_geometry soaks, resolve counterfactual exits, deep research on chop-hold problem (time-stops / trend-invalidation) + strategy/TF combination for exits. Tier-1 analysis; any live exit change proposed Tier-3.",
-      "started_at": "2026-07-12T06:59:38Z",
-      "updated_at": "2026-07-12T06:59:38Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) \u2014 >24h stale, no matching open PR/branch \u2014 and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."

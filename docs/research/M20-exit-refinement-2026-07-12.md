@@ -13,7 +13,7 @@ run trainer-side against `datasets-out/market_raw` candles).
 | Graduate the ExitPlan ladder (P4, `PB-20260617-002`)? | **NO — and the soak can never answer it as instrumented.** 135 soak rows, **0 differing**: the only strategy that declares a TP1→TP2 ladder (`meta.tp2`) is `turtle_soup`, which is `execution: shadow` and never executes. Every live strategy derives a single-target plan identical to what is placed, so `differs_from_single_target` is structurally false fleet-wide. The gate is not "keep soaking" — it is "no ladder exists to test." |
 | Graduate fc-scaled SL/TP geometry (`MB-20260705-FC-SLTP-GEOMETRY`)? | **NO — insufficient data.** 23 soak rows since 2026-07-06, only 7 with a served forecast (`fc_present`), because fc heads exist only for BTC/ETH/SOL 15m while the soak logs every symbol. Censoring-aware resolver output below. **Re-check ≈ 2026-08-25** (~50 fc-covered rows at current accrual). |
 | Is there an exit-timing problem at all? | **YES — large and measurable.** Over the last 90d (275 path-resolved closed trades on BTC/ETH/SOL), the average real-money trade reached **+1.92R MFE** yet realized **−0.16R** — a mean giveback of **2.08R**; 26% of real-money trades touched ≥ +1R and still closed negative ("round-trippers"). The chop-hold hypothesis is confirmed and quantified. |
-| Which lever fixes it? | Per-strategy, not blanket. A conditional **stale-stop** (time-stop that only fires when the trade is still flat/negative) and a **trend-invalidation exit** (close crossing the strategy's own Donchian midline against the position) both showed positive truncation-counterfactual ΔR concentrated in the 2h pullback-trend family; full-history harness A/B below. `ict_scalp_5m` shows the opposite sign — its exits are already good; a blanket time-stop would damage it. |
+| Which lever fixes it? | Per-strategy, not blanket. The 5y IS/OOS harness A/B (§ 4) passes exactly one lever: a **conditional stale-stop** (`stale_exit_bars: 8`, `< 0R`) on **`trend_donchian_sol` + `trend_donchian_eth`** — better net_R AND maxDD in both windows, and the one cell where the live 90d counterfactuals and the harness agree. BTC donchian and the pullback family fail the gate; `ict_scalp_5m`'s counterfactuals are negative (its exits are already good). Proposal in § 5 — Tier-3, annotate-soak first. |
 
 ## 1. Data-sufficiency gate (M20 prompt step 1)
 
@@ -153,14 +153,70 @@ midline against the position for M consecutive bars — the trend-invalidation
 exit, pullback harness only; the trend harness already has an opposite-signal
 flip + unconditional `--timeout-bars`).
 
-*(Sweep table inserted from relay #6159 — see § appendix.)*
+Run trainer-side (relay #6162 detached launch + #6163 collect; the first two
+attempts #6160/#6161 failed on a path assumption / relay preemption — both
+recorded). Split: IS = through 2025-07-01, OOS = after (~1y). Key rows
+(net_R = fee-adjusted total R; full 35-line table in relay #6163):
 
-## 5. Recommendation
+| cell | IS n / net_R / maxDD | OOS n / net_R / maxDD | verdict |
+|---|---|---|---|
+| donchian **SOL** base | 556 / +4.8 / 41.0 | 145 / +17.6 / 17.6 | — |
+| donchian **SOL** stale8b<0R | 624 / +5.3 / 36.8 | 160 / **+29.1** / **11.1** | **PASS** (better net_R AND maxDD, IS+OOS) |
+| donchian **SOL** stale24b<.25R | 577 / +11.3 / 29.7 | 150 / +21.9 / 16.1 | pass (2nd) |
+| donchian **ETH** base | 648 / −69.1 / 78.5 | 162 / −2.1 / 19.5 | — |
+| donchian **ETH** stale8b<0R | 724 / −49.8 / 62.5 | 177 / **+7.2** / **17.0** | **PASS** (both windows improve) |
+| donchian **BTC** base | 334 / +51.8 / 21.8 | 94 / −24.5 / 31.9 | — |
+| donchian **BTC** any lever | worse or equal | −25…−30 | **FAIL — no change** |
+| pullback **BTC** base | 238 / +43.6 / 11.7 | 75 / −3.7 / 10.2 | — |
+| pullback **BTC** flip1/flip2 | +35.5 / +22.4, maxDD 20–25 | +2.9 / +3.6 | **FAIL gate** (OOS better but IS net_R and maxDD degrade) |
+| pullback **ETH** base | 186 / +52.7 / 13.6 | 58 / +12.4 / 7.7 | base best — **no change** |
 
-*(Finalized after the sweep — see § 6 Verdict.)*
+Reading notes: (a) lever cells re-enter after a lever exit (cooldown=1), so n
+inflates and win-rate collapses by construction — net_R/maxDD are the
+comparable axes; (b) the pullback result *disagrees* with the 90d live
+truncation counterfactual (which favored levers for htf_pullback) — small live
+n (5–16 trades) vs 5y harness history; the harness wins the argument until the
+live sample grows, so pullback gets a **re-check, not a change**; (c) the
+donchian stale-stop result is the one place the 90d live counterfactuals and
+the 5y harness AGREE (live: stagnation-stop +2.1R on donchian real; harness:
+better net_R + maxDD on ETH/SOL both windows).
+
+## 5. Recommendation (Tier-3 — operator decision required)
+
+**Propose: a strategy-declared conditional stale-stop for `trend_donchian_sol`
+and `trend_donchian_eth` (1h) only.** Exact shape:
+
+1. **Code (Tier-3 prep, behavior-inert until declared):** teach
+   `trend_donchian.monitor()` two optional params read from the package meta /
+   strategy config — `stale_exit_bars` (int) + `stale_exit_below_r` (float):
+   at bar-close, if the position is ≥ N native bars old AND its open R <
+   threshold, return `{"action": "close", "reason": "stale_stop"}`. No env
+   flag — a YAML-declared, default-absent param (the sanctioned declared-config
+   shape; rollback = delete the two YAML lines).
+2. **Annotate soak first (Tier-2 deploy):** before any real close fires, run
+   one observe-only soak cycle (same pattern as `exit_ladder_soak`): log
+   "stale-stop would exit here" rows for 2–3 weeks and sanity-check them
+   against this memo's cells.
+3. **Then declare (Tier-3 merge):** `stale_exit_bars: 8`,
+   `stale_exit_below_r: 0.0` on `trend_donchian_sol` + `trend_donchian_eth`
+   in `config/strategies.yaml`. **Not** on `trend_donchian` (BTC — levers
+   fail), **not** on the pullback family (harness contradicts the thin live
+   sample), **not** fleet-wide (`ict_scalp_5m`'s counterfactuals are negative).
+
+**Explicit honest negatives this sprint records:** ExitPlan ladder P4
+(nothing to test — no live strategy declares a ladder); fc-scaled SL/TP
+geometry (soak too thin, re-check 2026-08-25); BTC donchian + pullback exit
+levers (fail the gate); any fleet-wide time-stop (harms the scalp family).
+
+**Re-check triggers:** pullback-family levers when ≥30 closed live
+htf_pullback trades post-date this memo; fc-geometry 2026-08-25; the
+chop-hold analyzers (`scripts/research/m20_exit_analysis.py` + `m20_exit_sweep.py`)
+are in-repo and rerunnable in one trainer relay.
 
 ## Appendix — raw relay outputs
 
 - Live-VM diag (soak tails + status + trades): issue #6157.
 - Trainer analysis run (mirror + m20_exit_analysis full output): issue #6158.
-- Trainer validation sweep + fc resolver: issue #6159.
+- fc resolver + trainer-checkout fix + top-givebacks: issue #6159.
+- Sweep attempts: #6160 (path bug), #6161 (relay-preempted), #6162 (detached
+  launch), **#6163 (full 35-line IS/OOS table — the § 4 source)**.

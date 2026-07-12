@@ -71,7 +71,12 @@
   new default-off exit levers: `--stale-exit-bars/--stale-exit-below-r`
   (conditional time-stop) on both harnesses, `--flip-exit-bars`
   (Donchian-midline trend-invalidation exit) on the pullback harness.
-  Results + verdict in the memo (`docs/research/M20-exit-refinement-2026-07-12.md`).
+  **Result:** exactly one lever passes the gate (better net_R AND maxDD, IS
+  and OOS): stale-stop (8 bars, <0R) on `trend_donchian_sol` +
+  `trend_donchian_eth` — also the one cell where the live counterfactuals and
+  the harness agree. BTC donchian + pullback levers fail (honest negatives).
+  Full table + Tier-3 proposal: the memo
+  (`docs/research/M20-exit-refinement-2026-07-12.md` § 4–5).
 - **Tooling shipped (reusable):** `scripts/research/m20_exit_analysis.py`
   (soak + chop-hold + truncation-counterfactual analyzer, stdlib-only,
   trainer-runnable), `scripts/research/m20_exit_sweep.py` (compact IS/OOS
