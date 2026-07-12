@@ -92,6 +92,10 @@ Readings:
   round-trippers — a strategy whose exit design already fits its hold
   horizon. Any fleet-wide exit rule must not touch it (its time-stop
   counterfactuals are *negative*).
+- **`vwap` context:** the 169 real-money vwap rows dominate the 90d window but
+  are largely historical — vwap is `execution: shadow` today and already got
+  exit gates (`min_r_for_vwap_cross` etc.). Its numbers inform the diagnosis,
+  not a proposal.
 - **Caveat on `vwap` / 5m strategies:** MFE measured on 15m bars overstates
   capturable profit when the stop distance is small relative to the 15m bar
   range, so the vwap giveback/round-tripper numbers are upper bounds. The 2h/4h
