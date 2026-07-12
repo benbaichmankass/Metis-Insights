@@ -292,6 +292,31 @@ fleet passes nothing (their existing trails already capture the exit value),
 and all 2h alt pullbacks fail. Full verdicts:
 `runtime_logs/m20_fleet/2026-07-12/` (trainer) + the coverage matrix.
 
+## Giveback-stop monitor lever + USO-1h declare (Tier-3 draft, late evening)
+
+The one fleet-sweep PASS blocked on implementation is unblocked:
+`trend_donchian._giveback_verdict` ports the harness's giveback lever
+(`scripts/research/backtest_trend.py` `gb`: fire at bar close when
+`peak_r >= giveback_min_mfe_r AND (peak_r − r_close) >= giveback_r`, peak =
+since-entry favourable extreme in R) into the live monitor with the exact
+`_stale_stop_verdict` contract — YAML-declared (BOTH params positive) ⇒ real
+`giveback_stop` close; undeclared ⇒ reference-cell (1R/1R) annotate row into
+`exit_lever_soak.jsonl`; fail-safe skips on missing entry/risk/entry_time and
+on the unrestrictable-window ambiguity (a pre-entry extreme must never fake a
+peak). Checked AFTER stale-stop, matching the harness's exit precedence.
+`order_package` threads `giveback_min_mfe_r`/`giveback_r` into meta; the
+monitor's live-cfg default (#6211) covers already-open packages. 12 new tests
+(`tests/test_giveback_stop_lever.py`) incl. short-side, pre-entry-peak
+exclusion, stale-precedence, and annotate-dedup; full donchian suite 62 pass.
+
+Evidence for the `uso_trend_1h` declare (trainer relay #6232, cell
+`gb1R_afterMFE1R` config-exact at trail4 long-only): IS 50.33R / maxDD 12.78
+vs base 48.68R / 13.87; OOS 9.04R / 4.28 vs 5.48R / 4.81 (both better on both
+axes); walk-forward 4/6 folds no-worse on net_R AND maxDD (2021/2022/2025/2026
+better — 2022 flips −1.0R→+1.8R; 2023/2024 marginally lower net_R). Shipped as
+a draft Tier-3 PR (lever code + YAML declare together), **awaiting operator
+approval — not merged**.
+
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
 - ROADMAP.md M20 row → status update (this session's outcome + next gate).

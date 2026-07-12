@@ -342,7 +342,7 @@
       },
       "giveback_stop": {
         "status": "passed_unshipped",
-        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): USO-1h gb1R@MFE1R PASS — BLOCKED on monitor implementation (giveback lever exists only in the harness; live monitor lacks it) — queued follow-up"
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): USO-1h gb1R@MFE1R PASS (IS 50.3R/dd12.8 vs 48.7R/dd13.9; OOS 9.0R/dd4.3 vs 5.5R/dd4.8; walk-forward 4/6) — monitor giveback lever implemented (_giveback_verdict) + YAML declare in Tier-3 PR, awaiting operator approval"
       },
       "exit_ladder": {
         "status": "honest_negative",

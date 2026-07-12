@@ -1555,6 +1555,14 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 4.0
+    # M20 giveback-stop (fleet sweep 2026-07-12, cell gb1R_afterMFE1R):
+    # once the trade has seen >= 1R of open profit, exit at bar close when
+    # it has given back >= 1R from that peak. Config-exact IS 50.3R/dd12.8
+    # vs base 48.7R/dd13.9, OOS 9.0R/dd4.3 vs 5.5R/dd4.8, walk-forward 4/6
+    # folds no-worse on net_R AND maxDD. Enforced by trend_donchian's
+    # _giveback_verdict; remove these two lines to roll back.
+    giveback_min_mfe_r: 1.0
+    giveback_r: 1.0
     tp_r: 50.0
     min_confidence: 0.0
     shadow_model_ids: []
