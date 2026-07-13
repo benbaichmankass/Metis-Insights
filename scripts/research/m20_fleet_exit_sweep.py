@@ -146,6 +146,9 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None) -
         opt("--atr-stop-mult", "atr_stop_mult")
         opt("--trail-mult", "trail_mult")
         opt("--min-confidence", "min_confidence")
+        # M21 E-2: a declared confirmation gate is part of the leg's
+        # config-exact base, same as the declared exit levers.
+        opt("--confirm-bars", "confirm_bars")
         declared_levers()
         if cfg.get("long_only"):
             a.append("--long-only")

@@ -50,8 +50,9 @@ def test_strategy_yaml_pins_sweep_params():
     # xauusd sibling passed the same cell 6/6 and moves with it (parity kept).
     assert (cfg["donchian"], cfg["atr_period"]) == (20, 14)
     assert (cfg["atr_stop_mult"], cfg["trail_mult"]) == (2.5, 4.0)
-    # 0.0 -> 0.1: M21 E-2 depth cell, walk-forward 5/6 (parity with xauusd).
-    assert cfg["min_confidence"] == 0.1
+    # M21 E-2 batch 2: confirm_1 replaced the depth cell (parity with xauusd).
+    assert cfg["min_confidence"] == 0.0
+    assert cfg["confirm_bars"] == 1
     assert cfg["shadow_model_ids"] == []
 
 
@@ -60,7 +61,7 @@ def test_params_match_xauusd_sibling():
     mgc, xau = strat["mgc_trend_1h"], strat["xauusd_trend_1h"]
     # Same validated edge, different venue/symbol — every tuned param matches.
     for k in ("donchian", "atr_period", "atr_stop_mult", "trail_mult",
-              "tp_r", "min_confidence", "timeframe"):
+              "tp_r", "min_confidence", "confirm_bars", "timeframe"):
         assert mgc[k] == xau[k], k
 
 
