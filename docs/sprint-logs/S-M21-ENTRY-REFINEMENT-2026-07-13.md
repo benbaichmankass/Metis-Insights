@@ -129,3 +129,13 @@ batch 2 = the live confirm twin + these declares.
 **Honest negatives:** ETH 1h/prop/4h (the fleet's worst E-1 deficit is
 NOT fixed by depth/confirmation — points at E-3 P_win or structural),
 sol/ada 4h, mes, all 1d equity trend legs except scha, slv/uso 1h.
+
+## E-2 batch 1 — APPROVED, MERGED, ACTIVE (2026-07-13)
+
+Operator approved in chat; #6322 merged (squash `9155f87`) after two
+param-pinning test updates surfaced by full CI (prop exit-variants +
+breakout-prop wiring — sol pins moved to 0.8 with the sibling-parity
+contract kept). Deployed via `restart-bot-service` (#6328, restart
+14:29:59Z, service active); `/api/diag/version` confirms the worktree at
+`9155f87` so the restart loaded the new YAML. First-fire checks logged as
+BL-20260713-E2-DEPTH-FIRST-FIRE.
