@@ -72,7 +72,9 @@ def test_strategy_yaml_pins_sweep_params():
     # a re-enable resumes the better-validated cell.
     assert (cfg["donchian"], cfg["atr_period"]) == (20, 14)
     assert (cfg["atr_stop_mult"], cfg["trail_mult"]) == (2.5, 4.0)
-    assert cfg["min_confidence"] == 0.0
+    # 0.0 -> 0.1: M21 E-2 depth cell, walk-forward 5/6 on the same gold data
+    # (runtime_logs/m21_entry_sweep/2026-07-13) — moves with the mgc sibling.
+    assert cfg["min_confidence"] == 0.1
     assert cfg["shadow_model_ids"] == []
 
 

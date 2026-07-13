@@ -107,3 +107,25 @@ blocked — no emit in the flip-replay set; they need their own
 `--emit-trades` runs). **Next: E-2 confirmation-bar + depth flags in the
 donchian/pullback harnesses, swept config-exact on the donchian legs
 first.**
+
+## E-2 donchian round-1 sweep — RESULTS + Tier-3 batch 1 (2026-07-13)
+
+Fleet sweep complete (23 donchian-family legs × confirm_1/confirm_2/
+depth+0.10/+0.20; relay #6309 launch, #6319/#6321 readouts;
+`runtime_logs/m21_entry_sweep/2026-07-13/`). 9 legs produced gate passes.
+
+**Tier-3 batch 1 (depth-only — `min_confidence` already has a live
+effect, YAML-only):** trend_donchian 0.6→0.7 (wf 5/6), trend_donchian_sol
+0.6→0.8 (6/6, dominates 0.7), sol_prop 0.6→0.8 (5/6), xrp_4h 0.6→0.8
+(5/6), avax_4h 0.6→0.7 (4/6), xauusd_1h 0.0→0.1 (5/6), mgc_1h shadow twin
+0.0→0.1. Draft PR opened for operator approval.
+
+**Parked (need the live signal-builder confirmation twin before declare):**
+trend_donchian_1h confirm_2 (shadow; wf 6/6 — the round's biggest effect,
+IS −38.9→−9.5 net_R), xauusd confirm_1 (stronger than its depth cell),
+xrp_4h confirm_1 (depth declared instead), scha confirm_1 (tiny). E-2
+batch 2 = the live confirm twin + these declares.
+
+**Honest negatives:** ETH 1h/prop/4h (the fleet's worst E-1 deficit is
+NOT fixed by depth/confirmation — points at E-3 P_win or structural),
+sol/ada 4h, mes, all 1d equity trend legs except scha, slv/uso 1h.

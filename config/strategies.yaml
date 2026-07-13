@@ -192,7 +192,7 @@ strategies:
     # biggest single expectancy/drawdown jump, not at the grid edge). Shallow
     # breaks (the live -1R conf-0.05 stop-out) are where the follower bled.
     # Evidence: docs/sprint-logs/S-M8-STRATEGY-TUNING-S3.md (trainer-vm-diag #3179).
-    min_confidence: 0.60
+    min_confidence: 0.70
     # LONG-ONLY (2026-06-01, Tier-3, operator-approved). The regime×direction
     # matrix (docs/research/regime-roster-matrix-2026-06-01.md) showed the SHORT
     # side is a net −37 R drag over 2021-2026 that earns only in chop
@@ -757,7 +757,7 @@ strategies:
     atr_stop_mult: 2.5
     trail_mult: 5.0
     tp_r: 50.0
-    min_confidence: 0.60
+    min_confidence: 0.80
     # M20 stale-stop (operator-approved LIVE 2026-07-12, soak waived —
     # evidence: docs/research/M20-exit-refinement-2026-07-12.md § 4-6;
     # 5y IS/OOS PASS on net_R AND maxDD). Close a position >= 8 native
@@ -833,7 +833,7 @@ strategies:
     atr_stop_mult: 2.5
     trail_mult: 3.5          # swap-robust (vs live 5.0) — shorter holds, less swap drag.
     tp_r: 6.0               # real 6R take-profit cap (vs live 50.0 sentinel).
-    min_confidence: 0.60
+    min_confidence: 0.80
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   trend_donchian_eth_prop:
@@ -932,7 +932,7 @@ strategies:
     stale_exit_bars: 8
     stale_exit_below_r: 0.0
     tp_r: 50.0
-    min_confidence: 0.60
+    min_confidence: 0.80
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   trend_donchian_ada_4h:
@@ -964,7 +964,7 @@ strategies:
     atr_stop_mult: 2.5
     trail_mult: 5.0
     tp_r: 50.0
-    min_confidence: 0.60
+    min_confidence: 0.70
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   mes_trend_long_1d:
@@ -1156,7 +1156,7 @@ strategies:
                              # mgc_trend_1h sibling (parity contract). Leg is
                              # disabled; a re-enable resumes this cell.
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
-    min_confidence: 0.0
+    min_confidence: 0.10
     shadow_model_ids: []     # opt out of ML shadow auto-wiring while this
                              # fresh data-collector builds a track record.
 
@@ -1201,7 +1201,7 @@ strategies:
     atr_stop_mult: 2.5
     trail_mult: 4.0
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
-    min_confidence: 0.0
+    min_confidence: 0.10
     shadow_model_ids: []     # opt out of ML shadow auto-wiring while this
                              # fresh data-collector builds a track record.
 

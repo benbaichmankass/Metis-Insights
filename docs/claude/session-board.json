@@ -7,8 +7,8 @@
  "merge_slot": {
   "held_by": "session_01SDLWbfLGV4WYHgC2ugzedf",
   "branch": "claude/exit-refinement-sprint-l74k6o",
-  "pr": null,
-  "claimed_at": "2026-07-13T13:05:00Z"
+  "pr": 6322,
+  "claimed_at": "2026-07-13T14:07:19Z"
  },
  "active_sessions": [
   {
@@ -28,9 +28,9 @@
   {
    "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
    "branch": "claude/exit-refinement-sprint-l74k6o",
-   "intent": "M20 done (docs current @ 4b41185); M21 Entry Refinement planned. Peak-retarget rounds queued on trainer. Idle pending soak/rounds; operator running /system-review in parallel.",
+   "intent": "E-2 batch 1 (#6322) OPERATOR-APPROVED - merging + deploying (restart + config verify). Then batch 2: live confirmation twin.",
    "started_at": "2026-07-13T05:07:08.981068+00:00",
-   "updated_at": "2026-07-13T09:17:58.288428+00:00"
+   "updated_at": "2026-07-13T14:07:19Z"
   }
  ],
  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) \u2014 >24h stale, no matching open PR/branch \u2014 and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
