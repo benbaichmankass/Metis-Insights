@@ -102,12 +102,24 @@ the dry-run below) is ≈ **−$33**, vs the wallet-truth **−$262.52** — an
    ```
    Applying the orphan-flag re-tag (`--apply`) is a Tier-3 real-money journal
    change — operator-approved, on the VM only.
-3. **Go-forward source of truth.** Real PnL is served by the exchange-truth
-   fills store (`/api/bot/pnl/exchange`, `runtime_state/exchange_fills.sqlite`,
-   FIFO on real fills), whose daily puller timer was added this session. The
-   historical SUB sub-account is **not reachable** by the live puller's current
-   API key, which is why the −$262.52 above is recorded here as a one-time
-   reconciliation fact rather than re-derived by the puller.
+3. **Authoritative surface — the broker-truth ledger.** The −$262.52 is
+   recorded in the committed `comms/broker_truth_ledger.json` and surfaced
+   read-only at **`GET /api/bot/pnl/broker-truth?account_id=bybit_2`**
+   (`src/runtime/broker_truth.py` → `src/web/api/routers/pnl_broker_truth.py`),
+   the sibling of the `/api/bot/gpu/spend` committed-ledger surface. The
+   dashboard renders it next to the journal's approximate figure so the operator
+   sees the true account realized without any per-row rewrite. The record is
+   (re)written by a reviewed `reconcile_netting_pnl.py --emit-ledger` run, so a
+   fresh export refreshes it.
+
+   Why a ledger and not the exchange-fills store: the store's realized is
+   **self-FIFO** on fills (`src.runtime.exchange_fills_store._fifo_match`), which
+   mis-attributes this spot+perp / sub-account-switch account the same way (it
+   would show ≈+$768, not −$262.52). The store's per-fill FIFO is correct for a
+   clean perp account; the wallet-truth ledger is the honest surface for the
+   pathological one. The historical SUB sub-account is also **not reachable** by
+   the live fills puller's current API key, so the operator-provided UM export is
+   the only complete source.
 
 ## 5. Related fixes (separate PRs)
 

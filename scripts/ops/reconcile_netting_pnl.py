@@ -44,10 +44,17 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import sqlite3
 import sys
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
+
+# Allow `python3 scripts/ops/reconcile_netting_pnl.py ...` (script dir, not repo
+# root, is sys.path[0]) to import `src.*` for the --emit-ledger path.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 
 # --- exchange truth ---------------------------------------------------------
@@ -123,6 +130,46 @@ def merge_truth(parts: List[Dict[str, ContractTruth]]) -> Dict[str, ContractTrut
             m.open_count += t.open_count
             m.close_count += t.close_count
     return out
+
+
+def account_wallet_truth(paths: List[str]) -> dict:
+    """Account-level **wallet-truth** realized PnL across one or more UM exports.
+
+    Unlike the per-contract :func:`parse_bybit_um_csv` (which sums TRADE rows
+    only), this is the authoritative account figure: realized = Σ ``Change`` over
+    ALL rows minus inter-wallet transfers. ``Change`` already nets fee + funding
+    + any spot / sub-account-switch **conversion** rows (Bybit ``Type='--'``),
+    which per-fill FIFO cannot attribute — so for a spot+perp / sub-account-switch
+    account this is the ONLY trustworthy realized (see the module docstring's
+    sub-account-stitch caveat). Returns ``{realized_usd, fees_usd, funding_usd,
+    transfers_in_usd, transfers_out_usd, window_start, window_end}``.
+    """
+    total_change = fees = funding = tf_in = tf_out = 0.0
+    times: List[str] = []
+    for path in paths:
+        with open(path, newline="") as fh:
+            for row in csv.DictReader(fh):
+                ch = _to_float(row.get("Change", ""))
+                total_change += ch
+                fees += _to_float(row.get("Fee Paid", ""))
+                funding += _to_float(row.get("Funding", ""))
+                t = (row.get("Type") or "").strip()
+                if t == "TRANSFER_IN":
+                    tf_in += ch
+                elif t == "TRANSFER_OUT":
+                    tf_out += ch
+                ts = (row.get("Time") or "").strip()
+                if ts:
+                    times.append(ts)
+    return {
+        "realized_usd": round(total_change - tf_in - tf_out, 2),
+        "fees_usd": round(fees, 2),
+        "funding_usd": round(funding, 2),
+        "transfers_in_usd": round(tf_in, 2),
+        "transfers_out_usd": round(tf_out, 2),
+        "window_start": min(times)[:10] if times else None,
+        "window_end": max(times)[:10] if times else None,
+    }
 
 
 # --- journal side -----------------------------------------------------------
@@ -275,12 +322,27 @@ def main(argv: List[str]) -> int:
                     help="USD tolerance for the per-symbol aggregate match (default 0.50)")
     ap.add_argument("--apply", action="store_true",
                     help="RE-TAG reconciled orphans (Tier-3 writeback). Default is dry-run.")
+    ap.add_argument("--emit-ledger", action="store_true",
+                    help="Write the account-level wallet-truth realized into the committed "
+                         "broker-truth ledger (comms/broker_truth_ledger.json), surfaced at "
+                         "GET /api/bot/pnl/broker-truth. Records the authoritative account "
+                         "figure; does NOT touch any money-DB row.")
+    ap.add_argument("--ledger-as-of", default=None, metavar="YYYY-MM-DD",
+                    help="'as_of' date stamped on the emitted ledger record (default: window_end).")
     args = ap.parse_args(argv[1:])
 
     db_path = _resolve_db_path(args.db)
     csv_paths = list(args.exchange_csv)
     truth = merge_truth([parse_bybit_um_csv(p) for p in csv_paths])
-    rows = _load_journal_rows(db_path, args.account)
+    try:
+        rows = _load_journal_rows(db_path, args.account)
+    except sqlite3.OperationalError as exc:
+        # The account-level wallet-truth + --emit-ledger don't need the journal;
+        # only the per-symbol reconcile / re-tag do. Degrade rather than abort so
+        # the ledger can still be emitted where the journal DB isn't reachable.
+        print(f"WARNING: could not open journal DB ({db_path}): {exc} — "
+              f"per-symbol reconcile skipped; wallet-truth + --emit-ledger still run.\n")
+        rows = []
     legs = aggregate_journal_legs(rows)
     results = reconcile(truth, legs, tol=args.tol)
 
@@ -314,6 +376,38 @@ def main(argv: List[str]) -> int:
     print(f"Orphan legs eligible for re-tag: {len(to_retag)}")
     if diverged:
         print(f"⚠️  DIVERGING symbols (NOT re-tagged, investigate): {', '.join(diverged)}")
+
+    # Account-level wallet-truth (the authoritative realized for spot/perp/
+    # sub-account-switch accounts — see account_wallet_truth's docstring).
+    wt = account_wallet_truth(csv_paths)
+    print()
+    print(f"Account wallet-truth realized (Σ Change − transfers): ${wt['realized_usd']:+.2f}"
+          f"  (fees ${wt['fees_usd']:+.2f}, funding ${wt['funding_usd']:+.2f}; "
+          f"window {wt['window_start']}..{wt['window_end']})")
+
+    if args.emit_ledger:
+        try:
+            from src.runtime import broker_truth
+        except Exception as exc:  # noqa: BLE001
+            print(f"--emit-ledger: broker_truth module not importable: {exc}")
+            return 1
+        as_of = args.ledger_as_of or wt["window_end"]
+        record = {
+            "account_id": args.account,
+            "realized_usd": wt["realized_usd"],
+            "fees_usd": wt["fees_usd"],
+            "funding_usd": wt["funding_usd"],
+            "as_of": as_of,
+            "window_start": wt["window_start"],
+            "window_end": wt["window_end"],
+            "source": "bybit_um_export_stitched" if len(csv_paths) > 1 else "bybit_um_export",
+            "note": ("Wallet-truth (Bybit UM Change minus transfers) from "
+                     f"{len(csv_paths)} export(s); authoritative account realized. "
+                     "Journal per-row pnl left unmodified."),
+        }
+        stamp = f"{as_of}T00:00:00+00:00" if as_of else None
+        broker_truth.upsert_account_truth(record, updated_at=stamp)
+        print(f"EMITTED ledger record for {args.account} → {broker_truth.ledger_path()}")
 
     if args.apply:
         changed = apply_retag(db_path, to_retag)

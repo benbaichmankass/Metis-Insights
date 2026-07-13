@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "_comment": "Authoritative per-account lifetime realized PnL (broker wallet-truth) for accounts whose live per-row journal pnl can't be trusted. Written by a reviewed scripts/ops/reconcile_netting_pnl.py --emit-ledger run from an operator-provided Bybit UM export. Surfaced read-only at GET /api/bot/pnl/broker-truth. Aggregates only (no positions/balances/keys) — same public class as the existing /performance realized surface. NOT a money-DB row rewrite: the journal per-row pnl is left as-is; this records the account-level truth next to it. See docs/audits/bybit2-broker-reconciliation-2026-07-13.md.",
+  "accounts": [
+    {
+      "account_id": "bybit_2",
+      "realized_usd": -262.52,
+      "fees_usd": -147.81,
+      "funding_usd": -0.55,
+      "as_of": "2026-07-13",
+      "window_start": "2026-04-15",
+      "window_end": "2026-07-13",
+      "source": "bybit_um_export_stitched",
+      "sub_accounts": ["MAIN", "SUB"],
+      "note": "Wallet-truth (Bybit UM Change minus transfers), stitched across two sub-accounts (MAIN -1.52 + SUB -261.01). The account mixed spot+perp and switched sub-accounts on 2026-05-10, producing a conversion cohort that per-fill FIFO / per-row journal attribution can't resolve (perp TRADE gross was +768 vs this wallet-truth -262.52). This account-level figure is authoritative; the journal per-row pnl (~-33) under-records and is left unmodified."
+    }
+  ],
+  "updated_at": "2026-07-13T19:40:00+00:00"
+}

@@ -90,6 +90,30 @@ not the per-symbol gross. See
 [`docs/audits/bybit2-broker-reconciliation-2026-07-13.md`](../audits/bybit2-broker-reconciliation-2026-07-13.md)
 for a worked example (bybit_2: perp gross +$768 vs wallet-truth −$262.52).
 
+The run always prints the account **wallet-truth** line (`Σ Change − transfers`)
+regardless of the per-symbol verdicts.
+
+### Emitting the broker-truth ledger (`--emit-ledger`)
+
+For an account whose per-row journal `pnl` can't be trusted (the spot+perp /
+sub-account-switch case above), record the authoritative wallet-truth into the
+committed **broker-truth ledger** so the dashboard can surface it next to the
+journal figure — **without** rewriting any money-DB row:
+
+```bash
+python scripts/ops/reconcile_netting_pnl.py --account bybit_2 \
+    --exchange-csv MAIN_UMLog.csv --exchange-csv SUB_UMLog.csv \
+    --emit-ledger --ledger-as-of 2026-07-13
+```
+
+This upserts one record (keyed by `account_id`) into
+`comms/broker_truth_ledger.json`, surfaced at
+`GET /api/bot/pnl/broker-truth?account_id=bybit_2`
+(`src/runtime/broker_truth.py`). `--emit-ledger` is **Tier-1** (writes a
+committed file, no money-DB / live-state mutation) and works even when the
+journal DB isn't reachable (the per-symbol reconcile is then skipped). Commit
+the updated ledger; the VM mirrors it via `ict-git-sync`.
+
 ## Tier
 
 - The **dry-run report** is Tier-1 (read-only).

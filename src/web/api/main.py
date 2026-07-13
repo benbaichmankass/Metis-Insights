@@ -35,6 +35,7 @@ from src.web.api.routers import order_packages as order_packages_router
 from src.web.api.routers import pnl as pnl_router
 from src.web.api.routers import prop as prop_router
 from src.web.api.routers import pnl_exchange as pnl_exchange_router
+from src.web.api.routers import pnl_broker_truth as pnl_broker_truth_router
 from src.web.api.routers import pnl_history as pnl_history_router
 from src.web.api.routers import reports as reports_router
 from src.web.api.routers import roadmap as roadmap_router
@@ -77,6 +78,7 @@ app.include_router(candles_router.router)
 app.include_router(performance_router.router)
 app.include_router(backtests_router.router)
 app.include_router(pnl_exchange_router.router)
+app.include_router(pnl_broker_truth_router.router)
 app.include_router(diag_router.router)
 app.include_router(shadow_router.router)
 app.include_router(health_snapshots_router.router)
