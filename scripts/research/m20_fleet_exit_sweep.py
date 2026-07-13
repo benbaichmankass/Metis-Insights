@@ -293,6 +293,9 @@ def main(argv: list[str]) -> int:
                          "trail_decay) — skips already-verdicted cells on a re-run")
     ap.add_argument("--list", action="store_true",
                     help="print the run plan (leg -> harness/data/cells) and exit")
+    ap.add_argument("--p80-only", action="store_true",
+                    help="P4.4 re-run: evaluate ONLY the dynamic p80 decay cell "
+                         "per leg (fixed cells already verdicted)")
     a = ap.parse_args(argv[1:])
 
     strategies = (yaml.safe_load((REPO / "config" / "strategies.yaml")
@@ -356,8 +359,10 @@ def main(argv: list[str]) -> int:
         # M20 P4.4 — dynamic MFE-percentile decay cell: arm at the leg's own
         # P80 winner-MFE (IS window only) instead of a fixed R. Only where the
         # family has the decay lever and the fixed decay cells are in scope.
-        if (p["family"] in ("donchian", "pullback")
-                and any(lv == "trail_decay" for _, lv, _ in p["cells"])):
+        decay_in_scope = any(lv == "trail_decay" for _, lv, _ in p["cells"])
+        if a.p80_only:
+            p["cells"] = []  # fixed cells already verdicted; p80 cell only
+        if (p["family"] in ("donchian", "pullback") and decay_in_scope):
             tm_val = next((float(x[1]) for x in
                            zip(p["base"], p["base"][1:])
                            if x[0] == "--trail-mult"), None)
