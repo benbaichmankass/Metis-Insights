@@ -126,8 +126,8 @@
     "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). BTC 2h: 12.8% early-fail -25.4R (n=375, net +56.4R); chop entries -5.8R/74t; hour:16 -8.5R. AXIS: confirmation_bars (mild) / time_of_day (walk-forward-gated)."
    },
    "confirmation_bars": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 round-2 pullback confirm sweep 2026-07-13 (m21_entry_sweep --family pullback, relay #6345 launch, #6346 readout; runtime_logs/m21_entry_sweep/2026-07-13). HONEST NEGATIVE fleet-wide: 18/19 pullback legs fail (mostly IS/OOS) - the pullback trigger already embeds a resume-close confirmation, so an extra confirm bar mostly costs entry price."
    },
    "depth_threshold": {
     "status": "pending",
@@ -156,8 +156,8 @@
     "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). ETH 2h: 16.7% early-fail -30.6R (n=252, net +67.7R); hour:10 -9.1R. AXIS: confirmation_bars / time_of_day."
    },
    "confirmation_bars": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 round-2 pullback confirm sweep 2026-07-13 (m21_entry_sweep --family pullback, relay #6345 launch, #6346 readout; runtime_logs/m21_entry_sweep/2026-07-13). HONEST NEGATIVE fleet-wide: 18/19 pullback legs fail (mostly IS/OOS) - the pullback trigger already embeds a resume-close confirmation, so an extra confirm bar mostly costs entry price."
    },
    "depth_threshold": {
     "status": "pending",
@@ -186,8 +186,8 @@
     "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). alt 2h pullbacks: 14.8-19.0% early-fail, -2.9 to -28.9R each; scattered hour pockets. AXIS: confirmation_bars; time_of_day only where a pocket survives walk-forward."
    },
    "confirmation_bars": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 round-2 pullback confirm sweep 2026-07-13 (m21_entry_sweep --family pullback, relay #6345 launch, #6346 readout; runtime_logs/m21_entry_sweep/2026-07-13). HONEST NEGATIVE fleet-wide: 18/19 pullback legs fail (mostly IS/OOS) - the pullback trigger already embeds a resume-close confirmation, so an extra confirm bar mostly costs entry price. EXCEPTION in this row: ada_pullback_2h confirm_2 PASS wf 4/6 - the weakest pass, alone across 19 legs; PARKED (would need the pullback live twin for one marginal cell - the scha precedent). Operator may override."
    },
    "depth_threshold": {
     "status": "pending",
@@ -306,8 +306,8 @@
     "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). 1d futures: clean entries (2.1-19.7% early-fail but tiny costs -0.9 to -5.5R). Low priority for E-2."
    },
    "confirmation_bars": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 round-2 pullback confirm sweep 2026-07-13 (m21_entry_sweep --family pullback, relay #6345 launch, #6346 readout; runtime_logs/m21_entry_sweep/2026-07-13). HONEST NEGATIVE fleet-wide: 18/19 pullback legs fail (mostly IS/OOS) - the pullback trigger already embeds a resume-close confirmation, so an extra confirm bar mostly costs entry price. (mgc/mhg 1d, proxy data)"
    },
    "depth_threshold": {
     "status": "honest_negative",
@@ -367,7 +367,7 @@
    },
    "confirmation_bars": {
     "status": "passed_unshipped",
-    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). scha confirm_1 PASS wf 4/6 but tiny (IS -0.04->0.28R) - parked, not worth the live twin on its own. Others fail."
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). scha confirm_1 PASS wf 4/6 but tiny (IS -0.04->0.28R) - parked, not worth the live twin on its own. Others fail. || ROUND-2 UPDATE: 1d equity pullback legs (gld/tlt/ief/slv/gdx/iaum) all fail the confirm cells too - honest_negative fleet-wide except the parked scha trend cell."
    },
    "depth_threshold": {
     "status": "honest_negative",
@@ -397,7 +397,7 @@
    },
    "confirmation_bars": {
     "status": "honest_negative",
-    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). slv/uso confirm cells fail."
+    "ref": "E-2 round-2 pullback confirm sweep 2026-07-13 (m21_entry_sweep --family pullback, relay #6345 launch, #6346 readout; runtime_logs/m21_entry_sweep/2026-07-13). HONEST NEGATIVE fleet-wide: 18/19 pullback legs fail (mostly IS/OOS) - the pullback trigger already embeds a resume-close confirmation, so an extra confirm bar mostly costs entry price. (gld/spy/qqq/tlt 1h pullbacks all fail)"
    },
    "depth_threshold": {
     "status": "honest_negative",
