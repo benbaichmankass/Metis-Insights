@@ -186,6 +186,7 @@ ict-health-snapshot.service   # oneshot, timer-driven (every 15 min) — writes 
 ict-web-api-watchdog.service  # oneshot, timer-driven (every 2 min) — self-heals ict-web-api (BL-20260604-003)
 ict-db-integrity.service      # oneshot, timer-driven (hourly) — DB-integrity check + Telegram alert (dashboard-truth Phase 4)
 ict-mes-ibkr-pull.service     # oneshot, timer-driven (daily 23:30 UTC) — MES IBKR deep-history pull; in DEFAULT_SKIP so a deploy never fires an unscheduled ~20-30 min gateway pull (BL-20260626-MES-BASE-STALE)
+ict-exchange-fills-pull.service # oneshot, timer-driven (daily 00:20 UTC) — bybit_2 exchange-fills pull into runtime_state/exchange_fills.sqlite (powers /api/bot/pnl/exchange); in DEFAULT_SKIP so a deploy never fires an unscheduled exchange pull (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY)
 ```
 
 **Why enumeration?** The 2026-05-09 24+h-stale-code incident shipped

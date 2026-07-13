@@ -2247,10 +2247,11 @@
       "title": "[dashboard] verify Insights tab 'falls back to canonical 6-strategy list' doc claim vs code",
       "description": "ict-trader-dashboard CLAUDE.md Insights row says the per-strategy selectbox 'falls back to the canonical 6-strategy list' on empty/error; the audit found no hardcoded 6-strategy fallback in page_insights (it just reads /api/bot/strategies). Low impact. Verify and either add the fallback or correct the doc. Tier-1.",
       "tier": 1,
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-13T11:55:00+00:00",
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "resolution": "Verified 2026-07-13: the audit was correct — page_insights (ict-trader-dashboard) has NO hardcoded 6-strategy fallback. It populates the per-strategy selectbox from /api/bot/strategies, falls back to /api/bot/config's strategies block, and finally shows an 'unavailable' notice; the old canonical-6-name literal was deliberately removed (BL-20260611-SYM-1) because it drifted stale vs the ~36 configured strategies. Fix was a DOC correction to ict-trader-dashboard/CLAUDE.md (the code was already correct). Shipped on the dashboard branch claude/system-health-bybit-trade-gh0c2r."
     },
     {
       "id": "BL-20260610-M15-1",
@@ -2450,8 +2451,10 @@
       "title": "ict-health-snapshot runs under /usr/bin/python3 (system), not the trader venv -> ib_paper balance always 'unavailable'",
       "description": "deploy/ict-health-snapshot.service ExecStart uses /usr/bin/python3, which lacks the venv packages (ib_insync etc.). write_health_snapshot.py's account_balance(ib_paper) then logs 'ib_insync is not installed' and reports the ib_paper balance unavailable -- even though the trader venv has ib_insync 0.9.86 and trades IB fine. Cosmetic but a scary false-positive. Fix: point the unit's ExecStart at /home/ubuntu/ict-trading-bot/.venv/bin/python. Tier-2 (unit-file).",
       "tier": 2,
-      "status": "open",
-      "progress_2026_07_13": "2026-07-13 09:15Z snapshot reports accounts_api 'all 6 broker-API accounts ok' incl. ib_paper — either the unit ExecStart was fixed or the check path changed; verify deploy/ict-health-snapshot.service ExecStart before closing."
+      "status": "resolved",
+      "progress_2026_07_13": "2026-07-13 09:15Z snapshot reports accounts_api 'all 6 broker-API accounts ok' incl. ib_paper — either the unit ExecStart was fixed or the check path changed; verify deploy/ict-health-snapshot.service ExecStart before closing.",
+      "resolved_at": "2026-07-13T11:20:00+00:00",
+      "resolution": "Already fixed on disk + live: deploy/ict-health-snapshot.service ExecStart is /home/ubuntu/ict-trading-bot/.venv/bin/python (venv, not system /usr/bin/python3), with an inline comment citing this backlog ID as the reason. Confirmed live: the pre-deploy 2026-07-13 09:15Z snapshot reported accounts_api 'all 6 broker-API accounts ok' incl. ib_paper — the false 'ib_insync not installed' no longer fires. The item was simply never marked resolved; closing it (verified during the 2026-07-13 backlog drain)."
     },
     {
       "id": "BL-20260615-HEARTBEAT-ENV",
@@ -3369,10 +3372,10 @@
       "suggested_fix": "Gate the concurrency group on the label match (e.g. move the label check to a first job whose output gates the burst job, and key concurrency as gpu-burst-${{ github.event.issue.number }} on the burst job only, or set the group at job level only for labeled issues). Keep spend-gate serialization by having the burst job itself take a repo-level lock (the ledger commit step already serializes on push).",
       "tier": "Tier 1 (CI workflow change).",
       "trigger_condition": "Next health-review / CI-touching session.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
-      "resolution": null
+      "resolved_at": "2026-07-13T12:10:00+00:00",
+      "resolution": "Fixed: the concurrency group is now conditional — only gpu-burst-train-labelled runs share the serializing 'gpu-burst-train' group (so two real bursts still can't run at once), while every other issues.opened event (diag-relay, system-action, trainer-diag skip-runs) gets a unique 'gpu-burst-skip-<run_id>' group and can never cancel a queued burst. Root cause was that concurrency is evaluated at the workflow level before the job's label `if`, so all issues entered the one group."
     },
     {
       "id": "BL-20260706-GPU-BURST-LEDGER-PUSH-RACE",
@@ -3384,10 +3387,12 @@
       "suggested_fix": "Direct push to main can no longer work under the protection rules. Options: (1) have the workflow open/append to a ledger PR with auto-merge (checks are cheap and would pass); (2) write the row to a ledger BRANCH consumed by summarize_spend from both main+branch; (3) grant the Actions bot a bypass-list entry for the protection rule (operator decision). Until fixed, reconcile rows by hand from the run logs after each burst (record_run.py locally with the logged cost facts).",
       "tier": "Tier 1 (CI workflow change).",
       "trigger_condition": "Next CI-touching session (pairs with BL-20260706-GPU-BURST-CONCURRENCY-CANCEL).",
-      "status": "open",
+      "status": "partially-resolved",
       "snoozed_until": null,
       "resolved_at": null,
-      "resolution": null
+      "resolution": null,
+      "updated_at": "2026-07-13T12:10:00+00:00",
+      "progress_2026_07_13": "Fixed failure mode (a) the non-fast-forward RACE: the ledger push now rebases our single ledger commit onto a concurrently-advanced main and retries (up to 5×). Added a recovery ARTIFACT fallback so a blocked/failed push never silently drops the billed row (uploaded as gpu-spend-ledger-unpushed-<run_id>, 90d retention) — the ledger is the spend-gate input, so a silent drop under-counts vs the $10 cap. REMAINING (operator, terminal blocker for mode (b)): GH006 — main's branch protection requires status checks even for github-actions[bot], so a direct push to protected main is rejected outright. Needs a repo-admin settings change: add this workflow's actor to the main branch-protection bypass allowlist, OR relocate the ledger off protected main (which would change the VM/dashboard read path — /api/bot/gpu/spend reads comms/gpu_spend_ledger.json from the deployed main). Until then, blocked rows land in the recovery artifact for manual/reconciler replay instead of vanishing."
     },
     {
       "id": "BL-20260706-GATEWAY-VM-GIT-AUTH-UNVERIFIED",
@@ -3517,9 +3522,11 @@
       "title": "Four workflows (vm-ib-gateway-watchdog-enable, vm-cloud-open-ib-port, oci-storage, oci-storage-verify) still default their SSH/host target at the terminated x86 micro (158.178.210.252) instead of the live Ampere VM (141.145.193.91) or gateway VM (10.0.0.251 via ProxyJump)",
       "description": "These four workflows would fail outright (or worse, silently target a non-existent/reassigned instance) if run with defaults post-decommission. Compare the already-correct pattern in vm-ib-gateway-recover.yml (JUMP_HOST defaults 141.145.193.91, GATEWAY_HOST defaults 10.0.0.251 via ProxyJump) and vm-ib-gateway-stop.yml (VM_SSH_HOST defaults 141.145.193.91). FIX (Tier-1, CI-only, no live-trade-path risk): update the four workflows' host defaults to match the sibling pattern -- vm-ib-gateway-watchdog-enable.yml and vm-cloud-open-ib-port.yml need a ProxyJump to 10.0.0.251 like vm-ib-gateway-recover.yml (they're gateway-VM operations mistakenly defaulted at the old trader micro); oci-storage.yml/oci-storage-verify.yml need VM_HOST -> 141.145.193.91 (they're live-trader block-storage operations). Other workflows referencing 158.178.210.252 only in explanatory/historical comments (vm-diag-snapshot.yml, get-diag-token.yml, sync-vm-secrets.yml, etc.) are fine as-is -- no action needed there.",
       "tier": 1,
-      "status": "open",
+      "status": "partially-resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [],
+      "updated_at": "2026-07-13T11:40:00+00:00",
+      "progress_2026_07_13": "Fixed the 3 live SSH-default misfires (PR #6302 follow-up): (1) vm-ib-gateway-watchdog-enable.yml — rewired to ProxyJump through the live trader (141.145.193.91) to reach the PRIVATE gateway VM (10.0.0.251) where ict-ib-gateway-watchdog.timer actually runs, mirroring vm-ib-gateway-recover.yml (the old default SSHed straight at the dead micro AND targeted the wrong box); (2) vm-cloud-open-ib-port.yml — VM_SSH_HOST default 158.178.210.252 → 141.145.193.91 (the trader shares the 10.0.0.0/24 subnet with the gateway, so its subnet SL covers both; no ProxyJump — it reads IMDS on the bastion + runs OCI CLI on the runner); (3) oci-storage.yml — VM_HOST → 141.145.193.91 for the SSH read paths. oci-storage-verify.yml was ALREADY correct (VM_HOST=141.145.193.91). REMAINING (operator, can't resolve from a session): oci-storage.yml's VM_INSTANCE_OCID is still the terminated micro's OCID — flagged with a TODO in-file; needs the live Ampere ict-bot-arm OCID AND a reassessment of whether the block-volume workflow even applies now that /data/bot-data is a directory on the boot volume, not the ict-bot-data-vol block volume. Downgraded open→partially-resolved."
     },
     {
       "id": "BL-20260707-IBWARMUP-RECURRENCE",
@@ -3548,7 +3555,7 @@
       "tier": 1,
       "trigger_condition": "Next health-review or a session touching the risk-refusal/reconciler rejection-reason write path.",
       "resolution_criteria": "Either the root cause is found and the reason text is corrected (both fields agree), or the discrepancy is explained as intentional (e.g. two independent 'reason' fields with legitimately different meanings) and documented so it stops looking like a bug.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -3556,7 +3563,9 @@
           "by": "claude (IBKR-pipeline investigation 2026-07-07)",
           "note": "ROOT FRAME CLARIFIED (narrows the fix, item stays open): the 'dry_run_no_order_placed' entry_reason is NOT a stale/wrong string — mgc_trend_1h is config execution:shadow (config/strategies.yaml L785), so the STRATEGY-level shadow gate folds into effective_dry in Coordinator.multi_account_execute even though the ACCOUNT (ib_paper) is mode:live and notes.is_dry (the account-level flag) is correctly false. So 'dry_run_no_order_placed' is the CORRECT disposition for a shadow-suppressed package; there is no is_dry contradiction. The ONE genuine inconsistency left is cosmetic: the reconciler backfills order_packages.meta.rejected_reason='risk-refused (no fill placed); reconciled from the journalled rejection row' for these shadow-suppressed packages, which is misleading — they were shadow-suppressed, not risk-refused. FIX (Tier-1, cosmetic): have the reconciler label a shadow/dry-suppressed no-fill as such (e.g. 'shadow_suppressed_no_order' / 'dry_run_no_order_placed') rather than the generic 'risk-refused' when the underlying journal row's reason is dry_run/shadow. Downgraded in practical severity — nothing is mis-executing; a reader just needs to know shadow==effective_dry."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-13T12:35:00+00:00",
+      "resolution": "Root cause found + fixed (Tier-1 observability — label-only, no order-path behaviour change). TWO independent bugs made trades.entry_reason disagree with notes.is_dry: (1) log_rejection_to_journal HARDCODED is_dry=False for every rejection row, so even a genuine dry/shadow skip (mgc_trend_1h is execution: shadow — demoted live->shadow 2026-06-18) wrote reason='dry_run_no_order_placed' with notes.is_dry=false, a direct contradiction; and (2) execute_pkg forces is_dry=True when exchange_client is None (a LIVE account with the IB gateway wedged) and journaled it with the SAME 'dry_run_no_order_placed' reason — mislabeling a gateway-down infra skip as an intentional dry-run. Fix: log_rejection_to_journal now takes is_dry (writes notes.is_dry; default False, back-compat) and the dry-branch caller passes the honest value + a cause-specific reason: genuine dry/shadow -> 'dry_run_no_order_placed' + is_dry=True; client-unavailable -> new 'exchange_client_unavailable_no_order_placed' + is_dry=False. Both fields now always AGREE. Verified is_dry writes ONLY notes.is_dry — the is_demo/account_class paper-vs-real column is derived separately from account_cfg and is unaffected (new test asserts this). paper_record_classifier _REFUSAL_MARKERS gained 'exchange_client_unavailable' so the new reason still buckets as a refusal. 2 new tests + full execute/coordinator/classifier sweep (451 passed). Shipped on PR #6302 branch."
     },
     {
       "id": "BL-20260707-FASTCI-CONFIG-DRIFT",
@@ -3889,11 +3898,13 @@
       "title": "[observability] exchange-fills store empty — /api/bot/pnl/exchange returns 0 fills over 7d while bybit_2 traded daily",
       "description": "summary.fill_count=0, by_symbol=[] for days=7 even though bybit_2 closed multiple trades in the window. scripts/pull_exchange_fills.py is evidently not running (no timer or stale runtime_state/exchange_fills.sqlite). The exchange-truth P&L attribution surface — the designed cross-check for exactly the orphan-reconciliation work in BL-20260713-BYBIT2-BTC-ORPHANS-UNRECONCILED — is dark. Fix: schedule/repair the fills puller (Tier-2 timer) or document it as on-demand and run it before reconciliation passes.",
       "tier": 2,
-      "status": "in_progress",
+      "status": "resolved",
       "trigger_condition": "Next reconciliation pass needing exchange-truth fills.",
       "resolution_criteria": "/api/bot/pnl/exchange returns non-zero fills covering the trailing week, or the puller is documented as on-demand with a runbook step.",
-      "progress_2026_07_13": "Root cause widened: the puller was never wired (no timer/action) AND pulled the spot category only while bybit_2 trades linear perps — it could never have populated the store. Fixed on PR #6290: --category linear support in scripts/pull_exchange_fills.py + new Tier-2 system-action pull-exchange-fills (wrapper scripts/ops/pull_exchange_fills_action.sh, workflow + docs registered). Dispatchable after merge; daily timer remains a follow-up."
+      "progress_2026_07_13": "Root cause widened: the puller was never wired (no timer/action) AND pulled the spot category only while bybit_2 trades linear perps — it could never have populated the store. Fixed on PR #6290: --category linear support in scripts/pull_exchange_fills.py + new Tier-2 system-action pull-exchange-fills (wrapper scripts/ops/pull_exchange_fills_action.sh, workflow + docs registered). Dispatchable after merge; daily timer remains a follow-up.",
+      "resolved_at": "2026-07-13T11:20:00+00:00",
+      "resolution": "RESOLVED end-to-end 2026-07-13. Root cause was two-fold: the S-067 puller had (a) no timer/action and (b) pulled the Bybit SPOT category only while bybit_2 trades linear perps. PR #6290 shipped --category linear + the on-demand pull-exchange-fills action; the first run (issue #6298) inserted 31 fills and /api/bot/pnl/exchange (issue #6299) then served real data (fill_count=31 across BTC/XRP/ADA, -$10.51 realised / +$7.30 unrealised). DURABILITY: a follow-up PR adds ict-exchange-fills-pull.{service,timer} (daily 00:20 UTC, venv python, DATA_DIR-pinned, DEFAULT_SKIP-listed) so the 7-day window stays fully covered without an on-demand run. Note: an ADA row shows open_qty_signed -389 which is the FIFO lot-pairing view (exchange-truth), distinct from the journal's net — expected, the two stores are independent by design."
     }
   ],
-  "updated_at": "2026-07-13T10:20:00+00:00"
+  "updated_at": "2026-07-13T12:35:00+00:00"
 }

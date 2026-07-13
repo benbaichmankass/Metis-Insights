@@ -32,8 +32,18 @@ env:
   OCI_AVAILABILITY_DOMAIN: Eu-Paris-1-AD-3
   # Pin the target by OCID (display-names can drift / be wrong); the
   # script honors VM_INSTANCE_OCID first, VM_INSTANCE_NAME as fallback.
+  # TODO(operator, BL-20260707-WORKFLOW-STALE-MICRO-DEFAULTS): the OCID below is
+  # the RETIRED x86 micro `ict-bot` (terminated 2026-06-16) — a volume op against
+  # it now fails "instance not found". Replace with the live Ampere `ict-bot-arm`
+  # OCID (I can't resolve it from a session; use `oci compute instance list` or
+  # the OCI console). ALSO reassess whether this block-volume workflow still
+  # applies: on the Ampere box `/data/bot-data` is a DIRECTORY on the 45 GB boot
+  # volume, not the separate `ict-bot-data-vol` block volume this manages
+  # (a dedicated /data block volume is a documented optional follow-up).
   VM_INSTANCE_OCID: ocid1.instance.oc1.eu-paris-1.anrwiljrnpsiupacbpuojiksc3dl4twmqlxndtc36jgx5sjq3452vflqr32q
-  VM_HOST: 158.178.210.252
+  # SSH host swapped to the live Ampere trader (the read paths — uname/lsblk/git
+  # — must hit the running box, not the terminated micro). Was 158.178.210.252.
+  VM_HOST: 141.145.193.91
   VM_USER: ubuntu
   REPO_DIR: /home/ubuntu/ict-trading-bot
 

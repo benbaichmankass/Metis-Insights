@@ -1,0 +1,33 @@
+# ============================================
+# ICT EXCHANGE-FILLS PULL TIMER (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY)
+# Fires the Bybit fills pull DAILY so /api/bot/pnl/exchange never goes stale
+# (the surface had 0 fills/7d before PR #6290 because the S-067 puller had no
+# timer at all).
+#
+# Cadence rationale: DAILY at 00:20 UTC — clear of the 23:30 UTC MES pull, the
+# ~00:50 UTC trainer sync, the 06:05 UTC gateway reset, and IBKR's ~03:45-05:45
+# UTC reset window. The pull is a quick read-only Bybit API call (a 31-fill run
+# took <5s on 2026-07-13), and --days 7 over-samples so a single missed run is
+# fully recovered on the next fire; the exec_id primary key makes the overlap
+# idempotent. Daily keeps the store fully covering /api/bot/pnl/exchange's
+# default 7-day window.
+#
+# Auto-enabled on the trader box by scripts/install_systemd_units.sh (it is not
+# a gateway-only or retired timer); the gateway VM + trainer never enable it.
+# Save to: /etc/systemd/system/ict-exchange-fills-pull.timer
+# ============================================
+
+[Unit]
+Description=Trigger ict-exchange-fills-pull daily (keep /api/bot/pnl/exchange fresh)
+Requires=ict-exchange-fills-pull.service
+
+[Timer]
+OnCalendar=*-*-* 00:20:00
+# Spread the fire a few minutes so it never lands exactly on another job.
+RandomizedDelaySec=300
+# Catch up one missed run if the VM was down at fire time.
+Persistent=true
+Unit=ict-exchange-fills-pull.service
+
+[Install]
+WantedBy=timers.target

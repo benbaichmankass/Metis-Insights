@@ -323,8 +323,12 @@ fi
 # (daily) — restarting it on every deploy would fire an unscheduled ~20-30 min
 # IBKR gateway pull each time (flock/heartbeat-guarded, but wasteful). Let the
 # timer own it (BL-20260626-MES-BASE-STALE).
+# ict-exchange-fills-pull.service is a oneshot owned by
+# ict-exchange-fills-pull.timer (daily) — restarting it on every deploy would
+# fire an unscheduled Bybit fills pull each time (cheap + idempotent, but
+# needless). Let the timer own it (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY).
 # ---------------------------------------------------------------------------
-DEFAULT_SKIP="ict-smoke-once.service ict-env-check.service ict-hourly-snapshot.service ict-heartbeat.service ict-git-sync.service ict-mes-ibkr-pull.service"
+DEFAULT_SKIP="ict-smoke-once.service ict-env-check.service ict-hourly-snapshot.service ict-heartbeat.service ict-git-sync.service ict-mes-ibkr-pull.service ict-exchange-fills-pull.service"
 SKIP_LIST="${DEPLOY_RESTART_SKIP:-${DEFAULT_SKIP}}"
 
 # list-units --all surfaces inactive units too; --type=service excludes

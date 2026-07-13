@@ -289,7 +289,18 @@ def execute_pkg(
             )
         return trade_id
 
-    if exchange_client is None:
+    # ``is_dry`` up to here reflects a GENUINE no-live-order decision — the
+    # account ``mode: dry_run`` OR the caller-folded per-strategy
+    # ``execution: shadow`` gate (mgc_trend_1h, e.g., is shadow). A missing
+    # exchange client is a DIFFERENT condition: the account is live but we
+    # couldn't build a client this tick (e.g. the IB gateway is wedged), so we
+    # still take the no-order path — but it must NOT be journaled as an
+    # intentional dry-run (BL-20260707-MGCTREND-REASON-MISMATCH). Capture which
+    # cause we're in so the rejection row carries an honest reason + is_dry that
+    # agree with each other.
+    _genuinely_dry = is_dry
+    _client_unavailable = exchange_client is None
+    if _client_unavailable:
         is_dry = True
 
     trace_id = getattr(pkg, "trace_id", None) or (pkg.meta or {}).get("trace_id", "?")
@@ -400,11 +411,26 @@ def execute_pkg(
         # get the rejection row.
         try:
             if not _is_test_order(pkg):
+                # Honest reason + is_dry that AGREE (BL-20260707-MGCTREND-
+                # REASON-MISMATCH). A genuine dry/shadow decision → is_dry=True
+                # + 'dry_run_no_order_placed'; a live dispatch we couldn't place
+                # because the client was unavailable (gateway down) → is_dry=
+                # False + a distinct 'exchange_client_unavailable_no_order_placed'
+                # so it isn't mistaken for an intentional dry-run. (is_dry here
+                # writes only notes.is_dry — the is_demo/account_class paper-vs-
+                # real column is derived separately from account_cfg, unaffected.)
+                if _genuinely_dry:
+                    _rej_reason = "dry_run_no_order_placed"
+                    _rej_is_dry = True
+                else:
+                    _rej_reason = "exchange_client_unavailable_no_order_placed"
+                    _rej_is_dry = False
                 log_rejection_to_journal(
                     pkg, account_cfg,
-                    reason="dry_run_no_order_placed",
+                    reason=_rej_reason,
                     status="rejected",
                     sized_qty=float(qty or 0.0),
+                    is_dry=_rej_is_dry,
                 )
         except Exception as exc:  # noqa: BLE001 — never let journaling crash dispatch
             logger.warning(
@@ -1514,6 +1540,7 @@ def log_rejection_to_journal(
     reason: str,
     status: str,
     sized_qty: Optional[float] = None,
+    is_dry: bool = False,
 ) -> bool:
     """Public wrapper: log a refusal event to the trade journal.
 
@@ -1531,6 +1558,16 @@ def log_rejection_to_journal(
     the would-be size. Pass ``None`` when sizing was not reached
     (e.g. early-stage refusal); the row records ``position_size=0.0``.
 
+    ``is_dry`` reflects whether the dispatch was a genuine no-live-order
+    decision (account ``mode: dry_run`` or a per-strategy
+    ``execution: shadow`` gate) — it is written to ``notes.is_dry`` so the
+    field agrees with a ``dry_run_no_order_placed`` reason instead of the
+    old hardcoded ``False`` that contradicted it
+    (BL-20260707-MGCTREND-REASON-MISMATCH). Defaults ``False``; only the
+    dry-branch caller passes ``True``. This does NOT touch the
+    ``is_demo`` / ``account_class`` paper-vs-real column, which is derived
+    separately from ``account_cfg`` inside ``_log_trade_to_journal``.
+
     Wraps the underlying write in a defensive try/except so a
     journal-write failure during failure-handling can never escalate
     to a stack unwind.
@@ -1539,7 +1576,7 @@ def log_rejection_to_journal(
         order = {"qty": float(sized_qty or 0.0), "symbol": pkg.symbol}
         return _log_trade_to_journal(
             pkg, account_cfg, order,
-            trade_id=None, is_dry=False,
+            trade_id=None, is_dry=is_dry,
             status=status, reason=reason,
         )
     except Exception as exc:  # noqa: BLE001

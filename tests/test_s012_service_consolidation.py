@@ -88,6 +88,14 @@ EXPECTED_SERVICES = {
     # (the pull had been manual-only and stopped 2026-06-14). Live-trader-box only
     # via install_systemd_units.sh auto-enable; heartbeat-guarded, secondary-priority.
     "ict-mes-ibkr-pull.service",
+    # 2026-07-13: exchange-fills daily pull (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY).
+    # Timer-fired oneshot (ict-exchange-fills-pull.timer, daily 00:20 UTC) that runs
+    # scripts/pull_exchange_fills.py for bybit_2 (linear/7d) so the exchange-truth
+    # P&L store (runtime_state/exchange_fills.sqlite -> /api/bot/pnl/exchange) stays
+    # populated instead of empty (the puller had been manual-only and never ran on
+    # the Ampere box). Live-trader-box only via install_systemd_units.sh auto-enable;
+    # secondary-priority, skipped by deploy_pull_restart.sh DEFAULT_SKIP.
+    "ict-exchange-fills-pull.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to
