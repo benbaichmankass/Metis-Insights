@@ -2247,10 +2247,11 @@
       "title": "[dashboard] verify Insights tab 'falls back to canonical 6-strategy list' doc claim vs code",
       "description": "ict-trader-dashboard CLAUDE.md Insights row says the per-strategy selectbox 'falls back to the canonical 6-strategy list' on empty/error; the audit found no hardcoded 6-strategy fallback in page_insights (it just reads /api/bot/strategies). Low impact. Verify and either add the fallback or correct the doc. Tier-1.",
       "tier": 1,
-      "status": "open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-13T11:55:00+00:00",
       "resolved_by": null,
-      "resolution_note": null
+      "resolution_note": null,
+      "resolution": "Verified 2026-07-13: the audit was correct — page_insights (ict-trader-dashboard) has NO hardcoded 6-strategy fallback. It populates the per-strategy selectbox from /api/bot/strategies, falls back to /api/bot/config's strategies block, and finally shows an 'unavailable' notice; the old canonical-6-name literal was deliberately removed (BL-20260611-SYM-1) because it drifted stale vs the ~36 configured strategies. Fix was a DOC correction to ict-trader-dashboard/CLAUDE.md (the code was already correct). Shipped on the dashboard branch claude/system-health-bybit-trade-gh0c2r."
     },
     {
       "id": "BL-20260610-M15-1",
@@ -3901,5 +3902,5 @@
       "resolution": "RESOLVED end-to-end 2026-07-13. Root cause was two-fold: the S-067 puller had (a) no timer/action and (b) pulled the Bybit SPOT category only while bybit_2 trades linear perps. PR #6290 shipped --category linear + the on-demand pull-exchange-fills action; the first run (issue #6298) inserted 31 fills and /api/bot/pnl/exchange (issue #6299) then served real data (fill_count=31 across BTC/XRP/ADA, -$10.51 realised / +$7.30 unrealised). DURABILITY: a follow-up PR adds ict-exchange-fills-pull.{service,timer} (daily 00:20 UTC, venv python, DATA_DIR-pinned, DEFAULT_SKIP-listed) so the 7-day window stays fully covered without an on-demand run. Note: an ADA row shows open_qty_signed -389 which is the FIFO lot-pairing view (exchange-truth), distinct from the journal's net — expected, the two stores are independent by design."
     }
   ],
-  "updated_at": "2026-07-13T11:40:00+00:00"
+  "updated_at": "2026-07-13T11:55:00+00:00"
 }
