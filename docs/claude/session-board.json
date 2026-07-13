@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] \u2014 one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
  "merge_slot": {
-  "held_by": "session_01SDLWbfLGV4WYHgC2ugzedf",
-  "branch": "claude/exit-refinement-sprint-l74k6o",
+  "held_by": null,
+  "branch": null,
   "pr": null,
-  "claimed_at": "2026-07-13T12:40:00Z"
+  "claimed_at": null
  },
  "active_sessions": [
   {
