@@ -2450,7 +2450,8 @@
       "title": "ict-health-snapshot runs under /usr/bin/python3 (system), not the trader venv -> ib_paper balance always 'unavailable'",
       "description": "deploy/ict-health-snapshot.service ExecStart uses /usr/bin/python3, which lacks the venv packages (ib_insync etc.). write_health_snapshot.py's account_balance(ib_paper) then logs 'ib_insync is not installed' and reports the ib_paper balance unavailable -- even though the trader venv has ib_insync 0.9.86 and trades IB fine. Cosmetic but a scary false-positive. Fix: point the unit's ExecStart at /home/ubuntu/ict-trading-bot/.venv/bin/python. Tier-2 (unit-file).",
       "tier": 2,
-      "status": "open"
+      "status": "open",
+      "progress_2026_07_13": "2026-07-13 09:15Z snapshot reports accounts_api 'all 6 broker-API accounts ok' incl. ib_paper — either the unit ExecStart was fixed or the check path changed; verify deploy/ict-health-snapshot.service ExecStart before closing."
     },
     {
       "id": "BL-20260615-HEARTBEAT-ENV",
@@ -2716,7 +2717,8 @@
         "episodic": "adopted_orphan counts by day: 06-14 n=2, 06-17 n=20, 06-18 n=0 — fires only during IB-gateway reset/flap windows, NOT ongoing",
         "residue": "id 2683 MGC still status=open + id 2682 MGC status=orphaned on ib_paper (06-17) — lingering rows to reconcile/clean",
         "fix_status": "FIX IMPLEMENTED in c897eec (re-adopt flap guard, RECONCILER_READOPT_GUARD_SECONDS) — pushed, NOT yet deployed (Tier-2 PR pending)"
-      }
+      },
+      "progress_2026_07_13": "reconcile-orphan-history APPLY re-run 2026-07-13 (#6294): no MGC/MHG flap clusters remained collapsible (the historical -$20k cluster was handled by the earlier pass); 3 ib_paper MHG/MHGN6 singles flagged honest-unreconciled. Live-path guards (RECONCILER_READOPT_GUARD_SECONDS + IB_CLOSE_CONFIRM_S) in place since 06-18/06-24; no recurrence in this window."
     },
     {
       "id": "BL-20260618-STALEHEARTBEAT",
@@ -2856,7 +2858,8 @@
           "by": "claude (/health-review 2026-07-07)",
           "note": "No new bybit_2 stuck/orphan event this window to test the aggregation fix against (orphan_events.jsonl tail's newest row is still 2026-06-30; nothing bybit_2-specific since). Nothing to confirm or refute this run."
         }
-      ]
+      ],
+      "progress_2026_07_13": "Still awaiting a triggering live orphan/stuck event; none in the 07-12->07-13 window. Note the fallback-path closed_at fix (PR #6290) changes the trade-3373 artifact class this soak would have observed."
     },
     {
       "id": "BL-20260622-WATCHDOG-STDIN",
@@ -2994,10 +2997,10 @@
           "note": "system-report health-review: live /api/diag/status.git_sha resolves cleanly as 7b5139b3 (== merged HEAD 7b5139b) post safe.directory=* fix — strong evidence rev-parse now succeeds. KEEP OPEN until the next ict-health-snapshot artifact specifically shows git_drift OK (the snapshot writer's cwd/context differs from the diag status path)."
         }
       ],
-      "status": "partially-resolved",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-13T10:20:00+00:00",
       "resolved_by": null,
-      "resolution": null,
+      "resolution": "Resolution criteria met and live-verified 2026-07-13 (diag #6284): health snapshot 09:15Z reports git_drift ok — 'in sync with origin/main (925670e)' — and git_fetch ok (3.4m). The rev-parse failure no longer reproduces.",
       "snoozed_until": null
     },
     {
@@ -3260,7 +3263,7 @@
     {
       "id": "BL-20260629-INTENT-REDUCE-CHURN-VERIFY",
       "title": "[verify/soak] confirm the intent-reduce partial-close fix (#5101) actually stops the open->reconciler-close churn on the live trader",
-      "status": "open",
+      "status": "resolved",
       "opened_at": "2026-06-29T17:05:00+00:00",
       "opened_by": "claude (operator-requested follow-up 2026-06-29)",
       "snoozed_until": null,
@@ -3280,7 +3283,9 @@
           "by": "claude (/health-review 2026-07-07)",
           "note": "No htf_pullback_trend_2h BTCUSDT reduce cycle observed in this window's (truncated) trades/order_packages pull to re-verify against. Left open pending a live reduce cycle in a future review window."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-13T10:20:00+00:00",
+      "resolution": "Soak evidence accrued through 2026-07-13 (health-review window pulls): multiple intent_reduce legs executed cleanly as FIFO partial closes with parent allocations (trades 3365, 3370, 3385 — exit_reason='intent_reduce_executed', intent_reduce_allocations populated), and NO open->reconciler_filled churn loop appears in the recent trades window. Re-open if the churn signature (repeating same-tick reduce + reconciler close) recurs."
     },
     {
       "id": "BL-20260630-PRINTPACKETS",
@@ -3498,9 +3503,11 @@
       "title": "health-review skill references /api/diag/log_file?name=account_reachability_alert_state, but that name isn't in the log_file allowlist -- the skill's own documented reachability check is unreachable via the relay",
       "description": "Tier-1 fix: add 'account_reachability_alert_state' to the log_file name allowlist in the diag router (src/web/api/routers/diag.py or wherever the allowlist lives) so a health-review can read the in-process down-latch state directly instead of relying solely on exchange_positions nullness + accounts/balances api_ok (which this session had to fall back to). Verify by re-pulling the path via the relay and confirming valid JSON instead of fetch_failed.",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [],
+      "resolved_at": "2026-07-13T10:20:00+00:00",
+      "resolution": "Fixed on PR #6290 (2026-07-13 backlog drain): 'account_reachability_alert_state' + 'trainer_reachability_alert_state' added to the diag log_file allowlist (src/web/api/routers/diag.py). test_web_api_diag suite green (28 passed)."
     },
     {
       "id": "BL-20260707-WORKFLOW-STALE-MICRO-DEFAULTS",
@@ -3888,5 +3895,5 @@
       "progress_2026_07_13": "Root cause widened: the puller was never wired (no timer/action) AND pulled the spot category only while bybit_2 trades linear perps — it could never have populated the store. Fixed on PR #6290: --category linear support in scripts/pull_exchange_fills.py + new Tier-2 system-action pull-exchange-fills (wrapper scripts/ops/pull_exchange_fills_action.sh, workflow + docs registered). Dispatchable after merge; daily timer remains a follow-up."
     }
   ],
-  "updated_at": "2026-07-13T09:58:00+00:00"
+  "updated_at": "2026-07-13T10:20:00+00:00"
 }
