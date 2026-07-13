@@ -1109,6 +1109,32 @@ def _alpaca_pos_in_scope(pos: Dict[str, Any], account: Dict[str, Any]) -> bool:
     return ac == "us_option" if expresses_options else ac != "us_option"
 
 
+def _bybit_configured_symbols(account: Dict[str, Any]) -> list:
+    """Return the account's configured instrument list for the per-symbol
+    position cross-check (BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND).
+
+    Prefers the ``symbols`` key already on the passed cfg dict (the reverse
+    reconciler's cfgs carry it). Falls back to loading it from
+    ``accounts.yaml`` by ``account_id`` for callers that hand-build a
+    reduced cfg (e.g. ``order_monitor._build_account_client``). Best-effort:
+    any failure returns ``[]`` so the cross-check simply no-ops rather than
+    raising — the primary settleCoin read is unaffected.
+    """
+    syms = account.get("symbols")
+    if isinstance(syms, (list, tuple)) and syms:
+        return list(syms)
+    aid = account.get("account_id")
+    if not aid:
+        return []
+    try:
+        from src.config.accounts_loader import load_accounts_dict
+        cfg = load_accounts_dict().get(aid) or {}
+        resolved = cfg.get("symbols")
+        return list(resolved) if isinstance(resolved, (list, tuple)) else []
+    except Exception:  # noqa: BLE001
+        return []
+
+
 def account_open_positions(
     account: Dict[str, Any],
 ) -> Optional[list]:
@@ -1238,18 +1264,59 @@ def account_open_positions(
                 return []
             resp = client.get_positions(category=category, settleCoin="USDT")
             raw = resp.get("result", {}).get("list", []) if isinstance(resp, dict) else []
-            out = []
-            for p in raw:
+            out: list = []
+            seen: set = set()
+
+            def _emit(p: Dict[str, Any]) -> None:
                 size = _f(p.get("size"))
                 if size <= 0:
-                    continue
+                    return
+                sym = p.get("symbol")
+                if sym in seen:
+                    return
+                seen.add(sym)
                 out.append({
-                    "symbol": p.get("symbol"),
+                    "symbol": sym,
                     "side": p.get("side"),
                     "size": size,
                     "entry_price": _f(p.get("avgPrice")),
                     "unrealised_pnl": _f(p.get("unrealisedPnl")),
                 })
+
+            for p in raw:
+                _emit(p)
+
+            # BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND: a single
+            # ``settleCoin=USDT`` position/list page can silently omit a
+            # configured symbol's residual position — a live 0.001 BTCUSDT on
+            # real-money bybit_2 was absent from the settleCoin list while the
+            # symbol-scoped read (and the terminal) saw it, so the reconciler
+            # read the account as flat and FALSE-CLOSED the journal row,
+            # leaving the position invisible on /positions and unprotected. A
+            # symbol-scoped ``get_positions(symbol=…)`` always returns that
+            # symbol's exact position, so cross-check every configured symbol
+            # not already surfaced. Best-effort: a per-symbol read error is
+            # logged and skipped (the primary settleCoin read still stands) so
+            # a transient hiccup never nukes the whole read into ``None``.
+            for sym in _bybit_configured_symbols(account):
+                if not isinstance(sym, str) or not sym or sym in seen:
+                    continue
+                try:
+                    r2 = client.get_positions(category=category, symbol=sym)
+                    lst2 = (
+                        r2.get("result", {}).get("list", [])
+                        if isinstance(r2, dict)
+                        else []
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "account_open_positions(%s): per-symbol cross-check "
+                        "for %s failed: %s",
+                        account.get("account_id") or "unknown", sym, exc,
+                    )
+                    continue
+                for p in lst2:
+                    _emit(p)
             return out
         if ex == "alpaca":
             # Dry alpaca accounts are never dialled from the read path
