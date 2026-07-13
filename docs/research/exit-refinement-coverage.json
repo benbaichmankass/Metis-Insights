@@ -1,6 +1,6 @@
 {
  "_doc": "M20 exit-refinement coverage matrix \u2014 one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) \u2014 never inferred.",
- "updated_at": "2026-07-12",
+ "updated_at": "2026-07-13",
  "lever_columns": [
   "trail_geometry",
   "stale_stop",
@@ -45,7 +45,7 @@
    },
    "trail_decay": {
     "status": "honest_negative",
-    "ref": "all 4 decay cells is_oos_fail (BTC 1h). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+    "ref": "all 4 decay cells is_oos_fail (BTC 1h). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: passed_unshipped \u2014 p80 arm 6.49R tight2.5 PASS wf 4/6 (IS 51.8\u219255.4 net_R dd 21.8\u219221.0; OOS \u221224.5\u2192\u221220.8 dd 31.9\u219230.6 \u2014 improves both axes though the leg is OOS-negative either way). Tier-3 declare proposed (batch 2). P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate."
    }
   },
   {
@@ -195,7 +195,7 @@
    },
    "trail_decay": {
     "status": "passed_unshipped",
-    "ref": "sol_pullback_2h stall10 tight2.5 PASS wf 5/6 (LIVE leg \u2014 Tier-3 declare proposed in #6251); xrp 3/6, ada 3/6, avax 2/6, eth_prop 2/6 all fail. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+    "ref": "sol_pullback_2h stall10 tight2.5 PASS wf 5/6 (LIVE leg \u2014 Tier-3 declare proposed in #6251); xrp 3/6, ada 3/6, avax 2/6, eth_prop 2/6 all fail. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: xrp p80 arm 4.49R PASS 5/6 (OOS +23.9\u2192+27.7, 49 trades) + avax p80 arm 4.86R PASS 4/6 (OOS +11.6\u2192+15.0) \u2014 declares proposed (batch 2); sol/ada/eth_prop p80 negative. P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate."
    }
   },
   {
@@ -225,7 +225,7 @@
    },
    "trail_decay": {
     "status": "honest_negative",
-    "ref": "eth/sol/xrp 4h all cells is_oos_fail; ada stall10+combo cells errored, avax harness timeout (contention window) \u2014 negatives consistent with the family's stale/giveback fails. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+    "ref": "eth/sol/xrp 4h all cells is_oos_fail; ada stall10+combo cells errored, avax harness timeout (contention window) \u2014 negatives consistent with the family's stale/giveback fails. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: trend_donchian_sol_4h p80 arm 5.57R PASS wf 5/6 (OOS +12.8\u2192+15.0) \u2014 declare proposed (batch 2); others still negative. P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate."
    }
   },
   {
@@ -373,7 +373,7 @@
    },
    "trail_decay": {
     "status": "passed_unshipped",
-    "ref": "PASS: scha arm2R tight2 wf 6/6 (+stall10 4/6), slv stall6 tight2 5/6, iwm stall10 tight2 4/6, gld stall10 tight2 4/6, splg stall6 tight2 4/6, iaum stall10 tight2 4/6 \u2014 Tier-3 declares proposed in #6251. FAIL: spy (stall6 3/6 best), qqq, tqqq, qld, tlt_1d, ief, gdx. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+    "ref": "PASS: scha arm2R tight2 wf 6/6 (+stall10 4/6), slv stall6 tight2 5/6, iwm stall10 tight2 4/6, gld stall10 tight2 4/6, splg stall6 tight2 4/6, iaum stall10 tight2 4/6 \u2014 Tier-3 declares proposed in #6251. FAIL: spy (stall6 3/6 best), qqq, tqqq, qld, tlt_1d, ief, gdx. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: qqq p80 arm 3.56R PASS 5/6 (OOS thin, 3 trades); gld p80 arm 5.06R PASS 5/6 measured ON TOP of its declared stall10 (additive combo; OOS thin, 3 trades) \u2014 both proposed (batch 2). p80 skipped (<30 IS winners): scha, iaum, gdx. P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate."
    }
   },
   {
