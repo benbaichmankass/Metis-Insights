@@ -77,3 +77,33 @@
 - Collect the fleet E-1 deficit ranking → pick E-2 axes per leg.
 - Peak-retarget round verdicts (M20 tail) → possible 4h/2h shadow heads.
 - E-2 harness entry-filter flags + fleet sweep (next after E-1 evidence).
+
+## E-1 fleet baseline — RESULTS (2026-07-13)
+
+Fleet run complete on the trainer (43 legs; relay #6305 launch, #6306
+readout; `runtime_logs/m21_entry_baseline/2026-07-13/`). Headline findings:
+
+- **The donchian family is the entry-quality problem.** ~20% of donchian
+  entries never trade above +0R in the first 3 bars: trend_donchian_eth
+  −144.5R of early-fail cost (n=957; the leg is net −25.7R overall),
+  trend_donchian (BTC) −79.3R, sol −58.7R, the 4h legs −10…−37R each,
+  and the shadow trend_donchian_1h −187.4R at n=1263 confirms the shape
+  at scale. This is the false-breakout share; **E-2 axis: confirmation
+  bars + tighter depth (min_confidence) cells, donchians first.**
+- **2h pullbacks moderate** (12.8–19.0% early-fail, −2.9…−30.6R) with
+  hour-of-day pockets (eth hour:10, htf hour:16, xrp hour:14) — worth
+  time-of-day cells only where a pocket survives the yearly walk-forward.
+- **1d equity/futures trend legs are clean** (0–13.8% early-fail, tiny
+  cost) — no E-2 effort there. Outlier: slv_pullback_1d (19.9%, −29.3R).
+- **1h equities**: low early-fail but real absolute cost on busy legs
+  (tlt −25.6R, qqq −17.8R); late-session (19–20 UTC) negative pockets.
+- **xauusd/mgc 1h**: near-zero early-fail but trending-regime entries
+  −20.9R — a vol-at-entry / regime-shaped deficit, not confirmation.
+- 4h crypto legs share a negative **hour:0 (UTC midnight bar)** pocket
+  (ada/avax/eth/xrp) — a candidate cell, walk-forward-gated.
+
+`entry_baseline` column marked shipped across the matrix (squeeze/fvg
+blocked — no emit in the flip-replay set; they need their own
+`--emit-trades` runs). **Next: E-2 confirmation-bar + depth flags in the
+donchian/pullback harnesses, swept config-exact on the donchian legs
+first.**
