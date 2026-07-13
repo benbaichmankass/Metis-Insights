@@ -208,7 +208,7 @@ jobs:
                   upstream_prefix="/api/"
                   path="$botpath"
                   ;;
-                performance|stats|positions|positions/net|signals|strategies|strategies/*/review|strategies/*/tune|strategy/attribution|backtests|backtests/sweeps|order-packages|trades/closed|trades/scores|candles|accounts/balances|liquidity|config|insights/summary|insights/recent|insights/health|insights/usage|insights/history|insights/strategy/*|health/latest|health/history|health/services|health/snapshot|shadow/stats|shadow/drift|shadow/predictions|exit-ladder/soak|allocator/soak|fc-geometry/soak|ml/status|ml/cycle|ml/sessions|ml/registry|ml/builds|ml/db_pulls|ml/runs/*|news/recent|pnl/exchange|gpu/spend|roadmap|roadmap/sprint/*|reports|reports/*|notifications|prop/fills|prop/tickets|prop/status|prop/reconcile|db/tables|db/table/*)
+                performance|stats|positions|positions/net|signals|strategies|strategies/*/review|strategies/*/tune|strategy/attribution|backtests|backtests/sweeps|order-packages|trades/closed|trades/scores|candles|accounts/balances|liquidity|config|insights/summary|insights/recent|insights/health|insights/usage|insights/history|insights/strategy/*|health/latest|health/history|health/services|health/snapshot|shadow/stats|shadow/drift|shadow/predictions|exit-ladder/soak|allocator/soak|fc-geometry/soak|ml/status|ml/cycle|ml/sessions|ml/registry|ml/builds|ml/db_pulls|ml/runs/*|news/recent|pnl/exchange|pnl/broker-truth|gpu/spend|roadmap|roadmap/sprint/*|reports|reports/*|notifications|prop/fills|prop/tickets|prop/status|prop/reconcile|db/tables|db/table/*)
                   upstream_prefix="/api/bot/"
                   path="$botpath"
                   ;;
@@ -347,7 +347,7 @@ jobs:
               # gap while the trainer box was unreachable).
               "ml/status", "ml/cycle", "ml/sessions", "ml/registry",
               "ml/builds", "ml/db_pulls",
-              "news/recent", "pnl/exchange", "gpu/spend",
+              "news/recent", "pnl/exchange", "pnl/broker-truth", "gpu/spend",
               "roadmap", "reports", "notifications",
               "prop/fills", "prop/tickets", "prop/status", "prop/reconcile",
               "db/tables",
