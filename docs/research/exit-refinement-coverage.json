@@ -144,7 +144,7 @@
    },
    "exit_head_ml": {
     "status": "honest_negative",
-    "ref": "E1 pullback-2h AUC~0.50, memo \u00a78"
+    "ref": "E1 pullback-2h AUC~0.50, memo \u00a78 || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_2h/pullback): peak_is_in retarget lifted AUC to 0.65-0.71 (live 0.77) but STILL honest_negative at the E1 gate \u2014 0/5 folds \u2014 every cell loses the tail (2023 actual +131R vs best model +69R). Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail."
    },
    "trail_decay": {
     "status": "honest_negative",
@@ -178,7 +178,7 @@
    },
    "exit_head_ml": {
     "status": "honest_negative",
-    "ref": "pooled pullback-2h head failed E1"
+    "ref": "pooled pullback-2h head failed E1 || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_2h/pullback): peak_is_in retarget lifted AUC to 0.65-0.71 (live 0.77) but STILL honest_negative at the E1 gate \u2014 0/5 folds \u2014 every cell loses the tail (2023 actual +131R vs best model +69R). Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail."
    },
    "trail_decay": {
     "status": "honest_negative",
@@ -212,7 +212,7 @@
    },
    "exit_head_ml": {
     "status": "honest_negative",
-    "ref": "exit-head round 3 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 934 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.54; no naive or conditional shape beats actual on net_R AND maxDD in >=3/5 folds (2023: +95.6R actual vs +72.2R best arm). Honest negative \u2014 the existing trail exits already capture the value"
+    "ref": "exit-head round 3 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 934 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.54; no naive or conditional shape beats actual on net_R AND maxDD in >=3/5 folds (2023: +95.6R actual vs +72.2R best arm). Honest negative \u2014 the existing trail exits already capture the value || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_2h/pullback): peak_is_in retarget lifted AUC to 0.65-0.71 (live 0.77) but STILL honest_negative at the E1 gate \u2014 0/5 folds \u2014 every cell loses the tail (2023 actual +131R vs best model +69R). Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail."
    },
    "trail_decay": {
     "status": "passed_unshipped",
@@ -246,7 +246,7 @@
    },
    "exit_head_ml": {
     "status": "honest_negative",
-    "ref": "exit-head round 2 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 953 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.55 (2023/2024 folds <0.50); best conditional shape below_half_r@tau0.15 beats actual 4/5 folds on both axes but gives back the 2023 trend year (+67.8R actual vs +3.0R; the plain stale-8 hard rule gets +37.2R there). Honest negative \u2014 no E2"
+    "ref": "exit-head round 2 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 953 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.55 (2023/2024 folds <0.50); best conditional shape below_half_r@tau0.15 beats actual 4/5 folds on both axes but gives back the 2023 trend year (+67.8R actual vs +3.0R; the plain stale-8 hard rule gets +37.2R there). Honest negative \u2014 no E2 || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_4h/donchian): peak_is_in retarget lifted AUC to 0.65-0.76 but STILL honest_negative at the E1 gate \u2014 best fixed cells (peak_full/lock0.5 tau0.7-0.8) pass 2/5 folds; the 2023/2024 trend folds (actual +63R/+116R) cap to ~25-32R under every cell. Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail."
    },
    "trail_decay": {
     "status": "honest_negative",

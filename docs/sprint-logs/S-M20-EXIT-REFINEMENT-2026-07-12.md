@@ -565,3 +565,27 @@ dispatched: peak-is-in retarget rounds for the 4h-donchian + 2h-pullback
 exit-head families. Follow-ups filed: ml backlog (peak-head E3 parity +
 promotion decision), health backlog note (first-fire scope now includes the
 6 p80 cells).
+
+## Peak-retarget rounds — 4h donchian + 2h pullback verdicts (2026-07-13, M20 tail)
+
+The zero-regret peak-is-in retarget rounds (M21 design §5; trainer relay
+#6280, worktree /tmp/m20_peak2, outputs `runtime_logs/m20_exit_head/peak_{4h,2h}/`,
+gate readout relay #6305) completed. The label retarget lifted AUC exactly as
+it did on the 1h donchians (4h donchian 0.65–0.76; 2h pullback 0.65–0.71,
+live-fold 0.77) — but **both families are HONEST NEGATIVES at the E1 gate**
+(one fixed policy cell beating actual on net_R AND maxDD in ≥2/3 folds):
+
+- **4h donchian** (974 harness trades, 24,997 rows): best fixed cells
+  (peak_full / peak_lock0.5 at τ0.7–0.8) pass 2/5 folds. The 2023/2024
+  trend folds (actual +63.3R / +116.1R) are capped to ~25–32R by every
+  cell — the exhaustion features call "peak is in" far too early inside
+  monster trends.
+- **2h pullback** (1,646 harness + 23 live trades, 78k rows): 0/5 folds.
+  2023 actual +131.1R vs best cell +69.5R. The pooled family exits give
+  up the tail on a healthy leg.
+
+Conclusion (consistent with the 1h finding): **the peak head pays only
+where the actual exit is bad** — BTC 1h donchian (OOS-negative leg, head
+live in shadow) — and hurts healthy legs. No new shadow heads exported;
+the multi-artifact channel stays with the two existing artifacts. The
+exit coverage matrix `exit_head_ml` refs updated for both families.
