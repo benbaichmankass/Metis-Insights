@@ -116,6 +116,93 @@ class TestBybitHappyPath:
 
 
 # ---------------------------------------------------------------------------
+# 1b. Per-symbol cross-check — settleCoin page can omit a live position
+# (BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND)
+# ---------------------------------------------------------------------------
+
+
+class TestBybitPerSymbolCrossCheck:
+    """A single ``settleCoin=USDT`` position/list page can silently omit a
+    configured symbol's residual position (a live 0.001 BTCUSDT on real-money
+    bybit_2 was absent from the settleCoin list while the terminal + a
+    symbol-scoped read saw it — so the reconciler read the account as flat and
+    false-closed the journal row). The per-symbol cross-check must surface the
+    missing position; it queries ONLY the configured symbols not already in the
+    settleCoin page, and swallows a per-symbol read error.
+    """
+
+    def test_settlecoin_page_missing_symbol_is_recovered_per_symbol(self):
+        account = {
+            "account_id": "bybit_2", "exchange": "bybit",
+            "api_key_env": "BYBIT_KEY_2", "market_type": "linear",
+            "symbols": ["BTCUSDT", "ETHUSDT", "XRPUSDT"],
+        }
+        settlecoin_resp = {"result": {"list": [
+            {"symbol": "ETHUSDT", "side": "Buy", "size": "0.12",
+             "avgPrice": "1725.0", "unrealisedPnl": "5.0"},
+            {"symbol": "XRPUSDT", "side": "Sell", "size": "159.6",
+             "avgPrice": "1.088", "unrealisedPnl": "2.0"},
+        ]}}
+        # BTCUSDT is ABSENT from the settleCoin page but live per-symbol.
+        per_symbol = {
+            "BTCUSDT": {"result": {"list": [
+                {"symbol": "BTCUSDT", "side": "Buy", "size": "0.001",
+                 "avgPrice": "63862.68", "unrealisedPnl": "-0.27"},
+            ]}},
+        }
+
+        class _FakeClient:
+            def __init__(self):
+                self.calls = []
+
+            def get_positions(self, **kw):
+                self.calls.append(kw)
+                if "symbol" in kw:
+                    return per_symbol.get(kw["symbol"], {"result": {"list": []}})
+                return settlecoin_resp
+
+        fake = _FakeClient()
+        with patch(
+            "src.units.accounts.clients.bybit_client_for", return_value=fake,
+        ):
+            out = account_open_positions(account)
+
+        assert out is not None
+        assert {r["symbol"] for r in out} == {"BTCUSDT", "ETHUSDT", "XRPUSDT"}
+        btc = next(r for r in out if r["symbol"] == "BTCUSDT")
+        assert btc["size"] == 0.001
+        assert btc["entry_price"] == 63862.68
+        # Only the MISSING symbol (BTCUSDT) is cross-checked per-symbol; ETH/XRP
+        # were already surfaced by the settleCoin page, so no redundant query.
+        assert [c["symbol"] for c in fake.calls if "symbol" in c] == ["BTCUSDT"]
+
+    def test_per_symbol_read_error_is_swallowed_settlecoin_stands(self):
+        account = {
+            "account_id": "bybit_2", "exchange": "bybit",
+            "market_type": "linear", "symbols": ["BTCUSDT", "ETHUSDT"],
+        }
+
+        class _FakeClient:
+            def get_positions(self, **kw):
+                if "symbol" in kw:
+                    raise RuntimeError("per-symbol 5xx")
+                return {"result": {"list": [
+                    {"symbol": "ETHUSDT", "side": "Buy", "size": "0.12",
+                     "avgPrice": "1725.0", "unrealisedPnl": "5.0"},
+                ]}}
+
+        with patch(
+            "src.units.accounts.clients.bybit_client_for",
+            return_value=_FakeClient(),
+        ):
+            out = account_open_positions(account)
+        # BTC cross-check raised → swallowed; the settleCoin ETH result stands
+        # (a per-symbol hiccup must never collapse the whole read to None).
+        assert out is not None
+        assert [r["symbol"] for r in out] == ["ETHUSDT"]
+
+
+# ---------------------------------------------------------------------------
 # 2. Missing-creds path
 # ---------------------------------------------------------------------------
 

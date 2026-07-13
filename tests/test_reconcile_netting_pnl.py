@@ -16,6 +16,7 @@ import pytest
 from scripts.ops.reconcile_netting_pnl import (
     aggregate_journal_legs,
     apply_retag,
+    merge_truth,
     parse_bybit_um_csv,
     reconcile,
 )
@@ -66,6 +67,33 @@ def test_transfer_rows_do_not_contribute_pnl(csv_path):
     truth = parse_bybit_um_csv(csv_path)
     # The ETHUSDT TRANSFER_IN row must not add realised PnL.
     assert truth["ETHUSDT"].gross_pnl == pytest.approx(0.0)
+
+
+def test_merge_truth_sums_contracts_across_subaccount_exports(csv_path):
+    """The sub-account stitch: two UM exports for the same journal account_id
+    sum per-contract (union of contracts; fields + counts added)."""
+    part = parse_bybit_um_csv(csv_path)
+    merged = merge_truth([part, part])  # same export twice → everything doubles
+    assert set(merged) == set(part)
+    for contract, m in merged.items():
+        p = part[contract]
+        assert m.gross_pnl == pytest.approx(p.gross_pnl * 2)
+        assert m.fees == pytest.approx(p.fees * 2)
+        assert m.funding == pytest.approx(p.funding * 2)
+        assert m.open_count == p.open_count * 2
+        assert m.close_count == p.close_count * 2
+
+    # a contract present in only ONE export survives the union unchanged
+    other = {"SOLUSDT": type(part["BTCUSDT"])(contract="SOLUSDT", gross_pnl=1.5, close_count=1)}
+    stitched = merge_truth([part, other])
+    assert stitched["SOLUSDT"].gross_pnl == pytest.approx(1.5)
+    assert stitched["BTCUSDT"].gross_pnl == pytest.approx(part["BTCUSDT"].gross_pnl)
+
+
+def test_single_csv_still_required_and_works(csv_path):
+    """Back-compat: one --exchange-csv still parses as before (merge of one)."""
+    merged = merge_truth([parse_bybit_um_csv(csv_path)])
+    assert merged["ADAUSDT"].gross_pnl == pytest.approx(9.43)
 
 
 # --- journal legs -----------------------------------------------------------
