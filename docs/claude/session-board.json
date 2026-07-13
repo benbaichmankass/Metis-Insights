@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] \u2014 one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": null,
-    "branch": null,
-    "pr": null,
-    "claimed_at": null
+    "held_by": "session_01SDLWbfLGV4WYHgC2ugzedf",
+    "branch": "claude/exit-refinement-sprint-l74k6o",
+    "pr": 6273,
+    "claimed_at": "2026-07-13T08:36:20.601245+00:00"
   },
   "active_sessions": [
     {
@@ -28,9 +28,9 @@
     {
       "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
       "branch": "claude/exit-refinement-sprint-l74k6o",
-      "intent": "M20 P4 momentum-exhaustion. PR #6251 MERGED (62509a0) + activated; slot released. Next: P4.4 percentile arm + P4.5 regime-flip replay.",
+      "intent": "M20 P4: merging PR #6273 (operator-approved batch 2 \u2014 p80 decay arms).",
       "started_at": "2026-07-13T05:07:08.981068+00:00",
-      "updated_at": "2026-07-13T05:15:59.028103+00:00"
+      "updated_at": "2026-07-13T08:36:20.601245+00:00"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) \u2014 >24h stale, no matching open PR/branch \u2014 and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
