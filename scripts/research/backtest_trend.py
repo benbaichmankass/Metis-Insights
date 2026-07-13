@@ -45,6 +45,7 @@ class Trade:
     r_multiple: float
     entry_time: Any
     exit_time: Any
+    mfe_r: float = 0.0
 
 
 def _load(path: str) -> pd.DataFrame:
@@ -215,13 +216,17 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                 # +bank_at_r, remainder at the exit r.
                 if pos.get('banked'):
                     r = bank_frac * bank_at_r + (1.0 - bank_frac) * r
+                mfe_now = ((pos['peak'] - pos['entry'])
+                           if pos['direction'] == 'long'
+                           else (pos['entry'] - pos['peak'])) / pos['risk']
                 trades.append(Trade(
                     pos['direction'], pos['entry'], pos['sl_init'], pos['risk'],
                     exit_px if hit else cl,
                     'trail_stop' if hit else ('flip' if opp else (
                         'timeout' if tmo else (
                             'stale_stop' if stale else 'giveback_stop'))),
-                    round(r, 6), pos['entry_time'], bar['timestamp']))
+                    round(r, 6), pos['entry_time'], bar['timestamp'],
+                    mfe_r=round(mfe_now, 4)))
                 pos = None
         if pos is None:
             s = int(sig.iloc[i])
@@ -372,6 +377,7 @@ def main(argv: List[str]) -> int:
                     'direction': t.direction, 'entry': t.entry, 'sl': t.sl,
                     'gross_r': t.r_multiple,
                     'net_r': round(t.r_multiple - _fee_r(t), 4),
+                    'mfe_r': t.mfe_r,
                     'exit_reason': t.outcome}, default=str) + '\n')
     out = summarize(trades, params, df)
     line = (f"trend_donchian — {a.symbol} {a.timeframe} dc={a.donchian} tm={a.trail_mult} "

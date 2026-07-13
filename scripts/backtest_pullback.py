@@ -329,6 +329,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                     # builder can reconstruct the per-bar in-trade path.
                     "entry": t.entry, "sl": t.sl,
                     "exit_time": str(t.exit_time),
+                    "mfe_r": t.mfe_r,
                     "exit_reason": t.outcome}, default=str) + "\n")
     params: Dict[str, Any] = {"trend_lookback": trend_lookback,
                               "pullback_lookback": pullback_lookback,

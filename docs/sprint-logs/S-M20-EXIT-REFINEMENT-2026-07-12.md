@@ -497,3 +497,29 @@ once #6251 merges + deploys; promotion past shadow stays the operator gate.
 **Open asks (operator):** PR #6251 approval — the P4.1 lever + 9 decay-cell
 declares + the multi-artifact scorer, one batch. Post-merge: pull-and-deploy +
 restart, then first-fire mechanics checks (BL-20260712-M20-CELL-FIRST-FIRE).
+
+## Merge + activation + P4.4 kick (2026-07-13 morning)
+
+**PR #6251 MERGED (operator: "Hope you have a good merge") and ACTIVATED** —
+squash `62509a0`; merge protocol followed (slot claimed/released on the board,
+CI 18/18 green on the merge head, only open PR). `pull-and-deploy` #6258 rolled
+the live VM `f67be26 → 62509a0`; `/api/diag/version` confirms `62509a02`;
+heartbeat running. Live now: the trail-decay lever (both family monitors), the
+9 decay-cell declares, the multi-artifact exit-head channel.
+
+**Post-activation verification (relays #6261-#6267):** trader ticking
+normally; shadow log alive (regime + setup-quality heads writing per bar).
+Exit-head scoring is CONDITION-GATED right now — no open 1h donchian-family
+trade exists (yesterday's BTC long closed; the open real-money XRP short is
+4h, correctly excluded by the tf in-distribution guard), so the peak head's
+first live score + the decay cells' first fire await the next qualifying
+entry/stall — tracked under BL-20260712-M20-CELL-FIRST-FIRE for the next
+health-review. Relay lesson: ampersand-bearing paths must ride the issue BODY
+(the title parser mangles `&`), and prose bodies break the path parser (paths
+only).
+
+**P4.4 launched:** harnesses emit per-trade `mfe_r`; the sweep computes each
+leg's P80 winner-MFE from the IS window and gates the dynamic
+`decay_p80arm<X>R` cell (--p80-only re-run mode; base now also threads the
+SHIPPED trail_decay declares so p80 cells on declared legs test the additive
+refinement). Running detached on the trainer (relay #6263, nice 19).

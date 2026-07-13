@@ -137,6 +137,9 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None) -
         opt("--stale-exit-below-r", "stale_exit_below_r")
         opt("--giveback-min-mfe-r", "giveback_min_mfe_r")
         opt("--giveback-r", "giveback_r")
+        opt("--trail-decay-arm-r", "trail_decay_arm_r")
+        opt("--trail-decay-stall-bars", "trail_decay_stall_bars")
+        opt("--trail-decay-tight-mult", "trail_decay_tight_mult")
     if fam == "donchian":
         opt("--donchian", "donchian")
         opt("--atr-period", "atr_period")
@@ -223,6 +226,32 @@ def cells_for(cfg: dict, fam: str | None = None) -> list[tuple[str, str, list[st
     return out
 
 
+def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
+    """P80 of the WINNER-trade MFE distribution over the IS window only
+    (M20 P4.4 — the percentile arm is baked from train-window trades so the
+    OOS verdict never sees test data; the by_year folds inside IS carry the
+    one-scalar caveat, recorded in the cell tag). None when < 30 winners."""
+    tmp = "/tmp/m20_p80_emit.jsonl"
+    cmd = [sys.executable, str(REPO / harness), *base,
+           "--emit-trades", tmp, "--json", "/tmp/m20_p80_metrics.json",
+           "--end", split]
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+        if p.returncode != 0:
+            return None
+        mfes = []
+        for line in Path(tmp).read_text().splitlines():
+            t = json.loads(line)
+            if float(t.get("net_r") or 0) > 0 and t.get("mfe_r") is not None:
+                mfes.append(float(t["mfe_r"]))
+        if len(mfes) < 30:
+            return None
+        mfes.sort()
+        return round(mfes[int(0.8 * (len(mfes) - 1))], 2)
+    except Exception:  # noqa: BLE001 — advisory cell, never blocks the sweep
+        return None
+
+
 def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
     tmp = "/tmp/m20_fleet_cell.json"
     cmd = [sys.executable, str(REPO / harness), *args, "--json", tmp]
@@ -264,6 +293,9 @@ def main(argv: list[str]) -> int:
                          "trail_decay) — skips already-verdicted cells on a re-run")
     ap.add_argument("--list", action="store_true",
                     help="print the run plan (leg -> harness/data/cells) and exit")
+    ap.add_argument("--p80-only", action="store_true",
+                    help="P4.4 re-run: evaluate ONLY the dynamic p80 decay cell "
+                         "per leg (fixed cells already verdicted)")
     a = ap.parse_args(argv[1:])
 
     strategies = (yaml.safe_load((REPO / "config" / "strategies.yaml")
@@ -324,6 +356,27 @@ def main(argv: list[str]) -> int:
                              "error": base_is.get("error") or base_oos.get("error")}
             continue
         leg_v = {"proxy": p["proxy"], "levers": {}}
+        # M20 P4.4 — dynamic MFE-percentile decay cell: arm at the leg's own
+        # P80 winner-MFE (IS window only) instead of a fixed R. Only where the
+        # family has the decay lever and the fixed decay cells are in scope.
+        decay_in_scope = any(lv == "trail_decay" for _, lv, _ in p["cells"])
+        if a.p80_only:
+            p["cells"] = []  # fixed cells already verdicted; p80 cell only
+        if (p["family"] in ("donchian", "pullback") and decay_in_scope):
+            tm_val = next((float(x[1]) for x in
+                           zip(p["base"], p["base"][1:])
+                           if x[0] == "--trail-mult"), None)
+            p80 = winner_mfe_p80(p["harness"], p["base"], a.split)
+            if p80 is not None and p80 > 0.5 and tm_val:
+                tight = max(1.5, round(tm_val / 2.0, 1))
+                p["cells"].append(
+                    (f"decay_p80arm{p80:g}R_t{tight:g}", "trail_decay",
+                     ["--trail-decay-arm-r", str(p80),
+                      "--trail-decay-tight-mult", str(tight)]))
+                print(f"   p80 winner-MFE arm = {p80}R", flush=True)
+            else:
+                print(f"   p80 cell skipped (p80={p80}, tm={tm_val})",
+                      flush=True)
         for tag, lever, extra in p["cells"]:
             args = p["base"] + extra
             c_is = run_cell(p["harness"], args, end=a.split)

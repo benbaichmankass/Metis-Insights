@@ -169,6 +169,8 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
+    trail_decay_arm_r: 6.49   # M20 P4.4 p80 cell (p80 winner-MFE arm, wf 4/6; sweep 2026-07-13)
+    trail_decay_tight_mult: 2.5
     # No fixed profit target — the Chandelier trail is the sole
     # profit-exit (matches the backtest, which has no TP). `tp` is placed
     # tp_r × risk away as a far, effectively-unreachable sentinel that
@@ -909,6 +911,8 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
+    trail_decay_arm_r: 5.57   # M20 P4.4 p80 cell (p80 arm, wf 5/6; sweep 2026-07-13)
+    trail_decay_tight_mult: 2.5
     tp_r: 50.0
     min_confidence: 0.60
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
@@ -1246,6 +1250,8 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 4.0
+    trail_decay_arm_r: 3.56   # M20 P4.4 p80 cell (p80 arm, wf 5/6; sweep 2026-07-13)
+    trail_decay_tight_mult: 2.0
     tp_r: 50.0
     min_confidence: 0.0
     shadow_model_ids: []
@@ -1350,6 +1356,7 @@ strategies:
     atr_stop_mult: 2.0
     trail_mult: 4.0
     trail_decay_stall_bars: 10   # M20 P4.1 decay cell (stall10 tight2 wf 4/6; sweep 2026-07-12, PR #6251)
+    trail_decay_arm_r: 5.06     # M20 P4.4 p80 arm ADDED to stall10 (combo measured on the declared base, wf 5/6; sweep 2026-07-13)
     trail_decay_tight_mult: 2.0
     min_confidence: 0.0
     shadow_model_ids: []
@@ -1875,6 +1882,8 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
+    trail_decay_arm_r: 4.49   # M20 P4.4 p80 cell (p80 arm, wf 5/6; sweep 2026-07-13)
+    trail_decay_tight_mult: 2.5
     tp_r: 50.0
     min_confidence: 0.0
     adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
@@ -1915,6 +1924,8 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
+    trail_decay_arm_r: 4.86   # M20 P4.4 p80 cell (p80 arm, wf 4/6; sweep 2026-07-13)
+    trail_decay_tight_mult: 2.5
     tp_r: 50.0
     min_confidence: 0.0
     adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
