@@ -1,0 +1,480 @@
+{
+ "_doc": "M21 entry-refinement coverage matrix - one row per strategy leg (same roster as the M20 exit matrix). THE milestone's done-condition: every live leg carries a verdict per entry-filter column (shipped / passed_unshipped / honest_negative / pending / blocked:<reason> / n/a). Update in the SAME PR as any verdict-producing work. Statuses only from verified evidence (memo/sprint-log/PR refs) - never inferred. Design: docs/research/M21-entry-refinement-DESIGN.md.",
+ "updated_at": "2026-07-13",
+ "lever_columns": [
+  "entry_baseline",
+  "confirmation_bars",
+  "depth_threshold",
+  "vol_at_entry",
+  "time_of_day",
+  "p_win_head"
+ ],
+ "legend": {
+  "shipped": "validated + live (ref = PR/date)",
+  "passed_unshipped": "validated, awaiting implementation/approval",
+  "honest_negative": "tested, failed the gate - the unfiltered entry stands",
+  "pending": "not yet processed",
+  "blocked": "cannot process yet (reason given)",
+  "n/a": "structurally inapplicable"
+ },
+ "column_notes": {
+  "entry_baseline": "E-1 evidence pass (m21_entry_baseline.py) - status 'shipped' here means the leg's diagnostics were computed and rank-listed, not that anything changed live",
+  "confirmation_bars": "require the signal to hold N closed bars before entering (E-2)",
+  "depth_threshold": "tighter breakout-depth / setup-strength cells: donchian min_confidence, pullback pullback_frac band + adx_min (E-2)",
+  "vol_at_entry": "skip entries at extreme entry-bar ATR percentile (E-2)",
+  "time_of_day": "skip the leg's data-derived net-negative hours; same yearly walk-forward gate - no cherry-picked windows (E-2)",
+  "p_win_head": "ML P(win)-at-entry head (first_touch +1R before -1R label); primary consumer is the M18 allocator (E-3)"
+ },
+ "rows": [
+  {
+   "strategy": "trend_donchian",
+   "symbol": "BTCUSDT",
+   "tf": "1h",
+   "execution": "live",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "trend_donchian_eth",
+   "symbol": "ETHUSDT",
+   "tf": "1h",
+   "execution": "live",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "trend_donchian_sol",
+   "symbol": "SOLUSDT",
+   "tf": "1h",
+   "execution": "live",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "htf_pullback_trend_2h",
+   "symbol": "BTCUSDT",
+   "tf": "2h",
+   "execution": "live",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "eth_pullback_2h",
+   "symbol": "ETHUSDT",
+   "tf": "2h",
+   "execution": "live",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax_pullback_2h / eth_pullback_prop_2h",
+   "symbol": "SOL/XRP/ADA/AVAX/ETH USDT",
+   "tf": "2h",
+   "execution": "live",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "trend_donchian_{eth,sol,xrp,ada,avax}_4h",
+   "symbol": "ETH/SOL/XRP/ADA/AVAX USDT",
+   "tf": "4h",
+   "execution": "live",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "squeeze_breakout_4h",
+   "symbol": "BTCUSDT",
+   "tf": "4h",
+   "execution": "live",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "fvg_range_15m",
+   "symbol": "BTCUSDT",
+   "tf": "15m",
+   "execution": "live",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "mes_trend_long_1d / mgc_pullback_1d / mhg_pullback_1d",
+   "symbol": "MES/MGC/MHG",
+   "tf": "1d",
+   "execution": "live",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "xauusd_trend_1h",
+   "symbol": "XAUUSD",
+   "tf": "1h",
+   "execution": "live",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; gld/tlt/ief/slv/gdx/iaum pullback)",
+   "symbol": "US ETFs",
+   "tf": "1d",
+   "execution": "live",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend)",
+   "symbol": "US ETFs",
+   "tf": "1h",
+   "execution": "live",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "shadow fleet (turtle_soup, fade_breakout_4h, vwap, ict_scalp_5m, trend_donchian_1h, mgc_trend_1h, *_prop)",
+   "symbol": "various",
+   "tf": "various",
+   "execution": "shadow",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  },
+  {
+   "strategy": "xauusd_trend_1h / mgc_trend_1h",
+   "symbol": "XAUUSD/MGC",
+   "tf": "1h",
+   "execution": "disabled / shadow",
+   "entry_baseline": {
+    "status": "pending",
+    "ref": null
+   },
+   "confirmation_bars": {
+    "status": "pending",
+    "ref": null
+   },
+   "depth_threshold": {
+    "status": "pending",
+    "ref": null
+   },
+   "vol_at_entry": {
+    "status": "pending",
+    "ref": null
+   },
+   "time_of_day": {
+    "status": "pending",
+    "ref": null
+   },
+   "p_win_head": {
+    "status": "pending",
+    "ref": null
+   }
+  }
+ ]
+}
