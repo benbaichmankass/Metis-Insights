@@ -3904,7 +3904,18 @@
       "progress_2026_07_13": "Root cause widened: the puller was never wired (no timer/action) AND pulled the spot category only while bybit_2 trades linear perps — it could never have populated the store. Fixed on PR #6290: --category linear support in scripts/pull_exchange_fills.py + new Tier-2 system-action pull-exchange-fills (wrapper scripts/ops/pull_exchange_fills_action.sh, workflow + docs registered). Dispatchable after merge; daily timer remains a follow-up.",
       "resolved_at": "2026-07-13T11:20:00+00:00",
       "resolution": "RESOLVED end-to-end 2026-07-13. Root cause was two-fold: the S-067 puller had (a) no timer/action and (b) pulled the Bybit SPOT category only while bybit_2 trades linear perps. PR #6290 shipped --category linear + the on-demand pull-exchange-fills action; the first run (issue #6298) inserted 31 fills and /api/bot/pnl/exchange (issue #6299) then served real data (fill_count=31 across BTC/XRP/ADA, -$10.51 realised / +$7.30 unrealised). DURABILITY: a follow-up PR adds ict-exchange-fills-pull.{service,timer} (daily 00:20 UTC, venv python, DATA_DIR-pinned, DEFAULT_SKIP-listed) so the 7-day window stays fully covered without an on-demand run. Note: an ADA row shows open_qty_signed -389 which is the FIFO lot-pairing view (exchange-truth), distinct from the journal's net — expected, the two stores are independent by design."
+    },
+    {
+      "id": "BL-20260713-DIAG-SURFACE-FETCH-FAILED",
+      "opened_at": "2026-07-13T13:45:00+00:00",
+      "opened_by": "claude (S-HEALTH-BYBIT-BTC)",
+      "source": "Post-#6302-deploy verification: every /api/diag/* read via the vm-diag-snapshot relay returns fetch_failed / run failure (issues #6313-#6317). A JSON-array-body read reached the VM but both paths returned {\"error\":\"fetch_failed\"}. The #6310 pull-and-deploy log corroborates: 'Skipping post-deploy version assertion (DIAG_READ_TOKEN unset and /etc/ict-trading-bot/diag_token not readable)'. Diag relay reads succeeded EARLIER this same session, so the surface broke at/after the deploy web-api restart (13:18Z).",
+      "title": "/api/diag/* surface unreadable post-deploy \u2014 DIAG_READ_TOKEN unset on the VM (diag relay returns fetch_failed), blinding future health/system reviews",
+      "severity": "medium",
+      "status": "open",
+      "suggested_fix": "Confirm whether DIAG_READ_TOKEN is set in /etc/ict-trader/web-api.env on the live VM and matches the DIAG_READ_TOKEN Actions secret the relay uses. If unset/mismatched, restore via the set-diag-token system-action (Tier-2) which regenerates + syncs both sides, then re-probe api/diag/status. The public /api/bot/* surface is unaffected (dashboard still reads it); only the token-gated diag relay is blind.",
+      "notes": "Does not block trading or the dashboard. Only the PM-side diag relay read path is affected. NEWS_SOURCE=rss activation (#6312) was still confirmed authoritatively via the set-env wrapper output (.env write + trader restarted active), independent of the diag surface."
     }
   ],
-  "updated_at": "2026-07-13T12:35:00+00:00"
+  "updated_at": "2026-07-13T13:45:00+00:00"
 }
