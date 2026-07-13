@@ -523,3 +523,30 @@ leg's P80 winner-MFE from the IS window and gates the dynamic
 `decay_p80arm<X>R` cell (--p80-only re-run mode; base now also threads the
 SHIPPED trail_decay declares so p80 cells on declared legs test the additive
 refinement). Running detached on the trainer (relay #6263, nice 19).
+
+## Batch 2 merged + activated; P4.5 verdict (2026-07-13 mid-morning)
+
+**PR #6273 MERGED (operator: "you can merge whats ready and contune") and
+ACTIVATED** — squash `c4b103b`; merge protocol followed (slot claimed/released,
+CI green 21/21 on merge head). `pull-and-deploy` #6274 rolled the live VM
+`62509a0 → c4b103b`; `/api/diag/version` confirms. Live now: the 6 p80
+winner-MFE decay arms (trend_donchian BTC 6.49R, xrp 4.49R, avax 4.86R,
+sol_4h 5.57R, qqq 3.56R, gld +5.06R combo on stall10).
+
+**P4.5 regime-flip exits: HONEST NEGATIVE fleet-wide** (m20_flip_replay_sweep,
+relay #6276). Wherever the frozen ADX-14 flip fires (pullback chop-OFF cells,
+72-89% of trades) it guts the trend tail: eth_pullback_2h +67.7R→−11.8R,
+tlt_pullback_1h +77.1→−26.6, gld_pullback_1h +115.5→+29.0; wf 0-2/6 typical.
+The apparent PASSes are degenerate ties (long-only donchian legs no 1-D cell
+ever gates → flip never fires) or improvements on money-losing shadow legs.
+Consistent with the M20 through-line: the frozen label reads "chop" inside
+live trends, and premature exits destroy the tail — the peak-is-in head
+(AUC ~0.71, soaking in shadow) addresses the same question correctly. The
+frozen-label variant is CLOSED; an ML-label variant would need per-symbol
+advisory heads (BTC-only today) and is not queued. Matrix gained the
+`regime_flip_exit` column (honest_negative, all rows).
+
+P4 remaining: peak-head shadow soak → parity check → E3 proposal (operator
+gate); P4.6 conditioned banking only if it can beat BOTH run-the-winner and
+the shipped tighten arms; P4.7 GPU sequence model only if the tree head
+plateaus (it has not — it cleared the gate).
