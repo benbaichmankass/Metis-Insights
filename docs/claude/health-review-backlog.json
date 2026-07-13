@@ -2450,8 +2450,10 @@
       "title": "ict-health-snapshot runs under /usr/bin/python3 (system), not the trader venv -> ib_paper balance always 'unavailable'",
       "description": "deploy/ict-health-snapshot.service ExecStart uses /usr/bin/python3, which lacks the venv packages (ib_insync etc.). write_health_snapshot.py's account_balance(ib_paper) then logs 'ib_insync is not installed' and reports the ib_paper balance unavailable -- even though the trader venv has ib_insync 0.9.86 and trades IB fine. Cosmetic but a scary false-positive. Fix: point the unit's ExecStart at /home/ubuntu/ict-trading-bot/.venv/bin/python. Tier-2 (unit-file).",
       "tier": 2,
-      "status": "open",
-      "progress_2026_07_13": "2026-07-13 09:15Z snapshot reports accounts_api 'all 6 broker-API accounts ok' incl. ib_paper — either the unit ExecStart was fixed or the check path changed; verify deploy/ict-health-snapshot.service ExecStart before closing."
+      "status": "resolved",
+      "progress_2026_07_13": "2026-07-13 09:15Z snapshot reports accounts_api 'all 6 broker-API accounts ok' incl. ib_paper — either the unit ExecStart was fixed or the check path changed; verify deploy/ict-health-snapshot.service ExecStart before closing.",
+      "resolved_at": "2026-07-13T11:20:00+00:00",
+      "resolution": "Already fixed on disk + live: deploy/ict-health-snapshot.service ExecStart is /home/ubuntu/ict-trading-bot/.venv/bin/python (venv, not system /usr/bin/python3), with an inline comment citing this backlog ID as the reason. Confirmed live: the pre-deploy 2026-07-13 09:15Z snapshot reported accounts_api 'all 6 broker-API accounts ok' incl. ib_paper — the false 'ib_insync not installed' no longer fires. The item was simply never marked resolved; closing it (verified during the 2026-07-13 backlog drain)."
     },
     {
       "id": "BL-20260615-HEARTBEAT-ENV",
@@ -3889,11 +3891,13 @@
       "title": "[observability] exchange-fills store empty — /api/bot/pnl/exchange returns 0 fills over 7d while bybit_2 traded daily",
       "description": "summary.fill_count=0, by_symbol=[] for days=7 even though bybit_2 closed multiple trades in the window. scripts/pull_exchange_fills.py is evidently not running (no timer or stale runtime_state/exchange_fills.sqlite). The exchange-truth P&L attribution surface — the designed cross-check for exactly the orphan-reconciliation work in BL-20260713-BYBIT2-BTC-ORPHANS-UNRECONCILED — is dark. Fix: schedule/repair the fills puller (Tier-2 timer) or document it as on-demand and run it before reconciliation passes.",
       "tier": 2,
-      "status": "in_progress",
+      "status": "resolved",
       "trigger_condition": "Next reconciliation pass needing exchange-truth fills.",
       "resolution_criteria": "/api/bot/pnl/exchange returns non-zero fills covering the trailing week, or the puller is documented as on-demand with a runbook step.",
-      "progress_2026_07_13": "Root cause widened: the puller was never wired (no timer/action) AND pulled the spot category only while bybit_2 trades linear perps — it could never have populated the store. Fixed on PR #6290: --category linear support in scripts/pull_exchange_fills.py + new Tier-2 system-action pull-exchange-fills (wrapper scripts/ops/pull_exchange_fills_action.sh, workflow + docs registered). Dispatchable after merge; daily timer remains a follow-up."
+      "progress_2026_07_13": "Root cause widened: the puller was never wired (no timer/action) AND pulled the spot category only while bybit_2 trades linear perps — it could never have populated the store. Fixed on PR #6290: --category linear support in scripts/pull_exchange_fills.py + new Tier-2 system-action pull-exchange-fills (wrapper scripts/ops/pull_exchange_fills_action.sh, workflow + docs registered). Dispatchable after merge; daily timer remains a follow-up.",
+      "resolved_at": "2026-07-13T11:20:00+00:00",
+      "resolution": "RESOLVED end-to-end 2026-07-13. Root cause was two-fold: the S-067 puller had (a) no timer/action and (b) pulled the Bybit SPOT category only while bybit_2 trades linear perps. PR #6290 shipped --category linear + the on-demand pull-exchange-fills action; the first run (issue #6298) inserted 31 fills and /api/bot/pnl/exchange (issue #6299) then served real data (fill_count=31 across BTC/XRP/ADA, -$10.51 realised / +$7.30 unrealised). DURABILITY: a follow-up PR adds ict-exchange-fills-pull.{service,timer} (daily 00:20 UTC, venv python, DATA_DIR-pinned, DEFAULT_SKIP-listed) so the 7-day window stays fully covered without an on-demand run. Note: an ADA row shows open_qty_signed -389 which is the FIFO lot-pairing view (exchange-truth), distinct from the journal's net — expected, the two stores are independent by design."
     }
   ],
-  "updated_at": "2026-07-13T10:20:00+00:00"
+  "updated_at": "2026-07-13T11:20:00+00:00"
 }
