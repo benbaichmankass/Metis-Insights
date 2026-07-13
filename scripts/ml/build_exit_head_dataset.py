@@ -386,6 +386,35 @@ def rows_for_trade(tr: dict, candles: List[dict], cand_ts: List[float],
         fmd = final_mfe - r["mfe_r"]
         r["future_mfe_delta"] = round(fmd, 4)
         r["peak_is_in"] = 1 if fmd <= HOLDING_PAYS_R else 0
+    # M21 E-3 P_win labels (entry-refinement design § E-3): per-TRADE,
+    # truncation-observable from the same bar path — did the trade touch
+    # +1R (bar high basis) BEFORE it touched -1R (bar low basis)? A bar
+    # that crosses both is counted conservatively as the loss touching
+    # first (the stop is intrabar-first everywhere else in this repo).
+    # Stamped on every row (constant per trade); the entry head trains on
+    # the age_bars==0 slice with entry-time features only.
+    first_touch_1r = 0
+    reaches_2r = 0
+    for a, k in enumerate(range(i0, j_end)):
+        c = candles[k]
+        hi_r = ((c["high"] - entry) if is_long else (entry - c["low"])) / risk
+        lo_r = ((c["low"] - entry) if is_long else (entry - c["high"])) / risk
+        if lo_r <= -1.0:
+            break
+        if hi_r >= 1.0:
+            first_touch_1r = 1
+            # keep scanning (loss can no longer pre-empt) for the 2R touch
+            for k2 in range(k, j_end):
+                c2 = candles[k2]
+                h2 = ((c2["high"] - entry) if is_long
+                      else (entry - c2["low"])) / risk
+                if h2 >= 2.0:
+                    reaches_2r = 1
+                    break
+            break
+    for r in out:
+        r["first_touch_1r"] = first_touch_1r
+        r["reaches_2r"] = reaches_2r
     return out
 
 
