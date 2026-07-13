@@ -159,3 +159,21 @@ anything we need to merge, you can merge it"). Batch 2:
   RETIRED (enabled:false; config adopted into the flagship) so a declare
   is inert, and the cell leaves it net-negative anyway. scha confirm_1
   skipped (4/6, +0.3R — not worth it). xrp_4h keeps depth_0.8.
+
+## E-2 round 2 — pullback confirm sweep: HONEST NEGATIVE (2026-07-13)
+
+Fleet sweep complete (19 pullback legs × confirm_1/confirm_2; relay #6345
+launch, #6346 readout). **18/19 legs fail** — the pullback trigger already
+embeds a resume-close confirmation, so an extra confirm bar mostly costs
+entry price without cutting enough early-fails. Sole pass:
+ada_pullback_2h confirm_2 at wf 4/6 — the weakest possible pass, alone
+across the fleet; **PARKED** (a pullback live twin for one marginal cell
+fails the cost-benefit; the scha precedent). Matrix updated fleet-wide.
+
+**E-2 is now complete for both harness families.** Shipped live:
+7 depth declares (batch 1) + the donchian confirmation twin with
+xauusd/mgc confirm_1 (batch 2). Everything else is an honest negative
+or a recorded park. **Next: E-3 — the P_win entry head** (first_touch
++1R-before-−1R label; ETH's only remaining lever; the M18 allocator
+unlock), and the walk-forward-gated time-of-day cells remain optional
+follow-ups.
