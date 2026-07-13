@@ -3868,9 +3868,10 @@
       "title": "[data-integrity] bybit_2 BTC rows orphaned-unreconciled (trades 3171 + 3088) — invisible to BOTH dashboard views; a phantom 0.001 BTC open row steered real-money routing until 2026-07-13 ~00:40Z",
       "description": "Trades 3171 (BTCUSDT long 0.002, htf_pullback_trend_2h, opened 2026-07-05) and 3088 (BTCUSDT long 0.003, trend_donchian, opened 2026-07-01), both REAL MONEY on bybit_2, were set status='orphaned' by stuck_strategy_watchdog on 2026-07-06T12:04Z and remain reconcile_status='unreconciled'. Orphaned rows appear in NEITHER /api/bot/positions (status='open' only) NOR /api/bot/trades/closed (status='closed' only) — the dashboard blind spot the operator hit. Broker truth 2026-07-13 09:26Z: bybit_2 holds NO BTC (only ETHUSDT long 0.12 + XRPUSDT short 159.6), so these rows' local_compute pnl (−1.48 / +6.70) must be reconciled against Bybit closed-pnl records and the rows moved to a terminal reconciled/superseded state. SEPARATELY: at 2026-07-13T00:40Z current_net_position_qty(bybit_2, BTCUSDT) returned +0.001 (trade 3384's flip_suppressed_hold_policy reject cites it — it suppressed a 0.897-confidence real-money ict_scalp short), yet by 09:26Z no open BTC row exists, no BTC row closed today (closed_at gte 2026-07-13 returns only ADA 3385), and the newest bybit_2 BTC close in /trades/closed is 3344 at 2026-07-12T14:46Z. The 0.001 row left the open set with no visible close/orphan record in the queried windows — find it (likely an old low-id row orphaned/closed today with an epoch-ms closed_at that evades the text-compare filter) and reconcile it. ALSO: total status='orphaned' rows = 131, all sampled rows reconcile_status='unreconciled' — the no-resting-orphan invariant (2026-06-24 operator directive) is not being drained.",
       "tier": 2,
-      "status": "open",
+      "status": "in_progress",
       "trigger_condition": "Next health-review or /system-review; any new bybit_2 BTC signal.",
-      "resolution_criteria": "Trades 3171 + 3088 (and the phantom 0.001 row once located) reconciled to Bybit closed-pnl truth (reconcile_status='reconciled' or 'superseded'); orphaned-row count trending down; dashboard gains a surface (or Positions-tab banner) for orphaned-unreconciled real-money rows so they are never invisible."
+      "resolution_criteria": "Trades 3171 + 3088 (and the phantom 0.001 row once located) reconciled to Bybit closed-pnl truth (reconcile_status='reconciled' or 'superseded'); orphaned-row count trending down; dashboard gains a surface (or Positions-tab banner) for orphaned-unreconciled real-money rows so they are never invisible.",
+      "progress_2026_07_13": "Operator approved the Tier-2 pass in chat. backfill-orphan-pnl (#6292): 15 candidates, 0 recoverable (all pre-June rows outside Bybit 7-day retention). reconcile-orphan-history DRY-RUN (#6293) reviewed, APPLY (#6294) wrote 17 rows (36 package-reconciled / 26 honest-unreconciled early-era bybit_2 BTC dust / 7 paper phantoms superseded), backup trade_journal.db.reconcile-orphan-bak-20260713T094108Z. OUTSTANDING: verify 3171/3088 post-state (#6295); locate the phantom 0.001 BTC row that was journal-open at 2026-07-13T00:40Z; dashboard surface for orphaned-unreconciled real-money rows."
     },
     {
       "id": "BL-20260713-EXCHANGE-FILLS-STORE-EMPTY",
@@ -3880,10 +3881,11 @@
       "title": "[observability] exchange-fills store empty — /api/bot/pnl/exchange returns 0 fills over 7d while bybit_2 traded daily",
       "description": "summary.fill_count=0, by_symbol=[] for days=7 even though bybit_2 closed multiple trades in the window. scripts/pull_exchange_fills.py is evidently not running (no timer or stale runtime_state/exchange_fills.sqlite). The exchange-truth P&L attribution surface — the designed cross-check for exactly the orphan-reconciliation work in BL-20260713-BYBIT2-BTC-ORPHANS-UNRECONCILED — is dark. Fix: schedule/repair the fills puller (Tier-2 timer) or document it as on-demand and run it before reconciliation passes.",
       "tier": 2,
-      "status": "open",
+      "status": "in_progress",
       "trigger_condition": "Next reconciliation pass needing exchange-truth fills.",
-      "resolution_criteria": "/api/bot/pnl/exchange returns non-zero fills covering the trailing week, or the puller is documented as on-demand with a runbook step."
+      "resolution_criteria": "/api/bot/pnl/exchange returns non-zero fills covering the trailing week, or the puller is documented as on-demand with a runbook step.",
+      "progress_2026_07_13": "Root cause widened: the puller was never wired (no timer/action) AND pulled the spot category only while bybit_2 trades linear perps — it could never have populated the store. Fixed on PR #6290: --category linear support in scripts/pull_exchange_fills.py + new Tier-2 system-action pull-exchange-fills (wrapper scripts/ops/pull_exchange_fills_action.sh, workflow + docs registered). Dispatchable after merge; daily timer remains a follow-up."
     }
   ],
-  "updated_at": "2026-07-13T09:40:00+00:00"
+  "updated_at": "2026-07-13T09:55:00+00:00"
 }
