@@ -29,6 +29,16 @@ The canonical LIVE exchange-truth source is the exchange-fills store
 (``runtime_state/exchange_fills.sqlite``, ``src.runtime.exchange_fills_store``);
 ``--exchange-csv`` accepts the operator's manual Bybit UM export when the fills
 store doesn't reach far enough back.
+
+``--exchange-csv`` is **repeatable** — pass it once per UM export and the
+per-contract truth is summed across all of them. This is the
+**sub-account-stitch** case: when an account was traded through more than one
+Bybit sub-account over its life (e.g. bybit_2 switched to a sub-account
+mid-history and back), each sub-account exports its own UM log; the same
+``account_id`` in the journal spans all of them, so the exchange truth for a
+contract is the sum over every export. (Bybit UM ``Change`` already nets fees +
+funding into the wallet delta, so summing exports is the wallet-truth for the
+account regardless of how many sub-accounts it moved through.)
 """
 from __future__ import annotations
 
@@ -94,6 +104,24 @@ def parse_bybit_um_csv(path: str) -> Dict[str, ContractTruth]:
                 t.open_count += 1
             elif action == "CLOSE":
                 t.close_count += 1
+    return out
+
+
+def merge_truth(parts: List[Dict[str, ContractTruth]]) -> Dict[str, ContractTruth]:
+    """Sum per-contract exchange truth across several UM exports (the
+    sub-account stitch). Contracts are unioned; every numeric field and count
+    is added, so the merged truth is the wallet-truth for the account across
+    all the sub-accounts it was traded through."""
+    out: Dict[str, ContractTruth] = {}
+    for part in parts:
+        for contract, t in part.items():
+            m = out.setdefault(contract, ContractTruth(contract=contract))
+            m.gross_pnl += t.gross_pnl
+            m.fees += t.fees
+            m.funding += t.funding
+            m.net_change += t.net_change
+            m.open_count += t.open_count
+            m.close_count += t.close_count
     return out
 
 
@@ -239,7 +267,9 @@ def _resolve_db_path(arg: Optional[str]) -> str:
 def main(argv: List[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--account", default="bybit_2", help="netting account id (default bybit_2)")
-    ap.add_argument("--exchange-csv", required=True, help="Bybit UM Transaction Log CSV")
+    ap.add_argument("--exchange-csv", required=True, action="append", metavar="CSV",
+                    help="Bybit UM Transaction Log CSV (repeatable — pass once per "
+                         "sub-account export; per-contract truth is summed across all)")
     ap.add_argument("--db", default=None, help="trade_journal.db path (default: canonical resolver)")
     ap.add_argument("--tol", type=float, default=0.50,
                     help="USD tolerance for the per-symbol aggregate match (default 0.50)")
@@ -248,13 +278,15 @@ def main(argv: List[str]) -> int:
     args = ap.parse_args(argv[1:])
 
     db_path = _resolve_db_path(args.db)
-    truth = parse_bybit_um_csv(args.exchange_csv)
+    csv_paths = list(args.exchange_csv)
+    truth = merge_truth([parse_bybit_um_csv(p) for p in csv_paths])
     rows = _load_journal_rows(db_path, args.account)
     legs = aggregate_journal_legs(rows)
     results = reconcile(truth, legs, tol=args.tol)
 
     print(f"Netting-aware PnL reconciliation — account={args.account} db={db_path}")
-    print(f"Exchange truth: {args.exchange_csv}  |  tolerance=±${args.tol:.2f}  |  "
+    csv_label = csv_paths[0] if len(csv_paths) == 1 else f"{len(csv_paths)} exports (stitched): {', '.join(csv_paths)}"
+    print(f"Exchange truth: {csv_label}  |  tolerance=±${args.tol:.2f}  |  "
           f"{'APPLY (writeback)' if args.apply else 'DRY-RUN (report only)'}\n")
     header = f"{'symbol':10s} {'ex_gross':>10s} {'journal_sum':>12s} {'delta':>9s}  {'orphans':>7s}  verdict"
     print(header)

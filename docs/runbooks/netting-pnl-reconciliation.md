@@ -67,6 +67,29 @@ python scripts/ops/reconcile_netting_pnl.py \
 `--tol` widens/narrows the aggregate-match tolerance (USD). `--db` overrides the
 journal path (default: the canonical `src.utils.paths.trade_journal_db_path()`).
 
+### Sub-account stitch (repeatable `--exchange-csv`)
+
+When an account was traded through **more than one Bybit sub-account** over its
+life (the same journal `account_id` spans all of them), pass `--exchange-csv`
+**once per export** — per-contract truth is summed across all of them
+(`merge_truth`):
+
+```bash
+python scripts/ops/reconcile_netting_pnl.py --account bybit_2 \
+    --exchange-csv /path/to/MAIN_UMLog.csv \
+    --exchange-csv /path/to/SUB_UMLog.csv
+```
+
+**Caveat for spot+perp / sub-account-switch accounts:** the per-symbol truth
+here is `TRADE`-row gross only. If the account also has a spot leg or a
+sub-account-switch conversion (Bybit `Type='--'` rows), that gross can differ
+from the account's **wallet-truth** realized — the tool will then (correctly)
+report DIVERGES and leave those symbols untouched. For such accounts the
+authoritative realized is the account-level wallet delta (`Change` − transfers),
+not the per-symbol gross. See
+[`docs/audits/bybit2-broker-reconciliation-2026-07-13.md`](../audits/bybit2-broker-reconciliation-2026-07-13.md)
+for a worked example (bybit_2: perp gross +$768 vs wallet-truth −$262.52).
+
 ## Tier
 
 - The **dry-run report** is Tier-1 (read-only).
