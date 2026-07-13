@@ -32,8 +32,8 @@
    "tf": "1h",
    "execution": "live",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "shipped",
+    "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). BTC 1h: 20.6% early-fail costing -79.3R (n=428, net +27.4R); chop-regime entries -15.1R/153t; hour:15 -15.8R. AXIS: confirmation_bars + depth_threshold."
    },
    "confirmation_bars": {
     "status": "pending",
@@ -62,8 +62,8 @@
    "tf": "1h",
    "execution": "live",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "shipped",
+    "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). ETH 1h: 22.4% early-fail costing -144.5R (n=957, net -25.7R - the fleet's worst entry deficit on a live leg); chop entries -41.2R/235t. AXIS: confirmation_bars + depth_threshold (highest priority)."
    },
    "confirmation_bars": {
     "status": "pending",
@@ -92,8 +92,8 @@
    "tf": "1h",
    "execution": "live",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "shipped",
+    "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). SOL 1h: 19.8% early-fail costing -58.7R (n=389, net +45.7R). AXIS: confirmation_bars + depth_threshold."
    },
    "confirmation_bars": {
     "status": "pending",
@@ -122,8 +122,8 @@
    "tf": "2h",
    "execution": "live",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "shipped",
+    "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). BTC 2h: 12.8% early-fail -25.4R (n=375, net +56.4R); chop entries -5.8R/74t; hour:16 -8.5R. AXIS: confirmation_bars (mild) / time_of_day (walk-forward-gated)."
    },
    "confirmation_bars": {
     "status": "pending",
@@ -152,8 +152,8 @@
    "tf": "2h",
    "execution": "live",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "shipped",
+    "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). ETH 2h: 16.7% early-fail -30.6R (n=252, net +67.7R); hour:10 -9.1R. AXIS: confirmation_bars / time_of_day."
    },
    "confirmation_bars": {
     "status": "pending",
@@ -182,8 +182,8 @@
    "tf": "2h",
    "execution": "live",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "shipped",
+    "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). alt 2h pullbacks: 14.8-19.0% early-fail, -2.9 to -28.9R each; scattered hour pockets. AXIS: confirmation_bars; time_of_day only where a pocket survives walk-forward."
    },
    "confirmation_bars": {
     "status": "pending",
@@ -212,8 +212,8 @@
    "tf": "4h",
    "execution": "live",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "shipped",
+    "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). 4h donchians: 12.3-22.7% early-fail, -10.1 to -36.7R each; xrp worst (-36.7R, 22.7%); hour:0 negative on ada/avax/eth/xrp (UTC-midnight bar). AXIS: confirmation_bars + depth_threshold; check hour:0 cell."
    },
    "confirmation_bars": {
     "status": "pending",
@@ -242,8 +242,8 @@
    "tf": "4h",
    "execution": "live",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "blocked",
+    "ref": "no harness emit in the 2026-07-13 flip-replay set (squeeze/fvg/disabled legs) - needs its own --emit-trades run"
    },
    "confirmation_bars": {
     "status": "pending",
@@ -272,8 +272,8 @@
    "tf": "15m",
    "execution": "live",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "blocked",
+    "ref": "no harness emit in the 2026-07-13 flip-replay set (squeeze/fvg/disabled legs) - needs its own --emit-trades run"
    },
    "confirmation_bars": {
     "status": "pending",
@@ -302,8 +302,8 @@
    "tf": "1d",
    "execution": "live",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "shipped",
+    "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). 1d futures: clean entries (2.1-19.7% early-fail but tiny costs -0.9 to -5.5R). Low priority for E-2."
    },
    "confirmation_bars": {
     "status": "pending",
@@ -332,8 +332,8 @@
    "tf": "1h",
    "execution": "live",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "shipped",
+    "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). xauusd/mgc 1h (proxy-identical rows): early-fail negligible (1.5%) BUT trending-regime entries -20.9R/158t and transitional -12.8R/93t - a regime/vol-at-entry shaped deficit, not a confirmation one. AXIS: vol_at_entry / depth_threshold."
    },
    "confirmation_bars": {
     "status": "pending",
@@ -362,8 +362,8 @@
    "tf": "1d",
    "execution": "live",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "shipped",
+    "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). 1d equities: trend legs clean (0-13.8% early-fail, <=-5.7R); slv_pullback_1d is the outlier (19.9%, -29.3R on net +52.6R). AXIS: slv_pullback_1d confirmation_bars; rest low priority."
    },
    "confirmation_bars": {
     "status": "pending",
@@ -392,8 +392,8 @@
    "tf": "1h",
    "execution": "live",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "shipped",
+    "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). 1h equities: low early-fail rates (2.1-7.7%) but real costs on the busy legs (tlt -25.6R, qqq -17.8R, gld -14.6R, spy -13.2R); late-session hours (19/20 UTC) negative on qqq/gld/tlt. AXIS: time_of_day (walk-forward-gated) + confirmation_bars."
    },
    "confirmation_bars": {
     "status": "pending",
@@ -422,8 +422,8 @@
    "tf": "various",
    "execution": "shadow",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "shipped",
+    "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). shadow legs incl. trend_donchian_1h: 22.4% early-fail -187.4R (n=1263, net -74.1R) - confirms the donchian-1h family deficit at scale; prop twins mirror their base legs."
    },
    "confirmation_bars": {
     "status": "pending",
@@ -452,8 +452,8 @@
    "tf": "1h",
    "execution": "disabled / shadow",
    "entry_baseline": {
-    "status": "pending",
-    "ref": null
+    "status": "shipped",
+    "ref": "E-1 fleet baseline 2026-07-13 (#6306): proxy-identical XAUUSD rows - early-fail negligible (1.5%) but trending-regime entries -20.9R/158t; AXIS: vol_at_entry / depth_threshold (same as the live xauusd row)."
    },
    "confirmation_bars": {
     "status": "pending",
