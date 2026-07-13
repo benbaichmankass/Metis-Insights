@@ -28,9 +28,9 @@
   {
    "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
    "branch": "claude/exit-refinement-sprint-l74k6o",
-   "intent": "M20 done (docs current @ 4b41185); M21 Entry Refinement planned. Peak-retarget rounds queued on trainer. Idle pending soak/rounds; operator running /system-review in parallel.",
+   "intent": "M21 E-2 round 1 DONE (23-leg donchian entry sweep): Tier-3 depth-declare batch DRAFT #6322 awaiting operator approval (7 legs min_confidence). Batch 2 queued: live confirmation twin + confirm declares (donchian_1h 6/6). ETH honest-negative -> E-3 P_win candidate.",
    "started_at": "2026-07-13T05:07:08.981068+00:00",
-   "updated_at": "2026-07-13T09:17:58.288428+00:00"
+   "updated_at": "2026-07-13T14:06:09Z"
   }
  ],
  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) \u2014 >24h stale, no matching open PR/branch \u2014 and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
