@@ -47,7 +47,11 @@ def test_variants_present_with_tightened_exits():
         assert b["tp_r"] == 6.0
         # Same entry params as the un-tightened siblings (only exits differ).
         assert (b["donchian"], b["atr_period"], b["atr_stop_mult"]) == (20, 14, 2.5)
-        assert b["min_confidence"] == 0.60
+        # sol 0.6 -> 0.8 per the M21 E-2 depth cell (wf 5/6 on the prop twin,
+        # 6/6 on the sol sibling, sweep 2026-07-13); eth stays 0.6 (no pass).
+        # Sibling parity is enforced by test_entries_unchanged... below.
+        assert b["min_confidence"] == (0.80 if name == "trend_donchian_sol_prop"
+                                       else 0.60)
 
 
 def test_exit_recipe_matches_validated_prop_sibling():
