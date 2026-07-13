@@ -3910,7 +3910,7 @@
       "opened_at": "2026-07-13T13:45:00+00:00",
       "opened_by": "claude (S-HEALTH-BYBIT-BTC)",
       "source": "Post-#6302-deploy verification: every /api/diag/* read via the vm-diag-snapshot relay returns fetch_failed / run failure (issues #6313-#6317). A JSON-array-body read reached the VM but both paths returned {\"error\":\"fetch_failed\"}. The #6310 pull-and-deploy log corroborates: 'Skipping post-deploy version assertion (DIAG_READ_TOKEN unset and /etc/ict-trading-bot/diag_token not readable)'. Diag relay reads succeeded EARLIER this same session, so the surface broke at/after the deploy web-api restart (13:18Z).",
-      "title": "/api/diag/* surface unreadable post-deploy — DIAG_READ_TOKEN unset on the VM (diag relay returns fetch_failed), blinding future health/system reviews",
+      "title": "/api/diag/* surface unreadable post-deploy \u2014 DIAG_READ_TOKEN unset on the VM (diag relay returns fetch_failed), blinding future health/system reviews",
       "severity": "medium",
       "status": "open",
       "suggested_fix": "Confirm whether DIAG_READ_TOKEN is set in /etc/ict-trader/web-api.env on the live VM and matches the DIAG_READ_TOKEN Actions secret the relay uses. If unset/mismatched, restore via the set-diag-token system-action (Tier-2) which regenerates + syncs both sides, then re-probe api/diag/status. The public /api/bot/* surface is unaffected (dashboard still reads it); only the token-gated diag relay is blind.",
@@ -3940,7 +3940,18 @@
       "severity": "medium",
       "status": "open",
       "suggested_next_step": "Run reconcile_netting_pnl.py dry-run on the VM with both sub-account exports (operator provides paths) to re-measure the journal-side sum and re-tag orphan flags on the clean contracts (XRP/ADA/ETH) within tolerance; leave BTC (diverges) untouched. Longer-term: ensure the exchange-fills store (/api/bot/pnl/exchange) becomes the go-forward realized-PnL source of record so the dashboard stops trusting the reconciler-approximate per-row pnl for netting/spot accounts."
+    },
+    {
+      "id": "BL-20260713-SET-DIAG-TOKEN-RESTORE-BROKEN",
+      "opened_at": "2026-07-13T23:05:00+00:00",
+      "opened_by": "claude (system-health-bybit-trade session)",
+      "source": "Post-#6331 deploy verification. The pull-and-deploy restart of ict-web-api.service wiped DIAG_READ_TOKEN again (deploy log: \"Skipping post-deploy version assertion (DIAG_READ_TOKEN unset...)\"), so /api/diag/* returned fetch_failed. Attempts to restore it via the set-diag-token system-action FAILED TWICE (issues #6354, #6355) at the GitHub Actions runner \"Set up job\" step, before SSH ran (wrapper exit: \"set up failed before exec\").",
+      "title": "DIAG_READ_TOKEN wiped on every web-api restart AND the set-diag-token restore path is itself broken (fails at Actions runner set-up)",
+      "detail": "Two coupled problems leaving the /api/diag/* surface blind after deploys: (1) BL-20260713-DIAG-SURFACE recurrence \u2014 a web-api restart (deploy) leaves DIAG_READ_TOKEN unset, so token-gated /api/diag/* reads (exchange_positions, version, etc.) fetch_failed until the token is re-set. Needs a DURABLE fix: the token should persist in /etc/ict-trader/web-api.env and survive restarts (or be re-derived on boot), not require a manual set-diag-token after every deploy. (2) The recovery mechanism is ALSO broken: set-diag-token failed at the runner Set up job step on two consecutive tries (#6354, #6355) \u2014 same transient-looking infra class as the earlier set-env #6311 blip, but it did NOT self-recover on retry, so it may be a persistent workflow/runner-setup regression (check the run pages 29283713835 / 29287545867 for the failing setup step; likely a missing/renamed secret or a checkout/setup action failing before the wrapper execs). Public /api/bot/* reads are unaffected. Impact: future health/system reviews are diag-blind after any deploy until this is fixed.",
+      "severity": "medium",
+      "status": "open",
+      "suggested_next_step": "Inspect the set-diag-token workflow run pages (29283713835, 29287545867) to find the failing Set up job step and fix the workflow (missing secret / setup action). Separately, make DIAG_READ_TOKEN persist across web-api restarts so the diag surface is never blinded by a deploy (write it into the systemd env file authoritatively at deploy time, or have deploy_pull_restart.sh re-assert it from the DIAG_READ_TOKEN Actions secret)."
     }
   ],
-  "updated_at": "2026-07-13T19:15:00+00:00"
+  "updated_at": "2026-07-13T23:05:00+00:00"
 }
