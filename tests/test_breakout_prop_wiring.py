@@ -38,7 +38,10 @@ def test_variants_present_and_scoped():
     for v in ("trend_donchian_sol", "trend_donchian_eth"):
         assert s[v]["donchian"] == 20
         assert s[v]["trail_mult"] == 5.0
-        assert s[v]["min_confidence"] == 0.60
+        # sol 0.6 -> 0.8 per the M21 E-2 depth cell (wf 6/6, sweep
+        # 2026-07-13, #6322); eth stays 0.6 (no E-2 cell passed).
+        assert s[v]["min_confidence"] == (0.80 if v == "trend_donchian_sol"
+                                          else 0.60)
 
 
 def test_both_variants_live_no_shadow_marker_needed():
