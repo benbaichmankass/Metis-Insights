@@ -3910,11 +3910,18 @@
       "opened_at": "2026-07-13T13:45:00+00:00",
       "opened_by": "claude (S-HEALTH-BYBIT-BTC)",
       "source": "Post-#6302-deploy verification: every /api/diag/* read via the vm-diag-snapshot relay returns fetch_failed / run failure (issues #6313-#6317). A JSON-array-body read reached the VM but both paths returned {\"error\":\"fetch_failed\"}. The #6310 pull-and-deploy log corroborates: 'Skipping post-deploy version assertion (DIAG_READ_TOKEN unset and /etc/ict-trading-bot/diag_token not readable)'. Diag relay reads succeeded EARLIER this same session, so the surface broke at/after the deploy web-api restart (13:18Z).",
-      "title": "/api/diag/* surface unreadable post-deploy \u2014 DIAG_READ_TOKEN unset on the VM (diag relay returns fetch_failed), blinding future health/system reviews",
+      "title": "/api/diag/* surface unreadable post-deploy — DIAG_READ_TOKEN unset on the VM (diag relay returns fetch_failed), blinding future health/system reviews",
       "severity": "medium",
       "status": "open",
       "suggested_fix": "Confirm whether DIAG_READ_TOKEN is set in /etc/ict-trader/web-api.env on the live VM and matches the DIAG_READ_TOKEN Actions secret the relay uses. If unset/mismatched, restore via the set-diag-token system-action (Tier-2) which regenerates + syncs both sides, then re-probe api/diag/status. The public /api/bot/* surface is unaffected (dashboard still reads it); only the token-gated diag relay is blind.",
       "notes": "Does not block trading or the dashboard. Only the PM-side diag relay read path is affected. NEWS_SOURCE=rss activation (#6312) was still confirmed authoritatively via the set-env wrapper output (.env write + trader restarted active), independent of the diag surface."
+    },
+    {
+      "id": "BL-20260713-E2-DEPTH-FIRST-FIRE",
+      "opened": "2026-07-13",
+      "status": "open",
+      "title": "E-2 batch-1 depth-gate first-fire checks (7 donchian legs)",
+      "detail": "Verify the tightened min_confidence gates behave live after #6322 (activated 14:29:59Z @ 9155f87): each leg still emits signals (not silently strangled) AND shallow breakouts are being refused (audit rows show confidence below the new gate skipped). Legs: trend_donchian 0.7, trend_donchian_sol 0.8, sol_prop 0.8, xrp_4h 0.8, avax_4h 0.7, xauusd/mgc 0.1. Check trade cadence vs pre-change baseline on the next health-review."
     }
   ],
   "updated_at": "2026-07-13T13:45:00+00:00"

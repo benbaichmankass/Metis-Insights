@@ -336,12 +336,12 @@
     "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). xauusd/mgc 1h (proxy-identical rows): early-fail negligible (1.5%) BUT trending-regime entries -20.9R/158t and transitional -12.8R/93t - a regime/vol-at-entry shaped deficit, not a confirmation one. AXIS: vol_at_entry / depth_threshold."
    },
    "confirmation_bars": {
-    "status": "passed_unshipped",
-    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). confirm_1 PASS wf 5/6 with the LARGER effect (IS -29.3->-7.0 net_R, dd 33.9->18.8) - parked pending the live confirmation twin; revisit in E-2 batch 2."
+    "status": "shipped",
+    "ref": "E-2 batch 2 (2026-07-13): live confirmation twin shipped in trend_donchian unit (_confirmed_breakout, harness-parity-tested). confirm_bars: 1 declared, REPLACING the batch-1 depth cell (confirm_1 dominates IS net/dd + OOS dd at the 0.0 base; one lever per leg). wf 5/6."
    },
    "depth_threshold": {
-    "status": "passed_unshipped",
-    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). depth_0.1 PASS wf 5/6 (OOS 16.2->18.5, dd 11.1->10.4; proxy data - levers OK on proxy). Tier-3 declare proposed (0.0->0.1, batch 1; mgc shadow twin same)."
+    "status": "honest_negative",
+    "ref": "superseded by confirm_1 in batch 2 (confirm dominates; the depth cell was live for <1h between batches). Evidence: depth_0.1 wf 5/6 but weaker IS."
    },
    "vol_at_entry": {
     "status": "pending",
@@ -427,7 +427,7 @@
    },
    "confirmation_bars": {
     "status": "passed_unshipped",
-    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). trend_donchian_1h (shadow) confirm_2 PASS wf 6/6, the round's biggest effect (IS -38.9->-9.5 net_R dd 71.5->46.5; OOS -34.1->-24.7 dd 51.6->35.0) - still net-negative, stays shadow; parked pending the live confirmation twin."
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). trend_donchian_1h (shadow) confirm_2 PASS wf 6/6, the round's biggest effect (IS -38.9->-9.5 net_R dd 71.5->46.5; OOS -34.1->-24.7 dd 51.6->35.0) - still net-negative, stays shadow; parked pending the live confirmation twin. || BATCH-2 NOTE: trend_donchian_1h is a RETIRED leg (enabled:false since 2026-06-01 \u2014 config adopted into the flagship); declaring on it is inert, and the cell leaves it net-negative anyway. NOT declared; evidence stands as the family's strongest confirm datapoint (unfiltered base)."
    },
    "depth_threshold": {
     "status": "honest_negative",
@@ -456,12 +456,12 @@
     "ref": "E-1 fleet baseline 2026-07-13 (#6306): proxy-identical XAUUSD rows - early-fail negligible (1.5%) but trending-regime entries -20.9R/158t; AXIS: vol_at_entry / depth_threshold (same as the live xauusd row)."
    },
    "confirmation_bars": {
-    "status": "passed_unshipped",
-    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). confirm_1 PASS wf 5/6 - parked pending live twin (see xauusd row)."
+    "status": "shipped",
+    "ref": "E-2 batch 2 (2026-07-13): live confirmation twin shipped in trend_donchian unit (_confirmed_breakout, harness-parity-tested). mgc shadow twin: confirm_bars: 1, parity with xauusd kept."
    },
    "depth_threshold": {
-    "status": "passed_unshipped",
-    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). mgc (shadow, proxy-identical to xauusd): depth_0.1 PASS wf 5/6 - same batch-1 declare as xauusd."
+    "status": "honest_negative",
+    "ref": "superseded by confirm_1 (batch 2)."
    },
    "vol_at_entry": {
     "status": "pending",

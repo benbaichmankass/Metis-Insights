@@ -1156,7 +1156,8 @@ strategies:
                              # mgc_trend_1h sibling (parity contract). Leg is
                              # disabled; a re-enable resumes this cell.
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
-    min_confidence: 0.10
+    min_confidence: 0.0
+    confirm_bars: 1   # M21 E-2 confirm_1 (wf 5/6, 2026-07-13) — replaces the depth cell; entry needs 1 confirming close beyond the signal bar's channel edge
     shadow_model_ids: []     # opt out of ML shadow auto-wiring while this
                              # fresh data-collector builds a track record.
 
@@ -1201,7 +1202,8 @@ strategies:
     atr_stop_mult: 2.5
     trail_mult: 4.0
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
-    min_confidence: 0.10
+    min_confidence: 0.0
+    confirm_bars: 1   # M21 E-2 confirm_1 (wf 5/6, 2026-07-13) — replaces the depth cell; entry needs 1 confirming close beyond the signal bar's channel edge
     shadow_model_ids: []     # opt out of ML shadow auto-wiring while this
                              # fresh data-collector builds a track record.
 

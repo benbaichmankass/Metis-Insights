@@ -129,3 +129,33 @@ batch 2 = the live confirm twin + these declares.
 **Honest negatives:** ETH 1h/prop/4h (the fleet's worst E-1 deficit is
 NOT fixed by depth/confirmation — points at E-3 P_win or structural),
 sol/ada 4h, mes, all 1d equity trend legs except scha, slv/uso 1h.
+
+## E-2 batch 1 — APPROVED, MERGED, ACTIVE (2026-07-13)
+
+Operator approved in chat; #6322 merged (squash `9155f87`) after two
+param-pinning test updates surfaced by full CI (prop exit-variants +
+breakout-prop wiring — sol pins moved to 0.8 with the sibling-parity
+contract kept). Deployed via `restart-bot-service` (#6328, restart
+14:29:59Z, service active); `/api/diag/version` confirms the worktree at
+`9155f87` so the restart loaded the new YAML. First-fire checks logged as
+BL-20260713-E2-DEPTH-FIRST-FIRE.
+
+## E-2 batch 2 — live confirmation twin + confirm_1 declares (2026-07-13)
+
+Operator granted proceed-and-merge authority ("keep moving forward…
+anything we need to merge, you can merge it"). Batch 2:
+
+- **Live twin**: `trend_donchian._confirmed_breakout` — stateless N-bar
+  lookback replicating the harness pending semantics exactly (signal-bar
+  anchored channel edge, held closes, opposite-raw-breakout cancel with
+  long_only honoured, depth gate at the signal bar, entry at the latest
+  close). `confirm_bars` in `_DEFAULTS` (0 = byte-identical) + threaded
+  into `base_args` so future sweeps stay config-exact. Harness-parity
+  test proves the twin fires on exactly the harness's entry bar.
+- **Declares**: xauusd_trend_1h + mgc_trend_1h `confirm_bars: 1`,
+  REPLACING the batch-1 depth cell (confirm_1 dominates IS net/dd + OOS
+  dd at the 0.0 base; one lever per leg — no untested stacking).
+- **Scope cuts**: trend_donchian_1h confirm_2 NOT declared — the leg is
+  RETIRED (enabled:false; config adopted into the flagship) so a declare
+  is inert, and the cell leaves it net-negative anyway. scha confirm_1
+  skipped (4/6, +0.3R — not worth it). xrp_4h keeps depth_0.8.

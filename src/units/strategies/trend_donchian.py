@@ -85,6 +85,13 @@ _DEFAULTS: Dict[str, Any] = {
     # (net +25%, expectancy +44%, maxDD -35% vs ungated); the live value is
     # set in config/strategies.yaml.
     "min_confidence": 0.0,
+    # M21 E-2 confirmation-bar entry lever (0 = off, byte-identical): a raw
+    # breakout is actionable only after the close has HELD beyond the signal
+    # bar's channel edge for this many further closed bars (entry then fires
+    # at the latest close — worse price, fewer false breakouts). Mirrors
+    # scripts/backtest_trend.py --confirm-bars exactly; declared per leg in
+    # config/strategies.yaml (Tier-3).
+    "confirm_bars": 0,
 }
 
 
@@ -128,6 +135,58 @@ def _coerce_float(value: Any) -> Optional[float]:
     return f
 
 
+def _confirmed_breakout(df: pd.DataFrame, dc_hi: pd.Series, dc_lo: pd.Series,
+                        atr_series: pd.Series, n: int, long_only: bool,
+                        label: str) -> tuple:
+    """Return (direction, signal_bar_depth) for a matured N-bar confirmation.
+
+    Mirrors ``scripts/backtest_trend.py``'s pending-entry semantics exactly:
+    the raw breakout fired at the bar ``n`` bars back (the signal bar); every
+    close since must have HELD beyond THAT bar's channel edge, with no
+    opposite raw breakout in between (a suppressed side on a long_only leg
+    never cancels, matching the harness's zeroed signal). The depth gate is
+    evaluated at the signal bar (its own channel edge + ATR), as the harness
+    does before creating the pending. Raises ValueError (the standard
+    non-actionable path) when no matured confirmation exists.
+    """
+    t = len(df) - 1
+    s = t - n
+    hi_s, lo_s = dc_hi.iloc[s], dc_lo.iloc[s]
+    atr_s = float(atr_series.iloc[s]) if pd.notna(atr_series.iloc[s]) else 0.0
+    if pd.isna(hi_s) or pd.isna(lo_s) or atr_s <= 0:
+        raise ValueError(
+            f"Strategy '{label}': channel/ATR undefined at the confirmation "
+            "signal bar (non-actionable)."
+        )
+    hi_s, lo_s = float(hi_s), float(lo_s)
+    close_s = float(df["close"].iloc[s])
+    if close_s > hi_s:
+        direction, level, depth = "long", hi_s, (close_s - hi_s) / atr_s
+    elif close_s < lo_s and not long_only:
+        direction, level, depth = "short", lo_s, (lo_s - close_s) / atr_s
+    else:
+        raise ValueError(
+            f"Strategy '{label}': no breakout {n} bar(s) back to confirm "
+            "(non-actionable)."
+        )
+    for i in range(s + 1, t + 1):
+        ci = float(df["close"].iloc[i])
+        held = ci > level if direction == "long" else ci < level
+        if direction == "long":
+            lo_i = dc_lo.iloc[i]
+            opp = (not long_only) and pd.notna(lo_i) and ci < float(lo_i)
+        else:
+            hi_i = dc_hi.iloc[i]
+            opp = pd.notna(hi_i) and ci > float(hi_i)
+        if not held or opp:
+            raise ValueError(
+                f"Strategy '{label}': breakout confirmation failed at bar "
+                f"{i - s}/{n} (close back inside / opposite break) — "
+                "non-actionable."
+            )
+    return direction, depth
+
+
 def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     """Build a trend_donchian OrderPackage dict from the latest candles.
 
@@ -167,7 +226,8 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     tp_r = float(params["tp_r"])
     timeframe = str(cfg.get("timeframe") or params["timeframe"])
 
-    needed = donchian + atr_period + 2
+    confirm_bars = int(params["confirm_bars"] or 0)
+    needed = donchian + atr_period + 2 + max(confirm_bars, 0)
     if len(candles_df) < needed:
         raise ValueError(
             f"Strategy '{label}': need at least {needed} candles for "
@@ -193,7 +253,16 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
 
     hi = float(hi)
     lo = float(lo)
-    if close > hi:
+    if confirm_bars > 0:
+        # M21 E-2 confirmation-bar lever: the breakout fired confirm_bars
+        # bars back and every close since held beyond that bar's channel
+        # edge; entry fires at the LATEST close (below), the depth gate at
+        # the signal bar. Raises the standard non-actionable ValueError
+        # when no matured confirmation exists.
+        direction, breakout_depth = _confirmed_breakout(
+            df, dc_hi, dc_lo, atr_series, confirm_bars,
+            bool(cfg.get("long_only", False)), label)
+    elif close > hi:
         direction = "long"
     elif close < lo:
         direction = "short"
@@ -210,12 +279,14 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         # See `_TP_SENTINEL_CAP_PCT` — cap the 50R sentinel within the
         # exchange's TP-distance tolerance.
         tp = min(entry * (1 + _TP_SENTINEL_CAP_PCT), entry + tp_r * risk)
-        breakout_depth = (close - hi) / atr
+        if confirm_bars == 0:
+            breakout_depth = (close - hi) / atr
     else:
         sl = entry + atr_stop_mult * atr
         risk = sl - entry
         tp = max(entry * (1 - _TP_SENTINEL_CAP_PCT), entry - tp_r * risk)
-        breakout_depth = (lo - close) / atr
+        if confirm_bars == 0:
+            breakout_depth = (lo - close) / atr
 
     if risk <= 0:
         raise ValueError(
@@ -286,6 +357,10 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
                  "trail_decay_tight_mult"):
         if cfg.get(_key) is not None:
             package["meta"][_key] = cfg[_key]
+    if confirm_bars > 0:
+        # Auditability: record that this entry was confirmation-gated
+        # (M21 E-2). Entry-side only — the monitor never reads it.
+        package["meta"]["confirm_bars"] = confirm_bars
     return package
 
 
