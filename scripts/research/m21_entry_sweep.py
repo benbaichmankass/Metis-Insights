@@ -38,19 +38,29 @@ from m20_fleet_exit_sweep import (  # noqa: E402
 
 
 def entry_cells(cfg: dict, fam: str) -> list[tuple[str, str, list[str]]]:
-    """(cell_tag, matrix_lever, extra_args) — round 1 is donchian-only."""
-    if fam != "donchian":
-        return []
-    cells = [
-        ("confirm_1", "confirmation_bars", ["--confirm-bars", "1"]),
-        ("confirm_2", "confirmation_bars", ["--confirm-bars", "2"]),
-    ]
-    base_conf = float(cfg.get("min_confidence") or 0.0)
-    for delta in (0.10, 0.20):
-        v = round(base_conf + delta, 2)
-        cells.append((f"depth_{v:g}", "depth_threshold",
-                      ["--min-confidence", str(v)]))
-    return cells
+    """(cell_tag, matrix_lever, extra_args) per family.
+
+    Round 1 (2026-07-13) covered donchian; round 2 adds the pullback family
+    (confirm cells only — pullback depth is the existing pullback_frac/adx
+    axes, swept separately if the E-1 hints ever justify it).
+    """
+    if fam == "donchian":
+        cells = [
+            ("confirm_1", "confirmation_bars", ["--confirm-bars", "1"]),
+            ("confirm_2", "confirmation_bars", ["--confirm-bars", "2"]),
+        ]
+        base_conf = float(cfg.get("min_confidence") or 0.0)
+        for delta in (0.10, 0.20):
+            v = round(base_conf + delta, 2)
+            cells.append((f"depth_{v:g}", "depth_threshold",
+                          ["--min-confidence", str(v)]))
+        return cells
+    if fam == "pullback":
+        return [
+            ("confirm_1", "confirmation_bars", ["--confirm-bars", "1"]),
+            ("confirm_2", "confirmation_bars", ["--confirm-bars", "2"]),
+        ]
+    return []
 
 
 def main(argv: list[str]) -> int:
@@ -60,6 +70,9 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--out", default=str(REPO / "runtime_logs" / "m21_entry_sweep"))
     ap.add_argument("--only", default=None,
                     help="CSV of leg names to restrict to (debug)")
+    ap.add_argument("--family", default=None,
+                    help="restrict to one harness family (e.g. pullback) — "
+                         "round-2 reruns skip already-verdicted families")
     ap.add_argument("--list", action="store_true")
     a = ap.parse_args(argv[1:])
 
@@ -73,6 +86,8 @@ def main(argv: list[str]) -> int:
         if not isinstance(cfg, dict) or (only and name not in only):
             continue
         fam = classify(name)
+        if a.family and fam != a.family:
+            continue
         cells = entry_cells(cfg, fam) if fam else []
         if not cells:
             skipped.append({"leg": name, "reason": "no_entry_cells"})

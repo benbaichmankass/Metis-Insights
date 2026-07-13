@@ -70,3 +70,52 @@ def test_sustained_breakout_entered_later():
     # confirmed entry is one bar later -> higher entry on a rising tape
     assert c.entry > b.entry
     assert pd.Timestamp(c.entry_time) > pd.Timestamp(b.entry_time)
+
+
+# ── pullback-harness confirm lever (M21 E-2 round 2) ─────────────────────────
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from backtest_pullback import run_backtest as pb_run  # noqa: E402
+
+
+def _pb(df, **kw):
+    return pb_run(df, trend_lookback=10, pullback_lookback=5,
+                  pullback_frac=0.5, atr_period=5, atr_stop_mult=2.0,
+                  trail_mult=3.0, timeout_bars=50, cooldown_bars=1,
+                  timeframe="1h", symbol="BTCUSDT", **kw)
+
+
+def _pb_tape():
+    # Steep uptrend (mid lags well below), shallow pullback into the lower
+    # half of the recent 5-bar range that stays ABOVE the trend midline,
+    # then a resume close (the trigger bar), then the shape under test.
+    up = [100.0 + 1.5 * i for i in range(20)]     # to 128.5
+    pull = [127.0, 125.5, 124.5]
+    trigger = [125.2]
+    return up + pull + trigger
+
+
+def test_pb_default_off_byte_identical():
+    df = _df(_pb_tape() + [126.0, 127.0, 128.0] + [118.0] * 10)
+    a = _pb(df)
+    b = _pb(df, confirm_bars=0)
+    assert a["total_trades"] == b["total_trades"]
+    assert a["net_total_r"] == b["net_total_r"]
+
+
+def test_pb_failed_resume_skipped_by_confirm_1():
+    # Trigger (125.2 > 124.5 resume), then straight back down — base enters
+    # one trade, confirm_1 must not (123.0 not > trigger close 125.2).
+    df = _df(_pb_tape() + [123.0] + [118.0] * 10)
+    base = _pb(df)
+    conf = _pb(df, confirm_bars=1)
+    assert base["total_trades"] == 1
+    assert conf["total_trades"] == 0
+
+
+def test_pb_held_resume_enters_later():
+    df = _df(_pb_tape() + [126.0, 127.0, 128.0] + [118.0] * 10)
+    base = _pb(df)
+    conf = _pb(df, confirm_bars=1)
+    assert base["total_trades"] == 1 and conf["total_trades"] == 1
