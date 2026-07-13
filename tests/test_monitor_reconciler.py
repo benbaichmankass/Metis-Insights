@@ -601,9 +601,14 @@ class TestSSOTReconciler:
         assert row["exit_price"] is None
         notes = json.loads(row["notes"])
         assert notes["closed_by"] == "monitor_reconciler"
-        # closed_at is normalised from Bybit's epoch-ms exec_time to ISO at the
-        # writer (BL-20260620-RECONCILER-CLOSEDAT-MS) — was "1762620000000".
-        assert notes["closed_at"] == "2025-11-08T16:40:00+00:00"
+        # closed_at is stamped now-UTC on the fallback path — the entry
+        # order's exec_time is an annotation only (entry_exec_time), never
+        # the close time: using it backdated the close to the entry fill
+        # (trade 3373, 2026-07-13; sibling of BL-20260620-RECONCILER-CLOSEDAT-MS).
+        assert notes["closed_at"] != "2025-11-08T16:40:00+00:00"
+        _closed_dt = datetime.fromisoformat(notes["closed_at"])
+        assert abs((datetime.now(timezone.utc) - _closed_dt).total_seconds()) < 120
+        assert notes["entry_exec_time"] == "2025-11-08T16:40:00+00:00"
         assert notes["exit_price_source"] == "entry_order_avg_price_unreliable"
         # 2026-05-19 entry_price backfill: the trade was opened at the
         # intent (80000.0 — see _insert_trade) but Bybit reported the

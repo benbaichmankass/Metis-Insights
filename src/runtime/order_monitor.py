@@ -5243,14 +5243,21 @@ def _close_trade_from_order_status(
         # unreliable-source flag (pre-2026-05-16 contract preserved
         # for the no-cfg path + the no-record path).
         exec_time = order_status.get("exec_time")
-        # exec_time is Bybit's epoch-ms execution time — normalise to ISO
-        # before persisting (BL-20260620-RECONCILER-CLOSEDAT-MS).
-        closed_at = (
-            normalize_closed_at_value(exec_time)
-            or datetime.now(timezone.utc).isoformat()
-        )
+        # exec_time is the ENTRY order's epoch-ms execution time — per this
+        # helper's own contract it is an annotation only, never the close
+        # time. Stamping it as closed_at backdates the close to the entry
+        # fill: trade 3373 (2026-07-13) carried closed_at 72ms BEFORE its
+        # created_at while the real position lived two more days, so the
+        # row mis-sorted in /trades/closed as an old close and the actual
+        # close day showed no BTC close at all. No close-side exec record
+        # was recovered on this path, so the honest close time is NOW —
+        # the moment the reconciler observed filled+flat
+        # (BL-20260713-BYBIT2-BTC-ORPHANS-UNRECONCILED, sibling of
+        # BL-20260620-RECONCILER-CLOSEDAT-MS).
+        closed_at = datetime.now(timezone.utc).isoformat()
         notes.update({
             "closed_at": closed_at,
+            "entry_exec_time": normalize_closed_at_value(exec_time),
             "closed_by": "monitor_reconciler",
             "closed_reason":
                 "reconciler — Bybit reports order filled and position flat",

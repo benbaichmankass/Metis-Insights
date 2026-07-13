@@ -251,6 +251,16 @@ _LOG_FILES: dict[str, Path] = {
     # M18 P2+ graduates the allocator to actually select the subset. Absent until
     # the first multi-candidate tick runs.
     "allocator_soak": _ALLOCATOR_SOAK_LOG,
+    # Broker-account-down + trainer-down latch state (BL-20260707-DIAG-
+    # ALLOWLIST-REACHABILITY-LOG): the health-review skill reads these to see
+    # which accounts / whether the trainer are currently latched down —
+    # previously referenced by the skill but missing here, forcing reviews to
+    # infer down-state from exchange_positions nullness instead. JSON state
+    # files (not JSONL) — the tail reader returns the whole file.
+    "account_reachability_alert_state":
+        runtime_logs_dir() / "account_reachability_alert_state.json",
+    "trainer_reachability_alert_state":
+        runtime_logs_dir() / "trainer_reachability_alert_state.json",
     # NEW orphan trade rows (operator directive 2026-06-24: orphan is a problem
     # to reconcile, never a resting status). One JSON line per orphan-created
     # event (account/symbol/side/trade_id/origin/ts), written by

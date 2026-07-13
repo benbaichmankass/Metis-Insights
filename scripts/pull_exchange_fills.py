@@ -59,6 +59,19 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         help="Symbol to query (repeat for multiple); omitted = all-symbols query",
     )
     p.add_argument(
+        "--category",
+        choices=("spot", "linear"),
+        default="spot",
+        help=(
+            "Bybit V5 product category to pull fills from (default: spot, "
+            "the historical behaviour). Use 'linear' for USDT-margined "
+            "perpetuals — bybit_2's market_type per config/accounts.yaml. "
+            "Without it the V5 execution endpoint defaults to spot and "
+            "returns nothing for perp fills (why the store stayed empty, "
+            "BL-20260713-EXCHANGE-FILLS-STORE-EMPTY)."
+        ),
+    )
+    p.add_argument(
         "--api-key-env",
         default="BYBIT_API_KEY",
         help="Env var holding the Bybit API key (default: BYBIT_API_KEY)",
@@ -92,11 +105,20 @@ def main(argv: list[str]) -> int:
         "apiKey": api_key,
         "secret": api_secret,
         "enableRateLimit": True,
-        "options": {"defaultType": "spot"},
+        # ccxt's Bybit V5 routing: perp fills need defaultType=swap AND an
+        # explicit category param on the call (same convention as
+        # src/exchange/bybit_connector.py — the construction-time default
+        # alone is not load-bearing on the unified account).
+        "options": {"defaultType": "swap" if args.category == "linear" else "spot"},
     })
 
+    def _fetch_my_trades(sym, since, limit, params):
+        merged = dict(params or {})
+        merged["category"] = args.category
+        return exchange.fetch_my_trades(sym, since, limit, merged)
+
     rows = fetch_fills_window(
-        exchange.fetch_my_trades,
+        _fetch_my_trades,
         account_id=args.account,
         days=args.days,
         symbols=args.symbol,

@@ -109,8 +109,14 @@ this table you actually need this run, e.g.:
 ```json
 ["audit?limit=600", "journal?table=order_packages&limit=100",
  "journal?table=trades&limit=100", "status", "services",
- "health/latest", "health/history?hours=24", "health/services"]
+ "api/bot/health/latest", "api/bot/health/history?hours=24", "api/bot/health/services"]
 ```
+(The health-snapshot endpoints live under `/api/bot/…`, so their relay
+paths MUST carry the `api/bot/` prefix — the bare `health/latest` form
+returns `{"error":"fetch_failed"}` because the relay only resolves
+un-prefixed paths under `/api/diag/*`. Root-caused 2026-07-13,
+BL-20260712-HEALTH-RELAY-FETCH-FAILED.)
+
 The `vm-diag-snapshot` workflow fetches all of them over one ssh session
 and posts one combined comment (`## <path>` per result). Only fall back
 to separate single-path issues for a path you need to re-fetch later in
