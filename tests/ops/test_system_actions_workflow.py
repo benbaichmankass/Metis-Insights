@@ -93,6 +93,7 @@ EXPECTED_ACTIONS = {
     # (BL-20260620-RECONCILER-CLOSEDAT-MS); distinct from backfill-closed-at
     # (which fills NULLs). Wraps migrate_closed_at_to_iso.py.
     "migrate-closed-at-iso": "migrate_closed_at_to_iso_action.sh",
+    "pull-exchange-fills": "pull_exchange_fills_action.sh",
     # 2026-05-28 — paced IBKR MES historical pull on the live VM (MB-20260528-002).
     "pull-mes-ibkr-history": "pull_mes_ibkr_history.sh",
     # 2026-06-01 — same wrapper baked to a DAILY multi-year pull (native MES 1d
@@ -197,6 +198,7 @@ TIER_2_ACTIONS = {
     "backfill-account-class",
     "backfill-closed-at",
     "migrate-closed-at-iso",
+    "pull-exchange-fills",
     "pull-mes-ibkr-history",
     "pull-mes-ibkr-history-daily",
     "pull-ibkr-history",
