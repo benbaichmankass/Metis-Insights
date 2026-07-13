@@ -3922,6 +3922,13 @@
       "status": "open",
       "title": "E-2 batch-1 depth-gate first-fire checks (7 donchian legs)",
       "detail": "Verify the tightened min_confidence gates behave live after #6322 (activated 14:29:59Z @ 9155f87): each leg still emits signals (not silently strangled) AND shallow breakouts are being refused (audit rows show confidence below the new gate skipped). Legs: trend_donchian 0.7, trend_donchian_sol 0.8, sol_prop 0.8, xrp_4h 0.8, avax_4h 0.7, xauusd/mgc 0.1. Check trade cadence vs pre-change baseline on the next health-review."
+    },
+    {
+      "id": "BL-20260713-DEVNULL-RESTART-MISREPORT",
+      "opened": "2026-07-13",
+      "status": "open",
+      "title": "/dev/null broken on live VM -> restart-bot-service false-failure",
+      "detail": "restart-bot-service #6342 (16:17Z) reported FAILED / post-state unknown, but the trader restarted fine (uptime 325s @ 465cb3a1, heartbeat running, verified #6343) - every '>/dev/null' in install_systemd_units.sh + restart_bot.sh hit 'Permission denied', and the wrapper's state-read/journal capture broke with it. /dev/null was already broken at the 14:29Z batch-1 restart (same lines, that run still exited 0). ict-devnull-guard.timer is active but had not repaired it as of 16:17. CHECK: did the guard fire+fix since; if yes, why the window; if no, guard is broken. Also consider making restart_bot.sh tolerate a broken /dev/null (use a temp file) so a false FAILED can't mask a good deploy."
     }
   ],
   "updated_at": "2026-07-13T13:45:00+00:00"
