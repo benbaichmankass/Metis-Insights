@@ -164,6 +164,69 @@ def _recent_trade_open_banner() -> Optional[Dict[str, Any]]:
         return None
 
 
+def _orphan_unreconciled_banner() -> Optional[Dict[str, Any]]:
+    """Best-effort: real-money orphaned rows awaiting reconciliation.
+
+    An orphaned row is in NEITHER the Positions view (``status='open'``)
+    NOR the Trades view (``status='closed'``) — without this banner it is
+    invisible to both apps, which is exactly how the bybit_2 BTC pair
+    (trades 3171/3088) went unnoticed from 2026-07-06 to 2026-07-13
+    (BL-20260713-BYBIT2-BTC-ORPHANS-UNRECONCILED). Real-money only —
+    paper orphans are journal hygiene, not a can't-miss condition.
+    Connection-free (read-only DB). Any failure → no banner.
+    """
+    try:
+        db = trade_journal_db_path()
+        con = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=3.0)
+        try:
+            con.row_factory = sqlite3.Row
+            cols = {r[1] for r in con.execute("PRAGMA table_info(trades)").fetchall()}
+            if "status" not in cols or "reconcile_status" not in cols:
+                return None
+            real_pred = (
+                "AND account_class = 'real_money'"
+                if "account_class" in cols
+                else "AND COALESCE(is_demo, 0) = 0"
+            )
+            bt = "AND COALESCE(is_backtest, 0) = 0" if "is_backtest" in cols else ""
+            rows = con.execute(
+                "SELECT id, symbol, account_id, direction FROM trades "
+                "WHERE status = 'orphaned' "
+                "AND COALESCE(reconcile_status, 'unreconciled') = 'unreconciled' "
+                # An investigated orphan (reconcile_orphan_history stamped
+                # reconcile_investigated_at + no_recoverable_order_package)
+                # is the honest terminal state for pre-package-era rows —
+                # permanently un-clearable, so alerting on it forever would
+                # be noise. The banner covers NEW/uninvestigated orphans.
+                "AND (notes IS NULL OR notes NOT LIKE '%reconcile_investigated_at%') "
+                f"{real_pred} {bt} ORDER BY id DESC LIMIT 50"
+            ).fetchall()
+        finally:
+            con.close()
+        if not rows:
+            return None
+        n = len(rows)
+        sample = ", ".join(
+            f"#{r['id']} {r['account_id']}/{r['symbol']}" for r in rows[:3]
+        )
+        return {
+            "severity": "alert",
+            "kind": "orphan_unreconciled",
+            "message": (
+                f"{n} real-money orphaned trade{'s' if n != 1 else ''} awaiting "
+                "reconciliation (invisible in Positions/Trades)"
+            ),
+            "detail": (
+                f"{sample}{' …' if n > 3 else ''} — reconcile via the "
+                "backfill-orphan-pnl / reconcile-orphan-history operator actions"
+            ),
+            "since": None,
+        }
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort banner feed — omit this kind on any source failure, the endpoint never 5xxs (documented contract)
+        logger.debug("notifications: orphan-unreconciled banner failed: %s", exc)
+        return None
+
+
 def _parse_ts(value: Any) -> Optional[datetime]:
     """Parse an ISO or epoch-ms/epoch-s trade timestamp to aware UTC. None on failure."""
     if value is None:
@@ -350,6 +413,9 @@ def get_notifications() -> Dict[str, Any]:
         banners.append(tb)
     banners.extend(_account_down_banners())
     banners.extend(_operator_alert_banners())
+    orb = _orphan_unreconciled_banner()
+    if orb:
+        banners.append(orb)
     banners.extend(_recent_warning_banners())
     ob = _recent_trade_open_banner()
     if ob:
