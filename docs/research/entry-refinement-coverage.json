@@ -36,12 +36,12 @@
     "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). BTC 1h: 20.6% early-fail costing -79.3R (n=428, net +27.4R); chop-regime entries -15.1R/153t; hour:15 -15.8R. AXIS: confirmation_bars + depth_threshold."
    },
    "confirmation_bars": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). confirm_1/confirm_2 is_oos_fail on BTC 1h."
    },
    "depth_threshold": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). depth_0.7 PASS wf 5/6 (IS 55.4->58.4 net_R, dd 21.0->16.5; OOS -20.8->-14.8, dd 30.6->25.2). Tier-3 declare proposed (min_confidence 0.6->0.7, E-2 batch 1)."
    },
    "vol_at_entry": {
     "status": "pending",
@@ -66,12 +66,12 @@
     "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). ETH 1h: 22.4% early-fail costing -144.5R (n=957, net -25.7R - the fleet's worst entry deficit on a live leg); chop entries -41.2R/235t. AXIS: confirmation_bars + depth_threshold (highest priority)."
    },
    "confirmation_bars": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). confirm_1/confirm_2 is_oos_fail."
    },
    "depth_threshold": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). all 4 cells is_oos_fail on ETH 1h (incl. prop twin) - the fleet's worst entry deficit is NOT fixed by depth/confirmation; candidate for the E-3 P_win head or a structural look."
    },
    "vol_at_entry": {
     "status": "pending",
@@ -96,12 +96,12 @@
     "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). SOL 1h: 19.8% early-fail costing -58.7R (n=389, net +45.7R). AXIS: confirmation_bars + depth_threshold."
    },
    "confirmation_bars": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). confirm cells fail IS/OOS."
    },
    "depth_threshold": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). depth_0.8 PASS wf 6/6 (IS 32.8->52.2, dd 14.9->12.3; OOS 13.8->21.1, dd 7.2->6.4; depth_0.7 also 6/6, 0.8 dominates). Tier-3 declare proposed (0.6->0.8, batch 1). Prop twin sol_prop: depth_0.8 wf 5/6 (IS -0.5->19.2 dd 26.1->11.2) - same declare."
    },
    "vol_at_entry": {
     "status": "pending",
@@ -216,12 +216,12 @@
     "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). 4h donchians: 12.3-22.7% early-fail, -10.1 to -36.7R each; xrp worst (-36.7R, 22.7%); hour:0 negative on ada/avax/eth/xrp (UTC-midnight bar). AXIS: confirmation_bars + depth_threshold; check hour:0 cell."
    },
    "confirmation_bars": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). xrp_4h confirm_1 PASS wf 5/6 - parked: needs the live signal-builder confirmation twin before any declare (lever contract); depth_0.8 (equal wf, no new live code) declared instead. Others fail."
    },
    "depth_threshold": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). xrp_4h depth_0.8 PASS wf 5/6 (OOS 5.6->8.5, dd 12.3->8.9); avax_4h depth_0.7 PASS wf 4/6 (OOS 8.4->11.5, dd 12.4->9.9). Tier-3 declares proposed (batch 1). eth/sol/ada 4h: honest_negative (all cells fail)."
    },
    "vol_at_entry": {
     "status": "pending",
@@ -310,8 +310,8 @@
     "ref": null
    },
    "depth_threshold": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). mes 1d: all cells fail (entries clean per E-1). mgc/mhg pullback legs not in donchian round 1."
    },
    "vol_at_entry": {
     "status": "pending",
@@ -336,12 +336,12 @@
     "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). xauusd/mgc 1h (proxy-identical rows): early-fail negligible (1.5%) BUT trending-regime entries -20.9R/158t and transitional -12.8R/93t - a regime/vol-at-entry shaped deficit, not a confirmation one. AXIS: vol_at_entry / depth_threshold."
    },
    "confirmation_bars": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). confirm_1 PASS wf 5/6 with the LARGER effect (IS -29.3->-7.0 net_R, dd 33.9->18.8) - parked pending the live confirmation twin; revisit in E-2 batch 2."
    },
    "depth_threshold": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). depth_0.1 PASS wf 5/6 (OOS 16.2->18.5, dd 11.1->10.4; proxy data - levers OK on proxy). Tier-3 declare proposed (0.0->0.1, batch 1; mgc shadow twin same)."
    },
    "vol_at_entry": {
     "status": "pending",
@@ -366,12 +366,12 @@
     "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). 1d equities: trend legs clean (0-13.8% early-fail, <=-5.7R); slv_pullback_1d is the outlier (19.9%, -29.3R on net +52.6R). AXIS: slv_pullback_1d confirmation_bars; rest low priority."
    },
    "confirmation_bars": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). scha confirm_1 PASS wf 4/6 but tiny (IS -0.04->0.28R) - parked, not worth the live twin on its own. Others fail."
    },
    "depth_threshold": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). all 1d equity trend legs fail IS/OOS (entries already clean per E-1)."
    },
    "vol_at_entry": {
     "status": "pending",
@@ -396,12 +396,12 @@
     "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). 1h equities: low early-fail rates (2.1-7.7%) but real costs on the busy legs (tlt -25.6R, qqq -17.8R, gld -14.6R, spy -13.2R); late-session hours (19/20 UTC) negative on qqq/gld/tlt. AXIS: time_of_day (walk-forward-gated) + confirmation_bars."
    },
    "confirmation_bars": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). slv/uso confirm cells fail."
    },
    "depth_threshold": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). slv/uso 1h fail all cells (donchian family members of this row)."
    },
    "vol_at_entry": {
     "status": "pending",
@@ -426,12 +426,12 @@
     "ref": "E-1 fleet baseline 2026-07-13 (m21_entry_baseline.py, trainer relay #6305 launch + #6306 readout; runtime_logs/m21_entry_baseline/2026-07-13). shadow legs incl. trend_donchian_1h: 22.4% early-fail -187.4R (n=1263, net -74.1R) - confirms the donchian-1h family deficit at scale; prop twins mirror their base legs."
    },
    "confirmation_bars": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). trend_donchian_1h (shadow) confirm_2 PASS wf 6/6, the round's biggest effect (IS -38.9->-9.5 net_R dd 71.5->46.5; OOS -34.1->-24.7 dd 51.6->35.0) - still net-negative, stays shadow; parked pending the live confirmation twin."
    },
    "depth_threshold": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). trend_donchian_1h depth cells fail; sol_prop depth_0.8 passes (recorded on the sol row)."
    },
    "vol_at_entry": {
     "status": "pending",
@@ -456,12 +456,12 @@
     "ref": "E-1 fleet baseline 2026-07-13 (#6306): proxy-identical XAUUSD rows - early-fail negligible (1.5%) but trending-regime entries -20.9R/158t; AXIS: vol_at_entry / depth_threshold (same as the live xauusd row)."
    },
    "confirmation_bars": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). confirm_1 PASS wf 5/6 - parked pending live twin (see xauusd row)."
    },
    "depth_threshold": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). mgc (shadow, proxy-identical to xauusd): depth_0.1 PASS wf 5/6 - same batch-1 declare as xauusd."
    },
    "vol_at_entry": {
     "status": "pending",
