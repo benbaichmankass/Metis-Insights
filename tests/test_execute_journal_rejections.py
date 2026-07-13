@@ -193,6 +193,35 @@ class TestLogRejectionToJournal:
         # sized_qty=None resolves to 0.0 in the journal row.
         assert rows[0]["position_size"] == pytest.approx(0.0)
 
+    def test_is_dry_defaults_false_in_notes(self, tmp_journal):
+        # Back-compat: callers that don't pass is_dry get notes.is_dry=False.
+        log_rejection_to_journal(
+            _pkg(), _account_cfg(),
+            reason="DAILY_LOSS_CAP", status="rejected", sized_qty=0.01,
+        )
+        rows = _read_trades(tmp_journal)
+        notes = json.loads(rows[0]["notes"])
+        assert notes["is_dry"] is False
+
+    def test_is_dry_true_flows_to_notes_without_flipping_is_demo(self, tmp_journal):
+        # BL-20260707-MGCTREND-REASON-MISMATCH: a genuine dry/shadow rejection
+        # now records notes.is_dry=True so it agrees with a
+        # 'dry_run_no_order_placed' reason — but the is_demo / account_class
+        # paper-vs-real column is derived from account_cfg and MUST stay
+        # unaffected (a real_money account stays is_demo=0).
+        log_rejection_to_journal(
+            _pkg(), _account_cfg(),  # no account_class → defaults real_money
+            reason="dry_run_no_order_placed", status="rejected",
+            sized_qty=0.01, is_dry=True,
+        )
+        rows = _read_trades(tmp_journal)
+        notes = json.loads(rows[0]["notes"])
+        assert notes["is_dry"] is True
+        assert notes["reason"] == "dry_run_no_order_placed"
+        # The money-classification column is NOT touched by the is_dry flag.
+        assert rows[0]["is_demo"] in (0, None)
+        assert (rows[0]["account_class"] or "real_money") == "real_money"
+
     def test_never_raises_even_when_underlying_helper_throws(self, tmp_journal):
         # Defensive contract: the wrapper catches everything so a
         # bug-in-helper can't unwind the failure-handling path.
