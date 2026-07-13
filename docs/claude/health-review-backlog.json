@@ -3372,10 +3372,10 @@
       "suggested_fix": "Gate the concurrency group on the label match (e.g. move the label check to a first job whose output gates the burst job, and key concurrency as gpu-burst-${{ github.event.issue.number }} on the burst job only, or set the group at job level only for labeled issues). Keep spend-gate serialization by having the burst job itself take a repo-level lock (the ledger commit step already serializes on push).",
       "tier": "Tier 1 (CI workflow change).",
       "trigger_condition": "Next health-review / CI-touching session.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
-      "resolution": null
+      "resolved_at": "2026-07-13T12:10:00+00:00",
+      "resolution": "Fixed: the concurrency group is now conditional — only gpu-burst-train-labelled runs share the serializing 'gpu-burst-train' group (so two real bursts still can't run at once), while every other issues.opened event (diag-relay, system-action, trainer-diag skip-runs) gets a unique 'gpu-burst-skip-<run_id>' group and can never cancel a queued burst. Root cause was that concurrency is evaluated at the workflow level before the job's label `if`, so all issues entered the one group."
     },
     {
       "id": "BL-20260706-GPU-BURST-LEDGER-PUSH-RACE",
@@ -3387,10 +3387,12 @@
       "suggested_fix": "Direct push to main can no longer work under the protection rules. Options: (1) have the workflow open/append to a ledger PR with auto-merge (checks are cheap and would pass); (2) write the row to a ledger BRANCH consumed by summarize_spend from both main+branch; (3) grant the Actions bot a bypass-list entry for the protection rule (operator decision). Until fixed, reconcile rows by hand from the run logs after each burst (record_run.py locally with the logged cost facts).",
       "tier": "Tier 1 (CI workflow change).",
       "trigger_condition": "Next CI-touching session (pairs with BL-20260706-GPU-BURST-CONCURRENCY-CANCEL).",
-      "status": "open",
+      "status": "partially-resolved",
       "snoozed_until": null,
       "resolved_at": null,
-      "resolution": null
+      "resolution": null,
+      "updated_at": "2026-07-13T12:10:00+00:00",
+      "progress_2026_07_13": "Fixed failure mode (a) the non-fast-forward RACE: the ledger push now rebases our single ledger commit onto a concurrently-advanced main and retries (up to 5×). Added a recovery ARTIFACT fallback so a blocked/failed push never silently drops the billed row (uploaded as gpu-spend-ledger-unpushed-<run_id>, 90d retention) — the ledger is the spend-gate input, so a silent drop under-counts vs the $10 cap. REMAINING (operator, terminal blocker for mode (b)): GH006 — main's branch protection requires status checks even for github-actions[bot], so a direct push to protected main is rejected outright. Needs a repo-admin settings change: add this workflow's actor to the main branch-protection bypass allowlist, OR relocate the ledger off protected main (which would change the VM/dashboard read path — /api/bot/gpu/spend reads comms/gpu_spend_ledger.json from the deployed main). Until then, blocked rows land in the recovery artifact for manual/reconciler replay instead of vanishing."
     },
     {
       "id": "BL-20260706-GATEWAY-VM-GIT-AUTH-UNVERIFIED",
@@ -3902,5 +3904,5 @@
       "resolution": "RESOLVED end-to-end 2026-07-13. Root cause was two-fold: the S-067 puller had (a) no timer/action and (b) pulled the Bybit SPOT category only while bybit_2 trades linear perps. PR #6290 shipped --category linear + the on-demand pull-exchange-fills action; the first run (issue #6298) inserted 31 fills and /api/bot/pnl/exchange (issue #6299) then served real data (fill_count=31 across BTC/XRP/ADA, -$10.51 realised / +$7.30 unrealised). DURABILITY: a follow-up PR adds ict-exchange-fills-pull.{service,timer} (daily 00:20 UTC, venv python, DATA_DIR-pinned, DEFAULT_SKIP-listed) so the 7-day window stays fully covered without an on-demand run. Note: an ADA row shows open_qty_signed -389 which is the FIFO lot-pairing view (exchange-truth), distinct from the journal's net — expected, the two stores are independent by design."
     }
   ],
-  "updated_at": "2026-07-13T11:55:00+00:00"
+  "updated_at": "2026-07-13T12:10:00+00:00"
 }

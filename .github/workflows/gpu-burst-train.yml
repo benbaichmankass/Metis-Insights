@@ -28,8 +28,17 @@ permissions:
   contents: write   # commit the updated ledger
   issues: write     # comment back on the issue
 
+# Concurrency is evaluated at the WORKFLOW level, BEFORE the job `if` label
+# filter — so a naive fixed group put EVERY issues.opened event (diag-relay,
+# system-action, trainer-diag, …) into the same group. With only one pending
+# slot per group, an unrelated issue opening while a real burst was queued
+# silently CANCELLED the queued burst (BL-20260706-GPU-BURST-CONCURRENCY-CANCEL:
+# arm B #5642 cancelled by the #5643 trainer-diag skip-run). Fix: only actual
+# gpu-burst-train-labelled runs share the serializing group (so two real bursts
+# still can't run at once); every other issue gets a unique throwaway group
+# (its own run id) and can never touch a queued burst.
 concurrency:
-  group: gpu-burst-train
+  group: ${{ contains(github.event.issue.labels.*.name, 'gpu-burst-train') && 'gpu-burst-train' || format('gpu-burst-skip-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
@@ -171,6 +180,7 @@ jobs:
           rm -f ~/.ssh/trainer_key
 
       - name: Record cost + commit ledger
+        id: ledger
         if: steps.arm.outputs.armed == 'true' && steps.burst.outcome == 'success'
         run: |
           python -m scripts.ml.gpu_burst.record_run \
@@ -184,8 +194,45 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add comms/gpu_spend_ledger.json
-          git commit -m "chore(gpu-spend): record burst gpu-${{ github.run_id }} (${{ steps.parse.outputs.experiment }})" || echo "no ledger change"
-          git push || echo "::warning::ledger push failed"
+          git commit -m "chore(gpu-spend): record burst gpu-${{ github.run_id }} (${{ steps.parse.outputs.experiment }})" \
+            || { echo "no ledger change"; echo "pushed=noop" >>"$GITHUB_OUTPUT"; exit 0; }
+          # Robust push (BL-20260706-GPU-BURST-LEDGER-PUSH-RACE). Two failure
+          # modes were dropping billed rows — the ledger is the SPEND-GATE input,
+          # so a silent drop under-counts spend and defeats the $10 cap:
+          #   (a) non-fast-forward RACE when main advanced mid-burst → rebase our
+          #       single ledger commit onto the fresh main and retry;
+          #   (b) GH006 protected-branch block (main requires status checks even
+          #       for github-actions[bot]) → NOT retryable from here; preserve the
+          #       row as an artifact (next step) so it's recoverable, never lost.
+          pushed=false
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD:main 2>push.err; then pushed=true; break; fi
+            echo ">>> push attempt ${attempt} failed:"; cat push.err
+            if grep -qiE 'fetch first|non-fast-forward|rejected.*(fetch|remote)' push.err; then
+              git fetch origin main || true
+              git rebase origin/main || { git rebase --abort || true; break; }
+              continue
+            fi
+            # Non-race failure (branch protection / auth) — no point retrying.
+            break
+          done
+          if [ "$pushed" = true ]; then
+            echo "pushed=true" >>"$GITHUB_OUTPUT"
+            echo ">>> ledger row pushed to main."
+          else
+            echo "pushed=false" >>"$GITHUB_OUTPUT"
+            echo "::warning::ledger push to main failed (branch protection GH006 or persistent race). Preserving the row as an artifact for recovery — see BL-20260706-GPU-BURST-LEDGER-PUSH-RACE. Terminal fix needs the operator to add this workflow's actor to the main branch-protection bypass allowlist (or relocate the ledger off protected main)."
+            cp comms/gpu_spend_ledger.json gpu_spend_ledger_unpushed.json
+          fi
+
+      - name: Preserve unpushed ledger row (recovery artifact)
+        if: steps.ledger.outputs.pushed == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpu-spend-ledger-unpushed-${{ github.run_id }}
+          path: gpu_spend_ledger_unpushed.json
+          retention-days: 90
+          if-no-files-found: warn
 
       - name: Comment back
         if: always()
