@@ -5,10 +5,10 @@
   "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] \u2014 one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
  },
  "merge_slot": {
-  "held_by": null,
-  "branch": null,
+  "held_by": "session_01SDLWbfLGV4WYHgC2ugzedf",
+  "branch": "claude/exit-refinement-sprint-l74k6o",
   "pr": null,
-  "claimed_at": null
+  "claimed_at": "2026-07-13T15:58:24Z"
  },
  "active_sessions": [
   {
@@ -28,9 +28,9 @@
   {
    "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
    "branch": "claude/exit-refinement-sprint-l74k6o",
-   "intent": "E-2 batch 1 MERGED (#6322 @ 9155f87, operator-approved) - deploying (restart #6328) + config verify. Next: batch-2 live confirmation twin.",
+   "intent": "E-2 batch 2 (confirm twin + xauusd/mgc declares) shipping under operator proceed-and-merge authority.",
    "started_at": "2026-07-13T05:07:08.981068+00:00",
-   "updated_at": "2026-07-13T14:29:50Z"
+   "updated_at": "2026-07-13T15:58:24Z"
   }
  ],
  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) \u2014 >24h stale, no matching open PR/branch \u2014 and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
