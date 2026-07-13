@@ -3850,6 +3850,13 @@
       "created": "2026-07-12",
       "title": "Mechanics-check the first fire of each newly activated M20 exit cell",
       "detail": "PR #6229 activated 2026-07-12 (live HEAD 5015ebb, system-action #6237): sol stale12, xrp-4h stale8, mes/mhg/tlt trail3, mgc/xauusd trail4, uso giveback 1R@MFE1R + the giveback_stop monitor lever (annotate-only where undeclared). Per the exit-refinement skill, the FIRST live fire of each new close path (stale_stop on xrp-4h, giveback_stop on uso) gets a mechanics check: exchange flat, journal closed with pnl, correct exit_reason, no retry loop. Also watch exit_lever_soak.jsonl for the new giveback annotate rows across the donchian family."
+    },
+    {
+      "id": "BL-20260712-TRAINER-JOB-SERIALIZATION",
+      "status": "open",
+      "created": "2026-07-12",
+      "title": "Serialize heavy research jobs on the 1-OCPU trainer (SSH starvation incident)",
+      "detail": "2026-07-12 ~20:40Z: three concurrent heavy jobs (m20 decay fleet sweep + two m20_exit_head_round E1 trainings) starved the 1-OCPU trainer \u2014 SSH banner-exchange timeouts on two consecutive trainer-vm-diag relays, and the mirror publish went stale (mirror_age_seconds 1093 at 20:5xZ, diag #6249 \u2014 just under the 20-min trainer_down threshold; the alert may have fired). Not a wedge: jobs were CPU-bound and expected to finish. Fixes to consider: (a) run research jobs under nice -n 19 / a systemd slice with CPUWeight so sshd+publish never starve; (b) the m20 round/sweep drivers gain a --serial flag or a simple flock so only one heavy job runs at a time; (c) session discipline \u2014 kick rounds sequentially. Results to pull when the box drains: runtime_logs/m20_fleet_decay/<date>/ + runtime_logs/m20_exit_head/p4_{peak,hp_ext}_1h/ (partial decay verdicts already seen: stall6_t1.8 5/6 PASS + stall10_t1.8 4/6 PASS on a 2h pullback leg)."
     }
   ],
   "updated_at": "2026-07-12T07:25:00+00:00"

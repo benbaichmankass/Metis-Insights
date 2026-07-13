@@ -26,7 +26,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from train_exit_head import FEATURES, load_rows, train_model  # noqa: E402
+import train_exit_head as teh  # noqa: E402
+from train_exit_head import load_rows, train_model  # noqa: E402
 
 
 def main(argv):
@@ -39,8 +40,22 @@ def main(argv):
     ap.add_argument("--stage", default="shadow", choices=["shadow", "advisory"],
                     help="artifact stage; only 'advisory' can influence a live "
                          "exit (operator promotion gate - E3)")
+    # P4.2/P4.3 — export the retargeted peak-is-in head (extended features).
+    ap.add_argument("--target", default="holding_pays",
+                    choices=["holding_pays", "peak_is_in"])
+    ap.add_argument("--features", default="base", choices=["base", "extended"])
+    ap.add_argument("--policy", default="below_half_r",
+                    choices=["below_half_r", "peak_full", "peak_winner"],
+                    help="shape recorded on the artifact; inert at shadow "
+                         "stage (the scorer only logs scores)")
+    ap.add_argument("--evidence", default=None)
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv[1:])
+
+    teh.TARGET = a.target
+    if a.features == "extended":
+        teh.FEATURES = teh.FEATURES + teh.FEATURES_EXH
+    FEATURES = teh.FEATURES
 
     fam_dir = Path(a.family_dir)
     rows = [r for r in load_rows(fam_dir / "rows.jsonl") if r["source"] == "harness"]
@@ -57,12 +72,13 @@ def main(argv):
         "stage": a.stage,
         "symbols": symbols,
         "features": FEATURES,
-        "shape": {"policy": "below_half_r", "tau": a.tau, "below_r": a.below_r},
+        "target": a.target,
+        "shape": {"policy": a.policy, "tau": a.tau, "below_r": a.below_r},
         "booster_txt": model.booster_.model_to_string(),
         "trained_at": datetime.now(timezone.utc).isoformat(),
         "train_rows": len(rows),
         "train_trades": trades,
-        "evidence": "docs/research/M20-exit-refinement-2026-07-12.md § 9",
+        "evidence": a.evidence or "docs/research/M20-exit-refinement-2026-07-12.md § 9",
     }
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)

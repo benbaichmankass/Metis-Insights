@@ -281,7 +281,9 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     # meta is the only channel monitor() reliably sees. Absent = the lever is
     # annotate-only (see _stale_stop_verdict); declared = a real close path.
     for _key in ("stale_exit_bars", "stale_exit_below_r",
-                 "giveback_min_mfe_r", "giveback_r"):
+                 "giveback_min_mfe_r", "giveback_r",
+                 "trail_decay_arm_r", "trail_decay_stall_bars",
+                 "trail_decay_tight_mult"):
         if cfg.get(_key) is not None:
             package["meta"][_key] = cfg[_key]
     return package
@@ -708,6 +710,18 @@ def monitor(cfg, candles_df, open_pkg):
     )
 
     window = _since_entry(candles_df, open_pkg)
+    # M20 P4.1 trail-decay lever (docs/research/M20-momentum-exhaustion-
+    # DESIGN.md § P4.1): the EFFECTIVE mult tightens once the move is R-armed
+    # or stalls. YAML-declared per leg (Tier-3); undeclared = base mult
+    # unchanged + an observe-only annotate row when the reference cell would
+    # arm. Fail-safe to base_mult on any missing input; never raises.
+    try:
+        from src.runtime.trail_decay import resolve_trail_mult
+
+        trail_mult = resolve_trail_mult(meta, cfg_dict, open_pkg, window,
+                                        trail_mult, direction)
+    except Exception:  # noqa: BLE001 — the lever must never break the trail
+        pass
     try:
         if direction == "long":
             ext = float(window["high"].max())

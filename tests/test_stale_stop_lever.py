@@ -96,15 +96,20 @@ def test_undeclared_annotates_but_never_closes(_isolated_soak):
     assert not (isinstance(verdict, dict) and verdict.get("reason") == "stale_stop")
     log = _isolated_soak / "exit_lever_soak.jsonl"
     assert log.exists()
-    rows = [json.loads(line) for line in log.read_text().splitlines()]
+    # filter to THIS lever's rows — other annotate-only levers (e.g. the P4.1
+    # trail-decay reference cell) may legitimately fire on the same fixture
+    rows = [r for r in (json.loads(line)
+                        for line in log.read_text().splitlines())
+            if r["lever"] == "stale_stop"]
     assert len(rows) == 1
-    assert rows[0]["lever"] == "stale_stop"
     assert rows[0]["mode"] == "annotate"
     assert rows[0]["params"] == {"stale_exit_bars": 8, "stale_exit_below_r": 0.0}
     assert rows[0]["state"]["open_r"] < 0
     # second tick: deduped, still one row
     td.monitor({}, df, pkg)
-    rows = [json.loads(line) for line in log.read_text().splitlines()]
+    rows = [r for r in (json.loads(line)
+                        for line in log.read_text().splitlines())
+            if r["lever"] == "stale_stop"]
     assert len(rows) == 1
 
 

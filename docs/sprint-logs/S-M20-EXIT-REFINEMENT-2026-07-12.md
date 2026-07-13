@@ -388,6 +388,25 @@ no proxy-data heads). ROADMAP M20 row carries the phase-4 plan so the program
 survives session loss. Execution starts with P4.1 (harness lever + fleet decay
 sweep) and the P4.2+P4.3 E0/E1 round on donchian/1h.
 
+## Phase 4 execution state (late night — session hand-off point)
+
+P4.1 lever + P4.2/P4.3 head retarget MERGED (#6244, squash `f67be26`). On the
+trainer: the fleet trail-decay sweep + two E1 rounds (peak_is_in+extended,
+holding_pays+extended ablation on donchian/1h) were launched CONCURRENTLY —
+which starved the 1-OCPU box (SSH timeouts, mirror publish stale ~18 min;
+BL-20260712-TRAINER-JOB-SERIALIZATION — serialize future rounds). Partial
+decay verdicts before the starvation: a 2h pullback leg PASSES stall-armed
+decay (stall6→tight1.8 wf 5/6; stall10 wf 4/6); the 4h donchians fail their
+decay cells. FULL verdicts + both round reports are ON the trainer
+(`runtime_logs/m20_fleet_decay/<date>/`, `runtime_logs/m20_exit_head/
+p4_{peak,hp_ext}_1h/`) — pull once the jobs drain, apply the design § 3
+gates (one-lever-per-leg: any decay PASS on a leg with a shipped lever needs
+a combo A/B), fold into the matrix (`trail_decay` column) + this log, and
+batch Tier-3 proposals. A GitHub MCP auth drop (~20:50Z, persisting past the
+transient-blip threshold) blocked new relay dispatches at hand-off; existing
+public issue pages remain scrape-readable (that is how the mirror age was
+confirmed: diag #6249).
+
 ## Documentation Updated
 - `docs/research/M20-exit-refinement-2026-07-12.md` (the evidence memo).
 - ROADMAP.md M20 row → status update (this session's outcome + next gate).
@@ -435,3 +454,46 @@ sweep) and the P4.2+P4.3 E0/E1 round on donchian/1h.
 - [x] Roadmap updated (M20 row).
 - [x] Contradictions recorded (resolver-docstring mirror gap; stale trainer checkout).
 - [x] Unknowns stated plainly (coverage gaps, small-n caveats, 5m MFE inflation).
+
+## P4 verdicts land: decay batch + the peak-is-in breakthrough (late night 2)
+
+**Fleet decay sweep COMPLETE** (44 legs × 4 cells, trainer,
+`runtime_logs/m20_fleet_decay/2026-07-12`, relay #6253). 13 legs had PASS
+cells; after the one-lever-per-leg screen the **Tier-3 batch is 9 live legs**
+(scha arm2R 6/6; sol_pullback_2h, slv_1d, mhg_1d, tlt_1h at 5/6; iwm, gld_1d,
+splg, iaum at 4/6) — YAML declares staged on draft **PR #6251** with the live
+trail-decay lever + evidence table. Excluded honestly: `uso_trend_1h`'s pass
+evaporated on a **corrected-base combo A/B** (base_args now threads declared
+stale/giveback levers, commit 6c54000; all 4 uso decay cells fail with the
+shipped giveback in the base — relay #6255). sol/xrp donchian negatives
+re-confirmed on their corrected stale bases. Shadow-leg passes
+(trend_donchian_1h 5/6, both prop donchians) recorded in the matrix, not
+declared. Coverage matrix grew the `trail_decay` column (all 15 rows).
+
+**P4.2/P4.3 rounds A/B (serialized re-run, relays #6252/#6255):** the
+serialization + 6h timeouts fixed the starvation deaths — both rounds
+completed in minutes on the idle box.
+
+- **Round A — peak_is_in + exhaustion features (donchian/1h): the
+  retargeted label is genuinely learnable — AUC 0.70/0.69/0.73/0.70/0.73**
+  (holding_pays never beat ~0.56). Fixed-arm `peak_full_tau0.8` beats actual
+  AND both hard levers on net_R+maxDD in 3/5 folds; the two misses are trend
+  years where it retains 96% (fold 1: 49.5 vs 51.7 actual at dd 22 vs 35)
+  and ~46% (fold 4, 130-trade partial year) — the trend-year-giveback
+  failure mode that killed every holding_pays head is substantially gone.
+- **Round B — holding_pays + the same exhaustion features: AUC still ~0.55**
+  (0.57/0.54/0.61/0.56/0.50). Ablation answered: the LABEL retarget drives
+  the signal, not the feature block alone.
+
+**E2 shipped for the peak head:** `exit_head_shadow` generalized to a
+multi-artifact channel (scans `trainer_mirror/exit_head/*.json`, scores each
+in-family artifact per bar under its own model_id; ADVISORY record still wins
+the E3 return, so the live head is byte-unchanged — 13 scorer tests incl. the
+new multi-artifact case). Exporter grew --target/--features/--policy;
+`exit-head-donchian-peak-1h-v1` (peak_is_in, extended, shape peak_full τ0.8,
+stage **shadow**) exported to the mirror (relay #6256). It starts scoring live
+once #6251 merges + deploys; promotion past shadow stays the operator gate.
+
+**Open asks (operator):** PR #6251 approval — the P4.1 lever + 9 decay-cell
+declares + the multi-artifact scorer, one batch. Post-merge: pull-and-deploy +
+restart, then first-fire mechanics checks (BL-20260712-M20-CELL-FIRST-FIRE).

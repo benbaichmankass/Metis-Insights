@@ -270,7 +270,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     except (KeyError, IndexError):
         entry_time = None
 
-    return {
+    package = {
         "symbol": symbol,
         "direction": direction,
         "entry": round(entry, 8),
@@ -293,6 +293,15 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "adx_max": adx_max_p,
         },
     }
+    # M20 P4.1 trail-decay (Tier-3, YAML-declared): thread the declared params
+    # into meta because run_monitor_tick can pass cfg={} — meta is the channel
+    # monitor() reliably sees (same shape as trend_donchian's lever
+    # threading). Absent = the lever is annotate-only.
+    for _key in ("trail_decay_arm_r", "trail_decay_stall_bars",
+                 "trail_decay_tight_mult"):
+        if cfg.get(_key) is not None:
+            package["meta"][_key] = cfg[_key]
+    return package
 
 
 # ---------------------------------------------------------------------------
@@ -374,6 +383,16 @@ def monitor(cfg, candles_df, open_pkg):
         or float(_DEFAULTS["trail_mult"])
     )
     window = _since_entry(candles_df, open_pkg)
+    # M20 P4.1 trail-decay lever — shared runtime helper; see
+    # trend_donchian.monitor for the contract (YAML-declared per leg /
+    # annotate-only undeclared; fail-safe to the base mult).
+    try:
+        from src.runtime.trail_decay import resolve_trail_mult
+
+        trail_mult = resolve_trail_mult(meta, cfg_dict, open_pkg, window,
+                                        trail_mult, direction)
+    except Exception:  # noqa: BLE001 — the lever must never break the trail
+        pass
     try:
         if direction == "long":
             ext = float(window["high"].max())

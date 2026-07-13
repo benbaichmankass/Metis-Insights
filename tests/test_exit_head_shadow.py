@@ -235,3 +235,42 @@ def test_e3_proven_trade_never_touched(tmp_path, monkeypatch):
     pkg = _monitor_pkg(entry_time)
     verdict = monitor({"exit_head_action": "close"}, df, pkg)
     assert not (verdict and verdict.get("reason") == "exit_head")
+
+
+def test_multi_artifact_scores_both_and_returns_advisory(tmp_path, monkeypatch):
+    """M20 P4.2 — a second head rides the same channel: both artifacts score
+    + log under their own model_id; the ADVISORY record is the one returned
+    for the E3 apply path (shadow heads observe only, by stage)."""
+    import numpy as np
+
+    logs = _artifact(tmp_path, monkeypatch, tau=0.10, below_r=0.5,
+                     stage="advisory")
+    # second, shadow-stage peak head with a peak_full shape (fires HIGH)
+    X = np.random.RandomState(1).rand(200, len(ehs_features()))
+    y = (X[:, 0] > 0.5).astype(int)
+    clf = lgb.LGBMClassifier(n_estimators=5, min_child_samples=5, verbose=-1)
+    clf.fit(X, y)
+    art = {"model_id": "exit-head-donchian-peak-1h-v1", "stage": "shadow",
+           "tf": "1h", "features": ehs_features(), "target": "peak_is_in",
+           "shape": {"policy": "peak_full", "tau": 0.0, "below_r": 0.5},
+           "booster_txt": clf.booster_.model_to_string()}
+    (logs / "trainer_mirror" / "exit_head" / "exit-head-donchian-peak-1h-v1.json"
+     ).write_text(json.dumps(art))
+    ehs._CACHE.clear()
+    ehs._SEEN.clear()
+
+    df, entry_time = _frame()
+    meta = {"timeframe": "1h", "risk_per_unit": 2.0, "entry_time": entry_time}
+    pkg = {"order_package_id": "pkg-multi", "symbol": "BTCUSDT",
+           "entry": 101.5}
+    rec = ehs.maybe_score_exit_head(meta, pkg, df, "long")
+    assert rec is not None and rec["stage"] == "advisory"
+    assert rec["model_id"] == "exit-head-test-v0"
+    lines = [json.loads(x) for x in
+             (logs / ehs.SHADOW_LOG_NAME).read_text().splitlines()]
+    ids = {r["model_id"] for r in lines if r.get("event_source") == "exit_head"}
+    assert ids == {"exit-head-test-v0", "exit-head-donchian-peak-1h-v1"}
+    # peak_full with tau=0 fires on any score > 0 — would_exit True
+    peak = [r for r in lines
+            if r["model_id"] == "exit-head-donchian-peak-1h-v1"][-1]
+    assert peak["would_exit"] is True
