@@ -30,7 +30,7 @@ import json
 import sys
 from bisect import bisect_right
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import pandas as pd
 
