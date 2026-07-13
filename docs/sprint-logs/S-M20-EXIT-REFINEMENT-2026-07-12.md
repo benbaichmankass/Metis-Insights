@@ -550,3 +550,18 @@ P4 remaining: peak-head shadow soak → parity check → E3 proposal (operator
 gate); P4.6 conditioned banking only if it can beat BOTH run-the-winner and
 the shipped tighten arms; P4.7 GPU sequence model only if the tree head
 plateaus (it has not — it cleared the gate).
+
+## Session wrap: doc-freshness sweep + M21 handoff (2026-07-13)
+
+Doc-freshness run (skill procedure): `check_canonical_doc_coherence.py` PASS;
+mechanical scans clean (all micro-IP / removed-gate / 7-stage hits are
+flagged-historical). ROADMAP M20 row updated to the P4 EXECUTED state
+(batches #6251 + #6273 live, P4.5 honest negative, peak head soaking);
+**M21 — Entry Refinement added as PLANNED** (operator-acked 2026-07-13) with
+design of record `docs/research/M21-entry-refinement-DESIGN.md` (evidence
+pass → hard entry-filter cells → P_win head for the parked M18 allocator →
+regime-at-entry extensions; same fast-gate pipeline). Zero-regret precursor
+dispatched: peak-is-in retarget rounds for the 4h-donchian + 2h-pullback
+exit-head families. Follow-ups filed: ml backlog (peak-head E3 parity +
+promotion decision), health backlog note (first-fire scope now includes the
+6 p80 cells).
