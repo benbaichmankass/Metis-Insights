@@ -117,7 +117,8 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
              bank_frac: float = 0.0, bank_at_r: float = 1.0,
              giveback_min_mfe_r: float = 0.0, giveback_r: float = 1.0,
              trail_decay_arm_r: float = 0.0, trail_decay_stall_bars: int = 0,
-             trail_decay_tight_mult: float = 0.0
+             trail_decay_tight_mult: float = 0.0,
+             confirm_bars: int = 0
              ) -> List[Trade]:
     atr = _atr(df, atr_p)
     sig = _signal(df, donchian)
@@ -132,6 +133,13 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
     n = len(df)
     trades: List[Trade] = []
     pos = None
+    # M21 E-2 confirmation-bar lever (0 = off, byte-identical): a raw
+    # breakout does not enter immediately — the close must HOLD beyond the
+    # signal bar's channel edge for `confirm_bars` further closed bars, then
+    # entry fires at the Nth confirming close (worse price, fewer false
+    # breakouts — the harness measures which wins). Any close back inside
+    # the channel, or an opposite raw breakout, cancels the pending setup.
+    pending = None
     warm = max(donchian, atr_p) + 1
     for i in range(warm, n):
         bar = df.iloc[i]
@@ -228,6 +236,35 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                     round(r, 6), pos['entry_time'], bar['timestamp'],
                     mfe_r=round(mfe_now, 4)))
                 pos = None
+        if pos is None and pending is not None:
+            s_raw = int(sig.iloc[i])
+            if long_only and s_raw < 0:
+                s_raw = 0
+            opp_raw = s_raw != 0 and ((s_raw > 0) != (pending['direction'] == 'long'))
+            held = (cl > pending['level'] if pending['direction'] == 'long'
+                    else cl < pending['level'])
+            if opp_raw or not held:
+                pending = None
+                # fall through: an opposite breakout on THIS bar may start
+                # its own pending setup below.
+            else:
+                pending['left'] -= 1
+                if pending['left'] <= 0:
+                    a = float(atr.iloc[i]) or 0.0
+                    direction = pending['direction']
+                    pending = None
+                    if a > 0:
+                        entry = cl
+                        sl = (entry - atr_stop * a if direction == 'long'
+                              else entry + atr_stop * a)
+                        risk = abs(entry - sl)
+                        if risk > 0:
+                            pos = {'direction': direction, 'entry': entry,
+                                   'sl': sl, 'sl_init': sl, 'risk': risk,
+                                   'peak': hi if direction == 'long' else lo,
+                                   'peak_i': i, 'entry_i': i,
+                                   'entry_time': bar['timestamp']}
+                continue
         if pos is None:
             s = int(sig.iloc[i])
             if long_only and s < 0:
@@ -246,6 +283,14 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                     conf = min(max(depth, 0.0), 1.0)
                     if conf < min_confidence:
                         continue
+                if confirm_bars > 0:
+                    # Defer entry: track the signal bar's channel edge and
+                    # require `confirm_bars` further confirming closes.
+                    pending = {'direction': direction,
+                               'level': (float(upper.iloc[i]) if direction == 'long'
+                                         else float(lower.iloc[i])),
+                               'left': confirm_bars}
+                    continue
                 entry = cl
                 sl = entry - atr_stop * a if direction == 'long' else entry + atr_stop * a
                 risk = abs(entry - sl)
@@ -335,6 +380,10 @@ def main(argv: List[str]) -> int:
     p.add_argument('--trail-decay-tight-mult', type=float, default=0.0,
                    help='The tightened trail mult once armed (0 disables the '
                         'whole decay lever, byte-identical).')
+    p.add_argument('--confirm-bars', type=int, default=0,
+                   help='M21 E-2 entry lever (0=off): require the close to '
+                        'hold beyond the signal bar\'s channel edge for N '
+                        'further closed bars before entering')
     p.add_argument('--emit-trades', default=None, metavar='PATH',
                    help='Write per-trade JSONL (entry_time/direction/net_r/'
                         'entry/sl/exit_time/exit_reason) for the M20 E0 '
@@ -356,7 +405,7 @@ def main(argv: List[str]) -> int:
                       a.bank_frac, a.bank_at_r,
                       a.giveback_min_mfe_r, a.giveback_r,
                       a.trail_decay_arm_r, a.trail_decay_stall_bars,
-                      a.trail_decay_tight_mult)
+                      a.trail_decay_tight_mult, a.confirm_bars)
     params = {'symbol': a.symbol, 'timeframe': a.timeframe, 'donchian': a.donchian,
               'atr_stop_mult': a.atr_stop_mult, 'trail_mult': a.trail_mult,
               'long_only': a.long_only}
@@ -366,6 +415,8 @@ def main(argv: List[str]) -> int:
     if a.bank_frac:
         params['bank_frac'] = a.bank_frac
         params['bank_at_r'] = a.bank_at_r
+    if a.confirm_bars:
+        params['confirm_bars'] = a.confirm_bars
     if a.emit_trades:
         Path(a.emit_trades).parent.mkdir(parents=True, exist_ok=True)
         with open(a.emit_trades, 'w', encoding='utf-8') as fh:
