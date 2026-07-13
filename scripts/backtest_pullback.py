@@ -134,7 +134,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  giveback_r: float = 1.0,
                  trail_decay_arm_r: float = 0.0,
                  trail_decay_stall_bars: int = 0,
-                 trail_decay_tight_mult: float = 0.0) -> Dict[str, Any]:
+                 trail_decay_tight_mult: float = 0.0,
+                 confirm_bars: int = 0) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
     # Trend filter: Donchian midline of the prior trend_lb bars (shift(1) — no
@@ -208,6 +209,35 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         if confidence < min_confidence:
             i += 1
             continue
+        # M21 E-2 confirmation-bar lever (0 = off, byte-identical): the
+        # trigger bar does not enter — the next ``confirm_bars`` closes must
+        # each HOLD beyond the trigger close (continued resumption: above it
+        # for longs, below for shorts); any failing close cancels the setup
+        # (that bar is re-evaluated as a fresh trigger). Entry fires at the
+        # Nth confirming close with THAT bar's ATR; the depth/confidence
+        # gate stays at the trigger bar — same contract as the donchian
+        # harness lever (scripts/research/backtest_trend.py --confirm-bars).
+        if confirm_bars > 0:
+            lvl = c
+            cancel_at: Optional[int] = None
+            mature = i + confirm_bars
+            if mature > n - 1:
+                break
+            for k in range(i + 1, mature + 1):
+                ck = float(df["close"].iloc[k])
+                held = ck > lvl if direction == "long" else ck < lvl
+                if not held:
+                    cancel_at = k
+                    break
+            if cancel_at is not None:
+                i = cancel_at
+                continue
+            i = mature
+            atr = float(df["atr"].iloc[i])
+            if atr <= 0:
+                i += 1
+                continue
+            c = float(df["close"].iloc[i])
         entry = c
         sl = entry - atr_stop_mult * atr if direction == "long" else entry + atr_stop_mult * atr
         risk = abs(entry - sl)
@@ -337,6 +367,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                               "atr_stop_mult": atr_stop_mult,
                               "trail_mult": trail_mult,
                               "min_confidence": min_confidence}
+    if confirm_bars > 0:
+        params["confirm_bars"] = confirm_bars
     if stale_exit_bars is not None:
         params["stale_exit_bars"] = stale_exit_bars
         params["stale_exit_below_r"] = stale_exit_below_r
@@ -481,6 +513,9 @@ def main(argv: List[str]) -> int:
     p.add_argument("--trail-decay-tight-mult", type=float, default=0.0,
                    help="The tightened trail mult once armed (0 disables the lever, "
                         "byte-identical).")
+    p.add_argument("--confirm-bars", type=int, default=0,
+                   help="M21 E-2 entry lever (0=off): the next N closes must "
+                        "each hold beyond the trigger close before entering.")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for regime tagging.")
@@ -519,7 +554,8 @@ def main(argv: List[str]) -> int:
                        giveback_r=args.giveback_r,
                        trail_decay_arm_r=args.trail_decay_arm_r,
                        trail_decay_stall_bars=args.trail_decay_stall_bars,
-                       trail_decay_tight_mult=args.trail_decay_tight_mult)
+                       trail_decay_tight_mult=args.trail_decay_tight_mult,
+                       confirm_bars=args.confirm_bars)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)

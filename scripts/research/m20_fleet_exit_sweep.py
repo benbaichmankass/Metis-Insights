@@ -185,6 +185,8 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None) -
         opt("--trail-mult", "trail_mult")
         opt("--min-confidence", "min_confidence")
         opt("--adx-min", "adx_min")
+        # M21 E-2: a declared confirmation gate is config-exact base here too.
+        opt("--confirm-bars", "confirm_bars")
         declared_levers()
     return a
 
