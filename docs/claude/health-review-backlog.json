@@ -3519,9 +3519,11 @@
       "title": "Four workflows (vm-ib-gateway-watchdog-enable, vm-cloud-open-ib-port, oci-storage, oci-storage-verify) still default their SSH/host target at the terminated x86 micro (158.178.210.252) instead of the live Ampere VM (141.145.193.91) or gateway VM (10.0.0.251 via ProxyJump)",
       "description": "These four workflows would fail outright (or worse, silently target a non-existent/reassigned instance) if run with defaults post-decommission. Compare the already-correct pattern in vm-ib-gateway-recover.yml (JUMP_HOST defaults 141.145.193.91, GATEWAY_HOST defaults 10.0.0.251 via ProxyJump) and vm-ib-gateway-stop.yml (VM_SSH_HOST defaults 141.145.193.91). FIX (Tier-1, CI-only, no live-trade-path risk): update the four workflows' host defaults to match the sibling pattern -- vm-ib-gateway-watchdog-enable.yml and vm-cloud-open-ib-port.yml need a ProxyJump to 10.0.0.251 like vm-ib-gateway-recover.yml (they're gateway-VM operations mistakenly defaulted at the old trader micro); oci-storage.yml/oci-storage-verify.yml need VM_HOST -> 141.145.193.91 (they're live-trader block-storage operations). Other workflows referencing 158.178.210.252 only in explanatory/historical comments (vm-diag-snapshot.yml, get-diag-token.yml, sync-vm-secrets.yml, etc.) are fine as-is -- no action needed there.",
       "tier": 1,
-      "status": "open",
+      "status": "partially-resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [],
+      "updated_at": "2026-07-13T11:40:00+00:00",
+      "progress_2026_07_13": "Fixed the 3 live SSH-default misfires (PR #6302 follow-up): (1) vm-ib-gateway-watchdog-enable.yml — rewired to ProxyJump through the live trader (141.145.193.91) to reach the PRIVATE gateway VM (10.0.0.251) where ict-ib-gateway-watchdog.timer actually runs, mirroring vm-ib-gateway-recover.yml (the old default SSHed straight at the dead micro AND targeted the wrong box); (2) vm-cloud-open-ib-port.yml — VM_SSH_HOST default 158.178.210.252 → 141.145.193.91 (the trader shares the 10.0.0.0/24 subnet with the gateway, so its subnet SL covers both; no ProxyJump — it reads IMDS on the bastion + runs OCI CLI on the runner); (3) oci-storage.yml — VM_HOST → 141.145.193.91 for the SSH read paths. oci-storage-verify.yml was ALREADY correct (VM_HOST=141.145.193.91). REMAINING (operator, can't resolve from a session): oci-storage.yml's VM_INSTANCE_OCID is still the terminated micro's OCID — flagged with a TODO in-file; needs the live Ampere ict-bot-arm OCID AND a reassessment of whether the block-volume workflow even applies now that /data/bot-data is a directory on the boot volume, not the ict-bot-data-vol block volume. Downgraded open→partially-resolved."
     },
     {
       "id": "BL-20260707-IBWARMUP-RECURRENCE",
@@ -3899,5 +3901,5 @@
       "resolution": "RESOLVED end-to-end 2026-07-13. Root cause was two-fold: the S-067 puller had (a) no timer/action and (b) pulled the Bybit SPOT category only while bybit_2 trades linear perps. PR #6290 shipped --category linear + the on-demand pull-exchange-fills action; the first run (issue #6298) inserted 31 fills and /api/bot/pnl/exchange (issue #6299) then served real data (fill_count=31 across BTC/XRP/ADA, -$10.51 realised / +$7.30 unrealised). DURABILITY: a follow-up PR adds ict-exchange-fills-pull.{service,timer} (daily 00:20 UTC, venv python, DATA_DIR-pinned, DEFAULT_SKIP-listed) so the 7-day window stays fully covered without an on-demand run. Note: an ADA row shows open_qty_signed -389 which is the FIFO lot-pairing view (exchange-truth), distinct from the journal's net — expected, the two stores are independent by design."
     }
   ],
-  "updated_at": "2026-07-13T11:20:00+00:00"
+  "updated_at": "2026-07-13T11:40:00+00:00"
 }

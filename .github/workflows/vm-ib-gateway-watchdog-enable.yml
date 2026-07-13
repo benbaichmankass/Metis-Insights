@@ -11,7 +11,16 @@ name: vm-ib-gateway-watchdog-enable
 #   accounts.yaml, strategies.yaml, risk caps and order code are NOT touched.
 #
 # Required repo secrets:  VM_SSH_KEY
-# Optional repo variables: VM_SSH_HOST (default 158.178.210.252), VM_SSH_USER (default ubuntu)
+# The ict-ib-gateway-watchdog.timer runs ONLY on the dedicated IB-Gateway VM
+# (private 10.0.0.251, no public IP; role=gateway) since the 2026-06-10
+# gateway-isolation split — so this enable must land there, NOT on the trader.
+# A GitHub runner can't reach the private gateway directly, so we SSH via
+# ProxyJump through the live trader (141.145.193.91), which shares the
+# 10.0.0.0/24 subnet — the same pattern as vm-ib-gateway-recover.yml.
+# Optional repo variables: VM_SSH_HOST = ProxyJump bastion / live trader
+# (default 141.145.193.91), IB_GATEWAY_HOST = gateway target (default
+# 10.0.0.251), VM_SSH_USER (default ubuntu). Was defaulted at the terminated
+# x86 micro 158.178.210.252 pre-2026-06-14 cutover (BL-20260707-WORKFLOW-STALE-MICRO-DEFAULTS).
 
 on:
   workflow_dispatch:
@@ -42,7 +51,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     env:
-      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      # ProxyJump bastion (live trader, public) + the gateway VM (private).
+      JUMP_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      GATEWAY_HOST: ${{ vars.IB_GATEWAY_HOST || '10.0.0.251' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
     steps:
       - name: Set up SSH key
@@ -58,7 +69,9 @@ jobs:
           chmod 700 ~/.ssh
           printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+          # Only the public jump host is keyscannable from the runner; the
+          # private gateway is reached through it via ProxyJump.
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${JUMP_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Enable ict-ib-gateway-watchdog.timer
         id: exec
@@ -72,12 +85,21 @@ jobs:
           echo ">>> post: enabled=$(systemctl is-enabled ${UNIT} 2>&1 || true) active=$(systemctl is-active ${UNIT} 2>&1 || true)"
           systemctl list-timers --all "${UNIT}" 2>&1 | tail -5 || true
           REMOTE
+          # Build the ssh invocation: ProxyJump through the trader unless the
+          # gateway host IS the jump host (degenerate same-box config).
+          SSH_ARGS=( -i ~/.ssh/id_rsa
+                     -o BatchMode=yes
+                     -o StrictHostKeyChecking=accept-new
+                     -o ConnectTimeout=15 )
+          if [ "${GATEWAY_HOST}" != "${JUMP_HOST}" ]; then
+            SSH_ARGS+=( -o "ProxyJump=${VM_SSH_USER}@${JUMP_HOST}" )
+            echo ">>> reaching gateway ${GATEWAY_HOST} via ProxyJump ${VM_SSH_USER}@${JUMP_HOST}"
+          else
+            echo ">>> gateway host == jump host; connecting directly to ${GATEWAY_HOST}"
+          fi
           set +e
-          ssh -i ~/.ssh/id_rsa \
-              -o BatchMode=yes \
-              -o StrictHostKeyChecking=accept-new \
-              -o ConnectTimeout=15 \
-              "${VM_SSH_USER}@${VM_SSH_HOST}" \
+          ssh "${SSH_ARGS[@]}" \
+              "${VM_SSH_USER}@${GATEWAY_HOST}" \
               "bash -s" <<<"$REMOTE_SCRIPT" \
               > action-output.txt 2>&1
           rc=$?

@@ -19,9 +19,11 @@ name: vm-cloud-open-ib-port
 #       circuit breaker for 10.0.0.251:4002 clearing + net_liquidation
 #       populating), not by an internet curl.
 #
-# Run it against the host whose VNIC subnet should carry the rule — the micro
-# (default VM_SSH_HOST) shares the 10.0.0.0/24 subnet with the gateway VM, so
-# opening it on the micro's subnet Security Lists covers both boxes.
+# Run it against the host whose VNIC subnet should carry the rule — the live
+# trader (default VM_SSH_HOST 141.145.193.91) shares the 10.0.0.0/24 subnet with
+# the gateway VM, so opening it on the trader's subnet Security Lists covers
+# both boxes. (Was defaulted at the terminated x86 micro 158.178.210.252 until
+# the 2026-06-14 cutover — BL-20260707-WORKFLOW-STALE-MICRO-DEFAULTS.)
 #
 # Triggers:
 #   1. workflow_dispatch — operator clicks "Run workflow" (can override port/source).
@@ -80,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '158.178.210.252' }}
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
       DASHBOARD_PORT: ${{ inputs.port || '4002' }}
       INGRESS_SOURCE_CIDR: ${{ inputs.source_cidr || '10.0.0.0/24' }}
