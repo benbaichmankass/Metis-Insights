@@ -35,15 +35,23 @@ else
     exit 1
 fi
 
+# State reads must never depend on /dev/null: the OCI host agent has stripped
+# it to 0444 MID-RUN (first redirect of the run succeeded, later ones EACCESed
+# — 2026-07-13 + 2026-07-14, BL-20260713-DEVNULL-RESTART-MISREPORT), which made
+# `is-active … 2>/dev/null` fail and report post_state "unknown" on a restart
+# that actually succeeded. All stderr suppression below goes to a temp sink.
+ERR_SINK="$(mktemp "${TMPDIR:-/tmp}/restart_bot_err.XXXXXX" 2>&1)" || ERR_SINK="${TMPDIR:-/tmp}/restart_bot_err.$$"
+trap 'rm -f "${ERR_SINK}"' EXIT
+
 # Defense in depth — borrowed from deploy_pull_restart.sh. Don't
 # kill an in-flight /vm runner.
-if "${SYSTEMCTL[@]}" list-units 'claude-vm-runner@*.service' --state=active --no-legend 2>/dev/null | grep -q .; then
+if "${SYSTEMCTL[@]}" list-units 'claude-vm-runner@*.service' --state=active --no-legend 2>>"${ERR_SINK}" | grep -q .; then
     log "ABORT: a claude-vm-runner@*.service unit is active. Refusing to restart ${UNIT} mid-runner."
     record_audit "restart-bot-service" "deferred" '{"reason": "vm-runner active"}' >/dev/null || true
     exit 3
 fi
 
-pre_state="$("${SYSTEMCTL[@]}" is-active "${UNIT}" 2>/dev/null || echo "unknown")"
+pre_state="$("${SYSTEMCTL[@]}" is-active "${UNIT}" 2>>"${ERR_SINK}" || echo "unknown")"
 log "Pre-restart state of ${UNIT}: ${pre_state}"
 echo "===== pre-restart status ====="
 "${SYSTEMCTL[@]}" status "${UNIT}" --no-pager -n 5 || true
@@ -71,11 +79,17 @@ fi
 log "Restarting ${UNIT}…"
 "${SYSTEMCTL[@]}" restart "${UNIT}"
 
+# The strip has landed mid-run right around this point on both observed
+# incidents (possibly triggered by the daemon-reload/enable churn above), so
+# re-heal /dev/null before the load-bearing post-state poll. Best-effort — the
+# ERR_SINK reads below survive even if the heal itself fails.
+heal_devnull || true
+
 # Verify post-state. Allow up to 30 s for systemd to settle.
 deadline=$(( $(date +%s) + 30 ))
 post_state="unknown"
 while [ "$(date +%s)" -lt "${deadline}" ]; do
-    post_state="$("${SYSTEMCTL[@]}" is-active "${UNIT}" 2>/dev/null || echo "unknown")"
+    post_state="$("${SYSTEMCTL[@]}" is-active "${UNIT}" 2>>"${ERR_SINK}" || echo "unknown")"
     if [ "${post_state}" = "active" ]; then
         break
     fi
@@ -85,7 +99,7 @@ log "Post-restart state of ${UNIT}: ${post_state}"
 
 echo
 echo "===== post-restart journalctl (last 30 lines) ====="
-journalctl -u "${UNIT}" -n 30 --no-pager 2>/dev/null || true
+journalctl -u "${UNIT}" -n 30 --no-pager 2>>"${ERR_SINK}" || true
 
 if [ "${post_state}" = "active" ]; then
     record_audit "restart-bot-service" "ok" \
