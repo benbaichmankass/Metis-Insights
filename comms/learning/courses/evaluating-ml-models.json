@@ -1,0 +1,359 @@
+{
+  "course_id": "evaluating-ml-models",
+  "title": "Evaluating a Model Without Fooling Yourself",
+  "subtitle": "Overfitting, out-of-sample testing, walk-forward validation, and drift — the difference between a model that looks good and one that actually works.",
+  "attribution": "Original explanations written for this app. Standard machine-learning evaluation concepts (train/test split, cross-validation, walk-forward, distribution drift) in plain language for someone operating an automated trading system.",
+  "source_url": "",
+  "hosts": {
+    "a": "Maya",
+    "b": "Theo"
+  },
+  "generated_by": "gemini:gemini-3.1-flash-lite",
+  "episodes": [
+    {
+      "id": "ep1",
+      "title": "Overfitting — when a model memorises the past",
+      "summary": "",
+      "minutes": 12,
+      "script": [
+        {
+          "s": "a",
+          "t": "Welcome to the first episode of our ML lifecycle series. I'm Maya, and today we’re tackling the most seductive trap in quantitative trading: the perfect backtest."
+        },
+        {
+          "s": "b",
+          "t": "And I'm Theo. If you've ever spent weeks tweaking parameters only to see your strategy bleed money the second it goes live, you’ve likely fallen victim to the enemy we’re dissecting today: overfitting."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. Let's ground this. At its core, an ML model is just a mapping. You feed it features—like recent volatility or order book imbalance—and it tries to predict a target, like 'will this trade result in a profit?'"
+        },
+        {
+          "s": "b",
+          "t": "Right. 'Training' is just the process of adjusting the model’s internal dials so its predictions match the labels in your historical data. But here’s the rub: if you give a model enough flexibility, it stops learning the market and starts memorizing the noise."
+        },
+        {
+          "s": "a",
+          "t": "That's the definition of overfitting. It’s like a student who memorizes every single answer key for a practice exam instead of learning the math. They score 100% on the practice test, but fail the final because they don't actually understand the concepts."
+        },
+        {
+          "s": "b",
+          "t": "And in our world, that 'practice exam' is your backtest. If your strategy fits the historical noise perfectly, it’s not a robust model—it’s a curve-fit. It’s chasing random spikes in the data that will never repeat."
+        },
+        {
+          "s": "a",
+          "t": "This is why the cardinal rule of ML is non-negotiable: Never evaluate a model on the data it trained on. That number is pure fiction. It doesn't measure skill; it measures memory."
+        },
+        {
+          "s": "b",
+          "t": "So, how do we prove it’s actually learning? We use the split: Train, Validation, and Test sets."
+        },
+        {
+          "s": "a",
+          "t": "Right. You train on the first chunk. You tune your hyper-parameters on the validation set. And finally, you test on a holdout set—data the model has literally never seen before."
+        },
+        {
+          "s": "b",
+          "t": "And you only look at that test set once. If you keep tweaking until the test results look good, you’ve just leaked the test data into your training process. You’ve effectively 'trained' on your final exam."
+        },
+        {
+          "s": "a",
+          "t": "It comes down to the bias-variance tradeoff. If your model is too simple, it has high bias—it misses the pattern entirely. But if it's too complex, it has high variance—it chases the noise."
+        },
+        {
+          "s": "b",
+          "t": "And for a trading bot operator, a complex model is often a liability. We want generalisation, not perfection. If I see a backtest with a Sharpe ratio that looks too good to be true, my first thought isn't 'I'm a genius,' it's 'I've definitely overfit this.'"
+        },
+        {
+          "s": "a",
+          "t": "It’s a red flag. A spectacular backtest should make you suspicious, not confident. The more you optimize to fit the past, the less likely that strategy is to survive in the wild."
+        },
+        {
+          "s": "b",
+          "t": "So, listeners, if you're currently staring at a beautiful, high-performing equity curve, ask yourself: did I learn the market's structure, or did I just memorize the historical noise?"
+        },
+        {
+          "s": "a",
+          "t": "Because next time, we’re going to talk about why time-series data makes this even harder—and why your 'random' splits might be lying to you about the future."
+        },
+        {
+          "s": "b",
+          "t": "See you in the next episode."
+        }
+      ],
+      "audio_url": "https://github.com/benbaichmankass/ict-trader-dashboard/releases/download/learning-audio/evaluating-ml-models-ep1.mp3"
+    },
+    {
+      "id": "ep2",
+      "title": "Out-of-sample & walk-forward — testing on the future",
+      "summary": "",
+      "minutes": 13,
+      "script": [
+        {
+          "s": "a",
+          "t": "Welcome back, Theo. Last time we talked about why a perfect backtest is often a red flag. Today, we need to dive into the 'how'—specifically, why shuffling your data for a trading bot is a cardinal sin."
+        },
+        {
+          "s": "b",
+          "t": "Oh, the classic 'random shuffle' trap. It feels like good ML hygiene, right? You mix up your rows, split them into training and testing sets, and you get a nice, clean model. But for a trading bot, that's just building a time machine."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. If you treat your price data like you're classifying photos of cats and dogs, you're going to leak the future into the past. In ML, we call that 'look-ahead bias'. If your model sees a price spike at 2:00 PM during training, it shouldn't know that the setup at 1:55 PM led to that spike."
+        },
+        {
+          "s": "b",
+          "t": "Right, because in the real world, the bot at 1:55 PM is blind to the future. If you shuffle, you're basically giving the bot a cheat sheet. You get a massive 'in-sample' accuracy score that feels great, but the moment you go live, the bot crashes because it can't actually predict the future—it just memorized the history."
+        },
+        {
+          "s": "a",
+          "t": "So, how do we fix it? We move to 'out-of-sample' testing. You hold back a final chunk of data—say, the most recent 20%—and you don't let the model touch it until the very end. That's your final exam."
+        },
+        {
+          "s": "b",
+          "t": "I love the exam analogy. But for a trading strategy, a single holdout set feels a bit thin. What if that last 20% was just a quiet market period? You might miss how the model handles a volatility spike."
+        },
+        {
+          "s": "a",
+          "t": "That's where walk-forward validation comes in. Instead of one big split, you use a rolling window. You train on, say, six months, test on the next month, then slide the window forward one month and repeat. You're effectively testing the model's ability to adapt to new, unseen windows of time."
+        },
+        {
+          "s": "b",
+          "t": "That makes so much more sense. It turns one 'test' into a series of real-world trials. But Maya, even with walk-forward, I see people falling into 'leakage' traps constantly. What's the most common one?"
+        },
+        {
+          "s": "a",
+          "t": "It's usually feature scaling. Imagine you normalize your volatility features using the mean and standard deviation of your *entire* dataset. You've just leaked the future statistics into your training phase."
+        },
+        {
+          "s": "b",
+          "t": "Ouch. So the model knows the 'average' volatility of the next two years before it even starts trading day one. That's a silent killer. What about label construction?"
+        },
+        {
+          "s": "a",
+          "t": "Same thing. If your 'buy' signal label is based on the price five minutes later, you have to be absolutely certain that data point is available at the exact moment the decision is made. No 'peeking' at the bar close if you're executing on the open."
+        },
+        {
+          "s": "b",
+          "t": "It sounds like the core discipline here is just... extreme skepticism. If a strategy looks too good, I should assume I've accidentally leaked the future or overfit the noise."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. If your backtest looks like a perfect 45-degree line, you didn't build a trading bot; you built a history-memorization machine. Real strategies are messy, they lose money, and they decay."
+        },
+        {
+          "s": "b",
+          "t": "So, walk-forward is the standard, no shuffling allowed, and if you see a result that looks too perfect, check for leakage. Does that cover the 'candidate' phase of our promotion ladder?"
+        },
+        {
+          "s": "a",
+          "t": "It does. If a model can't survive a rigorous walk-forward test, it never even makes it to the 'shadow' phase. We don't waste live compute on a model that can't pass a basic time-series test."
+        },
+        {
+          "s": "b",
+          "t": "Makes sense. Keep the future in the future, and let the model prove it can handle the unknown. Next up, we have to talk about what happens when the model finally meets the real world and starts to drift."
+        }
+      ],
+      "audio_url": "https://github.com/benbaichmankass/ict-trader-dashboard/releases/download/learning-audio/evaluating-ml-models-ep2.mp3"
+    },
+    {
+      "id": "ep3",
+      "title": "It worked, then it didn't — drift, regime change & honest live evaluation",
+      "summary": "",
+      "minutes": 13,
+      "script": [
+        {
+          "s": "a",
+          "t": "Welcome back, Theo. We've talked about how to build models without overfitting, but today we’re tackling the heartbreak of the quant world: the model that passes every backtest with flying colors, only to lose money the second it hits the live order book."
+        },
+        {
+          "s": "b",
+          "t": "The classic 'it worked, then it didn't' scenario. It’s the nightmare of every bot operator. You spend weeks perfecting your feature engineering, your backtest looks like a hockey stick, and then live deployment feels like you're just lighting capital on fire."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. And the first thing to accept is that a backtest is just a simulation. It’s an offline metric, like accuracy or AUC, but the market doesn't pay you for high AUC—it pays you for realized PnL. The gap between those two is where most strategies go to die."
+        },
+        {
+          "s": "b",
+          "t": "Right, because the market is a living thing. Even if you didn't overfit, the world changes. We call this distribution drift. The statistical landscape of your input features—volatility, order flow, time-of-day—starts to shift away from the data you used to train the model."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. And you can't just 'feel' that drift. You need hard metrics. That’s where the Kolmogorov–Smirnov test or the Population Stability Index come in. They’re basically your model's early warning system."
+        },
+        {
+          "s": "b",
+          "t": "So, if my KS test or PSI score starts creeping up, that’s telling me the model is seeing 'weird' data that it doesn't recognize from its training days?"
+        },
+        {
+          "s": "a",
+          "t": "Spot on. It’s saying, 'Hey, the inputs I'm seeing today don't look like the inputs I was trained on.' It’s the statistical equivalent of a pilot realizing the instrument panel is showing readings that don't match the weather outside."
+        },
+        {
+          "s": "b",
+          "t": "And the canonical market cause for this is a regime change. You train a bot on a nice, steady trending market, but then the market flips to a choppy, range-bound mess. Your model is still waiting for the trend to continue, but the 'rules' of the game have changed."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. And this is why we use a promotion ladder. You don't just go from 'research' to 'firing live orders.' You need a shadow stage."
+        },
+        {
+          "s": "b",
+          "t": "I love the shadow stage. You deploy the model, but it’s effectively in 'observe-only' mode. It makes predictions, you log them, but it has zero power to touch the order book."
+        },
+        {
+          "s": "a",
+          "t": "It’s the ultimate honest evaluation. You’re comparing its live predictions against actual market outcomes without risking a single cent. You’re accumulating a real-world, out-of-sample track record that you didn't manipulate."
+        },
+        {
+          "s": "b",
+          "t": "So the ladder is: Candidate for research, Shadow for live-data validation, and Advisory for when you finally trust it enough to let it influence the execution logic. If it fails in shadow, you never promote it."
+        },
+        {
+          "s": "a",
+          "t": "Precisely. And even once it's in advisory mode, you never stop watching the KS and PSI scores. You never get to 'set it and forget it.'"
+        },
+        {
+          "s": "b",
+          "t": "It sounds exhausting, but I guess that’s the price of being a systematic trader. You have to be paranoid about your own metrics."
+        },
+        {
+          "s": "a",
+          "t": "Paranoia is a virtue here, Theo. Never trust a single number. If your backtest is perfect, be suspicious. If your live model is working, watch for drift. The moment you stop questioning the data is the moment the market humbles you."
+        },
+        {
+          "s": "b",
+          "t": "Always look at the future, never the past, and keep the shadow-testing running. I think I'm starting to see why the best bot operators are basically full-time detectives."
+        },
+        {
+          "s": "a",
+          "t": "That's exactly what they are. Thanks for joining me for this series, and remember: if you aren't monitoring for drift, you aren't actually running an ML model—you're just running a prayer."
+        }
+      ],
+      "audio_url": "https://github.com/benbaichmankass/ict-trader-dashboard/releases/download/learning-audio/evaluating-ml-models-ep3.mp3"
+    }
+  ],
+  "quiz": [
+    {
+      "id": "q1",
+      "q": "Why is a trading strategy that shows a 'perfect' equity curve on historical backtesting likely to fail in live markets?",
+      "options": [
+        "It has successfully learned the underlying market structure.",
+        "It has likely overfitted by memorizing noise in the historical data rather than learning generalizable patterns.",
+        "It lacks sufficient complexity to handle real-world volatility.",
+        "The market has not yet reached the level of efficiency required for the strategy."
+      ],
+      "answer": 1,
+      "explain": "High performance on training data often indicates the model has memorized specific noise rather than learning predictive features, leading to poor generalization."
+    },
+    {
+      "id": "q2",
+      "q": "When evaluating an ML model for trading, why is it critical to avoid 'look-ahead bias'?",
+      "options": [
+        "Because future data is computationally expensive to process.",
+        "Because the model must be forced to make decisions using only information available at the time of the trade.",
+        "Because ML models perform better when they are unaware of the timeline.",
+        "Because look-ahead bias is only a concern for neural networks, not linear models."
+      ],
+      "answer": 1,
+      "explain": "Look-ahead bias occurs when future information leaks into the training process, creating an unrealistic expectation of performance that cannot be replicated in live trading."
+    },
+    {
+      "id": "q3",
+      "q": "What is the primary purpose of a 'shadow model' in an automated trading lifecycle?",
+      "options": [
+        "To act as a backup in case the primary model crashes.",
+        "To allow the model to interact with the market with small position sizes.",
+        "To observe and log live predictions without influencing real order execution, creating a clean out-of-sample record.",
+        "To hide the model's logic from competitors."
+      ],
+      "answer": 2,
+      "explain": "Shadow testing provides an honest out-of-sample evaluation of how a model performs under live conditions without risking capital or order execution."
+    },
+    {
+      "id": "q4",
+      "q": "What does a significant increase in the Population Stability Index (PSI) indicate for a production trading model?",
+      "options": [
+        "The model is performing better than expected.",
+        "The input data distribution has shifted, meaning the model is operating outside its training conditions.",
+        "The model has reached a state of perfect convergence.",
+        "The market has become more liquid and easier to trade."
+      ],
+      "answer": 1,
+      "explain": "A rising PSI signals distribution drift, indicating that the live market environment no longer matches the characteristics the model was trained on."
+    },
+    {
+      "id": "q5",
+      "q": "Why is 'walk-forward' validation preferred over a single holdout split for time-series trading data?",
+      "options": [
+        "It is faster to compute than a single split.",
+        "It accounts for the fact that market regimes change over time by testing on multiple sequential windows.",
+        "It eliminates the need for any training data.",
+        "It guarantees the model will be profitable in the future."
+      ],
+      "answer": 1,
+      "explain": "Walk-forward validation better simulates the real-world experience of periodically retraining and testing on new data, capturing performance across different market regimes."
+    },
+    {
+      "id": "q6",
+      "q": "Which of the following is a classic example of data leakage in feature engineering?",
+      "options": [
+        "Scaling features using the mean and standard deviation of the entire dataset before splitting.",
+        "Using the previous day's closing price as an input feature.",
+        "Removing outliers from the training set only.",
+        "Normalizing the target variable to be between 0 and 1."
+      ],
+      "answer": 0,
+      "explain": "Computing statistics like mean or scale on the entire dataset incorporates future information into the training phase, which is a form of data leakage."
+    },
+    {
+      "id": "q7",
+      "q": "In the context of the Bias-Variance tradeoff, what happens if you make your trading model too complex?",
+      "options": [
+        "It will have low variance and capture the true market pattern.",
+        "It will likely have high variance, leading to overfitting and poor performance on unseen data.",
+        "It will reduce the impact of transaction costs.",
+        "It will automatically adapt to any regime change."
+      ],
+      "answer": 1,
+      "explain": "Excessive model complexity increases variance, causing the model to chase random noise rather than stable, predictive relationships."
+    },
+    {
+      "id": "q8",
+      "q": "Why might a model that shows high accuracy in offline testing fail once deployed live?",
+      "options": [
+        "Offline metrics ignore real-world factors like slippage, latency, and market regime shifts.",
+        "Offline metrics are always lower than live performance.",
+        "The model needs more training data to function live.",
+        "The model requires a different programming language for live execution."
+      ],
+      "answer": 0,
+      "explain": "Offline metrics measure statistical performance, but live trading success is also dependent on execution costs, latency, and the ongoing stability of market conditions."
+    },
+    {
+      "id": "q9",
+      "q": "What is the primary danger of using random K-fold cross-validation on time-series trading data?",
+      "options": [
+        "It takes too long to run.",
+        "It is mathematically impossible to implement.",
+        "It ignores temporal order, allowing the model to 'train' on the future and 'test' on the past.",
+        "It is only suitable for classification, not regression."
+      ],
+      "answer": 2,
+      "explain": "Randomly shuffling time-series data allows the model to see future events while predicting the past, which invalidates the evaluation by introducing look-ahead bias."
+    },
+    {
+      "id": "q10",
+      "q": "What is the 'regime change' challenge in machine learning for finance?",
+      "options": [
+        "The model becomes too fast for the exchange to process.",
+        "The statistical properties of the market shift, rendering the patterns learned from past data obsolete.",
+        "The model requires too much memory to store historical regimes.",
+        "Regime change only affects long-term investors, not automated bots."
+      ],
+      "answer": 1,
+      "explain": "Markets are non-stationary; a model trained on a trending market may fail catastrophically when the regime shifts to a range-bound or volatile environment."
+    }
+  ]
+}
