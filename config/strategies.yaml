@@ -933,6 +933,7 @@ strategies:
     stale_exit_below_r: 0.0
     tp_r: 50.0
     min_confidence: 0.80
+    skip_hours: "0"   # M21 E-2 round 3 skip_h0 (wf 5/6, 2026-07-14) — skip entries triggered on the UTC-midnight 4h bar (daily roll/funding boundary); stacks on the batch-1 depth declare (measured config-exact on top of min_confidence 0.80)
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   trend_donchian_ada_4h:
@@ -1495,6 +1496,7 @@ strategies:
     atr_stop_mult: 2.5
     trail_mult: 5.0
     min_confidence: 0.0
+    skip_hours: "19,20"   # M21 E-2 round 3 skip_late (wf 5/6, 2026-07-14) — skip entries triggered in the 19-20 UTC late-US-session pocket (OOS flips -5.09R -> +0.37R, dd 18.9 -> 13.5)
     shadow_model_ids: []
 
   qqq_pullback_1h:
