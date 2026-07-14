@@ -1,0 +1,388 @@
+{
+  "schema_version": 1,
+  "title": "The Operator's Curriculum",
+  "subtitle": "A learning roadmap for the two disciplines this system runs on — ICT / technical trading, and strategic AI judgment. Built for the operator, not the coder.",
+  "updated": "2026-07-14",
+  "tracks": [
+    {
+      "id": "markets",
+      "name": "The Markets",
+      "blurb": "Trading fluency, from first principles to the specific ICT logic your bot encodes. The goal isn't to trade by hand — it's to understand what your bot is deciding, and why, well enough to judge it.",
+      "modules": [
+        {
+          "id": "m1",
+          "num": 1,
+          "title": "How Markets Actually Work",
+          "goal": "The plumbing beneath every trade: who's on the other side, and how a price is really made.",
+          "goals": [
+            "Read a bid/ask spread and understand what the order book represents",
+            "Explain liquidity, market makers, and why big players need your stop-losses to fill",
+            "Distinguish spot vs. futures, and understand leverage & margin (your bot trades futures — MES, MGC, MHG — and crypto)"
+          ],
+          "in_your_system": "Your bot's whole ICT premise is `liquidity` — sweeps, stop-hunts, buy/sell-side pools. This module is the market-microstructure reality those concepts sit on top of, and it grounds your leverage and margin exposure on the prop and futures accounts.",
+          "resources": [
+            {"id": "babypips-pipsology", "title": "The School of Pipsology", "url": "https://www.babypips.com/learn/forex", "format": "Course", "cost": "free", "by": "BabyPips · self-paced grades", "flag": "start here if new", "note": "The best jargon-free on-ramp anywhere. Early grades cover bid/ask, spreads, pips, leverage and margin from absolute zero."},
+            {"id": "cme-intro-futures", "title": "Introduction to Futures", "url": "https://www.cmegroup.com/education/courses/introduction-to-futures", "format": "Course", "cost": "free", "by": "CME Group (the actual futures exchange)", "note": "Authoritative on how contracts trade and clear. Pair with the Margin and The Power of Leverage companion lessons."},
+            {"id": "optiver-order-book", "title": "Orders and the Order Book", "url": "https://www.optiver.com/insights/explainers/orders-and-the-order-book/", "format": "Article", "cost": "free", "by": "Optiver (a major market-making firm)", "note": "A liquidity provider explaining the limit order book and how orders match — straight from people who do it professionally, no upsell."},
+            {"id": "investopedia-order-book", "title": "Investopedia: Order Book & Market Maker", "url": "https://www.investopedia.com/terms/o/order-book.asp", "format": "Reference", "cost": "free", "by": "Investopedia · quick reference", "note": "Short, reliable definitions of the order book, depth, spread, and what market makers actually do. Use as a dictionary."}
+          ]
+        },
+        {
+          "id": "m2",
+          "num": 2,
+          "title": "Technical Analysis Fundamentals",
+          "goal": "The chart-reading vocabulary — candlesticks, structure, and the indicators your strategies compute.",
+          "goals": [
+            "Read candlesticks, trends, and support/resistance",
+            "Understand the indicators your bot uses: VWAP, moving averages, Bollinger/squeeze, Donchian channels, RSI, MACD",
+            "Know why an indicator is a lens, not a crystal ball"
+          ],
+          "in_your_system": "Your strategy families are named for these tools — `vwap`, `squeeze_breakout`, `trend_donchian`. Learning each indicator here tells you exactly what signal your bot is reacting to.",
+          "resources": [
+            {"id": "stockcharts-chartschool", "title": "StockCharts ChartSchool", "url": "https://chartschool.stockcharts.com/", "format": "Reference", "cost": "free", "by": "StockCharts.com · rigorous free library", "flag": "the backbone", "note": "The most comprehensive free TA reference online — dedicated pages for candlesticks, support/resistance, patterns, and every indicator you listed. Your permanent reference."},
+            {"id": "investopedia-ta-beginners", "title": "Technical Analysis Strategies for Beginners", "url": "https://www.investopedia.com/articles/active-trading/102914/technical-analysis-strategies-beginners.asp", "format": "Article", "cost": "free", "by": "Investopedia · + the TA hub & VWAP pages", "note": "Clean beginner framing plus a worked moving-average example and the 'backtest & demo before real money' discipline."},
+            {"id": "schwab-vwap", "title": "How to Use Volume-Weighted Indicators (VWAP)", "url": "https://www.schwab.com/learn/story/how-to-use-volume-weighted-indicators-trading", "format": "Article", "cost": "free", "by": "Charles Schwab", "note": "A trustworthy broker explainer on VWAP specifically — the anchor indicator for intraday trading and one of your live strategies."},
+            {"id": "murphy-ta-book", "title": "Technical Analysis of the Financial Markets", "url": "https://www.amazon.com/Technical-Analysis-Financial-Markets-Comprehensive/dp/0735200661", "format": "Book", "cost": "paid", "by": "John J. Murphy · library/used copies common", "flag": "the canon", "note": "The canonical charting textbook most professionals learned from. The definitive deep-dive once the free hubs click."}
+          ]
+        },
+        {
+          "id": "m3",
+          "num": 3,
+          "title": "ICT / Smart Money Concepts",
+          "goal": "The heart of the whole thing. Your bot IS an ICT engine — this is its native language.",
+          "goals": [
+            "Understand ICT's core thesis: price moves to seek liquidity, engineered by large players",
+            "Master the concept set your bot logs: liquidity sweeps, Fair Value Gaps, order blocks, displacement, killzones, bias",
+            "Ground every field name in the code (fvg, sweep, killzone, setup_type) in a real idea"
+          ],
+          "in_your_system": "Your signals carry `zones[]` like {kind:\"fvg\",low,high} and {kind:\"sweep\",price}, plus meta{setup_type,killzone,bias}. This module makes every one of those readable at a glance. Start with the vocabulary before the deep setups.",
+          "resources": [
+            {"id": "ict-13min-overview", "title": "Every ICT Trading Strategy Explained in 13 Minutes", "url": "https://www.youtube.com/watch?v=vGyREXEwLIk", "format": "Video", "cost": "free", "by": "Third-party educator · YouTube", "flag": "fast overview first", "note": "Watch this first to grab the whole vocabulary quickly before committing to the long-form mentorship."},
+            {"id": "ict-official-channel", "title": "The Inner Circle Trader (official)", "url": "https://www.youtube.com/@innercircletrader", "format": "Channel", "cost": "free", "by": "Michael J. Huddleston (ICT) · the entire method, free", "flag": "the source", "note": "The authoritative primary source. The real ICT content is 100% free — treat lookalike domains and paid 'mentorships' as upsells."},
+            {"id": "ict-2022-mentorship", "title": "ICT Mentorship 2022 (full playlist)", "url": "https://www.youtube.com/playlist?list=PLJtNkHoZUy2CBCS8S0TaoVSrwNKyw-TgN", "format": "Playlist", "cost": "free", "by": "ICT · the canonical structured sequence", "note": "The most-recommended structured entry point — the '2022 model' is the standard beginner-to-intermediate path through the whole system."},
+            {"id": "tradezella-key-ict", "title": "Key ICT Concepts", "url": "https://www.tradezella.com/learning-items/key-ict-concepts", "format": "Article", "cost": "free", "by": "TradeZella · one-page concept reference", "note": "Compact written reference covering the full concept set (FVG, order blocks, breakers, displacement) — a fast counterpart to the videos."},
+            {"id": "algostorm-key-concepts", "title": "ICT & SMC Key Concepts: Order Blocks & FVG", "url": "https://algostorm.com/ict-smc-key-concepts/", "format": "Article", "cost": "free", "by": "AlgoStorm · precise, rule-based definitions", "flag": "algo-minded", "note": "Best for a builder: exact candle-by-candle definitions that map directly onto your bot's fvg_low/high geometry."},
+            {"id": "writofinance-liquidity", "title": "Buy-Side & Sell-Side Liquidity + Sweeps", "url": "https://www.writofinance.com/buy-side-and-sell-side-liquidity-ict-and-smc/", "format": "Article", "cost": "free", "by": "Writ of Finance · + Aron Groups & Phidias on sweeps", "note": "Diagrams distinguishing the liquidity pool (resting orders) from the sweep/hunt (the action your bot detects)."},
+            {"id": "litefinance-killzones", "title": "ICT Killzones + Optimal Trade Entry", "url": "https://www.litefinance.org/blog/for-beginners/trading-strategies/ict-killzones/", "format": "Article", "cost": "free", "by": "LiteFinance · + FXNX on OTE", "note": "The London/NY session windows your bot keys off (killzone), plus OTE — the Fib retracement 'sweet spot' after displacement."}
+          ]
+        },
+        {
+          "id": "m4",
+          "num": 4,
+          "title": "Your Bot's Specific Setups",
+          "goal": "The exact strategy families running in production — VWAP, the squeeze/Donchian breakout, and ICT scalping.",
+          "goals": [
+            "Understand each setup's entry/exit logic well enough to sanity-check its trades",
+            "See how a 'squeeze' (low volatility) sets up a breakout — the coil before the move",
+            "Recognize when a setup is in or out of its ideal conditions"
+          ],
+          "in_your_system": "These map one-to-one to your live strategies: `vwap`, `squeeze_breakout`, `trend_donchian`, `ict_scalp`. When your Strategies tab shows a win-rate per strategy, this is the 'why.'",
+          "resources": [
+            {"id": "smartmoney-scalping", "title": "ICT Scalping Strategy: 4 Steps + Examples", "url": "https://smartmoneyict.com/ict-scalping-strategy/", "format": "Article", "cost": "free", "by": "Smart Money ICT", "note": "The Sweep → Displace → Retrace → Enter scalping sequence on 1–3m charts inside killzones — your ict_scalp."},
+            {"id": "humbledtrader-vwap", "title": "VWAP Strategy for Day Trading", "url": "https://www.humbledtrader.com/blog/vwap-strategy-secrets-boosting-your-trading-skills-to-the-next-level/", "format": "Article", "cost": "free", "by": "Humbled Trader · reputable, practical", "note": "The breakout/pullback/trend VWAP playbook behind your vwap strategy."},
+            {"id": "trendspider-donchian", "title": "Donchian Channel Strategies: Breakout & Trend", "url": "https://trendspider.com/learning-center/donchian-channel-trading-strategies/", "format": "Article", "cost": "free", "by": "TrendSpider · covers squeeze → breakout too", "note": "Donchian trend-following and the channel squeeze that precedes a volatility breakout — your trend_donchian + squeeze_breakout in one place."},
+            {"id": "luxalgo-donchian", "title": "Donchian Channels: Breakout & Trend-Following", "url": "https://www.luxalgo.com/blog/donchian-channels-breakout-and-trend-following-strategy/", "format": "Article", "cost": "free", "by": "LuxAlgo · second angle", "note": "Period selection and false-breakout filtering — the parameters that matter when tuning a systematic version."}
+          ]
+        },
+        {
+          "id": "m5",
+          "num": 5,
+          "title": "Risk & Trade Management",
+          "goal": "The math that decides whether an edge survives — position sizing, R-multiples, expectancy, drawdown.",
+          "goals": [
+            "Think in R-multiples (risk units) so trades on BTC and MES compare on one axis",
+            "Compute expectancy, and see why a high win rate can still lose money (win rate vs. profit factor)",
+            "Understand position sizing, max drawdown, and the Kelly criterion (and why pros use fractional Kelly)"
+          ],
+          "in_your_system": "Your `RiskManager.position_size()`, the per-trade refusal logic, and your dashboard's expectancy / profitFactor / maxDrawdown / R-metrics are all this module made concrete. Arguably the highest-leverage trading topic for you.",
+          "resources": [
+            {"id": "vantharp-think", "title": "Tharp Think — Core Trading Concepts", "url": "https://vantharpinstitute.com/tharp-think-trading-concepts/", "format": "Article", "cost": "free", "by": "Van Tharp Institute", "flag": "foundational", "note": "Straight from the source who popularized R-multiples and expectancy — the vocabulary that makes cross-instrument trades comparable."},
+            {"id": "backtestbase-winrate-pf", "title": "Win Rate vs. Profit Factor", "url": "https://www.backtestbase.com/education/win-rate-vs-profit-factor", "format": "Article", "cost": "free", "by": "BacktestBase · formula-driven", "note": "Concise proof that a high win rate can still lose money, plus profit factor and drawdown benchmarks — exactly the contrast your KPIs show."},
+            {"id": "investopedia-kelly-dd", "title": "Kelly Criterion & Maximum Drawdown", "url": "https://www.investopedia.com/articles/trading/04/091504.asp", "format": "Article", "cost": "free", "by": "Investopedia · + the Max Drawdown page", "note": "Clear reference for the Kelly sizing formula (and why traders use fractional Kelly) and how drawdown is measured."},
+            {"id": "tharp-book", "title": "Trade Your Way to Financial Freedom", "url": "https://www.amazon.com/Trade-Your-Way-Financial-Freedom/dp/007147871X", "format": "Book", "cost": "paid", "by": "Van K. Tharp", "flag": "worth it", "note": "The definitive treatment of position sizing and expectancy — and why how much you bet matters more than your entry."}
+          ]
+        },
+        {
+          "id": "m6",
+          "num": 6,
+          "title": "Trading Psychology & Discipline",
+          "goal": "Why systematizing helps — and the mindset to run a bot without overriding it at the worst moment.",
+          "goals": [
+            "Think in probabilities, not individual outcomes",
+            "Understand the emotional traps a systematic approach is designed to remove",
+            "Build the discipline to trust (or correctly distrust) your own system"
+          ],
+          "in_your_system": null,
+          "resources": [
+            {"id": "trading-in-the-zone", "title": "Trading in the Zone", "url": "https://www.penguinrandomhouse.com/books/350665/trading-in-the-zone-by-mark-douglas/", "format": "Book", "cost": "paid", "by": "Mark Douglas", "flag": "most-cited", "note": "The single most-recommended trading-psychology book — thinking in probabilities and accepting risk emotionally."},
+            {"id": "reminiscences", "title": "Reminiscences of a Stock Operator", "url": "https://en.wikisource.org/wiki/Reminiscences_of_a_Stock_Operator", "format": "Book", "cost": "free", "by": "Edwin Lefèvre (on Jesse Livermore) · 1923, free full text", "flag": "public domain", "note": "A century-old classic on speculation and self-control that reads like a novel — the lessons still land."},
+            {"id": "cwt-psychology", "title": "Chat With Traders — psychology episodes", "url": "https://chatwithtraders.com/", "format": "Podcast", "cost": "free", "by": "Aaron Fifield · long-form interviews", "note": "Real traders talking candidly about mindset, losing streaks, and discipline — the 'how it actually feels' companion to the books."},
+            {"id": "disciplined-trader", "title": "The Disciplined Trader", "url": "https://www.amazon.com/Disciplined-Trader-Developing-Winning-Attitudes/dp/0132157578", "format": "Book", "cost": "paid", "by": "Mark Douglas · the foundational earlier work", "note": "Building the mental discipline that any trading plan depends on. Read after Trading in the Zone if it resonates."}
+          ]
+        },
+        {
+          "id": "m7",
+          "num": 7,
+          "title": "A Critical Lens on ICT",
+          "goal": "Read this alongside Module 3, not after. Automating a method forces you to make its fuzzy calls explicit — so you must know where it's contested.",
+          "goals": [
+            "Separate ICT's verifiable ideas from its inflated win-rate marketing",
+            "Understand the falsifiability problem: subjective inputs resist clean backtesting",
+            "Hold the method as one framework to test, not gospel"
+          ],
+          "in_your_system": "This matters more for you than for a discretionary trader: a bot forces every 'sufficient displacement?' judgment into explicit, backtestable rules. Your backtest sweeps and shadow soaks are precisely where these critiques get tested against reality.",
+          "resources": [
+            {"id": "phidias-is-ict-legit", "title": "Is ICT Trading Legit? The Truth About Profitability", "url": "https://phidiaspropfirm.com/education/is-ict-legit", "format": "Article", "cost": "free", "by": "Phidias · balanced", "note": "Explains the concepts fairly while separating verified edge from ICT's 70–80% win-rate claims."},
+            {"id": "algostorm-critical-entry", "title": "ICT SMC Entry Models: A Critical Guide", "url": "https://algostorm.com/ict-smc-entry-models/", "format": "Article", "cost": "free", "by": "AlgoStorm", "note": "Names the falsifiability problem head-on — subjective inputs resist systematic backtesting. Essential before you trust bot rules built on them."},
+            {"id": "tradethepool-smc", "title": "Understanding SMC — Core Principles (skeptic's view)", "url": "https://tradethepool.com/mental-skill/understanding-smart-money-concepts-core-principles/", "format": "Article", "cost": "free", "by": "Trade The Pool", "note": "Lays out the main criticisms: whether institutions use ICT, whether retail liquidity is worth 'hunting,' and possible repackaging of classic price action."},
+            {"id": "babypips-ict-forum", "title": "BabyPips: 'ICT and order blocks — anybody use this?'", "url": "https://forums.babypips.com/t/ict-and-order-blocks-anybody-use-this-for-trading/700783", "format": "Forum", "cost": "free", "by": "BabyPips community thread", "note": "Real practitioners debating what works vs. hype — a good sanity-check on marketing claims."}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "machines",
+      "name": "The Machines",
+      "blurb": "AI judgment from zero. We start with what machine learning actually is, build the vocabulary to make strategic calls, then land on the exact pieces already running in your bot — and on directing Claude to do the heavy technical lifting for you.",
+      "modules": [
+        {
+          "id": "m8",
+          "num": 8,
+          "title": "AI/ML Mental Models",
+          "goal": "The absolute basics, no math or code. What ML is, how a model 'learns,' and what a neural network really does.",
+          "goals": [
+            "Explain supervised vs. unsupervised learning in one sentence each",
+            "Build an intuition for how a model 'learns' from examples",
+            "Right-size your expectations: models are powerful pattern-matchers, not minds"
+          ],
+          "in_your_system": null,
+          "resources": [
+            {"id": "elements-of-ai", "title": "Elements of AI — Introduction to AI", "url": "https://www.elementsofai.com/", "format": "Course", "cost": "free", "by": "University of Helsinki + Reaktor · ~30 hrs, no code", "flag": "gold standard", "note": "The best beginner course going: what AI is, what it can and can't do, and how models learn — zero math or programming."},
+            {"id": "3blue1brown-nn", "title": "3Blue1Brown — Neural Networks", "url": "https://www.youtube.com/playlist?list=PLZZWrBYkx7Otcjr3eCLZDCgfpqnxMY29s", "format": "Video", "cost": "free", "by": "Grant Sanderson · watch for the ideas, not the equations", "note": "The most beautiful visual explanation of what a neural net is and how it learns. Start with 'But what is a Neural Network?'"},
+            {"id": "google-intro-ml", "title": "Introduction to Machine Learning", "url": "https://developers.google.com/machine-learning/intro-to-ml", "format": "Article", "cost": "free", "by": "Google for Developers · concept-only front door", "note": "Short plain-language primer on supervised vs. unsupervised learning and the core ML vocabulary."},
+            {"id": "you-look-like-a-thing", "title": "You Look Like a Thing and I Love You", "url": "https://www.amazon.com/You-Look-Like-Thing-Love/dp/0316525227", "format": "Book", "cost": "paid", "by": "Janelle Shane · also audiobook", "flag": "painless", "note": "A funny, cartoon-illustrated tour of how ML actually behaves — 'more like a toaster than Skynet.' The most painless on-ramp here."}
+          ]
+        },
+        {
+          "id": "m9",
+          "num": 9,
+          "title": "The ML Lifecycle",
+          "goal": "The end-to-end loop a model lives in: data → features → training → evaluation → deployment → monitoring.",
+          "goals": [
+            "Name the stages of building and running an ML system",
+            "Know where a decision-maker should ask hard questions at each stage",
+            "See ML as an iterative loop, not a one-time build"
+          ],
+          "in_your_system": "This is literally your trainer pipeline: dataset builds → training cycles → the model registry → shadow soak → promotion. Recognizing the generic lifecycle makes your own trainer VM and /ml-review legible.",
+          "resources": [
+            {"id": "datacamp-ml-lifecycle", "title": "The Machine Learning Life Cycle Explained", "url": "https://www.datacamp.com/blog/machine-learning-lifecycle-explained", "format": "Article", "cost": "free", "by": "DataCamp", "note": "Clear walkthrough of the full loop framed as an iterative process — the cleanest single overview."},
+            {"id": "infoworld-ml-execs", "title": "Explaining the ML Life Cycle to Business Execs", "url": "https://www.infoworld.com/article/2338091/how-to-explain-the-machine-learning-life-cycle-to-business-execs.html", "format": "Article", "cost": "free", "by": "InfoWorld · written for your exact seat", "note": "Analogies over jargon; stresses where leaders should ask questions rather than sweat technical detail."},
+            {"id": "google-pair-guidebook", "title": "People + AI Guidebook", "url": "https://pair.withgoogle.com/guidebook/", "format": "Guidebook", "cost": "free", "by": "Google PAIR team · 23 decision patterns", "note": "Action-oriented patterns for overseeing AI products — defining success, evaluation, feedback loops, graceful failure. Judgment, not code."}
+          ]
+        },
+        {
+          "id": "m10",
+          "num": 10,
+          "title": "Evaluating Models & Avoiding Traps",
+          "goal": "The single most important strategic skill: knowing when a good-looking result is lying to you.",
+          "goals": [
+            "Read accuracy, precision, and recall — and know why 'accuracy' misleads on rare events",
+            "Understand train/validation/test splits and why a great score on the wrong data means nothing",
+            "Spot overfitting and data leakage — the two ways a model fools its builder"
+          ],
+          "in_your_system": "This is the judgment behind every promotion decision — your shadow models earn a track record before they're allowed to influence a live order precisely because a backtest score alone can't be trusted. Pair with Modules 15–17.",
+          "resources": [
+            {"id": "google-precision-recall", "title": "Accuracy, Recall, Precision & Related Metrics", "url": "https://developers.google.com/machine-learning/crash-course/classification/accuracy-precision-recall", "format": "Article", "cost": "free", "by": "Google ML Crash Course", "note": "The cleanest explainer of the confusion matrix and why accuracy misleads on imbalanced problems — the base-rate trap."},
+            {"id": "roboflow-train-test-split", "title": "Train, Validation, Test Split", "url": "https://blog.roboflow.com/train-test-split/", "format": "Article", "cost": "free", "by": "Roboflow", "note": "Why data is split three ways, and how a leaked test set produces a model that aces the exam and fails in the real world — the core of 'a great backtest can lie.'"},
+            {"id": "v7-train-val-test", "title": "Train/Validation/Test: How-To & Best Practices", "url": "https://www.v7darwin.com/blog/train-validation-test-set", "format": "Article", "cost": "free", "by": "V7 · memorable analogies", "note": "Reinforces overfitting with the 'student who memorized past exam papers' analogy, plus data-leakage pitfalls in plain language."}
+          ]
+        },
+        {
+          "id": "m11",
+          "num": 11,
+          "title": "AI Strategy & Judgment for Leaders",
+          "goal": "When ML is the right tool, when it isn't, and how to think about it as an investment rather than a gadget.",
+          "goals": [
+            "Judge which problems ML genuinely fits — and which it doesn't",
+            "Reframe AI as 'cheap prediction' and reason about where its value actually lands",
+            "Learn from famous AI failures so you don't repeat them"
+          ],
+          "in_your_system": null,
+          "resources": [
+            {"id": "ai-for-everyone", "title": "AI for Everyone", "url": "https://www.coursera.org/learn/ai-for-everyone", "format": "Course", "cost": "free", "by": "Andrew Ng / DeepLearning.AI · free to audit, no code", "flag": "the anchor", "note": "The definitive non-technical leadership course: what AI realistically can/can't do, spotting good use cases, working with an AI team, building a strategy. If you do one thing in this track, do this."},
+            {"id": "prediction-machines", "title": "Prediction Machines", "url": "https://www.amazon.com/Prediction-Machines-Updated-Expanded-Intelligence/dp/1647824672", "format": "Book", "cost": "paid", "by": "Agrawal, Gans & Goldfarb", "note": "Reframes AI as 'cheap prediction,' giving you a real economic framework for when ML helps and where its value actually shows up."},
+            {"id": "hbr-first-ai-project", "title": "How to Choose Your First AI Project", "url": "https://hbr.org/2019/02/how-to-choose-your-first-ai-project", "format": "Article", "cost": "free", "by": "Andrew Ng · Harvard Business Review (metered)", "note": "A practical where-to-start guide: pick fast, high-odds, domain-specific pilots that build buy-in."},
+            {"id": "forbes-ai-failures", "title": "5 Big AI Failures That Show What Can Go Wrong", "url": "https://www.forbes.com/sites/bernardmarr/2026/06/15/5-big-ai-failures-that-show-what-can-go-wrong/", "format": "Article", "cost": "free", "by": "Bernard Marr · Forbes (metered)", "note": "Digestible case studies (biased hiring models, Zillow's $500M loss) with the human-in-the-loop lessons a leader should internalize."}
+          ]
+        },
+        {
+          "id": "m12",
+          "num": 12,
+          "title": "LLM & Generative-AI Literacy",
+          "goal": "How large language models — the thing you're talking to right now — actually work, and where they fail.",
+          "goals": [
+            "Understand at a concept level how an LLM generates text",
+            "Know why they 'hallucinate' and what that means for trusting output",
+            "Match the tool to the job: what LLMs are genuinely good and bad at"
+          ],
+          "in_your_system": null,
+          "resources": [
+            {"id": "ft-transformer", "title": "Generative AI Exists Because of the Transformer", "url": "https://ig.ft.com/generative-ai/", "format": "Interactive", "cost": "free", "by": "Financial Times · open-access visual explainer", "flag": "best visual", "note": "The single best scroll-through explanation of how LLMs generate text and why they hallucinate — no background needed."},
+            {"id": "karpathy-intro-llm", "title": "[1hr Talk] Intro to Large Language Models", "url": "https://www.youtube.com/watch?v=zjkBMFhNj_g", "format": "Video", "cost": "free", "by": "Andrej Karpathy · a leading AI researcher, general audience", "note": "What LLMs are, how they're trained, their strengths, limits, and security concerns like prompt injection. Deep but accessible."},
+            {"id": "ibm-hallucinate", "title": "Why Large Language Models Hallucinate", "url": "https://www.youtube.com/watch?v=cfqtFvWOfg0", "format": "Video", "cost": "free", "by": "IBM Technology (Martin Keen) · short", "note": "Why LLMs confidently invent things — they predict text, they don't look up facts — and how a user can reduce it."},
+            {"id": "ibm-what-are-llms", "title": "What Are Large Language Models?", "url": "https://www.ibm.com/think/topics/large-language-models", "format": "Reference", "cost": "free", "by": "IBM · jargon-light glossary page", "note": "A reputable reference on how LLMs work conceptually and where they fit. Good to bookmark."}
+          ]
+        },
+        {
+          "id": "m13",
+          "num": 13,
+          "title": "Working Effectively With Claude",
+          "goal": "Your force multiplier. You don't need to code — you need to direct, delegate, and verify. This module is how.",
+          "goals": [
+            "Know what to delegate to Claude vs. what to decide yourself (the human-in-the-loop line)",
+            "Write clear instructions: name the task, say who the output is for, define 'done,' give examples",
+            "Evaluate output you can't read line-by-line — by asking for explanations, checks, and evidence"
+          ],
+          "in_your_system": "This is exactly how you already operate your bot: Claude pulls VM state, runs backtests, writes code, and proposes changes; you approve the tier-gated calls and set direction. This module sharpens that division of labor — the better you brief and verify, the more you can safely hand off.",
+          "resources": [
+            {"id": "co-intelligence", "title": "Co-Intelligence: Living and Working with AI", "url": "https://www.amazon.com/Co-Intelligence-Living-Working-Ethan-Mollick/dp/059371671X", "format": "Book", "cost": "paid", "by": "Ethan Mollick (Wharton) · for a general audience", "flag": "the playbook", "note": "The best non-technical playbook for treating AI as a collaborator: what to delegate, how to stay human-in-the-loop, how to judge output."},
+            {"id": "one-useful-thing", "title": "One Useful Thing", "url": "https://www.oneusefulthing.org/", "format": "Newsletter", "cost": "free", "by": "Ethan Mollick · ongoing, research-grounded", "note": "Practical prompting and AI-use advice. Core lesson: talk to it like a person, and learn by ~10 hours of hands-on use."},
+            {"id": "anthropic-prompt-overview", "title": "Prompt Engineering Overview (Claude)", "url": "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview", "format": "Docs", "cost": "free", "by": "Anthropic · concept-forward, not code-heavy", "note": "The source-of-truth on directing Claude well: be explicit about the task, the audience, and what 'done' looks like — and give examples."},
+            {"id": "anthropic-prompt-tutorial", "title": "Interactive Prompt Engineering Tutorial", "url": "https://github.com/anthropics/prompt-eng-interactive-tutorial", "format": "Tutorial", "cost": "free", "by": "Anthropic · 9 hands-on chapters", "note": "Work through it to build real judgment about steering and checking an AI partner — a non-coder can absolutely do this."}
+          ]
+        },
+        {
+          "id": "m14",
+          "num": 14,
+          "title": "ML in Trading — The Hard Truths",
+          "goal": "Where the two tracks meet. Markets are a uniquely brutal place for ML — understand why before you trust a model with money.",
+          "goals": [
+            "Understand why markets defeat naive ML: low signal-to-noise, non-stationarity, adaptive opponents",
+            "Calibrate expectations — separate genuine edge from 'AI will print money' hype",
+            "Know the specific failure modes that sink ML trading funds"
+          ],
+          "in_your_system": "This is the reality check behind your conservative, shadow-first ML design. Your models log predictions for a long soak and are graded before promotion because of everything in this module.",
+          "resources": [
+            {"id": "ldp-10-reasons", "title": "The 10 Reasons Most Machine Learning Funds Fail", "url": "https://www.garp.org/hubfs/Whitepapers/a1Z1W0000054x6lUAA.pdf", "format": "Whitepaper", "cost": "free", "by": "Marcos López de Prado (Cornell / AQR)", "flag": "essential", "note": "The single best strategic read on why ML in markets is uniquely hard — from the field's most cited skeptic-practitioner."},
+            {"id": "resonanz-ml-pitfalls", "title": "Benefits, Pitfalls & Mitigation of ML in Trading", "url": "https://resonanzcapital.com/insights/benefits-pitfalls-and-mitigation-strategies-of-applying-ml-to-financial-modelling", "format": "Article", "cost": "free", "by": "Resonanz Capital (institutional allocator)", "note": "A balanced, jargon-light survey of what ML can and can't do for trading. Good hype-detox."},
+            {"id": "jansen-idea-to-execution", "title": "ML for Trading — From Idea to Execution", "url": "https://stefan-jansen.github.io/machine-learning-for-trading/01_machine_learning_for_trading/", "format": "Web chapter", "cost": "free", "by": "Stefan Jansen · read the concepts, skip the code", "note": "Plain-language framing of where ML actually fits in a trading workflow."},
+            {"id": "ldp-lecture-slides", "title": "López de Prado — Free Lecture Slides", "url": "https://www.quantresearch.org/Lectures.htm", "format": "Slides", "cost": "free", "by": "Cornell ORIE 5256 · 10 seminars", "note": "The conceptual slides behind the canonical book; skim the diagrams and section headers for the strategic ideas."}
+          ]
+        },
+        {
+          "id": "m15",
+          "num": 15,
+          "title": "Backtesting Done Right",
+          "goal": "Where most bad decisions get made. A backtest is trivially easy to make look great — and usually is.",
+          "goals": [
+            "Understand walk-forward analysis (rolling out-of-sample testing) and why it's the honest way",
+            "Recognize backtest overfitting, survivorship bias, and look-ahead bias",
+            "Ask the right questions of any backtest before believing it"
+          ],
+          "in_your_system": "Your trainer VM runs backtest sweeps and your harness does walk-forward validation before any Tier-3 change ships. This module is the theory those guardrails exist to honor.",
+          "resources": [
+            {"id": "mathinvestor-overfitting", "title": "How Backtest Overfitting Leads to False Discoveries", "url": "https://mathinvestor.org/2022/01/how-backtest-overfitting-in-finance-leads-to-false-discoveries/", "format": "Article", "cost": "free", "by": "Bailey & López de Prado · Mathematical Investor", "flag": "core idea", "note": "The accessible version of 'you can always find a backtest that looks great' — the mental model to internalize above all others here."},
+            {"id": "walkforward-explained", "title": "Walk-Forward Analysis Explained", "url": "https://quanttradingtools.com/walk-forward-analysis/", "format": "Tutorial", "cost": "free", "by": "QuantTradingTools · worked visual example", "note": "A clear walk-through of rolling in-sample / out-of-sample testing — directly relevant to your bot's validation."},
+            {"id": "luxalgo-survivorship", "title": "Survivorship Bias in Backtesting", "url": "https://www.luxalgo.com/blog/survivorship-bias-in-backtesting-explained/", "format": "Article", "cost": "free", "by": "LuxAlgo · short and concrete", "note": "How survivorship and related biases silently inflate backtest results."},
+            {"id": "pseudo-math-charlatanism", "title": "Pseudo-Mathematics and Financial Charlatanism", "url": "https://scholarworks.wmich.edu/math_pubs/40/", "format": "Paper", "cost": "free", "by": "Bailey, Borwein, López de Prado & Zhu · read the abstract + intro", "flag": "reference", "note": "The famous proof that impressive backtests are trivially easy to manufacture. Skim it — the message is what matters."}
+          ]
+        },
+        {
+          "id": "m16",
+          "num": 16,
+          "title": "Safe, Staged ML Deployment",
+          "goal": "How to put a model into production without letting it hurt you — the discipline your bot already embodies.",
+          "goals": [
+            "Understand shadow deployment: run a model live but log-only before it can act",
+            "Grasp champion-challenger promotion — when a new model earns the right to take over",
+            "Know what model/data drift is and when to promote, retrain, or kill a model"
+          ],
+          "in_your_system": "This maps exactly onto your 3-stage ladder — candidate → shadow → advisory. Shadow models observe and log; only 'advisory' influences an order; the shadow→advisory step is the operator-gated promotion gate. This module is the industry-standard framing of your own design.",
+          "resources": [
+            {"id": "atlan-shadow-deploy", "title": "Shadow Deployment for ML Models", "url": "https://atlan.com/know/shadow-deployment-for-ml-models/", "format": "Guide", "cost": "free", "by": "Atlan · strategy, patterns, risks", "flag": "your model exactly", "note": "Run a new model on live data, log-only, before it can touch decisions — and the promote/kill logic. This IS your shadow stage."},
+            {"id": "champion-challenger", "title": "Champion-Challenger Model", "url": "https://aditya-agarwal-72887.medium.com/model-monitoring-champion-challenger-model-97a6693adc89", "format": "Article", "cost": "free", "by": "Aditya Agarwal · Medium", "note": "The promotion framework in plain terms — when a challenger earns the right to replace the incumbent."},
+            {"id": "dataiku-monitoring", "title": "Monitoring & Feedback in the AI Lifecycle", "url": "https://knowledge.dataiku.com/latest/mlops-o16n/model-monitoring/concept-monitoring-feedback.html", "format": "Concept doc", "cost": "free", "by": "Dataiku · vendor-neutral enough", "note": "Production monitoring, data/model drift, and retraining triggers — the 'how do I know when to act' half."},
+            {"id": "apxml-canary-shadow", "title": "Canary & Shadow Testing Patterns", "url": "https://apxml.com/courses/monitoring-managing-ml-models-production/chapter-4-automated-retraining-updates/advanced-deployment-patterns", "format": "Course", "cost": "free", "by": "APXML · course chapter", "note": "Compares staged-rollout patterns (shadow → canary → A/B) so you can reason about how aggressively to promote."}
+          ]
+        },
+        {
+          "id": "m17",
+          "num": 17,
+          "title": "Features, Targets & Data Leakage",
+          "goal": "What a model actually learns from, what it's asked to predict, and the invisible bug that fakes brilliance: seeing the future.",
+          "goals": [
+            "Understand 'features' (the inputs) and 'targets/labels' (what the model predicts) in a trading context",
+            "Grasp look-ahead bias / data leakage — the #1 way time-series ML cheats",
+            "See how trading ML defines smarter targets than 'will price go up?'"
+          ],
+          "in_your_system": "Your bot engineers features from market data and cross-asset peers, and captures decision-time snapshots so training reflects only what was knowable then. That care exists to prevent exactly the leakage this module explains.",
+          "resources": [
+            {"id": "quantreo-lookahead", "title": "Look-Ahead Bias: The Invisible Killer", "url": "https://www.newsletter.quantreo.com/p/look-ahead-bias-the-invisible-killer", "format": "Article", "cost": "free", "by": "Quantreo newsletter", "flag": "fear this one", "note": "The most common way time-series ML 'cheats' by peeking at the future — the failure mode to fear most in your system."},
+            {"id": "triple-barrier", "title": "Triple-Barrier Labelling", "url": "https://williamsantos.me/posts/2022/triple-barrier-labelling-algorithm/", "format": "Blog", "cost": "free", "by": "William Santos", "note": "How trading ML defines targets (take-profit / stop-loss / time-out) instead of naive 'price up tomorrow' — the López de Prado labeling idea, made accessible."},
+            {"id": "marketcalls-lookahead", "title": "Understanding & Avoiding Look-Ahead Bias", "url": "https://www.marketcalls.in/machine-learning/understanding-look-ahead-bias-and-how-to-avoid-it-in-trading-strategies.html", "format": "Article", "cost": "free", "by": "Marketcalls · example-driven", "note": "A second, practitioner-angle take on data leakage — reinforces the concept with concrete examples."},
+            {"id": "afml-chapter1", "title": "Advances in Financial ML — Chapter 1", "url": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3104847", "format": "Chapter", "cost": "free", "by": "López de Prado · free excerpt (SSRN)", "flag": "reference", "note": "Covers why financial data structures, labeling, and sample weighting are different. Dip in for the concepts."}
+          ]
+        },
+        {
+          "id": "m18",
+          "num": 18,
+          "title": "The Quant Big Picture + Staying Current",
+          "goal": "Zoom out to systematic trading as a whole, and set up the feeds that keep you learning after this curriculum.",
+          "goals": [
+            "Understand edge, edge decay, and combining 'good enough' strategies",
+            "See the breadth of researched strategies to calibrate what 'edge' looks like",
+            "Pick a couple of ongoing sources to follow the field over time"
+          ],
+          "in_your_system": null,
+          "resources": [
+            {"id": "quantstart-systematic", "title": "QuantStart — Systematic Trading", "url": "https://www.quantstart.com/articles/topic/systematic-trading/", "format": "Articles", "cost": "free", "by": "Michael Halls-Moore · reputable intro library", "note": "Broad coverage of strategy design, risk, and the systematic-trading mindset."},
+            {"id": "robot-wealth", "title": "Robot Wealth", "url": "https://robotwealth.com/", "format": "Blog", "cost": "free", "by": "Kris Longmore", "note": "The best accessible writing on edge, expectancy, edge decay, and combining strategies — highly relevant to your strategic calls."},
+            {"id": "flirting-with-models", "title": "Flirting with Models", "url": "https://www.flirtingwithmodels.com/", "format": "Podcast", "cost": "free", "by": "Corey Hoffstein · + Chat With Traders (quant/algo)", "note": "The premier podcast on how quant/systematic strategies are actually researched and run."},
+            {"id": "quantocracy", "title": "Quantocracy", "url": "https://quantocracy.com/", "format": "Aggregator", "cost": "free", "by": "daily curated feed · + Quantpedia strategy encyclopedia", "note": "One bookmark to follow the whole field — the best quant/algo blog posts, curated daily."},
+            {"id": "quant-books-shelf", "title": "Ernest Chan — Quantitative Trading (+ shelf references)", "url": "https://epchan.com/books", "format": "Books", "cost": "paid", "by": "+ Advances in Financial ML (López de Prado) & Jansen's ML for Trading (free code repo)", "flag": "shelf references", "note": "The canonical shelf: Chan for a gentle systematic-trading on-ramp; the other two as aspirational references you own and dip into, not read cover-to-cover."}
+          ]
+        }
+      ]
+    }
+  ],
+  "quickstart": {
+    "title": "If you only do five things",
+    "steps": [
+      "Elements of AI (M8) + AI for Everyone (M11) — your AI foundation, no code.",
+      "BabyPips School of Pipsology, early grades (M1) — trading from zero.",
+      "The 13-minute ICT overview then the 2022 mentorship playlist (M3) — your bot's native language.",
+      "Backtest overfitting + walk-forward analysis (M15) — the judgment that protects your capital.",
+      "Shadow deployment (M16) + Co-Intelligence (M13) — understand your ML pipeline and get more from Claude."
+    ]
+  },
+  "cadence": {
+    "title": "A rough 8-week cadence",
+    "steps": [
+      "Weeks 1–2 · Foundations, both sides. Markets: Modules 1–2. Machines: Modules 8–9. Goal: read a chart and explain what ML is.",
+      "Weeks 3–4 · Your system's language. Markets: Modules 3–4 (ICT + your setups), reading Module 7's critiques alongside. Machines: Modules 10 + 12.",
+      "Weeks 5–6 · The judgment layer. Markets: Modules 5–6 (risk + psychology). Machines: Modules 11 + 13 (AI strategy + working with Claude).",
+      "Weeks 7–8 · Where they meet. Machines: Modules 14–17 (ML in trading, backtesting, deployment, leakage) — the modules that map straight onto your bot. Then Module 18 to set up ongoing feeds."
+    ]
+  },
+  "scam_flags": {
+    "title": "Scam flags — what to avoid",
+    "items": [
+      "Anyone promising fixed returns, 'signals,' 'funded challenge' upsells, or profit screenshots — the classic get-rich-quick pattern.",
+      "Paid 'ICT mentorships' and Discord signal groups — the real ICT material is 100% free on the official channel.",
+      "Lookalike scraper domains impersonating trusted brands (e.g. marketinvestopedia.com) — cite only the real investopedia.com / stockcharts.com.",
+      "'AI trading bot will make you rich' content — you already know from Module 14 why that's the tell."
+    ]
+  },
+  "shelf": [
+    {"name": "Investopedia", "url": "https://www.investopedia.com/", "desc": "any term, fast"},
+    {"name": "BabyPips", "url": "https://www.babypips.com/learn/forex", "desc": "beginner course"},
+    {"name": "StockCharts", "url": "https://chartschool.stockcharts.com/", "desc": "TA reference"},
+    {"name": "CME Institute", "url": "https://www.cmegroup.com/education", "desc": "futures, no upsell"},
+    {"name": "Rayner Teo", "url": "https://www.youtube.com/@tradingwithrayner", "desc": "measured YouTube"},
+    {"name": "Chat With Traders", "url": "https://chatwithtraders.com/", "desc": "how pros think"},
+    {"name": "Quantocracy", "url": "https://quantocracy.com/", "desc": "daily quant feed"},
+    {"name": "One Useful Thing", "url": "https://www.oneusefulthing.org/", "desc": "using AI well"},
+    {"name": "Mathematical Investor", "url": "https://mathinvestor.org/", "desc": "backtest skeptics"},
+    {"name": "QuantInsti", "url": "https://blog.quantinsti.com/", "desc": "ML/algo explainers"}
+  ]
+}
