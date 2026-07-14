@@ -418,11 +418,13 @@ def test_generate_routes_to_gemini_when_mode_is_gemini(
     assert called["n"] == 1
     assert called["model_id"] == "gemini-2.0-flash"
 
-    # The default model for the `strategy` endpoint in gemini mode is 2.5-flash.
+    # The default model for the `strategy` endpoint in gemini mode is 2.0-flash
+    # (all endpoints use 2.0-flash to stay in the free tier; the 48-strategy
+    # hourly fan-out would blow 2.5-flash's daily quota).
     payload2 = gen_mod.generate("strategy", strategy_name="vwap")
     assert payload2 is not None
     assert called["n"] == 2
-    assert called["model_id"] == "gemini-2.5-flash"
+    assert called["model_id"] == "gemini-2.0-flash"
 
     summary = usage_mod.summarize_usage()
     # Two ok rows landed.
