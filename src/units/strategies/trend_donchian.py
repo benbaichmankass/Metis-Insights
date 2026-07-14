@@ -92,6 +92,14 @@ _DEFAULTS: Dict[str, Any] = {
     # scripts/backtest_trend.py --confirm-bars exactly; declared per leg in
     # config/strategies.yaml (Tier-3).
     "confirm_bars": 0,
+    # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
+    # NEW entry whose TRIGGER bar's UTC hour is in this CSV set (e.g. "0").
+    # With confirm_bars > 0 the trigger is the breakout bar confirm_bars back,
+    # matching the harness (the skip gates the SIGNAL bar, not the entry bar).
+    # Exits are never touched — an open trade rides through skipped hours
+    # unchanged. Mirrors scripts/research/backtest_trend.py --skip-hours
+    # exactly; declared per leg in config/strategies.yaml (Tier-3).
+    "skip_hours": "",
 }
 
 
@@ -108,6 +116,26 @@ _TP_SENTINEL_CAP_PCT = 0.099
 def _resolve_params(cfg: Dict[str, Any]) -> Dict[str, Any]:
     """Return strategy params with cfg overrides on top of _DEFAULTS."""
     return {key: cfg.get(key, default) for key, default in _DEFAULTS.items()}
+
+
+def _parse_skip_hours(raw: Any) -> set:
+    """CSV of UTC hours to skip (M21 E-2 time-of-day lever). ''/None = off.
+
+    Fail-permissive: a malformed value resolves to the empty set (gate off)
+    rather than raising — a YAML typo must never strand a live strategy.
+    """
+    try:
+        return {int(h) for h in str(raw or "").split(",") if str(h).strip() != ""}
+    except (TypeError, ValueError):
+        return set()
+
+
+def _bar_hour_utc(df: pd.DataFrame, idx: int) -> Optional[int]:
+    """UTC hour of the bar at ``idx`` — None when unparseable (never skips)."""
+    try:
+        return int(pd.Timestamp(df["timestamp"].iloc[idx]).hour)
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
 
 
 def _atr(df: pd.DataFrame, period: int) -> pd.Series:
@@ -272,6 +300,22 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             f"(close={close} within channel [{lo}, {hi}]) — non-actionable."
         )
 
+    # M21 E-2 time-of-day gate — placed after direction resolution, before
+    # the depth/confidence gate, mirroring scripts/research/backtest_trend.py
+    # bar-for-bar: the gate reads the TRIGGER bar (the breakout/signal bar —
+    # confirm_bars back when the confirmation lever is on, else the latest
+    # bar). Fail-permissive: an unparseable timestamp never skips.
+    skip_hour_set = _parse_skip_hours(params.get("skip_hours"))
+    if skip_hour_set:
+        trigger_idx = -1 - confirm_bars if confirm_bars > 0 else -1
+        trigger_hour = _bar_hour_utc(df, trigger_idx)
+        if trigger_hour is not None and trigger_hour in skip_hour_set:
+            raise ValueError(
+                f"Strategy '{label}': trigger bar hour {trigger_hour} in "
+                f"skip_hours {sorted(skip_hour_set)} — time-of-day gate, "
+                "non-actionable."
+            )
+
     entry = close
     if direction == "long":
         sl = entry - atr_stop_mult * atr
@@ -361,6 +405,10 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         # Auditability: record that this entry was confirmation-gated
         # (M21 E-2). Entry-side only — the monitor never reads it.
         package["meta"]["confirm_bars"] = confirm_bars
+    if skip_hour_set:
+        # Auditability: this entry passed a declared time-of-day gate
+        # (M21 E-2). Entry-side only — the monitor never reads it.
+        package["meta"]["skip_hours"] = ",".join(str(h) for h in sorted(skip_hour_set))
     # M18 Phase A (observe-only): annotate the signal with the P_win entry
     # head's score so the allocator soak sees it next to the confidence
     # proxy (rides Intent.meta -> SignalPackage.raw). Never gates or sizes.

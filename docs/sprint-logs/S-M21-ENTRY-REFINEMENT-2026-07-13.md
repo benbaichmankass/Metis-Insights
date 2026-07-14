@@ -342,3 +342,40 @@ Methodology lesson recorded: any future entry-side head must anchor
 BOTH label and features at the decision bar before its first gate run —
 the parity check that caught this (built for the live scorer) should
 run before, not after, the evidence round.
+
+## E-2 round 3 — time-of-day cells: 2 PASS, 11 honest negatives (2026-07-14)
+
+The `--skip-hours` CSV lever landed in both research harnesses
+(`backtest_trend.py` + `backtest_pullback.py`; empty = off,
+byte-identical; a skipped trigger's follow-through bar may still form a
+fresh trigger — contract in `tests/test_skip_hours_lever.py`, 7 tests)
+plus the sweep cells for the ONLY two shared E-1 pockets (never per-leg
+hour mining): 4h donchian `skip_h0` (`--skip-hours 0`, the UTC-midnight
+roll/funding bar, 5 legs) and 1h non-USDT `skip_late`
+(`--skip-hours 19,20`, late US session, 8 legs). Merged PR #6391
+(with the devnull restart hardening); trainer round launched #6394,
+readout #6398 (`runtime_logs/m21_entry_sweep/2026-07-14`).
+
+**Verdicts (13 legs):**
+
+- **PASS `trend_donchian_xrp_4h` skip_h0 — wf 5/6.** IS net_R
+  50.1→57.2 with maxDD 22.0→16.6; OOS 8.5→9.2 with dd 8.9→7.3.
+- **PASS `spy_pullback_1h` skip_late — wf 5/6.** IS net_R 51.0→65.8
+  with dd 13.3→9.9; OOS flips −5.09→+0.37 with dd 18.9→13.5.
+- Honest negatives: eth/sol/ada 4h `is_oos_fail`; avax 4h `wf_fail`
+  3/6; xauusd/mgc 1h (proxy) `is_oos_fail`; gld/slv 1h `wf_fail` 3/6;
+  qqq/tlt/uso 1h `is_oos_fail`.
+
+**Live twin (lever contract) shipped Tier-1:** `skip_hours` param in
+`trend_donchian` + `htf_pullback_trend_2h` units — inert unless YAML
+declares it; gate reads the TRIGGER bar (confirm_bars-aware in the
+donchian unit, harness-exact); fail-permissive on malformed CSV /
+unparseable timestamps (a YAML typo can never strand a strategy);
+`meta["skip_hours"]` stamped for audit. Contract:
+`tests/test_skip_hours_live_twin.py` (9 tests).
+
+**Tier-3 declare batch (operator decision):** `trend_donchian_xrp_4h:
+skip_hours "0"` + `spy_pullback_1h: skip_hours "19,20"` in
+`config/strategies.yaml` — draft PR opened and pinged. Matrix
+`time_of_day` column CLOSED: 2 passed_unshipped, 2 honest_negative
+(grouped), 11 n/a (no shared pocket — deliberately un-mined).

@@ -48,8 +48,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "n/a",
+    "ref": "E-2 round-3 scope 2026-07-14: no shared E-1 time-of-day pocket flagged for this leg — per-leg hour cells are deliberately NOT mined (the round covered the only two shared pockets: 4h donchian hour:0, 1h equities 19-20 UTC)."
    },
    "p_win_head": {
     "status": "honest_negative",
@@ -78,8 +78,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "n/a",
+    "ref": "E-2 round-3 scope 2026-07-14: no shared E-1 time-of-day pocket flagged for this leg — per-leg hour cells are deliberately NOT mined (the round covered the only two shared pockets: 4h donchian hour:0, 1h equities 19-20 UTC)."
    },
    "p_win_head": {
     "status": "honest_negative",
@@ -108,8 +108,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "n/a",
+    "ref": "E-2 round-3 scope 2026-07-14: no shared E-1 time-of-day pocket flagged for this leg — per-leg hour cells are deliberately NOT mined (the round covered the only two shared pockets: 4h donchian hour:0, 1h equities 19-20 UTC)."
    },
    "p_win_head": {
     "status": "honest_negative",
@@ -138,8 +138,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "n/a",
+    "ref": "E-2 round-3 scope 2026-07-14: no shared E-1 time-of-day pocket flagged for this leg — per-leg hour cells are deliberately NOT mined (the round covered the only two shared pockets: 4h donchian hour:0, 1h equities 19-20 UTC)."
    },
    "p_win_head": {
     "status": "honest_negative",
@@ -168,8 +168,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "n/a",
+    "ref": "E-2 round-3 scope 2026-07-14: no shared E-1 time-of-day pocket flagged for this leg — per-leg hour cells are deliberately NOT mined (the round covered the only two shared pockets: 4h donchian hour:0, 1h equities 19-20 UTC)."
    },
    "p_win_head": {
     "status": "honest_negative",
@@ -198,8 +198,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "n/a",
+    "ref": "E-2 round-3 scope 2026-07-14: no shared E-1 time-of-day pocket flagged for this leg — per-leg hour cells are deliberately NOT mined (the round covered the only two shared pockets: 4h donchian hour:0, 1h equities 19-20 UTC)."
    },
    "p_win_head": {
     "status": "honest_negative",
@@ -228,8 +228,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-2 round-3 time-of-day sweep 2026-07-14 (--skip-hours lever + live twin PR #6391/#6403-pending; m21_entry_sweep --lever time_of_day, relay #6394 launch, #6398 readout; runtime_logs/m21_entry_sweep/2026-07-14). xrp_4h skip_h0 PASS wf 5/6 (IS net_R 50.1->57.2, dd 22.0->16.6; OOS 8.5->9.2, dd 8.9->7.3) - Tier-3 declare proposed (skip_hours '0'), live twin merged in trend_donchian unit. eth/sol/ada is_oos_fail; avax wf_fail 3/6 (honest negatives)."
    },
    "p_win_head": {
     "status": "honest_negative",
@@ -258,8 +258,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "n/a",
+    "ref": "E-2 round-3 scope 2026-07-14: no shared E-1 time-of-day pocket flagged for this leg — per-leg hour cells are deliberately NOT mined (the round covered the only two shared pockets: 4h donchian hour:0, 1h equities 19-20 UTC)."
    },
    "p_win_head": {
     "status": "pending",
@@ -288,8 +288,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "n/a",
+    "ref": "E-2 round-3 scope 2026-07-14: no shared E-1 time-of-day pocket flagged for this leg — per-leg hour cells are deliberately NOT mined (the round covered the only two shared pockets: 4h donchian hour:0, 1h equities 19-20 UTC)."
    },
    "p_win_head": {
     "status": "pending",
@@ -318,8 +318,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "n/a",
+    "ref": "E-2 round-3 scope 2026-07-14: no shared E-1 time-of-day pocket flagged for this leg — per-leg hour cells are deliberately NOT mined (the round covered the only two shared pockets: 4h donchian hour:0, 1h equities 19-20 UTC)."
    },
    "p_win_head": {
     "status": "honest_negative",
@@ -348,8 +348,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 round-3 time-of-day sweep 2026-07-14 (--skip-hours lever + live twin PR #6391/#6403-pending; m21_entry_sweep --lever time_of_day, relay #6394 launch, #6398 readout; runtime_logs/m21_entry_sweep/2026-07-14). skip_late is_oos_fail (IS -7.05->-7.74, OOS 17.49->12.28 - both worse)."
    },
    "p_win_head": {
     "status": "passed_unshipped",
@@ -378,8 +378,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "n/a",
+    "ref": "E-2 round-3 scope 2026-07-14: no shared E-1 time-of-day pocket flagged for this leg — per-leg hour cells are deliberately NOT mined (the round covered the only two shared pockets: 4h donchian hour:0, 1h equities 19-20 UTC)."
    },
    "p_win_head": {
     "status": "honest_negative",
@@ -408,8 +408,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-2 round-3 time-of-day sweep 2026-07-14 (--skip-hours lever + live twin PR #6391/#6403-pending; m21_entry_sweep --lever time_of_day, relay #6394 launch, #6398 readout; runtime_logs/m21_entry_sweep/2026-07-14). spy_pullback_1h skip_late PASS wf 5/6 (IS net_R 51.0->65.8, dd 13.3->9.9; OOS -5.09->+0.37, dd 18.9->13.5) - Tier-3 declare proposed (skip_hours '19,20'), live twin merged in htf_pullback_trend_2h unit. gld/slv wf_fail 3/6; qqq/tlt/uso is_oos_fail (honest negatives)."
    },
    "p_win_head": {
     "status": "honest_negative",
@@ -438,8 +438,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "n/a",
+    "ref": "E-2 round-3 scope 2026-07-14: no shared E-1 time-of-day pocket flagged for this leg — per-leg hour cells are deliberately NOT mined (the round covered the only two shared pockets: 4h donchian hour:0, 1h equities 19-20 UTC)."
    },
    "p_win_head": {
     "status": "honest_negative",
@@ -468,8 +468,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-2 round-3 time-of-day sweep 2026-07-14 (--skip-hours lever + live twin PR #6391/#6403-pending; m21_entry_sweep --lever time_of_day, relay #6394 launch, #6398 readout; runtime_logs/m21_entry_sweep/2026-07-14). skip_late is_oos_fail on the shared XAUUSD proxy (both windows worse)."
    },
    "p_win_head": {
     "status": "honest_negative",
