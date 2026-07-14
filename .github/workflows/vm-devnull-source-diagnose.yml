@@ -162,7 +162,18 @@ jobs:
             fi
             echo; echo "===== install persistent watch rule ====="
             sudo mkdir -p /etc/audit/rules.d
-            printf '%s\n' '## RISK-4 BL-20260629-DEVNULL-OCI-SOURCE-KILL — attribute /dev/null perm strips' '-w /dev/null -p wa -k devnull' | sudo tee /etc/audit/rules.d/devnull.rules >/dev/null
+            # ROUND 6 (2026-07-14): the -w/-p wa watch verifiably does NOT
+            # capture chmod on this kernel — the guard's own chmod-0666 heals
+            # at known timestamps (guard journal) produced zero attr records.
+            # Add explicit chmod-family SYSCALL rules (aarch64 has only
+            # fchmod/fchmodat) pinned to /dev/null under a separate key so the
+            # culprit of the recurring chmod-644 strips is named directly.
+            printf '%s\n' \
+              '## RISK-4 BL-20260629-DEVNULL-OCI-SOURCE-KILL — attribute /dev/null perm strips' \
+              '-w /dev/null -p wa -k devnull' \
+              '-a always,exit -F arch=b64 -S fchmod,fchmodat -F path=/dev/null -k devnullmode' \
+              '-a always,exit -F arch=b64 -S setxattr,fsetxattr,lsetxattr -F path=/dev/null -k devnullmode' \
+              | sudo tee /etc/audit/rules.d/devnull.rules >/dev/null
             echo "wrote /etc/audit/rules.d/devnull.rules:"; sudo cat /etc/audit/rules.d/devnull.rules
             sudo systemctl enable --now auditd 2>/dev/null; sudo augenrules --load 2>/dev/null || sudo auditctl -R /etc/audit/rules.d/devnull.rules 2>/dev/null
             echo; echo "===== active rules ====="; sudo auditctl -l 2>/dev/null | grep -i devnull || echo "(rule not active — check auditd)"
@@ -208,6 +219,13 @@ jobs:
             # The failing opens ARE path events on the watched inode — hunt
             # success=no records (full exe=/ppid=/subj= context of the DENIED
             # process), plus AVC/AppArmor denials, plus a shadow-mount check.
+            echo "--- journald: chmod-family syscalls on /dev/null (key=devnullmode), last 48h ---"
+            sudo journalctl _TRANSPORT=audit --since "48 hours ago" --no-pager 2>&1 \
+              | grep 'key="devnullmode"' | tail -30 \
+              || echo "(no devnullmode events — rule not armed yet, or no chmod since arming)"
+            echo "--- raw /var/log/audit: devnullmode events ---"
+            sudo grep -h 'key="devnullmode"' /var/log/audit/audit.log* 2>/dev/null | tail -30 \
+              || echo "(no devnullmode events in raw audit files)"
             echo "--- journald: DENIED opens on /dev/null (success=no, keyed), last 48h ---"
             sudo journalctl _TRANSPORT=audit --since "48 hours ago" --no-pager 2>&1 \
               | grep 'key="devnull"' | grep 'success=no' | tail -40 \

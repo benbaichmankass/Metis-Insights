@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_01SDLWbfLGV4WYHgC2ugzedf",
     "branch": "claude/exit-refinement-sprint-l74k6o",
-    "pr": 6406,
-    "claimed_at": "2026-07-14T15:25:00Z"
+    "pr": 6411,
+    "claimed_at": "2026-07-14T15:55:00Z"
   },
   "active_sessions": [
     {
@@ -28,9 +28,9 @@
     {
       "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
       "branch": "claude/exit-refinement-sprint-l74k6o",
-      "intent": "M21 round-3 declares SHIPPED: PR #6402 merged @ b0d4194 (operator-approved), trader restarted (#6403, exit 0). Verifying running SHA (#6404); devnull round-4 hunt on the FRESH 15:11Z strip (#6405). Slot released.",
+      "intent": "M21 round-3 SHIPPED end-to-end (#6402 declares live+verified, #6406 wrap merged @ 5740c12; task #40 CLOSED). Continuing devnull attribution round 5 (denial hunt, issue #6410). Slot released.",
       "started_at": "2026-07-13T05:07:08.981068+00:00",
-      "updated_at": "2026-07-14T15:20:00Z"
+      "updated_at": "2026-07-14T15:40:00Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
