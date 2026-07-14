@@ -417,12 +417,37 @@ def rows_for_trade(tr: dict, candles: List[dict], cand_ts: List[float],
                     break
             break
     entry_conf = _f(tr.get("confidence"))
+    # M21 E-3 SIGNAL-BAR entry features (constant per trade): computed at the
+    # DECISION bar k0 = i0-1 (ts == t_open — the bar whose close triggered
+    # the entry), NOT the first in-trade bar, so the live allocator scorer
+    # (which only has the decision bar at signal time) is train/serve
+    # identical. All strictly bars <= the decision bar — no lookahead.
+    k0 = i0 - 1
+    entry_mom_8 = entry_dc_dist = None
+    entry_hour = entry_dow = None
+    if k0 >= 0:
+        c0 = candles[k0]
+        cl0 = c0["close"]
+        if k0 >= 8 and candles[k0 - 8]["close"] > 0:
+            entry_mom_8 = round(
+                (1.0 if is_long else -1.0) * (cl0 / candles[k0 - 8]["close"] - 1.0), 6)
+        atr0 = atrs[k0]
+        if atr0:
+            lo20 = min(c["low"] for c in candles[max(0, k0 - 19):k0 + 1])
+            hi20 = max(c["high"] for c in candles[max(0, k0 - 19):k0 + 1])
+            entry_dc_dist = round((cl0 - (lo20 + hi20) / 2.0) / atr0, 4)
+        ts0 = datetime.fromtimestamp(c0["t"], tz=timezone.utc)
+        entry_hour, entry_dow = ts0.hour, ts0.weekday()
     for r in out:
         r["first_touch_1r"] = first_touch_1r
         r["reaches_2r"] = reaches_2r
-        # M21 E-3 entry-time feature (constant per trade; None when the
-        # source emit predates the confidence field or the trade is live).
+        # M21 E-3 entry-time features (constant per trade; confidence is None
+        # when the source emit predates the field or the trade is live).
         r["entry_confidence"] = entry_conf
+        r["entry_mom_8"] = entry_mom_8
+        r["entry_dc_dist_atr"] = entry_dc_dist
+        r["entry_hour"] = entry_hour
+        r["entry_dayofweek"] = entry_dow
     return out
 
 

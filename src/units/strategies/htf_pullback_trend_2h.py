@@ -301,6 +301,21 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
                  "trail_decay_tight_mult"):
         if cfg.get(_key) is not None:
             package["meta"][_key] = cfg[_key]
+    # M18 Phase A (observe-only): P_win entry-head annotation — same shape
+    # as trend_donchian's. Never gates or sizes; allocator-soak consumer.
+    try:
+        from src.runtime.entry_head_pwin import maybe_score_entry_pwin
+
+        _pw = maybe_score_entry_pwin(
+            family="pullback", symbol=symbol, timeframe=timeframe,
+            direction=direction, confidence=confidence, candles_df=df,
+            strategy=label)
+        if _pw is not None:
+            package["meta"]["head_p_win"] = _pw["p_win"]
+            package["meta"]["head_p_win_model"] = _pw["model_id"]
+            package["meta"]["head_p_win_stage"] = _pw["stage"]
+    except Exception:  # noqa: BLE001 — annotation must never block a signal
+        pass
     return package
 
 

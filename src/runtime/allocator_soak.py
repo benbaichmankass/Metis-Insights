@@ -54,6 +54,7 @@ def _candidate_score(candidate: Any) -> float:
 def _brief(candidate: Any, score: float) -> Dict[str, Any]:
     """A small JSON-serialisable view of a scored candidate."""
     ctx = getattr(candidate, "source_context", None) or {}
+    raw = getattr(candidate, "raw", None) or {}
     return {
         "strategy_id": getattr(candidate, "strategy_id", None),
         "symbol": getattr(candidate, "symbol", None),
@@ -64,6 +65,12 @@ def _brief(candidate: Any, score: float) -> Dict[str, Any]:
         "confidence": ctx.get("confidence"),
         "priority": ctx.get("priority"),
         "score": round(float(score), 6),
+        # M18 Phase A (observe-only): the P_win entry head's score, stamped
+        # by the signal builder when a matching artifact is mirrored — the
+        # side-by-side evidence Phase B's candidate_p_win swap is gated on.
+        # None until the head covers this candidate's family/tf.
+        "head_p_win": raw.get("head_p_win"),
+        "head_p_win_model": raw.get("head_p_win_model"),
     }
 
 
