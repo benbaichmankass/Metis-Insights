@@ -246,3 +246,28 @@ Matrix updated: `p_win_head` passed_unshipped (1h crypto donchians) /
 honest_negative (4h) / pending-rerun (1d + stranded 1h); stale
 `depth_threshold` statuses from the batch-1 shipping corrected to
 `shipped`.
+
+## E-3 round 2 (corrected pools + pullback family) — RESULTS (2026-07-14)
+
+Round complete (relay #6376 launch, #6378/#6379 readouts;
+`runtime_logs/m21_entry_head_r2` + `_pb`):
+
+- **donchian_1h FULL pool (5,244 entries, now incl. mgc/slv/uso/xauusd +
+  shadow legs): GATE PASS strengthened** — τ=0.35 beats actual on net_R
+  AND maxDD **6/6 yearly folds**; AUC 0.576–0.627; live n=13 AUC 0.792,
+  τ0.35 +17.6/4.0 vs actual +9.3/9.4. The round-1 crypto-pool pass is
+  confirmed on the corrected full pool.
+- **pullback_2h (1,948 entries): PASS at τ=0.4 — 4/4 usable folds**,
+  AUC 0.553–0.626. Caveat recorded: live n=23 is a losing window
+  (−19.4R actual); the skip improves it (−8.4R, dd 25.2→14.2) but stays
+  negative — directionally consistent, small n.
+- **pullback_1h: honest negative** (best τ 2/8 folds; AUCs straddle 0.5).
+- **pullback_1d: honest negative** (fold AUCs erratic 0.40–0.59).
+- **donchian_1d: blocked:insufficient_n** (509 entries across 8 legs →
+  zero usable yearly folds at min-fold-trades 50).
+
+**E-3 verdict: the P_win entry head is REAL on the intraday trend/
+pullback families** (donchian-1h 6/6, pullback-2h 4/4) and not on the
+sparse 1d fleets. Matrix `p_win_head` column verdicted fleet-wide.
+**Next: the M18 allocator P_win wiring Tier-3 proposal** (the consumer
+this head was built for; M18 P2 was parked on exactly this input).
