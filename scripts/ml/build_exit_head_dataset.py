@@ -177,6 +177,10 @@ def load_harness_trades(paths: List[Path]) -> List[dict]:
                 "final_r": _f(r.get("net_r")),
                 "final_r_source": "harness_net_r",
                 "exit_reason": r.get("exit_reason"),
+                # M21 E-3: live-parity setup-quality feature (breakout /
+                # trigger depth in ATRs, clipped 0..1) — absent in older
+                # emits, None-safe downstream.
+                "confidence": _f(r.get("confidence")),
             })
     return trades
 
@@ -412,9 +416,13 @@ def rows_for_trade(tr: dict, candles: List[dict], cand_ts: List[float],
                     reaches_2r = 1
                     break
             break
+    entry_conf = _f(tr.get("confidence"))
     for r in out:
         r["first_touch_1r"] = first_touch_1r
         r["reaches_2r"] = reaches_2r
+        # M21 E-3 entry-time feature (constant per trade; None when the
+        # source emit predates the confidence field or the trade is live).
+        r["entry_confidence"] = entry_conf
     return out
 
 

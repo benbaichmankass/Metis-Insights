@@ -46,6 +46,10 @@ class Trade:
     entry_time: Any
     exit_time: Any
     mfe_r: float = 0.0
+    # Live-parity setup-quality feature (M21 E-3): breakout depth beyond the
+    # channel edge in ATRs at the SIGNAL bar, clipped to [0, 1] — the same
+    # number the live unit calls `confidence` and `min_confidence` gates on.
+    confidence: float = 0.0
 
 
 def _load(path: str) -> pd.DataFrame:
@@ -234,7 +238,8 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                         'timeout' if tmo else (
                             'stale_stop' if stale else 'giveback_stop'))),
                     round(r, 6), pos['entry_time'], bar['timestamp'],
-                    mfe_r=round(mfe_now, 4)))
+                    mfe_r=round(mfe_now, 4),
+                    confidence=round(float(pos.get('conf') or 0.0), 4)))
                 pos = None
         if pos is None and pending is not None:
             s_raw = int(sig.iloc[i])
@@ -252,6 +257,7 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                 if pending['left'] <= 0:
                     a = float(atr.iloc[i]) or 0.0
                     direction = pending['direction']
+                    p_conf = float(pending.get('conf') or 0.0)
                     pending = None
                     if a > 0:
                         entry = cl
@@ -263,7 +269,8 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                                    'sl': sl, 'sl_init': sl, 'risk': risk,
                                    'peak': hi if direction == 'long' else lo,
                                    'peak_i': i, 'entry_i': i,
-                                   'entry_time': bar['timestamp']}
+                                   'entry_time': bar['timestamp'],
+                                   'conf': p_conf}
                 continue
         if pos is None:
             s = int(sig.iloc[i])
@@ -274,22 +281,23 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                 if a <= 0:
                     continue
                 direction = 'long' if s > 0 else 'short'
-                # Breakout-depth confidence gate (mirrors the live unit).
-                if min_confidence > 0.0:
-                    if direction == 'long':
-                        depth = (cl - float(upper.iloc[i])) / a
-                    else:
-                        depth = (float(lower.iloc[i]) - cl) / a
-                    conf = min(max(depth, 0.0), 1.0)
-                    if conf < min_confidence:
-                        continue
+                # Breakout-depth confidence (mirrors the live unit) — always
+                # computed so it rides the emit as a dataset feature; only
+                # GATES when min_confidence > 0 (unchanged behaviour).
+                if direction == 'long':
+                    depth = (cl - float(upper.iloc[i])) / a
+                else:
+                    depth = (float(lower.iloc[i]) - cl) / a
+                conf = min(max(depth, 0.0), 1.0)
+                if min_confidence > 0.0 and conf < min_confidence:
+                    continue
                 if confirm_bars > 0:
                     # Defer entry: track the signal bar's channel edge and
                     # require `confirm_bars` further confirming closes.
                     pending = {'direction': direction,
                                'level': (float(upper.iloc[i]) if direction == 'long'
                                          else float(lower.iloc[i])),
-                               'left': confirm_bars}
+                               'left': confirm_bars, 'conf': conf}
                     continue
                 entry = cl
                 sl = entry - atr_stop * a if direction == 'long' else entry + atr_stop * a
@@ -298,7 +306,8 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                     continue
                 pos = {'direction': direction, 'entry': entry, 'sl': sl, 'sl_init': sl,
                        'risk': risk, 'peak': hi if direction == 'long' else lo,
-                       'peak_i': i, 'entry_i': i, 'entry_time': bar['timestamp']}
+                       'peak_i': i, 'entry_i': i, 'entry_time': bar['timestamp'],
+                       'conf': conf}
     return trades
 
 
@@ -429,6 +438,7 @@ def main(argv: List[str]) -> int:
                     'gross_r': t.r_multiple,
                     'net_r': round(t.r_multiple - _fee_r(t), 4),
                     'mfe_r': t.mfe_r,
+                    'confidence': t.confidence,
                     'exit_reason': t.outcome}, default=str) + '\n')
     out = summarize(trades, params, df)
     line = (f"trend_donchian — {a.symbol} {a.timeframe} dc={a.donchian} tm={a.trail_mult} "
