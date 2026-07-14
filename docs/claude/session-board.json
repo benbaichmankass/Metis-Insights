@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01SDLWbfLGV4WYHgC2ugzedf",
-    "branch": "claude/exit-refinement-sprint-l74k6o",
+    "held_by": null,
+    "branch": null,
     "pr": null,
-    "claimed_at": "2026-07-14T14:10:55Z"
+    "claimed_at": null
   },
   "active_sessions": [
     {
@@ -28,9 +28,9 @@
     {
       "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
       "branch": "claude/exit-refinement-sprint-l74k6o",
-      "intent": "M21 round-3 time-of-day: 2 PASS (xrp_4h skip_h0, spy_1h skip_late) + live twin shipping; Tier-3 declare batch to operator next. Devnull: journald hunt merged, attribution pending.",
+      "intent": "M21 round-3 COMPLETE (#6400 merged @ 9c7a123): live twin shipped, matrix time_of_day CLOSED. Tier-3 declare draft PR (xrp_4h skip_hours 0, spy_1h skip_hours 19,20) open awaiting operator approval.",
       "started_at": "2026-07-13T05:07:08.981068+00:00",
-      "updated_at": "2026-07-14T14:10:55Z"
+      "updated_at": "2026-07-14T14:55:25Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
