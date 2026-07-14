@@ -1,0 +1,504 @@
+{
+  "course_id": "elements-of-ai-ch2",
+  "title": "Elements of AI — Chapter 2: AI problem solving",
+  "subtitle": "How machines 'plan ahead' — state spaces, search, and games — in plain language.",
+  "attribution": "Concepts follow Chapter 2 of the free 'Elements of AI' course (University of Helsinki & MinnaLearn, CC BY-NC-SA 4.0). Original explanations generated for this app — not the course's text. Free course: https://course.elementsofai.com/2",
+  "source_url": "https://course.elementsofai.com/2",
+  "hosts": {
+    "a": "Maya",
+    "b": "Theo"
+  },
+  "generated_by": "gemini:gemini-3.5-flash",
+  "episodes": [
+    {
+      "id": "ep1",
+      "title": "Search & planning — the state space",
+      "summary": "",
+      "minutes": 13,
+      "script": [
+        {
+          "s": "a",
+          "t": "Welcome back! Today we are diving into a foundational corner of AI that is often overshadowed by flashy neural networks, but is absolutely critical for decision-making: search and planning. We are talking about how an AI system actually figures out a sequence of actions to solve a complex problem."
+        },
+        {
+          "s": "b",
+          "t": "Right. And for anyone running automated systems, like a trading bot, this is incredibly relevant. You are constantly trying to navigate from where your portfolio is now to where you want it to be. That is not just a single, magic button press—it is a series of deliberate steps under constraint."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. In AI, we formalize this as a 'search problem'. To understand how an AI tackles this, we have to break it down into a few core concepts. The first is what we call the 'state'. Theo, how would you describe a state to someone who has never heard the term?"
+        },
+        {
+          "s": "b",
+          "t": "I like to think of a state as a complete, high-fidelity snapshot of the world at one exact millisecond. If you paused time, what would the board look like? In a classic sliding tile puzzle—where you slide numbered tiles around to get them in order—a state is the exact arrangement of those numbers at this very moment."
+        },
+        {
+          "s": "a",
+          "t": "Perfect. And if we translate that to our listeners' world, a state would be a complete snapshot of your trading system. That means your current cash balances, your open positions, your pending limit orders, and maybe even the current bid-ask spread on the exchange. It is a frozen frame of your financial reality."
+        },
+        {
+          "s": "b",
+          "t": "Right. But a static snapshot is useless on its own. We want to achieve something, which means we need to move. That brings us to 'transitions', or what some people just call actions."
+        },
+        {
+          "s": "a",
+          "t": "Yes! A transition is any legal move that takes you from one state to another. In the sliding puzzle, it is sliding a single tile into the empty slot. On a physical map, it is driving down a road to the next town. For an execution bot, a transition might be sending a buy order to an exchange, or canceling an active order."
+        },
+        {
+          "s": "b",
+          "t": "And these transitions are rarely free. They usually have a 'cost' associated with them, right?"
+        },
+        {
+          "s": "a",
+          "t": "Absolutely. Cost is a massive factor. If you are driving, the cost of a transition might be the distance or the fuel used. In trading, the cost of a transition could be exchange fees, market impact, or slippage. The AI has to keep track of these costs because we do not just want *any* path to our goal; we usually want the most efficient one."
+        },
+        {
+          "s": "b",
+          "t": "Okay, so we have states, which are the snapshots, and transitions, which are the moves. If you take every single state you could possibly reach by applying every possible sequence of transitions, you get what AI researchers call the 'state space'."
+        },
+        {
+          "s": "a",
+          "t": "The state space is essentially the map of all possibilities. For a simple game like Tic-Tac-Toe, the state space is tiny—just a few thousand possible board layouts. But for chess, or for managing a diverse portfolio across multiple exchanges, the state space is astronomically, mind-bogglingly huge."
+        },
+        {
+          "s": "b",
+          "t": "Which is why we cannot just guess. We need a structured way to explore this space. That is where we build a 'search tree'. Maya, walk us through how a search tree actually grows."
+        },
+        {
+          "s": "a",
+          "t": "Think of it like a family tree, but for decisions. You start at the very top with your initial state—this is the 'root' of the tree. Then, you look at all the legal transitions you can make from there. Each transition branches out to a new 'child' state."
+        },
+        {
+          "s": "b",
+          "t": "And then, from each of those child states, you look at *their* possible transitions, creating even more branches. It multiplies fast."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. When an AI is 'planning ahead', it is not actually making moves in the real world yet. It is virtually tracing paths down this search tree, simulating the outcomes. A 'path' is just a sequence of transitions from the root, and the 'solution' is a path that successfully ends at our 'goal state'."
+        },
+        {
+          "s": "b",
+          "t": "Let's ground this with a concrete example. Say my goal state is to accumulate ten thousand shares of a specific asset without spiking the price, and my starting state is zero shares. My search tree branches based on how I split up my orders over time and across different venues."
+        },
+        {
+          "s": "a",
+          "t": "That is a great example. One branch of your search tree might be: 'Route all ten thousand shares to Exchange A immediately.' The child state there might show high slippage and a bad average price. Another branch might be: 'Route one thousand shares to Exchange A, one thousand to Exchange B, and wait five minutes.' The child state there might have lower costs, but introduces the risk of the price moving away from you."
+        },
+        {
+          "s": "b",
+          "t": "So the bot is searching through these hypothetical branches, calculating the accumulated costs of each path, trying to find the optimal route to the goal state of ten thousand shares filled."
+        },
+        {
+          "s": "a",
+          "t": "Precisely. And what is so beautiful about this AI framework is how universal it is. The exact same search machinery that Google Maps uses to find the fastest drive from Boston to New York is what a sliding puzzle solver uses, and it is what an order routing bot uses."
+        },
+        {
+          "s": "b",
+          "t": "Because to the algorithm, it doesn't matter if the states are physical coordinates, tile arrangements, or ledger balances. As long as you can represent the problem abstractly—defining the states, the transitions, the costs, and the goal test—the search engine can solve it."
+        },
+        {
+          "s": "a",
+          "t": "That abstraction is the real superpower of AI problem solving. It decouples the *problem definition* from the *problem-solving engine*."
+        },
+        {
+          "s": "b",
+          "t": "But here is the catch that every operator knows in their bones: reality is messy. In a simple puzzle or a GPS map, the transitions are predictable. If I turn left on Main Street, I am on Main Street. In the markets, if I send a buy order, the state of the order book might change before my order even arrives."
+        },
+        {
+          "s": "a",
+          "t": "Yes, uncertainty is the wild card. But even in uncertain environments, mapping out your state space and understanding the search tree is the essential first step. You have to know what actions are theoretically possible before you can start accounting for the chaos."
+        },
+        {
+          "s": "b",
+          "t": "So, to wrap our heads around this first step: AI problem solving is about framing our challenges as a map of states, defining the legal moves to transition between them, and searching the resulting tree for the best path."
+        },
+        {
+          "s": "a",
+          "t": "You got it. But as you can probably guess, when these trees branch out, they get massive incredibly quickly. If you have ten choices at every step, after just six steps, you have a million possible paths to evaluate."
+        },
+        {
+          "s": "b",
+          "t": "That sounds like a recipe for a crashed server or a frozen bot."
+        },
+        {
+          "s": "a",
+          "t": "It absolutely is. That is what we call the 'combinatorial explosion', and it is the ultimate boss battle of AI search. In our next episode, we are going to look at how AI actually navigates this explosion without drowning in the data—using smart exploration strategies and heuristics."
+        },
+        {
+          "s": "b",
+          "t": "Can't wait to get into the strategy. See you all in the next episode!"
+        }
+      ]
+    },
+    {
+      "id": "ep2",
+      "title": "Searching smart — cost, breadth vs depth, and heuristics",
+      "summary": "",
+      "minutes": 13,
+      "script": [
+        {
+          "s": "a",
+          "t": "Welcome back! In our last episode, we talked about how many AI problems are solved by mapping out a 'state space'—all the possible situations and the transitions between them. Today, we're looking at the actual engine room: how does an AI search through that space to find a solution?"
+        },
+        {
+          "s": "b",
+          "t": "Right, because having a map is one thing, but if you're running an automated trading bot, you need to find the best route to execute a complex multi-leg order in milliseconds. You can't just wander around the state space randomly."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. You need a strategy to explore. Let's start with the two most basic ways an algorithm can search a tree of choices: Breadth-First Search and Depth-First Search."
+        },
+        {
+          "s": "b",
+          "t": "Okay, let's break those down. 'Breadth-First' sounds like you're casting a wide net right away."
+        },
+        {
+          "s": "a",
+          "t": "Precisely. Breadth-First, or BFS, explores the state space layer by layer. It starts at your current state, checks every single immediate transition one step away, then checks all the states two steps away, and so on. It radiates outward like a ripple in a pond."
+        },
+        {
+          "s": "b",
+          "t": "In our world, that would be like checking every single direct counterparty for a trade first, then looking at all of their direct connections, and so on. What's the benefit of doing it that way?"
+        },
+        {
+          "s": "a",
+          "t": "The biggest benefit is that BFS is guaranteed to find the shortest path in terms of the number of steps. If there's a solution three steps away, BFS will find it before it ever looks at anything four steps away. But there's a massive drawback: memory."
+        },
+        {
+          "s": "b",
+          "t": "Because you have to keep track of every single path you're tracking at the current depth before you can move deeper?"
+        },
+        {
+          "s": "a",
+          "t": "Yes! You have to store all those 'frontier' states in memory. If each state branches into multiple new ones, your memory usage explodes. Now, contrast that with Depth-First Search, or DFS."
+        },
+        {
+          "s": "b",
+          "t": "I'm guessing DFS does the opposite? It goes deep fast?"
+        },
+        {
+          "s": "a",
+          "t": "Exactly. DFS chooses one path and follows it as deep as possible, step after step, until it hits a dead end or a goal. If it hits a dead end, it backtracks just one step and tries the next branch."
+        },
+        {
+          "s": "b",
+          "t": "So it's like a trader who finds one potential chain of routing venues and just keeps digging down that specific rabbit hole to see where it ends, ignoring all other options for the moment."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. The beauty of DFS is that it's incredibly light on memory. You only need to remember the single path you are currently walking down. But the risk is that DFS can get lost down a massive, useless branch of the tree, wasting time while a simple, short solution was sitting right next to the starting point."
+        },
+        {
+          "s": "b",
+          "t": "That sounds incredibly dangerous in a fast-moving market. But honestly, both of these sound a bit... brute-force. What happens when the number of choices gets really large?"
+        },
+        {
+          "s": "a",
+          "t": "That's when we hit the ultimate boss of AI search: the Combinatorial Explosion. This is the central difficulty in problem-solving."
+        },
+        {
+          "s": "b",
+          "t": "Give us the math. Why does it blow up so fast?"
+        },
+        {
+          "s": "a",
+          "t": "It comes down to two variables: the branching factor, which we call 'b'—the number of choices at each step—and the depth, 'd'—how many steps you plan ahead. The number of paths you have to search grows exponentially, as 'b' raised to the power of 'd'."
+        },
+        {
+          "s": "b",
+          "t": "Let me visualize that. If my trading bot has to choose between just 5 different execution venues at each step, and I want to plan a sequence of 10 routing steps... that's 5 to the power of 10. That's almost ten million paths to evaluate!"
+        },
+        {
+          "s": "a",
+          "t": "And if you increase that depth to 15 steps? It balloons to over thirty billion. No computer can search that exhaustively in real-time. Brute force simply fails."
+        },
+        {
+          "s": "b",
+          "t": "And in the real world, it's even trickier because transitions aren't just abstract steps. They have actual costs. Slippage, exchange fees, latency... we don't just want *any* path to the goal; we want the cheapest one."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. When transitions have different costs, simple BFS doesn't work anymore because the path with the fewest steps might actually be the most expensive. So, we have to track the 'accumulated cost' of the path as we search, always expanding the cheapest path we've found so far."
+        },
+        {
+          "s": "b",
+          "t": "But if we're just looking at the cost we've already paid, we're still searching blindly. We might be taking very cheap steps that are actually moving us further away from our target portfolio state."
+        },
+        {
+          "s": "a",
+          "t": "Spot on, Theo. To solve this, we need to give the search algorithm 'eyes' to look forward. And we do that using a *heuristic*."
+        },
+        {
+          "s": "b",
+          "t": "Heuristics. I hear that word a lot. What does it actually mean in this context?"
+        },
+        {
+          "s": "a",
+          "t": "A heuristic is a cheap, approximate estimate of how far a given state is from the goal. It's not a perfect calculation—because calculating the exact path is too expensive—but it's a very smart guess."
+        },
+        {
+          "s": "b",
+          "t": "Can you give me a physical analogy for that?"
+        },
+        {
+          "s": "a",
+          "t": "Sure! Imagine you're driving to a city on the other side of a mountain range. Finding the exact route through all the winding roads, traffic, and detours is complex. But you can easily calculate the straight-line, 'as the crow flies' distance to your destination. That straight-line distance is your heuristic."
+        },
+        {
+          "s": "b",
+          "t": "Ah! It's not the actual driving distance, but it's a great, cheap proxy. It tells you if a turn is generally moving you closer to your destination or further away."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. Now, if you combine the cost you've *already* paid to get to a state, with this heuristic estimate of the *remaining* cost to the goal, you get what's called Best-First Search, or the A* algorithm."
+        },
+        {
+          "s": "b",
+          "t": "So the algorithm prioritizes exploring paths where the sum of 'cost paid so far' plus 'estimated remaining cost' is the lowest?"
+        },
+        {
+          "s": "a",
+          "t": "Yes! And by doing that, the search beam is focused. Instead of searching all ten million branches, the heuristic guides the algorithm directly toward the goal, taming that combinatorial explosion."
+        },
+        {
+          "s": "b",
+          "t": "That is incredibly elegant. In trading, a heuristic might be a quick, historical estimate of market depth or liquidity on a venue. It's not a guarantee of execution, but it tells the routing bot: 'Hey, start by looking down this path, because historically, it's our best bet to get this order filled cheaply.'"
+        },
+        {
+          "s": "a",
+          "t": "Exactly. A good heuristic should be optimistic—it shouldn't wildly overestimate the cost, because then you might skip a great path. But as long as it's a reasonable estimate, it lets you find near-optimal paths in a fraction of the time."
+        },
+        {
+          "s": "b",
+          "t": "So we've gone from blindly guessing with BFS and DFS, to using path costs and heuristics to navigate massive state spaces efficiently. But there's still a catch, isn't there? In markets, we aren't just navigating a static map. There are other players actively moving against us."
+        },
+        {
+          "s": "a",
+          "t": "You're anticipating the next big challenge! When the environment is active and adversarial, we need a whole different kind of search. And that's exactly what we'll tackle in our next episode on game trees, minimax, and how AI plays to win when the market fights back."
+        }
+      ]
+    },
+    {
+      "id": "ep3",
+      "title": "Games & adversaries — minimax and pruning",
+      "summary": "",
+      "minutes": 13,
+      "script": [
+        {
+          "s": "a",
+          "t": "Welcome back! Today we are wrapping up our module on AI problem solving. In our previous episodes, we looked at finding paths in static worlds—like a GPS finding a route. But what happens when the world isn't static? What if you're up against an opponent who is actively trying to stop you?"
+        },
+        {
+          "s": "b",
+          "t": "Ah, yes. The friendly world of adversarial search. For our listeners running trading bots, this is going to feel very familiar. It's the difference between planning a simple trade in an empty market and trying to execute a large order while other traders and market makers are actively reacting to your moves."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. When we model these situations in AI, we use 'Game Trees.' It's just like the search trees we talked about before, but with one major twist: the turns alternate. I make a move, which branches the tree. Then my opponent makes a move, branching it further. We call this a two-player, turn-taking game."
+        },
+        {
+          "s": "b",
+          "t": "And because we have an opponent, we can't just pick a path that assumes they will cooperate. If I route a massive block order to one venue, I can't assume the local high-frequency trading firms will just sit there and let me fill it at the current price. They will adjust."
+        },
+        {
+          "s": "a",
+          "t": "Right. You have to assume they will play their best possible move to benefit themselves—which usually hurts you. To solve this, AI uses an algorithm called 'Minimax.' The name tells you the whole strategy: you want to maximize your outcome, while assuming your opponent is trying to minimize it."
+        },
+        {
+          "s": "b",
+          "t": "It is essentially the ultimate pessimistic planning. You look at all your choices. For each choice, you look at all the opponent's possible replies. You assume they will pick the absolute worst reply for you. Then, you choose the move where that 'worst-case scenario' is actually the best it can possibly be."
+        },
+        {
+          "s": "a",
+          "t": "You're optimizing your worst case. In Tic-Tac-Toe, if you have a move that could lead to an instant win *only if* your opponent ignores it, Minimax won't let you play it if they can easily block you. It assumes they *will* block you, so it looks for a more robust path."
+        },
+        {
+          "s": "b",
+          "t": "But here is the catch, Maya. If single-agent search trees explode quickly, game trees are on absolute fire. The combinatorial explosion is brutal here."
+        },
+        {
+          "s": "a",
+          "t": "Oh, it's terrifying. If you have, say, thirty possible moves on your turn, and your opponent has thirty replies, that's nine hundred states just one round in. Go a few turns deep, and the number of possibilities is larger than the number of atoms in the universe. You cannot search to the end of Chess, let alone a complex market."
+        },
+        {
+          "s": "b",
+          "t": "So how do we actually run this on a computer without it melting? The first major trick is called Alpha-Beta Pruning. It sounds like high-tech gardening, but it's really just the art of ignoring things that don't matter."
+        },
+        {
+          "s": "a",
+          "t": "It's brilliant in its simplicity. Imagine you are analyzing Move A, and you calculate that the opponent can force a bad outcome, limiting your score to five. Now you start looking at Move B. Almost immediately, you see the opponent has a reply to Move B that drops your score to two. Do you need to keep analyzing other replies to Move B?"
+        },
+        {
+          "s": "b",
+          "t": "No, because you already know Move B is worse than Move A. Even if there's some amazing hidden outcome deep under Move B, your opponent would never let you get there—they'd force that score of two. So you 'prune' that entire branch and stop looking."
+        },
+        {
+          "s": "a",
+          "t": "Exactly! You skip it entirely. It's like seeing toxic order flow on a specific venue and immediately deciding not to route any more of your order there. You don't need to analyze every microsecond of depth on that venue; you just prune that path from your decision tree."
+        },
+        {
+          "s": "b",
+          "t": "And the beauty of pruning is that it doesn't change the final decision. It gives you the exact same 'best' move as a full search, just with a fraction of the calculation. But even with pruning, we still can't search all the way to the end of most real-world games."
+        },
+        {
+          "s": "a",
+          "t": "Right, which brings us to the second trick: limited look-ahead combined with an 'evaluation function.' This is just our old friend, the heuristic, wearing a different outfit."
+        },
+        {
+          "s": "b",
+          "t": "Instead of searching until the game actually ends in a win or loss, the AI only looks ahead a few steps—say, six moves deep. At that point, it stops and uses a quick, approximate formula to score how good that position looks."
+        },
+        {
+          "s": "a",
+          "t": "In chess, that formula might be simple: count the pieces. A queen is worth nine points, a rook is five, and so on. If a branch leaves you with more high-value pieces, it gets a higher score. It's not a guarantee of victory, but it's a highly effective proxy."
+        },
+        {
+          "s": "b",
+          "t": "This is exactly how automated execution bots operate under uncertainty. Your bot can't simulate the entire trading day to the closing bell. Instead, it looks ahead a few steps—maybe routing to a dark pool, waiting a moment, and checking for fills—and then uses an evaluation function to estimate the health of the portfolio at the end of that short window."
+        },
+        {
+          "s": "a",
+          "t": "And by using Minimax principles during that short look-ahead, the bot dynamically guards against adverse selection. It assumes other market participants will try to exploit its visible orders, so it chooses the routing path that minimizes its maximum potential slippage."
+        },
+        {
+          "s": "b",
+          "t": "It's amazing how these classic AI concepts—states, transitions, heuristics, and adversarial search—map so perfectly onto the chaotic world of algorithmic trading."
+        },
+        {
+          "s": "a",
+          "t": "It really does. Whether you're playing chess, navigating a maze, or managing order routing under uncertainty, the core machinery is the same: represent the problem abstractly, use heuristics to tame the combinatorial explosion, and plan ahead while assuming the world won't just hand you an easy win."
+        },
+        {
+          "s": "b",
+          "t": "Well said, Maya. That wraps up our three-part journey into AI problem solving. Next time you look at your trading bot's logs, you'll know exactly what kind of search trees it's climbing."
+        },
+        {
+          "s": "a",
+          "t": "Keep optimizing those worst cases, keep pruning those bad paths, and we'll see you in the next module!"
+        }
+      ]
+    }
+  ],
+  "quiz": [
+    {
+      "id": "q1",
+      "q": "Maya and Theo are discussing how a trading bot views its world. In the context of AI search, what constitutes a 'state'?",
+      "options": [
+        "A complete snapshot of the system at one specific moment, such as current open positions, cash balances, and pending limit orders.",
+        "The sequence of trades required to reach a target portfolio value.",
+        "The final goal configuration of assets after all trades are executed.",
+        "The historical record of all market prices over the last fiscal year."
+      ],
+      "answer": 0,
+      "explain": "A state in AI search represents a complete, static snapshot of the environment at a single point in time, serving as the foundation for planning future actions."
+    },
+    {
+      "id": "q2",
+      "q": "When a trading bot routes an order, it moves from one state to another. Why do we associate a 'cost' with transitions in a search tree?",
+      "options": [
+        "To ensure the bot only ever takes a single step before stopping.",
+        "To model real-world friction, like exchange fees, slippage, or execution latency, allowing the search algorithm to find the most efficient path.",
+        "To define the maximum number of states the bot is allowed to explore before timing out.",
+        "To represent the opponent's strategy in a zero-sum game."
+      ],
+      "answer": 1,
+      "explain": "Transition costs allow the search algorithm to evaluate and minimize the real-world penalties, such as fees or latency, associated with moving between states."
+    },
+    {
+      "id": "q3",
+      "q": "Theo notes that Breadth-First Search (BFS) guarantees finding the path with the absolute fewest steps to a target state. What is the main trade-off of using BFS?",
+      "options": [
+        "It can easily get stuck in infinite loops and never find a solution.",
+        "It always finds the most expensive path first.",
+        "It can consume an immense amount of memory because it must store all explored paths at each level.",
+        "It relies heavily on complex heuristic calculations to function."
+      ],
+      "answer": 2,
+      "explain": "BFS explores layer by layer, which guarantees finding the shortest path in terms of steps, but requires significant memory to keep track of all frontier states."
+    },
+    {
+      "id": "q4",
+      "q": "If Maya configures the bot to use Depth-First Search (DFS) to plan a multi-leg trade, what risk does she run compared to BFS?",
+      "options": [
+        "The bot might wander deeply down a highly inefficient branch, finding a suboptimal path before backtracking.",
+        "The bot will immediately run out of memory on the very first step.",
+        "DFS is mathematically incapable of ever reaching a goal state.",
+        "DFS requires calculating the cost of every single state in the entire state space upfront."
+      ],
+      "answer": 0,
+      "explain": "DFS explores as deep as possible down one path first; while memory-efficient, it can waste time on long, bad paths before finding a solution."
+    },
+    {
+      "id": "q5",
+      "q": "Theo warns that search spaces suffer from 'combinatorial explosion.' If a bot has 5 possible actions at each step (branching factor b=5) and plans 8 steps ahead (depth d=8), how does the number of possible paths scale?",
+      "options": [
+        "It scales linearly (5 multiplied by 8, or 40 paths).",
+        "It scales exponentially (5 raised to the power of 8, or 390,625 paths).",
+        "It scales quadratically (8 raised to the power of 2, or 64 paths).",
+        "It remains constant regardless of depth."
+      ],
+      "answer": 1,
+      "explain": "The number of paths in a search tree grows exponentially (b to the power of d), meaning even small increases in depth or options quickly make brute-force search impossible."
+    },
+    {
+      "id": "q6",
+      "q": "To prevent combinatorial explosion, Maya introduces a 'heuristic' to the bot's pathfinding. What is a heuristic in AI search?",
+      "options": [
+        "An exact, guaranteed calculation of the cheapest path that requires no search.",
+        "A rule that forces the bot to choose actions completely at random.",
+        "A fast, approximate estimate of the remaining cost or distance from a given state to the goal.",
+        "A security protocol that prevents unauthorized order routing."
+      ],
+      "answer": 2,
+      "explain": "A heuristic is a computationally cheap approximation of the distance to the goal, used to guide the search toward the most promising paths first."
+    },
+    {
+      "id": "q7",
+      "q": "When using a heuristic to find the cheapest route across multiple liquidity pools, what property must the heuristic have to ensure it guides the bot effectively without misleading it?",
+      "options": [
+        "It must always overestimate the actual remaining cost to be safe.",
+        "It should be a reasonable, optimistic estimate that does not wildly overestimate the true cost.",
+        "It must be calculated by running a full depth-first search at every node.",
+        "It must change randomly every time it is queried."
+      ],
+      "answer": 1,
+      "explain": "An effective heuristic should be optimistic (never wildly overestimating the actual cost) to ensure it doesn't prematurely rule out the truly optimal path."
+    },
+    {
+      "id": "q8",
+      "q": "Theo wants to model a competitive trading scenario as a two-player game tree using the Minimax algorithm. How does Minimax decide the best move for the bot?",
+      "options": [
+        "It assumes the opponent will make random mistakes and plays the highest-risk move.",
+        "It assumes the opponent will always play their worst move, allowing the bot to win easily.",
+        "It chooses the move that maximizes the bot's outcome, assuming the opponent will always choose moves that minimize the bot's outcome.",
+        "It ignores the opponent's potential actions entirely to save processing power."
+      ],
+      "answer": 2,
+      "explain": "Minimax assumes an adversarial opponent who plays optimally to minimize your payoff, so it selects the move that maximizes your worst-case outcome."
+    },
+    {
+      "id": "q9",
+      "q": "When building a game tree to anticipate market counter-moves, how does 'pruning' (such as alpha-beta pruning) help the bot's decision-making engine?",
+      "options": [
+        "It permanently deletes parts of the bot's core memory to free up RAM.",
+        "It identifies and skips evaluating branches that can be mathematically proven to have no impact on the final decision.",
+        "It randomly cuts off half of all search paths to speed up execution, accepting a high rate of errors.",
+        "It forces the opponent to skip their turn in the game tree."
+      ],
+      "answer": 1,
+      "explain": "Pruning allows the search to ignore branches that are guaranteed not to affect the final decision, saving immense computational power without changing the outcome."
+    },
+    {
+      "id": "q10",
+      "q": "In complex, fast-moving markets, a bot cannot search a game tree all the way to the very end of the trading day. How do real game engines handle this limitation?",
+      "options": [
+        "They search only a few steps ahead and use an 'evaluation function' to estimate the quality of the resulting intermediate states.",
+        "They stop searching entirely and execute a random action when the time limit is reached.",
+        "They guess the final outcome of the game based solely on the starting state.",
+        "They require the human operator to manually input the value of every state."
+      ],
+      "answer": 0,
+      "explain": "Real-time engines search to a limited look-ahead depth and use an evaluation function (a heuristic) to score the resulting states, balancing search depth with calculation time."
+    }
+  ]
+}
