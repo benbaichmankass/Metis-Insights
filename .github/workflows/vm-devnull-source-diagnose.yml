@@ -186,6 +186,20 @@ jobs:
             sudo ls -la /var/log/audit 2>&1 | head -10
             echo "--- journald audit transport (fallback sink when auditd is not writing) ---"
             sudo journalctl _TRANSPORT=audit --no-pager -n 40 -g 'devnull|dev/null' 2>&1 | tail -40 || echo "(no audit records in journald)"
+            # THE HUNT (2026-07-14): journald IS capturing keyed devnull events
+            # (verified — auditd active, lost=0, yet ausearch reads empty; the
+            # transport is the reliable sink). The `-p wa` watch also fires on
+            # every WRITE-OPEN of /dev/null, so the log is dominated by openat
+            # noise (a3=1b6). The culprit is the chmod-family SYSCALL whose mode
+            # arg is 0444 = hex 124 (guard restores are 1b6 — expected noise).
+            echo "--- journald: 0444 mode-strip SYSCALLs (a1/a2/a3=124), last 48h ---"
+            sudo journalctl _TRANSPORT=audit --since "48 hours ago" --no-pager 2>&1 \
+              | grep 'key="devnull"' | grep -E 'a[123]=124\b' | tail -30 \
+              || echo "(no 0444 strip events captured in journald window)"
+            echo "--- journald: /dev/null node replacement (PATH DELETE/CREATE), last 48h ---"
+            sudo journalctl _TRANSPORT=audit --since "48 hours ago" --no-pager 2>&1 \
+              | grep 'name="/dev/null"' | grep -E 'nametype=(DELETE|CREATE)' | tail -20 \
+              || echo "(no node-replacement events captured)"
             echo; echo "===== CULPRIT HINT ====="
             echo "The SYSCALL that sets /dev/null to mode 0444 (0x124, write bit stripped) is the SOURCE."
             echo "Its exe=/comm=/ppid names the process. The guard's own restores set 0666 (0x1b6) — expected noise."
