@@ -76,6 +76,12 @@ _DEFAULTS: Dict[str, Any] = {
     "adx_min": None,
     "adx_max": None,
     "adx_period": 14,
+    # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
+    # NEW entry whose TRIGGER bar's UTC hour is in this CSV set (e.g. "19,20").
+    # Exits are never touched — an open trade rides through skipped hours
+    # unchanged. Mirrors scripts/backtest_pullback.py --skip-hours exactly;
+    # declared per leg in config/strategies.yaml (Tier-3).
+    "skip_hours": "",
 }
 
 _TP_SENTINEL_CAP_PCT = 0.099
@@ -83,6 +89,26 @@ _TP_SENTINEL_CAP_PCT = 0.099
 
 def _resolve_params(cfg: Dict[str, Any]) -> Dict[str, Any]:
     return {key: cfg.get(key, default) for key, default in _DEFAULTS.items()}
+
+
+def _parse_skip_hours(raw: Any) -> set:
+    """CSV of UTC hours to skip (M21 E-2 time-of-day lever). ''/None = off.
+
+    Fail-permissive: a malformed value resolves to the empty set (gate off)
+    rather than raising — a YAML typo must never strand a live strategy.
+    """
+    try:
+        return {int(h) for h in str(raw or "").split(",") if str(h).strip() != ""}
+    except (TypeError, ValueError):
+        return set()
+
+
+def _bar_hour_utc(df: pd.DataFrame, idx: int) -> Optional[int]:
+    """UTC hour of the bar at ``idx`` — None when unparseable (never skips)."""
+    try:
+        return int(pd.Timestamp(df["timestamp"].iloc[idx]).hour)
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
 
 
 def _atr(df: pd.DataFrame, period: int) -> pd.Series:
@@ -197,6 +223,19 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "setup on the latest bar (non-actionable)."
         )
 
+    # M21 E-2 time-of-day gate — placed after direction resolution, before the
+    # ADX/confidence gates, mirroring scripts/backtest_pullback.py bar-for-bar.
+    # Fail-permissive: an unparseable timestamp never skips.
+    skip_hour_set = _parse_skip_hours(params.get("skip_hours"))
+    if skip_hour_set:
+        trigger_hour = _bar_hour_utc(df, -1)
+        if trigger_hour is not None and trigger_hour in skip_hour_set:
+            raise ValueError(
+                f"Strategy '{label}': trigger bar hour {trigger_hour} in "
+                f"skip_hours {sorted(skip_hour_set)} — time-of-day gate, "
+                "non-actionable."
+            )
+
     # ADX regime gate (recombination lever) — admit the confirmed setup only if
     # its Wilder ADX on the closed signal bar sits inside [adx_min, adx_max].
     # OFF by default (both None) → no-op. Matches scripts/backtest_pullback.py
@@ -301,6 +340,10 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
                  "trail_decay_tight_mult"):
         if cfg.get(_key) is not None:
             package["meta"][_key] = cfg[_key]
+    if skip_hour_set:
+        # Auditability: this entry passed a declared time-of-day gate
+        # (M21 E-2). Entry-side only — the monitor never reads it.
+        package["meta"]["skip_hours"] = ",".join(str(h) for h in sorted(skip_hour_set))
     # M18 Phase A (observe-only): P_win entry-head annotation — same shape
     # as trend_donchian's. Never gates or sizes; allocator-soak consumer.
     try:

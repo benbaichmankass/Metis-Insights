@@ -8,7 +8,7 @@
     "held_by": "session_01SDLWbfLGV4WYHgC2ugzedf",
     "branch": "claude/exit-refinement-sprint-l74k6o",
     "pr": null,
-    "claimed_at": "2026-07-14T13:30:24Z"
+    "claimed_at": "2026-07-14T14:10:55Z"
   },
   "active_sessions": [
     {
@@ -28,9 +28,9 @@
     {
       "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
       "branch": "claude/exit-refinement-sprint-l74k6o",
-      "intent": "M21 time-of-day lever + devnull restart hardening MERGED (#6391 @ 6f5d18d). Now: round-3 trainer sweep (--lever time_of_day, 13 legs) dispatched; awaiting verdicts. /dev/null attribution pending next captured strip.",
+      "intent": "M21 round-3 time-of-day: 2 PASS (xrp_4h skip_h0, spy_1h skip_late) + live twin shipping; Tier-3 declare batch to operator next. Devnull: journald hunt merged, attribution pending.",
       "started_at": "2026-07-13T05:07:08.981068+00:00",
-      "updated_at": "2026-07-14T13:06:31Z"
+      "updated_at": "2026-07-14T14:10:55Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
