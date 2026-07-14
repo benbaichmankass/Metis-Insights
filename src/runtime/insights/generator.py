@@ -59,17 +59,23 @@ _DEFAULT_MODELS = {
 }
 _MAX_OUTPUT_TOKENS = 800
 
-# Default models per endpoint when INSIGHTS_MODEL_MODE=gemini. The
-# operator's M13 S2 split (2026-05-26): the 6 strategies (which fire
-# on the slow 60-min cycle) get gemini-2.5-flash; the fast 15-min
-# cycle (summary, recent, health) stays on gemini-2.0-flash. The free
-# tier has 1,500 RPD on 2.0-flash and 500 RPD on 2.5-flash, both
-# comfortably under our projected daily call volume.
+# Default models per endpoint when INSIGHTS_MODEL_MODE=gemini. ALL endpoints
+# use gemini-2.0-flash to stay inside the Gemini free tier (2026-07-14 operator
+# decision). Why not 2.5-flash for the strategy endpoint (the earlier M13 S2
+# split): the strategy cycle fans out over EVERY configured strategy on the slow
+# 60-min timer, and the fleet has grown to ~48 (the "6 strategies → 2.5-flash"
+# comment predated that). At hourly cadence the strategy endpoint alone makes
+# ~48*24 ≈ 1,150 calls/day; the fast 15-min cycle (summary/recent/health) adds
+# 3*96 ≈ 290/day. 2.5-flash's free-tier RPD (~250-500) is blown by the strategy
+# fan-out alone, whereas gemini-2.0-flash's ~1,500 free-tier RPD covers the
+# combined ~1,440/day. Per-endpoint INSIGHTS_MODEL_<ENDPOINT> env overrides let
+# the operator pin a stronger model (e.g. gemini-2.5-flash for strategy) when
+# billing is enabled for higher quota.
 _DEFAULT_GEMINI_MODELS = {
     "summary": "gemini-2.0-flash",
     "recent": "gemini-2.0-flash",
     "health": "gemini-2.0-flash",
-    "strategy": "gemini-2.5-flash",
+    "strategy": "gemini-2.0-flash",
 }
 
 # Endpoints valid for the CLI / generate(). The strategy endpoint
