@@ -136,13 +136,24 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  trail_decay_stall_bars: int = 0,
                  trail_decay_tight_mult: float = 0.0,
                  confirm_bars: int = 0,
-                 skip_hours: str = "") -> Dict[str, Any]:
+                 skip_hours: str = "",
+                 vol_skip_above_pctl: float = 0.0,
+                 vol_skip_below_pctl: float = 0.0,
+                 vol_pctl_window: int = 200) -> Dict[str, Any]:
     # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
     # NEW entry whose TRIGGER bar's UTC hour is in the CSV set. Exits are
     # never touched — an open trade rides through skipped hours unchanged.
     skip_hour_set = {int(h) for h in str(skip_hours).split(",") if str(h).strip() != ""}
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
+    # M21 E-2 vol-at-entry lever (both 0 = off, byte-identical): skip any NEW
+    # entry whose TRIGGER bar's ATR sits at an extreme TRAILING percentile
+    # (rank within the previous `vol_pctl_window` bars — causal; NaN until
+    # the window fills → never skip, fail-permissive). Exits untouched.
+    atr_pctl = None
+    if vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0:
+        atr_pctl = df["atr"].rolling(vol_pctl_window,
+                                     min_periods=vol_pctl_window).rank(pct=True)
     # Trend filter: Donchian midline of the prior trend_lb bars (shift(1) — no
     # lookahead). Matches htf_pullback_trend_2h.order_package exactly.
     dc_hi = df["high"].rolling(trend_lookback).max().shift(1)
@@ -203,6 +214,15 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                     continue
             except (TypeError, ValueError):
                 pass  # unparseable ts: never skip (fail-permissive)
+        if atr_pctl is not None:
+            vp = atr_pctl.iloc[i]
+            if not pd.isna(vp):
+                if vol_skip_above_pctl > 0.0 and float(vp) > vol_skip_above_pctl:
+                    i += 1
+                    continue
+                if vol_skip_below_pctl > 0.0 and float(vp) < vol_skip_below_pctl:
+                    i += 1
+                    continue
         # Regime filter (recombination lever): admit the bar only if its ADX sits
         # inside the [adx_min, adx_max] band. A NaN (warm-up) ADX is never
         # admitted when any band is set. No-op when both bands are None.
@@ -383,6 +403,10 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         params["confirm_bars"] = confirm_bars
     if skip_hour_set:
         params["skip_hours"] = ",".join(str(h) for h in sorted(skip_hour_set))
+    if vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0:
+        params["vol_skip_above_pctl"] = vol_skip_above_pctl
+        params["vol_skip_below_pctl"] = vol_skip_below_pctl
+        params["vol_pctl_window"] = vol_pctl_window
     if stale_exit_bars is not None:
         params["stale_exit_bars"] = stale_exit_bars
         params["stale_exit_below_r"] = stale_exit_below_r
@@ -533,6 +557,14 @@ def main(argv: List[str]) -> int:
     p.add_argument("--skip-hours", default="",
                    help="M21 E-2 time-of-day entry lever (empty=off): CSV of "
                         "UTC hours whose trigger bars never enter.")
+    p.add_argument("--vol-skip-above-pctl", type=float, default=0.0,
+                   help="M21 E-2 vol-at-entry lever (0=off): skip entries whose "
+                        "trigger-bar ATR trailing percentile exceeds this (hot tail).")
+    p.add_argument("--vol-skip-below-pctl", type=float, default=0.0,
+                   help="M21 E-2 vol-at-entry lever (0=off): skip entries whose "
+                        "trigger-bar ATR trailing percentile is below this (dead tail).")
+    p.add_argument("--vol-pctl-window", type=int, default=200,
+                   help="Trailing window (bars) for the ATR percentile rank.")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for regime tagging.")
@@ -573,7 +605,10 @@ def main(argv: List[str]) -> int:
                        trail_decay_stall_bars=args.trail_decay_stall_bars,
                        trail_decay_tight_mult=args.trail_decay_tight_mult,
                        confirm_bars=args.confirm_bars,
-                       skip_hours=args.skip_hours)
+                       skip_hours=args.skip_hours,
+                       vol_skip_above_pctl=args.vol_skip_above_pctl,
+                       vol_skip_below_pctl=args.vol_skip_below_pctl,
+                       vol_pctl_window=args.vol_pctl_window)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)

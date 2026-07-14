@@ -58,6 +58,15 @@ def entry_cells(cfg: dict, fam: str) -> list[tuple[str, str, list[str]]]:
         tod.append(("skip_h0", "time_of_day", ["--skip-hours", "0"]))
     if tf == "1h" and not sym.endswith("USDT"):
         tod.append(("skip_late", "time_of_day", ["--skip-hours", "19,20"]))
+    # Round 4 (2026-07-14): vol-at-entry — skip extreme trailing-ATR-percentile
+    # trigger bars. Leg-agnostic (unlike the time-of-day pockets): two shared
+    # cells per leg, hot tail (top decile) and dead tail (bottom decile), on
+    # the harness default 200-bar trailing window. Same gate as every lever.
+    vol: list[tuple[str, str, list[str]]] = [
+        ("vol_hi90", "vol_at_entry", ["--vol-skip-above-pctl", "0.9"]),
+        ("vol_lo10", "vol_at_entry", ["--vol-skip-below-pctl", "0.1"]),
+    ]
+    tod = tod + vol
     if fam == "donchian":
         cells = [
             ("confirm_1", "confirmation_bars", ["--confirm-bars", "1"]),
