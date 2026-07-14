@@ -41,14 +41,20 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-# Entry-time features only — all observable at the decision bar (age 0).
+# SIGNAL-BAR entry features — computed at the DECISION bar (k0 = i0-1, the
+# bar whose close triggered the entry), matching what the live allocator
+# scorer can compute at signal time (train/serve parity). The earlier
+# age-0-bar variant ("mom_8"/"donchian_mid_dist_atr"/... from the first
+# in-trade bar) is selectable via --features age0 for comparison; datasets
+# must carry the entry_* columns (post-E-3 builder) for the default set.
 FEATURES = [
+    "entry_mom_8", "entry_dc_dist_atr", "entry_hour", "entry_dayofweek",
+    "is_long", "entry_confidence",
+]
+FEATURES_AGE0 = [
     "mom_8", "donchian_mid_dist_atr", "hour_of_day", "dayofweek",
     "is_long", "entry_confidence",
 ]
-# Optional extras (post-P4 datasets; entry-observable — trailing-window
-# stats over bars <= the entry bar, never the hold).
-FEATURES_EXT = ["mom_decay", "atr_impulse_phase", "band_ext_pctile"]
 TARGET = "first_touch_1r"
 EMBARGO_S = 7 * 86400
 TAUS = [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60]
@@ -155,13 +161,13 @@ def main(argv: List[str]) -> int:
     ap.add_argument("--min-fold-trades", type=int, default=50)
     ap.add_argument("--target", choices=["first_touch_1r", "reaches_2r"],
                     default="first_touch_1r")
-    ap.add_argument("--features", choices=["base", "extended"],
-                    default="base")
+    ap.add_argument("--features", choices=["signal_bar", "age0"],
+                    default="signal_bar")
     a = ap.parse_args(argv[1:])
     global TARGET, FEATURES
     TARGET = a.target
-    if a.features == "extended":
-        FEATURES = FEATURES + FEATURES_EXT
+    if a.features == "age0":
+        FEATURES = FEATURES_AGE0
 
     fam_dir = Path(a.family_dir)
     entries = load_entries(fam_dir / "rows.jsonl")

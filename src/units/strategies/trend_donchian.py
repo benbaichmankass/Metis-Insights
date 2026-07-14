@@ -361,6 +361,22 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         # Auditability: record that this entry was confirmation-gated
         # (M21 E-2). Entry-side only — the monitor never reads it.
         package["meta"]["confirm_bars"] = confirm_bars
+    # M18 Phase A (observe-only): annotate the signal with the P_win entry
+    # head's score so the allocator soak sees it next to the confidence
+    # proxy (rides Intent.meta -> SignalPackage.raw). Never gates or sizes.
+    try:
+        from src.runtime.entry_head_pwin import maybe_score_entry_pwin
+
+        _pw = maybe_score_entry_pwin(
+            family="donchian", symbol=symbol, timeframe=timeframe,
+            direction=direction, confidence=confidence, candles_df=df,
+            strategy=label)
+        if _pw is not None:
+            package["meta"]["head_p_win"] = _pw["p_win"]
+            package["meta"]["head_p_win_model"] = _pw["model_id"]
+            package["meta"]["head_p_win_stage"] = _pw["stage"]
+    except Exception:  # noqa: BLE001 — annotation must never block a signal
+        pass
     return package
 
 

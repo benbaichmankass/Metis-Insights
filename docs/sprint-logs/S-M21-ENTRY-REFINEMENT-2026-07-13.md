@@ -271,3 +271,40 @@ pullback families** (donchian-1h 6/6, pullback-2h 4/4) and not on the
 sparse 1d fleets. Matrix `p_win_head` column verdicted fleet-wide.
 **Next: the M18 allocator P_win wiring Tier-3 proposal** (the consumer
 this head was built for; M18 P2 was parked on exactly this input).
+
+## M18 Phase A — allocator P_win wiring, OPERATOR-APPROVED (2026-07-14)
+
+Operator approved the two-phase allocator wiring in chat ("approved").
+Phase A implementation (observe-only annotate):
+
+- **Train/serve parity fix first**: the gated heads were trained on
+  age-0-bar features (the first bar AFTER entry), but the live allocator
+  scores at the DECISION bar. The E0 builder now stamps SIGNAL-BAR
+  entry features (`entry_mom_8` / `entry_dc_dist_atr` / `entry_hour` /
+  `entry_dayofweek`, computed at k0 = i0−1, the bar whose close
+  triggered) and `train_entry_head.py` defaults to that set
+  (`--features age0` keeps the old variant for comparison). The gate is
+  re-run on signal-bar features before any export.
+- **Exporter** `scripts/ml/export_entry_head.py` — same self-contained
+  JSON artifact + trainer-mirror channel as the exit head
+  (`trainer_mirror/entry_head/*.json`); refuses datasets lacking the
+  signal-bar columns.
+- **Live scorer** `src/runtime/entry_head_pwin.py` — loads mirrored
+  artifacts (family/tf/symbol in-distribution guards), computes the
+  signal-bar block at the unit's decision bar, logs to
+  `shadow_predictions.jsonl` (`event_source: "entry_head"`).
+  Observe-only: every failure is a silent None; no enable gate (absent
+  artifact = cheap no-op).
+- **Annotate wiring**: `trend_donchian` + `htf_pullback_trend_2h`
+  signal builders stamp `head_p_win`/`_model`/`_stage` into signal meta
+  (rides Intent.meta → SignalPackage.raw); the allocator-soak candidate
+  brief now carries `head_p_win` next to the confidence proxy — the
+  side-by-side evidence Phase B's `candidate_p_win` swap is gated on.
+- Tests: `tests/test_entry_head_pwin.py` (no-artifact no-op, scoring +
+  shadow record, family/tf/symbol guards, builder↔live feature parity,
+  soak-brief carry); exit-head + confirm-bars + allocator + both unit
+  suites re-run green (107 tests).
+
+Phase B (swap `allocator_ev.candidate_p_win` to the head + re-run the
+M18 selection backtest; unpark M18 P2 only if selection beats dumb
+priority) remains backtest-gated — nothing reads the annotation back.
