@@ -392,3 +392,33 @@ load the new `strategies.yaml`; post-state VERIFIED via
 heartbeat `running`, both declared strategies loaded and ticking. Matrix `time_of_day` cells flipped
 `passed_unshipped → shipped`. Rollback: delete the YAML line +
 restart (live twin stays inert at default `""`).
+
+## E-2 round 4 — vol-at-entry: 4 live PASSes + 1 prop, 37 honest negatives (2026-07-14)
+
+The last unmined entry column. Lever: skip a NEW entry whose TRIGGER
+bar's ATR sits at an extreme TRAILING percentile (causal rank within the
+previous 200 bars; NaN until the window fills → never skips). Cells
+vol_hi90 (pctl>0.9) / vol_lo10 (pctl<0.1) on all 42 runnable legs
+(m21_entry_sweep --lever vol_at_entry; trainer launch #6428, readouts
+#6430/#6432; runtime_logs/m21_entry_sweep/2026-07-14). Harness lever +
+fleet cells merged in #6418; live twin (both units, trigger-bar anchor,
+fail-permissive, meta["vol_at_entry_pctl"] stamp, 8-test contract in
+tests/test_vol_at_entry_live_twin.py) rides this branch.
+
+**PASSes (all wf 4/6, config-exact base incl. today's declares):**
+- trend_donchian_eth (1h live): vol_lo10 — IS net_R −46.5→−31.1
+  (dd 66.9→48.3), OOS +20.7→+24.1 (dd equal).
+- trend_donchian_xrp_4h (live): vol_hi90 — IS 57.2→59.1 (dd 16.6→15.5),
+  OOS 9.2→10.2 (dd 7.3→6.3); stacks on min_confidence 0.80 +
+  skip_hours "0" (both in the sweep base).
+- ada_pullback_2h (live): vol_lo10 — IS 31.0→32.3 (dd 16.1→15.1),
+  OOS 5.4→7.4 (dd 12.0→10.9).
+- avax_pullback_2h (live): vol_lo10 — IS 34.9→36.2 (dd equal),
+  OOS 15.0→16.4 (dd 10.3→9.6); stacks on trail_decay_arm_r 4.86.
+- trend_donchian_eth_prop: vol_lo10 recorded, no live declare
+  (prop-leg precedent).
+
+**Tier-3 declare batch (awaiting operator):** vol_skip_below_pctl 0.1 on
+trend_donchian_eth / ada_pullback_2h / avax_pullback_2h;
+vol_skip_above_pctl 0.9 on trend_donchian_xrp_4h. Matrix vol_at_entry
+column CLOSED: 3 passed_unshipped rows, 12 honest_negative rows.
