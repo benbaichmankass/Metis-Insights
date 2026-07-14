@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": null,
-    "branch": null,
-    "pr": null,
-    "claimed_at": null
+    "held_by": "session_01SDLWbfLGV4WYHgC2ugzedf",
+    "branch": "claude/exit-refinement-sprint-l74k6o",
+    "pr": 6418,
+    "claimed_at": "2026-07-14T18:20:00Z"
   },
   "active_sessions": [
     {
@@ -28,9 +28,9 @@
     {
       "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
       "branch": "claude/exit-refinement-sprint-l74k6o",
-      "intent": "Devnull round 6 ARMED (#6411 merged @ f67f07f, arm-audit #6417): chmod-syscall rules live, awaiting next strip (~15-40min cadence) to name culprit via read-audit. M21 round-3 fully shipped. Slot released.",
+      "intent": "Merging #6418 (M20 matrix reconciliation + M21 vol-at-entry lever). Then trainer sweep dispatch (vol_at_entry, 15 legs). Devnull round-6 trap armed, awaiting next strip window.",
       "started_at": "2026-07-13T05:07:08.981068+00:00",
-      "updated_at": "2026-07-14T16:05:00Z"
+      "updated_at": "2026-07-14T18:20:00Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
