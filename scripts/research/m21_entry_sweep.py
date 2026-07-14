@@ -40,10 +40,24 @@ from m20_fleet_exit_sweep import (  # noqa: E402
 def entry_cells(cfg: dict, fam: str) -> list[tuple[str, str, list[str]]]:
     """(cell_tag, matrix_lever, extra_args) per family.
 
-    Round 1 (2026-07-13) covered donchian; round 2 adds the pullback family
+    Round 1 (2026-07-13) covered donchian; round 2 added the pullback family
     (confirm cells only — pullback depth is the existing pullback_frac/adx
-    axes, swept separately if the E-1 hints ever justify it).
+    axes, swept separately if the E-1 hints ever justify it). Round 3 adds
+    the two E-1 TIME-OF-DAY pockets — deliberately only these two shared
+    pockets, never per-leg idiosyncratic hours (that's mining):
+
+      * 4h donchian legs: skip the UTC-midnight bar (hour 0 — the daily
+        roll/funding boundary the E-1 baseline flagged across 4h crypto).
+      * 1h non-USDT (equities/futures proxy) legs, both families: skip the
+        19-20 UTC late-US-session pocket.
     """
+    tf = str(cfg.get("timeframe") or "1h")
+    sym = str((cfg.get("symbols") or [""])[0] or "")
+    tod: list[tuple[str, str, list[str]]] = []
+    if fam == "donchian" and tf == "4h":
+        tod.append(("skip_h0", "time_of_day", ["--skip-hours", "0"]))
+    if tf == "1h" and not sym.endswith("USDT"):
+        tod.append(("skip_late", "time_of_day", ["--skip-hours", "19,20"]))
     if fam == "donchian":
         cells = [
             ("confirm_1", "confirmation_bars", ["--confirm-bars", "1"]),
@@ -54,12 +68,12 @@ def entry_cells(cfg: dict, fam: str) -> list[tuple[str, str, list[str]]]:
             v = round(base_conf + delta, 2)
             cells.append((f"depth_{v:g}", "depth_threshold",
                           ["--min-confidence", str(v)]))
-        return cells
+        return cells + tod
     if fam == "pullback":
         return [
             ("confirm_1", "confirmation_bars", ["--confirm-bars", "1"]),
             ("confirm_2", "confirmation_bars", ["--confirm-bars", "2"]),
-        ]
+        ] + tod
     return []
 
 
@@ -73,6 +87,10 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--family", default=None,
                     help="restrict to one harness family (e.g. pullback) — "
                          "round-2 reruns skip already-verdicted families")
+    ap.add_argument("--lever", default=None,
+                    help="restrict to one matrix lever's cells (e.g. "
+                         "time_of_day) — round-N reruns skip already-"
+                         "verdicted levers")
     ap.add_argument("--list", action="store_true")
     a = ap.parse_args(argv[1:])
 
@@ -89,6 +107,8 @@ def main(argv: list[str]) -> int:
         if a.family and fam != a.family:
             continue
         cells = entry_cells(cfg, fam) if fam else []
+        if a.lever:
+            cells = [c for c in cells if c[1] == a.lever]
         if not cells:
             skipped.append({"leg": name, "reason": "no_entry_cells"})
             continue

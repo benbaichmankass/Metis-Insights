@@ -51,7 +51,7 @@ print(out_file)
 PY
 }
 
-require_systemctl() {
+heal_devnull() {
     # A clobbered /dev/null breaks every `>/dev/null` redirect for the non-root
     # SSH user, which previously masqueraded as "systemctl not found" and sent
     # operators chasing a non-existent systemd problem (BL-20260616-DEVNULL).
@@ -71,6 +71,12 @@ require_systemctl() {
     # Only abort if /dev/null is STILL unwritable after the self-heal (e.g.
     # `sudo -n` unavailable to this user) — a genuine, escalation-worthy failure.
     # The probe's stderr goes to a temp file, NOT /dev/null (the thing under test).
+    #
+    # Callable MID-RUN too (not just at wrapper start): the strip has been
+    # observed to land WHILE a wrapper runs — the run's first redirect succeeds,
+    # every later one EACCESes (BL-20260713-DEVNULL-RESTART-MISREPORT, seen on
+    # both 2026-07-13 and 2026-07-14 restart-bot-service runs) — so long-running
+    # wrappers re-invoke this right before load-bearing state reads.
     local _probe="${TMPDIR:-/tmp}/.devnull_probe.$$"
     if ! ( : >/dev/null ) 2>"${_probe}"; then
         log "WARNING: /dev/null is not writable (clobbered by a host agent) — self-healing before continuing (mirrors deploy_pull_restart.sh; ict-devnull-guard.timer is the periodic belt)."
@@ -90,6 +96,10 @@ require_systemctl() {
         log ">>> /dev/null self-healed; continuing."
     fi
     rm -f "${_probe}" 2>&- || true
+}
+
+require_systemctl() {
+    heal_devnull || return 1
     if ! command -v systemctl >/dev/null 2>&1; then
         log "ERROR: systemctl not found on PATH; this VM is not systemd-managed."
         return 1

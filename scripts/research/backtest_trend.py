@@ -122,8 +122,14 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
              giveback_min_mfe_r: float = 0.0, giveback_r: float = 1.0,
              trail_decay_arm_r: float = 0.0, trail_decay_stall_bars: int = 0,
              trail_decay_tight_mult: float = 0.0,
-             confirm_bars: int = 0
+             confirm_bars: int = 0,
+             skip_hours: str = ''
              ) -> List[Trade]:
+    # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
+    # NEW entry whose SIGNAL bar's UTC hour is in the CSV set. Exits are
+    # never touched; the confirm-bars pending path is gated at the signal
+    # bar too (the decision anchor).
+    skip_hour_set = {int(h) for h in str(skip_hours).split(',') if str(h).strip() != ''}
     atr = _atr(df, atr_p)
     sig = _signal(df, donchian)
     # Donchian channel (causal — prior N bars) for the breakout-depth
@@ -281,6 +287,12 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                 if a <= 0:
                     continue
                 direction = 'long' if s > 0 else 'short'
+                if skip_hour_set:
+                    try:
+                        if pd.Timestamp(bar['timestamp']).hour in skip_hour_set:
+                            continue
+                    except (TypeError, ValueError):
+                        pass  # unparseable ts: never skip (fail-permissive)
                 # Breakout-depth confidence (mirrors the live unit) — always
                 # computed so it rides the emit as a dataset feature; only
                 # GATES when min_confidence > 0 (unchanged behaviour).
@@ -393,6 +405,9 @@ def main(argv: List[str]) -> int:
                    help='M21 E-2 entry lever (0=off): require the close to '
                         'hold beyond the signal bar\'s channel edge for N '
                         'further closed bars before entering')
+    p.add_argument('--skip-hours', default='',
+                   help='M21 E-2 time-of-day entry lever (empty=off): CSV of '
+                        'UTC hours whose signal bars never enter.')
     p.add_argument('--emit-trades', default=None, metavar='PATH',
                    help='Write per-trade JSONL (entry_time/direction/net_r/'
                         'entry/sl/exit_time/exit_reason) for the M20 E0 '
@@ -414,7 +429,7 @@ def main(argv: List[str]) -> int:
                       a.bank_frac, a.bank_at_r,
                       a.giveback_min_mfe_r, a.giveback_r,
                       a.trail_decay_arm_r, a.trail_decay_stall_bars,
-                      a.trail_decay_tight_mult, a.confirm_bars)
+                      a.trail_decay_tight_mult, a.confirm_bars, a.skip_hours)
     params = {'symbol': a.symbol, 'timeframe': a.timeframe, 'donchian': a.donchian,
               'atr_stop_mult': a.atr_stop_mult, 'trail_mult': a.trail_mult,
               'long_only': a.long_only}
@@ -426,6 +441,8 @@ def main(argv: List[str]) -> int:
         params['bank_at_r'] = a.bank_at_r
     if a.confirm_bars:
         params['confirm_bars'] = a.confirm_bars
+    if a.skip_hours:
+        params['skip_hours'] = a.skip_hours
     if a.emit_trades:
         Path(a.emit_trades).parent.mkdir(parents=True, exist_ok=True)
         with open(a.emit_trades, 'w', encoding='utf-8') as fh:

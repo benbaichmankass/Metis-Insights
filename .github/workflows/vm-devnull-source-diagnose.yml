@@ -172,6 +172,20 @@ jobs:
             echo; echo "===== ausearch -k devnull (interpreted) ====="
             command -v ausearch >/dev/null 2>&1 || { echo "ausearch ABSENT — run arm-audit first"; exit 0; }
             sudo ausearch -k devnull -i 2>/dev/null | tail -120 || echo "(no devnull events captured yet — wait for the next flip)"
+            # An EMPTY ausearch with the rule loaded (seen 2026-07-14: strip at
+            # ~10:15Z under an armed watch, zero events) usually means the
+            # auditd DAEMON isn't writing /var/log/audit — the kernel rule
+            # matches but records go nowhere ausearch reads. Diagnose why.
+            echo; echo "===== why-empty diagnostics ====="
+            echo "--- auditd daemon state ---"
+            systemctl is-active auditd 2>&1 || true
+            sudo systemctl status auditd --no-pager -n 5 2>&1 | head -12
+            echo "--- auditctl -s (kernel audit status: enabled flag / lost counter / backlog) ---"
+            sudo auditctl -s 2>&1
+            echo "--- /var/log/audit ---"
+            sudo ls -la /var/log/audit 2>&1 | head -10
+            echo "--- journald audit transport (fallback sink when auditd is not writing) ---"
+            sudo journalctl _TRANSPORT=audit --no-pager -n 40 -g 'devnull|dev/null' 2>&1 | tail -40 || echo "(no audit records in journald)"
             echo; echo "===== CULPRIT HINT ====="
             echo "The SYSCALL that sets /dev/null to mode 0444 (0x124, write bit stripped) is the SOURCE."
             echo "Its exe=/comm=/ppid names the process. The guard's own restores set 0666 (0x1b6) — expected noise."

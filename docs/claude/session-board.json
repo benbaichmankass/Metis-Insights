@@ -8,7 +8,7 @@
     "held_by": "session_01SDLWbfLGV4WYHgC2ugzedf",
     "branch": "claude/exit-refinement-sprint-l74k6o",
     "pr": null,
-    "claimed_at": "2026-07-14T11:45:00Z"
+    "claimed_at": "2026-07-14T12:39:36Z"
   },
   "active_sessions": [
     {
@@ -28,9 +28,9 @@
     {
       "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
       "branch": "claude/exit-refinement-sprint-l74k6o",
-      "intent": "M21 E-2 COMPLETE (both families; verdicts merged #6347 @ 42d3907). Next: E-3 P_win entry head (label + entry-time dataset mode + trainer round).",
+      "intent": "M21 E-3 CLOSED honest-negative (#6389); M18 Phase A shadow annotate LIVE. Now: time-of-day --skip-hours lever + fleet cells (4h hour:0, 1h equities 19-20 UTC) + /dev/null root-cause.",
       "started_at": "2026-07-13T05:07:08.981068+00:00",
-      "updated_at": "2026-07-13T18:24:45Z"
+      "updated_at": "2026-07-14T12:39:36Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
