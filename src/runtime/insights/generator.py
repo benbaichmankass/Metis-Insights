@@ -60,23 +60,33 @@ _DEFAULT_MODELS = {
 _MAX_OUTPUT_TOKENS = 800
 
 # Default models per endpoint when INSIGHTS_MODEL_MODE=gemini. ALL endpoints
-# use gemini-2.0-flash to stay inside the Gemini free tier (2026-07-14 operator
-# decision). Why not 2.5-flash for the strategy endpoint (the earlier M13 S2
-# split): the strategy cycle fans out over EVERY configured strategy on the slow
-# 60-min timer, and the fleet has grown to ~48 (the "6 strategies → 2.5-flash"
-# comment predated that). At hourly cadence the strategy endpoint alone makes
-# ~48*24 ≈ 1,150 calls/day; the fast 15-min cycle (summary/recent/health) adds
-# 3*96 ≈ 290/day. 2.5-flash's free-tier RPD (~250-500) is blown by the strategy
-# fan-out alone, whereas gemini-2.0-flash's ~1,500 free-tier RPD covers the
-# combined ~1,440/day. Per-endpoint INSIGHTS_MODEL_<ENDPOINT> env overrides let
-# the operator pin a stronger model (e.g. gemini-2.5-flash for strategy) when
-# billing is enabled for higher quota.
+# use gemini-3.5-flash — the model that actually has free-tier quota on this
+# project's key. (2026-07-14: gemini-2.0-flash returned HTTP 429 with
+# "free_tier_requests limit: 0" for this key — Google grants NO free quota for
+# 2.0-flash on this project, whereas 3.5-flash works, as the dashboard's
+# course-generation on the same key proved.) Free-tier request/day caps are
+# per-MODEL and can be 0 for a given model, so a single pinned model is fragile;
+# `_call_gemini_with_fallback` tries the fallback chain below on 403/404/429 so
+# a zero-quota or deprecated model can't dead-end the analyst. Per-endpoint
+# INSIGHTS_MODEL_<ENDPOINT> env overrides still win when set (e.g. to pin a
+# stronger model once billing raises the quota).
 _DEFAULT_GEMINI_MODELS = {
-    "summary": "gemini-2.0-flash",
-    "recent": "gemini-2.0-flash",
-    "health": "gemini-2.0-flash",
-    "strategy": "gemini-2.0-flash",
+    "summary": "gemini-3.5-flash",
+    "recent": "gemini-3.5-flash",
+    "health": "gemini-3.5-flash",
+    "strategy": "gemini-3.5-flash",
 }
+
+# Ordered fallback for the gemini path: try the configured/default model first,
+# then these, skipping any that 403/404 (not in this key's catalog) or 429 (no
+# free-tier quota / rate-limited). First success wins and its id is recorded as
+# the actual model on the envelope + usage row.
+_GEMINI_FALLBACK_MODELS = [
+    "gemini-3.5-flash",
+    "gemini-flash-latest",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+]
 
 # Endpoints valid for the CLI / generate(). The strategy endpoint
 # requires an extra --strategy arg.
@@ -288,6 +298,51 @@ def _call_gemini(
     }
 
 
+def _call_gemini_with_fallback(
+    model_id: str,
+    system_blocks: list[dict[str, Any]],
+    user_text: str,
+) -> dict[str, Any]:
+    """`_call_gemini` with a model-fallback chain.
+
+    Free-tier request/day caps are per-MODEL and can be 0 for a given model on
+    a given project (2026-07-14: gemini-2.0-flash was `free_tier limit: 0` for
+    this key), so a single pinned model is fragile. Try the configured model
+    first, then `_GEMINI_FALLBACK_MODELS`, skipping any that 403/404 (not in the
+    key's catalog) or 429 (no quota / rate-limited). The returned dict carries
+    ``model_id`` = the model that actually served, so the caller records the
+    real model on the envelope + usage row. A non-quota error (400/5xx) on the
+    configured model surfaces immediately (it's a real bug, not a bad model).
+    """
+    import httpx
+
+    candidates = [model_id] + [m for m in _GEMINI_FALLBACK_MODELS if m != model_id]
+    tried: list[str] = []
+    last_exc: Exception | None = None
+    for m in candidates:
+        try:
+            result = _call_gemini(m, system_blocks, user_text)
+            result["model_id"] = m
+            if m != model_id:
+                logger.info("insights.generator: gemini fell back to %s (from %s)", m, model_id)
+            return result
+        except httpx.HTTPStatusError as exc:
+            code = exc.response.status_code
+            tried.append(f"{m}:{code}")
+            last_exc = exc
+            if code in (403, 404, 429):  # catalog / no-quota — try the next candidate
+                logger.warning(
+                    "insights.generator: gemini %s HTTP %d (catalog/quota) — trying next candidate",
+                    m, code,
+                )
+                continue
+            raise  # genuine error (400/5xx) — surface it
+    logger.error("insights.generator: all gemini candidates failed: %s", ", ".join(tried))
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("no gemini candidates available")
+
+
 # ---------------------------------------------------------------------------
 # Envelope assembly
 # ---------------------------------------------------------------------------
@@ -471,7 +526,7 @@ def generate(
     if anthropic_call is not None:
         caller = anthropic_call
     elif mode == "gemini":
-        caller = _call_gemini
+        caller = _call_gemini_with_fallback
     else:
         caller = _call_anthropic
 
@@ -488,6 +543,9 @@ def generate(
         )
         return None
 
+    # The fallback wrapper may have served a different model than requested —
+    # record the one that actually produced the output.
+    model_id = result.get("model_id", model_id)
     parsed = _parse_model_output(result.get("text", "") or "")
     payload = _envelope(endpoint, data, parsed, model_id)
 
