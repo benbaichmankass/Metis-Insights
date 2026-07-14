@@ -171,7 +171,7 @@ def get_progress() -> dict[str, Any]:
     envelope (never a 5xx) if the DB read fails."""
     try:
         return _read_progress()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: best-effort read — logs a warning and returns a degraded (present:false) envelope instead of a 5xx, mirroring the reports/roadmap read-path pattern
         logger.warning("learning: progress read failed: %s", exc)
         return {
             "present": False,
@@ -211,6 +211,6 @@ async def post_progress(
         note = str(note)[:2000]
     try:
         return await asyncio.to_thread(_upsert_progress, resource_id, status, note)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: not silent — logs.exception (full trace) then re-raises as HTTP 500; the broad catch stops an internal error leaking its trace to the client
         logger.exception("learning: progress upsert failed")
         raise HTTPException(status_code=500, detail="progress write failed") from exc

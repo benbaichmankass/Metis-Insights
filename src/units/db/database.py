@@ -524,6 +524,12 @@ class Database:
         # to mirror to the Android app. resource_id is the stable slug from
         # comms/learning/curriculum.json. Operator-only observability data —
         # no trading impact, no order path. Browseable in the Data Explorer.
+        # data-wiring: trade_journal.db IS the source of truth for learning
+        # progress — this is operator-authored UI state, NOT a projection of
+        # any other table, so there is no upstream to backfill from and history
+        # begins at first write. Sole writer: POST /api/bot/learning/progress
+        # (src/web/api/routers/learning.py); sole reader: the dashboard
+        # Learning tab via GET /api/bot/learning/progress.
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS learning_progress (
                 resource_id TEXT PRIMARY KEY,
