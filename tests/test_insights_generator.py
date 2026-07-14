@@ -416,15 +416,15 @@ def test_generate_routes_to_gemini_when_mode_is_gemini(
     payload = gen_mod.generate("summary")
     assert payload is not None
     assert called["n"] == 1
-    assert called["model_id"] == "gemini-2.0-flash"
+    assert called["model_id"] == "gemini-3.5-flash"
 
-    # The default model for the `strategy` endpoint in gemini mode is 2.0-flash
-    # (all endpoints use 2.0-flash to stay in the free tier; the 48-strategy
-    # hourly fan-out would blow 2.5-flash's daily quota).
+    # The default model for the `strategy` endpoint in gemini mode is 3.5-flash
+    # (all endpoints use gemini-3.5-flash — the model with free-tier quota on
+    # this key; 2.0-flash returned free_tier limit:0).
     payload2 = gen_mod.generate("strategy", strategy_name="vwap")
     assert payload2 is not None
     assert called["n"] == 2
-    assert called["model_id"] == "gemini-2.0-flash"
+    assert called["model_id"] == "gemini-3.5-flash"
 
     summary = usage_mod.summarize_usage()
     # Two ok rows landed.
@@ -441,7 +441,54 @@ def test_explicit_endpoint_model_override_wins_in_gemini_mode(
     assert gen_mod._model_for("summary") == "gemini-2.5-flash"
     # Other endpoints fall back to defaults.
     monkeypatch.delenv("INSIGHTS_MODEL_RECENT", raising=False)
-    assert gen_mod._model_for("recent") == "gemini-2.0-flash"
+    assert gen_mod._model_for("recent") == "gemini-3.5-flash"
+
+
+def test_gemini_fallback_skips_quota_zero_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A configured model that 429s (no free quota) falls through to the next
+    candidate; the served model id is returned."""
+    import httpx
+
+    from src.runtime.insights import generator as gen_mod
+
+    calls: list[str] = []
+
+    def fake_call(model_id, _system, _user):
+        calls.append(model_id)
+        if model_id == "gemini-3.5-flash":  # simulate free_tier limit:0
+            req = httpx.Request("POST", "https://x/y")
+            resp = httpx.Response(429, request=req)
+            raise httpx.HTTPStatusError("429", request=req, response=resp)
+        return {"text": "{}", "input_tokens": 1, "output_tokens": 1,
+                "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
+
+    monkeypatch.setattr(gen_mod, "_call_gemini", fake_call)
+    out = gen_mod._call_gemini_with_fallback("gemini-3.5-flash", [{"text": "s"}], "u")
+    # First candidate 429'd, so it fell through to the next in the chain.
+    assert calls[0] == "gemini-3.5-flash"
+    assert out["model_id"] == calls[-1] != "gemini-3.5-flash"
+    assert out["model_id"] in gen_mod._GEMINI_FALLBACK_MODELS
+
+
+def test_gemini_fallback_surfaces_real_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 400/5xx on the configured model is a real bug — surfaced, not swallowed
+    by trying other models."""
+    import httpx
+
+    from src.runtime.insights import generator as gen_mod
+
+    def fake_call(model_id, _system, _user):
+        req = httpx.Request("POST", "https://x/y")
+        resp = httpx.Response(400, request=req)
+        raise httpx.HTTPStatusError("400", request=req, response=resp)
+
+    monkeypatch.setattr(gen_mod, "_call_gemini", fake_call)
+    with pytest.raises(httpx.HTTPStatusError):
+        gen_mod._call_gemini_with_fallback("gemini-3.5-flash", [{"text": "s"}], "u")
 
 
 def test_gemini_call_retries_once_on_429(
