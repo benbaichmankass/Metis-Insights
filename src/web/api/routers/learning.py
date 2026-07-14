@@ -1,11 +1,14 @@
-"""Learning-center router — /api/bot/learning/* (dashboard Learning tab).
+"""Learning-center router — /api/bot/learning/* (dashboard + Android Learning tab).
 
-Serves the committed curriculum content (``comms/learning/curriculum.json``)
-and a small per-resource progress store
-(``trade_journal.db::learning_progress``) so the dashboard's Learning tab can
-render the syllabus AND let the operator mark resources done — durable and
-cross-device (unlike browser-local state), and ready to mirror to the Android
-app later.
+Serves the committed curriculum content (``comms/learning/curriculum.json``),
+the **interactive courses** (audio + quiz modules under
+``comms/learning/courses/*.json``), and a small per-resource progress store
+(``trade_journal.db::learning_progress``) so BOTH the dashboard and the Android
+app render the same syllabus + courses from one source AND let the operator
+mark resources done — durable and cross-device (unlike browser-local state).
+Course audio can be committed in-repo, Google-Drive-hosted (``drive_id`` — the
+standard for large files), or a hosted URL; script-only episodes play via the
+client's built-in TTS.
 
 Tier 1: observability read + a tiny operator-only progress write (no trading
 impact, no order path, no notification). The write is an **unauthenticated
@@ -21,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -71,6 +75,59 @@ def _get_curriculum() -> dict[str, Any]:
         _CACHE["key"] = key
         _CACHE["data"] = _load_curriculum()
     return _CACHE["data"]
+
+
+# ── courses (interactive audio + quiz modules, file-backed) ─────────────────
+#
+# One JSON per course under comms/learning/courses/. The schema matches what
+# the dashboard's course player renders: {course_id, title, subtitle, hosts,
+# episodes:[{id,title,summary,script?,audio?,drive_id?,audio_url?}], quiz:[...]}.
+# Audio can be committed in-repo (audio), Google-Drive-hosted (drive_id, the
+# standard for large files — the shared learning Drive folder is the content
+# store), or any hosted URL (audio_url); an episode with only a script is read
+# by the client's built-in TTS. Serving these from the bot means BOTH the
+# dashboard and the Android app render the same courses from one source.
+
+_COURSE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+
+
+def _courses_dir() -> Path:
+    return Path(repo_root()) / "comms" / "learning" / "courses"
+
+
+def _course_summary(course: dict[str, Any]) -> dict[str, Any]:
+    eps = course.get("episodes") or []
+    return {
+        "course_id": course.get("course_id"),
+        "title": course.get("title"),
+        "subtitle": course.get("subtitle", ""),
+        "episode_count": len(eps),
+        "quiz_count": len(course.get("quiz") or []),
+        "has_audio": any(
+            e.get("audio") or e.get("drive_id") or e.get("audio_url") for e in eps
+        ),
+    }
+
+
+def _load_course_file(path: Path) -> dict[str, Any] | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("learning: failed to read course %s: %s", path, exc)
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _courses_index() -> dict[str, Any]:
+    d = _courses_dir()
+    if not d.is_dir():
+        return {"present": False, "count": 0, "courses": []}
+    summaries = []
+    for path in sorted(d.glob("*.json")):
+        course = _load_course_file(path)
+        if course and course.get("course_id"):
+            summaries.append(_course_summary(course))
+    return {"present": True, "count": len(summaries), "courses": summaries}
 
 
 # ── progress store (trade_journal.db::learning_progress) ────────────────────
@@ -148,6 +205,32 @@ def get_curriculum() -> dict[str, Any]:
     if the file is missing/garbled (the dashboard falls back to its bundled
     copy)."""
     return _get_curriculum()
+
+
+@router.get("/courses")
+def get_courses() -> dict[str, Any]:
+    """Index of interactive courses (title + episode/quiz counts). Best-effort:
+    ``present:false`` when the courses dir is missing (the dashboard falls back
+    to its bundled copies)."""
+    return _courses_index()
+
+
+@router.get("/courses/{course_id}")
+def get_course(course_id: str) -> dict[str, Any]:
+    """One interactive course (episodes + quiz) for the app course player.
+    ``present:false`` (HTTP 200) when unknown; ``course_id`` validated and
+    resolved strictly under ``comms/learning/courses/`` (no traversal)."""
+    if not _COURSE_ID_RE.match(course_id or ""):
+        raise HTTPException(status_code=400, detail="invalid course_id")
+    path = (_courses_dir() / f"{course_id}.json").resolve()
+    if _courses_dir().resolve() not in path.parents:
+        raise HTTPException(status_code=400, detail="invalid course_id")
+    if not path.exists():
+        return {"present": False, "course": None}
+    course = _load_course_file(path)
+    if not course:
+        return {"present": False, "course": None}
+    return {"present": True, "course": course}
 
 
 @router.get("/progress")

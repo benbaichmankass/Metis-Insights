@@ -1,0 +1,480 @@
+{
+  "course_id": "elements-of-ai-ch1",
+  "title": "Elements of AI — Chapter 1: What is AI?",
+  "subtitle": "An integrated, listen-and-test version of Chapter 1 — original audio episodes + a graded quiz covering the same ground as the free course.",
+  "attribution": "Concepts follow Chapter 1 of the free 'Elements of AI' course by the University of Helsinki & MinnaLearn (CC BY-NC-SA 4.0). These episodes and quiz are original explanations written for this app — not the course's text. Take the official course free at https://course.elementsofai.com/1",
+  "source_url": "https://course.elementsofai.com/1",
+  "hosts": {
+    "a": "Maya",
+    "b": "Theo"
+  },
+  "updated": "2026-07-14",
+  "episodes": [
+    {
+      "id": "deepdive-audio",
+      "title": "🎙️ Deep Dive — Why AI Is Math, Not Magic (audio)",
+      "summary": "A NotebookLM-generated audio deep dive on Chapter 1 — the big picture of what AI actually is, in plain language. Hosted in the shared learning Drive folder.",
+      "drive_id": "1A_ysI_TDyd_b4jS5ypLcnUefD0ekJ-Nl"
+    },
+    {
+      "id": "ep1",
+      "title": "Episode 1 — What do we even mean by “AI”?",
+      "summary": "Why 'AI' resists a clean definition, and the two properties worth anchoring on: autonomy and adaptivity.",
+      "minutes": 6,
+      "script": [
+        {
+          "s": "a",
+          "t": "Welcome to the show. I'm Maya."
+        },
+        {
+          "s": "b",
+          "t": "And I'm Theo. This is the first episode of our walk through the foundations of artificial intelligence — following the shape of the Elements of AI course, but in our own words. Maya, let's start with the obvious question. What is AI?"
+        },
+        {
+          "s": "a",
+          "t": "Here's the honest answer: there is no single agreed definition. Even the researchers who build these systems don't fully agree on where the boundary is. That sounds like a weak place to start, but it's actually the first real insight."
+        },
+        {
+          "s": "b",
+          "t": "Why is it so hard to pin down? Most fields can define themselves in a sentence."
+        },
+        {
+          "s": "a",
+          "t": "A few reasons. First, 'intelligence' itself is fuzzy — it's what people sometimes call a suitcase word. You pack a lot of different things into it: reasoning, perception, language, learning, planning. So 'artificial intelligence' inherits all that vagueness."
+        },
+        {
+          "s": "b",
+          "t": "And second?"
+        },
+        {
+          "s": "a",
+          "t": "Second, the goalposts move. There's a running joke called the 'AI effect' — the moment a machine can actually do something, we stop calling it AI and start calling it 'just software.' Optical character recognition, chess, spam filtering — all were 'AI' until they worked, and then they were just... features."
+        },
+        {
+          "s": "b",
+          "t": "That's very human of us. So if we can't define it cleanly, how should a decision-maker — say, someone running an automated trading system — think about it?"
+        },
+        {
+          "s": "a",
+          "t": "Anchor on two properties instead of a definition. The Elements of AI course puts it beautifully: look for autonomy and adaptivity. If a system has both, it's fair to call it AI-ish. Let's take them one at a time."
+        },
+        {
+          "s": "b",
+          "t": "Autonomy first."
+        },
+        {
+          "s": "a",
+          "t": "Autonomy is the ability to perform tasks in a complex environment without constant guidance from a person. A self-driving car navigating traffic is autonomous. A thermostat that flips the heat at 20 degrees is technically acting on its own, but the environment is trivial, so we don't get excited about it."
+        },
+        {
+          "s": "b",
+          "t": "So autonomy is a spectrum, not a yes-or-no."
+        },
+        {
+          "s": "a",
+          "t": "Exactly. And here's a trading tie-in: a bot that watches the market and places trades around the clock without you clicking anything has real autonomy. That's a genuinely AI-flavored property — even if the strategy rules themselves are simple."
+        },
+        {
+          "s": "b",
+          "t": "Now adaptivity."
+        },
+        {
+          "s": "a",
+          "t": "Adaptivity is the ability to improve performance by learning from experience — from data. A system that gets better as it sees more examples is adaptive. This is the part people most associate with modern AI, because it's what machine learning gives you."
+        },
+        {
+          "s": "b",
+          "t": "Let me stress-test this. A pocket calculator does arithmetic no human can match for speed. Is it AI?"
+        },
+        {
+          "s": "a",
+          "t": "Great test. It's autonomous in a trivial sense and superhuman at its task — but it never learns and it operates in a closed, simple world. Low autonomy in any interesting sense, zero adaptivity. So: not AI. It's a beautiful tool, but it's fixed."
+        },
+        {
+          "s": "b",
+          "t": "What about a spam filter?"
+        },
+        {
+          "s": "a",
+          "t": "Now it gets interesting. A spam filter that updates itself as new spam appears is adaptive, and it makes judgment calls in a messy environment. Most people would happily call that AI. If it were a fixed list of banned words, we'd call it a rule — not intelligence."
+        },
+        {
+          "s": "b",
+          "t": "So the same task can be 'AI' or 'not AI' depending on how it's built."
+        },
+        {
+          "s": "a",
+          "t": "That's the key move. AI isn't a category of problems, it's a way of solving them — with autonomy and, usually, learning. Which is exactly why 'is this AI?' is less useful than 'how autonomous is it, and does it adapt?'"
+        },
+        {
+          "s": "b",
+          "t": "Before we close — people constantly confuse AI with robots. Where does that come from?"
+        },
+        {
+          "s": "a",
+          "t": "Movies, mostly. A robot is a physical body — sensors and motors. The AI is the decision-making software that might control it. You can have AI with no robot at all — a recommendation engine, a trading model — and you can have a robot with almost no AI, like a factory arm repeating one fixed motion. Keep those two ideas separate and you'll cut through a lot of hype."
+        },
+        {
+          "s": "b",
+          "t": "So the takeaway for episode one: don't chase a perfect definition. Ask how autonomous a system is, and whether it adapts from data. Everything else is marketing."
+        },
+        {
+          "s": "a",
+          "t": "Well put. Next episode: the family tree — how AI, machine learning, deep learning, and data science actually nest together. Because those words get thrown around as synonyms, and they are not."
+        },
+        {
+          "s": "b",
+          "t": "See you there."
+        }
+      ]
+    },
+    {
+      "id": "ep2",
+      "title": "Episode 2 — The family tree: AI, machine learning, deep learning",
+      "summary": "How the buzzwords nest — AI ⊃ machine learning ⊃ deep learning — and where data science, statistics, and robotics fit.",
+      "minutes": 6,
+      "script": [
+        {
+          "s": "b",
+          "t": "Welcome back. Last time we said AI is best understood through autonomy and adaptivity. Today, the vocabulary — because 'AI,' 'machine learning,' and 'deep learning' get used as if they're interchangeable, and they're not."
+        },
+        {
+          "s": "a",
+          "t": "The cleanest mental model is a set of nested circles. The biggest circle is artificial intelligence. Inside it sits machine learning. Inside machine learning sits deep learning. Each is a subset of the one before."
+        },
+        {
+          "s": "b",
+          "t": "Start with the outer circle. What counts as AI but not machine learning?"
+        },
+        {
+          "s": "a",
+          "t": "Anything that behaves intelligently without necessarily learning from data. A hand-crafted set of expert rules — 'if the killzone is London and price sweeps the low, then look for a reversal' — that's AI-flavored logic, but nobody learned it from data. It was written by a person. That's the classic, older style of AI: symbolic rules."
+        },
+        {
+          "s": "b",
+          "t": "Now the middle circle — machine learning."
+        },
+        {
+          "s": "a",
+          "t": "Machine learning is the subset where the system learns its behavior from data instead of being explicitly programmed rule by rule. You show it thousands of examples, and it figures out the pattern. The defining shift is: you're not writing the rules, you're providing the examples and letting the model infer the rules."
+        },
+        {
+          "s": "b",
+          "t": "Give me the contrast concretely."
+        },
+        {
+          "s": "a",
+          "t": "Say you want to detect a 'good' trade setup. The old way: an expert writes twenty if-then conditions. The machine-learning way: you feed the model a labeled history — these setups worked, these didn't — and it learns which combinations of features predict success. Same goal, completely different method."
+        },
+        {
+          "s": "b",
+          "t": "And that's powerful because...?"
+        },
+        {
+          "s": "a",
+          "t": "Because for messy problems, humans are bad at writing complete rules. There are too many exceptions. Learning from data captures patterns a person would never think to encode. The cost is that the model is only as good as the data — which is a theme we'll hammer all course."
+        },
+        {
+          "s": "b",
+          "t": "Innermost circle — deep learning."
+        },
+        {
+          "s": "a",
+          "t": "Deep learning is a particular family of machine-learning methods based on artificial neural networks with many layers — that's the 'deep' part. It's behind the big recent leaps: image recognition, speech, and the large language models you're talking to right now."
+        },
+        {
+          "s": "b",
+          "t": "So deep learning is not a rival to machine learning — it's a member of it."
+        },
+        {
+          "s": "a",
+          "t": "Right. All deep learning is machine learning, and all machine learning is AI. But not the reverse. A simple linear model is machine learning but not deep learning. A rule-based expert system is AI but not machine learning. Keeping the nesting straight instantly makes you harder to fool."
+        },
+        {
+          "s": "b",
+          "t": "Where does data science land in this picture? People smash it together with AI constantly."
+        },
+        {
+          "s": "a",
+          "t": "Data science overlaps but isn't the same circle. It's a broader craft: collecting, cleaning, visualizing, and drawing conclusions from data — often using machine learning as one tool among many, alongside plain statistics and good judgment. A data scientist might never train a neural network; they might just find that your 'edge' vanishes after fees. That's still enormously valuable."
+        },
+        {
+          "s": "b",
+          "t": "And statistics — is machine learning just statistics with a rebrand?"
+        },
+        {
+          "s": "a",
+          "t": "There's real overlap, and some people are cynical about it. Fair framing: classical statistics leans toward explaining and testing hypotheses with careful assumptions; machine learning leans toward prediction and raw performance, often with less concern for why. They borrow from each other constantly. If someone tells you they're totally separate, they're selling something."
+        },
+        {
+          "s": "b",
+          "t": "Last one — robotics."
+        },
+        {
+          "s": "a",
+          "t": "Robotics is the engineering of physical machines that sense and act in the world. AI is often the brain inside, but robotics also involves mechanics, control, hardware — things that have nothing to do with learning. As we said last time: robot is the body, AI is the decision-making. Overlapping, not identical."
+        },
+        {
+          "s": "b",
+          "t": "So the one-sentence summary?"
+        },
+        {
+          "s": "a",
+          "t": "AI contains machine learning, which contains deep learning. Data science and statistics are overlapping crafts for making sense of data, and robotics is the physical-body field that often uses AI. Get those relationships right and most 'AI news' suddenly parses."
+        },
+        {
+          "s": "b",
+          "t": "Next episode is my favorite — the philosophy. Turing test, the Chinese room, and whether any of the Terminator stuff is real."
+        },
+        {
+          "s": "a",
+          "t": "The fun one. See you there."
+        }
+      ]
+    },
+    {
+      "id": "ep3",
+      "title": "Episode 3 — Can machines think? Turing, the Chinese room, and the hype",
+      "summary": "The Turing test, Searle's Chinese room, narrow vs. general AI, and why AI has boom-and-bust 'winters' — with a realistic read on the hype.",
+      "minutes": 6,
+      "script": [
+        {
+          "s": "a",
+          "t": "Final episode of chapter one, and we're doing philosophy — but the practical kind, the kind that keeps you from making bad bets on what AI can do."
+        },
+        {
+          "s": "b",
+          "t": "Start with the famous one. The Turing test."
+        },
+        {
+          "s": "a",
+          "t": "In 1950, Alan Turing sidestepped the unanswerable question 'can machines think?' and proposed a game instead. A human judge chats by text with two hidden partners — one human, one machine. If the judge can't reliably tell which is which, the machine passes. It's a test of behavior, not of inner experience."
+        },
+        {
+          "s": "b",
+          "t": "Why replace 'thinking' with 'chatting'?"
+        },
+        {
+          "s": "a",
+          "t": "Because 'thinking' is impossible to measure directly — you can't crawl inside another mind. Turing's move was to make the question empirical: judge by what the system does. It was decades ahead of its time, and it's still the reference point for the whole debate."
+        },
+        {
+          "s": "b",
+          "t": "Does passing it actually prove understanding, though?"
+        },
+        {
+          "s": "a",
+          "t": "That's exactly where the philosopher John Searle pushed back, in 1980, with the Chinese room. Imagine a person who speaks no Chinese locked in a room with a giant rulebook. Chinese characters slide under the door; they look up the symbols, follow the rules, and slide back a fluent reply. To someone outside, the room 'speaks Chinese.'"
+        },
+        {
+          "s": "b",
+          "t": "But the person inside understands nothing."
+        },
+        {
+          "s": "a",
+          "t": "Right. Searle's point: manipulating symbols by rules — syntax — is not the same as understanding meaning — semantics. So a system could pass the Turing test and still, he argues, understand nothing. It's just a very good rulebook. People have debated it for forty years, and there's no knockout answer — but it's the perfect antidote to over-claiming."
+        },
+        {
+          "s": "b",
+          "t": "This feels relevant to today's language models."
+        },
+        {
+          "s": "a",
+          "t": "Enormously. A modern language model is, in a real sense, an extraordinary Chinese room — it predicts fluent text without any guarantee of understanding or truth. That's not me dismissing it; it's why these systems can be confidently wrong. Hold both ideas at once: astonishingly capable, and not a mind."
+        },
+        {
+          "s": "b",
+          "t": "Let's define the terms people throw around — narrow versus general AI."
+        },
+        {
+          "s": "a",
+          "t": "Narrow AI is built for a specific task: play chess, detect spam, forecast a price. Every single AI system that exists today is narrow. General AI — sometimes AGI — would match a human across the full range of tasks, transferring understanding from one domain to another. It does not exist. It may never. Anyone selling you AGI today is selling a story."
+        },
+        {
+          "s": "b",
+          "t": "There's also 'strong' versus 'weak' AI — same thing?"
+        },
+        {
+          "s": "a",
+          "t": "Related but distinct. Strong versus weak is the philosophical version of Searle's question: strong AI claims the machine genuinely has a mind and understands; weak AI claims it merely acts as if it does, as a useful tool. You can believe in incredibly powerful weak AI while doubting strong AI entirely. Most working researchers live comfortably in that space."
+        },
+        {
+          "s": "b",
+          "t": "Now the history — the 'AI winters.' What are those?"
+        },
+        {
+          "s": "a",
+          "t": "AI has boomed and busted several times since the 1950s. A wave of excitement and funding, wild promises, then reality falls short and the money and attention collapse — an 'AI winter.' It happened in the 1970s and again in the late 1980s. The lesson isn't that AI is fake; it's that hype consistently outruns delivery."
+        },
+        {
+          "s": "b",
+          "t": "And we might be in another hype peak now."
+        },
+        {
+          "s": "a",
+          "t": "Very possibly. Which is why the realistic posture is neither 'this changes nothing' nor 'this is magic.' The tools are genuinely powerful and genuinely limited. For anyone deploying AI with real money on the line, that middle stance is the profitable one — excitement without gullibility."
+        },
+        {
+          "s": "b",
+          "t": "Bring it home. Why does this philosophy matter for someone running an AI-driven system rather than debating in a seminar?"
+        },
+        {
+          "s": "a",
+          "t": "Because your expectations set your risk. If you believe the model 'understands' the market, you'll trust it too much and it will hurt you. If you treat it as a powerful, narrow, fallible pattern-matcher — a Chinese room that's often right and sometimes confidently wrong — you'll wrap it in checks, monitor it, and keep a human in the loop. The philosophy is the risk management."
+        },
+        {
+          "s": "b",
+          "t": "That's chapter one. Autonomy and adaptivity; the nested family of AI, machine learning, and deep learning; and a clear-eyed view of what thinking machines can and can't do."
+        },
+        {
+          "s": "a",
+          "t": "When you're ready, take the quiz — it'll tell you what stuck and what to relisten to. Thanks for listening."
+        }
+      ]
+    }
+  ],
+  "quiz": [
+    {
+      "id": "q1",
+      "q": "Why is 'artificial intelligence' so hard to define?",
+      "options": [
+        "There is a precise definition, but it's kept secret by researchers",
+        "'Intelligence' is a vague 'suitcase word', and what counts as AI keeps shifting as machines improve",
+        "AI only refers to physical robots, which are hard to categorize",
+        "Because AI and machine learning are exactly the same thing"
+      ],
+      "answer": 1,
+      "explain": "There's no single agreed definition. 'Intelligence' bundles many abilities together, and the 'AI effect' means we stop calling things AI once they work."
+    },
+    {
+      "id": "q2",
+      "q": "Which pair of properties does the course suggest anchoring on instead of a strict definition?",
+      "options": [
+        "Speed and accuracy",
+        "Autonomy and adaptivity",
+        "Hardware and software",
+        "Memory and storage"
+      ],
+      "answer": 1,
+      "explain": "Autonomy (acting in a complex environment without constant guidance) and adaptivity (improving from experience/data) are the two useful anchors."
+    },
+    {
+      "id": "q3",
+      "q": "'Adaptivity' in this context means:",
+      "options": [
+        "The system can be installed on many devices",
+        "The system physically moves through its environment",
+        "The system improves its performance by learning from data/experience",
+        "The system runs without electricity"
+      ],
+      "answer": 2,
+      "explain": "Adaptivity is the ability to get better with experience — the property that machine learning provides."
+    },
+    {
+      "id": "q4",
+      "q": "A basic pocket calculator is generally NOT considered AI because:",
+      "options": [
+        "It is too slow",
+        "It operates in a simple, fixed world and never learns — no meaningful autonomy or adaptivity",
+        "It is not connected to the internet",
+        "It uses electricity instead of gears"
+      ],
+      "answer": 1,
+      "explain": "It's a fixed tool: superhuman at arithmetic, but it doesn't learn and its environment is trivial."
+    },
+    {
+      "id": "q5",
+      "q": "True or false: the SAME task (e.g. filtering spam) can count as 'AI' or 'not AI' depending on how the system is built.",
+      "options": [
+        "True",
+        "False"
+      ],
+      "answer": 0,
+      "explain": "True. A fixed banned-word list is just a rule; a filter that learns and adapts to new spam is AI-like. AI is a way of solving problems, not a category of problems."
+    },
+    {
+      "id": "q6",
+      "q": "How do AI, machine learning (ML), and deep learning (DL) relate?",
+      "options": [
+        "They are three unrelated fields",
+        "DL contains ML, which contains AI",
+        "AI contains ML, which contains DL (nested subsets)",
+        "AI and ML are the same; DL is unrelated"
+      ],
+      "answer": 2,
+      "explain": "Nested circles: AI ⊃ machine learning ⊃ deep learning. All DL is ML; all ML is AI; not the reverse."
+    },
+    {
+      "id": "q7",
+      "q": "What most distinguishes machine learning from classic rule-based AI?",
+      "options": [
+        "ML requires a robot body",
+        "ML learns its behavior from data/examples instead of being programmed rule-by-rule",
+        "ML is always faster",
+        "ML never makes mistakes"
+      ],
+      "answer": 1,
+      "explain": "The defining shift: you provide examples and let the model infer the rules, rather than hand-writing every rule."
+    },
+    {
+      "id": "q8",
+      "q": "Deep learning is best described as:",
+      "options": [
+        "A competitor to machine learning that replaced it",
+        "A family of machine-learning methods based on many-layered neural networks",
+        "Another name for data science",
+        "A type of robot"
+      ],
+      "answer": 1,
+      "explain": "Deep learning is a subset of ML using multi-layer neural networks — behind image recognition, speech, and large language models."
+    },
+    {
+      "id": "q9",
+      "q": "The Turing test judges a machine by:",
+      "options": [
+        "Whether its internal experience is conscious",
+        "Whether a human judge can tell it apart from a human in a text conversation",
+        "How fast it can do arithmetic",
+        "Whether it has a physical body"
+      ],
+      "answer": 1,
+      "explain": "Turing replaced 'can machines think?' with a behavioral game: if a judge can't reliably distinguish the machine from a human via text, it passes."
+    },
+    {
+      "id": "q10",
+      "q": "Searle's 'Chinese room' argument is meant to show that:",
+      "options": [
+        "Machines can never be built to speak Chinese",
+        "Following rules to manipulate symbols (syntax) isn't the same as genuine understanding (semantics)",
+        "The Turing test is impossible to run",
+        "Only robots can be intelligent"
+      ],
+      "answer": 1,
+      "explain": "A person following a rulebook can produce fluent output without understanding — so passing the Turing test doesn't prove real understanding."
+    },
+    {
+      "id": "q11",
+      "q": "Which statement about 'general AI' (AGI) is accurate today?",
+      "options": [
+        "Several companies already sell true AGI",
+        "It matches humans across the full range of tasks — and it does not currently exist; every real system is narrow",
+        "It is the same as a spam filter",
+        "It was achieved in the 1980s"
+      ],
+      "answer": 1,
+      "explain": "Every AI system today is narrow (task-specific). General AI — human-level across all domains — does not exist; claims otherwise are hype."
+    },
+    {
+      "id": "q12",
+      "q": "An 'AI winter' refers to:",
+      "options": [
+        "A cooling technique for data-center servers",
+        "A period when hype and funding collapsed after AI failed to meet inflated promises",
+        "The season when most AI research happens",
+        "A type of neural network"
+      ],
+      "answer": 1,
+      "explain": "AI has boomed and busted repeatedly (1970s, late 1980s). The lesson: hype consistently outruns delivery — stay excited but not gullible."
+    }
+  ]
+}
