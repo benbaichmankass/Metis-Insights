@@ -8,10 +8,13 @@ cross-device (unlike browser-local state), and ready to mirror to the Android
 app later.
 
 Tier 1: observability read + a tiny operator-only progress write (no trading
-impact, no order path, no notification). The write is token-gated the same
-*permissive* way as ``/devices`` (accepts when ``DASHBOARD_API_TOKEN`` is
-unset, 401 on a wrong bearer) — NOT the fail-closed prop-money shape. The
-content read is best-effort (``present:false`` on missing/garbled file).
+impact, no order path, no notification). The write is an **unauthenticated
+client self-service** POST — the same shape as ``POST /devices/register`` (a
+client records state without holding the shared ``DASHBOARD_API_TOKEN``) — so
+BOTH the dashboard and the Android app can mark progress. The store holds no
+secret, so open write is acceptable here (unlike the fail-closed prop-money
+POST). The content read is best-effort (``present:false`` on missing/garbled
+file).
 """
 from __future__ import annotations
 
@@ -24,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 
 from src.utils.paths import repo_root
 
@@ -83,23 +86,6 @@ def _ensure_table() -> None:
     same as the sibling ``device_tokens`` table)."""
     from src.units.db.database import Database
     Database()
-
-
-def _check_write_token(authorization: str | None) -> None:
-    """Permissive gate: accept when ``DASHBOARD_API_TOKEN`` is unset, 401 on a
-    present-but-wrong bearer. Mirrors ``devices._check_admin_token`` — learning
-    progress is Tier-1 observability (no trading impact), so an unset token
-    serves permissively rather than 503-ing the write like the prop money-path.
-    """
-    expected = os.environ.get("DASHBOARD_API_TOKEN", "").strip()
-    if not expected:
-        return
-    if not authorization:
-        raise HTTPException(status_code=401, detail="missing authorization")
-    if not authorization.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail="bearer scheme required")
-    if authorization[7:].strip() != expected:
-        raise HTTPException(status_code=401, detail="bad token")
 
 
 def _read_progress() -> dict[str, Any]:
@@ -182,15 +168,13 @@ def get_progress() -> dict[str, Any]:
 
 
 @router.post("/progress")
-async def post_progress(
-    request: Request,
-    authorization: str | None = Header(default=None),
-) -> dict[str, Any]:
+async def post_progress(request: Request) -> dict[str, Any]:
     """Upsert one resource's progress. Body:
     ``{resource_id, status ∈ {not_started,in_progress,done}, note?}``.
-    Token-gated permissively (accepts when ``DASHBOARD_API_TOKEN`` unset).
-    Tier 1 (operator observability; no trading impact)."""
-    _check_write_token(authorization)
+    Unauthenticated client self-service write (like ``POST /devices/register``)
+    so both the dashboard and the Android app can record progress. Tier 1
+    (operator observability; no trading impact, no order path, no notification).
+    """
     try:
         body = await request.json()
     except (ValueError, TypeError) as exc:
