@@ -422,3 +422,15 @@ tests/test_vol_at_entry_live_twin.py) rides this branch.
 trend_donchian_eth / ada_pullback_2h / avax_pullback_2h;
 vol_skip_above_pctl 0.9 on trend_donchian_xrp_4h. Matrix vol_at_entry
 column CLOSED: 3 passed_unshipped rows, 12 honest_negative rows.
+
+**Round-4 SHIP (2026-07-14 ~21:00Z):** operator approved in chat
+("merge what's ready and continue moving"). PR #6434 merged (squash,
+d9f9d53) → `restart-bot-service` dispatched (#6437). Live declares:
+`vol_skip_below_pctl: 0.1` on trend_donchian_eth / ada_pullback_2h /
+avax_pullback_2h; `vol_skip_above_pctl: 0.9` on trend_donchian_xrp_4h.
+Matrix vol_at_entry rows flipped `passed_unshipped → shipped`; the
+entry-lever matrix is now FULLY MINED (all columns shipped or
+honest-negative). Remaining M21 work is event-gated: first-fire
+verification of the 4 new gates (a `vol_at_entry_pctl` meta stamp or a
+"vol-at-entry gate" non-actionable log line), the P_win entry-head
+shadow track record, and future head rounds.
