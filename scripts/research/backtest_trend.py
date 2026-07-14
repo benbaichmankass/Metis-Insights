@@ -123,7 +123,10 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
              trail_decay_arm_r: float = 0.0, trail_decay_stall_bars: int = 0,
              trail_decay_tight_mult: float = 0.0,
              confirm_bars: int = 0,
-             skip_hours: str = ''
+             skip_hours: str = '',
+             vol_skip_above_pctl: float = 0.0,
+             vol_skip_below_pctl: float = 0.0,
+             vol_pctl_window: int = 200
              ) -> List[Trade]:
     # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
     # NEW entry whose SIGNAL bar's UTC hour is in the CSV set. Exits are
@@ -131,6 +134,16 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
     # bar too (the decision anchor).
     skip_hour_set = {int(h) for h in str(skip_hours).split(',') if str(h).strip() != ''}
     atr = _atr(df, atr_p)
+    # M21 E-2 vol-at-entry lever (both 0 = off, byte-identical): skip any NEW
+    # entry whose SIGNAL bar's ATR sits at an extreme TRAILING percentile —
+    # rank of ATR[i] within the previous `vol_pctl_window` bars (causal,
+    # includes the bar itself; NaN until the window fills → never skip,
+    # fail-permissive). above>0 skips the hot tail (pctl > above); below>0
+    # skips the dead tail (pctl < below). Exits are never touched.
+    atr_pctl = None
+    if vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0:
+        atr_pctl = atr.rolling(vol_pctl_window,
+                               min_periods=vol_pctl_window).rank(pct=True)
     sig = _signal(df, donchian)
     # Donchian channel (causal — prior N bars) for the breakout-depth
     # confidence gate, mirroring the LIVE trend_donchian unit: confidence =
@@ -293,6 +306,13 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                             continue
                     except (TypeError, ValueError):
                         pass  # unparseable ts: never skip (fail-permissive)
+                if atr_pctl is not None:
+                    vp = atr_pctl.iloc[i]
+                    if not pd.isna(vp):
+                        if vol_skip_above_pctl > 0.0 and float(vp) > vol_skip_above_pctl:
+                            continue
+                        if vol_skip_below_pctl > 0.0 and float(vp) < vol_skip_below_pctl:
+                            continue
                 # Breakout-depth confidence (mirrors the live unit) — always
                 # computed so it rides the emit as a dataset feature; only
                 # GATES when min_confidence > 0 (unchanged behaviour).
@@ -408,6 +428,16 @@ def main(argv: List[str]) -> int:
     p.add_argument('--skip-hours', default='',
                    help='M21 E-2 time-of-day entry lever (empty=off): CSV of '
                         'UTC hours whose signal bars never enter.')
+    p.add_argument('--vol-skip-above-pctl', type=float, default=0.0,
+                   help='M21 E-2 vol-at-entry lever (0=off): skip entries '
+                        'whose signal-bar ATR trailing percentile exceeds '
+                        'this (hot tail).')
+    p.add_argument('--vol-skip-below-pctl', type=float, default=0.0,
+                   help='M21 E-2 vol-at-entry lever (0=off): skip entries '
+                        'whose signal-bar ATR trailing percentile is below '
+                        'this (dead tail).')
+    p.add_argument('--vol-pctl-window', type=int, default=200,
+                   help='Trailing window (bars) for the ATR percentile rank.')
     p.add_argument('--emit-trades', default=None, metavar='PATH',
                    help='Write per-trade JSONL (entry_time/direction/net_r/'
                         'entry/sl/exit_time/exit_reason) for the M20 E0 '
@@ -429,7 +459,9 @@ def main(argv: List[str]) -> int:
                       a.bank_frac, a.bank_at_r,
                       a.giveback_min_mfe_r, a.giveback_r,
                       a.trail_decay_arm_r, a.trail_decay_stall_bars,
-                      a.trail_decay_tight_mult, a.confirm_bars, a.skip_hours)
+                      a.trail_decay_tight_mult, a.confirm_bars, a.skip_hours,
+                      a.vol_skip_above_pctl, a.vol_skip_below_pctl,
+                      a.vol_pctl_window)
     params = {'symbol': a.symbol, 'timeframe': a.timeframe, 'donchian': a.donchian,
               'atr_stop_mult': a.atr_stop_mult, 'trail_mult': a.trail_mult,
               'long_only': a.long_only}
@@ -443,6 +475,10 @@ def main(argv: List[str]) -> int:
         params['confirm_bars'] = a.confirm_bars
     if a.skip_hours:
         params['skip_hours'] = a.skip_hours
+    if a.vol_skip_above_pctl or a.vol_skip_below_pctl:
+        params['vol_skip_above_pctl'] = a.vol_skip_above_pctl
+        params['vol_skip_below_pctl'] = a.vol_skip_below_pctl
+        params['vol_pctl_window'] = a.vol_pctl_window
     if a.emit_trades:
         Path(a.emit_trades).parent.mkdir(parents=True, exist_ok=True)
         with open(a.emit_trades, 'w', encoding='utf-8') as fh:

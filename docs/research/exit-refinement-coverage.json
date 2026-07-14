@@ -215,8 +215,8 @@
     "ref": "exit-head round 3 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 934 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.54; no naive or conditional shape beats actual on net_R AND maxDD in >=3/5 folds (2023: +95.6R actual vs +72.2R best arm). Honest negative \u2014 the existing trail exits already capture the value || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_2h/pullback): peak_is_in retarget lifted AUC to 0.65-0.71 (live 0.77) but STILL honest_negative at the E1 gate \u2014 0/5 folds \u2014 every cell loses the tail (2023 actual +131R vs best model +69R). Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail."
    },
    "trail_decay": {
-    "status": "passed_unshipped",
-    "ref": "sol_pullback_2h stall10 tight2.5 PASS wf 5/6 (LIVE leg \u2014 Tier-3 declare proposed in #6251); xrp 3/6, ada 3/6, avax 2/6, eth_prop 2/6 all fail. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: xrp p80 arm 4.49R PASS 5/6 (OOS +23.9\u2192+27.7, 49 trades) + avax p80 arm 4.86R PASS 4/6 (OOS +11.6\u2192+15.0) \u2014 declares proposed (batch 2); sol/ada/eth_prop p80 negative. P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate."
+    "status": "shipped",
+    "ref": "sol_pullback_2h stall10 tight2.5 PASS wf 5/6 (LIVE leg \u2014 Tier-3 declare proposed in #6251); xrp 3/6, ada 3/6, avax 2/6, eth_prop 2/6 all fail. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: xrp p80 arm 4.49R PASS 5/6 (OOS +23.9\u2192+27.7, 49 trades) + avax p80 arm 4.86R PASS 4/6 (OOS +11.6\u2192+15.0) \u2014 declares proposed (batch 2); sol/ada/eth_prop p80 negative. P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate. || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
    },
    "regime_flip_exit": {
     "status": "honest_negative",
@@ -233,8 +233,8 @@
     "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 eth/sol/xrp/ada/avax all fail"
    },
    "stale_stop": {
-    "status": "passed_unshipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): XRP-4h stale8 PASS 5/6 (stale12 4/6) \u2014 Tier-3 PR #6229; eth/sol/ada/avax fail"
+    "status": "shipped",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): XRP-4h stale8 PASS 5/6 (stale12 4/6) \u2014 Tier-3 PR #6229; eth/sol/ada/avax fail || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
    },
    "giveback_stop": {
     "status": "honest_negative",
@@ -329,12 +329,12 @@
    "tf": "1d",
    "execution": "live",
    "trail_geometry": {
-    "status": "passed_unshipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [ES/GC/HG PROXY data]: MES trail3 4/6 + MHG trail3 5/6 PASS \u2014 Tier-3 PR #6229; MGC fails"
+    "status": "shipped",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [ES/GC/HG PROXY data]: MES trail3 4/6 + MHG trail3 5/6 PASS \u2014 Tier-3 PR #6229; MGC fails || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
    },
    "stale_stop": {
     "status": "passed_unshipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [PROXY]: MHG stale12 5/6 PASS (not combined with trail3 \u2014 combos untested); MES/MGC fail"
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [PROXY]: MHG stale12 5/6 PASS (not combined with trail3 \u2014 combos untested); MES/MGC fail || RECONCILED 2026-07-14: status kept passed_unshipped DELIBERATELY \u2014 MHG stale12 passed but was never declared (one-lever-per-leg: trail3 took the slot; stale12+trail3 combo untested). Shippable only after a combo A/B."
    },
    "giveback_stop": {
     "status": "honest_negative",
@@ -349,8 +349,8 @@
     "ref": "needs native IBKR history for E0 (proxy OK for levers, not for head training)"
    },
    "trail_decay": {
-    "status": "passed_unshipped",
-    "ref": "mhg_pullback_1d stall10 tight1.5 PASS wf 5/6 (stall6 4/6; proxy HG_F \u2014 levers-OK; base includes shipped trail3) \u2014 Tier-3 declare proposed in #6251; mes/mgc all cells fail (mgc arm2R wf 3/6 best). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+    "status": "shipped",
+    "ref": "mhg_pullback_1d stall10 tight1.5 PASS wf 5/6 (stall6 4/6; proxy HG_F \u2014 levers-OK; base includes shipped trail3) \u2014 Tier-3 declare proposed in #6251; mes/mgc all cells fail (mgc arm2R wf 3/6 best). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
    },
    "regime_flip_exit": {
     "status": "honest_negative",
@@ -417,8 +417,8 @@
     "ref": "equities E0 datasets \u2014 future exit-head round"
    },
    "trail_decay": {
-    "status": "passed_unshipped",
-    "ref": "PASS: scha arm2R tight2 wf 6/6 (+stall10 4/6), slv stall6 tight2 5/6, iwm stall10 tight2 4/6, gld stall10 tight2 4/6, splg stall6 tight2 4/6, iaum stall10 tight2 4/6 \u2014 Tier-3 declares proposed in #6251. FAIL: spy (stall6 3/6 best), qqq, tqqq, qld, tlt_1d, ief, gdx. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: qqq p80 arm 3.56R PASS 5/6 (OOS thin, 3 trades); gld p80 arm 5.06R PASS 5/6 measured ON TOP of its declared stall10 (additive combo; OOS thin, 3 trades) \u2014 both proposed (batch 2). p80 skipped (<30 IS winners): scha, iaum, gdx. P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate."
+    "status": "shipped",
+    "ref": "PASS: scha arm2R tight2 wf 6/6 (+stall10 4/6), slv stall6 tight2 5/6, iwm stall10 tight2 4/6, gld stall10 tight2 4/6, splg stall6 tight2 4/6, iaum stall10 tight2 4/6 \u2014 Tier-3 declares proposed in #6251. FAIL: spy (stall6 3/6 best), qqq, tqqq, qld, tlt_1d, ief, gdx. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: qqq p80 arm 3.56R PASS 5/6 (OOS thin, 3 trades); gld p80 arm 5.06R PASS 5/6 measured ON TOP of its declared stall10 (additive combo; OOS thin, 3 trades) \u2014 both proposed (batch 2). p80 skipped (<30 IS winners): scha, iaum, gdx. P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate. || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
    },
    "regime_flip_exit": {
     "status": "honest_negative",
@@ -431,16 +431,16 @@
    "tf": "1h",
    "execution": "live",
    "trail_geometry": {
-    "status": "passed_unshipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): TLT-1h trail3 PASS \u2014 Tier-3 PR #6229; gld/spy/qqq/slv fail"
+    "status": "shipped",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): TLT-1h trail3 PASS \u2014 Tier-3 PR #6229; gld/spy/qqq/slv fail || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
    },
    "stale_stop": {
     "status": "honest_negative",
     "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
    },
    "giveback_stop": {
-    "status": "passed_unshipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): USO-1h gb1R@MFE1R PASS (IS 50.3R/dd12.8 vs 48.7R/dd13.9; OOS 9.0R/dd4.3 vs 5.5R/dd4.8; walk-forward 4/6) \u2014 monitor giveback lever implemented (_giveback_verdict) + YAML declare in Tier-3 PR, awaiting operator approval"
+    "status": "shipped",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): USO-1h gb1R@MFE1R PASS (IS 50.3R/dd12.8 vs 48.7R/dd13.9; OOS 9.0R/dd4.3 vs 5.5R/dd4.8; walk-forward 4/6) \u2014 monitor giveback lever implemented (_giveback_verdict) + YAML declare in Tier-3 PR, awaiting operator approval || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
    },
    "exit_ladder": {
     "status": "honest_negative",
@@ -451,8 +451,8 @@
     "ref": "equities E0 datasets \u2014 future exit-head round"
    },
    "trail_decay": {
-    "status": "passed_unshipped",
-    "ref": "PASS: tlt_pullback_1h stall6 tight1.5 wf 5/6 (also arm2R 4/6, arm1.5R+stall6 5/6) \u2014 Tier-3 declare proposed in #6251. uso_trend_1h HONEST NEGATIVE: corrected-base combo A/B (shipped giveback threaded, 6c54000; relay #6255) fails ALL 4 decay cells is_oos - the initial pass was an artifact of the lever-less base; giveback stands alone (one-lever-per-leg confirmed empirically). FAIL: gld_1h, slv_1h, spy_1h (2/6), qqq_1h (2/6). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+    "status": "shipped",
+    "ref": "PASS: tlt_pullback_1h stall6 tight1.5 wf 5/6 (also arm2R 4/6, arm1.5R+stall6 5/6) \u2014 Tier-3 declare proposed in #6251. uso_trend_1h HONEST NEGATIVE: corrected-base combo A/B (shipped giveback threaded, 6c54000; relay #6255) fails ALL 4 decay cells is_oos - the initial pass was an artifact of the lever-less base; giveback stands alone (one-lever-per-leg confirmed empirically). FAIL: gld_1h, slv_1h, spy_1h (2/6), qqq_1h (2/6). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
    },
    "regime_flip_exit": {
     "status": "honest_negative",
@@ -470,7 +470,7 @@
    },
    "stale_stop": {
     "status": "passed_unshipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): trend_donchian_1h (disabled shadow) stale8 4/6 PASS \u2014 note only; prop variants fail"
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): trend_donchian_1h (disabled shadow) stale8 4/6 PASS \u2014 note only; prop variants fail || RECONCILED 2026-07-14: status kept passed_unshipped DELIBERATELY \u2014 shadow/disabled legs \u2014 no live declare by design; value activates if a leg is ever promoted."
    },
    "giveback_stop": {
     "status": "pending"
@@ -484,7 +484,7 @@
    },
    "trail_decay": {
     "status": "passed_unshipped",
-    "ref": "shadow-leg passes (no live declare batched): trend_donchian_1h stall10 tight2.5 wf 5/6; trend_donchian_eth_prop stall6 tight1.8 5/6 (stall10 4/6); trend_donchian_sol_prop stall10 tight1.8 4/6. turtle/fade/vwap/scalp still no_harness_levers. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+    "ref": "shadow-leg passes (no live declare batched): trend_donchian_1h stall10 tight2.5 wf 5/6; trend_donchian_eth_prop stall6 tight1.8 5/6 (stall10 4/6); trend_donchian_sol_prop stall10 tight1.8 4/6. turtle/fade/vwap/scalp still no_harness_levers. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || RECONCILED 2026-07-14: status kept passed_unshipped DELIBERATELY \u2014 shadow/disabled legs \u2014 no live declare by design; value activates if a leg is ever promoted."
    },
    "regime_flip_exit": {
     "status": "honest_negative",
@@ -497,8 +497,8 @@
    "tf": "1h",
    "execution": "disabled / shadow",
    "trail_geometry": {
-    "status": "passed_unshipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [GC=F PROXY]: trail4 PASS 6/6 on BOTH; xauusd leg is disabled (note only); mgc_trend_1h (shadow) trail 3->4 in Tier-3 PR #6229"
+    "status": "shipped",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [GC=F PROXY]: trail4 PASS 6/6 on BOTH; xauusd leg is disabled (note only); mgc_trend_1h (shadow) trail 3->4 in Tier-3 PR #6229 || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
    },
    "stale_stop": {
     "status": "honest_negative",

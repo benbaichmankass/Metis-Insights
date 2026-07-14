@@ -150,6 +150,9 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None) -
         # config-exact base, same as the declared exit levers.
         opt("--confirm-bars", "confirm_bars")
         opt("--skip-hours", "skip_hours")
+        opt("--vol-skip-above-pctl", "vol_skip_above_pctl")
+        opt("--vol-skip-below-pctl", "vol_skip_below_pctl")
+        opt("--vol-pctl-window", "vol_pctl_window")
         declared_levers()
         if cfg.get("long_only"):
             a.append("--long-only")
@@ -189,6 +192,9 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None) -
         # M21 E-2: a declared confirmation gate is config-exact base here too.
         opt("--confirm-bars", "confirm_bars")
         opt("--skip-hours", "skip_hours")
+        opt("--vol-skip-above-pctl", "vol_skip_above_pctl")
+        opt("--vol-skip-below-pctl", "vol_skip_below_pctl")
+        opt("--vol-pctl-window", "vol_pctl_window")
         declared_levers()
     return a
 
