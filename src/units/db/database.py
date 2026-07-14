@@ -517,6 +517,28 @@ class Database:
             "ON device_tokens (platform)"
         )
 
+        # Learning-center progress (dashboard Learning tab, 2026-07-14).
+        # One row per curriculum resource the operator has marked; the
+        # dashboard Learning tab reads/writes it via /api/bot/learning/progress
+        # so progress is durable + cross-device (not browser-local) and ready
+        # to mirror to the Android app. resource_id is the stable slug from
+        # comms/learning/curriculum.json. Operator-only observability data —
+        # no trading impact, no order path. Browseable in the Data Explorer.
+        # data-wiring: trade_journal.db IS the source of truth for learning
+        # progress — this is operator-authored UI state, NOT a projection of
+        # any other table, so there is no upstream to backfill from and history
+        # begins at first write. Sole writer: POST /api/bot/learning/progress
+        # (src/web/api/routers/learning.py); sole reader: the dashboard
+        # Learning tab via GET /api/bot/learning/progress.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS learning_progress (
+                resource_id TEXT PRIMARY KEY,
+                status TEXT NOT NULL DEFAULT 'not_started',
+                note TEXT,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
         # AI Analyst — per-run history (M13 S1).
         # Every generator cycle appends one row per refreshed endpoint
         # so the dashboard can render "what did the analyst say
