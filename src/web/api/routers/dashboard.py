@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sqlite3
 import time
 import uuid
@@ -117,8 +118,51 @@ _account_class_wire = account_class_wire
 # existing ``_position_upnl`` client-side fallback computes from the
 # last candle close when the API returns null.
 
-_POSITIONS_TTL_S = 10.0
+# Broker open-position cache for the /positions uPnL enrichment. The TTL was
+# 10s, but every consumer (dashboard + Android app + /ws/market) polls
+# /positions on a ~30s cadence — LONGER than a 10s TTL — so the cache was COLD
+# on every poll and each poll re-opened a broker read per account (an IB read
+# client for ib_paper, a Bybit REST call for the others). That put needless,
+# repeated load on the IB gateway and made the endpoint slow enough that mobile
+# clients hit their read timeout and rendered an empty positions list
+# (android-live-trades-blank). A 30s default keeps the cache warm across the
+# poll so the gateway is hit at most ~once per TTL per account regardless of how
+# many consumers poll. Env-tunable via POSITIONS_CACHE_TTL_S (read at call time
+# so the live VM can retune without a redeploy).
+_POSITIONS_TTL_DEFAULT_S = 30.0
+# On a broker read FAILURE, keep serving the last GOOD position list for up to
+# this window instead of dropping straight to "unavailable". This (a) stops a
+# transient IB gateway wedge / Bybit blip from blanking the broker-truth uPnL,
+# and (b) means a genuinely-wedged gateway is retried at most once per TTL
+# (stale served in between) rather than re-hit every request. After the window
+# elapses with no good read we honestly return None ("not measured").
+_POSITIONS_STALE_OK_DEFAULT_S = 120.0
 _BROKER_POSITIONS_CACHE: dict[str, tuple[float, Any]] = {}
+# Last SUCCESSFUL (non-None) read per account — the stale-serve fallback source.
+_BROKER_POSITIONS_LAST_GOOD: dict[str, tuple[float, Any]] = {}
+
+
+def _positions_ttl_s() -> float:
+    """Broker-positions cache TTL (seconds), env-tunable via
+    ``POSITIONS_CACHE_TTL_S``. Falls back to the 30s default on unset/garbage/
+    non-positive so a bad value can never disable caching (which would restore
+    the gateway-hammering it exists to prevent)."""
+    try:
+        v = float(os.environ.get("POSITIONS_CACHE_TTL_S", ""))
+        return v if v > 0 else _POSITIONS_TTL_DEFAULT_S
+    except (TypeError, ValueError):
+        return _POSITIONS_TTL_DEFAULT_S
+
+
+def _positions_stale_ok_s() -> float:
+    """How long a failed read may serve the last good positions, env-tunable via
+    ``POSITIONS_CACHE_STALE_OK_S``. ``0`` disables stale-serve; garbage/negative
+    falls back to the 120s default."""
+    try:
+        v = float(os.environ.get("POSITIONS_CACHE_STALE_OK_S", ""))
+        return v if v >= 0 else _POSITIONS_STALE_OK_DEFAULT_S
+    except (TypeError, ValueError):
+        return _POSITIONS_STALE_OK_DEFAULT_S
 
 
 def _broker_positions_for(account_id: str) -> Any:
@@ -128,10 +172,16 @@ def _broker_positions_for(account_id: str) -> Any:
     on read failure / unknown account. Sentinel ``None`` is cached
     too — a logged-out IB Gateway or a bad Bybit key shouldn't be
     retried for every row in a positions response.
+
+    Resilience (2026-07-14): on a read failure the last SUCCESSFUL list is
+    served for up to :func:`_positions_stale_ok_s` so a transient gateway wedge
+    neither blanks the broker-truth uPnL nor re-hits the wedged gateway more
+    than once per TTL.
     """
     now = time.monotonic()
+    ttl = _positions_ttl_s()
     cached = _BROKER_POSITIONS_CACHE.get(account_id)
-    if cached is not None and (now - cached[0]) < _POSITIONS_TTL_S:
+    if cached is not None and (now - cached[0]) < ttl:
         return cached[1]
     try:
         # Lazy import — keeps the router module load cheap and avoids
@@ -148,8 +198,26 @@ def _broker_positions_for(account_id: str) -> Any:
             account_id, exc,
         )
         positions = None
-    _BROKER_POSITIONS_CACHE[account_id] = (now, positions)
-    return positions
+
+    if positions is not None:
+        # Good read — refresh both the serve cache and the last-good store.
+        _BROKER_POSITIONS_CACHE[account_id] = (now, positions)
+        _BROKER_POSITIONS_LAST_GOOD[account_id] = (now, positions)
+        return positions
+
+    # Read failed (None). Prefer the last good list within the stale window so a
+    # transient wedge doesn't blank broker-truth uPnL; cache it for one TTL so
+    # the wedged gateway is retried at most once per TTL, not every request.
+    # Staleness is measured from the last GOOD read (not this retry), so total
+    # served-stale time is bounded by the window regardless of retry count.
+    stale_ok = _positions_stale_ok_s()
+    last_good = _BROKER_POSITIONS_LAST_GOOD.get(account_id)
+    if stale_ok > 0 and last_good is not None and (now - last_good[0]) < stale_ok:
+        _BROKER_POSITIONS_CACHE[account_id] = (now, last_good[1])
+        return last_good[1]
+
+    _BROKER_POSITIONS_CACHE[account_id] = (now, None)
+    return None
 
 
 # Side normalisation for the broker→DB match. Both sides have used
