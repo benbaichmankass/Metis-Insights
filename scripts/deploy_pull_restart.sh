@@ -55,10 +55,13 @@ echo "===== DEPLOY STARTED: $(date) ====="
 cd "$REPO_DIR"
 
 # ---------------------------------------------------------------------------
-# Capture current HEAD before we sync. We use this to decide whether to
-# re-install dependencies. Service restart always runs so a manual
-# `git reset --hard` (or any other state drift) cannot leave the running
-# Python processes pinned to stale code.
+# Capture current HEAD before we sync. Together with the deploy marker
+# (runtime_logs/deployed_sha.txt, read at the restart-decision gate below) this
+# decides whether to re-install dependencies and restart: the restart is driven
+# off the SHA the running processes were last deployed onto, NOT merely whether
+# THIS fetch moved HEAD — so a manual `git reset --hard` (or any sync that
+# advances HEAD out of band) cannot leave the running Python processes pinned to
+# stale code (BL-20260714-DEPLOY-STALE-ON-OOB-SYNC).
 # ---------------------------------------------------------------------------
 PRE_SYNC_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 echo ">>> Pre-sync HEAD: ${PRE_SYNC_HEAD}"
@@ -218,10 +221,41 @@ fi
 # claude-vm-runner@*.service unit is currently active — the next
 # git-sync tick (5 min) will pick up the change with no /vm in flight.
 # ---------------------------------------------------------------------------
-if [ "${PRE_SYNC_HEAD}" = "${POST_SYNC_HEAD}" ]; then
-    echo ">>> No new commits in this pull. Skipping dependency install and service restart."
+# ---------------------------------------------------------------------------
+# BL-20260714-DEPLOY-STALE-ON-OOB-SYNC: restart when the RUNNING code is stale,
+# not merely when THIS fetch moved HEAD.
+#
+# The old gate skipped the restart whenever PRE_SYNC_HEAD == POST_SYNC_HEAD —
+# "this fetch pulled nothing new". But HEAD can advance on disk WITHOUT these
+# long-running Python processes being bounced: a manual `git reset --hard`, or
+# any sync path that moved the worktree without a restart. The processes then
+# hold the OLD in-memory code while HEAD (and this run's PRE==POST) look clean,
+# so the deploy skipped and the change never went live — the exact gap the
+# PRE_SYNC_HEAD comment above flagged as "handled by a manual restart".
+#
+# We record the SHA the services were last (re)started onto in a marker file
+# (runtime_logs/deployed_sha.txt — alongside notify_state.txt; both survive the
+# `git reset --hard` above because runtime_logs/ is untracked) and drive the
+# restart decision off THAT, so drift is caught however HEAD got where it is.
+# Fail-safe: an absent/unresolvable marker falls back to PRE_SYNC_HEAD (the
+# historical behaviour), so a fresh VM never restart-storms on an unknown —
+# only a POSITIVELY-recorded older SHA forces a restart when HEAD didn't move.
+# ---------------------------------------------------------------------------
+DEPLOYED_SHA_FILE="${REPO_DIR}/runtime_logs/deployed_sha.txt"
+LAST_DEPLOYED_SHA="$(tr -d '[:space:]' < "${DEPLOYED_SHA_FILE}" 2>/dev/null || true)"
+if [ -n "${LAST_DEPLOYED_SHA}" ] && git rev-parse -q --verify "${LAST_DEPLOYED_SHA}^{commit}" >/dev/null 2>&1; then
+    RUNTIME_BASE="${LAST_DEPLOYED_SHA}"
+else
+    RUNTIME_BASE="${PRE_SYNC_HEAD}"
+fi
+
+if [ "${RUNTIME_BASE}" = "${POST_SYNC_HEAD}" ]; then
+    echo ">>> Running processes already deployed at ${POST_SYNC_HEAD:0:7}; nothing to deploy."
     echo "===== DEPLOY COMPLETE: $(date) ====="
     exit 0
+fi
+if [ "${PRE_SYNC_HEAD}" = "${POST_SYNC_HEAD}" ]; then
+    echo ">>> This fetch moved nothing (HEAD ${POST_SYNC_HEAD:0:7}), but running code is at ${RUNTIME_BASE:0:7} — deploying to clear drift."
 fi
 
 # ---------------------------------------------------------------------------
@@ -255,15 +289,23 @@ fi
 # DEPLOY_FORCE_RESTART=1 to force the restart path regardless of the diff.
 # ---------------------------------------------------------------------------
 if [ "${DEPLOY_FORCE_RESTART:-0}" != "1" ]; then
-    CHANGED_FILES="$(git diff --name-only "${PRE_SYNC_HEAD}" "${POST_SYNC_HEAD}" 2>/dev/null || true)"
+    # Diff from RUNTIME_BASE (the SHA the running code is actually on) rather
+    # than PRE_SYNC_HEAD, so a drift deploy (HEAD didn't move this fetch, but
+    # the marker is behind) evaluates the files that changed since the running
+    # processes started — not an empty PRE..POST diff.
+    CHANGED_FILES="$(git diff --name-only "${RUNTIME_BASE}" "${POST_SYNC_HEAD}" 2>/dev/null || true)"
     if [ -n "${CHANGED_FILES}" ]; then
         # Strip the known-safe non-runtime paths; anything left needs a restart.
         RUNTIME_CHANGES="$(printf '%s\n' "${CHANGED_FILES}" \
             | grep -vE '^(docs/|tests/|\.claude/|\.github/|[^/]+\.md$)' || true)"
         if [ -z "${RUNTIME_CHANGES}" ]; then
-            echo ">>> Non-runtime commit (${PRE_SYNC_HEAD:0:7} -> ${POST_SYNC_HEAD:0:7}): only docs/tests/.claude/top-level-markdown changed."
+            echo ">>> Non-runtime commit (${RUNTIME_BASE:0:7} -> ${POST_SYNC_HEAD:0:7}): only docs/tests/.claude/top-level-markdown changed."
             echo ">>> Code synced + pings sent; skipping dependency install, unit refresh, and service restart (BL-20260529-002)."
             printf '%s\n' "${CHANGED_FILES}" | sed 's/^/>>>   changed: /'
+            # The running processes' RUNTIME code already matches POST (only
+            # non-loaded files differ), so record it as deployed — otherwise
+            # this skip would re-fire every 5-min tick while the marker lags HEAD.
+            printf '%s\n' "${POST_SYNC_HEAD}" > "${DEPLOYED_SHA_FILE}" 2>/dev/null || true
             echo "===== DEPLOY COMPLETE (no runtime change; restart skipped): $(date) ====="
             exit 0
         fi
@@ -476,6 +518,18 @@ else
         echo ">>>   This usually means ict-web-api.service didn't actually restart."
         exit 4
     fi
+fi
+
+# Record the SHA the services were just (re)started onto, so the NEXT run can
+# tell whether the running code is current even if HEAD later advances out of
+# band (BL-20260714-DEPLOY-STALE-ON-OOB-SYNC — see the restart-decision gate
+# above). Written only after a successful restart (and version assertion when
+# it ran) — a hard assertion failure exit 4's above and leaves the marker stale
+# so the next tick retries the restart.
+if printf '%s\n' "${POST_SYNC_HEAD}" > "${DEPLOYED_SHA_FILE}" 2>/dev/null; then
+    echo ">>> Recorded deploy marker: ${POST_SYNC_HEAD:0:7}"
+else
+    echo ">>> WARNING: could not write deploy marker ${DEPLOYED_SHA_FILE}"
 fi
 
 echo "===== DEPLOY COMPLETE: $(date) ====="
