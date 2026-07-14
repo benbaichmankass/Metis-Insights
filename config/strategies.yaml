@@ -806,6 +806,7 @@ strategies:
     # bars old still below 0R at bar close. Rollback = delete these 2 lines.
     stale_exit_bars: 8
     stale_exit_below_r: 0.0
+    vol_skip_below_pctl: 0.1   # M21 E-2 round 4 vol_lo10 (wf 4/6, 2026-07-14) — skip entries whose trigger-bar ATR sits in the dead-vol bottom decile (trailing 200-bar pctl); IS net_R -46.5 -> -31.1 (dd 66.9 -> 48.3), OOS +20.7 -> +24.1; measured config-exact on top of the stale8 declare. Rollback = delete this line.
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
     # ETHUSDT signals auto-wire the symbol-agnostic decision/meta models (the
     # symbol filter keeps BTC/MES regime heads off). Observe-only.
@@ -934,6 +935,7 @@ strategies:
     tp_r: 50.0
     min_confidence: 0.80
     skip_hours: "0"   # M21 E-2 round 3 skip_h0 (wf 5/6, 2026-07-14) — skip entries triggered on the UTC-midnight 4h bar (daily roll/funding boundary); stacks on the batch-1 depth declare (measured config-exact on top of min_confidence 0.80)
+    vol_skip_above_pctl: 0.9   # M21 E-2 round 4 vol_hi90 (wf 4/6, 2026-07-14) — skip entries whose trigger-bar ATR sits in the hot-vol top decile (trailing 200-bar pctl); IS net_R 57.2 -> 59.1 (dd 16.6 -> 15.5), OOS 9.2 -> 10.2 (dd 7.3 -> 6.3); measured config-exact on top of min_confidence 0.80 + skip_hours "0". Rollback = delete this line.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   trend_donchian_ada_4h:
@@ -1911,6 +1913,7 @@ strategies:
     trail_mult: 5.0
     tp_r: 50.0
     min_confidence: 0.0
+    vol_skip_below_pctl: 0.1   # M21 E-2 round 4 vol_lo10 (wf 4/6, 2026-07-14) — skip entries whose trigger-bar ATR sits in the dead-vol bottom decile (trailing 200-bar pctl); IS net_R 31.0 -> 32.3 (dd 16.1 -> 15.1), OOS 5.4 -> 7.4 (dd 12.0 -> 10.9). Rollback = delete this line.
     adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
@@ -1932,5 +1935,6 @@ strategies:
     trail_decay_tight_mult: 2.5
     tp_r: 50.0
     min_confidence: 0.0
+    vol_skip_below_pctl: 0.1   # M21 E-2 round 4 vol_lo10 (wf 4/6, 2026-07-14) — skip entries whose trigger-bar ATR sits in the dead-vol bottom decile (trailing 200-bar pctl); IS net_R 34.9 -> 36.2 (dd equal), OOS 15.0 -> 16.4 (dd 10.3 -> 9.6); measured config-exact on top of the P4.4 trail-decay declare. Rollback = delete this line.
     adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.

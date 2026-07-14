@@ -7,8 +7,8 @@
   "merge_slot": {
     "held_by": "session_01SDLWbfLGV4WYHgC2ugzedf",
     "branch": "claude/exit-refinement-sprint-l74k6o",
-    "pr": 6429,
-    "claimed_at": "2026-07-14T19:35:00Z"
+    "pr": 6434,
+    "claimed_at": "2026-07-14T20:56:00Z"
   },
   "active_sessions": [
     {
@@ -28,9 +28,9 @@
     {
       "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
       "branch": "claude/exit-refinement-sprint-l74k6o",
-      "intent": "Merging #6429 (vol-at-entry live twin + round-4 verdicts + devnull round-7 rules). Then: arm-audit round 7 + Tier-3 vol declare draft PR (4 cells, awaiting operator).",
+      "intent": "Operator APPROVED #6434 (M21 round-4 vol-at-entry declares, 4 cells) in chat 2026-07-14T20:54Z — merging + deploying, then overnight autonomous loop (soak checks, first-fire verification, backlog drive). Slot CLAIMED for #6434.",
       "started_at": "2026-07-13T05:07:08.981068+00:00",
-      "updated_at": "2026-07-14T19:35:00Z"
+      "updated_at": "2026-07-14T20:56:00Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
