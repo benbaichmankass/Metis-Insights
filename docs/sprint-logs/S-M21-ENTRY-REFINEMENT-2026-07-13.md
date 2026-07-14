@@ -308,3 +308,37 @@ Phase A implementation (observe-only annotate):
 Phase B (swap `allocator_ev.candidate_p_win` to the head + re-run the
 M18 selection backtest; unpark M18 P2 only if selection beats dumb
 priority) remains backtest-gated — nothing reads the annotation back.
+
+## E-3 CORRECTION — the gate pass was one-bar-ahead leakage (2026-07-14)
+
+The signal-bar re-gate (round 3, relay #6383/#6388;
+`runtime_logs/m21_entry_head_r3`) is the honest decision-time test, and
+it **overturns the round-1/2 verdicts**:
+
+- The age-0 feature anchor (`bisect_right` → first IN-TRADE bar) meant
+  `mom_8`/`donchian_mid_dist_atr`/`hour` at "entry" included the **first
+  post-entry bar's close** — information the live decision never has.
+  The strong results were riding that one bar of lookahead.
+- **donchian-1h on decision-bar features: honest negative/marginal** —
+  AUC 0.457–0.562 (two folds BELOW 0.5), replay 4/6 at τ0.3 only;
+  fails the "AUC materially > 0.55" gate half. Live n=13 AUC 0.792
+  held, but n is too small to override the walk-forward.
+- **pullback-2h: fails outright** (replay 0/4 at most τ, AUC ≈ 0.50,
+  live AUC 0.52).
+- The export gate script only tested the replay half, so
+  `entry-pwin-donchian-1h-v1` DID export to the mirror at
+  `stage=shadow` before the AUC degradation was read. Disposition:
+  **kept at shadow** — the Phase-A annotate is observe-only by
+  construction, and the artifact now accrues an honest live
+  decision-time track record (the correct use of shadow stage). The
+  pullback artifact was correctly withheld.
+- **Phase B (allocator P_win use) is NOT supported by this evidence
+  and stays parked** — same state as the 2026-06-30 M18 findings, now
+  with the added lesson that the label/feature anchor must be
+  decision-bar from the start. Matrix `p_win_head` corrected to
+  honest_negative fleet-wide.
+
+Methodology lesson recorded: any future entry-side head must anchor
+BOTH label and features at the decision bar before its first gate run —
+the parity check that caught this (built for the live scorer) should
+run before, not after, the evidence round.
