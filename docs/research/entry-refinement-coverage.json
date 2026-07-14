@@ -1,6 +1,6 @@
 {
  "_doc": "M21 entry-refinement coverage matrix - one row per strategy leg (same roster as the M20 exit matrix). THE milestone's done-condition: every live leg carries a verdict per entry-filter column (shipped / passed_unshipped / honest_negative / pending / blocked:<reason> / n/a). Update in the SAME PR as any verdict-producing work. Statuses only from verified evidence (memo/sprint-log/PR refs) - never inferred. Design: docs/research/M21-entry-refinement-DESIGN.md.",
- "updated_at": "2026-07-13",
+ "updated_at": "2026-07-14",
  "lever_columns": [
   "entry_baseline",
   "confirmation_bars",
@@ -40,8 +40,8 @@
     "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). confirm_1/confirm_2 is_oos_fail on BTC 1h."
    },
    "depth_threshold": {
-    "status": "passed_unshipped",
-    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). depth_0.7 PASS wf 5/6 (IS 55.4->58.4 net_R, dd 21.0->16.5; OOS -20.8->-14.8, dd 30.6->25.2). Tier-3 declare proposed (min_confidence 0.6->0.7, E-2 batch 1)."
+    "status": "shipped",
+    "ref": "E-2 batch 1 SHIPPED 2026-07-13 (PR #6322 merged 9155f87, restart #6328 verified via /api/diag/version). min_confidence 0.6->0.7. E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). depth_0.7 PASS wf 5/6 (IS 55.4->58.4 net_R, dd 21.0->16.5; OOS -20.8->-14.8, dd 30.6->25.2). Tier-3 declare proposed (min_confidence 0.6->0.7, E-2 batch 1)."
    },
    "vol_at_entry": {
     "status": "pending",
@@ -52,8 +52,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). Pooled donchian-1h crypto head (4039 entries: btc/eth/sol + prop twins + 1h shadow): GATE PASS - OOS AUC 0.61-0.672 all 5 yearly folds; tau-skip (P(first_touch_1r)>=tau) beats actual on net_R AND maxDD 5/5 folds at tau<=0.35 (e.g. 2025: actual -14.9/50.7 -> +131.9/21.8 keeping 59%); live validation n=13 AUC 0.875, tau_0.35 +16.6/4.0 vs +9.3/9.4 (sign agrees). Consumer wiring (M18 allocator P_win ranking / any live entry gate) is a separate Tier-3 ask - nothing live reads the head yet."
    }
   },
   {
@@ -82,8 +82,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). Pooled donchian-1h crypto head (4039 entries: btc/eth/sol + prop twins + 1h shadow): GATE PASS - OOS AUC 0.61-0.672 all 5 yearly folds; tau-skip (P(first_touch_1r)>=tau) beats actual on net_R AND maxDD 5/5 folds at tau<=0.35 (e.g. 2025: actual -14.9/50.7 -> +131.9/21.8 keeping 59%); live validation n=13 AUC 0.875, tau_0.35 +16.6/4.0 vs +9.3/9.4 (sign agrees). Consumer wiring (M18 allocator P_win ranking / any live entry gate) is a separate Tier-3 ask - nothing live reads the head yet."
    }
   },
   {
@@ -100,8 +100,8 @@
     "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). confirm cells fail IS/OOS."
    },
    "depth_threshold": {
-    "status": "passed_unshipped",
-    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). depth_0.8 PASS wf 6/6 (IS 32.8->52.2, dd 14.9->12.3; OOS 13.8->21.1, dd 7.2->6.4; depth_0.7 also 6/6, 0.8 dominates). Tier-3 declare proposed (0.6->0.8, batch 1). Prop twin sol_prop: depth_0.8 wf 5/6 (IS -0.5->19.2 dd 26.1->11.2) - same declare."
+    "status": "shipped",
+    "ref": "E-2 batch 1 SHIPPED 2026-07-13 (PR #6322 merged 9155f87, restart #6328 verified via /api/diag/version). min_confidence 0.6->0.8 (dominates 0.7). E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). depth_0.8 PASS wf 6/6 (IS 32.8->52.2, dd 14.9->12.3; OOS 13.8->21.1, dd 7.2->6.4; depth_0.7 also 6/6, 0.8 dominates). Tier-3 declare proposed (0.6->0.8, batch 1). Prop twin sol_prop: depth_0.8 wf 5/6 (IS -0.5->19.2 dd 26.1->11.2) - same declare."
    },
    "vol_at_entry": {
     "status": "pending",
@@ -112,8 +112,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). Pooled donchian-1h crypto head (4039 entries: btc/eth/sol + prop twins + 1h shadow): GATE PASS - OOS AUC 0.61-0.672 all 5 yearly folds; tau-skip (P(first_touch_1r)>=tau) beats actual on net_R AND maxDD 5/5 folds at tau<=0.35 (e.g. 2025: actual -14.9/50.7 -> +131.9/21.8 keeping 59%); live validation n=13 AUC 0.875, tau_0.35 +16.6/4.0 vs +9.3/9.4 (sign agrees). Consumer wiring (M18 allocator P_win ranking / any live entry gate) is a separate Tier-3 ask - nothing live reads the head yet."
    }
   },
   {
@@ -220,8 +220,8 @@
     "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). xrp_4h confirm_1 PASS wf 5/6 - parked: needs the live signal-builder confirmation twin before any declare (lever contract); depth_0.8 (equal wf, no new live code) declared instead. Others fail."
    },
    "depth_threshold": {
-    "status": "passed_unshipped",
-    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). xrp_4h depth_0.8 PASS wf 5/6 (OOS 5.6->8.5, dd 12.3->8.9); avax_4h depth_0.7 PASS wf 4/6 (OOS 8.4->11.5, dd 12.4->9.9). Tier-3 declares proposed (batch 1). eth/sol/ada 4h: honest_negative (all cells fail)."
+    "status": "shipped",
+    "ref": "E-2 batch 1 SHIPPED 2026-07-13 (PR #6322 merged 9155f87, restart #6328 verified via /api/diag/version). xrp_4h 0.6->0.8 + avax_4h 0.6->0.7 declared; eth/sol/ada 4h honest_negative. E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). xrp_4h depth_0.8 PASS wf 5/6 (OOS 5.6->8.5, dd 12.3->8.9); avax_4h depth_0.7 PASS wf 4/6 (OOS 8.4->11.5, dd 12.4->9.9). Tier-3 declares proposed (batch 1). eth/sol/ada 4h: honest_negative (all cells fail)."
    },
    "vol_at_entry": {
     "status": "pending",
@@ -232,8 +232,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). Pooled donchian-4h head (913 entries, all five 4h legs): AUC 0.61-0.727 but the tau-skip replay beats actual on net_R+maxDD only 2/4 folds at every tau (rescues bad years, costs good ones - 2024 actual +119.3 cut to ~+44). Fails the replay gate."
    }
   },
   {
@@ -323,7 +323,7 @@
    },
    "p_win_head": {
     "status": "pending",
-    "ref": null
+    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). First run stranded this leg from the family pool (restamp bug, fixed in PR #6369); rerun queued with corrected pooling."
    }
   },
   {
@@ -353,7 +353,7 @@
    },
    "p_win_head": {
     "status": "pending",
-    "ref": null
+    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). First run stranded this leg from the family pool (restamp bug, fixed in PR #6369); rerun queued with corrected pooling."
    }
   },
   {
@@ -427,7 +427,7 @@
    },
    "confirmation_bars": {
     "status": "passed_unshipped",
-    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). trend_donchian_1h (shadow) confirm_2 PASS wf 6/6, the round's biggest effect (IS -38.9->-9.5 net_R dd 71.5->46.5; OOS -34.1->-24.7 dd 51.6->35.0) - still net-negative, stays shadow; parked pending the live confirmation twin. || BATCH-2 NOTE: trend_donchian_1h is a RETIRED leg (enabled:false since 2026-06-01 \u2014 config adopted into the flagship); declaring on it is inert, and the cell leaves it net-negative anyway. NOT declared; evidence stands as the family's strongest confirm datapoint (unfiltered base)."
+    "ref": "E-2 donchian round-1 sweep 2026-07-13 (m21_entry_sweep.py, relay #6309 launch, #6319/#6321 readouts; runtime_logs/m21_entry_sweep/2026-07-13). trend_donchian_1h (shadow) confirm_2 PASS wf 6/6, the round's biggest effect (IS -38.9->-9.5 net_R dd 71.5->46.5; OOS -34.1->-24.7 dd 51.6->35.0) - still net-negative, stays shadow; parked pending the live confirmation twin. || BATCH-2 NOTE: trend_donchian_1h is a RETIRED leg (enabled:false since 2026-06-01 — config adopted into the flagship); declaring on it is inert, and the cell leaves it net-negative anyway. NOT declared; evidence stands as the family's strongest confirm datapoint (unfiltered base)."
    },
    "depth_threshold": {
     "status": "honest_negative",
@@ -442,8 +442,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). Pooled donchian-1h crypto head (4039 entries: btc/eth/sol + prop twins + 1h shadow): GATE PASS - OOS AUC 0.61-0.672 all 5 yearly folds; tau-skip (P(first_touch_1r)>=tau) beats actual on net_R AND maxDD 5/5 folds at tau<=0.35 (e.g. 2025: actual -14.9/50.7 -> +131.9/21.8 keeping 59%); live validation n=13 AUC 0.875, tau_0.35 +16.6/4.0 vs +9.3/9.4 (sign agrees). Consumer wiring (M18 allocator P_win ranking / any live entry gate) is a separate Tier-3 ask - nothing live reads the head yet. (Applies to the pooled 1h donchian shadow/prop twins in this row; other shadow legs pending their family rounds.)"
    }
   },
   {
@@ -473,7 +473,7 @@
    },
    "p_win_head": {
     "status": "pending",
-    "ref": null
+    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). First run stranded this leg from the family pool (restamp bug, fixed in PR #6369); rerun queued with corrected pooling."
    }
   }
  ]
