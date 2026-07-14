@@ -53,7 +53,7 @@
    },
    "p_win_head": {
     "status": "passed_unshipped",
-    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). Pooled donchian-1h crypto head (4039 entries: btc/eth/sol + prop twins + 1h shadow): GATE PASS - OOS AUC 0.61-0.672 all 5 yearly folds; tau-skip (P(first_touch_1r)>=tau) beats actual on net_R AND maxDD 5/5 folds at tau<=0.35 (e.g. 2025: actual -14.9/50.7 -> +131.9/21.8 keeping 59%); live validation n=13 AUC 0.875, tau_0.35 +16.6/4.0 vs +9.3/9.4 (sign agrees). Consumer wiring (M18 allocator P_win ranking / any live entry gate) is a separate Tier-3 ask - nothing live reads the head yet."
+    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). FULL donchian-1h pool (5244 entries incl. metals/equities/shadow legs): GATE PASS strengthened - tau_0.35 beats actual on net_R AND maxDD 6/6 yearly folds; AUC 0.576-0.627; live n=13 AUC 0.792, tau_0.35 +17.6/4.0 vs actual +9.3/9.4. Consumer wiring (M18 allocator P_win) is the pending Tier-3 ask."
    }
   },
   {
@@ -83,7 +83,7 @@
    },
    "p_win_head": {
     "status": "passed_unshipped",
-    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). Pooled donchian-1h crypto head (4039 entries: btc/eth/sol + prop twins + 1h shadow): GATE PASS - OOS AUC 0.61-0.672 all 5 yearly folds; tau-skip (P(first_touch_1r)>=tau) beats actual on net_R AND maxDD 5/5 folds at tau<=0.35 (e.g. 2025: actual -14.9/50.7 -> +131.9/21.8 keeping 59%); live validation n=13 AUC 0.875, tau_0.35 +16.6/4.0 vs +9.3/9.4 (sign agrees). Consumer wiring (M18 allocator P_win ranking / any live entry gate) is a separate Tier-3 ask - nothing live reads the head yet."
+    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). FULL donchian-1h pool (5244 entries incl. metals/equities/shadow legs): GATE PASS strengthened - tau_0.35 beats actual on net_R AND maxDD 6/6 yearly folds; AUC 0.576-0.627; live n=13 AUC 0.792, tau_0.35 +17.6/4.0 vs actual +9.3/9.4. Consumer wiring (M18 allocator P_win) is the pending Tier-3 ask."
    }
   },
   {
@@ -113,7 +113,7 @@
    },
    "p_win_head": {
     "status": "passed_unshipped",
-    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). Pooled donchian-1h crypto head (4039 entries: btc/eth/sol + prop twins + 1h shadow): GATE PASS - OOS AUC 0.61-0.672 all 5 yearly folds; tau-skip (P(first_touch_1r)>=tau) beats actual on net_R AND maxDD 5/5 folds at tau<=0.35 (e.g. 2025: actual -14.9/50.7 -> +131.9/21.8 keeping 59%); live validation n=13 AUC 0.875, tau_0.35 +16.6/4.0 vs +9.3/9.4 (sign agrees). Consumer wiring (M18 allocator P_win ranking / any live entry gate) is a separate Tier-3 ask - nothing live reads the head yet."
+    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). FULL donchian-1h pool (5244 entries incl. metals/equities/shadow legs): GATE PASS strengthened - tau_0.35 beats actual on net_R AND maxDD 6/6 yearly folds; AUC 0.576-0.627; live n=13 AUC 0.792, tau_0.35 +17.6/4.0 vs actual +9.3/9.4. Consumer wiring (M18 allocator P_win) is the pending Tier-3 ask."
    }
   },
   {
@@ -142,8 +142,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). Pooled pullback-2h head (1948 entries): PASS - tau_0.4 beats actual on net_R AND maxDD 4/4 usable folds; AUC 0.553-0.626. CAVEAT: live n=23 is a losing window (actual -19.4R) - the skip improves it (best -8.4R, dd 25.2->14.2) but stays negative; live AUC 0.667 agrees directionally."
    }
   },
   {
@@ -172,8 +172,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). Pooled pullback-2h head (1948 entries): PASS - tau_0.4 beats actual on net_R AND maxDD 4/4 usable folds; AUC 0.553-0.626. CAVEAT: live n=23 is a losing window (actual -19.4R) - the skip improves it (best -8.4R, dd 25.2->14.2) but stays negative; live AUC 0.667 agrees directionally."
    }
   },
   {
@@ -202,8 +202,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "pending",
-    "ref": null
+    "status": "passed_unshipped",
+    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). Pooled pullback-2h head (1948 entries): PASS - tau_0.4 beats actual on net_R AND maxDD 4/4 usable folds; AUC 0.553-0.626. CAVEAT: live n=23 is a losing window (actual -19.4R) - the skip improves it (best -8.4R, dd 25.2->14.2) but stays negative; live AUC 0.667 agrees directionally."
    }
   },
   {
@@ -322,8 +322,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "pending",
-    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). First run stranded this leg from the family pool (restamp bug, fixed in PR #6369); rerun queued with corrected pooling."
+    "status": "honest_negative",
+    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). donchian-1d pool (509 entries, 8 legs): blocked:insufficient_n - zero usable yearly folds at min-fold-trades 50. E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). pullback-1d pool (758 entries): honest negative - fold AUCs erratic (0.40-0.59), no consistent tau."
    }
   },
   {
@@ -352,8 +352,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "pending",
-    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). First run stranded this leg from the family pool (restamp bug, fixed in PR #6369); rerun queued with corrected pooling."
+    "status": "passed_unshipped",
+    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). FULL donchian-1h pool (5244 entries incl. metals/equities/shadow legs): GATE PASS strengthened - tau_0.35 beats actual on net_R AND maxDD 6/6 yearly folds; AUC 0.576-0.627; live n=13 AUC 0.792, tau_0.35 +17.6/4.0 vs actual +9.3/9.4. Consumer wiring (M18 allocator P_win) is the pending Tier-3 ask."
    }
   },
   {
@@ -382,8 +382,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). pullback-1d pool (758 entries): honest negative - fold AUCs erratic (0.40-0.59), no consistent tau. E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). donchian-1d pool (509 entries, 8 legs): blocked:insufficient_n - zero usable yearly folds at min-fold-trades 50."
    }
   },
   {
@@ -412,8 +412,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "pending",
-    "ref": null
+    "status": "honest_negative",
+    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). pullback-1h pool (1369 entries): honest negative - best tau 2/8 folds, AUCs straddle 0.5. The slv/uso 1h TREND legs in this row ARE covered by the gated donchian-1h pooled head (see donchian rows)."
    }
   },
   {
@@ -443,7 +443,7 @@
    },
    "p_win_head": {
     "status": "passed_unshipped",
-    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). Pooled donchian-1h crypto head (4039 entries: btc/eth/sol + prop twins + 1h shadow): GATE PASS - OOS AUC 0.61-0.672 all 5 yearly folds; tau-skip (P(first_touch_1r)>=tau) beats actual on net_R AND maxDD 5/5 folds at tau<=0.35 (e.g. 2025: actual -14.9/50.7 -> +131.9/21.8 keeping 59%); live validation n=13 AUC 0.875, tau_0.35 +16.6/4.0 vs +9.3/9.4 (sign agrees). Consumer wiring (M18 allocator P_win ranking / any live entry gate) is a separate Tier-3 ask - nothing live reads the head yet. (Applies to the pooled 1h donchian shadow/prop twins in this row; other shadow legs pending their family rounds.)"
+    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). FULL donchian-1h pool (5244 entries incl. metals/equities/shadow legs): GATE PASS strengthened - tau_0.35 beats actual on net_R AND maxDD 6/6 yearly folds; AUC 0.576-0.627; live n=13 AUC 0.792, tau_0.35 +17.6/4.0 vs actual +9.3/9.4. Consumer wiring (M18 allocator P_win) is the pending Tier-3 ask. (1h donchian shadow/prop twins covered by the gated pool; squeeze/fade/vwap/ict_scalp legs remain pending their own family harness emits.)"
    }
   },
   {
@@ -472,8 +472,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "pending",
-    "ref": "E-3 entry-head round 1 2026-07-14 (m21_entry_head_round.py; relay #6359 launch, #6368/#6371 readouts; runtime_logs/m21_entry_head/2026-07-14). First run stranded this leg from the family pool (restamp bug, fixed in PR #6369); rerun queued with corrected pooling."
+    "status": "passed_unshipped",
+    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). FULL donchian-1h pool (5244 entries incl. metals/equities/shadow legs): GATE PASS strengthened - tau_0.35 beats actual on net_R AND maxDD 6/6 yearly folds; AUC 0.576-0.627; live n=13 AUC 0.792, tau_0.35 +17.6/4.0 vs actual +9.3/9.4. Consumer wiring (M18 allocator P_win) is the pending Tier-3 ask."
    }
   }
  ]
