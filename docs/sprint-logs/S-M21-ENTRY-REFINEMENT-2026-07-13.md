@@ -177,3 +177,41 @@ or a recorded park. **Next: E-3 — the P_win entry head** (first_touch
 +1R-before-−1R label; ETH's only remaining lever; the M18 allocator
 unlock), and the walk-forward-gated time-of-day cells remain optional
 follow-ups.
+
+## E-3 tooling: P_win entry head (2026-07-14)
+
+Tier-1 tooling for the E-3 round (design § E-3; the M18 allocator's
+P_win unlock and ETH's only remaining lever):
+
+- **Labels in the E0 builder** (`build_exit_head_dataset.py`):
+  per-trade `first_touch_1r` (+1R bar-high basis touched BEFORE −1R
+  bar-low basis; a both-in-one-bar crossing counts conservatively as
+  loss-first — the intrabar-stop-first convention) + `reaches_2r`,
+  stamped on every row; plus `entry_confidence` (the emit's live-parity
+  depth confidence; None on pre-E-3 emits / live rows).
+- **Harness emit** (`backtest_trend.py`): the breakout-depth confidence
+  is now computed unconditionally at the signal bar (gating behaviour
+  unchanged — still only enforced when `min_confidence > 0`), carried
+  through the pending-confirmation path, and written to the emit
+  (`Trade.confidence`). The pullback harness already emitted it.
+- **Trainer** (`scripts/ml/train_entry_head.py`): LightGBM on the
+  `age_bars==0` slice, ENTRY-TIME features only (`mom_8`,
+  `donchian_mid_dist_atr`, `hour_of_day`, `dayofweek`, `is_long`,
+  `entry_confidence`); per-year purged folds (7-day embargo on the
+  trade's LAST bar); per-fold OOS AUC + reliability + the **τ-skip
+  replay** (survivors with P(win) ≥ τ, entry-time order, actual
+  final_r — net_R + running-peak maxDD vs taking every trade) + a
+  per-τ walk-forward beats-actual roll-up + live validation.
+- **Round driver** (`scripts/research/m21_entry_head_round.py`):
+  per-leg config-exact re-emit (pre-E-3 emits lack confidence) →
+  per-`(family, tf)` pooled dataset build → entry-head train/replay,
+  emit rows re-stamped with the leg name so same-symbol legs can't
+  collide on `trade_key`. Donchian family first, ETH priority.
+- Tests: `tests/test_entry_head_labels.py` (win/loss/both-in-one-bar
+  label contract + entry_confidence stamping); confirm-bars lever/twin
+  + exit-head parity suites re-run green.
+
+Gate (unchanged from the design): OOS AUC materially > 0.55 AND a
+τ-skip arm beats actual on net_R AND maxDD across the walk-forward AND
+the live set agrees in sign. Consumer: M18 allocator ranking first;
+any per-leg live entry gate is a separate Tier-3 ask.
