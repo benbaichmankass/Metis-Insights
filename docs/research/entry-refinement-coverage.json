@@ -52,8 +52,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "passed_unshipped",
-    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). FULL donchian-1h pool (5244 entries incl. metals/equities/shadow legs): GATE PASS strengthened - tau_0.35 beats actual on net_R AND maxDD 6/6 yearly folds; AUC 0.576-0.627; live n=13 AUC 0.792, tau_0.35 +17.6/4.0 vs actual +9.3/9.4. Consumer wiring (M18 allocator P_win) is the pending Tier-3 ask."
+    "status": "honest_negative",
+    "ref": "E-3 round 3 SIGNAL-BAR re-gate 2026-07-14 (parity features, PR #6381; relay #6383 launch, #6388 readout; runtime_logs/m21_entry_head_r3). CORRECTION: the round-1/2 'gate pass' was inflated by one-bar-ahead leakage - the age-0 feature anchor included the FIRST POST-ENTRY bar's close, information the live decision never has. On decision-bar features the donchian-1h pool degrades to AUC 0.457-0.562 (two folds < 0.5) with replay 4/6 at tau_0.3 only - fails the 'AUC materially > 0.55' half of the gate. The entry-pwin-donchian-1h-v1 artifact IS mirrored at stage=shadow (observe-only annotate, live decision-time track record accrual); Phase B (allocator use) is NOT supported and stays parked."
    }
   },
   {
@@ -82,8 +82,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "passed_unshipped",
-    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). FULL donchian-1h pool (5244 entries incl. metals/equities/shadow legs): GATE PASS strengthened - tau_0.35 beats actual on net_R AND maxDD 6/6 yearly folds; AUC 0.576-0.627; live n=13 AUC 0.792, tau_0.35 +17.6/4.0 vs actual +9.3/9.4. Consumer wiring (M18 allocator P_win) is the pending Tier-3 ask."
+    "status": "honest_negative",
+    "ref": "E-3 round 3 SIGNAL-BAR re-gate 2026-07-14 (parity features, PR #6381; relay #6383 launch, #6388 readout; runtime_logs/m21_entry_head_r3). CORRECTION: the round-1/2 'gate pass' was inflated by one-bar-ahead leakage - the age-0 feature anchor included the FIRST POST-ENTRY bar's close, information the live decision never has. On decision-bar features the donchian-1h pool degrades to AUC 0.457-0.562 (two folds < 0.5) with replay 4/6 at tau_0.3 only - fails the 'AUC materially > 0.55' half of the gate. The entry-pwin-donchian-1h-v1 artifact IS mirrored at stage=shadow (observe-only annotate, live decision-time track record accrual); Phase B (allocator use) is NOT supported and stays parked."
    }
   },
   {
@@ -112,8 +112,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "passed_unshipped",
-    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). FULL donchian-1h pool (5244 entries incl. metals/equities/shadow legs): GATE PASS strengthened - tau_0.35 beats actual on net_R AND maxDD 6/6 yearly folds; AUC 0.576-0.627; live n=13 AUC 0.792, tau_0.35 +17.6/4.0 vs actual +9.3/9.4. Consumer wiring (M18 allocator P_win) is the pending Tier-3 ask."
+    "status": "honest_negative",
+    "ref": "E-3 round 3 SIGNAL-BAR re-gate 2026-07-14 (parity features, PR #6381; relay #6383 launch, #6388 readout; runtime_logs/m21_entry_head_r3). CORRECTION: the round-1/2 'gate pass' was inflated by one-bar-ahead leakage - the age-0 feature anchor included the FIRST POST-ENTRY bar's close, information the live decision never has. On decision-bar features the donchian-1h pool degrades to AUC 0.457-0.562 (two folds < 0.5) with replay 4/6 at tau_0.3 only - fails the 'AUC materially > 0.55' half of the gate. The entry-pwin-donchian-1h-v1 artifact IS mirrored at stage=shadow (observe-only annotate, live decision-time track record accrual); Phase B (allocator use) is NOT supported and stays parked."
    }
   },
   {
@@ -142,8 +142,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "passed_unshipped",
-    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). Pooled pullback-2h head (1948 entries): PASS - tau_0.4 beats actual on net_R AND maxDD 4/4 usable folds; AUC 0.553-0.626. CAVEAT: live n=23 is a losing window (actual -19.4R) - the skip improves it (best -8.4R, dd 25.2->14.2) but stays negative; live AUC 0.667 agrees directionally."
+    "status": "honest_negative",
+    "ref": "E-3 round 3 SIGNAL-BAR re-gate 2026-07-14 (parity features, PR #6381; relay #6383 launch, #6388 readout; runtime_logs/m21_entry_head_r3). Same correction: pullback-2h on decision-bar features fails outright (replay 0/4 at most taus, AUC 0.498-0.562, live AUC 0.52). No artifact exported. The round-2 4/4 result was the age-0 leakage."
    }
   },
   {
@@ -172,8 +172,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "passed_unshipped",
-    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). Pooled pullback-2h head (1948 entries): PASS - tau_0.4 beats actual on net_R AND maxDD 4/4 usable folds; AUC 0.553-0.626. CAVEAT: live n=23 is a losing window (actual -19.4R) - the skip improves it (best -8.4R, dd 25.2->14.2) but stays negative; live AUC 0.667 agrees directionally."
+    "status": "honest_negative",
+    "ref": "E-3 round 3 SIGNAL-BAR re-gate 2026-07-14 (parity features, PR #6381; relay #6383 launch, #6388 readout; runtime_logs/m21_entry_head_r3). Same correction: pullback-2h on decision-bar features fails outright (replay 0/4 at most taus, AUC 0.498-0.562, live AUC 0.52). No artifact exported. The round-2 4/4 result was the age-0 leakage."
    }
   },
   {
@@ -202,8 +202,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "passed_unshipped",
-    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). Pooled pullback-2h head (1948 entries): PASS - tau_0.4 beats actual on net_R AND maxDD 4/4 usable folds; AUC 0.553-0.626. CAVEAT: live n=23 is a losing window (actual -19.4R) - the skip improves it (best -8.4R, dd 25.2->14.2) but stays negative; live AUC 0.667 agrees directionally."
+    "status": "honest_negative",
+    "ref": "E-3 round 3 SIGNAL-BAR re-gate 2026-07-14 (parity features, PR #6381; relay #6383 launch, #6388 readout; runtime_logs/m21_entry_head_r3). Same correction: pullback-2h on decision-bar features fails outright (replay 0/4 at most taus, AUC 0.498-0.562, live AUC 0.52). No artifact exported. The round-2 4/4 result was the age-0 leakage."
    }
   },
   {
@@ -442,8 +442,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "passed_unshipped",
-    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). FULL donchian-1h pool (5244 entries incl. metals/equities/shadow legs): GATE PASS strengthened - tau_0.35 beats actual on net_R AND maxDD 6/6 yearly folds; AUC 0.576-0.627; live n=13 AUC 0.792, tau_0.35 +17.6/4.0 vs actual +9.3/9.4. Consumer wiring (M18 allocator P_win) is the pending Tier-3 ask. (1h donchian shadow/prop twins covered by the gated pool; squeeze/fade/vwap/ict_scalp legs remain pending their own family harness emits.)"
+    "status": "honest_negative",
+    "ref": "E-3 round 3 SIGNAL-BAR re-gate 2026-07-14 (parity features, PR #6381; relay #6383 launch, #6388 readout; runtime_logs/m21_entry_head_r3). CORRECTION: the round-1/2 'gate pass' was inflated by one-bar-ahead leakage - the age-0 feature anchor included the FIRST POST-ENTRY bar's close, information the live decision never has. On decision-bar features the donchian-1h pool degrades to AUC 0.457-0.562 (two folds < 0.5) with replay 4/6 at tau_0.3 only - fails the 'AUC materially > 0.55' half of the gate. The entry-pwin-donchian-1h-v1 artifact IS mirrored at stage=shadow (observe-only annotate, live decision-time track record accrual); Phase B (allocator use) is NOT supported and stays parked."
    }
   },
   {
@@ -472,8 +472,8 @@
     "ref": null
    },
    "p_win_head": {
-    "status": "passed_unshipped",
-    "ref": "E-3 round 2 2026-07-14 (corrected pooling, PR #6369; relay #6376 launch, #6378/#6379 readouts; runtime_logs/m21_entry_head_r2 + _pb). FULL donchian-1h pool (5244 entries incl. metals/equities/shadow legs): GATE PASS strengthened - tau_0.35 beats actual on net_R AND maxDD 6/6 yearly folds; AUC 0.576-0.627; live n=13 AUC 0.792, tau_0.35 +17.6/4.0 vs actual +9.3/9.4. Consumer wiring (M18 allocator P_win) is the pending Tier-3 ask."
+    "status": "honest_negative",
+    "ref": "E-3 round 3 SIGNAL-BAR re-gate 2026-07-14 (parity features, PR #6381; relay #6383 launch, #6388 readout; runtime_logs/m21_entry_head_r3). CORRECTION: the round-1/2 'gate pass' was inflated by one-bar-ahead leakage - the age-0 feature anchor included the FIRST POST-ENTRY bar's close, information the live decision never has. On decision-bar features the donchian-1h pool degrades to AUC 0.457-0.562 (two folds < 0.5) with replay 4/6 at tau_0.3 only - fails the 'AUC materially > 0.55' half of the gate. The entry-pwin-donchian-1h-v1 artifact IS mirrored at stage=shadow (observe-only annotate, live decision-time track record accrual); Phase B (allocator use) is NOT supported and stays parked."
    }
   }
  ]
