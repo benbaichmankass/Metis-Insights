@@ -379,3 +379,16 @@ skip_hours "0"` + `spy_pullback_1h: skip_hours "19,20"` in
 `config/strategies.yaml` — draft PR opened and pinged. Matrix
 `time_of_day` column CLOSED: 2 passed_unshipped, 2 honest_negative
 (grouped), 11 n/a (no shared pocket — deliberately un-mined).
+
+## Tier-3 declares SHIPPED (2026-07-14)
+
+Operator approved the batch in chat ("ok, approved, continue"). PR
+#6402 merged to `main` @ `b0d4194` (squash; all 17 checks green):
+`trend_donchian_xrp_4h: skip_hours "0"` and `spy_pullback_1h:
+skip_hours "19,20"`. Trader restarted via the `restart-bot-service`
+system-action (issue #6403, exit 0, service active post-restart) to
+load the new `strategies.yaml`; post-state VERIFIED via
+`/api/diag/status` (relay #6407, 15:15Z): `git_sha b0d41941` running,
+heartbeat `running`, both declared strategies loaded and ticking. Matrix `time_of_day` cells flipped
+`passed_unshipped → shipped`. Rollback: delete the YAML line +
+restart (live twin stays inert at default `""`).
