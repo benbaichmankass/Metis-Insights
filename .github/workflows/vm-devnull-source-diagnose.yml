@@ -200,9 +200,42 @@ jobs:
             sudo journalctl _TRANSPORT=audit --since "48 hours ago" --no-pager 2>&1 \
               | grep 'name="/dev/null"' | grep -E 'nametype=(DELETE|CREATE)' | tail -20 \
               || echo "(no node-replacement events captured)"
+            # ROUND 5 (2026-07-14): a strip at 15:11:26Z was re-hunted at 15:13Z —
+            # journald transport verifiably live, yet ZERO chmod-124 and ZERO
+            # DELETE/CREATE events. The node itself may never change: an EACCES
+            # on the redirect's open() can come from PROCESS-CONTEXT denial
+            # (device-cgroup DeviceAllow / LSM) rather than a file mutation.
+            # The failing opens ARE path events on the watched inode — hunt
+            # success=no records (full exe=/ppid=/subj= context of the DENIED
+            # process), plus AVC/AppArmor denials, plus a shadow-mount check.
+            echo "--- journald: DENIED opens on /dev/null (success=no, keyed), last 48h ---"
+            sudo journalctl _TRANSPORT=audit --since "48 hours ago" --no-pager 2>&1 \
+              | grep 'key="devnull"' | grep 'success=no' | tail -40 \
+              || echo "(no denied-open events captured — the EACCES may bypass the watch entirely)"
+            echo "--- raw /var/log/audit: DENIED keyed events (ausearch is broken; raw grep, ~7.5h retention) ---"
+            sudo grep -h 'key="devnull"' /var/log/audit/audit.log* 2>/dev/null | grep 'success=no' | tail -40 \
+              || echo "(no denied events in raw audit files)"
+            echo "--- raw /var/log/audit: chmod-124 + DELETE/CREATE sweep (belt-and-suspenders vs journald) ---"
+            sudo grep -h 'key="devnull"' /var/log/audit/audit.log* 2>/dev/null | grep -E 'a[123]=124\b' | tail -20 \
+              || echo "(no 0444 strips in raw audit files)"
+            sudo grep -h 'name="/dev/null"' /var/log/audit/audit.log* 2>/dev/null | grep -E 'nametype=(DELETE|CREATE)' | tail -20 \
+              || echo "(no node replacement in raw audit files)"
+            echo "--- LSM denials (AVC/AppArmor) mentioning dev/null, last 48h ---"
+            sudo journalctl --since "48 hours ago" --no-pager 2>&1 \
+              | grep -Ei 'apparmor="?denied|avc: *denied' | grep -i 'dev/null' | tail -20 \
+              || echo "(no LSM denials on /dev/null)"
+            echo "--- shadow-mount check: is anything mounted ON /dev/null? ---"
+            grep ' /dev/null ' /proc/mounts || echo "(nothing mounted on /dev/null now)"
+            findmnt /dev/null 2>/dev/null || echo "(findmnt: /dev/null is not a mountpoint now)"
+            echo "--- journald: mount syscalls touching /dev/null, last 48h ---"
+            sudo journalctl _TRANSPORT=audit --since "48 hours ago" --no-pager 2>&1 \
+              | grep 'name="/dev/null"' | grep -Ei 'syscall=(40|165|mount)' | tail -10 \
+              || echo "(no mount events on /dev/null)"
             echo; echo "===== CULPRIT HINT ====="
             echo "The SYSCALL that sets /dev/null to mode 0444 (0x124, write bit stripped) is the SOURCE."
             echo "Its exe=/comm=/ppid names the process. The guard's own restores set 0666 (0x1b6) — expected noise."
+            echo "If mutation hunts stay empty but success=no opens appear: the denial is process-context"
+            echo "(device cgroup / LSM), not a file change — check the denied record's subj= and cgroup."
           fi
           echo "(done)"
           REMOTE
