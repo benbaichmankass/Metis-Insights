@@ -215,3 +215,34 @@ Gate (unchanged from the design): OOS AUC materially > 0.55 AND a
 τ-skip arm beats actual on net_R AND maxDD across the walk-forward AND
 the live set agrees in sign. Consumer: M18 allocator ranking first;
 any per-leg live entry gate is a separate Tier-3 ask.
+
+## E-3 round 1 (donchian) — RESULTS (2026-07-14)
+
+Round complete on the trainer (relay #6359 launch, #6368/#6371 readouts;
+`runtime_logs/m21_entry_head/2026-07-14/`):
+
+- **donchian_1h pooled crypto head (4,039 entries): GATE PASS — the
+  round's headline.** OOS AUC 0.61–0.672 in ALL 5 yearly folds;
+  τ-skip beats actual on net_R AND maxDD **5/5 folds at τ ≤ 0.35**
+  (2022: actual −57.0 net_R / 77.1 dd → +46.0 / 15.6 keeping 50%;
+  2025: −14.9 / 50.7 → +131.9 / 21.8 keeping 59%). Live validation:
+  n=13, AUC 0.875, τ0.35 +16.6/4.0 vs actual +9.3/9.4 — sign agrees.
+  This is the proven P_win input M18 P2/P3 was parked on
+  (`docs/research/M18-allocator-backtest-findings-2026-06-29.md`: the
+  EV scorer's 2026-06 ranker was AUC ≈ 0.51). **Consumer wiring is the
+  next Tier-3 ask** — nothing live reads the head yet.
+- **donchian_4h (913 entries): honest negative on the replay gate.**
+  AUC real (0.61–0.727) but τ-skip beats actual only 2/4 folds at
+  every τ — it rescues bad years and costs good ones (2024 actual
+  +119.3 → ~+44).
+- **Driver bug found + fixed (PR #6369):** the per-leg restamp used raw
+  leg names, which for legs not containing "donchian"/`trend_`-prefixed
+  (mgc/slv/uso/xauusd 1h, all `*_trend_long_1d`) fell out of the
+  builder's family pooling — the 1d group's train step 404'd and the 1h
+  pool was crypto-only. Restamp now family-prefixes when needed;
+  `--tf` added for group reruns. 1d + stranded-1h rerun queued.
+
+Matrix updated: `p_win_head` passed_unshipped (1h crypto donchians) /
+honest_negative (4h) / pending-rerun (1d + stranded 1h); stale
+`depth_threshold` statuses from the batch-1 shipping corrected to
+`shipped`.

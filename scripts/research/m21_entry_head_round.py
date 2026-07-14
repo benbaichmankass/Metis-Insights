@@ -43,15 +43,37 @@ def run(cmd: list[str], timeout: int = 1800) -> tuple[int, str]:
     return p.returncode, (p.stdout + p.stderr)[-2000:]
 
 
-def restamp(emit: Path, leg: str) -> int:
-    """Rewrite the emit's ``strategy`` to the leg name (trade_key safety)."""
+# family_of (builder-side) pools rows by the emit's strategy name, so the
+# restamped per-leg name must STILL classify into the harness family — a
+# leg name like ``mgc_trend_1h`` or ``iwm_trend_long_1d`` doesn't (it
+# neither contains "donchian" nor starts with "trend_"), which stranded
+# those legs in per-leg family dirs on the 2026-07-14 first run (the 1d
+# group's train step 404'd on the pooled rows.jsonl).
+FAM_PREFIX = {"donchian": "trend_", "pullback": "pullback_",
+              "squeeze": "squeeze_", "fade": "fade_"}
+
+
+def _family_of(strategy: str) -> str:
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "build_exit_head_dataset", REPO / "scripts/ml/build_exit_head_dataset.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.family_of(strategy)
+
+
+def restamp(emit: Path, leg: str, fam: str) -> int:
+    """Rewrite the emit's ``strategy`` to a unique per-leg name that still
+    pools into ``fam`` under the builder's family_of (trade_key safety +
+    correct family pooling)."""
+    name = leg if _family_of(leg) == fam else f"{FAM_PREFIX[fam]}{leg}"
     rows = []
     for line in emit.open():
         line = line.strip()
         if not line:
             continue
         r = json.loads(line)
-        r["strategy"] = leg
+        r["strategy"] = name
         rows.append(r)
     emit.write_text("".join(json.dumps(r) + "\n" for r in rows))
     return len(rows)
@@ -64,6 +86,8 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--family", default="donchian",
                     help="harness family to run (donchian round first)")
     ap.add_argument("--only", default=None, help="CSV of leg names (debug)")
+    ap.add_argument("--tf", default=None,
+                    help="CSV of timeframes to restrict to (rerun one group)")
     ap.add_argument("--priority", default="trend_donchian_eth",
                     help="CSV of legs run first within each group")
     ap.add_argument("--db", default=None,
@@ -89,6 +113,8 @@ def main(argv: list[str]) -> int:
             continue
         sym = (cfg.get("symbols") or [None])[0]
         tf = str(cfg.get("timeframe") or "1h")
+        if a.tf and tf not in a.tf.split(","):
+            continue
         data, proxy, resample = resolve_data(str(sym), tf, data_dir)
         if data is None:
             skipped.append({"leg": name, "reason": f"data_missing:{sym}"})
@@ -127,7 +153,7 @@ def main(argv: list[str]) -> int:
                 g["legs"][p["leg"]] = {"error": tail[-300:]}
                 print(f"  EMIT FAIL {p['leg']}: {tail[-120:]}", flush=True)
                 continue
-            n = restamp(emit, p["leg"])
+            n = restamp(emit, p["leg"], fam)
             g["legs"][p["leg"]] = {"trades": n, "proxy": p["proxy"]}
             print(f"  emit {p['leg']}: {n} trades", flush=True)
             trades_args += ["--trades", str(emit)]
