@@ -231,7 +231,8 @@
           "s": "a",
           "t": "The fun one. See you there."
         }
-      ]
+      ],
+      "audio_url": "https://github.com/benbaichmankass/ict-trader-dashboard/releases/download/learning-audio/elements-of-ai-ch1-ep2.mp3"
     },
     {
       "id": "ep3",
@@ -331,7 +332,8 @@
           "s": "a",
           "t": "When you're ready, take the quiz — it'll tell you what stuck and what to relisten to. Thanks for listening."
         }
-      ]
+      ],
+      "audio_url": "https://github.com/benbaichmankass/ict-trader-dashboard/releases/download/learning-audio/elements-of-ai-ch1-ep3.mp3"
     }
   ],
   "quiz": [
