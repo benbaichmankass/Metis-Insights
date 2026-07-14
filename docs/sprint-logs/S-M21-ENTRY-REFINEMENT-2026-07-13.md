@@ -387,9 +387,8 @@ Operator approved the batch in chat ("ok, approved, continue"). PR
 `trend_donchian_xrp_4h: skip_hours "0"` and `spy_pullback_1h:
 skip_hours "19,20"`. Trader restarted via the `restart-bot-service`
 system-action (issue #6403, exit 0, service active post-restart) to
-load the new `strategies.yaml`; running-SHA verification via
-`/api/diag/status` in flight (relay #6404 — the restart ran ~1 min
-after the merge, so a stale git-sync pull would need one more
-restart). Matrix `time_of_day` cells flipped
+load the new `strategies.yaml`; post-state VERIFIED via
+`/api/diag/status` (relay #6407, 15:15Z): `git_sha b0d41941` running,
+heartbeat `running`, both declared strategies loaded and ticking. Matrix `time_of_day` cells flipped
 `passed_unshipped → shipped`. Rollback: delete the YAML line +
 restart (live twin stays inert at default `""`).
