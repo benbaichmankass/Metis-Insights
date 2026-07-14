@@ -1,11 +1,17 @@
 # ============================================
 # ICT INSIGHTS GENERATOR — PER-STRATEGY TIMER (SLOW TIER, M13 S2)
-# Fires ict-insights-generator-strategies.service every 60 minutes.
+# Fires ict-insights-generator-strategies.service every 120 minutes.
 #
 # Pairs with the fast tier (ict-insights-generator.timer @ 15 min)
 # to give the operator two cadences:
 #   - Fast (15 min) — global endpoints on gemini-2.0-flash.
-#   - Slow (60 min) — per-strategy on gemini-2.5-flash (this timer).
+#   - Slow (120 min) — per-strategy on gemini-2.0-flash (this timer).
+#
+# Cadence widened 60 → 120 min (2026-07-14) for Gemini free-tier headroom:
+# with a ~48-strategy fleet the per-strategy fan-out is the dominant call
+# volume, so a 2-hour cadence (paired with the active-strategies-only filter in
+# run_insights_strategies_cycle.sh) keeps the combined daily volume well under
+# gemini-2.0-flash's ~1,500 RPD free-tier cap.
 #
 # Initial fire is 7 min after boot so it doesn't overlap with the
 # fast-tier first fire at 2 min — keeps the journal tidy.
@@ -15,12 +21,12 @@
 # ============================================
 
 [Unit]
-Description=ICT Trading Bot — AI Analyst slow tier (every 60 min)
+Description=ICT Trading Bot — AI Analyst slow tier (every 120 min)
 Requires=ict-insights-generator-strategies.service
 
 [Timer]
 OnBootSec=7min
-OnUnitActiveSec=60min
+OnUnitActiveSec=120min
 AccuracySec=1min
 Persistent=true
 Unit=ict-insights-generator-strategies.service
