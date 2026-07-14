@@ -82,6 +82,17 @@ _DEFAULTS: Dict[str, Any] = {
     # unchanged. Mirrors scripts/backtest_pullback.py --skip-hours exactly;
     # declared per leg in config/strategies.yaml (Tier-3).
     "skip_hours": "",
+    # M21 E-2 vol-at-entry lever (both 0.0 = off, byte-identical): skip any
+    # NEW entry whose TRIGGER bar's ATR sits at an extreme TRAILING
+    # percentile (rank within the previous `vol_pctl_window` bars — causal;
+    # the live 200-bar fetch fills the default window exactly). above>0
+    # skips the hot tail; below>0 the dead tail. An undefined percentile
+    # NEVER skips (fail-permissive). Exits are never touched. Mirrors
+    # scripts/backtest_pullback.py --vol-skip-*-pctl exactly; declared per
+    # leg in config/strategies.yaml (Tier-3).
+    "vol_skip_above_pctl": 0.0,
+    "vol_skip_below_pctl": 0.0,
+    "vol_pctl_window": 200,
 }
 
 _TP_SENTINEL_CAP_PCT = 0.099
@@ -108,6 +119,23 @@ def _bar_hour_utc(df: pd.DataFrame, idx: int) -> Optional[int]:
     try:
         return int(pd.Timestamp(df["timestamp"].iloc[idx]).hour)
     except (KeyError, IndexError, TypeError, ValueError):
+        return None
+
+
+def _trailing_atr_pctl(atr_series: pd.Series, idx: int,
+                       window: int) -> Optional[float]:
+    """Trailing ATR percentile of the bar at ``idx`` (M21 vol-at-entry).
+
+    Rank of ATR[idx] within the previous ``window`` values (causal, includes
+    the bar itself) — the exact ``rolling(window, min_periods=window)
+    .rank(pct=True)`` the research harness validated. None when the window
+    has not filled or anything raises (fail-permissive: never skips).
+    """
+    try:
+        pctl = atr_series.rolling(window, min_periods=window).rank(pct=True)
+        val = pctl.iloc[idx]
+        return None if pd.isna(val) else float(val)
+    except Exception:  # noqa: BLE001 — any failure must never strand a leg
         return None
 
 
@@ -236,6 +264,29 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
                 "non-actionable."
             )
 
+    # M21 E-2 vol-at-entry gate — same trigger-bar anchor as skip_hours,
+    # mirroring scripts/backtest_pullback.py bar-for-bar. An undefined
+    # percentile (window unfilled / any error) never skips (fail-permissive).
+    vol_above = _coerce_float(params.get("vol_skip_above_pctl")) or 0.0
+    vol_below = _coerce_float(params.get("vol_skip_below_pctl")) or 0.0
+    vol_pctl: Optional[float] = None
+    if vol_above > 0.0 or vol_below > 0.0:
+        vol_window = int(_coerce_float(params.get("vol_pctl_window")) or 200)
+        vol_pctl = _trailing_atr_pctl(atr_series, -1, vol_window)
+        if vol_pctl is not None:
+            if vol_above > 0.0 and vol_pctl > vol_above:
+                raise ValueError(
+                    f"Strategy '{label}': trigger bar ATR percentile "
+                    f"{vol_pctl:.3f} > vol_skip_above_pctl {vol_above} — "
+                    "vol-at-entry gate (hot tail), non-actionable."
+                )
+            if vol_below > 0.0 and vol_pctl < vol_below:
+                raise ValueError(
+                    f"Strategy '{label}': trigger bar ATR percentile "
+                    f"{vol_pctl:.3f} < vol_skip_below_pctl {vol_below} — "
+                    "vol-at-entry gate (dead tail), non-actionable."
+                )
+
     # ADX regime gate (recombination lever) — admit the confirmed setup only if
     # its Wilder ADX on the closed signal bar sits inside [adx_min, adx_max].
     # OFF by default (both None) → no-op. Matches scripts/backtest_pullback.py
@@ -344,6 +395,10 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         # Auditability: this entry passed a declared time-of-day gate
         # (M21 E-2). Entry-side only — the monitor never reads it.
         package["meta"]["skip_hours"] = ",".join(str(h) for h in sorted(skip_hour_set))
+    if (vol_above > 0.0 or vol_below > 0.0) and vol_pctl is not None:
+        # Auditability: this entry passed a declared vol-at-entry gate
+        # (M21 E-2) — record the trigger bar's ATR percentile it passed at.
+        package["meta"]["vol_at_entry_pctl"] = round(vol_pctl, 4)
     # M18 Phase A (observe-only): P_win entry-head annotation — same shape
     # as trend_donchian's. Never gates or sizes; allocator-soak consumer.
     try:

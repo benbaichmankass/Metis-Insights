@@ -168,10 +168,16 @@ jobs:
             # Add explicit chmod-family SYSCALL rules (aarch64 has only
             # fchmod/fchmodat) pinned to /dev/null under a separate key so the
             # culprit of the recurring chmod-644 strips is named directly.
+            # ROUND 7 (2026-07-14): two post-arming strip windows produced ZERO
+            # fchmod/fchmodat/setxattr captures — the change rides a syscall
+            # those rules don't cover. Add fchmodat2 (aarch64 #452, kernel
+            # >=6.6 — this box runs an HWE kernel; modern Go/coreutils use it)
+            # by NUMBER (older auditctl doesn't know the name).
             printf '%s\n' \
               '## RISK-4 BL-20260629-DEVNULL-OCI-SOURCE-KILL — attribute /dev/null perm strips' \
               '-w /dev/null -p wa -k devnull' \
               '-a always,exit -F arch=b64 -S fchmod,fchmodat -F path=/dev/null -k devnullmode' \
+              '-a always,exit -F arch=b64 -S 452 -F path=/dev/null -k devnullmode' \
               '-a always,exit -F arch=b64 -S setxattr,fsetxattr,lsetxattr -F path=/dev/null -k devnullmode' \
               | sudo tee /etc/audit/rules.d/devnull.rules >/dev/null
             echo "wrote /etc/audit/rules.d/devnull.rules:"; sudo cat /etc/audit/rules.d/devnull.rules
