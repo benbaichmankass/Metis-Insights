@@ -228,8 +228,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "passed_unshipped",
-    "ref": "E-2 round-3 time-of-day sweep 2026-07-14 (--skip-hours lever + live twin PR #6391/#6403-pending; m21_entry_sweep --lever time_of_day, relay #6394 launch, #6398 readout; runtime_logs/m21_entry_sweep/2026-07-14). xrp_4h skip_h0 PASS wf 5/6 (IS net_R 50.1->57.2, dd 22.0->16.6; OOS 8.5->9.2, dd 8.9->7.3) - Tier-3 declare proposed (skip_hours '0'), live twin merged in trend_donchian unit. eth/sol/ada is_oos_fail; avax wf_fail 3/6 (honest negatives)."
+    "status": "shipped",
+    "ref": "E-2 round-3 time-of-day sweep 2026-07-14 (--skip-hours lever + live twin PR #6391; declares merged #6402 @ b0d4194; m21_entry_sweep --lever time_of_day, relay #6394 launch, #6398 readout; runtime_logs/m21_entry_sweep/2026-07-14). xrp_4h skip_h0 PASS wf 5/6 (IS net_R 50.1->57.2, dd 22.0->16.6; OOS 8.5->9.2, dd 8.9->7.3) - Tier-3 declare SHIPPED 2026-07-14 (operator-approved, PR #6402) (skip_hours '0'), live twin merged in trend_donchian unit. eth/sol/ada is_oos_fail; avax wf_fail 3/6 (honest negatives)."
    },
    "p_win_head": {
     "status": "honest_negative",
@@ -408,8 +408,8 @@
     "ref": null
    },
    "time_of_day": {
-    "status": "passed_unshipped",
-    "ref": "E-2 round-3 time-of-day sweep 2026-07-14 (--skip-hours lever + live twin PR #6391/#6403-pending; m21_entry_sweep --lever time_of_day, relay #6394 launch, #6398 readout; runtime_logs/m21_entry_sweep/2026-07-14). spy_pullback_1h skip_late PASS wf 5/6 (IS net_R 51.0->65.8, dd 13.3->9.9; OOS -5.09->+0.37, dd 18.9->13.5) - Tier-3 declare proposed (skip_hours '19,20'), live twin merged in htf_pullback_trend_2h unit. gld/slv wf_fail 3/6; qqq/tlt/uso is_oos_fail (honest negatives)."
+    "status": "shipped",
+    "ref": "E-2 round-3 time-of-day sweep 2026-07-14 (--skip-hours lever + live twin PR #6391; declares merged #6402 @ b0d4194; m21_entry_sweep --lever time_of_day, relay #6394 launch, #6398 readout; runtime_logs/m21_entry_sweep/2026-07-14). spy_pullback_1h skip_late PASS wf 5/6 (IS net_R 51.0->65.8, dd 13.3->9.9; OOS -5.09->+0.37, dd 18.9->13.5) - Tier-3 declare SHIPPED 2026-07-14 (operator-approved, PR #6402) (skip_hours '19,20'), live twin merged in htf_pullback_trend_2h unit. gld/slv wf_fail 3/6; qqq/tlt/uso is_oos_fail (honest negatives)."
    },
    "p_win_head": {
     "status": "honest_negative",
