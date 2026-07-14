@@ -135,7 +135,12 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  trail_decay_arm_r: float = 0.0,
                  trail_decay_stall_bars: int = 0,
                  trail_decay_tight_mult: float = 0.0,
-                 confirm_bars: int = 0) -> Dict[str, Any]:
+                 confirm_bars: int = 0,
+                 skip_hours: str = "") -> Dict[str, Any]:
+    # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
+    # NEW entry whose TRIGGER bar's UTC hour is in the CSV set. Exits are
+    # never touched — an open trade rides through skipped hours unchanged.
+    skip_hour_set = {int(h) for h in str(skip_hours).split(",") if str(h).strip() != ""}
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
     # Trend filter: Donchian midline of the prior trend_lb bars (shift(1) — no
@@ -191,6 +196,13 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         if direction is None:
             i += 1
             continue
+        if skip_hour_set:
+            try:
+                if pd.Timestamp(df["timestamp"].iloc[i]).hour in skip_hour_set:
+                    i += 1
+                    continue
+            except (TypeError, ValueError):
+                pass  # unparseable ts: never skip (fail-permissive)
         # Regime filter (recombination lever): admit the bar only if its ADX sits
         # inside the [adx_min, adx_max] band. A NaN (warm-up) ADX is never
         # admitted when any band is set. No-op when both bands are None.
@@ -369,6 +381,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                               "min_confidence": min_confidence}
     if confirm_bars > 0:
         params["confirm_bars"] = confirm_bars
+    if skip_hour_set:
+        params["skip_hours"] = ",".join(str(h) for h in sorted(skip_hour_set))
     if stale_exit_bars is not None:
         params["stale_exit_bars"] = stale_exit_bars
         params["stale_exit_below_r"] = stale_exit_below_r
@@ -516,6 +530,9 @@ def main(argv: List[str]) -> int:
     p.add_argument("--confirm-bars", type=int, default=0,
                    help="M21 E-2 entry lever (0=off): the next N closes must "
                         "each hold beyond the trigger close before entering.")
+    p.add_argument("--skip-hours", default="",
+                   help="M21 E-2 time-of-day entry lever (empty=off): CSV of "
+                        "UTC hours whose trigger bars never enter.")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for regime tagging.")
@@ -555,7 +572,8 @@ def main(argv: List[str]) -> int:
                        trail_decay_arm_r=args.trail_decay_arm_r,
                        trail_decay_stall_bars=args.trail_decay_stall_bars,
                        trail_decay_tight_mult=args.trail_decay_tight_mult,
-                       confirm_bars=args.confirm_bars)
+                       confirm_bars=args.confirm_bars,
+                       skip_hours=args.skip_hours)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)
