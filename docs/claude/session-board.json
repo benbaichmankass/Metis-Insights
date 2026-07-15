@@ -28,9 +28,9 @@
     {
       "session_id": "session_01Y1wkcJAmgVxX9Lx1XRPxa5",
       "branch": "claude/scalping-chop-strategies-b9n05u",
-      "intent": "RESEARCH: scalping-through-chop — COMPLETE (NEGATIVE result). Multi-TF chop-boundary scalp harness + capital-efficiency study (DRAFT PR #6479). Trainer 3yr BTC+ETH 5m study (#6480): every tradeable-frequency multi-TF chop_scalp variant net-NEGATIVE IS+OOS both symbols (net_R/pos-day -4..-15); incumbent fvg_range_15m stays the only capital-efficient range play. NO Tier-3 proposal. Tier-1 tooling+docs only. Evidence: docs/research/chop-scalp-capital-efficiency-2026-07-15.md + PB-20260715-CHOP-SCALP-NEGATIVE. Awaiting operator OK to merge the research PR; slot free.",
+      "intent": "RESEARCH: scalping-through-chop — chop-scalp study MERGED (#6479, NEGATIVE result: no faster multi-TF chop-scalper warranted; fvg_range_15m stays the only capital-efficient range play). Follow-up (operator-requested): 1m rule-out + small-TF scan of the existing roster (trainer runs #6483/#6484) + pandas-3 minute-resample fix for backtest_{squeeze,fade,trend,pullback}.py (bug surfaced by the scan) → one small follow-up PR. Tier-1 only. Slot free.",
       "started_at": "2026-07-15T07:05:00Z",
-      "updated_at": "2026-07-15T11:35:00Z"
+      "updated_at": "2026-07-15T11:48:00Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",

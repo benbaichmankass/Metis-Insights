@@ -139,3 +139,79 @@ python scripts/research/chop_scalp_study.py \
   --data /home/ubuntu/ict-trader-data/ethusdt_5m.csv --symbol ETHUSDT \
   --ltf 5m --htf-rules 15m,1h --oos-split 2025-01-01 --md /tmp/chop_eth.md
 ```
+
+---
+
+## Addendum (2026-07-15) — two operator-requested follow-ups
+
+Both reinforce the main finding: on these instruments, **shrinking the clock is
+dominated by fee-drag + microstructure noise**, so faster is worse.
+
+### A. Small-TF scan of the EXISTING strategy roster (BTC 3yr, net-of-fee)
+
+"Do any of our existing strategies work — or show potential — on smaller
+timeframes?" Ran every existing research harness at **5m and 15m** (smaller than
+their native 1h–4h; `fvg_range`'s native is 15m) on the trainer BTC 5m parquet
+(2023-01 → 2026-02, **332,624** 5m bars), net-of-fee 7.5 bps (trainer run #6483).
+Default (bar-based, so they scale with TF) structural params; `fvg_range` at its
+live params.
+
+| strategy (native TF) | 5m net_R | 15m net_R |
+|---|--:|--:|
+| squeeze (2h) | −1,035 | −292 |
+| fade (2h) | **−7,226** (fee_r 7,564) | −1,385 (fee_r 1,212) |
+| trend (1h) | −2,996 | −359 |
+| pullback (2h) | −996 | −168 |
+| **fvg_range (15m, live params)** | −22.8 | **+24.1** |
+
+Every trend/breakout/fade/pullback strategy is **catastrophically net-negative at
+both 5m and 15m**, monotonically worse as the clock shrinks (5m ≫ 15m losses),
+with fees dominating the mean-reversion-style `fade` (gross **+338R** → net
+**−7,226R** at 5m). The **only** profitable cell is `fvg_range` at its **native
+15m** (+24.1R, exp +0.535, 64% of months positive — matching the main study);
+the same strategy dropped to 5m goes negative (−22.8R). `ict_scalp` (native 5m,
+gross-only) timed out and is already demoted/negative — not re-run.
+
+**Conclusion (Q2): no existing strategy shows small-TF potential.** The roster's
+edges live at 1h–4h (trend/squeeze/fade/pullback) and 15m (`fvg_range`); faster
+clocks destroy the edge via noise + fee drag — the same mechanism that sinks the
+chop-scalp. There is no hidden fast strategy in the current roster worth further
+research. (Caveat: this scans default/live params scaled to a faster clock, not a
+per-TF re-tune — a genuinely fast strategy would need its own design, and the
+fee-drag evidence sets a high bar for that.)
+
+**Tooling fix surfaced here:** `backtest_{squeeze,fade,trend,pullback}.py`
+crashed on pandas-3 `--resample 5m/15m` (`'m'` is no longer a pandas offset
+alias). Fixed in the same PR as this addendum (the normalization already present
+in `fvg_range`/`chop_scalp`), so future small-TF scans of these strategies just work.
+
+### B. 1m chop-scalp rule-out (BTC, net-of-fee)
+
+"Look into 1m to confidently rule it out." Fetched BTC **1m, trailing 365 days**
+(2025-07 → 2026-07, 526,317 bars — a downtrend year) and ran the representative
+`chop_scalp` configs **including the tp1r steelman** — the tighter, higher-win
+target that directly addresses the far-boundary R:R critique — net-of-fee 7.5 bps
+(trainer run #6484):
+
+| config | trades | net_R | net_R/pos-day | fee_R | months+ |
+|---|--:|--:|--:|--:|--:|
+| 1m / HTF 15m / far | 195 | −185.8 | −70.2 | 180.5 | 0% |
+| 1m / HTF 15m / tp1r=1.0 (steelman) | 222 | −207.1 | −181.2 | 201.8 | 7.7% |
+| 1m / HTF 1h / far | 61 | −51.6 | −51.4 | 55.4 | 11% |
+| 1m / HTF 1h / tp1r=1.0 (steelman) | 82 | −59.3 | −105.4 | 65.6 | 11% |
+
+**1m is decisively ruled out.** Every config is strongly net-negative, and in
+every case **`fee_R` ≈ the entire loss** — the gross edge is ~breakeven and 1m
+round-trip fees sink it. The **tp1r steelman is _worse_, not better**: fixing the
+R:R by taking a tighter target just makes it trade more often → more fee drag
+(net_R/pos-day −181 vs −70 for far). net_R/pos-day of −51 to −181 is catastrophic
+capital efficiency, 0–11% of months positive.
+
+### Overall — the book is closed
+
+A faster / multi-TF chop-scalp is net-negative at **5m and 1m**, and **no existing
+strategy has a small-TF edge** — the roster's edges are inherently 15m–4h. The
+finer the clock, the more fee-dominated and the worse the result, in every test
+run. **`fvg_range_15m` (already live) remains the right and only capital-efficient
+range tool. No Tier-3 change; no new strategy.**
+
