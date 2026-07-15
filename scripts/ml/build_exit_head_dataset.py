@@ -40,6 +40,9 @@ from typing import Any, Dict, List, Optional
 TF_S = {"5m": 300, "15m": 900, "1h": 3600, "2h": 7200, "4h": 14400, "1d": 86400}
 HOLDING_PAYS_R = 0.25
 CHOP_BAND_R = 0.25
+# M21 E-3c: trailing window (bars) for the decision-bar ATR-percentile
+# feature — matches the shipped vol-at-entry gate's default (#6434).
+ENTRY_ATR_PCTL_WINDOW = 200
 
 
 def _f(v: Any) -> Optional[float]:
@@ -425,6 +428,7 @@ def rows_for_trade(tr: dict, candles: List[dict], cand_ts: List[float],
     k0 = i0 - 1
     entry_mom_8 = entry_dc_dist = None
     entry_hour = entry_dow = None
+    entry_atr_pctl = None
     if k0 >= 0:
         c0 = candles[k0]
         cl0 = c0["close"]
@@ -436,6 +440,19 @@ def rows_for_trade(tr: dict, candles: List[dict], cand_ts: List[float],
             lo20 = min(c["low"] for c in candles[max(0, k0 - 19):k0 + 1])
             hi20 = max(c["high"] for c in candles[max(0, k0 - 19):k0 + 1])
             entry_dc_dist = round((cl0 - (lo20 + hi20) / 2.0) / atr0, 4)
+        # M21 E-3c decision-bar ATR trailing percentile (the causal
+        # vol-at-entry signal shipped as an ENTRY GATE #6434 — here as a
+        # continuous ML feature). Rank of atrs[k0] within the trailing
+        # ENTRY_ATR_PCTL_WINDOW bars (INCLUDING the decision bar; pct rank,
+        # ties = fraction <=), matching the harness lever's
+        # rolling(window).rank(pct=True). None until the window fills (no
+        # lookahead, fail-permissive) so the trainer drops those rows.
+        w0 = k0 - ENTRY_ATR_PCTL_WINDOW + 1
+        if w0 >= 0:
+            window = atrs[w0:k0 + 1]
+            if all(a is not None for a in window) and atrs[k0] is not None:
+                le = sum(1 for a in window if a <= atrs[k0])
+                entry_atr_pctl = round(le / len(window), 4)
         ts0 = datetime.fromtimestamp(c0["t"], tz=timezone.utc)
         entry_hour, entry_dow = ts0.hour, ts0.weekday()
     for r in out:
@@ -448,6 +465,7 @@ def rows_for_trade(tr: dict, candles: List[dict], cand_ts: List[float],
         r["entry_dc_dist_atr"] = entry_dc_dist
         r["entry_hour"] = entry_hour
         r["entry_dayofweek"] = entry_dow
+        r["entry_atr_pctl"] = entry_atr_pctl  # M21 E-3c
     return out
 
 
