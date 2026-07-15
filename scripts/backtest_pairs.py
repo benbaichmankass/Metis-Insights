@@ -200,10 +200,23 @@ def _summarize(trades: List[Trade], m: pd.DataFrame, *, timeframe: str, pair: st
     if n == 0:
         base.update({"win_rate_pct": 0.0, "net_total_r": 0.0, "net_expectancy_r": 0.0,
                      "trades_long": 0, "trades_short": 0, "max_drawdown_r": 0.0,
-                     "by_outcome": {}, "by_year": {}})
+                     "mean_hold_hours": None, "total_position_days": 0.0,
+                     "net_r_per_pos_day": None, "by_outcome": {}, "by_year": {}})
         return base
     net = [t.gross_r - _fee_r(t) for t in trades]
     wins = [r for r in net if r > 0]
+    # Capital efficiency: net_R per position-day (the operator's original
+    # "PnL per unit time-in-market" metric). Time-in-market = Σ (exit-entry);
+    # a market-neutral pair only ties up margin while the spread position is open.
+    hold_secs = []
+    for t in trades:
+        try:
+            dt = (pd.Timestamp(t.exit_time) - pd.Timestamp(t.entry_time)).total_seconds()
+            hold_secs.append(max(dt, 0.0))
+        except Exception:  # noqa: BLE001
+            pass
+    total_pos_days = sum(hold_secs) / 86400.0 if hold_secs else 0.0
+    mean_hold_hours = (sum(hold_secs) / len(hold_secs) / 3600.0) if hold_secs else None
     cum = peak = mdd = 0.0
     for r in net:
         cum += r
@@ -224,7 +237,11 @@ def _summarize(trades: List[Trade], m: pd.DataFrame, *, timeframe: str, pair: st
         "net_expectancy_r": round(sum(net) / n, 4),
         "trades_long": sum(1 for t in trades if t.direction == "long_spread"),
         "trades_short": sum(1 for t in trades if t.direction == "short_spread"),
-        "max_drawdown_r": round(mdd, 4), "by_outcome": by, "by_year": by_year})
+        "max_drawdown_r": round(mdd, 4),
+        "mean_hold_hours": round(mean_hold_hours, 2) if mean_hold_hours is not None else None,
+        "total_position_days": round(total_pos_days, 2),
+        "net_r_per_pos_day": round(sum(net) / total_pos_days, 4) if total_pos_days > 0 else None,
+        "by_outcome": by, "by_year": by_year})
     return base
 
 
@@ -236,6 +253,8 @@ def _fmt(s: Dict[str, Any]) -> str:
             f"  win_rate={s['win_rate_pct']}%  net_r={s['net_total_r']} "
             f"(exp {s['net_expectancy_r']}, L/S {s['trades_long']}/{s['trades_short']})",
             f"  maxdd_r={s['max_drawdown_r']} by={s['by_outcome']}",
+            f"  cap_eff: net_r/pos_day={s.get('net_r_per_pos_day')} "
+            f"(mean_hold_hrs={s.get('mean_hold_hours')}, pos_days={s.get('total_position_days')})",
             f"  by_year={s.get('by_year')}"]
     return "\n".join(lines)
 
