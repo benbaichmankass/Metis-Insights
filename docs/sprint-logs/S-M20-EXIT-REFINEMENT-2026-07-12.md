@@ -618,3 +618,34 @@ that TIGHTENS when the current bar's trailing ATR percentile is extreme.
 
 **Next**: dispatch the fleet sweep on the trainer; verdict lands the
 matrix + any Tier-3 declare draft (per-leg `trail_vol_*`) for the operator.
+
+### M20-X sweep INCIDENT — trainer OOM/swap-death (2026-07-15)
+
+The full 44-leg `vol_trail` fleet sweep (dispatched detached 05:22Z) drove the
+1-OCPU/6GB trainer into **swap-death**: from ~06:34Z the trainer's SSH answered
+the TCP connect but timed out during banner exchange (userspace starved), the
+2-min publish heartbeat stopped, and the live trader's `trainer_reachability_alert`
+raised the **"Trainer VM DOWN — ML training stalled"** app banner (mirror stale
+~52m). **Live trading was UNAFFECTED** (trainer has no live-trade authority;
+shadow/advisory inference runs on the live VM). This is a concrete recurrence of
+`BL-20260712-TRAINER-JOB-SERIALIZATION` and the same signature as
+`MB-20260705-TRAINER-OOM`.
+
+Recovery: `reset-instance` OCI-control-plane hard RESET (#6455, autonomous
+trainer territory) — SSH was dead so the in-band relay/`reboot-vm` couldn't
+reach it. Post-reset verify (07:16Z): uptime 3m, load 0.22, **swap 0 used**,
+376MB used / 4.2GB free, sweep dead, publish timer active + writing every 2m →
+banner clears. Capacity preserved (no terminate/re-provision).
+
+Root cause (not parallelism — the sweep is serial, subprocess per leg×cell):
+the sweep almost certainly overlapped the trainer's own scheduled ML cycle;
+neither alone exhausts 6GB, but together they swap-thrash.
+
+**Safe-re-run recipe (binding for future heavy trainer research jobs):** never
+fire-and-forget a fleet-sized job on the trainer. Run it (a) **memory-contained**
+so it OOM-kills itself instead of wedging the box — `systemd-run --scope
+-p MemoryMax=3G -p MemorySwapMax=0` (preferred) or `ulimit -v`; (b) **`nice -n 19`**
+so the trainer's own cycle always wins CPU; (c) **chunked per-family** in
+separate process invocations so memory frees between chunks; and (d) **monitored
+at ~15-20 min**, not left for an hour. The M20-X `vol_trail` verdict is re-run
+under this recipe — no verdict was produced by the killed run.
