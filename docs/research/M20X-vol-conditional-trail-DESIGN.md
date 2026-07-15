@@ -76,3 +76,32 @@ is Tier-3, operator-gated, per leg.
   the conditioning principle works.
 - No combo cells (vol-trail + decay armed simultaneously) unless a combo
   A/B is explicitly run later.
+
+## Fleet-sweep verdict + live path (2026-07-15)
+
+The 23-leg donchian fleet sweep (`runtime_logs/m20x_vol_trail_don/2026-07-15`,
+issue #6507) returned **1 PASS of 69 cells**: `trend_donchian_eth`
+`vt_cold10_t2.5` (below-decile cold tail, tight 5.0→2.5) — IS net_R
+−31.14→−27.35 (dd 48.30→40.74), OOS +24.14→+28.04 (dd 11.73→11.32),
+walk-forward **4/6** (wins 2023/24/25/26, loses 2021/22 by <2.5R). Every
+other donchian leg is an **honest negative** (63 `is_oos_fail`, 5 `wf_fail`).
+The pullback family (#6510) is a separate sweep.
+
+The ETH pass is **marginal** — the lone pass of 69 cells (near the
+multiple-comparisons noise floor) with walk-forward exactly at the 4/6 gate.
+Rather than ship it to real money on a coin-flip, it is declared on the
+**paper** leg to LEARN whether the ~4R backtest edge shows up live:
+`trend_donchian_eth`'s automated execution is **bybit_1** (Bybit demo,
+`account_class: paper`, `mode: live`); its real-money expression is the
+operator-gated Breakout prop manual bridge (supervised per placement).
+
+**Live path** — `src/runtime/trail_vol.py::resolve_vol_trail_mult`, hooked
+into `trend_donchian.py`'s trail ratchet right after `resolve_trail_mult`
+and composed via `min()` (tightest fired mult wins, matching the harness
+`_tm = min(_tm, tight)`). The percentile is the trailing-`vol_pctl_window`
+(200) `rank(pct=True)` of the current closed bar's ATR, on the SAME
+SMA-of-TR `_atr` the unit and harness share (live == train). Undeclared ⇒
+byte-identical monitor behaviour. Every real fire writes one observe-only
+`exit_lever_soak.jsonl` row (`lever="vol_trail"`, `applied=True`) so the
+paper test has a queryable engagement record. Rollback = delete the 3 YAML
+lines on `trend_donchian_eth`. Tests: `tests/test_trail_vol_live.py`.

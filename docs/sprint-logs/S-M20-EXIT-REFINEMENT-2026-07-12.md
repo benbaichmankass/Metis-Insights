@@ -618,3 +618,63 @@ that TIGHTENS when the current bar's trailing ATR percentile is extreme.
 
 **Next**: dispatch the fleet sweep on the trainer; verdict lands the
 matrix + any Tier-3 declare draft (per-leg `trail_vol_*`) for the operator.
+
+### M20-X sweep INCIDENT — trainer OOM/swap-death (2026-07-15)
+
+The full 44-leg `vol_trail` fleet sweep (dispatched detached 05:22Z) drove the
+1-OCPU/6GB trainer into **swap-death**: from ~06:34Z the trainer's SSH answered
+the TCP connect but timed out during banner exchange (userspace starved), the
+2-min publish heartbeat stopped, and the live trader's `trainer_reachability_alert`
+raised the **"Trainer VM DOWN — ML training stalled"** app banner (mirror stale
+~52m). **Live trading was UNAFFECTED** (trainer has no live-trade authority;
+shadow/advisory inference runs on the live VM). This is a concrete recurrence of
+`BL-20260712-TRAINER-JOB-SERIALIZATION` and the same signature as
+`MB-20260705-TRAINER-OOM`.
+
+Recovery: `reset-instance` OCI-control-plane hard RESET (#6455, autonomous
+trainer territory) — SSH was dead so the in-band relay/`reboot-vm` couldn't
+reach it. Post-reset verify (07:16Z): uptime 3m, load 0.22, **swap 0 used**,
+376MB used / 4.2GB free, sweep dead, publish timer active + writing every 2m →
+banner clears. Capacity preserved (no terminate/re-provision).
+
+Root cause (not parallelism — the sweep is serial, subprocess per leg×cell):
+the sweep almost certainly overlapped the trainer's own scheduled ML cycle;
+neither alone exhausts 6GB, but together they swap-thrash.
+
+**Safe-re-run recipe (binding for future heavy trainer research jobs):** never
+fire-and-forget a fleet-sized job on the trainer. Run it (a) **memory-contained**
+so it OOM-kills itself instead of wedging the box — `systemd-run --scope
+-p MemoryMax=3G -p MemorySwapMax=0` (preferred) or `ulimit -v`; (b) **`nice -n 19`**
+so the trainer's own cycle always wins CPU; (c) **chunked per-family** in
+separate process invocations so memory frees between chunks; and (d) **monitored
+at ~15-20 min**, not left for an hour. The M20-X `vol_trail` verdict is re-run
+under this recipe — no verdict was produced by the killed run.
+
+## M20-X vol-conditional trail — donchian verdict + ETH paper-test build (2026-07-15)
+
+**Donchian fleet sweep (#6507, `runtime_logs/m20x_vol_trail_don/2026-07-15`):**
+23 legs / 69 cells → **1 PASS**, 63 `is_oos_fail`, 5 `wf_fail`. The lone pass
+is `trend_donchian_eth` `vt_cold10_t2.5` (tighten trail 5.0→2.5 when ETH's
+trailing-200 ATR percentile is in the bottom decile): IS net_R −31.14→−27.35
+(dd 48.30→40.74), OOS +24.14→+28.04 (dd 11.73→11.32), walk-forward **4/6**
+(wins 2023/24/25/26; loses 2021/22 by <2.5R). Every other donchian leg is an
+honest negative. Pullback family = separate sweep (#6510).
+
+**Decision (operator, 2026-07-15):** the ETH pass is marginal — lone pass of
+69 cells at the noise floor, wf exactly at the 4/6 gate — so rather than ship
+to real money on a coin-flip, **build it and paper-test it to learn** whether
+the ~4R edge is real. `trend_donchian_eth`'s automated execution is **bybit_1**
+(Bybit demo, paper, `mode: live`); its real-money expression is the
+operator-gated Breakout prop bridge.
+
+**Built (Tier-3 draft, operator merge-gated):** live vol-conditional-trail
+apply path `src/runtime/trail_vol.py::resolve_vol_trail_mult`, hooked into
+`trend_donchian.py`'s trail ratchet after `resolve_trail_mult`, composed via
+`min()`. Reuses the unit's own `_atr` + `_trailing_atr_pctl` (the same
+validated helpers the live M21 vol-at-entry GATE ships) so exit and entry can
+never drift. YAML declare (`trail_vol_below_pctl 0.10` / `trail_vol_tight_mult
+2.5` / `vol_pctl_window 200`) on `trend_donchian_eth`. Every real fire writes
+one observe-only `exit_lever_soak.jsonl` row (`lever=vol_trail`). Tests:
+`tests/test_trail_vol_live.py` (7). Matrix: ETH `passed_unshipped`, donchian
+family `honest_negative`, pullback/mixed `pending` (#6510). Rollback = delete
+the 3 YAML lines.
