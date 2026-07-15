@@ -99,6 +99,11 @@ def _load_candles(path: str) -> pd.DataFrame:
 
 
 def _resample(df: pd.DataFrame, rule: str) -> pd.DataFrame:
+    # pandas 3.0 dropped the lowercase 'm' minutes alias (wants 'min'); normalise
+    # so a minute timeframe like "5m"/"15m" still resamples (hours 'h' stay valid).
+    r = rule.strip().lower()
+    if r.endswith("m") and not r.endswith("min"):
+        rule = r[:-1] + "min"
     out = (df.set_index("timestamp")
            .resample(rule, label="right", closed="right")
            .agg({"open": "first", "high": "max", "low": "min", "close": "last"})
