@@ -288,11 +288,31 @@ the funding carry — **positive in the most recent regime (2025-26)**:
   funding on the short leg, and the rolling hedge-β recompute are real frictions not
   fully modeled. (d) **Cointegration-break tail** — maxDD 13–29R comes from sustained
   divergence; a live sleeve needs a spread half-life / stability monitor.
-- **Follow-up:** the formal OOS (train 2023-24 → test 2025-26, lb=15 params) + the
-  $ capital-efficiency translation. If it clears OOS *and* the $ return-on-capital is
-  attractive vs the live book, a **Tier-3 proposal** for a market-neutral pairs
-  sleeve via the `new-strategy` skill (incl. `account_compat_matrix`) — **operator-gated,
-  not self-wired.** This is the reliable-tool candidate the program was chartered to find.
+**OOS validation (trainer #6501, lb=15/entry_z=2.0, TRAIN 2023-01→2025-01 vs
+held-out OOS 2025-01→2026-03, taker 7.5bps) — PASSES cleanly:**
+
+| pair | TRAIN net_R (exp) | OOS net_R (exp) | OOS maxDD_R | OOS win% |
+|---|--:|--:|--:|--:|
+| SOL/BTC | +363 (0.313) | **+175 (0.258)** | 7.0 | 58.6% |
+| BNB/BTC | +301 (0.258) | **+177 (0.262)** | 9.3 | 59.8% |
+| SOL/ETH | +196 (0.168) | **+163 (0.242)** | 6.4 | 58.1% |
+| ETH/BTC | +294 (0.249) | **+158 (0.230)** | 15.5 | 58.8% |
+
+**No expectancy decay** train→OOS (per-trade edge equal-or-better OOS; SOL/ETH
+*improves* 0.168→0.242), OOS win 58–60%, OOS maxDD 6–15R against +158–177R net.
+This is a robust, non-overfit, market-neutral, fee-insensitive edge alive in the
+current regime — **the reliable-tool candidate the program was chartered to find.**
+
+- **Remaining validation gaps before a live proposal (NOT blockers to the finding):**
+  (a) **$ capital-efficiency translation** — R→ return on the 2-leg deployed margin
+  (the operator's original metric); (b) **execution realism** — 2-leg simultaneous
+  fills, hedge-leg slippage, perp funding carry on the short leg, rolling-β recompute;
+  (c) a **cointegration half-life / stability monitor** for the divergence tail.
+- **Next step is a DECISION (operator-gated):** proceed toward a **Tier-3 proposal**
+  for a market-neutral crypto-pairs sleeve via the `new-strategy` skill (incl.
+  `account_compat_matrix` + the $ / execution-realism validation above) — **drafted,
+  not self-wired.** Xsec momentum stays parked (wider universe needed); spot-perp
+  basis is the untested cousin (build vs park TBD).
 
 ### D3 — Passive liquidity-provision sleeve (the generalization of the maker win; GATED)
 "Maker execution + stop-free" points at an actual *strategy*, not a filter: post
