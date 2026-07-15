@@ -33,7 +33,7 @@ import json
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -250,9 +250,9 @@ def _md_table(win: Dict[str, Any]) -> str:
             f"{s['net_exp_r']} | {s['max_dd_r']} | **{s['net_r_per_pos_day']}** | "
             f"{s['mean_hold_h']} | {s['roundtrippers_pct']} | {s['exposure_pct']} | "
             f"{s['ret_per_calendar_day_pct']} |")
-    bh, ca = win["buy_hold"], win["cash"]
+    bh = win["buy_hold"]
     lines.append(f"| buy_hold | — | — | — | — | — | — | — | — | {bh['exposure_pct']} | {bh['ret_per_calendar_day_pct']} |")
-    lines.append(f"| cash | 0 | — | 0 | — | 0 | 0 | — | — | 0 | 0 |")
+    lines.append("| cash | 0 | — | 0 | — | 0 | 0 | — | — | 0 | 0 |")
     return "\n".join(lines)
 
 

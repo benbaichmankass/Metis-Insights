@@ -28,9 +28,9 @@
     {
       "session_id": "session_01Y1wkcJAmgVxX9Lx1XRPxa5",
       "branch": "claude/scalping-chop-strategies-b9n05u",
-      "intent": "RESEARCH: scalping-through-chop strategies. Multi-TF range-boundary bounce scalper + capital-efficiency study (net_r_per_pos_day / pnl-per-duration) vs existing reverters (fvg_range_15m, hf_vwap_revert), buy-hold, and cash. Tier-1 only: new scripts/backtest_chop_scalp.py + docs/research + tests. NO config/strategies.yaml or src/units writes (Tier-3 = operator-gated proposal). Slot free.",
+      "intent": "RESEARCH: scalping-through-chop. Multi-TF chop-boundary scalp harness + capital-efficiency study shipped to DRAFT PR #6479 (scripts/backtest_chop_scalp.py + scripts/research/chop_scalp_study.py + tests; additive emit fields on backtest_fvg_range.py). Tier-1 only, no config/src-units writes. Trainer study run (BTC parquet + ETH csv) dispatched #6480; evidence report pending its results. Slot free (not merging yet).",
       "started_at": "2026-07-15T07:05:00Z",
-      "updated_at": "2026-07-15T07:05:00Z"
+      "updated_at": "2026-07-15T11:20:00Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",

@@ -153,13 +153,11 @@ def test_htf_merge_is_backward_no_lookahead():
         eligible = htf_feat[htf_feat["timestamp"] <= ltf_ts]
         if eligible.empty or pd.isna(merged["htf_hi"].iloc[probe]):
             continue
+        # The attached htf_hi is the LAST HTF bar whose close-time is <= the LTF
+        # bar (backward contract) — never a future bar. The eligible-last
+        # equality proves the SOURCE bar is not in the future.
         expected_hi = eligible["htf_hi"].iloc[-1]
         assert merged["htf_hi"].iloc[probe] == pytest.approx(expected_hi, nan_ok=True)
-        # and the attached value must not come from any FUTURE HTF bar
-        future = htf_feat[htf_feat["timestamp"] > ltf_ts]["htf_hi"].dropna()
-        # (a future value could coincide numerically, so we assert the SOURCE ts
-        #  is not in the future — done via the eligible-last equality above.)
-        assert True
 
 
 # ---------------------------------------------------------------------------
