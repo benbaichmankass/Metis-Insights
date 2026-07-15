@@ -649,3 +649,32 @@ so the trainer's own cycle always wins CPU; (c) **chunked per-family** in
 separate process invocations so memory frees between chunks; and (d) **monitored
 at ~15-20 min**, not left for an hour. The M20-X `vol_trail` verdict is re-run
 under this recipe — no verdict was produced by the killed run.
+
+## M20-X vol-conditional trail — donchian verdict + ETH paper-test build (2026-07-15)
+
+**Donchian fleet sweep (#6507, `runtime_logs/m20x_vol_trail_don/2026-07-15`):**
+23 legs / 69 cells → **1 PASS**, 63 `is_oos_fail`, 5 `wf_fail`. The lone pass
+is `trend_donchian_eth` `vt_cold10_t2.5` (tighten trail 5.0→2.5 when ETH's
+trailing-200 ATR percentile is in the bottom decile): IS net_R −31.14→−27.35
+(dd 48.30→40.74), OOS +24.14→+28.04 (dd 11.73→11.32), walk-forward **4/6**
+(wins 2023/24/25/26; loses 2021/22 by <2.5R). Every other donchian leg is an
+honest negative. Pullback family = separate sweep (#6510).
+
+**Decision (operator, 2026-07-15):** the ETH pass is marginal — lone pass of
+69 cells at the noise floor, wf exactly at the 4/6 gate — so rather than ship
+to real money on a coin-flip, **build it and paper-test it to learn** whether
+the ~4R edge is real. `trend_donchian_eth`'s automated execution is **bybit_1**
+(Bybit demo, paper, `mode: live`); its real-money expression is the
+operator-gated Breakout prop bridge.
+
+**Built (Tier-3 draft, operator merge-gated):** live vol-conditional-trail
+apply path `src/runtime/trail_vol.py::resolve_vol_trail_mult`, hooked into
+`trend_donchian.py`'s trail ratchet after `resolve_trail_mult`, composed via
+`min()`. Reuses the unit's own `_atr` + `_trailing_atr_pctl` (the same
+validated helpers the live M21 vol-at-entry GATE ships) so exit and entry can
+never drift. YAML declare (`trail_vol_below_pctl 0.10` / `trail_vol_tight_mult
+2.5` / `vol_pctl_window 200`) on `trend_donchian_eth`. Every real fire writes
+one observe-only `exit_lever_soak.jsonl` row (`lever=vol_trail`). Tests:
+`tests/test_trail_vol_live.py` (7). Matrix: ETH `passed_unshipped`, donchian
+family `honest_negative`, pullback/mixed `pending` (#6510). Rollback = delete
+the 3 YAML lines.

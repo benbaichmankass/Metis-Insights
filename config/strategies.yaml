@@ -807,6 +807,22 @@ strategies:
     stale_exit_bars: 8
     stale_exit_below_r: 0.0
     vol_skip_below_pctl: 0.1   # M21 E-2 round 4 vol_lo10 (wf 4/6, 2026-07-14) — skip entries whose trigger-bar ATR sits in the dead-vol bottom decile (trailing 200-bar pctl); IS net_R -46.5 -> -31.1 (dd 66.9 -> 48.3), OOS +20.7 -> +24.1; measured config-exact on top of the stale8 declare. Rollback = delete this line.
+    # M20-X vol-conditional trail — PAPER TEST (operator-approved 2026-07-15).
+    # Tighten the chandelier trail 5.0 -> 2.5 on any managed bar whose
+    # trailing-200 ATR percentile is in the COLD bottom decile (< 0.10).
+    # Config-exact fleet-sweep PASS on top of the stale8+vol_lo10 declares:
+    # IS net_R -31.14 -> -27.35 (dd 48.30 -> 40.74), OOS +24.14 -> +28.04
+    # (dd 11.73 -> 11.32), walk-forward 4/6 (wins 2023/24/25/26, loses
+    # 2021/22 by <2.5R). MARGINAL — the lone pass of 23 donchian legs, wf at
+    # the 4/6 floor — so this is declared to LEARN on the bybit_1 PAPER leg
+    # (trend_donchian_eth's automated execution is bybit_1 demo; the prop
+    # bridge is operator-gated per placement). Evidence:
+    # runtime_logs/m20x_vol_trail_don/2026-07-15 (issue #6507). Every real
+    # fire logs an observe-only row to exit_lever_soak.jsonl (lever=vol_trail).
+    # Rollback = delete these 3 lines.
+    trail_vol_below_pctl: 0.10
+    trail_vol_tight_mult: 2.5
+    vol_pctl_window: 200
     # shadow_model_ids OMITTED 2026-06-18 (soak-everything, symbol-aware auto-wire):
     # ETHUSDT signals auto-wire the symbol-agnostic decision/meta models (the
     # symbol filter keeps BTC/MES regime heads off). Observe-only.
