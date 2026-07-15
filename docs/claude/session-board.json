@@ -1,37 +1,31 @@
 {
-  "_doc": "CROSS-SESSION COORDINATION BOARD (Workstream-D, 2026-06-28). ADVISORY, last-writer-wins. Every Claude session registers in `active_sessions` at start and MUST claim `merge_slot` before merging any PR, releasing it after. Purpose: serialize merges so two concurrent sessions don't both drive a merge and force each other into the behind-rebase retest churn (hit twice on 2026-06-28). The LIVE open-PR list (GitHub) is the authoritative real-time signal; this file records intent + the single merge claim. Protocol is binding: see `.claude/skills/session-coordination/SKILL.md` and `docs/CLAUDE-RULES-CANONICAL.md` (multi-session coordination). This board is NOT a hard lock \u2014 it is honour-system coordination for the small number of concurrent sessions the operator runs; the real safety net is branch-protection require-up-to-date.",
+  "_doc": "CROSS-SESSION COORDINATION BOARD (Workstream-D, 2026-06-28). ADVISORY, last-writer-wins. Every Claude session registers in `active_sessions` at start and MUST claim `merge_slot` before merging any PR, releasing it after. Purpose: serialize merges so two concurrent sessions don't both drive a merge and force each other into the behind-rebase retest churn (hit twice on 2026-06-28). The LIVE open-PR list (GitHub) is the authoritative real-time signal; this file records intent + the single merge claim. Protocol is binding: see `.claude/skills/session-coordination/SKILL.md` and `docs/CLAUDE-RULES-CANONICAL.md` (multi-session coordination). This board is NOT a hard lock — it is honour-system coordination for the small number of concurrent sessions the operator runs; the real safety net is branch-protection require-up-to-date.",
   "schema": {
-    "merge_slot": "{ held_by: <session_id|null>, branch: <str|null>, pr: <int|null>, claimed_at: <iso8601|null> } \u2014 at most ONE session holds this at a time. Claim before merge, clear after (merged or aborted).",
-    "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] \u2014 one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
+    "merge_slot": "{ held_by: <session_id|null>, branch: <str|null>, pr: <int|null>, claimed_at: <iso8601|null> } — at most ONE session holds this at a time. Claim before merge, clear after (merged or aborted).",
+    "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01SDLWbfLGV4WYHgC2ugzedf",
-    "branch": "claude/exit-refinement-sprint-l74k6o",
-    "pr": "e3c-tooling",
-    "claimed_at": "2026-07-15T06:36:00Z"
+    "held_by": null,
+    "branch": null,
+    "pr": null,
+    "claimed_at": null
   },
   "active_sessions": [
     {
-      "session_id": "session_013YMtQmKVzkDCPECSU4tbwD",
-      "branch": "claude/full-system-audit-rmdf0t",
-      "intent": "Full-system audit 2026-07-09 (operator-requested). LEAD session. Phase 0 (rules) DONE + settled with operator (R1-R5 fixed). Now orchestrating S-AUDIT-A..H across all 3 repos + VMs + data. Findings doc: docs/audits/full-system-audit-2026-07-09.md.",
-      "started_at": "2026-07-09T06:00:00Z",
-      "updated_at": "2026-07-09T06:45:49Z"
-    },
-    {
-      "session_id": "session_01886WsrJNuwMJqnMQmxDgCn",
-      "branch": "claude/audit-risk3-async-blocking-a1b2c3",
-      "intent": "Full-system audit Phase-4 EXECUTE. RISK-3 Task 1 (async-route event-loop blocking): 44 no-await FastAPI routes -> sync def + to_thread offload for the 6 real-await routes + busy_timeout + prop graceful-degrade + AST CI guard (check_async_route_blocking). Continuing lead-session audit program (findings: docs/audits/full-system-audit-2026-07-09.md).",
-      "started_at": "2026-07-09T10:47:04Z",
-      "updated_at": "2026-07-09T10:47:04Z"
-    },
-    {
       "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
       "branch": "claude/exit-refinement-sprint-l74k6o",
-      "intent": "M21 vol-at-entry declares live (#6434). Now driving new research: M20-X vol-conditional trailing stop (harness+tests SHIPPED #6441; fleet sweep dispatched to trainer #6443) + M21 E-3c entry-head feature-enrichment round (queued). Tier-3 declares are drafts for operator. Slot free.",
+      "intent": "M21 vol-at-entry declares live (#6434). Now driving new research: M20-X vol-conditional trailing stop (harness+tests SHIPPED #6441; fleet sweep dispatched to trainer #6443) + M21 E-3c entry-head feature-enrichment round (#6451 merged). Tier-3 declares are drafts for operator. Slot free.",
       "started_at": "2026-07-13T05:07:08.981068+00:00",
       "updated_at": "2026-07-15T05:25:00Z"
+    },
+    {
+      "session_id": "session_01J9pbkyoSSG8PiS9NurTEaD",
+      "branch": "claude/system-health-review-f4i2v1",
+      "intent": "/health-review 2026-07-15 DONE. Merged #6449 (Tier-3 alpaca_live->dry_run, operator-directed) + deploying; merging #6447 (review-skill governance: health-review security+soak sweeps, perf-review real-money benchmark; health-review backlog drain). NOT touching devnull / first-fire items — research session owns them.",
+      "started_at": "2026-07-15T05:53:00Z",
+      "updated_at": "2026-07-15T06:58:00Z"
     }
   ],
-  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) \u2014 >24h stale, no matching open PR/branch \u2014 and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
+  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
+  "_pruned_2026-07-15": "Pruned two >24h-stale full-system-audit-2026-07-09 entries (session_013YMtQmKVzkDCPECSU4tbwD, session_01886WsrJNuwMJqnMQmxDgCn) — no matching open PR/branch after 6 days. Registered health-review session."
 }

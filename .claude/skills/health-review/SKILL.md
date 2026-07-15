@@ -49,9 +49,18 @@ If the user asked about *model performance*, *training sessions*, or
 9. **Ingest the orphan-events log** (§ "Orphan-events ingest") — every
    NEW orphan trade row since the last review MUST be tracked + driven to
    reconciliation. Orphan is a problem to solve, never a resting status.
-10. **Drain the health-review backlog** — triage every open item, fix
+10. **Run the security-breach check (MANDATORY)** — actively look for any
+    detected breach / intrusion signal since the last review across the
+    surfaces this skill can reach (§ "Security-breach check"). "No breach
+    detected" must be a stated verification, never an omission.
+11. **Surface soak promotion/demotion decisions that are DUE** — flag any
+    shadow model or strategy whose soak has reached its gate and now needs
+    a promote/demote call, so it can't sit un-actioned (§ "Soak decisions
+    due"). This skill SURFACES the decision; the recommendation itself is
+    made by `/ml-review` (models) or `/performance-review` (strategies).
+12. **Drain the health-review backlog** — triage every open item, fix
     what you can (§ "Draining the backlog").
-11. **Emit the response JSON** + **post a one-line update to the Claude
+13. **Emit the response JSON** + **post a one-line update to the Claude
     channel** (§ "Output" + § "Posting to the Claude channel").
 
 ## Out of scope (DO NOT do here)
@@ -62,7 +71,11 @@ If the user asked about *model performance*, *training sessions*, or
 - **Model status reports** — moved to `/ml-review`. No `model_status[]`
   in this skill's output.
 - **Strategy tweak proposals** — `/performance-review`.
-- **Promotion / demotion recommendations** — `/ml-review`.
+- **Promotion / demotion RECOMMENDATIONS** — `/ml-review` (models) /
+  `/performance-review` (strategies). This skill still **SURFACES** that a
+  soak has hit its gate and a decision is *due* (§ "Soak decisions due") —
+  raising the flag is health's job; making the call is not. Surface + route;
+  never write the recommendation or the rubric here.
 
 ## The review window — "since the last review"
 
@@ -388,6 +401,86 @@ Every health-review (and the master /system-review) MUST:
    across the window — that is a standing failure of the no-resting-orphan
    invariant, not a routine item.
 
+## Security-breach check (MANDATORY)
+
+A live trading system is a money-at-risk target. Every review MUST actively
+look for a **detected breach / intrusion signal since the last review** and
+state the result — a clean check is a *stated verification*, never an
+omission. This is **breach DETECTION on the surfaces this skill reaches**,
+NOT a code-vulnerability audit — deep code/dependency security review stays
+with the `/security-review` skill (route there if a signal points at code).
+
+**Sweep these sources for the window:**
+
+- **GitHub secret scanning** — `mcp__github__run_secret_scanning` (or the
+  secret-scanning alerts list). Any NEW exposed-credential alert is a breach
+  signal (a leaked key can be used against the brokers/VMs).
+- **External / non-collaborator activity** — the repo is **public** with the
+  "limit to repository collaborators" interaction limit + the
+  `external-comment-alert.yml` auto-hide/alert workflow. Check for any
+  comment / issue / PR / fork-push from a non-owner, non-collaborator actor,
+  and confirm `external-comment-alert.yml` actually fired if one appeared.
+- **Repo/supply-chain mutations** — unexpected new collaborators or deploy
+  keys, changed/added repo **Actions secrets**, force-pushes to `main`, new
+  branches/tags you can't attribute, and especially **edits to
+  `.github/workflows/**`** (a workflow edit is a code-execution + secret-exfil
+  vector). Cross-check against the session's own known changes.
+- **Actions anomalies** — workflow runs triggered by an unexpected actor, or
+  a spike/burst that doesn't match Claude-session or scheduled activity.
+- **VM host signals (via the diag relay)** — `journalctl` for
+  `sshd`/auth (failed-then-succeeded logins, new sessions/users), unexpected
+  new systemd units / timers / cron, unexpected listening ports or processes,
+  and host-agent tampering of the `/dev/null` clobber class. The 2026-06-28
+  intrusion audit (`BL-20260628-SEC-HARDENING-FOLLOWUPS`) and the `/dev/null`
+  investigation are the standing precedents — reconcile any new signal against
+  them before calling it novel.
+
+**What to do:**
+
+1. **Any confirmed breach signal is a can't-miss, standalone finding** —
+   `security` = `concern`, `operator_attention_required: true`, and a
+   **high-priority** Claude-channel ping. Never bury it in the body.
+2. **Drive containment** where you can (hide an external comment, open the
+   fix issue, route a code-vuln to `/security-review`), and tell the operator
+   the exact credential/action they must own (rotate key X, revoke deploy key).
+3. **If nothing is found, say so explicitly** — e.g. "no breach detected
+   since <window>: 0 secret-scanning alerts, 0 external actors, no workflow /
+   secret / collaborator changes, auth log clean." That stated negative is
+   the deliverable; an empty `security` finding is a review failure.
+
+Grade `security` ∈ `ok | watch | concern`. `watch` for an unconfirmed /
+low-signal anomaly worth a second look; `concern` (⇒ operator attention) for a
+confirmed breach or exposed credential.
+
+## Soak decisions due — surface, don't decide
+
+Operator directive: **anything whose soak has reached a promotion/demotion
+gate must be SURFACED here** so a met gate never sits un-actioned between the
+deeper reviews. This skill **flags the decision as due and routes it** — it
+does **not** compute the recommendation (that rubric lives in `/ml-review`
+for models and `/performance-review` for strategies; see Out of scope).
+
+**Check each soak's gate state for the window:**
+
+- **Shadow models** — `/api/bot/shadow/stats` (+ `/drift`): days-in-shadow,
+  prediction volume, the "wired" check, drift verdict. A model that has
+  accrued its soak volume + time with stable drift is a **promotion decision
+  due**; one drifting or degenerate (e.g. all-zero scores) is a **demotion /
+  hold decision due**.
+- **Strategies** — `/api/bot/strategies/{name}/review` M7 packets: any packet
+  whose action badge is `PROMOTE` / `DEMOTE_SHADOW` / `KILL` is a decision
+  due (especially with a Tier-3 SLA due-by that has passed).
+- **Observe-only soaks that graduate on a gate** — exit-ladder, fc-geometry,
+  allocator, conviction-sizing/arbitration, exit-lever, news-influence. If one
+  has hit the row-count / evidence bar its design names for graduation, flag
+  that its Tier-3 graduation call is due.
+
+**For each gate met:** surface `{what, gate_met, owner_skill, sla_state}` in
+`soak_decisions_due[]` — do NOT write the promote/demote recommendation.
+**Escalate loudly** if a gate has been met and sat un-actioned across ≥2
+reviews (a stalled decision is exactly what this section exists to catch).
+**If nothing has reached a gate, state "no soak decisions due."**
+
 ## Draining the backlog
 
 Read `docs/claude/health-review-backlog.json` — the parking lot for
@@ -441,7 +534,14 @@ Emit a single JSON object conforming to
 shape (post-2026-05-26 split):
 
 - `findings.*` — pipeline + DB + service dimensions only (no
-  `trainer_models`).
+  `trainer_models`), **including the mandatory `security` dimension**
+  (§ "Security-breach check").
+- `security_check` — the breach-sweep result: `{status, sources_checked[],
+  signals[], note}`. `signals` empty + an explicit clean `note` is the
+  required stated-negative when nothing is found.
+- `soak_decisions_due[]` — soaks that hit their gate this window
+  (`{what, gate_met, owner_skill, sla_state}`), SURFACED not decided
+  (§ "Soak decisions due"). Empty ⇒ state "no soak decisions due".
 - `sprint_doc_review[]`.
 - `backlog_drain[]` — actions taken on
   `docs/claude/health-review-backlog.json`.

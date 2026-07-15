@@ -48,7 +48,13 @@ If the user asked about *technical/pipeline health* — STOP, use
 10. **Update the diversified paper-book tracker** — append a dated
     snapshot of the 10-cell paper cohort + review what's new
     (§ "Diversified paper-book tracker").
-11. **Emit the response JSON** + **post a one-line update to the Claude
+11. **Run the real-money allocation benchmark (RECURRING)** — does a
+    ready-for-live strategy portfolio actually improve the live
+    real-money book's risk-adjusted PnL (incl. via regime
+    diversification), or is the capital better left where it is? This is
+    the standing bar for (re-)adding a strategy to a live real-money
+    account (§ "Real-money allocation benchmark").
+12. **Emit the response JSON** + **post a one-line update to the Claude
     channel** (§ "Output" + § "Posting to the Claude channel").
 
 ## Out of scope (DO NOT do here)
@@ -374,6 +380,59 @@ cohort itself (adding/removing a cell) is a Tier-3 config change to
 `accounts.yaml`/`strategies.yaml` — propose it, don't edit the yaml
 here; the cohort yaml is kept in sync *after* that lands.
 
+## Real-money allocation benchmark (RECURRING)
+
+**Operator directive (2026-07-15, set when `alpaca_live` was shelved to
+`dry_run`):** the bar for putting a strategy on a **live real-money**
+account is not "is it profitable in paper" — it's **"does adding it
+actually improve the live real-money book's *risk-adjusted* outcome,
+including via diversification across changing regimes, or is the capital
+better left where it is (today: bybit-only)?"** A strategy that's
+paper-green but adds nothing over the incumbent book — or worse, just
+correlates with it — does not earn real-money capital. Run this every
+review while any real-money account is shelved or any candidate is
+queued for live promotion.
+
+**The benchmark:**
+
+1. **Incumbent book** = the current live real-money allocation (today
+   `bybit_2`; `alpaca_live` is `dry_run` as of 2026-07-15). Pull its
+   closed trades (`account_id=bybit_2`, real-money) over the window +
+   the longer trailing window, risk-normalized to **R** so it compares
+   across instruments.
+2. **Candidate portfolio** = the ready-for-live strategies not currently
+   on live real money — principally the shelved `alpaca_live` ETF sleeve.
+   Its **paper-equivalent** record is the proxy: `alpaca_live` in
+   `dry_run` still logs order-packages but does **not** fill, so use
+   `alpaca_paper` fills for the same strategies as the realistic
+   execution proxy (state this explicitly — it's a paper proxy, not live
+   fills). Health-review's soak-surfacing (§ its "Soak decisions due")
+   is the readiness signal for *which* candidates are eligible.
+3. **Compare on risk-adjusted terms, not raw $** — expectancy-R, profit
+   factor, and **max drawdown**, since paper $ notionals are inflated
+   and not comparable to real-money $.
+4. **Weigh the diversification benefit explicitly** — the operator's key
+   question. Estimate the **correlation / co-drawdown** between the
+   candidate sleeve's equity curve and the incumbent's across the
+   window's regime shifts. A *decorrelated* sleeve can earn its place
+   even with lower standalone expectancy if it **reduces blended
+   drawdown / smooths equity** when the incumbent's regime turns
+   unfavorable. Conversely a high-correlation sleeve that just tracks
+   bybit adds risk without diversification — it does not clear the bar.
+5. **Verdict (proposed, never enacted here):**
+   - **Improves the blended book** (higher expectancy-R at equal-or-lower
+     drawdown, OR materially lower drawdown via decorrelation) → surface
+     a **Tier-3 re-arm / promotion proposal** with the evidence (the
+     `mode: live` flip is operator-gated, shipped as a PR like the
+     shelve — never flipped here).
+   - **Doesn't clear the bar** → keep it shelved; capital stays where it
+     is. Say so plainly with the numbers.
+
+Record the verdict each run under `real_money_allocation_benchmark`
+(§ Output), and add/refresh a `SRQ-…` backlog item so the decision is
+tracked between reviews. This is **analysis + a proposed Tier-3 change**
+only — it never edits `accounts.yaml`/`strategies.yaml`.
+
 ## Posting to the Claude channel
 
 Every performance-review run ends with a one-line update to
@@ -410,6 +469,14 @@ Emit a single JSON object conforming to
   per-family net, `decay_flag`), the Δ vs the previous snapshot, and a
   one-line `assessment` (decay / noise / healthy). `null` only if the
   cohort pull failed (note it in `anomalies[]`).
+- `real_money_allocation_benchmark` — the recurring benchmark verdict
+  (§ "Real-money allocation benchmark"): `{incumbent, candidate,
+  incumbent_expectancy_r, candidate_expectancy_r, incumbent_max_dd,
+  candidate_max_dd, correlation_estimate, diversifies (bool),
+  verdict ∈ improves|neutral|does_not_clear, proposed_action, note}`.
+  `note` states the paper-proxy caveat. `null` (with an `anomalies[]`
+  line) only when there's no live real-money book AND no queued
+  candidate to benchmark.
 - `anomalies[]` — free-form notable items (grade drift, unexpected
   attribution, etc.).
 - `recommended_action`, `operator_attention_required`.
