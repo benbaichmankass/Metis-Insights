@@ -1,8 +1,9 @@
 # M22 — Reliable small-TF trading tool: research directions
 
-**Date:** 2026-07-15 · **Status:** PROPOSED / IN PROGRESS · **Tier:** 1 (research;
-Tier-3 items are operator-gated proposals) · **Predecessor:** the chop-scalp
-study (`docs/research/chop-scalp-capital-efficiency-2026-07-15.md`, PR #6479/#6485).
+**Date:** 2026-07-15 · **Status:** IN PROGRESS — wave-1 (P1–P4) findings landed;
+wave-2 (D1–D4) running · **Tier:** 1 (research; Tier-3 items are operator-gated
+proposals) · **Predecessor:** the chop-scalp study
+(`docs/research/chop-scalp-capital-efficiency-2026-07-15.md`, PR #6479/#6485).
 
 ## Why (the diagnosis)
 
@@ -184,6 +185,73 @@ that clears the honest decision-bar OOS gate **unblocks the parked M18 allocator
 selection**.
 
 **Findings:** _(gated — not started)_
+
+## Wave 2 — four further directions (operator-approved 2026-07-15)
+
+After wave-1 closed P1/P3 (maker rescues only the stop-free carry, and only in a
+favorable funding regime), the operator approved a second batch of directions,
+each attacking one of the two confirmed root causes (**fee-drag**, **OHLCV-blindness**)
+*differently* than wave-1, or extending the one thing that worked (maker execution
+on a stop-free edge).
+
+### D1 — Frequency-reduction gates (attacks fee-drag by cutting frequency; Tier-1)
+If fee-drag is the killer and maker can't fix a stop-based scalp, the other lever
+is to **take fewer, higher-quality trades** so total fee drag falls on the same
+per-trade gross edge. Two cheap re-scores of the existing `--emit-trades` output
+(no harness edit — every emit already carries `entry_time`):
+- **D1a session/killzone gating** (`scripts/research/session_gating.py`): bucket
+  emitted trades by UTC killzone (asian/london/ny_am/london_close/ny_pm/off) and
+  ask whether restricting to the net-positive killzone subset flips a net-negative
+  cell positive at the realistic (taker) bound. Same fee arithmetic as
+  `maker_economics.py` (agree at taker).
+- **D1b HTF-regime confluence**: gate small-TF entries on the **advisory regime
+  heads we already validated** (the 15m vol heads beat the frozen detector, live
+  since 2026-06-28) — take only small-TF signals aligned with the HTF regime.
+  Trainer-side (needs the regime label attached per entry timestamp).
+- **Flip criterion:** a killzone/regime subset is net-positive where all-hours was
+  not. If nothing flips even here, frequency-reduction can't save the hard-rules
+  scalp either.
+
+**Findings:** _(D1a pending — trainer #6497; D1b pending)_
+
+### D2 — Stop-free carry cousins (extends the validated maker lever; Tier-1)
+The maker lever worked for the neutral carry because it has no market stop. The
+same structural property (legs can rest as maker limits) holds for other
+carry/mean-reversion edges:
+- **Cointegration pairs stat-arb** (`scripts/backtest_pairs.py`, already exists +
+  OU self-test): z-score mean-reversion of a cointegrated crypto spread
+  (ETH/BTC, SOL/BTC, BNB/BTC, SOL/ETH), net-of-fee at taker/maker/zero. Different
+  from the gate-failed xsec momentum (a rank over a tiny universe) — this is a
+  *specific* cointegrated relationship, and the mean-reversion exit-z leg can be a
+  resting limit. NB the pairs harness also has an adverse-divergence `stop-z`
+  (a market exit), so it is only *partially* maker-able — reported honestly.
+- **Spot-perp basis capture** (cash-and-carry on the basis, not just funding):
+  scope whether a harness exists; build vs park.
+- **Regime caveat:** carry/basis is regime-dependent (`PB-20260620-002`); report
+  current-regime OOS, not just the full-history average (the wave-1 lesson).
+
+**Findings:** _(pending — trainer #6498)_
+
+### D3 — Passive liquidity-provision sleeve (the generalization of the maker win; GATED)
+"Maker execution + stop-free" points at an actual *strategy*, not a filter: post
+resting limits both sides, control inventory instead of hard stops, collect
+spread + maker rebate. This is the highest-ceiling direction but **adverse-selection-hard**
+— getting run over by informed flow is the failure mode — so it is **gated on the
+P2 order-flow data** (currently accruing) to size/skew quotes. Document the design;
+do not build until P2 has enough L2/OFI history to backtest quote skew. Not a
+same-week result.
+
+**Findings:** _(gated on P2 order-flow accrual — design only)_
+
+### D4 — New signal inputs (attacks OHLCV-blindness beyond order-flow; Tier-1 scoping)
+The twice-failed P(win) attempts used OHLCV decision-bar features. New inputs:
+- **Funding/OI as model features** — already fetched (`scripts/ml/fetch_funding_oi.py`);
+  a genuinely non-price input a P(win)/regime head hasn't seen. Cheap to add as a
+  feature block to an existing manifest; feeds P4.
+- **Cross-venue funding-differential arb / on-chain flow** — more robust but
+  integration-heavy and speculative; **parked** with a re-trigger.
+
+**Findings:** _(funding/OI feature scoping pending; cross-venue/on-chain parked)_
 
 ## Cross-cutting unblocker
 **Per-trade net-R cost capture** (`MB-20260629-ALLOC-COSTCAP`) enables P1
