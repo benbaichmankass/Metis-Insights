@@ -138,12 +138,12 @@ def test_load_pairs_config_missing_is_noop():
     assert px._load_pairs_config("/nonexistent/pairs.yaml") == {}
 
 
-def test_load_real_pairs_config_all_shadow():
+def test_load_real_pairs_config_live_on_bybit_1():
     cfg = px._load_pairs_config("config/pairs.yaml")
     pairs = cfg.get("pairs") or []
     assert len(pairs) == 4
-    # SHIP-SAFE: every pair defaults to the observe-only shadow gate.
-    assert all(str(p.get("execution")).lower() == "shadow" for p in pairs)
+    # Operator-approved 2026-07-15: all 4 live on bybit_1 (Bybit demo / paper venue).
+    assert all(str(p.get("execution")).lower() == "live" for p in pairs)
     assert cfg.get("account_id") == "bybit_1"
 
 

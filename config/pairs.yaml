@@ -37,7 +37,7 @@ pairs:
   - name: pairs_sol_btc
     symbol_a: SOLUSDT
     symbol_b: BTCUSDT
-    execution: shadow    # shadow-guard: allow — new M22 D2 pairs sleeve; SAFE shadow default (new order-path capability), live flip is Tier-3 operator-gated (draft #6519)
+    execution: live
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -49,7 +49,7 @@ pairs:
   - name: pairs_bnb_btc
     symbol_a: BNBUSDT
     symbol_b: BTCUSDT
-    execution: shadow    # shadow-guard: allow — new M22 D2 pairs sleeve; SAFE shadow default (new order-path capability), live flip is Tier-3 operator-gated (draft #6519)
+    execution: live
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -61,7 +61,7 @@ pairs:
   - name: pairs_eth_btc
     symbol_a: ETHUSDT
     symbol_b: BTCUSDT
-    execution: shadow    # shadow-guard: allow — new M22 D2 pairs sleeve; SAFE shadow default (new order-path capability), live flip is Tier-3 operator-gated (draft #6519)
+    execution: live
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -73,7 +73,7 @@ pairs:
   - name: pairs_sol_eth
     symbol_a: SOLUSDT
     symbol_b: ETHUSDT
-    execution: shadow    # shadow-guard: allow — new M22 D2 pairs sleeve; SAFE shadow default (new order-path capability), live flip is Tier-3 operator-gated (draft #6519)
+    execution: live
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
