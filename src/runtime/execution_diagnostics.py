@@ -40,6 +40,36 @@ logger = logging.getLogger(__name__)
 
 PENDING_PINGS_DIR = runtime_logs_dir() / "pending_pings"
 
+# Refusal reasons that are EXPECTED, deliberate policy skips — NOT dispatch
+# failures. A ``dry_run``-shelved account declining an order (the risk gate's
+# ``account_mode_dry_run``), or a prop account skipping a mission-met /
+# session-restricted signal (``SKIP_*``), is the execution gate working exactly
+# as designed. Routing a signal at a wired-but-off account and having it bounce
+# is not an error — the trade simply isn't sent — so it must never raise an
+# operator "execution failed" / "all accounts failed to dispatch" alert
+# (operator directive 2026-07-15, after shelving alpaca_live to dry_run made
+# every tick fire both banners). The rejection is still journaled for audit; we
+# only suppress the *alerting*, not the gate or the record. Matched as a
+# substring so both the bare reason (``account_mode_dry_run``) and the wrapped
+# RiskBreach message (``Account 'x' rejected order for Y: account_mode_dry_run``)
+# are recognised.
+EXPECTED_DISPATCH_SKIP_REASONS = (
+    "account_mode_dry_run",
+    "SKIP_MISSION_MET",
+    "SKIP_OVERNIGHT_RESTRICTED",
+    "SKIP_WEEKEND_RESTRICTED",
+)
+
+
+def is_expected_dispatch_skip(reason: object) -> bool:
+    """True when *reason* is a deliberate, expected policy skip (a shelved
+    ``dry_run`` account or a prop mission/session skip) rather than a genuine
+    dispatch failure — so the caller can suppress the operator alert while still
+    journaling the rejection. Accepts the bare reason or the wrapped RiskBreach
+    message (substring match). Never raises."""
+    text = str(reason or "")
+    return any(tok in text for tok in EXPECTED_DISPATCH_SKIP_REASONS)
+
 # Durable ring of the operator alerts this module raises (2026-07-08). The
 # pending-ping files are transient (the Telegram sender consumes + deletes
 # them), so they can't back the app's Overview notification banner. Every
@@ -585,6 +615,9 @@ def enqueue_all_accounts_failed_dispatch(
                 err.startswith("intent_noop:")
                 or err == "intent_sub_min_qty_delta"
                 or err.startswith("reentry_suppressed_netting_guard:")
+                # A shelved dry_run account / prop mission-skip is a deliberate
+                # policy hold, not a failure (operator directive 2026-07-15).
+                or is_expected_dispatch_skip(err)
             )
 
         genuine = [r for r in results if not _is_hold(str(r.get("error") or ""))]
