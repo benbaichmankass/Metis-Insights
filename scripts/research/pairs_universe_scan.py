@@ -32,6 +32,7 @@ import argparse
 import itertools
 import json
 import os
+import re
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -52,17 +53,42 @@ LIVE_PAIRS = {("SOLUSDT", "BTCUSDT"), ("BNBUSDT", "BTCUSDT"),
               ("ETHUSDT", "BTCUSDT"), ("SOLUSDT", "ETHUSDT")}
 
 
+# Trailing timeframe suffix on a candle filename (e.g. BTCUSDT_15m.csv → BTCUSDT).
+_TF_SUFFIX_RE = re.compile(r"_(\d+[mhdwMHDW]|1d|4h)$", re.IGNORECASE)
+
+
 def _sym_from_path(path: str) -> str:
-    return os.path.splitext(os.path.basename(path))[0].upper()
+    """Symbol from a candle filename, stripping a trailing timeframe suffix so the
+    trainer's `<SYM>_15m.csv` / `<SYM>_5m.csv` naming resolves to `<SYM>`."""
+    stem = os.path.splitext(os.path.basename(path))[0]
+    stem = _TF_SUFFIX_RE.sub("", stem)
+    return stem.upper()
 
 
 def _discover_symbols(data_dir: str) -> Dict[str, str]:
-    """{SYMBOL: path} for every .csv/.parquet in data_dir."""
-    out: Dict[str, str] = {}
+    """{SYMBOL: path} for every USDT-perp .csv/.parquet in data_dir. On a
+    timeframe collision (both `<SYM>_15m` and `<SYM>_5m` present) prefer the file
+    with more rows (deeper history) — the scan resamples to --resample anyway.
+    Non-perp files (equities/ETFs/funding) without a *USDT symbol are skipped."""
+    best: Dict[str, Tuple[int, str]] = {}
     for fn in sorted(os.listdir(data_dir)):
-        if fn.endswith((".csv", ".parquet")):
-            out[_sym_from_path(fn)] = os.path.join(data_dir, fn)
-    return out
+        if not fn.endswith((".csv", ".parquet")):
+            continue
+        if fn.lower().startswith("funding"):        # funding-rate series, not candles
+            continue
+        sym = _sym_from_path(fn)
+        # crypto-perp universe only: an exact <COIN>USDT ticker (rejects
+        # backtest_/prefixed or compound names like BACKTEST_BTCUSDT).
+        if not re.fullmatch(r"[A-Z0-9]{2,10}USDT", sym):
+            continue
+        path = os.path.join(data_dir, fn)
+        try:
+            rows = sum(1 for _ in open(path, "rb")) if fn.endswith(".csv") else 10 ** 9
+        except OSError:
+            rows = 0
+        if sym not in best or rows > best[sym][0]:
+            best[sym] = (rows, path)
+    return {s: p for s, (_, p) in best.items()}
 
 
 def _aligned(path_a: str, path_b: str, resample: str) -> pd.DataFrame:
