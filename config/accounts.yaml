@@ -283,7 +283,16 @@ accounts:
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
-    strategies: [trend_donchian, ict_scalp_5m, fvg_range_15m, htf_pullback_trend_2h, eth_pullback_2h, xrp_pullback_2h, ada_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+    strategies: [trend_donchian, ict_scalp_5m, fvg_range_15m, htf_pullback_trend_2h, eth_pullback_2h, xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+                                       # ada_pullback_2h DEMOTED from real money 2026-07-15
+                                       # (Tier-3, operator-flagged + /performance-review confirmed):
+                                       # worst real-money performer of the 2026-06-30 alt-pullback
+                                       # live-test cohort — 5 closed, 20% win, -$10.25 (attribution).
+                                       # Removed from bybit_2 only; STILL runs execution:live on
+                                       # bybit_1 PAPER so the demo soak continues. ADAUSDT is left
+                                       # in `symbols:` below (inert now — no ADA strategy is routed
+                                       # to bybit_2 — but harmless, and avoids churn if ADA is
+                                       # re-promoted later). ROLLBACK: re-add ada_pullback_2h here.
                                        # trend_donchian_eth_4h + trend_donchian_xrp_4h added
                                        # 2026-06-30 (Tier-3, OPERATOR-APPROVED 2026-06-30).
                                        # Both passed the M15 WS-C 3-fold k-fold @7.5bps with 2x fee
