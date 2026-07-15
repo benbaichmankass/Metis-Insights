@@ -236,6 +236,18 @@ def cells_for(cfg: dict, fam: str | None = None) -> list[tuple[str, str, list[st
         for tag, extra in decay:
             out.append((tag, "trail_decay",
                         extra + ["--trail-decay-tight-mult", str(tight)]))
+        # M20-X vol-conditional trail cells (regime-conditional exits § 1):
+        # tighten the trail on bars whose trailing ATR percentile is in the
+        # gated tail. Same config-relative tight mult as the decay cells.
+        # Design: docs/research/M20X-vol-conditional-trail-DESIGN.md.
+        vt = [
+            (f"vt_hot90_t{tight:g}", ["--trail-vol-above-pctl", "0.9"]),
+            (f"vt_hot80_t{tight:g}", ["--trail-vol-above-pctl", "0.8"]),
+            (f"vt_cold10_t{tight:g}", ["--trail-vol-below-pctl", "0.1"]),
+        ]
+        for tag, extra in vt:
+            out.append((tag, "vol_trail",
+                        extra + ["--trail-vol-tight-mult", str(tight)]))
     return out
 
 

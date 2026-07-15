@@ -139,7 +139,10 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  skip_hours: str = "",
                  vol_skip_above_pctl: float = 0.0,
                  vol_skip_below_pctl: float = 0.0,
-                 vol_pctl_window: int = 200) -> Dict[str, Any]:
+                 vol_pctl_window: int = 200,
+                 trail_vol_above_pctl: float = 0.0,
+                 trail_vol_below_pctl: float = 0.0,
+                 trail_vol_tight_mult: float = 0.0) -> Dict[str, Any]:
     # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
     # NEW entry whose TRIGGER bar's UTC hour is in the CSV set. Exits are
     # never touched — an open trade rides through skipped hours unchanged.
@@ -150,8 +153,12 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
     # entry whose TRIGGER bar's ATR sits at an extreme TRAILING percentile
     # (rank within the previous `vol_pctl_window` bars — causal; NaN until
     # the window fills → never skip, fail-permissive). Exits untouched.
+    # M20-X vol-conditional trail lever shares the same percentile series.
+    vol_trail_on = (trail_vol_tight_mult > 0.0
+                    and (trail_vol_above_pctl > 0.0 or trail_vol_below_pctl > 0.0))
     atr_pctl = None
-    if vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0:
+    if (vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0
+            or vol_trail_on):
         atr_pctl = df["atr"].rolling(vol_pctl_window,
                                      min_periods=vol_pctl_window).rank(pct=True)
     # Trend filter: Donchian midline of the prior trend_lb bars (shift(1) — no
@@ -302,6 +309,24 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                         and (j - peak_j) >= trail_decay_stall_bars)):
                 return trail_decay_tight_mult
             return trail_mult
+
+        def _vol_tm(base_tm: float, j: int) -> float:
+            # M20-X vol-conditional trail lever (tight_mult 0 = off,
+            # byte-identical): tighten the mult on any managed bar whose
+            # trailing ATR percentile sits in the gated tail — conditional,
+            # not a ratchet (the price-ratcheted stop never loosens).
+            # Undefined percentile ⇒ inert (fail-permissive). Tightest wins.
+            # Design: docs/research/M20X-vol-conditional-trail-DESIGN.md.
+            if not vol_trail_on:
+                return base_tm
+            vp = atr_pctl.iloc[j]
+            if pd.isna(vp):
+                return base_tm
+            fired = ((trail_vol_above_pctl > 0.0
+                      and float(vp) > trail_vol_above_pctl)
+                     or (trail_vol_below_pctl > 0.0
+                         and float(vp) < trail_vol_below_pctl))
+            return min(base_tm, trail_vol_tight_mult) if fired else base_tm
         for j in range(i + 1, min(i + timeout_bars + 1, n)):
             bh, bl = float(df["high"].iloc[j]), float(df["low"].iloc[j])
             # M20 partial-TP bank lever (0=off, byte-identical): bank
@@ -332,7 +357,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                     break
                 if bh > ext:
                     ext, ext_j = bh, j
-                trail = max(trail, ext - _eff_tm(ext, ext_j, j) * atr)
+                trail = max(trail, ext - _vol_tm(_eff_tm(ext, ext_j, j), j) * atr)
                 mfe = max(mfe, (ext - entry) / risk)
             else:
                 if bh >= trail:
@@ -341,7 +366,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                     break
                 if bl < ext:
                     ext, ext_j = bl, j
-                trail = min(trail, ext + _eff_tm(ext, ext_j, j) * atr)
+                trail = min(trail, ext + _vol_tm(_eff_tm(ext, ext_j, j), j) * atr)
                 mfe = max(mfe, (entry - ext) / risk)
             # Lever exits fire at bar close, only when the stop did not hit
             # this bar (a stop hit breaks above) — stop-first stays intact.
@@ -406,6 +431,11 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
     if vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0:
         params["vol_skip_above_pctl"] = vol_skip_above_pctl
         params["vol_skip_below_pctl"] = vol_skip_below_pctl
+        params["vol_pctl_window"] = vol_pctl_window
+    if vol_trail_on:
+        params["trail_vol_above_pctl"] = trail_vol_above_pctl
+        params["trail_vol_below_pctl"] = trail_vol_below_pctl
+        params["trail_vol_tight_mult"] = trail_vol_tight_mult
         params["vol_pctl_window"] = vol_pctl_window
     if stale_exit_bars is not None:
         params["stale_exit_bars"] = stale_exit_bars
@@ -565,6 +595,17 @@ def main(argv: List[str]) -> int:
                         "trigger-bar ATR trailing percentile is below this (dead tail).")
     p.add_argument("--vol-pctl-window", type=int, default=200,
                    help="Trailing window (bars) for the ATR percentile rank.")
+    p.add_argument("--trail-vol-above-pctl", type=float, default=0.0,
+                   help="M20-X vol-conditional trail lever (0=off): tighten the "
+                        "trail mult on bars whose ATR trailing percentile exceeds "
+                        "this (hot tail).")
+    p.add_argument("--trail-vol-below-pctl", type=float, default=0.0,
+                   help="M20-X vol-conditional trail lever (0=off): tighten the "
+                        "trail mult on bars whose ATR trailing percentile is below "
+                        "this (dead tail).")
+    p.add_argument("--trail-vol-tight-mult", type=float, default=0.0,
+                   help="The tightened trail mult while the vol condition fires "
+                        "(0 disables the lever).")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for regime tagging.")
@@ -608,7 +649,10 @@ def main(argv: List[str]) -> int:
                        skip_hours=args.skip_hours,
                        vol_skip_above_pctl=args.vol_skip_above_pctl,
                        vol_skip_below_pctl=args.vol_skip_below_pctl,
-                       vol_pctl_window=args.vol_pctl_window)
+                       vol_pctl_window=args.vol_pctl_window,
+                       trail_vol_above_pctl=args.trail_vol_above_pctl,
+                       trail_vol_below_pctl=args.trail_vol_below_pctl,
+                       trail_vol_tight_mult=args.trail_vol_tight_mult)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)
