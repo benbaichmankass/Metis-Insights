@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260715-TRAINER-CYCLE-MEM-SATURATION",
+      "opened_at": "2026-07-15T09:05:00+00:00",
+      "opened_by": "claude (/health-review 2026-07-15; handoff from the M20/M21 research session)",
+      "source": "Live evidence captured 2026-07-15T08:57Z recovering from a trainer wedge: the trainer VM (ict-trainer-vm, 1 OCPU / 6 GB) sits at its memory ceiling during its OWN ML cycle, independent of external load. Snapshot (uptime 1h41m, NO research job running): `python -m ml promotion-readiness` RSS 3.22 GB / ~99 min elapsed (PID 2855) + concurrent `python -m ml train btc-regime-15m-lgbm-base-pcv-v003` RSS 1.94 GB (PID 6563) = ~5.2 GB RSS on 6 GB -> 4.9 GB of 8 GB swap used, avail 89 MB, load 2.7 on 1 core (swap-heavy, SSH still up). Earlier today a 44-leg M20-X research sweep coinciding with a cycle like this tipped it into full swap-death: sshd accepted TCP but timed out at banner, the 2-min publish heartbeat stopped, the live trader raised 'Trainer VM DOWN - ML training stalled' (mirror stale ~52m); recovered via reset-instance OCI hard RESET (issue #6455). Live trading unaffected throughout.",
+      "title": "[infra] Trainer's own ML cycle saturates 6 GB into deep swap (promotion-readiness ~3.2 GB) -> chronic OOM/wedge risk; external research jobs merely tip an already-saturated box",
+      "description": "REFRAME (the key insight from the research session): the trainer's own cycle already pushes 6 GB deep into swap BEFORE any external research load — so this is a footprint/serialization problem on the box itself, not just 'don't run big sweeps'. ROOT CAUSE (verified in code this review, Tier-1 read): `ml/promotion/attribution.py` streams the shadow log via inspector.iter_records (a generator) but then MATERIALIZES it whole — `records = list(records)` (attribution.py:192; load path load_shadow_records -> aggregate at ~L322-327). So `ml promotion-readiness` loads the ENTIRE runtime_logs/shadow_predictions.jsonl (+ _backfill.jsonl) into RAM as ShadowRecord objects; that log has grown large since per-bar regime scoring went live (REGIME_BAR_SCORING) — hence 3.2 GB / ~99 min. FIX OPTIONS (Tier-2/3, operator-gated — NOT enacted here): (1) DON'T materialize: window/bound the shadow-log read to the relevant lookback before list(), or aggregate incrementally over iter_records without a full in-memory list (streaming reduce) — the single highest-leverage fix. (2) SERIALIZE the heavy ML stages within a cycle (promotion-readiness + `ml train` were overlapping) so a cycle can't swap-thrash itself; +nice/ionice. (3) CONTAINMENT: systemd MemoryMax / MemorySwapMax on the trainer service units so a runaway OOM-kills ONE job instead of wedging the whole box (a wedge currently needs an out-of-band reset-instance). CAPACITY NOTE: the Always-Free Ampere pool is FULL (4/24 OCPU-GB) so 'add RAM' is not free — this must be a footprint/serialization fix, not a resize. Cross-links: BL-20260712-TRAINER-JOB-SERIALIZATION (same health backlog — the SSH-starvation serialization ask; this is its concrete recurrence + root cause) and MB-20260705-TRAINER-OOM (ml-review backlog — the ML-lifecycle OOM signature). Full incident write-up: docs/sprint-logs/S-M20-EXIT-REFINEMENT-2026-07-12.md (section 'M20-X sweep INCIDENT'). Coordination: the research session owns the M20-X sweep re-run and has gated it (won't launch unless available > 2 GB and swap < 500 MB), so no collision there; this item is the trainer's own memory-pressure fix.",
+      "tier": 2,
+      "trigger_condition": "Next trainer-infra / ML-ops code session. Highest-leverage first pass: make ml/promotion/attribution.py stream-aggregate or window the shadow-log read instead of list(records). Then add systemd MemoryMax on the trainer units for containment + serialize the heavy cycle stages.",
+      "resolution_criteria": "A trainer ML cycle (promotion-readiness + train) completes without driving the 6 GB box into deep swap (avail stays > ~500 MB, swap use bounded); a single runaway job OOM-kills itself (MemoryMax) rather than wedging the whole VM; verified over a few cycles via the trainer publish-heartbeat staying fresh (no 'Trainer VM DOWN' banner).",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "BL-20260711-INTENT-REDUCE-PHANTOM-PNL",
       "opened_at": "2026-07-11T14:30:00+00:00",
       "opened_by": "claude (S-TREND-DONCHIAN-ROOTCAUSE)",
@@ -3881,7 +3895,14 @@
       "status": "open",
       "created": "2026-07-12",
       "title": "Serialize heavy research jobs on the 1-OCPU trainer (SSH starvation incident)",
-      "detail": "2026-07-12 ~20:40Z: three concurrent heavy jobs (m20 decay fleet sweep + two m20_exit_head_round E1 trainings) starved the 1-OCPU trainer — SSH banner-exchange timeouts on two consecutive trainer-vm-diag relays, and the mirror publish went stale (mirror_age_seconds 1093 at 20:5xZ, diag #6249 — just under the 20-min trainer_down threshold; the alert may have fired). Not a wedge: jobs were CPU-bound and expected to finish. Fixes to consider: (a) run research jobs under nice -n 19 / a systemd slice with CPUWeight so sshd+publish never starve; (b) the m20 round/sweep drivers gain a --serial flag or a simple flock so only one heavy job runs at a time; (c) session discipline — kick rounds sequentially. Results to pull when the box drains: runtime_logs/m20_fleet_decay/<date>/ + runtime_logs/m20_exit_head/p4_{peak,hp_ext}_1h/ (partial decay verdicts already seen: stall6_t1.8 5/6 PASS + stall10_t1.8 4/6 PASS on a 2h pullback leg)."
+      "detail": "2026-07-12 ~20:40Z: three concurrent heavy jobs (m20 decay fleet sweep + two m20_exit_head_round E1 trainings) starved the 1-OCPU trainer — SSH banner-exchange timeouts on two consecutive trainer-vm-diag relays, and the mirror publish went stale (mirror_age_seconds 1093 at 20:5xZ, diag #6249 — just under the 20-min trainer_down threshold; the alert may have fired). Not a wedge: jobs were CPU-bound and expected to finish. Fixes to consider: (a) run research jobs under nice -n 19 / a systemd slice with CPUWeight so sshd+publish never starve; (b) the m20 round/sweep drivers gain a --serial flag or a simple flock so only one heavy job runs at a time; (c) session discipline — kick rounds sequentially. Results to pull when the box drains: runtime_logs/m20_fleet_decay/<date>/ + runtime_logs/m20_exit_head/p4_{peak,hp_ext}_1h/ (partial decay verdicts already seen: stall6_t1.8 5/6 PASS + stall10_t1.8 4/6 PASS on a 2h pullback leg).",
+      "updates": [
+        {
+          "at": "2026-07-15T09:05:00+00:00",
+          "by": "claude (/health-review 2026-07-15)",
+          "note": "Concrete recurrence + root cause captured as BL-20260715-TRAINER-CYCLE-MEM-SATURATION (2026-07-15 trainer swap-death, reset-instance #6455). Root cause: ml/promotion/attribution.py materializes the whole shadow_predictions.jsonl via list(records). The serialization ask here is one of the fixes; the memory-footprint fix is the higher-leverage half."
+        }
+      ]
     },
     {
       "id": "BL-20260713-BYBIT2-BTC-ORPHANS-UNRECONCILED",
@@ -3975,5 +3996,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-15T06:00:00+00:00"
+  "updated_at": "2026-07-15T09:05:00+00:00"
 }
