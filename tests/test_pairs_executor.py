@@ -167,7 +167,8 @@ def test_reconstruct_open_state_from_pkg_meta(tmp_path, monkeypatch):
                      "stop_spread": 0.3, "opened_at_utc": opened, "bar_seconds": 3600})
     conn.execute("INSERT INTO order_packages (strategy_name, account_id, meta) VALUES (?,?,?)",
                  ("pairs_sol_btc_a", "bybit_1", meta))
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
     pair = {"name": "pairs_sol_btc", "symbol_a": "SOLUSDT", "symbol_b": "BTCUSDT"}
     st = px._reconstruct_open_state(pair, "bybit_1", str(db))
     assert st is not None
