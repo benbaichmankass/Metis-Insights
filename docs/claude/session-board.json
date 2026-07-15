@@ -12,26 +12,20 @@
   },
   "active_sessions": [
     {
-      "session_id": "session_013YMtQmKVzkDCPECSU4tbwD",
-      "branch": "claude/full-system-audit-rmdf0t",
-      "intent": "Full-system audit 2026-07-09 (operator-requested). LEAD session. Phase 0 (rules) DONE + settled with operator (R1-R5 fixed). Now orchestrating S-AUDIT-A..H across all 3 repos + VMs + data. Findings doc: docs/audits/full-system-audit-2026-07-09.md.",
-      "started_at": "2026-07-09T06:00:00Z",
-      "updated_at": "2026-07-09T06:45:49Z"
-    },
-    {
-      "session_id": "session_01886WsrJNuwMJqnMQmxDgCn",
-      "branch": "claude/audit-risk3-async-blocking-a1b2c3",
-      "intent": "Full-system audit Phase-4 EXECUTE. RISK-3 Task 1 (async-route event-loop blocking): 44 no-await FastAPI routes -> sync def + to_thread offload for the 6 real-await routes + busy_timeout + prop graceful-degrade + AST CI guard (check_async_route_blocking). Continuing lead-session audit program (findings: docs/audits/full-system-audit-2026-07-09.md).",
-      "started_at": "2026-07-09T10:47:04Z",
-      "updated_at": "2026-07-09T10:47:04Z"
-    },
-    {
       "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
       "branch": "claude/exit-refinement-sprint-l74k6o",
       "intent": "M21 round-4 vol-at-entry declares MERGED (#6434, operator-approved) + deployed (#6437). Overnight autonomous loop: deploy verify + first-fire checks, soak/track-record monitoring, backlog drive. Slot released.",
       "started_at": "2026-07-13T05:07:08.981068+00:00",
       "updated_at": "2026-07-14T21:02:00Z"
+    },
+    {
+      "session_id": "session_01J9pbkyoSSG8PiS9NurTEaD",
+      "branch": "claude/system-health-review-f4i2v1",
+      "intent": "/health-review 2026-07-15 + own the health-review backlog (drain, not count). Parallel to exit-refinement session (M20/M21). NOT touching devnull (BL-20260629-DEVNULL-*, BL-20260713-DEVNULL-RESTART-MISREPORT) or first-fire (BL-20260712-M20-CELL-FIRST-FIRE, BL-20260713-E2-DEPTH-FIRST-FIRE) items \u2014 research session owns them.",
+      "started_at": "2026-07-15T05:53:00Z",
+      "updated_at": "2026-07-15T06:00:00Z"
     }
   ],
-  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) \u2014 >24h stale, no matching open PR/branch \u2014 and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
+  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) \u2014 >24h stale, no matching open PR/branch \u2014 and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
+  "_pruned_2026-07-15": "Pruned two >24h-stale full-system-audit-2026-07-09 entries (session_013YMtQmKVzkDCPECSU4tbwD, session_01886WsrJNuwMJqnMQmxDgCn) \u2014 no matching open PR/branch after 6 days. Registered health-review session."
 }
