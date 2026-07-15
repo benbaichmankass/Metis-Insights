@@ -80,7 +80,28 @@ already exist (research-only, unwired).
 - **Follow-up if positive + low-correlation:** Tier-3 wiring proposal via the
   `new-strategy` skill (incl. `account_compat_matrix`).
 
-**Findings:** _(pending — trainer run)_
+**Findings (trainer run #6490, 3yr 2023-01→2026-03, net-of-fee 7.5bps):**
+- **Funding-carry, market-neutral (pure carry):** harvests a **real** funding edge
+  — gross `net_funding_r` **+10.96R (ETH) / +9.00R (SOL) / +16.98R (BNB)** with
+  *tiny* drawdown (ETH maxDD **0.81R**, SOL 1.41R) — but **round-trip taker fees +
+  hedge cost eat ~94% of it**: net **ETH +0.70R, SOL +0.98R, BNB −1.87R**. Same
+  fee-drag class as the scalps: the gross edge is real, taker execution annihilates it.
+- **Funding regime compressed:** all funding-carry positive years are 2023–24;
+  2025–26 are negative — funding rates have fallen, so the carry is smaller now
+  (confirms `PB-20260620-002`; the current regime is carry-unfavorable).
+- **Funding-carry directional** (funding + unhedged price): dominated by the price
+  bet, not the carry — ETH −25.7R, SOL +18.3R (front-loaded 2023), BNB +13.4R
+  (bumpy). Not a reliable funding edge.
+- **Cross-sectional momentum:** GATE **FAILED** — net total return **−0.31** over
+  3yr, Sharpe −0.21, a k-fold not net-positive after fees, 2×-fee Sharpe negative
+  (only the holdout passed). The 4-symbol crypto universe is too small for a
+  cross-sectional rank-N sleeve; needs a much wider universe.
+- **Verdict:** no reliable sleeve *as-is*. But the neutral carry's substantial
+  gross funding harvest (+9 to +17R) that taker fees destroy is **the same
+  fee-drag story as the small-TF scalps** — so **P1 (maker execution) is the
+  common lever**: at maker/near-zero fees the neutral carry could net a meaningful
+  fraction of its +9–17R gross with sub-2R drawdown. Re-price the carry emits under
+  the P1 re-scorer as a follow-up. Xsec is parked pending a wider universe.
 
 ### P4 — P(win) entry filter, attempt 3 (GATED; downstream)
 Do **NOT** re-run on OHLCV decision-bar features (twice failed). Only attempt with
