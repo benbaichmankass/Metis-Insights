@@ -28,9 +28,9 @@
     {
       "session_id": "session_01Y1wkcJAmgVxX9Lx1XRPxa5",
       "branch": "claude/scalping-chop-strategies-b9n05u",
-      "intent": "RESEARCH: scalping-through-chop — chop-scalp study MERGED (#6479, NEGATIVE result: no faster multi-TF chop-scalper warranted; fvg_range_15m stays the only capital-efficient range play). Follow-up (operator-requested): 1m rule-out + small-TF scan of the existing roster (trainer runs #6483/#6484) + pandas-3 minute-resample fix for backtest_{squeeze,fade,trend,pullback}.py (bug surfaced by the scan) → one small follow-up PR. Tier-1 only. Slot free.",
+      "intent": "RESEARCH: reliable small-TF trading tool (chop-scalp #6479/#6485 MERGED, both negative). New 4-direction program (operator-approved): P1 maker-fee economics re-scorer (do small-TF cells flip positive at Bybit maker/~0 fees?), P2 start the order-flow capture clock (forward-only), P3 market-neutral sleeve backtests (funding-carry/xsec), P4 P(win) filter attempt-3 (GATED on P2 orderflow / net-R label — NOT another OHLCV run). Tier-1 research only; maker-entry build / sleeve wiring / candidate_p_win swap are operator-gated Tier-3 proposals. Trainer runs via relay. Slot free.",
       "started_at": "2026-07-15T07:05:00Z",
-      "updated_at": "2026-07-15T11:48:00Z"
+      "updated_at": "2026-07-15T12:05:00Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
