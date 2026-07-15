@@ -126,7 +126,10 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
              skip_hours: str = '',
              vol_skip_above_pctl: float = 0.0,
              vol_skip_below_pctl: float = 0.0,
-             vol_pctl_window: int = 200
+             vol_pctl_window: int = 200,
+             trail_vol_above_pctl: float = 0.0,
+             trail_vol_below_pctl: float = 0.0,
+             trail_vol_tight_mult: float = 0.0
              ) -> List[Trade]:
     # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
     # NEW entry whose SIGNAL bar's UTC hour is in the CSV set. Exits are
@@ -140,8 +143,12 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
     # includes the bar itself; NaN until the window fills → never skip,
     # fail-permissive). above>0 skips the hot tail (pctl > above); below>0
     # skips the dead tail (pctl < below). Exits are never touched.
+    # M20-X vol-conditional trail lever shares the same percentile series.
+    vol_trail_on = (trail_vol_tight_mult > 0.0
+                    and (trail_vol_above_pctl > 0.0 or trail_vol_below_pctl > 0.0))
     atr_pctl = None
-    if vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0:
+    if (vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0
+            or vol_trail_on):
         atr_pctl = atr.rolling(vol_pctl_window,
                                min_periods=vol_pctl_window).rank(pct=True)
     sig = _signal(df, donchian)
@@ -205,6 +212,23 @@ def backtest(df: pd.DataFrame, donchian: int, atr_p: int, atr_stop: float,
                         or (trail_decay_stall_bars > 0
                             and (i - pos['peak_i']) >= trail_decay_stall_bars)):
                     _tm = trail_decay_tight_mult
+            # M20-X vol-conditional trail lever (tight_mult 0 = off,
+            # byte-identical): the effective trail mult tightens on any
+            # managed bar whose trailing ATR percentile sits in the gated
+            # tail (above > hot / below < cold) — conditional, not a
+            # ratchet; the STOP ratchet below never loosens regardless.
+            # Undefined percentile (window unfilled) leaves the lever inert
+            # (fail-permissive). Tightest fired mult wins vs trail-decay.
+            # Design: docs/research/M20X-vol-conditional-trail-DESIGN.md.
+            if vol_trail_on:
+                vp_t = atr_pctl.iloc[i]
+                if not pd.isna(vp_t):
+                    fired = ((trail_vol_above_pctl > 0.0
+                              and float(vp_t) > trail_vol_above_pctl)
+                             or (trail_vol_below_pctl > 0.0
+                                 and float(vp_t) < trail_vol_below_pctl))
+                    if fired:
+                        _tm = min(_tm, trail_vol_tight_mult)
             if pos['direction'] == 'long':
                 trail = pos['peak'] - _tm * a
                 pos['sl'] = max(pos['sl'], trail)
@@ -438,6 +462,17 @@ def main(argv: List[str]) -> int:
                         'this (dead tail).')
     p.add_argument('--vol-pctl-window', type=int, default=200,
                    help='Trailing window (bars) for the ATR percentile rank.')
+    p.add_argument('--trail-vol-above-pctl', type=float, default=0.0,
+                   help='M20-X vol-conditional trail lever (0=off): tighten '
+                        'the trail mult on bars whose ATR trailing percentile '
+                        'exceeds this (hot tail).')
+    p.add_argument('--trail-vol-below-pctl', type=float, default=0.0,
+                   help='M20-X vol-conditional trail lever (0=off): tighten '
+                        'the trail mult on bars whose ATR trailing percentile '
+                        'is below this (dead tail).')
+    p.add_argument('--trail-vol-tight-mult', type=float, default=0.0,
+                   help='The tightened trail mult while the vol condition '
+                        'fires (0 disables the lever).')
     p.add_argument('--emit-trades', default=None, metavar='PATH',
                    help='Write per-trade JSONL (entry_time/direction/net_r/'
                         'entry/sl/exit_time/exit_reason) for the M20 E0 '
@@ -461,7 +496,9 @@ def main(argv: List[str]) -> int:
                       a.trail_decay_arm_r, a.trail_decay_stall_bars,
                       a.trail_decay_tight_mult, a.confirm_bars, a.skip_hours,
                       a.vol_skip_above_pctl, a.vol_skip_below_pctl,
-                      a.vol_pctl_window)
+                      a.vol_pctl_window,
+                      a.trail_vol_above_pctl, a.trail_vol_below_pctl,
+                      a.trail_vol_tight_mult)
     params = {'symbol': a.symbol, 'timeframe': a.timeframe, 'donchian': a.donchian,
               'atr_stop_mult': a.atr_stop_mult, 'trail_mult': a.trail_mult,
               'long_only': a.long_only}
@@ -478,6 +515,11 @@ def main(argv: List[str]) -> int:
     if a.vol_skip_above_pctl or a.vol_skip_below_pctl:
         params['vol_skip_above_pctl'] = a.vol_skip_above_pctl
         params['vol_skip_below_pctl'] = a.vol_skip_below_pctl
+        params['vol_pctl_window'] = a.vol_pctl_window
+    if a.trail_vol_tight_mult and (a.trail_vol_above_pctl or a.trail_vol_below_pctl):
+        params['trail_vol_above_pctl'] = a.trail_vol_above_pctl
+        params['trail_vol_below_pctl'] = a.trail_vol_below_pctl
+        params['trail_vol_tight_mult'] = a.trail_vol_tight_mult
         params['vol_pctl_window'] = a.vol_pctl_window
     if a.emit_trades:
         Path(a.emit_trades).parent.mkdir(parents=True, exist_ok=True)

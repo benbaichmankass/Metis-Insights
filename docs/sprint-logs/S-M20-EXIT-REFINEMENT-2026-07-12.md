@@ -589,3 +589,32 @@ where the actual exit is bad** — BTC 1h donchian (OOS-negative leg, head
 live in shadow) — and hurts healthy legs. No new shadow heads exported;
 the multi-artifact channel stays with the two existing artifacts. The
 exit coverage matrix `exit_head_ml` refs updated for both families.
+
+## M20-X — vol-conditional trailing stop (regime-conditional exits, round 1) — HARNESS (2026-07-15)
+
+New research direction (operator pre-authorized "explore new research
+areas"): carry the M21 vol-at-entry win (shipped #6434) to the EXIT side.
+The chandelier trail distance is `mult × ATR`, so in a vol spike it blows
+out mechanically right when reversal risk is highest. Test a trail mult
+that TIGHTENS when the current bar's trailing ATR percentile is extreme.
+
+- **Design**: `docs/research/M20X-vol-conditional-trail-DESIGN.md`.
+- **Harness lever** (`scripts/research/backtest_trend.py` +
+  `scripts/backtest_pullback.py`): `--trail-vol-above-pctl` /
+  `--trail-vol-below-pctl` / `--trail-vol-tight-mult` (0 = off,
+  byte-identical). Reuses the same causal `rolling(window).rank(pct=True)`
+  ATR-percentile series the entry lever ships; conditional (not a ratchet),
+  fail-permissive on an unfilled window, tightest-fired-mult wins vs
+  trail-decay. Entries are never touched.
+- **Fleet cells** (`m20_fleet_exit_sweep.py`, lever `vol_trail`):
+  `vt_hot90` / `vt_hot80` / `vt_cold10`, config-relative tight mult
+  (`max(base_trail/2, 1.5)`), threaded onto each leg's config-exact base
+  (incl. the shipped `vol_skip_*` entry declares).
+- **Tests** (`tests/test_vol_conditional_trail_lever.py`, 5): default-off
+  byte-identical (entry + exit + R unchanged); hot-tail tightens the exit
+  no-later-than baseline and banks ≥ base R on a give-back tape; window
+  unfilled ⇒ inert. Full lever + exit suites re-run green (67).
+- Matrix: new `vol_trail` column, trend/pullback rows `sweep_pending`.
+
+**Next**: dispatch the fleet sweep on the trainer; verdict lands the
+matrix + any Tier-3 declare draft (per-leg `trail_vol_*`) for the operator.
