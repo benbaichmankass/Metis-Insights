@@ -452,7 +452,10 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
     for _key in ("stale_exit_bars", "stale_exit_below_r",
                  "giveback_min_mfe_r", "giveback_r",
                  "trail_decay_arm_r", "trail_decay_stall_bars",
-                 "trail_decay_tight_mult"):
+                 "trail_decay_tight_mult",
+                 # M20-X vol-conditional trail (paper test, 2026-07-15):
+                 "trail_vol_below_pctl", "trail_vol_above_pctl",
+                 "trail_vol_tight_mult", "vol_pctl_window"):
         if cfg.get(_key) is not None:
             package["meta"][_key] = cfg[_key]
     if confirm_bars > 0:
@@ -917,6 +920,20 @@ def monitor(cfg, candles_df, open_pkg):
 
         trail_mult = resolve_trail_mult(meta, cfg_dict, open_pkg, window,
                                         trail_mult, direction)
+    except Exception:  # noqa: BLE001 — the lever must never break the trail
+        pass
+    # M20-X vol-conditional trail lever (docs/research/M20X-vol-conditional-
+    # trail-DESIGN.md): the EFFECTIVE mult tightens on any managed bar whose
+    # trailing ATR percentile sits in the gated tail. YAML-declared per leg
+    # (Tier-3); undeclared = base mult unchanged. Composes with trail-decay
+    # via min() (tightest fired mult wins), matching the harness. Fail-safe to
+    # base_mult on any missing input; never raises.
+    try:
+        from src.runtime.trail_vol import resolve_vol_trail_mult
+
+        trail_mult = resolve_vol_trail_mult(meta, cfg_dict, candles_df,
+                                            trail_mult, direction,
+                                            open_pkg=open_pkg)
     except Exception:  # noqa: BLE001 — the lever must never break the trail
         pass
     try:
