@@ -119,6 +119,7 @@ on:
           - flatten-ib-position
           - flatten-bybit-position
           - flatten-alpaca-position
+          - close-stranded-journal-row
           - reconcile-orphan-history
           - supersede-options-adoption-artifacts
           - supersede-reset-orphan-artifacts
@@ -428,6 +429,11 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*ids[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Ii]ds[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
+            # close-stranded-journal-row: optional flatten fill price for local-compute pnl.
+            exit_price=$(printf '%s\n' "${ISSUE_BODY}" \
+                     | grep -i -m1 '^[[:space:]]*exit_price[[:space:]]*:' \
+                     | sed -E 's/^[[:space:]]*[Ee]xit_price[[:space:]]*:[[:space:]]*//' \
+                     | tr -d '[:space:]' || true)
             if [ -z "${action}" ]; then
               echo "::error::Issue body must contain a line of the form 'action: <name>'. Title was: ${ISSUE_TITLE}"
               exit 1
@@ -481,6 +487,7 @@ jobs:
           echo "ENV_SERVICE=${service}" >>"$GITHUB_ENV"
           echo "ACTION_APPLY=${apply:-}" >>"$GITHUB_ENV"
           echo "ACTION_IDS=${ids:-}" >>"$GITHUB_ENV"
+          echo "ACTION_EXIT_PRICE=${exit_price:-}" >>"$GITHUB_ENV"
           echo ">>> Resolved ACTION=${action} REASON=${reason} ACCOUNT_ID=${account_id} MODE=${mode} TRADE_ID=${trade_id} SYMBOL=${symbol} DAYS=${days} WINDOWS=${windows} WINDOW_DAYS=${window_days} BT_MODE=${bt_mode} RECENT_ONLY_FRAC=${recent_only_frac} (event=${{ github.event_name }})"
 
       - name: Validate action and tier policy
@@ -490,7 +497,7 @@ jobs:
             status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|migrate-closed-at-iso|pull-exchange-fills|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|flatten-bybit-position|flatten-alpaca-position|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|fix-prop-mislinked-close|reset-daily-risk-state|repair-malformed-notes)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|migrate-closed-at-iso|pull-exchange-fills|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|flatten-bybit-position|flatten-alpaca-position|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|fix-prop-mislinked-close|reset-daily-risk-state|repair-malformed-notes)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -640,6 +647,40 @@ jobs:
                 ;;
             esac
           fi
+          # close-stranded-journal-row: same contract shape as flatten-alpaca-position
+          # (account_id + symbol required; apply gates dry-run-vs-write; optional
+          # numeric exit_price for local-compute pnl). The python script guards
+          # exchange==alpaca AND requires a broker-confirmed-flat read before it
+          # writes, so a still-open position or a non-Alpaca account is refused there.
+          if [ "${ACTION}" = "close-stranded-journal-row" ]; then
+            if [ -z "${ACCOUNT_ID// }" ]; then
+              echo "::error::close-stranded-journal-row requires 'account: <id>' (issue body) or 'account_id' input."
+              exit 1
+            fi
+            if [ -z "${ACTION_SYMBOL// }" ]; then
+              echo "::error::close-stranded-journal-row requires 'symbol: <SYM>' (issue body)."
+              exit 1
+            fi
+            if ! printf '%s' "${ACCOUNT_ID}" | grep -Eq '^[A-Za-z0-9_-]+$'; then
+              echo "::error::close-stranded-journal-row account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
+              exit 1
+            fi
+            if ! printf '%s' "${ACTION_SYMBOL}" | grep -Eq '^[A-Za-z0-9_]+$'; then
+              echo "::error::close-stranded-journal-row symbol '${ACTION_SYMBOL}' invalid (allowed: A-Z a-z 0-9 _)."
+              exit 1
+            fi
+            case "${ACTION_APPLY:-}" in
+              ""|true|false|True|False) ;;
+              *)
+                echo "::error::close-stranded-journal-row apply must be true or false (got '${ACTION_APPLY}')."
+                exit 1
+                ;;
+            esac
+            if [ -n "${ACTION_EXIT_PRICE// }" ] && ! printf '%s' "${ACTION_EXIT_PRICE}" | grep -Eq '^[0-9]+(\.[0-9]+)?$'; then
+              echo "::error::close-stranded-journal-row exit_price '${ACTION_EXIT_PRICE}' must be a non-negative number."
+              exit 1
+            fi
+          fi
           echo ">>> Resolved tier: $(grep tier= "$GITHUB_ENV" | tail -1)"
 
       - name: Set up SSH key
@@ -763,6 +804,7 @@ jobs:
             flatten-ib-position)                SCRIPT="flatten_ib_position_action.sh" ;;
             flatten-bybit-position)             SCRIPT="flatten_bybit_position_action.sh" ;;
             flatten-alpaca-position)            SCRIPT="flatten_alpaca_position_action.sh" ;;
+            close-stranded-journal-row)         SCRIPT="close_stranded_journal_row_action.sh" ;;
             reconcile-orphan-history)           SCRIPT="reconcile_orphan_history_action.sh" ;;
             supersede-options-adoption-artifacts) SCRIPT="supersede_options_adoption_artifacts_action.sh" ;;
             supersede-reset-orphan-artifacts)   SCRIPT="supersede_reset_orphan_artifacts_action.sh" ;;
@@ -917,6 +959,9 @@ jobs:
           fi
           if [ "${ACTION}" = "flatten-ib-position" ] || [ "${ACTION}" = "flatten-bybit-position" ] || [ "${ACTION}" = "flatten-alpaca-position" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "close-stranded-journal-row" ]; then
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_EXIT_PRICE=$(printf '%q' "${ACTION_EXIT_PRICE:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "reconcile-orphan-history" ]; then
             REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
