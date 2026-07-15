@@ -3941,7 +3941,7 @@
       "source": "Post-#6302-deploy verification: every /api/diag/* read via the vm-diag-snapshot relay returns fetch_failed / run failure (issues #6313-#6317). A JSON-array-body read reached the VM but both paths returned {\"error\":\"fetch_failed\"}. The #6310 pull-and-deploy log corroborates: 'Skipping post-deploy version assertion (DIAG_READ_TOKEN unset and /etc/ict-trading-bot/diag_token not readable)'. Diag relay reads succeeded EARLIER this same session, so the surface broke at/after the deploy web-api restart (13:18Z).",
       "title": "/api/diag/* surface unreadable post-deploy — DIAG_READ_TOKEN unset on the VM (diag relay returns fetch_failed), blinding future health/system reviews",
       "severity": "medium",
-      "status": "open",
+      "status": "resolved",
       "suggested_fix": "Confirm whether DIAG_READ_TOKEN is set in /etc/ict-trader/web-api.env on the live VM and matches the DIAG_READ_TOKEN Actions secret the relay uses. If unset/mismatched, restore via the set-diag-token system-action (Tier-2) which regenerates + syncs both sides, then re-probe api/diag/status. The public /api/bot/* surface is unaffected (dashboard still reads it); only the token-gated diag relay is blind.",
       "notes": "Does not block trading or the dashboard. Only the PM-side diag relay read path is affected. NEWS_SOURCE=rss activation (#6312) was still confirmed authoritatively via the set-env wrapper output (.env write + trader restarted active), independent of the diag surface.",
       "updates": [
@@ -3949,6 +3949,11 @@
           "at": "2026-07-15T06:00:00+00:00",
           "by": "claude (/health-review 2026-07-15)",
           "note": "Still OPEN (durable code fix not yet landed — only backlog-logging commits #6318/#6357). BUT verified readable THIS review: token-gated /api/diag/* reads (exchange_positions, ib_state, db_info, journal) all succeeded 2026-07-15 05:54Z despite the ict-web-api restart at 05:25:52Z — DIAG_READ_TOKEN is currently set. Parallel session asked to drive the durable persistence fix (/etc/ict-trader/web-api.env)."
+        },
+        {
+          "at": "2026-07-15T13:18:00+00:00",
+          "by": "claude (/health-review 2026-07-15)",
+          "note": "RESOLVED — symptom not manifesting. The /api/diag/* surface stayed readable across 4+ ict-web-api restarts on 2026-07-15 (deploy_pull_restart.sh:405 restarts ict-web-api on every deploy; token-gated reads worked: /api/diag/status 07:01Z after the 06:57 shelve deploy, /api/diag/version 13:16Z after git-sync to ba24780). The token persists in the web-api EnvironmentFiles (init_diag_token writes /etc/ict-trader/web-api.env + repo .env, both loaded by ict-web-api.service) — which is exactly the persistence the item required. Residual recovery-path bug tracked under BL-20260713-SET-DIAG-TOKEN-RESTORE-BROKEN."
         }
       ]
     },
@@ -3992,9 +3997,14 @@
           "at": "2026-07-15T06:00:00+00:00",
           "by": "claude (/health-review 2026-07-15)",
           "note": "Still OPEN (durable code fix not yet landed — only backlog-logging commits #6318/#6357). BUT verified readable THIS review: token-gated /api/diag/* reads (exchange_positions, ib_state, db_info, journal) all succeeded 2026-07-15 05:54Z despite the ict-web-api restart at 05:25:52Z — DIAG_READ_TOKEN is currently set. Parallel session asked to drive the durable persistence fix (/etc/ict-trader/web-api.env)."
+        },
+        {
+          "at": "2026-07-15T13:18:00+00:00",
+          "by": "claude (/health-review 2026-07-15)",
+          "note": "Split verdict. (1) DURABLE PERSISTENCE half: effectively RESOLVED — the token survives web-api restarts (verified across 4+ restarts 2026-07-15; persists in web-api.env/.env). See BL-20260713-DIAG-SURFACE-FETCH-FAILED (resolved). (2) RECOVERY-PATH half: KEEP OPEN — the set-diag-token system-action failed at the Actions-runner 'Set up job' step on #6354/#6355 (unverified/unfixed). Latent: only bites if the token IS ever wiped, but then recovery is broken. Narrow this item to the recovery-path fix only."
         }
       ]
     }
   ],
-  "updated_at": "2026-07-15T09:05:00+00:00"
+  "updated_at": "2026-07-15T13:18:00+00:00"
 }
