@@ -22,8 +22,27 @@
     "data_validity":       {"status": "ok | watch | concern", "note": "values sane: no negative sizes, no null required fields, monotonic timestamps, pnl reconciles"},
     "audit_log_freshness": {"status": "ok | watch | concern", "note": "..."},
     "trainer_service":     {"status": "ok | watch | concern | skip", "note": "service health only; model/dataset detail in /ml-review"},
-    "health_snapshot":     {"status": "ok | watch | concern", "note": "cron health-snapshot generator state; cross-checked against own diag pulls"}
+    "health_snapshot":     {"status": "ok | watch | concern", "note": "cron health-snapshot generator state; cross-checked against own diag pulls"},
+    "security":            {"status": "ok | watch | concern", "note": "MANDATORY breach-detection sweep since last review; concern => operator_attention_required. Detail in security_check."}
   },
+  "security_check": {
+    "_comment": "MANDATORY breach-detection result (§ Security-breach check). status mirrors findings.security. A clean sweep MUST be a stated negative, not an omission: signals empty + an explicit clean note. Deep code/dependency review is /security-review, not here.",
+    "status": "ok | watch | concern",
+    "sources_checked": ["github_secret_scanning", "external_actors", "workflow_secret_collaborator_changes", "actions_anomalies", "vm_auth_journal"],
+    "signals": [
+      {"source": "github_secret_scanning | external_actors | supply_chain | actions | vm_host", "detail": "<= 200 chars", "severity": "watch | concern", "action_taken": "<what you did / routed>"}
+    ],
+    "note": "e.g. 'no breach detected since <window>: 0 secret-scanning alerts, 0 external actors, no workflow/secret/collaborator changes, auth log clean'"
+  },
+  "soak_decisions_due": [
+    {
+      "_comment": "SURFACE, don't decide (§ Soak decisions due). One entry per soak that reached its promotion/demotion gate this window. The recommendation itself belongs to owner_skill.",
+      "what": "<model_id or strategy name or observe-only soak>",
+      "gate_met": "<the threshold reached, e.g. '14d shadow + 300 preds, drift stable' | 'M7 badge=PROMOTE' | 'exit-ladder rowcount bar'>",
+      "owner_skill": "/ml-review | /performance-review",
+      "sla_state": "on_time | overdue | stalled_>=2_reviews"
+    }
+  ],
   "anomalies": [
     "free-form list of notable items the reviewer flagged"
   ],
