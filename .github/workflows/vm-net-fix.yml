@@ -63,6 +63,25 @@ jobs:
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
       DASHBOARD_PORT: ${{ inputs.port || '8001' }}
     steps:
+      - name: Resolve target port (issue-body 'port:' line overrides)
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          # workflow_dispatch supplies inputs.port (job-env default). The issue
+          # path has no inputs, so parse an optional `port: NNN` line from the
+          # body (e.g. to open 443 for the Caddy HTTPS front), else keep 8001.
+          port="${DASHBOARD_PORT}"
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            parsed=$(printf '%s' "${ISSUE_BODY:-}" | grep -ioE '^[[:space:]]*port:[[:space:]]*[0-9]+' | head -1 | grep -oE '[0-9]+' || true)
+            if [ -n "${parsed}" ]; then port="${parsed}"; fi
+          fi
+          if ! printf '%s' "${port}" | grep -qE '^[0-9]+$' || [ "${port}" -lt 1 ] || [ "${port}" -gt 65535 ]; then
+            echo "::error::invalid port '${port}'"; exit 1
+          fi
+          echo "DASHBOARD_PORT=${port}" >> "$GITHUB_ENV"
+          echo "Resolved target port: ${port}"
+
       - name: Set up SSH key
         env:
           VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
