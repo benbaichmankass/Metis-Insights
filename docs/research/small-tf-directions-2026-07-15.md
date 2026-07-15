@@ -303,6 +303,26 @@ held-out OOS 2025-01→2026-03, taker 7.5bps) — PASSES cleanly:**
 This is a robust, non-overfit, market-neutral, fee-insensitive edge alive in the
 current regime — **the reliable-tool candidate the program was chartered to find.**
 
+**Capital efficiency (trainer #6506, `net_R per position-day` = the operator's
+original PnL-per-time-in-market metric; lb=15, taker 7.5bps):**
+
+| pair | FULL net_R/pos-day | OOS net_R/pos-day | mean hold (hrs) |
+|---|--:|--:|--:|
+| SOL/BTC | 1.23 | **1.08** | 5.7 |
+| BNB/BTC | 1.11 | **1.12** | 5.6 |
+| ETH/BTC | 1.01 | **0.93** | 5.8 |
+| SOL/ETH | 0.79 | **1.01** | 5.7 |
+
+Each pair nets **~0.8–1.2 R for every day it holds a position**, and this holds
+OOS (0.93–1.12 in 2025-26). Mean hold is short (~5.7h → capital turns over ~4×
+per deployment-day), so the strategy only ties up margin ~40% of calendar time
+(pos_days ≈ 440 over ~1155 calendar days). On the operator's own metric this
+**decisively beats the fee-crushed small-TF scalps and the chop reverters** (both
+negative net-R/pos-day). **Caveat:** this `net_R/pos-day` is in RISK units (R
+normalized by the per-trade spread-stop); the **$-return-on-deployed-2-leg-margin**
+translation (leverage + concurrency assumptions) is the remaining execution-realism
+step before a live sizing proposal.
+
 - **Remaining validation gaps before a live proposal (NOT blockers to the finding):**
   (a) **$ capital-efficiency translation** — R→ return on the 2-leg deployed margin
   (the operator's original metric); (b) **execution realism** — 2-leg simultaneous
