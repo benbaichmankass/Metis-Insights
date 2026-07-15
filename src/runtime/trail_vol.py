@@ -57,7 +57,7 @@ def _f(v: Any) -> Optional[float]:
 def resolve_vol_trail_mult(
     meta: Dict[str, Any],
     cfg_dict: Dict[str, Any],
-    candles_df: "pd.DataFrame",
+    candles_df: Any,  # pandas DataFrame of closed OHLC bars
     base_mult: float,
     direction: str,
     open_pkg: Optional[Dict[str, Any]] = None,
