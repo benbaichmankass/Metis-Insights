@@ -146,6 +146,11 @@ EXPECTED_ACTIONS = {
     # reduce-only flatten of a single Bybit exchange position (close an
     # account before a different-account key rotation).
     "flatten-bybit-position": "flatten_bybit_position_action.sh",
+    # 2026-07-15 — Alpaca sibling of flatten-bybit-position: one-shot guarded
+    # native flatten of a single Alpaca position. AlpacaClient.close cancels the
+    # reserving protective bracket (held_for_orders) then market-closes — the
+    # on-demand fix for BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE.
+    "flatten-alpaca-position": "flatten_alpaca_position_action.sh",
     # 2026-06-24 — orphan-flap hardening #5: collapse historical phantom
     # orphan-flap duplicates so each physical position is ONE reconciled row
     # (void-flag dups as reconcile_status='superseded'). DRY-RUN by default;
@@ -214,6 +219,7 @@ TIER_2_ACTIONS = {
     "purge-cloudflared",
     "flatten-ib-position",
     "flatten-bybit-position",
+    "flatten-alpaca-position",
     "reconcile-orphan-history",
     "supersede-options-adoption-artifacts",
     "supersede-reset-orphan-artifacts",
