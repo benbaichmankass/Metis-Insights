@@ -230,7 +230,48 @@ carry/mean-reversion edges:
 - **Regime caveat:** carry/basis is regime-dependent (`PB-20260620-002`); report
   current-regime OOS, not just the full-history average (the wave-1 lesson).
 
-**Findings:** _(pending — trainer #6498)_
+**Findings (trainer #6498/#6500, 4 crypto pairs @ 1h, 2023-01→2026-03, net-of-fee):**
+The **strongest result of the entire M22 program.** Cointegration mean-reversion
+pairs are robustly net-positive, **fee-insensitive**, market-neutral, and — unlike
+the funding carry — **positive in the most recent regime (2025-26)**:
+
+| pair | trades | win% | net_R taker 7.5 | net_R zero | maxDD_R | net/maxDD | 2025 / 2026 (recent) |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| **SOL/BTC** | 1552 | 55.7% | **+313** | +313 | 12.9 | **24.2** | +122 / +4.8 |
+| **BNB/BTC** | 1540 | 54.0% | **+311** | +311 | 14.9 | 20.9 | +92 / +15 |
+| ETH/BTC | 1590 | 54.2% | +252 | +252 | 24.4 | 10.3 | +54 / +26 |
+| SOL/ETH | 1604 | 53.4% | +146 | +147 | 28.8 | 5.1 | +44 / +3.7 |
+
+1. **Fee-insensitive by construction.** net_R barely moves taker→zero (+146.4→+147.3
+   on SOL/ETH over 1604 trades) because R is normalized by the wide 2σ spread stop,
+   which dwarfs the per-trade fee — the exact inverse of the fee-crushed scalps.
+   This **sidesteps root cause #1 (fee-drag).**
+2. **Not directional / not OHLCV-blind.** The edge is the spread *relationship*
+   (a cointegrated ratio reverting), not a directional price prediction — so it
+   sidesteps root cause #2 (OHLCV-blindness) too. Market-neutral (both legs perps).
+3. **Alive in the current regime.** Every pair is positive in 2025 AND 2026 —
+   the held-out recent window — with fixed untuned defaults. This is the decisive
+   contrast with the funding carry (dead post-2024).
+4. **Param-robust region, not a knife-edge.** SOL/ETH sweep: **lookback 15–20 is
+   robustly strong across every entry_z** (+350 to +390R, maxDD ~11 at lb=15);
+   only lookback=30 breaks it (over-smooths the z-score → slow reversion). The
+   robust region is a coherent "fast mean-reversion" parameterization.
+- **Honest caveats (the validation gaps before any Tier-3 proposal):**
+  (a) The by-year consistency is strong walk-forward *evidence* but not a formal
+  purged split with params SELECTED on train / tested OOS — added `--start/--end`
+  to `backtest_pairs.py` to do exactly that (trainer follow-up).
+  (b) **"R" ≠ $ capital efficiency** — a market-neutral pair ties up margin on BOTH
+  legs; the operator's original metric (PnL per unit capital per unit time) needs a
+  $/notional translation, not just R.
+  (c) **Execution realism** — simultaneous 2-leg fills, hedge-leg slippage, perp
+  funding on the short leg, and the rolling hedge-β recompute are real frictions not
+  fully modeled. (d) **Cointegration-break tail** — maxDD 13–29R comes from sustained
+  divergence; a live sleeve needs a spread half-life / stability monitor.
+- **Follow-up:** the formal OOS (train 2023-24 → test 2025-26, lb=15 params) + the
+  $ capital-efficiency translation. If it clears OOS *and* the $ return-on-capital is
+  attractive vs the live book, a **Tier-3 proposal** for a market-neutral pairs
+  sleeve via the `new-strategy` skill (incl. `account_compat_matrix`) — **operator-gated,
+  not self-wired.** This is the reliable-tool candidate the program was chartered to find.
 
 ### D3 — Passive liquidity-provision sleeve (the generalization of the maker win; GATED)
 "Maker execution + stop-free" points at an actual *strategy*, not a filter: post

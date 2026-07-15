@@ -282,6 +282,8 @@ def main(argv: List[str]) -> int:
                    help="one=log-ratio (beta=1); rolling=rolling-OLS hedge ratio")
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP,
                    help="per-leg round-trip cost in bps (two legs are charged)")
+    p.add_argument("--start", default=None, help="ISO date; drop aligned bars before it (walk-forward OOS split)")
+    p.add_argument("--end", default=None, help="ISO date; drop aligned bars on/after it")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None, metavar="PATH")
     args = p.parse_args(argv[1:])
@@ -297,6 +299,10 @@ def main(argv: List[str]) -> int:
         if args.resample:
             a, b = _resample(a, args.resample), _resample(b, args.resample)
         m = _align(a, b)
+        if args.start:
+            m = m[m["timestamp"] >= pd.to_datetime(args.start, utc=True)].reset_index(drop=True)
+        if args.end:
+            m = m[m["timestamp"] < pd.to_datetime(args.end, utc=True)].reset_index(drop=True)
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: load failed: {exc}", file=sys.stderr)
         return 1
