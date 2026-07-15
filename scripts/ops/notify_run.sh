@@ -203,6 +203,15 @@ case "${action}" in
             *) result="FAILED/refused (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    close-stranded-journal-row)
+        # 2026-07-15: close a stranded open journal row whose broker position is
+        # already flat (dry-run unless apply:true; refuses unless broker-flat).
+        tier=2
+        case "${exit_code}" in
+            0) result="ok (dry-run preview or row closed)"; priority="normal" ;;
+            *) result="FAILED/refused (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     enable-mes|disable-mes)
         # PR #1656/#1670: IB MES multi-symbol activation toggle (restarts trader).
         tier=2

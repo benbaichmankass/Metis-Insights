@@ -151,6 +151,11 @@ EXPECTED_ACTIONS = {
     # reserving protective bracket (held_for_orders) then market-closes — the
     # on-demand fix for BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE.
     "flatten-alpaca-position": "flatten_alpaca_position_action.sh",
+    # 2026-07-15 — JOURNAL-side companion to flatten-alpaca-position: close a
+    # stranded open journal row whose broker position is already flat (the
+    # shelved-dry_run-account gap where the reconciler can't close-on-disappear).
+    # Mode-agnostic broker-flat read is a hard gate; DRY-RUN by default.
+    "close-stranded-journal-row": "close_stranded_journal_row_action.sh",
     # 2026-06-24 — orphan-flap hardening #5: collapse historical phantom
     # orphan-flap duplicates so each physical position is ONE reconciled row
     # (void-flag dups as reconcile_status='superseded'). DRY-RUN by default;
@@ -220,6 +225,7 @@ TIER_2_ACTIONS = {
     "flatten-ib-position",
     "flatten-bybit-position",
     "flatten-alpaca-position",
+    "close-stranded-journal-row",
     "reconcile-orphan-history",
     "supersede-options-adoption-artifacts",
     "supersede-reset-orphan-artifacts",
