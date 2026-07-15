@@ -92,8 +92,8 @@
     "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
    },
    "vol_trail": {
-    "status": "passed_unshipped",
-    "ref": "M20-X sweep #6507 (IS -31.1->-27.4/dd 48.3->40.7, OOS +24.1->+28.0/dd 11.7->11.3, wf 4/6); PAPER test on bybit_1 (draft PR, operator merge-gated)"
+    "status": "shipped",
+    "ref": "M20-X sweep #6507 (IS -31.1->-27.4/dd 48.3->40.7, OOS +24.1->+28.0/dd 11.7->11.3, wf 4/6); PAPER test on bybit_1 \u2014 merged #6517, deployed live HEAD be87cf8 2026-07-15 (operator-approved). Rollback = delete 3 YAML lines."
    }
   },
   {
