@@ -24,6 +24,13 @@
       "intent": "/health-review 2026-07-15 DONE. Merged #6449 (Tier-3 alpaca_live->dry_run, operator-directed) + deploying; merging #6447 (review-skill governance: health-review security+soak sweeps, perf-review real-money benchmark; health-review backlog drain). NOT touching devnull / first-fire items — research session owns them.",
       "started_at": "2026-07-15T05:53:00Z",
       "updated_at": "2026-07-15T06:58:00Z"
+    },
+    {
+      "session_id": "session_01Y1wkcJAmgVxX9Lx1XRPxa5",
+      "branch": "claude/scalping-chop-strategies-b9n05u",
+      "intent": "RESEARCH: scalping-through-chop strategies. Multi-TF range-boundary bounce scalper + capital-efficiency study (net_r_per_pos_day / pnl-per-duration) vs existing reverters (fvg_range_15m, hf_vwap_revert), buy-hold, and cash. Tier-1 only: new scripts/backtest_chop_scalp.py + docs/research + tests. NO config/strategies.yaml or src/units writes (Tier-3 = operator-gated proposal). Slot free.",
+      "started_at": "2026-07-15T07:05:00Z",
+      "updated_at": "2026-07-15T07:05:00Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
