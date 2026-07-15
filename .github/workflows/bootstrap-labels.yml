@@ -145,6 +145,11 @@ jobs:
                 description: 'Triggers vm-ib-gateway-deploy — pull origin/main on the gateway VM, re-install systemd units, restart the watchdog timer (the gateway VM has no git-sync auto-deploy).',
               },
               {
+                name: 'vm-caddy-deploy',
+                color: 'b60205',
+                description: 'Triggers vm-caddy-deploy — install/reload Caddy HTTPS front on the live VM (SPA Phase-0) + restart web-api for CORS.',
+              },
+              {
                 name: 'vm-ib-gateway-selftest',
                 color: 'b60205',
                 description: 'Triggers vm-ib-gateway-selftest — controlled stop+auto-recover test of the reactive IB-Gateway watchdog + a restart-cadence read (safety net never leaves it down).',

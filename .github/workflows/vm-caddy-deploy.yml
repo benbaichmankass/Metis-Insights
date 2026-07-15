@@ -1,0 +1,187 @@
+name: vm-caddy-deploy
+
+# Install / reload the Caddy HTTPS front on the LIVE trader VM — Phase-0 of the
+# Svelte SPA (ict-trader-dashboard/webapp). Caddy reverse-proxies localhost:8001
+# with an auto Let's Encrypt cert for ict-bot.duckdns.org, so the GitHub-Pages
+# SPA can reach the API over HTTPS (a mixed-content http:// fetch is blocked)
+# and stream /ws/market over WSS.
+#
+# Prereqs (dispatch BEFORE this, once): inbound TCP 80+443 open on the VM —
+#   vm-cloud-fix  (label vm-cloud-fix-request, port 443 then 80)  — OCI Security List
+#   vm-net-fix    (label vm-net-fix-request,   port 443 then 80)  — host firewall
+# and the DuckDNS A record ict-bot.duckdns.org → 141.145.193.91 (already set).
+#
+# What it does on the VM (fixed-form, no freeform shell from the issue body):
+#   1. git fetch + reset --hard origin/main   (same primitive as deploy_pull_restart.sh)
+#   2. bash scripts/ops/install_caddy.sh       (idempotent install + Caddyfile + reload)
+#   3. systemctl restart ict-web-api.service   (pick up the additive CORS allow of the Pages origin)
+#   4. verify: caddy active, upstream :8001 /health, public HTTPS /api/health
+#
+# Trust contract:
+#   * Tier 2 (new live service surface + web-api restart). Blast radius: adds a
+#     reverse proxy; does NOT touch trader code paths, account mode, strategy, or
+#     risk config. The web-api restart is a read-API bounce (no order path).
+#   * Triggered by issues.opened filtered to label `vm-caddy-deploy` (owner/bot only).
+#
+# From a sandbox session:
+#   mcp__github__issue_write(method='create',
+#     title='[caddy-deploy] install HTTPS front (SPA Phase-0)',
+#     labels=['vm-caddy-deploy'], body='<reason — audit>')
+# Then read the github-actions[bot] reply on the issue.
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why this run is happening (audit only)."
+        required: false
+        default: "manual operator dispatch"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vm-caddy-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'vm-caddy-deploy'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+      VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
+    steps:
+      - name: Set up SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Install/reload Caddy + web-api CORS on the live VM
+        id: exec
+        run: |
+          set -euo pipefail
+          read -r -d '' REMOTE_SCRIPT <<'REMOTE' || true
+          set -uo pipefail
+          REPO=/home/ubuntu/ict-trading-bot
+          echo ">>> target host: $(hostname) [$(hostname -I 2>/dev/null | awk '{print $1}')]"
+          [ -d "$REPO/.git" ] || { echo "ERROR: $REPO is not a git checkout"; exit 1; }
+
+          echo
+          echo "===== 1. sync repo to origin/main ====="
+          PRE=$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)
+          git -C "$REPO" fetch -q --prune origin 2>/dev/null || { echo "ERROR: git fetch failed"; exit 1; }
+          git -C "$REPO" reset --hard origin/main || { echo "ERROR: git reset failed"; exit 1; }
+          echo "head: ${PRE:0:12} -> $(git -C "$REPO" rev-parse HEAD | cut -c1-12)"
+          [ -f "$REPO/scripts/ops/install_caddy.sh" ] || { echo "ERROR: install_caddy.sh missing — is the Phase-0 PR merged to main?"; exit 1; }
+
+          echo
+          echo "===== 2. install/reload Caddy ====="
+          ( cd "$REPO" && bash scripts/ops/install_caddy.sh ) || echo "WARN: install_caddy.sh exited nonzero (see above)"
+
+          echo
+          echo "===== 3. restart ict-web-api (pick up CORS allow of the Pages origin) ====="
+          sudo systemctl restart ict-web-api.service 2>&1 || echo "WARN: could not restart ict-web-api.service"
+          sleep 3
+          echo "ict-web-api: $(systemctl is-active ict-web-api.service 2>/dev/null || echo unknown)"
+
+          echo
+          echo "===== 4. verify ====="
+          echo "--- caddy ---"
+          systemctl is-active caddy 2>/dev/null || echo "(caddy not active)"
+          echo "--- upstream :8001 ---"
+          curl -sS -m 8 -o /dev/null -w "  local /api/health -> HTTP %{http_code}\n" http://127.0.0.1:8001/api/health || echo "  (upstream down)"
+          echo "--- public HTTPS (needs 80+443 open + cert issued) ---"
+          curl -sS -m 20 -o /dev/null -w "  https /api/health -> HTTP %{http_code}\n" https://ict-bot.duckdns.org/api/health || echo "  (HTTPS not reachable yet — open 80+443, cert issues on first challenge)"
+          echo "--- CORS preflight from the Pages origin ---"
+          curl -sS -m 20 -o /dev/null -w "  OPTIONS /api/bot/stats -> HTTP %{http_code}\n" \
+            -X OPTIONS -H "Origin: https://benbaichmankass.github.io" -H "Access-Control-Request-Method: GET" \
+            https://ict-bot.duckdns.org/api/bot/stats || echo "  (preflight unreachable — expected until HTTPS is up)"
+          echo
+          echo ">>> vm-caddy-deploy complete."
+          REMOTE
+
+          set +e
+          ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+              "${VM_SSH_USER}@${VM_SSH_HOST}" "bash -s" <<<"$REMOTE_SCRIPT" > action-output.txt 2>&1
+          rc=$?
+          set -e
+          echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
+          echo ">>> Remote exit code: ${rc}"
+          if [ "$(wc -c <action-output.txt)" -gt 4000 ]; then
+            head -c 4000 action-output.txt; echo ""; echo "... (truncated; see issue comment)"
+          else
+            cat action-output.txt
+          fi
+          exit "${rc}"
+
+      - name: Upload action output
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vm-caddy-deploy-${{ github.run_id }}
+          path: action-output.txt
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Reply to issue with success
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('action-output.txt', 'utf8');
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `✅ **vm-caddy-deploy** completed — Caddy HTTPS front installed/reloaded + web-api restarted.\nRun: ${runUrl}\nExit code: ${process.env.EXIT_CODE}\n\n\`\`\`\n${tail}\n\`\`\``
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              state: 'closed', state_reason: 'completed'
+            });
+
+      - name: Reply to issue with failure
+        if: github.event_name == 'issues' && failure()
+        uses: actions/github-script@v7
+        env:
+          EXIT_CODE: ${{ steps.exec.outputs.exit_code }}
+        with:
+          script: |
+            const fs = require('fs');
+            let output = '';
+            try { output = fs.readFileSync('action-output.txt', 'utf8'); } catch (_) { output = '(no output — failure before SSH ran)'; }
+            const MAX_BODY = 50_000;
+            const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `❌ **vm-caddy-deploy failed.**\nRun: ${runUrl}\nExit code: ${process.env.EXIT_CODE || '(setup failed)'}\n\nCommon causes: VM_SSH_KEY unset; install_caddy.sh not yet on main; apt/caddy repo unreachable; ports 80+443 not open (cert can't issue).\n\n\`\`\`\n${tail}\n\`\`\``
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              state: 'closed', state_reason: 'not_planned'
+            });

@@ -56,6 +56,15 @@ _dashboard_origin = os.environ.get("DASHBOARD_ORIGIN", "")
 _origins = ["http://localhost:5173", "http://localhost:3000"]
 if _dashboard_origin:
     _origins.append(_dashboard_origin)
+# The Svelte SPA (ict-trader-dashboard/webapp) is served from GitHub Pages and
+# calls this API browser-direct, so — unlike the server-side Streamlit hop —
+# CORS IS load-bearing for it. Allow the Pages origin (origin is host-only; the
+# /ict-trader-dashboard/ path is not part of it). Additional origins (a future
+# custom domain, a Pages preview) can be supplied via WEBAPP_ORIGINS (CSV).
+_origins.append("https://benbaichmankass.github.io")
+_webapp_origins = os.environ.get("WEBAPP_ORIGINS", "")
+if _webapp_origins:
+    _origins.extend(o.strip() for o in _webapp_origins.split(",") if o.strip())
 
 app.add_middleware(
     CORSMiddleware,
