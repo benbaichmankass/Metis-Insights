@@ -78,3 +78,29 @@ def test_missing_confidence_is_none():
     bars = [(101, 99, 100), (102, 98, 101), (103, 99, 102), (104, 100, 103)]
     rows = _rows(tr, _candles(bars))
     assert rows and all(r["entry_confidence"] is None for r in rows)
+
+
+def test_entry_atr_pctl_none_until_window_fills():
+    # Short tape (< ENTRY_ATR_PCTL_WINDOW bars before the decision bar) ⇒
+    # the trailing-percentile feature is None (no lookahead, fail-permissive).
+    bars = [(101, 99, 100), (111, 100, 108), (121, 105, 118),
+            (119, 110, 112), (113, 108, 110)]
+    rows = _rows(_trade(0, 4), _candles(bars))
+    assert rows and all(r["entry_atr_pctl"] is None for r in rows)
+
+
+def test_entry_atr_pctl_high_when_decision_bar_vol_spikes():
+    # >200 calm bars, then a wide (high-ATR) bar right at the decision bar
+    # (trade opens the bar AFTER it) ⇒ the decision bar's ATR ranks near the
+    # top of its trailing window (percentile close to 1.0). Then a winning
+    # path so rows are produced.
+    calm = [(100.5, 99.5, 100.0)] * 220          # clear the 14-bar ATR warmup
+    spike = [(115.0, 85.0, 100.0)]               # decision bar 220: ATR jumps
+    win = [(111.0, 100.0, 108.0), (121.0, 105.0, 118.0), (113.0, 108.0, 110.0)]
+    candles = _candles(calm + spike + win)
+    # trade opens at bar 221 (the bar after the spike decision bar 220)
+    tr = _trade(221, 223)
+    rows = _rows(tr, candles)
+    assert rows
+    p = rows[0]["entry_atr_pctl"]
+    assert p is not None and p >= 0.9, p
