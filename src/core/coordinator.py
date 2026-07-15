@@ -2086,13 +2086,24 @@ class Coordinator:
                 # still read clearly. `_enqueue_demo_ping` is retained for any
                 # future non-open demo event.
             except RiskBreach as exc:
-                _emit_execution_failure_ping(
-                    account=account.name,
-                    pkg=pkg,
-                    qty=sized_qty,
-                    reason=f"RiskBreach: {exc}",
-                    demo=getattr(account, "demo", False),
+                # An EXPECTED policy skip — a shelved dry_run account declining,
+                # or a prop mission/session skip — is the gate working as
+                # designed, NOT a failure: suppress the operator "execution
+                # failed" ping (still journal the rejection below for audit). A
+                # wired-but-off account should just silently not trade (operator
+                # directive 2026-07-15). A genuine RiskBreach (daily-loss cap,
+                # open-position guard, real risk refusal) still pings.
+                from src.runtime.execution_diagnostics import (
+                    is_expected_dispatch_skip,
                 )
+                if not is_expected_dispatch_skip(risk_reason):
+                    _emit_execution_failure_ping(
+                        account=account.name,
+                        pkg=pkg,
+                        qty=sized_qty,
+                        reason=f"RiskBreach: {exc}",
+                        demo=getattr(account, "demo", False),
+                    )
                 from src.units.accounts.execute import log_rejection_to_journal
                 log_rejection_to_journal(
                     pkg, account_cfg,
@@ -2179,12 +2190,19 @@ class Coordinator:
         # the benign no-ops in here was firing false alarms on every flip-
         # suppressed signal (health-review BL-20260531-002) and, once the
         # netting guard's demo soak began, on every suppressed re-entry too.
+        from src.runtime.execution_diagnostics import is_expected_dispatch_skip
+
         def _is_benign_noop(result: dict) -> bool:
             err = str(result.get("error") or "")
             return (
                 err.startswith("intent_noop:")
                 or err == "intent_sub_min_qty_delta"
                 or err.startswith("reentry_suppressed_netting_guard:")
+                # A shelved dry_run account / prop mission-skip declining is a
+                # deliberate policy hold, not a dispatch failure — a round where
+                # every leg is one of these must NOT fire the "all accounts
+                # failed" roll-up (operator directive 2026-07-15).
+                or is_expected_dispatch_skip(err)
             )
 
         any_trade_placed = any(r.get("trade_id") is not None for r in results)
