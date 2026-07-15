@@ -28,9 +28,9 @@
     {
       "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
       "branch": "claude/exit-refinement-sprint-l74k6o",
-      "intent": "M21 round-4 vol-at-entry declares MERGED (#6434, operator-approved) + deployed (#6437). Overnight autonomous loop: deploy verify + first-fire checks, soak/track-record monitoring, backlog drive. Slot released.",
+      "intent": "M21 vol-at-entry declares live (#6434). Now driving new research: M20-X vol-conditional trailing stop (harness+tests SHIPPED #6441; fleet sweep dispatched to trainer #6443) + M21 E-3c entry-head feature-enrichment round (queued). Tier-3 declares are drafts for operator. Slot free.",
       "started_at": "2026-07-13T05:07:08.981068+00:00",
-      "updated_at": "2026-07-14T21:02:00Z"
+      "updated_at": "2026-07-15T05:25:00Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) \u2014 >24h stale, no matching open PR/branch \u2014 and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass."
