@@ -672,7 +672,15 @@ accounts:
   alpaca_live:
     exchange: alpaca
     account_class: real_money          # REAL MONEY (Alpaca live host).
-    mode: live                         # Tier-3 approved 2026-06-25; live-flip 2026-06-26 (system-action #4725).
+    mode: dry_run                      # dry-run-guard: allow — SHELVED to dry_run 2026-07-15 (Tier-3, operator-directed): the open IEF
+                                       # position was closed and funds moved to Bybit (the stronger performer for
+                                       # now); alpaca_live real-money strategies are paused pending evidence they
+                                       # help. RE-ARM to live is gated on the /performance-review portfolio-vs-bybit
+                                       # benchmark (does a ready-for-live Alpaca portfolio improve risk-adjusted PnL,
+                                       # incl. via regime diversification, vs bybit-only?). dry_run keeps signals +
+                                       # order-packages logging so the paper-equivalent track record still accrues.
+                                       # Prior: Tier-3 approved 2026-06-25; live-flip 2026-06-26 (system-action #4725).
+                                       # ROLLBACK: mode: live.
     alpaca_env: live                   # selects api.alpaca.markets (vs paper).
     api_key_env: ALPACA_API_KEY_ID_LIVE        # this account's OWN key pair, so
     api_secret_env: ALPACA_API_SECRET_KEY_LIVE # paper + live run concurrently.

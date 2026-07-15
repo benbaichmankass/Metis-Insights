@@ -51,6 +51,11 @@ FEATURES = [
     "entry_mom_8", "entry_dc_dist_atr", "entry_hour", "entry_dayofweek",
     "is_long", "entry_confidence",
 ]
+# M21 E-3c enrichment: the base signal-bar set + the decision-bar ATR
+# trailing percentile (the causal vol-at-entry signal shipped as an entry
+# GATE #6434, here as a continuous feature). Selectable via
+# --features signal_bar_v2 so the AUC/replay A/B vs the base set is clean.
+FEATURES_V2 = FEATURES + ["entry_atr_pctl"]
 FEATURES_AGE0 = [
     "mom_8", "donchian_mid_dist_atr", "hour_of_day", "dayofweek",
     "is_long", "entry_confidence",
@@ -161,13 +166,15 @@ def main(argv: List[str]) -> int:
     ap.add_argument("--min-fold-trades", type=int, default=50)
     ap.add_argument("--target", choices=["first_touch_1r", "reaches_2r"],
                     default="first_touch_1r")
-    ap.add_argument("--features", choices=["signal_bar", "age0"],
+    ap.add_argument("--features", choices=["signal_bar", "signal_bar_v2", "age0"],
                     default="signal_bar")
     a = ap.parse_args(argv[1:])
     global TARGET, FEATURES
     TARGET = a.target
     if a.features == "age0":
         FEATURES = FEATURES_AGE0
+    elif a.features == "signal_bar_v2":
+        FEATURES = FEATURES_V2
 
     fam_dir = Path(a.family_dir)
     entries = load_entries(fam_dir / "rows.jsonl")
