@@ -212,7 +212,28 @@ per-trade gross edge. Two cheap re-scores of the existing `--emit-trades` output
   not. If nothing flips even here, frequency-reduction can't save the hard-rules
   scalp either.
 
-**Findings:** _(D1a pending — trainer #6497; D1b pending)_
+**Findings (trainer #6499, session gating BTC + ETH 5m roster, net-of-fee):**
+Marginal-to-negative — frequency-reduction does NOT rescue the stop-based scalps:
+- **BTC 5m:** *no* killzone subset flips any cell. fade/pullback/squeeze/trend
+  all stay deeply negative (all-hours −7226 / −996 / −1035 / −2996R) and no
+  killzone subset is net-positive. (Faithfulness ✓: fade_5m −7226R matches the
+  #6489 maker table exactly.)
+- **ETH 5m:** only 2 of 4 cells flip, and only by restricting to a single
+  **london_close** killzone (15–17 UTC): pullback +45.9R (623 tr), squeeze +33.4R
+  (612 tr); fade/trend stay negative. But this is a **post-hoc best-of-6-killzone
+  selection** on the full period — small magnitude (~+15R/yr), absent on BTC, and
+  present in only half the ETH cells: far more likely in-sample overfitting than a
+  real session edge.
+- **Verdict:** D1a confirms the wave-1 structural conclusion — the stop-based
+  scalps are fee-dead on a tiny R-denominator, and neither maker execution (P1)
+  nor killzone gating (D1a) fixes that. The ETH london_close flip is logged as an
+  in-sample curiosity worth a one-shot OOS check, NOT a candidate.
+- **D1b (HTF-regime confluence) — DEPRIORITIZED.** Regime gating is a stronger
+  quality signal than raw session, but it faces the same structural wall (the
+  scalp exit stays a taker event; the gross edge is thinner than the round-trip
+  fee), and D1a's frequency-reduction proxy already showed at most a marginal,
+  unconfirmed in-sample flip. Effort is better spent validating the D2 pairs
+  winner. D1b can be run for completeness if wanted; not pursued now.
 
 ### D2 — Stop-free carry cousins (extends the validated maker lever; Tier-1)
 The maker lever worked for the neutral carry because it has no market stop. The
