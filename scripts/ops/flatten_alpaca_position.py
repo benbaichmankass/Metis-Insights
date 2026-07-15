@@ -114,6 +114,62 @@ def _live_position(account_cfg: Dict[str, Any], symbol: str) -> Optional[Dict[st
     return {}  # read OK, no matching position → flat
 
 
+def _read_open_orders(account_cfg: Dict[str, Any], symbol: str) -> Dict[str, Any]:
+    """Best-effort list of the account's OPEN orders for *symbol* (incl. bracket
+    child legs) — diagnostics that reveal WHAT reserves the shares
+    (``held_for_orders``): a resting SL/TP leg, its ``status`` / ``type`` /
+    ``order_class`` / ``time_in_force``. Non-secret order metadata only. Never
+    raises."""
+    try:
+        client = _build_ops_client(account_cfg)
+        if client is None:
+            return {"error": "no client (alpaca creds unset in env)"}
+        rows = client._open_orders_for_symbol(symbol)  # type: ignore[attr-defined]
+        if rows is None:
+            return {"error": "open-orders read failed (None)"}
+        keep = ("id", "symbol", "side", "type", "order_type", "order_class",
+                "status", "qty", "filled_qty", "limit_price", "stop_price",
+                "time_in_force", "extended_hours", "created_at", "expired_at",
+                "canceled_at", "legs")
+        summarized = []
+        for o in rows:
+            row = {k: o.get(k) for k in keep if k in o}
+            if isinstance(row.get("legs"), list):
+                row["legs"] = [{k: leg.get(k) for k in keep if k in leg}
+                               for leg in row["legs"]]
+            summarized.append(row)
+        return {"count": len(summarized), "orders": summarized}
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+def _read_diagnostic(account_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Why did the position read come back unreadable? Non-secret: reports which
+    cred env-var NAMES the account resolves to and whether they are SET (never
+    the values), plus whether a client built + what ``positions()`` did."""
+    key_env = str(account_cfg.get("api_key_env") or "ALPACA_API_KEY_ID")
+    secret_env = str(account_cfg.get("api_secret_env") or "ALPACA_API_SECRET_KEY")
+    diag: Dict[str, Any] = {
+        "key_env_name": key_env, "secret_env_name": secret_env,
+        "key_env_set": bool(os.environ.get(key_env)),
+        "secret_env_set": bool(os.environ.get(secret_env)),
+        "alpaca_env": account_cfg.get("alpaca_env"),
+    }
+    try:
+        client = _build_ops_client(account_cfg)
+        diag["client_built"] = client is not None
+        if client is not None:
+            try:
+                pos = client.positions()
+                diag["positions_call"] = "ok" if pos is not None else "None (read failure)"
+                diag["positions_count"] = None if pos is None else len(pos)
+            except Exception as exc:  # noqa: BLE001
+                diag["positions_call_error"] = f"{type(exc).__name__}: {exc}"
+    except Exception as exc:  # noqa: BLE001
+        diag["client_build_error"] = f"{type(exc).__name__}: {exc}"
+    return diag
+
+
 def flatten(account_id: str, symbol: str, *, apply: bool) -> Dict[str, Any]:
     """Core routine. Returns a structured result dict (never raises)."""
     symbol = symbol.upper()
@@ -136,6 +192,7 @@ def flatten(account_id: str, symbol: str, *, apply: bool) -> Dict[str, Any]:
         out["action"] = "abort_unreadable"
         out["detail"] = ("could not read the live Alpaca position (missing creds / "
                          "API error) — refusing to act blind")
+        out["read_diagnostic"] = _read_diagnostic(account_cfg)
         return out
     if not pos:
         out["action"] = "noop_already_flat"
@@ -165,6 +222,10 @@ def flatten(account_id: str, symbol: str, *, apply: bool) -> Dict[str, Any]:
     if not apply:
         out["action"] = "dry_run"
         out["ok"] = True
+        # Surface the resting orders that reserve the shares (the held_for_orders
+        # cause of "insufficient qty available") + their status/type/tif, so a
+        # stuck / un-cancellable SL/TP leg is visible before the apply.
+        out["open_orders"] = _read_open_orders(account_cfg, symbol)
         out["detail"] = (f"DRY-RUN — would {close_side_word} {size} {symbol} (native flatten, "
                          f"cancels the reserving bracket first) on {account_id}. Re-run with "
                          f"--apply during RTH (13:30–20:00 UTC) to execute.")

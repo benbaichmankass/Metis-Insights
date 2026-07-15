@@ -27,6 +27,34 @@ cd "${REPO_DIR}"
 # bare SSH shell. load_runtime_secrets sources .env in full (set -a).
 load_runtime_secrets
 
+# The working Alpaca creds are the ones the ict-web-api service authenticates
+# with — it loads the root-owned /etc/ict-trader/web-api.env EnvironmentFile in
+# addition to repo .env. The repo .env copy (synced from Actions secrets by
+# sync-vm-secrets) can be empty/stale for the ALPACA_*_LIVE pair, which makes
+# alpaca_client_for() return None → "could not read the live Alpaca position".
+# So prefer web-api.env's known-good ALPACA_* values (sudo-read, mirroring the
+# prop-report.yml pattern). Non-secret presence diagnostic only — never echoes
+# a value. Override only when web-api.env carries a non-empty value.
+WEBAPI_ENV="/etc/ict-trader/web-api.env"
+if sudo test -r "${WEBAPI_ENV}" 2>/dev/null; then
+  for _v in ALPACA_API_KEY_ID_LIVE ALPACA_API_SECRET_KEY_LIVE \
+            ALPACA_API_KEY_ID ALPACA_API_SECRET_KEY \
+            ALPACA_API_KEY_ID_OPTIONS ALPACA_API_SECRET_KEY_OPTIONS; do
+    _val="$(sudo grep -E "^${_v}=" "${WEBAPI_ENV}" 2>/dev/null | tail -n1 | cut -d= -f2- || true)"
+    if [ -n "${_val}" ]; then
+      export "${_v}=${_val}"
+      echo ">>> creds: ${_v} sourced from web-api.env"
+    elif [ -n "${!_v:-}" ]; then
+      echo ">>> creds: ${_v} absent in web-api.env; using repo .env value"
+    else
+      echo ">>> creds: ${_v} absent in web-api.env AND empty/unset in repo .env"
+    fi
+    unset _val
+  done
+else
+  echo ">>> creds: web-api.env not sudo-readable — using repo .env creds only"
+fi
+
 ACCOUNT_ID="${ACCOUNT_ID:?ACCOUNT_ID required}"
 ACTION_SYMBOL="${ACTION_SYMBOL:?ACTION_SYMBOL required}"
 ACTION_APPLY="${ACTION_APPLY:-}"
