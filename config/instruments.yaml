@@ -117,6 +117,25 @@ instruments:
     max_leverage: 100
     display_name: "SOL/USDT Perp (Bybit)"
 
+  # BNBUSDT — Bybit V5 USDT-margined linear perpetual. Added 2026-07-15 for the
+  # M22 D2 pairs sleeve (the BNB/BTC pair's leg). Reporting/connector-routing
+  # only — BNBUSDT is NOT in any account's `symbols` roster (the isolated pairs
+  # executor fetches its own candles + places its own legs; it does not ride the
+  # per-account symbol union), so no single-symbol strategy trades it.
+  BNBUSDT:
+    exchange: bybit
+    category: linear
+    base_asset: BNB
+    asset_class: crypto
+    quote_currency: USDT
+    settlement_currency: USDT
+    tick_size: 0.01          # fallback — live lookup authoritative
+    min_qty: 0.01
+    qty_step: 0.01
+    contract_value_usd: 1.0
+    max_leverage: 75
+    display_name: "BNB/USDT Perp (Bybit)"
+
   XRPUSDT:
     exchange: bybit
     category: linear

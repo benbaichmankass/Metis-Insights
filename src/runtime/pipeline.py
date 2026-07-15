@@ -264,6 +264,15 @@ def monitor_unit_for(strategy_name: str) -> str:
     (``trend_donchian`` / ``htf_pullback_trend_2h``) via the builder's
     ``monitor_unit`` tag.
     """
+    # Pairs-sleeve legs (M22 D2) are journalled with per-leg strategy names
+    # (``pairs_<name>_a`` / ``_b``) but are NOT in the strategy roster — the
+    # isolated ``run_pairs_tick`` executor owns their joint spread-exit. Resolve
+    # them to ``pairs_executor`` whose ``monitor()`` returns None, so the
+    # per-package order-monitor cleanly no-ops on a pairs leg (the wide per-leg
+    # backstop SL/TP on the exchange remains the last-resort net) instead of
+    # failing to import a same-name module every tick.
+    if strategy_name.startswith("pairs_"):
+        return "pairs_executor"
     builder = _STRATEGY_BUILDERS.get(strategy_name)
     if builder is None:
         # Superset roster: the intent layer carries the symbol sleeves that the

@@ -114,3 +114,108 @@ def test_correlation_haircut_reduces_budget():
 
 def test_monitor_always_none():
     assert px.monitor({}, None, {}) is None
+
+
+# --------------------------------------------------------------------------
+# Live-layer PURE helpers (config plumbing / open-state / dedup). The
+# placement + close I/O is exercised on the VM paper soak, not here.
+# --------------------------------------------------------------------------
+
+def test_bar_seconds_and_params_defaults():
+    assert px._bar_seconds("1h") == 3600
+    assert px._bar_seconds("15m") == 900
+    assert px._bar_seconds("weird") == 3600          # unknown → 1h default
+    p = px._params_from_cfg({"symbol_a": "SOLUSDT", "symbol_b": "BTCUSDT"})
+    assert (p.lookback, p.entry_z, p.exit_z, p.stop_z, p.max_hold_bars) == (15, 2.0, 0.5, 2.0, 20)
+    assert p.hedge_beta == "rolling"
+
+
+def test_leg_strats_naming():
+    assert px._leg_strats({"name": "pairs_sol_btc"}) == ("pairs_sol_btc_a", "pairs_sol_btc_b")
+
+
+def test_load_pairs_config_missing_is_noop():
+    assert px._load_pairs_config("/nonexistent/pairs.yaml") == {}
+
+
+def test_load_real_pairs_config_all_shadow():
+    cfg = px._load_pairs_config("config/pairs.yaml")
+    pairs = cfg.get("pairs") or []
+    assert len(pairs) == 4
+    # SHIP-SAFE: every pair defaults to the observe-only shadow gate.
+    assert all(str(p.get("execution")).lower() == "shadow" for p in pairs)
+    assert cfg.get("account_id") == "bybit_1"
+
+
+def test_decision_bars_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setattr(px, "_decision_bars_path", lambda: tmp_path / "bars.json")
+    assert px._load_decision_bars() == {}
+    px._save_decision_bars({"pairs_sol_btc": "111|222"})
+    assert px._load_decision_bars() == {"pairs_sol_btc": "111|222"}
+
+
+def test_reconstruct_open_state_from_pkg_meta(tmp_path, monkeypatch):
+    import sqlite3 as _sq
+    from datetime import datetime, timedelta, timezone
+    db = tmp_path / "j.db"
+    conn = _sq.connect(db)
+    conn.execute("CREATE TABLE order_packages (id INTEGER PRIMARY KEY, "
+                 "strategy_name TEXT, account_id TEXT, meta TEXT)")
+    opened = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
+    import json as _j
+    meta = _j.dumps({"pair_direction": "long_spread", "entry_spread": 0.5,
+                     "stop_spread": 0.3, "opened_at_utc": opened, "bar_seconds": 3600})
+    conn.execute("INSERT INTO order_packages (strategy_name, account_id, meta) VALUES (?,?,?)",
+                 ("pairs_sol_btc_a", "bybit_1", meta))
+    conn.commit(); conn.close()
+    pair = {"name": "pairs_sol_btc", "symbol_a": "SOLUSDT", "symbol_b": "BTCUSDT"}
+    st = px._reconstruct_open_state(pair, "bybit_1", str(db))
+    assert st is not None
+    assert st.direction == "long_spread"
+    assert st.entry_spread == 0.5 and st.stop_spread == 0.3
+    assert st.bars_held == 3                          # ~3h at 1h bars
+
+
+def test_reconstruct_open_state_absent_meta_is_none(tmp_path):
+    assert px._reconstruct_open_state(
+        {"name": "pairs_x", "symbol_a": "A", "symbol_b": "B"}, "acct", str(tmp_path / "no.db")) is None
+
+
+def test_run_pairs_tick_shadow_places_nothing(tmp_path, monkeypatch):
+    """A shadow-execution pair with a live entry signal writes a shadow_open soak
+    row and NEVER touches an exchange client / placement path."""
+    ca, cb = _extended_spread()
+    captured = []
+
+    monkeypatch.setattr(px, "_load_pairs_config", lambda path=None: {
+        "account_id": "bybit_1", "risk_budget_usd": 20.0,
+        "pairs": [{"name": "pairs_sol_btc", "symbol_a": "SOLUSDT",
+                   "symbol_b": "BTCUSDT", "execution": "shadow",
+                   "timeframe": "1h", "hedge_beta": "one"}],
+    })
+    monkeypatch.setattr(px, "_fetch_leg",
+                        lambda sym, tf, lim, s: (list(ca) if sym == "SOLUSDT" else list(cb), "T1"))
+    monkeypatch.setattr(px, "_pair_is_open", lambda *a, **k: False)
+    monkeypatch.setattr(px, "_held_leg_symbols", lambda *a, **k: set())
+    monkeypatch.setattr(px, "_count_correlated_open", lambda *a, **k: 0)
+    monkeypatch.setattr(px, "_save_decision_bars", lambda state: None)
+    monkeypatch.setattr(px, "_load_decision_bars", lambda: {})
+    # A live client build would be a bug in shadow mode — make it explode if called.
+    def _boom(_):
+        raise AssertionError("shadow mode must not place / build a client")
+    import src.units.accounts.clients as _clients
+    monkeypatch.setattr(_clients, "bybit_client_for", _boom)
+
+    import src.config.accounts_loader as _al
+    monkeypatch.setattr(_al, "load_accounts_dict",
+                        lambda *a, **k: {"bybit_1": {"exchange": "bybit", "account_class": "paper"}})
+    import src.utils.paths as _paths
+    monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
+
+    import src.runtime.pairs_soak as _soak
+    monkeypatch.setattr(_soak, "record_pairs_soak", lambda rec: captured.append(rec) or True)
+
+    px.run_pairs_tick({})
+    assert len(captured) == 1
+    assert captured[0]["event"] == "shadow_open"       # computed, not placed
+    assert captured[0]["pair"] == "SOLUSDT/BTCUSDT"

@@ -22,12 +22,23 @@ leg still carries a wide catastrophe-backstop SL/TP on the exchange.
 """
 from __future__ import annotations
 
+import json
+import logging
+import os
+import sqlite3
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
 
 from src.units.strategies import pairs_engine as pe
 from src.units.strategies import pairs_sizing as psz
+
+logger = logging.getLogger(__name__)
+
+# Timeframe → bar-length in seconds (for the bars-held / max-hold timeout).
+_TIMEFRAME_SECONDS = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800,
+                      "1h": 3600, "2h": 7200, "4h": 14400, "1d": 86400}
 
 
 @dataclass(frozen=True)
@@ -115,3 +126,447 @@ def monitor(cfg, candles_df, open_pkg):  # noqa: ANN001
     NOT independently close a pairs leg. Always None (the wide per-leg backstop
     SL/TP on the exchange remains the last-resort net)."""
     return None
+
+
+# =====================================================================
+# LIVE I/O LAYER  —  run_pairs_tick + placement/close/reconstruction.
+# Called once per trader tick from src/main.py (best-effort, never raises).
+# `execution: shadow` (the sanctioned strategy-level gate) → compute + soak,
+# place NOTHING. `execution: live` → place the two legs on the account.
+# =====================================================================
+
+_PAIRS_CONFIG_PATH = os.environ.get("PAIRS_CONFIG_PATH") or "config/pairs.yaml"
+
+
+def _bar_seconds(timeframe: str) -> int:
+    return _TIMEFRAME_SECONDS.get(str(timeframe or "1h").strip().lower(), 3600)
+
+
+def _params_from_cfg(pair: Dict[str, Any]) -> pe.PairParams:
+    """Build a PairParams from one config entry (defaults match the validated
+    backtest params: lookback 15, entry_z 2.0, exit_z 0.5, stop_z 2.0,
+    max_hold_bars 20, rolling hedge-beta)."""
+    return pe.PairParams(
+        symbol_a=str(pair["symbol_a"]),
+        symbol_b=str(pair["symbol_b"]),
+        lookback=int(pair.get("lookback", 15)),
+        entry_z=float(pair.get("entry_z", 2.0)),
+        exit_z=float(pair.get("exit_z", 0.5)),
+        stop_z=float(pair.get("stop_z", 2.0)),
+        max_hold_bars=int(pair.get("max_hold_bars", 20)),
+        hedge_beta=str(pair.get("hedge_beta", "rolling")),
+    )
+
+
+def _load_pairs_config(path: Optional[str] = None) -> Dict[str, Any]:
+    """Load config/pairs.yaml → {account_id, risk_budget_usd, corr_factor,
+    backstop_mult, pairs:[...]}. Returns an empty dict (a no-op tick) when the
+    file is absent or unparseable — the sleeve is inert until it's authored."""
+    p = path or _PAIRS_CONFIG_PATH
+    if not os.path.exists(p):
+        return {}
+    try:
+        import yaml
+        with open(p, "r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+        if not isinstance(data, dict):
+            return {}
+        return data
+    except Exception as exc:  # noqa: BLE001 — inert on any config error
+        logger.warning("pairs: config load failed (%s): %s", p, exc)
+        return {}
+
+
+def _leg_strats(pair: Dict[str, Any]) -> tuple:
+    """(strategy_a, strategy_b) journal names for the two legs of a pair."""
+    name = str(pair.get("name") or f"pairs_{pair['symbol_a']}_{pair['symbol_b']}".lower())
+    return (f"{name}_a", f"{name}_b")
+
+
+def _pair_is_open(pair: Dict[str, Any], account_id: str, db_path: Optional[str]) -> bool:
+    """True when BOTH legs of the pair currently hold an open trade (the pair is
+    on). Uses the journal open-truth (has_open_trade_for_strategy)."""
+    from src.runtime.positions import has_open_trade_for_strategy
+    strat_a, strat_b = _leg_strats(pair)
+    return (has_open_trade_for_strategy(account_id, str(pair["symbol_a"]), strat_a, db_path=db_path)
+            and has_open_trade_for_strategy(account_id, str(pair["symbol_b"]), strat_b, db_path=db_path))
+
+
+def _held_leg_symbols(pairs: Sequence[Dict[str, Any]], account_id: str,
+                      db_path: Optional[str], *, exclude_name: str) -> set:
+    """Set of leg-symbols currently held by OTHER open pairs (the disjoint-legs
+    concurrency gate's input). Excludes the pair named `exclude_name`."""
+    held: set = set()
+    for p in pairs:
+        if str(p.get("name")) == exclude_name:
+            continue
+        if _pair_is_open(p, account_id, db_path):
+            held.add(str(p["symbol_a"]))
+            held.add(str(p["symbol_b"]))
+    return held
+
+
+def _count_correlated_open(pair: Dict[str, Any], pairs: Sequence[Dict[str, Any]],
+                           account_id: str, db_path: Optional[str]) -> int:
+    """How many OTHER open pairs share a leg symbol with `pair` (the correlation
+    haircut's input)."""
+    my_syms = {str(pair["symbol_a"]), str(pair["symbol_b"])}
+    n = 0
+    for p in pairs:
+        if str(p.get("name")) == str(pair.get("name")):
+            continue
+        if not _pair_is_open(p, account_id, db_path):
+            continue
+        if {str(p["symbol_a"]), str(p["symbol_b"])} & my_syms:
+            n += 1
+    return n
+
+
+def _open_pkg_meta(strategy: str, account_id: str, db_path: str) -> Optional[Dict[str, Any]]:
+    """Read the newest order_packages.meta for a leg strategy (the durable spread
+    bookkeeping stamped at open). Read-only; None on any failure."""
+    try:
+        if not os.path.exists(db_path):
+            return None
+        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as conn:
+            row = conn.execute(
+                "SELECT meta FROM order_packages WHERE strategy_name = ? "
+                "AND account_id = ? ORDER BY id DESC LIMIT 1",
+                (strategy, account_id),
+            ).fetchone()
+        if not row or not row[0]:
+            return None
+        meta = json.loads(row[0])
+        return meta if isinstance(meta, dict) else None
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("pairs: _open_pkg_meta read failed (%s): %s", strategy, exc)
+        return None
+
+
+def _reconstruct_open_state(pair: Dict[str, Any], account_id: str,
+                            db_path: str) -> Optional[pe.OpenPair]:
+    """Rebuild the pair's OpenPair (direction / entry_spread / stop_spread /
+    bars_held) from the journal-durable order_packages.meta stamped at open.
+    Returns None when the bookkeeping can't be read (caller then skips the pair
+    this tick — the per-leg backstop SL/TP still protects; never blind-closes)."""
+    strat_a, _ = _leg_strats(pair)
+    meta = _open_pkg_meta(strat_a, account_id, db_path)
+    if not meta:
+        return None
+    try:
+        pd = str(meta["pair_direction"])
+        entry_spread = float(meta["entry_spread"])
+        stop_spread = float(meta["stop_spread"])
+        opened_at = str(meta["opened_at_utc"])
+        bar_seconds = int(meta.get("bar_seconds") or 3600)
+        opened_dt = datetime.fromisoformat(opened_at.replace("Z", "+00:00"))
+        if opened_dt.tzinfo is None:
+            opened_dt = opened_dt.replace(tzinfo=timezone.utc)
+        held_s = (datetime.now(timezone.utc) - opened_dt).total_seconds()
+        bars_held = max(0, int(held_s // max(1, bar_seconds)))
+        return pe.OpenPair(direction=pd, entry_spread=entry_spread,
+                           stop_spread=stop_spread, bars_held=bars_held)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("pairs: open-state reconstruct failed (%s): %s",
+                     pair.get("name"), exc)
+        return None
+
+
+def _fetch_leg(symbol: str, timeframe: str, limit: int,
+               settings: Optional[Dict[str, Any]]) -> Optional[tuple]:
+    """Fetch a leg via the canonical signal-builder path (BTCUSDT→Bybit, etc.).
+    Returns (closes:list[float], last_bar_ts:str) or None on any failure."""
+    try:
+        from src.runtime.market_data import fetch_candles
+        df = fetch_candles(symbol, timeframe, settings=settings, limit=limit)
+        if df is None or len(df) == 0 or "close" not in df:
+            return None
+        closes = [float(x) for x in df["close"].tolist()]
+        last_ts = str(df["timestamp"].iloc[-1]) if "timestamp" in df else str(len(closes))
+        return closes, last_ts
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("pairs: candle fetch failed (%s %s): %s", symbol, timeframe, exc)
+        return None
+
+
+_DECISION_BARS_NAME = "pairs_decision_bars.json"
+
+
+def _decision_bars_path():
+    from src.utils.paths import runtime_logs_dir
+    return runtime_logs_dir() / _DECISION_BARS_NAME
+
+
+def _load_decision_bars() -> Dict[str, str]:
+    try:
+        p = _decision_bars_path()
+        if not p.exists():
+            return {}
+        d = json.loads(p.read_text(encoding="utf-8"))
+        return d if isinstance(d, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _save_decision_bars(state: Dict[str, str]) -> None:
+    try:
+        p = _decision_bars_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(state), encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _place_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
+                decision: "PairDecision", timeframe: str) -> Dict[str, Any]:
+    """Place the two legs on the account, journalled + linked by a shared
+    pairs_group_id. Atomic-ish: if leg B fails to place, leg A is immediately
+    flattened (the leg-imbalance unwind) so the account never carries a naked
+    single leg. Returns {placed:bool, trade_ids:[...], error:str|None}."""
+    from src.core.coordinator import OrderPackage, _log_new_order_package
+    from src.units.accounts.execute import execute_pkg
+
+    account_id = str(account_cfg.get("account_id") or "unknown")
+    strat_a, strat_b = _leg_strats(pair)
+    gid = decision.soak.get("pairs_group_id") or f"pair-{uuid.uuid4().hex[:12]}"
+    opened_at = datetime.now(timezone.utc).isoformat()
+    bar_seconds = _bar_seconds(timeframe)
+    # Durable spread bookkeeping — stamped into BOTH legs' order_packages.meta
+    # so open-state can be reconstructed after a restart (journal-primary; no
+    # sidecar to desync). pair_direction is the SPREAD verdict (long/short_spread).
+    common_meta = {
+        "pairs_group_id": gid, "pair": decision.pair,
+        "pair_direction": decision.soak.get("direction"),
+        "entry_spread": decision.soak.get("entry_spread"),
+        "stop_spread": decision.soak.get("stop_spread"),
+        "opened_at_utc": opened_at, "bar_seconds": bar_seconds,
+        "signal_logic": f"pairs {decision.pair} {decision.soak.get('direction')} "
+                        f"z={decision.soak.get('z')} beta={decision.soak.get('beta')}",
+        "timeframe": timeframe,
+    }
+    legs = decision.legs
+    strat_by_leg = {legs[0].symbol: strat_a, legs[1].symbol: strat_b}
+    trade_ids: List[str] = []
+    placed_symbols: List[tuple] = []   # (symbol, direction, qty) for unwind
+    for i, leg in enumerate(legs):
+        pkg = OrderPackage(
+            strategy=strat_by_leg[leg.symbol], symbol=leg.symbol,
+            direction=leg.direction, entry=leg.entry_ref, sl=leg.sl, tp=leg.tp,
+            confidence=float(decision.soak.get("z") or 0.0),
+            meta={**common_meta, "leg": ("a" if i == 0 else "b")},
+        )
+        try:
+            _log_new_order_package(pkg)   # persists meta, stamps meta.order_package_id
+            tid = execute_pkg(pkg, account_cfg, exchange_client=client)
+            trade_ids.append(tid)
+            placed_symbols.append((leg.symbol, leg.direction, leg.qty))
+        except Exception as exc:  # noqa: BLE001
+            logger.error("pairs: leg %s placement failed for %s: %s",
+                         leg.symbol, decision.pair, exc)
+            # LEG-IMBALANCE UNWIND: flatten anything already placed so we never
+            # leave a naked single leg on the account.
+            _unwind_legs(client, account_cfg, placed_symbols)
+            return {"placed": False, "trade_ids": trade_ids,
+                    "error": f"leg {leg.symbol}: {exc}"}
+    logger.info("pairs: opened %s (%s) group=%s account=%s trade_ids=%s",
+                decision.pair, decision.soak.get("direction"), gid, account_id, trade_ids)
+    return {"placed": True, "trade_ids": trade_ids, "error": None}
+
+
+def _unwind_legs(client: Any, account_cfg: dict, placed: Sequence[tuple]) -> None:
+    """Flatten already-placed legs after a partial-placement failure (best-effort;
+    the exchange-side backstop SL/TP is the further net if this also fails)."""
+    from src.units.accounts.execute import close_open_position
+    for symbol, direction, qty in placed:
+        try:
+            close_open_position(client, account_cfg, symbol=symbol, side=direction, qty=float(qty))
+            logger.warning("pairs: unwound leg %s (%s qty=%s) after partial-placement failure",
+                           symbol, direction, qty)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("pairs: leg-imbalance unwind FAILED for %s: %s (backstop SL/TP remains)",
+                         symbol, exc)
+
+
+def _close_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
+                outcome: str, close_a: float, close_b: float) -> Dict[str, Any]:
+    """Flatten BOTH legs of an open pair and mark their trade rows closed with a
+    local-compute PnL. Returns {closed:bool, ...}. Best-effort per leg — a leg
+    that fails to flatten leaves its row open (the monitor/backstop retries)."""
+    from src.units.accounts.execute import close_open_position
+    from src.units.db.database import Database
+    from src.utils.paths import trade_journal_db_path
+
+    account_id = str(account_cfg.get("account_id") or "unknown")
+    strat_a, strat_b = _leg_strats(pair)
+    db = Database(db_path=trade_journal_db_path())
+    now_iso = datetime.now(timezone.utc).isoformat()
+    closed_ok = True
+    for strat, symbol, last_px in ((strat_a, str(pair["symbol_a"]), close_a),
+                                   (strat_b, str(pair["symbol_b"]), close_b)):
+        try:
+            rows = db.get_trades(filters={"status": "open", "strategy_name": strat,
+                                          "account_id": account_id}, limit=1)
+            if not rows:
+                continue
+            row = rows[0]
+            direction = str(row.get("direction") or "").lower()
+            qty = float(row.get("position_size") or 0.0)
+            entry = float(row.get("entry_price") or 0.0)
+            res = close_open_position(client, account_cfg, symbol=symbol,
+                                      side=direction, qty=qty)
+            if not res.get("ok"):
+                logger.warning("pairs: leg close not confirmed %s (%s): %s — row left open",
+                               symbol, strat, res.get("error"))
+                closed_ok = False
+                continue
+            # local-compute realised PnL (paper venue; broker-truth sweep may
+            # refine bybit later). long: (exit-entry)*qty ; short: (entry-exit)*qty
+            sign = 1.0 if direction == "long" else -1.0
+            pnl = round(sign * (float(last_px) - entry) * qty, 6) if entry > 0 else None
+            pnl_pct = (round(sign * (float(last_px) - entry) / entry * 100.0, 4)
+                       if entry > 0 else None)
+            db.update_trade(row["id"], {
+                "status": "closed", "exit_price": float(last_px),
+                "exit_reason": f"pairs_{outcome}", "closed_at": now_iso,
+                "pnl": pnl, "pnl_percent": pnl_pct,
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.error("pairs: leg close failed %s (%s): %s", symbol, strat, exc)
+            closed_ok = False
+    logger.info("pairs: closed %s (%s) ok=%s", _pair_label(str(pair["symbol_a"]),
+                str(pair["symbol_b"])), outcome, closed_ok)
+    return {"closed": closed_ok, "outcome": outcome}
+
+
+def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
+    """Once-per-tick hook for the market-neutral pairs sleeve. Best-effort — any
+    error is logged and swallowed so the sleeve can never stall the trader loop.
+
+    For each configured pair: fetch both legs' candles → reconstruct open-state
+    from the journal → decide_pair → place / close / hold → write the soak row.
+    A pair with `execution: shadow` computes the would-be decision and logs the
+    soak but places NOTHING (the sanctioned observe-only gate)."""
+    try:
+        from src.runtime.pairs_soak import build_pairs_soak_record, record_pairs_soak
+    except Exception:  # noqa: BLE001
+        return
+    cfg = _load_pairs_config()
+    pairs = cfg.get("pairs") or []
+    if not pairs:
+        return
+
+    default_account = str(cfg.get("account_id") or "bybit_1")
+    risk_budget = float(cfg.get("risk_budget_usd", 20.0))
+    corr_factor = float(cfg.get("correlation_haircut_factor", 0.5))
+    backstop_mult = float(cfg.get("backstop_mult", 3.0))
+
+    try:
+        from src.config.accounts_loader import load_accounts_dict
+        from src.utils.paths import trade_journal_db_path
+        accounts = load_accounts_dict()
+        db_path = trade_journal_db_path()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("pairs: account/db resolve failed: %s", exc)
+        return
+
+    # One decision per CLOSED bar per pair (backtest fidelity): the trader ticks
+    # ~every 15 min but the pairs are 1h, so the same closed bar is seen ~4×.
+    # Dedup on the latest bar timestamp so we decide/act exactly once per bar,
+    # mirroring the backtest's one-pass-per-bar loop.
+    decision_bars = _load_decision_bars()
+    decision_bars_dirty = False
+
+    # Build one live client per referenced account (lazy; only when a live pair
+    # needs it). Shadow-only configs never touch an exchange socket.
+    clients: Dict[str, Any] = {}
+
+    def _client_for(account_id: str) -> Any:
+        if account_id in clients:
+            return clients[account_id]
+        acct = dict(accounts.get(account_id) or {})
+        acct.setdefault("account_id", account_id)
+        try:
+            from src.units.accounts.clients import bybit_client_for
+            clients[account_id] = bybit_client_for(acct) if str(
+                acct.get("exchange") or "").lower() == "bybit" else None
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("pairs: client build failed for %s: %s", account_id, exc)
+            clients[account_id] = None
+        return clients[account_id]
+
+    for pair in pairs:
+        try:
+            name = str(pair.get("name") or "")
+            account_id = str(pair.get("account_id") or default_account)
+            acct_cfg = dict(accounts.get(account_id) or {})
+            acct_cfg.setdefault("account_id", account_id)
+            timeframe = str(pair.get("timeframe", "1h"))
+            execution = str(pair.get("execution", "shadow")).strip().lower()
+            params = _params_from_cfg(pair)
+            limit = max(60, params.lookback + 40)
+            leg_a = _fetch_leg(str(pair["symbol_a"]), timeframe, limit, settings)
+            leg_b = _fetch_leg(str(pair["symbol_b"]), timeframe, limit, settings)
+            if leg_a is None or leg_b is None:
+                continue
+            closes_a, ts_a = leg_a
+            closes_b, ts_b = leg_b
+            n = min(len(closes_a), len(closes_b))
+            closes_a, closes_b = closes_a[-n:], closes_b[-n:]
+
+            # One decision per closed bar per pair (dedup on both legs' latest ts).
+            bar_key = f"{ts_a}|{ts_b}"
+            if decision_bars.get(name) == bar_key:
+                continue
+            decision_bars[name] = bar_key
+            decision_bars_dirty = True
+
+            is_open = _pair_is_open(pair, account_id, db_path)
+            open_state = _reconstruct_open_state(pair, account_id, db_path) if is_open else None
+            if is_open and open_state is None:
+                # Legs are open but the durable bookkeeping is unreadable — do
+                # NOT blind-open or blind-close; the per-leg backstop protects.
+                rec = build_pairs_soak_record(
+                    event="skip_state_unreadable", pair=_pair_label(
+                        str(pair["symbol_a"]), str(pair["symbol_b"])),
+                    symbol_a=str(pair["symbol_a"]), symbol_b=str(pair["symbol_b"]),
+                    account_id=account_id, execution_mode=execution)
+                record_pairs_soak(rec)
+                continue
+
+            held = _held_leg_symbols(pairs, account_id, db_path, exclude_name=name)
+            corr_open = _count_correlated_open(pair, pairs, account_id, db_path)
+
+            decision = decide_pair(
+                params, closes_a, closes_b, open_state=open_state, held_symbols=held,
+                risk_budget_usd=risk_budget, correlation_open=corr_open,
+                execution_mode=execution, corr_factor=corr_factor,
+                backstop_mult=backstop_mult)
+
+            # --- act on the decision (only `live` execution places/closes) ---
+            place_result: Dict[str, Any] = {}
+            if decision.event == "open" and execution == "live":
+                client = _client_for(account_id)
+                place_result = _place_pair(client, acct_cfg, pair, decision, timeframe)
+                if not place_result.get("placed"):
+                    decision.event = "open_failed"
+            elif decision.close and execution == "live":
+                client = _client_for(account_id)
+                _close_pair(client, acct_cfg, pair, decision.soak.get("outcome") or "exit",
+                            closes_a[-1], closes_b[-1])
+
+            rec = build_pairs_soak_record(
+                event=decision.event,
+                pair=decision.pair,
+                symbol_a=str(pair["symbol_a"]), symbol_b=str(pair["symbol_b"]),
+                account_id=account_id,
+                **{k: v for k, v in decision.soak.items()
+                   if k not in ("symbol_a", "symbol_b")},
+                trade_ids=place_result.get("trade_ids") if place_result else None,
+                place_error=place_result.get("error") if place_result else None,
+            )
+            record_pairs_soak(rec)
+        except Exception as exc:  # noqa: BLE001 — one pair's failure never stops the rest
+            logger.exception("pairs: tick failed for %s: %s", pair.get("name"), exc)
+
+    if decision_bars_dirty:
+        _save_decision_bars(decision_bars)

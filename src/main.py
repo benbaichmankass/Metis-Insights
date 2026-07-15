@@ -651,6 +651,21 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("order_monitor tick failed")
 
+            # Market-neutral pairs sleeve (M22 D2): an ISOLATED 2-leg executor
+            # that does NOT fit the single-symbol intent model, so it runs as
+            # its own once-per-tick hook (prop-bridge pattern) rather than
+            # through multi_account_execute. For each configured pair it
+            # reconstructs open-state from the journal, decides on fresh 1h
+            # candles, and (only for an `execution: live` pair) places/closes
+            # the two legs; an `execution: shadow` pair computes + logs the
+            # would-be trade but places nothing. Inert until config/pairs.yaml
+            # is authored; best-effort (never raises into the loop).
+            try:
+                from src.units.strategies.pairs_executor import run_pairs_tick
+                run_pairs_tick(settings)
+            except Exception:  # noqa: BLE001
+                logger.exception("pairs_tick failed")
+
             # Prop trades are a manual bridge (no broker feed), so the
             # order_monitor above never sees them. Emit a periodic
             # "still monitoring" pulse per open prop position instead so

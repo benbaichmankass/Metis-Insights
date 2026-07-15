@@ -11,6 +11,10 @@ Event kinds (``event``):
   * ``skip_concurrency`` — entry signalled but a leg is already held by another
     open pair (disjoint-legs gate blocked it).
   * ``skip_size``      — entry signalled but sizing refused (sub-min qty / no funds).
+  * ``skip_state_unreadable`` — both legs open but the durable spread bookkeeping
+    couldn't be read (skip this tick; the per-leg backstop SL/TP protects).
+  * ``shadow_open`` / ``shadow_close`` — the would-be open/close under
+    ``execution: shadow`` (computed + logged, placed NOTHING).
   * ``open``           — both legs placed (atomic 2-leg entry).
   * ``open_failed``    — leg-imbalance: one leg failed; the filled leg was unwound.
   * ``hold``           — in a position, no exit this tick.

@@ -1,0 +1,83 @@
+# Market-neutral cointegration pairs sleeve (M22 D2).
+#
+# The winner of the small-TF-directions research (docs/research/
+# small-tf-directions-2026-07-15.md; proposal docs/research/
+# pairs-sleeve-PROPOSAL-2026-07-15.md). Each entry is a long-spread /
+# short-spread reverter on a cointegrated USDT-perp pair: log-spread
+# s = logA - beta*logB, rolling hedge-beta, z-score entry/exit. Validated
+# 3yr IS + 2025-26 OOS (net-positive, no expectancy decay), cointegration-
+# stable (half-life ~12h, 100% valid windows), funding-negligible.
+#
+# This is an ISOLATED 2-leg sleeve — NOT loaded by the strategy roster. The
+# once-per-tick src.units.strategies.pairs_executor.run_pairs_tick hook reads
+# THIS file, decides per pair on fresh candles, and (only for execution: live)
+# places/closes the two legs on the account. Legs are journalled with per-leg
+# strategy names pairs_<name>_a / _b (resolved to pairs_executor's no-op
+# monitor via pipeline.monitor_unit_for) and linked by a shared pairs_group_id.
+#
+# ── EXECUTION GATE (the sanctioned strategy-level shadow/live switch) ──
+#   execution: shadow  → compute the would-be 2-leg trade + write the soak,
+#                        place NOTHING (observe-only; confirm live == backtest).
+#   execution: live    → place the two legs on `account_id` (bybit_1 = Bybit
+#                        DEMO / paper venue — real order placement, paper money).
+#
+# All four ship at `shadow` so the sleeve starts soaking inert. Flipping a pair
+# to `live` starts PAPER placement on bybit_1 — a one-line change, no redeploy
+# (config re-read each tick). Tier-3: flip only with operator approval.
+#
+# Rollback: set a pair back to `execution: shadow` (or delete this file → the
+# sleeve is a complete no-op).
+
+account_id: bybit_1                 # default account for all pairs (Bybit demo / paper)
+risk_budget_usd: 20.0               # $ risked per pair at the spread stop (N_A = budget / risk_spread)
+correlation_haircut_factor: 0.5     # per already-open correlated pair (shares a leg): 0.5**n
+backstop_mult: 3.0                  # per-leg catastrophe SL/TP at 3x risk_spread in log-price (wide of the spread exit)
+
+pairs:
+  - name: pairs_sol_btc
+    symbol_a: SOLUSDT
+    symbol_b: BTCUSDT
+    execution: shadow
+    timeframe: 1h
+    lookback: 15
+    entry_z: 2.0
+    exit_z: 0.5
+    stop_z: 2.0
+    max_hold_bars: 20
+    hedge_beta: rolling
+
+  - name: pairs_bnb_btc
+    symbol_a: BNBUSDT
+    symbol_b: BTCUSDT
+    execution: shadow
+    timeframe: 1h
+    lookback: 15
+    entry_z: 2.0
+    exit_z: 0.5
+    stop_z: 2.0
+    max_hold_bars: 20
+    hedge_beta: rolling
+
+  - name: pairs_eth_btc
+    symbol_a: ETHUSDT
+    symbol_b: BTCUSDT
+    execution: shadow
+    timeframe: 1h
+    lookback: 15
+    entry_z: 2.0
+    exit_z: 0.5
+    stop_z: 2.0
+    max_hold_bars: 20
+    hedge_beta: rolling
+
+  - name: pairs_sol_eth
+    symbol_a: SOLUSDT
+    symbol_b: ETHUSDT
+    execution: shadow
+    timeframe: 1h
+    lookback: 15
+    entry_z: 2.0
+    exit_z: 0.5
+    stop_z: 2.0
+    max_hold_bars: 20
+    hedge_beta: rolling
