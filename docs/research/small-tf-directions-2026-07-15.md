@@ -1,8 +1,9 @@
 # M22 — Reliable small-TF trading tool: research directions
 
-**Date:** 2026-07-15 · **Status:** PROPOSED / IN PROGRESS · **Tier:** 1 (research;
-Tier-3 items are operator-gated proposals) · **Predecessor:** the chop-scalp
-study (`docs/research/chop-scalp-capital-efficiency-2026-07-15.md`, PR #6479/#6485).
+**Date:** 2026-07-15 · **Status:** IN PROGRESS — wave-1 (P1–P4) findings landed;
+wave-2 (D1–D4) running · **Tier:** 1 (research; Tier-3 items are operator-gated
+proposals) · **Predecessor:** the chop-scalp study
+(`docs/research/chop-scalp-capital-efficiency-2026-07-15.md`, PR #6479/#6485).
 
 ## Why (the diagnosis)
 
@@ -184,6 +185,155 @@ that clears the honest decision-bar OOS gate **unblocks the parked M18 allocator
 selection**.
 
 **Findings:** _(gated — not started)_
+
+## Wave 2 — four further directions (operator-approved 2026-07-15)
+
+After wave-1 closed P1/P3 (maker rescues only the stop-free carry, and only in a
+favorable funding regime), the operator approved a second batch of directions,
+each attacking one of the two confirmed root causes (**fee-drag**, **OHLCV-blindness**)
+*differently* than wave-1, or extending the one thing that worked (maker execution
+on a stop-free edge).
+
+### D1 — Frequency-reduction gates (attacks fee-drag by cutting frequency; Tier-1)
+If fee-drag is the killer and maker can't fix a stop-based scalp, the other lever
+is to **take fewer, higher-quality trades** so total fee drag falls on the same
+per-trade gross edge. Two cheap re-scores of the existing `--emit-trades` output
+(no harness edit — every emit already carries `entry_time`):
+- **D1a session/killzone gating** (`scripts/research/session_gating.py`): bucket
+  emitted trades by UTC killzone (asian/london/ny_am/london_close/ny_pm/off) and
+  ask whether restricting to the net-positive killzone subset flips a net-negative
+  cell positive at the realistic (taker) bound. Same fee arithmetic as
+  `maker_economics.py` (agree at taker).
+- **D1b HTF-regime confluence**: gate small-TF entries on the **advisory regime
+  heads we already validated** (the 15m vol heads beat the frozen detector, live
+  since 2026-06-28) — take only small-TF signals aligned with the HTF regime.
+  Trainer-side (needs the regime label attached per entry timestamp).
+- **Flip criterion:** a killzone/regime subset is net-positive where all-hours was
+  not. If nothing flips even here, frequency-reduction can't save the hard-rules
+  scalp either.
+
+**Findings (trainer #6499, session gating BTC + ETH 5m roster, net-of-fee):**
+Marginal-to-negative — frequency-reduction does NOT rescue the stop-based scalps:
+- **BTC 5m:** *no* killzone subset flips any cell. fade/pullback/squeeze/trend
+  all stay deeply negative (all-hours −7226 / −996 / −1035 / −2996R) and no
+  killzone subset is net-positive. (Faithfulness ✓: fade_5m −7226R matches the
+  #6489 maker table exactly.)
+- **ETH 5m:** only 2 of 4 cells flip, and only by restricting to a single
+  **london_close** killzone (15–17 UTC): pullback +45.9R (623 tr), squeeze +33.4R
+  (612 tr); fade/trend stay negative. But this is a **post-hoc best-of-6-killzone
+  selection** on the full period — small magnitude (~+15R/yr), absent on BTC, and
+  present in only half the ETH cells: far more likely in-sample overfitting than a
+  real session edge.
+- **Verdict:** D1a confirms the wave-1 structural conclusion — the stop-based
+  scalps are fee-dead on a tiny R-denominator, and neither maker execution (P1)
+  nor killzone gating (D1a) fixes that. The ETH london_close flip is logged as an
+  in-sample curiosity worth a one-shot OOS check, NOT a candidate.
+- **D1b (HTF-regime confluence) — DEPRIORITIZED.** Regime gating is a stronger
+  quality signal than raw session, but it faces the same structural wall (the
+  scalp exit stays a taker event; the gross edge is thinner than the round-trip
+  fee), and D1a's frequency-reduction proxy already showed at most a marginal,
+  unconfirmed in-sample flip. Effort is better spent validating the D2 pairs
+  winner. D1b can be run for completeness if wanted; not pursued now.
+
+### D2 — Stop-free carry cousins (extends the validated maker lever; Tier-1)
+The maker lever worked for the neutral carry because it has no market stop. The
+same structural property (legs can rest as maker limits) holds for other
+carry/mean-reversion edges:
+- **Cointegration pairs stat-arb** (`scripts/backtest_pairs.py`, already exists +
+  OU self-test): z-score mean-reversion of a cointegrated crypto spread
+  (ETH/BTC, SOL/BTC, BNB/BTC, SOL/ETH), net-of-fee at taker/maker/zero. Different
+  from the gate-failed xsec momentum (a rank over a tiny universe) — this is a
+  *specific* cointegrated relationship, and the mean-reversion exit-z leg can be a
+  resting limit. NB the pairs harness also has an adverse-divergence `stop-z`
+  (a market exit), so it is only *partially* maker-able — reported honestly.
+- **Spot-perp basis capture** (cash-and-carry on the basis, not just funding):
+  scope whether a harness exists; build vs park.
+- **Regime caveat:** carry/basis is regime-dependent (`PB-20260620-002`); report
+  current-regime OOS, not just the full-history average (the wave-1 lesson).
+
+**Findings (trainer #6498/#6500, 4 crypto pairs @ 1h, 2023-01→2026-03, net-of-fee):**
+The **strongest result of the entire M22 program.** Cointegration mean-reversion
+pairs are robustly net-positive, **fee-insensitive**, market-neutral, and — unlike
+the funding carry — **positive in the most recent regime (2025-26)**:
+
+| pair | trades | win% | net_R taker 7.5 | net_R zero | maxDD_R | net/maxDD | 2025 / 2026 (recent) |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| **SOL/BTC** | 1552 | 55.7% | **+313** | +313 | 12.9 | **24.2** | +122 / +4.8 |
+| **BNB/BTC** | 1540 | 54.0% | **+311** | +311 | 14.9 | 20.9 | +92 / +15 |
+| ETH/BTC | 1590 | 54.2% | +252 | +252 | 24.4 | 10.3 | +54 / +26 |
+| SOL/ETH | 1604 | 53.4% | +146 | +147 | 28.8 | 5.1 | +44 / +3.7 |
+
+1. **Fee-insensitive by construction.** net_R barely moves taker→zero (+146.4→+147.3
+   on SOL/ETH over 1604 trades) because R is normalized by the wide 2σ spread stop,
+   which dwarfs the per-trade fee — the exact inverse of the fee-crushed scalps.
+   This **sidesteps root cause #1 (fee-drag).**
+2. **Not directional / not OHLCV-blind.** The edge is the spread *relationship*
+   (a cointegrated ratio reverting), not a directional price prediction — so it
+   sidesteps root cause #2 (OHLCV-blindness) too. Market-neutral (both legs perps).
+3. **Alive in the current regime.** Every pair is positive in 2025 AND 2026 —
+   the held-out recent window — with fixed untuned defaults. This is the decisive
+   contrast with the funding carry (dead post-2024).
+4. **Param-robust region, not a knife-edge.** SOL/ETH sweep: **lookback 15–20 is
+   robustly strong across every entry_z** (+350 to +390R, maxDD ~11 at lb=15);
+   only lookback=30 breaks it (over-smooths the z-score → slow reversion). The
+   robust region is a coherent "fast mean-reversion" parameterization.
+- **Honest caveats (the validation gaps before any Tier-3 proposal):**
+  (a) The by-year consistency is strong walk-forward *evidence* but not a formal
+  purged split with params SELECTED on train / tested OOS — added `--start/--end`
+  to `backtest_pairs.py` to do exactly that (trainer follow-up).
+  (b) **"R" ≠ $ capital efficiency** — a market-neutral pair ties up margin on BOTH
+  legs; the operator's original metric (PnL per unit capital per unit time) needs a
+  $/notional translation, not just R.
+  (c) **Execution realism** — simultaneous 2-leg fills, hedge-leg slippage, perp
+  funding on the short leg, and the rolling hedge-β recompute are real frictions not
+  fully modeled. (d) **Cointegration-break tail** — maxDD 13–29R comes from sustained
+  divergence; a live sleeve needs a spread half-life / stability monitor.
+**OOS validation (trainer #6501, lb=15/entry_z=2.0, TRAIN 2023-01→2025-01 vs
+held-out OOS 2025-01→2026-03, taker 7.5bps) — PASSES cleanly:**
+
+| pair | TRAIN net_R (exp) | OOS net_R (exp) | OOS maxDD_R | OOS win% |
+|---|--:|--:|--:|--:|
+| SOL/BTC | +363 (0.313) | **+175 (0.258)** | 7.0 | 58.6% |
+| BNB/BTC | +301 (0.258) | **+177 (0.262)** | 9.3 | 59.8% |
+| SOL/ETH | +196 (0.168) | **+163 (0.242)** | 6.4 | 58.1% |
+| ETH/BTC | +294 (0.249) | **+158 (0.230)** | 15.5 | 58.8% |
+
+**No expectancy decay** train→OOS (per-trade edge equal-or-better OOS; SOL/ETH
+*improves* 0.168→0.242), OOS win 58–60%, OOS maxDD 6–15R against +158–177R net.
+This is a robust, non-overfit, market-neutral, fee-insensitive edge alive in the
+current regime — **the reliable-tool candidate the program was chartered to find.**
+
+- **Remaining validation gaps before a live proposal (NOT blockers to the finding):**
+  (a) **$ capital-efficiency translation** — R→ return on the 2-leg deployed margin
+  (the operator's original metric); (b) **execution realism** — 2-leg simultaneous
+  fills, hedge-leg slippage, perp funding carry on the short leg, rolling-β recompute;
+  (c) a **cointegration half-life / stability monitor** for the divergence tail.
+- **Next step is a DECISION (operator-gated):** proceed toward a **Tier-3 proposal**
+  for a market-neutral crypto-pairs sleeve via the `new-strategy` skill (incl.
+  `account_compat_matrix` + the $ / execution-realism validation above) — **drafted,
+  not self-wired.** Xsec momentum stays parked (wider universe needed); spot-perp
+  basis is the untested cousin (build vs park TBD).
+
+### D3 — Passive liquidity-provision sleeve (the generalization of the maker win; GATED)
+"Maker execution + stop-free" points at an actual *strategy*, not a filter: post
+resting limits both sides, control inventory instead of hard stops, collect
+spread + maker rebate. This is the highest-ceiling direction but **adverse-selection-hard**
+— getting run over by informed flow is the failure mode — so it is **gated on the
+P2 order-flow data** (currently accruing) to size/skew quotes. Document the design;
+do not build until P2 has enough L2/OFI history to backtest quote skew. Not a
+same-week result.
+
+**Findings:** _(gated on P2 order-flow accrual — design only)_
+
+### D4 — New signal inputs (attacks OHLCV-blindness beyond order-flow; Tier-1 scoping)
+The twice-failed P(win) attempts used OHLCV decision-bar features. New inputs:
+- **Funding/OI as model features** — already fetched (`scripts/ml/fetch_funding_oi.py`);
+  a genuinely non-price input a P(win)/regime head hasn't seen. Cheap to add as a
+  feature block to an existing manifest; feeds P4.
+- **Cross-venue funding-differential arb / on-chain flow** — more robust but
+  integration-heavy and speculative; **parked** with a re-trigger.
+
+**Findings:** _(funding/OI feature scoping pending; cross-venue/on-chain parked)_
 
 ## Cross-cutting unblocker
 **Per-trade net-R cost capture** (`MB-20260629-ALLOC-COSTCAP`) enables P1
