@@ -175,6 +175,7 @@ _EXIT_LADDER_SOAK_LOG = runtime_logs_dir() / "exit_ladder_soak.jsonl"
 _FC_GEOMETRY_SOAK_LOG = runtime_logs_dir() / "fc_geometry_soak.jsonl"
 _EXIT_LEVER_SOAK_LOG = runtime_logs_dir() / "exit_lever_soak.jsonl"
 _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
+_PAIRS_SOAK_LOG = runtime_logs_dir() / "pairs_soak.jsonl"
 _ORPHAN_EVENTS_LOG = runtime_logs_dir() / "orphan_events.jsonl"
 
 _LOG_FILES: dict[str, Path] = {
@@ -251,6 +252,9 @@ _LOG_FILES: dict[str, Path] = {
     # M18 P2+ graduates the allocator to actually select the subset. Absent until
     # the first multi-candidate tick runs.
     "allocator_soak": _ALLOCATOR_SOAK_LOG,
+    # M22 D2 market-neutral pairs sleeve soak — per-pair spread/z decision +
+    # placement/close outcome (also surfaced publicly at /api/bot/pairs/soak).
+    "pairs_soak": _PAIRS_SOAK_LOG,
     # Broker-account-down + trainer-down latch state (BL-20260707-DIAG-
     # ALLOWLIST-REACHABILITY-LOG): the health-review skill reads these to see
     # which accounts / whether the trainer are currently latched down —
