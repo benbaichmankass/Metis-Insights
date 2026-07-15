@@ -1,0 +1,26 @@
+# HTTPS front for the ICT bot FastAPI — Phase-0 of the Svelte SPA
+# (ict-trader-dashboard/webapp).
+#
+# Why: the SPA is served over HTTPS from GitHub Pages and calls this API
+# *browser-direct*. A mixed-content http://141.145.193.91:8001 fetch from an
+# HTTPS page is hard-blocked, so the API needs a public HTTPS front. Caddy
+# reverse-proxies localhost:8001 and auto-provisions a Let's Encrypt cert for
+# the DuckDNS hostname pointed at this VM. reverse_proxy transparently upgrades
+# WebSocket connections, so /ws/market streams through unchanged.
+#
+# Prereqs: inbound TCP 80 + 443 open (vm-cloud-fix + vm-net-fix), and
+# ict-bot.duckdns.org → this VM's public IP (already set).
+#
+# Deployed to /etc/caddy/Caddyfile by scripts/ops/install_caddy.sh
+# (via the vm-caddy-deploy workflow). Edit here — the VM copy is overwritten.
+
+{
+	# Pin Let's Encrypt so cert issuance never needs an ACME account email
+	# (ZeroSSL, Caddy's other default issuer, requires one). No PII committed.
+	acme_ca https://acme-v02.api.letsencrypt.org/directory
+}
+
+ict-bot.duckdns.org {
+	encode zstd gzip
+	reverse_proxy localhost:8001
+}
