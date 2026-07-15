@@ -100,18 +100,41 @@ def _place_close(client, account_cfg: Dict[str, Any], *, symbol: str, side: str,
 
 
 def _live_position(account_cfg: Dict[str, Any], symbol: str) -> Optional[Dict[str, Any]]:
-    """Read the live exchange position for *symbol*. Returns None on
-    could-not-read, ``{}`` when the read succeeded but there is no matching
-    position (flat), or the matching row dict otherwise."""
-    from src.units.ui.data_loaders import account_open_positions
+    """Read the live exchange position for *symbol* DIRECTLY off the Alpaca
+    client. Returns None on could-not-read, ``{}`` when the read succeeded but
+    there is no matching position (flat), or the normalized row otherwise.
 
-    rows = account_open_positions(account_cfg)
-    if rows is None:
-        return None  # could-not-read
-    for r in rows:
-        if str(r.get("symbol") or "").upper() == symbol.upper():
-            return r
-    return {}  # read OK, no matching position → flat
+    Deliberately does NOT go through ``account_open_positions``: that read path
+    gates ``mode != "live"`` alpaca accounts to ``None`` (so the reverse
+    reconciler never dials a dry account — clients.py:1321). A one-shot operator
+    flatten is a MODE-AGNOSTIC ops action — it must be able to read + close a
+    position on a ``dry_run``-shelved account (the exact case here: alpaca_live
+    was shelved to dry_run this session while still holding the IEF). The close
+    path (``AlpacaClient.close``) is already mode-agnostic; this makes the read
+    match. Normalizes the client's ``{side: buy/sell, qty, avg_price,
+    unrealized_pnl}`` into the ``{side: long/short, size, entry_price,
+    unrealised_pnl}`` shape the rest of this script consumes."""
+    try:
+        client = _build_ops_client(account_cfg)
+        if client is None:
+            return None  # could-not-read (creds unset)
+        rows = client.positions()
+        if rows is None:
+            return None  # could-not-read (API error) — never treated as flat
+        for r in rows:
+            if str(r.get("symbol") or "").upper() == symbol.upper():
+                side = str(r.get("side") or "").lower()  # buy/sell
+                canonical = "long" if side in ("buy", "long") else "short"
+                return {
+                    "symbol": r.get("symbol"),
+                    "side": canonical,
+                    "size": r.get("qty") or r.get("size"),
+                    "entry_price": r.get("avg_price") or r.get("entry_price"),
+                    "unrealised_pnl": r.get("unrealized_pnl", r.get("unrealised_pnl")),
+                }
+        return {}  # read OK, no matching position → flat
+    except Exception:  # noqa: BLE001 — best-effort, never raise into the caller
+        return None
 
 
 def _read_open_orders(account_cfg: Dict[str, Any], symbol: str) -> Dict[str, Any]:
