@@ -93,11 +93,38 @@ answer is *execution*, and the follow-up is building post-only entries.
    drawdown) is precisely the fee-eaten edge maker execution recovers. **The
    reliable-tool candidate that emerges from P1+P3 is a maker-executed
    market-neutral funding-carry sleeve**, not a faster scalp.
-- **Follow-up:** re-run the P3 funding-carry emits through the maker re-scorer
-  (both-legs-maker) to size the recoverable net; if attractive, a Tier-3 proposal
-  for (a) a limit/post-only carry executor and (b) wiring the neutral-carry sleeve.
-  Building post-only entry for the stop-based scalps is **not** worth it (their
-  exits stay taker; the realistic bound proves it).
+**Maker-carry follow-up RESOLVED (trainer run #6493, neutral funding-carry at
+TAKER 7.5 vs MAKER 1.0 vs ZERO fee, full 3yr 2023-01→2026-03 + OOS 2025-01+ at maker):**
+
+| pair | full net_R taker 7.5 | full net_R maker 1.0 | full net_R zero | full maxDD_R (maker) | OOS 2025+ net_R maker 1.0 (trades) |
+|---|--:|--:|--:|--:|--:|
+| ETH | +0.70 | **+7.72** | +8.80 | 0.047 | **+0.40** (39) |
+| SOL | +0.98 | **+6.46** | +7.31 | 0.083 | +0.07 (65, ~flat) |
+| BNB | −1.87 | **+11.03** | +13.01 | 0.68 | **−0.61** (102) |
+
+1. **Maker execution IS the lever — confirmed for the neutral carry.** Because
+   the neutral carry exits ONLY on timeout/funding-decay (no market stop), BOTH
+   legs can rest as maker limits, so the both-legs-maker bound is *achievable*
+   here (unlike the stop-based scalps). At 1.0bps the full-history net recovers
+   ~70% of the gross funding harvest (`net_funding_r` 10.96/9.00/16.98R) with
+   *tiny* drawdown (maxDD 0.05–0.68R): ETH +0.70→**+7.72R**, SOL +0.98→**+6.46R**,
+   BNB −1.87→**+11.03R**. The fee-drag diagnosis is fully closed: at maker fees
+   the gross edge survives.
+2. **BUT the current regime is thin-to-negative even at maker.** The OOS window
+   (2025-01→2026-03), which is the regime we'd actually trade into, nets only
+   ETH **+0.40R** / SOL **+0.07R** (flat) / BNB **−0.61R** at maker — the win is
+   front-loaded in 2023-24 (`by_year`: every pair's 2025 is ~0 or negative).
+   Funding rates compressed post-2024 (confirms `PB-20260620-002`).
+3. **Verdict:** the maker-executed neutral funding-carry is a **real,
+   regime-gated candidate**, not a live-now proposal. It is *validated in
+   principle* (maker recovers the edge, drawdown is trivially small) but
+   *unattractive in the present regime*. **Parked with a documented
+   re-trigger** (`PB-20260715-MAKER-CARRY`): re-evaluate the OOS maker net when
+   funding elevates; a Tier-3 proposal for (a) a post-only/limit carry executor
+   and (b) wiring the neutral-carry sleeve is warranted **only** once a
+   *current-regime* OOS maker net clears a meaningful bar (not the front-loaded
+   3yr average). Building post-only entry for the stop-based scalps is **not**
+   worth it either way (their exits stay taker; the realistic bound proves it).
 
 ### P2 — Order-flow capture clock (start now; forward-only)
 Order-flow is the academically-grounded small-TF edge and the one untested feature
@@ -138,9 +165,13 @@ already exist (research-only, unwired).
 - **Verdict:** no reliable sleeve *as-is*. But the neutral carry's substantial
   gross funding harvest (+9 to +17R) that taker fees destroy is **the same
   fee-drag story as the small-TF scalps** — so **P1 (maker execution) is the
-  common lever**: at maker/near-zero fees the neutral carry could net a meaningful
-  fraction of its +9–17R gross with sub-2R drawdown. Re-price the carry emits under
-  the P1 re-scorer as a follow-up. Xsec is parked pending a wider universe.
+  common lever**. **This was tested directly (#6493, see the P1 maker-carry block
+  above):** at maker 1.0bps the full-history net recovers ~70% of the gross
+  (ETH +7.72R / SOL +6.46R / BNB +11.03R, maxDD 0.05–0.68R) — the P1 lever
+  works. **However the current-regime OOS (2025-01+) maker net is thin-to-negative**
+  (ETH +0.40 / SOL +0.07 / BNB −0.61), so the maker-carry sleeve is a real but
+  **regime-gated** candidate, parked with a re-trigger (`PB-20260715-MAKER-CARRY`),
+  NOT a live-now proposal. Xsec is parked pending a wider universe.
 
 ### P4 — P(win) entry filter, attempt 3 (GATED; downstream)
 Do **NOT** re-run on OHLCV decision-bar features (twice failed). Only attempt with
