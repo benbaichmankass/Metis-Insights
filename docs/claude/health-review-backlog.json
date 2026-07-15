@@ -4004,6 +4004,15 @@
           "note": "Split verdict. (1) DURABLE PERSISTENCE half: effectively RESOLVED — the token survives web-api restarts (verified across 4+ restarts 2026-07-15; persists in web-api.env/.env). See BL-20260713-DIAG-SURFACE-FETCH-FAILED (resolved). (2) RECOVERY-PATH half: KEEP OPEN — the set-diag-token system-action failed at the Actions-runner 'Set up job' step on #6354/#6355 (unverified/unfixed). Latent: only bites if the token IS ever wiped, but then recovery is broken. Narrow this item to the recovery-path fix only."
         }
       ]
+    },
+    {
+      "id": "BL-20260715-PAIRS-EXEC-GATE-DOC",
+      "status": "open",
+      "severity": "low",
+      "category": "doc-drift",
+      "summary": "CLAUDE.md 'two execution gates' section says strategy execution: shadow|live is 'Enforced in Coordinator.multi_account_execute'. The M22 D2 pairs sleeve reuses the same execution: shadow|live gate (in config/pairs.yaml) but enforces it in its OWN isolated executor (pairs_executor.decide_pair/run_pairs_tick), NOT multi_account_execute. Not a contradiction (the section is scoped to the strategy roster and the ARCHITECTURE change-log row documents the pairs sleeve as an isolated exception), but a one-line pointer in the two-gates section would help a fresh Claude who reads it before finding the change-log row.",
+      "created": "2026-07-15",
+      "source": "doc-freshness (M22 D2 pairs sleeve go-live)"
     }
   ],
   "updated_at": "2026-07-15T13:18:00+00:00"
