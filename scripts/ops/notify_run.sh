@@ -194,9 +194,9 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
-    flatten-ib-position|flatten-bybit-position)
-        # 2026-06-19/2026-06-29: one-shot guarded flatten of one IB/Bybit
-        # position (dry-run unless apply:true).
+    flatten-ib-position|flatten-bybit-position|flatten-alpaca-position)
+        # 2026-06-19/2026-06-29/2026-07-15: one-shot guarded flatten of one
+        # IB/Bybit/Alpaca position (dry-run unless apply:true).
         tier=2
         case "${exit_code}" in
             0) result="ok (dry-run preview or flattened)"; priority="normal" ;;
