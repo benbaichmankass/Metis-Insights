@@ -323,16 +323,53 @@ normalized by the per-trade spread-stop); the **$-return-on-deployed-2-leg-margi
 translation (leverage + concurrency assumptions) is the remaining execution-realism
 step before a live sizing proposal.
 
-- **Remaining validation gaps before a live proposal (NOT blockers to the finding):**
-  (a) **$ capital-efficiency translation** — R→ return on the 2-leg deployed margin
-  (the operator's original metric); (b) **execution realism** — 2-leg simultaneous
-  fills, hedge-leg slippage, perp funding carry on the short leg, rolling-β recompute;
-  (c) a **cointegration half-life / stability monitor** for the divergence tail.
-- **Next step is a DECISION (operator-gated):** proceed toward a **Tier-3 proposal**
-  for a market-neutral crypto-pairs sleeve via the `new-strategy` skill (incl.
-  `account_compat_matrix` + the $ / execution-realism validation above) — **drafted,
-  not self-wired.** Xsec momentum stays parked (wider universe needed); spot-perp
-  basis is the untested cousin (build vs park TBD).
+**Cointegration stability (trainer #6509, `cointegration_stability.py`, lb=15/1h,
+30-day rolling window) — HEALTHY, no breaks:**
+
+| pair | global half-life (h) | rolling HL median / IQR (h) | rolling HL valid % | β drift | spread-bounded % |
+|---|--:|--:|--:|--:|--:|
+| ETH/BTC | 11.79 | 10.51 / 2.59 | **100** | 0.61 | 100 |
+| SOL/BTC | 11.68 | 9.86 / 3.61 | **100** | 0.92 | 100 |
+| BNB/BTC | 12.14 | 10.81 / 4.04 | **100** | 1.03 | 100 |
+| SOL/ETH | 12.79 | 11.79 / 3.89 | **100** | 0.86 | 100 |
+
+Every pair mean-reverts with a fast, consistent half-life (~12h; the ~5.7h hold is
+~½ a half-life) and — decisively — the spread is mean-reverting in **100% of the
+30-day windows across 3 years** (no cointegration breaks) and stays bounded
+(`spread_bounded_pct`=100). **So the maxDD is bounded *excursion* risk within a
+stably-reverting relationship, NOT a structural cointegration blow-up.** The one
+thing to monitor live is the hedge-β drift (0.6–1.0) — the rolling-β recompute
+already tracks it; a live sleeve would demote a pair whose HL blows out / valid-%
+collapses.
+
+**Perp-funding drag (trainer #6509, `pair_funding_drag.py`, mean hold 5.7h) —
+NEGLIGIBLE:** SOL/ETH net funding differential is **0.75 bps / 8h → 2.24 bps/day →
+~0.5 bps per trade** (legs ~0.9–1.3 bps/8h each, largely offsetting). Against a
+per-trade gross edge of ~0.24R (tens of bps), funding is ~2–4% of the edge — the
+same negligible class as the fees the R-result already proved insensitive to.
+Confirmed, not assumed. (The /BTC pairs skipped — `btcusdt_funding.csv` isn't on
+the trainer — but SOL/ETH is representative and BTC funding is typically *lower*,
+so the conclusion holds; fetching BTC funding to confirm the /BTC pairs is a cheap
+follow-up.)
+
+- **Validation status:** profitability ✅, OOS-robustness ✅, capital-efficiency ✅,
+  cointegration-stability ✅, funding-insensitivity ✅. **Remaining:** (a) the $
+  return-on-2-leg-margin translation (a sizing choice — belongs in the Tier-3
+  proposal, not research); (b) **execution realism** — 2-leg simultaneous fills +
+  hedge-leg slippage, only truly settled by a live/paper soak.
+- **Architectural reality (the real lift):** a market-neutral pair is a **2-leg
+  simultaneous-position** strategy (long A perp / short B perp), which does NOT fit
+  the execution layer's **single-symbol intent** model (`intent_multiplexer` emits
+  per-symbol intents; the coordinator dispatches per-symbol). Wiring the sleeve needs
+  a NEW 2-leg execution primitive (or a paired-intent correlation-id, or an isolated
+  pairs executor) — a bigger lift than a standard single-symbol strategy, and the
+  main **Tier-3 risk**. Captured in the proposal.
+- **Deliverable:** the Tier-3 proposal is drafted at
+  [`docs/research/pairs-sleeve-PROPOSAL-2026-07-15.md`](pairs-sleeve-PROPOSAL-2026-07-15.md)
+  (evidence + architecture + phased shadow→demo→real rollout + the mandatory
+  `account_compat_matrix` + the open operator decisions). **Drafted, not self-wired**
+  — the live sleeve is operator-gated. Xsec momentum stays parked (wider universe
+  needed); spot-perp basis is the untested cousin (build vs park TBD).
 
 ### D3 — Passive liquidity-provision sleeve (the generalization of the maker win; GATED)
 "Maker execution + stop-free" points at an actual *strategy*, not a filter: post

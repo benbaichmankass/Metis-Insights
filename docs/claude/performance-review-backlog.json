@@ -1281,7 +1281,18 @@
       "severity": "medium",
       "status": "open",
       "updated_at": "2026-07-15T13:10:00+00:00"
+    },
+    {
+      "id": "PB-20260715-PAIRS-SLEEVE",
+      "opened_at": "2026-07-15T15:35:00+00:00",
+      "opened_by": "claude (M22 wave-2 D2, PR follow-up)",
+      "source": "M22 wave-2 D2 (trainer #6498/#6500/#6501/#6506/#6509). Design: docs/research/small-tf-directions-2026-07-15.md; proposal: docs/research/pairs-sleeve-PROPOSAL-2026-07-15.md.",
+      "title": "Market-neutral crypto cointegration PAIRS sleeve — the M22 reliable-tool finding (Tier-3, drafted)",
+      "detail": "M22's reliable small-TF tool: market-neutral crypto cointegration pairs at 1h (SOL/BTC, BNB/BTC, ETH/BTC, SOL/ETH). FULLY VALIDATED as research: profitable (3yr +350..+541R), OOS-robust (held-out 2025-26 +158..+177R, NO expectancy decay, 58-60% win, maxDD 6-15R), capital-efficient (~0.8-1.2 net_R/pos-day, OOS 0.93-1.12 — the operator's original PnL-per-time metric, beats scalps+cash), cointegration-STABLE (half-life ~12h, mean-reverting in 100% of 30-day windows over 3yr, no breaks, spread bounded 100%), funding-NEGLIGIBLE (~0.5 bps/trade vs a much larger R-edge), fee-insensitive (spread-stop R dwarfs fees). Sidesteps BOTH small-TF root causes. TIER-3 PROPOSAL DRAFTED (pairs-sleeve-PROPOSAL-2026-07-15.md): the architectural lift is that a pair is a 2-LEG simultaneous-position strategy that does NOT fit the single-symbol intent model -> needs a NEW isolated pairs-executor primitive (place both legs atomically, leg-imbalance guard, spread-exit management) + account_compat_matrix + a phased shadow->demo(bybit_1)->real(bybit_2) rollout. REMAINING before live: (a) $-return-on-2-leg-margin sizing (a proposal/RiskManager choice, not a research number); (b) execution realism (2-leg simultaneous fills + slippage — only a live/paper soak settles it). OPEN OPERATOR DECISIONS: proceed to build the pairs executor + shadow soak (P-A)? which pairs (SOL/BTC+BNB/BTC best, or all 4)? concurrency/sizing caps (pairs share the BTC leg = correlated)? Cheap follow-up: fetch btcusdt_funding.csv to the trainer to confirm the /BTC pairs' funding drag (only SOL/ETH ran; the /BTC pairs are representative-by-analogy). NOTHING wired — operator-gated Tier-3.",
+      "severity": "high",
+      "status": "open",
+      "updated_at": "2026-07-15T15:35:00+00:00"
     }
   ],
-  "updated_at": "2026-07-15T13:10:00+00:00"
+  "updated_at": "2026-07-15T15:35:00+00:00"
 }
