@@ -1260,7 +1260,17 @@
       "detail": "Run the M8 k-fold tune-sweep (scripts/ml/strategy_tune_sweep.py) or the research_sweep study spec on trail-mult {4,5} for htf_pullback_trend_2h; if 4 wins across folds, propose the one-line config/strategies.yaml change (Tier-3, operator-gated).",
       "severity": "medium",
       "status": "open"
+    },
+    {
+      "id": "PB-20260715-CHOP-SCALP-NEGATIVE",
+      "opened_at": "2026-07-15T11:30:00+00:00",
+      "opened_by": "claude (chop-scalp research session, PR #6479)",
+      "source": "scripts/research/chop_scalp_study.py over 3yr trainer BTC+ETH 5m (2023-01..2026-02, IS/OOS split, trainer run #6480). Full evidence: docs/research/chop-scalp-capital-efficiency-2026-07-15.md.",
+      "title": "NEGATIVE RESULT — a faster multi-TF chop-boundary scalp is not net-positive; do not wire one",
+      "detail": "New multi-TF harness (scripts/backtest_chop_scalp.py): HTF range boundaries + LTF (5m) bounce entries. Every tradeable-frequency variant (80-200 trades) is net-negative on BOTH BTC and ETH, IS and OOS, net-of-fee (net_R/pos-day -4 to -15, win 12-27%) — full-range-reversion target + tight boundary stop is poor R:R and 5m fees tax the churn. The only positive cells (FVG-confirmed) are 1-9 trades over 3yr and collapse OOS. The incumbent fvg_range_15m stays the ONLY capital-efficient range play (BTC +1.70 net_R/pos-day OOS, beats cash+buy-hold in the flat OOS window; negative on ETH, matching its docs). Conclusion: keep fvg_range live, do NOT chase a faster cousin — no Tier-3 proposal. If revisited, the (high) burden of proof is: (a) tighter higher-win target (partial-TP/tp1r, not full far boundary); (b) 1m LTF data; (c) an ETH-specific structure (BTC range logic transfers to neither ETH nor a faster clock). Reusable tooling (harness + study orchestrator) shipped for that future work.",
+      "severity": "low",
+      "status": "open"
     }
   ],
-  "updated_at": "2026-07-15T06:30:00+00:00"
+  "updated_at": "2026-07-15T11:30:00+00:00"
 }
