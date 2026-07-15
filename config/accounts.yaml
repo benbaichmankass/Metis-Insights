@@ -672,7 +672,7 @@ accounts:
   alpaca_live:
     exchange: alpaca
     account_class: real_money          # REAL MONEY (Alpaca live host).
-    mode: dry_run                      # SHELVED to dry_run 2026-07-15 (Tier-3, operator-directed): the open IEF
+    mode: dry_run                      # dry-run-guard: allow — SHELVED to dry_run 2026-07-15 (Tier-3, operator-directed): the open IEF
                                        # position was closed and funds moved to Bybit (the stronger performer for
                                        # now); alpaca_live real-money strategies are paused pending evidence they
                                        # help. RE-ARM to live is gated on the /performance-review portfolio-vs-bybit
