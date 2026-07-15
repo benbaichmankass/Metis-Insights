@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "SRQ-20260715-REALMONEY-ALLOC-BENCHMARK",
+      "opened_at": "2026-07-15T06:30:00+00:00",
+      "opened_by": "claude (operator directive 2026-07-15)",
+      "source": "Operator directive when shelving alpaca_live to dry_run (PR shelve-alpaca-live-dryrun): set the standing bar for putting strategies on live real-money accounts.",
+      "title": "[recurring] Real-money allocation benchmark — does a ready-for-live portfolio beat the incumbent live book (bybit-only) on risk-adjusted PnL, incl. regime diversification?",
+      "description": "Every performance-review: benchmark the ready-for-live candidate portfolio (principally the shelved alpaca_live ETF sleeve, paper-proxied via alpaca_paper fills since alpaca_live dry_run doesn't fill) against the incumbent real-money book (bybit_2) on expectancy-R / profit-factor / max-drawdown AND the correlation/co-drawdown (diversification) benefit across regime shifts. Verdict: improves the blended book (higher expectancy-R at <= drawdown, or materially lower drawdown via decorrelation) -> propose Tier-3 re-arm (mode: live); else keep shelved. Analysis + proposed Tier-3 only; never flips mode here. See .claude/skills/performance-review/SKILL.md section 'Real-money allocation benchmark'.",
+      "tier": 3,
+      "trigger_condition": "Every /performance-review while any real-money account is shelved (currently alpaca_live) or any candidate is queued for live promotion.",
+      "resolution_criteria": "RECURRING — not closed by a single run. Retire only if the operator drops the real-money-allocation gate. Each run records real_money_allocation_benchmark in the response and refreshes this item's verdict.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "PB-20260707-SPLG-IAUM-LIVE-REVALIDATION",
       "opened_at": "2026-07-07T21:40:00+00:00",
       "opened_by": "claude (S-PROXY-EQUITIES-ALPACA-LIVE session close)",
@@ -1248,5 +1262,5 @@
       "status": "open"
     }
   ],
-  "updated_at": "2026-07-12T08:35:00+00:00"
+  "updated_at": "2026-07-15T06:30:00+00:00"
 }

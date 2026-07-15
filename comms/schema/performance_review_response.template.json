@@ -85,6 +85,20 @@
     "delta_since_last": { "trades": 0, "net_usd": 0.0 },
     "assessment": "healthy | noise | decay-watch — <= 160 chars citing the numbers"
   },
+  "real_money_allocation_benchmark": {
+    "_comment": "RECURRING (§ Real-money allocation benchmark, operator directive 2026-07-15). Does a ready-for-live portfolio improve the live real-money book's risk-adjusted PnL (incl. via regime diversification) vs leaving capital where it is? Analysis + a PROPOSED Tier-3 re-arm only; never flips mode. null (+ anomalies line) only when there's no live real-money book AND no queued candidate.",
+    "incumbent": "bybit_2",
+    "candidate": "alpaca_live ETF sleeve (paper-proxied via alpaca_paper fills — alpaca_live dry_run does not fill)",
+    "incumbent_expectancy_r": 0.0,
+    "candidate_expectancy_r": 0.0,
+    "incumbent_max_dd": 0.0,
+    "candidate_max_dd": 0.0,
+    "correlation_estimate": 0.0,
+    "diversifies": false,
+    "verdict": "improves | neutral | does_not_clear",
+    "proposed_action": "e.g. 'hold shelved' | 'Tier-3 re-arm proposal: mode: live for alpaca_live (evidence: ...)'",
+    "note": "<= 240 chars; MUST state the paper-proxy caveat"
+  },
   "anomalies": [
     "free-form list of notable items (grade drift, unexpected attribution, etc.)"
   ],
