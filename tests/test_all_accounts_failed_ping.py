@@ -27,6 +27,7 @@ import pytest
 
 from src.runtime.execution_diagnostics import (
     enqueue_all_accounts_failed_dispatch,
+    is_expected_dispatch_skip,
 )
 
 
@@ -264,6 +265,7 @@ class TestBenignNoopSuppression:
                 err.startswith("intent_noop:")
                 or err == "intent_sub_min_qty_delta"
                 or err.startswith("reentry_suppressed_netting_guard:")
+                or is_expected_dispatch_skip(err)
             )
 
         any_trade_placed = any(r.get("trade_id") is not None for r in results)
@@ -337,6 +339,89 @@ class TestBenignNoopSuppression:
              "error": "intent_noop:flip_suppressed_hold_policy: holding"},
         ]
         assert self._should_fire(results) is False
+
+    def test_all_dry_run_shelved_round_does_not_fire(self):
+        """Operator directive 2026-07-15: a strategy routed only to shelved
+        dry_run accounts bounces by design — a wired-but-off account should
+        just silently not trade. The error is the wrapped RiskBreach message
+        the coordinator stores (str(exc)), not the bare reason."""
+        results = [
+            {"name": "alpaca_live", "trade_id": None,
+             "error": "Account 'alpaca_live' rejected order for TLT: "
+                      "account_mode_dry_run"},
+        ]
+        assert self._should_fire(results) is False
+
+    def test_all_prop_mission_skip_round_does_not_fire(self):
+        results = [
+            {"name": "breakout_1", "trade_id": None,
+             "error": "Account 'breakout_1' rejected order for MES: "
+                      "SKIP_MISSION_MET"},
+        ]
+        assert self._should_fire(results) is False
+
+    def test_mixed_dry_run_and_genuine_failure_still_fires(self):
+        """A shelved dry_run leg is a hold, but a genuine failure on the OTHER
+        leg must still surface the roll-up."""
+        results = [
+            {"name": "alpaca_live", "trade_id": None,
+             "error": "Account 'alpaca_live' rejected order for TLT: "
+                      "account_mode_dry_run"},
+            {"name": "bybit_2", "trade_id": None,
+             "error": "RuntimeError: exchange rejected"},
+        ]
+        assert self._should_fire(results) is True
+
+
+class TestExpectedDispatchSkip:
+    """``is_expected_dispatch_skip`` — the shared predicate that classifies a
+    refusal as a deliberate policy skip (silent) vs a genuine failure (alert)."""
+
+    @pytest.mark.parametrize("reason", [
+        "account_mode_dry_run",
+        "Account 'alpaca_live' rejected order for TLT: account_mode_dry_run",
+        "SKIP_MISSION_MET",
+        "SKIP_OVERNIGHT_RESTRICTED",
+        "SKIP_WEEKEND_RESTRICTED",
+        "Account 'breakout_1' rejected order for MES: SKIP_WEEKEND_RESTRICTED",
+    ])
+    def test_expected_skips_recognised(self, reason):
+        assert is_expected_dispatch_skip(reason) is True
+
+    @pytest.mark.parametrize("reason", [
+        "",
+        None,
+        "zero_balance: gate_balance=0.00 USD",
+        "risk_refused: sized_qty=0 with balance=97303.14 direction=short "
+        "market_type=spot",
+        "RuntimeError: Bybit ErrCode 170131",
+        "DAILY_LOSS_CAP",
+        "open_position_exists",
+    ])
+    def test_genuine_failures_not_skipped(self, reason):
+        assert is_expected_dispatch_skip(reason) is False
+
+    def test_dry_run_leg_labelled_hold_not_failure_in_mixed_roll_up(
+        self, pings_dir,
+    ):
+        """When the roll-up DOES fire (a genuine failure exists), a dry_run leg
+        is listed as a policy hold, not counted under the failure headline."""
+        enqueue_all_accounts_failed_dispatch(
+            strategy="tlt_pullback_1h", symbol="TLT", side="sell",
+            results=[
+                {"name": "alpaca_live", "trade_id": None,
+                 "error": "Account 'alpaca_live' rejected order for TLT: "
+                          "account_mode_dry_run"},
+                {"name": "bybit_2", "trade_id": None,
+                 "error": "RuntimeError: exchange rejected"},
+            ],
+        )
+        body = _read_payloads(pings_dir)[0]["body"]
+        # 1 genuine failure of 2 attempted — not "ALL".
+        assert "1/2 accounts failed to dispatch" in body
+        assert "Policy holds (not failures): alpaca_live" in body
+        # The dry_run leg is NOT listed under the Failures section.
+        assert "• alpaca_live:" not in body
 
 
 # ---------------------------------------------------------------------------
