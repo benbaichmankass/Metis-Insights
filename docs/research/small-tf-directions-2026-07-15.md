@@ -58,7 +58,46 @@ answer is *execution*, and the follow-up is building post-only entries.
 - **Follow-up if positive:** Tier-3 proposal to build post-only limit entry in the
   Bybit executor (the deferred `maker_band_post_only`). Not self-wired.
 
-**Findings:** _(pending — trainer run)_
+**Findings (trainer run #6489, BTC 3yr, net-of-fee):**
+
+| cell | tf | trades | gross_R | net_R taker | net maker(both, opt) | net maker(entry/taker-exit, real) | flips? |
+|---|--:|--:|--:|--:|--:|--:|:-:|
+| fade | 5m | 13,116 | **+338** | −7,226 | +338 | −2,224 | ~ |
+| pullback | 5m | 5,087 | **+350** | −996 | +350 | −255 | ~ |
+| trend | 5m | 10,812 | **+284** | −2,996 | +284 | −943 | ~ |
+| squeeze | 5m | 5,310 | **+241** | −1,035 | +241 | −302 | ~ |
+| trend | 15m | 3,243 | +98 | −359 | +98 | −117 | ~ |
+| chop_scalp | 5m | 82 | +18 | −22.7 | +18 | −2.4 | ~ |
+| fvg_range | 15m | 45 | +30 | +24.1 | +30 | +15.6 | ✅ |
+| fvg_range | 5m | 83 | −11 | −22.8 | −11 | −11 | ❌ |
+| fade | 15m | 4,349 | −173 | −1,385 | −173 | −520 | ❌ |
+
+1. **The fee-drag diagnosis is CONFIRMED, emphatically.** Nearly every cell has a
+   **positive gross edge** (the maker-both/optimistic column) — fade_5m +338R,
+   pullback_5m +350R, trend_5m +284R, squeeze_5m +241R. Taker fees are exactly
+   what turn them net-negative. The edge is real; the execution destroys it.
+2. **But maker execution does NOT realistically rescue the stop-based scalps.**
+   The realistic bound (maker ENTRY + TAKER EXIT ≈ half the round-trip cost, ×60%
+   fill) stays net-negative for every cell — half the fee is still far larger than
+   the thin per-trade gross edge (fade_5m gross is +0.026R/trade). Only **maker on
+   BOTH legs** (~0/rebate) clears them — and a **stop-based strategy's exit is
+   inherently a TAKER event** (you cross the book at the SL/TP), so both-legs-maker
+   is not achievable for these strategies. The only realistic-maker positive is
+   `fvg_range_15m`, which was already net-positive at taker (the incumbent live
+   strategy) — **no NEW cell flips.**
+3. **The strategic payoff — where maker DOES work — is the cross-link to P3.**
+   Maker on both legs is only realistic when **both legs can be resting limits**
+   (no market-order stop). That excludes the stop-based scalps but *includes* the
+   **market-neutral funding carry** (P3): it exits on funding-decay/timeout, not a
+   price stop, so BOTH legs can be maker. Its gross harvest (+9 to +17R, sub-2R
+   drawdown) is precisely the fee-eaten edge maker execution recovers. **The
+   reliable-tool candidate that emerges from P1+P3 is a maker-executed
+   market-neutral funding-carry sleeve**, not a faster scalp.
+- **Follow-up:** re-run the P3 funding-carry emits through the maker re-scorer
+  (both-legs-maker) to size the recoverable net; if attractive, a Tier-3 proposal
+  for (a) a limit/post-only carry executor and (b) wiring the neutral-carry sleeve.
+  Building post-only entry for the stop-based scalps is **not** worth it (their
+  exits stay taker; the realistic bound proves it).
 
 ### P2 — Order-flow capture clock (start now; forward-only)
 Order-flow is the academically-grounded small-TF edge and the one untested feature

@@ -1270,7 +1270,17 @@
       "detail": "New multi-TF harness (scripts/backtest_chop_scalp.py): HTF range boundaries + LTF (5m) bounce entries. Every tradeable-frequency variant (80-200 trades) is net-negative on BOTH BTC and ETH, IS and OOS, net-of-fee (net_R/pos-day -4 to -15, win 12-27%) — full-range-reversion target + tight boundary stop is poor R:R and 5m fees tax the churn. The only positive cells (FVG-confirmed) are 1-9 trades over 3yr and collapse OOS. The incumbent fvg_range_15m stays the ONLY capital-efficient range play (BTC +1.70 net_R/pos-day OOS, beats cash+buy-hold in the flat OOS window; negative on ETH, matching its docs). Conclusion: keep fvg_range live, do NOT chase a faster cousin — no Tier-3 proposal. Follow-ups (operator-requested, trainer #6483/#6484, PR #6485): (a) 1m rule-out — every 1m config net-negative, fee_R ~= the entire loss, and the tp1r tighter-target STEELMAN is WORSE (churns more), net_R/pos-day -51..-181 → 1m DECISIVELY ruled out; (b) small-TF scan of the whole existing roster at 5m/15m — squeeze/fade/trend/pullback all catastrophically negative (net -168..-7226R, fee-dominated), only fvg_range at its native 15m is positive (+24R) → NO existing strategy has small-TF potential; roster edges are inherently 15m-4h. Book closed on faster/multi-TF range-scalping. Only untested residual: an ETH-specific NEW structure (not a re-clocked existing one) — high bar given all evidence. Reusable tooling (chop_scalp harness + study orchestrator) + a pandas-3 minute-resample fix for squeeze/fade/trend/pullback shipped.",
       "severity": "low",
       "status": "open"
+    },
+    {
+      "id": "PB-20260715-MAKER-CARRY",
+      "opened_at": "2026-07-15T12:45:00+00:00",
+      "opened_by": "claude (M22 small-TF program, PR #6491)",
+      "source": "M22 P1 maker-fee economics re-scorer (scripts/research/maker_economics.py) + P3 sleeve backtests (trainer #6489/#6490). Design: docs/research/small-tf-directions-2026-07-15.md.",
+      "title": "Maker-executed market-neutral funding-carry sleeve — the reliable small-TF direction from M22",
+      "detail": "M22 finding: fee-drag is the UNIVERSAL small-TF killer. The maker re-scorer confirms nearly every small-TF cell is GROSS-positive (fade_5m +338R, pullback_5m +350R, trend_5m +284R, squeeze_5m +241R over 3yr BTC) — taker fees flip them negative. But maker execution CANNOT rescue the stop-based scalps: their exit is inherently a taker event, so maker-entry/taker-exit (realistic bound) stays net-negative; only both-legs-maker clears them, which stop strategies can't do. The one class that CAN be both-legs-maker is the market-neutral FUNDING CARRY (exits on funding-decay/timeout, no price stop): P3 shows it harvests a real edge (gross net_funding +9..+17R, sub-2R maxDD on ETH/SOL/BNB) that taker fees eat ~94% of. NEXT: (1) re-run the funding-carry --emit-trades through maker_economics.py (both-legs-maker) to size the recoverable net; (2) if attractive, propose (Tier-3) a limit/post-only carry executor + wiring a neutral-carry sleeve — caveat: carry regime has compressed since 2024 (PB-20260620-002), so gate on the current regime. Do NOT build post-only entry for the stop-based scalps (exits stay taker). Xsec momentum parked (4-symbol universe too small).",
+      "severity": "medium",
+      "status": "open"
     }
   ],
-  "updated_at": "2026-07-15T11:30:00+00:00"
+  "updated_at": "2026-07-15T12:45:00+00:00"
 }
