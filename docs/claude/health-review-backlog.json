@@ -4106,9 +4106,15 @@
       "tier": "Tier 2",
       "trigger_condition": "a resting protective order wedges in pending_cancel and holds the position qty",
       "resolution_criteria": "QQQ position flattened on alpaca_paper (broker reset or a code remediation that dislodges a pending_cancel-wedged order); alert spam bounded for a broker-wedged close",
-      "status": "open",
+      "status": "in_progress",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-16",
+          "by": "session_01Y8dy5ZEC4GPQ5RF8oq7iSU",
+          "note": "Remediation (a) SHIPPED: AlpacaClient.close() now escalates to DELETE /v2/positions/{sym}?cancel_orders=true (Alpaca's atomic cancel-then-liquidate) on the give-up path when the per-order cancels can't free the shares — the strongest programmatic lever before an operator paper reset. Unconditional (Prime-Directive-clean, no default-off gate; it only fires on the give-up path). The post-DELETE flatten-confirm gate still refuses to report a close the broker didn't actually make (never a fabricated close). Tests: tests/test_alpaca_wiring.py::test_client_close_escalates_to_cancel_orders_true_when_wedged + _forced_escalation_still_gated_by_flatten_confirm; two existing give-up tests updated to reflect the escalation. Operator (2026-07-16) chose 'both': ship the hardening AND reset the Alpaca paper account — the guaranteed clear for a truly-wedged pending_cancel that even cancel_orders=true may not dislodge. Resolves to 'closed' once QQQ reads flat post-reset/post-deploy."
+        }
+      ]
     }
   ],
   "updated_at": "2026-07-16"
