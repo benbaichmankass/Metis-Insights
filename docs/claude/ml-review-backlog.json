@@ -1520,13 +1520,15 @@
       "tier": 1,
       "trigger_condition": "Any session training a candidate/probe manifest that sets dataset.build_params on the trainer VM, or any ML dataset-provenance/wiring pass.",
       "resolution_criteria": "Either the trainer path honors dataset.build_params (rebuild/validate) or it fails loudly on a manifest whose declared build_params don't match the resolved version dir's recorded params; AND market_features metadata.json records the effective vol_threshold.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "evidence_log": [
-        "2026-07-16 (discovered): btc-regime-15m-lgbm-vt004-pcv-v1 declared build_params.vol_threshold=0.004 + version v004; the trainer run trained on the v004 dir (actually 0.003-labeled, 16.06% volatile) -> a 0.003 result mislabeled as 0.004. forward_vol is identical across all version dirs (one common window), so the mislabel is purely which threshold each dir was built at + the ignored build_params."
+        "2026-07-16 (discovered): btc-regime-15m-lgbm-vt004-pcv-v1 declared build_params.vol_threshold=0.004 + version v004; the trainer run trained on the v004 dir (actually 0.003-labeled, 16.06% volatile) -> a 0.003 result mislabeled as 0.004. forward_vol is identical across all version dirs (one common window), so the mislabel is purely which threshold each dir was built at + the ignored build_params.",
+        "2026-07-16 (RESOLVED, same day): fixed both halves. (1) ml/datasets/metadata.py DatasetMetadata now carries build_params (effective scalar iter_rows kwargs), populated by ml/datasets/builder.py::build -> every new dataset dir is SELF-DESCRIBING (records its vol_threshold etc.). (2) ml/experiments/runner.py run_experiment now calls _verify_declared_build_params: when a manifest declares dataset.build_params it RAISES ManifestDatasetMismatchError on a genuine mismatch vs the resolved dir's recorded build_params (fail loud, not silent mislabel), and warns when the dir predates the field (legacy, unverifiable). 4 new tests (metadata roundtrip + runner mismatch-raises/match-proceeds/unverifiable-warns); 100 targeted tests pass. Legacy dirs unaffected (empty build_params); standard-cycle manifests declare no build_params so enforcement only bites the probe manifests that actually declare them."
       ],
       "status_history": [
-        "2026-07-16 opened (Tier-1 correctness footgun surfaced by the MB-20260701-001 reconcile)."
+        "2026-07-16 opened (Tier-1 correctness footgun surfaced by the MB-20260701-001 reconcile).",
+        "2026-07-16 RESOLVED (fix landed in the same PR branch as the reconcile)."
       ]
     }
   ],

@@ -35,6 +35,16 @@ class TestConstruct:
         assert m.schema_version == SCHEMA_VERSION
         assert m.generated_at.tzinfo is not None
 
+    def test_build_params_defaults_empty_and_roundtrips(self):
+        # Legacy dirs / raw families carry no build params.
+        assert _meta().build_params == {}
+        # Populated build params survive the to_dict/from_dict roundtrip
+        # (MB-20260716-BUILDPARAMS-IGNORED — the dir is self-describing).
+        m = _meta(build_params={"vol_threshold": 0.004, "n_vol_buckets": 3})
+        d = m.to_dict()
+        assert d["build_params"] == {"vol_threshold": 0.004, "n_vol_buckets": 3}
+        assert DatasetMetadata.from_dict(d).build_params == m.build_params
+
     def test_required_fields_rejected_when_blank(self):
         for field_name in (
             "family",
