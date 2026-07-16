@@ -109,3 +109,59 @@ dollars-and-lots.**
   tighter cointegration/half-life screen? wider entry-z to cut stop-slippage
   churn?) or should be demoted. This is a Tier-3 strategy question for the
   operator, backed by the G2 numbers.
+
+### G2 ideal-no-floor decomposition (2026-07-16, trainer-diag #6615) — it's FEES
+
+The `--ideal-no-floor` run (no lot constraint, hedge intact) decomposes the R→$
+gap cleanly. Per pair, ideal fixed-β-hold $ P&L:
+
+| pair | R-space net_R | ideal **fee-free** $ | ideal **7.5bps** $ | ⇒ fee cost |
+|---|---|---|---|---|
+| SOL/BTC | +620 | **−$295** | −$3179 | ~$2884 |
+| BNB/BTC | +825 | **+$357** | −$3409 | ~$3766 |
+| ETH/BTC | +636 | **−$855** | −$5194 | ~$4339 |
+| SOL/ETH | +513 | **+$1279** | −$3443 | ~$4722 |
+
+**Three-layer teardown of the edge:**
+
+1. **R-space (rolling-β) → fixed-β gross:** the rolling-β R-space `net_R`
+   (+513…+825) is **optimistic** — it re-hedges β every bar. Held at a fixed
+   entry-β (what the live executor does), the *gross* (fee-free) edge collapses
+   to **~breakeven, mixed sign** (−$295 / +$357 / −$855 / +$1279). The rolling→
+   fixed-β idealization eats most of the apparent edge.
+2. **Gross → net (fees):** 7.5 bps round-trip taker × **two legs** × ~2800
+   trades is ~$2.9k–4.7k of fees per pair — which tips every pair, even the
+   fee-free-positive ones (BNB/BTC, SOL/ETH), **deeply net-negative**. Fees are
+   the dominant killer, ~$1.1–1.8 per trade vs a ~$0.5 gross edge.
+3. **Lots:** min-qty flooring is a *third*, secondary layer — it makes the sleeve
+   un-placeable below ~$1k (skip ~100%) but the ideal (no-floor) is already
+   net-negative, so lots are not the primary problem.
+
+**This is the same conclusion as the whole small-TF / chop-scalp program: the
+gross edge is real but thin, and round-trip taker fees sink it.** (See the
+maker-fee economics thread, `docs/research/small-tf-directions-2026-07-15.md`
+Phase 1.) The implications:
+
+- **Real-money viability needs BOTH** (a) recover the gross edge lost to fixed-β
+  execution — **re-hedge live to track the drifting β** (the executor currently
+  holds a fixed entry-β; a periodic re-hedge or a Kalman-β would close most of
+  the rolling→fixed gap), or a tighter cointegration/half-life screen that only
+  trades pairs whose β is stable — AND (b) **maker execution** (post-only limit
+  entries → ~0/rebate Bybit maker fees), the same deferred `maker_band_post_only`
+  fix the small-TF study flagged. Neither alone suffices: fee-free is still mixed,
+  and maker fees on a negative-gross pair (SOL/BTC, ETH/BTC) still lose.
+- **Best gross-edge candidates** (fee-free positive, so maker-fees *could* flip
+  them): **BNB/BTC (+$357)** and **SOL/ETH (+$1279)**. SOL/BTC and ETH/BTC are
+  negative even fee-free → not fixable by fees alone; they need the β-tracking
+  fix or a demote.
+- **The current paper soak (bybit_1) will also be net-negative** on these
+  economics — the sleeve loses on paper too, not just real money. The D2
+  validation (R-space, rolling-β) was optimistic; it should be re-run with the
+  fixed-β + maker-fee model before the sleeve advances anywhere.
+
+**Recommendation (Tier-3, for the operator):** hold all 4 pairs at `shadow`
+(3 already are; SOL/ETH is the one still `live` on paper — consider demoting it
+too, since its paper economics are net-negative under real fixed-β+taker). Do
+**not** route to real money. The forward path is a research question — re-hedge/
+Kalman-β + maker execution — not a wiring task; G1/G4/G5/G7 are moot until the
+sleeve is net-positive in $.
