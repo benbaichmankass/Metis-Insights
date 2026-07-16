@@ -236,7 +236,7 @@ def run_pair(m: pd.DataFrame, args, *, symbol_a: str, symbol_b: str) -> Dict[str
             lot_a=lot_a, lot_b=lot_b, fee_bps_roundtrip=args.fee_bps_roundtrip)
         for bal in args.balances
     ]
-    return {
+    out = {
         "pair": f"{symbol_a}/{symbol_b}",
         "symbol_a": symbol_a, "symbol_b": symbol_b,
         "lot_a": lot_a, "lot_b": lot_b,
@@ -247,6 +247,22 @@ def run_pair(m: pd.DataFrame, args, *, symbol_a: str, symbol_b: str) -> Dict[str
                      "net_r_per_pos_day", "data_start", "data_end")},
         "balance_sweep": sweep,
     }
+    if getattr(args, "ideal_no_floor", False):
+        # DIAGNOSTIC: lots→passthrough (never floor, never skip) at a high balance.
+        # Isolates the PURE fixed-entry-β hold $ economics (real per-leg prices +
+        # fees, hedge intact) from the min-qty lot effect — so a net-negative here
+        # means the R-space edge doesn't survive real fixed-β execution EVEN with
+        # no lot constraint (a strategy/backtest gap, not a sizing gap).
+        ideal_bal = max(args.balances) if args.balances else 100000.0
+        out["ideal_no_floor"] = simulate_dollar_lots(
+            rows, balance=ideal_bal, risk_pct=args.risk_pct,
+            pairs_risk_fraction=args.pairs_risk_fraction,
+            lot_a=None, lot_b=None, fee_bps_roundtrip=args.fee_bps_roundtrip)
+        out["ideal_no_floor_feefree"] = simulate_dollar_lots(
+            rows, balance=ideal_bal, risk_pct=args.risk_pct,
+            pairs_risk_fraction=args.pairs_risk_fraction,
+            lot_a=None, lot_b=None, fee_bps_roundtrip=0.0)
+    return out
 
 
 def _to_md(res: Dict[str, Any]) -> str:
@@ -263,6 +279,16 @@ def _to_md(res: Dict[str, Any]) -> str:
                 bal=s["balance_usd"], bud=s["budget_usd"], skip=s["skip_pct"],
                 pl=s["n_placed"], sig=s["n_signaled"], net=s["net_usd"],
                 exp=s["expectancy_usd"], win=s["win_pct"], hr=s["mean_hedge_residual_pct"]))
+    ideal = res.get("ideal_no_floor")
+    if ideal is not None:
+        ff = res.get("ideal_no_floor_feefree", {})
+        lines += ["",
+                  "**Ideal (no lot floor — pure fixed-β-hold economics):** "
+                  f"net ${ideal.get('net_usd')} (exp ${ideal.get('expectancy_usd')}, "
+                  f"win {ideal.get('win_pct')}%, placed {ideal.get('n_placed')}); "
+                  f"**fee-free** net ${ff.get('net_usd')} — "
+                  "net-negative here ⇒ the R-space edge does NOT survive real "
+                  "fixed-β execution independent of lots."]
     return "\n".join(lines) + "\n"
 
 
@@ -341,6 +367,9 @@ def _parse(argv: List[str]) -> argparse.Namespace:
                    help="per-leg round-trip taker cost in bps (two legs charged)")
     p.add_argument("--balances", default="200,500,1000,5000,166000",
                    help="CSV of balances $ to sweep")
+    p.add_argument("--ideal-no-floor", action="store_true",
+                   help="also report the no-lot-floor 'ideal' fixed-β-hold $ edge "
+                        "(isolates strategy economics from the min-qty lot effect)")
     p.add_argument("--start", default=None, help="ISO date; drop aligned bars before it")
     p.add_argument("--end", default=None, help="ISO date; drop aligned bars on/after it")
     p.add_argument("--json", dest="json_out", default=None)
