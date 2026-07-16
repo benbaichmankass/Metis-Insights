@@ -14,7 +14,13 @@
       "resolution_criteria": "A trainer ML cycle (promotion-readiness + train) completes without driving the 6 GB box into deep swap (avail stays > ~500 MB, swap use bounded); a single runaway job OOM-kills itself (MemoryMax) rather than wedging the whole VM; verified over a few cycles via the trainer publish-heartbeat staying fresh (no 'Trainer VM DOWN' banner).",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-16T18:00:00+00:00",
+          "by": "claude (MB-20260701-001 vt004 session)",
+          "note": "NEW RELATED FAILURE MODE — orphaned cycle child holds memory indefinitely. Observed 2026-07-16: the scheduled ict-trainer.service cycle logged 'Terminated' + manifest_failed exit_code 143 (SIGTERM) at 04:16:27Z on btc-regime-5m-lgbm-flow-v1.yaml, but a sibling `python -m ml train btc-regime-5m-lgbm-v2.yaml` child (pid 42164) was NOT reaped — it stayed alive 13h34m in State D holding VmRSS 4.67 GB (77% of the 6 GB box), wchan=mem_cgroup_handle_over_high (throttled + swap-thrashing at ~0% CPU), while a legitimate candidate research train (vt004, MB-20260701-001) was starved to a crawl (7m29s CPU in ~2h wall; 11.9M voluntary ctx-switches yielding for memory). Manually cleared via trainer-vm-diag SIGTERM (issue #6674): freed 4.6 GB (98 MB→2953 MB free), and vt004 completed within minutes. FIX ANGLE distinct from the streaming-aggregate footprint fix above: when the cycle runner is SIGTERM'd it must reap / kill its whole process group (KillMode=control-group on the systemd unit, or explicit child teardown in run_training_cycle.sh) so a terminated cycle can't leave an orphan pinning the box's memory until an out-of-band kill. This is the wedge cause behind the periodic 'Trainer VM DOWN' banners even when no external research load is present."
+        }
+      ]
     },
     {
       "id": "BL-20260711-INTENT-REDUCE-PHANTOM-PNL",
