@@ -21,23 +21,36 @@
 #   execution: live    → place the two legs on `account_id` (bybit_1 = Bybit
 #                        DEMO / paper venue — real order placement, paper money).
 #
-# All four ship at `shadow` so the sleeve starts soaking inert. Flipping a pair
-# to `live` starts PAPER placement on bybit_1 — a one-line change, no redeploy
-# (config re-read each tick). Tier-3: flip only with operator approval.
+# All four are `live` (operator-approved 2026-07-16) — placing on bybit_1 (paper)
+# once the executor bugs were fixed. Flipping a pair back to `shadow` is the
+# rollback — a one-line change, no redeploy (config re-read each tick). Tier-3:
+# flip only with operator approval.
 #
 # Rollback: set a pair back to `execution: shadow` (or delete this file → the
 # sleeve is a complete no-op).
 
 account_id: bybit_1                 # default account for all pairs (Bybit demo / paper)
-risk_budget_usd: 20.0               # $ risked per pair at the spread stop (N_A = budget / risk_spread)
+# Per-pair $-risk-at-the-spread-stop is DERIVED from the account's canonical risk
+# basis — live balance × the account's risk_pct (config/accounts.yaml::bybit_1.risk)
+# × pairs_risk_fraction — NOT a hardcoded dollar literal. This is the same basis
+# RiskManager.position_size uses for every other strategy (CLAUDE.md: "sizing is
+# the per-account RiskManager's job; account basis × …"). The old hardcoded
+# `risk_budget_usd: 20.0` was an architectural violation (BL-20260716-PAIRS-EXEC):
+# a magic constant divorced from the account, which on the ~$166k paper balance
+# under-sized every leg below the exchange minimum → the sleeve never traded.
+# The executor reads the balance itself (execute._fetch_balance) each tick; a pair
+# whose basis can't be read skips (skip_no_risk_basis) rather than sizing off a
+# guessed number. Enforced by the pairs-sizing-basis CI guard.
+pairs_risk_fraction: 1.0            # scale the sleeve's per-pair risk below the flat account basis (1.0 = full per-trade risk basis; e.g. 0.5 = half)
 correlation_haircut_factor: 0.5     # per already-open correlated pair (shares a leg): 0.5**n
-backstop_mult: 3.0                  # per-leg catastrophe SL/TP at 3x risk_spread in log-price (wide of the spread exit)
+backstop_mult: 3.0                  # per-leg catastrophe SL/TP at 3x risk_spread in log-price (wide of the spread exit); the displacement is CLAMPED to +/-100%/-50% so a degenerate risk_spread can't explode the level (BL-20260716-PAIRS-BACKSTOP-EXPLODE, #6549). See pairs_sizing.leg_protective_levels.
+min_leg_notional_usd: 10.0          # skip a pair whose sized leg notional is below this $ (would be sub-min / break the hedge if rounded up)
 
 pairs:
   - name: pairs_sol_btc
     symbol_a: SOLUSDT
     symbol_b: BTCUSDT
-    execution: shadow    # shadow-guard: allow — DEFENSIVE ROLLBACK 2026-07-16: live placement broken (open_failed on every entry — qty=0 re-size + blown-up SL/TP); demoted to shadow while the executor bugs are fixed (operator pre-authorized). Re-flip to live after the fix.
+    execution: live      # RE-FLIP 2026-07-16 (operator-approved, Tier-3): executor bugs fixed — qty_override (#6554), bounded/clamped leg SL/TP (#6549), and risk-budget derived from balance x risk_pct (#6554). Places both legs on bybit_1 (paper). Rollback: set back to shadow.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -49,7 +62,7 @@ pairs:
   - name: pairs_bnb_btc
     symbol_a: BNBUSDT
     symbol_b: BTCUSDT
-    execution: shadow    # shadow-guard: allow — DEFENSIVE ROLLBACK 2026-07-16: live placement broken (open_failed on every entry — qty=0 re-size + blown-up SL/TP); demoted to shadow while the executor bugs are fixed (operator pre-authorized). Re-flip to live after the fix.
+    execution: live      # RE-FLIP 2026-07-16 (operator-approved, Tier-3): executor bugs fixed — qty_override (#6554), bounded/clamped leg SL/TP (#6549), and risk-budget derived from balance x risk_pct (#6554). Places both legs on bybit_1 (paper). Rollback: set back to shadow.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -61,7 +74,7 @@ pairs:
   - name: pairs_eth_btc
     symbol_a: ETHUSDT
     symbol_b: BTCUSDT
-    execution: shadow    # shadow-guard: allow — DEFENSIVE ROLLBACK 2026-07-16: live placement broken (open_failed on every entry — qty=0 re-size + blown-up SL/TP); demoted to shadow while the executor bugs are fixed (operator pre-authorized). Re-flip to live after the fix.
+    execution: live      # RE-FLIP 2026-07-16 (operator-approved, Tier-3): executor bugs fixed — qty_override (#6554), bounded/clamped leg SL/TP (#6549), and risk-budget derived from balance x risk_pct (#6554). Places both legs on bybit_1 (paper). Rollback: set back to shadow.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -73,7 +86,7 @@ pairs:
   - name: pairs_sol_eth
     symbol_a: SOLUSDT
     symbol_b: ETHUSDT
-    execution: shadow    # shadow-guard: allow — DEFENSIVE ROLLBACK 2026-07-16: live placement broken (open_failed on every entry — qty=0 re-size + blown-up SL/TP); demoted to shadow while the executor bugs are fixed (operator pre-authorized). Re-flip to live after the fix.
+    execution: live      # RE-FLIP 2026-07-16 (operator-approved, Tier-3): executor bugs fixed — qty_override (#6554), bounded/clamped leg SL/TP (#6549), and risk-budget derived from balance x risk_pct (#6554). Places both legs on bybit_1 (paper). Rollback: set back to shadow.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0

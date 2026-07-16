@@ -68,7 +68,8 @@ def decide_pair(params: pe.PairParams, close_a: Sequence[float], close_b: Sequen
                 *, open_state: Optional[pe.OpenPair], held_symbols: set,
                 risk_budget_usd: float, correlation_open: int,
                 execution_mode: str = "live", corr_factor: float = 0.5,
-                backstop_mult: float = 3.0) -> PairDecision:
+                backstop_mult: float = 3.0,
+                min_leg_notional_usd: float = 10.0) -> PairDecision:
     """PURE decision for one pair this tick. No I/O. `execution_mode` 'shadow'
     downgrades an would-be open/close to a shadow_* soak event with the legs still
     computed (observe-only). Returns a PairDecision."""
@@ -101,10 +102,22 @@ def decide_pair(params: pe.PairParams, close_a: Sequence[float], close_b: Sequen
     budget = float(risk_budget_usd) * haircut
     price_a, price_b = float(close_a[-1]), float(close_b[-1])
     sizing = psz.pair_notionals(budget, sig["risk"], sig["beta"], price_a, price_b)
-    if sizing["qty_a"] <= 0 or sizing["qty_b"] <= 0:
+    # Skip when a leg can't be sized to a placeable order: qty must be positive
+    # AND each leg's $ notional must clear the exchange minimum (rounding a
+    # sub-min leg up would break the market-neutral hedge ratio — the qty=0 /
+    # sub-min refusals seen live, BL-20260716-PAIRS-EXEC). A large risk_spread
+    # (unstable rolling beta) shrinks the notional; this skips rather than
+    # placing a broken order.
+    min_notional = float(min_leg_notional_usd)
+    if (sizing["qty_a"] <= 0 or sizing["qty_b"] <= 0
+            or sizing["notional_a_usd"] < min_notional
+            or sizing["notional_b_usd"] < min_notional):
         return PairDecision("skip_size", label,
                             soak={**base, "z": sig["z"], "risk": sig["risk"],
-                                  "budget_usd": round(budget, 2), "haircut": haircut})
+                                  "budget_usd": round(budget, 2), "haircut": haircut,
+                                  "notional_a_usd": round(sizing["notional_a_usd"], 2),
+                                  "notional_b_usd": round(sizing["notional_b_usd"], 2),
+                                  "min_leg_notional_usd": min_notional})
     legdirs = pe.leg_directions(sig["direction"])
     sl_a, tp_a = psz.leg_protective_levels(legdirs["a"], price_a, sig["risk"], backstop_mult)
     sl_b, tp_b = psz.leg_protective_levels(legdirs["b"], price_b, sig["risk"], backstop_mult)
@@ -159,9 +172,12 @@ def _params_from_cfg(pair: Dict[str, Any]) -> pe.PairParams:
 
 
 def _load_pairs_config(path: Optional[str] = None) -> Dict[str, Any]:
-    """Load config/pairs.yaml → {account_id, risk_budget_usd, corr_factor,
-    backstop_mult, pairs:[...]}. Returns an empty dict (a no-op tick) when the
-    file is absent or unparseable — the sleeve is inert until it's authored."""
+    """Load config/pairs.yaml → {account_id, pairs_risk_fraction,
+    correlation_haircut_factor, backstop_mult, min_leg_notional_usd, pairs:[...]}.
+    Returns an empty dict (a no-op tick) when the file is absent or unparseable —
+    the sleeve is inert until it's authored. Note: the per-pair risk budget is
+    NOT in this file — it's derived at tick time from the account's live balance ×
+    risk_pct × pairs_risk_fraction (no hardcoded dollar basis)."""
     p = path or _PAIRS_CONFIG_PATH
     if not os.path.exists(p):
         return {}
@@ -357,7 +373,12 @@ def _place_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
         )
         try:
             _log_new_order_package(pkg)   # persists meta, stamps meta.order_package_id
-            tid = execute_pkg(pkg, account_cfg, exchange_client=client)
+            # qty_override = the β-hedged pair qty. WITHOUT this, execute_pkg
+            # re-sizes the leg from the account risk_pct + the pkg SL distance
+            # and gets qty=0 (the live open_failed, BL-20260716-PAIRS-EXEC); the
+            # pair hedge REQUIRES the exact per-leg qtys decide_pair computed.
+            tid = execute_pkg(pkg, account_cfg, exchange_client=client,
+                              qty_override=leg.qty)
             trade_ids.append(tid)
             placed_symbols.append((leg.symbol, leg.direction, leg.qty))
         except Exception as exc:  # noqa: BLE001
@@ -456,9 +477,16 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
         return
 
     default_account = str(cfg.get("account_id") or "bybit_1")
-    risk_budget = float(cfg.get("risk_budget_usd", 20.0))
+    # Per-pair risk budget is DERIVED from the account's canonical risk basis
+    # (live balance × risk_pct), NOT a hardcoded dollar literal — the same basis
+    # RiskManager.position_size uses for every other strategy (CLAUDE.md:
+    # "sizing is the per-account RiskManager's job; account basis × …").
+    # `pairs_risk_fraction` optionally scales the sleeve below the flat account
+    # basis (default 1.0 = the full per-trade risk basis).
+    pairs_risk_fraction = float(cfg.get("pairs_risk_fraction", 1.0))
     corr_factor = float(cfg.get("correlation_haircut_factor", 0.5))
     backstop_mult = float(cfg.get("backstop_mult", 3.0))
+    min_leg_notional_usd = float(cfg.get("min_leg_notional_usd", 10.0))
 
     try:
         from src.config.accounts_loader import load_accounts_dict
@@ -493,6 +521,31 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
             logger.warning("pairs: client build failed for %s: %s", account_id, exc)
             clients[account_id] = None
         return clients[account_id]
+
+    # Per-account risk budget = live balance × risk_pct × pairs_risk_fraction,
+    # cached per tick. The canonical basis (execute._fetch_balance is the same
+    # balance read RiskManager uses; risk_pct comes from the account's `risk`
+    # block). Requires a read client even in shadow so the would-be budget is
+    # faithful (a read, never an order). None when the basis is unavailable →
+    # the pair skips (never sizes off a guessed/hardcoded number).
+    budgets: Dict[str, Optional[float]] = {}
+
+    def _budget_for(account_id: str, acct_cfg: dict) -> Optional[float]:
+        if account_id in budgets:
+            return budgets[account_id]
+        val: Optional[float] = None
+        try:
+            client = _client_for(account_id)
+            if client is not None:
+                from src.units.accounts.execute import _fetch_balance
+                balance = float(_fetch_balance(client, acct_cfg))
+                risk_pct = float((acct_cfg.get("risk") or {}).get("risk_pct", 0.01))
+                if balance > 0 and risk_pct > 0:
+                    val = balance * risk_pct * pairs_risk_fraction
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("pairs: risk-budget derive failed for %s: %s", account_id, exc)
+        budgets[account_id] = val
+        return val
 
     for pair in pairs:
         try:
@@ -536,11 +589,24 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
             held = _held_leg_symbols(pairs, account_id, db_path, exclude_name=name)
             corr_open = _count_correlated_open(pair, pairs, account_id, db_path)
 
+            # Derive the risk budget from the account's canonical basis. If it's
+            # unavailable (no client / balance read failed), skip — never size
+            # off a fallback constant.
+            risk_budget = _budget_for(account_id, acct_cfg)
+            if risk_budget is None or risk_budget <= 0:
+                rec = build_pairs_soak_record(
+                    event="skip_no_risk_basis", pair=_pair_label(
+                        str(pair["symbol_a"]), str(pair["symbol_b"])),
+                    symbol_a=str(pair["symbol_a"]), symbol_b=str(pair["symbol_b"]),
+                    account_id=account_id, execution_mode=execution)
+                record_pairs_soak(rec)
+                continue
+
             decision = decide_pair(
                 params, closes_a, closes_b, open_state=open_state, held_symbols=held,
                 risk_budget_usd=risk_budget, correlation_open=corr_open,
                 execution_mode=execution, corr_factor=corr_factor,
-                backstop_mult=backstop_mult)
+                backstop_mult=backstop_mult, min_leg_notional_usd=min_leg_notional_usd)
 
             # --- act on the decision (only `live` execution places/closes) ---
             place_result: Dict[str, Any] = {}
