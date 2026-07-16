@@ -63,13 +63,28 @@ log "  harness trades emitted: $(wc -l < "$TRADES_JSONL" 2>/dev/null)"
 
 log "STEP 3: record harness trades -> $BT_DB (is_backtest=1)"
 rm -f "$BT_DB"
+# write_backtest_trades requires the `trades` table to PRE-EXIST (schema-adaptive
+# INSERT reads PRAGMA table_info). Seed the temp db with the live journal's exact
+# trades schema (CREATE TABLE only — no data copy) so the NOT-NULL-aware INSERT works.
+python3 - "$LIVE_JOURNAL" "$BT_DB" <<'PY' 2>>"$RESULT"
+import sqlite3, sys
+src, dst = sys.argv[1], sys.argv[2]
+s = sqlite3.connect("file:%s?mode=ro" % src, uri=True)
+row = s.execute("select sql from sqlite_master where type='table' and name='trades'").fetchone()
+if not row:
+    print("SCHEMA_SEED_ERR: no trades table in journal"); sys.exit(1)
+d = sqlite3.connect(dst); d.execute(row[0]); d.commit(); d.close(); s.close()
+print("seeded trades schema into temp db")
+PY
 python3 -m scripts.ml.record_harness_trades --db "$BT_DB" --symbol "$SYMBOL" \
   --trades-jsonl "$TRADES_JSONL=trend_donchian" --run-tag "$RUN_TAG" >>"$RESULT" 2>&1
-python3 - "$BT_DB" <<'PY' 2>>"$RESULT"
+NBT=$(python3 - "$BT_DB" <<'PY' 2>>"$RESULT"
 import sqlite3, sys
-c = sqlite3.connect(sys.argv[1]); n = c.execute("select count(*) from trades where is_backtest=1").fetchone()[0]
-print("backtest rows in db:", n)
+c = sqlite3.connect(sys.argv[1]); print(c.execute("select count(*) from trades where is_backtest=1").fetchone()[0])
 PY
+)
+log "  backtest rows recorded: $NBT"
+if [ "${NBT:-0}" = "0" ]; then log "ABORT: 0 backtest rows recorded (step 3 failed)"; echo '{"m23_phase1_done":false,"error":"no_backtest_rows"}' >> "$RESULT"; exit 1; fi
 
 log "STEP 4: build setup_candidates ($SC_VERSION) backtest-train + real-eval"
 python3 -m ml.datasets build setup_candidates --output-dir datasets-out \
