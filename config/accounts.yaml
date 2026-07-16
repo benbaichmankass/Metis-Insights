@@ -737,11 +737,15 @@ accounts:
   # surfaced only on the Accounts page).
   #
   # ROSTER-SYNC: keep `strategies` + `symbols` in step with alpaca_live whenever
-  # the real-money roster changes — this account exists to mirror it. NOTE the
-  # roster carries both the primary instruments (SPY/GLD/…) AND their cheap
-  # proxies (SPLG/IAUM) that alpaca_live only added for affordability; on a large
-  # paper balance both fire, so S&P/gold exposure is doubled vs a real book that
-  # could only afford the proxy — see the PR discussion.
+  # the real-money roster changes — this account exists to mirror it, WITH ONE
+  # deliberate divergence (operator-approved 2026-07-16): the cheap sub-$100
+  # PROXIES `splg_trend_long_1d` (SPLG→SPY) + `iaum_pullback_1d` (IAUM→GLD) are
+  # DROPPED here. alpaca_live only added those proxies for the ~$150 real
+  # account's whole-share affordability; on a large paper balance the primaries
+  # (SPY/GLD) fire directly, so running both proxy AND primary would DOUBLE the
+  # S&P/gold exposure and pollute the portfolio read. This paper book trades the
+  # primaries; the proxies stay alpaca_live-only. ROLLBACK: re-add both cells +
+  # SPLG/IAUM to `symbols`.
   alpaca_portfolio:
     exchange: alpaca
     account_class: paper               # PAPER money (Alpaca paper host).
@@ -750,8 +754,8 @@ accounts:
     api_key_env: ALPACA_API_KEY_PAPER_PORTFOLIO         # dedicated paper login,
     api_secret_env: ALPACA_API_SECRET_KEY_PAPER_PORTFOLIO  # separate from alpaca_paper.
     mode: live                         # paper host = paper money; executes.
-    strategies:                        # MIRRORS alpaca_live's real-money roster.
-      - spy_trend_long_1d
+    strategies:                        # alpaca_live's roster MINUS the affordability
+      - spy_trend_long_1d              # proxies (SPLG/IAUM) — see ROSTER-SYNC above.
       - qqq_trend_long_1d
       - gld_pullback_1d
       - iwm_trend_long_1d
@@ -765,9 +769,7 @@ accounts:
       - uso_trend_1h
       - slv_pullback_1d
       - gdx_pullback_1d
-      - splg_trend_long_1d
-      - iaum_pullback_1d
-    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX, SPLG, IAUM]  # mirrors alpaca_live.symbols.
+    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX]  # alpaca_live.symbols minus the SPLG/IAUM proxies.
     risk:
       max_dd_pct: 0.05                 # mirrors alpaca_live's caps.
       daily_loss_pct: 0.05
