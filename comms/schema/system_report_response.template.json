@@ -181,16 +181,16 @@
   },
 
   "artifacts": {
-    "_comment": "Where this report was written. Relative to repo root; the VM's ict-git-sync mirrors comms/ so /api/bot/reports serves them. dashboard_link is the link the Telegram ping carries (opens the report IN the Streamlit app); github_link is a secondary reference (private repo → source only).",
+    "_comment": "Where this report was written. Relative to repo root; the VM's ict-git-sync mirrors comms/ so /api/bot/reports serves them. dashboard_link is the link the Telegram ping carries (opens the report IN the dashboard SPA on GitHub Pages, which reads ?report= on load); github_link is a secondary reference (source only).",
     "json_path": "comms/reports/<window>/<UTC-ts>/report.json",
     "html_path": "comms/reports/<window>/<UTC-ts>/report.html",
     "md_path": "comms/reports/<window>/<UTC-ts>/report.md",
     "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/<window>/<UTC-ts>/report.html",
-    "dashboard_link": "https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=<report_id>"
+    "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=<report_id>"
   },
 
   "claude_channel_ping": {
-    "_comment": "The ONE consolidated ping for the whole report (the three sub-reviews' individual pings are suppressed). Posted via the send-ping system-action. The link is artifacts.dashboard_link (the Streamlit Reports deep link), NOT the GitHub blob.",
+    "_comment": "The ONE consolidated ping for the whole report (the three sub-reviews' individual pings are suppressed). Posted via the send-ping system-action. The link is artifacts.dashboard_link (the SPA Reports deep link on GitHub Pages), NOT the GitHub blob.",
     "delivered_via": "send-ping | pending-pings.jsonl | skipped (relay failure)",
     "priority": "low | normal | high | urgent",
     "message": "<= 200 chars — [system-report:<window>] roll-up <grade>: H:<h> P:<p> M:<m>. <dashboard_link>"
