@@ -560,13 +560,37 @@ class AlpacaClient:
             held = "insufficient qty" in msg or "available: 0" in msg
             if not held or flatten_s <= 0 or time.monotonic() >= flatten_deadline:
                 if held:
+                    # LAST-RESORT ESCALATION (BL-20260716-ALPACA-QQQ-WEDGED-
+                    # PENDING-CANCEL): the per-order cancels above couldn't free
+                    # the shares — the classic cause is a resting order stuck in
+                    # `pending_cancel` (Alpaca's OWN cancel never completes, so a
+                    # re-issued app-level cancel is a no-op and every tick's
+                    # flatten keeps hitting available:0 and re-alerting). Ask
+                    # Alpaca to cancel ALL of the symbol's open orders as part of
+                    # the liquidation itself, via `?cancel_orders=true` — the
+                    # exchange's own atomic cancel-then-flatten, the strongest
+                    # programmatic lever left before an operator paper-console
+                    # reset. Unconditional (no default-off gate) since it only
+                    # fires here, on the give-up path where we'd otherwise return
+                    # an error anyway. Best-effort: if it too can't break a
+                    # truly-wedged pending_cancel, fall through to the self-
+                    # diagnosing residual log + the confirm gate below still
+                    # refuses to report a close the broker didn't actually make.
+                    forced = self._request(
+                        "DELETE", f"/v2/positions/{sym}?cancel_orders=true")
+                    if forced.get("retCode") == 404:
+                        return {"retCode": 0, "result": {"note": "no open position"}}
+                    if forced.get("retCode") == 0:
+                        env = forced
+                        break  # → post-DELETE flatten-confirm gate validates it
                     # Give-up path: surface WHAT is holding the shares so the
                     # "won't flatten" failure is diagnosable from the logs.
                     residual = self._open_orders_for_symbol(sym)
                     logger.warning(
                         "alpaca close %s still insufficient-qty after ~%.1fs "
-                        "(want_qty=%s); residual open orders=%s",
-                        sym, flatten_s, want_qty, residual,
+                        "(want_qty=%s); residual open orders=%s "
+                        "(cancel_orders=true escalation also failed: %s)",
+                        sym, flatten_s, want_qty, residual, forced.get("retMsg"),
                     )
                 return env
             # A resting order still holds the shares — cancel it (catches a
