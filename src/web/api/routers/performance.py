@@ -441,7 +441,7 @@ def _portfolio_paper_account_ids() -> List[str]:
         from src.config.accounts_loader import load_accounts_dict
         accounts_yaml = Path(__file__).resolve().parents[4] / "config" / "accounts.yaml"
         accounts = load_accounts_dict(accounts_yaml)
-    except Exception:  # noqa: BLE001 - best-effort; missing/garbled config → no scoping
+    except Exception:  # noqa: BLE001  # allow-silent: best-effort config read — a missing/garbled accounts.yaml yields no portfolio scoping (get_performance falls back to the all-paper `paper` block), never a 5xx on this Tier-1 read
         return []
     out: List[str] = []
     for aid, cfg in (accounts or {}).items():
