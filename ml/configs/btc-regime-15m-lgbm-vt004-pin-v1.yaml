@@ -1,0 +1,72 @@
+# MB-20260701-001 gate-2 — operating-curve PIN arm at vol_threshold=0.004.
+# One of a MATCHED-SIBLING triple (v513/v514/v515 = 0.003/0.004/0.005, built
+# together on ONE common data window, differing ONLY in the volatile label
+# threshold) — the clean controlled sweep the gate-1 reconcile
+# (docs/research/MB-20260701-mapping-reconcile-2026-07-16.md) enables WITHOUT
+# rebuilding features. Live-faithful mirror of the shipped lgbm-v2 advisory head
+# (same 7 features, same 60d recency half-life), purged 5-fold walk-forward CV.
+# class_weight.volatile = 1/base_rate at this threshold (8.4% volatile) so the
+# inverse-base-rate weighting philosophy is held constant across the sweep and
+# only label density varies. Candidate/offline — refused by the shadow factory,
+# never order-influencing. The genuine 0.004 operating point (vt004-pcv trained
+# on a MISLABELED 0.003 v004 dir; this arm fixes that).
+manifest_version: v1
+model_id: btc-regime-15m-lgbm-vt004-pin-v1
+description: "MB-20260701-001 gate-2 operating-curve pin: live-faithful BTC-15m LightGBM regime head (mirror of lgbm-v2) trained on the GENUINE 0.004-labeled dataset v514 (8.4% volatile), purged 5-fold walk-forward CV, class_weight matched to the base rate. Candidate/offline — never order-influencing."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+  - vol_bucket
+  - rolling_log_return_vol
+  - log_return
+  - log_return_lag_1
+  - log_return_lag_2
+  - hour_of_day
+  - dayofweek
+  categorical_columns:
+  - vol_bucket
+  - hour_of_day
+  - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
+  class_weight:
+    range: 1.0
+    volatile: 11.9
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 15m
+  version: v514
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: purged_walk_forward
+  time_column: ts
+  n_folds: 5
+  min_train_fraction: 0.5
+  label_horizon: 5
+  embargo_fraction: 0.01
+target_deployment_stage: candidate
+notes: |
+  MB-20260701-001 gate-2 operating-curve pin, arm 0.004 (genuine 8.4% volatile
+  base rate, matched-sibling triple v513/v514/v515). Compare purged-CV
+  f1_volatile / macro_f1 across the three arms to pin the vol-gate head's
+  operating point. NOTE the vt004-pcv "0.004" probe was a MISLABELED 0.003 run
+  (v004 dir is 0.003-labeled) — this triple supersedes it. No config touched;
+  any threshold change stays Tier-3 (RG4 + vol-gate backtest A/B + operator).
+  Leakage gate forbids forward_log_return / forward_log_return_vol / regime_label.
