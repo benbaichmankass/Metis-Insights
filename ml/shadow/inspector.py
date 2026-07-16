@@ -83,7 +83,6 @@ def record_from_dict(raw: Mapping[str, object]) -> ShadowRecord:
         model_id = raw["model_id"]
         stage = raw["stage"]
         score = raw["score"]
-        row_keys = raw["row_keys"]
     except KeyError as exc:
         raise ValueError(f"missing field: {exc.args[0]!r}") from exc
     if not isinstance(ts_raw, str):
@@ -104,10 +103,6 @@ def record_from_dict(raw: Mapping[str, object]) -> ShadowRecord:
         raise ValueError(f"score must be a finite float; got {score!r}") from exc
     if not math.isfinite(score_f):
         raise ValueError(f"score must be finite; got {score_f}")
-    if not isinstance(row_keys, list) or not all(
-        isinstance(k, str) for k in row_keys
-    ):
-        raise ValueError("row_keys must be a list of str")
     feature_row_raw = raw.get("feature_row")
     if feature_row_raw is None:
         feature_row: Mapping[str, Any] | None = None
@@ -118,6 +113,20 @@ def record_from_dict(raw: Mapping[str, object]) -> ShadowRecord:
         # than crash the whole record (the score is the load-bearing
         # field, not the context dict).
         feature_row = None
+    # `row_keys` is the sorted input-feature-name list. The regime heads
+    # write it explicitly; the exit-head/peak-head records (event_source
+    # "exit_head") carry `feature_row` but no `row_keys`, so derive it the
+    # same way the writer/backfill does (`sorted(feature_row.keys())`,
+    # backfill.py) — MB-20260716-PROMOREADY-EXITHEAD-SCHEMA. Without this the
+    # loader skipped every exit-head record (`missing field: 'row_keys'`),
+    # leaving the exit-head family out of the promotion-readiness report.
+    row_keys = raw.get("row_keys")
+    if row_keys is None and isinstance(feature_row, dict):
+        row_keys = sorted(feature_row.keys())
+    if not isinstance(row_keys, list) or not all(
+        isinstance(k, str) for k in row_keys
+    ):
+        raise ValueError("row_keys must be a list of str (or derivable from feature_row)")
     backfill_kind_raw = raw.get("backfill_kind")
     backfill_kind = (
         str(backfill_kind_raw)
