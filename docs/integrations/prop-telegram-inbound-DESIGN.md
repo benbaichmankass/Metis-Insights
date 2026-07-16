@@ -145,6 +145,59 @@ Knobs (baseline, no enable gate — Prime Directive): `PROP_EXPIRY_PROMPT_SECOND
 ticket that expired longer ago than this is too stale to ask about, so a
 historical backlog can't spam on first deploy).
 
+## Price-invalidation prompt (built 2026-07-16)
+
+The expiry prompt above closes the loop on **time** (the ticket passed
+`valid_until`). But a ticket can go stale on **price** first: while the bot is
+still waiting for the operator's place-decision Yes/No, price can move **beyond
+the ticket's `[SL, TP]` brackets** — a run to the SL means the setup already
+failed, a run to the TP means the move already happened — so the entry the ticket
+describes is no longer worth placing. The operator asked (2026-07-16) for the bot
+to keep tracking the emitted ticket and **proactively** send an update the moment
+it becomes irrelevant, warning **not to place it if they haven't already**, then
+re-asking whether it was placed.
+
+**What it does:** once per trader tick,
+`src/prop/prop_invalidation_prompt.run_prop_invalidation_prompts` fetches the
+current price for each still-`emitted` ticket (same `connector_for_symbol` +
+`fetch_candles` last-close path as `prop_sl_tp_alert`) and, if price has left the
+`[SL, TP]` band, sends the prop-bot message:
+
+    🚫 PROP SETUP NO LONGER VALID — ETHUSDT SHORT [breakout_1]
+    entry 1717 · SL 1740 · TP 1650 · qty 0.0167
+    Price 1745 has moved beyond the brackets (SL 1740 reached).
+    ⚠️ Do NOT place this trade if you haven't already.
+    Did you already place it?    [✅ Yes — I placed it]  [❌ No — not placed]
+
+The Yes/No **reuses the existing** `propexp:*` keyboard + `handle_expiry_callback`
+— no new transport: **No** → `expired`; **Yes** → `awaiting_report` → the
+fill-paste prompt.
+
+Lifecycle (parallel to the timeout path):
+
+    emitted ─(price beyond brackets, warn+ask)─▶ invalidated_prompted ─┬─ No ─▶ expired
+                                                                       └─ Yes ─▶ awaiting_report ─(fill)─▶ filled/closed
+
+**No double-prompt:** the detector scans `emitted` tickets only, so a flip to
+`invalidated_prompted` drops the ticket out of BOTH this path and the timeout
+path's `find_unacted_tickets` (also `emitted`-only). The flip happens only after
+a confirmed send (delivery failure retries next tick). `match_fill_to_ticket`
+accepts `invalidated_prompted` as an open/awaiting status (a fill pasted directly
+without tapping a button still links), but it is **not** in
+`_CLOSE_LINKABLE_STATUSES` — a never-placed signal must never receive a close
+mis-link (BL-20260706-PROP-CLOSE-MISLINK).
+
+| Piece | File | Role |
+|---|---|---|
+| Detector + runner + crossing logic | `src/prop/prop_invalidation_prompt.py` | `bracket_invalidation` (price left `[SL,TP]`?), `find_tickets_to_check` (`emitted` + has-bracket + recency-bounded), `run_prop_invalidation_prompts` (per-tick; flips to `invalidated_prompted` only after a confirmed send). |
+| Sender + message | `src/prop/breakout_notify.py::emit_prop_invalidation_prompt` / `render_invalidation_prompt_message` | Telegram-only via `_prop_bot_token()`; reuses `build_expiry_keyboard` (the `propexp:*` Yes/No). |
+| Callback transport | `src/bot/claude_bridge.py` (`propexp:*`) — **unchanged** (shared with the expiry prompt). |
+
+Knobs (baseline, no enable gate — Prime Directive): `PROP_INVALIDATION_PROMPT_SECONDS`
+(`<= 0` pauses), `PROP_INVALIDATION_PROMPT_MAX_AGE_HOURS` (default 12 — an
+emitted ticket older than this is the timeout path's job, not this one).
+Tests: `tests/test_prop_invalidation_prompt.py`.
+
 ## Screenshot report-back + folded balance ask (2026-07-11)
 
 Two operator-requested additions close the two friction points that surfaced

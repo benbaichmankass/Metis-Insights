@@ -57,7 +57,8 @@ def _norm_direction(value: Any) -> str:
 
 # Open-lifecycle ticket statuses a fallback match may link to, and which of
 # them actually represent a *position* (something a close can act on).
-_OPEN_TICKET_STATUSES = ("emitted", "placed", "filled", "expiry_prompted", "awaiting_report")
+_OPEN_TICKET_STATUSES = ("emitted", "placed", "filled", "expiry_prompted",
+                         "invalidated_prompted", "awaiting_report")
 # A ``closed`` report closes a real position, so it may ONLY link to a ticket
 # that has (or plausibly has) a position — a filled position, an operator-
 # confirmed-placed ticket awaiting its paste, or a working `placed` limit that
@@ -84,10 +85,10 @@ def match_fill_to_ticket(fill: Dict[str, Any]) -> Optional[str]:
       position-bearing ticket matches, returns ``None`` so the close is
       journaled unlinked rather than corrupting an unrelated signal ticket.
     - any other report keeps the prior behaviour: the newest still-open ticket
-      (``emitted``/``placed``/``filled``/``expiry_prompted``/``awaiting_report``).
-      ``placed``/``expiry_prompted``/``awaiting_report`` are all "awaiting a fill
-      report" — a working order or an operator-confirmed ticket whose later
-      fill/close must link back.
+      (``emitted``/``placed``/``filled``/``expiry_prompted``/``invalidated_prompted``/
+      ``awaiting_report``). ``placed``/``expiry_prompted``/``invalidated_prompted``/
+      ``awaiting_report`` are all "awaiting a fill report" — a working order or an
+      operator-confirmed/prompted ticket whose later fill/close must link back.
     """
     explicit = fill.get("ticket_id")
     if explicit:

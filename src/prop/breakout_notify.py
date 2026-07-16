@@ -356,6 +356,68 @@ def emit_prop_expiry_prompt(ticket: Dict[str, Any], *,
         return False
 
 
+def render_invalidation_prompt_message(
+    ticket: Dict[str, Any], current_price: Any, which: str
+) -> str:
+    """Body for the 'price left the brackets — do NOT place it' prompt.
+
+    ``which`` ∈ {``sl``, ``tp``}: which bracket price has traded to/through, so the
+    operator sees *why* the setup is dead (SL hit → the trade already failed; TP
+    hit → the move already happened).
+    """
+    sym = ticket.get("symbol") or "?"
+    direction = str(ticket.get("direction") or "").upper()
+    account = ticket.get("account_id") or "prop"
+    level = "SL" if which == "sl" else "TP"
+    level_val = ticket.get("sl") if which == "sl" else ticket.get("tp")
+    return (
+        f"🚫 PROP SETUP NO LONGER VALID — {sym} {direction} [{account}]\n"
+        f"entry {_fmt(ticket.get('entry'))} · SL {_fmt(ticket.get('sl'))} · "
+        f"TP {_fmt(ticket.get('tp'))} · qty {_fmt(ticket.get('qty'))}\n"
+        f"Price {_fmt(current_price)} has moved beyond the brackets "
+        f"({level} {_fmt(level_val)} reached).\n"
+        "⚠️ Do NOT place this trade if you haven't already.\n"
+        "Did you already place it?"
+    )
+
+
+def emit_prop_invalidation_prompt(
+    ticket: Dict[str, Any], current_price: Any, which: str, *,
+    telegram: bool = True,
+) -> bool:
+    """Warn the operator a still-emitted prop ticket is no longer placeable, + ask.
+
+    Price has left the ticket's ``[SL, TP]`` band while the bot was still awaiting
+    the operator's place-decision. Sent to the **prop bot** with the SAME Yes/No
+    inline keyboard as the expiry prompt (``propexp:*`` → ``handle_expiry_callback``
+    in ``src.bot.claude_bridge``): **No** logs it ``expired``; **Yes** moves it to
+    ``awaiting_report`` for the fill paste. Telegram-only (the buttons only work in
+    the Telegram client). Returns ``True`` only on a confirmed send — the caller
+    gates the ticket's flip to ``invalidated_prompted`` on it, so a delivery
+    failure simply retries next tick. Best-effort + isolated.
+    """
+    if not telegram:
+        return False
+    ticket_id = str(ticket.get("ticket_id") or "")
+    if not ticket_id:
+        return False
+    try:
+        from src.prop.prop_expiry_prompt import build_expiry_keyboard
+        from src.runtime.notify import send_telegram_direct
+
+        return bool(send_telegram_direct(
+            render_invalidation_prompt_message(ticket, current_price, which),
+            parse_mode=None,
+            mirror_to_fcm=False,
+            bot_token=_prop_bot_token(),
+            reply_markup=build_expiry_keyboard(ticket_id),
+        ))
+    except Exception as exc:  # noqa: BLE001 — notification never fatal
+        logger.warning("emit_prop_invalidation_prompt: send failed for %s: %s",
+                       ticket_id, exc)
+        return False
+
+
 def emit_prop_fill(fill: Dict[str, Any], *, push: bool = True,
                    telegram: bool = True) -> Dict[str, bool]:
     """Fan an inbound prop fill/close out as a typed push + Telegram line.
