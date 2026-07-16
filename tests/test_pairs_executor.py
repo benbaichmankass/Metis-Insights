@@ -142,14 +142,14 @@ def test_load_real_pairs_config_on_bybit_1():
     cfg = px._load_pairs_config("config/pairs.yaml")
     pairs = cfg.get("pairs") or []
     assert len(pairs) == 4
-    # DEFENSIVE ROLLBACK 2026-07-16 (#6552): all 4 demoted live -> shadow while the
-    # executor placement bugs are fixed (open_failed on every entry). Bugs fixed:
-    # (1) qty=0 re-size (_place_pair now passes qty_override to execute_pkg),
+    # RE-FLIPPED to live 2026-07-16 (operator-approved, Tier-3) after the executor
+    # placement bugs were fixed: (1) qty=0 re-size (_place_pair passes qty_override),
     # (2) blown-up leg SL/TP (the pairs_sizing backstop clamp, #6549), and
-    # (3) the hardcoded risk_budget_usd -> derived from balance x risk_pct (this PR).
-    # Re-flip to live is the operator's Tier-3 call after review.
+    # (3) the hardcoded risk_budget_usd -> derived from balance x risk_pct (#6554).
+    # Rollback is a one-line flip back to shadow (accept either here so a defensive
+    # rollback doesn't turn this test red — the #6552 lesson).
     assert cfg.get("account_id") == "bybit_1"
-    assert all(str(p.get("execution")).lower() == "shadow" for p in pairs)
+    assert all(str(p.get("execution")).lower() in ("live", "shadow") for p in pairs)
 
 
 def test_skip_size_when_leg_notional_below_min():

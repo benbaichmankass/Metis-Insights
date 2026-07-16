@@ -21,9 +21,10 @@
 #   execution: live    → place the two legs on `account_id` (bybit_1 = Bybit
 #                        DEMO / paper venue — real order placement, paper money).
 #
-# All four ship at `shadow` so the sleeve starts soaking inert. Flipping a pair
-# to `live` starts PAPER placement on bybit_1 — a one-line change, no redeploy
-# (config re-read each tick). Tier-3: flip only with operator approval.
+# All four are `live` (operator-approved 2026-07-16) — placing on bybit_1 (paper)
+# once the executor bugs were fixed. Flipping a pair back to `shadow` is the
+# rollback — a one-line change, no redeploy (config re-read each tick). Tier-3:
+# flip only with operator approval.
 #
 # Rollback: set a pair back to `execution: shadow` (or delete this file → the
 # sleeve is a complete no-op).
@@ -49,7 +50,7 @@ pairs:
   - name: pairs_sol_btc
     symbol_a: SOLUSDT
     symbol_b: BTCUSDT
-    execution: shadow    # shadow-guard: allow — DEFENSIVE ROLLBACK 2026-07-16: live placement broken (open_failed on every entry — qty=0 re-size + blown-up SL/TP); demoted to shadow while the executor bugs are fixed (operator pre-authorized). Re-flip to live after the fix.
+    execution: live      # RE-FLIP 2026-07-16 (operator-approved, Tier-3): executor bugs fixed — qty_override (#6554), bounded/clamped leg SL/TP (#6549), and risk-budget derived from balance x risk_pct (#6554). Places both legs on bybit_1 (paper). Rollback: set back to shadow.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -61,7 +62,7 @@ pairs:
   - name: pairs_bnb_btc
     symbol_a: BNBUSDT
     symbol_b: BTCUSDT
-    execution: shadow    # shadow-guard: allow — DEFENSIVE ROLLBACK 2026-07-16: live placement broken (open_failed on every entry — qty=0 re-size + blown-up SL/TP); demoted to shadow while the executor bugs are fixed (operator pre-authorized). Re-flip to live after the fix.
+    execution: live      # RE-FLIP 2026-07-16 (operator-approved, Tier-3): executor bugs fixed — qty_override (#6554), bounded/clamped leg SL/TP (#6549), and risk-budget derived from balance x risk_pct (#6554). Places both legs on bybit_1 (paper). Rollback: set back to shadow.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -73,7 +74,7 @@ pairs:
   - name: pairs_eth_btc
     symbol_a: ETHUSDT
     symbol_b: BTCUSDT
-    execution: shadow    # shadow-guard: allow — DEFENSIVE ROLLBACK 2026-07-16: live placement broken (open_failed on every entry — qty=0 re-size + blown-up SL/TP); demoted to shadow while the executor bugs are fixed (operator pre-authorized). Re-flip to live after the fix.
+    execution: live      # RE-FLIP 2026-07-16 (operator-approved, Tier-3): executor bugs fixed — qty_override (#6554), bounded/clamped leg SL/TP (#6549), and risk-budget derived from balance x risk_pct (#6554). Places both legs on bybit_1 (paper). Rollback: set back to shadow.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -85,7 +86,7 @@ pairs:
   - name: pairs_sol_eth
     symbol_a: SOLUSDT
     symbol_b: ETHUSDT
-    execution: shadow    # shadow-guard: allow — DEFENSIVE ROLLBACK 2026-07-16: live placement broken (open_failed on every entry — qty=0 re-size + blown-up SL/TP); demoted to shadow while the executor bugs are fixed (operator pre-authorized). Re-flip to live after the fix.
+    execution: live      # RE-FLIP 2026-07-16 (operator-approved, Tier-3): executor bugs fixed — qty_override (#6554), bounded/clamped leg SL/TP (#6549), and risk-budget derived from balance x risk_pct (#6554). Places both legs on bybit_1 (paper). Rollback: set back to shadow.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
