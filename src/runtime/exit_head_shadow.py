@@ -382,6 +382,7 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
                                 or open_pkg.get("strategy_name")
                                 or "trend_donchian"),
                 "order_package_id": pkg_id,
+                "policy": policy,
                 "would_exit": would_exit,
                 "feature_row": {k: v for k, v in row.items()
                                 if not k.startswith("_")},
