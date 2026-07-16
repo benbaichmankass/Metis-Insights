@@ -1,7 +1,6 @@
 """Unit tests for src/units/strategies/pairs_sizing.py — pure money-math."""
 from __future__ import annotations
 
-import math
 import sys
 from pathlib import Path
 
@@ -42,23 +41,29 @@ def test_beta_nonfinite_falls_back_to_one():
 
 
 def test_protective_levels_long_leg():
-    sl, tp = ps.leg_protective_levels("long", entry_price=100.0, risk_spread=0.02,
-                                      backstop_mult=3.0)
-    assert sl < 100.0 < tp
-    assert sl == pytest.approx(100.0 * math.exp(-0.06), abs=1e-4)  # 3*0.02
-    assert tp == pytest.approx(100.0 * math.exp(0.06), abs=1e-4)
+    # per-leg PRICE backstop: +/-50% of entry (NOT a function of the spread stop).
+    sl, tp = ps.leg_protective_levels("long", entry_price=100.0, backstop_pct=0.5)
+    assert sl == pytest.approx(50.0) and tp == pytest.approx(150.0)  # SL below, TP above
 
 
 def test_protective_levels_short_leg():
-    sl, tp = ps.leg_protective_levels("short", entry_price=100.0, risk_spread=0.02,
-                                      backstop_mult=3.0)
-    assert tp < 100.0 < sl  # short: SL above, TP below
-    assert sl == pytest.approx(100.0 * math.exp(0.06), abs=1e-4)
+    sl, tp = ps.leg_protective_levels("short", entry_price=100.0, backstop_pct=0.5)
+    assert tp < 100.0 < sl                                           # short: SL above, TP below
+    assert sl == pytest.approx(150.0) and tp == pytest.approx(50.0)
+
+
+def test_protective_levels_never_explodes_on_large_spread():
+    # regression BL-20260716-PAIRS-EXEC: the old exp(mult*risk_spread) form blew up
+    # for real pairs (risk_spread 12-16). The %-of-price form stays bounded.
+    for entry in (77.0, 579.0, 1922.0, 64722.0):
+        sl, tp = ps.leg_protective_levels("long", entry, backstop_pct=0.5)
+        assert 0 < sl < entry < tp < entry * 2  # always within +/-100%, never astronomical
 
 
 def test_protective_levels_degenerate():
-    assert ps.leg_protective_levels("long", 0.0, 0.02) == (0.0, 0.0)
+    assert ps.leg_protective_levels("long", 0.0, 0.5) == (0.0, 0.0)
     assert ps.leg_protective_levels("long", 100.0, 0.0) == (0.0, 0.0)
+    assert ps.leg_protective_levels("long", 100.0, 1.5) == (0.0, 0.0)  # pct must be in (0,1)
 
 
 def test_correlation_haircut():

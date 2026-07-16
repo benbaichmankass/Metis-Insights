@@ -68,7 +68,8 @@ def decide_pair(params: pe.PairParams, close_a: Sequence[float], close_b: Sequen
                 *, open_state: Optional[pe.OpenPair], held_symbols: set,
                 risk_budget_usd: float, correlation_open: int,
                 execution_mode: str = "live", corr_factor: float = 0.5,
-                backstop_mult: float = 3.0) -> PairDecision:
+                backstop_pct: float = 0.5,
+                min_leg_notional_usd: float = 10.0) -> PairDecision:
     """PURE decision for one pair this tick. No I/O. `execution_mode` 'shadow'
     downgrades an would-be open/close to a shadow_* soak event with the legs still
     computed (observe-only). Returns a PairDecision."""
@@ -101,13 +102,25 @@ def decide_pair(params: pe.PairParams, close_a: Sequence[float], close_b: Sequen
     budget = float(risk_budget_usd) * haircut
     price_a, price_b = float(close_a[-1]), float(close_b[-1])
     sizing = psz.pair_notionals(budget, sig["risk"], sig["beta"], price_a, price_b)
-    if sizing["qty_a"] <= 0 or sizing["qty_b"] <= 0:
+    # Skip when a leg can't be sized to a placeable order: qty must be positive
+    # AND each leg's $ notional must clear the exchange minimum (rounding a
+    # sub-min leg up would break the market-neutral hedge ratio — the qty=0 /
+    # sub-min refusals seen live, BL-20260716-PAIRS-EXEC). A large risk_spread
+    # (unstable rolling beta) shrinks the notional; this skips rather than
+    # placing a broken order.
+    min_notional = float(min_leg_notional_usd)
+    if (sizing["qty_a"] <= 0 or sizing["qty_b"] <= 0
+            or sizing["notional_a_usd"] < min_notional
+            or sizing["notional_b_usd"] < min_notional):
         return PairDecision("skip_size", label,
                             soak={**base, "z": sig["z"], "risk": sig["risk"],
-                                  "budget_usd": round(budget, 2), "haircut": haircut})
+                                  "budget_usd": round(budget, 2), "haircut": haircut,
+                                  "notional_a_usd": round(sizing["notional_a_usd"], 2),
+                                  "notional_b_usd": round(sizing["notional_b_usd"], 2),
+                                  "min_leg_notional_usd": min_notional})
     legdirs = pe.leg_directions(sig["direction"])
-    sl_a, tp_a = psz.leg_protective_levels(legdirs["a"], price_a, sig["risk"], backstop_mult)
-    sl_b, tp_b = psz.leg_protective_levels(legdirs["b"], price_b, sig["risk"], backstop_mult)
+    sl_a, tp_a = psz.leg_protective_levels(legdirs["a"], price_a, backstop_pct)
+    sl_b, tp_b = psz.leg_protective_levels(legdirs["b"], price_b, backstop_pct)
     legs = [
         LegOrder(params.symbol_a, legdirs["a"], round(sizing["qty_a"], 8), price_a, sl_a, tp_a),
         LegOrder(params.symbol_b, legdirs["b"], round(sizing["qty_b"], 8), price_b, sl_b, tp_b),
@@ -357,7 +370,12 @@ def _place_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
         )
         try:
             _log_new_order_package(pkg)   # persists meta, stamps meta.order_package_id
-            tid = execute_pkg(pkg, account_cfg, exchange_client=client)
+            # qty_override = the β-hedged pair qty. WITHOUT this, execute_pkg
+            # re-sizes the leg from the account risk_pct + the pkg SL distance
+            # and gets qty=0 (the live open_failed, BL-20260716-PAIRS-EXEC); the
+            # pair hedge REQUIRES the exact per-leg qtys decide_pair computed.
+            tid = execute_pkg(pkg, account_cfg, exchange_client=client,
+                              qty_override=leg.qty)
             trade_ids.append(tid)
             placed_symbols.append((leg.symbol, leg.direction, leg.qty))
         except Exception as exc:  # noqa: BLE001
@@ -458,7 +476,8 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
     default_account = str(cfg.get("account_id") or "bybit_1")
     risk_budget = float(cfg.get("risk_budget_usd", 20.0))
     corr_factor = float(cfg.get("correlation_haircut_factor", 0.5))
-    backstop_mult = float(cfg.get("backstop_mult", 3.0))
+    backstop_pct = float(cfg.get("backstop_pct", 0.5))
+    min_leg_notional_usd = float(cfg.get("min_leg_notional_usd", 10.0))
 
     try:
         from src.config.accounts_loader import load_accounts_dict
@@ -540,7 +559,7 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
                 params, closes_a, closes_b, open_state=open_state, held_symbols=held,
                 risk_budget_usd=risk_budget, correlation_open=corr_open,
                 execution_mode=execution, corr_factor=corr_factor,
-                backstop_mult=backstop_mult)
+                backstop_pct=backstop_pct, min_leg_notional_usd=min_leg_notional_usd)
 
             # --- act on the decision (only `live` execution places/closes) ---
             place_result: Dict[str, Any] = {}

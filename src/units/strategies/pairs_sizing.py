@@ -55,17 +55,21 @@ def pair_notionals(risk_budget_usd: float, risk_spread: float, beta: float,
     }
 
 
-def leg_protective_levels(direction: str, entry_price: float, risk_spread: float,
-                          backstop_mult: float = 3.0) -> Tuple[float, float]:
-    """(sl, tp) catastrophe-backstop levels for ONE leg, given the leg's own
-    entry direction ('long'|'short'), its entry price, and the spread stop in
-    log units. The backstop sits ``backstop_mult × risk_spread`` away in log-price
-    — wide of the spread exit on purpose. Returns (0.0, 0.0) on degenerate input."""
-    if not (entry_price > 0 and risk_spread > 0 and backstop_mult > 0):
+def leg_protective_levels(direction: str, entry_price: float,
+                          backstop_pct: float = 0.5) -> Tuple[float, float]:
+    """(sl, tp) catastrophe-backstop levels for ONE leg — a WIDE per-leg **price**
+    move (``backstop_pct`` of entry, e.g. 0.5 = ±50%), NOT a function of the
+    spread stop. The real exit is the joint spread revert/stop/timeout the
+    executor manages; this is only the last-resort net if the executor stops
+    managing (crash), so it sits far out of the way. (An earlier version used
+    ``entry × exp(backstop_mult × risk_spread)`` where ``risk_spread`` is in
+    log-SPREAD units — for real cross-asset pairs that spread stop can be 10-16,
+    so ``exp(3×16)`` produced astronomical SL/TP that the exchange rejected —
+    BL-20260716-PAIRS-EXEC.) Returns (0.0, 0.0) on degenerate input."""
+    if not (entry_price > 0 and 0.0 < backstop_pct < 1.0):
         return (0.0, 0.0)
-    move = float(backstop_mult) * float(risk_spread)   # log-price displacement
-    up = entry_price * math.exp(move)
-    dn = entry_price * math.exp(-move)
+    up = entry_price * (1.0 + float(backstop_pct))
+    dn = entry_price * (1.0 - float(backstop_pct))
     if direction == "long":
         return (round(dn, 8), round(up, 8))            # SL below, TP above
     return (round(up, 8), round(dn, 8))                # short: SL above, TP below

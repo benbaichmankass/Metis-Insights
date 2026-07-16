@@ -138,13 +138,37 @@ def test_load_pairs_config_missing_is_noop():
     assert px._load_pairs_config("/nonexistent/pairs.yaml") == {}
 
 
-def test_load_real_pairs_config_live_on_bybit_1():
+def test_load_real_pairs_config_on_bybit_1():
     cfg = px._load_pairs_config("config/pairs.yaml")
     pairs = cfg.get("pairs") or []
     assert len(pairs) == 4
-    # Operator-approved 2026-07-15: all 4 live on bybit_1 (Bybit demo / paper venue).
-    assert all(str(p.get("execution")).lower() == "live" for p in pairs)
+    # All 4 on bybit_1 (demo/paper). Currently execution: shadow — the
+    # BL-20260716-PAIRS-EXEC defensive rollback while the executor fix is reviewed;
+    # execution flips back to live after the fix + risk_budget calibration.
+    assert all(str(p.get("execution")).lower() in ("live", "shadow") for p in pairs)
     assert cfg.get("account_id") == "bybit_1"
+
+
+def test_skip_size_when_leg_notional_below_min():
+    """A pair sized below the per-leg exchange minimum skips (skip_size), never
+    places a sub-min / hedge-breaking order (BL-20260716-PAIRS-EXEC)."""
+    ca, cb = _extended_spread()
+    # tiny budget → leg notionals well under a $50 min → skip_size (not open).
+    d = px.decide_pair(_params(), ca, cb, open_state=None, held_symbols=set(),
+                       risk_budget_usd=100.0, correlation_open=0, min_leg_notional_usd=1e12)
+    assert d.event == "skip_size" and not d.legs
+    assert d.soak.get("notional_a_usd") is not None
+
+
+def test_open_legs_have_bounded_protective_levels():
+    """Regression: the placed SL/TP must be sane (within ±100% of entry), never
+    the astronomical exp(spread) values that the exchange rejected."""
+    ca, cb = _extended_spread()
+    d = px.decide_pair(_params(), ca, cb, open_state=None, held_symbols=set(),
+                       risk_budget_usd=100000.0, correlation_open=0, min_leg_notional_usd=0.0)
+    assert d.event == "open" and len(d.legs) == 2
+    for leg in d.legs:
+        assert 0 < leg.sl < leg.entry_ref * 2 and 0 < leg.tp < leg.entry_ref * 2
 
 
 def test_decision_bars_roundtrip(tmp_path, monkeypatch):

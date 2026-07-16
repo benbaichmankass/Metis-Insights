@@ -29,9 +29,17 @@
 # sleeve is a complete no-op).
 
 account_id: bybit_1                 # default account for all pairs (Bybit demo / paper)
-risk_budget_usd: 20.0               # $ risked per pair at the spread stop (N_A = budget / risk_spread)
+# risk_budget_usd: $ risked per pair at the spread stop (N_A = budget / risk_spread).
+# CALIBRATION NOTE (BL-20260716-PAIRS-EXEC, operator decision): at 20.0 the per-leg
+# notional on a high-priced leg (e.g. BTC) is ~$1-8, BELOW the exchange minimum, so
+# every entry hits the min_leg_notional_usd skip below → the sleeve never trades.
+# To make it place valid market-neutral orders on paper, bump this to ~300 (both
+# legs then clear the min at the hedge ratio; trivial on the $166k paper balance).
+# Left at 20.0 pending operator approval — Tier-3 sizing change.
+risk_budget_usd: 20.0
 correlation_haircut_factor: 0.5     # per already-open correlated pair (shares a leg): 0.5**n
-backstop_mult: 3.0                  # per-leg catastrophe SL/TP at 3x risk_spread in log-price (wide of the spread exit)
+backstop_pct: 0.5                   # per-leg catastrophe SL/TP = +/-50% of entry PRICE (wide net; the executor manages the real spread exit). NOT a function of the spread stop — see pairs_sizing.leg_protective_levels.
+min_leg_notional_usd: 10.0          # skip a pair whose sized leg notional is below this $ (would be sub-min / break the hedge if rounded up)
 
 pairs:
   - name: pairs_sol_btc
