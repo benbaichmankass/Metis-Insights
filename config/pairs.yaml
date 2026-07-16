@@ -37,7 +37,7 @@ pairs:
   - name: pairs_sol_btc
     symbol_a: SOLUSDT
     symbol_b: BTCUSDT
-    execution: live
+    execution: shadow    # shadow-guard: allow — DEFENSIVE ROLLBACK 2026-07-16: live placement broken (open_failed on every entry — qty=0 re-size + blown-up SL/TP); demoted to shadow while the executor bugs are fixed (operator pre-authorized). Re-flip to live after the fix.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -49,7 +49,7 @@ pairs:
   - name: pairs_bnb_btc
     symbol_a: BNBUSDT
     symbol_b: BTCUSDT
-    execution: live
+    execution: shadow    # shadow-guard: allow — DEFENSIVE ROLLBACK 2026-07-16: live placement broken (open_failed on every entry — qty=0 re-size + blown-up SL/TP); demoted to shadow while the executor bugs are fixed (operator pre-authorized). Re-flip to live after the fix.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -61,7 +61,7 @@ pairs:
   - name: pairs_eth_btc
     symbol_a: ETHUSDT
     symbol_b: BTCUSDT
-    execution: live
+    execution: shadow    # shadow-guard: allow — DEFENSIVE ROLLBACK 2026-07-16: live placement broken (open_failed on every entry — qty=0 re-size + blown-up SL/TP); demoted to shadow while the executor bugs are fixed (operator pre-authorized). Re-flip to live after the fix.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -73,7 +73,7 @@ pairs:
   - name: pairs_sol_eth
     symbol_a: SOLUSDT
     symbol_b: ETHUSDT
-    execution: live
+    execution: shadow    # shadow-guard: allow — DEFENSIVE ROLLBACK 2026-07-16: live placement broken (open_failed on every entry — qty=0 re-size + blown-up SL/TP); demoted to shadow while the executor bugs are fixed (operator pre-authorized). Re-flip to live after the fix.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
