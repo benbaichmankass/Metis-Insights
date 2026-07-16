@@ -555,7 +555,21 @@ def _exit_head_verdict(
         open_r = _coerce_float((rec.get("feature_row") or {}).get("open_r"))
         if None in (tau, below_r, score) or open_r is None:
             return None
-        if not (score < tau and open_r < below_r):
+        # The firing rule follows the artifact's declared SHAPE (mirrors
+        # exit_head_shadow.py's would_exit): the below_half_r head fires LOW
+        # scores on losers (score < tau AND open_r < below_r); the peak_*
+        # heads fire HIGH scores when the peak is in (score > tau [AND
+        # open_r >= below_r for peak_winner]). Hardcoding the below_half_r
+        # rule would fire a peak head on exactly the wrong condition
+        # (MB-20260716 / M20 P4.2 graduation). `exit_head_threshold` still
+        # overrides tau on either branch.
+        policy = str(rec.get("policy") or "below_half_r")
+        if policy.startswith("peak"):
+            fires = score > tau and (
+                policy != "peak_winner" or open_r >= below_r)
+        else:
+            fires = score < tau and open_r < below_r
+        if not fires:
             return None
         return {"action": "close", "reason": "exit_head",
                 "exit_price": current_price}
