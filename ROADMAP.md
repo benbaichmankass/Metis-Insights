@@ -570,6 +570,7 @@ genuinely-unscheduled ideas._
 
 **Models (successor experiments — see the M19 phase table for the live frontier):**
 - T2.1 multi-task foundation encoder / T2.2 offline-RL sizing-exit policy — the Tier-2 long-horizon items; only after Tier-1 shows lift.
+- **M23 (candidate) — Break the decision-label wall** (`docs/research/M23-decision-label-wall-DESIGN.md`, proposed 2026-07-16, operator-directed). Attacks the ONE binding constraint the 2026-07-16 convergence review found across T0.1–T1.3: the **decision label** (~350 real trades), not features/compute/model-size. **Phase 1 (primary, Tier-1/offline):** in-distribution **backtest-augmented meta-labels** (triple-barrier + meta-labeling over years of our own strategy history → 10–100× the live labels, our costs/exits) — seeds `MB-20260530-001` / `MB-20260705-META-LABEL-WALL` / `MB-20260629-ALLOC-COSTCAP`; caveat = barrier-vs-live faithfulness (~0.6R gap → realistic-cost/exit model or auxiliary-only). **Phase 2 (secondary, gated):** an external copy-trade corpus (Collective2/myfxbook) as *pretraining* for a trade-quality representation — ONLY behind a ToS review + a distribution-alignment pre-check (naive pooling risks the T1.2 transfer failure). Clean open-source "trade books" with good/bad labels essentially don't exist (the public tape is price-labeled); FI-2010 is method-validation only. Gate: augmented labels must beat real-labels-only on purged-CV + a real-money holdout. The **labels-first pillar** of the master-AI north star.
 
 ## Sprint File Naming Convention
 
