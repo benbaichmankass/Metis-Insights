@@ -73,7 +73,39 @@ The decisive workstream. Full write-up:
   CLOSED. `MB-20260629-ALLOC-RANKER` **resolved** (honest negative per its own
   criteria).
 
-### 4. Ops
+### 4. MB-20260701-001 — BTC-15m vol-regime head at a denser label: POSITIVE FIRST-GATE
+Operator-approved kick of the highest-value Tier-1 quick win. Full write-up:
+`docs/research/MB-20260701-vt004-evidence-2026-07-16.md`.
+
+- **Candidate manifest (#6652):** `btc-regime-15m-lgbm-vt004-pcv-v1` — a
+  live-faithful mirror of the shipped `btc-regime-15m-lgbm-v2` advisory head (same
+  7 features, same 60d recency half-life) EXCEPT the volatile label is built at a
+  lower `vol_threshold` (0.004 requested) and the eval is **purged 5-fold
+  walk-forward CV** (the robust decider, not the live head's holdout);
+  `target_deployment_stage: candidate` (offline, refused by the shadow factory).
+- **Result (purged CV, n_train 175272 / n_eval 87636):** f1_volatile **0.4377** /
+  macro_f1 **0.6275** / recall_volatile **0.769** / precision_volatile 0.308 —
+  vs the shipped 0.005 head's data-starved ~0.24. **Thesis confirmed:** the 0.005
+  head is data-starved; a denser volatile label separates the classes materially,
+  without buying it by crushing minority recall.
+- **Honest caveat (blocks a clean threshold claim):** the `vol_threshold=0.004`
+  build produced a **14.05% volatile base rate** (12314/87636), which matches the
+  T1.1 track's *0.003* mapping (0.004→7% there), NOT 0.004 — and the 0.44 f1_volatile
+  lines up with T1.1's matched-label LightGBM control at 0.003 (0.444). So the
+  specific operating threshold is **not pinned**; the build-param base-rate
+  semantics disagree across tracks and must be reconciled first.
+- **Decision:** POSITIVE first-gate — pursue a denser operating point for the
+  vol-gate head. Live threshold **unchanged (0.005)**. Remaining Tier-3 gates before
+  any flip: mapping reconcile → RG4 (`scripts/ml/rg4_targeted.sh`) → vol-gate
+  backtest A/B → operator. No config touched. `MB-20260701-001` stays **open**.
+- **Trainer ops incident (fixed in-session):** vt004 crawled for ~2h because a
+  *terminated* scheduled 5m-cycle (SIGTERM'd 04:16Z) left an **orphaned child**
+  (pid 42164) alive 13.5h holding 4.67 GB (77% of the 6 GB box) in swap-thrash,
+  starving the box. Cleared via trainer-vm-diag SIGTERM (#6674) — freed 4.6 GB,
+  vt004 finished within minutes. Logged the orphan-teardown gap to
+  `BL-20260715-TRAINER-CYCLE-MEM-SATURATION` (health backlog).
+
+### 5. Ops
 - Confirmed the real-money **ADA** position is flat on `bybit_2` (broker shows
   only ETH+XRP) after the earlier operator-authorized flatten — demotion held.
 
@@ -86,9 +118,16 @@ The decisive workstream. Full write-up:
 
 ## Docs Updated
 - NEW `docs/research/T1.3-ranker-findings-2026-07-16.md`.
-- `docs/claude/ml-review-backlog.json` — `MB-20260629-ALLOC-RANKER` → resolved.
-- `ROADMAP.md` — T1.3 row rewritten to the ran/negative outcome; allocator-regret
-  soak-clock note updated.
+- NEW `docs/research/MB-20260701-vt004-evidence-2026-07-16.md` — vt004 purged-CV
+  first-gate evidence (+ the base-rate caveat).
+- NEW `ml/configs/btc-regime-15m-lgbm-vt004-pcv-v1.yaml` (#6652) — the candidate probe.
+- `docs/claude/ml-review-backlog.json` — `MB-20260629-ALLOC-RANKER` → resolved;
+  `MB-20260701-001` evidence_log + status_history appended (positive first-gate,
+  stays open pending threshold pin + RG4 + vol-gate A/B).
+- `docs/claude/health-review-backlog.json` — `BL-20260715-TRAINER-CYCLE-MEM-SATURATION`
+  update: orphaned-cycle-child teardown gap (the vt004 wedge cause).
+- `ROADMAP.md` — T1.3 row → ran/negative; allocator-regret soak-clock note updated;
+  item-5 BTC-15m quick win → POSITIVE FIRST-GATE (with the base-rate caveat + gates).
 - This sprint log.
 
 ## Tier-3 Proposals
@@ -97,6 +136,10 @@ fc→advisory awaits a powered read. The rules EV scorer remains the allocator
 selector, unchanged.
 
 ## Follow-ups / Next
+- **MB-20260701-001 (positive first-gate, open):** reconcile the vol_threshold→
+  base-rate mapping across the build tracks (0.004→7% vs →14% disagreement), then
+  RG4 live-discrimination + the vol-gate backtest A/B before any operator-gated
+  0.005→lower flip. First ML pickup item alongside fc→advisory.
 - fc→advisory powered re-read ~2026-07-20 (`MB-20260705-FC-ADVISORY-READINESS`) —
   the lead promotion candidate.
 - T1.3 reopen condition (not now): a within-tick contrastive target + clean

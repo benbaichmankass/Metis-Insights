@@ -241,9 +241,19 @@ strategy-*development* program.
    flap), the IB broker-side protection **verification** gap (`BL-20260709-IB-BROKER-PROTECTION-UNVERIFIED`),
    and the Alpaca `qty_available`-gated close (`BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE`).
 
-5. **Model-quality quick wins (Tier-1 offline).** Lower the BTC-15m vol-regime head
-   threshold 0.005→~0.004 — materially more discriminative (`MB-20260701-001`); fix the
-   frozen trainer MES candle base (`BL-20260626-MES-BASE-STALE`, GIGO blinding RG4);
+5. **Model-quality quick wins (Tier-1 offline).** BTC-15m vol-regime head at a lower
+   volatile label (`MB-20260701-001`) — **✅ POSITIVE FIRST-GATE 2026-07-16**
+   (`docs/research/MB-20260701-vt004-evidence-2026-07-16.md`): the candidate purged-CV
+   probe `btc-regime-15m-lgbm-vt004-pcv-v1` (live-faithful mirror of `lgbm-v2`, denser
+   volatile label) reads **f1_volatile 0.44 / macro_f1 0.63 / recall 0.77** vs the shipped
+   0.005 head's data-starved ~0.24 — the thesis (0.005 is too sparse; a denser label
+   separates the classes) is **confirmed**. **Caveat blocking a clean threshold claim:** the
+   `vol_threshold=0.004` build produced a **14% volatile base rate**, which matches the T1.1
+   track's *0.003* mapping (0.004→7% there), so the specific operating threshold is NOT yet
+   pinned — the build-param base-rate semantics must be reconciled first. Live threshold
+   stays 0.005; remaining Tier-3 gates before any flip: mapping reconcile → RG4
+   (`scripts/ml/rg4_targeted.sh`) → vol-gate backtest A/B → operator. Still in the bucket:
+   fix the frozen trainer MES candle base (`BL-20260626-MES-BASE-STALE`, GIGO blinding RG4);
    break the n≈78 decision-model label wall with per-trade backtest rows (`MB-20260530-001`).
 
 **Soak clocks — watch on cadence, don't rush the gate:**
