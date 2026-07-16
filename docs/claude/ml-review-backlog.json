@@ -1258,10 +1258,11 @@
       "tier": 3,
       "trigger_condition": "After MB-20260629-ALLOC-COSTCAP (clean labels) + M18 P1/P2 (rules EV + greedy selector soaking); when >= ~1000 pooled labeled decisions are queryable; next /ml-review.",
       "resolution_criteria": "Ranker trained + at shadow, beating the rules-based EV baseline on held-out net-R (purged WF-CV, leak-free) and passing an RG-style robustness/skew check on logged-live rows; a promotion recommendation (shadow->advisory) prepared for operator approval. Honest negative recorded if it cannot beat the rules baseline (data-scale floor \u2014 keep the rules EV).",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updated_at": "2026-07-06T15:50:00+00:00",
+      "updated_at": "2026-07-16T12:20:00+00:00",
       "evidence_log": [
+        "2026-07-16 (T1.3 research session): RESOLVED -- HONEST NEGATIVE. Built the tooling (per-fold AUC + a frozen market-only P(win) ranker as a learned selection arm in allocator_multisymbol_backtest.py, #6632) and ran the full pre-registered gate. AUC gate PASSED: walk-forward pooled OOS AUC 0.611 market-only up to 0.680 with owner/cell, per-fold min >= 0.55 on every stack (no knife-edge) -- materially above the 06-30 ~0.51. BUT the sizing-normalized concurrency-capped selection backtest FAILED: the learned-ranker arm net -586 vs shared_priority -547 (learned_beats_priority_net=false, delta -39) and vs the EV scorer arm -375 (delta -211). The AUC is between-owner base-rate, not a within-tick cross-symbol selection edge; the rules EV scorer stays the selector (it DID beat priority in this window, +172). M18 P2/P3 (allocator selects the subset) stay PARKED. Full write-up: docs/research/T1.3-ranker-findings-2026-07-16.md. Track closed; reopen only with a within-tick contrastive target + clean cost labels (ALLOC-COSTCAP) + a net-positive opportunity set.",
         "2026-07-06 (post vol-gate follow-up session): confirmed the live allocator soak scores score_kind=ev_net_r (P1 #5098, intent_multiplexer.py:726) and that the 06-30 findings stand \u2014 the EV scorer's SELECTION edge is negative (OOS AUC ~0.51), P2/P3 parked. This item is now the substance of ROADMAP row T1.3 (cross-sectional ranker, possibly with encoder embeddings \u2014 the one place the T1.2 corpus embedding might still pay off). Gate before ANY routing plumbing: OOS AUC materially > 0.51 in the sizing-normalized allocator harness (scripts/research/allocator_{candidate_dataset,ranker_eval,multisymbol_backtest}.py). Next research session's mandate."
       ]
     },

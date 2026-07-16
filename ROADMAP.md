@@ -222,12 +222,18 @@ strategy-*development* program.
    the low-fill-rate investigation (`PB-20260630-003`) + the `ict_scalp_5m`
    real-money degradation (`PB-20260630-ICTSCALP-DEGRADE`).
 
-3. **T1.3 — cross-strategy net-R ranker (the shared M18 + M19 unblocker).**
-   Session prompt ready (`docs/research/T1.3-ranker-SESSION-PROMPT.md`). The one lever
-   that could revive BOTH the portfolio allocator (M18 P2/P3, parked at OOS-AUC ≈ 0.51)
-   and M19's cross-sectional direction. **Prereq:** land per-trade fee/funding cost
-   capture (`MB-20260629-ALLOC-COSTCAP`) — the net-R label gap — first. **Gate:** OOS AUC
-   materially > 0.51 in the sizing-normalized allocator harness before any routing plumbing.
+3. **T1.3 — cross-strategy net-R ranker (the shared M18 + M19 unblocker) — RAN, HONEST NEGATIVE
+   (2026-07-16, `docs/research/T1.3-ranker-findings-2026-07-16.md`, `MB-20260629-ALLOC-RANKER` resolved).**
+   Built the tooling (per-fold AUC + a learned market-only P(win) ranker as a selection arm in
+   `allocator_multisymbol_backtest.py`, #6632). The **AUC gate PASSED** — walk-forward pooled OOS AUC
+   0.611 market-only → 0.680 with owner/cell, per-fold min ≥ 0.55 on every stack (no knife-edge),
+   materially above the 06-30 ≈ 0.51. **But the decisive sizing-normalized concurrency-capped selection
+   backtest FAILED:** the learned-ranker arm (net −586) lost to both dumb symbol-priority (−547;
+   `learned_beats_priority_net=false`, −$39) and the incumbent rules EV scorer (−375; −$211). The AUC is
+   between-owner base-rate, **not** a within-tick cross-symbol selection edge. **Decision:** keep the rules
+   EV scorer as the selector; **M18 P2/P3 stay PARKED**; the learned-ranker-as-selector track is CLOSED.
+   Reopen only with a within-tick contrastive target + clean cost labels (`MB-20260629-ALLOC-COSTCAP`) +
+   a net-positive opportunity set.
 
 4. **Reconciler / orphan robustness pass.** Recurring money-adjacent pain worth a focused
    stability sprint: high order-package orphan rates (`BL-20260601-001`), the reverse-reconciler
@@ -247,7 +253,8 @@ strategy-*development* program.
   distinct volatile episodes accrue (first read ~mid-July). The lead promotion candidate;
   no proposal before that evidence.
 - **fc-geometry soak** (`MB-20260705-FC-SLTP-GEOMETRY`) — feeds the Exit Refinement session (item 1).
-- **allocator regret** (M18 P0c, `/api/bot/allocator/soak`) — feeds the T1.3 ranker (item 3).
+- **allocator regret** (M18 P0c, `/api/bot/allocator/soak`) — observe-only; the T1.3 learned ranker it was
+  meant to feed closed as an honest negative (item 3), so this now just tracks EV-scorer-vs-priority regret.
 - **ETH/SOL vol-regime heads → advisory** (`MB-20260628-REGIME-SOAK-READINESS`) — re-check ~2026-08-01.
 - **Leveraged / proxy ETF paper soaks** — TQQQ/QLD (`PB-20260630-002`), SPLG/IAUM (`PB-20260707-SPLG-IAUM-PROMOTION`);
   real-money promotion gated on a clean live track record + `account_compat_matrix`.
