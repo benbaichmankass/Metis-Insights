@@ -1,0 +1,85 @@
+# MB-20260701-001 — operating-threshold characterization for the LIVE BTC-15m
+# vol-regime head (btc-regime-15m-lgbm-v2). The shipped head labels "volatile"
+# at vol_threshold=0.005 (~3.6% base rate) where it is DATA-STARVED
+# (purged-CV f1_volatile ~0.24). The M19 T0.1 sweep (trainer #5311/#5320/#5321)
+# showed a lower threshold is materially more discriminative — f1_volatile
+# 0.24(0.005) -> 0.30(0.004) -> 0.38(0.003). This manifest is the decider on
+# CURRENT data at 0.004: a FAITHFUL mirror of the live lgbm-v2 head (same
+# feature set, same 60d recency half-life) EXCEPT the label is built at
+# vol_threshold=0.004 (via dataset.build_params) and the eval is purged
+# walk-forward CV (the robust decider, not the live head's holdout).
+#
+# class_weight volatile = 1/base_rate at the 0.004 label (~8.4% volatile ->
+# 1/0.084 ~= 11.9), matching the live head's convention (28.0 ~= 1/0.036 at
+# its 3.6% label) so the weighting philosophy is held constant across the
+# threshold change and only the label density differs.
+#
+# Candidate/offline probe. NOT promotion-eligible on its own — the vol-gate's
+# operating threshold is Tier-3 (REGIME_ML_VERDICT_MODE=use, BTC enforce is
+# LIVE). Any move to 0.004 requires this purged-CV read + an RG4 live-regime
+# discrimination pass + the gate's backtest A/B, then operator approval.
+manifest_version: v1
+model_id: btc-regime-15m-lgbm-vt004-pcv-v1
+description: "MB-20260701-001 operating-threshold probe: live-faithful BTC-15m LightGBM regime head (mirror of lgbm-v2) with the volatile label built at vol_threshold 0.004 instead of the shipped 0.005, evaluated under purged walk-forward CV. Candidate/offline — never order-influencing."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+  - vol_bucket
+  - rolling_log_return_vol
+  - log_return
+  - log_return_lag_1
+  - log_return_lag_2
+  - hour_of_day
+  - dayofweek
+  categorical_columns:
+  - vol_bucket
+  - hour_of_day
+  - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  # Recency weighting held IDENTICAL to the live lgbm-v2 head (60d half-life).
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
+  # Inverse-base-rate at the 0.004 label (~8.4% volatile), the same convention
+  # the live head uses at its 0.005 label (28.0 ~= 1/0.036).
+  class_weight:
+    range: 1.0
+    volatile: 11.9
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: BTCUSDT
+  timeframe: 15m
+  version: v004
+  build_params:
+    vol_threshold: 0.004
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: purged_walk_forward
+  time_column: ts
+  n_folds: 5
+  min_train_fraction: 0.5
+  label_horizon: 5
+  embargo_fraction: 0.01
+target_deployment_stage: candidate
+notes: |
+  MB-20260701-001 decider on current data. Compare purged-CV f1_volatile /
+  macro_f1 against the shipped 0.005 operating point (the live lgbm-v2 head's
+  weak ~0.24 f1_volatile). A material lift (toward the ~0.30 the 2026-07-01
+  sweep found) is the evidence for retraining/operating the vol-gate head at
+  0.004; then RG4 + the gate backtest A/B before any Tier-3 config change.
+  Leakage gate forbids forward_log_return / forward_log_return_vol /
+  regime_label.
