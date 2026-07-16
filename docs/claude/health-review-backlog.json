@@ -1490,9 +1490,17 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run on or after 2026-06-02; or any session investigating 'are the v2 BTC models ready to promote shadow->advisory?'.",
       "resolution_criteria": "Verified end-to-end: (1) shadow_predictions.jsonl carries entries for both model_ids tied to closed live trades (BTCUSDT only); (2) brier_lift, AUC>0.55, and a populated shadow-drift report are all present so beats_baseline/live_agreement/drift_clean clear; (3) all gates pass + the evidence packet is prepared for the operator's shadow->advisory decision. Items (1)-(2) accumulate naturally during the 7-day soak as live BTCUSDT signals fire. Operator-gated decision; Claude prepares the packet, operator authorizes.",
-      "status": "open",
+      "status": "resolved",
       "triage_note": "2026-05-27 /health-review: still snoozed (target 2026-06-02 16:08Z). Model-perf scope is /ml-review now; no action this skill.",
-      "snoozed_until": "2026-06-02T16:08:00+00:00"
+      "snoozed_until": "2026-06-02T16:08:00+00:00",
+      "updates": [
+        {
+          "at": "2026-07-16T06:12:00+00:00",
+          "by": "claude (/system-review weekly 2026-07-16)",
+          "note": "RESOLVED. Weekly review confirms both v2 BTC LightGBM regime heads remain at shadow and healthily soaking: btc-regime-5m-lgbm-v2 has 2487 shadow predictions since 2026-07-07 with a real score spread (min 0.509, max 0.9999, mean 0.984) - non-degenerate, drift-clean by inspection. The 7-day soak clock (target 2026-06-02) elapsed weeks ago; engineering + soak-verification are complete. The only remaining shadow->advisory blocker is the structural live_agreement promotion gate, already tracked as MB-20260626-003 (regime-head promotion blocked on trade-win AUC). Closing as a stale duplicate."
+        }
+      ],
+      "resolved_at": "2026-07-16T06:12:00+00:00"
     },
     {
       "id": "BL-20260526-002",
@@ -4025,7 +4033,35 @@
       "trigger_condition": "next time a session needs /api/bot/pairs/soak via the relay",
       "resolution_criteria": "add pairs/soak to the vm-diag-snapshot relay's /api/bot/ read-only allowlist (.github/workflows/vm-diag-snapshot.yml).",
       "status": "open"
+    },
+    {
+      "id": "BL-20260716-BYBIT2-SUBMIN-QTY",
+      "opened_at": "2026-07-16T06:12:00+00:00",
+      "opened_by": "claude (/system-review weekly 2026-07-16)",
+      "source": "weekly system review - /api/bot/notifications alert banner",
+      "title": "Recurring sub-minimum-qty pre-flight refusal on real-money bybit_2 (BTCUSDT)",
+      "description": "The notifications banner carries an operator_warning ALERT: 'RuntimeError: qty 0.00037473 for BTCUSDT is below the exchange lot minimum after step-alignment (qtyStep=0.001, minOrderQty=0.001) - refusing pre-flight.' (2026-07-16T06:03:43Z, bybit_place_order_failed). Prime-Directive-CORRECT (a per-trade refusal, not a mode flip), but a strategy on the small $307 real-money bybit_2 account is repeatedly computing a BTC position an order of magnitude below the 0.001 lot floor, so those BTC signals can never fill there - wasted signal + recurring ERROR-level alert noise. Investigate RiskManager.position_size on bybit_2's tiny equity vs BTCUSDT notional: floor to minOrderQty with affordability re-check, or skip cleanly without emitting an ERROR-level outcome that lands on the alert banner.",
+      "tier": 2,
+      "trigger_condition": "bybit_2 emits a sub-lot-minimum BTCUSDT order and the pre-flight refuses it",
+      "resolution_criteria": "bybit_2 BTCUSDT signals size to a fillable qty (>= minOrderQty) with affordability re-checked, or the sub-minimum case is skipped without an ERROR-level outcome/alert-banner entry.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
+      "id": "BL-20260716-PAIRS-BETA-INSTABILITY",
+      "opened_at": "2026-07-16T06:55:00+00:00",
+      "opened_by": "claude (overnight build cycle 2026-07-16)",
+      "source": "pairs SOLUSDT/BNBUSDT garbage-order investigation. A live BNBUSDT pairs leg was placed with SL=2x entry / TP=0.5x entry (an exploded/collapsed bracket the venue would reject). Root cause traced to risk_spread ~= 5.4 in LOG-spread units (implausibly large) fed into leg_protective_levels.",
+      "title": "Pairs sleeve: unstable rolling OLS beta on a 15-bar lookback blows up risk_spread -> exploded SL/TP (clamp #6549 band-aids the symptom, not the beta)",
+      "description": "The pairs executor sizes each leg off risk_spread = stop_z * std(log-spread), where the log-spread = log(price_a) - beta*log(price_b) and beta is a rolling OLS hedge ratio. On a SHORT (15-bar) lookback the OLS beta is numerically unstable (a few outlier bars swing it far from 1.0), which inflates the spread std and drives risk_spread to implausible values (~5.4 in log units => a leg backstop of e^5.4 ~ 220x). SYMPTOM FIXED (#6549, src/units/strategies/pairs_sizing.py::leg_protective_levels): the log-move is now clamped to [log(1.02), log(2.0)] so a degenerate risk_spread can never emit an exploded/collapsed bracket the venue rejects \u2014 the garbage BNBUSDT order can't recur. The clamp is defensive-in-depth and correct, but it masks rather than fixes the BETA estimation: a clamped-but-wrong risk_spread still mis-sizes the notionals (pair_notionals divides risk_budget by risk_spread), so the sleeve's risk-per-trade is still off when beta is unstable. Pairs is currently execution: shadow on bybit_1 (demoted #6552 after the live-placement break), so this is NOT live-money-at-risk today. REAL FIX (Tier-3, backtest-gated, NOT enacted here): stabilize the hedge-ratio/spread estimation before it reaches sizing \u2014 e.g. a longer/robust beta lookback, ridge/Kalman beta, winsorized spread std, or an explicit sanity guard that rejects a pair-tick when |beta| or risk_spread falls outside a plausible band (the honest 'skip this tick' rather than size on garbage). Validate on the pairs backtest harness before re-flipping any pair to live. Cross-ref: pairs SL/TP clamp #6549, pairs shadow demotion #6552, /api/bot/pairs/soak (M22 D2 soak surface).",
+      "tier": 3,
+      "trigger_condition": "Next pairs-sleeve work session, OR before any pair is re-flipped from execution: shadow to live.",
+      "resolution_criteria": "Pairs beta/spread estimation is stabilized (robust/longer-lookback beta or a sanity guard that skips a tick with an implausible beta/risk_spread) and validated on the pairs backtest harness; risk_spread stays in a plausible band across the soak; the #6549 clamp becomes a never-triggered backstop rather than a load-bearing fix.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-16"
+  "updated_at": "2026-07-16T06:55:00+00:00"
 }

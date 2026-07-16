@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260716-061200-weekly",
+      "window": "weekly",
+      "generated_at": "2026-07-16T06:12:00+00:00",
+      "window_start": "2026-07-09T06:07:48+00:00",
+      "window_end": "2026-07-16T06:12:00+00:00",
+      "roll_up_grade": "caution",
+      "headline": "Net-positive real-money week (+$5.57, PF 1.34) carried by the ETH book against small alt bleeders; core services healthy and grading is fully current. Watch items: a transient (benign) IB MES probe backoff, a recurring sub-min-qty BTCUSDT refusal on bybit_2, a trainer manifest (5m-flow head) repeatedly OOMing under real memory pressure, and no ML promotions - the regime heads have soaked their time but are blocked on the live_agreement gate.",
+      "html_path": "comms/reports/weekly/20260716T061200Z/report.html",
+      "json_path": "comms/reports/weekly/20260716T061200Z/report.json",
+      "md_path": "comms/reports/weekly/20260716T061200Z/report.md"
+    },
+    {
       "id": "RPT-20260711-061800-since-last",
       "window": "since-last",
       "generated_at": "2026-07-11T06:18:00+00:00",

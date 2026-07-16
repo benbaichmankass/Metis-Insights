@@ -1128,7 +1128,14 @@
       "tier": 3,
       "trigger_condition": "next /performance-review (or /system-review)",
       "resolution_criteria": "perf-review grades the recent ict_scalp_5m real-money closed trades and either (a) proposes a Tier-3 TUNE/DEMOTE_SHADOW with evidence, or (b) closes as a transient cluster / insufficient sample.",
-      "status": "open"
+      "status": "open",
+      "updates": [
+        {
+          "at": "2026-07-16T06:12:00+00:00",
+          "by": "claude (/system-review weekly 2026-07-16)",
+          "note": "CONFIRMED still degrading (real-money). 30d /performance: ict_scalp_5m n=9, winRate 66.7% but expectancy -$0.196 and expectancyR -1.26 (totalR -11.35) - high hit-rate with sharply negative R = tiny wins, full-R losses (adverse realized R:R). Lifetime attribution: 14 closed, 71.4% win, +$1.74. Recent-30d R-collapse persists; candidate for a Tier-3 exit/target review. Not yet actioned - monitoring toward a TUNE/DEMOTE decision."
+        }
+      ]
     },
     {
       "id": "PB-20260630-002",
@@ -1306,5 +1313,5 @@
       "status": "open"
     }
   ],
-  "updated_at": "2026-07-16"
+  "updated_at": "2026-07-16T06:12:00+00:00"
 }
