@@ -21,10 +21,14 @@
 #   execution: live    → place the two legs on `account_id` (bybit_1 = Bybit
 #                        DEMO / paper venue — real order placement, paper money).
 #
-# All four are `live` (operator-approved 2026-07-16) — placing on bybit_1 (paper)
-# once the executor bugs were fixed. Flipping a pair back to `shadow` is the
-# rollback — a one-line change, no redeploy (config re-read each tick). Tier-3:
-# flip only with operator approval.
+# SOL/ETH is `live` (operator-approved 2026-07-16) — placing on bybit_1 (paper);
+# both its legs clear Bybit's min contract qty. The three BTC-quote pairs
+# (SOL/BTC, BNB/BTC, ETH/BTC) are held at `shadow` (BL-20260716-PAIRS-MINQTY): the
+# BTC leg sizes below the 0.001 BTC minimum, so the pair half-places (leg A only)
+# and orphans a naked leg — they return to `live` once the min-qty-aware sizer
+# (validate BOTH legs pre-placement -> skip_size, never half-place) lands. Flipping
+# a pair to `shadow` is the rollback — a one-line change, no redeploy (config
+# re-read each tick). Tier-3: flip only with operator approval.
 #
 # Rollback: set a pair back to `execution: shadow` (or delete this file → the
 # sleeve is a complete no-op).
@@ -50,7 +54,7 @@ pairs:
   - name: pairs_sol_btc
     symbol_a: SOLUSDT
     symbol_b: BTCUSDT
-    execution: live      # RE-FLIP 2026-07-16 (operator-approved, Tier-3): executor bugs fixed — qty_override (#6554), bounded/clamped leg SL/TP (#6549), and risk-budget derived from balance x risk_pct (#6554). Places both legs on bybit_1 (paper). Rollback: set back to shadow.
+    execution: shadow    # shadow-guard: allow — DEFENSIVE CONTAIN 2026-07-16 (BL-20260716-PAIRS-MINQTY): BTC leg sizes below Bybit min contract qty (0.001 BTC), so the pair half-places (leg A only) and orphans a naked leg. Held at shadow until the min-qty-aware sizer (validate BOTH legs pre-placement -> skip_size) lands. SOL/ETH stays live (both legs clear min-qty).
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -62,7 +66,7 @@ pairs:
   - name: pairs_bnb_btc
     symbol_a: BNBUSDT
     symbol_b: BTCUSDT
-    execution: live      # RE-FLIP 2026-07-16 (operator-approved, Tier-3): executor bugs fixed — qty_override (#6554), bounded/clamped leg SL/TP (#6549), and risk-budget derived from balance x risk_pct (#6554). Places both legs on bybit_1 (paper). Rollback: set back to shadow.
+    execution: shadow    # shadow-guard: allow — DEFENSIVE CONTAIN 2026-07-16 (BL-20260716-PAIRS-MINQTY): BTC leg sizes below Bybit min contract qty (0.001 BTC), so the pair half-places (leg A only) and orphans a naked leg. Held at shadow until the min-qty-aware sizer (validate BOTH legs pre-placement -> skip_size) lands. SOL/ETH stays live (both legs clear min-qty).
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -74,7 +78,7 @@ pairs:
   - name: pairs_eth_btc
     symbol_a: ETHUSDT
     symbol_b: BTCUSDT
-    execution: live      # RE-FLIP 2026-07-16 (operator-approved, Tier-3): executor bugs fixed — qty_override (#6554), bounded/clamped leg SL/TP (#6549), and risk-budget derived from balance x risk_pct (#6554). Places both legs on bybit_1 (paper). Rollback: set back to shadow.
+    execution: shadow    # shadow-guard: allow — DEFENSIVE CONTAIN 2026-07-16 (BL-20260716-PAIRS-MINQTY): BTC leg sizes below Bybit min contract qty (0.001 BTC), so the pair half-places (leg A only) and orphans a naked leg. Held at shadow until the min-qty-aware sizer (validate BOTH legs pre-placement -> skip_size) lands. SOL/ETH stays live (both legs clear min-qty).
     timeframe: 1h
     lookback: 15
     entry_z: 2.0

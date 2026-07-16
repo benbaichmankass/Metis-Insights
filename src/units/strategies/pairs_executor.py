@@ -459,6 +459,37 @@ def _close_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
     return {"closed": closed_ok, "outcome": outcome}
 
 
+def _legs_below_min_qty(client: Any, account_cfg: dict,
+                        legs: Sequence[LegOrder]) -> List[Dict[str, Any]]:
+    """Return the legs whose sized qty floors BELOW the venue's minimum lot — the
+    pre-placement half-placement guard (BL-20260716-PAIRS-MINQTY).
+
+    A market-neutral pair must place BOTH legs or NEITHER: if one leg can't clear
+    the exchange minimum, placing the other leaves a naked directional orphan (the
+    low-beta BTC-quote failure — the tiny BTC leg floored to 0.00037 < 0.001 min,
+    was refused, and the BNB leg was left open). Each leg is checked through the
+    SAME seam the submit pre-flight uses (``qty_legalize.legalize_qty``,
+    ``prefer_live=True``) so the verdict matches what the exchange would do.
+    Fail-open: an unknown lot / resolution error passes the leg (never blocks a
+    placeable pair on a lookup miss — the submit pre-flight stays the backstop).
+    Returns ``[]`` when both legs clear."""
+    blocked: List[Dict[str, Any]] = []
+    try:
+        from src.units.accounts.qty_legalize import legalize_qty
+    except Exception:  # noqa: BLE001
+        return blocked
+    for leg in legs:
+        try:
+            lz = legalize_qty(float(leg.qty), account_cfg=account_cfg,
+                              symbol=leg.symbol, client=client, prefer_live=True)
+        except Exception:  # noqa: BLE001 — never block the tick on a lookup
+            continue
+        if not lz.ok:
+            blocked.append({"symbol": leg.symbol, "qty": round(float(leg.qty), 8),
+                            "venue_min": lz.venue_min})
+    return blocked
+
+
 def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
     """Once-per-tick hook for the market-neutral pairs sleeve. Best-effort — any
     error is logged and swallowed so the sleeve can never stall the trader loop.
@@ -607,6 +638,22 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
                 risk_budget_usd=risk_budget, correlation_open=corr_open,
                 execution_mode=execution, corr_factor=corr_factor,
                 backstop_mult=backstop_mult, min_leg_notional_usd=min_leg_notional_usd)
+
+            # PRE-PLACEMENT min-qty gate (BL-20260716-PAIRS-MINQTY): a
+            # market-neutral pair must place BOTH legs or NEITHER. If a sized leg
+            # floors below the venue minimum lot, refuse the WHOLE pair here
+            # (skip_size, place nothing) rather than half-place leg A and orphan a
+            # naked directional leg. Applies to any computed-legs decision
+            # (open / shadow_open); mirrors the submit pre-flight seam so live and
+            # shadow agree on feasibility.
+            if decision.legs:
+                min_qty_blocked = _legs_below_min_qty(
+                    _client_for(account_id), acct_cfg, decision.legs)
+                if min_qty_blocked:
+                    decision.event = "skip_size"
+                    decision.legs = []
+                    decision.close = False
+                    decision.soak["min_qty_block"] = min_qty_blocked
 
             # --- act on the decision (only `live` execution places/closes) ---
             place_result: Dict[str, Any] = {}
