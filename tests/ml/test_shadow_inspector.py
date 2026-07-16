@@ -75,6 +75,28 @@ class TestRecordFromDict:
             r["row_keys"] = ["ok", 42]
             record_from_dict(r)
 
+    def test_row_keys_derived_from_feature_row_when_absent(self):
+        # Exit-head / peak-head records (event_source "exit_head") carry a
+        # feature_row but no row_keys; derive row_keys = sorted(feature_row)
+        # the same way the writer/backfill does
+        # (MB-20260716-PROMOREADY-EXITHEAD-SCHEMA). Without this the loader
+        # skipped every exit-head record, blanking the promotion-readiness
+        # report.
+        raw = _record()
+        del raw["row_keys"]
+        raw["feature_row"] = {"tau": 0.6, "atr_14": 1.2, "below_r": 0.3}
+        r = record_from_dict(raw)
+        assert r.row_keys == ("atr_14", "below_r", "tau")  # sorted keys
+        assert r.feature_row == {"tau": 0.6, "atr_14": 1.2, "below_r": 0.3}
+
+    def test_explicit_row_keys_win_over_feature_row(self):
+        # When both are present, the explicit row_keys are authoritative
+        # (derivation is only the fallback for the exit-head schema).
+        raw = _record(row_keys=["z", "a"])
+        raw["feature_row"] = {"tau": 0.6, "atr_14": 1.2}
+        r = record_from_dict(raw)
+        assert r.row_keys == ("z", "a")
+
     def test_feature_row_absent_is_backward_compat(self):
         # Records written before 2026-05-19 don't carry `feature_row`.
         # The inspector must still parse them — fall back to None.
