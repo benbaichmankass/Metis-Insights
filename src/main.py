@@ -713,6 +713,18 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("prop_sl_tp_alert tick failed")
 
+            # While the bot is still waiting for the operator's place-decision on
+            # a freshly-emitted prop ticket, price can move beyond the ticket's
+            # brackets — the setup is no longer placeable. Proactively warn ("do
+            # NOT place it if you haven't") and re-ask the Yes/No, before the
+            # slower valid_until timeout would. Once per tick; internally
+            # idempotent (prompted exactly once via its status flip); best-effort.
+            try:
+                from src.prop.prop_invalidation_prompt import run_prop_invalidation_prompts
+                run_prop_invalidation_prompts()
+            except Exception:  # noqa: BLE001
+                logger.exception("prop_invalidation_prompt tick failed")
+
             # A supposed-to-be-live broker account reading unreachable (IB
             # gateway logged out, exchange API 401-ing, creds rotated out)
             # is a money-at-risk condition that must surface LOUDLY, not sit
