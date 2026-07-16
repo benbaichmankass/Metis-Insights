@@ -247,12 +247,17 @@ strategy-*development* program.
    probe `btc-regime-15m-lgbm-vt004-pcv-v1` (live-faithful mirror of `lgbm-v2`, denser
    volatile label) reads **f1_volatile 0.44 / macro_f1 0.63 / recall 0.77** vs the shipped
    0.005 head's data-starved ~0.24 — the thesis (0.005 is too sparse; a denser label
-   separates the classes) is **confirmed**. **Caveat blocking a clean threshold claim:** the
-   `vol_threshold=0.004` build produced a **14% volatile base rate**, which matches the T1.1
-   track's *0.003* mapping (0.004→7% there), so the specific operating threshold is NOT yet
-   pinned — the build-param base-rate semantics must be reconciled first. Live threshold
-   stays 0.005; remaining Tier-3 gates before any flip: mapping reconcile → RG4
-   (`scripts/ml/rg4_targeted.sh`) → vol-gate backtest A/B → operator. Still in the bucket:
+   separates the classes) is **confirmed**. **✅ MAPPING RECONCILED 2026-07-16**
+   (`docs/research/MB-20260701-mapping-reconcile-2026-07-16.md`): the "0.004" run actually
+   trained on a **0.003 label** — the `v004` dataset dir is 0.003-labeled (16% prevalence;
+   genuine 0.004 dirs are v104/v514 at 8.4%), and `dataset.build_params` is a **no-op on the
+   trainer-VM training path** (only gpu-burst honors it). So the f1_volatile 0.44 is a 0.003
+   measurement (≈ the T1.1 0.003 control 0.444); the genuine 0.004 point is still unmeasured
+   under purged CV. Authoritative mapping pinned: **0.005→4.6% / 0.004→8.4% / 0.003→16.0%**
+   (one common data window). Live threshold stays 0.005; remaining Tier-3 gates: pin the
+   operating curve on the **genuine** dirs (0.005=v515, 0.004=v104, 0.003=v513, matched class
+   weights, purged CV) → RG4 (`scripts/ml/rg4_targeted.sh`) → vol-gate backtest A/B → operator.
+   Build-path footgun logged (`MB-20260716-BUILDPARAMS-IGNORED`). Still in the bucket:
    fix the frozen trainer MES candle base (`BL-20260626-MES-BASE-STALE`, GIGO blinding RG4);
    break the n≈78 decision-model label wall with per-trade backtest rows (`MB-20260530-001`).
 
