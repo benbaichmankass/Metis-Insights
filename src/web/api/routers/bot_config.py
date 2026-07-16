@@ -69,6 +69,12 @@ _ACCOUNT_PUBLIC_FIELDS = frozenset({
     # account_class (2026-06-15): the paper/real funding category. Consumers
     # (dashboard, Android) read the category from here. Not secret-bearing.
     "account_class",
+    # paper_role (2026-07-16): for paper accounts, distinguishes the
+    # live-PORTFOLIO mirror (`portfolio`) from a data-only SOAK book
+    # (`soak`/absent). Consumers scope the "Paper" view to portfolio
+    # accounts and show soak books only on the Accounts page. Not
+    # secret-bearing; meaningless (absent) on real_money/prop accounts.
+    "paper_role",
 })
 
 # Substrings that mark a key as secret-bearing at any depth. Case-
