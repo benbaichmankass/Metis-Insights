@@ -4075,7 +4075,21 @@
       "status": "open",
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "BL-20260716-NEWBROKER-SYNC-SCRIPT-DOC",
+      "opened_at": "2026-07-16",
+      "opened_by": "S-PAPER-PORTFOLIO",
+      "source": "doc-freshness",
+      "title": "new-broker skill step 7 references scripts/ops/sync_vm_secrets.sh secret list, but that script is generic",
+      "description": "The new-broker SKILL.md step 7 (credential propagation) says to add a new broker env-var name \"to the canonical sync-vm-secrets.yml workflow AND to scripts/ops/sync_vm_secrets.sh\". The .sh script no longer carries a hardcoded per-secret list \u2014 it reads SYNC_REQUIRED/SYNC_OPTIONAL from the workflow env, so only the workflow needs editing. Field beats comment: the script is generic. Update the skill wording so a future session does not go hunting for a list that is not there. Confirmed while adding the two paper-portfolio accounts.",
+      "tier": "Tier 1",
+      "trigger_condition": "adding a broker/account credential to sync-vm-secrets",
+      "resolution_criteria": "new-broker SKILL.md step 7 no longer says to edit scripts/ops/sync_vm_secrets.sh for the secret-name list (workflow-only)",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-16T08:51:13.321251+00:00"
+  "updated_at": "2026-07-16"
 }

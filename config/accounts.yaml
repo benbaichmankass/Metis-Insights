@@ -373,6 +373,57 @@ accounts:
       # value at boot.
       leverage: 3
 
+  # bybit_portfolio: PAPER "live-portfolio mirror" of the real-money bybit_2
+  # account (added 2026-07-16, operator-directed — S-PAPER-PORTFOLIO).
+  #
+  # PURPOSE: evaluate the ACTUAL live-traded portfolio's performance and the
+  # risk-management plumbing on PAPER money, WITHOUT the small-balance trading
+  # constraints of the real bybit_2 account AND WITHOUT the noise of the full
+  # soak roster (bybit_1 trades everything for data). It trades EXACTLY what
+  # bybit_2 trades — same strategies, same symbols, same linear-perp / 3x
+  # profile — but on the Bybit DEMO endpoint (paper money) with the demo
+  # wallet's large paper balance, so the real portfolio can run unconstrained.
+  #
+  # Distinct from bybit_1 (the full-roster SOAK demo book): this is the
+  # winners-only PORTFOLIO book. `paper_role: portfolio` marks it so the
+  # dashboard/Android treat it as THE "Paper" view (soak books are surfaced
+  # only on the Accounts page). See ict-trader-dashboard/CLAUDE.md.
+  #
+  # Keys: BYBIT_API_KEY_3 / BYBIT_API_SECRET_3 — the reutilized "bybit 3" demo
+  # keys (secret env auto-derived by clients.py::_derive_secret_env). Propagate
+  # via sync-vm-secrets. The live trader's egress IP (141.145.193.91) must be on
+  # the key's IP allowlist.
+  #
+  # ROSTER-SYNC: keep `strategies` + `symbols` in step with bybit_2 whenever the
+  # real-money roster changes — this account exists to mirror it.
+  bybit_portfolio:
+    type: regular
+    exchange: bybit
+    account_class: paper               # PAPER money (Bybit demo venue).
+    paper_role: portfolio              # the live-portfolio mirror (vs `soak`).
+                                       # Consumed by the dashboard/Android "Paper"
+                                       # view; absent/`soak` = a data-only book.
+    api_key_env: BYBIT_API_KEY_3       # reutilized "bybit 3" demo keys; secret
+                                       # BYBIT_API_SECRET_3 auto-derived.
+    demo: true                         # Bybit demo endpoint (paper money) — same
+                                       # transport as bybit_1.
+    mode: live                         # demo = paper money; live is correct.
+    market_type: linear                # USDT-margined linear perps (mirrors
+                                       # bybit_2); set-leverage fires at boot.
+    strategies: [trend_donchian, ict_scalp_5m, fvg_range_15m, eth_pullback_2h, xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+                                       # MIRRORS bybit_2's real-money roster
+                                       # (winners-only). ict_scalp_5m is
+                                       # execution: shadow globally, so it
+                                       # shadow-logs here exactly as on bybit_2.
+    symbols: [BTCUSDT, ETHUSDT, XRPUSDT, ADAUSDT]  # mirrors bybit_2.symbols.
+    risk:
+      max_dd_pct: 0.05                 # mirrors bybit_2's caps.
+      daily_loss_pct: 0.05
+      daily_usd: 100                   # absolute fallback (no equity snapshot).
+      risk_pct: 0.015                  # 1.5% — same sizing basis as bybit_2, so
+                                       # the paper read is representative of live.
+      leverage: 3                      # 3x — same as bybit_2; applied at boot.
+
   # ------------------------------------------------------------------
   # Interactive Brokers — MES (Micro E-mini S&P 500) futures via CME.
   # ------------------------------------------------------------------
@@ -666,6 +717,65 @@ accounts:
       daily_loss_pct: 0.05             # daily-loss cap = 5% of equity
       daily_usd: 200                   # absolute fallback (no equity snapshot)
       risk_pct: 0.015                   # 1.5% balance risked per trade (operator 2026-06-24)
+
+  # alpaca_portfolio: PAPER "live-portfolio mirror" of the alpaca_live real-money
+  # roster (added 2026-07-16, operator-directed — S-PAPER-PORTFOLIO). Same purpose
+  # as bybit_portfolio: trade the "live-money-worthy" Alpaca portfolio on PAPER
+  # money with a large paper balance, so we read the real portfolio's performance
+  # + risk plumbing WITHOUT the small-account affordability constraint of the
+  # ~$150 alpaca_live (which forced it down to cheap sub-$100 proxies) AND WITHOUT
+  # the full soak-roster noise of alpaca_paper (which trades everything for data).
+  # It mirrors alpaca_live's strategy roster + symbols.
+  #
+  # DEDICATED paper login: ALPACA_API_KEY_PAPER_PORTFOLIO /
+  # ALPACA_API_SECRET_KEY_PAPER_PORTFOLIO (operator-provisioned; propagate via
+  # sync-vm-secrets). A SEPARATE Alpaca account from alpaca_paper /
+  # alpaca_options_paper, so there is NO cross-account orphan-adoption concern —
+  # the isolation is structural (a distinct login), not filter-dependent.
+  #
+  # `paper_role: portfolio` → the dashboard/Android "Paper" view (soak books are
+  # surfaced only on the Accounts page).
+  #
+  # ROSTER-SYNC: keep `strategies` + `symbols` in step with alpaca_live whenever
+  # the real-money roster changes — this account exists to mirror it, WITH ONE
+  # deliberate divergence (operator-approved 2026-07-16): the cheap sub-$100
+  # PROXIES `splg_trend_long_1d` (SPLG→SPY) + `iaum_pullback_1d` (IAUM→GLD) are
+  # DROPPED here. alpaca_live only added those proxies for the ~$150 real
+  # account's whole-share affordability; on a large paper balance the primaries
+  # (SPY/GLD) fire directly, so running both proxy AND primary would DOUBLE the
+  # S&P/gold exposure and pollute the portfolio read. This paper book trades the
+  # primaries; the proxies stay alpaca_live-only. ROLLBACK: re-add both cells +
+  # SPLG/IAUM to `symbols`.
+  alpaca_portfolio:
+    exchange: alpaca
+    account_class: paper               # PAPER money (Alpaca paper host).
+    paper_role: portfolio              # the live-portfolio mirror (vs `soak`).
+    alpaca_env: paper                  # api paper host (vs live).
+    api_key_env: ALPACA_API_KEY_PAPER_PORTFOLIO         # dedicated paper login,
+    api_secret_env: ALPACA_API_SECRET_KEY_PAPER_PORTFOLIO  # separate from alpaca_paper.
+    mode: live                         # paper host = paper money; executes.
+    strategies:                        # alpaca_live's roster MINUS the affordability
+      - spy_trend_long_1d              # proxies (SPLG/IAUM) — see ROSTER-SYNC above.
+      - qqq_trend_long_1d
+      - gld_pullback_1d
+      - iwm_trend_long_1d
+      - tlt_pullback_1d
+      - ief_pullback_1d
+      - gld_pullback_1h
+      - slv_trend_1h
+      - spy_pullback_1h
+      - qqq_pullback_1h
+      - tlt_pullback_1h
+      - uso_trend_1h
+      - slv_pullback_1d
+      - gdx_pullback_1d
+    symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX]  # alpaca_live.symbols minus the SPLG/IAUM proxies.
+    risk:
+      max_dd_pct: 0.05                 # mirrors alpaca_live's caps.
+      daily_loss_pct: 0.05
+      daily_usd: 200                   # absolute fallback (no equity snapshot).
+      risk_pct: 0.02                   # 2% — same basis as alpaca_live, so the
+                                       # paper read is representative of live.
 
   # alpaca_live: Alpaca Trading API REAL-MONEY account — the live sibling of
   # alpaca_paper, wired so the two run CONCURRENTLY (paper keeps soaking while
