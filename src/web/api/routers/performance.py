@@ -146,11 +146,19 @@ _EXCLUDE_RECONCILER = exclude_reconciler_predicate("t.")
 _EXCLUDE_SUPERSEDED = exclude_superseded_predicate("t.") + exclude_reset_flat_predicate("t.")
 
 
-def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqlite3.Row]:
+def _query(
+    db_path: Path,
+    since: Optional[str],
+    demo: bool = False,
+    account_ids: Optional[List[str]] = None,
+) -> List[sqlite3.Row]:
     """Closed (non-backtest) trades within *since*, oldest→newest.
 
     ``demo=False`` (default) → real-money rows only.
     ``demo=True``            → paper-account rows only.
+    ``account_ids`` (optional) → additionally restrict to those account ids
+    (used for the ``paperPortfolio`` sub-block — the live-portfolio-mirror
+    paper books, S-PAPER-PORTFOLIO 2026-07-16). Empty/None → no restriction.
 
     Rows with ``pnl IS NULL`` are excluded — the reconciler fallback path
     in ``order_monitor.py`` closes trades with a NULL pnl when the broker
@@ -207,6 +215,10 @@ def _query(db_path: Path, since: Optional[str], demo: bool = False) -> List[sqli
         sql += _EXCLUDE_RECONCILER
         sql += _EXCLUDE_SUPERSEDED
         params: List[Any] = []
+        if account_ids:
+            placeholders = ",".join("?" for _ in account_ids)
+            sql += f" AND t.account_id IN ({placeholders})"
+            params.extend(account_ids)
         if since:
             sql += f" AND {_CLOSE_TIME_SQL} >= datetime(?)"
             params.append(since)
@@ -412,6 +424,37 @@ def _strip_envelope(agg: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in agg.items() if k not in ("window", "since", "error")}
 
 
+def _portfolio_paper_account_ids() -> List[str]:
+    """Account-ids of PAPER accounts flagged ``paper_role: portfolio``.
+
+    S-PAPER-PORTFOLIO (2026-07-16): the live-portfolio-mirror paper books
+    (``bybit_portfolio`` / ``alpaca_portfolio``). The ``paperPortfolio``
+    sub-block below is computed over just these so a consumer's "Paper" view
+    can scope to the real-portfolio mirror instead of the full soak roster.
+    Empty list → no portfolio accounts declared (an older config); the caller
+    then falls the ``paperPortfolio`` block back to the all-paper ``paper``
+    block so the field is always present and never misleadingly empty.
+
+    Best-effort + connection-free: any load error → ``[]`` (fall back).
+    """
+    try:
+        from src.config.accounts_loader import load_accounts_dict
+        accounts_yaml = Path(__file__).resolve().parents[4] / "config" / "accounts.yaml"
+        accounts = load_accounts_dict(accounts_yaml)
+    except Exception:  # noqa: BLE001 - best-effort; missing/garbled config → no scoping
+        return []
+    out: List[str] = []
+    for aid, cfg in (accounts or {}).items():
+        if not isinstance(cfg, dict):
+            continue
+        if (
+            str(cfg.get("account_class") or "").lower() == "paper"
+            and str(cfg.get("paper_role") or "").lower() == "portfolio"
+        ):
+            out.append(str(aid))
+    return out
+
+
 @router.get("/performance")
 def get_performance(
     window: str = Query("all", max_length=8),
@@ -440,6 +483,7 @@ def get_performance(
         empty_sub = _strip_envelope(_empty(window, since))
         env["demo"] = empty_sub
         env["paper"] = empty_sub
+        env["paperPortfolio"] = empty_sub
         return env
     try:
         live_rows = _query(_DB_PATH, since, demo=False)
@@ -448,6 +492,18 @@ def get_performance(
         paper = _strip_envelope(_aggregate(paper_rows, window, since))
         live["demo"] = paper   # back-compat alias
         live["paper"] = paper
+        # paperPortfolio (S-PAPER-PORTFOLIO 2026-07-16): the same shape computed
+        # over ONLY the live-portfolio-mirror paper accounts (paper_role:
+        # portfolio), so a consumer's "Paper" view can scope to the real
+        # portfolio instead of the full soak roster. Falls back to the all-paper
+        # block when no portfolio accounts are declared, so the field is always
+        # present (never a misleadingly-empty block on an older config).
+        portfolio_ids = _portfolio_paper_account_ids()
+        if portfolio_ids:
+            pp_rows = _query(_DB_PATH, since, demo=True, account_ids=portfolio_ids)
+            live["paperPortfolio"] = _strip_envelope(_aggregate(pp_rows, window, since))
+        else:
+            live["paperPortfolio"] = paper
         return live
     except sqlite3.Error:  # allow-silent: logged (logger.exception) + best-effort zeroed envelope so the Performance tab stays usable on a DB read failure
         logger.exception("performance: sqlite read failed")
@@ -455,6 +511,7 @@ def get_performance(
         empty_sub = _strip_envelope(_empty(window, since))
         env["demo"] = empty_sub
         env["paper"] = empty_sub
+        env["paperPortfolio"] = empty_sub
         return env
     except Exception:  # noqa: BLE001  # allow-silent: logged (logger.exception) + best-effort zeroed envelope; never raise a 5xx for this Tier-1 read
         logger.exception("performance: unexpected error")
@@ -462,4 +519,5 @@ def get_performance(
         empty_sub = _strip_envelope(_empty(window, since))
         env["demo"] = empty_sub
         env["paper"] = empty_sub
+        env["paperPortfolio"] = empty_sub
         return env
