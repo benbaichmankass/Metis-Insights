@@ -303,6 +303,61 @@ class TestWholeUnitQtyHelper:
         assert whole_unit_qty(None, min_one=True) == 1.0
 
 
+class TestWholeShareDirectionAgnostic:
+    """``position_size`` is direction-agnostic on the whole-share (alpaca) path:
+    a SHORT with mirrored geometry sizes IDENTICALLY to the LONG.
+
+    Codifies the 2026-07-16 finding (BL-20260716 / diag #6574): a report that an
+    alpaca "short sized to 0" is NOT a shorting bug — the account is
+    ``shorting_enabled`` and the sizer never branches on side. ``abs(entry - sl)``
+    and ``entry`` are the only geometry inputs, so a long and a mirror-image short
+    (same entry, stop the same distance on the opposite side) always yield the
+    same qty. Whatever refuses/rounds/sizes a long does the same to the short.
+    """
+
+    def _long_short(self, entry, stop_dist, tp_dist=10.0):
+        common = {"strategy": "tlt_pullback_1d",
+                  "meta": {"strategy_name": "tlt_pullback_1d", "strategy_risk_pct": 1.0}}
+        lng = OrderPackage(symbol="TLT", direction="long", entry=entry,
+                           sl=entry - stop_dist, tp=entry + tp_dist, **common)
+        sht = OrderPackage(symbol="TLT", direction="short", entry=entry,
+                           sl=entry + stop_dist, tp=entry - tp_dist, **common)
+        return lng, sht
+
+    def test_normal_size_identical(self):
+        """A comfortably-sized trade: long and short whole-share qty match."""
+        rm = RiskManager(dict(_ALPACA_LIKE))
+        lng, sht = self._long_short(entry=298.50, stop_dist=16.48)
+        ql = rm.position_size(lng, 100_000, whole_units=True)
+        qs = rm.position_size(sht, 100_000, whole_units=True)
+        assert ql == qs == pytest.approx(60.0)
+
+    def test_round_up_identical(self):
+        """At the round-up-to-one boundary, both size to 1 — not one to 0."""
+        rm = RiskManager({"risk_pct": 0.01, "min_balance_usd": 100,
+                          "daily_usd": 100_000, "pos_size": 100_000})
+        lng, sht = self._long_short(entry=300.0, stop_dist=1.5)
+        ql = rm.position_size(lng, 150.0, market_type="spot",
+                              available_usd=10_000.0, whole_units=True)
+        qs = rm.position_size(sht, 150.0, market_type="spot",
+                              available_usd=10_000.0, whole_units=True)
+        assert ql == qs == 1.0
+
+    def test_affordability_refusal_identical(self):
+        """The small-account refusal (the real 'sized to 0' cause) hits the SHORT
+        and the LONG the same way — it is affordability, not side."""
+        rm = RiskManager({"risk_pct": 0.02, "min_balance_usd": 100,
+                          "daily_usd": 100_000, "pos_size": 100_000})
+        # $149 acct @ 2% = $2.98 budget; a $5 stop → 1 share risks $5 = 1.68x
+        # budget > 1.5x → refused. Both sides refuse to 0.
+        lng, sht = self._long_short(entry=90.0, stop_dist=5.0)
+        ql = rm.position_size(lng, 149.0, market_type="spot",
+                              available_usd=10_000.0, whole_units=True)
+        qs = rm.position_size(sht, 149.0, market_type="spot",
+                              available_usd=10_000.0, whole_units=True)
+        assert ql == qs == 0.0
+
+
 class TestExecutorWholeShareFloorMatchesClient:
     """execute_pkg quantizes the journaled qty with the SAME helper the Alpaca
     client uses to place — so a fractional qty reaching the order build (e.g. a
