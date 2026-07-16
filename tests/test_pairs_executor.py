@@ -138,13 +138,19 @@ def test_load_pairs_config_missing_is_noop():
     assert px._load_pairs_config("/nonexistent/pairs.yaml") == {}
 
 
-def test_load_real_pairs_config_live_on_bybit_1():
+def test_load_real_pairs_config_on_bybit_1():
     cfg = px._load_pairs_config("config/pairs.yaml")
     pairs = cfg.get("pairs") or []
     assert len(pairs) == 4
-    # Operator-approved 2026-07-15: all 4 live on bybit_1 (Bybit demo / paper venue).
-    assert all(str(p.get("execution")).lower() == "live" for p in pairs)
+    # DEFENSIVE ROLLBACK 2026-07-16 (#6552): all 4 demoted live -> shadow while the
+    # executor placement bugs are fixed (open_failed on every entry). Two bugs:
+    # (1) qty=0 re-size (_place_pair calls execute_pkg without qty_override), and
+    # (2) blown-up leg SL/TP (exp of a log-SPREAD risk) — (2) is fixed by the
+    # pairs_sizing backstop clamp in this PR. Re-flip to live + restore the
+    # `== "live"` assertion once (1) is also fixed. (#6552 flipped the config but
+    # left this test asserting live, which left main red — corrected here.)
     assert cfg.get("account_id") == "bybit_1"
+    assert all(str(p.get("execution")).lower() == "shadow" for p in pairs)
 
 
 def test_decision_bars_roundtrip(tmp_path, monkeypatch):
