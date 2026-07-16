@@ -55,15 +55,32 @@ def pair_notionals(risk_budget_usd: float, risk_spread: float, beta: float,
     }
 
 
+# Bounds on the per-leg catastrophe backstop's log-price displacement. This
+# level only guards a STRANDED position (the real exit is the spread-z monitor),
+# so a bounded-wide band is correct — and a hard bound is necessary: risk_spread
+# is a LOG-spread stop (engine: s = logA − β·logB), and a degenerate/inflated
+# spread std (e.g. an unstable rolling β on a short lookback) blows it up to
+# O(1), so exp(backstop_mult · risk) explodes into a nonsensical level. That was
+# the SOLUSDT/BTCUSDT paper pairs order the venue rejected: risk≈5.4 →
+# exp(3·5.4)=e^16 → takeProfit ≈ $1.5e9 and stopLoss rounded to $0.000
+# (BL-20260716-PAIRS-BACKSTOP-EXPLODE). Clamp the displacement to a sane band.
+_MAX_BACKSTOP_LOG_MOVE = math.log(2.0)    # cap: leg backstop never worse than +100% / −50%
+_MIN_BACKSTOP_LOG_MOVE = math.log(1.02)   # floor: SL/TP never collapses onto the entry price
+
+
 def leg_protective_levels(direction: str, entry_price: float, risk_spread: float,
                           backstop_mult: float = 3.0) -> Tuple[float, float]:
     """(sl, tp) catastrophe-backstop levels for ONE leg, given the leg's own
     entry direction ('long'|'short'), its entry price, and the spread stop in
     log units. The backstop sits ``backstop_mult × risk_spread`` away in log-price
-    — wide of the spread exit on purpose. Returns (0.0, 0.0) on degenerate input."""
+    — wide of the spread exit on purpose, but the displacement is clamped to
+    ``[_MIN_BACKSTOP_LOG_MOVE, _MAX_BACKSTOP_LOG_MOVE]`` so a degenerate
+    ``risk_spread`` can never emit an exploded/collapsed level the venue rejects.
+    Returns (0.0, 0.0) on degenerate input."""
     if not (entry_price > 0 and risk_spread > 0 and backstop_mult > 0):
         return (0.0, 0.0)
     move = float(backstop_mult) * float(risk_spread)   # log-price displacement
+    move = min(max(move, _MIN_BACKSTOP_LOG_MOVE), _MAX_BACKSTOP_LOG_MOVE)
     up = entry_price * math.exp(move)
     dn = entry_price * math.exp(-move)
     if direction == "long":
