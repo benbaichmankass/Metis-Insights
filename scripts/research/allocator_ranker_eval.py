@@ -162,6 +162,7 @@ def walk_forward(rows: List[Dict[str, str]], feats: List[str], include_owner: bo
     n = len(X_all)
     bounds = [int(round(n * t / folds)) for t in range(folds + 1)]
     oos_p, oos_y = [], []
+    fold_aucs: List[Optional[float]] = []  # per-fold OOS AUC (knife-edge check)
     # expanding-window walk-forward: train on [0, bounds[k]); test on [bounds[k], bounds[k+1])
     for k in range(1, folds):
         tr_hi = bounds[k]
@@ -172,11 +173,15 @@ def walk_forward(rows: List[Dict[str, str]], feats: List[str], include_owner: bo
         p = _predict(X_all[te_lo:te_hi], w, b, mu, sigma)
         oos_p.extend(p.tolist())
         oos_y.extend(y_all[te_lo:te_hi].tolist())
+        fa = _auc(p, y_all[te_lo:te_hi])
+        fold_aucs.append(round(fa, 3) if fa is not None else None)
     if not oos_p:
         return {"error": "no OOS folds produced predictions"}
     oos_p = np.array(oos_p)
     oos_y = np.array(oos_y)
     auc = _auc(oos_p, oos_y)
+    _valid_folds = [a for a in fold_aucs if a is not None]
+    _fold_min = min(_valid_folds) if _valid_folds else None
     # full-sample refit for reported weights (sign/importance only). Name order
     # MUST mirror _row_features: feats, cell_feats, regime one-hot, owner one-hot.
     w, b, mu, sigma = _fit_logreg(X_all, y_all)
@@ -187,7 +192,55 @@ def walk_forward(rows: List[Dict[str, str]], feats: List[str], include_owner: bo
     if include_owner:
         names += [f"own:{o}" for o in owners]
     weights = sorted(zip(names, w.tolist()), key=lambda t: -abs(t[1]))
-    return {"oos_auc": auc, "oos_n": int(len(oos_y)), "weights_top": weights[:12]}
+    return {"oos_auc": auc, "oos_n": int(len(oos_y)), "fold_aucs": fold_aucs,
+            "fold_min": _fold_min, "weights_top": weights[:12]}
+
+
+class MarketRankerModel:
+    """Frozen **market-only** logistic ranker for the selection backtest
+    (allocator_multisymbol_backtest.py `--ranker-csv`).
+
+    Fit on candidate rows BEFORE ``fit_until`` (chronological prefix → the
+    backtest evaluates the strictly-later OOS window, no leakage). Serves a
+    higher-is-better P(win) score for a decision-time feature dict. Both the fit
+    path (candidates.csv rows) and the serve path (a live feature dict from
+    ``allocator_candidate_dataset._features``) funnel through the SAME
+    ``_row_features`` + ``_MARKET_FEATS`` + standardization, so fit == serve by
+    construction. Market-only on purpose: the 0.611-AUC within-candidate signal,
+    all past-only, no cell-stats / owner path-dependence to track in the sim."""
+
+    def __init__(self, w: np.ndarray, b: float, mu: np.ndarray, sigma: np.ndarray,
+                 n_fit: int, fit_until: Optional[str]):
+        self.w, self.b, self.mu, self.sigma = w, b, mu, sigma
+        self.n_fit = n_fit
+        self.fit_until = fit_until
+
+    @classmethod
+    def fit_from_csv(cls, path: str, fit_until: Optional[str]) -> "MarketRankerModel":
+        rows = _load(path)
+        if fit_until:
+            rows = [r for r in rows if str(r.get("entry_ts", "")) < fit_until]
+        X, y = [], []
+        for r in rows:
+            x = _row_features(r, _MARKET_FEATS, [], include_owner=False)
+            yy = _f(r.get("win"))
+            if x is None or yy is None:
+                continue
+            X.append(x)
+            y.append(int(yy))
+        if len(X) < 50:
+            raise ValueError(f"too few ranker-fit rows ({len(X)}) before {fit_until!r}")
+        w, b, mu, sigma = _fit_logreg(np.array(X, float), np.array(y, int))
+        return cls(w, b, mu, sigma, len(X), fit_until)
+
+    def score_feature_dict(self, feat: Dict[str, object]) -> float:
+        """P(win) for a serve-time feature dict; -inf when a market feature is
+        missing (warmup) so it ranks last."""
+        x = _row_features(feat, _MARKET_FEATS, [], include_owner=False)  # type: ignore[arg-type]
+        if x is None:
+            return float("-inf")
+        xs = (np.array(x, float) - self.mu) / self.sigma
+        return float(1.0 / (1.0 + np.exp(-(float(xs @ self.w) + self.b))))
 
 
 def _single_feature_auc(rows: List[Dict[str, str]], col: str) -> Optional[float]:

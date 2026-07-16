@@ -450,10 +450,25 @@ def _manage_open(st: _SymState, i: int) -> Optional[_Closed]:
     return None
 
 
+def _learned_rank_score(st: _SymState, i: int, cand: "_Candidate", ranker,
+                        regime_window: int) -> float:
+    """P(win) from the frozen market-only ranker for a contested candidate.
+    Builds the decision-time feature dict via the SAME `_features` the dataset
+    builder used (train/serve parity), then scores it. Lazy import avoids a
+    module-load cycle (allocator_candidate_dataset imports THIS module)."""
+    from scripts.research.allocator_candidate_dataset import _features
+    try:
+        feat = _features(st, i, cand, regime_window, {})
+        return ranker.score_feature_dict(feat)
+    except Exception:  # noqa: BLE001 — a feature failure ranks the candidate last
+        return float("-inf")
+
+
 def _run_portfolio(
     *, arm: str, symbols: List[str], states: Dict[str, _SymState], shared_ts,
     initial_balance: float, risk_pct: float, daily_loss_pct: float,
     signal_ttl_bars: int, fee_bps: float, max_concurrent: int,
+    ranker=None, regime_window: int = 48,
 ) -> Dict[str, Any]:
     """Drive one arm over the shared clock.
 
@@ -529,7 +544,7 @@ def _run_portfolio(
             equity_curve.append((str(shared_ts[i]), round(eq, 2)))
         final_real = sum(bal.values())
 
-    else:  # arm in ("ev", "shared_priority") — shared budget; rank differs by arm
+    else:  # arm in ("ev", "shared_priority", "learned") — shared budget; rank differs by arm
         balance = initial_balance
         day = None
         day_start_balance = balance
@@ -566,6 +581,12 @@ def _run_portfolio(
                     # (R-units), so rank directly on EV_R; None EV ranks last.
                     ranked = sorted(cands, key=lambda cc: (cc.ev_r if cc.ev_r is not None else -1e9),
                                     reverse=True)
+                elif arm == "learned":
+                    # rank by the frozen market-only ranker's P(win) (higher = fill
+                    # first). The LEARNED selection arm — the T1.3 test.
+                    _sc = {id(cc): _learned_rank_score(states[cc.symbol], i, cc, ranker,
+                                                       regime_window) for cc in cands}
+                    ranked = sorted(cands, key=lambda cc: _sc[id(cc)], reverse=True)
                 else:  # shared_priority — EV-BLIND symbol-priority order (sizing-normalized control)
                     ranked = sorted(cands, key=lambda cc: (sym_priority.get(cc.symbol, 1_000_000),
                                                            cc.owner))
@@ -669,7 +690,7 @@ def run_multisymbol_backtest(
     *, symbols: List[str], data: Dict[str, str], rosters: Dict[str, List[str]],
     start, end, clock_tf: str, initial_balance: float, risk_pct: float,
     daily_loss_pct: float, signal_ttl_bars: int, fee_bps: float,
-    max_concurrent: int, refresh: bool,
+    max_concurrent: int, refresh: bool, ranker=None, regime_window: int = 48,
 ) -> Dict[str, Any]:
     shared_ts, states = _build_sym_states(
         symbols=symbols, data=data, rosters=rosters, start=start, end=end,
@@ -689,6 +710,16 @@ def run_multisymbol_backtest(
         arm="shared_priority", symbols=symbols, states=states, shared_ts=shared_ts,
         initial_balance=initial_balance, risk_pct=risk_pct, daily_loss_pct=daily_loss_pct,
         signal_ttl_bars=signal_ttl_bars, fee_bps=fee_bps, max_concurrent=max_concurrent)
+    # T1.3 LEARNED selection arm — same shared-budget engine + cap as the others,
+    # but contested slots filled by the frozen market-only ranker's P(win). The
+    # learned − shared_priority delta is the LEARNED selection edge (sizing-normalized).
+    learned = None
+    if ranker is not None:
+        learned = _run_portfolio(
+            arm="learned", symbols=symbols, states=states, shared_ts=shared_ts,
+            initial_balance=initial_balance, risk_pct=risk_pct, daily_loss_pct=daily_loss_pct,
+            signal_ttl_bars=signal_ttl_bars, fee_bps=fee_bps, max_concurrent=max_concurrent,
+            ranker=ranker, regime_window=regime_window)
     return {
         "kind": "allocator_multisymbol_backtest",
         "symbols": symbols,
@@ -724,6 +755,23 @@ def run_multisymbol_backtest(
                 allocator["max_drawdown_pct"] - shared_priority["max_drawdown_pct"], 2),
             "ev_beats_priority_net": bool(allocator["net_pnl"] > shared_priority["net_pnl"]),
         },
+        # T1.3: the LEARNED ranker's sizing-normalized selection edge vs EV-blind
+        # priority (and vs the EV scorer). Present only when --ranker-csv is given.
+        "learned_arm": learned,
+        "learned_ranker": ({
+            "n_fit": ranker.n_fit, "fit_until": ranker.fit_until,
+            "feature_set": "market_only",
+        } if ranker is not None else None),
+        "learned_selection_comparison": ({
+            "net_pnl_delta_learned_minus_priority": round(
+                learned["net_pnl"] - shared_priority["net_pnl"], 2),
+            "maxdd_pct_delta_learned_minus_priority": round(
+                learned["max_drawdown_pct"] - shared_priority["max_drawdown_pct"], 2),
+            "learned_beats_priority_net": bool(learned["net_pnl"] > shared_priority["net_pnl"]),
+            "net_pnl_delta_learned_minus_ev": round(
+                learned["net_pnl"] - allocator["net_pnl"], 2),
+            "learned_beats_ev_net": bool(learned["net_pnl"] > allocator["net_pnl"]),
+        } if learned is not None else None),
     }
 
 
@@ -765,6 +813,26 @@ def _fmt(s: Dict[str, Any]) -> str:
         f"maxdd_pct_delta={s['selection_comparison']['maxdd_pct_delta_ev_minus_priority']}  "
         f"ev_beats_priority={s['selection_comparison']['ev_beats_priority_net']}",
     ]
+    lrn = s.get("learned_arm")
+    if lrn is not None:
+        lr = s.get("learned_ranker") or {}
+        lc = s.get("learned_selection_comparison") or {}
+        ll = lrn.get("allocator", {})
+        L += [
+            "  ── ARM: LEARNED (T1.3: shared budget, market-only ranker P(win) fill order) ──",
+            f"    ranker: n_fit={lr.get('n_fit')} fit_until={lr.get('fit_until')} feats={lr.get('feature_set')}",
+            f"    net=${lrn['net_pnl']:.0f} ({lrn['return_pct']}%)  maxDD={lrn['max_drawdown_pct']}%  "
+            f"trades={lrn['total_trades']} WR={lrn['win_rate_pct']}%",
+            f"    per-symbol: {lrn['per_symbol']}",
+            f"    allocator: contested_ticks={ll.get('cross_symbol_contested_ticks')} "
+            f"skips={ll.get('lower_ev_skips')} budget_binds={ll.get('budget_binds')}",
+            "  ══ LEARNED SELECTION COMPARISON (learned − shared_priority; the T1.3 gate) ══",
+            f"    net_pnl_delta=${lc.get('net_pnl_delta_learned_minus_priority'):.0f}  "
+            f"maxdd_pct_delta={lc.get('maxdd_pct_delta_learned_minus_priority')}  "
+            f"learned_beats_priority={lc.get('learned_beats_priority_net')}",
+            f"    (vs EV scorer: net_delta=${lc.get('net_pnl_delta_learned_minus_ev'):.0f}  "
+            f"learned_beats_ev={lc.get('learned_beats_ev_net')})",
+        ]
     return "\n".join(L)
 
 
@@ -830,8 +898,39 @@ def main(argv: List[str]) -> int:
                    help="ALLOCATOR arm: max simultaneous open positions across all "
                         "symbols (the shared concurrency cap the selector binds on).")
     p.add_argument("--refresh-signals", action="store_true")
+    p.add_argument("--ranker-csv", default=None,
+                   help="T1.3: candidates.csv (from allocator_candidate_dataset.py) to fit a "
+                        "frozen market-only P(win) ranker as a LEARNED selection arm.")
+    p.add_argument("--ranker-fit-until", default=None,
+                   help="Fit the ranker on candidate rows with entry_ts < this ISO ts; the "
+                        "backtest --start is set to it so ALL arms evaluate the strictly-later "
+                        "OOS window (no leakage). If omitted, derived from --ranker-fit-frac.")
+    p.add_argument("--ranker-fit-frac", type=float, default=0.6,
+                   help="When --ranker-fit-until is omitted: fit on the earliest this-fraction of "
+                        "the candidate CSV's entry_ts span; the boundary becomes the OOS --start.")
+    p.add_argument("--regime-window", type=int, default=48,
+                   help="Trailing clock bars for the ranker's decision-time regime feature "
+                        "(unused by the market-only stack, kept for parity with the dataset).")
     p.add_argument("--json", dest="json_out", default=None)
     args = p.parse_args(argv[1:])
+
+    ranker = None
+    if args.ranker_csv:
+        from scripts.research.allocator_ranker_eval import MarketRankerModel, _load
+        fit_until = args.ranker_fit_until
+        if not fit_until:
+            # derive the OOS boundary from the fraction of the CSV's entry_ts span
+            ets = sorted(str(r.get("entry_ts", "")) for r in _load(args.ranker_csv)
+                         if r.get("entry_ts"))
+            if not ets:
+                raise SystemExit(f"--ranker-csv {args.ranker_csv} has no entry_ts rows")
+            fit_until = ets[max(0, min(len(ets) - 1, int(round(len(ets) * args.ranker_fit_frac))))]
+        ranker = MarketRankerModel.fit_from_csv(args.ranker_csv, fit_until)
+        # ALL arms evaluate the strictly-later OOS window so the comparison is fair.
+        if not args.start:
+            args.start = fit_until
+        print(f"[ranker] fit market-only P(win) on {ranker.n_fit} rows before {fit_until} "
+              f"-> OOS backtest start={args.start}", file=sys.stderr)
 
     symbols, data, rosters = _parse_symbols_and_data(args)
     out = run_multisymbol_backtest(
@@ -839,7 +938,7 @@ def main(argv: List[str]) -> int:
         clock_tf=args.clock_tf, initial_balance=args.initial_balance, risk_pct=args.risk_pct,
         daily_loss_pct=args.daily_loss_pct, signal_ttl_bars=args.signal_ttl_bars,
         fee_bps=args.fee_bps_roundtrip, max_concurrent=args.max_concurrent,
-        refresh=args.refresh_signals)
+        refresh=args.refresh_signals, ranker=ranker, regime_window=args.regime_window)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)
