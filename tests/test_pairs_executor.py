@@ -209,6 +209,96 @@ def test_reconstruct_open_state_absent_meta_is_none(tmp_path):
         {"name": "pairs_x", "symbol_a": "A", "symbol_b": "B"}, "acct", str(tmp_path / "no.db")) is None
 
 
+def test_legs_below_min_qty_blocks_submin_leg(monkeypatch):
+    """The pre-placement gate flags a leg whose qty floors below the venue min
+    (BL-20260716-PAIRS-MINQTY) so the pair skips instead of half-placing."""
+    legs = [px.LegOrder("BNBUSDT", "short", 1.0, 580.0, 1160.0, 290.0),
+            px.LegOrder("BTCUSDT", "long", 0.00037, 64000.0, 32000.0, 128000.0)]
+    import src.units.accounts.qty_legalize as _ql
+
+    def _fake_legalize(qty, *, account_cfg, symbol, client=None, prefer_live=False):
+        ok = not (symbol == "BTCUSDT" and qty < 0.001)   # BTC sub-min fails
+        return _ql.LegalizedQty(qty=qty, ok=ok,
+                                reason="" if ok else "below_venue_min_qty",
+                                venue_min=0.001 if symbol == "BTCUSDT" else 0.01,
+                                step=0.001, source="instrument_profile")
+    monkeypatch.setattr(_ql, "legalize_qty", _fake_legalize)
+    blocked = px._legs_below_min_qty(object(), {"exchange": "bybit"}, legs)
+    assert len(blocked) == 1 and blocked[0]["symbol"] == "BTCUSDT"
+    assert blocked[0]["venue_min"] == 0.001
+
+
+def test_legs_below_min_qty_passes_when_both_clear(monkeypatch):
+    legs = [px.LegOrder("SOLUSDT", "long", 4.3, 77.0, 38.0, 153.0),
+            px.LegOrder("ETHUSDT", "short", 0.29, 1920.0, 3840.0, 960.0)]
+    import src.units.accounts.qty_legalize as _ql
+    monkeypatch.setattr(_ql, "legalize_qty",
+                        lambda qty, **k: _ql.LegalizedQty(qty=qty, ok=True, reason="",
+                                                          venue_min=0.01, step=0.01,
+                                                          source="instrument_profile"))
+    assert px._legs_below_min_qty(object(), {"exchange": "bybit"}, legs) == []
+
+
+def test_legs_below_min_qty_fail_open_on_lookup_error(monkeypatch):
+    """A resolution error passes the leg (fail-open) — never blocks a placeable
+    pair on a lookup miss; the submit pre-flight stays the backstop."""
+    legs = [px.LegOrder("SOLUSDT", "long", 4.3, 77.0, 38.0, 153.0)]
+    import src.units.accounts.qty_legalize as _ql
+
+    def _boom(*a, **k):
+        raise RuntimeError("lot lookup down")
+    monkeypatch.setattr(_ql, "legalize_qty", _boom)
+    assert px._legs_below_min_qty(object(), {"exchange": "bybit"}, legs) == []
+
+
+def test_run_pairs_tick_live_submin_leg_skips_no_placement(tmp_path, monkeypatch):
+    """A LIVE pair whose leg floors below the venue min is refused pre-placement
+    (skip_size) and NEVER calls execute_pkg — no half-placement / orphan."""
+    ca, cb = _extended_spread()
+    captured = []
+    monkeypatch.setattr(px, "_load_pairs_config", lambda path=None: {
+        "account_id": "bybit_1", "pairs_risk_fraction": 1.0,
+        "pairs": [{"name": "pairs_sol_btc", "symbol_a": "SOLUSDT",
+                   "symbol_b": "BTCUSDT", "execution": "live",
+                   "timeframe": "1h", "hedge_beta": "one"}],
+    })
+    monkeypatch.setattr(px, "_fetch_leg",
+                        lambda sym, tf, lim, s: (list(ca) if sym == "SOLUSDT" else list(cb), "T1"))
+    monkeypatch.setattr(px, "_pair_is_open", lambda *a, **k: False)
+    monkeypatch.setattr(px, "_held_leg_symbols", lambda *a, **k: set())
+    monkeypatch.setattr(px, "_count_correlated_open", lambda *a, **k: 0)
+    monkeypatch.setattr(px, "_save_decision_bars", lambda state: None)
+    monkeypatch.setattr(px, "_load_decision_bars", lambda: {})
+    import src.units.accounts.clients as _clients
+    monkeypatch.setattr(_clients, "bybit_client_for", lambda acct: object())
+    import src.units.accounts.execute as _exec
+    monkeypatch.setattr(_exec, "_fetch_balance", lambda *a, **k: 100000.0)
+    monkeypatch.setattr(_exec, "execute_pkg",
+                        lambda *a, **k: (_ for _ in ()).throw(
+                            AssertionError("must not place a sub-min pair")))
+    # Gate: fail the BTC leg's min-qty check.
+    import src.units.accounts.qty_legalize as _ql
+    monkeypatch.setattr(_ql, "legalize_qty",
+                        lambda qty, *, symbol, **k: _ql.LegalizedQty(
+                            qty=qty, ok=(symbol != "BTCUSDT"),
+                            reason="" if symbol != "BTCUSDT" else "below_venue_min_qty",
+                            venue_min=0.001, step=0.001, source="instrument_profile"))
+    import src.config.accounts_loader as _al
+    monkeypatch.setattr(_al, "load_accounts_dict",
+                        lambda *a, **k: {"bybit_1": {"exchange": "bybit",
+                                                     "account_class": "paper",
+                                                     "risk": {"risk_pct": 0.015}}})
+    import src.utils.paths as _paths
+    monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
+    import src.runtime.pairs_soak as _soak
+    monkeypatch.setattr(_soak, "record_pairs_soak", lambda rec: captured.append(rec) or True)
+
+    px.run_pairs_tick({})
+    assert len(captured) == 1
+    assert captured[0]["event"] == "skip_size"       # blocked, not placed
+    assert captured[0].get("min_qty_block")           # carries the blocked-leg detail
+
+
 def test_run_pairs_tick_shadow_places_nothing(tmp_path, monkeypatch):
     """A shadow-execution pair with a live entry signal writes a shadow_open soak
     row and NEVER touches the PLACEMENT path (execute_pkg). It DOES read the
@@ -240,6 +330,13 @@ def test_run_pairs_tick_shadow_places_nothing(tmp_path, monkeypatch):
     def _boom(*a, **k):
         raise AssertionError("shadow mode must not place an order (execute_pkg)")
     monkeypatch.setattr(_exec, "execute_pkg", _boom)
+    # Pass the pre-placement min-qty gate so this test exercises the shadow path
+    # (the gate itself is covered by test_legs_below_min_qty_* + the live test).
+    import src.units.accounts.qty_legalize as _ql
+    monkeypatch.setattr(_ql, "legalize_qty",
+                        lambda qty, **k: _ql.LegalizedQty(qty=qty, ok=True, reason="",
+                                                          venue_min=0.0, step=0.0,
+                                                          source="instrument_profile"))
 
     import src.config.accounts_loader as _al
     monkeypatch.setattr(_al, "load_accounts_dict",
