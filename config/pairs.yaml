@@ -21,14 +21,24 @@
 #   execution: live    → place the two legs on `account_id` (bybit_1 = Bybit
 #                        DEMO / paper venue — real order placement, paper money).
 #
-# SOL/ETH is `live` (operator-approved 2026-07-16) — placing on bybit_1 (paper);
-# both its legs clear Bybit's min contract qty. The three BTC-quote pairs
-# (SOL/BTC, BNB/BTC, ETH/BTC) are held at `shadow` (BL-20260716-PAIRS-MINQTY): the
-# BTC leg sizes below the 0.001 BTC minimum, so the pair half-places (leg A only)
-# and orphans a naked leg — they return to `live` once the min-qty-aware sizer
-# (validate BOTH legs pre-placement -> skip_size, never half-place) lands. Flipping
-# a pair to `shadow` is the rollback — a one-line change, no redeploy (config
-# re-read each tick). Tier-3: flip only with operator approval.
+# PAPER-ONLY, edge-gated (operator directive 2026-07-16): "if it's not negative,
+# trade it on paper, but not on real money." The whole sleeve routes to bybit_1
+# (Bybit DEMO / paper) — there is NO pairs config on a real-money account, so the
+# "not real money" constraint is structural. Per-pair live/shadow is now an
+# ECONOMICS call, driven by the G2 $-and-lots evidence
+# (docs/research/pairs-sleeve-real-money-readiness-2026-07-16.md § G2 FINDINGS,
+# trainer-diag #6612/#6615): the fee-free fixed-β-hold edge is
+#   SOL/ETH +$1279 · BNB/BTC +$357 · SOL/BTC −$295 · ETH/BTC −$855.
+# → the two positive-edge pairs (SOL/ETH, BNB/BTC) run `live` on paper; the two
+#   negative-edge pairs (SOL/BTC, ETH/BTC) stay `shadow`.
+# NOTE the earlier min-qty HALF-PLACEMENT safety reason for shadowing the BTC-quote
+# pairs is RESOLVED — the #6591 both-legs-or-nothing gate (deployed) skips a sub-min
+# pair cleanly (skip_size), so a naked leg can no longer form; shadow here is purely
+# "no edge", not "unsafe". CAVEAT: on the taker paper venue every pair is NET-negative
+# (7.5bps × 2 legs sinks the thin gross edge); paper placement is for EXECUTION
+# validation while the maker-fee + live-β-rehedge fix is built, NOT for paper PnL.
+# Flipping a pair to `shadow` is the one-line rollback (config re-read each tick).
+# Tier-3: flip only with operator approval.
 #
 # Rollback: set a pair back to `execution: shadow` (or delete this file → the
 # sleeve is a complete no-op).
@@ -54,7 +64,7 @@ pairs:
   - name: pairs_sol_btc
     symbol_a: SOLUSDT
     symbol_b: BTCUSDT
-    execution: shadow    # shadow-guard: allow — DEFENSIVE CONTAIN 2026-07-16 (BL-20260716-PAIRS-MINQTY): BTC leg sizes below Bybit min contract qty (0.001 BTC), so the pair half-places (leg A only) and orphans a naked leg. Held at shadow until the min-qty-aware sizer (validate BOTH legs pre-placement -> skip_size) lands. SOL/ETH stays live (both legs clear min-qty).
+    execution: shadow    # shadow-guard: allow — NO EDGE (G2 2026-07-16): fee-free fixed-β-hold $ is NEGATIVE (−$295), so it stays shadow even on paper per the "not negative → paper" rule. (The min-qty safety reason is resolved by the #6591 gate; this is now an economics hold.)
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -66,7 +76,7 @@ pairs:
   - name: pairs_bnb_btc
     symbol_a: BNBUSDT
     symbol_b: BTCUSDT
-    execution: shadow    # shadow-guard: allow — DEFENSIVE CONTAIN 2026-07-16 (BL-20260716-PAIRS-MINQTY): BTC leg sizes below Bybit min contract qty (0.001 BTC), so the pair half-places (leg A only) and orphans a naked leg. Held at shadow until the min-qty-aware sizer (validate BOTH legs pre-placement -> skip_size) lands. SOL/ETH stays live (both legs clear min-qty).
+    execution: live      # PAPER (operator-approved 2026-07-16, Tier-3): fee-free fixed-β-hold $ is POSITIVE (+$357, marginal) so it qualifies for the "not negative → paper" rule. Places both legs on bybit_1 (paper); the #6591 min-qty gate skips cleanly if the BTC leg is sub-min (no naked leg). NET-negative on taker fees — paper is for execution validation, not PnL. Rollback: set back to shadow.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -78,7 +88,7 @@ pairs:
   - name: pairs_eth_btc
     symbol_a: ETHUSDT
     symbol_b: BTCUSDT
-    execution: shadow    # shadow-guard: allow — DEFENSIVE CONTAIN 2026-07-16 (BL-20260716-PAIRS-MINQTY): BTC leg sizes below Bybit min contract qty (0.001 BTC), so the pair half-places (leg A only) and orphans a naked leg. Held at shadow until the min-qty-aware sizer (validate BOTH legs pre-placement -> skip_size) lands. SOL/ETH stays live (both legs clear min-qty).
+    execution: shadow    # shadow-guard: allow — NO EDGE (G2 2026-07-16): fee-free fixed-β-hold $ is the MOST negative (−$855), so it stays shadow even on paper per the "not negative → paper" rule. (The min-qty safety reason is resolved by the #6591 gate; this is now an economics hold.)
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
@@ -90,7 +100,7 @@ pairs:
   - name: pairs_sol_eth
     symbol_a: SOLUSDT
     symbol_b: ETHUSDT
-    execution: live      # RE-FLIP 2026-07-16 (operator-approved, Tier-3): executor bugs fixed — qty_override (#6554), bounded/clamped leg SL/TP (#6549), and risk-budget derived from balance x risk_pct (#6554). Places both legs on bybit_1 (paper). Rollback: set back to shadow.
+    execution: live      # PAPER (operator-approved 2026-07-16, Tier-3): fee-free fixed-β-hold $ is the BEST (+$1279) → qualifies for "not negative → paper". Places both legs on bybit_1 (paper); both legs clear Bybit min-qty. Executor bugs fixed: qty_override (#6554), clamped leg SL/TP (#6549), balance×risk_pct basis (#6554). NET-negative on taker fees — paper is for execution validation, not PnL. Rollback: set back to shadow.
     timeframe: 1h
     lookback: 15
     entry_z: 2.0
