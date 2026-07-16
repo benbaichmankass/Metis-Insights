@@ -49,3 +49,63 @@ net-positive on a SMALL real balance."** Every gap below flows from that.
 
 G1/G2/G4/G5 are Tier-1 (build now). G6/G7 touch the order/risk path (Tier-3 — build +
 propose). The final account wiring (step 8) is the operator's go-live flip.
+
+## G2 FINDINGS (2026-07-16) — the sleeve is NOT real-money viable as specified
+
+G2 (`scripts/research/pairs_dollar_lots.py`) ran on real 1h candles (15m CSVs
+resampled) for all 4 live pairs at bybit_2's real `risk_pct=0.015`
+(trainer-diag #6612). **The strong R-space edge does not survive translation to
+dollars-and-lots.**
+
+| pair | R-space net_R | $ @ $500 | $ @ $5k | $ @ $50k | $ @ $166k |
+|---|---|---|---|---|---|
+| SOL/BTC | +806 (win 58%) | skip 100% | skip 85% −$12 | skip 17% −$547 | skip 6% **−$2178** |
+| BNB/BTC | +790 (win 58%) | skip 100% | skip 85% −$24 | skip 18% −$856 | skip 5% **−$3219** |
+| ETH/BTC | +877 (win 59%) | skip 100% | skip 80% −$67 | skip 12% −$1373 | skip 4% **−$4658** |
+| SOL/ETH | +540 (win 56%) | skip 99.4% +$0.40 | skip 44% −$81 | skip 4% −$1237 | skip 1.5% **−$4033** |
+
+**Two hard facts:**
+
+1. **Un-placeable on a small real balance.** Below ~$1k the sleeve skips
+   **~100%** — the BTC leg (min 0.001 ≈ $118 notional) floors sub-min at
+   `risk_pct × balance` sizing. bybit_2 is low-hundreds-of-$ ⇒ it would place
+   essentially nothing.
+2. **Net-NEGATIVE where it places, worsening as it places more.** As balance
+   rises and skip% falls, net-$ gets *more* negative (−$0.03/trade at $5k →
+   −$0.84/trade at $166k for SOL/BTC). The full-participation ($166k, ~95%
+   placed) figure — the closest to the "true" executable edge — is deeply
+   negative for every pair.
+
+### This reframes the build order
+
+- **G1 (min-qty-aware scale-up) is COUNTERPRODUCTIVE here, not the fix.** Its
+  premise is "place more pairs by scaling to min-viable" — but placing *more*
+  of these trades **loses more money**. The G1 code is built + tested and stays
+  behaviour-preserving (`max_risk_multiple=1.0` = the current skip), but raising
+  its tolerance for these 4 pairs would be *wrong*. G1 only becomes useful for a
+  pair whose $-economics are actually positive.
+- **The real gate is the sleeve's $-economics, which are currently negative.**
+  The R-space `net_R` overstated the edge. Prime suspects for the R→$ gap:
+  (a) the **fixed-entry-β hold vs rolling-β spread** idealization — R-space
+  re-hedges β every bar; the live executor holds a fixed entry-β, so a drifting
+  true β leaves an unhedged directional residual that bleeds; (b) **stop
+  slippage** — R-space exits at the theoretical `stop_spread`, the $ sim (and
+  live) exits at the market bar-close past it; (c) fees on the real notionals.
+  The `--ideal-no-floor` diagnostic (trainer-diag #6615) isolates (a)+(b)+(c)
+  from lots: a net-negative *ideal* (no lot floor, hedge intact) proves the edge
+  fails on real fixed-β execution independent of min-qty.
+
+### Revised status
+
+- **Real-money routing to bybit_2 is OFF THE TABLE** until the sleeve is
+  net-positive in $ on real execution. G2 has done its job: it caught this
+  **before** any real money was routed (the whole point of the readiness build).
+- **Paper (bybit_1) should also be scrutinized** — the fixed-β-hold economics
+  apply on paper too; the live paper soak is the real-world confirmation. If the
+  ideal-no-floor is negative, the sleeve likely loses on paper as well, and the
+  D2 validation needs revisiting (it was R-space, rolling-β).
+- **Next real work is DIAGNOSIS, not routing:** confirm the R→$ gap driver
+  (#6615), then decide whether the sleeve is fixable (re-hedge to track β live? a
+  tighter cointegration/half-life screen? wider entry-z to cut stop-slippage
+  churn?) or should be demoted. This is a Tier-3 strategy question for the
+  operator, backed by the G2 numbers.
