@@ -208,12 +208,14 @@ def test_reconstruct_open_state_absent_meta_is_none(tmp_path):
 
 def test_run_pairs_tick_shadow_places_nothing(tmp_path, monkeypatch):
     """A shadow-execution pair with a live entry signal writes a shadow_open soak
-    row and NEVER touches an exchange client / placement path."""
+    row and NEVER touches the PLACEMENT path (execute_pkg). It DOES read the
+    account balance (a read, not an order) so the would-be budget is faithful —
+    derived from the canonical basis (balance × risk_pct), never a hardcoded $."""
     ca, cb = _extended_spread()
     captured = []
 
     monkeypatch.setattr(px, "_load_pairs_config", lambda path=None: {
-        "account_id": "bybit_1", "risk_budget_usd": 20.0,
+        "account_id": "bybit_1", "pairs_risk_fraction": 1.0,
         "pairs": [{"name": "pairs_sol_btc", "symbol_a": "SOLUSDT",
                    "symbol_b": "BTCUSDT", "execution": "shadow",
                    "timeframe": "1h", "hedge_beta": "one"}],
@@ -225,15 +227,22 @@ def test_run_pairs_tick_shadow_places_nothing(tmp_path, monkeypatch):
     monkeypatch.setattr(px, "_count_correlated_open", lambda *a, **k: 0)
     monkeypatch.setattr(px, "_save_decision_bars", lambda state: None)
     monkeypatch.setattr(px, "_load_decision_bars", lambda: {})
-    # A live client build would be a bug in shadow mode — make it explode if called.
-    def _boom(_):
-        raise AssertionError("shadow mode must not place / build a client")
+    # The budget derive builds a READ client + reads the balance (allowed — a read,
+    # not an order). Stub both so no real socket opens.
     import src.units.accounts.clients as _clients
-    monkeypatch.setattr(_clients, "bybit_client_for", _boom)
+    monkeypatch.setattr(_clients, "bybit_client_for", lambda acct: object())
+    import src.units.accounts.execute as _exec
+    monkeypatch.setattr(_exec, "_fetch_balance", lambda *a, **k: 100000.0)
+    # PLACEMENT is the bug in shadow mode — make execute_pkg explode if ever called.
+    def _boom(*a, **k):
+        raise AssertionError("shadow mode must not place an order (execute_pkg)")
+    monkeypatch.setattr(_exec, "execute_pkg", _boom)
 
     import src.config.accounts_loader as _al
     monkeypatch.setattr(_al, "load_accounts_dict",
-                        lambda *a, **k: {"bybit_1": {"exchange": "bybit", "account_class": "paper"}})
+                        lambda *a, **k: {"bybit_1": {"exchange": "bybit",
+                                                     "account_class": "paper",
+                                                     "risk": {"risk_pct": 0.015}}})
     import src.utils.paths as _paths
     monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
 

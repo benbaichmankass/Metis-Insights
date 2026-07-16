@@ -172,9 +172,12 @@ def _params_from_cfg(pair: Dict[str, Any]) -> pe.PairParams:
 
 
 def _load_pairs_config(path: Optional[str] = None) -> Dict[str, Any]:
-    """Load config/pairs.yaml → {account_id, risk_budget_usd, corr_factor,
-    backstop_mult, pairs:[...]}. Returns an empty dict (a no-op tick) when the
-    file is absent or unparseable — the sleeve is inert until it's authored."""
+    """Load config/pairs.yaml → {account_id, pairs_risk_fraction,
+    correlation_haircut_factor, backstop_pct, min_leg_notional_usd, pairs:[...]}.
+    Returns an empty dict (a no-op tick) when the file is absent or unparseable —
+    the sleeve is inert until it's authored. Note: the per-pair risk budget is
+    NOT in this file — it's derived at tick time from the account's live balance ×
+    risk_pct × pairs_risk_fraction (no hardcoded dollar basis)."""
     p = path or _PAIRS_CONFIG_PATH
     if not os.path.exists(p):
         return {}
@@ -474,7 +477,13 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
         return
 
     default_account = str(cfg.get("account_id") or "bybit_1")
-    risk_budget = float(cfg.get("risk_budget_usd", 20.0))
+    # Per-pair risk budget is DERIVED from the account's canonical risk basis
+    # (live balance × risk_pct), NOT a hardcoded dollar literal — the same basis
+    # RiskManager.position_size uses for every other strategy (CLAUDE.md:
+    # "sizing is the per-account RiskManager's job; account basis × …").
+    # `pairs_risk_fraction` optionally scales the sleeve below the flat account
+    # basis (default 1.0 = the full per-trade risk basis).
+    pairs_risk_fraction = float(cfg.get("pairs_risk_fraction", 1.0))
     corr_factor = float(cfg.get("correlation_haircut_factor", 0.5))
     backstop_pct = float(cfg.get("backstop_pct", 0.5))
     min_leg_notional_usd = float(cfg.get("min_leg_notional_usd", 10.0))
@@ -512,6 +521,31 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
             logger.warning("pairs: client build failed for %s: %s", account_id, exc)
             clients[account_id] = None
         return clients[account_id]
+
+    # Per-account risk budget = live balance × risk_pct × pairs_risk_fraction,
+    # cached per tick. The canonical basis (execute._fetch_balance is the same
+    # balance read RiskManager uses; risk_pct comes from the account's `risk`
+    # block). Requires a read client even in shadow so the would-be budget is
+    # faithful (a read, never an order). None when the basis is unavailable →
+    # the pair skips (never sizes off a guessed/hardcoded number).
+    budgets: Dict[str, Optional[float]] = {}
+
+    def _budget_for(account_id: str, acct_cfg: dict) -> Optional[float]:
+        if account_id in budgets:
+            return budgets[account_id]
+        val: Optional[float] = None
+        try:
+            client = _client_for(account_id)
+            if client is not None:
+                from src.units.accounts.execute import _fetch_balance
+                balance = float(_fetch_balance(client, acct_cfg))
+                risk_pct = float((acct_cfg.get("risk") or {}).get("risk_pct", 0.01))
+                if balance > 0 and risk_pct > 0:
+                    val = balance * risk_pct * pairs_risk_fraction
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("pairs: risk-budget derive failed for %s: %s", account_id, exc)
+        budgets[account_id] = val
+        return val
 
     for pair in pairs:
         try:
@@ -554,6 +588,19 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
 
             held = _held_leg_symbols(pairs, account_id, db_path, exclude_name=name)
             corr_open = _count_correlated_open(pair, pairs, account_id, db_path)
+
+            # Derive the risk budget from the account's canonical basis. If it's
+            # unavailable (no client / balance read failed), skip — never size
+            # off a fallback constant.
+            risk_budget = _budget_for(account_id, acct_cfg)
+            if risk_budget is None or risk_budget <= 0:
+                rec = build_pairs_soak_record(
+                    event="skip_no_risk_basis", pair=_pair_label(
+                        str(pair["symbol_a"]), str(pair["symbol_b"])),
+                    symbol_a=str(pair["symbol_a"]), symbol_b=str(pair["symbol_b"]),
+                    account_id=account_id, execution_mode=execution)
+                record_pairs_soak(rec)
+                continue
 
             decision = decide_pair(
                 params, closes_a, closes_b, open_state=open_state, held_symbols=held,

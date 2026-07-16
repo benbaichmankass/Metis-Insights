@@ -29,14 +29,18 @@
 # sleeve is a complete no-op).
 
 account_id: bybit_1                 # default account for all pairs (Bybit demo / paper)
-# risk_budget_usd: $ risked per pair at the spread stop (N_A = budget / risk_spread).
-# CALIBRATION NOTE (BL-20260716-PAIRS-EXEC, operator decision): at 20.0 the per-leg
-# notional on a high-priced leg (e.g. BTC) is ~$1-8, BELOW the exchange minimum, so
-# every entry hits the min_leg_notional_usd skip below → the sleeve never trades.
-# To make it place valid market-neutral orders on paper, bump this to ~300 (both
-# legs then clear the min at the hedge ratio; trivial on the $166k paper balance).
-# Left at 20.0 pending operator approval — Tier-3 sizing change.
-risk_budget_usd: 20.0
+# Per-pair $-risk-at-the-spread-stop is DERIVED from the account's canonical risk
+# basis — live balance × the account's risk_pct (config/accounts.yaml::bybit_1.risk)
+# × pairs_risk_fraction — NOT a hardcoded dollar literal. This is the same basis
+# RiskManager.position_size uses for every other strategy (CLAUDE.md: "sizing is
+# the per-account RiskManager's job; account basis × …"). The old hardcoded
+# `risk_budget_usd: 20.0` was an architectural violation (BL-20260716-PAIRS-EXEC):
+# a magic constant divorced from the account, which on the ~$166k paper balance
+# under-sized every leg below the exchange minimum → the sleeve never traded.
+# The executor reads the balance itself (execute._fetch_balance) each tick; a pair
+# whose basis can't be read skips (skip_no_risk_basis) rather than sizing off a
+# guessed number. Enforced by the pairs-sizing-basis CI guard.
+pairs_risk_fraction: 1.0            # scale the sleeve's per-pair risk below the flat account basis (1.0 = full per-trade risk basis; e.g. 0.5 = half)
 correlation_haircut_factor: 0.5     # per already-open correlated pair (shares a leg): 0.5**n
 backstop_pct: 0.5                   # per-leg catastrophe SL/TP = +/-50% of entry PRICE (wide net; the executor manages the real spread exit). NOT a function of the spread stop — see pairs_sizing.leg_protective_levels.
 min_leg_notional_usd: 10.0          # skip a pair whose sized leg notional is below this $ (would be sub-min / break the hedge if rounded up)
