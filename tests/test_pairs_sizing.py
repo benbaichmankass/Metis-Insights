@@ -61,6 +61,33 @@ def test_protective_levels_degenerate():
     assert ps.leg_protective_levels("long", 100.0, 0.0) == (0.0, 0.0)
 
 
+def test_protective_levels_clamped_on_inflated_risk_spread():
+    """Regression: a degenerate/inflated risk_spread must NOT explode the leg
+    backstop into a venue-rejected level. Repro of the SOLUSDT/BTCUSDT paper
+    pairs order (risk_spread≈5.4 → exp(3·5.4)=e^16 → $1.5e9 TP, $0 SL)."""
+    entry = 150.0
+    sl, tp = ps.leg_protective_levels("long", entry_price=entry, risk_spread=5.4,
+                                      backstop_mult=3.0)
+    # capped at +100% / −50% (log move ln 2), never the exploded/collapsed values
+    assert tp == pytest.approx(entry * 2.0, rel=1e-6)
+    assert sl == pytest.approx(entry * 0.5, rel=1e-6)
+    assert 0.0 < sl < entry < tp < 1e6  # sane band, not $1.5e9 / $0
+    # short leg mirrors: SL above (capped), TP below (floored at 0.5x)
+    sl_s, tp_s = ps.leg_protective_levels("short", entry_price=entry, risk_spread=5.4)
+    assert tp_s == pytest.approx(entry * 0.5, rel=1e-6)
+    assert sl_s == pytest.approx(entry * 2.0, rel=1e-6)
+
+
+def test_protective_levels_floored_on_tiny_risk_spread():
+    """A near-zero risk_spread must not collapse SL/TP onto the entry price."""
+    entry = 100.0
+    sl, tp = ps.leg_protective_levels("long", entry_price=entry, risk_spread=1e-6,
+                                      backstop_mult=3.0)
+    assert sl < entry < tp
+    assert tp == pytest.approx(entry * 1.02, rel=1e-6)  # floored at ln(1.02)
+    assert sl == pytest.approx(entry / 1.02, rel=1e-6)
+
+
 def test_correlation_haircut():
     assert ps.correlation_haircut(0) == 1.0
     assert ps.correlation_haircut(1, factor=0.5) == 0.5
