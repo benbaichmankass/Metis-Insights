@@ -1,0 +1,45 @@
+name: pairs-sizing-basis guard
+
+# Fails the PR check when the market-neutral pairs sleeve (M22 D2) sizes off a
+# HARDCODED dollar risk basis instead of the account's canonical basis
+# (balance × risk_pct × pairs_risk_fraction — the same basis RiskManager uses).
+# The failure it guards against: `risk_budget_usd: 20.0` as a config literal in
+# config/pairs.yaml (BL-20260716-PAIRS-EXEC) — a magic constant divorced from the
+# account that stranded the sleeve and violated the repo's one sizing contract.
+# See scripts/ci/check_pairs_sizing_basis.py.
+#
+# NOT a required status check, so it's safe to trigger-filter with `paths:` — the
+# guard statically scans config/pairs.yaml + the pairs executor, so it can only
+# change result on a diff to one of those (or the guard itself).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+    paths:
+      - "config/pairs.yaml"
+      - "src/units/strategies/pairs_executor.py"
+      - "scripts/ci/check_pairs_sizing_basis.py"
+      - ".github/workflows/pairs-sizing-basis-guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  pairs-sizing-basis-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Self-test the guard
+        run: python scripts/ci/check_pairs_sizing_basis.py --self-test
+
+      - name: Scan the pairs sleeve for a hardcoded dollar risk basis
+        run: python scripts/ci/check_pairs_sizing_basis.py

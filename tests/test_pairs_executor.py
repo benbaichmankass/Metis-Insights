@@ -142,15 +142,36 @@ def test_load_real_pairs_config_on_bybit_1():
     cfg = px._load_pairs_config("config/pairs.yaml")
     pairs = cfg.get("pairs") or []
     assert len(pairs) == 4
-    # DEFENSIVE ROLLBACK 2026-07-16 (#6552): all 4 demoted live -> shadow while the
-    # executor placement bugs are fixed (open_failed on every entry). Two bugs:
-    # (1) qty=0 re-size (_place_pair calls execute_pkg without qty_override), and
-    # (2) blown-up leg SL/TP (exp of a log-SPREAD risk) — (2) is fixed by the
-    # pairs_sizing backstop clamp in this PR. Re-flip to live + restore the
-    # `== "live"` assertion once (1) is also fixed. (#6552 flipped the config but
-    # left this test asserting live, which left main red — corrected here.)
+    # RE-FLIPPED to live 2026-07-16 (operator-approved, Tier-3) after the executor
+    # placement bugs were fixed: (1) qty=0 re-size (_place_pair passes qty_override),
+    # (2) blown-up leg SL/TP (the pairs_sizing backstop clamp, #6549), and
+    # (3) the hardcoded risk_budget_usd -> derived from balance x risk_pct (#6554).
+    # Rollback is a one-line flip back to shadow (accept either here so a defensive
+    # rollback doesn't turn this test red — the #6552 lesson).
     assert cfg.get("account_id") == "bybit_1"
-    assert all(str(p.get("execution")).lower() == "shadow" for p in pairs)
+    assert all(str(p.get("execution")).lower() in ("live", "shadow") for p in pairs)
+
+
+def test_skip_size_when_leg_notional_below_min():
+    """A pair sized below the per-leg exchange minimum skips (skip_size), never
+    places a sub-min / hedge-breaking order (BL-20260716-PAIRS-EXEC)."""
+    ca, cb = _extended_spread()
+    # tiny budget → leg notionals well under a $50 min → skip_size (not open).
+    d = px.decide_pair(_params(), ca, cb, open_state=None, held_symbols=set(),
+                       risk_budget_usd=100.0, correlation_open=0, min_leg_notional_usd=1e12)
+    assert d.event == "skip_size" and not d.legs
+    assert d.soak.get("notional_a_usd") is not None
+
+
+def test_open_legs_have_bounded_protective_levels():
+    """Regression: the placed SL/TP must be sane (within ±100% of entry), never
+    the astronomical exp(spread) values that the exchange rejected."""
+    ca, cb = _extended_spread()
+    d = px.decide_pair(_params(), ca, cb, open_state=None, held_symbols=set(),
+                       risk_budget_usd=100000.0, correlation_open=0, min_leg_notional_usd=0.0)
+    assert d.event == "open" and len(d.legs) == 2
+    for leg in d.legs:
+        assert 0 < leg.sl < leg.entry_ref * 2 and 0 < leg.tp < leg.entry_ref * 2
 
 
 def test_decision_bars_roundtrip(tmp_path, monkeypatch):
@@ -190,12 +211,14 @@ def test_reconstruct_open_state_absent_meta_is_none(tmp_path):
 
 def test_run_pairs_tick_shadow_places_nothing(tmp_path, monkeypatch):
     """A shadow-execution pair with a live entry signal writes a shadow_open soak
-    row and NEVER touches an exchange client / placement path."""
+    row and NEVER touches the PLACEMENT path (execute_pkg). It DOES read the
+    account balance (a read, not an order) so the would-be budget is faithful —
+    derived from the canonical basis (balance × risk_pct), never a hardcoded $."""
     ca, cb = _extended_spread()
     captured = []
 
     monkeypatch.setattr(px, "_load_pairs_config", lambda path=None: {
-        "account_id": "bybit_1", "risk_budget_usd": 20.0,
+        "account_id": "bybit_1", "pairs_risk_fraction": 1.0,
         "pairs": [{"name": "pairs_sol_btc", "symbol_a": "SOLUSDT",
                    "symbol_b": "BTCUSDT", "execution": "shadow",
                    "timeframe": "1h", "hedge_beta": "one"}],
@@ -207,15 +230,22 @@ def test_run_pairs_tick_shadow_places_nothing(tmp_path, monkeypatch):
     monkeypatch.setattr(px, "_count_correlated_open", lambda *a, **k: 0)
     monkeypatch.setattr(px, "_save_decision_bars", lambda state: None)
     monkeypatch.setattr(px, "_load_decision_bars", lambda: {})
-    # A live client build would be a bug in shadow mode — make it explode if called.
-    def _boom(_):
-        raise AssertionError("shadow mode must not place / build a client")
+    # The budget derive builds a READ client + reads the balance (allowed — a read,
+    # not an order). Stub both so no real socket opens.
     import src.units.accounts.clients as _clients
-    monkeypatch.setattr(_clients, "bybit_client_for", _boom)
+    monkeypatch.setattr(_clients, "bybit_client_for", lambda acct: object())
+    import src.units.accounts.execute as _exec
+    monkeypatch.setattr(_exec, "_fetch_balance", lambda *a, **k: 100000.0)
+    # PLACEMENT is the bug in shadow mode — make execute_pkg explode if ever called.
+    def _boom(*a, **k):
+        raise AssertionError("shadow mode must not place an order (execute_pkg)")
+    monkeypatch.setattr(_exec, "execute_pkg", _boom)
 
     import src.config.accounts_loader as _al
     monkeypatch.setattr(_al, "load_accounts_dict",
-                        lambda *a, **k: {"bybit_1": {"exchange": "bybit", "account_class": "paper"}})
+                        lambda *a, **k: {"bybit_1": {"exchange": "bybit",
+                                                     "account_class": "paper",
+                                                     "risk": {"risk_pct": 0.015}}})
     import src.utils.paths as _paths
     monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
 
