@@ -1,9 +1,12 @@
 # M23 (candidate) — Break the decision-label wall: augmented + external trade-outcome labels
 
-> **Status:** 📋 PROPOSED 2026-07-16 (operator-directed research session). PROPOSE-ONLY —
-> no `src/`, `config/`, `ml/`, or live-path change by this doc. Candidate milestone;
-> operator go/no-go pending. Every model still graduates observe-only through
-> `candidate → shadow → advisory`.
+> **Status:** ✅ **APPROVED 2026-07-16 (operator)** — the milestone and tonight's plan are
+> greenlit; **Phase 1 (in-distribution backtest-augmented labels) is cleared for Tier-1/offline
+> build**, to run **in parallel** with the MB-20260701-001 vol-gate work. **Phase 2 (external
+> copy-trade corpus) stays gated** on a ToS review + a distribution-alignment pre-check before
+> any spend. No `config/` or live-path change without the standard `candidate → shadow →
+> advisory` ladder + a backtest A/B + explicit Tier-3 approval — approval here is to *build and
+> evaluate* the label pipeline offline, not to influence live orders.
 
 ## Why this milestone exists — it attacks the ONE binding constraint
 
