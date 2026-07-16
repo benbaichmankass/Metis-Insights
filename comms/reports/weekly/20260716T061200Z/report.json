@@ -1,0 +1,695 @@
+{
+  "report_id": "RPT-20260716-061200-weekly",
+  "reviewed_at": "2026-07-16T06:12:00+00:00",
+  "reviewer": "claude",
+  "window": "weekly",
+  "window_start": "2026-07-09T06:07:48+00:00",
+  "window_end": "2026-07-16T06:12:00+00:00",
+  "prior_report_id": "RPT-20260711-061800-since-last",
+  "overall_assessment": "caution",
+  "health": {
+    "overall_assessment": "caution",
+    "reviewed_at": "2026-07-16T06:12:00+00:00",
+    "summary": "Core services healthy (ict-trader-live + ict-web-api both active, restarted 05:55Z; heartbeat 6s, git_sha 7a2983f1 == origin/main HEAD). 44 strategies loaded, all timers active. Two flags: (1) IB MES clients in transient breaker_open (liveness_probe_timeout, likely_wedged=false, last_ok ~5min prior, auto-clears ~1-2min) - the benign cold-flow probe backoff, not a wedge; (2) a real-money bybit_2 BTCUSDT order refused pre-flight for sub-lot-minimum qty (0.00037 < 0.001) - Prime-Directive-correct refusal but recurring ERROR-level alert noise (new BL-20260716-BYBIT2-SUBMIN-QTY).",
+    "flags": [
+      "IB MES breaker_open transient (not wedged)",
+      "bybit_2 sub-min-qty BTCUSDT refusal (new backlog item)"
+    ],
+    "services": {
+      "ict-trader-live.service": "active",
+      "ict-web-api.service": "active",
+      "ict-telegram-bot.service": "active",
+      "ict-claude-bridge.service": "active"
+    },
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "performance": {
+    "overall_assessment": "caution",
+    "reviewed_at": "2026-07-16T06:12:00+00:00",
+    "summary": "Real money (bybit_2, 7d): 11 trades, 27.3% win, +$5.57 net, expectancy $0.51, PF 1.34 - a small NET-POSITIVE week carried by the ETH book (eth_pullback_2h +$10.34, trend_donchian_eth_4h +$9.65) against the persistent alt bleeders (ada_pullback_2h -$10.05, xrp_pullback_2h -$4.14, htf_pullback_trend_2h -$1.30). 30d real is ~flat (+$0.50, expectancyR -0.34). Grading complete: 12-row ungraded delta appended (B:2 C:7 D:3); 3 D-grades are very-low-confidence unfilled shadow setups (conf 0.06/0.16/0.28). Paper 7d -$7.5k in $ but +0.50 totalR (~flat risk-normalized; inflated paper notionals). ict_scalp_5m real-money 30d R-collapse CONFIRMED (expectancyR -1.26).",
+    "trade_decision_grades_count": 12,
+    "grade_histogram": {
+      "B": 2,
+      "C": 7,
+      "D": 3
+    },
+    "flags": [
+      "ict_scalp_5m real-money 30d expectancyR -1.26 (high hit-rate, negative R) - TUNE/DEMOTE candidate",
+      "ada_pullback_2h + htf_pullback_trend_2h persistent real-money bleeders (small $)"
+    ],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "ml": {
+    "overall_assessment": "caution",
+    "reviewed_at": "2026-07-16T06:12:00+00:00",
+    "summary": "Training IS progressing: a full cycle ran 2026-07-15 (76 manifests, head e82ac858), datasets built OK (market_raw 215,862 rows, build_end rc:0). Shadow soaks accruing well - btc/eth/sol 5m regime heads ~2300-2487 predictions over 9 days with healthy score spreads. BUT three flags: (1) btc-regime-5m-lgbm-flow-v1 manifest repeatedly OOM/terminated (exit 137 then 143 after ~19h) - the VPIN/order-flow head, DATA-BLOCKED + a memory hog (MB-20260613-002 / BL-20260715-TRAINER-CYCLE-MEM-SATURATION); (2) trainer resource pressure (mem 186MB free of 5.9GB, disk 87%); (3) NO promotions - all trained models sit at candidate, shadow->advisory structurally blocked on the live_agreement gate (MB-20260626-003). btc-regime-15m-tcn-* still empty_dataset-skip (recurring).",
+    "flags": [
+      "btc-regime-5m-lgbm-flow-v1 manifest OOM/terminated repeatedly (exit 137->143)",
+      "trainer memory/disk pressure (186MB free, disk 87%)",
+      "regime-head promotion blocked on live_agreement gate - no shadow->advisory movement"
+    ],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "Net-positive real-money week (+$5.57, PF 1.34) carried by the ETH book against small alt bleeders; core services healthy and grading is fully current. Watch items: a transient (benign) IB MES probe backoff, a recurring sub-min-qty BTCUSDT refusal on bybit_2, a trainer manifest (5m-flow head) repeatedly OOMing under real memory pressure, and no ML promotions - the regime heads have soaked their time but are blocked on the live_agreement gate.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "ict_scalp_5m real-money R-collapse - decide TUNE vs DEMOTE",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "30d expectancyR -1.26 (66.7% win but tiny wins, full-R losses). Adverse realized R:R. Needs an exit/target review or a shadow demotion. PB-20260630-ICTSCALP-DEGRADE.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "Trainer memory: 5m-flow manifest OOM + box at swap ceiling",
+        "source_review": "ml",
+        "tier": 2,
+        "detail": "btc-regime-5m-lgbm-flow-v1 killed (137->143 after ~19h); trainer 186MB free. Fix: stream-aggregate the shadow-log read (attribution.py list(records)) + systemd MemoryMax + per-manifest subprocess. BL-20260715 / MB-20260709.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 3,
+        "title": "bybit_2 sub-minimum-qty BTCUSDT refusals (recurring alert noise)",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "qty 0.00037 < 0.001 lot floor on the $307 account - correct refusal but ERROR-level alert spam. Floor to minOrderQty w/ affordability re-check, or skip without an ERROR outcome. BL-20260716-BYBIT2-SUBMIN-QTY.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 4,
+        "title": "Regime heads soaked but promotion structurally blocked",
+        "source_review": "ml",
+        "tier": 3,
+        "detail": "btc/eth/sol 5m heads have 9d/2400+ preds, healthy spreads, but shadow->advisory needs the live_agreement (trade-win AUC) gate, which they can't clear. Decide whether to revisit the gate design. MB-20260626-003.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 5,
+        "title": "Standing security-hardening reminders (owner-side)",
+        "source_review": "cross",
+        "tier": 2,
+        "detail": "GHAS secret-scanning still disabled on the public repos; hardware-2FA on the owner account is the single linchpin for every issue-driven workflow. BL-20260628-SEC-HARDENING-FOLLOWUPS.",
+        "operator_action_required": true
+      }
+    ],
+    "cross_review_notes": [
+      "ada_pullback_2h is the biggest loser on BOTH the real (-$10.05/2) and paper (-$1,694/2) books this week - a genuine strategy-edge concern, not an artifact.",
+      "The trainer memory pressure (health) and the 5m-flow manifest OOM (ml) are the same root cause: the box is at its swap ceiling and one heavy manifest tips it over - a footprint/serialization fix, not a resize (Ampere pool is full).",
+      "No real-money or paper account is DOWN this week; the IB MES 'breaker_open' at snapshot is the benign transient probe backoff (last_ok 5min prior, auto-recovers), distinct from the BL-20260708 warm-up wedge."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 5.5656,
+        "prior_window_pnl": null,
+        "trend": "up",
+        "trades": 11,
+        "wins": 3,
+        "win_rate": 27.3,
+        "expectancy": 0.506,
+        "profit_factor": 1.3429,
+        "max_drawdown": -9.9949,
+        "per_strategy": [
+          {
+            "name": "eth_pullback_2h",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 10.341
+          },
+          {
+            "name": "trend_donchian_eth_4h",
+            "trades": 2,
+            "win_rate": 50.0,
+            "pnl": 9.6524
+          },
+          {
+            "name": "trend_donchian",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 1.4956
+          },
+          {
+            "name": "trend_donchian_xrp_4h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": 0.0
+          },
+          {
+            "name": "ief_pullback_1d",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -0.435
+          },
+          {
+            "name": "htf_pullback_trend_2h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -1.3018
+          },
+          {
+            "name": "xrp_pullback_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -4.1414
+          },
+          {
+            "name": "ada_pullback_2h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -10.0451
+          }
+        ],
+        "per_asset_class": {
+          "crypto": 6.0006,
+          "bond": -0.435
+        },
+        "equity_curve": []
+      },
+      "paper": {
+        "window_pnl": -7551.9678,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "trades": 24,
+        "wins": 9,
+        "win_rate": 37.5,
+        "expectancy": -314.67,
+        "profit_factor": 0.1686,
+        "max_drawdown": -8723.997,
+        "per_strategy": [
+          {
+            "name": "slv_trend_1h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -3224.07
+          },
+          {
+            "name": "ada_pullback_2h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -1694.13
+          },
+          {
+            "name": "avax_pullback_2h",
+            "trades": 2,
+            "win_rate": 50.0,
+            "pnl": -1330.21
+          },
+          {
+            "name": "htf_pullback_trend_2h",
+            "trades": 6,
+            "win_rate": 16.7,
+            "pnl": -770.28
+          },
+          {
+            "name": "trend_donchian_eth",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -415.71
+          },
+          {
+            "name": "trend_donchian",
+            "trades": 2,
+            "win_rate": 100.0,
+            "pnl": 109.78
+          },
+          {
+            "name": "sol_pullback_2h",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 161.73
+          },
+          {
+            "name": "uso_trend_1h",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 43.64
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -4260.68,
+          "commodity": -3291.29
+        },
+        "equity_curve": [],
+        "note": "totalR +0.50 (~flat risk-normalized); paper accounts carry inflated notionals so the $ figure is not comparable to real."
+      },
+      "prop": {
+        "window_pnl": null,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "fills_reported": null,
+        "tickets_emitted": null,
+        "unacted_tickets": null,
+        "rule_distance": {
+          "daily_loss_remaining": null,
+          "static_dd_remaining": null
+        },
+        "per_account": [
+          {
+            "account_id": "breakout_1",
+            "balance": null,
+            "equity": null,
+            "realized_window": null
+          }
+        ],
+        "note": "unavailable: prop journal (/api/bot/prop/*) not pulled this session; breakout_1 is API-less and no prop fills/tickets were flagged in the window. The BNBUSDT trade seen this window is bybit_1 PAPER (pairs sleeve), not prop."
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": null,
+        "close": 64907.2,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Chop-to-transitional on lower TFs (1h ADX 18.7, 15m ADX 20.7) but trending on 4h/2h (ADX 30-40); price ~64.9k inside the 1h Donchian channel."
+      },
+      {
+        "symbol": "ETHUSDT",
+        "open": null,
+        "close": 1925.21,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Trending (1h ADX 34); ~1925 inside channel [1875,1946]. The ETH book was the real-money bright spot this week."
+      },
+      {
+        "symbol": "ADAUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "ada_pullback shorts stopped out on both books - the week's biggest loser cluster."
+      },
+      {
+        "symbol": "equities/metals",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "SPY/QQQ/IWM/GLD/SLV/USO/TLT/IEF all non-actionable this tick (chop / no setup); alpaca_paper book carries large unrealized SPY long (+$2,052)."
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": 3344,
+        "order_package_id": "pkg-16c6a61a528342dc",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "trend_donchian",
+        "opened_at": "2026-07-10T01:50:16+00:00",
+        "closed_at": null,
+        "entry_price": 63754.2,
+        "exit_price": null,
+        "stop_loss": 62711.2,
+        "take_profit": 70065.87,
+        "qty": null,
+        "pnl": 1.4956,
+        "close_reason": "tp",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "tp_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.62; clean TP via exit_head (+0.36R). Small winner."
+        },
+        "model_scores": null,
+        "signal_logic": "Donchian breakout long, BTCUSDT 1h",
+        "meta": {
+          "setup_type": "trend_breakout",
+          "killzone": null,
+          "bias": "long"
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3373,
+        "order_package_id": "pkg-c7fb7aa956ae405c",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "htf_pullback_trend_2h",
+        "opened_at": "2026-07-11T04:24:31+00:00",
+        "closed_at": null,
+        "entry_price": 64163.5,
+        "exit_price": null,
+        "stop_loss": 63260.96,
+        "take_profit": 70515.69,
+        "qty": null,
+        "pnl": -0.799,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.52; stopped -0.92R. htf_pullback is the persistent real-money bleeder (16.7% win)."
+        },
+        "model_scores": null,
+        "signal_logic": "HTF pullback-trend continuation long, BTCUSDT 2h",
+        "meta": {
+          "setup_type": "pullback_trend",
+          "killzone": null,
+          "bias": "long"
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3387,
+        "order_package_id": "pkg-cd387f6ac1ea4b16",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "XRPUSDT",
+        "direction": "short",
+        "strategy": "trend_donchian_xrp_4h",
+        "opened_at": "2026-07-13T03:12:48+00:00",
+        "closed_at": null,
+        "entry_price": 1.0717,
+        "exit_price": null,
+        "stop_loss": 1.10025,
+        "take_profit": 0.9656,
+        "qty": null,
+        "pnl": 0.0,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.82; strong setup, closed flat via stale_stop (0.00R) - a break-even exit, no edge realized."
+        },
+        "model_scores": null,
+        "signal_logic": "Donchian breakout short, XRPUSDT 4h",
+        "meta": {
+          "setup_type": "trend_breakout",
+          "killzone": null,
+          "bias": "short"
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3428,
+        "order_package_id": "pkg-74a5621bd5f74f52",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "ADAUSDT",
+        "direction": "short",
+        "strategy": "ada_pullback_2h",
+        "opened_at": "2026-07-14T06:05:59+00:00",
+        "closed_at": null,
+        "entry_price": 0.1593,
+        "exit_price": null,
+        "stop_loss": 0.16378,
+        "take_profit": 0.14353,
+        "qty": null,
+        "pnl": -5.041,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.78; good setup, full-R stop (-1.00R). ada_pullback is the week's biggest real-money loser (-$10.05/2)."
+        },
+        "model_scores": null,
+        "signal_logic": "ADA pullback short, 2h",
+        "meta": {
+          "setup_type": "pullback",
+          "killzone": null,
+          "bias": "short"
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3442,
+        "order_package_id": "pkg-2f870900d01f4476",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "ADAUSDT",
+        "direction": "short",
+        "strategy": "ada_pullback_2h",
+        "opened_at": "2026-07-14T14:00:58+00:00",
+        "closed_at": null,
+        "entry_price": 0.1637,
+        "exit_price": null,
+        "stop_loss": 0.16899,
+        "take_profit": 0.14749,
+        "qty": null,
+        "pnl": -5.004,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.56; full-R stop (-1.00R), second ada_pullback loss same day."
+        },
+        "model_scores": null,
+        "signal_logic": "ADA pullback short, 2h",
+        "meta": {
+          "setup_type": "pullback",
+          "killzone": null,
+          "bias": "short"
+        },
+        "notable": true
+      }
+    ],
+    "dossier_coverage": {
+      "window": "weekly",
+      "full_dossiers": 5,
+      "summarized_trades": 6,
+      "rule": "outliers-only (weekly/monthly)"
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 223,
+        "open": 80,
+        "resolved": 143,
+        "drained": 17
+      },
+      "performance": {
+        "total": 74,
+        "open": 51,
+        "resolved": 23,
+        "drained": 1
+      },
+      "ml": {
+        "total": 72,
+        "open": 34,
+        "resolved": 38,
+        "drained": 0
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "summary": "ict_scalp_5m: TUNE (exit/target review) or DEMOTE_SHADOW - real-money 30d expectancyR -1.26 despite 66.7% win.",
+        "tier": 3
+      },
+      {
+        "source_review": "ml",
+        "summary": "Regime-head shadow->advisory: the live_agreement (trade-win AUC) gate structurally blocks promotion; revisit the gate design or accept heads stay shadow-only. MB-20260626-003.",
+        "tier": 3
+      },
+      {
+        "source_review": "performance",
+        "summary": "ada_pullback_2h + htf_pullback_trend_2h: persistent negative real-money edge - candidates for an M7 gate re-run once n accrues.",
+        "tier": 3
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "MB-20260626-003",
+        "domain": "ml",
+        "category": "awaiting-decision",
+        "detail": "Regime-head promotion blocked on the live_agreement gate; heads have soaked their time but can't clear it.",
+        "since": "2026-06-26",
+        "next_check": "operator decision on gate design"
+      },
+      {
+        "item_id": "BL-20260715-TRAINER-CYCLE-MEM-SATURATION",
+        "domain": "health",
+        "category": "awaiting-data",
+        "detail": "Trainer's own cycle drives the 6GB box into deep swap; 5m-flow manifest OOMs. Fix is a footprint/serialization change (Tier-2).",
+        "since": "2026-07-15",
+        "next_check": "trainer-infra code session lands stream-aggregate + MemoryMax"
+      },
+      {
+        "item_id": "PB-20260630-ICTSCALP-DEGRADE",
+        "domain": "performance",
+        "category": "awaiting-decision",
+        "detail": "ict_scalp_5m real-money R-collapse confirmed 2nd window; awaiting TUNE/DEMOTE decision.",
+        "since": "2026-06-30",
+        "next_check": "operator TUNE vs DEMOTE call"
+      },
+      {
+        "item_id": "MB-20260613-002",
+        "domain": "ml",
+        "category": "awaiting-data",
+        "detail": "VPIN/order-flow head (5m-flow) DATA-BLOCKED awaiting forward L2 capture; currently also the OOM offender.",
+        "since": "2026-06-13",
+        "next_check": "L2 capture path built (MB-20260604-002)"
+      },
+      {
+        "item_id": "PB-20260617-002",
+        "domain": "performance",
+        "category": "soaking",
+        "detail": "ExitPlan ladder soak accruing toward the P4 graduation gate.",
+        "since": "2026-06-17",
+        "next_check": "soak volume sufficient for backtest gate"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "ict_scalp_5m",
+            "gate": "DEMOTE_SHADOW",
+            "evidence": "real-money 30d expectancyR -1.26 (66.7% win, tiny wins vs full-R losses) - confirmed 2nd window"
+          },
+          {
+            "name": "ada_pullback_2h",
+            "gate": "DEMOTE_SHADOW",
+            "evidence": "biggest loser on both real (-$10.05/2) and paper (-$1,694/2) books this week; 20% win 30d"
+          }
+        ],
+        "summary": "No strategy or model is ready to PROMOTE. The btc/eth/sol regime heads have soaked their 7-day time (9d, 2400+ preds, healthy spreads) but shadow->advisory is structurally blocked on the live_agreement gate (MB-20260626-003). Demote/kill candidates: ict_scalp_5m (R-collapse) and ada_pullback_2h (persistent negative). Real-money bright spots holding HOLD: eth_pullback_2h, trend_donchian_eth_4h, trend_donchian."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 2,
+        "dataset_builds_ok": true,
+        "failing_or_stuck": [
+          "btc-regime-5m-lgbm-flow-v1 (OOM/terminated, exit 137->143, ~19h before kill)",
+          "btc-regime-15m-tcn-{v1,vt003,vt004} (empty_dataset skip, recurring)"
+        ],
+        "summary": "Training IS progressing - full cycles ran 2026-07-11 and 2026-07-15 (76 manifests, head e82ac858), datasets built OK (market_raw 215,862 rows, rc:0). One manifest (5m-flow VPIN head) repeatedly OOMs and one TCN family empty-dataset-skips; both tracked. Trainer under memory/disk pressure (186MB free, disk 87%)."
+      },
+      "soak_status": [
+        {
+          "soak": "btc-regime-5m-lgbm-v2 / -yz-v1 (shadow)",
+          "state": "gate_met",
+          "detail": "9 days, 2487 preds, healthy score spread (0.51-0.9999). Soak-TIME met; promotion blocked on live_agreement gate (not a soak stall)."
+        },
+        {
+          "soak": "eth-regime-5m-lgbm-v1 / sol-regime-5m-lgbm-v1 (shadow)",
+          "state": "accruing",
+          "detail": "~2312-2469 preds, healthy spreads; still accruing toward RG4 readiness (MB-20260628)."
+        },
+        {
+          "soak": "conviction-meta-v1 (shadow)",
+          "state": "accruing",
+          "detail": "1993 preds but a very narrow band (0.8168-0.8188) - near-constant; watch for degeneracy."
+        },
+        {
+          "soak": "baseline v0 heads (execution/setup-quality)",
+          "state": "accruing",
+          "detail": "Constant outputs (-0.20 / -0.057) - expected for v0 baselines, not a stall."
+        },
+        {
+          "soak": "ExitPlan ladder / fc-geometry soaks",
+          "state": "accruing",
+          "detail": "Observe-only soaks accruing toward their backtest-gated graduations (PB-20260617-002, MB-20260705)."
+        }
+      ],
+      "flags_raised": [
+        "btc-regime-5m-lgbm-flow-v1 manifest repeatedly OOM/terminated (exit 137->143) - the 5m VPIN head is both DATA-BLOCKED and the trainer's memory offender.",
+        "Trainer VM under memory/disk pressure (186MB RAM free of 5.9GB, disk 87%) - chronic OOM/wedge risk on its own cycle.",
+        "ict_scalp_5m real-money R-collapse confirmed a 2nd window (expectancyR -1.26) - needs a TUNE/DEMOTE decision.",
+        "Recurring sub-minimum-qty BTCUSDT pre-flight refusals on real-money bybit_2 (ERROR-level alert noise; correct refusal).",
+        "Regime heads have met soak-time but shadow->advisory is structurally blocked - no ML promotions are possible under the current gate.",
+        "GHAS secret-scanning remains disabled on the public repos (standing owner-side hardening reminder)."
+      ],
+      "account_reachability": {
+        "checked": [
+          "bybit_1",
+          "bybit_2",
+          "ib_paper",
+          "alpaca_paper",
+          "alpaca_options_paper"
+        ],
+        "down": [],
+        "summary": "All 5 declared-live probeable accounts reachable (api_ok=true in /accounts/balances). ib_paper read null on /exchange_positions at the snapshot instant due to a transient IB breaker_open (last_ok ~5min prior, likely_wedged=false, auto-recovers) - NOT a confirmed outage, and its balance snapshot + 2 open positions are current. No account DOWN this week. (alpaca_live api_ok=true but is mode:dry; ib_live/oanda_practice dry-shelved; breakout_1 API-less prop - all excluded from the live set.)"
+      },
+      "backlog_drive": {
+        "health": {
+          "drained": [
+            "BL-20260526-001"
+          ],
+          "deferred": [
+            {
+              "id": "BL-20260715-TRAINER-CYCLE-MEM-SATURATION",
+              "reason": "Tier-2 trainer-infra code change (stream-aggregate + MemoryMax) - not doable from a web/review session; a code session must land it."
+            },
+            {
+              "id": "BL-20260716-BYBIT2-SUBMIN-QTY",
+              "reason": "newly opened this run; Tier-2 RiskManager sizing change awaiting a code session."
+            },
+            {
+              "id": "BL-20260628-SEC-HARDENING-FOLLOWUPS",
+              "reason": "operator-only account/settings actions (2FA, GHAS, branch protection)."
+            }
+          ]
+        },
+        "performance": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "PB-20260630-ICTSCALP-DEGRADE",
+              "reason": "updated with confirming evidence; awaiting a Tier-3 TUNE/DEMOTE operator decision."
+            },
+            {
+              "id": "SRQ-20260715-REALMONEY-ALLOC-BENCHMARK",
+              "reason": "recurring benchmark; refreshed this window (real book +$5.57/PF1.34)."
+            },
+            {
+              "id": "PB-20260617-002",
+              "reason": "ExitPlan ladder still soaking toward the P4 gate."
+            }
+          ]
+        },
+        "ml": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "MB-20260626-003",
+              "reason": "structural promotion-gate design decision - Tier-3, operator-gated."
+            },
+            {
+              "id": "MB-20260613-002",
+              "reason": "5m-flow head DATA-BLOCKED awaiting forward L2 capture."
+            },
+            {
+              "id": "MB-20260709-TRAINER-SUBPROC-ISOLATION",
+              "reason": "Tier-2 trainer-infra code change awaiting a code session."
+            }
+          ]
+        },
+        "summary": "Drained BL-20260526-001 (v2 regime-head soak+engineering complete, now subsumed by MB-20260626-003). Logged 1 new finding (BL-20260716-BYBIT2-SUBMIN-QTY) + refreshed PB-20260630-ICTSCALP-DEGRADE with confirming evidence. The rest of the open set is legitimately parked: Tier-2 trainer/sizing code changes needing a code session (this is a web review session, cannot touch src/), Tier-3 operator decisions, operator-only security actions, or soaking/data-blocked ML items."
+      }
+    }
+  },
+  "artifacts": {},
+  "claude_channel_ping": {
+    "delivered_via": "pending",
+    "priority": "high",
+    "message": ""
+  }
+}
