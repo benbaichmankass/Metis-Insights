@@ -120,9 +120,13 @@ jobs:
               -o BatchMode=yes \
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=15 \
-              "${VM_SSH_USER}@${VM_SSH_HOST}" 'bash -s' <<'REMOTE' > apply.txt 2>&1
+              "${VM_SSH_USER}@${VM_SSH_HOST}" "bash -s -- ${DASHBOARD_PORT}" <<'REMOTE' > apply.txt 2>&1
           set +e
-          PORT=8001
+          # Port comes from the runner as $1 (resolved by the "Resolve target
+          # port" step from inputs.port or the issue body). The heredoc is
+          # single-quoted, so it can't interpolate $DASHBOARD_PORT directly —
+          # it's passed as a positional arg instead. Default 8001 for safety.
+          PORT="${1:-8001}"
           PUBLIC_IP=141.145.193.91
 
           echo "===== ufw (idempotent allow) ====="
