@@ -75,13 +75,17 @@ or database before you assert.
 
 ## Dashboard consumer (adopted 2026-05-12)
 
-The FastAPI on `:8001` is consumed by a **Streamlit dashboard** hosted on
-Streamlit Community Cloud, repo `benbaichmankass/ict-trader-dashboard`,
-entry point `streamlit_app.py`. **Canonical public URL (single source of
-truth):** `https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/`
-— this is what the Telegram system-report ping deep-links into
-(`…/?report=<report_id>` opens the report on the Reports page; see the
-`system-report` skill). The Streamlit Python server makes the
+The FastAPI on `:8001` is consumed by two front-ends of the same repo
+`benbaichmankass/ict-trader-dashboard`: the original **Streamlit dashboard**
+(entry point `streamlit_app.py`, Streamlit Community Cloud,
+`https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/`) and the
+newer **Svelte SPA** hosted on **GitHub Pages**
+(`https://benbaichmankass.github.io/ict-trader-dashboard/`, browser-direct to
+the bot API over HTTPS). **The Telegram system-report ping now deep-links into
+the SPA** — `https://benbaichmankass.github.io/ict-trader-dashboard/?report=<report_id>`
+opens that report on the SPA's Reports page (it reads `?report=` on load); the
+Streamlit app uses the same `?report=` scheme and still resolves while it runs.
+The Streamlit Python server makes the
 upstream HTTP call directly — there is no Vercel rewrite, no Cloudflare
 tunnel, no `cf-worker`. The previous React+Vercel+CF stack was retired
 in [ict-trader-dashboard#32](https://github.com/benbaichmankass/ict-trader-dashboard/pull/32);
