@@ -1,577 +1,577 @@
 {
- "_doc": "M20 exit-refinement coverage matrix \u2014 one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) \u2014 never inferred.",
- "updated_at": "2026-07-15",
- "lever_columns": [
-  "trail_geometry",
-  "stale_stop",
-  "giveback_stop",
-  "exit_ladder",
-  "exit_head_ml",
-  "trail_decay",
-  "regime_flip_exit",
-  "vol_trail"
- ],
- "legend": {
-  "shipped": "validated + live (ref = PR/date)",
-  "passed_unshipped": "validated, awaiting implementation/approval",
-  "honest_negative": "tested, failed the gate \u2014 hard levers/trail stand",
-  "pending": "not yet processed",
-  "blocked": "cannot process yet (reason given)",
-  "n/a": "structurally inapplicable"
- },
- "rows": [
-  {
-   "strategy": "trend_donchian",
-   "symbol": "BTCUSDT",
-   "tf": "1h",
-   "execution": "live",
-   "trail_geometry": {
-    "status": "honest_negative",
-    "ref": "memo \u00a77.2 (2.5 ATR stands)"
-   },
-   "stale_stop": {
-    "status": "honest_negative",
-    "ref": "memo \u00a76 (BTC cell fails)"
-   },
-   "giveback_stop": {
-    "status": "honest_negative",
-    "ref": "memo \u00a77.3"
-   },
-   "exit_ladder": {
-    "status": "honest_negative",
-    "ref": "memo \u00a77.2 (banking loses net_R)"
-   },
-   "exit_head_ml": {
-    "status": "shipped",
-    "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
-   },
-   "trail_decay": {
-    "status": "honest_negative",
-    "ref": "all 4 decay cells is_oos_fail (BTC 1h). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: passed_unshipped \u2014 p80 arm 6.49R tight2.5 PASS wf 4/6 (IS 51.8\u219255.4 net_R dd 21.8\u219221.0; OOS \u221224.5\u2192\u221220.8 dd 31.9\u219230.6 \u2014 improves both axes though the leg is OOS-negative either way). Tier-3 declare proposed (batch 2). P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   },
-   "vol_trail": {
-    "status": "honest_negative",
-    "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS)"
-   }
+  "_doc": "M20 exit-refinement coverage matrix \u2014 one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) \u2014 never inferred.",
+  "updated_at": "2026-07-16",
+  "lever_columns": [
+    "trail_geometry",
+    "stale_stop",
+    "giveback_stop",
+    "exit_ladder",
+    "exit_head_ml",
+    "trail_decay",
+    "regime_flip_exit",
+    "vol_trail"
+  ],
+  "legend": {
+    "shipped": "validated + live (ref = PR/date)",
+    "passed_unshipped": "validated, awaiting implementation/approval",
+    "honest_negative": "tested, failed the gate \u2014 hard levers/trail stand",
+    "pending": "not yet processed",
+    "blocked": "cannot process yet (reason given)",
+    "n/a": "structurally inapplicable"
   },
-  {
-   "strategy": "trend_donchian_eth",
-   "symbol": "ETHUSDT",
-   "tf": "1h",
-   "execution": "live",
-   "trail_geometry": {
-    "status": "honest_negative",
-    "ref": "memo \u00a77.2"
-   },
-   "stale_stop": {
-    "status": "shipped",
-    "ref": "8 bars <0R, live 2026-07-12 (#6172/#6173)"
-   },
-   "giveback_stop": {
-    "status": "honest_negative",
-    "ref": "memo \u00a77.3"
-   },
-   "exit_ladder": {
-    "status": "honest_negative",
-    "ref": "memo \u00a77.2"
-   },
-   "exit_head_ml": {
-    "status": "shipped",
-    "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
-   },
-   "trail_decay": {
-    "status": "honest_negative",
-    "ref": "all 4 cells is_oos_fail. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   },
-   "vol_trail": {
-    "status": "shipped",
-    "ref": "M20-X sweep #6507 (IS -31.1->-27.4/dd 48.3->40.7, OOS +24.1->+28.0/dd 11.7->11.3, wf 4/6); PAPER test on bybit_1 \u2014 merged #6517, deployed live HEAD be87cf8 2026-07-15 (operator-approved). Rollback = delete 3 YAML lines."
-   }
-  },
-  {
-   "strategy": "trend_donchian_sol",
-   "symbol": "SOLUSDT",
-   "tf": "1h",
-   "execution": "live",
-   "trail_geometry": {
-    "status": "honest_negative",
-    "ref": "memo \u00a77.2"
-   },
-   "stale_stop": {
-    "status": "shipped",
-    "ref": "8 bars <0R live 2026-07-12 (#6172/#6173); 8->12 UPGRADE walk-forward 6/6 (fleet sweep 2026-07-12) \u2014 Tier-3 PR pending operator approval"
-   },
-   "giveback_stop": {
-    "status": "honest_negative",
-    "ref": "memo \u00a77.3"
-   },
-   "exit_ladder": {
-    "status": "honest_negative",
-    "ref": "memo \u00a77.2"
-   },
-   "exit_head_ml": {
-    "status": "shipped",
-    "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
-   },
-   "trail_decay": {
-    "status": "honest_negative",
-    "ref": "all 4 cells is_oos_fail at the stale-less base; re-confirmed all-fail on the corrected stale12 base (relay #6255) \u2014 verdict final. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   },
-   "vol_trail": {
-    "status": "honest_negative",
-    "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS)"
-   }
-  },
-  {
-   "strategy": "htf_pullback_trend_2h",
-   "symbol": "BTCUSDT",
-   "tf": "2h",
-   "execution": "live",
-   "trail_geometry": {
-    "status": "shipped",
-    "ref": "trail_mult 5\u21924, walk-forward PASS 4/6 folds, live 2026-07-12 (#6176/#6177)"
-   },
-   "stale_stop": {
-    "status": "honest_negative",
-    "ref": "memo \u00a76"
-   },
-   "giveback_stop": {
-    "status": "honest_negative",
-    "ref": "walk-forward at CONFIG-EXACT trail4 FAILS 1/6 folds (trainer #6215, 2026-07-12) \u2014 the trail5-era sweep pass (memo \u00a77.3) did not survive the trail4 flip; trail4 already captures the giveback protection. Not shipped."
-   },
-   "exit_ladder": {
-    "status": "honest_negative",
-    "ref": "memo \u00a77.2"
-   },
-   "exit_head_ml": {
-    "status": "honest_negative",
-    "ref": "E1 pullback-2h AUC~0.50, memo \u00a78 || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_2h/pullback): peak_is_in retarget lifted AUC to 0.65-0.71 (live 0.77) but STILL honest_negative at the E1 gate \u2014 0/5 folds \u2014 every cell loses the tail (2023 actual +131R vs best model +69R). Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail."
-   },
-   "trail_decay": {
-    "status": "honest_negative",
-    "ref": "all 4 cells is_oos_fail (BTC 2h). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   },
-   "vol_trail": {
-    "status": "pending",
-    "ref": "M20-X vol_trail: donchian family swept #6507 (all negative); pullback + mixed-fleet sweep #6510 in progress \u2014 verdict pending"
-   }
-  },
-  {
-   "strategy": "eth_pullback_2h",
-   "symbol": "ETHUSDT",
-   "tf": "2h",
-   "execution": "live",
-   "trail_geometry": {
-    "status": "honest_negative",
-    "ref": "trail stays 5.0 (no passing cell), memo \u00a77.2"
-   },
-   "stale_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
-   },
-   "giveback_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
-   },
-   "exit_ladder": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked (memo \u00a77.2)"
-   },
-   "exit_head_ml": {
-    "status": "honest_negative",
-    "ref": "pooled pullback-2h head failed E1 || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_2h/pullback): peak_is_in retarget lifted AUC to 0.65-0.71 (live 0.77) but STILL honest_negative at the E1 gate \u2014 0/5 folds \u2014 every cell loses the tail (2023 actual +131R vs best model +69R). Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail."
-   },
-   "trail_decay": {
-    "status": "honest_negative",
-    "ref": "all cells fail (best stall10 wf 3/6). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   },
-   "vol_trail": {
-    "status": "pending",
-    "ref": "M20-X vol_trail: donchian family swept #6507 (all negative); pullback + mixed-fleet sweep #6510 in progress \u2014 verdict pending"
-   }
-  },
-  {
-   "strategy": "sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax_pullback_2h / eth_pullback_prop_2h",
-   "symbol": "SOL/XRP/ADA/AVAX/ETH USDT",
-   "tf": "2h",
-   "execution": "live",
-   "trail_geometry": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 all symbols fail"
-   },
-   "stale_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 all symbols fail"
-   },
-   "giveback_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 all symbols fail"
-   },
-   "exit_ladder": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
-   },
-   "exit_head_ml": {
-    "status": "honest_negative",
-    "ref": "exit-head round 3 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 934 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.54; no naive or conditional shape beats actual on net_R AND maxDD in >=3/5 folds (2023: +95.6R actual vs +72.2R best arm). Honest negative \u2014 the existing trail exits already capture the value || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_2h/pullback): peak_is_in retarget lifted AUC to 0.65-0.71 (live 0.77) but STILL honest_negative at the E1 gate \u2014 0/5 folds \u2014 every cell loses the tail (2023 actual +131R vs best model +69R). Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail."
-   },
-   "trail_decay": {
-    "status": "shipped",
-    "ref": "sol_pullback_2h stall10 tight2.5 PASS wf 5/6 (LIVE leg \u2014 Tier-3 declare proposed in #6251); xrp 3/6, ada 3/6, avax 2/6, eth_prop 2/6 all fail. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: xrp p80 arm 4.49R PASS 5/6 (OOS +23.9\u2192+27.7, 49 trades) + avax p80 arm 4.86R PASS 4/6 (OOS +11.6\u2192+15.0) \u2014 declares proposed (batch 2); sol/ada/eth_prop p80 negative. P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate. || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   },
-   "vol_trail": {
-    "status": "pending",
-    "ref": "M20-X vol_trail: donchian family swept #6507 (all negative); pullback + mixed-fleet sweep #6510 in progress \u2014 verdict pending"
-   }
-  },
-  {
-   "strategy": "trend_donchian_{eth,sol,xrp,ada,avax}_4h",
-   "symbol": "ETH/SOL/XRP/ADA/AVAX USDT",
-   "tf": "4h",
-   "execution": "live",
-   "trail_geometry": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 eth/sol/xrp/ada/avax all fail"
-   },
-   "stale_stop": {
-    "status": "shipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): XRP-4h stale8 PASS 5/6 (stale12 4/6) \u2014 Tier-3 PR #6229; eth/sol/ada/avax fail || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
-   },
-   "giveback_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
-   },
-   "exit_ladder": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
-   },
-   "exit_head_ml": {
-    "status": "honest_negative",
-    "ref": "exit-head round 2 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 953 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.55 (2023/2024 folds <0.50); best conditional shape below_half_r@tau0.15 beats actual 4/5 folds on both axes but gives back the 2023 trend year (+67.8R actual vs +3.0R; the plain stale-8 hard rule gets +37.2R there). Honest negative \u2014 no E2 || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_4h/donchian): peak_is_in retarget lifted AUC to 0.65-0.76 but STILL honest_negative at the E1 gate \u2014 best fixed cells (peak_full/lock0.5 tau0.7-0.8) pass 2/5 folds; the 2023/2024 trend folds (actual +63R/+116R) cap to ~25-32R under every cell. Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail."
-   },
-   "trail_decay": {
-    "status": "honest_negative",
-    "ref": "eth/sol/xrp 4h all cells is_oos_fail; ada stall10+combo cells errored, avax harness timeout (contention window) \u2014 negatives consistent with the family's stale/giveback fails. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: trend_donchian_sol_4h p80 arm 5.57R PASS wf 5/6 (OOS +12.8\u2192+15.0) \u2014 declare proposed (batch 2); others still negative. P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   },
-   "vol_trail": {
-    "status": "honest_negative",
-    "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS)"
-   }
-  },
-  {
-   "strategy": "squeeze_breakout_4h",
-   "symbol": "BTCUSDT",
-   "tf": "4h",
-   "execution": "live",
-   "trail_geometry": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 round 2 (runtime_logs/m20_fleet, harness levers added in the M20 exit-lever package PR; trainer relay #6233): all 6 cells (stale8/stale12/gb@MFE1/gb@MFE2/trail2.5/trail4.5) FAIL IS/OOS \u2014 the existing trail3.5 already captures the exit value"
-   },
-   "stale_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 round 2 (runtime_logs/m20_fleet, harness levers added in the M20 exit-lever package PR; trainer relay #6233): all 6 cells (stale8/stale12/gb@MFE1/gb@MFE2/trail2.5/trail4.5) FAIL IS/OOS \u2014 the existing trail3.5 already captures the exit value"
-   },
-   "giveback_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 round 2 (runtime_logs/m20_fleet, harness levers added in the M20 exit-lever package PR; trainer relay #6233): all 6 cells (stale8/stale12/gb@MFE1/gb@MFE2/trail2.5/trail4.5) FAIL IS/OOS \u2014 the existing trail3.5 already captures the exit value"
-   },
-   "exit_ladder": {
-    "status": "pending",
-    "ref": "no ladder cell in the round-2 sweep \u2014 partial-TP banking is parked milestone-wide (M20 finding: banking underperformed run-the-winner)"
-   },
-   "exit_head_ml": {
-    "status": "pending"
-   },
-   "trail_decay": {
-    "status": "n/a",
-    "ref": "squeeze harness has no decay lever (trail family lever only in trend/pullback harnesses). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   }
-  },
-  {
-   "strategy": "fvg_range_15m",
-   "symbol": "BTCUSDT",
-   "tf": "15m",
-   "execution": "live",
-   "trail_geometry": {
-    "status": "blocked",
-    "ref": "lever not applicable \u2014 fvg_range has no trail in its exit structure (stop/target/timeout); nothing to vary"
-   },
-   "stale_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 round 2 (harness levers added in the M20 exit-lever package PR; trainer relays #6234/#6235, native BTCUSDT_15m 175k rows from market_raw): all 4 cells (stale8/stale12/gb@MFE1/gb@MFE2) FAIL IS/OOS \u2014 the stop/target/timeout exit structure already captures the value"
-   },
-   "giveback_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 round 2 (harness levers added in the M20 exit-lever package PR; trainer relays #6234/#6235, native BTCUSDT_15m 175k rows from market_raw): all 4 cells (stale8/stale12/gb@MFE1/gb@MFE2) FAIL IS/OOS \u2014 the stop/target/timeout exit structure already captures the value"
-   },
-   "exit_ladder": {
-    "status": "pending",
-    "ref": "no ladder cell in the round-2 sweep \u2014 partial-TP banking is parked milestone-wide (M20 finding)"
-   },
-   "exit_head_ml": {
-    "status": "pending"
-   },
-   "trail_decay": {
-    "status": "n/a",
-    "ref": "fvg harness has no decay lever. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   }
-  },
-  {
-   "strategy": "mes_trend_long_1d / mgc_pullback_1d / mhg_pullback_1d",
-   "symbol": "MES/MGC/MHG",
-   "tf": "1d",
-   "execution": "live",
-   "trail_geometry": {
-    "status": "shipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [ES/GC/HG PROXY data]: MES trail3 4/6 + MHG trail3 5/6 PASS \u2014 Tier-3 PR #6229; MGC fails || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
-   },
-   "stale_stop": {
-    "status": "passed_unshipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [PROXY]: MHG stale12 5/6 PASS (not combined with trail3 \u2014 combos untested); MES/MGC fail || RECONCILED 2026-07-14: status kept passed_unshipped DELIBERATELY \u2014 MHG stale12 passed but was never declared (one-lever-per-leg: trail3 took the slot; stale12+trail3 combo untested). Shippable only after a combo A/B."
-   },
-   "giveback_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 [PROXY] MGC gb@MFE2 wf 3/6 fails"
-   },
-   "exit_ladder": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
-   },
-   "exit_head_ml": {
-    "status": "pending",
-    "ref": "needs native IBKR history for E0 (proxy OK for levers, not for head training)"
-   },
-   "trail_decay": {
-    "status": "shipped",
-    "ref": "mhg_pullback_1d stall10 tight1.5 PASS wf 5/6 (stall6 4/6; proxy HG_F \u2014 levers-OK; base includes shipped trail3) \u2014 Tier-3 declare proposed in #6251; mes/mgc all cells fail (mgc arm2R wf 3/6 best). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   },
-   "vol_trail": {
-    "status": "pending",
-    "ref": "M20-X vol_trail: donchian family swept #6507 (all negative); pullback + mixed-fleet sweep #6510 in progress \u2014 verdict pending"
-   }
-  },
-  {
-   "strategy": "xauusd_trend_1h",
-   "symbol": "XAUUSD",
-   "tf": "1h",
-   "execution": "live",
-   "trail_geometry": {
-    "status": "blocked",
-    "ref": "candle coverage (task #27)"
-   },
-   "stale_stop": {
-    "status": "blocked",
-    "ref": "same"
-   },
-   "giveback_stop": {
-    "status": "blocked",
-    "ref": "same"
-   },
-   "exit_ladder": {
-    "status": "blocked",
-    "ref": "same"
-   },
-   "exit_head_ml": {
-    "status": "blocked",
-    "ref": "same"
-   },
-   "trail_decay": {
-    "status": "honest_negative",
-    "ref": "all 4 cells is_oos_fail. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   },
-   "vol_trail": {
-    "status": "honest_negative",
-    "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS)"
-   }
-  },
-  {
-   "strategy": "equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; gld/tlt/ief/slv/gdx/iaum pullback)",
-   "symbol": "US ETFs",
-   "tf": "1d",
-   "execution": "live",
-   "trail_geometry": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 ALL 1d equities legs fail every lever \u2014 existing trails already capture the exit value"
-   },
-   "stale_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 ALL 1d equities legs fail every lever \u2014 existing trails already capture the exit value"
-   },
-   "giveback_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 ALL 1d equities legs fail every lever \u2014 existing trails already capture the exit value"
-   },
-   "exit_ladder": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
-   },
-   "exit_head_ml": {
-    "status": "pending",
-    "ref": "equities E0 datasets \u2014 future exit-head round"
-   },
-   "trail_decay": {
-    "status": "shipped",
-    "ref": "PASS: scha arm2R tight2 wf 6/6 (+stall10 4/6), slv stall6 tight2 5/6, iwm stall10 tight2 4/6, gld stall10 tight2 4/6, splg stall6 tight2 4/6, iaum stall10 tight2 4/6 \u2014 Tier-3 declares proposed in #6251. FAIL: spy (stall6 3/6 best), qqq, tqqq, qld, tlt_1d, ief, gdx. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: qqq p80 arm 3.56R PASS 5/6 (OOS thin, 3 trades); gld p80 arm 5.06R PASS 5/6 measured ON TOP of its declared stall10 (additive combo; OOS thin, 3 trades) \u2014 both proposed (batch 2). p80 skipped (<30 IS winners): scha, iaum, gdx. P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate. || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   },
-   "vol_trail": {
-    "status": "pending",
-    "ref": "M20-X vol_trail: donchian family swept #6507 (all negative); pullback + mixed-fleet sweep #6510 in progress \u2014 verdict pending"
-   }
-  },
-  {
-   "strategy": "equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend)",
-   "symbol": "US ETFs",
-   "tf": "1h",
-   "execution": "live",
-   "trail_geometry": {
-    "status": "shipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): TLT-1h trail3 PASS \u2014 Tier-3 PR #6229; gld/spy/qqq/slv fail || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
-   },
-   "stale_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
-   },
-   "giveback_stop": {
-    "status": "shipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): USO-1h gb1R@MFE1R PASS (IS 50.3R/dd12.8 vs 48.7R/dd13.9; OOS 9.0R/dd4.3 vs 5.5R/dd4.8; walk-forward 4/6) \u2014 monitor giveback lever implemented (_giveback_verdict) + YAML declare in Tier-3 PR, awaiting operator approval || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
-   },
-   "exit_ladder": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
-   },
-   "exit_head_ml": {
-    "status": "pending",
-    "ref": "equities E0 datasets \u2014 future exit-head round"
-   },
-   "trail_decay": {
-    "status": "shipped",
-    "ref": "PASS: tlt_pullback_1h stall6 tight1.5 wf 5/6 (also arm2R 4/6, arm1.5R+stall6 5/6) \u2014 Tier-3 declare proposed in #6251. uso_trend_1h HONEST NEGATIVE: corrected-base combo A/B (shipped giveback threaded, 6c54000; relay #6255) fails ALL 4 decay cells is_oos - the initial pass was an artifact of the lever-less base; giveback stands alone (one-lever-per-leg confirmed empirically). FAIL: gld_1h, slv_1h, spy_1h (2/6), qqq_1h (2/6). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   },
-   "vol_trail": {
-    "status": "pending",
-    "ref": "M20-X vol_trail: donchian family swept #6507 (all negative); pullback + mixed-fleet sweep #6510 in progress \u2014 verdict pending"
-   }
-  },
-  {
-   "strategy": "shadow fleet (turtle_soup, fade_breakout_4h, vwap, ict_scalp_5m, trend_donchian_1h, mgc_trend_1h, *_prop)",
-   "symbol": "various",
-   "tf": "various",
-   "execution": "shadow",
-   "trail_geometry": {
-    "status": "pending",
-    "ref": "lower priority \u2014 no live orders; process before any promotion to live"
-   },
-   "stale_stop": {
-    "status": "passed_unshipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): trend_donchian_1h (disabled shadow) stale8 4/6 PASS \u2014 note only; prop variants fail || RECONCILED 2026-07-14: status kept passed_unshipped DELIBERATELY \u2014 shadow/disabled legs \u2014 no live declare by design; value activates if a leg is ever promoted."
-   },
-   "giveback_stop": {
-    "status": "pending"
-   },
-   "exit_ladder": {
-    "status": "pending",
-    "ref": "turtle_soup is the only ladder-declaring strategy (memo \u00a75)"
-   },
-   "exit_head_ml": {
-    "status": "pending"
-   },
-   "trail_decay": {
-    "status": "passed_unshipped",
-    "ref": "shadow-leg passes (no live declare batched): trend_donchian_1h stall10 tight2.5 wf 5/6; trend_donchian_eth_prop stall6 tight1.8 5/6 (stall10 4/6); trend_donchian_sol_prop stall10 tight1.8 4/6. turtle/fade/vwap/scalp still no_harness_levers. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || RECONCILED 2026-07-14: status kept passed_unshipped DELIBERATELY \u2014 shadow/disabled legs \u2014 no live declare by design; value activates if a leg is ever promoted."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   },
-   "vol_trail": {
-    "status": "pending",
-    "ref": "M20-X vol_trail: donchian family swept #6507 (all negative); pullback + mixed-fleet sweep #6510 in progress \u2014 verdict pending"
-   }
-  },
-  {
-   "strategy": "xauusd_trend_1h / mgc_trend_1h",
-   "symbol": "XAUUSD/MGC",
-   "tf": "1h",
-   "execution": "disabled / shadow",
-   "trail_geometry": {
-    "status": "shipped",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [GC=F PROXY]: trail4 PASS 6/6 on BOTH; xauusd leg is disabled (note only); mgc_trend_1h (shadow) trail 3->4 in Tier-3 PR #6229 || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
-   },
-   "stale_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
-   },
-   "giveback_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
-   },
-   "exit_ladder": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
-   },
-   "exit_head_ml": {
-    "status": "pending"
-   },
-   "trail_decay": {
-    "status": "honest_negative",
-    "ref": "all cells is_oos_fail on both legs. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
-   },
-   "regime_flip_exit": {
-    "status": "honest_negative",
-    "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
-   }
-  }
- ]
+  "rows": [
+    {
+      "strategy": "trend_donchian",
+      "symbol": "BTCUSDT",
+      "tf": "1h",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "honest_negative",
+        "ref": "memo \u00a77.2 (2.5 ATR stands)"
+      },
+      "stale_stop": {
+        "status": "honest_negative",
+        "ref": "memo \u00a76 (BTC cell fails)"
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "memo \u00a77.3"
+      },
+      "exit_ladder": {
+        "status": "honest_negative",
+        "ref": "memo \u00a77.2 (banking loses net_R)"
+      },
+      "exit_head_ml": {
+        "status": "shipped",
+        "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
+      },
+      "trail_decay": {
+        "status": "honest_negative",
+        "ref": "all 4 decay cells is_oos_fail (BTC 1h). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: passed_unshipped \u2014 p80 arm 6.49R tight2.5 PASS wf 4/6 (IS 51.8\u219255.4 net_R dd 21.8\u219221.0; OOS \u221224.5\u2192\u221220.8 dd 31.9\u219230.6 \u2014 improves both axes though the leg is OOS-negative either way). Tier-3 declare proposed (batch 2). P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "honest_negative",
+        "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS)"
+      }
+    },
+    {
+      "strategy": "trend_donchian_eth",
+      "symbol": "ETHUSDT",
+      "tf": "1h",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "honest_negative",
+        "ref": "memo \u00a77.2"
+      },
+      "stale_stop": {
+        "status": "shipped",
+        "ref": "8 bars <0R, live 2026-07-12 (#6172/#6173)"
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "memo \u00a77.3"
+      },
+      "exit_ladder": {
+        "status": "honest_negative",
+        "ref": "memo \u00a77.2"
+      },
+      "exit_head_ml": {
+        "status": "shipped",
+        "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
+      },
+      "trail_decay": {
+        "status": "honest_negative",
+        "ref": "all 4 cells is_oos_fail. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "shipped",
+        "ref": "M20-X sweep #6507 (IS -31.1->-27.4/dd 48.3->40.7, OOS +24.1->+28.0/dd 11.7->11.3, wf 4/6); PAPER test on bybit_1 \u2014 merged #6517, deployed live HEAD be87cf8 2026-07-15 (operator-approved). Rollback = delete 3 YAML lines."
+      }
+    },
+    {
+      "strategy": "trend_donchian_sol",
+      "symbol": "SOLUSDT",
+      "tf": "1h",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "honest_negative",
+        "ref": "memo \u00a77.2"
+      },
+      "stale_stop": {
+        "status": "shipped",
+        "ref": "8 bars <0R live 2026-07-12 (#6172/#6173); 8->12 UPGRADE walk-forward 6/6 (fleet sweep 2026-07-12) \u2014 Tier-3 PR pending operator approval"
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "memo \u00a77.3"
+      },
+      "exit_ladder": {
+        "status": "honest_negative",
+        "ref": "memo \u00a77.2"
+      },
+      "exit_head_ml": {
+        "status": "shipped",
+        "ref": "E3 LIVE 2026-07-12 (#6211 merged, operator-approved; artifact promoted shadow->advisory #6217; deploy #6216). below_half_r@tau0.10; first head-driven exit = mandatory health-review check."
+      },
+      "trail_decay": {
+        "status": "honest_negative",
+        "ref": "all 4 cells is_oos_fail at the stale-less base; re-confirmed all-fail on the corrected stale12 base (relay #6255) \u2014 verdict final. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "honest_negative",
+        "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS)"
+      }
+    },
+    {
+      "strategy": "htf_pullback_trend_2h",
+      "symbol": "BTCUSDT",
+      "tf": "2h",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "shipped",
+        "ref": "trail_mult 5\u21924, walk-forward PASS 4/6 folds, live 2026-07-12 (#6176/#6177)"
+      },
+      "stale_stop": {
+        "status": "honest_negative",
+        "ref": "memo \u00a76"
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "walk-forward at CONFIG-EXACT trail4 FAILS 1/6 folds (trainer #6215, 2026-07-12) \u2014 the trail5-era sweep pass (memo \u00a77.3) did not survive the trail4 flip; trail4 already captures the giveback protection. Not shipped."
+      },
+      "exit_ladder": {
+        "status": "honest_negative",
+        "ref": "memo \u00a77.2"
+      },
+      "exit_head_ml": {
+        "status": "honest_negative",
+        "ref": "E1 pullback-2h AUC~0.50, memo \u00a78 || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_2h/pullback): peak_is_in retarget lifted AUC to 0.65-0.71 (live 0.77) but STILL honest_negative at the E1 gate \u2014 0/5 folds \u2014 every cell loses the tail (2023 actual +131R vs best model +69R). Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail."
+      },
+      "trail_decay": {
+        "status": "honest_negative",
+        "ref": "all 4 cells is_oos_fail (BTC 2h). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "honest_negative",
+        "ref": "M20-X vol_trail pullback+mixed sweep #6510 DONE 2026-07-15 (all cells is_oos_fail/wf_fail; config-exact 5y IS/OOS)"
+      }
+    },
+    {
+      "strategy": "eth_pullback_2h",
+      "symbol": "ETHUSDT",
+      "tf": "2h",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "honest_negative",
+        "ref": "trail stays 5.0 (no passing cell), memo \u00a77.2"
+      },
+      "stale_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+      },
+      "exit_ladder": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked (memo \u00a77.2)"
+      },
+      "exit_head_ml": {
+        "status": "honest_negative",
+        "ref": "pooled pullback-2h head failed E1 || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_2h/pullback): peak_is_in retarget lifted AUC to 0.65-0.71 (live 0.77) but STILL honest_negative at the E1 gate \u2014 0/5 folds \u2014 every cell loses the tail (2023 actual +131R vs best model +69R). Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail."
+      },
+      "trail_decay": {
+        "status": "honest_negative",
+        "ref": "all cells fail (best stall10 wf 3/6). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "honest_negative",
+        "ref": "M20-X vol_trail pullback+mixed sweep #6510 DONE 2026-07-15 (all cells is_oos_fail/wf_fail; config-exact 5y IS/OOS)"
+      }
+    },
+    {
+      "strategy": "sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax_pullback_2h / eth_pullback_prop_2h",
+      "symbol": "SOL/XRP/ADA/AVAX/ETH USDT",
+      "tf": "2h",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 all symbols fail"
+      },
+      "stale_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 all symbols fail"
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 all symbols fail"
+      },
+      "exit_ladder": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
+      },
+      "exit_head_ml": {
+        "status": "honest_negative",
+        "ref": "exit-head round 3 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 934 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.54; no naive or conditional shape beats actual on net_R AND maxDD in >=3/5 folds (2023: +95.6R actual vs +72.2R best arm). Honest negative \u2014 the existing trail exits already capture the value || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_2h/pullback): peak_is_in retarget lifted AUC to 0.65-0.71 (live 0.77) but STILL honest_negative at the E1 gate \u2014 0/5 folds \u2014 every cell loses the tail (2023 actual +131R vs best model +69R). Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail."
+      },
+      "trail_decay": {
+        "status": "shipped",
+        "ref": "sol_pullback_2h stall10 tight2.5 PASS wf 5/6 (LIVE leg \u2014 Tier-3 declare proposed in #6251); xrp 3/6, ada 3/6, avax 2/6, eth_prop 2/6 all fail. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: xrp p80 arm 4.49R PASS 5/6 (OOS +23.9\u2192+27.7, 49 trades) + avax p80 arm 4.86R PASS 4/6 (OOS +11.6\u2192+15.0) \u2014 declares proposed (batch 2); sol/ada/eth_prop p80 negative. P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate. || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "honest_negative",
+        "ref": "M20-X vol_trail pullback+mixed sweep #6510 DONE 2026-07-15 (all cells is_oos_fail/wf_fail; config-exact 5y IS/OOS)"
+      }
+    },
+    {
+      "strategy": "trend_donchian_{eth,sol,xrp,ada,avax}_4h",
+      "symbol": "ETH/SOL/XRP/ADA/AVAX USDT",
+      "tf": "4h",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 eth/sol/xrp/ada/avax all fail"
+      },
+      "stale_stop": {
+        "status": "shipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): XRP-4h stale8 PASS 5/6 (stale12 4/6) \u2014 Tier-3 PR #6229; eth/sol/ada/avax fail || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+      },
+      "exit_ladder": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
+      },
+      "exit_head_ml": {
+        "status": "honest_negative",
+        "ref": "exit-head round 2 (2026-07-12, m20_exit_head_round.py, trainer relays #6236/#6238-#6240; 953 harness trades, 5 folds): E1 GATE FAIL \u2014 AUC mean ~0.55 (2023/2024 folds <0.50); best conditional shape below_half_r@tau0.15 beats actual 4/5 folds on both axes but gives back the 2023 trend year (+67.8R actual vs +3.0R; the plain stale-8 hard rule gets +37.2R there). Honest negative \u2014 no E2 || PEAK-RETARGET UPDATE (2026-07-13, zero-regret M20 tail, relay #6280 run + #6305 readout; runtime_logs/m20_exit_head/peak_4h/donchian): peak_is_in retarget lifted AUC to 0.65-0.76 but STILL honest_negative at the E1 gate \u2014 best fixed cells (peak_full/lock0.5 tau0.7-0.8) pass 2/5 folds; the 2023/2024 trend folds (actual +63R/+116R) cap to ~25-32R under every cell. Confirms the M20 pattern: the peak head only pays where actual exits are bad (BTC 1h donchian); healthy legs lose the trend tail."
+      },
+      "trail_decay": {
+        "status": "honest_negative",
+        "ref": "eth/sol/xrp 4h all cells is_oos_fail; ada stall10+combo cells errored, avax harness timeout (contention window) \u2014 negatives consistent with the family's stale/giveback fails. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: trend_donchian_sol_4h p80 arm 5.57R PASS wf 5/6 (OOS +12.8\u2192+15.0) \u2014 declare proposed (batch 2); others still negative. P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "honest_negative",
+        "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS)"
+      }
+    },
+    {
+      "strategy": "squeeze_breakout_4h",
+      "symbol": "BTCUSDT",
+      "tf": "4h",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 round 2 (runtime_logs/m20_fleet, harness levers added in the M20 exit-lever package PR; trainer relay #6233): all 6 cells (stale8/stale12/gb@MFE1/gb@MFE2/trail2.5/trail4.5) FAIL IS/OOS \u2014 the existing trail3.5 already captures the exit value"
+      },
+      "stale_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 round 2 (runtime_logs/m20_fleet, harness levers added in the M20 exit-lever package PR; trainer relay #6233): all 6 cells (stale8/stale12/gb@MFE1/gb@MFE2/trail2.5/trail4.5) FAIL IS/OOS \u2014 the existing trail3.5 already captures the exit value"
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 round 2 (runtime_logs/m20_fleet, harness levers added in the M20 exit-lever package PR; trainer relay #6233): all 6 cells (stale8/stale12/gb@MFE1/gb@MFE2/trail2.5/trail4.5) FAIL IS/OOS \u2014 the existing trail3.5 already captures the exit value"
+      },
+      "exit_ladder": {
+        "status": "pending",
+        "ref": "no ladder cell in the round-2 sweep \u2014 partial-TP banking is parked milestone-wide (M20 finding: banking underperformed run-the-winner)"
+      },
+      "exit_head_ml": {
+        "status": "pending"
+      },
+      "trail_decay": {
+        "status": "n/a",
+        "ref": "squeeze harness has no decay lever (trail family lever only in trend/pullback harnesses). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      }
+    },
+    {
+      "strategy": "fvg_range_15m",
+      "symbol": "BTCUSDT",
+      "tf": "15m",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "blocked",
+        "ref": "lever not applicable \u2014 fvg_range has no trail in its exit structure (stop/target/timeout); nothing to vary"
+      },
+      "stale_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 round 2 (harness levers added in the M20 exit-lever package PR; trainer relays #6234/#6235, native BTCUSDT_15m 175k rows from market_raw): all 4 cells (stale8/stale12/gb@MFE1/gb@MFE2) FAIL IS/OOS \u2014 the stop/target/timeout exit structure already captures the value"
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 round 2 (harness levers added in the M20 exit-lever package PR; trainer relays #6234/#6235, native BTCUSDT_15m 175k rows from market_raw): all 4 cells (stale8/stale12/gb@MFE1/gb@MFE2) FAIL IS/OOS \u2014 the stop/target/timeout exit structure already captures the value"
+      },
+      "exit_ladder": {
+        "status": "pending",
+        "ref": "no ladder cell in the round-2 sweep \u2014 partial-TP banking is parked milestone-wide (M20 finding)"
+      },
+      "exit_head_ml": {
+        "status": "pending"
+      },
+      "trail_decay": {
+        "status": "n/a",
+        "ref": "fvg harness has no decay lever. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      }
+    },
+    {
+      "strategy": "mes_trend_long_1d / mgc_pullback_1d / mhg_pullback_1d",
+      "symbol": "MES/MGC/MHG",
+      "tf": "1d",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "shipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [ES/GC/HG PROXY data]: MES trail3 4/6 + MHG trail3 5/6 PASS \u2014 Tier-3 PR #6229; MGC fails || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
+      },
+      "stale_stop": {
+        "status": "passed_unshipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [PROXY]: MHG stale12 5/6 PASS (not combined with trail3 \u2014 combos untested); MES/MGC fail || RECONCILED 2026-07-14: status kept passed_unshipped DELIBERATELY \u2014 MHG stale12 passed but was never declared (one-lever-per-leg: trail3 took the slot; stale12+trail3 combo untested). Shippable only after a combo A/B."
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 [PROXY] MGC gb@MFE2 wf 3/6 fails"
+      },
+      "exit_ladder": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
+      },
+      "exit_head_ml": {
+        "status": "pending",
+        "ref": "needs native IBKR history for E0 (proxy OK for levers, not for head training)"
+      },
+      "trail_decay": {
+        "status": "shipped",
+        "ref": "mhg_pullback_1d stall10 tight1.5 PASS wf 5/6 (stall6 4/6; proxy HG_F \u2014 levers-OK; base includes shipped trail3) \u2014 Tier-3 declare proposed in #6251; mes/mgc all cells fail (mgc arm2R wf 3/6 best). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "honest_negative",
+        "ref": "M20-X vol_trail #6510: mgc_pullback_1d + mhg_pullback_1d [PROXY] both honest_negative; mes_trend_long_1d is a trend leg (not in the pullback sweep) \u2014 its vol_trail round is a separate trend-fleet item"
+      }
+    },
+    {
+      "strategy": "xauusd_trend_1h",
+      "symbol": "XAUUSD",
+      "tf": "1h",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "blocked",
+        "ref": "candle coverage (task #27)"
+      },
+      "stale_stop": {
+        "status": "blocked",
+        "ref": "same"
+      },
+      "giveback_stop": {
+        "status": "blocked",
+        "ref": "same"
+      },
+      "exit_ladder": {
+        "status": "blocked",
+        "ref": "same"
+      },
+      "exit_head_ml": {
+        "status": "blocked",
+        "ref": "same"
+      },
+      "trail_decay": {
+        "status": "honest_negative",
+        "ref": "all 4 cells is_oos_fail. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "honest_negative",
+        "ref": "M20-X vol_trail sweep #6507 (is_oos_fail/wf_fail; config-exact 5y IS/OOS)"
+      }
+    },
+    {
+      "strategy": "equities 1d fleet (spy/qqq/tqqq/qld/iwm/splg/scha trend; gld/tlt/ief/slv/gdx/iaum pullback)",
+      "symbol": "US ETFs",
+      "tf": "1d",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 ALL 1d equities legs fail every lever \u2014 existing trails already capture the exit value"
+      },
+      "stale_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 ALL 1d equities legs fail every lever \u2014 existing trails already capture the exit value"
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 ALL 1d equities legs fail every lever \u2014 existing trails already capture the exit value"
+      },
+      "exit_ladder": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
+      },
+      "exit_head_ml": {
+        "status": "pending",
+        "ref": "equities E0 datasets \u2014 future exit-head round"
+      },
+      "trail_decay": {
+        "status": "shipped",
+        "ref": "PASS: scha arm2R tight2 wf 6/6 (+stall10 4/6), slv stall6 tight2 5/6, iwm stall10 tight2 4/6, gld stall10 tight2 4/6, splg stall6 tight2 4/6, iaum stall10 tight2 4/6 \u2014 Tier-3 declares proposed in #6251. FAIL: spy (stall6 3/6 best), qqq, tqqq, qld, tlt_1d, ief, gdx. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || P4.4 UPDATE: qqq p80 arm 3.56R PASS 5/6 (OOS thin, 3 trades); gld p80 arm 5.06R PASS 5/6 measured ON TOP of its declared stall10 (additive combo; OOS thin, 3 trades) \u2014 both proposed (batch 2). p80 skipped (<30 IS winners): scha, iaum, gdx. P4.4 p80 winner-MFE sweep (2026-07-13, m20_fleet_exit_sweep --p80-only, relay #6271/#6272; runtime_logs/m20_fleet_p80/2026-07-13). Arm = P80 of the leg's own IS-window winner-MFE; tight = base/2; same IS/OOS + wf gate. || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "honest_negative",
+        "ref": "M20-X vol_trail #6510: gld/tlt/ief/slv/gdx/iaum pullback-1d all honest_negative; the 1d TREND legs (spy/qqq/tqqq/qld/iwm/splg/scha) are a separate trend-fleet vol_trail round (not in #6510's pullback sweep)"
+      }
+    },
+    {
+      "strategy": "equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend)",
+      "symbol": "US ETFs",
+      "tf": "1h",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "shipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): TLT-1h trail3 PASS \u2014 Tier-3 PR #6229; gld/spy/qqq/slv fail || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
+      },
+      "stale_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+      },
+      "giveback_stop": {
+        "status": "shipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): USO-1h gb1R@MFE1R PASS (IS 50.3R/dd12.8 vs 48.7R/dd13.9; OOS 9.0R/dd4.3 vs 5.5R/dd4.8; walk-forward 4/6) \u2014 monitor giveback lever implemented (_giveback_verdict) + YAML declare in Tier-3 PR, awaiting operator approval || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
+      },
+      "exit_ladder": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
+      },
+      "exit_head_ml": {
+        "status": "pending",
+        "ref": "equities E0 datasets \u2014 future exit-head round"
+      },
+      "trail_decay": {
+        "status": "shipped",
+        "ref": "PASS: tlt_pullback_1h stall6 tight1.5 wf 5/6 (also arm2R 4/6, arm1.5R+stall6 5/6) \u2014 Tier-3 declare proposed in #6251. uso_trend_1h HONEST NEGATIVE: corrected-base combo A/B (shipped giveback threaded, 6c54000; relay #6255) fails ALL 4 decay cells is_oos - the initial pass was an artifact of the lever-less base; giveback stands alone (one-lever-per-leg confirmed empirically). FAIL: gld_1h, slv_1h, spy_1h (2/6), qqq_1h (2/6). P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "passed_unshipped",
+        "ref": "M20-X vol_trail #6510: LONE PASS qqq_pullback_1h ['vt_hot80_t2.5'] (hot-tail); gld/spy/tlt pullback-1h all honest_negative. PASS is wf-UNVERIFIED \u2014 needs the yearly walk-forward detail (>=4/6) before any Tier-3 declare, same gate as the ETH cold cell. slv/uso TREND-1h legs not in the pullback sweep."
+      }
+    },
+    {
+      "strategy": "shadow fleet (turtle_soup, fade_breakout_4h, vwap, ict_scalp_5m, trend_donchian_1h, mgc_trend_1h, *_prop)",
+      "symbol": "various",
+      "tf": "various",
+      "execution": "shadow",
+      "trail_geometry": {
+        "status": "pending",
+        "ref": "lower priority \u2014 no live orders; process before any promotion to live"
+      },
+      "stale_stop": {
+        "status": "passed_unshipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet): trend_donchian_1h (disabled shadow) stale8 4/6 PASS \u2014 note only; prop variants fail || RECONCILED 2026-07-14: status kept passed_unshipped DELIBERATELY \u2014 shadow/disabled legs \u2014 no live declare by design; value activates if a leg is ever promoted."
+      },
+      "giveback_stop": {
+        "status": "pending"
+      },
+      "exit_ladder": {
+        "status": "pending",
+        "ref": "turtle_soup is the only ladder-declaring strategy (memo \u00a75)"
+      },
+      "exit_head_ml": {
+        "status": "pending"
+      },
+      "trail_decay": {
+        "status": "passed_unshipped",
+        "ref": "shadow-leg passes (no live declare batched): trend_donchian_1h stall10 tight2.5 wf 5/6; trend_donchian_eth_prop stall6 tight1.8 5/6 (stall10 4/6); trend_donchian_sol_prop stall10 tight1.8 4/6. turtle/fade/vwap/scalp still no_harness_levers. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6. || RECONCILED 2026-07-14: status kept passed_unshipped DELIBERATELY \u2014 shadow/disabled legs \u2014 no live declare by design; value activates if a leg is ever promoted."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "pending",
+        "ref": "M20-X vol_trail: #6510 covered the pullback+mixed fleet only; the shadow families (turtle/fade/vwap/scalp/1h/prop) each need their own harness-lever round before a vol_trail verdict \u2014 not yet run"
+      }
+    },
+    {
+      "strategy": "xauusd_trend_1h / mgc_trend_1h",
+      "symbol": "XAUUSD/MGC",
+      "tf": "1h",
+      "execution": "disabled / shadow",
+      "trail_geometry": {
+        "status": "shipped",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) [GC=F PROXY]: trail4 PASS 6/6 on BOTH; xauusd leg is disabled (note only); mgc_trend_1h (shadow) trail 3->4 in Tier-3 PR #6229 || RECONCILED 2026-07-14 (session_01SDLWbfLGV4WYHgC2ugzedf): the proposed declares MERGED (#6229 2026-07-12 / #6251 2026-07-13 / P4.4 batch-2 live @ c4b103b) and verified present in config/strategies.yaml \u2014 cell flipped passed_unshipped -> shipped."
+      },
+      "stale_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet)"
+      },
+      "exit_ladder": {
+        "status": "honest_negative",
+        "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) \u2014 banking parked"
+      },
+      "exit_head_ml": {
+        "status": "pending"
+      },
+      "trail_decay": {
+        "status": "honest_negative",
+        "ref": "all cells is_oos_fail on both legs. P4.1 fleet decay sweep (2026-07-12, m20_fleet_exit_sweep --levers trail_decay, trainer relay #6253; runtime_logs/m20_fleet_decay/2026-07-12). Cells: arm2R / stall6 / stall10 / arm1.5R+stall6, tight = max(1.5, base_trail/2). Gate: config-exact IS+OOS beat on net_R AND maxDD + yearly walk-forward >= 4/6."
+      },
+      "regime_flip_exit": {
+        "status": "honest_negative",
+        "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      }
+    }
+  ]
 }

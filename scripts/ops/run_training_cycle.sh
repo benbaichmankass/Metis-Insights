@@ -275,6 +275,16 @@ bash scripts/ops/publish_trainer_mirror.sh >/dev/null 2>&1 \
 
 # --- Train each manifest --------------------------------------------------
 overall_rc=0
+# Per-manifest wall-clock cap (BL-20260716-TRAINER-WEDGE). Without this a single
+# manifest that hangs or OOM-thrashes (btc-regime-5m-lgbm-flow-v1 wedged the
+# 6 GB trainer for 18.7h in D-state on 2026-07-15/16, swap-thrashing at ~52s CPU,
+# blocking the whole cycle AND every other ML session) runs unbounded. A normal
+# manifest trains in ~1-5 min, so a 30-min default turns an 18-hour wedge into a
+# bounded blip: on timeout the manifest is SIGTERM'd (SIGKILL 30s later), logged
+# as manifest_timeout, and the cycle moves on. `0` disables (GNU timeout: 0 = no
+# limit). Overridable via TRAINING_MANIFEST_TIMEOUT_S on the trainer unit.
+TRAINING_MANIFEST_TIMEOUT_S="${TRAINING_MANIFEST_TIMEOUT_S:-1800}"
+
 for manifest in "${TO_RUN_LIST[@]}"; do
   if [ ! -f "$manifest" ]; then
     emit "$(printf '{"ts":"%s","status":"manifest_missing","manifest":"%s"}' "$(iso_now)" "$manifest")"
@@ -326,7 +336,10 @@ PY
     emit "$(printf '{"ts":"%s","status":"manifest_audit_flagged","manifest":"%s","detail":"dataset audit flagged dead feature(s)/degenerate label (observe-only, still training) — see dataset_audit.jsonl"}' "$(iso_now)" "$manifest")"
   fi
   set +e
-  python -m ml train "$manifest" \
+  # `timeout ... 0s` (TRAINING_MANIFEST_TIMEOUT_S=0) means no limit in GNU
+  # coreutils, so the wrapper is unconditional and 0 opts out cleanly.
+  timeout --kill-after=30s --signal=TERM "${TRAINING_MANIFEST_TIMEOUT_S}s" \
+    python -m ml train "$manifest" \
     --datasets-root "$DATASETS_ROOT" \
     --experiments-root "$EXPERIMENTS_ROOT" \
     --registry-root "$REGISTRY_ROOT" \
@@ -386,6 +399,29 @@ print(json.dumps({
 }))
 ' "$(iso_now)" "$manifest" "$start" "$summary")"
     progress_mark "$manifest" skipped
+    rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
+    continue
+  elif [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+    # timeout(1) exits 124 when it SIGTERM'd the run at the wall-clock cap,
+    # 137 (128+9) when it had to SIGKILL after --kill-after. Either way the
+    # manifest hung / OOM-thrashed past TRAINING_MANIFEST_TIMEOUT_S — it is
+    # killed, logged, and the cycle proceeds to the next manifest instead of
+    # wedging the box (BL-20260716-TRAINER-WEDGE).
+    emit "$(python -c '
+import json, sys
+ts, manifest, start, rc, tmo = sys.argv[1:6]
+print(json.dumps({
+    "ts": ts,
+    "status": "manifest_timeout",
+    "manifest": manifest,
+    "started": start,
+    "exit_code": int(rc),
+    "timeout_seconds": int(tmo),
+    "detail": "killed at the per-manifest wall-clock cap (hang/OOM-thrash) — cycle continued",
+}))
+' "$(iso_now)" "$manifest" "$start" "$rc" "$TRAINING_MANIFEST_TIMEOUT_S")"
+    progress_mark "$manifest" failed "rc=$rc(timeout)"
+    overall_rc=1
     rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
     continue
   else
