@@ -4095,6 +4095,20 @@
       "status": "open",
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL",
+      "opened_at": "2026-07-16",
+      "opened_by": "session_01Y8dy5ZEC4GPQ5RF8oq7iSU",
+      "source": "operator-flag",
+      "title": "alpaca_paper QQQ long-16 wont flatten \u2014 broker-side OCO wedged in pending_cancel (not a code bug)",
+      "description": "Operator flagged 9 consecutive close failures on alpaca_paper QQQ long 16 (insufficient qty available: requested 16 available 0). Diag (issue #6666): broker HOLDS the real QQQ 16 (entry 720.63, uPnL ~-196). The deployed close code is CORRECT \u2014 its self-diagnosing line fired (\"alpaca close QQQ still insufficient-qty after ~6.0s; residual open orders=[...]\"), so the BL-20260708 cancel-then-flatten fix IS deployed and running. Root cause is BROKER-SIDE: the protective GTC OCO (created 2026-07-06, sell_to_close, stop 708.63 / limit 793.07) is wedged in status=pending_cancel with its stop leg status=held \u2014 Alpaca is not completing the cancel, so the 16 shares stay held_for_orders and every flatten hits available:0. The SL was even crossed (price 707.61 < stop 708.63) but the wedged stop never filled. Client cannot force a stuck pending_cancel; DELETE /orders/{id} is re-issued each tick with no effect. REMEDIATION OPTIONS: (a) try DELETE /v2/positions/{sym}?cancel_orders=true (atomic cancel+close) if the close DELETE does not already pass it; (b) a cancel-all (DELETE /v2/orders); (c) operator resets the Alpaca PAPER account (low stakes \u2014 paper money); (d) reduce per-tick alert spam for a confirmed broker-wedged order. Low urgency: PAPER money, backstop watchdog active, journal noise only.",
+      "tier": "Tier 2",
+      "trigger_condition": "a resting protective order wedges in pending_cancel and holds the position qty",
+      "resolution_criteria": "QQQ position flattened on alpaca_paper (broker reset or a code remediation that dislodges a pending_cancel-wedged order); alert spam bounded for a broker-wedged close",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
   "updated_at": "2026-07-16"
