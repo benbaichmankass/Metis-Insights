@@ -1,6 +1,7 @@
 """Unit tests for src/units/strategies/pairs_sizing.py — pure money-math."""
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 
@@ -41,29 +42,50 @@ def test_beta_nonfinite_falls_back_to_one():
 
 
 def test_protective_levels_long_leg():
-    # per-leg PRICE backstop: +/-50% of entry (NOT a function of the spread stop).
-    sl, tp = ps.leg_protective_levels("long", entry_price=100.0, backstop_pct=0.5)
-    assert sl == pytest.approx(50.0) and tp == pytest.approx(150.0)  # SL below, TP above
+    sl, tp = ps.leg_protective_levels("long", entry_price=100.0, risk_spread=0.02,
+                                      backstop_mult=3.0)
+    assert sl < 100.0 < tp
+    assert sl == pytest.approx(100.0 * math.exp(-0.06), abs=1e-4)  # 3*0.02
+    assert tp == pytest.approx(100.0 * math.exp(0.06), abs=1e-4)
 
 
 def test_protective_levels_short_leg():
-    sl, tp = ps.leg_protective_levels("short", entry_price=100.0, backstop_pct=0.5)
-    assert tp < 100.0 < sl                                           # short: SL above, TP below
-    assert sl == pytest.approx(150.0) and tp == pytest.approx(50.0)
-
-
-def test_protective_levels_never_explodes_on_large_spread():
-    # regression BL-20260716-PAIRS-EXEC: the old exp(mult*risk_spread) form blew up
-    # for real pairs (risk_spread 12-16). The %-of-price form stays bounded.
-    for entry in (77.0, 579.0, 1922.0, 64722.0):
-        sl, tp = ps.leg_protective_levels("long", entry, backstop_pct=0.5)
-        assert 0 < sl < entry < tp < entry * 2  # always within +/-100%, never astronomical
+    sl, tp = ps.leg_protective_levels("short", entry_price=100.0, risk_spread=0.02,
+                                      backstop_mult=3.0)
+    assert tp < 100.0 < sl  # short: SL above, TP below
+    assert sl == pytest.approx(100.0 * math.exp(0.06), abs=1e-4)
 
 
 def test_protective_levels_degenerate():
-    assert ps.leg_protective_levels("long", 0.0, 0.5) == (0.0, 0.0)
+    assert ps.leg_protective_levels("long", 0.0, 0.02) == (0.0, 0.0)
     assert ps.leg_protective_levels("long", 100.0, 0.0) == (0.0, 0.0)
-    assert ps.leg_protective_levels("long", 100.0, 1.5) == (0.0, 0.0)  # pct must be in (0,1)
+
+
+def test_protective_levels_clamped_on_inflated_risk_spread():
+    """Regression: a degenerate/inflated risk_spread must NOT explode the leg
+    backstop into a venue-rejected level. Repro of the SOLUSDT/BTCUSDT paper
+    pairs order (risk_spread≈5.4 → exp(3·5.4)=e^16 → $1.5e9 TP, $0 SL)."""
+    entry = 150.0
+    sl, tp = ps.leg_protective_levels("long", entry_price=entry, risk_spread=5.4,
+                                      backstop_mult=3.0)
+    # capped at +100% / −50% (log move ln 2), never the exploded/collapsed values
+    assert tp == pytest.approx(entry * 2.0, rel=1e-6)
+    assert sl == pytest.approx(entry * 0.5, rel=1e-6)
+    assert 0.0 < sl < entry < tp < 1e6  # sane band, not $1.5e9 / $0
+    # short leg mirrors: SL above (capped), TP below (floored at 0.5x)
+    sl_s, tp_s = ps.leg_protective_levels("short", entry_price=entry, risk_spread=5.4)
+    assert tp_s == pytest.approx(entry * 0.5, rel=1e-6)
+    assert sl_s == pytest.approx(entry * 2.0, rel=1e-6)
+
+
+def test_protective_levels_floored_on_tiny_risk_spread():
+    """A near-zero risk_spread must not collapse SL/TP onto the entry price."""
+    entry = 100.0
+    sl, tp = ps.leg_protective_levels("long", entry_price=entry, risk_spread=1e-6,
+                                      backstop_mult=3.0)
+    assert sl < entry < tp
+    assert tp == pytest.approx(entry * 1.02, rel=1e-6)  # floored at ln(1.02)
+    assert sl == pytest.approx(entry / 1.02, rel=1e-6)
 
 
 def test_correlation_haircut():

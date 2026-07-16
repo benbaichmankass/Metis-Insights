@@ -68,7 +68,7 @@ def decide_pair(params: pe.PairParams, close_a: Sequence[float], close_b: Sequen
                 *, open_state: Optional[pe.OpenPair], held_symbols: set,
                 risk_budget_usd: float, correlation_open: int,
                 execution_mode: str = "live", corr_factor: float = 0.5,
-                backstop_pct: float = 0.5,
+                backstop_mult: float = 3.0,
                 min_leg_notional_usd: float = 10.0) -> PairDecision:
     """PURE decision for one pair this tick. No I/O. `execution_mode` 'shadow'
     downgrades an would-be open/close to a shadow_* soak event with the legs still
@@ -119,8 +119,8 @@ def decide_pair(params: pe.PairParams, close_a: Sequence[float], close_b: Sequen
                                   "notional_b_usd": round(sizing["notional_b_usd"], 2),
                                   "min_leg_notional_usd": min_notional})
     legdirs = pe.leg_directions(sig["direction"])
-    sl_a, tp_a = psz.leg_protective_levels(legdirs["a"], price_a, backstop_pct)
-    sl_b, tp_b = psz.leg_protective_levels(legdirs["b"], price_b, backstop_pct)
+    sl_a, tp_a = psz.leg_protective_levels(legdirs["a"], price_a, sig["risk"], backstop_mult)
+    sl_b, tp_b = psz.leg_protective_levels(legdirs["b"], price_b, sig["risk"], backstop_mult)
     legs = [
         LegOrder(params.symbol_a, legdirs["a"], round(sizing["qty_a"], 8), price_a, sl_a, tp_a),
         LegOrder(params.symbol_b, legdirs["b"], round(sizing["qty_b"], 8), price_b, sl_b, tp_b),
@@ -173,7 +173,7 @@ def _params_from_cfg(pair: Dict[str, Any]) -> pe.PairParams:
 
 def _load_pairs_config(path: Optional[str] = None) -> Dict[str, Any]:
     """Load config/pairs.yaml → {account_id, pairs_risk_fraction,
-    correlation_haircut_factor, backstop_pct, min_leg_notional_usd, pairs:[...]}.
+    correlation_haircut_factor, backstop_mult, min_leg_notional_usd, pairs:[...]}.
     Returns an empty dict (a no-op tick) when the file is absent or unparseable —
     the sleeve is inert until it's authored. Note: the per-pair risk budget is
     NOT in this file — it's derived at tick time from the account's live balance ×
@@ -485,7 +485,7 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
     # basis (default 1.0 = the full per-trade risk basis).
     pairs_risk_fraction = float(cfg.get("pairs_risk_fraction", 1.0))
     corr_factor = float(cfg.get("correlation_haircut_factor", 0.5))
-    backstop_pct = float(cfg.get("backstop_pct", 0.5))
+    backstop_mult = float(cfg.get("backstop_mult", 3.0))
     min_leg_notional_usd = float(cfg.get("min_leg_notional_usd", 10.0))
 
     try:
@@ -606,7 +606,7 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
                 params, closes_a, closes_b, open_state=open_state, held_symbols=held,
                 risk_budget_usd=risk_budget, correlation_open=corr_open,
                 execution_mode=execution, corr_factor=corr_factor,
-                backstop_pct=backstop_pct, min_leg_notional_usd=min_leg_notional_usd)
+                backstop_mult=backstop_mult, min_leg_notional_usd=min_leg_notional_usd)
 
             # --- act on the decision (only `live` execution places/closes) ---
             place_result: Dict[str, Any] = {}

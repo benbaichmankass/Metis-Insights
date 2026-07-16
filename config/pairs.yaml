@@ -42,7 +42,7 @@ account_id: bybit_1                 # default account for all pairs (Bybit demo 
 # guessed number. Enforced by the pairs-sizing-basis CI guard.
 pairs_risk_fraction: 1.0            # scale the sleeve's per-pair risk below the flat account basis (1.0 = full per-trade risk basis; e.g. 0.5 = half)
 correlation_haircut_factor: 0.5     # per already-open correlated pair (shares a leg): 0.5**n
-backstop_pct: 0.5                   # per-leg catastrophe SL/TP = +/-50% of entry PRICE (wide net; the executor manages the real spread exit). NOT a function of the spread stop — see pairs_sizing.leg_protective_levels.
+backstop_mult: 3.0                  # per-leg catastrophe SL/TP at 3x risk_spread in log-price (wide of the spread exit); the displacement is CLAMPED to +/-100%/-50% so a degenerate risk_spread can't explode the level (BL-20260716-PAIRS-BACKSTOP-EXPLODE, #6549). See pairs_sizing.leg_protective_levels.
 min_leg_notional_usd: 10.0          # skip a pair whose sized leg notional is below this $ (would be sub-min / break the hedge if rounded up)
 
 pairs:
