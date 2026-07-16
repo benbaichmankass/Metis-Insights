@@ -385,27 +385,74 @@ def _place_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
             logger.error("pairs: leg %s placement failed for %s: %s",
                          leg.symbol, decision.pair, exc)
             # LEG-IMBALANCE UNWIND: flatten anything already placed so we never
-            # leave a naked single leg on the account.
-            _unwind_legs(client, account_cfg, placed_symbols)
+            # leave a naked single leg on the account. The unwind now REPORTS which
+            # legs failed to flatten (best-effort close returns ok:False, not raise)
+            # so a genuinely-naked leg is escalated loudly, not silently swallowed.
+            naked = _unwind_legs(client, account_cfg, placed_symbols)
+            _alert_partial_placement(decision.pair, account_id, placed_symbols,
+                                     failed_leg=leg.symbol, err=str(exc), naked=naked)
             return {"placed": False, "trade_ids": trade_ids,
-                    "error": f"leg {leg.symbol}: {exc}"}
+                    "error": f"leg {leg.symbol}: {exc}", "naked_legs": naked}
     logger.info("pairs: opened %s (%s) group=%s account=%s trade_ids=%s",
                 decision.pair, decision.soak.get("direction"), gid, account_id, trade_ids)
     return {"placed": True, "trade_ids": trade_ids, "error": None}
 
 
-def _unwind_legs(client: Any, account_cfg: dict, placed: Sequence[tuple]) -> None:
-    """Flatten already-placed legs after a partial-placement failure (best-effort;
-    the exchange-side backstop SL/TP is the further net if this also fails)."""
+def _unwind_legs(client: Any, account_cfg: dict, placed: Sequence[tuple]) -> List[Dict[str, Any]]:
+    """Flatten already-placed legs after a partial-placement failure and RETURN the
+    legs that did NOT confirm flat (still naked).
+
+    ``close_open_position`` is best-effort: it returns ``{"ok": False, "error": …}``
+    on failure rather than raising (BL-20260716-PAIRS-MINQTY — the earlier version
+    only caught exceptions, so an ``ok:False`` close was silently logged as
+    "unwound" while the leg stayed open — the naked BNB leg incident). We now check
+    the result and surface every leg that isn't confirmed flat so the caller can
+    alert loudly. The exchange-side backstop SL/TP remains the last-resort net."""
     from src.units.accounts.execute import close_open_position
+    naked: List[Dict[str, Any]] = []
     for symbol, direction, qty in placed:
+        entry = {"symbol": symbol, "direction": direction, "qty": float(qty)}
         try:
-            close_open_position(client, account_cfg, symbol=symbol, side=direction, qty=float(qty))
+            res = close_open_position(client, account_cfg, symbol=symbol,
+                                      side=direction, qty=float(qty))
+        except Exception as exc:  # noqa: BLE001
+            logger.error("pairs: leg-imbalance unwind RAISED for %s: %s (backstop SL/TP remains)",
+                         symbol, exc)
+            naked.append({**entry, "error": str(exc)})
+            continue
+        if isinstance(res, dict) and res.get("ok"):
             logger.warning("pairs: unwound leg %s (%s qty=%s) after partial-placement failure",
                            symbol, direction, qty)
-        except Exception as exc:  # noqa: BLE001
-            logger.error("pairs: leg-imbalance unwind FAILED for %s: %s (backstop SL/TP remains)",
-                         symbol, exc)
+        else:
+            err = res.get("error") if isinstance(res, dict) else "no result"
+            logger.error("pairs: leg-imbalance unwind did NOT confirm flat for %s (%s qty=%s): %s "
+                         "(backstop SL/TP remains — NAKED LEG)", symbol, direction, qty, err)
+            naked.append({**entry, "error": err})
+    return naked
+
+
+def _alert_partial_placement(pair: str, account_id: str, placed: Sequence[tuple], *,
+                             failed_leg: str, err: str, naked: List[Dict[str, Any]]) -> None:
+    """Surface a half-placement loudly. A CLEAN unwind is a WARNING (a rare
+    transient the system self-corrected); a leg left NAKED after the unwind is a
+    CRITICAL operator alert (real directional exposure, protected only by the
+    exchange bracket, needs a manual flatten). Never raises."""
+    try:
+        from src.runtime.outcomes import Level, report
+        if naked:
+            report("pairs_naked_leg", "unresolved", level=Level.CRITICAL,
+                   reason=(f"pairs {pair}: leg {failed_leg} failed AND the unwind left "
+                           f"{len(naked)} naked leg(s) on {account_id} — un-hedged directional "
+                           f"exposure protected only by the exchange bracket; needs a manual flatten"),
+                   pair=pair, account_id=account_id, failed_leg=failed_leg,
+                   naked_legs=naked, place_error=err[:300])
+        else:
+            report("pairs_partial_placement", "unwound", level=Level.WARN,
+                   reason=(f"pairs {pair}: leg {failed_leg} failed after {len(placed)} leg(s) "
+                           f"placed on {account_id}; the placed leg(s) were unwound cleanly"),
+                   pair=pair, account_id=account_id, failed_leg=failed_leg, place_error=err[:300])
+    except Exception as exc:  # noqa: BLE001 — an alert must never break the tick
+        logger.error("pairs: partial-placement alert failed for %s: %s", pair, exc)
 
 
 def _close_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],

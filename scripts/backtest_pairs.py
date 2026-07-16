@@ -98,7 +98,19 @@ def _rolling_beta(la: pd.Series, lb: pd.Series, window: int) -> pd.Series:
 def run_backtest(m: pd.DataFrame, *, lookback: int, entry_z: float, exit_z: float,
                  stop_z: float, max_hold_bars: int, cooldown_bars: int,
                  hedge_beta: str, timeframe: str, pair: str,
-                 emit_path: Optional[str] = None) -> Dict[str, Any]:
+                 emit_path: Optional[str] = None,
+                 collect_rows: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+    """Run the R-space pairs backtest and summarize.
+
+    ``collect_rows`` (optional): when a list is passed, one **leg-level** dict per
+    trade is appended to it — the decision-time facts a downstream $-and-lots
+    simulator needs (``entry_price_a``/``entry_price_b``, ``beta`` at entry, the
+    ``exit_price_a``/``exit_price_b`` at the close bar, ``risk_spread``, plus
+    ``gross_r``/``outcome`` for a faithfulness cross-check). Purely additive — the
+    return value and every existing caller are byte-for-byte unchanged when it is
+    omitted. It exists so ``scripts/research/pairs_dollar_lots.py`` can reuse THIS
+    engine's exact entry/exit decisions instead of re-implementing them.
+    """
     m = m.reset_index(drop=True)
     la, lb = np.log(m["close_a"]), np.log(m["close_b"])
     if hedge_beta == "rolling":
@@ -163,6 +175,24 @@ def run_backtest(m: pd.DataFrame, *, lookback: int, entry_z: float, exit_z: floa
             entry_spread=round(entry_spread, 6), exit_time=m["timestamp"].iloc[exit_idx],
             exit_spread=round(exit_spread, 6), risk=round(risk, 6), outcome=outcome,
             gross_r=round(gross_r, 4), z_at_entry=round(float(zi), 3)))
+        if collect_rows is not None:
+            # Leg-level facts for the $-and-lots simulator: real per-leg prices at
+            # entry AND at the close bar (so a floored-qty two-leg P&L can be
+            # computed in dollars), the entry beta the sizer would use, and the
+            # spread risk. gross_r/outcome ride along for a parity cross-check.
+            collect_rows.append({
+                "entry_time": m["timestamp"].iloc[i],
+                "exit_time": m["timestamp"].iloc[exit_idx],
+                "direction": direction,
+                "entry_price_a": float(m["close_a"].iloc[i]),
+                "entry_price_b": float(m["close_b"].iloc[i]),
+                "exit_price_a": float(m["close_a"].iloc[exit_idx]),
+                "exit_price_b": float(m["close_b"].iloc[exit_idx]),
+                "beta": float(beta.iloc[i]),
+                "risk_spread": float(risk),
+                "gross_r": float(round(gross_r, 4)),
+                "outcome": outcome,
+            })
         next_idx = exit_idx + 1 + cooldown_bars
         i = next_idx
 

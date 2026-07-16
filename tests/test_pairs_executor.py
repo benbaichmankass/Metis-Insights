@@ -209,6 +209,53 @@ def test_reconstruct_open_state_absent_meta_is_none(tmp_path):
         {"name": "pairs_x", "symbol_a": "A", "symbol_b": "B"}, "acct", str(tmp_path / "no.db")) is None
 
 
+def test_unwind_legs_reports_naked_on_failed_close(monkeypatch):
+    """close_open_position is best-effort (returns ok:False, doesn't raise); the
+    unwind must SURFACE the still-naked leg, not silently swallow it
+    (BL-20260716-PAIRS-MINQTY — the naked BNB leg incident)."""
+    import src.units.accounts.execute as _exec
+    monkeypatch.setattr(_exec, "close_open_position",
+                        lambda *a, **k: {"ok": False, "error": "position not found"})
+    naked = px._unwind_legs(object(), {"exchange": "bybit"},
+                            [("BNBUSDT", "short", 1.01)])
+    assert len(naked) == 1 and naked[0]["symbol"] == "BNBUSDT"
+    assert naked[0]["error"] == "position not found"
+
+
+def test_unwind_legs_clean_close_returns_empty(monkeypatch):
+    import src.units.accounts.execute as _exec
+    monkeypatch.setattr(_exec, "close_open_position", lambda *a, **k: {"ok": True})
+    assert px._unwind_legs(object(), {"exchange": "bybit"},
+                           [("BNBUSDT", "short", 1.01)]) == []
+
+
+def test_unwind_legs_raised_close_is_naked(monkeypatch):
+    import src.units.accounts.execute as _exec
+    monkeypatch.setattr(_exec, "close_open_position",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("api down")))
+    naked = px._unwind_legs(object(), {"exchange": "bybit"}, [("BNBUSDT", "short", 1.01)])
+    assert len(naked) == 1 and "api down" in naked[0]["error"]
+
+
+def test_alert_partial_placement_never_raises(monkeypatch):
+    """The half-placement alert must never break the tick, even if outcomes fails."""
+    import src.runtime.outcomes as _out
+    calls = []
+    monkeypatch.setattr(_out, "report", lambda *a, **k: calls.append((a, k)))
+    px._alert_partial_placement("BNBUSDT/BTCUSDT", "bybit_1", [("BNBUSDT", "short", 1.01)],
+                                failed_leg="BTCUSDT", err="rejected",
+                                naked=[{"symbol": "BNBUSDT", "direction": "short", "qty": 1.01}])
+    assert calls and calls[0][0][0] == "pairs_naked_leg"      # CRITICAL naked-leg alert
+    # a clean unwind (no naked) → the WARNING path
+    calls.clear()
+    px._alert_partial_placement("BNBUSDT/BTCUSDT", "bybit_1", [("BNBUSDT", "short", 1.01)],
+                                failed_leg="BTCUSDT", err="rejected", naked=[])
+    assert calls and calls[0][0][0] == "pairs_partial_placement"
+    # outcomes.report exploding must be swallowed (never breaks the tick)
+    monkeypatch.setattr(_out, "report", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    px._alert_partial_placement("X/Y", "acct", [], failed_leg="Y", err="e", naked=[])  # no raise
+
+
 def test_legs_below_min_qty_blocks_submin_leg(monkeypatch):
     """The pre-placement gate flags a leg whose qty floors below the venue min
     (BL-20260716-PAIRS-MINQTY) so the pair skips instead of half-placing."""
