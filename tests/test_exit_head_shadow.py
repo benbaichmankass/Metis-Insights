@@ -26,19 +26,25 @@ def _frame(n=60, entry_offset=30):
     return pd.DataFrame(rows), (t0 + timedelta(hours=entry_offset)).isoformat()
 
 
-def _artifact(tmp_path, monkeypatch, tau=0.99, below_r=0.5, stage="shadow"):
+def _artifact(tmp_path, monkeypatch, tau=0.99, below_r=0.5, stage="shadow",
+              policy=None):
     """Train a tiny real booster and stage it where the scorer looks.
 
-    tau=0.99 makes nearly every score a would-exit (P is in [0,1])."""
+    tau=0.99 makes nearly every score a would-exit (P is in [0,1]).
+    ``policy`` (e.g. "peak_full") sets the artifact shape so the apply gate
+    picks the peak polarity (fires on score > tau) instead of below_half_r."""
     import numpy as np
 
     X = np.random.RandomState(0).rand(200, len(ehs_features()))
     y = (X[:, 1] > 0.5).astype(int)
     clf = lgb.LGBMClassifier(n_estimators=5, min_child_samples=5, verbose=-1)
     clf.fit(X, y)
+    shape = {"tau": tau, "below_r": below_r}
+    if policy is not None:
+        shape["policy"] = policy
     art = {"model_id": "exit-head-test-v0", "stage": stage, "tf": "1h",
            "features": ehs_features(),
-           "shape": {"tau": tau, "below_r": below_r},
+           "shape": shape,
            "booster_txt": clf.booster_.model_to_string()}
     d = tmp_path / "runtime_logs" / "trainer_mirror" / "exit_head"
     d.mkdir(parents=True)
@@ -222,6 +228,38 @@ def test_e3_threshold_override_respected(tmp_path, monkeypatch):
     pkg = _monitor_pkg(entry_time)
     verdict = monitor({"exit_head_action": "close",
                        "exit_head_threshold": 0.0}, df, pkg)
+    assert not (verdict and verdict.get("reason") == "exit_head")
+
+
+def test_e3_peak_policy_fires_on_high_score(tmp_path, monkeypatch):
+    """A peak_* head fires on score > tau — the OPPOSITE polarity to
+    below_half_r. tau=0.0 ⇒ any score > 0 fires ⇒ a real close. The same
+    tau=0.0 on a below_half_r head can NEVER fire (score < 0 is impossible)
+    — that contrast (vs test_e3_threshold_override_respected) proves the
+    apply gate branches on shape.policy (M20 P4.2 peak-head graduation)."""
+    _artifact(tmp_path, monkeypatch, tau=1.01, stage="advisory",
+              policy="peak_full")
+    from src.units.strategies.trend_donchian import monitor
+
+    df, entry_time = _frame()
+    pkg = _monitor_pkg(entry_time)
+    verdict = monitor({"exit_head_action": "close",
+                       "exit_head_threshold": 0.0}, df, pkg)
+    assert verdict is not None and verdict.get("reason") == "exit_head"
+
+
+def test_e3_peak_policy_holds_on_low_score(tmp_path, monkeypatch):
+    """A peak_* head with a high tau (score never exceeds it) holds — it
+    does not fire on a low score the way below_half_r would."""
+    _artifact(tmp_path, monkeypatch, tau=1.01, stage="advisory",
+              policy="peak_full")
+    from src.units.strategies.trend_donchian import monitor
+
+    df, entry_time = _frame()
+    pkg = _monitor_pkg(entry_time)
+    # threshold 1.01 > any P(peak) ⇒ score > tau is impossible ⇒ hold
+    verdict = monitor({"exit_head_action": "close",
+                       "exit_head_threshold": 1.01}, df, pkg)
     assert not (verdict and verdict.get("reason") == "exit_head")
 
 

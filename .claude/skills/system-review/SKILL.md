@@ -336,11 +336,16 @@ Build the consolidated object per
    VM's `ict-git-sync` mirrors them for `/api/bot/reports`).
 2. Set `artifacts.{json_path,html_path,md_path}`, `artifacts.github_link`
    (`https://github.com/benbaichmankass/ict-trading-bot/blob/main/<html_path>`),
-   and **`artifacts.dashboard_link`** — the Streamlit Reports deep link
-   `https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=<report_id>`
-   (the canonical dashboard base URL is recorded in `CLAUDE.md` § "Dashboard
-   consumer") — on the payload (re-render or patch the written JSON so they're
-   recorded).
+   and **`artifacts.dashboard_link`** — the Reports deep link into the **new
+   dashboard SPA** (GitHub Pages):
+   `https://benbaichmankass.github.io/ict-trader-dashboard/?report=<report_id>`
+   (the SPA reads the `?report=` query param on load and opens that report on
+   the Reports page; the canonical dashboard base URL is recorded in `CLAUDE.md`
+   § "Dashboard consumer"). The legacy Streamlit deep link
+   (`https://ict-trader-dashboard-z67ryan2ttrxjdvk6ozcjc.streamlit.app/?report=<report_id>`)
+   uses the same `?report=` scheme and still resolves while that app runs, but
+   the SPA is now the primary target. Set on the payload (re-render or patch the
+   written JSON so they're recorded).
 3. **One** consolidated `send-ping` (per `docs/claude/telegram-pings.md`):
    ```
    action: send-ping
@@ -348,9 +353,10 @@ Build the consolidated object per
    priority: normal            # 'high' if any sub-review set operator_attention_required
    message: [system-report:<window>] roll-up <grade>: H:<h> P:<p> M:<m>. <dashboard_link>
    ```
-   The `<link>` in the ping is the **`artifacts.dashboard_link`** (the Streamlit
-   Reports deep link), NOT the GitHub blob — so tapping the ping opens the report
-   inside the app, where the operator reads it and can Download the HTML. The
+   The `<link>` in the ping is the **`artifacts.dashboard_link`** (the SPA
+   Reports deep link on GitHub Pages), NOT the GitHub blob — so tapping the ping
+   opens the report inside the app, where the operator reads it and can Download
+   the HTML. The
    `github_link` stays in `artifacts` as a secondary reference. Keep ≤200 chars.
    This is the only ping; the three sub-reviews' pings stay suppressed.
 
