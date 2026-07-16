@@ -1540,6 +1540,20 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
+    # M20-X vol-conditional trail (Tier-3, 2026-07-16). The ONLY pullback-family
+    # cell to pass the config-exact #6510 vol_trail sweep (vt_hot80_t2.5 — every
+    # other pullback leg an honest negative). On a managed bar whose trailing-200
+    # ATR percentile is in the HOT tail (> 0.80), tighten the chandelier trail to
+    # 2.5 (from 5.0). Wired via htf_pullback_trend_2h.monitor →
+    # src.runtime.trail_vol.resolve_vol_trail_mult (live == the sweep harness's
+    # _vol_tm — same _atr + trailing-percentile). Effectively PAPER: qqq_pullback_1h
+    # runs live on alpaca_paper (paper money); its alpaca_live leg is shelved
+    # dry_run (2026-07-15). Sibling of the ETH cold-cell declare (#6517, on
+    # bybit_1 paper). ROLLBACK: delete these 3 lines. Every live fire logs an
+    # exit_lever_soak lever=vol_trail row (the learning trail).
+    trail_vol_above_pctl: 0.80
+    trail_vol_tight_mult: 2.5
+    vol_pctl_window: 200
     min_confidence: 0.0
     shadow_model_ids: []
 

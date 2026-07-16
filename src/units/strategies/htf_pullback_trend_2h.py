@@ -383,12 +383,16 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "adx_max": adx_max_p,
         },
     }
-    # M20 P4.1 trail-decay (Tier-3, YAML-declared): thread the declared params
-    # into meta because run_monitor_tick can pass cfg={} — meta is the channel
-    # monitor() reliably sees (same shape as trend_donchian's lever
-    # threading). Absent = the lever is annotate-only.
+    # M20 P4.1 trail-decay + M20-X vol-conditional trail (Tier-3, YAML-declared):
+    # thread the declared params into meta because run_monitor_tick can pass
+    # cfg={} — meta is the channel monitor() reliably sees (same shape as
+    # trend_donchian's lever threading). Absent = the lever is inert (base mult
+    # unchanged). The trail_vol_* keys unlock resolve_vol_trail_mult for the
+    # pullback family (qqq_pullback_1h shipped the first cell — #6510 sweep pass).
     for _key in ("trail_decay_arm_r", "trail_decay_stall_bars",
-                 "trail_decay_tight_mult"):
+                 "trail_decay_tight_mult",
+                 "trail_vol_above_pctl", "trail_vol_below_pctl",
+                 "trail_vol_tight_mult", "vol_pctl_window"):
         if cfg.get(_key) is not None:
             package["meta"][_key] = cfg[_key]
     if skip_hour_set:
@@ -504,6 +508,23 @@ def monitor(cfg, candles_df, open_pkg):
 
         trail_mult = resolve_trail_mult(meta, cfg_dict, open_pkg, window,
                                         trail_mult, direction)
+    except Exception:  # noqa: BLE001 — the lever must never break the trail
+        pass
+    # M20-X vol-conditional trail lever (docs/research/M20X-vol-conditional-
+    # trail-DESIGN.md): shared runtime helper — see trend_donchian.monitor for
+    # the contract. YAML-declared per leg (Tier-3); undeclared = base mult
+    # unchanged (byte-identical monitor). Composes with trail-decay via min()
+    # (tightest fired mult wins), matching scripts/backtest_pullback.py's
+    # _vol_tm — whose _atr (SMA-of-TR, min_periods=1) + trailing-ATR percentile
+    # (rolling(win, min_periods=win).rank(pct=True)) are identical to the
+    # trend_donchian helpers resolve_vol_trail_mult reuses, so live == train
+    # for the pullback family too. Fail-safe to base_mult; never raises.
+    try:
+        from src.runtime.trail_vol import resolve_vol_trail_mult
+
+        trail_mult = resolve_vol_trail_mult(meta, cfg_dict, candles_df,
+                                            trail_mult, direction,
+                                            open_pkg=open_pkg)
     except Exception:  # noqa: BLE001 — the lever must never break the trail
         pass
     try:
