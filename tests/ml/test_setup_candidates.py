@@ -319,6 +319,57 @@ def test_r_label_threshold_emits_r_aware_target(tmp_path: Path):
     assert loss["won_r"] == 0 and loss["won"] == 0
 
 
+def test_backtest_r_haircut_only_affects_backtest_won_r(tmp_path: Path):
+    """M23 variant C3: backtest_r_haircut lowers a backtest row's R before the
+    won_r threshold (train-side faithfulness), but never touches a live row's."""
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    # A backtest trade at R=+0.8 (pnl stores R for backtest rows) and a live trade
+    # at real R=+0.8 (entry100/stop98/size1.5 -> risk 3 -> pnl 2.4 -> R=0.8).
+    _seed_journal(db, backtest=[
+        ((base + timedelta(hours=50)).isoformat(), "buy", 0.8, "squeeze"),
+    ])
+    # add the live risk columns for the live trade via a second table shape:
+    # reuse _seed_trades_with_risk on a separate db, then merge is messy — instead
+    # seed the live row into the SAME db with the risk columns present.
+    conn = sqlite3.connect(str(db))
+    conn.execute("ALTER TABLE trades ADD COLUMN entry_price REAL")
+    conn.execute("ALTER TABLE trades ADD COLUMN stop_loss REAL")
+    conn.execute("ALTER TABLE trades ADD COLUMN position_size REAL")
+    rid = conn.execute("SELECT COALESCE(MAX(id),-1)+1 FROM trades").fetchone()[0]
+    conn.execute(
+        "INSERT INTO trades (id, symbol, direction, timestamp, status, pnl, "
+        "pnl_percent, is_backtest, is_demo, strategy_name, entry_price, stop_loss, "
+        "position_size) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (rid, "BTCUSDT", "buy", (base + timedelta(hours=120)).isoformat(), "closed",
+         2.4, 2.4, 0, 0, "", 100.0, 98.0, 1.5),  # real R = 2.4/(2*1.5) = 0.8
+    )
+    conn.commit()
+    conn.close()
+    # tau=0.5, haircut=0.5: backtest R 0.8 - 0.5 = 0.3 < 0.5 -> won_r 0;
+    # live R 0.8 (never haircut) >= 0.5 -> won_r 1.
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db, backtest_trades_db=db,
+        include_cusum=False, r_label_threshold=0.5, backtest_r_haircut=0.5,
+    ))
+    bt = [r for r in rows if r["event_source"] == "backtest"]
+    live = [r for r in rows if r["event_source"] == "live"]
+    assert len(bt) == 1 and len(live) == 1
+    assert bt[0]["won_r"] == 0    # haircut pushed the backtest R below tau
+    assert live[0]["won_r"] == 1  # live R untouched, still clears tau
+    # Without the haircut, the same backtest R=0.8 would clear tau=0.5 -> won_r 1.
+    rows_nohc = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db, backtest_trades_db=db,
+        include_cusum=False, r_label_threshold=0.5,
+    ))
+    bt_nohc = [r for r in rows_nohc if r["event_source"] == "backtest"]
+    assert bt_nohc[0]["won_r"] == 1
+
+
 def test_r_label_threshold_absent_by_default(tmp_path: Path):
     """Without r_label_threshold, no won_r column is emitted (schema-optional)."""
     ddir = _write_market_raw(tmp_path, _trending_closes())

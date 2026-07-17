@@ -625,6 +625,7 @@ class SetupCandidatesBuilder(DatasetBuilder):
         include_backtest: bool = False,
         backtest_strategies: tuple[str, ...] | list[str] | str | None = None,
         r_label_threshold: float | None = None,
+        backtest_r_haircut: float | None = None,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         """Build candidate rows for one OR several symbols (S-MLOPT-S8).
@@ -656,6 +657,12 @@ class SetupCandidatesBuilder(DatasetBuilder):
         (pnl>0). The exact-R EV gate showed the P(win) head ranks win-probability
         but not loss-magnitude; ``won_r`` teaches it to prefer trades that clear a
         materially-good R. Leaves ``won`` untouched (still the reporting truth).
+
+        ``backtest_r_haircut`` (M23 variant C3, faithfulness relabel) — only
+        meaningful with ``r_label_threshold``. Subtracts this many R from a
+        ``backtest`` row's ``r_multiple`` BEFORE computing its ``won_r``, correcting
+        the harness's idealized-cost/exit optimism (the ~0.6R barrier-vs-live gap)
+        so the TRAIN label matches live-like R. Live (eval) rows are never haircut.
         """
         if vol_window_n < 2:
             raise ValueError(f"vol_window_n must be >= 2; got {vol_window_n}")
@@ -687,6 +694,16 @@ class SetupCandidatesBuilder(DatasetBuilder):
         # a wrong `won_r` can't corrupt the eval — it only changes the train
         # target. Computed once here (all four event sources carry `r_multiple`).
         thr = float(r_label_threshold) if r_label_threshold is not None else None
+        # M23 variant C3 (faithfulness relabel): the backtest harness trades use
+        # idealized costs/exits (clean triple-barrier fills), so their recorded R
+        # over-states the live outcome by a measured ~0.6R (the barrier-vs-live gap;
+        # backtest mean R ≈ +0.05 vs the real book's −0.43). When a haircut is set,
+        # the TRAIN-side `won_r` label for `backtest` rows is computed off a
+        # cost-corrected `r_multiple − haircut`, so the classifier learns a
+        # "materially-good trade" bar calibrated to live-like R instead of the
+        # optimistic harness R. Live (eval) rows are NEVER haircut — their real R
+        # stays the ground truth. Only meaningful together with r_label_threshold.
+        haircut = float(backtest_r_haircut) if backtest_r_haircut else None
         paths = _resolve_market_raw_paths(market_raw_path, market_raw_paths)
         for path in paths:
             for row in self._iter_one_symbol(
@@ -703,6 +720,10 @@ class SetupCandidatesBuilder(DatasetBuilder):
             ):
                 if thr is not None:
                     rv = row.get("r_multiple")
+                    if (haircut is not None
+                            and row.get("event_source") == "backtest"
+                            and isinstance(rv, (int, float))):
+                        rv = rv - haircut
                     row["won_r"] = (
                         1 if isinstance(rv, (int, float)) and rv >= thr else 0
                     )
