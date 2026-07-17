@@ -69,6 +69,11 @@ def main() -> int:
     ap.add_argument("--model-state", default=None)
     ap.add_argument("--cost-r", type=float, default=0.05,
                     help="per-trade roundtrip cost in R subtracted from each selected trade")
+    ap.add_argument("--raw-score", action="store_true",
+                    help="the model outputs a raw score (e.g. predicted R from a "
+                         "regression head), NOT a [0,1] probability: skip the [0,1] "
+                         "clamp and sweep the threshold over the observed-score grid. "
+                         "Use for the M23 variant-C2 regress-R model.")
     args = ap.parse_args()
 
     ms_path = _find_model_state(args.model_state)
@@ -90,8 +95,12 @@ def main() -> int:
                 continue
             if row.get("won") is None:
                 continue
-            prob = predictor.predict(row)
-            prob = 0.0 if prob < 0.0 else 1.0 if prob > 1.0 else float(prob)
+            prob = float(predictor.predict(row))
+            if not args.raw_score:
+                # Probability head: clamp into [0,1]. A regression (raw-score)
+                # head predicts R directly and must NOT be clamped (that would
+                # collapse the ranking of every trade above +1R / below 0).
+                prob = 0.0 if prob < 0.0 else 1.0 if prob > 1.0 else prob
             won = 1 if bool(row.get("won")) else 0
             # Real net R now rides on the live rows (MB-20260717-M23-LIVEROW-REALIZED-R):
             # r_multiple_source=='stop_distance' is the reconstructed pnl/risk R;
@@ -116,12 +125,19 @@ def main() -> int:
         print(f"  NOTE: {n_r_fallback}/{n} rows used coarse unit-R (no reconstructed "
               f"stop-distance R); {n - n_r_fallback}/{n} carry real net R")
 
-    # Sweep the decision threshold over the observed prob grid.
+    # Sweep the decision threshold. Probability head: a fixed [0,1] grid + the
+    # observed probs. Raw-score (regression) head: the observed-score grid only
+    # (raw R spans e.g. [-3,+5], so a [0,1] grid is meaningless).
     probs = sorted({round(p, 4) for p, _, _, _ in scored})
-    grid = sorted(set([0.0] + probs + [round(x / 100, 2) for x in range(0, 101, 2)]))
+    if args.raw_score:
+        grid = probs
+    else:
+        grid = sorted(set([0.0] + probs + [round(x / 100, 2) for x in range(0, 101, 2)]))
     print("\nthreshold  n_sel  win_rate  sel_totalR  sel_netR  vs_takeall_netR")
     best = None  # (sel_net_r, threshold, n_sel, win_rate)
-    for t in grid:
+    # In raw mode print ~14 evenly-spaced rows (no natural 0.05 cadence).
+    print_stride = max(1, len(grid) // 14) if args.raw_score else 1
+    for i, t in enumerate(grid):
         sel = [(w, r) for p, w, r, _ in scored if p >= t]
         n_sel = len(sel)
         if n_sel == 0:
@@ -131,9 +147,10 @@ def main() -> int:
         net_r = tot_r - args.cost_r * n_sel
         if best is None or net_r > best[0]:
             best = (net_r, t, n_sel, wr)
-        # only print a compact set: every ~0.05 + the observed extremes
-        if abs((t * 100) % 5) < 1e-6 or t in (grid[0], grid[-1]):
-            print(f"  {t:5.2f}    {n_sel:4d}   {wr:6.4f}   {tot_r:8.2f}  {net_r:8.2f}   "
+        show = (i % print_stride == 0 or i == len(grid) - 1) if args.raw_score \
+            else (abs((t * 100) % 5) < 1e-6 or t in (grid[0], grid[-1]))
+        if show:
+            print(f"  {t:7.3f}  {n_sel:4d}   {wr:6.4f}   {tot_r:8.2f}  {net_r:8.2f}   "
                   f"{net_r - base_net_r:+8.2f}")
 
     print("\n=== VERDICT ===")
