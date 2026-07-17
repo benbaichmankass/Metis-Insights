@@ -4113,6 +4113,11 @@
      "at": "2026-07-16",
      "by": "session_01Y8dy5ZEC4GPQ5RF8oq7iSU",
      "note": "Remediation (a) SHIPPED: AlpacaClient.close() now escalates to DELETE /v2/positions/{sym}?cancel_orders=true (Alpaca's atomic cancel-then-liquidate) on the give-up path when the per-order cancels can't free the shares \u2014 the strongest programmatic lever before an operator paper reset. Unconditional (Prime-Directive-clean, no default-off gate; it only fires on the give-up path). The post-DELETE flatten-confirm gate still refuses to report a close the broker didn't actually make (never a fabricated close). Tests: tests/test_alpaca_wiring.py::test_client_close_escalates_to_cancel_orders_true_when_wedged + _forced_escalation_still_gated_by_flatten_confirm; two existing give-up tests updated to reflect the escalation. Operator (2026-07-16) chose 'both': ship the hardening AND reset the Alpaca paper account \u2014 the guaranteed clear for a truly-wedged pending_cancel that even cancel_orders=true may not dislodge. Resolves to 'closed' once QQQ reads flat post-reset/post-deploy."
+    },
+    {
+     "at": "2026-07-17",
+     "by": "session_01Y8dy5ZEC4GPQ5RF8oq7iSU",
+     "note": "DEEPER root cause found + fixed (see BL-20260716-ALPACA-MARKET-HOURS-EXIT): the perpetual 'won't flatten' spam was largely because the EXIT path had ZERO market-hours awareness (is_market_open was wired into ~20 ENTRY signal-builders but into NONE of order_monitor/execute/alpaca_client), and every order is type:market — which US equities can't fill outside regular hours. So after the 20:00 UTC close the monitor fired doomed market flattens into a closed market every tick and alarmed. The market-hours-exit PR makes AlpacaClient.close session-aware (defer when closed / limit+extended_hours when extended / market in RTH) and the monitor treats the defer as a quiet no-change. cancel_orders=true (this entry) remains the correct in-RTH bracket-wedge remedy; the two are complementary."
     }
    ]
   },
@@ -4129,7 +4134,21 @@
    "status": "open",
    "snoozed_until": null,
    "updates": []
+  },
+  {
+   "id": "BL-20260716-ALPACA-MARKET-HOURS-EXIT",
+   "opened_at": "2026-07-17",
+   "opened_by": "session_01Y8dy5ZEC4GPQ5RF8oq7iSU",
+   "source": "operator-flag",
+   "title": "Alpaca EXIT path had no market-hours awareness — fired doomed market flattens into a closed equity market every tick",
+   "description": "Operator (rightly) pushed back on the endless QQQ 'Position CLOSE failing — won't flatten' alerts. Root cause: is_market_open('us_equity') was wired into ~20 ENTRY signal-builders (they refuse to open when the market is closed) but into NONE of the exit path (order_monitor.py / execute.py / alpaca_client.py had zero market-hours awareness), and every Alpaca order is type:market. US equities cannot fill a market order outside 13:30-20:00 UTC (9:30-16:00 ET), so after the close the monitor kept firing market flattens that can't fill + re-alerting every tick for a position that simply can't be exited until the session (re)opens. FIX (this PR): (1) market_hours.us_equity_session() → 'rth'|'extended'|'closed'; (2) AlpacaClient.close is session-aware — CLOSED: defer (retCode 2, leave the GTC bracket armed, place nothing); EXTENDED: marketable LIMIT + extended_hours=true (ALPACA_EXT_LIMIT_BUFFER_BPS); RTH: the normal market flatten (incl. the cancel_orders=true escalation); (3) order_monitor treats the retCode-2 defer as a quiet no-change (no consecutive-close-failure streak, no 'won't flatten' alarm). Operator (2026-07-17) approved core+extended scope. Tier-2 order-path; also affects alpaca_live when it leaves dry_run.",
+   "tier": 2,
+   "trigger_condition": "an Alpaca equity position needs closing while the US market is closed or in extended hours",
+   "resolution_criteria": "PR merged + deployed; verified live that no 'won't flatten' alarm fires for an Alpaca equity outside RTH and that a needed exit completes (market flatten in RTH / limit in extended / deferred-then-exits after a closed window)",
+   "status": "in_progress",
+   "snoozed_until": null,
+   "updates": []
   }
  ],
- "updated_at": "2026-07-16"
+ "updated_at": "2026-07-17"
 }

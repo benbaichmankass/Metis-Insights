@@ -6,13 +6,27 @@ shapes (mocked HTTP, no network), idempotent close, and the inert
 """
 from __future__ import annotations
 
+import datetime as _dt
+
 import pytest
 import yaml
 
+from src.runtime.market_hours import us_equity_session
 from src.units.accounts.alpaca_client import AlpacaClient, MissingCredentialsError
 from src.units.accounts.clients import alpaca_client_for
 from src.units.accounts.execute import _submit_order
 from src.units.accounts.integrator import EXCHANGE_MAP, AlpacaAPI
+
+
+@pytest.fixture(autouse=True)
+def _us_equity_rth(monkeypatch):
+    """Default the US-equity session to REGULAR HOURS for every test so the
+    close-path tests exercise the market-flatten branch deterministically,
+    regardless of the wall-clock when CI runs (BL-20260716-ALPACA-MARKET-HOURS-
+    EXIT added a session gate to AlpacaClient.close). Session-specific tests
+    override this with their own monkeypatch."""
+    monkeypatch.setattr(
+        "src.runtime.market_hours.us_equity_session", lambda *a, **k: "rth")
 
 
 def test_exchange_map_has_alpaca():
@@ -829,3 +843,97 @@ def test_client_close_forced_escalation_still_gated_by_flatten_confirm(monkeypat
     out = cli.close("QQQ")
     assert out["retCode"] == 1
     assert "not confirmed flat" in str(out.get("retMsg") or "")
+
+
+# ---------------------------------------- market-hours-aware exit (BL-20260716)
+# Alpaca trades US equities, which have a session calendar. The exit path was
+# firing plain MARKET flattens into a closed market every tick (the perpetual
+# QQQ "won't flatten" spam). close() now gates on the session: DEFER when
+# closed (bracket left armed), marketable LIMIT + extended_hours when in
+# pre/after-hours, and the normal market flatten only in regular hours.
+
+
+def test_us_equity_session_classifies_rth_extended_closed():
+    # July = DST month → ET = UTC-4. RTH 13:30–20:00 UTC; pre 08:00–13:30;
+    # post 20:00–24:00; overnight/weekend closed.
+    def at(y, m, d, hh, mm=0):
+        return _dt.datetime(y, m, d, hh, mm, tzinfo=_dt.timezone.utc)
+    # Thursday 2026-07-16
+    assert us_equity_session(at(2026, 7, 16, 15, 0)) == "rth"        # 11:00 ET
+    assert us_equity_session(at(2026, 7, 16, 13, 0)) == "extended"   # 09:00 ET pre
+    assert us_equity_session(at(2026, 7, 16, 22, 0)) == "extended"   # 18:00 ET post
+    assert us_equity_session(at(2026, 7, 16, 3, 0)) == "closed"      # 23:00 ET (Wed) overnight
+    assert us_equity_session(at(2026, 7, 16, 8, 0)) == "extended"    # 04:00 ET pre-open edge
+    # Saturday 2026-07-18 → closed all day
+    assert us_equity_session(at(2026, 7, 18, 15, 0)) == "closed"
+
+
+def test_client_close_defers_when_market_closed(monkeypatch):
+    """Market closed → retCode 2 (deferred, not failed); the protective bracket
+    is NOT cancelled and NO order is placed."""
+    monkeypatch.setattr(
+        "src.runtime.market_hours.us_equity_session", lambda *a, **k: "closed")
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    calls = []
+    monkeypatch.setattr(cli, "_request", lambda *a, **k: calls.append(a) or {"retCode": 0})
+    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol",
+                        lambda *a: calls.append(("CANCEL",) + a) or 0)
+
+    out = cli.close("QQQ")
+    assert out["retCode"] == 2
+    assert "deferred" in out["retMsg"].lower()
+    assert calls == []  # nothing touched — bracket stays armed, no order placed
+
+
+def test_client_close_extended_hours_places_limit(monkeypatch):
+    """Extended hours → a marketable LIMIT with extended_hours=true, not a
+    market order."""
+    monkeypatch.setattr(
+        "src.runtime.market_hours.us_equity_session", lambda *a, **k: "extended")
+    monkeypatch.setenv("ALPACA_CANCEL_SETTLE_S", "0")
+    monkeypatch.setenv("ALPACA_CLOSE_CONFIRM_S", "0.05")
+    monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep", lambda *_a, **_k: None)
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_position_raw",
+                        lambda *a: {"qty": "16", "side": "long", "current_price": "700.00"})
+    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *a: 1)
+    monkeypatch.setattr(cli, "_open_orders_for_symbol", lambda *a: [])
+    # Position gone after the limit → confirmed flat.
+    monkeypatch.setattr(cli, "position_present", lambda *a: False)
+    posted = {}
+
+    def fake_request(method, path, json_body=None):
+        if method == "POST" and path == "/v2/orders":
+            posted.update(json_body or {})
+            return {"retCode": 0, "result": {"id": "ext-1"}}
+        return {"retCode": 0, "result": {}}
+
+    monkeypatch.setattr(cli, "_request", fake_request)
+
+    out = cli.close("QQQ")
+    assert out["retCode"] == 0
+    assert posted["type"] == "limit"
+    assert posted["extended_hours"] is True
+    assert posted["side"] == "sell"           # closing a long
+    assert posted["time_in_force"] == "day"
+    # Marketable: sell limit is BELOW the last price.
+    assert float(posted["limit_price"]) < 700.0
+
+
+def test_client_close_extended_hours_defers_without_price(monkeypatch):
+    """Extended hours but no current_price → defer (retCode 2), never a blind
+    order."""
+    monkeypatch.setattr(
+        "src.runtime.market_hours.us_equity_session", lambda *a, **k: "extended")
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_position_raw",
+                        lambda *a: {"qty": "16", "side": "long", "current_price": "0"})
+    placed = []
+    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *a: placed.append("c") or 0)
+    monkeypatch.setattr(cli, "_request", lambda *a, **k: placed.append(a) or {"retCode": 0})
+
+    out = cli.close("QQQ")
+    assert out["retCode"] == 2
+    assert "deferred" in out["retMsg"].lower()
+    assert placed == []  # no cancel, no order

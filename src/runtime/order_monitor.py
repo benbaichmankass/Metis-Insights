@@ -825,6 +825,26 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         )
         if not ex_result.get("ok"):
             err_str = ex_result.get("error") or "unknown"
+            # Market-session DEFER (BL-20260716-ALPACA-MARKET-HOURS-EXIT).
+            # AlpacaClient.close returns a "deferred, not failed" signal
+            # (retCode 2, message says "exit deferred" / "deferring") when the US
+            # equity market is closed, or an extended-hours limit close is still
+            # working. The position simply CANNOT be flattened until the session
+            # (re)opens — so this is a quiet no-change, NOT a failure: no
+            # consecutive-close-failure streak, no "won't flatten" alarm. The
+            # protective bracket (closed) / working limit (extended) handles the
+            # exit; the monitor re-attempts next tick.
+            if ("exit deferred" in err_str.lower()
+                    or "deferring" in err_str.lower()
+                    or "market closed" in err_str.lower()):
+                logger.info(
+                    "order_monitor: exchange close DEFERRED (market session) "
+                    "for pkg=%s account=%s → %s — DB left open, no alarm.",
+                    pkg_id, matched_trade.get("account_id"), err_str,
+                )
+                _CLOSE_FAIL_STREAK.pop(_close_key, None)  # a defer clears the streak
+                summary.no_change_count += 1
+                return
             # Bybit signals "position already gone" with retCode 30031
             # (position size is zero) or 110017 / 110025. When the
             # exchange's internal SL/TP fires before the monitor's close
