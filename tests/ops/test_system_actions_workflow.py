@@ -89,6 +89,10 @@ EXPECTED_ACTIONS = {
     # close timestamp, P1-B) on historical rows; runs --also-account-class so the
     # same audited pass also closes any remaining account_class gap (P1-E).
     "backfill-closed-at": "backfill_closed_at_action.sh",
+    # 2026-07-17 — one-shot backfill of the fixed-model round-trip cost ESTIMATE
+    # onto uncosted historical closed trades (MB-20260629-ALLOC-COSTCAP). Writes
+    # only fee_taker_usd + cost_source='estimate'; never pnl / order path.
+    "backfill-trade-costs": "backfill_trade_cost_estimates_action.sh",
     # 2026-06-22 — normalise existing epoch-ms trades.closed_at rows to ISO
     # (BL-20260620-RECONCILER-CLOSEDAT-MS); distinct from backfill-closed-at
     # (which fills NULLs). Wraps migrate_closed_at_to_iso.py.
@@ -207,6 +211,7 @@ TIER_2_ACTIONS = {
     "backfill-shadow-predictions",
     "backfill-account-class",
     "backfill-closed-at",
+    "backfill-trade-costs",
     "migrate-closed-at-iso",
     "pull-exchange-fills",
     "pull-mes-ibkr-history",
