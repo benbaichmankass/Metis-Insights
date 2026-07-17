@@ -540,9 +540,11 @@ def test_client_close_waits_for_qty_available_before_flatten(monkeypatch):
 
 
 def test_client_close_insufficient_qty_gives_up_and_logs_residual(monkeypatch, caplog):
-    """If the shares never free within ALPACA_FLATTEN_RETRY_S, close() returns
-    the broker's error (leaving the DB row open to retry next tick) AND logs the
-    residual open orders so the 'won't flatten' failure is self-diagnosing."""
+    """If the shares never free within ALPACA_FLATTEN_RETRY_S — and even the
+    last-resort cancel_orders=true liquidation can't break the wedge — close()
+    returns the broker's error (leaving the DB row open to retry next tick) AND
+    logs the residual open orders so the 'won't flatten' failure is
+    self-diagnosing."""
     import logging
     monkeypatch.setenv("ALPACA_FLATTEN_RETRY_S", "0.05")
     monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep", lambda *_: None)
@@ -557,7 +559,10 @@ def test_client_close_insufficient_qty_gives_up_and_logs_residual(monkeypatch, c
         if method == "GET" and path == "/v2/positions/QQQ":
             # qty_available never recovers — the shares stay held.
             return {"retCode": 0, "result": {"qty": "16", "qty_available": "0"}}
-        if method == "DELETE" and path == "/v2/positions/QQQ":
+        # Both the plain flatten AND the cancel_orders=true escalation fail —
+        # the truly-wedged pending_cancel case that only an operator paper reset
+        # can clear (BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL).
+        if method == "DELETE" and path.startswith("/v2/positions/QQQ"):
             return {"retCode": 422, "retMsg": (
                 "insufficient qty available for order (requested: 16, available: 0)"
             )}
@@ -575,11 +580,13 @@ def test_client_close_insufficient_qty_gives_up_and_logs_residual(monkeypatch, c
 
 
 def test_client_close_flatten_retry_disabled_is_single_shot(monkeypatch):
-    """ALPACA_FLATTEN_RETRY_S <= 0 restores the single-shot DELETE (no await,
-    no retry — not even the raw qty_available read)."""
+    """ALPACA_FLATTEN_RETRY_S <= 0 restores the single-shot flatten DELETE (no
+    await, no retry loop — not even the raw qty_available read). The last-resort
+    cancel_orders=true escalation still fires once on the give-up path."""
     monkeypatch.setenv("ALPACA_FLATTEN_RETRY_S", "0")
     monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep", lambda *_: None)
-    deletes = {"n": 0}
+    plain_deletes = {"n": 0}
+    forced_deletes = {"n": 0}
     raw_reads = {"n": 0}
 
     def fake_request(method, path, json_body=None):
@@ -588,8 +595,11 @@ def test_client_close_flatten_retry_disabled_is_single_shot(monkeypatch):
         if method == "GET" and path == "/v2/positions/QQQ":
             raw_reads["n"] += 1
             return {"retCode": 0, "result": {"qty": "16", "qty_available": "0"}}
-        if method == "DELETE" and path == "/v2/positions/QQQ":
-            deletes["n"] += 1
+        if method == "DELETE" and path.startswith("/v2/positions/QQQ"):
+            if "cancel_orders=true" in path:
+                forced_deletes["n"] += 1
+            else:
+                plain_deletes["n"] += 1
             return {"retCode": 422, "retMsg": "insufficient qty available (available: 0)"}
         return {"retCode": 0, "result": []}
 
@@ -597,7 +607,8 @@ def test_client_close_flatten_retry_disabled_is_single_shot(monkeypatch):
     monkeypatch.setattr(cli, "_request", fake_request)
     res = cli.close("QQQ")
     assert res["retCode"] != 0
-    assert deletes["n"] == 1  # single shot, no retry
+    assert plain_deletes["n"] == 1   # single shot, no retry loop
+    assert forced_deletes["n"] == 1  # one last-resort cancel_orders=true escalation
     assert raw_reads["n"] == 0  # disabled → no qty_available await at all
 
 
@@ -738,3 +749,83 @@ def test_accounts_yaml_alpaca_paper_ships_inert():
     assert "demo" not in acct
     assert acct["account_class"] == "paper"
     assert acct["symbols"] == ["SPY", "QQQ", "GLD", "IWM", "TLT", "IEF", "SLV", "USO", "GDX", "TQQQ", "QLD", "SPLG", "IAUM", "SCHA"]
+
+
+# ---------------------------------------- close() wedged-pending-cancel escalation
+# BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL: a resting order stuck in
+# `pending_cancel` (Alpaca's own cancel never completes) keeps all the shares
+# `held_for_orders`, so the per-order cancels can't free them and every tick's
+# plain flatten DELETE returns "insufficient qty available (available: 0)" and
+# re-alerts. close() now escalates to Alpaca's atomic cancel-then-liquidate
+# (`DELETE /v2/positions/{sym}?cancel_orders=true`) as the last programmatic
+# lever, and the post-DELETE confirm still refuses to report a close the broker
+# didn't actually make.
+
+def test_client_close_escalates_to_cancel_orders_true_when_wedged(monkeypatch):
+    monkeypatch.setenv("ALPACA_CANCEL_SETTLE_S", "0")
+    monkeypatch.setenv("ALPACA_FLATTEN_RETRY_S", "0")  # single-shot → give-up path
+    monkeypatch.setenv("ALPACA_CLOSE_CONFIRM_S", "0.05")
+    monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep",
+                        lambda *_a, **_k: None)
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    calls = {"plain": 0, "forced": 0}
+    # The resting order can't be app-cancelled (already pending_cancel) and
+    # stays visible in the open-orders list.
+    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *_a: 0)
+    monkeypatch.setattr(cli, "_open_orders_for_symbol",
+                        lambda *_a: [{"id": "stuck", "status": "pending_cancel"}])
+    # After the forced cancel_orders=true liquidation, the position is gone.
+    monkeypatch.setattr(cli, "positions", lambda: [])
+
+    def fake_request(method, path, json_body=None):
+        if method == "DELETE" and path.startswith("/v2/positions/QQQ"):
+            if "cancel_orders=true" in path:
+                calls["forced"] += 1
+                return {"retCode": 0, "result": {"id": "liq-1"}}
+            calls["plain"] += 1
+            return {"retCode": 403,
+                    "retMsg": "insufficient qty available for order "
+                              "(requested: 16, available: 0)"}
+        return {"retCode": 0, "result": {}}
+
+    monkeypatch.setattr(cli, "_request", fake_request)
+
+    out = cli.close("QQQ")
+    assert out["retCode"] == 0
+    assert calls["plain"] >= 1    # the plain flatten was tried and failed
+    assert calls["forced"] == 1   # then escalated to cancel_orders=true
+
+
+def test_client_close_forced_escalation_still_gated_by_flatten_confirm(monkeypatch):
+    """If even the cancel_orders=true liquidation doesn't actually flatten, the
+    confirm gate returns retCode 1 ('not confirmed flat') so the monitor keeps
+    the DB row open — never a fabricated close."""
+    monkeypatch.setenv("ALPACA_CANCEL_SETTLE_S", "0")
+    monkeypatch.setenv("ALPACA_FLATTEN_RETRY_S", "0")
+    monkeypatch.setenv("ALPACA_CLOSE_CONFIRM_S", "0.05")
+    monkeypatch.setattr("src.units.accounts.alpaca_client.time.sleep",
+                        lambda *_a, **_k: None)
+
+    cli = AlpacaClient(api_key="k", api_secret="s")
+    monkeypatch.setattr(cli, "_cancel_open_orders_for_symbol", lambda *_a: 0)
+    monkeypatch.setattr(cli, "_open_orders_for_symbol", lambda *_a: [])
+    # The position never actually leaves — the forced flatten was accepted but
+    # the broker didn't flatten.
+    monkeypatch.setattr(cli, "positions",
+                        lambda: [{"symbol": "QQQ", "qty": "16"}])
+
+    def fake_request(method, path, json_body=None):
+        if method == "DELETE" and path.startswith("/v2/positions/QQQ"):
+            if "cancel_orders=true" in path:
+                return {"retCode": 0, "result": {"id": "liq-2"}}
+            return {"retCode": 403,
+                    "retMsg": "insufficient qty available for order "
+                              "(requested: 16, available: 0)"}
+        return {"retCode": 0, "result": {}}
+
+    monkeypatch.setattr(cli, "_request", fake_request)
+
+    out = cli.close("QQQ")
+    assert out["retCode"] == 1
+    assert "not confirmed flat" in str(out.get("retMsg") or "")

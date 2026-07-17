@@ -19,11 +19,6 @@
           "at": "2026-07-16T18:00:00+00:00",
           "by": "claude (MB-20260701-001 vt004 session)",
           "note": "NEW RELATED FAILURE MODE \u2014 orphaned cycle child holds memory indefinitely. Observed 2026-07-16: the scheduled ict-trainer.service cycle logged 'Terminated' + manifest_failed exit_code 143 (SIGTERM) at 04:16:27Z on btc-regime-5m-lgbm-flow-v1.yaml, but a sibling `python -m ml train btc-regime-5m-lgbm-v2.yaml` child (pid 42164) was NOT reaped \u2014 it stayed alive 13h34m in State D holding VmRSS 4.67 GB (77% of the 6 GB box), wchan=mem_cgroup_handle_over_high (throttled + swap-thrashing at ~0% CPU), while a legitimate candidate research train (vt004, MB-20260701-001) was starved to a crawl (7m29s CPU in ~2h wall; 11.9M voluntary ctx-switches yielding for memory). Manually cleared via trainer-vm-diag SIGTERM (issue #6674): freed 4.6 GB (98 MB\u21922953 MB free), and vt004 completed within minutes. FIX ANGLE distinct from the streaming-aggregate footprint fix above: when the cycle runner is SIGTERM'd it must reap / kill its whole process group (KillMode=control-group on the systemd unit, or explicit child teardown in run_training_cycle.sh) so a terminated cycle can't leave an orphan pinning the box's memory until an out-of-band kill. This is the wedge cause behind the periodic 'Trainer VM DOWN' banners even when no external research load is present."
-        },
-        {
-          "at": "2026-07-16T21:00:00+00:00",
-          "by": "claude (overnight ML loop \u2014 MB-20260701-001 gate-2)",
-          "note": "RECURRED (3rd sighting). A scheduled ict-trainer.service manifest train btc-regime-5m-lgbm-yz-v1 (pid 67203) ran ~3h holding ~4.5GB RSS with the box at 96% mem (free 96MB) + ~3GB swap used, swap-thrashing. It STARVED a concurrent gate-2 probe arm (vt003 LightGBM) which made zero progress for 20min (0-byte .out). git fetch was fine \u2014 pure memory wedge. Freed it by SIGKILLing pid 67203 + the starved gate-2 arms (autonomous trainer-ops), then relaunched gate-2 on the unstarved box. Two concrete follow-ups this strengthens: (1) the KillMode=control-group / child-reap fix so a terminated/aborted cycle can't leave a 4.5GB child; (2) MB-20260709-TRAINER-SUBPROC-ISOLATION per-manifest RSS bound. Also NEW: btc-regime-5m-lgbm-yz-v1 specifically is a 4.5GB memory HOG (5m data volume x yang-zhang features) and a 3h LightGBM train is itself pathological (should be seconds-minutes) -> that manifest is likely wedged/thrashing, worth a targeted look."
         }
       ]
     },
@@ -4100,6 +4095,26 @@
       "status": "open",
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL",
+      "opened_at": "2026-07-16",
+      "opened_by": "session_01Y8dy5ZEC4GPQ5RF8oq7iSU",
+      "source": "operator-flag",
+      "title": "alpaca_paper QQQ long-16 wont flatten \u2014 broker-side OCO wedged in pending_cancel (not a code bug)",
+      "description": "Operator flagged 9 consecutive close failures on alpaca_paper QQQ long 16 (insufficient qty available: requested 16 available 0). Diag (issue #6666): broker HOLDS the real QQQ 16 (entry 720.63, uPnL ~-196). The deployed close code is CORRECT \u2014 its self-diagnosing line fired (\"alpaca close QQQ still insufficient-qty after ~6.0s; residual open orders=[...]\"), so the BL-20260708 cancel-then-flatten fix IS deployed and running. Root cause is BROKER-SIDE: the protective GTC OCO (created 2026-07-06, sell_to_close, stop 708.63 / limit 793.07) is wedged in status=pending_cancel with its stop leg status=held \u2014 Alpaca is not completing the cancel, so the 16 shares stay held_for_orders and every flatten hits available:0. The SL was even crossed (price 707.61 < stop 708.63) but the wedged stop never filled. Client cannot force a stuck pending_cancel; DELETE /orders/{id} is re-issued each tick with no effect. REMEDIATION OPTIONS: (a) try DELETE /v2/positions/{sym}?cancel_orders=true (atomic cancel+close) if the close DELETE does not already pass it; (b) a cancel-all (DELETE /v2/orders); (c) operator resets the Alpaca PAPER account (low stakes \u2014 paper money); (d) reduce per-tick alert spam for a confirmed broker-wedged order. Low urgency: PAPER money, backstop watchdog active, journal noise only.",
+      "tier": "Tier 2",
+      "trigger_condition": "a resting protective order wedges in pending_cancel and holds the position qty",
+      "resolution_criteria": "QQQ position flattened on alpaca_paper (broker reset or a code remediation that dislodges a pending_cancel-wedged order); alert spam bounded for a broker-wedged close",
+      "status": "in_progress",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-07-16",
+          "by": "session_01Y8dy5ZEC4GPQ5RF8oq7iSU",
+          "note": "Remediation (a) SHIPPED: AlpacaClient.close() now escalates to DELETE /v2/positions/{sym}?cancel_orders=true (Alpaca's atomic cancel-then-liquidate) on the give-up path when the per-order cancels can't free the shares \u2014 the strongest programmatic lever before an operator paper reset. Unconditional (Prime-Directive-clean, no default-off gate; it only fires on the give-up path). The post-DELETE flatten-confirm gate still refuses to report a close the broker didn't actually make (never a fabricated close). Tests: tests/test_alpaca_wiring.py::test_client_close_escalates_to_cancel_orders_true_when_wedged + _forced_escalation_still_gated_by_flatten_confirm; two existing give-up tests updated to reflect the escalation. Operator (2026-07-16) chose 'both': ship the hardening AND reset the Alpaca paper account \u2014 the guaranteed clear for a truly-wedged pending_cancel that even cancel_orders=true may not dislodge. Resolves to 'closed' once QQQ reads flat post-reset/post-deploy."
+        }
+      ]
     },
     {
       "id": "BL-20260717-FLAKY-TRAINING-CYCLE-LOCK-TEST",
