@@ -123,7 +123,6 @@ def main() -> int:
         wr = sum(w for w, _ in sel) / n_sel
         tot_r = sum(r for _, r in sel)
         net_r = tot_r - args.cost_r * n_sel
-        mark = ""
         if best is None or net_r > best[0]:
             best = (net_r, t, n_sel, wr)
         # only print a compact set: every ~0.05 + the observed extremes
