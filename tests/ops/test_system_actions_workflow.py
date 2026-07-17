@@ -93,6 +93,9 @@ EXPECTED_ACTIONS = {
     # onto uncosted historical closed trades (MB-20260629-ALLOC-COSTCAP). Writes
     # only fee_taker_usd + cost_source='estimate'; never pnl / order path.
     "backfill-trade-costs": "backfill_trade_cost_estimates_action.sh",
+    # Slice B / B0 — promote the entry orderId from notes.trade_id to the
+    # first-class trades.broker_order_id join key (MB-20260629-ALLOC-COSTCAP).
+    "backfill-broker-order-id": "backfill_broker_order_id_action.sh",
     # 2026-06-22 — normalise existing epoch-ms trades.closed_at rows to ISO
     # (BL-20260620-RECONCILER-CLOSEDAT-MS); distinct from backfill-closed-at
     # (which fills NULLs). Wraps migrate_closed_at_to_iso.py.
@@ -212,6 +215,7 @@ TIER_2_ACTIONS = {
     "backfill-account-class",
     "backfill-closed-at",
     "backfill-trade-costs",
+    "backfill-broker-order-id",
     "migrate-closed-at-iso",
     "pull-exchange-fills",
     "pull-mes-ibkr-history",
