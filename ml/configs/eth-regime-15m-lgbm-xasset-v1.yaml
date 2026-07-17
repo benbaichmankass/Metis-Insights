@@ -18,20 +18,13 @@
 # comparator (the RG4-failing self-only head) is already soaking, so this head
 # just has to beat it on the post-soak RG4 gate.
 #
-# BUILD (trainer VM — mirror the 1h cross-asset recipe at 15m; peers must be the
-# SAME 15m grid as the target):
-#   python -m scripts.ml.build_cross_asset \
-#     --target datasets-out/market_raw/ETHUSDT/15m/v002 \
-#     --peer datasets-out/market_raw/BTCUSDT/15m/<v> \
-#     --peer datasets-out/market_raw/SOLUSDT/15m/v002 \
-#     --out datasets-out/cross_asset/ETHUSDT/15m/v001
-#   python -m ml build-dataset market_features --output-dir datasets-out \
-#     --version v003 --source datasets-out/market_raw/ETHUSDT/15m/v002 \
-#     --symbol-scope ETHUSDT --timeframe 15m --overwrite \
-#     market_raw_path=datasets-out/market_raw/ETHUSDT/15m/v002 \
-#     cross_asset_path=datasets-out/cross_asset/ETHUSDT/15m/v001 \
-#     <vol_window_n / forward_window_m matched to the v002 build metadata>
-#   python -m ml train eth-regime-15m-lgbm-xasset-v1
+# DATASET: NO build needed. The ETH 15m market_features v002 (builder v12,
+# leakage passed) ALREADY carries all 13 xa_peer{1,2}_* + xa_breadth_up columns
+# (recon #6751) — the same dataset the self-only eth-regime-15m-lgbm-v1 reads.
+# So this is the cleanest possible feature A/B: IDENTICAL dataset (v002), the
+# ONLY difference is whether the xa_* columns appear in feature_columns. Just
+# train (trainer VM uses python3):
+#   python3 -m ml train eth-regime-15m-lgbm-xasset-v1
 #
 # TIER: registers at `shadow` (auto-wires for logging only). shadow -> advisory
 # is Tier-3 (operator-gated) and gated on a post-soak RG4 >= 0.55 TRUSTWORTHY,
@@ -98,7 +91,9 @@ dataset:
   family: market_features
   symbol_scope: ETHUSDT
   timeframe: 15m
-  version: v003
+  # v002 already carries the xa_* peer columns (recon #6751) — same dataset as
+  # the self-only eth-regime-15m-lgbm-v1 control, so this is a pure feature A/B.
+  version: v002
 evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
 evaluator_config:
   target_column: regime_label
@@ -108,8 +103,8 @@ evaluator_config:
 target_deployment_stage: shadow
 notes: |
   MB-20260628-REGIME-SOAK-READINESS retrain lever. Identical to
-  eth-regime-15m-lgbm-v1 except the added cross-asset feature group and the
-  cross_asset-side-stream dataset (v003). The cross_asset side-stream is computed
+  eth-regime-15m-lgbm-v1 (same dataset v002) except the added cross-asset feature
+  group in feature_columns. The cross_asset side-stream is computed
   at the ETH 15m bar cadence from BTC/SOL market_raw (past-only, leakage-safe —
   same-cadence peers close with the target). Leakage gate forbids
   forward_log_return / forward_log_return_vol / regime_label. RG3 is the
