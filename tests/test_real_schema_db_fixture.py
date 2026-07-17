@@ -64,6 +64,11 @@ _EXPECTED_TRADES_COLS = {
     # fixed-model 'estimate'; a broker-truth writer upgrades cost_source to
     # 'broker' + fills maker/funding. NULL on pre-migration + backtest rows.
     "fee_taker_usd", "fee_maker_usd", "funding_paid_usd", "cost_source",
+    # Added 2026-07-17 (Slice B / B0, MB-20260629-ALLOC-COSTCAP): the broker's
+    # entry orderId promoted from notes.trade_id to a first-class, indexed join
+    # key, so the broker-truth cost sweep ties a trade to its exchange_fills
+    # rows exactly. Observability-only; NULL on pre-migration rows.
+    "broker_order_id",
 }
 
 _EXPECTED_ORDER_PACKAGES_COLS = {

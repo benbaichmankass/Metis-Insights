@@ -93,11 +93,20 @@ EXPECTED_ACTIONS = {
     # onto uncosted historical closed trades (MB-20260629-ALLOC-COSTCAP). Writes
     # only fee_taker_usd + cost_source='estimate'; never pnl / order path.
     "backfill-trade-costs": "backfill_trade_cost_estimates_action.sh",
+    # Slice B / B0 — promote the entry orderId from notes.trade_id to the
+    # first-class trades.broker_order_id join key (MB-20260629-ALLOC-COSTCAP).
+    "backfill-broker-order-id": "backfill_broker_order_id_action.sh",
+    # Slice B / B2 — FIFO-attribute broker-truth round-trip fees (join by
+    # broker_order_id + fills store) onto cleanly-attributable closed trades.
+    "backfill-broker-truth-costs": "backfill_broker_truth_costs_action.sh",
     # 2026-06-22 — normalise existing epoch-ms trades.closed_at rows to ISO
     # (BL-20260620-RECONCILER-CLOSEDAT-MS); distinct from backfill-closed-at
     # (which fills NULLs). Wraps migrate_closed_at_to_iso.py.
     "migrate-closed-at-iso": "migrate_closed_at_to_iso_action.sh",
     "pull-exchange-fills": "pull_exchange_fills_action.sh",
+    # Slice B / B1 — pull perp funding into the exchange_funding store so the
+    # broker-truth sweep can attribute funding_paid_usd.
+    "pull-exchange-funding": "pull_exchange_funding_action.sh",
     # 2026-05-28 — paced IBKR MES historical pull on the live VM (MB-20260528-002).
     "pull-mes-ibkr-history": "pull_mes_ibkr_history.sh",
     # 2026-06-01 — same wrapper baked to a DAILY multi-year pull (native MES 1d
@@ -212,8 +221,11 @@ TIER_2_ACTIONS = {
     "backfill-account-class",
     "backfill-closed-at",
     "backfill-trade-costs",
+    "backfill-broker-order-id",
+    "backfill-broker-truth-costs",
     "migrate-closed-at-iso",
     "pull-exchange-fills",
+    "pull-exchange-funding",
     "pull-mes-ibkr-history",
     "pull-mes-ibkr-history-daily",
     "pull-ibkr-history",

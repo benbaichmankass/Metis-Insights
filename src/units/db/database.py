@@ -205,6 +205,37 @@ def _migrate_add_trade_costs(cursor: sqlite3.Cursor) -> bool:
     return True
 
 
+def _migrate_add_broker_order_id(cursor: sqlite3.Cursor) -> bool:
+    """Add the ``broker_order_id`` join key to ``trades`` if absent (Slice B / B0).
+
+    The broker's *entry* order id — the exchange ``orderId`` the place call
+    returned at open — is already captured, but only inside the ``notes`` JSON
+    blob (``notes.trade_id``, written by ``execute._log_trade_to_journal``). That
+    is not a first-class, indexable column, so tying a trade back to its
+    per-fill rows in the exchange-fills store
+    (``runtime_state/exchange_fills.sqlite``, whose ``exchange_fills.order_id`` is
+    the Bybit ``orderId``) would otherwise be a JSON-extract or a heuristic
+    ``(account, symbol, side, qty, time-window)`` match that risks
+    double-counting fills across overlapping same-symbol trades.
+
+    Promoting the entry order id to a real column makes the eventual
+    broker-truth cost sweep (B2 — ``fee_taker_usd``/``fee_maker_usd`` +
+    ``funding_paid_usd``, ``cost_source`` ``estimate``→``broker``) an EXACT
+    indexed join instead of a fuzzy one. Pure observability — never read on the
+    order path, never gates a trade. Forward rows get it at open;
+    ``scripts/ops/backfill_broker_order_id.py`` populates it from
+    ``notes.trade_id`` for the historical book.
+
+    Idempotent: returns True only on the run that actually adds the column.
+    """
+    cursor.execute("PRAGMA table_info(trades)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "broker_order_id" in columns:
+        return False
+    cursor.execute("ALTER TABLE trades ADD COLUMN broker_order_id TEXT")
+    return True
+
+
 def _migrate_add_order_package_model_scores(cursor: sqlite3.Cursor) -> bool:
     """Add ``model_scores`` column to ``order_packages`` if absent.
 
@@ -337,6 +368,7 @@ class Database:
                 fee_maker_usd REAL,
                 funding_paid_usd REAL,
                 cost_source TEXT,
+                broker_order_id TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -349,6 +381,7 @@ class Database:
         _migrate_add_closed_at(cursor)
         _migrate_add_reconcile_status(cursor)
         _migrate_add_trade_costs(cursor)
+        _migrate_add_broker_order_id(cursor)
         # Index for efficient per-account trade history queries.
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_trades_account_created "
@@ -367,7 +400,13 @@ class Database:
             "CREATE INDEX IF NOT EXISTS idx_trades_closed_at "
             "ON trades (datetime(closed_at) DESC)"
         )
-        
+        # Index for the Slice-B broker-truth cost sweep's exact
+        # trades→exchange_fills join key (Bybit entry orderId).
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_trades_broker_order_id "
+            "ON trades (broker_order_id)"
+        )
+
         # Backtest results table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS backtest_results (

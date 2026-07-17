@@ -51,7 +51,8 @@ CREATE TABLE trades (
     account_id TEXT,
     notes TEXT,
     order_package_id TEXT,
-    closed_at TEXT
+    closed_at TEXT,
+    broker_order_id TEXT
 );
 """
 
