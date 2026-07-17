@@ -52,6 +52,18 @@ REPO_ROOT="${REPO_ROOT:-/home/ubuntu/ict-trading-bot}"
 # exists to fix).
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/ops/_lib.sh"
+
+# Shared heavy-job queue: wait for any running training cycle / drift-retrain /
+# manual training to finish before this ~3.2 GB sweep starts, so the 6 GB box
+# never OOMs from two heavy jobs at once (BL-20260715). Skip this run if the
+# queue stays busy past the wait. See docs/claude/trainer-resource-protocol.md.
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/ops/_trainer_heavy_lock.sh"
+if ! take_trainer_heavy_lock "promotion_readiness"; then
+  echo '{"status":"heavy_lock_timeout","detail":"trainer queue busy past wait; skipping this promotion-readiness run"}' >&2
+  exit 0
+fi
+
 VENV_DIR="${VENV_DIR:-$REPO_ROOT/.venv}"
 REGISTRY_ROOT="${REGISTRY_ROOT:-$REPO_ROOT/ml/registry-store}"
 DATASETS_ROOT="${DATASETS_ROOT:-$REPO_ROOT/datasets-out}"

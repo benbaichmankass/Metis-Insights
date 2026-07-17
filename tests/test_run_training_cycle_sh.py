@@ -107,6 +107,16 @@ def _init_fixture_repo(root: Path, manifests: list[str]) -> None:
     script_dst = root / "scripts" / "ops" / "run_training_cycle.sh"
     script_dst.write_text(_SCRIPT.read_text(encoding="utf-8"), encoding="utf-8")
     script_dst.chmod(0o755)
+    # run_training_cycle.sh sources the shared heavy-job queue helper (the
+    # trainer resource protocol, 2026-07-17) — copy the REAL file into the
+    # scaffold so the `. _trainer_heavy_lock.sh` + take_trainer_heavy_lock()
+    # resolve. It's uncontended in these single-invocation tests, so the lock
+    # acquires immediately; the cycle self-lock (checked first) still owns the
+    # concurrency contract these tests exercise.
+    lock_src = _REPO_ROOT / "scripts" / "ops" / "_trainer_heavy_lock.sh"
+    lock_dst = root / "scripts" / "ops" / "_trainer_heavy_lock.sh"
+    lock_dst.write_text(lock_src.read_text(encoding="utf-8"), encoding="utf-8")
+    lock_dst.chmod(0o755)
     (root / ".venv" / "bin").mkdir(parents=True)
     (root / ".venv" / "bin" / "activate").write_text("", encoding="utf-8")
     subprocess.run(["git", "checkout", "-q", "-b", "main"], cwd=root, check=True)
