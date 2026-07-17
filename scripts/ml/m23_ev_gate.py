@@ -93,10 +93,15 @@ def main() -> int:
             prob = predictor.predict(row)
             prob = 0.0 if prob < 0.0 else 1.0 if prob > 1.0 else float(prob)
             won = 1 if bool(row.get("won")) else 0
-            has_r = any(isinstance(row.get(k), (int, float)) for k in ("r_multiple", "net_r", "gross_r"))
-            if not has_r:
+            # Real net R now rides on the live rows (MB-20260717-M23-LIVEROW-REALIZED-R):
+            # r_multiple_source=='stop_distance' is the reconstructed pnl/risk R;
+            # 'unit_fallback' (or a legacy row with no source tag) is the coarse
+            # ±1 the builder emits when the journal lacked the risk columns.
+            src = row.get("r_multiple_source")
+            is_real_r = src == "stop_distance"
+            if not is_real_r:
                 n_r_fallback += 1
-            scored.append((prob, won, _r_of(row), not has_r))
+            scored.append((prob, won, _r_of(row), not is_real_r))
 
     n = len(scored)
     if n == 0:
@@ -108,7 +113,8 @@ def main() -> int:
     print(f"holdout live rows: {n}  base win-rate: {base_rate:.4f}  "
           f"take-all total R: {base_total_r:.2f}  net R (cost {args.cost_r}): {base_net_r:.2f}")
     if n_r_fallback:
-        print(f"  NOTE: {n_r_fallback}/{n} rows lacked r_multiple -> unit-R fallback (coarse)")
+        print(f"  NOTE: {n_r_fallback}/{n} rows used coarse unit-R (no reconstructed "
+              f"stop-distance R); {n - n_r_fallback}/{n} carry real net R")
 
     # Sweep the decision threshold over the observed prob grid.
     probs = sorted({round(p, 4) for p, _, _, _ in scored})

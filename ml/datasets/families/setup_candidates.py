@@ -204,7 +204,11 @@ def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
     The held-out real population for the domain-shift eval (S-MLOPT-S6). Mirrors
     the filter the `setup_labels` / `trade_outcomes` families use so the live
     holdout reflects exactly the trades the journal counts. Returns
-    `{entry_ts, direction(±1), pnl, pnl_percent}` newest-first. Best-effort: a
+    `{entry_ts, direction(±1), pnl, pnl_percent, entry_price, stop_loss,
+    position_size}` newest-first — the last three are the risk columns the live
+    rows' realized-R is reconstructed from (`MB-20260717-M23-LIVEROW-REALIZED-R`);
+    they serialize as `None` on a pre-schema DB (old fixtures / a journal missing
+    those columns) so callers fall back to a coarse unit-R. Best-effort: a
     missing DB / table returns `[]`.
     """
     path = Path(db_path)
@@ -216,8 +220,19 @@ def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
         return []
     conn.row_factory = sqlite3.Row
     try:
+        # Detect which risk columns this journal actually carries so an
+        # old-schema DB (the S6 fixtures, a migration-behind copy) degrades to
+        # NULL risk fields instead of raising — the same best-effort posture the
+        # rest of this loader takes.
+        try:
+            have = {r[1] for r in conn.execute("PRAGMA table_info(trades)")}
+        except sqlite3.OperationalError:
+            return []
+        risk_cols = [c for c in ("entry_price", "stop_loss", "position_size")
+                     if c in have]
+        select_cols = ["timestamp", "direction", "pnl", "pnl_percent", *risk_cols]
         sql = (
-            "SELECT timestamp, direction, pnl, pnl_percent FROM trades "
+            f"SELECT {', '.join(select_cols)} FROM trades "
             "WHERE status='closed' AND COALESCE(is_backtest,0)=0 "
             "AND COALESCE(is_demo,0)=0 AND symbol=? AND pnl IS NOT NULL "
             "ORDER BY timestamp"
@@ -232,13 +247,48 @@ def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
     for r in db_rows:
         side = str(r["direction"] or "").lower()
         direction = -1 if side in ("sell", "short", "-1") else 1
+        keys = r.keys()
         out.append({
             "entry_ts": str(r["timestamp"] or ""),
             "direction": direction,
             "pnl": r["pnl"],
             "pnl_percent": r["pnl_percent"],
+            "entry_price": r["entry_price"] if "entry_price" in keys else None,
+            "stop_loss": r["stop_loss"] if "stop_loss" in keys else None,
+            "position_size": r["position_size"] if "position_size" in keys else None,
         })
     return out
+
+
+def _live_realized_r(tr: dict[str, Any], won: int) -> tuple[float, str]:
+    """Realized R-multiple for a REAL closed trade + which source produced it.
+
+    Prefer the **net, cost-aware** R = ``pnl / (|entry − stop| × size)``: the
+    trade's realized dollar pnl (already net of fees) over its dollar risk at
+    entry. For a linear instrument (this dataset is BTCUSDT-only, 1:1 contract
+    value) the ``size`` cancels the dollar units, so this is exactly the
+    realized R the EV gate needs — a losing trade that hit its stop reads ≈ −1R,
+    a 2R winner reads ≈ +2R. Falls back to a coarse signed unit-R (±1 by the
+    win/loss bit) when the risk columns are missing/zero (a pre-schema journal
+    or a trade the writer didn't stop-populate), so the column is never a
+    silent 0.0 that the EV scorer would treat as a real 0R outcome.
+
+    Returns ``(r_multiple, source)`` where source ∈ {"stop_distance",
+    "unit_fallback"}.
+    """
+    pnl = tr.get("pnl")
+    entry = tr.get("entry_price")
+    stop = tr.get("stop_loss")
+    size = tr.get("position_size")
+    if (pnl is not None and entry is not None and stop is not None
+            and size is not None):
+        try:
+            risk = abs(float(entry) - float(stop)) * float(size)
+            if risk > 0:
+                return float(pnl) / risk, "stop_distance"
+        except (TypeError, ValueError):
+            pass
+    return (1.0 if won else -1.0), "unit_fallback"
 
 
 def _load_backtest_trades(
@@ -526,6 +576,12 @@ class SetupCandidatesBuilder(DatasetBuilder):
         "label": int,                # +1 tp, -1 sl, sign(ret) at timeout
         "won": int,                  # 1 if label > 0 else 0 (meta-label target)
         "r_multiple": float,         # ret / stop-distance (risk units)
+        # how a `live` row's r_multiple was derived (MB-20260717-M23-LIVEROW-REALIZED-R):
+        # 'stop_distance' = real net R (pnl / |entry-stop|*size), 'unit_fallback'
+        # = coarse ±1 when the risk columns were absent. Only emitted on live
+        # rows; synthetic/backtest rows omit it (their R comes from the barrier /
+        # recorder pnl directly).
+        "r_multiple_source": str,
         "ret": float,                # direction-signed net return
         "holding_bars": int,
         # real-vs-synthetic split flag (domain-shift discipline)
@@ -834,6 +890,12 @@ class SetupCandidatesBuilder(DatasetBuilder):
                 won = 1 if (pnl is not None and float(pnl) > 0) else 0
                 pnl_pct = tr["pnl_percent"]
                 ret = float(pnl_pct) / 100.0 if pnl_pct is not None else 0.0
+                # Reconstruct realized R from the trade's own risk (stop
+                # distance × size) so the EV gate is exact — was a hardcoded
+                # 0.0 placeholder that the scorer mistook for a real 0R outcome
+                # (MB-20260717-M23-LIVEROW-REALIZED-R). Falls back to signed
+                # unit-R when the risk columns are absent.
+                r_multiple, r_source = _live_realized_r(tr, won)
                 yield {
                     **_feature_fields(rows, e, log_returns, vol,
                                       boundaries, bucket_labels, momentum_window,
@@ -844,7 +906,8 @@ class SetupCandidatesBuilder(DatasetBuilder):
                     "barrier_touched": "live",
                     "label": 1 if won else -1,
                     "won": won,
-                    "r_multiple": 0.0,  # real stop distance not reconstructed here
+                    "r_multiple": r_multiple,
+                    "r_multiple_source": r_source,
                     "ret": ret,
                     "holding_bars": 0,
                     "is_live_trade": True,

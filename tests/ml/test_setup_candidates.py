@@ -203,6 +203,92 @@ def test_real_trade_rows_appended(tmp_path: Path):
     assert lost_row["won"] == 0 and lost_row["label"] == -1
 
 
+def _seed_trades_with_risk(
+    db: Path,
+    entries: list[tuple[str, str, float, float | None, float | None, float | None]],
+) -> None:
+    """entries = [(iso_ts, direction, pnl, entry_price, stop_loss, size), ...].
+
+    Seeds a trades table carrying the risk columns the live-row realized-R
+    reconstruction reads (`MB-20260717-M23-LIVEROW-REALIZED-R`). A `None`
+    stop_loss/entry/size models a journal row the writer left un-populated.
+    """
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "CREATE TABLE trades (id INTEGER PRIMARY KEY, symbol TEXT, direction TEXT, "
+        "timestamp TEXT, status TEXT, pnl REAL, pnl_percent REAL, "
+        "entry_price REAL, stop_loss REAL, position_size REAL, "
+        "is_backtest INT, is_demo INT)"
+    )
+    for i, (ts, direction, pnl, entry, stop, size) in enumerate(entries):
+        conn.execute(
+            "INSERT INTO trades VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (i, "BTCUSDT", direction, ts, "closed", pnl, pnl / 100.0,
+             entry, stop, size, 0, 0),
+        )
+    conn.commit()
+    conn.close()
+
+
+def test_live_rows_carry_reconstructed_realized_r(tmp_path: Path):
+    """A live row's r_multiple is the real net R (pnl / |entry-stop|*size), not
+    the old 0.0 placeholder — so the EV gate is exact (MB-20260717-M23-LIVEROW-REALIZED-R)."""
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    # Long win: entry 100, stop 98 -> risk/unit 2; size 3 -> $6 risk; pnl +$12 -> +2.0R.
+    # Short loss: entry 100, stop 101 -> risk/unit 1; size 5 -> $5 risk; pnl -$5 -> -1.0R.
+    _seed_trades_with_risk(db, [
+        ((base + timedelta(hours=50)).isoformat(), "buy", 12.0, 100.0, 98.0, 3.0),
+        ((base + timedelta(hours=120)).isoformat(), "sell", -5.0, 100.0, 101.0, 5.0),
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db,
+    ))
+    live = [r for r in rows if r["is_live_trade"]]
+    assert len(live) == 2
+    won_row = next(r for r in live if r["direction"] == 1)
+    lost_row = next(r for r in live if r["direction"] == -1)
+    assert math.isclose(won_row["r_multiple"], 2.0, rel_tol=1e-9)
+    assert math.isclose(lost_row["r_multiple"], -1.0, rel_tol=1e-9)
+    assert won_row["r_multiple_source"] == "stop_distance"
+    assert lost_row["r_multiple_source"] == "stop_distance"
+
+
+def test_live_row_r_falls_back_to_unit_when_risk_absent(tmp_path: Path):
+    """Missing stop/size (old-schema journal or an un-stopped row) degrades to a
+    signed unit-R, never a silent 0.0 the EV scorer would read as a real 0R."""
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    # (a) Old schema entirely (no risk columns): _seed_trades -> unit fallback.
+    db_old = tmp_path / "old.db"
+    _seed_trades(db_old, [((base + timedelta(hours=50)).isoformat(), "buy", 7.0)])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db_old,
+    ))
+    live = [r for r in rows if r["is_live_trade"]]
+    assert len(live) == 1
+    assert live[0]["r_multiple"] == 1.0  # won -> +1 coarse
+    assert live[0]["r_multiple_source"] == "unit_fallback"
+    # (b) Columns present but NULL stop on a losing trade -> -1 fallback.
+    db_null = tmp_path / "null.db"
+    _seed_trades_with_risk(db_null, [
+        ((base + timedelta(hours=50)).isoformat(), "sell", -4.0, 100.0, None, 2.0),
+    ])
+    rows2 = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db_null,
+    ))
+    live2 = [r for r in rows2 if r["is_live_trade"]]
+    assert len(live2) == 1
+    assert live2[0]["r_multiple"] == -1.0
+    assert live2[0]["r_multiple_source"] == "unit_fallback"
+
+
 def test_include_synthetic_false_emits_only_live(tmp_path: Path):
     closes = _trending_closes()
     ddir = _write_market_raw(tmp_path, closes)
