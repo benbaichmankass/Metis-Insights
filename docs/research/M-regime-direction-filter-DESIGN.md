@@ -111,9 +111,51 @@ that leg stays uncovered-but-flagged rather than force-fit.
   breakout follower. Rollout should therefore prioritize the `*_pullback_*`
   legs; the trend-follower legs are a lower-yield check.
 
-## First execution step
+## Results — REFUTED for the pullback family (2026-07-17)
 
-Harness flag is in. Next: run ETH/SOL/XRP/ADA 2h WITH/WITHOUT (`off` vs `di` vs
-`slope`) on the trainer through `trainer_run.sh` on the real multi-year candle
-feed, and report the net comparison. If a leg clears the go bar, author the
-first `trending_down` cell for `eth_pullback_2h` as the pilot Tier-3 PR.
+Ran the 5 alt `*_pullback_2h` symbols on the trainer's ~5-year 2h feed (15m
+resampled → 2h), net of 7.5 bps, at the **exact live `eth_pullback_2h` params
+incl. `adx_min: 25`** (`off` = current live behaviour). Go bar = improve net
+expectancy **AND** cut maxDD vs `off`.
+
+| Symbol | `off` exp / maxDD | `di` Δexp / ΔmaxDD | `slope` Δexp / ΔmaxDD | Go-bar |
+|---|---|---|---|---|
+| **ETHUSDT** (pilot) | **+0.358** / 13.6 | −0.091 / −0.8 | −0.130 / +2.6 | ❌ fail |
+| SOLUSDT | +0.226 / 18.2 | **+0.048 / −6.3** | −0.132 / +3.7 | ⚠️ di only |
+| XRPUSDT | +0.168 / 20.4 | +0.025 / +0.0 | **+0.015 / −3.5** | ⚠️ slope only |
+| ADAUSDT | +0.316 / 10.5 | −0.038 / +0.2 | −0.128 / +4.5 | ❌ fail |
+| AVAXUSDT | +0.165 / 13.7 | −0.108 / +11.8 | −0.219 / +22.5 | ❌ fail |
+
+**Verdict: the direction filter does NOT clear the go bar for the pullback
+family, and fails on the pilot (ETH) outright.** Only SOL/`di` and XRP/`slope`
+marginally pass — *inconsistently* (a different lever each) amid 4-of-5 fails;
+two marginal passes across 10 arms is consistent with noise, and a live cell off
+one symbol when the same filter hurts the other four would be exactly the
+overfitting the go bar + compat matrix exist to prevent.
+
+**Why it fails — the mechanism is backwards for a pullback strategy.** A
+pullback strategy *buys a dip*: at the entry bar price has just moved **down**,
+so the instantaneous `+DI/−DI` (and often the midline slope) reads "down" — which
+is the *setup*, not an anti-signal. Gating out "down-direction" entries removes
+the valid dip-buys. And the pullback unit **already has a direction filter**: it
+only goes long when `close > Donchian midline` (`htf_pullback_trend_2h`'s
+`uptrend` test) — ADX only adds *strength* on top of that existing *direction*
+gate. A second, faster direction gate subtracts.
+
+**Reframe of the 2026-07-16 losses.** Over ~5 years these legs are
+net-**positive** (`off` expectancy +0.16 to +0.36 R). 07-16 was a bad day within
+the normal loss distribution of legs that work — not a systematic
+regime-recognition failure a per-leg direction gate fixes. The genuine risk that
+day was **correlated simultaneous entries** (ETH/XRP/ADA long-dipped and dumped
+together — the `eth_pullback_2h` "CORRELATION CAVEAT" already flags this), which
+points at **correlation-aware sizing / concurrency limits**, not a direction
+filter.
+
+**Disposition:** do NOT author `trending_down` OFF cells for the pullback family
+(the `*_pullback_2h` alts stay uncovered-but-flagged in
+`config/regime_coverage_exemptions.yaml` `coverage_debt` — now *measured*: the
+direction filter was tested and rejected, not merely unaddressed). No Tier-3 PR.
+The harness `--direction-filter` flag stays as reusable research tooling. The
+open follow-up worth pursuing for 07-16-type clustering is
+**correlation-aware sizing across concurrently-open correlated alt legs**, a
+separate design.
