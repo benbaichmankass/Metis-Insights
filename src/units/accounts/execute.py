@@ -1449,6 +1449,12 @@ def _log_trade_to_journal(
             # blob would be unparseable on the read side).
             "notes": dump_capped(notes_payload, 2000 if extra_notes else 500),
             "order_package_id": pkg_id,
+            # Slice B / B0 — the broker's entry orderId as a first-class,
+            # indexable join key (mirrors notes.trade_id) so the broker-truth
+            # cost sweep can tie this trade to its exchange_fills rows exactly.
+            # Observability-only; never read on the order path. Synthetic ids on
+            # dry/rejection rows simply won't match any real fill.
+            "broker_order_id": trade_id,
         })
         # Wire the package → trade link so the strategy_monocle gate
         # (pipeline.py::_has_open_package_for_strategy, linked_only=True)

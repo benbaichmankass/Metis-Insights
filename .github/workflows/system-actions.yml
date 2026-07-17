@@ -93,8 +93,11 @@ on:
           - backfill-account-class
           - backfill-closed-at
           - backfill-trade-costs
+          - backfill-broker-order-id
+          - backfill-broker-truth-costs
           - migrate-closed-at-iso
           - pull-exchange-fills
+          - pull-exchange-funding
           - inspect-closed-pnl
           - bybit-account-audit
           - strategy-performance-audit
@@ -498,7 +501,7 @@ jobs:
             status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|backfill-trade-costs|migrate-closed-at-iso|pull-exchange-fills|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|flatten-bybit-position|flatten-alpaca-position|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|fix-prop-mislinked-close|reset-daily-risk-state|repair-malformed-notes)
+            pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|flatten-bybit-position|flatten-alpaca-position|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|fix-prop-mislinked-close|reset-daily-risk-state|repair-malformed-notes)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -779,8 +782,11 @@ jobs:
             backfill-account-class)             SCRIPT="backfill_account_class_action.sh" ;;
             backfill-closed-at)                 SCRIPT="backfill_closed_at_action.sh" ;;
             backfill-trade-costs)               SCRIPT="backfill_trade_cost_estimates_action.sh" ;;
+            backfill-broker-order-id)           SCRIPT="backfill_broker_order_id_action.sh" ;;
+            backfill-broker-truth-costs)        SCRIPT="backfill_broker_truth_costs_action.sh" ;;
             migrate-closed-at-iso)              SCRIPT="migrate_closed_at_to_iso_action.sh" ;;
             pull-exchange-fills)                SCRIPT="pull_exchange_fills_action.sh" ;;
+            pull-exchange-funding)              SCRIPT="pull_exchange_funding_action.sh" ;;
             inspect-closed-pnl)                 SCRIPT="inspect_closed_pnl_action.sh" ;;
             bybit-account-audit)                SCRIPT="bybit_account_audit_action.sh" ;;
             strategy-performance-audit)         SCRIPT="strategy_performance_audit_action.sh" ;;
