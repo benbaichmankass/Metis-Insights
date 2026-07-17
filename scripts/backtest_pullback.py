@@ -96,14 +96,15 @@ def _atr(df: pd.DataFrame, period: int) -> pd.Series:
     return tr.rolling(period, min_periods=1).mean()
 
 
-def _adx(df: pd.DataFrame, period: int) -> pd.Series:
-    """Wilder's Average Directional Index (regime-strength filter, shared lever).
+def _directional_indicators(df: pd.DataFrame, period: int) -> tuple:
+    """Wilder's +DI / -DI series (the DIRECTION half of the ADX family).
 
-    Standard construction: +DM/-DM from the directional moves, true range,
-    Wilder-smoothed (EWM with alpha=1/period) +DI/-DI, DX, then ADX as the
-    Wilder-smoothed DX. ``min_periods`` leaves the warm-up bars NaN so an
-    ADX band cannot admit an undefined-regime bar. Recombination-pool axis
-    (SRQ-20260618-001/-002): the highest-value entry-regime lever.
+    Shared source of truth for both the ADX magnitude (``_adx``) and the
+    direction-aware regime filter (``--direction-filter di``). ``+DI > -DI``
+    means the recent directional pressure is UP, ``-DI > +DI`` DOWN — the sign
+    ADX itself throws away (a strong down-move has the same high ADX as a strong
+    up-move; see docs/research/M-regime-direction-filter-DESIGN.md). ``min_periods``
+    leaves the warm-up bars NaN so a filter never reads an undefined direction.
     """
     h, low, c = df["high"], df["low"], df["close"]
     up = h.diff()
@@ -116,8 +117,21 @@ def _adx(df: pd.DataFrame, period: int) -> pd.Series:
     atr_w = tr.ewm(alpha=alpha, adjust=False, min_periods=period).mean()
     plus_di = 100.0 * plus_dm.ewm(alpha=alpha, adjust=False, min_periods=period).mean() / atr_w
     minus_di = 100.0 * minus_dm.ewm(alpha=alpha, adjust=False, min_periods=period).mean() / atr_w
+    return plus_di, minus_di
+
+
+def _adx(df: pd.DataFrame, period: int) -> pd.Series:
+    """Wilder's Average Directional Index (regime-strength filter, shared lever).
+
+    Standard construction: +DI/-DI (via ``_directional_indicators``), DX, then
+    ADX as the Wilder-smoothed DX. ``min_periods`` leaves the warm-up bars NaN so
+    an ADX band cannot admit an undefined-regime bar. Recombination-pool axis
+    (SRQ-20260618-001/-002): the highest-value entry-regime lever.
+    """
+    plus_di, minus_di = _directional_indicators(df, period)
     di_sum = (plus_di + minus_di).replace(0.0, float("nan"))
     dx = 100.0 * (plus_di - minus_di).abs() / di_sum
+    alpha = 1.0 / period
     return dx.ewm(alpha=alpha, adjust=False, min_periods=period).mean()
 
 
@@ -130,6 +144,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  adx_min: Optional[float] = None,
                  adx_max: Optional[float] = None,
                  adx_period: int = 14,
+                 direction_filter: str = "off",
                  stale_exit_bars: Optional[int] = None,
                  stale_exit_below_r: float = 0.0,
                  flip_exit_bars: Optional[int] = None,
@@ -179,6 +194,21 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
     adx_active = adx_min is not None or adx_max is not None
     if adx_active:
         df["adx"] = _adx(df, adx_period)
+    # Direction-aware regime filter (Phase 2, MB-20260717 / BL-20260717-REGIME-COVERAGE-DEBT):
+    # ADX measures trend STRENGTH not DIRECTION, so a long-only pullback buyer
+    # fires into a strong DOWN-trend (the 2026-07-16 falling-knife losses). This
+    # lever computes a per-bar direction read and skips an entry whose direction
+    # opposes it. `off` = byte-identical (no series computed). `di` = Wilder
+    # +DI/-DI sign. `slope` = sign of the Donchian trend-midline slope. A NaN
+    # (warm-up) read never skips (fail-permissive — same posture as the ADX band).
+    direction_filter = str(direction_filter or "off").lower()
+    dir_di_plus = dir_di_minus = dir_slope = None
+    if direction_filter == "di":
+        dir_di_plus, dir_di_minus = _directional_indicators(df, adx_period)
+    elif direction_filter == "slope":
+        # Sign of the Donchian trend-midline slope (df["mid"], computed above):
+        # mid rising = UP regime, falling = DOWN. shift(1)-based (no lookahead).
+        dir_slope = df["mid"].diff()
 
     trades: List[Trade] = []
     n = len(df)
@@ -219,6 +249,24 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         if direction is None:
             i += 1
             continue
+        # Direction-aware regime gate (Phase 2): skip a long whose direction read
+        # is DOWN and a short whose read is UP. NaN (warm-up) → never skip.
+        if dir_di_plus is not None:
+            pdi, mdi = dir_di_plus.iloc[i], dir_di_minus.iloc[i]
+            if not (pd.isna(pdi) or pd.isna(mdi)):
+                down_regime = float(mdi) > float(pdi)
+                if (direction == "long" and down_regime) or \
+                        (direction == "short" and not down_regime):
+                    i += 1
+                    continue
+        elif dir_slope is not None:
+            sl_val = dir_slope.iloc[i]
+            if not pd.isna(sl_val):
+                down_regime = float(sl_val) < 0.0
+                if (direction == "long" and down_regime) or \
+                        (direction == "short" and not down_regime):
+                    i += 1
+                    continue
         if skip_hour_set:
             try:
                 if pd.Timestamp(df["timestamp"].iloc[i]).hour in skip_hour_set:
@@ -456,6 +504,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         params["adx_max"] = adx_max
     if adx_active:
         params["adx_period"] = adx_period
+    if direction_filter != "off":
+        params["direction_filter"] = direction_filter
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params)
 
 
@@ -557,6 +607,11 @@ def main(argv: List[str]) -> int:
                    help="Regime filter: skip entries whose Wilder ADX is above this (None=off).")
     p.add_argument("--adx-period", type=int, default=14,
                    help="Wilder ADX period for the regime filter (default 14).")
+    p.add_argument("--direction-filter", choices=["off", "di", "slope"], default="off",
+                   help="Phase-2 direction-aware regime gate (default off, byte-identical): "
+                        "skip a long in a DOWN regime / a short in an UP regime. "
+                        "'di' = Wilder +DI/-DI sign; 'slope' = Donchian midline slope sign. "
+                        "See docs/research/M-regime-direction-filter-DESIGN.md.")
     p.add_argument("--stale-exit-bars", type=int, default=None,
                    help="M20 exit lever: close at bar N after entry when the open "
                         "R is below --stale-exit-below-r (None=off, legacy behaviour).")
@@ -640,6 +695,7 @@ def main(argv: List[str]) -> int:
                        adx_min=args.adx_min,
                        adx_max=args.adx_max,
                        adx_period=args.adx_period,
+                       direction_filter=args.direction_filter,
                        stale_exit_bars=args.stale_exit_bars,
                        stale_exit_below_r=args.stale_exit_below_r,
                        flip_exit_bars=args.flip_exit_bars,
