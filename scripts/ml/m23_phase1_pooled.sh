@@ -28,7 +28,11 @@ cd "$REPO"
 MARKET_RAW_1H="${MARKET_RAW_1H:-datasets-out/market_raw/BTCUSDT/1h/v002}"
 LIVE_JOURNAL="${LIVE_JOURNAL:-data/trade_journal.db}"
 BT_DB="${BT_DB:-/tmp/m23_pooled_backtest.db}"
-SC_VERSION="${SC_VERSION:-v002}"
+# NB: the setup-candidates-metalabel-backtest-v1 manifest PINS dataset.version: v001,
+# and `ml train` reads the version the MANIFEST declares (not what we build). So the
+# pooled build MUST overwrite v001 or the train silently re-uses the old single-strategy
+# v001 (the first-leg dataset) and returns identical metrics. Build at v001.
+SC_VERSION="${SC_VERSION:-v001}"
 SYMBOL="${SYMBOL:-BTCUSDT}"
 RUN_TAG="${RUN_TAG:-m23-pooled-$(date +%Y%m%d 2>/dev/null || echo 20260717)}"
 CSV_1H=/tmp/m23_btc_1h.csv
@@ -131,7 +135,7 @@ python3 -m ml.datasets build setup_candidates --output-dir datasets-out \
   --version "$SC_VERSION" --source market_raw --symbol-scope "$SYMBOL" --timeframe all --overwrite -- \
   "market_raw_path=$MARKET_RAW_1H" "backtest_trades_db=$BT_DB" \
   "live_trades_db=$LIVE_JOURNAL" "include_cusum=false" >>"$RESULT" 2>&1
-python3 - "datasets-out/setup_candidates/$SYMBOL/all/$SC_VERSION/data.jsonl" <<'PY' 2>>"$RESULT"
+python3 - "datasets-out/setup_candidates/$SYMBOL/all/$SC_VERSION/data.jsonl" <<'PY' 2>&1 | tee -a "$RESULT"
 import json, sys, collections
 try:
     es = collections.Counter(); lv = collections.Counter(); won = collections.Counter()
