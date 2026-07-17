@@ -4118,6 +4118,11 @@
      "at": "2026-07-17",
      "by": "session_01Y8dy5ZEC4GPQ5RF8oq7iSU",
      "note": "DEEPER root cause found + fixed (see BL-20260716-ALPACA-MARKET-HOURS-EXIT): the perpetual 'won't flatten' spam was largely because the EXIT path had ZERO market-hours awareness (is_market_open was wired into ~20 ENTRY signal-builders but into NONE of order_monitor/execute/alpaca_client), and every order is type:market — which US equities can't fill outside regular hours. So after the 20:00 UTC close the monitor fired doomed market flattens into a closed market every tick and alarmed. The market-hours-exit PR makes AlpacaClient.close session-aware (defer when closed / limit+extended_hours when extended / market in RTH) and the monitor treats the defer as a quiet no-change. cancel_orders=true (this entry) remains the correct in-RTH bracket-wedge remedy; the two are complementary."
+    },
+    {
+     "at": "2026-07-17",
+     "by": "session_01Y8dy5ZEC4GPQ5RF8oq7iSU",
+     "note": "CONFIRMED unclearable-by-API — reset is the ONLY fix. Operator asked to close QQQ; ran the flatten-alpaca-position system-action (apply:true) on alpaca_paper/QQQ during RTH (13:51 UTC, market open), so the RTH market flatten + cancel_orders=true escalation both executed. BOTH failed with 'insufficient qty available (available:0)'. Residual-orders dump proves why: the protective OCO (created 2026-07-06, sell_to_close TP 793.07 / stop 708.63, expires 2026-10-05) is stuck in status:'pending_cancel' — Alpaca accepted a cancel days ago and NEVER completed it (updated_at touched at today's 13:30 open, still pending_cancel). You cannot re-cancel a pending_cancel order and you cannot sell shares it reserves, and cancel_orders=true also can't dislodge it. This is an Alpaca PAPER-ENGINE defect; no API path (per-order cancel / DELETE position / cancel_orders=true) can clear it. The whole OCO is frozen so the stop can't fill either. ONLY guaranteed clear: operator Resets the Alpaca paper account (Alpaca dashboard → Paper account → Reset) — wipes ALL alpaca_paper positions + stuck orders (soak account; no real money). Left to operator's discretion since the market-hours fix already stopped the alarm spam, making the frozen paper QQQ harmless. Code is vindicated: the bot did everything right; the wall is broker-side."
     }
    ]
   },
