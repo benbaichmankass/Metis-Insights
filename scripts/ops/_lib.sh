@@ -245,6 +245,59 @@ runtime_db_path() {
 }
 
 
+# fills_store_path — print the canonical exchange-fills sqlite path the
+# systemd web-api reader (/api/bot/pnl/exchange) resolves via
+# src.runtime.exchange_fills_store.get_fills_db_path() → runtime_state_dir().
+#
+# WHY (BL-20260717-FILLS-STORE-PATH-SPLIT): the exchange-fills store (which
+# also holds the exchange_funding table) lives under the DATA_DIR-anchored
+# runtime_state/ root — /data/bot-data/runtime_state/exchange_fills.sqlite on
+# the live VM. The systemd services carry DATA_DIR in their environment, but a
+# system-action wrapper runs from a fresh SSH shell and does NOT inherit it.
+# When the wrapper's python child runs without DATA_DIR, runtime_state_dir()
+# falls back to the repo-relative <repo>/runtime_state/, so the puller (which
+# happened to have DATA_DIR from its full-.env source) and the offline cost
+# sweep (which only saw DATA_DIR inside the $(runtime_db_path) subshell)
+# resolved to DIFFERENT absolute paths — the sweep then reported "fills store
+# not found" against a file the puller wrote elsewhere. Same failure class as
+# the trade_journal.db split that runtime_db_path() fixes.
+#
+# Wrappers that pull into OR read the fills store must pass this to their
+# python via --fills-db so the puller, the offline cost sweep, and the systemd
+# reader all target ONE absolute path. Mirrors runtime_db_path()'s contract.
+#
+# Resolution order (parity with get_fills_db_path() → _resolve_root):
+#   0. EXCHANGE_FILLS_DB caller override — exact path (python honours this first).
+#   1. RUNTIME_STATE_DIR (per-root override; relative → anchored to REPO_DIR).
+#   2. $DATA_DIR/runtime_state (umbrella; relative → anchored to REPO_DIR).
+#   3. ${REPO_DIR}/runtime_state — dev/test fallback.
+# Always prints an absolute path.
+
+fills_store_path() {
+    if [ -n "${EXCHANGE_FILLS_DB:-}" ]; then
+        printf '%s\n' "${EXCHANGE_FILLS_DB}"
+        return 0
+    fi
+    load_runtime_env
+    local state_dir
+    if [ -n "${RUNTIME_STATE_DIR:-}" ]; then
+        state_dir="${RUNTIME_STATE_DIR}"
+        case "${state_dir}" in
+            /*) ;;                                       # absolute — use as-is
+            *) state_dir="${REPO_DIR}/${state_dir}" ;;   # anchor relative to repo
+        esac
+    elif [ -n "${DATA_DIR:-}" ]; then
+        case "${DATA_DIR}" in
+            /*) state_dir="${DATA_DIR%/}/runtime_state" ;;
+            *) state_dir="${REPO_DIR}/${DATA_DIR%/}/runtime_state" ;;
+        esac
+    else
+        state_dir="${REPO_DIR}/runtime_state"
+    fi
+    printf '%s\n' "${state_dir}/exchange_fills.sqlite"
+}
+
+
 # load_runtime_secrets — source ${REPO_DIR}/.env in full so the wrapper's
 # Python subprocesses can authenticate to exchange APIs (Bybit, Binance, …).
 #

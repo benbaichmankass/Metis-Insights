@@ -26,6 +26,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_lib.sh"
 
 DB_PATH="$(runtime_db_path)"
+# Canonical, DATA_DIR-anchored fills-store path (holds both the fills and the
+# exchange_funding table the sweep reads). Passed explicitly so the sweep
+# targets the SAME absolute file the puller wrote + the systemd reader uses —
+# a fresh SSH wrapper shell doesn't inherit systemd's DATA_DIR, so the python
+# child would otherwise resolve runtime_state/ repo-relative and report "fills
+# store not found" (BL-20260717-FILLS-STORE-PATH-SPLIT).
+FILLS_DB="$(fills_store_path)"
 PY_SCRIPT="${REPO_DIR}/scripts/ops/backfill_broker_truth_costs.py"
 
 if [ ! -f "${PY_SCRIPT}" ]; then
@@ -44,8 +51,9 @@ fi
 
 echo
 echo "===== backfill_broker_truth_costs.py (DRY-RUN coverage report) ====="
+echo "fills store: ${FILLS_DB}"
 set +e
-python3 "${PY_SCRIPT}" --db "${DB_PATH}"
+python3 "${PY_SCRIPT}" --db "${DB_PATH}" --fills-db "${FILLS_DB}"
 dry_code=$?
 set -e
 if [ "${dry_code}" -ne 0 ]; then
@@ -58,7 +66,7 @@ fi
 echo
 echo "===== backfill_broker_truth_costs.py --apply (COMMIT) ====="
 set +e
-python3 "${PY_SCRIPT}" --db "${DB_PATH}" --apply
+python3 "${PY_SCRIPT}" --db "${DB_PATH}" --fills-db "${FILLS_DB}" --apply
 apply_code=$?
 set -e
 if [ "${apply_code}" -ne 0 ]; then
