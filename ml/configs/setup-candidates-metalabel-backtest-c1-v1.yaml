@@ -20,7 +20,7 @@
 # Build on the trainer (reuse the pooled backtest DB + the live journal; add the
 # R-aware target; pin the C1 dataset version so `ml train` reads what we build):
 #   python -m ml.datasets build setup_candidates --output-dir datasets-out \
-#     --version v001c1 --source market_raw --symbol-scope BTCUSDT --timeframe all \
+#     --version v011 --source market_raw --symbol-scope BTCUSDT --timeframe all \
 #     --overwrite -- market_raw_path=datasets-out/market_raw/BTCUSDT/1h/v002 \
 #        backtest_trades_db=/tmp/m23_pooled_backtest.db \
 #        live_trades_db=data/trade_journal.db \
@@ -30,7 +30,7 @@
 #   # then the REAL gate (real win-rate + realized net R, independent of the
 #   # manifest's own classification eval):
 #   python scripts/ml/m23_ev_gate.py \
-#     --data datasets-out/setup_candidates/BTCUSDT/all/v001c1/data.jsonl \
+#     --data datasets-out/setup_candidates/BTCUSDT/all/v011/data.jsonl \
 #     --model-state <newest experiments-runs/.../c1-v1/*/model_state.json>
 #
 # Sweep r_label_threshold in {0.25, 0.5, 1.0}; tau=0 would make won_r == won
@@ -93,7 +93,7 @@ dataset:
   family: setup_candidates
   symbol_scope: BTCUSDT
   timeframe: all
-  version: v001c1
+  version: v011
 evaluator: ml.evaluators.classification.ClassificationEvaluator
 evaluator_config:
   target_column: won_r
