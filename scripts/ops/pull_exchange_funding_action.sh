@@ -18,6 +18,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_lib.sh"
 
 load_runtime_secrets  # BYBIT_API_KEY_2 / BYBIT_API_SECRET_2 from .env
+# Canonical, DATA_DIR-anchored fills-store path (holds the exchange_funding
+# table) so the funding puller writes to the SAME absolute file the cost sweep
+# reads — a fresh SSH wrapper shell doesn't inherit systemd's DATA_DIR
+# (BL-20260717-FILLS-STORE-PATH-SPLIT).
+FILLS_DB="$(fills_store_path)"
 PY_SCRIPT="${REPO_DIR}/scripts/pull_exchange_funding.py"
 
 if [ ! -f "${PY_SCRIPT}" ]; then
@@ -27,16 +32,28 @@ if [ ! -f "${PY_SCRIPT}" ]; then
     exit 1
 fi
 
+# Query PER-SYMBOL over bybit_2's traded perp instruments rather than the
+# all-symbols (symbol=None) query the prior run used — Bybit V5 funding is
+# retrieved per contract, so the all-symbols query returned 0 records
+# (BL-20260717-FUNDING-ZERO). Funding only accrues on symbols the account
+# actually held across an 8h funding timestamp; a symbol with no such position
+# just returns empty. Mirrors the fills puller's per-account scoping.
 echo
-echo "===== pull_exchange_funding.py --account bybit_2 --days 30 ====="
+echo "===== pull_exchange_funding.py --account bybit_2 --days 30 (per-symbol) ====="
+echo "funding store: ${FILLS_DB}"
 python3 "${PY_SCRIPT}" \
     --account bybit_2 \
     --days 30 \
+    --symbol BTCUSDT \
+    --symbol ETHUSDT \
+    --symbol XRPUSDT \
+    --symbol ADAUSDT \
     --api-key-env BYBIT_API_KEY_2 \
-    --api-secret-env BYBIT_API_SECRET_2
+    --api-secret-env BYBIT_API_SECRET_2 \
+    --fills-db "${FILLS_DB}"
 rc=$?
 
 record_audit "pull-exchange-funding" "$([ ${rc} -eq 0 ] && echo ok || echo error)" \
-    "{\"account\": \"bybit_2\", \"days\": 30, \"exit\": ${rc}}" >/dev/null || true
+    "{\"account\": \"bybit_2\", \"days\": 30, \"symbols\": \"BTCUSDT,ETHUSDT,XRPUSDT,ADAUSDT\", \"fills_db\": \"${FILLS_DB}\", \"exit\": ${rc}}" >/dev/null || true
 log "pull-exchange-funding complete (exit ${rc})."
 exit ${rc}
