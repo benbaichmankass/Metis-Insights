@@ -81,6 +81,18 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         default="BYBIT_API_SECRET",
         help="Env var holding the Bybit API secret (default: BYBIT_API_SECRET)",
     )
+    p.add_argument(
+        "--fills-db",
+        default=None,
+        help=(
+            "exchange_fills.sqlite path to write into (default: the store "
+            "resolver — DATA_DIR-anchored runtime_state/). Pass the canonical "
+            "path explicitly (scripts/ops/_lib.sh::fills_store_path) so the "
+            "puller and the offline cost sweep never resolve to different "
+            "absolute paths when the wrapper shell lacks DATA_DIR "
+            "(BL-20260717-FILLS-STORE-PATH-SPLIT)."
+        ),
+    )
     return p.parse_args(argv)
 
 
@@ -123,10 +135,12 @@ def main(argv: list[str]) -> int:
         days=args.days,
         symbols=args.symbol,
     )
-    inserted = upsert_fills(rows)
+    fills_path = Path(args.fills_db) if args.fills_db else None
+    inserted = upsert_fills(rows, path=fills_path)
     logger.info(
-        "pull_exchange_fills: account=%s days=%d candidates=%d inserted=%d",
+        "pull_exchange_fills: account=%s days=%d candidates=%d inserted=%d store=%s",
         args.account, args.days, len(rows), inserted,
+        fills_path if fills_path is not None else "(default resolver)",
     )
     return 0
 
