@@ -56,6 +56,16 @@ def get_fills_db_path() -> Path:
 # Schema construction
 # ---------------------------------------------------------------------------
 
+# data-wiring: exchange_funding is the canonical store for exchange perp FUNDING
+#              charges (Slice B / B1, MB-20260629-ALLOC-COSTCAP). No existing
+#              table holds funding — it is NOT in the execution/fills list (a
+#              separate Bybit fetch_funding_history stream), so nothing else is
+#              the source of truth. Pulled by scripts/pull_exchange_funding.py
+#              (idempotent on funding_id); read only by the offline broker-truth
+#              cost sweep to attribute funding_paid_usd onto clean closed trades.
+#              Never touches trade_journal.db or the order path. (exchange_fills,
+#              its sibling, predates this and is likewise a standalone exchange-
+#              truth store, not a projection of trade_journal.db.)
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS exchange_fills (
     exec_id        TEXT PRIMARY KEY,
