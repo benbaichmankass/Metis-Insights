@@ -96,6 +96,9 @@ EXPECTED_ACTIONS = {
     # Slice B / B0 — promote the entry orderId from notes.trade_id to the
     # first-class trades.broker_order_id join key (MB-20260629-ALLOC-COSTCAP).
     "backfill-broker-order-id": "backfill_broker_order_id_action.sh",
+    # Slice B / B2 — FIFO-attribute broker-truth round-trip fees (join by
+    # broker_order_id + fills store) onto cleanly-attributable closed trades.
+    "backfill-broker-truth-costs": "backfill_broker_truth_costs_action.sh",
     # 2026-06-22 — normalise existing epoch-ms trades.closed_at rows to ISO
     # (BL-20260620-RECONCILER-CLOSEDAT-MS); distinct from backfill-closed-at
     # (which fills NULLs). Wraps migrate_closed_at_to_iso.py.
@@ -216,6 +219,7 @@ TIER_2_ACTIONS = {
     "backfill-closed-at",
     "backfill-trade-costs",
     "backfill-broker-order-id",
+    "backfill-broker-truth-costs",
     "migrate-closed-at-iso",
     "pull-exchange-fills",
     "pull-mes-ibkr-history",
