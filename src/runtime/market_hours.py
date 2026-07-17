@@ -26,7 +26,7 @@ Research-grade limitations, by design (documented, not hidden):
 """
 from __future__ import annotations
 
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 
 ASSET_CLASSES = ("crypto", "fx", "us_equity")
 
@@ -73,6 +73,39 @@ def is_market_open(asset_class: str, ts: datetime | None = None) -> bool:
         return open_t <= t < close_t
 
     return True  # crypto / unknown: 24/7
+
+
+def us_equity_session(ts: datetime | None = None) -> str:
+    """Session phase for the US equity market at *ts*: ``rth`` | ``extended`` | ``closed``.
+
+    - ``rth``      — regular trading hours (09:30–16:00 ET): plain **market**
+      orders fill. ``is_market_open("us_equity")`` is True exactly here.
+    - ``extended`` — pre-market 04:00–09:30 ET + after-hours 16:00–20:00 ET:
+      only a **limit** order with ``extended_hours=true`` can trade (a market
+      order is rejected).
+    - ``closed``   — overnight 20:00–04:00 ET + weekends: nothing trades.
+
+    This is the exit-side companion to ``is_market_open`` (BL-20260716-ALPACA-
+    MARKET-HOURS-EXIT): the entry gate only needs open/closed, but the exit path
+    needs the three-way so it can market-close in RTH, limit-close in extended
+    hours, and DEFER (leave the protective bracket armed) when fully closed —
+    instead of firing doomed market flattens into a closed market every tick.
+
+    ET is approximated from the same DST-month table ``is_market_open`` uses
+    (March/November read as standard time — the conservative edge); exact
+    second-Sunday DST boundaries and US holidays are NOT modeled.
+    """
+    ts = _utc(ts or datetime.now(timezone.utc))
+    # Approximate ET wall-clock (hours behind UTC): 4 in DST months, else 5.
+    et = ts - timedelta(hours=(4 if ts.month in _FULL_DST_MONTHS else 5))
+    if et.weekday() >= 5:  # Sat/Sun in ET → closed
+        return "closed"
+    t = et.time()
+    if time(9, 30) <= t < time(16, 0):
+        return "rth"
+    if (time(4, 0) <= t < time(9, 30)) or (time(16, 0) <= t < time(20, 0)):
+        return "extended"
+    return "closed"
 
 
 def asset_class_for_exchange(exchange: str) -> str:

@@ -447,6 +447,86 @@ class AlpacaClient:
                 return last
             time.sleep(0.4)
 
+    def _close_extended_hours(self, symbol: str) -> Dict[str, Any]:
+        """Exit an equity position during EXTENDED hours (pre/after-market).
+
+        A plain market order is rejected outside regular hours, so exit via a
+        **marketable LIMIT** with ``extended_hours=true``: read the live
+        position for its side + ``current_price``, cancel the resting protective
+        bracket to free the shares, then place a limit crossed through the quote
+        by ``ALPACA_EXT_LIMIT_BUFFER_BPS`` so it fills like a market, and confirm
+        flat. On non-fill within the window it returns **retCode 2** (a *defer*,
+        not a failure) so the monitor leaves the DB row open and re-attempts next
+        tick without raising the "won't flatten" alarm. Part of
+        BL-20260716-ALPACA-MARKET-HOURS-EXIT.
+        """
+        sym = str(symbol).upper()
+        pos = self._position_raw(sym)
+        if pos is None:
+            # 404/flat closes cleanly; an unreadable position defers (never a
+            # doomed order on a state we can't see).
+            if self.position_present(sym) is False:
+                return {"retCode": 0, "result": {"note": "no open position"}}
+            return {"retCode": 2, "retMsg": (
+                "extended-hours: position unreadable — exit deferred")}
+        try:
+            qty = int(abs(float(pos.get("qty") or 0)))
+        except (TypeError, ValueError):
+            qty = 0
+        if qty <= 0:
+            return {"retCode": 0, "result": {"note": "no open position"}}
+        pos_side = str(pos.get("side") or "").lower()  # "long" | "short"
+        close_side = "sell" if pos_side == "long" else "buy"
+        try:
+            px = float(pos.get("current_price") or 0)
+        except (TypeError, ValueError):
+            px = 0.0
+        if px <= 0:
+            return {"retCode": 2, "retMsg": (
+                "extended-hours: no current_price — exit deferred")}
+        # Marketable limit: cross the book so it fills — sell BELOW / buy ABOVE
+        # the last by the buffer. Extended-hours books are thin; the buffer trades
+        # a little slippage for a fill.
+        buf = _env_float("ALPACA_EXT_LIMIT_BUFFER_BPS", 25.0) / 10000.0
+        limit_px = px * (1 - buf) if close_side == "sell" else px * (1 + buf)
+
+        # Free the shares (cancel the resting bracket) then wait for the cancel to
+        # settle so the limit isn't rejected for insufficient qty.
+        self._cancel_open_orders_for_symbol(sym)
+        settle_s = _env_float("ALPACA_CANCEL_SETTLE_S", 3.0)
+        if settle_s > 0:
+            deadline = time.monotonic() + settle_s
+            while self._open_orders_for_symbol(sym) and time.monotonic() < deadline:
+                time.sleep(0.4)
+
+        body = {
+            "symbol": sym, "qty": str(qty), "side": close_side,
+            "type": "limit", "limit_price": f"{limit_px:.2f}",
+            "time_in_force": "day", "extended_hours": True,
+        }
+        env = self._request("POST", "/v2/orders", body)
+        if env.get("retCode") != 0:
+            # Rejected outright — a real failure the monitor should retry
+            # (naked-autoprotect re-arms the bracket next tick).
+            return {"retCode": 1, "retMsg": (
+                f"extended-hours limit close rejected: {env.get('retMsg')}")}
+        confirm_s = _env_float("ALPACA_CLOSE_CONFIRM_S", 6.0)
+        if confirm_s > 0:
+            deadline = time.monotonic() + confirm_s
+            while True:
+                if self.position_present(sym) is False:
+                    return {"retCode": 0, "result": {
+                        "orderId": str((env.get("result") or {}).get("id") or "")}}
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(0.5)
+        # Accepted + working but not yet filled — DEFER (retCode 2). The working
+        # limit stays live to fill; the monitor re-attempts next tick without
+        # alarming. (A working close-limit replaces the stop for the brief
+        # extended window — the exit intent wins; documented tradeoff.)
+        return {"retCode": 2, "retMsg": (
+            "extended-hours limit close working — not yet filled, exit deferred")}
+
     def close(self, symbol: str) -> Dict[str, Any]:
         """Close the full position on *symbol*; retCode envelope.
 
@@ -485,6 +565,29 @@ class AlpacaClient:
         """
         self._require_creds("close")
         sym = str(symbol).upper()
+
+        # Market-hours-aware exit (BL-20260716-ALPACA-MARKET-HOURS-EXIT). Alpaca
+        # trades US equities, which have a session calendar — a plain market
+        # flatten can only fill in regular hours. ENTRIES are already
+        # market-hours-gated (strategy_signal_builders); this extends the same
+        # knowledge to the EXIT so we stop firing doomed market orders into a
+        # closed market every tick (the perpetual "won't flatten" QQQ spam).
+        from src.runtime.market_hours import us_equity_session
+        _session = us_equity_session()
+        if _session == "closed":
+            # Nothing can flatten now. DEFER: do NOT cancel the protective
+            # bracket (leave it armed to exit at the open if price is through the
+            # stop) and place no doomed order. retCode 2 = "deferred, not
+            # failed" — the monitor treats it as a quiet no-change (no failure
+            # streak, no alarm), distinct from retCode 1 (a real failure).
+            return {"retCode": 2, "retMsg": (
+                "us_equity market closed — exit deferred to next session "
+                "(protective bracket left armed)")}
+        if _session == "extended":
+            # Pre/after-hours: market orders are rejected; exit via a marketable
+            # LIMIT with extended_hours=true instead.
+            return self._close_extended_hours(sym)
+        # else: regular trading hours → the standard market flatten below.
         n_cancelled = self._cancel_open_orders_for_symbol(symbol)
 
         # Alpaca order cancels are ASYNCHRONOUS — `DELETE /v2/orders/{id}`
