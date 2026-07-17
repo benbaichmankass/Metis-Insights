@@ -18,13 +18,16 @@
 # comparator (the RG4-failing self-only head) is already soaking, so this head
 # just has to beat it on the post-soak RG4 gate.
 #
-# DATASET: NO build needed. The ETH 15m market_features v002 (builder v12,
-# leakage passed) ALREADY carries all 13 xa_peer{1,2}_* + xa_breadth_up columns
-# (recon #6751) — the same dataset the self-only eth-regime-15m-lgbm-v1 reads.
-# So this is the cleanest possible feature A/B: IDENTICAL dataset (v002), the
-# ONLY difference is whether the xa_* columns appear in feature_columns. Just
-# train (trainer VM uses python3):
+# DATASET: v901 = ETH 15m market_features rebuilt WITH a cross_asset side-stream
+# (BTC+SOL 15m peers). NOTE (train job #6754): the ETH 15m v002 dataset carries
+# the xa_* columns in its SCHEMA but they are ALL-ZERO (v002 was built without a
+# cross_asset_path, so the columns default to 0.0) — a train guard caught this
+# before wasting a run. So v901 is built explicitly with cross_asset (build job
+# #6755, mirroring the validated 1h xasset recipe: vol_window_n=20
+# forward_window_m=5), then:
 #   python3 -m ml train eth-regime-15m-lgbm-xasset-v1
+# The self-only eth-regime-15m-lgbm-v1 (v002) stays the live comparator this
+# head must beat on the post-soak RG4.
 #
 # TIER: registers at `shadow` (auto-wires for logging only). shadow -> advisory
 # is Tier-3 (operator-gated) and gated on a post-soak RG4 >= 0.55 TRUSTWORTHY,
@@ -91,9 +94,10 @@ dataset:
   family: market_features
   symbol_scope: ETHUSDT
   timeframe: 15m
-  # v002 already carries the xa_* peer columns (recon #6751) — same dataset as
-  # the self-only eth-regime-15m-lgbm-v1 control, so this is a pure feature A/B.
-  version: v002
+  # v901 = ETH 15m market_features built WITH the cross_asset side-stream (build
+  # job #6755). v002's xa_* columns are all-zero (built without cross_asset_path,
+  # train job #6754), so this head trains on v901's populated peer features.
+  version: v901
 evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
 evaluator_config:
   target_column: regime_label
