@@ -1,0 +1,120 @@
+# Cross-asset-conditioned LightGBM regime classifier — ETHUSDT @ 15m
+# (MB-20260628-REGIME-SOAK-READINESS retrain lever, 2026-07-17).
+#
+# WHY: the self-only ETH 15m vol head `eth-regime-15m-lgbm-v1` does NOT
+# discriminate live at ANY powered vol threshold — the vt-threshold sweep
+# (#6740, vt 0.003-0.012 on ~950 live rows) found it NO_EDGE/ANTI_PREDICTIVE
+# everywhere it has enough positives (AUC <= 0.4545, worse as the threshold
+# rises). Raising the threshold does not rescue it, so this is a deeper
+# live-signal weakness, not a vol-scale knob. The next lever is a genuinely
+# DIFFERENT feature set with a mechanism: ETH's regime is largely BTC/SOL-led,
+# and the S-CROSS-ASSET-PROBE ablation found SOL the load-bearing peer for ETH
+# (BTC a smaller additive contributor). So condition the 15m head on the
+# peer-asset feature group instead of ETH's own bars alone.
+#
+# CLEAN FEATURE A/B: identical to `eth-regime-15m-lgbm-v1` (the proven
+# btc-regime-15m-lgbm-v2 recipe ported to ETH 15m) EXCEPT the added
+# `xa_peer{1,2}_*` + `xa_breadth_up` columns — the ONLY moving part. Its live
+# comparator (the RG4-failing self-only head) is already soaking, so this head
+# just has to beat it on the post-soak RG4 gate.
+#
+# BUILD (trainer VM — mirror the 1h cross-asset recipe at 15m; peers must be the
+# SAME 15m grid as the target):
+#   python -m scripts.ml.build_cross_asset \
+#     --target datasets-out/market_raw/ETHUSDT/15m/v002 \
+#     --peer datasets-out/market_raw/BTCUSDT/15m/<v> \
+#     --peer datasets-out/market_raw/SOLUSDT/15m/v002 \
+#     --out datasets-out/cross_asset/ETHUSDT/15m/v001
+#   python -m ml build-dataset market_features --output-dir datasets-out \
+#     --version v003 --source datasets-out/market_raw/ETHUSDT/15m/v002 \
+#     --symbol-scope ETHUSDT --timeframe 15m --overwrite \
+#     market_raw_path=datasets-out/market_raw/ETHUSDT/15m/v002 \
+#     cross_asset_path=datasets-out/cross_asset/ETHUSDT/15m/v001 \
+#     <vol_window_n / forward_window_m matched to the v002 build metadata>
+#   python -m ml train eth-regime-15m-lgbm-xasset-v1
+#
+# TIER: registers at `shadow` (auto-wires for logging only). shadow -> advisory
+# is Tier-3 (operator-gated) and gated on a post-soak RG4 >= 0.55 TRUSTWORTHY,
+# POWERED. Do NOT flip live off the in-session RG3 alone.
+
+manifest_version: v1
+model_id: eth-regime-15m-lgbm-xasset-v1
+description: "Cross-asset-conditioned LightGBM regime classifier for ETHUSDT 15m — adds the peer-asset feature group (BTC/SOL co-movement, lead-lag, relative strength, rolling beta + idiosyncratic residual, breadth) to the eth-regime-15m-lgbm-v1 recipe. Retrain lever after the self-only 15m head failed the live RG4 gate at every vol threshold (#6740)."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+    - vol_bucket
+    - rolling_log_return_vol
+    - log_return
+    - log_return_lag_1
+    - log_return_lag_2
+    - hour_of_day
+    - dayofweek
+    # Cross-asset / peer-asset conditioning (S-CROSS-ASSET-PROBE) — the ONLY
+    # change vs eth-regime-15m-lgbm-v1. peer1 = BTCUSDT, peer2 = SOLUSDT
+    # (cross_asset.yaml slot order; live == train via cross_asset_live.py).
+    - xa_peer1_ret
+    - xa_peer1_ret_lag1
+    - xa_peer1_vol
+    - xa_peer1_rel_strength
+    - xa_peer1_beta
+    - xa_peer1_beta_residual
+    - xa_peer2_ret
+    - xa_peer2_ret_lag1
+    - xa_peer2_vol
+    - xa_peer2_rel_strength
+    - xa_peer2_beta
+    - xa_peer2_beta_residual
+    - xa_breadth_up
+  categorical_columns:
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
+  # Matched to eth-regime-15m-lgbm-v1 for a clean feature A/B (the volatile
+  # inverse-base-rate weight is the same knob the control uses; changing it here
+  # too would confound the feature effect). The class weight moves the decision
+  # threshold, not AUC, so it is NOT the discrimination lever — the features are.
+  class_weight:
+    range: 1.0
+    volatile: 28.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: ETHUSDT
+  timeframe: 15m
+  version: v003
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: time_aware_holdout
+  time_column: ts
+  holdout_fraction: 0.2
+target_deployment_stage: shadow
+notes: |
+  MB-20260628-REGIME-SOAK-READINESS retrain lever. Identical to
+  eth-regime-15m-lgbm-v1 except the added cross-asset feature group and the
+  cross_asset-side-stream dataset (v003). The cross_asset side-stream is computed
+  at the ETH 15m bar cadence from BTC/SOL market_raw (past-only, leakage-safe —
+  same-cadence peers close with the target). Leakage gate forbids
+  forward_log_return / forward_log_return_vol / regime_label. RG3 is the
+  in-session gate; RG4 (live-row skew) scores only after a live shadow soak, so
+  advisory promotion is gated on a post-soak RG4 >= 0.55 + operator approval. If
+  the peer features do NOT lift live RG4 above the self-only head, that is an
+  honest negative — the ETH vol-regime signal may be genuinely thin and the fix
+  is an ETH strategy-review action, not another head.
