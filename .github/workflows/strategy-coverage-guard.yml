@@ -1,0 +1,54 @@
+name: Strategy-coverage guard
+
+# Preventer (not a detector): fails the PR when an `execution: live` strategy is
+# missing its decision-layer coverage — no regime_policy cell AND no explicit
+# exempt/coverage_debt entry — or is missing a strategy_descriptions entry, or
+# when coverage_debt exceeds its (down-only) ceiling.
+#
+# Root cause it exists for: the roster grew from 6 to ~44 strategies but
+# config/regime_policy.yaml was not extended per new strategy, so 35 of 39 live
+# strategies traded with zero regime protection, invisible until the 2026-07-16
+# review. See scripts/check_strategy_coverage.py + docs/strategy-coverage-matrix.md
+# + config/regime_coverage_exemptions.yaml.
+#
+# REQUIRED status check — no `paths:` filter (would leave the check permanently
+# "pending" on a non-matching PR); the check is cheap (stdlib + pyyaml, no diff).
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  strategy-coverage-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PyYAML
+        run: pip install --quiet pyyaml
+
+      - name: Run strategy-coverage guard
+        run: python scripts/check_strategy_coverage.py --check
+
+      - name: Verify the coverage matrix is up to date
+        # The committed matrix must match a fresh regeneration — so a strategy
+        # change can't land without the matrix reflecting it.
+        run: |
+          python scripts/check_strategy_coverage.py --matrix
+          if ! git diff --quiet -- docs/strategy-coverage-matrix.md; then
+            echo "::error::docs/strategy-coverage-matrix.md is stale — run "
+            echo "  python scripts/check_strategy_coverage.py --matrix"
+            echo "and commit the result."
+            git --no-pager diff -- docs/strategy-coverage-matrix.md
+            exit 1
+          fi

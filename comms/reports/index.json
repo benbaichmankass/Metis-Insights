@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260717-055600-daily",
+      "window": "daily",
+      "generated_at": "2026-07-17T05:56:00+00:00",
+      "window_start": "2026-07-16T06:12:00+00:00",
+      "window_end": "2026-07-17T05:56:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "On REAL money yesterday (2026-07-16) was a -$5.54 day (3 closed, 1 win) \u2014 small, because bybit_2 is barely sized. The alarming red is on the PAPER book (the fleet at real size): -$1,485 (07-14), -$4,362 (07-15), then +$895 (07-16). The worst day was 07-15, not 07-16. Root cause of the bleed is structural, not a one-off: the losing trades are low-confidence '*_pullback_2h' longs entered because ADX read the tape as 'trending' \u2014 but ADX measures trend STRENGTH, not DIRECTION, so a hard sell-off looks identical to a rally. The regime router that is supposed to catch this covers only the 6 original BTC strategies; the ~38-strategy alt/equity/futures roster (every pullback_2h bleeder included) has no regime cells and trades permissive-ON. The one ML layer that flagged these setups as weak is shadow-only and ignored by design, and the trainer that would promote it is idle.",
+      "html_path": "comms/reports/daily/20260717T055600Z/report.html",
+      "json_path": "comms/reports/daily/20260717T055600Z/report.json",
+      "md_path": "comms/reports/daily/20260717T055600Z/report.md"
+    },
+    {
       "id": "RPT-20260716-061200-weekly",
       "window": "weekly",
       "generated_at": "2026-07-16T06:12:00+00:00",

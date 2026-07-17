@@ -1,0 +1,149 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — daily</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — daily</h1>
+<p class="meta">Generated 2026-07-17T05:56:00+00:00 · window 2026-07-16T06:12:00+00:00 → 2026-07-17T05:56:00+00:00</p>
+<p><span class="grade">Roll-up: 🔴 investigate</span></p>
+<p>On REAL money yesterday (2026-07-16) was a -$5.54 day (3 closed, 1 win) — small, because bybit_2 is barely sized. The alarming red is on the PAPER book (the fleet at real size): -$1,485 (07-14), -$4,362 (07-15), then +$895 (07-16). The worst day was 07-15, not 07-16. Root cause of the bleed is structural, not a one-off: the losing trades are low-confidence &#x27;*_pullback_2h&#x27; longs entered because ADX read the tape as &#x27;trending&#x27; — but ADX measures trend STRENGTH, not DIRECTION, so a hard sell-off looks identical to a rally. The regime router that is supposed to catch this covers only the 6 original BTC strategies; the ~38-strategy alt/equity/futures roster (every pullback_2h bleeder included) has no regime cells and trades permissive-ON. The one ML layer that flagged these setups as weak is shadow-only and ignored by design, and the trainer that would promote it is idle.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Regime router governs only 6 of 44 live strategies — extend coverage or gate the pullback_2h family</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>config/regime_policy.yaml only names the original BTC set (trend_donchian, squeeze_breakout_4h, htf_pullback_trend_2h, fade_breakout_4h, fvg_range_15m, vwap). The 38 newer alt/equity/futures strategies — incl. every *_pullback_2h that bled this week — resolve to permissive-ON with zero regime protection. Confirmed live: only 1 hard-gate row fired across all of 2026-07-16. Author OFF/weight cells for the alt roster (backtest-gated) or demote the pullback_2h family to shadow.</span></li>
+<li><b>ADX regime is direction-blind — add a trend-DIRECTION filter</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>detect_regime() classifies chop/transitional/trending purely on ADX-14 magnitude. A strong DOWNtrend has high ADX too, so long-only pullback-buyers fire &#x27;buy the dip&#x27; into a sell-off. Every executed real loss this window was a pullback-long stopped out in an ADX-&#x27;trending&#x27; but falling market. Add a directional gate (e.g. midline slope / DI+ vs DI- sign) so long pullbacks are suppressed when the trend is down.</span></li>
+<li><b>Re-enable the trainer training cycle</b> <span class="pill">ml · T2</span> ⚠️ operator<br><span class='muted'>ict-trainer.service is inactive/disabled and 0 cycles ran in 24h. Dataset builds + DB sync work, but nothing promotes models — 1 advisory vs 28 shadow. The setup-quality models that would have down-weighted yesterday&#x27;s setups are stranded at shadow. Re-enable the timer and unblock the shadow-&gt;advisory live_agreement gate (MB-20260626-003).</span></li>
+<li><b>Demote ada_pullback_2h (review the whole *_pullback_2h family)</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>ada_pullback_2h is the biggest loser on both books; the pullback_2h family is low-edge (conf 0.30-0.56) and direction-blind. Demote ada to shadow now; put eth/xrp/avax_pullback_2h on notice pending a direction-aware entry fix.</span></li>
+<li><b>Consider enabling FLIP_CONFIDENCE_THRESHOLD for genuine reversals</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>FLIP_POLICY=hold (correct for churn) refuses an opposing signal and rides the wrong-way position to its stop — exactly the failure mode in a real regime reversal. FLIP_CONFIDENCE_THRESHOLD (the override that lets a high-conviction opposing signal exit early) is 0.0 = disabled. Backtest a small positive threshold so a strong reversal can cut a losing hold.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">84 open / 227 total</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">51 open / 74 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">32 open / 72 total</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>—</span> —</li>
+<li><span class='pill'>—</span> —</li>
+<li><span class='pill'>—</span> —</li>
+<li><span class='pill'>—</span> —</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>ML x Performance: the shadow setup-quality models scored yesterday&#x27;s losing setups negative (-0.15 to -0.51) but are observe-only; the signal that would have prevented the trades exists and is ignored by design. Unblocking promotion (health/ml) directly addresses the performance bleed.</li>
+<li>Real vs Paper: real-money losses are single-digit dollars only because bybit_2 is minimally sized; the paper book (correctly sized mirror) shows the true fleet quality (-$5.8k over 07-14/07-15). The divergence is a sizing artifact, not a data error — judge strategy quality off paper.</li>
+<li>Regime x Roster growth: the roster grew from ~6 to ~44 strategies but the regime policy table did not grow with it, so risk controls now cover a shrinking fraction of live exposure.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟡 caution</span></h2>
+<p class="section-empty">No health findings in this report.</p>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-10.25</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">4</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.2%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-2.56</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.05</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">1</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>xrp_pullback_2h</td><td>1</td><td>0.0%</td><td class="neg">$-4.71</td></tr>
+<tr><td>eth_pullback_2h</td><td>1</td><td>0.0%</td><td class="neg">$-4.04</td></tr>
+<tr><td>ada_pullback_2h</td><td>1</td><td>0.0%</td><td class="neg">$-2.00</td></tr>
+<tr><td>trend_donchian</td><td>1</td><td>1.0%</td><td class="pos">+$0.50</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$895.14</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v neg">$-4,361.53 ↑</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">5</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.4%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$179.03</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">2</div></div>
+</div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">—</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">3 full dossiers, 1 summarized (full dossiers for executed real-money losers; the +0.50 trend_donchian win summarized).</p>
+<details><summary><span class="pill real">real_money</span> ETHUSDT long · eth_pullback_2h · <span class="neg">$-4.04</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3523</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-16T08:03:00+00:00</div><div class="k">closed</div><div>2026-07-16T17:17:00+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1911.39</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>1860.35</div><div class="k">target</div><div>2100.62</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler_filled</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> XRPUSDT long · xrp_pullback_2h · <span class="neg">$-4.71</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3507</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-15T20:04:00+00:00</div><div class="k">closed</div><div>2026-07-17T00:36:00+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1.1102</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>1.0828</div><div class="k">target</div><div>1.2201</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>sl</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> ADAUSDT long · ada_pullback_2h · <span class="neg">$-2.00</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3502</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-15T18:16:00+00:00</div><div class="k">closed</div><div>2026-07-16T08:00:00+00:00</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.1652</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>0.1593</div><div class="k">target</div><div>0.1816</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler_filled</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>1h ADX ~17.8 (chop) mid-session 07-16; regime router hard-gated one fvg_range_15m BTC long in chop. Price ~64k.</td></tr>
+<tr><td>ETHUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>ADX ~28.5 (&#x27;trending&#x27;) at the pullback entries, but price fell into the stops — high ADX on a DOWN move. eth_pullback_2h long stopped -0.98R.</td></tr>
+<tr><td>ADAUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>ADX ~30.9 (&#x27;trending&#x27;); ada_pullback_2h long -0.42R, entry graded &#x27;late&#x27;.</td></tr>
+<tr><td>XRPUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>xrp_pullback_2h long hit SL for -1.00R; still one open real-money XRP long.</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟡 caution</span></h2>
+<p class="section-empty">No model status in this report.</p>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li>DEMOTE_SHADOW <b>ada_pullback_2h</b> — biggest loser on both books; conf 0.36; direction-blind long entries stopped out (-0.42R this window, negative 30d).</li>
+<li>REVIEW <b>pullback_2h family (eth/xrp/avax)</b> — low-edge (conf 0.30-0.56), all long-biased, all bled into declining alts; hold pending a direction-aware entry fix.</li>
+<li class='muted'>Nothing ready to PROMOTE. Real-money bright spot HOLD: trend_donchian (only winner this window, +0.50). Primary structural issue is not a single strategy but that the regime router covers only 6 of 44 live strategies, so demote/kill is a stop-gap; the fix is regime coverage + a direction filter.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">True</div></div>
+</div>
+<p class='muted'>Dataset builds (68 ok/24h) and live-&gt;trainer DB sync (05:00) are healthy, but the training SERVICE is disabled and no cycles ran in 24h, so the shadow-&gt;advisory promotion pipeline is starved (1 advisory / 28 shadow / 53 candidate).</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>regime heads (btc/eth/sol)</td><td>soaked-but-blocked</td><td>met their time-in-shadow but shadow-&gt;advisory blocked on live_agreement gate (MB-20260626-003).</td></tr>
+<tr><td>setup-quality shadow models</td><td>accruing-but-ignored</td><td>actively scoring live setups (negative on yesterday&#x27;s losers) but observe-only; no path to influence while promotion is stalled.</td></tr>
+<tr><td>exit-ladder / conviction soaks</td><td>unavailable: not pulled this run</td><td>observe-only logs; no live impact.</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 Regime router covers only ~6 of 44 live strategies; the alt/equity/futures roster trades with no regime protection (1 hard-gate row all day).</li><li>🚩 ADX regime classifier is direction-blind — long pullback-buyers fire in strong downtrends.</li><li>🚩 Trainer training cycles idle (service disabled, 0/24h); model promotion starved.</li><li>🚩 Paper fleet bled -$5.8k over 07-14/07-15 (the fleet-at-scale read); real money spared only by minimal sizing.</li><li>🚩 hold-policy rides wrong-way positions to stop; the reversal-exit override (FLIP_CONFIDENCE_THRESHOLD) is disabled.</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>MB-20260626-003</code></td><td>ml</td><td>🗳️ awaiting-decision</td><td>Regime-head shadow-&gt;advisory blocked on the live_agreement gate; heads have soaked their time but can&#x27;t clear it. Directly limits regime coverage.</td><td>operator decision on gate design</td></tr>
+<tr><td><code>TRAINER-IDLE-20260717</code></td><td>ml</td><td>🗳️ awaiting-decision</td><td>ict-trainer.service disabled; 0 cycles/24h. Re-enable to resume promotions.</td><td>operator re-enable</td></tr>
+</table></div>
+<footer>report_id RPT-20260717-055600-daily · reviewer claude · prior RPT-20260716-061200-weekly · ICT Trading Bot system-report</footer></div></body></html>
