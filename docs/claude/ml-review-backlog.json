@@ -1232,6 +1232,13 @@
       "evidence_log": [
         "2026-06-30 (/ml-review, trainer-vm-diag #5165): RG4 + soak volume read. eth-regime-15m-lgbm-v1 = 0.766 TRUSTWORTHY but on only 204 live rows (199 labeled); sol-regime-15m-lgbm-v1 = 0.643 TRUSTWORTHY on 178 rows (173 labeled). BOTH already PASS RG4>=0.55 but are BELOW the ~300-500-row volume target (knife-edge risk -- the ETH precedent went 0.46-0.58 at ~111 rows). stage-guard also flags shadow_soak FAIL + sample_sufficiency FAIL for both. ETH/SOL label cleanly (unlab=5) unlike MES. ACTION: hold; re-run RG4 + vt-sweep when each 15m head clears ~300-500 rows (~2026-07-03/04 at ~96 rows/day). If it holds: re-derive ETH trend_vol cells UNDER eth-regime-15m (the draft used the failed 1h head); author SOL cells from scratch; then per-symbol vol-split A/B + walk-forward before promote.",
         "2026-07-06 (ETH/SOL vol-gate evidence session, trainer-vm-diag #5726/#5729/#5733/#5741/#5745; docs/research/A-vol-gating-ETH-SOL-OFFcell-evidence-2026-07-06.md): per-symbol cell-attribution vol-splits re-derived under eth/sol-regime-15m-lgbm-v1 (shadow-pinned, fell_back=0 both) + 3-arm A/B + fixed-cell + cell-selection walk-forwards. RESULT: NEITHER symbol clears the BTC promotion gate. ETH: A/B $850->$1374 net / DD -23%, fixed-cell net 4/4 but maxDD 2/4, cell-selection 2/3 net / 3/3 DD (fold-2 DD regression +$193; -$277 giveback in the profitable 2025-26 fold; 3 of 4 ungated folds are net-negative - an ETH strategy-review problem, not a gate problem). SOL: clean negative - book already healthy (ret/DD 1.72), A/B trades -$198 net for -50% DD, fixed-cell net only 2/4, cell-selection 1/3+1/3 unstable. Cross-symbol: BTC's winning cell (trending|calm|long Donchian) is ETH's/SOL's biggest LOSER - cells do not transfer, per-symbol derivation was mandatory. DECISION: no Tier-3 proposal; both 15m heads stay at shadow; no ETH/SOL trend_vol cells authored. Also found+fixed BL-20260706-VOLGATE-REPLAY: the offline harness --regime-router on had silently stopped enforcing vol cells since the #4896 guard (all A/B arms identical) - fixed on branch claude/eth-sol-volgate-evidence-84bkhz with a regression test. Honest negative recorded per resolution_criteria; keep soaking, re-run after materially more history / head retrain / ETH strategy-review action."
+      ],
+      "updates": [
+        {
+          "at": "2026-07-17",
+          "by": "overnight-ml-loop",
+          "note": "RG4 RE-RUN on fresh mirror (#6736). ETH/SOL 15m regime heads have ample soak (eth-plain 960, sol-plain 935 rows). RG4 @ 0.005: eth-regime-15m-lgbm-v1 = 0.455 NO_EDGE + POWERED (41 pos/8 episodes); sol-regime-15m-lgbm-v1 = 0.411 ANTI_PRED but UNPOWERED (31/40 pos). NO ETH/SOL vol-gate go-live yet: ETH 15m head doesn't discriminate live at 0.005 (plain 0.455 + fc 0.442 both fail), SOL under-powered. Pre-drafted ETH cells stay un-authorable. Shared root cause w/ FC-ADVISORY: likely ETH vol-threshold miscalibration -> ETH vt sweep is the diagnostic. Stage 3 A/B + Stage 4 walk-forward NOT run (gated on RG4)."
+        }
       ]
     },
     {
@@ -1426,6 +1433,13 @@
           "at": "2026-07-05T11:15:00+00:00",
           "status": "open",
           "note": "Opened to durably track the fc→advisory soak-readiness so the Tier-3 decision is picked up when ripe (was only in ROADMAP + sprint logs)."
+        }
+      ],
+      "updates": [
+        {
+          "at": "2026-07-17",
+          "by": "overnight-ml-loop",
+          "note": "READINESS RE-CHECKED on a FRESH mirror (age 1min, 41.9k rows; trainer #6736/#6737). Soak volume now ample (fc heads 935-992 live rows). RG4 @ trained 0.005: btc-fc 0.438 ANTI_PRED but UNPOWERED (only 2 volatile bars/1 episode — BTC calm regime, un-testable); eth-fc 0.442 ANTI_PREDICTIVE + POWERED (41 pos/8 episodes); sol-fc 0.537 NO_EDGE but UNPOWERED (31/40 pos). fc feature-serving parity CHECKED (#6737): live fc_* POPULATED + sane on ETH/BTC/SOL (976/976 nonzero fc_range_rel mean 0.0044, fc_skew [-0.69,0.65]) — eth-fc anti-predictive is NOT a dead-feature/serving bug. VERDICT: NO promotion. eth-fc powered-anti-predictive + eth-plain powered-NO_EDGE (0.455) => the ETH 15m vol head doesn't discriminate live at 0.005 -> likely VOL-THRESHOLD MISCALIBRATION for ETH, not a code bug. NEXT DIAGNOSTIC: ETH vt-threshold sweep with candles available (rg4_vt_sweep failed on missing candles under RG4_NO_SYNC). BTC: keep soaking (needs volatile episodes). SOL: ~a few more days to power."
         }
       ]
     },
