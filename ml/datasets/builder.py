@@ -146,6 +146,17 @@ class DatasetBuilder(ABC):
         iter_rows_kwargs.setdefault("timeframe", timeframe)
         row_count = self._write_rows(paths.data, allowed_fields, iter_rows_kwargs)
 
+        # Persist the effective scalar build params so the dir is
+        # self-describing (MB-20260716-BUILDPARAMS-IGNORED). Excludes the
+        # forwarded scope (already top-level) and non-scalar kwargs (paths,
+        # etc. — not label-defining and possibly host-specific).
+        effective_build_params = {
+            k: v
+            for k, v in iter_rows_kwargs.items()
+            if k not in ("symbol_scope", "timeframe")
+            and (v is None or isinstance(v, (str, int, float, bool)))
+        }
+
         metadata = DatasetMetadata(
             family=self.family,
             version=version,
@@ -161,6 +172,7 @@ class DatasetBuilder(ABC):
             row_count=row_count,
             schema=schema_tokens,
             notes=notes,
+            build_params=effective_build_params,
         )
         paths.metadata.write_text(
             json.dumps(metadata.to_dict(), indent=2, sort_keys=True) + "\n",

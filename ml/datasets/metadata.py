@@ -51,6 +51,14 @@ class DatasetMetadata:
     row_count: int
     schema: Mapping[str, str]     # field name -> type token
     notes: str = ""
+    # Effective family build params the dataset was actually built with
+    # (the scalar `iter_rows` kwargs — e.g. `vol_threshold`, `n_vol_buckets`).
+    # Persisted so a version dir is SELF-DESCRIBING: the `version` string is
+    # opaque (a "v004" dir may hold a 0.003 label), and the trainer training
+    # path does NOT apply a manifest's `dataset.build_params` — only gpu-burst
+    # does — so without this a mislabeled dir is undetectable
+    # (MB-20260716-BUILDPARAMS-IGNORED). Empty for legacy dirs / raw families.
+    build_params: Mapping[str, Any] = field(default_factory=dict)
     generated_at: datetime = field(default_factory=_now_utc)
     schema_version: str = SCHEMA_VERSION
 

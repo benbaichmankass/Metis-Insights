@@ -11,6 +11,7 @@ from ml.experiments.runner import (
     EMPTY_DATASET_EXIT_CODE,
     DatasetMissingError,
     EmptyDatasetError,
+    ManifestDatasetMismatchError,
     run_experiment,
 )
 
@@ -284,3 +285,86 @@ def test_cli_train_skips_missing_dataset(tmp_path: Path, capsys):
     assert out["skipped"] is True
     assert out["reason"] == "dataset_absent"
     assert out["dataset_path"].endswith("data.jsonl")
+
+
+# --- MB-20260716-BUILDPARAMS-IGNORED: manifest build_params vs dataset ---------
+
+def _write_dataset_with_build_params(tmp_path: Path, build_params) -> Path:
+    """A minimal dataset whose metadata.json records build_params (or none)."""
+    family, scope, tf, version = "backtest_results", "all", "all", "v001"
+    ds = tmp_path / "datasets-out" / family / scope / tf / version
+    ds.mkdir(parents=True)
+    with (ds / "data.jsonl").open("w", encoding="utf-8") as fh:
+        for i in range(6):
+            fh.write(json.dumps({"id": i, "total_pnl_pct": 0.1,
+                                 "strategy_version": "v"}, sort_keys=True) + "\n")
+    meta = {"family": family, "version": version, "row_count": 6}
+    if build_params is not None:
+        meta["build_params"] = build_params
+    (ds / "metadata.json").write_text(json.dumps(meta, indent=2, sort_keys=True),
+                                      encoding="utf-8")
+    return tmp_path / "datasets-out"
+
+
+def _write_manifest_with_build_params(tmp_path: Path, build_params) -> Path:
+    payload = {
+        "manifest_version": "v1",
+        "model_id": "demo-bp",
+        "model_family": "regression_baseline",
+        "trainer": "ml.trainers.constant_baseline.ConstantPredictionTrainer",
+        "trainer_config": {"target_column": "total_pnl_pct"},
+        "dataset": {
+            "family": "backtest_results", "symbol_scope": "all",
+            "timeframe": "all", "version": "v001",
+            "build_params": build_params,
+        },
+        "evaluator": "ml.evaluators.regression.RegressionEvaluator",
+        "evaluator_config": {"target_column": "total_pnl_pct",
+                             "metrics": ["mse", "mae"], "holdout_fraction": 0.2},
+        "target_deployment_stage": "research_only",
+    }
+    path = tmp_path / "manifest.yaml"
+    path.write_text(yaml.safe_dump(payload), encoding="utf-8")
+    return path
+
+
+def test_declared_build_params_mismatch_raises(tmp_path: Path):
+    # Dir records vol_threshold 0.003; manifest declares 0.004 -> fail loud
+    # (the trainer path does NOT apply build_params, so this would mislabel).
+    datasets_root = _write_dataset_with_build_params(
+        tmp_path, {"vol_threshold": 0.003, "n_vol_buckets": 3})
+    manifest_path = _write_manifest_with_build_params(
+        tmp_path, {"vol_threshold": 0.004})
+    with pytest.raises(ManifestDatasetMismatchError):
+        run_experiment(
+            manifest_path=manifest_path, datasets_root=datasets_root,
+            experiments_root=tmp_path / "exp", registry_root=tmp_path / "reg",
+            register=False,
+        )
+
+
+def test_declared_build_params_match_proceeds(tmp_path: Path):
+    datasets_root = _write_dataset_with_build_params(
+        tmp_path, {"vol_threshold": 0.004})
+    manifest_path = _write_manifest_with_build_params(
+        tmp_path, {"vol_threshold": 0.004})
+    artifacts, entry = run_experiment(
+        manifest_path=manifest_path, datasets_root=datasets_root,
+        experiments_root=tmp_path / "exp", registry_root=tmp_path / "reg",
+        register=False,
+    )
+    assert artifacts.metrics_path.is_file()
+
+
+def test_declared_build_params_unverifiable_warns_but_proceeds(tmp_path, capsys):
+    # Legacy dir with no recorded build_params -> can't verify -> warn, proceed.
+    datasets_root = _write_dataset_with_build_params(tmp_path, None)
+    manifest_path = _write_manifest_with_build_params(
+        tmp_path, {"vol_threshold": 0.004})
+    artifacts, _ = run_experiment(
+        manifest_path=manifest_path, datasets_root=datasets_root,
+        experiments_root=tmp_path / "exp", registry_root=tmp_path / "reg",
+        register=False,
+    )
+    assert artifacts.metrics_path.is_file()
+    assert "BUILDPARAMS-IGNORED" in capsys.readouterr().err
