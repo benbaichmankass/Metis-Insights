@@ -79,8 +79,11 @@ grading-freshness guard. Required, non-empty:
   (ready-to-promote, demote/kill candidates, or "all HOLD") with evidence; pulled
   from the `ml`/`performance` sub-reviews + `/api/bot/strategies/{name}/review`.
 - `review_coverage.ml_training_health` — did training cycles run since the last
-  review? dataset builds OK? any failing/stuck cycle? (from `/ml-review` +
-  trainer relay).
+  review? dataset builds OK? any failing/stuck cycle? **any
+  `manifest_quarantine_tripped` / `manifest_quarantined` cycle event** (a
+  single-manifest OOM the trainer escalated — BL-20260717-TRAINER-SINGLE-MANIFEST-OOM,
+  requires a Rule-3 shrink/GPU/drop disposition — see the `/ml-review` rubric)?
+  (from `/ml-review` + trainer relay).
 - `review_coverage.soak_status` — each active soak (shadow models, conviction,
   exit-ladder) and whether it is accruing as expected, stalled, or has met its
   gate; flags for any stall / met-but-unactioned.
