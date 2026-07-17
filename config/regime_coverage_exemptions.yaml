@@ -1,0 +1,199 @@
+# Regime-coverage exemptions + debt register
+#
+# Enforced by scripts/check_strategy_coverage.py (strategy-coverage-guard CI).
+# Every execution:live strategy must be a regime_policy cell, an `exempt` entry,
+# or a `coverage_debt` entry. `coverage_debt` may never exceed `debt_ceiling`,
+# which only ratchets DOWN — so a NEW live strategy can never be parked here to
+# dodge the gate; it must get a real cell or a reasoned exempt. The entries below
+# are the roster that was already live-uncovered at the 2026-07-16 review; Phase-2
+# (direction-aware regime cells) pays them down and lowers the ceiling.
+#
+# tracking: BL-20260717-REGIME-COVERAGE-DEBT
+
+schema_version: 1
+debt_ceiling: 35
+
+# Permanent, regime-gating genuinely N/A (reasoned). Empty today.
+exempt: {}
+
+# Live strategies with NO description entry are tracked here so the guard's
+# description check passes while the copy is written. Empty = all have descriptions.
+description_exempt: {}
+
+# Grandfathered: live before the guard existed, owed a regime cell.
+coverage_debt:
+  ada_pullback_2h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on ADAUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  avax_pullback_2h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on AVAXUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  eth_pullback_2h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on ETHUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  eth_pullback_prop_2h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on ETHUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  gdx_pullback_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on GDX; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  gld_pullback_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on GLD; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  gld_pullback_1h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on GLD; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  iaum_pullback_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on IAUM; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  ief_pullback_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on IEF; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  iwm_trend_long_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on IWM; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  mes_trend_long_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on MES; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  mgc_pullback_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on MGC; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  mhg_pullback_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on MHG; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  qld_trend_long_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on QLD; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  qqq_pullback_1h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on QQQ; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  qqq_trend_long_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on QQQ; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  scha_trend_long_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on SCHA; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  slv_pullback_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on SLV; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  slv_trend_1h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on SLV; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  sol_pullback_2h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on SOLUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  splg_trend_long_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on SPLG; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  spy_pullback_1h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on SPY; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  spy_trend_long_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on SPY; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  tlt_pullback_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on TLT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  tlt_pullback_1h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on TLT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  tqqq_trend_long_1d:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on TQQQ; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  trend_donchian_ada_4h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on ADAUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  trend_donchian_avax_4h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on AVAXUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  trend_donchian_eth:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on ETHUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  trend_donchian_eth_4h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on ETHUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  trend_donchian_sol:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on SOLUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  trend_donchian_sol_4h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on SOLUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  trend_donchian_xrp_4h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on XRPUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  uso_trend_1h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional trend-follower on USO; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+  xrp_pullback_2h:
+    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
+    added: '2026-07-17'
+    reason: >-
+      Directional pullback trend-follower on XRPUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.

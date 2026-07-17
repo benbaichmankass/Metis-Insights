@@ -376,6 +376,32 @@ never drifts from the live behaviour — and add the matching
 `config/strategy_changelog.json` entry. The description is the "what it
 does now"; the changelog is the "how it got here".
 
+### 6b. Regime coverage — `config/regime_policy.yaml` (or the debt register)
+
+**This is the step that was silently skipped for 35 of 39 live strategies**
+(the roster grew 6 → 44 but the regime layer did not), so it is now a **hard CI
+gate**: `scripts/check_strategy_coverage.py` (workflow `strategy-coverage-guard`)
+FAILS the PR if a new `execution: live` strategy has neither a `regime_policy`
+cell nor an explicit exemption. You cannot merge a new live strategy without
+making a regime decision for it. Do ONE of:
+
+1. **Author a real regime cell** in `config/regime_policy.yaml` for the
+   strategy (Tier-3 — the OFF cells are backtest-gated; propose them in the
+   `config/strategies.yaml` draft PR). This is the right answer for a directional
+   trend/pullback strategy — decide, per regime, whether each direction should
+   trade. Prefer a **direction-aware** cell (the 2026-07-16 root cause was that
+   ADX measures trend *strength*, not *direction*, so long-only pullbacks fired
+   into downtrends).
+2. **Add a reasoned `exempt:` entry** in `config/regime_coverage_exemptions.yaml`
+   *(Tier-1)* — only if regime gating genuinely does not apply (e.g. a
+   market-neutral sleeve). Requires a `reason`.
+
+You may **not** park a new strategy in `coverage_debt:` — that list is a
+ratcheting-down register of the pre-guard grandfathered roster; the guard's
+`debt_ceiling` blocks adding to it. Regenerate the matrix in the same PR:
+`python scripts/check_strategy_coverage.py --matrix` and commit
+`docs/strategy-coverage-matrix.md`.
+
 ### 7. Account routing — `config/accounts.yaml` *(Tier-3, separate PR)*
 
 Add the strategy name to the relevant account's `strategies:` list.
@@ -522,6 +548,10 @@ Report back with:
    the wiring PR — every new strategy gets exit-processed via the
    `exit-refinement` skill; the leg isn't finished until its exit-lever
    columns carry verdicts (M20 system, operator directive 2026-07-12).
+7. **Regime coverage decided (step 6b):** a `regime_policy.yaml` cell OR a
+   reasoned `exempt` entry, with the `strategy-coverage-guard` CI check green
+   and `docs/strategy-coverage-matrix.md` regenerated. The leg is NOT done
+   until the guard passes for it — no new debt.
 
 Do **not** open the accounts.yaml PR (step 7) until the operator has
 explicitly authorized live activation.
