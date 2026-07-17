@@ -91,6 +91,19 @@ if ! flock -n 9; then
   exit 0
 fi
 
+# --- Shared heavy-job queue --------------------------------------------------
+# Beyond "no two CYCLES at once" (above), serialize against the OTHER
+# memory-heavy trainer jobs (promotion-readiness, drift-retrain) and manual
+# session training so they never thrash the 6 GB box concurrently. Blocks (a
+# queue) until the shared lock is free; skips this run if the queue stays busy
+# past the timeout. See docs/claude/trainer-resource-protocol.md.
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/ops/_trainer_heavy_lock.sh"
+if ! take_trainer_heavy_lock "training_cycle"; then
+  emit "$(printf '{"ts":"%s","status":"heavy_lock_timeout","detail":"another heavy trainer job held the queue past the wait; skipping this cycle, will retry next timer"}' "$(iso_now)")"
+  exit 0
+fi
+
 # --- Pull latest -----------------------------------------------------------
 # Self-heal onto a clean `main` every cycle. Past interactive sessions have
 # left this checkout parked on stale `claude/*` session branches (with broken

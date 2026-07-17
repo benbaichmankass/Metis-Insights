@@ -103,10 +103,19 @@ operator approval. There are no tiers, no Telegram acks, no
   `ml/datasets/`; cache market data fetches from `bybit_offvm`;
   delete + rebuild any artifact under `artifacts/` (except
   `artifacts/health/`, which is live-VM owned).
-- **Training:** run any `python -m ml.train …` invocation; trigger
+- **Training:** run training + build datasets; trigger
   `scripts/ops/run_training_cycle.sh` ad-hoc or via timer; write
   manifests under `ml/configs/`; benchmark predictors; spin up
-  one-off Hugging Face Spaces / Hub queries.
+  one-off Hugging Face Spaces / Hub queries. **BUT — the trainer VM is
+  6 GB and memory-constrained, so any memory-heavy run MUST go through the
+  shared job QUEUE, never a bare `python -m ml train …`:**
+  `scripts/ops/trainer_run.sh python -m ml train ml/configs/<manifest>.yaml`
+  (it serializes against the training cycle / promotion-readiness /
+  drift-retrain instead of thrashing the box). For a large / experimental /
+  long run, prefer the **GPU-burst platform** (`gpu-burst-train.yml`) when it's
+  within the $10/mo budget, so it doesn't block the queue at all. **Never
+  `sudo systemctl stop ict-trainer` to "make room"** — the queue handles
+  contention. Full rules: [`trainer-resource-protocol.md`](trainer-resource-protocol.md).
 - **Registry:** call `python -m ml.registry register | promote_stage
   | demote_stage` for **any** stage in the canonical 3-stage ladder
   (`candidate → shadow → advisory`; the legacy 7-stage names alias
