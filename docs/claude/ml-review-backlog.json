@@ -1308,7 +1308,7 @@
       "tier": 3,
       "trigger_condition": "Next /ml-review or /system-review assessing the BTC regime fleet / vol-gate; or any session revisiting config/regime_policy.yaml vol thresholds or retraining btc-regime-15m-lgbm-v2.",
       "resolution_criteria": "A decision on the BTC-15m regime head's operating vol_threshold backed by RG4 live-regime-discrimination + the gate's backtest A/B: either (a) confirm 0.005 is the intended gate semantics and accept the weaker head, or (b) retrain/operate at ~0.004 (better head + the embedding lift comes along) and re-validate the vol-gate. Cross-referenced to the M19 T0.1 threshold-sensitivity evidence (docs/research/T0.1-embedding-followup-evidence-2026-07-01.md \u00a7 Threshold sensitivity).",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "evidence_log": [
         "2026-07-01 (trainer-vm-diag #5311/#5320/#5321, purged-CV BTC-15m, base vs base+32 tsfm_emb): vol_threshold sweep \u2014 base f1_volatile / (\u0394macro_f1 from embeddings): 0.003=0.38/(+0.052), 0.004=0.30/(+0.037), 0.005[shipped]=0.24/(+0.012), 0.006=0.19/(-0.004). The head's own volatile-class quality and the embedding lift both decay monotonically with the volatile base rate; the shipped 0.005 sits in the weak/marginal zone.",
@@ -1316,7 +1316,14 @@
         "2026-07-16 (MAPPING RECONCILED \u2014 gate 1 done; docs/research/MB-20260701-mapping-reconcile-2026-07-16.md; trainer read issue #6676): the vt004-pcv 'first-gate' run trained on a 0.003 LABEL, not 0.004. The v004 dataset dir is 0.003-labeled (16.06% volatile prevalence; genuine 0.004 dirs are v104/v514 at 8.4%), and dataset.build_params.vol_threshold is a NO-OP on the trainer-VM training path (ml/experiments/runner.py reads a pre-built data.jsonl by version only; solely gpu-burst honors build_params). So f1_volatile 0.44 is a 0.003 measurement (=~ the T1.1 0.003 LightGBM control 0.444); the genuine 0.004 operating point is still UNMEASURED under purged CV. Authoritative threshold->base-rate mapping now pinned on one common data window: 0.005->4.6% / 0.004->8.4% / 0.003->16.0%. Genuine dirs exist (0.005=v002/v515/v520, 0.004=v104/v514, 0.003=v003/v513), so the operating curve can be pinned WITHOUT rebuilding features. Next gate: train the live-faithful mirror at genuine 0.005/0.004/0.003 (matched class weights) under purged 5-fold CV. Build-path footgun logged as MB-20260716-BUILDPARAMS-IGNORED.",
         "2026-07-16 (GATE 2 DONE \u2014 operating curve pinned; docs/research/MB-20260701-operating-curve-2026-07-16.md): matched-sibling triple v513/v514/v515 (genuine 0.003/0.004/0.005 = 16/8.4/4.6% vol), live-faithful lgbm-v2 mirror, class_weight matched to true base rate (6.2/11.9/21.7), purged 5-fold CV. Curve: f1_volatile 0.249 (0.005, shipped) -> 0.341 (0.004) -> 0.468 (0.003); macro_f1 0.598 -> 0.629 -> 0.669 (monotonic). The shipped 0.005 is the WEAKEST operating point (data-starved, confirmed on clean matched-weight purged CV); the genuine 0.004 point (0.341) is measured for the FIRST time (the vt004-pcv was a mislabeled 0.003 run). HONEST BOUND: f1_volatile rises partly mechanically with prevalence, and the gate is a live money-routing switch \u2014 which operating point it should USE is decided by the vol-gate money backtest A/B (gate 4), not classifier metrics. Gates remaining: RG4 (scripts/ml/rg4_targeted.sh) -> vol-gate backtest A/B -> operator. Live threshold UNCHANGED (0.005). Item stays OPEN pending gates 3-4 + operator."
       ],
-      "status_history": "open 2026-07-01 (M19 T0.1 threshold characterization surfaced that the BTC-15m regime head is data-starved at its shipped 0.005 operating point; filed for the regime track to evaluate the operating threshold on the RG4 axis). 2026-07-16 positive first-gate (purged-CV vt004 probe: f1_volatile 0.44 vs 0.24) but threshold not pinned (base-rate cross-track disagreement) \u2014 stays open pending mapping reconcile + RG4 + vol-gate backtest A/B. 2026-07-16 stays OPEN; gate-1 (mapping reconcile) DONE; gate-2 (pin operating curve on genuine dirs) is next. 2026-07-16 gate-2 (operating curve) DONE; gates 3 (RG4) + 4 (money A/B) + operator remain; live threshold unchanged."
+      "status_history": "open 2026-07-01 (M19 T0.1 threshold characterization surfaced that the BTC-15m regime head is data-starved at its shipped 0.005 operating point; filed for the regime track to evaluate the operating threshold on the RG4 axis). 2026-07-16 positive first-gate (purged-CV vt004 probe: f1_volatile 0.44 vs 0.24) but threshold not pinned (base-rate cross-track disagreement) \u2014 stays open pending mapping reconcile + RG4 + vol-gate backtest A/B. 2026-07-16 stays OPEN; gate-1 (mapping reconcile) DONE; gate-2 (pin operating curve on genuine dirs) is next. 2026-07-16 gate-2 (operating curve) DONE; gates 3 (RG4) + 4 (money A/B) + operator remain; live threshold unchanged.",
+      "updates": [
+        {
+          "at": "2026-07-17",
+          "by": "overnight-ml-loop",
+          "note": "RESOLVED \u2014 gate chain complete. Gate 1 (mapping reconcile) + gate 2 (operating curve: 0.004 is a better classifier, f1_volatile 0.341 vs 0.249) + gate 4 (MONEY A/B) all ran. Gate-4 verdict NEGATIVE: matched-sibling walk-forward (vt005-pin 0.005 vs vt004-pin 0.004) shows 0.004 worse on aggregate net (+$425 vs +$502) and equal-or-worse maxDD in every fold. The classifier lift does NOT convert to a money edge. Live vol-gate threshold STAYS 0.005; operator-approved flip declined on the money evidence. docs/research/MB-20260701-gate4-money-AB-2026-07-17.md."
+        }
+      ]
     },
     {
       "id": "MB-20260703-001",
@@ -1542,7 +1549,18 @@
       "status": "open",
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "MB-20260717-VOLGATE-CLASSIFIER-VS-MONEY",
+      "opened_at": "2026-07-17",
+      "opened_by": "overnight-ml-loop",
+      "source": "MB-20260701-001 gate-4 (docs/research/MB-20260701-gate4-money-AB-2026-07-17.md)",
+      "title": "Lesson: for an ML-verdict routing gate, the classifier metric is a screen \u2014 the money A/B is authoritative",
+      "description": "MB-20260701-001 is the case study: the 0.004 vol-gate head is decisively better on f1_volatile (0.341 vs 0.249) and macro_f1 (0.629 vs 0.598), yet LOSES the walk-forward money A/B (aggregate net +$425 vs +$502; equal-or-worse maxDD every fold). A denser volatile label makes the gate fire more often, trimming slightly more good trades than bad. Prevalence-sensitive classifier metrics (f1_volatile especially) are a NECESSARY screen but NOT sufficient to move a live money-routing verdict. Any future vol-gate / regime-verdict threshold or head change must clear the walk-forward money A/B (net PnL >= incumbent AND maxDD not worse, per fold OOS) before an operator flip \u2014 not classifier metrics alone. Applies to the ETH/SOL vol-gate go-live (MB-20260628-VOLGATE-GOLIVE) when those heads are proposed.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-16"
+  "updated_at": "2026-07-17"
 }

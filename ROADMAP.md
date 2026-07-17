@@ -263,9 +263,22 @@ strategy-*development* program.
    switch — which point it should USE is decided by the backtest money A/B, not classifier
    metrics. Live threshold stays 0.005; remaining Tier-3 gates: RG4
    (`scripts/ml/rg4_targeted.sh`) → vol-gate money backtest A/B → operator.
-   Build-path footgun logged (`MB-20260716-BUILDPARAMS-IGNORED`). Still in the bucket:
+   Build-path footgun logged (`MB-20260716-BUILDPARAMS-IGNORED`). **✅ GATE 4 — MONEY A/B
+   RAN 2026-07-17 → NEGATIVE; MB-20260701-001 RESOLVED, threshold STAYS 0.005**
+   (`docs/research/MB-20260701-gate4-money-AB-2026-07-17.md`): matched-sibling walk-forward
+   (vt005-pin 0.005 vs vt004-pin 0.004 as the vol-gate verdict, 4 yearly folds) — 0.004 is
+   **worse on aggregate net (+$425 vs +$502, −$77)** and **equal-or-worse maxDD in every
+   fold**. The gate-2 classifier lift (f1_volatile 0.341 vs 0.249) does **NOT** convert to a
+   money edge; a denser volatile label makes the gate fire more and trims slightly more good
+   trades than bad. The operator-approved flip is **declined on this evidence** — no promotion,
+   no threshold change, no config touched (holding for the money A/B instead of flipping on the
+   classifier lift was the right call). Gate 3 (RG4) is moot (it was only a precondition *for* a
+   flip that the money A/B rejects). Lesson logged: for any ML-verdict routing gate the
+   classifier metric is a screen, the money A/B is authoritative (`MB-20260717-VOLGATE-CLASSIFIER-VS-MONEY`).
+   Still in the bucket:
    fix the frozen trainer MES candle base (`BL-20260626-MES-BASE-STALE`, GIGO blinding RG4);
-   break the n≈78 decision-model label wall with per-trade backtest rows (`MB-20260530-001`).
+   break the n≈78 decision-model label wall with per-trade backtest rows (`MB-20260530-001`,
+   attacked by M23 Phase 1 — see the milestone list).
 
 **Soak clocks — watch on cadence, don't rush the gate:**
 
