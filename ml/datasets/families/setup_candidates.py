@@ -582,6 +582,11 @@ class SetupCandidatesBuilder(DatasetBuilder):
         # rows; synthetic/backtest rows omit it (their R comes from the barrier /
         # recorder pnl directly).
         "r_multiple_source": str,
+        # M23 variant C1 R-aware TRAINING target — 1[r_multiple >= r_label_threshold].
+        # Only emitted when iter_rows is called with r_label_threshold set; a
+        # meta-label manifest targets this instead of `won` to rank P(materially
+        # good trade) rather than P(win). Absent (validator-allowed) otherwise.
+        "won_r": int,
         "ret": float,                # direction-signed net return
         "holding_bars": int,
         # real-vs-synthetic split flag (domain-shift discipline)
@@ -619,6 +624,7 @@ class SetupCandidatesBuilder(DatasetBuilder):
         backtest_trades_db: Path | str | None = None,
         include_backtest: bool = False,
         backtest_strategies: tuple[str, ...] | list[str] | str | None = None,
+        r_label_threshold: float | None = None,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         """Build candidate rows for one OR several symbols (S-MLOPT-S8).
@@ -643,6 +649,13 @@ class SetupCandidatesBuilder(DatasetBuilder):
         ``live_trades_db`` (the single-DB flow the S7 recorder demo used, where
         one journal carries both ``is_backtest=0`` real rows and ``is_backtest=1``
         recorded rows). ``backtest_strategies`` restricts to a subset.
+
+        ``r_label_threshold`` (M23 variant C1) — when set, every emitted row also
+        carries ``won_r = 1[r_multiple >= r_label_threshold]``, an R-aware training
+        target a meta-label manifest can point at instead of the binary ``won``
+        (pnl>0). The exact-R EV gate showed the P(win) head ranks win-probability
+        but not loss-magnitude; ``won_r`` teaches it to prefer trades that clear a
+        materially-good R. Leaves ``won`` untouched (still the reporting truth).
         """
         if vol_window_n < 2:
             raise ValueError(f"vol_window_n must be >= 2; got {vol_window_n}")
@@ -665,9 +678,18 @@ class SetupCandidatesBuilder(DatasetBuilder):
         backtest_db = backtest_trades_db
         if backtest_db is None and include_backtest:
             backtest_db = live_trades_db
+        # M23 variant C1 (docs/research/M23-phase1-variantC-DESIGN-2026-07-17.md):
+        # when a threshold is given, emit an R-aware TRAINING target
+        # `won_r = 1[r_multiple >= r_label_threshold]` alongside the binary `won`
+        # (pnl>0) — so a meta-label manifest can target `won_r` and learn to pick
+        # trades that clear a materially-good R, not just trades that win. The EV
+        # gate still reports real win-rate (`won`) + realized R (`r_multiple`), so
+        # a wrong `won_r` can't corrupt the eval — it only changes the train
+        # target. Computed once here (all four event sources carry `r_multiple`).
+        thr = float(r_label_threshold) if r_label_threshold is not None else None
         paths = _resolve_market_raw_paths(market_raw_path, market_raw_paths)
         for path in paths:
-            yield from self._iter_one_symbol(
+            for row in self._iter_one_symbol(
                 path, config=config, vol_window_n=vol_window_n,
                 momentum_window=momentum_window,
                 cusum_threshold_mult=cusum_threshold_mult,
@@ -678,7 +700,13 @@ class SetupCandidatesBuilder(DatasetBuilder):
                 signal_log_sides=sides_tuple,
                 backtest_trades_db=backtest_db,
                 backtest_strategies=bt_strat_tuple,
-            )
+            ):
+                if thr is not None:
+                    rv = row.get("r_multiple")
+                    row["won_r"] = (
+                        1 if isinstance(rv, (int, float)) and rv >= thr else 0
+                    )
+                yield row
 
     def _iter_one_symbol(
         self,

@@ -289,6 +289,47 @@ def test_live_row_r_falls_back_to_unit_when_risk_absent(tmp_path: Path):
     assert live2[0]["r_multiple_source"] == "unit_fallback"
 
 
+def test_r_label_threshold_emits_r_aware_target(tmp_path: Path):
+    """M23 variant C1: r_label_threshold adds won_r = 1[r_multiple >= tau] on every
+    row, without disturbing the binary won (pnl>0) reporting target."""
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    # Long +2.0R (clears tau=0.5), long +0.2R win (below tau), short -1.0R loss.
+    _seed_trades_with_risk(db, [
+        ((base + timedelta(hours=40)).isoformat(), "buy", 12.0, 100.0, 98.0, 3.0),   # R=+2.0
+        ((base + timedelta(hours=80)).isoformat(), "buy", 0.6, 100.0, 98.0, 1.0),    # R=+0.3
+        ((base + timedelta(hours=120)).isoformat(), "sell", -5.0, 100.0, 101.0, 5.0),# R=-1.0
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db, r_label_threshold=0.5,
+    ))
+    # Every emitted row (synthetic + live) carries won_r consistent with its R.
+    for r in rows:
+        assert r["won_r"] == (1 if r["r_multiple"] >= 0.5 else 0)
+    live = [r for r in rows if r["is_live_trade"]]
+    assert len(live) == 3
+    big = next(r for r in live if abs(r["r_multiple"] - 2.0) < 1e-9)
+    small = next(r for r in live if abs(r["r_multiple"] - 0.3) < 1e-9)
+    loss = next(r for r in live if abs(r["r_multiple"] + 1.0) < 1e-9)
+    assert big["won_r"] == 1 and big["won"] == 1        # big winner clears tau
+    assert small["won_r"] == 0 and small["won"] == 1    # small winner: won but not won_r
+    assert loss["won_r"] == 0 and loss["won"] == 0
+
+
+def test_r_label_threshold_absent_by_default(tmp_path: Path):
+    """Without r_label_threshold, no won_r column is emitted (schema-optional)."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5,
+    ))
+    assert rows
+    assert all("won_r" not in r for r in rows)
+
+
 def test_include_synthetic_false_emits_only_live(tmp_path: Path):
     closes = _trending_closes()
     ddir = _write_market_raw(tmp_path, closes)
