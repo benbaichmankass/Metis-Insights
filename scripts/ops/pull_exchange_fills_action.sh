@@ -25,6 +25,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_lib.sh"
 
 load_runtime_secrets  # BYBIT_API_KEY_2 / BYBIT_API_SECRET_2 from .env
+# Canonical, DATA_DIR-anchored fills-store path so the puller writes to the
+# SAME absolute file the systemd web-api reader + the offline cost sweep use.
+# A fresh SSH wrapper shell does not inherit the systemd DATA_DIR, so without
+# this the python child would resolve runtime_state/ repo-relative
+# (BL-20260717-FILLS-STORE-PATH-SPLIT).
+FILLS_DB="$(fills_store_path)"
 PY_SCRIPT="${REPO_DIR}/scripts/pull_exchange_fills.py"
 
 if [ ! -f "${PY_SCRIPT}" ]; then
@@ -36,15 +42,17 @@ fi
 
 echo
 echo "===== pull_exchange_fills.py --account bybit_2 --category linear --days 7 ====="
+echo "fills store: ${FILLS_DB}"
 python3 "${PY_SCRIPT}" \
     --account bybit_2 \
     --category linear \
     --days 7 \
     --api-key-env BYBIT_API_KEY_2 \
-    --api-secret-env BYBIT_API_SECRET_2
+    --api-secret-env BYBIT_API_SECRET_2 \
+    --fills-db "${FILLS_DB}"
 rc=$?
 
 record_audit "pull-exchange-fills" "$([ ${rc} -eq 0 ] && echo ok || echo error)" \
-    "{\"account\": \"bybit_2\", \"category\": \"linear\", \"days\": 7, \"exit\": ${rc}}" >/dev/null || true
+    "{\"account\": \"bybit_2\", \"category\": \"linear\", \"days\": 7, \"fills_db\": \"${FILLS_DB}\", \"exit\": ${rc}}" >/dev/null || true
 log "pull-exchange-fills complete (exit ${rc})."
 exit ${rc}
