@@ -204,7 +204,11 @@ def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
     The held-out real population for the domain-shift eval (S-MLOPT-S6). Mirrors
     the filter the `setup_labels` / `trade_outcomes` families use so the live
     holdout reflects exactly the trades the journal counts. Returns
-    `{entry_ts, direction(±1), pnl, pnl_percent}` newest-first. Best-effort: a
+    `{entry_ts, direction(±1), pnl, pnl_percent, entry_price, stop_loss,
+    position_size}` newest-first — the last three are the risk columns the live
+    rows' realized-R is reconstructed from (`MB-20260717-M23-LIVEROW-REALIZED-R`);
+    they serialize as `None` on a pre-schema DB (old fixtures / a journal missing
+    those columns) so callers fall back to a coarse unit-R. Best-effort: a
     missing DB / table returns `[]`.
     """
     path = Path(db_path)
@@ -216,8 +220,19 @@ def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
         return []
     conn.row_factory = sqlite3.Row
     try:
+        # Detect which risk columns this journal actually carries so an
+        # old-schema DB (the S6 fixtures, a migration-behind copy) degrades to
+        # NULL risk fields instead of raising — the same best-effort posture the
+        # rest of this loader takes.
+        try:
+            have = {r[1] for r in conn.execute("PRAGMA table_info(trades)")}
+        except sqlite3.OperationalError:
+            return []
+        risk_cols = [c for c in ("entry_price", "stop_loss", "position_size")
+                     if c in have]
+        select_cols = ["timestamp", "direction", "pnl", "pnl_percent", *risk_cols]
         sql = (
-            "SELECT timestamp, direction, pnl, pnl_percent FROM trades "
+            f"SELECT {', '.join(select_cols)} FROM trades "
             "WHERE status='closed' AND COALESCE(is_backtest,0)=0 "
             "AND COALESCE(is_demo,0)=0 AND symbol=? AND pnl IS NOT NULL "
             "ORDER BY timestamp"
@@ -232,13 +247,48 @@ def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
     for r in db_rows:
         side = str(r["direction"] or "").lower()
         direction = -1 if side in ("sell", "short", "-1") else 1
+        keys = r.keys()
         out.append({
             "entry_ts": str(r["timestamp"] or ""),
             "direction": direction,
             "pnl": r["pnl"],
             "pnl_percent": r["pnl_percent"],
+            "entry_price": r["entry_price"] if "entry_price" in keys else None,
+            "stop_loss": r["stop_loss"] if "stop_loss" in keys else None,
+            "position_size": r["position_size"] if "position_size" in keys else None,
         })
     return out
+
+
+def _live_realized_r(tr: dict[str, Any], won: int) -> tuple[float, str]:
+    """Realized R-multiple for a REAL closed trade + which source produced it.
+
+    Prefer the **net, cost-aware** R = ``pnl / (|entry − stop| × size)``: the
+    trade's realized dollar pnl (already net of fees) over its dollar risk at
+    entry. For a linear instrument (this dataset is BTCUSDT-only, 1:1 contract
+    value) the ``size`` cancels the dollar units, so this is exactly the
+    realized R the EV gate needs — a losing trade that hit its stop reads ≈ −1R,
+    a 2R winner reads ≈ +2R. Falls back to a coarse signed unit-R (±1 by the
+    win/loss bit) when the risk columns are missing/zero (a pre-schema journal
+    or a trade the writer didn't stop-populate), so the column is never a
+    silent 0.0 that the EV scorer would treat as a real 0R outcome.
+
+    Returns ``(r_multiple, source)`` where source ∈ {"stop_distance",
+    "unit_fallback"}.
+    """
+    pnl = tr.get("pnl")
+    entry = tr.get("entry_price")
+    stop = tr.get("stop_loss")
+    size = tr.get("position_size")
+    if (pnl is not None and entry is not None and stop is not None
+            and size is not None):
+        try:
+            risk = abs(float(entry) - float(stop)) * float(size)
+            if risk > 0:
+                return float(pnl) / risk, "stop_distance"
+        except (TypeError, ValueError):
+            pass
+    return (1.0 if won else -1.0), "unit_fallback"
 
 
 def _load_backtest_trades(
@@ -526,6 +576,17 @@ class SetupCandidatesBuilder(DatasetBuilder):
         "label": int,                # +1 tp, -1 sl, sign(ret) at timeout
         "won": int,                  # 1 if label > 0 else 0 (meta-label target)
         "r_multiple": float,         # ret / stop-distance (risk units)
+        # how a `live` row's r_multiple was derived (MB-20260717-M23-LIVEROW-REALIZED-R):
+        # 'stop_distance' = real net R (pnl / |entry-stop|*size), 'unit_fallback'
+        # = coarse ±1 when the risk columns were absent. Only emitted on live
+        # rows; synthetic/backtest rows omit it (their R comes from the barrier /
+        # recorder pnl directly).
+        "r_multiple_source": str,
+        # M23 variant C1 R-aware TRAINING target — 1[r_multiple >= r_label_threshold].
+        # Only emitted when iter_rows is called with r_label_threshold set; a
+        # meta-label manifest targets this instead of `won` to rank P(materially
+        # good trade) rather than P(win). Absent (validator-allowed) otherwise.
+        "won_r": int,
         "ret": float,                # direction-signed net return
         "holding_bars": int,
         # real-vs-synthetic split flag (domain-shift discipline)
@@ -563,6 +624,8 @@ class SetupCandidatesBuilder(DatasetBuilder):
         backtest_trades_db: Path | str | None = None,
         include_backtest: bool = False,
         backtest_strategies: tuple[str, ...] | list[str] | str | None = None,
+        r_label_threshold: float | None = None,
+        backtest_r_haircut: float | None = None,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         """Build candidate rows for one OR several symbols (S-MLOPT-S8).
@@ -587,6 +650,19 @@ class SetupCandidatesBuilder(DatasetBuilder):
         ``live_trades_db`` (the single-DB flow the S7 recorder demo used, where
         one journal carries both ``is_backtest=0`` real rows and ``is_backtest=1``
         recorded rows). ``backtest_strategies`` restricts to a subset.
+
+        ``r_label_threshold`` (M23 variant C1) — when set, every emitted row also
+        carries ``won_r = 1[r_multiple >= r_label_threshold]``, an R-aware training
+        target a meta-label manifest can point at instead of the binary ``won``
+        (pnl>0). The exact-R EV gate showed the P(win) head ranks win-probability
+        but not loss-magnitude; ``won_r`` teaches it to prefer trades that clear a
+        materially-good R. Leaves ``won`` untouched (still the reporting truth).
+
+        ``backtest_r_haircut`` (M23 variant C3, faithfulness relabel) — only
+        meaningful with ``r_label_threshold``. Subtracts this many R from a
+        ``backtest`` row's ``r_multiple`` BEFORE computing its ``won_r``, correcting
+        the harness's idealized-cost/exit optimism (the ~0.6R barrier-vs-live gap)
+        so the TRAIN label matches live-like R. Live (eval) rows are never haircut.
         """
         if vol_window_n < 2:
             raise ValueError(f"vol_window_n must be >= 2; got {vol_window_n}")
@@ -609,9 +685,28 @@ class SetupCandidatesBuilder(DatasetBuilder):
         backtest_db = backtest_trades_db
         if backtest_db is None and include_backtest:
             backtest_db = live_trades_db
+        # M23 variant C1 (docs/research/M23-phase1-variantC-DESIGN-2026-07-17.md):
+        # when a threshold is given, emit an R-aware TRAINING target
+        # `won_r = 1[r_multiple >= r_label_threshold]` alongside the binary `won`
+        # (pnl>0) — so a meta-label manifest can target `won_r` and learn to pick
+        # trades that clear a materially-good R, not just trades that win. The EV
+        # gate still reports real win-rate (`won`) + realized R (`r_multiple`), so
+        # a wrong `won_r` can't corrupt the eval — it only changes the train
+        # target. Computed once here (all four event sources carry `r_multiple`).
+        thr = float(r_label_threshold) if r_label_threshold is not None else None
+        # M23 variant C3 (faithfulness relabel): the backtest harness trades use
+        # idealized costs/exits (clean triple-barrier fills), so their recorded R
+        # over-states the live outcome by a measured ~0.6R (the barrier-vs-live gap;
+        # backtest mean R ≈ +0.05 vs the real book's −0.43). When a haircut is set,
+        # the TRAIN-side `won_r` label for `backtest` rows is computed off a
+        # cost-corrected `r_multiple − haircut`, so the classifier learns a
+        # "materially-good trade" bar calibrated to live-like R instead of the
+        # optimistic harness R. Live (eval) rows are NEVER haircut — their real R
+        # stays the ground truth. Only meaningful together with r_label_threshold.
+        haircut = float(backtest_r_haircut) if backtest_r_haircut else None
         paths = _resolve_market_raw_paths(market_raw_path, market_raw_paths)
         for path in paths:
-            yield from self._iter_one_symbol(
+            for row in self._iter_one_symbol(
                 path, config=config, vol_window_n=vol_window_n,
                 momentum_window=momentum_window,
                 cusum_threshold_mult=cusum_threshold_mult,
@@ -622,7 +717,17 @@ class SetupCandidatesBuilder(DatasetBuilder):
                 signal_log_sides=sides_tuple,
                 backtest_trades_db=backtest_db,
                 backtest_strategies=bt_strat_tuple,
-            )
+            ):
+                if thr is not None:
+                    rv = row.get("r_multiple")
+                    if (haircut is not None
+                            and row.get("event_source") == "backtest"
+                            and isinstance(rv, (int, float))):
+                        rv = rv - haircut
+                    row["won_r"] = (
+                        1 if isinstance(rv, (int, float)) and rv >= thr else 0
+                    )
+                yield row
 
     def _iter_one_symbol(
         self,
@@ -834,6 +939,12 @@ class SetupCandidatesBuilder(DatasetBuilder):
                 won = 1 if (pnl is not None and float(pnl) > 0) else 0
                 pnl_pct = tr["pnl_percent"]
                 ret = float(pnl_pct) / 100.0 if pnl_pct is not None else 0.0
+                # Reconstruct realized R from the trade's own risk (stop
+                # distance × size) so the EV gate is exact — was a hardcoded
+                # 0.0 placeholder that the scorer mistook for a real 0R outcome
+                # (MB-20260717-M23-LIVEROW-REALIZED-R). Falls back to signed
+                # unit-R when the risk columns are absent.
+                r_multiple, r_source = _live_realized_r(tr, won)
                 yield {
                     **_feature_fields(rows, e, log_returns, vol,
                                       boundaries, bucket_labels, momentum_window,
@@ -844,7 +955,8 @@ class SetupCandidatesBuilder(DatasetBuilder):
                     "barrier_touched": "live",
                     "label": 1 if won else -1,
                     "won": won,
-                    "r_multiple": 0.0,  # real stop distance not reconstructed here
+                    "r_multiple": r_multiple,
+                    "r_multiple_source": r_source,
                     "ret": ret,
                     "holding_bars": 0,
                     "is_live_trade": True,

@@ -1,0 +1,118 @@
+# M23 Phase-1 variant C1 — R-AWARE meta-label target (2026-07-17).
+#
+# Design: docs/research/M23-phase1-variantC-DESIGN-2026-07-17.md.
+#
+# Identical to setup-candidates-metalabel-backtest-v1 in EVERY moving part
+# (trainer, features, live_holdout protocol, real-trade holdout) EXCEPT the
+# training TARGET: it trains on `won_r = 1[r_multiple >= r_label_threshold]`
+# instead of the binary `won = pnl>0`.
+#
+# Motivation (the exact-R EV gate, docs/research/M23-phase1-ev-gate-2026-07-17.md):
+# the pooled `won`-trained meta-label ranks P(win) well (real win-rate 0.263 ->
+# 0.318 under selection) but does NOT rank realized R — per-trade net R is
+# non-monotone/worse as the threshold rises, so selection lowers loss FREQUENCY
+# but not loss SIZE. Since this book's EV is dominated by fat-tailed losses
+# (mean -0.43R/trade, R in [-14.4, +16.1]), a win/lose classifier structurally
+# can't manufacture positive EV. `won_r` teaches the head to prefer trades that
+# clear a materially-good R (a big-winner detector), which should push the
+# selected subset's realized R up, not just its win-rate.
+#
+# Build on the trainer (reuse the pooled backtest DB + the live journal; add the
+# R-aware target; pin the C1 dataset version so `ml train` reads what we build):
+#   python -m ml.datasets build setup_candidates --output-dir datasets-out \
+#     --version v011 --source market_raw --symbol-scope BTCUSDT --timeframe all \
+#     --overwrite -- market_raw_path=datasets-out/market_raw/BTCUSDT/1h/v002 \
+#        backtest_trades_db=/tmp/m23_pooled_backtest.db \
+#        live_trades_db=data/trade_journal.db \
+#        include_cusum=false r_label_threshold=0.5
+#   python -m ml train ml/configs/setup-candidates-metalabel-backtest-c1-v1.yaml \
+#     --datasets-root datasets-out --no-register
+#   # then the REAL gate (real win-rate + realized net R, independent of the
+#   # manifest's own classification eval):
+#   python scripts/ml/m23_ev_gate.py \
+#     --data datasets-out/setup_candidates/BTCUSDT/all/v011/data.jsonl \
+#     --model-state <newest experiments-runs/.../c1-v1/*/model_state.json>
+#
+# Sweep r_label_threshold in {0.25, 0.5, 1.0}; tau=0 would make won_r == won
+# (R>0 iff pnl>0) and is the null. Gate (pre-registered): the R-aware selection
+# must beat take-all on NET R at >= 10% coverage (n >= ~40) — the same
+# usable-volume floor the exact-R gate uses. No live wiring regardless; shadow
+# soak only if it clears, operator-gated.
+#
+# TIER: adopting this manifest / promoting past `shadow` is Tier-3
+# (operator-gated). Ships at `research_only` — a proposal, not a live wire.
+
+manifest_version: v1
+model_id: setup-candidates-metalabel-backtest-c1-v1
+description: "M23 variant C1: R-AWARE meta-label. Same pooled backtest-train + real live_holdout eval as setup-candidates-metalabel-backtest-v1, but trains on won_r = 1[r_multiple >= r_label_threshold] (a materially-good-trade detector) instead of the binary won (pnl>0), to rank realized-R not just win-probability. Motivated by the exact-R EV gate finding that the won-trained head lifts win-rate but not per-trade R."
+model_family: regression_lightgbm
+trainer: ml.trainers.lightgbm_regression.LightGBMRegressionTrainer
+trainer_config:
+  target_column: won_r
+  feature_columns:
+    - direction
+    - rolling_log_return_vol
+    - log_return
+    - vol_bucket
+    - momentum
+    - hour_of_day
+    - dayofweek
+    - log_return_lag_1
+    - log_return_lag_2
+  categorical_columns:
+    - direction
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  # Outcome / label / source columns — never features. won_r + r_multiple_source
+  # (M23) are added to the forbidden set so the R-aware target and its provenance
+  # tag can never leak into the feature matrix.
+  forbidden_features:
+    - won
+    - won_r
+    - label
+    - r_multiple
+    - r_multiple_source
+    - ret
+    - barrier_touched
+    - is_live_trade
+    - event_source
+    - entry_price
+    - signal_vol
+    - holding_bars
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 15
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    lambda_l2: 1.0
+dataset:
+  family: setup_candidates
+  symbol_scope: BTCUSDT
+  timeframe: all
+  version: v011
+evaluator: ml.evaluators.classification.ClassificationEvaluator
+evaluator_config:
+  target_column: won_r
+  threshold: 0.5
+  split_strategy: live_holdout
+  live_flag_column: is_live_trade
+  time_column: ts
+target_deployment_stage: research_only
+notes: |
+  M23 Phase-1 variant C1 (docs/research/M23-phase1-variantC-DESIGN-2026-07-17.md),
+  follows the pooled leg + the exact-R EV gate. The ONLY change vs
+  setup-candidates-metalabel-backtest-v1 is the training target: won_r =
+  1[r_multiple >= r_label_threshold] (set r_label_threshold at build time), which
+  makes the head a materially-good-trade detector rather than a win/lose
+  classifier. The manifest's own ClassificationEvaluator scores the model on
+  won_r (its own target); the REAL selection gate is scripts/ml/m23_ev_gate.py,
+  which is independent of the training target — it scores predict() vs the real
+  win/loss (won) and realized net R (r_multiple), answering "does selecting
+  high-P(good) trades beat take-all on net R at usable volume?". If it clears the
+  pre-registered gate (beat take-all net R at >= 10% coverage), propose a shadow
+  soak (operator-gated, Tier-3). If it doesn't, that localizes the wall to the
+  features/labels present (not the target framing) — itself an important read.

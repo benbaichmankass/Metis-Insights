@@ -203,6 +203,184 @@ def test_real_trade_rows_appended(tmp_path: Path):
     assert lost_row["won"] == 0 and lost_row["label"] == -1
 
 
+def _seed_trades_with_risk(
+    db: Path,
+    entries: list[tuple[str, str, float, float | None, float | None, float | None]],
+) -> None:
+    """entries = [(iso_ts, direction, pnl, entry_price, stop_loss, size), ...].
+
+    Seeds a trades table carrying the risk columns the live-row realized-R
+    reconstruction reads (`MB-20260717-M23-LIVEROW-REALIZED-R`). A `None`
+    stop_loss/entry/size models a journal row the writer left un-populated.
+    """
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "CREATE TABLE trades (id INTEGER PRIMARY KEY, symbol TEXT, direction TEXT, "
+        "timestamp TEXT, status TEXT, pnl REAL, pnl_percent REAL, "
+        "entry_price REAL, stop_loss REAL, position_size REAL, "
+        "is_backtest INT, is_demo INT)"
+    )
+    for i, (ts, direction, pnl, entry, stop, size) in enumerate(entries):
+        conn.execute(
+            "INSERT INTO trades VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (i, "BTCUSDT", direction, ts, "closed", pnl, pnl / 100.0,
+             entry, stop, size, 0, 0),
+        )
+    conn.commit()
+    conn.close()
+
+
+def test_live_rows_carry_reconstructed_realized_r(tmp_path: Path):
+    """A live row's r_multiple is the real net R (pnl / |entry-stop|*size), not
+    the old 0.0 placeholder — so the EV gate is exact (MB-20260717-M23-LIVEROW-REALIZED-R)."""
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    # Long win: entry 100, stop 98 -> risk/unit 2; size 3 -> $6 risk; pnl +$12 -> +2.0R.
+    # Short loss: entry 100, stop 101 -> risk/unit 1; size 5 -> $5 risk; pnl -$5 -> -1.0R.
+    _seed_trades_with_risk(db, [
+        ((base + timedelta(hours=50)).isoformat(), "buy", 12.0, 100.0, 98.0, 3.0),
+        ((base + timedelta(hours=120)).isoformat(), "sell", -5.0, 100.0, 101.0, 5.0),
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db,
+    ))
+    live = [r for r in rows if r["is_live_trade"]]
+    assert len(live) == 2
+    won_row = next(r for r in live if r["direction"] == 1)
+    lost_row = next(r for r in live if r["direction"] == -1)
+    assert math.isclose(won_row["r_multiple"], 2.0, rel_tol=1e-9)
+    assert math.isclose(lost_row["r_multiple"], -1.0, rel_tol=1e-9)
+    assert won_row["r_multiple_source"] == "stop_distance"
+    assert lost_row["r_multiple_source"] == "stop_distance"
+
+
+def test_live_row_r_falls_back_to_unit_when_risk_absent(tmp_path: Path):
+    """Missing stop/size (old-schema journal or an un-stopped row) degrades to a
+    signed unit-R, never a silent 0.0 the EV scorer would read as a real 0R."""
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    # (a) Old schema entirely (no risk columns): _seed_trades -> unit fallback.
+    db_old = tmp_path / "old.db"
+    _seed_trades(db_old, [((base + timedelta(hours=50)).isoformat(), "buy", 7.0)])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db_old,
+    ))
+    live = [r for r in rows if r["is_live_trade"]]
+    assert len(live) == 1
+    assert live[0]["r_multiple"] == 1.0  # won -> +1 coarse
+    assert live[0]["r_multiple_source"] == "unit_fallback"
+    # (b) Columns present but NULL stop on a losing trade -> -1 fallback.
+    db_null = tmp_path / "null.db"
+    _seed_trades_with_risk(db_null, [
+        ((base + timedelta(hours=50)).isoformat(), "sell", -4.0, 100.0, None, 2.0),
+    ])
+    rows2 = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db_null,
+    ))
+    live2 = [r for r in rows2 if r["is_live_trade"]]
+    assert len(live2) == 1
+    assert live2[0]["r_multiple"] == -1.0
+    assert live2[0]["r_multiple_source"] == "unit_fallback"
+
+
+def test_r_label_threshold_emits_r_aware_target(tmp_path: Path):
+    """M23 variant C1: r_label_threshold adds won_r = 1[r_multiple >= tau] on every
+    row, without disturbing the binary won (pnl>0) reporting target."""
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    # Long +2.0R (clears tau=0.5), long +0.2R win (below tau), short -1.0R loss.
+    _seed_trades_with_risk(db, [
+        ((base + timedelta(hours=40)).isoformat(), "buy", 12.0, 100.0, 98.0, 3.0),   # R=+2.0
+        ((base + timedelta(hours=80)).isoformat(), "buy", 0.6, 100.0, 98.0, 1.0),    # R=+0.3
+        ((base + timedelta(hours=120)).isoformat(), "sell", -5.0, 100.0, 101.0, 5.0),# R=-1.0
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db, r_label_threshold=0.5,
+    ))
+    # Every emitted row (synthetic + live) carries won_r consistent with its R.
+    for r in rows:
+        assert r["won_r"] == (1 if r["r_multiple"] >= 0.5 else 0)
+    live = [r for r in rows if r["is_live_trade"]]
+    assert len(live) == 3
+    big = next(r for r in live if abs(r["r_multiple"] - 2.0) < 1e-9)
+    small = next(r for r in live if abs(r["r_multiple"] - 0.3) < 1e-9)
+    loss = next(r for r in live if abs(r["r_multiple"] + 1.0) < 1e-9)
+    assert big["won_r"] == 1 and big["won"] == 1        # big winner clears tau
+    assert small["won_r"] == 0 and small["won"] == 1    # small winner: won but not won_r
+    assert loss["won_r"] == 0 and loss["won"] == 0
+
+
+def test_backtest_r_haircut_only_affects_backtest_won_r(tmp_path: Path):
+    """M23 variant C3: backtest_r_haircut lowers a backtest row's R before the
+    won_r threshold (train-side faithfulness), but never touches a live row's."""
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    # A backtest trade at R=+0.8 (pnl stores R for backtest rows) and a live trade
+    # at real R=+0.8 (entry100/stop98/size1.5 -> risk 3 -> pnl 2.4 -> R=0.8).
+    _seed_journal(db, backtest=[
+        ((base + timedelta(hours=50)).isoformat(), "buy", 0.8, "squeeze"),
+    ])
+    # add the live risk columns for the live trade via a second table shape:
+    # reuse _seed_trades_with_risk on a separate db, then merge is messy — instead
+    # seed the live row into the SAME db with the risk columns present.
+    conn = sqlite3.connect(str(db))
+    conn.execute("ALTER TABLE trades ADD COLUMN entry_price REAL")
+    conn.execute("ALTER TABLE trades ADD COLUMN stop_loss REAL")
+    conn.execute("ALTER TABLE trades ADD COLUMN position_size REAL")
+    rid = conn.execute("SELECT COALESCE(MAX(id),-1)+1 FROM trades").fetchone()[0]
+    conn.execute(
+        "INSERT INTO trades (id, symbol, direction, timestamp, status, pnl, "
+        "pnl_percent, is_backtest, is_demo, strategy_name, entry_price, stop_loss, "
+        "position_size) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (rid, "BTCUSDT", "buy", (base + timedelta(hours=120)).isoformat(), "closed",
+         2.4, 2.4, 0, 0, "", 100.0, 98.0, 1.5),  # real R = 2.4/(2*1.5) = 0.8
+    )
+    conn.commit()
+    conn.close()
+    # tau=0.5, haircut=0.5: backtest R 0.8 - 0.5 = 0.3 < 0.5 -> won_r 0;
+    # live R 0.8 (never haircut) >= 0.5 -> won_r 1.
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db, backtest_trades_db=db,
+        include_cusum=False, r_label_threshold=0.5, backtest_r_haircut=0.5,
+    ))
+    bt = [r for r in rows if r["event_source"] == "backtest"]
+    live = [r for r in rows if r["event_source"] == "live"]
+    assert len(bt) == 1 and len(live) == 1
+    assert bt[0]["won_r"] == 0    # haircut pushed the backtest R below tau
+    assert live[0]["won_r"] == 1  # live R untouched, still clears tau
+    # Without the haircut, the same backtest R=0.8 would clear tau=0.5 -> won_r 1.
+    rows_nohc = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db, backtest_trades_db=db,
+        include_cusum=False, r_label_threshold=0.5,
+    ))
+    bt_nohc = [r for r in rows_nohc if r["event_source"] == "backtest"]
+    assert bt_nohc[0]["won_r"] == 1
+
+
+def test_r_label_threshold_absent_by_default(tmp_path: Path):
+    """Without r_label_threshold, no won_r column is emitted (schema-optional)."""
+    ddir = _write_market_raw(tmp_path, _trending_closes())
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5,
+    ))
+    assert rows
+    assert all("won_r" not in r for r in rows)
+
+
 def test_include_synthetic_false_emits_only_live(tmp_path: Path):
     closes = _trending_closes()
     ddir = _write_market_raw(tmp_path, closes)

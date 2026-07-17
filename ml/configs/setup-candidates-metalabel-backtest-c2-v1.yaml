@@ -1,0 +1,114 @@
+# M23 Phase-1 variant C2 — REGRESS realized R (2026-07-17).
+#
+# Design: docs/research/M23-phase1-variantC-DESIGN-2026-07-17.md.
+#
+# The C1 sibling (setup-candidates-metalabel-backtest-c1-v1) trains a CLASSIFIER
+# on a thresholded R-aware label (won_r = 1[r_multiple >= tau]); the tau sweep
+# showed it turns the top slice net-positive but caps the positive region at ~11
+# trades. C2 instead REGRESSES `r_multiple` directly (an expected-R head) and
+# selects on predicted R — the more principled EV target, which may extract a
+# smoother ranking and a slightly wider positive region than the thresholded
+# proxy. Everything else (features, trainer, live_holdout protocol, real-trade
+# holdout) is identical to v1/c1.
+#
+# The REAL selection gate is scripts/ml/m23_ev_gate.py **--raw-score** (the model
+# outputs raw predicted R, not a [0,1] probability, so the gate must not clamp
+# and sweeps the observed-score grid). The manifest's own RegressionEvaluator
+# reports mse/mae on the live holdout (a fit metric, NOT the EV read).
+#
+# Build on the trainer (plain pooled build — r_multiple is emitted on every row,
+# no r_label_threshold needed; pin the C2 dataset version so `ml train` reads
+# what we build):
+#   python -m ml.datasets build setup_candidates --output-dir datasets-out \
+#     --version v012 --source market_raw --symbol-scope BTCUSDT --timeframe all \
+#     --overwrite -- market_raw_path=datasets-out/market_raw/BTCUSDT/1h/v002 \
+#        backtest_trades_db=/tmp/m23_pooled_backtest.db \
+#        live_trades_db=data/trade_journal.db include_cusum=false
+#   python -m ml train ml/configs/setup-candidates-metalabel-backtest-c2-v1.yaml \
+#     --datasets-root datasets-out --no-register
+#   python scripts/ml/m23_ev_gate.py --raw-score \
+#     --data datasets-out/setup_candidates/BTCUSDT/all/v012/data.jsonl \
+#     --model-state <newest experiments-runs/.../c2-v1/*/model_state.json>
+#
+# Gate (pre-registered, same as C1): the R-ranked selection must beat take-all on
+# NET R at >= 10% coverage (n >= ~40). No live wiring regardless; shadow soak
+# only if it clears, operator-gated.
+#
+# TIER: adopting this manifest / promoting past `shadow` is Tier-3
+# (operator-gated). Ships at `research_only` — a proposal, not a live wire.
+
+manifest_version: v1
+model_id: setup-candidates-metalabel-backtest-c2-v1
+description: "M23 variant C2: REGRESS realized R. Same pooled backtest-train + real live_holdout eval as the v1/c1 metalabels, but trains a regressor on r_multiple (expected-R head) and selects on predicted R — the principled EV target vs C1's thresholded won_r classifier. Motivated by the C1 tau sweep: the R-aware lever turns the top slice net-positive but caps at ~11 trades; a smoother R-ranking may widen it."
+model_family: regression_lightgbm
+trainer: ml.trainers.lightgbm_regression.LightGBMRegressionTrainer
+trainer_config:
+  target_column: r_multiple
+  feature_columns:
+    - direction
+    - rolling_log_return_vol
+    - log_return
+    - vol_bucket
+    - momentum
+    - hour_of_day
+    - dayofweek
+    - log_return_lag_1
+    - log_return_lag_2
+  categorical_columns:
+    - direction
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  # Outcome / label / source columns — never features (the target r_multiple is
+  # listed here too, matching the v1/c1 pattern where the target is also
+  # forbidden as a feature; the trainer reads it via target_column).
+  forbidden_features:
+    - won
+    - won_r
+    - label
+    - r_multiple
+    - r_multiple_source
+    - ret
+    - barrier_touched
+    - is_live_trade
+    - event_source
+    - entry_price
+    - signal_vol
+    - holding_bars
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 15
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    lambda_l2: 1.0
+dataset:
+  family: setup_candidates
+  symbol_scope: BTCUSDT
+  timeframe: all
+  version: v012
+evaluator: ml.evaluators.regression.RegressionEvaluator
+evaluator_config:
+  target_column: r_multiple
+  metrics:
+    - mse
+    - mae
+  split_strategy: live_holdout
+  live_flag_column: is_live_trade
+  time_column: ts
+target_deployment_stage: research_only
+notes: |
+  M23 Phase-1 variant C2 (docs/research/M23-phase1-variantC-DESIGN-2026-07-17.md),
+  the regress-R sibling of c1 (thresholded won_r classifier). The ONLY changes vs
+  c1: target_column = r_multiple (continuous), evaluator = RegressionEvaluator
+  (mse/mae fit metric), dataset version v012 (a plain pooled build — no
+  r_label_threshold, since r_multiple is emitted on every row). The manifest's
+  regression metric is a fit read; the REAL selection gate is
+  scripts/ml/m23_ev_gate.py --raw-score (sweeps predicted-R, no [0,1] clamp),
+  answering "does selecting high-predicted-R trades beat take-all on net R at
+  usable volume?". If it clears the pre-registered gate (beat take-all net R at
+  >= 10% coverage), propose a shadow soak (operator-gated, Tier-3). C1's tau
+  sweep localized the ceiling to label volume; C2 tests whether a smoother
+  ranking widens the (currently ~11-trade) positive region at all.

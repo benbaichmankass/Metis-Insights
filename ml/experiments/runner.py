@@ -12,6 +12,7 @@ from __future__ import annotations
 import importlib
 import json
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -58,6 +59,63 @@ class DatasetMissingError(EmptyDatasetError):
             f"run `python -m ml.datasets build` first",
         )
         self.data_path = data_path
+
+
+class ManifestDatasetMismatchError(RuntimeError):
+    """A manifest declares `dataset.build_params` that disagree with the
+    resolved dataset dir's recorded metadata `build_params`.
+
+    The trainer training path resolves a dataset by
+    `family/symbol_scope/timeframe/version` and reads a PRE-BUILT `data.jsonl`
+    — it does NOT rebuild from `build_params` (only the gpu-burst pod path
+    honors them). So a mismatch means the run would silently train on a
+    differently-parameterized dataset than the manifest declares — the exact
+    footgun that mislabeled the MB-20260701-001 vt004 probe as a 0.004 run when
+    its `v004` dir was 0.003-labeled (MB-20260716-BUILDPARAMS-IGNORED). Fail
+    loud rather than mislabel.
+    """
+
+
+def _verify_declared_build_params(
+    declared: Mapping[str, Any], dataset_dir: Path
+) -> None:
+    """Guard the MB-20260716-BUILDPARAMS-IGNORED footgun.
+
+    When a manifest declares `dataset.build_params`, verify them against the
+    resolved dir's recorded `metadata.json::build_params`. Raise on a genuine
+    mismatch; warn (can't verify) when the dir predates the recorded field.
+    """
+    meta_path = dataset_dir / "metadata.json"
+    recorded: Any = None
+    if meta_path.is_file():
+        try:
+            recorded = json.loads(meta_path.read_text(encoding="utf-8")).get(
+                "build_params"
+            )
+        except (OSError, ValueError):
+            recorded = None
+    if not recorded:
+        sys.stderr.write(
+            f"WARNING: manifest declares dataset.build_params {dict(declared)} but "
+            f"{dataset_dir} records none — the trainer path does NOT apply "
+            f"build_params (only gpu-burst does), so this cannot be verified. "
+            f"Confirm the version dir was built with these params "
+            f"(MB-20260716-BUILDPARAMS-IGNORED).\n"
+        )
+        return
+    mismatched = {
+        k: {"declared": declared[k], "recorded": recorded.get(k)}
+        for k in declared
+        if str(recorded.get(k)) != str(declared[k])
+    }
+    if mismatched:
+        raise ManifestDatasetMismatchError(
+            f"manifest dataset.build_params disagree with the recorded metadata at "
+            f"{dataset_dir}: {mismatched}. The trainer path reads a pre-built dataset "
+            f"by version and does NOT apply build_params — training would use the "
+            f"RECORDED params and mislabel the run. Fix the version or rebuild the "
+            f"dataset with the declared params (MB-20260716-BUILDPARAMS-IGNORED)."
+        )
 
 
 EMPTY_DATASET_EXIT_CODE = 78
@@ -166,6 +224,9 @@ def run_experiment(
 ) -> tuple[ExperimentArtifacts, RegistryEntry | None]:
     manifest = TrainingManifest.from_yaml(manifest_path)
     dataset_dir = manifest.dataset.path_under(datasets_root)
+    declared_build_params = dict(manifest.dataset.build_params or {})
+    if declared_build_params:
+        _verify_declared_build_params(declared_build_params, dataset_dir)
     data_path = dataset_dir / "data.jsonl"
     if not data_path.is_file():
         # Missing dataset file = "data not ready / orphan manifest", handled
