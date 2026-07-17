@@ -1546,13 +1546,18 @@
       "source": "M23 Phase-1 first leg (docs/research/M23-phase1-trend-donchian-2026-07-16.md)",
       "title": "M23 Phase-1 next leg: population-matched backtest-augmented meta-labels (fair test)",
       "description": "First leg (trend_donchian 1h harness replay -> 1,154 backtest labels -> setup_candidates backtest-train + real live_holdout eval -> setup-candidates-metalabel-backtest-v1) RAN clean but the gate FAILED: accuracy 0.646 < 0.756 majority; precision 0.282 > 0.244 base rate (faint +0.038 lift). Prime suspect = train/eval population mismatch BY CONSTRUCTION (trained on ONE strategy's backtest, evaluated on ALL-strategy real journal holdout, n_eval=376) plus the design's ~0.6R barrier-vs-live faithfulness gap. NEXT: (a) pooled multi-strategy backtest-train (replay squeeze/htf_pullback/etc.) matched to the multi-strategy real holdout -- the higher-n, in-distribution fair test; or (b) within-strategy train+eval where the per-strategy real count supports a holdout. Plus a faithfulness upgrade: realistic-cost/exit relabel of harness trades OR treat backtest labels as an auxiliary pretraining target with real labels as the fine-tune head. Pipeline is validated + reusable (scripts/ml/m23_phase1_experiment.sh, verified correct). Tier-1/offline. Seeds MB-20260530-001 / MB-20260705-META-LABEL-WALL.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-17",
           "by": "overnight-ml-loop",
           "note": "POOLED population-matched leg RAN (scripts/ml/m23_phase1_pooled.sh, 96c455c). 1,685 pooled backtest rows (trend 1154 + squeeze 223 + pullback 308) + 376 real live holdout. vs single-strategy leg: accuracy 0.646->0.694, precision lift over 0.244 base DOUBLED (+0.038->+0.074, precision 0.318), recall 0.222->0.141. Still FAILS majority-accuracy gate (0.694<0.756) but pooling HELPS + in-distribution backtest labels transfer to real-trade selection. NEXT (open follow-up MB-20260717-M23-SELECTION-GATE): reframe gate to precision-at-recall/EV-at-threshold + Phase-1 variant C faithfulness relabel before Phase 2. Version-pin bug (manifest pins dataset v001) caught+fixed mid-run. docs/research/M23-phase1-pooled-2026-07-17.md."
+        },
+        {
+          "at": "2026-07-17",
+          "by": "overnight-ml-loop",
+          "note": "RESOLVED — superseded by the full variant-C arc (C1 R-aware classification, C2 regress-R, C3 faithfulness haircut; docs/research/M23-phase1-C1-results-2026-07-17.md). Population-matched pooling was the right fix and helped (precision lift doubled), but the completed arc localized the binding constraint to eval-side label VOLUME (376 real trades) under every lever. Forward direction tracked in MB-20260717-M23-PHASE1-EXHAUSTED-REARM."
         }
       ]
     },
@@ -1620,6 +1625,17 @@
           "note": "RESOLVED (c314141). ml/datasets/families/setup_candidates.py now reconstructs live-row realized R = net, cost-aware pnl/(|entry-stop|*size) (size cancels dollar units for the linear BTCUSDT book), with a signed unit-R fallback tagged via a new r_multiple_source field ('stop_distance' vs 'unit_fallback'). _load_live_trades PRAGMA-detects the risk columns so a pre-schema DB degrades to NULL risk instead of raising. 2 new family tests (real-R compute + missing-col fallback); m23_ev_gate.py reports the real-vs-fallback split. Coverage on the trainer journal: 359/376 (95.5%) real R. Re-run (trainer #6727, rebuilt v001 + scored the EXISTING pooled model since r_multiple is an outcome not a feature) gives the EXACT-R EV curve. PR #6677, all 16 CI checks green."
         }
       ]
+    },
+    {
+      "id": "MB-20260717-M23-PHASE1-EXHAUSTED-REARM",
+      "opened_at": "2026-07-17",
+      "opened_by": "overnight-ml-loop",
+      "source": "M23 Phase-1 definitive conclusion (docs/research/M23-phase1-C1-results-2026-07-17.md)",
+      "title": "M23 Phase-1 in-distribution lever EXHAUSTED — re-arm on real-label growth or Phase-2 operator go",
+      "description": "M23 Phase-1 (in-distribution backtest-augmented meta-labels) is worked end-to-end (pooled -> exact-R gate -> C1 R-aware classification -> C2 regress-R -> C3 faithfulness haircut). DEFINITIVE result: the R-aware CLASSIFICATION head (C1, won_r=1[R>=tau]) is the first thing to turn a real-book subset net-positive (+2.56R on the top ~10 BTC trades) but the positive region caps at ~2-11 trades under EVERY lever (tau, regression, faithfulness), bounded by the 376 real eval trades. The wall is LABEL VOLUME, not model/features/target/label-quality. NO live wiring (Tier-3; all positive regions far below the usable-volume floor). REMAINING LEVERS ARE STRUCTURAL, not another Phase-1 variant: (a) MORE REAL LABELS (time) -- re-run the C1 tau sweep + EV gate when the real BTC book grows meaningfully (e.g. +100-200 closed trades) and check whether the net-positive region crosses the >=40 usable floor; (b) PHASE 2 external copy-trade corpus as pretraining -- GATED on ToS review + distribution-alignment pre-check + operator go (do NOT start autonomously). Phase-1 machinery is banked + reusable: builder targets won_r (r_label_threshold) + backtest_r_haircut, m23_ev_gate.py (+/- --raw-score), manifests setup-candidates-metalabel-backtest-{c1,c2}-v1.yaml. Trigger to re-open: real BTC closed-trade count materially higher, OR operator clears Phase-2.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
   "updated_at": "2026-07-17"
