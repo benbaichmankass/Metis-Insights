@@ -4,6 +4,17 @@
 # typical training-cycle window so the report grades whatever the
 # trainer just produced + accumulated shadow evidence.
 #
+# 2026-07-17 (BL-20260717-TRAINER-CYCLE-TERM-AT-START / BL-20260715):
+# the previous `OnCalendar=daily` (00:00) fired the sweep INSIDE the
+# ict-trainer.timer window (daily + RandomizedDelaySec=1h → 00:00-01:00
+# start, ~1h runtime → done ~02:00), so the ~99-min / ~3.2 GB readiness
+# sweep ran CONCURRENTLY with the training cycle on the 6 GB trainer VM —
+# the documented concurrent-memory collision. Moved to 04:00 (clear of the
+# trainer window) so the sweep grades what the trainer JUST produced
+# without competing for RAM. This aligns the schedule with the stated
+# "runs after the training-cycle window" intent above (the field was the
+# bug; the comment was the intent).
+#
 # Save to (trainer VM): /etc/systemd/system/ict-promotion-readiness.timer
 # Install: see ict-promotion-readiness.service header.
 # ============================================
@@ -12,7 +23,7 @@
 Description=Periodic ICT promotion-readiness sweep
 
 [Timer]
-OnCalendar=daily
+OnCalendar=*-*-* 04:00:00
 RandomizedDelaySec=30min
 Persistent=true
 
