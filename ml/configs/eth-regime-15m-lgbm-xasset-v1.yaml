@@ -25,7 +25,7 @@
 # before wasting a run. So v901 is built explicitly with cross_asset (build job
 # #6755, mirroring the validated 1h xasset recipe: vol_window_n=20
 # forward_window_m=5), then:
-#   python3 -m ml train eth-regime-15m-lgbm-xasset-v1
+#   python3 -m ml train ml/configs/eth-regime-15m-lgbm-xasset-v1.yaml  # train takes a PATH
 # The self-only eth-regime-15m-lgbm-v1 (v002) stays the live comparator this
 # head must beat on the post-soak RG4.
 #
