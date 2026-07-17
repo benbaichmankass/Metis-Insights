@@ -1586,6 +1586,11 @@
           "at": "2026-07-17",
           "by": "overnight-ml-loop",
           "note": "EXACT-R EV curve now computed (live-row R gap closed, MB-20260717-M23-LIVEROW-REALIZED-R). Real book: mean -0.433R/trade, R in [-14.4,+16.1], 99 wins/277 losses, take-all net R -181.63. Selection cuts TOTAL loss hard (net R -181.6 -> -18.6 at top-12% t=0.50) but stays net-negative at every usable volume (only n_sel=1 crosses positive = noise) -> NOT a usable net-positive filter, confirming the proxy verdict exactly. NEW load-bearing finding: selection lifts win-rate (0.263->0.318) but NOT per-trade realized R (non-monotone, mostly ~/worse than take-all: -0.570 @0.30, -0.682 @0.40, -0.422 @0.50, -0.875 @0.60) -- the P(win) head ranks win-PROBABILITY, not loss-MAGNITUDE, and this fat-tailed book's EV is dominated by loss size. Sharpens variant C: the relabel must be OUTCOME/R-AWARE (regress net R or a class-weighted/R-thresholded target), not just a faithfulness pass on the binary won label, so selection lowers loss size not just loss frequency. docs/research/M23-phase1-ev-gate-2026-07-17.md updated."
+        },
+        {
+          "at": "2026-07-17",
+          "by": "overnight-ml-loop",
+          "note": "VARIANT C1 (R-aware target) BUILT + RUN + tau-swept (431ebe9 + version fix 8787f5b; trainer #6730/#6731). won_r = 1[r_multiple>=tau] training target. RESULT: the R-aware target WORKS directionally + reproducibly — tau in {0.5,0.75,1.0} all turn the TOP slice net-POSITIVE (tau=0.5: n=10 net +2.56R, tip n=6 +3.85; tau=0.75: n=11 net +0.85R — widest), which the won-target NEVER did (it stayed net-negative at every volume). BUT the net-positive region caps at ~11 trades / 3% coverage at every tau, far below the >=40 / >=10% usable floor; tau=0.25 doesn't even cross positive (too close to plain won). CEILING IS NOW LABEL VOLUME, not target framing (sweeping tau doesn't widen it) — 376 real trades / ~26% win only supports a confident top slice of ~10. NOT wired live. NEXT (open): C3 faithfulness relabel (close the ~0.6R barrier-vs-live gap so the 4.5x-larger backtest pool transfers a wider R-ranking — highest-leverage Phase-1 move) + C2 regress-R (one shot) + more real labels (time). docs/research/M23-phase1-C1-results-2026-07-17.md."
         }
       ]
     },
