@@ -1,0 +1,485 @@
+{
+ "report_id": "RPT-20260717-055600-daily",
+ "reviewed_at": "2026-07-17T05:56:00+00:00",
+ "reviewer": "claude",
+ "window": "daily",
+ "window_start": "2026-07-16T06:12:00+00:00",
+ "window_end": "2026-07-17T05:56:00+00:00",
+ "prior_report_id": "RPT-20260716-061200-weekly",
+ "overall_assessment": "investigate",
+ "health": {
+  "overall_assessment": "caution",
+  "reviewed_at": "2026-07-17T05:56:00+00:00",
+  "summary": "Core services healthy on the live VM (trader/web-api/telegram/claude-bridge all active; uptime 4.6h, heartbeat running, VM cpu 20%/mem 14%/disk 33%). IB gateway reachable \u2014 MES client connected, account_data_ready, breaker closed, not wedged. The one health flag is on the TRAINER: ict-trainer.service is inactive/disabled and 0 training cycles ran in 24h (dataset builds + DB sync are fine), so the model-promotion pipeline is starved.",
+  "flags": [
+   {
+    "severity": "warning",
+    "kind": "trainer_training_idle",
+    "detail": "ict-trainer.service disabled/inactive; cycles_24h=0. Datasets build (68 ok/24h) and the live->trainer DB sync is fresh (05:00), but no training cycles are converting them into promoted models."
+   },
+   {
+    "severity": "info",
+    "kind": "paper_portfolio_zero_balance",
+    "detail": "bybit_portfolio (paper mirror) rejects sizing with gate_balance=0.00 -> its legs never size; portfolio-mirror P&L is understated/blank on that account."
+   }
+  ],
+  "services": {
+   "ict-trader-live.service": "active",
+   "ict-web-api.service": "active",
+   "ict-telegram-bot.service": "active",
+   "ict-claude-bridge.service": "active",
+   "ict-trainer.service": "inactive (disabled)"
+  },
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)"
+  }
+ },
+ "performance": {
+  "overall_assessment": "investigate",
+  "reviewed_at": "2026-07-17T05:56:00+00:00",
+  "summary": "Real-money losses are tiny in dollar terms (bybit_2 is barely sized) but the pattern is bad and the paper book \u2014 the fleet at real size \u2014 is where it shows. Every executed real loss this window is a low-confidence '*_pullback_2h' entry stopped or reconciler-closed: eth_pullback_2h ETH long -$4.04, ada_pullback_2h ADA long -$2.00, xrp_pullback_2h XRP long -$4.71; one trend_donchian BTC long +$0.50. The pullback_2h family (eth/xrp/ada/avax) is the bleeder, all conf 0.30-0.56, all entered in an ADX-'trending' tape that was actually reversing. ADX measures trend STRENGTH not DIRECTION, so a strong down-move reads as 'trending' and the long-biased pullback-buyers buy the falling knife.",
+  "trade_decision_grades_count": 10,
+  "grade_histogram": {
+   "B": 1,
+   "C": 9
+  },
+  "flags": [
+   {
+    "severity": "warning",
+    "kind": "pullback_family_bleed",
+    "detail": "*_pullback_2h (eth/xrp/ada/avax) is the consistent loser on both books; low confidence (0.30-0.56); direction-blind entries into declining alts."
+   },
+   {
+    "severity": "warning",
+    "kind": "regime_gate_barely_engaged",
+    "detail": "Across all of 2026-07-16 the regime router fired exactly 1 hard-gate row and 0 shadow-gate rows \u2014 the policy table only covers the 6 original BTC strategies, so the ~38-strategy alt/equity/futures roster trades with no regime protection."
+   }
+  ],
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)"
+  }
+ },
+ "ml": {
+  "overall_assessment": "caution",
+  "reviewed_at": "2026-07-17T05:56:00+00:00",
+  "summary": "83 models in the registry but only 1 at advisory (the sole stage that touches live orders); 28 shadow, 53 candidate. The setup-quality shadow models actively scored yesterday's losing setups NEGATIVE (setup-quality-lgbm-v2 -0.15 to -0.51) but are observe-only, so the system generated 'weak setup' signals and ignored them by design. Regime heads have soaked their time but promotion is blocked on the live_agreement gate (MB-20260626-003). Combined with the idle trainer service, the ML layer has near-zero live influence.",
+  "flags": [
+   {
+    "severity": "warning",
+    "kind": "promotion_pipeline_stalled",
+    "detail": "1 advisory / 28 shadow / 53 candidate; shadow->advisory blocked on the live_agreement gate design (MB-20260626-003)."
+   },
+   {
+    "severity": "warning",
+    "kind": "trainer_cycles_idle",
+    "detail": "0 training cycles in 24h; ict-trainer.service disabled."
+   },
+   {
+    "severity": "info",
+    "kind": "manifest_failures",
+    "detail": "2 manifests failed in 24h (5m-flow VPIN head OOM pattern; TCN family empty-dataset skips) \u2014 recurring, tracked."
+   }
+  ],
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)"
+  }
+ },
+ "consolidated": {
+  "roll_up_grade": "investigate",
+  "headline": "On REAL money yesterday (2026-07-16) was a -$5.54 day (3 closed, 1 win) \u2014 small, because bybit_2 is barely sized. The alarming red is on the PAPER book (the fleet at real size): -$1,485 (07-14), -$4,362 (07-15), then +$895 (07-16). The worst day was 07-15, not 07-16. Root cause of the bleed is structural, not a one-off: the losing trades are low-confidence '*_pullback_2h' longs entered because ADX read the tape as 'trending' \u2014 but ADX measures trend STRENGTH, not DIRECTION, so a hard sell-off looks identical to a rally. The regime router that is supposed to catch this covers only the 6 original BTC strategies; the ~38-strategy alt/equity/futures roster (every pullback_2h bleeder included) has no regime cells and trades permissive-ON. The one ML layer that flagged these setups as weak is shadow-only and ignored by design, and the trainer that would promote it is idle.",
+  "operator_priorities": [
+   {
+    "rank": 1,
+    "title": "Regime router governs only 6 of 44 live strategies \u2014 extend coverage or gate the pullback_2h family",
+    "source_review": "performance",
+    "tier": 3,
+    "detail": "config/regime_policy.yaml only names the original BTC set (trend_donchian, squeeze_breakout_4h, htf_pullback_trend_2h, fade_breakout_4h, fvg_range_15m, vwap). The 38 newer alt/equity/futures strategies \u2014 incl. every *_pullback_2h that bled this week \u2014 resolve to permissive-ON with zero regime protection. Confirmed live: only 1 hard-gate row fired across all of 2026-07-16. Author OFF/weight cells for the alt roster (backtest-gated) or demote the pullback_2h family to shadow.",
+    "operator_action_required": true
+   },
+   {
+    "rank": 2,
+    "title": "ADX regime is direction-blind \u2014 add a trend-DIRECTION filter",
+    "source_review": "performance",
+    "tier": 3,
+    "detail": "detect_regime() classifies chop/transitional/trending purely on ADX-14 magnitude. A strong DOWNtrend has high ADX too, so long-only pullback-buyers fire 'buy the dip' into a sell-off. Every executed real loss this window was a pullback-long stopped out in an ADX-'trending' but falling market. Add a directional gate (e.g. midline slope / DI+ vs DI- sign) so long pullbacks are suppressed when the trend is down.",
+    "operator_action_required": true
+   },
+   {
+    "rank": 3,
+    "title": "Re-enable the trainer training cycle",
+    "source_review": "ml",
+    "tier": 2,
+    "detail": "ict-trainer.service is inactive/disabled and 0 cycles ran in 24h. Dataset builds + DB sync work, but nothing promotes models \u2014 1 advisory vs 28 shadow. The setup-quality models that would have down-weighted yesterday's setups are stranded at shadow. Re-enable the timer and unblock the shadow->advisory live_agreement gate (MB-20260626-003).",
+    "operator_action_required": true
+   },
+   {
+    "rank": 4,
+    "title": "Demote ada_pullback_2h (review the whole *_pullback_2h family)",
+    "source_review": "performance",
+    "tier": 3,
+    "detail": "ada_pullback_2h is the biggest loser on both books; the pullback_2h family is low-edge (conf 0.30-0.56) and direction-blind. Demote ada to shadow now; put eth/xrp/avax_pullback_2h on notice pending a direction-aware entry fix.",
+    "operator_action_required": true
+   },
+   {
+    "rank": 5,
+    "title": "Consider enabling FLIP_CONFIDENCE_THRESHOLD for genuine reversals",
+    "source_review": "performance",
+    "tier": 3,
+    "detail": "FLIP_POLICY=hold (correct for churn) refuses an opposing signal and rides the wrong-way position to its stop \u2014 exactly the failure mode in a real regime reversal. FLIP_CONFIDENCE_THRESHOLD (the override that lets a high-conviction opposing signal exit early) is 0.0 = disabled. Backtest a small positive threshold so a strong reversal can cut a losing hold.",
+    "operator_action_required": true
+   }
+  ],
+  "cross_review_notes": [
+   "ML x Performance: the shadow setup-quality models scored yesterday's losing setups negative (-0.15 to -0.51) but are observe-only; the signal that would have prevented the trades exists and is ignored by design. Unblocking promotion (health/ml) directly addresses the performance bleed.",
+   "Real vs Paper: real-money losses are single-digit dollars only because bybit_2 is minimally sized; the paper book (correctly sized mirror) shows the true fleet quality (-$5.8k over 07-14/07-15). The divergence is a sizing artifact, not a data error \u2014 judge strategy quality off paper.",
+   "Regime x Roster growth: the roster grew from ~6 to ~44 strategies but the regime policy table did not grow with it, so risk controls now cover a shrinking fraction of live exposure."
+  ],
+  "pnl_by_class": {
+   "real": {
+    "window_pnl": -10.25,
+    "prior_window_pnl": null,
+    "trend": "down",
+    "trades": 4,
+    "wins": 1,
+    "win_rate": 0.25,
+    "expectancy": -2.56,
+    "profit_factor": 0.05,
+    "max_drawdown": null,
+    "per_strategy": [
+     {
+      "name": "xrp_pullback_2h",
+      "trades": 1,
+      "win_rate": 0.0,
+      "pnl": -4.705
+     },
+     {
+      "name": "eth_pullback_2h",
+      "trades": 1,
+      "win_rate": 0.0,
+      "pnl": -4.044
+     },
+     {
+      "name": "ada_pullback_2h",
+      "trades": 1,
+      "win_rate": 0.0,
+      "pnl": -2.0
+     },
+     {
+      "name": "trend_donchian",
+      "trades": 1,
+      "win_rate": 1.0,
+      "pnl": 0.502
+     }
+    ],
+    "per_asset_class": {
+     "crypto": -10.25
+    },
+    "equity_curve": []
+   },
+   "paper": {
+    "window_pnl": 895.14,
+    "prior_window_pnl": -4361.53,
+    "trend": "up",
+    "trades": 5,
+    "wins": 2,
+    "win_rate": 0.4,
+    "expectancy": 179.03,
+    "profit_factor": null,
+    "max_drawdown": null,
+    "per_strategy": [],
+    "per_asset_class": {},
+    "equity_curve": [],
+    "note": "07-16 open-day was +$895 on paper. The two prior days were the real damage: -$1,485 (07-14), -$4,362 (07-15). Paper is the fleet at real size."
+   },
+   "prop": {
+    "window_pnl": null,
+    "prior_window_pnl": null,
+    "trend": "flat",
+    "trades": null,
+    "note": "prop journal not separately pulled this run (isolated from trades; no real-money impact)."
+   }
+  },
+  "market_context": [
+   {
+    "symbol": "BTCUSDT",
+    "open": null,
+    "close": null,
+    "high": null,
+    "low": null,
+    "pct_change": null,
+    "range_pct": null,
+    "note": "1h ADX ~17.8 (chop) mid-session 07-16; regime router hard-gated one fvg_range_15m BTC long in chop. Price ~64k."
+   },
+   {
+    "symbol": "ETHUSDT",
+    "open": null,
+    "close": null,
+    "high": null,
+    "low": null,
+    "pct_change": null,
+    "range_pct": null,
+    "note": "ADX ~28.5 ('trending') at the pullback entries, but price fell into the stops \u2014 high ADX on a DOWN move. eth_pullback_2h long stopped -0.98R."
+   },
+   {
+    "symbol": "ADAUSDT",
+    "open": null,
+    "close": null,
+    "high": null,
+    "low": null,
+    "pct_change": null,
+    "range_pct": null,
+    "note": "ADX ~30.9 ('trending'); ada_pullback_2h long -0.42R, entry graded 'late'."
+   },
+   {
+    "symbol": "XRPUSDT",
+    "open": null,
+    "close": null,
+    "high": null,
+    "low": null,
+    "pct_change": null,
+    "range_pct": null,
+    "note": "xrp_pullback_2h long hit SL for -1.00R; still one open real-money XRP long."
+   }
+  ],
+  "trade_dossiers": [
+   {
+    "trade_id": 3523,
+    "order_package_id": "pkg-0264258562bb4bba",
+    "account": "bybit_2",
+    "account_class": "real_money",
+    "symbol": "ETHUSDT",
+    "direction": "long",
+    "strategy": "eth_pullback_2h",
+    "opened_at": "2026-07-16T08:03:00+00:00",
+    "closed_at": "2026-07-16T17:17:00+00:00",
+    "entry_price": 1911.39,
+    "exit_price": null,
+    "stop_loss": 1860.35,
+    "take_profit": 2100.62,
+    "qty": null,
+    "pnl": -4.044,
+    "close_reason": "reconciler_filled",
+    "claude_grade": {
+     "grade": "C"
+    },
+    "regime": "trending",
+    "adx": 28.5,
+    "note": "conf 0.52; ADX said trending, price fell to stop (-0.98R)."
+   },
+   {
+    "trade_id": 3507,
+    "order_package_id": "pkg-a9148ec9ea4d43eb",
+    "account": "bybit_2",
+    "account_class": "real_money",
+    "symbol": "XRPUSDT",
+    "direction": "long",
+    "strategy": "xrp_pullback_2h",
+    "opened_at": "2026-07-15T20:04:00+00:00",
+    "closed_at": "2026-07-17T00:36:00+00:00",
+    "entry_price": 1.1102,
+    "exit_price": null,
+    "stop_loss": 1.0828,
+    "take_profit": 1.2201,
+    "qty": null,
+    "pnl": -4.705,
+    "close_reason": "sl",
+    "claude_grade": {
+     "grade": "C"
+    },
+    "regime": "trending",
+    "adx": null,
+    "note": "conf 0.56; clean SL at -1.00R."
+   },
+   {
+    "trade_id": 3502,
+    "order_package_id": "pkg-d9bcdf4a20e049cb",
+    "account": "bybit_2",
+    "account_class": "real_money",
+    "symbol": "ADAUSDT",
+    "direction": "long",
+    "strategy": "ada_pullback_2h",
+    "opened_at": "2026-07-15T18:16:00+00:00",
+    "closed_at": "2026-07-16T08:00:00+00:00",
+    "entry_price": 0.1652,
+    "exit_price": null,
+    "stop_loss": 0.1593,
+    "take_profit": 0.1816,
+    "qty": null,
+    "pnl": -2.0,
+    "close_reason": "reconciler_filled",
+    "claude_grade": {
+     "grade": "C"
+    },
+    "regime": "trending",
+    "adx": 30.9,
+    "note": "conf 0.36; entry graded 'late' (-0.42R)."
+   }
+  ],
+  "dossier_coverage": {
+   "window": "daily",
+   "full_dossiers": 3,
+   "summarized_trades": 1,
+   "rule": "full dossiers for executed real-money losers; the +0.50 trend_donchian win summarized"
+  },
+  "backlog_summary": {
+   "health": {
+    "total": 227,
+    "open": 84,
+    "resolved": 143,
+    "drained": 0
+   },
+   "performance": {
+    "total": 74,
+    "open": 51,
+    "resolved": 23,
+    "drained": 0
+   },
+   "ml": {
+    "total": 72,
+    "open": 32,
+    "resolved": 40,
+    "drained": 0
+   }
+  },
+  "tier3_proposals_pending": [
+   {
+    "title": "Extend regime_policy.yaml coverage to the alt/equity/futures roster",
+    "tier": 3,
+    "detail": "Author OFF/weight cells (backtest-gated) so the 38 uncovered strategies get regime protection, or demote the pullback_2h family."
+   },
+   {
+    "title": "Direction-aware regime gate",
+    "tier": 3,
+    "detail": "Add a trend-direction filter on top of ADX magnitude so long pullbacks don't fire in downtrends."
+   },
+   {
+    "title": "Enable a positive FLIP_CONFIDENCE_THRESHOLD",
+    "tier": 3,
+    "detail": "Let a high-conviction reversal exit a wrong-way held position; backtest first."
+   },
+   {
+    "title": "Demote ada_pullback_2h to shadow",
+    "tier": 3,
+    "detail": "Persistent negative on both books."
+   }
+  ],
+  "monitoring": [
+   {
+    "item_id": "MB-20260626-003",
+    "domain": "ml",
+    "category": "awaiting-decision",
+    "detail": "Regime-head shadow->advisory blocked on the live_agreement gate; heads have soaked their time but can't clear it. Directly limits regime coverage.",
+    "since": "2026-06-26",
+    "next_check": "operator decision on gate design"
+   },
+   {
+    "item_id": "TRAINER-IDLE-20260717",
+    "domain": "ml",
+    "category": "awaiting-decision",
+    "detail": "ict-trainer.service disabled; 0 cycles/24h. Re-enable to resume promotions.",
+    "since": "2026-07-17",
+    "next_check": "operator re-enable"
+   }
+  ],
+  "review_coverage": {
+   "strategy_promotion": {
+    "ready_to_promote": [],
+    "demote_or_kill": [
+     {
+      "name": "ada_pullback_2h",
+      "gate": "DEMOTE_SHADOW",
+      "evidence": "biggest loser on both books; conf 0.36; direction-blind long entries stopped out (-0.42R this window, negative 30d)."
+     },
+     {
+      "name": "pullback_2h family (eth/xrp/avax)",
+      "gate": "REVIEW",
+      "evidence": "low-edge (conf 0.30-0.56), all long-biased, all bled into declining alts; hold pending a direction-aware entry fix."
+     }
+    ],
+    "summary": "Nothing ready to PROMOTE. Real-money bright spot HOLD: trend_donchian (only winner this window, +0.50). Primary structural issue is not a single strategy but that the regime router covers only 6 of 44 live strategies, so demote/kill is a stop-gap; the fix is regime coverage + a direction filter."
+   },
+   "ml_training_health": {
+    "cycles_since_last_review": 0,
+    "dataset_builds_ok": true,
+    "failing_or_stuck": [
+     "ict-trainer.service disabled/inactive (0 cycles/24h)",
+     "5m-flow VPIN head OOM pattern",
+     "TCN family empty-dataset skips"
+    ],
+    "summary": "Dataset builds (68 ok/24h) and live->trainer DB sync (05:00) are healthy, but the training SERVICE is disabled and no cycles ran in 24h, so the shadow->advisory promotion pipeline is starved (1 advisory / 28 shadow / 53 candidate)."
+   },
+   "soak_status": [
+    {
+     "soak": "regime heads (btc/eth/sol)",
+     "state": "soaked-but-blocked",
+     "detail": "met their time-in-shadow but shadow->advisory blocked on live_agreement gate (MB-20260626-003)."
+    },
+    {
+     "soak": "setup-quality shadow models",
+     "state": "accruing-but-ignored",
+     "detail": "actively scoring live setups (negative on yesterday's losers) but observe-only; no path to influence while promotion is stalled."
+    },
+    {
+     "soak": "exit-ladder / conviction soaks",
+     "state": "unavailable: not pulled this run",
+     "detail": "observe-only logs; no live impact."
+    }
+   ],
+   "flags_raised": [
+    "Regime router covers only ~6 of 44 live strategies; the alt/equity/futures roster trades with no regime protection (1 hard-gate row all day).",
+    "ADX regime classifier is direction-blind \u2014 long pullback-buyers fire in strong downtrends.",
+    "Trainer training cycles idle (service disabled, 0/24h); model promotion starved.",
+    "Paper fleet bled -$5.8k over 07-14/07-15 (the fleet-at-scale read); real money spared only by minimal sizing.",
+    "hold-policy rides wrong-way positions to stop; the reversal-exit override (FLIP_CONFIDENCE_THRESHOLD) is disabled."
+   ],
+   "account_reachability": {
+    "up": [
+     "bybit_1",
+     "bybit_2",
+     "bybit_portfolio",
+     "alpaca_paper",
+     "alpaca_options_paper",
+     "alpaca_portfolio",
+     "ib_paper (MES connected, breaker closed, not wedged)",
+     "breakout_1 (manual bridge)"
+    ],
+    "down": [],
+    "excluded_dry": [
+     "alpaca_live",
+     "ib_live",
+     "oanda_practice"
+    ],
+    "summary": "No declared-live broker account is down. IB gateway reachable and MES client healthy (ib_state connected, account_data_ready, not wedged)."
+   },
+   "backlog_drive": {
+    "drained": [],
+    "deferred": [
+     {
+      "domain": "performance",
+      "reason": "The open items are Tier-3 strategy/regime decisions awaiting operator (regime coverage, direction filter, pullback demotion) \u2014 raised as operator_priorities 1-5 this run rather than silently drained."
+     },
+     {
+      "domain": "ml",
+      "reason": "Promotion/soak items blocked on the live_agreement gate (MB-20260626-003) and the disabled trainer service \u2014 awaiting operator re-enable + gate decision."
+     },
+     {
+      "domain": "health",
+      "reason": "This run prioritized the acute performance/regime diagnosis the operator asked for; open health items are not regressions and remain queued for the next health-review pass."
+     }
+    ],
+    "note": "Honest disclosure: no backlog items were code-fix-drained this run \u2014 it was a diagnosis-first review. The material findings were escalated to operator_priorities with exact Tier-3 proposals instead of being filed."
+   }
+  }
+ },
+ "artifacts": {
+  "json_path": "comms/reports/daily/20260717T055600Z/report.json",
+  "html_path": "comms/reports/daily/20260717T055600Z/report.html",
+  "md_path": "comms/reports/daily/20260717T055600Z/report.md",
+  "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/daily/20260717T055600Z/report.html",
+  "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260717-055600-daily"
+ },
+ "claude_channel_ping": {
+  "delivered_via": "pending",
+  "priority": "high"
+ }
+}
