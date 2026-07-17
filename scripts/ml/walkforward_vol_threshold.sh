@@ -29,8 +29,11 @@ PY=python3; for c in .venv/bin/python venv/bin/python; do [ -x "$c" ] && PY="$c"
 DATA="${1:-data/backtest_BTCUSDT_5m.csv}"
 CAND="${2:-docs/research/regime_policy_trend_vol_candidate-2026-06-27.yaml}"
 ROSTER="trend_donchian,squeeze_breakout_4h,htf_pullback_trend_2h"
-H005="btc-regime-15m-lgbm-vt005-pin-v1"  # matched-sibling 0.005 head (candidate)
-H004="btc-regime-15m-lgbm-vt004-pin-v1"  # matched-sibling 0.004 head (candidate)
+H005="btc-regime-15m-lgbm-vt005-pin-v1"  # matched-sibling 0.005 head (shadow stage)
+H004="btc-regime-15m-lgbm-vt004-pin-v1"  # matched-sibling 0.004 head (shadow stage)
+# NB: backtest_system --ml-stage accepts only {advisory, shadow} (candidate is
+# refused by the shadow factory), so the gate4 driver promotes both pins
+# candidate->shadow before this A/B. shadow never influences a live order.
 # Matched siblings: vt005-pin and vt004-pin are built identically (same 7 features,
 # same 60d recency half-life, same purged 5-fold CV, matched inverse-base-rate
 # class weight) and differ ONLY in the vol_threshold label (0.005 vs 0.004). So the
@@ -58,7 +61,7 @@ echo "data=$DATA  policy=$CAND  h005=$H005  h004=$H004"
 for f in $FOLDS; do
   S="${f%%:*}"; E="${f##*:}"
   echo "== fold ${S} .. ${E} =="
-  run_arm "0.005(pin)" --ml-model-id "$H005" --ml-stage candidate
-  run_arm "0.004(pin)" --ml-model-id "$H004" --ml-stage candidate
+  run_arm "0.005(pin)" --ml-model-id "$H005" --ml-stage shadow
+  run_arm "0.004(pin)" --ml-model-id "$H004" --ml-stage shadow
 done
 echo WF_THRESHOLD_DONE

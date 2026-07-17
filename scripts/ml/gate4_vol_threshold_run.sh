@@ -26,10 +26,21 @@ log() { echo "[$(date -u +%H:%M:%S 2>/dev/null || echo g4)] $*" | tee -a "$RESUL
 source .venv/bin/activate 2>/dev/null || log "WARN: no .venv"
 
 for pin in vt005 vt004; do
-  log "STEP: register-train btc-regime-15m-lgbm-${pin}-pin-v1 (candidate)"
-  "$PY" -m ml train "ml/configs/btc-regime-15m-lgbm-${pin}-pin-v1.yaml" \
+  mid="btc-regime-15m-lgbm-${pin}-pin-v1"
+  log "STEP: register-train ${mid} (candidate)"
+  "$PY" -m ml train "ml/configs/${mid}.yaml" \
     --datasets-root datasets-out --registry-root ml/registry-store >>"$RESULT" 2>&1 \
     || log "  WARN: ${pin} register-train returned nonzero (see above)"
+  # Promote candidate -> shadow: backtest_system --ml-stage accepts only
+  # {advisory, shadow} (candidate is refused by the shadow factory), so the pin
+  # must be at shadow for the A/B to load it. candidate->shadow is autonomous
+  # (below the operator-gated shadow->advisory line); shadow never influences a
+  # live order — this is offline research on a NON-live registry entry.
+  log "STEP: promote ${mid} candidate -> shadow"
+  "$PY" -m ml promote-stage "${mid}" --new-stage shadow \
+    --registry-root ml/registry-store --by "gate4-vol-threshold-AB" \
+    --reason "MB-20260701-001 gate-4: candidate->shadow so backtest_system --ml-stage shadow can load the pin for the offline vol-gate money A/B (never live-order-influencing)" \
+    >>"$RESULT" 2>&1 || log "  WARN: ${pin} promote-stage returned nonzero (see above)"
 done
 log "registry heads (pins): $(ls ml/registry-store/ 2>/dev/null | grep -E 'vt00[45]-pin' | tr '\n' ' ')"
 
