@@ -45,7 +45,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from src.runtime.net_r_label import (  # noqa: E402
     net_r_coverage,
     net_r_for_trade,
-    risk_usd_for_trade,
 )
 
 # The columns P1's label functions consult. We SELECT a defensive subset of
