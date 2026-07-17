@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from src.runtime.broker_cost_attribution import (
+    attribute_funding_to_trades,
     attribute_roundtrip_fees,
     normalize_symbol,
 )
@@ -95,3 +96,32 @@ def test_sequential_same_symbol_trades_stay_clean():
     assert out[20].clean and out[21].clean
     assert abs(out[20].fee_taker_usd - 0.22) < 1e-9
     assert abs(out[21].fee_taker_usd - 0.22) < 1e-9
+
+
+def _fund(acct, sym, usd, t, fid=None):
+    return {"account_id": acct, "symbol": sym, "funding_usd": usd,
+            "funding_time": t, "funding_id": fid or f"{acct}-{t}"}
+
+
+def test_funding_attributed_to_clean_trade_in_window_as_cost():
+    # Trade open 00:00 → close 09:00; two funding events inside the window
+    # (paid −0.05, −0.03) → funding_paid_usd = +0.08 (cost, sign-flipped).
+    trades = [{"id": 1, "account_id": "bybit_2", "symbol": "BTCUSDT",
+               "open_time": "2026-07-01T00:00:00Z", "close_time": "2026-07-01T09:00:00Z"}]
+    funding = [
+        _fund("bybit_2", "BTC/USDT:USDT", -0.05, "2026-07-01T00:00:00Z"),
+        _fund("bybit_2", "BTC/USDT:USDT", -0.03, "2026-07-01T08:00:00Z"),
+        _fund("bybit_2", "BTC/USDT:USDT", -0.09, "2026-07-01T16:00:00Z"),  # after close → excluded
+        _fund("bybit_2", "ETH/USDT:USDT", -0.99, "2026-07-01T04:00:00Z"),  # wrong symbol → excluded
+    ]
+    out = attribute_funding_to_trades(trades, funding, clean_trade_ids=[1])
+    assert abs(out[1] - 0.08) < 1e-9
+
+
+def test_funding_not_attributed_to_unclean_trade():
+    trades = [{"id": 2, "account_id": "a", "symbol": "BTCUSDT",
+               "open_time": "2026-07-01T00:00:00Z", "close_time": "2026-07-01T09:00:00Z"}]
+    funding = [_fund("a", "BTCUSDT", -0.05, "2026-07-01T01:00:00Z")]
+    # id 2 is NOT in the clean set → excluded entirely.
+    out = attribute_funding_to_trades(trades, funding, clean_trade_ids=[])
+    assert 2 not in out

@@ -167,3 +167,51 @@ def attribute_roundtrip_fees(
                         _add_fee(entry_tid, fee_per_qty * remaining, is_maker, cur)
 
     return costs
+
+
+def attribute_funding_to_trades(
+    trades: Iterable[Mapping],
+    funding_events: Iterable[Mapping],
+    clean_trade_ids: Iterable[int],
+) -> dict[int, float]:
+    """Sum perp funding COST per CLEAN trade over its open→close window.
+
+    Slice B / B1. Funding is charged to the NET (account, symbol) position, so it
+    is only cleanly attributable to a trade that was the SOLE position holder for
+    its life — i.e. the trades B2 flagged ``clean`` (unambiguous, both legs
+    matched). For each such trade, funding_paid_usd = −Σ(signed funding_usd) for
+    funding events on the same (account, normalized-symbol) whose time falls in
+    ``[open_time, close_time]`` (positive = net paid = a cost, matching the fee
+    convention).
+
+    ``trades`` rows need: ``id``, ``account_id``, ``symbol``, ``open_time``
+    (ISO), ``close_time`` (ISO). ``funding_events`` need: ``account_id``,
+    ``symbol``, ``funding_time`` (ISO), ``funding_usd`` (signed).
+    """
+    clean = set(int(t) for t in clean_trade_ids)
+    # Bucket funding by (account, norm_symbol) → sorted [(time, usd)].
+    by_key: dict[tuple[str, str], list[tuple[str, float]]] = {}
+    for f in funding_events:
+        key = (str(f.get("account_id")), normalize_symbol(f.get("symbol")))
+        t = str(f.get("funding_time") or "")
+        if not t:
+            continue
+        by_key.setdefault(key, []).append((t, float(f.get("funding_usd") or 0.0)))
+
+    out: dict[int, float] = {}
+    for tr in trades:
+        tid = tr.get("id")
+        if tid is None or int(tid) not in clean:
+            continue
+        open_t = str(tr.get("open_time") or "")
+        close_t = str(tr.get("close_time") or "")
+        if not open_t or not close_t:
+            continue
+        key = (str(tr.get("account_id")), normalize_symbol(tr.get("symbol")))
+        total = 0.0
+        for (ft, usd) in by_key.get(key, ()):  # ISO strings sort chronologically
+            if open_t <= ft <= close_t:
+                total += usd
+        # Store as a COST (positive = paid), mirroring the fee sign convention.
+        out[int(tid)] = round(-total, 8)
+    return out

@@ -104,6 +104,9 @@ EXPECTED_ACTIONS = {
     # (which fills NULLs). Wraps migrate_closed_at_to_iso.py.
     "migrate-closed-at-iso": "migrate_closed_at_to_iso_action.sh",
     "pull-exchange-fills": "pull_exchange_fills_action.sh",
+    # Slice B / B1 — pull perp funding into the exchange_funding store so the
+    # broker-truth sweep can attribute funding_paid_usd.
+    "pull-exchange-funding": "pull_exchange_funding_action.sh",
     # 2026-05-28 — paced IBKR MES historical pull on the live VM (MB-20260528-002).
     "pull-mes-ibkr-history": "pull_mes_ibkr_history.sh",
     # 2026-06-01 — same wrapper baked to a DAILY multi-year pull (native MES 1d
@@ -222,6 +225,7 @@ TIER_2_ACTIONS = {
     "backfill-broker-truth-costs",
     "migrate-closed-at-iso",
     "pull-exchange-fills",
+    "pull-exchange-funding",
     "pull-mes-ibkr-history",
     "pull-mes-ibkr-history-daily",
     "pull-ibkr-history",

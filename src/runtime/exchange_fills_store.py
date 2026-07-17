@@ -76,6 +76,18 @@ CREATE INDEX IF NOT EXISTS idx_exchange_fills_account_time
     ON exchange_fills (account_id, datetime(exec_time) DESC);
 CREATE INDEX IF NOT EXISTS idx_exchange_fills_symbol_time
     ON exchange_fills (symbol, datetime(exec_time) DESC);
+
+CREATE TABLE IF NOT EXISTS exchange_funding (
+    funding_id   TEXT PRIMARY KEY,
+    account_id   TEXT NOT NULL,
+    symbol       TEXT NOT NULL,
+    funding_usd  REAL NOT NULL DEFAULT 0,
+    funding_time TEXT NOT NULL,
+    raw          TEXT,
+    inserted_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_exchange_funding_acct_time
+    ON exchange_funding (account_id, datetime(funding_time) DESC);
 """
 
 
@@ -146,6 +158,41 @@ def upsert_fills(
                     row["side"], row["price"], row["qty"], row["fee"],
                     row["fee_currency"], row["exec_time"], row["order_id"],
                     row["is_maker"], row["raw"],
+                ),
+            )
+            inserted += cur.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    return inserted
+
+
+def upsert_funding(
+    rows: Iterable[Mapping[str, Any]],
+    path: Optional[Path] = None,
+) -> int:
+    """Idempotently insert perp-funding records keyed by ``funding_id``.
+
+    Slice B / B1 (MB-20260629-ALLOC-COSTCAP). ``funding_usd`` is SIGNED —
+    negative = funding paid, positive = funding received. Returns the number of
+    NEW rows inserted (existing funding_ids ignored — re-running is safe).
+    """
+    p = init_db(path)
+    inserted = 0
+    conn = sqlite3.connect(str(p))
+    try:
+        for raw in rows:
+            fid = raw.get("funding_id")
+            if not fid:
+                continue
+            cur = conn.execute(
+                "INSERT OR IGNORE INTO exchange_funding "
+                "(funding_id, account_id, symbol, funding_usd, funding_time, raw) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    str(fid), str(raw.get("account_id")), str(raw.get("symbol")),
+                    float(raw.get("funding_usd") or 0.0), str(raw.get("funding_time")),
+                    json.dumps(raw.get("raw")) if raw.get("raw") is not None else None,
                 ),
             )
             inserted += cur.rowcount
