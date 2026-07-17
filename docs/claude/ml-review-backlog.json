@@ -1512,7 +1512,16 @@
       "tier": 1,
       "trigger_condition": "next /ml-review: peak-head shadow soak is approaching a graduation decision and needs a readiness read",
       "resolution_criteria": "promotion-readiness parser tolerates the exit-head record schema (row_keys optional; derive keys from feature_row when absent) OR the exit-head shadow writer emits a row_keys field; cli_stdout.json is non-empty and includes the exit-head family.",
-      "status": "open"
+      "status": "resolved",
+      "resolution": "RESOLVED (stale entry \u2014 the fix was already merged). ml/shadow/inspector.py::_parse_record derives row_keys from feature_row when absent (the exit-head schema), so exit-head/peak-head shadow records are parsed (not skipped) and get promotion-readiness reads; malformed records still skip gracefully. Landed via #6570 (7a2983f) with tests/ml/test_shadow_inspector.py coverage (test_row_keys_derived_from_feature_row_when_absent + test_explicit_row_keys_win_over_feature_row; 37 tests pass). Confirmed by the M25-P1 verification 2026-07-17. This is M25 Phase-1's readiness-tooling-repair item \u2014 already satisfied.",
+      "status_history": [
+        {
+          "at": "2026-07-17T17:35:00+00:00",
+          "status": "resolved",
+          "by": "claude (M25 P1 verification 2026-07-17)",
+          "note": "Already fixed by #6570; entry was stale. M25 P1 readiness-CLI-schema item satisfied."
+        }
+      ]
     },
     {
       "id": "BL-20260717-TRAINER-SINGLE-MANIFEST-OOM",
@@ -1556,8 +1565,13 @@
       "description": "Harvest the shadow soaks to their Tier-3 gates. P1: fix the promotion-readiness CLI to parse exit/peak-head shadow records (MB-20260716-PROMOREADY-EXITHEAD-SCHEMA) + confirm rg4_targeted.sh runs clean + fix frozen MES base if stale (BL-20260626-MES-BASE-STALE). P2: run powered RG4 per matured head -> committed per-head TRUSTWORTHY x POWERED verdict (PROMOTE-PROPOSE / WAIT+date / NEVER+reason). Roster: fc heads (lead, MB-20260705-FC-ADVISORY-READINESS), ETH/SOL vol heads incl. eth-regime-15m-lgbm-xasset-v1 (MB-20260628-REGIME-SOAK-READINESS), M20 peak/exit head, M21 entry head. P3: Tier-3 promotion packets (operator approves each). P4: demote/retire sweep for RG4-fails/drift. Evidence Tier-1 autonomous; shadow->advisory stays Tier-3.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-17T17:35:00+00:00",
+          "note": "P1 sub-item 'fix promotion-readiness CLI to parse exit/peak-head shadow records (MB-20260716)' is ALREADY DONE on main via #6570 (row_keys derived from feature_row). Remaining P1: confirm rg4_targeted.sh runs clean + fix frozen MES base if stale. P2 (powered RG4 sweep) awaits soak maturation (fc re-check ~2026-07-20, ETH/SOL ~2026-08-01)."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-07-17T15:20:00+00:00"
+  "updated_at": "2026-07-17T17:35:00+00:00"
 }
