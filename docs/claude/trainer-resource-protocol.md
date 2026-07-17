@@ -24,13 +24,34 @@ so we can't grow it). Its memory-heavy jobs each need a big slice of that 6 GB:
 wedges SSH), so the failure mode is a clean OOM-kill or a manual stop — not a
 recoverable slow run.
 
-## Rule 1 — everything memory-heavy goes through the shared QUEUE
+## Rule 1 — everything memory-heavy goes through the shared QUEUE (ENFORCED)
 
 There is **one** shared lock (`runtime_logs/trainer/.heavy.lock`,
 `scripts/ops/_trainer_heavy_lock.sh`). Every heavy job acquires it **blocking**
 before starting real work and holds it until done, so heavy jobs **serialize**
 (a FIFO-ish queue) instead of colliding. Work still gets done — just one at a
 time — which is the correct trade on a fixed 6 GB box.
+
+**The queue is ENFORCED, not voluntary (BL-20260717-TRAINER-QUEUE-ENFORCE).**
+The `ml train` / `build-dataset` CLI itself acquires the SAME lock at its
+entrypoint (`src/utils/trainer_heavy_lock.py`, wired in `ml/cli.py`), so **even a
+bare `python -m ml train …` that bypasses the wrappers still queues**. This
+fires **only on the trainer VM** (gated on the `/etc/ict-trainer-vm.role`
+marker) — in CI / dev / the live VM / a web sandbox it's a pure no-op, so a bare
+invocation there runs unchanged. It's re-entrant: the wrappers export
+`TRAINER_HEAVY_LOCK_HELD=1` once they hold the lock, so the CLI skips
+re-acquisition instead of self-deadlocking. Fail-open on any lock-infra error
+(training is never blocked by a lock bug); a clean queue-timeout on a bare run
+exits `75` and tells you to retry later or use the GPU burst. Using
+`trainer_run.sh` (or the timers) is still the clean path; the CLI enforcement is
+the backstop so nothing can slip past.
+
+**Coordination flag.** Whoever holds the queue writes
+`runtime_logs/trainer/heavy_lock_holder.json` (`{pid, label, since_utc}`), so a
+session / diag can see "the trainer is busy with `<label>`" **before**
+dispatching more heavy work (read it via `trainer_heavy_lock.read_holder()`,
+which treats a dead-PID holder as stale). The flock is the real gate; the holder
+file is the human-readable signal.
 
 - The three timer wrappers (`run_training_cycle.sh`,
   `run_promotion_readiness.sh`, `run_drift_retrain.sh`) already take the lock;

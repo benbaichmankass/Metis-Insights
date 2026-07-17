@@ -32,6 +32,20 @@ from typing import Any
 
 from .datasets.cli import main as datasets_main
 from .manifest import canonical_stage
+
+# Enforced trainer heavy-job queue (trainer VM only; no-op elsewhere). Imported
+# defensively so a missing/broken helper never breaks the CLI — the queue is a
+# resource optimization, not a correctness gate.
+try:
+    from src.utils.trainer_heavy_lock import (  # noqa: F401
+        HEAVY_COMMANDS as _HEAVY_COMMANDS,
+        acquire_heavy_lock as _acquire_heavy_lock,
+    )
+except Exception:  # noqa: BLE001 — never let the queue helper break the CLI
+    _HEAVY_COMMANDS = frozenset()
+
+    def _acquire_heavy_lock(_label: str):
+        return None
 from .experiments.runner import (
     EMPTY_DATASET_EXIT_CODE,
     DatasetMissingError,
@@ -977,6 +991,15 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write("usage: python -m ml <subcommand> [...]\n")
         return 2
     cmd = argv[0]
+    # Enforced trainer heavy-job queue (BL-20260717-TRAINER-QUEUE-ENFORCE): the
+    # ~5 GB commands acquire the shared lock so a BARE invocation can't bypass
+    # the queue the timer wrappers use. No-op off the trainer VM / when a wrapper
+    # already holds it; fail-open on infra errors; SystemExit(75) on a clean
+    # queue-timeout. `_heavy_lock` is bound for the whole process lifetime so the
+    # flock is held until the run ends. See docs/claude/trainer-resource-protocol.md.
+    _heavy_lock = None
+    if cmd in _HEAVY_COMMANDS:
+        _heavy_lock = _acquire_heavy_lock(f"ml:{cmd}")
     if cmd == "build-dataset":
         return datasets_main(["build", *argv[1:]])
     if cmd == "validate-dataset":
