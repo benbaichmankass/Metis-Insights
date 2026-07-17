@@ -47,6 +47,19 @@ set -euo pipefail
 
 SCRIPT_NAME="run_drift_retrain"
 REPO_ROOT="${REPO_ROOT:-/home/ubuntu/ict-trading-bot}"
+
+# Shared heavy-job queue: this scan can dispatch `ml train` (~5 GB), so wait
+# for any running training cycle / promotion-readiness / manual training before
+# starting, and skip this run if the queue stays busy past the wait — so the
+# 6 GB box never runs two heavy jobs at once. See
+# docs/claude/trainer-resource-protocol.md.
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/ops/_trainer_heavy_lock.sh"
+if ! take_trainer_heavy_lock "drift_retrain"; then
+  echo '{"status":"heavy_lock_timeout","detail":"trainer queue busy past wait; skipping this drift-retrain run"}' >&2
+  exit 0
+fi
+
 VENV_DIR="${VENV_DIR:-$REPO_ROOT/.venv}"
 REGISTRY_ROOT="${REGISTRY_ROOT:-$REPO_ROOT/ml/registry-store}"
 DATASETS_ROOT="${DATASETS_ROOT:-$REPO_ROOT/datasets-out}"
