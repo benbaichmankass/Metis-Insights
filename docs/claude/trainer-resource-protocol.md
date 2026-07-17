@@ -52,6 +52,17 @@ Do **not** `sudo systemctl stop ict-trainer.service` to "make room" — that jus
 kills an in-flight cycle (the thing we were doing wrong). Start your work
 through `trainer_run.sh` and it will queue safely.
 
+**What counts as "memory-heavy" (queue) vs light (run direct).** The queue is
+for the ~5 GB jobs — `python -m ml train`, `build-dataset`, a big sweep. A
+**per-strategy research backtest** (`scripts/backtest_*.py` over a candle CSV)
+is a **light** job (vectorized pandas over a resampled ~15 k-bar frame, well
+under 1 GB) — run it **directly**, NOT through `trainer_run.sh`. Wrapping a light
+backtest in the queue makes it block up to `TRAINER_HEAVY_LOCK_WAIT_S` (1 h)
+behind a running training cycle for no memory benefit (observed 2026-07-17: a
+direction-filter backtest sat stuck an hour behind another session's cycle). A
+light job running concurrently with a cycle uses the box's spare headroom
+safely; only the 5 GB jobs need to serialize.
+
 ## Rule 2 — route heavy training to the GPU burst when it's the better resource
 
 The trainer VM is not the only training resource. The **GPU-burst platform**
