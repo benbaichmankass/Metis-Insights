@@ -32,6 +32,18 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
                    help="Symbol to query (repeat; omitted = all-symbols query)")
     p.add_argument("--api-key-env", default="BYBIT_API_KEY")
     p.add_argument("--api-secret-env", default="BYBIT_API_SECRET")
+    p.add_argument(
+        "--fills-db",
+        default=None,
+        help=(
+            "exchange_fills.sqlite path (holds the exchange_funding table) to "
+            "write into (default: the store resolver — DATA_DIR-anchored "
+            "runtime_state/). Pass the canonical path explicitly "
+            "(scripts/ops/_lib.sh::fills_store_path) so the funding puller and "
+            "the offline cost sweep never resolve to different absolute paths "
+            "when the wrapper shell lacks DATA_DIR (BL-20260717-FILLS-STORE-PATH-SPLIT)."
+        ),
+    )
     return p.parse_args(argv)
 
 
@@ -67,10 +79,14 @@ def main(argv: list[str]) -> int:
         days=args.days,
         symbols=args.symbol,
     )
-    inserted = upsert_funding(rows)
+    funding_path = Path(args.fills_db) if args.fills_db else None
+    inserted = upsert_funding(rows, path=funding_path)
     logger.info(
-        "pull_exchange_funding: account=%s days=%d candidates=%d inserted=%d",
-        args.account, args.days, len(rows), inserted,
+        "pull_exchange_funding: account=%s days=%d symbols=%s candidates=%d inserted=%d store=%s",
+        args.account, args.days,
+        ",".join(args.symbol) if args.symbol else "(all)",
+        len(rows), inserted,
+        funding_path if funding_path is not None else "(default resolver)",
     )
     return 0
 

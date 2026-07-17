@@ -107,6 +107,9 @@ EXPECTED_ACTIONS = {
     # Slice B / B1 — pull perp funding into the exchange_funding store so the
     # broker-truth sweep can attribute funding_paid_usd.
     "pull-exchange-funding": "pull_exchange_funding_action.sh",
+    # M24 P2 — read-only net-R re-grade scorecard (net-of-cost R per strategy /
+    # cell + sign-flip flag). Opens trade_journal.db mode=ro; no write.
+    "net-r-regrade": "net_r_regrade_action.sh",
     # 2026-05-28 — paced IBKR MES historical pull on the live VM (MB-20260528-002).
     "pull-mes-ibkr-history": "pull_mes_ibkr_history.sh",
     # 2026-06-01 — same wrapper baked to a DAILY multi-year pull (native MES 1d
