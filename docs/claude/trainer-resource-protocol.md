@@ -114,11 +114,37 @@ the queue.
 ## Rule 3 — if the workload genuinely won't fit, that's a flag, not a hack
 
 If a *single* manifest can't train within the 5 GB cgroup cap (a real OOM even
-alone, e.g. the Jul 15 cycle), the fix is one of: (a) shrink that manifest's
-peak (batch size / dataset chunking) — a model-specific code change; (b) move
-it to the GPU burst; or (c) drop/split it. Do **not** raise `MemorySwapMax`
-above 512 M to "fix" it — that re-opens the swap-death that wedges the box.
-Raise it as a health-review backlog item with the offending manifest named.
+alone, e.g. `btc-regime-5m-lgbm-flow-v1` — a 5-minute BTC regime head that OOM'd
+3× across cycles, exit 137/143), the fix is one of: (a) shrink that manifest's
+peak (batch size / dataset chunking / a shorter 5m history window) — a
+model-specific code change; (b) move it to the GPU burst (note: a **LightGBM**
+head is CPU-bound, so a GPU doesn't speed it — for those, prefer (a) or run the
+burst just to get it OFF the 6 GB box); or (c) drop/split it. Do **not** raise
+`MemorySwapMax` above 512 M to "fix" it — that re-opens the swap-death that
+wedges the box.
+
+**This is now detected + escalated automatically (BL-20260717-TRAINER-SINGLE-MANIFEST-OOM).**
+The cycle bounds a single-manifest OOM (30-min per-manifest cap → `continue`),
+but the per-day progress file would otherwise retry an oversized manifest
+*every cycle forever*, burning up to 30 min each run. So
+`src/utils/trainer_manifest_health.py` tracks a **cross-cycle OOM streak** per
+manifest (state under `runtime_logs/trainer/manifest_oom_state.json`, which
+survives the per-cycle `git reset --hard`). After
+`TRAINER_MANIFEST_OOM_QUARANTINE_AFTER` (default 3) consecutive OOM/timeout
+failures (exit 124/137) the cycle **quarantines** the manifest — SKIPS it
+(`manifest_quarantined` event) instead of wasting the window — and emits a loud
+`manifest_quarantine_tripped` cycle event. The trainer can't commit a backlog
+item itself (it resets to `origin/main` each cycle), so **that cycle event IS
+the durable escalation**: it rides the mirror to `/api/bot/ml/cycle`, where the
+next `/ml-review` / `/system-review` session must surface it and decide (a)/(b)/(c)
+above. The quarantine **self-heals**: it lets one re-attempt through after
+`TRAINER_MANIFEST_QUARANTINE_RECHECK_DAYS` (default 7), and a successful train
+clears it — so a landed shrink auto-recovers with no human toil. A session can
+force-clear via `TRAINER_MANIFEST_QUARANTINE_CLEAR=<manifest|all>`, or disable
+the whole mechanism with `TRAINER_MANIFEST_OOM_QUARANTINE_AFTER=0` (pure
+passthrough = the prior bounded-retry-forever behaviour). Still raise a
+health-review backlog item when you see a quarantine trip — the automation stops
+the *waste*, but the manifest still needs a human's shrink/GPU/drop decision.
 
 ## Tuning knobs
 
@@ -126,6 +152,10 @@ Raise it as a health-review backlog item with the offending manifest named.
 |---|---|---|
 | `TRAINER_HEAVY_LOCK_WAIT_S` | `3600` (1 h) | Max queue wait before a job skips (timer) / gives up (manual). |
 | `TRAINER_HEAVY_LOCK_FILE` | `runtime_logs/trainer/.heavy.lock` | The shared lock file. |
+| `TRAINER_MANIFEST_OOM_QUARANTINE_AFTER` | `3` | Consecutive OOM/timeout (exit 124/137) failures before a manifest is quarantined (skipped). `0` disables (Rule 3). |
+| `TRAINER_MANIFEST_QUARANTINE_RECHECK_DAYS` | `7` | A quarantined manifest is re-attempted once after this many days (self-heal); a success clears it, another OOM re-quarantines. `0` = never auto-recheck. |
+| `TRAINER_MANIFEST_QUARANTINE_CLEAR` | *(unset)* | One-shot: `<manifest-basename>` or `all` to force a quarantined manifest back into rotation. |
+| `TRAINER_MANIFEST_OOM_STATE_FILE` | `runtime_logs/trainer/manifest_oom_state.json` | The cross-cycle OOM-streak state file. |
 
 Related: `docs/claude/trainer-vm-mode.md` (trainer-VM autonomy contract),
 `docs/sprint-logs/S-M19-GPU-BURST-2026-07-02.md` (the burst platform).

@@ -304,6 +304,24 @@ for manifest in "${TO_RUN_LIST[@]}"; do
     overall_rc=1
     continue
   fi
+  # --- Single-manifest OOM quarantine (BL-20260717-TRAINER-SINGLE-MANIFEST-OOM) -
+  # The heavy-job queue stops two jobs colliding, but can't shrink a manifest
+  # that can't fit the 5 GB cgroup ALONE — that one OOMs every cycle. The cycle
+  # already BOUNDS it (30-min cap below → continue), but the per-day progress
+  # file retries it forever, burning up to TRAINING_MANIFEST_TIMEOUT_S each run.
+  # This guard SKIPS a manifest that has crossed the OOM-streak quarantine
+  # threshold so the window isn't wasted; it self-heals (one recheck lets it back
+  # in after the recheck window, and a successful train clears it). Fail-open:
+  # `decide` exits 0 on any tracker error, so the manifest runs normally.
+  set +e
+  python -m src.utils.trainer_manifest_health decide "$manifest" >/dev/null 2>&1
+  q_rc=$?
+  set -e
+  if [ "$q_rc" -eq 10 ]; then
+    emit "$(printf '{"ts":"%s","status":"manifest_quarantined","manifest":"%s","detail":"skipped: repeatedly OOMs alone on the 6 GB box — route to GPU burst (gpu-burst-train.yml) or shrink its peak RSS. trainer-resource-protocol.md Rule 3."}' "$(iso_now)" "$manifest")"
+    progress_mark "$manifest" skipped reason=quarantined_oom
+    continue
+  fi
   start="$(iso_now)"
   progress_mark "$manifest" running
   # --- Observe-only build-time dataset audit (BL-20260628-XA-TRAINING-ZERO class) ---
@@ -382,6 +400,8 @@ print(json.dumps({
 }))
 ' "$(iso_now)" "$manifest" "$start" "$summary")"
     progress_mark "$manifest" done
+    # Trained fit → clear any OOM streak/quarantine for this manifest (self-heal).
+    python -m src.utils.trainer_manifest_health record-success "$manifest" >/dev/null 2>&1 || true
   elif [ "$rc" -eq 78 ]; then
     # Exit 78 (BSD EX_CONFIG) — `python -m ml train` raised
     # EmptyDatasetError (reason=empty_dataset: dataset built but 0 rows yet —
@@ -435,6 +455,19 @@ print(json.dumps({
 ' "$(iso_now)" "$manifest" "$start" "$rc" "$TRAINING_MANIFEST_TIMEOUT_S")"
     progress_mark "$manifest" failed "rc=$rc(timeout)"
     overall_rc=1
+    # Single-manifest OOM streak (BL-20260717-TRAINER-SINGLE-MANIFEST-OOM): count
+    # this OOM/timeout. On crossing the quarantine threshold, escalate LOUDLY —
+    # the trainer can't commit a backlog item itself (it resets --hard each
+    # cycle), so this cycle event IS the durable signal (rides the mirror →
+    # /api/bot/ml/cycle), where the next ml-/system-review routes the manifest to
+    # the GPU burst or shrinks it. `record-oom` exits 20 on the trip.
+    set +e
+    q_oom="$(python -m src.utils.trainer_manifest_health record-oom "$manifest" "$rc" 2>/dev/null)"
+    q_oom_rc=$?
+    set -e
+    if [ "$q_oom_rc" -eq 20 ]; then
+      emit "$(printf '{"ts":"%s","status":"manifest_quarantine_tripped","manifest":"%s","detail":"repeatedly OOMs/timeouts ALONE on the 6 GB box — QUARANTINED from the cycle. ROUTE TO GPU BURST (gpu-burst-train.yml) or shrink its peak RSS. Auto-rechecks after the recheck window; a successful train clears it. trainer-resource-protocol.md Rule 3.","streak":%s}' "$(iso_now)" "$manifest" "$q_oom")"
+    fi
     rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
     continue
   else
