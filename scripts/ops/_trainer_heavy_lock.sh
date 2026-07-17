@@ -54,6 +54,18 @@ take_trainer_heavy_lock() {
   mkdir -p "$(dirname "$TRAINER_HEAVY_LOCK_FILE")"
   exec 8>"$TRAINER_HEAVY_LOCK_FILE"
   if flock -w "$TRAINER_HEAVY_LOCK_WAIT_S" 8; then
+    # Signal any child `python -m ml train`/`build-dataset` that the queue is
+    # ALREADY held by this wrapper, so the CLI's own enforced self-lock
+    # (src/utils/trainer_heavy_lock.py) skips acquisition instead of blocking on
+    # the same file (which would self-deadlock: this shell holds fd 8, the child
+    # would wait for it). Re-entrancy signal — the CLI enforcement is what stops
+    # a BARE invocation bypassing the queue; this keeps the wrapper path clean.
+    export TRAINER_HEAVY_LOCK_HELD=1
+    # Coordination flag: record who holds the queue so a session/diag can see
+    # "trainer busy with <label>" before dispatching more heavy work.
+    printf '{"pid":%s,"label":"%s","since_utc":"%s"}\n' \
+      "$$" "$label" "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" \
+      > "$(dirname "$TRAINER_HEAVY_LOCK_FILE")/heavy_lock_holder.json" 2>/dev/null || true
     printf '{"status":"heavy_lock_acquired","label":"%s"}\n' "$label" >&2
     return 0
   fi
