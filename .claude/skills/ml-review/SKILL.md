@@ -145,6 +145,20 @@ the trainer relay errored):
   window (≤24h for a daily timer) with `overall_rc=0`. `concern` on
   non-zero `ExecMainStatus`, persistent `FAILED`/`error` lines, or
   last run >72h.
+  - **Single-manifest OOM quarantine — MANDATORY check
+    (BL-20260717-TRAINER-SINGLE-MANIFEST-OOM).** Scan the cycle log
+    (`training_cycle.jsonl` / `/api/bot/ml/cycle`) for
+    `manifest_quarantine_tripped` and `manifest_quarantined` events. These are
+    the trainer's durable escalation that a manifest OOMs *alone* on the 6 GB
+    box (it can't commit a backlog item itself). A quarantine trip is a
+    **required flag** — it means that manifest hasn't trained for ≥3 cycles.
+    You OWN the disposition (Rule 3, `docs/claude/trainer-resource-protocol.md`):
+    (a) shrink its peak RSS (dataset chunking / shorter 5m window — a manifest
+    change, Tier-3 propose), (b) route it to the GPU burst (note LightGBM is
+    CPU-bound, so the burst just gets it off the box — no speedup), or (c)
+    drop/split it. Log an `ml-review-backlog` item naming the manifest and the
+    chosen disposition; the quarantine self-clears once it trains fit or after
+    the recheck window. Known first case: `btc-regime-5m-lgbm-flow-v1`.
 - **`trainer_datasets`** — `ok` if `datasets-out/` has the expected
   families built within 72h. `concern` if no datasets dir or all
   builds error.
