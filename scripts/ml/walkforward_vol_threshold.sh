@@ -15,9 +15,11 @@
 # registry (ML_REGISTRY_ROOT) + the candidate policy; runs the existing harness
 # per fold. The live 0.005 threshold is UNCHANGED regardless of this run.
 #
-# PREREQ (run first, on the trainer): register-train the 0.004 head as candidate:
-#   python -m ml train ml/configs/btc-regime-15m-lgbm-vt004-pin-v1.yaml \
-#     --datasets-root datasets-out           # NOTE: no --no-register -> lands candidate
+# PREREQ (run first, on the trainer): register-train BOTH matched-sibling heads as
+# candidates (no --no-register -> lands candidate). scripts/ml/gate4_vol_threshold_run.sh
+# does this then calls this harness:
+#   python -m ml train ml/configs/btc-regime-15m-lgbm-vt005-pin-v1.yaml --datasets-root datasets-out
+#   python -m ml train ml/configs/btc-regime-15m-lgbm-vt004-pin-v1.yaml --datasets-root datasets-out
 #
 # Usage:
 #   bash scripts/ml/walkforward_vol_threshold.sh [DATA_CSV] [CANDIDATE_POLICY_YAML]
@@ -27,8 +29,15 @@ PY=python3; for c in .venv/bin/python venv/bin/python; do [ -x "$c" ] && PY="$c"
 DATA="${1:-data/backtest_BTCUSDT_5m.csv}"
 CAND="${2:-docs/research/regime_policy_trend_vol_candidate-2026-06-27.yaml}"
 ROSTER="trend_donchian,squeeze_breakout_4h,htf_pullback_trend_2h"
-H005="btc-regime-15m-lgbm-v2"            # shipped 0.005 head (advisory stage)
-H004="btc-regime-15m-lgbm-vt004-pin-v1"  # candidate denser-label 0.004 head
+H005="btc-regime-15m-lgbm-vt005-pin-v1"  # matched-sibling 0.005 head (candidate)
+H004="btc-regime-15m-lgbm-vt004-pin-v1"  # matched-sibling 0.004 head (candidate)
+# Matched siblings: vt005-pin and vt004-pin are built identically (same 7 features,
+# same 60d recency half-life, same purged 5-fold CV, matched inverse-base-rate
+# class weight) and differ ONLY in the vol_threshold label (0.005 vs 0.004). So the
+# per-fold money delta ISOLATES the threshold change — the clean causal answer to
+# "does moving the live gate 0.005->0.004 make money", free of the confounds a
+# production-v2 baseline (different data window/build) would carry. (A production-v2
+# cross-check is a documented follow-up, not this controlled comparison.)
 export PYTHONPATH=.
 export ML_REGISTRY_ROOT="${ML_REGISTRY_ROOT:-ml/registry-store}"
 # Consecutive yearly folds (non-overlap = an implicit purge between folds) —
@@ -49,7 +58,7 @@ echo "data=$DATA  policy=$CAND  h005=$H005  h004=$H004"
 for f in $FOLDS; do
   S="${f%%:*}"; E="${f##*:}"
   echo "== fold ${S} .. ${E} =="
-  run_arm "0.005(shipped)" --ml-model-id "$H005"
-  run_arm "0.004(cand)   " --ml-model-id "$H004" --ml-stage candidate
+  run_arm "0.005(pin)" --ml-model-id "$H005" --ml-stage candidate
+  run_arm "0.004(pin)" --ml-model-id "$H004" --ml-stage candidate
 done
 echo WF_THRESHOLD_DONE
