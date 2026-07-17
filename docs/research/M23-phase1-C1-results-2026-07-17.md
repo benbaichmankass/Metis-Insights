@@ -6,10 +6,12 @@ did) — but the positive region never exceeds ~11 trades / 3% coverage at any t
 far below the ≥40 (≥10%) usable-volume floor. The binding constraint is now unambiguously
 LABEL VOLUME, not target framing: 376 real trades at ~26% win / fewer big-R winners only
 supports a confident top slice of ~10.** Variant C1 is a validated lever with a
-characterized ceiling; no live wiring. Next levers are label-volume, not more target
-engineering: C3 (faithfulness relabel, to make the abundant backtest labels transfer a
-better R-ranking) and more real labels (time), with C2 (regress R) worth one shot for a
-smoother ranking.
+characterized ceiling; no live wiring. **C2 (regress R directly) was also run and is
+WORSE — it never crosses net-positive (best −0.88R; noisy mae-1.39R ranking) — so the
+thresholded classification framing (C1) is the better R-aware head at this label scale**
+(see the C2 section below). Next levers are label-volume, not more target engineering: C3
+(faithfulness relabel, to make the abundant backtest labels transfer a better R-ranking)
+and more real labels (time).
 
 ## What C1 is
 
@@ -90,7 +92,43 @@ trades at every threshold, so the wall is now precisely label VOLUME, not the ta
 is the faithfulness relabel (C3) to make the 4.5×-larger backtest pool transfer a wider
 R-ranking; no live wiring (n≈11 is far too thin).
 
+## Variant C2 — regress realized R (WORSE than C1; negative at every threshold)
+
+C2 tests the more-principled framing: a LightGBM **regressor** on `r_multiple`
+(expected-R head, `setup-candidates-metalabel-backtest-c2-v1.yaml`, dataset
+`v012`), selected on **predicted R** via the new `m23_ev_gate.py --raw-score`
+(no [0,1] clamp; sweeps the observed predicted-R grid). Trainer #6732.
+
+Fit: mae **1.39R**, mse 4.12 on the 376-row live holdout — a noisy fit (the book's
+R is heavy-tailed, mean −0.43R, range [−14.4,+16.1], and regression hedges toward
+the mean). The predicted-R EV sweep:
+
+| pred-R threshold | n_sel (coverage) | win-rate | sel_netR | Δ vs take-all |
+|---|---|---|---|---|
+| 0.429 | 58 (15%) | 0.345 | **−28.18** | +153.44 |
+| 0.506 | 38 (10%) | 0.342 | −23.66 | +157.96 |
+| 0.890 | 11 (3%) | 0.364 | −7.30 | +174.33 |
+| best t*=0.99 | 7 (2%) | 0.429 | **−0.88** | +180.75 |
+
+**C2 never crosses net-positive** — the best point is −0.88R (vs C1's τ=0.75 n=11
+= **+0.85R positive**; C1's τ=0.5 n=10 = +2.56R). Notably C2 *does* reach usable
+volume (n=58 at 15% coverage) but at −28.18R (per-trade −0.486, no better than
+take-all's −0.483) — so C2 fails a *different* way than C1: not volume-capped, but
+its ranking is too noisy to isolate positive-EV trades even at the top.
+
+**Takeaway:** for this noisy, heavy-tailed, low-n (376 eval / 1,685 train) target,
+the **thresholded classification framing (C1) beats regression (C2)** — asking
+"is this a materially-good trade?" extracts a cleaner top-slice than fitting the R
+magnitude, which the tails dominate. C1's `won_r` remains the best R-aware head;
+C2 is a documented negative. This *reinforces* the label-volume ceiling: regression
+would need many more labels to fit the R distribution cleanly enough to rank on.
+
+**Both C1 and C2 confirm: the remaining Phase-1 lever is label-volume (C3
+faithfulness relabel + more real labels), not more target engineering.**
+
 ## Artifacts
+- C2: manifest `ml/configs/setup-candidates-metalabel-backtest-c2-v1.yaml` +
+  `m23_ev_gate.py --raw-score` (`cfa5034`); run trainer-vm-diag #6732.
 - Builder + target: `ml/datasets/families/setup_candidates.py` (`r_label_threshold`/`won_r`,
   `431ebe9`); manifest `ml/configs/setup-candidates-metalabel-backtest-c1-v1.yaml`
   (`431ebe9`, version fix `8787f5b`); tests in `tests/ml/test_setup_candidates.py`.

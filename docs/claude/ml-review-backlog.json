@@ -1591,6 +1591,11 @@
           "at": "2026-07-17",
           "by": "overnight-ml-loop",
           "note": "VARIANT C1 (R-aware target) BUILT + RUN + tau-swept (431ebe9 + version fix 8787f5b; trainer #6730/#6731). won_r = 1[r_multiple>=tau] training target. RESULT: the R-aware target WORKS directionally + reproducibly — tau in {0.5,0.75,1.0} all turn the TOP slice net-POSITIVE (tau=0.5: n=10 net +2.56R, tip n=6 +3.85; tau=0.75: n=11 net +0.85R — widest), which the won-target NEVER did (it stayed net-negative at every volume). BUT the net-positive region caps at ~11 trades / 3% coverage at every tau, far below the >=40 / >=10% usable floor; tau=0.25 doesn't even cross positive (too close to plain won). CEILING IS NOW LABEL VOLUME, not target framing (sweeping tau doesn't widen it) — 376 real trades / ~26% win only supports a confident top slice of ~10. NOT wired live. NEXT (open): C3 faithfulness relabel (close the ~0.6R barrier-vs-live gap so the 4.5x-larger backtest pool transfers a wider R-ranking — highest-leverage Phase-1 move) + C2 regress-R (one shot) + more real labels (time). docs/research/M23-phase1-C1-results-2026-07-17.md."
+        },
+        {
+          "at": "2026-07-17",
+          "by": "overnight-ml-loop",
+          "note": "VARIANT C2 (regress r_multiple) RUN (cfa5034; m23_ev_gate.py --raw-score added; trainer #6732) — NEGATIVE, WORSE than C1. A LightGBM regressor on r_multiple (fit mae 1.39R/mse 4.12) selected on predicted R NEVER crosses net-positive (best t*=0.99 n=7 net -0.88R; at usable n=58/15% it's -28.18R, per-trade -0.486 = no better than take-all). Fails a DIFFERENT way than C1: not volume-capped but too noisy to isolate positive-EV trades (the heavy-tailed R dominates MSE, regression hedges to the mean). C1's thresholded won_r classifier (net-positive at the top, +0.85..+2.56R) remains the best R-aware framing. CONCLUSION: for this noisy heavy-tailed low-n target (376 eval/1685 train), classification>regression, and BOTH confirm the ceiling is LABEL VOLUME. Remaining Phase-1 lever = C3 faithfulness relabel (realistic cost/exit re-sim of the backtest pool OR auxiliary-pretrain to widen the R-ranking transfer — bigger build) + more real labels (time). docs/research/M23-phase1-C1-results-2026-07-17.md (C2 section)."
         }
       ]
     },
