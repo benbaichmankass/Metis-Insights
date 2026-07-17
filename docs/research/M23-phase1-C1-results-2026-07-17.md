@@ -8,10 +8,13 @@ LABEL VOLUME, not target framing: 376 real trades at ~26% win / fewer big-R winn
 supports a confident top slice of ~10.** Variant C1 is a validated lever with a
 characterized ceiling; no live wiring. **C2 (regress R directly) was also run and is
 WORSE — it never crosses net-positive (best −0.88R; noisy mae-1.39R ranking) — so the
-thresholded classification framing (C1) is the better R-aware head at this label scale**
-(see the C2 section below). Next levers are label-volume, not more target engineering: C3
-(faithfulness relabel, to make the abundant backtest labels transfer a better R-ranking)
-and more real labels (time).
+thresholded classification framing (C1) is the better R-aware head at this label scale.
+C3 (backtest-label faithfulness haircut) was ALSO run and does NOT help — it narrows the
+positive region (the labels are already ~calibrated at the threshold), confirming the
+ceiling is EVAL-side (the 376 real trades), not train-label quality.** Every variant-C
+lever independently reaches the same wall: **label VOLUME on the real holdout**. The
+remaining levers are structural — **more real labels (time)** + the gated **Phase 2**
+external corpus — not another Phase-1 variant (see the definitive conclusion below).
 
 ## What C1 is
 
@@ -126,7 +129,66 @@ would need many more labels to fit the R distribution cleanly enough to rank on.
 **Both C1 and C2 confirm: the remaining Phase-1 lever is label-volume (C3
 faithfulness relabel + more real labels), not more target engineering.**
 
+## Variant C3 — backtest-label faithfulness haircut (does NOT help; ceiling is eval-side)
+
+C3 corrects the harness's idealized-cost/exit optimism: it subtracts a haircut from
+each `backtest` row's R before computing its `won_r` target (`backtest_r_haircut`,
+`4362bbd`), so the TRAIN label matches live-like R while the live (eval) rows keep
+their real R. Sweep at τ=0.5, haircut ∈ {0, 0.3, 0.5, 0.7} (trainer #6733):
+
+| haircut | backtest won_r rate | widest net-positive point | tip |
+|---|---|---|---|
+| 0.0 (= C1 baseline) | 0.242 | **n=10 → +2.56R** | n=6 → +3.85R |
+| 0.3 | 0.201 | n=6 → +0.75R | n=7 → +2.13R |
+| 0.5 | 0.172 | n=2 → +2.04R | n=2 |
+| 0.7 | 0.151 | — (never crosses positive) | n=4 → −1.30R |
+
+**The haircut does not widen the positive region — it monotonically NARROWS it**
+(n=10 → 6 → 2 → 0 as the haircut grows). Two things explain this and make it a
+clean, informative negative:
+
+1. **The backtest labels are already calibrated at the threshold.** At τ=0.5 the
+   uncorrected backtest `won_r` rate is **0.242**, already ≈ the live base rate
+   **0.263** — so the classification-at-a-threshold framing (C1) is *already* robust
+   to the mean-R optimism gap (thresholding at τ washes out a uniform R shift when τ
+   sits in the calibrated region). The haircut is therefore an **over-correction**:
+   it makes the train bar stricter than live, the classifier greenlights fewer
+   trades, and the positive slice shrinks. No haircut (C1) is optimal.
+2. **The limit is eval-side, not train-label-quality.** Making the 1,685 train labels
+   more faithful cannot widen the positive region, because the region is bounded by
+   how many genuinely-good trades exist in the **376 real eval** book (~10). This is
+   the direct confirmation that the ceiling is **label VOLUME on the real holdout**,
+   which every variant-C lever now independently reaches.
+
+## Definitive Phase-1 conclusion (C1 + C2 + C3)
+
+The M23 Phase-1 in-distribution backtest-augmentation lever has been worked end to
+end — pooled multi-strategy train → exact-R EV gate → C1 (R-aware classification, τ
+sweep) → C2 (regress R) → C3 (faithfulness haircut). The consistent result:
+
+- **The labels-first pivot works:** an R-aware *classification* head (C1) is the
+  first thing to turn a real-book subset net-positive (+2.56R on the top ~10 trades),
+  which the `won` target never did.
+- **But the net-positive region caps at ~2–11 trades under every lever** — τ (C1),
+  regression-vs-classification (C2 is worse), and train-label faithfulness (C3
+  doesn't help). The binding constraint is uniformly the **376-real-trade eval
+  count**, not the model, features, target framing, or train-label quality.
+- **Therefore the remaining levers are structural, not another Phase-1 variant:**
+  (a) **more real labels (time)** — the region grows only as the real book grows;
+  (b) **Phase 2 (external copy-trade corpus)** as pretraining — still gated on ToS +
+  distribution-alignment + operator go. No live wiring of any current head (every
+  positive region is far below the usable-volume floor; Tier-3 regardless).
+
+This is a real, positive scientific result for the master-AI north star: the decision
+label — not compute, features, model size, or target design — is the measured wall,
+and the R-aware classification head is the tool that will convert future label volume
+into edge. Phase 1's machinery (builder targets, EV gate, manifests) is banked and
+reusable for the moment the real book (or a ToS-cleared corpus) grows.
+
 ## Artifacts
+- C3: `backtest_r_haircut` in `ml/datasets/families/setup_candidates.py` (`4362bbd`) +
+  family test; run trainer-vm-diag #6733 (reuses the C1 manifest — haircut is a build
+  param).
 - C2: manifest `ml/configs/setup-candidates-metalabel-backtest-c2-v1.yaml` +
   `m23_ev_gate.py --raw-score` (`cfa5034`); run trainer-vm-diag #6732.
 - Builder + target: `ml/datasets/families/setup_candidates.py` (`r_label_threshold`/`won_r`,
