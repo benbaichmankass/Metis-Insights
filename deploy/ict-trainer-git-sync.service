@@ -1,0 +1,25 @@
+# ============================================
+# ICT TRAINER GIT SYNC SERVICE (code-only)
+# Keeps the trainer VM's checkout on a clean origin/main so it never silently
+# runs stale code. Unlike the live VM's ict-git-sync (which runs
+# deploy_pull_restart.sh and restarts the trader), this restarts NOTHING — the
+# trainer has no live service. See scripts/ops/trainer_git_sync.sh for the full
+# rationale (BL-20260718-TRAINER-GITSYNC-STALE: trainer found 495 commits behind).
+# Save to: /etc/systemd/system/ict-trainer-git-sync.service
+# ============================================
+
+[Unit]
+Description=ICT Trainer Git Auto-Sync (code-only; no service restart)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+ExecStart=/bin/bash /home/ubuntu/ict-trading-bot/scripts/ops/trainer_git_sync.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
