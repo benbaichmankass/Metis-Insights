@@ -43,6 +43,45 @@ funding-heavy holds. Tracked as `MB-20260717-M24-FUNDING-VISIBILITY`; the fix is
 a data-visibility one (operator Bybit UM funding export, like the broker-truth
 realized ledger), not a puller change.
 
+### Cost-coverage diagnostic — why fee coverage is 3/814 (2026-07-18)
+
+Operator-approved follow-up ("widen cost coverage first"). Ran the
+`backfill-broker-truth-costs` dry-run (issue #6831) to pinpoint the bottleneck.
+The breakdown over the live journal:
+
+| bucket | count | meaning |
+|---|--:|---|
+| closed trades with a `broker_order_id` join key | **691** | the join key is **solved** — NOT the bottleneck |
+| fills in the store | 98 | only the recent ~7-day window (bybit_2) |
+| CLEAN (both legs, unambiguous, USD) → broker-truth | 0 | nothing NEW to attribute |
+| ambiguous (netted, kept estimate) | 5 | bybit_2's partial-fill netting → round-trip un-attributable |
+| entry-only / still-open | 1 | |
+| **no fill match (kept estimate)** | **682** | **THE WALL — 98.7% of join-keyed trades have no fill in the store** |
+| already broker-truth (skipped) | 3 | from the 2026-07-17 sweep |
+
+**Conclusion — broker-truth fee coverage CANNOT be meaningfully widened by
+automation.** Three independent walls, none a code bug:
+
+1. **Architecture** — broker-truth is **bybit-only** (`BROKER_PNL_READER_EXCHANGES = {bybit}`);
+   the alpaca/IB/OANDA/paper trades that dominate the 814 are estimate **by design**.
+2. **API retention** — the fills puller does a single non-paginated
+   `fetch_my_trades(since=now−days, limit=200)` call, and Bybit's execution feed
+   is retention-bound, so the 682 historical trades' fills are **not recoverable**
+   via a wider `--days` (a wider `since` doesn't resurrect aged-out executions).
+3. **Netting** — even in-window, bybit_2's partial-fill netting makes round-trip
+   fee attribution ambiguous (5 ambiguous), the same root as the realized-PnL
+   under-record (`BL-20260713-BYBIT2-PNL-UNDERRECORD`).
+
+**All three cost gaps collapse to ONE operator action:** a Bybit UM
+**trade-history + funding export** → an offline reconciled **broker-truth
+cost+funding ledger** (extend `comms/broker_truth_ledger.json`, which already
+carries realized PnL). That single export closes realized-PnL under-record +
+funding=0 + fee coverage together. It is a **data-origination hand-off** (the
+one genuine operator action), not a puller/tooling change. Automation has taken
+this as far as it goes: the join key is backfilled, the sweep is idempotent and
+wired, and forward pulls will accrue new bybit_2 round-trips — but the historical
+population stays estimate-cost until the export lands.
+
 ## The headline — one sign-flip (P2)
 
 **`spy_pullback_1h / SPY` — gross ΣR +1.456 → net ΣR −0.457** (n_R=9, cost-drag +1.913 R).
@@ -103,6 +142,11 @@ The M24 P1/P2 **machinery is done and validated** — it computes true net-of-co
 R, produces a committed scorecard, and surfaced one real sign-flip candidate
 (`spy_pullback_1h`). But the **cost coverage is thin** (3/814 broker-truth,
 funding entirely absent), so the scorecard is an **estimate-cost** view. The
-binding next step for M24 to *matter* (P3/P4) is not more modeling — it is
-**broker-truth cost coverage**: widen the fills-store history and close the
-bybit_2 funding-visibility gap. Both are data steps, teed up for the operator.
+2026-07-18 diagnostic (above) proved the binding next step is **not** "widen the
+fills-store history" — that lever is dead (bybit-only architecture + Bybit
+retention + netting ambiguity). The single unblocker is a **Bybit UM
+trade-history + funding export → an offline broker-truth cost+funding ledger**,
+which closes realized-PnL under-record + funding=0 + fee coverage in one step.
+That is a data-origination **operator hand-off**; automation has taken it as far
+as it goes. Until it lands, P3/P4 either wait or must run on the estimate model
+with the caveat that the measured net-R distribution is ~99% estimate.
