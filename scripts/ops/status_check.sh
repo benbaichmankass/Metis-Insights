@@ -302,6 +302,40 @@ else
     echo "(no drop-in dir at ${DROPIN_DIR})"
 fi
 
+# Claude-ping drainer diagnosis (BL-20260718): the ict-claude-bridge +
+# ict-telegram-bot drainers read $DATA_DIR/runtime_logs/pending_claude_pings
+# via runtime_logs_dir(). They load ONLY .env (which has DATA_DIR stripped by
+# fix_data_dir.sh), so WITHOUT a data-dir.conf drop-in they inherit no DATA_DIR
+# and drain the REPO-path inbox — a different dir than the send-ping writer's
+# canonical /data/bot-data inbox — silently dropping every Claude Telegram ping.
+# Surface the drop-in presence + both inbox counts + delivery journal so the
+# split is diagnosable from the reliable status-check (the /api/diag relay is
+# not always reachable). Read-only; every step best-effort under set -e.
+echo
+echo "--- Claude-ping drainer drop-ins + inbox split (undelivered-ping diagnosis) ---"
+for _u in ict-claude-bridge ict-telegram-bot; do
+    _d="/etc/systemd/system/${_u}.service.d"
+    if [ -f "${_d}/data-dir.conf" ]; then
+        echo "== ${_u}: data-dir.conf PRESENT =="
+        cat "${_d}/data-dir.conf" 2>/dev/null || true
+    else
+        echo "!! ${_u}: NO data-dir.conf drop-in at ${_d} — inherits no DATA_DIR → drains REPO-path inbox (PATH SPLIT)"
+        ls -1 "${_d}" 2>/dev/null || true
+    fi
+done
+echo "-- pending_claude_pings inbox dirs (writer uses /data/bot-data; drainer must match) --"
+for _pd in /data/bot-data/runtime_logs/pending_claude_pings /home/ubuntu/ict-trading-bot/runtime_logs/pending_claude_pings; do
+    _n="$(ls -1 "${_pd}"/*.json 2>/dev/null | wc -l | tr -d ' ' || true)"
+    echo "  ${_pd}: ${_n:-0} queued .json"
+done
+echo "-- drainer journal (ping-delivery lines) --"
+for _u in ict-claude-bridge ict-telegram-bot; do
+    echo "== ${_u} =="
+    { journalctl -u "${_u}.service" -n 250 --no-pager 2>/dev/null \
+        | grep -iE "claude ping inbox|send skipped|trader-bot send|creds missing" \
+        | tail -6; } || echo "  (no ping-delivery lines / journal unreadable)"
+done
+
 if [ "${overall_ok}" -eq 0 ]; then
     record_audit "status-check" "ok" "{\"all_active\": true}" >/dev/null || true
     log "All canonical services active."
