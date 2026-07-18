@@ -1,0 +1,20 @@
+# ============================================
+# ICT TRAINER GIT SYNC TIMER
+# Triggers ict-trainer-git-sync.service every 15 minutes (lock-free, decoupled
+# from the daily training cycle so a stuck heavy job can't leave the trainer on
+# stale code). Save to: /etc/systemd/system/ict-trainer-git-sync.timer
+# ============================================
+
+[Unit]
+Description=Trigger ict-trainer-git-sync every 15 minutes
+Requires=ict-trainer-git-sync.service
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=15min
+RandomizedDelaySec=30
+Persistent=true
+Unit=ict-trainer-git-sync.service
+
+[Install]
+WantedBy=timers.target
