@@ -116,20 +116,24 @@ label into the real-money gate.
 - **Persistent fail:** `live_regime_discrimination` AUC **0.530** (< 0.55) — the
   head barely beats random live, and it **stays** there across daily retrains, so
   retraining alone does not fix it.
-- **Diagnosed root cause (`dataset_audit.jsonl`, `runtime_logs/trainer/`):** the
-  **`vol_bucket` feature is 100 % NaN — a dead feature** (`nan_fraction 1.0`,
-  quarantined) across the 15m regime manifests. `vol_bucket` is the **primary
-  categorical feature** in this *volatility-regime* head's manifest — so the head
-  trains with its main vol signal **entirely absent**, which plainly starves live
-  regime discrimination. The label is healthy (range/volatile balance fine). This
-  is a **dataset-build bug** (`vol_bucket` not populated in the `market_features`
-  BTCUSDT 15m v002 build), **not** a model-architecture problem.
-- **Verdict:** neither demote nor naive-retrain. The fix is a **Tier-1
-  data-pipeline repair** — restore `vol_bucket` population in the 15m
-  `market_features` build → retrain → re-check `live_regime_discrimination`. If
-  the vol signal comes alive and the AUC clears 0.55, the retrained version is
-  the promotion replacement (operator Tier-3). Tracked in
-  `MB-20260718-BTCREGIME-V2-DRIFT-DEMOTE`. The daily retrain keeps drift in check
-  meanwhile, so the live head stays up (not actively harmful; fail-permissive if
-  ever demoted). **This is the model-fixing answer to "what do we do instead of
-  demoting" — find the dead feature, fix the data, and the capability comes back.**
+- **A false lead, corrected (a caution the runbook now carries):** the
+  `manifest_audit_flagged` "dead feature" on `vol_bucket` (`nan_fraction 1.0`)
+  looked like the root cause — but it is a **false positive**. `vol_bucket` is a
+  healthy **categorical string** (`vol_b0`/`vol_b1`/`vol_b2`, `n_unique = 3`,
+  fully present); the dataset audit computed `nan_fraction` by numeric coercion,
+  so every non-numeric category read as NaN and the column false-flagged as dead
+  (`BL-20260718-AUDIT-CATEGORICAL-FALSEPOS`, fixed: the audit now counts only
+  *truly-missing* values and never flags a multi-value categorical). **Lesson: a
+  "dead feature" flag with `n_unique >= 2` is an audit artifact, not a dead
+  column — verify before asserting.**
+- **Actual verdict:** there is **no single dead-feature smoking gun.** The AUC
+  ≈ 0.53 is the genuine, fleet-wide **live-regime-discrimination weakness** — the
+  features (incl. the healthy `vol_bucket`) do not separate live regimes to the
+  0.55 bar, the same wall the vol-gate operating-curve study (`MB-20260701-001`,
+  negative) hit. So this is **not** a demote (drift self-corrected) and **not** a
+  quick data-repair; the forward lever is genuine feature/label research (better
+  discriminating inputs — cross-asset, funding, microstructure), shipped as a new
+  version and promoted only once it clears the gate (operator Tier-3). The daily
+  retrain keeps drift in check meanwhile, so the live head stays up (not actively
+  harmful; fail-permissive if ever demoted). Tracked in
+  `MB-20260718-BTCREGIME-V2-DRIFT-DEMOTE`.
