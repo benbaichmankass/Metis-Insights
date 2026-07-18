@@ -152,6 +152,48 @@ def test_mostly_missing_feature_flagged():
 
 
 # ---------------------------------------------------------------------------
+# categorical STRING feature (present, multi-value) → NOT flagged
+# (BL-20260718-AUDIT-CATEGORICAL-FALSEPOS: coercing non-numeric strings to NaN
+# false-flagged every string categorical — e.g. vol_bucket's vol_b0/b1/b2 —
+# as a dead column, even though it carries information the booster uses.)
+# ---------------------------------------------------------------------------
+def test_categorical_string_feature_not_flagged():
+    rows = _balanced_rows(n=90)
+    # vol_bucket: a healthy 3-value string categorical (fully present).
+    for i, r in enumerate(rows):
+        r["vol_bucket"] = f"vol_b{i % 3}"
+    manifest = _manifest(["log_return", "vol_bucket"])
+
+    report = audit_dataset(rows, manifest)
+    feats = {f["name"]: f for f in report["features"]}
+    vb = feats["vol_bucket"]
+    assert vb["flagged"] is False, vb.get("reason")
+    # present, informative categorical: 3 distinct values, zero truly-missing
+    assert vb["n_unique"] == 3
+    assert vb["nan_fraction"] == 0.0
+    # a healthy categorical must not quarantine the manifest by itself
+    assert report["quarantine"] is False
+
+
+# ---------------------------------------------------------------------------
+# constant (single-value) categorical → flagged (the categorical variance==0)
+# ---------------------------------------------------------------------------
+def test_constant_categorical_feature_flagged():
+    rows = _balanced_rows(n=60)
+    for r in rows:
+        r["cat_const"] = "only_one_value"
+    manifest = _manifest(["log_return", "cat_const"])
+
+    report = audit_dataset(rows, manifest)
+    feats = {f["name"]: f for f in report["features"]}
+    cc = feats["cat_const"]
+    assert cc["flagged"] is True
+    assert cc["n_unique"] == 1
+    assert "categorical" in (cc["reason"] or "")
+    assert report["quarantine"] is True
+
+
+# ---------------------------------------------------------------------------
 # DataFrame input is supported (duck-typed, no pandas import in the module)
 # ---------------------------------------------------------------------------
 def test_dataframe_input_supported():

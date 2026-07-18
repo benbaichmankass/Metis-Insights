@@ -262,31 +262,40 @@ def _audit_feature(
     """
     n = len(rows)
     try:
-        present_count = 0  # rows where the column key exists at all
-        nan_count = 0  # present-but-null/non-numeric/missing → "nan-ish"
+        present_count = 0  # rows with a real (non-missing) value
+        missing_count = 0  # key absent / None / "" → truly missing ("nan-ish")
+        nonnumeric_count = 0  # present but not float-coercible → a category value
         zero_count = 0  # numeric and == 0.0
         numeric_vals: list[float] = []
-        seen_raw: set[Any] = set()
+        seen_present: set[Any] = set()  # distinct PRESENT (non-missing) raw values
         seen_overflow = False
 
         for r in rows:
             has = name in r
-            if has:
-                present_count += 1
             raw = r.get(name)
-            # uniqueness over hashable raw values (categorical-aware)
+            # "Truly missing" = the column is absent, explicitly null, or an
+            # empty string. A present-but-non-numeric value (a category label
+            # like "vol_b0") is NOT missing — it carries information the booster
+            # uses as a categorical, so it must not count toward nan_fraction.
+            # Coercing non-numeric strings to NaN false-flagged every
+            # string-categorical feature (e.g. vol_bucket) as a dead column
+            # (BL-20260718-AUDIT-CATEGORICAL-FALSEPOS).
+            if (not has) or raw is None or raw == "":
+                missing_count += 1
+                continue
+            present_count += 1
+            # uniqueness over hashable PRESENT raw values (categorical-aware)
             if not seen_overflow:
                 try:
-                    seen_raw.add(raw)
-                    if len(seen_raw) > 1024:
+                    seen_present.add(raw)
+                    if len(seen_present) > 1024:
                         seen_overflow = True
                 except TypeError:
                     seen_overflow = True
             fv = _to_float(raw)
             if fv is None:
-                # missing key, explicit null, or non-numeric → counts toward
-                # "nan_fraction" (information the booster can't use as-is).
-                nan_count += 1
+                # present but non-numeric → a categorical value (informative).
+                nonnumeric_count += 1
                 continue
             numeric_vals.append(fv)
             if fv == 0.0:
@@ -300,8 +309,8 @@ def _audit_feature(
             )
 
         zero_fraction = zero_count / n
-        nan_fraction = nan_count / n
-        n_unique = (-1 if seen_overflow else len(seen_raw))
+        nan_fraction = missing_count / n  # TRULY-MISSING fraction only
+        n_unique = (-1 if seen_overflow else len(seen_present))
 
         # population variance over the numeric values present.
         variance: float | None
@@ -321,14 +330,14 @@ def _audit_feature(
                 f"zero_fraction {zero_fraction:.4f} >= {dead_fraction_threshold} "
                 "(dead/degenerate column — see BL-20260628-XA-TRAINING-ZERO)"
             )
-        # 2. fully/near-fully missing/non-numeric
+        # 2. fully/near-fully absent (TRULY missing — not merely non-numeric).
         if nan_fraction >= dead_fraction_threshold:
             reasons.append(
                 f"nan_fraction {nan_fraction:.4f} >= {dead_fraction_threshold} "
-                "(column absent / null / non-numeric for ~all rows)"
+                "(column absent / null for ~all rows)"
             )
-        # 3. constant column (zero variance among >=2 numeric values), but
-        #    don't double-flag the all-zero case already caught above.
+        # 3. constant NUMERIC column (zero variance among >=2 numeric values),
+        #    but don't double-flag the all-zero case already caught above.
         if (
             variance is not None
             and len(numeric_vals) >= 2
@@ -336,6 +345,20 @@ def _audit_feature(
             and zero_fraction < dead_fraction_threshold
         ):
             reasons.append("variance == 0 (constant feature)")
+        # 4. constant CATEGORICAL column — present, entirely non-numeric, but a
+        #    single distinct value carries no information (the categorical
+        #    analogue of variance==0). A multi-value categorical (n_unique >= 2,
+        #    e.g. vol_bucket's vol_b0/b1/b2) is HEALTHY and must NOT flag.
+        if (
+            present_count > 0
+            and not numeric_vals  # entirely non-numeric (a categorical)
+            and not seen_overflow
+            and n_unique <= 1
+            and nan_fraction < dead_fraction_threshold
+        ):
+            reasons.append(
+                "single-value categorical (constant / no information)"
+            )
 
         flagged = bool(reasons)
         return FeatureAudit(
