@@ -1581,8 +1581,14 @@
       "description": "Two data steps gate M24 mattering. (1) FUNDING VISIBILITY: the funding puller returns 0 for bybit_2 -- almost certainly a sub-account the current key cannot read (mirror of the realized-pnl under-record). Fix is a DATA-VISIBILITY one, not a puller code change: an operator Bybit UM funding export -> a broker_truth-style funding ledger, same pattern as comms/broker_truth_ledger.json for realized. (2) FEE COVERAGE: only 3/814 trades carry broker-truth FIFO fees; the exchange-fills store history needs widening (more of the fills window pulled + attributed) so cost_source=broker becomes the majority. Until BOTH improve, M24 P3 (cost-aware EV scorer refresh) + P4 (within-tick net-R ranker) are BLOCKED -- feeding a ~99%-estimate net-R distribution into the EV scorer just re-derives the fixed cost model, so P3/P4 wait on real coverage. Both P3/P4 are also Tier-3 (order-routing/sizing-affecting), operator-gated. The one sign-flip found (spy_pullback_1h/SPY gross +1.456R -> net -0.457R) is estimate-driven (SPY=alpaca equity, no broker-truth row) and must be confirmed against broker-truth before any Tier-3 demote. Refs: findings doc docs/research/M24-net-r-regrade-findings-2026-07-17.md; scorecard issue #6829; net_r_label #6806; regrade #6808; net-r-regrade action #6826.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-18T07:05:00+00:00",
+          "by": "claude (M24 cost-coverage diagnostic, 2026-07-18)",
+          "note": "DIAGNOSED (issue #6831 backfill-broker-truth-costs dry-run). The fee-coverage bottleneck is NOT the join key -- 691/814 closed trades already carry broker_order_id. It is fill availability + netting: only 98 fills in the store (recent ~7d window), 682 join-keyed trades have NO matching fill, and even in-window bybit_2 partial-fill netting leaves 5 ambiguous -> 0 new clean broker-truth attributions. Widening the puller --days is a DEAD lever: broker-truth is bybit-only (BROKER_PNL_READER_EXCHANGES={bybit}), the puller does a single non-paginated fetch_my_trades call, and Bybit execution retention aged out the 682 historical fills. CONCLUSION: all three cost gaps (realized-PnL under-record BL-20260713 + funding=0 + fee coverage) collapse to ONE operator action -- a Bybit UM trade-history + funding export -> an offline reconciled broker-truth cost+funding ledger (extend comms/broker_truth_ledger.json). Data-origination operator hand-off, not a tooling change. Automation is exhausted here. Details: docs/research/M24-net-r-regrade-findings-2026-07-17.md section Cost-coverage diagnostic."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-07-17T23:55:00+00:00"
+  "updated_at": "2026-07-18T07:05:00+00:00"
 }
