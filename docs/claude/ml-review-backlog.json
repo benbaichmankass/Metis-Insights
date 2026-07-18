@@ -1571,7 +1571,18 @@
           "note": "P1 sub-item 'fix promotion-readiness CLI to parse exit/peak-head shadow records (MB-20260716)' is ALREADY DONE on main via #6570 (row_keys derived from feature_row). Remaining P1: confirm rg4_targeted.sh runs clean + fix frozen MES base if stale. P2 (powered RG4 sweep) awaits soak maturation (fc re-check ~2026-07-20, ETH/SOL ~2026-08-01)."
         }
       ]
+    },
+    {
+      "id": "MB-20260717-M24-FUNDING-VISIBILITY",
+      "opened_at": "2026-07-17T23:55:00+00:00",
+      "opened_by": "claude (M24 P1/P2 net-R re-grade, 2026-07-17)",
+      "source": "M24 P1 net-R label pipeline (#6806) + P2 re-grade scorecard (#6808, run #6829). The net-R denominator is honest but thin: of 814 closed trades, only 3 carry FIFO broker-truth fees (cost_source=broker) and funding_paid_usd is 0 for EVERY trade. The per-symbol Bybit funding puller (#6826) deployed and ran cleanly but returned 0 funding records for bybit_2 over 30 days across all four traded perps (BTCUSDT/ETHUSDT/XRPUSDT/ADAUSDT), no exception. Most likely cause: same as BL-20260713-BYBIT2-PNL-UNDERRECORD -- bybit_2 funding accrued on a PRIOR sub-account the current API key cannot read. So crypto-perp net-R is fee-only and understates cost on funding-heavy holds; the whole scorecard is an ESTIMATE-cost view, not broker-truth.",
+      "title": "Close the M24 cost-coverage gap: bybit_2 funding visibility (0 records) + widen broker-truth fee coverage (3/814) before M24 P3/P4",
+      "description": "Two data steps gate M24 mattering. (1) FUNDING VISIBILITY: the funding puller returns 0 for bybit_2 -- almost certainly a sub-account the current key cannot read (mirror of the realized-pnl under-record). Fix is a DATA-VISIBILITY one, not a puller code change: an operator Bybit UM funding export -> a broker_truth-style funding ledger, same pattern as comms/broker_truth_ledger.json for realized. (2) FEE COVERAGE: only 3/814 trades carry broker-truth FIFO fees; the exchange-fills store history needs widening (more of the fills window pulled + attributed) so cost_source=broker becomes the majority. Until BOTH improve, M24 P3 (cost-aware EV scorer refresh) + P4 (within-tick net-R ranker) are BLOCKED -- feeding a ~99%-estimate net-R distribution into the EV scorer just re-derives the fixed cost model, so P3/P4 wait on real coverage. Both P3/P4 are also Tier-3 (order-routing/sizing-affecting), operator-gated. The one sign-flip found (spy_pullback_1h/SPY gross +1.456R -> net -0.457R) is estimate-driven (SPY=alpaca equity, no broker-truth row) and must be confirmed against broker-truth before any Tier-3 demote. Refs: findings doc docs/research/M24-net-r-regrade-findings-2026-07-17.md; scorecard issue #6829; net_r_label #6806; regrade #6808; net-r-regrade action #6826.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-17T17:35:00+00:00"
+  "updated_at": "2026-07-17T23:55:00+00:00"
 }
