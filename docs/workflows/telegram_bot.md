@@ -1,9 +1,18 @@
 # Unit 5 — Telegram Bot workflow
 
+> **⚠️ SUPERSEDED (2026-05, PR #1933).** The operator bot is now **menu-driven**,
+> not command-driven — the ~40 slash commands below (incl. `/halt` `/resume`
+> `/status` `/alerts` `/strategies` `/last5`) were **removed** and rebuilt into a
+> 4-item button menu. The authoritative current spec is
+> [`docs/TELEGRAM-SPEC.md`](../TELEGRAM-SPEC.md) (the single source of truth for
+> `@bict_trading_bot`); the Claude update channel is
+> [`docs/claude/telegram-pings.md`](../claude/telegram-pings.md). The command table
+> below is kept only as the historical pre-#1933 design record. (BL-20260525-001.)
+
 ## Responsibility
 User-facing interface. Pure Coordinator consumer — no direct DB or exchange calls.
 
-## Commands
+## Commands (REMOVED in #1933 — historical record only; see TELEGRAM-SPEC.md)
 | Command | Coordinator call |
 |---------|-----------------|
 | `/strategies` | `coordinator.dashboard_stats()["strategies"]` |

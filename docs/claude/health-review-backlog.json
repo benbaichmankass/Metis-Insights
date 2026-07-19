@@ -738,8 +738,8 @@
    "trigger_condition": "Next /health-review or doc pass.",
    "resolution_criteria": "ARCHITECTURE-CANONICAL change-log + ROADMAP carry the 2026-06-12 session's changes.",
    "check_log": [],
-   "status": "open",
-   "resolved_at": null,
+   "status": "invalid",
+   "resolved_at": "2026-07-19T08:05:00+00:00",
    "resolved_by": null,
    "resolution": null,
    "snoozed_until": null,
@@ -748,6 +748,11 @@
      "at": "2026-07-19T07:35:00+00:00",
      "by": "claude (/health-review 2026-07-19 full-drain)",
      "note": "Re-validated 2026-07-19: still valid \u2014 canonical-ledger entries for the 2026-06-12 session. Blocker: Tier-1 doc backfill."
+    },
+    {
+     "at": "2026-07-19T08:05:00+00:00",
+     "by": "claude (/health-review 2026-07-19 follow-up)",
+     "note": "CLOSED as superseded \u2014 verified this session that the 2026-06-12 session's substance is already captured in current canonical docs: mgc_trend_1h appears in ROADMAP (3x), the OANDA shelve is documented at length in the ROADMAP M15 row, and naked-position auto-protect's CURRENT state (the NAKED_POSITION_AUTOPROTECT gate was REMOVED 2026-06-15, now unconditional baseline) is in CLAUDE.md. Retroactively backfilling a 2026-06-12-dated ARCHITECTURE-CANONICAL change-log row would inject stale noise (that gate sub-item is now factually wrong), not value. The doc-completeness gap is moot."
     }
    ]
   },
@@ -1504,6 +1509,11 @@
      "at": "2026-07-19T07:35:00+00:00",
      "by": "claude (/health-review 2026-07-19 full-drain)",
      "note": "Re-validated 2026-07-19: partially-resolved stays \u2014 sweep docs/config comments referencing removed Telegram commands. Blocker: Tier-1 doc sweep (config comments in Tier-3 files excepted)."
+    },
+    {
+     "at": "2026-07-19T08:05:00+00:00",
+     "by": "claude (/health-review 2026-07-19 follow-up)",
+     "note": "Progressed this session. FIXED the two current-operational COMMAND-TABLE docs that presented removed slash-commands as current: docs/workflows/telegram_bot.md (Unit 5 \u2014 /halt//resume//status//alerts//strategies//last5) and docs/workflows/accounts-risk.md (/accounts_status, /risk_check) \u2014 both now carry a SUPERSEDED banner pointing at the SSOT docs/TELEGRAM-SPEC.md + label the tables as the pre-#1933 removed set. VERIFIED docs/TELEGRAM-SPEC.md is CORRECT (it describes the removal, menu-driven). REMAINING (kept partial): stale refs embedded in operator RUNBOOK PROCEDURES \u2014 live-smoke-test.md (/closeall emergency-flatten, /vm_write), colab-key-rotation.md (/set_keys, /smoke_test), setup-api-keys.md (/smoke_test). These need the CURRENT operator flow verified before rewriting (e.g. the Colab-rotation runbook may be wholesale superseded by sync-vm-secrets, not just a command-name swap; no current /closeall emergency-flatten path should be invented) \u2014 a flow-verified doc-freshness task, NOT a mechanical name-swap. Historical sprint-logs/summaries/audits deliberately left as the record."
     }
    ]
   },

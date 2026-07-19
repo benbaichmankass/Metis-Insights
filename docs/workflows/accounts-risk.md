@@ -88,14 +88,20 @@ this was raised by the now-removed `TradingAccount.place_order()`.)
 | `bybit` | `dry-bybit-<hex>` | needs injected `exchange_client` |
 | `breakout` | `dry-breakout-<hex>` | `NotImplementedError` (future) |
 
-## Telegram commands (Unit 6)
+## Telegram commands (Unit 6) — REMOVED in #1933
 
-| Command | Action |
+> **⚠️ SUPERSEDED (2026-05, PR #1933).** `/accounts_status` and `/risk_check`
+> were **removed** when the operator bot went menu-driven — account/PnL/risk
+> state is now surfaced through the dashboard + Android app (`/api/bot/*`) and
+> the menu, not slash commands. Table kept as historical record; current bot
+> spec: [`docs/TELEGRAM-SPEC.md`](../TELEGRAM-SPEC.md). (BL-20260525-001.)
+
+| Command (removed) | Action |
 |---------|--------|
 | `/accounts_status` | List all accounts with PnL, limit, and halted state |
 | `/risk_check <name>` | Full risk detail for one account |
 
-Both route through `Coordinator.accounts_status()`.
+Both routed through `Coordinator.accounts_status()`.
 
 ## Adding a new account
 
