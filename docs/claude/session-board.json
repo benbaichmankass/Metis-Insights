@@ -40,11 +40,11 @@
       "updated_at": "2026-07-16T00:00:00Z"
     },
     {
-      "session_id": "session_011d3hjgoY5QMSZPK4tuTpzN",
+      "session_id": "session_01XBSJPyL4k9HUje4miikC7q",
       "branch": "claude/ml-vol-regime-probe-21az61-f0au4r",
-      "intent": "HANDED OFF 2026-07-19 ~10:00Z to a Cowork successor session (operator-directed). State: PR #6917 MERGED; trainer verification bundle RUNNING (issue #6931, logs /tmp/mlsess_stage{1,2,3}*.log, sentinel /tmp/mlsess_DONE); close-out draft PR open on this branch (WS-B coverage + in-flight sprint log). Successor owns: read bundle results -> M23 P2 findings doc -> finalize sprint log -> close BL-20260717/BL-20260628 -> merge close-out PR -> week-plan WS-A. Slot free. This entry may be pruned by the successor once it registers.",
-      "started_at": "2026-07-19T07:45:00Z",
-      "updated_at": "2026-07-19T10:00:00Z"
+      "intent": "ML continuation — successor of session_011d3hjgoY5QMSZPK4tuTpzN (entry replaced per its handoff note). Owns: read trainer verification bundle (stage1 memfix / stage2 ETH xa / stage3 M23 P2) -> M23 P2 findings doc -> finalize sprint log -> disposition BL-20260717-TRAINER-SINGLE-MANIFEST-OOM + BL-20260628-XA-TRAINING-ZERO -> merge close-out PR #6934 -> research-week WS-A (M25 promotion harvest). Not touching #6926 scope. Slot free.",
+      "started_at": "2026-07-19T10:55:00Z",
+      "updated_at": "2026-07-19T10:55:00Z"
     },
     {
       "session_id": "session_01PKEYK1kKeXJXuG92GS2NB1",
