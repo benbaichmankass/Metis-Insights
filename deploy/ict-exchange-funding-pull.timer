@@ -1,0 +1,37 @@
+# ============================================
+# ICT EXCHANGE-FUNDING PULL TIMER (BL-20260719-FUNDING-NO-TIMER)
+# Fires the Bybit funding pull DAILY so funding_paid_usd is captured
+# continuously for the broker-truth cost sweep — the funding sibling of
+# ict-exchange-fills-pull.timer.
+#
+# Why this exists: the fills puller has had a daily timer since 2026-07-13, but
+# funding had only a manual system-action, so funding_paid_usd read 0 on the
+# M24 net-R re-grade. This unit closes that gap so fees AND funding are both
+# captured on the same daily cadence going forward.
+#
+# Cadence rationale: DAILY at 00:35 UTC — 15 min after the 00:20 UTC fills pull
+# so the two never contend on the same sqlite file, and clear of the ~00:50 UTC
+# trainer sync, the 06:05 UTC gateway reset, and IBKR's ~03:45-05:45 UTC reset
+# window. The pull is a few quick read-only Bybit API calls; --days 7
+# over-samples so a single missed run is fully recovered on the next fire, and
+# the funding_id primary key makes the overlap idempotent.
+#
+# Auto-enabled on the trader box by scripts/install_systemd_units.sh (it is not
+# a gateway-only or retired timer); the gateway VM + trainer never enable it.
+# Save to: /etc/systemd/system/ict-exchange-funding-pull.timer
+# ============================================
+
+[Unit]
+Description=Trigger ict-exchange-funding-pull daily (capture Bybit funding for the broker-truth cost sweep)
+Requires=ict-exchange-funding-pull.service
+
+[Timer]
+OnCalendar=*-*-* 00:35:00
+# Spread the fire a few minutes so it never lands exactly on another job.
+RandomizedDelaySec=300
+# Catch up one missed run if the VM was down at fire time.
+Persistent=true
+Unit=ict-exchange-funding-pull.service
+
+[Install]
+WantedBy=timers.target
