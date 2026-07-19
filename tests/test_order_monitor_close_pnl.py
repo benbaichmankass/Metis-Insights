@@ -224,9 +224,19 @@ class TestCloseTradeReduceLegDetection:
             capture=cap,
         )
         assert cap.get("reduce_leg") is True
-        # PnL attributed (success branch), not the NULL fallback.
-        assert db.trade_updates[2491].get("pnl") == 2.0988
+        # BL-20260711 CONTRACT CHANGE (reverses the #2974 attribution): a reduce
+        # leg's pnl is DEFERRED (NULL). On a netting account the qty-matched
+        # closed_pnl record is the PARENT position's realized close, so booking
+        # it onto this bookkeeping leg fabricates a phantom win/loss (the observed
+        # entry==exit +$561/+620/+898 rows). apply_intent_reduce_partial_close
+        # leaves reduce-leg pnl NULL by design and the parent's full close carries
+        # the realized pnl; the read-path mask (exclude_reduce_leg_predicate)
+        # excludes reduce legs regardless, so #2974's attribution populated a
+        # field nothing reads. The leg still closes with a recovered exit_price.
+        assert db.trade_updates[2491].get("pnl") is None
         assert db.trade_updates[2491]["status"] == "closed"
+        _notes = db.trade_updates[2491].get("notes") or ""
+        assert "deferred_intent_reduce" in _notes
 
     def test_reduce_leg_detected_from_notes_flag(self):
         cap = {}

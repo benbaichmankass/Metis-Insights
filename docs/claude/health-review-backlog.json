@@ -35,7 +35,7 @@
    "title": "Reconciler books an intent_reduce leg with a phantom non-NULL pnl (entry==exit) \u2014 contradicts apply_intent_reduce_partial_close's NULL-pnl design",
    "description": "A reduce leg is meant to carry NULL pnl (src/units/accounts/execute.py::apply_intent_reduce_partial_close leaves pnl/pnl_percent NULL, pnl_source='deferred_intent_reduce'), and order_monitor already treats reduce legs specially (is_reduce_leg). But some intent_reduce rows get closed via the reconciler_filled path with entry_price==exit_price AND a large fabricated positive pnl (trend_donchian demo 2604 +$561.28 / 2607 +$620.17 / 2610 +$898.60 \u2014 all entry==exit). That phantom pnl inflates any analytics that don't explicitly exclude reduce legs. Observed on DEMO here so no real-money impact, and the new exclude_reduce_leg_predicate (src/web/api/_clean_trades.py, applied in /strategy/attribution) now MASKS it in the read path \u2014 but the WRITE path should not book the phantom pnl at all (a real-money intent_reduce reconciler-flip would otherwise inject a fabricated win/loss upstream of any single reader). ROOT-CAUSE belongs to the reconciler close path (order_monitor.py _reconcile_open_trades / the reconciler_filled pnl computation for a row whose setup_type='intent_reduce'): it should defer/NULL the pnl for a reduce leg the same way the open-time path does, or skip pnl computation when entry==exit on a reduce leg. Cross-ref: the exclude_reduce_leg guard is defense-in-depth in the analytics layer; this item is the upstream write-path fix.",
    "tier": 2,
-   "status": "open",
+   "status": "resolved",
    "trigger_condition": "Next /health-review touching the reconciler close path, OR a real-money intent_reduce leg appears with a non-NULL reconciler pnl.",
    "resolution_criteria": "The reconciler close path leaves pnl NULL (or a deferred marker) for an intent_reduce reduce leg instead of booking a phantom entry==exit pnl; a test covers a reduce-leg reconciler close asserting NULL pnl.",
    "snoozed_until": null,
@@ -44,8 +44,14 @@
      "at": "2026-07-19T07:35:00+00:00",
      "by": "claude (/health-review 2026-07-19 full-drain)",
      "note": "Re-validated 2026-07-19: still valid, Tier-2 code (reconciler books intent_reduce leg with phantom non-NULL pnl entry==exit, contradicts apply_intent_reduce_partial_close NULL-pnl design). Not independently re-triggered this window. Blocker: Tier-2 reconciler fix."
+    },
+    {
+     "at": "2026-07-19T09:00:00+00:00",
+     "by": "claude (/health-review 2026-07-19 Tier-2 fixes, operator-approved)",
+     "note": "FIXED (operator-approved 2026-07-19, Tier-2). Write-path fix, 2 sites in order_monitor.py: (1) _close_trade_from_order_status now gates the pnl write on `not is_reduce_leg` + stamps pnl_source='deferred_intent_reduce' (a reduce leg's qty-matched closed_pnl on a netting account is the PARENT's realized close, so booking it fabricated the entry==exit +$561/+620/+898 rows); (2) _sweep_local_pnl_for_unpriced scan now excludes intent_reduce rows so the universal fallback can't re-fabricate the NULL. Reverses the #2974 attribution (which the read-path exclude_reduce_leg_predicate masked anyway); updated its test. Regression tests added (test_order_monitor_close_pnl reduce-leg assertion flipped + test_reconciler_reduce_and_shadow). Latent real-money PnL-integrity fix (bybit_2 netting)."
     }
-   ]
+   ],
+   "resolved_at": "2026-07-19T09:00:00+00:00"
   },
   {
    "id": "BL-20260708-IB-WARMUP-WEDGE-RECUR",
@@ -234,15 +240,21 @@
    "tier": 2,
    "trigger_condition": "Next order-package watchdog code session; one operator OK (runtime change).",
    "resolution_criteria": "A shadow-strategy package reaching end-of-life carries the distinct status; orphan-rate queries exclude it; existing 9 rows optionally backfilled.",
-   "status": "open",
+   "status": "resolved",
    "snoozed_until": null,
    "updates": [
     {
      "at": "2026-07-19T07:35:00+00:00",
      "by": "claude (/health-review 2026-07-19 full-drain)",
      "note": "Re-validated 2026-07-19: still valid \u2014 order_packages this window still show execution:shadow packages with close_reason 'prop_shadow_no_emit' (a distinct terminal status was added for the prop path). Blocker: Tier-2 (give shadow packages a non-orphan terminal status so soak noise doesn't pollute orphan metrics)."
+    },
+    {
+     "at": "2026-07-19T09:00:00+00:00",
+     "by": "claude (/health-review 2026-07-19 Tier-2 fixes, operator-approved)",
+     "note": "FIXED (operator-approved 2026-07-19, Tier-2). Added pass (1.5) to order_monitor._sweep_unlinked_packages: resolves execution_mode(strategy_name) in Python and relabels execution:shadow unlinked packages 'shadow_expired' (close_reason='shadow_no_execute') BEFORE the BUG-049 orphan UPDATE, so shadow-soak noise never lands in orphan-rate analytics. Fail-permissive (execution_mode unknown\u2192'live', so a real orphan is never mislabelled shadow; whole block wrapped best-effort). Every existing orphan query is `!= 'orphaned'` so it auto-excludes the new status. Regression test test_reconciler_reduce_and_shadow::test_sweep_unlinked_packages_shadow_vs_live."
     }
-   ]
+   ],
+   "resolved_at": "2026-07-19T09:00:00+00:00"
   },
   {
    "id": "BL-20260705-PROP-RETICKET-WHILE-OPEN",
@@ -3111,7 +3123,7 @@
    "description": "One mgc_trend_1h MGC position (order_package pkg-81602a3b78e14f) appears as 18 CLOSED trade rows, ALL with identical entry_price 4318.872 + position_size 8, ALL notes.adopted_by=reverse_reconciler, adopted_at spanning 06-17 18:48->19:20 UTC, each booking a phantom sl_cross loss (sum -$20,127.68) on ib_paper. ROOT CAUSE: _reconcile_orphan_exchange_positions (src/runtime/order_monitor.py) creates a NEW orphan_adopt trade each time it sees the position unmatched, instead of recognising the prior adoption's open row as already covering it \u2014 so a flapping IB-gateway portfolio (empty->present->empty during the 06-17 evening IBKR reset window) spawns a fresh adopted trade per blip. ADOPT-side sibling of BL-20260614-ORPHANBLIP (which fixed the CLOSE-side re-orphan via the 2-observation close-confirm). Pollutes mgc_trend_1h stats; risks N-way realised-PnL double-count if it hits real-money bybit_2.",
    "suggested_fix": "Before creating an orphan_adopt row, check for an EXISTING open trade on the same (account,symbol,side,~entry/size) and re-attach/skip rather than adopt-again; or key adoption idempotency on the exchange position id. Add a regression test replaying empty->present->empty gateway snapshots. Consider a 2-observation confirm on the ADOPT side too.",
    "tier": 2,
-   "status": "open",
+   "status": "resolved",
    "snoozed_until": null,
    "confirmed": {
     "at": "2026-06-18T13:15:00+00:00",
@@ -3139,8 +3151,14 @@
      "at": "2026-07-19T07:35:00+00:00",
      "by": "claude (/health-review 2026-07-19 full-drain)",
      "note": "Re-validated 2026-07-19: NOT reproducing this window \u2014 orphan_events.jsonl shows no new IB re-adopt flap since 2026-07-07 (12 days), and the RECONCILER_READOPT_GUARD_SECONDS + IB_CLOSE_CONFIRM_S fixes are live. Kept open pending durable multi-week verification (it's episodic on IB-gateway flap). Blocker: verification-soak, Tier-2 if it recurs."
+    },
+    {
+     "at": "2026-07-19T09:00:00+00:00",
+     "by": "claude (/health-review 2026-07-19 Tier-2 fixes, operator-approved)",
+     "note": "RESOLVED (operator-approved residual hardening 2026-07-19). Verified this review the HEADLINE is already fixed on main: the adopt path dedups against every open row (order_monitor.py `known` set + guard) so it cannot spawn concurrent duplicate opens, and the 18-row storm's mechanism (close\u2192re-adopt flap) is contained by RECONCILER_READOPT_GUARD_SECONDS + the 2-observation close-confirm. Residual (a flap SLOWER than the 300s window \u2192 a single dup, the real-money double-count risk) hardened by widening _DEFAULT_READOPT_GUARD_SECONDS 300\u21921800 (covers the full IBKR reset window). Safe: the guard suppresses-AND-alerts (never silently strands) and the adopt path only fires for un-matched orphan positions. A fully position-continuity-aware guard is the documented follow-up if 30 min proves insufficient."
     }
-   ]
+   ],
+   "resolved_at": "2026-07-19T09:00:00+00:00"
   },
   {
    "id": "BL-20260618-STALEHEARTBEAT",
@@ -3596,15 +3614,21 @@
    "source": "docs/audits/order-packages-zero-qty-2026-06-26.md; coordinator.py _log_new_order_package(:936) serializes pkg.meta at package CREATION, before the per-account sizing loop (sized_qty_by_account bound empty at :855, populated at :1481). The DB row is never re-written post-sizing, so order_packages.meta.sized_qty_by_account is always {} and aggregated_target_qty always 0 (the sentinel) for EVERY package.",
    "title": "[observability] order_packages.meta serialized pre-sizing \u2192 sized_qty_by_account always empty in the journal",
    "description": "The field that exists to show per-account sizing is dead `{}` in every persisted order_packages row because meta is snapshotted at creation, before sizing runs. This led the 2026-06-26 system-report (RPT-20260626-060200) to read `aggregated_target_qty:0 / sized_qty_by_account:{}` as evidence of a zero-sizing bug when both are normal at-creation states (target_qty=0 is the RiskManager-decides sentinel; sized_qty_by_account is just unpopulated at log time). The real per-account cause lives only in the trades rejection rows. DRAFT FIX (branch claude/order-packages-zero-qty-eaofnv, coordinator.py): best-effort re-persist of the post-sizing meta after the dispatch loop \u2014 additive, observability-only, no execution change. Tier-3 (touches the order-path file) \u2192 draft, awaiting operator approval. Also consider stamping the dominant per-account refusal cause (zero_balance vs netting-guard vs hold-policy) into the no_fill roll-up so consumers needn't join trades.",
-   "status": "open",
+   "status": "resolved",
    "snoozed_until": null,
    "updates": [
     {
      "at": "2026-07-19T07:35:00+00:00",
      "by": "claude (/health-review 2026-07-19 full-drain)",
      "note": "Re-validated 2026-07-19: CONFIRMED \u2014 order_packages.meta this window still shows sized_qty_by_account:{} (serialized pre-sizing). Observability gap. Blocker: Tier-2 code (snapshot meta post-sizing)."
+    },
+    {
+     "at": "2026-07-19T09:00:00+00:00",
+     "by": "claude (/health-review 2026-07-19 Tier-2 fixes, operator-approved)",
+     "note": "RESOLVED. The core fix (post-sizing meta re-persist) was ALREADY on main (coordinator.py:2293, verified this review). Added the operator-approved enhancement 2026-07-19: fold the per-account refusal cause into pkg.meta['refusal_causes_by_account'] before the re-persist, so a consumer sees WHY each account didn't size, not just an empty sized_qty_by_account. Observability-only, same best-effort wrapper, no execution effect."
     }
-   ]
+   ],
+   "resolved_at": "2026-07-19T09:00:00+00:00"
   },
   {
    "id": "BL-20260626-ALPACA-WHOLEUNIT-LATENT",

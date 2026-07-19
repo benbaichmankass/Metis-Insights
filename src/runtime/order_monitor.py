@@ -1718,7 +1718,20 @@ _CLOSE_FAIL_STREAK: Dict[tuple, int] = {}
 # direction) whose ``adopted_orphan`` row closed within this window — a
 # just-closed adopted orphan that reappears is a flap, not a genuinely new
 # position. ``0`` disables the guard. Read at call time (next-tick effect).
-_DEFAULT_READOPT_GUARD_SECONDS = 300
+#
+# BL-20260618 residual hardening (2026-07-19): widened 300 → 1800 (30 min). The
+# dominant real flap is the IBKR ~03:45–05:45 UTC reset window (gateway logout →
+# empty portfolio → back), which can span well beyond 5 min; a 300s window let a
+# slower flap re-adopt a SINGLE duplicate (the real-money double-count risk on
+# bybit_2). Widening is SAFE because the guard SUPPRESSES-AND-ALERTS
+# (``detect_only``), never silently strands — a false-suppress of a genuinely
+# new position surfaces as an operator alert with the exchange position still
+# SL-/operator-protected, so the worst case is recoverable, not lost. The adopt
+# path only fires for UN-matched (orphan) positions anyway, so a real strategy
+# position (which carries a journal row) never reaches this guard. A fully
+# position-continuity-aware guard (track last broker-confirmed-flat per key) is
+# the documented follow-up if 30 min proves insufficient.
+_DEFAULT_READOPT_GUARD_SECONDS = 1800
 
 # Fresh-fill grace (BL-20260622-ALPACA-SNAPSHOT-FALSECLOSE): the P3b
 # position-snapshot reconciler closes a strategy-attributed row whose
@@ -3901,6 +3914,52 @@ def _sweep_unlinked_packages(db) -> int:
                 (now_iso, now_iso),
             )
             rejected_relabelled = conn.execute("SELECT changes()").fetchone()[0]
+            # (1.5) execution:shadow packages NEVER link a trade by design
+            #     (config/strategies.yaml execution: shadow — data-only: logs
+            #     order packages everywhere but never sends a live order). A
+            #     shadow package that never links a trade is NOT an orphan;
+            #     mark it 'shadow_expired' (not 'orphaned') so shadow-soak noise
+            #     never pollutes orphan-rate analytics and reviews stop chasing
+            #     phantom orphans (BL-20260705-SHADOW-PKG-ORPHAN-STATUS). SQLite
+            #     can't call execution_mode(), so resolve in Python over the same
+            #     candidate set path (2) below matches; shadow rows are then no
+            #     longer status='open', so path (2) skips them. Fail-permissive:
+            #     execution_mode() unknown→'live', so only genuinely-configured
+            #     shadow strategies are ever relabelled (a real orphan is never
+            #     mislabelled shadow).
+            shadow_relabelled = 0
+            try:
+                from src.strategy_registry import execution_mode as _exec_mode
+                _cands = conn.execute(
+                    "SELECT order_package_id, strategy_name FROM order_packages "
+                    "WHERE status = 'open' "
+                    "  AND linked_trade_id IS NULL "
+                    "  AND datetime(created_at) <= datetime('now', '-5 minutes')"
+                ).fetchall()
+                _shadow_ids = [
+                    r[0] for r in _cands
+                    if _exec_mode(str(r[1] or "")) == "shadow"
+                ]
+                if _shadow_ids:
+                    _ph = ",".join("?" * len(_shadow_ids))
+                    conn.execute(
+                        "UPDATE order_packages "
+                        "SET status = 'shadow_expired', "
+                        "    close_reason = 'shadow_no_execute', "
+                        "    updated_at = ?, "
+                        "    meta = json_set(COALESCE(meta, '{}'), "
+                        "        '$.shadow_expired_at', ?, "
+                        "        '$.shadow_expired_by', 'monitor_reconciler', "
+                        "        '$.shadow_expired_reason', "
+                        "        'execution:shadow strategy — logs packages, never executes; not an orphan') "
+                        f"WHERE order_package_id IN ({_ph})",
+                        (now_iso, now_iso, *_shadow_ids),
+                    )
+                    shadow_relabelled = conn.execute("SELECT changes()").fetchone()[0]
+            except Exception as _sx:  # noqa: BLE001 — never break the sweep
+                logger.debug(
+                    "_sweep_unlinked_packages: shadow relabel skipped: %s", _sx
+                )
             # (2) Genuinely never-dispatched packages (no fill, no rejection row) —
             #     the original BUG-049 orphan sweep.
             conn.execute(
@@ -3917,17 +3976,23 @@ def _sweep_unlinked_packages(db) -> int:
                 "  AND datetime(created_at) <= datetime('now', '-5 minutes')",
                 (now_iso, now_iso),
             )
-            affected = rejected_relabelled + conn.execute("SELECT changes()").fetchone()[0]
+            affected = (
+                rejected_relabelled
+                + shadow_relabelled
+                + conn.execute("SELECT changes()").fetchone()[0]
+            )
             conn.commit()
         finally:
             conn.close()
         if affected:
             logger.info(
                 "_sweep_unlinked_packages: reconciled %d unlinked open package(s) "
-                "(%d relabelled from journalled rejection, %d orphaned)",
+                "(%d relabelled from journalled rejection, %d shadow_expired, "
+                "%d orphaned)",
                 affected,
                 rejected_relabelled,
-                affected - rejected_relabelled,
+                shadow_relabelled,
+                affected - rejected_relabelled - shadow_relabelled,
             )
         return affected
     except Exception as exc:  # noqa: BLE001
@@ -5239,8 +5304,20 @@ def _close_trade_from_order_status(
         _entry_current = _safe_float(row.get("entry_price"))
         if _entry_avg_price > 0 and _entry_avg_price != _entry_current:
             updates["entry_price"] = _entry_avg_price
+        if is_reduce_leg:
+            # BL-20260711: a reduce leg's pnl is DEFERRED — the parent leg
+            # carries the realized pnl. On a NETTING account the qty-matched
+            # closed_pnl record is the PARENT position's realized close, so
+            # booking it onto this bookkeeping leg fabricates a phantom
+            # win/loss (the entry==exit +$561/+620/+898 rows). Leave
+            # pnl/pnl_percent NULL, matching the
+            # apply_intent_reduce_partial_close 'deferred_intent_reduce'
+            # contract; _sweep_local_pnl_for_unpriced also skips reduce legs
+            # so the universal fallback can't re-fabricate it.
+            notes["pnl_source"] = "deferred_intent_reduce"
+            updates["notes"] = dump_capped(notes, 500)
         _closed_pnl_val = closed_pnl_rec.get("closed_pnl")
-        if _closed_pnl_val is not None:
+        if _closed_pnl_val is not None and not is_reduce_leg:
             try:
                 updates["pnl"] = float(_closed_pnl_val)
                 # Use the post-update entry value for the pnl_percent
@@ -6213,6 +6290,14 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
                 "   AND COALESCE(is_backtest, 0) = 0 "
                 "   AND pnl IS NULL "
                 "   AND COALESCE(position_size, 0) > 0 "
+                # BL-20260711: exclude intent_reduce reduce legs — their pnl is
+                # DEFERRED (NULL) by design (apply_intent_reduce_partial_close),
+                # so this universal mark-to-market fallback must NOT re-fabricate
+                # it after _close_trade_from_order_status correctly leaves it
+                # NULL. Keep this predicate in lockstep with the canonical
+                # src.web.api._clean_trades.exclude_reduce_leg_predicate.
+                "   AND COALESCE(setup_type, '') != 'intent_reduce' "
+                "   AND COALESCE(notes, '') NOT LIKE '%\"intent_reduce\": true%' "
                 "   AND datetime(created_at) >= datetime('now', '-14 days') "
                 " ORDER BY datetime(created_at) DESC "
                 " LIMIT 100"
