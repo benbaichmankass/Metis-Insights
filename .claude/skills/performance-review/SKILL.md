@@ -5,6 +5,17 @@ description: Autonomous review of the ICT trading bot's TRADING PERFORMANCE — 
 
 # /performance-review — trading + strategy performance review
 
+> **⚠️ READ FIRST — WHAT THIS SESSION IS.** This is **full end-to-end QA of the
+> trading/strategy layer**, NOT a scan-and-sweep-under-the-rug exercise. Your job
+> is to actively **HUNT** for issues (bad decisions, correctness gaps in scoring,
+> strategies quietly bleeding, money-at-risk conditions), **ROOT-CAUSE** them,
+> **PROPOSE** the exact fix or tweak, decide the Tier-3 calls **WITH the
+> operator**, and then **drive** them. **Finding a fixable issue and logging it to
+> a backlog as a post-it note instead of driving it is a REVIEW FAILURE** — that
+> is how problems become operational catastrophes. You can ALWAYS weigh in with
+> the operator — but raising the flags is YOUR job; never passively wait for the
+> operator to point at the problem. This framing governs every review session.
+
 This is the **trading-performance** session of the three-way review
 split (`/health-review` covers system/pipeline health,
 `/ml-review` covers the training center + model lifecycle). It grades

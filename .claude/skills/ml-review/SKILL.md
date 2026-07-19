@@ -5,6 +5,17 @@ description: Autonomous review of the ICT bot's ML LIFECYCLE — trainer service
 
 # /ml-review — model/training lifecycle review
 
+> **⚠️ READ FIRST — WHAT THIS SESSION IS.** This is **full end-to-end QA of the
+> ML lifecycle**, NOT a scan-and-sweep-under-the-rug exercise. Your job is to
+> actively **HUNT** for issues (broken/degenerate models, stalled cycles, GIGO
+> datasets, drift, a live head quietly failing), **ROOT-CAUSE** them, **PROPOSE**
+> the exact fix or experiment, decide the Tier-3 promotion/demotion calls **WITH
+> the operator**, and then **drive** them. **Finding a fixable issue and logging
+> it to a backlog as a post-it note instead of driving it is a REVIEW FAILURE** —
+> that is how problems become operational catastrophes. You can ALWAYS weigh in
+> with the operator — but raising the flags is YOUR job; never passively wait for
+> the operator to point at the problem. This framing governs every review session.
+
 This is the **ML-lifecycle** session of the three-way review split
 (`/health-review` covers system health, `/performance-review` covers
 trading + strategy scoring). It reviews the trainer VM, every model in

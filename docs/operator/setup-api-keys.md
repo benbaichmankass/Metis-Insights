@@ -1,9 +1,20 @@
 # Setting up API keys for the ICT trading bot
 
+> **⚠️ Command interface updated (2026-05, #1933).** The Telegram verification
+> commands this guide references (`/accounts_status`, `/smoke_test`) were
+> **removed** when the bot went menu-driven. Where you see them below, use the
+> current surface instead: **account balances** → the dashboard / Android app
+> **Accounts** view or `GET /api/bot/accounts/balances`; **smoke test** →
+> `ALLOW_LIVE_TRADING=1 python scripts/smoke_test_trade.py` (see
+> [`docs/runbooks/live-smoke-test.md`](../runbooks/live-smoke-test.md)).
+> Credential propagation to the VM is the `sync-vm-secrets` workflow (see
+> [`.github/workflows/sync-vm-secrets.yml`](../../.github/workflows/sync-vm-secrets.yml)).
+> (BL-20260525-001.)
+
 End-to-end walkthrough for wiring real Bybit API keys into the bot,
 post-S-023. After this you should see a real USDT balance for every
-account in `/accounts_status` and have Telegram alerts on any future
-API failure.
+account (dashboard / Android **Accounts** view) and have Telegram alerts on any
+future API failure.
 
 **Total time:** ~15 minutes if Bybit account already exists.
 **Touchable surface:** your local laptop (filling the template),
@@ -270,10 +281,13 @@ why — see "Troubleshooting" below.
 
 ## Step 7 — Smoke-test before going live
 
-Before letting the bot place real strategy orders, run a smoke test:
+Before letting the bot place real strategy orders, run a smoke test.
+(The `/smoke_test` Telegram command was removed in #1933; the smoke test
+now runs via the script + one-shot unit — see
+[`docs/runbooks/live-smoke-test.md`](../runbooks/live-smoke-test.md)):
 
 ```
-/smoke_test
+ALLOW_LIVE_TRADING=1 python scripts/smoke_test_trade.py
 ```
 
 This sends a deliberately too-small order to each account. Bybit will

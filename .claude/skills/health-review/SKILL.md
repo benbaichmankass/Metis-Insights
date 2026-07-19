@@ -5,6 +5,18 @@ description: Autonomous layer-2 review of the LIVE ICT TRADING BOT's TECHNICAL r
 
 # /health-review — technical/pipeline/data-health review of the live ICT bot
 
+> **⚠️ READ FIRST — WHAT THIS SESSION IS.** This is **full end-to-end QA of the
+> live system**, NOT a scan-and-sweep-under-the-rug exercise. Your job is to
+> actively **HUNT** for issues (bugs, correctness gaps, money-at-risk conditions,
+> silent regressions), **ROOT-CAUSE** them, **PROPOSE** the exact fix, decide the
+> Tier-2/3 calls **WITH the operator**, and then **FIX** them — this session.
+> **Finding a fixable bug and logging it to a backlog as a post-it note instead of
+> driving it to a fix is a REVIEW FAILURE** — that is exactly how bugs become
+> operational catastrophes. You can ALWAYS weigh in with the operator (the session
+> need not run fully autonomously) — but raising the flags is YOUR job, not
+> theirs; never passively wait for the operator to point at the problem. This
+> framing governs every review session, sub-reviews included.
+
 This is the **system-health** session of the three-way review split (the
 others are `/performance-review` for trading + strategy scoring and
 `/ml-review` for the training center + model lifecycle). It reviews the
