@@ -107,6 +107,13 @@ everything else side-built at pinned versions the nightly never clobbers
   sat 45d stale). **FIXED**: flag enabled on the trainer units (cloud-init +
   on-box), so the nightly refreshes the side-stream and joins it.
 
+### F6b — live shadow-serving chain VERIFIED healthy
+
+vm-diag #6923: `shadow_predictions.jsonl` fresh to the minute; 15+ heads
+actively scoring at `shadow` (per-bar regime scorers for BTC/ETH/SOL 5m+15m,
+MES fleet, the ETH 1h base + xasset heads). The live consumption half of the
+chain needs no fixes.
+
 ### F7 — `ict-trainer-catchup.timer` inactive on the box (FIXED on-box)
 
 The checkpoint/resume design depends on the catch-up run; the 7-day cycle
