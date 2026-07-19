@@ -96,7 +96,7 @@ write_files:
       Type=oneshot
       User=ubuntu
       WorkingDirectory=/home/ubuntu/ict-trading-bot
-      MemoryHigh=3G
+      MemoryHigh=infinity
       MemoryMax=5G
       # MemorySwapMax caps per-cgroup swap (2026-07-10, MB-20260709): with the
       # 8G swapfile + the systemd default MemorySwapMax=infinity, a child that
@@ -112,8 +112,13 @@ write_files:
       # OOMPolicy=continue (one failed unit + continue, which
       # run_training_cycle.sh already handles) instead of dragging the whole box
       # through 8G of swap. Normal builds peak <5G RAM so this is untouched; it
-      # only bites a genuine runaway. MemoryHigh lowered 4G->3G so reclaim starts
-      # earlier. The real peak-RSS reduction is the market_features streaming
+      # only bites a genuine runaway. MemoryHigh REMOVED (=infinity) on 2026-07-19
+      # (BL-20260719): with swap=0, a soft MemoryHigh throttle no longer prevents
+      # swap-thrash (there is no swap) — instead it stalled a legit sub-5G manifest
+      # (btc-regime-5m-lgbm-v2, ~4.4G) in DIRECT-reclaim D-state (0% CPU, another
+      # 90-min wedge). Removing it lets a sub-5G manifest train freely; a true >5G
+      # runaway still hits MemoryMax=5G and is OOM-killed. Verified live: the
+      # stalled manifest resumed at 89% CPU once MemoryHigh was raised to infinity. The real peak-RSS reduction is the market_features streaming
       # refactor (separate PR); this makes the box unkillable meanwhile.
       MemorySwapMax=0
       OOMPolicy=continue
@@ -172,7 +177,7 @@ write_files:
       Type=oneshot
       User=ubuntu
       WorkingDirectory=/home/ubuntu/ict-trading-bot
-      MemoryHigh=3G
+      MemoryHigh=infinity
       MemoryMax=5G
       # MemorySwapMax caps per-cgroup swap (2026-07-10, MB-20260709): with the
       # 8G swapfile + the systemd default MemorySwapMax=infinity, a child that
@@ -188,8 +193,13 @@ write_files:
       # OOMPolicy=continue (one failed unit + continue, which
       # run_training_cycle.sh already handles) instead of dragging the whole box
       # through 8G of swap. Normal builds peak <5G RAM so this is untouched; it
-      # only bites a genuine runaway. MemoryHigh lowered 4G->3G so reclaim starts
-      # earlier. The real peak-RSS reduction is the market_features streaming
+      # only bites a genuine runaway. MemoryHigh REMOVED (=infinity) on 2026-07-19
+      # (BL-20260719): with swap=0, a soft MemoryHigh throttle no longer prevents
+      # swap-thrash (there is no swap) — instead it stalled a legit sub-5G manifest
+      # (btc-regime-5m-lgbm-v2, ~4.4G) in DIRECT-reclaim D-state (0% CPU, another
+      # 90-min wedge). Removing it lets a sub-5G manifest train freely; a true >5G
+      # runaway still hits MemoryMax=5G and is OOM-killed. Verified live: the
+      # stalled manifest resumed at 89% CPU once MemoryHigh was raised to infinity. The real peak-RSS reduction is the market_features streaming
       # refactor (separate PR); this makes the box unkillable meanwhile.
       MemorySwapMax=0
       OOMPolicy=continue
