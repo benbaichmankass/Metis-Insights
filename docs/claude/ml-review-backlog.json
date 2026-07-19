@@ -1778,6 +1778,26 @@
    "status": "open",
    "snoozed_until": null,
    "updates": []
+  },
+  {
+   "id": "MB-20260719-MES-BASE-RTH-ONLY",
+   "opened_at": "2026-07-19T15:30:00+00:00",
+   "opened_by": "claude (WS-A M25 promotion harvest 2026-07-19)",
+   "title": "MES 5m candle base is RTH-only (90 bars/day, 13:30-21:00Z) while the live head scores the full ~23h session -- caps RG4 labeling at ~35% and starves promotion power",
+   "source": "WS-A MES RG4 re-read after the 07-19 base refresh: unlabeled stayed 1215/1863 despite fresh coverage through 07-17 20:55Z. Per-day diagnostic (trainer-diag #6984/#6985/#6986): datasets-out/market_raw/MES/5m/v002 has EXACTLY 90 bars/day, 13:30:00Z-20:55:00Z, zero intra-day gaps -- a US-RTH window -- while mes-regime-5m-lgbm-v2 logs ~255-260 shadow rows/day across the full CME session. 90/260 = 0.346 matches the labeled fraction 648/1863 = 0.348 exactly. The 44-day-freeze fix (BL-20260626-MES-BASE-STALE) solved staleness but NOT this: the labeling ceiling is structural session-window coverage, not recency.",
+   "description": "Root-cause which layer forces RTH: scripts/ops/pull_mes_ibkr_history.sh passes use_rth=false to ml/datasets/percontract_pull.py (and adapters/ibkr_offvm.py defaults use_rth=False), yet the v002 rows (source=ibkr_offvm) are strictly 13:30-21:00Z. Suspects: (a) the continuous/resample stitcher (ml/datasets/continuous.py) dropping overnight bars, (b) the cycle's yfinance fallback rebuild writing RTH-shaped rows that keep the inherited source tag, (c) an IBKR-side whatToShow/contract-hours interaction. FIX = full-session MES 5m base. Payoff is immediate and retroactive: the 1215 already-logged unlabeled shadow rows re-label on the next RG4 read once overnight bars exist (~3x power without waiting weeks). SECONDARY finding: the head TRAINED on this RTH-only base but live-scores the full session -- 2/3 of its live scores are out-of-distribution vs training hours; the promotion packet must either restrict the head's influence to RTH or retrain on the full-session base.",
+   "resolution_criteria": "MES/5m market_raw base carries the full CME session (~250+ bars/trading day); a fresh RG4 read shows unlabeled fraction < 0.2; the train-hours vs serve-hours mismatch is dispositioned (retrain on full-session base OR RTH-scoped serving) before any MES promotion packet goes to the operator.",
+   "status": "open",
+   "tier": "T1",
+   "trigger_condition": "Before the mes-regime-5m-lgbm-v2 Tier-3 promotion packet (MB-20260627-002); also unblocks the M26 P0 MES episode coverage.",
+   "updated_at": "2026-07-19T15:30:00+00:00",
+   "evidence_log": [
+    {
+     "at": "2026-07-19T15:27:00+00:00",
+     "note": "trainer-diag #6983 (RG4 re-read: 0.7143 TRUSTWORTHY, UNPOWERED 7/40 vol bars 1/5 episodes, n=648, unlab=1215), #6985 (90 bars/day vs 255-260 shadow rows/day), #6986 (13:30-20:55Z gap-free window)."
+    }
+   ],
+   "updates": []
   }
  ],
  "updated_at": "2026-07-18T10:15:00+00:00"
