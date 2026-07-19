@@ -115,7 +115,7 @@ Exactly two declared, default-permissive switches decide whether a strategy
 trades — both visible in YAML and surfaced on `/api/bot/config`:
 
 - **Account level** — `config/accounts.yaml::mode: live | dry_run`. The only path that may write `mode:` is the `set-account-mode` system-action (operator-gated).
-- **Strategy level** — `config/strategies.yaml::execution: live | shadow`. `live` (default) executes; `shadow` runs and logs order packages everywhere (live data collection) but never sends a live order. Enforced in `Coordinator.multi_account_execute` by folding into the same `effective_dry` resolution as `mode:` — no new order path.
+- **Strategy level** — `config/strategies.yaml::execution: live | shadow`. `live` (default) executes; `shadow` runs and logs order packages everywhere (live data collection) but never sends a live order. Enforced in `Coordinator.multi_account_execute` by folding into the same `effective_dry` resolution as `mode:` — no new order path. **(Exception: the M22 market-neutral pairs sleeve is an ISOLATED 2-leg order path — `src.units.strategies.pairs_executor.run_pairs_tick`, called once per tick from `src/main.py`, NOT via `multi_account_execute`. Its `execution: shadow | live` gate lives in `config/pairs.yaml` and is enforced inside `pairs_executor` itself, not the coordinator fold. BL-20260715-PAIRS-EXEC-GATE-DOC.)**
 
 Both default permissive, so omitting either never strands capability — a
 strategy or account is demoted only by an *explicit* `dry_run` / `shadow`.

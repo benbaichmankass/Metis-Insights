@@ -72,14 +72,17 @@ sudo systemctl start ict-smoke-once.service
 sudo journalctl -u ict-smoke-once.service -f
 ```
 
-Or via `/vm` from Telegram:
+Or via the legacy `/vm` Telegram runner (removed #1933 — see the note below; run it through `system-actions` or a direct ops SSH instead):
 
 ```
 /vm sudo systemctl start ict-smoke-once.service && journalctl -u ict-smoke-once.service -n 100 --no-pager
 ```
 
-(Tier-2 on `/vm_write` because it's a state mutation; the dispatcher
-asks for Confirm/Cancel.)
+(**Note (2026-05, #1933):** the `/vm` / `/vm_write` Telegram command-runner
+referenced here was **removed** — VM state mutations now run through the
+**`system-actions`** workflow (labelled issue; Tier-2 actions need an operator
+OK in chat) or a direct ops SSH. The `scripts/smoke_test_trade.py` +
+`ict-smoke-once.service` mechanism below is unchanged.)
 
 ## What success looks like
 
@@ -111,7 +114,10 @@ asks for Confirm/Cancel.)
   on the configured testnet/mainnet.
 
 If the close leg fails on a filled step, the position is left open.
-**Operator: flatten with `/closeall` immediately**.
+**Flatten immediately via the `flatten-{ib,bybit,alpaca}-position` system-action**
+(open a `system-action` labelled issue with `action: flatten-<venue>-position`,
+`account: <id>`, `symbol: <SYM>`, `apply: true`; dry-run is the default). The
+legacy `/closeall` Telegram command was removed in #1933.
 
 ## Re-running
 

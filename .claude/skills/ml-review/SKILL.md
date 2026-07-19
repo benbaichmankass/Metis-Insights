@@ -5,6 +5,17 @@ description: Autonomous review of the ICT bot's ML LIFECYCLE — trainer service
 
 # /ml-review — model/training lifecycle review
 
+> **⚠️ READ FIRST — WHAT THIS SESSION IS.** This is **full end-to-end QA of the
+> ML lifecycle**, NOT a scan-and-sweep-under-the-rug exercise. Your job is to
+> actively **HUNT** for issues (broken/degenerate models, stalled cycles, GIGO
+> datasets, drift, a live head quietly failing), **ROOT-CAUSE** them, **PROPOSE**
+> the exact fix or experiment, decide the Tier-3 promotion/demotion calls **WITH
+> the operator**, and then **drive** them. **Finding a fixable issue and logging
+> it to a backlog as a post-it note instead of driving it is a REVIEW FAILURE** —
+> that is how problems become operational catastrophes. You can ALWAYS weigh in
+> with the operator — but raising the flags is YOUR job; never passively wait for
+> the operator to point at the problem. This framing governs every review session.
+
 This is the **ML-lifecycle** session of the three-way review split
 (`/health-review` covers system health, `/performance-review` covers
 trading + strategy scoring). It reviews the trainer VM, every model in
@@ -355,19 +366,37 @@ trainer hasn't touched, a feature that prior reviews suspected (cite
 the backlog item), an alternative target horizon, a hyperparam sweep
 on a stuck model.
 
-## Draining the backlog
+## Draining the backlog — a HARD COMPLETION GATE (not a sample)
 
-Read `docs/claude/ml-review-backlog.json` — the parking lot for
-**AI experiments, manifest ideas, feature engineering follow-ups,
-promotion-criteria notes** from prior sessions. (Health and
-performance backlogs are not touched here.) For each open item:
+**An ml-review is NOT complete until every open item in
+`docs/claude/ml-review-backlog.json` has been triaged THIS run.**
+Triaging a sample / "the recent few" is a review failure — the backlog
+IS the standing open-task list. (Health and performance backlogs are
+not touched here; each of the three reviews enforces this same gate on
+its own list.)
 
-1. Triage: still valid? does the new cycle's data close it?
-2. **Act on what you can** — convert resolved items to a closed
-   `proposed_tweak` / `experiment` in this review's output, or close
-   as `invalid`; otherwise leave open with any new evidence appended.
-3. Edit the backlog file: mark resolved/invalid items, keep deferred
-   items. Record each action in `backlog_drain[]`.
+**Enumerate the FULL open set, then walk it 100%:**
+
+1. **Count first.** Filter to every item whose `status` is not a
+   terminal-resolved value (`resolved`/`closed`/`done`/`invalid`/
+   `wont_fix`/`superseded`). Record `open_at_start` — you must touch
+   every one.
+2. **For EACH open item:** re-validate against this cycle's registry /
+   training / drift data; then disposition into exactly one bucket —
+   **resolved** (the new cycle closes it / the experiment landed),
+   **fixed_now** (an in-scope write — a proposal filed, the backlog
+   itself), **invalid/superseded** (stale), or **kept_open** (still
+   needs a training run / more soak / a Tier-3 promotion decision — add
+   an update with this run's re-validation + the blocker, so it never
+   sits stale-and-unlooked).
+3. **Write it back** + record EVERY item's disposition in
+   `backlog_drain[]` (array length == `open_at_start`).
+
+**Coverage assertion (the gate).** Emit `backlog_coverage:
+{open_at_start, triaged, resolved, fixed_now, closed_stale, kept_open,
+count_untriaged}`. **`count_untriaged` MUST be 0.** A review with
+`count_untriaged > 0` is INCOMPLETE — do not post the ping or report it
+done. The ping cites `X/Y backlog items triaged`.
 
 New backlog items added here are for **ML/experiment follow-ups
 only**. Each item carries `id`, `opened_at`, `opened_by`, `source`,

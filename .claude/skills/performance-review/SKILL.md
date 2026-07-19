@@ -5,6 +5,17 @@ description: Autonomous review of the ICT trading bot's TRADING PERFORMANCE — 
 
 # /performance-review — trading + strategy performance review
 
+> **⚠️ READ FIRST — WHAT THIS SESSION IS.** This is **full end-to-end QA of the
+> trading/strategy layer**, NOT a scan-and-sweep-under-the-rug exercise. Your job
+> is to actively **HUNT** for issues (bad decisions, correctness gaps in scoring,
+> strategies quietly bleeding, money-at-risk conditions), **ROOT-CAUSE** them,
+> **PROPOSE** the exact fix or tweak, decide the Tier-3 calls **WITH the
+> operator**, and then **drive** them. **Finding a fixable issue and logging it to
+> a backlog as a post-it note instead of driving it is a REVIEW FAILURE** — that
+> is how problems become operational catastrophes. You can ALWAYS weigh in with
+> the operator — but raising the flags is YOUR job; never passively wait for the
+> operator to point at the problem. This framing governs every review session.
+
 This is the **trading-performance** session of the three-way review
 split (`/health-review` covers system/pipeline health,
 `/ml-review` covers the training center + model lifecycle). It grades
@@ -285,21 +296,36 @@ These are **proposals**, not commits. The operator decides. If the
 proposal is too uncertain to recommend, file it as a backlog item
 instead (§ "Draining the backlog").
 
-## Draining the backlog
+## Draining the backlog — a HARD COMPLETION GATE (not a sample)
 
-Read `docs/claude/performance-review-backlog.json` — the parking lot
-for **strategy follow-ups, tweak ideas to revisit, performance
-puzzles** that prior sessions noticed but didn't have enough evidence
-to act on. (Health/ML backlogs are not touched here.) For each open
-item:
+**A performance-review is NOT complete until every open item in
+`docs/claude/performance-review-backlog.json` has been triaged THIS
+run.** Triaging a sample / "the recent few" is a review failure — the
+backlog IS the standing open-task list. (Health/ML backlogs are not
+touched here; each of the three reviews enforces this same gate on its
+own list.)
 
-1. Triage: is it still valid? does the new window's data resolve it?
-2. **Act on what you can** — if the new window's data closes the
-   question, propose the tweak (or close as `invalid`); otherwise
-   leave it open.
-3. Edit the backlog file: mark resolved items resolved, keep
-   deferred items, drop invalid ones. Record each action in
-   `backlog_drain[]`.
+**Enumerate the FULL open set, then walk it 100%:**
+
+1. **Count first.** Filter to every item whose `status` is not a
+   terminal-resolved value (`resolved`/`closed`/`done`/`invalid`/
+   `wont_fix`/`superseded`). Record `open_at_start` — you must touch
+   every one.
+2. **For EACH open item:** re-validate against this window's data;
+   then disposition into exactly one bucket — **resolved** (the new
+   data closes it / the tweak shipped), **fixed_now** (an in-scope
+   write — a proposal filed, the backlog itself), **invalid/superseded**
+   (stale), or **kept_open** (still needs more evidence / a Tier-3
+   decision — add an update with this run's re-validation + the
+   blocker, so it never sits stale-and-unlooked).
+3. **Write it back** + record EVERY item's disposition in
+   `backlog_drain[]` (array length == `open_at_start`).
+
+**Coverage assertion (the gate).** Emit `backlog_coverage:
+{open_at_start, triaged, resolved, fixed_now, closed_stale, kept_open,
+count_untriaged}`. **`count_untriaged` MUST be 0.** A review with
+`count_untriaged > 0` is INCOMPLETE — do not post the ping or report it
+done. The ping cites `X/Y backlog items triaged`.
 
 New backlog items added by this skill are for **performance
 follow-ups only** (not system bugs — those go to the health backlog).

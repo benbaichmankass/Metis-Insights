@@ -1,5 +1,14 @@
 # Rotating API keys via Colab — no SSH required
 
+> **⚠️ Command interface updated (2026-05, #1933).** The Telegram commands this
+> guide references (`/set_keys`, `/accounts_status`, `/smoke_test`) were
+> **removed** when the bot went menu-driven. Open the notebook via the **Open in
+> Colab** link below (not `/set_keys`); verify balances via the dashboard /
+> Android **Accounts** view (or `GET /api/bot/accounts/balances`); run the smoke
+> test via `ALLOW_LIVE_TRADING=1 python scripts/smoke_test_trade.py`. This
+> operator-self-service Colab flow still works; the **Claude-driven** credential
+> path is the `sync-vm-secrets` workflow. (BL-20260525-001.)
+
 The simple workflow. You set your secrets once in Colab, then any time
 you need to push new keys to the trading VM you just open the notebook
 and click `Runtime → Run all`.
@@ -141,7 +150,7 @@ documents.
 
 ## Each time you rotate keys
 
-1. Open the notebook (Telegram `/set_keys` returns the link).
+1. Open the notebook (the **Open in Colab** link at the top of this doc; the old Telegram `/set_keys` link-fetch command was removed in #1933).
 2. Update whichever Colab Secret you're rotating (Bybit key, etc.) **OR** if rotating the SSH key, replace the file in `My Drive/ICT_Bot_Secrets/` with the new one (same filename).
 3. **`Runtime → Run all`**.
 
@@ -151,9 +160,13 @@ access" dialog. After that, no further interaction.
 The notebook prints clear ✅/❌ for each step. If something fails, it
 tells you what — see Troubleshooting below.
 
-When the cells finish, in Telegram:
-- **`/accounts_status`** — every account should show ✅ with a real USDT balance.
-- **`/smoke_test`** — each account should return ✅ `rejected_too_small`.
+When the cells finish, verify (the `/accounts_status` + `/smoke_test` Telegram
+commands were removed in #1933):
+- **Balances** — check the dashboard / Android app **Accounts** view (or
+  `GET /api/bot/accounts/balances`); every account should show a real balance.
+- **Smoke test** — run `ALLOW_LIVE_TRADING=1 python scripts/smoke_test_trade.py`
+  (see [`docs/runbooks/live-smoke-test.md`](../runbooks/live-smoke-test.md));
+  each account should return ✅ `rejected_too_small`.
 
 Done.
 
@@ -325,4 +338,4 @@ and one systemd restart. Nothing else on the VM is touched.
   land in `.env.live`.
 - `src/runtime/api_reporting.py` — the function that pings Telegram
   with the direct Bybit retCode/retMsg if a key is wrong.
-- Telegram `/set_keys` — replies with the open-in-Colab link.
+- ~~Telegram `/set_keys`~~ — **removed (#1933)**; use the **Open in Colab** link at the top of this doc.
