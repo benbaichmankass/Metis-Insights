@@ -122,6 +122,13 @@ write_files:
       # refactor (separate PR); this makes the box unkillable meanwhile.
       MemorySwapMax=0
       OOMPolicy=continue
+      # Funding/OI side-stream on for the nightly BTC builds (ml-infra audit
+      # 2026-07-19): the two btc-regime-1h funding heads list funding_* feature
+      # columns that are 0.0 unless build_trainer_datasets.sh gets
+      # ICT_BUILD_FUNDING_OI=1 — default-off left them silently training on
+      # zeros (the BL-20260628-XA-TRAINING-ZERO class) with the funding_oi
+      # side-stream 45d stale. Research-only heads; one cheap Bybit fetch/night.
+      Environment=ICT_BUILD_FUNDING_OI=1
       ExecStart=/bin/bash scripts/ops/run_training_cycle.sh
       StandardOutput=journal
       StandardError=journal
@@ -203,6 +210,13 @@ write_files:
       # refactor (separate PR); this makes the box unkillable meanwhile.
       MemorySwapMax=0
       OOMPolicy=continue
+      # Funding/OI side-stream on for the nightly BTC builds (ml-infra audit
+      # 2026-07-19): the two btc-regime-1h funding heads list funding_* feature
+      # columns that are 0.0 unless build_trainer_datasets.sh gets
+      # ICT_BUILD_FUNDING_OI=1 — default-off left them silently training on
+      # zeros (the BL-20260628-XA-TRAINING-ZERO class) with the funding_oi
+      # side-stream 45d stale. Research-only heads; one cheap Bybit fetch/night.
+      Environment=ICT_BUILD_FUNDING_OI=1
       ExecStart=/bin/bash scripts/ops/run_training_cycle.sh
       StandardOutput=journal
       StandardError=journal

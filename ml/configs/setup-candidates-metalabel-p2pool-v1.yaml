@@ -1,0 +1,96 @@
+# M23 Phase-2 (P2) — LABEL-VOLUME-expanded pooled meta-label (`won` target).
+#
+# The P1 conclusion (docs/research/M23-phase1-C1-results-2026-07-17.md) localized
+# the wall to LABEL VOLUME: every Phase-1 lever (τ sweep, regression, faithfulness
+# haircut) capped the net-positive region at ~2–11 trades because the eval book
+# was 376 real trades and the train pool 1,685 backtest rows — all BTCUSDT-only.
+# P2 pushes the volume lever on BOTH sides by pooling THREE symbols
+# (BTCUSDT + ETHUSDT + SOLUSDT, each with 5y of 1h market_raw on the trainer):
+#   - TRAIN: the 3-strategy harness roster (trend_donchian@1h,
+#     squeeze_breakout_4h@4h, htf_pullback_trend_2h@2h) replayed per symbol
+#     → up to 9 legs of is_backtest=1 rows (~3× the P1 pool).
+#   - EVAL: `live_trades_db` appends EACH pooled symbol's REAL closed trades,
+#     so the real holdout grows past the BTC-only 376 (the binding ceiling).
+# Cross-symbol pooling follows the S-MLOPT-S8 xsym lesson: `symbol` rides as a
+# categorical feature so the head can condition on it.
+#
+# Build (scripts/ml/m23_phase2_labelvol.sh drives this end-to-end):
+#   python -m ml.datasets build setup_candidates --output-dir datasets-out \
+#     --version v020 --source market_raw --symbol-scope all --timeframe all --overwrite -- \
+#     "market_raw_paths=<BTC 1h>,<ETH 1h>,<SOL 1h>" backtest_trades_db=<tmp.db> \
+#     live_trades_db=data/trade_journal.db include_cusum=false
+#
+# GATE (recomputed, not hardcoded): majority accuracy + win base rate are derived
+# from the NEW pooled eval book by the orchestrator (P1's 0.756/0.244 were
+# BTC-book constants and do not transfer).
+#
+# TIER: adopting / promoting past `research_only` is Tier-3 (operator-gated).
+
+manifest_version: v1
+model_id: setup-candidates-metalabel-p2pool-v1
+description: "M23 P2 label-volume leg (won target): the pooled backtest-train + real live_holdout eval expanded from BTC-only to BTC+ETH+SOL — 3-strategy harness roster replayed per symbol on the train side, each symbol's real closed trades appended on the eval side, with `symbol` as a categorical feature (xsym lesson). Re-runs the population-matched fair test at ~3× label volume."
+model_family: regression_lightgbm
+trainer: ml.trainers.lightgbm_regression.LightGBMRegressionTrainer
+trainer_config:
+  target_column: won
+  feature_columns:
+    - direction
+    - symbol
+    - rolling_log_return_vol
+    - log_return
+    - vol_bucket
+    - momentum
+    - hour_of_day
+    - dayofweek
+    - log_return_lag_1
+    - log_return_lag_2
+  categorical_columns:
+    - direction
+    - symbol
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  # Outcome / label / source columns — never features.
+  forbidden_features:
+    - won
+    - won_r
+    - label
+    - r_multiple
+    - r_multiple_source
+    - ret
+    - barrier_touched
+    - is_live_trade
+    - event_source
+    - entry_price
+    - signal_vol
+    - holding_bars
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 15
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    lambda_l2: 1.0
+dataset:
+  family: setup_candidates
+  symbol_scope: all
+  timeframe: all
+  version: v020
+evaluator: ml.evaluators.classification.ClassificationEvaluator
+evaluator_config:
+  target_column: won
+  threshold: 0.5
+  split_strategy: live_holdout
+  live_flag_column: is_live_trade
+  time_column: ts
+target_deployment_stage: research_only
+notes: |
+  M23 P2 (MB-20260717-M23-META-LABEL): the label-volume expansion re-run of the
+  population-matched fair test. Identical stack to
+  setup-candidates-metalabel-backtest-v1 except: 3-symbol pooled dataset
+  (v020, symbol_scope all) + `symbol` categorical feature. The orchestrator
+  (scripts/ml/m23_phase2_labelvol.sh) recomputes the majority-accuracy and
+  win-base-rate references from the pooled eval book instead of reusing the
+  BTC-only 0.756/0.244 constants. Promotion past `research_only` is Tier-3.

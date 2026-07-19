@@ -96,16 +96,17 @@ EXPECTED_SERVICES = {
     # the Ampere box). Live-trader-box only via install_systemd_units.sh auto-enable;
     # secondary-priority, skipped by deploy_pull_restart.sh DEFAULT_SKIP.
     "ict-exchange-fills-pull.service",
-    # 2026-07-18 (#6859): dedicated code-only trainer git-sync timer
-    # (ict-trainer-git-sync.timer). Fixes the 495-commit trainer-VM drift by
-    # pulling code separately from the data sync. Trainer-VM only via
-    # install_systemd_units.sh role-gated auto-enable.
-    "ict-trainer-git-sync.service",
-    # 2026-07-19 (#6901, BL-20260719-FUNDING-NO-TIMER): daily Bybit funding-fee
-    # pull (ict-exchange-funding-pull.timer) so realised-PnL funding costs are
-    # captured on schedule instead of manually. Live-trader-box only via
-    # install_systemd_units.sh auto-enable; secondary-priority.
+    # 2026-07-19: daily Bybit funding pull (BL-20260719-FUNDING-NO-TIMER, PR #6901).
+    # Timer-fired oneshot (ict-exchange-funding-pull.timer) that runs the funding
+    # puller so the M24 go-forward fee+funding capture accrues without manual runs.
+    # Live-trader-box only via install_systemd_units.sh auto-enable.
     "ict-exchange-funding-pull.service",
+    # 2026-07-18: trainer-VM git self-heal (BL-20260718-TRAINER-GITSYNC-STALE, PR
+    # #6859). Timer-fired oneshot (ict-trainer-git-sync.timer) that keeps the
+    # trainer checkout on origin/main between nightly cycles (the trainer ran
+    # ~500 commits stale with a dead forecast producer before this). TRAINER-VM
+    # only (role-gated by install_systemd_units.sh); never on the live trader.
+    "ict-trainer-git-sync.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to

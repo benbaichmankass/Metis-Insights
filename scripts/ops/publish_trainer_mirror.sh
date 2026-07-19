@@ -445,7 +445,7 @@ SSH_OPTS="-i ${VM_SSH_KEY} -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o B
 # `models/` is read by the WS7 shadow factory; `trainer/` +
 # `experiments-runs/` are read by the dashboard router.
 ssh ${SSH_OPTS} "${LIVE_VM_USER}@${LIVE_VM_IP}" \
-  "mkdir -p '${LIVE_VM_MIRROR_PATH}/trainer' '${LIVE_VM_MIRROR_PATH}/experiments-runs' '${LIVE_VM_MIRROR_PATH}/models' '${LIVE_VM_MIRROR_PATH}/calibration' '${LIVE_VM_MIRROR_PATH}/forecasts' '${LIVE_VM_MIRROR_PATH}/exit_head'" \
+  "mkdir -p '${LIVE_VM_MIRROR_PATH}/trainer' '${LIVE_VM_MIRROR_PATH}/experiments-runs' '${LIVE_VM_MIRROR_PATH}/models' '${LIVE_VM_MIRROR_PATH}/calibration' '${LIVE_VM_MIRROR_PATH}/forecasts' '${LIVE_VM_MIRROR_PATH}/exit_head' '${LIVE_VM_MIRROR_PATH}/promotion_readiness'" \
   || { emit "$(printf '{"ts":"%s","status":"mkdir_failed"}' "$(iso_now)")"; exit 1; }
 
 push_one() {
@@ -567,6 +567,26 @@ if [ -d "$EXIT_HEAD_ROOT" ]; then
     --exclude='*' \
     "${EXIT_HEAD_ROOT}/" \
     "${LIVE_VM_USER}@${LIVE_VM_IP}:${LIVE_VM_MIRROR_PATH}/exit_head/" \
+    || overall_rc=1
+fi
+
+# Promotion-readiness reports (M25). run_promotion_readiness.sh + the
+# `ml promotion-readiness` CLI both write
+# runtime_logs/trainer_mirror/promotion_readiness/<UTC-date>/{report.json,SUMMARY.md}
+# and their docs asserted "the existing rsync picks it up" — but no push block
+# existed, so every readiness report was stranded trainer-local (ml-infra audit
+# 2026-07-19, interface-drift F3). Mirror the small text artifacts per date dir;
+# -d guard keeps this a no-op until the first readiness run.
+PROMOTION_READINESS_ROOT="${PROMOTION_READINESS_ROOT:-$REPO_ROOT/runtime_logs/trainer_mirror/promotion_readiness}"
+if [ -d "$PROMOTION_READINESS_ROOT" ]; then
+  rsync -az --no-perms --no-owner --no-group \
+    -e "ssh ${SSH_OPTS}" \
+    --include='*/' \
+    --include='*.json' \
+    --include='*.md' \
+    --exclude='*' \
+    "${PROMOTION_READINESS_ROOT}/" \
+    "${LIVE_VM_USER}@${LIVE_VM_IP}:${LIVE_VM_MIRROR_PATH}/promotion_readiness/" \
     || overall_rc=1
 fi
 

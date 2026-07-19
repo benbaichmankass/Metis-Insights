@@ -52,7 +52,11 @@ dataset:
   family: market_features
   symbol_scope: ETHUSDT
   timeframe: 1h
-  version: v001
+  # v001 was the frozen one-shot side-build snapshot (stale since ~2026-06-17);
+  # the nightly rebuilds ETH 1h market_features at v002 — with the cross-asset
+  # side-stream since 2026-07-19 (BL-20260628-XA-TRAINING-ZERO) — so the pin
+  # moved to v002 to end the version split-brain (audit 2026-07-19).
+  version: v002
 evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
 evaluator_config:
   target_column: direction_label

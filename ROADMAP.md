@@ -278,6 +278,33 @@ autonomous; every live-influencing step is Tier-3.
    powered-RG4 readiness packets for the maturing soaks (fc heads lead; ETH/SOL vol heads
    incl. the xasset head merged tonight); promotion stays the operator's Tier-3 switch.
 
+**Long-horizon research & testing plan (operator-directed 2026-07-19):**
+[`docs/research/AI-TRADER-RESEARCH-PLAN-2026-07-19.md`](docs/research/AI-TRADER-RESEARCH-PLAN-2026-07-19.md)
+— the authority-ladder north star (observe→advise→gate→size→select→generate),
+three thrusts (label manufacturing L1–L6 · fleet harvest/prune · ladder
+climbing incl. the G1/G2 ML-native entry frontier), and the standing testing
+methodology. Weekly plans draw from it.
+
+**Research-week plan 07-20 → 07-26 (operator-approved 2026-07-19).** Theme:
+harvest what's matured + build the data plumbing three programs are queued
+behind — no new frontiers. One workstream per session; claim on the
+session-board, merge via the protocol; workstreams are file-disjoint. Soak
+gates (fc→advisory powered-RG4; ETH/SOL vol heads re-check ~08-01) stay on the
+review cadence — do NOT babysit. Precondition landed 2026-07-19: the ml-infra
+audit ([`docs/audits/ml-infra-audit-2026-07-19.md`](docs/audits/ml-infra-audit-2026-07-19.md))
+fixed the recurring rework classes (5m OOM projection, version split-brain,
+xa/funding dead features, promotion-readiness mirror stranding, harness label
+override, catchup timer).
+
+| WS | Scope | Key items | Tier | Week deliverable |
+|---|---|---|---|---|
+| **A** | M25 P1+P2 promotion harvest | PROMOREADY schema residuals, powered-RG4 sweep per matured head, `mes-regime-5m-lgbm-v2` packet (MB-20260627-002), P4 demote sweep, decide MB-20260626-003 | T1 (packets → T3) | Per-head PROMOTE-PROPOSE/WAIT/NEVER memos + ≥1 Tier-3 promotion packet |
+| **B** | market_raw coverage expansion — **start first, feeds C+E** | MB-20260712-EXIT-ANALYSIS-COVERAGE (alt-USDT shards ADA/AVAX/XRP + equities/metals daily bars); rerun m20_exit_analysis full-fleet | T1 | New shards building nightly; full-fleet chop-hold diagnostics |
+| **C** | M23 P2 → P3 | Read the 3-symbol P2 result (this session's run); widen → P3 per-cell head prep on the strongest cell, else extend pooling to the 4h alt cells (needs B) | T1 (P3 reg → T3) | P2 findings doc + go/no-go on P3 |
+| **D** | M24 P3 prep while fees accrue (build, don't babysit) | MB-20260629-ALLOC-CORR correlation feature; spy_pullback_1h sign-flip review packet; EV-refresh dry-run on estimate costs | T1 | Correlation feature soaking observe-only; P3 = config flip when broker-truth fees suffice |
+| **E** | Strategy refinement | PB-20260630-003 fill-rate investigation (squeeze 1.2%/htf 9%); PB-20260707-MGC-PULLBACK-1H walk-forward + compat matrix; PB-20260712-PULLBACK-TRAIL4 walk-forward; PB-20260630-ICTSCALP-DEGRADE disposition | T1 research → T3 proposals | 2–3 evidence-backed Tier-3 proposals |
+| **F** | Maker-carry sleeve research | PB-20260715-MAKER-CARRY net-of-fee backtest under the real fee schedule | T1 | Verdict; Tier-3 wiring proposal only if it clears |
+
 **Soak clocks — watch on cadence, don't rush the gate:**
 
 - **`fc` → advisory** (`MB-20260705-FC-ADVISORY-READINESS`) — BTC+ETH+SOL 15m fc heads at
