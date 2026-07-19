@@ -170,7 +170,7 @@ def find_conflicts(con) -> list[dict]:
     tcol = _first(cols, "ts", "timestamp", "created_at", "time")
     out = []
     like = f"%{HOLD_MARK}%"
-    q = f"SELECT * FROM signals WHERE meta LIKE ? OR (reason IS NOT NULL AND reason LIKE ?)" \
+    q = "SELECT * FROM signals WHERE meta LIKE ? OR (reason IS NOT NULL AND reason LIKE ?)" \
         if "reason" in cols else "SELECT * FROM signals WHERE meta LIKE ?"
     params = (like, like) if "reason" in cols else (like,)
     try:
@@ -209,7 +209,7 @@ def open_trades_at(con, symbol: str, ts: float) -> list[dict]:
     if not ocol:
         return []
     sel = con.execute(
-        f"SELECT * FROM trades WHERE symbol = ? AND (is_backtest IS NULL OR is_backtest = 0)",
+        "SELECT * FROM trades WHERE symbol = ? AND (is_backtest IS NULL OR is_backtest = 0)",
         (symbol,),
     )
     names = [d[0] for d in sel.description]
