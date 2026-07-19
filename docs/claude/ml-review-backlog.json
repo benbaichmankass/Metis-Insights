@@ -1265,7 +1265,7 @@
    "resolution_criteria": "Each symbol's 15m head either: promoted to advisory + its trend_vol cells authored live (RG4 PASS + A/B + walk-forward), OR an honest negative recorded (RG4 NO_EDGE/ANTI_PREDICTIVE -> keep soaking / retrain / retire). ETH cells re-derived under the 15m label before any live authoring.",
    "status": "open",
    "snoozed_until": "2026-08-01T00:00:00+00:00",
-   "updated_at": "2026-07-06T14:45:00+00:00",
+   "updated_at": "2026-07-19T15:05:00+00:00",
    "evidence_log": [
     "2026-06-30 (/ml-review, trainer-vm-diag #5165): RG4 + soak volume read. eth-regime-15m-lgbm-v1 = 0.766 TRUSTWORTHY but on only 204 live rows (199 labeled); sol-regime-15m-lgbm-v1 = 0.643 TRUSTWORTHY on 178 rows (173 labeled). BOTH already PASS RG4>=0.55 but are BELOW the ~300-500-row volume target (knife-edge risk -- the ETH precedent went 0.46-0.58 at ~111 rows). stage-guard also flags shadow_soak FAIL + sample_sufficiency FAIL for both. ETH/SOL label cleanly (unlab=5) unlike MES. ACTION: hold; re-run RG4 + vt-sweep when each 15m head clears ~300-500 rows (~2026-07-03/04 at ~96 rows/day). If it holds: re-derive ETH trend_vol cells UNDER eth-regime-15m (the draft used the failed 1h head); author SOL cells from scratch; then per-symbol vol-split A/B + walk-forward before promote.",
     "2026-07-06 (ETH/SOL vol-gate evidence session, trainer-vm-diag #5726/#5729/#5733/#5741/#5745; docs/research/A-vol-gating-ETH-SOL-OFFcell-evidence-2026-07-06.md): per-symbol cell-attribution vol-splits re-derived under eth/sol-regime-15m-lgbm-v1 (shadow-pinned, fell_back=0 both) + 3-arm A/B + fixed-cell + cell-selection walk-forwards. RESULT: NEITHER symbol clears the BTC promotion gate. ETH: A/B $850->$1374 net / DD -23%, fixed-cell net 4/4 but maxDD 2/4, cell-selection 2/3 net / 3/3 DD (fold-2 DD regression +$193; -$277 giveback in the profitable 2025-26 fold; 3 of 4 ungated folds are net-negative - an ETH strategy-review problem, not a gate problem). SOL: clean negative - book already healthy (ret/DD 1.72), A/B trades -$198 net for -50% DD, fixed-cell net only 2/4, cell-selection 1/3+1/3 unstable. Cross-symbol: BTC's winning cell (trending|calm|long Donchian) is ETH's/SOL's biggest LOSER - cells do not transfer, per-symbol derivation was mandatory. DECISION: no Tier-3 proposal; both 15m heads stay at shadow; no ETH/SOL trend_vol cells authored. Also found+fixed BL-20260706-VOLGATE-REPLAY: the offline harness --regime-router on had silently stopped enforcing vol cells since the #4896 guard (all A/B arms identical) - fixed on branch claude/eth-sol-volgate-evidence-84bkhz with a regression test. Honest negative recorded per resolution_criteria; keep soaking, re-run after materially more history / head retrain / ETH strategy-review action.",
@@ -1276,6 +1276,11 @@
      "at": "2026-07-19T12:00:00+00:00",
      "by": "claude (WS-A M25 promotion harvest 2026-07-19)",
      "note": "POWERED-RG4 sweep 2026-07-19 (fresh mirror, docs/research/M25-rg4-sweep-2026-07-19.md): the ETH half is now a POWERED NEGATIVE \u2014 eth-regime-15m-lgbm-v1 AUC 0.496 NO_EDGE and eth-regime-15m-lgbm-fc-pcv-v1 0.476 NO_EDGE, both POWERED (46 vol-class bars, 9 episodes). ETH vol-gate go-live is NOT waiting on soak time \u2014 it needs a better head (features/labels): forward research. SOL stays WAIT (sol-15m 0.440 ANTI_PREDICTIVE, sol-fc-pcv 0.546 NO_EDGE \u2014 both near-powered at 35/40 bars; the 2026-08-01 re-check will likely power them). The xasset head (0.641 TRUSTWORTHY, unpowered, 205 recs) still owes shadow_soak."
+    },
+    {
+     "at": "2026-07-19T15:05:00+00:00",
+     "by": "claude (WS-A M25 promotion harvest 2026-07-19)",
+     "note": "DEMOTES EXECUTED 14:56:37Z (operator approved in chat, 'ok on the demote'): eth-regime-15m-lgbm-v1 and eth-regime-15m-lgbm-fc-pcv-v1 shadow->candidate on the trainer (rc=0), approval + powered-RG4 evidence recorded in each registry stage_history (by claude-ws-a-session). Remaining scope of this item is now SOL-only: the ~2026-08-01 powered re-check (sol-15m 0.440 ANTI_PREDICTIVE, sol-fc-pcv 0.546 NO_EDGE, both 35/40 bars) + any future retrained ETH successor re-entering shadow."
     }
    ]
   },
