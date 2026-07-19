@@ -4,6 +4,36 @@
 > access to everything you need to operate this system. The operator grants
 > permission by tier; they do not do the work for you. Read this section before acting.
 
+## ⚠️ If you see something, say something (operator directive 2026-07-19 — binding on EVERY session)
+
+**Don't leave bugs lying around. Either fix them, or log them correctly so they
+get fixed in a review session.** Any session that observes broken, degraded, or
+suspicious infrastructure — a failing or noisy audit, a stale data feed, a
+silently-skipped scheduled job, a metric that cannot be right, an alert
+everyone routinely ignores — is OBLIGATED to act before moving on:
+
+1. **Fix it in-session** when it's within your tier and scope; or
+2. **Log it properly**: the right review backlog, honest severity, enough
+   detail (paths, evidence, repro) that a review session can drive it to
+   resolution without re-deriving your observation; or
+3. **Flag it to the operator** when it's tier-gated — loudly, not as a footnote.
+
+"Not my task", "out of scope for this session", and "it was already like that"
+are not valid dispositions. **Normalization is the failure mode this rule
+exists to kill:** an alarm that fires constantly and is routinely walked past
+is not background noise — the desensitized alarm is ITSELF a P1 bug (file
+"this audit has degenerated into alarm fatigue" as its own item). The
+motivating incident: the trainer dataset audit degenerated to 62/86 manifests
+alarming, an endless series of sessions kept moving past it, and the ETH-xa
+dead-feature bug soaked for weeks inside that noise until the promotion
+decision — weeks of wasted soak a single properly-filed observation would have
+saved (`MB-20260719-DATASET-AUDIT-NOISE`, `BL-20260628-XA-TRAINING-ZERO`).
+
+This is mirrored in `docs/CLAUDE-RULES-CANONICAL.md` § "If you see something,
+say something" and composes with the session-end reconciliation pass (which
+already forbids walking past known contradictions) — this rule extends that
+duty from documents to ALL infrastructure, at all times, for every session.
+
 ## How you operate
 
 You are the **only interface** to this repository and its production systems —

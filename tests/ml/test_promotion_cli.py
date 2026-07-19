@@ -98,6 +98,48 @@ def test_gate_check_cli_reports_not_ready(tmp_path: Path):
     assert "gates" in payload
 
 
+def test_gate_check_regime_profile_reports_mechanics_gates(tmp_path: Path):
+    # M25 gate reframe (operator-approved 2026-07-19,
+    # docs/research/M25-promotion-consolidation-DESIGN.md § "The promotion
+    # gate — REFRAMED 2026-07-19"): under the regime profile the report must
+    # carry the required serving-mechanics gates (live_parity /
+    # labels_accruing) and a NON-required live_regime_discrimination. With an
+    # unloadable model artifact + no candles, both mechanics gates surface as
+    # insufficient_data (fail-safe) and the CLI must NOT crash.
+    reg = tmp_path / "registry-store"
+    registry = ModelRegistry(reg)
+    registry.register(
+        model_id="m",
+        manifest={
+            "model_id": "m", "target_deployment_stage": "shadow",
+            "dataset": {"family": "market_features"},
+        },
+        model_state_path=str(tmp_path / "missing_state.json"),
+        metrics={"macro_f1": 0.7, "f1_range": 0.7, "f1_volatile": 0.6,
+                 "n_eval": 10},
+        code_revision="a",
+    )
+    db = tmp_path / "j.db"
+    _seed_db(db)
+    log = tmp_path / "shadow.jsonl"
+    _seed_log(log)
+    rc, out = _capture([
+        "gate-check", "m", "--registry-root", str(reg),
+        "--db", str(db), "--shadow-log", str(log),
+    ])
+    assert rc == 0
+    payload = json.loads(out)
+    gates = {g["name"]: g for g in payload["gates"]}
+    assert gates["live_parity"]["required"] is True
+    assert gates["live_parity"]["status"] == "insufficient_data"
+    assert gates["labels_accruing"]["required"] is True
+    assert gates["labels_accruing"]["status"] == "insufficient_data"
+    assert gates["live_regime_discrimination"]["required"] is False
+    assert payload["ready"] is False
+    assert "live_parity" in payload["blocking"]
+    assert "live_regime_discrimination" not in payload["blocking"]
+
+
 def test_gate_check_unknown_model_errors(tmp_path: Path):
     reg = tmp_path / "registry-store"
     ModelRegistry(reg)  # empty

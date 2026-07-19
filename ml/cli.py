@@ -448,45 +448,109 @@ def _cmd_gate_check(args: argparse.Namespace) -> int:
             label_horizon=args.label_horizon,
             embargo_fraction=args.embargo_fraction,
         )
-    # RG4 live regime-discrimination AUC (regime profile only): re-score the
-    # head on the EXACT logged-live feature rows vs the realized regime label.
-    # This is the regime-appropriate live track record — `live_agreement`
-    # (rank-AUC vs trade WIN) is wrong for a head that predicts the regime, not
-    # trade outcome, and is turned off in the regime profile. Best-effort:
-    # any failure leaves it None (the gate then reports insufficient_data).
+    # Regime-profile LIVE evidence (M25 gate reframe, operator-approved
+    # 2026-07-19 — docs/research/M25-promotion-consolidation-DESIGN.md § "The
+    # promotion gate — REFRAMED 2026-07-19"): the edge is proven OFFLINE
+    # (`oos_edge`); the live soak proves serving MECHANICS. The REQUIRED live
+    # gates are `live_parity` (serving fidelity + dead-feature parity, from
+    # ml.promotion.live_parity) and `labels_accruing` (labeled fraction of
+    # the head's live rows, derived from the RG4 replay counts). The RG4
+    # live regime-discrimination AUC is still computed + reported, but is
+    # ADVISORY (`required: false`) — an outcome-statistics gate that takes
+    # weeks to power in calm regimes. Best-effort throughout: any failure
+    # leaves the input None / errored so the gate reports insufficient_data.
     live_regime_auc = None
-    if regime and not args.no_live_regime_auc:
-        live_regime_auc = _compute_live_regime_auc(
-            entry, args.model_id,
+    live_parity = None
+    labels_accruing = None
+    if regime:
+        from .promotion.live_parity import (
+            compute_live_parity,
+            labels_accruing_from_counts,
+        )
+
+        live_parity = compute_live_parity(
+            entry,
             shadow_log=args.shadow_log,
             datasets_root=args.datasets_root,
+            registry_root=args.registry_root,
+            sample_n=thresholds.parity_sample_n,
+            score_tol=thresholds.parity_score_tol,
         )
+        if not args.no_live_regime_auc:
+            rg4_report = _compute_regime_live_replay(
+                entry, args.model_id,
+                shadow_log=args.shadow_log,
+                datasets_root=args.datasets_root,
+            )
+            if rg4_report is not None:
+                live_regime_auc = _rg4_auc(rg4_report)
+                labels_accruing = labels_accruing_from_counts(
+                    args.model_id,
+                    n_live_rows=int(rg4_report.get("n_records") or 0),
+                    n_unlabeled=int(rg4_report.get("n_unlabeled") or 0),
+                )
     report = evaluate_gates(
         entry, target_stage=args.target_stage, attribution=attr,
         drift=drift, oos_edge=oos_edge, live_regime_auc=live_regime_auc,
+        live_parity=live_parity, labels_accruing=labels_accruing,
         thresholds=thresholds,
     )
     sys.stderr.write(
-        f"gate-check live_regime_discrimination AUC: "
+        f"gate-check live_regime_discrimination AUC (advisory): "
         f"{'—' if live_regime_auc is None else f'{live_regime_auc:.3f}'}\n"
     )
+    if live_parity is not None:
+        sys.stderr.write(
+            "gate-check live_parity: "
+            f"rows={live_parity.n_live_rows} sampled={live_parity.n_sampled} "
+            f"mismatched={live_parity.n_mismatched} "
+            f"dead_live={list(live_parity.dead_live_features)} "
+            f"dead_train={list(live_parity.dead_train_features)} "
+            f"error={live_parity.error!r}\n"
+        )
+    if labels_accruing is not None:
+        frac = labels_accruing.labeled_fraction
+        sys.stderr.write(
+            "gate-check labels_accruing: "
+            f"{labels_accruing.n_labeled}/{labels_accruing.n_live_rows} labeled "
+            f"({'—' if frac is None else f'{frac:.2f}'})\n"
+        )
     print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     return 0
 
 
-def _compute_live_regime_auc(
+def _rg4_auc(report: dict) -> float | None:
+    """Extract the live regime-discrimination AUC from an RG4 replay report:
+    the `shadow`-stage AUC if present, else the max stage AUC, else None."""
+    try:
+        by_stage = report.get("by_stage") or {}
+        shadow_blk = by_stage.get("shadow")
+        if shadow_blk and shadow_blk.get("auc") is not None:
+            return float(shadow_blk["auc"])
+        aucs = [
+            float(b["auc"]) for b in by_stage.values()
+            if isinstance(b, dict) and b.get("auc") is not None
+        ]
+        return max(aucs) if aucs else None
+    except Exception:  # noqa: BLE001 — best-effort; never crash the gate-check
+        return None
+
+
+def _compute_regime_live_replay(
     entry: Any, model_id: str, *,
     shadow_log: Any, datasets_root: str | None,
-) -> float | None:
-    """RG4 live regime-discrimination AUC for one regime head, or None.
+) -> dict | None:
+    """RG4 Stage-2 replay report for one regime head, or None.
 
     Resolves the head's `(symbol, timeframe)` from its frozen regime spec,
     finds the newest `market_raw/<symbol>/<timeframe>/<version>/data.jsonl`
     under the datasets root (matching `scripts/ml/fleet_scorecard.sh`), then
-    runs the RG4 Stage-2 replay (`scripts/ml/replay_pregate_live.run`) over the
-    logged-live shadow rows. Returns the `shadow`-stage AUC if present, else the
-    max stage AUC. Never raises — any failure (no spec, no candles, no rows,
-    import error) returns None so the gate-check can't crash on it."""
+    runs the RG4 Stage-2 replay (`scripts/ml/replay_pregate_live.run`) over
+    the logged-live shadow rows. The report feeds BOTH the advisory
+    `live_regime_discrimination` AUC (via `_rg4_auc`) and the required
+    `labels_accruing` gate's counts (`n_records` / `n_unlabeled` — M25 gate
+    reframe 2026-07-19). Never raises — any failure (no spec, no candles, no
+    rows, import error) returns None so the gate-check can't crash on it."""
     try:
         from pathlib import Path as _Path
 
@@ -522,20 +586,11 @@ def _compute_live_regime_auc(
         # data-driven), not the legacy hardcoded 0.003 that mis-scores the fleet
         # (MB-20260628-RG4-THRESH). This is the promotion gate-check, so the
         # threshold mismatch matters most here.
-        report = _rg4_run(
+        return _rg4_run(
             model_id, shadow_log=str(log_path), candles=candles,
             forward_m=5, vol_threshold=_VT_UNSET, positive_class="volatile",
             bar_seconds=float(bar_seconds),
         )
-        by_stage = report.get("by_stage") or {}
-        shadow_blk = by_stage.get("shadow")
-        if shadow_blk and shadow_blk.get("auc") is not None:
-            return float(shadow_blk["auc"])
-        aucs = [
-            float(b["auc"]) for b in by_stage.values()
-            if isinstance(b, dict) and b.get("auc") is not None
-        ]
-        return max(aucs) if aucs else None
     except Exception:  # noqa: BLE001 — best-effort; never crash the gate-check
         return None
 
@@ -878,10 +933,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_gate.add_argument(
         "--no-live-regime-auc", action="store_true", default=False,
         help=(
-            "skip the RG4 live regime-discrimination AUC computation (regime "
-            "profile only). When skipped, the live_regime_discrimination gate "
-            "reports insufficient_data. The AUC reuses --shadow-log + the "
-            "newest market_raw candle artifact under --datasets-root."
+            "skip the RG4 live replay (regime profile only). When skipped, "
+            "the advisory live_regime_discrimination gate AND the required "
+            "labels_accruing gate (M25 reframe 2026-07-19 — its counts come "
+            "from the same replay) report insufficient_data. The replay "
+            "reuses --shadow-log + the newest market_raw candle artifact "
+            "under --datasets-root."
         ),
     )
 
