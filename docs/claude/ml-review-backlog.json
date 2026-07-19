@@ -1796,7 +1796,7 @@
    "status": "open",
    "tier": "T1",
    "trigger_condition": "Before the mes-regime-5m-lgbm-v2 Tier-3 promotion packet (MB-20260627-002); also unblocks the M26 P0 MES episode coverage.",
-   "updated_at": "2026-07-19T18:00:00+00:00",
+   "updated_at": "2026-07-19T20:05:00+00:00",
    "evidence_log": [
     {
      "at": "2026-07-19T15:27:00+00:00",
@@ -1808,6 +1808,11 @@
      "at": "2026-07-19T18:00:00+00:00",
      "by": "claude (ML continuation session 2026-07-19)",
      "note": "ROOT CAUSE FOUND + FIX SHIPPED (suspect (c)-adjacent, actually a coercion bug): pull_mes_ibkr_history.sh passes 'use_rth=false' as a key=value STRING param -> MarketRawBuilder.iter_rows takes it in untyped **adapter_kwargs (so ml/datasets/cli.py's annotation-driven _coerce_bool never applies) -> the adapter ran bool('false') which is True -> useRTH=1 sent to IBKR -> RTH-only bars (13:30-20:55Z, exactly the observed 90/day). Fix: _as_bool string-aware coercion at both iter_bars/iter_contract_bars call sites + 13 regression tests (bool('false') pinned False; garbage raises). REMAINING to resolve: (1) re-run the pull-mes-ibkr-history system-action on the live VM (Tier-2, needs operator OK) with the fixed code to rebuild full-session deep history; (2) trainer syncs + rebuilds MES market_raw/features; (3) fresh RG4 read re-labels the ~1215 backlogged rows; (4) disposition the train-RTH-vs-serve-23h mismatch (retrain on the full-session base is the default plan)."
+    },
+    {
+     "at": "2026-07-19T20:05:00+00:00",
+     "by": "claude (ML continuation session 2026-07-19)",
+     "note": "REPULL EXECUTED + RETRO-LABELING PROVEN: operator-approved pull-mes-ibkr-history returned 57,495 5m rows (vs ~19,181 every pre-fix nightly -- the predicted 3x); trainer synced + rebuilt MES base/features (rc=0); fresh RG4 labeled 1,829/1,867 rows (unlab 1215 -> 38, 98% coverage). VERDICT NOT YET EVIDENCE though -- two stacked issues: (1) NEW BUG FOUND+FIXED: replay_pregate_live's _threshold_from_market_features_meta read vol_threshold at metadata top level but builder v12 records it under build_params -> the read labeled at the 0.003 global default vs the build's data-driven 0.0003418 -> 0 volatile positives (degenerate). Fixed (build_params lookup + test). (2) The label definition itself moved with the full-session rebuild (median forward-vol now includes overnight), so the OLD RTH-trained head vs NEW labels is apples-to-oranges regardless -- the retrain path (tonight's nightly cycle trains mes-regime-5m/15m on the full-session base) is the honest route; RG4 the RETRAINED head tomorrow with the fixed threshold resolution. Remaining on this item: tomorrow's retrained-head RG4 + gate-check under the parity gates; then packet or honest negative."
     }
    ]
   },

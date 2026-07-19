@@ -110,11 +110,13 @@ def _threshold_from_market_features_meta(candles: str) -> Optional[float]:
     (``…/market_raw/<SYM>/<tf>/<version>/data.jsonl``); the realized-label
     threshold lives in the sibling ``market_features`` build. We look up the
     corresponding ``market_features/<SYM>/<tf>/<version>/metadata.json`` and
-    accept a numeric ``vol_threshold`` from either a structured field or the
-    free-text ``notes`` (``vol_threshold=<x>``). Best-effort + fail-soft: any
-    miss returns ``None`` so resolution falls through to the per-symbol default.
-    Today the build does not record it, so this is a future-proof hook, not a
-    behaviour change.
+    accept a numeric ``vol_threshold`` from the top level, from
+    ``build_params`` (where builder v12 actually records it — the miss here
+    made the 2026-07-19 MES read label at the 0.003 global default instead of
+    the build's data-driven 0.0003418, yielding a degenerate 0-positive
+    verdict), or the free-text ``notes`` (``vol_threshold=<x>``). Best-effort
+    + fail-soft: any miss returns ``None`` so resolution falls through to the
+    per-symbol default.
     """
     try:
         p = Path(candles).resolve()
@@ -130,6 +132,8 @@ def _threshold_from_market_features_meta(candles: str) -> Optional[float]:
     except Exception:  # noqa: BLE001 — never let metadata I/O break scoring
         return None
     val = meta.get("vol_threshold")
+    if val is None and isinstance(meta.get("build_params"), dict):
+        val = meta["build_params"].get("vol_threshold")
     if val is None:
         import re
 
