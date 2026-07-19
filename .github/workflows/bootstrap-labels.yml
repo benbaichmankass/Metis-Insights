@@ -45,6 +45,11 @@ jobs:
           script: |
             const LABELS = [
               {
+                name: 'claude-coordination',
+                color: 'fbca04',
+                description: 'The pinned live cross-session Claude Coordination Board (message board — NOT the merge queue). Post work-start/finish + questions; read at session start.',
+              },
+              {
                 name: 'sync-vm-secrets-request',
                 color: '1d76db',
                 description: 'Dispatch sync-vm-secrets (Actions secrets -> live VM .env); Tier-2 ack rides in chat',
