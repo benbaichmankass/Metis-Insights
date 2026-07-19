@@ -69,9 +69,27 @@
   5 harness-trades, 33 dashboard-contract+local_pnl; bash -n on all shell
   edits; YAML validation; synthetic RSS benchmark; xa e2e on synthetic data.
 - CI green on the merged head (16 checks; pytest-run 7830+ tests).
-- LIVE (trainer, in flight at close): verification bundle #6931 —
-  stage1 memfix RSS (6 manifests), stage2 ETH xa rebuild + A/B, stage3 M23 P2.
-  RESULTS: (fill from /tmp/mlsess_stage{1,2,3}*.log)
+- LIVE (trainer): verification bundle #6931, results read by the successor
+  session via trainer-diag #6939 (sentinel /tmp/mlsess_DONE written 10:39Z).
+  - **Stage 1 (memfix) PASS** — all six 5m OOM-class manifests retrained
+    rc=0 under the 5G cap with load-time column projection; Max-RSS:
+    btc-regime-5m-lgbm-v2 0.86G · btc-regime-5m-lgbm-yz-v1 1.00G ·
+    btc-regime-5m (baseline) 0.24G · eth-regime-5m-lgbm-v1 0.86G ·
+    sol-regime-5m-lgbm-v1 0.83G · btc-regime-5m-lgbm-flow-v1 1.03G
+    (previously ≈5.2G anon-RSS → exit-137). Quarantine self-cleared on each
+    (`{"cleared": true}`). BL-20260717-TRAINER-SINGLE-MANIFEST-OOM closed;
+    the MemoryMax=5G/MemorySwapMax=0 drop-ins are KEPT deliberately as the
+    containment backstop (final acceptance: next nightly cycle clean).
+  - **Stage 2 (ETH xa) PASS** — real-dataset v002 rebuild emits all 13 xa_*
+    cols non-zero (e.g. xa_breadth_up nonzero 26535/43800 mean 0.502 stdev
+    0.445 — was all-zeros); base vs xasset A/B on the rebuilt data:
+    weighted_f1 0.5757 → 0.5893 (+0.0136 for the xasset head), both heads
+    retrained + registered candidate. BL-20260628-XA-TRAINING-ZERO closed;
+    RG4-live re-measure accrues on the shadow soak.
+  - **Stage 3 (M23 P2) heavy_lock_timeout** — waited 3600s behind the busy
+    heavy-job queue and aborted (by design). Relaunched by the successor
+    session (trainer-diag #6941, TRAINER_HEAVY_LOCK_WAIT_S=14400); results
+    land in docs/research/M23-phase2-labelvol-findings-2026-07-19.md.
 - Live-VM: shadow serving verified fresh (#6923). On-box trainer state verified
   (#6924: catchup timer active, env set, drop-ins consolidated).
 
@@ -87,8 +105,12 @@
 - ETH 1h manifests' version pin contradicted the nightly build — fixed.
 
 ## Risks and Follow-Ups
-- Verification bundle results pending at log-write time → (fill).
-- BL-20260717-SINGLE-MANIFEST-OOM + BL-20260628-XA close on verification.
+- Verification bundle stages 1+2 verified PASS (see Validation above);
+  BL-20260717-SINGLE-MANIFEST-OOM + BL-20260628-XA-TRAINING-ZERO closed.
+- Stage 3 (M23 P2) relaunched after the heavy-lock timeout; findings doc +
+  go/no-go land with the successor session (this PR).
+- Durable-memory-fix final acceptance: verify the next nightly trainer cycle
+  runs clean end-to-end; drop-ins stay as backstop either way.
 - MB-20260719-DATASET-AUDIT-NOISE + MB-20260719-FAMILY-KWARG-SWALLOW open.
 - Board honesty note: merge executed without a committed merge_slot claim
   (slot free, #6926 held for operator; real-time PR list checked) — the new
