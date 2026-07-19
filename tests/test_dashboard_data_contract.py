@@ -17,6 +17,29 @@ from src.web.api import main as api_main
 from src.web.api.routers import dashboard as dashboard_router
 
 
+@pytest.fixture(autouse=True)
+def _no_market_mark(monkeypatch: pytest.MonkeyPatch):
+    """Make these contract tests hermetic w.r.t. the market feed.
+
+    The positions endpoint's local-uPnL fallback calls
+    ``src.runtime.local_pnl.last_mark_price`` which performs a REAL public
+    Bybit klines fetch when nothing is cached. On GitHub runners that fetch
+    usually fails (Bybit geo-blocks US IPs) so ``unrealizedPnl`` resolves to
+    the expected ``None``/``unavailable`` — but occasionally it SUCCEEDS and
+    the tests flake with a live-market ``markprice_local`` value (observed
+    2026-07-19: mark 64330 → uPnL 4.33 on the 60000-entry fixture row). The
+    contract under test is "no broker + no market feed ⇒ unavailable", so pin
+    the feed off and clear the module-global mark cache both ways.
+    """
+    from src.runtime import local_pnl
+
+    local_pnl._MARK_CACHE.clear()
+    monkeypatch.setattr("src.runtime.local_pnl.last_mark_price",
+                        lambda *a, **k: None)
+    yield
+    local_pnl._MARK_CACHE.clear()
+
+
 @pytest.fixture
 def client() -> TestClient:
     return TestClient(api_main.app, raise_server_exceptions=False)

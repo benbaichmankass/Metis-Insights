@@ -76,7 +76,13 @@ def harness_row_to_sim_trade(
     exit_ts = row.get("exit_time") or row.get("exit_ts") or entry_ts
     direction_raw = str(row.get("direction", "")).lower()
     direction = "long" if direction_raw in _LONG_ALIASES else "short"
-    strategy = str(row.get("strategy") or default_strategy or "backtest")
+    # The caller's explicit `--trades-jsonl PATH=STRATEGY` label WINS over the
+    # row's self-reported name (ml-infra audit 2026-07-19): backtest_squeeze.py
+    # hardcodes strategy="squeeze_breakout" in every emitted row while the live
+    # book's name is squeeze_breakout_4h, so with row-field precedence the
+    # orchestrators' override was a silent no-op and pooled rows mislabeled.
+    # An override is an override; the row field is only the fallback.
+    strategy = str(default_strategy or row.get("strategy") or "backtest")
     return {
         "strategy": strategy,
         "symbol": str(row.get("symbol") or symbol),
