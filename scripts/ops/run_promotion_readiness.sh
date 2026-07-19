@@ -96,14 +96,29 @@ UTC_DATE="$(date -u +%Y-%m-%d)"
 OUTPUT_DIR="$READINESS_MIRROR_ROOT/$UTC_DATE"
 mkdir -p "$OUTPUT_DIR"
 
-# Optional dataset root — only forward when it actually exists on disk
-# so the CLI's --datasets-root machinery doesn't probe a missing path.
+# Optional dataset root — forwarding it makes the sweep run a full
+# purged-walk-forward oos_edge for EVERY shadow-stage model INLINE in one
+# process, which OOM-thrashes the 6 GB trainer at the current registry size
+# (~5 GB RSS, D-state, 0-byte outputs — killed twice on 2026-07-19;
+# MB-20260719-PROMOREADY-OOSEDGE-OOM). INTERIM: default OFF so the daily
+# report always lands; per-head oos_edge evidence comes from the
+# single-model `gate-check` CLI, which is where promotion packets are
+# assembled anyway (M25 reframe). Set PROMOREADY_OOS_EDGE=on to restore the
+# in-sweep oos_edge once per-model subprocess isolation lands.
+PROMOREADY_OOS_EDGE="${PROMOREADY_OOS_EDGE:-off}"
 DATASETS_ARG=()
-if [ -d "$DATASETS_ROOT" ]; then
-  DATASETS_ARG=(--datasets-root "$DATASETS_ROOT")
-else
-  log_err "datasets root $DATASETS_ROOT absent; OOS-edge gate will report insufficient_data"
-fi
+case "${PROMOREADY_OOS_EDGE,,}" in
+  1|true|yes|on)
+    if [ -d "$DATASETS_ROOT" ]; then
+      DATASETS_ARG=(--datasets-root "$DATASETS_ROOT")
+    else
+      log_err "datasets root $DATASETS_ROOT absent; OOS-edge gate will report insufficient_data"
+    fi
+    ;;
+  *)
+    log_err "PROMOREADY_OOS_EDGE=off (interim, MB-20260719-PROMOREADY-OOSEDGE-OOM): sweep runs WITHOUT --datasets-root; oos_edge reports insufficient_data — use 'python -m ml gate-check' per head for oos_edge evidence"
+    ;;
+esac
 
 DB_ARG=()
 if [ -f "$TRADE_JOURNAL_DB" ]; then
