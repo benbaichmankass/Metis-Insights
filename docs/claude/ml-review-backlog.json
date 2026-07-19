@@ -1718,7 +1718,13 @@
    "resolution_criteria": "A nightly cycle where every audit flag is a genuine data problem (or whitelisted with a reason), and the enforce/observe decision is recorded.",
    "status": "open",
    "snoozed_until": null,
-   "updates": []
+   "updates": [
+    {
+     "at": "2026-07-19T12:30:00+00:00",
+     "by": "claude (WS-A session, operator directive 2026-07-19)",
+     "note": "PRIORITY RAISED \u2014 operator directive 2026-07-19 (see-something-say-something rule, PR #6956): this item is now the poster child for the normalization failure mode. 62/86 manifests alarming made the audit background noise, which concealed the ETH-xa dead-feature bug through weeks of soak. Fix shape: make the audit HIGH-PRECISION (alarm only on decision-relevant defects: dead/zero-variance features, label-coverage collapse, train/serve divergence) so that ANY alarm demands action, and wire it into the ml-review soak-integrity audit (skill updated in PR #6953). Target: alarms drop to near-zero baseline; an alarm becomes a stop-the-line signal, not wallpaper."
+    }
+   ]
   },
   {
    "id": "MB-20260719-FAMILY-KWARG-SWALLOW",
@@ -1744,6 +1750,20 @@
    "tier": 1,
    "trigger_condition": "Next ML session with capacity after the research-week WS items; or the next /ml-review (propose as the top experiment).",
    "resolution_criteria": "P0 findings doc committed with the quantified bleed + concentration; subsequent phases spawn their own items.",
+   "status": "open",
+   "snoozed_until": null,
+   "updates": []
+  },
+  {
+   "id": "MB-20260719-M23-HARNESS-DEBUG-QUERY",
+   "opened_at": "2026-07-19T12:30:00+00:00",
+   "opened_by": "claude (WS-A session, operator directive 2026-07-19)",
+   "source": "M23 P2 run 2026-07-19 (trainer-diag #6943): scripts/ml/m23_phase2_labelvol.sh step-2 per-(symbol,strategy) debug breakdown raises sqlite3.OperationalError: no such column: strategy (the temp DB seeds the live trades schema, which names that column differently). The pooled count records correctly; output is cosmetic-only. Filed per the see-something-say-something rule (PR #6956) instead of living only inside the findings doc.",
+   "title": "m23_phase2_labelvol.sh: step-2 debug breakdown query references non-existent 'strategy' column (cosmetic)",
+   "description": "Fix the stderr debug SELECT in the step-2 recorder block of scripts/ml/m23_phase2_labelvol.sh to use the trades schema's actual strategy column name. Cosmetic (main count unaffected); fix whenever the harness is next touched (the P2b rerun is the natural moment).",
+   "tier": 1,
+   "trigger_condition": "The M23 P2b rerun (after the WS-B shards land) or any edit to m23_phase2_labelvol.sh.",
+   "resolution_criteria": "The per-(symbol,strategy) breakdown prints without a traceback on a P2b run.",
    "status": "open",
    "snoozed_until": null,
    "updates": []
