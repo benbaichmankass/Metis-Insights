@@ -1796,14 +1796,20 @@
    "status": "open",
    "tier": "T1",
    "trigger_condition": "Before the mes-regime-5m-lgbm-v2 Tier-3 promotion packet (MB-20260627-002); also unblocks the M26 P0 MES episode coverage.",
-   "updated_at": "2026-07-19T15:30:00+00:00",
+   "updated_at": "2026-07-19T18:00:00+00:00",
    "evidence_log": [
     {
      "at": "2026-07-19T15:27:00+00:00",
      "note": "trainer-diag #6983 (RG4 re-read: 0.7143 TRUSTWORTHY, UNPOWERED 7/40 vol bars 1/5 episodes, n=648, unlab=1215), #6985 (90 bars/day vs 255-260 shadow rows/day), #6986 (13:30-20:55Z gap-free window)."
     }
    ],
-   "updates": []
+   "updates": [
+    {
+     "at": "2026-07-19T18:00:00+00:00",
+     "by": "claude (ML continuation session 2026-07-19)",
+     "note": "ROOT CAUSE FOUND + FIX SHIPPED (suspect (c)-adjacent, actually a coercion bug): pull_mes_ibkr_history.sh passes 'use_rth=false' as a key=value STRING param -> MarketRawBuilder.iter_rows takes it in untyped **adapter_kwargs (so ml/datasets/cli.py's annotation-driven _coerce_bool never applies) -> the adapter ran bool('false') which is True -> useRTH=1 sent to IBKR -> RTH-only bars (13:30-20:55Z, exactly the observed 90/day). Fix: _as_bool string-aware coercion at both iter_bars/iter_contract_bars call sites + 13 regression tests (bool('false') pinned False; garbage raises). REMAINING to resolve: (1) re-run the pull-mes-ibkr-history system-action on the live VM (Tier-2, needs operator OK) with the fixed code to rebuild full-session deep history; (2) trainer syncs + rebuilds MES market_raw/features; (3) fresh RG4 read re-labels the ~1215 backlogged rows; (4) disposition the train-RTH-vs-serve-23h mismatch (retrain on the full-session base is the default plan)."
+    }
+   ]
   },
   {
    "id": "MB-20260719-PROMOREADY-OOSEDGE-OOM",
