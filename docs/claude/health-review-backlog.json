@@ -1499,8 +1499,8 @@
    "tier": 1,
    "trigger_condition": "Any /health-review run.",
    "resolution_criteria": "The listed docs/claude/* operational pages no longer present removed slash commands as the current operator surface (they reference the menu + docs/TELEGRAM-SPEC.md instead); the strategies.yaml + accounts.yaml comments are corrected to describe the menu kill switch / set_account_mode.sh wire (config edits require the operator / a Tier-3-aware PR).",
-   "status": "partially-resolved",
-   "resolved_at": "2026-05-26T06:10:00+00:00",
+   "status": "resolved",
+   "resolved_at": "2026-07-19T08:20:00+00:00",
    "resolved_by": "claude (/health-review)",
    "resolution": "/health-review 2026-05-26: added a top-of-file deprecation banner to all 6 listed docs/claude/* operational pages (trading-mode-flags.md, deployment-ops.md, vm-operator-mode.md, comms-architecture.md, recurring-sessions.md, prop-account-state.md) \u2014 each banner explicitly notes PR #1933 changed the surface, names the removed commands referenced in the body, and points to docs/TELEGRAM-SPEC.md + the current alternatives (menu / set-account-mode / diag relay / system-actions / trainer-vm-diag). A reader can no longer be misled into treating body-text slash commands as the live operator surface. Also reworded the most prominent claims (recurring-sessions.md 'Need to halt everything? /halt' line) to the menu equivalent in-place. REMAINING (still open, requires operator / Tier-3 PR): config/strategies.yaml + config/accounts.yaml comments that describe the removed /reload_strats and /accounts surfaces \u2014 config files are not editable from /health-review.",
    "snoozed_until": null,
@@ -1514,6 +1514,11 @@
      "at": "2026-07-19T08:05:00+00:00",
      "by": "claude (/health-review 2026-07-19 follow-up)",
      "note": "Progressed this session. FIXED the two current-operational COMMAND-TABLE docs that presented removed slash-commands as current: docs/workflows/telegram_bot.md (Unit 5 \u2014 /halt//resume//status//alerts//strategies//last5) and docs/workflows/accounts-risk.md (/accounts_status, /risk_check) \u2014 both now carry a SUPERSEDED banner pointing at the SSOT docs/TELEGRAM-SPEC.md + label the tables as the pre-#1933 removed set. VERIFIED docs/TELEGRAM-SPEC.md is CORRECT (it describes the removal, menu-driven). REMAINING (kept partial): stale refs embedded in operator RUNBOOK PROCEDURES \u2014 live-smoke-test.md (/closeall emergency-flatten, /vm_write), colab-key-rotation.md (/set_keys, /smoke_test), setup-api-keys.md (/smoke_test). These need the CURRENT operator flow verified before rewriting (e.g. the Colab-rotation runbook may be wholesale superseded by sync-vm-secrets, not just a command-name swap; no current /closeall emergency-flatten path should be invented) \u2014 a flow-verified doc-freshness task, NOT a mechanical name-swap. Historical sprint-logs/summaries/audits deliberately left as the record."
+    },
+    {
+     "at": "2026-07-19T08:20:00+00:00",
+     "by": "claude (/health-review 2026-07-19 follow-up)",
+     "note": "RESOLVED \u2014 completed the current-operational doc sweep after verifying the current flows. Command-table docs: telegram_bot.md + accounts-risk.md (superseded banners -> TELEGRAM-SPEC.md). Operator runbooks fixed with the VERIFIED current flows: emergency-flatten /closeall -> the flatten-{ib,bybit,alpaca}-position system-actions; /vm//vm_write runner -> the system-actions workflow; /smoke_test -> scripts/smoke_test_trade.py; /set_keys notebook-link -> the Open-in-Colab link + the sync-vm-secrets Claude-path. Added top banners to setup-api-keys.md + colab-key-rotation.md so all inline /accounts_status//smoke_test//set_keys mentions read as historical-in-context. docs/TELEGRAM-SPEC.md verified already correct. Historical sprint-logs/summaries/audits deliberately preserved as the record (they should show what was true then)."
     }
    ]
   },
