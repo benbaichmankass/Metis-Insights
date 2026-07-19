@@ -2290,6 +2290,21 @@ class Coordinator:
                 from src.units.db.database import Database
                 from src.utils.paths import trade_journal_db_path
 
+                # BL-20260626: also fold the per-account refusal cause into meta
+                # so a consumer sees WHY each eligible account didn't size
+                # (zero_balance / netting-guard / hold / below-min / intent_noop),
+                # not just an empty sized_qty_by_account. The refusal cause
+                # otherwise lives only in the rejection trades rows. Observability
+                # only — same best-effort wrapper, no execution effect.
+                _refusals = {
+                    r["name"]: r["error"]
+                    for r in results
+                    if isinstance(r, dict) and r.get("error") and r.get("name")
+                }
+                if _refusals:
+                    if pkg.meta is None:
+                        pkg.meta = {}
+                    pkg.meta["refusal_causes_by_account"] = _refusals
                 _meta_now = {
                     k: v for k, v in (pkg.meta or {}).items()
                     if k not in {"order_package_id", "model_scores"}

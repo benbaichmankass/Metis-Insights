@@ -45,6 +45,13 @@
       "intent": "ML Tier-1 offline session: (1) durable trainer memory fix (load-time column projection \u2014 MB-20260709-TRAINER-SUBPROC-ISOLATION + BL-20260717-TRAINER-SINGLE-MANIFEST-OOM), (2) ETH 1h xasset dead-feature build fix (BL-20260628-XA-TRAINING-ZERO), (3) M23 meta-label P2 label volume. Serial PRs from the designated branch, restarted from main between concerns. Slot free.",
       "started_at": "2026-07-19T07:45:00Z",
       "updated_at": "2026-07-19T07:45:00Z"
+    },
+    {
+      "session_id": "session_01PKEYK1kKeXJXuG92GS2NB1",
+      "branch": "claude/system-health-review-rk852g",
+      "intent": "/health-review 2026-07-19. PR #6926: 4 operator-approved Tier-2 reconciler correctness fixes (INTENT-REDUCE phantom-pnl NULL-defer [reverses #2974 attribution], SHADOW-PKG-ORPHAN shadow_expired relabel, RECONCILE-DUP guard 300->1800s, OPKG-META per-account refusal_causes) + CI fixes (existing orphan test + s012 deploy-unit-drift guard) + the live cross-session coordination board (issue #6927 + settings.json clause-0 + session-coordination skill + docs/claude/coordination-board.md). HOLDING #6926 merge for operator 'merge 6926' nod (the #2974 reversal). Slot free.",
+      "started_at": "2026-07-19T08:30:00Z",
+      "updated_at": "2026-07-19T09:00:00Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) \u2014 >24h stale, no matching open PR/branch \u2014 and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",

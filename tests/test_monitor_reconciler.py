@@ -1004,6 +1004,12 @@ class TestSweepUnlinkedPackages:
 
     def test_old_unlinked_package_marked_orphaned(
             self, tmp_db, monkeypatch):
+        # Force the strategy live so the orphan path is exercised regardless
+        # of config drift (vwap is config: execution: shadow, which the sweep
+        # correctly relabels shadow_expired instead — covered separately in
+        # test_reconciler_reduce_and_shadow.py::test_sweep_unlinked_packages_shadow_vs_live).
+        import src.strategy_registry as _sr
+        monkeypatch.setattr(_sr, "execution_mode", lambda name, *a, **k: "live")
         self._insert_pkg(tmp_db, "pkg-old-unlinked", age_minutes=10)
         affected = _sweep_unlinked_packages(tmp_db)
         assert affected == 1
