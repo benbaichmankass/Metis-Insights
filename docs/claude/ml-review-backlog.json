@@ -1798,6 +1798,26 @@
     }
    ],
    "updates": []
+  },
+  {
+   "id": "MB-20260719-PROMOREADY-OOSEDGE-OOM",
+   "opened_at": "2026-07-19T16:40:00+00:00",
+   "opened_by": "claude (WS-A M25 promotion harvest 2026-07-19)",
+   "title": "promotion-readiness sweep memory-thrashes the 6GB trainer (~5GB RSS, D-state, 0-byte outputs) -- inline compute_oos_edge over every shadow model in ONE process; needs the per-model subprocess isolation the training cycle got",
+   "source": "Two identical thrash episodes on 2026-07-19, BOTH killed: (1) 12:37 launch, killed 14:55 after 2h18m at 4.94GB RSS/D-state with 0-byte cli_stdout.json; (2) 15:31 relaunch on parity-gate code (d068089), killed ~16:35 after >1h at 4.98GB RSS, same 0-byte outputs -- so the regression is NOT the parity code. Inputs are tiny (shadow log 43MB/53k rows, backfill 5.4MB, registry 4.3MB/91 models); the hog is ml/promotion/stage_guard.py::run_stage_guard calling compute_oos_edge(entry, datasets_root=...) INLINE for every shadow-stage entry -- each is a full purged-walk-forward retrain/eval (dataset load + LightGBM folds), all in one long-lived process on the 5.9GB box. Same failure class as BL-20260717-TRAINER-SINGLE-MANIFEST-OOM (fixed for the TRAINING cycle via per-manifest subprocesses + cgroup cap); the readiness sweep never got that treatment, and the roster/dataset growth (91 models; WS-B added ~10 symbols to datasets-out on 07-19) pushed it over the cliff. The 07-19 report was recovered by re-running WITHOUT --datasets-root (shadow models hold on oos_edge insufficient_data -- attribution/drift/stages still report).",
+   "description": "Fix shape (mirror the training-cycle memfix): (a) run each compute_oos_edge in a bounded subprocess (fresh interpreter per model, or per-model batches) so peak RSS is one model's working set, not the fleet's accumulation; (b) put MemoryMax + MemorySwapMax=0 on ict-promotion-readiness.service (it has NO cgroup cap today -- only ict-trainer.service does) so a regression fails fast instead of D-state thrashing the whole box for hours; (c) consider making the unit's ExecStart pass --datasets-root only to a scoped oos-edge phase. Interim workaround (documented): run the sweep without --datasets-root for the daily report; oos_edge evidence comes from the single-model gate-check CLI on the head under review (which is where promotion packets are assembled anyway, per the M25 reframe).",
+   "resolution_criteria": "A full-registry promotion-readiness sweep WITH --datasets-root completes on the trainer within its timer window at bounded memory (no D-state thrash), OR the sweep is redesigned so oos_edge is only computed per-model at gate-check time and the sweep drops --datasets-root by design (doc updated).",
+   "status": "open",
+   "tier": "T1",
+   "trigger_condition": "Next ml-review / trainer-unit hardening pass; before the registry grows further.",
+   "updated_at": "2026-07-19T16:40:00+00:00",
+   "evidence_log": [
+    {
+     "at": "2026-07-19T16:40:00+00:00",
+     "note": "trainer-diag #6978/#6979 (first kill: 4.94GB D-state 2h18m, WS-B flock waiter rescued with seconds to spare), #6991/#6992 (second thrash on parity code: 4.98GB at 57min, inputs tiny, journal silent after heavy_lock_acquired), #6993 (kill + no-datasets-root relaunch). stage_guard.py notes the sweep already passes None for the parity gates pending per-model resolution -- the same follow-up should carry the subprocess isolation."
+    }
+   ],
+   "updates": []
   }
  ],
  "updated_at": "2026-07-18T10:15:00+00:00"
