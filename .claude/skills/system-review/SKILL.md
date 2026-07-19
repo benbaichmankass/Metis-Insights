@@ -5,6 +5,19 @@ description: Master SYSTEM REVIEW session — the WORK is the review; the report
 
 # /system-review — the master system-review session (deliverable: the system report)
 
+> **⚠️ READ FIRST — WHAT THIS SESSION IS.** This is **FULL END-TO-END QA OF THE
+> WHOLE SYSTEM**, NOT a report-generator and NOT a scan-and-sweep-under-the-rug
+> exercise. Your job is to actively **HUNT** for issues across every layer (bugs,
+> correctness gaps, money-at-risk conditions, silent regressions, stalled
+> pipelines), **ROOT-CAUSE** them, **PROPOSE** the exact fix, decide the Tier-2/3
+> calls **WITH the operator**, and then **FIX** them — this session. **Finding a
+> fixable bug and logging it to a backlog as a post-it note instead of driving it
+> to a fix is a REVIEW FAILURE** — that is exactly how bugs become operational
+> catastrophes. The consolidated report is the *deliverable*, never the goal. You
+> can ALWAYS weigh in with the operator — but raising the flags is YOUR job; never
+> passively wait for the operator to point at the problem. This framing binds the
+> three sub-reviews this session runs, too.
+
 This is the **master review session**. The **review is the work**; the **report
 is just the deliverable** it produces. It does not replace `/health-review`,
 `/performance-review`, or `/ml-review` — it **runs all three** and then
