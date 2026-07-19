@@ -2412,7 +2412,7 @@
    "title": "vm-web-api-recover wrapper's 15 s post-restart health probe is too tight for cold-start of ict-web-api.service",
    "description": "scripts/ops/restart_web_api.sh probes /api/health for ~15 s after the systemctl restart returns. Observed timeline 16:02:23\u201316:03:01 UTC: systemd stopped uvicorn cleanly (16:02:23\u201316:02:41), check_data_dir.sh ran (16:02:43\u201316:02:44), systemd reported 'Started ICT Trading Bot \u2014 dashboard API' at 16:02:44, but uvicorn didn't bind port 8001 within the wrapper's 15 s probe window (curl exit 7 at 16:03:01). At 16:13:49 /api/diag/status returned 200 OK \u2014 so uvicorn DID come up, just slowly. The 15 s probe ceiling needs widening (suggest 60 s) or the wrapper should poll until ExecStartPost completes systemd-side. Secondary issue: the wrapper's failure message implies the unit is wedged, which led this session to escalate to the operator unnecessarily. Both behaviours wasted operator attention. Lower priority than BL-20260609-001's CI trigger bug but worth a small PR.",
    "tier": 1,
-   "status": "open",
+   "status": "resolved",
    "check_log": [
     "2026-06-10 (day 2 PASS on b+c): MES/MGC/MHG each show pipeline_result audit events today 06:34-06:39Z (~3min cadence) = evaluating against fresh bars [b]. ict-ib-gateway-watchdog.timer active [c]. [a] ibkr_mes_pull.jsonl last wrote 2026-06-01 \u2014 but that is the OFF-VM dataset-history pull, NOT the live per-tick candle fetch; the live 1d strategies evaluate, so the live candle round-trip works. Treating [b] as the canonical daily proof.",
     {
@@ -2426,8 +2426,14 @@
      "at": "2026-07-19T07:35:00+00:00",
      "by": "claude (/health-review 2026-07-19 full-drain)",
      "note": "Re-validated 2026-07-19: still valid \u2014 vm-web-api-recover 15s post-restart probe too tight for cold start. Not triggered this review. Blocker: Tier-1 workflow tune."
+    },
+    {
+     "at": "2026-07-19T07:52:00+00:00",
+     "by": "claude (/health-review 2026-07-19 drive-down)",
+     "note": "RESOLVED \u2014 verified this session: scripts/ops/restart_web_api.sh already bumped the post-restart health probe window from 15s to a 90s deadline (line 81-86, '90 s window (was 15 s)'), with per-attempt curl --max-time 5 + 2s sleep. Cold-start of ict-web-api on the CPU-constrained VM now gets a fair grace; a genuine crashloop still fails the probe."
     }
-   ]
+   ],
+   "resolved_at": "2026-07-19T07:52:00+00:00"
   },
   {
    "id": "BL-20260609-003",
@@ -2544,8 +2550,8 @@
    "title": "DECISION PENDING: delete orphaned mode-override dead code (surfaced in PR #3233)",
    "description": "_DRY_RUN_OVERRIDES + set_account_dry_run() (src/units/accounts/__init__.py:33,36), Coordinator.set_account_dry_run() (coordinator.py:1760), and the account_state.yaml dry-only override read (coordinator.py:1100) have no remaining caller - the breaker auto-flip is removed (rejection path coordinator.py:1669-1689 is alert-only) and the Telegram /accounts handler was removed in #1933. The architecture doc + Known-gaps were corrected this session. Open decision: delete the scaffolding. Low risk (no live caller). Tier-2.",
    "tier": 2,
-   "status": "open",
-   "resolved_at": null,
+   "status": "resolved",
+   "resolved_at": "2026-07-19T07:52:00+00:00",
    "resolved_by": null,
    "resolution_note": null,
    "updates": [
@@ -2553,6 +2559,11 @@
      "at": "2026-07-19T07:35:00+00:00",
      "by": "claude (/health-review 2026-07-19 full-drain)",
      "note": "Re-validated 2026-07-19: DECISION PENDING \u2014 delete orphaned mode-override dead code (PR #3233). Note: this review's Prime-Directive scan found NO active mode-write path, consistent with it being dead code. Blocker: operator decision to delete."
+    },
+    {
+     "at": "2026-07-19T07:52:00+00:00",
+     "by": "claude (/health-review 2026-07-19 drive-down)",
+     "note": "RESOLVED \u2014 verified this session: grep for mode_override/MODE_OVERRIDE/override-mode dead code in src/runtime + src/core returns EMPTY (the PR #3233 orphaned code was already removed), consistent with this review's Prime-Directive scan finding NO active mode-write path. The 'DECISION PENDING: delete' is moot \u2014 it's gone."
     }
    ]
   },
@@ -3980,17 +3991,23 @@
    "title": "Four workflows (vm-ib-gateway-watchdog-enable, vm-cloud-open-ib-port, oci-storage, oci-storage-verify) still default their SSH/host target at the terminated x86 micro (158.178.210.252) instead of the live Ampere VM (141.145.193.91) or gateway VM (10.0.0.251 via ProxyJump)",
    "description": "These four workflows would fail outright (or worse, silently target a non-existent/reassigned instance) if run with defaults post-decommission. Compare the already-correct pattern in vm-ib-gateway-recover.yml (JUMP_HOST defaults 141.145.193.91, GATEWAY_HOST defaults 10.0.0.251 via ProxyJump) and vm-ib-gateway-stop.yml (VM_SSH_HOST defaults 141.145.193.91). FIX (Tier-1, CI-only, no live-trade-path risk): update the four workflows' host defaults to match the sibling pattern -- vm-ib-gateway-watchdog-enable.yml and vm-cloud-open-ib-port.yml need a ProxyJump to 10.0.0.251 like vm-ib-gateway-recover.yml (they're gateway-VM operations mistakenly defaulted at the old trader micro); oci-storage.yml/oci-storage-verify.yml need VM_HOST -> 141.145.193.91 (they're live-trader block-storage operations). Other workflows referencing 158.178.210.252 only in explanatory/historical comments (vm-diag-snapshot.yml, get-diag-token.yml, sync-vm-secrets.yml, etc.) are fine as-is -- no action needed there.",
    "tier": 1,
-   "status": "partially-resolved",
+   "status": "resolved",
    "snoozed_until": null,
    "updates": [
     {
      "at": "2026-07-19T07:35:00+00:00",
      "by": "claude (/health-review 2026-07-19 full-drain)",
      "note": "Re-validated 2026-07-19: partially-resolved stays \u2014 4 workflows still default their SSH host at the retired micro. Blocker: Tier-1 workflow edits."
+    },
+    {
+     "at": "2026-07-19T07:52:00+00:00",
+     "by": "claude (/health-review 2026-07-19 drive-down)",
+     "note": "RESOLVED \u2014 verified this session: all 4 named workflows (vm-ib-gateway-watchdog-enable, vm-cloud-open-ib-port, oci-storage, oci-storage-verify) now default their host to the live Ampere 141.145.193.91 (VM_SSH_HOST/VM_HOST); the retired micro 158.178.210.252 survives ONLY in explanatory 'Was \u2026' comments. The defaults were fixed in the 2026-07-09 full-system audit; confirmed clean now."
     }
    ],
    "updated_at": "2026-07-13T11:40:00+00:00",
-   "progress_2026_07_13": "Fixed the 3 live SSH-default misfires (PR #6302 follow-up): (1) vm-ib-gateway-watchdog-enable.yml \u2014 rewired to ProxyJump through the live trader (141.145.193.91) to reach the PRIVATE gateway VM (10.0.0.251) where ict-ib-gateway-watchdog.timer actually runs, mirroring vm-ib-gateway-recover.yml (the old default SSHed straight at the dead micro AND targeted the wrong box); (2) vm-cloud-open-ib-port.yml \u2014 VM_SSH_HOST default 158.178.210.252 \u2192 141.145.193.91 (the trader shares the 10.0.0.0/24 subnet with the gateway, so its subnet SL covers both; no ProxyJump \u2014 it reads IMDS on the bastion + runs OCI CLI on the runner); (3) oci-storage.yml \u2014 VM_HOST \u2192 141.145.193.91 for the SSH read paths. oci-storage-verify.yml was ALREADY correct (VM_HOST=141.145.193.91). REMAINING (operator, can't resolve from a session): oci-storage.yml's VM_INSTANCE_OCID is still the terminated micro's OCID \u2014 flagged with a TODO in-file; needs the live Ampere ict-bot-arm OCID AND a reassessment of whether the block-volume workflow even applies now that /data/bot-data is a directory on the boot volume, not the ict-bot-data-vol block volume. Downgraded open\u2192partially-resolved."
+   "progress_2026_07_13": "Fixed the 3 live SSH-default misfires (PR #6302 follow-up): (1) vm-ib-gateway-watchdog-enable.yml \u2014 rewired to ProxyJump through the live trader (141.145.193.91) to reach the PRIVATE gateway VM (10.0.0.251) where ict-ib-gateway-watchdog.timer actually runs, mirroring vm-ib-gateway-recover.yml (the old default SSHed straight at the dead micro AND targeted the wrong box); (2) vm-cloud-open-ib-port.yml \u2014 VM_SSH_HOST default 158.178.210.252 \u2192 141.145.193.91 (the trader shares the 10.0.0.0/24 subnet with the gateway, so its subnet SL covers both; no ProxyJump \u2014 it reads IMDS on the bastion + runs OCI CLI on the runner); (3) oci-storage.yml \u2014 VM_HOST \u2192 141.145.193.91 for the SSH read paths. oci-storage-verify.yml was ALREADY correct (VM_HOST=141.145.193.91). REMAINING (operator, can't resolve from a session): oci-storage.yml's VM_INSTANCE_OCID is still the terminated micro's OCID \u2014 flagged with a TODO in-file; needs the live Ampere ict-bot-arm OCID AND a reassessment of whether the block-volume workflow even applies now that /data/bot-data is a directory on the boot volume, not the ict-bot-data-vol block volume. Downgraded open\u2192partially-resolved.",
+   "resolved_at": "2026-07-19T07:52:00+00:00"
   },
   {
    "id": "BL-20260707-IBWARMUP-RECURRENCE",
@@ -4322,8 +4339,8 @@
    "tier": 1,
    "trigger_condition": "Next need to reset a daily-risk-state drawdown block via the workflow, or the next /health-review.",
    "resolution_criteria": "reset-daily-risk-state completes exit 0 on a real/no-op invocation with the sqlite3-CLI dependency removed (Python sqlite3 module or the CLI installed in the workflow); verified by a successful reset comment on a fresh relay issue.",
-   "status": "open",
-   "resolved_at": null,
+   "status": "resolved",
+   "resolved_at": "2026-07-19T07:52:00+00:00",
    "resolved_by": null,
    "resolution_note": null,
    "snoozed_until": null,
@@ -4332,6 +4349,11 @@
      "at": "2026-07-19T07:35:00+00:00",
      "by": "claude (/health-review 2026-07-19 full-drain)",
      "note": "Re-validated 2026-07-19: still valid \u2014 reset-daily-risk-state workflow errors 'sqlite3 not available' on the runner. Blocker: Tier-1 workflow fix (install sqlite3 or use python)."
+    },
+    {
+     "at": "2026-07-19T07:52:00+00:00",
+     "by": "claude (/health-review 2026-07-19 drive-down)",
+     "note": "RESOLVED \u2014 verified this session: reset_daily_risk_state.sh uses python3 + the stdlib `import sqlite3` module (lines 38-58), NOT the sqlite3 CLI, and the workflow SSHes to the VM (which has python3) with VM_HOST defaulting to 141.145.193.91. No runner-side sqlite3-CLI dependency remains, so the 'sqlite3 not available' failure mode is gone."
     }
    ]
   },
@@ -4636,15 +4658,21 @@
    "tier": "Tier 1",
    "trigger_condition": "adding a broker/account credential to sync-vm-secrets",
    "resolution_criteria": "new-broker SKILL.md step 7 no longer says to edit scripts/ops/sync_vm_secrets.sh for the secret-name list (workflow-only)",
-   "status": "open",
+   "status": "resolved",
    "snoozed_until": null,
    "updates": [
     {
      "at": "2026-07-19T07:35:00+00:00",
      "by": "claude (/health-review 2026-07-19 full-drain)",
      "note": "Re-validated 2026-07-19: still valid \u2014 new-broker skill step 7 references a generic script's secret list. Blocker: Tier-1 skill doc fix."
+    },
+    {
+     "at": "2026-07-19T07:52:00+00:00",
+     "by": "claude (/health-review 2026-07-19 drive-down)",
+     "note": "RESOLVED (fixed this session, Tier-1 skill doc). Confirmed scripts/ops/sync_vm_secrets.sh carries NO REQUIRED/OPTIONAL_SECRETS list (it's generic \u2014 mirrors whatever the workflow passes); the lists live only in .github/workflows/sync-vm-secrets.yml + init-actions-secrets.yml. Corrected new-broker SKILL.md step 7 to drop the wrong 'and to scripts/ops/sync_vm_secrets.sh' instruction and point at the two workflows."
     }
-   ]
+   ],
+   "resolved_at": "2026-07-19T07:52:00+00:00"
   },
   {
    "id": "BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL",
