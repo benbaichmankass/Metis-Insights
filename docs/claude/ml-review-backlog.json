@@ -1205,13 +1205,22 @@
    "tier": 1,
    "trigger_condition": "Any session retraining or promoting the ETH xasset regime/direction heads; next cross-asset probe work.",
    "resolution_criteria": "The ETH market_features daily build emits a non-zero cross_asset block, the xasset head is retrained on it, and its RG3/RG4 are re-measured (with vs without xa) for a clean A/B.",
-   "status": "open",
+   "status": "resolved",
    "snoozed_until": null,
    "updates": [
     {
      "at": "2026-07-19T09:05:00+00:00",
      "by": "claude (ML Tier-1 session 2026-07-19)",
      "note": "FIX LANDED (PR #6917): build_trainer_datasets.sh now builds the ETH 1h cross_asset side-stream (peers BTC+SOL) and passes cross_asset_path into the ETH 1h market_features build; loud fail-open (family=cross_asset failed + overall_rc=1) so a regression can't be silent. Local e2e through the exact CLI: all 13 xa_* cols non-zero. CRITICAL COMPANION FIX (ml-infra audit F1): all four ETH 1h manifests pinned dataset.version v001 (frozen ~2026-06-17 snapshot) while the nightly builds v002 \u2014 bumped to v002, otherwise the retrain would have silently reread dead-xa v001. Close after the trainer-side rebuild+retrain A/B (verification bundle stage 2) confirms non-zero xa on the real dataset + re-measured RG3; RG4-live re-measure accrues on the shadow soak (the xasset head IS actively scoring \u2014 vm-diag #6923)."
+    }
+   ],
+   "resolution": "RESOLVED \u2014 fix (PR #6917: nightly ETH 1h cross_asset side-stream + cross_asset_path + v001->v002 manifest pin bump) verified LIVE on the trainer (verification bundle #6931 stage 2, read via trainer-diag #6939): real v002 rebuild emits all 13 xa_* cols non-zero (xa_breadth_up nonzero 26535/43800 mean 0.502 stdev 0.445 \u2014 was all-zeros); both eth-regime-1h heads retrained + registered candidate; clean with-vs-without-xa A/B on the rebuilt data: weighted_f1 0.5757 (base) -> 0.5893 (xasset), delta +0.0136. RG4-live re-measure accrues on the shadow soak (the xasset head is actively scoring, vm-diag #6923) \u2014 pick up at the next /ml-review.",
+   "status_history": [
+    {
+     "at": "2026-07-19T11:05:00+00:00",
+     "status": "resolved",
+     "by": "claude (ML continuation session 2026-07-19, successor)",
+     "note": "Live verification bundle stage 2 PASS \u2014 non-zero xa block on real v002 + retrain + A/B (+0.0136 weighted_f1 for xasset)."
     }
    ]
   },
@@ -1556,13 +1565,22 @@
    "source": "trainer-vm-diag issue #6798 (2026-07-17): free -m shows 5571/5909 MB used, 158 avail (box full); journal shows ict-trainer.service oom-kill on Jul 03/04/07/08; training_cycle.jsonl shows btc-regime-5m-lgbm-flow-v1 exit_code 137 x2 + 143, cascading to v2/yz-v1. (mes-* exit-1 failures are a SEPARATE missing-dataset issue, not OOM.)",
    "opened_at": "2026-07-17T14:05:00+00:00",
    "opened_by": "claude (/system-review 2026-07-16 wrap-up -- single-manifest-OOM last-gap)",
-   "status": "open",
+   "status": "resolved",
    "snoozed_until": null,
    "updates": [
     {
      "at": "2026-07-19T09:05:00+00:00",
      "by": "claude (ML Tier-1 session 2026-07-19)",
      "note": "Rule-3 disposition APPLIED (PR #6917): (a) shrink, fleet-wide \u2014 the whole 5m OOM class shared one root cause (full-column list-of-dicts dataset load \u22485.2G anon-rss on ~500k-row 5m datasets; the paired memcg kills ~20s apart were the AUDIT subprocess + train). Load-time column projection landed (manifest-referenced cols + safety set; TRAINING_LOAD_ALL_COLUMNS=1 opt-out); audit heredoc projects to features+target. 6th OOM-class manifest identified from the 2026-07-19 cycle: eth-regime-5m-lgbm-v1 (exit 137) \u2014 included in live verification. Quarantine module kept (self-clears on success). Close after the live verify confirms the five+1 manifests train under the 5G cap."
+    }
+   ],
+   "resolution": "RESOLVED \u2014 Rule-3 disposition (a) shrink, verified LIVE on the trainer (verification bundle #6931, read via trainer-diag #6939): all six 5m OOM-class manifests (btc-regime-5m-lgbm-v2, btc-regime-5m-lgbm-yz-v1, btc-regime-5m baseline, eth-regime-5m-lgbm-v1, sol-regime-5m-lgbm-v1, btc-regime-5m-lgbm-flow-v1) retrained rc=0 under the 5G cap with load-time column projection (PR #6917); Max-RSS 0.24-1.08 GB vs the prior ~5.2G exit-137 profile. Quarantine self-cleared on each. The MemoryMax=5G/MemorySwapMax=0 drop-ins are KEPT DELIBERATELY as the containment backstop (not to be removed on 'fixed' grounds). Final acceptance check: next nightly cycle clean end-to-end (successor session verifies ~2026-07-20).",
+   "status_history": [
+    {
+     "at": "2026-07-19T11:05:00+00:00",
+     "status": "resolved",
+     "by": "claude (ML continuation session 2026-07-19, successor)",
+     "note": "Live verification bundle stage 1 PASS \u2014 six manifests under cap, rc=0; drop-ins kept as backstop."
     }
    ]
   },
@@ -1591,6 +1609,11 @@
      "at": "2026-07-19T09:05:00+00:00",
      "by": "claude (ML Tier-1 session 2026-07-19)",
      "note": "P2 label-volume run BUILT + landed (PR #6917): scripts/ml/m23_phase2_labelvol.sh pools BTC+ETH+SOL (3-strategy harness roster per symbol on the train side; each symbol's real closed trades appended to the live_holdout eval book), new p2pool manifests (won @v020, won_r @v021, `symbol` categorical per the xsym lesson), gate references recomputed from the pooled eval book, m23_ev_gate net-R sweep at tau\u2208{0.5,0.75}. Interface-drift fix that protects the run: record_harness_trades override precedence (squeeze rows were mislabeled). Run + findings doc: verification bundle stage 3."
+    },
+    {
+     "at": "2026-07-19T11:20:00+00:00",
+     "by": "claude (ML continuation session 2026-07-19, successor)",
+     "note": "P2 (3-symbol label-volume pooling) COMPLETE \u2014 HONEST NEGATIVE, NO-GO on P3 (docs/research/M23-phase2-labelvol-findings-2026-07-19.md). Pooling BTC+ETH+SOL x 3 strategies tripled the backtest TRAIN pool (1,685->5,077 rows, 9/9 legs emitted) but the LIVE eval book grew 376->383 only (ETH +7, SOL 0 \u2014 the roster has ~no real closed trades off BTC). Pooled `won` head FAILS the recomputed gate (acc 0.7258 < majority 0.7311; prec 0.2500 < base 0.2689); pooled `won_r` C1 never crosses net-positive at any threshold (tau=0.5 best n=1 @ -3.93R; tau=0.75 best n=3 @ -2.78R) \u2014 it LOST P1's n<=11 positive tip (cross-symbol dilution). The label wall is EVAL-side; pooled backtests cannot manufacture real labels. NEXT LEVER = P2b eval-side coverage: rerun with the FULL real closed-trade fleet as the eval book once the WS-B candle shards (alt-USDT 15m + equities/metals 1d, PR #6934) land with the next nightly build (216/491 closed trades currently have no shard). Otherwise: time (quarterly re-run of the same harness); no more target/model/pooling variants \u2014 three independent levers have converged on the same wall."
     }
    ]
   },

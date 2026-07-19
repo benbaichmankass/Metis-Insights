@@ -600,6 +600,44 @@ build_mes_1d() {
 build_mes_market
 build_mes_1d
 
+# ---- Fleet candle coverage for exit/chop analysis (WS-B, MB-20260712) -----
+# market_raw ONLY: scripts/research/m20_exit_analysis.py (and the M23 P2b
+# eval-book growth) path-resolve closed trades to candles; 216 of 491 closed
+# trades in the 90d window had NO candle shard (the 4h donchian alt symbols +
+# the whole equities/metals fleet). No market_features derivation — no head
+# trains on these yet (add features when one does, per its own manifest).
+#
+# Alt-USDT 15m shards ride the normal Bybit pipeline on the alt parity gate
+# (same cadence as the ETH/SOL intraday shards). Equities/metals get DAILY
+# bars via the yfinance_offvm adapter (equity/ETF bot symbols pass through as
+# their own tickers; metals map to COMEX continuous front-month futures) with
+# the non-fatal mes_build wrapper — a Yahoo hiccup must never redden the cycle.
+if build_alt_intraday; then
+  for alt in ADAUSDT AVAXUSDT XRPUSDT; do
+    build_bybit_raw "$alt" 15m
+  done
+fi
+EQ_1D_START="${EQ_1D_START:-2015-01-01}"
+build_equity_daily() {
+  local sym="$1"
+  local ticker="${2:-}"
+  if ! python -c "import yfinance" 2>/dev/null; then
+    set +e; pip install --quiet "yfinance>=0.2"; set -e
+  fi
+  if ! python -c "import yfinance" 2>/dev/null; then
+    emit "$(printf '{"ts":"%s","status":"skipped","family":"market_raw","symbol":"%s","timeframe":"1d","detail":"yfinance unavailable"}' "$(iso_now)" "$sym")"
+    return 0
+  fi
+  mes_build market_raw \
+    --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+    --source yfinance_offvm --symbol-scope "$sym" --timeframe 1d --overwrite \
+    "adapter=yfinance_offvm" "symbol=${sym}" "timeframe=1d" \
+    "start=${EQ_1D_START}" "end=${MARKET_END}" ${ticker:+"ticker=${ticker}"}
+}
+for s in SPY QQQ GLD TLT IWM SLV IEF TQQQ QLD SPLG IAUM; do build_equity_daily "$s"; done
+build_equity_daily MGC "GC=F"
+build_equity_daily MHG "HG=F"
+
 # ---- Crypto funding-rate + open-interest features (S-MLOPT-S11) ----------
 # OPT-IN (default OFF): set ICT_BUILD_FUNDING_OI=1 to fetch the Bybit funding/OI
 # side-stream and REBUILD the BTCUSDT market_features with it joined (the v4

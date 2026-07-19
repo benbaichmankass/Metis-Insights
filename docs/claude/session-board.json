@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] \u2014 one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": null,
-    "branch": null,
-    "pr": null,
-    "claimed_at": null
+    "held_by": "session_01XBSJPyL4k9HUje4miikC7q",
+    "branch": "claude/ml-vol-regime-probe-21az61-f0au4r",
+    "pr": 6934,
+    "claimed_at": "2026-07-19T11:30:00Z"
   },
   "active_sessions": [
     {
@@ -40,11 +40,11 @@
       "updated_at": "2026-07-16T00:00:00Z"
     },
     {
-      "session_id": "session_011d3hjgoY5QMSZPK4tuTpzN",
+      "session_id": "session_01XBSJPyL4k9HUje4miikC7q",
       "branch": "claude/ml-vol-regime-probe-21az61-f0au4r",
-      "intent": "ML Tier-1 offline session: (1) durable trainer memory fix (load-time column projection \u2014 MB-20260709-TRAINER-SUBPROC-ISOLATION + BL-20260717-TRAINER-SINGLE-MANIFEST-OOM), (2) ETH 1h xasset dead-feature build fix (BL-20260628-XA-TRAINING-ZERO), (3) M23 meta-label P2 label volume. Serial PRs from the designated branch, restarted from main between concerns. Slot free.",
-      "started_at": "2026-07-19T07:45:00Z",
-      "updated_at": "2026-07-19T07:45:00Z"
+      "intent": "ML continuation — successor of session_011d3hjgoY5QMSZPK4tuTpzN (entry replaced per its handoff note). Owns: read trainer verification bundle (stage1 memfix / stage2 ETH xa / stage3 M23 P2) -> M23 P2 findings doc -> finalize sprint log -> disposition BL-20260717-TRAINER-SINGLE-MANIFEST-OOM + BL-20260628-XA-TRAINING-ZERO -> merge close-out PR #6934 -> research-week WS-A (M25 promotion harvest). Not touching #6926 scope. Slot free.",
+      "started_at": "2026-07-19T10:55:00Z",
+      "updated_at": "2026-07-19T10:55:00Z"
     },
     {
       "session_id": "session_01PKEYK1kKeXJXuG92GS2NB1",
