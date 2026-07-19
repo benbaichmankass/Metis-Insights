@@ -123,6 +123,20 @@ burst just to get it OFF the 6 GB box); or (c) drop/split it. Do **not** raise
 `MemorySwapMax` above 512 M to "fix" it — that re-opens the swap-death that
 wedges the box.
 
+**Disposition applied 2026-07-19 (BL-20260717-TRAINER-SINGLE-MANIFEST-OOM):
+(a) shrink, fleet-wide.** The whole 5m-manifest OOM class shared one root
+cause — the trainer loader (and the observe-only dataset-audit subprocess)
+materialized `data.jsonl` as list-of-dicts with EVERY column (~40), ≈5.2 GB
+anon-rss on the ~500k-row 5m datasets. `ml/experiments/runner.py::_load_jsonl`
+now projects each row at parse time to the manifest-referenced columns + a
+hardcoded safety set (~40 → ~15 cols ≈ 5× peak-RSS cut on the synthetic
+benchmark; env opt-out `TRAINING_LOAD_ALL_COLUMNS=1`). Per-manifest subprocess
+isolation (the other half of MB-20260709) was verified ALREADY TRUE — each
+manifest is its own `python -m ml train` under the bash orchestrator. The
+`MemorySwapMax=0` + `MemoryHigh=infinity` + `MemoryMax=5G` + `OOMPolicy=continue`
+drop-ins are KEPT deliberately as the containment backstop (a future runaway
+gets a clean OOM-kill, never a D-state swap-thrash).
+
 **This is now detected + escalated automatically (BL-20260717-TRAINER-SINGLE-MANIFEST-OOM).**
 The cycle bounds a single-manifest OOM (30-min per-manifest cap → `continue`),
 but the per-day progress file would otherwise retry an oversized manifest
