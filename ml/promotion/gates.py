@@ -85,7 +85,39 @@ class GateThresholds:
     # (trade-outcome) off; the default decision-model profile leaves this not
     # required and keeps `live_agreement` required.
     min_live_regime_auc: float = 0.55
+    # M25 gate reframe (operator-approved 2026-07-19, docs/research/
+    # M25-promotion-consolidation-DESIGN.md § "The promotion gate — REFRAMED
+    # 2026-07-19"): the edge of an ML head is proven OFFLINE (the powered
+    # walk-forward `oos_edge` gate); the live soak's job is to prove serving
+    # MECHANICS. `live_regime_discrimination` is therefore ADVISORY (still
+    # computed + reported, `required: false`) even under the regime profile —
+    # it is an outcome-statistics gate that takes weeks to power in calm
+    # regimes. The required live gates for a regime head are the deterministic
+    # mechanics checks below (`live_parity` + `labels_accruing`).
     require_live_regime_discrimination: bool = False
+    # `live_parity` (M25 reframe) — deterministic serving-mechanics checks
+    # over the head's live-logged shadow rows (ml.promotion.live_parity):
+    # (a) serving fidelity — re-score up to `parity_sample_n` most-recent
+    # live rows with the registered artifact; logged-vs-recomputed must agree
+    # within `parity_score_tol`, with the mismatch fraction capped at
+    # `parity_max_mismatch_frac`; (b) dead-feature parity — a feature
+    # constant/all-zeros on one side (live vs training data) but varying on
+    # the other fails, named in the detail (the ETH-xa bug class,
+    # BL-20260628-XA-TRAINING-ZERO). Fewer than `parity_min_rows` live rows
+    # with feature_row → insufficient_data (mechanics unproven yet).
+    require_live_parity: bool = False
+    parity_sample_n: int = 50
+    parity_score_tol: float = 1e-6
+    parity_max_mismatch_frac: float = 0.02
+    parity_min_rows: int = 20
+    # `labels_accruing` (M25 reframe) — the labeled fraction of the head's
+    # live rows must reach `labels_min_fraction` once `labels_min_rows` live
+    # rows exist (catches the stale-candle-base labeling blockage class, e.g.
+    # MES 1213/1861 unlabeled — BL-20260626-MES-BASE-STALE). Fewer than
+    # `labels_min_rows` live rows → insufficient_data.
+    require_labels_accruing: bool = False
+    labels_min_fraction: float = 0.30
+    labels_min_rows: int = 20
     # Whether the live trade-outcome `live_agreement` gate is *required*.
     # Default True for a trade-outcome decision model. The regime profile turns
     # this off (a regime head is judged on live REGIME discrimination, not
@@ -103,11 +135,19 @@ class GateThresholds:
 # + safety gate (`oos_edge`, `non_degenerate`, `cross_run_stability`,
 # `shadow_soak` 7d, `drift_clean`) and (a) lowers the live sample floor to a
 # small sanity count, (b) drops the degenerate live `beats_baseline`
-# requirement, and (c) swaps the live track-record gate: it requires
-# `live_regime_discrimination` (RG4 live-row AUC vs the realized regime label)
-# and turns `live_agreement` (rank-AUC vs trade WIN) OFF — a vol-regime head
-# predicts the regime, not trade win/loss (2026-06-26, option A). It NEVER
-# loosens `oos_edge`, `shadow_soak`, or `drift_clean`.
+# requirement, and (c) swaps the live track-record gate — a vol-regime head
+# predicts the regime, not trade win/loss, so `live_agreement` (rank-AUC vs
+# trade WIN) is OFF (2026-06-26, option A). It NEVER loosens `oos_edge`,
+# `shadow_soak`, or `drift_clean`.
+#
+# M25 reframe (operator-approved 2026-07-19, docs/research/
+# M25-promotion-consolidation-DESIGN.md § "The promotion gate — REFRAMED
+# 2026-07-19"): the required LIVE gates for a regime head are the
+# deterministic serving-mechanics checks `live_parity` + `labels_accruing`
+# (soak = mechanics, not edge — the edge is proven offline by `oos_edge`).
+# `live_regime_discrimination` (RG4 live-row AUC vs the realized regime
+# label) is still computed + reported but ADVISORY (`required: false`) —
+# an outcome-statistics gate that takes weeks to power in calm regimes.
 REGIME_MIN_LIVE_TRADES: int = 5
 
 
@@ -118,7 +158,11 @@ def regime_classifier_thresholds(base: GateThresholds | None = None) -> GateThre
         min_trades=REGIME_MIN_LIVE_TRADES,
         require_beats_baseline=False,
         require_live_agreement=False,
-        require_live_regime_discrimination=True,
+        # M25 reframe 2026-07-19: RG4 discrimination demoted to advisory;
+        # the required live gates are the serving-mechanics pair below.
+        require_live_regime_discrimination=False,
+        require_live_parity=True,
+        require_labels_accruing=True,
     )
 
 
@@ -505,9 +549,17 @@ def _gate_live_regime_discrimination(
     feature rows the live runtime logged (``scripts/ml/replay_pregate_live``)
     against the candle-derived realized regime. This is the regime-appropriate
     replacement for ``live_agreement`` (which measures rank-AUC vs trade WIN —
-    wrong for a head that predicts the regime, not trade outcome). Required
-    only under the regime-classifier profile; ``None`` when no RG4 AUC was
-    computed (treated as not-ready, never silently skipped)."""
+    wrong for a head that predicts the regime, not trade outcome).
+
+    M25 reframe (operator-approved 2026-07-19,
+    docs/research/M25-promotion-consolidation-DESIGN.md § "The promotion gate
+    — REFRAMED 2026-07-19"): ADVISORY under every stock profile
+    (``required: false``) — still computed and reported, but no longer
+    blocking. It is an outcome-statistics gate that takes weeks to power in
+    calm regimes; the live soak's job is to prove serving MECHANICS
+    (``live_parity`` + ``labels_accruing``), the edge being proven offline by
+    ``oos_edge``. A custom ``GateThresholds`` can still opt it back in via
+    ``require_live_regime_discrimination=True``."""
     if live_regime_auc is None:
         return GateResult(
             "live_regime_discrimination", "insufficient_data",
@@ -523,6 +575,128 @@ def _gate_live_regime_discrimination(
         f"RG4 live regime-discrimination AUC = {live_regime_auc:.3f}",
         value=live_regime_auc, threshold=th.min_live_regime_auc,
         required=th.require_live_regime_discrimination,
+    )
+
+
+def _gate_live_parity(parity: Any, th: GateThresholds) -> GateResult:
+    """Serving-mechanics parity gate (M25 reframe, operator-approved
+    2026-07-19 — docs/research/M25-promotion-consolidation-DESIGN.md § "The
+    promotion gate — REFRAMED 2026-07-19").
+
+    ``parity`` is an ``ml.promotion.live_parity.LiveParityResult`` (or
+    ``None``): (a) serving fidelity — the logged live scores must match a
+    re-score by the registered artifact within tolerance; (b) dead-feature
+    parity — a feature constant/all-zeros live-vs-train on one side only
+    fails, named in the detail (the ETH-xa bug class). Any compute ERROR or
+    a thin sample reports ``insufficient_data`` — mechanics unproven yet,
+    never a silent pass."""
+    required = th.require_live_parity
+    name = "live_parity"
+    if parity is None:
+        return GateResult(
+            name, "insufficient_data",
+            "no live-parity check computed (run gate-check with --shadow-log "
+            "+ --datasets-root so serving mechanics can be verified)",
+            threshold=th.parity_max_mismatch_frac, required=required,
+        )
+    if getattr(parity, "error", None):
+        return GateResult(
+            name, "insufficient_data",
+            f"live-parity check errored: {parity.error}",
+            threshold=th.parity_max_mismatch_frac, required=required,
+        )
+    if parity.n_live_rows < th.parity_min_rows:
+        return GateResult(
+            name, "insufficient_data",
+            f"only {parity.n_live_rows} live rows with feature_row; need "
+            f"≥ {th.parity_min_rows} (serving mechanics unproven yet)",
+            value=float(parity.n_live_rows),
+            threshold=th.parity_max_mismatch_frac, required=required,
+        )
+    if not parity.train_available:
+        return GateResult(
+            name, "insufficient_data",
+            "training dataset unavailable for the dead-feature parity check "
+            "(pass --datasets-root on the trainer VM)",
+            threshold=th.parity_max_mismatch_frac, required=required,
+        )
+    frac = parity.mismatch_fraction
+    failures: list[str] = []
+    if frac is not None and frac > th.parity_max_mismatch_frac:
+        failures.append(
+            f"serving-fidelity mismatch {parity.n_mismatched}/{parity.n_sampled} "
+            f"({frac:.1%} > {th.parity_max_mismatch_frac:.1%}; "
+            f"tol {parity.score_tol:g})"
+        )
+    if parity.dead_live_features:
+        failures.append(
+            "dead-on-LIVE features (constant/zero live, varying in training): "
+            + ", ".join(parity.dead_live_features)
+        )
+    if parity.dead_train_features:
+        failures.append(
+            "dead-in-TRAINING features (constant/zero in training, varying live): "
+            + ", ".join(parity.dead_train_features)
+        )
+    if failures:
+        return GateResult(
+            name, "fail", "; ".join(failures),
+            value=frac, threshold=th.parity_max_mismatch_frac, required=required,
+        )
+    return GateResult(
+        name, "pass",
+        f"serving fidelity {parity.n_sampled - parity.n_mismatched}/"
+        f"{parity.n_sampled} rows match within {parity.score_tol:g}; "
+        f"no dead-feature divergence live-vs-train",
+        value=frac, threshold=th.parity_max_mismatch_frac, required=required,
+    )
+
+
+def _gate_labels_accruing(labels: Any, th: GateThresholds) -> GateResult:
+    """Label-pipeline health gate (M25 reframe, operator-approved 2026-07-19).
+
+    ``labels`` is an ``ml.promotion.live_parity.LabelsAccruingResult`` (or
+    ``None``). Once at least ``labels_min_rows`` live rows exist, the labeled
+    fraction must reach ``labels_min_fraction`` — below it fails with the
+    fraction in the detail (the stale-candle-base labeling blockage class,
+    e.g. MES 1213/1861 unlabeled). Fewer rows → ``insufficient_data``."""
+    required = th.require_labels_accruing
+    name = "labels_accruing"
+    if labels is None:
+        return GateResult(
+            name, "insufficient_data",
+            "no label-accrual check computed (needs the live shadow log + a "
+            "candle source for the realized-label join)",
+            threshold=th.labels_min_fraction, required=required,
+        )
+    if getattr(labels, "error", None):
+        return GateResult(
+            name, "insufficient_data",
+            f"label-accrual check errored: {labels.error}",
+            threshold=th.labels_min_fraction, required=required,
+        )
+    if labels.n_live_rows < th.labels_min_rows:
+        return GateResult(
+            name, "insufficient_data",
+            f"only {labels.n_live_rows} live rows; need ≥ {th.labels_min_rows} "
+            f"before label accrual is judged",
+            value=float(labels.n_live_rows),
+            threshold=th.labels_min_fraction, required=required,
+        )
+    frac = labels.labeled_fraction or 0.0
+    ok = frac >= th.labels_min_fraction
+    detail = (
+        f"labeled fraction {frac:.2f} ({labels.n_labeled}/{labels.n_live_rows} "
+        f"live rows labeled)"
+    )
+    if not ok:
+        detail += (
+            f" < {th.labels_min_fraction:.2f} floor — labeling blocked? "
+            f"(stale candle base / realized-label join failing)"
+        )
+    return GateResult(
+        name, "pass" if ok else "fail", detail,
+        value=frac, threshold=th.labels_min_fraction, required=required,
     )
 
 
@@ -564,6 +738,8 @@ def evaluate_gates(
     drift: Any = None,
     oos_edge: Any = None,
     live_regime_auc: float | None = None,
+    live_parity: Any = None,
+    labels_accruing: Any = None,
     thresholds: GateThresholds | None = None,
 ) -> GateReport:
     """Evaluate the shadow→advisory promotion gates for one model.
@@ -575,14 +751,17 @@ def evaluate_gates(
     ``oos_edge`` is an ``ml.promotion.oos_edge.OOSEdgeResult`` (or ``None``)
     — the offline candidate-vs-baseline edge measured on purged WF-CV.
     ``live_regime_auc`` is the RG4 live-row regime-discrimination AUC (or
-    ``None``) — required only under the regime-classifier profile, where it
-    replaces the trade-outcome ``live_agreement`` gate.
+    ``None``) — advisory reporting since the M25 reframe (operator-approved
+    2026-07-19): still computed + shown, no longer blocking.
+    ``live_parity`` / ``labels_accruing`` are the serving-mechanics results
+    (``ml.promotion.live_parity``) — the REQUIRED live gates under the regime
+    profile since the M25 reframe (soak = mechanics, not edge; the edge is
+    proven offline by ``oos_edge``). Non-regime profiles leave both
+    non-required (unchanged behaviour) unless they opt in.
 
-    Every gate is ``required``, so ``report.ready`` is ``True`` only when
-    all of them — including the offline OOS-edge and the live-attribution
-    gates — clear their pre-registered thresholds. A gate with no evidence
-    reports ``insufficient_data`` (treated as not-ready, never silently
-    skipped).
+    ``report.ready`` is ``True`` only when every *required* gate clears its
+    pre-registered threshold. A required gate with no evidence reports
+    ``insufficient_data`` (treated as not-ready, never silently skipped).
     """
     th = thresholds or GateThresholds()
     results = (
@@ -594,6 +773,8 @@ def evaluate_gates(
         _gate_shadow_soak(entry, th),
         _gate_live_agreement(attribution, th),
         _gate_live_regime_discrimination(live_regime_auc, th),
+        _gate_live_parity(live_parity, th),
+        _gate_labels_accruing(labels_accruing, th),
         _gate_drift_clean(drift, th),
     )
     return GateReport(

@@ -21,7 +21,7 @@ harvest: for each maturing soak, run the *powered* readiness eval, write the
 decision packet, and either propose the Tier-3 promotion (operator approves) or
 record an honest "not yet / never" and re-park. No new frontiers — bank what's soaking.
 
-## The promotion gate (unchanged, restated)
+## The promotion gate (restated 2026-07-17 — SUPERSEDED, see the REFRAMED section below)
 
 A head promotes `shadow → advisory` only on **RG4** evidence
 (`scripts/ml/rg4_targeted.sh`): TRUSTWORTHY (live-vs-train agreement, no
@@ -31,6 +31,67 @@ volatile-class bars/symbol across ≥ 5 distinct volatile episodes). RG3 (in-ses
 CV) is necessary but **not** sufficient — the M18/M21/vol-gate history is a
 graveyard of RG3-passes that RG4-failed live. The operator promotes; Claude
 proposes with the RG4 packet.
+
+## The promotion gate — REFRAMED 2026-07-19 (soak = mechanics, not edge)
+
+**Operator-approved 2026-07-19.** The edge of an ML head is proven **OFFLINE**
+— the powered purged-walk-forward `oos_edge` gate (`ml/promotion/oos_edge.py`),
+which never loosens. The live shadow soak's job is to prove **serving
+MECHANICS**: that the live pipeline feeds the model the features it trained on
+and that the logged score is the score the registered artifact actually
+produces. Waiting weeks for live outcome statistics to power in a calm regime
+(the `live_regime_discrimination` bottleneck, `MB-20260626-003`) re-proves
+offline evidence on a slower clock while the mechanics failures that actually
+burned us (the ETH-xa dead-feature bug `BL-20260628-XA-TRAINING-ZERO`; the MES
+stale-candle labeling blockage, 1213/1861 rows unlabeled) are deterministic and
+checkable **today** from existing artifacts.
+
+Concretely, in the REGIME gate profile (`ml/promotion/gates.py`):
+
+- **`live_regime_discrimination` is DEMOTED to advisory reporting** — still
+  computed (RG4 Stage-2 replay) and shown in the gate report, but
+  `required: false`. It is an outcome-statistics gate that takes weeks to
+  power in calm regimes.
+- **`live_parity` is a new REQUIRED gate** (`ml/promotion/live_parity.py`) —
+  deterministic serving-mechanics checks over the head's live-logged shadow
+  rows (`runtime_logs/shadow_predictions.jsonl` records with `feature_row` +
+  `score`). v1 scope, all computable from existing artifacts, no new
+  instrumentation:
+  1. **Serving fidelity** — re-score up to 50 most-recent live rows with the
+     registered model artifact; the logged score must match the recomputed
+     score within a small tolerance (abs 1e-6, configurable). A mismatch
+     fraction above 2% of sampled rows fails.
+  2. **Dead-feature parity** (the ETH-xa bug class) — for each feature the
+     model consumes, compare live rows vs the training dataset: a feature
+     constant/all-zeros on ONE side but varying on the other fails, naming
+     the feature(s).
+  3. **Minimum sample** — fewer than 20 live rows with `feature_row` reports
+     `insufficient_data` (NOT pass, NOT fail): mechanics unproven yet.
+- **`labels_accruing` is a new REQUIRED gate** — the labeled fraction of the
+  head's live rows must reach 0.30 once ≥ 20 live rows exist; below the floor
+  fails with the fraction in the detail (catches the stale-candle-base
+  labeling blockage class). Fewer rows → `insufficient_data`.
+- **Non-regime profiles are UNCHANGED** — the new gates are reported
+  `required: false` there unless a custom `GateThresholds` opts in.
+
+Fail-safe direction: an ERROR while computing a gate (unreadable log, model
+load failure) surfaces as `insufficient_data` with the error in the detail —
+never a silent pass, never a crash of the whole gate-check. The single-model
+`gate-check` CLI computes the new inputs; the fleet `stage-guard` sweep still
+passes `None` (per-model candle/dataset resolution is a separate follow-up),
+so a regime head is only certifiable through `gate-check` on the trainer VM —
+which is where promotion packets are assembled anyway.
+
+**The one case where a long outcome-soak stays meaningful:** when offline
+history genuinely cannot represent the live distribution (a brand-new venue or
+data feed with no history). Absent that, once offline walk-forward passes AND
+the live parity gate passes, the packet is decision-ready — do not hold it for
+outcome-window statistics that offline history already provides with far more
+power. RG4's live-row replay remains the *parity/skew instrument* (its real
+strength), reported as advisory context in every packet. RG3 alone remains
+insufficient exactly as before — the M18/M21 graveyard was RG3-passes with
+*unverified mechanics*; the parity gate is what actually closes that hole.
+The operator promotes; Claude proposes with the packet.
 
 ## Scope — the soak roster (as of 2026-07-17)
 

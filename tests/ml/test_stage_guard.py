@@ -91,32 +91,54 @@ def _good_attr():
     )
 
 
+def _good_parity():
+    from ml.promotion.live_parity import LiveParityResult
+
+    return LiveParityResult(
+        model_id="m", n_live_rows=120, n_sampled=50, n_mismatched=0,
+        train_available=True,
+    )
+
+
+def _good_labels():
+    from ml.promotion.live_parity import LabelsAccruingResult
+
+    return LabelsAccruingResult(model_id="m", n_live_rows=120, n_labeled=80)
+
+
 def test_shadow_ready_proposes_promote():
     # The default `_entry` carries 2 per-class f1_* metrics, so it auto-detects
-    # as a regime head. Option A (2026-06-26): a regime head's required live
-    # gate is now `live_regime_discrimination` (RG4); supply a passing AUC so
-    # it is promote-ready.
+    # as a regime head. M25 gate reframe (operator-approved 2026-07-19,
+    # docs/research/M25-promotion-consolidation-DESIGN.md § "The promotion gate
+    # — REFRAMED 2026-07-19"): a regime head's required LIVE gates are the
+    # serving-mechanics pair `live_parity` + `labels_accruing`; supply passing
+    # results so it is promote-ready. `live_regime_auc` is advisory now.
     p = propose_for_model(
         _entry("shadow", runs=_runs([0.70, 0.71, 0.69])),
         attribution=_good_attr(), drift={"overall_verdict": "no_change"},
         oos_edge=_good_oos_edge(), live_regime_auc=0.72,
+        live_parity=_good_parity(), labels_accruing=_good_labels(),
     )
     assert p.action == "promote"
     assert p.proposed_stage == "advisory"
 
 
-def test_shadow_regime_holds_without_live_regime_auc():
-    # The regime profile now requires the RG4 live regime-discrimination AUC.
-    # The stage-guard SWEEP passes None for it (per-model candle resolution is
-    # a separate follow-up), so an otherwise-healthy regime head holds on the
-    # new gate rather than promoting on the (off) trade-outcome live_agreement.
+def test_shadow_regime_holds_without_mechanics_evidence():
+    # M25 reframe (2026-07-19): the regime profile requires the deterministic
+    # serving-mechanics gates (`live_parity` + `labels_accruing`). The
+    # stage-guard SWEEP passes None for them (per-model candle/dataset
+    # resolution is a separate follow-up), so an otherwise-healthy regime head
+    # holds on the mechanics gates — while the demoted-to-advisory
+    # `live_regime_discrimination` no longer blocks.
     p = propose_for_model(
         _entry("shadow", runs=_runs([0.70, 0.71, 0.69])),
         attribution=_good_attr(), drift={"overall_verdict": "no_change"},
         oos_edge=_good_oos_edge(), live_regime_auc=None,
     )
     assert p.action == "hold"
-    assert any("live_regime_discrimination" in r for r in p.reasons)
+    assert any("live_parity" in r for r in p.reasons)
+    assert any("labels_accruing" in r for r in p.reasons)
+    assert not any("live_regime_discrimination" in r for r in p.reasons)
 
 
 def test_shadow_without_oos_edge_holds():
