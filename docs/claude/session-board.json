@@ -5,10 +5,10 @@
     "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] \u2014 one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": null,
-    "branch": null,
-    "pr": null,
-    "claimed_at": null
+    "held_by": "session_01XBSJPyL4k9HUje4miikC7q",
+    "branch": "claude/ml-vol-regime-probe-21az61-f0au4r",
+    "pr": 6934,
+    "claimed_at": "2026-07-19T11:30:00Z"
   },
   "active_sessions": [
     {
