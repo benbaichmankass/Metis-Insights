@@ -108,6 +108,26 @@ def test_threshold_from_market_features_metadata(tmp_path):
     assert src == "market_features_meta"
 
 
+def test_threshold_from_build_params_metadata(tmp_path):
+    """Builder v12 records vol_threshold under build_params, not the top
+    level — the miss here made the 2026-07-19 MES read fall to the 0.003
+    global default against a build labeled at 0.0003418 (degenerate
+    0-positive verdict). The resolver must read build_params.vol_threshold."""
+    raw_dir = tmp_path / "market_raw" / "MES" / "5m" / "v002"
+    feat_dir = tmp_path / "market_features" / "MES" / "5m" / "v002"
+    raw_dir.mkdir(parents=True)
+    feat_dir.mkdir(parents=True)
+    (feat_dir / "metadata.json").write_text(
+        json.dumps({"build_params": {"vol_threshold": 0.0003418,
+                                     "forward_window_m": 5}}),
+        encoding="utf-8",
+    )
+    candles = str(raw_dir / "data.jsonl")
+    vt, src = R._resolve_vol_threshold(_mes_rows(), candles, R._VT_UNSET)
+    assert vt == 0.0003418
+    assert src == "market_features_meta"
+
+
 def test_threshold_from_metadata_notes_freetext(tmp_path):
     """Falls back to parsing ``vol_threshold=<x>`` out of the metadata notes
     blob when there is no structured field (future-proof / defensive)."""
