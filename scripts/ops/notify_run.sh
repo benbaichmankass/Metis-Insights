@@ -141,7 +141,7 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
-    backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|fix-prop-mislinked-close|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|rotate-account-keys|init-diag-token|reset-daily-risk-state|repair-malformed-notes)
+    backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|rotate-account-keys|init-diag-token|reset-daily-risk-state|repair-malformed-notes)
         tier=2
         case "${exit_code}" in
             0) result="ok"; priority="normal" ;;
