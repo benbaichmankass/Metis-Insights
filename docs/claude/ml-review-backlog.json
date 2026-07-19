@@ -1733,6 +1733,20 @@
    "status": "open",
    "snoozed_until": null,
    "updates": []
+  },
+  {
+   "id": "MB-20260719-M26-TRANSITION-CONFLICT",
+   "opened_at": "2026-07-19T12:15:00+00:00",
+   "opened_by": "claude (WS-A session, operator-directed 2026-07-19)",
+   "source": "Operator directive 2026-07-19 (in-chat): opposing new-vs-open trades = regime-transition signal (ride it, don't get crushed); timeframe-aware conflict tolerance (multi-day long can host hours-scale shorts); chop bleeds capital \u2014 dedicate a milestone. Design: docs/research/M26-regime-transition-conflict-DESIGN.md.",
+   "title": "M26 regime-transition & directional-conflict intelligence \u2014 P0 bleed quantification is the entry point",
+   "description": "Execute the M26 phased plan. P0 (Tier-1, first session): mine the intent-audit hold deltas + journal for every conflict event; realized PnL of held positions post-conflict vs close/flip/tighten counterfactuals, stratified by timeframe-ratio, strategy pair, regime cell, confidence gap -> findings doc with the $/R bleed number. Then P1 conflict taxonomy (TF-ratio coexistence matrix), P2 transition-score observe-only soak (M25 parity-first discipline), P3 backtest arms vs hold (confidence-gap flip / TF-coexistence / transition exit-tighten / gross throttle) on backtest_system --flip-policy extensions, P4 Tier-3 *_MODE rollout. No live change before P3 beats hold out-of-sample.",
+   "tier": 1,
+   "trigger_condition": "Next ML session with capacity after the research-week WS items; or the next /ml-review (propose as the top experiment).",
+   "resolution_criteria": "P0 findings doc committed with the quantified bleed + concentration; subsequent phases spawn their own items.",
+   "status": "open",
+   "snoozed_until": null,
+   "updates": []
   }
  ],
  "updated_at": "2026-07-18T10:15:00+00:00"
