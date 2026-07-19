@@ -82,6 +82,17 @@ passes `None` (per-model candle/dataset resolution is a separate follow-up),
 so a regime head is only certifiable through `gate-check` on the trainer VM —
 which is where promotion packets are assembled anyway.
 
+**The one case where a long outcome-soak stays meaningful:** when offline
+history genuinely cannot represent the live distribution (a brand-new venue or
+data feed with no history). Absent that, once offline walk-forward passes AND
+the live parity gate passes, the packet is decision-ready — do not hold it for
+outcome-window statistics that offline history already provides with far more
+power. RG4's live-row replay remains the *parity/skew instrument* (its real
+strength), reported as advisory context in every packet. RG3 alone remains
+insufficient exactly as before — the M18/M21 graveyard was RG3-passes with
+*unverified mechanics*; the parity gate is what actually closes that hole.
+The operator promotes; Claude proposes with the packet.
+
 ## Scope — the soak roster (as of 2026-07-17)
 
 | Head / family | Current stage | Readiness anchor | M25 action |
