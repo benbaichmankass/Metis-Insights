@@ -229,10 +229,46 @@ def find_conflicts(con) -> list[dict]:
     return out
 
 
-def open_trades_at(con, symbol: str, ts: float) -> list[dict]:
+def _op_close_proxy(con) -> dict:
+    """trade_id -> order_packages.updated_at epoch — the canonical closed-at proxy.
+
+    Most reconciler-closed trades rows carry a NULL ``closed_at``; the API's
+    close-time basis is ``COALESCE(closed_at, op.updated_at, t.timestamp)``
+    (src/web/api/_closed_at.py). Mirror that here so closed trades don't drop
+    out of the measurement as "unresolved".
+    """
+    out: dict = {}
+    cols = _cols(con, "order_packages")
+    if not cols:
+        return out
+    lk = _first(cols, "linked_trade_id", "trade_id")
+    up = _first(cols, "updated_at", "created_at")
+    if not lk or not up:
+        return out
+    try:
+        for tid, ua in con.execute(
+            f"SELECT {lk}, {up} FROM order_packages WHERE {lk} IS NOT NULL"
+        ):
+            t = _parse_ts(ua)
+            if tid is not None and t is not None:
+                out[str(tid)] = t
+    except sqlite3.Error:
+        pass
+    return out
+
+
+def _account_class(r: dict) -> str:
+    ac = str(r.get("account_class") or "").strip().lower()
+    if ac in ("real_money", "paper"):
+        return ac
+    return "paper" if r.get("is_demo") else "real_money"
+
+
+def open_trades_at(con, symbol: str, ts: float, close_proxy: dict) -> list[dict]:
     cols = _cols(con, "trades")
     ocol = _first(cols, "created_at", "timestamp", "opened_at")
     ccol = _first(cols, "closed_at")
+    idcol = _first(cols, "trade_id", "id")
     if not ocol:
         return []
     sel = con.execute(
@@ -245,17 +281,22 @@ def open_trades_at(con, symbol: str, ts: float) -> list[dict]:
         r = dict(zip(names, row))
         if str(r.get("setup_type") or "") in ("adopted_orphan",) or str(r.get("reconcile_status") or "") == "superseded":
             continue
+        status = str(r.get("status") or "").lower()
+        if status == "rejected":
+            continue
         t_open = _parse_ts(r.get(ocol))
         t_close = _parse_ts(r.get(ccol)) if ccol else None
+        if t_close is None and status not in ("open",) and idcol:
+            t_close = close_proxy.get(str(r.get(idcol)))
         if t_open is None or t_open > ts:
             continue
-        status = str(r.get("status") or "").lower()
         if t_close is not None and t_close <= ts:
             continue
         if t_close is None and status not in ("open",):
-            # closed row with unparseable close time — can't place it; skip but count upstream
+            # closed row with no resolvable close time even via the op proxy
             continue
         r["_t_open"], r["_t_close"] = t_open, t_close
+        r["_account_class"] = _account_class(r)
         rows.append(r)
     return rows
 
@@ -272,6 +313,7 @@ def main() -> int:
     tf_map = _strategy_tf(args.repo_root)
     candles = Candles(args.candles_root)
 
+    close_proxy = _op_close_proxy(con)
     raw_conflicts = find_conflicts(con)
     # Collapse to EPISODES: the same suppressed intent re-journals every tick
     # (and once per eligible account) while the opposing signal persists, so
@@ -300,7 +342,7 @@ def main() -> int:
 
     measured, unmeasured = [], defaultdict(int)
     for ev in conflicts:
-        trades = open_trades_at(con, ev["symbol"], ev["ts"])
+        trades = open_trades_at(con, ev["symbol"], ev["ts"], close_proxy)
         if not trades:
             unmeasured["no_open_trade_joined"] += 1
             continue
@@ -339,6 +381,7 @@ def main() -> int:
                     "ts": ev["ts"],
                     "symbol": ev["symbol"],
                     "held_strategy": held_strat,
+                    "account_class": tr.get("_account_class", "real_money"),
                     "held_side": side,
                     "opposing": ev["opposing_strategies"],
                     "tf_stratum": tf_stratum,
@@ -360,8 +403,13 @@ def main() -> int:
             ) if n else None,
         }
 
+    # Real and paper are NEVER blended (P4 of the live-trade management
+    # contract) — the headline is per account-class; no combined total.
+    rm = [r for r in measured if r["account_class"] == "real_money"]
+    pp = [r for r in measured if r["account_class"] == "paper"]
     strata = {
-        "overall": agg(measured),
+        "overall_real_money": agg(rm),
+        "overall_paper": agg(pp),
         "by_tf_stratum": {k: agg([r for r in measured if r["tf_stratum"] == k])
                           for k in sorted({r["tf_stratum"] for r in measured})},
         "by_symbol": {k: agg([r for r in measured if r["symbol"] == k])
@@ -391,12 +439,14 @@ def main() -> int:
         fh.write(f"- conflict rows: {len(raw_conflicts)} -> episodes: {len(conflicts)}; measured pairs: {len(measured)}; unmeasured: {dict(unmeasured)}\n")
         for name, block in strata.items():
             fh.write(f"\n## {name}\n")
-            if name == "overall":
+            if name.startswith("overall"):
                 fh.write(json.dumps(block) + "\n")
             else:
                 for k, v in block.items():
                     fh.write(f"- {k}: {json.dumps(v)}\n")
-    print(json.dumps({"overall": strata["overall"], "unmeasured": dict(unmeasured)}, indent=1))
+    print(json.dumps({"overall_real_money": strata["overall_real_money"],
+                      "overall_paper": strata["overall_paper"],
+                      "unmeasured": dict(unmeasured)}, indent=1))
     print(f"wrote {args.out}.json + .md")
     return 0
 
