@@ -43,6 +43,15 @@
       "sla_state": "on_time | overdue | stalled_>=2_reviews"
     }
   ],
+  "new_work_compliance": {
+    "_comment": "MANDATORY audit of everything BUILT since the last review against the canonical ruleset (§ New-work compliance audit). Change-driven, distinct from the static weekday compliance_audit rotation. A clean sweep MUST be a stated negative: findings [] + an explicit note. A Tier-2/3 change merged without the required operator approval, a new default-off *_ENABLED gate over a required capability, an auto-flip/mode-toggle, a false 'verified' claim, or a skill-first/precedent violation is a concern => operator_attention_required.",
+    "prs_audited": 0,
+    "commits_audited": 0,
+    "findings": [
+      {"ref": "PR #NNNN | <sha> | <workflow/unit>", "tier": "1 | 2 | 3", "rule": "permission-tier | prime-directive | generation-discipline | honesty | field-beats-comment", "severity": "watch | concern", "disposition": "<revert / add-approval-gate / convert-to-permissive / doc-fix / logged-to-backlog BL-...>"}
+    ],
+    "note": "e.g. '9 PRs + 0 direct commits audited since <window>, all tier-appropriate + rule-compliant'"
+  },
   "anomalies": [
     "free-form list of notable items the reviewer flagged"
   ],

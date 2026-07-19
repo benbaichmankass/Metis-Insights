@@ -58,9 +58,14 @@ If the user asked about *model performance*, *training sessions*, or
     a promote/demote call, so it can't sit un-actioned (§ "Soak decisions
     due"). This skill SURFACES the decision; the recommendation itself is
     made by `/ml-review` (models) or `/performance-review` (strategies).
-12. **Drain the health-review backlog** — triage every open item, fix
+12. **Audit new work since the last review for rule compliance (MANDATORY)**
+    — every PR merged + commit landed on `main` (and any live-VM / workflow /
+    config change) in the window, checked against the canonical ruleset
+    (§ "New-work compliance audit"). This is CHANGE-driven and distinct from
+    the static weekday rotation (§ "Compliance audit rotation").
+13. **Drain the health-review backlog** — triage every open item, fix
     what you can (§ "Draining the backlog").
-13. **Emit the response JSON** + **post a one-line update to the Claude
+14. **Emit the response JSON** + **post a one-line update to the Claude
     channel** (§ "Output" + § "Posting to the Claude channel").
 
 ## Out of scope (DO NOT do here)
@@ -375,6 +380,82 @@ The audit findings appear in `compliance_audit` in the response JSON:
 This rotation does NOT touch artifacts outside the day's section — the
 weekly cycle is the coverage guarantee, not a per-session full sweep.
 
+## New-work compliance audit (MANDATORY — 2026-07-19)
+
+Operator directive: **everything built since the last review gets audited
+for compliance with the repo's rules.** The static rotation above catches
+drift in *unchanged* artifacts as the rules evolve (a coverage guarantee
+over a week); this sweep is its complement — it catches non-compliance in
+*new* work **at the moment it lands**, so a rule-breaking change can't sit
+merged-and-unreviewed until its file's rotation day comes around. Both run
+every review; they are not substitutes.
+
+**What to audit — the delta since the last review:**
+
+1. **Every PR merged to `main` in the window** — enumerate via
+   `mcp__github__list_pull_requests` (state `closed`, newest-first, filter
+   to `merged_at` inside the window) or `git log --merges --since=<window>`.
+2. **Every commit landed on `main`** not covered by a PR (direct Tier-1
+   commits) — `git log origin/main --since=<window>`.
+3. **Any live-VM / workflow / config mutation** in the window — new or
+   edited `.github/workflows/**`, `system-actions` allowlist changes,
+   systemd unit/timer additions, `.env`/cgroup changes applied via the
+   relays (cross-check the `system-action` issues you saw this run).
+
+**Audit each change against the canonical ruleset** (`CLAUDE.md` +
+`docs/CLAUDE-RULES-CANONICAL.md`) — the bright lines:
+
+- **Permission tiers.** Classify the change's tier from its diff. A **Tier-2**
+  change (runtime / deploy / order-path / service / timer / DB-writeback /
+  data-mutation) must show an **operator OK in chat** before it shipped; a
+  **Tier-3** change (strategy logic/params, risk caps/sizing, account-mode flip,
+  live promotion, or any edit to `config/strategies.yaml` / `config/accounts.yaml`
+  / `config/risk_caps.yaml` / `src/runtime/orders.py` / `src/runtime/risk_counters.py`
+  / a live-consumed unit file) must show **explicit operator approval** on the PR
+  before merge. A Tier-2/3 change merged **without** the required approval is a
+  `concern` + `operator_attention_required`.
+- **Prime Directive.** No new **auto-flip / breaker that toggles `mode:`**, no
+  **"safety" default that goes dry on boot**, and — the recurring one — **no new
+  default-off `*_ENABLED` flag in front of a *required* capability** (the pattern
+  that stranded MES and regressed the netting guard). A new capability gate must
+  be a declared, default-**permissive** switch (or a `*_MODE` observe→apply
+  ladder), never a default-off enable. Account-mode writes only via
+  `set-account-mode`.
+- **Generation Discipline (Rule 1 + 2).** Did the change derive from the matching
+  **skill** (skill-first) rather than copy a precedent? Did it replicate a
+  non-compliant precedent's shape? A new operator-facing runbook / workflow /
+  instruction that attributes work to the operator which a runner could do
+  (bright-line phrases from `before-asking-the-operator` /
+  `credentials-and-vm-mutations`) is a violation.
+- **Honesty.** Does the PR/commit claim work **verified** that the diff or the
+  live state contradicts (e.g. "verified live" with no evidence, a green-CI
+  claim that didn't run, a "resolved" that didn't land)? Cross-check load-bearing
+  "verified/deployed/live" claims against the runtime state you already pulled.
+- **Field-beats-comment + canonical-doc-coherence.** Did a change flip a
+  YAML field/config constant on inference against a surrounding note, or leave a
+  canonical doc contradicting the new reality?
+
+**What to do with a finding:**
+
+- **Compliant** → no action (still counted in `audited` so the coverage is
+  legible).
+- **Non-compliant, still live / unmerged-reversible** → a `concern`-grade,
+  can't-miss finding: set `operator_attention_required`, name the PR + the exact
+  rule, and recommend the concrete remediation (revert, add the missing approval
+  gate, convert the `*_ENABLED` to permissive, fix the stale doc). If it's a
+  Tier-1 doc/backlog fix you can make, make it.
+- **Non-compliant but low-risk / already-past** → log to
+  `docs/claude/health-review-backlog.json` with the PR, the rule, and a
+  one-line fix, and note it in the output.
+
+Record the result in `new_work_compliance` in the response JSON: the window's
+`prs_audited` / `commits_audited` count and one `findings[]` entry per
+non-compliant change (`{ref, tier, rule, severity, disposition}`). **A clean
+sweep is a stated negative** — `findings: []` + an explicit note ("N PRs / M
+commits audited since <window>, all tier-appropriate + rule-compliant"), never
+an omission. This is compliance auditing of *what was built*, NOT a code-quality
+review (that stays with `review` / `security-review`).
+
 ## Orphan-events ingest (orphan is NEVER a resting status)
 
 Operator directive (2026-06-24): an orphan trade row is a **red flag to be
@@ -542,6 +623,10 @@ shape (post-2026-05-26 split):
 - `soak_decisions_due[]` — soaks that hit their gate this window
   (`{what, gate_met, owner_skill, sla_state}`), SURFACED not decided
   (§ "Soak decisions due"). Empty ⇒ state "no soak decisions due".
+- `new_work_compliance` — `{prs_audited, commits_audited, findings[], note}`
+  from the MANDATORY new-work audit (§ "New-work compliance audit"). Each
+  finding `{ref, tier, rule, severity, disposition}`. `findings: []` + an
+  explicit clean `note` is the required stated-negative.
 - `sprint_doc_review[]`.
 - `backlog_drain[]` — actions taken on
   `docs/claude/health-review-backlog.json`.
