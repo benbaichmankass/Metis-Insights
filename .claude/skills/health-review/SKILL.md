@@ -562,21 +562,59 @@ for models and `/performance-review` for strategies; see Out of scope).
 reviews (a stalled decision is exactly what this section exists to catch).
 **If nothing has reached a gate, state "no soak decisions due."**
 
-## Draining the backlog
+## Draining the backlog — a HARD COMPLETION GATE (not a sample)
 
-Read `docs/claude/health-review-backlog.json` — the parking lot for
-**system bugs, wiring gaps, minor doc drift** that prior sessions
-noticed but didn't fix. (`/performance-review` and `/ml-review` have
-their own backlogs — do not touch them here.) For each open item:
+**A health-review is NOT complete until every open item in
+`docs/claude/health-review-backlog.json` has been triaged THIS run.**
+Triaging "the recent few", "the ones I touched", or a sample is a
+**review failure** — the backlog IS the standing open-task list, so a
+review that leaves open items unlooked-at has not done its core job.
+(`/performance-review` and `/ml-review` own their own backlogs — do not
+touch those here; but each of the three enforces this same gate on its
+own list.)
 
-1. Triage: is it still valid? does its trigger apply now?
-2. **Fix what you can** within this skill's allowed writes (docs, the
-   backlog file itself). Anything needing a code/config change is
-   *not* fixed here — restate it for the operator in
-   `recommended_action`.
-3. Edit the backlog file: mark fixed items resolved (or remove them),
-   keep deferred items, drop invalid ones. Record each action in the
-   response's `backlog_drain[]`.
+**The procedure — enumerate the FULL open set, then walk it 100%:**
+
+1. **Count first.** Load the file, filter to every item whose `status`
+   is not a terminal-resolved value (`resolved`/`closed`/`done`/`fixed`/
+   `wont_fix`/`invalid`/`superseded`). Record `open_at_start`. This is
+   your denominator — you must touch every one.
+2. **For EACH open item** (all of them, oldest to newest):
+   - **Re-validate against current live state.** Does its trigger still
+     apply? Cross-check it against the diag pulls / DB / services you
+     already fetched this run (e.g. a "gateway wedge at 06:00Z" item
+     against the `ib_state` you pulled; a "devnull clobbered" item
+     against whether this session's operator-actions actually ran; a
+     "trainer stale" item against the trainer relay). **Drive a
+     verification pull if one cheap check resolves it** — don't leave an
+     item "unverified" when a single relay call would settle it.
+   - **Disposition it into exactly one bucket:**
+     - **resolved** — this session verified it fixed / no longer
+       reproduces. Mark `resolved` + a verification note.
+     - **fixed-now** — an in-scope Tier-1 fix (a doc this skill may
+       write, a workflow/relay-allowlist edit, the backlog file itself,
+       a CLAUDE.md correctness fix). Make the fix, mark `resolved`.
+       (A change to `src/`, `config/`, or any Tier-2/3 file is NOT
+       fixed here — it goes to `kept-open` + `recommended_action`, even
+       for a comment-only edit to a Tier-3 file.)
+     - **stale/invalid** — the condition is gone or the item was wrong.
+       Mark `invalid`/`superseded` with the reason.
+     - **kept-open** — genuinely still open (needs a Tier-2/3 code
+       change, an operator decision, a soak to mature, or future work).
+       Keep it, but **add an update** with this run's re-validation
+       result + the current blocker, so it never sits stale-and-unlooked.
+3. **Write it back.** Edit the backlog file: statuses updated, notes/
+   updates appended. Record EVERY item's disposition in the response's
+   `backlog_drain[]` (one entry per open item — the array length equals
+   `open_at_start`).
+
+**Coverage assertion (the gate).** Emit
+`backlog_coverage: {open_at_start, triaged, resolved, fixed_now,
+closed_stale, kept_open, count_untriaged}` in the response.
+**`count_untriaged` MUST be 0** and `triaged` MUST equal `open_at_start`.
+If they don't, the review is INCOMPLETE — do not post the completion
+ping or call the review done; finish the drain first. The Claude-channel
+ping MUST cite `X/Y backlog items triaged, Z resolved`.
 
 ## Posting to the Claude channel
 
@@ -628,8 +666,12 @@ shape (post-2026-05-26 split):
   finding `{ref, tier, rule, severity, disposition}`. `findings: []` + an
   explicit clean `note` is the required stated-negative.
 - `sprint_doc_review[]`.
-- `backlog_drain[]` — actions taken on
-  `docs/claude/health-review-backlog.json`.
+- `backlog_drain[]` — one entry per OPEN item (array length ==
+  `open_at_start`); the full-triage record (§ "Draining the backlog").
+- `backlog_coverage` — `{open_at_start, triaged, resolved, fixed_now,
+  closed_stale, kept_open, count_untriaged}`. The completion gate:
+  `count_untriaged` MUST be 0. A review with `count_untriaged > 0` is
+  incomplete and must not be reported as done.
 - `anomalies[]` — free-form notable items.
 - `recommended_action` + `operator_attention_required`.
 

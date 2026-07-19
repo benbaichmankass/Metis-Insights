@@ -57,12 +57,22 @@
   ],
   "backlog_drain": [
     {
-      "_comment": "Result of draining docs/claude/health-review-backlog.json this run. One entry per backlog item triaged. action: fixed | deferred | invalid.",
+      "_comment": "HARD GATE (§ Draining the backlog): ONE entry per OPEN item — the array length MUST equal backlog_coverage.open_at_start. Triaging a sample is a review failure. action: resolved | fixed_now | invalid | kept_open.",
       "item_id": "BL-YYYYMMDD-NNN",
-      "action": "fixed | deferred | invalid",
-      "note": "<= 160 chars"
+      "action": "resolved | fixed_now | invalid | kept_open",
+      "note": "<= 160 chars — re-validation result + disposition; for kept_open, the current blocker (Tier-2/3 code / operator decision / soak)"
     }
   ],
+  "backlog_coverage": {
+    "_comment": "The completion gate. triaged MUST equal open_at_start; count_untriaged MUST be 0. A review with count_untriaged > 0 is INCOMPLETE — do not post the ping or report it done.",
+    "open_at_start": 0,
+    "triaged": 0,
+    "resolved": 0,
+    "fixed_now": 0,
+    "closed_stale": 0,
+    "kept_open": 0,
+    "count_untriaged": 0
+  },
   "sprint_doc_review": [
     {
       "_comment": "Recent sprint logs reviewed for doc correctness/clarity since the last review. severity: nit | drift | contradiction. Contradictions against canonical docs are fixed in-place or logged to the backlog.",
