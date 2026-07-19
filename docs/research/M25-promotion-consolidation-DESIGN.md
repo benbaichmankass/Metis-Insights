@@ -21,46 +21,16 @@ harvest: for each maturing soak, run the *powered* readiness eval, write the
 decision packet, and either propose the Tier-3 promotion (operator approves) or
 record an honest "not yet / never" and re-park. No new frontiers — bank what's soaking.
 
-## The promotion gate — REFRAMED 2026-07-19 (operator directive: soak = mechanics, not edge)
+## The promotion gate (unchanged, restated)
 
-**The old shape** required RG4 TRUSTWORTHY×POWERED on *live outcomes* (≥40–50
-labeled volatile-class bars across ≥5 episodes), which in a calm regime means
-weeks of soak before a decision. The operator's 2026-07-19 directive corrects
-the framing: **we built walk-forward + historical signal replay precisely so
-the edge is proven offline.** The live soak's job is narrower — prove the
-serving MECHANICS — and that is deterministic, not statistical:
-
-- **Edge evidence (offline, powered by history):** purged walk-forward CV +
-  historical signal replay over the full dataset (`oos_edge`, the harness
-  A/Bs). This is where the ≥40-bars-per-episode statistics live — history has
-  thousands of them.
-- **Mechanics evidence (live, small-N):** a **row-level parity gate** over the
-  first ~20–50 live decisions: (a) live-served feature rows == offline
-  recomputation for the same bars (no dead/divergent features — the ETH xa bug
-  class); (b) live scores == offline model output on those rows (serving
-  fidelity); (c) labels accruing (the labeling pipeline works). All three are
-  checkable within DAYS of registration, and MUST be checked at the first
-  review after registration — not at the promotion decision (see the
-  `ml-review` skill § "Soak integrity audit").
-
-A long outcome-soak remains meaningful in exactly one case: when the offline
-history genuinely cannot represent the live distribution (a new venue, a new
-data feed with no history). Absent that, once offline walk-forward passes AND
-the live parity gate passes, the packet is decision-ready — do not hold it for
-outcome-window statistics that offline history already provides with far more
-power. RG4's live-row replay stays as the *parity/skew instrument* (its real
-strength), not as an outcome-statistics gate.
-
-**Code follow-up (proposed, needs an operator nod on the exact diff):** the
-gate profile (`ml/promotion/gates.py`) currently requires
-`live_regime_discrimination` — an outcome-statistics gate on live rows. Per
-this reframe it should become: `offline oos_edge (powered, walk-forward)` +
-`live_parity` (feature+score row-diff over the first N live rows) +
-`labels_accruing`, with `live_regime_discrimination` demoted to advisory
-reporting. RG3 alone remains insufficient exactly as before — the M18/M21
-graveyard was RG3-passes with *unverified mechanics*; the parity gate is what
-actually closes that hole. The operator promotes; Claude proposes with the
-packet.
+A head promotes `shadow → advisory` only on **RG4** evidence
+(`scripts/ml/rg4_targeted.sh`): TRUSTWORTHY (live-vs-train agreement, no
+anti-predictive skew) **and** POWERED (enough labeled outcomes of the minority
+class across enough distinct episodes — the rule of thumb is ≥ 40–50 labeled
+volatile-class bars/symbol across ≥ 5 distinct volatile episodes). RG3 (in-session
+CV) is necessary but **not** sufficient — the M18/M21/vol-gate history is a
+graveyard of RG3-passes that RG4-failed live. The operator promotes; Claude
+proposes with the RG4 packet.
 
 ## Scope — the soak roster (as of 2026-07-17)
 
