@@ -275,6 +275,13 @@ write_files:
       Environment=LIVE_VM_IP=141.145.193.91
       Environment=LIVE_VM_USER=ubuntu
       Environment=VM_SSH_KEY=/home/ubuntu/.ssh/id_ed25519
+      # 4h heavy-lock queue wait (BL: readiness starved behind the grown
+      # nightly cycle on the default 1h wait, 2026-07-18/19).
+      Environment=TRAINER_HEAVY_LOCK_WAIT_S=14400
+      # Hard memory bound (MB-20260719-PROMOREADY-OOSEDGE-OOM): fail fast
+      # on a breach instead of D-state-thrashing the whole 6 GB box.
+      MemoryMax=4500M
+      MemorySwapMax=0
       ExecStart=/bin/bash scripts/ops/run_promotion_readiness.sh
       # Exit code 10 means "sweep ran + actionable proposals found" and
       # is a normal outcome (the operator ping was queued) — do not let

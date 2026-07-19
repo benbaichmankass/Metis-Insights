@@ -102,3 +102,46 @@ must be **per-strategy-class (or per-exit-style), not global**.
 
 Backlog: `MB-20260719-M26-TRANSITION-CONFLICT` updated (P0 delivered; P1/P2
 next). Rerun the miner post-WS-B-shards for MES/equities coverage.
+
+---
+
+## Full-coverage rerun (16:45Z, all 20 WS-B shards) — CONFIRMS + SHARPENS
+
+Rerun on the complete shard set (crypto + futures + equities;
+`/tmp/m26_p0_full.{json,md}` on the trainer, relay #6998). Measured pairs
+**121** (was 98); unmeasured down to 16 unresolved/open + 7 unjoined.
+
+| Stratum | n | tail_held | tail_flip | held worse than close |
+|---|---|---|---|---|
+| **Real money** | 39 | **−$35.43** | +$22.94 | **79.5%** |
+| **Paper** | 82 | +$1,753.78 | **−$17,323.73** | 68.3% |
+| **cross-TF ≥4×** | 81 | **+$4,694.42** | −$10,168.48 | 76.5% |
+| **same/near-TF** | 38 | **−$2,982.00** | **−$7,126.38** | 65.8% |
+
+Every headline from the partial run **survives full coverage**, and one gets
+sharper:
+
+1. **Blanket flip stays dead** — flipping would have burned ~$17.3k on the
+   paper book and ~$10.2k even in the cross-TF stratum.
+2. **Cross-TF (≥4×) conflicts are benign** — holding made +$4.7k there.
+   The TF-coexistence taxonomy (P1) is confirmed empirical.
+3. **NEW / sharpened: same-or-near-TF conflicts lose money BOTH ways**
+   (held −$3.0k AND flip −$7.1k, with close beating hold 65.8% of the
+   time). The winning response to a same-clock conflict is **going flat /
+   tightening** — not holding and not reversing. This strengthens the P3
+   exit-tighten arm (M20 levers) as the primary candidate and demotes the
+   confidence-gap flip arm.
+4. **Per-strategy split unchanged and decisive**: `htf_pullback_trend_2h`
+   n=47, held −$6,036.69, flip +$3,807.66, **93.6% held-worse** (the fix-me
+   cell); `trend_donchian` n=35, held +$10,135.37, flip −$21,071.48 (the
+   never-touch cell); `ict_scalp_5m` n=3, held −$3,759.06 (big dollars,
+   small n — watch, don't conclude). New equity/futures coverage is
+   small-n and mostly benign (SPY/QQQ/SLV/MGC holds fine); XRP/AVAX legs
+   read 100% held-worse but at small dollar stakes.
+5. **Real-money bleed is real but small in dollars** (−$35 held vs +$23
+   flip across 39 pairs, 79.5% held-worse) — proportional to the small real
+   book; the per-class pattern, not the dollar sum, is the signal.
+
+**MES note:** no MES conflict pairs surfaced even with the shard present —
+the MES episodes in the window had no joinable open trade (they sit in the
+`no_open_trade_joined` bucket). Not a blocker for P1/P2.

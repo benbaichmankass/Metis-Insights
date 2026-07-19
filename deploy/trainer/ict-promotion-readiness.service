@@ -46,6 +46,13 @@ Environment=VM_SSH_KEY=/home/ubuntu/.ssh/id_ed25519
 # retime of 2026-07-17 fixed the CONCURRENT-memory collision; this fixes the
 # serialized-starvation half.)
 Environment=TRAINER_HEAVY_LOCK_WAIT_S=14400
+# Hard memory bound (MB-20260719-PROMOREADY-OOSEDGE-OOM): the sweep
+# D-state-thrashed the whole 6 GB box at ~5 GB RSS twice on 2026-07-19 with
+# nothing to stop it. A breach now OOM-kills the service fast (unit fails,
+# timer retries next day) instead of hours of page-thrash. MemorySwapMax=0
+# keeps a breach from degenerating back into thrash via swap.
+MemoryMax=4500M
+MemorySwapMax=0
 ExecStart=/bin/bash scripts/ops/run_promotion_readiness.sh
 # Exit code 10 means "sweep ran + actionable proposals found" and is a
 # normal outcome (the operator ping was queued) — do not let systemd
