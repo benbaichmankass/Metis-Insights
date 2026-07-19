@@ -40,6 +40,13 @@
       "updated_at": "2026-07-16T00:00:00Z"
     },
     {
+      "session_id": "session_011d3hjgoY5QMSZPK4tuTpzN",
+      "branch": "claude/ml-vol-regime-probe-21az61-f0au4r",
+      "intent": "ML Tier-1 offline session: (1) durable trainer memory fix (load-time column projection \u2014 MB-20260709-TRAINER-SUBPROC-ISOLATION + BL-20260717-TRAINER-SINGLE-MANIFEST-OOM), (2) ETH 1h xasset dead-feature build fix (BL-20260628-XA-TRAINING-ZERO), (3) M23 meta-label P2 label volume. Serial PRs from the designated branch, restarted from main between concerns. Slot free.",
+      "started_at": "2026-07-19T07:45:00Z",
+      "updated_at": "2026-07-19T07:45:00Z"
+    },
+    {
       "session_id": "session_01PKEYK1kKeXJXuG92GS2NB1",
       "branch": "claude/system-health-review-rk852g",
       "intent": "/health-review 2026-07-19. PR #6926: 4 operator-approved Tier-2 reconciler correctness fixes (INTENT-REDUCE phantom-pnl NULL-defer [reverses #2974 attribution], SHADOW-PKG-ORPHAN shadow_expired relabel, RECONCILE-DUP guard 300->1800s, OPKG-META per-account refusal_causes) + CI fixes (existing orphan test + s012 deploy-unit-drift guard) + the live cross-session coordination board (issue #6927 + settings.json clause-0 + session-coordination skill + docs/claude/coordination-board.md). HOLDING #6926 merge for operator 'merge 6926' nod (the #2974 reversal). Slot free.",

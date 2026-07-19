@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -201,14 +202,103 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _load_jsonl(path: Path) -> list[dict[str, Any]]:
+# --- Load-time column projection (BL-20260717-TRAINER-SINGLE-MANIFEST-OOM) ---
+# Materializing data.jsonl as list-of-dicts with EVERY column is what blew the
+# 5 GB trainer cgroup on the 5m datasets (~500k rows x ~40 cols of boxed Python
+# objects ~= 5 GB anon-rss — the btc/sol 5m heads OOM'd ALONE, kernel memcg
+# kills at ~5.2 G on 2026-07-19). The trainers/evaluators/splitters only ever
+# read the columns the manifest references plus a small fixed set of
+# hardcoded/default names — so the loader projects each row down to that set at
+# parse time, cutting peak RSS roughly proportionally (~40 -> ~15 cols ~= 3x).
+#
+# Safety properties:
+#   - `_PROJECTION_SAFETY_COLUMNS` carries every column name any trainer /
+#     splitter / evaluator accesses OUTSIDE the manifest config (hardcoded
+#     reads like `row.get("vol_bucket")` and config-default fallbacks like
+#     time_column="created_at").
+#   - Every string VALUE anywhere in trainer_config / evaluator_config is
+#     treated as a potentially-referenced column (recursive walk), so a
+#     manifest-declared column can never be dropped.
+#   - Fail-open: if the first row shares NO key with the projection set (an
+#     unforeseen dataset shape), projection disables itself and the full rows
+#     are loaded — behaviour identical to the pre-fix loader.
+#   - `TRAINING_LOAD_ALL_COLUMNS=1` (env) is the zero-touch opt-out.
+_PROJECTION_SAFETY_COLUMNS = frozenset({
+    # time / split columns (splitters + sample_weight defaults)
+    "ts", "created_at", "date",
+    # identity / spec columns trainers read directly
+    "symbol", "timeframe",
+    # hardcoded feature reads + config-default fallbacks
+    "vol_bucket", "rolling_log_return_vol", "is_live_trade",
+    "seq_window", "values", "strategy_name",
+    # default target columns across the trainer fleet
+    "regime_label", "r_multiple", "should_hold", "won",
+})
+
+_ENV_LOAD_ALL_COLUMNS = "TRAINING_LOAD_ALL_COLUMNS"
+
+
+def _collect_config_strings(obj: Any, out: set[str]) -> None:
+    """Recursively collect every string value in a config mapping/sequence."""
+    if isinstance(obj, str):
+        out.add(obj)
+    elif isinstance(obj, Mapping):
+        for v in obj.values():
+            _collect_config_strings(v, out)
+    elif isinstance(obj, (list, tuple, set)):
+        for v in obj:
+            _collect_config_strings(v, out)
+
+
+def dataset_projection_columns(manifest: TrainingManifest) -> frozenset[str] | None:
+    """Columns worth keeping when loading this manifest's dataset (None = all).
+
+    Union of every string referenced in trainer_config/evaluator_config with
+    the hardcoded safety set. Returns None (load everything) when the
+    `TRAINING_LOAD_ALL_COLUMNS` env opt-out is set.
+    """
+    if os.environ.get(_ENV_LOAD_ALL_COLUMNS, "").strip().lower() in (
+        "1", "true", "yes", "on",
+    ):
+        return None
+    refs: set[str] = set()
+    _collect_config_strings(manifest.trainer_config, refs)
+    _collect_config_strings(manifest.evaluator_config, refs)
+    return frozenset(refs) | _PROJECTION_SAFETY_COLUMNS
+
+
+def _load_jsonl(
+    path: Path, keep: frozenset[str] | set[str] | None = None
+) -> list[dict[str, Any]]:
+    """Load a JSONL dataset, optionally projecting rows to `keep` columns.
+
+    Keys (and short string values, e.g. a repeated "range" label) are interned
+    so the ~13 surviving key strings are shared across all rows instead of
+    re-allocated per line (json.loads only memoizes keys within one call).
+    """
+    intern = sys.intern
     rows: list[dict[str, Any]] = []
+    project: bool | None = None if keep else False
     with path.open("r", encoding="utf-8") as fh:
         for line in fh:
             line = line.rstrip("\n")
             if not line:
                 continue
-            rows.append(json.loads(line))
+            obj = json.loads(line)
+            if project is None:
+                # First row decides: project only if the keep-set actually
+                # intersects the data's columns (fail-open on odd shapes).
+                project = bool(keep and (obj.keys() & keep))
+            if not project:
+                rows.append(obj)
+                continue
+            proj: dict[str, Any] = {}
+            for k, v in obj.items():
+                if k in keep:
+                    if type(v) is str and len(v) <= 24:
+                        v = intern(v)
+                    proj[intern(k)] = v
+            rows.append(proj)
     return rows
 
 
@@ -233,7 +323,7 @@ def run_experiment(
         # as a clean skip (exit 78), not a cycle-failing error. See
         # DatasetMissingError + run_training_cycle.sh exit-78 handling.
         raise DatasetMissingError(data_path)
-    rows = _load_jsonl(data_path)
+    rows = _load_jsonl(data_path, keep=dataset_projection_columns(manifest))
     if not rows:
         raise EmptyDatasetError(data_path)
 

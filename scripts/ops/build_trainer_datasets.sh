@@ -248,26 +248,39 @@ fi
 # cycle previously refreshed ONLY BTCUSDT market_raw, so the alt regime heads'
 # label datasets perpetually went stale and RG4 could never score their live
 # shadow rows (ETH dataset ended 2026-06-17 while BTC was fresh to 06-26).
-build_bybit_pair() {
+# Split into raw / features halves so the ETH 1h build can interpose the
+# cross-asset side-stream between them (BL-20260628-XA-TRAINING-ZERO).
+# build_bybit_features accepts optional extra market_features build params
+# (e.g. cross_asset_path=...) after symbol + timeframe.
+build_bybit_raw() {
   local symbol="$1"
   local tf="$2"
-  local raw_path="${DATASETS_ROOT}/market_raw/${symbol}/${tf}/${DATASET_VERSION}"
-
   build_family market_raw \
     --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
     --source "bybit_v5_offvm" --symbol-scope "$symbol" --timeframe "$tf" --overwrite \
     "adapter=bybit_v5_offvm" "symbol=${symbol}" "timeframe=${tf}" \
     "start=${MARKET_START}" "end=${MARKET_END}"
+}
 
+build_bybit_features() {
+  local symbol="$1"
+  local tf="$2"
+  shift 2
+  local raw_path="${DATASETS_ROOT}/market_raw/${symbol}/${tf}/${DATASET_VERSION}"
   if [ -d "$raw_path" ]; then
     build_family market_features \
       --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
       --source "${raw_path}" --symbol-scope "$symbol" --timeframe "$tf" --overwrite \
       "market_raw_path=${raw_path}" "vol_window_n=20" "forward_window_m=5" \
-      "vol_threshold=0.005" "trend_threshold=0.005" "n_vol_buckets=3"
+      "vol_threshold=0.005" "trend_threshold=0.005" "n_vol_buckets=3" "$@"
   else
     emit "$(printf '{"ts":"%s","status":"skipped","family":"market_features","symbol":"%s","timeframe":"%s","detail":"market_raw path not found"}' "$(iso_now)" "$symbol" "$tf")"
   fi
+}
+
+build_bybit_pair() {
+  build_bybit_raw "$1" "$2"
+  build_bybit_features "$1" "$2"
 }
 
 # BTCUSDT — the primary fleet (1h baseline + 5m/15m v2 heads).
@@ -275,11 +288,52 @@ build_bybit_pair BTCUSDT 1h
 build_bybit_pair BTCUSDT 5m
 build_bybit_pair BTCUSDT 15m
 # ALT symbols (multi-symbol A, #1) — keep the alt regime heads' label datasets
-# fresh so RG4 can score their live shadow rows. ETH 1h = eth-regime-1h-lgbm-v1
-# (the cross-asset probe head). SOL 1h is built proactively (head training is a
-# follow-up) so its dataset is warm when a SOL regime head lands. Non-fatal: a
-# per-pair failure is logged + counted like any other family, never aborts.
-build_bybit_pair ETHUSDT 1h
+# fresh so RG4 can score their live shadow rows. Non-fatal: a per-pair failure
+# is logged + counted like any other family, never aborts.
+#
+# ETH 1h + its cross-asset side-stream (BL-20260628-XA-TRAINING-ZERO): the ETH
+# 1h market_features build previously omitted cross_asset_path, so the xa_*
+# block the xasset heads (eth-regime/-direction-1h-lgbm-xasset-v1) trained on
+# was ALL-ZEROS (dead) while the LIVE per-bar scorer (cross_asset_live.py)
+# computed real peer features — a train/serve gap that made the xasset heads
+# NO_EDGE by construction. Build ETH + SOL 1h market_raw first (BTC 1h is
+# built above), derive the cross_asset stream (peers BTC + SOL, mirroring
+# config/cross_asset.yaml and the manifest headers), then pass
+# cross_asset_path into the ETH 1h market_features build. Fail-open: a stream
+# failure is logged LOUDLY (family=cross_asset failed, overall_rc=1 — a silent
+# regression here is the original bug) but the ETH features still build
+# without the path, so the base (non-xa) ETH heads never lose their dataset.
+build_bybit_raw ETHUSDT 1h
+build_bybit_raw SOLUSDT 1h
+XA_ETH_OUT="${DATASETS_ROOT}/cross_asset/ETHUSDT/1h/${DATASET_VERSION}"
+XA_ETH_PARAM=""
+emit "$(printf '{"ts":"%s","status":"building","family":"cross_asset","symbol":"ETHUSDT","timeframe":"1h"}' "$(iso_now)")"
+set +e
+python -m scripts.ml.build_cross_asset \
+  --target "${DATASETS_ROOT}/market_raw/ETHUSDT/1h/${DATASET_VERSION}" \
+  --peer "${DATASETS_ROOT}/market_raw/BTCUSDT/1h/${DATASET_VERSION}" \
+  --peer "${DATASETS_ROOT}/market_raw/SOLUSDT/1h/${DATASET_VERSION}" \
+  --out "$XA_ETH_OUT" >"/tmp/bld_xa_eth_$$.out" 2>"/tmp/bld_xa_eth_$$.err"
+xa_rc=$?
+set -e
+if [ "$xa_rc" -eq 0 ] && [ -s "${XA_ETH_OUT}/data.jsonl" ]; then
+  emit "$(printf '{"ts":"%s","status":"ok","family":"cross_asset","symbol":"ETHUSDT","timeframe":"1h","out":"%s"}' "$(iso_now)" "$XA_ETH_OUT")"
+  XA_ETH_PARAM="cross_asset_path=${XA_ETH_OUT}"
+else
+  xa_err="$(tail -n 3 "/tmp/bld_xa_eth_$$.err" 2>/dev/null | tr '\n' ' ' | head -c 400)"
+  emit "$(python3 -c "
+import json, sys
+ts, rc, err = sys.argv[1:]
+print(json.dumps({'ts': ts, 'status': 'failed', 'family': 'cross_asset',
+                  'symbol': 'ETHUSDT', 'timeframe': '1h', 'exit_code': int(rc),
+                  'detail': 'ETH 1h xa_* block will be zeros this build (BL-20260628-XA-TRAINING-ZERO regression)',
+                  'stderr_tail': err}))" \
+    "$(iso_now)" "$xa_rc" "$xa_err")"
+  overall_rc=1
+fi
+rm -f "/tmp/bld_xa_eth_$$.out" "/tmp/bld_xa_eth_$$.err"
+build_bybit_features ETHUSDT 1h ${XA_ETH_PARAM:+"$XA_ETH_PARAM"}
+build_bybit_features SOLUSDT 1h
 # ETH 5m + 15m (MB-20260627-003): the 1h ETH regime heads fail RG4 live
 # (NO_EDGE — near-constant volatile output), the same weak spot as the BTC 1h
 # head, while the BTC 5m/15m heads pass RG4 cleanly. eth-regime-{5m,15m}-lgbm-v1
@@ -289,7 +343,6 @@ if build_alt_intraday; then
   build_bybit_pair ETHUSDT 5m
   build_bybit_pair ETHUSDT 15m
 fi
-build_bybit_pair SOLUSDT 1h
 # SOL 5m + 15m (multi-symbol regime, follow-on to ETH): sol-regime-{5m,15m}-lgbm-v1
 # port the proven BTC/ETH 5m/15m recipe to SOLUSDT (live-traded: trend_donchian_sol
 # prop 1h + a 4h SOL alt on demo). Same rationale as the ETH 5m/15m heads — the 1h

@@ -48,6 +48,22 @@ def test_mapper_falls_back_to_gross_r_and_default_strategy():
     assert m["strategy"] == "fade"  # taken from default when row omits it
 
 
+def test_mapper_explicit_override_wins_over_row_strategy():
+    # ml-infra audit 2026-07-19: backtest_squeeze.py hardcodes
+    # strategy="squeeze_breakout" in every emitted row while the live book's
+    # name is squeeze_breakout_4h. The orchestrators pass the label via
+    # `--trades-jsonl PATH=STRATEGY`, so the explicit override must WIN over
+    # the row's self-reported name (previously the row field won, making the
+    # override a silent no-op and mislabeling pooled rows).
+    row = {
+        "strategy": "squeeze_breakout", "entry_time": "2026-01-03T00:00:00+00:00",
+        "direction": "long", "net_r": 0.5,
+    }
+    m = harness_row_to_sim_trade(row, symbol="BTCUSDT", default_strategy="squeeze_breakout_4h")
+    assert m is not None
+    assert m["strategy"] == "squeeze_breakout_4h"
+
+
 def test_mapper_skips_unlabeled_or_tsless_rows():
     # No realized R -> skip (open / unlabeled trade).
     assert harness_row_to_sim_trade(
