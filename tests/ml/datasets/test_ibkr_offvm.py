@@ -9,7 +9,11 @@ import pytest
 
 from ml.datasets.adapters import IBKRHistoricalMarketRawAdapter, list_adapters
 from ml.datasets.adapters.base import CANONICAL_SCHEMA
-from ml.datasets.adapters.ibkr_offvm import IB_HIST_ENV, IBHistoricalGuardViolation
+from ml.datasets.adapters.ibkr_offvm import (
+    IB_HIST_ENV,
+    IB_HIST_EXPECTED,
+    IBHistoricalGuardViolation,
+)
 
 
 def _bars():
@@ -333,3 +337,48 @@ def test_pull_and_write_routes_through_iter_contract_bars(tmp_path):
     assert n == 1
     assert out_path.endswith("market_raw_percontract/MGC/1h/v001/data.jsonl")
     assert fa.kw["symbol"] == "MGC" and fa.kw["max_contracts"] == 4
+
+
+class TestUseRthStringCoercion:
+    """MB-20260719-MES-BASE-RTH-ONLY: `use_rth` reaches the adapter through
+    MarketRawBuilder.iter_rows's untyped **adapter_kwargs, so the CLI's
+    annotation-driven coercion never applies and `"use_rth=false"` arrives as
+    the STRING "false" — bare bool() turned that into True and silently
+    flipped the MES pull to RTH-only (90 bars/day). These tests pin the
+    string-aware coercion at both call sites."""
+
+    def _capture(self, monkeypatch):
+        captured: dict = {}
+
+        def fake(cls, **kw):
+            captured.update(kw)
+            return []
+        monkeypatch.setattr(
+            IBKRHistoricalMarketRawAdapter, "_historical_bars", classmethod(fake))
+        return captured
+
+    @pytest.mark.parametrize("raw,expected", [
+        ("false", False), ("False", False), ("0", False), ("no", False), ("off", False),
+        ("true", True), ("1", True), ("yes", True), ("on", True),
+        (False, False), (True, True),
+    ])
+    def test_iter_bars_coerces_use_rth(self, monkeypatch, raw, expected):
+        monkeypatch.setenv(IB_HIST_ENV, IB_HIST_EXPECTED)
+        captured = self._capture(monkeypatch)
+        list(IBKRHistoricalMarketRawAdapter().iter_bars(
+            symbol="MES", timeframe="5m", start="2024-01-01", use_rth=raw))
+        assert captured["use_rth"] is expected
+
+    def test_iter_contract_bars_coerces_use_rth(self, monkeypatch):
+        monkeypatch.setenv(IB_HIST_ENV, IB_HIST_EXPECTED)
+        captured = self._capture(monkeypatch)
+        list(IBKRHistoricalMarketRawAdapter().iter_contract_bars(
+            symbol="MES", timeframe="5m", start="2024-01-01", use_rth="false"))
+        assert captured["use_rth"] is False
+
+    def test_garbage_string_raises(self, monkeypatch):
+        monkeypatch.setenv(IB_HIST_ENV, IB_HIST_EXPECTED)
+        self._capture(monkeypatch)
+        with pytest.raises(ValueError):
+            list(IBKRHistoricalMarketRawAdapter().iter_bars(
+                symbol="MES", timeframe="5m", start="2024-01-01", use_rth="maybe"))

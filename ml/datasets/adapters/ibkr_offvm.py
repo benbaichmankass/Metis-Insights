@@ -72,6 +72,28 @@ def _iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _as_bool(value: Any) -> bool:
+    """String-aware bool coercion for CLI passthrough kwargs.
+
+    `use_rth` reaches this adapter through `MarketRawBuilder.iter_rows`'s
+    untyped `**adapter_kwargs`, so the dataset CLI's annotation-driven
+    coercion never applies and `"use_rth=false"` arrives as the STRING
+    `"false"` — which `bool()` turns into True. That silently flipped the
+    MES history pull to RTH-only (90 bars/day, 13:30–20:55Z) while the
+    live head scores the full ~23h session, capping RG4 labeling at ~35%
+    (MB-20260719-MES-BASE-RTH-ONLY). Never use bare `bool()` on a
+    passthrough param.
+    """
+    if isinstance(value, str):
+        v = value.strip().lower()
+        if v in {"true", "1", "yes", "y", "on"}:
+            return True
+        if v in {"false", "0", "no", "n", "off", ""}:
+            return False
+        raise ValueError(f"cannot coerce {value!r} to bool")
+    return bool(value)
+
+
 class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
     source: ClassVar[str] = "ibkr_offvm"
 
@@ -114,7 +136,7 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
             bar_size=bar_size, chunk_days=chunk_days,
             start_dt=start_dt, end_dt=end_dt,
             host=host, port=int(port), client_id=int(client_id),
-            what_to_show=what_to_show, use_rth=bool(use_rth),
+            what_to_show=what_to_show, use_rth=_as_bool(use_rth),
             pause_s=float(pause_s), max_contracts=int(max_contracts),
         )
         seen: set[str] = set()
@@ -189,7 +211,7 @@ class IBKRHistoricalMarketRawAdapter(MarketRawAdapter):
             bar_size=bar_size, chunk_days=chunk_days,
             start_dt=start_dt, end_dt=end_dt,
             host=host, port=int(port), client_id=int(client_id),
-            what_to_show=what_to_show, use_rth=bool(use_rth),
+            what_to_show=what_to_show, use_rth=_as_bool(use_rth),
             pause_s=float(pause_s), max_contracts=int(max_contracts),
             per_contract=True,
         )
