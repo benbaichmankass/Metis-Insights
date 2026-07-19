@@ -189,6 +189,13 @@ EXPECTED_ACTIONS = {
     # sweep fabricated. DRY-RUN by default; apply gated + DB backup; optional
     # ids: allowlist. A genuinely-reattached orphan is categorically excluded.
     "supersede-reset-orphan-artifacts": "supersede_reset_orphan_artifacts_action.sh",
+    # 2026-07-19 — one-shot void-flag of the historical INTENT-REDUCE phantom-pnl
+    # rows (BL-20260711; write-path fix in #6926): a closed intent_reduce
+    # bookkeeping leg carrying a non-NULL pnl (the parent's close attributed onto
+    # it with an entry==exit signature). DRY-RUN by default; apply gated + DB
+    # backup; optional ids: / equal_only: narrowing. Void-flags ONLY the reduce
+    # leg, never the parent close.
+    "supersede-intent-reduce-phantom-pnl": "supersede_intent_reduce_phantom_pnl_action.sh",
     # 2026-07-06 — one-shot repair of the mis-linked ETH prop close
     # (BL-20260706-PROP-CLOSE-MISLINK; root cause fixed in #5744): relink the
     # close fill to the real position ticket, close it, restore the phantom.
@@ -249,6 +256,7 @@ TIER_2_ACTIONS = {
     "reconcile-orphan-history",
     "supersede-options-adoption-artifacts",
     "supersede-reset-orphan-artifacts",
+    "supersede-intent-reduce-phantom-pnl",
     "fix-prop-mislinked-close",
     "reset-daily-risk-state",
     "repair-malformed-notes",
