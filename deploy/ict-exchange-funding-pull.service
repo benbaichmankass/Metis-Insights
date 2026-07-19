@@ -1,0 +1,65 @@
+# ============================================
+# ICT EXCHANGE-FUNDING PULL (BL-20260719-FUNDING-NO-TIMER)
+# Refreshes the exchange_funding table in runtime_state/exchange_fills.sqlite
+# with the last 7 days of REAL Bybit perp funding for bybit_2 so the
+# broker-truth cost sweep can attribute funding_paid_usd (Slice B / B1,
+# MB-20260629-ALLOC-COSTCAP).
+#
+# Why this exists: the funding puller (scripts/pull_exchange_funding.py, the
+# sibling of the fills puller) shipped with a system-action but NO timer — so
+# funding was only ever pulled on a manual trigger and the M24 net-R re-grade
+# read funding_paid_usd=0 on every trade (the funding half of the cost was
+# never captured continuously the way fills were). This unit makes the funding
+# refresh durable, mirroring ict-exchange-fills-pull.service so fees AND funding
+# are both captured going forward.
+#
+# LIVE-TRADER BOX ONLY. Reads Bybit over the public API using BYBIT_API_KEY_2 /
+# BYBIT_API_SECRET_2 from the trader .env; read-only on the exchange side
+# (fetch_funding_history). Touches NO service and NO trade_journal.db table. The
+# store keys on funding_id, so the daily 7-day over-sampling is idempotent
+# (duplicate funding rows are dropped).
+#
+# Per-symbol query: Bybit V5 funding is retrieved per contract, so an
+# all-symbols (symbol=None) query returns 0 records (BL-20260717-FUNDING-ZERO).
+# The symbol list mirrors scripts/ops/pull_exchange_funding_action.sh — the
+# perp instruments bybit_2 actually holds across 8h funding timestamps; a symbol
+# with no such position just returns empty.
+#
+# DATA_DIR: this unit MUST resolve runtime_state_dir() to the SAME root as
+# ict-web-api (the reader) + ict-exchange-fills-pull (the fills writer, same
+# sqlite file) — /data/bot-data. Set explicitly below so the writer and the
+# cost sweep agree on $DATA_DIR/runtime_state/exchange_fills.sqlite
+# (BL-20260717-FILLS-STORE-PATH-SPLIT).
+#
+# Save to: /etc/systemd/system/ict-exchange-funding-pull.service
+# (installed automatically by scripts/install_systemd_units.sh during
+#  deploy_pull_restart.sh)
+# ============================================
+
+[Unit]
+Description=ICT exchange-funding pull — capture Bybit perp funding for the broker-truth cost sweep (BL-20260719-FUNDING-NO-TIMER)
+After=network-online.target ict-trader-live.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+# Load the trader .env for the Bybit creds (BYBIT_API_KEY_2 / _SECRET_2).
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
+# Pin DATA_DIR so runtime_state_dir() resolves to the block-volume root the
+# web-api reads from and the fills puller writes to (same sqlite file).
+Environment=DATA_DIR=/data/bot-data
+# Per-symbol funding history is a handful of quick Bybit API calls; cap
+# generously for a slow session. A read/auth failure exits non-zero and the
+# unit is marked failed — the next timer fire retries; no state is left
+# half-written (funding_id PK).
+TimeoutStartSec=300
+# Run under the trader venv so ccxt imports (same interpreter the trader uses
+# for Bybit) — not system /usr/bin/python3.
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_exchange_funding.py --account bybit_2 --days 7 --symbol BTCUSDT --symbol ETHUSDT --symbol XRPUSDT --symbol ADAUSDT --api-key-env BYBIT_API_KEY_2 --api-secret-env BYBIT_API_SECRET_2
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
