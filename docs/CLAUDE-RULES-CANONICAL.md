@@ -61,6 +61,24 @@ access while the `trainer-vm-diag.yml` relay was already sitting in
 you didn't read a piece of state, or a relay failed, say exactly that
 instead of inferring what it "probably" shows.
 
+## If you see something, say something (operator directive 2026-07-19, binding)
+
+**Don't leave bugs lying around: fix them, or log them correctly so a review
+session gets them fixed.** Every session that observes broken/degraded/
+suspicious infrastructure — failing or noisy audits, stale feeds, silently
+skipped jobs, impossible metrics, alerts everyone ignores — must, before
+moving on: (1) fix it in-session when within tier and scope; (2) otherwise log
+it to the correct review backlog with honest severity and fix-ready detail; or
+(3) flag it loudly to the operator when tier-gated. "Not my task" / "already
+like that" are not valid dispositions. **An alarm that is routinely ignored is
+itself a P1 bug** — alarm fatigue must be filed as its own item, because
+normalized noise is where real bugs hide (the 62/86-manifest dataset-audit
+fatigue that concealed the ETH-xa dead-feature bug for weeks of wasted soak:
+`MB-20260719-DATASET-AUDIT-NOISE` / `BL-20260628-XA-TRAINING-ZERO`). This
+extends the session-end reconciliation duty (no walking past known
+contradictions) from documents to ALL infrastructure, at all times. Mirrored
+at the top of the root `CLAUDE.md`.
+
 ## Honesty
 
 Give only true, verifiable answers.
