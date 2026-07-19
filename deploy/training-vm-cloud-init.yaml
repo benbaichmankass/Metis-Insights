@@ -102,14 +102,20 @@ write_files:
       # 8G swapfile + the systemd default MemorySwapMax=infinity, a child that
       # breached MemoryMax paged into 8G of swap and swap-thrashed the 1-OCPU
       # box into an SSH banner-exchange timeout (needed an OCI hard reset). A
-      # small swap cap makes a runaway child get OOM-killed and contained by
+      # swap cap of 0 (2026-07-19, BL-20260719-TRAINER-FLOWHEAD-OOM-DSTATE-WEDGE):
+      # 512M was insufficient — btc-regime-5m-lgbm-flow-v1's ~4.8G working set
+      # sits UNDER MemoryMax=5G (never OOM-killed) yet OVER MemoryHigh=3G, so it
+      # thrashed the 512M swap in State D (uninterruptible) for ~24.8h, evading
+      # even the per-manifest timeout (SIGKILL can't reap a D-state proc) and
+      # wedging the WHOLE trainer. MemorySwapMax=0 denies swap so a runaway gets
+      # OOM-killed and contained by
       # OOMPolicy=continue (one failed unit + continue, which
       # run_training_cycle.sh already handles) instead of dragging the whole box
       # through 8G of swap. Normal builds peak <5G RAM so this is untouched; it
       # only bites a genuine runaway. MemoryHigh lowered 4G->3G so reclaim starts
       # earlier. The real peak-RSS reduction is the market_features streaming
       # refactor (separate PR); this makes the box unkillable meanwhile.
-      MemorySwapMax=512M
+      MemorySwapMax=0
       OOMPolicy=continue
       ExecStart=/bin/bash scripts/ops/run_training_cycle.sh
       StandardOutput=journal
@@ -172,14 +178,20 @@ write_files:
       # 8G swapfile + the systemd default MemorySwapMax=infinity, a child that
       # breached MemoryMax paged into 8G of swap and swap-thrashed the 1-OCPU
       # box into an SSH banner-exchange timeout (needed an OCI hard reset). A
-      # small swap cap makes a runaway child get OOM-killed and contained by
+      # swap cap of 0 (2026-07-19, BL-20260719-TRAINER-FLOWHEAD-OOM-DSTATE-WEDGE):
+      # 512M was insufficient — btc-regime-5m-lgbm-flow-v1's ~4.8G working set
+      # sits UNDER MemoryMax=5G (never OOM-killed) yet OVER MemoryHigh=3G, so it
+      # thrashed the 512M swap in State D (uninterruptible) for ~24.8h, evading
+      # even the per-manifest timeout (SIGKILL can't reap a D-state proc) and
+      # wedging the WHOLE trainer. MemorySwapMax=0 denies swap so a runaway gets
+      # OOM-killed and contained by
       # OOMPolicy=continue (one failed unit + continue, which
       # run_training_cycle.sh already handles) instead of dragging the whole box
       # through 8G of swap. Normal builds peak <5G RAM so this is untouched; it
       # only bites a genuine runaway. MemoryHigh lowered 4G->3G so reclaim starts
       # earlier. The real peak-RSS reduction is the market_features streaming
       # refactor (separate PR); this makes the box unkillable meanwhile.
-      MemorySwapMax=512M
+      MemorySwapMax=0
       OOMPolicy=continue
       ExecStart=/bin/bash scripts/ops/run_training_cycle.sh
       StandardOutput=journal
@@ -447,10 +459,12 @@ runcmd:
   # of being OOM-killed. That REGRESSED into an SSH-death: on 2026-07-10 a child
   # paged into the full 8G and swap-thrashed the 1-OCPU box until sshd could not
   # answer the banner exchange, needing an OCI hard reset (MB-20260709). The
-  # containment now lives on the units — MemorySwapMax=512M (see the
-  # ict-trainer{,-catchup}.service blocks above) caps per-cgroup swap so a
-  # runaway child is OOM-killed + contained by OOMPolicy=continue rather than
-  # thrashing the host; MemoryHigh lowered to 3G reclaims earlier. The 8G
+  # containment now lives on the units — MemorySwapMax=0 (see the
+  # ict-trainer{,-catchup}.service blocks above; lowered 512M->0 on 2026-07-19,
+  # BL-20260719, after a ~4.8G child thrashed the 512M swap in D-state for 24.8h
+  # under MemoryMax=5G) denies per-cgroup swap so a runaway child is OOM-killed +
+  # contained by OOMPolicy=continue rather than thrashing the host in
+  # uninterruptible swap I/O; MemoryHigh lowered to 3G reclaims earlier. The 8G
   # swapfile still gives the host benign headroom (now capped per-cgroup), so
   # keep it. The real peak-RSS reduction is the market_features streaming
   # refactor (separate PR); do NOT re-raise MemorySwapMax to infinity.
