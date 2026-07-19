@@ -38,6 +38,13 @@
       "intent": "S-PAPER-PORTFOLIO: two live-portfolio-mirror PAPER accounts (bybit_portfolio mirrors bybit_2; alpaca_portfolio mirrors alpaca_live minus SPLG/IAUM proxies) + paper_role axis on /api/bot/config. PR #6663 (Tier-3, operator-approved merge). Then dashboard+Android Paper=portfolio UI. Also investigating alpaca_paper QQQ stuck-close (issues #6664/#6665).",
       "started_at": "2026-07-16T00:00:00Z",
       "updated_at": "2026-07-16T00:00:00Z"
+    },
+    {
+      "session_id": "session_011d3hjgoY5QMSZPK4tuTpzN",
+      "branch": "claude/ml-vol-regime-probe-21az61-f0au4r",
+      "intent": "ML Tier-1 offline session: (1) durable trainer memory fix (load-time column projection \u2014 MB-20260709-TRAINER-SUBPROC-ISOLATION + BL-20260717-TRAINER-SINGLE-MANIFEST-OOM), (2) ETH 1h xasset dead-feature build fix (BL-20260628-XA-TRAINING-ZERO), (3) M23 meta-label P2 label volume. Serial PRs from the designated branch, restarted from main between concerns. Slot free.",
+      "started_at": "2026-07-19T07:45:00Z",
+      "updated_at": "2026-07-19T07:45:00Z"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) \u2014 >24h stale, no matching open PR/branch \u2014 and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",

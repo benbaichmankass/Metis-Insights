@@ -339,17 +339,21 @@ import json, sys, datetime
 from pathlib import Path
 try:
     from ml.manifest import TrainingManifest
-    from ml.datasets.audit import audit_dataset
+    from ml.datasets.audit import audit_dataset, _resolve_feature_columns, _resolve_target_column
+    from ml.experiments.runner import _load_jsonl
     manifest_path, datasets_root, audit_log = sys.argv[1:4]
     m = TrainingManifest.from_yaml(Path(manifest_path))
     data = m.dataset.path_under(Path(datasets_root)) / "data.jsonl"
     rows = []
     if data.is_file():
-        with data.open(encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if line:
-                    rows.append(json.loads(line))
+        # Project rows to just the columns the audit scores (features + target)
+        # — the full-column materialization OOM'd on the 5m datasets exactly
+        # like the trainer loader (BL-20260717-TRAINER-SINGLE-MANIFEST-OOM;
+        # kernel memcg kills ~20s apart on 2026-07-19 were audit + train).
+        # _load_jsonl fails open to all columns when the keep-set doesn't
+        # intersect the data's shape.
+        keep = frozenset(_resolve_feature_columns(m)) | {_resolve_target_column(m)}
+        rows = _load_jsonl(data, keep=keep)
     report = audit_dataset(rows, m)
 except Exception as exc:
     report = {"ok": True, "quarantine": False, "audit_error": f"{type(exc).__name__}: {exc}"}
