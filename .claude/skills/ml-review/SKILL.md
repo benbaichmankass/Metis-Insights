@@ -229,6 +229,39 @@ a degrading model that *influences orders* is the urgent case.
 when a `shadow` model was just promoted and the live trader hasn't
 emitted a matching signal yet. Don't paper over it as a gap.
 
+## Soak integrity audit — REQUIRED every run (operator directive 2026-07-19)
+
+**Why this section exists:** the ETH xa dead-feature bug (BL-20260628-XA-TRAINING-ZERO
+— a head soaking for WEEKS on features that were all-zeros at train time) was only
+caught at the promotion-decision phase, after the soak completed. That class of
+error must be caught at review time, every review. The operating principle is:
+
+> **The soak validates MECHANICS, not edge.** Edge is proven OFFLINE — powered
+> walk-forward + historical signal replay over years of data. A live soak exists
+> to verify serving mechanics (feature parity, labeling, wiring), which is
+> checkable deterministically with a few dozen live decisions. A soak that has
+> been running for days without its mechanics verified is not accruing evidence
+> — it is accruing risk of exactly this bug class.
+
+For EVERY head at `shadow` or `advisory`, check and report three things:
+
+1. **Train/serve feature parity.** Diff the head's live-logged `feature_row`s
+   (shadow_predictions.jsonl) against the same features in its training dataset:
+   any feature that is zero-variance/dead on ONE side but live on the other is a
+   parity bug — flag it LOUDLY and file it, do not wait for promotion. (This is
+   the check that catches the xa class in one review instead of one month.)
+2. **Label-accrual coverage.** labeled/total live rows for the head. A large
+   unlabeled fraction (the MES 1,213-of-1,861 class — stale candle base blocking
+   labeling) means the soak is accruing NOTHING gate-relevant; flag it as a
+   data-pipeline bug, not "needs more soak time".
+3. **Evidence progress.** What decision will this soak's evidence feed, and is
+   that evidence actually accruing (power counters moving)? A soak with no
+   destination decision or no accrual is wasted — recommend closing or fixing it.
+
+Report these in a compact `soak_audit[]` block (head, parity ok|BUG, label
+coverage %, evidence destination + accrual verdict). A parity or labeling bug
+found here is a mandatory flag in the review output and a backlog item.
+
 ## Promotion/demotion recommendations
 
 For each model, emit a `promotion_recommendations[]` entry **only**

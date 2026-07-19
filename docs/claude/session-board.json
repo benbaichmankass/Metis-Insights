@@ -1,14 +1,14 @@
 {
-  "_doc": "CROSS-SESSION COORDINATION BOARD (Workstream-D, 2026-06-28). ADVISORY, last-writer-wins. Every Claude session registers in `active_sessions` at start and MUST claim `merge_slot` before merging any PR, releasing it after. Purpose: serialize merges so two concurrent sessions don't both drive a merge and force each other into the behind-rebase retest churn (hit twice on 2026-06-28). The LIVE open-PR list (GitHub) is the authoritative real-time signal; this file records intent + the single merge claim. Protocol is binding: see `.claude/skills/session-coordination/SKILL.md` and `docs/CLAUDE-RULES-CANONICAL.md` (multi-session coordination). This board is NOT a hard lock \u2014 it is honour-system coordination for the small number of concurrent sessions the operator runs; the real safety net is branch-protection require-up-to-date.",
+  "_doc": "CROSS-SESSION COORDINATION BOARD (Workstream-D, 2026-06-28). ADVISORY, last-writer-wins. Every Claude session registers in `active_sessions` at start and MUST claim `merge_slot` before merging any PR, releasing it after. Purpose: serialize merges so two concurrent sessions don't both drive a merge and force each other into the behind-rebase retest churn (hit twice on 2026-06-28). The LIVE open-PR list (GitHub) is the authoritative real-time signal; this file records intent + the single merge claim. Protocol is binding: see `.claude/skills/session-coordination/SKILL.md` and `docs/CLAUDE-RULES-CANONICAL.md` (multi-session coordination). This board is NOT a hard lock — it is honour-system coordination for the small number of concurrent sessions the operator runs; the real safety net is branch-protection require-up-to-date.",
   "schema": {
-    "merge_slot": "{ held_by: <session_id|null>, branch: <str|null>, pr: <int|null>, claimed_at: <iso8601|null> } \u2014 at most ONE session holds this at a time. Claim before merge, clear after (merged or aborted).",
-    "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] \u2014 one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
+    "merge_slot": "{ held_by: <session_id|null>, branch: <str|null>, pr: <int|null>, claimed_at: <iso8601|null> } — at most ONE session holds this at a time. Claim before merge, clear after (merged or aborted).",
+    "active_sessions": "[ { session_id, branch, intent, started_at, updated_at } ] — one entry per live session; prune your own on exit. Stale entries (>24h, no matching open PR/branch) may be pruned by any session."
   },
   "merge_slot": {
-    "held_by": "session_01XBSJPyL4k9HUje4miikC7q",
-    "branch": "claude/ml-vol-regime-probe-21az61-f0au4r",
-    "pr": 6934,
-    "claimed_at": "2026-07-19T11:30:00Z"
+    "held_by": null,
+    "branch": null,
+    "pr": null,
+    "claimed_at": null
   },
   "active_sessions": [
     {
@@ -21,7 +21,7 @@
     {
       "session_id": "session_01J9pbkyoSSG8PiS9NurTEaD",
       "branch": "claude/system-health-review-f4i2v1",
-      "intent": "/health-review 2026-07-15 DONE. Merged #6449 (Tier-3 alpaca_live->dry_run, operator-directed) + deploying; merging #6447 (review-skill governance: health-review security+soak sweeps, perf-review real-money benchmark; health-review backlog drain). NOT touching devnull / first-fire items \u2014 research session owns them.",
+      "intent": "/health-review 2026-07-15 DONE. Merged #6449 (Tier-3 alpaca_live->dry_run, operator-directed) + deploying; merging #6447 (review-skill governance: health-review security+soak sweeps, perf-review real-money benchmark; health-review backlog drain). NOT touching devnull / first-fire items — research session owns them.",
       "started_at": "2026-07-15T05:53:00Z",
       "updated_at": "2026-07-15T06:58:00Z"
     },
@@ -42,9 +42,9 @@
     {
       "session_id": "session_01XBSJPyL4k9HUje4miikC7q",
       "branch": "claude/ml-vol-regime-probe-21az61-f0au4r",
-      "intent": "ML continuation — successor of session_011d3hjgoY5QMSZPK4tuTpzN (entry replaced per its handoff note). Owns: read trainer verification bundle (stage1 memfix / stage2 ETH xa / stage3 M23 P2) -> M23 P2 findings doc -> finalize sprint log -> disposition BL-20260717-TRAINER-SINGLE-MANIFEST-OOM + BL-20260628-XA-TRAINING-ZERO -> merge close-out PR #6934 -> research-week WS-A (M25 promotion harvest). Not touching #6926 scope. Slot free.",
+      "intent": "ML continuation — CLOSE-OUT DONE: PR #6934 MERGED (verification results + M23 P2 findings honest-negative + WS-B coverage). NOW on WS-A (M25 promotion harvest, claimed on #6927): RG4 sweep + chained cycle->readiness running on the trainer; memos/packets to follow on a fresh branch. Slot free.",
       "started_at": "2026-07-19T10:55:00Z",
-      "updated_at": "2026-07-19T10:55:00Z"
+      "updated_at": "2026-07-19T11:45:00Z"
     },
     {
       "session_id": "session_01PKEYK1kKeXJXuG92GS2NB1",
@@ -54,6 +54,6 @@
       "updated_at": "2026-07-19T09:00:00Z"
     }
   ],
-  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) \u2014 >24h stale, no matching open PR/branch \u2014 and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
-  "_pruned_2026-07-15": "Pruned two >24h-stale full-system-audit-2026-07-09 entries (session_013YMtQmKVzkDCPECSU4tbwD, session_01886WsrJNuwMJqnMQmxDgCn) \u2014 no matching open PR/branch after 6 days. Registered health-review session."
+  "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
+  "_pruned_2026-07-15": "Pruned two >24h-stale full-system-audit-2026-07-09 entries (session_013YMtQmKVzkDCPECSU4tbwD, session_01886WsrJNuwMJqnMQmxDgCn) — no matching open PR/branch after 6 days. Registered health-review session."
 }
