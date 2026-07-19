@@ -395,6 +395,25 @@ def test_thresholds_for_selection():
     assert thresholds_for(regime, override=override).min_trades == 42  # override wins
 
 
+def _good_parity(**overrides):
+    from ml.promotion.live_parity import LiveParityResult
+
+    kwargs = dict(
+        model_id="m", n_live_rows=120, n_sampled=50, n_mismatched=0,
+        train_available=True,
+    )
+    kwargs.update(overrides)
+    return LiveParityResult(**kwargs)
+
+
+def _good_labels(**overrides):
+    from ml.promotion.live_parity import LabelsAccruingResult
+
+    kwargs = dict(model_id="m", n_live_rows=120, n_labeled=80)
+    kwargs.update(overrides)
+    return LabelsAccruingResult(**kwargs)
+
+
 def test_regime_profile_ready_on_small_live_floor():
     entry = _entry(
         metrics={"macro_f1": 0.66, "f1_range": 0.73, "f1_volatile": 0.48, "n_eval": 8760},
@@ -405,9 +424,10 @@ def test_regime_profile_ready_on_small_live_floor():
         entry, attribution=_thin_live_attr(),
         drift={"overall_verdict": "no_change"},
         oos_edge=_good_oos_edge(),
-        # option A (2026-06-26): the regime profile now requires the RG4 live
-        # regime-discrimination AUC instead of the trade-outcome live_agreement.
         live_regime_auc=0.72,
+        # M25 gate reframe (operator-approved 2026-07-19): the regime
+        # profile's required LIVE gates are the serving-mechanics pair.
+        live_parity=_good_parity(), labels_accruing=_good_labels(),
         thresholds=regime_classifier_thresholds(),
     )
     assert report.ready, report.to_dict()["blocking"]
@@ -463,27 +483,90 @@ def test_live_regime_discrimination_fail_below_default():
 
 
 def test_live_regime_discrimination_required_flag_honored():
-    # default profile: not required; regime profile: required.
+    # M25 gate reframe (operator-approved 2026-07-19,
+    # docs/research/M25-promotion-consolidation-DESIGN.md § "The promotion
+    # gate — REFRAMED 2026-07-19"): advisory reporting under EVERY stock
+    # profile — the soak proves mechanics, not edge. A custom GateThresholds
+    # can still opt back in.
     assert _gate_live_regime_discrimination(0.60, GateThresholds()).required is False
     assert _gate_live_regime_discrimination(
         0.60, regime_classifier_thresholds()
-    ).required is True
+    ).required is False
+    from dataclasses import replace as _replace
+
+    opt_in = _replace(GateThresholds(), require_live_regime_discrimination=True)
+    assert _gate_live_regime_discrimination(0.60, opt_in).required is True
 
 
 def test_regime_profile_swaps_live_track_record_gates():
-    # regime profile: live_agreement NOT required, live_regime_discrimination
-    # required; default profile: the reverse.
+    # M25 reframe (2026-07-19): regime profile — live_agreement NOT required,
+    # live_regime_discrimination ADVISORY (not required), and the
+    # serving-mechanics pair (live_parity + labels_accruing) required.
+    # Default profile: live_agreement required; everything new not required.
     reg = regime_classifier_thresholds()
     assert reg.require_live_agreement is False
-    assert reg.require_live_regime_discrimination is True
+    assert reg.require_live_regime_discrimination is False
+    assert reg.require_live_parity is True
+    assert reg.require_labels_accruing is True
     d = GateThresholds()
     assert d.require_live_agreement is True
     assert d.require_live_regime_discrimination is False
+    assert d.require_live_parity is False
+    assert d.require_labels_accruing is False
 
 
-def test_regime_ready_depends_on_live_regime_not_trade_agreement():
+def test_regime_ready_depends_on_mechanics_not_trade_agreement():
     # A regime head whose trade-outcome live_agreement is degenerate but whose
-    # RG4 live regime AUC clears the bar IS ready under the regime profile.
+    # serving-mechanics gates pass IS ready under the regime profile (M25
+    # reframe 2026-07-19). The RG4 AUC is still REPORTED, advisory.
+    entry = _entry(
+        metrics={"macro_f1": 0.66, "f1_range": 0.73, "f1_volatile": 0.48, "n_eval": 8760},
+        runs=_runs("macro_f1", [0.66, 0.66, 0.66]),
+        created_days_ago=14,
+    )
+    report = evaluate_gates(
+        entry, attribution=_thin_live_attr(),
+        drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(), live_regime_auc=0.72,
+        live_parity=_good_parity(), labels_accruing=_good_labels(),
+        thresholds=regime_classifier_thresholds(),
+    )
+    assert report.ready, report.to_dict()["blocking"]
+    la = next(r for r in report.results if r.name == "live_agreement")
+    assert la.required is False  # not blocking under the regime profile
+    lrd = next(r for r in report.results if r.name == "live_regime_discrimination")
+    assert lrd.status == "pass" and lrd.required is False  # advisory, still reported
+
+
+def test_regime_low_live_regime_auc_reported_but_not_blocking():
+    # M25 reframe (2026-07-19): a LOW RG4 AUC no longer blocks promotion — it
+    # is advisory reporting (an outcome-statistics gate that takes weeks to
+    # power in calm regimes). Mechanics gates passing → still ready; the fail
+    # is visible in the report for the operator's judgement.
+    entry = _entry(
+        metrics={"macro_f1": 0.66, "f1_range": 0.73, "f1_volatile": 0.48, "n_eval": 8760},
+        runs=_runs("macro_f1", [0.66, 0.66, 0.66]),
+        created_days_ago=14,
+    )
+    report = evaluate_gates(
+        entry, attribution=_thin_live_attr(),
+        drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(), live_regime_auc=0.40,
+        live_parity=_good_parity(), labels_accruing=_good_labels(),
+        thresholds=regime_classifier_thresholds(),
+    )
+    assert report.ready, report.to_dict()["blocking"]
+    lrd = next(r for r in report.results if r.name == "live_regime_discrimination")
+    assert lrd.status == "fail" and lrd.required is False
+    blocking = {r.name for r in report.blocking}
+    assert "live_regime_discrimination" not in blocking
+    assert "live_agreement" not in blocking
+
+
+def test_regime_blocks_without_mechanics_evidence():
+    # M25 reframe (2026-07-19): the regime profile blocks on the REQUIRED
+    # serving-mechanics gates when no evidence was computed — never a silent
+    # pass on missing mechanics proof.
     entry = _entry(
         metrics={"macro_f1": 0.66, "f1_range": 0.73, "f1_volatile": 0.48, "n_eval": 8760},
         runs=_runs("macro_f1", [0.66, 0.66, 0.66]),
@@ -495,26 +578,232 @@ def test_regime_ready_depends_on_live_regime_not_trade_agreement():
         oos_edge=_good_oos_edge(), live_regime_auc=0.72,
         thresholds=regime_classifier_thresholds(),
     )
-    assert report.ready, report.to_dict()["blocking"]
-    la = next(r for r in report.results if r.name == "live_agreement")
-    assert la.required is False  # not blocking under the regime profile
-    lrd = next(r for r in report.results if r.name == "live_regime_discrimination")
-    assert lrd.status == "pass" and lrd.required is True
+    assert not report.ready
+    blocking = {r.name for r in report.blocking}
+    assert "live_parity" in blocking
+    assert "labels_accruing" in blocking
 
 
-def test_regime_blocks_on_low_live_regime_auc_not_live_agreement():
+# --- Serving-mechanics gates (M25 gate reframe, operator-approved 2026-07-19,
+# docs/research/M25-promotion-consolidation-DESIGN.md § "The promotion gate —
+# REFRAMED 2026-07-19") -------------------------------------------------------
+
+from ml.promotion.gates import (  # noqa: E402
+    _gate_labels_accruing,
+    _gate_live_parity,
+)
+from ml.promotion.live_parity import (  # noqa: E402
+    dead_features,
+    labels_accruing_from_counts,
+    score_fidelity,
+)
+
+
+def test_live_parity_pass():
+    r = _gate_live_parity(_good_parity(), regime_classifier_thresholds())
+    assert r.status == "pass"
+    assert r.required is True
+    assert r.value == 0.0
+
+
+def test_live_parity_fidelity_mismatch_fail():
+    # 3/50 = 6% > the 2% floor → fail.
+    r = _gate_live_parity(
+        _good_parity(n_mismatched=3), regime_classifier_thresholds()
+    )
+    assert r.status == "fail"
+    assert "serving-fidelity mismatch 3/50" in r.detail
+
+
+def test_live_parity_mismatch_boundary():
+    # Exactly at the floor (1/50 = 2%) → not ABOVE it → pass.
+    r = _gate_live_parity(
+        _good_parity(n_mismatched=1), regime_classifier_thresholds()
+    )
+    assert r.status == "pass"
+
+
+def test_live_parity_dead_live_feature_fail_names_feature():
+    # The ETH-xa class: xa_* constant/zero on the LIVE side, varying in
+    # training (BL-20260628-XA-TRAINING-ZERO's mirror image).
+    r = _gate_live_parity(
+        _good_parity(dead_live_features=("xa_btc_ret_1h",)),
+        regime_classifier_thresholds(),
+    )
+    assert r.status == "fail"
+    assert "xa_btc_ret_1h" in r.detail
+    assert "dead-on-LIVE" in r.detail
+
+
+def test_live_parity_dead_train_feature_fail_names_feature():
+    # The reverse: a feature the training build zeroed but the live pipeline
+    # populates — the model learned nothing from it.
+    r = _gate_live_parity(
+        _good_parity(dead_train_features=("xa_eth_vol_1h",)),
+        regime_classifier_thresholds(),
+    )
+    assert r.status == "fail"
+    assert "xa_eth_vol_1h" in r.detail
+    assert "dead-in-TRAINING" in r.detail
+
+
+def test_live_parity_min_rows_insufficient():
+    r = _gate_live_parity(
+        _good_parity(n_live_rows=10, n_sampled=10),
+        regime_classifier_thresholds(),
+    )
+    assert r.status == "insufficient_data"
+    assert "10 live rows" in r.detail
+
+
+def test_live_parity_error_is_insufficient_not_pass():
+    # Fail-safe direction: a compute ERROR (model load failure, unreadable
+    # log) surfaces as insufficient_data with the error in the detail — never
+    # a silent pass, never a crash.
+    r = _gate_live_parity(
+        _good_parity(error="model artifact load failed: boom"),
+        regime_classifier_thresholds(),
+    )
+    assert r.status == "insufficient_data"
+    assert "boom" in r.detail
+
+
+def test_live_parity_train_unavailable_is_insufficient():
+    r = _gate_live_parity(
+        _good_parity(train_available=False), regime_classifier_thresholds()
+    )
+    assert r.status == "insufficient_data"
+    assert "training dataset unavailable" in r.detail
+
+
+def test_live_parity_none_is_insufficient():
+    r = _gate_live_parity(None, regime_classifier_thresholds())
+    assert r.status == "insufficient_data"
+
+
+def test_labels_accruing_pass():
+    r = _gate_labels_accruing(_good_labels(), regime_classifier_thresholds())
+    assert r.status == "pass"
+    assert r.required is True
+
+
+def test_labels_accruing_fail_with_fraction_in_detail():
+    # The MES stale-candle-base class: 1213/1861 unlabeled → 0.35 clears the
+    # 0.30 floor, but a harder blockage (e.g. 20/120 labeled = 0.17) fails
+    # with the fraction visible.
+    r = _gate_labels_accruing(
+        _good_labels(n_labeled=20), regime_classifier_thresholds()
+    )
+    assert r.status == "fail"
+    assert "0.17" in r.detail
+    assert "20/120" in r.detail
+
+
+def test_labels_accruing_insufficient_below_min_rows():
+    r = _gate_labels_accruing(
+        _good_labels(n_live_rows=10, n_labeled=1), regime_classifier_thresholds()
+    )
+    assert r.status == "insufficient_data"
+
+
+def test_labels_accruing_none_and_error_are_insufficient():
+    th = regime_classifier_thresholds()
+    assert _gate_labels_accruing(None, th).status == "insufficient_data"
+    r = _gate_labels_accruing(_good_labels(error="candles unreadable"), th)
+    assert r.status == "insufficient_data"
+    assert "candles unreadable" in r.detail
+
+
+def test_labels_accruing_from_counts_matches_rg4_shape():
+    # The RG4-replay counts path (n_records/n_unlabeled) — e.g. the MES case:
+    # 1213/1861 unlabeled → labeled fraction ≈ 0.35.
+    res = labels_accruing_from_counts("m", n_live_rows=1861, n_unlabeled=1213)
+    assert res.n_labeled == 648
+    assert abs(res.labeled_fraction - 648 / 1861) < 1e-12
+
+
+def test_default_profile_reports_mechanics_gates_unrequired():
+    # Non-regime profiles: UNCHANGED behaviour — the new gates are present in
+    # the report but not required, so a decision model's readiness is
+    # untouched by missing mechanics inputs.
     entry = _entry(
-        metrics={"macro_f1": 0.66, "f1_range": 0.73, "f1_volatile": 0.48, "n_eval": 8760},
-        runs=_runs("macro_f1", [0.66, 0.66, 0.66]),
+        metrics={"macro_f1": 0.70, "f1_a": 0.73, "f1_b": 0.68, "n_eval": 5000},
+        runs=_runs("macro_f1", [0.70, 0.71, 0.69]),
         created_days_ago=14,
     )
     report = evaluate_gates(
-        entry, attribution=_thin_live_attr(),
-        drift={"overall_verdict": "no_change"},
-        oos_edge=_good_oos_edge(), live_regime_auc=0.40,
-        thresholds=regime_classifier_thresholds(),
+        entry, attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(),
     )
-    assert not report.ready
-    blocking = {r.name for r in report.blocking}
-    assert "live_regime_discrimination" in blocking
-    assert "live_agreement" not in blocking
+    assert report.ready, report.to_dict()["blocking"]
+    lp = next(r for r in report.results if r.name == "live_parity")
+    la = next(r for r in report.results if r.name == "labels_accruing")
+    assert lp.required is False and lp.status == "insufficient_data"
+    assert la.required is False and la.status == "insufficient_data"
+
+
+# --- pure helpers (ml.promotion.live_parity) --------------------------------
+
+
+def test_score_fidelity_counts_mismatches_and_errors():
+    rows = [
+        ({"a": 1.0}, 1.0),   # match
+        ({"a": 2.0}, 2.0),   # match
+        ({"a": 3.0}, 9.9),   # mismatch
+        ({"a": "boom"}, 0.0),  # predict raises → mismatch
+    ]
+
+    def predict(row):
+        if row["a"] == "boom":
+            raise RuntimeError("cannot score")
+        return float(row["a"])
+
+    assert score_fidelity(rows, predict, score_tol=1e-6) == 2
+
+
+def test_score_fidelity_tolerance():
+    rows = [({"a": 1.0}, 1.0 + 5e-7)]
+    assert score_fidelity(rows, lambda r: r["a"], score_tol=1e-6) == 0
+    assert score_fidelity(rows, lambda r: r["a"], score_tol=1e-8) == 1
+
+
+def test_dead_features_constant_live_vs_varying_train():
+    live = [{"x": 0.0, "y": 1.0}, {"x": 0.0, "y": 2.0}]
+    train = [{"x": 0.1, "y": 1.0}, {"x": 0.2, "y": 2.0}]
+    dead_live, dead_train = dead_features(live, train)
+    assert dead_live == ("x",)
+    assert dead_train == ()
+
+
+def test_dead_features_constant_train_vs_varying_live():
+    live = [{"x": 0.1, "y": 1.0}, {"x": 0.2, "y": 2.0}]
+    train = [{"x": 0.0, "y": 1.0}, {"x": 0.0, "y": 2.0}]
+    dead_live, dead_train = dead_features(live, train)
+    assert dead_live == ()
+    assert dead_train == ("x",)
+
+
+def test_dead_features_missing_live_feature_is_dead_live():
+    # A trained-on feature entirely ABSENT from the live rows is dead-live
+    # (the live pipeline never populates it) — the exact ETH-xa failure mode.
+    live = [{"y": 1.0}, {"y": 2.0}]
+    train = [{"xa_peer": 0.1, "y": 1.0}, {"xa_peer": 0.7, "y": 2.0}]
+    dead_live, dead_train = dead_features(live, train)
+    assert dead_live == ("xa_peer",)
+
+
+def test_dead_features_constant_both_sides_not_flagged():
+    live = [{"sym": "ETHUSDT", "y": 1.0}, {"sym": "ETHUSDT", "y": 2.0}]
+    train = [{"sym": "ETHUSDT", "y": 3.0}, {"sym": "ETHUSDT", "y": 4.0}]
+    dead_live, dead_train = dead_features(live, train)
+    assert dead_live == () and dead_train == ()
+
+
+def test_dead_features_excludes_target_column():
+    live = [{"y": 1.0}, {"y": 2.0}]
+    train = [
+        {"y": 1.0, "regime_label": "range"},
+        {"y": 2.0, "regime_label": "volatile"},
+    ]
+    dead_live, _ = dead_features(live, train, exclude={"regime_label"})
+    assert dead_live == ()

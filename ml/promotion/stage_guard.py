@@ -129,6 +129,8 @@ def propose_for_model(
     drift: Any = None,
     oos_edge: Any = None,
     live_regime_auc: float | None = None,
+    live_parity: Any = None,
+    labels_accruing: Any = None,
     thresholds: GateThresholds | None = None,
 ) -> Proposal:
     """Pure proposal decision for one model (no I/O)."""
@@ -145,7 +147,9 @@ def propose_for_model(
         report: GateReport = evaluate_gates(
             entry, target_stage="advisory",
             attribution=attribution, drift=drift, oos_edge=oos_edge,
-            live_regime_auc=live_regime_auc, thresholds=th,
+            live_regime_auc=live_regime_auc,
+            live_parity=live_parity, labels_accruing=labels_accruing,
+            thresholds=th,
         )
         if report.ready:
             return Proposal(
@@ -264,20 +268,24 @@ def run_stage_guard(
                     "ml.trainers.regime_classifier.RegimeClassifierTrainer"
                 )
             oos_edge = compute_oos_edge(entry, **oos_kwargs)
-        # NOTE: the RG4 live regime-discrimination AUC is NOT computed here
-        # yet — it needs a per-model candle source (symbol/timeframe → the
-        # right `market_raw/.../data.jsonl`) for the realized-regime join, and
-        # the sweep doesn't resolve candles per model. So a regime head's
-        # `live_regime_discrimination` gate reports `insufficient_data` (→ not
-        # ready) in this sweep until that per-model candle resolution is wired
-        # (separate follow-up). The single-model `gate-check` CLI DOES compute
-        # it (see `ml/cli.py::_cmd_gate_check`).
+        # NOTE: the RG4 live regime-discrimination AUC and the M25 serving-
+        # mechanics inputs (`live_parity` / `labels_accruing`) are NOT
+        # computed in this sweep yet — RG4 + label accrual need a per-model
+        # candle source (symbol/timeframe → the right
+        # `market_raw/.../data.jsonl`) for the realized-regime join, and the
+        # sweep doesn't resolve candles per model. So a regime head's required
+        # `live_parity`/`labels_accruing` gates report `insufficient_data`
+        # (→ not ready) in this sweep until that per-model resolution is
+        # wired (separate follow-up). The single-model `gate-check` CLI DOES
+        # compute them (see `ml/cli.py::_cmd_gate_check`).
         proposals.append(propose_for_model(
             entry,
             attribution=attribution.get(entry.model_id),
             drift=drift,
             oos_edge=oos_edge,
             live_regime_auc=None,
+            live_parity=None,
+            labels_accruing=None,
             thresholds=thresholds,
         ))
     return proposals
