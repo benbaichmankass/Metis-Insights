@@ -1609,6 +1609,11 @@
      "at": "2026-07-19T09:05:00+00:00",
      "by": "claude (ML Tier-1 session 2026-07-19)",
      "note": "P2 label-volume run BUILT + landed (PR #6917): scripts/ml/m23_phase2_labelvol.sh pools BTC+ETH+SOL (3-strategy harness roster per symbol on the train side; each symbol's real closed trades appended to the live_holdout eval book), new p2pool manifests (won @v020, won_r @v021, `symbol` categorical per the xsym lesson), gate references recomputed from the pooled eval book, m23_ev_gate net-R sweep at tau\u2208{0.5,0.75}. Interface-drift fix that protects the run: record_harness_trades override precedence (squeeze rows were mislabeled). Run + findings doc: verification bundle stage 3."
+    },
+    {
+     "at": "2026-07-19T11:20:00+00:00",
+     "by": "claude (ML continuation session 2026-07-19, successor)",
+     "note": "P2 (3-symbol label-volume pooling) COMPLETE \u2014 HONEST NEGATIVE, NO-GO on P3 (docs/research/M23-phase2-labelvol-findings-2026-07-19.md). Pooling BTC+ETH+SOL x 3 strategies tripled the backtest TRAIN pool (1,685->5,077 rows, 9/9 legs emitted) but the LIVE eval book grew 376->383 only (ETH +7, SOL 0 \u2014 the roster has ~no real closed trades off BTC). Pooled `won` head FAILS the recomputed gate (acc 0.7258 < majority 0.7311; prec 0.2500 < base 0.2689); pooled `won_r` C1 never crosses net-positive at any threshold (tau=0.5 best n=1 @ -3.93R; tau=0.75 best n=3 @ -2.78R) \u2014 it LOST P1's n<=11 positive tip (cross-symbol dilution). The label wall is EVAL-side; pooled backtests cannot manufacture real labels. NEXT LEVER = P2b eval-side coverage: rerun with the FULL real closed-trade fleet as the eval book once the WS-B candle shards (alt-USDT 15m + equities/metals 1d, PR #6934) land with the next nightly build (216/491 closed trades currently have no shard). Otherwise: time (quarterly re-run of the same harness); no more target/model/pooling variants \u2014 three independent levers have converged on the same wall."
     }
    ]
   },

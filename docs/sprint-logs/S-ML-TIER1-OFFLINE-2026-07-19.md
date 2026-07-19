@@ -86,10 +86,17 @@
     weighted_f1 0.5757 → 0.5893 (+0.0136 for the xasset head), both heads
     retrained + registered candidate. BL-20260628-XA-TRAINING-ZERO closed;
     RG4-live re-measure accrues on the shadow soak.
-  - **Stage 3 (M23 P2) heavy_lock_timeout** — waited 3600s behind the busy
-    heavy-job queue and aborted (by design). Relaunched by the successor
-    session (trainer-diag #6941, TRAINER_HEAVY_LOCK_WAIT_S=14400); results
-    land in docs/research/M23-phase2-labelvol-findings-2026-07-19.md.
+  - **Stage 3 (M23 P2)** — first attempt hit `heavy_lock_timeout` behind a
+    `drift_retrain` job (aborted by design); relaunched by the successor
+    session (trainer-diag #6941) and COMPLETED 11:05Z. **Honest negative /
+    NO-GO on P3**: pooling tripled the backtest train pool (1,685 → 5,077
+    rows over 9 legs) but the live eval book grew 376 → 383 only (ETH +7,
+    SOL 0); the pooled `won` head FAILS the recomputed gate (acc 0.7258 <
+    majority 0.7311, prec 0.2500 < base 0.2689) and the `won_r` C1 leg never
+    crosses net-positive at any threshold (τ=0.5 best n=1 @ −3.93R; τ=0.75
+    best n=3 @ −2.78R vs P1's n≤11 positive tip). The label wall is
+    EVAL-side. Full analysis + P2b lever:
+    docs/research/M23-phase2-labelvol-findings-2026-07-19.md.
 - Live-VM: shadow serving verified fresh (#6923). On-box trainer state verified
   (#6924: catchup timer active, env set, drop-ins consolidated).
 
