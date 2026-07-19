@@ -51,16 +51,24 @@ run MUST actively:
    stalled, a gate met-but-unactioned, a training failure) goes in
    `operator_priorities` / `cross_review_notes` with `operator_action_required`
    set, not buried.
-6. **Work the three review backlogs down** — `docs/claude/{health,performance,ml}-review-backlog.json`
-   are part of the job, not a tally. Each run, actively pull open items and
-   *drain* them: fix Tier-1/2 items (in a follow-up PR) and mark them `resolved`
-   with a full-timestamp `resolved_at`; carry Tier-3 items to the operator as an
-   exact proposed change. An item may stay open ONLY if it is genuinely soaking,
-   blocked on future data, or a Tier-3 awaiting the operator — and then say so.
-   A report whose `backlog_summary` shows many open and ~zero drained is the
-   tell that this step was skipped (the recurring "zero out of lots of things
-   completed" complaint). Counting the backlog (the `backlog_counts.py` roll-up)
-   is NOT the same as working it.
+6. **Work the three review backlogs down — a HARD COMPLETION GATE, every
+   open item, not a sample** — `docs/claude/{health,performance,ml}-review-backlog.json`
+   are part of the job, not a tally. Each run, **triage EVERY open item in all
+   three** (the sub-reviews each enforce their own 100%-triage gate — see their
+   "Draining the backlog — a HARD COMPLETION GATE" sections; running them is how
+   this step is done). For each: re-validate against the state you pulled, then
+   *drain* — fix Tier-1 items in-place / Tier-2 in a follow-up PR and mark
+   `resolved` with a full-timestamp `resolved_at`; carry Tier-3 items to the
+   operator as an exact proposed change. An item may stay `kept_open` ONLY if it
+   is genuinely soaking, blocked on future data, or a Tier-3 awaiting the
+   operator — and then it MUST carry an update noting this run's re-validation +
+   the blocker. **Triaging "the recent few" or the items this session touched is
+   a review FAILURE** — the backlog IS the standing open-task list, so reporting
+   a review "done" while open items sit unlooked-at is the exact lazy-incompetence
+   failure this gate exists to stop. A report whose `backlog_summary` shows many
+   open and ~zero triaged is that tell. Counting the backlog
+   (the `backlog_counts.py` roll-up) is NOT the same as working it, and each
+   domain's `count_untriaged` MUST be 0.
 
 Producing the report is NOT the finish line — the review's findings being
 *driven* (fixed, or put in front of the operator as an exact decision) is, and
@@ -103,17 +111,22 @@ grading-freshness guard. Required, non-empty:
 - `review_coverage.backlog_drive` — proof the three backlogs were *worked*, not
   just counted: per domain, what you `drained` this run (the item ids you
   resolved) and `deferred` (ids left open + the reason each is legitimately not
-  actionable now: soaking / future-data / Tier-3-awaiting-operator). If you
-  drained nothing, this must say why every open item is non-actionable — "no
-  time" / "didn't look" is not a valid reason.
+  actionable now: soaking / future-data / Tier-3-awaiting-operator). **Per
+  domain it MUST also carry `{open_at_start, triaged, count_untriaged}`, and
+  `count_untriaged` MUST be 0 with `triaged == open_at_start`** — the completion
+  gate mirroring the sub-reviews. If you drained nothing, this must say why every
+  open item is non-actionable — "no time" / "didn't look" / triaging only "the
+  recent few" is a review FAILURE, not a valid reason.
 
 **STOP and complete the assessment if any of the five required keys
 (`strategy_promotion`, `ml_training_health`, `soak_status`, `backlog_drive`,
-`account_reachability`) is missing or empty** — a review that can't show its
-promotion/training/soak coverage, its backlog drive, *or its per-account
-reachability* has not actually run, regardless of how complete the trade/health
-summary looks. (Relay-blocked data is allowed only as an
-explicit `"unavailable: <reason>"` string — never silently omitted.)
+`account_reachability`) is missing or empty, OR if any domain's
+`backlog_drive.count_untriaged > 0`** — a review that can't show its
+promotion/training/soak coverage, its *full* backlog drive (every open item
+triaged, not a sample), *or its per-account reachability* has not actually run,
+regardless of how complete the trade/health summary looks. (Relay-blocked data
+is allowed only as an explicit `"unavailable: <reason>"` string — never silently
+omitted.)
 
 ## Scope (what this skill DOES)
 

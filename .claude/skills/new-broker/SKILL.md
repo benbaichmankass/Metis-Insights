@@ -100,14 +100,19 @@ is that EVERY new broker touches each of these.
    `no_secret: true` when the broker's creds are read directly from
    `os.environ` and not rendered through the per-account loop.
 7. **Credential propagation** — add the broker's env-var names to the
-   canonical `sync-vm-secrets.yml` workflow (`REQUIRED_SECRETS` or
-   `OPTIONAL_SECRETS`) and to `scripts/ops/sync_vm_secrets.sh`. Use
-   `OPTIONAL_SECRETS` for any new broker so the workflow tolerates the
-   operator-not-yet-provisioned state instead of failing. Do NOT add a
-   per-broker provisioning workflow — `sync-vm-secrets.yml` is the
-   single workflow that owns Actions → VM `.env` mirroring; broker-
-   specific workflows are an anti-pattern that proliferates files and
-   drifts.
+   `REQUIRED_SECRETS`/`OPTIONAL_SECRETS` lists in the canonical
+   `.github/workflows/sync-vm-secrets.yml` workflow (and to the
+   placeholder list in `.github/workflows/init-actions-secrets.yml` so
+   the operator gets pre-created empty slots to paste into). **The
+   secret list lives ONLY in those workflows** — `scripts/ops/sync_vm_secrets.sh`
+   is generic (it mirrors whatever the workflow passes it and carries no
+   per-broker list to edit), so do NOT try to add names there
+   (BL-20260716-NEWBROKER-SYNC-SCRIPT-DOC). Use `OPTIONAL_SECRETS` for
+   any new broker so the workflow tolerates the operator-not-yet-provisioned
+   state instead of failing. Do NOT add a per-broker provisioning
+   workflow — `sync-vm-secrets.yml` is the single workflow that owns
+   Actions → VM `.env` mirroring; broker-specific workflows are an
+   anti-pattern that proliferates files and drifts.
 8. **Tests** under `tests/test_<broker>_wiring.py` — `EXCHANGE_MAP`
    registration, factory cred handling, `_submit_order` edge cases
    (missing client, wrong type, zero account-id, dry-run path),
