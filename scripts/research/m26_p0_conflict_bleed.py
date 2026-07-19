@@ -163,41 +163,68 @@ class Candles:
 
 
 def find_conflicts(con) -> list[dict]:
-    """Conflict events from the signals dual-write: rows whose payload carries the hold mark."""
-    cols = _cols(con, "signals")
-    if not cols:
-        return []
-    tcol = _first(cols, "ts", "timestamp", "created_at", "time")
-    out = []
+    """Conflict events — where the coordinator actually journals the hold.
+
+    ``Coordinator.multi_account_execute`` routes a hold-suppressed opposing
+    intent through ``log_rejection_to_journal`` → a **trades** row with
+    ``status='rejected'`` whose ``notes`` JSON carries
+    ``reason="intent_noop:flip_suppressed_hold_policy: ..."``. That row also
+    carries the OPPOSING strategy (``strategy`` col) and the signal confidence
+    (``notes.confidence``) — richer than the audit stream. A ``signals``-table
+    scan is kept as a fallback for older data layouts.
+    """
     like = f"%{HOLD_MARK}%"
-    q = "SELECT * FROM signals WHERE meta LIKE ? OR (reason IS NOT NULL AND reason LIKE ?)" \
-        if "reason" in cols else "SELECT * FROM signals WHERE meta LIKE ?"
-    params = (like, like) if "reason" in cols else (like,)
-    try:
-        cur = con.execute(q, params)
-    except sqlite3.Error:
-        cur = con.execute("SELECT * FROM signals WHERE meta LIKE ?", (like,))
-    names = [d[0] for d in cur.description]
-    for row in cur:
-        r = dict(zip(names, row))
-        meta = {}
-        try:
-            meta = json.loads(r.get("meta") or "{}")
-        except (TypeError, json.JSONDecodeError):
-            pass
-        blob = json.dumps(meta) + " " + str(r.get("reason") or "")
-        m = re.search(r"desired (\w+) opposes\s+current (\w+)", blob)
-        ev = {
-            "ts": _parse_ts(r.get(tcol)) if tcol else None,
-            "symbol": r.get("symbol") or meta.get("symbol"),
-            "desired_side": (m.group(1) if m else meta.get("desired_side")),
-            "current_side": (m.group(2) if m else None),
-            "opposing_strategies": meta.get("contributing_strategies")
-            or ([r.get("strategy")] if r.get("strategy") else []),
-            "confidence": r.get("confidence") or meta.get("confidence"),
-        }
-        if ev["ts"] is not None and ev["symbol"]:
-            out.append(ev)
+    out = []
+    tcols = _cols(con, "trades")
+    if tcols and "notes" in tcols:
+        tcol = _first(tcols, "created_at", "timestamp")
+        cur = con.execute(
+            "SELECT * FROM trades WHERE status = 'rejected' AND notes LIKE ?", (like,)
+        )
+        names = [d[0] for d in cur.description]
+        for row in cur:
+            r = dict(zip(names, row))
+            notes = {}
+            try:
+                notes = json.loads(r.get("notes") or "{}")
+            except (TypeError, json.JSONDecodeError):
+                pass
+            reason = str(notes.get("reason") or "")
+            m = re.search(r"desired (\w+) opposes\s+current (\w+)", reason)
+            ev = {
+                "ts": _parse_ts(r.get(tcol)) if tcol else None,
+                "symbol": r.get("symbol"),
+                "desired_side": (m.group(1) if m else r.get("side")),
+                "current_side": (m.group(2) if m else None),
+                "opposing_strategies": [r.get("strategy")] if r.get("strategy") else [],
+                "confidence": notes.get("confidence"),
+            }
+            if ev["ts"] is not None and ev["symbol"]:
+                out.append(ev)
+    if not out:
+        scols = _cols(con, "signals")
+        if scols and "meta" in scols:
+            tcol = _first(scols, "ts", "timestamp", "created_at", "time")
+            cur = con.execute("SELECT * FROM signals WHERE meta LIKE ?", (like,))
+            names = [d[0] for d in cur.description]
+            for row in cur:
+                r = dict(zip(names, row))
+                meta = {}
+                try:
+                    meta = json.loads(r.get("meta") or "{}")
+                except (TypeError, json.JSONDecodeError):
+                    pass
+                m = re.search(r"desired (\w+) opposes\s+current (\w+)", json.dumps(meta))
+                ev = {
+                    "ts": _parse_ts(r.get(tcol)) if tcol else None,
+                    "symbol": r.get("symbol") or meta.get("symbol"),
+                    "desired_side": (m.group(1) if m else meta.get("desired_side")),
+                    "current_side": (m.group(2) if m else None),
+                    "opposing_strategies": [r.get("strategy")] if r.get("strategy") else [],
+                    "confidence": r.get("confidence") or meta.get("confidence"),
+                }
+                if ev["ts"] is not None and ev["symbol"]:
+                    out.append(ev)
     out.sort(key=lambda e: e["ts"])
     return out
 
@@ -245,8 +272,31 @@ def main() -> int:
     tf_map = _strategy_tf(args.repo_root)
     candles = Candles(args.candles_root)
 
-    conflicts = find_conflicts(con)
-    print(f"conflict events found: {len(conflicts)}")
+    raw_conflicts = find_conflicts(con)
+    # Collapse to EPISODES: the same suppressed intent re-journals every tick
+    # (and once per eligible account) while the opposing signal persists, so
+    # raw rows heavily overcount. Consecutive events for the same
+    # (symbol, desired_side) within EPISODE_GAP_S collapse into one episode
+    # anchored at the FIRST event (the moment the warning first fired).
+    EPISODE_GAP_S = 2 * 3600
+    conflicts: list[dict] = []
+    last_by_key: dict = {}
+    for ev in raw_conflicts:
+        key = (ev["symbol"], ev["desired_side"])
+        prev = last_by_key.get(key)
+        if prev is not None and ev["ts"] - prev["_last_ts"] <= EPISODE_GAP_S:
+            prev["_last_ts"] = ev["ts"]
+            prev["repeat_count"] = prev.get("repeat_count", 1) + 1
+            for s in ev["opposing_strategies"]:
+                if s and s not in prev["opposing_strategies"]:
+                    prev["opposing_strategies"].append(s)
+            continue
+        ev = dict(ev)
+        ev["_last_ts"] = ev["ts"]
+        ev["repeat_count"] = 1
+        conflicts.append(ev)
+        last_by_key[key] = ev
+    print(f"conflict rows: {len(raw_conflicts)} -> episodes: {len(conflicts)}")
 
     measured, unmeasured = [], defaultdict(int)
     for ev in conflicts:
@@ -321,7 +371,8 @@ def main() -> int:
     }
     result = {
         "generated_from": {"db": args.db, "candles_root": args.candles_root},
-        "conflict_events": len(conflicts),
+        "conflict_rows": len(raw_conflicts),
+        "conflict_episodes": len(conflicts),
         "measured_trade_conflict_pairs": len(measured),
         "unmeasured": dict(unmeasured),
         "caveats": [
@@ -337,7 +388,7 @@ def main() -> int:
         json.dump(result, fh, indent=1)
     with open(args.out + ".md", "w") as fh:
         fh.write("# M26 P0 conflict-bleed summary\n\n")
-        fh.write(f"- conflict events: {len(conflicts)}; measured pairs: {len(measured)}; unmeasured: {dict(unmeasured)}\n")
+        fh.write(f"- conflict rows: {len(raw_conflicts)} -> episodes: {len(conflicts)}; measured pairs: {len(measured)}; unmeasured: {dict(unmeasured)}\n")
         for name, block in strata.items():
             fh.write(f"\n## {name}\n")
             if name == "overall":
