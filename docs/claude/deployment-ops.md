@@ -187,6 +187,8 @@ ict-web-api-watchdog.service  # oneshot, timer-driven (every 2 min) — self-hea
 ict-db-integrity.service      # oneshot, timer-driven (hourly) — DB-integrity check + Telegram alert (dashboard-truth Phase 4)
 ict-mes-ibkr-pull.service     # oneshot, timer-driven (daily 23:30 UTC) — MES IBKR deep-history pull; in DEFAULT_SKIP so a deploy never fires an unscheduled ~20-30 min gateway pull (BL-20260626-MES-BASE-STALE)
 ict-exchange-fills-pull.service # oneshot, timer-driven (daily 00:20 UTC) — bybit_2 exchange-fills pull into runtime_state/exchange_fills.sqlite (powers /api/bot/pnl/exchange); in DEFAULT_SKIP so a deploy never fires an unscheduled exchange pull (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY)
+ict-exchange-funding-pull.service # oneshot, timer-driven (daily) — Bybit funding-fee pull for the M24 go-forward fee+funding capture (BL-20260719-FUNDING-NO-TIMER, PR #6901)
+ict-trainer-git-sync.service  # oneshot, timer-driven (every 15 min) — TRAINER-VM only (role-gated): keeps the trainer checkout on origin/main between nightly cycles (BL-20260718-TRAINER-GITSYNC-STALE, PR #6859)
 ```
 
 **Why enumeration?** The 2026-05-09 24+h-stale-code incident shipped
