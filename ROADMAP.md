@@ -278,6 +278,13 @@ autonomous; every live-influencing step is Tier-3.
    powered-RG4 readiness packets for the maturing soaks (fc heads lead; ETH/SOL vol heads
    incl. the xasset head merged tonight); promotion stays the operator's Tier-3 switch.
 
+**Long-horizon research & testing plan (operator-directed 2026-07-19):**
+[`docs/research/AI-TRADER-RESEARCH-PLAN-2026-07-19.md`](docs/research/AI-TRADER-RESEARCH-PLAN-2026-07-19.md)
+— the authority-ladder north star (observe→advise→gate→size→select→generate),
+three thrusts (label manufacturing L1–L6 · fleet harvest/prune · ladder
+climbing incl. the G1/G2 ML-native entry frontier), and the standing testing
+methodology. Weekly plans draw from it.
+
 **Research-week plan 07-20 → 07-26 (operator-approved 2026-07-19).** Theme:
 harvest what's matured + build the data plumbing three programs are queued
 behind — no new frontiers. One workstream per session; claim on the
