@@ -49,6 +49,11 @@
      "at": "2026-07-19T09:00:00+00:00",
      "by": "claude (/health-review 2026-07-19 Tier-2 fixes, operator-approved)",
      "note": "FIXED (operator-approved 2026-07-19, Tier-2). Write-path fix, 2 sites in order_monitor.py: (1) _close_trade_from_order_status now gates the pnl write on `not is_reduce_leg` + stamps pnl_source='deferred_intent_reduce' (a reduce leg's qty-matched closed_pnl on a netting account is the PARENT's realized close, so booking it fabricated the entry==exit +$561/+620/+898 rows); (2) _sweep_local_pnl_for_unpriced scan now excludes intent_reduce rows so the universal fallback can't re-fabricate the NULL. Reverses the #2974 attribution (which the read-path exclude_reduce_leg_predicate masked anyway); updated its test. Regression tests added (test_order_monitor_close_pnl reduce-leg assertion flipped + test_reconciler_reduce_and_shadow). Latent real-money PnL-integrity fix (bybit_2 netting)."
+    },
+    {
+     "at": "2026-07-19T10:15:00+00:00",
+     "by": "claude (/health-review 2026-07-19 session-end doc-freshness)",
+     "note": "SHIPPED + CLEANED 2026-07-19. Write-path fix merged in PR #6926 (order_monitor.py: _close_trade_from_order_status gates the pnl write on `not is_reduce_leg` + stamps pnl_source='deferred_intent_reduce'; _sweep_local_pnl_for_unpriced excludes reduce legs so the mark-to-market fallback can't re-fabricate). REVERSES #2974/BL-20260601-001 attribution (operator-approved after review \u2014 the attribution booked the parent's close onto the bookkeeping leg; #2974's test updated to assert NULL). Deployed to the live trader via issue #6929 (HEAD 3a0310b, ict-trader-live active, verified). HISTORICAL cleanup: PR #6930 shipped the supersede-intent-reduce-phantom-pnl system-action; dry-run (#6935) surfaced 116 reduce-leg rows carrying non-NULL pnl (7 real-money bybit_2 net +$16.75 incl. trade 2491, 109 paper net -$7693.23); operator-approved APPLY (#6937) void-flagged all 116 to reconcile_status='superseded' after a DB backup (trade_journal.db.bak-...-20260719T100731Z). Closed end-to-end: no new phantoms written, historical phantoms void-flagged."
     }
    ],
    "resolved_at": "2026-07-19T09:00:00+00:00"
@@ -252,6 +257,11 @@
      "at": "2026-07-19T09:00:00+00:00",
      "by": "claude (/health-review 2026-07-19 Tier-2 fixes, operator-approved)",
      "note": "FIXED (operator-approved 2026-07-19, Tier-2). Added pass (1.5) to order_monitor._sweep_unlinked_packages: resolves execution_mode(strategy_name) in Python and relabels execution:shadow unlinked packages 'shadow_expired' (close_reason='shadow_no_execute') BEFORE the BUG-049 orphan UPDATE, so shadow-soak noise never lands in orphan-rate analytics. Fail-permissive (execution_mode unknown\u2192'live', so a real orphan is never mislabelled shadow; whole block wrapped best-effort). Every existing orphan query is `!= 'orphaned'` so it auto-excludes the new status. Regression test test_reconciler_reduce_and_shadow::test_sweep_unlinked_packages_shadow_vs_live."
+    },
+    {
+     "at": "2026-07-19T10:15:00+00:00",
+     "by": "claude (/health-review 2026-07-19 session-end doc-freshness)",
+     "note": "SHIPPED 2026-07-19 in PR #6926. _sweep_unlinked_packages pass (1.5) now Python-resolves execution_mode() over the candidate set and relabels execution:shadow unlinked packages 'shadow_expired' (close_reason='shadow_no_execute') BEFORE the BUG-049 orphan UPDATE, so shadow-soak noise no longer pollutes orphan-rate analytics. Fail-permissive (execution_mode unknown->live, so a real orphan is never mislabelled shadow). New test test_sweep_unlinked_packages_shadow_vs_live; existing test_old_unlinked_package_marked_orphaned decoupled from the vwap config-shadow state. Deployed via issue #6929 (HEAD 3a0310b, verified live)."
     }
    ],
    "resolved_at": "2026-07-19T09:00:00+00:00"
@@ -3156,6 +3166,11 @@
      "at": "2026-07-19T09:00:00+00:00",
      "by": "claude (/health-review 2026-07-19 Tier-2 fixes, operator-approved)",
      "note": "RESOLVED (operator-approved residual hardening 2026-07-19). Verified this review the HEADLINE is already fixed on main: the adopt path dedups against every open row (order_monitor.py `known` set + guard) so it cannot spawn concurrent duplicate opens, and the 18-row storm's mechanism (close\u2192re-adopt flap) is contained by RECONCILER_READOPT_GUARD_SECONDS + the 2-observation close-confirm. Residual (a flap SLOWER than the 300s window \u2192 a single dup, the real-money double-count risk) hardened by widening _DEFAULT_READOPT_GUARD_SECONDS 300\u21921800 (covers the full IBKR reset window). Safe: the guard suppresses-AND-alerts (never silently strands) and the adopt path only fires for un-matched orphan positions. A fully position-continuity-aware guard is the documented follow-up if 30 min proves insufficient."
+    },
+    {
+     "at": "2026-07-19T10:15:00+00:00",
+     "by": "claude (/health-review 2026-07-19 session-end doc-freshness)",
+     "note": "RESIDUAL HARDENING SHIPPED 2026-07-19 in PR #6926. Headline (single re-adopt duplicate) was already fixed on main and re-verified. Widened _DEFAULT_READOPT_GUARD_SECONDS 300->1800 to cover the full IBKR ~03:45-05:45 UTC reset window (the 300s default let a flap slower than 5 min re-adopt a single duplicate \u2014 the real-money double-count residual). Safe: the guard suppresses-AND-alerts (never silently strands) and only fires for un-matched orphan positions. CLAUDE.md RECONCILER_READOPT_GUARD_SECONDS env-doc updated to the 1800 default + rationale. Deployed via issue #6929 (HEAD 3a0310b, verified live)."
     }
    ],
    "resolved_at": "2026-07-19T09:00:00+00:00"
@@ -3626,6 +3641,11 @@
      "at": "2026-07-19T09:00:00+00:00",
      "by": "claude (/health-review 2026-07-19 Tier-2 fixes, operator-approved)",
      "note": "RESOLVED. The core fix (post-sizing meta re-persist) was ALREADY on main (coordinator.py:2293, verified this review). Added the operator-approved enhancement 2026-07-19: fold the per-account refusal cause into pkg.meta['refusal_causes_by_account'] before the re-persist, so a consumer sees WHY each account didn't size, not just an empty sized_qty_by_account. Observability-only, same best-effort wrapper, no execution effect."
+    },
+    {
+     "at": "2026-07-19T10:15:00+00:00",
+     "by": "claude (/health-review 2026-07-19 session-end doc-freshness)",
+     "note": "SHIPPED 2026-07-19 in PR #6926. Core meta re-persist was already on main; added the per-account refusal-cause fold into pkg.meta['refusal_causes_by_account'] in coordinator.py (observability-only \u2014 captures why each eligible account refused a signal). Deployed via issue #6929 (HEAD 3a0310b, verified live)."
     }
    ],
    "resolved_at": "2026-07-19T09:00:00+00:00"
@@ -4832,5 +4852,5 @@
    ]
   }
  ],
- "updated_at": "2026-07-19"
+ "updated_at": "2026-07-19T10:15:00+00:00"
 }
