@@ -196,7 +196,8 @@ def find_conflicts(con) -> list[dict]:
                 "symbol": r.get("symbol"),
                 "desired_side": (m.group(1) if m else r.get("side")),
                 "current_side": (m.group(2) if m else None),
-                "opposing_strategies": [r.get("strategy")] if r.get("strategy") else [],
+                "opposing_strategies": [r.get("strategy_name") or r.get("strategy")]
+                if (r.get("strategy_name") or r.get("strategy")) else [],
                 "confidence": notes.get("confidence"),
             }
             if ev["ts"] is not None and ev["symbol"]:
@@ -241,19 +242,21 @@ def _op_close_proxy(con) -> dict:
     cols = _cols(con, "order_packages")
     if not cols:
         return out
-    lk = _first(cols, "linked_trade_id", "trade_id")
     up = _first(cols, "updated_at", "created_at")
-    if not lk or not up:
+    if not up:
         return out
-    try:
-        for tid, ua in con.execute(
-            f"SELECT {lk}, {up} FROM order_packages WHERE {lk} IS NOT NULL"
-        ):
-            t = _parse_ts(ua)
-            if tid is not None and t is not None:
-                out[str(tid)] = t
-    except sqlite3.Error:
-        pass
+    for key in ("order_package_id", "linked_trade_id"):
+        if key not in cols:
+            continue
+        try:
+            for kid, ua in con.execute(
+                f"SELECT {key}, {up} FROM order_packages WHERE {key} IS NOT NULL"
+            ):
+                t = _parse_ts(ua)
+                if kid is not None and t is not None:
+                    out[f"{key}:{kid}"] = t
+        except sqlite3.Error:
+            pass
     return out
 
 
@@ -269,6 +272,7 @@ def open_trades_at(con, symbol: str, ts: float, close_proxy: dict) -> list[dict]
     ocol = _first(cols, "created_at", "timestamp", "opened_at")
     ccol = _first(cols, "closed_at")
     idcol = _first(cols, "trade_id", "id")
+    opcol = _first(cols, "order_package_id")
     if not ocol:
         return []
     sel = con.execute(
@@ -286,8 +290,11 @@ def open_trades_at(con, symbol: str, ts: float, close_proxy: dict) -> list[dict]
             continue
         t_open = _parse_ts(r.get(ocol))
         t_close = _parse_ts(r.get(ccol)) if ccol else None
-        if t_close is None and status not in ("open",) and idcol:
-            t_close = close_proxy.get(str(r.get(idcol)))
+        if t_close is None and status not in ("open",):
+            if opcol and r.get(opcol) is not None:
+                t_close = close_proxy.get(f"order_package_id:{r.get(opcol)}")
+            if t_close is None and idcol:
+                t_close = close_proxy.get(f"linked_trade_id:{r.get(idcol)}")
         if t_open is None or t_open > ts:
             continue
         if t_close is not None and t_close <= ts:
@@ -353,12 +360,15 @@ def main() -> int:
         for tr in trades:
             pnl = tr.get("pnl")
             entry = tr.get("entry_price")
-            qty = tr.get("qty")
-            side = str(tr.get("side") or "").lower()
+            qty = tr.get("position_size") if tr.get("position_size") is not None else tr.get("qty")
+            side = str(tr.get("direction") or tr.get("side") or "").lower()
             if pnl is None or entry is None or qty is None or tr.get("_t_close") is None:
                 unmeasured["trade_unresolved_or_still_open"] += 1
                 continue
-            p_close = candles.price_at(ev["symbol"], tr["_t_close"])
+            # exchange-truth exit price beats the candle proxy when present
+            p_close = tr.get("exit_price")
+            if p_close is None:
+                p_close = candles.price_at(ev["symbol"], tr["_t_close"])
             if p_close is None:
                 unmeasured["no_close_price"] += 1
                 continue
@@ -368,7 +378,7 @@ def main() -> int:
             tail_held = float(pnl) - mark_at_conflict
             move_after = float(p_close) - float(p_conf)
             tail_flip = -move_after * sign * qty  # opposite side, same qty, close at same time
-            held_strat = tr.get("strategy") or "unknown"
+            held_strat = tr.get("strategy_name") or tr.get("strategy") or "unknown"
             held_tf = tf_map.get(held_strat)
             opp_tfs = [tf_map.get(s) for s in (ev["opposing_strategies"] or []) if tf_map.get(s)]
             if held_tf and opp_tfs:
