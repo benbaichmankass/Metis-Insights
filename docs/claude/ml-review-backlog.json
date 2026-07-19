@@ -1752,7 +1752,13 @@
    "resolution_criteria": "P0 findings doc committed with the quantified bleed + concentration; subsequent phases spawn their own items.",
    "status": "open",
    "snoozed_until": null,
-   "updates": []
+   "updates": [
+    {
+     "at": "2026-07-19T12:25:00+00:00",
+     "by": "claude (M26 P0, operator-directed immediate start)",
+     "note": "P0 DELIVERED same-day (docs/research/M26-P0-conflict-bleed-findings-2026-07-19.md; miner scripts/research/m26_p0_conflict_bleed.py @029f3ae; trainer-diag #6963). 585 hold-rows -> 70 episodes -> 98 measured pairs. Held-worse-than-close ~75-77% overall BUT fat-tail split: same/near-TF -$2.3k held vs cross-TF>=4x +$3.5k (coexistence confirmed); htf_pullback_trend_2h 93.6% held-worse (-$6k) vs trend_donchian +$10.1k held (flip counterfactual -$21k \u2014 blanket flip dead again). NEXT: P1 taxonomy (empirical thresholds in the findings doc), P2 transition score weighted to same-clock clusters, P3 arms per strategy class (exit-tighten on the pullback/mean-reversion class is the biggest target). Rerun the miner after the WS-B shards land for MES/equities coverage."
+    }
+   ]
   },
   {
    "id": "MB-20260719-M23-HARNESS-DEBUG-QUERY",
