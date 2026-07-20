@@ -40,10 +40,14 @@ and could not locate the run's artifact:
   July ict_scalp outputs, no file greps to −467) found **no artifact** of the
   −467R run.
 - **Verdict:** the demotion's *magnitude* rested on an unreproducible
-  measurement. Candidate explanations (unconfirmed): a non-config-exact run
-  (v1 unit defaults instead of the YAML block — the SOL-tuning lesson), a
-  different/broken data feed, or a harness regression since fixed. A
-  `--ignore-yaml` reproduction attempt is recorded in the artifacts dir.
+  measurement. The config-inexactness hypothesis (v1 unit defaults instead
+  of the YAML block — the SOL-tuning lesson) is **refuted**: a
+  `--ignore-yaml` run (Run C, `runC_ignoreyaml.json`) is bar-for-bar
+  identical to Run A (659 trades, +117.5R — the unit defaults equal the
+  live YAML for every consumed field). Remaining candidates: a
+  different/broken data feed or window, or a harness regression since
+  fixed. Whatever it was, it is not reachable from current code + canonical
+  data.
 
 ## The real structural problem is FEE LOAD, not gross R:R
 
