@@ -55,6 +55,19 @@ PENDING_PINGS_DIR = runtime_logs_dir() / "pending_pings"
 # are recognised.
 EXPECTED_DISPATCH_SKIP_REASONS = (
     "account_mode_dry_run",
+    # A sizing refusal (zero_balance / risk_refused) on an account the
+    # coordinator had ALREADY resolved to effective-dry (shelved dry_run
+    # account, execution:shadow strategy, or process-level dry override).
+    # The account could never have placed the order regardless of the
+    # sizing outcome, so the refusal is a policy hold, not a dispatch
+    # failure. Without this, a dry-shelved account whose funds were
+    # deliberately moved out (alpaca_live, shelved + defunded 2026-07-15)
+    # alarmed "failed to dispatch: zero_balance" on every signal — the
+    # sizer runs before the risk gate's account_mode_dry_run rejection,
+    # so the 2026-07-15 suppression never matched (operator report
+    # 2026-07-20). The coordinator prefixes this token onto the
+    # underlying reason, which stays intact for the journal/audit.
+    "dry_run_sizing_skip",
     "SKIP_MISSION_MET",
     "SKIP_OVERNIGHT_RESTRICTED",
     "SKIP_WEEKEND_RESTRICTED",

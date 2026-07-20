@@ -352,6 +352,20 @@ class TestBenignNoopSuppression:
         ]
         assert self._should_fire(results) is False
 
+    def test_all_dry_run_zero_balance_round_does_not_fire(self):
+        """Operator report 2026-07-20: alpaca_live — dry-shelved AND
+        deliberately defunded (funds moved to Bybit 2026-07-15) — refused at
+        the SIZER (zero_balance) before the risk gate's account_mode_dry_run
+        rejection could fire, so every routed signal alarmed "1/3 accounts
+        failed to dispatch". The coordinator now tags an effective-dry sizing
+        refusal with ``dry_run_sizing_skip:`` so it classifies as a hold."""
+        results = [
+            {"name": "alpaca_live", "trade_id": None,
+             "error": "dry_run_sizing_skip: zero_balance: "
+                      "gate_balance=0.00 USD (no funds available to size against)"},
+        ]
+        assert self._should_fire(results) is False
+
     def test_all_prop_mission_skip_round_does_not_fire(self):
         results = [
             {"name": "breakout_1", "trade_id": None,
@@ -384,6 +398,9 @@ class TestExpectedDispatchSkip:
         "SKIP_OVERNIGHT_RESTRICTED",
         "SKIP_WEEKEND_RESTRICTED",
         "Account 'breakout_1' rejected order for MES: SKIP_WEEKEND_RESTRICTED",
+        "dry_run_sizing_skip: zero_balance: gate_balance=0.00 USD "
+        "(no funds available to size against)",
+        "dry_run_sizing_skip: risk_refused: sized_qty=0 with balance=0.00",
     ])
     def test_expected_skips_recognised(self, reason):
         assert is_expected_dispatch_skip(reason) is True

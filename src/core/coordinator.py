@@ -1633,6 +1633,19 @@ class Coordinator:
                         getattr(account, "market_type", "spot") or "spot"
                     ).lower(),
                 )
+                # An effective-dry account (shelved ``mode: dry_run``,
+                # execution:shadow strategy, or process-level override)
+                # could never have placed this order — a sizing refusal
+                # here is a policy hold, not a dispatch failure. Tag it
+                # so the operator alert classifies it as expected (the
+                # same suppression the risk gate's account_mode_dry_run
+                # reason gets); the underlying cause stays in the string
+                # for the journal/audit. Without this, alpaca_live —
+                # dry-shelved AND deliberately defunded 2026-07-15 —
+                # alarmed "failed to dispatch: zero_balance" on every
+                # routed signal (the sizer runs before the risk gate).
+                if effective_dry:
+                    error_msg = f"dry_run_sizing_skip: {error_msg}"
                 from src.units.accounts.execute import log_rejection_to_journal
                 log_rejection_to_journal(
                     pkg, _early_account_cfg,

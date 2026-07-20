@@ -63,7 +63,7 @@ _ARTIFACT_EXIT_REASONS = frozenset({
 # Rejection-reason substrings (in notes.reason) that mark a decision/plumbing
 # row that never opened a real position → bucket B.
 _REFUSAL_MARKERS = (
-    "zero_balance", "sizing_failed", "below_venue_min_qty",
+    "zero_balance", "sizing_failed", "below_venue_min_qty", "dry_run_sizing_skip",
     "reentry_suppressed_netting_guard", "flip_suppressed_hold_policy",
     "intent_noop", "dry_run_no_order_placed", "hold_to_bracket_reduce",
     "exchange_client_unavailable", "account_mode_dry_run", "unsupported exchange",
