@@ -11,7 +11,7 @@ _Dispositions: ✅ promoted/done · ⏳ pending · 📋 planned · 🚫 blocked/
 | SOLUSDT | crypto | 1 | ✅ P0 done — STRONG PASS (kfold net: off_cells 4/4, +37.7R, exp +0.112; baseline 4/4 +62.7R even ungated). Findings doc | 📋 P1 (after the symbol's 5m cell resolves) |
 | XRPUSDT | crypto | 1 | ✅ P0 done — PASS, gate load-bearing (baseline only 2/4; off_cells 4/4 +34.3R exp +0.144; off+conf070 4/4 exp +0.255). Findings doc | 📋 P1 (after the symbol's 5m cell resolves) |
 | ADAUSDT | crypto | 1 | ⚠️ P0 done — MIXED: baseline 3/4 +55.1R exp +0.064 ungated, but the BTC-shape off-cells gate does NOT transfer (2/4, +3.9R). Needs own-evidence cells before any leg; findings doc | 📋 P1 (after the symbol's 5m cell resolves) |
-| AVAXUSDT | crypto | 1 | ⏳ pending (Batch 1 — trainer pull dispatched) | 📋 P1 (after the symbol's 5m cell resolves) |
+| AVAXUSDT | crypto | 1 | ✅ P0 done — PASS (baseline 4/4 +60.8R exp .065 ungated; off+conf070 4/4 +19.2R exp .160; plain off-cells 2/4 does not transfer). Findings doc | 📋 P1 (after the symbol's 5m cell resolves) |
 | MES | futures | 2 | ⏳ pending (Batch 2 — IBKR history pulls, session-aware) | 📋 P1 (after the symbol's 5m cell resolves) |
 | MGC | futures | 2 | ⏳ pending (Batch 2 — IBKR history pulls, session-aware) | 📋 P1 (after the symbol's 5m cell resolves) |
 | MHG | futures | 2 | ⏳ pending (Batch 2 — IBKR history pulls, session-aware) | 📋 P1 (after the symbol's 5m cell resolves) |
@@ -39,5 +39,5 @@ _Dispositions: ✅ promoted/done · ⏳ pending · 📋 planned · 🚫 blocked/
 
 ## Log
 
-- 2026-07-20 (late) — Batch-1 attempt-3 results landed (tz-fixed CSVs, #7211/#7212): ETH/SOL/XRP PASS, ADA mixed, AVAX pending at write time. Per-symbol frozen 2023-only vol specs derived on the trainer; full fold JSONs in the findings doc + relay issues.
+- 2026-07-20 (late) — Batch-1 attempt-3 results landed (tz-fixed CSVs, #7211/#7212): ETH/SOL/XRP PASS, ADA mixed, AVAX PASS (appended 23:33Z; chain ALL_DONE 23:27Z). Per-symbol frozen 2023-only vol specs derived on the trainer; full fold JSONs in the findings doc + relay issues.
 - 2026-07-20 — table initialized (M27 kickoff). BTCUSDT 5m carried over from Phase 0. Batch-1 crypto data pull dispatched to the trainer.

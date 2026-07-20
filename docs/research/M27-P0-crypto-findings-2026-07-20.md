@@ -36,7 +36,7 @@ from the symbol's own k-fold evidence, never a copy of BTC's.
 | SOLUSDT | 915 | 52.02 | 0.145 | 132.6 | 12.2 |
 | XRPUSDT | 748 | 52.81 | 0.174 | 130.1 | 8.2 |
 | ADAUSDT | 1033 | 52.57 | 0.139 | 144.0 | 16.0 |
-| AVAXUSDT | (attempt-3 run completing at write time — appended below) | | | | |
+| AVAXUSDT | 1102 | 54.26 | 0.173 | 190.2 | 11.1 |
 
 Gross expectancy is positive everywhere — consistent with the BTC finding that
 the raw edge exists and **fees are the binding constraint**. Everything below
@@ -53,7 +53,7 @@ net expectancy on the gated subset).
 | SOLUSDT | 4/4, +62.7R, exp .084 | **4/4, +37.7R, exp .112** | 3/4, +16.5R | 2/4, +11.9R | **STRONG PASS** — positive in every fold even ungated |
 | XRPUSDT | 2/4, +31.5R, exp .052 | **4/4, +34.3R, exp .144** | 4/4, +19.8R, exp .217 | **4/4, +21.1R, exp .255** | **PASS — gate load-bearing**: ungated fails the fold criterion; every gated variant is 4/4 |
 | ADAUSDT | **3/4, +55.1R, exp .064** | 2/4, +3.9R, exp .014 | 2/4, −0.2R | 1/4, −9.2R | **MIXED** — passes UNGATED; the BTC-shape gate destroys the edge. No leg until own-evidence cells (or no gate) are validated |
-| AVAXUSDT | _appended below when the run lands_ | | | | |
+| AVAXUSDT | **4/4, +60.8R, exp .065** | 2/4, +20.9R, exp .063 | 4/4, +6.4R, exp .074 | **4/4, +19.2R, exp .160** | **PASS** — ungated baseline 4/4 AND off+conf070 4/4; plain off-cells fails the fold criterion (folds 3-4 ≈ 0) |
 
 ## What transfers and what doesn't
 
@@ -91,8 +91,19 @@ net expectancy on the gated subset).
 - Batch 2 (MES/MGC/MHG via IBKR history pulls, session-aware, per-contract
   cost model) is the next data dispatch.
 
-## AVAXUSDT (appended on completion)
+## AVAXUSDT (appended on completion, 23:33Z — relay #7219)
 
-_Pending at initial commit — the attempt-3 driver reached AVAX (started
-23:09Z); this section is filled by the same session/PR when the kfold
-completes._
+Chain finished `ALL_DONE 23:27Z`. AVAX is the best gross performer of the
+batch (1102 trades, 54.26% win, 0.173 expR, +190.2R, maxDD 11.1R) and net
+OOS its **ungated baseline is positive in all four folds** (+60.8R, exp
+.065) — like ADA, the plain BTC-shape off-cells rule does NOT transfer
+(2/4; folds 3–4 ≈ flat), but unlike ADA a gated variant does:
+**off_cells+conf070 is 4/4 (+19.2R, exp .160, n=120)** and calm_only_15m is
+4/4 weakly (+6.4R, exp .074). Verdict: **PASS** — candidate leg with cells
+authored from its own fold table (the conf-qualified off-cell rule, or
+ungated with the wider maxDD profile as an operator choice).
+
+Batch-1 closing tally: **4 of 5 symbols PASS** (SOL, XRP, AVAX, ETH — in
+descending strength), ADA mixed (ungated-only). The per-symbol divergence in
+WHICH rule passes is the batch's central finding — it confirms the P4
+"cells from own evidence" requirement is load-bearing, not ceremony.
