@@ -62,7 +62,13 @@ anthropic>=0.40.0
 # LightGBMRegressionTrainer). Lazy-imported inside the trainer/predictor so
 # environments without lightgbm can still import ml.* — only `python -m ml
 # train …` against a LightGBM manifest requires it.
-lightgbm>=4.0.0
+# EXACT pin (2026-07-20, MB-20260720-LIVE-SERVING-PARITY-SKEW): the live and
+# trainer venvs must run the SAME lightgbm — an unpinned floor let the two
+# stacks diverge, producing ~1e-2 score skew between live-served and
+# trainer-re-scored predictions from the SAME model file + SAME feature row
+# (the M25 live_parity gate's 100% fresh-row mismatch). 4.6.0 = the trainer's
+# current version. Bump BOTH venvs together, never one side alone.
+lightgbm==4.6.0
 
 # Firebase Cloud Messaging publishing (mobile push, M12 S1). Used by
 # src/runtime/mobile_push/notifier.py to OAuth2-sign the service-account

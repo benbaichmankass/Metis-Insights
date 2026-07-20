@@ -475,6 +475,7 @@ def _cmd_gate_check(args: argparse.Namespace) -> int:
             registry_root=args.registry_root,
             sample_n=thresholds.parity_sample_n,
             score_tol=thresholds.parity_score_tol,
+            artifact_grace_s=thresholds.parity_artifact_grace_s,
         )
         if not args.no_live_regime_auc:
             rg4_report = _compute_regime_live_replay(
