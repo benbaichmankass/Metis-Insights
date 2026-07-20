@@ -62,16 +62,47 @@ The 2026-07-20 arc proved two things worth generalizing:
 
 ## Phases
 
-### P0 — Cross-symbol transfer of ict_scalp_5m (as-is)
+### The universe (coverage-first mandate, operator directive 2026-07-20)
 
-Run the existing 5m logic, config-exact, on the crypto roster we already
-trade: **ETHUSDT, SOLUSDT, XRPUSDT, ADAUSDT, AVAXUSDT** (multi-year 5m).
-Per symbol: gross→net → per-(trend,vol) cell table → k-fold OOS of the
-OFF-cell rule. **Gate per symbol:** net gated expectancy > 0 with ≥3/4 folds
-positive.
+**Every traded symbol gets a coverage row — not just crypto.** The roster is
+enumerated **data-driven from config** (union of `accounts.yaml` per-account
+`symbols` + `strategies.yaml` per-strategy symbols — never a hardcoded list),
+which today yields **24 symbols across five venue families**:
 
-Mechanics: 5m history is pulled **trainer-side** (the sandbox proxy blocks
-exchange endpoints; the trainer's dataset builds already fetch Bybit klines).
+| Family | Symbols | Data source | Cost model (the "net" in net-of-fee) |
+|---|---|---|---|
+| Crypto (Bybit linear) | BTCUSDT ✅(done), ETHUSDT, SOLUSDT, XRPUSDT, ADAUSDT, AVAXUSDT | Bybit klines, trainer-side pull (deep history) | taker bps round-trip (maker variant in P2) |
+| Futures (IBKR) | MES, MGC, MHG | `pull-ibkr-history` operator actions (5m pulls exist for MES) | per-contract commission + tick value; RTH/ETH session handling; whole-contract sizing floors the risk granularity |
+| Equities/ETFs (Alpaca + IBKR) | SPY, QQQ, IWM, TLT, GLD, SLV, GDX, USO, IEF, IAUM, SPLG, SCHA, TQQQ, QLD | Alpaca data API intraday bars (trainer-side) | ~zero commission; spread + market-hours-only sessions dominate |
+| FX/metals (OANDA) | XAUUSD | OANDA candles (the M15 Phase-0 rig) | spread; 24/5 |
+| Options underlyings | SLV, GDX (options expression on `alpaca_options_paper`) | tested as their underlying ETFs above | scalping the OPTIONS expression itself is **blocked-with-reason** (DTE-banded debit verticals don't map to 5m scalps) |
+
+Standing blocked-with-reason rows (recorded, not silently dropped): the
+**prop bridge** (breakout_1 ETH/SOL) at 5m — manual ticket latency is
+incompatible with scalp fills; revisit at 15m+ only. Thin/levered ETF
+duplicates (TQQQ/QLD/SCHA/IAUM/SPLG) test AFTER their base indices — a
+levered wrapper only earns a cell if the base symbol passes.
+
+**No silent caps:** a symbol×timeframe cell missing from the coverage table
+is a bug in the milestone, not an allowed omission. The committed table lives
+at `docs/research/artifacts/m27/coverage.md` and is updated every session.
+
+### P0 — Full-universe coverage enumeration + cross-symbol transfer
+
+Step 1 (session 1): commit the initialized coverage table for all 24 symbols.
+Step 2: run the existing 5m logic, config-exact, in **data-availability
+batches**: **Batch 1 crypto** (ETHUSDT, SOLUSDT, XRPUSDT, ADAUSDT, AVAXUSDT —
+deepest history, same venue as the proven BTC run), **Batch 2 futures**
+(MES/MGC/MHG via the IBKR history pulls, session-aware), **Batch 3
+equities/ETFs** (base symbols first: SPY, QQQ, IWM, TLT, GLD, SLV, GDX, USO,
+IEF), **Batch 4 XAUUSD** (folds into P1's 15m thread). Per symbol:
+gross→net with the **venue-correct cost model** → per-(trend,vol) cell
+table → k-fold OOS of the OFF-cell rule. **Gate per symbol:** net gated
+expectancy > 0 with ≥3/4 folds positive.
+
+Mechanics: intraday history is pulled **trainer-side** (the sandbox proxy
+blocks exchange endpoints; the trainer's dataset builds already fetch Bybit
+klines) — `scripts/research/m27/fetch_bybit_5m.py` is the Batch-1 puller.
 Per-symbol 5m vol edges: reuse the symbol's registry regime-head spec where
 one exists; otherwise derive frozen edges from the training window ONLY and
 commit them in the run artifact.
@@ -121,5 +152,6 @@ then the Tier-3 operator gate. No blanket promotions — one packet per leg.
 A committed coverage table (symbol × timeframe × variant) where every cell is
 either **promoted** (live/shadow with its packet linked), **rejected** (with
 the net k-fold numbers that killed it), or **blocked** (with the reason,
-e.g. no data) — plus at least the P0 crypto roster and P1 BTC-15m/XAU-15m
-cells resolved.
+e.g. no data) — plus at least the P0 crypto batch, the futures batch, the base-ETF batch,
+and the P1 BTC-15m/XAU-15m cells resolved. The table covers ALL 24 traded
+symbols — a missing row is a milestone bug.
