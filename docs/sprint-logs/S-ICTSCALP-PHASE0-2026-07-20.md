@@ -174,3 +174,27 @@ or promotion change enacted; all forward actions proposed as Tier-3.
   Earlier same-day "no effective bracket" interim framing corrected in
   the findings doc + backlog (honesty: my initial pnl-arithmetic check
   was fooled by misattributed-but-internally-consistent records).
+
+## Addendum 2 — netting fixes built + validated (operator-approved Tier-2)
+
+- **Reconciler cascade-close** (`order_monitor._cascade_close_netted_siblings`
+  + call from `_close_trade_from_order_status`): at the position-flat verdict,
+  ALL open same-direction rows on the netted (account,symbol) close with the
+  same exit fill and qty-prorated pnl (`netted_prorated_cascade`); reduce legs
+  deferred; rows newer than the record's close time skipped. Primary-row
+  guard: record qty > row share → prorated (`netted_prorated`), raw record
+  total preserved in notes.
+- **Tests:** `tests/test_netted_cascade_close.py` (7 new, incident-shaped
+  fixture) + 130 adjacent reconciler tests + 299 system-actions workflow
+  tests — all green.
+- **Repair path:** `scripts/ops/repair_netted_misattributed_rows.py`
+  (honest-null + provenance, signature-verified, idempotent) + new Tier-2
+  operator action **`repair-netted-rows`** (workflow + wrapper + docs +
+  notify + tests). Validated against the trainer's synced DB copy: dry-run
+  8/8 matched (#7124); `--apply` on a throwaway copy repaired 8/8, re-ran
+  0/8, row 2765 verified (#7125).
+- **Remaining to complete:** merge PR #7115 (deploys the runtime fix via
+  ict-git-sync), then dispatch `repair-netted-rows` (dry-run → `apply: true`)
+  against the live DB. Fix 2 (tpsl semantics under netting — qty-scoped
+  partial tpsl vs position-level acceptance) remains a Tier-3 design
+  decision, not built here.
