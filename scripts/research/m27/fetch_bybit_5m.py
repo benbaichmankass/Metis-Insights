@@ -65,8 +65,12 @@ def fetch_symbol(symbol: str, start_ms: int, out_path: Path) -> None:
         w = csv.writer(fh)
         w.writerow(["timestamp", "open", "high", "low", "close", "volume"])
         for ts, o, h, lo, c, v in rows:
+            # Explicit +00:00 offset: backtest_ict_scalp's HTF path parses
+            # with utc=True (tz-aware) while _load_candles keeps the main
+            # frame as-parsed — an offset-less timestamp goes naive and the
+            # merge_asof dies on aware-vs-naive (M27 attempt-2 failure).
             iso = dt.datetime.fromtimestamp(ts / 1000, dt.timezone.utc
-                                            ).strftime("%Y-%m-%d %H:%M:%S")
+                                            ).strftime("%Y-%m-%d %H:%M:%S+00:00")
             w.writerow([iso, o, h, lo, c, v])
 
     def fmt(ms):
