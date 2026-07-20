@@ -5159,6 +5159,163 @@ def _classify_broker_exit(
     return None
 
 
+def _cascade_close_netted_siblings(
+    db,
+    primary_row: Dict[str, Any],
+    closed_pnl_rec: Optional[Dict[str, Any]],
+    *,
+    now_iso: Optional[str] = None,
+) -> int:
+    """Close every OTHER DB-open same-direction trade row on the
+    (account, symbol) whose netted position Bybit just reported FLAT.
+
+    BL-20260720-ICTSCALP-PASTSTOP-EXITS: on a netting account several
+    journal trades (often from different strategies) share ONE exchange
+    position with ONE position-level bracket (the newest trade's). When
+    that bracket fires, the whole position flattens — but the reconciler
+    closed only the row it happened to be checking. The sibling rows went
+    phantom-"open"; a NEW same-symbol position opened by another strategy
+    then made every later per-row "position flat?" check read non-flat, so
+    the siblings could never close on their own and were eventually
+    mis-resolved (other trades' closed-pnl records / stale mark prices —
+    the Jun 21–23 2026 bybit_2 BTCUSDT incident).
+
+    The flat observation is the ONE reliable moment we know every share
+    closed, so the cascade lives here. Sibling economics are attributed
+    honestly from the SAME closed-pnl record that closed the primary:
+    ``exit_price`` = the record's ``avg_exit_price`` (correct for every
+    share of the flatten), ``pnl`` prorated by the sibling's qty share of
+    the record qty (``pnl_source='netted_prorated_cascade'``). With no
+    record (fallback path), siblings still close but with the NULL-exit
+    honest stamps. Reduce legs close with pnl deferred (BL-20260711
+    contract). Siblings created after the record's close time are skipped
+    (they belong to a newer position). Best-effort: any failure returns
+    the count so far and never blocks the primary close.
+    """
+    closed = 0
+    try:
+        acct = str(primary_row.get("account_id") or "")
+        symbol = str(primary_row.get("symbol") or "")
+        direction = str(primary_row.get("direction") or "")
+        primary_id = int(primary_row.get("id"))
+        if not acct or not symbol or not direction:
+            return 0
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            sibs = conn.execute(
+                "SELECT id, account_id, symbol, direction, position_size, "
+                "       entry_price, notes, created_at, setup_type "
+                "  FROM trades "
+                " WHERE status='open' AND COALESCE(is_backtest,0)=0 "
+                "   AND account_id=? AND symbol=? AND direction=? AND id != ?",
+                (acct, symbol, direction, primary_id),
+            ).fetchall()
+        finally:
+            conn.close()
+        if not sibs:
+            return 0
+
+        rec = closed_pnl_rec if isinstance(closed_pnl_rec, dict) else None
+        avg_exit = _safe_float((rec or {}).get("avg_exit_price")) or 0.0
+        rec_pnl = (rec or {}).get("closed_pnl")
+        rec_qty = _safe_float((rec or {}).get("qty")) or 0.0
+        closed_at = (
+            normalize_closed_at_value((rec or {}).get("closed_at"))
+            or now_iso
+            or datetime.now(timezone.utc).isoformat()
+        )
+        closed_at_ms = _isoformat_to_ms(closed_at)
+
+        for sib in sibs:
+            s = dict(sib)
+            # A row created after the flatten belongs to a newer position.
+            sib_created_ms = _isoformat_to_ms(s.get("created_at"))
+            if (
+                closed_at_ms is not None
+                and sib_created_ms is not None
+                and sib_created_ms > closed_at_ms
+            ):
+                continue
+            notes = _decode_notes(s.get("notes"))
+            _setup = str(s.get("setup_type") or "").strip().lower()
+            is_reduce = _setup == "intent_reduce" or bool(notes.get("intent_reduce"))
+            resolved = None
+            if avg_exit > 0:
+                resolved = _classify_broker_exit(
+                    db, s, avg_exit, is_reduce_leg=is_reduce,
+                )
+            exit_reason = resolved or "reconciler_filled"
+            notes.update({
+                "closed_at": closed_at,
+                "closed_by": "monitor_reconciler_netted_cascade",
+                "closed_reason": (
+                    "reconciler — netted position flat; sibling of "
+                    f"trade {primary_id} closed by the same position-level "
+                    "bracket fire / flatten"
+                ),
+                "netted_primary_trade_id": primary_id,
+                "exit_price_source": (
+                    "bybit_closed_pnl_prorated" if avg_exit > 0
+                    else "netted_flat_no_record"
+                ),
+                "exit_reason_source": (
+                    "price_vs_pkg_bracket" if resolved else "unresolved"
+                ),
+            })
+            updates: Dict[str, Any] = {
+                "status": "closed",
+                "exit_reason": exit_reason,
+                "closed_at": closed_at,
+            }
+            if avg_exit > 0:
+                updates["exit_price"] = avg_exit
+            sib_qty = _safe_float(s.get("position_size")) or 0.0
+            if is_reduce:
+                notes["pnl_source"] = "deferred_intent_reduce"
+            elif rec_pnl is not None and rec_qty > 0 and sib_qty > 0:
+                try:
+                    prorated = float(rec_pnl) * (sib_qty / rec_qty)
+                    updates["pnl"] = round(prorated, 4)
+                    notes["pnl_source"] = "netted_prorated_cascade"
+                    notes["bybit_closed_pnl_record_total"] = rec_pnl
+                    entry = _safe_float(s.get("entry_price"))
+                    if entry and entry * sib_qty > 0:
+                        updates["pnl_percent"] = round(
+                            prorated / (entry * sib_qty) * 100, 4
+                        )
+                except (TypeError, ValueError):
+                    pass
+            updates["notes"] = dump_capped(notes, 500)
+            try:
+                db.update_trade(int(s["id"]), updates)
+                _cascade_close_linked_package(
+                    db, s.get("id"),
+                    close_reason=exit_reason,
+                    caller="_cascade_close_netted_siblings",
+                )
+                closed += 1
+                logger.info(
+                    "_cascade_close_netted_siblings: closed netted sibling "
+                    "trade_id=%s (primary=%s, %s %s %s, exit=%s, "
+                    "pnl_source=%s)",
+                    s.get("id"), primary_id, acct, symbol, direction,
+                    avg_exit if avg_exit > 0 else None,
+                    notes.get("pnl_source"),
+                )
+            except Exception as exc:  # noqa: BLE001 — per-sibling best-effort
+                logger.warning(
+                    "_cascade_close_netted_siblings: close failed for "
+                    "trade_id=%s: %s", s.get("id"), exc,
+                )
+    except Exception as exc:  # noqa: BLE001 — never block the primary close
+        logger.warning(
+            "_cascade_close_netted_siblings: cascade aborted for "
+            "primary=%s: %s", primary_row.get("id"), exc,
+        )
+    return closed
+
+
 def _close_trade_from_order_status(
     db,
     row: Dict[str, Any],
@@ -5319,7 +5476,23 @@ def _close_trade_from_order_status(
         _closed_pnl_val = closed_pnl_rec.get("closed_pnl")
         if _closed_pnl_val is not None and not is_reduce_leg:
             try:
-                updates["pnl"] = float(_closed_pnl_val)
+                _pnl_to_book = float(_closed_pnl_val)
+                # Netted-position proration guard
+                # (BL-20260720-ICTSCALP-PASTSTOP-EXITS): when the matched
+                # closed-pnl record flattened a BIGGER netted position than
+                # this row's share (record qty > row qty), booking the full
+                # record pnl onto this one row fabricates — the record's
+                # economics belong to every journal trade that shared the
+                # position. Prorate by this row's qty share and stamp the
+                # source; the raw record total stays in notes for posterity.
+                _qty = _safe_float(row.get("position_size")) or 0.0
+                _rec_qty = _safe_float(closed_pnl_rec.get("qty")) or 0.0
+                if _rec_qty > 0 and _qty > 0 and _rec_qty > _qty * 1.05:
+                    _pnl_to_book = _pnl_to_book * (_qty / _rec_qty)
+                    notes["pnl_source"] = "netted_prorated"
+                    notes["bybit_closed_pnl_record_total"] = _closed_pnl_val
+                    updates["notes"] = dump_capped(notes, 500)
+                updates["pnl"] = round(_pnl_to_book, 4)
                 # Use the post-update entry value for the pnl_percent
                 # denominator so the percentage reflects the actual
                 # fill, not the stale intent.
@@ -5328,10 +5501,9 @@ def _close_trade_from_order_status(
                     if _entry_avg_price > 0
                     else _entry_current
                 )
-                _qty = _safe_float(row.get("position_size"))
                 if _entry_for_pct and _qty and _entry_for_pct * _qty > 0:
                     updates["pnl_percent"] = round(
-                        float(_closed_pnl_val) / (_entry_for_pct * _qty) * 100, 4
+                        _pnl_to_book / (_entry_for_pct * _qty) * 100, 4
                     )
             except (TypeError, ValueError):
                 pass
@@ -5422,6 +5594,14 @@ def _close_trade_from_order_status(
         close_reason=final_exit_reason,
         caller="_close_trade_from_order_status",
     )
+    # Netted-sibling cascade (BL-20260720-ICTSCALP-PASTSTOP-EXITS): the
+    # position-flat verdict that closed THIS row means every other open
+    # same-direction row on the netted (account, symbol) position closed in
+    # the same flatten — close them now with honestly-attributed economics.
+    # This is the only moment the flatten is observable: once another
+    # strategy re-opens the symbol, per-row position checks read non-flat
+    # and the siblings would linger phantom-open (the Jun 21-23 incident).
+    _cascade_close_netted_siblings(db, row, closed_pnl_rec)
     return final_exit_reason, _exec_type
 
 
