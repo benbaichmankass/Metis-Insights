@@ -1327,7 +1327,19 @@
       "trigger_condition": "next performance-review: pull bybit_1 htf_pullback_trend_2h closed trades since 2026-07-16",
       "resolution_criteria": "If paper win-rate recovers >45% over >=15 fresh trades -> candidate for re-promotion (with account_compat_matrix). If it stays <25% -> propose KILL (remove from bybit_1 too).",
       "status": "open"
+    },
+    {
+      "id": "PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION",
+      "opened_at": "2026-07-20",
+      "opened_by": "operator chat directive 2026-07-20",
+      "source": "operator decision \u2014 options in the broker portfolio",
+      "title": "Options in the Alpaca portfolio: ONLY real-money-graduated options strategies (operator decision 2026-07-20) \u2014 assess SLV/GDX debit-vertical soak for graduation",
+      "description": "Operator confirmed options are a key component of the broker portfolio, and chose the graduation path: the portfolio (alpaca_live and its paper mirror alpaca_portfolio) carries ONLY options strategies that have been formally graduated to real money via the standard promotion gate. No wiring change now \u2014 today ZERO options strategies are graduated: options expression lives solely on the alpaca_options_paper soak book (slv_trend_1h / slv_pullback_1d / gdx_pullback_1d expressed as SLV/GDX debit verticals, options.max_loss_per_trade_usd=60). Follow-up: each review, assess the options soak track record (closed options rows on alpaca_options_paper \u2014 realized PnL from broker activities cash, win rate, n, expiry/assignment lifecycle health) against the promotion bar. Graduation ships as Tier-3: an options: block on alpaca_live (and mirrored on alpaca_portfolio per ROSTER-SYNC) scoped to the graduated strategies, with account_compat_matrix + operator approval.",
+      "tier": 3,
+      "trigger_condition": "each performance-review: pull alpaca_options_paper closed options trades (Slice-4 reconciler-closed rows) and grade the vertical soak",
+      "resolution_criteria": "When an options strategy meets the promotion bar (adequate n, positive expectancy net of debit, healthy lifecycle handling), propose the Tier-3 alpaca_live+alpaca_portfolio options wiring for operator approval. If the soak stays negative or thin, it stays paper-only and the portfolio carries no options.",
+      "status": "open"
     }
   ],
-  "updated_at": "2026-07-16T06:12:00+00:00"
+  "updated_at": "2026-07-20"
 }

@@ -315,3 +315,73 @@ def test_caller_override_does_not_bypass_risk_manager_on_dry_account(coord, dry_
     assert results[0]["error"] is not None
     assert "account_mode_dry_run" in results[0]["error"]
     assert captured == []
+
+
+# ---------------------------------------------------------------------------
+# Contract 5: a dry-shelved account with ZERO balance refuses at the SIZER
+# (before the risk gate's account_mode_dry_run rejection can fire) — the
+# refusal must be tagged ``dry_run_sizing_skip`` so the dispatch-failure
+# alert classifies it as a policy hold, not a failure. Pinning case:
+# alpaca_live was shelved to dry_run AND defunded on 2026-07-15 (funds moved
+# to Bybit); every routed signal then alarmed "1/3 accounts failed to
+# dispatch: zero_balance" (operator report 2026-07-20).
+# ---------------------------------------------------------------------------
+
+
+def test_dry_account_zero_balance_tagged_as_expected_skip(coord, dry_yaml):
+    from src.runtime.execution_diagnostics import is_expected_dispatch_skip
+
+    captured, stub = _capture_execute_pkg_calls()
+
+    with patch(
+        "src.units.accounts.execute.execute_pkg", side_effect=stub,
+    ), patch(
+        "src.units.accounts.clients.bybit_client_for",
+        side_effect=AssertionError("client must not be built for dry-run account"),
+    ):
+        results = coord.multi_account_execute(
+            _pkg(),
+            accounts_path=dry_yaml,
+            balance_fetcher=lambda _a: 0.0,
+        )
+
+    assert len(results) == 1
+    err = results[0]["error"]
+    assert err is not None
+    # The underlying cause stays visible for the journal/audit...
+    assert "zero_balance" in err
+    # ...but the effective-dry tag makes the alert classify it as a hold.
+    assert err.startswith("dry_run_sizing_skip:")
+    assert is_expected_dispatch_skip(err) is True
+    assert captured == []
+
+
+def test_live_account_zero_balance_still_a_genuine_failure(
+    coord, live_yaml, monkeypatch,
+):
+    """The tag is scoped to effective-dry accounts ONLY — a LIVE account
+    with a genuinely empty wallet is a real operator-actionable failure and
+    must keep alarming."""
+    from src.runtime.execution_diagnostics import is_expected_dispatch_skip
+
+    captured, stub = _capture_execute_pkg_calls()
+
+    with patch(
+        "src.units.accounts.execute.execute_pkg", side_effect=stub,
+    ), patch(
+        "src.units.accounts.clients.bybit_client_for",
+        return_value=object(),
+    ):
+        results = coord.multi_account_execute(
+            _pkg(),
+            accounts_path=live_yaml,
+            balance_fetcher=lambda _a: 0.0,
+        )
+
+    assert len(results) == 1
+    err = results[0]["error"]
+    assert err is not None
+    assert "zero_balance" in err
+    assert not err.startswith("dry_run_sizing_skip:")
+    assert is_expected_dispatch_skip(err) is False
+    assert captured == []
