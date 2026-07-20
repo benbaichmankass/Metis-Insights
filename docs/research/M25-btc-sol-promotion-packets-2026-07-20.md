@@ -3,13 +3,21 @@
 **Status: APPROVED (operator, 2026-07-20 ~10:05Z chat: Tier-2 deploy + BOTH Tier-3 promotions — "the promotions are approved too, just ping me when you do it"). Execution is sequenced on serving-fidelity certification; no further approval gate.** Under the
 M25 gate reframe (operator-approved 2026-07-19: edge is proven OFFLINE by the
 purged walk-forward `oos_edge` gate; the live soak proves serving MECHANICS),
-both candidates pass every required gate except `live_parity`, whose current
-failure was traced to a **serving-stack skew** (MB-20260720-LIVE-SERVING-PARITY-SKEW:
-live scores match NO trainer artifact — all 16 retained runs give the same
-~1.2e-2 residual; suspect = unpinned lightgbm version divergence, pin
-`lightgbm==4.6.0` staged). **The moment the pin deploys (Tier-2, operator OK
-pending) and the scoped gate-check re-runs green, these packets are
-decision-ready as written.** Nothing here waits on calendar soak time.
+both candidates pass every required gate except `live_parity`.
+
+**Serving-fidelity resolution (2026-07-20 ~16:00Z):** the "serving-stack skew"
+(MB-20260720-LIVE-SERVING-PARITY-SKEW) was a **false alarm — the gate
+instrument itself was the divergence**: `score_fidelity` float-coerced int
+features (`dayofweek`, `hour_of_day`) before re-scoring, and lightgbm's frame
+build is dtype-sensitive, so every re-score shifted by 3e-2..1.2e-1 → a
+reported 100% mismatch against every artifact. Replaying post-deploy live rows
+through the exact serving path (raw feature_row → `ShadowPredictor.predict`)
+matched the live scores **20/20 with delta 0.00e+00 on BOTH candidates**
+(relays #7151/#7153) — live serving fidelity is byte-perfect. The instrument
+fix (predict on the raw row) + regression test ship with this doc update; the
+`lightgbm==4.6.0` pin (deployed 10:30Z) was not the cause but stays as stack
+hygiene. **On the fixed instrument's formal gate-check PASS these packets
+execute immediately.** Nothing here waits on calendar soak time.
 
 ## Packet 1 — BTC vol-gate head swap (Tier-3)
 

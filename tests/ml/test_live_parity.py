@@ -281,3 +281,23 @@ def test_gate_insufficient_when_no_artifact_fresh_rows(tmp_path: Path):
     assert result.status == "insufficient_data"
     assert result.required is True
     assert "since the current artifact" in result.detail
+
+
+def test_score_fidelity_passes_raw_row_without_numeric_coercion():
+    """Regression: MB-20260720-LIVE-SERVING-PARITY-SKEW false alarm.
+
+    The live scorer predicts on the feature_row EXACTLY as logged; lightgbm's
+    frame build is dtype-sensitive, so coercing int features (dayofweek,
+    hour_of_day) to float shifted every re-score and reported a 100% "serving
+    skew" that did not exist. score_fidelity must therefore hand predict_fn
+    the raw row — a dtype-sensitive predictor sees ints as ints.
+    """
+    from ml.promotion.live_parity import score_fidelity
+
+    def dtype_sensitive_predict(row):
+        # Mimics the lightgbm dtype sensitivity: an int-typed dayofweek scores
+        # differently from a float-typed one.
+        return 0.9 if isinstance(row["dayofweek"], int) else 0.1
+
+    pairs = [({"dayofweek": 0, "x": 1.5}, 0.9)] * 3
+    assert score_fidelity(pairs, dtype_sensitive_predict, score_tol=1e-6) == 0

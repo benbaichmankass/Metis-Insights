@@ -192,11 +192,19 @@ def score_fidelity(
     score_tol: float = DEFAULT_SCORE_TOL,
 ) -> int:
     """Count serving-fidelity mismatches over ``(feature_row, logged_score)``
-    pairs. A re-score that raises counts as a mismatch (see module note)."""
+    pairs. A re-score that raises counts as a mismatch (see module note).
+
+    The row is passed to ``predict_fn`` EXACTLY as logged — no numeric
+    coercion. The live scorer predicts on the raw feature_row, and lightgbm's
+    frame build is dtype-sensitive: coercing ``dayofweek``/``hour_of_day``
+    int → float shifted every BTC/SOL re-score by 3e-2..1.2e-1, reporting a
+    100% "serving skew" that did not exist on the live side (the
+    MB-20260720-LIVE-SERVING-PARITY-SKEW false alarm; live-verified 20/20
+    exact matches on raw rows, trainer relay 2026-07-20)."""
     mismatched = 0
     for row, logged in sampled_rows:
         try:
-            recomputed = float(predict_fn({k: _num(v) for k, v in row.items()}))
+            recomputed = float(predict_fn(dict(row)))
         except Exception:  # noqa: BLE001 — a row the artifact can't score IS a mismatch
             mismatched += 1
             continue
