@@ -1899,7 +1899,7 @@ strategies:
     trail_decay_tight_mult: 2.5
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
     min_confidence: 0.0
-    adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
+    adx_min: 30             # ADX>=30 regime gate (Tier-3, operator-approved 2026-07-20; raised from 25). CONFIG-EXACT walk-forward (matches this block: trail_mult 5.0 + decay stall10/tight2.5, NO vol_skip): grid IS-R 25->47.4 / 28->39.8 / 30->61.8 (win 45%, dd 15.0) / 32->36.8 — 30 is the peak. Per-year OOS 25 vs 30: 30 net 55.8R vs 43.4R, lower maxDD in 4/5 years. Filters SOL marginal-trend fakeouts. ROLLBACK: set back to 25.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   xrp_pullback_2h:
