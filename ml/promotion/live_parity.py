@@ -193,9 +193,18 @@ def dead_features(
     train_rows: Sequence[Mapping[str, Any]],
     *,
     exclude: frozenset[str] | set[str] = frozenset(),
+    restrict_to: frozenset[str] | set[str] | None = None,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """The dead-feature split for a feature universe drawn from the TRAINING
     dataset's columns (minus ``exclude`` — target/time columns).
+
+    When ``restrict_to`` is a non-empty set (the manifest's declared
+    ``feature_columns``), the universe is exactly that set — the gate judges
+    only the features the MODEL actually consumes. Without it, the full
+    dataset universe flags label/side-stream columns the model never reads
+    (the 2026-07-20 MES certification flagged forward_log_return + the whole
+    macro block as "dead live" although none are in the head's 7 consumed
+    features — false blockers on an otherwise-clean parity read).
 
     Returns ``(dead_live, dead_train)``:
 
@@ -209,9 +218,12 @@ def dead_features(
 
     A feature constant on BOTH sides is not flagged (a genuinely constant
     column, e.g. a symbol stamp, is consistent — just uninformative)."""
-    universe: set[str] = set()
-    for tr in train_rows:
-        universe.update(tr.keys())
+    if restrict_to:
+        universe = set(restrict_to)
+    else:
+        universe = set()
+        for tr in train_rows:
+            universe.update(tr.keys())
     universe -= set(exclude)
     dead_live: list[str] = []
     dead_train: list[str] = []
@@ -229,12 +241,14 @@ def dead_features(
 
 def _load_train_rows(
     entry: Any, datasets_root: Path | str | None, *, max_rows: int,
-) -> tuple[list[dict[str, Any]] | None, frozenset[str]]:
+) -> tuple[list[dict[str, Any]] | None, frozenset[str], frozenset[str]]:
     """Load (a bounded slice of) the entry's training dataset + the non-feature
-    columns to exclude from the dead-feature universe. ``(None, …)`` when the
-    dataset can't be resolved/read (→ ``train_available=False``)."""
+    columns to exclude from the dead-feature universe + the manifest's declared
+    ``feature_columns`` (empty when undeclared — the universe then falls back
+    to the full dataset column set). ``(None, …, …)`` when the dataset can't
+    be resolved/read (→ ``train_available=False``)."""
     if datasets_root is None:
-        return None, frozenset()
+        return None, frozenset(), frozenset()
     try:
         from ..experiments.runner import _load_jsonl
         from ..manifest import TrainingManifest
@@ -242,7 +256,7 @@ def _load_train_rows(
         manifest = TrainingManifest.from_dict(dict(entry.manifest))
         data_path = manifest.dataset.path_under(Path(datasets_root)) / "data.jsonl"
         if not data_path.is_file():
-            return None, frozenset()
+            return None, frozenset(), frozenset()
         rows = _load_jsonl(data_path)
         exclude: set[str] = set()
         for cfg in (manifest.trainer_config, manifest.evaluator_config):
@@ -250,9 +264,13 @@ def _load_train_rows(
                 val = (cfg or {}).get(key)
                 if isinstance(val, str) and val:
                     exclude.add(val)
-        return list(rows[:max_rows]), frozenset(exclude)
+        consumed_raw = (manifest.trainer_config or {}).get("feature_columns")
+        consumed = frozenset(
+            c for c in consumed_raw if isinstance(c, str) and c
+        ) if isinstance(consumed_raw, (list, tuple)) else frozenset()
+        return list(rows[:max_rows]), frozenset(exclude), consumed
     except Exception:  # noqa: BLE001 — unreadable dataset = no train-side evidence
-        return None, frozenset()
+        return None, frozenset(), frozenset()
 
 
 def compute_live_parity(
@@ -314,8 +332,9 @@ def compute_live_parity(
     pairs = [(dict(r.feature_row or {}), float(r.score)) for r in sampled]
     n_mismatched = score_fidelity(pairs, sp.predict, score_tol=score_tol)
 
-    # 3b. Dead-feature parity vs the training dataset.
-    train_rows, exclude = _load_train_rows(
+    # 3b. Dead-feature parity vs the training dataset, judged over the
+    #     model's consumed feature_columns when the manifest declares them.
+    train_rows, exclude, consumed = _load_train_rows(
         entry, datasets_root, max_rows=max_train_rows,
     )
     if train_rows is None:
@@ -326,6 +345,7 @@ def compute_live_parity(
         )
     dead_live, dead_train = dead_features(
         [p[0] for p in pairs], train_rows, exclude=exclude,
+        restrict_to=consumed or None,
     )
     return LiveParityResult(
         model_id=model_id, n_live_rows=n_live, n_sampled=len(pairs),

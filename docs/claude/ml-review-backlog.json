@@ -1796,7 +1796,7 @@
    "status": "open",
    "tier": "T1",
    "trigger_condition": "Before the mes-regime-5m-lgbm-v2 Tier-3 promotion packet (MB-20260627-002); also unblocks the M26 P0 MES episode coverage.",
-   "updated_at": "2026-07-19T20:05:00+00:00",
+   "updated_at": "2026-07-20T06:10:00+00:00",
    "evidence_log": [
     {
      "at": "2026-07-19T15:27:00+00:00",
@@ -1813,6 +1813,11 @@
      "at": "2026-07-19T20:05:00+00:00",
      "by": "claude (ML continuation session 2026-07-19)",
      "note": "REPULL EXECUTED + RETRO-LABELING PROVEN: operator-approved pull-mes-ibkr-history returned 57,495 5m rows (vs ~19,181 every pre-fix nightly -- the predicted 3x); trainer synced + rebuilt MES base/features (rc=0); fresh RG4 labeled 1,829/1,867 rows (unlab 1215 -> 38, 98% coverage). VERDICT NOT YET EVIDENCE though -- two stacked issues: (1) NEW BUG FOUND+FIXED: replay_pregate_live's _threshold_from_market_features_meta read vol_threshold at metadata top level but builder v12 records it under build_params -> the read labeled at the 0.003 global default vs the build's data-driven 0.0003418 -> 0 volatile positives (degenerate). Fixed (build_params lookup + test). (2) The label definition itself moved with the full-session rebuild (median forward-vol now includes overnight), so the OLD RTH-trained head vs NEW labels is apples-to-oranges regardless -- the retrain path (tonight's nightly cycle trains mes-regime-5m/15m on the full-session base) is the honest route; RG4 the RETRAINED head tomorrow with the fixed threshold resolution. Remaining on this item: tomorrow's retrained-head RG4 + gate-check under the parity gates; then packet or honest negative."
+    },
+    {
+     "at": "2026-07-20T06:10:00+00:00",
+     "by": "claude (ML continuation session, overnight 2026-07-20)",
+     "note": "OVERNIGHT ARC COMPLETE. (1) First automatic nightly pull on fixed code: 57,495 full-session rows -- fix permanent. (2) Nightly cycle retrained mes-regime-5m-lgbm-v2 on the full-session base (01:38Z run): macro_f1 0.7126, f1_volatile 0.6712 (RTH-era heads ~0.27). (3) DECISION-GRADE RG4 PASS: AUC 0.7217 TRUSTWORTHY, POWERED 660/40 vol bars across 19/5 episodes -- first fully-powered trustworthy regime read in the program; threshold correctly resolved from build_params metadata (#7015 fix verified). (4) gate-check: 8 gates PASS incl. oos_edge +0.365 macro_f1 purged-WF, ONE blocker: live_parity -- serving-fidelity 100% mismatch (transient: logged rows scored by the OLD artifact; clears as fresh rows accrue) + dead-on-live flags that were mostly FALSE POSITIVES from an over-broad universe (the check compared ALL dataset columns; the head consumes only 7 features, none macro). Fixed: dead-feature universe now scoped to the manifest's declared feature_columns (fallback to full universe when undeclared) + 2 regression tests. Remaining before the packet: re-certify with the scoped check once fresh live rows accrue from the retrained artifact (live VM registry sync), and confirm vol_bucket (a genuinely consumed feature) varies live."
     }
    ]
   },

@@ -158,3 +158,58 @@ def test_compute_live_parity_missing_log_is_error(tmp_path: Path):
         datasets_root=ds_root, registry_root=reg_root,
     )
     assert res.error is not None
+
+
+def test_dead_feature_universe_scoped_to_declared_feature_columns(tmp_path: Path):
+    """When the manifest declares feature_columns, only CONSUMED features can
+    be flagged dead — label/side-stream dataset columns the model never reads
+    must not block the gate (the 2026-07-20 MES certification false-blocker:
+    forward_log_return + the macro block flagged although none were in the
+    head's consumed set)."""
+    # Training set carries: consumed 'a' (varying), consumed 'x' (varying),
+    # plus label-ish 'forward_log_return' and macro-ish 'vix_level' — both
+    # varying in training but CONSTANT in the live rows below.
+    train = [
+        {"ts": i, "y": i * 0.1, "a": i * 0.2, "x": i * 0.3,
+         "forward_log_return": i * 0.01, "vix_level": 12.0 + i}
+        for i in range(30)
+    ]
+    registry_root, datasets_root, entry = _setup(tmp_path, train_rows=train)
+    # Declare the consumed set on the registered manifest.
+    import dataclasses
+    manifest = dict(entry.manifest)
+    manifest["trainer_config"] = {"target_column": "y",
+                                  "feature_columns": ["a", "x"]}
+    entry = dataclasses.replace(entry, manifest=manifest)
+
+    log = tmp_path / "shadow_predictions.jsonl"
+    # Live rows: consumed features vary; the unconsumed columns are constant
+    # (they would be flagged dead-live under the unscoped universe).
+    _write_log(log, [
+        {"a": i * 0.2, "x": i * 0.3, "forward_log_return": 0.0,
+         "vix_level": 0.0}
+        for i in range(25)
+    ])
+    res = compute_live_parity(
+        entry, shadow_log=log, datasets_root=datasets_root,
+        registry_root=registry_root,
+    )
+    assert res.train_available
+    assert res.dead_live_features == ()
+    assert res.dead_train_features == ()
+
+
+def test_dead_feature_universe_falls_back_without_declared_columns(tmp_path: Path):
+    """No declared feature_columns → the old full-dataset-universe behaviour
+    is unchanged (a varying-in-train, constant-live column IS flagged)."""
+    train = [{"ts": i, "y": i * 0.1, "a": i * 0.2, "vix_level": 12.0 + i}
+             for i in range(30)]
+    registry_root, datasets_root, entry = _setup(tmp_path, train_rows=train)
+    log = tmp_path / "shadow_predictions.jsonl"
+    _write_log(log, [{"a": i * 0.2, "vix_level": 0.0} for i in range(25)])
+    res = compute_live_parity(
+        entry, shadow_log=log, datasets_root=datasets_root,
+        registry_root=registry_root,
+    )
+    assert res.train_available
+    assert "vix_level" in res.dead_live_features
