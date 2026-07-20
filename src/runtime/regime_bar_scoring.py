@@ -106,9 +106,15 @@ _REGIME_BAR_SEEN: dict[str, Any] = {}
 # 2026-06-09 wedge). Cleared on process restart like _REGIME_BAR_SEEN.
 _REGIME_FETCH_WALL: dict[tuple[str, str], float] = {}
 
-# Per-process predictor cache, keyed by (registry_root, tuple(model_ids)) so a
-# config reload or registry promotion that changes the resolved shadow set gets
-# a fresh resolution — mirrors the signal-builder cache semantics.
+# Per-process predictor cache, keyed by (registry_root, tuple(model_ids),
+# registry_fingerprint). The fingerprint (max mtime over the registry root's
+# per-model JSONs — src.runtime.registry_fingerprint) is what lets a registry
+# STAGE change invalidate the cache even when the resolved id UNION is
+# unchanged: a shadow↔advisory promotion swaps stages without changing the
+# union, which before 2026-07-20 kept stale ShadowPredictor objects (old
+# stages) serving until the next process restart (the M25 BTC/SOL execution
+# needed an explicit restart-bot-service purely for this). On a key miss the
+# cache is REPLACED, not grown, so superseded artifacts are released.
 _PREDICTOR_CACHE: dict = {}
 
 # Nominal seconds-per-bar for the timeframes the live regime heads use. The
@@ -276,6 +282,8 @@ def _resolve_regime_predictors(registry_root: Any, log_path: Any) -> list:
         resolve_predictors,
     )
 
+    from src.runtime.registry_fingerprint import registry_fingerprint
+
     registry = ModelRegistry(Path(registry_root))
     shadow_ids = discover_shadow_stage_model_ids(registry)
     advisory_ids = _discover_advisory_stage_model_ids(registry)
@@ -283,10 +291,13 @@ def _resolve_regime_predictors(registry_root: Any, log_path: Any) -> list:
     ids = sorted(set(shadow_ids) | set(advisory_ids))
     if not ids:
         return []
-    cache_key = (str(registry_root), tuple(ids))
+    cache_key = (
+        str(registry_root), tuple(ids), registry_fingerprint(registry_root),
+    )
     cached = _PREDICTOR_CACHE.get(cache_key)
     if cached is None:
         cached = resolve_predictors(list(ids), registry, log_path=Path(log_path))
+        _PREDICTOR_CACHE.clear()  # release superseded artifacts, keep one entry
         _PREDICTOR_CACHE[cache_key] = cached
     return cached
 
