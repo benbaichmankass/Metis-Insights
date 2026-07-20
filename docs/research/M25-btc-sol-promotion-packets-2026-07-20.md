@@ -1,6 +1,6 @@
 # M25 — BTC/SOL vol-head Tier-3 promotion packets (DRAFT, 2026-07-20)
 
-**Status: STAGED — blocked on serving-fidelity certification only.** Under the
+**Status: APPROVED (operator, 2026-07-20 ~10:05Z chat: Tier-2 deploy + BOTH Tier-3 promotions — "the promotions are approved too, just ping me when you do it"). Execution is sequenced on serving-fidelity certification; no further approval gate.** Under the
 M25 gate reframe (operator-approved 2026-07-19: edge is proven OFFLINE by the
 purged walk-forward `oos_edge` gate; the live soak proves serving MECHANICS),
 both candidates pass every required gate except `live_parity`, whose current
