@@ -49,6 +49,14 @@ from typing import Any, Callable, Mapping, Sequence
 DEFAULT_SAMPLE_N = 50
 DEFAULT_SCORE_TOL = 1e-6
 DEFAULT_MAX_TRAIN_ROWS = 5000
+# Dead-feature liveness window (rows). Must span MORE than one calendar day at
+# the head's bar cadence, or calendar features are structurally "dead":
+# ``dayofweek`` is constant within any single UTC day, so judging liveness over
+# the 50-row fidelity sample (~12.5h at 15m) flags it on EVERY sub-24h window —
+# the 2026-07-20 BTC/SOL false blocker. 672 rows = 7 days at 15m / ~2.3 days at
+# 5m — every calendar feature sees multiple distinct values, while a genuinely
+# dead pipeline feature (the ETH-xa class, zero for weeks) still reads dead.
+DEFAULT_DEAD_WINDOW_N = 672
 # Serving-fidelity rows must postdate the CURRENT artifact's training run by
 # this grace (mirror-sync + predictor-reload lag) before they count. Without
 # this scoping, a nightly-retrained head fails fidelity 100% STRUCTURALLY —
@@ -345,6 +353,7 @@ def compute_live_parity(
     score_tol: float = DEFAULT_SCORE_TOL,
     max_train_rows: int = DEFAULT_MAX_TRAIN_ROWS,
     artifact_grace_s: float = DEFAULT_ARTIFACT_GRACE_S,
+    dead_window_n: int = DEFAULT_DEAD_WINDOW_N,
 ) -> LiveParityResult:
     """Compute the live serving-mechanics parity evidence for one registry
     ``entry``. Never raises — any failure is folded into ``error`` so the
@@ -386,6 +395,10 @@ def compute_live_parity(
     rows.sort(key=lambda r: r.predicted_at_utc)
     n_live = len(rows)
     recent = rows[-max(0, int(sample_n)):] if sample_n else []
+    # Dead-feature liveness window: wider than the fidelity sample so calendar
+    # features (dayofweek) span multiple distinct values — see
+    # DEFAULT_DEAD_WINDOW_N. Falls back to `recent` if configured smaller.
+    liveness = rows[-max(int(dead_window_n), max(0, int(sample_n))):]
 
     # Artifact-freshness scoping: fidelity samples only rows the CURRENT
     # artifact could have produced (see docstring). Legacy entries with no
@@ -441,7 +454,7 @@ def compute_live_parity(
             artifact_at=artifact_at_iso, n_fresh_rows=n_fresh,
         )
     dead_live, dead_train = dead_features(
-        [dict(r.feature_row or {}) for r in recent], train_rows,
+        [dict(r.feature_row or {}) for r in liveness], train_rows,
         exclude=exclude, restrict_to=consumed or None,
     )
     return LiveParityResult(
