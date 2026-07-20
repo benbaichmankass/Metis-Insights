@@ -322,6 +322,22 @@ for manifest in "${TO_RUN_LIST[@]}"; do
     progress_mark "$manifest" skipped reason=quarantined_oom
     continue
   fi
+  # --- Dataset-unchanged retrain skip (MB-20260720-FCPCV-RETRAIN-NOOP) ------
+  # A manifest pinning an experiment dataset version the nightly build never
+  # rebuilds (v5xx/v9xx/... — only DATASET_VERSION gets --overwrite'd each
+  # night) retrains into a byte-identical model every cycle: 16 no-op runs on
+  # btc-regime-15m-lgbm-fc-pcv-v1 (Jul 1-20) faked cross_run_stability=0.0
+  # and burned the training window. Skip LOUDLY when both the dataset AND the
+  # manifest predate the newest registered run; a rebuilt dataset or an
+  # edited/bumped manifest trains normally. Fail-open: the checker prints
+  # TRAIN on any resolution error so a guard bug never starves a retrain.
+  skip_verdict="$(python scripts/ops/dataset_unchanged_check.py \
+    "$manifest" "$DATASETS_ROOT" "$REGISTRY_ROOT" 2>/dev/null || echo TRAIN)"
+  if [ "$skip_verdict" = "SKIP" ]; then
+    emit "$(printf '{"ts":"%s","status":"manifest_dataset_unchanged","manifest":"%s","detail":"pinned dataset + manifest unmodified since the newest registered run — retrain would be a byte-identical no-op (MB-20260720-FCPCV-RETRAIN-NOOP). Refresh the dataset version, rebuild it, or touch the manifest to resume training."}' "$(iso_now)" "$manifest")"
+    progress_mark "$manifest" skipped reason=dataset_unchanged
+    continue
+  fi
   start="$(iso_now)"
   progress_mark "$manifest" running
   # --- Observe-only build-time dataset audit (BL-20260628-XA-TRAINING-ZERO class) ---
