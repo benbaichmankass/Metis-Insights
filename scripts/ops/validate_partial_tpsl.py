@@ -36,7 +36,8 @@ ACCOUNT_ID = "bybit_1"
 # live-traded on the bybit accounts) so the test never rides a real position.
 SYMBOL = "LTCUSDT"
 CATEGORY = "linear"
-QTY = 0.1  # LTCUSDT linear min order qty
+QTY_STEP = 0.1  # LTCUSDT linear qty step (= min order qty)
+MIN_NOTIONAL_USD = 6.0  # venue min order VALUE is 5 USDT (ErrCode 110094); small buffer
 
 
 def _load_demo_account():
@@ -121,12 +122,19 @@ def main() -> int:
         return 1
     print(f"lastPrice={last}")
 
+    # Venue enforces a minimum order VALUE (5 USDT, ErrCode 110094 — the
+    # third dispatch, #7152, failed here at 0.1 LTC ~= $4.75), so size from
+    # the live price rather than the min qty.
+    import math
+    qty = round(max(QTY_STEP, math.ceil(MIN_NOTIONAL_USD / last / QTY_STEP) * QTY_STEP), 1)
+    print(f"qty={qty} (~${qty * last:.2f} notional)")
+
     verdicts = []
 
     def order(sl_off, tp_off):
         return {
             "account_id": ACCOUNT_ID, "symbol": SYMBOL, "side": "Buy",
-            "qty": QTY,
+            "qty": qty,
             "sl": round(last * (1 - sl_off), 2),
             "tp": round(last * (1 + tp_off), 2),
         }
@@ -169,14 +177,25 @@ def main() -> int:
         plist = (((pos or {}).get("result") or {}).get("list") or [{}])
         print(f"=== position: size={plist[0].get('size')} "
               f"tpslMode={plist[0].get('tpslMode')} ===")
-        verdicts.append(("position tpslMode is Partial",
-                         str(plist[0].get("tpslMode", "")).lower() == "partial",
-                         plist[0].get("tpslMode")))
+        # The FUNCTIONAL invariant is the leg TYPE: Partial-type conditional
+        # orders carry their own qty and fire a market order of that qty, so
+        # bracket replacement / whole-position flatten (the Jun-2026 incident
+        # mechanism) is structurally impossible. The position-info `tpslMode`
+        # attribute is display-level: run #7156 showed it reads "Full" on a
+        # clean symbol even after set_tp_sl_mode(Partial) returned OK with
+        # every attached leg Partial-type — so it is printed above for the
+        # record but NOT a verdict.
+        n_full_legs = sum(1 for s in stops
+                          if str(s.get("stopOrderType", "")).lower()
+                          in ("stoploss", "takeprofit"))
+        verdicts.append(("all attached TP/SL legs are Partial-type (no Full legs)",
+                         n_full_legs == 0 and (n_sl + n_tp) >= 4,
+                         f"full_legs={n_full_legs} partial_legs={n_sl + n_tp}"))
 
         print("=== amend order A's SL qty-scoped ===")
         from src.units.accounts.execute import modify_open_order
         amended_sl = round(last * (1 - 0.11), 2)
-        out = modify_open_order(client, cfg, symbol=SYMBOL, sl=amended_sl, qty=QTY)
+        out = modify_open_order(client, cfg, symbol=SYMBOL, sl=amended_sl, qty=qty)
         print(f"amend result: {out}")
         verdicts.append(("qty-scoped SL amend accepted", bool(out.get("ok")),
                          out.get("error")))
@@ -188,6 +207,10 @@ def main() -> int:
         print(f"stop orders after amend: {len(stops2)} (SL legs: {n_sl2})")
         verdicts.append(
             ("amend did not destroy the sibling bracket", n_sl2 >= 2, f"n_sl={n_sl2}"))
+        pos2 = client.get_positions(category=CATEGORY, symbol=SYMBOL)
+        p2 = (((pos2 or {}).get("result") or {}).get("list") or [{}])[0]
+        print(f"position tpslMode after qty-scoped amend (informational): "
+              f"{p2.get('tpslMode')}")
     finally:
         # The flat-at-start guard proved everything on this symbol is ours,
         # so cancel-all + flatten-the-symbol is exactly test-scoped.
