@@ -955,20 +955,26 @@ accounts:
     account_size_usd: 5000             # 1-Step Classic $5k.
     strategies:                        # the validated alt variants (Tier-3):
       - trend_donchian_sol             #   SOL — robust gate PASS, execution: live
-      - trend_donchian_eth             #   ETH — marginal, execution: shadow (soak)
+      - trend_donchian_eth             #   ETH — promoted to execution: live 2026-06-17
+                                       #   (operator-approved; strategies.yaml is the field-of-
+                                       #   truth). Earlier "marginal/shadow" comment was stale.
       - eth_pullback_prop_2h           #   ETH pullback swap-robust variant,
                                        #   execution: live (operator-approved 2026-06-25).
                                        #   At Breakout's real 0.033%/day swap the funded-EV
                                        #   gate is strong (realised +$421, 12-mo EV +$603
                                        #   @75.9%, 4/4 folds, break-even swap 0.10%/day = 3x
-                                       #   headroom). The lower-drag, bigger-margin sibling
-                                       #   of eth_pullback_2h below.
+                                       #   headroom). The lower-drag, bigger-margin sibling —
+                                       #   now the SOLE ETH-pullback prop leg (see removal below).
                                        #   docs/research/eth-pullback-prop-swap-aware-2026-06-25.md
-      - eth_pullback_2h                #   ETH pullback (live BTC exits) — routed to prop
-                                       #   2026-06-25 (operator-approved Tier-3). Also +EV
-                                       #   at the real 0.033%/day swap (+$166 realised, 4/4
-                                       #   folds); overlaps eth_pullback_prop_2h (same
-                                       #   entries) so it adds frequency, not diversification.
+      # eth_pullback_2h REMOVED from breakout_1 on 2026-07-20 (Tier-3,
+      # operator-approved /system-review de-dup): it fires the SAME entries as
+      # eth_pullback_prop_2h but is the worse prop leg (+$166 vs +$421 5y, 57% vs
+      # 32% swap drag, break-even 0.10%/day with ~1x margin vs the prop variant's
+      # 3.1x). With both routed here the intent dedup emitted eth_pullback_2h (the
+      # worse twin) while the validated eth_pullback_prop_2h stayed quiet; dropping
+      # it makes the better variant the emitting ETH-pullback leg + cuts redundant
+      # ETH concentration on the thin-cushion $5k account. eth_pullback_2h stays
+      # execution: live on its bybit_1/bybit_2 routes (unaffected). PB-20260625-001.
       - trend_donchian_sol_prop        #   SOL swap-robust EXIT variant (Unit C Phase 0,
                                        #   DRAFT Tier-3, 2026-06-29): trend_donchian_sol's
                                        #   entries with tightened exits (trail 3.5 / tp_r 6.0).

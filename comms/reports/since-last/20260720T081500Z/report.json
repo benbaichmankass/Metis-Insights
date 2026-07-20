@@ -1,0 +1,458 @@
+{
+  "report_id": "RPT-20260720-081500-since-last",
+  "reviewed_at": "2026-07-20T08:15:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-07-17T05:56:00+00:00",
+  "window_end": "2026-07-20T08:15:00+00:00",
+  "prior_report_id": "RPT-20260717-055600-daily",
+  "overall_assessment": "caution",
+  "health": {
+    "overall_assessment": "healthy",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "findings": {
+      "services": {
+        "status": "ok",
+        "note": "trader-live + web-api + telegram-bot + claude-bridge all active; heartbeat 30s; git_sha 131cff61 (current main); all timers active."
+      },
+      "ib_gateway": {
+        "status": "ok",
+        "note": "MES/ib_paper connected, account_data_ready, no wedge, breaker closed, 0 consecutive failures."
+      },
+      "db_integrity": {
+        "status": "ok",
+        "note": "trade_journal.db 572MB, 3706 trades / 3105 order_packages / 1.08M signals; no per-table errors."
+      },
+      "alert_delivery": {
+        "status": "ok",
+        "note": "/api/bot/notifications empty (0 banners) \u2014 no account_down / trainer_down / orphan latched."
+      },
+      "reconciliation": {
+        "status": "ok",
+        "note": "prop reconcile unacted_count=0; no orphan_unreconciled banner."
+      },
+      "trainer_disk": {
+        "status": "watch",
+        "note": "Trainer VM root 90% used (4.9G free) \u2014 watch; compounds the known trainer memory-saturation items."
+      }
+    }
+  },
+  "performance": {
+    "overall_assessment": "caution",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "summary": "Real-money book modestly bleeding on the ~$287 bybit_2 account (7d -$8.90 / 25% win / PF 0.70; 30d -$13.95 / 38.7% / PF 0.74). Alt-pullback legs (ada/xrp) + ict_scalp_5m are the drag; eth_pullback_2h is the real-money winner. No real-money closes in the strict since-last window."
+  },
+  "ml": {
+    "overall_assessment": "healthy",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "summary": "Trainer healthy: 3 cycles/24h, dataset builds 246 ok / 0 failed, manifests 87 ok / 0 failed / 7 empty_dataset-skipped, last_cycle rc=0. Registry 90 models (1 advisory / 28 shadow / 60 candidate / 1 research_only). Mirror fresh, head current. Dataset-audit noise persists (MB-20260719, observe-only)."
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "System healthy end-to-end (all services active, IB connected, no alert banners, DB intact, trainer cycling). CORRECTION vs first pass: the real-money 'bleed' legs are regime-conditioned + low-n, NOT demote candidates \u2014 ada/xrp_pullback carry a live-firing adx_min:25 gate, ict_scalp_5m is already shadow (+$142 lifetime, loses only in trending+volatile). No demotions drafted. PROP: breakout_1 flat at $4825.61, ~$125.61 to the $4700 floor (fresh snapshot logged). Trainer disk 90%.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Prop breakout_1 cushion to the $4700 static-DD floor is thin (~$131) and the balance snapshot is stale",
+        "source_review": "cross",
+        "tier": 3,
+        "detail": "Fresh snapshot logged this session: breakout_1 flat at $4825.61, $125.61 above the $4700 floor / $144.77 daily-loss room. Decide whether to keep sizing 2-lot ETH shorts this close to the floor.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "Real-money 'bleed' legs are REGIME-CONDITIONED + low-n, NOT demotion candidates \u2014 the ADX gate already works",
+        "source_review": "performance",
+        "tier": 1,
+        "detail": "M7 verdict HOLD for ada/xrp_pullback_2h (n_closed=0, insufficient evidence); both already carry adx_min:25 (live audit shows XRP blocked at ADX 15.7<25). ict_scalp_5m is ALREADY execution:shadow and is +$142.8/66.7% lifetime, losing ONLY in the trending+volatile cell (-$8.53/25%). No demotions. Path: author 2-D regime cells + mature the shadow regime heads.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 3,
+        "title": "Trainer VM disk at 90% (4.9G free)",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "Not yet failing builds (246 ok / 0 failed) but compounds the known trainer memory-saturation / OOM items (BL-20260715, MB-20260719-PROMOREADY-OOSEDGE-OOM). Prune old artifacts / datasets before it strands a cycle.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 4,
+        "title": "Paper QQQ closed -$405 via delayed extended-hours flatten",
+        "source_review": "performance",
+        "tier": 1,
+        "detail": "qqq_pullback_1h alpaca_paper trade #3269 opened 07-07 finally closed 07-17 at -$405 (paper). Consistent with the known extended-hours-exit handling (ALPACA_EXT_LIMIT_BUFFER_BPS). Paper only \u2014 no money at risk; noting for the exit-behavior trail.",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "Chop/transitional regime across crypto (ADX 9-24 on ETH/SOL/XRP/ADA) \u2014 donchian breakouts non-actionable all window; the modest real-money bleed is pullback/scalp legs firing into chop, not a plumbing fault.",
+      "Prop ETH shorts and the real-money ETH pullback legs are trading the same instrument in opposite roles; prop is isolated from real/paper KPIs (correct), but both are exposed to the same ETH chop.",
+      "Reconciliation is clean this window (prop unacted 0, no orphan banner) \u2014 the historically noisy orphan/IB-gateway-dark classes are currently quiet."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": -8.9,
+        "trend": "flat",
+        "trades": 0,
+        "wins": 0,
+        "win_rate": null,
+        "expectancy": null,
+        "profit_factor": null,
+        "max_drawdown": null,
+        "per_strategy": [
+          {
+            "name": "ada_pullback_2h (30d)",
+            "trades": 6,
+            "win_rate": 16.7,
+            "pnl": -12.25
+          },
+          {
+            "name": "xrp_pullback_2h (30d)",
+            "trades": 3,
+            "win_rate": 33.3,
+            "pnl": -7.88
+          },
+          {
+            "name": "ict_scalp_5m (30d)",
+            "trades": 7,
+            "win_rate": 57.1,
+            "pnl": -3.57
+          },
+          {
+            "name": "htf_pullback_trend_2h (30d)",
+            "trades": 4,
+            "win_rate": 0.0,
+            "pnl": -3.56
+          },
+          {
+            "name": "eth_pullback_2h (30d)",
+            "trades": 5,
+            "win_rate": 60.0,
+            "pnl": 2.21
+          },
+          {
+            "name": "trend_donchian_eth_4h (30d)",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 9.96
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -13.51,
+          "bond": -0.44
+        },
+        "equity_curve": []
+      },
+      "paper": {
+        "window_pnl": -376.45,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "trades": 13,
+        "wins": 6,
+        "win_rate": 46.2,
+        "expectancy": null,
+        "profit_factor": null,
+        "max_drawdown": null,
+        "per_strategy": [
+          {
+            "name": "pairs_sol_eth_a/b (soak)",
+            "trades": 11,
+            "win_rate": 54.5,
+            "pnl": 28.55
+          },
+          {
+            "name": "eth_pullback_prop_2h",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 19.73
+          },
+          {
+            "name": "qqq_pullback_1h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -405.49
+          }
+        ],
+        "per_asset_class": {
+          "crypto": 29.04,
+          "equity": -405.49
+        },
+        "equity_curve": []
+      },
+      "prop": {
+        "window_pnl": -182.84,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "fills_reported": 3,
+        "tickets_emitted": 12,
+        "unacted_tickets": 0,
+        "rule_distance": {
+          "daily_loss_remaining": 147.68,
+          "static_dd_remaining": 228.0
+        },
+        "per_account": [
+          {
+            "account_id": "breakout_1",
+            "balance": 4928.0,
+            "equity": 4928.0,
+            "realized_window": -182.84
+          }
+        ]
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": null,
+        "close": 62883.4,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Range-bound; donchian non-actionable. (close from live audit tail, not window OHLC)"
+      },
+      {
+        "symbol": "ETHUSDT",
+        "open": null,
+        "close": 1862.9,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Chop/transitional, ADX~20-24; inside donchian channel [1842,1892] all window \u2014 the prop ETH short SL'd at 1888."
+      },
+      {
+        "symbol": "SOLUSDT",
+        "open": null,
+        "close": 76.15,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Transitional, ADX~23; inside channel [75.4,77.4]."
+      },
+      {
+        "symbol": "XRPUSDT",
+        "open": null,
+        "close": 1.0886,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Chop, ADX~9-16; xrp_pullback legs net-negative."
+      },
+      {
+        "symbol": "ADAUSDT",
+        "open": null,
+        "close": 0.1624,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Chop, ADX~15; ada_pullback the biggest real-money drag."
+      }
+    ],
+    "dossier_coverage": {
+      "full_dossiers": 3,
+      "summarized_trades": 10,
+      "rule": "since-last: full dossiers for prop closes + notable paper outlier (QQQ); the 10 graded closed order-packages were all pairs_sol_eth_a/b shadow/unfilled (grade C, no fill/PnL), summarized; zero real-money closes in the strict window."
+    },
+    "trade_dossiers": [
+      {
+        "trade_id": "prop-fill-25",
+        "order_package_id": null,
+        "account": "breakout_1",
+        "account_class": "prop",
+        "symbol": "ETHUSDT",
+        "direction": "short",
+        "strategy": "eth_pullback_2h (bridge)",
+        "opened_at": "2026-07-18T01:09:00Z",
+        "closed_at": "2026-07-20T03:13:00Z",
+        "entry_price": 1839.72,
+        "exit_price": 1888.19,
+        "stop_loss": 1888.19,
+        "pnl": -96.94,
+        "note": "Operator-logged this session from the terminal screenshot. Short stopped out \u2014 exit == SL 1888.19. Gross -$96.94 + ~$3.00 commissions.",
+        "claude_grade": {
+          "grade": "n/a (prop manual bridge)"
+        }
+      },
+      {
+        "trade_id": "prop-fill-23",
+        "order_package_id": null,
+        "account": "breakout_1",
+        "account_class": "prop",
+        "symbol": "ETHUSDT",
+        "direction": "long",
+        "strategy": "prop bridge",
+        "opened_at": "2026-07-16T19:38:00Z",
+        "closed_at": "2026-07-17T08:34:00Z",
+        "entry_price": 1877.95,
+        "exit_price": 1835.0,
+        "pnl": -85.9,
+        "note": "Long closed manually at a loss (-2.29%).",
+        "claude_grade": {
+          "grade": "n/a (prop manual bridge)"
+        }
+      },
+      {
+        "trade_id": "3269",
+        "order_package_id": null,
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "QQQ",
+        "direction": "long",
+        "strategy": "qqq_pullback_1h",
+        "opened_at": "2026-07-07T20:50:10Z",
+        "closed_at": "2026-07-17T21:29:06Z",
+        "entry_price": 720.63,
+        "exit_price": 695.29,
+        "pnl": -405.49,
+        "note": "10-day paper hold closed -3.5%; extended-hours flatten behavior. Paper soak, not money at risk.",
+        "claude_grade": {
+          "grade": "\u2014"
+        }
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [],
+        "summary": "ALL HOLD \u2014 no demotions this review (corrects the initial over-flag). ada/xrp_pullback_2h: M7 HOLD (n_closed=0), adx_min:25 gate confirmed firing live (XRP blocked at ADX 15.7<25 in current chop). ict_scalp_5m: ALREADY execution:shadow; +$142.8/66.7% lifetime, loss isolated to the trending+volatile regime cell (-$8.53/25%) \u2014 regime-conditioned, not structural. htf_pullback_trend_2h: already demoted 07-15 (PRB-20260716). eth_pullback_2h: HOLD (+, low-n). The M7 matrix is documented to over-fire DEMOTE at low n (PB-20260630-002). Correct lever = regime-cell authoring + ML regime-head maturation, NOT demotion."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 3,
+        "dataset_builds_ok": 246,
+        "summary": "Last cycle rc=0 (05:18Z). Manifests 87 ok / 0 failed / 7 empty_dataset-skipped (MES/exit-head gaps). No manifest_quarantine/OOM. Registry 90 (advisory 1 / shadow 28 / candidate 60). Mirror fresh, head current. Dataset-audit noise persists (MB-20260719, observe-only)."
+      },
+      "soak_status": [
+        {
+          "soak": "pairs_sol_eth_a/b",
+          "state": "soaking",
+          "detail": "bybit_1 paper; 10 closed shadow/unfilled (grade C) + real fills this window \u2014 accruing."
+        },
+        {
+          "soak": "shadow models (28)",
+          "state": "soaking",
+          "detail": "Registry shadow stage accruing predictions; 1 advisory (BTC 15m vol)."
+        },
+        {
+          "soak": "cross-asset / exit-ladder",
+          "state": "soaking",
+          "detail": "Live observe-only soaks emitting; none observed stalled."
+        },
+        {
+          "soak": "MES exit-head / execution-quality",
+          "state": "awaiting-data",
+          "detail": "empty_dataset skips \u2014 known MES native-history limitation, not a new stall."
+        }
+      ],
+      "flags_raised": [
+        "PROP: breakout_1 $125.61 above the $4700 static-DD floor (fresh snapshot logged) \u2014 Tier-3 sizing decision",
+        "REGIME (not a demote): ict_scalp_5m loses only in trending+volatile; ada/xrp pullback are low-n + already ADX-gated \u2014 refine regime routing, do not demote",
+        "INFRA: trainer VM disk 90% (4.9G free)",
+        "PAPER: QQQ paper -$405 extended-hours flatten (observability only)"
+      ],
+      "account_reachability": "All declared-live probeable accounts REACHABLE: bybit_1/bybit_2(real)/bybit_portfolio, ib_paper, alpaca_paper/alpaca_portfolio/alpaca_options_paper all api_ok / positions readable; no account_down banner latched. Shelved/API-less null as expected: ib_live, oanda_practice, breakout_1. WATCH: alpaca_live authenticates (api_ok true) but balance reads $0.0 / positions null \u2014 reachable, not down; likely the ~$150 micro-account near-empty. No down live accounts.",
+      "backlog_drive": {
+        "_note": "HONEST DISCLOSURE: this is a single web (PM-side) session running through the GitHub issue-relay. A full item-by-item re-validation of all 161 open backlog items was NOT performed this run; the items below are the ones re-validated against the live state actually pulled. A dedicated /system-review with DB access (or a follow-up pass) should drain the remainder. count_untriaged is reported truthfully rather than as 0.",
+        "health": {
+          "open_at_start": 72,
+          "triaged": 3,
+          "count_untriaged": 69,
+          "drained": [],
+          "deferred_note": "Re-validated: BL-20260706-PROP-STALE-EMITTED-TICKETS (reconcile now unacted=0; emitted tickets are reticket-suppressed while a position is open = expected, drift-free); BL-20260623-002 IB-gateway-wedge class (currently clean, MES connected); trainer disk 90% is a NEW observation to log alongside BL-20260715."
+        },
+        "performance": {
+          "open_at_start": 51,
+          "triaged": 4,
+          "count_untriaged": 47,
+          "drained": [],
+          "deferred_note": "Re-validated against 7d/30d /performance: PB-20260630-ICTSCALP-DEGRADE (confirmed still degrading, expectancyR -2.0), PRB-20260716-HTF-CROSSBOOK-NEG (still 0% real, stays demoted), PB-20260625-001 ETH prop legs (the -85.90/-96.94 prop ETH closes are this watch), eth_pullback_2h positive."
+        },
+        "ml": {
+          "open_at_start": 38,
+          "triaged": 2,
+          "count_untriaged": 36,
+          "drained": [],
+          "deferred_note": "Re-validated: MB-20260719-DATASET-AUDIT-NOISE (still noisy, observe-only, unresolved); MB-20260719-PROMOREADY-OOSEDGE-OOM / BL-20260715 trainer-memory (disk 90% compounds \u2014 still open)."
+        }
+      }
+    },
+    "monitoring": [
+      {
+        "item_id": "PROP-CUSHION",
+        "domain": "cross",
+        "category": "awaiting-decision",
+        "detail": "breakout_1 ~$131 above the $4700 floor; awaiting fresh balance report + operator sizing call.",
+        "since": "2026-07-20",
+        "next_check": "fresh bal report"
+      },
+      {
+        "item_id": "PB-20260625-001",
+        "domain": "performance",
+        "category": "soaking",
+        "detail": "ETH prop legs real-money watch.",
+        "since": "2026-07-16",
+        "next_check": "n>=20 closed across ETH legs"
+      },
+      {
+        "item_id": "MB-20260719-DATASET-AUDIT-NOISE",
+        "domain": "ml",
+        "category": "awaiting-decision",
+        "detail": "De-noise build-time dataset audit (many manifests flagged nightly).",
+        "since": "2026-07-19",
+        "next_check": "de-noise PR"
+      },
+      {
+        "item_id": "PB-20260630-ICTSCALP-DEGRADE",
+        "domain": "performance",
+        "category": "soaking",
+        "detail": "ict_scalp_5m real-money degrading.",
+        "since": "2026-07-16",
+        "next_check": "confirm +EV or propose demote"
+      }
+    ],
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "summary": "NO demotions proposed. Instead: author a 2-D regime cell (trending+volatile OFF) for ict_scalp_5m once n>=30/cell (PB-20260609-002) \u2014 gates only its losing cell, keeps the +$142 edge."
+      },
+      {
+        "source_review": "cross",
+        "summary": "Advance regime routing: mature the ETH/SOL 15m shadow regime heads toward advisory (MB-20260628) + regime-router phase 3/4 (PERF-20260601-006/007) so routing is regime-aware, not blanket. Current ML classifier-v0 collapsed (MB-20260601-002)."
+      },
+      {
+        "source_review": "cross",
+        "summary": "Prop sizing decision: keep placing 2-lot ETH shorts with ~$125 to the $4700 blow-up floor? (money-at-risk)"
+      }
+    ],
+    "backlog_summary": {
+      "health": {
+        "total": 231,
+        "open": 72,
+        "resolved": 159,
+        "drained": 16
+      },
+      "performance": {
+        "total": 74,
+        "open": 51,
+        "resolved": 23,
+        "drained": 0
+      },
+      "ml": {
+        "total": 84,
+        "open": 38,
+        "resolved": 46,
+        "drained": 0
+      }
+    }
+  }
+}
