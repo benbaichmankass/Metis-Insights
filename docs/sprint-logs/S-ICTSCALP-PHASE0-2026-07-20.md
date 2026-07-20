@@ -226,3 +226,37 @@ or promotion change enacted; all forward actions proposed as Tier-3.
   dry-run → apply; (3) `validate-partial-tpsl` → on PASS, operator OKs the
   env flip; (4) first-decision health check (M20 P7) on ict_scalp's first
   live fire.
+
+## Addendum 4 — merge, deploy + post-merge sequence executed (2026-07-20 late)
+
+- **PR #7115 MERGED** (squash `6937849`) after three merge races (draft→ready
+  CI re-trigger; branch behind a moving main twice; a real
+  `health-review-backlog.json` conflict vs #7133, resolved keeping both
+  sides' entries). **Deploy verified** via relay #7138: `/api/diag/version`
+  git_sha `69378490` on BOTH the web-api and the trader's runtime status,
+  trader restarted (uptime 153s), heartbeat running, `ict_scalp_5m` in the
+  loaded roster → the re-promotion + OFF cells + cascade fix are LIVE.
+- **repair-netted-rows on the live DB:** dry-run #7139 matched all 8
+  expected corrupt signatures; apply #7141 repaired 8/8 (honest-null
+  pnl/pnl_percent/exit_price, `exit_reason=netted_misattributed`,
+  provenance under `notes.netted_repair`).
+- **validate-partial-tpsl: PASS on the fifth dispatch** (#7159). The road
+  there was itself instructive: #7142 failed on missing wrapper creds
+  (`load_runtime_secrets` — the #1314 class; fixed #7143); #7145 ran on
+  BTCUSDT and rode the demo strategies' live 0.016 position (its cleanup
+  flattened their share — demo money; fixed #7147: isolated flat LTCUSDT +
+  flat-at-start guard + test-scoped cleanup); #7152 hit the 5-USDT min
+  order VALUE (fixed #7154: qty from live price); #7156 then proved the
+  position-info `tpslMode` attribute is display-level — it reads `Full` on
+  a clean symbol with `set_tp_sl_mode(Partial)` OK and every leg
+  Partial-type — so #7157 re-anchored the verdict on the functional
+  leg-type invariant. Final verdicts 4/4: bracket pairs coexist as
+  qty-scoped `PartialStopLoss`/`PartialTakeProfit` legs, zero Full legs,
+  qty-scoped amend preserves the sibling.
+- **Held for the operator (Tier-3):** the `set-env BYBIT_TPSL_MODE=partial`
+  flip on the live VM. Evidence: #7159 PASS. Honest caveat: an actual
+  partial-leg FIRE has not been observed on-venue (deterministic immediate
+  triggers are not constructible — trigger prices must sit on the far side
+  of last price); Bybit's documented Partial-order semantics + the
+  structural evidence carry the case, and the M20 first-decision health
+  check watches ict_scalp's first live fire either way.
