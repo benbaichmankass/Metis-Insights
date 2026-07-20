@@ -4883,7 +4883,23 @@
       "status": "open",
       "title": "vm-diag-snapshot multi-path BODY mode: paths with & query params return fetch_failed (works in title mode)",
       "detail": "Repro 2026-07-20: issue #7100 (multi-path body) \u2014 three db/table paths with &-joined query params all returned {\"error\":\"fetch_failed\"} while the fourth path (no query string) succeeded in the same run; the SAME shape (api/bot/order-packages?strategy=...&include_paper=true&limit=3) succeeded in TITLE mode (#7101). Suspect the multi-path branch's HTML-entity decode or per-path quoting drops/mangles & (GitHub serves body markdown with &amp;). The batching guidance (diag-data skill, MB-20260706-CI-MINUTES) pushes sessions toward multi-path bodies, so this silently breaks exactly the recommended usage. Fix in .github/workflows/vm-diag-snapshot.yml multi-path branch; verify with a &-bearing db/table path in a body-mode issue."
+    },
+    {
+      "id": "BL-20260720-OPTIONS-PAPER-ZERO-FILLS",
+      "created": "2026-07-20",
+      "priority": "P2",
+      "status": "open",
+      "title": "alpaca_options_paper has NEVER placed a single options trade since going live 2026-07-07 — 100% selection-refusal rate blocks the graduation soak entirely",
+      "detail": "Investigating PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION (is any options strategy ready to graduate to real money) surfaced that the account has zero fills in its entire history. Pulled trade_journal.db::trades WHERE account_id='alpaca_options_paper' via the diag relay (issue #7132): every row (14+ attempts, oldest 2026-07-07, newest 2026-07-17, spanning slv_trend_1h and slv_pullback_1d; gdx_pullback_1d has ZERO order packages at all in the same window, separately) is status='rejected', position_size=0.0, pnl=null. Rejection reasons are 100% options-selection refusals from src/units/accounts/options_selector.py::select_debit_vertical: mostly 'options_expression:no_selection:fewer_than_two_quotable_strikes' (the chosen expiration has fewer than 2 contracts with a real non-null positive `mid` quote), with some 'options_expression:no_selection:no_expiration_in_dte_band' (no expiration in the configured [21,60] DTE band around target_dte=35). Both point at the underlying chain/quote data quality from the account's configured `data_feed: indicative` (config/accounts.yaml::alpaca_options_paper.options.data_feed) — the free 15-min-delayed feed chosen as the v1 baseline (OPRA $99/mo deferred to live, per the 2026-06-27 operator decision). If the indicative feed structurally can't supply 2 quotable strikes for SLV/GDX chains, the debit-vertical overlay can never fill on this account as configured, and the soak accrues zero graduation evidence no matter how long it runs. Not yet root-caused past the selector's refusal reason — need to inspect the actual chain response (AlpacaOptionsData.list_option_contracts + .snapshots joined into ChainContract) for a live SLV/GDX pull to see whether `mid` is coming back null for most/all contracts (feed-quality issue) or whether the DTE band itself is misconfigured relative to what's actually listed.",
+      "evidence": [
+        "diag relay issue #7132 (benbaichmankass/ict-trading-bot) — trade_journal.db::trades filtered account_id=alpaca_options_paper, 14 rows, all rejected",
+        "diag relay issue #7131 — /api/bot/order-packages?strategy=slv_trend_1h and slv_pullback_1d, all status=rejected with matching options_expression reasons; gdx_pullback_1d returned 0 rows",
+        "src/units/accounts/options_selector.py lines 130-142 (the two refusal branches)",
+        "config/accounts.yaml alpaca_options_paper.options block (data_feed: indicative, target_dte: 35, min_dte: 21, max_dte: 60)"
+      ],
+      "repro": "GET /api/bot/order-packages?strategy=slv_trend_1h&include_paper=true (or slv_pullback_1d) — every row's rejected_reason / entry_reason carries options_expression:no_selection:*",
+      "next_step": "A health-review or ml-review session should pull a live options chain for SLV/GDX (via the diag relay or a scratch script hitting AlpacaOptionsData directly) to see the raw quote coverage under the indicative feed, and either (a) confirm the feed just can't supply usable mids for these underlyings and propose a fix (wider DTE band, different underlyings with more liquid options, or biting the $99/mo OPRA cost even pre-graduation to get real quotes), or (b) find a selector/config bug if the feed data is actually fine. This blocks PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION — there is no track record to grade until this is fixed."
     }
   ],
-  "updated_at": "2026-07-19T10:15:00+00:00"
+  "updated_at": "2026-07-20T14:30:00+00:00"
 }
