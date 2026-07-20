@@ -1780,6 +1780,26 @@ class Coordinator:
                             "[coordinator] intent-mode noop for %s/%s: %s",
                             account.name, pkg.symbol, delta.reason,
                         )
+                        # M26 P1 conflict-taxonomy soak (observe-only): a
+                        # hold-policy flip suppression is the live conflict
+                        # event — classify it by held-vs-opposing clock ratio
+                        # (src/runtime/conflict_taxonomy.py). Best-effort;
+                        # the noop journal row below is unchanged.
+                        if str(delta.reason or "").startswith(
+                            "flip_suppressed_hold_policy"
+                        ):
+                            from src.runtime.conflict_taxonomy import record_conflict
+                            record_conflict(
+                                account_id=account.name,
+                                symbol=pkg.symbol,
+                                opposing_strategy=pkg.strategy,
+                                opposing_side=getattr(pkg, "direction", None),
+                                opposing_confidence=getattr(
+                                    pkg, "confidence", None
+                                ),
+                                current_signed_qty=delta.current_qty,
+                                suppression_reason=delta.reason,
+                            )
                         from src.units.accounts.execute import log_rejection_to_journal
                         log_rejection_to_journal(
                             pkg, account_cfg,
