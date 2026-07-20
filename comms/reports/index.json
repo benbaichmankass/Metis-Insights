@@ -8,7 +8,7 @@
       "window_start": "2026-07-17T05:56:00+00:00",
       "window_end": "2026-07-20T08:15:00+00:00",
       "roll_up_grade": "caution",
-      "headline": "System healthy end-to-end (all services active, IB connected, no alert banners, DB intact, trainer cycling). The since-last window had NO real-money closes; recent real book bleeds modestly (7d -$8.90, 30d -$13.95 on ~$287 bybit_2) led by ada/xrp pullback + ict_scalp_5m. PROP FLAG: breakout_1 logged two losing closes (-$85.90, -$96.94 SL) leaving ~$4831 effective \u2014 only ~$131 above the $4700 blow-up floor, and the on-file balance snapshot is stale (07-17). Paper QQQ closed -$405 (extended-hours flatten). Trainer disk 90%.",
+      "headline": "System healthy end-to-end (all services active, IB connected, no alert banners, DB intact, trainer cycling). CORRECTION vs first pass: the real-money 'bleed' legs are regime-conditioned + low-n, NOT demote candidates \u2014 ada/xrp_pullback carry a live-firing adx_min:25 gate, ict_scalp_5m is already shadow (+$142 lifetime, loses only in trending+volatile). No demotions drafted. PROP: breakout_1 flat at $4825.61, ~$125.61 to the $4700 floor (fresh snapshot logged). Trainer disk 90%.",
       "html_path": "comms/reports/since-last/20260720T081500Z/report.html",
       "json_path": "comms/reports/since-last/20260720T081500Z/report.json",
       "md_path": "comms/reports/since-last/20260720T081500Z/report.md"

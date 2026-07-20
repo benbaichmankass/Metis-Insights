@@ -337,7 +337,10 @@
       "trigger_condition": "ict_scalp_5m has \u226530 closed trades distributed across \u22653 (trend, vol) cells.",
       "resolution_criteria": "A Tier-3 PR proposes the ict_scalp_5m block in regime_policy.yaml, citing the per-cell PnL evidence from a recent M7 packet run.",
       "status": "open",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        "2026-07-20 (/system-review): now have per-regime-cell PnL from the 06-30 M7 packet (18 closed): the only losing cell is trending+volatile (-$8.53/25%); all other cells positive. This is enough signal to draft the regime_policy.yaml 2-D cell block for ict_scalp_5m (trending/volatile OFF) once cell-level n>=30 accrues. Currently execution:shadow so no live exposure. Directly actionable next: cross-check n per (trend,vol) cell and, if >=30 in trending/volatile, propose the OFF cell (Tier-3)."
+      ]
     },
     {
       "id": "PB-20260609-001",
@@ -1134,7 +1137,8 @@
           "at": "2026-07-16T06:12:00+00:00",
           "by": "claude (/system-review weekly 2026-07-16)",
           "note": "CONFIRMED still degrading (real-money). 30d /performance: ict_scalp_5m n=9, winRate 66.7% but expectancy -$0.196 and expectancyR -1.26 (totalR -11.35) - high hit-rate with sharply negative R = tiny wins, full-R losses (adverse realized R:R). Lifetime attribution: 14 closed, 71.4% win, +$1.74. Recent-30d R-collapse persists; candidate for a Tier-3 exit/target review. Not yet actioned - monitoring toward a TUNE/DEMOTE decision."
-        }
+        },
+        "2026-07-20 (/system-review re-validation): M7 packet localizes the loss cleanly \u2014 ict_scalp_5m is +$142.78 / 66.7% win / expectancy +7.93 lifetime (n_closed=18), and NEGATIVE in exactly ONE regime cell: trending+volatile (-$8.53 / 25% win / 4 closed), positive in chop-calm/chop-volatile/transitional-volatile/trending-calm. Strategy is ALREADY execution:shadow (no live money at risk). Disposition: NOT a demote \u2014 author a 2-D trend_vol OFF cell {trending: {volatile: {ict_scalp_5m: {long:off, short:off}}}} in config/regime_policy.yaml once n>=30 per cell (ties to PB-20260609-002), which gates only the losing regime and preserves the edge. Tier-3 (order-routing) \u2014 operator-gated."
       ]
     },
     {

@@ -37,11 +37,11 @@ footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480
 </style></head><body><div class="wrap"><h1>System report — since-last</h1>
 <p class="meta">Generated 2026-07-20T08:15:00+00:00 · window 2026-07-17T05:56:00+00:00 → 2026-07-20T08:15:00+00:00</p>
 <p><span class="grade">Roll-up: 🟡 caution</span></p>
-<p>System healthy end-to-end (all services active, IB connected, no alert banners, DB intact, trainer cycling). The since-last window had NO real-money closes; recent real book bleeds modestly (7d -$8.90, 30d -$13.95 on ~$287 bybit_2) led by ada/xrp pullback + ict_scalp_5m. PROP FLAG: breakout_1 logged two losing closes (-$85.90, -$96.94 SL) leaving ~$4831 effective — only ~$131 above the $4700 blow-up floor, and the on-file balance snapshot is stale (07-17). Paper QQQ closed -$405 (extended-hours flatten). Trainer disk 90%.</p>
+<p>System healthy end-to-end (all services active, IB connected, no alert banners, DB intact, trainer cycling). CORRECTION vs first pass: the real-money &#x27;bleed&#x27; legs are regime-conditioned + low-n, NOT demote candidates — ada/xrp_pullback carry a live-firing adx_min:25 gate, ict_scalp_5m is already shadow (+$142 lifetime, loses only in trending+volatile). No demotions drafted. PROP: breakout_1 flat at $4825.61, ~$125.61 to the $4700 floor (fresh snapshot logged). Trainer disk 90%.</p>
 <h2>Actions &amp; backlog</h2>
 <h3>Operator priorities</h3><ul class='pri'>
-<li><b>Prop breakout_1 cushion to the $4700 static-DD floor is thin (~$131) and the balance snapshot is stale</b> <span class="pill">cross · T3</span> ⚠️ operator<br><span class='muted'>After the -$96.94 SL close just logged, effective balance ~$4831 vs the $4700 blow-up floor. Latest prop_account_status snapshot is 07-17 22:14 (pre-close). Report a fresh `bal &lt;balance&gt; &lt;equity&gt;` and decide whether to keep sizing 2-lot ETH shorts this close to the floor.</span></li>
-<li><b>Real-money alt-pullback legs (ada_pullback_2h, xrp_pullback_2h) + ict_scalp_5m are net-negative — DEMOTE_SHADOW candidates</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>30d: ada -$12.25 (16.7% win), xrp -$7.88 (20%), ict_scalp_5m expectancyR -2.0 over 7. eth_pullback_2h is the real winner (+$2.2, 60%). Tier-3 demotion proposed, not enacted — confirm before flipping execution:shadow.</span></li>
+<li><b>Prop breakout_1 cushion to the $4700 static-DD floor is thin (~$131) and the balance snapshot is stale</b> <span class="pill">cross · T3</span> ⚠️ operator<br><span class='muted'>Fresh snapshot logged this session: breakout_1 flat at $4825.61, $125.61 above the $4700 floor / $144.77 daily-loss room. Decide whether to keep sizing 2-lot ETH shorts this close to the floor.</span></li>
+<li><b>Real-money &#x27;bleed&#x27; legs are REGIME-CONDITIONED + low-n, NOT demotion candidates — the ADX gate already works</b> <span class="pill">performance · T1</span><br><span class='muted'>M7 verdict HOLD for ada/xrp_pullback_2h (n_closed=0, insufficient evidence); both already carry adx_min:25 (live audit shows XRP blocked at ADX 15.7&lt;25). ict_scalp_5m is ALREADY execution:shadow and is +$142.8/66.7% lifetime, losing ONLY in the trending+volatile cell (-$8.53/25%). No demotions. Path: author 2-D regime cells + mature the shadow regime heads.</span></li>
 <li><b>Trainer VM disk at 90% (4.9G free)</b> <span class="pill">health · T2</span><br><span class='muted'>Not yet failing builds (246 ok / 0 failed) but compounds the known trainer memory-saturation / OOM items (BL-20260715, MB-20260719-PROMOREADY-OOSEDGE-OOM). Prune old artifacts / datasets before it strands a cycle.</span></li>
 <li><b>Paper QQQ closed -$405 via delayed extended-hours flatten</b> <span class="pill">performance · T1</span><br><span class='muted'>qqq_pullback_1h alpaca_paper trade #3269 opened 07-07 finally closed 07-17 at -$405 (paper). Consistent with the known extended-hours-exit handling (ALPACA_EXT_LIMIT_BUFFER_BPS). Paper only — no money at risk; noting for the exit-behavior trail.</span></li>
 </ul>
@@ -51,9 +51,9 @@ footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480
 <div class="card"><div class="k">ml backlog</div><div class="v ">38 open / 84 total</div></div>
 </div>
 <h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
-<li><span class='pill'>performance</span> Demote ada_pullback_2h + xrp_pullback_2h to execution:shadow (real-money net-negative) — operator approval required.</li>
-<li><span class='pill'>performance</span> Decide ict_scalp_5m disposition (degrading, PB-20260630) — demote or tune.</li>
-<li><span class='pill'>cross</span> Prop sizing: whether to keep placing 2-lot ETH shorts with only ~$131 to the $4700 blow-up floor.</li>
+<li><span class='pill'>performance</span> NO demotions proposed. Instead: author a 2-D regime cell (trending+volatile OFF) for ict_scalp_5m once n&gt;=30/cell (PB-20260609-002) — gates only its losing cell, keeps the +$142 edge.</li>
+<li><span class='pill'>cross</span> Advance regime routing: mature the ETH/SOL 15m shadow regime heads toward advisory (MB-20260628) + regime-router phase 3/4 (PERF-20260601-006/007) so routing is regime-aware, not blanket. Current ML classifier-v0 collapsed (MB-20260601-002).</li>
+<li><span class='pill'>cross</span> Prop sizing decision: keep placing 2-lot ETH shorts with ~$125 to the $4700 blow-up floor? (money-at-risk)</li>
 </ul>
 <h3>Cross-review notes</h3><ul class='pri'>
 <li>Chop/transitional regime across crypto (ADX 9-24 on ETH/SOL/XRP/ADA) — donchian breakouts non-actionable all window; the modest real-money bleed is pullback/scalp legs firing into chop, not a plumbing fault.</li>
@@ -139,10 +139,7 @@ footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480
 <p class="section-empty">No model status in this report.</p>
 <h2>Review coverage</h2>
 <h3>Strategy promotion / demotion</h3><ul class='pri'>
-<li>DEMOTE_SHADOW <b>ada_pullback_2h</b> — 30d -$12.25, 16.7% win (6 trades) real money</li>
-<li>DEMOTE_SHADOW <b>xrp_pullback_2h</b> — 30d -$7.88, 20% win (3-5 trades) real money</li>
-<li>REVIEW <b>ict_scalp_5m</b> — expectancyR -2.0 over 7 (30d); PB-20260630-ICTSCALP-DEGRADE</li>
-<li class='muted'>HOLD/positive: eth_pullback_2h (+$2.21, 60%), trend_donchian_eth_4h (+$9.96). Already-demoted: htf_pullback_trend_2h. Pairs sleeve still SHADOW-soaking. Per-strategy M7 packets not pulled individually this session (relay budget); stance from /performance 7d+30d. All demotions are Tier-3 PROPOSED, not enacted.</li></ul>
+<li class='muted'>ALL HOLD — no demotions this review (corrects the initial over-flag). ada/xrp_pullback_2h: M7 HOLD (n_closed=0), adx_min:25 gate confirmed firing live (XRP blocked at ADX 15.7&lt;25 in current chop). ict_scalp_5m: ALREADY execution:shadow; +$142.8/66.7% lifetime, loss isolated to the trending+volatile regime cell (-$8.53/25%) — regime-conditioned, not structural. htf_pullback_trend_2h: already demoted 07-15 (PRB-20260716). eth_pullback_2h: HOLD (+, low-n). The M7 matrix is documented to over-fire DEMOTE at low n (PB-20260630-002). Correct lever = regime-cell authoring + ML regime-head maturation, NOT demotion.</li></ul>
 <h3>ML training health</h3><div class='cards'>
 <div class="card"><div class="k">Cycles since last</div><div class="v ">3</div></div>
 <div class="card"><div class="k">Dataset builds OK</div><div class="v ">246</div></div>
@@ -155,7 +152,7 @@ footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480
 <tr><td>MES exit-head / execution-quality</td><td>awaiting-data</td><td>empty_dataset skips — known MES native-history limitation, not a new stall.</td></tr>
 </table></div>
 <h3>Flags raised</h3>
-<ul class='pri'><li>🚩 PROP: breakout_1 ~$131 effective cushion to the $4700 static-DD floor after two losing closes; balance snapshot stale (07-17) — request fresh bal. (money-at-risk, Tier-3 sizing decision)</li><li>🚩 REAL: alt-pullback + ict_scalp_5m net-negative on real money — DEMOTE_SHADOW proposal (Tier-3)</li><li>🚩 INFRA: trainer VM disk 90% (4.9G free)</li><li>🚩 PAPER: QQQ paper -$405 extended-hours flatten (observability only)</li></ul>
+<ul class='pri'><li>🚩 PROP: breakout_1 $125.61 above the $4700 static-DD floor (fresh snapshot logged) — Tier-3 sizing decision</li><li>🚩 REGIME (not a demote): ict_scalp_5m loses only in trending+volatile; ada/xrp pullback are low-n + already ADX-gated — refine regime routing, do not demote</li><li>🚩 INFRA: trainer VM disk 90% (4.9G free)</li><li>🚩 PAPER: QQQ paper -$405 extended-hours flatten (observability only)</li></ul>
 <h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
 <div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
 <tr><td><code>PROP-CUSHION</code></td><td>cross</td><td>🗳️ awaiting-decision</td><td>breakout_1 ~$131 above the $4700 floor; awaiting fresh balance report + operator sizing call.</td><td>fresh bal report</td></tr>
