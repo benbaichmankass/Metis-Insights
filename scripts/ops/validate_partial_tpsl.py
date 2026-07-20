@@ -36,7 +36,8 @@ ACCOUNT_ID = "bybit_1"
 # live-traded on the bybit accounts) so the test never rides a real position.
 SYMBOL = "LTCUSDT"
 CATEGORY = "linear"
-QTY = 0.1  # LTCUSDT linear min order qty
+QTY_STEP = 0.1  # LTCUSDT linear qty step (= min order qty)
+MIN_NOTIONAL_USD = 6.0  # venue min order VALUE is 5 USDT (ErrCode 110094); small buffer
 
 
 def _load_demo_account():
@@ -121,12 +122,19 @@ def main() -> int:
         return 1
     print(f"lastPrice={last}")
 
+    # Venue enforces a minimum order VALUE (5 USDT, ErrCode 110094 — the
+    # third dispatch, #7152, failed here at 0.1 LTC ~= $4.75), so size from
+    # the live price rather than the min qty.
+    import math
+    qty = round(max(QTY_STEP, math.ceil(MIN_NOTIONAL_USD / last / QTY_STEP) * QTY_STEP), 1)
+    print(f"qty={qty} (~${qty * last:.2f} notional)")
+
     verdicts = []
 
     def order(sl_off, tp_off):
         return {
             "account_id": ACCOUNT_ID, "symbol": SYMBOL, "side": "Buy",
-            "qty": QTY,
+            "qty": qty,
             "sl": round(last * (1 - sl_off), 2),
             "tp": round(last * (1 + tp_off), 2),
         }
@@ -176,7 +184,7 @@ def main() -> int:
         print("=== amend order A's SL qty-scoped ===")
         from src.units.accounts.execute import modify_open_order
         amended_sl = round(last * (1 - 0.11), 2)
-        out = modify_open_order(client, cfg, symbol=SYMBOL, sl=amended_sl, qty=QTY)
+        out = modify_open_order(client, cfg, symbol=SYMBOL, sl=amended_sl, qty=qty)
         print(f"amend result: {out}")
         verdicts.append(("qty-scoped SL amend accepted", bool(out.get("ok")),
                          out.get("error")))
