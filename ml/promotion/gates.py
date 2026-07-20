@@ -110,6 +110,10 @@ class GateThresholds:
     parity_score_tol: float = 1e-6
     parity_max_mismatch_frac: float = 0.02
     parity_min_rows: int = 20
+    # Fidelity rows must postdate the current artifact's training run by this
+    # grace (mirror-sync + predictor-reload lag) — see
+    # ml.promotion.live_parity.DEFAULT_ARTIFACT_GRACE_S (2026-07-20 scoping).
+    parity_artifact_grace_s: float = 1800.0
     # `labels_accruing` (M25 reframe) — the labeled fraction of the head's
     # live rows must reach `labels_min_fraction` once `labels_min_rows` live
     # rows exist (catches the stale-candle-base labeling blockage class, e.g.
@@ -611,6 +615,26 @@ def _gate_live_parity(parity: Any, th: GateThresholds) -> GateResult:
             f"only {parity.n_live_rows} live rows with feature_row; need "
             f"≥ {th.parity_min_rows} (serving mechanics unproven yet)",
             value=float(parity.n_live_rows),
+            threshold=th.parity_max_mismatch_frac, required=required,
+        )
+    # Artifact-freshness scoping (2026-07-20): fidelity is only judged over
+    # rows logged since the CURRENT artifact's training run — rows scored by
+    # a previous nightly artifact mismatch by construction and carry no skew
+    # information. Too few fresh rows → the current artifact's serving
+    # fidelity is simply not measured yet (accrues in hours at bar cadence),
+    # NOT a fail and NOT a silent pass. getattr-guarded so an older
+    # LiveParityResult without the fields behaves as before.
+    _artifact_at = getattr(parity, "artifact_at", None)
+    _n_fresh = getattr(parity, "n_fresh_rows", None)
+    if _artifact_at is not None and _n_fresh is not None \
+            and _n_fresh < th.parity_min_rows:
+        return GateResult(
+            name, "insufficient_data",
+            f"only {_n_fresh} live rows scored since the current artifact's "
+            f"training run ({_artifact_at}); need ≥ {th.parity_min_rows} to "
+            f"judge serving fidelity for THIS artifact — fresh rows accrue "
+            f"at bar cadence (hours, not weeks)",
+            value=float(_n_fresh),
             threshold=th.parity_max_mismatch_frac, required=required,
         )
     if not parity.train_available:

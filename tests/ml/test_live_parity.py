@@ -63,12 +63,22 @@ def _setup(tmp_path: Path, *, train_rows: list[dict]) -> tuple[Path, Path, objec
     return registry_root, datasets_root, registry.get(_MODEL_ID)
 
 
-def _write_log(path: Path, rows: list[dict], *, score: float = _CONSTANT) -> None:
+def _write_log(
+    path: Path, rows: list[dict], *, score: float = _CONSTANT,
+    offset_minutes: float = 31.0,
+) -> None:
+    """Write shadow rows stamped AFTER registration + the artifact grace.
+
+    ``register()`` stamps the run at now, and fidelity only samples rows that
+    postdate the current artifact by ``DEFAULT_ARTIFACT_GRACE_S`` (30 min) —
+    so the default offset places rows just past that cutoff. Pass a negative
+    ``offset_minutes`` to write artifact-STALE rows (pre-registration)."""
     now = datetime.now(timezone.utc)
     with path.open("w", encoding="utf-8") as fh:
         for i, feature_row in enumerate(rows):
+            ts = now + timedelta(minutes=offset_minutes + i)
             fh.write(json.dumps({
-                "predicted_at_utc": (now - timedelta(minutes=len(rows) - i)).isoformat(),
+                "predicted_at_utc": ts.isoformat(),
                 "model_id": _MODEL_ID, "stage": "shadow", "score": score,
                 "row_keys": sorted(feature_row), "feature_row": feature_row,
             }) + "\n")
@@ -213,3 +223,61 @@ def test_dead_feature_universe_falls_back_without_declared_columns(tmp_path: Pat
     )
     assert res.train_available
     assert "vix_level" in res.dead_live_features
+
+
+def test_fidelity_scoped_to_artifact_fresh_rows(tmp_path: Path):
+    """Rows scored BEFORE the current artifact's run are excluded from the
+    fidelity sample (the nightly-retrain "mismatch 50/50" false blocker):
+    stale rows with a wrong score do not count as mismatches, while the
+    dead-feature check still runs over the recent window."""
+    train = [{"ts": i, "y": i * 0.1, "a": i * 0.2} for i in range(30)]
+    reg_root, ds_root, entry = _setup(tmp_path, train_rows=train)
+    log = tmp_path / "shadow.jsonl"
+    # All rows predate registration (offset −120 min) AND carry a score the
+    # current artifact would never produce — the structural false-fail shape.
+    _write_log(
+        log, [{"a": i * 0.2} for i in range(25)],
+        score=_CONSTANT + 0.1, offset_minutes=-120.0,
+    )
+    res = compute_live_parity(
+        entry, shadow_log=log, datasets_root=ds_root, registry_root=reg_root,
+    )
+    assert res.error is None
+    assert res.artifact_at is not None
+    assert res.n_live_rows == 25
+    assert res.n_fresh_rows == 0
+    assert res.n_sampled == 0           # nothing fresh to judge
+    assert res.n_mismatched == 0        # stale rows are NOT mismatches
+    assert res.train_available is True  # dead-feature check still ran
+
+
+def test_fidelity_fresh_rows_still_catch_real_mismatch(tmp_path: Path):
+    """Rows that DO postdate the artifact and mismatch are the real
+    serving-staleness signal — scoping must not blind the gate to it."""
+    train = [{"ts": i, "y": i * 0.1, "a": i * 0.2} for i in range(30)]
+    reg_root, ds_root, entry = _setup(tmp_path, train_rows=train)
+    log = tmp_path / "shadow.jsonl"
+    _write_log(log, [{"a": i * 0.2} for i in range(25)], score=_CONSTANT + 0.1)
+    res = compute_live_parity(
+        entry, shadow_log=log, datasets_root=ds_root, registry_root=reg_root,
+    )
+    assert res.n_fresh_rows == 25
+    assert res.n_mismatched == res.n_sampled == 25
+
+
+def test_gate_insufficient_when_no_artifact_fresh_rows(tmp_path: Path):
+    """The live_parity GATE reports insufficient_data (not fail, not pass)
+    when plenty of live rows exist but none postdate the current artifact."""
+    from ml.promotion.gates import _gate_live_parity, regime_classifier_thresholds
+    from ml.promotion.live_parity import LiveParityResult
+
+    parity = LiveParityResult(
+        model_id=_MODEL_ID, n_live_rows=1292, n_sampled=0, n_mismatched=0,
+        train_available=True,
+        artifact_at="2026-07-20T01:38:51+00:00", n_fresh_rows=3,
+    )
+    th = regime_classifier_thresholds()
+    result = _gate_live_parity(parity, th)
+    assert result.status == "insufficient_data"
+    assert result.required is True
+    assert "since the current artifact" in result.detail

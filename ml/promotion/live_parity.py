@@ -49,6 +49,13 @@ from typing import Any, Callable, Mapping, Sequence
 DEFAULT_SAMPLE_N = 50
 DEFAULT_SCORE_TOL = 1e-6
 DEFAULT_MAX_TRAIN_ROWS = 5000
+# Serving-fidelity rows must postdate the CURRENT artifact's training run by
+# this grace (mirror-sync + predictor-reload lag) before they count. Without
+# this scoping, a nightly-retrained head fails fidelity 100% STRUCTURALLY —
+# the check re-scores yesterday's rows (scored by yesterday's artifact) with
+# today's artifact (the 2026-07-20 BTC/SOL "mismatch 50/50" false blocker;
+# shadow rows carry no artifact identity to key on, so time is the proxy).
+DEFAULT_ARTIFACT_GRACE_S = 1800.0
 
 
 @dataclass(frozen=True)
@@ -64,6 +71,14 @@ class LiveParityResult:
     dead_train_features: tuple[str, ...] = field(default_factory=tuple)
     train_available: bool = False  # training dataset was readable for (b)
     error: str | None = None
+    # Artifact-freshness scoping (2026-07-20): when the entry's newest
+    # training run is resolvable, `artifact_at` is its ISO timestamp and
+    # `n_fresh_rows` counts live rows logged AFTER it (+ grace) — the only
+    # rows the CURRENT artifact can be expected to reproduce. `None` on a
+    # legacy entry with no run history (fidelity then samples all rows,
+    # the pre-scoping behaviour).
+    artifact_at: str | None = None
+    n_fresh_rows: int | None = None
 
     @property
     def mismatch_fraction(self) -> float | None:
@@ -83,6 +98,8 @@ class LiveParityResult:
             "dead_train_features": list(self.dead_train_features),
             "train_available": self.train_available,
             "error": self.error,
+            "artifact_at": self.artifact_at,
+            "n_fresh_rows": self.n_fresh_rows,
         }
 
 
@@ -239,6 +256,43 @@ def dead_features(
     return tuple(dead_live), tuple(dead_train)
 
 
+def _artifact_registered_at(entry: Any):
+    """The CURRENT artifact's training-run timestamp (aware UTC) or ``None``.
+
+    Resolved as the newest ``entry.runs[].at`` — the registry contract is
+    that the newest run's ``model_state_path`` IS the entry's current
+    artifact. Naive datetimes are treated as UTC. Never raises; a legacy
+    entry with no run history resolves ``None`` (freshness scoping is then
+    skipped — pre-scoping behaviour)."""
+    try:
+        from datetime import timezone as _tz
+
+        run_times = [r.at for r in (getattr(entry, "runs", None) or ())]
+        if not run_times:
+            return None
+        newest = max(
+            t if t.tzinfo is not None else t.replace(tzinfo=_tz.utc)
+            for t in run_times
+        )
+        return newest
+    except Exception:  # noqa: BLE001 — unresolvable run history = no scoping
+        return None
+
+
+def _row_time(record: Any):
+    """A shadow record's ``predicted_at_utc`` as an aware-UTC datetime, or
+    ``None`` when unparseable (such a row never counts as artifact-fresh)."""
+    try:
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
+
+        raw = str(record.predicted_at_utc).replace("Z", "+00:00")
+        ts = _dt.fromisoformat(raw)
+        return ts if ts.tzinfo is not None else ts.replace(tzinfo=_tz.utc)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _load_train_rows(
     entry: Any, datasets_root: Path | str | None, *, max_rows: int,
 ) -> tuple[list[dict[str, Any]] | None, frozenset[str], frozenset[str]]:
@@ -282,10 +336,21 @@ def compute_live_parity(
     sample_n: int = DEFAULT_SAMPLE_N,
     score_tol: float = DEFAULT_SCORE_TOL,
     max_train_rows: int = DEFAULT_MAX_TRAIN_ROWS,
+    artifact_grace_s: float = DEFAULT_ARTIFACT_GRACE_S,
 ) -> LiveParityResult:
     """Compute the live serving-mechanics parity evidence for one registry
     ``entry``. Never raises — any failure is folded into ``error`` so the
-    gate reports ``insufficient_data`` (fail-safe, never a silent pass)."""
+    gate reports ``insufficient_data`` (fail-safe, never a silent pass).
+
+    **Artifact-freshness scoping (2026-07-20):** serving fidelity is judged
+    only over rows logged AFTER the current artifact's training run
+    (+ ``artifact_grace_s`` for mirror-sync/predictor-reload lag). Rows
+    scored by a PREVIOUS nightly artifact mismatch today's re-score by
+    construction and carry no skew information (the BTC/SOL "mismatch
+    50/50" false blocker). Rows that DO postdate the artifact and still
+    mismatch are the real serving-staleness signal (a live process holding
+    an old model in memory). Dead-feature parity keeps the broad recent
+    window — feature liveness is a pipeline property, not an artifact one."""
     model_id = str(entry.model_id)
     # 1. Live rows with feature_row (real-time only — backfill rows replay
     #    history through the current model and would trivially "match").
@@ -312,7 +377,27 @@ def compute_live_parity(
         )
     rows.sort(key=lambda r: r.predicted_at_utc)
     n_live = len(rows)
-    sampled = rows[-max(0, int(sample_n)):] if sample_n else []
+    recent = rows[-max(0, int(sample_n)):] if sample_n else []
+
+    # Artifact-freshness scoping: fidelity samples only rows the CURRENT
+    # artifact could have produced (see docstring). Legacy entries with no
+    # run history sample the plain recent window.
+    artifact_at = _artifact_registered_at(entry)
+    artifact_at_iso: str | None = None
+    n_fresh: int | None = None
+    if artifact_at is not None:
+        from datetime import timedelta as _td
+
+        cutoff = artifact_at + _td(seconds=max(0.0, float(artifact_grace_s)))
+        fresh = [
+            r for r in rows
+            if (ts := _row_time(r)) is not None and ts >= cutoff
+        ]
+        n_fresh = len(fresh)
+        artifact_at_iso = artifact_at.isoformat()
+        sampled = fresh[-max(0, int(sample_n)):] if sample_n else []
+    else:
+        sampled = recent
 
     # 2. Registered artifact (the exact loader the live runtime uses).
     try:
@@ -328,12 +413,15 @@ def compute_live_parity(
             error=f"model artifact load failed: {exc}",
         )
 
-    # 3a. Serving fidelity over the sampled rows.
+    # 3a. Serving fidelity over the (artifact-fresh) sampled rows.
     pairs = [(dict(r.feature_row or {}), float(r.score)) for r in sampled]
     n_mismatched = score_fidelity(pairs, sp.predict, score_tol=score_tol)
 
     # 3b. Dead-feature parity vs the training dataset, judged over the
     #     model's consumed feature_columns when the manifest declares them.
+    #     Uses the broad recent window (not the artifact-fresh sample):
+    #     feature liveness is a property of the live pipeline, so a fresh
+    #     retrain must not blind the ETH-xa dead-feature detector.
     train_rows, exclude, consumed = _load_train_rows(
         entry, datasets_root, max_rows=max_train_rows,
     )
@@ -342,14 +430,16 @@ def compute_live_parity(
             model_id=model_id, n_live_rows=n_live, n_sampled=len(pairs),
             n_mismatched=n_mismatched, score_tol=score_tol,
             train_available=False,
+            artifact_at=artifact_at_iso, n_fresh_rows=n_fresh,
         )
     dead_live, dead_train = dead_features(
-        [p[0] for p in pairs], train_rows, exclude=exclude,
-        restrict_to=consumed or None,
+        [dict(r.feature_row or {}) for r in recent], train_rows,
+        exclude=exclude, restrict_to=consumed or None,
     )
     return LiveParityResult(
         model_id=model_id, n_live_rows=n_live, n_sampled=len(pairs),
         n_mismatched=n_mismatched, score_tol=score_tol,
         dead_live_features=dead_live, dead_train_features=dead_train,
         train_available=True,
+        artifact_at=artifact_at_iso, n_fresh_rows=n_fresh,
     )
