@@ -1840,6 +1840,32 @@
     }
    ],
    "updates": []
+  },
+  {
+   "id": "MB-20260720-LIVE-SERVING-PARITY-SKEW",
+   "created": "2026-07-20",
+   "priority": "P1",
+   "status": "open",
+   "title": "Live-logged shadow scores are not reproducible by ANY trainer artifact \u2014 serving-parity skew (suspect: unpinned lightgbm version divergence live-vs-trainer)",
+   "detail": "M25 live_parity gate (artifact-freshness-scoped instrument, branch commit b7a787c8) fails 100% on artifact-FRESH rows for btc-regime-15m-lgbm-fc-pcv-v1 + both SOL 15m heads (relay #7064). Discriminating probes: fresh-row deltas vs the current/prev/0718 artifacts are IDENTICAL per row (#7069), and a sweep across ALL 16 retained runs (20260701T193912Z..20260720T011421Z) gives the same residual for every artifact (max_d 1.67e-02, mean_d 1.23e-02, #7070) \u2014 so artifact identity is RULED OUT; the live serving stack computes slightly different scores than the trainer stack from the same model + same feature_row. Leading suspects: (a) requirements.txt pins only lightgbm>=4.0.0 \u2014 live venv vs trainer venv version divergence (trainer version probe: issue #7073; live venv version needs a sanctioned read \u2014 consider adding key package versions to /api/diag/version, Tier-1); (b) feature_row JSON round-trip precision (np.float32 -> str truncation in ShadowPredictor._coerce_json_safe). Deltas are small (1e-3..3e-2 on scores ~0.98) \u2014 mostly immaterial for the 0.5-thresholded vol gate at these score levels, but they blind the parity gate and CAN flip borderline bars. Fix shape: pin lightgbm to one exact version in requirements.txt + install on both venvs (Tier-2), then re-run the scoped gate-check \u2014 expect fidelity to pass if (a); if residuals persist, chase (b) with a controlled round-trip test. ALSO note: the trader-side per-process predictor caches (_PREDICTOR_CACHE in regime_bar_scoring, _ADVISORY_SPEC_CACHE in ml_vol_verdict) never reload artifacts between restarts \u2014 currently masked by near-daily deploy restarts + behaviorally-identical retrains, but it becomes live staleness the day retrains actually change the model; mtime-aware invalidation is the durable fix (Tier-2).",
+   "evidence": [
+    "issue #7064 (scoped re-gate: 25/25 + 22/22 fresh-row mismatches)",
+    "issue #7069 (cur/prev/0718 deltas identical per row)",
+    "issue #7070 (all-16-run sweep, max_d 1.67e-02 for every artifact)",
+    "requirements.txt:65 lightgbm>=4.0.0 unpinned"
+   ]
+  },
+  {
+   "id": "MB-20260720-FCPCV-RETRAIN-NOOP",
+   "created": "2026-07-20",
+   "priority": "P1",
+   "status": "open",
+   "title": "btc-regime-15m-lgbm-fc-pcv-v1 nightly retrains are behaviorally IDENTICAL across 16 runs (Jul 1-20) \u2014 training is not incorporating new data",
+   "detail": "The all-runs sweep (#7070) shows every retained run from 20260701T193912Z to 20260720T011421Z produces byte-identical predictions on the same feature rows (max_d/mean_d identical to 3 s.f. across all 16), matching the gate-check's cross_run_stability std('macro_f1')=0.0000 over 10 runs. A model retrained nightly on a GROWING dataset should drift slightly every run. Suspects: the fc-pcv dataset build is pinned/stale (not rebuilt with new rows), the trainer caches/skips when the dataset is unchanged, or the manifest trains on a frozen window. Consequence: the 'nightly retrain self-corrects drift' assumption in the drift-remediation playbook is FICTION for this head (and likely siblings \u2014 SOL fc-pcv shows std=0.0 over 3 runs; check the full fleet). Verify: compare the dataset build mtimes/row counts consumed by consecutive fc-pcv runs; check dataset_builds.jsonl for the market_features/BTCUSDT/15m family build cadence. Fix: ensure the nightly build actually appends fresh rows and the trainer consumes the updated version pin.",
+   "evidence": [
+    "issue #7070 (16 identical runs)",
+    "gate-check cross_run_stability std=0.0 over 10 runs (#7064)"
+   ]
   }
  ],
  "updated_at": "2026-07-18T10:15:00+00:00"
