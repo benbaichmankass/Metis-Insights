@@ -481,16 +481,24 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
-    execution: shadow        # shadow-guard: allow — operator-approved Unit B demotion; live
-                             # real-money record −0.64R/trade over 15 trades
-                             # (totalR −9.6; backtest −0.99R/trade, −467R) — wins
-                             # small, lets losses run, net-negative at any size.
-                             # Shadow keeps it observing (logs order packages) but
-                             # sends NO live order, so the negative cell can't bleed
-                             # 5× under the new uniform 1.5% basis. Revisit only after
-                             # an exit-logic redesign fixes the R:R (re-backtested +
-                             # operator-approved). A 5y sweep found no min_confidence
-                             # floor salvages net_R — it's a structural R:R problem.
+    execution: live          # RE-PROMOTED shadow -> live 2026-07-20 (Tier-3,
+                             # operator-approved Phase-4 packet:
+                             # docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md).
+                             # The 2026-07-14 demotion's evidence did not survive
+                             # Phase-0 re-examination: the "-467R / -0.99R/trade 5y
+                             # backtest" is unreproducible (no artifact exists; fresh
+                             # config-exact 3.2y runs are +117R/+122R GROSS), and the
+                             # live "-0.64R/trade" record was dominated by journal
+                             # misattribution under netting (BL-20260720-ICTSCALP-
+                             # PASTSTOP-EXITS — exchange brackets fired correctly).
+                             # Real structural issue = fee load (~0.20R/trade), which
+                             # is net-negative ONLY in the volatile cells -> gated by
+                             # the two trend_vol OFF cells in config/regime_policy.yaml
+                             # (chop/volatile + trending/volatile; k-fold OOS +20.3R
+                             # (5m label) / +29.1R (15m ML-verdict proxy), 3/4 folds).
+                             # Full evidence: docs/research/ict_scalp_5m-phase0-
+                             # findings-2026-07-20.md. Fee-load reduction (M20 levers)
+                             # remains the open Phase-2 follow-up.
     timeframe: "5m"
     symbols:
       - BTCUSDT

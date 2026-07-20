@@ -1,0 +1,24 @@
+{
+  "strategy": "ict_scalp_5m",
+  "symbol": "BTCUSDT",
+  "timeframe": "5m",
+  "total_trades": 659,
+  "winning_trades": 337,
+  "losing_trades": 322,
+  "win_rate_pct": 51.14,
+  "expectancy_r": 0.1782,
+  "total_r": 117.4562,
+  "max_drawdown_r": 13.2849,
+  "sharpe_r": 0.185,
+  "avg_win_r": 0.9926,
+  "avg_loss_r": -0.6741,
+  "by_outcome": {
+    "sl_hit": 167,
+    "tp_hit": 169,
+    "timeout": 323
+  },
+  "data_start": "2023-01-01 00:00:00+00:00",
+  "data_end": "2026-02-28 23:55:00+00:00",
+  "bars": 332624,
+  "run_date": "2026-07-20"
+}
