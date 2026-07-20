@@ -4850,6 +4850,14 @@
      "note": "RESOLVED + verified live this review. The memory tuning was applied (operator delegated the choice, PR #6892 MemorySwapMax=0 + #6897 MemoryHigh=infinity, both merged + set-property'd live). Health-review trainer relay 2026-07-19T06:57Z confirms effective caps MemoryMax=5G / MemorySwapMax=0 / MemoryHigh=infinity; the last daily cycle completed (InactiveEnter 06:03Z) with 35 manifest_ok + 5 manifest_timeout (heavy heads cleanly time-out/quarantine, non-zero cycle exit is that, not a wedge); trainer_status.json publishing fresh (06:56Z), 5.2G free, no re-wedge, no 'Trainer VM DOWN' banner on the live VM. The D-state swap-thrash mechanism is gone (no swap to thrash + no premature soft throttle)."
     }
    ]
+  },
+  {
+   "id": "BL-20260720-GH-ACTIONS-PUSH-EVENTS-DEAD",
+   "created": "2026-07-20",
+   "priority": "P2",
+   "status": "open",
+   "title": "GitHub Actions stopped triggering on push/pull_request events repo-wide (~07:30Z 2026-07-20) while issue-event workflows kept running",
+   "detail": "Every push to claude/ict-ml-continuation-7zp8by after cd4cc455 (07:30Z) produced ZERO workflow runs (verified via actions list: newest push-event runs repo-wide are the 06:07Z main merge; newest pull_request-event runs are 07:30Z). Draft->ready, empty-commit retrigger, and even closing #7049 + opening a fresh PR #7082 (a NEW opened event) all produced no check runs. Meanwhile issues-triggered workflows (trainer-vm-diag, vm-diag-snapshot, system-actions send-ping) ran normally throughout - so Actions itself is up; the push/pull_request webhook->Actions path is what is dead. Presumed GitHub-side incident (githubstatus.com unreachable through the session proxy, 403). IMPACT: PR merges blocked on required checks; PR #7082 (M26 P1 soak + live_parity scoping + lightgbm pin) is waiting with all local suites green (987 ml + 19 + 53). ACTION: re-check each hour; when events recover, re-fire CI (empty commit or draft toggle) and merge. If still dead after several hours, consider whether branch-protection required-check expectations can be satisfied another way (operator decision, not autonomous)."
   }
  ],
  "updated_at": "2026-07-19T10:15:00+00:00"
