@@ -111,6 +111,12 @@ trend_vol:
       # trending+CALM but −$224 in trending+VOLATILE — a violent "trend" is
       # false-breakout territory for a Donchian long; keep calm, gate volatile.
       trend_donchian:      { long: off }
+      # ict_scalp_5m Phase-4 gate (2026-07-20, operator-approved packet:
+      # docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md).
+      # Net-of-fee bleed cell: expR −0.039 (n=166, Run B live-exit backtest);
+      # k-fold OOS for the two-cell gate +20.3R (5m frozen label) / +29.1R
+      # (15m label = ML-verdict proxy), 3/4 folds positive.
+      ict_scalp_5m:        { long: off, short: off }
     calm:
       squeeze_breakout_4h: { short: off }   # −$55 / 30t  (breakout-short into a calm uptrend)
   transitional:
@@ -119,3 +125,8 @@ trend_vol:
   chop:
     calm:
       trend_donchian:      { long: off }    # −$218 / 11t (trend strat long in chop = no trend to ride)
+    volatile:
+      # ict_scalp_5m Phase-4 gate (2026-07-20, same packet as the trending/
+      # volatile cell above). The WORST net-of-fee cell: expR −0.104 (n=155,
+      # Run B live-exit backtest).
+      ict_scalp_5m:        { long: off, short: off }

@@ -198,3 +198,31 @@ or promotion change enacted; all forward actions proposed as Tier-3.
   against the live DB. Fix 2 (tpsl semantics under netting — qty-scoped
   partial tpsl vs position-level acceptance) remains a Tier-3 design
   decision, not built here.
+
+## Addendum 3 — Phase-4 packet APPLIED + Fix 2 built (operator-approved)
+
+- **Phase-4 packet applied (Tier-3, operator approval 2026-07-20 in chat):**
+  `config/regime_policy.yaml` gains the two ict_scalp_5m OFF cells
+  (trending/volatile + chop/volatile, evidence comments citing the k-fold
+  OOS) and `config/strategies.yaml::ict_scalp_5m.execution` flipped
+  shadow → live with the demotion note rewritten to the verified record
+  (unreproducible baseline + misattribution + fee-load truth + the gate).
+  dry-run-guard: promotion direction — no annotation needed. Routing
+  intact (bybit_1/bybit_2/bybit_portfolio). 50 regime-policy/gate tests
+  green; YAML parse verified.
+- **Fix 2 built (rollout-gated):** `BYBIT_TPSL_MODE` ∈ {full (default),
+  partial} in `execute.py` — partial attaches qty-scoped brackets on
+  placement (`tpslMode=Partial` + sizes) and qty-scopes the monitor's SL
+  amend (`modify_open_order`, caller already forwards qty). Default full
+  is wire-format byte-identical (regression-tested).
+  `tests/test_bybit_partial_tpsl.py` (9 tests).
+- **Venue validation vehicle:** new Tier-2 action `validate-partial-tpsl`
+  (workflow + wrapper + docs + notify + tests; 343 tests green) —
+  demo-locked to bybit_1, places 2 tiny netted orders, verifies BOTH
+  bracket pairs coexist + a qty-scoped amend survives, cleans up.
+  Runs post-merge (workflow executes from main). PASS = evidence gate for
+  the Tier-3 `set-env BYBIT_TPSL_MODE=partial` flip.
+- **Post-merge sequence:** (1) git-sync deploys; (2) `repair-netted-rows`
+  dry-run → apply; (3) `validate-partial-tpsl` → on PASS, operator OKs the
+  env flip; (4) first-decision health check (M20 P7) on ict_scalp's first
+  live fire.
