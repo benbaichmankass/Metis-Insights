@@ -19,6 +19,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/ops/_lib.sh
 source "${SCRIPT_DIR}/_lib.sh"
 
+# Inherit the live trader's runtime env (.env): Bybit demo creds + BYBIT_TESTNET,
+# so the one-shot validation client authenticates exactly like
+# ict-trader-live.service does. System-action wrappers run via SSH from a fresh
+# shell and do NOT inherit the systemd unit's EnvironmentFile — without this the
+# client build fails with "creds missing" (the #1314 failure class; seen live on
+# the first validate-partial-tpsl dispatch, issue #7142).
+load_runtime_secrets
+
 PY_SCRIPT="${REPO_DIR}/scripts/ops/validate_partial_tpsl.py"
 
 if [ ! -f "${PY_SCRIPT}" ]; then
@@ -32,8 +40,11 @@ log "Running validate_partial_tpsl.py (demo account bybit_1, places + cleans up 
 echo
 echo "===== validate_partial_tpsl.py ====="
 
+PY="${REPO_DIR}/.venv/bin/python3"
+[ -x "${PY}" ] || PY="python3"
+
 set +e
-python3 "${PY_SCRIPT}"
+"${PY}" "${PY_SCRIPT}"
 exit_code=$?
 set -e
 
