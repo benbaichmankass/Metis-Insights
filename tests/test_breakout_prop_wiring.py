@@ -62,13 +62,16 @@ def test_prop_account_config():
     assert a["account_state"] == "evaluation"      # eval→funded lifecycle tracked
     assert a["phase_requirements"]["target_profit_pct"] == 0.10
     # 2026-06-25 (Tier-3, operator-approved): the swap-robust variant
-    # eth_pullback_prop_2h promoted to live + the original eth_pullback_2h routed
-    # to the prop account, both +EV at Breakout's real 0.033%/day swap.
+    # eth_pullback_prop_2h promoted to live at Breakout's real 0.033%/day swap.
     # Unit C clean rebuild (2026-06-29, DRAFT Tier-3): the two swap-robust prop
     # EXIT variants routed to breakout_1 as execution: shadow (observe-only soak).
+    # 2026-07-20 (Tier-3, operator-approved /system-review de-dup, PR #7060):
+    # eth_pullback_2h removed from breakout_1 — it fired the same entries as
+    # eth_pullback_prop_2h and the intent dedup emitted the worse twin
+    # (PB-20260625-001); it stays live on its bybit_1/bybit_2 routes.
     assert set(a["strategies"]) == {
         "trend_donchian_sol", "trend_donchian_eth",
-        "eth_pullback_prop_2h", "eth_pullback_2h",
+        "eth_pullback_prop_2h",
         "trend_donchian_sol_prop", "trend_donchian_eth_prop"}
     assert set(a["symbols"]) == {"SOLUSDT", "ETHUSDT"}
 
