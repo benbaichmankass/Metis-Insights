@@ -1,6 +1,17 @@
-# M25 — BTC/SOL vol-head Tier-3 promotion packets (DRAFT, 2026-07-20)
+# M25 — BTC/SOL vol-head Tier-3 promotion packets (EXECUTED, 2026-07-20)
 
-**Status: APPROVED (operator, 2026-07-20 ~10:05Z chat: Tier-2 deploy + BOTH Tier-3 promotions — "the promotions are approved too, just ping me when you do it"). Execution is sequenced on serving-fidelity certification; no further approval gate.** Under the
+**Status: EXECUTED 2026-07-20 20:01Z (operator-pre-approved ~10:05Z chat).**
+Final gate-check read `ready:true` on BOTH candidates (all 8 required gates
+PASS — `live_parity` genuinely green under the fixed instrument: fidelity
+0/50 mismatches, no dead features; relay #7173). All four promote-stage
+actions executed atomically, registry stages verified (#7174), mirror
+published 19:57Z, trader restarted 20:00:57Z (#7175) to activate, and the
+first-decision check confirmed both heads serving at `advisory` (the log rows
+flip `shadow`→`advisory` exactly at the restart boundary — #7177/#7178).
+Operator done-ping sent (#7176). Rollback levers unchanged (below). The
+original approval record follows:
+
+**Status (original): APPROVED (operator, 2026-07-20 ~10:05Z chat: Tier-2 deploy + BOTH Tier-3 promotions — "the promotions are approved too, just ping me when you do it"). Execution is sequenced on serving-fidelity certification; no further approval gate.** Under the
 M25 gate reframe (operator-approved 2026-07-19: edge is proven OFFLINE by the
 purged walk-forward `oos_edge` gate; the live soak proves serving MECHANICS),
 both candidates pass every required gate except `live_parity`.
