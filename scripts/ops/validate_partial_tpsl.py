@@ -4,11 +4,18 @@ BL-20260720-ICTSCALP-PASTSTOP-EXITS).
 
 Runs ON the live VM (via the ``validate-partial-tpsl`` operator action)
 against the DEMO account ``bybit_1`` only — hard-locked; refuses any other
-account. Places two tiny netted BTCUSDT orders with qty-scoped Partial
-tpsl, verifies both bracket pairs coexist on the venue (the whole point:
-under Full mode the second order would REPLACE the first's bracket),
-amends one SL qty-scoped, then cleans up (cancels stop orders, reduce-only
-closes the position).
+account. Places two tiny netted orders with qty-scoped Partial tpsl,
+verifies both bracket pairs coexist on the venue (the whole point: under
+Full mode the second order would REPLACE the first's bracket), amends one
+SL qty-scoped, then cleans up (cancels the stop orders, reduce-only closes
+the test position, restores the symbol's tpsl mode to Full).
+
+The test runs on an ISOLATED symbol no strategy trades (first run, issue
+#7145, used BTCUSDT: the demo account's live strategies held a 0.016
+position with a Full-mode bracket, which (a) pinned the position-level
+tpslMode read at "Full" regardless of our Partial legs and (b) made the
+cleanup's flatten close THEIR position, not just the test's). A flat-at-
+start guard aborts rather than run contaminated.
 
 Exit 0 with a PASS/FAIL verdict line per check; nonzero on a structural
 failure. Every raw response is printed for the workflow comment.
@@ -25,8 +32,11 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 ACCOUNT_ID = "bybit_1"
-SYMBOL = "BTCUSDT"
+# Deliberately OUTSIDE every strategy roster (BTC/ETH/SOL/XRP/ADA/AVAX are
+# live-traded on the bybit accounts) so the test never rides a real position.
+SYMBOL = "LTCUSDT"
 CATEGORY = "linear"
+QTY = 0.1  # LTCUSDT linear min order qty
 
 
 def _load_demo_account():
@@ -57,6 +67,27 @@ def _stop_orders(client):
     return ((resp or {}).get("result") or {}).get("list") or []
 
 
+def _position_size(client) -> float:
+    pos = client.get_positions(category=CATEGORY, symbol=SYMBOL)
+    row = (((pos or {}).get("result") or {}).get("list") or [{}])[0]
+    try:
+        return float(row.get("size") or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _set_tpsl_mode(client, mode: str) -> None:
+    """Best-effort position tpsl-mode flip; 'already this mode' is fine."""
+    try:
+        resp = client.set_tp_sl_mode(
+            category=CATEGORY, symbol=SYMBOL, tpSlMode=mode,
+        )
+        print(f"set_tp_sl_mode({mode}): retCode={((resp or {}).get('retCode'))} "
+              f"retMsg={((resp or {}).get('retMsg'))}")
+    except Exception as exc:  # noqa: BLE001 — mode may already match
+        print(f"set_tp_sl_mode({mode}): {exc}")
+
+
 def main() -> int:
     acct = _load_demo_account()
     from src.units.accounts.clients import bybit_client_for
@@ -65,6 +96,17 @@ def main() -> int:
     client = bybit_client_for(acct)
     if client is None:
         print("FAIL: could not build bybit client for bybit_1 (creds missing?)")
+        return 1
+
+    # Flat-at-start guard: a pre-existing position or working stop orders on
+    # the test symbol would contaminate every check AND put the cleanup at
+    # risk of touching state that is not ours (the #7145 BTCUSDT lesson).
+    pre_size = _position_size(client)
+    pre_stops = _stop_orders(client)
+    if pre_size > 0 or pre_stops:
+        print(f"FAIL: {SYMBOL} is not flat on {ACCOUNT_ID} "
+              f"(size={pre_size}, stop_orders={len(pre_stops)}) — refusing to "
+              "run on a contaminated symbol. Retry when flat.")
         return 1
 
     os.environ["BYBIT_TPSL_MODE"] = "partial"
@@ -79,18 +121,22 @@ def main() -> int:
         return 1
     print(f"lastPrice={last}")
 
-    qty = 0.001
     verdicts = []
 
     def order(sl_off, tp_off):
         return {
             "account_id": ACCOUNT_ID, "symbol": SYMBOL, "side": "Buy",
-            "qty": qty,
-            "sl": round(last * (1 - sl_off), 1),
-            "tp": round(last * (1 + tp_off), 1),
+            "qty": QTY,
+            "sl": round(last * (1 - sl_off), 2),
+            "tp": round(last * (1 + tp_off), 2),
         }
 
     try:
+        # Establish Partial mode explicitly while the symbol is flat (the
+        # per-order tpslMode=Partial attribute should do this implicitly on
+        # a clean symbol, but the explicit set is deterministic).
+        _set_tpsl_mode(client, "Partial")
+
         print("=== place order A (partial tpsl) ===")
         a = order(0.10, 0.10)
         _submit_order(client, a, cfg)
@@ -129,8 +175,8 @@ def main() -> int:
 
         print("=== amend order A's SL qty-scoped ===")
         from src.units.accounts.execute import modify_open_order
-        amended_sl = round(last * (1 - 0.11), 1)
-        out = modify_open_order(client, cfg, symbol=SYMBOL, sl=amended_sl, qty=qty)
+        amended_sl = round(last * (1 - 0.11), 2)
+        out = modify_open_order(client, cfg, symbol=SYMBOL, sl=amended_sl, qty=QTY)
         print(f"amend result: {out}")
         verdicts.append(("qty-scoped SL amend accepted", bool(out.get("ok")),
                          out.get("error")))
@@ -143,7 +189,9 @@ def main() -> int:
         verdicts.append(
             ("amend did not destroy the sibling bracket", n_sl2 >= 2, f"n_sl={n_sl2}"))
     finally:
-        print("=== cleanup: cancel stop orders + reduce-only close ===")
+        # The flat-at-start guard proved everything on this symbol is ours,
+        # so cancel-all + flatten-the-symbol is exactly test-scoped.
+        print("=== cleanup: cancel stop orders + reduce-only close + restore Full mode ===")
         try:
             for s in _stop_orders(client):
                 try:
@@ -151,15 +199,15 @@ def main() -> int:
                                         orderId=s.get("orderId"))
                 except Exception as exc:  # noqa: BLE001
                     print(f"  cancel {s.get('orderId')}: {exc}")
-            pos = client.get_positions(category=CATEGORY, symbol=SYMBOL)
-            size = float(((((pos or {}).get("result") or {}).get("list") or [{}])[0]
-                          ).get("size") or 0)
+            size = _position_size(client)
             if size > 0:
                 client.place_order(
                     category=CATEGORY, symbol=SYMBOL, side="Sell",
                     orderType="Market", qty=str(size), reduceOnly=True,
                 )
                 print(f"  reduce-only closed size={size}")
+            # Leave the venue as we found it (live default is Full mode).
+            _set_tpsl_mode(client, "Full")
         except Exception as exc:  # noqa: BLE001
             print(f"  cleanup error (manual demo cleanup may be needed): {exc}")
 

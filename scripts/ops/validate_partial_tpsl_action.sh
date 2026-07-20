@@ -4,7 +4,8 @@
 #
 # Wraps scripts/ops/validate_partial_tpsl.py — hard-locked to bybit_1
 # (account_class: paper / demo: true; the script refuses anything else).
-# Places two tiny netted BTCUSDT orders with qty-scoped Partial tpsl,
+# Places two tiny netted orders (isolated symbol LTCUSDT, flat-at-start
+# guarded) with qty-scoped Partial tpsl,
 # verifies BOTH bracket pairs coexist on the venue (under the current Full
 # mode the second order would replace the first's bracket — the June 21-23
 # incident mechanism), amends one SL qty-scoped, then cleans up (cancels
