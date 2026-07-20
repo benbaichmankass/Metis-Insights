@@ -84,7 +84,9 @@ _ML_VOL_PBAR_CACHE: dict[str, tuple[Any, Optional[float]]] = {}
 # {spec fields + predictor}`` map. Mirrors ``vol_detector._VOL_SPEC_CACHE``:
 # the specs are frozen at fit time, so resolving once per process (cleared on
 # every deploy/restart) is correct. ``None`` = not yet resolved.
-_ADVISORY_SPEC_CACHE: Optional[dict] = None
+# (registry_fingerprint, specs) — the fingerprint gates cache validity so a
+# registry stage change (promotion) rotates the cache without a restart.
+_ADVISORY_SPEC_CACHE: Optional[tuple] = None
 
 
 def _norm(s: Any) -> str:
@@ -148,8 +150,22 @@ def discover_advisory_stage_regime_specs(*, force: bool = False) -> dict:
     yields ``{}`` so the verdict degrades to ``unknown`` everywhere.
     """
     global _ADVISORY_SPEC_CACHE
+    # Registry fingerprint gates the cache (2026-07-20): a promotion changes
+    # per-model JSON mtimes (the mirror publish rewrites them), so a stage
+    # change reaches this process on the next call — no restart needed. A
+    # fingerprint error yields the stable -1.0, retaining the cached specs.
+    try:
+        from ml.shadow.factory import DEFAULT_REGISTRY_ROOT as _REG_ROOT
+
+        from src.runtime.registry_fingerprint import registry_fingerprint
+
+        _fp = registry_fingerprint(_REG_ROOT)
+    except Exception:  # noqa: BLE001 — fingerprint is best-effort
+        _fp = -1.0
     if _ADVISORY_SPEC_CACHE is not None and not force:
-        return _ADVISORY_SPEC_CACHE
+        cached_fp, cached_specs = _ADVISORY_SPEC_CACHE
+        if cached_fp == _fp:
+            return cached_specs
     specs: dict = {}
     try:
         from pathlib import Path
@@ -200,7 +216,7 @@ def discover_advisory_stage_regime_specs(*, force: bool = False) -> dict:
             exc_info=False,
         )
         specs = {}
-    _ADVISORY_SPEC_CACHE = specs
+    _ADVISORY_SPEC_CACHE = (_fp, specs)
     return specs
 
 
