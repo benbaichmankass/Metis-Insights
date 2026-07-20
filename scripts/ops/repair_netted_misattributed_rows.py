@@ -41,7 +41,7 @@ BACKLOG_ID = "BL-20260720-ICTSCALP-PASTSTOP-EXITS"
 
 # (trade_id, expected_pnl, expected_exit_price, why, probable_true_exit)
 TARGETS = [
-    (2453, -2970.986, 63122.9,
+    (2453, -2970.98599578, 63122.9,
      "carries trade 2529's pnl (paper cross-write; own geometry implies ~-258)",
      None),
     (2757, -5.2701, 62402.2,
