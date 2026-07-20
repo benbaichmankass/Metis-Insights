@@ -147,7 +147,9 @@ def backtest_table(paths: List[str]) -> Dict[str, Any]:
                 agg["mae"].append(float(m["mae_r"]))
         table = []
         for c, agg in sorted(cells.items()):
-            rs = agg.pop("rs"); mfe = agg.pop("mfe"); mae = agg.pop("mae")
+            rs = agg.pop("rs")
+            mfe = agg.pop("mfe")
+            mae = agg.pop("mae")
             table.append({
                 "cell": {"trend": c[0], "vol": c[1]},
                 "n": agg["n"], "wins": agg["wins"],
