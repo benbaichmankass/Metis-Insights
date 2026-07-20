@@ -150,3 +150,27 @@ or promotion change enacted; all forward actions proposed as Tier-3.
 - [x] Roadmap checked (research session; no milestone flip)
 - [x] Contradictions recorded (unreproducible demotion baseline; skill-doc drift)
 - [x] Unknowns stated plainly (Gaps + Deferred)
+
+---
+
+## Addendum — Phase-4 prep + P1 root-cause (same session, operator-directed)
+
+- **k-fold OOS validation** (`kfold_oos.py`, artifact `kfold_runB.json`):
+  OFF-cells rule (drop chop/volatile + trending/volatile) OOS net +20.3R
+  (5m label) / +29.1R (15m live-enforcement proxy), 3/4 folds positive;
+  fitted min_confidence failed robustness (2/4) → NOT proposed.
+- **Tier-3 packet** drafted:
+  `docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md`
+  (awaiting operator go/no-go; no Tier-3 file touched).
+- **BL-20260720-ICTSCALP-PASTSTOP-EXITS ROOT-CAUSED** (forensics relay
+  #7122, candles #7117/#7118): exchange brackets fired correctly
+  (TP 06-22 11:37 @64729; SL 06-22 21:23 @64250; SL 06-23 06:21 @62724);
+  the journal closed only the newest row per fire, and phantom rows were
+  mis-resolved (closed-pnl cross-attribution 2765←2799 / 2764←2769 /
+  2796←2798; `reconcile_orphan_history` mark-price stamps 62402.2 on
+  2757/2762/2770). The −7..−14R live reads are measurement artifacts.
+  Two real defects filed: reconciler cascade-close under netting
+  (Tier-1/2) + newest-bracket-governs-all tpsl semantics (Tier-3).
+  Earlier same-day "no effective bracket" interim framing corrected in
+  the findings doc + backlog (honesty: my initial pnl-arithmetic check
+  was fooled by misattributed-but-internally-consistent records).

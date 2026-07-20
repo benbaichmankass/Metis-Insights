@@ -78,14 +78,20 @@ against a label proxy before the enforce flip.
 ## Conditions attached (from Phase-0 caveats)
 
 1. Backtest evidence ends 2026-02-28; May–Jul 2026 live window is unmodeled.
-2. `BL-20260720-ICTSCALP-PASTSTOP-EXITS` (P1) should be dispositioned
-   **before real-money re-routing**. Classified 2026-07-20: the Jun 21–22
-   positions ran ~24h+ with **no effective bracket on the exchange** (both
-   SL and TP levels crossed without executing; bulk-flattened Jun 23 at
-   worse-than-either prices). Until the mechanism is found and fixed, the
-   backtest's assumption that a stop is a stop does not hold on this
-   account under stress — this is the strongest single condition on
-   change 2.
+2. `BL-20260720-ICTSCALP-PASTSTOP-EXITS` (P1) — **root-caused 2026-07-20**:
+   the exchange enforced its brackets correctly; the −7..−14R live reads
+   were journal artifacts (netted-position bracket fires close only the
+   newest journal row; phantom rows later mis-resolved with other trades'
+   closed-pnl records / stale mark prices). Two real defects remain and
+   should land **before real-money re-routing**: (a) the reconciler's
+   position-flat close must cascade to all open rows on the netted
+   position with qty-prorated pnl (Tier-1/2 — attribution correctness);
+   (b) under Full-mode tpsl the newest trade's bracket governs every
+   strategy's share, so ict_scalp's stop geometry is only honoured while
+   its trade is the newest on the symbol (Tier-3 semantics decision:
+   qty-scoped partial tpsl vs accepting position-level semantics).
+   (b) also means the backtest's per-trade exit model overstates live
+   fidelity whenever another strategy holds the same symbol.
 3. Fee-load work (Phase 2: wider-stop / maker-entry / higher-TF variants)
    remains the highest-value follow-up; this gate makes the strategy modestly
    net-positive, not good.

@@ -105,17 +105,24 @@ volatile cells net-negative. Full numbers in `percell_2026-07-20.json`.)
 **Live per-cell (52 decisions, price-based R so paper-journal pnl corruption
 can't skew it; real-money leg preferred):** n per cell is 0–5 resolved —
 too thin to carry conclusions. The trending/volatile live bleed (−17.9R
-total over 5 resolved) is dominated by legs that exited **7–14R past their
-stops** (exits at 62402–62725 vs stops at 63929–64565). Candle evidence
-(diag #7118) sharpens this: BTC never printed below 63,270 on Jun 21–22;
-those exit prices first printed **Jun 23 ~06:00** — trade 2765 crossed its
-SL (low 63,870.7 vs stop 63,873.3) *and later its TP* (high 65,624 vs TP
-65,025) with neither executing, and 2757/2783 share the identical exit
-62,402.2 (bulk-flatten signature). The positions ran **~24h+ with no
-effective bracket**; the `closed_at` stamps (row-creation time) are journal
-artifacts but the losses are real. That is a **stop-enforcement/execution
-failure, not strategy geometry** — it inflated the live "lets losses run"
-read. Separately noteworthy: two paper trade rows
+total over 5 resolved) is dominated by legs whose journal exits sit **7–14R
+past their stops** (62402–62725 vs stops at 63929–64565).
+
+**Root-caused 2026-07-20 (forensics #7122 + candles #7117/#7118 —
+supersedes the interim "no effective bracket" reading):** the exchange
+behaved **correctly**; those R reads are **journal artifacts**. Under
+multi-strategy netting, the Bybit position carries ONE (the newest
+trade's) position-level bracket; each bracket fire flattens the whole
+position but the journal closes only the newest row. The older rows went
+phantom-"open" and were later mis-resolved — real-money trade 2765 carries
+trade 2799's closed-pnl record byte-for-byte (−1.63903789 @ 62724.0);
+2764←2769; 2796←2798; the orphaned rows (2757/2762/2770) were stamped
+resolution-time mark price 62402.2 by `reconcile_orphan_history` on Jun 25.
+2765's real share actually exited at the 11:37 Jun-22 TP fire (~64729, a
+small **profit**); 2783's at the 21:23 SL fire (~64250, ≈ −0.9R). Real
+losses were bracket-bounded and small. Full mechanism + fixes:
+`BL-20260720-ICTSCALP-PASTSTOP-EXITS`. The live "lets losses run" record
+for this window is measurement, not strategy geometry. Separately noteworthy: two paper trade rows
 carry an identical corrupt pnl (−2970.986 on trades 2453 and 2529) — logged
 to the health-review backlog.
 
