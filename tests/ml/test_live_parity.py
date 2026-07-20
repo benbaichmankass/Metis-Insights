@@ -301,3 +301,34 @@ def test_score_fidelity_passes_raw_row_without_numeric_coercion():
 
     pairs = [({"dayofweek": 0, "x": 1.5}, 0.9)] * 3
     assert score_fidelity(pairs, dtype_sensitive_predict, score_tol=1e-6) == 0
+
+
+def test_calendar_feature_alive_over_wide_window_not_flagged(tmp_path: Path):
+    """Regression: dayofweek false-dead on sub-24h windows (2026-07-20).
+
+    Liveness is judged over the wide DEAD_WINDOW, not the 50-row fidelity
+    sample: a calendar-style feature constant across the newest 50 rows but
+    varying earlier in the window must NOT be flagged dead-on-live.
+    """
+    train = [{"ts": i, "y": i * 0.1, "a": i * 0.2, "d": i % 7} for i in range(30)]
+    reg_root, ds_root, entry = _setup(tmp_path, train_rows=train)
+    log = tmp_path / "shadow.jsonl"
+    # 100 rows: 'd' varies in the older half, constant over the newest 50
+    # ("today"); 'a' varies throughout.
+    rows = [
+        {"a": i * 0.2, "d": (i // 25) if i < 50 else 3} for i in range(100)
+    ]
+    _write_log(log, rows)
+    res = compute_live_parity(
+        entry, shadow_log=log, datasets_root=ds_root, registry_root=reg_root,
+    )
+    assert res.error is None
+    assert "d" not in res.dead_live_features
+
+    # Same data judged with the liveness window shrunk to the fidelity sample
+    # reproduces the false positive — proving the wide window is load-bearing.
+    res_narrow = compute_live_parity(
+        entry, shadow_log=log, datasets_root=ds_root, registry_root=reg_root,
+        dead_window_n=50,
+    )
+    assert "d" in res_narrow.dead_live_features
