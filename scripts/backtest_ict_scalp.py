@@ -94,31 +94,70 @@ def _simulate_exit(
     sl: float,
     tp: float,
     timeout_bars: int,
+    entry: Optional[float] = None,
+    be_offset_bps: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Walk forward from start_idx checking SL/TP hits against bar
     extremes. Assumes intra-bar SL/TP fills are at the level (no slippage).
-    Returns dict with outcome, exit_index, exit_price.
+    Returns dict with outcome, exit_index, exit_price, and (when ``entry``
+    is given) the max-favorable / max-adverse excursion prices seen up to
+    and including the exit bar (``mfe_price`` / ``mae_price``) for R:R
+    leak diagnosis. MFE/MAE on the exit bar itself uses the full bar range,
+    which slightly overstates excursion past the exit level — acceptable
+    for distribution-level diagnosis.
     """
     last = min(len(df) - 1, start_idx + timeout_bars)
+    best = worst = entry
+    # --sim-breakeven state: mirrors the live monitor_breakeven_sl rule —
+    # once a bar CLOSES ≥ 1R in favour (the monitor reads the latest close),
+    # the stop moves to entry ± be_offset_bps and the outcome of a later
+    # stop-out is classified `be_stop` (a scratch, not a full −1R loss).
+    risk_1r = abs(entry - sl) if entry is not None else None
+    cur_sl = sl
+    be_armed = False
     for j in range(start_idx, last + 1):
         bar_low = float(df["low"].iloc[j])
         bar_high = float(df["high"].iloc[j])
+        if entry is not None:
+            if direction == "long":
+                best = max(best, bar_high)
+                worst = min(worst, bar_low)
+            else:
+                best = min(best, bar_low)
+                worst = max(worst, bar_high)
         if direction == "long":
             # Pessimistic ordering: if both touched in one bar, count SL first.
-            if bar_low <= sl:
-                return {"outcome": "sl_hit", "exit_index": j, "exit_price": sl}
+            if bar_low <= cur_sl:
+                return {"outcome": "be_stop" if be_armed else "sl_hit",
+                        "exit_index": j, "exit_price": cur_sl,
+                        "mfe_price": best, "mae_price": worst}
             if bar_high >= tp:
-                return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp}
+                return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp,
+                        "mfe_price": best, "mae_price": worst}
         else:
-            if bar_high >= sl:
-                return {"outcome": "sl_hit", "exit_index": j, "exit_price": sl}
+            if bar_high >= cur_sl:
+                return {"outcome": "be_stop" if be_armed else "sl_hit",
+                        "exit_index": j, "exit_price": cur_sl,
+                        "mfe_price": best, "mae_price": worst}
             if bar_low <= tp:
-                return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp}
+                return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp,
+                        "mfe_price": best, "mae_price": worst}
+        if (be_offset_bps is not None and not be_armed
+                and entry is not None and risk_1r and risk_1r > 0):
+            close_j = float(df["close"].iloc[j])
+            if direction == "long" and close_j >= entry + risk_1r:
+                cur_sl = entry * (1 + be_offset_bps / 10000.0)
+                be_armed = True
+            elif direction == "short" and close_j <= entry - risk_1r:
+                cur_sl = entry * (1 - be_offset_bps / 10000.0)
+                be_armed = True
     # Timeout: close at the last bar's close.
     return {
         "outcome": "timeout",
         "exit_index": last,
         "exit_price": float(df["close"].iloc[last]),
+        "mfe_price": best,
+        "mae_price": worst,
     }
 
 
@@ -155,6 +194,50 @@ def _build_htf_series(
         return None
 
 
+def _stamp_decision_time_regime(
+    meta: Dict[str, Any],
+    window_200: pd.DataFrame,
+    *,
+    symbol: str,
+    timeframe: str,
+    vol_spec: Optional[Dict[str, Any]],
+) -> None:
+    """Mirror the live builder's ``_stamp_regime_on_meta`` at backtest time.
+
+    Uses the SAME pure functions the live path stamps decision-time regime
+    with (``detect_regime`` ADX-14 trend axis; ``vol_regime_from_spec``
+    against a frozen registry spec) over the same 200-bar window the live
+    builder fetches — so backtest per-cell attribution is parity-honest.
+    ``vol_spec`` is the frozen ``{vol_bucket_edges, vol_bucket_labels,
+    vol_window_n}`` dict extracted from the registry head that serves the
+    live ``(symbol, timeframe)`` stamp (never recomputed from backtest
+    data, which would not be parity). Missing spec → ``unknown``.
+    Best-effort: any failure leaves the meta unstamped.
+    """
+    try:
+        from src.runtime.regime import detect_regime
+        from src.runtime.regime.vol_detector import vol_regime_from_spec
+
+        rg = detect_regime(window_200)
+        meta.setdefault("regime", rg.get("regime"))
+        meta.setdefault("adx_14", rg.get("adx"))
+        meta.setdefault("regime_source", rg.get("source"))
+        if vol_spec:
+            closes = [float(c) for c in window_200["close"].tolist()]
+            vol_regime, vol = vol_regime_from_spec(vol_spec, closes)
+            meta.setdefault("vol_regime", vol_regime)
+            meta.setdefault("rolling_log_return_vol",
+                            round(vol, 8) if vol is not None else None)
+            meta.setdefault(
+                "vol_regime_source",
+                f"vol-bucket-edges:{vol_spec.get('model_id') or 'frozen-spec'}",
+            )
+        else:
+            meta.setdefault("vol_regime", "unknown")
+    except Exception:
+        pass
+
+
 def run_backtest(
     df: pd.DataFrame,
     *,
@@ -169,6 +252,9 @@ def run_backtest(
     min_confidence: float = 0.0,
     _collect_trades: bool = False,
     emit_path: Optional[str] = None,
+    vol_spec: Optional[Dict[str, Any]] = None,
+    stamp_regime: bool = False,
+    sim_breakeven: bool = False,
 ) -> Dict[str, Any]:
     cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
     htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
@@ -242,6 +328,11 @@ def run_backtest(
             sl=sl,
             tp=tp,
             timeout_bars=timeout_bars,
+            entry=entry,
+            be_offset_bps=(
+                float(cfg.get("be_offset_bps", 0.0) or 0.0)
+                if sim_breakeven else None
+            ),
         )
         exit_price = float(result["exit_price"])
         if direction == "long":
@@ -252,6 +343,24 @@ def run_backtest(
         exit_ts = (
             df["timestamp"].iloc[result["exit_index"]] if "timestamp" in df.columns else result["exit_index"]
         )
+        meta = dict(pkg.get("meta") or {})
+        if stamp_regime:
+            # Decision-time stamp over the live builder's 200-bar fetch window.
+            lo200 = max(0, i + 1 - 200)
+            _stamp_decision_time_regime(
+                meta, df.iloc[lo200 : i + 1],
+                symbol=symbol, timeframe=timeframe, vol_spec=vol_spec,
+            )
+        mfe_price = result.get("mfe_price")
+        mae_price = result.get("mae_price")
+        if mfe_price is not None and mae_price is not None:
+            sign = 1.0 if direction == "long" else -1.0
+            meta["mfe_r"] = round(sign * (float(mfe_price) - entry) / risk, 4)
+            meta["mae_r"] = round(sign * (float(mae_price) - entry) / risk, 4)
+        meta["bars_held"] = int(result["exit_index"]) - i
+        meta["exit_time"] = str(exit_ts)
+        meta["exit_price"] = exit_price
+        meta["tp"] = tp
         trades.append(
             Trade(
                 entry_index=i,
@@ -266,7 +375,7 @@ def run_backtest(
                 exit_price=exit_price,
                 outcome=str(result["outcome"]),
                 r_multiple=round(float(r), 4),
-                meta=pkg.get("meta") or {},
+                meta=meta,
                 confidence=round(confidence, 4),
             )
         )
@@ -489,6 +598,20 @@ def main(argv: List[str]) -> int:
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write one per-trade JSONL object per closed trade to PATH "
                         "(for the ML backtest-label recorder; single-run only, not with --confidence-sweep).")
+    p.add_argument("--stamp-regime", action="store_true",
+                   help="Stamp decision-time regime (ADX-14 trend + frozen-spec vol) onto each "
+                        "trade's meta, mirroring the live builder's _stamp_regime_on_meta over "
+                        "a 200-bar window (Phase-0 per-cell attribution).")
+    p.add_argument("--vol-spec-json", default=None, metavar="PATH",
+                   help="Frozen vol spec JSON ({vol_bucket_edges, vol_bucket_labels, vol_window_n, "
+                        "model_id}) extracted from the registry head serving the live vol stamp. "
+                        "Without it --stamp-regime leaves vol_regime=unknown (never recomputed "
+                        "from backtest data — that would not be parity).")
+    p.add_argument("--sim-breakeven", action="store_true",
+                   help="Simulate the LIVE monitor's break-even trail (monitor_breakeven_sl: once a "
+                        "bar closes >= 1R in favour, SL moves to entry +/- be_offset_bps from YAML). "
+                        "The legacy harness (and the -467R demotion baseline) did NOT model this — "
+                        "static SL/TP + timeout only.")
     args = p.parse_args(argv[1:])
 
     try:
@@ -498,6 +621,13 @@ def main(argv: List[str]) -> int:
         return 1
 
     cfg_overrides = {} if args.ignore_yaml else _load_yaml_params()
+    vol_spec = None
+    if args.vol_spec_json:
+        try:
+            vol_spec = json.loads(Path(args.vol_spec_json).read_text())
+        except Exception as exc:
+            print(f"WARNING: could not read --vol-spec-json {args.vol_spec_json}: {exc}; "
+                  "vol_regime will stamp as unknown", file=sys.stderr)
     bt_kwargs = dict(
         cfg_overrides=cfg_overrides,
         timeframe=args.timeframe,
@@ -507,6 +637,9 @@ def main(argv: List[str]) -> int:
         cooldown_bars=int(args.cooldown_bars),
         htf_rule=str(args.htf_rule),
         htf_ema_period=int(args.htf_ema_period),
+        vol_spec=vol_spec,
+        stamp_regime=bool(args.stamp_regime),
+        sim_breakeven=bool(args.sim_breakeven),
     )
 
     try:

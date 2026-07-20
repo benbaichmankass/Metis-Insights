@@ -1,0 +1,1139 @@
+{
+ "live": {
+  "per_cell": [
+   {
+    "cell": {
+     "trend": "chop",
+     "vol": "calm"
+    },
+    "n_decisions": 10,
+    "n_filled": 2,
+    "n_resolved": 2,
+    "wins": 1,
+    "win_rate": 0.5,
+    "expectancy_r": -3.0711,
+    "total_r": -6.1421,
+    "expectancy_r_real_only": -3.0711,
+    "n_real_resolved": 2
+   },
+   {
+    "cell": {
+     "trend": "chop",
+     "vol": "volatile"
+    },
+    "n_decisions": 10,
+    "n_filled": 4,
+    "n_resolved": 4,
+    "wins": 3,
+    "win_rate": 0.75,
+    "expectancy_r": 1.4381,
+    "total_r": 5.7523,
+    "expectancy_r_real_only": 1.8898,
+    "n_real_resolved": 3
+   },
+   {
+    "cell": {
+     "trend": "prestamp",
+     "vol": "prestamp"
+    },
+    "n_decisions": 14,
+    "n_filled": 6,
+    "n_resolved": 3,
+    "wins": 2,
+    "win_rate": 0.667,
+    "expectancy_r": 0.5402,
+    "total_r": 1.6205,
+    "expectancy_r_real_only": -0.3174,
+    "n_real_resolved": 1
+   },
+   {
+    "cell": {
+     "trend": "transitional",
+     "vol": "calm"
+    },
+    "n_decisions": 4,
+    "n_filled": 0,
+    "n_resolved": 0,
+    "wins": 0,
+    "win_rate": null,
+    "expectancy_r": null,
+    "total_r": null,
+    "expectancy_r_real_only": null,
+    "n_real_resolved": 0
+   },
+   {
+    "cell": {
+     "trend": "transitional",
+     "vol": "volatile"
+    },
+    "n_decisions": 6,
+    "n_filled": 2,
+    "n_resolved": 2,
+    "wins": 2,
+    "win_rate": 1.0,
+    "expectancy_r": 1.516,
+    "total_r": 3.032,
+    "expectancy_r_real_only": 1.516,
+    "n_real_resolved": 2
+   },
+   {
+    "cell": {
+     "trend": "trending",
+     "vol": "calm"
+    },
+    "n_decisions": 1,
+    "n_filled": 1,
+    "n_resolved": 1,
+    "wins": 1,
+    "win_rate": 1.0,
+    "expectancy_r": 1.2668,
+    "total_r": 1.2668,
+    "expectancy_r_real_only": 1.2668,
+    "n_real_resolved": 1
+   },
+   {
+    "cell": {
+     "trend": "trending",
+     "vol": "unknown"
+    },
+    "n_decisions": 1,
+    "n_filled": 1,
+    "n_resolved": 1,
+    "wins": 1,
+    "win_rate": 1.0,
+    "expectancy_r": 1.4305,
+    "total_r": 1.4305,
+    "expectancy_r_real_only": 1.4305,
+    "n_real_resolved": 1
+   },
+   {
+    "cell": {
+     "trend": "trending",
+     "vol": "volatile"
+    },
+    "n_decisions": 6,
+    "n_filled": 5,
+    "n_resolved": 5,
+    "wins": 1,
+    "win_rate": 0.2,
+    "expectancy_r": -3.5841,
+    "total_r": -17.9207,
+    "expectancy_r_real_only": -4.4158,
+    "n_real_resolved": 4
+   }
+  ],
+  "per_decision": [
+   {
+    "id": "pkg-06f49a1213d044a6",
+    "ts": "2026-05-18T13:36:50.340722+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "short",
+    "conf": 0.615,
+    "status": "orphaned",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-a2322635b7b34348",
+    "ts": "2026-05-18T18:05:08.933569+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "short",
+    "conf": 0.813,
+    "status": "orphaned",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-2b8df796fcd84b28",
+    "ts": "2026-05-18T18:11:38.700709+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "short",
+    "conf": 0.618,
+    "status": "orphaned",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-b5afd589f3104056",
+    "ts": "2026-05-20T08:39:43.537312+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "long",
+    "conf": 0.797,
+    "status": "orphaned",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-138320bb95864526",
+    "ts": "2026-05-20T14:20:14.821460+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "long",
+    "conf": 0.72,
+    "status": "closed",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-9966fe872a78416c",
+    "ts": "2026-05-21T18:52:32.521635+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "short",
+    "conf": 0.645,
+    "status": "closed",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-ed8bcf656e604ff5",
+    "ts": "2026-05-23T18:14:18.252707+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "long",
+    "conf": 0.637,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": 1.7833,
+    "r_real_only": null,
+    "account_of_r": "bybit_1"
+   },
+   {
+    "id": "pkg-6ad338849aa345a2",
+    "ts": "2026-05-26T07:13:03.681476+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "short",
+    "conf": 0.988,
+    "status": "closed",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-0bf6eb1ebd9a4c95",
+    "ts": "2026-05-26T10:26:54.358523+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "long",
+    "conf": 0.562,
+    "status": "closed",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-76a793f357524f38",
+    "ts": "2026-05-26T14:42:58.143014+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "short",
+    "conf": 0.718,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-5dc66cf92b5e407f",
+    "ts": "2026-05-29T15:12:15.005115+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "long",
+    "conf": 0.86,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": 0.1546,
+    "r_real_only": null,
+    "account_of_r": "bybit_1"
+   },
+   {
+    "id": "pkg-89a3fe949870417e",
+    "ts": "2026-06-01T00:05:14.233006+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "long",
+    "conf": 0.704,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": -0.3174,
+    "r_real_only": -0.3174,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-bb7232ed24944210",
+    "ts": "2026-06-01T02:44:27.479798+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "long",
+    "conf": 0.421,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": "bybit_1"
+   },
+   {
+    "id": "pkg-f63813bd699c49b2",
+    "ts": "2026-06-01T09:55:42.708990+00:00",
+    "cell": [
+     "prestamp",
+     "prestamp"
+    ],
+    "dir": "short",
+    "conf": 0.832,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-cb3e57bea56c44cb",
+    "ts": "2026-06-04T05:06:12.237639+00:00",
+    "cell": [
+     "trending",
+     "unknown"
+    ],
+    "dir": "short",
+    "conf": 0.776,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": 1.4305,
+    "r_real_only": 1.4305,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-7b7d830c16f54c34",
+    "ts": "2026-06-05T00:57:20.483602+00:00",
+    "cell": [
+     "chop",
+     "volatile"
+    ],
+    "dir": "short",
+    "conf": 0.726,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": 0.0828,
+    "r_real_only": null,
+    "account_of_r": "bybit_1"
+   },
+   {
+    "id": "pkg-e5ce06d8c066427c",
+    "ts": "2026-06-05T01:20:38.690064+00:00",
+    "cell": [
+     "chop",
+     "volatile"
+    ],
+    "dir": "short",
+    "conf": 0.612,
+    "status": "closed",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-34bf6b6aef3a45bd",
+    "ts": "2026-06-07T00:48:05.191242+00:00",
+    "cell": [
+     "chop",
+     "volatile"
+    ],
+    "dir": "short",
+    "conf": 0.84,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": -0.0691,
+    "r_real_only": -0.0691,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-bee264ecfab84a4f",
+    "ts": "2026-06-08T21:09:54.062224+00:00",
+    "cell": [
+     "chop",
+     "volatile"
+    ],
+    "dir": "long",
+    "conf": 0.705,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": 3.9739,
+    "r_real_only": 3.9739,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-fd7ccb4b2e6a4a37",
+    "ts": "2026-06-12T22:48:20.493721+00:00",
+    "cell": [
+     "chop",
+     "calm"
+    ],
+    "dir": "short",
+    "conf": 0.626,
+    "status": "orphaned",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-2030571b2ab84f3a",
+    "ts": "2026-06-12T23:06:58.943976+00:00",
+    "cell": [
+     "chop",
+     "calm"
+    ],
+    "dir": "short",
+    "conf": 0.518,
+    "status": "orphaned",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-8d4b8ea9d9f3459e",
+    "ts": "2026-06-16T04:06:08.022930+00:00",
+    "cell": [
+     "trending",
+     "volatile"
+    ],
+    "dir": "long",
+    "conf": 0.69,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": -0.2576,
+    "r_real_only": null,
+    "account_of_r": "bybit_1"
+   },
+   {
+    "id": "pkg-858593dc79a8478b",
+    "ts": "2026-06-18T21:16:37.166787+00:00",
+    "cell": [
+     "trending",
+     "volatile"
+    ],
+    "dir": "short",
+    "conf": 0.862,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": 1.5044,
+    "r_real_only": 1.5044,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-bf1043d369f54fbf",
+    "ts": "2026-06-19T13:06:34.515876+00:00",
+    "cell": [
+     "transitional",
+     "volatile"
+    ],
+    "dir": "long",
+    "conf": 0.493,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": 1.5168,
+    "r_real_only": 1.5168,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-1248280784724bd3",
+    "ts": "2026-06-21T16:39:06.144784+00:00",
+    "cell": [
+     "transitional",
+     "calm"
+    ],
+    "dir": "short",
+    "conf": 0.888,
+    "status": "orphaned",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-21b1c0011ac54411",
+    "ts": "2026-06-21T18:37:48.396672+00:00",
+    "cell": [
+     "chop",
+     "calm"
+    ],
+    "dir": "long",
+    "conf": 0.772,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": -7.6345,
+    "r_real_only": -7.6345,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-bdd6ece4920e4d94",
+    "ts": "2026-06-22T03:20:20.454241+00:00",
+    "cell": [
+     "trending",
+     "volatile"
+    ],
+    "dir": "long",
+    "conf": 0.959,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": -3.7183,
+    "r_real_only": -3.7183,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-778f78f479c341f4",
+    "ts": "2026-06-22T07:15:32.570640+00:00",
+    "cell": [
+     "chop",
+     "volatile"
+    ],
+    "dir": "long",
+    "conf": 0.684,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": 1.7646,
+    "r_real_only": 1.7646,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-6866be83a7de4893",
+    "ts": "2026-06-22T16:55:44.171144+00:00",
+    "cell": [
+     "trending",
+     "volatile"
+    ],
+    "dir": "long",
+    "conf": 0.796,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": -14.4386,
+    "r_real_only": -14.4386,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-6b2429be04724065",
+    "ts": "2026-06-22T20:06:48.621274+00:00",
+    "cell": [
+     "trending",
+     "volatile"
+    ],
+    "dir": "long",
+    "conf": 0.766,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": -1.0106,
+    "r_real_only": -1.0106,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-515b774aa35e4f43",
+    "ts": "2026-06-27T12:09:43.610924+00:00",
+    "cell": [
+     "chop",
+     "calm"
+    ],
+    "dir": "long",
+    "conf": 0.658,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": 1.4924,
+    "r_real_only": 1.4924,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-2dac5f09a9054d05",
+    "ts": "2026-06-27T21:42:44.890271+00:00",
+    "cell": [
+     "trending",
+     "calm"
+    ],
+    "dir": "short",
+    "conf": 0.909,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": 1.2668,
+    "r_real_only": 1.2668,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-5472dfc53d24434f",
+    "ts": "2026-06-28T02:22:15.705459+00:00",
+    "cell": [
+     "chop",
+     "calm"
+    ],
+    "dir": "short",
+    "conf": 0.855,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-22d7c028d246441e",
+    "ts": "2026-06-28T02:43:41.033526+00:00",
+    "cell": [
+     "chop",
+     "calm"
+    ],
+    "dir": "short",
+    "conf": 0.903,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-fbde89ab9e62470b",
+    "ts": "2026-06-28T12:43:25.923882+00:00",
+    "cell": [
+     "transitional",
+     "volatile"
+    ],
+    "dir": "short",
+    "conf": 0.741,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-241d440fe4494d38",
+    "ts": "2026-06-28T13:02:10.309913+00:00",
+    "cell": [
+     "chop",
+     "volatile"
+    ],
+    "dir": "short",
+    "conf": 0.745,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-a4130b0fd6014a65",
+    "ts": "2026-06-28T13:09:14.000426+00:00",
+    "cell": [
+     "transitional",
+     "volatile"
+    ],
+    "dir": "short",
+    "conf": 0.828,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-ed658ce9d7544a5f",
+    "ts": "2026-06-28T13:15:46.869387+00:00",
+    "cell": [
+     "transitional",
+     "volatile"
+    ],
+    "dir": "short",
+    "conf": 0.817,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-862ab3ee50f04761",
+    "ts": "2026-06-29T12:41:22.062440+00:00",
+    "cell": [
+     "transitional",
+     "volatile"
+    ],
+    "dir": "short",
+    "conf": 0.686,
+    "status": "closed",
+    "filled": true,
+    "r_price_based": 1.5151,
+    "r_real_only": 1.5151,
+    "account_of_r": "bybit_2"
+   },
+   {
+    "id": "pkg-e8af6456d4b94cd6",
+    "ts": "2026-07-02T23:25:07.560050+00:00",
+    "cell": [
+     "transitional",
+     "calm"
+    ],
+    "dir": "long",
+    "conf": 0.762,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-c6eb93227d634c4f",
+    "ts": "2026-07-02T23:46:47.922742+00:00",
+    "cell": [
+     "chop",
+     "calm"
+    ],
+    "dir": "long",
+    "conf": 0.724,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-f0e1c33bb33546b7",
+    "ts": "2026-07-06T08:16:52.224078+00:00",
+    "cell": [
+     "chop",
+     "calm"
+    ],
+    "dir": "short",
+    "conf": 0.856,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-e998a3c406cc4c9f",
+    "ts": "2026-07-06T08:22:58.957857+00:00",
+    "cell": [
+     "chop",
+     "calm"
+    ],
+    "dir": "short",
+    "conf": 0.86,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-e9a2f3278d4045d5",
+    "ts": "2026-07-06T08:31:25.303051+00:00",
+    "cell": [
+     "chop",
+     "calm"
+    ],
+    "dir": "short",
+    "conf": 0.87,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-2e7107d005664944",
+    "ts": "2026-07-06T08:37:36.058081+00:00",
+    "cell": [
+     "chop",
+     "volatile"
+    ],
+    "dir": "short",
+    "conf": 0.831,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-490c71cf54794182",
+    "ts": "2026-07-07T11:50:23.946354+00:00",
+    "cell": [
+     "chop",
+     "volatile"
+    ],
+    "dir": "long",
+    "conf": 0.871,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-89d75266d3dd43c2",
+    "ts": "2026-07-08T01:34:47.521506+00:00",
+    "cell": [
+     "chop",
+     "volatile"
+    ],
+    "dir": "short",
+    "conf": 0.694,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-bc9f3b28cf854beb",
+    "ts": "2026-07-09T12:09:05.975103+00:00",
+    "cell": [
+     "transitional",
+     "volatile"
+    ],
+    "dir": "long",
+    "conf": 0.6,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-c55571ecb8654b50",
+    "ts": "2026-07-09T12:27:24.092204+00:00",
+    "cell": [
+     "chop",
+     "volatile"
+    ],
+    "dir": "long",
+    "conf": 0.548,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-e200adcbdf954286",
+    "ts": "2026-07-13T00:40:56.004184+00:00",
+    "cell": [
+     "trending",
+     "volatile"
+    ],
+    "dir": "short",
+    "conf": 0.897,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-6b0116f451c244c1",
+    "ts": "2026-07-14T08:42:25.121051+00:00",
+    "cell": [
+     "transitional",
+     "calm"
+    ],
+    "dir": "long",
+    "conf": 0.841,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   },
+   {
+    "id": "pkg-981228b8c046441e",
+    "ts": "2026-07-19T17:13:20.761738+00:00",
+    "cell": [
+     "transitional",
+     "calm"
+    ],
+    "dir": "long",
+    "conf": 0.723,
+    "status": "rejected",
+    "filled": false,
+    "r_price_based": null,
+    "r_real_only": null,
+    "account_of_r": null
+   }
+  ]
+ },
+ "backtest": {
+  "runA_v.jsonl": {
+   "n_trades": 659,
+   "per_cell": [
+    {
+     "cell": {
+      "trend": "chop",
+      "vol": "calm"
+     },
+     "n": 65,
+     "wins": 36,
+     "win_rate": 0.554,
+     "expectancy_r": 0.319,
+     "total_r": 20.734,
+     "median_mfe_r": 0.9511,
+     "median_mae_r": -0.5805,
+     "by_outcome": {
+      "timeout": 28,
+      "tp_hit": 23,
+      "sl_hit": 14
+     }
+    },
+    {
+     "cell": {
+      "trend": "chop",
+      "vol": "volatile"
+     },
+     "n": 167,
+     "wins": 79,
+     "win_rate": 0.473,
+     "expectancy_r": 0.1042,
+     "total_r": 17.4078,
+     "median_mfe_r": 0.79,
+     "median_mae_r": -0.5311,
+     "by_outcome": {
+      "tp_hit": 40,
+      "timeout": 77,
+      "sl_hit": 50
+     }
+    },
+    {
+     "cell": {
+      "trend": "transitional",
+      "vol": "calm"
+     },
+     "n": 36,
+     "wins": 20,
+     "win_rate": 0.556,
+     "expectancy_r": 0.3955,
+     "total_r": 14.2362,
+     "median_mfe_r": 1.1263,
+     "median_mae_r": -0.4763,
+     "by_outcome": {
+      "timeout": 11,
+      "sl_hit": 10,
+      "tp_hit": 15
+     }
+    },
+    {
+     "cell": {
+      "trend": "transitional",
+      "vol": "volatile"
+     },
+     "n": 173,
+     "wins": 87,
+     "win_rate": 0.503,
+     "expectancy_r": 0.1266,
+     "total_r": 21.9027,
+     "median_mfe_r": 0.6986,
+     "median_mae_r": -0.5277,
+     "by_outcome": {
+      "timeout": 103,
+      "sl_hit": 38,
+      "tp_hit": 32
+     }
+    },
+    {
+     "cell": {
+      "trend": "trending",
+      "vol": "calm"
+     },
+     "n": 45,
+     "wins": 26,
+     "win_rate": 0.578,
+     "expectancy_r": 0.3001,
+     "total_r": 13.5027,
+     "median_mfe_r": 0.9025,
+     "median_mae_r": -0.4308,
+     "by_outcome": {
+      "sl_hit": 13,
+      "timeout": 16,
+      "tp_hit": 16
+     }
+    },
+    {
+     "cell": {
+      "trend": "trending",
+      "vol": "volatile"
+     },
+     "n": 173,
+     "wins": 89,
+     "win_rate": 0.514,
+     "expectancy_r": 0.1715,
+     "total_r": 29.6728,
+     "median_mfe_r": 0.7166,
+     "median_mae_r": -0.446,
+     "by_outcome": {
+      "timeout": 88,
+      "tp_hit": 43,
+      "sl_hit": 42
+     }
+    }
+   ]
+  },
+  "runB_v.jsonl": {
+   "n_trades": 615,
+   "per_cell": [
+    {
+     "cell": {
+      "trend": "chop",
+      "vol": "calm"
+     },
+     "n": 59,
+     "wins": 34,
+     "win_rate": 0.576,
+     "expectancy_r": 0.3174,
+     "total_r": 18.7281,
+     "median_mfe_r": 1.2838,
+     "median_mae_r": -0.7774,
+     "by_outcome": {
+      "sl_hit": 25,
+      "tp_hit": 27,
+      "be_stop": 7
+     }
+    },
+    {
+     "cell": {
+      "trend": "chop",
+      "vol": "volatile"
+     },
+     "n": 155,
+     "wins": 74,
+     "win_rate": 0.477,
+     "expectancy_r": 0.0545,
+     "total_r": 8.4411,
+     "median_mfe_r": 1.0815,
+     "median_mae_r": -1.0017,
+     "by_outcome": {
+      "tp_hit": 55,
+      "be_stop": 17,
+      "sl_hit": 79,
+      "timeout": 4
+     }
+    },
+    {
+     "cell": {
+      "trend": "transitional",
+      "vol": "calm"
+     },
+     "n": 36,
+     "wins": 20,
+     "win_rate": 0.556,
+     "expectancy_r": 0.2968,
+     "total_r": 10.684,
+     "median_mfe_r": 1.3705,
+     "median_mae_r": -0.7902,
+     "by_outcome": {
+      "sl_hit": 16,
+      "tp_hit": 16,
+      "be_stop": 4
+     }
+    },
+    {
+     "cell": {
+      "trend": "transitional",
+      "vol": "volatile"
+     },
+     "n": 157,
+     "wins": 92,
+     "win_rate": 0.586,
+     "expectancy_r": 0.2427,
+     "total_r": 38.1017,
+     "median_mfe_r": 1.309,
+     "median_mae_r": -0.7758,
+     "by_outcome": {
+      "tp_hit": 63,
+      "sl_hit": 64,
+      "be_stop": 23,
+      "timeout": 7
+     }
+    },
+    {
+     "cell": {
+      "trend": "trending",
+      "vol": "calm"
+     },
+     "n": 42,
+     "wins": 24,
+     "win_rate": 0.571,
+     "expectancy_r": 0.3722,
+     "total_r": 15.6321,
+     "median_mfe_r": 1.4945,
+     "median_mae_r": -0.8864,
+     "by_outcome": {
+      "sl_hit": 18,
+      "tp_hit": 19,
+      "be_stop": 5
+     }
+    },
+    {
+     "cell": {
+      "trend": "trending",
+      "vol": "volatile"
+     },
+     "n": 166,
+     "wins": 85,
+     "win_rate": 0.512,
+     "expectancy_r": 0.1861,
+     "total_r": 30.8966,
+     "median_mfe_r": 1.1845,
+     "median_mae_r": -0.8116,
+     "by_outcome": {
+      "tp_hit": 68,
+      "sl_hit": 75,
+      "timeout": 11,
+      "be_stop": 12
+     }
+    }
+   ]
+  }
+ }
+}
