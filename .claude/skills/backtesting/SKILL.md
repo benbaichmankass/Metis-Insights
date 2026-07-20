@@ -123,6 +123,16 @@ python scripts/backtest_ict_scalp.py --data data/backtest_candles.csv \
   --warmup-bars 50 --timeout-bars 24 --json /tmp/ict_scalp.json
 ```
 
+**ict_scalp exit-model caveat (Phase-0, 2026-07-20):** the harness default
+(static SL/TP + 24-bar timeout) does NOT match live exits — live runs a
+break-even trail at +1R (`monitor_breakeven_sl` + `be_offset_bps`) and has
+no timeout. Pass `--sim-breakeven` (and a wide `--timeout-bars`, e.g. 288)
+for a live-faithful run. `--stamp-regime` + `--vol-spec-json <frozen spec>`
+stamp decision-time regime/vol onto `--emit-trades` rows (same pure
+functions as the live builder) for per-(trend,vol) cell attribution; emit
+rows also carry `mfe_r`/`mae_r`/`bars_held`/exit fields. See
+`docs/research/ict_scalp_5m-phase0-findings-2026-07-20.md`.
+
 `backtest_ict_scalp.py` reads `config/strategies.yaml` by default; pass
 `--ignore-yaml` to backtest pure CLI params instead of the live config.
 

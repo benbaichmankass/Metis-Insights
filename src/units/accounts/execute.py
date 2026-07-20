@@ -20,6 +20,7 @@ The dry/live toggle is the per-account ``mode: live | dry_run`` field in
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from typing import Any, Optional
 
@@ -1017,6 +1018,21 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                 # Derivatives (linear/inverse) accept SL/TP on Market.
                 kwargs["stopLoss"] = quantize_price(order["sl"], tick)
                 kwargs["takeProfit"] = quantize_price(order["tp"], tick)
+                if _bybit_tpsl_mode() == "partial":
+                    # Qty-scoped Partial position tpsl (Fix 2 of
+                    # BL-20260720-ICTSCALP-PASTSTOP-EXITS): under the default
+                    # Full mode a netted same-symbol add REPLACES the whole
+                    # position's SL/TP with this order's levels — only the
+                    # NEWEST trade's bracket exists, and a fire flattens every
+                    # share. Partial mode scopes this order's bracket to its
+                    # own qty so each journal trade keeps the protection it
+                    # chose. Rollout-gated on BYBIT_TPSL_MODE (default full)
+                    # until validate-partial-tpsl passes on the demo venue.
+                    kwargs["tpslMode"] = "Partial"
+                    kwargs["tpSize"] = qty_str
+                    kwargs["slSize"] = qty_str
+                    kwargs["tpOrderType"] = "Market"
+                    kwargs["slOrderType"] = "Market"
             # ErrCode 10001 guard: for Buy (Long) orders Bybit requires
             # SL < last_price at submission time. Fast price drops between
             # signal generation and order arrival can violate this even
@@ -1600,6 +1616,24 @@ def log_rejection_to_journal(
 # ---------------------------------------------------------------------------
 
 
+def _bybit_tpsl_mode() -> str:
+    """Resolve ``BYBIT_TPSL_MODE`` ∈ {``full`` (default), ``partial``}.
+
+    Rollout gate (``*_MODE`` pattern, Tier-3 to flip on the live VM) for
+    qty-scoped **Partial** position tpsl — Fix 2 of
+    BL-20260720-ICTSCALP-PASTSTOP-EXITS. Under Bybit one-way netting the
+    default Full mode gives the whole position ONE bracket (the newest
+    order's), so older journal trades ride geometry they never chose and a
+    single fire flattens every share. ``partial`` makes each order carry its
+    own qty-scoped SL/TP. Default ``full`` preserves current behaviour;
+    flip only after the ``validate-partial-tpsl`` operator action passes on
+    the demo account against the real venue. Unknown values resolve to
+    ``full`` (never strand an order on a typo).
+    """
+    v = str(os.environ.get("BYBIT_TPSL_MODE") or "full").strip().lower()
+    return v if v in {"full", "partial"} else "full"
+
+
 def modify_open_order(
     exchange_client: Any,
     account_cfg: dict,
@@ -1670,6 +1704,27 @@ def modify_open_order(
                 kwargs["stopLoss"] = quantize_price(sl, tick)
             if tp is not None:
                 kwargs["takeProfit"] = quantize_price(tp, tick)
+            if _bybit_tpsl_mode() == "partial":
+                # Under Partial tpsl the amend must be qty-scoped too —
+                # a bare set_trading_stop would target the position-level
+                # (Full) slot instead of this trade's own bracket. Needs
+                # the caller's qty (the monitor passes the trade's size);
+                # without it we fall through to the plain call and log,
+                # rather than silently amending the wrong scope.
+                if qty is not None and float(qty) > 0:
+                    kwargs["tpslMode"] = "Partial"
+                    if sl is not None:
+                        kwargs["slSize"] = str(qty)
+                    if tp is not None:
+                        kwargs["tpSize"] = str(qty)
+                else:
+                    logger.warning(
+                        "modify_open_order: BYBIT_TPSL_MODE=partial but no "
+                        "qty passed for %s %s — falling back to a position-"
+                        "level (Full) amend; caller should forward the "
+                        "trade's qty.",
+                        account_cfg.get("account_id"), symbol,
+                    )
             resp = exchange_client.set_trading_stop(**kwargs)
             ret_code = (resp or {}).get("retCode")
             if ret_code in (0, "0", None):

@@ -208,6 +208,14 @@ EXPECTED_ACTIONS = {
     # trade_journal.db (BL-20260618 / BL-20260709; write-path fixed in RISK-1
     # Task 2 #6037). DRY-RUN by default; apply gated; idempotent by construction.
     "repair-malformed-notes": "repair_malformed_notes_action.sh",
+    # 2026-07-20 — one-shot honest-null repair of the Jun-2026 netted-position
+    # misattribution rows (BL-20260720-ICTSCALP-PASTSTOP-EXITS). DRY-RUN by
+    # default; apply gated; signature-verified so it is idempotent.
+    "repair-netted-rows": "repair_netted_rows_action.sh",
+    # 2026-07-20 — venue validation for BYBIT_TPSL_MODE=partial (qty-scoped
+    # brackets, Fix 2 of BL-20260720-ICTSCALP-PASTSTOP-EXITS). Demo-locked
+    # to bybit_1; places + cleans up two tiny netted orders.
+    "validate-partial-tpsl": "validate_partial_tpsl_action.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -260,6 +268,8 @@ TIER_2_ACTIONS = {
     "fix-prop-mislinked-close",
     "reset-daily-risk-state",
     "repair-malformed-notes",
+    "repair-netted-rows",
+    "validate-partial-tpsl",
 }
 
 

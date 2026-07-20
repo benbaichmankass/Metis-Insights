@@ -91,12 +91,16 @@ def test_load_strategies_surfaces_execution(tmp_path):
 
 
 def test_real_yaml_vwap_is_shadow_others_live():
-    # The live config: vwap (data-only), ict_scalp_5m (DEMOTED 2026-06-29,
-    # Unit B — live-verified negative R:R, -0.64R/trade) and turtle_soup
-    # (DEMOTED 2026-07-07, Tier-3 #5850 — net-negative money-loser at every
-    # stop on BTC) are shadow; the rest execute.
+    # The live config: vwap (data-only) and turtle_soup (DEMOTED 2026-07-07,
+    # Tier-3 #5850 — net-negative money-loser at every stop on BTC) are
+    # shadow; the rest execute. ict_scalp_5m was demoted 2026-07-14 but
+    # RE-PROMOTED shadow -> live 2026-07-20 (Tier-3, operator-approved
+    # Phase-4 packet — the demotion's -467R baseline proved unreproducible
+    # and the live record was netting-misattribution; gated by two trend_vol
+    # OFF cells in config/regime_policy.yaml. See
+    # docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md).
     assert reg.execution_mode("vwap") == "shadow"
-    assert reg.execution_mode("ict_scalp_5m") == "shadow"
+    assert reg.execution_mode("ict_scalp_5m") == "live"
     assert reg.execution_mode("turtle_soup") == "shadow"
     assert reg.execution_mode("trend_donchian") == "live"
 
