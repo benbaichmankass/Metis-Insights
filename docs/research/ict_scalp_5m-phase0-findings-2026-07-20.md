@@ -106,10 +106,16 @@ volatile cells net-negative. Full numbers in `percell_2026-07-20.json`.)
 can't skew it; real-money leg preferred):** n per cell is 0–5 resolved —
 too thin to carry conclusions. The trending/volatile live bleed (−17.9R
 total over 5 resolved) is dominated by legs that exited **7–14R past their
-stops** during the 2026-06-22 crash (exits at 62402–62725 vs stops at
-63929–64565, `stuck_strategy_watchdog`/orphan-episode exits). That is a
-**stop-enforcement/execution failure, not strategy geometry** — it inflated
-the live "lets losses run" read. Separately noteworthy: two paper trade rows
+stops** (exits at 62402–62725 vs stops at 63929–64565). Candle evidence
+(diag #7118) sharpens this: BTC never printed below 63,270 on Jun 21–22;
+those exit prices first printed **Jun 23 ~06:00** — trade 2765 crossed its
+SL (low 63,870.7 vs stop 63,873.3) *and later its TP* (high 65,624 vs TP
+65,025) with neither executing, and 2757/2783 share the identical exit
+62,402.2 (bulk-flatten signature). The positions ran **~24h+ with no
+effective bracket**; the `closed_at` stamps (row-creation time) are journal
+artifacts but the losses are real. That is a **stop-enforcement/execution
+failure, not strategy geometry** — it inflated the live "lets losses run"
+read. Separately noteworthy: two paper trade rows
 carry an identical corrupt pnl (−2970.986 on trades 2453 and 2529) — logged
 to the health-review backlog.
 

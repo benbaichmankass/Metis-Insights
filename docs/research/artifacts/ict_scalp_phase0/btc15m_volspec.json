@@ -1,0 +1,1 @@
+{"model_id": "btc-regime-15m-baseline-v1", "symbol": "BTCUSDT", "timeframe": "15m", "vol_bucket_edges": [0.00151097383849568, 0.0024770006808026816], "vol_bucket_labels": ["vol_b0", "vol_b1", "vol_b2"], "vol_window_n": 20, "vol_feature_column": "rolling_log_return_vol"}
