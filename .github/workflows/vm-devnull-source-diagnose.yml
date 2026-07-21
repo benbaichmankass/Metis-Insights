@@ -23,21 +23,36 @@ name: vm-devnull-source-diagnose
 #               events. The CULPRIT is whatever SYSCALL sets mode 0444 (strips
 #               the write bit); the guard's own 0666 restores are expected noise,
 #               distinguishable by the mode argument + exe (the guard oneshot).
+#   udev-watch  READ-ONLY, BOUNDED LIVE CAPTURE (~5 min). Rounds 5-7 of read-audit
+#               (2026-07-14) found ZERO chmod/fchmod/fchmodat/fchmodat2/setxattr/
+#               mount syscalls at the moment of a strip, on both auditd's own log
+#               AND the journald audit transport — the mode-strip mechanism is
+#               invisible to every syscall class audited so far. This mode polls
+#               `stat -c %a /dev/null` every 0.5s while concurrently streaming
+#               `udevadm monitor --udev --kernel` for up to 295s, so a captured
+#               mode-change timestamp can be correlated against whether a kernel/
+#               udev device-recreation event fired in the same window (the
+#               remaining untried hypothesis — a udev coldplug/hotplug re-trigger
+#               recreating the node with a rule-default mode, which wouldn't show
+#               as a userspace chmod syscall at all). No mutation, no rule
+#               installed — pure observation for the duration of one job run.
 #
-# Blast radius: `inspect`/`read-audit` touch nothing. `arm-audit` installs the
-# auditd package (a standard, lightweight daemon) + one narrow watch rule on a
-# single inode — no trade path, no other unit. Fixed-form remote script.
+# Blast radius: `inspect`/`read-audit`/`udev-watch` touch nothing. `arm-audit`
+# installs the auditd package (a standard, lightweight daemon) + one narrow
+# watch rule on a single inode — no trade path, no other unit. Fixed-form
+# remote script.
 #
 # Trigger: workflow_dispatch (mode input), or an issue labeled
 # `vm-devnull-diagnose` (mode parsed from the body, default inspect).
-# Secrets: VM_SSH_KEY. inspect/read-audit are Tier-1 (read); arm-audit is Tier-2
-# (operator-approved — a package install + daemon on the live VM).
+# Secrets: VM_SSH_KEY. inspect/read-audit/udev-watch are Tier-1 (read-only,
+# bounded); arm-audit is Tier-2 (operator-approved — a package install + daemon
+# on the live VM).
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'inspect | arm-audit | read-audit'
+        description: 'inspect | arm-audit | read-audit | udev-watch'
         required: false
         default: 'inspect'
   issues:
@@ -60,7 +75,7 @@ jobs:
         github.event.issue.user.login == 'github-actions[bot]') &&
        contains(github.event.issue.labels.*.name, 'vm-devnull-diagnose'))
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     env:
       VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
@@ -95,8 +110,8 @@ jobs:
             [ -n "${PARSED}" ] && MODE="${PARSED}"
           fi
           case "${MODE}" in
-            inspect|arm-audit|read-audit) : ;;
-            *) echo "::error::unknown mode '${MODE}' (want inspect|arm-audit|read-audit)"; exit 1 ;;
+            inspect|arm-audit|read-audit|udev-watch) : ;;
+            *) echo "::error::unknown mode '${MODE}' (want inspect|arm-audit|read-audit|udev-watch)"; exit 1 ;;
           esac
           echo "mode=${MODE}" >> "$GITHUB_OUTPUT"
           echo "Resolved mode: ${MODE}"
@@ -119,7 +134,7 @@ jobs:
           MODE: ${{ steps.mode.outputs.mode }}
         run: |
           set -euo pipefail
-          # MODE is validated against a fixed allowlist above (inspect|arm-audit|read-audit),
+          # MODE is validated against a fixed allowlist above (inspect|arm-audit|read-audit|udev-watch),
           # so interpolating it into the remote command is injection-free (not from the issue body).
           ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=20 "${VM_SSH_USER}@${VM_SSH_HOST}" "MODE='${MODE}' bash -s" > out.txt 2>&1 <<'REMOTE' || true
@@ -260,6 +275,40 @@ jobs:
             echo "Its exe=/comm=/ppid names the process. The guard's own restores set 0666 (0x1b6) — expected noise."
             echo "If mutation hunts stay empty but success=no opens appear: the denial is process-context"
             echo "(device cgroup / LSM), not a file change — check the denied record's subj= and cgroup."
+
+          elif [ "${MODE}" = "udev-watch" ]; then
+            echo; echo "===== udev-watch: bounded live capture (~295s) ====="
+            echo "Rounds 5-7 of read-audit found ZERO chmod/fchmod/fchmodat/fchmodat2/setxattr/mount"
+            echo "syscalls at strip-time on either auditd's own log or the journald audit transport."
+            echo "This mode polls /dev/null's mode every 0.5s while concurrently streaming"
+            echo "'udevadm monitor --udev --kernel' so a captured mode-change can be correlated"
+            echo "against a kernel/udev device-recreation event. Pure observation, no mutation."
+            echo "--- BEFORE: /dev/null state ---"
+            stat -c 'mode=%a major:minor=%t:%T' /dev/null
+            UDEV_LOG="/tmp/udev_capture_$$.log"
+            timeout 300 udevadm monitor --udev --kernel > "${UDEV_LOG}" 2>&1 &
+            MONPID=$!
+            PREV_MODE="$(stat -c '%a' /dev/null 2>/dev/null)"
+            echo "starting mode: ${PREV_MODE}"
+            START_TS=$(date +%s)
+            while [ $(( $(date +%s) - START_TS )) -lt 295 ]; do
+              CUR_MODE="$(stat -c '%a' /dev/null 2>/dev/null)"
+              if [ "${CUR_MODE}" != "${PREV_MODE}" ]; then
+                echo "$(date -u +%Y-%m-%dT%H:%M:%S.%NZ) MODE CHANGE: ${PREV_MODE} -> ${CUR_MODE}"
+                PREV_MODE="${CUR_MODE}"
+              fi
+              sleep 0.5
+            done
+            wait "${MONPID}" 2>/dev/null
+            echo "--- udevadm monitor output (--udev --kernel, full window) ---"
+            cat "${UDEV_LOG}" 2>/dev/null || echo "(no udev capture output)"
+            rm -f "${UDEV_LOG}"
+            echo "--- AFTER: /dev/null state ---"
+            stat -c 'mode=%a major:minor=%t:%T' /dev/null
+            echo; echo "===== CORRELATION HINT ====="
+            echo "If a MODE CHANGE line has NO matching UDEV/KERNEL event within a second or two of"
+            echo "its timestamp, the strip is not udev-driven either — narrows further to a direct"
+            echo "syscall this box's audit transport still isn't recording, or process-context denial."
           fi
           echo "(done)"
           REMOTE
