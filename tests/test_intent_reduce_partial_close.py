@@ -52,7 +52,9 @@ CREATE TABLE trades (
     notes TEXT,
     order_package_id TEXT,
     closed_at TEXT,
-    broker_order_id TEXT
+    broker_order_id TEXT,
+    sl_order_id TEXT,
+    tp_order_id TEXT
 );
 """
 

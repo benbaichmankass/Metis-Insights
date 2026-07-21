@@ -69,6 +69,12 @@ _EXPECTED_TRADES_COLS = {
     # key, so the broker-truth cost sweep ties a trade to its exchange_fills
     # rows exactly. Observability-only; NULL on pre-migration rows.
     "broker_order_id",
+    # Added 2026-07-21 (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP): this trade's own
+    # tracked Bybit Partial-tpsl leg id(s), captured at entry so
+    # modify_open_order can amend the SPECIFIC leg in place instead of always
+    # adding a new one. NULL on pre-migration / non-Bybit / Full-mode /
+    # ambiguous-capture rows.
+    "sl_order_id", "tp_order_id",
 }
 
 _EXPECTED_ORDER_PACKAGES_COLS = {
