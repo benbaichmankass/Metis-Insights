@@ -213,6 +213,17 @@ case "${action}" in
             *) result="FAILED/refused (exit ${exit_code}) — position may be under-protected"; priority="urgent" ;;
         esac
         ;;
+    backfill-tpsl-leg-ids)
+        # 2026-07-21: backfill trades.sl_order_id/tp_order_id for a Bybit
+        # partial-tpsl position that predates PR #7321's entry-time capture
+        # (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP structural-fix completion;
+        # dry-run unless apply:true; refuses on ambiguous legs/rows).
+        tier=2
+        case "${exit_code}" in
+            0) result="ok (dry-run preview or backfilled)"; priority="normal" ;;
+            *) result="FAILED/refused (exit ${exit_code}) — trade still on legacy add-a-leg path"; priority="normal" ;;
+        esac
+        ;;
     close-stranded-journal-row)
         # 2026-07-15: close a stranded open journal row whose broker position is
         # already flat (dry-run unless apply:true; refuses unless broker-flat).
