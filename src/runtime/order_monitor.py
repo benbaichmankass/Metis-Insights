@@ -1354,6 +1354,11 @@ def _send_close_to_exchange(matched_trade: Dict[str, Any]) -> Dict[str, Any]:
     ``close_open_position``. This is the single dry/live toggle for
     monitor-driven closes and lets the caller's exchange-first flow
     proceed with the DB updates exactly as a live success would.
+
+    ``matched_trade``'s ``sl_order_id`` / ``tp_order_id`` are forwarded so
+    Bybit can best-effort cancel this trade's own tracked Partial-tpsl
+    leg(s) after a confirmed close (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP) —
+    ``None`` on pre-migration / Full-mode rows, a harmless no-op there.
     """
     try:
         from src.units.accounts.execute import close_open_position
@@ -1383,6 +1388,8 @@ def _send_close_to_exchange(matched_trade: Dict[str, Any]) -> Dict[str, Any]:
             symbol=matched_trade.get("symbol"),
             side=matched_trade.get("direction"),
             qty=float(matched_trade.get("position_size") or 0.0),
+            sl_order_id=matched_trade.get("sl_order_id"),
+            tp_order_id=matched_trade.get("tp_order_id"),
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("order_monitor: exchange close failed: %s", exc)
@@ -1583,6 +1590,13 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
     (S2, BL-20260616-LTMGMT-MODIFY) — IB needs both effective levels to
     re-arm its OCA bracket without dropping a leg. The Bybit branch of
     ``modify_open_order`` ignores them, so its path stays byte-unchanged.
+
+    ``matched_trade``'s ``sl_order_id`` / ``tp_order_id`` (from
+    ``trades``, captured at entry — BL-20260721-BYBIT2-XRP-TPSL-LEGCAP) are
+    forwarded so a Bybit Partial-tpsl modify amends that SPECIFIC leg in
+    place instead of adding a new one. ``None`` on pre-migration / Full-mode
+    / ambiguous-capture rows — ``modify_open_order`` falls back to the
+    legacy add-a-leg behaviour for those, unchanged.
     """
     try:
         from src.units.accounts.execute import modify_open_order
@@ -1611,6 +1625,8 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
             symbol=matched_trade.get("symbol"),
             sl=sl, tp=tp,
             side=side, qty=qty, cur_sl=cur_sl, cur_tp=cur_tp,
+            sl_order_id=matched_trade.get("sl_order_id"),
+            tp_order_id=matched_trade.get("tp_order_id"),
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("order_monitor: exchange modify failed: %s", exc)

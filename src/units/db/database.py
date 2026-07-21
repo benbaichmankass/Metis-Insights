@@ -236,6 +236,39 @@ def _migrate_add_broker_order_id(cursor: sqlite3.Cursor) -> bool:
     return True
 
 
+def _migrate_add_tpsl_leg_ids(cursor: sqlite3.Cursor) -> bool:
+    """Add ``sl_order_id`` / ``tp_order_id`` to ``trades`` if absent (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP).
+
+    Under ``BYBIT_TPSL_MODE=partial`` each trade gets its own qty-scoped
+    Partial SL/TP leg on Bybit — but nothing tracked which broker ``orderId``
+    belonged to which trade, so every trailing-stop tick had no target to
+    amend and fell back to ``set_trading_stop``'s ADD-a-new-leg behaviour
+    (Bybit's own V5 docs: Partial mode "can only add partial position TP/SL
+    orders", unlike Full mode's in-place modify). Legs piled up unbounded
+    until Bybit's 20-combined-leg-per-symbol cap silently blocked further
+    amends (23 stranded legs on one bybit_2 XRPUSDT position, live-confirmed
+    2026-07-21).
+
+    These columns are the fix's foundation: ``execute._log_trade_to_journal``
+    now persists the entry-time leg id(s) (captured via a before/after
+    snapshot diff around order placement, since Bybit's inline-SL/TP place
+    response never returns the leg's own orderId), so
+    ``execute.modify_open_order`` can target Bybit's ``amend_order`` at that
+    SPECIFIC leg instead of re-adding, and the close path can cancel it
+    explicitly. ``NULL`` on any pre-migration / non-Bybit / non-partial-mode
+    row — those fall back to the legacy add-a-leg behaviour, logged loudly.
+
+    Idempotent: returns True only on the run that actually adds the columns.
+    """
+    cursor.execute("PRAGMA table_info(trades)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "sl_order_id" in columns:
+        return False
+    cursor.execute("ALTER TABLE trades ADD COLUMN sl_order_id TEXT")
+    cursor.execute("ALTER TABLE trades ADD COLUMN tp_order_id TEXT")
+    return True
+
+
 def _migrate_add_order_package_model_scores(cursor: sqlite3.Cursor) -> bool:
     """Add ``model_scores`` column to ``order_packages`` if absent.
 
@@ -369,6 +402,8 @@ class Database:
                 funding_paid_usd REAL,
                 cost_source TEXT,
                 broker_order_id TEXT,
+                sl_order_id TEXT,
+                tp_order_id TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -382,6 +417,7 @@ class Database:
         _migrate_add_reconcile_status(cursor)
         _migrate_add_trade_costs(cursor)
         _migrate_add_broker_order_id(cursor)
+        _migrate_add_tpsl_leg_ids(cursor)
         # Index for efficient per-account trade history queries.
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_trades_account_created "

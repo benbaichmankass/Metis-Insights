@@ -199,7 +199,7 @@ def test_bybit_close_path_unchanged(monkeypatch):
     sentinel = {"ok": True, "exchange_order_id": "X-1", "error": None}
     captured = {}
 
-    def _close(c, cfg, *, symbol, side, qty):
+    def _close(c, cfg, *, symbol, side, qty, sl_order_id=None, tp_order_id=None):
         captured.update({"client": c, "symbol": symbol, "side": side, "qty": qty})
         return sentinel
 
