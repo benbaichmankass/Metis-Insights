@@ -65,6 +65,11 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         # sub-$100 gold proxy for gld (2026-07-07, Tier-3):
         "iaum_pullback_1d",
         "ict_scalp_5m",
+        # M27 P0 Batch-1 alt variants (2026-07-21, Tier-3, operator-approved
+        # promotion): execution:live demo-soak on bybit_1 only.
+        "ict_scalp_avax_5m",
+        "ict_scalp_sol_5m",
+        "ict_scalp_xrp_5m",
         "ief_pullback_1d",
         "iwm_trend_long_1d",
         "mes_trend_long_1d",
