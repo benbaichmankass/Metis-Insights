@@ -26,6 +26,15 @@ Usage (trainer):
   .venv/bin/python scripts/research/m27/fetch_yfinance_5m.py \
       --out-dir /home/ubuntu/m27_data_eq --interval 5m --period 60d \
       --symbols SPY QQQ IWM TLT GLD SLV GDX USO IEF
+
+INTERVAL CAP DIFFERS BY GRANULARITY (PB-20260721-M27-EQUITIES-DATACAP,
+verified 2026-07-21 via a direct trainer-side probe against SPY, not assumed):
+5m/15m/30m/90m are ALL hard-capped by Yahoo at ~60 days server-side regardless
+of the requested --period. 60m/1h has no such cap and returns ~2.9 years of
+history (5,082 SPY bars, 2023-08-21..2026-07-20 observed) — pass
+``--interval 60m --period max`` for a statistically-powered run at that
+granularity; ``--period`` is otherwise ignored by Yahoo above 60d for the
+finer intervals so leave it at the default there.
 """
 from __future__ import annotations
 
@@ -66,9 +75,10 @@ def fetch_symbol(symbol: str, interval: str, period: str, out_path: Path) -> Non
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--symbols", nargs="+", required=True)
-    ap.add_argument("--interval", default="5m", choices=["5m", "15m"])
+    ap.add_argument("--interval", default="5m", choices=["5m", "15m", "60m", "1h"])
     ap.add_argument("--period", default="60d",
-                     help="yfinance lookback window (max ~60d for 5m/15m intraday)")
+                     help="yfinance lookback window (max ~60d for 5m/15m/30m/90m; "
+                          "60m/1h is uncapped by period, use e.g. 'max' or '730d')")
     ap.add_argument("--out-dir", required=True)
     args = ap.parse_args()
 
