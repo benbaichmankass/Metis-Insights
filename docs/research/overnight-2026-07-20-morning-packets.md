@@ -19,9 +19,19 @@ explicitly marked DONE.
   dataset (eval: recall_volatile 0.935, precision_volatile 0.324, weighted_f1
   0.482, n_eval 35054). Its shadow-soak clock restarts 2026-07-20 → M25 gates
   re-checkable ~2026-07-27.
-- **MES re-cert** — pre-approved; executes at 23:50Z tonight (result appended
-  to this doc's sprint follow-up when done). First live validation of the
-  restart-free activation path.
+- **MES re-cert: EXECUTED + ACTIVATION VERIFIED RESTART-FREE** (23:50Z chain,
+  relay #7223, operator pre-approved). Gate-check on fresh post-CME-open data:
+  ALL 8 required gates PASS — `live_parity` 0/50 mismatches over 2,132 fresh
+  rows, zero dead features (the RTH fix + fixed instrument both holding),
+  labels_accruing 0.85, live RG4 AUC **0.725** (strongest live read in the
+  fleet). `mes-regime-5m-lgbm-v2` promoted shadow→**advisory** (registry
+  readback confirmed), mirror published 23:50:05Z, and — with NO restart
+  issued — the head's live rows flip `shadow`→`advisory` exactly at the seam
+  (23:47:43Z shadow → 23:52:25Z advisory, #7225/#7227): **the
+  registry-fingerprint activation path is production-validated on its first
+  exercise.** Bonus finding: `mes-regime-15m-lgbm-v2` ALSO reads `ready:true`
+  (all 8 required gates) — a second-MES-head candidate packet if wanted
+  (NOT executed; only the 5m head was pre-approved).
 
 ## Packet A — SOL `trend_vol` OFF-cells (Tier-3 decision: author or not)
 
