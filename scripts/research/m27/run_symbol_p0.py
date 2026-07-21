@@ -81,6 +81,18 @@ def main() -> int:
     # batch rather than silently loosening the shared default, so a future
     # deep-history batch still gets the strict floor.
     ap.add_argument("--min-derivation-bars", type=int, default=10_000)
+    # Native-timeframe override (default "5m", matches Batch-1/2/3). When set
+    # to e.g. "15m", --csv is ALREADY at that native resolution (not derived
+    # by resampling 5m bars) — passed through to backtest_ict_scalp.py so its
+    # ADX/regime-window bar-count scaling is correct for the true bar width.
+    # spec15 is still derived via a resample("15min") of --csv for kfold_oos's
+    # 15m-label proxy; on already-native-15m input this is a no-op (same
+    # series back out), so vol5==vol15 and the "off_cells" 2-axis rule
+    # degenerates to single-axis filtering — expected and noted in any
+    # native-15m findings doc, not a bug.
+    ap.add_argument("--timeframe", default="5m",
+                    help="Native timeframe label of --csv, passed through to "
+                         "backtest_ict_scalp.py (default 5m).")
     args = ap.parse_args()
 
     if args.fee_usd_roundtrip is not None and args.contract_value_usd is None:
@@ -131,6 +143,7 @@ def main() -> int:
     cmd_bt = [
         py, str(_REPO_ROOT / "scripts/backtest_ict_scalp.py"),
         "--data", args.csv, "--symbol", args.symbol,
+        "--timeframe", args.timeframe,
         "--stamp-regime", "--vol-spec-json", str(p5),
         "--sim-breakeven",
         "--emit-trades", str(emit), "--json", str(summary),
