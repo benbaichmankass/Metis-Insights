@@ -13,8 +13,41 @@
 schema_version: 1
 debt_ceiling: 35
 
-# Permanent, regime-gating genuinely N/A (reasoned). Empty today.
-exempt: {}
+# Permanent, regime-gating genuinely N/A (reasoned).
+exempt:
+  ict_scalp_sol_5m:
+    tracking_id: M27-P0-BATCH1-2026-07-20
+    added: '2026-07-21'
+    reason: >-
+      M27 Batch-1 net-of-fee k-fold passed UNGATED (baseline 4/4 folds, +37.7R
+      — the off_cells_5m rule is additive, not required). No live regime head
+      is trained for SOLUSDT, so a regime_policy.yaml cell would resolve
+      vol_regime="unknown" and silently never fire — a real cell would be
+      cosmetic, not enforcement. Revisit once a SOL regime head is registered.
+  ict_scalp_xrp_5m:
+    tracking_id: M27-P0-BATCH1-2026-07-20
+    added: '2026-07-21'
+    reason: >-
+      Gate is load-bearing (M27 Batch-1: ungated baseline only 2/4 folds;
+      off_cells_5m gated is 4/4 +34.3R) but implemented STRATEGY-LOCALLY —
+      config/strategies.yaml::ict_scalp_xrp_5m.off_cells + vol_spec, enforced
+      inline in _ict_scalp_variant_builder using the exact frozen 5m tercile
+      edges the k-fold validated. Not a config/regime_policy.yaml cell because
+      that mechanism resolves the vol axis from a REGISTERED shadow-stage
+      regime head per (symbol,timeframe) — none exists for XRPUSDT yet, so
+      the global path would be a permissive no-op (vol_regime="unknown"),
+      silently reverting XRP to the FAILING ungated 2/4 profile. Migrate to a
+      real regime_policy.yaml cell once an XRP regime head is registered.
+  ict_scalp_avax_5m:
+    tracking_id: M27-P0-BATCH1-2026-07-20
+    added: '2026-07-21'
+    reason: >-
+      M27 Batch-1 net-of-fee k-fold passed UNGATED (baseline 4/4 folds,
+      +60.8R — the plain off_cells_5m rule does NOT transfer for AVAX, only
+      the confidence-qualified variant does, which needs per-fold fitting a
+      static config can't reproduce faithfully; shipped on the independently
+      passing ungated evidence instead). No live regime head is trained for
+      AVAXUSDT. Revisit once one is registered.
 
 # Live strategies with NO description entry are tracked here so the guard's
 # description check passes while the copy is written. Empty = all have descriptions.
