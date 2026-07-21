@@ -191,21 +191,25 @@ done
 # tree so build_mes_market can prefer it over the rolling ~60d ES=F yfinance
 # window. Absence is expected (and non-fatal) until that pull has been run —
 # the MES regime models fall back to yfinance. See MB-20260528-002.
-LIVE_VM_IBKR_PATH="${LIVE_VM_IBKR_PATH:-/data/bot-data/ibkr_datasets/market_raw/MES/}"
-emit "$(printf '{"ts":"%s","status":"pulling","artifact":"ibkr_market_raw_mes","src":"%s@%s:%s"}' \
+# 2026-07-21 (M27 Batch-2): the pull side went symbol-parameterized on
+# 2026-07-07 (`pull-ibkr-history` — MGC/MHG land beside MES) but this sync
+# stayed MES-only, so non-MES shards never reached the trainer. Sync the
+# WHOLE market_raw tree; the artifact name is kept for log continuity.
+LIVE_VM_IBKR_PATH="${LIVE_VM_IBKR_PATH:-/data/bot-data/ibkr_datasets/market_raw/}"
+emit "$(printf '{"ts":"%s","status":"pulling","artifact":"ibkr_market_raw","src":"%s@%s:%s"}' \
   "$(iso_now)" "$VM_SSH_USER" "$LIVE_VM_IP" "$LIVE_VM_IBKR_PATH")"
-mkdir -p "${DATA_DIR}/ibkr_datasets/market_raw/MES"
+mkdir -p "${DATA_DIR}/ibkr_datasets/market_raw"
 set +e
 rsync -az --checksum -e "ssh ${SSH_OPTS}" \
   "${VM_SSH_USER}@${LIVE_VM_IP}:${LIVE_VM_IBKR_PATH}" \
-  "${DATA_DIR}/ibkr_datasets/market_raw/MES/"
+  "${DATA_DIR}/ibkr_datasets/market_raw/"
 rc=$?
 set -e
 if [ "$rc" -eq 0 ]; then
-  emit "$(printf '{"ts":"%s","status":"ok","artifact":"ibkr_market_raw_mes"}' "$(iso_now)")"
+  emit "$(printf '{"ts":"%s","status":"ok","artifact":"ibkr_market_raw"}' "$(iso_now)")"
 else
-  # Non-fatal: the live-VM IBKR pull has not been run yet (yfinance fallback).
-  emit "$(printf '{"ts":"%s","status":"skipped","artifact":"ibkr_market_raw_mes","detail":"not present on live VM (run pull_mes_ibkr_history.sh) — yfinance fallback","exit_code":%d}' \
+  # Non-fatal: no live-VM IBKR pull has been run yet (yfinance fallback).
+  emit "$(printf '{"ts":"%s","status":"skipped","artifact":"ibkr_market_raw","detail":"not present on live VM (run pull-ibkr-history) — yfinance fallback","exit_code":%d}' \
     "$(iso_now)" "$rc")"
 fi
 

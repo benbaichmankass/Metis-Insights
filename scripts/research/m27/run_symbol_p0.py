@@ -42,16 +42,16 @@ DERIVE_YEAR = "2023"
 
 
 def derive_spec(closes: pd.Series, *, symbol: str, timeframe: str,
-                source_range: str) -> dict:
+                source_range: str, window_desc: str) -> dict:
     rv = np.log(closes.astype(float)).diff().rolling(VOL_WINDOW).std(ddof=0)
     rv = rv.dropna()
     q33, q67 = float(rv.quantile(1 / 3)), float(rv.quantile(2 / 3))
     return {
-        "model_id": f"m27-derived-{symbol.lower()}-{timeframe}-{DERIVE_YEAR}",
+        "model_id": f"m27-derived-{symbol.lower()}-{timeframe}-frozen",
         "vol_bucket_labels": ["low", "mid", "high"],
         "vol_bucket_edges": [q33, q67],
         "vol_window_n": VOL_WINDOW,
-        "derived_from": f"{DERIVE_YEAR} calendar year only ({source_range}); "
+        "derived_from": f"{window_desc} ({source_range}); "
                         "tercile edges of rolling_log_return_vol (pstdev, w=20). "
                         "Frozen BEFORE any fold boundary — no resolution-time leak.",
     }
@@ -64,7 +64,21 @@ def main() -> int:
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--folds", type=int, default=4)
     ap.add_argument("--fee-bps-roundtrip", type=float, default=7.5)
+    # Futures cost mode (Batch-2): flat USD round-trip per contract charged
+    # against dollar risk — passed through to kfold_oos.py. When set,
+    # --contract-value-usd is required and the bps mode is not used.
+    ap.add_argument("--fee-usd-roundtrip", type=float, default=None)
+    ap.add_argument("--contract-value-usd", type=float, default=None)
+    # Vol-spec derivation window. The crypto batch froze edges on the 2023
+    # calendar year (pre-fold-boundary). The IBKR pulls only reach ~1y back,
+    # so futures derive from the earliest PREFIX of the data instead — still
+    # strictly inside the first fold's train territory for a 4-fold walk.
+    ap.add_argument("--derive-window", default=f"year:{DERIVE_YEAR}",
+                    help="year:<YYYY> (default) or prefix:<fraction 0..0.25+>")
     args = ap.parse_args()
+
+    if args.fee_usd_roundtrip is not None and args.contract_value_usd is None:
+        ap.error("--fee-usd-roundtrip requires --contract-value-usd")
 
     out = Path(args.out_dir) / args.symbol
     out.mkdir(parents=True, exist_ok=True)
@@ -72,17 +86,32 @@ def main() -> int:
     df = pd.read_csv(args.csv)
     df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
     df = df.dropna(subset=["timestamp"]).sort_values("timestamp")
-    d23 = df[df["timestamp"].dt.year == int(DERIVE_YEAR)]
+    mode, _, val = args.derive_window.partition(":")
+    if mode == "year":
+        d23 = df[df["timestamp"].dt.year == int(val)]
+        window_desc = f"{val} calendar year only"
+    elif mode == "prefix":
+        frac = float(val)
+        if not 0.0 < frac <= 0.25:
+            print(f"FAIL: prefix fraction {frac} outside (0, 0.25] — must stay "
+                  "inside the first fold's train territory")
+            return 1
+        d23 = df.iloc[: max(1, int(len(df) * frac))]
+        window_desc = f"earliest {frac:.0%} prefix of the data only"
+    else:
+        print(f"FAIL: unknown --derive-window {args.derive_window!r}")
+        return 1
     if len(d23) < 10_000:
-        print(f"FAIL: only {len(d23)} {DERIVE_YEAR} bars in {args.csv}")
+        print(f"FAIL: only {len(d23)} derivation bars ({args.derive_window}) "
+              f"in {args.csv}")
         return 1
     rng = f"{d23['timestamp'].iloc[0]} .. {d23['timestamp'].iloc[-1]}"
 
     spec5 = derive_spec(d23["close"], symbol=args.symbol, timeframe="5m",
-                        source_range=rng)
+                        source_range=rng, window_desc=window_desc)
     c15 = (d23.set_index("timestamp")["close"].resample("15min").last().dropna())
     spec15 = derive_spec(c15, symbol=args.symbol, timeframe="15m",
-                         source_range=rng)
+                         source_range=rng, window_desc=window_desc)
     p5 = out / "volspec_5m.json"
     p15 = out / "volspec_15m.json"
     p5.write_text(json.dumps(spec5, indent=2))
@@ -109,9 +138,13 @@ def main() -> int:
         "--emit", str(emit), "--data", args.csv,
         "--volspec-15m", str(p15),
         "--folds", str(args.folds),
-        "--fee-bps-roundtrip", str(args.fee_bps_roundtrip),
         "--out", str(kfold_out),
     ]
+    if args.fee_usd_roundtrip is not None:
+        cmd_kf += ["--fee-usd-roundtrip", str(args.fee_usd_roundtrip),
+                   "--contract-value-usd", str(args.contract_value_usd)]
+    else:
+        cmd_kf += ["--fee-bps-roundtrip", str(args.fee_bps_roundtrip)]
     print("RUN:", " ".join(cmd_kf), flush=True)
     subprocess.run(cmd_kf, check=True, cwd=_REPO_ROOT)
 
