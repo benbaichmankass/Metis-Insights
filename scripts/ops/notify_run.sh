@@ -203,6 +203,16 @@ case "${action}" in
             *) result="FAILED/refused (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    cancel-stale-tpsl-legs)
+        # 2026-07-21: cancel accumulated stale Partial-tpsl legs on one Bybit
+        # symbol (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP; dry-run unless apply:true;
+        # refuses on a flat position or zero SL legs found).
+        tier=2
+        case "${exit_code}" in
+            0) result="ok (dry-run preview or cancelled)"; priority="urgent" ;;
+            *) result="FAILED/refused (exit ${exit_code}) — position may be under-protected"; priority="urgent" ;;
+        esac
+        ;;
     close-stranded-journal-row)
         # 2026-07-15: close a stranded open journal row whose broker position is
         # already flat (dry-run unless apply:true; refuses unless broker-flat).
