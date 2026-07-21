@@ -72,10 +72,28 @@ def main(argv):
     ap.add_argument("--volspec-15m", required=True)
     ap.add_argument("--folds", type=int, default=4)
     ap.add_argument("--fee-bps-roundtrip", type=float, default=7.5)
+    # Futures cost mode (M27 Batch-2): a flat USD round-trip cost per contract
+    # (commission + slippage) charged against each trade's own DOLLAR risk
+    # (risk_points * contract_value_usd). Mutually exclusive with the bps mode
+    # — bps-of-price is the crypto taker model and is wrong for per-contract
+    # commission venues. Both set => error; --fee-usd-roundtrip alone wins.
+    ap.add_argument("--fee-usd-roundtrip", type=float, default=None)
+    ap.add_argument("--contract-value-usd", type=float, default=None,
+                    help="USD per 1.0 price-point per contract (instruments.yaml"
+                         " contract_value_usd); required with --fee-usd-roundtrip")
     ap.add_argument("--out", default=None)
     args = ap.parse_args(argv[1:])
 
+    if args.fee_usd_roundtrip is not None and args.contract_value_usd is None:
+        ap.error("--fee-usd-roundtrip requires --contract-value-usd")
+
     fee = args.fee_bps_roundtrip / 10000.0
+
+    def fee_r_for(r):
+        risk = float(r["risk"])
+        if args.fee_usd_roundtrip is not None:
+            return args.fee_usd_roundtrip / (risk * args.contract_value_usd)
+        return fee * float(r["entry"]) / risk
     rows = [json.loads(line) for line in Path(args.emit).read_text().splitlines() if line.strip()]
 
     # 15m-label stamp: resample the 5m closes to 15m, classify each trade's
@@ -103,7 +121,7 @@ def main(argv):
             "trend": m.get("regime") or "unknown",
             "vol5": m.get("vol_regime") or "unknown",
             "vol15": vol15,
-            "net_fee_r": float(r["net_r"]) - fee * float(r["entry"]) / float(r["risk"]),
+            "net_fee_r": float(r["net_r"]) - fee_r_for(r),
         })
     trades.sort(key=lambda x: x["t"])
 
@@ -171,7 +189,11 @@ def main(argv):
         }
 
     result = {
-        "emit": args.emit, "fee_bps_roundtrip": args.fee_bps_roundtrip,
+        "emit": args.emit,
+        "fee_bps_roundtrip": (None if args.fee_usd_roundtrip is not None
+                              else args.fee_bps_roundtrip),
+        "fee_usd_roundtrip": args.fee_usd_roundtrip,
+        "contract_value_usd": args.contract_value_usd,
         "folds": folds, "aggregate_oos": agg,
         "note": "post-hoc filter on one walk (ignores cooldown re-entries); "
                 "vol15 is the frozen-15m-edge proxy for the live ML vol verdict",
