@@ -1366,7 +1366,16 @@
       "title": "Check live paper performance of ict_scalp_sol_5m / _xrp_5m / _avax_5m on bybit_1 against the M27 Batch-1 backtest \u2014 gate for real-money promotion",
       "detail": "Three new execution:live legs were promoted to the bybit_1 demo/paper account 2026-07-21 (S-M27-ALTCOIN-PROMOTION-2026-07-21.md), based on the M27 Batch-1 net-of-fee k-fold: SOL/AVAX pass ungated (4/4 folds), XRP passes with a strategy-local off-cell gate (config/strategies.yaml::ict_scalp_xrp_5m.off_cells, enforced in _ict_scalp_variant_builder \u2014 not the registry-driven regime_policy.yaml path, since no live regime head exists for these symbols). Once a meaningful live paper trade count accrues (recommend >=20-30 trades per leg), compare live win-rate/expectancy/R against the M27 backtest table (docs/research/M27-P0-crypto-findings-2026-07-20.md) as the evidence gate for promoting to bybit_2 (real money) + bybit_portfolio (its paper mirror) \u2014 a separate Tier-3, operator-approved step per the operator's flow (bybit_1 soak -> bybit_2+bybit_portfolio together on promotion).",
       "source": "S-M27-ALTCOIN-PROMOTION-2026-07-21"
+    },
+    {
+      "id": "PB-20260721-M27-EQUITIES-DATACAP",
+      "date": "2026-07-21",
+      "status": "open",
+      "severity": "P3",
+      "title": "M27 Batch-3: ict_scalp 5m fires only 1-15 trades/60d on equities/ETFs (yfinance data cap) — needs a deeper-history data source before any equities scalp verdict is possible",
+      "detail": "Config-exact ict_scalp_5m on yfinance 5m over the max available ~60-day window produced SPY 2 / QQQ 2 / IWM 15 / TLT 2 / GLD 3 / SLV 10 / GDX 12 / USO 9 / IEF 1 trades total — the anchored 4-fold k-fold carries 0-5 trades/fold, so NO gate verdict is possible for any of the 9 symbols (findings: docs/research/M27-P0-batch3-equities-findings-2026-07-21.md). Root cause is DATA AVAILABILITY, not (necessarily) setup rarity: yfinance's intraday API caps 5m/15m history at ~60 calendar days, versus Batch-1's multi-year Bybit pull and Batch-2's ~1-year IBKR pull — yfinance was chosen deliberately to avoid provisioning any Alpaca key (even a data-only one) onto the trainer, since that would cross the 'never copy production secrets to the trainer' line (see the rig PR #7259 rationale). Two paths forward: (a) provision a genuinely trainer-safe, non-trading equities historical-bars source (a real data-only credential the operator explicitly approves for the trainer, or a keyless provider with deeper intraday history than yfinance) so this batch can be re-run with real statistical power; or (b) fold equities into the M27 P1 15m timeframe sweep instead, since wider bars accrue more setups per unit of wall-clock history and yfinance's 15m lookback may reach further back than 5m's (not verified this session). IWM (15 trades) and SLV (10 trades) are the least-starved symbols and worth prioritizing first if/when deeper history lands. Repro: /home/ubuntu/m27_out_eq on the trainer; CSVs /home/ubuntu/m27_data_eq/{SPY,QQQ,IWM,TLT,GLD,SLV,GDX,USO,IEF}_5m.csv.",
+      "source": "S-M27-P0-BATCH1-2026-07-20 (Batch-3 continuation)"
     }
   ],
-  "updated_at": "2026-07-20T19:30:00+00:00"
+  "updated_at": "2026-07-21T06:45:00+00:00"
 }

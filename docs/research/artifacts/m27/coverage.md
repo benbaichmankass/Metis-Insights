@@ -15,15 +15,15 @@ _Dispositions: ✅ promoted/done · ⏳ pending · 📋 planned · 🚫 blocked/
 | MES | futures | 2 | ❌ rejected — UNDERPOWERED (16 trades/yr; gross +6.2R/69% but k-fold is 2-4 trades/fold = noise). Findings doc | 📋 P1 + diagnostic prerequisite (PB-20260721-M27-FUTURES-5M-LOWSIGNAL) |
 | MGC | futures | 2 | ❌ rejected — UNDERPOWERED + gross-negative (14 trades/yr, −4.73R, 36% win). Findings doc | 📋 P1 + diagnostic prerequisite |
 | MHG | futures | 2 | ❌ rejected — UNDERPOWERED + gross-negative (8 trades/yr, −0.33R, 38% win). Findings doc | 📋 P1 + diagnostic prerequisite |
-| SPY | equity-base | 3 | ⏳ pending (Batch 3 — Alpaca intraday bars) | 📋 P1 (after the symbol's 5m cell resolves) |
-| QQQ | equity-base | 3 | ⏳ pending (Batch 3 — Alpaca intraday bars) | 📋 P1 (after the symbol's 5m cell resolves) |
-| IWM | equity-base | 3 | ⏳ pending (Batch 3 — Alpaca intraday bars) | 📋 P1 (after the symbol's 5m cell resolves) |
-| TLT | equity-base | 3 | ⏳ pending (Batch 3 — Alpaca intraday bars) | 📋 P1 (after the symbol's 5m cell resolves) |
-| GLD | equity-base | 3 | ⏳ pending (Batch 3 — Alpaca intraday bars) | 📋 P1 (after the symbol's 5m cell resolves) |
-| SLV | equity-base | 3 | ⏳ pending (Batch 3 — Alpaca intraday bars) | 📋 P1 (after the symbol's 5m cell resolves) |
-| GDX | equity-base | 3 | ⏳ pending (Batch 3 — Alpaca intraday bars) | 📋 P1 (after the symbol's 5m cell resolves) |
-| USO | equity-base | 3 | ⏳ pending (Batch 3 — Alpaca intraday bars) | 📋 P1 (after the symbol's 5m cell resolves) |
-| IEF | equity-base | 3 | ⏳ pending (Batch 3 — Alpaca intraday bars) | 📋 P1 (after the symbol's 5m cell resolves) |
+| SPY | equity-base | 3 | ❌ rejected — UNDERPOWERED (2 trades/60d; yfinance data cap, not a setup verdict). Findings doc | 📋 P1 + data-source prerequisite (PB-20260721-M27-EQUITIES-DATACAP) |
+| QQQ | equity-base | 3 | ❌ rejected — UNDERPOWERED (2 trades/60d; yfinance data cap, not a setup verdict). Findings doc | 📋 P1 + data-source prerequisite |
+| IWM | equity-base | 3 | ❌ rejected — UNDERPOWERED (15 trades/60d, healthiest of the 9 — still n≤5/fold; baseline 3/4 folds +1.13R exp +0.094, not statistical). Findings doc | 📋 P1 + data-source prerequisite |
+| TLT | equity-base | 3 | ❌ rejected — UNDERPOWERED (2 trades/60d; yfinance data cap, not a setup verdict). Findings doc | 📋 P1 + data-source prerequisite |
+| GLD | equity-base | 3 | ❌ rejected — UNDERPOWERED (3 trades/60d; yfinance data cap, not a setup verdict). Findings doc | 📋 P1 + data-source prerequisite |
+| SLV | equity-base | 3 | ❌ rejected — UNDERPOWERED (10 trades/60d, 2nd-healthiest — still n≤5/fold; baseline 3/4 folds +3.05R exp +0.381, not statistical). Findings doc | 📋 P1 + data-source prerequisite |
+| GDX | equity-base | 3 | ❌ rejected — UNDERPOWERED (12 trades/60d; baseline 3/4 folds +0.99R exp +0.099, not statistical). Findings doc | 📋 P1 + data-source prerequisite |
+| USO | equity-base | 3 | ❌ rejected — UNDERPOWERED + gross-flat (9 trades/60d, −0.08R, 44% win). Findings doc | 📋 P1 + data-source prerequisite |
+| IEF | equity-base | 3 | ❌ rejected — UNDERPOWERED (1 trade/60d; yfinance data cap, not a setup verdict). Findings doc | 📋 P1 + data-source prerequisite |
 | TQQQ | equity-levered | 3 | 🚫 gated-on-base (tests only if its base index passes) | 📋 P1 (after the symbol's 5m cell resolves) |
 | QLD | equity-levered | 3 | 🚫 gated-on-base (tests only if its base index passes) | 📋 P1 (after the symbol's 5m cell resolves) |
 | SCHA | equity-levered | 3 | 🚫 gated-on-base (tests only if its base index passes) | 📋 P1 (after the symbol's 5m cell resolves) |
@@ -39,5 +39,7 @@ _Dispositions: ✅ promoted/done · ⏳ pending · 📋 planned · 🚫 blocked/
 
 ## Log
 
+- 2026-07-21 — Batch-3 equities results landed (trainer relay #7271, yfinance data via #7259/#7263): all 9 symbols ❌ rejected, underpowered by data cap (1–15 trades/60d each). IWM/SLV are the least-starved but still not statistical. Findings doc; `PB-20260721-M27-EQUITIES-DATACAP` opened for a future deep-history data-source decision.
+- 2026-07-21 (early) — Batch-2 futures results landed: MES/MGC/MHG ❌ rejected, underpowered (8–16 trades/yr). Findings doc; `PB-20260721-M27-FUTURES-5M-LOWSIGNAL` opened.
 - 2026-07-20 (late) — Batch-1 attempt-3 results landed (tz-fixed CSVs, #7211/#7212): ETH/SOL/XRP PASS, ADA mixed, AVAX PASS (appended 23:33Z; chain ALL_DONE 23:27Z). Per-symbol frozen 2023-only vol specs derived on the trainer; full fold JSONs in the findings doc + relay issues.
 - 2026-07-20 — table initialized (M27 kickoff). BTCUSDT 5m carried over from Phase 0. Batch-1 crypto data pull dispatched to the trainer.
