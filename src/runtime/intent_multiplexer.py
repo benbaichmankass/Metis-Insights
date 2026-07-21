@@ -89,6 +89,9 @@ from src.runtime.strategy_signal_builders import (
     mhg_pullback_1d_signal_builder,
     squeeze_breakout_4h_signal_builder,
     ict_scalp_signal_builder,
+    ict_scalp_sol_5m_signal_builder,
+    ict_scalp_xrp_5m_signal_builder,
+    ict_scalp_avax_5m_signal_builder,
     trend_donchian_1h_signal_builder,
     trend_donchian_eth_signal_builder,
     trend_donchian_sol_signal_builder,
@@ -127,6 +130,16 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         # `enabled` flag as single source of truth; this registration
         # plumbs it through the intent layer when enabled.
         "ict_scalp_5m": ict_scalp_signal_builder,
+        # M27 P0 Batch-1 alt variants (2026-07-21, Tier-3 operator-approved
+        # promotion to bybit_1 demo soak) — SOL/AVAX pass UNGATED on their own
+        # k-fold evidence; XRP's pass is gate-load-bearing, enforced via the
+        # strategy-local off_cells filter in _ict_scalp_variant_builder (no
+        # live regime head exists yet for these symbols, so the global
+        # regime_policy.yaml path would be a no-op). Evidence:
+        # docs/research/M27-P0-crypto-findings-2026-07-20.md.
+        "ict_scalp_sol_5m": ict_scalp_sol_5m_signal_builder,
+        "ict_scalp_xrp_5m": ict_scalp_xrp_5m_signal_builder,
+        "ict_scalp_avax_5m": ict_scalp_avax_5m_signal_builder,
         # trend_donchian: Donchian-breakout trend-follower going live on
         # bybit_2 (real money) per the 2026-05-23 go-live plan. Builder
         # honours the YAML `enabled` flag; priority 20 (below the others)
