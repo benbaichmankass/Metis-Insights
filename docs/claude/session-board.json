@@ -10,50 +10,8 @@
     "pr": null,
     "claimed_at": null
   },
-  "active_sessions": [
-    {
-      "session_id": "session_01SDLWbfLGV4WYHgC2ugzedf",
-      "branch": "claude/exit-refinement-sprint-l74k6o",
-      "intent": "M20-X vol_trail donchian sweep DONE: 22/23 honest-negative, 1 MARGINAL pass (trend_donchian_eth vt_cold10_t2.5, wf 4/6). Operator approved building it + paper-testing it. NOW building: live vol-conditional-trail apply path (src/runtime/trail_vol.py) + YAML declare on trend_donchian_eth (executes on bybit_1 PAPER) to learn if the ~4R edge is real. Draft PR, exact diff to operator, merge on approval. Pullback vol_trail sweep also running (#6510). Slot free.",
-      "started_at": "2026-07-13T05:07:08.981068+00:00",
-      "updated_at": "2026-07-15T14:50:00Z"
-    },
-    {
-      "session_id": "session_01J9pbkyoSSG8PiS9NurTEaD",
-      "branch": "claude/system-health-review-f4i2v1",
-      "intent": "/health-review 2026-07-15 DONE. Merged #6449 (Tier-3 alpaca_live->dry_run, operator-directed) + deploying; merging #6447 (review-skill governance: health-review security+soak sweeps, perf-review real-money benchmark; health-review backlog drain). NOT touching devnull / first-fire items — research session owns them.",
-      "started_at": "2026-07-15T05:53:00Z",
-      "updated_at": "2026-07-15T06:58:00Z"
-    },
-    {
-      "session_id": "session_01Y1wkcJAmgVxX9Lx1XRPxa5",
-      "branch": "claude/scalping-chop-strategies-b9n05u",
-      "intent": "RESEARCH: reliable small-TF trading tool (chop-scalp #6479/#6485 MERGED, both negative). New 4-direction program (operator-approved): P1 maker-fee economics re-scorer, P2 order-flow capture clock (forward-only), P3 market-neutral sleeve backtests, P4 P(win) filter attempt-3 (GATED on P2). Tier-1 research only; builds are operator-gated Tier-3 proposals. Trainer runs via relay. Slot free.",
-      "started_at": "2026-07-15T07:05:00Z",
-      "updated_at": "2026-07-15T12:05:00Z"
-    },
-    {
-      "session_id": "session_01Y8dy5ZEC4GPQ5RF8oq7iSU",
-      "branch": "claude/paper-portfolio-accounts-31p76k",
-      "intent": "S-PAPER-PORTFOLIO: two live-portfolio-mirror PAPER accounts (bybit_portfolio mirrors bybit_2; alpaca_portfolio mirrors alpaca_live minus SPLG/IAUM proxies) + paper_role axis on /api/bot/config. PR #6663 (Tier-3, operator-approved merge). Then dashboard+Android Paper=portfolio UI. Also investigating alpaca_paper QQQ stuck-close (issues #6664/#6665).",
-      "started_at": "2026-07-16T00:00:00Z",
-      "updated_at": "2026-07-16T00:00:00Z"
-    },
-    {
-      "session_id": "session_01XBSJPyL4k9HUje4miikC7q",
-      "branch": "claude/ml-vol-regime-probe-21az61-f0au4r",
-      "intent": "ML continuation — CLOSE-OUT DONE: PR #6934 MERGED (verification results + M23 P2 findings honest-negative + WS-B coverage). NOW on WS-A (M25 promotion harvest, claimed on #6927): RG4 sweep + chained cycle->readiness running on the trainer; memos/packets to follow on a fresh branch. Slot free.",
-      "started_at": "2026-07-19T10:55:00Z",
-      "updated_at": "2026-07-19T11:45:00Z"
-    },
-    {
-      "session_id": "session_01PKEYK1kKeXJXuG92GS2NB1",
-      "branch": "claude/system-health-review-rk852g",
-      "intent": "/health-review 2026-07-19. PR #6926: 4 operator-approved Tier-2 reconciler correctness fixes (INTENT-REDUCE phantom-pnl NULL-defer [reverses #2974 attribution], SHADOW-PKG-ORPHAN shadow_expired relabel, RECONCILE-DUP guard 300->1800s, OPKG-META per-account refusal_causes) + CI fixes (existing orphan test + s012 deploy-unit-drift guard) + the live cross-session coordination board (issue #6927 + settings.json clause-0 + session-coordination skill + docs/claude/coordination-board.md). HOLDING #6926 merge for operator 'merge 6926' nod (the #2974 reversal). Slot free.",
-      "started_at": "2026-07-19T08:30:00Z",
-      "updated_at": "2026-07-19T09:00:00Z"
-    }
-  ],
+  "active_sessions": [],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
-  "_pruned_2026-07-15": "Pruned two >24h-stale full-system-audit-2026-07-09 entries (session_013YMtQmKVzkDCPECSU4tbwD, session_01886WsrJNuwMJqnMQmxDgCn) — no matching open PR/branch after 6 days. Registered health-review session."
+  "_pruned_2026-07-15": "Pruned two >24h-stale full-system-audit-2026-07-09 entries (session_013YMtQmKVzkDCPECSU4tbwD, session_01886WsrJNuwMJqnMQmxDgCn) — no matching open PR/branch after 6 days. Registered health-review session.",
+  "_pruned_2026-07-21": "Pruned all 6 entries dated 2026-07-13→2026-07-19 (exit-refinement-sprint-l74k6o, system-health-review-f4i2v1, scalping-chop-strategies-b9n05u, paper-portfolio-accounts-31p76k, ml-vol-regime-probe-21az61-f0au4r, system-health-review-rk852g) — all >24h stale (2-8 days), confirmed via `git ls-remote --heads` that none of the six branches exist remotely anymore (all merged-and-deleted or abandoned). No entry registered for the M27 Batch-4/session-close-out work — this session communicated via the live #6927 board comments (claim/release) rather than this JSON's active_sessions list."
 }
