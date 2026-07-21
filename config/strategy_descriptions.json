@@ -11,6 +11,18 @@
   "short": "ICT liquidity-sweep scalp on 5m BTCUSDT",
   "how_it_works": "Trades the ICT sweep → displacement → fair-value-gap sequence. Waits for price to sweep a recent swing high/low (liquidity grab), confirm a displacement candle (body > 1.3× ATR), then enters on a wick-rejection back out of the resulting FVG. A 1h EMA-20 higher-timeframe bias gate blocks counter-trend entries. Stop is ATR-buffered beyond the sweep; take-profit at 1.5R. Risk: 0.3% per trade."
  },
+ "ict_scalp_sol_5m": {
+  "short": "ICT liquidity-sweep scalp on 5m SOLUSDT (M27 P0 Batch-1 alt variant, demo soak)",
+  "how_it_works": "Config-exact copy of ict_scalp_5m's sweep → displacement → FVG logic on SOLUSDT. No local regime gate — the M27 Batch-1 net-of-fee k-fold passed ungated (4/4 folds, +37.7R). Same 1h EMA-20 HTF bias gate, ATR-buffered stop, 1.5R take-profit. Routed to the bybit_1 demo/paper account only (execution:live — accruing real paper-trade data toward a real-money decision)."
+ },
+ "ict_scalp_xrp_5m": {
+  "short": "ICT liquidity-sweep scalp on 5m XRPUSDT (M27 P0 Batch-1 alt variant, demo soak)",
+  "how_it_works": "Config-exact copy of ict_scalp_5m's sweep → displacement → FVG logic on XRPUSDT, with a strategy-local regime off-cell filter: signals in a (trending, volatile) or (chop, volatile) bar are suppressed, using a frozen 5m volatility spec derived from the M27 backtest. This gate is load-bearing — the ungated backtest only cleared 2/4 folds, while the gated rule cleared 4/4 (+34.3R). Routed to the bybit_1 demo/paper account only (execution:live — accruing real paper-trade data toward a real-money decision)."
+ },
+ "ict_scalp_avax_5m": {
+  "short": "ICT liquidity-sweep scalp on 5m AVAXUSDT (M27 P0 Batch-1 alt variant, demo soak)",
+  "how_it_works": "Config-exact copy of ict_scalp_5m's sweep → displacement → FVG logic on AVAXUSDT. No local regime gate — the M27 Batch-1 net-of-fee k-fold passed ungated (4/4 folds, +60.8R). Same 1h EMA-20 HTF bias gate, ATR-buffered stop, 1.5R take-profit. Routed to the bybit_1 demo/paper account only (execution:live — accruing real paper-trade data toward a real-money decision)."
+ },
  "trend_donchian": {
   "short": "Long-only Donchian-breakout trend-follower on 1h BTCUSDT",
   "how_it_works": "Enters LONG on a Donchian(20) channel breakout — price closing above the highest high of the prior 20 bars. Initial stop is 2.5× ATR(14); the sole profit-exit is a Chandelier ATR trailing stop at 5.0× (no fixed take-profit), so winners run until the trend reverses. Long-only since 2026-06-01: the regime×direction matrix (docs/research/regime-roster-matrix-2026-06-01.md) showed the short side is a net −37 R drag that earns only in chop, while the long side is the +47 R trend edge; the chop-only short edge will be reclaimed via the planned regime router (docs/research/regime-router-design-2026-06-01.md). Risk: 0.3% per trade. Re-tuned 2h/trail3.5 → 1h/trail5.0 on 2026-06-01 (#2554), the OOS-best corner from the overnight walk-forward."

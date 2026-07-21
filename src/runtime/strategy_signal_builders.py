@@ -667,6 +667,152 @@ def ict_scalp_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("ict_scalp_5m", sig)
 
 
+def _ict_scalp_variant_builder(name: str, settings: dict) -> Dict[str, Any]:
+    """Shared builder for the M27 P0 Batch-1 ict_scalp per-symbol alt variants
+    (ict_scalp_sol_5m / ict_scalp_xrp_5m / ict_scalp_avax_5m).
+
+    Reuses ``src.units.strategies.ict_scalp.order_package`` parametrised by the
+    variant's own ``<name>`` config block, mirroring
+    ``_trend_donchian_variant_builder``. The traded symbol is pinned from the
+    variant's ``symbols:`` (single-instrument), NOT the tick settings.
+
+    **Strategy-local regime off-cell gate** (M27 Batch-1 evidence:
+    docs/research/M27-P0-crypto-findings-2026-07-20.md) — deliberately NOT the
+    global ``config/regime_policy.yaml`` / ML-registry mechanism: that path
+    resolves the live vol axis from a REGISTERED shadow-stage regime head per
+    ``(symbol, timeframe)`` (``src.runtime.regime.vol_detector.resolve_vol_specs``),
+    and no such head is trained for SOL/XRP/AVAX yet — a regime_policy.yaml cell
+    for these symbols would silently never fire (vol_regime stays "unknown").
+    Instead, when the variant's config carries ``off_cells: [[trend, vol], ...]``
+    + ``vol_spec: {...}`` (the exact frozen 5m tercile edges the Batch-1 backtest
+    derived), a signal whose current (ADX-14 trend regime, frozen-spec vol
+    regime) pair matches a listed off-cell is suppressed — reproducing the
+    "off_cells_5m" k-fold rule Batch-1 validated for that symbol. Omit
+    ``off_cells``/``vol_spec`` for a variant whose OWN evidence passes UNGATED
+    (SOL, AVAX) — XRP's pass was conditional on this gate (ungated 2/4 folds
+    fails; gated 4/4 passes), so XRP carries both.
+    """
+    from src.units.strategies import load_strategy_config
+    from src.units.strategies.ict_scalp import order_package
+    from src.runtime.market_data import fetch_candles
+    from src.runtime.regime.vol_detector import vol_regime_from_spec
+
+    try:
+        strategies_cfg = load_strategy_config()
+    except Exception:  # noqa: BLE001
+        strategies_cfg = {}
+    vcfg = strategies_cfg.get(name, {}) or {}
+
+    syms = vcfg.get("symbols") or []
+    symbol = str(syms[0]) if syms else settings.get("SYMBOL", settings.get("symbol", ""))
+
+    if not bool(vcfg.get("enabled", False)):
+        return _with_signal_package(name, {
+            "symbol": symbol, "side": "none",
+            "meta": {"strategy_name": name, "reason": "disabled_in_yaml"},
+        })
+
+    timeframe = str(vcfg.get("timeframe") or "5m")
+    exchange = _build_killzone_exchange(settings)
+    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    if candles_df is None:
+        raise RuntimeError(
+            f"{name}: no candle data for symbol={symbol} timeframe={timeframe}.")
+
+    _publish_liquidity_state(symbol, candles_df)
+    cfg: Dict[str, Any] = {"symbol": symbol, "timeframe": timeframe, **vcfg}
+
+    try:
+        pkg = order_package(cfg, candles_df=candles_df)
+    except ValueError as exc:
+        logger.info("%s: no actionable signal (%s)", name, exc)
+        try:
+            log_signal(_stamp_regime({
+                "event": f"{name}_eval", "strategy": name, "symbol": symbol,
+                "timeframe": timeframe, "side": "none", "reason": str(exc),
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("%s: dedicated audit emit failed", name)
+        return _with_signal_package(name, {
+            "symbol": symbol, "side": "none",
+            "meta": {"strategy_name": name, "reason": str(exc)},
+        })
+
+    off_cells = vcfg.get("off_cells") or []
+    vol_spec = vcfg.get("vol_spec")
+    if off_cells and vol_spec:
+        trend_label = (detect_regime(candles_df) or {}).get("regime") or "unknown"
+        vol_label, _ = vol_regime_from_spec(vol_spec, candles_df["close"])
+        off_pairs = {tuple(c) for c in off_cells}
+        if (trend_label, vol_label) in off_pairs:
+            logger.info(
+                "%s: signal suppressed by local off-cell gate (trend=%s vol=%s)",
+                name, trend_label, vol_label,
+            )
+            try:
+                log_signal(_stamp_regime({
+                    "event": f"{name}_eval", "strategy": name, "symbol": symbol,
+                    "timeframe": timeframe, "side": "none",
+                    "reason": "regime_off_cell_local",
+                    "regime": trend_label, "vol_regime": vol_label,
+                }, candles_df))
+            except Exception:  # noqa: BLE001
+                logger.exception("%s: dedicated audit emit failed", name)
+            return _with_signal_package(name, {
+                "symbol": symbol, "side": "none",
+                "meta": {
+                    "strategy_name": name,
+                    "reason": "regime_off_cell_local",
+                    "regime": trend_label,
+                    "vol_regime": vol_label,
+                },
+            })
+
+    side = "buy" if pkg["direction"] == "long" else "sell"
+    pkg_meta = pkg.get("meta") or {}
+    try:
+        log_signal(_stamp_regime({
+            "event": f"{name}_eval", "strategy": name, "symbol": symbol,
+            "timeframe": timeframe, "side": side, "entry": pkg["entry"],
+            "stop_loss": pkg["sl"], "take_profit": pkg["tp"],
+            "confidence": pkg["confidence"],
+            "fvg_low": pkg_meta.get("fvg_low"),
+            "fvg_high": pkg_meta.get("fvg_high"),
+            "sweep_level": pkg_meta.get("sweep_level"),
+            "sweep_extreme": pkg_meta.get("sweep_extreme"),
+        }, candles_df))
+    except Exception:  # noqa: BLE001
+        logger.exception("%s: dedicated audit emit failed", name)
+
+    sig = {
+        "symbol": symbol, "side": side, "price": pkg["entry"],
+        "entry_price": pkg["entry"], "stop_loss": pkg["sl"], "take_profit": pkg["tp"],
+        "pattern": name,
+        "meta": {
+            **pkg_meta, "strategy_name": name, "confidence": pkg["confidence"],
+            "direction": pkg["direction"], "timeframe": timeframe,
+        },
+    }
+    _emit_shadow_preds(name, sig, vcfg, symbol, timeframe=timeframe, candles_df=candles_df)
+    _stamp_regime_on_meta(sig.setdefault("meta", {}), candles_df, symbol=symbol, timeframe=timeframe)
+    return _with_signal_package(name, sig)
+
+
+def ict_scalp_sol_5m_signal_builder(settings: dict) -> Dict[str, Any]:
+    """ict_scalp on SOLUSDT 5m (M27 Batch-1: STRONG PASS, own-evidence ungated k-fold 4/4 +37.7R)."""
+    return _ict_scalp_variant_builder("ict_scalp_sol_5m", settings)
+
+
+def ict_scalp_xrp_5m_signal_builder(settings: dict) -> Dict[str, Any]:
+    """ict_scalp on XRPUSDT 5m (M27 Batch-1: PASS, gate load-bearing — strategy-local off-cells)."""
+    return _ict_scalp_variant_builder("ict_scalp_xrp_5m", settings)
+
+
+def ict_scalp_avax_5m_signal_builder(settings: dict) -> Dict[str, Any]:
+    """ict_scalp on AVAXUSDT 5m (M27 Batch-1: PASS, own-evidence ungated k-fold 4/4 +60.8R)."""
+    return _ict_scalp_variant_builder("ict_scalp_avax_5m", settings)
+
+
 def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     Fetch OHLCV candles from the configured exchange and return a VWAP
@@ -5313,6 +5459,11 @@ def avax_pullback_2h_signal_builder(settings: dict) -> Dict[str, Any]:
 # strategy ends up with no resolvable monitor().
 for _builder, _monitor_unit in (
     (ict_scalp_signal_builder, "ict_scalp"),
+    # M27 P0 Batch-1 alt variants (SOL/XRP/AVAX) — reuse the ict_scalp unit's
+    # monitor() for break-even trail / SL-TP-cross exit management.
+    (ict_scalp_sol_5m_signal_builder, "ict_scalp"),
+    (ict_scalp_xrp_5m_signal_builder, "ict_scalp"),
+    (ict_scalp_avax_5m_signal_builder, "ict_scalp"),
     (trend_donchian_1h_signal_builder, "trend_donchian"),
     (trend_donchian_sol_signal_builder, "trend_donchian"),
     (trend_donchian_eth_signal_builder, "trend_donchian"),

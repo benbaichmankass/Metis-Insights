@@ -163,6 +163,14 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     # (PR #1156, post pre-live gate). Tune upward only with operator
     # approval after a backtest validates the priority change.
     "ict_scalp_5m": 30,
+    # M27 P0 Batch-1 alt variants (2026-07-21) — each is a single-instrument
+    # ict_scalp instance (SOL/XRP/AVAX), no established peer on their own
+    # symbol on bybit_1 to conflict with. Deliberately 0 (the untested-roster
+    # floor, same as the trend_donchian_sol/eth prop alt variants) so a wiring
+    # slip can't override the established roster.
+    "ict_scalp_sol_5m": 0,
+    "ict_scalp_xrp_5m": 0,
+    "ict_scalp_avax_5m": 0,
     # trend_donchian — deliberately the LOWEST priority on the roster
     # (S-STRAT-IMPROVE-S8 go-live). It runs alone on bybit_2 so its
     # priority never actually arbitrates there; the low value is a

@@ -1,6 +1,6 @@
 {
   "_doc": "M20 exit-refinement coverage matrix \u2014 one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) \u2014 never inferred.",
-  "updated_at": "2026-07-16",
+  "updated_at": "2026-07-21",
   "lever_columns": [
     "trail_geometry",
     "stale_stop",
@@ -571,6 +571,120 @@
       "regime_flip_exit": {
         "status": "honest_negative",
         "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail \u2014 eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      }
+    },
+    {
+      "strategy": "ict_scalp_sol_5m",
+      "symbol": "SOLUSDT",
+      "tf": "5m",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "stale_stop": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "giveback_stop": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "exit_ladder": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "exit_head_ml": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "trail_decay": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "regime_flip_exit": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "vol_trail": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      }
+    },
+    {
+      "strategy": "ict_scalp_xrp_5m",
+      "symbol": "XRPUSDT",
+      "tf": "5m",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "stale_stop": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "giveback_stop": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "exit_ladder": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "exit_head_ml": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "trail_decay": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "regime_flip_exit": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "vol_trail": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      }
+    },
+    {
+      "strategy": "ict_scalp_avax_5m",
+      "symbol": "AVAXUSDT",
+      "tf": "5m",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "stale_stop": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "giveback_stop": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "exit_ladder": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "exit_head_ml": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "trail_decay": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "regime_flip_exit": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      },
+      "vol_trail": {
+        "status": "pending",
+        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
       }
     }
   ]

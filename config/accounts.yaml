@@ -134,7 +134,19 @@ accounts:
     market_type: linear                # USDT-margined linear perpetuals — same
                                        # as bybit_2. set-leverage fires at boot
                                        # via _apply_per_account_leverage.
-    strategies: [trend_donchian, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h, eth_pullback_2h, trend_donchian_eth_4h, trend_donchian_sol_4h, trend_donchian_xrp_4h, trend_donchian_ada_4h, trend_donchian_avax_4h, sol_pullback_2h, xrp_pullback_2h, ada_pullback_2h, avax_pullback_2h, trend_donchian_sol, trend_donchian_eth, eth_pullback_prop_2h]
+    strategies: [trend_donchian, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h, eth_pullback_2h, trend_donchian_eth_4h, trend_donchian_sol_4h, trend_donchian_xrp_4h, trend_donchian_ada_4h, trend_donchian_avax_4h, sol_pullback_2h, xrp_pullback_2h, ada_pullback_2h, avax_pullback_2h, trend_donchian_sol, trend_donchian_eth, eth_pullback_prop_2h, ict_scalp_sol_5m, ict_scalp_xrp_5m, ict_scalp_avax_5m]
+                                       # ict_scalp_sol_5m / ict_scalp_xrp_5m / ict_scalp_avax_5m
+                                       # added 2026-07-21 (Tier-3, operator-approved M27 P0
+                                       # Batch-1 promotion): execution:live demo-soak paper
+                                       # execution — bybit_1 (paper/demo) always EXECUTES, this
+                                       # is the "shadow" phase in the operator's own vocabulary
+                                       # (accrue real paper-trade data toward a real-money
+                                       # decision), NOT the config-level execution:shadow gate
+                                       # (signal-log-only). NOT routed to bybit_2 or
+                                       # bybit_portfolio yet — that promotion is a separate
+                                       # Tier-3 PR once the live paper data confirms the
+                                       # backtest. Evidence: docs/research/M27-P0-crypto-
+                                       # findings-2026-07-20.md.
                                        # 2026-07-07 (Tier-3, operator-approved, routing-coverage
                                        # audit): added trend_donchian_sol (SOL 1h), trend_donchian_eth
                                        # (ETH 1h) + eth_pullback_prop_2h (ETH 2h prop-tuned exits).

@@ -176,6 +176,9 @@ def test_run_checks_strategies_match_roster():
         "trend_donchian_sol_prop", "trend_donchian_eth_prop",
         # sub-$100 proxy cells on alpaca_paper (2026-07-07, Tier-3) — SPLG/IAUM/SCHA.
         "splg_trend_long_1d", "iaum_pullback_1d", "scha_trend_long_1d",
+        # M27 P0 Batch-1 alt variants (2026-07-21, Tier-3, operator-approved
+        # promotion): execution:live demo-soak on bybit_1 only.
+        "ict_scalp_sol_5m", "ict_scalp_xrp_5m", "ict_scalp_avax_5m",
     }
 
 

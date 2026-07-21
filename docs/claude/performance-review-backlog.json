@@ -1357,6 +1357,15 @@
       "title": "M27 Batch-2: ict_scalp 5m fires only 8-16 trades/yr on IBKR micro futures \u2014 diagnose data-continuity vs genuine rarity before any futures scalp verdict",
       "detail": "Config-exact ict_scalp_5m on native IBKR 5m over ~1y produced MES 16 / MGC 14 / MHG 8 trades \u2014 ~18x fewer than crypto (~285/yr), so the k-fold is 2-4 trades/fold and NO gate verdict is possible (findings: docs/research/M27-P0-batch2-futures-findings-2026-07-21.md). The 5m frozen vol terciles are degenerate (q33=0.0 on all three \u2014 overnight flat/identical-close bars); only the 15m label is healthy. Two candidate causes to distinguish before spending more compute: (a) genuine setup rarity in the RTH-gapped futures tape (\u2192 futures scalp belongs at 15m+, P1), or (b) a stitched-ContFuture 5m data-continuity artifact (roll-boundary gaps) suppressing the rolling-window FVG/sweep detector. Repro: /home/ubuntu/m27_out_fut on the trainer; CSVs /home/ubuntu/m27_data/{MES,MGC,MHG}_5m.csv. Prereq before any M27 P1 futures-15m run.",
       "source": "S-M27-P0-BATCH1-2026-07-20 (Batch-2 continuation)"
+    },
+    {
+      "id": "PB-20260721-ICTSCALP-ALTCOIN-PAPER-SOAK-CHECK",
+      "date": "2026-07-21",
+      "status": "open",
+      "severity": "P3",
+      "title": "Check live paper performance of ict_scalp_sol_5m / _xrp_5m / _avax_5m on bybit_1 against the M27 Batch-1 backtest \u2014 gate for real-money promotion",
+      "detail": "Three new execution:live legs were promoted to the bybit_1 demo/paper account 2026-07-21 (S-M27-ALTCOIN-PROMOTION-2026-07-21.md), based on the M27 Batch-1 net-of-fee k-fold: SOL/AVAX pass ungated (4/4 folds), XRP passes with a strategy-local off-cell gate (config/strategies.yaml::ict_scalp_xrp_5m.off_cells, enforced in _ict_scalp_variant_builder \u2014 not the registry-driven regime_policy.yaml path, since no live regime head exists for these symbols). Once a meaningful live paper trade count accrues (recommend >=20-30 trades per leg), compare live win-rate/expectancy/R against the M27 backtest table (docs/research/M27-P0-crypto-findings-2026-07-20.md) as the evidence gate for promoting to bybit_2 (real money) + bybit_portfolio (its paper mirror) \u2014 a separate Tier-3, operator-approved step per the operator's flow (bybit_1 soak -> bybit_2+bybit_portfolio together on promotion).",
+      "source": "S-M27-ALTCOIN-PROMOTION-2026-07-21"
     }
   ],
   "updated_at": "2026-07-20T19:30:00+00:00"
