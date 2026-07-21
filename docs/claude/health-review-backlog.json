@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260721-BYBIT2-XRP-TPSL-LEGCAP",
+      "opened_at": "2026-07-21T05:27:00+00:00",
+      "opened_by": "claude (M27 overnight loop, incidental — post-deploy journalctl tail after merging PR #7254)",
+      "source": "Live journalctl on ict-trader-live.service immediately post-deploy (2026-07-21T05:25:30Z, unrelated to the deploy itself): `modify_open_order: bybit raised for account=bybit_2 symbol=XRPUSDT: set stopLoss takeProfit exceeds the limit oldTpNum+oldStNum+newNum=(1 the num is tp+sl) > 20 So set fail (ErrCode: 110061)`. Request body: `{\"category\":\"linear\",\"symbol\":\"XRPUSDT\",\"stopLoss\":\"1.0855\",\"tpslMode\":\"Partial\",\"slSize\":\"165.5\"}`. order_monitor logged `exchange modify failed — leaving DB unchanged` and `xrp_pullback_2h — open=1 updated=0 closed=0 no_change=0 errors=1`.",
+      "title": "[order-monitor] bybit_2 XRPUSDT SL amend failing — Bybit's 20-leg tpsl cap likely hit under BYBIT_TPSL_MODE=partial's per-order qty-scoped brackets",
+      "description": "BYBIT_TPSL_MODE=partial (live-verified + rolled out per BL/PR #7115, see the health-review-backlog entry above and performance-review-backlog) attaches a qty-scoped Partial-type TP/SL leg PER ORDER rather than one position-level bracket. Bybit's own API enforces a hard cap of 20 combined tp+sl legs per symbol (`oldTpNum+oldStNum+newNum > 20`, ErrCode 110061). If XRPUSDT on bybit_2 (traded by multiple strategies incl. `xrp_pullback_2h`, and as of PR #7254 `ict_scalp_xrp_5m` on bybit_1 — different account, not a factor here) has accumulated legs from many prior partial opens/adds without them being consolidated/cleared as positions close, it can hit that 20-leg ceiling — at which point ANY subsequent SL amend request for that symbol fails outright and `order_monitor` leaves the DB (and the live stop) UNCHANGED. This is a protection-integrity risk: a stop-loss that should move (e.g., a breakeven trail or a tightening update) silently fails to update on the exchange while the DB may or may not reflect the intended level, for as long as the leg count stays saturated. Not yet confirmed whether this is a one-off (a stale/orphaned leg never cleaned up) or a structural risk of the partial-brackets design at higher trade frequency/leg turnover on one symbol. NOT investigated further this session (incidental discovery during unrelated deploy-verification read) — flagging per the standing 'if you see something, say something' directive rather than walking past it.",
+      "tier": 2,
+      "trigger_condition": "Next /health-review or order-path session. First checks: (a) `GET /api/diag/exchange_positions?account_id=bybit_2` + a direct Bybit `GET /v5/position/list?category=linear&symbol=XRPUSDT` read (via the account_open_positions primitive or a read-only diag) to count the CURRENT live tp/sl leg count on bybit_2 XRPUSDT and confirm whether it's actually pinned near/at 20; (b) grep `runtime_logs/signal_audit.jsonl` / journalctl for repeat occurrences of ErrCode 110061 on any symbol/account since BYBIT_TPSL_MODE=partial went live, to gauge frequency (one-off vs recurring); (c) if recurring, design a leg-consolidation or leg-count-aware fallback (e.g., amend the OLDEST/smallest leg instead of adding a new one, or fall back to `full` position-level tpsl for that symbol when the partial-leg count is saturated) rather than silently no-op-ing the SL update.",
+      "resolution_criteria": "Either (a) confirmed one-off/stale-leg artifact, cleaned up, and a monitor added so a future saturation is caught before it silently blocks SL amends; or (b) a structural fix (consolidation/fallback) ships so an SL amend on a saturated symbol never silently fails to protect the position — order_monitor's `errors=1` counter for this cause should trend to zero going forward.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "BL-20260715-TRAINER-CYCLE-MEM-SATURATION",
       "opened_at": "2026-07-15T09:05:00+00:00",
       "opened_by": "claude (/health-review 2026-07-15; handoff from the M20/M21 research session)",
