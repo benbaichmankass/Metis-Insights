@@ -283,10 +283,66 @@ build_bybit_pair() {
   build_bybit_features "$1" "$2"
 }
 
+# fc-pcv forecast side-stream (2026-07-21, remediates MB-20260720-FCPCV-RETRAIN-NOOP).
+# The fc-pcv regime heads (btc/sol-regime-15m-lgbm-fc-pcv-v2) train on the fc_*
+# quantile-forecast block, which market_features as-of joins from a forecast
+# side-stream. That side-stream was previously produced ONLY by a manual
+# build_forecasts.py run, so it froze (~Jul 1/6) while market_raw refreshed
+# nightly — pinning the fc-pcv training data to stale dates (the v520/v530 no-op
+# retrains). Rebuild it here each night so the 15m fc_* features stay fresh. NO
+# explicit forecast params: build_forecasts + the live serve (publish_live_forecasts)
+# both anchor to the ml/datasets/forecast_features.py DEFAULT_* constants, so
+# omitting the flags keeps train==serve as those constants evolve. Needs
+# chronos-forecasting + torch (requirements-backtest.txt) — trainer-side only.
+# Non-fatal: a failure leaves the fc_* block stale for this build (logged), never
+# aborts. Sets the global FC_PARAM (`forecast_path=<out>` or empty) for the caller.
+build_forecast_sidestream() {  # $1=symbol $2=tf ; sets global FC_PARAM
+  FC_PARAM=""
+  local symbol="$1"
+  local tf="$2"
+  local raw="${DATASETS_ROOT}/market_raw/${symbol}/${tf}/${DATASET_VERSION}"
+  local out="${DATASETS_ROOT}/forecasts/${symbol}/${tf}/${DATASET_VERSION}"
+  if [ ! -d "$raw" ]; then
+    emit "$(printf '{"ts":"%s","status":"skipped","family":"forecasts","symbol":"%s","timeframe":"%s","detail":"market_raw path not found"}' "$(iso_now)" "$symbol" "$tf")"
+    return 0
+  fi
+  emit "$(printf '{"ts":"%s","status":"building","family":"forecasts","symbol":"%s","timeframe":"%s"}' "$(iso_now)" "$symbol" "$tf")"
+  set +e
+  python -m scripts.ml.build_forecasts \
+    --target "$raw" --out "$out" \
+    >"/tmp/bld_fc_${symbol}_${tf}_$$.out" 2>"/tmp/bld_fc_${symbol}_${tf}_$$.err"
+  local fc_rc=$?
+  set -e
+  if [ "$fc_rc" -eq 0 ] && [ -s "${out}/data.jsonl" ]; then
+    emit "$(printf '{"ts":"%s","status":"ok","family":"forecasts","symbol":"%s","timeframe":"%s","out":"%s"}' "$(iso_now)" "$symbol" "$tf" "$out")"
+    FC_PARAM="forecast_path=${out}"
+  else
+    local fc_err="$(tail -n 3 "/tmp/bld_fc_${symbol}_${tf}_$$.err" 2>/dev/null | tr '\n' ' ' | head -c 400)"
+    emit "$(python3 -c "
+import json, sys
+ts, rc, err, sym, tf = sys.argv[1:]
+print(json.dumps({'ts': ts, 'status': 'failed', 'family': 'forecasts',
+                  'symbol': sym, 'timeframe': tf, 'exit_code': int(rc),
+                  'detail': 'fc_* block stale this build (forecast side-stream rebuild failed)',
+                  'stderr_tail': err}))" \
+      "$(iso_now)" "$fc_rc" "$fc_err" "$symbol" "$tf")"
+    overall_rc=1
+  fi
+  rm -f "/tmp/bld_fc_${symbol}_${tf}_$$.out" "/tmp/bld_fc_${symbol}_${tf}_$$.err"
+}
+
+# Build BTC/SOL 15m WITH the fresh forecast side-stream (fc-pcv-v2). Split like the
+# ETH xa build so the forecast rebuild interposes between raw and features.
+build_bybit_15m_fc() {  # $1=symbol
+  build_bybit_raw "$1" 15m
+  build_forecast_sidestream "$1" 15m
+  build_bybit_features "$1" 15m ${FC_PARAM:+"$FC_PARAM"}
+}
+
 # BTCUSDT — the primary fleet (1h baseline + 5m/15m v2 heads).
 build_bybit_pair BTCUSDT 1h
 build_bybit_pair BTCUSDT 5m
-build_bybit_pair BTCUSDT 15m
+build_bybit_15m_fc BTCUSDT
 # ALT symbols (multi-symbol A, #1) — keep the alt regime heads' label datasets
 # fresh so RG4 can score their live shadow rows. Non-fatal: a per-pair failure
 # is logged + counted like any other family, never aborts.
@@ -350,7 +406,7 @@ fi
 # label datasets must refresh daily so RG4 can score the live shadow rows post-soak.
 if build_alt_intraday; then
   build_bybit_pair SOLUSDT 5m
-  build_bybit_pair SOLUSDT 15m
+  build_bybit_15m_fc SOLUSDT
 fi
 
 # ---- MES market_features (yfinance ES=F 5m base, resampled to 15m) -------
