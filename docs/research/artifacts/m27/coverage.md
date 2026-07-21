@@ -29,7 +29,7 @@ _Dispositions: ✅ promoted/done · ⏳ pending · 📋 planned · 🚫 blocked/
 | SCHA | equity-levered | 3 | 🚫 gated-on-base (tests only if its base index passes) | 📋 P1 (after the symbol's 5m cell resolves) |
 | IAUM | equity-levered | 3 | 🚫 gated-on-base (tests only if its base index passes) | 📋 P1 (after the symbol's 5m cell resolves) |
 | SPLG | equity-levered | 3 | 🚫 gated-on-base (tests only if its base index passes) | 📋 P1 (after the symbol's 5m cell resolves) |
-| XAUUSD | fx-metal | 4 | ⏳ pending (Batch 4 — OANDA; primary thread is 15m/P1) | ✅ M15 survivor (+39R/+10R) — re-validate config-exact (P1) |
+| XAUUSD | fx-metal | 4 | 🚫 gated-on-15m (5m not tested — 15m was this symbol's primary thread per the M15 Phase-0 lead) | ✅ P0/P1 done — STRONG PASS, ungated (kfold net: baseline 4/4, +44.35R, exp +0.1848; off-cells gate underperforms baseline here, unlike BTC/ETH/XRP). Re-validates M15 Phase-0 (+39R/+10R single-split) under k-fold. **Promotion venue-blocked**: OANDA US can't trade XAU_USD (BL-20260611-007), `oanda_practice` shelved 2026-06-12 — no live-tradeable venue yet. Findings doc |
 
 ## Standing blocked-with-reason rows
 
@@ -39,6 +39,7 @@ _Dispositions: ✅ promoted/done · ⏳ pending · 📋 planned · 🚫 blocked/
 
 ## Log
 
+- 2026-07-21 (late) — Batch-4 XAUUSD 15m results landed (Dukascopy, 178,466 bars 2019-2026, trainer relays #7295/#7302-7305): ✅ STRONG PASS, ungated baseline 4/4 folds, +44.35R net, exp +0.1848R/trade — re-validates the M15 Phase-0 finding under k-fold discipline. Promotion is venue-blocked (OANDA US / XAU_USD), not evidence-blocked. Findings doc; required adding a `--timeframe` passthrough to `run_symbol_p0.py` (PR #7293) for native-15m (non-5m-derived) data.
 - 2026-07-21 — Batch-3 equities results landed (trainer relay #7271, yfinance data via #7259/#7263): all 9 symbols ❌ rejected, underpowered by data cap (1–15 trades/60d each). IWM/SLV are the least-starved but still not statistical. Findings doc; `PB-20260721-M27-EQUITIES-DATACAP` opened for a future deep-history data-source decision.
 - 2026-07-21 (early) — Batch-2 futures results landed: MES/MGC/MHG ❌ rejected, underpowered (8–16 trades/yr). Findings doc; `PB-20260721-M27-FUTURES-5M-LOWSIGNAL` opened.
 - 2026-07-20 (late) — Batch-1 attempt-3 results landed (tz-fixed CSVs, #7211/#7212): ETH/SOL/XRP PASS, ADA mixed, AVAX PASS (appended 23:33Z; chain ALL_DONE 23:27Z). Per-symbol frozen 2023-only vol specs derived on the trainer; full fold JSONs in the findings doc + relay issues.
