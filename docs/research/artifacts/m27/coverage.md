@@ -12,9 +12,9 @@ _Dispositions: ✅ promoted/done · ⏳ pending · 📋 planned · 🚫 blocked/
 | XRPUSDT | crypto | 1 | ✅ P0 done — PASS, gate load-bearing (baseline only 2/4; off_cells 4/4 +34.3R exp +0.144; off+conf070 4/4 exp +0.255). Findings doc | 📋 P1 (after the symbol's 5m cell resolves) |
 | ADAUSDT | crypto | 1 | ⚠️ P0 done — MIXED: baseline 3/4 +55.1R exp +0.064 ungated, but the BTC-shape off-cells gate does NOT transfer (2/4, +3.9R). Needs own-evidence cells before any leg; findings doc | 📋 P1 (after the symbol's 5m cell resolves) |
 | AVAXUSDT | crypto | 1 | ✅ P0 done — PASS (baseline 4/4 +60.8R exp .065 ungated; off+conf070 4/4 +19.2R exp .160; plain off-cells 2/4 does not transfer). Findings doc | 📋 P1 (after the symbol's 5m cell resolves) |
-| MES | futures | 2 | ⏳ pending (Batch 2 — IBKR history pulls, session-aware) | 📋 P1 (after the symbol's 5m cell resolves) |
-| MGC | futures | 2 | ⏳ pending (Batch 2 — IBKR history pulls, session-aware) | 📋 P1 (after the symbol's 5m cell resolves) |
-| MHG | futures | 2 | ⏳ pending (Batch 2 — IBKR history pulls, session-aware) | 📋 P1 (after the symbol's 5m cell resolves) |
+| MES | futures | 2 | ❌ rejected — UNDERPOWERED (16 trades/yr; gross +6.2R/69% but k-fold is 2-4 trades/fold = noise). Findings doc | 📋 P1 + diagnostic prerequisite (PB-20260721-M27-FUTURES-5M-LOWSIGNAL) |
+| MGC | futures | 2 | ❌ rejected — UNDERPOWERED + gross-negative (14 trades/yr, −4.73R, 36% win). Findings doc | 📋 P1 + diagnostic prerequisite |
+| MHG | futures | 2 | ❌ rejected — UNDERPOWERED + gross-negative (8 trades/yr, −0.33R, 38% win). Findings doc | 📋 P1 + diagnostic prerequisite |
 | SPY | equity-base | 3 | ⏳ pending (Batch 3 — Alpaca intraday bars) | 📋 P1 (after the symbol's 5m cell resolves) |
 | QQQ | equity-base | 3 | ⏳ pending (Batch 3 — Alpaca intraday bars) | 📋 P1 (after the symbol's 5m cell resolves) |
 | IWM | equity-base | 3 | ⏳ pending (Batch 3 — Alpaca intraday bars) | 📋 P1 (after the symbol's 5m cell resolves) |
