@@ -74,7 +74,7 @@ which today yields **24 symbols across five venue families**:
 | Crypto (Bybit linear) | BTCUSDT ✅(done), ETHUSDT, SOLUSDT, XRPUSDT, ADAUSDT, AVAXUSDT | Bybit klines, trainer-side pull (deep history) | taker bps round-trip (maker variant in P2) |
 | Futures (IBKR) | MES, MGC, MHG | `pull-ibkr-history` operator actions (5m pulls exist for MES) | per-contract commission + tick value; RTH/ETH session handling; whole-contract sizing floors the risk granularity |
 | Equities/ETFs (Alpaca + IBKR) | SPY, QQQ, IWM, TLT, GLD, SLV, GDX, USO, IEF, IAUM, SPLG, SCHA, TQQQ, QLD | Alpaca data API intraday bars (trainer-side) | ~zero commission; spread + market-hours-only sessions dominate |
-| FX/metals (OANDA) | XAUUSD | OANDA candles (the M15 Phase-0 rig) | spread; 24/5 |
+| FX/metals (OANDA) | XAUUSD | Dukascopy candles, keyless (research proxy — actually used for the Batch-4 15m study, `docs/research/M27-P0-batch4-xauusd-findings-2026-07-21.md`; OANDA remains the intended **live** venue per P1 below, currently blocked, `BL-20260611-007`) | spread; 24/5 |
 | Options underlyings | SLV, GDX (options expression on `alpaca_options_paper`) | tested as their underlying ETFs above | scalping the OPTIONS expression itself is **blocked-with-reason** (DTE-banded debit verticals don't map to 5m scalps) |
 
 Standing blocked-with-reason rows (recorded, not silently dropped): the
