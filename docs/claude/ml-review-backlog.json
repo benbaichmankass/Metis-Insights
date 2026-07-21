@@ -1478,6 +1478,11 @@
      "at": "2026-07-19T12:00:00+00:00",
      "by": "claude (WS-A M25 promotion harvest 2026-07-19)",
      "note": "Powered-RG4 sweep 2026-07-19: BTC fc-pcv 0.605 TRUSTWORTHY but UNPOWERED on the recent window (4 vol bars \u2014 low-vol stretch); ETH fc-pcv is a POWERED 0.476 NO_EDGE (the ETH leg of the fc family is not promotable in current form); SOL fc-pcv 0.546 NO_EDGE near-powered. The fc->advisory decision remains gated on a powered BTC read (daily-report window or more vol episodes) \u2014 no proposal yet, per the no-proposal-before-powered rule."
+    },
+    {
+     "at": "2026-07-21T07:45:00+00:00",
+     "by": "system-review-partial-2026-07-21",
+     "note": "Partial re-check: this session's stage-guard gate-check pull found btc-regime-15m-lgbm-fc-pcv-v1 already AT advisory stage with only n=3 live closed trades attributed and a NEGATIVE brier_lift (-0.1235, worse than base-rate) -- thin, currently-unfavorable live evidence for a model already influencing orders. drift_verdict='moderate'. This doesn't by itself trip a demote (stage-guard says 'no demote trigger tripped'), but the sample size is razor-thin for a live-influencing model. Flagging for the next full /ml-review to weigh alongside the powered RG4 re-run this item calls for. Not resolved -- kept open."
     }
    ]
   },
@@ -1708,6 +1713,11 @@
      "at": "2026-07-19T12:00:00+00:00",
      "by": "claude (WS-A M25 promotion harvest 2026-07-19)",
      "note": "Recent-window RG4 corroboration 2026-07-19: the live advisory head btc-regime-15m-lgbm-v2 reads 0.165 ANTI_PREDICTIVE on the fresh mirror \u2014 UNPOWERED (4 vol-class bars / 2 episodes in the current low-vol stretch), so NOT standalone demote evidence, but directionally consistent with the drift finding. The fc-pcv replacement reads 0.605 TRUSTWORTHY on the same window (also unpowered). The swap packet (promote fc-pcv -> advisory + demote v2 -> shadow) ripens on fc-pcv soak >=20.9d ~2026-07-24; gate-check with --datasets-root + live fc-feature parity are the remaining packet inputs."
+    },
+    {
+     "at": "2026-07-21T07:45:00+00:00",
+     "by": "system-review-partial-2026-07-21",
+     "note": "ESCALATION -- surfacing, not deciding (per health-review's 'soak decisions due' role): this Tier-3 decision has sat 'diagnosed_replacement_identified_awaiting_tier3' since 2026-07-18, unactioned across at least one full system-review cycle (2026-07-20) and this partial one. btc-regime-15m-lgbm-v2 is the LIVE order-influencing advisory head driving the BTC vol-gate (REGIME_ML_VERDICT_MODE=use, enforced 2026-06-28). This session did NOT re-check this specific model's drift (only spot-checked its 5m sibling, btc-regime-5m-lgbm-v2, which reads stable: KS=0.088 minor, PSI=0.0002 no_change -- a DIFFERENT model/timeframe, not evidence either way for the 15m head in question). Recommend the next full /ml-review or /system-review prioritize actually closing this decision (demote/retrain/hold) rather than re-surfacing it again."
     }
    ]
   },

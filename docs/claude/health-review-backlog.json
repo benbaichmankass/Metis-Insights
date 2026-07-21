@@ -1181,6 +1181,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: NOT recurring \u2014 live VM cpu 4.8% / mem 14.7% this review, heartbeat fresh; the durable fixes (watchdog restart-loop containment + gateway isolation + Ampere migration) shipped. Kept open as the incident-follow-up tracker. Blocker: none active; candidate to close after a clean multi-week soak."
+        },
+        {
+                "at": "2026-07-21T07:45:00+00:00",
+                "by": "system-review-partial-2026-07-21",
+                "note": "Re-checked per the item's own trigger instruction ('re-pull status first thing; if cpu>=90 or heartbeat label!=running, condition is recurring'). This session's live status pull: cpu=0.0%, memory=12.2%, heartbeat label=running, last tick 8s old. NOT recurring this window. Per the item's own recurring-check nature this is NOT auto-closed on one clean pass -- stays open as the standing watch, this update is the confirmation record."
         }
       ]
     },
@@ -3753,6 +3758,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: NOT reproducing this session \u2014 pull-and-deploy (#6902), the 06:17 service restart, and send-ping (#6910) all ran clean, so /dev/null is currently a working device on the live VM. Blocker stays open: the OCI-host-agent SOURCE clobber (BL-20260629-DEVNULL-OCI-SOURCE-KILL) is not eliminated, so recurrence is possible. Guard + self-heal in place."
+        },
+        {
+                "at": "2026-07-21T07:45:00+00:00",
+                "by": "system-review-partial-2026-07-21",
+                "note": "ESCALATION (system-review-partial-2026-07-21): confirmed STILL ACTIVE and now observed breaking a THIRD operational surface this session -- (1) health snapshot git_drift check ('fatal: could not open /dev/null for reading and writing: Permission denied'), (2) the grade-closed-trades system-action wrapper (scripts/ops/_lib.sh:205 and grade_closed_trades_action.sh:82 both hit the same Permission denied), and per the existing backlog items, pull-and-deploy tooling. This has been open since 2026-06-29 (>3 weeks) across 5 backlog items without a landed fix. Per the operator's 2026-07-19 'if you see something, say something' directive, a recurring-and-unfixed condition spanning multiple sessions without resolution is itself the P1 (alarm-fatigue) pattern that directive names -- recommend the next VM-ops session prioritize actually fixing the OCI host-agent /dev/null clobbering at its root cause (BL-20260629-DEVNULL-OCI-SOURCE-KILL) rather than continuing to note the symptom each review."
         }
       ]
     },
@@ -3781,6 +3791,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: root-source (OCI host agent clobbering /dev/null) NOT eliminated \u2014 the recurring source behind the whole devnull cluster. Currently /dev/null is healthy (this session's actions succeeded). Blocker: Tier-2 infra (stop the host agent / durable guard)."
+        },
+        {
+                "at": "2026-07-21T07:45:00+00:00",
+                "by": "system-review-partial-2026-07-21",
+                "note": "ESCALATION (system-review-partial-2026-07-21): confirmed STILL ACTIVE and now observed breaking a THIRD operational surface this session -- (1) health snapshot git_drift check ('fatal: could not open /dev/null for reading and writing: Permission denied'), (2) the grade-closed-trades system-action wrapper (scripts/ops/_lib.sh:205 and grade_closed_trades_action.sh:82 both hit the same Permission denied), and per the existing backlog items, pull-and-deploy tooling. This has been open since 2026-06-29 (>3 weeks) across 5 backlog items without a landed fix. Per the operator's 2026-07-19 'if you see something, say something' directive, a recurring-and-unfixed condition spanning multiple sessions without resolution is itself the P1 (alarm-fatigue) pattern that directive names -- recommend the next VM-ops session prioritize actually fixing the OCI host-agent /dev/null clobbering at its root cause (BL-20260629-DEVNULL-OCI-SOURCE-KILL) rather than continuing to note the symptom each review."
         }
       ],
       "updated_at": "2026-07-14T20:50:00Z"
@@ -4575,6 +4590,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: not reproducing \u2014 restart-bot-service-class actions worked this session (services restarted 06:17). Symptom of the devnull cluster; resolves when the source-kill lands."
+        },
+        {
+                "at": "2026-07-21T07:45:00+00:00",
+                "by": "system-review-partial-2026-07-21",
+                "note": "ESCALATION (system-review-partial-2026-07-21): confirmed STILL ACTIVE and now observed breaking a THIRD operational surface this session -- (1) health snapshot git_drift check ('fatal: could not open /dev/null for reading and writing: Permission denied'), (2) the grade-closed-trades system-action wrapper (scripts/ops/_lib.sh:205 and grade_closed_trades_action.sh:82 both hit the same Permission denied), and per the existing backlog items, pull-and-deploy tooling. This has been open since 2026-06-29 (>3 weeks) across 5 backlog items without a landed fix. Per the operator's 2026-07-19 'if you see something, say something' directive, a recurring-and-unfixed condition spanning multiple sessions without resolution is itself the P1 (alarm-fatigue) pattern that directive names -- recommend the next VM-ops session prioritize actually fixing the OCI host-agent /dev/null clobbering at its root cause (BL-20260629-DEVNULL-OCI-SOURCE-KILL) rather than continuing to note the symptom each review."
         }
       ]
     },
@@ -4678,6 +4698,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 bybit_2 is real-money with tiny positions (ETH 0.08, XRP 165.5); recurring sub-min-qty pre-flight refusals on BTCUSDT are the expected fail-safe (refuse rather than oversize) but noisy. Blocker: Tier-2 (sizing/min-qty handling). Not money-at-risk."
+        },
+        {
+                "at": "2026-07-21T07:45:00+00:00",
+                "by": "system-review-partial-2026-07-21",
+                "note": "Re-checked: bybit_2 balance is $291.63 as of this session (very thin -- its only open position, 165.5 XRPUSDT @ ~$1.09, is ~$180 notional). The account's small size makes a recurring sub-minimum-qty refusal structurally likely to keep firing; this is a standing condition, not something a review resolves. Kept open."
         }
       ]
     },
@@ -4718,6 +4743,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: not reproducing \u2014 pull-and-deploy #6902 completed + rolled git_sha forward this session. Symptom of the devnull cluster; resolves when the source-kill lands."
+        },
+        {
+                "at": "2026-07-21T07:45:00+00:00",
+                "by": "system-review-partial-2026-07-21",
+                "note": "ESCALATION (system-review-partial-2026-07-21): confirmed STILL ACTIVE and now observed breaking a THIRD operational surface this session -- (1) health snapshot git_drift check ('fatal: could not open /dev/null for reading and writing: Permission denied'), (2) the grade-closed-trades system-action wrapper (scripts/ops/_lib.sh:205 and grade_closed_trades_action.sh:82 both hit the same Permission denied), and per the existing backlog items, pull-and-deploy tooling. This has been open since 2026-06-29 (>3 weeks) across 5 backlog items without a landed fix. Per the operator's 2026-07-19 'if you see something, say something' directive, a recurring-and-unfixed condition spanning multiple sessions without resolution is itself the P1 (alarm-fatigue) pattern that directive names -- recommend the next VM-ops session prioritize actually fixing the OCI host-agent /dev/null clobbering at its root cause (BL-20260629-DEVNULL-OCI-SOURCE-KILL) rather than continuing to note the symptom each review."
         }
       ]
     },
