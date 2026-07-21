@@ -1,0 +1,77 @@
+# fc-pcv REFRESH SIBLING (v2): SOLUSDT 15m regime head base + frozen-TSFM
+# quantile-FORECAST features (fc_*) on the NIGHTLY-REBUILT dataset v002 (not a
+# pinned v5xx). The v1 sibling (sol-regime-15m-lgbm-fc-pcv-v1, advisory) trains
+# on the PINNED v530 dataset whose forecast side-stream froze ~Jul 6 — so its
+# nightly retrains are no-ops (MB-20260720-FCPCV-RETRAIN-NOOP). This v2 points at
+# v002, which the nightly build_trainer_datasets.sh now rebuilds WITH a freshly
+# rebuilt forecast side-stream + forecast_path (2026-07-21, alternating-night SOL
+# intraday cadence) — so v2 trains on fresh data. Soaks at shadow alongside the
+# frozen v1 advisory head; a future gate-checked swap (Tier-3) replaces v1 once
+# v2 matures. Same feature set + params as v1 (only the dataset recency differs).
+manifest_version: v1
+model_id: sol-regime-15m-lgbm-fc-pcv-v2
+description: "fc-pcv refresh sibling (v2): SOLUSDT 15m regime head base + 6 frozen chronos-bolt-tiny quantile-forecast features (fc_*) on the NIGHTLY-REBUILT dataset v002 (fresh forecast side-stream). Fresh-data counterpart to the frozen-v530 advisory head sol-regime-15m-lgbm-fc-pcv-v1; soaks at shadow toward a gate-checked swap. Remediates MB-20260720-FCPCV-RETRAIN-NOOP."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: regime_label
+  feature_columns:
+  - vol_bucket
+  - rolling_log_return_vol
+  - log_return
+  - log_return_lag_1
+  - log_return_lag_2
+  - hour_of_day
+  - dayofweek
+  - fc_ret_med
+  - fc_range_rel
+  - fc_up_prob
+  - fc_skew
+  - fc_q10_rel
+  - fc_q90_rel
+  categorical_columns:
+  - vol_bucket
+  - hour_of_day
+  - dayofweek
+  freeze_regime_spec: true
+  vol_feature_column: rolling_log_return_vol
+  vol_window_n: 20
+  seed: 42
+  n_iter: 200
+  sample_weight:
+    half_life_days: 60
+    time_column: ts
+  class_weight:
+    range: 1.0
+    volatile: 28.0
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: market_features
+  symbol_scope: SOLUSDT
+  timeframe: 15m
+  version: v002
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: regime_label
+  split_strategy: purged_walk_forward
+  time_column: ts
+  n_folds: 5
+  min_train_fraction: 0.5
+  label_horizon: 5
+  embargo_fraction: 0.01
+target_deployment_stage: shadow
+notes: |
+  fc-pcv refresh sibling on the nightly-fresh v002 dataset (fc_* added to the
+  SOL 15m v002 build 2026-07-21 by rebuilding the forecast side-stream nightly;
+  SOL 15m rebuilds on the alternating-night intraday cadence). Soaks at shadow —
+  logs predictions, never order-influencing until an operator-gated
+  shadow->advisory swap replaces the frozen v1. fc_* are past-only (frozen
+  chronos-bolt-tiny forecast — see ml/datasets/forecast_features.py). Leakage
+  gate forbids forward_log_return / forward_log_return_vol / regime_label.
+  Compare against sol-regime-15m-lgbm-fc-pcv-v1 (frozen v530) once v2 has soaked.
