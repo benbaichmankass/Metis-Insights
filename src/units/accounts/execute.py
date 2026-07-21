@@ -519,7 +519,33 @@ def execute_pkg(
         )
         return trade_id
 
+    # BL-20260721-BYBIT2-XRP-TPSL-LEGCAP: under BYBIT_TPSL_MODE=partial,
+    # Bybit creates this order's qty-scoped SL/TP legs as a side effect —
+    # the place-order response never returns their orderId. Snapshot the
+    # symbol's live conditional orders BEFORE placing so the post-placement
+    # diff (below) can identify exactly which leg(s) this entry created.
+    # Reduce-only legs set no new SL/TP, so they're excluded. Two extra
+    # read-only API calls per qualifying entry; best-effort (an empty/failed
+    # snapshot just means no leg gets tracked — see _classify_new_partial_tpsl_legs).
+    _tpsl_pre_leg_ids = None
+    if (
+        not reduce_only
+        and _bybit_tpsl_mode() == "partial"
+        and str(account_cfg.get("exchange") or "bybit").lower() == "bybit"
+        and _bybit_category(account_cfg) != "spot"
+    ):
+        _tpsl_pre_leg_ids = _partial_tpsl_leg_ids(
+            exchange_client, _bybit_category(account_cfg), order["symbol"],
+        )
+
     trade_id = _submit_order(exchange_client, order, account_cfg)
+
+    sl_order_id = tp_order_id = None
+    if _tpsl_pre_leg_ids is not None:
+        sl_order_id, tp_order_id = _classify_new_partial_tpsl_legs(
+            exchange_client, _bybit_category(account_cfg), order["symbol"],
+            _tpsl_pre_leg_ids,
+        )
 
     # CLAUDE.md § Architecture rules § 3 + architecture-audit-2026-05-02
     # P0-2: every executed trade must land a row in the trade log so
@@ -538,6 +564,7 @@ def execute_pkg(
     _log_trade_to_journal(
         pkg, account_cfg, order, trade_id=trade_id, is_dry=is_dry,
         intent_reduce=reduce_only,
+        sl_order_id=sl_order_id, tp_order_id=tp_order_id,
     )
 
     # P3 observe-only exit-ladder soak: for a live OPENING order (reduce-only
@@ -1280,6 +1307,8 @@ def _log_trade_to_journal(
     reason: Optional[str] = None,
     intent_reduce: bool = False,
     extra_notes: Optional[dict] = None,
+    sl_order_id: Optional[str] = None,
+    tp_order_id: Optional[str] = None,
 ) -> bool:
     """Insert a row into ``trade_journal.db::trades`` for an executor event.
 
@@ -1471,6 +1500,15 @@ def _log_trade_to_journal(
             # Observability-only; never read on the order path. Synthetic ids on
             # dry/rejection rows simply won't match any real fill.
             "broker_order_id": trade_id,
+            # BL-20260721-BYBIT2-XRP-TPSL-LEGCAP — this trade's own Bybit
+            # Partial-tpsl leg id(s), captured at entry (execute_pkg's
+            # before/after snapshot diff around _submit_order). NULL for
+            # non-Bybit / non-partial-mode / reduce-only / ambiguous-diff
+            # rows; those fall back to modify_open_order's legacy add-a-leg
+            # behaviour. This IS read on the order path — modify_open_order
+            # targets it with Bybit's amend_order instead of re-adding.
+            "sl_order_id": sl_order_id,
+            "tp_order_id": tp_order_id,
         })
         # Wire the package → trade link so the strategy_monocle gate
         # (pipeline.py::_has_open_package_for_strategy, linked_only=True)
@@ -1634,6 +1672,125 @@ def _bybit_tpsl_mode() -> str:
     return v if v in {"full", "partial"} else "full"
 
 
+_SL_LEG_TYPES = {"stoploss", "partialstoploss"}
+_TP_LEG_TYPES = {"takeprofit", "partialtakeprofit"}
+
+
+def _partial_tpsl_leg_ids(exchange_client: Any, category: str, symbol: str) -> set:
+    """Best-effort snapshot of live Bybit conditional-order ids for *symbol*.
+
+    Used to bracket an entry placed under ``BYBIT_TPSL_MODE=partial`` (a
+    before/after diff, since Bybit's inline-SL/TP place response never
+    returns the leg's own ``orderId`` — see ``_classify_new_partial_tpsl_legs``).
+    Returns an EMPTY set (never ``None``) on any read failure, so a failed
+    snapshot degrades to "no new legs detected" rather than raising into
+    the order path.
+    """
+    try:
+        resp = exchange_client.get_open_orders(
+            category=category, symbol=symbol, orderFilter="StopOrder",
+        )
+        rows = ((resp or {}).get("result") or {}).get("list") or []
+        return {str(o.get("orderId")) for o in rows if o.get("orderId")}
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(
+            "_partial_tpsl_leg_ids: snapshot failed for %s: %s", symbol, exc,
+        )
+        return set()
+
+
+def _classify_new_partial_tpsl_legs(
+    exchange_client: Any, category: str, symbol: str, pre_ids: set,
+):
+    """Diff a fresh leg snapshot against *pre_ids* to find what this entry created.
+
+    BL-20260721-BYBIT2-XRP-TPSL-LEGCAP: under Partial tpsl mode, Bybit
+    creates the qty-scoped SL/TP legs as a side effect of the entry order —
+    the place-order response only returns the PARENT order's id, never the
+    legs'. This is the capture step that makes the id trackable: called
+    right after entry with the pre-entry leg-id set, it returns whichever
+    leg(s) are genuinely NEW.
+
+    Returns ``(sl_order_id, tp_order_id)``, each ``None`` unless EXACTLY one
+    new leg of that type appeared — an ambiguous diff (0, meaning the read
+    or the leg creation failed/lagged, or >1, e.g. a concurrent same-symbol
+    entry racing this one) leaves that slot ``None`` rather than guessing,
+    so the caller's fallback (today's add-a-leg ``set_trading_stop``
+    behaviour in ``modify_open_order``) stays the safety net instead of
+    risking a mis-attributed leg id on a LIVE stop.
+    """
+    try:
+        resp = exchange_client.get_open_orders(
+            category=category, symbol=symbol, orderFilter="StopOrder",
+        )
+        rows = ((resp or {}).get("result") or {}).get("list") or []
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(
+            "_classify_new_partial_tpsl_legs: post-read failed for %s: %s",
+            symbol, exc,
+        )
+        return None, None
+
+    new_sl, new_tp = [], []
+    for o in rows:
+        oid = str(o.get("orderId") or "")
+        if not oid or oid in pre_ids:
+            continue
+        kind = str(o.get("stopOrderType") or "").lower()
+        if kind in _SL_LEG_TYPES:
+            new_sl.append(oid)
+        elif kind in _TP_LEG_TYPES:
+            new_tp.append(oid)
+    if len(new_sl) > 1 or len(new_tp) > 1:
+        logger.warning(
+            "_classify_new_partial_tpsl_legs: ambiguous leg diff for %s "
+            "(new_sl=%d new_tp=%d) — leaving id(s) untracked, this trade "
+            "falls back to legacy add-a-leg amend behaviour",
+            symbol, len(new_sl), len(new_tp),
+        )
+    sl_id = new_sl[0] if len(new_sl) == 1 else None
+    tp_id = new_tp[0] if len(new_tp) == 1 else None
+    return sl_id, tp_id
+
+
+def _amend_partial_tpsl_leg(
+    exchange_client: Any, category: str, symbol: str, order_id: str,
+    *, trigger_price: float,
+) -> dict:
+    """Amend one specific Bybit Partial-tpsl leg's trigger price IN PLACE.
+
+    The structural fix's core call (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP):
+    once a leg's own ``orderId`` is known (see
+    ``_classify_new_partial_tpsl_legs``), this is a true Bybit
+    ``/v5/order/amend`` — NOT ``set_trading_stop``, which Bybit's own V5
+    docs describe as ADD-only under Partial mode. No new leg is created; the
+    symbol's leg count never grows from a modify.
+    """
+    try:
+        resp = exchange_client.amend_order(
+            category=category, symbol=symbol, orderId=order_id,
+            triggerPrice=str(trigger_price),
+        )
+        ret_code = (resp or {}).get("retCode")
+        ok = ret_code in (0, "0", None)
+        if not ok:
+            logger.warning(
+                "_amend_partial_tpsl_leg: amend failed for order_id=%s "
+                "symbol=%s: retCode=%s retMsg=%s",
+                order_id, symbol, ret_code, (resp or {}).get("retMsg"),
+            )
+        return {"ok": ok, "exchange_response": resp,
+                "error": None if ok else str(
+                    (resp or {}).get("retMsg") or f"retCode={ret_code}")}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_amend_partial_tpsl_leg: raised for order_id=%s symbol=%s: %s",
+            order_id, symbol, exc,
+        )
+        return {"ok": False, "exchange_response": None,
+                "error": f"{type(exc).__name__}: {exc}"}
+
+
 def modify_open_order(
     exchange_client: Any,
     account_cfg: dict,
@@ -1645,6 +1802,8 @@ def modify_open_order(
     qty: Optional[float] = None,
     cur_sl: Optional[float] = None,
     cur_tp: Optional[float] = None,
+    sl_order_id: Optional[str] = None,
+    tp_order_id: Optional[str] = None,
 ) -> dict:
     """Modify SL/TP on an open position on the account's exchange.
 
@@ -1653,7 +1812,16 @@ def modify_open_order(
         symbol=…, stopLoss=…, takeProfit=…)`` — only valid for the derivatives
         categories (``linear``/``inverse``). Spot accounts return ``ok=False``
         and rely on the monitor's market-close exit. In-place modify: only the
-        ``sl`` / ``tp`` leg(s) actually passed are set (byte-unchanged from v1).
+        ``sl`` / ``tp`` leg(s) actually passed are set (byte-unchanged from v1
+        WHEN the caller passes no tracked leg id — see next paragraph).
+        **Under ``BYBIT_TPSL_MODE=partial`` with a tracked leg id**
+        (``sl_order_id`` / ``tp_order_id``, from ``trades.sl_order_id`` /
+        ``.tp_order_id`` — BL-20260721-BYBIT2-XRP-TPSL-LEGCAP): that leg is
+        amended in place via ``amend_order`` instead of folded into
+        ``set_trading_stop``, so no new leg is added. A leg with no tracked
+        id (pre-migration trade, ambiguous entry-time capture, or Full mode)
+        still goes through the legacy ``set_trading_stop`` path — unchanged
+        behaviour, the safety net.
       * **interactive_brokers / ib** — :meth:`IBClient.modify_protective`
         (cancel the resting OCA legs + re-arm a fresh GTC OCA pair at the
         MERGED levels). IB has no in-place modify, so it needs both effective
@@ -1667,7 +1835,7 @@ def modify_open_order(
 
     The S2 (BL-20260616-LTMGMT-MODIFY) ``side`` / ``qty`` / ``cur_sl`` /
     ``cur_tp`` kwargs are only consumed by the IB/Alpaca branches; the Bybit
-    branch ignores them, so its behaviour is byte-for-byte unchanged.
+    branch's ``set_trading_stop`` fallback ignores them.
 
     Best-effort. Returns a result dict instead of raising so the
     caller (the monitor loop) can record the outcome on the
@@ -1699,18 +1867,58 @@ def modify_open_order(
                              "monitor enforces exits via market close)"}
         try:
             tick = get_tick_size(exchange_client, symbol, category)
+            partial_mode = _bybit_tpsl_mode() == "partial"
+
+            # BL-20260721-BYBIT2-XRP-TPSL-LEGCAP structural fix: amend any
+            # leg that has a tracked orderId in place, THEN fall through to
+            # the legacy set_trading_stop path only for whichever leg (if
+            # any) still lacks one. sl/tp are cleared once handled here so
+            # the block below never re-adds an already-amended leg.
+            amend_results: dict = {}
+            if partial_mode:
+                if sl is not None and sl_order_id:
+                    amend_results["sl"] = _amend_partial_tpsl_leg(
+                        exchange_client, category, symbol, sl_order_id,
+                        trigger_price=quantize_price(sl, tick),
+                    )
+                    sl = None
+                if tp is not None and tp_order_id:
+                    amend_results["tp"] = _amend_partial_tpsl_leg(
+                        exchange_client, category, symbol, tp_order_id,
+                        trigger_price=quantize_price(tp, tick),
+                    )
+                    tp = None
+
+            if amend_results and sl is None and tp is None:
+                # Every requested leg had a tracked id and was amended above
+                # — no set_trading_stop call needed at all.
+                failed = [k for k, r in amend_results.items() if not r.get("ok")]
+                if failed:
+                    return {"ok": False, "exchange_response": amend_results,
+                            "error": f"amend_order failed for leg(s): {failed}"}
+                logger.info(
+                    "modify_open_order: account=%s symbol=%s → amended "
+                    "tracked leg(s) %s in place (no add-a-leg call)",
+                    account_cfg.get("account_id"), symbol,
+                    sorted(amend_results),
+                )
+                return {"ok": True, "exchange_response": amend_results,
+                        "error": None}
+
             kwargs = {"category": category, "symbol": symbol}
             if sl is not None:
                 kwargs["stopLoss"] = quantize_price(sl, tick)
             if tp is not None:
                 kwargs["takeProfit"] = quantize_price(tp, tick)
-            if _bybit_tpsl_mode() == "partial":
+            if partial_mode:
                 # Under Partial tpsl the amend must be qty-scoped too —
                 # a bare set_trading_stop would target the position-level
                 # (Full) slot instead of this trade's own bracket. Needs
                 # the caller's qty (the monitor passes the trade's size);
                 # without it we fall through to the plain call and log,
-                # rather than silently amending the wrong scope.
+                # rather than silently amending the wrong scope. This is
+                # the LEGACY add-a-leg path — reached only for a leg with
+                # no tracked orderId (see amend_results above).
                 if qty is not None and float(qty) > 0:
                     kwargs["tpslMode"] = "Partial"
                     if sl is not None:
@@ -1727,7 +1935,26 @@ def modify_open_order(
                     )
             resp = exchange_client.set_trading_stop(**kwargs)
             ret_code = (resp or {}).get("retCode")
-            if ret_code in (0, "0", None):
+            ok = ret_code in (0, "0", None)
+            if amend_results:
+                # Mixed outcome: some leg(s) amended above, this leg went
+                # through the legacy add-a-leg path. Surface both so the
+                # caller's audit trail shows exactly what happened to each.
+                combined_response = {**amend_results, "set_trading_stop": resp}
+                failed = [k for k, r in amend_results.items() if not r.get("ok")]
+                if not ok:
+                    failed.append("set_trading_stop")
+                if failed:
+                    return {"ok": False, "exchange_response": combined_response,
+                            "error": f"failed leg(s): {failed}"}
+                logger.info(
+                    "modify_open_order: account=%s symbol=%s sl=%s tp=%s → "
+                    "mixed amend+add-a-leg OK",
+                    account_cfg.get("account_id"), symbol, sl, tp,
+                )
+                return {"ok": True, "exchange_response": combined_response,
+                        "error": None}
+            if ok:
                 logger.info(
                     "modify_open_order: account=%s symbol=%s sl=%s tp=%s OK",
                     account_cfg.get("account_id"), symbol, sl, tp,
@@ -1827,12 +2054,22 @@ def close_open_position(
     symbol: str,
     side: str,
     qty: float,
+    sl_order_id: Optional[str] = None,
+    tp_order_id: Optional[str] = None,
 ) -> dict:
     """Place a reduce-only market order to flatten an open position.
 
     *side* is the side of the original entry (``"long"`` or ``"short"``};
     the close order is the opposite side. *qty* is the position size
     to close (typically the size of the original entry).
+
+    ``sl_order_id`` / ``tp_order_id`` (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP,
+    from ``trades``) are the closing trade's own tracked Bybit Partial-tpsl
+    leg(s), if any — the Bybit branch best-effort cancels them AFTER a
+    confirmed close so a stale leg never lingers on a now-flat qty chunk. A
+    cancel failure (already-cancelled, already-triggered) is logged, not
+    surfaced as a close failure — the position IS flat either way. Ignored
+    by every other exchange branch.
 
     Wired integrations (P3 of the live-trade management contract —
     docs/audits/live-trade-management-contract-2026-06-16.md):
@@ -1888,6 +2125,32 @@ def close_open_position(
                     account_cfg.get("account_id"), symbol, close_side, qty,
                     order_id,
                 )
+                # BL-20260721-BYBIT2-XRP-TPSL-LEGCAP: this trade's tracked
+                # Partial-tpsl leg(s) no longer protect anything once the
+                # position is flat — cancel them so they can't linger and
+                # count toward the symbol's 20-leg cap. Best-effort; a
+                # cancel failure never turns a successful close into one.
+                for leg_id in (sl_order_id, tp_order_id):
+                    if not leg_id:
+                        continue
+                    try:
+                        cancel_resp = exchange_client.cancel_order(
+                            category=category, symbol=symbol, orderId=leg_id,
+                        )
+                        cancel_code = (cancel_resp or {}).get("retCode")
+                        if cancel_code not in (0, "0", None):
+                            logger.info(
+                                "close_open_position: post-close leg cancel "
+                                "for order_id=%s symbol=%s → retCode=%s "
+                                "(likely already cancelled/triggered — fine)",
+                                leg_id, symbol, cancel_code,
+                            )
+                    except Exception as leg_exc:  # noqa: BLE001
+                        logger.info(
+                            "close_open_position: post-close leg cancel "
+                            "raised for order_id=%s symbol=%s: %s",
+                            leg_id, symbol, leg_exc,
+                        )
                 return {"ok": True, "exchange_response": resp,
                         "exchange_order_id": order_id, "error": None}
             err = str(resp.get("retMsg") or f"retCode={ret_code}")
