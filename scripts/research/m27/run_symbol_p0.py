@@ -75,6 +75,12 @@ def main() -> int:
     # strictly inside the first fold's train territory for a 4-fold walk.
     ap.add_argument("--derive-window", default=f"year:{DERIVE_YEAR}",
                     help="year:<YYYY> (default) or prefix:<fraction 0..0.25+>")
+    # Batch-3 equities (yfinance, ~60-day intraday cap) can never reach the
+    # crypto/futures-calibrated 10k-bar floor even at the max 0.25 prefix
+    # fraction (4680 bars/symbol * 0.25 = 1170) — override explicitly per
+    # batch rather than silently loosening the shared default, so a future
+    # deep-history batch still gets the strict floor.
+    ap.add_argument("--min-derivation-bars", type=int, default=10_000)
     args = ap.parse_args()
 
     if args.fee_usd_roundtrip is not None and args.contract_value_usd is None:
@@ -101,9 +107,9 @@ def main() -> int:
     else:
         print(f"FAIL: unknown --derive-window {args.derive_window!r}")
         return 1
-    if len(d23) < 10_000:
+    if len(d23) < args.min_derivation_bars:
         print(f"FAIL: only {len(d23)} derivation bars ({args.derive_window}) "
-              f"in {args.csv}")
+              f"in {args.csv} (floor {args.min_derivation_bars})")
         return 1
     rng = f"{d23['timestamp'].iloc[0]} .. {d23['timestamp'].iloc[-1]}"
 
