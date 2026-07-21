@@ -196,7 +196,13 @@
       "resolution_criteria": "Each of the 26 unreconciled canonicals is either reconciled+PnL-corrected against its order package/exec history, accepted as best-available with a note, or void-flagged as phantom with evidence \u2014 and the item is closed with the disposition recorded.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-21T07:45:00+00:00",
+          "by": "system-review-partial-2026-07-21",
+          "note": "Re-checked orphan_events.jsonl tail this session: no NEW bybit_2 orphan events since the last logged one (2026-06-30). Did not re-query the specific 26-canonical unreconciled count or their PnL contribution this pass (would need a targeted DB query not run this session) -- genuinely deferred, no new evidence either way."
+        }
+      ]
     },
     {
       "id": "PB-20260625-001",
@@ -952,6 +958,11 @@
         {
           "at": "2026-06-23T08:00:00+00:00",
           "note": "Already applied (verified 2026-06-23): config eth_pullback_2h has adx_min 25, and eth_pullback_2h_signal_builder reads its own named config and routes to htf_pullback_trend_2h.order_package which enforces the adx_min entry gate. The ADX>=25 refinement is live; no PR needed."
+        },
+        {
+          "at": "2026-07-21T07:45:00+00:00",
+          "by": "system-review-partial-2026-07-21",
+          "note": "Re-validated (partial): RECONCILER_READOPT_GUARD_SECONDS was widened 300s->1800s on 2026-07-19 specifically to stop this class of re-adopt flap. This session's live pull shows ib_paper currently holds 2 clean positions (MHG, MGC) with no new phantom mgc_trend_1h trades in the recent trades/order_packages tail. Mechanism looks fixed going forward. NOT closing: the historical 18 phantom rows still need a data-cleanup pass to exclude them from mgc_trend_1h performance analytics -- that part remains open."
         }
       ]
     },
@@ -1139,7 +1150,7 @@
       "tier": 3,
       "trigger_condition": "next /performance-review (or /system-review)",
       "resolution_criteria": "perf-review grades the recent ict_scalp_5m real-money closed trades and either (a) proposes a Tier-3 TUNE/DEMOTE_SHADOW with evidence, or (b) closes as a transient cluster / insufficient sample.",
-      "status": "open",
+      "status": "resolved",
       "updates": [
         {
           "at": "2026-07-16T06:12:00+00:00",
@@ -1150,7 +1161,12 @@
         "2026-07-20 (operator-directed): full modernization RESEARCH PLAN drafted at docs/research/ict_scalp_5m-modernization-research-plan-2026-07-20.md \u2014 re-evaluates the first-gen strategy with the matured stack (Phase 0 honest baseline + clean per-(trend,vol) cell dataset to remove the unstamped-cell skew; Phase 1 R:R leak diagnosis; Phase 2 M20 exit-refinement lever sweep + E0-E1 exit head; Phase 3 M21 entry-refinement; Phase 4 2-D regime cell + ML regime heads; Phase 5 symbol/tf expansion + account_compat; Phase 6 k-fold validation + live-parity + Tier-3 re-promotion). Includes an explicit KILL off-ramp if OOS net_R stays <=0 everywhere. Blocker remains the structural R:R (demotion note); regime gating layers on top of a fixed R:R, not instead of it.",
         "2026-07-20 (Phase-0 modernization research, claude/ict-scalp-research-phase-0-8jvs23): HONEST BASELINE REBUILT \u2014 the -467R/-0.99R '5y backtest' demotion figure DOES NOT REPRODUCE and no artifact of it exists (trainer strategy_tunes empty, results/ empty for July, both trainer re-validations 2026-05-17 + 2026-06-09 are POSITIVE +20.6R/90d). Fresh config-exact runs on canonical qashdev 3.2y BTC 5m (332k bars): legacy exits +117.5R gross (n=659, exp +0.178R); live-exit-faithful (BE-trail@1R, no 24-bar timeout) +122.5R gross (n=615, exp +0.199R). Net of 7.5bps round-trip the edge is FLAT (-12.9R / -1.7R): the structural problem is FEE LOAD (~0.20R/trade on ~0.4%-of-price stops), not gross R:R. Per-(trend,vol) cells (decision-time stamps, n>=36/cell): ALL cells gross-positive; net-of-fee CALM cells positive, VOLATILE cells negative (chop/volatile worst -0.104 expR; trending/volatile -0.039) \u2014 the separating axis is VOL, not trend. The M7 'unknown' bucket = pre-stamping rows (2026-05-18..06-01), confirmed skew. Live trending/volatile bleed (-17.9R/5 trades) dominated by 2026-06-22 crash exits 7-14R PAST armed stops (execution failure, filed BL-20260720-ICTSCALP-PASTSTOP-EXITS). Contradicting the 'no floor salvages' claim: net-of-fee conf>=0.7 -> +20/+24R; calm+conf>=0.7 -> exp +0.09/+0.13R (in-sample, post-hoc). GATE VERDICT: demotion magnitude rested on unreproducible measurement -> per plan, Phase-4 regime-gated re-promotion path proposed (OFF cells for chop/volatile + trending/volatile via config/regime_policy.yaml, min_confidence 0.7 via M8 k-fold sweep, keep BE-trail; all Tier-3, k-fold OOS validation REQUIRED first) + fee-load reduction as the top Phase-2 lever. Full write-up: docs/research/ict_scalp_5m-phase0-findings-2026-07-20.md; datasets: docs/research/artifacts/ict_scalp_phase0/.",
         "2026-07-20 (Phase-4 prep, operator 'push forward' directive): k-fold OOS validation RUN (scripts/research/ict_scalp_phase0/kfold_oos.py, artifact kfold_runB.json). OFF-cells rule (drop chop/volatile + trending/volatile) is the robust winner: OOS net +20.3R (5m label) / +29.1R (15m live-enforcement-proxy label), 3/4 folds positive, exp +0.083/+0.114R per trade; fitted min_confidence FAILED fold-robustness (2/4) and is NOT proposed. Tier-3 packet drafted: docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md (exact regime_policy.yaml trend_vol rows + shadow->live re-promotion, conditions attached incl. the P1 bracket-absence fix BL-20260720-ICTSCALP-PASTSTOP-EXITS \u2014 now CLASSIFIED via candle evidence: Jun 21-22 positions ran ~24h+ with no effective bracket, SL AND TP levels crossed without executing, bulk flatten Jun 23). Awaiting operator go/no-go on the packet.",
-        "2026-07-20 (operator-approved): Phase-4 packet APPLIED on PR #7115 \u2014 regime_policy.yaml OFF cells (trending/volatile + chop/volatile) authored + strategies.yaml execution shadow->live with the demotion note rewritten to the verified record. Also Fix 2 built: BYBIT_TPSL_MODE=partial (qty-scoped brackets, default full) + validate-partial-tpsl demo venue-validation action. Post-merge: git-sync deploy, repair-netted-rows, validate-partial-tpsl -> Tier-3 env flip on PASS, first-decision health check on first live fire. Remaining research thread: Phase-2 fee-load reduction (M20 levers)."
+        "2026-07-20 (operator-approved): Phase-4 packet APPLIED on PR #7115 \u2014 regime_policy.yaml OFF cells (trending/volatile + chop/volatile) authored + strategies.yaml execution shadow->live with the demotion note rewritten to the verified record. Also Fix 2 built: BYBIT_TPSL_MODE=partial (qty-scoped brackets, default full) + validate-partial-tpsl demo venue-validation action. Post-merge: git-sync deploy, repair-netted-rows, validate-partial-tpsl -> Tier-3 env flip on PASS, first-decision health check on first live fire. Remaining research thread: Phase-2 fee-load reduction (M20 levers).",
+        {
+          "at": "2026-07-21T07:45:00+00:00",
+          "by": "system-review-partial-2026-07-21",
+          "note": "RESOLVED via PR #7115 (merged 2026-07-20T14:36Z, operator-approved: 'push forward with the proposed path' -> 'move on the phase 4 packet and fix 2 proper'). Full Phase-0->4 research arc found the 2026-06 -467R/-0.99R demotion baseline does NOT reproduce (fresh 3.2y config-exact run: +117R/+122R gross); the real issue was fee load concentrated in two volatile regime cells. Fix: two new trend_vol OFF cells (chop/volatile, trending/volatile) with k-fold OOS +20.3R(5m)/+29.1R(15m), 3/4 folds, re-promoted execution shadow->live. Confirmed live in config/strategies.yaml (execution: live) + config/regime_policy.yaml as of this session. No further TUNE/DEMOTE_SHADOW decision needed -- already superseded by the regime-gated re-promotion."
+        }
       ]
     },
     {
