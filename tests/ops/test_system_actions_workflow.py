@@ -222,6 +222,14 @@ EXPECTED_ACTIONS = {
     # legitimate stop amends stop silently failing. DRY-RUN by default;
     # apply gated; refuses on a flat position or zero SL legs found.
     "cancel-stale-tpsl-legs": "cancel_stale_tpsl_legs_action.sh",
+    # 2026-07-21 — structural-fix completion for BL-20260721-BYBIT2-XRP-TPSL-LEGCAP:
+    # backfills trades.sl_order_id/tp_order_id for a Bybit partial-tpsl
+    # position that was already open when PR #7321's entry-time capture
+    # deployed (those rows would otherwise fall back to the legacy
+    # add-a-leg path forever). DRY-RUN by default; apply gated; refuses on
+    # a flat position, ambiguous (>1) live legs of one type, or more than
+    # one open untracked trade row.
+    "backfill-tpsl-leg-ids": "backfill_tpsl_leg_ids_action.sh",
 }
 
 TIER_2_ACTIONS = {
@@ -277,6 +285,7 @@ TIER_2_ACTIONS = {
     "repair-netted-rows",
     "validate-partial-tpsl",
     "cancel-stale-tpsl-legs",
+    "backfill-tpsl-leg-ids",
 }
 
 
