@@ -21,6 +21,13 @@ pyarrow>=14.0.0
 # mirror). The fetcher hits raw.githubusercontent.com.
 requests>=2.31.0
 
+# M27 P0 Batch-3 equities/ETF data puller (scripts/research/m27/fetch_yfinance_5m.py) —
+# keyless free intraday bars for the RESEARCH signal-detection pass. Deliberately
+# yfinance, not the live Alpaca data API: no live equities scalp leg exists yet
+# to be config-exact against, and the CLAUDE.md VM-authority split forbids
+# copying production Alpaca keys onto the trainer regardless of read-only intent.
+yfinance>=0.2.0
+
 # Used by the cache-freshness check (parsing month strings → datetimes).
 # Already a transitive dep of pandas; pinning explicitly so the
 # fetcher can `import dateutil` without lying about its deps.
