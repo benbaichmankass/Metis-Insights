@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260722-184651-since-last",
+      "window": "since-last",
+      "generated_at": "2026-07-22T18:46:51+00:00",
+      "window_start": "2026-07-20T08:15:00+00:00",
+      "window_end": "2026-07-22T18:46:51+00:00",
+      "roll_up_grade": "caution",
+      "headline": "Quiet, plumbing-healthy 58h window (all services up, all 7 live broker accounts reachable, no breach) but three real signals: the diversified paper book's decay is now confirmed genuine (-$16.4K swing since 07-07, 2 cells 3-review-confirmed for demotion), 2 of 3 live-influencing ML heads show a known frozen-dataset symptom pending a pre-approved 07-28 swap, and a chronic >3wk-old infra bug plus a 58h-stale prop snapshot need operator follow-through. All three sub-review backlogs fully drained (79/79, 55/55, 41/41).",
+      "html_path": "comms/reports/since-last/20260722T184651Z/report.html",
+      "json_path": "comms/reports/since-last/20260722T184651Z/report.json",
+      "md_path": "comms/reports/since-last/20260722T184651Z/report.md"
+    },
+    {
       "id": "RPT-20260720-081500-since-last",
       "window": "since-last",
       "generated_at": "2026-07-20T08:15:00+00:00",

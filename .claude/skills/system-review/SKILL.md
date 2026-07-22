@@ -141,6 +141,19 @@ regardless of how complete the trade/health summary looks. (Relay-blocked data
 is allowed only as an explicit `"unavailable: <reason>"` string — never silently
 omitted.)
 
+## Coordination (binding — check before the first diag pull)
+
+This skill fans out real work (three sub-reviews, each dispatching live-VM and
+trainer-VM diag/system-action requests and committing backlog drains) — often
+via background `Agent` sub-agents that have no session identity of their own.
+Before your first substantive tool call: read + post to the **live
+coordination board** (GitHub issue #6927) per `docs/claude/coordination-board.md`
++ `docs/CLAUDE-RULES-CANONICAL.md` § "Multi-session coordination" step 0 — a
+single `▶️ START` naming that this is a `/system-review` covering all three
+sub-reviews' scope, **before** launching any sub-agents. They cannot post for
+themselves. (Skipping this is exactly how a 2026-07-22 run of this skill
+collided, unnoticed, with a concurrent session's trainer-VM work.)
+
 ## Scope (what this skill DOES)
 
 1. **Establish the window** (§ "The window").
