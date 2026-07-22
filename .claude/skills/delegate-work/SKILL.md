@@ -44,6 +44,20 @@ fresh session resumes from the repo, not from your memory.
 Modes compose: scout inline (hybrid) → fan out reads with B → consolidate →
 spin C sessions for the write-heavy workstreams.
 
+**Mode B sub-agents that WRITE still need board coordination — you post it, not
+them.** Mode B is framed above as read-heavy, but a Mode-B sub-agent can end up
+committing, pushing, dispatching a live-VM/trainer-VM action, or opening a PR
+(e.g. running a full sub-review that drains a backlog and commits the result).
+A spawned `Agent` sub-agent has **no session identity of its own** to post to
+the live coordination board (issue #6927) with — it is invisible to every other
+concurrent session unless YOU, the orchestrator, post the `▶️ START` covering
+its full scope **before** launching it. (Found the hard way 2026-07-22: a
+`/system-review` session fanned out three sub-review sub-agents — one of which
+dispatched trainer-VM diag requests — without ever checking or posting to
+#6927, while a real concurrent session was mid-trainer-VM-work at the same
+time. Pure luck, not process, is why nothing collided.) See
+`docs/CLAUDE-RULES-CANONICAL.md` § "Multi-session coordination" step 0.
+
 ## Step 4 — Single-writer consolidation (the rule that prevents churn)
 
 When multiple agents/sessions feed one result, **one writer (you, the lead)
