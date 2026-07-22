@@ -918,14 +918,27 @@ class Database:
         )
 
     def _fire_trade_opened_event(self, trade_id: int) -> None:
-        """Read the just-inserted row and fire the trade_opened observer."""
+        """Read the just-inserted row and fire the trade_opened observer.
+
+        BL-20260722-XRP-SLSPAM (part 3): this SELECT previously named
+        ``qty``/``sl``/``tp`` — none of which exist on ``trades`` (the real
+        columns are ``position_size``/``stop_loss``/``take_profit_1``; see
+        the ``trades`` schema declared above). ``insert_trade`` calls this
+        inside a bare ``except Exception: pass``, so the resulting
+        ``sqlite3.OperationalError`` was silently swallowed on every single
+        real-money/paper trade open — the TRADE_OPENED push/Telegram
+        notification has never actually fired. Mapped onto the correct
+        columns here; the outbound payload keys are unchanged (``qty``/
+        ``sl``/``tp``) since ``format_trade_event_message`` reads those.
+        """
         from src.runtime.mobile_push.event_kinds import TRADE_OPENED
         from src.runtime.mobile_push.trade_events import notify_trade_event
 
         conn = self.connect()
         try:
             cur = conn.execute(
-                "SELECT symbol, direction, qty, entry_price, sl, tp, "
+                "SELECT symbol, direction, position_size, entry_price, "
+                "stop_loss, take_profit_1, "
                 "strategy_name, account_id, is_backtest, is_demo, account_class "
                 "FROM trades WHERE id = ?",
                 (trade_id,),
@@ -942,10 +955,10 @@ class Database:
                 "trade_id": trade_id,
                 "symbol": row["symbol"],
                 "direction": row["direction"],
-                "qty": row["qty"],
+                "qty": row["position_size"],
                 "entry_price": row["entry_price"],
-                "sl": row["sl"],
-                "tp": row["tp"],
+                "sl": row["stop_loss"],
+                "tp": row["take_profit_1"],
                 "strategy": row["strategy_name"],
                 "account": row["account_id"],
                 "account_class": row["account_class"],
@@ -958,6 +971,19 @@ class Database:
 
         Fires on SL/TP moves while the row is still open. Skips backtest
         replays only; paper trades notify too (see ``_fire_trade_closed_event``).
+
+        BL-20260722-XRP-SLSPAM (part 3): same ``qty``/``sl``/``tp`` →
+        non-existent-column bug as ``_fire_trade_opened_event`` — fixed here
+        for consistency. Note this observer's caller-side gate
+        (``"sl" in row or "tp" in row`` in ``update_trade``, above) checks
+        for those exact literal keys, which no real caller passes (the real
+        columns are ``stop_loss``/``take_profit_1``) — so this path is
+        effectively unreachable today regardless of this SQL fix. Left
+        unreachable deliberately: wiring the gate to the real column names
+        would make this fire a SECOND Telegram/FCM ping alongside
+        ``execution_diagnostics.enqueue_trade_update`` (order_monitor.py's
+        modify branch) for the same event, which needs its own dedup design
+        rather than a rushed fix here. Logged to the health-review backlog.
         """
         from src.runtime.mobile_push.event_kinds import TRADE_UPDATED
         from src.runtime.mobile_push.trade_events import notify_trade_event
@@ -965,7 +991,8 @@ class Database:
         conn = self.connect()
         try:
             cur = conn.execute(
-                "SELECT symbol, direction, qty, entry_price, sl, tp, status, "
+                "SELECT symbol, direction, position_size, entry_price, "
+                "stop_loss, take_profit_1, status, "
                 "strategy_name, account_id, is_backtest, is_demo, account_class "
                 "FROM trades WHERE id = ?",
                 (trade_id,),
@@ -984,10 +1011,10 @@ class Database:
                 "trade_id": trade_id,
                 "symbol": row["symbol"],
                 "direction": row["direction"],
-                "qty": row["qty"],
+                "qty": row["position_size"],
                 "entry_price": row["entry_price"],
-                "sl": row["sl"],
-                "tp": row["tp"],
+                "sl": row["stop_loss"],
+                "tp": row["take_profit_1"],
                 "strategy": row["strategy_name"],
                 "account": row["account_id"],
                 "account_class": row["account_class"],
