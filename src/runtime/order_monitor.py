@@ -62,6 +62,13 @@ from src.utils.json_notes import dump_capped  # noqa: E402
 from src.utils.closed_at import normalize_closed_at_value  # noqa: E402
 _REPO_ROOT = Path(_repo_root_fn())
 
+# BL-20260722-XRP-SLSPAM: minimum relative change (0.05% of the current sl/tp)
+# a modify verdict must clear before the modify branch acts on it at all — see
+# the gate in the "Modification — sl / tp" section below. Loose on purpose:
+# real ATR-scaled trail steps are far larger than this; it exists only to
+# absorb float/live-candle noise on ticks where price hasn't genuinely moved.
+_MEANINGFUL_MODIFY_REL_TOL = 0.0005
+
 
 @dataclass
 class _StrategyTickSummary:
@@ -1036,6 +1043,32 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         summary.no_change_count += 1
         return
 
+    # BL-20260722-XRP-SLSPAM: drop any key whose new value isn't
+    # MEANINGFULLY different from the package's current value before
+    # doing anything else (exchange call, DB write, or notification).
+    # A strategy monitor() recomputing a trail off a live/forming candle
+    # can return a "new" sl/tp that differs from the current value only
+    # by float noise on ticks where price hasn't genuinely moved —
+    # xrp_pullback_2h/trade 3577 fired an exchange amend + a "TRADE
+    # UPDATED" Telegram ping essentially every tick for 5 days off a
+    # trail the operator correctly perceived as static. `_MEANINGFUL_REL_TOL`
+    # is deliberately loose (0.05%) — real trail steps are ATR-scaled
+    # (typically >> 0.05% of price), so this only filters genuine noise.
+    for key in ("sl", "tp"):
+        if key not in updates:
+            continue
+        try:
+            current = float(open_pkg.get(key))
+        except (TypeError, ValueError):
+            continue
+        new_value = updates[key]
+        tol = max(abs(current) * _MEANINGFUL_MODIFY_REL_TOL, 1e-8)
+        if abs(new_value - current) <= tol:
+            del updates[key]
+    if not updates:
+        summary.no_change_count += 1
+        return
+
     # 2026-05-18: exchange-first modify ordering. Mirrors the close-path
     # refactor from PR #1190 + the partial-close refactor from
     # FU-20260515-002. Pre-this-PR the DB row was updated FIRST and the
@@ -1150,6 +1183,36 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         summary.error_count += 1
         summary.errors.append(f"{pkg_id}: update-write failed")
         return
+
+    # BL-20260722-XRP-SLSPAM (part 2): mirror the confirmed modify onto the
+    # linked ``trades`` row too. Before this fix a modify only ever touched
+    # ``order_packages.sl/tp`` — the dashboard/API's Position.stopLoss reads
+    # ``trades.stop_loss`` (see /api/bot/positions), which never moved after
+    # the first modify. Over trade 3577's 5-day life this let
+    # ``order_packages.sl`` trail from 1.0655 to 1.1116 while every
+    # operator-facing surface kept showing the original 1.0655 — the exact
+    # "SL looks static but I keep getting move pings" symptom report.
+    # Best-effort: a failure here must never affect the modify that already
+    # landed on the exchange + order_packages. Uses ``stop_loss``/
+    # ``take_profit_1`` (the real trades-table column names — NOT ``sl``/
+    # ``tp``, which don't exist on ``trades``) so this deliberately does NOT
+    # trip ``update_trade``'s own ``"sl" in row or "tp" in row`` notify-gate
+    # and cannot double-fire against the ping below.
+    try:
+        trade_id = matched_trade.get("id")
+        if trade_id is not None:
+            trade_sync: Dict[str, Any] = {}
+            if "sl" in updates:
+                trade_sync["stop_loss"] = updates["sl"]
+            if "tp" in updates:
+                trade_sync["take_profit_1"] = updates["tp"]
+            if trade_sync:
+                db.update_trade(int(trade_id), trade_sync)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: trades protective-level sync failed for pkg=%s "
+            "trade_id=%s: %s", pkg_id, matched_trade.get("id"), exc,
+        )
 
     # Trade-lifecycle update ping (SL/TP move, TELEGRAM-SPEC §4.2) —
     # best-effort. The modify already landed; a ping failure can't affect it.

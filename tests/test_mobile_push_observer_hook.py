@@ -92,6 +92,7 @@ def test_close_on_real_trade_fires_publish_event(
     monkeypatch.setattr("src.runtime.mobile_push.publish_event", _capture)
 
     trade_id = _insert_real_trade(db)
+    captured.clear()  # drop the insert's own trade_opened event
     db.update_trade(
         trade_id,
         {
@@ -179,6 +180,7 @@ def test_partial_update_without_status_does_not_fire(
     )
 
     trade_id = _insert_real_trade(db)
+    captured.clear()  # drop the insert's own trade_opened event
     db.update_trade(trade_id, {"notes": "edited some metadata"})
 
     assert captured == []
@@ -194,6 +196,7 @@ def test_status_update_to_non_closed_does_not_fire(
     )
 
     trade_id = _insert_real_trade(db)
+    captured.clear()  # drop the insert's own trade_opened event
     db.update_trade(trade_id, {"status": "cancelled"})
 
     assert captured == []
@@ -211,5 +214,103 @@ def test_update_on_nonexistent_trade_does_not_fire(
     )
 
     db.update_trade(999999, {"status": "closed", "pnl": 0.0})
+
+    assert captured == []
+
+
+def test_insert_real_trade_fires_trade_opened_event(
+    db: Database, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """BL-20260722-XRP-SLSPAM regression (part 3). ``_fire_trade_opened_event``
+    previously SELECTed ``qty``/``sl``/``tp`` — none of which exist on
+    ``trades`` (the real columns are ``position_size``/``stop_loss``/
+    ``take_profit_1``) — so this raised ``OperationalError`` on every insert,
+    silently swallowed by ``insert_trade``'s bare except. TRADE_OPENED has
+    therefore never actually fired. This pins the fix: the event now fires
+    with the correct values, read off the real columns."""
+    captured: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(
+        "src.runtime.mobile_push.publish_event",
+        lambda kind, payload: captured.append((kind, payload)),
+    )
+
+    trade_id = db.insert_trade(
+        {
+            "timestamp": "2026-05-26T12:00:00Z",
+            "symbol": "BTCUSDT",
+            "direction": "buy",
+            "entry_price": 80000.0,
+            "stop_loss": 79000.0,
+            "take_profit_1": 82000.0,
+            "position_size": 0.001,
+            "strategy_name": "vwap",
+            "account_id": "bybit_1",
+            "is_backtest": 0,
+            "is_demo": 0,
+        }
+    )
+
+    assert len(captured) == 1
+    kind, payload = captured[0]
+    assert kind == "trade_opened"
+    assert payload["trade_id"] == trade_id
+    assert payload["symbol"] == "BTCUSDT"
+    assert payload["qty"] == 0.001
+    assert payload["entry_price"] == 80000.0
+    assert payload["sl"] == 79000.0
+    assert payload["tp"] == 82000.0
+    assert payload["strategy"] == "vwap"
+    assert payload["account"] == "bybit_1"
+
+
+def test_insert_backtest_trade_does_not_fire_opened_event(
+    db: Database, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: list[Any] = []
+    monkeypatch.setattr(
+        "src.runtime.mobile_push.publish_event",
+        lambda *a, **kw: captured.append((a, kw)),
+    )
+
+    db.insert_trade(
+        {
+            "timestamp": "2026-05-26T12:00:00Z",
+            "symbol": "BTCUSDT",
+            "direction": "buy",
+            "entry_price": 80000.0,
+            "position_size": 0.001,
+            "strategy_name": "vwap",
+            "account_id": "backtest",
+            "is_backtest": 1,
+            "is_demo": 0,
+        }
+    )
+
+    assert captured == []
+
+
+def test_stop_loss_update_does_not_fire_trade_updated_event(
+    db: Database, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Documents current, intentional behaviour: ``update_trade``'s own
+    trade_updated gate checks for literal ``"sl"``/``"tp"`` dict keys, which
+    don't match the real ``stop_loss``/``take_profit_1`` columns any real
+    caller writes (see ``order_monitor.py``'s modify-branch sync, added by
+    the same fix). This keeps ``_fire_trade_updated_event`` unreachable
+    on purpose — wiring it up would double-fire alongside
+    ``execution_diagnostics.enqueue_trade_update`` for the same SL move
+    without a dedup design (BL-20260722-XRP-SLSPAM, logged for a follow-up).
+    If this test starts failing because the gate was changed to key on
+    ``stop_loss``/``take_profit_1``, the double-notification risk must be
+    resolved in the same change."""
+    captured: list[Any] = []
+    monkeypatch.setattr(
+        "src.runtime.mobile_push.publish_event",
+        lambda *a, **kw: captured.append((a, kw)),
+    )
+
+    trade_id = _insert_real_trade(db)
+    captured.clear()  # drop the insert's own trade_opened event
+    db.update_trade(trade_id, {"stop_loss": 79500.0, "take_profit_1": 82500.0})
 
     assert captured == []

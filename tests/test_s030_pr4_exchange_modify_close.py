@@ -463,6 +463,92 @@ class TestExchangeDispatch:
         rows = tmp_db.get_order_packages_by_strategy("vwap")
         assert rows[0]["sl"] == 100.0
 
+    def test_modify_skips_immaterial_change_no_exchange_call_no_db_write(
+        self, tmp_db,
+    ):
+        """BL-20260722-XRP-SLSPAM regression. A monitor() verdict whose new
+        sl differs from the package's current sl by only float/live-candle
+        noise (well under the 0.05% tolerance) must be dropped before any
+        exchange call, DB write, or notification — this is what fired an
+        exchange amend + a "TRADE UPDATED" Telegram ping every tick for 5
+        days on trade 3577 even though the operator correctly saw the SL as
+        static."""
+        _seed(tmp_db)  # seed sl=98.0
+
+        modify_calls = []
+        with patch(
+            "src.runtime.order_monitor._send_modify_to_exchange",
+            side_effect=lambda *a, **kw: (modify_calls.append((a, kw)),
+                                          {"ok": True})[-1],
+        ), patch(
+            # 98.0 * 1.00001 is a 0.001% bump — far under the 0.05% gate.
+            "src.units.strategies.vwap.monitor",
+            return_value={"sl": 98.0 * 1.00001},
+        ):
+            om.run_monitor_tick(
+                strategies=["vwap"],
+                ohlcv_fetcher=lambda s, t: _candles(102.0),
+            )
+
+        assert modify_calls == []
+        rows = tmp_db.get_order_packages_by_strategy("vwap")
+        assert rows[0]["sl"] == 98.0
+
+    def test_modify_still_fires_on_meaningful_change(self, tmp_db):
+        """Sibling of the noise-gate test above — a genuine trail step
+        (well over the 0.05% tolerance) must still reach the exchange and
+        the DB, unchanged from pre-gate behaviour."""
+        _seed(tmp_db)  # seed sl=98.0
+
+        modify_calls = []
+        with patch(
+            "src.runtime.order_monitor._send_modify_to_exchange",
+            side_effect=lambda *a, **kw: (modify_calls.append((a, kw)),
+                                          {"ok": True})[-1],
+        ), patch(
+            "src.units.strategies.vwap.monitor",
+            return_value={"sl": 99.0},  # ~1% move — clears the gate
+        ):
+            om.run_monitor_tick(
+                strategies=["vwap"],
+                ohlcv_fetcher=lambda s, t: _candles(102.0),
+            )
+
+        assert len(modify_calls) == 1
+        rows = tmp_db.get_order_packages_by_strategy("vwap")
+        assert rows[0]["sl"] == 99.0
+
+    def test_modify_syncs_trades_stop_loss_after_success(self, tmp_db):
+        """BL-20260722-XRP-SLSPAM regression (part 2). Before this fix a
+        successful modify only ever wrote ``order_packages.sl`` — the
+        linked ``trades.stop_loss`` (what /api/bot/positions surfaces to
+        the dashboard/Android app as Position.stopLoss) never moved after
+        the first modify, so the operator-facing view of the stop went
+        stale forever while the strategy's real internal stop kept
+        trailing underneath it."""
+        _seed(tmp_db)  # seed sl=98.0
+
+        with patch(
+            "src.runtime.order_monitor._send_modify_to_exchange",
+            return_value={"ok": True},
+        ), patch(
+            "src.units.strategies.vwap.monitor",
+            return_value={"sl": 99.0, "tp": 105.0},
+        ):
+            om.run_monitor_tick(
+                strategies=["vwap"],
+                ohlcv_fetcher=lambda s, t: _candles(102.0),
+            )
+
+        pkg_rows = tmp_db.get_order_packages_by_strategy("vwap")
+        assert pkg_rows[0]["sl"] == 99.0
+        assert pkg_rows[0]["tp"] == 105.0
+
+        trade_rows = tmp_db.get_trades(filters={"account_id": "bybit_2"})
+        assert len(trade_rows) == 1
+        assert trade_rows[0]["stop_loss"] == 99.0
+        assert trade_rows[0]["take_profit_1"] == 105.0
+
 
 # ---------------------------------------------------------------------------
 # 2026-05-15: exchange-first close ordering (no phantom DB closes)
