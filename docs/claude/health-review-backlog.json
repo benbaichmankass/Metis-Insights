@@ -5,60 +5,72 @@
     {
       "id": "BL-20260721-BYBIT2-XRP-TPSL-LEGCAP",
       "opened_at": "2026-07-21T05:27:00+00:00",
-      "opened_by": "claude (M27 overnight loop, incidental — post-deploy journalctl tail after merging PR #7254)",
-      "source": "Live journalctl on ict-trader-live.service immediately post-deploy (2026-07-21T05:25:30Z, unrelated to the deploy itself): `modify_open_order: bybit raised for account=bybit_2 symbol=XRPUSDT: set stopLoss takeProfit exceeds the limit oldTpNum+oldStNum+newNum=(1 the num is tp+sl) > 20 So set fail (ErrCode: 110061)`. Request body: `{\"category\":\"linear\",\"symbol\":\"XRPUSDT\",\"stopLoss\":\"1.0855\",\"tpslMode\":\"Partial\",\"slSize\":\"165.5\"}`. order_monitor logged `exchange modify failed — leaving DB unchanged` and `xrp_pullback_2h — open=1 updated=0 closed=0 no_change=0 errors=1`.",
-      "title": "[order-monitor] bybit_2 XRPUSDT SL amend failing — Bybit's 20-leg tpsl cap likely hit under BYBIT_TPSL_MODE=partial's per-order qty-scoped brackets",
-      "description": "BYBIT_TPSL_MODE=partial (live-verified + rolled out per BL/PR #7115, see the health-review-backlog entry above and performance-review-backlog) attaches a qty-scoped Partial-type TP/SL leg PER ORDER rather than one position-level bracket. Bybit's own API enforces a hard cap of 20 combined tp+sl legs per symbol (`oldTpNum+oldStNum+newNum > 20`, ErrCode 110061). If XRPUSDT on bybit_2 (traded by multiple strategies incl. `xrp_pullback_2h`, and as of PR #7254 `ict_scalp_xrp_5m` on bybit_1 — different account, not a factor here) has accumulated legs from many prior partial opens/adds without them being consolidated/cleared as positions close, it can hit that 20-leg ceiling — at which point ANY subsequent SL amend request for that symbol fails outright and `order_monitor` leaves the DB (and the live stop) UNCHANGED. This is a protection-integrity risk: a stop-loss that should move (e.g., a breakeven trail or a tightening update) silently fails to update on the exchange while the DB may or may not reflect the intended level, for as long as the leg count stays saturated. Not yet confirmed whether this is a one-off (a stale/orphaned leg never cleaned up) or a structural risk of the partial-brackets design at higher trade frequency/leg turnover on one symbol. NOT investigated further this session (incidental discovery during unrelated deploy-verification read) — flagging per the standing 'if you see something, say something' directive rather than walking past it.",
+      "opened_by": "claude (M27 overnight loop, incidental \u2014 post-deploy journalctl tail after merging PR #7254)",
+      "source": "Live journalctl on ict-trader-live.service immediately post-deploy (2026-07-21T05:25:30Z, unrelated to the deploy itself): `modify_open_order: bybit raised for account=bybit_2 symbol=XRPUSDT: set stopLoss takeProfit exceeds the limit oldTpNum+oldStNum+newNum=(1 the num is tp+sl) > 20 So set fail (ErrCode: 110061)`. Request body: `{\"category\":\"linear\",\"symbol\":\"XRPUSDT\",\"stopLoss\":\"1.0855\",\"tpslMode\":\"Partial\",\"slSize\":\"165.5\"}`. order_monitor logged `exchange modify failed \u2014 leaving DB unchanged` and `xrp_pullback_2h \u2014 open=1 updated=0 closed=0 no_change=0 errors=1`.",
+      "title": "[order-monitor] bybit_2 XRPUSDT SL amend failing \u2014 Bybit's 20-leg tpsl cap likely hit under BYBIT_TPSL_MODE=partial's per-order qty-scoped brackets",
+      "description": "BYBIT_TPSL_MODE=partial (live-verified + rolled out per BL/PR #7115, see the health-review-backlog entry above and performance-review-backlog) attaches a qty-scoped Partial-type TP/SL leg PER ORDER rather than one position-level bracket. Bybit's own API enforces a hard cap of 20 combined tp+sl legs per symbol (`oldTpNum+oldStNum+newNum > 20`, ErrCode 110061). If XRPUSDT on bybit_2 (traded by multiple strategies incl. `xrp_pullback_2h`, and as of PR #7254 `ict_scalp_xrp_5m` on bybit_1 \u2014 different account, not a factor here) has accumulated legs from many prior partial opens/adds without them being consolidated/cleared as positions close, it can hit that 20-leg ceiling \u2014 at which point ANY subsequent SL amend request for that symbol fails outright and `order_monitor` leaves the DB (and the live stop) UNCHANGED. This is a protection-integrity risk: a stop-loss that should move (e.g., a breakeven trail or a tightening update) silently fails to update on the exchange while the DB may or may not reflect the intended level, for as long as the leg count stays saturated. Not yet confirmed whether this is a one-off (a stale/orphaned leg never cleaned up) or a structural risk of the partial-brackets design at higher trade frequency/leg turnover on one symbol. NOT investigated further this session (incidental discovery during unrelated deploy-verification read) \u2014 flagging per the standing 'if you see something, say something' directive rather than walking past it.",
       "tier": 2,
       "trigger_condition": "Next /health-review or order-path session. First checks: (a) `GET /api/diag/exchange_positions?account_id=bybit_2` + a direct Bybit `GET /v5/position/list?category=linear&symbol=XRPUSDT` read (via the account_open_positions primitive or a read-only diag) to count the CURRENT live tp/sl leg count on bybit_2 XRPUSDT and confirm whether it's actually pinned near/at 20; (b) grep `runtime_logs/signal_audit.jsonl` / journalctl for repeat occurrences of ErrCode 110061 on any symbol/account since BYBIT_TPSL_MODE=partial went live, to gauge frequency (one-off vs recurring); (c) if recurring, design a leg-consolidation or leg-count-aware fallback (e.g., amend the OLDEST/smallest leg instead of adding a new one, or fall back to `full` position-level tpsl for that symbol when the partial-leg count is saturated) rather than silently no-op-ing the SL update.",
-      "resolution_criteria": "Either (a) confirmed one-off/stale-leg artifact, cleaned up, and a monitor added so a future saturation is caught before it silently blocks SL amends; or (b) a structural fix (consolidation/fallback) ships so an SL amend on a saturated symbol never silently fails to protect the position — order_monitor's `errors=1` counter for this cause should trend to zero going forward.",
+      "resolution_criteria": "Either (a) confirmed one-off/stale-leg artifact, cleaned up, and a monitor added so a future saturation is caught before it silently blocks SL amends; or (b) a structural fix (consolidation/fallback) ships so an SL amend on a saturated symbol never silently fails to protect the position \u2014 order_monitor's `errors=1` counter for this cause should trend to zero going forward.",
       "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-21T08:35:00+00:00",
           "by": "claude (operator-flagged, live screenshot of Bybit Open Orders showing 23 TP/SL entries for XRPUSDT)",
-          "note": "CONFIRMED STILL ACTIVE AND WORSE, ~3h after the 05:27Z discovery. Operator screenshot of the Bybit Open Orders → TP/SL tab shows 23 open conditional orders for XRPUSDT, all `Sell / Close Long / qty 165.5`, most sharing an identical `SL 1.0756`, timestamped every ~4-5 min (07:03:39, 07:07:36, 07:11:53, 07:16:48, 07:21:04 as of the screenshot). Cross-checked live: `GET /api/diag/exchange_positions?account_id=bybit_2` shows exactly ONE XRPUSDT position (side=Buy, size=165.5, entry=1.091) — confirming these 23 orders are NOT 23 separate positions/entries, they are duplicate/stale Partial-tpsl legs stacked on the SAME single position, now past Bybit's 20-leg cap (matches the 05:27Z ErrCode 110061 already logged). This is the trigger_condition's check (a) — DONE, confirmed pinned past the ceiling, not a one-off. Not yet root-caused WHICH call keeps adding legs at ~4-5min cadence (targeted 60s-window journalctl pulls around 07:07:36 and a 30min window around 07:00-07:25Z did not land on the exact XRP-strategy sub-tick before hitting the diag-relay's 55KB comment truncation — the per-symbol pipeline rotation + tick volume made a blind journalctl pull impractical; a future session should either request `/api/diag/log_file?name=audit` scoped tighter, or add a temporary XRPUSDT-specific grep/filter server-side) — but the mechanism (BYBIT_TPSL_MODE=partial's per-order leg accumulation, no consolidation on rollover) and the live impact (legitimate SL amends now silently failing per the 05:27Z error) are both confirmed. Escalated to the operator in-session as a live, real-money protection-integrity risk (not a UI/DB hallucination) with two candidate immediate mitigations presented: (1) Tier-3 rollback `BYBIT_TPSL_MODE=full` on the live VM (restores single position-level bracket, the pre-2026-07-20 stable behavior, at the cost of reintroducing the netted-position bracket-sharing issue PR #7115 was built to fix); (2) a Tier-2 one-off cancel of the stale/duplicate XRPUSDT legs on bybit_2 to relieve the cap without reverting the mode (no existing tooling found for this in this session — would need scripting, e.g. via `set_trading_stop` idempotent leg replacement or Bybit's cancel-order API for specific TP/SL order IDs)."
+          "note": "CONFIRMED STILL ACTIVE AND WORSE, ~3h after the 05:27Z discovery. Operator screenshot of the Bybit Open Orders \u2192 TP/SL tab shows 23 open conditional orders for XRPUSDT, all `Sell / Close Long / qty 165.5`, most sharing an identical `SL 1.0756`, timestamped every ~4-5 min (07:03:39, 07:07:36, 07:11:53, 07:16:48, 07:21:04 as of the screenshot). Cross-checked live: `GET /api/diag/exchange_positions?account_id=bybit_2` shows exactly ONE XRPUSDT position (side=Buy, size=165.5, entry=1.091) \u2014 confirming these 23 orders are NOT 23 separate positions/entries, they are duplicate/stale Partial-tpsl legs stacked on the SAME single position, now past Bybit's 20-leg cap (matches the 05:27Z ErrCode 110061 already logged). This is the trigger_condition's check (a) \u2014 DONE, confirmed pinned past the ceiling, not a one-off. Not yet root-caused WHICH call keeps adding legs at ~4-5min cadence (targeted 60s-window journalctl pulls around 07:07:36 and a 30min window around 07:00-07:25Z did not land on the exact XRP-strategy sub-tick before hitting the diag-relay's 55KB comment truncation \u2014 the per-symbol pipeline rotation + tick volume made a blind journalctl pull impractical; a future session should either request `/api/diag/log_file?name=audit` scoped tighter, or add a temporary XRPUSDT-specific grep/filter server-side) \u2014 but the mechanism (BYBIT_TPSL_MODE=partial's per-order leg accumulation, no consolidation on rollover) and the live impact (legitimate SL amends now silently failing per the 05:27Z error) are both confirmed. Escalated to the operator in-session as a live, real-money protection-integrity risk (not a UI/DB hallucination) with two candidate immediate mitigations presented: (1) Tier-3 rollback `BYBIT_TPSL_MODE=full` on the live VM (restores single position-level bracket, the pre-2026-07-20 stable behavior, at the cost of reintroducing the netted-position bracket-sharing issue PR #7115 was built to fix); (2) a Tier-2 one-off cancel of the stale/duplicate XRPUSDT legs on bybit_2 to relieve the cap without reverting the mode (no existing tooling found for this in this session \u2014 would need scripting, e.g. via `set_trading_stop` idempotent leg replacement or Bybit's cancel-order API for specific TP/SL order IDs)."
         },
         {
           "at": "2026-07-21T10:32:00+00:00",
-          "by": "claude (S-XRP-TPSL-LEGCAP-2026-07-21 session — closing update)",
-          "note": "RESOLVED. Both halves shipped this session: (1) stopgap — PR #7315 (`scripts/ops/cancel_stale_tpsl_legs.py`, the `cancel-stale-tpsl-legs` Tier-2 system-action) merged + run `--apply` on bybit_2 XRPUSDT: cancelled the stale/duplicate legs, live-verified afterward exactly 1 SL + 1 TP leg remain (well under the 20-leg cap), operator notified. (2) structural fix — PR #7321 merged (sha e3203aff675adb3b48c6173c353099b3554c0326) and deployed to the live VM (`ict-trader-live.service` confirmed active post-restart, `xrp_pullback_2h` evaluating fresh prices): `execute_pkg` now captures each trade's Bybit leg id at entry via a before/after snapshot diff (`trades.sl_order_id`/`.tp_order_id`), and `modify_open_order` amends that SPECIFIC leg in place via `amend_order` when a tracked id exists, instead of re-adding via `set_trading_stop` — so a trade opened after the fix deployed cannot accumulate duplicate legs the way the old add-only path did. `close_open_position` also best-effort cancels the closing trade's own tracked leg(s) on exit. resolution_criteria (b) is satisfied: an SL amend on a trade with a tracked leg id now amends in place rather than adding a new leg, so the `errors=1` ErrCode-110061 failure mode cannot recur for trades opened post-fix. Full detail: docs/sprint-logs/S-XRP-TPSL-LEGCAP-2026-07-21.md. NON-BLOCKING open follow-up (tracked in that sprint log, not re-opening this item): the structural fix's live entry-time leg-capture has not yet been observed against a real fresh entry (all validation so far is via the local test suite — 344 tests incl. the new `test_bybit_partial_tpsl.py` coverage — plus code review); a future session should confirm on the demo account (bybit_1) that a fresh partial-mode entry populates `sl_order_id`/`tp_order_id` and that a subsequent SL move amends in place rather than adding a leg. Also: legs from trades opened BEFORE the fix deployed have no tracked id and still fall back to the legacy add-a-leg path — the `cancel-stale-tpsl-legs` action remains available for that pre-existing minority and any other stranding this class of bug could still produce (see the updated docs/claude/system-actions.md entry)."
+          "by": "claude (S-XRP-TPSL-LEGCAP-2026-07-21 session \u2014 closing update)",
+          "note": "RESOLVED. Both halves shipped this session: (1) stopgap \u2014 PR #7315 (`scripts/ops/cancel_stale_tpsl_legs.py`, the `cancel-stale-tpsl-legs` Tier-2 system-action) merged + run `--apply` on bybit_2 XRPUSDT: cancelled the stale/duplicate legs, live-verified afterward exactly 1 SL + 1 TP leg remain (well under the 20-leg cap), operator notified. (2) structural fix \u2014 PR #7321 merged (sha e3203aff675adb3b48c6173c353099b3554c0326) and deployed to the live VM (`ict-trader-live.service` confirmed active post-restart, `xrp_pullback_2h` evaluating fresh prices): `execute_pkg` now captures each trade's Bybit leg id at entry via a before/after snapshot diff (`trades.sl_order_id`/`.tp_order_id`), and `modify_open_order` amends that SPECIFIC leg in place via `amend_order` when a tracked id exists, instead of re-adding via `set_trading_stop` \u2014 so a trade opened after the fix deployed cannot accumulate duplicate legs the way the old add-only path did. `close_open_position` also best-effort cancels the closing trade's own tracked leg(s) on exit. resolution_criteria (b) is satisfied: an SL amend on a trade with a tracked leg id now amends in place rather than adding a new leg, so the `errors=1` ErrCode-110061 failure mode cannot recur for trades opened post-fix. Full detail: docs/sprint-logs/S-XRP-TPSL-LEGCAP-2026-07-21.md. NON-BLOCKING open follow-up (tracked in that sprint log, not re-opening this item): the structural fix's live entry-time leg-capture has not yet been observed against a real fresh entry (all validation so far is via the local test suite \u2014 344 tests incl. the new `test_bybit_partial_tpsl.py` coverage \u2014 plus code review); a future session should confirm on the demo account (bybit_1) that a fresh partial-mode entry populates `sl_order_id`/`tp_order_id` and that a subsequent SL move amends in place rather than adding a leg. Also: legs from trades opened BEFORE the fix deployed have no tracked id and still fall back to the legacy add-a-leg path \u2014 the `cancel-stale-tpsl-legs` action remains available for that pre-existing minority and any other stranding this class of bug could still produce (see the updated docs/claude/system-actions.md entry)."
         },
         {
           "at": "2026-07-21T12:09:00+00:00",
-          "by": "claude (same session, continued — operator caught the gap live via Telegram screenshot)",
-          "note": "The 'non-blocking follow-up' noted above turned out to bite immediately: the operator flagged (screenshot of repeated `TRADE UPDATED — XRPUSDT, SL → 1.0855` Telegram pings at 13:34/13:39/13:43Z, same ~4-5min cadence as the original bug) that the bybit_2 XRPUSDT position — open since BEFORE PR #7321 deployed — kept re-accumulating legs on the legacy add-a-leg path, because entry-time capture only fires for NEW orders and has no retroactive path for already-open trades. Confirmed via diag (`journal?table=trades`): the open XRPUSDT row (id 3577) had `sl_order_id`/`tp_order_id` both NULL. Fix shipped THIS session as PR #7336 (`backfill-tpsl-leg-ids`, merged sha 132df8d1b128ef920f85ef560d8134c00dbf391f, deployed — live VM HEAD confirmed via the pull-and-deploy audit trail): a new Tier-2 system-action that reads a symbol's CURRENT live SL/TP leg ids and retroactively writes them onto the one matching open/untracked trade row (refusing on ambiguity — more than one live leg of a type, or more than one candidate trade row). Applied to bybit_2/XRPUSDT: took 2 cancel→backfill race retries (legs kept forming on their own ~5min cadence faster than the ambiguity-safe write could land — issues #7338/#7340 both correctly refused rather than mis-attributing) before landing clean on the 3rd attempt (issue #7342): trade 3577 now carries `sl_order_id=67bc78e1-a8b6-4a7b-86bb-a4419937aa0c` / `tp_order_id=ff2dd38b-b9ee-40b9-bcfc-db98a1a052ea`. **LIVE-VERIFIED** (issue #7343, dry-run read 7 minutes later, past the next expected ~5min tick): still exactly 1 SL + 1 TP leg, SAME order id as when tagged — no new leg was added, confirming `modify_open_order` is now amending this specific leg in place rather than re-adding. The structural fix is now genuinely complete for this position, and `backfill-tpsl-leg-ids` is available for any other pre-existing open trade that needs the same retroactive tag. This item stays `resolved` — no further action needed on bybit_2/XRPUSDT specifically; the general capability (`backfill-tpsl-leg-ids`) is documented in `docs/claude/system-actions.md` for future use."
+          "by": "claude (same session, continued \u2014 operator caught the gap live via Telegram screenshot)",
+          "note": "The 'non-blocking follow-up' noted above turned out to bite immediately: the operator flagged (screenshot of repeated `TRADE UPDATED \u2014 XRPUSDT, SL \u2192 1.0855` Telegram pings at 13:34/13:39/13:43Z, same ~4-5min cadence as the original bug) that the bybit_2 XRPUSDT position \u2014 open since BEFORE PR #7321 deployed \u2014 kept re-accumulating legs on the legacy add-a-leg path, because entry-time capture only fires for NEW orders and has no retroactive path for already-open trades. Confirmed via diag (`journal?table=trades`): the open XRPUSDT row (id 3577) had `sl_order_id`/`tp_order_id` both NULL. Fix shipped THIS session as PR #7336 (`backfill-tpsl-leg-ids`, merged sha 132df8d1b128ef920f85ef560d8134c00dbf391f, deployed \u2014 live VM HEAD confirmed via the pull-and-deploy audit trail): a new Tier-2 system-action that reads a symbol's CURRENT live SL/TP leg ids and retroactively writes them onto the one matching open/untracked trade row (refusing on ambiguity \u2014 more than one live leg of a type, or more than one candidate trade row). Applied to bybit_2/XRPUSDT: took 2 cancel\u2192backfill race retries (legs kept forming on their own ~5min cadence faster than the ambiguity-safe write could land \u2014 issues #7338/#7340 both correctly refused rather than mis-attributing) before landing clean on the 3rd attempt (issue #7342): trade 3577 now carries `sl_order_id=67bc78e1-a8b6-4a7b-86bb-a4419937aa0c` / `tp_order_id=ff2dd38b-b9ee-40b9-bcfc-db98a1a052ea`. **LIVE-VERIFIED** (issue #7343, dry-run read 7 minutes later, past the next expected ~5min tick): still exactly 1 SL + 1 TP leg, SAME order id as when tagged \u2014 no new leg was added, confirming `modify_open_order` is now amending this specific leg in place rather than re-adding. The structural fix is now genuinely complete for this position, and `backfill-tpsl-leg-ids` is available for any other pre-existing open trade that needs the same retroactive tag. This item stays `resolved` \u2014 no further action needed on bybit_2/XRPUSDT specifically; the general capability (`backfill-tpsl-leg-ids`) is documented in `docs/claude/system-actions.md` for future use."
         }
       ]
     },
     {
       "id": "BL-20260721-XRPTPSL-ENTRYCAPTURE-VERIFY",
       "opened_at": "2026-07-21T12:15:00+00:00",
-      "opened_by": "claude (S-XRP-TPSL-LEGCAP-2026-07-21 session — explicit operator request to log this follow-up for the next health review)",
-      "source": "Direct follow-up to the now-`resolved` `BL-20260721-BYBIT2-XRP-TPSL-LEGCAP` item. Everything live-verified for that incident (issue #7343: the same tracked leg id held across the position's own ~5min SL-recompute cadence) exercised the BACKFILL-then-amend path (`backfill-tpsl-leg-ids`, PR #7336) on a pre-existing trade — never the entry-time capture path itself (`execute_pkg`'s before/after conditional-order snapshot diff, PR #7321) against a real, freshly-placed Bybit Partial-tpsl order.",
+      "opened_by": "claude (S-XRP-TPSL-LEGCAP-2026-07-21 session \u2014 explicit operator request to log this follow-up for the next health review)",
+      "source": "Direct follow-up to the now-`resolved` `BL-20260721-BYBIT2-XRP-TPSL-LEGCAP` item. Everything live-verified for that incident (issue #7343: the same tracked leg id held across the position's own ~5min SL-recompute cadence) exercised the BACKFILL-then-amend path (`backfill-tpsl-leg-ids`, PR #7336) on a pre-existing trade \u2014 never the entry-time capture path itself (`execute_pkg`'s before/after conditional-order snapshot diff, PR #7321) against a real, freshly-placed Bybit Partial-tpsl order.",
       "title": "[verify] live-confirm PR #7321's ENTRY-TIME leg-id capture on a genuinely fresh Bybit Partial-tpsl order (not just the backfill-then-amend path already verified)",
-      "description": "PR #7321 added `_partial_tpsl_leg_ids`/`_classify_new_partial_tpsl_legs` to `execute_pkg`: before placing an order it snapshots the symbol's live conditional (StopOrder) legs, places the order, snapshots again, and diffs to find the newly-created SL/TP leg id(s) — writing them onto `trades.sl_order_id`/`.tp_order_id` at insert time. This before/after diff logic has 344 local unit/integration tests plus full CI (7961 passed) exercising it against MOCKED `get_open_orders` responses, but has never been observed against the REAL Bybit API response shape for a freshly-placed Partial leg. The two failure modes that would matter in practice: (1) the diff finds 0 or >1 new legs of a type (e.g. a concurrent same-symbol entry from another strategy lands in the same poll window) and deliberately leaves the id untracked — expected/safe per the fix's own design, but the FREQUENCY of this in real trading conditions is unknown; (2) some subtle mismatch between the mocked test fixtures and Bybit's actual `get_open_orders(orderFilter=\"StopOrder\")` payload shape (field names, `stopOrderType` values, timing of when a just-placed leg becomes visible in a follow-up list call) could cause the live diff to silently misfire in a way no test would catch. Today's incident only ever exercised the SEPARATE `backfill-tpsl-leg-ids` retroactive-tag path (PR #7336) — that proved the AMEND-IN-PLACE half of the fix works once a leg id is tracked, but said nothing about whether entry-time capture itself reliably populates that id for a brand-new order.",
+      "description": "PR #7321 added `_partial_tpsl_leg_ids`/`_classify_new_partial_tpsl_legs` to `execute_pkg`: before placing an order it snapshots the symbol's live conditional (StopOrder) legs, places the order, snapshots again, and diffs to find the newly-created SL/TP leg id(s) \u2014 writing them onto `trades.sl_order_id`/`.tp_order_id` at insert time. This before/after diff logic has 344 local unit/integration tests plus full CI (7961 passed) exercising it against MOCKED `get_open_orders` responses, but has never been observed against the REAL Bybit API response shape for a freshly-placed Partial leg. The two failure modes that would matter in practice: (1) the diff finds 0 or >1 new legs of a type (e.g. a concurrent same-symbol entry from another strategy lands in the same poll window) and deliberately leaves the id untracked \u2014 expected/safe per the fix's own design, but the FREQUENCY of this in real trading conditions is unknown; (2) some subtle mismatch between the mocked test fixtures and Bybit's actual `get_open_orders(orderFilter=\"StopOrder\")` payload shape (field names, `stopOrderType` values, timing of when a just-placed leg becomes visible in a follow-up list call) could cause the live diff to silently misfire in a way no test would catch. Today's incident only ever exercised the SEPARATE `backfill-tpsl-leg-ids` retroactive-tag path (PR #7336) \u2014 that proved the AMEND-IN-PLACE half of the fix works once a leg id is tracked, but said nothing about whether entry-time capture itself reliably populates that id for a brand-new order.",
       "tier": 1,
-      "trigger_condition": "Next /health-review (or any order-path) session with access to the demo account. Recommended approach, mirroring `validate-partial-tpsl`'s own pattern: (a) confirm `bybit_1` (demo) is flat on an isolated test symbol (per `validate-partial-tpsl`'s flat-at-start guard — avoid the #7145 BTCUSDT contamination mistake); (b) place a small Partial-tpsl order under `BYBIT_TPSL_MODE=partial`; (c) read `trade_journal.db::trades` for that trade's `sl_order_id`/`tp_order_id` — confirm both are populated, not NULL; (d) trigger a trailing-stop-style modify and confirm via a fresh `get_open_orders(orderFilter=\"StopOrder\")` read that the SAME leg id was amended (still exactly 1 SL leg, same `orderId`, updated `triggerPrice`) rather than a second leg being added; (e) close the trade and confirm the tracked leg was cancelled, not left resting.",
-      "resolution_criteria": "A real end-to-end entry→modify→close cycle on the demo account, under `BYBIT_TPSL_MODE=partial`, confirms: the trade row's `sl_order_id`/`tp_order_id` populate at entry (not NULL), a subsequent SL modify amends that exact leg in place (verified by unchanged `orderId`, no second leg created), and the close cancels it. If entry-time capture is found to silently fail or mis-fire under real conditions, that's a new Tier-2/3 finding to raise with the operator, not something to fix quietly in a health-review session.",
+      "trigger_condition": "Next /health-review (or any order-path) session with access to the demo account. Recommended approach, mirroring `validate-partial-tpsl`'s own pattern: (a) confirm `bybit_1` (demo) is flat on an isolated test symbol (per `validate-partial-tpsl`'s flat-at-start guard \u2014 avoid the #7145 BTCUSDT contamination mistake); (b) place a small Partial-tpsl order under `BYBIT_TPSL_MODE=partial`; (c) read `trade_journal.db::trades` for that trade's `sl_order_id`/`tp_order_id` \u2014 confirm both are populated, not NULL; (d) trigger a trailing-stop-style modify and confirm via a fresh `get_open_orders(orderFilter=\"StopOrder\")` read that the SAME leg id was amended (still exactly 1 SL leg, same `orderId`, updated `triggerPrice`) rather than a second leg being added; (e) close the trade and confirm the tracked leg was cancelled, not left resting.",
+      "resolution_criteria": "A real end-to-end entry\u2192modify\u2192close cycle on the demo account, under `BYBIT_TPSL_MODE=partial`, confirms: the trade row's `sl_order_id`/`tp_order_id` populate at entry (not NULL), a subsequent SL modify amends that exact leg in place (verified by unchanged `orderId`, no second leg created), and the close cancels it. If entry-time capture is found to silently fail or mis-fire under real conditions, that's a new Tier-2/3 finding to raise with the operator, not something to fix quietly in a health-review session.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: no fresh Bybit Partial-tpsl entry observed this window to test the entry-time leg-capture path (no new prop/bybit Partial orders placed). Still needs a live fresh-order test."
+        }
+      ]
     },
     {
       "id": "BL-20260721-TRAINERDIAG-SILENT-SSH-DROP",
       "opened_at": "2026-07-21T08:12:00+00:00",
-      "opened_by": "claude (M27 Batch-4 XAUUSD session — discovered while dispatching a config-exact backtest+kfold run)",
-      "source": "Direct repro across three consecutive trainer-vm-diag-request dispatches this session (issues #7297, #7300, #7301): a foreground command that runs silently (no stdout) for longer than roughly a minute or two reliably kills the SSH session with `client_loop: send disconnect: Broken pipe`, before ANY output — including a partially-written result file — is captured or reported back on the issue. This happened identically whether the heavy command was plain foreground, backgrounded with `nohup ... &` + a foreground poll loop, or gated with a `timeout 480` wrapper; only fully detaching the process with `setsid nohup ... > log 2>&1 < /dev/null & disown -a` (returning from the SSH command almost immediately, well inside the drop window) reliably avoided it (issue #7302, confirmed working). The underlying compute was NOT actually slow — a 178k-bar XAUUSD 15m backtest that appeared to hang for 8+ minutes under the broken foreground pattern actually completed in under 3 minutes once run detached (confirmed via a follow-up log-tail dispatch).",
+      "opened_by": "claude (M27 Batch-4 XAUUSD session \u2014 discovered while dispatching a config-exact backtest+kfold run)",
+      "source": "Direct repro across three consecutive trainer-vm-diag-request dispatches this session (issues #7297, #7300, #7301): a foreground command that runs silently (no stdout) for longer than roughly a minute or two reliably kills the SSH session with `client_loop: send disconnect: Broken pipe`, before ANY output \u2014 including a partially-written result file \u2014 is captured or reported back on the issue. This happened identically whether the heavy command was plain foreground, backgrounded with `nohup ... &` + a foreground poll loop, or gated with a `timeout 480` wrapper; only fully detaching the process with `setsid nohup ... > log 2>&1 < /dev/null & disown -a` (returning from the SSH command almost immediately, well inside the drop window) reliably avoided it (issue #7302, confirmed working). The underlying compute was NOT actually slow \u2014 a 178k-bar XAUUSD 15m backtest that appeared to hang for 8+ minutes under the broken foreground pattern actually completed in under 3 minutes once run detached (confirmed via a follow-up log-tail dispatch).",
       "title": "[trainer-vm-diag] long-silent (no-stdout) foreground commands reliably drop the SSH channel before completion, independent of workflow job timeout-minutes",
-      "description": "`.github/workflows/trainer-vm-diag.yml` runs the requested `cmd:` over an SSH session with `timeout-minutes: 10` at the JOB level. That job-level timeout is NOT what's firing here — the failures happened at 2–8 minutes in, well under the 10-minute budget, and manifested as a client-side `Broken pipe` rather than a graceful cancellation (the workflow's own `if: cancelled()` handler, which correctly posts a comment on a genuine concurrency-preemption cancel, never fires for this failure mode — the run just dies with no comment at all, which is worse: a requester sees silence and has no way to distinguish 'still running' from 'already dead'). Likely cause: the SSH action/client (or an intermediate proxy) has an inactivity/keepalive timeout shorter than a few minutes that isn't being satisfied by a command producing zero stdout. This wasted significant session time across three consecutive dispatch/diagnose/retry cycles before the detached-launch pattern was discovered empirically. Composes with BL-20260720-TRAINERDIAG-FENCE (same workflow, different failure class) — not fixed this session because the fix (likely a `ServerAliveInterval`/keepalive setting on the SSH step, or a documented requirement that any command expected to run >1min must self-detach) touches a shared workflow other sessions rely on. A secondary, related observation: the issue body's free-text prose AFTER the `cmd:` YAML block is also being fed to bash as part of the same script (confirmed repeatedly — e.g. a sentence beginning 'M27 Batch-4 (XAUUSD...' produced `bash: line N: syntax error near unexpected token '('`, and one beginning 'Retry of #7294...' produced `bash: line N: Retry: command not found`). These are currently harmless because the prose reliably fails as shell syntax, but it is latent — a future issue body whose free-text portion happens to parse as valid (and unintended) shell would silently execute it on the trainer VM.",
+      "description": "`.github/workflows/trainer-vm-diag.yml` runs the requested `cmd:` over an SSH session with `timeout-minutes: 10` at the JOB level. That job-level timeout is NOT what's firing here \u2014 the failures happened at 2\u20138 minutes in, well under the 10-minute budget, and manifested as a client-side `Broken pipe` rather than a graceful cancellation (the workflow's own `if: cancelled()` handler, which correctly posts a comment on a genuine concurrency-preemption cancel, never fires for this failure mode \u2014 the run just dies with no comment at all, which is worse: a requester sees silence and has no way to distinguish 'still running' from 'already dead'). Likely cause: the SSH action/client (or an intermediate proxy) has an inactivity/keepalive timeout shorter than a few minutes that isn't being satisfied by a command producing zero stdout. This wasted significant session time across three consecutive dispatch/diagnose/retry cycles before the detached-launch pattern was discovered empirically. Composes with BL-20260720-TRAINERDIAG-FENCE (same workflow, different failure class) \u2014 not fixed this session because the fix (likely a `ServerAliveInterval`/keepalive setting on the SSH step, or a documented requirement that any command expected to run >1min must self-detach) touches a shared workflow other sessions rely on. A secondary, related observation: the issue body's free-text prose AFTER the `cmd:` YAML block is also being fed to bash as part of the same script (confirmed repeatedly \u2014 e.g. a sentence beginning 'M27 Batch-4 (XAUUSD...' produced `bash: line N: syntax error near unexpected token '('`, and one beginning 'Retry of #7294...' produced `bash: line N: Retry: command not found`). These are currently harmless because the prose reliably fails as shell syntax, but it is latent \u2014 a future issue body whose free-text portion happens to parse as valid (and unintended) shell would silently execute it on the trainer VM.",
       "tier": 1,
       "trigger_condition": "Next session touching `.github/workflows/trainer-vm-diag.yml`, or the next time a trainer-vm-diag dispatch needs to run a command expected to take more than ~1 minute with little/no stdout in that window.",
-      "resolution_criteria": "Either (a) the workflow itself is hardened — an SSH keepalive/ServerAliveInterval setting so a silent multi-minute command survives, AND the cmd-extraction step is changed to isolate the `cmd:` block from any trailing free-text (so issue-body prose is never executed as shell); or (b) short of a workflow change, this finding is folded into the workflow's own header-comment documentation so future sessions default to the `setsid ... & disown -a` detached-launch pattern for any command expected to run long/silent, without having to rediscover it empirically each time.",
+      "resolution_criteria": "Either (a) the workflow itself is hardened \u2014 an SSH keepalive/ServerAliveInterval setting so a silent multi-minute command survives, AND the cmd-extraction step is changed to isolate the `cmd:` block from any trailing free-text (so issue-body prose is never executed as shell); or (b) short of a workflow change, this finding is folded into the workflow's own header-comment documentation so future sessions default to the `setsid ... & disown -a` detached-launch pattern for any command expected to run long/silent, without having to rediscover it empirically each time.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: this session's trainer-vm-diag cmd was short + produced immediate stdout and completed cleanly (no drop). Workflow-level fix for long-silent commands still not shipped."
+        }
+      ]
     },
     {
       "id": "BL-20260715-TRAINER-CYCLE-MEM-SATURATION",
@@ -82,6 +94,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid. The OOM CONTAINMENT shipped (MemoryMax=5G + MemorySwapMax=0 + MemoryHigh=infinity, verified live this review) so a runaway now OOM-kills+quarantines instead of wedging; but the FOOTPRINT fix (stream/window promotion-readiness's shadow-log read instead of list(records)) is unshipped. Blocker: Tier-2 code (ml/promotion/attribution.py). Trainer completed a full cycle (35 manifest_ok) this window with 5.2G free \u2014 not currently wedging."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: trainer disk at 91% (4.2G free); memory not re-measured this session (light-touch trainer scope). ml/promotion/attribution.py streaming fix still not shipped. Blocker: Tier-2 trainer code change."
         }
       ]
     },
@@ -170,6 +187,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid, Tier-3 \u2014 no positive VERIFICATION that IB futures positions carry a RESTING broker bracket (naked-autoprotect re-arms but there's no read-back confirm). ib_paper holds MHG+MGC now; worth a broker-side bracket read. Blocker: Tier-3 verification path."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: ib_state shows all 3 IB clients connected/account_data_ready this window, no naked-position alert fired (notifications banners empty). The structural gap (no broker-side resting-bracket check for IB, unlike Alpaca) is still unfixed in code."
         }
       ]
     },
@@ -220,13 +242,18 @@
       "title": "[prop] breakout_1 has stale never-resolved 'emitted' prop tickets (pre-suppress-guard) + orphaned ETH order-packages \u2014 cosmetic backlog",
       "description": "On breakout_1, ~5 ETH-long prop tickets from 2026-07-05 sit in status='emitted' past their valid_until \u2014 they predate the re-ticket-suppress guard (BL-20260705-PROP-RETICKET-WHILE-OPEN, which now suppresses new emits while a position is open) and the close-mislink fix (#5744), so nothing ever moved them to 'expired'. They're harmless (past validity; a close can no longer mis-link to them after #5744) but they clutter the tickets view and the prop reconcile 'unacted' count. Separately, ~17 ETHUSDT order_packages read status='orphaned' (mostly trend_donchian_eth_prop shadow-soak artifacts \u2014 execution:shadow, no ticket expected \u2014 plus a few live legs). FIX (Tier-1/2 hygiene): a small pass to expire the stale past-valid emitted tickets (mirroring the expiry-prompt terminal state) and/or reconcile the orphaned shadow-soak order-packages; could reuse/extend the fix-prop-mislinked-close tooling pattern. Low priority \u2014 no money impact, no open position affected.",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 breakout_1 stale 'emitted' prop tickets + orphaned ETH order-packages (cosmetic). Blocker: Tier-1 data hygiene."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated via /api/bot/prop/reconcile this session: unacted_count=0 of 48 emitted / 25 fills - no outstanding un-acted tickets remain. The stale pre-guard ETH tickets no longer show as an active drift signal."
         }
       ]
     },
@@ -245,6 +272,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: cosmetic, part of the devnull cluster (endpoint body not echoed back when the VM step can't write /dev/null). Ingest still succeeds. Blocker: workflow hygiene, resolves with the source-kill."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: same /dev/null cluster confirmed STILL active this session's window (see BL-20260713-DEVNULL-RESTART-MISREPORT 07-21 escalation); prop-report.yml's /dev/null write would still fail if exercised. Root-cause fix (BL-20260629-DEVNULL-OCI-SOURCE-KILL) not yet landed."
         }
       ]
     },
@@ -432,6 +464,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid, OPERATOR/ENV \u2014 the cloud-session DIAG_BASE_URL still points at the retired x86 micro (158.178.210.252) instead of 141.145.193.91; needs update + Full/Custom network access for the direct diag path. This review used the GitHub-issue relay throughout (worked fine), so it's a convenience gap, not blocking. Blocker: operator updates the cloud-env var (takes effect on a new session)."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Operator-only cloud-environment setting; no evidence this was changed. Still relay-only for this session (worked fine)."
         }
       ]
     },
@@ -488,6 +525,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 2026-06-28 intrusion-audit follow-ups (operator + Tier-2). This review's security sweep found NO new breach (0 external actors, 0 secret alerts, no workflow/secret/collaborator changes). Blocker: operator + Tier-2 hardening."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-surfaced to operator in this review's security-breach check section. Checklist items unchanged/unconfirmed as actioned (hardware-2FA on GitHub owner account remains the highest-leverage open item)."
         }
       ]
     },
@@ -525,6 +567,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 record_ticket upsert can't backfill a NULL order_package_id on re-emit. Blocker: Tier-2 prop code."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: latent code gap, no NULL order_package_id re-emit collision observed in this window's prop/reconcile pull (0 unacted, 48/25 totals unchanged in shape). Still an unfixed code path."
         }
       ]
     },
@@ -550,6 +597,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: partially-resolved stays \u2014 root cause fixed (#4858+#4867); residual = data cleanup of pre-fix phantom paper rows. Blocker: Tier-2 data cleanup."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: no NEW mass-close batch observed in orphan_events.jsonl this window (tail ends 2026-07-07, nothing since); root cause fix (#4858/#4867) holding. Residual historical data-cleanup + verify step still not confirmed done."
         }
       ]
     },
@@ -598,6 +650,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: OPERATOR DECISION \u2014 give alpaca_options_paper its own Alpaca login. alpaca_options_paper live:true this review. Blocker: operator decision + keys."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Operator decision still pending; re-surfaced. alpaca_options_paper remains on shared keys with alpaca_paper."
         }
       ]
     },
@@ -624,6 +681,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: STILL STALE, worse than logged \u2014 newest MES market_raw artifact mtime 2026-06-05 (item said 2026-06-12; ~44d stale). Trainer is now on current code (this review's #6913 reset) so the daily build logic is fresh, but the DATA-SOURCE gap remains (needs yfinance/ES=F intraday market_raw on the trainer). Blocker: Tier-1 data-pipeline + cross-links BL-20260526-002. GIGO for MES models/RG4."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: PR #7236 (merged 07-21) added the MGC/MHG sync-tree fix and a futures cost-mode rig but did NOT touch build_mes_market()'s stale-base-preference logic - MES market_raw base freshness not independently re-checked this session, but no fix landed for the specific staleness bug. Still open."
         }
       ]
     },
@@ -695,6 +757,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: holding \u2014 ib_paper currently holds MHG short + MGC short (broker-confirmed via exchange_positions) with NO adopt->sl_cross->re-orphan flap in orphan_events since 2026-07-07. The PR #4441 close-confirm+cooldown fix appears effective. Kept open as a continuing verification watch."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: ib_state shows MES clients healthy/connected, no adopt->sl_cross->re-orphan flap signature seen in this window's trades/orphan_events pulls (no new IB orphan events since 07-07). Fix continues to hold; ongoing verification item stays open per its own recurring-check design."
         }
       ]
     },
@@ -719,6 +786,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: OPERATOR \u2014 export full exchange history so pre-7d-window orphaned/missing trades can be entered. Tier-2 ingest gated on operator OK. Blocker: operator export."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Operator ask not yet actioned; re-surfaced."
         }
       ]
     },
@@ -733,7 +805,7 @@
       "trigger_condition": "Next session touching ict-trader-android, or next /health-review.",
       "resolution_criteria": "Operator has done the on-device visual check on #56 (or its successor) and it is merged or closed; OR Claude has asked and is awaiting the operator's eyeball.",
       "check_log": [],
-      "status": "open",
+      "status": "invalid",
       "resolved_at": null,
       "resolved_by": null,
       "resolution": null,
@@ -743,6 +815,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: OPERATOR \u2014 on-device visual check of android #56 (sandbox can't render). Blocker: operator device check."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-checked ict-trader-android PR #56 this session: state=closed, merged=false (closed without merging). The 'ask operator for on-device visual check before merge' condition is moot - there is no longer a pending merge to gate."
         }
       ]
     },
@@ -790,6 +867,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid + reinforced \u2014 THIS review's trainer incident (git-sync timer no-op'd because its script wasn't in the checkout) is another config/mechanism-survives-migration failure, same class as the 2026-06-15 netting regression. Blocker: Tier-2 (audit all gates/mechanisms for migration/reset survival)."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: the two originally-found gates (netting guard, closed-flat invariant) remain baseline/unconditional per CLAUDE.md env table read this session. Broader systemic audit of remaining default-off *_ENABLED flags still not completed."
         }
       ]
     },
@@ -1055,6 +1137,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: CONFIRMED still present \u2014 config/strategies.yaml line ~117 cites docs/sprint-plans/TREND-GOLIVE-PLAN-2026-05-23.md (confirmed ABSENT). Comment-only fix BUT strategies.yaml is a Tier-3 file, so NOT autonomously fixable here \u2014 needs a Tier-3-file-touching PR (low-risk, bundle with a strategies.yaml change). Blocker: Tier-3 file gate."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Tier-3 file (config/strategies.yaml); comment-only fix awaits an operator-approved touch of that file. Several Tier-3 strategies.yaml PRs landed this window (#7254,#7115,#7096,#7060) but none included this drive-by doc fix - still open, ride the next touch."
         }
       ]
     },
@@ -1079,6 +1166,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid, Tier-2 trader-connection-stability follow-ups (IB fast-fail decoupling + watchdog state-machine). IB isolation on its own VM already removes the CPU-starvation class. Blocker: Tier-2 code."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Blocked on BL-20260610-003 verification; no new evidence this window."
         }
       ]
     },
@@ -1114,6 +1206,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: gateway on its own Ampere VM; IB-gateway watchdog re-armed (BL-20260622). Container cap re-create step largely done. Blocker: verify cap on the running container."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: ib_state shows the exec client (498) + readonly client (9456) both connected/healthy; no cascade-recurrence signal this window. Full IB-gateway-watchdog re-enable-and-verify still not confirmed complete."
         }
       ]
     },
@@ -1230,6 +1327,11 @@
           "at": "2026-07-21T07:45:00+00:00",
           "by": "system-review-partial-2026-07-21",
           "note": "Re-checked per the item's own trigger instruction ('re-pull status first thing; if cpu>=90 or heartbeat label!=running, condition is recurring'). This session's live status pull: cpu=0.0%, memory=12.2%, heartbeat label=running, last tick 8s old. NOT recurring this window. Per the item's own recurring-check nature this is NOT auto-closed on one clean pass -- stays open as the standing watch, this update is the confirmation record."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: current vm_health.cpu=0.0%, heartbeat running (20s age), no CPU-saturation recurrence this window. Root cause fix (regime-scoring budget/optimization) partially shipped; kept open per its own 'every /health-review until closed' trigger."
         }
       ]
     },
@@ -1274,6 +1376,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 watchdog position-flat orphan cadence high on demo accounts (pkg orphaned within 5min of an htf 2h entry). Blocker: Tier-1/2 cadence tune. Demo-only, no money-at-risk."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "No new evidence this window; not independently re-tested (would require observing a fresh demo-account htf 2h entry within 5 min of orphaning)."
         }
       ]
     },
@@ -1507,6 +1614,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid, DRY refactor \u2014 consolidate fade/fvg _adx onto wilder_adx. Blocker: Tier-3 (touches strategy files)."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Cosmetic DRY cleanup, no live-risk. Not touched this window (Tier-1 code change, no PR opportunity arose)."
         }
       ]
     },
@@ -1642,6 +1754,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 intent_multiplexer swallows a raising strategy builder with only logger.warning (no audit/diag event). Blocker: Tier-1/2 code (emit an audit event)."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Code gap unchanged (intent_multiplexer still only logger.warning on a raising builder). No strategy-silence anomaly observed this window (all enabled strategies had eval events in the audit tail sample pulled)."
         }
       ]
     },
@@ -1684,6 +1801,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 prop-mission-policy-baseline-v0 still in the registry (latest run 2026-07-19T02:38Z); prop-account-infra-blocked degenerate all-zero. Blocker: prop-infra + ml-review."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Structural: no prop account trades to train per-strategy acceptance rates from (breakout_1 is a manual-bridge ticket account, not an API-traded prop account). Unchanged."
         }
       ]
     },
@@ -1730,6 +1852,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: EXPECTED-NOT-A-BUG marker \u2014 the ~50R unreachable-sentinel TP on trend_donchian/fade/squeeze is by design; kept as a do-not-re-flag note. No action."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Reference/expected-behavior note, not a bug - kept open as a standing reviewer-education item per its own design; no action needed."
         }
       ]
     },
@@ -1807,6 +1934,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 MES regime + setup-quality manifests fail each cycle (needs yfinance/ES=F intraday market_raw + non-empty MES setup_labels). Cross-links BL-20260626-MES-BASE-STALE. Blocker: Tier-1 data-pipeline + ml-review."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "MES regime/setup-quality manifest failure not independently re-checked this window (would need a fresh trainer-vm-diag ls of datasets-out/); no PR addressed it this window."
         }
       ]
     },
@@ -1845,6 +1977,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 setup-quality-lgbm-v2 underperforms v0 on small n. Blocker: more data / ml-review."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: closed-trade count still well under the ~1000 threshold named as the revisit trigger (trades table total=3847 lifetime across ALL accounts/strategies, setup-quality-specific n likely still small). No action due yet."
         }
       ]
     },
@@ -1865,6 +2002,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: CONFIRMED still present \u2014 strategies.yaml line ~176 tp_r sentinel comment still says 'effectively-unreachable sentinel' without the 2026-05-27 short-branch clamp note. Tier-3 file, not autonomously fixable. Blocker: Tier-3 file gate."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Tier-3 comment-only fix awaits a strategies.yaml touch; several landed this window but none included this fix. Still open."
         }
       ]
     },
@@ -1889,6 +2031,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: partially-resolved stays \u2014 IBC nightly auto-restart unreliability is mitigated by the daily reset (06:05) + reactive watchdog; ib_paper healthy this review. Blocker: root IBC behaviour (upstream)."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "No new 12-24h MES/IB outage observed this window (ib_state shows healthy connections, only routine 06:05Z daily-reset-window probe timeouts which are expected/suppressed). No new investigation performed."
         }
       ]
     },
@@ -1918,6 +2065,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: partially-resolved stays \u2014 FCM stale-token 404s; token-prune path exists. Blocker: Tier-1 prune verification."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "FCM 404 investigation status unchanged this window; not independently re-checked (would need a fresh outcomes.jsonl grep for FCM 404 lines)."
         }
       ]
     },
@@ -1955,6 +2107,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: OPERATOR-only follow-ups from the FCM private-key bleed. Security. Blocker: operator credential action."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Operator-only (comment-deletion capability gap); re-surfaced, no autonomous action possible."
         }
       ]
     },
@@ -2014,6 +2171,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: partially-resolved stays \u2014 404 NOT_FOUND flood from stale device tokens; prune mitigates. Blocker: Tier-1 verification. Duplicate-ish of BL-20260527-004."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Same FCM 404 cluster as BL-20260527-004; status unchanged this window."
         }
       ]
     },
@@ -2194,6 +2356,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: orphan situation currently clean (131 orphaned + 73 adopted_orphan all investigated-terminal; 0 actionable real-money orphans; notifications banner=0). High historical orphan rate not reproducing this window. Blocker: Tier-2 (clean fill-record path); keep watching."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "High historical order_package orphan rate; not re-measured this window (would need a fresh per-strategy orphan-rate query). No new orphan events observed since 2026-07-07 per orphan_events.jsonl, which is a positive signal but not a full re-measurement."
         }
       ],
       "check_log": [
@@ -2367,6 +2534,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 check_accounts_api fails in the standalone health-snapshot writer context (no live exchange clients). The cron health snapshot this review reported accounts_api ok (runs in-process), so not currently blinding. Blocker: Tier-1 code."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Not independently re-checked this window (would need to inspect the standalone health-snapshot writer's accounts_api behavior specifically); the live trader's own accounts_api check reads 'ok' (7/7) via health/latest this window, consistent with prior 'watch only in the standalone writer context' framing."
         }
       ]
     },
@@ -2404,6 +2576,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 /api/diag/journalctl times out for high-volume units (ict-trader-live) under the relay curl --max-time. Worked around by batching. Blocker: Tier-1 relay tune."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Not re-tested this window (this session's trader journalctl pull used since=+lines=1000 and succeeded via body-mode batching, but for a narrower window than the full multi-day gap this item concerns; the underlying --max-time truncation risk for a raw large single-path pull is unchanged)."
         }
       ]
     },
@@ -2437,6 +2614,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 23 zombie 'queued' Actions runs (2026-05-15) un-cancellable (GitHub 500). Cosmetic/GitHub-side. Blocker: GitHub support / wait-out."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Zombie queued Actions runs from 2026-05-15 not re-checked this window; low priority, cosmetic."
         }
       ]
     },
@@ -2565,6 +2747,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 regime_bar_scoring budget can starve later predictor groups (no per-tick rotation). REGIME_BAR_SCORING_BUDGET_S bounds it. Blocker: Tier-1 code (rotation)."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Tier-2 code fix (per-tick group rotation) not shipped this window."
         }
       ]
     },
@@ -2585,6 +2772,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 _capture_account_context_snapshots opens a fresh RO SQLite conn per signal. Best-effort, gated. Blocker: Tier-1 perf."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Tier-2 code fix (cached ro connection) not shipped this window."
         }
       ]
     },
@@ -2605,6 +2797,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: dashboard repo \u2014 blocking time.sleep+st.rerun fallback vs 'non-blocking' claim. Cross-repo (ict-trader-dashboard). Blocker: dashboard change."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Dashboard repo item; out of this repo's PR window, no fix observed."
         }
       ]
     },
@@ -2625,6 +2822,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: android repo \u2014 BacktestResult counts default 0 not nullable. Cross-repo. Blocker: android change."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Android repo item; out of this repo's PR window, no fix observed."
         }
       ]
     },
@@ -2684,6 +2886,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: dashboard repo \u2014 'Cloudflare Pages' check fails on every PR (ict-trader-widget deploy). Cross-repo. Blocker: dashboard CI."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Dashboard repo CI item; not re-checked this window."
         }
       ]
     },
@@ -2825,6 +3032,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: android repo \u2014 widget symbol chips clip with 8+ instruments. Cross-repo. Blocker: android UI."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Android widget cosmetic item; unchanged."
         }
       ]
     },
@@ -2859,6 +3071,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 verify first practice fills + FX weekend gate. Blocker: soak/verification."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Soak-watch items from 2026-06-11; not re-verified this specific window (would need per-leg first-fill journal checks)."
         }
       ]
     },
@@ -2958,6 +3175,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 install_systemd_units.sh could enable IB-gateway timers on the trader box; role-gated by /etc/ict-vm-role. Blocker: Tier-2 installer hygiene."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Pre-existing installer design gap; not touched this window. Confirmed this session that on the TRADER vm, ict-ib-gateway-watchdog.{service,timer} both read inactive (services pull) - consistent with the gateway timers correctly NOT running on the trader box today, so the blanket-enable bug is not currently causing harm, but the installer script itself is unchanged."
         }
       ]
     },
@@ -2986,6 +3208,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid, OPERATOR-blocked \u2014 ib_live 2FA (Seamless Auth OFF) blocks a headless live login; ib_live remains dry/shelved (live:false confirmed this review). Blocker: operator IB Key config."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "ib_live remains dry/shelved (status.live.ib_live=false, api_ok=false in balances pull) - consistent, unchanged. Operator-only (2FA device action) to resolve."
         }
       ]
     },
@@ -3118,6 +3345,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 re-evaluate TRADE_EVENT_TELEGRAM_DISABLED kill-switch (keep or scrub). Notification side-channel. Blocker: Tier-1 decision + code."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-evaluation not performed this window; low priority."
         }
       ]
     },
@@ -3159,6 +3391,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: dashboard repo \u2014 candle/EMA/volume tz-naive vs UTC markers. Cross-repo. Blocker: dashboard change."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Dashboard repo item; not touched this window."
         }
       ]
     },
@@ -3183,6 +3420,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: android repo \u2014 promote lintDebug to blocking after baseline cleanup. Cross-repo. Blocker: android CI."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Android repo item; not touched this window."
         }
       ]
     },
@@ -3304,6 +3546,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 backfill closed-pnl returns a mismatched/shared Bybit record for bybit_1 demo trades. Demo-only. Blocker: Tier-2 code."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Mitigation (sign-consistency guard) already shipped; root-cause investigation not advanced this window."
         }
       ]
     },
@@ -3390,6 +3637,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 VERIFY the closed-pnl partial-close aggregation resolves the bybit_2 orphan-with-NULL-pnl. Blocker: soak/verification."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Soak-watch item; no new bybit_2 stuck/orphan event observed this window (orphan_events.jsonl tail ends 07-07, nothing new) so nothing fresh to verify against yet."
         }
       ]
     },
@@ -3479,6 +3731,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: ib_state this review showed the MES IB client in transitory breaker_open at 06:52Z (likely_wedged:false, last_ok 4.7m prior) \u2014 a normal cold-relay backoff, NOT a sustained 06:00Z wedge; ib_paper reachable (accounts_api ok, MHG+MGC positions read). The 06:05 daily reset + suppress-window + reactive watchdog are in place. Kept open as the recurring-class tracker. Blocker: gateway-VM infra."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: ib_state's MES exec client shows last_fail_reason=liveness_probe_timeout at 06:05:49Z today (2026-07-22) - consistent with the expected/known daily-reset-window probe blip, auto-recovered (state=connected, last_ok 18:06:43Z same day, no sustained wedge, no accounts_api down banner). No new sustained 06:00Z gateway-down recurrence this window."
         }
       ]
     },
@@ -3520,6 +3777,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 news layer config NEWS_SOURCE=newsapi with no key => inert (no articles, no veto). Deliberate default. Blocker: Tier-3 config decision (rss activates it AND arms the veto)."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: news layer status unchanged (source config not re-read this session; no evidence NEWS_SOURCE was flipped to rss). Operator decision still pending."
         }
       ]
     },
@@ -3807,6 +4069,11 @@
           "at": "2026-07-21T07:45:00+00:00",
           "by": "system-review-partial-2026-07-21",
           "note": "ESCALATION (system-review-partial-2026-07-21): confirmed STILL ACTIVE and now observed breaking a THIRD operational surface this session -- (1) health snapshot git_drift check ('fatal: could not open /dev/null for reading and writing: Permission denied'), (2) the grade-closed-trades system-action wrapper (scripts/ops/_lib.sh:205 and grade_closed_trades_action.sh:82 both hit the same Permission denied), and per the existing backlog items, pull-and-deploy tooling. This has been open since 2026-06-29 (>3 weeks) across 5 backlog items without a landed fix. Per the operator's 2026-07-19 'if you see something, say something' directive, a recurring-and-unfixed condition spanning multiple sessions without resolution is itself the P1 (alarm-fatigue) pattern that directive names -- recommend the next VM-ops session prioritize actually fixing the OCI host-agent /dev/null clobbering at its root cause (BL-20260629-DEVNULL-OCI-SOURCE-KILL) rather than continuing to note the symptom each review."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated STILL ACTIVE: BL-20260713-DEVNULL-RESTART-MISREPORT's 07-21 escalation confirms /dev/null clobbering hit a THIRD operational surface (health-snapshot git_drift check, grade-closed-trades wrapper) that session. Self-heal guard (ict-devnull-guard.timer) remains active per this session's services pull. Root-cause fix still not landed >3 weeks in - flagging per the operator's 'if you see something say something' alarm-fatigue clause: this is now a standing P1-class item that should be prioritized for an actual root-cause fix, not another re-note."
         }
       ]
     },
@@ -3850,6 +4117,11 @@
           "at": "2026-07-21T09:31:03+00:00",
           "by": "claude (S-XRP-TPSL-LEGCAP-2026-07-21 session, following up on the 07:58Z clue's next-step recommendation)",
           "note": "Attempted the recommended follow-up: dispatched vm-devnull-source-diagnose mode:udev-watch (issue #7320) -- a bounded ~295s live capture polling /dev/null's mode every 0.5s while streaming `udevadm monitor --udev --kernel`, to correlate a captured mode-change against a kernel/udev device-recreation event. INCONCLUSIVE, not a ruled-out negative: the SSH stream broke ('client_loop: send disconnect: Broken pipe') about 5 seconds into the capture window, right after the first poll (`starting mode: 666`) -- essentially nothing was captured before the connection dropped. No MODE CHANGE line appeared, but that's because the capture barely ran, not because nothing happened. Separately, this session's own pull-and-deploy (issue #7329, 2026-07-21T10:31:38Z) hit the SAME /dev/null Permission Denied error again mid-run (`install_systemd_units.sh:407`, multiple occurrences) -- yet another live recurrence, confirming still-active per the standing pattern. Next session should retry the udev-watch capture (the SSH drop looks like a transient connection issue, not a workflow bug) rather than treating this attempt as evidence either way."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Root-source fix (kill the OCI host-agent clobbering /dev/null) still not landed. Per the operator's 2026-07-19 alarm-fatigue directive, explicitly flagging: this item has been open since 2026-06-29 (>3 weeks) with self-heal layers as the only mitigation. Recommend the next dedicated VM-ops session prioritize this over continuing to note the symptom."
         }
       ],
       "updated_at": "2026-07-14T20:50:00Z"
@@ -3989,6 +4261,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: partially-resolved stays \u2014 gpu-burst ledger push to main races branch protection. Blocker: Tier-1 CI workflow."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: comms/gpu_spend_ledger.json's last committed entry is still 2026-07-06 (via PR #6999) - no new GPU burst runs occurred this window to re-test the push-race fix, so the underlying branch-protection/race condition remains unverified either way."
         }
       ]
     },
@@ -4009,6 +4286,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: repo is now PUBLIC (2026-07-07) so anonymous git fetch works again \u2014 the trainer fetch in #6913 succeeded anonymously, strong evidence the gateway-VM fetch also works. Lower priority now. Blocker: a direct gateway-VM confirm to fully close."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Not re-checked this window (would need a trainer-vm-diag-class SSH probe of the IB-gateway VM specifically, which this session did not dispatch - light-touch trainer-only scope)."
         }
       ]
     },
@@ -4074,6 +4356,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 monitor Actions burn after the CI short-circuit + diag-batching fix. This review used batched diag pulls to conserve. Blocker: ongoing ops watch."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Not re-measured this window; this session itself opened 4 diag-relay issues (batched, per the diag-data skill's guidance) rather than per-path issues, consistent with the fix's intended usage."
         }
       ]
     },
@@ -4206,6 +4493,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 config-only PRs can merge with a red full suite (filtered pytest skips config-assertion tests). Blocker: Tier-1 CI fix."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Not re-checked this window; no config-only PR in this window's audit set was observed merging on a red full suite (the 46 PRs audited this window all show green-CI test-plan checkboxes in their bodies, though full-suite state itself wasn't independently queried)."
         }
       ]
     },
@@ -4366,6 +4658,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid, low-priority Alpaca-pipeline follow-ups. Blocker: Tier-1/2 misc."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Bundle of minor findings; not advanced this window."
         }
       ]
     },
@@ -4403,6 +4700,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: the 4-PR Alpaca remediation is live; alpaca_paper + alpaca_portfolio reading fine this review (positions readable). Watch can wind down soon. Blocker: a few more clean sessions."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: alpaca_paper + alpaca_portfolio + alpaca_options_paper all show api_ok=true this window (accounts/balances pull), 4/4/0 open positions respectively, no close/entry/reconcile anomaly observed. The sustained-watch window (through ~07-15) has technically elapsed; the account confirmed reachable, but no explicit live close/entry event was observed exercising the 4-PR remediation this specific window."
         }
       ]
     },
@@ -4427,6 +4729,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 docs/TRADE-PIPELINE.md lacks Alpaca coverage. Blocker: Tier-1 doc (a future doc PR)."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Doc gap not addressed this window; no pipeline-stage-changing PR landed that would force the doc read."
         }
       ]
     },
@@ -4445,6 +4752,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid, Tier-2 (Alpaca close() races share-release on a re-arming OCO \u2014 needs qty_available-gated flatten). Blocker: Tier-2 code."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL (in_progress, same underlying mechanism class) shows the qty_available race is still the live open issue; this item's qty_available-gated-flatten fix not yet shipped."
         }
       ]
     },
@@ -4544,6 +4856,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 mechanics-check the first fire of each newly-activated M20 exit cell. Blocker: verification (fires are sparse)."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Verification still pending sparse first-fires; not re-checked this window."
         }
       ]
     },
@@ -4563,6 +4880,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid (concrete recurrence was the 24.8h OOM wedge, now contained). Blocker: Tier-2 (serialize heavy trainer stages / +nice/ionice). Cross-links the mem-saturation item."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: trainer disk 91% (unchanged from prior reports); serialization fix (nice/flock) not shipped this window. Cross-links BL-20260715-TRAINER-CYCLE-MEM-SATURATION."
         }
       ]
     },
@@ -4630,6 +4952,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 E-2 batch-1 depth-gate first-fire checks (7 donchian legs). Blocker: verification (awaiting first fires)."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Verification still pending; not re-checked this window."
         }
       ]
     },
@@ -4649,6 +4976,11 @@
           "at": "2026-07-21T07:45:00+00:00",
           "by": "system-review-partial-2026-07-21",
           "note": "ESCALATION (system-review-partial-2026-07-21): confirmed STILL ACTIVE and now observed breaking a THIRD operational surface this session -- (1) health snapshot git_drift check ('fatal: could not open /dev/null for reading and writing: Permission denied'), (2) the grade-closed-trades system-action wrapper (scripts/ops/_lib.sh:205 and grade_closed_trades_action.sh:82 both hit the same Permission denied), and per the existing backlog items, pull-and-deploy tooling. This has been open since 2026-06-29 (>3 weeks) across 5 backlog items without a landed fix. Per the operator's 2026-07-19 'if you see something, say something' directive, a recurring-and-unfixed condition spanning multiple sessions without resolution is itself the P1 (alarm-fatigue) pattern that directive names -- recommend the next VM-ops session prioritize actually fixing the OCI host-agent /dev/null clobbering at its root cause (BL-20260629-DEVNULL-OCI-SOURCE-KILL) rather than continuing to note the symptom each review."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Confirmed part of the still-active /dev/null cluster (see BL-20260629-DEVNULL-CLOBBERED-LIVE-VM this run's note). Not independently re-tested via a fresh restart-bot-service dispatch this session."
         }
       ]
     },
@@ -4667,6 +4999,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 broker_truth_ledger records the -$262.52 wallet-truth vs journal's approximate figure; per-row journal pnl left unmodified by design. Structural (spot+perp+sub-account switch). Blocker: operator Bybit UM export widens per-trade coverage; go-forward funding timer #6901 now live."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Structural, by design left to comms/broker_truth_ledger.json (not re-verified this window); per-row journal pnl intentionally left unmodified. Blocker: operator Bybit UM export for wider reconciliation."
         }
       ]
     },
@@ -4695,6 +5032,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 DIAG_READ_TOKEN wiped on web-api restart AND set-diag-token restore path broken at runner setup. The diag relay worked this review (token present), so currently functional. Blocker: Tier-2 (durable token persistence across restart)."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Not re-tested this window: this session's diag pulls all succeeded (DIAG_READ_TOKEN evidently currently set/working, since /api/diag/* + /api/bot/* reads all returned real data), so the token is NOT currently wiped. Whether it survives the NEXT web-api restart, and whether set-diag-token's runner-setup failure is fixed, remains unverified."
         }
       ]
     },
@@ -4757,6 +5099,11 @@
           "at": "2026-07-21T07:45:00+00:00",
           "by": "system-review-partial-2026-07-21",
           "note": "Re-checked: bybit_2 balance is $291.63 as of this session (very thin -- its only open position, 165.5 XRPUSDT @ ~$1.09, is ~$180 notional). The account's small size makes a recurring sub-minimum-qty refusal structurally likely to keep firing; this is a standing condition, not something a review resolves. Kept open."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: notifications banner pull this window shows count=0/has_alerts=false - no active sub-min-qty refusal alert currently firing (may be intermittent/condition-dependent on BTC price + $295 account size, which is roughly the same order as when this was opened). Not resolved at the root (still ~$295 account, still small qty math); condition simply not observed firing in this exact window."
         }
       ]
     },
@@ -4777,6 +5124,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: still valid \u2014 pairs sleeve unstable 15-bar rolling OLS beta blows up risk_spread; clamp #6549 band-aids the symptom. Pairs is paper-only (bybit_1). Blocker: Tier-3 (beta estimation redesign)."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Pairs sleeve fix not shipped this window; no re-check performed."
         }
       ]
     },
@@ -4802,6 +5154,11 @@
           "at": "2026-07-21T07:45:00+00:00",
           "by": "system-review-partial-2026-07-21",
           "note": "ESCALATION (system-review-partial-2026-07-21): confirmed STILL ACTIVE and now observed breaking a THIRD operational surface this session -- (1) health snapshot git_drift check ('fatal: could not open /dev/null for reading and writing: Permission denied'), (2) the grade-closed-trades system-action wrapper (scripts/ops/_lib.sh:205 and grade_closed_trades_action.sh:82 both hit the same Permission denied), and per the existing backlog items, pull-and-deploy tooling. This has been open since 2026-06-29 (>3 weeks) across 5 backlog items without a landed fix. Per the operator's 2026-07-19 'if you see something, say something' directive, a recurring-and-unfixed condition spanning multiple sessions without resolution is itself the P1 (alarm-fatigue) pattern that directive names -- recommend the next VM-ops session prioritize actually fixing the OCI host-agent /dev/null clobbering at its root cause (BL-20260629-DEVNULL-OCI-SOURCE-KILL) rather than continuing to note the symptom each review."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Same /dev/null cluster; unchanged (see BL-20260629-DEVNULL-CLOBBERED-LIVE-VM note)."
         }
       ]
     },
@@ -4863,6 +5220,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: broker-side OCA wedge (not a code bug); alpaca_paper QQQ. #6682 escalate-to-liquidation fix merged. Kept in_progress pending confirmation the wedged order cleared. Blocker: broker-side + verification."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: alpaca_paper currently shows 4 open positions, api_ok=true, delta_1h=-160.05 (active trading, not stuck). Whether the specific QQQ long-16 position from the original incident has since cleared was not independently queried this window (would need a targeted trades/positions pull for that symbol)."
         }
       ]
     },
@@ -4883,6 +5245,11 @@
           "at": "2026-07-19T07:00:00+00:00",
           "by": "claude (/health-review 2026-07-19)",
           "note": "Cycle now COMPLETES. Health-review 2026-07-19T06:57Z: the daily cycle that fired 02:11Z ran ~4h and finished 06:03Z with 35 manifest_ok (vs the earlier 'stopped ~90s after start / cycles_24h=0' symptom). Root cause was almost certainly the combination now fixed: the 495-commit gitsync-stale (BL-20260718, PR #6859 \u2014 forecast producer exit-127 churn) + the flow-head OOM D-state wedge (BL-20260719, PR #6892/#6897). Downgrading to partially-resolved; recommend one more clean daily cycle to confirm before full close. The 5 recurring manifest_timeout heads \u2192 route to /ml-review for which heads."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-validated: trainer mirror shows FRESH promotion_readiness (04:18Z today) and forecasts (06:22Z today) directories - cycles are producing fresh output today, a positive signal vs the reported termination-at-start pattern. Not a full re-verification of cycle-completion end-to-end."
         }
       ]
     },
@@ -4903,6 +5270,11 @@
           "at": "2026-07-19T07:35:00+00:00",
           "by": "claude (/health-review 2026-07-19 full-drain)",
           "note": "Re-validated 2026-07-19: fix #6774 (ALPACA_EXT_LIMIT_BUFFER_BPS extended-hours limit exit + closed-hours defer) is MERGED and on live HEAD. Kept in_progress as a verification watch across the next equity sessions. Blocker: soak verification."
+        },
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Fix (market-hours-aware Alpaca exit, ALPACA_EXT_LIMIT_BUFFER_BPS) documented as shipped in CLAUDE.md env table (read this session); no live extended-hours/closed-hours exit event observed this window to confirm the fix fires correctly in practice."
         }
       ]
     },
@@ -4973,15 +5345,29 @@
       "priority": "P2",
       "status": "open",
       "title": "Paper journal pnl cross-write: identical pnl -2970.986 stamped on two different bybit_1 trades (2453, 2529)",
-      "detail": "Found during ict_scalp Phase-0. trades 2453 (2026-06-05, qty 1.463, e=63299.7 x=63122.9 => price-based pnl ~= -258) and 2529 (2026-06-08, qty 4.146, e=63769.7 x=63122.9 => ~= -2681) BOTH carry pnl=-2970.986 \u2014 2453's pnl is off by >10x vs its own price/qty geometry and exactly equals 2529's stored value. Suggests a reconciler/backfill pass wrote one trade's pnl onto another (both xr=reconciler_filled). Paper-only as observed, but the writer path is shared \u2014 worth a targeted audit of duplicate pnl values across the trades table (SELECT pnl, COUNT(*) GROUP BY pnl HAVING c>1 AND pnl NOT IN small-common-values). Phase-0 sidestepped it by computing R from prices, not journal pnl. UPDATE 2026-07-20 (root-cause found, see BL-20260720-ICTSCALP-PASTSTOP-EXITS): NOT paper-only and mechanism identified \u2014 the closed-pnl matcher stamps another trade's record onto phantom-open rows left behind by netted-position bracket fires (real-money 2765 carries 2799's record verbatim). Fold the fix into the cascade-close + netted_ambiguous work."
+      "detail": "Found during ict_scalp Phase-0. trades 2453 (2026-06-05, qty 1.463, e=63299.7 x=63122.9 => price-based pnl ~= -258) and 2529 (2026-06-08, qty 4.146, e=63769.7 x=63122.9 => ~= -2681) BOTH carry pnl=-2970.986 \u2014 2453's pnl is off by >10x vs its own price/qty geometry and exactly equals 2529's stored value. Suggests a reconciler/backfill pass wrote one trade's pnl onto another (both xr=reconciler_filled). Paper-only as observed, but the writer path is shared \u2014 worth a targeted audit of duplicate pnl values across the trades table (SELECT pnl, COUNT(*) GROUP BY pnl HAVING c>1 AND pnl NOT IN small-common-values). Phase-0 sidestepped it by computing R from prices, not journal pnl. UPDATE 2026-07-20 (root-cause found, see BL-20260720-ICTSCALP-PASTSTOP-EXITS): NOT paper-only and mechanism identified \u2014 the closed-pnl matcher stamps another trade's record onto phantom-open rows left behind by netted-position bracket fires (real-money 2765 carries 2799's record verbatim). Fold the fix into the cascade-close + netted_ambiguous work.",
+      "updates": [
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Root cause identified (folded into cascade-close + netted_ambiguous work per its own note); not independently re-verified fixed this window (would need a targeted duplicate-pnl SQL scan)."
+        }
+      ]
     },
     {
       "id": "BL-20260720-RELAY-MULTIPATH-AMP",
       "created": "2026-07-20",
       "priority": "P2",
-      "status": "open",
+      "status": "resolved",
       "title": "vm-diag-snapshot multi-path BODY mode: paths with & query params return fetch_failed (works in title mode)",
-      "detail": "Repro 2026-07-20: issue #7100 (multi-path body) \u2014 three db/table paths with &-joined query params all returned {\"error\":\"fetch_failed\"} while the fourth path (no query string) succeeded in the same run; the SAME shape (api/bot/order-packages?strategy=...&include_paper=true&limit=3) succeeded in TITLE mode (#7101). Suspect the multi-path branch's HTML-entity decode or per-path quoting drops/mangles & (GitHub serves body markdown with &amp;). The batching guidance (diag-data skill, MB-20260706-CI-MINUTES) pushes sessions toward multi-path bodies, so this silently breaks exactly the recommended usage. Fix in .github/workflows/vm-diag-snapshot.yml multi-path branch; verify with a &-bearing db/table path in a body-mode issue."
+      "detail": "Repro 2026-07-20: issue #7100 (multi-path body) \u2014 three db/table paths with &-joined query params all returned {\"error\":\"fetch_failed\"} while the fourth path (no query string) succeeded in the same run; the SAME shape (api/bot/order-packages?strategy=...&include_paper=true&limit=3) succeeded in TITLE mode (#7101). Suspect the multi-path branch's HTML-entity decode or per-path quoting drops/mangles & (GitHub serves body markdown with &amp;). The batching guidance (diag-data skill, MB-20260706-CI-MINUTES) pushes sessions toward multi-path bodies, so this silently breaks exactly the recommended usage. Fix in .github/workflows/vm-diag-snapshot.yml multi-path branch; verify with a &-bearing db/table path in a body-mode issue.",
+      "updates": [
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Re-tested the exact repro shape this session TWICE: multi-path body-mode batches containing api/bot/db/table/trades?filter_col=...&filter_op=...&filter_val=...&limit=... (3 &-joined query params, issue #7360) and journal/journalctl paths with 1-2 &-joins (issue #7346) both returned real JSON, not fetch_failed. No longer reproducing; no code diff to vm-diag-snapshot.yml was needed/found. If it recurs, reopen."
+        }
+      ]
     },
     {
       "id": "BL-20260720-OPTIONS-PAPER-ZERO-FILLS",
@@ -4997,7 +5383,14 @@
         "config/accounts.yaml alpaca_options_paper.options block (data_feed: indicative, target_dte: 35, min_dte: 21, max_dte: 60)"
       ],
       "repro": "GET /api/bot/order-packages?strategy=slv_trend_1h&include_paper=true (or slv_pullback_1d) \u2014 every row's rejected_reason / entry_reason carries options_expression:no_selection:*",
-      "next_step": "A health-review or ml-review session should pull a live options chain for SLV/GDX (via the diag relay or a scratch script hitting AlpacaOptionsData directly) to see the raw quote coverage under the indicative feed, and either (a) confirm the feed just can't supply usable mids for these underlyings and propose a fix (wider DTE band, different underlyings with more liquid options, or biting the $99/mo OPRA cost even pre-graduation to get real quotes), or (b) find a selector/config bug if the feed data is actually fine. This blocks PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION \u2014 there is no track record to grade until this is fixed."
+      "next_step": "A health-review or ml-review session should pull a live options chain for SLV/GDX (via the diag relay or a scratch script hitting AlpacaOptionsData directly) to see the raw quote coverage under the indicative feed, and either (a) confirm the feed just can't supply usable mids for these underlyings and propose a fix (wider DTE band, different underlyings with more liquid options, or biting the $99/mo OPRA cost even pre-graduation to get real quotes), or (b) find a selector/config bug if the feed data is actually fine. This blocks PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION \u2014 there is no track record to grade until this is fixed.",
+      "updates": [
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Not re-investigated this window (would need a live options-chain snapshot pull); alpaca_options_paper still shows 0 open positions this window (accounts/balances pull), consistent with the reported zero-fill condition persisting."
+        }
+      ]
     },
     {
       "id": "BL-20260720-MERGE-PROTOCOL-LAPSE",
@@ -5005,7 +5398,14 @@
       "priority": "P2",
       "status": "open",
       "title": "Merge-serialization protocol lapsed under load: 3 claim-less merges raced 'behind' 3x in one day while claimed merges raced 0x \u2014 the protocol needs per-merge framing + a mechanical nudge",
-      "detail": "2026-07-20 (operator flagged it: 'are we using the merge queue and message board correctly? we added those specifically to prevent this'). Self-audit of board #6927: on 07-19 every merge by this session carried MERGE SLOT CLAIM/RELEASE comments and zero races occurred. On 07-20 the same session merged/attempted #7082, #7155, #7167 WITHOUT claiming first and hit mergeable_state 'behind' THREE times (each costing a branch refresh + a full ~10-min CI rerun + a squash-vs-original conflict in one case); the two merges where a claim WAS posted (reactively) merged cleanly first try. Root causes: (1) the claim step lives in session memory, and under time pressure (racing an approved promotion chain) it was skipped exactly when the repo was busiest; (2) the session also did not READ the board before merging, so even a counterpart's claim would have been missed; (3) docs/claude/session-board.json (the merge-queue file) went untouched all day \u2014 the two mechanisms (file queue + live board) have drifted, with the 07-19 note declaring the live board 'the real-time signal', leaving the file's role unclear. PROPOSED FIXES for a review session: (a) reword session-coordination SKILL.md + the SessionStart clause-0 text to frame the claim as a PER-MERGE precondition ('before every merge_pull_request call: read board tail, post CLAIM, merge, post RELEASE'), not a session-start ritual; (b) clarify or retire session-board.json's merge_slot in favor of the board comments (one source of truth); (c) optional mechanical nudge: a tiny helper script sessions are told to run (checks the newest CLAIM/RELEASE comment pair and refuses to proceed on someone else's open claim) \u2014 cheap, no branch-protection change. Evidence: board comments 5026296972 (reactive claim #7167), 5025958114 (reactive claim #7155), merge failures at 16:11Z/18:52Z/19:11Z-19:19Z in the session log."
+      "detail": "2026-07-20 (operator flagged it: 'are we using the merge queue and message board correctly? we added those specifically to prevent this'). Self-audit of board #6927: on 07-19 every merge by this session carried MERGE SLOT CLAIM/RELEASE comments and zero races occurred. On 07-20 the same session merged/attempted #7082, #7155, #7167 WITHOUT claiming first and hit mergeable_state 'behind' THREE times (each costing a branch refresh + a full ~10-min CI rerun + a squash-vs-original conflict in one case); the two merges where a claim WAS posted (reactively) merged cleanly first try. Root causes: (1) the claim step lives in session memory, and under time pressure (racing an approved promotion chain) it was skipped exactly when the repo was busiest; (2) the session also did not READ the board before merging, so even a counterpart's claim would have been missed; (3) docs/claude/session-board.json (the merge-queue file) went untouched all day \u2014 the two mechanisms (file queue + live board) have drifted, with the 07-19 note declaring the live board 'the real-time signal', leaving the file's role unclear. PROPOSED FIXES for a review session: (a) reword session-coordination SKILL.md + the SessionStart clause-0 text to frame the claim as a PER-MERGE precondition ('before every merge_pull_request call: read board tail, post CLAIM, merge, post RELEASE'), not a session-start ritual; (b) clarify or retire session-board.json's merge_slot in favor of the board comments (one source of truth); (c) optional mechanical nudge: a tiny helper script sessions are told to run (checks the newest CLAIM/RELEASE comment pair and refuses to proceed on someone else's open claim) \u2014 cheap, no branch-protection change. Evidence: board comments 5026296972 (reactive claim #7167), 5025958114 (reactive claim #7155), merge failures at 16:11Z/18:52Z/19:11Z-19:19Z in the session log.",
+      "updates": [
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Proposed fixes (skill-doc reword, session-board.json clarification, mechanical-nudge helper) not shipped this window. No merges were performed by this review session (health-review makes no code changes needing a merge), so no fresh evidence either way on protocol adherence."
+        }
+      ]
     },
     {
       "id": "BL-20260720-TRAINERDIAG-FENCE",
@@ -5014,8 +5414,15 @@
       "status": "open",
       "title": "trainer-vm-diag cmd extractor executes markdown-fenced bodies via backtick command substitution",
       "detail": "A trainer-vm-diag-request issue whose cmd: block is wrapped in markdown ``` fences is passed to bash WITH the backticks intact \u2014 triple-backtick acts as nested command substitution, so the request half-executes and stray output is itself executed as a command (issues #7208/#7209: pgrep's PID line ran as a command, '275311: command not found'). The documented `cmd: |` YAML-block form works (#7211). Fix: in .github/workflows/trainer-vm-diag.yml's extractor, strip leading/trailing ``` fence lines from cmd_raw (the vm-diag-snapshot relay may share the pattern \u2014 check both), or reject fenced bodies with a loud comment instead of executing them mangled. Repro: any fenced cmd body.",
-      "source": "S-M27-P0-BATCH1-2026-07-20"
+      "source": "S-M27-P0-BATCH1-2026-07-20",
+      "updates": [
+        {
+          "at": "2026-07-22T18:20:00+00:00",
+          "by": "claude (/health-review 2026-07-22, inside /system-review)",
+          "note": "Fix (strip/reject markdown fences in the cmd extractor) not shipped this window; this session's own trainer-vm-diag dispatch used a clean `cmd: |` block (no fences), so it did not hit the bug, but the extractor is unchanged."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-07-20T16:45:00+00:00"
+  "updated_at": "2026-07-22T18:20:00+00:00"
 }
