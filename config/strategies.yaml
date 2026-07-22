@@ -2115,11 +2115,11 @@ strategies:
     model: null
     signal_prefixes: [sol_pullback, sol_pullback_2h]
     enabled: true
-    execution: shadow        # DEMOTED 2026-07-22 (Tier-3, operator-approved same session):
-                             # 3rd-consecutive-review-confirmed diversified-paper-book laggard
-                             # (this window -$2646.02/5t/0%WR; unchanged-negative since 07-07/07-10).
-                             # Thin n (5 trades) — a 4-6wk shadow re-eval is expected before any
-                             # permanent kill decision, not a permanent demotion.
+    execution: shadow        # shadow-guard: allow — DEMOTED 2026-07-22 (Tier-3, operator-approved
+                             # same session): 3rd-consecutive-review-confirmed diversified-paper-book
+                             # laggard (this window -$2646.02/5t/0%WR; unchanged-negative since
+                             # 07-07/07-10). Thin n (5 trades) — a 4-6wk shadow re-eval is expected
+                             # before any permanent kill decision, not a permanent demotion.
                              # ROLLBACK: set back to `live`.
     timeframe: "2h"          # served as Bybit 120m via CCXT.
     symbols:
@@ -2187,12 +2187,12 @@ strategies:
     model: null
     signal_prefixes: [avax_pullback, avax_pullback_2h]
     enabled: true
-    execution: shadow        # DEMOTED 2026-07-22 (Tier-3, operator-approved same session):
-                             # 3rd-consecutive-review-confirmed diversified-paper-book laggard
-                             # (this window -$3976.67/7t/14.3%WR; unchanged-negative since 07-07/07-10,
-                             # worst cell in the cohort). Thin n (7 trades) — a 4-6wk shadow re-eval
-                             # is expected before any permanent kill decision, not a permanent demotion.
-                             # ROLLBACK: set back to `live`.
+    execution: shadow        # shadow-guard: allow — DEMOTED 2026-07-22 (Tier-3, operator-approved
+                             # same session): 3rd-consecutive-review-confirmed diversified-paper-book
+                             # laggard (this window -$3976.67/7t/14.3%WR; unchanged-negative since
+                             # 07-07/07-10, worst cell in the cohort). Thin n (7 trades) — a 4-6wk
+                             # shadow re-eval is expected before any permanent kill decision, not a
+                             # permanent demotion. ROLLBACK: set back to `live`.
     timeframe: "2h"
     symbols:
       - AVAXUSDT
