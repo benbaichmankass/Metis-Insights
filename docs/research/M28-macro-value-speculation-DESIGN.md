@@ -26,6 +26,23 @@
 >   extractor-only → extractor + rules-formed theses + LLM grader → LLM-proposed
 >   theses. We build the *traceability + backtest scaffolding first* so the LLM
 >   never silently "decides" a trade before we can hold it accountable.
+> - **(c) Soak venue = `alpaca_options_paper`.** First paper theses express as
+>   **defined-risk options** on the already-wired Alpaca options paper stack —
+>   the natural fit for weeks-horizon asymmetric macro/value bets (known max
+>   loss, no margin-call risk over a multi-week hold).
+> - **(d) Start narrow.** A small, curated universe first (the macro-expressive
+>   ETFs already wired + their options), not a broad screener on day one. The
+>   scanner generalizes once the pipeline is proven end-to-end.
+> - **(e) Free data only.** No paid feeds. The stack is built on **free/keyless**
+>   sources — **FRED** (macro), **SEC EDGAR** (fundamentals/filings), the free
+>   government release calendars (**BLS/BEA/Treasury/Fed**), **RSS** news, and
+>   free market data (`market_data.py`/yfinance) — with light scraping only where
+>   no free API exists. (The Bigdata.com MCP stays a *possible* accelerator but
+>   is **not** a dependency — the design must stand on free sources.)
+> - **(f) Fundamentals are P1 — the CORE, not deferred.** "Value" is the spine of
+>   this strategy, so a **fundamental/valuation feed is a first-class P1
+>   deliverable**, not a later phase. See §1a for what "value" means for the
+>   ETF/options universe.
 
 ## 1. Why this is a new spine, not another strategy
 
@@ -55,6 +72,33 @@ So M28 is a **parallel spine** that reuses the bot's *plumbing* (data feeds, LLM
 infra, execution seam, journal, conviction model, promotion discipline) but runs
 on its own cadence and its own object model — exactly as the M22 pairs sleeve is
 an isolated order path off `src/main.py` rather than a coordinator strategy.
+
+## 1a. What "value" means here (the core, per operator decision (f))
+
+"Value" is the spine, not a garnish. But for the **ETF/options universe** we
+start with (decision (c)/(d)), single-stock DCF is not the primary lens —
+**asset-class / cross-asset relative value** is, and it is almost entirely
+computable from **free** data:
+
+- **Equity value:** the equity risk premium — earnings yield (S&P 500
+  earnings/price, from free index-fundamental releases) minus the real yield
+  (TIPS, FRED `DFII10`). Cheap equities = high ERP; expensive = low/negative.
+- **Duration/bond value:** real yields + the term premium + breakeven inflation
+  (FRED: `DGS10`, `DFII10`, `T10YIE`) → is TLT/IEF cheap or rich vs inflation and
+  the cycle?
+- **Gold/silver value:** real rates + DXY + (for silver) the gold/silver ratio →
+  is GLD/SLV cheap vs its macro drivers? (SLV/GDX are the seed options underlyings.)
+- **Miners (GDX) value:** the metal price vs the miners' cost curve / GDX-vs-GLD
+  ratio (an operating-leverage value read).
+- **Credit/risk value:** HY & IG OAS (FRED) as the risk-appetite valuation gauge.
+
+When the universe later extends to **single names**, "value" becomes true
+company fundamentals (valuations, earnings surprises, balance-sheet quality) —
+sourced free from **SEC EDGAR** (`companyfacts` XBRL + filing stream). So the P1
+fundamental feed is designed in two layers: (1) **asset-class valuation metrics**
+(FRED-derived, live from day one), and (2) an **SEC EDGAR company-fundamentals**
+ingestion path (built in P1, exercised as the universe widens). Both feed the
+`TradeThesis.macro_context`/valuation fields as point-in-time snapshots.
 
 ## 2. The core object — `TradeThesis`
 
@@ -115,11 +159,11 @@ than reinventing:
 | New piece | Why it's new | Notes |
 |---|---|---|
 | **LLM signal extractor** | Current news enrichment is keyword+regex (`news_normalizer.py`), not LLM. | A cheap/small-model pass turning article/filing/transcript text → `{claim, entity, direction, confidence, evidence_url, event_ref}`. Slots into the M13 writer/reader + budget pattern; honest-null. |
-| **Economic-calendar FEED** | `economic_calendar.yaml::events` is empty + manual. | A scheduled job populating scheduled events (Bigdata.com or scraped). Source-agnostic loader already exists. |
-| **Event-OUTCOME tracking store** | Existing infra models event *risk/proximity*, never *outcome → decision*. | A new durable table: watched events, scheduled time, expected vs **realized** outcome, resolution source. The heart of the "non-price trade elements." |
-| **Live macro read on the trading path** | All macro is off-VM/ML-feature-only. | A cached, point-in-time-correct macro snapshot readable by the live sleeve (small on-VM cache refreshed by a timer; reuse FRED adapters). |
-| **Fundamental / valuation data** | None exists anywhere in the repo. | For "value" trading proper (valuations, earnings surprises, guidance, ratings). Phase-gated — start with macro+news+TA, add fundamentals when the scaffolding holds. |
-| **General ingestion / light scraping layer** | Only RSS + NewsAPI + FRED CSV today. | For sources without an API. Prefer Bigdata.com MCP + APIs first; scrape only where necessary. |
+| **Economic-calendar FEED** | `economic_calendar.yaml::events` is empty + manual. | A scheduled job populating scheduled events from the **free government release calendars** (BLS CPI/employment, BEA GDP/PCE, Treasury auctions, the Fed/FOMC schedule) + earnings dates (free). Source-agnostic loader already exists. No paid feed. |
+| **Event-OUTCOME tracking store** | Existing infra models event *risk/proximity*, never *outcome → decision*. | A new durable table: watched events, scheduled time, expected vs **realized** outcome (actual-vs-consensus for prints; the filing/ruling content for discrete events), resolution source. The heart of the "non-price trade elements." |
+| **Live macro read on the trading path** | All macro is off-VM/ML-feature-only. | A cached, point-in-time-correct macro snapshot readable by the live sleeve (small on-VM cache refreshed by a timer; reuse the keyless FRED adapters). |
+| **Fundamental / valuation feed — P1 CORE (decision (f))** | None exists anywhere in the repo. | **The spine of the strategy, built in P1, not deferred.** Two layers (§1a): (1) asset-class valuation metrics (ERP, real yields, breakevens, OAS, metal-ratio) — FRED-derived, free, live from day one; (2) an **SEC EDGAR** company-fundamentals ingestion path (free `companyfacts` XBRL + filing stream) for when the universe widens to single names. All point-in-time. |
+| **General ingestion / light scraping layer** | Only RSS + NewsAPI + FRED CSV today. | Free-first: FRED CSV, SEC EDGAR API, government release schedules, RSS. Light scraping only where no free API exists. Bigdata.com MCP is an optional accelerator, **not a dependency**. |
 | **The weeks-horizon, event-conditioned, cross-sectional BACKTEST paradigm** | Every harness is bar-based, single-symbol, price-only, intraday. | The hard part (§P4). Point-in-time store + as-of joins (no revised-data/lookahead leakage), a **calendar-clock** horizon model with carry/financing costs, non-price exit/leg conditions, a **universe-scan → candidate-rank** stage, and low-n calibration. |
 | **Universe scanner** | No screener exists; "multi-symbol" today = N cloned single-symbol instances + the per-symbol tick loop. The M18 cross-market *selector* tested **negative** on the mechanical strategies. | M28's `P_win` comes from a *fundamentally different* (macro/value) source than M18's confidence proxy, so a fresh scan→rank is worth building — but we inherit M18's honesty (prove selection edge sizing-normalized, not via capital concentration). |
 
@@ -157,12 +201,19 @@ paradigm proves the sleeve out-of-sample.
   the object model (§2), the event-outcome store schema, and the master-model
   integration contract (§7). Deliverable: this doc + a schema doc. No code on any
   live path.
-- **P1 — Data & signal ingestion + LLM extractor S1 (Tier-1 → Tier-2 deploy).**
-  Stand up: (i) the live macro cache (FRED adapters → on-VM point-in-time
-  snapshot), (ii) the economic-calendar feed (Bigdata.com/scrape → populate
-  `events`), (iii) the **LLM signal extractor** (M13 writer/reader + budget), (iv)
-  richer thematic news ingestion beyond the scalp-veto use. All write traceable
-  `signals[]` rows to a store. Observe-only.
+- **P1 — Data & signal ingestion (incl. the fundamental/value core) + LLM
+  extractor S1 (Tier-1 → Tier-2 deploy).** All **free-sourced** (decision (e)),
+  all writing traceable, point-in-time `signals[]`/valuation rows to a store.
+  Stand up: (i) the live macro cache (keyless FRED → on-VM point-in-time
+  snapshot); (ii) **the fundamental/valuation feed — the P1 CORE (decision (f))**:
+  layer-1 asset-class valuation metrics (ERP, real yields, breakevens, OAS,
+  gold/silver ratio — FRED-derived) live from day one, plus the layer-2 **SEC
+  EDGAR** `companyfacts`/filing ingestion path stood up for universe widening
+  (§1a); (iii) the economic-calendar feed from the free government release
+  schedules (BLS/BEA/Treasury/Fed) + earnings dates; (iv) the **LLM signal
+  extractor** (M13 writer/reader + budget) turning free news/filings text →
+  structured signals; (v) richer thematic RSS news beyond the scalp-veto use.
+  Observe-only.
 - **P2 — Event store + non-price decision engine (Tier-2).** The durable
   event-outcome table + a resolver that ingests realized outcomes and, for any
   active thesis, applies its `on_outcome` rule. Observe-only soak first (log the
@@ -181,10 +232,14 @@ paradigm proves the sleeve out-of-sample.
   `thesis_conviction` predict realized hit-rate?) rather than high-n
   significance. **Nothing graduates to live until a thesis engine beats a naive
   baseline here, out-of-sample.**
-- **P5 — Expression & risk (Tier-2 → Tier-3).** Instrument selection across the
-  universe (spot/future/ETF/**defined-risk options**), weeks-horizon risk
-  accounting (thesis-invalidation + a catastrophic backstop stop, *not* tight
-  stops; carry/financing budgeted). Paper account first.
+- **P5 — Expression & risk (Tier-2 → Tier-3).** Express theses as
+  **defined-risk options on `alpaca_options_paper`** (decision (c)) over a
+  **narrow** seed universe (decision (d)) — the wired SLV/GDX options underlyings
+  plus a small set of macro-expressive ETFs (GLD/TLT/SPY/IWM) as they gain
+  options support. Weeks-horizon risk accounting: max-loss is the option debit
+  (defined by construction), exit on **thesis-invalidation or event-outcome**,
+  *not* tight price stops; roll/extend logic for multi-week holds. Paper only
+  until P4 proves the sleeve.
 - **P6 — Feed the master model (Tier-3, the "overlay later" step).** Promote the
   thesis engine's world-state read into a global conviction overlay via `c_macro`
   (§7). This is deferred until the isolated sleeve has earned trust.
@@ -252,22 +307,22 @@ Per **isolated-sleeve-first**, integration is two-staged:
 - **Not a replacement for the mechanical book.** It's a diversifying,
   low-correlation sleeve that (eventually) also provides a macro overlay.
 
-## 10. Open scoping questions for the operator
+## 10. Resolved scoping decisions (operator, 2026-07-22)
 
-Genuine choices that shape P1 (not blockers — noted so we decide together):
+All four framing questions are answered; P1 is unblocked.
 
-1. **Soak venue.** Where should the sleeve place its first paper theses —
-   crypto (`bybit_1` paper), the ETF/options paper stack (`alpaca_paper` /
-   `alpaca_options_paper`, which unlocks defined-risk macro expression), or a new
-   dedicated paper account? (Leaning: `alpaca_options_paper` — macro/value bets
-   are naturally ETF/options expressions.)
-2. **Initial universe breadth.** Start narrow (the ~13 already-wired ETFs +
-   majors) or scope a broader screen from day one?
-3. **Data-source budget.** Are we OK leaning on the Bigdata.com MCP + paid
-   feeds for the event calendar / thematic content, and what's the monthly $
-   ceiling for the LLM extractor+grader (reusing the M13 budget mechanism)?
-4. **Fundamentals timing.** Defer true fundamental/valuation data to a later
-   phase (start macro+news+TA), or is a fundamental feed in scope for P1?
+1. **Soak venue → `alpaca_options_paper`.** First paper theses express as
+   defined-risk options on the wired Alpaca options paper stack — the natural fit
+   for weeks-horizon asymmetric bets (known max loss over a multi-week hold).
+2. **Universe → start narrow.** A small curated seed set (the SLV/GDX options
+   underlyings + a few macro-expressive ETFs), not a broad screener day one; the
+   scanner generalizes once the pipeline is proven.
+3. **Data → free only.** FRED, SEC EDGAR, free government release calendars, RSS,
+   free market data; light scraping only where no free API exists. Bigdata.com
+   MCP is an optional accelerator, not a dependency. LLM extractor/grader run on
+   cheap models on a slow cadence under the M13 budget mechanism.
+4. **Fundamentals → P1 core.** "Value" is the spine; the fundamental/valuation
+   feed is a first-class P1 deliverable (§1a), not a deferred phase.
 
 ## 11. Anchors
 
@@ -284,7 +339,11 @@ Genuine choices that shape P1 (not blockers — noted so we decide together):
 - **Code touch-points when P1 builds:** a new `src/units/strategies/macro_thesis/`
   package (decision core + `run_macro_thesis_tick`), a new `config/macro_theses.yaml`
   (+ `execution:` gate), an event-outcome + signals store (new tables in
-  `trade_journal.db` via `src/units/db/`), an LLM extractor under
-  `src/runtime/` modeled on `src/runtime/insights/`, a live macro cache, a new
-  point-in-time backtest harness under `scripts/research/m28/` + `src/backtest/`,
-  and (P6) the `c_macro` additions to `conviction.py` / `conviction_inputs.py`.
+  `trade_journal.db` via `src/units/db/`), a **free fundamental/valuation feed**
+  (asset-class valuation metrics reusing `ml/datasets/adapters/fred_corpus.py`
+  + a new **SEC EDGAR** `companyfacts`/filing adapter, both point-in-time via the
+  `corpus_store.py` panel scaffold), an economic-calendar populator over the free
+  government release schedules, an LLM extractor under `src/runtime/` modeled on
+  `src/runtime/insights/`, a live macro cache, a new point-in-time backtest
+  harness under `scripts/research/m28/` + `src/backtest/`, and (P6) the `c_macro`
+  additions to `conviction.py` / `conviction_inputs.py`.
