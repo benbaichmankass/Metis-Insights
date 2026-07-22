@@ -92,6 +92,9 @@ from src.runtime.strategy_signal_builders import (
     ict_scalp_sol_5m_signal_builder,
     ict_scalp_xrp_5m_signal_builder,
     ict_scalp_avax_5m_signal_builder,
+    ict_scalp_xrp_15m_signal_builder,
+    ict_scalp_eth_15m_signal_builder,
+    ict_scalp_sol_15m_signal_builder,
     trend_donchian_1h_signal_builder,
     trend_donchian_eth_signal_builder,
     trend_donchian_sol_signal_builder,
@@ -140,6 +143,14 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         "ict_scalp_sol_5m": ict_scalp_sol_5m_signal_builder,
         "ict_scalp_xrp_5m": ict_scalp_xrp_5m_signal_builder,
         "ict_scalp_avax_5m": ict_scalp_avax_5m_signal_builder,
+        # M27 P1 15m alt legs (2026-07-22, Tier-3 operator-approved paper-soak
+        # promotion to bybit_1) — XRP/ETH/SOL 15m ict_scalp, cleared the net-of-
+        # fee anchored k-fold gate (baseline >=3/4 folds). Ungated (no off_cells);
+        # reuse the generic _ict_scalp_variant_builder (reads 15m from config).
+        # Evidence: docs/research/M27-P1-15m-findings-2026-07-22.md.
+        "ict_scalp_xrp_15m": ict_scalp_xrp_15m_signal_builder,
+        "ict_scalp_eth_15m": ict_scalp_eth_15m_signal_builder,
+        "ict_scalp_sol_15m": ict_scalp_sol_15m_signal_builder,
         # trend_donchian: Donchian-breakout trend-follower going live on
         # bybit_2 (real money) per the 2026-05-23 go-live plan. Builder
         # honours the YAML `enabled` flag; priority 20 (below the others)

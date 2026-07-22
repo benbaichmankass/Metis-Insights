@@ -179,6 +179,9 @@ def test_run_checks_strategies_match_roster():
         # M27 P0 Batch-1 alt variants (2026-07-21, Tier-3, operator-approved
         # promotion): execution:live demo-soak on bybit_1 only.
         "ict_scalp_sol_5m", "ict_scalp_xrp_5m", "ict_scalp_avax_5m",
+        # M27 P1 15m alt legs (2026-07-22, Tier-3, operator-approved promotion):
+        # execution:live paper-soak on bybit_1 only, ungated.
+        "ict_scalp_xrp_15m", "ict_scalp_eth_15m", "ict_scalp_sol_15m",
     }
 
 

@@ -31,6 +31,15 @@ If the user asked about *system/pipeline health* — STOP, use
 performance / per-decision scoring* — STOP, use
 `/performance-review`.
 
+**Coordination (binding):** before your first trainer-VM pull, read + post to
+the **live coordination board** (GitHub issue #6927,
+`docs/claude/coordination-board.md`) — this skill dispatches real trainer-VM
+diag requests over the unrestricted SSH relay and commits backlog drains, so a
+concurrent session doing trainer-VM work (a training cycle, a dataset build)
+needs to see your `▶️ START` before you touch anything. (This is not
+hypothetical — a 2026-07-22 `/ml-review` sub-session ran concurrently with
+another live session's trainer-VM work, uncoordinated, because neither posted.)
+
 ## Scope (what this skill DOES)
 
 1. **Establish the window** — since the last ml-review (§ "The review

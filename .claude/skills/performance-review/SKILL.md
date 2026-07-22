@@ -33,6 +33,13 @@ If the user asked about *technical/pipeline health* — STOP, use
 `/health-review`. If the user asked about *model training / promotion
 / shadow predictions* — STOP, use `/ml-review`.
 
+**Coordination (binding):** before your first diag pull, read + post to the
+**live coordination board** (GitHub issue #6927,
+`docs/claude/coordination-board.md`) — this skill dispatches real live-VM
+diag/system-action requests, grades trades, and commits backlog drains, so
+other concurrent sessions need to see your `▶️ START` before you touch
+anything.
+
 ## Scope (what this skill DOES)
 
 1. **Establish the window** — since the last performance-review

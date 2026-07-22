@@ -45,8 +45,21 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
 
-# Genuine bracket / strategy exits — a trustworthy, gradeable outcome.
-_CLEAN_EXIT_REASONS = frozenset({"sl", "tp", "sl_cross", "tp_cross"})
+# Genuine bracket / strategy exits — a trustworthy, gradeable outcome. Beyond
+# the bracket hits (sl/tp/sl_cross/tp_cross), this also covers the strategy's
+# own monitor()-driven exits: `exit_head` (the M20 ML exit-head early-close,
+# src/units/strategies/trend_donchian.py::_exit_head_verdict) and `stale_stop`
+# (the M20 stale-stop lever). Both are deliberate, in-strategy exit decisions
+# with a trustworthy realized PnL — NOT a technical artifact — so a row
+# closing this way belongs in bucket A same as a bracket hit
+# (BL-20260722-CLASSIFIER-MISSING-CLEAN-EXITS: a real trend_donchian
+# exit_head close was misbucketed `unclassified` before this fix, understating
+# gradeable coverage). Other exit-reason literals seen in the codebase
+# (`time_decay`, `timeout`, `options_expiry_assignment`, ...) were NOT added
+# here without individually verifying each is a genuine, trustworthy
+# strategy-driven close rather than a different kind of artifact — see the
+# performance-review-backlog follow-up opened alongside this fix.
+_CLEAN_EXIT_REASONS = frozenset({"sl", "tp", "sl_cross", "tp_cross", "exit_head", "stale_stop"})
 
 # Reconciler / watchdog closes that are NOT a classified bracket hit. A FULL
 # position closed here (and not a reduce/orphan) is broker-truncated → bucket C.
