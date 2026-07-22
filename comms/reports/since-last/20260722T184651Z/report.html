@@ -1,0 +1,190 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-07-22T18:46:51+00:00 · window 2026-07-20T08:15:00+00:00 → 2026-07-22T18:46:51+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>Quiet, plumbing-healthy 58h window (all services up, all 7 live broker accounts reachable, no breach) but three real signals: the diversified paper book&#x27;s decay is now confirmed genuine (-$16.4K swing since 07-07, 2 cells 3-review-confirmed for demotion), 2 of 3 live-influencing ML heads show a known frozen-dataset symptom pending a pre-approved 07-28 swap, and a chronic &gt;3wk-old infra bug plus a 58h-stale prop snapshot need operator follow-through. All three sub-review backlogs fully drained (79/79, 55/55, 41/41).</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Prioritize root-cause fix for the &gt;3-week-old /dev/null OCI-agent clobbering bug</b> <span class="pill">health · T2</span> ⚠️ operator<br><span class='muted'>BL-20260629-DEVNULL-OCI-SOURCE-KILL open since 2026-06-29, hit a 3rd surface on 07-21. Self-healing but un-root-caused; flagged per the operator&#x27;s alarm-fatigue directive — this is itself now a P1.</span></li>
+<li><b>Review 2 Tier-3 DEMOTE_SHADOW proposals: avax_pullback_2h, sol_pullback_2h</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>3rd consecutive review confirms both as persistent laggards in the diversified paper book (-$3976.67/14.3%WR and -$2646.02/0%WR respectively). n is thin per-cell; recommend a 4-6wk shadow re-eval, not a permanent kill.</span></li>
+<li><b>Get a fresh breakout_1 prop account-status snapshot</b> <span class="pill">health · T1</span> ⚠️ operator<br><span class='muted'>Last snapshot is 58h+ stale against only a $125.61 cushion to the static-DD floor. The bot&#x27;s own PROP_STATUS_REQUEST nudge should be re-asking; no fresh balance has landed.</span></li>
+<li><b>No action needed yet on the 2 fc-pcv advisory heads (BTC, SOL) showing frozen-dataset symptoms</b> <span class="pill">ml · T3</span><br><span class='muted'>stage-guard proposes demote on both, but evidence is thin (BTC AUC=0.25 on n=4; SOL drift=significant, no attribution yet). Root cause already tracked (MB-20260720-FCPCV-RETRAIN-NOOP); pre-approved fresh-data v2 swap due ~2026-07-28. Hold, watch closely.</span></li>
+<li><b>Two bot-side API findings routed to health-review backlog (not yet triaged there)</b> <span class="pill">performance · T2</span><br><span class='muted'>trades_closed.py collapses sl_cross/tp_cross/exit_head/stale_stop into a generic &#x27;other&#x27; closeReason (data loss); GET /api/bot/trades/closed?limit&gt;=500 reliably times out (reproduced 3x+ this session, incl. independently by this master session). Both need a health-review look before a code fix.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">76 open / 241 total · 4 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">50 open / 79 total · 6 drained</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">33 open / 88 total · 9 drained</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>performance</span> DEMOTE_SHADOW avax_pullback_2h (config/strategies.yaml) — 3rd-review-confirmed laggard, -$3976.67/7t/14.3%WR.</li>
+<li><span class='pill'>performance</span> DEMOTE_SHADOW sol_pullback_2h (config/strategies.yaml) — 3rd-review-confirmed laggard, -$2646.02/5t/0%WR.</li>
+<li><span class='pill'>ml</span> HOLD (no action) on btc-regime-15m-lgbm-fc-pcv-v1 stage-guard demote proposal — thin evidence (n=4), pre-approved v2 swap due ~07-28 preferred.</li>
+<li><span class='pill'>ml</span> HOLD (no action) on sol-regime-15m-lgbm-fc-pcv-v1 stage-guard demote proposal — drift-only signal, same v2-swap plan.</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>The performance-review&#x27;s own diag pull for this report (prior-window trades/closed, limit=500) hit the EXACT SAME query-timeout bug performance-review flagged in anomalies — independently reproduced by the master-review session, raising confidence this is a real, systemic issue, not a fluke.</li>
+<li>ETH rallied +5.0% and BTC +3.3% over the window (see market_context) — directly contextualizes why eth_pullback_2h (a mean-reversion/pullback strategy) was the single largest paper loser this window (-$1439.96 total): a strong directional rally is the worst regime for a countertrend pullback entry. This mirrors the paper-book-tracker&#x27;s broader finding that the pullback_2h family (not trend_4h) is the persistent drag.</li>
+<li>Both ml-review&#x27;s fc-pcv frozen-dataset finding and performance-review&#x27;s paper-book decay finding trace to the same underlying pattern: stale/frozen training data (ML) and un-refreshed cohort tracking (paper-book) both went unnoticed for 2-3 weeks because nothing was actively re-verifying them each run — until this session&#x27;s mandatory soak-integrity audit and the tracker bug-fix respectively surfaced both. Recommend a standing &#x27;freshness self-check&#x27; habit across both domains, not just this one-time catch.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>heartbeat</td><td class="sev-ok">🟢 ok</td><td>age 20.1s, label running, uptime 108517s</td></tr>
+<tr><td>ticks</td><td class="sev-ok">🟢 ok</td><td>last_tick 2026-07-22T18:07:05Z, 168s stale at capture, well within cadence</td></tr>
+<tr><td>signals</td><td class="sev-ok">🟢 ok</td><td>audit tail active (17:33-18:07Z sample); many *_eval events per tick across ~46 strategies</td></tr>
+<tr><td>orders</td><td class="sev-ok">🟢 ok</td><td>order_packages actively created/linked (e.g. pkg-395c72c7 -&gt; trade 3577); no signal-&gt;order gap seen</td></tr>
+<tr><td>trades</td><td class="sev-ok">🟢 ok</td><td>trades table growing normally (3847 rows); recent entries (rejected netting-guard, filled) all have parent packages</td></tr>
+<tr><td>monitoring</td><td class="sev-ok">🟢 ok</td><td>netting-guard rejections + intent_noop hold-policy events logging correctly; no monitor gaps observed</td></tr>
+<tr><td>sizing</td><td class="sev-watch">🟡 watch</td><td>recurring sub-min-qty BTCUSDT refusal on bybit_2 persists structurally (BL-20260716-BYBIT2-SUBMIN-QTY); not firing in this exact window (0 alert banners)</td></tr>
+<tr><td>api_errors</td><td class="sev-ok">🟢 ok</td><td>all diag/health/bot API pulls succeeded; 2 relay failures this session were my own path-allowlist/unit mistakes, not server errors</td></tr>
+<tr><td>state_consistency</td><td class="sev-ok">🟢 ok</td><td>status.live matches known shelved set (ib_live/oanda_practice/alpaca_live=false); no drift vs accounts.yaml expectations</td></tr>
+<tr><td>alert_delivery</td><td class="sev-ok">🟢 ok</td><td>/api/bot/notifications responsive, 0 banners, consistent with clean health/latest snapshot</td></tr>
+<tr><td>strategy_silence</td><td class="sev-ok">🟢 ok</td><td>sampled audit tail shows live *_eval events across multiple equity/futures/crypto strategies; none silent</td></tr>
+<tr><td>db_integrity</td><td class="sev-watch">🟡 watch</td><td>integrity_check not fetched (relay can&#x27;t run PRAGMA); row counts non-decreasing (trades 3847, order_packages 3177), db 596MB, no truncation signal</td></tr>
+<tr><td>data_validity</td><td class="sev-watch">🟡 watch</td><td>known May-2026 orphan/unreconciled rows are historical + already investigated (reconcile_outcome=no_recoverable_order_package), none new; BL-20260720-PAPER-PNL-CROSSWRITE duplicate-pnl bug still open (kept_open)</td></tr>
+<tr><td>audit_log_freshness</td><td class="sev-ok">🟢 ok</td><td>audit tail current to 18:07Z at capture time</td></tr>
+<tr><td>trainer_service</td><td class="sev-ok">🟢 ok</td><td>ict-trainer.timer enabled+active, ExecMainStatus=0; mirror fresh today (promotion_readiness 04:18Z, forecasts 06:22Z); disk 91% (4.2G free) is a standing watch, not a failure</td></tr>
+<tr><td>health_snapshot</td><td class="sev-ok">🟢 ok</td><td>7/7 checks ok, cross-checked against own diag pulls (git_sha/tick/accounts_api/disk all match) - snapshot is truthful</td></tr>
+<tr><td>security</td><td class="sev-watch">🟡 watch</td><td>no breach signal found on reachable surfaces; sshd/auth-log leg unreachable via relay (unit not allowlisted) and GitHub Advanced Security (secret scanning) is not enabled on this repo, so those two legs are honest gaps, not clean scans. Detail in security_check.</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-4.51</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">3</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-2.25</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.00</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>eth_pullback_2h</td><td>1</td><td>0.0%</td><td class="neg">$-4.26</td></tr>
+<tr><td>trend_donchian</td><td>1</td><td>0.0%</td><td class="neg">$-0.25</td></tr>
+<tr><td>trend_donchian_xrp_4h</td><td>1</td><td>—</td><td class="">—</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-20,967.38</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— </div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">16</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">41.7%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-1,310.46</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.04</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">5</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>mhg_pullback_1d</td><td>1</td><td>0.0%</td><td class="neg">$-18,300.00</td></tr>
+<tr><td>gld_pullback_1h</td><td>2</td><td>0.0%</td><td class="neg">$-1,915.98</td></tr>
+<tr><td>eth_pullback_2h</td><td>1</td><td>0.0%</td><td class="neg">$-1,435.71</td></tr>
+<tr><td>uso_trend_1h</td><td>1</td><td>100.0%</td><td class="pos">+$827.08</td></tr>
+<tr><td>slv_trend_1h</td><td>2</td><td>0.0%</td><td class="neg">$-140.78</td></tr>
+<tr><td>trend_donchian</td><td>1</td><td>0.0%</td><td class="neg">$-38.06</td></tr>
+<tr><td>pairs_bnb_btc_b</td><td>3</td><td>100.0%</td><td class="pos">+$34.44</td></tr>
+<tr><td>pairs_bnb_btc_a</td><td>1</td><td>100.0%</td><td class="pos">+$1.62</td></tr>
+<tr><td>ada_pullback_2h</td><td>1</td><td>—</td><td class="pos">+$0.00</td></tr>
+<tr><td>htf_pullback_trend_2h</td><td>1</td><td>—</td><td class="pos">+$0.00</td></tr>
+<tr><td>ief_pullback_1d</td><td>1</td><td>—</td><td class="pos">+$0.00</td></tr>
+<tr><td>trend_donchian_xrp_4h</td><td>1</td><td>—</td><td class="pos">+$0.00</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v neg">$-96.94 ↑</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">0</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">+$144.77</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">+$125.61</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">0</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">3 full dossiers, 16 summarized (full-per-trade (since-last) intended, PARTIAL in practice — the order-packages pull for the window truncated at the relay&#x27;s ~55KB comment budget after ~2 of an estimated 70-90 window packages, so only 3 of the 19 closed trades this window have a Claude decision grade / signal_logic join. The other 16 are covered only in pnl_by_class.paper.per_strategy (aggregate), not as individual dossiers, to avoid fabricating entry/exit detail this session couldn&#x27;t independently verify.).</p>
+<details><summary><span class="pill real">real_money</span> BTCUSDT long · trend_donchian · <span class="neg">$-0.25</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3770</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-21T07:58:15.956200+00:00</div><div class="k">closed</div><div>2026-07-21T23:03:15.741407+00:00</div><div class="k">hold (s)</div><div>54300</div><div class="k">entry</div><div>66238.5</div><div class="k">exit</div><div>66214.3</div><div class="k">stop</div><div>65419.68</div><div class="k">target</div><div>72796.11</div><div class="k">qty</div><div>0.005</div><div class="k">pnl %</div><div>-0.0759</div><div class="k">close reason</div><div>exit_head</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>optimal</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>trend_donchian long BTCUSDT; conf 0.73, optimal entry per signal_logic; M20 exit_head model closed early at -0.03R — deliberate ML-driven exit, not a stop-out.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> BNBUSDT long · pairs_bnb_btc_a · <span class="">—</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>—</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-22T07:02:14.451201+00:00</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>568.1</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>284.05</div><div class="k">target</div><div>1136.2</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler_filled</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>M22 pairs sleeve shadow/data-collection leg — never filled, placeholder bracket geometry, judged on setup only.</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> BTCUSDT short · pairs_bnb_btc_b · <span class="">—</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>—</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-22T07:02:15.496248+00:00</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>65947.6</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>131895.2</div><div class="k">target</div><div>32973.8</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler_filled</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>BTC leg of the same pair as above; same shadow-bracket caveat.</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> ETHUSDT short · eth_pullback_2h · <span class="neg">$-4.26</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3632</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-17T18:14:38.869959+00:00</div><div class="k">closed</div><div>2026-07-20T11:36:14.564000+00:00</div><div class="k">hold (s)</div><div>235296</div><div class="k">entry</div><div>1842.26</div><div class="k">exit</div><div>1893.93</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>0.08</div><div class="k">pnl %</div><div>-2.8895</div><div class="k">close reason</div><div>sl</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> XRPUSDT short · trend_donchian_xrp_4h · <span class="">—</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3788</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-21T14:45:57.900358+00:00</div><div class="k">closed</div><div>2026-07-21T14:45:57.900358+00:00</div><div class="k">hold (s)</div><div>0</div><div class="k">entry</div><div>1.1508</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>37.8</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>other</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>63918.0</td><td>66046.0</td><td>—</td><td>—</td><td class="pos">3.3%</td><td>Steady grind up ~+3.3% over the window (candles 07-20T07:00Z -&gt; 07-22T15:00Z, last ~2.5h not captured due to relay comment-budget truncation). Consistent with trend_donchian&#x27;s real-money -$0.25 exit_head close being a deliberate small-loss ML exit, not a fight against the tape.</td></tr>
+<tr><td>ETHUSDT</td><td>1849.86</td><td>1942.89</td><td>—</td><td>—</td><td class="pos">5.0%</td><td>Stronger rally than BTC, +5.0%. Directly explains eth_pullback_2h&#x27;s -$1439.96 window loss (a mean-reversion pullback strategy fighting a genuine directional rally) — see cross_review_notes.</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟡 caution</span></h2>
+<p class="section-empty">No model status in this report.</p>
+<h3>Promotion / demotion recommendations (Tier-3)</h3><ul class='pri'>
+<li>demote <b>btc-regime-15m-lgbm-fc-pcv-v1</b> advisory→shadow: stage-guard proposes demote: brier_lift -0.259, AUC 0.250 (inverted) but on only n=4 joined trades — too thin to act on. Drift=moderate. Root cause tracked (MB-20260720-FCPCV-RETRAIN-NOOP, dataset ~21.6 days stale). NOT recommending demote yet — HOLD on pre-approved v2 swap plan (due ~2026-07-28).</li>
+<li>demote <b>sol-regime-15m-lgbm-fc-pcv-v1</b> advisory→shadow: stage-guard proposes demote on drift verdict=&#x27;significant&#x27; alone (KS 0.232, PSI 0.170) — no attribution/AUC data yet. Milder signal than BTC&#x27;s. Same frozen-dataset root cause.</li>
+</ul>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li>DEMOTE_SHADOW <b>avax_pullback_2h</b> — 3rd consecutive review: -$3976.67/7t/14.3%WR this snapshot; declining each of the last 3 reads.</li>
+<li>DEMOTE_SHADOW <b>sol_pullback_2h</b> — 3rd consecutive review: -$2646.02/5t/0.0%WR; unchanged-negative since 07-07.</li>
+<li class='muted'>All other strategies HOLD this window (no M7 packet pulled independently by the master session — strategy_promotion status is the performance-review&#x27;s own read, not re-derived here). Two Tier-3 demote proposals pending operator approval; everything else stands pat.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">8</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">True</div></div>
+</div>
+<p class='muted'>8 training cycles ran since 2026-07-20T08:15Z, 0 manifest failures, 0 manifest-quarantine trips. Registry 92 models (61 candidate/27 shadow/3 advisory/1 research_only), matching the live-VM mirror exactly.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>btc-regime-15m-lgbm-fc-pcv-v1 (advisory)</td><td>accruing</td><td>189 predictions; live AUC read thin (n=4) and inverted — watching, not yet actionable.</td></tr>
+<tr><td>sol-regime-15m-lgbm-fc-pcv-v1 (advisory)</td><td>accruing</td><td>183 predictions; drift verdict=significant, no attribution rows yet.</td></tr>
+<tr><td>btc/sol-regime-15m-lgbm-fc-pcv-v2 (shadow, fresh-data siblings)</td><td>accruing</td><td>148/144 predictions in ~1.5 days, on pace for the ~07-28 swap decision.</td></tr>
+<tr><td>conviction-meta-v1 (shadow)</td><td>stalled</td><td>n_eval stuck at 69 for weeks (design bar &gt;=150); live score variance widened &gt;20x this session — gate_met: false, and not accruing meaningfully toward it.</td></tr>
+<tr><td>eth-regime-15m-lgbm-xasset-v1 (shadow)</td><td>accruing</td><td>522 predictions in ~2 days since the 2026-07-20 restart post-dead-feature-fix; healthy re-soak.</td></tr>
+<tr><td>diversified paper-book cohort (10-cell, bybit_1)</td><td>gate_met (decay confirmed)</td><td>decay_flag fired for the first time this session on the FIRST real snapshot in 2+ weeks (a tracker bug silently blocked every prior attempt) — -$16,381.51 swing since 07-07. 2 cells (avax/sol_pullback_2h) now 3-review-confirmed laggards — see tier3_proposals_pending.</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 The /dev/null OCI-agent clobbering bug is now &gt;3 weeks open with no root-cause fix, hitting a 3rd surface on 07-21 — per the operator&#x27;s 2026-07-19 alarm-fatigue directive, THIS is now flagged as its own priority item, not just re-noted.</li><li>🚩 The diversified paper-book decay_flag fired for the first time (this session&#x27;s first real tracker snapshot in 2+ weeks, after fixing a silent tooling bug) — a genuine -$16,381.51 swing since 07-07, not noise.</li><li>🚩 2 of 3 live-influencing (advisory) ML heads show real symptoms of a known frozen-dataset condition — not yet actionable (thin n / drift-only) but both are order-influencing and being watched closely pending the pre-approved ~2026-07-28 swap.</li><li>🚩 breakout_1&#x27;s prop account-status snapshot is 58h+ stale against a thin $125.61 cushion to its drawdown floor.</li><li>🚩 A real, reproducible relay/API query-timeout bug (GET /api/bot/trades/closed at limit&gt;=500) was independently confirmed a 4th time by this master-review session&#x27;s own report-data-gathering pull — recommend a health-review follow-up on the underlying query.</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>MB-20260721-FCPCV-V2-SOAK</code></td><td>ml</td><td>⏳ soaking</td><td>Fresh-data v2 siblings (BTC + SOL fc-pcv) accruing on schedule (~148/144 predictions in 1.5 days); swap decision due once soak matures.</td><td>~2026-07-28 decision point</td></tr>
+<tr><td><code>MB-20260616-CONVICTION-P4-SIZING</code></td><td>ml</td><td>• stalled</td><td>conviction-meta-v1 stuck at n_eval=69 (design bar &gt;=150) for weeks; live score variance widened &gt;20x this session. Blocking both P4-sizing and P5-fusion.</td><td>n_eval &gt;= 150 with non-degenerate purged-CV macro_f1</td></tr>
+<tr><td><code>SRQ-20260618-002</code></td><td>performance</td><td>🗳️ awaiting-decision</td><td>avax_pullback_2h / sol_pullback_2h DEMOTE_SHADOW proposals escalated this run after a 3rd consecutive confirming review.</td><td>operator go/no-go</td></tr>
+<tr><td><code>SRQ-20260715-REALMONEY-ALLOC-BENCHMARK</code></td><td>performance</td><td>🧱 awaiting-data</td><td>alpaca_live ETF sleeve does not clear the real-money allocation bar this window ($-based read only, no R-normalization yet). Recommend a longer, R-normalized re-run before the next verdict.</td><td>next /performance-review with a risk-normalized pull</td></tr>
+<tr><td><code>BL-20260629-DEVNULL-OCI-SOURCE-KILL</code></td><td>health</td><td>🗳️ awaiting-decision</td><td>Chronic /dev/null clobbering, self-healing but un-root-caused for &gt;3 weeks; escalated as operator_priorities[1] this run.</td><td>a dedicated VM-ops root-cause session</td></tr>
+</table></div>
+<footer>report_id RPT-20260722-184651-since-last · reviewer claude · prior RPT-20260720-081500-since-last · ICT Trading Bot system-report</footer></div></body></html>

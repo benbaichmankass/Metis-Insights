@@ -35,6 +35,12 @@ If the user asked about *strategy/trade performance*, *trade scoring*, or
 If the user asked about *model performance*, *training sessions*, or
 *promote/demote a model* — STOP, wrong skill. Use `/ml-review`.
 
+**Coordination (binding):** before your first diag pull, read + post to the
+**live coordination board** (GitHub issue #6927,
+`docs/claude/coordination-board.md`) — this skill dispatches real live-VM
+diag/system-action requests and commits backlog drains, so other concurrent
+sessions need to see your `▶️ START` before you touch anything.
+
 ## Scope (what this skill DOES)
 
 1. **Establish the window** — review everything *since the last

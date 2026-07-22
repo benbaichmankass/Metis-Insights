@@ -691,13 +691,38 @@ practice, the right response is to reconsider this decision then,
 with that incident's specifics, not to pre-empt it with infrastructure
 that papers over the discipline gap.
 
-## Multi-session coordination (2026-06-28, binding)
+## Multi-session coordination (2026-06-28, binding; live-board step added 2026-07-22)
 
-Multiple Claude sessions may run concurrently. Two failure modes recur; this
+Multiple Claude sessions may run concurrently. Three failure modes recur; this
 section closes them. The **operational workflow is the binding
 `session-coordination` skill** (`.claude/skills/session-coordination/SKILL.md`),
 the **live state is `docs/claude/session-board.json`**, and the `SessionStart`
 hook surfaces both at session init. Read them before acting.
+
+0. **Read + post to the LIVE coordination board FIRST — GitHub issue
+   [#6927](https://github.com/benbaichmankass/ict-trading-bot/issues/6927)
+   ("🤖 Claude Coordination Board"), before your first substantive tool call.**
+   This is a *different* mechanism from the `session-board.json` merge queue in
+   step 2 below, and it was previously undocumented here despite being called
+   "mandatory" and "the first framing" by the `SessionStart` hook and the
+   `session-coordination` skill — that omission is itself the doc-drift bug a
+   2026-07-22 `/system-review` session found (it skipped the board and
+   collided, unnoticed, with a live concurrent session mid-trainer-VM-work).
+   `session-board.json` is a **committed file** — it only propagates through a
+   merge + pull, too late to prevent a collision. Issue #6927's comments are
+   visible to every live session **instantly** via the API. Protocol
+   (`docs/claude/coordination-board.md`): (a) `issue_read method=get_comments`
+   on #6927 first — see what every other live session is touching, answer any
+   open question you can; (b) post a `▶️ START` comment (session id, branch,
+   **which files/subsystems/VM you're about to touch**) before that first
+   change; (c) post `❓ QUESTION` / `⚠️ HEADS-UP` as things come up; (d) post
+   `✅ DONE` when you wrap, to release the claim. **This applies even when a
+   session's actual writes happen inside spawned sub-agents** (background
+   `Agent` fan-out) rather than the top-level session's own tool calls — if a
+   sub-agent you spawn will commit, push, dispatch a VM/trainer action, or open
+   a PR, post the board `START` yourself, covering that sub-agent's scope,
+   *before* launching it; the sub-agent has no session identity of its own to
+   post with.
 
 1. **Know your capabilities before reaching for a tool.** On PM-side / Claude
    Code on the web sessions: `run_workflow` 403s — drive workflows via labelled

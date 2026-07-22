@@ -58,6 +58,59 @@ def _load_from_db(db_path: Optional[str], limit: int, paper_only: bool) -> List[
     return rows
 
 
+def _normalize_api_row(rec: Dict[str, Any]) -> Dict[str, Any]:
+    """Map a `GET /api/bot/trades/closed` row onto the DB-column shape
+    `paper_record_classifier.classify_record` actually reads.
+
+    Both this script's docstring and `paper_record_classifier`'s module
+    docstring claim `/api/bot/trades/closed` rows are an accepted input
+    shape — but the classifier only ever reads DB-native keys
+    (`status`, `exit_reason`, `setup_type`, `entry_price`, `account_id`,
+    `is_demo`/`account_class`, `pnl`, ...), which the camelCase API shape
+    (`closeReason`, `pattern`, `entryPrice`, `account`, `isDemo`,
+    `accountClass`, `realizedPnl`, ...) never carries. Fed unmodified, EVERY
+    API-shaped row — including a genuine clean `sl`-exit real-money trade —
+    silently misclassifies as bucket B `unclassified` instead of bucket A
+    `clean_exit`, because `status` (DB-only; the API omits it since every row
+    it returns is definitionally closed) never reads `"closed"`
+    (BL-20260722-CLASSIFIER-API-SHAPE-MISMATCH). Only remaps a field when the
+    DB-native key is absent, so a genuine DB-shaped row (already correct)
+    passes through untouched. Caveat: the API shape carries no
+    stop_loss/take_profit, so bucket-C bracket-based reconstruction
+    eligibility is degraded for rows normalized this way — prefer
+    `journal?table=trades` / `--db` when full bracket fidelity matters.
+    """
+    if not isinstance(rec, dict):
+        return rec
+    out = dict(rec)
+    is_api_shape = "closeReason" in rec or "entryPrice" in rec or "realizedPnl" in rec
+    if not is_api_shape:
+        return out
+    if "status" not in out:
+        out["status"] = "closed"
+    if "exit_reason" not in out and "closeReason" in rec:
+        out["exit_reason"] = rec["closeReason"]
+    if "setup_type" not in out and "pattern" in rec:
+        out["setup_type"] = rec["pattern"]
+    if "strategy_name" not in out and "pattern" in rec:
+        out["strategy_name"] = rec["pattern"]
+    if "entry_price" not in out and "entryPrice" in rec:
+        out["entry_price"] = rec["entryPrice"]
+    if "exit_price" not in out and "exitPrice" in rec:
+        out["exit_price"] = rec["exitPrice"]
+    if "pnl" not in out and "realizedPnl" in rec:
+        out["pnl"] = rec["realizedPnl"]
+    if "account_id" not in out and "account" in rec:
+        out["account_id"] = rec["account"]
+    if "account_class" not in out and "accountClass" in rec:
+        out["account_class"] = rec["accountClass"]
+    if "is_demo" not in out and "isDemo" in rec:
+        out["is_demo"] = rec["isDemo"]
+    if "direction" not in out and "side" in rec:
+        out["direction"] = rec["side"]
+    return out
+
+
 def _load_from_json(path: str) -> List[Dict[str, Any]]:
     with open(path, "r", encoding="utf-8") as fh:
         data = json.load(fh)
@@ -65,9 +118,12 @@ def _load_from_json(path: str) -> List[Dict[str, Any]]:
         # accept a diag envelope {rows:[...]} or {trades:[...]}
         for k in ("rows", "trades", "data"):
             if isinstance(data.get(k), list):
-                return data[k]
-        return [data]
-    return data if isinstance(data, list) else []
+                data = data[k]
+                break
+        else:
+            data = [data]
+    rows = data if isinstance(data, list) else []
+    return [_normalize_api_row(r) for r in rows]
 
 
 def _render_md(result: Dict[str, Any], recon: Dict[str, Any]) -> str:

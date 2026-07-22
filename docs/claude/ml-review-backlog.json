@@ -81,7 +81,14 @@
       "evidence_log": [
         "2026-06-26 (scorecard run, trainer-vm-diag #4699): full per-head RG3/RG4 table captured (above). Tooling: scripts/ml/fleet_scorecard.sh (Tier-1 research, reads datasets/registry/shadow log, writes a text table; never touches the order path). Reusable: bash scripts/ml/fleet_scorecard.sh [MAX_BARS]. NOTE this is read-only research -- the keep/fix-skew/kill classification is a PROPOSAL; actual stage flips are the operator-gated promotion gate."
       ],
-      "status_history": "open 2026-06-26 (scorecard run; RG4 caught 2 MES 15m heads anti-predictive live, BTC 5m/15m fleet identified as the real promotion candidates, MES live-labeling gap surfaced)."
+      "status_history": "open 2026-06-26 (scorecard run; RG4 caught 2 MES 15m heads anti-predictive live, BTC 5m/15m fleet identified as the real promotion candidates, MES live-labeling gap surfaced).",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Re-validated 2026-07-22: BTC 5m/15m fleet (btc-regime-5m-lgbm-v2 macro_f1=0.5544 n_runs=56 shadow; btc-regime-15m-lgbm-v2 macro_f1=0.5833 n_runs=22 shadow, trend improved) remains healthy at shadow \u2014 still no operator promotion call made on this thread specifically. Note the BTC-15m advisory slot itself was reassigned: btc-regime-15m-lgbm-v2 was demoted advisory->shadow 2026-07-20 in favour of btc-regime-15m-lgbm-fc-pcv-v1 (M25 vol-head swap) \u2014 an orthogonal decision, not this item's promotion-candidate thread. The MES anti-predictive-heads sub-thread is actively tracked by MB-20260626-002 (see there). No new evidence changes this item's open status; kept open pending an explicit BTC 5m/15m promotion decision."
+        }
+      ]
     },
     {
       "id": "MB-20260626-002",
@@ -100,6 +107,13 @@
         "2026-06-30 (/ml-review, trainer-vm-diag #5165): RG4 re-run on mes-regime-5m-lgbm-yz-v1 is UNSCOREABLE now -- all 2236 logged-live rows are UNLABELED (the MES live-labeling gap, MB-20260626-001 finding #1, re-bit). No evidence of recovery; the prior 0.17 ANTI_PREDICTIVE read (on ~1460 labeled rows) stands as the demote basis. RECOMMENDATION (Tier-3, operator-gated): demote mes-regime-5m-lgbm-yz-v1 shadow->candidate (reversible, observe-only -- it pollutes the shadow stream with an inverted signal) and root-cause the yz inversion. By contrast its non-yz sibling mes-regime-5m-lgbm-v2 reads 0.765 TRUSTWORTHY, so this is a yz-variant-specific defect.",
         "2026-06-30 (root-cause from the MES-labeling investigation, /ml-review buildout session): the MES 'all live rows UNLABELED -> RG4 unscoreable' symptom is NOT a labeling-code bug in replay_pregate_live (no symbol-key or threshold issue) \u2014 it is a STALE CANDLE BASE: MES market_raw content ends 2026-06-12 (the IBKR->trainer MES market-data sync froze; daily build reports 'ok' but re-emits stale candles), so RG4 cannot join any live MES row after 2026-06-12 to a realized-label bar. Tracked as BL-20260626-MES-BASE-STALE (health backlog #99). => The MES multi-symbol vol-gate extension stays blocked on REFRESHING the frozen MES candle pull (trainer-VM data op), NOT on model or labeling-code work. The per-symbol RG4 threshold fix (MB-20260628-RG4-THRESH) was shipped alongside but does not make stale-base MES rows labelable.",
         "2026-06-30 (MES candle base \u2014 durable fix shipped commit 28ddbf5, PR #5167): the MES-labeling blocker (BL-20260626-MES-BASE-STALE) is now durably fixed at the build layer \u2014 build_mes_market freshness-gates the stale IBKR shard and falls to fresh yfinance ES=F, so after merge + the next trainer cycle the MES 5m/15m market_raw advances past 06-12 and RG4 can label live MES rows again (mes-5m-v2 / mes-5m-yz become re-scoreable). Deep-history restore (revive the live-VM IBKR pull) is the operational follow-up. Re-run RG4 on the MES fleet once the fresh candles land to reconfirm mes-5m-v2 (promotion candidate) and mes-5m-yz (demote candidate)."
+      ],
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Re-validated 2026-07-22: mes-regime-5m-lgbm-yz-v1 registry shows stage=shadow, trend=improved (macro_f1=0.6874, n_runs=18). Score-distribution drift pull this session: verdict=moderate, ks_verdict=minor, psi_verdict=moderate, current_mean=0.669 (up from reference 0.657) \u2014 does not show the blown-up/anti-predictive signature the item's title cites (a 0.17 read), but that figure is an RG4 AUC read, not a score-distribution drift stat, and no fresh RG4/AUC recompute was run against this specific head this session. Recommend a targeted RG4 re-check on mes-regime-5m-lgbm-yz-v1 next session before either confirming the anti-predictive finding still holds or clearing it."
+        }
       ]
     },
     {
@@ -208,7 +222,14 @@
         "2026-06-09 (/ml-review): RE-CONFIRMED both timers enabled+active (trainer-vm-diag #3054). ict-drift-retrain produced a clean cycle at 06:01:28Z \u2014 8 RetrainDecision rows, all action=skip_no_drift (ADWIN no-cut), confirming the per-head scan + JSONL writer work end-to-end on real deployed heads. Promotion-readiness dir for 2026-06-09 EXISTS but SUMMARY.md was NOT present at pull time (`cat .../2026-06-09/SUMMARY.md` => No such file) \u2014 either the daily readiness cycle wrote a different filename (report.json only?) or it errored before rendering Markdown. ACTION for next /ml-review: pull `ls -la runtime_logs/trainer_mirror/promotion_readiness/<date>/` + the readiness service journal to confirm the SUMMARY.md render path; criteria (b) ('SUMMARY.md visible') not yet verifiable. Stays in_progress.",
         "2026-06-13 (/ml-review): promotion-readiness CLI STILL crashing (criterion (b) SUMMARY.md blocked). ROOT-CAUSED via trainer #3459/#3463 cli_stderr.log: ml/promotion/readiness_report.py:92 build_readiness_report -> ml/promotion/stage_guard.py:200 run_stage_guard -> ml/promotion/attribution.py:318 compute_attribution -> attribution.py:98 load_closed_trades(db_path) -> Path(db_path) TypeError: expected str/bytes/os.PathLike, not NoneType. i.e. db_path is None \u2014 scripts/ops/run_promotion_readiness.sh (or build_readiness_report's caller) does NOT pass --db / db_path resolves None on the trainer, so run_stage_guard's attribution step dies before any report renders (today's + yesterday's dirs have a 1769-byte cli_stderr.log + EMPTY cli_stdout.json, no SUMMARY.md/report.json). PROPOSED FIX (Tier-1 trainer tooling, propose-only here): pass --db data/trade_journal.db in run_promotion_readiness.sh OR default db_path to trade_journal_db_path() in build_readiness_report. Drift-retrain timer is fine (fired 06:01:54Z, 1 dispatch execution-quality-baseline-v0 ADWIN cut, rest skip_no_drift). Stays in_progress."
       ],
-      "status_history": "open 2026-06-07 (tooling shipped, trainer-VM enable pending) | in_progress 2026-06-08 (/ml-review: both timers verified live + active; first promotion-readiness artifact dir exists; full resolution pending the 6/12 yz-1h soak completion)."
+      "status_history": "open 2026-06-07 (tooling shipped, trainer-VM enable pending) | in_progress 2026-06-08 (/ml-review: both timers verified live + active; first promotion-readiness artifact dir exists; full resolution pending the 6/12 yz-1h soak completion).",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No fresh timer-status check performed this session (only ict-trainer.timer/.service were queried; ict-drift-retrain.timer / ict-promotion-readiness.timer status not re-verified). Gap noted for next session. Kept in_progress."
+        }
+      ]
     },
     {
       "id": "MB-20260606-003",
@@ -424,6 +445,13 @@
       "snoozed_until": null,
       "check_log": [
         "2026-06-10 /ml-review: Need RE-CONFIRMED: mes-setup-quality + mes-trade-outcome-winrate skip empty_dataset every cycle (incl. 06-10). Promoted the per-trade-backtest-row augmentation to experiments_proposed this review."
+      ],
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new evidence pulled this session on per-trade backtest volume / setup_labels row counts. Kept open; unchanged blocker."
+        }
       ]
     },
     {
@@ -465,6 +493,13 @@
         "2026-06-03 (/ml-review): both problems re-confirmed in the 6/3 cycle. (1) regime-classifier-baseline-v0 STILL COLLAPSES \u2014 fresh metrics macro_f1=0.4547, f1_volatile=0.0 (accuracy 0.8338 = majority-class on the 0.834 base rate), n_eval=8760 (BTC 1h). It never predicts volatile, so it remains UNusable as the phase-4 detector. The viable candidate stays btc-regime-1h-lgbm-v2 (macro_f1=0.6096, f1_volatile=0.4466, same n=8760) \u2014 but it has zero shadow track record (MB-20260529-001). (2) STAGE DRIFT PERSISTS \u2014 registry has regime-classifier-baseline-v0 at target_deployment_stage=research_only while its manifest (ml/configs/baseline-regime-classifier.yaml) declares shadow. Field-beats-comment: the registry research_only is the effective stage; the manifest line is stale and should be reconciled to research_only when phase-4 is taken up (or the model retired from the router design).",
         "2026-06-04 (S-MLOPT-S15): KEY FINDING + progress. (2) STAGE DRIFT RECONCILED \u2014 baseline-regime-classifier.yaml flipped shadow\u2192research_only (field-beats-comment) with an in-file note that it collapses + is NOT the phase-4 detector. (1) reframed: phase-4 as written is a CATEGORY ERROR \u2014 the ADX detector + policy table (src/runtime/regime/policy.py _VALID_REGIMES) key on a TREND axis {chop,transitional,trending}, but every registry regime model (incl. btc-regime-1h-lgbm-v2 and the baseline) predicts a VOLATILITY axis {range,volatile}. A vol classifier cannot drop-in replace the trend detector. Operator chose BOTH fixes as separate tracks: S15a (shipped) = a TREND-regime model (new ml/datasets/labeling/trend_regime.py Kaufman-efficiency-ratio forward label \u2192 market_features.trend_regime_label v7; research_only manifest btc-regime-1h-trend-lgbm-v1) \u2014 the true ADX drop-in; trainer-VM purged-CV A/B vs the ADX base rates dispatched. S15b (queued) = wire the existing vol classifier as a SECOND, observe-only regime axis (2-D trend\u00d7vol policy gate, logs not enforces). S13 (now live) supplies the shadow track record both detectors need. Live phase-4 enforcement remains Tier-3 + gated on feature parity MB-20260604-005. Item stays in_progress until a detector model has a track record AND the operator approves phase-4 enforcement.",
         "2026-06-04 (S-MLOPT-S15b): TRACK B BUILT (draft PR, Tier-2, observe-only). The vol axis is now wired end-to-end: new src/runtime/regime/vol_detector.py::detect_vol_regime buckets the live rolling_log_return_vol against the DEPLOYED regime head's frozen vol_bucket edges (resolved once/process from the registry shadow-stage specs via regime_spec_of, the same source S13 uses) and collapses to 2-class calm/volatile (lowest bucket->calm). Parity guard: only adopts edges from heads whose frozen vol_feature_column is rolling_log_return_vol (the yz heads' yang_zhang_vol edges are skipped so they can't mis-place the boundary; a (symbol,tf) served only by yz heads stays unknown/permissive). policy.would_gate gained an optional vol_regime= param (default-preserving: byte-identical 1-D shape when None) evaluating a 2-D trend_vol cell; StrategyIntent.vol_regime + intent_from_signal + _stamp_regime_on_meta (all 11 builders) + _shadow_regime_gate thread/log the vol axis (enforced:false, both axes per row). config/regime_policy.yaml schema_version 1->2 + a documented EMPTY trend_vol:{} block (authoring off cells needs a vol-split of the regime-roster matrix \u2014 evidence accruing now via the stamped vol_regime; no fabricated decisions). 31 new tests; 169 in the regime/intent/builder suites pass; ruff clean. NEXT: after ~2-4 weeks of stamped vol_regime + regime_shadow_gate rows, vol-split the matrix to author the first trend_vol off cells (Tier-3). Item stays in_progress; enforcement on EITHER axis remains Tier-3 + gated on feature parity MB-20260604-005 and (trend axis) the S15a class-weight + head-to-head-vs-ADX follow-ups."
+      ],
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Re-validated 2026-07-22: regime-classifier-baseline-v0 registry still shows stage=candidate, macro_f1=0.4502 (n_runs=88, trend=flat this cycle) \u2014 the f1_volatile collapse this item cites is a sub-metric not captured in this session's compact registry pull (headline picks macro_f1 first). No phase-4 wiring decision made this session. Kept in_progress; recommend pulling the model's full per-class metrics next review to confirm f1_volatile is still 0."
+        }
       ]
     },
     {
@@ -583,7 +618,14 @@
       "source": "S-MLOPT-S10 (M14 Phase 2.2) \u2014 gap G5 (no order-flow / microstructure features); operator selected S10 as the next sprint 2026-06-04.",
       "status_history": "open 2026-06-04 (S-MLOPT-S10 \u2014 Tier-1 estimator core + design proposal shipped; Tier-2 live-capture path awaits the 3 operator decisions); in_progress 2026-06-04 (operator approved option 1; full Tier-2 capture path BUILT \u2014 side-car + unit + market_features join + A/B manifest; DEPLOYED+verified-running on the trainer (#2752, active since 09:52:04Z); accruing forward; MONITORING NOTE added: review the A/B once >= ~4000 captured 5m bars accrue).",
       "snoozed_until": null,
-      "trigger_condition": "Any /ml-review run; or when the operator answers the 3 capture-design decisions; or when the market_microstructure capture path is built."
+      "trigger_condition": "Any /ml-review run; or when the operator answers the 3 capture-design decisions; or when the market_microstructure capture path is built.",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new evidence this session \u2014 operator capture-design decisions (host/transport/scope) still outstanding, no market_microstructure service work observed in this window's cycle log. Kept in_progress."
+        }
+      ]
     },
     {
       "id": "MB-20260604-004",
@@ -616,6 +658,13 @@
       ],
       "check_log": [
         "2026-06-10 /ml-review: S12 Part B account_context_snapshots writer now exists (observe-only). Still needs as-of-signal-time join into a decision model. Carry."
+      ],
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new evidence this session (evergreen trigger). Kept open."
+        }
       ]
     },
     {
@@ -656,7 +705,7 @@
       "status_history": "opened+resolved 2026-06-06 (model-training, S-MLOPT-S8): joint trained+evaluated; qualified-positive on the BTC holdout, BTC->MES transfer unmeasurable (0 MES trades); research_only->shadow proposed (Tier-3, operator-gated); daily build wired opt-in/default-off (ICT_BUILD_XSYM). Operator decides the promotion."
     },
     {
-      "id": "MB-20260609-001",
+      "id": "MB-20260609-001B",
       "opened_at": "2026-06-09T05:42:00+00:00",
       "opened_by": "claude (S9 yz monitoring session, doc-freshness)",
       "source": "Diag relays #3008, #3042, #3045: per-head shadow/stats for the three S9 yz BTC regime heads. row_keys_seen differs across heads.",
@@ -700,7 +749,15 @@
           "note": "Intended, not a wiring gap. The five fields are signal-time correlation metadata, NOT model inputs; all three yz manifests share an identical 11-feature bar-derived set (verified against ml/predictors/shadow.py + regime_shadow.feature_row_for_predictor). The 15m head logs bar-cadence-only records because turtle_soup (its only 15m BTC strategy) rarely fires; the per-bar path (S13) still accrues its track record. See docs/audits/s9-yz-shadow-promotion-2026-06-09.md \u00a72."
         }
       ],
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Data-integrity fix: this item shared id MB-20260609-001 with an unrelated resolved item ('Optimize live per-bar regime scoring...') due to an accidental id collision from historical backlog authoring. Renamed to MB-20260609-001B to disambiguate (content otherwise unchanged; both items are already status=resolved, so no open-item tracking was affected, but the collision broke id-based lookup/uniqueness)."
+        }
+      ],
+      "resolved_at": "2026-07-22T18:30:00+00:00"
     },
     {
       "id": "MB-20260609-002",
@@ -747,7 +804,7 @@
       "tier": "Tier 1 (trainer)",
       "trigger_condition": "Operator/Claude kicks the trainer retrain (autonomous trainer territory).",
       "resolution_criteria": "New manifest trains cleanly with serveable-only features; f1_volatile within ~0.05 of the OI variant under purged CV -> propose shadow.",
-      "status": "in_progress",
+      "status": "resolved",
       "snoozed_until": null,
       "evidence_log": [
         {
@@ -770,7 +827,15 @@
           "to": "in_progress",
           "by": "claude (refine execution)"
         }
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "RESOLVED. Registry confirms btc-regime-1h-lgbm-funding-svble-v1 (serveable-only funding-z variant) exists at stage=shadow (macro_f1=0.6509, n_runs=41, trend=improved) \u2014 matching macro_f1 of the OI-bearing btc-regime-1h-lgbm-funding-v1 (0.6509) essentially exactly, clearing the '~0.05 of the OI variant' bar. The refined manifest trained cleanly and earned shadow."
+        }
+      ],
+      "resolved_at": "2026-07-22T18:30:00+00:00"
     },
     {
       "id": "MB-20260613-002",
@@ -806,6 +871,11 @@
           "at": "2026-07-19T09:05:00+00:00",
           "by": "claude (ML Tier-1 session 2026-07-19)",
           "note": "ml-infra audit 2026-07-19 (F5): the nightly build has NO microstructure_path join wired at all \u2014 even once the L2 capture accrues, btc-regime-5m-lgbm-flow-v1's ofi/vpin cols stay zero until build_trainer_datasets.sh joins datasets-out/market_microstructure/BTCUSDT/5m into the BTC 5m market_features build. Wire the join as part of resolving this item (gate it on capture-data sufficiency)."
+        },
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new L2/market_microstructure capture evidence this session \u2014 still data-blocked on the forward capture side-car. Kept open."
         }
       ]
     },
@@ -876,6 +946,13 @@
           "to": "open",
           "by": "claude (operator session: models/strategies status + first promotion)"
         }
+      ],
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new evidence this session on advisory_decisions.jsonl annotate-soak review or an operator downsize-arm decision. Kept open."
+        }
       ]
     },
     {
@@ -924,7 +1001,14 @@
       "trigger_condition": "Conviction soak sufficient: review the conviction_sizing/arbitration distributions (would-be vs actual) once the multi-input corpus reaches the design's \u2265150-row identifiability bar AND the degenerate v2 (conviction-meta-v1, n\u224865) is non-degenerate; operator green-lights graduation.",
       "resolution_criteria": "An operator-approved Tier-3 PR makes conviction drive size on at least the demo account, validated vs current sizing on the soak window, with the no-trade floor / throttle numbers decided from evidence.",
       "tier": 3,
-      "status": "open"
+      "status": "open",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Re-validated 2026-07-22: conviction-meta-v1 registry shows n_eval=69 (still far below the design's >=150-row identifiability bar) and this cycle's training trend='degraded'. Its shadow-drift pull this session reads verdict=significant (KS 0.248, PSI 0.372, current_mean 0.827 vs reference 0.818 but current_stdev 0.0223 vs reference 0.00095 \u2014 a >20x variance jump). NOT ready for P4 graduation; if anything this session's read is more cautionary than the last. Kept open."
+        }
+      ]
     },
     {
       "id": "MB-20260616-CONVICTION-P5-FUSION",
@@ -936,7 +1020,14 @@
       "trigger_condition": "v2 conviction-meta-v1 trains non-degenerate (macro_f1>0 under purged CV, n_eval well above the current \u224865) AND its shadow predictions agree with / beat the v1 blend on the soak window.",
       "resolution_criteria": "Per-lens fusion promoted v1\u2192v2 via an operator-approved Tier-3 PR with documented v2>v1 soak evidence, OR a documented decision to keep v1.",
       "tier": 3,
-      "status": "open"
+      "status": "open",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Same evidence as MB-20260616-CONVICTION-P4-SIZING this session (n_eval=69, degraded trend, significant drift) \u2014 v2 conviction-meta-v1 is not yet a non-degenerate, stable input. Kept open."
+        }
+      ]
     },
     {
       "id": "MB-20260618-XA-D2B",
@@ -948,7 +1039,14 @@
       "trigger_condition": "The D2a cross-asset shadow soak has accrued a few days of eth-regime-1h-lgbm-xasset-v1 predictions in shadow_predictions.jsonl with sane score distributions (no drift blow-up).",
       "resolution_criteria": "c_reg is populated from the cross-asset regime read in the observe-only conviction (visible in the conviction_sizing soak log) and verified sane; D4 (actual sizing influence) remains separately M16-P2+ backtest-gated + operator-approved.",
       "tier": 3,
-      "status": "open"
+      "status": "open",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Positive update 2026-07-22: per docs/research/overnight-2026-07-20-morning-packets.md the ETH xa dataset defect (BL-20260628-XA-TRAINING-ZERO) is FIXED at the data layer (cross_asset side-stream rebuilt, market_features v901 rebuilt, xa_peer2_* now ALL_POPULATED) and eth-regime-15m-lgbm-xasset-v1 was retrained + registered on the fixed dataset; its shadow-soak clock restarted 2026-07-20. This session's drift pull confirms healthy accrual post-restart: reference_count=0, current_count=522 (insufficient_data verdict is expected/correct for a 2-day-old clock, not a red flag). Not yet due (gates re-checkable ~2026-07-27 per the packet). Kept open."
+        }
+      ]
     },
     {
       "id": "MB-20260618-XA-DAILYBUILD",
@@ -980,7 +1078,14 @@
       "trigger_condition": "Next /ml-review, or sooner if a heartbeat/CPU alert fires on the live VM.",
       "resolution_criteria": "Soak confirmed healthy + accruing (feeds D2b), or the kill-switch/demote rollback exercised with the cause logged.",
       "tier": 2,
-      "status": "open"
+      "status": "open",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Healthy this session: eth-regime-15m-lgbm-xasset-v1 accruing normally (522 predictions in ~2 days since the 2026-07-20 restart \u2014 a sane rate, no stall). Trainer CPU/heartbeat healthy (free 3.5GB mem, load avg not sampled but no manifest_failed/timeout events in the 8-cycle window). One flag: trainer disk is at 91% (4.2GB free of 45GB) \u2014 not yet a training blocker but worth a watch as datasets-out keeps growing (91 models -> growing roster). Kept open (recurring watch item); disk-usage flag also logged as a fresh observation for the next health-review to pick up if this session doesn't file it there."
+        }
+      ]
     },
     {
       "id": "MB-20260623-001",
@@ -1164,13 +1269,21 @@
       "tier": 3,
       "trigger_condition": "Next /ml-review or /system-review; or any session promoting a regime head or working the MES/ETH live-labeling parity.",
       "resolution_criteria": "mes-5m-lgbm-v2 promoted to advisory (operator-gated) with MES per-symbol cells authored AND/OR the MES/ETH live-labeling gap root-caused so ETH + mes-15m/1d become RG4-scoreable and gate cleanly.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "evidence_log": [
         "2026-06-30 (/ml-review, trainer-vm-diag #5165): RG4 reconfirms mes-regime-5m-lgbm-v2 = 0.765 TRUSTWORTHY (mf=True) -- consistent with the 0.765/0.77 prior reads. Still the ONE clear multi-symbol promotion candidate. Caveat persists: of 3588 logged-live rows only ~204 are labeled (3384 unlabeled) = the MES live-labeling gap still blinds RG4 to most of the stream. Promotion is gated on the MES cell-authoring path (per-symbol MES vol-split backtest -> author config/regime_policy.yaml MES trend_vol cells -> walk-forward -> promote-stage), NOT on the model. Stays at shadow; lead candidate.",
         "2026-06-30 (root-cause from the MES-labeling investigation, /ml-review buildout session): the MES 'all live rows UNLABELED -> RG4 unscoreable' symptom is NOT a labeling-code bug in replay_pregate_live (no symbol-key or threshold issue) \u2014 it is a STALE CANDLE BASE: MES market_raw content ends 2026-06-12 (the IBKR->trainer MES market-data sync froze; daily build reports 'ok' but re-emits stale candles), so RG4 cannot join any live MES row after 2026-06-12 to a realized-label bar. Tracked as BL-20260626-MES-BASE-STALE (health backlog #99). => The MES multi-symbol vol-gate extension stays blocked on REFRESHING the frozen MES candle pull (trainer-VM data op), NOT on model or labeling-code work. The per-symbol RG4 threshold fix (MB-20260628-RG4-THRESH) was shipped alongside but does not make stale-base MES rows labelable.",
         "2026-06-30 (MES candle base \u2014 durable fix shipped commit 28ddbf5, PR #5167): the MES-labeling blocker (BL-20260626-MES-BASE-STALE) is now durably fixed at the build layer \u2014 build_mes_market freshness-gates the stale IBKR shard and falls to fresh yfinance ES=F, so after merge + the next trainer cycle the MES 5m/15m market_raw advances past 06-12 and RG4 can label live MES rows again (mes-5m-v2 / mes-5m-yz become re-scoreable). Deep-history restore (revive the live-VM IBKR pull) is the operational follow-up. Re-run RG4 on the MES fleet once the fresh candles land to reconfirm mes-5m-v2 (promotion candidate) and mes-5m-yz (demote candidate)."
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "RESOLVED. Registry confirms mes-regime-5m-lgbm-v2 at stage=advisory (macro_f1=0.7162, n_runs=48, trend=improved). Per docs/research/overnight-2026-07-20-morning-packets.md: 'MES re-cert EXECUTED + ACTIVATION VERIFIED RESTART-FREE' (2026-07-20/21) \u2014 gate-check on fresh post-CME-open data cleared ALL 8 required gates (live_parity 0/50 mismatches, zero dead features, labels_accruing 0.85, live RG4 AUC 0.725), promoted shadow->advisory, activation confirmed restart-free via the registry-fingerprint path. Both halves of the resolution criteria (promotion + labeling-gap root-cause) are met. mes-regime-15m-lgbm-v2 also reads gate-ready but was NOT promoted (tracked separately, MB-20260721-MES-15M-HEAD-PARKED)."
+        }
+      ],
+      "resolved_at": "2026-07-22T18:30:00+00:00"
     },
     {
       "id": "MB-20260627-003",
@@ -1185,7 +1298,14 @@
       "status": "in_progress",
       "snoozed_until": null,
       "updated_at": "2026-06-28T04:40:00+00:00",
-      "update_20260628": "RETRAIN SESSION (trainer-diag #4869-#4893, branch claude/eth-regime-retrain-skew-mnske0, PR #4868). ROOT CAUSE of the 'NO_EDGE live': both ETH 1h heads emit a near-constant high P(volatile) on live rows (v1 mean 0.776/min 0.508; xasset 0.758/0.500) -> no discrimination. v1: live rolling_log_return_vol +51% vs the 5yr train mean -> 73% of live rows in top vol_b2; xasset: xa_breadth_up all-zeros in TRAINING (dead cross_asset side-stream) but ~0.45 live (see BL-20260628-XA-TRAINING-ZERO). PARTIAL CORRECTION: RG4 defaults vol_threshold=0.003 but the Bybit build labels at 0.005; at matched 0.005 v1 RG4 = 0.58 BUT it's a KNIFE-EDGE (0.46/0.51/0.58/0.48/0.47 across 0.003-0.007 on 111 rows) -> NOT robust; v1 1h stays weak/borderline live, xasset stays NO_EDGE (0.46-0.51 all thresholds). So the original 'needs a better head' stands; only the 0.46 severity was a harness artifact (see MB-20260628-RG4-THRESH). FIX SHIPPED: trained eth-regime-{5m,15m}-lgbm-v1 (mirror the strong BTC 5m/15m heads; the 1h regime family is the weak timeframe). Built ETH 5m/15m market_features (525864/175272 rows) + added them to the daily build. RG3: 5m 0.770 / 15m 0.788 TRUSTWORTHY (recent-fold 0.738/0.751). Both register at shadow -> SOAKING; RG4 future-dated (new heads have 0 live rows). NEXT (post-soak): RG4 the 5m/15m heads at matched 0.005; if robust >=0.55, re-run the ETH A/B + cell-selection WF with the passing head and propose advisory promotion (Tier-3)."
+      "update_20260628": "RETRAIN SESSION (trainer-diag #4869-#4893, branch claude/eth-regime-retrain-skew-mnske0, PR #4868). ROOT CAUSE of the 'NO_EDGE live': both ETH 1h heads emit a near-constant high P(volatile) on live rows (v1 mean 0.776/min 0.508; xasset 0.758/0.500) -> no discrimination. v1: live rolling_log_return_vol +51% vs the 5yr train mean -> 73% of live rows in top vol_b2; xasset: xa_breadth_up all-zeros in TRAINING (dead cross_asset side-stream) but ~0.45 live (see BL-20260628-XA-TRAINING-ZERO). PARTIAL CORRECTION: RG4 defaults vol_threshold=0.003 but the Bybit build labels at 0.005; at matched 0.005 v1 RG4 = 0.58 BUT it's a KNIFE-EDGE (0.46/0.51/0.58/0.48/0.47 across 0.003-0.007 on 111 rows) -> NOT robust; v1 1h stays weak/borderline live, xasset stays NO_EDGE (0.46-0.51 all thresholds). So the original 'needs a better head' stands; only the 0.46 severity was a harness artifact (see MB-20260628-RG4-THRESH). FIX SHIPPED: trained eth-regime-{5m,15m}-lgbm-v1 (mirror the strong BTC 5m/15m heads; the 1h regime family is the weak timeframe). Built ETH 5m/15m market_features (525864/175272 rows) + added them to the daily build. RG3: 5m 0.770 / 15m 0.788 TRUSTWORTHY (recent-fold 0.738/0.751). Both register at shadow -> SOAKING; RG4 future-dated (new heads have 0 live rows). NEXT (post-soak): RG4 the 5m/15m heads at matched 0.005; if robust >=0.55, re-run the ETH A/B + cell-selection WF with the passing head and propose advisory promotion (Tier-3).",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Positive update 2026-07-22: per the overnight packet, the ETH labeling gap is confirmed fixed (xa side-stream rebuilt) and eth-regime-15m-lgbm-xasset-v1 has been retrained on the fixed dataset (eval: recall_volatile 0.935, precision_volatile 0.324, weighted_f1 0.482, n_eval 35054). Its shadow-soak clock restarted 2026-07-20; this session's drift pull shows a healthy 522-row accrual so far. RG4 gate re-check is due ~2026-07-27 per the packet \u2014 very close to clearing this item's resolution bar but not yet due. Kept in_progress."
+        }
+      ]
     },
     {
       "id": "MB-20260628-RG4-THRESH",
@@ -1281,6 +1401,11 @@
           "at": "2026-07-19T15:05:00+00:00",
           "by": "claude (WS-A M25 promotion harvest 2026-07-19)",
           "note": "DEMOTES EXECUTED 14:56:37Z (operator approved in chat, 'ok on the demote'): eth-regime-15m-lgbm-v1 and eth-regime-15m-lgbm-fc-pcv-v1 shadow->candidate on the trainer (rc=0), approval + powered-RG4 evidence recorded in each registry stage_history (by claude-ws-a-session). Remaining scope of this item is now SOL-only: the ~2026-08-01 powered re-check (sol-15m 0.440 ANTI_PREDICTIVE, sol-fc-pcv 0.546 NO_EDGE, both 35/40 bars) + any future retrained ETH successor re-entering shadow."
+        },
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Partially resolved this session: SOL's first advisory head landed (sol-regime-15m-lgbm-fc-pcv-v1, promoted shadow->advisory 2026-07-20, M25 promotion) \u2014 confirmed in this session's registry pull. ETH remains shadow/candidate only (no advisory ETH head yet); its path is tracked by MB-20260627-003 (RG4 re-check due ~2026-07-27). Kept open for the ETH half; SOL half is done."
         }
       ]
     },
@@ -1296,11 +1421,17 @@
       "resolution_criteria": "fee_*/funding_* columns added to trades + populated on the live close path (verified non-null on real closed trades across brokers that expose fees); a clean offline net-R label query (order_package -> trade -> net_R) reproducible for the ranker dataset. Honest negative acceptable if a broker cannot expose per-fill fees (record the fixed-estimate fallback + its calibration gap).",
       "updates": [
         "2026-07-17 (Slice A landed, #6750): the fixed-estimate cost floor is live \u2014 backfill-trade-costs system-action stamped fee_taker_usd + cost_source='estimate' on the whole historical book (712/712 uncosted rows), so a net-R label has a consistent modelled cost. fee_maker_usd / funding_paid_usd stay NULL pending broker truth.",
-        "2026-07-17 (Slice B / B0 built, branch claude/broker-truth-cost-backfill): the broker-truth PLAN is B0 join-key -> B1 funding pull -> B2 exact-join fee/funding sweep. B0 shipped this PR: the exchange-fills store (runtime_state/exchange_fills.sqlite) already carries per-fill fee + is_maker keyed by exchange_fills.order_id (Bybit orderId), and the trade's ENTRY orderId was already captured \u2014 but only inside notes.trade_id (JSON), not a first-class column. B0 promotes it to an indexed trades.broker_order_id column (_migrate_add_broker_order_id + the open-path insert now writes it + a backfill-broker-order-id system-action copies it from notes.trade_id for history), so the eventual fee sweep is an EXACT indexed join, not a fuzzy (account,symbol,side,qty,time-window) heuristic that could double-count fills across overlapping same-symbol trades. Observability-only (never read on the order path). TWO GAPS the Explore map surfaced that B0 does NOT close (operator-visible, tracked for B1/B2): (1) FUNDING has no source in the fills store (fetch_my_trades = execution list, no perp funding) -> funding_paid_usd needs a NEW Bybit /v5/account/transaction-log pull (B1); (2) broker SL/TP EXITS fill under an orderId the bot never sees (clients.py:775-778), so the entry-orderId join catches only the ENTRY leg -> the B2 sweep must attribute the exit leg by FIFO over the fills stream (each fill consumed once) rather than a naive time-window join, and netting (two strategies sharing one exchange position) makes per-strategy-trade fee split inherently approximate on a netted account. DECISION FOR OPERATOR before B2 --apply: (a) fees-now / funding-as-B1-later acceptable, or funding required in one slice; (b) exit-leg FIFO attribution method sign-off. No cost overwrite ships until that steer + a dry-run coverage report on the live book."
+        "2026-07-17 (Slice B / B0 built, branch claude/broker-truth-cost-backfill): the broker-truth PLAN is B0 join-key -> B1 funding pull -> B2 exact-join fee/funding sweep. B0 shipped this PR: the exchange-fills store (runtime_state/exchange_fills.sqlite) already carries per-fill fee + is_maker keyed by exchange_fills.order_id (Bybit orderId), and the trade's ENTRY orderId was already captured \u2014 but only inside notes.trade_id (JSON), not a first-class column. B0 promotes it to an indexed trades.broker_order_id column (_migrate_add_broker_order_id + the open-path insert now writes it + a backfill-broker-order-id system-action copies it from notes.trade_id for history), so the eventual fee sweep is an EXACT indexed join, not a fuzzy (account,symbol,side,qty,time-window) heuristic that could double-count fills across overlapping same-symbol trades. Observability-only (never read on the order path). TWO GAPS the Explore map surfaced that B0 does NOT close (operator-visible, tracked for B1/B2): (1) FUNDING has no source in the fills store (fetch_my_trades = execution list, no perp funding) -> funding_paid_usd needs a NEW Bybit /v5/account/transaction-log pull (B1); (2) broker SL/TP EXITS fill under an orderId the bot never sees (clients.py:775-778), so the entry-orderId join catches only the ENTRY leg -> the B2 sweep must attribute the exit leg by FIFO over the fills stream (each fill consumed once) rather than a naive time-window join, and netting (two strategies sharing one exchange position) makes per-strategy-trade fee split inherently approximate on a netted account. DECISION FOR OPERATOR before B2 --apply: (a) fees-now / funding-as-B1-later acceptable, or funding required in one slice; (b) exit-leg FIFO attribution method sign-off. No cost overwrite ships until that steer + a dry-run coverage report on the live book.",
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "RESOLVED per ROADMAP M24 P1 (DONE, #6806): fee_*/funding_* columns joined onto trades and populated on the live close path; coverage report bucketed 814 trades (3 broker / 679 estimate / 1 uncosted / 131 r-uncomputable). The net-R label pipeline this item asked for is built and in use by M24 P2 (net-R re-grade, also DONE). Funding=0 residual is tracked separately as MB-20260717-M24-FUNDING-VISIBILITY (kept open)."
+        }
       ],
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updated_at": "2026-07-17T00:00:00+00:00"
+      "updated_at": "2026-07-17T00:00:00+00:00",
+      "resolved_at": "2026-07-22T18:30:00+00:00"
     },
     {
       "id": "MB-20260629-ALLOC-RANKER",
@@ -1332,7 +1463,14 @@
       "resolution_criteria": "A logged decision-time correlation/covariance feature; the allocator's risk-budget term consumes it in shadow and the soak shows it reduces correlated-exposure regret vs the greedy-only selector; the ranker A/B shows the correlation feature adds signal (or an honest negative that it does not).",
       "status": "open",
       "snoozed_until": null,
-      "updated_at": "2026-06-29T13:30:00+00:00"
+      "updated_at": "2026-06-29T13:30:00+00:00",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new evidence this session \u2014 per ROADMAP M24 P3, the correlation/covariance feature work stays blocked on broker-truth cost coverage (still ~99% estimate-sourced per the roadmap note), which is exactly MB-20260717-M24-FUNDING-VISIBILITY's open scope. Kept open; unchanged blocker."
+        }
+      ]
     },
     {
       "id": "MB-20260630-001",
@@ -1368,7 +1506,14 @@
         "2026-07-01 (trainer-vm-diag #5311/#5320/#5321, purged-CV BTC-15m, base vs base+32 tsfm_emb): vol_threshold sweep \u2014 base f1_volatile / (\u0394macro_f1 from embeddings): 0.003=0.38/(+0.052), 0.004=0.30/(+0.037), 0.005[shipped]=0.24/(+0.012), 0.006=0.19/(-0.004). The head's own volatile-class quality and the embedding lift both decay monotonically with the volatile base rate; the shipped 0.005 sits in the weak/marginal zone.",
         "2026-07-16 (POSITIVE FIRST-GATE; candidate manifest btc-regime-15m-lgbm-vt004-pcv-v1, purged 5-fold CV, n_train 175272 / n_eval 87636): a live-faithful mirror of lgbm-v2 with a denser volatile label reads f1_volatile 0.4377 / macro_f1 0.6275 / recall_volatile 0.769 / precision_volatile 0.308 vs the shipped 0.005 head's ~0.24 \u2014 thesis confirmed (0.005 is data-starved; a denser label separates the classes). CAVEAT: the vol_threshold=0.004 build produced a 14.05% volatile base rate (12314/87636), which matches the T1.1 track's 0.003 mapping (0.004\u21927% there), NOT 0.004 \u2014 so the specific operating threshold is NOT pinned; the build-param base-rate semantics disagree across tracks and must be reconciled. Item stays OPEN: live threshold unchanged (0.005); remaining Tier-3 gates = mapping reconcile \u2192 RG4 (scripts/ml/rg4_targeted.sh) \u2192 vol-gate backtest A/B \u2192 operator. Evidence: docs/research/MB-20260701-vt004-evidence-2026-07-16.md."
       ],
-      "status_history": "open 2026-07-01 (M19 T0.1 threshold characterization surfaced that the BTC-15m regime head is data-starved at its shipped 0.005 operating point; filed for the regime track to evaluate the operating threshold on the RG4 axis). 2026-07-16 positive first-gate (purged-CV vt004 probe: f1_volatile 0.44 vs 0.24) but threshold not pinned (base-rate cross-track disagreement) \u2014 stays open pending mapping reconcile + RG4 + vol-gate backtest A/B."
+      "status_history": "open 2026-07-01 (M19 T0.1 threshold characterization surfaced that the BTC-15m regime head is data-starved at its shipped 0.005 operating point; filed for the regime track to evaluate the operating threshold on the RG4 axis). 2026-07-16 positive first-gate (purged-CV vt004 probe: f1_volatile 0.44 vs 0.24) but threshold not pinned (base-rate cross-track disagreement) \u2014 stays open pending mapping reconcile + RG4 + vol-gate backtest A/B.",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Re-scoping note (2026-07-22): this item's premise cites retraining btc-regime-15m-lgbm-v2 to investigate the 0.005 vol_threshold operating point. That model is NO LONGER the live-enforced BTC vol-gate head as of 2026-07-20 (demoted advisory-> shadow; btc-regime-15m-lgbm-fc-pcv-v1 is now advisory and drives the gate \u2014 see the CLAUDE.md correction made this session). Recommend re-scoping the operating-threshold question to whichever head is currently advisory (fc-pcv-v1, or its fresh-data fc-pcv-v2 successor once matured) before doing further work here, since a threshold finding on v2 may not transfer cleanly to the fc-pcv family's different feature/label setup. Kept open."
+        }
+      ]
     },
     {
       "id": "MB-20260703-001",
@@ -1414,6 +1559,13 @@
           "by": "claude (T1.2 A/B session)",
           "note": "Opened on the T1.2 regime-head clean negative; scopes the only remaining place the corpus embedding might pay off."
         }
+      ],
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new evidence this session \u2014 no active experiment currently exercising corpus_emb against a task-matched head. Kept open."
+        }
       ]
     },
     {
@@ -1441,7 +1593,14 @@
         }
       ],
       "detail": " [2026-07-12 M20 update: live soak checked \u2014 23 rows, 7 fc-covered, resolver 85.7% censored, paired n=1. INSUFFICIENT. Re-check ~2026-08-25. sync_trainer_data.sh now mirrors the soak log (was missing).]",
-      "recheck_after": "2026-08-25"
+      "recheck_after": "2026-08-25",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new evidence this session (no live fc-geometry shadow-soak work or simulator-fidelity work observed in this window). Kept open."
+        }
+      ]
     },
     {
       "id": "MB-20260705-FC-ADVISORY-READINESS",
@@ -1453,7 +1612,7 @@
       "tier": "Tier-3 (shadow\u2192advisory is the live money gate, operator-approved). This backlog item is the readiness TRACKER; the promotion itself is proposed only when the criteria below are met.",
       "trigger_condition": "Re-check on each ml-review / system-review: has the BTC+ETH fc shadow soak accrued volatile episodes AND has a fresh-mirror powered RG4 been run? First meaningful re-check ~2026-07-19 (\u22482 weeks soak); firm read once volatile episodes are present.",
       "resolution_criteria": "Either (a) volatile episodes accrued + powered RG4 = TRUSTWORTHY_SIGNAL + head-pinned walk-forward passes \u2192 propose fc\u2192advisory to the operator (Tier-3); or (b) powered RG4 stays anti-predictive \u2192 open a train/serve feature-parity investigation and keep fc at shadow. Resolved when the promotion is made OR the head is demoted/retired.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "evidence_log": [
         "ROADMAP.md T0.4 row \u2014 fc live shadow soak + RG4 low-power watch-flag.",
@@ -1483,8 +1642,14 @@
           "at": "2026-07-21T07:45:00+00:00",
           "by": "system-review-partial-2026-07-21",
           "note": "Partial re-check: this session's stage-guard gate-check pull found btc-regime-15m-lgbm-fc-pcv-v1 already AT advisory stage with only n=3 live closed trades attributed and a NEGATIVE brier_lift (-0.1235, worse than base-rate) -- thin, currently-unfavorable live evidence for a model already influencing orders. drift_verdict='moderate'. This doesn't by itself trip a demote (stage-guard says 'no demote trigger tripped'), but the sample size is razor-thin for a live-influencing model. Flagging for the next full /ml-review to weigh alongside the powered RG4 re-run this item calls for. Not resolved -- kept open."
+        },
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "RESOLVED/superseded by execution. Both cited heads (BTC+ETH... actually BTC+SOL) fc-15m shadow heads were promoted to advisory in the M25 BTC/SOL vol-head promotion (docs/sprint-logs/S-M25-PROMOTION-EXECUTION-20260720.md, operator pre-approved): btc-regime-15m-lgbm-fc-pcv-v1 and sol-regime-15m-lgbm-fc-pcv-v1 both confirmed stage=advisory in this session's registry pull. The readiness question this item tracked has been answered (promote) and executed. The NEW follow-on risk this promotion surfaced (frozen training dataset -> stage-guard now flags both for demote) is tracked by MB-20260720-FCPCV-RETRAIN-NOOP (mitigated) + MB-20260721-FCPCV-V2-SOAK (open, due ~07-28) \u2014 see this run's promotion_recommendations for a fresh read on that risk."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-22T18:30:00+00:00"
     },
     {
       "id": "MB-20260705-META-LABEL-WALL",
@@ -1496,7 +1661,7 @@
       "tier": "Tier 1 (offline research; candidate-stage).",
       "trigger_condition": "Re-run when the harness's pre-cutoff paper n_train approaches ~1x the real n_train (contemporaneous accrual), or a new paper account back-fills history.",
       "resolution_criteria": "Either (a) a pooled-label head clears purged-CV on the real-money slice with a defensible n -> promote-candidate + shadow-soak proposal; or (b) paper->real transfer fails on the real slice -> D2 closes until real labels accrue (account-sizing decision), recorded as an honest negative.",
-      "status": "open",
+      "status": "superseded",
       "snoozed_until": null,
       "evidence_log": [
         "2026-07-05: ranked D2/priority-3 with full external citations in docs/research/M19-next-direction-recommendation-2026-07-05.md section 2 (meta-labeling evidence base, EPV/sample-size arithmetic, augmentation counter-evidence).",
@@ -1516,7 +1681,15 @@
           "by": "claude (M19 overnight session)",
           "note": "Spike A executed - negative (structural: paper history postdates real holdout window). Stays open as an accrual-gated re-run, not an active work item."
         }
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "RESOLVED/superseded \u2014 this is the same D2 label-wall spike tracked (with more detail and actual execution) by MB-20260717-M23-META-LABEL, whose 2026-07-19 update already recorded the outcome: P2 pooled-label (BTC+ETH+SOL x 3 strategies, real+paper) triples the backtest TRAIN pool but the LIVE eval book barely grows (376->383, ETH +7, SOL 0) and the pooled 'won' head FAILS the purged-CV recomputation on the real-money slice \u2014 HONEST NEGATIVE, NO-GO on P3. Closing this duplicate tracker in favour of the M23 item (kept open there) so the same finding isn't tracked twice."
+        }
+      ],
+      "resolved_at": "2026-07-22T18:30:00+00:00"
     },
     {
       "id": "MB-20260712-EXIT-ANALYSIS-COVERAGE",
@@ -1532,6 +1705,11 @@
           "at": "2026-07-19T09:05:00+00:00",
           "by": "claude (ML Tier-1 session 2026-07-19)",
           "note": "Scheduled as research-week WS-B (ROADMAP week plan, operator-approved 2026-07-19) \u2014 start-first since M23 P2b + M20 full-fleet exit analysis + MB-20260530-001 all consume it. Design settled: market_raw-only shards (exit analysis needs candles, not derived features) \u2014 alt-USDT 15m (ADA/AVAX/XRP, Bybit, on the alt parity gate) + equities/metals 1d via the yfinance_offvm adapter (SPY QQQ GLD TLT IWM SLV IEF pass through as their own tickers; MGC via ticker=GC=F)."
+        },
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No fresh confirmation this session that the WS-B market_raw coverage shards (alt-USDT 15m + equities/metals 1d) referenced in the 2026-07-19 update actually landed \u2014 not checked this run. Kept open; recommend a coverage-shard verification next session."
         }
       ]
     },
@@ -1543,7 +1721,15 @@
       "title": "Train a dedicated EXIT head: P(recover >= X R from here) over in-trade state",
       "detail": "Experiment spec: build a per-bar in-trade dataset from historical closed trades (features: age_bars, open_r, mfe_so_far, mae_so_far, chop_frac_so_far, dist-to-trail in R, native-TF vol/trend features; label: whether the trade's FINAL realized R exceeds its current mark by >= +0.25R, i.e. 'holding from here paid'). scripts/research/m20_exit_analysis.py::trade_path already computes the path primitives; the label needs no simulation (pure truncation observables, same honesty as the M20 memo counterfactuals). Train LightGBM per timeframe-family; evaluate OOS AUC + a threshold sweep as an exit trigger vs the shipped hard stale-stop. Gate: only worth wiring if it beats the hard rule's delta on the same history. Second experiment: fc-range-scaled TRAIL distance (trail_mult x fc_range_rel/median) evaluated with the same harness lever pattern. UPDATE 2026-07-12 (E0 done): first E0 build landed on the trainer (#6176/#6181/#6182) \u2014 datasets-out/exit_head/{1h,2h}: donchian 34,919 rows (1,662 harness + 15 live trades, holding_pays 20.7%), pullback 30,512 rows (614 harness + 26 live, holding_pays 28.9%). Pullback-2h CLEARS the E1 coverage gate (>=300 harness AND >=20 live); donchian-1h at 15/20 live. NEXT: E1 \u2014 LightGBM holding_pays/future_r_delta heads with purged walk-forward + offline policy replay per docs/research/M20-exit-head-PROGRAM.md \u00a7 E1; train-on-harness/validate-on-live distribution check is the hard stop. UPDATE 2026-07-12 (E1 done, #6184/#6186): pullback-2h FAIL (fold AUCs 0.47-0.54, chance-level \u2014 honest negative, hard levers stand). Donchian-1h PROMISING below-gate: AUC 0.56-0.62 every fold; tau=0.1 policy beats actual on maxDD and net_R/pos-day in 5/5 folds and on aggregate net_R (86.3 vs 73.7) but loses the big trend years (2023/2024) and the n=15 live set disagrees in sign. E1->E2: no pass. QUEUED: (a) E1.5 conditional policy shapes on donchian (arm head only in chop states, protect the tail); (b) re-run live half at donchian live>=20 trades; (c) pullback ML parked absent new features. Evidence: memo section 8. UPDATE 2026-07-12 (E1.5 done, #6193/#6194): conditional shape below_half_r@tau0.1 on donchian-1h PASSES every E1->E2 criterion \u2014 beats actual on net_R AND maxDD AND net_R/pos-day in 5/5 folds incl. the trend years (aggregate 133.9 vs 73.7 net_R at ~half the dd/hold), beats both hard levers everywhere, live n=15 agrees in sign (rpd 3x better). Pullback remains FAIL. E2 live-shadow graduation PROPOSED to operator (Tier-2, observe-only; closes the 15/20 live-coverage formality by accruing the live track record). Evidence: memo section 9. UPDATE 2026-07-12 (E2 LIVE, #6196 + guard fix #6201): operator approved (Tier-2, 'ok continue'). Observe-only scorer src/runtime/exit_head_shadow.py hooked into trend_donchian.monitor(); artifact exit-head-donchian-1h-v1 (34,338 rows / 1,662 trades, shape below_half_r@tau0.10, stage shadow) exported on the trainer and delivered via the trainer mirror (publish_trainer_mirror.sh -> trainer_mirror/exit_head/). VERIFIED SCORING LIVE: first record 13:01:50Z on the open BTC donchian trade (P(pays)=0.158, would_exit:false). Incident fixed forward: the shared donchian-family monitor let the crypto-1h head score iwm_trend_long_1d (2 out-of-distribution exit_lever_soak rows) -> fail-closed in-distribution guard (meta timeframe == artifact tf; symbol in artifact symbols allowlist) + exporter embeds symbols; EXCLUDE the 2 pre-guard IWM rows when analyzing the soak. SOAK PLAN (2-4 weeks): live-vs-offline feature parity check + realized future_r_delta of would-exit flags; E3 (head drives a real exit) is Tier-3 behind this track record.",
       "severity": "medium",
-      "status": "in_progress"
+      "status": "resolved",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "RESOLVED \u2014 the dedicated EXIT head program this item asked for shipped end-to-end per ROADMAP M20 (2026-07-12 sprint): E1.5 donchian-1h P(recover) head PASSED (conditional below_half_r@tau0.1 beats actual on net_R+maxDD+net_R/pos-day in 5/5 folds incl. trend years), E2 live-shadow verified, **E3 LIVE 2026-07-12** (operator-approved, artifact promoted to advisory) \u2014 `exit-head-donchian-1h-v1` now drives real closes on BTC/ETH/SOL 1h donchian trades (first real-money head-driven close verified clean, trade 3344, +0.36R). NOTE for future reviews: this model family lives in a SEPARATE artifact store (runtime_logs/trainer_mirror/exit_head/*.json via src/runtime/exit_head_shadow.py), NOT `ml/registry-store` / `python -m ml list-models` \u2014 it will not appear in this skill's standard model_status[] scan; verified this session via a direct trades/scores pull (exit-head-donchian-1h-v1 stage=advisory, exit-head-donchian-peak-1h-v1 stage=shadow, both actively scoring, count=16 each as of 2026-07-21/22). Remaining exit-head scope (equities E0, MES/MGC/MHG native history, peak-head parity->promotion) stays open under the sibling MB-20260712-EXIT-HEAD-REMAINING-ROUNDS."
+        }
+      ],
+      "resolved_at": "2026-07-22T18:30:00+00:00"
     },
     {
       "id": "MB-20260712-SHADOW-LOG-HISTORY",
@@ -1553,14 +1739,28 @@
       "title": "Shadow-prediction history horizon limits trade-vs-score research joins",
       "detail": "Confirm whether the live VM rotates/truncates shadow_predictions.jsonl (or whether the sync started fresh); if history exists elsewhere (backfill log, rotated files), extend the sync so research joins reach further back. Also note the vol-regime heads' scores cluster >= 0.6 in the current window - worth a calibration look in the next /ml-review.",
       "severity": "low",
-      "status": "open"
+      "status": "open",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new evidence this session. Kept open."
+        }
+      ]
     },
     {
       "id": "MB-20260712-EXIT-HEAD-REMAINING-ROUNDS",
       "status": "open",
       "created": "2026-07-12",
       "title": "Exit-head remaining rounds: equities E0 + MES/MGC/MHG native history",
-      "detail": "Rounds 2-3 (4h donchians, 2h alt pullbacks) E1 GATE FAIL \u2014 honest negatives (runtime_logs/m20_exit_head/{4h,2h} on trainer; sprint log S-M20-EXIT-REFINEMENT-2026-07-12). Remaining exit_head_ml matrix gaps: equities 1h/1d E0 datasets (yfinance-sourced candles OK \u2014 native venue), and MES/MGC/MHG which need native IBKR history (proxy OK for levers, NOT for head training). One command per round: scripts/research/m20_exit_head_round.py."
+      "detail": "Rounds 2-3 (4h donchians, 2h alt pullbacks) E1 GATE FAIL \u2014 honest negatives (runtime_logs/m20_exit_head/{4h,2h} on trainer; sprint log S-M20-EXIT-REFINEMENT-2026-07-12). Remaining exit_head_ml matrix gaps: equities 1h/1d E0 datasets (yfinance-sourced candles OK \u2014 native venue), and MES/MGC/MHG which need native IBKR history (proxy OK for levers, NOT for head training). One command per round: scripts/research/m20_exit_head_round.py.",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Confirmed still-open scope per ROADMAP M20's own 'remaining gaps' note: equities exit-head E0 rounds, MES/MGC/MHG native IBKR history (proxy OK for hard levers, not for ML heads). No new work observed this session. Kept open."
+        }
+      ]
     },
     {
       "id": "MB-20260713-PEAK-HEAD-E3",
@@ -1626,7 +1826,13 @@
       "description": "Slice B delivered clean per-trade broker-truth fees (fee_taker_usd/fee_maker_usd) + funding (funding_paid_usd). P1: build a pure net_R=(gross_pnl-fees-funding)/risk_usd label pipeline + coverage report (broker vs estimate vs uncosted, by cell). P2: net-R re-grade of the M7 review aggregates + exit-refinement matrix (flag sign-flips vs estimate). P3: feed measured net-R + the correlation feature (MB-20260629-ALLOC-CORR) into allocator_ev + re-run the sizing-normalized A/B. P4: within-tick contrastive net-R ranker (the other T1.3 unlock). P1/P2 Tier-1 offline; P3/P4 observe-only until a sizing-normalized A/B passes + operator. Anchors MB-20260629-ALLOC-COSTCAP (delivered), MB-20260629-ALLOC-CORR, MB-20260530-001.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Re-validated against ROADMAP M24: P1 (net-R label pipeline) + P2 (net-R re-grade) both DONE; P3 (cost-aware EV refresh) + P4 (within-tick net-R ranker) remain Tier-3-blocked on broker-truth cost coverage (99% still estimate-sourced) \u2014 same blocker as MB-20260717-M24-FUNDING-VISIBILITY. No new evidence this session beyond the roadmap cross-check. Kept open."
+        }
+      ]
     },
     {
       "id": "MB-20260717-M23-META-LABEL",
@@ -1647,6 +1853,11 @@
           "at": "2026-07-19T11:20:00+00:00",
           "by": "claude (ML continuation session 2026-07-19, successor)",
           "note": "P2 (3-symbol label-volume pooling) COMPLETE \u2014 HONEST NEGATIVE, NO-GO on P3 (docs/research/M23-phase2-labelvol-findings-2026-07-19.md). Pooling BTC+ETH+SOL x 3 strategies tripled the backtest TRAIN pool (1,685->5,077 rows, 9/9 legs emitted) but the LIVE eval book grew 376->383 only (ETH +7, SOL 0 \u2014 the roster has ~no real closed trades off BTC). Pooled `won` head FAILS the recomputed gate (acc 0.7258 < majority 0.7311; prec 0.2500 < base 0.2689); pooled `won_r` C1 never crosses net-positive at any threshold (tau=0.5 best n=1 @ -3.93R; tau=0.75 best n=3 @ -2.78R) \u2014 it LOST P1's n<=11 positive tip (cross-symbol dilution). The label wall is EVAL-side; pooled backtests cannot manufacture real labels. NEXT LEVER = P2b eval-side coverage: rerun with the FULL real closed-trade fleet as the eval book once the WS-B candle shards (alt-USDT 15m + equities/metals 1d, PR #6934) land with the next nightly build (216/491 closed trades currently have no shard). Otherwise: time (quarterly re-run of the same harness); no more target/model/pooling variants \u2014 three independent levers have converged on the same wall."
+        },
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new label-volume lever attempted this session. Per the existing 2026-07-19 update, P2 (3-symbol pooling) is a confirmed HONEST NEGATIVE / NO-GO on P3 \u2014 'P2 next lever is label volume' in the title still needs an owner/idea. Kept open. (Also now the canonical home for the duplicate MB-20260705-META-LABEL-WALL tracker, closed as superseded this session.)"
         }
       ]
     },
@@ -1663,6 +1874,11 @@
         {
           "at": "2026-07-17T17:35:00+00:00",
           "note": "P1 sub-item 'fix promotion-readiness CLI to parse exit/peak-head shadow records (MB-20260716)' is ALREADY DONE on main via #6570 (row_keys derived from feature_row). Remaining P1: confirm rg4_targeted.sh runs clean + fix frozen MES base if stale. P2 (powered RG4 sweep) awaits soak maturation (fc re-check ~2026-07-20, ETH/SOL ~2026-08-01)."
+        },
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Re-validated 2026-07-22: remaining P1 sub-item ('fix frozen MES base if stale') is now confirmed DONE \u2014 MB-20260719-MES-BASE-RTH-ONLY resolved this session, the RTH fix verified holding live during the 2026-07-20/21 MES re-cert. P2 (powered RG4 sweep across the maturing soak roster) is still blocked: MB-20260719-PROMOREADY-OOSEDGE-OOM (the sweep's memory-thrash bug) was NOT re-verified fixed this session \u2014 this review deliberately ran `stage-guard` WITHOUT `--datasets-root` to avoid re-triggering it, so the full powered-RG4 sweep still can't be safely run fleet-wide; per-model `gate-check` remains the safe path (as already used for the BTC/SOL/MES promotion packets). Kept in_progress."
         }
       ]
     },
@@ -1680,6 +1896,11 @@
           "at": "2026-07-18T07:05:00+00:00",
           "by": "claude (M24 cost-coverage diagnostic, 2026-07-18)",
           "note": "DIAGNOSED (issue #6831 backfill-broker-truth-costs dry-run). The fee-coverage bottleneck is NOT the join key -- 691/814 closed trades already carry broker_order_id. It is fill availability + netting: only 98 fills in the store (recent ~7d window), 682 join-keyed trades have NO matching fill, and even in-window bybit_2 partial-fill netting leaves 5 ambiguous -> 0 new clean broker-truth attributions. Widening the puller --days is a DEAD lever: broker-truth is bybit-only (BROKER_PNL_READER_EXCHANGES={bybit}), the puller does a single non-paginated fetch_my_trades call, and Bybit execution retention aged out the 682 historical fills. CONCLUSION: all three cost gaps (realized-PnL under-record BL-20260713 + funding=0 + fee coverage) collapse to ONE operator action -- a Bybit UM trade-history + funding export -> an offline reconciled broker-truth cost+funding ledger (extend comms/broker_truth_ledger.json). Data-origination operator hand-off, not a tooling change. Automation is exhausted here. Details: docs/research/M24-net-r-regrade-findings-2026-07-17.md section Cost-coverage diagnostic."
+        },
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new evidence this session (broker-truth / bybit_2 funding cols not re-queried this run). Kept open; this is the blocker cited by MB-20260629-ALLOC-CORR and MB-20260717-M24-NET-R P3/P4."
         }
       ]
     },
@@ -1724,7 +1945,8 @@
           "by": "system-review-partial-2026-07-21-corrected",
           "note": "CORRECTION of my own 07:45 escalation note, which was based on stale backlog data. A live gate-check dispatched this session (issue #7299) shows the swap ALREADY EXECUTED: btc-regime-15m-lgbm-fc-pcv-v1 is now at current_stage='advisory' and btc-regime-15m-lgbm-v2 is now at current_stage='shadow', both flipped at the identical timestamp 2026-07-20T19:54:13+00:00 -- i.e. this Tier-3 decision was made and actioned about 12 hours before this /system-review session started, not 'sitting un-actioned' as I incorrectly flagged. Fresh live evidence validates it was the right call: fc-pcv-v1 now reads live_regime_discrimination AUC=0.611 (passes the 0.55 bar) vs v2's AUC=0.175 (badly anti-predictive, well below random-guess 0.5) now safely demoted to shadow-only. Neither model's OWN gate-check is fully 'ready' yet (fc-pcv-v1 blocked on sample_sufficiency/shadow_soak/live_parity -- only 0.5 days at advisory, 3 live trades scored, 14 live-parity rows vs the 20 needed) -- consistent with an explicit Tier-3 operator override on strong AUC evidence rather than an automatic gate-clear, which is the correct/expected shape for this kind of call. RESOLVED. Root cause of the stale backlog: the item's own status field was never updated when the swap landed -- flagging this as a process gap (a Tier-3 flip should update its own tracking backlog item in the same session/PR it ships in) worth a health-review-backlog note."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-21T07:58:00+00:00"
     },
     {
       "id": "MB-20260719-DATASET-AUDIT-NOISE",
@@ -1743,6 +1965,11 @@
           "at": "2026-07-19T12:30:00+00:00",
           "by": "claude (WS-A session, operator directive 2026-07-19)",
           "note": "PRIORITY RAISED \u2014 operator directive 2026-07-19 (see-something-say-something rule, PR #6956): this item is now the poster child for the normalization failure mode. 62/86 manifests alarming made the audit background noise, which concealed the ETH-xa dead-feature bug through weeks of soak. Fix shape: make the audit HIGH-PRECISION (alarm only on decision-relevant defects: dead/zero-variance features, label-coverage collapse, train/serve divergence) so that ANY alarm demands action, and wire it into the ml-review soak-integrity audit (skill updated in PR #6953). Target: alarms drop to near-zero baseline; an alarm becomes a stop-the-line signal, not wallpaper."
+        },
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Re-validated 2026-07-22 with fresh data (the mandatory soak-integrity audit for this run): runtime_logs/trainer/dataset_audit.jsonl (671 total rows) \u2014 last 500 rows show 200/500 (40%) flagged, essentially the full manifest roster flagged repeatedly (BTC regime/direction manifests + utility baselines each appear flagged 8-9 times, i.e. every cycle in the file's history). This is down from the 2026-07-19 finding of 62/86 (~72%) manifests-per-night, so SOME improvement has occurred, but the de-noise/enforcement fix (expected-dead whitelist, FLAGGED->skip enforcement) described in this item has NOT yet shipped \u2014 every flagged row this session still reads 'observe-only, still training' in the cycle log, and the audit remains blanket rather than high-precision. Concrete diagnostic lead for whoever picks this up: sampled row for trade-outcome-lgbm-v1 shows 'killzone' and 'bias' columns at nan_fraction=1.0 tripping quarantine:true \u2014 these look like dataset-wide audited columns that may not even be in this manifest's own trainer_config.feature_columns (worth checking whether the audit scores the full dataset schema instead of just the manifest's declared feature list, per the original F3 hypothesis). Kept open, still Tier-1/P1 per the operator's 2026-07-19 priority raise."
         }
       ]
     },
@@ -1758,7 +1985,13 @@
       "resolution_criteria": "A misspelled build param produces a loud warning or error in the build log, with a test.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new evidence this session (no dataset-family CLI work touched). Kept open."
+        }
+      ]
     },
     {
       "id": "MB-20260719-M26-TRANSITION-CONFLICT",
@@ -1782,6 +2015,11 @@
           "at": "2026-07-19T17:05:00+00:00",
           "by": "claude (ML continuation session 2026-07-19)",
           "note": "P0 FULL-COVERAGE rerun on all 20 WS-B shards (121 measured pairs, was 98): every headline survives. Blanket flip dead (paper flip -$17.3k); cross-TF>=4x benign (held +$4.7k); SHARPENED: same/near-TF conflicts lose BOTH ways (held -$3.0k, flip -$7.1k, close beats hold 65.8%) -> the P3 primary arm is transition-triggered EXIT-TIGHTEN/flatten (M20 levers), confidence-gap flip demoted to secondary. Per-class split decisive: htf_pullback_trend_2h 93.6% held-worse -$6.0k vs trend_donchian hold +$10.1k. Full results in the findings doc full-coverage section. Next: P1 taxonomy implementation."
+        },
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new evidence this session on M26 P0 bleed quantification. Kept open."
         }
       ],
       "updated_at": "2026-07-19T17:05:00+00:00"
@@ -1798,7 +2036,13 @@
       "resolution_criteria": "The per-(symbol,strategy) breakdown prints without a traceback on a P2b run.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "No new evidence this session (cosmetic bug, no m23_phase2_labelvol.sh run observed this window). Kept open, low priority."
+        }
+      ]
     },
     {
       "id": "MB-20260719-MES-BASE-RTH-ONLY",
@@ -1808,7 +2052,7 @@
       "source": "WS-A MES RG4 re-read after the 07-19 base refresh: unlabeled stayed 1215/1863 despite fresh coverage through 07-17 20:55Z. Per-day diagnostic (trainer-diag #6984/#6985/#6986): datasets-out/market_raw/MES/5m/v002 has EXACTLY 90 bars/day, 13:30:00Z-20:55:00Z, zero intra-day gaps -- a US-RTH window -- while mes-regime-5m-lgbm-v2 logs ~255-260 shadow rows/day across the full CME session. 90/260 = 0.346 matches the labeled fraction 648/1863 = 0.348 exactly. The 44-day-freeze fix (BL-20260626-MES-BASE-STALE) solved staleness but NOT this: the labeling ceiling is structural session-window coverage, not recency.",
       "description": "Root-cause which layer forces RTH: scripts/ops/pull_mes_ibkr_history.sh passes use_rth=false to ml/datasets/percontract_pull.py (and adapters/ibkr_offvm.py defaults use_rth=False), yet the v002 rows (source=ibkr_offvm) are strictly 13:30-21:00Z. Suspects: (a) the continuous/resample stitcher (ml/datasets/continuous.py) dropping overnight bars, (b) the cycle's yfinance fallback rebuild writing RTH-shaped rows that keep the inherited source tag, (c) an IBKR-side whatToShow/contract-hours interaction. FIX = full-session MES 5m base. Payoff is immediate and retroactive: the 1215 already-logged unlabeled shadow rows re-label on the next RG4 read once overnight bars exist (~3x power without waiting weeks). SECONDARY finding: the head TRAINED on this RTH-only base but live-scores the full session -- 2/3 of its live scores are out-of-distribution vs training hours; the promotion packet must either restrict the head's influence to RTH or retrain on the full-session base.",
       "resolution_criteria": "MES/5m market_raw base carries the full CME session (~250+ bars/trading day); a fresh RG4 read shows unlabeled fraction < 0.2; the train-hours vs serve-hours mismatch is dispositioned (retrain on full-session base OR RTH-scoped serving) before any MES promotion packet goes to the operator.",
-      "status": "open",
+      "status": "resolved",
       "tier": "T1",
       "trigger_condition": "Before the mes-regime-5m-lgbm-v2 Tier-3 promotion packet (MB-20260627-002); also unblocks the M26 P0 MES episode coverage.",
       "updated_at": "2026-07-20T06:10:00+00:00",
@@ -1833,8 +2077,14 @@
           "at": "2026-07-20T06:10:00+00:00",
           "by": "claude (ML continuation session, overnight 2026-07-20)",
           "note": "OVERNIGHT ARC COMPLETE. (1) First automatic nightly pull on fixed code: 57,495 full-session rows -- fix permanent. (2) Nightly cycle retrained mes-regime-5m-lgbm-v2 on the full-session base (01:38Z run): macro_f1 0.7126, f1_volatile 0.6712 (RTH-era heads ~0.27). (3) DECISION-GRADE RG4 PASS: AUC 0.7217 TRUSTWORTHY, POWERED 660/40 vol bars across 19/5 episodes -- first fully-powered trustworthy regime read in the program; threshold correctly resolved from build_params metadata (#7015 fix verified). (4) gate-check: 8 gates PASS incl. oos_edge +0.365 macro_f1 purged-WF, ONE blocker: live_parity -- serving-fidelity 100% mismatch (transient: logged rows scored by the OLD artifact; clears as fresh rows accrue) + dead-on-live flags that were mostly FALSE POSITIVES from an over-broad universe (the check compared ALL dataset columns; the head consumes only 7 features, none macro). Fixed: dead-feature universe now scoped to the manifest's declared feature_columns (fallback to full universe when undeclared) + 2 regression tests. Remaining before the packet: re-certify with the scoped check once fresh live rows accrue from the retrained artifact (live VM registry sync), and confirm vol_bucket (a genuinely consumed feature) varies live."
+        },
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "RESOLVED. Per docs/research/overnight-2026-07-20-morning-packets.md (MES re-cert 2026-07-20/21): gate-check on fresh post-CME-open data shows 'zero dead features (the RTH fix + fixed instrument both holding)' and labels_accruing 0.85 (15% unlabeled, under the <0.2 bar this item set). The MES base RTH-only defect is fixed and the fix is holding live; mes-regime-5m-lgbm-v2 promotion (MB-20260627-002) rode on this fix."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-22T18:30:00+00:00"
     },
     {
       "id": "MB-20260719-PROMOREADY-OOSEDGE-OOM",
@@ -1854,7 +2104,13 @@
           "note": "trainer-diag #6978/#6979 (first kill: 4.94GB D-state 2h18m, WS-B flock waiter rescued with seconds to spare), #6991/#6992 (second thrash on parity code: 4.98GB at 57min, inputs tiny, journal silent after heavy_lock_acquired), #6993 (kill + no-datasets-root relaunch). stage_guard.py notes the sweep already passes None for the parity gates pending per-model resolution -- the same follow-up should carry the subprocess isolation."
         }
       ],
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Not independently re-verified this session \u2014 this review deliberately invoked `python -m ml stage-guard --db data/trade_journal.db` WITHOUT `--datasets-root` specifically to avoid re-triggering the inline compute_oos_edge OOM path this item describes (consistent with the item's own documented interim workaround). So neither the regression nor a fix was exercised this run; trainer memory read healthy at snapshot time (3.5GB free of 5.9GB) but that is a point-in-time idle read, not evidence the sweep is safe under --datasets-root. Kept open; recommend a dedicated bounded-subprocess verification (per-model timeout + a MemoryMax cgroup cap on the readiness unit) before next attempting the full sweep."
+        }
+      ]
     },
     {
       "id": "MB-20260720-LIVE-SERVING-PARITY-SKEW",
@@ -1888,6 +2144,11 @@
           "at": "2026-07-21T06:40:00+00:00",
           "by": "claude (ML-continuation session, operator-approved rec #2)",
           "note": "ROOT CAUSE FOUND + DURABLE FIX SHIPPED (PR #7252, c4fe60d3). The fc-pcv heads train on the fc_* quantile-forecast block, which market_features as-of joins from a forecast TRAINING side-stream (datasets-out/forecasts/<sym>/15m). That side-stream was only ever written by a manual build_forecasts.py run \u2014 the nightly build_trainer_datasets.sh rebuilt market_raw but never the forecast side-stream \u2014 so it FROZE ~Jul 1 (BTC) / Jul 6 (SOL), pinning the fc-pcv datasets (v520/v530) to stale dates and making the nightly retrains byte-identical no-ops. LIVE SERVE was never affected (publish_live_forecasts refreshes the live fc_* serve artifacts every ~15m; verified all six fc_* present in the live advisory head's row_keys). FIX: build_trainer_datasets.sh now rebuilds the forecast side-stream nightly (build_forecast_sidestream) and builds BTC/SOL 15m market_features WITH forecast_path so v002 15m carries fresh fc_* (no explicit params \u2014 anchors to forecast_features.py DEFAULT_* like the live serve, so train==serve). Two fresh-data siblings btc/sol-regime-15m-lgbm-fc-pcv-v2 (dataset v002, target shadow) trained on the seeded v002 (VERDICT=FC_POPULATED) and confirmed SOAKING at shadow; they soak beside the frozen v1 advisory heads toward a future gate-checked shadow->advisory swap (Tier-3). RESIDUAL (why 'mitigated' not 'resolved'): the OTHER heads this item flagged remain intentionally frozen \u2014 eth-regime-15m-lgbm-selfonly-v901ctrl (the xasset experiment control, KEPT for the comparison, retires with the experiment) and execution-quality/setup-quality baselines v001 (deliberate constant baselines, ~zero stakes). The skip-guard (dataset_unchanged_check.py) already suppresses their no-op retrains. Close this item once the v2 siblings pass their gate-check and swap in for v1."
+        },
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Re-validated 2026-07-22 \u2014 the predicted consequence has now materialized mechanically: this session's `stage-guard` proposes DEMOTE for BOTH advisory fc-pcv heads. btc-regime-15m-lgbm-fc-pcv-v1: drift_verdict=moderate, but live attribution shows AUC=0.25 (inverted) and brier_lift=-0.259 (worse than base rate) \u2014 HOWEVER on only n=4 joined trades, too thin to act on alone. sol-regime-15m-lgbm-fc-pcv-v1: drift_verdict=significant (KS 0.232, PSI 0.170), no attribution/AUC available (insufficient joined trades). Per this session's promotion_recommendations, NOT recommending an immediate reactive demotion (n=4 is not statistically meaningful and the pre-approved plan is already to swap to the fresh-data v2 siblings once they mature, ~2026-07-28, MB-20260721-FCPCV-V2-SOAK) \u2014 but flagging this to the operator now as a 'watch closely, consider moving up the swap date if BTC's inverted-AUC read persists on more data' item. Kept at 'mitigated' (not resolved \u2014 the underlying frozen-dataset condition is still live and now showing real symptoms)."
         }
       ]
     },
@@ -1898,7 +2159,14 @@
       "status": "open",
       "title": "fc-pcv v2 fresh-data siblings: watch the soak, gate-check + swap for the frozen v1 advisory heads when mature",
       "detail": "btc/sol-regime-15m-lgbm-fc-pcv-v2 (PR #7252, dataset v002, shadow) started soaking 2026-07-21 on genuinely-fresh data (nightly forecast-side-stream rebuild). They are the fresh-data counterparts to the FROZEN v1 advisory heads (btc/sol-regime-15m-lgbm-fc-pcv-v1, trained on v520/v530 ending ~Jul 1/6, MB-20260720-FCPCV-RETRAIN-NOOP). When v2 has >=7d shadow soak, run the M25 gate-check and, if v2 clears AND beats v1 on the required gates, propose the Tier-3 shadow->advisory swap (promote v2->advisory, demote v1->shadow) so the live BTC vol gate runs on fresh data. Verify the nightly is actually keeping the forecast side-stream + v002 15m fc_* fresh (the fix's durability) on the next few /ml-reviews.",
-      "trigger_condition": "Next /ml-review after ~2026-07-28 (>=7d v2 soak)."
+      "trigger_condition": "Next /ml-review after ~2026-07-28 (>=7d v2 soak).",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Health-check this session (not yet due \u2014 trigger is next /ml-review after ~2026-07-28): both fresh-data v2 siblings are accruing on schedule \u2014 btc-regime-15m-lgbm-fc-pcv-v2 (shadow, 148 predictions since the 2026-07-21 start) and sol-regime-15m-lgbm-fc-pcv-v2 (shadow, 144 predictions) both read drift verdict=insufficient_data, which is the expected/correct read for a ~1-2 day old soak clock, not a red flag. No stalls, no errors. Given this session ALSO found the frozen v1 siblings now failing live gates (MB-20260720-FCPCV-RETRAIN-NOOP), the swap timeline may be worth accelerating if v2 clears a shortened powered check early \u2014 noting this for the operator's 2026-07-28 decision point. Kept open."
+        }
+      ]
     },
     {
       "id": "MB-20260721-MES-15M-HEAD-PARKED",
@@ -1906,8 +2174,15 @@
       "priority": "P3",
       "status": "open",
       "title": "15m MES regime head (mes-regime-15m-lgbm-v2) reads gate-ready \u2014 decide whether a 2nd same-symbol advisory head is wanted",
-      "detail": "During the MES 5m re-cert (2026-07-20), the context gate-check showed mes-regime-15m-lgbm-v2 ALSO reads ready:true (all 8 required gates). NOT promoted \u2014 only the 5m head was operator-pre-approved. PARKED pending a design decision: the ML vol-verdict resolves the advisory head PER-SYMBOL (ml_vol_regime_for_symbol), so promoting a 2nd MES advisory head at a different timeframe raises a which-head-wins resolution question that needs answering before it would be safe/meaningful to promote. If a 2nd MES head is wanted, first define the per-symbol multi-timeframe advisory-head resolution (or confirm the 5m head is sufficient and close this)."
+      "detail": "During the MES 5m re-cert (2026-07-20), the context gate-check showed mes-regime-15m-lgbm-v2 ALSO reads ready:true (all 8 required gates). NOT promoted \u2014 only the 5m head was operator-pre-approved. PARKED pending a design decision: the ML vol-verdict resolves the advisory head PER-SYMBOL (ml_vol_regime_for_symbol), so promoting a 2nd MES advisory head at a different timeframe raises a which-head-wins resolution question that needs answering before it would be safe/meaningful to promote. If a 2nd MES head is wanted, first define the per-symbol multi-timeframe advisory-head resolution (or confirm the 5m head is sufficient and close this).",
+      "updates": [
+        {
+          "at": "2026-07-22T18:30:00+00:00",
+          "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
+          "note": "Re-validated 2026-07-22: mes-regime-15m-lgbm-v2 registry confirms stage=shadow (unchanged, not promoted), macro_f1=0.6988, trend=degraded this cycle. No new design decision made this session on the multi-timeframe-advisory-head resolution question. Kept open."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-07-18T10:15:00+00:00"
+  "updated_at": "2026-07-22T18:50:00+00:00"
 }
