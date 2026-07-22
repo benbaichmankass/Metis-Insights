@@ -54,7 +54,7 @@ def decide(manifest_path: str, datasets_root: str, registry_root: str) -> str:
                 d = json.load(open(p, encoding="utf-8"))
             except Exception:  # noqa: BLE001 — sibling artifacts are not entries
                 continue
-            if d.get("model_id") != m.model_id:
+            if not isinstance(d, dict) or d.get("model_id") != m.model_id:
                 continue
             for r in d.get("runs") or []:
                 at = dt.datetime.fromisoformat(str(r["at"]))
