@@ -48,6 +48,32 @@ exempt:
       static config can't reproduce faithfully; shipped on the independently
       passing ungated evidence instead). No live regime head is trained for
       AVAXUSDT. Revisit once one is registered.
+  ict_scalp_xrp_15m:
+    tracking_id: M27-P1-15M-2026-07-22
+    added: '2026-07-22'
+    reason: >-
+      M27 P1 15m net-of-fee k-fold passed (baseline 4/4 folds +20.66R AND
+      off_cells 4/4 +15.89R). Ungated baseline is independently sufficient. No
+      live regime head is trained for XRPUSDT/15m, so a config/regime_policy.yaml
+      cell would resolve vol_regime="unknown" and silently never fire. bybit_1
+      paper soak (operator-approved 2026-07-22); revisit once an XRP 15m regime
+      head is registered. Proposal:
+      docs/research/M27-P1-15m-promotion-proposal-2026-07-22.md.
+  ict_scalp_eth_15m:
+    tracking_id: M27-P1-15M-2026-07-22
+    added: '2026-07-22'
+    reason: >-
+      M27 P1 15m net-of-fee k-fold passed (baseline 3/4 folds +23.28R; off_cells
+      4/4 +14.31R exp 0.142). Ungated baseline clears >=3/4. No live regime head
+      for ETHUSDT/15m, so a regime_policy cell would resolve "unknown" and never
+      fire. bybit_1 paper soak (operator-approved 2026-07-22).
+  ict_scalp_sol_15m:
+    tracking_id: M27-P1-15M-2026-07-22
+    added: '2026-07-22'
+    reason: >-
+      M27 P1 15m net-of-fee k-fold passed (baseline 3/4 folds +26.47R;
+      off_cells 2/4 — baseline is the stronger config). Ungated. No live regime
+      head for SOLUSDT/15m. bybit_1 paper soak (operator-approved 2026-07-22).
 
 # Live strategies with NO description entry are tracked here so the guard's
 # description check passes while the copy is written. Empty = all have descriptions.
