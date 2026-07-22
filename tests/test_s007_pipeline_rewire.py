@@ -68,7 +68,12 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         # M27 P0 Batch-1 alt variants (2026-07-21, Tier-3, operator-approved
         # promotion): execution:live demo-soak on bybit_1 only.
         "ict_scalp_avax_5m",
+        # M27 P1 15m alt legs (2026-07-22, Tier-3, operator-approved) — sorted
+        # positions interleave with the 5m legs.
+        "ict_scalp_eth_15m",
+        "ict_scalp_sol_15m",
         "ict_scalp_sol_5m",
+        "ict_scalp_xrp_15m",
         "ict_scalp_xrp_5m",
         "ief_pullback_1d",
         "iwm_trend_long_1d",
