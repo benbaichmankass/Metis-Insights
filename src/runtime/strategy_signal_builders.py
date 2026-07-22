@@ -813,6 +813,25 @@ def ict_scalp_avax_5m_signal_builder(settings: dict) -> Dict[str, Any]:
     return _ict_scalp_variant_builder("ict_scalp_avax_5m", settings)
 
 
+def ict_scalp_xrp_15m_signal_builder(settings: dict) -> Dict[str, Any]:
+    """ict_scalp on XRPUSDT 15m (M27 P1: STRONG PASS, baseline k-fold 4/4 +20.66R AND
+    off-cells 4/4 +15.89R). bybit_1 paper soak; the variant builder reads the 15m
+    timeframe from config. Evidence: docs/research/M27-P1-15m-findings-2026-07-22.md."""
+    return _ict_scalp_variant_builder("ict_scalp_xrp_15m", settings)
+
+
+def ict_scalp_eth_15m_signal_builder(settings: dict) -> Dict[str, Any]:
+    """ict_scalp on ETHUSDT 15m (M27 P1: PASS, baseline k-fold 3/4 +23.28R;
+    off-cells 4/4 +14.31R exp 0.142). bybit_1 paper soak."""
+    return _ict_scalp_variant_builder("ict_scalp_eth_15m", settings)
+
+
+def ict_scalp_sol_15m_signal_builder(settings: dict) -> Dict[str, Any]:
+    """ict_scalp on SOLUSDT 15m (M27 P1: PASS, baseline k-fold 3/4 +26.47R,
+    baseline the stronger config). bybit_1 paper soak."""
+    return _ict_scalp_variant_builder("ict_scalp_sol_15m", settings)
+
+
 def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     Fetch OHLCV candles from the configured exchange and return a VWAP
@@ -5464,6 +5483,11 @@ for _builder, _monitor_unit in (
     (ict_scalp_sol_5m_signal_builder, "ict_scalp"),
     (ict_scalp_xrp_5m_signal_builder, "ict_scalp"),
     (ict_scalp_avax_5m_signal_builder, "ict_scalp"),
+    # M27 P1 15m legs (XRP/ETH/SOL) — bybit_1 paper soak (2026-07-22); reuse the
+    # ict_scalp unit's monitor() for break-even trail / SL-TP-cross exits.
+    (ict_scalp_xrp_15m_signal_builder, "ict_scalp"),
+    (ict_scalp_eth_15m_signal_builder, "ict_scalp"),
+    (ict_scalp_sol_15m_signal_builder, "ict_scalp"),
     (trend_donchian_1h_signal_builder, "trend_donchian"),
     (trend_donchian_sol_signal_builder, "trend_donchian"),
     (trend_donchian_eth_signal_builder, "trend_donchian"),

@@ -223,7 +223,13 @@ def test_real_yaml_loads():
     # promotion): execution:live demo-soak on bybit_1 only (XRP carries a
     # strategy-local off-cells regime gate; SOL/AVAX ungated per their own
     # M27 Batch-1 evidence).
-    assert len(strategies) == 51
+    # 51 → 54 by the M27 P1 15m ict_scalp alt legs ict_scalp_xrp_15m +
+    # ict_scalp_eth_15m + ict_scalp_sol_15m (2026-07-22, Tier-3, operator-approved
+    # promotion): execution:live paper-soak on bybit_1 only, ungated (baseline
+    # >=3/4-fold net-of-fee k-fold). Added to config in #7400; the roster count +
+    # required-set below were left stale by #7400 and are corrected here alongside
+    # the builder wiring. Evidence: docs/research/M27-P1-15m-findings-2026-07-22.md.
+    assert len(strategies) == 54
 
 
 def test_real_yaml_has_required_strategies():
@@ -262,6 +268,9 @@ def test_real_yaml_has_required_strategies():
         # M27 P0 Batch-1 alt variants (2026-07-21, Tier-3, operator-approved
         # promotion): execution:live demo-soak on bybit_1 only.
         "ict_scalp_sol_5m", "ict_scalp_xrp_5m", "ict_scalp_avax_5m",
+        # M27 P1 15m alt legs (2026-07-22, Tier-3, operator-approved promotion):
+        # execution:live paper-soak on bybit_1 only, ungated.
+        "ict_scalp_xrp_15m", "ict_scalp_eth_15m", "ict_scalp_sol_15m",
     }
 
 
