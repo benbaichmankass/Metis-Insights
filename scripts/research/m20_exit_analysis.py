@@ -45,7 +45,7 @@ from pathlib import Path
 from statistics import median
 from typing import Any, Dict, List, Optional, Tuple
 
-BAR_S = 900.0  # 15m candles
+_DEFAULT_BAR_S = 900.0  # fallback bar spacing (15m) when a symbol's interval can't be inferred
 
 
 # ---------------------------------------------------------------- utilities
@@ -107,10 +107,32 @@ def _newest_data_jsonl(d: Path) -> Optional[Path]:
     return cands[-1] if cands else None
 
 
-def load_candles(sym: str, ds_root: Path) -> List[dict]:
-    """15m OHLC from market_raw; falls back to any interval dir present."""
+def _infer_bar_seconds(candles: List[dict]) -> float:
+    """Bar spacing (seconds) from the median of consecutive timestamp deltas.
+
+    Robust to weekend gaps in daily equity bars (Fri→Mon = 3d) because the
+    median over the full series is dominated by the regular cadence. Falls back
+    to the 15m default when <2 candles are present.
+    """
+    ts = [c["t"] for c in candles]
+    if len(ts) < 2:
+        return _DEFAULT_BAR_S
+    deltas = [b - a for a, b in zip(ts, ts[1:]) if b > a]
+    if not deltas:
+        return _DEFAULT_BAR_S
+    return float(median(deltas))
+
+
+def load_candles(sym: str, ds_root: Path) -> Tuple[List[dict], float]:
+    """OHLC from market_raw; returns (candles, bar_seconds).
+
+    Tries the intraday intervals first, then daily (``1d``) so equities/metals
+    fleet shards resolve too. The resolved bar spacing is returned so downstream
+    time math (hold-hours, time-to-MFE) is correct per-symbol rather than
+    assuming 15m — a strategy fleet can span 15m crypto and 1d equities.
+    """
     base = ds_root / "market_raw" / sym
-    for interval in ("15m", "5m", "1h"):
+    for interval in ("15m", "5m", "1h", "1d"):
         p = _newest_data_jsonl(base / interval)
         if p is None:
             continue
@@ -130,8 +152,8 @@ def load_candles(sym: str, ds_root: Path) -> List[dict]:
             out.append({"t": t, "high": hi, "low": lo, "close": cl})
         if out:
             out.sort(key=lambda x: x["t"])
-            return out
-    return []
+            return out, _infer_bar_seconds(out)
+    return [], _DEFAULT_BAR_S
 
 
 TF_S = {"5m": 300, "15m": 900, "1h": 3600, "2h": 7200, "4h": 14400, "1d": 86400}
@@ -328,12 +350,15 @@ def main() -> int:
     syms = sorted({t["symbol"] for t in trades})
     candles: Dict[str, List[dict]] = {}
     cand_ts: Dict[str, List[float]] = {}
+    bar_seconds: Dict[str, float] = {}
     coverage = {}
     for s in syms:
-        c = load_candles(s, ds_root)
+        c, bs = load_candles(s, ds_root)
         candles[s], cand_ts[s] = c, [x["t"] for x in c]
+        bar_seconds[s] = bs
         coverage[s] = {
             "bars": len(c),
+            "bar_seconds": bs,
             "span": [datetime.fromtimestamp(c[0]["t"], tz=timezone.utc).date().isoformat(),
                      datetime.fromtimestamp(c[-1]["t"], tz=timezone.utc).date().isoformat()]
             if c else None,
@@ -427,6 +452,14 @@ def main() -> int:
                    ("bars", "mfe", "mae", "t_mfe_bars", "chop_frac", "stagn_run")})
         t2["marks"] = pathm["marks"]
         t2["giveback"] = pathm["mfe"] - t["real_r"]
+        bs = bar_seconds.get(t["symbol"], _DEFAULT_BAR_S)
+        t2["bar_s"] = bs
+        t2["hold_h"] = pathm["bars"] * bs / 3600
+        t2["t_mfe_h"] = pathm["t_mfe_bars"] * bs / 3600
+        # intraday == bar spacing fine enough for the 15m-bar-calibrated exit
+        # levers below (time/stagnation-stop, cross-TF); daily-bar equity legs
+        # feed the diagnostics but are excluded from those bar-indexed levers.
+        t2["intraday"] = bs <= 900.0
         enriched.append(t2)
         diag_by_strat.setdefault((t["strategy"], t["cls"]), []).append(t2)
 
@@ -436,8 +469,8 @@ def main() -> int:
             "n": n,
             "mean_r": round(sum(x["real_r"] for x in ts) / n, 3),
             "sum_r": round(sum(x["real_r"] for x in ts), 1),
-            "mean_hold_h": round(sum(x["bars"] for x in ts) * BAR_S / 3600 / n, 1),
-            "med_t_mfe_h": round(median(x["t_mfe_bars"] for x in ts) * BAR_S / 3600, 1),
+            "mean_hold_h": round(sum(x["hold_h"] for x in ts) / n, 1),
+            "med_t_mfe_h": round(median(x["t_mfe_h"] for x in ts), 1),
             "mean_mfe": round(sum(x["mfe"] for x in ts) / n, 2),
             "mean_giveback": round(sum(x["giveback"] for x in ts) / n, 2),
             "mean_chop_frac": round(sum(x["chop_frac"] for x in ts) / n, 2),
@@ -463,11 +496,23 @@ def main() -> int:
             "dir": t["dir"],
             "open": datetime.fromtimestamp(t["t_open"], tz=timezone.utc
                                            ).isoformat()[:16],
-            "hold_h": round(t["bars"] * BAR_S / 3600, 1),
+            "hold_h": round(t["hold_h"], 1),
             "r": round(t["real_r"], 2), "mfe": round(t["mfe"], 2),
-            "t_mfe_h": round(t["t_mfe_bars"] * BAR_S / 3600, 1),
+            "t_mfe_h": round(t["t_mfe_h"], 1),
             "chop_frac": round(t["chop_frac"], 2),
             "exit": t["exit_reason"][:24]}))
+
+    # The bar-indexed exit-lever counterfactuals below (time-stop, stagnation,
+    # cross-TF) are calibrated in 15m-bar units (e.g. T=16 bars == "4h"), so
+    # they are only meaningful for intraday-bar legs. Daily-bar equity legs feed
+    # the diagnostics above but are excluded here rather than mislabeled.
+    diag_intraday = {k: [t for t in v if t.get("intraday", True)]
+                     for k, v in diag_by_strat.items()}
+    n_daily_excl = sum(1 for v in diag_by_strat.values()
+                       for t in v if not t.get("intraday", True))
+    if n_daily_excl:
+        print(f"\n[note] {n_daily_excl} daily-bar (non-intraday) trades excluded "
+              "from the 15m-bar-calibrated exit-lever counterfactuals below")
 
     # truncation counterfactual levers
     def truncate_cf(t: dict, exit_bar: int) -> float:
@@ -487,7 +532,7 @@ def main() -> int:
     out_levers = {}
     for name, T, thresh in levers:
         per = {}
-        for (strat, cls), ts_list in diag_by_strat.items():
+        for (strat, cls), ts_list in diag_intraday.items():
             if len(ts_list) < 3:
                 continue
             deltas, n_aff = [], 0
@@ -515,7 +560,7 @@ def main() -> int:
     for K, A, name in [(32, 32, "stagn_8h_after_8h"), (64, 32, "stagn_16h_after_8h"),
                        (96, 96, "stagn_24h_after_24h")]:
         per = {}
-        for (strat, cls), ts_list in diag_by_strat.items():
+        for (strat, cls), ts_list in diag_intraday.items():
             if len(ts_list) < 3:
                 continue
             deltas, n_aff = [], 0
@@ -549,7 +594,7 @@ def main() -> int:
         closes = [c["close"] for c in h1]
         ema_cache[s] = ([c["t"] for c in h1], _ema(closes, 9), _ema(closes, 21))
     s4 = {}
-    for (strat, cls), ts_list in diag_by_strat.items():
+    for (strat, cls), ts_list in diag_intraday.items():
         if len(ts_list) < 3:
             continue
         deltas, n_aff = [], 0
@@ -562,7 +607,7 @@ def main() -> int:
             fired_bar = None
             streak = 0
             for i2 in range(len(t["marks"])):
-                bar_t = t["t_open"] + (i2 + 1) * BAR_S
+                bar_t = t["t_open"] + (i2 + 1) * t.get("bar_s", _DEFAULT_BAR_S)
                 if bar_t - t["t_open"] < 8 * 3600:
                     continue
                 j = bisect_right(h1_ts, bar_t) - 1
@@ -590,10 +635,10 @@ def main() -> int:
         "id": t["id"], "st": t["strategy"], "sym": t["symbol"], "cls": t["cls"],
         "dir": t["dir"], "open": datetime.fromtimestamp(
             t["t_open"], tz=timezone.utc).isoformat()[:16],
-        "hold_h": round(t["bars"] * BAR_S / 3600, 1),
+        "hold_h": round(t["hold_h"], 1),
         "r": round(t["real_r"], 2), "mfe": round(t["mfe"], 2),
         "mae": round(t["mae"], 2),
-        "t_mfe_h": round(t["t_mfe_bars"] * BAR_S / 3600, 1),
+        "t_mfe_h": round(t["t_mfe_h"], 1),
         "chop": round(t["chop_frac"], 2), "exit": t["exit_reason"][:24],
     } for t in enriched]
     body = json.dumps(comp, separators=(",", ":"))
