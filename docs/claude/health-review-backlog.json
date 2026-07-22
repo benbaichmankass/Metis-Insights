@@ -30,7 +30,8 @@
           "by": "claude (same session, continued \u2014 operator caught the gap live via Telegram screenshot)",
           "note": "The 'non-blocking follow-up' noted above turned out to bite immediately: the operator flagged (screenshot of repeated `TRADE UPDATED \u2014 XRPUSDT, SL \u2192 1.0855` Telegram pings at 13:34/13:39/13:43Z, same ~4-5min cadence as the original bug) that the bybit_2 XRPUSDT position \u2014 open since BEFORE PR #7321 deployed \u2014 kept re-accumulating legs on the legacy add-a-leg path, because entry-time capture only fires for NEW orders and has no retroactive path for already-open trades. Confirmed via diag (`journal?table=trades`): the open XRPUSDT row (id 3577) had `sl_order_id`/`tp_order_id` both NULL. Fix shipped THIS session as PR #7336 (`backfill-tpsl-leg-ids`, merged sha 132df8d1b128ef920f85ef560d8134c00dbf391f, deployed \u2014 live VM HEAD confirmed via the pull-and-deploy audit trail): a new Tier-2 system-action that reads a symbol's CURRENT live SL/TP leg ids and retroactively writes them onto the one matching open/untracked trade row (refusing on ambiguity \u2014 more than one live leg of a type, or more than one candidate trade row). Applied to bybit_2/XRPUSDT: took 2 cancel\u2192backfill race retries (legs kept forming on their own ~5min cadence faster than the ambiguity-safe write could land \u2014 issues #7338/#7340 both correctly refused rather than mis-attributing) before landing clean on the 3rd attempt (issue #7342): trade 3577 now carries `sl_order_id=67bc78e1-a8b6-4a7b-86bb-a4419937aa0c` / `tp_order_id=ff2dd38b-b9ee-40b9-bcfc-db98a1a052ea`. **LIVE-VERIFIED** (issue #7343, dry-run read 7 minutes later, past the next expected ~5min tick): still exactly 1 SL + 1 TP leg, SAME order id as when tagged \u2014 no new leg was added, confirming `modify_open_order` is now amending this specific leg in place rather than re-adding. The structural fix is now genuinely complete for this position, and `backfill-tpsl-leg-ids` is available for any other pre-existing open trade that needs the same retroactive tag. This item stays `resolved` \u2014 no further action needed on bybit_2/XRPUSDT specifically; the general capability (`backfill-tpsl-leg-ids`) is documented in `docs/claude/system-actions.md` for future use."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-21T12:09:00+00:00"
     },
     {
       "id": "BL-20260721-XRPTPSL-ENTRYCAPTURE-VERIFY",
@@ -255,7 +256,8 @@
           "by": "claude (/health-review 2026-07-22, inside /system-review)",
           "note": "Re-validated via /api/bot/prop/reconcile this session: unacted_count=0 of 48 emitted / 25 fills - no outstanding un-acted tickets remain. The stale pre-guard ETH tickets no longer show as an active drift signal."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-22T18:20:00+00:00"
     },
     {
       "id": "BL-20260706-PROP-REPORT-DEVNULL-NOISE",
@@ -806,7 +808,7 @@
       "resolution_criteria": "Operator has done the on-device visual check on #56 (or its successor) and it is merged or closed; OR Claude has asked and is awaiting the operator's eyeball.",
       "check_log": [],
       "status": "invalid",
-      "resolved_at": null,
+      "resolved_at": "2026-07-22T18:20:00+00:00",
       "resolved_by": null,
       "resolution": null,
       "snoozed_until": null,
@@ -5367,7 +5369,8 @@
           "by": "claude (/health-review 2026-07-22, inside /system-review)",
           "note": "Re-tested the exact repro shape this session TWICE: multi-path body-mode batches containing api/bot/db/table/trades?filter_col=...&filter_op=...&filter_val=...&limit=... (3 &-joined query params, issue #7360) and journal/journalctl paths with 1-2 &-joins (issue #7346) both returned real JSON, not fetch_failed. No longer reproducing; no code diff to vm-diag-snapshot.yml was needed/found. If it recurs, reopen."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-22T18:20:00+00:00"
     },
     {
       "id": "BL-20260720-OPTIONS-PAPER-ZERO-FILLS",
@@ -5424,5 +5427,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-22T18:20:00+00:00"
+  "updated_at": "2026-07-22T18:50:00+00:00"
 }
