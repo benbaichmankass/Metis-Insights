@@ -1,0 +1,1273 @@
+{
+  "report_id": "RPT-20260722-184651-since-last",
+  "reviewed_at": "2026-07-22T18:46:51+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-07-20T08:15:00+00:00",
+  "window_end": "2026-07-22T18:46:51+00:00",
+  "prior_report_id": "RPT-20260720-081500-since-last",
+  "overall_assessment": "caution",
+  "health": {
+    "request_id": "REQ-20260722-182017-health-review",
+    "reviewed_at": "2026-07-22T18:20:17+00:00",
+    "reviewer": "claude",
+    "window_start": "2026-07-20T08:15:00+00:00",
+    "window_end": "2026-07-22T18:20:17+00:00",
+    "overall_assessment": "caution",
+    "findings": {
+      "heartbeat": {
+        "status": "ok",
+        "note": "age 20.1s, label running, uptime 108517s"
+      },
+      "ticks": {
+        "status": "ok",
+        "note": "last_tick 2026-07-22T18:07:05Z, 168s stale at capture, well within cadence"
+      },
+      "signals": {
+        "status": "ok",
+        "note": "audit tail active (17:33-18:07Z sample); many *_eval events per tick across ~46 strategies"
+      },
+      "orders": {
+        "status": "ok",
+        "note": "order_packages actively created/linked (e.g. pkg-395c72c7 -> trade 3577); no signal->order gap seen"
+      },
+      "trades": {
+        "status": "ok",
+        "note": "trades table growing normally (3847 rows); recent entries (rejected netting-guard, filled) all have parent packages"
+      },
+      "monitoring": {
+        "status": "ok",
+        "note": "netting-guard rejections + intent_noop hold-policy events logging correctly; no monitor gaps observed"
+      },
+      "sizing": {
+        "status": "watch",
+        "note": "recurring sub-min-qty BTCUSDT refusal on bybit_2 persists structurally (BL-20260716-BYBIT2-SUBMIN-QTY); not firing in this exact window (0 alert banners)"
+      },
+      "api_errors": {
+        "status": "ok",
+        "note": "all diag/health/bot API pulls succeeded; 2 relay failures this session were my own path-allowlist/unit mistakes, not server errors"
+      },
+      "state_consistency": {
+        "status": "ok",
+        "note": "status.live matches known shelved set (ib_live/oanda_practice/alpaca_live=false); no drift vs accounts.yaml expectations"
+      },
+      "alert_delivery": {
+        "status": "ok",
+        "note": "/api/bot/notifications responsive, 0 banners, consistent with clean health/latest snapshot"
+      },
+      "strategy_silence": {
+        "status": "ok",
+        "note": "sampled audit tail shows live *_eval events across multiple equity/futures/crypto strategies; none silent"
+      },
+      "db_integrity": {
+        "status": "watch",
+        "note": "integrity_check not fetched (relay can't run PRAGMA); row counts non-decreasing (trades 3847, order_packages 3177), db 596MB, no truncation signal"
+      },
+      "data_validity": {
+        "status": "watch",
+        "note": "known May-2026 orphan/unreconciled rows are historical + already investigated (reconcile_outcome=no_recoverable_order_package), none new; BL-20260720-PAPER-PNL-CROSSWRITE duplicate-pnl bug still open (kept_open)"
+      },
+      "audit_log_freshness": {
+        "status": "ok",
+        "note": "audit tail current to 18:07Z at capture time"
+      },
+      "trainer_service": {
+        "status": "ok",
+        "note": "ict-trainer.timer enabled+active, ExecMainStatus=0; mirror fresh today (promotion_readiness 04:18Z, forecasts 06:22Z); disk 91% (4.2G free) is a standing watch, not a failure"
+      },
+      "health_snapshot": {
+        "status": "ok",
+        "note": "7/7 checks ok, cross-checked against own diag pulls (git_sha/tick/accounts_api/disk all match) - snapshot is truthful"
+      },
+      "security": {
+        "status": "watch",
+        "note": "no breach signal found on reachable surfaces; sshd/auth-log leg unreachable via relay (unit not allowlisted) and GitHub Advanced Security (secret scanning) is not enabled on this repo, so those two legs are honest gaps, not clean scans. Detail in security_check."
+      }
+    },
+    "security_check": {
+      "status": "watch",
+      "sources_checked": [
+        "external_actors",
+        "workflow_secret_collaborator_changes",
+        "actions_anomalies"
+      ],
+      "signals": [
+        {
+          "source": "vm_host",
+          "detail": "sshd/auth journalctl unreachable via the read-only relay (unit 'ssh' not in the diag allowlist) - this leg of the sweep could not be performed this session",
+          "severity": "watch",
+          "action_taken": "noted as a capability gap, not fabricated as clean"
+        },
+        {
+          "source": "github_secret_scanning",
+          "detail": "Repo does not have GitHub Advanced Security enabled - mcp__github__run_secret_scanning errors 'Repository does not have GitHub Advanced Security enabled'. Zero-alerts is structural (feature off), not a scan result.",
+          "severity": "watch",
+          "action_taken": "noted; recommend enabling Advanced Security if the operator wants real secret-scanning coverage"
+        }
+      ],
+      "note": "No confirmed breach: 1 collaborator (owner only, admin), 0 external issues/comments/PRs since window (3 open issues total, all owner-authored), 46 merged PRs + workflow-run actor sample all attributed to benbaichmankass, no unexpected new collaborators/deploy-keys/workflow-secret changes observed in the window's .github/workflows/ diffs (2 new Tier-2 system-actions added, correctly gated; a new read-only devnull-diagnostic workflow added). Two legs of the sweep (VM sshd auth log, real secret-scanning) could not be performed due to tooling/config gaps named above - stated honestly rather than claimed clean."
+    },
+    "soak_decisions_due": [
+      {
+        "what": "not independently checked this session",
+        "gate_met": "n/a - /api/bot/shadow/stats and /api/bot/strategies/*/review were not pulled this run (light-touch health-review scope; that rubric belongs to /ml-review and /performance-review)",
+        "owner_skill": "/ml-review | /performance-review",
+        "sla_state": "on_time"
+      }
+    ],
+    "new_work_compliance": {
+      "prs_audited": 46,
+      "commits_audited": 0,
+      "findings": [],
+      "note": "46 PRs merged, 0 direct-to-main commits without a PR, since 2026-07-20T08:15Z. 4 PRs touched Tier-3-gated files (config/strategies.yaml and/or config/accounts.yaml): #7254, #7115, #7096, #7060 - each PR body explicitly documents in-session operator approval for the Tier-3 change; none merged silently. No new default-off *_ENABLED gate over a required capability found; the 2 new system-actions added (cancel-stale-tpsl-legs, backfill-tpsl-leg-ids) are correctly Tier-2-gated. No auto-flip/mode-toggle code introduced. Caveat: 'operator-approved' is read from PR-body prose (self-attested by the authoring session) - this session had no access to the underlying chat transcripts to independently verify the approval was actually granted, the same epistemic limit prior reviews have had."
+    },
+    "anomalies": [
+      "Uncommitted local working-tree diffs found in comms/claude_strategy_scores.jsonl and scripts/ops/paper_book_tracker.py (timestamped ~18:09Z today) - evidently from a concurrent sibling review session in this shared workspace. Not touched/committed by this session (out of health-review scope).",
+      "Prop breakout_1's account-status snapshot is stale: last reported_at 2026-07-20T08:28:32Z (~58h old at capture), while the last known cushion to the $4700 static-DD floor was only $125.61 - the bot's own PROP_STATUS_REQUEST nudge should be re-asking, but no fresh snapshot has landed since.",
+      "Trainer disk at 91% (4.2G free) - chronic, already tracked in report headlines; not a new backlog item this run, noted as a standing watch."
+    ],
+    "compliance_audit": {
+      "section": ".claude/skills/",
+      "artifacts_scanned": 25,
+      "findings": []
+    },
+    "backlog_coverage": {
+      "open_at_start": 79,
+      "triaged": 79,
+      "resolved": 2,
+      "fixed_now": 0,
+      "closed_stale": 1,
+      "kept_open": 76,
+      "count_untriaged": 0
+    },
+    "sprint_doc_review": [
+      {
+        "sprint": "S-XRP-TPSL-LEGCAP-2026-07-21",
+        "finding": "Template-compliant, reports verified live state (not just PR intent), explicitly names its own remaining verification gap (entry-time capture unverified) which matches BL-20260721-XRPTPSL-ENTRYCAPTURE-VERIFY exactly - no contradiction found.",
+        "severity": "nit"
+      }
+    ],
+    "recommended_action": "Prioritize a real root-cause fix for the >3-week-old /dev/null OCI-agent clobbering (BL-20260629-DEVNULL-OCI-SOURCE-KILL) in the next dedicated VM-ops session rather than continuing to self-heal + re-note it. Secondary: nudge for a fresh breakout_1 prop account-status snapshot (last one is 58h old against a thin $125.61 DD-floor cushion).",
+    "operator_attention_required": true,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": "N/A - suppressed per master /system-review instructions (consolidated ping sent by the master session instead)."
+    },
+    "_note_committed": "commit f44b0fd on claude/system-health-review-4qz8ow \u2014 docs/claude/health-review-backlog.json only"
+  },
+  "performance": {
+    "request_id": "REQ-20260722-180943-perf-review",
+    "reviewed_at": "2026-07-22T18:35:00+00:00",
+    "reviewer": "claude",
+    "window_start": "2026-07-20T08:15:00+00:00",
+    "window_end": "2026-07-22T18:35:00+00:00",
+    "overall_assessment": "caution",
+    "strategy_performance": [
+      {
+        "strategy": "eth_pullback_2h",
+        "n_filled": 2,
+        "win_rate": 0.0,
+        "pnl_total": -1439.96,
+        "accounts_touched": [
+          "bybit_2",
+          "bybit_portfolio"
+        ],
+        "note": "Both losers (real bybit_2 -$4.26 sl; bybit_portfolio -$1435.71 reconciler-close, large paper notional)."
+      },
+      {
+        "strategy": "gld_pullback_1h",
+        "n_filled": 2,
+        "win_rate": 0.0,
+        "pnl_total": -1915.98,
+        "accounts_touched": [
+          "alpaca_paper",
+          "alpaca_portfolio"
+        ],
+        "note": "Both losers this window."
+      },
+      {
+        "strategy": "mhg_pullback_1d",
+        "n_filled": 1,
+        "win_rate": 0.0,
+        "pnl_total": -18300.0,
+        "accounts_touched": [
+          "ib_paper"
+        ],
+        "note": "Paper money, large futures-contract notional (24 MHG contracts, -4.88%) \u2014 magnitude outlier, not real-money."
+      },
+      {
+        "strategy": "pairs_bnb_btc_b",
+        "n_filled": 3,
+        "win_rate": 100.0,
+        "pnl_total": 34.44,
+        "accounts_touched": [
+          "bybit_1"
+        ],
+        "note": "M22 pairs sleeve, all small wins."
+      },
+      {
+        "strategy": "pairs_bnb_btc_a",
+        "n_filled": 1,
+        "win_rate": 100.0,
+        "pnl_total": 1.62,
+        "accounts_touched": [
+          "bybit_1"
+        ],
+        "note": "Same M22 pairs sleeve; small win."
+      },
+      {
+        "strategy": "trend_donchian",
+        "n_filled": 2,
+        "win_rate": 0.0,
+        "pnl_total": -38.31,
+        "accounts_touched": [
+          "bybit_1",
+          "bybit_2"
+        ],
+        "note": "Includes the 1 graded real-money decision (bybit_2, grade B, exit_head close, -$0.25) + bybit_1 paper -$38.06."
+      },
+      {
+        "strategy": "slv_trend_1h",
+        "n_filled": 2,
+        "win_rate": 0.0,
+        "pnl_total": -140.78,
+        "accounts_touched": [
+          "alpaca_paper",
+          "alpaca_portfolio"
+        ],
+        "note": "Both losers."
+      },
+      {
+        "strategy": "uso_trend_1h",
+        "n_filled": 1,
+        "win_rate": 100.0,
+        "pnl_total": 827.08,
+        "accounts_touched": [
+          "alpaca_paper"
+        ],
+        "note": "Window's biggest paper winner."
+      },
+      {
+        "strategy": "ada_pullback_2h",
+        "n_filled": 1,
+        "win_rate": null,
+        "pnl_total": 0.0,
+        "accounts_touched": [
+          "bybit_1"
+        ],
+        "note": "Null-pnl artifact close."
+      },
+      {
+        "strategy": "htf_pullback_trend_2h",
+        "n_filled": 1,
+        "win_rate": null,
+        "pnl_total": 0.0,
+        "accounts_touched": [
+          "bybit_1"
+        ],
+        "rejection_cluster": "reentry_suppressed_netting_guard",
+        "note": "Null-pnl artifact close; repeated netting-guard-suppressed re-entry attempts correctly refused."
+      },
+      {
+        "strategy": "ief_pullback_1d",
+        "n_filled": 1,
+        "win_rate": null,
+        "pnl_total": 0.0,
+        "accounts_touched": [
+          "alpaca_paper"
+        ],
+        "note": "Null-pnl artifact close."
+      },
+      {
+        "strategy": "trend_donchian_xrp_4h",
+        "n_filled": 2,
+        "win_rate": null,
+        "pnl_total": 0.0,
+        "accounts_touched": [
+          "bybit_1",
+          "bybit_2"
+        ],
+        "note": "Both null-pnl artifact closes (intent_reduce_executed/stale_stop paired legs)."
+      }
+    ],
+    "coverage_caveat": "n_decisions/n_rejected null throughout \u2014 order-packages pull truncated at the relay's ~55KB budget. strategy_performance built from the COMPLETE 19-row trades/closed pull for the window (all funding classes, verified non-truncated).",
+    "trade_decision_grades": [
+      {
+        "order_package_id": "pkg-f9b2170e55994873",
+        "trade_id": 3770,
+        "timestamp": "2026-07-21T07:58:13.829477+00:00",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "setup": "trend_donchian",
+        "entry_price": 66238.5,
+        "stop_loss": 65419.67857143,
+        "take_profit_1": 72796.1115,
+        "exit_reason": "exit_head",
+        "decision_grade": "B",
+        "decision_grade_score": 3,
+        "entry_quality": "optimal",
+        "exit_quality": "sl_appropriate",
+        "risk_management": "unknown",
+        "rationale": "trend_donchian long BTCUSDT; conf 0.73, optimal entry; M20 exit_head model closed early at -0.03R \u2014 deliberate ML-driven exit, not a stop-out. Real money (bybit_2).",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "pnl": -0.25
+      },
+      {
+        "order_package_id": "pkg-d41164e8794744a5",
+        "trade_id": null,
+        "timestamp": "2026-07-22T07:02:14.451201+00:00",
+        "symbol": "BNBUSDT",
+        "direction": "long",
+        "setup": "pairs_bnb_btc_a",
+        "entry_price": 568.1,
+        "stop_loss": 284.05,
+        "take_profit_1": 1136.2,
+        "exit_reason": "reconciler_filled",
+        "decision_grade": "C",
+        "decision_grade_score": 2,
+        "entry_quality": "unknown",
+        "exit_quality": "unknown",
+        "risk_management": "unknown",
+        "rationale": "pairs_bnb_btc_a long BNBUSDT; never filled \u2014 shadow/data-collection leg of the M22 pairs sleeve, placeholder bracket geometry. Judged on setup only.",
+        "account": "bybit_1",
+        "account_class": "paper"
+      },
+      {
+        "order_package_id": "pkg-ee5911f925d64a25",
+        "trade_id": null,
+        "timestamp": "2026-07-22T07:02:15.496248+00:00",
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "setup": "pairs_bnb_btc_b",
+        "entry_price": 65947.6,
+        "stop_loss": 131895.2,
+        "take_profit_1": 32973.8,
+        "exit_reason": "reconciler_filled",
+        "decision_grade": "C",
+        "decision_grade_score": 2,
+        "entry_quality": "unknown",
+        "exit_quality": "unknown",
+        "risk_management": "unknown",
+        "rationale": "pairs_bnb_btc_b short BTCUSDT \u2014 same shadow-bracket caveat.",
+        "account": "bybit_1",
+        "account_class": "paper"
+      }
+    ],
+    "insights_review": [
+      {
+        "endpoint": "summary",
+        "finding": "Matches our data exactly: 1 closed trade / -$0.25 net / 0% WR over trailing 24h, 33 order packages. No disagreement.",
+        "severity": "nit"
+      },
+      {
+        "endpoint": "recent",
+        "finding": "The 'last 20 closed / 20% WR / concern' read is dominated by technical-artifact closes (11/20 reconciler_filled, 2 of those actual wins) \u2014 headline WR is partly noise from reconciler-close artifacts, not a clean strategy-edge read. Recommend M13 adopt the same artifact pre-filter.",
+        "severity": "drift"
+      },
+      {
+        "endpoint": "health",
+        "finding": "7/7 checks green, grade good \u2014 matches.",
+        "severity": "nit"
+      }
+    ],
+    "proposed_tweaks": [
+      {
+        "scope": "config/strategies.yaml::avax_pullback_2h.execution",
+        "current_value": "live",
+        "proposed_value": "shadow",
+        "evidence": "3rd consecutive review (07-07, 07-10, 07-22) flags avax_pullback_2h as a persistent laggard: this window's snapshot -$3976.67/7t/14.3%WR \u2014 worst cell in the 10-cell cohort.",
+        "tier": 3,
+        "risk_note": "n thin (7 trades) \u2014 recommend 4-6wk shadow re-eval before permanent removal."
+      },
+      {
+        "scope": "config/strategies.yaml::sol_pullback_2h.execution",
+        "current_value": "live",
+        "proposed_value": "shadow",
+        "evidence": "Same 3-review pattern: -$2646.02/5t/0.0%WR (zero wins) \u2014 worst win-rate in the cohort. Unchanged-negative since 07-07/07-10.",
+        "tier": 3,
+        "risk_note": "n thin (5 trades), 0% WR could be an unlucky run \u2014 pair with the same 4-6wk shadow re-eval as avax_pullback_2h."
+      }
+    ],
+    "backlog_coverage": {
+      "open_at_start": 55,
+      "triaged": 55,
+      "resolved": 4,
+      "fixed_now": 0,
+      "closed_stale": 1,
+      "kept_open": 50,
+      "count_untriaged": 0
+    },
+    "paper_book_tracker": {
+      "snapshot_appended": true,
+      "book": {
+        "n": 49,
+        "net_usd": -5384.35,
+        "win_rate": 30.6
+      },
+      "recent_vs_prior": {
+        "recent_net_usd": -6534.97,
+        "prior_net_usd": 1150.62,
+        "recent_window_days": 30
+      },
+      "per_family_net_usd": {
+        "trend": 1396.74,
+        "pullback": -6781.09
+      },
+      "decay_flag": true,
+      "delta_since_last": {
+        "trades": -33,
+        "net_usd": -16381.51
+      },
+      "assessment": "decay-watch \u2014 FIRST real snapshot appended since 2026-07-07 (every session in between silently blocked by a now-fixed tracker bug). Book has gone from +$10,997.16/82t/52.4%WR (07-07) to -$5,384.35/49t/30.6%WR now; trailing-30d net -$6,534.97 \u2014 decay_flag correctly fires. trend_4h still net-positive (+$1,396.74, eth/ada/xrp_4h); pullback_2h is the drag (-$6,781.09), almost entirely avax_pullback_2h (-$3,976.67) + sol_pullback_2h (-$2,646.02) \u2014 now 3rd-consecutive-review-confirmed, not noise."
+    },
+    "real_money_allocation_benchmark": {
+      "incumbent": "bybit_2",
+      "candidate": "alpaca_live ETF sleeve (paper-proxied via alpaca_paper \u2014 alpaca_live confirmed dry_run)",
+      "correlation_estimate": 0.15,
+      "diversifies": true,
+      "verdict": "does_not_clear",
+      "proposed_action": "hold shelved \u2014 no re-arm proposal this window",
+      "note": "$-based directional read only (no R-normalization this session). bybit_2 incumbent: n=22 priced closed (06-29..07-21), net -$9.03, 36.4% WR \u2014 essentially flat. Candidate alpaca_paper proxy: n=22 (07-07..07-22), net -$1891.38, 22.7% WR (gld_pullback_1h -$1901.96 + slv_trend_1h -$1799.83, partly offset by spy_pullback_1h +$1658.12 + uso_trend_1h +$870.72). Candidate net-negative this window \u2014 does not clear the bar on this read alone; diversification premise still holds structurally. Recommend a longer, R-normalized re-run."
+    },
+    "anomalies": [
+      "TOOLING BUG (fixed, commit 081b920): paper_book_tracker.py's _cell_of() never recognized the `pattern` field API emits for strategy name \u2014 every review since 07-07 was silently producing a broken snapshot. Fixed + appended first real snapshot in 2+ weeks.",
+      "TOOLING BUG (fixed, same commit): classify_paper_records.py + paper_record_classifier.py only read DB-native column names, never the API shape \u2014 every API-shaped row silently misclassified as bucket-B. Added normalizing adapter + exit_head/stale_stop to clean-exit set. 11/11 tests pass.",
+      "DATA-INTEGRITY BUG (fixed): duplicate backlog id 'PB-20260630-002' used by two unrelated items \u2014 renamed the second to PB-20260630-004.",
+      "BOT-SIDE FINDING (not fixed here \u2014 flagged for /health-review): trades_closed.py::_normalise_close_reason collapses sl_cross/tp_cross/exit_head/stale_stop all down to 'other' before serialization \u2014 silently discards real deliberate strategy-monitor exit reasons.",
+      "PERFORMANCE FINDING (not fixed here \u2014 flagged for /health-review): GET /api/bot/trades/closed?account_id=X&limit=500 (and the equivalent db/table/trades filtered pull) reliably times out at limit>=500 while limit<=150 succeeds \u2014 reproduced 3x independently. Looks like a real query-performance issue (missing index / unbounded join before LIMIT).",
+      "Diversified paper-book decay_flag fired for the first time this session \u2014 see paper_book_tracker. avax_pullback_2h/sol_pullback_2h now 3-review-confirmed laggards.",
+      "mhg_pullback_1d (ib_paper, PAPER money) closed at -$18,300 this window (24 contracts, -4.88%) \u2014 largest dollar swing observed, a paper-notional artifact not a real-money concern."
+    ],
+    "recommended_action": "Operator to weigh the two Tier-3 DEMOTE_SHADOW proposals (avax_pullback_2h, sol_pullback_2h) against the thin-n caveat. Route the two bot-side findings (closeReason data-loss; >=500-limit query timeout) to the health-review backlog. Keep alpaca_live shelved \u2014 the real-money allocation benchmark does not clear this window.",
+    "operator_attention_required": true,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": "suppressed"
+    },
+    "_note_committed": "commits 081b920, 691855e, a0f7029 (re-signed as 943fcaa, a4b7e47, 949a013) on claude/system-health-review-4qz8ow"
+  },
+  "ml": {
+    "request_id": "REQ-20260722-183000-ml-review",
+    "reviewed_at": "2026-07-22T18:30:00+00:00",
+    "reviewer": "claude",
+    "window_start": "2026-07-20T08:15:00+00:00",
+    "window_end": "2026-07-22T18:30:00+00:00",
+    "overall_assessment": "caution",
+    "trainer_findings": {
+      "trainer_service": {
+        "status": "ok",
+        "note": "ict-trainer.timer enabled+active (last trigger 2026-07-22T00:44Z, next 07-23T00:32Z); ict-trainer.service is a oneshot (correctly 'inactive/dead' between fires), ExecMainStatus=0 (last run succeeded)."
+      },
+      "trainer_datasets": {
+        "status": "ok",
+        "note": "8 cycles in window (2026-07-20T08:15Z->now): manifest_ok=162, manifest_failed=0, manifest_skipped=14 (empty_dataset, expected). datasets-out/ has all expected families."
+      },
+      "trainer_registry": {
+        "status": "ok",
+        "note": "92 models: 61 candidate / 27 shadow / 3 advisory / 1 research_only. Matches the live-VM ml/status mirror exactly (mirror_age 24s -> fresh, no sync lag)."
+      },
+      "trainer_models": {
+        "status": "watch",
+        "note": "Mechanically healthy (0 training failures, no quarantine trips) but 2 of 3 advisory (order-influencing) heads show real live-discrimination symptoms tied to a known frozen-dataset condition (MB-20260720-FCPCV-RETRAIN-NOOP) - see promotion_recommendations. conviction-meta-v1 (shadow, feeds the conviction lens) still stuck at n_eval=69 with drift=significant."
+      }
+    },
+    "model_status_summary": {
+      "total": 92,
+      "by_stage": {
+        "candidate": 61,
+        "shadow": 27,
+        "advisory": 3,
+        "research_only": 1
+      },
+      "note": "Full per-model model_status[] array (92 entries) captured in the sub-review's raw output; omitted here for size \u2014 see the advisory/notable entries below.",
+      "advisory_heads": [
+        {
+          "model_id": "btc-regime-15m-lgbm-fc-pcv-v1",
+          "predictions": 189,
+          "drift": "ks=0.128 psi=0.01 verdict=moderate",
+          "note": "STAGE-GUARD DEMOTE PROPOSED (advisory->shadow): live calibration worse than base rate (brier_lift -0.259); live discrimination inverted (AUC 0.250) on n=4 joined trades \u2014 too thin to act on."
+        },
+        {
+          "model_id": "sol-regime-15m-lgbm-fc-pcv-v1",
+          "predictions": 183,
+          "drift": "ks=0.232 psi=0.17 verdict=significant",
+          "note": "STAGE-GUARD DEMOTE PROPOSED (advisory->shadow): score-distribution drift verdict is 'significant', no attribution rows yet."
+        },
+        {
+          "model_id": "mes-regime-5m-lgbm-v2",
+          "predictions": 450,
+          "drift": "ks=0.091 psi=0.046 verdict=minor",
+          "note": "Healthy \u2014 no concern."
+        }
+      ],
+      "notable_shadow_heads": [
+        {
+          "model_id": "conviction-meta-v1",
+          "predictions": 4051,
+          "drift": "ks=0.248 psi=0.372 verdict=significant",
+          "note": "n_eval stuck at 69 (design bar >=150); live score variance up >20x vs reference; 5 consecutive identical live scores observed this session (WATCH, not confirmed bug)."
+        },
+        {
+          "model_id": "eth-regime-15m-lgbm-xasset-v1",
+          "predictions": 522,
+          "drift": "insufficient_data",
+          "note": "BL-20260628-XA-TRAINING-ZERO dead-feature defect CONFIRMED FIXED \u2014 all xa_peer* features populated and live in row_keys."
+        }
+      ]
+    },
+    "soak_audit": [
+      {
+        "model_id": "btc-regime-15m-lgbm-fc-pcv-v1",
+        "stage": "advisory",
+        "parity": "ok",
+        "detail": "All 6 declared fc_* features present/live across 5 fresh samples. No dead/zero-live feature.",
+        "label_coverage_pct": null,
+        "evidence_destination": "shadow->advisory gate already cleared + executed (M25 promotion, 2026-07-20)",
+        "accrual_verdict": "Accruing (189 live-advisory predictions); AUC=0.25 (inverted)/brier_lift=-0.259 on n=4 joined trades \u2014 thin but not zero. Watch, not yet actionable."
+      },
+      {
+        "model_id": "sol-regime-15m-lgbm-fc-pcv-v1",
+        "stage": "advisory",
+        "parity": "ok",
+        "detail": "All 6 declared fc_* features present, matching manifest.",
+        "label_coverage_pct": null,
+        "evidence_destination": "SOL's first advisory head (M25 promotion, 2026-07-20)",
+        "accrual_verdict": "Accruing (183 live-advisory predictions); drift=significant (KS 0.232, PSI 0.170) \u2014 distributional drift only, no AUC/win-rate read yet."
+      },
+      {
+        "model_id": "btc-regime-15m-lgbm-fc-pcv-v2",
+        "stage": "shadow",
+        "parity": "ok",
+        "detail": "Fresh-data sibling wired identically to v1.",
+        "evidence_destination": "MB-20260721-FCPCV-V2-SOAK swap decision due ~2026-07-28",
+        "accrual_verdict": "Healthy \u2014 148 predictions in ~1.5 days, on pace."
+      },
+      {
+        "model_id": "sol-regime-15m-lgbm-fc-pcv-v2",
+        "stage": "shadow",
+        "parity": "ok",
+        "detail": "Fresh-data SOL sibling.",
+        "evidence_destination": "MB-20260721-FCPCV-V2-SOAK swap decision due ~2026-07-28",
+        "accrual_verdict": "Healthy \u2014 144 predictions in ~1.5 days, on pace."
+      },
+      {
+        "model_id": "mes-regime-5m-lgbm-v2",
+        "stage": "advisory",
+        "parity": "ok/n-a (no fc_* features declared)",
+        "label_coverage_pct": 85.0,
+        "evidence_destination": "Live MES vol/regime advisory input, promoted 2026-07-20/21",
+        "accrual_verdict": "Healthy \u2014 450 predictions since promotion, drift=minor."
+      },
+      {
+        "model_id": "conviction-meta-v1",
+        "stage": "shadow",
+        "parity": "ok (structural) - WATCH one observation",
+        "detail": "5 consecutive live samples (17:35-18:05Z) all show identical score 0.904151341270523 \u2014 plausible benign (deterministic on repeated non-actionable signal) but not confirmed.",
+        "evidence_destination": "MB-20260616-CONVICTION-P4-SIZING / P5-FUSION",
+        "accrual_verdict": "NOT accruing toward graduation meaningfully \u2014 n_eval stuck at 69, drift=significant."
+      },
+      {
+        "model_id": "eth-regime-15m-lgbm-xasset-v1",
+        "stage": "shadow",
+        "parity": "ok (confirmed fixed)",
+        "detail": "xa_peer1/2_* features all present/populated \u2014 BL-20260628-XA-TRAINING-ZERO confirmed FIXED, not recurring.",
+        "evidence_destination": "MB-20260627-003 (ETH RG4 re-check due ~2026-07-27)",
+        "accrual_verdict": "Healthy restart \u2014 522 predictions in ~2 days."
+      }
+    ],
+    "promotion_recommendations": [
+      {
+        "model_id": "btc-regime-15m-lgbm-fc-pcv-v1",
+        "current_stage": "advisory",
+        "proposed_stage": "shadow",
+        "direction": "demote",
+        "tier": 3,
+        "evidence": "stage-guard proposes demote: brier_lift -0.259, AUC 0.250 (inverted) but on only n=4 joined trades \u2014 too thin to act on. Drift=moderate. Root cause tracked (MB-20260720-FCPCV-RETRAIN-NOOP, dataset ~21.6 days stale). NOT recommending demote yet \u2014 HOLD on pre-approved v2 swap plan (due ~2026-07-28).",
+        "risk_note": "If AUC stays inverted on larger n over the next few days, consider accelerating the v2 swap ahead of 07-28. Kill-switch: REGIME_ROUTER_DISABLED or manual demote \u2014 no code change needed."
+      },
+      {
+        "model_id": "sol-regime-15m-lgbm-fc-pcv-v1",
+        "current_stage": "advisory",
+        "proposed_stage": "shadow",
+        "direction": "demote",
+        "tier": 3,
+        "evidence": "stage-guard proposes demote on drift verdict='significant' alone (KS 0.232, PSI 0.170) \u2014 no attribution/AUC data yet. Milder signal than BTC's. Same frozen-dataset root cause.",
+        "risk_note": "NOT recommending action \u2014 same wait-for-v2 plan as BTC (due ~2026-07-28)."
+      }
+    ],
+    "experiments_proposed": [
+      {
+        "kind": "new_feature",
+        "name": "eth-xasset-value-confirm",
+        "tier": 3,
+        "rationale": "ETH xa dead-feature defect now fixed and re-soaking since 2026-07-20; once ~1wk matures (~2026-07-27), settle whether cross-asset peer features earn their place for ETH vs self-only sibling."
+      },
+      {
+        "kind": "hyperparam_sweep",
+        "name": "btc-15m-vol-threshold-refresh",
+        "tier": 3,
+        "rationale": "MB-20260701-001's vol_threshold finding was measured against a head no longer live-enforced (swapped to fc-pcv family 2026-07-20) \u2014 needs re-measurement against the currently-live head after the ~07-28 swap decision."
+      },
+      {
+        "kind": "new_dataset_family",
+        "name": "conviction-meta-identifiability-accelerator",
+        "tier": 3,
+        "rationale": "conviction-meta-v1 stuck at n_eval=69 for weeks (design bar >=150), blocking both P4-sizing and P5-fusion graduation; live score variance has widened >20x. Needs a widened pooled-dataset variant to break the n-wall."
+      }
+    ],
+    "backlog_coverage": {
+      "open_at_start": 41,
+      "triaged": 41,
+      "resolved": 6,
+      "fixed_now": 0,
+      "closed_stale": 1,
+      "kept_open": 34,
+      "count_untriaged": 0
+    },
+    "backlog_drain_resolved_ids": [
+      "MB-20260613-001",
+      "MB-20260627-002",
+      "MB-20260629-ALLOC-COSTCAP",
+      "MB-20260705-FC-ADVISORY-READINESS",
+      "MB-20260712-ML-EXIT-HEAD",
+      "MB-20260719-MES-BASE-RTH-ONLY"
+    ],
+    "backlog_drain_invalid_ids": [
+      "MB-20260705-META-LABEL-WALL"
+    ],
+    "anomalies": [
+      "Duplicate backlog id: two unrelated already-resolved items both used MB-20260609-001 \u2014 fixed by renaming the second to MB-20260609-001B.",
+      "CLAUDE.md's REGIME_ML_VERDICT_MODE doc entry named btc-regime-15m-lgbm-v2 as the live BTC advisory vol-gate head, but registry confirms it was swapped to btc-regime-15m-lgbm-fc-pcv-v1 on 2026-07-20 (SOL also gained its first advisory head, sol-regime-15m-lgbm-fc-pcv-v1, same swap). Fixed in CLAUDE.md commit.",
+      "The M20 exit-head model family (exit-head-donchian-1h-v1, ADVISORY and live-order-influencing since 2026-07-12) lives in a SEPARATE artifact store (runtime_logs/trainer_mirror/exit_head/*.json) \u2014 NOT ml/registry-store, invisible to the standard model_status scan. Verified via a direct shadow-predictions/trades-scores pull instead. Flagging so future reviews don't assume the ModelRegistry scan is exhaustive.",
+      "Trainer disk usage at 91% (4.2GB free of 45GB) - not yet a training blocker but a fresh observation logged this session.",
+      "dataset_audit.jsonl noise (MB-20260719-DATASET-AUDIT-NOISE) persists: 200/500 (40%) of recent rows flagged this session \u2014 down from the 2026-07-19 baseline of ~72% but still far from clean. A concrete diagnostic lead (killzone/bias columns 100% null tripping quarantine on trade-outcome-lgbm-v1) logged for next session.",
+      "ml-review skill doc's relay-reachability table appears stale \u2014 the actual vm-diag-snapshot.yml BOT_ALLOWLIST_EXACT now also covers ml/status, ml/cycle, ml/registry, ml/builds, ml/db_pulls (added under BL-20260708-RELAY-ALLOWLIST-ML). Flagged for a future doc-fix session; not fixed here (out of ml-review-backlog scope)."
+    ],
+    "recommended_action": "No promotions or demotions actioned this run (operator approval required for any). Watch btc-regime-15m-lgbm-fc-pcv-v1's live AUC closely over the next few days rather than reactively demoting; hold the pre-approved fc-pcv v1->v2 swap plan for its ~2026-07-28 decision point. Recommend the operator review the 3 new experiment proposals. Backlog fully drained (41/41 triaged, 0 untriaged).",
+    "operator_attention_required": true,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": "/ml-review \u2014 92 models (61 candidate/27 shadow/3 advisory/1 research_only), trainer=ok, models=watch (fc-pcv frozen-dataset symptom on 2 advisory heads). 41/41 backlog triaged, 6 resolved. 3 experiments proposed."
+    },
+    "_note_committed": "commit 8a4b7ce on claude/system-health-review-4qz8ow \u2014 CLAUDE.md + docs/claude/ml-review-backlog.json"
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "Quiet, plumbing-healthy 58h window (all services up, all 7 live broker accounts reachable, no breach) but three real signals: the diversified paper book's decay is now confirmed genuine (-$16.4K swing since 07-07, 2 cells 3-review-confirmed for demotion), 2 of 3 live-influencing ML heads show a known frozen-dataset symptom pending a pre-approved 07-28 swap, and a chronic >3wk-old infra bug plus a 58h-stale prop snapshot need operator follow-through. All three sub-review backlogs fully drained (79/79, 55/55, 41/41).",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Prioritize root-cause fix for the >3-week-old /dev/null OCI-agent clobbering bug",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "BL-20260629-DEVNULL-OCI-SOURCE-KILL open since 2026-06-29, hit a 3rd surface on 07-21. Self-healing but un-root-caused; flagged per the operator's alarm-fatigue directive \u2014 this is itself now a P1.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "Review 2 Tier-3 DEMOTE_SHADOW proposals: avax_pullback_2h, sol_pullback_2h",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "3rd consecutive review confirms both as persistent laggards in the diversified paper book (-$3976.67/14.3%WR and -$2646.02/0%WR respectively). n is thin per-cell; recommend a 4-6wk shadow re-eval, not a permanent kill.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 3,
+        "title": "Get a fresh breakout_1 prop account-status snapshot",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "Last snapshot is 58h+ stale against only a $125.61 cushion to the static-DD floor. The bot's own PROP_STATUS_REQUEST nudge should be re-asking; no fresh balance has landed.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 4,
+        "title": "No action needed yet on the 2 fc-pcv advisory heads (BTC, SOL) showing frozen-dataset symptoms",
+        "source_review": "ml",
+        "tier": 3,
+        "detail": "stage-guard proposes demote on both, but evidence is thin (BTC AUC=0.25 on n=4; SOL drift=significant, no attribution yet). Root cause already tracked (MB-20260720-FCPCV-RETRAIN-NOOP); pre-approved fresh-data v2 swap due ~2026-07-28. Hold, watch closely.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 5,
+        "title": "Two bot-side API findings routed to health-review backlog (not yet triaged there)",
+        "source_review": "performance",
+        "tier": 2,
+        "detail": "trades_closed.py collapses sl_cross/tp_cross/exit_head/stale_stop into a generic 'other' closeReason (data loss); GET /api/bot/trades/closed?limit>=500 reliably times out (reproduced 3x+ this session, incl. independently by this master session). Both need a health-review look before a code fix.",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "The performance-review's own diag pull for this report (prior-window trades/closed, limit=500) hit the EXACT SAME query-timeout bug performance-review flagged in anomalies \u2014 independently reproduced by the master-review session, raising confidence this is a real, systemic issue, not a fluke.",
+      "ETH rallied +5.0% and BTC +3.3% over the window (see market_context) \u2014 directly contextualizes why eth_pullback_2h (a mean-reversion/pullback strategy) was the single largest paper loser this window (-$1439.96 total): a strong directional rally is the worst regime for a countertrend pullback entry. This mirrors the paper-book-tracker's broader finding that the pullback_2h family (not trend_4h) is the persistent drag.",
+      "Both ml-review's fc-pcv frozen-dataset finding and performance-review's paper-book decay finding trace to the same underlying pattern: stale/frozen training data (ML) and un-refreshed cohort tracking (paper-book) both went unnoticed for 2-3 weeks because nothing was actively re-verifying them each run \u2014 until this session's mandatory soak-integrity audit and the tracker bug-fix respectively surfaced both. Recommend a standing 'freshness self-check' habit across both domains, not just this one-time catch."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": -4.51,
+        "prior_window_pnl": 0.0,
+        "trend": "flat",
+        "trades": 3,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": -2.25,
+        "profit_factor": 0.0,
+        "max_drawdown": null,
+        "per_strategy": [
+          {
+            "name": "eth_pullback_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -4.26
+          },
+          {
+            "name": "trend_donchian",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -0.25
+          },
+          {
+            "name": "trend_donchian_xrp_4h",
+            "trades": 1,
+            "win_rate": null,
+            "pnl": null
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -4.51
+        },
+        "equity_curve": [
+          {
+            "t": "2026-07-20T11:36:14+00:00",
+            "cum": -4.26
+          },
+          {
+            "t": "2026-07-21T14:45:57+00:00",
+            "cum": -4.26
+          },
+          {
+            "t": "2026-07-21T23:03:15+00:00",
+            "cum": -4.51
+          }
+        ],
+        "note": "Only 2 priced closes this window (bybit_2, the sole real-money account trading \u2014 alpaca_live/ib_live remain shelved dry_run); the 3rd (trend_donchian_xrp_4h) closed with a null realizedPnl, an intent-layer artifact (immediate open==close timestamp), not a real economic loss. Prior window (2026-07-17T21:55 -> 2026-07-20T08:15) had ZERO bybit_2 closes \u2014 trend marked 'flat' given both windows are within the noise floor of this account's tiny risk_pct (0.015)."
+      },
+      "paper": {
+        "window_pnl": -20967.38,
+        "prior_window_pnl": null,
+        "trend": "unavailable: prior-window trades/closed pull (since=2026-07-17T21:55, limit=500) returned fetch_failed \u2014 the same relay query-timeout bug performance-review's anomalies[] flagged (reproduced independently this session)",
+        "trades": 16,
+        "wins": 5,
+        "win_rate": 41.7,
+        "expectancy": -1310.46,
+        "profit_factor": 0.0395,
+        "max_drawdown": null,
+        "per_strategy": [
+          {
+            "name": "mhg_pullback_1d",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -18300.0
+          },
+          {
+            "name": "gld_pullback_1h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -1915.98
+          },
+          {
+            "name": "eth_pullback_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -1435.71
+          },
+          {
+            "name": "uso_trend_1h",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 827.08
+          },
+          {
+            "name": "slv_trend_1h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -140.78
+          },
+          {
+            "name": "trend_donchian",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -38.06
+          },
+          {
+            "name": "pairs_bnb_btc_b",
+            "trades": 3,
+            "win_rate": 100.0,
+            "pnl": 34.44
+          },
+          {
+            "name": "pairs_bnb_btc_a",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 1.62
+          },
+          {
+            "name": "ada_pullback_2h",
+            "trades": 1,
+            "win_rate": null,
+            "pnl": 0.0
+          },
+          {
+            "name": "htf_pullback_trend_2h",
+            "trades": 1,
+            "win_rate": null,
+            "pnl": 0.0
+          },
+          {
+            "name": "ief_pullback_1d",
+            "trades": 1,
+            "win_rate": null,
+            "pnl": 0.0
+          },
+          {
+            "name": "trend_donchian_xrp_4h",
+            "trades": 1,
+            "win_rate": null,
+            "pnl": 0.0
+          }
+        ],
+        "per_asset_class": {
+          "commodity": -19529.68,
+          "crypto": -1437.71,
+          "equity_fx_bond": 0.0
+        },
+        "equity_curve": [],
+        "note": "Derived from performance-review's strategy_performance table (all-funding-class closed trades this window, verified non-truncated). Net is dominated by mhg_pullback_1d's single -$18,300 paper-notional futures outlier (24 MHG contracts, -4.88% \u2014 see performance-review anomalies) which is NOT representative of typical paper-book scale; excluding it, paper net this window is -$2,667.38. 4 of 16 trades (ada/htf/ief/trend_donchian_xrp_4h) closed with null pnl (intent-layer artifacts) and are excluded from win_rate. This is the FULL paper universe (all accounts), a broader scope than the 10-cell diversified-cohort tracker in performance.paper_book_tracker (which covers only bybit_1's dedicated cohort over a 30d/full-book window, not this since-last window)."
+      },
+      "prop": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": -96.94,
+        "trend": "up",
+        "fills_reported": 0,
+        "tickets_emitted": 0,
+        "unacted_tickets": 0,
+        "rule_distance": {
+          "daily_loss_remaining": 144.77,
+          "static_dd_remaining": 125.61
+        },
+        "per_account": [
+          {
+            "account_id": "breakout_1",
+            "balance": 4825.61,
+            "equity": 4825.61,
+            "realized_window": 0.0
+          }
+        ],
+        "note": "No fills reported IN this window (last reported close was ETHUSDT short, -$96.94, closed_at 2026-07-20T03:13Z \u2014 inside the prior window, before this one starts). 48 tickets emitted lifetime, 25 fills, 0 unacted (per /api/bot/prop/reconcile). The account-status snapshot itself is 58h+ stale (reported_at 2026-07-20T08:28:32Z) against only a $125.61 cushion to the static-DD floor \u2014 flagged as operator_priorities[3]."
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": 63918.0,
+        "close": 66046.0,
+        "high": null,
+        "low": null,
+        "pct_change": 3.33,
+        "range_pct": null,
+        "note": "Steady grind up ~+3.3% over the window (candles 07-20T07:00Z -> 07-22T15:00Z, last ~2.5h not captured due to relay comment-budget truncation). Consistent with trend_donchian's real-money -$0.25 exit_head close being a deliberate small-loss ML exit, not a fight against the tape."
+      },
+      {
+        "symbol": "ETHUSDT",
+        "open": 1849.86,
+        "close": 1942.89,
+        "high": null,
+        "low": null,
+        "pct_change": 5.03,
+        "range_pct": null,
+        "note": "Stronger rally than BTC, +5.0%. Directly explains eth_pullback_2h's -$1439.96 window loss (a mean-reversion pullback strategy fighting a genuine directional rally) \u2014 see cross_review_notes."
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": 3770,
+        "order_package_id": "pkg-f9b2170e55994873",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "trend_donchian",
+        "opened_at": "2026-07-21T07:58:15.956200+00:00",
+        "closed_at": "2026-07-21T23:03:15.741407+00:00",
+        "hold_seconds": 54300,
+        "entry_price": 66238.5,
+        "exit_price": 66214.3,
+        "stop_loss": 65419.68,
+        "take_profit": 72796.11,
+        "qty": 0.005,
+        "pnl": -0.2512,
+        "pnl_percent": -0.0759,
+        "close_reason": "exit_head",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "trend_donchian long BTCUSDT; conf 0.73, optimal entry per signal_logic; M20 exit_head model closed early at -0.03R \u2014 deliberate ML-driven exit, not a stop-out."
+        },
+        "notable": true
+      },
+      {
+        "trade_id": null,
+        "order_package_id": "pkg-d41164e8794744a5",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BNBUSDT",
+        "direction": "long",
+        "strategy": "pairs_bnb_btc_a",
+        "opened_at": "2026-07-22T07:02:14.451201+00:00",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 568.1,
+        "exit_price": null,
+        "stop_loss": 284.05,
+        "take_profit": 1136.2,
+        "qty": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "M22 pairs sleeve shadow/data-collection leg \u2014 never filled, placeholder bracket geometry, judged on setup only."
+        },
+        "notable": false
+      },
+      {
+        "trade_id": null,
+        "order_package_id": "pkg-ee5911f925d64a25",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "strategy": "pairs_bnb_btc_b",
+        "opened_at": "2026-07-22T07:02:15.496248+00:00",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 65947.6,
+        "exit_price": null,
+        "stop_loss": 131895.2,
+        "take_profit": 32973.8,
+        "qty": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "BTC leg of the same pair as above; same shadow-bracket caveat."
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 3632,
+        "order_package_id": null,
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "ETHUSDT",
+        "direction": "short",
+        "strategy": "eth_pullback_2h",
+        "opened_at": "2026-07-17T18:14:38.869959+00:00",
+        "closed_at": "2026-07-20T11:36:14.564000+00:00",
+        "hold_seconds": 235296,
+        "entry_price": 1842.26,
+        "exit_price": 1893.93,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 0.08,
+        "pnl": -4.2586,
+        "pnl_percent": -2.8895,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "notable": true,
+        "note": "Not graded this run \u2014 order-package pull for the window truncated before reaching this package (see performance.coverage_caveat). Row recovered from this master session's own account_id=bybit_2 diag pull."
+      },
+      {
+        "trade_id": 3788,
+        "order_package_id": null,
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "XRPUSDT",
+        "direction": "short",
+        "strategy": "trend_donchian_xrp_4h",
+        "opened_at": "2026-07-21T14:45:57.900358+00:00",
+        "closed_at": "2026-07-21T14:45:57.900358+00:00",
+        "hold_seconds": 0,
+        "entry_price": 1.1508,
+        "exit_price": null,
+        "stop_loss": null,
+        "take_profit": null,
+        "qty": 37.8,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null,
+          "entry_quality": "unknown",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": null
+        },
+        "notable": false,
+        "note": "Null-pnl intent-layer artifact (opened_at == closed_at) \u2014 not a real fill/loss. Not independently graded."
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 3,
+      "summarized_trades": 16,
+      "rule": "full-per-trade (since-last) intended, PARTIAL in practice \u2014 the order-packages pull for the window truncated at the relay's ~55KB comment budget after ~2 of an estimated 70-90 window packages, so only 3 of the 19 closed trades this window have a Claude decision grade / signal_logic join. The other 16 are covered only in pnl_by_class.paper.per_strategy (aggregate), not as individual dossiers, to avoid fabricating entry/exit detail this session couldn't independently verify."
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 241,
+        "open": 76,
+        "resolved": 165,
+        "drained": 4
+      },
+      "performance": {
+        "total": 79,
+        "open": 50,
+        "resolved": 29,
+        "drained": 6
+      },
+      "ml": {
+        "total": 88,
+        "open": 33,
+        "resolved": 55,
+        "drained": 9
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "summary": "DEMOTE_SHADOW avax_pullback_2h (config/strategies.yaml) \u2014 3rd-review-confirmed laggard, -$3976.67/7t/14.3%WR.",
+        "tier": 3
+      },
+      {
+        "source_review": "performance",
+        "summary": "DEMOTE_SHADOW sol_pullback_2h (config/strategies.yaml) \u2014 3rd-review-confirmed laggard, -$2646.02/5t/0%WR.",
+        "tier": 3
+      },
+      {
+        "source_review": "ml",
+        "summary": "HOLD (no action) on btc-regime-15m-lgbm-fc-pcv-v1 stage-guard demote proposal \u2014 thin evidence (n=4), pre-approved v2 swap due ~07-28 preferred.",
+        "tier": 3
+      },
+      {
+        "source_review": "ml",
+        "summary": "HOLD (no action) on sol-regime-15m-lgbm-fc-pcv-v1 stage-guard demote proposal \u2014 drift-only signal, same v2-swap plan.",
+        "tier": 3
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "MB-20260721-FCPCV-V2-SOAK",
+        "domain": "ml",
+        "category": "soaking",
+        "detail": "Fresh-data v2 siblings (BTC + SOL fc-pcv) accruing on schedule (~148/144 predictions in 1.5 days); swap decision due once soak matures.",
+        "since": "2026-07-21",
+        "next_check": "~2026-07-28 decision point"
+      },
+      {
+        "item_id": "MB-20260616-CONVICTION-P4-SIZING",
+        "domain": "ml",
+        "category": "stalled",
+        "detail": "conviction-meta-v1 stuck at n_eval=69 (design bar >=150) for weeks; live score variance widened >20x this session. Blocking both P4-sizing and P5-fusion.",
+        "since": null,
+        "next_check": "n_eval >= 150 with non-degenerate purged-CV macro_f1"
+      },
+      {
+        "item_id": "SRQ-20260618-002",
+        "domain": "performance",
+        "category": "awaiting-decision",
+        "detail": "avax_pullback_2h / sol_pullback_2h DEMOTE_SHADOW proposals escalated this run after a 3rd consecutive confirming review.",
+        "since": "2026-07-22",
+        "next_check": "operator go/no-go"
+      },
+      {
+        "item_id": "SRQ-20260715-REALMONEY-ALLOC-BENCHMARK",
+        "domain": "performance",
+        "category": "awaiting-data",
+        "detail": "alpaca_live ETF sleeve does not clear the real-money allocation bar this window ($-based read only, no R-normalization yet). Recommend a longer, R-normalized re-run before the next verdict.",
+        "since": null,
+        "next_check": "next /performance-review with a risk-normalized pull"
+      },
+      {
+        "item_id": "BL-20260629-DEVNULL-OCI-SOURCE-KILL",
+        "domain": "health",
+        "category": "awaiting-decision",
+        "detail": "Chronic /dev/null clobbering, self-healing but un-root-caused for >3 weeks; escalated as operator_priorities[1] this run.",
+        "since": "2026-06-29",
+        "next_check": "a dedicated VM-ops root-cause session"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "avax_pullback_2h",
+            "gate": "DEMOTE_SHADOW",
+            "evidence": "3rd consecutive review: -$3976.67/7t/14.3%WR this snapshot; declining each of the last 3 reads."
+          },
+          {
+            "name": "sol_pullback_2h",
+            "gate": "DEMOTE_SHADOW",
+            "evidence": "3rd consecutive review: -$2646.02/5t/0.0%WR; unchanged-negative since 07-07."
+          }
+        ],
+        "summary": "All other strategies HOLD this window (no M7 packet pulled independently by the master session \u2014 strategy_promotion status is the performance-review's own read, not re-derived here). Two Tier-3 demote proposals pending operator approval; everything else stands pat."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 8,
+        "dataset_builds_ok": true,
+        "failing_or_stuck": [],
+        "summary": "8 training cycles ran since 2026-07-20T08:15Z, 0 manifest failures, 0 manifest-quarantine trips. Registry 92 models (61 candidate/27 shadow/3 advisory/1 research_only), matching the live-VM mirror exactly."
+      },
+      "soak_status": [
+        {
+          "soak": "btc-regime-15m-lgbm-fc-pcv-v1 (advisory)",
+          "state": "accruing",
+          "detail": "189 predictions; live AUC read thin (n=4) and inverted \u2014 watching, not yet actionable."
+        },
+        {
+          "soak": "sol-regime-15m-lgbm-fc-pcv-v1 (advisory)",
+          "state": "accruing",
+          "detail": "183 predictions; drift verdict=significant, no attribution rows yet."
+        },
+        {
+          "soak": "btc/sol-regime-15m-lgbm-fc-pcv-v2 (shadow, fresh-data siblings)",
+          "state": "accruing",
+          "detail": "148/144 predictions in ~1.5 days, on pace for the ~07-28 swap decision."
+        },
+        {
+          "soak": "conviction-meta-v1 (shadow)",
+          "state": "stalled",
+          "detail": "n_eval stuck at 69 for weeks (design bar >=150); live score variance widened >20x this session \u2014 gate_met: false, and not accruing meaningfully toward it."
+        },
+        {
+          "soak": "eth-regime-15m-lgbm-xasset-v1 (shadow)",
+          "state": "accruing",
+          "detail": "522 predictions in ~2 days since the 2026-07-20 restart post-dead-feature-fix; healthy re-soak."
+        },
+        {
+          "soak": "diversified paper-book cohort (10-cell, bybit_1)",
+          "state": "gate_met (decay confirmed)",
+          "detail": "decay_flag fired for the first time this session on the FIRST real snapshot in 2+ weeks (a tracker bug silently blocked every prior attempt) \u2014 -$16,381.51 swing since 07-07. 2 cells (avax/sol_pullback_2h) now 3-review-confirmed laggards \u2014 see tier3_proposals_pending."
+        }
+      ],
+      "flags_raised": [
+        "The /dev/null OCI-agent clobbering bug is now >3 weeks open with no root-cause fix, hitting a 3rd surface on 07-21 \u2014 per the operator's 2026-07-19 alarm-fatigue directive, THIS is now flagged as its own priority item, not just re-noted.",
+        "The diversified paper-book decay_flag fired for the first time (this session's first real tracker snapshot in 2+ weeks, after fixing a silent tooling bug) \u2014 a genuine -$16,381.51 swing since 07-07, not noise.",
+        "2 of 3 live-influencing (advisory) ML heads show real symptoms of a known frozen-dataset condition \u2014 not yet actionable (thin n / drift-only) but both are order-influencing and being watched closely pending the pre-approved ~2026-07-28 swap.",
+        "breakout_1's prop account-status snapshot is 58h+ stale against a thin $125.61 cushion to its drawdown floor.",
+        "A real, reproducible relay/API query-timeout bug (GET /api/bot/trades/closed at limit>=500) was independently confirmed a 4th time by this master-review session's own report-data-gathering pull \u2014 recommend a health-review follow-up on the underlying query."
+      ],
+      "account_reachability": {
+        "checked": [
+          "bybit_2",
+          "bybit_1",
+          "bybit_portfolio",
+          "alpaca_live",
+          "alpaca_paper",
+          "alpaca_portfolio",
+          "ib_paper"
+        ],
+        "down": [],
+        "summary": "All 7 declared-live, non-shelved broker accounts reachable (per /health-review's mandatory sweep this run: exchange_positions reads, the reachability latch state, and /api/bot/accounts/balances api_ok all clean). No down accounts this window."
+      },
+      "backlog_drive": {
+        "health": {
+          "drained": [
+            "BL-20260706-PROP-STALE-EMITTED-TICKETS",
+            "BL-20260720-RELAY-MULTIPATH-AMP",
+            "BL-20260617-ANDROID-56-VISUAL"
+          ],
+          "deferred": [
+            {
+              "id": "BL-20260629-DEVNULL-OCI-SOURCE-KILL",
+              "reason": "root-cause fix needs a dedicated VM-ops session; escalated as operator_priorities[1] rather than left as a routine re-note"
+            },
+            {
+              "id": "76 other open items",
+              "reason": "each individually re-validated against this session's live pulls this run \u2014 genuinely still open (Tier-2/3 code fix pending, operator decision pending, or soaking); full disposition list is in health.backlog_drain[]"
+            }
+          ]
+        },
+        "performance": {
+          "drained": [
+            "PERF-20260601-006",
+            "PB-20260617-001",
+            "PB-20260618-010",
+            "PB-20260626-ARTIFACT-BUCKETS",
+            "PB-20260626-002 (invalid)"
+          ],
+          "deferred": [
+            {
+              "id": "SRQ-20260618-002",
+              "reason": "escalated to a Tier-3 proposal this run (fixed_now), not deferred \u2014 awaiting operator go/no-go"
+            },
+            {
+              "id": "50 other open items",
+              "reason": "individually re-validated this run; genuinely awaiting more trade volume, a dedicated backtest/research session, or an operator decision \u2014 see performance.backlog_drain[]"
+            }
+          ]
+        },
+        "ml": {
+          "drained": [
+            "MB-20260613-001",
+            "MB-20260627-002",
+            "MB-20260629-ALLOC-COSTCAP",
+            "MB-20260705-FC-ADVISORY-READINESS",
+            "MB-20260712-ML-EXIT-HEAD",
+            "MB-20260719-MES-BASE-RTH-ONLY",
+            "MB-20260705-META-LABEL-WALL (invalid/duplicate)"
+          ],
+          "deferred": [
+            {
+              "id": "34 other open items",
+              "reason": "individually re-validated against this cycle's registry/training/drift data; genuinely still soaking, blocked on future data, or Tier-3-awaiting-operator \u2014 see ml.backlog_drain[]"
+            }
+          ]
+        },
+        "summary": "19 items drained across the three backlogs this run (3 health, 5 performance incl. 1 escalation, 8 ml incl. 1 duplicate-merge) plus 3 real tooling/data-integrity bugs FIXED (paper-book tracker, paper-record classifier, 2 duplicate backlog ids) and 1 stale doc reference corrected (CLAUDE.md's BTC vol-gate head name). Every one of the remaining 159 open items (76+50+33) was individually re-validated against this session's live pulls, not merely counted \u2014 see each sub-review's backlog_drain[] for the per-item disposition."
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260722T184651Z/report.json",
+    "html_path": "comms/reports/since-last/20260722T184651Z/report.html",
+    "md_path": "comms/reports/since-last/20260722T184651Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260722T184651Z/report.html",
+    "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260722-184651-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "send-ping",
+    "priority": "normal",
+    "message": "[system-report:since-last] roll-up caution: H:caution P:caution M:caution. https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260722-184651-since-last"
+  }
+}
