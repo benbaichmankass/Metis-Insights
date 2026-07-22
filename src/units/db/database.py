@@ -923,7 +923,7 @@ class Database:
         BL-20260722-XRP-SLSPAM (part 3): this SELECT previously named
         ``qty``/``sl``/``tp`` — none of which exist on ``trades`` (the real
         columns are ``position_size``/``stop_loss``/``take_profit_1``; see
-        the ``CREATE TABLE trades`` DDL above). ``insert_trade`` calls this
+        the ``trades`` schema declared above). ``insert_trade`` calls this
         inside a bare ``except Exception: pass``, so the resulting
         ``sqlite3.OperationalError`` was silently swallowed on every single
         real-money/paper trade open — the TRADE_OPENED push/Telegram
