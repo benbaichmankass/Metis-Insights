@@ -171,6 +171,12 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     "ict_scalp_sol_5m": 0,
     "ict_scalp_xrp_5m": 0,
     "ict_scalp_avax_5m": 0,
+    # M27 P1 15m alt legs (2026-07-22) — single-instrument ict_scalp instances
+    # (XRP/ETH/SOL 15m) on bybit_1 paper; 0 (untested-roster floor, same as the
+    # 5m alt variants) so a wiring slip can't override the established roster.
+    "ict_scalp_xrp_15m": 0,
+    "ict_scalp_eth_15m": 0,
+    "ict_scalp_sol_15m": 0,
     # trend_donchian — deliberately the LOWEST priority on the roster
     # (S-STRAT-IMPROVE-S8 go-live). It runs alone on bybit_2 so its
     # priority never actually arbitrates there; the low value is a
