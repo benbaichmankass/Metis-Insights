@@ -82,6 +82,11 @@ lever-driven exit; `/ml-review`/`/performance-review` track the realized
 
 ## Hard rules
 
+These rules are also codified generically (for any research skill, not just
+this one) in
+[`docs/research/RESEARCH-RIGOR-STANDARD.md`](../../../docs/research/RESEARCH-RIGOR-STANDARD.md) —
+this list stays the authoritative source for exit-refinement specifically.
+
 - **Never blend real/paper/prop** in any evidence read.
 - **Truncation-honest counterfactuals only** — no barrier re-simulation
   (the T0.4 lesson).
