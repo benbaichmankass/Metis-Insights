@@ -132,3 +132,30 @@ class TestDecide:
         p = tmp_path / "garbage.yaml"
         p.write_text(":::not yaml at all\n\t{")
         assert duc.decide(str(p), str(tmp_path), str(tmp_path)) == "TRAIN"
+
+    def test_skip_regardless_of_glob_order_with_non_dict_sibling(self, tmp_path, monkeypatch):
+        """Regression for a real bug (found investigating a CI-only failure of
+        test_skip_when_dataset_and_manifest_predate_last_run, 2026-07-22):
+        `glob.glob()` order is filesystem-dependent, not guaranteed sorted. The
+        registry scan called `d.get("model_id")` on every parsed JSON file
+        OUTSIDE the try/except that only guarded `json.load()` -- so when the
+        non-dict sibling artifact (`not-an-entry.json`, a JSON list) happened to
+        glob-order BEFORE the real dict entry, `d.get(...)` raised
+        AttributeError, which the function-level fail-open silently swallowed
+        into "TRAIN". This test pins the invariant the code already claimed
+        ("a sibling non-entry artifact must not break the scan") by forcing
+        BOTH glob orderings explicitly, instead of relying on whatever order
+        the test's own filesystem happens to produce.
+        """
+        m = _write_manifest(tmp_path)
+        d = _write_dataset(tmp_path)
+        _set_old(m)
+        _set_old(d)
+        reg = _write_registry(tmp_path, run_at=_past_iso(days=0.5))
+        real_glob = duc.glob.glob
+        for reverse in (False, True):
+            def _ordered_glob(*args, _reverse=reverse, **kwargs):
+                results = real_glob(*args, **kwargs)
+                return list(reversed(results)) if _reverse else results
+            monkeypatch.setattr(duc.glob, "glob", _ordered_glob)
+            assert duc.decide(str(m), str(tmp_path / "datasets-out"), str(reg)) == "SKIP"
