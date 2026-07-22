@@ -80,7 +80,16 @@ def _agg(rows: list[dict]) -> dict:
 
 
 def _cell_of(r: dict) -> str | None:
-    return _get(r, "strategy", "strategyName", "strategy_name", "strategy_id")
+    # `pattern` is the field GET /api/bot/trades/closed actually emits for the
+    # strategy name (src/web/api/routers/trades_closed.py: row["strategy_name"]
+    # serialized as `pattern`) — this is the endpoint this tool's own docstring
+    # + the /performance-review skill document as the feed source. Without this
+    # alias every row's cell resolves to None, which never matches a cohort
+    # cell name, so the tracker silently emits an all-zero snapshot instead of
+    # erroring (BL-20260722-PAPER-BOOK-TRACKER-PATTERN-FIELD — reproduced with
+    # the 2026-07-07T09:40 tracker snapshot, n=0 across every cell, immediately
+    # followed 15 min later by a real n=82 snapshot once fed differently).
+    return _get(r, "strategy", "strategyName", "strategy_name", "strategy_id", "pattern")
 
 
 def main(argv: list[str]) -> int:
