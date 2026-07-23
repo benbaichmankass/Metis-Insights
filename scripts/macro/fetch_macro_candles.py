@@ -104,15 +104,8 @@ def _write_pairs(path: Path, pairs) -> int:
     return len(pairs)
 
 
-def fetch_candles(
-    symbols, out_dir, *, start: str = "2005-01-01",
-    download=None, stooq_urlopen=None, min_rows: int = 30, timeout: float = 25.0,
-) -> dict:
-    """Fetch daily closes per symbol → ``<out_dir>/<SYMBOL>.csv``, yfinance-then-Stooq.
-
-    Both fetchers are injectable for tests (``download`` = yfinance, ``stooq_urlopen``
-    = a fake urlopen). Real fetches are off-VM-only; a symbol that yfinance returns
-    with fewer than ``min_rows`` rows falls back to Stooq."""
+def _resolve_fetchers(download, stooq_urlopen, start):
+    """Resolve the real off-VM fetchers when none are injected (tests inject)."""
     real = download is None and stooq_urlopen is None
     if real and not _offvm_enabled():
         raise RuntimeError(
@@ -124,27 +117,48 @@ def fetch_candles(
         download = lambda s: yf.download(s, start=start, progress=False, auto_adjust=True)  # noqa: E731
     if stooq_urlopen is None and _offvm_enabled():
         stooq_urlopen = urllib.request.urlopen
+    return download, stooq_urlopen
 
+
+def symbol_close_pairs(
+    symbol, *, download=None, stooq_urlopen=None, min_rows: int = 30, timeout: float = 25.0,
+) -> list[tuple[str, float]]:
+    """Dated daily closes ``[(date, close), ...]`` for one symbol, yfinance-then-Stooq.
+    Best-effort: returns ``[]`` on total failure. Reused by the candle CSV writer AND
+    the macro-source adapter (metal prices)."""
+    pairs: list[tuple[str, float]] = []
+    if download is not None:
+        try:
+            df = download(symbol)
+            if df is not None and not getattr(df, "empty", True):
+                pairs = yf_close_pairs(df)
+        except Exception as exc:  # noqa: BLE001
+            print(f"{symbol}: yfinance failed ({exc})")
+    if len(pairs) < min_rows and stooq_urlopen is not None:
+        try:
+            with stooq_urlopen(_STOOQ_URL.format(sym=str(symbol).lower()), timeout=timeout) as resp:
+                sp = stooq_close_pairs(resp.read().decode())
+            if len(sp) > len(pairs):
+                pairs = sp
+                print(f"{symbol}: yfinance short → stooq ({len(sp)} rows)")
+        except Exception as exc:  # noqa: BLE001
+            print(f"{symbol}: stooq fallback failed ({exc})")
+    return pairs
+
+
+def fetch_candles(
+    symbols, out_dir, *, start: str = "2005-01-01",
+    download=None, stooq_urlopen=None, min_rows: int = 30, timeout: float = 25.0,
+) -> dict:
+    """Fetch daily closes per symbol → ``<out_dir>/<SYMBOL>.csv``, yfinance-then-Stooq.
+    Both fetchers are injectable for tests. Real fetches are off-VM-only."""
+    download, stooq_urlopen = _resolve_fetchers(download, stooq_urlopen, start)
     out = Path(out_dir)
     result: dict[str, int] = {}
     for s in symbols:
-        pairs: list[tuple[str, float]] = []
-        if download is not None:
-            try:
-                df = download(s)
-                if df is not None and not getattr(df, "empty", True):
-                    pairs = yf_close_pairs(df)
-            except Exception as exc:  # noqa: BLE001
-                print(f"{s}: yfinance failed ({exc})")
-        if len(pairs) < min_rows and stooq_urlopen is not None:
-            try:
-                with stooq_urlopen(_STOOQ_URL.format(sym=s.lower()), timeout=timeout) as resp:
-                    sp = stooq_close_pairs(resp.read().decode())
-                if len(sp) > len(pairs):
-                    pairs = sp
-                    print(f"{s}: yfinance short → stooq ({len(sp)} rows)")
-            except Exception as exc:  # noqa: BLE001
-                print(f"{s}: stooq fallback failed ({exc})")
+        pairs = symbol_close_pairs(
+            s, download=download, stooq_urlopen=stooq_urlopen, min_rows=min_rows, timeout=timeout
+        )
         result[s] = _write_pairs(out / f"{s}.csv", pairs)
     return result
 

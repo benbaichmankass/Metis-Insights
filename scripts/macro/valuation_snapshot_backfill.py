@@ -49,9 +49,11 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-# Repo root on path so ``python scripts/...`` works without install.
+# Repo root + scripts/macro (sibling adapters) on path so ``python scripts/...`` works.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from macro_sources import fetch_source_series_dated  # noqa: E402
 from src.units.strategies.macro_thesis.fred_adapter import (  # noqa: E402
     fetch_fred_series_history_dated,
     metric_histories,
@@ -136,14 +138,31 @@ def run_backfill(
     dry_run: bool = False,
     urlopen=None,
     timeout: float = 25.0,
+    with_sources: bool = True,
+    source_fetchers: Optional[dict] = None,
 ) -> dict:
     """Fetch full FRED history once and regenerate the point-in-time backfill log.
-    Full-regen (truncates the file first) → idempotent. Returns a summary dict."""
+    Full-regen (truncates the file first) → idempotent. Returns a summary dict.
+
+    ``with_sources`` also fetches the non-FRED sources (metal prices, earnings yield)
+    so ERP + gold/silver resolve; ``source_fetchers`` injects them for tests."""
     config = load_valuation_config(config_path)
     if not config:
         return {"error": "empty_config", "rows": 0}
     req = required_series(config)
     series_dated = fetch_fred_series_history_dated(req["series"], urlopen=urlopen, timeout=timeout)
+    # Merge the non-FRED source series (metal prices → gold/silver ratio; Shiller
+    # earnings yield → ERP) so those metrics resolve too. Best-effort: if a source
+    # can't be fetched it's simply absent and that metric honest-nulls (as before).
+    if with_sources:
+        try:
+            src_series = fetch_source_series_dated(
+                config, start=start_date or "2005-01-01", timeout=timeout, **(source_fetchers or {})
+            )
+            for name, pairs in src_series.items():
+                series_dated[name] = pairs
+        except Exception as exc:  # noqa: BLE001
+            print(f"non-FRED sources unavailable ({exc}); ERP + gold/silver honest-null")
     rows = backfill_rows(config, series_dated, cadence_days=cadence_days, start_date=start_date)
 
     written = 0
