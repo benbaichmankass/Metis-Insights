@@ -54,6 +54,13 @@ from .event_store import (  # noqa: F401
     write_event_links,
     write_events,
 )
+from .event_calendar import (  # noqa: F401
+    build_scheduled_events,
+    event_id_for,
+    load_events_config,
+    required_series as event_required_series,
+    resolve_scheduled_event,
+)
 
 __all__ = [
     "ValueRead",
@@ -87,4 +94,9 @@ __all__ = [
     "write_event_links",
     "read_event_links",
     "resolve_all",
+    "load_events_config",
+    "event_id_for",
+    "build_scheduled_events",
+    "event_required_series",
+    "resolve_scheduled_event",
 ]
