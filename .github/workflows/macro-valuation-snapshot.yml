@@ -1,0 +1,156 @@
+name: macro-valuation-snapshot
+
+# M28 P1 — the off-VM FRED valuation-snapshot PRODUCER runner.
+#
+# Runs scripts/macro/valuation_snapshot_produce.py on a GitHub-hosted runner on a
+# daily cadence and commits the appended point-in-time log
+# (comms/macro/valuation_snapshots.jsonl) back to main. The live VM picks the file
+# up via `ict-git-sync`; the macro-thesis sleeve reads it through
+# valuation_store.read_latest_snapshots(), and the M28 P4 value-thesis gate replays
+# the accrued history.
+#
+# Why off-VM (not the live trader or a VM timer):
+#   - The FRED fetch is off-VM-guarded (fred_adapter refuses the network unless
+#     ICT_OFFVM_BUILD_HOST is set) precisely so the money box never opens a FRED
+#     socket. This runner sets ICT_OFFVM_BUILD_HOST=1 on a hosted runner — no SSH
+#     to the live VM, no live-VM network touch.
+#   - FRED fredgraph.csv is FREE + KEYLESS — no secret needed.
+#
+# Point-in-time discipline: the log is append-only. Each run appends one line per
+# (symbol, metric) stamped with the run's observed_at; a revised macro value is a
+# NEW line, never an overwrite. Committing the diff (not overwriting) preserves the
+# full as-of history the P4 backtest reconstructs against.
+#
+# Triggers:
+#   1. schedule          — daily 07:30 UTC (after FRED's daily series publish; a
+#                          cadence-daily macro read is plenty for a weeks-horizon
+#                          value sleeve).
+#   2. workflow_dispatch — operator "Run workflow" (seed the first snapshots / a
+#                          manual top-up).
+#   3. issues.opened w/ label `macro-valuation-snapshot-now` — the Claude-driven
+#      path (a web session can't dispatch a workflow, but can open a labelled
+#      issue). Owner-authored only.
+#
+# Tier-1: observability producer, no order path, no live-VM mutation, no secret.
+
+on:
+  schedule:
+    - cron: "30 7 * * *"
+  workflow_dispatch:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: macro-valuation-snapshot
+  cancel-in-progress: false
+
+jobs:
+  produce:
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       github.event.issue.user.login == github.repository_owner &&
+       contains(github.event.issue.labels.*.name, 'macro-valuation-snapshot-now'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: python -m pip install --upgrade pip "pyyaml>=6.0"
+
+      - name: Produce valuation snapshots (off-VM FRED fetch)
+        id: produce
+        env:
+          ICT_OFFVM_BUILD_HOST: "1"
+        run: |
+          set -euo pipefail
+          python scripts/macro/valuation_snapshot_produce.py \
+            --path comms/macro/valuation_snapshots.jsonl \
+            --json /tmp/valuation_produce_summary.json
+          {
+            echo "summary<<EOF"
+            cat /tmp/valuation_produce_summary.json
+            echo
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Commit + push the appended log
+        id: commit
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add comms/macro/valuation_snapshots.jsonl
+          if git diff --cached --quiet; then
+            echo "no snapshot change to commit"
+            echo "pushed=noop" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git commit -m "chore(m28): valuation snapshots ${TS} [skip ci]"
+          # Robust push: main can advance between checkout and push. Rebase our
+          # single append commit onto fresh main and retry (append-only ⇒ no real
+          # conflict, just a fast-forward race).
+          pushed=false
+          for attempt in 1 2 3 4 5; do
+            if git push origin HEAD:main 2>push.err; then pushed=true; break; fi
+            echo ">>> push attempt ${attempt} failed:"; cat push.err
+            if grep -qiE 'fetch first|non-fast-forward|rejected.*(fetch|remote)' push.err; then
+              git fetch origin main || true
+              git rebase origin/main || { git rebase --abort || true; break; }
+              continue
+            fi
+            break
+          done
+          if [ "$pushed" = true ]; then
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            echo "::error::failed to push valuation snapshots after retries"
+            exit 1
+          fi
+
+      - name: Comment + close issue (issue-driven path)
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const summary = process.env.SUMMARY || '(no summary captured)';
+            const pushed = process.env.PUSHED || 'unknown';
+            const body = [
+              '🟢 **macro-valuation-snapshot** run complete.',
+              '',
+              '```json',
+              summary.trim(),
+              '```',
+              '',
+              `push: \`${pushed}\``,
+              '',
+              '---',
+              '_Generated by [Claude Code](https://claude.ai/code)_',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed',
+            });
+        env:
+          SUMMARY: ${{ steps.produce.outputs.summary }}
+          PUSHED: ${{ steps.commit.outputs.pushed }}
