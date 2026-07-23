@@ -3,17 +3,20 @@
 
 The M28 P4 value-thesis gate scores each thesis's forward return against real
 prices, so it needs a per-symbol daily-close CSV (``--candles-dir <SYMBOL>.csv``).
-This pulls those from **Yahoo Finance** (free, keyless — the same fallback the
-dashboard's `_fetch_candles` uses), for the seed universe declared in
-``config/macro_valuation.yaml`` (so a roster change needs no edit here).
+This pulls those for the seed universe declared in ``config/macro_valuation.yaml``
+(so a roster change needs no edit here), from **two free, keyless sources** for
+resilience:
 
-Pairs with ``valuation_snapshot_backfill.py``: together they let the P4 gate run
-on real history immediately instead of waiting weeks for a live soak.
+  1. **Yahoo Finance** (yfinance) — primary.
+  2. **Stooq** daily CSV — fallback when yfinance returns short/empty for a symbol
+     (yfinance is flaky from datacenter IPs, and a single-symbol download's
+     ``df["Close"]`` is a 1-column *DataFrame* whose columns must be squeezed to a
+     Series — the bug that made the first backfill run write 1 garbage row/symbol).
 
-Off-VM-guarded (needs ICT_OFFVM_BUILD_HOST) so the live trading VM never opens a
-Yahoo socket — this is a research/backtest tool run on a GitHub runner / trainer.
-Best-effort per symbol: a failed fetch is logged + skipped, never fatal. No order
-path, no DB write.
+Pairs with ``valuation_snapshot_backfill.py``: together they let the P4 gate run on
+real history immediately. Off-VM-guarded (needs ICT_OFFVM_BUILD_HOST) so the live
+trading VM never opens a market-data socket. Best-effort per symbol: a failure is
+logged + skipped, never fatal. No order path, no DB write.
 """
 from __future__ import annotations
 
@@ -21,6 +24,7 @@ import argparse
 import csv
 import os
 import sys
+import urllib.request
 from pathlib import Path
 from typing import Optional
 
@@ -29,6 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from src.units.strategies.macro_thesis.valuation_feed import load_valuation_config  # noqa: E402
 
 _TRUTHY = {"1", "true", "yes", "on"}
+_STOOQ_URL = "https://stooq.com/q/d/l/?s={sym}.us&i=d"
 
 
 def _offvm_enabled() -> bool:
@@ -36,50 +41,111 @@ def _offvm_enabled() -> bool:
 
 
 def seed_symbols(config) -> list[str]:
-    """Seed-universe symbols to price = the ``instruments`` keys (the tradable
-    ETFs). The ``context`` group is macro reads, not tradable, so it's excluded."""
+    """Seed-universe symbols to price = the ``instruments`` keys (tradable ETFs).
+    The ``context`` group is macro reads, not tradable, so it's excluded."""
     return sorted((config.get("instruments", {}) or {}).keys())
 
 
-def _write_csv(path: Path, closes) -> int:
+def yf_close_pairs(df) -> list[tuple[str, float]]:
+    """Extract ``[(date, close), ...]`` from a yfinance download frame.
+
+    A single-symbol ``yf.download`` returns **MultiIndex columns**, so ``df["Close"]``
+    is a 1-column DataFrame, not a Series — squeeze it to a Series first (the bug
+    that wrote one garbage row per symbol). Best-effort; a non-finite value is skipped."""
+    close = df["Close"]
+    if hasattr(close, "columns"):        # 1-col DataFrame → its only column's Series
+        close = close.iloc[:, 0]
+    out: list[tuple[str, float]] = []
+    for idx, val in close.items():
+        try:
+            v = float(val.iloc[0]) if hasattr(val, "iloc") else float(val)
+        except (TypeError, ValueError):
+            continue
+        day = str(idx)[:10]
+        if len(day) == 10:
+            out.append((day, v))
+    return out
+
+
+def stooq_close_pairs(text: str) -> list[tuple[str, float]]:
+    """Parse a Stooq ``/q/d/l`` CSV body (``Date,Open,High,Low,Close,Volume``) →
+    ``[(date, close), ...]`` ascending. Skips the header + unparseable rows."""
+    out: list[tuple[str, float]] = []
+    lines = [ln for ln in (text or "").strip().splitlines() if ln]
+    if len(lines) < 2:
+        return out
+    header = [h.strip().lower() for h in lines[0].split(",")]
+    try:
+        di, ci = header.index("date"), header.index("close")
+    except ValueError:
+        return out
+    for ln in lines[1:]:
+        parts = ln.split(",")
+        if len(parts) <= max(di, ci):
+            continue
+        day = parts[di].strip()[:10]
+        try:
+            if len(day) == 10:
+                out.append((day, float(parts[ci])))
+        except ValueError:
+            continue
+    return out
+
+
+def _write_pairs(path: Path, pairs) -> int:
+    if not pairs:
+        return 0
     path.parent.mkdir(parents=True, exist_ok=True)
-    n = 0
     with path.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(["date", "close"])
-        for idx, val in closes.items():
-            v = float(val.iloc[0]) if hasattr(val, "iloc") else float(val)
-            w.writerow([str(idx)[:10], v])
-            n += 1
-    return n
+        for d, v in pairs:
+            w.writerow([d, v])
+    return len(pairs)
 
 
-def fetch_candles(symbols, out_dir, *, start: str = "2005-01-01", download=None) -> dict:
-    """Fetch daily closes for each symbol → ``<out_dir>/<SYMBOL>.csv`` (date,close).
+def fetch_candles(
+    symbols, out_dir, *, start: str = "2005-01-01",
+    download=None, stooq_urlopen=None, min_rows: int = 30, timeout: float = 25.0,
+) -> dict:
+    """Fetch daily closes per symbol → ``<out_dir>/<SYMBOL>.csv``, yfinance-then-Stooq.
 
-    ``download`` is injectable for tests (defaults to ``yfinance.download``, which
-    is only imported — and only reachable — off-VM)."""
-    if download is None:
-        if not _offvm_enabled():
-            raise RuntimeError(
-                "fetch_macro_candles: network fetch is off-VM only "
-                "(set ICT_OFFVM_BUILD_HOST=1) or inject download"
-            )
+    Both fetchers are injectable for tests (``download`` = yfinance, ``stooq_urlopen``
+    = a fake urlopen). Real fetches are off-VM-only; a symbol that yfinance returns
+    with fewer than ``min_rows`` rows falls back to Stooq."""
+    real = download is None and stooq_urlopen is None
+    if real and not _offvm_enabled():
+        raise RuntimeError(
+            "fetch_macro_candles: network fetch is off-VM only "
+            "(set ICT_OFFVM_BUILD_HOST=1) or inject download/stooq_urlopen"
+        )
+    if download is None and _offvm_enabled():
         import yfinance as yf
         download = lambda s: yf.download(s, start=start, progress=False, auto_adjust=True)  # noqa: E731
+    if stooq_urlopen is None and _offvm_enabled():
+        stooq_urlopen = urllib.request.urlopen
 
     out = Path(out_dir)
     result: dict[str, int] = {}
     for s in symbols:
-        try:
-            df = download(s)
-            if df is None or getattr(df, "empty", True):
-                result[s] = 0
-                continue
-            result[s] = _write_csv(out / f"{s}.csv", df["Close"])
-        except Exception as exc:  # noqa: BLE001
-            print(f"{s}: fetch failed ({exc})")
-            result[s] = 0
+        pairs: list[tuple[str, float]] = []
+        if download is not None:
+            try:
+                df = download(s)
+                if df is not None and not getattr(df, "empty", True):
+                    pairs = yf_close_pairs(df)
+            except Exception as exc:  # noqa: BLE001
+                print(f"{s}: yfinance failed ({exc})")
+        if len(pairs) < min_rows and stooq_urlopen is not None:
+            try:
+                with stooq_urlopen(_STOOQ_URL.format(sym=s.lower()), timeout=timeout) as resp:
+                    sp = stooq_close_pairs(resp.read().decode())
+                if len(sp) > len(pairs):
+                    pairs = sp
+                    print(f"{s}: yfinance short → stooq ({len(sp)} rows)")
+            except Exception as exc:  # noqa: BLE001
+                print(f"{s}: stooq fallback failed ({exc})")
+        result[s] = _write_pairs(out / f"{s}.csv", pairs)
     return result
 
 
@@ -103,8 +169,8 @@ def main(argv: Optional[list] = None) -> int:
     print("=" * 24)
     for s, n in result.items():
         print(f"  {s:>6}: {n} daily closes" + ("" if n else "  (EMPTY / failed)"))
-    ok = sum(1 for n in result.values() if n)
-    print(f"{ok}/{len(result)} symbols fetched → {args.out_dir}")
+    ok = sum(1 for n in result.values() if n >= 30)
+    print(f"{ok}/{len(result)} symbols with usable history → {args.out_dir}")
     return 0 if ok else 1
 
 
