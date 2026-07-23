@@ -107,6 +107,7 @@ jobs:
           python scripts/macro/horizon_ic_scan.py \
             --snapshots comms/macro/valuation_snapshots_backfill.jsonl \
             --candles-dir data/macro_candles \
+            --non-overlapping \
             --generated-at "$(date -u +%FT%TZ)" \
             --json comms/macro/horizon_ic_scorecard.json | tee -a /tmp/scorecard.txt || \
             echo "::warning::horizon-IC scan degraded"

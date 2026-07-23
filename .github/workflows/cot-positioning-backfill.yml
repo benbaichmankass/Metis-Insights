@@ -101,6 +101,7 @@ jobs:
             --snapshots comms/macro/cot_snapshots.jsonl \
             --candles-dir data/macro_candles \
             --rebalance-every 7 \
+            --non-overlapping \
             --generated-at "$(date -u +%FT%TZ)" \
             --json comms/macro/cot_horizon_ic_scorecard.json | tee -a /tmp/cot_card.txt || \
             echo "::warning::horizon-IC scan degraded"
