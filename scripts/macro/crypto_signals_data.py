@@ -47,6 +47,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 _TRUTHY = {"1", "true", "yes", "on"}
 
 BYBIT_BASE = "https://api.bybit.com"
+# Bybit geo-blocks US IPs on api.bybit.com; api.bytick.com is Bybit's documented
+# alternate domain (different CDN) that US hosts (e.g. GitHub-hosted runners) can
+# reach. Try bytick FIRST so a US off-VM runner works, then the canonical host (for
+# non-US hosts like the live VM). A fetcher uses the first base that returns data.
+BYBIT_BASES = ("https://api.bytick.com", "https://api.bybit.com")
+
+
+def _bases(base):
+    """The base URLs to try, in order — an explicit ``base`` wins; else the
+    bytick-first fallback list (so a US GitHub runner can reach Bybit)."""
+    return [base] if base else list(BYBIT_BASES)
 CRYPTO_SYMBOLS = ("BTCUSDT", "ETHUSDT", "SOLUSDT")
 DEFAULT_LOOKBACK_DAYS = 90       # short-horizon: funding/basis mean-revert fast
 _CHEAP_PCT = 0.70
@@ -303,22 +314,21 @@ def _get_json(url, urlopen, timeout):
 
 def fetch_kline_close(
     symbol: str, *, category: str = "linear", interval: str = "D", limit: int = 1000,
-    base: str = BYBIT_BASE, urlopen=None, timeout: float = 30.0,
+    base: Optional[str] = None, urlopen=None, timeout: float = 30.0,
 ) -> list:
     """Daily closes ``[(ms, close), ...]`` for one symbol/category (perp=linear,
-    spot=spot). Best-effort → ``[]``. One call (Bybit returns up to 1000 bars)."""
+    spot=spot). Best-effort → ``[]``. One call (Bybit returns up to 1000 bars).
+    Tries each base in :func:`_bases` until one returns data (US-block fallback)."""
     urlopen = _resolve_urlopen(urlopen)
     q = urllib.parse.urlencode({"category": category, "symbol": symbol, "interval": interval, "limit": int(limit)})
-    return parse_kline_close(_get_json(f"{base}/v5/market/kline?{q}", urlopen, timeout))
+    for b in _bases(base):
+        out = parse_kline_close(_get_json(f"{b}/v5/market/kline?{q}", urlopen, timeout))
+        if out:
+            return out
+    return []
 
 
-def fetch_funding_history(
-    symbol: str, *, base: str = BYBIT_BASE, urlopen=None, timeout: float = 30.0,
-    limit: int = 200, max_pages: int = 10,
-) -> list:
-    """Funding-rate history ``[(ms, rate), ...]`` ascending, paginated backward via
-    ``endTime`` (up to ``max_pages`` × ``limit`` rows ≈ funding is 8-hourly). Best-effort."""
-    urlopen = _resolve_urlopen(urlopen)
+def _fetch_funding_one(symbol, base, urlopen, timeout, limit, max_pages) -> list:
     acc: list = []
     end_time = None
     for _ in range(max(1, max_pages)):
@@ -333,20 +343,28 @@ def fetch_funding_history(
         if end_time is not None and oldest >= end_time:
             break            # no progress → stop (defensive)
         end_time = oldest - 1
-    # de-dupe by ms, ascending
     seen: dict[int, float] = {}
     for ms, v in acc:
         seen[ms] = v
     return sorted(seen.items(), key=lambda x: x[0])
 
 
-def fetch_open_interest(
-    symbol: str, *, interval_time: str = "1d", base: str = BYBIT_BASE, urlopen=None,
-    timeout: float = 30.0, limit: int = 200, max_pages: int = 10,
+def fetch_funding_history(
+    symbol: str, *, base: Optional[str] = None, urlopen=None, timeout: float = 30.0,
+    limit: int = 200, max_pages: int = 10,
 ) -> list:
-    """Open-interest history ``[(ms, oi), ...]`` ascending, paginated via
-    ``nextPageCursor``. Best-effort."""
+    """Funding-rate history ``[(ms, rate), ...]`` ascending, paginated backward via
+    ``endTime`` (up to ``max_pages`` × ``limit`` rows ≈ funding is 8-hourly). Tries
+    each base in :func:`_bases` until one returns data (US-block fallback). Best-effort."""
     urlopen = _resolve_urlopen(urlopen)
+    for b in _bases(base):
+        out = _fetch_funding_one(symbol, b, urlopen, timeout, limit, max_pages)
+        if out:
+            return out
+    return []
+
+
+def _fetch_oi_one(symbol, interval_time, base, urlopen, timeout, limit, max_pages) -> list:
     acc: list = []
     cursor = None
     for _ in range(max(1, max_pages)):
@@ -368,3 +386,18 @@ def fetch_open_interest(
     for ms, v in acc:
         seen[ms] = v
     return sorted(seen.items(), key=lambda x: x[0])
+
+
+def fetch_open_interest(
+    symbol: str, *, interval_time: str = "1d", base: Optional[str] = None, urlopen=None,
+    timeout: float = 30.0, limit: int = 200, max_pages: int = 10,
+) -> list:
+    """Open-interest history ``[(ms, oi), ...]`` ascending, paginated via
+    ``nextPageCursor``. Tries each base in :func:`_bases` until one returns data
+    (US-block fallback). Best-effort."""
+    urlopen = _resolve_urlopen(urlopen)
+    for b in _bases(base):
+        out = _fetch_oi_one(symbol, interval_time, b, urlopen, timeout, limit, max_pages)
+        if out:
+            return out
+    return []
