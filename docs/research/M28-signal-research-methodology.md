@@ -1,8 +1,13 @@
 # M28 — Signal-research methodology for the valuation-snapshot format
 
 **Status:** active work plan (operator-directed 2026-07-23). Owns the *process*
-for developing predictive signals in the valuation-snapshot schema, not any one
-sleeve. Composes with `research-driver` + `RESEARCH-RIGOR-STANDARD.md`.
+(the iteration loop + construction backlog) for developing predictive signals in
+the valuation-snapshot schema, not any one sleeve. The top-level program plan —
+the full funnel (feasibility screen → signal grade → **PnL grade** → build →
+express → live), the research map, the phasing + decision checkpoints, and the
+signal→PnL translation — is [`M28-signal-RnD-program.md`](M28-signal-RnD-program.md);
+this doc is its iteration-mechanics component. Composes with `research-driver` +
+`RESEARCH-RIGOR-STANDARD.md`.
 
 ## The reframe (why this doc exists)
 
