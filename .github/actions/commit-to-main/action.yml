@@ -1,0 +1,87 @@
+name: commit-to-main
+description: >
+  Land committed file(s) on the protected `main` branch from a GitHub-hosted
+  workflow, via a PAT-authenticated auto-merge PR. `main` requires status checks
+  and rejects a direct workflow push (GH006), and a PR opened with the default
+  GITHUB_TOKEN does NOT trigger the on:pull_request required checks (so it would
+  stall auto-merge forever). Opening the PR with a real PAT triggers the checks
+  normally; they run + must pass; then the PR auto-merges (squash). This is the
+  shared fix for BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN /
+  BL-20260706-GPU-BURST-LEDGER-PUSH-RACE.
+
+  REQUIREMENT: the calling job must `actions/checkout` with `token: <the PAT>` so
+  the branch push is authenticated as the PAT (not GITHUB_TOKEN). The PAT needs
+  Contents: write + Pull requests: write on this repo.
+
+inputs:
+  token:
+    description: PAT with Contents:write + Pull-requests:write (also used for gh).
+    required: true
+  paths:
+    description: Space-separated path(s) to `git add`.
+    required: true
+  message:
+    description: Commit message (subject line).
+    required: true
+  pr-title:
+    description: Title for the auto-merge PR.
+    required: true
+  pr-body:
+    description: Body for the auto-merge PR.
+    required: false
+    default: "Automated data commit (auto-merge)."
+  branch-prefix:
+    description: Prefix for the throwaway PR head branch.
+    required: false
+    default: automation/data-commit
+
+outputs:
+  committed:
+    description: "true if a PR was opened, false if there was nothing to commit."
+    value: ${{ steps.run.outputs.committed }}
+  pr:
+    description: The opened PR URL (empty when nothing to commit).
+    value: ${{ steps.run.outputs.pr }}
+
+runs:
+  using: composite
+  steps:
+    - id: run
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        PATHS: ${{ inputs.paths }}
+        MESSAGE: ${{ inputs.message }}
+        PR_TITLE: ${{ inputs.pr-title }}
+        PR_BODY: ${{ inputs.pr-body }}
+        BRANCH_PREFIX: ${{ inputs.branch-prefix }}
+      run: |
+        set -euo pipefail
+        if [ -z "${GH_TOKEN:-}" ]; then
+          echo "::error::commit-to-main: the PAT token input is empty. Set the repo secret (a PAT with Contents:write + Pull-requests:write) and pass it as the 'token' input."
+          exit 1
+        fi
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        # shellcheck disable=SC2086 — PATHS is intentionally word-split into args.
+        git add -- ${PATHS}
+        if git diff --cached --quiet; then
+          echo "nothing to commit — no PR opened"
+          echo "committed=false" >> "$GITHUB_OUTPUT"
+          echo "pr=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        BR="${BRANCH_PREFIX}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        git commit -m "${MESSAGE}"
+        # Push the throwaway branch. The calling job checked out with the PAT, so
+        # `origin` is PAT-authenticated → the PR opened below triggers the required
+        # checks (a GITHUB_TOKEN-opened PR would not).
+        git push origin "HEAD:refs/heads/${BR}"
+        PR_URL="$(gh pr create --base main --head "${BR}" --title "${PR_TITLE}" --body "${PR_BODY}")"
+        echo "opened ${PR_URL}"
+        # Squash-auto-merge once required checks pass; delete the throwaway branch.
+        if ! gh pr merge --auto --squash --delete-branch "${PR_URL}"; then
+          echo "::warning::commit-to-main: could not enable auto-merge on ${PR_URL} — leaving it open for a manual merge."
+        fi
+        echo "committed=true" >> "$GITHUB_OUTPUT"
+        echo "pr=${PR_URL}" >> "$GITHUB_OUTPUT"

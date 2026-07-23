@@ -4273,6 +4273,11 @@
           "at": "2026-07-23",
           "by": "claude (M28 valuation-snapshot producer wiring)",
           "note": "GENERALIZED: the M28 valuation-snapshot producer hit the identical GH006 protected-branch block (run 30017310010), confirming this is not gpu-burst-specific but a general 'no workflow can commit to protected main' gap. Tracked with the shared durable fix in BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN (operator options: bot push-allowance for comms/** OR a write-scoped PAT for auto-merge PRs). Fix both workflows together."
+        },
+        {
+          "at": "2026-07-23",
+          "by": "claude (valuation-snapshot-producer session)",
+          "note": "Terminal fix shipped alongside the valuation producer: gpu-burst-train.yml's ledger commit now goes through the shared .github/actions/commit-to-main action (PAT auto-merge PR) instead of the GH006-blocked direct `git push HEAD:main`. A burst's cost row can no longer be silently dropped by branch protection. Tracked with BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN; verify on the next real armed burst (or accept the shared mechanism as verified once the valuation producer's PR lands green)."
         }
       ]
     },
@@ -5520,9 +5525,15 @@
       "tier": "Tier 1 (CI workflow + one operator/admin action: branch-protection setting OR a PAT secret value).",
       "trigger_condition": "Next CI/infra-touching session, OR when the live macro-thesis sleeve is about to go order-affecting (then the snapshots MUST be on main), OR the next /health-review. Pairs with BL-20260706-GPU-BURST-LEDGER-PUSH-RACE - fix both together.",
       "resolution_criteria": "A workflow can land committed data on main autonomously (verified by a green gpu-burst ledger append on main AND the valuation producer repointed at main landing a snapshot commit), OR the operator explicitly accepts the data-branch pattern as permanent for these data feeds.",
-      "status": "open",
+      "status": "partially-resolved",
       "snoozed_until": null,
-      "updates": [],
+      "updates": [
+        {
+          "at": "2026-07-23",
+          "by": "claude (valuation-snapshot-producer session, operator chose option B)",
+          "note": "FIX SHIPPED (pending a verification run). Added reusable composite action .github/actions/commit-to-main (opens a PAT-authored auto-merge PR so main's required on:pull_request checks actually run \u2014 a GITHUB_TOKEN-opened PR does not \u2014 then squash-merges; main protection stays fully intact). Rewired BOTH consumers to it: macro-valuation-snapshot.yml now lands comms/macro/valuation_snapshots.jsonl on main (dropped the interim automation/valuation-snapshots data branch; the valuation_store reader-fallback already prefers comms/macro on main, so the live sleeve lights up), and gpu-burst-train.yml lands comms/gpu_spend_ledger.json the same way (closes the silent spend-row drop). Both checkouts use secrets.BRANCH_PROTECTION_TOKEN (the existing repo PAT). VERIFY: a real macro-valuation-snapshot run opens+auto-merges a PR that lands on main (and confirm BRANCH_PROTECTION_TOKEN carries Contents:write + Pull-requests:write; if the PR-open step errors on a missing scope, add those two perms to the existing token). The stale automation/valuation-snapshots data branch (9 rows) can be deleted once main accrues."
+        }
+      ],
       "resolved_at": null
     }
   ],
