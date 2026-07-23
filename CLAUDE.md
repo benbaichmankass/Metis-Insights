@@ -100,8 +100,25 @@ or database before you assert.
 > GitHub Actions reference. When this file disagrees with a canonical doc, the
 > canonical doc wins.
 >
-> **Repo identity:** `benbaichmankass/ict-trading-bot`. Older
-> `the-lizardking/ict-trading-bot` references in historical sprint
+> **Repo identity:** renamed to **`benbaichmankass/Metis-Insights`** on
+> 2026-07-23 (operator-directed — the system is no longer ICT-only: ICT + pairs +
+> macro/value + the incoming macro-events family; see
+> [`ROADMAP_MACRO.md`](./ROADMAP_MACRO.md)). **The old name keeps working
+> everywhere via GitHub's 301 redirect — do not chase a full rename sweep.**
+> Operational reality for this + future sessions:
+> - **GitHub MCP tools + git remotes still use the string `ict-trading-bot`** —
+>   the session's repo-access scope is pinned to that name and GitHub redirects
+>   it to `Metis-Insights`; passing the new name to an MCP tool is denied at the
+>   session-scope layer. Keep using `owner: benbaichmankass, repo: ict-trading-bot`.
+> - **VM clone dirs stay `/home/ubuntu/ict-trading-bot` + `/opt/ict-trading-bot`** —
+>   a GitHub repo rename does NOT move the on-disk clone. Workflow paths that
+>   reference those dirs are correct and MUST NOT be swept to the new name (doing
+>   so would break the deploys). Most of the ~831 `ict-trading-bot` references are
+>   either redirect-safe URLs or these VM paths; a blind find-replace is a bug.
+> - Doc/URL references migrate lazily via the redirect; a scoped coherence sweep
+>   is low-priority and must exclude the VM-path landmine above.
+>
+> Older `the-lizardking/ict-trading-bot` references in historical sprint
 > summaries are preserved as record.
 
 ## Dashboard consumer (adopted 2026-05-12)
