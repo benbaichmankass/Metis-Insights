@@ -75,3 +75,27 @@ forbidden_modules =
     src.core.order_contract
     src.runtime.order_monitor
     src.runtime.orders
+
+[importlinter:contract:vwap-strategy-no-execution-impl]
+# vwap is a Layer 2 STRATEGY (not a pure Signal feed). The distinction matters:
+# a strategy legitimately references the ORDER-PACKAGE CONTRACT TYPE
+# (src.core.order_contract, via _base's TYPE_CHECKING import) — that seam is how
+# a strategy declares "I produce/monitor order packages" WITHOUT a runtime
+# Execution dependency, so it is intentionally NOT forbidden here (unlike the
+# pure Signal-feed contracts above, which forbid order_contract because a feed
+# should not touch order types at all). What a strategy must NOT import is any
+# Execution *implementation* — brokers, the risk sizer, the order monitor, the
+# order path. Locking vwap became possible after the M0b drain cut the
+# units.db.database -> runtime.local_pnl -> {risk, exchange} edge
+# (BL-20260723-DB-LAYER-IMPURITY): vwap reaches the DB for reads, and the DB is
+# now Execution-clean. This is the first monolith-era strategy locked; more
+# follow as their transitive DB/runtime edges drain.
+name = vwap strategy must not import Execution implementations (brokers/risk/order path)
+type = forbidden
+source_modules =
+    src.units.strategies.vwap
+forbidden_modules =
+    src.units.accounts
+    src.exchange
+    src.runtime.order_monitor
+    src.runtime.orders

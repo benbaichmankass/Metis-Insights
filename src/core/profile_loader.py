@@ -93,3 +93,40 @@ def load_instrument_profiles(
     except Exception as exc:
         logger.warning("load_instrument_profiles: failed to parse %s: %s", resolved, exc)
         return {}
+
+
+# ---------------------------------------------------------------------------
+# Canonical USD-per-point contract-value resolver (single source).
+# ---------------------------------------------------------------------------
+# Reference-data lookup over config/instruments.yaml — a Signals/Platform-layer
+# concern (contract specs), NOT a sizing/Execution one. Lives here (the pure
+# profile loader) so PnL/journal callers can resolve the multiplier WITHOUT
+# importing the sizing module (src.units.accounts.risk) — which pulls in the
+# coordinator/executor and so drags the whole Execution layer into any caller.
+# src.units.accounts.risk.contract_value_usd_for and
+# src.runtime.local_pnl.contract_value_usd_for now both delegate here, so this
+# is the one definition (M0b layer-drain, BL-20260723-DB-LAYER-IMPURITY).
+_CONTRACT_VALUE_USD_CACHE: dict[str, float] | None = None
+
+
+def contract_value_usd_for(symbol: str) -> float:
+    """USD-per-point contract value for *symbol* (default 1.0).
+
+    Canonical resolver over ``config/instruments.yaml`` (single source). Pure —
+    no Execution/sizing imports. Best-effort: any failure falls back to 1.0
+    (the crypto-perp value), never raises. Memoized process-wide; reset the
+    module global ``_CONTRACT_VALUE_USD_CACHE`` to force a reload (tests only).
+    """
+    global _CONTRACT_VALUE_USD_CACHE
+    if not symbol:
+        return 1.0
+    if _CONTRACT_VALUE_USD_CACHE is None:
+        try:
+            profiles = load_instrument_profiles()
+            _CONTRACT_VALUE_USD_CACHE = {
+                sym: float(getattr(p, "contract_value_usd", 1.0) or 1.0)
+                for sym, p in (profiles or {}).items()
+            }
+        except Exception:  # noqa: BLE001 — best-effort; default keeps crypto correct
+            _CONTRACT_VALUE_USD_CACHE = {}
+    return _CONTRACT_VALUE_USD_CACHE.get(symbol, 1.0)

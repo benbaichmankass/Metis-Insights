@@ -838,7 +838,7 @@ class Database:
         ``cost_source='estimate'`` in its own connection (the update's conn is
         already closed by here, mirroring ``_fire_trade_closed_event``).
         """
-        from src.runtime.local_pnl import contract_value_usd_for
+        from src.core.profile_loader import contract_value_usd_for
         from src.runtime.trade_costs import estimate_roundtrip_fee_usd
 
         conn = self.connect()

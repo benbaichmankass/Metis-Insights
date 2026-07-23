@@ -177,25 +177,21 @@ def _size_unbounded(
 # so the sizing hot path avoids a YAML read per call. Defaults to 1.0 for
 # any symbol without a profile, so the crypto path is unaffected even when
 # instruments.yaml is missing or partial.
-_CONTRACT_VALUE_CACHE: Optional[dict] = None
 
 
 def contract_value_usd_for(symbol: str) -> float:
-    """Return the USD-per-point contract value for *symbol* (default 1.0)."""
-    global _CONTRACT_VALUE_CACHE
-    if not symbol:
-        return 1.0
-    if _CONTRACT_VALUE_CACHE is None:
-        try:
-            from src.core.profile_loader import load_instrument_profiles
-            profiles = load_instrument_profiles()
-            _CONTRACT_VALUE_CACHE = {
-                sym: float(getattr(p, "contract_value_usd", 1.0) or 1.0)
-                for sym, p in (profiles or {}).items()
-            }
-        except Exception:  # noqa: BLE001
-            _CONTRACT_VALUE_CACHE = {}
-    return _CONTRACT_VALUE_CACHE.get(symbol, 1.0)
+    """Return the USD-per-point contract value for *symbol* (default 1.0).
+
+    Thin re-export of the canonical resolver in
+    :mod:`src.core.profile_loader` (single source: ``config/instruments.yaml``)
+    so the sizing module stays a *caller* of the contract-spec lookup, not its
+    definition site — the definition lives in the pure profile loader with no
+    Execution imports (M0b layer-drain, BL-20260723-DB-LAYER-IMPURITY). Kept
+    here for the existing ``from src.units.accounts.risk import
+    contract_value_usd_for`` call sites; behaviour is byte-identical.
+    """
+    from src.core.profile_loader import contract_value_usd_for as _canonical
+    return _canonical(symbol)
 
 
 # Integrations whose order quantity MUST be a whole unit (integer). Alpaca

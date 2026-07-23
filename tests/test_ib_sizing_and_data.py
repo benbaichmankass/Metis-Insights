@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from src.core.coordinator import OrderPackage
-import src.units.accounts.risk as risk
+import src.core.profile_loader as profile_loader
 from src.units.accounts.risk import (
     RiskManager,
     _size_unbounded,
@@ -21,9 +21,11 @@ from src.units.accounts.risk import (
 
 @pytest.fixture(autouse=True)
 def _reset_contract_cache():
-    risk._CONTRACT_VALUE_CACHE = None
+    # The canonical contract-value cache now lives in the pure profile loader;
+    # risk.contract_value_usd_for delegates to it (M0b layer-drain). Reset there.
+    profile_loader._CONTRACT_VALUE_USD_CACHE = None
     yield
-    risk._CONTRACT_VALUE_CACHE = None
+    profile_loader._CONTRACT_VALUE_USD_CACHE = None
 
 
 def _pkg(symbol, entry, sl, tp):
