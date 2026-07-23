@@ -106,12 +106,25 @@ jobs:
             --json comms/macro/cot_horizon_ic_scorecard.json | tee -a /tmp/cot_card.txt || \
             echo "::warning::horizon-IC scan degraded"
 
+      - name: Phase-B construction sweep (D1 change/divergence/detrend, S2+S3 grade)
+        id: sweep
+        continue-on-error: true
+        env:
+          ICT_OFFVM_BUILD_HOST: "1"
+        run: |
+          set -uo pipefail
+          python scripts/macro/construction_sweep.py \
+            --input cot --candles-dir data/macro_candles \
+            --rebalance-every 7 --horizons 7,14,30,60,90 --pnl-horizon 30 \
+            --json comms/macro/cot_construction_sweep.json | tee -a /tmp/cot_card.txt || \
+            echo "::warning::construction sweep degraded"
+
       - name: Land COT snapshots + scorecards on main
         id: commit
         uses: ./.github/actions/commit-to-main
         with:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          paths: comms/macro/cot_snapshots.jsonl comms/macro/cot_p4_scorecard.json comms/macro/cot_horizon_ic_scorecard.json
+          paths: comms/macro/cot_snapshots.jsonl comms/macro/cot_p4_scorecard.json comms/macro/cot_horizon_ic_scorecard.json comms/macro/cot_construction_sweep.json
           message: "chore(m29): CFTC-COT positioning snapshots + P4 + horizon-IC scorecards"
           pr-title: "chore(m29): CFTC-COT positioning backfill + scorecards (auto)"
           pr-body: "Reconstructed point-in-time CFTC-COT large-spec positioning snapshots (valuation schema) + the M28 P4 gate + horizon-IC scan graded over them. Research data; auto-merge."

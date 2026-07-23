@@ -131,3 +131,83 @@ def cot_construction_snapshots(markets_rows: dict, proxy_by_market: dict,
             min_history=min_history, higher_is_cheaper=False, metric="cot",
         ))
     return merge_by_construction(per_symbol)
+
+
+# ---------------------------------------------------------------------------
+# CLI — fetch COT, sweep the D1 constructions, grade each (S2+S3), land a scorecard
+# ---------------------------------------------------------------------------
+
+
+def _render(graded: dict) -> str:
+    lines = ["M28 Phase B — COT construction sweep (S2 signal + S3 PnL)",
+             "=" * 58, ""]
+    lines.append(f"{'construction':>12} {'verdict':>22} {'S2 honest':>10} {'S3 pays_oos':>12} "
+                 f"{'conv_ret':>10} {'sharpe':>8}")
+    for name, g in graded.items():
+        if name == "_sweep":
+            continue
+        s2 = bool(g.get("s2_signal", {}).get("summary", {}).get("any_honest_monetizable_horizon"))
+        s3 = bool(g.get("s3_pnl", {}).get("summary", {}).get("pays_oos"))
+        cw = g.get("s3_pnl", {}).get("conviction_weighted", {}).get("full", {})
+        lines.append(f"{name:>12} {g.get('verdict', '—'):>22} {str(s2):>10} {str(s3):>12} "
+                     f"{str(cw.get('total_return')):>10} {str(cw.get('sharpe')):>8}")
+    sw = graded.get("_sweep", {})
+    lines += ["", f"worth_building: {sw.get('worth_building') or 'NONE'}  "
+                  f"(any={sw.get('any_worth_building')})"]
+    return "\n".join(lines)
+
+
+def main(argv: Optional[list] = None) -> int:
+    import argparse
+    import json
+
+    ap = argparse.ArgumentParser(description="M28 Phase B COT construction sweep (fetch → emit → grade)")
+    ap.add_argument("--input", default="cot", choices=["cot"])
+    ap.add_argument("--candles-dir", required=True)
+    ap.add_argument("--lookback", type=int, default=156)
+    ap.add_argument("--min-history", type=int, default=52)
+    ap.add_argument("--rebalance-every", type=int, default=7, help="COT is weekly")
+    ap.add_argument("--horizons", default="7,14,30,60,90")
+    ap.add_argument("--pnl-horizon", type=int, default=30)
+    ap.add_argument("--fee-frac", type=float, default=0.0)
+    ap.add_argument("--carry-frac-per-day", type=float, default=0.0)
+    ap.add_argument("--limit", type=int, default=2000)
+    ap.add_argument("--json", default=None)
+    args = ap.parse_args(argv)
+
+    from cot_data import COT_MARKETS, fetch_cot_market_history
+    from grade_construction import load_close_panels, make_price_at
+
+    markets_rows, proxy_by, acls_by = {}, {}, {}
+    for m in COT_MARKETS:
+        try:
+            rows = fetch_cot_market_history(m["name"], limit=args.limit)
+        except Exception as e:  # noqa: BLE001 — never let one market abort the sweep
+            print(f"::warning::COT fetch failed for {m['key']}: {e}")
+            rows = []
+        markets_rows[m["key"]] = rows
+        proxy_by[m["key"]] = m["symbol"]
+        acls_by[m["key"]] = m.get("asset_class", "unknown")
+
+    constructions = cot_construction_snapshots(
+        markets_rows, proxy_by, acls_by, lookback=args.lookback, min_history=args.min_history)
+    price_at = make_price_at(load_close_panels(args.candles_dir))
+    cfg = {"min_conviction": 0.4, "universe": [], "express_as": "debit_vertical",
+           "account": "alpaca_options_paper"}
+    graded = grade_constructions(
+        constructions, price_at, cfg=cfg, rebalance_every=args.rebalance_every,
+        horizons=[int(x) for x in args.horizons.split(",")], pnl_horizon=args.pnl_horizon,
+        fee_frac=args.fee_frac, carry_frac_per_day=args.carry_frac_per_day)
+
+    print(_render(graded))
+    if args.json:
+        os.makedirs(os.path.dirname(args.json) or ".", exist_ok=True)
+        with open(args.json, "w") as f:
+            json.dump(graded, f, indent=2)
+            f.write("\n")
+        print(f"wrote {args.json}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
