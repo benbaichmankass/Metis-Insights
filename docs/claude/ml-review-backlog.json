@@ -2191,11 +2191,58 @@
       "title": "[M28][P4] Run the value-thesis backtest gate once FRED valuation-snapshot history accrues \u2014 AND first verify the soak is actually producing data",
       "description": "Two-step follow-up so the M28 P4 decisive gate doesn't stall silently:\n(1) VERIFY THE SOAK IS RUNNING: check (via diag relay) that runtime_logs/valuation_snapshots.jsonl on the live VM is accruing rows \u2014 the P3 tick (run_macro_thesis_tick) reads snapshots but the FRED fetch that WRITES them 'runs off-VM'; confirm that producer is actually scheduled/running and appending point-in-time rows (append-only, observed_at per revision). If it is NOT producing data, that is the real blocker to surface \u2014 wiring the FRED snapshot producer is the prerequisite, not the backtest.\n(2) RUN THE GATE once there is enough history (aim for >= a few months across the seed universe): python scripts/macro/thesis_backtest_run.py --candles-dir <per-symbol daily-close CSVs> --rebalance-every 30 --horizon-days 30 --fee-frac <real> --carry-frac-per-day <roll/carry> --json out. The P4 gate: does thesis_conviction predict realized hit-rate (calibration_rank > 0), is mean_net_return positive NET of cost, and does edge_vs_baseline beat the naive all-long arm \u2014 OUT OF SAMPLE. Nothing graduates to live (P5 options expression, P6 c_macro overlay \u2014 both Tier-3) until this passes. Honor low-n honesty (a handful of wins is not significance).",
       "tier": 1,
-      "trigger_condition": "Periodic re-check: whenever a session touches M28, verify the FRED soak is producing snapshots; run the P4 gate once several months of point-in-time history exist across the seed universe.",
+      "trigger_condition": "Step (1) resolved (producer verified unwired). Reopen step (2) \u2014 run the P4 gate \u2014 only after MB-20260723-M28-VALUATION-PRODUCER-UNWIRED lands and several months of point-in-time snapshots accrue across the seed universe.",
       "resolution_criteria": "The FRED valuation-snapshot producer is confirmed running (or its absence is surfaced as the blocker), AND the P4 backtest has been run on real accrued history with the calibration + net-of-cost + beat-baseline verdict recorded in a findings doc. A PASS unblocks the Tier-3 P5/P6 proposals; a FAIL keeps M28 observe-only.",
       "status": "open",
       "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-07-23T00:00:00+00:00",
+          "by": "claude (ml-strategies-roadmap-cont-9tk5ja)",
+          "note": "STEP (1) DONE \u2014 soak verified NOT producing; the FRED valuation-snapshot PRODUCER IS UNWIRED. Code proof (findings: docs/research/M28-P4-fred-producer-unwired-2026-07-23.md): run_valuation_feed has zero schedulers (no CLI/service/timer/workflow caller); fetch_fred_series_history is off-VM-guarded (ICT_OFFVM_BUILD_HOST=1) and that var is set only by TRAINER dataset-build scripts that run fetch_macro/fetch_funding_oi (the ML-corpus FRED pulls), NOT the M28 valuation feed; only the read-only run_macro_thesis_tick runs on the VM. So runtime_logs/valuation_snapshots.jsonl can never accrue. Diag-relay runtime confirm was unavailable (live-VM egress firewalled this session; valuation_snapshots not on the /api/diag log_file allowlist) \u2014 but the code proof is conclusive. STEP (2) stays BLOCKED on the producer. The prerequisite build is now tracked as MB-20260723-M28-VALUATION-PRODUCER-UNWIRED."
+        }
+      ],
+      "resolved_at": null
+    },
+    {
+      "id": "MB-20260723-M28-VALUATION-PRODUCER-UNWIRED",
+      "opened_at": "2026-07-23T00:00:00+00:00",
+      "opened_by": "claude (ml-strategies-roadmap-cont-9tk5ja)",
+      "source": "M28 P4 gate verification (BL-20260723-M28-P4-GATE-FOLLOWUP step 1): the P4 read side + runner are built and self-tested, but the WRITE side is a dangling capability \u2014 nothing schedules the FRED valuation-snapshot producer, so runtime_logs/valuation_snapshots.jsonl never accrues and the P4 gate prints honest n=0/null forever. Findings: docs/research/M28-P4-fred-producer-unwired-2026-07-23.md.",
+      "title": "[M28][P4-prereq] Wire the off-VM FRED valuation-snapshot producer (+ committed-path reader fallback) so P4 has point-in-time history",
+      "description": "run_valuation_feed / fred_fetch_and_history exist, are FRED-validated, and are off-VM-guarded, but have NO scheduled caller. Recommended build (file-backed, money-VM socket-free, mirrors comms/reports + gpu_spend_ledger patterns): (1) a thin entrypoint scripts/macro/valuation_snapshot_produce.py that sets ICT_OFFVM_BUILD_HOST=1, calls fred_fetch_and_history(config) -> run_valuation_feed(...) to build append-only point-in-time rows (observed_at=fetch time; a revision is a NEW line), and appends/commits them to comms/macro/valuation_snapshots.jsonl; (2) a scheduled GitHub Actions cron (e.g. daily) that runs it and commits the rows \u2014 the live VM picks them up via ict-git-sync, no SSH write to the money box, no live-VM FRED socket; (3) teach valuation_store.snapshot_log_path (+ the P4 runner --snapshots) to prefer the committed comms/macro/ path when present, falling back to runtime_logs/. Keyless (FRED fredgraph.csv needs no key), so no operator secret. Seed series already in config/macro_valuation.yaml. Producer script + Actions cron are Tier-1 (offline tooling + CI); the reader fallback is a best-effort read-path change to a live module (argue Tier-1, board-flag). Nothing here touches an order path \u2014 P5/P6 stay Tier-3.",
+      "tier": 1,
+      "trigger_condition": "Next M28 session \u2014 this is the immediate next buildable step; the P4 gate is dead until it lands.",
+      "resolution_criteria": "The producer is scheduled (Actions cron committing point-in-time rows to comms/macro/valuation_snapshots.jsonl) AND the reader reads them AND rows are observed accruing across the seed universe. Unblocks BL-20260723-M28-P4-GATE-FOLLOWUP step (2).",
+      "status": "open",
+      "snoozed_until": null,
       "updates": [],
+      "resolved_at": null
+    },
+    {
+      "id": "MB-20260723-M29-AI-SYSTEM-DYNAMICS",
+      "opened_at": "2026-07-23T00:00:00+00:00",
+      "opened_by": "claude (ml-strategies-roadmap-cont-9tk5ja)",
+      "source": "Operator-directed 2026-07-23: 'add a roadmap milestone \u2014 AI-driven system dynamics modelling'. Design-of-record: docs/research/M29-ai-system-dynamics-DESIGN.md; ROADMAP.md M29 row.",
+      "title": "[M29] AI-driven system-dynamics modelling \u2014 stock/flow/feedback engine + AI system-identification + scenario generation feeding M28 c_macro (PROPOSED, propose-only)",
+      "description": "New milestone. Model a domain as stocks/flows/feedback-loops-with-delays; AI does system identification (ML fits structure/params/lags from point-in-time data), structure elicitation (LLM authors the causal-loop diagram from research text, data falsifies), and scenario generation (run forward -> scenario distributions conditioning thesis conviction/sizing). Targets: A(primary)=macro-energy complex feeding M28 c_macro + ROADMAP_MACRO M1/M2; B(fast-follow)=our own trading system (equity/exposure/drawdown loops) as a risk what-if sim feeding M18/M26. Reuses M28 point-in-time feeds + thesis_backtest calibration + cost-model pillar + M0a layer guard; new build = a small pure stock-flow sim engine. Phases P0(scope lock)->P1(engine+hand model)->P2(AI sysID)->P3(scenario soak, observe-only)->P4(decisive calibration+net-of-cost backtest vs M28 baseline)->P5(c_macro overlay, Tier-3)->P6(fleet self-model). Discipline: pre-registered thresholds, point-in-time/no-lookahead, calibration+net-R is the only proof, low-n honesty. P0 open scoping questions for the operator: (1) target priority A-first vs B-first; (2) seed system (recommend EIA weekly NG storage -> MNG response); (3) AI-role emphasis (sysID vs LLM structure elicitation); (4) distinct milestone vs fold into M28. Propose-only until operator P0 sign-off; Tier-3 for any live influence.",
+      "tier": 1,
+      "trigger_condition": "P1a landed. Next: P1b \u2014 wire an injected point-in-time EIA-storage/weather/NG-price reader and run the holdout calibration gate on gas_storage_price_v1; blocked on the same real point-in-time macro data as the M28 producer (MB-20260723-M28-VALUATION-PRODUCER-UNWIRED). Then P2 (AI sysID over real fits) -> P3 scenario soak -> P4 gate.",
+      "resolution_criteria": "M29 P4 backtest run with a recorded verdict: PASS -> a Tier-3 c_macro graduation proposal; FAIL -> an honest findings doc and the capability stays observe-only research. A rigorous negative is a completed outcome.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-07-23T00:00:00+00:00",
+          "by": "claude (ml-strategies-roadmap-cont-9tk5ja)",
+          "note": "P0 SCOPE LOCKED (operator-confirmed same day): target A (macro-energy) first, fleet self-model = P6 fast-follow; seed system = EIA weekly NG storage -> MNG price response (ROADMAP_MACRO M1/M2 case); AI-role lead = system identification (LLM structure-elicitation + scenario generation follow in P2/P3); kept a DISTINCT milestone feeding M28 c_macro (not folded into M28). P1 (the pure stock-flow engine + a hand-specified seed model, Tier-1/offline) is now the next buildable step."
+        },
+        {
+          "at": "2026-07-23T00:00:00+00:00",
+          "by": "claude (ml-strategies-roadmap-cont-9tk5ja)",
+          "note": "P1a SHIPPED (operator kicked off P1): the pure src/sysdyn/ package (Layer-1 Signals/Modelling, import-linter-locked \u2014 new sysdyn-no-execution contract, 6/6 kept; pure stdlib, no numpy/scipy). engine.py (stocks/flows/observations/delays + deterministic Euler simulate); structure.py (committed versioned CausalStructure legibility artifact); identify.py (bounded coordinate-descent system identification + walk_forward_stability equifinality/identifiability check); seed_gas.py (gas_storage_price_v1 = EIA weekly NG storage -> MNG price, one balancing loop B1). 19 tests green (engine correctness, synthetic system-ID round-trip, seed dynamics + param recovery). P1b REMAINING = calibrate on REAL point-in-time history (injected EIA-storage + weather + NG/MNG-price reader; reuse M28 point-in-time discipline) then run the holdout gate \u2014 this is the SAME data-availability question as MB-20260723-M28-VALUATION-PRODUCER-UNWIRED (no live point-in-time macro producer is wired yet)."
+        }
+      ],
       "resolved_at": null
     }
   ],
