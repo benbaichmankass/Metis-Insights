@@ -80,6 +80,15 @@ from .thesis_store import (  # noqa: F401
     read_thesis_records,
     write_theses,
 )
+from .macro_signals import (  # noqa: F401
+    make_signal,
+    new_signal_id,
+    read_signal_records,
+    read_signals_by_event,
+    read_signals_for_entity,
+    read_signals_for_thesis,
+    write_signals,
+)
 
 __all__ = [
     "ValueRead",
@@ -133,4 +142,11 @@ __all__ = [
     "read_latest_theses",
     "read_theses_by_status",
     "read_open_theses",
+    "make_signal",
+    "new_signal_id",
+    "write_signals",
+    "read_signal_records",
+    "read_signals_for_entity",
+    "read_signals_by_event",
+    "read_signals_for_thesis",
 ]
