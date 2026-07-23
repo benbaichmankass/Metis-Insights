@@ -89,6 +89,11 @@ from .macro_signals import (  # noqa: F401
     read_signals_for_thesis,
     write_signals,
 )
+from .thesis_engine import (  # noqa: F401
+    form_theses_from_reads,
+    form_value_thesis,
+    value_conviction,
+)
 
 __all__ = [
     "ValueRead",
@@ -149,4 +154,7 @@ __all__ = [
     "read_signals_for_entity",
     "read_signals_by_event",
     "read_signals_for_thesis",
+    "form_value_thesis",
+    "form_theses_from_reads",
+    "value_conviction",
 ]
