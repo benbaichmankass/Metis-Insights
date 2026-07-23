@@ -36,3 +36,10 @@ D4 composite) each of these inputs can still be run through.
   (D3), long-cheapest/short-richest basket.
 - **8 · sysdyn mispricing as a snapshot signal** — emit the gas model's model-implied
   mispricing into the schema and grade it on the same instrument (M29 → the gate).
+  **BUILT + wired** (`scripts/macro/sysdyn_mispricing.py` — reuses the seed model's
+  `_price_from_storage` readout for a per-date model-implied fair value, mispricing
+  `(market−model)/model`, contrarian `higher_is_cheaper=False`; loads the fitted
+  P1c params from `sysdyn_gas_dual_scorecard.json`, falls back to seed constants).
+  A gradeable run is wired into `sysdyn-gas-calibrate.yml` (fetches UNG candles →
+  emits mispricing snapshots → S2+S3 grade → `comms/macro/sysdyn_mispricing_scorecard.json`).
+  Verdict row fills once the first graded scorecard lands on main.
