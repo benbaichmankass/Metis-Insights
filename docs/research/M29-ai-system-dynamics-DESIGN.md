@@ -1,10 +1,21 @@
 # M29 — AI-Driven System-Dynamics Modelling (design-of-record)
 
-> **Status: 📋 PROPOSED 2026-07-23** (operator-directed: *"add a roadmap milestone —
-> AI-driven system dynamics modelling"*). This is a **design-of-record for operator
-> refinement**, not an approved build. Nothing here touches `src/`, `config/`, or any
-> order path. Every phase before the graduation gate is **observe-only**; any step that
-> lets a model condition a live order is **Tier-3**, operator-gated, and backtest-gated.
+> **Status: 🟢 P0 SCOPE LOCKED 2026-07-23** (operator-directed: *"add a roadmap milestone —
+> AI-driven system dynamics modelling"*; P0 scope confirmed same day). **The P1 build is
+> unblocked** (the pure stock-flow engine + a hand-specified seed model — Tier-1/offline).
+> Nothing here touches `src/`, `config/`, or any order path. Every phase before the
+> graduation gate is **observe-only**; any step that lets a model condition a live order
+> is **Tier-3**, operator-gated, and backtest-gated.
+>
+> **P0 scope (operator-confirmed 2026-07-23):**
+> - **Target: A — the macro–energy complex** (primary); the fleet self-model (target B) is
+>   the P6 fast-follow reusing the same engine.
+> - **Seed system: EIA weekly natural-gas storage → MNG price response** (the ROADMAP_MACRO
+>   M1/M2 canonical case — smallest, cheapest, weekly cadence).
+> - **AI-role lead: system identification** (ML fits the model's structure/params/lags from
+>   point-in-time data); LLM structure-elicitation + scenario generation follow in P2/P3.
+> - **Milestone shape: distinct M29** (a reusable platform capability; target B is outside
+>   M28's remit) — feeding M28's `c_macro` overlay, not folded into M28.
 >
 > **Anchor:** `MB-20260723-M29-AI-SYSTEM-DYNAMICS`
 > **Feeds:** M28 (Macro/Value Speculation Sleeve) · ROADMAP_MACRO (Energy/carbon M1–M5)
@@ -95,12 +106,11 @@ Mirrors the repo's discipline — **pre-registered thresholds written before res
 seen**, calibration + net-of-cost as the only proof, low-n honesty, observe-only until a
 backtest passes and the operator approves.
 
-- **P0 — Design-of-record + scope lock (Tier-1).** *This doc.* Operator confirms target
-  priority (A first, per §2), the seed system to model (recommend: **EIA weekly NG
-  storage → MNG price response**, the ROADMAP_MACRO M1/M2 canonical test case — smallest,
-  cheapest, weekly cadence), and the AI-role emphasis. **Gate:** operator sign-off on
-  scope. **Stop:** if SD adds nothing over M28's direct value/event reads on this seed
-  case, do not build the engine — fold the idea back into M28.
+- **P0 — Design-of-record + scope lock (Tier-1). ✅ DONE 2026-07-23.** *This doc.* Operator
+  confirmed the scope (target A first · seed = EIA weekly NG storage → MNG price response ·
+  AI-role lead = system identification · distinct milestone; see §6). **Gate met.**
+  **Stop (carried into P1):** if SD adds nothing over M28's direct value/event reads on
+  this seed case, do not build the engine — fold the idea back into M28.
 - **P1 — The stock-flow engine + a hand-specified seed model (Tier-1, offline).** Build
   the pure simulation engine + encode ONE small hand-authored causal model for the seed
   system (storage/injection/withdrawal/weather-demand → price), calibrated on point-in-time
@@ -160,19 +170,16 @@ backtest passes and the operator approves.
 - **LLM $-budget** for structure elicitation — reuse M13's cost accounting; widen
   deliberately, keep observable.
 
-## 6. Open scoping questions for the operator (P0 gate)
+## 6. P0 gate — scoping questions (RESOLVED 2026-07-23)
 
-1. **Target priority** — confirm **A (macro–energy) first**, B (fleet self-model) as P6
-   fast-follow? Or lead with B (a risk/allocation tool) if that is the nearer pain?
-2. **Seed system to model first** — recommend **EIA weekly NG storage → MNG response**
-   (ROADMAP_MACRO M1/M2 canonical case). Alternatives: rates↔inflation↔credit macro loop
-   (broadest, feeds M28 equity/bond value directly), or the gas↔power↔carbon spread
-   complex (richest linkages, hardest data).
-3. **AI-role emphasis for v1** — lead with **system identification** (data-fit params) or
-   **LLM structure elicitation** (causal-map authoring), or build both in P1/P2 as planned?
-4. **Relationship to M28** — keep M29 a distinct milestone feeding M28's `c_macro`, or
-   fold it into M28 as a P7+ modelling phase? (Recommend: distinct milestone — the SD
-   engine is a reusable platform capability, and target B is outside M28's remit.)
+All four resolved by the operator; the answers are locked in the status header above.
+
+1. **Target priority** → **A (macro–energy) first**; B (fleet self-model) is the P6 fast-follow.
+2. **Seed system** → **EIA weekly NG storage → MNG response** (the ROADMAP_MACRO M1/M2
+   canonical case).
+3. **AI-role emphasis for v1** → lead with **system identification** (data-fit params); LLM
+   structure-elicitation + scenario generation follow in P2/P3.
+4. **Relationship to M28** → **distinct milestone** feeding M28's `c_macro` (not folded in).
 
 ## 7. Done-condition
 

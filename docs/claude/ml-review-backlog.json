@@ -2227,11 +2227,17 @@
       "title": "[M29] AI-driven system-dynamics modelling \u2014 stock/flow/feedback engine + AI system-identification + scenario generation feeding M28 c_macro (PROPOSED, propose-only)",
       "description": "New milestone. Model a domain as stocks/flows/feedback-loops-with-delays; AI does system identification (ML fits structure/params/lags from point-in-time data), structure elicitation (LLM authors the causal-loop diagram from research text, data falsifies), and scenario generation (run forward -> scenario distributions conditioning thesis conviction/sizing). Targets: A(primary)=macro-energy complex feeding M28 c_macro + ROADMAP_MACRO M1/M2; B(fast-follow)=our own trading system (equity/exposure/drawdown loops) as a risk what-if sim feeding M18/M26. Reuses M28 point-in-time feeds + thesis_backtest calibration + cost-model pillar + M0a layer guard; new build = a small pure stock-flow sim engine. Phases P0(scope lock)->P1(engine+hand model)->P2(AI sysID)->P3(scenario soak, observe-only)->P4(decisive calibration+net-of-cost backtest vs M28 baseline)->P5(c_macro overlay, Tier-3)->P6(fleet self-model). Discipline: pre-registered thresholds, point-in-time/no-lookahead, calibration+net-R is the only proof, low-n honesty. P0 open scoping questions for the operator: (1) target priority A-first vs B-first; (2) seed system (recommend EIA weekly NG storage -> MNG response); (3) AI-role emphasis (sysID vs LLM structure elicitation); (4) distinct milestone vs fold into M28. Propose-only until operator P0 sign-off; Tier-3 for any live influence.",
       "tier": 1,
-      "trigger_condition": "Operator confirms M29 scope at the P0 gate (target priority + seed system + AI-role emphasis); then P1 (engine + hand-specified seed model) is the first buildable, offline, Tier-1 step.",
+      "trigger_condition": "P0 scope locked. Next: build P1 \u2014 the pure stock-flow simulation engine + a hand-specified seed model (EIA NG-storage -> MNG) calibrated on point-in-time history; Tier-1/offline, own focused PR.",
       "resolution_criteria": "M29 P4 backtest run with a recorded verdict: PASS -> a Tier-3 c_macro graduation proposal; FAIL -> an honest findings doc and the capability stays observe-only research. A rigorous negative is a completed outcome.",
       "status": "open",
       "snoozed_until": null,
-      "updates": [],
+      "updates": [
+        {
+          "at": "2026-07-23T00:00:00+00:00",
+          "by": "claude (ml-strategies-roadmap-cont-9tk5ja)",
+          "note": "P0 SCOPE LOCKED (operator-confirmed same day): target A (macro-energy) first, fleet self-model = P6 fast-follow; seed system = EIA weekly NG storage -> MNG price response (ROADMAP_MACRO M1/M2 case); AI-role lead = system identification (LLM structure-elicitation + scenario generation follow in P2/P3); kept a DISTINCT milestone feeding M28 c_macro (not folded into M28). P1 (the pure stock-flow engine + a hand-specified seed model, Tier-1/offline) is now the next buildable step."
+        }
+      ],
       "resolved_at": null
     }
   ],
