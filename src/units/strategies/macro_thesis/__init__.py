@@ -39,6 +39,21 @@ from .valuation_store import (  # noqa: F401
     read_snapshot_records,
     write_snapshots,
 )
+from .event_resolver import (  # noqa: F401
+    VALID_ACTIONS,
+    eval_predicate,
+    resolve_action,
+    resolve_event_for_theses,
+)
+from .event_store import (  # noqa: F401
+    read_event_links,
+    read_events,
+    read_events_by_status,
+    read_latest_events,
+    resolve_all,
+    write_event_links,
+    write_events,
+)
 
 __all__ = [
     "ValueRead",
@@ -61,4 +76,15 @@ __all__ = [
     "read_snapshot_records",
     "read_latest_snapshots",
     "latest_reads_for_symbol",
+    "VALID_ACTIONS",
+    "eval_predicate",
+    "resolve_action",
+    "resolve_event_for_theses",
+    "write_events",
+    "read_events",
+    "read_latest_events",
+    "read_events_by_status",
+    "write_event_links",
+    "read_event_links",
+    "resolve_all",
 ]
