@@ -1,0 +1,76 @@
+{
+  "rows": [
+    {
+      "horizon_days": 1,
+      "n": 895,
+      "ic": 0.07004,
+      "ic_t": 2.098,
+      "win_rate": 0.493855,
+      "mean_net_return": -0.001391,
+      "edge_vs_baseline": -0.002703
+    },
+    {
+      "horizon_days": 3,
+      "n": 895,
+      "ic": 0.0203,
+      "ic_t": 0.607,
+      "win_rate": 0.480447,
+      "mean_net_return": -0.001047,
+      "edge_vs_baseline": -0.004211
+    },
+    {
+      "horizon_days": 7,
+      "n": 895,
+      "ic": -0.0096,
+      "ic_t": -0.287,
+      "win_rate": 0.486034,
+      "mean_net_return": -0.001905,
+      "edge_vs_baseline": -0.007199
+    },
+    {
+      "horizon_days": 14,
+      "n": 895,
+      "ic": -0.021862,
+      "ic_t": -0.653,
+      "win_rate": 0.463687,
+      "mean_net_return": -0.00896,
+      "edge_vs_baseline": -0.021204
+    },
+    {
+      "horizon_days": 30,
+      "n": 895,
+      "ic": -0.036722,
+      "ic_t": -1.098,
+      "win_rate": 0.484916,
+      "mean_net_return": -0.012618,
+      "edge_vs_baseline": -0.042183
+    }
+  ],
+  "summary": {
+    "any_predictive_horizon": false,
+    "best_horizon_days": null,
+    "strongest_ic_horizon_days": 1,
+    "strongest_ic": 0.07004,
+    "t_flag": 2.0,
+    "verdict": "no_predictive_horizon"
+  },
+  "meta": {
+    "snapshot_records": 10590,
+    "rebalances": 657,
+    "fee_frac": 0.0,
+    "carry_frac_per_day": 0.0,
+    "horizons": [
+      1,
+      3,
+      7,
+      14,
+      30
+    ],
+    "symbols_with_candles": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "SOLUSDT"
+    ],
+    "generated_at": null
+  }
+}

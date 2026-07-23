@@ -209,6 +209,22 @@ lazily via the redirect.
 ---
 
 ## Change log
+- **2026-07-23 (cont. 8)** — **All three sleeves GRADED on real data (workflow runs).** Dispatched the
+  three off-VM scans; scorecards landed on `main`. **(1) M29 P1c gas** → **`park_deeper_investment` /
+  `no_mechanistic_edge`** — real EIA storage (864 obs) + Open-Meteo weather HDD (2,923 days) flowed, but
+  the storage-anchored mechanistic model's PRICE readout is still ~0 OOS (storage OOS R²=−0.43, price
+  OOS R²=0.002, not identifiable). The decisive go/no-go: **don't invest deeper in SD modeling** — a
+  third null alongside value-P4 and gas-P1b. **(2) CFTC-COT** → works (10,093 snapshots, 3,746 theses to
+  1988); horizon-IC rises to **0.052 (t=3.2) at 90d** but the contrarian *direction* loses to all-long
+  (`edge_vs_baseline<0`) → verdict `no_predictive_horizon`, a real longer-horizon lead for the
+  orientation-flip follow-up. **(3) crypto funding/OI/basis** → **Bybit US-geo-blocks GitHub runners**
+  (both `api.bybit.com` and the `api.bytick.com` fallback), so the off-VM workflow can't fetch from a US
+  runner; ran the backfill on the **trainer VM** (same OCI tenancy → reaches Bybit) via the diag relay:
+  3/3 symbols, 10,590 snapshots, 1000 candles each — horizon-IC is **0.070 (t=2.1) at 1 DAY**, decaying
+  to noise by 7d+ (the fast-mean-reverting funding/basis crowding signal, strongest at the shortest
+  horizon; `edge_vs_baseline<0` → `no_predictive_horizon` under the edge-gate). **Op note:** the
+  `crypto-signals-backfill` workflow needs a Bybit-reachable (non-US) host — durable fix is a VM-side run,
+  not the GitHub runner. All three scorecards committed under `comms/macro/`.
 - **2026-07-23 (cont. 7)** — **Crypto funding/OI/basis sleeve built (signal #3 — Bybit derivatives positioning).**
   Short-horizon BTC/ETH/SOL signals off Bybit's already-wired **keyless public v5 API** —
   **funding-rate extremes**, **open interest**, and **perp-spot basis** — each turned into a
