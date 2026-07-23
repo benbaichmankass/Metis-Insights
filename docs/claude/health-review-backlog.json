@@ -5498,10 +5498,12 @@
       "tier": 1,
       "trigger_condition": "Operator revisits the 'decouple the roster' idea, OR a future session proposes deduping the two builder rosters / moving DEFAULT_PRIORITIES to config \u2014 read this assessment first.",
       "resolution_criteria": "Operator either (a) accepts the disagreement (leave the roster/priority centralization as-is; this item closes as 'assessed, declined, comment fixed'), or (b) explicitly directs the config-driven priority migration as a Tier-3 change with a backtest gate.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [],
-      "resolved_at": null
+      "resolved_at": "2026-07-23T00:00:00+00:00",
+      "resolved_by": "claude (operator decision in chat 2026-07-23)",
+      "resolution": "CLOSED per explicit operator decision (2026-07-23, in chat: 'ok, i'll take your rec on violation 2'). The operator ACCEPTED the recommendation: the 'decouple the hardcoded roster' change is a misdiagnosis and is NOT being pursued. DEFAULT_PRIORITIES stays as the central Tier-3 conflict-arbitration policy table; the two builder rosters stay as legacy-subset + authoritative-superset with the existing fallback. The one safe sub-fix (the stale 'keep the rosters in sync' comment) shipped in PR #7460. No config-driven priority migration will be done; if that is ever revisited it is a Tier-3 change requiring a backtest gate that arbitration outcomes are unchanged."
     }
   ],
   "updated_at": "2026-07-23T00:00:00+00:00"
