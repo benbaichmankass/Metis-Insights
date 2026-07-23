@@ -55,3 +55,23 @@ forbidden_modules =
     src.core.order_contract
     src.runtime.order_monitor
     src.runtime.orders
+
+[importlinter:contract:pairs-engine-no-execution]
+# The M22 pairs sleeve splits cleanly: pairs_engine (the spread/z DECISION — pure
+# Strategy) vs pairs_executor (the order router — Execution). pairs_executor
+# legitimately imports the order path (it IS an executor); the invariant to lock
+# is that the DECISION half stays pure. NB: the pairs sleeve is an INTENTIONAL
+# isolated order path (CLAUDE.md — not via multi_account_execute), so
+# pairs_executor is NOT routed through the coordinator seam; classifying it as
+# Execution is the correct resolution, not a refactor of the live order path.
+name = pairs_engine (strategy decision) must not import Execution, brokers, or the order path
+type = forbidden
+source_modules =
+    src.units.strategies.pairs_engine
+    src.units.strategies.pairs_sizing
+forbidden_modules =
+    src.units.accounts
+    src.exchange
+    src.core.order_contract
+    src.runtime.order_monitor
+    src.runtime.orders
