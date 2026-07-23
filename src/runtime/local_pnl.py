@@ -140,7 +140,7 @@ def contract_value_usd_for(symbol: Any) -> float:
     """USD-per-point contract value for *symbol* (1.0 default).
 
     Thin re-export of the canonical resolver in
-    :mod:`src.units.accounts.risk` (single source: ``config/instruments.yaml``)
+    :mod:`src.core.profile_loader` (single source: ``config/instruments.yaml``)
     so PnL callers don't import the sizing module directly. Best-effort: any
     failure falls back to 1.0 (the crypto-perp value), never raises.
     """
@@ -148,7 +148,7 @@ def contract_value_usd_for(symbol: Any) -> float:
     if not sym:
         return 1.0
     try:
-        from src.units.accounts.risk import contract_value_usd_for as _cvu
+        from src.core.profile_loader import contract_value_usd_for as _cvu
         return float(_cvu(sym))
     except Exception:  # noqa: BLE001 — best-effort; default keeps crypto correct
         return 1.0

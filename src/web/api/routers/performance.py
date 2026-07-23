@@ -57,7 +57,7 @@ from fastapi import APIRouter, Query
 
 from src.utils.paths import trade_journal_db_path
 from src.web.api._asset_class import CLASS_ORDER, asset_class_for_symbol
-from src.runtime.local_pnl import contract_value_usd_for
+from src.core.profile_loader import contract_value_usd_for
 from src.web.api._clean_trades import (
     exclude_reconciler_predicate,
     exclude_reset_flat_predicate,
