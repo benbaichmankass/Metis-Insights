@@ -209,6 +209,22 @@ lazily via the redirect.
 ---
 
 ## Change log
+- **2026-07-23 (cont. 2)** — **New milestone M29 — AI-Driven System-Dynamics Modelling**
+  proposed (operator-directed), design-of-record
+  [`docs/research/M29-ai-system-dynamics-DESIGN.md`](docs/research/M29-ai-system-dynamics-DESIGN.md).
+  It **feeds this family**: its primary target (A) models the macro–energy complex as
+  stocks/flows/feedback-loops (NG-storage↔weather↔power↔carbon linkages — the "one system
+  observed at three points" framing of §3), AI-identifies the structure/params from
+  point-in-time data, and runs forward scenarios that condition M28 `c_macro` conviction —
+  directly serving the M1 energy-event-study / M2 event-response backtest here. It reuses
+  the same point-in-time + calibration + cost-model discipline. PROPOSE-ONLY; observe-only
+  until its P4 backtest passes; Tier-3 for any live influence.
+  Also surfaced this session: the **M28 P4 gate blocker** — the FRED valuation-snapshot
+  producer is unwired (nothing schedules `run_valuation_feed`), so the P4 backtest can't
+  run until the off-VM producer is built
+  ([`M28-P4-fred-producer-unwired-2026-07-23.md`](docs/research/M28-P4-fred-producer-unwired-2026-07-23.md),
+  `MB-20260723-M28-VALUATION-PRODUCER-UNWIRED`). This is the same "off-VM FRED value soak"
+  M1's clean-joined-dataset gate depends on.
 - **2026-07-23** — Created. M0a enforcement guard stood up (import-linter, 3→4
   contracts kept; violation #1 resolved by classifying `pairs_executor` as
   Execution + locking `pairs_engine` purity). Phase 1 discovery + Phase 2
