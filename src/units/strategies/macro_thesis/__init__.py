@@ -109,6 +109,11 @@ from .thesis_backtest import (  # noqa: F401
     score_backtest,
     thesis_outcome,
 )
+from .thesis_replay import (  # noqa: F401
+    add_days_iso,
+    as_of_snapshot_rows,
+    build_replay_entries,
+)
 
 __all__ = [
     "ValueRead",
@@ -183,4 +188,7 @@ __all__ = [
     "calibration_rank",
     "score_backtest",
     "run_thesis_backtest",
+    "as_of_snapshot_rows",
+    "add_days_iso",
+    "build_replay_entries",
 ]
