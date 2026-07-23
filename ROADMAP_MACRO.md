@@ -209,6 +209,24 @@ lazily via the redirect.
 ---
 
 ## Change log
+- **2026-07-23 (cont. 9)** — **M28 reframed as a signal-research METHODOLOGY program (operator directive).**
+  The three sleeves (value/COT/crypto) all came back null under honest (non-overlapping) grading
+  ([re-grade](docs/research/M28-sleeve-honest-horizon-ic-regrade-2026-07-23.md)) — but that is the
+  *first three data points in an iterative construction search*, not a ship-or-drop verdict. All three
+  used the weakest cell: **trailing-percentile of a single raw series, contrarian**. The point of M28 is
+  to develop the **repeatable method** for turning a market intuition into a signal that clears the
+  honest, cost-aware gate — not to ship these three. Authored the work plan:
+  [`M28-signal-research-methodology.md`](docs/research/M28-signal-research-methodology.md) (the
+  hypothesis→emit→grade→learn→iterate loop; the construction backlog across the four unexplored
+  dimensions — **D1 transform** (change/impulse, divergence), **D2 conditioning**, **D3 cross-section**,
+  **D4 composite**; the M29 sysdyn engine as a mispricing-signal generator graded on the *same* gate;
+  the exit criterion = a construction clears the gate OOS **or** the space is exhausted, both real
+  results) + a compounding [research ledger](docs/research/M28-signal-research-ledger.md) (every
+  construction + verdict + learning, seeded with the 4 done so far). Also baked `--non-overlapping` into
+  all three sleeve workflows (#7501) so committed scorecards grade honestly by default, and fixed a
+  repo-wide CI regression (ruff 0.16.0 default-ruleset expansion → pinned `<0.16`). **Next: build the
+  D1 transform toolkit + re-emit COT (Δ net-spec + spec/commercial divergence) and crypto (funding-change
+  × OI-rising) constructions, grade through the same gate, record in the ledger.**
 - **2026-07-23 (cont. 8)** — **All three sleeves GRADED on real data (workflow runs).** Dispatched the
   three off-VM scans; scorecards landed on `main`. **(1) M29 P1c gas** → **`park_deeper_investment` /
   `no_mechanistic_edge`** — real EIA storage (864 obs) + Open-Meteo weather HDD (2,923 days) flowed, but
