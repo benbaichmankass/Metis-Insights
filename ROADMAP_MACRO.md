@@ -63,17 +63,26 @@ immediately) and broaden as legacy violations are fixed:
 
 Behavior-preservation is absolute — the live ICT trader must not change behavior.
 
-- **M0a (now, zero live-path risk):** stand up the guard (done: 3 contracts, 3
-  kept) + fix the two real violations the discovery flagged:
-  1. `pairs_executor.py` imports `src.units.accounts.execute` directly (a Strategy
-     module reaching into Execution) → route through the coordinator/executor seam.
-  2. `intents.py` / `intent_multiplexer.py` hardcode the ICT strategy roster
-     (`DEFAULT_PRIORITIES`, the builder registry) → lift the roster into
-     config/data so aggregation becomes strategy-agnostic.
+- **M0a (DONE, zero live-path risk):** guard stood up — **5 contracts, 0 broken**
+  (macro_thesis, news, ict_detection, pairs_engine, vwap). The two discovery-flagged
+  "violations" are both **resolved**:
+  1. `pairs_executor.py` imports `src.units.accounts.execute` — **resolved by
+     classification** (2026-07-23): the pairs sleeve is an INTENTIONAL isolated
+     order path, so `pairs_executor` IS Execution; the invariant locked is that the
+     DECISION half (`pairs_engine`) stays pure (contract #4). Not a refactor of the
+     live order path.
+  2. `intents.py` / `intent_multiplexer.py` "hardcode the roster" — **assessed →
+     misdiagnosis, operator-accepted 2026-07-23** (`BL-20260723-INTENTS-ROSTER-ASSESSMENT`):
+     `DEFAULT_PRIORITIES` is a legitimate central Tier-3 conflict-arbitration policy
+     table; the two builder rosters are a legacy-subset + authoritative-superset with
+     a working fallback (a money-bug fix), not a dup-that-drifted. The broad decouple
+     is NOT pursued; the one safe sub-fix (a stale comment) shipped (#7460).
 - **M0b (incremental, one gated PR at a time):** physically reorganize toward the
-  clean tree and graduate to a `layers` contract. Cheapest-highest-value first
-  (the roster extraction above). The 342 KB `order_monitor.py` and 234 KB
-  `strategy_signal_builders.py` decompositions are the long tail — split by
+  clean tree and graduate to a `layers` contract. **First drain DONE 2026-07-23**
+  (#7459): cut `units.db.database → runtime.local_pnl → Execution` by single-sourcing
+  the contract-value resolver in the pure `core.profile_loader`, which let **vwap** be
+  locked as the first monolith-era strategy (contract #5). The 342 KB `order_monitor.py`
+  and 234 KB `strategy_signal_builders.py` decompositions are the long tail — split by
   concern, each PR behavior-preserving + tested against the real-schema fixtures.
 
 ### 1c. Compute invariant (guards the "one engine" decision)
@@ -157,7 +166,7 @@ Each milestone has a **gate** (criterion to proceed) and a **stop condition**.
 
 | # | Milestone | Layer | Deliverables | Gate | Stop |
 |---|---|---|---|---|---|
-| **M0** | Layer enforcement + legacy migration | all | import-linter guard (M0a: done); fix the 2 violations; incremental drain (M0b) | No behavioral change to ICT; CI enforces the boundary; contracts broaden | A violation fix would require rewriting live order logic → defer, keep the narrower contract |
+| **M0** | Layer enforcement + legacy migration | all | import-linter guard (M0a: **DONE** — 5 contracts, 0 broken); both flagged violations resolved (#1 by classification, #2 assessed→declined, operator-accepted); M0b first drain **DONE** (#7459, db.database→local_pnl cut + vwap locked); incremental drain continues | No behavioral change to ICT; CI enforces the boundary; contracts broaden | A violation fix would require rewriting live order logic → defer, keep the narrower contract |
 | **M1** | Energy event calendar + signals | Signals | EIA release history + **point-in-time** published consensus + realized values + MNG price series, joined | Clean joined dataset over multiple years of releases | Consensus not available point-in-time (revised-only) → the whole study is unsafe; stop and re-scope the data source |
 | **M2** | Event-response backtest | Strategy | surprise-vs-consensus → forward returns at several horizons, via `thesis_backtest` calibration + the cost model | **Pre-registered thresholds met** (calibration rank + net-of-cost edge vs a naive baseline) | Thresholds not met → repricing is not systematic; do not build the strategy |
 | **M3** | Paper trading | Strategy+Execution | strategy emits intents; execution runs the new venue in paper mode (the M28-deferred handoff) | Realized paper behavior matches backtest expectation | Live behavior diverges from backtest → the model is mis-specified |
@@ -206,3 +215,12 @@ lazily via the redirect.
   architecture approved by operator; one-engine + M0a-now/M0b-incremental +
   cost-model-pillar decisions recorded. **Repo renamed → `Metis-Insights`** (§7).
   Violation #2 (intents.py roster decoupling) is the next M0b item.
+- **2026-07-23 (cont.)** — M0a widened to **5 contracts, 0 broken** (added
+  `pairs_engine` #7453 + `vwap` #7459). **M0b first drain shipped** (#7459): cut
+  `units.db.database → runtime.local_pnl → Execution` by single-sourcing the
+  contract-value resolver in the pure `core.profile_loader` (behavior byte-identical),
+  which let `vwap` be locked as the first monolith-era strategy. **Violation #2
+  assessed → misdiagnosis, operator-accepted** (`BL-20260723-INTENTS-ROSTER-ASSESSMENT`):
+  the roster/priority centralization is legitimate, not decoupled; only the stale
+  "keep in sync" comment was corrected (#7460). Encoded the Layer-2 refinement that a
+  STRATEGY may reference contract TYPES (the seam) but not Execution implementations.
