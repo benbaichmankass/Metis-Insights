@@ -121,3 +121,7 @@ of it?* If no → inline.
   applied to the audit program.
 - **`sprint-format`** — each spawned session's exit record.
 - **`doc-freshness`** — each session's session-end decision-landing.
+- **`session-handoff`** — the time-axis counterpart: this skill decomposes a
+  big task **up front** across **parallel** sessions/agents; `session-handoff`
+  is for when a **single serial thread** organically grows too long and needs
+  to close out + continue in a **fresh session later**, not in parallel.
