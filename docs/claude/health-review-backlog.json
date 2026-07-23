@@ -4268,6 +4268,11 @@
           "at": "2026-07-22T18:20:00+00:00",
           "by": "claude (/health-review 2026-07-22, inside /system-review)",
           "note": "Re-validated: comms/gpu_spend_ledger.json's last committed entry is still 2026-07-06 (via PR #6999) - no new GPU burst runs occurred this window to re-test the push-race fix, so the underlying branch-protection/race condition remains unverified either way."
+        },
+        {
+          "at": "2026-07-23",
+          "by": "claude (M28 valuation-snapshot producer wiring)",
+          "note": "GENERALIZED: the M28 valuation-snapshot producer hit the identical GH006 protected-branch block (run 30017310010), confirming this is not gpu-burst-specific but a general 'no workflow can commit to protected main' gap. Tracked with the shared durable fix in BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN (operator options: bot push-allowance for comms/** OR a write-scoped PAT for auto-merge PRs). Fix both workflows together."
         }
       ]
     },
@@ -5504,7 +5509,22 @@
       "resolved_at": "2026-07-23T00:00:00+00:00",
       "resolved_by": "claude (operator decision in chat 2026-07-23)",
       "resolution": "CLOSED per explicit operator decision (2026-07-23, in chat: 'ok, i'll take your rec on violation 2'). The operator ACCEPTED the recommendation: the 'decouple the hardcoded roster' change is a misdiagnosis and is NOT being pursued. DEFAULT_PRIORITIES stays as the central Tier-3 conflict-arbitration policy table; the two builder rosters stay as legacy-subset + authoritative-superset with the existing fallback. The one safe sub-fix (the stale 'keep the rosters in sync' comment) shipped in PR #7460. No config-driven priority migration will be done; if that is ever revisited it is a Tier-3 change requiring a backtest gate that arbitration outcomes are unchanged."
+    },
+    {
+      "id": "BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN",
+      "opened_at": "2026-07-23",
+      "opened_by": "claude (M28 valuation-snapshot producer wiring, session claude/valuation-snapshot-producer-sfrg3v)",
+      "source": "The M28 valuation-snapshot producer workflow (macro-valuation-snapshot.yml) tried to direct-push its appended comms/macro/valuation_snapshots.jsonl to main and was declined with GH006 'Protected branch update failed for refs/heads/main - 9 of 9 required status checks are expected' (run 30017310010). Confirmed general: every commit on main is a squash-merged PR, there are ZERO bot direct-pushes on main. This is the SAME wall as BL-20260706-GPU-BURST-LEDGER-PUSH-RACE (gpu-burst spend-ledger). So it is a GENERAL gap: no GitHub-hosted workflow in this repo can autonomously land committed data on protected main.",
+      "title": "No autonomous workflow path to commit data to protected main (blocks valuation-snapshot producer AND gpu-burst spend ledger)",
+      "description": "main is branch-protected with 9 required status checks and no Actions-bot push-allowance, so a workflow's `git push HEAD:main` is rejected outright (GH006). A GITHUB_TOKEN-opened PR does NOT trigger the on:pull_request required checks (recursive-trigger suppression), so an auto-merge PR from the default token stalls forever. Net: two workflows are affected today - (1) gpu-burst-train's spend-ledger append (BL-20260706, the $10 budget-gate input silently under-counts), and (2) the M28 valuation-snapshot producer. INTERIM WORKAROUND SHIPPED for the valuation producer (this session): it now accrues its append-only log on the UNPROTECTED data branch `automation/valuation-snapshots` (restore-then-append-then-force-push), which the off-VM M28 P4 gate reads via `git show origin/automation/valuation-snapshots:comms/macro/valuation_snapshots.jsonl`. That unblocks the P4 research consumer with zero operator dependency; the live macro-thesis sleeve is observe-only (no order path) so deferring the main path strands no live capability. DURABLE FIX (operator/admin-gated, resolves BOTH workflows): choose one of - (a) add a branch-protection push-allowance / bypass scoped to the github-actions[bot] for commits touching only comms/** data files (repo Settings -> branch protection -> allow specified actors to bypass required checks, or a ruleset bypass), so a data-only workflow can direct-push; or (b) provision a write-scoped PAT secret (contents+pull-requests write, on the bypass list) so a workflow can open an auto-merging PR whose required checks actually trigger. (a) is the least-moving-parts option and needs no daily PR/CI. Once (a) or (b) is in place, repoint macro-valuation-snapshot.yml back at main (the reader-fallback in valuation_store.py already prefers comms/macro on main, so the live sleeve lights up automatically) and fix gpu-burst-train.yml the same way.",
+      "tier": "Tier 1 (CI workflow + one operator/admin action: branch-protection setting OR a PAT secret value).",
+      "trigger_condition": "Next CI/infra-touching session, OR when the live macro-thesis sleeve is about to go order-affecting (then the snapshots MUST be on main), OR the next /health-review. Pairs with BL-20260706-GPU-BURST-LEDGER-PUSH-RACE - fix both together.",
+      "resolution_criteria": "A workflow can land committed data on main autonomously (verified by a green gpu-burst ledger append on main AND the valuation producer repointed at main landing a snapshot commit), OR the operator explicitly accepts the data-branch pattern as permanent for these data feeds.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null
     }
   ],
-  "updated_at": "2026-07-23T00:00:00+00:00"
+  "updated_at": "2026-07-23"
 }

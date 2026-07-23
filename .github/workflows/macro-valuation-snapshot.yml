@@ -3,11 +3,29 @@ name: macro-valuation-snapshot
 # M28 P1 — the off-VM FRED valuation-snapshot PRODUCER runner.
 #
 # Runs scripts/macro/valuation_snapshot_produce.py on a GitHub-hosted runner on a
-# daily cadence and commits the appended point-in-time log
-# (comms/macro/valuation_snapshots.jsonl) back to main. The live VM picks the file
-# up via `ict-git-sync`; the macro-thesis sleeve reads it through
-# valuation_store.read_latest_snapshots(), and the M28 P4 value-thesis gate replays
-# the accrued history.
+# daily cadence and accumulates the append-only point-in-time log
+# (comms/macro/valuation_snapshots.jsonl) on the dedicated, UNPROTECTED data branch
+# `automation/valuation-snapshots`. The M28 P4 value-thesis gate replays the
+# accrued history from that branch (`--snapshots`, see below).
+#
+# WHY A DATA BRANCH, NOT main (BL-20260706-GPU-BURST-LEDGER-PUSH-RACE):
+#   `main` is branch-protected with required status checks, so a GitHub-hosted
+#   workflow CANNOT direct-push to it (`GH006: N of N required status checks are
+#   expected`) — the same wall that silently drops the gpu-burst spend-ledger row.
+#   So this producer accrues its data on an unprotected branch (a direct force-push
+#   there is allowed) instead. Landing the snapshots on `main` itself — which the
+#   live sleeve's `valuation_store.read_latest_snapshots()` reads via `ict-git-sync`
+#   — is the deferred durable fix (needs an operator/admin action: a branch-protection
+#   push-allowance for Actions-bot `comms/**` data commits, or a write-scoped PAT so
+#   the workflow can open an auto-merging PR whose checks trigger). That fix ALSO
+#   resolves the gpu-burst ledger bug; tracked in the health-review backlog. Until
+#   then the live macro-thesis sleeve is observe-only (no order path), so deferring
+#   the main path strands no live capability — the P4 research gate is the consumer.
+#
+# HOW THE P4 GATE CONSUMES IT (once history accrues):
+#   git fetch origin automation/valuation-snapshots
+#   git show origin/automation/valuation-snapshots:comms/macro/valuation_snapshots.jsonl > /tmp/snap.jsonl
+#   python scripts/macro/thesis_backtest_run.py --snapshots /tmp/snap.jsonl --candles-dir ...
 #
 # Why off-VM (not the live trader or a VM timer):
 #   - The FRED fetch is off-VM-guarded (fred_adapter refuses the network unless
@@ -16,10 +34,11 @@ name: macro-valuation-snapshot
 #     to the live VM, no live-VM network touch.
 #   - FRED fredgraph.csv is FREE + KEYLESS — no secret needed.
 #
-# Point-in-time discipline: the log is append-only. Each run appends one line per
-# (symbol, metric) stamped with the run's observed_at; a revised macro value is a
-# NEW line, never an overwrite. Committing the diff (not overwriting) preserves the
-# full as-of history the P4 backtest reconstructs against.
+# Point-in-time discipline: the log is append-only. Each run restores the branch's
+# accumulated file, appends one line per (symbol, metric) stamped with the run's
+# observed_at (a revised macro value is a NEW line, never an overwrite), and
+# force-pushes the branch — history is preserved by the restore-then-append, so the
+# force-push only rewrites the carrier commit, never drops accrued rows.
 #
 # Triggers:
 #   1. schedule          — daily 07:30 UTC (after FRED's daily series publish; a
@@ -63,6 +82,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -71,6 +91,24 @@ jobs:
 
       - name: Install deps
         run: python -m pip install --upgrade pip "pyyaml>=6.0"
+
+      - name: Restore accumulated history from the data branch
+        env:
+          DATA_BRANCH: automation/valuation-snapshots
+          SNAP: comms/macro/valuation_snapshots.jsonl
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$SNAP")"
+          # Seed the working file from the data branch's accumulated log so the
+          # producer APPENDS to full history (not to main's empty file). First run:
+          # the branch/file doesn't exist yet → start fresh.
+          git fetch origin "$DATA_BRANCH" || true
+          if git show "origin/${DATA_BRANCH}:${SNAP}" > "$SNAP" 2>/dev/null; then
+            echo "restored $(wc -l < "$SNAP") accumulated record(s) from ${DATA_BRANCH}"
+          else
+            : > "$SNAP"
+            echo "no existing ${DATA_BRANCH} history — starting fresh"
+          fi
 
       - name: Produce valuation snapshots (off-VM FRED fetch)
         id: produce
@@ -88,13 +126,16 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Commit + push the appended log
+      - name: Commit + push to the data branch
         id: commit
+        env:
+          DATA_BRANCH: automation/valuation-snapshots
+          SNAP: comms/macro/valuation_snapshots.jsonl
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add comms/macro/valuation_snapshots.jsonl
+          git add "$SNAP"
           if git diff --cached --quiet; then
             echo "no snapshot change to commit"
             echo "pushed=noop" >> "$GITHUB_OUTPUT"
@@ -102,25 +143,21 @@ jobs:
           fi
           TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git commit -m "chore(m28): valuation snapshots ${TS} [skip ci]"
-          # Robust push: main can advance between checkout and push. Rebase our
-          # single append commit onto fresh main and retry (append-only ⇒ no real
-          # conflict, just a fast-forward race).
+          # Force-push to the UNPROTECTED data branch. `main` is branch-protected
+          # (required checks) so a workflow can't direct-push there — see the header.
+          # The restore-then-append step above rebuilds full history first, so the
+          # force-push only rewrites the single carrier commit, never drops rows.
           pushed=false
           for attempt in 1 2 3 4 5; do
-            if git push origin HEAD:main 2>push.err; then pushed=true; break; fi
+            if git push --force origin "HEAD:${DATA_BRANCH}" 2>push.err; then pushed=true; break; fi
             echo ">>> push attempt ${attempt} failed:"; cat push.err
-            if grep -qiE 'fetch first|non-fast-forward|rejected.*(fetch|remote)' push.err; then
-              git fetch origin main || true
-              git rebase origin/main || { git rebase --abort || true; break; }
-              continue
-            fi
-            break
+            sleep "$attempt"
           done
           if [ "$pushed" = true ]; then
             echo "pushed=true" >> "$GITHUB_OUTPUT"
           else
             echo "pushed=false" >> "$GITHUB_OUTPUT"
-            echo "::error::failed to push valuation snapshots after retries"
+            echo "::error::failed to push valuation snapshots to ${DATA_BRANCH} after retries"
             exit 1
           fi
 
