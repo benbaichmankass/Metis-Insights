@@ -1,0 +1,112 @@
+{
+  "rows": [
+    {
+      "horizon_days": 7,
+      "n": 1104,
+      "n_windows": 263,
+      "overlapping": false,
+      "ic": 0.031907,
+      "ic_t": 1.06,
+      "win_rate": 0.536232,
+      "mean_net_return": 0.002388,
+      "edge_vs_baseline": -0.000192,
+      "conv_spread": -0.001377
+    },
+    {
+      "horizon_days": 14,
+      "n": 1104,
+      "n_windows": 263,
+      "overlapping": false,
+      "ic": 0.015145,
+      "ic_t": 0.503,
+      "win_rate": 0.519022,
+      "mean_net_return": 0.002023,
+      "edge_vs_baseline": -0.00218,
+      "conv_spread": -0.000993
+    },
+    {
+      "horizon_days": 30,
+      "n": 1104,
+      "n_windows": 263,
+      "overlapping": false,
+      "ic": -0.003723,
+      "ic_t": -0.124,
+      "win_rate": 0.508152,
+      "mean_net_return": 0.002825,
+      "edge_vs_baseline": -0.004678,
+      "conv_spread": -0.003824
+    },
+    {
+      "horizon_days": 60,
+      "n": 553,
+      "n_windows": 132,
+      "overlapping": false,
+      "ic": -0.019236,
+      "ic_t": -0.452,
+      "win_rate": 0.511754,
+      "mean_net_return": 0.007094,
+      "edge_vs_baseline": -0.007965,
+      "conv_spread": 0.00097
+    },
+    {
+      "horizon_days": 90,
+      "n": 360,
+      "n_windows": 88,
+      "overlapping": false,
+      "ic": 0.006197,
+      "ic_t": 0.117,
+      "win_rate": 0.544444,
+      "mean_net_return": 0.009987,
+      "edge_vs_baseline": -0.012782,
+      "conv_spread": 0.017221
+    },
+    {
+      "horizon_days": 180,
+      "n": 182,
+      "n_windows": 44,
+      "overlapping": false,
+      "ic": -0.030392,
+      "ic_t": -0.408,
+      "win_rate": 0.532967,
+      "mean_net_return": 0.027784,
+      "edge_vs_baseline": -0.020984,
+      "conv_spread": 0.021453
+    }
+  ],
+  "summary": {
+    "any_monetizable_horizon": false,
+    "any_honest_monetizable_horizon": false,
+    "best_horizon_days": null,
+    "best_conv_spread": null,
+    "strongest_ic_horizon_days": 7,
+    "strongest_ic": 0.031907,
+    "strongest_spread_horizon_days": 180,
+    "strongest_spread": 0.021453,
+    "t_flag": 2.0,
+    "verdict": "no_monetizable_horizon"
+  },
+  "meta": {
+    "snapshot_records": 10125,
+    "rebalances": 263,
+    "non_overlapping": true,
+    "rebalance_every": 30,
+    "fee_frac": 0.0,
+    "carry_frac_per_day": 0.0,
+    "horizons": [
+      7,
+      14,
+      30,
+      60,
+      90,
+      180
+    ],
+    "symbols_with_candles": [
+      "GLD",
+      "IEF",
+      "SLV",
+      "SPY",
+      "TLT"
+    ],
+    "generated_at": "2026-07-23T20:12:18Z"
+  }
+}
