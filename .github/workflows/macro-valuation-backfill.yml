@@ -99,15 +99,27 @@ jobs:
             --rebalance-every 30 --horizon-days 30 \
             --json comms/macro/thesis_p4_scorecard.json | tee /tmp/scorecard.txt
 
-      - name: Land reconstructed history + scorecard on main
+      - name: Horizon-IC scan (conviction→return across horizons)
+        id: horizon
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          python scripts/macro/horizon_ic_scan.py \
+            --snapshots comms/macro/valuation_snapshots_backfill.jsonl \
+            --candles-dir data/macro_candles \
+            --generated-at "$(date -u +%FT%TZ)" \
+            --json comms/macro/horizon_ic_scorecard.json | tee -a /tmp/scorecard.txt || \
+            echo "::warning::horizon-IC scan degraded"
+
+      - name: Land reconstructed history + scorecards on main
         id: commit
         uses: ./.github/actions/commit-to-main
         with:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          paths: comms/macro/valuation_snapshots_backfill.jsonl comms/macro/thesis_p4_scorecard.json
-          message: "chore(m28): backfilled valuation history + P4 scorecard"
-          pr-title: "chore(m28): valuation backfill + P4 scorecard (auto)"
-          pr-body: "Reconstructed point-in-time valuation snapshots (FRED history) + the M28 P4 value-thesis scorecard. Research data; auto-merge."
+          paths: comms/macro/valuation_snapshots_backfill.jsonl comms/macro/thesis_p4_scorecard.json comms/macro/horizon_ic_scorecard.json
+          message: "chore(m28): backfilled valuation history + P4 + horizon-IC scorecards"
+          pr-title: "chore(m28): valuation backfill + P4 + horizon-IC scorecards (auto)"
+          pr-body: "Reconstructed point-in-time valuation snapshots (FRED history) + the M28 P4 value-thesis scorecard + the horizon-IC scan. Research data; auto-merge."
           branch-prefix: automation/valuation-backfill
 
       - name: Comment + close issue (issue-driven path)
