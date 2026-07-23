@@ -93,9 +93,15 @@ three first-pass sleeves used (ledger #1–3). The unshaded cells are the search
   with total return · Sharpe · max-drawdown · hit-rate · turnover + an out-of-sample
   split; the S3 gate `pays_oos` = the conviction book beats all-long AND the neutral
   book is positive on the OOS half. Reuses the P4 `net_return`.
-- A3 · Feasibility-screen harness (S0) — a thin "PIT-availability + crude
-  univariate IC on a sample" checker so a new input family is screened before any
-  feed is built.
+- A3 · **Combined construction grader (S2+S3)** — `scripts/macro/grade_construction.py`:
+  one call runs the non-overlapping horizon-IC (S2) AND the PnL harness (S3) on a
+  construction's snapshots, emitting the single `worth_building` verdict (= honest
+  monetizable signal AND pays OOS). **DONE** (offline-testable, reuses the shared
+  leakage-safe loaders so S2 and S3 see identical entries). Every Phase-B construction
+  flows through this — no bespoke per-construction grading.
+- A4 · Feasibility-screen harness (S0) — a thin "PIT-availability + crude univariate
+  IC on a sample" checker so a NEW input family (Phase D) is screened before any feed
+  is built.
 
 **Phase B — Exhaust the construction space on the inputs we ALREADY have.**
 Data for value/COT/crypto is in hand and the sysdyn engine is built, so every cell
