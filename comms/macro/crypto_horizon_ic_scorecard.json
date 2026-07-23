@@ -3,60 +3,81 @@
     {
       "horizon_days": 1,
       "n": 895,
+      "n_windows": 657,
+      "overlapping": false,
       "ic": 0.07004,
       "ic_t": 2.098,
       "win_rate": 0.493855,
       "mean_net_return": -0.001391,
-      "edge_vs_baseline": -0.002703
+      "edge_vs_baseline": -0.002703,
+      "conv_spread": 0.000248
     },
     {
       "horizon_days": 3,
       "n": 895,
-      "ic": 0.0203,
-      "ic_t": 0.607,
+      "n_windows": 657,
+      "overlapping": false,
+      "ic": 0.020407,
+      "ic_t": 0.61,
       "win_rate": 0.480447,
-      "mean_net_return": -0.001047,
-      "edge_vs_baseline": -0.004211
+      "mean_net_return": -0.001041,
+      "edge_vs_baseline": -0.004211,
+      "conv_spread": -0.019158
     },
     {
       "horizon_days": 7,
-      "n": 895,
-      "ic": -0.0096,
-      "ic_t": -0.287,
-      "win_rate": 0.486034,
-      "mean_net_return": -0.001905,
-      "edge_vs_baseline": -0.007199
+      "n": 384,
+      "n_windows": 282,
+      "overlapping": false,
+      "ic": 0.047408,
+      "ic_t": 0.928,
+      "win_rate": 0.523438,
+      "mean_net_return": 0.000948,
+      "edge_vs_baseline": -0.00636,
+      "conv_spread": 0.033592
     },
     {
       "horizon_days": 14,
-      "n": 895,
-      "ic": -0.021862,
-      "ic_t": -0.653,
-      "win_rate": 0.463687,
-      "mean_net_return": -0.00896,
-      "edge_vs_baseline": -0.021204
+      "n": 193,
+      "n_windows": 141,
+      "overlapping": false,
+      "ic": 0.094428,
+      "ic_t": 1.311,
+      "win_rate": 0.512953,
+      "mean_net_return": -0.00464,
+      "edge_vs_baseline": -0.020557,
+      "conv_spread": 0.039962
     },
     {
       "horizon_days": 30,
-      "n": 895,
-      "ic": -0.036722,
-      "ic_t": -1.098,
-      "win_rate": 0.484916,
-      "mean_net_return": -0.012618,
-      "edge_vs_baseline": -0.042183
+      "n": 90,
+      "n_windows": 66,
+      "overlapping": false,
+      "ic": 0.026154,
+      "ic_t": 0.245,
+      "win_rate": 0.433333,
+      "mean_net_return": -0.057394,
+      "edge_vs_baseline": -0.081448,
+      "conv_spread": -0.039775
     }
   ],
   "summary": {
-    "any_predictive_horizon": false,
-    "best_horizon_days": null,
-    "strongest_ic_horizon_days": 1,
-    "strongest_ic": 0.07004,
+    "any_monetizable_horizon": true,
+    "any_honest_monetizable_horizon": true,
+    "best_horizon_days": 1,
+    "best_conv_spread": 0.000248,
+    "strongest_ic_horizon_days": 14,
+    "strongest_ic": 0.094428,
+    "strongest_spread_horizon_days": 14,
+    "strongest_spread": 0.039962,
     "t_flag": 2.0,
-    "verdict": "no_predictive_horizon"
+    "verdict": "monetizable_horizon_found"
   },
   "meta": {
     "snapshot_records": 10590,
     "rebalances": 657,
+    "non_overlapping": true,
+    "rebalance_every": 3,
     "fee_frac": 0.0,
     "carry_frac_per_day": 0.0,
     "horizons": [
@@ -71,6 +92,6 @@
       "ETHUSDT",
       "SOLUSDT"
     ],
-    "generated_at": null
+    "generated_at": "2026-07-23T20:14:00Z"
   }
 }

@@ -209,6 +209,32 @@ lazily via the redirect.
 ---
 
 ## Change log
+- **2026-07-23 (cont. 9)** — **M28 reframed as a signal-research METHODOLOGY program (operator directive).**
+  The three sleeves (value/COT/crypto) all came back null under honest (non-overlapping) grading
+  ([re-grade](docs/research/M28-sleeve-honest-horizon-ic-regrade-2026-07-23.md)) — but that is the
+  *first three data points in an iterative construction search*, not a ship-or-drop verdict. All three
+  used the weakest cell: **trailing-percentile of a single raw series, contrarian**. The point of M28 is
+  to develop the **repeatable method** for turning a market intuition into a signal that clears the
+  honest, cost-aware gate — not to ship these three. **Authored the full program design of record**
+  [`M28-signal-RnD-program.md`](docs/research/M28-signal-RnD-program.md) — the cheap→expensive **funnel**
+  (S0 feasibility screen *before any build* → S1 construct → S2 signal grade → **S3 PnL grade** →
+  S4 productionize → S5 express+live), the research map, the phasing + decision checkpoints, and the
+  **signal→PnL translation** + the one instrument still owed (a conviction-weighted net-of-cost portfolio
+  PnL harness — IC ≠ PnL); plus its iteration-mechanics component
+  [`M28-signal-research-methodology.md`](docs/research/M28-signal-research-methodology.md) (the
+  hypothesis→emit→grade→learn→iterate loop; the construction backlog across the four unexplored
+  dimensions — **D1 transform** (change/impulse, divergence), **D2 conditioning**, **D3 cross-section**,
+  **D4 composite**; the M29 sysdyn engine as a mispricing-signal generator graded on the *same* gate;
+  the exit criterion = a construction clears the gate OOS **or** the space is exhausted, both real
+  results) + a compounding [research ledger](docs/research/M28-signal-research-ledger.md) (every
+  construction + verdict + learning, seeded with the 4 done so far). Also baked `--non-overlapping` into
+  all three sleeve workflows (#7501) so committed scorecards grade honestly by default, and fixed a
+  repo-wide CI regression (ruff 0.16.0 default-ruleset expansion → pinned `<0.16`). **Phase A1 DONE** —
+  the construction toolkit (`scripts/macro/signal_constructions.py`: D1–D4 pure transforms, 10 tests).
+  **Next (Phase A2): the S3 PnL harness** (conviction-weighted net-of-cost portfolio backtest → Sharpe/
+  PnL/maxDD/turnover — the "translates into PnL" instrument), then Phase B: work the construction space
+  on the existing inputs (COT change/divergence, crypto funding×OI, cross-sectional, composites, sysdyn
+  mispricing) through S2+S3, recording each in the ledger.
 - **2026-07-23 (cont. 8)** — **All three sleeves GRADED on real data (workflow runs).** Dispatched the
   three off-VM scans; scorecards landed on `main`. **(1) M29 P1c gas** → **`park_deeper_investment` /
   `no_mechanistic_edge`** — real EIA storage (864 obs) + Open-Meteo weather HDD (2,923 days) flowed, but

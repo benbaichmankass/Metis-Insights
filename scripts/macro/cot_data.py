@@ -157,6 +157,17 @@ def spec_net_series(rows: list[dict]) -> list[tuple]:
     return sorted(by_date.items(), key=lambda x: x[0])
 
 
+def comm_net_series(rows: list[dict]) -> list[tuple]:
+    """``[(date, comm_net), ...]`` where comm_net = COMMERCIAL (hedger) long − short —
+    the other side of the COT report. The classic COT edge is the spec-vs-commercial
+    *divergence*, so this feeds the D1 divergence construction. Same de-dup as
+    `spec_net_series`. Rows missing the commercial legs contribute 0 (parse default)."""
+    by_date: dict[str, float] = {}
+    for r in rows:
+        by_date[r["date"]] = float(r.get("comm_long", 0.0)) - float(r.get("comm_short", 0.0))
+    return sorted(by_date.items(), key=lambda x: x[0])
+
+
 # ---------------------------------------------------------------------------
 # COT index (rolling percentile) → snapshot rows in the valuation schema
 # ---------------------------------------------------------------------------
