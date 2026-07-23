@@ -5487,6 +5487,21 @@
       "snoozed_until": null,
       "updates": [],
       "resolved_at": null
+    },
+    {
+      "id": "BL-20260723-INTENTS-ROSTER-ASSESSMENT",
+      "opened_at": "2026-07-23T00:00:00+00:00",
+      "opened_by": "claude (platform-layering workplan, violation-#2 investigation)",
+      "source": "The platform-layering plan flagged a 'violation #2': the live intent/coordination layer (src/runtime/intents.py, src/runtime/intent_multiplexer.py) 'hardcodes the strategy roster' \u2014 proposed fix: decouple it. Investigated before implementing (operator granted option (a): merge behavior-preserving live-path refactors autonomously; operator also asked for disagreement where warranted).",
+      "title": "[architecture][assessment] 'violation #2' (decouple hardcoded roster from live intents.py / intent_multiplexer.py) is largely a MISDIAGNOSIS \u2014 DECLINED, with the one safe sub-fix shipped",
+      "description": "Assessment (disagreeing with the 'decouple the roster' framing, evidence below):\n(1) intents.DEFAULT_PRIORITIES is NOT an architecture violation. It is a legitimate CENTRAL conflict-arbitration policy table (which strategy wins when two want the same symbol) \u2014 a Platform/coordination concern that is correctly centralized (a strategy self-declaring its own priority would be worse: every strategy claims top priority). Its values are Tier-3 order-routing decisions wrapped in load-bearing safety comments (e.g. '0 = untested-roster floor so a wiring slip can't override the established roster'; 'tune upward only with operator approval after a backtest'). Moving it to config would relocate Tier-3 data and strip that safety context for no behavioral gain.\n(2) The two builder rosters are NOT a dup-that-drifted. pipeline._STRATEGY_BUILDERS (16 keys) is a strict SUBSET of intent_multiplexer._default_intent_builders (54 keys, the authoritative live intent-layer roster, MULTI_STRATEGY_INTENT_LAYER default on). pipeline.monitor_unit_for already looks up the legacy dict first then FALLS BACK to the superset (_resolve_builders) for the sleeves the legacy dict omits \u2014 a fallback added to fix a naked-orphan money-loss bug (BL-20260615-MGCNAKED). Deduping/refactoring them is a Tier-3-adjacent order-path change with real risk (that fallback exists for a money-loss reason) and ~zero architectural benefit. Under the default config the 54-superset drives everything, so there is no latent gap.\nSHIPPED (the one genuinely-safe, valuable fix from this review): corrected the stale/misleading 'Mirrors pipeline._STRATEGY_BUILDERS to keep the rosters in sync' docstring on _default_intent_builders to accurately describe the legacy-subset / authoritative-superset + fallback relationship (PR #7460) \u2014 that comment would otherwise lead a future session to wrongly trim the superset and reintroduce the naked-orphan bug (field beats comment).\nNOT DONE (declined): the broad 'decouple the hardcoded roster' refactor. Recommend leaving both the priority table and the two builder registries as-is. If the operator still wants the roster made config-driven for the layering story, the correct precedent is how SUPPORTED_SYMBOLS was already made config-driven (supported_symbols() unions accounts.yaml) \u2014 but that would move Tier-3 priority VALUES + their safety documentation into YAML, so it is a Tier-3 change needing explicit operator approval + a backtest that the arbitration outcomes are unchanged, not an autonomous refactor.",
+      "tier": 1,
+      "trigger_condition": "Operator revisits the 'decouple the roster' idea, OR a future session proposes deduping the two builder rosters / moving DEFAULT_PRIORITIES to config \u2014 read this assessment first.",
+      "resolution_criteria": "Operator either (a) accepts the disagreement (leave the roster/priority centralization as-is; this item closes as 'assessed, declined, comment fixed'), or (b) explicitly directs the config-driven priority migration as a Tier-3 change with a backtest gate.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null
     }
   ],
   "updated_at": "2026-07-23T00:00:00+00:00"
