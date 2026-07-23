@@ -1,0 +1,141 @@
+name: macro-valuation-backfill
+
+# M28 P1 — the "test now" loop: reconstruct HISTORICAL point-in-time valuation
+# snapshots from FRED, fetch historical candles, run the M28 P4 value-thesis gate,
+# and land the reconstructed history + the scorecard on main. This is the
+# value-sleeve analogue of the ML backfill-shadow-predictions replay — it lets the
+# P4 gate (and M29 calibration) be tested on real history immediately instead of
+# waiting weeks for the daily producer to accrue a soak.
+#
+# One-shot / occasional (NOT a daily cron — the daily forward accrual is the
+# separate macro-valuation-snapshot producer). Runs entirely off-VM on a
+# GitHub-hosted runner (FRED + Yahoo are both keyless; ICT_OFFVM_BUILD_HOST=1
+# gates the guarded fetchers). No SSH, no live-VM touch, no order path.
+#
+# Lands on protected main via the shared ./.github/actions/commit-to-main
+# (PAT auto-merge PR). Candle CSVs are regenerated each run and NOT committed
+# (they'd bloat the repo); only the reconstructed snapshots + the scorecard land.
+#
+# Triggers:
+#   1. workflow_dispatch — operator "Run workflow" (with cadence/start overrides).
+#   2. issues.opened w/ label `macro-valuation-backfill-now` — Claude-driven.
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Earliest as-of date (YYYY-MM-DD)"
+        required: false
+        default: "2005-01-01"
+      cadence_days:
+        description: "Snapshot cadence in days across the FRED span"
+        required: false
+        default: "7"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: macro-valuation-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       github.event.issue.user.login == github.repository_owner &&
+       contains(github.event.issue.labels.*.name, 'macro-valuation-backfill-now'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: python -m pip install --upgrade pip "pyyaml>=6.0" yfinance pandas
+
+      - name: Reconstruct point-in-time snapshots from FRED history
+        env:
+          ICT_OFFVM_BUILD_HOST: "1"
+        run: |
+          set -euo pipefail
+          python scripts/macro/valuation_snapshot_backfill.py \
+            --path comms/macro/valuation_snapshots_backfill.jsonl \
+            --cadence-days "${{ github.event.inputs.cadence_days || '7' }}" \
+            --start-date "${{ github.event.inputs.start_date || '2005-01-01' }}" \
+            --json /tmp/backfill_summary.json
+
+      - name: Fetch historical candles (Yahoo)
+        continue-on-error: true
+        env:
+          ICT_OFFVM_BUILD_HOST: "1"
+        run: |
+          set -uo pipefail
+          python scripts/macro/fetch_macro_candles.py \
+            --out-dir data/macro_candles \
+            --start "${{ github.event.inputs.start_date || '2005-01-01' }}" || \
+            echo "::warning::candle fetch degraded — P4 will report the honest n=0 for uncovered symbols"
+
+      - name: Run the M28 P4 value-thesis gate
+        id: gate
+        run: |
+          set -euo pipefail
+          python scripts/macro/thesis_backtest_run.py \
+            --snapshots comms/macro/valuation_snapshots_backfill.jsonl \
+            --candles-dir data/macro_candles \
+            --rebalance-every 30 --horizon-days 30 \
+            --json comms/macro/thesis_p4_scorecard.json | tee /tmp/scorecard.txt
+
+      - name: Land reconstructed history + scorecard on main
+        id: commit
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: comms/macro/valuation_snapshots_backfill.jsonl comms/macro/thesis_p4_scorecard.json
+          message: "chore(m28): backfilled valuation history + P4 scorecard"
+          pr-title: "chore(m28): valuation backfill + P4 scorecard (auto)"
+          pr-body: "Reconstructed point-in-time valuation snapshots (FRED history) + the M28 P4 value-thesis scorecard. Research data; auto-merge."
+          branch-prefix: automation/valuation-backfill
+
+      - name: Comment + close issue (issue-driven path)
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        env:
+          PR: ${{ steps.commit.outputs.pr }}
+        with:
+          script: |
+            const fs = require('fs');
+            let card = '(scorecard unavailable)';
+            try { card = fs.readFileSync('/tmp/scorecard.txt', 'utf8'); } catch (e) {}
+            const pr = process.env.PR || '';
+            const body = [
+              '🧪 **macro-valuation-backfill** — reconstructed history + ran the M28 P4 gate.',
+              '',
+              '```', card.trim(), '```',
+              '',
+              pr ? `landed via auto-merge PR: ${pr}` : 'nothing to commit this run.',
+              '',
+              '---',
+              '_Generated by [Claude Code](https://claude.ai/code)_',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed',
+            });

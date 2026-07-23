@@ -135,3 +135,6 @@ results/recombination/
 
 # Don't track bytecode under the re-included reports dirs
 scripts/reports/__pycache__/
+
+# M28 backtest candles — regenerated per run by scripts/macro/fetch_macro_candles.py (not committed)
+data/macro_candles/
