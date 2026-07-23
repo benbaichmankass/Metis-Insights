@@ -53,6 +53,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # PAT so the ledger auto-merge PR (commit-to-main action) triggers checks.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
 
       - uses: actions/setup-python@v5
         with:
@@ -179,7 +181,7 @@ jobs:
           done
           rm -f ~/.ssh/trainer_key
 
-      - name: Record cost + commit ledger
+      - name: Record cost (append ledger row)
         id: ledger
         if: steps.arm.outputs.armed == 'true' && steps.burst.outcome == 'success'
         run: |
@@ -191,46 +193,30 @@ jobs:
             --rate "${{ steps.burst.outputs.rate }}" \
             --cost "${{ steps.burst.outputs.cost }}" \
             --ended "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --status completed
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add comms/gpu_spend_ledger.json
-          git commit -m "chore(gpu-spend): record burst gpu-${{ github.run_id }} (${{ steps.parse.outputs.experiment }})" \
-            || { echo "no ledger change"; echo "pushed=noop" >>"$GITHUB_OUTPUT"; exit 0; }
-          # Robust push (BL-20260706-GPU-BURST-LEDGER-PUSH-RACE). Two failure
-          # modes were dropping billed rows — the ledger is the SPEND-GATE input,
-          # so a silent drop under-counts spend and defeats the $10 cap:
-          #   (a) non-fast-forward RACE when main advanced mid-burst → rebase our
-          #       single ledger commit onto the fresh main and retry;
-          #   (b) GH006 protected-branch block (main requires status checks even
-          #       for github-actions[bot]) → NOT retryable from here; preserve the
-          #       row as an artifact (next step) so it's recoverable, never lost.
-          pushed=false
-          for attempt in 1 2 3 4 5; do
-            if git push origin HEAD:main 2>push.err; then pushed=true; break; fi
-            echo ">>> push attempt ${attempt} failed:"; cat push.err
-            if grep -qiE 'fetch first|non-fast-forward|rejected.*(fetch|remote)' push.err; then
-              git fetch origin main || true
-              git rebase origin/main || { git rebase --abort || true; break; }
-              continue
-            fi
-            # Non-race failure (branch protection / auth) — no point retrying.
-            break
-          done
-          if [ "$pushed" = true ]; then
-            echo "pushed=true" >>"$GITHUB_OUTPUT"
-            echo ">>> ledger row pushed to main."
-          else
-            echo "pushed=false" >>"$GITHUB_OUTPUT"
-            echo "::warning::ledger push to main failed (branch protection GH006 or persistent race). Preserving the row as an artifact for recovery — see BL-20260706-GPU-BURST-LEDGER-PUSH-RACE. Terminal fix needs the operator to add this workflow's actor to the main branch-protection bypass allowlist (or relocate the ledger off protected main)."
-            cp comms/gpu_spend_ledger.json gpu_spend_ledger_unpushed.json
-          fi
 
-      - name: Preserve unpushed ledger row (recovery artifact)
-        if: steps.ledger.outputs.pushed == 'false'
+      - name: Land ledger on main (auto-merge PR)
+        id: commit_ledger
+        if: steps.arm.outputs.armed == 'true' && steps.burst.outcome == 'success'
+        # BL-20260706-GPU-BURST-LEDGER-PUSH-RACE: main is branch-protected and
+        # rejected the old direct `git push HEAD:main` (GH006), silently dropping
+        # billed rows and defeating the $10 spend gate. The shared commit-to-main
+        # action lands the row via a PAT-authored auto-merge PR (checks run + pass),
+        # so a burst's cost can no longer be silently dropped.
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: comms/gpu_spend_ledger.json
+          message: "chore(gpu-spend): record burst gpu-${{ github.run_id }} (${{ steps.parse.outputs.experiment }})"
+          pr-title: "chore(gpu-spend): burst gpu-${{ github.run_id }} cost (auto)"
+          pr-body: "Automated GPU-burst spend-ledger append (the $10 budget-gate input). Data-only; auto-merge."
+          branch-prefix: automation/gpu-spend-ledger
+
+      - name: Preserve ledger row (recovery artifact on land failure)
+        if: always() && steps.ledger.outcome == 'success' && steps.commit_ledger.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: gpu-spend-ledger-unpushed-${{ github.run_id }}
-          path: gpu_spend_ledger_unpushed.json
+          path: comms/gpu_spend_ledger.json
           retention-days: 90
           if-no-files-found: warn
 
