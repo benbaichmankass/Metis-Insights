@@ -1,0 +1,24 @@
+# M28 P3 — macro/value thesis sleeve config (observe-only scanner).
+#
+# The isolated thesis-generation sleeve (design §P3, M22 pairs-sleeve pattern):
+# a slow-cadence scanner that reads the point-in-time valuation snapshots (P1),
+# forms weeks-horizon value theses via the S1 rule-based former (thesis_engine),
+# and logs the would-be theses to a soak — OBSERVE-ONLY. It places NOTHING: the
+# defined-risk options executor is P5, not yet wired, so no order path exists
+# here regardless of `execution`. `run_macro_thesis_tick` is called once per
+# trader tick from src/main.py, best-effort (never raises, never blocks a trade).
+#
+# The `execution` gate mirrors the strategy-level gate (config/strategies.yaml)
+# and the pairs sleeve (config/pairs.yaml): `shadow` (default) = compute + soak,
+# place nothing; `live` = the same today (executor is P5) but records the intent
+# on the soak so the eventual gated executor reads it. Tier-3 to flip to `live`
+# once P4's point-in-time backtest proves the sleeve — until then it stays
+# `shadow` and is a pure observability surface.
+
+sleeve:
+  execution: shadow          # shadow-guard: allow — M28 P3 is an observe-only sleeve with NO order path (executor is P5, not yet wired); shadow is the correct default, operator-approved 2026-07-23. shadow (observe-only) | live (gated; executor is P5, not yet wired)
+  cadence_seconds: 3600      # slow scan — weeks-horizon theses need no faster than hourly
+  min_conviction: 0.4        # only form a thesis when the value read is this extreme (|cheap_score-0.5|*2)
+  account: alpaca_options_paper   # decision (c): defined-risk options expression (paper) — the eventual venue
+  express_as: debit_vertical      # the eventual options structure (P5)
+  universe: []               # empty = every symbol carrying a valuation snapshot; or an explicit allowlist

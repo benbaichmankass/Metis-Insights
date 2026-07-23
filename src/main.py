@@ -666,6 +666,21 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.exception("pairs_tick failed")
 
+            # Macro/value thesis sleeve (M28 P3): an ISOLATED, slow-cadence,
+            # OBSERVE-ONLY scanner that reads the point-in-time valuation
+            # snapshots, forms weeks-horizon value theses (the S1 rule-based
+            # former), and logs the would-be theses to a soak. It places NOTHING
+            # — the defined-risk options executor is P5, so no order path exists
+            # here regardless of config/macro_theses.yaml's `execution` gate.
+            # Cadence-gated (hourly by default) + best-effort (never raises into
+            # the loop, never blocks a trade). Inert until valuation snapshots
+            # accrue.
+            try:
+                from src.units.strategies.macro_thesis.thesis_tick import run_macro_thesis_tick
+                run_macro_thesis_tick(settings)
+            except Exception:  # noqa: BLE001
+                logger.exception("macro_thesis_tick failed")
+
             # Prop trades are a manual bridge (no broker feed), so the
             # order_monitor above never sees them. Emit a periodic
             # "still monitoring" pulse per open prop position instead so
