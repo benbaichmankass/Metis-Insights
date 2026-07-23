@@ -94,6 +94,13 @@ from .thesis_engine import (  # noqa: F401
     form_value_thesis,
     value_conviction,
 )
+from .thesis_tick import (  # noqa: F401
+    form_tick_theses,
+    load_sleeve_config,
+    read_thesis_soak,
+    run_macro_thesis_tick,
+    write_thesis_soak,
+)
 
 __all__ = [
     "ValueRead",
@@ -157,4 +164,9 @@ __all__ = [
     "form_value_thesis",
     "form_theses_from_reads",
     "value_conviction",
+    "run_macro_thesis_tick",
+    "form_tick_theses",
+    "load_sleeve_config",
+    "read_thesis_soak",
+    "write_thesis_soak",
 ]
