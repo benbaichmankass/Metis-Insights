@@ -11,8 +11,14 @@
 # =============================================================================
 
 # Lint + format gate (S-044 — .github/workflows/ruff-lint.yml).
-# Pin major/minor floor; CI installs latest patch within the floor.
-ruff>=0.15.0
+# Upper-bounded to <0.16: ruff 0.16.0 (2026-07-23) expanded its DEFAULT rule
+# set (now flags C4/I/… — e.g. C408 "unnecessary dict()" + I001 import-order),
+# which surfaced 8228 pre-existing hits across the repo and turned the REQUIRED
+# ruff-lint check red on every .py-touching PR (the unpinned floor pulled 0.16.0
+# into CI while local/earlier runs used 0.15.x). Adopting the expanded set is a
+# separate, deliberate cleanup (fix or per-file-ignore the residuals, incl.
+# operator-hold paths) — until then, hold the 0.15.x default-ruleset behaviour.
+ruff>=0.15.0,<0.16
 
 # Architecture dependency-direction gate (M0a — .github/workflows/layer-guard.yml).
 # Static import-graph analysis (grimp) enforcing the layer contracts in
