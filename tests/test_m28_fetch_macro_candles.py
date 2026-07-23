@@ -14,7 +14,10 @@ fmc = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(fmc)
 
 
-class _FakeCloses:
+# ---- fakes mimicking the pandas frames yfinance returns -------------------
+
+class _Series:
+    """Minimal Series: .items() yields (date, scalar)."""
     def __init__(self, pairs):
         self._p = pairs
 
@@ -22,14 +25,49 @@ class _FakeCloses:
         return iter(self._p)
 
 
-class _FakeDF:
+class _OneColDF:
+    """A 1-column DataFrame — what `df['Close']` is for a SINGLE-symbol yfinance
+    download (MultiIndex columns). Has `.columns` + `.iloc[:, 0]` → the Series.
+    This is the shape that broke the first run (1 garbage row/symbol)."""
     def __init__(self, pairs):
-        self._c = _FakeCloses(pairs)
+        self.columns = ["GLD"]
+        self._series = _Series(pairs)
+
+    class _ILoc:
+        def __init__(self, s):
+            self._s = s
+
+        def __getitem__(self, key):
+            return self._s          # [:, 0] → the only column's Series
+
+    @property
+    def iloc(self):
+        return _OneColDF._ILoc(self._series)
+
+
+class _DownloadDF:
+    """A yfinance download frame: `df['Close']` → a 1-col DataFrame (MultiIndex)."""
+    def __init__(self, pairs):
+        self._pairs = pairs
         self.empty = not pairs
 
     def __getitem__(self, k):
         assert k == "Close"
-        return self._c
+        return _OneColDF(self._pairs)
+
+
+# ---- pure parsers ---------------------------------------------------------
+
+def test_yf_close_pairs_squeezes_multiindex_column():
+    # The regression: df["Close"] is a 1-col DataFrame → must squeeze to the Series
+    # and yield real (date, value) rows, NOT one row keyed by the column name.
+    df = _DownloadDF([("2020-01-02", 100.0), ("2020-01-03", 101.5)])
+    assert fmc.yf_close_pairs(df) == [("2020-01-02", 100.0), ("2020-01-03", 101.5)]
+
+
+def test_stooq_close_pairs_parses_ohlcv_csv():
+    body = "Date,Open,High,Low,Close,Volume\n2020-01-02,1,2,0,100.0,10\n2020-01-03,1,2,0,101.5,11\n"
+    assert fmc.stooq_close_pairs(body) == [("2020-01-02", 100.0), ("2020-01-03", 101.5)]
 
 
 def test_seed_symbols_are_instrument_keys():
@@ -37,30 +75,58 @@ def test_seed_symbols_are_instrument_keys():
     assert fmc.seed_symbols(cfg) == ["GLD", "TLT"]          # sorted, context excluded
 
 
-def test_fetch_writes_per_symbol_csv(tmp_path):
-    def fake_download(s):
-        return _FakeDF([("2020-01-01", 100.0), ("2020-01-02", 101.5)])
+# ---- fetch_candles: yfinance path + Stooq fallback ------------------------
 
-    res = fmc.fetch_candles(["TLT"], tmp_path, download=fake_download)
-    assert res == {"TLT": 2}
-    body = (tmp_path / "TLT.csv").read_text().strip().splitlines()
-    assert body[0] == "date,close"
-    assert body[1] == "2020-01-01,100.0"
-    assert body[2] == "2020-01-02,101.5"
+def _rows(csv_path):
+    return csv_path.read_text().strip().splitlines()
 
 
-def test_fetch_empty_is_zero_not_fatal(tmp_path):
-    def fake_download(s):
-        return _FakeDF([])                                  # delisted / no data
+def test_fetch_writes_real_dates_from_yfinance(tmp_path):
+    def dl(s):
+        return _DownloadDF([("2020-01-02", 100.0), ("2020-01-03", 101.5)])
 
-    res = fmc.fetch_candles(["NOPE"], tmp_path, download=fake_download)
+    res = fmc.fetch_candles(["GLD"], tmp_path, download=dl, min_rows=1)
+    assert res == {"GLD": 2}
+    rows = _rows(tmp_path / "GLD.csv")
+    assert rows[0] == "date,close"
+    assert rows[1] == "2020-01-02,100.0"          # a real date, not "GLD"
+
+
+def test_fetch_falls_back_to_stooq_when_yfinance_short(tmp_path):
+    def dl_short(s):
+        return _DownloadDF([("2020-01-02", 100.0)])   # only 1 row → below min_rows
+
+    class _Resp:
+        def __init__(self, t):
+            self._t = t
+
+        def read(self):
+            return self._t.encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def stooq(url, timeout=None):
+        body = "Date,Open,High,Low,Close,Volume\n" + "".join(
+            f"2020-01-{d:02d},1,2,0,{100+d}.0,9\n" for d in range(1, 6)
+        )
+        return _Resp(body)
+
+    res = fmc.fetch_candles(["TLT"], tmp_path, download=dl_short, stooq_urlopen=stooq, min_rows=3)
+    assert res == {"TLT": 5}                          # Stooq's 5 rows won over yfinance's 1
+    assert _rows(tmp_path / "TLT.csv")[1].startswith("2020-01-01,")
+
+
+def test_fetch_empty_both_sources_is_zero_not_fatal(tmp_path):
+    def dl_empty(s):
+        return _DownloadDF([])
+
+    def stooq_empty(url, timeout=None):
+        raise RuntimeError("stooq blocked")
+
+    res = fmc.fetch_candles(["NOPE"], tmp_path, download=dl_empty, stooq_urlopen=stooq_empty, min_rows=3)
     assert res == {"NOPE": 0}
     assert not (tmp_path / "NOPE.csv").exists()
-
-
-def test_fetch_swallows_download_error(tmp_path):
-    def boom(s):
-        raise RuntimeError("network down")
-
-    res = fmc.fetch_candles(["TLT"], tmp_path, download=boom)
-    assert res == {"TLT": 0}                                # best-effort, never raises
