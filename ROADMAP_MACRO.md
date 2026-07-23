@@ -209,6 +209,22 @@ lazily via the redirect.
 ---
 
 ## Change log
+- **2026-07-23 (cont. 4)** — **Horizon-IC eval upgrade + next-signals queue (session handoff).**
+  Added `scripts/macro/horizon_ic_scan.py` — runs the P4 point-in-time replay across a
+  RANGE of horizons and reports IC(H)=Spearman(conviction, forward net-return) + a t + edge
+  at each, so a signal is judged at the horizon it actually predicts (the P4 gate hard-codes
+  30d). Reuses the P4 machinery wholesale → grades any valuation-snapshot-schema signal;
+  wired as a step into `macro-valuation-backfill.yml`. Both this + M29 P1b are in **PR #7485**.
+  **`EIA_API_KEY` secret is now set → M29 P1c is UNBLOCKED.** Next-session queue, in priority
+  order (see the paste-ready handoff): **(1) M29 P1c** — inject observed EIA weekly storage
+  (2nd calibration target via `seed_gas.storage_series`) + weather HDD as the real
+  `heating_demand` driver, replacing the calendar proxy (EIA v2 API, series
+  `NG.NW2_EPG0_SWO_R48_BCF.W`); dual-target scorecard → the mechanistic-vs-static go/no-go.
+  **(2) CFTC-COT positioning sleeve** (keyless weekly, snapshot→percentile in the valuation
+  schema). **(3) crypto funding/OI/basis** (Bybit public API, same schema). (2)+(3) are graded
+  by the P4 + horizon-IC scans unchanged because they emit the same snapshot schema. Both
+  operator-directed this session; the two null results so far (value P4 no-edge, gas P1b
+  `equifinal_no_edge`) point the same way — signals too thin, next lever is richer inputs.
 - **2026-07-23 (cont. 3)** — **M29 P1b built — calibrate the gas seed on real data.**
   Wired the off-VM calibrate-on-real-data harness for `gas_storage_price_v1` (the SD
   analogue of the M28 P4 value gate): `scripts/macro/sysdyn_gas_data.py` (injected
