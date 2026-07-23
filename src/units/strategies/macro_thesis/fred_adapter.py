@@ -53,6 +53,33 @@ def parse_fredgraph_csv(text: str) -> list[float]:
     return out
 
 
+def parse_fredgraph_csv_dated(text: str) -> list[tuple[str, float]]:
+    """Parse a FRED ``fredgraph.csv`` body → ``[(DATE, value), ...]`` ascending.
+
+    Same format/robustness as :func:`parse_fredgraph_csv` (skip header, missing
+    ``"."``, and any unparseable row) but **keeps the observation date** — the
+    point-in-time BACKFILL needs each value's as-of date to reconstruct what was
+    known at a past instant. ``DATE`` is the raw ``YYYY-MM-DD`` FRED string (ISO,
+    so lexical order == chronological)."""
+    out: list[tuple[str, float]] = []
+    if not text:
+        return out
+    lines = [ln for ln in text.strip().splitlines() if ln]
+    for ln in lines[1:]:  # skip header
+        parts = ln.split(",")
+        if len(parts) != 2:
+            continue
+        date_s = parts[0].strip()
+        raw = parts[1].strip()
+        if not date_s or raw in (".", ""):
+            continue
+        try:
+            out.append((date_s, float(raw)))
+        except ValueError:
+            continue
+    return out
+
+
 def _leaf_key(leaf: Any) -> Optional[str]:
     """Series-id / source-name of a metric input leaf (see valuation_feed)."""
     if isinstance(leaf, Mapping):
@@ -155,6 +182,33 @@ def fetch_fred_series_history(
             with urlopen(_FRED_CSV_URL.format(sid), timeout=timeout) as resp:
                 text = resp.read().decode()
             out[sid] = parse_fredgraph_csv(text)
+        except Exception:  # noqa: BLE001
+            out[sid] = []
+    return out
+
+
+def fetch_fred_series_history_dated(
+    series_ids: Sequence[str], *, urlopen=None, timeout: float = 25.0
+) -> dict[str, list[tuple[str, float]]]:
+    """Dated sibling of :func:`fetch_fred_series_history` — returns
+    ``{sid: [(date, val), ...]}`` for the point-in-time backfill. Same off-VM
+    guard (needs ``ICT_OFFVM_BUILD_HOST`` unless ``urlopen`` is injected) and the
+    same best-effort per-series degradation (a failure ⇒ ``[]`` for that id)."""
+    if urlopen is None:
+        if not _offvm_enabled():
+            raise RuntimeError(
+                "fetch_fred_series_history_dated: network fetch is off-VM only "
+                "(set ICT_OFFVM_BUILD_HOST=1) or inject urlopen"
+            )
+        import urllib.request
+        urlopen = urllib.request.urlopen
+
+    out: dict[str, list[tuple[str, float]]] = {}
+    for sid in series_ids:
+        try:
+            with urlopen(_FRED_CSV_URL.format(sid), timeout=timeout) as resp:
+                text = resp.read().decode()
+            out[sid] = parse_fredgraph_csv_dated(text)
         except Exception:  # noqa: BLE001
             out[sid] = []
     return out

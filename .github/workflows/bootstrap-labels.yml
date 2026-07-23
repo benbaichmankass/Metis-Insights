@@ -75,6 +75,11 @@ jobs:
                 description: 'Triggers macro-valuation-snapshot — off-VM FRED valuation-snapshot producer (appends comms/macro/valuation_snapshots.jsonl).',
               },
               {
+                name: 'macro-valuation-backfill-now',
+                color: '0e8a16',
+                description: 'Triggers macro-valuation-backfill — reconstruct historical point-in-time snapshots from FRED + run the M28 P4 value-thesis gate.',
+              },
+              {
                 name: 'cancel-queued-runs',
                 color: 'cfd3d7',
                 description: 'Triggers cancel-queued-runs — bulk-cancel stale queued Actions runs.',
