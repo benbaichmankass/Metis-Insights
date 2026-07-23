@@ -27,14 +27,57 @@ logger = logging.getLogger(__name__)
 
 SNAPSHOT_LOG_NAME = "valuation_snapshots.jsonl"
 
+# The producer commits the snapshot log here (an off-VM GitHub-hosted runner
+# appends to it and pushes); the live VM picks it up via ``ict-git-sync``. This
+# is the point-in-time handoff the value sleeve reads — see
+# ``scripts/macro/valuation_snapshot_produce.py`` + the ``macro-valuation-snapshot``
+# workflow. Kept as a repo-relative subpath so the resolver can build it off
+# ``repo_root()`` without importing anything execution-side.
+COMMITTED_SNAPSHOT_SUBPATH = ("comms", "macro", SNAPSHOT_LOG_NAME)
+
 
 def snapshot_log_path(path: Optional[Any] = None):
-    """Resolve the snapshot log path (default ``runtime_logs/valuation_snapshots.jsonl``)."""
+    """Resolve the **write**-side snapshot log path (default
+    ``runtime_logs/valuation_snapshots.jsonl``).
+
+    The producer passes an explicit ``path`` (the committed ``comms/macro`` file);
+    absent one, this stays ``runtime_logs`` — the write default is deliberately
+    NOT the committed path (a stray local write must never land in the repo tree)."""
     if path is not None:
         from pathlib import Path
         return Path(path)
     from src.utils.paths import runtime_logs_dir
     return runtime_logs_dir() / SNAPSHOT_LOG_NAME
+
+
+def committed_snapshot_log_path():
+    """The committed producer output: ``<repo>/comms/macro/valuation_snapshots.jsonl``.
+    Best-effort — returns ``None`` if the repo root can't be resolved (e.g. a
+    relocated file), so a caller falls through to ``runtime_logs``."""
+    try:
+        from pathlib import Path
+        from src.utils.paths import repo_root
+        return Path(repo_root()).joinpath(*COMMITTED_SNAPSHOT_SUBPATH)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _read_snapshot_log_path(path: Optional[Any] = None):
+    """Resolve the **read**-side path. An explicit ``path`` always wins. Absent
+    one, prefer the committed ``comms/macro`` file **when it exists** (the value
+    sleeve reads what the producer committed + git-synced), else fall back to the
+    ``runtime_logs`` write default — so a dev/CI host with neither still resolves
+    cleanly to an (empty) runtime_logs path."""
+    if path is not None:
+        from pathlib import Path
+        return Path(path)
+    committed = committed_snapshot_log_path()
+    try:
+        if committed is not None and committed.exists():
+            return committed
+    except OSError:
+        pass
+    return snapshot_log_path(None)
 
 
 def write_snapshots(rows: Iterable[dict], *, path: Optional[Any] = None) -> int:
@@ -58,8 +101,13 @@ def write_snapshots(rows: Iterable[dict], *, path: Optional[Any] = None) -> int:
 
 def read_snapshot_records(*, path: Optional[Any] = None, limit: Optional[int] = None) -> list[dict]:
     """Read the log **newest-first** (append order reversed). Best-effort:
-    missing file / bad lines → skipped, never raises."""
-    p = snapshot_log_path(path)
+    missing file / bad lines → skipped, never raises.
+
+    Reads the committed ``comms/macro`` file when it exists (else ``runtime_logs``),
+    so ``read_latest_snapshots`` / ``latest_reads_for_symbol`` — and therefore the
+    live sleeve's ``read_latest_snapshots()`` at ``thesis_tick.py`` — surface the
+    producer's committed snapshots. An explicit ``path`` overrides (backtest fixtures)."""
+    p = _read_snapshot_log_path(path)
     out: list[dict] = []
     try:
         with p.open("r", encoding="utf-8") as fh:
