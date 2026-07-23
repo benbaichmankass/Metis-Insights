@@ -118,12 +118,20 @@ IntentBuilder = Callable[[dict], Dict[str, Any]]
 
 
 def _default_intent_builders() -> Dict[str, IntentBuilder]:
-    """Strategy name → signal builder for the in-scope strategies.
+    """Strategy name → signal builder — the AUTHORITATIVE roster.
 
-    Mirrors ``pipeline._STRATEGY_BUILDERS`` to keep the rosters in sync.
-    Adding ICT scalping (or any future strategy) means appending a row
-    here AND registering it via the registry-driven loader. The
-    intent-layer aggregator itself does not change.
+    This is the full, authoritative strategy roster the live order path uses
+    (``MULTI_STRATEGY_INTENT_LAYER`` default on). ``pipeline._STRATEGY_BUILDERS``
+    is a legacy SUBSET (the pre-intent-layer path) — it is NOT a mirror to keep
+    in sync, and this dict must never be trimmed to match it. Where the two
+    diverge, THIS superset wins: ``pipeline.monitor_unit_for`` looks up the
+    legacy dict first and then FALLS BACK to this roster (``_resolve_builders``)
+    for the symbol sleeves the legacy dict omits — a fallback added to fix a
+    naked-orphan money-loss bug (BL-20260615-MGCNAKED), where a sleeve missing
+    here ran with no active ``monitor()`` and drifted into a naked orphan.
+    Adding a strategy means appending a row here (and, if it should also run on
+    the legacy path, in ``pipeline._STRATEGY_BUILDERS``). The intent-layer
+    aggregator itself does not change.
     """
     return {
         "turtle_soup": turtle_soup_signal_builder,
