@@ -1,0 +1,72 @@
+{
+  "model": "gas_storage_price_v1",
+  "target": "weekly_henry_hub_price_WHHNGSP",
+  "target_source": "fred",
+  "exog": "calendar_seasonal(heating_demand,injection_season by ISO week); observed EIA storage + weather HDD are P1c",
+  "generated_at": "2026-07-23T18:49:13Z",
+  "window_years": 8.0,
+  "n_obs": 418,
+  "span": [
+    "2018-07-20",
+    "2026-07-17"
+  ],
+  "free_params": [
+    "inj_rate",
+    "wd_rate",
+    "price_k",
+    "price_feedback",
+    "base_price"
+  ],
+  "fixed_params": {
+    "storage_normal": 2000.0
+  },
+  "train_holdout": {
+    "holdout_frac": 0.25,
+    "train_n": 314,
+    "holdout_n": 104,
+    "in_sample_rmse": 1.799418,
+    "in_sample_r2": -0.000507,
+    "oos_rmse": 1.539562,
+    "oos_r2": 0.001474,
+    "params": {
+      "inj_rate": 10.0,
+      "wd_rate": 40.0,
+      "price_k": 0.1,
+      "price_feedback": 0.0,
+      "base_price": 3.057948
+    },
+    "converged": true
+  },
+  "stability": {
+    "n_folds": 4,
+    "structural_max_rel_spread": 1.548018,
+    "stability_threshold": 0.5,
+    "oos_edge_r2_min": 0.05,
+    "param_rel_spread": {
+      "inj_rate": 0.683488,
+      "wd_rate": 0.739594,
+      "price_k": 0.721988,
+      "price_feedback": 1.548018,
+      "base_price": 0.10757
+    },
+    "param_means": {
+      "inj_rate": 107.250977,
+      "wd_rate": 23.25,
+      "price_k": 0.32794,
+      "price_feedback": 0.817184,
+      "base_price": 3.059747
+    }
+  },
+  "verdict": {
+    "identifiable": false,
+    "explains_oos_seasonality": false,
+    "label": "equifinal_no_edge",
+    "notes": "Calendar-seasonal demand proxy against real weekly price: the seed can explain the SEASONAL component only. A low OOS R\u00b2 is expected and is NOT a harness failure \u2014 the secular level + weather-surprise shocks need observed EIA storage + weather HDD (P1c). The load-bearing result here is whether the structural params are identifiable from real data."
+  },
+  "caveats": [
+    "target is price (keyless) not observed EIA storage \u2014 storage/weather dual-target is P1c",
+    "base_price fit per-run/-fold as a local level anchor; excluded from the identifiability verdict",
+    "demand amplitude is arbitrary (absorbed by wd_rate); only the calendar season shape is injected",
+    "FRED fredgraph latest-revision values; NG price is a market rate (unrevised) \u2192 PIT-clean"
+  ]
+}
