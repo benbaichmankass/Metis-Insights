@@ -183,18 +183,26 @@ Each milestone has a **gate** (criterion to proceed) and a **stop condition**.
 
 ## 7. Repo identity
 
-The system is no longer ICT-only (ICT + pairs + macro/value + soon macro-events),
-so a rename for coherence is warranted. **Low-risk, low-priority:** GitHub
-auto-301-redirects all old URLs + git remotes, the VM clone dirs
-(`/home/ubuntu/…`, `/opt/…`) are unaffected by a repo rename, and only
-`ict_detection/` is ICT-named internally. Cost is a wide-but-mechanical doc/workflow
-sweep of the ~831 `ict-trading-bot` references, doable lazily via the redirect.
-Sequenced as its own small PR once the name is chosen; it does not gate the
-architecture work.
+**DONE (2026-07-23):** renamed to **`benbaichmankass/Metis-Insights`** (Metis —
+the Greek Titaness of wisdom + strategy, mother of Athena). GitHub 301-redirects
+every old URL, git remote, and API call, so nothing broke on the rename.
+
+**Do NOT do a blind reference sweep.** Of the ~831 `ict-trading-bot` references,
+most are either redirect-safe URLs or **VM clone-dir paths**
+(`/home/ubuntu/ict-trading-bot`, `/opt/ict-trading-bot`) that a repo rename does
+NOT change — sweeping those to the new name would break the deploys. The
+session's MCP access scope is also still pinned to the string `ict-trading-bot`
+(redirected), so tooling keeps using the old name. See CLAUDE.md § "Repo
+identity" for the full operational contract. A scoped coherence sweep of the
+prose/URL references (excluding the VM paths) is low-priority and migrates
+lazily via the redirect.
 
 ---
 
 ## Change log
-- **2026-07-23** — Created. M0a enforcement guard stood up (import-linter, 3
-  contracts kept). Phase 1 discovery + Phase 2 architecture approved by operator;
-  one-engine + M0a-now/M0b-incremental + cost-model-pillar decisions recorded.
+- **2026-07-23** — Created. M0a enforcement guard stood up (import-linter, 3→4
+  contracts kept; violation #1 resolved by classifying `pairs_executor` as
+  Execution + locking `pairs_engine` purity). Phase 1 discovery + Phase 2
+  architecture approved by operator; one-engine + M0a-now/M0b-incremental +
+  cost-model-pillar decisions recorded. **Repo renamed → `Metis-Insights`** (§7).
+  Violation #2 (intents.py roster decoupling) is the next M0b item.
