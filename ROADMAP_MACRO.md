@@ -209,6 +209,26 @@ lazily via the redirect.
 ---
 
 ## Change log
+- **2026-07-23 (cont. 7)** — **Crypto funding/OI/basis sleeve built (signal #3 — Bybit derivatives positioning).**
+  Short-horizon BTC/ETH/SOL signals off Bybit's already-wired **keyless public v5 API** —
+  **funding-rate extremes**, **open interest**, and **perp-spot basis** — each turned into a
+  snapshot→percentile conviction in the **valuation-snapshot schema**, so the M28 P4 gate +
+  horizon-IC scan grade them **UNCHANGED** (integration test drives a crypto row through
+  `build_replay_entries`→`run_thesis_backtest`). All three are **contrarian crowding gauges**
+  (`cheap_score = 1 − percentile(value)`, `higher_is_cheaper=False`: high funding/basis/OI =
+  crowded/leveraged = rich = short bias; extreme low = cheap = long bias) — **graded hypotheses**,
+  not claims (OI is the weakest directional claim, a fragility gauge; a negative edge just flips
+  the orientation). PIT: crypto is real-time so `observed_at` = the bare day (signal + close both
+  end-of-day). The backfill writes the Bybit **spot candle CSVs** itself (the same kline fetch that
+  computes the basis), so the P4/horizon scans get forward returns with no separate candle step.
+  Files: `scripts/macro/crypto_signals_data.py` (off-VM Bybit reader — funding/OI/kline parsers +
+  daily resample + basis + percentile), `crypto_signals_backfill.py` (full-regen PIT backfill →
+  `comms/macro/crypto_snapshots.jsonl` + candles), `tests/test_m29_crypto.py` (12 tests incl. the
+  P4-machinery integration proof), `.github/workflows/crypto-signals-backfill.yml` (off-VM: backfill
+  → P4 (rebalance 3d / horizon 7d) → horizon-IC (1,3,7,14,30d) → land snapshots + both scorecards;
+  label `crypto-signals-backfill-now`). Completes the 3-signal queue (COT positioning + crypto
+  derivatives are the two NEW input families for the "signals too thin → richer inputs" thread; all
+  three sleeves — value, COT, crypto — now grade through one P4 + horizon-IC evaluation machinery).
 - **2026-07-23 (cont. 6)** — **CFTC-COT positioning sleeve built (signal #2 — a NEW input family).**
   Keyless weekly **Commitments-of-Traders** large-speculator positioning (crude/gas/gold/copper/
   ES/FX/rates) from the CFTC Legacy Futures-Only Socrata report → a **snapshot→percentile COT-index

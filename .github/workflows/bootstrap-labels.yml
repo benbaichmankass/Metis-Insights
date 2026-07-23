@@ -90,6 +90,11 @@ jobs:
                 description: 'Triggers cot-positioning-backfill — reconstruct historical CFTC-COT positioning snapshots + grade them with the M28 P4 + horizon-IC scans.',
               },
               {
+                name: 'crypto-signals-backfill-now',
+                color: '0e8a16',
+                description: 'Triggers crypto-signals-backfill — reconstruct historical BTC/ETH/SOL funding/OI/basis snapshots (Bybit) + grade them with the M28 P4 + horizon-IC scans.',
+              },
+              {
                 name: 'cancel-queued-runs',
                 color: 'cfd3d7',
                 description: 'Triggers cancel-queued-runs — bulk-cancel stale queued Actions runs.',
