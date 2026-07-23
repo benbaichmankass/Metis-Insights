@@ -2182,7 +2182,22 @@
           "note": "Re-validated 2026-07-22: mes-regime-15m-lgbm-v2 registry confirms stage=shadow (unchanged, not promoted), macro_f1=0.6988, trend=degraded this cycle. No new design decision made this session on the multi-timeframe-advisory-head resolution question. Kept open."
         }
       ]
+    },
+    {
+      "id": "BL-20260723-M28-P4-GATE-FOLLOWUP",
+      "opened_at": "2026-07-23T00:00:00+00:00",
+      "opened_by": "claude (M28 P4 runner session, wrap)",
+      "source": "M28 P4 value-thesis backtest runner shipped this session (scripts/macro/thesis_backtest_run.py, PR #7461) \u2014 the scoring+replay+CLI wiring is complete and self-tested (13 tests). But it is NOT yet decision-grade: it needs real point-in-time valuation-snapshot history in runtime_logs/valuation_snapshots.jsonl, produced by the FRED value soak (the P3 observe-only tick + the off-VM FRED fetch). Against empty data the runner honestly prints n=0/null (not a pass).",
+      "title": "[M28][P4] Run the value-thesis backtest gate once FRED valuation-snapshot history accrues \u2014 AND first verify the soak is actually producing data",
+      "description": "Two-step follow-up so the M28 P4 decisive gate doesn't stall silently:\n(1) VERIFY THE SOAK IS RUNNING: check (via diag relay) that runtime_logs/valuation_snapshots.jsonl on the live VM is accruing rows \u2014 the P3 tick (run_macro_thesis_tick) reads snapshots but the FRED fetch that WRITES them 'runs off-VM'; confirm that producer is actually scheduled/running and appending point-in-time rows (append-only, observed_at per revision). If it is NOT producing data, that is the real blocker to surface \u2014 wiring the FRED snapshot producer is the prerequisite, not the backtest.\n(2) RUN THE GATE once there is enough history (aim for >= a few months across the seed universe): python scripts/macro/thesis_backtest_run.py --candles-dir <per-symbol daily-close CSVs> --rebalance-every 30 --horizon-days 30 --fee-frac <real> --carry-frac-per-day <roll/carry> --json out. The P4 gate: does thesis_conviction predict realized hit-rate (calibration_rank > 0), is mean_net_return positive NET of cost, and does edge_vs_baseline beat the naive all-long arm \u2014 OUT OF SAMPLE. Nothing graduates to live (P5 options expression, P6 c_macro overlay \u2014 both Tier-3) until this passes. Honor low-n honesty (a handful of wins is not significance).",
+      "tier": 1,
+      "trigger_condition": "Periodic re-check: whenever a session touches M28, verify the FRED soak is producing snapshots; run the P4 gate once several months of point-in-time history exist across the seed universe.",
+      "resolution_criteria": "The FRED valuation-snapshot producer is confirmed running (or its absence is surfaced as the blocker), AND the P4 backtest has been run on real accrued history with the calibration + net-of-cost + beat-baseline verdict recorded in a findings doc. A PASS unblocks the Tier-3 P5/P6 proposals; a FAIL keeps M28 observe-only.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null
     }
   ],
-  "updated_at": "2026-07-22T18:50:00+00:00"
+  "updated_at": "2026-07-23T00:00:00+00:00"
 }
