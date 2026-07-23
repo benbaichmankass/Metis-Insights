@@ -209,6 +209,28 @@ lazily via the redirect.
 ---
 
 ## Change log
+- **2026-07-23 (cont. 5)** — **M29 P1c built — the fair test of the SD thesis (dual-target
+  gas calibration).** Extended the gas-seed calibration with the two real inputs P1b's null
+  result named as the lever: **observed EIA weekly working-gas-in-storage** (`NG.NW2_EPG0_SWO_R48_BCF.W`,
+  EIA v2 API, the now-set `EIA_API_KEY`) as the **anchor 2nd calibration target**
+  (`seed_gas.storage_series` predictor — pins the stock trajectory to reality:
+  `initial_storage`=first observed, `storage_normal`=mean observed), and **real weather HDD**
+  (keyless Open-Meteo daily-temp archive over a gas-heating city basket → national heating
+  degree days) as the `heating_demand` driver **replacing the calendar-seasonal proxy** — the
+  surprise-carrying input the B1 loop's edge lives in. `identify` gained a pure, backward-compatible
+  `steps` override so a stacked mean-normalised **joint** storage+price fit reuses the optimizer;
+  `src/sysdyn/*` stays import-linter-pure (6 contracts kept), all IO in `scripts/`. New dual
+  scorecard (`comms/macro/sysdyn_gas_dual_scorecard.json`) reports storage fit + **price-readout**
+  fit (the tradeable quantity) + identifiability + a **`go_no_go`** verdict. **The decisive
+  mechanistic-vs-static gate:** `invest_deeper` only if the storage-anchored + weather-driven
+  model's **price readout predicts OUT-OF-SAMPLE** (beats P1b's ~0) **AND** the structure is
+  identifiable; anything else parks deeper M29 investment. Files: `scripts/macro/sysdyn_gas_{data,calibrate}.py`,
+  `src/sysdyn/identify.py`, `.github/workflows/sysdyn-gas-calibrate.yml` (runs P1b+P1c, lands both
+  scorecards), `tests/test_m29_sysdyn_gas_p1c.py` (parsers + synthetic dual round-trip, 20 tests).
+  Writeup: [`docs/research/M29-P1c-gas-dual-calibration.md`](docs/research/M29-P1c-gas-dual-calibration.md).
+  The go/no-go call comes from the workflow run against live EIA+Open-Meteo+FRED data. **Next in
+  the queue: (2) CFTC-COT positioning sleeve, (3) crypto funding/OI/basis** — both emit the
+  valuation-snapshot schema so the P4 + horizon-IC scans grade them unchanged.
 - **2026-07-23 (cont. 4)** — **Horizon-IC eval upgrade + next-signals queue (session handoff).**
   Added `scripts/macro/horizon_ic_scan.py` — runs the P4 point-in-time replay across a
   RANGE of horizons and reports IC(H)=Spearman(conviction, forward net-return) + a t + edge

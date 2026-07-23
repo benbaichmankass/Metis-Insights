@@ -104,6 +104,7 @@ def identify(
     max_passes: int = 60,
     tol: float = 1e-9,
     score_slice: Optional[tuple[int, int]] = None,
+    steps: Optional[int] = None,
 ) -> FitResult:
     """Fit the free parameters in ``bounds`` to minimise SSE(predict(sim), observed).
 
@@ -114,13 +115,20 @@ def identify(
     step is halved; converged when the step underflows or the loss stops moving.
 
     ``score_slice`` (start, end) restricts the residuals that count to that index
-    window while STILL simulating the full ``len(observed)`` run from t=0 — so a
-    fold is scored on its window without changing the model's initial condition
-    (used by :func:`walk_forward_stability`). The reported ``rmse``/``r2`` are
-    computed over the same window.
+    window while STILL simulating the full run from t=0 — so a fold is scored on
+    its window without changing the model's initial condition (used by
+    :func:`walk_forward_stability`). The reported ``rmse``/``r2`` are computed over
+    the same window.
+
+    ``steps`` overrides how many integration steps the simulation runs (default
+    ``len(observed)``). Pass it when ``predict`` returns a series whose length is
+    NOT the simulated step count — e.g. a **stacked multi-target** predictor that
+    concatenates two per-step series into one ``2*steps`` residual vector against a
+    stacked ``observed`` (the M29 P1c dual-target storage+price fit). ``exog`` must
+    still supply at least ``steps`` rows.
     """
     fixed = dict(fixed or {})
-    steps = len(observed)
+    steps = len(observed) if steps is None else int(steps)
     params = {k: min(max(float(init[k]), lo), hi) for k, (lo, hi) in bounds.items()}
     # Per-axis step starts at a quarter of each parameter's range.
     step = {k: (hi - lo) / 4.0 for k, (lo, hi) in bounds.items()}
