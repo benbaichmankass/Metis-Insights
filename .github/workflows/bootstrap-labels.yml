@@ -85,6 +85,11 @@ jobs:
                 description: 'Triggers sysdyn-gas-calibrate — calibrate the M29 gas_storage_price_v1 seed on real weekly NG price (FRED) + emit its scorecard.',
               },
               {
+                name: 'cot-positioning-backfill-now',
+                color: '0e8a16',
+                description: 'Triggers cot-positioning-backfill — reconstruct historical CFTC-COT positioning snapshots + grade them with the M28 P4 + horizon-IC scans.',
+              },
+              {
                 name: 'cancel-queued-runs',
                 color: 'cfd3d7',
                 description: 'Triggers cancel-queued-runs — bulk-cancel stale queued Actions runs.',
