@@ -1,0 +1,57 @@
+# Architecture enforcement (M0a) — the dependency-direction guard that makes the
+# layer boundary real rather than aspirational. Run by CI (.github/workflows/
+# layer-guard.yml) via `lint-imports`. Contracts start with the invariants that
+# are TRUE today (so CI is green immediately) and broaden as legacy violations
+# are fixed (the incremental M0b drain). Design of record: ROADMAP_MACRO.md.
+#
+# Layer model (nothing imports "up"):
+#   Layer 1 Signals    — data/normalization/point-in-time stores/features/event calendars
+#   Layer 2 Strategy   — signals -> TradeThesis/intents (no order path)
+#   Layer 3 Execution  — order routing/brokers/fills/reconciliation/risk/kill-switches
+#   Layer 0 Platform   — cross-cutting: config/db/logging/paths/web (any layer may use)
+[importlinter]
+root_package = src
+
+[importlinter:contract:signals-strategy-no-execution]
+# The macro/value thesis engine (Layer 1 Signals + Layer 2 Strategy) is the
+# reference-clean island and the base the energy/carbon tenant reuses. Lock its
+# purity in permanently — it must never reach the Execution layer, a broker
+# adapter, or the order path — so it stays extractable/sellable on its own.
+name = macro_thesis must not import Execution, brokers, or the order path
+type = forbidden
+source_modules =
+    src.units.strategies.macro_thesis
+forbidden_modules =
+    src.units.accounts
+    src.exchange
+    src.core.order_contract
+    src.runtime.order_monitor
+    src.runtime.orders
+
+[importlinter:contract:news-signals-no-execution]
+# The M9 news layer is a Layer 1 Signals feed (external event/sentiment). It must
+# not reach the order path — same purity as macro_thesis, so it can extract with it.
+name = news (signals feed) must not import Execution, brokers, or the order path
+type = forbidden
+source_modules =
+    src.news
+forbidden_modules =
+    src.units.accounts
+    src.exchange
+    src.core.order_contract
+    src.runtime.order_monitor
+    src.runtime.orders
+
+[importlinter:contract:ict-detection-no-execution]
+# The ICT pattern library (Layer 1 Signals — FVG/liquidity/order-blocks/sweeps)
+# is pure feature detection. It must not reach strategy execution or the order path.
+name = ict_detection (signals) must not import Execution, brokers, or the order path
+type = forbidden
+source_modules =
+    src.ict_detection
+forbidden_modules =
+    src.units.accounts
+    src.exchange
+    src.core.order_contract
+    src.runtime.order_monitor
+    src.runtime.orders
