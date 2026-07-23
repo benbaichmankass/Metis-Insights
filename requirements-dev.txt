@@ -13,3 +13,9 @@
 # Lint + format gate (S-044 — .github/workflows/ruff-lint.yml).
 # Pin major/minor floor; CI installs latest patch within the floor.
 ruff>=0.15.0
+
+# Architecture dependency-direction gate (M0a — .github/workflows/layer-guard.yml).
+# Static import-graph analysis (grimp) enforcing the layer contracts in
+# `.importlinter`; never executes the modules, so it needs no runtime deps.
+import-linter>=2.0
+

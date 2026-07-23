@@ -1,5 +1,11 @@
 # ICT Trading Bot — Product Roadmap
 
+> **Companion roadmap:** [`ROADMAP_MACRO.md`](./ROADMAP_MACRO.md) — the
+> platform-layering effort (a machine-enforced Signals / Strategy / Execution
+> boundary via `import-linter`) + the **macro event-driven** (energy / carbon)
+> strategy family, built as a tenant of the M28 thesis engine. Operator-directed
+> 2026-07-23; layer-enforcement guard (M0a) is live.
+>
 > **Last Updated:** 2026-07-11 (**Roadmap review & forward-plan restructure (S-ROADMAP-REVIEW)**) — Reviewed the whole roadmap end-to-end, compressed this changelog banner (per-session detail lives in each linked `docs/sprint-logs/*.md` + the Historical Sprint Ledger below + git), rebuilt the forward planning section into **[Next — prioritized work plan](#next--prioritized-work-plan)**, added **M20 — Exit Refinement** as the #1 next-strategy priority (operator directive), and pruned the stale queue + Items-Under-Consideration lists.
 >
 > **Recent sessions (newest-first; full write-up in each sprint log):**

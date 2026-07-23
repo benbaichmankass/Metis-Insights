@@ -1,0 +1,80 @@
+name: layer-guard
+
+# Architecture dependency-direction guard (M0a). Runs `lint-imports` against the
+# contracts in `.importlinter` so the layer boundary (Signals / Strategy /
+# Execution / Platform) is machine-enforced, not honour-system. A PR that makes
+# a clean Signals-layer package reach into Execution / a broker / the order path
+# fails here. Contracts start on the invariants that hold today (macro_thesis,
+# news, ict_detection purity) and broaden as the legacy monoliths are drained
+# (the incremental M0b migration). Design of record: ROADMAP_MACRO.md.
+#
+# import-linter uses static AST analysis (grimp) — it never executes the
+# modules, so the job needs only import-linter installed, not the runtime deps.
+#
+# Like ruff-lint (a REQUIRED check), the trigger carries NO `paths:` filter (that
+# would leave the check permanently "pending" on a non-matching PR); the job
+# always runs (cheap checkout + diff) but skips the install + `lint-imports` when
+# no .py / config file changed — the import graph can only change with those.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  layer-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine relevant changed files
+        id: changed
+        run: |
+          set -e
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --quiet
+            RANGE="origin/${{ github.base_ref }}...HEAD"
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              echo "relevant=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::No prior commit to diff against — running the full check."
+              exit 0
+            fi
+            RANGE="$BEFORE...${{ github.sha }}"
+          fi
+          FILES=$(git diff --name-only $RANGE || true)
+          echo "Changed files ($RANGE):"
+          echo "$FILES"
+          if echo "$FILES" | grep -Eq '\.py$|\.importlinter$|requirements-dev\.txt$|\.github/workflows/layer-guard\.yml$'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No .py / .importlinter change — skipping layer-guard (short-circuit, MB-20260706-CI-MINUTES)."
+          fi
+
+      - name: Set up Python 3.11
+        if: steps.changed.outputs.relevant == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install import-linter
+        if: steps.changed.outputs.relevant == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run layer contracts
+        if: steps.changed.outputs.relevant == 'true'
+        run: lint-imports --config .importlinter
