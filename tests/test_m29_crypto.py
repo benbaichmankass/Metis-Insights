@@ -183,6 +183,19 @@ def test_fetch_kline_injectable():
     assert got == [(1700000000000, 1.5)]
 
 
+def test_fetch_kline_base_fallback():
+    # First base (bytick) returns empty; fetch must fall through to the second base.
+    body = '{"result":{"list":[["1700000000000","1","2","0.5","1.5","10","x"]]}}'
+
+    def urlopen(url, timeout=None):
+        return _Resp(body if cd.BYBIT_BASES[1] in url else '{"result":{"list":[]}}')
+
+    got = cd.fetch_kline_close("BTCUSDT", urlopen=urlopen)
+    assert got == [(1700000000000, 1.5)]     # resolved via the fallback base
+    assert cd._bases(None) == list(cd.BYBIT_BASES)
+    assert cd._bases("http://x") == ["http://x"]
+
+
 def test_fetch_offvm_guard(monkeypatch):
     monkeypatch.delenv("ICT_OFFVM_BUILD_HOST", raising=False)
     import pytest
