@@ -56,6 +56,23 @@ forbidden_modules =
     src.runtime.order_monitor
     src.runtime.orders
 
+[importlinter:contract:sysdyn-no-execution]
+# The M29 system-dynamics engine (Layer 1 Signals / Modelling) is pure by design —
+# a stock-flow simulator + identifier + seed models that feed the M28 macro sleeve
+# (the c_macro overlay is a later Tier-3 graduation). Lock its purity like
+# macro_thesis: it must never reach Execution, a broker, or the order path, so it
+# stays extractable and its observe-only guarantee is structural, not aspirational.
+name = sysdyn (signals/modelling) must not import Execution, brokers, or the order path
+type = forbidden
+source_modules =
+    src.sysdyn
+forbidden_modules =
+    src.units.accounts
+    src.exchange
+    src.core.order_contract
+    src.runtime.order_monitor
+    src.runtime.orders
+
 [importlinter:contract:pairs-engine-no-execution]
 # The M22 pairs sleeve splits cleanly: pairs_engine (the spread/z DECISION — pure
 # Strategy) vs pairs_executor (the order router — Execution). pairs_executor

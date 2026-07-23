@@ -111,14 +111,22 @@ backtest passes and the operator approves.
   AI-role lead = system identification · distinct milestone; see §6). **Gate met.**
   **Stop (carried into P1):** if SD adds nothing over M28's direct value/event reads on
   this seed case, do not build the engine — fold the idea back into M28.
-- **P1 — The stock-flow engine + a hand-specified seed model (Tier-1, offline).** Build
-  the pure simulation engine + encode ONE small hand-authored causal model for the seed
-  system (storage/injection/withdrawal/weather-demand → price), calibrated on point-in-time
-  history via the existing feeds. **Gate:** the engine reproduces known historical
-  dynamics within a pre-registered error band on a holdout; the spec is committed +
-  point-in-time versioned. **Stop:** the system is not identifiable from available
-  point-in-time data (revised-only inputs, no consensus) → re-scope the data source (same
-  stop as ROADMAP_MACRO M1).
+- **P1 — The stock-flow engine + a hand-specified seed model (Tier-1, offline).**
+  **P1a ✅ DONE 2026-07-23** — the pure engine + seed model + identifier shipped in
+  `src/sysdyn/` (Layer-1, import-linter-locked, pure stdlib, 19 tests green):
+  `engine.py` (stocks/flows/observations/delays, deterministic Euler `simulate`);
+  `structure.py` (the committed, versioned `CausalStructure` — the legibility artifact);
+  `identify.py` (bounded coordinate-descent system identification + `walk_forward_stability`
+  for the identifiability/equifinality check); `seed_gas.py` (the EIA-weekly-NG-storage →
+  MNG-price seed model `gas_storage_price_v1` with its one balancing loop B1, validated to
+  recover its own params on a synthetic round-trip). **P1b (remaining)** — calibrate on
+  **real point-in-time history**: wire an injected EIA-storage + weather + NG/MNG-price
+  reader (reuse the M28 point-in-time discipline; this is the same data-availability
+  question as `MB-20260723-M28-VALUATION-PRODUCER-UNWIRED`), then run the holdout gate.
+  **Gate (P1b):** the engine reproduces known historical dynamics within a pre-registered
+  error band on a holdout; the spec stays committed + point-in-time versioned. **Stop:**
+  the system is not identifiable from available point-in-time data (revised-only inputs,
+  no consensus) → re-scope the data source (same stop as ROADMAP_MACRO M1).
 - **P2 — AI system identification (Tier-1, trainer-side).** Replace hand-tuned constants
   with ML-fit parameters/lags under walk-forward; add the LLM structure-elicitation loop
   (propose links from text → data falsifies). **Gate:** the AI-fit model calibrates
