@@ -1,11 +1,11 @@
 {
   "scorecard": {
-    "n": 0,
-    "win_rate": null,
-    "mean_net_return": null,
-    "avg_win": null,
-    "avg_loss": null,
-    "expectancy": null,
+    "n": 811,
+    "win_rate": 0.46732429099876693,
+    "mean_net_return": -0.0013217127219129444,
+    "avg_win": 0.03978862628255753,
+    "avg_loss": -0.037388422172594186,
+    "expectancy": -0.0013217127219129444,
     "calibration_bins": [
       {
         "lo": 0.0,
@@ -17,28 +17,28 @@
       {
         "lo": 0.25,
         "hi": 0.5,
-        "n": 0,
-        "hit_rate": null,
-        "mean_net_return": null
+        "n": 90,
+        "hit_rate": 0.5444444444444444,
+        "mean_net_return": 0.006128020933159196
       },
       {
         "lo": 0.5,
         "hi": 0.75,
-        "n": 0,
-        "hit_rate": null,
-        "mean_net_return": null
+        "n": 310,
+        "hit_rate": 0.45806451612903226,
+        "mean_net_return": -0.005058053041347766
       },
       {
         "lo": 0.75,
         "hi": 1.0,
-        "n": 0,
-        "hit_rate": null,
-        "mean_net_return": null
+        "n": 411,
+        "hit_rate": 0.45742092457420924,
+        "mean_net_return": -0.0001348770283161023
       }
     ],
-    "calibration_rank": null,
-    "baseline_mean_net_return": null,
-    "edge_vs_baseline": null
+    "calibration_rank": -0.03842230198662191,
+    "baseline_mean_net_return": 0.005223318346291902,
+    "edge_vs_baseline": -0.006545031068204846
   },
   "meta": {
     "rebalances": 263,
@@ -46,8 +46,14 @@
     "fee_frac": 0.0,
     "carry_frac_per_day": 0.0,
     "snapshot_records": 10125,
-    "symbols_with_candles": [],
-    "entries_scored": 0
+    "symbols_with_candles": [
+      "GLD",
+      "IEF",
+      "SLV",
+      "SPY",
+      "TLT"
+    ],
+    "entries_scored": 811
   },
   "rebalance_dates": [
     "2005-01-01",
