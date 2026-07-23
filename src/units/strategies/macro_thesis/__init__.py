@@ -61,6 +61,18 @@ from .event_calendar import (  # noqa: F401
     required_series as event_required_series,
     resolve_scheduled_event,
 )
+from .thesis import (  # noqa: F401
+    CLOSE_REASONS,
+    DIRECTIONS,
+    EXPRESS_AS,
+    FREE_SOURCES,
+    STATUSES,
+    TradeThesis,
+    can_transition,
+    new_thesis_id,
+    transition,
+    would_transition,
+)
 
 __all__ = [
     "ValueRead",
@@ -99,4 +111,14 @@ __all__ = [
     "build_scheduled_events",
     "event_required_series",
     "resolve_scheduled_event",
+    "TradeThesis",
+    "STATUSES",
+    "DIRECTIONS",
+    "EXPRESS_AS",
+    "CLOSE_REASONS",
+    "FREE_SOURCES",
+    "new_thesis_id",
+    "can_transition",
+    "transition",
+    "would_transition",
 ]
