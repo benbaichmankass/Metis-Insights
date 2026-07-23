@@ -88,7 +88,11 @@ three first-pass sleeves used (ledger #1–3). The unshaded cells are the search
 - A1 · Construction toolkit — `scripts/macro/signal_constructions.py` (D1–D4 pure
   transforms). **DONE** (10 tests, ruff-clean).
 - A2 · **PnL harness (S3)** — the conviction-weighted, net-of-cost, walk-forward
-  portfolio backtest (§4). *This is the missing instrument; build it next.*
+  portfolio backtest (§4). **DONE** (`scripts/macro/pnl_harness.py`, 12 tests): three
+  books per run (conviction-weighted / long-short-neutral / all-long baseline), each
+  with total return · Sharpe · max-drawdown · hit-rate · turnover + an out-of-sample
+  split; the S3 gate `pays_oos` = the conviction book beats all-long AND the neutral
+  book is positive on the OOS half. Reuses the P4 `net_return`.
 - A3 · Feasibility-screen harness (S0) — a thin "PIT-availability + crude
   univariate IC on a sample" checker so a new input family is screened before any
   feed is built.
