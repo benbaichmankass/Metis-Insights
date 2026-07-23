@@ -5535,6 +5535,21 @@
         }
       ],
       "resolved_at": null
+    },
+    {
+      "id": "BL-20260723-RUFF-016-DEFAULT-RULESET-EXPANSION",
+      "opened_at": "2026-07-23",
+      "opened_by": "claude (M28/M29 macro-research session, branch claude/valuation-snapshot-producer-sfrg3v)",
+      "source": "ruff 0.16.0 was released 2026-07-23 and the REQUIRED ruff-lint check installs ruff from the unpinned floor `ruff>=0.15.0` in requirements-dev.txt, so CI pulled 0.16.0. Its expanded DEFAULT rule set now flags C4 (flake8-comprehensions, e.g. C408 'unnecessary dict()') + I001 (import-order) among others, surfacing 8228 pre-existing hits across the repo (visualize_all.py, visualize_swings.py, and many more) and turning ruff-lint red on every .py-touching PR (first observed on PR #7500, run 30039827262). Earlier same-day green runs (#7488-#7490 at ~17:45-18:08) used ruff 0.15.x; the repo's ruff.toml sets NO `select` (intended: ruff's default rule set as-of-S-045) so the 0.16 default expansion silently changed the gate. Reproduced locally: `ruff check .` passes on 0.15.22, `Found 8228 errors` on 0.16.0.",
+      "title": "ruff 0.16.0 default-ruleset expansion turned the required ruff-lint check red repo-wide (8228 pre-existing hits); pinned <0.16 as the interim hold",
+      "description": "INTERIM FIX SHIPPED (PR #7500, this session): requirements-dev.txt pinned `ruff>=0.15.0,<0.16` so CI reproduces the S-045-intended 0.15.x default-ruleset behaviour and ruff-lint goes green again on every PR (self-healing: the pin lands in the same tree the workflow installs from). This holds the line but does NOT adopt the newer, stricter rules. DURABLE FOLLOW-UP (deliberate, separate PR): decide whether to adopt ruff 0.16's expanded default set. If yes: bump the pin, then clear the 8228 residuals by fix-or-suppress. Most are mechanical autofixes (`ruff check --fix` handles 6558) but they span operator-hold paths (src/runtime/*, src/units/accounts/*, src/main.py, config/*, deploy/*) which S-045/ruff.toml deliberately keep out of scope for mechanical lint edits without an operator ping-PR - so a blanket --fix is NOT safe; the operator-hold residuals need routing through a ping-PR or a ruff.toml per-file-ignores entry with the tracking comment block. If no: keep the <0.16 pin and periodically re-evaluate as ruff moves. Either way, when ruff eventually drops 0.15.x support the decision is forced.",
+      "tier": "Tier 1 (CI/tooling: a dev-dependency pin already shipped; the adopt-or-hold follow-up is docs/tooling + possibly operator-ping-PRs for operator-hold-path lint fixes).",
+      "trigger_condition": "Next CI/infra-touching session or the next /health-review; also whenever a session wants to adopt newer ruff rules or ruff drops 0.15.x.",
+      "resolution_criteria": "Either (a) the operator/team explicitly accepts staying on the <0.16 pin as the standing policy, OR (b) ruff 0.16+ is adopted with all 8228 residuals fixed-or-suppressed (operator-hold paths routed correctly) and the pin bumped, with ruff-lint green on both paths.",
+      "status": "partially-resolved",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null
     }
   ],
   "updated_at": "2026-07-23"

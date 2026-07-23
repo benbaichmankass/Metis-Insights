@@ -36,45 +36,65 @@ def test_ic_t_stat_edge_cases():
 
 # ---- summarize -----------------------------------------------------------
 
-def _row(h, n, ic, edge):
+def _row(h, n, ic, edge, spread=None, overlapping=False):
     return {
-        "horizon_days": h, "n": n, "ic": ic,
+        "horizon_days": h, "n": n, "n_windows": n, "overlapping": overlapping, "ic": ic,
         "ic_t": scan.ic_t_stat(ic, n), "win_rate": 0.5,
-        "mean_net_return": 0.0, "edge_vs_baseline": edge,
+        "mean_net_return": 0.0, "edge_vs_baseline": edge, "conv_spread": spread,
     }
 
 
-def test_summarize_flags_predictive_horizon():
+# ---- conviction_spread ---------------------------------------------------
+
+def test_conviction_spread_high_minus_low():
+    card = {"calibration_bins": [
+        {"lo": 0.0, "hi": 0.25, "n": 0, "mean_net_return": None},   # empty → skipped
+        {"lo": 0.25, "hi": 0.5, "n": 40, "mean_net_return": -0.002},  # lowest populated
+        {"lo": 0.5, "hi": 0.75, "n": 60, "mean_net_return": 0.001},
+        {"lo": 0.75, "hi": 1.0, "n": 90, "mean_net_return": 0.004},   # highest populated
+    ]}
+    assert abs(scan.conviction_spread(card) - (0.004 - (-0.002))) < 1e-12
+    assert scan.conviction_spread({"calibration_bins": [{"n": 5, "mean_net_return": 0.01}]}) is None
+
+
+def test_summarize_flags_honest_monetizable_horizon():
     rows = [
-        _row(7, 400, 0.01, -0.001),    # tiny IC, no edge
-        _row(30, 400, 0.15, 0.004),    # strong IC (|t|~3), positive edge → predictive
-        _row(90, 200, 0.02, 0.0005),   # weak
+        _row(7, 400, 0.01, -0.001, spread=-0.001),          # no positive IC/spread
+        _row(30, 400, 0.15, 0.004, spread=0.003),           # +IC (|t|~3), +spread, non-overlapping → honest
+        _row(90, 200, 0.02, 0.0005, spread=0.0001),         # weak
     ]
     s = scan.summarize(rows, t_flag=2.0)
-    assert s["any_predictive_horizon"] is True
-    assert s["best_horizon_days"] == 30
-    assert s["verdict"] == "predictive_horizon_found"
-    # strongest |IC| surfaced regardless of edge
+    assert s["any_monetizable_horizon"] is True
+    assert s["any_honest_monetizable_horizon"] is True
+    assert s["best_horizon_days"] == 30 and s["best_conv_spread"] == 0.003
+    assert s["verdict"] == "monetizable_horizon_found"
+
+
+def test_summarize_overlap_only_is_a_lead_not_confirmed():
+    # +IC + +spread but the window OVERLAPS → the t is optimistic; a lead to re-test, not confirmed.
+    rows = [_row(90, 2000, 0.05, -0.004, spread=0.003, overlapping=True)]
+    s = scan.summarize(rows, t_flag=2.0)
+    assert s["any_monetizable_horizon"] is True
+    assert s["any_honest_monetizable_horizon"] is False
+    assert s["verdict"] == "monetizable_horizon_overlap_only"
+
+
+def test_summarize_no_monetizable_horizon():
+    rows = [
+        _row(7, 400, 0.01, 0.002, spread=0.001),   # +spread but |t|<2
+        _row(30, 400, 0.15, 0.004, spread=-0.002),  # flagged +IC but spread<0 (not monetizable)
+    ]
+    s = scan.summarize(rows, t_flag=2.0)
+    assert s["any_monetizable_horizon"] is False
+    assert s["verdict"] == "no_monetizable_horizon"
     assert s["strongest_ic_horizon_days"] == 30 and s["strongest_ic"] == 0.15
 
 
-def test_summarize_no_predictive_horizon():
-    rows = [
-        _row(7, 400, 0.01, 0.002),     # edge>0 but |t|<2
-        _row(30, 400, -0.02, -0.001),  # |t|<2
-    ]
-    s = scan.summarize(rows, t_flag=2.0)
-    assert s["any_predictive_horizon"] is False
-    assert s["best_horizon_days"] is None
-    assert s["verdict"] == "no_predictive_horizon"
-    # still points at where |IC| is largest to guide the next dig
-    assert s["strongest_ic_horizon_days"] == 30 and s["strongest_ic"] == -0.02
-
-
 def test_summarize_no_data():
-    s = scan.summarize([{"horizon_days": 30, "n": 0, "ic": None, "ic_t": None, "edge_vs_baseline": None}])
+    s = scan.summarize([{"horizon_days": 30, "n": 0, "ic": None, "ic_t": None,
+                         "edge_vs_baseline": None, "conv_spread": None}])
     assert s["verdict"] == "no_data"
-    assert s["any_predictive_horizon"] is False
+    assert s["any_monetizable_horizon"] is False
 
 
 # ---- end-to-end wiring: fixture snapshots → per-horizon IC rows -----------
@@ -108,11 +128,36 @@ def test_scan_horizons_wires_per_horizon_rows():
     )
     # one well-formed row per horizon, correct schema, no crash
     assert [r["horizon_days"] for r in rows] == horizons
-    keys = {"horizon_days", "n", "ic", "ic_t", "win_rate", "mean_net_return", "edge_vs_baseline"}
+    keys = {"horizon_days", "n", "n_windows", "overlapping", "ic", "ic_t",
+            "win_rate", "mean_net_return", "edge_vs_baseline", "conv_spread"}
     for r in rows:
         assert keys <= set(r)
         assert isinstance(r["n"], int) and r["n"] >= 1
+        assert r["overlapping"] is True     # shared rebalance dates (legacy mode)
     # summarize consumes the rows and yields a valid verdict
     assert scan.summarize(rows)["verdict"] in {
-        "predictive_horizon_found", "no_predictive_horizon", "no_data",
+        "monetizable_horizon_found", "monetizable_horizon_overlap_only",
+        "no_monetizable_horizon", "no_data",
     }
+
+
+def test_scan_horizons_non_overlapping_uses_per_horizon_dates():
+    # A per-horizon rebalance-date callable marks rows non-overlapping and can hand
+    # each horizon its own (differently-spaced) dates.
+    records = [_snap("SPY", 0.9, d) for d in ("2026-01-05", "2026-02-02", "2026-03-02")]
+    panels = {"SPY": [("2026-01-05", 100.0), ("2026-02-02", 104.0), ("2026-03-02", 106.0),
+                      ("2026-06-01", 120.0), ("2026-09-01", 130.0)]}
+    price_at = scan.make_price_at(panels)
+    cfg = {"min_conviction": 0.4, "universe": ["SPY"],
+           "express_as": "debit_vertical", "account": "alpaca_options_paper"}
+    seen = {}
+
+    def dates_for(h):
+        seen[h] = ["2026-01-05"] if h >= 90 else ["2026-01-05", "2026-02-02"]
+        return seen[h]
+
+    rows = scan.scan_horizons(records, price_at, cfg=cfg, rebalance_dates=["x"],
+                              horizons=[30, 90], rebalance_dates_for=dates_for)
+    assert set(seen) == {30, 90}                    # the callable drove each horizon
+    assert all(r["overlapping"] is False for r in rows)
+    assert dict((r["horizon_days"], r["n_windows"]) for r in rows)[90] == 1
