@@ -73,6 +73,13 @@ from .thesis import (  # noqa: F401
     transition,
     would_transition,
 )
+from .thesis_store import (  # noqa: F401
+    read_latest_theses,
+    read_open_theses,
+    read_theses_by_status,
+    read_thesis_records,
+    write_theses,
+)
 
 __all__ = [
     "ValueRead",
@@ -121,4 +128,9 @@ __all__ = [
     "can_transition",
     "transition",
     "would_transition",
+    "write_theses",
+    "read_thesis_records",
+    "read_latest_theses",
+    "read_theses_by_status",
+    "read_open_theses",
 ]
