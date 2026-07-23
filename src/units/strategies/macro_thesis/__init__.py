@@ -25,6 +25,8 @@ from .valuation_feed import (  # noqa: F401
     build_valuation_reads,
     compute_metric,
     load_valuation_config,
+    required_series,
+    run_valuation_feed,
 )
 
 __all__ = [
@@ -39,4 +41,6 @@ __all__ = [
     "load_valuation_config",
     "compute_metric",
     "build_valuation_reads",
+    "required_series",
+    "run_valuation_feed",
 ]

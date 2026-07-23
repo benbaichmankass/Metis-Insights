@@ -169,3 +169,95 @@ def build_valuation_reads(
     _emit(config.get("instruments", {}))
     _emit(config.get("context", {}))
     return rows
+
+
+# ---------------------------------------------------------------------------
+# Feed runner — resolves what to fetch and orchestrates fetch → compute → rows.
+# The fetch + history callables are INJECTED so this stays pure/offline-testable;
+# the live implementations are thin trainer-side adapters over the existing
+# free FRED fetchers (ml/datasets/adapters/fred_corpus.py) + the corpus panel.
+# ---------------------------------------------------------------------------
+
+
+def _input_keys(inputs: Mapping[str, Any]):
+    """Yield ``("series"|"source", key)`` for every input leaf of a metric.
+
+    A leaf is a bare series-id string (``"DGS10"``), or a dict declaring
+    ``series`` (a free FRED id) or ``source`` (a non-FRED input to be wired
+    later — earnings yield, metal price)."""
+    for leaf in (inputs or {}).values():
+        if isinstance(leaf, Mapping):
+            if leaf.get("series"):
+                yield ("series", str(leaf["series"]))
+            elif leaf.get("source"):
+                yield ("source", str(leaf["source"]))
+        elif isinstance(leaf, str) and leaf:
+            yield ("series", leaf)
+
+
+def _iter_metrics(config: Mapping[str, Any]):
+    """Yield every metric spec across instruments + context."""
+    for group in ("instruments", "context"):
+        for spec in (config.get(group, {}) or {}).values():
+            if not isinstance(spec, Mapping):
+                continue
+            for m in spec.get("metrics", []) or []:
+                if isinstance(m, Mapping) and m.get("metric"):
+                    yield m
+
+
+def required_series(config: Mapping[str, Any]) -> dict:
+    """Resolve what the feed must fetch: the free FRED series ids + the not-yet-
+    wired ``source`` names (equity earnings yield, metal prices). Deterministic,
+    sorted; the fetch adapter pulls ``series`` and the ``sources`` are the P1
+    follow-on inputs that currently honest-null."""
+    series_ids: set[str] = set()
+    sources: set[str] = set()
+    for m in _iter_metrics(config):
+        for kind, key in _input_keys(m.get("inputs", {})):
+            (series_ids if kind == "series" else sources).add(key)
+    return {"series": sorted(series_ids), "sources": sorted(sources)}
+
+
+def run_valuation_feed(
+    config: Mapping[str, Any],
+    fetch_fn,
+    *,
+    observed_at: str,
+    as_of: str,
+    history_fn=None,
+    source: str = "fred",
+) -> list[dict]:
+    """Run the feed: fetch the required series, gather per-metric history, and
+    build the ``valuation_snapshots`` rows.
+
+    - ``fetch_fn(series_ids: list[str]) -> Mapping[str, float]`` — the injected
+      (trainer-side) free-FRED fetcher; returns latest value per series/source id.
+    - ``history_fn(metric_name: str) -> Sequence[float] | None`` — optional;
+      returns the metric's own history for the cheap/rich read (the adapter
+      computes it from series history). Absent ⇒ no history ⇒ ``unknown`` labels
+      (honest-null; the point-in-time value is still recorded).
+
+    Never raises: a fetch/history exception degrades that input to missing.
+    """
+    req = required_series(config)
+    try:
+        series_values = dict(fetch_fn(req["series"]) or {})
+    except Exception:  # noqa: BLE001
+        series_values = {}
+
+    series_history: dict[str, Any] = {}
+    if history_fn is not None:
+        for m in _iter_metrics(config):
+            name = str(m["metric"])
+            if name in series_history:
+                continue
+            try:
+                series_history[name] = history_fn(name) or []
+            except Exception:  # noqa: BLE001
+                series_history[name] = []
+
+    return build_valuation_reads(
+        config, series_values, series_history,
+        observed_at=observed_at, as_of=as_of, source=source,
+    )
