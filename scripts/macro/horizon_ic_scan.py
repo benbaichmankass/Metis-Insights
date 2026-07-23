@@ -64,17 +64,39 @@ def ic_t_stat(ic: Optional[float], n: int) -> Optional[float]:
     return ic * math.sqrt(n - 2) / math.sqrt(denom)
 
 
+def conviction_spread(card: dict) -> Optional[float]:
+    """The monetizable long-short measure of a positive IC: the mean net return of
+    the **highest**-conviction populated bin minus the **lowest**-conviction populated
+    bin (go long the high-conviction theses, short the low-conviction ones — a
+    conviction-sorted, market-neutral spread that cancels the all-long bull-market
+    drift the raw ``edge_vs_baseline`` unfairly penalises). ``None`` when fewer than
+    two bins are populated."""
+    bins = [b for b in (card.get("calibration_bins") or []) if b.get("n") and b.get("mean_net_return") is not None]
+    if len(bins) < 2:
+        return None
+    return float(bins[-1]["mean_net_return"]) - float(bins[0]["mean_net_return"])
+
+
 def scan_horizons(
     records, price_at, *, cfg, rebalance_dates, horizons,
     fee_frac: float = 0.0, carry_frac_per_day: float = 0.0, n_bins: int = 4,
+    rebalance_dates_for=None,
 ) -> list:
     """Run the P4 replay at each horizon; return one row per horizon with the IC
-    (conviction→net-return Spearman), its rule-of-thumb t, n, mean net return, and
-    edge vs the naive all-long baseline."""
+    (conviction→net-return Spearman), its rule-of-thumb t, n, mean net return, edge
+    vs the naive all-long baseline, and the conviction-sorted long-short spread.
+
+    ``rebalance_dates_for`` (optional) is a callable ``horizon_days → [dates]`` — when
+    given, each horizon uses its OWN rebalance dates (the non-overlapping mode: spacing
+    ≈ the horizon, so forward windows don't overlap and the IC t-stat is honest rather
+    than optimistically overlap-inflated). Absent, every horizon reuses the shared
+    ``rebalance_dates`` (the legacy, overlap-prone behaviour). Each row records
+    ``overlapping`` (whether windows could overlap) + ``n_windows`` for legibility."""
     rows = []
     for h in horizons:
+        rb = rebalance_dates_for(h) if rebalance_dates_for is not None else rebalance_dates
         entries = build_replay_entries(
-            records, price_at, rebalance_dates=rebalance_dates, cfg=cfg, horizon_days=float(h),
+            records, price_at, rebalance_dates=rb, cfg=cfg, horizon_days=float(h),
         )
         card = run_thesis_backtest(
             entries, fee_frac=fee_frac, carry_frac_per_day=carry_frac_per_day, n_bins=n_bins,
@@ -84,11 +106,14 @@ def scan_horizons(
         rows.append({
             "horizon_days": h,
             "n": n,
+            "n_windows": len(rb or []),
+            "overlapping": rebalance_dates_for is None,  # honest only when per-horizon (non-overlapping)
             "ic": None if ic is None else round(float(ic), 6),
             "ic_t": (lambda t: None if t is None else round(t, 3))(ic_t_stat(ic, n)),
             "win_rate": _r(card.get("win_rate")),
             "mean_net_return": _r(card.get("mean_net_return")),
             "edge_vs_baseline": _r(card.get("edge_vs_baseline")),
+            "conv_spread": _r(conviction_spread(card)),
         })
     return rows
 
@@ -98,25 +123,40 @@ def _r(v):
 
 
 def summarize(rows: list, *, t_flag: float = 2.0) -> dict:
-    """Pick the best horizon (largest positive edge with a flagged |t|) + verdict."""
+    """Pick the best horizon + verdict.
+
+    The **monetizable** test (upgraded 2026-07-23): a horizon is predictive when the
+    conviction→return IC is positive with a flagged |t|, AND the conviction-sorted
+    long-short spread (``conv_spread``) is positive — i.e. high-conviction theses beat
+    low-conviction ones, market-neutral, so the all-long bull-market drift that unfairly
+    sinks the raw ``edge_vs_baseline`` cancels. When the rows are **non-overlapping**
+    (``overlapping=False``) the flagged t is honest; an overlapping row's t is only a
+    lead to re-test at matched spacing."""
     scored = [r for r in rows if r["n"] and r["ic"] is not None]
-    predictive = [
+    monetizable = [
         r for r in scored
-        if r["ic_t"] is not None and abs(r["ic_t"]) >= t_flag
-        and r["edge_vs_baseline"] is not None and r["edge_vs_baseline"] > 0
+        if r["ic_t"] is not None and r["ic_t"] >= t_flag       # positive IC, flagged (current orientation is right)
+        and r.get("conv_spread") is not None and r["conv_spread"] > 0
     ]
-    best = max(predictive, key=lambda r: r["edge_vs_baseline"], default=None)
-    # Even absent an edge, surface where |IC| is largest (the direction to dig).
+    honest = [r for r in monetizable if not r.get("overlapping", True)]
+    best = max(monetizable, key=lambda r: r["conv_spread"], default=None)
     strongest_ic = max(scored, key=lambda r: abs(r["ic"]), default=None)
+    strongest_spread = max((r for r in scored if r.get("conv_spread") is not None),
+                           key=lambda r: r["conv_spread"], default=None)
     return {
-        "any_predictive_horizon": bool(predictive),
+        "any_monetizable_horizon": bool(monetizable),
+        "any_honest_monetizable_horizon": bool(honest),   # non-overlapping windows → real
         "best_horizon_days": best["horizon_days"] if best else None,
+        "best_conv_spread": best["conv_spread"] if best else None,
         "strongest_ic_horizon_days": strongest_ic["horizon_days"] if strongest_ic else None,
         "strongest_ic": strongest_ic["ic"] if strongest_ic else None,
+        "strongest_spread_horizon_days": strongest_spread["horizon_days"] if strongest_spread else None,
+        "strongest_spread": strongest_spread["conv_spread"] if strongest_spread else None,
         "t_flag": t_flag,
         "verdict": (
-            "predictive_horizon_found" if predictive
-            else "no_predictive_horizon" if scored
+            "monetizable_horizon_found" if honest
+            else "monetizable_horizon_overlap_only" if monetizable
+            else "no_monetizable_horizon" if scored
             else "no_data"
         ),
     }
@@ -129,20 +169,24 @@ def render(rows: list, summary: dict, *, meta: dict) -> str:
         f"snapshots={meta['snapshot_records']}  rebalances={meta['rebalances']}  "
         f"fee={meta['fee_frac']}  carry/day={meta['carry_frac_per_day']}",
         "",
-        f"{'H(days)':>8} {'n':>6} {'IC':>9} {'IC_t':>8} {'win':>7} {'mean_net':>10} {'edge_vs_base':>13}",
+        f"non_overlapping={not (rows[0]['overlapping'] if rows else True)}",
+        "",
+        f"{'H(days)':>8} {'n':>6} {'nwin':>6} {'IC':>9} {'IC_t':>8} {'win':>7} "
+        f"{'mean_net':>10} {'edge_base':>10} {'conv_spread':>12}",
     ]
     for r in rows:
         lines.append(
-            f"{r['horizon_days']:>8} {r['n']:>6} "
+            f"{r['horizon_days']:>8} {r['n']:>6} {r.get('n_windows', 0):>6} "
             f"{_f(r['ic']):>9} {_f(r['ic_t']):>8} {_f(r['win_rate']):>7} "
-            f"{_f(r['mean_net_return']):>10} {_f(r['edge_vs_baseline']):>13}"
+            f"{_f(r['mean_net_return']):>10} {_f(r['edge_vs_baseline']):>10} {_f(r.get('conv_spread')):>12}"
         )
     lines += [
         "",
         f"verdict: {summary['verdict']}  "
-        f"(best_horizon={summary['best_horizon_days']}  "
+        f"(best_horizon={summary['best_horizon_days']}  best_conv_spread={_f(summary.get('best_conv_spread'))}  "
         f"strongest_IC={_f(summary['strongest_ic'])} @ {summary['strongest_ic_horizon_days']}d)",
-        "note: IC_t is OPTIMISTIC at horizons > rebalance spacing (overlapping windows).",
+        "note: conv_spread = high-conviction bin net-return − low-conviction bin (market-neutral, the "
+        "monetizable form of a +IC). IC_t is honest only for non-overlapping rows (horizon ≤ rebalance spacing).",
     ]
     return "\n".join(lines)
 
@@ -162,6 +206,9 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--config", default=None, help="config/macro_theses.yaml override")
     ap.add_argument("--horizons", default=None, help="CSV of horizon days (default 7,14,30,60,90,180)")
     ap.add_argument("--rebalance-every", type=int, default=30, help="rebalance cadence in days (default 30)")
+    ap.add_argument("--non-overlapping", action="store_true",
+                    help="per-horizon rebalance spacing = max(rebalance-every, horizon) so forward windows "
+                         "don't overlap → the IC t-stat is honest (not overlap-inflated)")
     ap.add_argument("--fee-frac", type=float, default=0.0)
     ap.add_argument("--carry-frac-per-day", type=float, default=0.0)
     ap.add_argument("--n-bins", type=int, default=4)
@@ -181,14 +228,29 @@ def main(argv: Optional[list] = None) -> int:
     price_at = make_price_at(panels)
     rebalance_dates = derive_rebalance_dates(records, args.rebalance_every)
 
+    # Non-overlapping mode: each horizon gets its own rebalance dates spaced ≥ the
+    # horizon, so the forward windows don't overlap and the IC t-stat is honest.
+    rebalance_dates_for = None
+    if args.non_overlapping:
+        _cache: dict = {}
+
+        def rebalance_dates_for(h):  # noqa: F811
+            spacing = max(int(args.rebalance_every), int(h))
+            if spacing not in _cache:
+                _cache[spacing] = derive_rebalance_dates(records, spacing)
+            return _cache[spacing]
+
     rows = scan_horizons(
         records, price_at, cfg=cfg, rebalance_dates=rebalance_dates, horizons=horizons,
         fee_frac=args.fee_frac, carry_frac_per_day=args.carry_frac_per_day, n_bins=args.n_bins,
+        rebalance_dates_for=rebalance_dates_for,
     )
     summary = summarize(rows, t_flag=args.t_flag)
     meta = {
         "snapshot_records": len(records),
         "rebalances": len(rebalance_dates),
+        "non_overlapping": bool(args.non_overlapping),
+        "rebalance_every": args.rebalance_every,
         "fee_frac": args.fee_frac,
         "carry_frac_per_day": args.carry_frac_per_day,
         "horizons": horizons,
