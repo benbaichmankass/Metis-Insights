@@ -1,0 +1,71 @@
+# M28 P2 — watched macro-event calendar config (free government release feeds).
+#
+# Declares the recurring macro events the sleeve WATCHES and makes decisions on
+# the RESULTS of (M28-P0 schema §2 `macro_events`). Each entry is the static
+# definition of an event KIND — its affected entity, the metric + free FRED
+# series that carries the realized actual, the release source, and the
+# direction orientation used to label the outcome.
+#
+# The event feed (src/units/strategies/macro_thesis/event_calendar.py) reads
+# this and, given a release-date list (supplied by the off-VM free-calendar
+# feed — BLS/BEA/Treasury/Fed publish their schedules; NEVER a hardcoded list
+# baked here, which would go stale), emits point-in-time `scheduled` event rows.
+# On resolution it pulls the declared free FRED series for the actual and shapes
+# a `realized_outcome`. Everything here is FREE data (decision (e)).
+#
+# `direction_up` / `direction_down` label the outcome by the sign of the change
+# (actual vs prior, or actual vs consensus when a free consensus is available):
+# e.g. a HIGHER CPI print is "hot" (hawkish for rates). `surprise` stays
+# honest-null until a free consensus source is wired — direction then falls back
+# to the change-vs-prior sign rather than fabricating a consensus.
+
+events:
+  cpi:
+    kind: cpi
+    entity: macro
+    metric: cpi_index
+    series: CPIAUCSL            # FRED headline CPI index (the released actual)
+    source: BLS
+    source_url: https://www.bls.gov/schedule/news_release/cpi.htm
+    direction_up: hot           # higher print ⇒ hotter inflation (hawkish)
+    direction_down: cool
+
+  nfp:
+    kind: nfp
+    entity: macro
+    metric: nonfarm_payrolls
+    series: PAYEMS
+    source: BLS
+    source_url: https://www.bls.gov/schedule/news_release/empsit.htm
+    direction_up: strong        # more jobs ⇒ stronger labor market
+    direction_down: weak
+
+  fomc:
+    kind: fomc
+    entity: macro
+    metric: fed_funds_target_upper
+    series: DFEDTARU
+    source: Federal Reserve
+    source_url: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+    direction_up: hawkish       # target raised ⇒ hawkish
+    direction_down: dovish
+
+  pce:
+    kind: pce
+    entity: macro
+    metric: core_pce_index
+    series: PCEPILFE            # core PCE price index (the Fed's preferred gauge)
+    source: BEA
+    source_url: https://www.bea.gov/news/schedule
+    direction_up: hot
+    direction_down: cool
+
+  gdp:
+    kind: gdp
+    entity: macro
+    metric: real_gdp_qoq_saar
+    series: A191RL1Q225SBEA     # real GDP, % change SAAR
+    source: BEA
+    source_url: https://www.bea.gov/news/schedule
+    direction_up: strong
+    direction_down: weak

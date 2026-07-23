@@ -39,6 +39,40 @@ from .valuation_store import (  # noqa: F401
     read_snapshot_records,
     write_snapshots,
 )
+from .event_resolver import (  # noqa: F401
+    VALID_ACTIONS,
+    eval_predicate,
+    resolve_action,
+    resolve_event_for_theses,
+)
+from .event_store import (  # noqa: F401
+    read_event_links,
+    read_events,
+    read_events_by_status,
+    read_latest_events,
+    resolve_all,
+    write_event_links,
+    write_events,
+)
+from .event_calendar import (  # noqa: F401
+    build_scheduled_events,
+    event_id_for,
+    load_events_config,
+    required_series as event_required_series,
+    resolve_scheduled_event,
+)
+from .thesis import (  # noqa: F401
+    CLOSE_REASONS,
+    DIRECTIONS,
+    EXPRESS_AS,
+    FREE_SOURCES,
+    STATUSES,
+    TradeThesis,
+    can_transition,
+    new_thesis_id,
+    transition,
+    would_transition,
+)
 
 __all__ = [
     "ValueRead",
@@ -61,4 +95,30 @@ __all__ = [
     "read_snapshot_records",
     "read_latest_snapshots",
     "latest_reads_for_symbol",
+    "VALID_ACTIONS",
+    "eval_predicate",
+    "resolve_action",
+    "resolve_event_for_theses",
+    "write_events",
+    "read_events",
+    "read_latest_events",
+    "read_events_by_status",
+    "write_event_links",
+    "read_event_links",
+    "resolve_all",
+    "load_events_config",
+    "event_id_for",
+    "build_scheduled_events",
+    "event_required_series",
+    "resolve_scheduled_event",
+    "TradeThesis",
+    "STATUSES",
+    "DIRECTIONS",
+    "EXPRESS_AS",
+    "CLOSE_REASONS",
+    "FREE_SOURCES",
+    "new_thesis_id",
+    "can_transition",
+    "transition",
+    "would_transition",
 ]
