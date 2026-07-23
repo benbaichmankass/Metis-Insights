@@ -1,0 +1,90 @@
+{
+  "rows": [
+    {
+      "horizon_days": 7,
+      "n": 3746,
+      "ic": 0.003853,
+      "ic_t": 0.236,
+      "win_rate": 0.489055,
+      "mean_net_return": -0.000215,
+      "edge_vs_baseline": -0.00087
+    },
+    {
+      "horizon_days": 14,
+      "n": 3746,
+      "ic": 0.010483,
+      "ic_t": 0.641,
+      "win_rate": 0.500801,
+      "mean_net_return": -0.000541,
+      "edge_vs_baseline": -0.001744
+    },
+    {
+      "horizon_days": 30,
+      "n": 3746,
+      "ic": 0.031669,
+      "ic_t": 1.939,
+      "win_rate": 0.493326,
+      "mean_net_return": -0.001456,
+      "edge_vs_baseline": -0.00432
+    },
+    {
+      "horizon_days": 60,
+      "n": 3746,
+      "ic": 0.042839,
+      "ic_t": 2.624,
+      "win_rate": 0.49653,
+      "mean_net_return": -0.001672,
+      "edge_vs_baseline": -0.006167
+    },
+    {
+      "horizon_days": 90,
+      "n": 3746,
+      "ic": 0.052471,
+      "ic_t": 3.215,
+      "win_rate": 0.492792,
+      "mean_net_return": -0.00262,
+      "edge_vs_baseline": -0.010293
+    },
+    {
+      "horizon_days": 180,
+      "n": 3746,
+      "ic": 0.04912,
+      "ic_t": 3.009,
+      "win_rate": 0.500801,
+      "mean_net_return": -0.007249,
+      "edge_vs_baseline": -0.023612
+    }
+  ],
+  "summary": {
+    "any_predictive_horizon": false,
+    "best_horizon_days": null,
+    "strongest_ic_horizon_days": 90,
+    "strongest_ic": 0.052471,
+    "t_flag": 2.0,
+    "verdict": "no_predictive_horizon"
+  },
+  "meta": {
+    "snapshot_records": 10093,
+    "rebalances": 2003,
+    "fee_frac": 0.0,
+    "carry_frac_per_day": 0.0,
+    "horizons": [
+      7,
+      14,
+      30,
+      60,
+      90,
+      180
+    ],
+    "symbols_with_candles": [
+      "CPER",
+      "FXE",
+      "GLD",
+      "IEF",
+      "SPY",
+      "UNG",
+      "USO"
+    ],
+    "generated_at": "2026-07-23T18:49:44Z"
+  }
+}
