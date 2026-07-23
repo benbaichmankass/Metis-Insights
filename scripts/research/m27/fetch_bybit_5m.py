@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M27 P0 Batch-1 data puller — multi-year Bybit linear 5m klines to CSV.
+"""M27 P0/P1 data puller — multi-year Bybit linear klines to CSV (any timeframe).
 
 Runs ON the trainer VM (the sandbox proxy blocks exchange endpoints); uses
 only stdlib + requests so it works in any venv. Paginates
@@ -8,10 +8,18 @@ only stdlib + requests so it works in any venv. Paginates
 scripts/backtest_ict_scalp.py::_load_candles reads), and prints a per-symbol
 row count + date range so the relay comment is the audit record.
 
+The historical default is 5m (Batch-1/2/3); ``--interval`` generalizes it to the
+M27 P1 timeframe sweep — e.g. ``--interval 1m`` for the native 1m leg or
+``--interval 15m`` for the 15m leg. The friendly label matches
+``run_symbol_p0.py --timeframe`` and names the output CSV (``<SYM>_<interval>.csv``)
+so the two scripts compose (fetch → analyze) without a rename step. A native pull
+at the target resolution (not a resample of 5m) is what keeps the P1 findings
+faithful to what the live scalp would see.
+
 Usage (trainer):
   .venv/bin/python scripts/research/m27/fetch_bybit_5m.py \
-      --out-dir /home/ubuntu/m27_data --start 2023-01-01 \
-      --symbols ETHUSDT SOLUSDT XRPUSDT ADAUSDT AVAXUSDT
+      --out-dir /home/ubuntu/m27_data --start 2023-01-01 --interval 1m \
+      --symbols BTCUSDT ETHUSDT SOLUSDT XRPUSDT
 """
 from __future__ import annotations
 
@@ -24,18 +32,39 @@ from pathlib import Path
 import requests
 
 API = "https://api.bybit.com/v5/market/kline"
-INTERVAL = "5"
 LIMIT = 1000
-BAR_MS = 5 * 60 * 1000
+
+# Bybit v5 kline `interval` codes keyed by the friendly timeframe label
+# (matches run_symbol_p0.py --timeframe); minutes per bar drives the pagination
+# step + the bar_ms. Sub-hour codes are the raw minute count; hourly+ use the
+# Bybit minute-equivalent ("60"/"240").
+_BYBIT_INTERVAL = {"1m": "1", "3m": "3", "5m": "5", "15m": "15", "30m": "30",
+                   "1h": "60", "2h": "120", "4h": "240"}
+_BAR_MINUTES = {"1m": 1, "3m": 3, "5m": 5, "15m": 15, "30m": 30,
+                "1h": 60, "2h": 120, "4h": 240}
 
 
-def fetch_symbol(symbol: str, start_ms: int, out_path: Path) -> None:
+def resolve_interval(label: str) -> tuple[str, int]:
+    """Map a friendly timeframe label → (Bybit interval code, bar milliseconds).
+
+    Raises ``ValueError`` on an unsupported label (never a silent wrong pull)."""
+    key = str(label).strip().lower()
+    if key not in _BYBIT_INTERVAL:
+        raise ValueError(
+            f"unsupported --interval {label!r}; choose one of "
+            f"{', '.join(sorted(_BYBIT_INTERVAL, key=lambda k: _BAR_MINUTES[k]))}"
+        )
+    return _BYBIT_INTERVAL[key], _BAR_MINUTES[key] * 60 * 1000
+
+
+def fetch_symbol(symbol: str, start_ms: int, out_path: Path, *,
+                 interval_code: str, bar_ms: int) -> None:
     rows: list[tuple] = []
     end_ms = int(time.time() * 1000)
     seen_oldest = None
     while True:
         resp = requests.get(API, params={
-            "category": "linear", "symbol": symbol, "interval": INTERVAL,
+            "category": "linear", "symbol": symbol, "interval": interval_code,
             "limit": LIMIT, "end": end_ms,
         }, timeout=30)
         resp.raise_for_status()
@@ -56,7 +85,7 @@ def fetch_symbol(symbol: str, start_ms: int, out_path: Path) -> None:
         seen_oldest = oldest
         if oldest <= start_ms:
             break
-        end_ms = oldest - BAR_MS
+        end_ms = oldest - bar_ms
         time.sleep(0.15)  # gentle on the public endpoint
 
     rows = sorted({r[0]: r for r in rows}.values())
@@ -88,14 +117,20 @@ def main() -> int:
     ap.add_argument("--symbols", nargs="+", required=True)
     ap.add_argument("--start", default="2023-01-01")
     ap.add_argument("--out-dir", required=True)
+    ap.add_argument("--interval", default="5m",
+                    help="Friendly timeframe label (1m/3m/5m/15m/30m/1h/2h/4h; "
+                         "default 5m). Names the output CSV <SYM>_<interval>.csv.")
     args = ap.parse_args()
 
+    interval_code, bar_ms = resolve_interval(args.interval)
+    label = str(args.interval).strip().lower()
     start_ms = int(dt.datetime.strptime(args.start, "%Y-%m-%d")
                    .replace(tzinfo=dt.timezone.utc).timestamp() * 1000)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     for sym in args.symbols:
-        fetch_symbol(sym, start_ms, out_dir / f"{sym}_5m.csv")
+        fetch_symbol(sym, start_ms, out_dir / f"{sym}_{label}.csv",
+                     interval_code=interval_code, bar_ms=bar_ms)
     return 0
 
 

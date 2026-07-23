@@ -101,6 +101,14 @@ from .thesis_tick import (  # noqa: F401
     run_macro_thesis_tick,
     write_thesis_soak,
 )
+from .thesis_backtest import (  # noqa: F401
+    calibration_bins,
+    calibration_rank,
+    net_return,
+    run_thesis_backtest,
+    score_backtest,
+    thesis_outcome,
+)
 
 __all__ = [
     "ValueRead",
@@ -169,4 +177,10 @@ __all__ = [
     "load_sleeve_config",
     "read_thesis_soak",
     "write_thesis_soak",
+    "net_return",
+    "thesis_outcome",
+    "calibration_bins",
+    "calibration_rank",
+    "score_backtest",
+    "run_thesis_backtest",
 ]
