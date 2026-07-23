@@ -8,13 +8,14 @@
 > **Build status (2026-07-23):** **P0** (design + schema), **P1** (valuation
 > core/feed/FRED-adapter/store), **P2** (event resolver + store + calendar feed),
 > the **`TradeThesis` core object** + lifecycle, the **operational data layer**
-> (thesis store + `macro_signals`), and the **S1 rule-based thesis-former** are
-> all **DONE** — merged #7411/#7418/#7422/#7424/#7429/#7434/#7437, PR #7440. All
-> pure/Tier-1/observe-only, 138 tests green, no order path. **NEXT: P3
-> tick-wiring** (the isolated `run_macro_thesis_tick` off `src/main.py`) — Tier-2
-> (new tick surface), so it is **proposed** for operator OK, not shipped
-> autonomously. Then P4 (backtest paradigm), P5 (options expression), P6
-> (`c_macro` overlay).
+> (thesis store + `macro_signals`), the **S1 rule-based thesis-former**, and
+> **P3 tick-wiring** (the isolated `run_macro_thesis_tick` off `src/main.py` —
+> observe-only scanner, `execution: shadow` default, **no order path**) are all
+> **DONE** — merged #7411/#7418/#7422/#7424/#7429/#7434/#7437/#7440/#7445. All
+> pure/observe-only, 148 tests green. **NEXT: P4 — the point-in-time backtest
+> paradigm** (Tier-1, the decisive gate): no thesis engine graduates to a live
+> path until it beats a naive baseline out-of-sample here. Then P5 (options
+> executor, Tier-3) + P6 (`c_macro` overlay, Tier-3).
 >
 > **Operator framing (verbatim intent):** build a strategy that focuses on
 > *value trading* — combining technical analysis, macro signals, and news to
