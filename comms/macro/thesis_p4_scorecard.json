@@ -2,10 +2,10 @@
   "scorecard": {
     "n": 1104,
     "win_rate": 0.5081521739130435,
-    "mean_net_return": 0.0028210816652058045,
-    "avg_win": 0.04084042126404061,
-    "avg_loss": -0.036458567533590384,
-    "expectancy": 0.0028210816652058045,
+    "mean_net_return": 0.0028246286074839486,
+    "avg_win": 0.040847407076399195,
+    "avg_loss": -0.03645857345708592,
+    "expectancy": 0.0028246286074839486,
     "calibration_bins": [
       {
         "lo": 0.0,
@@ -19,26 +19,26 @@
         "hi": 0.5,
         "n": 84,
         "hit_rate": 0.5833333333333334,
-        "mean_net_return": 0.0077292005219220345
+        "mean_net_return": 0.007729217436257172
       },
       {
         "lo": 0.5,
         "hi": 0.75,
         "n": 308,
         "hit_rate": 0.512987012987013,
-        "mean_net_return": -0.001011764036914289
+        "mean_net_return": -0.0010117561955890245
       },
       {
         "lo": 0.75,
         "hi": 1.0,
         "n": 712,
         "hit_rate": 0.49719101123595505,
-        "mean_net_return": 0.003900062693701349
+        "mean_net_return": 0.0039055570593512588
       }
     ],
-    "calibration_rank": -0.0037241437318643366,
-    "baseline_mean_net_return": 0.00750606221013802,
-    "edge_vs_baseline": -0.004684980544932216
+    "calibration_rank": -0.003723470409909561,
+    "baseline_mean_net_return": 0.00750252211644632,
+    "edge_vs_baseline": -0.004677893508962371
   },
   "meta": {
     "rebalances": 263,
