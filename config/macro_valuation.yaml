@@ -1,0 +1,78 @@
+# M28 P1 — seed-universe valuation config (free, FRED-derived asset-class value).
+#
+# Declarative map: each instrument (or macro-context read) → the value metric(s)
+# that price it, each metric declaring the free series inputs it needs and the
+# cheap/rich orientation. The valuation FEED (src/units/strategies/macro_thesis/
+# valuation_feed.py) reads this, pulls the declared series (free FRED off-VM),
+# computes each metric via the value core (valuation.py), runs value_read against
+# the metric's own history, and writes point-in-time valuation_snapshots rows.
+#
+# Design of record: docs/research/M28-macro-value-speculation-DESIGN.md §1a +
+# the schema doc M28-P0-schema-2026-07-22.md. Everything here is FREE data
+# (decision (e)); metrics needing a non-FRED input (equity earnings yield, metal
+# prices) declare that input's `source` so the feed honest-nulls it until that
+# input is wired (a later P1 increment) rather than fabricating a value.
+#
+# NARROW seed universe (decision (d)) — the already-wired macro-expressive ETFs.
+# `higher_is_cheaper` is the orientation valuation.value_read uses: True means a
+# HIGHER metric value ⇒ the instrument is CHEAPER (more bullish).
+
+instruments:
+  # --- Duration / rates (real yield prices bonds) ---
+  TLT:            # 20+ yr Treasuries
+    asset_class: bond
+    metrics:
+      - metric: real_yield_10y
+        inputs: {series: DFII10}      # direct TIPS real 10y
+        higher_is_cheaper: false      # high real yield ⇒ duration RICH (headwind)
+  IEF:            # 7-10 yr Treasuries
+    asset_class: bond
+    metrics:
+      - metric: real_yield_10y
+        inputs: {series: DFII10}
+        higher_is_cheaper: false
+
+  # --- Precious metals (real yield is the dominant macro driver) ---
+  GLD:            # gold
+    asset_class: commodity
+    metrics:
+      - metric: real_yield_10y
+        inputs: {series: DFII10}
+        higher_is_cheaper: false      # high real yield ⇒ gold RICH (opportunity cost up)
+      - metric: gold_silver_ratio
+        inputs: {gold: {source: price_gld}, silver: {source: price_slv}}
+        higher_is_cheaper: true       # high ratio ⇒ silver cheap vs gold (governs SLV; see below)
+  SLV:            # silver
+    asset_class: commodity
+    metrics:
+      - metric: real_yield_10y
+        inputs: {series: DFII10}
+        higher_is_cheaper: false
+      - metric: gold_silver_ratio
+        inputs: {gold: {source: price_gld}, silver: {source: price_slv}}
+        higher_is_cheaper: true       # high ratio ⇒ silver CHEAP ⇒ bullish SLV
+
+  # --- Equity (equity risk premium prices stocks) ---
+  SPY:            # S&P 500
+    asset_class: equity
+    metrics:
+      - metric: equity_risk_premium
+        inputs: {earnings_yield: {source: sp500_earnings_yield}, real_yield: {series: DFII10}}
+        higher_is_cheaper: true       # high ERP ⇒ equities CHEAP
+
+# Macro-context reads (not tradeable instruments — they condition the sleeve's
+# world_view / risk-on-off tilt, written to valuation_snapshots as asset_class
+# "macro").
+context:
+  credit_risk:
+    asset_class: macro
+    metrics:
+      - metric: credit_spread
+        inputs: {series: BAMLH0A0HYM2}   # ICE BofA US HY OAS (FRED, free)
+        higher_is_cheaper: true          # wide OAS ⇒ risk cheap / risk-off regime
+  term_structure:
+    asset_class: macro
+    metrics:
+      - metric: term_slope
+        inputs: {long: DGS10, short: DGS3MO}   # 10y − 3m (FRED, free)
+        higher_is_cheaper: true                # steep ⇒ reflation/early-cycle context

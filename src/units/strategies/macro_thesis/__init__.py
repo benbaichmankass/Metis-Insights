@@ -21,6 +21,11 @@ from .valuation import (  # noqa: F401
     value_read,
     value_to_direction,
 )
+from .valuation_feed import (  # noqa: F401
+    build_valuation_reads,
+    compute_metric,
+    load_valuation_config,
+)
 
 __all__ = [
     "ValueRead",
@@ -31,4 +36,7 @@ __all__ = [
     "term_slope",
     "value_read",
     "value_to_direction",
+    "load_valuation_config",
+    "compute_metric",
+    "build_valuation_reads",
 ]
