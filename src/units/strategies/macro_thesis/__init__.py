@@ -21,6 +21,11 @@ from .valuation import (  # noqa: F401
     value_read,
     value_to_direction,
 )
+from .fred_adapter import (  # noqa: F401
+    fred_fetch_and_history,
+    metric_histories,
+    parse_fredgraph_csv,
+)
 from .valuation_feed import (  # noqa: F401
     build_valuation_reads,
     compute_metric,
@@ -43,4 +48,7 @@ __all__ = [
     "build_valuation_reads",
     "required_series",
     "run_valuation_feed",
+    "parse_fredgraph_csv",
+    "metric_histories",
+    "fred_fetch_and_history",
 ]
