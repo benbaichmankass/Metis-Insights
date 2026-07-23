@@ -65,6 +65,11 @@ reconciliation pass (CLAUDE-RULES-CANONICAL.md § Session-end). At close:
 3. Run the **`doc-freshness`** skill; fix Tier-1 contradictions, log
    minor leftovers to `docs/claude/health-review-backlog.json`.
 
+If the session is closing because it's run long and is handing off to a
+fresh session rather than continuing (see **`session-handoff`**), this log
+IS the "durable record" that skill's handoff prompt points at — write it
+before producing that prompt, not after.
+
 A sprint is **not done** when code lands on `main` — it's done when the
 change is active in production (Ship-Autonomously Rule) and the
 documentation review (part of the definition of done) is complete.

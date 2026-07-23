@@ -353,4 +353,8 @@ but-dead is the whole failure mode). On a live trading system a confident wrong
 - **`new-broker`** / **`new-strategy`** — the inverse op; their checklists are the
   touch-point inventory a removed/added integration must be scrubbed into.
 - **`sprint-format`** — Phase 5 per-session execution record.
+- **`session-handoff`** — this program is already explicitly multi-session;
+  use it to close out one workstream/phase cleanly and hand off to the
+  session that picks up the next one, instead of one session ballooning
+  across the whole audit.
 - The blind-spot retrospective: `docs/audits/audit-blindspot-zombies-2026-06-10.md`.

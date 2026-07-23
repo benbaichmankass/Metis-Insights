@@ -751,6 +751,41 @@ a shared board + the hook surfacing it — **not** a new CI gate (operator
 decision, 2026-06-28). The hard safety net remains GitHub branch-protection
 (require-up-to-date); the board only coordinates intent + the one merge slot.
 
+## Session-length discipline & handoff (2026-07-23, binding)
+
+A session that grinds through many unrelated tasks in one context window
+wastes compute: every context-compaction is a lossy, costly re-derivation,
+and a session that never closes the books leaves the next session to
+rediscover state from chat scrollback instead of the repo. The binding
+workflow is **`session-handoff`** (`.claude/skills/session-handoff/SKILL.md`)
+— check it at every natural checkpoint (a PR merged, an investigation
+resolved, before starting a new unrelated item), most relevant to
+open-ended/long-running sessions (`research-driver`, `full-system-audit`,
+any multi-hour ad hoc session).
+
+The essentials (full detail in the skill): (1) recognize the cut point — a
+compaction has already fired this session, or the next candidate work item
+shares no context with what's loaded, or the operator says to wrap up; (2)
+never hand off mid-flight on unfinished work — finish or checkpoint the
+current unit first (commit, push, PR open at minimum), verify no loose ends
+(clean `git status`, every branch has a PR, coordination-board `✅ DONE`
+posted, any pending Tier-3 proposal logged to its backlog rather than
+dropped); (3) end the session by handing the operator a **concrete,
+paste-ready prompt** for a fresh session to continue — what was verified,
+where the durable record lives (sprint log / roadmap row / backlog id), what
+the specific next item is, and anything still outstanding. This is the
+**serial/time-axis** counterpart to `delegate-work`'s **parallel/space-axis**
+big-task decomposition — the same discipline of splitting work into
+independently-resumable units, applied across a session boundary instead of
+across concurrent agents.
+
+This is discipline + a skill, not a mechanical token-count gate — this
+harness gives no reliable token-count introspection to the main loop, so the
+skill's triggers are structural/observable signals (a compaction having
+already happened, a context-sharing test), never an invented numeric
+threshold. An explicit operator instruction to keep going in the current
+session overrides the recommendation for that session.
+
 ## GitHub Actions Rule
 
 Claude is allowed to inspect, create, modify, and use GitHub Actions

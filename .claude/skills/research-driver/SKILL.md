@@ -195,6 +195,19 @@ with Step 7's hourly cadence as a second layer of defense (a session that
 DOES get stuck despite front-loading still surfaces via the next heartbeat
 missing), not a replacement for it.
 
+## Step 8 — Know when to hand off instead of continuing
+
+This skill's own sessions are exactly the class most likely to run long
+(open-ended, naturally multi-hour). At every checkpoint from Step 6 (an
+outcome landed) or Step 7 (an hourly ping), also check
+**`session-handoff`**'s triggers: has a context-compaction already fired
+this session, and does the next sourced work item (Step 1) share no context
+with what's already loaded? If so, close out per that skill instead of
+starting the next unrelated item here — finish/checkpoint current work, no
+loose ends, then hand the operator a concrete prompt to continue in a fresh
+session. This is distinct from Step 7's hourly heartbeat (that's a status
+ping while continuing; this is the decision to stop).
+
 ## Composes with
 
 `sprint-format` (write-up format for any sprint log this session
@@ -202,8 +215,9 @@ produces), `doc-freshness` (doc-vs-doc contradiction scanning; step 5's
 decision-landing table cross-references this skill's Step 6 for *where* in
 `ROADMAP.md`), `session-coordination` (concurrency/collision safety — run
 in full: board post, merge protocol), `delegate-work` (decomposition/
-parallelization mechanics for big-scope work), the domain skills (dispatch
-targets per Step 2), `workplan-vs-architecture` (periodic whole-repo
+parallelization mechanics for big-scope work), `session-handoff` (Step 8
+above — when to stop and hand off instead of continuing), the domain skills
+(dispatch targets per Step 2), `workplan-vs-architecture` (periodic whole-repo
 retrospective audit — not this skill's job, see below).
 
 ## What this skill does NOT own

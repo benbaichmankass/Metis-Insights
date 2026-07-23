@@ -131,3 +131,11 @@ that. The slot only serializes WHEN you merge, not WHETHER you may.
 The board is advisory. If you couldn't acquire the slot cleanly (e.g. the MCP was
 dropping), say so and fall back to the real-time open-PR list + branch-protection
 rather than asserting a clean claim you didn't make.
+
+## Composes with
+
+- **`session-handoff`** — this skill's § 4 "Session end" (board `✅ DONE`,
+  `doc-freshness`, pruning your board entry) is exactly Step 2 of that
+  skill's wrap-up checklist. Reuse it rather than re-deriving it: this skill
+  owns *how* to release your claim; `session-handoff` owns *when* to decide
+  the session is over and *how* to hand off to a fresh one.
