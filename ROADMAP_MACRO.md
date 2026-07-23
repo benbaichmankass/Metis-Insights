@@ -209,6 +209,24 @@ lazily via the redirect.
 ---
 
 ## Change log
+- **2026-07-23 (cont. 6)** — **CFTC-COT positioning sleeve built (signal #2 — a NEW input family).**
+  Keyless weekly **Commitments-of-Traders** large-speculator positioning (crude/gas/gold/copper/
+  ES/FX/rates) from the CFTC Legacy Futures-Only Socrata report → a **snapshot→percentile COT-index
+  conviction emitted in the valuation-snapshot schema**, so the existing M28 P4 gate +
+  horizon-IC scan grade it **UNCHANGED** (an integration test drives a COT row through
+  `build_replay_entries`→`run_thesis_backtest` to prove it). Orientation is **contrarian on the
+  large specs** (`cheap_score = 1 − percentile(spec_net)`, `higher_is_cheaper=False`: crowded
+  net-long = rich = short bias; washed-out = cheap = long bias) — a **graded hypothesis**, not a
+  claim (a negative edge just means flip to the momentum orientation). Point-in-time: each row's
+  `observed_at` = report date + a 3-day release lag (Tuesday positions are public Friday), and each
+  percentile uses only the trailing `lookback` window ending at its own date. Files:
+  `scripts/macro/cot_data.py` (off-VM Socrata reader + pure parsers + COT-index), `cot_snapshot_backfill.py`
+  (full-regen PIT backfill → `comms/macro/cot_snapshots.jsonl`), `tests/test_m29_cot.py` (10 tests
+  incl. the P4-machinery integration proof), `.github/workflows/cot-positioning-backfill.yml`
+  (off-VM: backfill → proxy candles → P4 + horizon-IC → land snapshots + both scorecards; label
+  `cot-positioning-backfill-now`). Tradeable proxies: USO/UNG/GLD/CPER/SPY/FXE/IEF. This is the
+  first NEW input family for the "signals too thin → richer inputs" thread (value P4 + gas P1b were
+  both null). **Next: (3) crypto funding/OI/basis** (Bybit public API, same schema).
 - **2026-07-23 (cont. 5)** — **M29 P1c built — the fair test of the SD thesis (dual-target
   gas calibration).** Extended the gas-seed calibration with the two real inputs P1b's null
   result named as the lever: **observed EIA weekly working-gas-in-storage** (`NG.NW2_EPG0_SWO_R48_BCF.W`,
