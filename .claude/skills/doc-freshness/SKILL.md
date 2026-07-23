@@ -128,7 +128,11 @@ Then, scoped to what changed this session:
    one surface as drift to fix here. **An ON-HOLD / abandoned / negative
    outcome is a decision too** — it must be recorded (with the reason) in the
    roadmap + sprint log, not just dropped, or a future session re-litigates it.
-   (Use the `sprint-format` skill for the sprint-log shape.)
+   (Use the `sprint-format` skill for the sprint-log shape. This table says
+   THAT a decision must land in ROADMAP.md; for WHICH section — new
+   milestone, existing phase table, Items Under Consideration, or backlog
+   only — see [`research-driver`](../research-driver/SKILL.md) Step 6's
+   landing decision tree.)
 
 6. **Triage minor leftovers.** Anything real but too small to fix now goes
    into the appropriate review backlog as a new `open` item so a future
