@@ -209,6 +209,23 @@ lazily via the redirect.
 ---
 
 ## Change log
+- **2026-07-23 (cont. 3)** — **M29 P1b built — calibrate the gas seed on real data.**
+  Wired the off-VM calibrate-on-real-data harness for `gas_storage_price_v1` (the SD
+  analogue of the M28 P4 value gate): `scripts/macro/sysdyn_gas_data.py` (injected
+  reader — real weekly Henry Hub NG price via keyless FRED + calendar-seasonal exog
+  drivers) + `scripts/macro/sysdyn_gas_calibrate.py` (identify + walk-forward-stability
+  → out-of-sample fit + structural-param identifiability scorecard), the
+  `sysdyn-gas-calibrate` workflow (off-VM, PAT auto-merge, label
+  `sysdyn-gas-calibrate-now`), and tests (synthetic round-trip proves the harness).
+  `src/sysdyn/*` stays import-linter-pure (all IO in `scripts/`). **First result
+  (8y / 418 wk): `equifinal_no_edge` — the seed on a calendar-seasonal demand proxy
+  does NOT explain real weekly NG price (OOS R²≈0) and its structural params are not
+  identifiable from price alone.** Honest, expected finding (not a bug — the synthetic
+  round-trip fits at OOS R²>0.9): price + calendar season is too thin. **P1c** is the
+  unblocked next step — inject observed EIA weekly storage (2nd target) + weather HDD
+  (real surprise-carrying demand), which needs a free `EIA_API_KEY` Actions secret (an
+  operator hand-off). The go/no-go on deeper M29 investment should be taken after P1c.
+  Writeup: [`docs/research/M29-P1b-gas-seed-calibration.md`](docs/research/M29-P1b-gas-seed-calibration.md).
 - **2026-07-23 (cont. 2)** — **New milestone M29 — AI-Driven System-Dynamics Modelling**
   proposed (operator-directed), design-of-record
   [`docs/research/M29-ai-system-dynamics-DESIGN.md`](docs/research/M29-ai-system-dynamics-DESIGN.md).

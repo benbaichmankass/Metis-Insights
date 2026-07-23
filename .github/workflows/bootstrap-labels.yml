@@ -80,6 +80,11 @@ jobs:
                 description: 'Triggers macro-valuation-backfill — reconstruct historical point-in-time snapshots from FRED + run the M28 P4 value-thesis gate.',
               },
               {
+                name: 'sysdyn-gas-calibrate-now',
+                color: '0e8a16',
+                description: 'Triggers sysdyn-gas-calibrate — calibrate the M29 gas_storage_price_v1 seed on real weekly NG price (FRED) + emit its scorecard.',
+              },
+              {
                 name: 'cancel-queued-runs',
                 color: 'cfd3d7',
                 description: 'Triggers cancel-queued-runs — bulk-cancel stale queued Actions runs.',
