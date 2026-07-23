@@ -166,6 +166,70 @@ survives *that* expression's costs proceeds. Live is Tier-3.
   the two graded instruments (signal + PnL), and the compounding ledger — is
   reusable for every future input family, which is the actual point of M28.
 
+## 6b. Contingency — back-up plans if Phase B exhausts with no survivor
+
+If the whole construction space (D1–D4) on our four existing inputs
+(value / COT / crypto / sysdyn) grades null, that does **not** end the program —
+it just means the edge isn't in *directional forward return from these inputs at
+this horizon with these constructions.* Ordered cheapest-to-test / most-likely-to-work:
+
+- **BP1 · Change the OBJECT we predict (not the input).** All four sleeves predict
+  *directional* return — the hardest thing to find at retail. Cheaper edges,
+  reusing infra we already have:
+  - **Volatility, not direction** — predict realized-vol / vol expansion; express
+    via the M28 options path (straddle/strangle, defined-risk). Positioning +
+    funding extremes plausibly predict *vol expansion* even when they don't predict
+    direction, and options is the natural expression we already chose. *Highest-value
+    fallback — the gate + toolkit port directly; only the target (vol) and the
+    expression change.*
+  - **Relative value / spreads** — a signal that can't pick direction can still pick
+    the *cheaper of two related assets* (market-neutral). Reuses the M22 pairs
+    sleeve's isolated 2-leg path + the D3 cross-sectional toolkit.
+  - **Regime / risk-on-off** — a macro read that *conditions the existing book's
+    sizing/gating* rather than a standalone trade (this is what the `c_macro`
+    overlay was always for). A lower bar than standalone alpha.
+
+- **BP2 · Ensemble of weak signals (breadth, not strength).** Each input null alone,
+  but a diversified blend of many weak, low-correlation signals can be tradeable
+  even when no single one clears the bar (Grinold–Kahn breadth). D4 composite is the
+  first step; the fuller version is a cross-input meta-model graded through the same
+  S2+S3. Reframes "no single survivor" as "does the ensemble survive."
+
+- **BP3 · New input families (Phase D).** The most likely reason these four failed
+  may be the *inputs*, not the construction. Bring genuinely different information,
+  each S0-gated before any build: **options-implied** (skew / term-structure /
+  put-call / vol-risk-premium — forward-looking, priced by sophisticated players),
+  **macro-surprise indices** (built from the actuals-vs-consensus the M28 P2 event
+  subsystem already stores — near-free), **credit spreads** (HY-IG / OAS change as a
+  risk-appetite gauge), **fund/ETF flows + short interest**, **on-chain** (exchange
+  netflows, stablecoin supply), **seasonality/calendar**.
+
+- **BP4 · Change the HORIZON.** We tested days-to-weeks. Try **months** (valuation
+  mean-reversion is a multi-month phenomenon — weeks may be too short for value), or
+  **event-windowed** — trade only in the tight window around a scheduled catalyst
+  (CPI/FOMC/earnings), where signal-to-noise concentrates, reusing the M28 event
+  calendar rather than trading continuously.
+
+- **BP5 · Repurpose the machinery even if no standalone sleeve ships.** The
+  valuation-snapshot + gate + PnL-harness stack isn't wasted on a null: feed the
+  graded signals as **features into the existing ML conviction model** (`c_macro`
+  overlay — a signal too weak to trade alone can still improve the ML book's sizing),
+  or as a **reductive risk/veto overlay** (don't add a trade; shrink size when
+  positioning is extreme against an existing position — a strictly lower bar than
+  standalone alpha, the same shape as the news-influence sizing).
+
+- **BP6 · Honest stop (a real, valuable result).** If BP1–BP5 are also exhausted,
+  the recorded conclusion — "free-data macro/positioning signals don't carry
+  tradeable weeks-horizon edge at our cost structure" — is itself worth having: it
+  redirects effort to where the edge demonstrably is (exit refinement, ML, the
+  existing ICT + pairs book) instead of building on a non-edge
+  (`RESEARCH-RIGOR-STANDARD.md` § honest negatives).
+
+Sequence at the checkpoint: BP1 (vol/relative-value — cheapest, reuses infra) and
+BP2 (ensemble) run on the data already in hand; BP3/BP4 are the next builds; BP5 is
+the salvage path; BP6 is the honest terminal. The operator picks the branch with the
+Phase-B evidence in front of them — the fork is surfaced, not decided unilaterally.
+
 ## 7. Governance + autonomy
 
 Tier-1 throughout research (docs, scripts, workflows, off-VM data, trainer-VM
