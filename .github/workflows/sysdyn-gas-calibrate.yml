@@ -63,7 +63,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install deps
-        run: python -m pip install --upgrade pip "pyyaml>=6.0"
+        run: python -m pip install --upgrade pip "pyyaml>=6.0" yfinance pandas
 
       - name: P1b — calibrate the gas seed on real NG price (price-only, calendar demand)
         id: calibrate
@@ -94,15 +94,42 @@ jobs:
             --path comms/macro/sysdyn_gas_dual_scorecard.json | tee -a /tmp/sysdyn_card.txt || \
             echo "::warning::P1c dual calibration degraded (missing EIA_API_KEY or thin data) — the price-only scorecard still lands"
 
+      - name: Fetch UNG proxy candles (Yahoo/Stooq) for the mispricing PnL grade
+        continue-on-error: true
+        env:
+          ICT_OFFVM_BUILD_HOST: "1"
+        run: |
+          set -uo pipefail
+          python scripts/macro/fetch_macro_candles.py \
+            --out-dir data/macro_candles \
+            --symbols UNG \
+            --start "2010-01-01" || \
+            echo "::warning::UNG candle fetch degraded — the mispricing S3 PnL grade will report the honest insufficient_data"
+
+      - name: M28 Phase B — grade the sysdyn MISPRICING construction (S2 signal + S3 PnL)
+        id: mispricing
+        continue-on-error: true
+        env:
+          ICT_OFFVM_BUILD_HOST: "1"
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+        run: |
+          set -uo pipefail
+          python scripts/macro/sysdyn_mispricing.py \
+            --candles-dir data/macro_candles --symbol UNG \
+            --params-scorecard comms/macro/sysdyn_gas_dual_scorecard.json \
+            --rebalance-every 7 --horizons 7,14,30,60,90 --pnl-horizon 30 \
+            --json comms/macro/sysdyn_mispricing_scorecard.json | tee -a /tmp/sysdyn_card.txt || \
+            echo "::warning::sysdyn mispricing grade degraded (missing EIA_API_KEY / thin data)"
+
       - name: Land scorecards on main
         id: commit
         uses: ./.github/actions/commit-to-main
         with:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          paths: comms/macro/sysdyn_gas_scorecard.json comms/macro/sysdyn_gas_dual_scorecard.json
-          message: "chore(m29): gas-seed calibration scorecards (P1b price + P1c dual-target)"
-          pr-title: "chore(m29): sysdyn gas-seed calibration scorecards (auto)"
-          pr-body: "M29 P1b (price-only) + P1c (observed EIA storage anchor + real weather HDD + price readout) calibration scorecards. Research data; auto-merge."
+          paths: comms/macro/sysdyn_gas_scorecard.json comms/macro/sysdyn_gas_dual_scorecard.json comms/macro/sysdyn_mispricing_scorecard.json
+          message: "chore(m29): gas-seed calibration scorecards (P1b price + P1c dual-target) + mispricing grade"
+          pr-title: "chore(m29): sysdyn gas-seed calibration + mispricing scorecards (auto)"
+          pr-body: "M29 P1b (price-only) + P1c (observed EIA storage anchor + real weather HDD + price readout) calibration scorecards, plus the M28 Phase-B sysdyn model-implied MISPRICING construction graded through the S2 signal + S3 PnL gate. Research data; auto-merge."
           branch-prefix: automation/sysdyn-gas-calibrate
 
       - name: Comment + close issue (issue-driven path)
