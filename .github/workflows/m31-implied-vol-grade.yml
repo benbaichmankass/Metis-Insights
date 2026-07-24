@@ -62,6 +62,9 @@ jobs:
 
       - name: M31 Track A — grade the implied-vol input class
         id: grade
+        # --mode defaults to `all` → the card emits S2 (honest non-overlapping IC),
+        # S3 (OOS split + cost-aware conviction), AND the S4-prep multi-fold
+        # walk-forward robustness pass in one run; no per-mode flag needed.
         env:
           ICT_OFFVM_BUILD_HOST: "1"
         run: |
