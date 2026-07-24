@@ -147,24 +147,40 @@ def crypto_conditioning_snapshots(funding_by_symbol: dict, oi_by_symbol: dict, *
     building, so the conditioned reads may carry a bigger (monetizable) edge.
 
     ``funding_by_symbol`` / ``oi_by_symbol``: ``{symbol: [(date, value), ...]}``.
-    Emits ``{"funding_impulse": [level baseline], "funding_impulse_x_oi_rising":
-    [conditioned]}`` — the pair lets the grader compare the unconditioned impulse to
-    the conditioned one (does the gate concentrate the edge?). Contrarian
-    (`higher_is_cheaper=False`)."""
-    base_rows, cond_rows = [], []
+    Emits FOUR constructions so the grader can see whether the OI gate concentrates
+    the edge on EITHER base:
+      - ``funding_level`` — the funding-rate **level** percentile (entry 3's actual
+        1d signal, the one with a real-but-below-fee IC) + ``funding_level_x_oi_rising``
+        (that level conditioned on rising OI — the *faithful* test of the hypothesis).
+      - ``funding_impulse`` — the funding **change** percentile + ``funding_impulse_x_oi_rising``.
+    All contrarian (`higher_is_cheaper=False`: a rich/crowded funding reads richer)."""
+    out = {"funding_level": [], "funding_level_x_oi_rising": [],
+           "funding_impulse": [], "funding_impulse_x_oi_rising": []}
     for sym, funding in (funding_by_symbol or {}).items():
-        impulse = sc.pct_change_series(funding, periods=1)
-        if not impulse:
+        if not funding:
             continue
-        snaps = build_percentile_snapshots(
-            sym, "crypto_funding_impulse", impulse, asset_class=asset_class,
+        oi_change = sc.pct_change_series(oi_by_symbol.get(sym) or [], periods=1)  # OI RISING gate
+
+        # entry-3 signal: the funding LEVEL percentile (the faithful base to condition)
+        level = build_percentile_snapshots(
+            sym, "crypto_funding_level", funding, asset_class=asset_class,
             lookback=lookback, min_history=min_history, higher_is_cheaper=False,
-            note="D2:funding_impulse", source="construction_sweep")
-        base_rows.extend(snaps)
-        oi = oi_by_symbol.get(sym) or []
-        oi_change = sc.pct_change_series(oi, periods=1)   # gate on OI RISING (change > 0)
-        cond_rows.extend(sc.condition_snapshots(snaps, oi_change, lambda x: x > 0))
-    return {"funding_impulse": base_rows, "funding_impulse_x_oi_rising": cond_rows}
+            note="D2:funding_level", source="construction_sweep")
+        out["funding_level"].extend(level)
+        out["funding_level_x_oi_rising"].extend(
+            sc.condition_snapshots(level, oi_change, lambda x: x > 0))
+
+        # the impulse (change) base — a weaker construction, kept for comparison
+        impulse = sc.pct_change_series(funding, periods=1)
+        if impulse:
+            imp = build_percentile_snapshots(
+                sym, "crypto_funding_impulse", impulse, asset_class=asset_class,
+                lookback=lookback, min_history=min_history, higher_is_cheaper=False,
+                note="D2:funding_impulse", source="construction_sweep")
+            out["funding_impulse"].extend(imp)
+            out["funding_impulse_x_oi_rising"].extend(
+                sc.condition_snapshots(imp, oi_change, lambda x: x > 0))
+    return out
 
 
 def cot_cross_sectional_snapshots(markets_rows: dict, proxy_by_market: dict,

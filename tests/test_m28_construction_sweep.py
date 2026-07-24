@@ -98,14 +98,17 @@ def test_crypto_conditioning_produces_base_and_conditioned():
     funding = {"BTCUSDT": list(zip(days, [0.0001 * ((i % 13) - 6) for i in range(len(days))]))}
     oi = {"BTCUSDT": list(zip(days, [1e6 + 1e4 * (i if i < 40 else 80 - i) for i in range(len(days))]))}
     out = cs.crypto_conditioning_snapshots(funding, oi, lookback=52, min_history=20)
-    assert set(out) == {"funding_impulse", "funding_impulse_x_oi_rising"}
-    assert out["funding_impulse"], "no base impulse rows"
-    b = out["funding_impulse"][0]
-    assert b["metric"] == "crypto_funding_impulse" and b["higher_is_cheaper"] is False
-    # the conditioned set has the SAME row count (gating neutralizes, never drops rows)
+    assert set(out) == {"funding_level", "funding_level_x_oi_rising",
+                        "funding_impulse", "funding_impulse_x_oi_rising"}
+    assert out["funding_level"] and out["funding_impulse"], "no base rows"
+    assert out["funding_level"][0]["metric"] == "crypto_funding_level"
+    assert out["funding_impulse"][0]["metric"] == "crypto_funding_impulse"
+    assert all(r["higher_is_cheaper"] is False for r in out["funding_level"])
+    # each conditioned set has the SAME row count as its base (gating neutralizes, never drops)
+    assert len(out["funding_level_x_oi_rising"]) == len(out["funding_level"])
     assert len(out["funding_impulse_x_oi_rising"]) == len(out["funding_impulse"])
     # a neutralized row is pulled to cheap_score 0.5; a passed row keeps a real conviction
-    conds = out["funding_impulse_x_oi_rising"]
+    conds = out["funding_level_x_oi_rising"]
     assert any(r["cheap_score"] == 0.5 for r in conds), "no rows neutralized by the OI gate"
     assert any(r["cheap_score"] != 0.5 for r in conds), "no rows passed the OI gate"
     # the gate outcome is traceable in inputs
