@@ -113,8 +113,15 @@ def _resolve_fetchers(download, stooq_urlopen, start):
             "(set ICT_OFFVM_BUILD_HOST=1) or inject download/stooq_urlopen"
         )
     if download is None and _offvm_enabled():
-        import yfinance as yf
-        download = lambda s: yf.download(s, start=start, progress=False, auto_adjust=True)  # noqa: E731
+        # yfinance is OPTIONAL — the Stooq (urllib) fallback below is dependency-free,
+        # so a host without yfinance (e.g. the trainer VM) degrades to Stooq instead of
+        # hard-failing the whole off-VM fetch. symbol_close_pairs already prefers Stooq
+        # when the yfinance path returns nothing.
+        try:
+            import yfinance as yf
+            download = lambda s: yf.download(s, start=start, progress=False, auto_adjust=True)  # noqa: E731
+        except Exception as exc:  # noqa: BLE001
+            print(f"fetch_macro_candles: yfinance unavailable ({exc}); using Stooq fallback")
     if stooq_urlopen is None and _offvm_enabled():
         stooq_urlopen = urllib.request.urlopen
     return download, stooq_urlopen
