@@ -224,6 +224,89 @@ def scan_probe(feature_series: list, target_vals: list, horizons, *, t_flag: flo
 
 
 # ---------------------------------------------------------------------------
+# S3 — held-out OOS split + cost-aware long/short conviction spread
+# ---------------------------------------------------------------------------
+#
+# S2 confirms an in-sample IC exists; S3 is the honest kill-test the program has
+# used to catch every prior "looks positive" result (entry 11: an S2-significant
+# signal whose OOS IC flipped negative). Two independent OOS checks, both on the
+# SECOND (held-out) time-fraction, with orientation fit ONLY on the first fraction
+# (no lookahead):
+#   1. OOS IC  — does the honest non-overlapping IC hold sign + significance OOS?
+#   2. net conviction spread — a dollar-neutral long/short-by-quantile book
+#      (long the bin the IS-fit orientation predicts up, short the other) pays a
+#      round-trip fee; does the OOS spread stay positive net of cost?
+# `pays_oos` requires BOTH (OOS IC significant, same sign as IS) AND net spread > 0.
+
+def _anchors(feature_series: list, target_vals: list, horizon: int) -> list:
+    """Non-overlapping ``(feature, fwd_return)`` anchors in time order."""
+    out = []
+    for i in range(0, len(feature_series) - horizon, max(1, horizon)):
+        f = feature_series[i]
+        fwd = log_return(target_vals[i], target_vals[i + horizon])
+        if f is not None and fwd is not None:
+            out.append((f, fwd))
+    return out
+
+
+def conviction_s3_row(feature_series: list, target_vals: list, horizon: int, *,
+                      split_frac: float = 0.6, fee_frac: float = 0.001,
+                      q: float = 0.34) -> dict:
+    """One horizon's OOS split + cost-aware long/short spread. All time-ordered;
+    orientation is fit on the IS fraction only (no lookahead)."""
+    anchors = _anchors(feature_series, target_vals, horizon)
+    n = len(anchors)
+    row = {"horizon": horizon, "n_is": 0, "n_oos": 0, "is_ic": None, "oos_ic": None,
+           "oos_ic_t": None, "orient": None, "gross_spread": None, "net_spread": None,
+           "pays_oos": False}
+    if n < 16:
+        return row
+    cut = int(n * split_frac)
+    is_a, oos_a = anchors[:cut], anchors[cut:]
+    if len(is_a) < 8 or len(oos_a) < 8:
+        return row
+    is_ic = spearman_ic(is_a)
+    oos_ic = spearman_ic(oos_a)
+    row["n_is"], row["n_oos"] = len(is_a), len(oos_a)
+    if is_ic is None or oos_ic is None:
+        return row
+    row["is_ic"], row["oos_ic"], row["oos_ic_t"] = is_ic["ic"], oos_ic["ic"], oos_ic["ic_t"]
+    # orientation from IS sign: negative IC ⇒ LOW feature predicts UP (long low bin)
+    orient = -1 if is_ic["ic"] < 0 else 1
+    row["orient"] = orient
+    # OOS quantile bins on the feature
+    oos_sorted = sorted(oos_a, key=lambda p: p[0])
+    k = max(1, int(len(oos_sorted) * q))
+    low_bin, high_bin = oos_sorted[:k], oos_sorted[-k:]
+    low_mean = sum(p[1] for p in low_bin) / len(low_bin)
+    high_mean = sum(p[1] for p in high_bin) / len(high_bin)
+    long_mean, short_mean = (low_mean, high_mean) if orient < 0 else (high_mean, low_mean)
+    gross = long_mean - short_mean
+    net = gross - 2.0 * fee_frac        # one long-short round-trip on the spread
+    row["gross_spread"], row["net_spread"] = gross, net
+    same_sign = (oos_ic["ic"] < 0) == (is_ic["ic"] < 0)
+    row["pays_oos"] = bool(net > 0 and same_sign and abs(oos_ic["ic_t"]) >= 2.0)
+    return row
+
+
+def scan_s3(feature_series: list, target_vals: list, horizons, *,
+            split_frac: float = 0.6, fee_frac: float = 0.001, q: float = 0.34) -> dict:
+    """S3 across horizons → verdict. ``pays_oos_net`` if any horizon passes both the
+    OOS-IC and net-spread gates; else ``s2_only_no_s3`` / ``no_data``."""
+    rows = [conviction_s3_row(feature_series, target_vals, h, split_frac=split_frac,
+                              fee_frac=fee_frac, q=q) for h in horizons]
+    computable = [r for r in rows if r["oos_ic"] is not None]
+    if not computable:
+        verdict = "no_data"
+    elif any(r["pays_oos"] for r in rows):
+        verdict = "pays_oos_net"
+    else:
+        verdict = "s2_only_no_s3"
+    return {"verdict": verdict, "rows": rows,
+            "pays_oos": any(r["pays_oos"] for r in rows)}
+
+
+# ---------------------------------------------------------------------------
 # network wrapper (off-VM-guarded via fred_adapter) + CLI
 # ---------------------------------------------------------------------------
 
@@ -257,24 +340,42 @@ def run_probes(probes=DEFAULT_PROBES, horizons=DEFAULT_HORIZONS, *,
             "any_edge": any(r.get("verdict") == "directional_edge" for r in results)}
 
 
+def run_probes_s3(probes=DEFAULT_PROBES, horizons=DEFAULT_HORIZONS, *,
+                  urlopen=None, split_frac: float = 0.6, fee_frac: float = 0.001,
+                  q: float = 0.34) -> dict:
+    """S3 pass: OOS split + cost-aware conviction spread for each probe."""
+    sids = set()
+    for _, vol, tgt, _, extra in probes:
+        sids.update([vol, tgt] + ([extra] if extra else []))
+    dated = fetch_fred_series_history_dated(sorted(sids), urlopen=urlopen)
+    results = []
+    for name, vol_sid, tgt_sid, feature, extra_sid in probes:
+        vol_d, tgt_d = dated.get(vol_sid, []), dated.get(tgt_sid, [])
+        if not vol_d or not tgt_d:
+            results.append({"name": name, "feature": feature, "verdict": "no_data"})
+            continue
+        dates, vol_vals, tgt_vals = align_dated(vol_d, tgt_d)
+        extra_vals = None
+        if extra_sid:
+            emap = {d: v for d, v in dated.get(extra_sid, [])}
+            extra_vals = [_to_float(emap.get(d)) for d in dates]
+        feat = build_feature_series(feature, vol_vals, tgt_vals, extra_vals=extra_vals)
+        s3 = scan_s3(feat, tgt_vals, horizons, split_frac=split_frac, fee_frac=fee_frac, q=q)
+        results.append({"name": name, "feature": feature, "vol_sid": vol_sid,
+                        "target_sid": tgt_sid, "verdict": s3["verdict"], "rows": s3["rows"]})
+    return {"split_frac": split_frac, "fee_frac": fee_frac, "q": q,
+            "horizons": list(horizons), "probes": results,
+            "any_pays_oos": any(r.get("verdict") == "pays_oos_net" for r in results)}
+
+
 def _fmt(v) -> str:
     return "—" if v is None else (f"{v:.4f}" if isinstance(v, float) else str(v))
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description="M31 Track A — implied-vol IC probe")
-    ap.add_argument("--horizons", default=",".join(str(h) for h in DEFAULT_HORIZONS))
-    ap.add_argument("--t-flag", type=float, default=2.0)
-    ap.add_argument("--json", action="store_true", help="emit JSON only")
-    args = ap.parse_args()
-    horizons = tuple(int(x) for x in args.horizons.split(",") if x.strip())
-    out = run_probes(horizons=horizons, t_flag=args.t_flag)
-    if args.json:
-        print(json.dumps(out, indent=2))
-        return 0
-    print("M31 Track A — implied-volatility HONEST non-overlapping directional IC")
-    print("=" * 70)
-    print(f"t_flag={args.t_flag}  horizons={list(horizons)} trading-days")
+def _print_s2(out) -> None:
+    print("M31 Track A — implied-volatility HONEST non-overlapping directional IC (S2)")
+    print("=" * 74)
+    print(f"t_flag={out['t_flag']}  horizons={out['horizons']} trading-days")
     for r in out["probes"]:
         print(f"\n  {r['name']}  ({r.get('vol_sid','?')}→{r.get('target_sid','?')}, "
               f"{r['feature']}): verdict={r['verdict']}")
@@ -284,7 +385,49 @@ def main() -> int:
             print(f"      H={row['horizon']:>3}d  n={_fmt(row['n_nonoverlap'])}  "
                   f"ic={_fmt(row['ic'])} (t={_fmt(row['ic_t'])})")
     print(f"\nany_directional_edge={out['any_edge']}")
-    print("ic = drift-neutral forward-return Spearman IC on NON-OVERLAPPING anchors "
+
+
+def _print_s3(out) -> None:
+    print("\nM31 Track A — cost-aware OOS conviction test (S3)")
+    print("=" * 74)
+    print(f"split_frac={out['split_frac']} (orientation fit IS-only)  "
+          f"fee={out['fee_frac']} round-trip  q={out['q']} tails  horizons={out['horizons']}")
+    for r in out["probes"]:
+        print(f"\n  {r['name']}  ({r.get('vol_sid','?')}→{r.get('target_sid','?')}, "
+              f"{r['feature']}): verdict={r['verdict']}")
+        for row in r.get("rows", []):
+            print(f"      H={row['horizon']:>3}d  is_ic={_fmt(row['is_ic'])} "
+                  f"oos_ic={_fmt(row['oos_ic'])} (t={_fmt(row['oos_ic_t'])})  "
+                  f"gross={_fmt(row['gross_spread'])} net={_fmt(row['net_spread'])}  "
+                  f"pays_oos={row['pays_oos']}")
+    print(f"\nany_pays_oos_net={out['any_pays_oos']}")
+    print("pays_oos = OOS IC significant (|t|>=2) AND same sign as IS AND net spread > 0.")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="M31 Track A — implied-vol IC + OOS probe")
+    ap.add_argument("--mode", choices=["s2", "s3", "both"], default="both")
+    ap.add_argument("--horizons", default=",".join(str(h) for h in DEFAULT_HORIZONS))
+    ap.add_argument("--t-flag", type=float, default=2.0)
+    ap.add_argument("--fee-frac", type=float, default=0.001)
+    ap.add_argument("--split-frac", type=float, default=0.6)
+    ap.add_argument("--json", action="store_true", help="emit JSON only")
+    args = ap.parse_args()
+    horizons = tuple(int(x) for x in args.horizons.split(",") if x.strip())
+    bundle = {}
+    if args.mode in ("s2", "both"):
+        bundle["s2"] = run_probes(horizons=horizons, t_flag=args.t_flag)
+    if args.mode in ("s3", "both"):
+        bundle["s3"] = run_probes_s3(horizons=horizons, fee_frac=args.fee_frac,
+                                     split_frac=args.split_frac)
+    if args.json:
+        print(json.dumps(bundle, indent=2))
+        return 0
+    if "s2" in bundle:
+        _print_s2(bundle["s2"])
+    if "s3" in bundle:
+        _print_s3(bundle["s3"])
+    print("\nic = drift-neutral fwd-return Spearman IC on NON-OVERLAPPING anchors "
           "(honest t, N≈n/H).")
     return 0
 
