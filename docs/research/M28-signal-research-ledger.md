@@ -185,6 +185,40 @@ historical IV dataset (the paid gap). Two-track plan:
 Track A is the immediate, free, no-creds workstream and starts next; Track B proceeds in parallel
 once the app is approved.
 
+### M31 Track A — S2 result (#7549): the program's FIRST coherent directional edge
+
+Honest non-overlapping directional IC of the 5 features vs forward SP500/oil at 5/10/21/42d:
+
+| Feature (→target) | Verdict | Rows (ic_dir, ic_t) |
+|---|---|---|
+| `vix_level` (VIX→SP500) | `no_edge` | weak positive tilt, all t < 1.6 |
+| `vix_vrp` (VIX−realized→SP500) | `no_edge` | all \|t\| < 1.5 |
+| **`vix_term` (VIX3M/VIX→SP500)** | **`directional_edge`** | **5d −0.123 (t −2.76) · 10d −0.144 (t −2.30) · 21d −0.157 (t −1.72) · 42d −0.273 (t −2.14)** |
+| `ovx_level` (OVX→WTI) | `no_edge` | all \|t\| < 0.8 |
+| `ovx_vrp` (OVX−realized→WTI) | `no_edge` | all \|t\| < 1.2 |
+
+**Why `vix_term` is a REAL S2 pass, not an M30-style scatter artifact:** it is **3 of 4 horizons
+significant, ALL same sign (negative), with IC monotonically strengthening with horizon**
+(−0.12 → −0.14 → −0.16 → −0.27). Cross-horizon coherence like that is not what multiple-comparisons
+noise produces (M30's `directional_edge` cells were isolated, opposite-signed, at the FP rate). This
+is the **first construction in the entire program to clear the honest non-overlapping S2 gate with a
+coherent signature.**
+
+**Economic read (sensible, and that's a caveat too):** negative IC on VIX3M/VIX means
+**backwardation** (near-term fear spike, ratio<1) → forward SP500 **up**, and contango/complacency →
+flat/down — the classic "buy the vol spike / vol-risk-premium" regularity. **It is a well-documented,
+crowded signal.** So the honest posture is *skeptical-positive*: (a) this is **S2 (honest IC), not
+S3** — no cost-aware conviction spread or OOS split yet; (b) **in-sample, one window**; (c) the IC
+magnitude is modest (0.12–0.27); (d) being a known signal, the real question is whether any edge
+**survives costs and is not already arbitraged** in a tradeable implementation. **Not a strategy —
+a lead worth advancing to S3.** This is the first `advance_to_s3` disposition in the program.
+
+**Next build (queued): M31 Track A-S3** — extend the probe with a **held-out OOS split** + a simple
+**cost-aware long/short-by-term-ratio conviction PnL** (mirroring the `thesis_backtest_run`/conviction-
+spread S3 the macro sleeves used), to test whether `vix_term` pays net of fees out-of-sample or is a
+known-but-unmonetizable regularity. Also widen the vol-term family (VXN/VXD → QQQ/DJIA) to check
+generalization. Track B (Schwab per-underlying skew) still parked on the operator's app registration.
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a
