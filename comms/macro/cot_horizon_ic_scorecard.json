@@ -5,7 +5,7 @@
       "n": 3746,
       "n_windows": 2003,
       "overlapping": false,
-      "ic": 0.003873,
+      "ic": 0.003875,
       "ic_t": 0.237,
       "win_rate": 0.489055,
       "mean_net_return": -0.000215,
@@ -17,7 +17,7 @@
       "n": 1869,
       "n_windows": 1002,
       "overlapping": false,
-      "ic": 0.001975,
+      "ic": 0.001974,
       "ic_t": 0.085,
       "win_rate": 0.502408,
       "mean_net_return": -0.000564,
@@ -34,7 +34,7 @@
       "win_rate": 0.505593,
       "mean_net_return": -0.000977,
       "edge_vs_baseline": -0.003275,
-      "conv_spread": 0.004455
+      "conv_spread": 0.004456
     },
     {
       "horizon_days": 60,
@@ -109,6 +109,6 @@
       "UNG",
       "USO"
     ],
-    "generated_at": "2026-07-23T22:09:12Z"
+    "generated_at": "2026-07-24T07:36:05Z"
   }
 }
