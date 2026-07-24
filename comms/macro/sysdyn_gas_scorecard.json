@@ -3,7 +3,7 @@
   "target": "weekly_henry_hub_price_WHHNGSP",
   "target_source": "fred",
   "exog": "calendar_seasonal(heating_demand,injection_season by ISO week); observed EIA storage + weather HDD are P1c",
-  "generated_at": "2026-07-23T18:49:13Z",
+  "generated_at": "2026-07-24T04:51:24Z",
   "window_years": 8.0,
   "n_obs": 418,
   "span": [
