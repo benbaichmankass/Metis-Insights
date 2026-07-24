@@ -231,3 +231,79 @@ def test_scan_s3_verdict_and_run_probes_s3_smoke():
                             urlopen=_fake_urlopen_factory({"VIXCLS": vix, "SP500": spx}))
     assert out["probes"][0]["verdict"] in {"pays_oos_net", "s2_only_no_s3", "no_data"}
     assert {r["horizon"] for r in out["probes"][0]["rows"]} == {5, 10}
+
+
+# ---- S4-prep: multi-fold walk-forward robustness --------------------------
+
+def _stable_neg_ic_series(n, horizon):
+    """feature = -(realized fwd H-return) → a stable NEGATIVE IC across all time."""
+    tgt = [100.0]
+    for i in range(1, n):
+        tgt.append(tgt[-1] * 1.001)
+    feat = [None] * n
+    for i in range(0, n - horizon):
+        fwd = ivp.log_return(tgt[i], tgt[i + horizon])
+        feat[i] = -fwd if fwd is not None else None
+    return feat, tgt
+
+
+def test_walkforward_stable_signal_is_robust():
+    # a signal whose sign is stable across the whole series → holds every fold.
+    feat, tgt = _stable_neg_ic_series(600, 5)
+    row = ivp.walkforward_row(feat, tgt, 5, k_folds=4)
+    assert row["k_used"] >= 2
+    assert row["expected_sign"] == -1
+    assert row["sign_consistency"] == 1.0                 # every fold holds the sign
+    assert row["verdict"] == "robust"
+
+
+def test_walkforward_flipping_signal_is_not_robust():
+    # feature sign flips halfway → the OOS IC sign flips across folds.
+    n, horizon = 600, 5
+    tgt = [100.0]
+    for i in range(1, n):
+        tgt.append(tgt[-1] * 1.001)
+    feat = [None] * n
+    for i in range(0, n - horizon):
+        fwd = ivp.log_return(tgt[i], tgt[i + horizon])
+        if fwd is None:
+            continue
+        # first half: feature = -fwd (neg IC); second half: feature = +fwd (pos IC)
+        feat[i] = (-fwd if i < n // 2 else fwd)
+    row = ivp.walkforward_row(feat, tgt, horizon, k_folds=4)
+    assert row["sign_consistency"] is not None
+    assert row["sign_consistency"] < 1.0                  # not every fold holds
+    assert row["verdict"] in {"regime_dependent", "not_robust"}
+
+
+def test_walkforward_insufficient_sample_is_not_a_pass():
+    # too few anchors for 2 folds → insufficient_sample, never robust.
+    feat, tgt = _stable_neg_ic_series(60, 42)             # ~1 anchor
+    row = ivp.walkforward_row(feat, tgt, 42, k_folds=4)
+    assert row["verdict"] == "insufficient_sample"
+    assert row["k_used"] == 0
+
+
+def test_walkforward_no_lookahead_expanding_train():
+    feat, tgt = _stable_neg_ic_series(400, 5)
+    row = ivp.walkforward_row(feat, tgt, 5, k_folds=3)
+    trains = [f["n_train"] for f in row["folds"]]
+    # expanding: each fold trains on strictly more anchors than the last
+    assert trains == sorted(trains) and trains[0] < trains[-1]
+
+
+def test_scan_walkforward_ranks_best_horizon_and_run_probes_smoke():
+    feat, tgt = _stable_neg_ic_series(600, 5)
+    scan = ivp.scan_walkforward(feat, tgt, (5, 42), k_folds=4)
+    # H=5 is robust, H=42 insufficient → probe verdict takes the strongest (robust)
+    assert scan["verdict"] == "robust" and scan["best_horizon"] == 5
+    assert scan["is_robust"] is True
+
+    dates = [f"2020-{(i // 28) % 12 + 1:02d}-{i % 28 + 1:02d}" for i in range(600)]
+    vix = _fred_csv([(d, 15.0 + 5.0 * math.sin(i * 0.1)) for i, d in enumerate(dates)])
+    spx = _fred_csv([(d, 3000.0 + i) for i, d in enumerate(dates)])
+    probes = (("vix_level", "VIXCLS", "SP500", "level_pct", None),)
+    out = ivp.run_probes_walkforward(probes=probes, horizons=(5, 10),
+                                     urlopen=_fake_urlopen_factory({"VIXCLS": vix, "SP500": spx}))
+    assert out["probes"][0]["verdict"] in {"robust", "regime_dependent", "not_robust", "insufficient_sample"}
+    assert {r["horizon"] for r in out["probes"][0]["rows"]} == {5, 10}

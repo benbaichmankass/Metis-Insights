@@ -307,6 +307,108 @@ def scan_s3(feature_series: list, target_vals: list, horizons, *,
 
 
 # ---------------------------------------------------------------------------
+# S4-prep — multi-fold walk-forward robustness
+# ---------------------------------------------------------------------------
+#
+# S3 leans on ONE 60/40 split. A signal can pass that split by luck of where the
+# cut lands — the vix_term S3 "pass" rested on a single small-N cell (H=42d, ~23
+# OOS anchors). The honest next question is robustness: does the OOS IC hold its
+# sign across SEVERAL held-out windows, or only one? This runs an EXPANDING-window
+# walk-forward: fold j fits the orientation on all anchors BEFORE test-block j
+# (never on the future — no lookahead) and measures the OOS IC sign on block j.
+# The reference "expected sign" is the whole-sample IS orientation; a fold `holds`
+# when its OOS IC carries that sign. `sign_consistency` = fraction of computable
+# folds that hold. Verdict tiers:
+#   robust           — sign_consistency >= robust_frac AND the pooled OOS IC is
+#                       significant (|t|>=2) in the expected sign (a real edge).
+#   regime_dependent — sign_consistency >= 0.5 but not robust (holds in SOME
+#                       windows only — "one good regime", not a durable edge).
+#   not_robust       — sign_consistency < 0.5 (the OOS IC flips across folds).
+#   insufficient_sample — < 2 computable folds (the honest N-too-small verdict,
+#                       expected at the long horizons where non-overlapping N is
+#                       tiny). NEVER silently upgraded to a pass.
+
+def walkforward_row(feature_series: list, target_vals: list, horizon: int, *,
+                    k_folds: int = 4, min_train: int = 10, min_test: int = 8,
+                    robust_frac: float = 0.75) -> dict:
+    """One horizon's expanding-window walk-forward. Orientation is fit only on
+    anchors strictly before each test block (no lookahead)."""
+    anchors = _anchors(feature_series, target_vals, horizon)
+    n = len(anchors)
+    row = {"horizon": horizon, "n_anchors": n, "k_used": 0, "folds": [],
+           "sign_consistency": None, "expected_sign": None,
+           "pooled_oos_ic": None, "pooled_oos_ic_t": None, "verdict": "insufficient_sample"}
+    # need a seed train + at least 2 test blocks of min_test each
+    if n < min_train + 2 * min_test:
+        return row
+    whole = spearman_ic(anchors)
+    if whole is None:
+        return row
+    expected_sign = -1 if whole["ic"] < 0 else 1
+    row["expected_sign"] = expected_sign
+    test_total = n - min_train
+    k = min(k_folds, test_total // min_test)
+    if k < 2:
+        return row
+    block = test_total // k
+    folds, holds, computable, pooled_test = [], 0, 0, []
+    for j in range(k):
+        train_end = min_train + j * block          # expanding train
+        test_end = n if j == k - 1 else train_end + block
+        train, test = anchors[:train_end], anchors[train_end:test_end]
+        tic, oic = spearman_ic(train), spearman_ic(test)
+        fold = {"fold": j, "n_train": len(train), "n_test": len(test),
+                "train_ic": None, "oos_ic": None, "oos_ic_t": None, "hold": None}
+        if tic is not None and oic is not None:
+            computable += 1
+            oos_sign = -1 if oic["ic"] < 0 else 1
+            hold = oos_sign == expected_sign
+            holds += 1 if hold else 0
+            pooled_test.extend(test)
+            fold.update({"train_ic": tic["ic"], "oos_ic": oic["ic"],
+                         "oos_ic_t": oic["ic_t"], "hold": hold})
+        folds.append(fold)
+    row["folds"], row["k_used"] = folds, k
+    if computable < 2:
+        return row                                  # insufficient_sample
+    sign_consistency = holds / computable
+    row["sign_consistency"] = sign_consistency
+    pooled = spearman_ic(pooled_test)
+    if pooled is not None:
+        row["pooled_oos_ic"], row["pooled_oos_ic_t"] = pooled["ic"], pooled["ic_t"]
+    pooled_sig_same_sign = (
+        pooled is not None
+        and (-1 if pooled["ic"] < 0 else 1) == expected_sign
+        and abs(pooled["ic_t"]) >= 2.0
+    )
+    if sign_consistency >= robust_frac and pooled_sig_same_sign:
+        row["verdict"] = "robust"
+    elif sign_consistency >= 0.5:
+        row["verdict"] = "regime_dependent"
+    else:
+        row["verdict"] = "not_robust"
+    return row
+
+
+_WF_RANK = {"robust": 3, "regime_dependent": 2, "not_robust": 1,
+            "insufficient_sample": 0}
+
+
+def scan_walkforward(feature_series: list, target_vals: list, horizons, *,
+                     k_folds: int = 4, min_train: int = 10, min_test: int = 8,
+                     robust_frac: float = 0.75) -> dict:
+    """Walk-forward across horizons → probe verdict = the strongest horizon's
+    (robust > regime_dependent > not_robust > insufficient_sample)."""
+    rows = [walkforward_row(feature_series, target_vals, h, k_folds=k_folds,
+                            min_train=min_train, min_test=min_test,
+                            robust_frac=robust_frac) for h in horizons]
+    best = max(rows, key=lambda r: _WF_RANK.get(r["verdict"], 0)) if rows else None
+    verdict = best["verdict"] if best else "insufficient_sample"
+    return {"verdict": verdict, "rows": rows, "best_horizon": best["horizon"] if best else None,
+            "is_robust": verdict == "robust"}
+
+
+# ---------------------------------------------------------------------------
 # network wrapper (off-VM-guarded via fred_adapter) + CLI
 # ---------------------------------------------------------------------------
 
@@ -368,6 +470,36 @@ def run_probes_s3(probes=DEFAULT_PROBES, horizons=DEFAULT_HORIZONS, *,
             "any_pays_oos": any(r.get("verdict") == "pays_oos_net" for r in results)}
 
 
+def run_probes_walkforward(probes=DEFAULT_PROBES, horizons=DEFAULT_HORIZONS, *,
+                           urlopen=None, k_folds: int = 4, min_train: int = 10,
+                           min_test: int = 8, robust_frac: float = 0.75) -> dict:
+    """S4-prep pass: expanding-window walk-forward robustness for each probe."""
+    sids = set()
+    for _, vol, tgt, _, extra in probes:
+        sids.update([vol, tgt] + ([extra] if extra else []))
+    dated = fetch_fred_series_history_dated(sorted(sids), urlopen=urlopen)
+    results = []
+    for name, vol_sid, tgt_sid, feature, extra_sid in probes:
+        vol_d, tgt_d = dated.get(vol_sid, []), dated.get(tgt_sid, [])
+        if not vol_d or not tgt_d:
+            results.append({"name": name, "feature": feature, "verdict": "no_data"})
+            continue
+        dates, vol_vals, tgt_vals = align_dated(vol_d, tgt_d)
+        extra_vals = None
+        if extra_sid:
+            emap = {d: v for d, v in dated.get(extra_sid, [])}
+            extra_vals = [_to_float(emap.get(d)) for d in dates]
+        feat = build_feature_series(feature, vol_vals, tgt_vals, extra_vals=extra_vals)
+        wf = scan_walkforward(feat, tgt_vals, horizons, k_folds=k_folds,
+                              min_train=min_train, min_test=min_test, robust_frac=robust_frac)
+        results.append({"name": name, "feature": feature, "vol_sid": vol_sid,
+                        "target_sid": tgt_sid, "verdict": wf["verdict"],
+                        "best_horizon": wf["best_horizon"], "rows": wf["rows"]})
+    return {"k_folds": k_folds, "min_train": min_train, "min_test": min_test,
+            "robust_frac": robust_frac, "horizons": list(horizons), "probes": results,
+            "any_robust": any(r.get("verdict") == "robust" for r in results)}
+
+
 def _fmt(v) -> str:
     return "—" if v is None else (f"{v:.4f}" if isinstance(v, float) else str(v))
 
@@ -404,22 +536,48 @@ def _print_s3(out) -> None:
     print("pays_oos = OOS IC significant (|t|>=2) AND same sign as IS AND net spread > 0.")
 
 
+def _print_wf(out) -> None:
+    print("\nM31 Track A — multi-fold walk-forward robustness (S4-prep)")
+    print("=" * 74)
+    print(f"k_folds={out['k_folds']} (expanding, orientation fit on the past only)  "
+          f"min_train={out['min_train']}  min_test={out['min_test']}  "
+          f"robust_frac={out['robust_frac']}  horizons={out['horizons']}")
+    for r in out["probes"]:
+        print(f"\n  {r['name']}  ({r.get('vol_sid','?')}→{r.get('target_sid','?')}, "
+              f"{r['feature']}): verdict={r['verdict']}  best_horizon={r.get('best_horizon')}")
+        for row in r.get("rows", []):
+            print(f"      H={row['horizon']:>3}d  n_anchors={_fmt(row['n_anchors'])} "
+                  f"k={row['k_used']}  sign_consistency={_fmt(row['sign_consistency'])}  "
+                  f"pooled_oos_ic={_fmt(row['pooled_oos_ic'])} "
+                  f"(t={_fmt(row['pooled_oos_ic_t'])})  → {row['verdict']}")
+            for f in row.get("folds", []):
+                print(f"          fold {f['fold']}: n_train={f['n_train']} "
+                      f"n_test={f['n_test']}  oos_ic={_fmt(f['oos_ic'])} "
+                      f"(t={_fmt(f['oos_ic_t'])})  hold={f['hold']}")
+    print(f"\nany_robust={out['any_robust']}")
+    print("robust = sign_consistency>=robust_frac AND pooled OOS IC significant same-sign; "
+          "regime_dependent = holds in SOME folds only; insufficient_sample = N too small.")
+
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description="M31 Track A — implied-vol IC + OOS probe")
-    ap.add_argument("--mode", choices=["s2", "s3", "both"], default="both")
+    ap = argparse.ArgumentParser(description="M31 Track A — implied-vol IC + OOS + walk-forward probe")
+    ap.add_argument("--mode", choices=["s2", "s3", "wf", "both", "all"], default="all")
     ap.add_argument("--horizons", default=",".join(str(h) for h in DEFAULT_HORIZONS))
     ap.add_argument("--t-flag", type=float, default=2.0)
     ap.add_argument("--fee-frac", type=float, default=0.001)
     ap.add_argument("--split-frac", type=float, default=0.6)
+    ap.add_argument("--k-folds", type=int, default=4)
     ap.add_argument("--json", action="store_true", help="emit JSON only")
     args = ap.parse_args()
     horizons = tuple(int(x) for x in args.horizons.split(",") if x.strip())
     bundle = {}
-    if args.mode in ("s2", "both"):
+    if args.mode in ("s2", "both", "all"):
         bundle["s2"] = run_probes(horizons=horizons, t_flag=args.t_flag)
-    if args.mode in ("s3", "both"):
+    if args.mode in ("s3", "both", "all"):
         bundle["s3"] = run_probes_s3(horizons=horizons, fee_frac=args.fee_frac,
                                      split_frac=args.split_frac)
+    if args.mode in ("wf", "all"):
+        bundle["wf"] = run_probes_walkforward(horizons=horizons, k_folds=args.k_folds)
     if args.json:
         print(json.dumps(bundle, indent=2))
         return 0
@@ -427,6 +585,8 @@ def main() -> int:
         _print_s2(bundle["s2"])
     if "s3" in bundle:
         _print_s3(bundle["s3"])
+    if "wf" in bundle:
+        _print_wf(bundle["wf"])
     print("\nic = drift-neutral fwd-return Spearman IC on NON-OVERLAPPING anchors "
           "(honest t, N≈n/H).")
     return 0
