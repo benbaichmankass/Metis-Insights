@@ -92,6 +92,32 @@ def test_cot_cross_sectional_skips_thin_cross_section():
     assert got["xsec"] == []
 
 
+def test_crypto_conditioning_produces_base_and_conditioned():
+    days = [f"2024-{m:02d}-{d:02d}" for m in range(1, 4) for d in range(1, 29)]  # ~84 daily
+    # funding oscillates; OI trends up then down so the rising-OI gate is sometimes True
+    funding = {"BTCUSDT": list(zip(days, [0.0001 * ((i % 13) - 6) for i in range(len(days))]))}
+    oi = {"BTCUSDT": list(zip(days, [1e6 + 1e4 * (i if i < 40 else 80 - i) for i in range(len(days))]))}
+    out = cs.crypto_conditioning_snapshots(funding, oi, lookback=52, min_history=20)
+    assert set(out) == {"funding_impulse", "funding_impulse_x_oi_rising"}
+    assert out["funding_impulse"], "no base impulse rows"
+    b = out["funding_impulse"][0]
+    assert b["metric"] == "crypto_funding_impulse" and b["higher_is_cheaper"] is False
+    # the conditioned set has the SAME row count (gating neutralizes, never drops rows)
+    assert len(out["funding_impulse_x_oi_rising"]) == len(out["funding_impulse"])
+    # a neutralized row is pulled to cheap_score 0.5; a passed row keeps a real conviction
+    conds = out["funding_impulse_x_oi_rising"]
+    assert any(r["cheap_score"] == 0.5 for r in conds), "no rows neutralized by the OI gate"
+    assert any(r["cheap_score"] != 0.5 for r in conds), "no rows passed the OI gate"
+    # the gate outcome is traceable in inputs
+    assert all("conditioned" in (r.get("inputs") or {}) for r in conds)
+
+
+def test_crypto_conditioning_skips_symbol_without_funding():
+    out = cs.crypto_conditioning_snapshots({"ETHUSDT": []}, {"ETHUSDT": [("2024-01-01", 1e6)]},
+                                           lookback=52, min_history=20)
+    assert out["funding_impulse"] == [] and out["funding_impulse_x_oi_rising"] == []
+
+
 def test_grade_constructions_rollup(monkeypatch):
     # stub grade_construction.grade so the test stays offline (no candle loaders)
     import grade_construction as gc

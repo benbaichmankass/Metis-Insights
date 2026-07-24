@@ -133,6 +133,40 @@ def cot_construction_snapshots(markets_rows: dict, proxy_by_market: dict,
     return merge_by_construction(per_symbol)
 
 
+def crypto_conditioning_snapshots(funding_by_symbol: dict, oi_by_symbol: dict, *,
+                                  asset_class: str = "crypto", lookback: int = 90,
+                                  min_history: int = 30) -> dict:
+    """D2 conditioning construction for crypto: the **funding-IMPULSE** percentile
+    (`pct_change` of funding, contrarian — a rising funding = crowd building = rich)
+    **conditioned on rising open-interest** (only keep conviction when OI is also
+    rising, i.e. real new positioning is behind the funding move, not funding noise).
+
+    Targets entry 3's finding head-on: crypto funding carries a real 1d signal whose
+    magnitude is below fees — conditioning on rising-OI is the hypothesis that the
+    signal is *concentrated* in the subset of dates where the crowd is actually
+    building, so the conditioned reads may carry a bigger (monetizable) edge.
+
+    ``funding_by_symbol`` / ``oi_by_symbol``: ``{symbol: [(date, value), ...]}``.
+    Emits ``{"funding_impulse": [level baseline], "funding_impulse_x_oi_rising":
+    [conditioned]}`` — the pair lets the grader compare the unconditioned impulse to
+    the conditioned one (does the gate concentrate the edge?). Contrarian
+    (`higher_is_cheaper=False`)."""
+    base_rows, cond_rows = [], []
+    for sym, funding in (funding_by_symbol or {}).items():
+        impulse = sc.pct_change_series(funding, periods=1)
+        if not impulse:
+            continue
+        snaps = build_percentile_snapshots(
+            sym, "crypto_funding_impulse", impulse, asset_class=asset_class,
+            lookback=lookback, min_history=min_history, higher_is_cheaper=False,
+            note="D2:funding_impulse", source="construction_sweep")
+        base_rows.extend(snaps)
+        oi = oi_by_symbol.get(sym) or []
+        oi_change = sc.pct_change_series(oi, periods=1)   # gate on OI RISING (change > 0)
+        cond_rows.extend(sc.condition_snapshots(snaps, oi_change, lambda x: x > 0))
+    return {"funding_impulse": base_rows, "funding_impulse_x_oi_rising": cond_rows}
+
+
 def cot_cross_sectional_snapshots(markets_rows: dict, proxy_by_market: dict,
                                   asset_class_by_market: Optional[dict] = None, *,
                                   lookback: int = 156, min_history: int = 52) -> dict:
@@ -188,26 +222,9 @@ def _render(graded: dict) -> str:
     return "\n".join(lines)
 
 
-def main(argv: Optional[list] = None) -> int:
-    import argparse
-    import json
-
-    ap = argparse.ArgumentParser(description="M28 Phase B COT construction sweep (fetch → emit → grade)")
-    ap.add_argument("--input", default="cot", choices=["cot"])
-    ap.add_argument("--candles-dir", required=True)
-    ap.add_argument("--lookback", type=int, default=156)
-    ap.add_argument("--min-history", type=int, default=52)
-    ap.add_argument("--rebalance-every", type=int, default=7, help="COT is weekly")
-    ap.add_argument("--horizons", default="7,14,30,60,90")
-    ap.add_argument("--pnl-horizon", type=int, default=30)
-    ap.add_argument("--fee-frac", type=float, default=0.0)
-    ap.add_argument("--carry-frac-per-day", type=float, default=0.0)
-    ap.add_argument("--limit", type=int, default=2000)
-    ap.add_argument("--json", default=None)
-    args = ap.parse_args(argv)
-
+def _build_cot_constructions(args) -> dict:
+    """Fetch the COT sleeve + build its D1 sweep + D3 cross-section constructions."""
     from cot_data import COT_MARKETS, fetch_cot_market_history
-    from grade_construction import load_close_panels, make_price_at
 
     markets_rows, proxy_by, acls_by = {}, {}, {}
     for m in COT_MARKETS:
@@ -225,6 +242,68 @@ def main(argv: Optional[list] = None) -> int:
     # D3 cross-sectional (rank markets against each other per date) — the untried cell
     constructions.update(cot_cross_sectional_snapshots(
         markets_rows, proxy_by, acls_by, lookback=args.lookback, min_history=args.min_history))
+    return constructions
+
+
+def _build_crypto_constructions(args) -> dict:
+    """Fetch the crypto sleeve (funding/OI/klines) + build the D2 conditioning
+    constructions, AND write per-symbol daily-close candle CSVs into ``--candles-dir``
+    so the grader can price the snapshots. Bybit geo-blocks US GitHub runners — this
+    branch is meant to run on the trainer VM (via the diag relay). Best-effort per
+    symbol: a fetch failure logs a warning and drops that symbol."""
+    import csv
+
+    from crypto_signals_data import (
+        CRYPTO_SYMBOLS, fetch_funding_history, fetch_kline_close, fetch_open_interest,
+        resample_daily_last,
+    )
+
+    os.makedirs(args.candles_dir, exist_ok=True)
+    funding_by, oi_by = {}, {}
+    for sym in CRYPTO_SYMBOLS:
+        try:
+            funding_by[sym] = resample_daily_last(fetch_funding_history(sym))
+            oi_by[sym] = resample_daily_last(fetch_open_interest(sym))
+            close_daily = resample_daily_last(fetch_kline_close(sym))
+        except Exception as e:  # noqa: BLE001 — one symbol's fetch never aborts the sweep
+            print(f"::warning::crypto fetch failed for {sym}: {e}")
+            continue
+        # write the candle CSV the grader reads (date,close)
+        with open(os.path.join(args.candles_dir, f"{sym}.csv"), "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["date", "close"])
+            for d, c in close_daily:
+                w.writerow([d, c])
+
+    return crypto_conditioning_snapshots(
+        funding_by, oi_by, lookback=args.lookback, min_history=args.min_history)
+
+
+def main(argv: Optional[list] = None) -> int:
+    import argparse
+    import json
+
+    ap = argparse.ArgumentParser(description="M28 Phase B construction sweep (fetch → emit → grade)")
+    ap.add_argument("--input", default="cot", choices=["cot", "crypto"])
+    ap.add_argument("--candles-dir", required=True)
+    ap.add_argument("--lookback", type=int, default=156)
+    ap.add_argument("--min-history", type=int, default=52)
+    ap.add_argument("--rebalance-every", type=int, default=7,
+                    help="COT is weekly (7); crypto is daily — pass 1")
+    ap.add_argument("--horizons", default="7,14,30,60,90")
+    ap.add_argument("--pnl-horizon", type=int, default=30)
+    ap.add_argument("--fee-frac", type=float, default=0.0)
+    ap.add_argument("--carry-frac-per-day", type=float, default=0.0)
+    ap.add_argument("--limit", type=int, default=2000)
+    ap.add_argument("--json", default=None)
+    args = ap.parse_args(argv)
+
+    from grade_construction import load_close_panels, make_price_at
+
+    if args.input == "crypto":
+        constructions = _build_crypto_constructions(args)
+    else:
+        constructions = _build_cot_constructions(args)
     price_at = make_price_at(load_close_panels(args.candles_dir))
     cfg = {"min_conviction": 0.4, "universe": [], "express_as": "debit_vertical",
            "account": "alpaca_options_paper"}
