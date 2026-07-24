@@ -95,6 +95,11 @@ jobs:
                 description: 'Triggers m28-value-grade — grade the D3 value-sleeve cross-section on a GitHub runner (FRED + yfinance/Stooq ETF closes).',
               },
               {
+                name: 'm31-implied-vol-grade-now',
+                color: '0e8a16',
+                description: 'Triggers m31-implied-vol-grade — grade the implied-vol input class (CBOE/FRED VIX family) on a GitHub runner.',
+              },
+              {
                 name: 'crypto-signals-backfill-now',
                 color: '0e8a16',
                 description: 'Triggers crypto-signals-backfill — reconstruct historical BTC/ETH/SOL funding/OI/basis snapshots (Bybit) + grade them with the M28 P4 + horizon-IC scans.',
