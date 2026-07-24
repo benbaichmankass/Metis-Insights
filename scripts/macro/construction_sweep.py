@@ -346,9 +346,7 @@ def _build_value_constructions(args) -> dict:
     distinct value drivers, AND write SPY/TLT/SLV daily-close candle CSVs into
     ``--candles-dir`` so the grader can price the snapshots. Off-VM-guarded (needs
     ``ICT_OFFVM_BUILD_HOST``); best-effort per source/symbol."""
-    import csv
-
-    from fetch_macro_candles import symbol_close_pairs
+    from fetch_macro_candles import fetch_candles
     from macro_sources import fetch_source_series_dated
     from src.units.strategies.macro_thesis.fred_adapter import fetch_fred_series_history_dated
     from src.units.strategies.macro_thesis.valuation_feed import load_valuation_config, required_series
@@ -364,19 +362,10 @@ def _build_value_constructions(args) -> dict:
         print(f"::warning::value sources unavailable ({e}); ERP + gold/silver honest-null")
     rows = backfill_rows(config, series_dated, cadence_days=args.rebalance_every, start_date=None)
 
-    # candle CSVs for the tradeable instruments the grader prices forward returns against
+    # candle CSVs for the tradeable instruments the grader prices forward returns against —
+    # fetch_candles resolves the off-VM fetchers (yfinance-then-Stooq) + writes each CSV.
     os.makedirs(args.candles_dir, exist_ok=True)
-    for sym in sorted({s for s, _ in VALUE_DRIVERS}):
-        try:
-            closes = symbol_close_pairs(sym, timeout=25.0)
-        except Exception as e:  # noqa: BLE001 — one symbol's fetch never aborts the sweep
-            print(f"::warning::value candle fetch failed for {sym}: {e}")
-            continue
-        with open(os.path.join(args.candles_dir, f"{sym}.csv"), "w", newline="") as f:
-            w = csv.writer(f)
-            w.writerow(["date", "close"])
-            for d, c in closes:
-                w.writerow([d, c])
+    fetch_candles(sorted({s for s, _ in VALUE_DRIVERS}), args.candles_dir, timeout=25.0)
 
     return value_cross_sectional_snapshots(rows, min_symbols=3)
 
