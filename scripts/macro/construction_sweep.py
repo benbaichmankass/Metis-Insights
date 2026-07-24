@@ -238,6 +238,51 @@ def _render(graded: dict) -> str:
     return "\n".join(lines)
 
 
+# Distinct value DRIVERS — ONE (instrument, primary-metric) per driver, so the D3
+# cross-section isn't degenerate. TLT/IEF/GLD/SLV all carry a `real_yield_10y` metric off
+# the SAME DFII10 series (identical cheap_score → a fake tie); pairing each instrument with
+# ITS primary driver avoids that: SPY←ERP (only equity), TLT←real-yield (purest duration),
+# SLV←gold-silver-ratio (the config's own "governs SLV").
+VALUE_DRIVERS = (
+    ("SPY", "equity_risk_premium"),
+    ("TLT", "real_yield_10y"),
+    ("SLV", "gold_silver_ratio"),
+)
+
+
+def value_cross_sectional_snapshots(snapshot_rows, *, drivers=VALUE_DRIVERS,
+                                    min_symbols: int = 3) -> dict:
+    """D3 cross-sectional VALUE construction: on each as-of date, rank the distinct value
+    DRIVERS against each other and long the relatively-cheapest.
+
+    The cross-comparable axis is each instrument's own-history **cheap_score** (already
+    oriented higher=cheaper by the value core, per that metric's own orientation) — so a
+    heterogeneous set (ERP % vs real-yield % vs gold-silver ratio) is put on one unit-free
+    [0,1] axis, the honest way to cross-section drivers that aren't comparable in raw units
+    (unlike the COT z-score axis, whose units ARE homogeneous). ``snapshot_rows``: the
+    point-in-time valuation-snapshot rows the value backfill reconstructs, each carrying
+    ``symbol`` / ``metric`` / ``observed_at`` / ``cheap_score``. Returns
+    ``{"value_xsec": [rows]}``."""
+    want = {(s, m) for s, m in drivers}
+    series_by_symbol: dict = {}
+    acls: dict = {}
+    for r in snapshot_rows or []:
+        if (r.get("symbol"), r.get("metric")) not in want:
+            continue
+        cs = r.get("cheap_score")
+        day = r.get("observed_at") or r.get("as_of")
+        if cs is None or day is None:
+            continue
+        series_by_symbol.setdefault(r["symbol"], []).append((day, float(cs)))
+        acls[r["symbol"]] = r.get("asset_class", "unknown")
+    rows = sc.cross_sectional_snapshots(
+        series_by_symbol, "value_xsec", asset_class_by_symbol=acls,
+        higher_is_cheaper=True, min_symbols=min_symbols,
+        note="D3:value_xsec (rank own-history cheap_score across distinct drivers)",
+        source="construction_sweep")
+    return {"value_xsec": rows}
+
+
 def _build_cot_constructions(args) -> dict:
     """Fetch the COT sleeve + build its D1 sweep + D3 cross-section constructions."""
     from cot_data import COT_MARKETS, fetch_cot_market_history
@@ -295,13 +340,55 @@ def _build_crypto_constructions(args) -> dict:
         funding_by, oi_by, lookback=args.lookback, min_history=args.min_history)
 
 
+def _build_value_constructions(args) -> dict:
+    """Fetch the VALUE sleeve (FRED + non-FRED sources), reconstruct point-in-time
+    per-instrument snapshots via the value backfill, build the D3 cross-section over the
+    distinct value drivers, AND write SPY/TLT/SLV daily-close candle CSVs into
+    ``--candles-dir`` so the grader can price the snapshots. Off-VM-guarded (needs
+    ``ICT_OFFVM_BUILD_HOST``); best-effort per source/symbol."""
+    import csv
+
+    from fetch_macro_candles import symbol_close_pairs
+    from macro_sources import fetch_source_series_dated
+    from src.units.strategies.macro_thesis.fred_adapter import fetch_fred_series_history_dated
+    from src.units.strategies.macro_thesis.valuation_feed import load_valuation_config, required_series
+    from valuation_snapshot_backfill import backfill_rows
+
+    config = load_valuation_config(args.config)
+    req = required_series(config)
+    series_dated = fetch_fred_series_history_dated(req["series"], timeout=25.0)
+    try:
+        for name, pairs in fetch_source_series_dated(config, start="2005-01-01", timeout=25.0).items():
+            series_dated[name] = pairs
+    except Exception as e:  # noqa: BLE001 — a source miss honest-nulls its metric, never aborts
+        print(f"::warning::value sources unavailable ({e}); ERP + gold/silver honest-null")
+    rows = backfill_rows(config, series_dated, cadence_days=args.rebalance_every, start_date=None)
+
+    # candle CSVs for the tradeable instruments the grader prices forward returns against
+    os.makedirs(args.candles_dir, exist_ok=True)
+    for sym in sorted({s for s, _ in VALUE_DRIVERS}):
+        try:
+            closes = symbol_close_pairs(sym, timeout=25.0)
+        except Exception as e:  # noqa: BLE001 — one symbol's fetch never aborts the sweep
+            print(f"::warning::value candle fetch failed for {sym}: {e}")
+            continue
+        with open(os.path.join(args.candles_dir, f"{sym}.csv"), "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["date", "close"])
+            for d, c in closes:
+                w.writerow([d, c])
+
+    return value_cross_sectional_snapshots(rows, min_symbols=3)
+
+
 def main(argv: Optional[list] = None) -> int:
     import argparse
     import json
 
     ap = argparse.ArgumentParser(description="M28 Phase B construction sweep (fetch → emit → grade)")
-    ap.add_argument("--input", default="cot", choices=["cot", "crypto"])
+    ap.add_argument("--input", default="cot", choices=["cot", "crypto", "value"])
     ap.add_argument("--candles-dir", required=True)
+    ap.add_argument("--config", default=None, help="value sleeve: config/macro_valuation.yaml override")
     ap.add_argument("--lookback", type=int, default=156)
     ap.add_argument("--min-history", type=int, default=52)
     ap.add_argument("--rebalance-every", type=int, default=7,
@@ -318,6 +405,8 @@ def main(argv: Optional[list] = None) -> int:
 
     if args.input == "crypto":
         constructions = _build_crypto_constructions(args)
+    elif args.input == "value":
+        constructions = _build_value_constructions(args)
     else:
         constructions = _build_cot_constructions(args)
     price_at = make_price_at(load_close_panels(args.candles_dir))
