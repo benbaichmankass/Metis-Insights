@@ -132,15 +132,25 @@ now corrected). The **trainer-VM relay is the reliable Bybit path** (as the cryp
 already used). The dead `m30-micro-probe` GitHub-runner workflow was removed in this same PR.
 
 **M30 next step (honest).** The five 1h-OHLCV-shape features are magnitude-dominated at every
-horizon — the *one* directional near-miss is likely noise. Two levers remain before this input
-class is called exhausted like the macro one: **(a)** a **finer interval** (5m/15m) — same feature
-constructions but ~4–12× more non-overlapping N per window, which is the honest way to give a weak
-directional signal a fair shot (a real intrabar edge that 1h can't resolve would show here; more N
-also shrinks the multiple-comparisons false-positive count needed to trust a hit); and **(b)** if
-finer intervals also come back magnitude-only, the free-microstructure-OHLCV class is exhausted
-alongside macro, and the honest escalation is the **operator-gated paid/alternative dataset**
-(on-chain flows, options-implied skew, vendor positioning) already surfaced in the Escalation
-section. Pursue (a) first — it's the last free lever. Queued below as **entry M30-2**.
+horizon — the *one* directional near-miss is likely noise.
+
+**M30-2 — finer-interval (15m + 5m) S2 scan — DONE, `no_robust_edge` (#7546).** Correction to
+own: the 1000-bar Bybit call caps N regardless of interval, so a finer interval gives the *same*
+non-overlapping N over a *shorter* span — its value is finer intrabar *resolution*, not more N. The
+result is unchanged in substance: **still no robust directional edge.** Both intervals are dominated
+by `magnitude_only`/`no_edge` (realized_vol/volume_zscore carry a strong magnitude IC, ~0 direction —
+the same vol-clustering artifact). The scattered `directional_edge` cells (BTC range_position @15m-H8
+t=2.23; SOL range_position @5m-H1 t=−2.11; SOL/ETH volume_zscore isolated cells) sit right at the
+multiple-comparisons false-positive rate (~6 cells cross \|t\|>2 of ~150 tested vs ~7–8 expected at
+5%). The one mild standout worth an honest note: **ETH `volume_zscore` @5m** — two *adjacent*
+horizons significant same-sign (H2 t=2.52, H4 t=3.08), less noise-like than an isolated cell, but
+one feature / one symbol / in-sample. **Not promoted to S3.** **The free-microstructure-OHLCV class
+is now exhausted at S2, alongside the macro class.**
+
+**Pivot (operator-directed 2026-07-24): the implied-vol input class — see the M31 section.** Rather
+than the paid dataset, the operator surfaced a Schwab account (free option-chain/IV data) and the
+free CBOE/FRED vol family is gradeable *now* — a genuinely forward-looking class. M31 Track A is the
+next build.
 
 ## M31 — implied-volatility / options-derived input class (operator-directed, 2026-07-24)
 
@@ -159,7 +169,7 @@ historical IV dataset (the paid gap). Two-track plan:
 
 | Track | Source | Status | Note |
 |---|---|---|---|
-| **A — aggregate implied-vol (free, historical, immediate)** | CBOE/FRED vol family via the existing keyless `fred_adapter` (`VIXCLS` + a 3-month term-structure ratio, `VXN`/`VXD`/`RVX`, `OVX` oil, `GVZ` gold; put-call ratios) | **BUILD NEXT** — no creds, gradeable through the same `horizon_ic_scan --non-overlapping` funnel now | Features: VIX **term-structure** (contango/backwardation), **level percentile** (mean-reversion), **variance-risk-premium** (IV − realized). Targets: forward SPY/MES (VIX), oil (OVX), gold (GVZ) returns — instrument-aligned. |
+| **A — aggregate implied-vol (free, historical, immediate)** | CBOE/FRED vol family via the existing keyless `fred_adapter` (`VIXCLS` + a `VXVCLS` 3-month term ratio, `OVX` oil; `SP500`/`DCOILWTICO` targets) | **BUILT** (`scripts/macro/implied_vol_probe.py` + 15 tests, ruff+pytest green) — grade runs on a GitHub US runner via `m31-implied-vol-grade.yml` (label `m31-implied-vol-grade-now`); **dispatch after this PR merges** (the label-trigger workflow must be on `main` first) | Features: `level_pct` (contrarian: high implied vol → forward bounce), `term_ratio` (VIX3M/VIX contango/backwardation), `vrp` (implied − realized). Honest **non-overlapping** directional Spearman IC vs forward SP500/oil returns at 5/10/21/42d. |
 | **B — per-underlying live skew (Schwab, enrichment)** | Schwab Market Data API option chains + Greeks | **BLOCKED on the one operator hand-off** (app registration + creds); scaffold builds credential-free in parallel | Finer skew/term-structure the aggregate indices can't give (25Δ risk-reversal, single-name skew), accrued as a **forward soak**. |
 
 **The one operator hand-off (Track B, credentials — everything else is mine):**
