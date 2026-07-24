@@ -110,21 +110,37 @@ daily bars, not full order-flow.
 | Stage | Result | Detail |
 |---|---|---|
 | **S0 feasibility** (data + first-look) | **PASS** — first positive feasibility signal in the program | 1000 1h bars/symbol (41.6d), all 5 PIT features (realized_vol, rv_term_structure, ret_autocorr_lag1, range_position, volume_zscore) non-degenerate on all 3 symbols. Interesting first-look ICs: **SOL `realized_vol`→fwd-return, IC 0.070→0.089→0.128→0.177 monotone across 1/2/4/8 bars** (t 2.21→5.66); ETH `range_position@8bar` IC −0.069 (t −2.16); BTC nothing. Run on the trainer VM (#7541, Bybit reachable). |
+| **S2 honest non-overlapping IC** (directional vs magnitude split) | **`no_edge` / `magnitude_only_no_direction`** — NO robust directional edge across 60 cells; the S0 headline was the predicted directional-regime artifact, **confirmed** | Non-overlapping (stride=H) Spearman IC, split into **ic_dir** (drift-demeaned signed fwd-return — tradeable direction) vs **ic_mag** (vs \|fwd-return\| — vol-forecasting, not direction). **SOL `realized_vol`** — the S0 star (first-look IC 0.070→0.177): ic_dir **insignificant at every horizon** (t 1.11/0.74/0.45/0.40) while ic_mag is strongly significant (t 6.83/3.54/3.54/2.76) ⇒ **directional-regime artifact confirmed** — the vol signal forecasts SIZE, not DIRECTION (exactly the entry-11 trap). BTC `realized_vol` identical; `volume_zscore`/`rv_term_structure` magnitude-only on both. The ONLY `directional_edge` across all 60 cells is **ETH `range_position` @H=1bar** (ic_dir −0.0676, t −2.14) — a **single marginal cell**; at t=2/5% across ~60 cells ≈ 3 false positives are expected, so this lone hit is almost certainly **multiple-comparisons noise, NOT promoted to S3**. Run on the trainer VM (#7544). |
 
-**Loud caveat — do NOT mistake S0 for a real edge.** The first-look IC is **in-sample +
-OVERLAPPING** (t inflated ~√8 at the 8-bar horizon → real t ≈ 2, not 5.7), on ONE symbol over
-ONE 41-day window, and `realized_vol` is a **magnitude** correlated with a **signed** forward
-return — the textbook shape of a **directional-regime artifact** (SOL trended up over these 41
-days; vol clusters; "high-vol bar" and "subsequently up" both proxy the trending-up regime).
-This is *exactly* the trap that fooled the crypto-funding S3 (entry 11: overlapping t=3.2 →
-non-overlapping t=1.16). **The honest non-overlapping S2 scan is what will expose whether it's
-real** — that is the M30 next build. S0 clears the bar to *build the S2 grader*, nothing more.
+**Caveat RESOLVED by S2 (#7544) — the S0 headline was the artifact, as predicted.** The S0
+first-look IC was **in-sample + OVERLAPPING** (t inflated ~√8 → real t ≈ 2, not 5.7), on ONE
+symbol over ONE 41-day window, and `realized_vol` is a **magnitude** correlated with a **signed**
+forward return — the textbook **directional-regime artifact** (SOL trended up; vol clusters;
+"high-vol bar" and "subsequently up" both proxy the trending-up regime). The honest
+non-overlapping S2 scan (S2 row above) **confirmed exactly this**: SOL/BTC `realized_vol` carry a
+strongly-significant **magnitude** IC (ic_mag t up to 6.8) but a completely **insignificant
+directional** IC (ic_dir t < 1.2 at every horizon) — the vol signal forecasts SIZE, not tradeable
+DIRECTION. This is the same trap that fooled the crypto-funding S3 (entry 11: overlapping t=3.2 →
+non-overlapping t=1.16), caught this time *before* believing it. **1h-OHLCV shape carries no
+robust directional edge** — the lone `directional_edge` (ETH `range_position` @1bar, t −2.14) is a
+single marginal cell out of 60, consistent with multiple-comparisons noise, and is not promoted.
 
 **Venue note (infra, for future sessions):** Bybit is **geo-blocked from GitHub US runners**
 for the kline endpoint (both `api.bybit.com` and `api.bytick.com` returned empty sub-second on
 a US runner, #7538 — refuting the "bytick is US-reachable" comment in `crypto_signals_data.py`,
 now corrected). The **trainer-VM relay is the reliable Bybit path** (as the crypto sleeve
 already used). The dead `m30-micro-probe` GitHub-runner workflow was removed in this same PR.
+
+**M30 next step (honest).** The five 1h-OHLCV-shape features are magnitude-dominated at every
+horizon — the *one* directional near-miss is likely noise. Two levers remain before this input
+class is called exhausted like the macro one: **(a)** a **finer interval** (5m/15m) — same feature
+constructions but ~4–12× more non-overlapping N per window, which is the honest way to give a weak
+directional signal a fair shot (a real intrabar edge that 1h can't resolve would show here; more N
+also shrinks the multiple-comparisons false-positive count needed to trust a hit); and **(b)** if
+finer intervals also come back magnitude-only, the free-microstructure-OHLCV class is exhausted
+alongside macro, and the honest escalation is the **operator-gated paid/alternative dataset**
+(on-chain flows, options-implied skew, vendor positioning) already surfaced in the Escalation
+section. Pursue (a) first — it's the last free lever. Queued below as **entry M30-2**.
 
 ## The compounding read so far (entries 1–12)
 
