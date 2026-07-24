@@ -190,6 +190,114 @@ def pearson_ic(pairs) -> Optional[dict]:
 
 
 # ---------------------------------------------------------------------------
+# S2 — honest NON-OVERLAPPING IC (the real verdict, not the S0 preview)
+# ---------------------------------------------------------------------------
+
+
+def rank(xs) -> list:
+    """Average ranks (ties → mean rank), 0-based — the basis for a Spearman IC."""
+    order = sorted(range(len(xs)), key=lambda i: xs[i])
+    ranks = [0.0] * len(xs)
+    i = 0
+    while i < len(xs):
+        j = i
+        while j + 1 < len(xs) and xs[order[j + 1]] == xs[order[i]]:
+            j += 1
+        avg = (i + j) / 2.0
+        for k in range(i, j + 1):
+            ranks[order[k]] = avg
+        i = j + 1
+    return ranks
+
+
+def spearman_ic(pairs) -> Optional[dict]:
+    """Rank IC — Pearson on the ranks of ``[(x, y), ...]`` — more robust to the
+    fat tails of intraday returns than raw Pearson. Same ``{n, ic, ic_t}`` shape;
+    ``None`` when < 5 usable pairs or degenerate."""
+    xs = [p[0] for p in pairs if p[0] is not None and p[1] is not None]
+    ys = [p[1] for p in pairs if p[0] is not None and p[1] is not None]
+    if len(xs) < 5:
+        return None
+    return pearson_ic(list(zip(rank(xs), rank(ys))))
+
+
+def s2_nonoverlap_row(bars, feature, horizon, *, vol_short=DEFAULT_VOL_SHORT,
+                      vol_long=DEFAULT_VOL_LONG, method="spearman") -> dict:
+    """Honest **non-overlapping** IC for one feature at one horizon.
+
+    Subsamples bars at **stride = horizon** so the forward-H-bar windows are DISJOINT
+    (no overlap → the t-stat's N is the honest effective sample, not the inflated
+    overlapping count). Then splits two ICs to expose a magnitude-vs-direction artifact:
+
+      - **ic_signed_demeaned** — IC vs the forward return with its sample mean removed
+        (drift-neutral, the *directional* edge — this is what a directional signal needs).
+      - **ic_magnitude** — IC vs |forward return| (does the feature predict SIZE of the
+        move regardless of sign? realized_vol trivially might — that's vol-forecasting,
+        NOT tradeable directional alpha).
+
+    A magnitude feature (like realized_vol) that shows a big ``ic_magnitude`` but a
+    ~0 ``ic_signed_demeaned`` is the **directional-regime artifact** the S0 caveat warned
+    of — real for vol-targeting, useless as a directional entry signal."""
+    panel = build_feature_panel(bars, vol_short=vol_short, vol_long=vol_long)
+    closes = [b["c"] for b in bars]
+    stride = max(1, int(horizon))
+    feat, fwd = [], []
+    for i in range(0, len(bars), stride):
+        f = panel[i][feature]
+        r = forward_return(closes, i, horizon)
+        if f is not None and r is not None:
+            feat.append(f)
+            fwd.append(r)
+    n = len(feat)
+    row = {"horizon": horizon, "n_nonoverlap": n, "feature": feature,
+           "ic_signed_demeaned": None, "ic_signed_t": None,
+           "ic_magnitude": None, "ic_magnitude_t": None}
+    if n < 5:
+        return row
+    mfwd = statistics.fmean(fwd)
+    fwd_dm = [r - mfwd for r in fwd]          # drift-neutral directional target
+    fwd_abs = [abs(r) for r in fwd]           # magnitude target
+    ic_fn = spearman_ic if method == "spearman" else pearson_ic
+    signed = ic_fn(list(zip(feat, fwd_dm)))
+    magnitude = ic_fn(list(zip(feat, fwd_abs)))
+    if signed:
+        row["ic_signed_demeaned"] = round(signed["ic"], 4)
+        row["ic_signed_t"] = round(signed["ic_t"], 3)
+    if magnitude:
+        row["ic_magnitude"] = round(magnitude["ic"], 4)
+        row["ic_magnitude_t"] = round(magnitude["ic_t"], 3)
+    return row
+
+
+def s2_scan(bars, feature, horizons, *, vol_short=DEFAULT_VOL_SHORT,
+            vol_long=DEFAULT_VOL_LONG, method="spearman", t_flag=2.0) -> dict:
+    """Non-overlapping S2 verdict for one feature across horizons. Directional edge is
+    real only when some horizon clears ``|ic_signed_t| >= t_flag`` on the drift-neutral
+    target. Also reports whether the feature is magnitude-predictive-only (the artifact)."""
+    rows = [s2_nonoverlap_row(bars, feature, h, vol_short=vol_short, vol_long=vol_long,
+                              method=method) for h in horizons]
+    directional = [r for r in rows if r["ic_signed_t"] is not None and abs(r["ic_signed_t"]) >= t_flag]
+    magnitude_only = [
+        r for r in rows
+        if (r["ic_magnitude_t"] is not None and abs(r["ic_magnitude_t"]) >= t_flag)
+        and (r["ic_signed_t"] is None or abs(r["ic_signed_t"]) < t_flag)
+    ]
+    best_dir = max(directional, key=lambda r: abs(r["ic_signed_t"]), default=None)
+    return {
+        "feature": feature, "method": method, "t_flag": t_flag, "rows": rows,
+        "has_directional_edge": bool(directional),
+        "magnitude_only_horizons": [r["horizon"] for r in magnitude_only],
+        "best_directional": best_dir,
+        "verdict": (
+            "directional_edge" if directional
+            else "magnitude_only_no_direction" if magnitude_only
+            else "no_edge" if any(r["n_nonoverlap"] >= 5 for r in rows)
+            else "no_data"
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
 # panel + S0 report
 # ---------------------------------------------------------------------------
 
@@ -284,21 +392,12 @@ def fetch_ohlcv(symbol, *, category="linear", interval=DEFAULT_INTERVAL, limit=1
     return []
 
 
-def main(argv: Optional[list] = None) -> int:
-    ap = argparse.ArgumentParser(description="M30 S0 microstructure feasibility probe (Bybit klines)")
-    ap.add_argument("--symbols", default=",".join(DEFAULT_SYMBOLS))
-    ap.add_argument("--interval", default=DEFAULT_INTERVAL, help="Bybit kline interval (e.g. 5,15,60)")
-    ap.add_argument("--limit", type=int, default=1000)
-    ap.add_argument("--horizons", default=",".join(str(h) for h in DEFAULT_HORIZONS))
-    ap.add_argument("--vol-short", type=int, default=DEFAULT_VOL_SHORT)
-    ap.add_argument("--vol-long", type=int, default=DEFAULT_VOL_LONG)
-    ap.add_argument("--min-bars", type=int, default=DEFAULT_MIN_BARS)
-    ap.add_argument("--out", default=None, help="write the full JSON report here")
-    args = ap.parse_args(argv)
+def _f(v) -> str:
+    """Format a possibly-None number for the console (None → em-dash)."""
+    return "—" if v is None else (f"{v:.4f}" if isinstance(v, float) else str(v))
 
-    symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
-    horizons = tuple(int(h) for h in args.horizons.split(",") if h.strip())
 
+def _run_s0(args, symbols, horizons) -> int:
     reports = []
     for sym in symbols:
         bars = fetch_ohlcv(sym, interval=args.interval, limit=args.limit)
@@ -312,17 +411,14 @@ def main(argv: Optional[list] = None) -> int:
         reports.append(rep)
 
     summary = {
-        "probe": "m30_microstructure_s0",
-        "interval": args.interval,
-        "horizons": list(horizons),
-        "reports": reports,
+        "probe": "m30_microstructure_s0", "interval": args.interval,
+        "horizons": list(horizons), "reports": reports,
         "any_data_ok": any(r.get("data_ok") for r in reports),
         "any_interesting": any(r.get("interesting_first_look") for r in reports),
     }
-    out_json = _json.dumps(summary, indent=2, sort_keys=True)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as fh:
-            fh.write(out_json + "\n")
+            fh.write(_json.dumps(summary, indent=2, sort_keys=True) + "\n")
 
     print("M30 S0 microstructure feasibility probe")
     print("=" * 40)
@@ -335,11 +431,76 @@ def main(argv: Optional[list] = None) -> int:
         print(f"  {r['symbol']:>8}: n={r['n_bars']} span={r['span_days']}d  "
               f"non-degenerate=[{nd}]  interesting={len(it)}")
         for hit in it:
-            print(f"           · {hit['feature']}@{hit['horizon']}bar  "
-                  f"ic={hit['ic']}  t={hit['ic_t']}")
+            print(f"           · {hit['feature']}@{hit['horizon']}bar  ic={hit['ic']}  t={hit['ic_t']}")
     print(f"\nany_data_ok={summary['any_data_ok']}  any_interesting={summary['any_interesting']}")
     print("S0 = feasibility only; first-look IC is an in-sample preview, not the S2 verdict.")
     return 0 if summary["any_data_ok"] else 1
+
+
+def _run_s2(args, symbols, horizons) -> int:
+    features = [f.strip() for f in (args.feature or ",".join(FEATURES)).split(",") if f.strip()]
+    results = []
+    for sym in symbols:
+        bars = fetch_ohlcv(sym, interval=args.interval, limit=args.limit)
+        if not bars:
+            print(f"{sym}: no bars (fetch failed / empty)")
+            results.append({"symbol": sym, "n_bars": 0, "error": "no_bars", "scans": []})
+            continue
+        scans = [s2_scan(bars, f, horizons, vol_short=args.vol_short, vol_long=args.vol_long,
+                         method=args.method, t_flag=args.t_flag) for f in features]
+        results.append({"symbol": sym, "n_bars": len(bars), "scans": scans})
+
+    summary = {
+        "probe": "m30_microstructure_s2_nonoverlapping", "interval": args.interval,
+        "horizons": list(horizons), "method": args.method, "t_flag": args.t_flag,
+        "features": features, "results": results,
+        "any_directional_edge": any(sc.get("has_directional_edge")
+                                     for r in results for sc in r.get("scans", [])),
+    }
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as fh:
+            fh.write(_json.dumps(summary, indent=2, sort_keys=True) + "\n")
+
+    print("M30 S2 microstructure — HONEST non-overlapping IC (the real verdict)")
+    print("=" * 68)
+    print(f"method={args.method}  t_flag={args.t_flag}  horizons={list(horizons)}")
+    for r in results:
+        if r.get("error"):
+            print(f"  {r['symbol']:>8}: DATA NOT OK ({r['error']})")
+            continue
+        print(f"  {r['symbol']:>8}: n_bars={r['n_bars']}")
+        for sc in r["scans"]:
+            print(f"      {sc['feature']:>18}: verdict={sc['verdict']}")
+            for row in sc["rows"]:
+                print(f"          H={row['horizon']:>3}bar n={row['n_nonoverlap']:>4}  "
+                      f"ic_dir={_f(row['ic_signed_demeaned'])} (t={_f(row['ic_signed_t'])})  "
+                      f"ic_mag={_f(row['ic_magnitude'])} (t={_f(row['ic_magnitude_t'])})")
+    print(f"\nany_directional_edge={summary['any_directional_edge']}")
+    print("ic_dir = drift-neutral DIRECTIONAL IC (non-overlapping → honest t); "
+          "ic_mag = magnitude IC. Big mag + ~0 dir = the directional-regime artifact.")
+    return 0
+
+
+def main(argv: Optional[list] = None) -> int:
+    ap = argparse.ArgumentParser(description="M30 microstructure probe (Bybit klines) — S0 feasibility / S2 honest IC")
+    ap.add_argument("--mode", choices=["s0", "s2"], default="s0",
+                    help="s0 = feasibility (in-sample preview); s2 = honest non-overlapping IC verdict")
+    ap.add_argument("--symbols", default=",".join(DEFAULT_SYMBOLS))
+    ap.add_argument("--interval", default=DEFAULT_INTERVAL, help="Bybit kline interval (e.g. 5,15,60)")
+    ap.add_argument("--limit", type=int, default=1000)
+    ap.add_argument("--horizons", default=",".join(str(h) for h in DEFAULT_HORIZONS))
+    ap.add_argument("--vol-short", type=int, default=DEFAULT_VOL_SHORT)
+    ap.add_argument("--vol-long", type=int, default=DEFAULT_VOL_LONG)
+    ap.add_argument("--min-bars", type=int, default=DEFAULT_MIN_BARS)
+    ap.add_argument("--feature", default=None, help="s2 mode: CSV of features to scan (default: all)")
+    ap.add_argument("--method", choices=["spearman", "pearson"], default="spearman")
+    ap.add_argument("--t-flag", type=float, default=2.0)
+    ap.add_argument("--out", default=None, help="write the full JSON report here")
+    args = ap.parse_args(argv)
+
+    symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
+    horizons = tuple(int(h) for h in args.horizons.split(",") if h.strip())
+    return _run_s2(args, symbols, horizons) if args.mode == "s2" else _run_s0(args, symbols, horizons)
 
 
 if __name__ == "__main__":

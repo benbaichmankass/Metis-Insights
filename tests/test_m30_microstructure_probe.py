@@ -143,3 +143,76 @@ def test_s0_report_flags_thin_data_not_ok():
     bars = _synthetic_bars(50)
     rep = mp.s0_report("SOLUSDT", bars, min_bars=200)
     assert rep["data_ok"] is False                              # below the feasibility floor
+
+
+# ---- S2 honest non-overlapping IC -----------------------------------------
+
+def test_rank_handles_ties():
+    assert mp.rank([10.0, 30.0, 20.0]) == [0.0, 2.0, 1.0]       # distinct → 0,1,2 by value
+    assert mp.rank([5.0, 5.0, 9.0]) == [0.5, 0.5, 2.0]          # tie → mean rank
+
+
+def test_spearman_ic_is_rank_pearson():
+    # a monotone-but-nonlinear relationship → Spearman ≈ 1 even though Pearson < 1
+    pairs = [(x, x ** 3) for x in range(-6, 7)]
+    ic = mp.spearman_ic(pairs)
+    assert ic is not None and ic["ic"] > 0.99
+
+
+def test_s2_row_is_nonoverlapping():
+    # the core honesty of S2: subsample at stride=H so windows are DISJOINT, so the
+    # t-stat's N is ~n/H (the honest effective sample), not the overlap-inflated ~n.
+    bars = _synthetic_bars(600)
+    row8 = mp.s2_nonoverlap_row(bars, "realized_vol", 8)
+    row1 = mp.s2_nonoverlap_row(bars, "realized_vol", 1)
+    assert 60 <= row8["n_nonoverlap"] <= 80          # ~600/8 disjoint windows, NOT ~600
+    assert row1["n_nonoverlap"] > 400                # H=1 is already disjoint (adjacent bars)
+    # both directional + magnitude ICs are computed and reported
+    assert set(row8) >= {"ic_signed_demeaned", "ic_signed_t", "ic_magnitude", "ic_magnitude_t"}
+
+
+def test_s2_thin_data_is_no_data():
+    bars = _synthetic_bars(20)
+    out = mp.s2_scan(bars, "realized_vol", (8, 16), t_flag=2.0)
+    assert out["verdict"] == "no_data" and out["has_directional_edge"] is False
+
+
+# The discrimination logic (directional edge vs magnitude-only artifact vs no-edge) is
+# the whole point of S2, so test it deterministically by controlling the per-horizon
+# rows — not by fighting synthetic-data artifacts.
+
+def _stub_rows(mp_mod, monkeypatch, rows_by_horizon):
+    def fake(bars, feature, horizon, **kw):
+        return {**{"horizon": horizon, "n_nonoverlap": 100, "feature": feature,
+                   "ic_signed_demeaned": None, "ic_signed_t": None,
+                   "ic_magnitude": None, "ic_magnitude_t": None},
+                **rows_by_horizon[horizon]}
+    monkeypatch.setattr(mp_mod, "s2_nonoverlap_row", fake)
+
+
+def test_s2_verdict_directional_edge(monkeypatch):
+    _stub_rows(mp, monkeypatch, {
+        4: {"ic_signed_demeaned": 0.15, "ic_signed_t": 2.5, "ic_magnitude": 0.05, "ic_magnitude_t": 0.8},
+    })
+    out = mp.s2_scan([{}], "realized_vol", (4,), t_flag=2.0)
+    assert out["has_directional_edge"] is True and out["verdict"] == "directional_edge"
+    assert out["best_directional"]["ic_signed_t"] == 2.5
+
+
+def test_s2_verdict_magnitude_only_artifact(monkeypatch):
+    # significant magnitude IC, insignificant directional IC → the artifact, NOT an edge
+    _stub_rows(mp, monkeypatch, {
+        4: {"ic_signed_demeaned": 0.02, "ic_signed_t": 0.4, "ic_magnitude": 0.30, "ic_magnitude_t": 5.6},
+    })
+    out = mp.s2_scan([{}], "realized_vol", (4,), t_flag=2.0)
+    assert out["has_directional_edge"] is False
+    assert out["verdict"] == "magnitude_only_no_direction"
+    assert out["magnitude_only_horizons"] == [4]
+
+
+def test_s2_verdict_no_edge(monkeypatch):
+    _stub_rows(mp, monkeypatch, {
+        4: {"ic_signed_demeaned": 0.01, "ic_signed_t": 0.2, "ic_magnitude": 0.01, "ic_magnitude_t": 0.3},
+    })
+    out = mp.s2_scan([{}], "realized_vol", (4,), t_flag=2.0)
+    assert out["has_directional_edge"] is False and out["verdict"] == "no_edge"
