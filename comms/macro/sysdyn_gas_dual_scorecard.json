@@ -7,7 +7,7 @@
   },
   "demand_driver": "weather_hdd_open_meteo (real)",
   "target_source": "eia_v2 + fred + open-meteo",
-  "generated_at": "2026-07-23T18:49:16Z",
+  "generated_at": "2026-07-24T04:51:27Z",
   "window_years": 8.0,
   "n_obs": 418,
   "span": [
@@ -34,19 +34,19 @@
     "train_n": 314,
     "holdout_n": 104,
     "storage_fit": {
-      "in_sample_rmse": 395.236141,
-      "in_sample_r2": 0.661832,
-      "oos_rmse": 843.497123,
-      "oos_r2": -0.428425
+      "in_sample_rmse": 394.676222,
+      "in_sample_r2": 0.662789,
+      "oos_rmse": 740.315153,
+      "oos_r2": -0.100332
     },
     "price_fit": {
-      "in_sample_rmse": 1.812752,
-      "in_sample_r2": -0.015391,
-      "oos_rmse": 1.539303,
-      "oos_r2": 0.001809
+      "in_sample_rmse": 1.811381,
+      "in_sample_r2": -0.013855,
+      "oos_rmse": 1.538615,
+      "oos_r2": 0.002702
     },
     "params": {
-      "inj_rate": 77.03125,
+      "inj_rate": 71.09375,
       "wd_rate": 2.25,
       "price_k": 0.1,
       "price_feedback": 0.65625,
@@ -56,22 +56,22 @@
   },
   "stability": {
     "n_folds": 4,
-    "structural_max_rel_spread": 0.500714,
+    "structural_max_rel_spread": 0.650516,
     "stability_threshold": 0.5,
     "oos_edge_r2_min": 0.05,
     "param_rel_spread": {
-      "inj_rate": 0.111575,
-      "wd_rate": 0.209075,
-      "price_k": 0.045345,
-      "price_feedback": 0.500714,
-      "base_price": 0.493586
+      "inj_rate": 0.122862,
+      "wd_rate": 0.225557,
+      "price_k": 0.037111,
+      "price_feedback": 0.650516,
+      "base_price": 0.280433
     },
     "param_means": {
-      "inj_rate": 101.743164,
-      "wd_rate": 3.411621,
-      "price_k": 4.820557,
-      "price_feedback": 1.519531,
-      "base_price": 4.079609
+      "inj_rate": 100.595703,
+      "wd_rate": 3.640137,
+      "price_k": 4.870801,
+      "price_feedback": 1.258789,
+      "base_price": 3.145039
     }
   },
   "verdict": {
