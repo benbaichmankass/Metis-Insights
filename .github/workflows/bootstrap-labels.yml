@@ -100,11 +100,6 @@ jobs:
                 description: 'Triggers crypto-signals-backfill — reconstruct historical BTC/ETH/SOL funding/OI/basis snapshots (Bybit) + grade them with the M28 P4 + horizon-IC scans.',
               },
               {
-                name: 'm30-micro-probe-now',
-                color: '0e8a16',
-                description: 'Triggers m30-micro-probe — S0 microstructure feasibility probe (intraday OHLCV off Bybit klines, US-runner via bytick).',
-              },
-              {
                 name: 'cancel-queued-runs',
                 color: 'cfd3d7',
                 description: 'Triggers cancel-queued-runs — bulk-cancel stale queued Actions runs.',

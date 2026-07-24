@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260724-TRAINER-GIT-DIVERGED",
+      "opened_at": "2026-07-24T15:30:00+00:00",
+      "opened_by": "claude (M30 microstructure research loop, incidental — trainer-vm-diag probe dispatch)",
+      "source": "trainer-vm-diag relay #7540 (2026-07-24T14:28Z): `cd /home/ubuntu/ict-trading-bot && git pull --ff-only -q` returned `fatal: Not possible to fast-forward, aborting.` — so a just-merged file (scripts/micro/microstructure_probe.py) was absent on the trainer (`No such file or directory`). Worked around for the probe via `git fetch origin main && git checkout origin/main -- <path>` (#7541).",
+      "title": "[trainer-vm] git clone at /home/ubuntu/ict-trading-bot cannot fast-forward (diverged from origin/main) — main may not be auto-deploying to the trainer",
+      "description": "The trainer VM's working clone can't `git pull --ff-only` (diverged history — likely a local commit or a detached/rewritten ref from a prior session). This means the trainer's auto-deploy of `main` is stuck: ML code changes merged to main may NOT be reaching the trainer's training cycles / dataset builds, so the trainer could be running stale code without any loud signal. Not investigated further this session (incidental discovery during unrelated M30 research-probe dispatch); the research probe itself was unblocked with a single-file `git checkout origin/main -- <path>`, but the underlying clone divergence remains. Flagging per the standing 'if you see something, say something' directive.",
+      "tier": 2,
+      "trigger_condition": "Next /health-review or /ml-review session. Checks: (a) trainer-vm-diag `cd /home/ubuntu/ict-trading-bot && git status && git log --oneline -5 origin/main..HEAD && git log --oneline -5 HEAD..origin/main` to see the divergence shape (local commits ahead? behind?); (b) confirm whether ict-git-sync (or whatever auto-deploys the trainer) is actually running there and why it stopped fast-forwarding; (c) resolve via `git fetch origin main && git reset --hard origin/main` (the same recovery the vm-git-credential-bootstrap trainer branch uses) once it's confirmed the local delta is not load-bearing (trainer artifacts are typically untracked/gitignored, so a hard reset should be safe — verify first).",
+      "resolution_criteria": "Trainer clone tracks origin/main again and `git pull --ff-only` succeeds; auto-deploy of main to the trainer confirmed working (a fresh merge to main lands on the trainer without manual intervention).",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "BL-20260721-BYBIT2-XRP-TPSL-LEGCAP",
       "opened_at": "2026-07-21T05:27:00+00:00",
       "opened_by": "claude (M27 overnight loop, incidental \u2014 post-deploy journalctl tail after merging PR #7254)",
