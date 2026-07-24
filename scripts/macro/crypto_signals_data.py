@@ -48,9 +48,13 @@ _TRUTHY = {"1", "true", "yes", "on"}
 
 BYBIT_BASE = "https://api.bybit.com"
 # Bybit geo-blocks US IPs on api.bybit.com; api.bytick.com is Bybit's documented
-# alternate domain (different CDN) that US hosts (e.g. GitHub-hosted runners) can
-# reach. Try bytick FIRST so a US off-VM runner works, then the canonical host (for
-# non-US hosts like the live VM). A fetcher uses the first base that returns data.
+# alternate domain (different CDN). Try bytick FIRST, then the canonical host; a
+# fetcher uses the first base that returns data.
+# EMPIRICAL NOTE (2026-07-24, M30 #7538): from a GitHub-hosted **US** runner BOTH
+# bases returned EMPTY (sub-second) for the /v5/market/kline endpoint — i.e. bytick
+# did NOT bypass the geo-block for klines. So a US GitHub runner is NOT a reliable
+# Bybit venue; use the **trainer-VM relay** (non-US OCI) for any Bybit fetch, as the
+# crypto sleeve backfill and the M30 microstructure probe (#7541) both do.
 BYBIT_BASES = ("https://api.bytick.com", "https://api.bybit.com")
 
 

@@ -93,9 +93,38 @@ Two concrete candidate directions, in the order I'd pursue them:
 has reached its honest floor. I recommend pivoting the R&D funnel to **(1) higher-frequency
 microstructure off the existing feeds** as the next Tier-1 workstream — no new cost, natural
 information-content step-up. Direction (2) (paid data) is available if you want to spend, but
-I would exhaust the free microstructure class first. Absent a steer I'll begin the Tier-1
-microstructure feasibility probe on the next fire (build the intraday feature-panel accrual
-+ an S0 feasibility grade), keeping the same honest-negative discipline.
+I would exhaust the free microstructure class first. **This pivot is now underway — see the
+M30 section below; the S0 feasibility probe has run and PASSED (the first positive feasibility
+signal in the program).**
+
+## M30 — microstructure input class (the pivot, 2026-07-24)
+
+The macro table above (12 rows / 15 constructions) is a **closed chapter** — all three free
+daily-bar macro inputs exhausted. M30 opens the next input class: **higher-frequency intraday
+OHLCV structure** off the keyless Bybit kline feed (BTC/ETH/SOL, 1h bars). Same honest
+S0→S3 funnel. **Honest scoping (recorded up front):** true tape/book order-flow microstructure
+has NO free historical feed (Bybit `recent-trade` is a short rolling window, orderbook is
+snapshot-only), so the tractable free route is *intrabar OHLCV shape* — a modest step-up over
+daily bars, not full order-flow.
+
+| Stage | Result | Detail |
+|---|---|---|
+| **S0 feasibility** (data + first-look) | **PASS** — first positive feasibility signal in the program | 1000 1h bars/symbol (41.6d), all 5 PIT features (realized_vol, rv_term_structure, ret_autocorr_lag1, range_position, volume_zscore) non-degenerate on all 3 symbols. Interesting first-look ICs: **SOL `realized_vol`→fwd-return, IC 0.070→0.089→0.128→0.177 monotone across 1/2/4/8 bars** (t 2.21→5.66); ETH `range_position@8bar` IC −0.069 (t −2.16); BTC nothing. Run on the trainer VM (#7541, Bybit reachable). |
+
+**Loud caveat — do NOT mistake S0 for a real edge.** The first-look IC is **in-sample +
+OVERLAPPING** (t inflated ~√8 at the 8-bar horizon → real t ≈ 2, not 5.7), on ONE symbol over
+ONE 41-day window, and `realized_vol` is a **magnitude** correlated with a **signed** forward
+return — the textbook shape of a **directional-regime artifact** (SOL trended up over these 41
+days; vol clusters; "high-vol bar" and "subsequently up" both proxy the trending-up regime).
+This is *exactly* the trap that fooled the crypto-funding S3 (entry 11: overlapping t=3.2 →
+non-overlapping t=1.16). **The honest non-overlapping S2 scan is what will expose whether it's
+real** — that is the M30 next build. S0 clears the bar to *build the S2 grader*, nothing more.
+
+**Venue note (infra, for future sessions):** Bybit is **geo-blocked from GitHub US runners**
+for the kline endpoint (both `api.bybit.com` and `api.bytick.com` returned empty sub-second on
+a US runner, #7538 — refuting the "bytick is US-reachable" comment in `crypto_signals_data.py`,
+now corrected). The **trainer-VM relay is the reliable Bybit path** (as the crypto sleeve
+already used). The dead `m30-micro-probe` GitHub-runner workflow was removed in this same PR.
 
 ## The compounding read so far (entries 1–12)
 
