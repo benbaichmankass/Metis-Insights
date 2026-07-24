@@ -181,6 +181,49 @@ This mirrors the pattern already used by autonomous roadmap sessions
 — this section makes it a binding requirement of `research-driver`
 specifically, not an ad hoc habit some sessions happen to adopt.
 
+### The wake mechanism — how the cadence ACTUALLY fires (mandatory, 2026-07-24)
+
+A ping cadence is not self-executing. A Claude Code (web/remote) session
+**ends its turn and stops** — it does not stay running between operator
+messages. So "ping at least once an hour" is unactionable on its own: with
+no scheduled wake, the session simply goes silent after its last reply and
+the operator has to keep pushing it to continue. That silent stop is the
+exact failure this whole section exists to prevent (operator directive,
+2026-07-24: *"you need to be sending me a ping once an hour even if there's
+no progress, and set yourself alarms/timers so you continue when you're
+ready and not just stop and wait for me to keep pushing you"*).
+
+So **at session start (Step 0), before doing substantive work, arm a
+recurring self-wake** — this is the required companion to Step 0's
+permission front-loading:
+
+- Create a recurring **self-bound Routine** with the Claude Code Remote
+  `create_trigger` MCP tool: `cron_expression` for hourly (`0 * * * *` —
+  the server anchors it to the creation minute), fired into **this
+  persistent session** (the default self-bind — do NOT set
+  `create_new_session_on_fire`, so the fire resumes the same context and
+  its MCP connectors reconnect on resume). The trigger's `prompt` re-enters
+  this loop: check in-flight state (open PRs → merge when green; dispatched
+  workflow-issues → read the verdict; queued runs), record any landed
+  verdicts, continue the next Step-1 work item, and post the status update
+  (that reply IS the heartbeat).
+- **On the FIRST fire, verify the tools you need are actually present**
+  (`get_me` as a github-MCP liveness probe). If a fired session comes up
+  without a connector it needs, adapt (git-CLI-only build work still
+  works: branch/commit/push, pytest, ruff) and flag the gap — do not go
+  silent.
+- **Tear the Routine down** (`delete_trigger`) when the session's work is
+  genuinely complete or handed off (Step 8) — a self-wake that outlives
+  its work is its own alarm-fatigue bug.
+- `send_later` (one-shot, minute-granularity) is the right tool for a
+  *nearer-than-an-hour* check (e.g. a dispatched workflow that finishes in
+  ~10 min); the recurring `create_trigger` is the durable hourly backbone.
+  Use both when a run needs a prompt check sooner than the next hourly tick.
+
+Without this, Step 7's mandate is words with no motor. A `research-driver`
+session that has NOT armed a self-wake is misconfigured — arm it first,
+then work.
+
 ## Step 0 (session start) — front-load permissions
 
 Before doing substantive work, identify anything this session will need
@@ -194,6 +237,36 @@ must be front-loaded rather than discovered mid-session. This composes
 with Step 7's hourly cadence as a second layer of defense (a session that
 DOES get stuck despite front-loading still surfaces via the next heartbeat
 missing), not a replacement for it.
+
+**WHY this is the whole game (2026-07-24 directive — read this before you
+rationalize a mid-flight ask):** the operator being **away** is the
+*expected, normal* state of an autonomous session, not an exception. That
+is what "autonomous" means. So:
+
+1. **Do not ask for a mid-flight "sanity"/permission ack at all.** If you
+   catch yourself wanting one after work has started, that is a Step-0
+   miss — you should have front-loaded it. Batch it, or make the safe
+   default call yourself within your tier and proceed. Reaching for a
+   mid-flight approval is the anti-pattern this step exists to kill.
+2. **Silence is NOT denial. An unanswered prompt is the away-operator
+   case, not a "no."** Never infer rejection, disapproval, or a changed
+   directive from a non-response — and never let an unanswered prompt
+   halt autonomous work. If you find yourself having concluded "the
+   operator rejected X" or "the operator steered me away from Y" and the
+   only evidence is that a prompt went unanswered, that conclusion is
+   **wrong by construction** — discard it immediately and continue. (This
+   rule exists because a session did exactly this: it fired a scheduling
+   prompt, got no reply because the operator was away working autonomously
+   as intended, misread the silence as a 3×-repeated rejection, baked that
+   false inference into its own running context, and then *perpetuated* it
+   across turns instead of catching it — the precise inversion this step
+   forbids.)
+3. **Catch and reverse a bad inference the moment you notice it.** A wrong
+   conclusion about operator intent is not a fact to preserve for
+   consistency — the instant you realize an assumption rests on silence or
+   a misread, state the correction and act on the corrected understanding.
+   Perpetuating a known-shaky inference "to stay consistent" is itself the
+   bug.
 
 ## Step 8 — Know when to hand off instead of continuing
 

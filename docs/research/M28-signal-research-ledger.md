@@ -17,6 +17,7 @@ positive, cost-surviving conviction spread at a tradeable horizon.
 | 3 | Crypto funding/OI/basis | level percentile | none | time-series | contrarian (crowding fade) | nominal `monetizable_horizon_found` @1d (IC 0.070, t=2.10) but conv_spread **negligible** (+2 bps/day gross, net-negative after fees); 7–14d spreads not significant | There *is* a real 1d statistical signal in funding/basis crowding, but its magnitude is below fees. A bigger-magnitude construction or a longer horizon is needed to monetize it. |
 | 4 | Gas storage↔price (M29 sysdyn) | mechanistic calibration (storage-anchored + weather HDD) | — | — | — | `park_deeper_investment` / `no_mechanistic_edge` — price readout ~0 OOS (storage OOS R²=−0.43, price OOS R²=0.002, not identifiable) | Graded on *calibration R²*, NOT yet through the signal gate. Distinct open question: does the model-implied **mispricing**, emitted as a snapshot signal, trade through the P4/horizon gate? (Next M29 step — now built, entry 8.) |
 | 5 | CFTC-COT large-spec net | **D1 sweep** — change (Δ impulse) · divergence (spec-vs-commercial rolling-z gap) · detrend (dev-from-mean) | none | time-series | contrarian | `no_edge` (divergence, detrend) / `pnl_but_no_signal` (level, change) — **none worth building** (`cot_construction_sweep.json`, #7509) | The D1 transforms do **not** rescue COT. Change/divergence/detrend all fail the S2 signal gate exactly as the level did (entry 2). The limitation is the **INPUT** (spec-positioning level/change/divergence carries no honest predictive signal on these proxies), not the construction cell — so the next lever for COT is a different input or a cross-sectional/composite frame (D3/D4), not another D1 transform. |
+| 8 | Gas storage↔price (M29 sysdyn) | **model-implied mispricing** — `(market − model)/model` vs the seed model's storage→price readout (UNG) | none | time-series | contrarian (below fair = cheap) | `no_edge`, worth_building=False — S2 honest False, S3 `pays_oos` False, **conv_ret −0.79**, Sharpe −0.04 over 835 snapshots (`sysdyn_mispricing_scorecard.json`, #7512) | **The sysdyn work IS now used — graded honestly — and the mispricing does not trade.** Consistent with entry 4's calibration: the price readout has OOS R²≈0.003, so it barely tracks price, so its "mispricing" is mostly noise. A mechanistic model that can't forecast the level can't produce a tradeable mispricing off it. Parks the seed-gas signal path; the mechanistic route needs a model that clears the calibration gate FIRST (entry 4) before its mispricing is worth grading. |
 
 ## Reading the ledger
 
@@ -39,12 +40,24 @@ D4 composite) each of these inputs can still be run through.
 - **7 · Cross-sectional value/COT** — rank instruments against each other per date
   (D3, `cross_sectional_snapshots`), long-cheapest/short-richest basket. Needs a
   cross-comparable metric (normalized COT-index / z-score, not raw spec_net).
-- **8 · sysdyn mispricing as a snapshot signal** — emit the gas model's model-implied
-  mispricing into the schema and grade it on the same instrument (M29 → the gate).
-  **BUILT + wired** (`scripts/macro/sysdyn_mispricing.py` — reuses the seed model's
-  `_price_from_storage` readout for a per-date model-implied fair value, mispricing
-  `(market−model)/model`, contrarian `higher_is_cheaper=False`; loads the fitted
-  P1c params from `sysdyn_gas_dual_scorecard.json`, falls back to seed constants).
-  A gradeable run is wired into `sysdyn-gas-calibrate.yml` (fetches UNG candles →
-  emits mispricing snapshots → S2+S3 grade → `comms/macro/sysdyn_mispricing_scorecard.json`).
-  Verdict row fills once the first graded scorecard lands on main.
+- ~~**8 · sysdyn mispricing as a snapshot signal**~~ — **DONE** (row 8 above; `no_edge`,
+  the mispricing doesn't trade — a mechanistic model that fails the calibration gate
+  can't yield a tradeable mispricing).
+
+## The compounding read so far (entries 1–8)
+
+Eight constructions, **zero survivors** — and that is a *result*, not a stall. The
+pattern across them narrows where the edge can still be:
+
+- **Level-percentile / D1-transform of a single raw series is exhausted** on value,
+  COT, and crypto (entries 1–3, 5). Varying the transform did not rescue any input.
+- **Crypto (entry 3) is the one live statistical signal** (real 1d IC) but its
+  magnitude is below fees — so the lever is *magnitude*, not *existence*: a
+  bigger-amplitude construction or a cost structure that fits, not another percentile.
+- **The mechanistic route (entries 4, 8) is gated on calibration first** — a model
+  that can't forecast the level can't misprice it.
+
+The **still-untried cells** are therefore the priority, in order: **D3 cross-section**
+(rank instruments against each other — the classic value/carry frame, never run here),
+**D2 conditioning** (crypto funding-impulse × rising-OI — targets entry 3's magnitude
+problem directly), and **D4 composite**. That is the queue.
