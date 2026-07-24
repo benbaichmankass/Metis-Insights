@@ -161,3 +161,73 @@ def test_run_probes_empty_series_is_no_data_not_crash():
                          urlopen=_fake_urlopen_factory({}), t_flag=2.0)
     assert out["probes"][0]["verdict"] == "no_data"
     assert "empty series" in out["probes"][0]["reason"]
+
+
+# ---- S3: OOS split + cost-aware conviction spread --------------------------
+
+def test_anchors_are_nonoverlapping():
+    feat = [float(i) for i in range(120)]
+    tgt = [100.0 + i for i in range(120)]
+    a = ivp._anchors(feat, tgt, 8)
+    assert 12 <= len(a) <= 15                              # ~120/8 disjoint, not ~112
+
+
+def test_conviction_s3_row_planted_signal_pays_oos():
+    # feature LOW → forward HIGH (negative IC), stable across the whole series so
+    # the IS-fit orientation holds OOS and the long/short spread pays net.
+    n = 400
+    tgt = [100.0]
+    feat = [None] * n
+    for i in range(1, n):
+        tgt.append(tgt[-1] * 1.001)                        # gentle uptrend
+    for i in range(0, n - 5):
+        # feature = -(realized fwd 5d return) → perfectly negative IC, big spread
+        fwd = ivp.log_return(tgt[i], tgt[i + 5])
+        feat[i] = -fwd if fwd is not None else None
+    row = ivp.conviction_s3_row(feat, tgt, 5, split_frac=0.6, fee_frac=0.0)
+    assert row["orient"] == -1                             # IS IC negative → long low bin
+    assert row["oos_ic"] is not None and row["oos_ic"] < 0
+    assert row["gross_spread"] > 0 and row["pays_oos"] is True
+
+
+def test_conviction_s3_row_thin_is_no_pay():
+    row = ivp.conviction_s3_row([None] * 5, [1.0] * 5, 5)
+    assert row["pays_oos"] is False and row["oos_ic"] is None
+
+
+def test_conviction_s3_fee_can_flip_net_negative():
+    n = 300
+    tgt = [100.0]
+    feat = [None] * n
+    for i in range(1, n):
+        tgt.append(tgt[-1] * 1.0005)
+    for i in range(0, n - 5):
+        fwd = ivp.log_return(tgt[i], tgt[i + 5])
+        feat[i] = -fwd if fwd is not None else None
+    cheap = ivp.conviction_s3_row(feat, tgt, 5, fee_frac=0.0)
+    pricey = ivp.conviction_s3_row(feat, tgt, 5, fee_frac=0.5)   # absurd fee
+    assert cheap["net_spread"] > pricey["net_spread"]
+    assert pricey["pays_oos"] is False                    # cost kills it
+
+
+def test_scan_s3_verdict_and_run_probes_s3_smoke():
+    n = 400
+    tgt = [100.0]
+    feat = [None] * n
+    for i in range(1, n):
+        tgt.append(tgt[-1] * 1.001)
+    for i in range(0, n - 5):
+        fwd = ivp.log_return(tgt[i], tgt[i + 5])
+        feat[i] = -fwd if fwd is not None else None
+    scan = ivp.scan_s3(feat, tgt, (5,), fee_frac=0.0)
+    assert scan["verdict"] == "pays_oos_net" and scan["pays_oos"] is True
+
+    # run_probes_s3 wiring on injected FRED series (verdict is data-driven, just no crash)
+    dates = [f"2020-{(i // 28) % 12 + 1:02d}-{i % 28 + 1:02d}" for i in range(400)]
+    vix = _fred_csv([(d, 15.0 + 5.0 * math.sin(i * 0.1)) for i, d in enumerate(dates)])
+    spx = _fred_csv([(d, 3000.0 + i) for i, d in enumerate(dates)])
+    probes = (("vix_level", "VIXCLS", "SP500", "level_pct", None),)
+    out = ivp.run_probes_s3(probes=probes, horizons=(5, 10),
+                            urlopen=_fake_urlopen_factory({"VIXCLS": vix, "SP500": spx}))
+    assert out["probes"][0]["verdict"] in {"pays_oos_net", "s2_only_no_s3", "no_data"}
+    assert {r["horizon"] for r in out["probes"][0]["rows"]} == {5, 10}
