@@ -121,6 +121,45 @@ def test_crypto_conditioning_skips_symbol_without_funding():
     assert out["funding_impulse"] == [] and out["funding_impulse_x_oi_rising"] == []
 
 
+def _value_row(symbol, metric, day, cheap_score, asset_class="unknown"):
+    return {"symbol": symbol, "metric": metric, "observed_at": day, "as_of": day,
+            "cheap_score": cheap_score, "asset_class": asset_class}
+
+
+def test_value_cross_sectional_ranks_distinct_drivers():
+    days = _weekly(6)
+    rows = []
+    # SPY cheapest, SLV mid, TLT richest on every date → a clean, stable cross-section
+    for d in days:
+        rows.append(_value_row("SPY", "equity_risk_premium", d, 0.90, "equity"))
+        rows.append(_value_row("SLV", "gold_silver_ratio", d, 0.50, "commodity"))
+        rows.append(_value_row("TLT", "real_yield_10y", d, 0.10, "bond"))
+        # decoy: GLD real_yield shares TLT's driver — must be EXCLUDED (degeneracy guard)
+        rows.append(_value_row("GLD", "real_yield_10y", d, 0.10, "commodity"))
+    out = cs.value_cross_sectional_snapshots(rows, min_symbols=3)
+    assert set(out) == {"value_xsec"}
+    xs = out["value_xsec"]
+    assert xs, "no cross-sectional rows"
+    assert {r["symbol"] for r in xs} == {"SPY", "SLV", "TLT"}, "decoy GLD leaked / a driver missing"
+    assert all(r["metric"] == "value_xsec" and r["higher_is_cheaper"] is True for r in xs)
+    assert all(r["n_history"] == 3 for r in xs)          # 3-wide cross-section each date
+    # higher own-history cheap_score → ranked cheaper cross-sectionally
+    one_day = [r for r in xs if r["as_of"] == days[0]]
+    by_sym = {r["symbol"]: r["cheap_score"] for r in one_day}
+    assert by_sym["SPY"] > by_sym["SLV"] > by_sym["TLT"]
+
+
+def test_value_cross_sectional_skips_thin_and_missing_fields():
+    days = _weekly(4)
+    rows = []
+    for d in days:
+        rows.append(_value_row("SPY", "equity_risk_premium", d, 0.8))
+        rows.append(_value_row("TLT", "real_yield_10y", d, 0.2))   # only 2 drivers → < min_symbols
+    rows.append(_value_row("SLV", "gold_silver_ratio", days[0], None))  # null cheap_score dropped
+    out = cs.value_cross_sectional_snapshots(rows, min_symbols=3)
+    assert out["value_xsec"] == []
+
+
 def test_grade_constructions_rollup(monkeypatch):
     # stub grade_construction.grade so the test stays offline (no candle loaders)
     import grade_construction as gc
