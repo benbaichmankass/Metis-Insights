@@ -20,6 +20,7 @@ positive, cost-surviving conviction spread at a tradeable horizon.
 | 7 | CFTC-COT large-spec net | **D3 cross-sectional** — rank the COT markets against each other per date on z-scored spec_net (z is the cross-comparable metric; raw spec_net isn't comparable across crude/gold/copper) | none | **cross-section** | contrarian | `no_edge`, worth_building=False — S2 honest False, S3 `pays_oos` False (conv_ret +0.43 gross but doesn't beat the all-long arm on the OOS half) over the multi-market basket (`cot_construction_sweep.json`, #7516) | Cross-section doesn't rescue COT either. **Level (entry 2), D1 transforms (entry 5), AND the cross-market basket (this) all fail** — the COT INPUT carries no honest, cost-surviving edge in *any* construction cell tried. This exhausts construction-variation on COT: the only remaining COT lever is a *different underlying signal* (not spec-positioning), not another framing of the same series. |
 | 8 | Gas storage↔price (M29 sysdyn) | **model-implied mispricing** — `(market − model)/model` vs the seed model's storage→price readout (UNG) | none | time-series | contrarian (below fair = cheap) | `no_edge`, worth_building=False — S2 honest False, S3 `pays_oos` False, **conv_ret −0.79**, Sharpe −0.04 over 835 snapshots (`sysdyn_mispricing_scorecard.json`, #7512) | **The sysdyn work IS now used — graded honestly — and the mispricing does not trade.** Consistent with entry 4's calibration: the price readout has OOS R²≈0.003, so it barely tracks price, so its "mispricing" is mostly noise. A mechanistic model that can't forecast the level can't produce a tradeable mispricing off it. Parks the seed-gas signal path; the mechanistic route needs a model that clears the calibration gate FIRST (entry 4) before its mispricing is worth grading. |
 | 9 | Crypto funding **impulse** (Δ funding) | **D2 conditioning** — funding impulse, and funding impulse gated on **rising OI** (crowding building) | **rising-OI gate** | time-series | contrarian | `no_edge` (both cells), worth_building=False — S2 honest **False** for both; `funding_impulse` conv_ret −0.328 / Sharpe −0.451, `funding_impulse_x_oi_rising` conv_ret −0.270 / Sharpe −0.457 (`crypto_construction_sweep.json`, #7519) | Two learnings. (1) The rising-OI gate **moved conv_ret in the right direction** (−0.328 → −0.270, ~18% less negative) — conditioning *is* a live lever on this input, the first construction dimension to shift the number rather than reproduce a null. But it's nowhere near enough, and neither cell clears the S2 signal gate. (2) **Methodological miss to own honestly:** this conditioned the funding *impulse* (Δ), whereas entry 3's real-but-below-fee 1d signal was the funding **LEVEL** percentile. So entry 9 is *not yet* the faithful D2 test of entry 3 — the impulse is a different (worse) base series that the OI gate couldn't rescue. The faithful test — funding **LEVEL** × rising-OI — is the immediate follow-up (entry 10, code landed, grade dispatched). |
+| 10 | Crypto funding **LEVEL** (entry-3's signal) | **D2 conditioning** — funding level, and funding level gated on **rising OI** | **rising-OI gate** | time-series | contrarian | `pnl_but_no_signal` (level) / `pnl_but_no_signal` (level×OI), worth_building=**False** — S2 honest **False** for both; **gross/zero-fee** (`--fee-frac 0`): `funding_level` conv_ret **+0.316** / Sharpe **+0.58** / pays_oos True; `funding_level_x_oi_rising` conv_ret **−0.497** / Sharpe −0.705 (`crypto_construction_sweep.json`, #7522) | **The decisive D2-crypto result, two findings.** (1) **The rising-OI crowding gate is REFUTED for the level** — it flipped the sign, +0.316 → **−0.497**. The impulse got a marginal *help* from the gate (entry 9); the level gets *destroyed* by it. So "crowding builds as OI rises → fade harder" does not hold for the level; the level signal is strongest **unconditioned**, and neutralizing the not-rising-OI half throws away its informative bars. **D2 conditioning on OI is a dead end for crypto funding.** (2) `funding_level` shows a **positive gross conv_ret (+0.316, Sharpe 0.58)** but S2-not-flagged — a `pnl_but_no_signal` split. **Caveat that decides it: the grade ran at `fee_frac=0` (CLI default), so +0.316 is GROSS.** That only reconfirms entry 3 (real gross signal) and says nothing new about cost survival — entry 3 already found the same series net-negative after fees. A fee-aware re-grade (dispatched) confirms the net number. So no survivor, and the crypto-funding input is now exhausted across level (3), impulse (9), and both OI-conditioned cells (9,10). |
 
 ## Reading the ledger
 
@@ -45,40 +46,51 @@ D4 composite) each of these inputs can still be run through.
 - ~~**8 · sysdyn mispricing as a snapshot signal**~~ — **DONE** (row 8 above; `no_edge`,
   the mispricing doesn't trade — a mechanistic model that fails the calibration gate
   can't yield a tradeable mispricing).
-- **10 · Crypto D2 conditioning — funding LEVEL × rising-OI** — the *faithful* D2 test
-  entry 9 should have been: condition entry-3's real-but-below-fee funding **level**
-  percentile on rising OI, testing whether the crowding gate concentrates that live
-  1d signal above fees. Code landed (`crypto_conditioning_snapshots` now emits
-  `funding_level` + `funding_level_x_oi_rising` alongside the impulse pair); grade
-  dispatched via the trainer-VM relay (Bybit geo-block).
-- **11 · Cross-sectional VALUE sleeve** — rank ERP/real-yield/GSR/OAS cross-instrument
-  (the D3 frame on the value input, distinct from the failed COT D3). Runs off-VM.
+- ~~**10 · Crypto D2 conditioning — funding LEVEL × rising-OI**~~ — **DONE** (row 10
+  above). No survivor; the rising-OI gate is **refuted** for the level (it flipped the
+  sign). Fee-aware re-grade dispatched to confirm the net number. **This closes the
+  crypto-funding input** across level / impulse / both OI-conditioned cells.
+- **11 · Cross-sectional VALUE sleeve** — rank the value instruments cross-instrument
+  on own-history cheapness (the D3 frame on the value input, distinct from the failed
+  COT D3). **Design note:** the seed universe (`config/macro_valuation.yaml`) has
+  TLT/IEF/GLD all keyed off the *same* DFII10 real-yield series → a naive per-instrument
+  cross-section is degenerate (three near-identical constituents). The honest D3-value
+  frame is over the **distinct valuation drivers**: SPY←ERP, TLT←real-yield,
+  SLV/GLD←gold-silver-ratio, credit←OAS — each an oriented own-history cheapness, ranked
+  per date. Runs off-VM (FRED + a couple of ETF closes).
+- **12 · D4 composite** — combine the surviving-gross signals (funding level + a value
+  driver) into one conviction score, testing whether diversification lifts the blended
+  Sharpe above any single sleeve. Only worth it if ≥2 sleeves show a real gross edge.
 
-## The compounding read so far (entries 1–9)
+## The compounding read so far (entries 1–10)
 
-Eleven graded constructions across nine ledger rows, **zero survivors** — and that is a
+Thirteen graded constructions across ten ledger rows, **zero survivors** — and that is a
 *result*, not a stall. The pattern narrows where the edge can still be:
 
 - **COT is exhausted across construction cells.** Level (entry 2), the D1 transform
   sweep (entry 5), AND the D3 cross-market basket (entry 7) all fail the honest gate.
   Three orthogonal framings of spec-positioning, three nulls ⇒ the *input* carries no
   cost-surviving edge; only a different underlying COT signal could, not more framing.
-- **Level-percentile / D1-transform of a single raw series is exhausted** on value and
-  crypto too (entries 1, 3). Varying the transform did not rescue any input.
-- **Crypto (entry 3) is the one live statistical signal** (real 1d IC) but its
-  magnitude is below fees — so the lever is *magnitude*, not *existence*: a
-  bigger-amplitude construction or a cost structure that fits, not another percentile.
-- **D2 conditioning is the first lever that MOVED the number** (entry 9): the rising-OI
-  gate cut `funding_impulse`'s conv_ret ~18% less negative. It didn't clear the gate,
-  and it gated the wrong base series (impulse, not entry-3's level) — but "conditioning
-  shifts conv_ret" is a live finding, so the faithful **level × rising-OI** test
-  (entry 10) is worth running before abandoning D2.
+- **Crypto funding is now also exhausted across its construction cells.** The level
+  (entry 3) is a real *gross* signal below fees; the impulse (entry 9) is worse; and
+  **D2 conditioning on rising-OI is a dead end** (entry 10) — it marginally helped the
+  impulse but *destroyed* the level (conv_ret +0.316 → −0.497, sign-flipped). The
+  crowding-builds-with-OI hypothesis is refuted; the level works best *unconditioned*,
+  and unconditioned it doesn't beat fees. So conditioning did not rescue crypto either.
+- **Level-percentile / D1-transform / D2-conditioning of a single raw series is
+  exhausted** on all three tried inputs (COT, crypto, value-level entry 1). Varying the
+  *framing* of one series has not produced a survivor on any input.
 - **The mechanistic route (entries 4, 8) is gated on calibration first** — a model
   that can't forecast the level can't misprice it.
 
-The **queue**, in order: **entry 10 — crypto funding-LEVEL × rising-OI** (the faithful
-D2 test of entry 3's below-fee signal, the single most promising open lever since (a)
-crypto is the one input with a real signal and (b) conditioning already demonstrably
-moves conv_ret); then **entry 11 — D3 cross-section on the VALUE sleeve** (rank
-ERP/real-yield/GSR/OAS cross-instrument — the D3 frame on a different input than the
-failed COT one); then **D4 composite**.
+**The sharper meta-finding:** two of the three real inputs (COT, crypto) are now
+exhausted across *every within-series construction dimension* (level / D1 / D2 / D3-COT).
+The remaining unexplored territory is fundamentally different in kind — it **combines
+signals across inputs** rather than reframing one: **D3 cross-section on the VALUE sleeve**
+(entry 11 — rank the distinct value drivers ERP/real-yield/GSR/OAS against each other),
+and **D4 composite** (entry 12 — blend the best gross signals from different sleeves and
+test whether diversification lifts the net Sharpe over any single one). That is the queue.
+If both fail, the honest conclusion is that these free/cheap macro inputs carry no
+cost-surviving edge in any construction, and the search should move to a *different input
+class* (higher-frequency microstructure, or a paid/alternative dataset) rather than more
+constructions on the same series.
