@@ -130,3 +130,15 @@ def test_fetch_empty_both_sources_is_zero_not_fatal(tmp_path):
     res = fmc.fetch_candles(["NOPE"], tmp_path, download=dl_empty, stooq_urlopen=stooq_empty, min_rows=3)
     assert res == {"NOPE": 0}
     assert not (tmp_path / "NOPE.csv").exists()
+
+
+def test_resolve_fetchers_degrades_to_stooq_without_yfinance(monkeypatch):
+    """A host without yfinance (e.g. the trainer VM) must degrade to the Stooq (urllib)
+    fallback, not hard-fail the whole off-VM fetch (the value-sleeve grade blocker)."""
+    import sys
+
+    monkeypatch.setenv("ICT_OFFVM_BUILD_HOST", "1")
+    monkeypatch.setitem(sys.modules, "yfinance", None)   # `import yfinance` → ImportError
+    download, stooq = fmc._resolve_fetchers(None, None, "2005-01-01")
+    assert download is None                              # yfinance skipped, not fatal
+    assert stooq is not None                             # Stooq (urllib) still wired as fallback
