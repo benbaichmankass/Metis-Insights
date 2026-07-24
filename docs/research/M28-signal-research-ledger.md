@@ -219,6 +219,46 @@ spread S3 the macro sleeves used), to test whether `vix_term` pays net of fees o
 known-but-unmonetizable regularity. Also widen the vol-term family (VXN/VXD → QQQ/DJIA) to check
 generalization. Track B (Schwab per-underlying skew) still parked on the operator's app registration.
 
+### M31 Track A — S3 result (#7552): the FIRST signal to survive the OOS/cost kill-test — marginally
+
+The cost-aware OOS conviction test on `vix_term` (VIX3M/VIX → SP500), split 60/40 (orientation
+fit IS-only, 10 bps round-trip):
+
+| H | is_ic | oos_ic (t) | net spread | pays_oos |
+|---|---|---|---|---|
+| 5d | −0.127 | −0.129 (−1.84) | +0.0023 | ✗ (t<2) |
+| 10d | −0.109 | −0.194 (−1.97) | +0.0003 | ✗ (t<2) |
+| 21d | −0.132 | −0.161 (−1.11) | +0.0150 | ✗ (t<2) |
+| **42d** | **−0.172** | **−0.420 (−2.17)** | **+0.0567** | **✓** |
+
+**What's genuinely encouraging (and NEW for the program):** the OOS IC **held its (negative) sign
+at ALL 4 horizons** and the net conviction spread is **positive at every horizon** — the signal did
+**not** flip out-of-sample. That is exactly where every prior "near-miss" died (entry 11: crypto
+funding's OOS IC flipped positive→negative). So `vix_term` is the **first construction in the entire
+program to survive the S3 kill-test.** Formal verdict: **`pays_oos_net`**.
+
+**Why it's recorded MARGINAL, not "we found alpha" (the honest reservations):**
+1. **The formal pass rests on ONE cell** — H=42d, whose OOS half is only ~23 non-overlapping
+   anchors (q=0.34 tails ⇒ ~8-vs-8 in the long/short bins). t=−2.17 on n≈23 has a wide CI; the
+   short-horizon cells (t=−1.84, −1.97) are just *under* significance and their net spreads are
+   economically tiny (+0.02–0.03% over the hold).
+2. **The edge concentrates at the long (42d) horizon** and in the most-recent OOS window — it could
+   be **regime-specific** (a vol-spike + rebound episode in the held-out span is exactly what
+   backwardation→bounce would capture). A single 60/40 split can't distinguish "robust" from
+   "one good regime."
+3. **It is a known, crowded signal** (VIX term-structure / VRP harvesting — VXX-short, SVXY, etc.).
+   In-sample+OOS persistence is expected; the real question is a *tradeable* implementation that
+   isn't already arbitraged.
+
+**Disposition: a validated LEAD, not a deployable edge.** Honest next step is **robustness, not
+productionization**: a **multi-fold walk-forward** (not one split) to confirm the OOS IC holds
+sign/significance across *several* held-out windows, and a wider **vol-term family** cross-check
+(the same VIX3M/VIX construction is the only one FRED gives cleanly for the term ratio; VXN/VXD lack
+a 3-month FRED sibling, so cross-index generalization needs a different data path — likely Schwab/CBOE,
+which is Track B). Only after walk-forward robustness would an S4 productionization (a real
+`macro_thesis`-style snapshot signal on MES) even be proposed — and that would be **Tier-3**,
+operator-gated. **This is the program's first genuine forward progress past S3 in 16 constructions.**
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a
