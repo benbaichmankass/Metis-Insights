@@ -133,6 +133,37 @@ def cot_construction_snapshots(markets_rows: dict, proxy_by_market: dict,
     return merge_by_construction(per_symbol)
 
 
+def cot_cross_sectional_snapshots(markets_rows: dict, proxy_by_market: dict,
+                                  asset_class_by_market: Optional[dict] = None, *,
+                                  lookback: int = 156, min_history: int = 52) -> dict:
+    """D3 cross-sectional COT construction: on each date, rank the markets against
+    EACH OTHER (not each vs its own history) and long the most-contrarian-cheap.
+
+    The cross-comparable metric is each market's own trailing **z-score** of spec_net
+    (`zscore_series`) — NOT raw spec_net, which isn't comparable across crude/gold/
+    copper (different contract sizes). Ranking the z-scores puts every market on one
+    unit-free axis, so the cross-section is a real long-cheapest/short-richest basket.
+    Contrarian (`higher_is_cheaper=False`: a high positive z = crowded spec long =
+    rich). Returns ``{"xsec": [rows across all proxies]}`` for merge into the sweep."""
+    from cot_data import spec_net_series
+
+    acls = asset_class_by_market or {}
+    z_by_symbol, acls_by_symbol = {}, {}
+    for market, rows in markets_rows.items():
+        proxy = proxy_by_market.get(market)
+        if not proxy or not rows:
+            continue
+        z = sc.zscore_series(spec_net_series(rows), lookback=lookback, min_history=min_history)
+        if z:
+            z_by_symbol[proxy] = z
+            acls_by_symbol[proxy] = acls.get(market, "unknown")
+    rows = sc.cross_sectional_snapshots(
+        z_by_symbol, "cot_xsec", asset_class_by_symbol=acls_by_symbol,
+        higher_is_cheaper=False, min_symbols=3, note="D3:xsec (z-ranked spec_net)",
+        source="construction_sweep")
+    return {"xsec": rows}
+
+
 # ---------------------------------------------------------------------------
 # CLI — fetch COT, sweep the D1 constructions, grade each (S2+S3), land a scorecard
 # ---------------------------------------------------------------------------
@@ -191,6 +222,9 @@ def main(argv: Optional[list] = None) -> int:
 
     constructions = cot_construction_snapshots(
         markets_rows, proxy_by, acls_by, lookback=args.lookback, min_history=args.min_history)
+    # D3 cross-sectional (rank markets against each other per date) — the untried cell
+    constructions.update(cot_cross_sectional_snapshots(
+        markets_rows, proxy_by, acls_by, lookback=args.lookback, min_history=args.min_history))
     price_at = make_price_at(load_close_panels(args.candles_dir))
     cfg = {"min_conviction": 0.4, "universe": [], "express_as": "debit_vertical",
            "account": "alpaca_options_paper"}

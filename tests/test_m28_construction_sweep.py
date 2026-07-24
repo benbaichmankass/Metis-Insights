@@ -58,6 +58,40 @@ def test_cot_construction_snapshots_maps_proxies():
     assert all(r["symbol"] == "USO" for r in got["level"])
 
 
+def test_cot_cross_sectional_snapshots_ranks_across_markets():
+    days = _weekly(90)
+    # two markets whose spec_net z-scores diverge → a real cross-section per date
+    crude = [{"date": d, "spec_long": 100 + i, "spec_short": 50, "comm_long": 40, "comm_short": 80}
+             for i, d in enumerate(days)]
+    gold = [{"date": d, "spec_long": 100 - i, "spec_short": 50, "comm_long": 40, "comm_short": 80}
+            for i, d in enumerate(days)]
+    copper = [{"date": d, "spec_long": 100 + (i % 7), "spec_short": 50, "comm_long": 40, "comm_short": 80}
+              for i, d in enumerate(days)]
+    markets = {"067651": crude, "088691": gold, "085692": copper}
+    proxy = {"067651": "USO", "088691": "GLD", "085692": "CPER"}
+    acls = {"067651": "commodity", "088691": "commodity", "085692": "commodity"}
+    got = cs.cot_cross_sectional_snapshots(markets, proxy, acls, lookback=52, min_history=30)
+    assert "xsec" in got and got["xsec"], "no cross-sectional rows"
+    r = got["xsec"][0]
+    assert r["metric"] == "cot_xsec" and r["symbol"] in {"USO", "GLD", "CPER"}
+    assert r["higher_is_cheaper"] is False
+    for k in ("cheap_score", "percentile", "n_history", "observed_at", "as_of"):
+        assert k in r
+    assert 0.0 <= r["cheap_score"] <= 1.0
+    # each scored date must carry ≥ min_symbols (3) constituents (a real cross-section)
+    assert all(row["n_history"] >= 3 for row in got["xsec"])
+
+
+def test_cot_cross_sectional_skips_thin_cross_section():
+    days = _weekly(70)
+    # only ONE market reports → below min_symbols=3, no cross-section emitted
+    only = [{"date": d, "spec_long": 100 + i, "spec_short": 50, "comm_long": 40, "comm_short": 80}
+            for i, d in enumerate(days)]
+    got = cs.cot_cross_sectional_snapshots({"067651": only}, {"067651": "USO"},
+                                           {"067651": "commodity"}, lookback=52, min_history=30)
+    assert got["xsec"] == []
+
+
 def test_grade_constructions_rollup(monkeypatch):
     # stub grade_construction.grade so the test stays offline (no candle loaders)
     import grade_construction as gc
