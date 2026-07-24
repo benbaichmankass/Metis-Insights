@@ -142,6 +142,39 @@ alongside macro, and the honest escalation is the **operator-gated paid/alternat
 (on-chain flows, options-implied skew, vendor positioning) already surfaced in the Escalation
 section. Pursue (a) first — it's the last free lever. Queued below as **entry M30-2**.
 
+## M31 — implied-volatility / options-derived input class (operator-directed, 2026-07-24)
+
+Operator direction: **exhaust free data before paying.** A new free-ish source is available —
+the operator has a **Schwab** brokerage account, whose Market Data API gives **option chains with
+Greeks (implied vol)** + price history at **no extra entitlement for individual developers**. This
+opens the **implied-volatility / options-derived** input class — a genuinely *forward-looking*
+class (positioning/fear priced into options), categorically different from the exhausted
+backward-looking macro/OHLCV series, and it **overlaps a live instrument**: SPY/QQQ/index option
+skew → S&P index-level signal → the bot's **MES** leg.
+
+**Honest scoping constraint (recorded up front):** Schwab's option-chain endpoint (like yfinance)
+returns the **current** chain — *point-in-time, no history*. So an S0→S3 grade of per-underlying
+skew can't run on day one; it needs either a multi-week **soak** accruing daily snapshots, or a
+historical IV dataset (the paid gap). Two-track plan:
+
+| Track | Source | Status | Note |
+|---|---|---|---|
+| **A — aggregate implied-vol (free, historical, immediate)** | CBOE/FRED vol family via the existing keyless `fred_adapter` (`VIXCLS` + a 3-month term-structure ratio, `VXN`/`VXD`/`RVX`, `OVX` oil, `GVZ` gold; put-call ratios) | **BUILD NEXT** — no creds, gradeable through the same `horizon_ic_scan --non-overlapping` funnel now | Features: VIX **term-structure** (contango/backwardation), **level percentile** (mean-reversion), **variance-risk-premium** (IV − realized). Targets: forward SPY/MES (VIX), oil (OVX), gold (GVZ) returns — instrument-aligned. |
+| **B — per-underlying live skew (Schwab, enrichment)** | Schwab Market Data API option chains + Greeks | **BLOCKED on the one operator hand-off** (app registration + creds); scaffold builds credential-free in parallel | Finer skew/term-structure the aggregate indices can't give (25Δ risk-reversal, single-name skew), accrued as a **forward soak**. |
+
+**The one operator hand-off (Track B, credentials — everything else is mine):**
+1. **developer.schwab.com → Dashboard → Apps → Create App**, request the **Trader API** product,
+   HTTPS callback URL. Approval ~1–3 business days.
+2. Provide the **app key + secret** (I pre-create the Actions secret slots); do the one-time
+   **browser OAuth** to mint the first refresh token.
+3. **Operational reality (flagged, not hidden):** the Schwab **refresh token expires every 7 days**
+   → a weekly browser re-auth. Fine for periodic research pulls; a real recurring maintenance touch
+   if Track B is ever productionized into a live feed. Schwab is **US equities/ETF/index/options
+   only** — no crypto (crypto stays on Bybit).
+
+Track A is the immediate, free, no-creds workstream and starts next; Track B proceeds in parallel
+once the app is approved.
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a
