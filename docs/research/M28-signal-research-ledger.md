@@ -489,6 +489,33 @@ edge from a decaying/era-driven/multiple-testing artifact (the same gate that se
 the NDX edge is era-front-loaded or fold-inconsistent, M33 lands where every free family has:
 *validated-looking, not deployable*. Recorded pending that confirmation (next construction).
 
+### M33 walk-forward verdict (#7585): both NDX candidates are ERA-FRONT-LOADED — family closed, honest negative
+
+The per-era walk-forward (`seasonality_probe.py --mode wf`, fixed flagged bucket split into
+5 contiguous eras; robust needs sign-consistency ≥0.75 **AND** modern-era t-significant + net
+positive) settles it — **both** NASDAQ-100 candidates fail the modern-era gate:
+
+| candidate | sign_consistency | era 0 (1986–94) | modern era 4 (2018–26) | modern_significant | verdict |
+|---|---|---|---|---|---|
+| **NDX · dow=Wed** | 1.000 | net +0.295%/d **t=5.25** | net +0.136%/d **t=1.90** | ✗ (t<2.0) | **era_front_loaded** |
+| **NDX · tom=turn** | 1.000 | net +0.184%/d **t=3.87** | net +0.089%/d **t=1.63** | ✗ (t<2.0) | **era_front_loaded** |
+
+The sign never flips (positive in all 5 eras, both cells) — the effect is *real* — but its
+magnitude and significance **monotonically decay**: era-0 t-stats of 5.25 / 3.87 collapse to
+modern t=1.90 / 1.63, below the t=2.0 bar. This is the textbook footprint of a **published,
+crowded-out calendar anomaly** (Wed-strength + turn-of-month) that was tradeable in the 1980s–90s
+and has been arbitraged toward the noise floor since — exactly caveats 1 (length asymmetry) and 3
+(crowding) from the scan read, now confirmed rather than merely suspected. The in-sample→OOS
+scan flagged `seasonal_edge` precisely because ~40% of NDX's OOS window still carries the
+old-era tail; the per-era view isolates the modern regime and shows no significant standalone edge.
+
+**Disposition — M33 closed, honest negative.** The calendar family joins COT · crypto · value ·
+implied-vol · credit/rates: a *validated lead* (`vix_term`, `hy_oas_pct`, now NDX-Wed/turn — all
+statistically real, sign-consistent) but **not a deployable standalone edge**. Zero free families
+have produced a tradeable standalone signal across the entire program. Same conclusion, arrived at
+honestly, one more family deep. The reusable `walkforward_fixed_bucket` gate stays in the probe
+library for any future calendar/bucket candidate.
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a
