@@ -335,3 +335,15 @@ def test_default_probes_include_cross_asset_generalization():
     for name in ("vix_term_gold", "vix_term_oil"):
         p = next(p for p in ivp.DEFAULT_PROBES if p[0] == name)
         assert p[1] == "VIXCLS" and p[3] == "term_ratio" and p[4] == "VXVCLS"
+
+
+def test_default_probes_include_cross_index_generalization():
+    # M31 Track A-XI: does the robust SP500 vix_term lead extend to other US equity
+    # indices (NASDAQ-100, DJIA)? Same VIX3M/VIX feature, only the target index differs.
+    names = {p[0] for p in ivp.DEFAULT_PROBES}
+    assert {"vix_term_ndx", "vix_term_djia"} <= names
+    targets = {p[0]: p[2] for p in ivp.DEFAULT_PROBES}
+    assert targets["vix_term_ndx"] == "NASDAQ100" and targets["vix_term_djia"] == "DJIA"
+    for name in ("vix_term_ndx", "vix_term_djia"):
+        p = next(p for p in ivp.DEFAULT_PROBES if p[0] == name)
+        assert p[1] == "VIXCLS" and p[3] == "term_ratio" and p[4] == "VXVCLS"

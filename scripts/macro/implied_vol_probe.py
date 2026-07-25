@@ -60,6 +60,18 @@ DEFAULT_PROBES = (
     # the feature is unchanged; only the predicted instrument differs.
     ("vix_term_gold", "VIXCLS", "GOLDAMGBD228NLBM", "term_ratio", "VXVCLS"),
     ("vix_term_oil",  "VIXCLS", "DCOILWTICO",       "term_ratio", "VXVCLS"),
+    # --- cross-INDEX generalization within US equities (M31 Track A-XI) ---
+    # Distinct question from the cross-ASSET test above: the XA result showed vix_term
+    # does not generalize to a *different asset class* (oil no-edge, gold data-blocked),
+    # leaving it "equity-specific." But equity-specific to WHAT — the S&P alone, or US
+    # large-cap equity vol-term broadly? Point the SAME VIX3M/VIX ratio at NASDAQ-100 and
+    # the Dow (both keyless FRED). If the robust SP500 lead extends to NDX + DJIA, the
+    # tradeable S4 leg widens beyond MES to NQ/YM (a materially larger deployable scope);
+    # if it stays SP500-only, S4 correctly scopes to the S&P leg. Either verdict is
+    # decision-relevant. (Note: VIX3M is an S&P-vol term structure; the hypothesis is that
+    # broad US-equity vol co-moves closely enough that the same term signal carries.)
+    ("vix_term_ndx",  "VIXCLS", "NASDAQ100",        "term_ratio", "VXVCLS"),
+    ("vix_term_djia", "VIXCLS", "DJIA",             "term_ratio", "VXVCLS"),
 )
 
 DEFAULT_HORIZONS = (5, 10, 21, 42)   # trading days
