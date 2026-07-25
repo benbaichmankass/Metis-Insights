@@ -325,17 +325,31 @@ One authoritative work-order so **concurrent sessions can each claim one lane wi
 colliding** (the lanes are file-disjoint; claim on the coordination board before starting).
 Work top-down — P0 is the highest-leverage unblock.
 
-- **P0 — Point-in-time data producer (highest leverage; unblocks the most). LANE: `data-producer`.**
-  An **off-VM GitHub Actions cron** that commits *dated, point-in-time* FRED (+ later EIA/weather)
-  snapshots into `comms/macro/` → the VM's `ict-git-sync` pulls them → the **already-built readers**
-  (`fred_adapter` fallback, `valuation_snapshots.jsonl`) consume them. Keyless FRED, **no operator
-  secret**, Tier-1 to build. This is the single prerequisite behind THREE stalled items:
-  `MB-20260723-M28-VALUATION-PRODUCER-UNWIRED` (M28-P4 gate), **M29-P1b** (real EIA/weather/NG
-  calibration), and the signal soaks that turn the program's two *validated leads* (`vix_term`,
-  `hy_oas_pct` — see the M28 ledger) into cost-aware, regime-conditioned, tradable signals. Anti-pattern
-  to avoid: do NOT wire a daily job that alarms on a missing feed before the producer commits its first
-  snapshot (the normalized-alarm failure class). Build producer → verify one committed snapshot → then
-  wire the reader/soak.
+- **P0 — Point-in-time FRED valuation producer: BUILT + running (2026-07-25 correction). LANE: `data-producer`.**
+  Verified against the repo 2026-07-25: the FRED value producer this section previously called "to build"
+  is **already wired and functioning** — do NOT rebuild it. The pieces:
+  - **Producer runner** `scripts/macro/valuation_snapshot_produce.py` + workflow
+    `.github/workflows/macro-valuation-snapshot.yml` — an off-VM GitHub-hosted daily cron (`30 7 * * *`)
+    that sets `ICT_OFFVM_BUILD_HOST=1`, pulls keyless FRED, and **appends** point-in-time rows to
+    `comms/macro/valuation_snapshots.jsonl` via the protected-main `commit-to-main` auto-merge path
+    (no operator secret for FRED; the PAT is only for the auto-merge PR). A `macro-valuation-backfill.yml`
+    companion seeded history.
+  - **Reader** already prefers the committed file: `valuation_store._read_snapshot_log_path` reads
+    `comms/macro/valuation_snapshots.jsonl` when present (git-synced onto the live VM), else falls back to
+    `runtime_logs/` — so the live sleeve's `read_latest_snapshots()` surfaces the producer's output.
+  - **Health (2026-07-25):** 1 successful scheduled run confirmed (Jul 24 09:40 UTC → committed via PR
+    #7532); committed log holds rows for 2026-07-23 + 2026-07-24 across 7 symbols (GLD/IEF/SLV/SPY/TLT +
+    credit_risk/term_structure). Today's cron may lag hours (GitHub free-tier schedule delay) — not a bug.
+
+  **Remaining work is NOT "build" — it is accrue + gate:** the store now needs **weeks** of daily
+  point-in-time history before the M28-P4 value-thesis gate (`scripts/macro/thesis_backtest_run.py
+  --snapshots comms/macro/valuation_snapshots.jsonl`) can mean anything. Concrete open items:
+  (a) periodically confirm the daily cron is still landing (a scheduled run that silently stops is the
+  failure class to watch — check `macro-valuation-snapshot.yml` run history, don't assume); (b) once
+  ~4–6 weeks accrue, run the P4 gate and record the verdict; (c) the **EIA/weather** producer for M29-P1b
+  is the genuinely-unbuilt sibling — same off-VM-cron shape, still to build (that is where new
+  `data-producer` effort belongs, not the FRED valuation feed). `MB-20260723-M28-VALUATION-PRODUCER-UNWIRED`
+  is **resolved** (producer wired); the M28-P4 gate stays gated on history, not on tooling.
 
 - **P1 — M27 gold scalp: promote, don't build a new venue. LANE: `m27-scalp`.**
   Venue check (verified against `config/accounts.yaml`, 2026-07-25): **GLD is already live on
