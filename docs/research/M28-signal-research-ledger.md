@@ -332,6 +332,46 @@ to oil, gold-blocked on data. Remaining forward motion is the two non-FRED track
 (the VXN/VXD → NDX/DJIA family cross-check + a real gold feed) and the **Tier-3 S4 productionization**
 proposal (SP500-leg-scoped, net-of-cost-caveated).
 
+## M32 — credit / rates risk-premium input class (the skipped free-FRED inputs, 2026-07-25)
+
+**Why this sleeve exists (honest correction).** The program had declared "free macro
+exhausted" after testing exactly THREE inputs — COT, crypto funding, value (ERP/real-yield/GSR).
+But the keyless FRED library carries several *other* documented cross-asset risk-premium
+predictors that were never run: **credit spreads** (HY/IG OAS — credit famously leads equity),
+the **yield-curve slope** (10Y-2Y / 10Y-3M), and a **financial-conditions index** (Chicago Fed
+NFCI). Each → SP500 forward returns, through the SAME honest funnel Track A used
+(non-overlapping IC → OOS/cost → multi-fold walk-forward). Runs off-VM on a US GitHub runner
+(keyless fredgraph, no relay). Grade: #7565 (`scripts/macro/credit_curve_probe.py`).
+
+### M32 result (#7565): HY-OAS percentile is a lead, not a cost-surviving edge; curve/NFCI/IG = no edge
+
+| probe (→SP500) | S2 (honest non-overlap IC) | S3 (OOS/cost) | walk-forward | read |
+|---|---|---|---|---|
+| **hy_oas_pct** (HY OAS 1y %ile) | **directional_edge** (H10 ic=0.25 t=2.20; H42 ic=0.53 t=2.35) | s2_only_no_s3 (`pays_oos=False` every H) | **robust** @ H10 (sign 0.75, pooled-oos ic=0.26 t=2.09) | **lead, not edge** |
+| hy_oas_mom (HY OAS Δ21d) | no_edge | s2_only_no_s3 | regime_dependent | null |
+| ig_oas_pct (IG OAS 1y %ile) | no_edge (all \|t\|<1.2) | s2_only_no_s3 | regime_dependent | null |
+| curve_10y2y (2s10s level) | no_edge | s2_only_no_s3 | regime_dependent/not_robust | null |
+| curve_10y3m (3m10y level) | no_edge | s2_only_no_s3 | regime_dependent/not_robust | null |
+| nfci (Chicago Fed FCI level) | no_edge | s2_only_no_s3 | regime_dependent/insufficient | null |
+
+**Read.** HY-OAS stress-percentile → SP500 is the one construction with a coherent signal:
+S2-significant at 10d and 42d and **robust** on the multi-fold walk-forward at 10d — but it
+**fails the S3 cost gate at every horizon** (`pays_oos=False` throughout; no net-of-fee OOS
+conviction spread). That is the **exact shape of `vix_term`**: a *validated directional lead
+that does not survive costs* — a real relationship (credit does lead equity), not a deployable
+edge. The canonical rates predictors (curve slope, NFCI) and IG OAS show **no honest edge at
+all** — insignificant S2 across every horizon.
+
+**Meta-finding (the free-macro frontier is now genuinely closed).** With credit/rates added,
+the free-keyless-FRED macro class has been swept across its documented risk-premium inputs —
+COT, crypto, value, implied-vol (Track A), and now credit/rates. The class yields exactly
+**two validated leads (`vix_term`, `hy_oas_pct`), zero cost-surviving edges.** The earlier
+"free macro exhausted" claim was an overclaim *by input count* but **correct by conclusion**:
+the boundary is now established on the full input set, not three of it. Remaining forward motion
+in the macro program is NOT more free-FRED framing — it is (a) the **point-in-time data producer**
+(unblocks M28-P4 valuation + the soaks that turn a *lead* into a tradable, cost-aware, regime-
+conditioned signal) and (b) the **non-FRED tracks** (Track B / Schwab options-skew, credential-gated).
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a
