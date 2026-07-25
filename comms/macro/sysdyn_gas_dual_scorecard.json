@@ -7,7 +7,7 @@
   },
   "demand_driver": "weather_hdd_open_meteo (real)",
   "target_source": "eia_v2 + fred + open-meteo",
-  "generated_at": "2026-07-24T04:51:27Z",
+  "generated_at": "2026-07-25T09:18:53Z",
   "window_years": 8.0,
   "n_obs": 418,
   "span": [
@@ -34,52 +34,52 @@
     "train_n": 314,
     "holdout_n": 104,
     "storage_fit": {
-      "in_sample_rmse": 394.676222,
-      "in_sample_r2": 0.662789,
-      "oos_rmse": 740.315153,
-      "oos_r2": -0.100332
+      "in_sample_rmse": 412.826531,
+      "in_sample_r2": 0.631061,
+      "oos_rmse": 454.72077,
+      "oos_r2": 0.584874
     },
     "price_fit": {
-      "in_sample_rmse": 1.811381,
-      "in_sample_r2": -0.013855,
-      "oos_rmse": 1.538615,
-      "oos_r2": 0.002702
+      "in_sample_rmse": 1.810562,
+      "in_sample_r2": -0.012938,
+      "oos_rmse": 1.537264,
+      "oos_r2": 0.004453
     },
     "params": {
       "inj_rate": 71.09375,
       "wd_rate": 2.25,
       "price_k": 0.1,
-      "price_feedback": 0.65625,
+      "price_feedback": 0.84375,
       "base_price": 3.370625
     },
     "converged": false
   },
   "stability": {
     "n_folds": 4,
-    "structural_max_rel_spread": 0.650516,
+    "structural_max_rel_spread": 0.534694,
     "stability_threshold": 0.5,
     "oos_edge_r2_min": 0.05,
     "param_rel_spread": {
-      "inj_rate": 0.122862,
-      "wd_rate": 0.225557,
-      "price_k": 0.037111,
-      "price_feedback": 0.650516,
-      "base_price": 0.280433
+      "inj_rate": 0.128612,
+      "wd_rate": 0.232038,
+      "price_k": 0.023184,
+      "price_feedback": 0.534694,
+      "base_price": 0.275915
     },
     "param_means": {
-      "inj_rate": 100.595703,
-      "wd_rate": 3.640137,
-      "price_k": 4.870801,
-      "price_feedback": 1.258789,
-      "base_price": 3.145039
+      "inj_rate": 102.915039,
+      "wd_rate": 3.65918,
+      "price_k": 4.875586,
+      "price_feedback": 1.301758,
+      "base_price": 4.079609
     }
   },
   "verdict": {
     "identifiable": false,
-    "storage_tracks_oos": false,
+    "storage_tracks_oos": true,
     "price_readout_predicts_oos": false,
     "go_no_go": "park_deeper_investment",
-    "label": "no_mechanistic_edge",
+    "label": "storage_fits_no_price_edge",
     "notes": "DUAL-TARGET (P1c): storage anchored to observed EIA weekly working-gas (initial + normal from the real series), demand driven by real weather HDD (Open-Meteo national basket), price a downstream readout of the storage gap. The go/no-go turns on whether the PRICE readout predicts OUT-OF-SAMPLE (P1b price-only got ~0) AND the structural params are identifiable. Storage tracking OOS is necessary but not sufficient \u2014 a well-fit stock trajectory with no price edge does not beat the static M28 value read."
   },
   "caveats": [
