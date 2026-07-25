@@ -100,6 +100,11 @@ jobs:
                 description: 'Triggers m31-implied-vol-grade — grade the implied-vol input class (CBOE/FRED VIX family) on a GitHub runner.',
               },
               {
+                name: 'm32-credit-curve-grade-now',
+                color: '0e8a16',
+                description: 'Triggers m32-credit-curve-grade — grade the credit/rates sleeve (HY/IG OAS, curve slope, NFCI → SP500) on a GitHub runner.',
+              },
+              {
                 name: 'crypto-signals-backfill-now',
                 color: '0e8a16',
                 description: 'Triggers crypto-signals-backfill — reconstruct historical BTC/ETH/SOL funding/OI/basis snapshots (Bybit) + grade them with the M28 P4 + horizon-IC scans.',
