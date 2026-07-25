@@ -307,3 +307,31 @@ def test_scan_walkforward_ranks_best_horizon_and_run_probes_smoke():
                                      urlopen=_fake_urlopen_factory({"VIXCLS": vix, "SP500": spx}))
     assert out["probes"][0]["verdict"] in {"robust", "regime_dependent", "not_robust", "insufficient_sample"}
     assert {r["horizon"] for r in out["probes"][0]["rows"]} == {5, 10}
+
+
+# ---- cross-asset generalization (vix_term feature → non-SP500 target) ------
+
+def test_cross_asset_term_ratio_grades_against_a_non_sp500_target():
+    # the vix_term feature (VIX3M/VIX) pointed at a GOLD target series — the feature is
+    # the equity-vol term structure regardless of what it predicts; only the target differs.
+    dates = [f"2020-{(i // 28) % 12 + 1:02d}-{i % 28 + 1:02d}" for i in range(400)]
+    vix = _fred_csv([(d, 15.0 + 5.0 * math.sin(i * 0.1)) for i, d in enumerate(dates)])
+    vix3m = _fred_csv([(d, 17.0 + 5.0 * math.sin(i * 0.1 + 0.2)) for i, d in enumerate(dates)])
+    gold = _fred_csv([(d, 1500.0 + i * 0.5) for i, d in enumerate(dates)])
+    bodies = {"VIXCLS": vix, "VXVCLS": vix3m, "GOLDAMGBD228NLBM": gold}
+    probes = (("vix_term_gold", "VIXCLS", "GOLDAMGBD228NLBM", "term_ratio", "VXVCLS"),)
+    out = ivp.run_probes(probes=probes, horizons=(5, 10),
+                         urlopen=_fake_urlopen_factory(bodies), t_flag=2.0)
+    r = out["probes"][0]
+    assert r["name"] == "vix_term_gold" and r["target_sid"] == "GOLDAMGBD228NLBM"
+    assert r["verdict"] in {"directional_edge", "no_edge", "no_data"}
+    assert r["n_aligned"] > 0 and {row["horizon"] for row in r["rows"]} == {5, 10}
+
+
+def test_default_probes_include_cross_asset_generalization():
+    names = {p[0] for p in ivp.DEFAULT_PROBES}
+    assert {"vix_term_gold", "vix_term_oil"} <= names
+    # both reuse the robust term_ratio feature + the VIX3M sibling, only the target differs
+    for name in ("vix_term_gold", "vix_term_oil"):
+        p = next(p for p in ivp.DEFAULT_PROBES if p[0] == name)
+        assert p[1] == "VIXCLS" and p[3] == "term_ratio" and p[4] == "VXVCLS"
