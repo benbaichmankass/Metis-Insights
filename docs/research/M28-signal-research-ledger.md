@@ -301,6 +301,37 @@ MES (S&P) leg — is now a defensible proposal, but is **Tier-3, operator-gated*
 and should carry the net-of-cost caveat (edge concentrates at the 42d hold). **This is the program's
 first construction to reach the S4 doorstep.**
 
+### M31 Track A-XA result (#7559): the robust vix_term signal is EQUITY-SPECIFIC, not a broad premium
+
+The cross-asset generalization test (#7558): point the **same** robust VIX3M/VIX term-ratio feature at
+**oil** and **gold** forward returns, to answer whether the edge is a broad vol-risk-premium (predicts
+multiple risk assets) or is SP500-specific. Result:
+
+| target | S2 | S3 | walk-forward | read |
+|---|---|---|---|---|
+| **SP500** (control) | directional_edge | **pays_oos_net** | **robust** | the validated signal |
+| **WTI oil** (`DCOILWTICO`) | no_edge (all \|t\|<1) | s2_only_no_s3 | regime_dependent | **no generalization** |
+| **gold** (`GOLDAMGBD228NLBM`) | no_data | no_data | no_data | **untestable on free FRED** (series empty) |
+
+**The signal does NOT generalize to oil** — VIX term structure carries no significant, cost-surviving,
+or sign-stable predictive content for WTI forward returns at any horizon (S2 t = 0.70 / −0.29 / −0.07
+/ −0.54; the best walk-forward verdict is `regime_dependent`, never robust). **Gold is a data gap, not
+a result:** FRED's LBMA daily gold series (`GOLDAMGBD228NLBM`) returns an empty body (the LBMA
+redistribution license was revoked, so the series is frozen/unserved) — the probe honest-nulls to
+`no_data` by design; a real gold cross-check needs a **non-FRED** price feed (Track B / Schwab, or a
+yfinance `GC=F` path).
+
+**Conclusion — `vix_term` is equity-specific on the free-FRED evidence.** The one cross-asset target
+with data (oil) shows no edge, so the robust signal is best read as a **specific equity-vol-term
+effect on the S&P**, NOT a demonstrated broad risk-on/off vol premium. Two consequences: (a) it
+**tightens the S4 scope** to the MES/SP500 leg only — there is no evidence for a general vol-term
+sleeve across commodities; and (b) it slightly **eases the "crowded broad premium" concern** (a
+narrower, instrument-specific effect is less likely to be the exact thing the big VRP funds arb). The
+free-FRED implied-vol exploration of `vix_term` is now **complete**: robust on SP500, non-generalizing
+to oil, gold-blocked on data. Remaining forward motion is the two non-FRED tracks — **Track B / Schwab**
+(the VXN/VXD → NDX/DJIA family cross-check + a real gold feed) and the **Tier-3 S4 productionization**
+proposal (SP500-leg-scoped, net-of-cost-caveated).
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a
