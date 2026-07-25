@@ -622,6 +622,48 @@ verdict, AND it independently tests whether the credit lead survives beyond the 
 window. Probe now grades BOTH credit proxies (HY-OAS + BAA10Y) side by side so one run shows the
 short vs long comparison. Recorded pending #TBD.
 
+### M34b result (#7592): conjunction gets NO robust edge; credit lead FAILS its long-history re-test
+
+`BAA10Y` confirmed long (1986-01-02→2026-07-23, n=10139) — proper power achieved. The scan
+(net-of-cost, in-sample-fit factors, OOS eval; conjunction must beat BOTH single-factor gates AND
+buy-and-hold, t-significant):
+
+| cell (× baa_10y) | n_oos | term_gate | credit_gate | CONJUNCTION | scan |
+|---|---|---|---|---|---|
+| SP500 · 21d | 47 | +0.0177 t=2.02 | +0.0158 t=1.56 | +0.0196 **t=1.29** | no_edge |
+| **SP500 · 42d** | 24 | +0.043 t=2.95 | +0.025 t=1.09 | +0.0507 **t=2.21** | **conjunction_pays** |
+| NDX · 21d | 88 | +0.0081 t=1.07 | +0.0067 t=0.68 | +0.0073 t=0.84 | no_edge |
+| **NDX · 42d** | 44 | **+0.067 t=4.00** | +0.011 t=0.60 | +0.019 t=0.91 | no_edge |
+
+**Read — the lone scan-pass is a small-N artifact, not an edge; the conjunction SUBTRACTS.**
+Exactly one of the four powered cells passes the scan (SP500·42d, t=2.21), but it's **thin**
+(n_oos=24; SP500 is FRED-capped to ~10yr) and it's contradicted by the **best-powered cell**
+(NDX·42d, n_oos=44 over ~19yr): there the conjunction (+0.019, t=0.91) is **far worse than
+`vix_term`-alone** (+0.067, **t=4.00**) — gating on credit *destroys* the term signal's edge
+rather than sharpening it. So the conjunction adds nothing where the sample is real. The
+**walk-forward** (the gate built to adjudicate exactly this single-cell-pass situation) came back
+`era_front_loaded` on both baa_10y H-cells it ran (SP500·21d sign 0.75, NDX·42d sign 0.80 — the
+edge concentrates in the earliest era then collapses) and `not_robust` on NDX·21d (sign 0.60);
+the hy_oas 3yr cells were `insufficient_sample`. Added **`("SP500", 42)` to `WF_CELLS`** to give
+the lone scan-pass its own walk-forward adjudication (expected `era_front_loaded`) — re-grade #TBD.
+
+**Credit lead FAILS the long-history re-test (confirms the M32 caveat).** Over the decades-long
+`BAA10Y` window the **credit-gate is standalone-INSIGNIFICANT at every well-powered cell** (NDX
+21d t=0.68, NDX 42d t=0.60, SP500 21d t=1.56, SP500 42d t=1.09). So the credit-stress lead does
+**not** reproduce M32's 3yr `hy_oas_pct` "robust @ H10" over decades — the 3yr verdict was a
+small-sample artifact, exactly as the caveat suspected. (Caveat on the caveat: `BAA10Y` is an
+IG-credit + rate spread, not high-yield OAS — a *proxy* for the same credit-stress axis, not the
+identical series; but as the only long-history free credit-stress measure it shows no standalone
+decades-long equity-forward edge.) `vix_term`-alone remains the sole persistent free signal
+(term_gate t=4.00 at NDX·42d) — already the known robust-but-**non-deployable** lead (Track A-S5).
+
+**Disposition — conjunction construction does NOT clear the bar; program at its honest terminus.**
+Once the `SP500·42d` walk-forward adjudicates the lone scan-pass (next fire), M34 closes: every
+free input family AND their cross-family conjunction tested, **zero deployable standalone-or-
+conjoined edges**, the only persistent free signal being `vix_term`-alone (non-deployable). Net
+correction to the program tally: **one multi-decade robust-but-non-deployable lead (`vix_term`)**;
+`hy_oas_pct` is downgraded to a 3yr-window artifact by its own long-history re-test.
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a
