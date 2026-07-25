@@ -516,6 +516,38 @@ have produced a tradeable standalone signal across the entire program. Same conc
 honestly, one more family deep. The reusable `walkforward_fixed_bucket` gate stays in the probe
 library for any future calendar/bucket candidate.
 
+## M34 — cross-FAMILY conditioning: the two robust leads, conjoined (2026-07-25)
+
+Every free INPUT family is swept and every *within-family* construction dimension
+(level · D1 transform · D2 conditioning · D3 cross-section · D4 composite) is
+exhausted — but one construction the program never ran is the **cross-family
+conjunction**. The program's only two robust leads are both equity-forward and both
+**non-deployable standalone**: `vix_term` (VIX3M/VIX term ratio) and `hy_oas_pct`
+(HY OAS 1y stress percentile). They measure orthogonal things — vol term-structure
+vs credit stress — so it is genuinely un-foregone whether **gating on BOTH at once**
+clears the cost bar where neither leg does alone. This is the D2-conditioning
+dimension applied *across* the two validated leads, not another family scan.
+
+Probe (`scripts/macro/xfamily_conditioning_probe.py`, grade #TBD via
+`m34-xfamily-grade-now`): non-overlapping anchors (stride=H); each factor's
+favorable direction + median threshold fit on the IN-SAMPLE 60% only; the 2-factor
+gate goes long the target's forward H-day return only when BOTH factors are
+favorable; evaluated on the untouched OOS 40%, net of round-trip cost. **The bar is
+deliberately strict** — a conjunction counts as an edge only if its OOS net mean is
+positive AND t-significant AND beats BOTH single-factor gates AND buy-and-hold, so a
+conjunction that merely inherits one leg's tilt is not miscredited. `--mode wf`
+re-confirms per contiguous era (robust needs sign-consistency + modern-era
+significance), the same gate that separated vix_term/seasonality robust-vs-front-loaded.
+Targets SP500 + NASDAQ100 at H=21/42d (where both leads carry information).
+
+**Prior:** both legs individually failed the deployability bar (vix_term timing
+Sharpe ~0 with deep drawdowns; hy_oas_pct significant-IC-but-not-tradeable), so the
+honest expectation is a `no_conjunction_edge`/`era_front_loaded` result — but the
+interaction is the one untested cell, and if it *did* pay it would be the program's
+first deployable free signal. Either outcome is a real result: a pass opens a
+Tier-3 evaluation; a null makes the cross-family interaction the program's true
+terminus (every input AND their conjunction tested). Recorded pending the grade.
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a

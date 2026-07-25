@@ -115,6 +115,11 @@ jobs:
                 description: 'Triggers m33-seasonality-grade — the calendar-seasonality family (day-of-week / day-of-month / turn-of-month → daily return) on a GitHub runner.',
               },
               {
+                name: 'm34-xfamily-grade-now',
+                color: '0e8a16',
+                description: 'Triggers m34-xfamily-grade — the cross-family conditioning probe (vix_term × hy_oas_pct conjunction gate → equity fwd return) on a GitHub runner.',
+              },
+              {
                 name: 'crypto-signals-backfill-now',
                 color: '0e8a16',
                 description: 'Triggers crypto-signals-backfill — reconstruct historical BTC/ETH/SOL funding/OI/basis snapshots (Bybit) + grade them with the M28 P4 + horizon-IC scans.',
