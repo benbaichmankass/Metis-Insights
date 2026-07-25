@@ -84,6 +84,15 @@ def _align_many(dated_by_id: dict) -> tuple:
     return dates, out
 
 
+def _series_range(dated_list) -> dict:
+    """(first, last, n) of a raw dated series (non-None values only) — the
+    per-series coverage diagnostic that explains a short 4-way overlap."""
+    ds = [d for d, v in (dated_list or []) if iv._to_float(v) is not None]
+    if not ds:
+        return {"first": None, "last": None, "n": 0}
+    return {"first": min(ds), "last": max(ds), "n": len(ds)}
+
+
 def build_leads(target_vals: list, vix_vals: list, vix3m_vals: list,
                 hy_vals: list) -> tuple:
     """Point-in-time (term_ratio, hy_oas_pct) feature series on the aligned grid."""
@@ -255,12 +264,16 @@ def run_probe(targets=DEFAULT_TARGETS, *, urlopen: Optional[Callable] = None,
               cost_bps: float = 1.0, t_flag: float = 2.0) -> dict:
     dated = _fetch(targets, urlopen)
     cost_frac = cost_bps / 10000.0
+    shared = {sid: _series_range(dated.get(sid, [])) for sid in (VIX_SID, VIX3M_SID, HY_OAS_SID)}
     results = []
     for tgt in targets:
         dates, vals = _align_many({k: dated.get(k, []) for k in
                                    (VIX_SID, VIX3M_SID, HY_OAS_SID, tgt)})
+        overlap = {"first": dates[0] if dates else None,
+                   "last": dates[-1] if dates else None, "n": len(dates),
+                   "target_range": _series_range(dated.get(tgt, []))}
         if len(dates) < 60:
-            results.append({"target": tgt, "verdict": "no_data", "rows": []})
+            results.append({"target": tgt, "verdict": "no_data", "rows": [], "overlap": overlap})
             continue
         term, credit = build_leads(vals[tgt], vals[VIX_SID], vals[VIX3M_SID], vals[HY_OAS_SID])
         rows = [grade_cell(term, credit, vals[tgt], h, split_frac=split_frac,
@@ -268,9 +281,10 @@ def run_probe(targets=DEFAULT_TARGETS, *, urlopen: Optional[Callable] = None,
         any_pay = any(r["verdict"] == "conjunction_pays" for r in rows)
         computable = any(r["verdict"] != "no_data" for r in rows)
         verdict = "conjunction_pays" if any_pay else ("no_conjunction_edge" if computable else "no_data")
-        results.append({"target": tgt, "n_dates": len(dates), "verdict": verdict, "rows": rows})
+        results.append({"target": tgt, "n_dates": len(dates), "verdict": verdict,
+                        "rows": rows, "overlap": overlap})
     return {"cost_bps": cost_bps, "split_frac": split_frac, "t_flag": t_flag,
-            "horizons": list(horizons), "targets": results}
+            "horizons": list(horizons), "series_ranges": shared, "targets": results}
 
 
 def run_walkforward(cells=WF_CELLS, *, urlopen: Optional[Callable] = None,
@@ -312,8 +326,19 @@ def _print_scan(out) -> None:
           f"horizons={out['horizons']}  (factor directions fit IN-SAMPLE, evaluated OOS)\n")
     print("  Conjunction = long fwd return only when BOTH leads favorable; an edge must")
     print("  beat BOTH single-factor gates AND buy-and-hold, net of cost, t-significant.\n")
+    sr = out.get("series_ranges", {})
+    if sr:
+        print("  data coverage (per-series first→last, n) — diagnoses a short 4-way overlap:")
+        for sid, rng in sr.items():
+            print(f"       {sid:<14} {rng['first']}→{rng['last']}  n={rng['n']}")
+        print()
     for r in out["targets"]:
+        ov = r.get("overlap") or {}
+        tr = ov.get("target_range") or {}
         print(f"  {r['target']}: verdict={r['verdict']}  (n_dates={r.get('n_dates', 0)})")
+        if ov:
+            print(f"       target {r['target']:<10} {tr.get('first')}→{tr.get('last')} n={tr.get('n', 0)}"
+                  f"  | 4-way overlap {ov.get('first')}→{ov.get('last')} n={ov.get('n', 0)}")
         for row in r.get("rows", []):
             if row["verdict"] == "no_data":
                 print(f"       H={row['horizon']:>3}d  no_data (n_anchors={row['n_anchors']})")

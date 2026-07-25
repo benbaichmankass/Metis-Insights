@@ -25,6 +25,12 @@ def test_align_many_intersects_dates():
     assert vals["A"] == [2.0, 3.0] and vals["B"] == [20.0, 30.0]
 
 
+def test_series_range():
+    r = xf._series_range([("2020-01-01", 1.0), ("2020-01-03", "."), ("2020-01-05", 2.0)])
+    assert r == {"first": "2020-01-01", "last": "2020-01-05", "n": 2}
+    assert xf._series_range([])["n"] == 0
+
+
 def test_align_many_drops_nonnumeric():
     dated = {"A": [("2020-01-01", 1.0), ("2020-01-02", "x")],
              "B": [("2020-01-01", 5.0), ("2020-01-02", 6.0)]}
