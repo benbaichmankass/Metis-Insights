@@ -65,6 +65,19 @@ D4 composite) each of these inputs can still be run through.
   has no honest IC either. Recording D4 as moot rather than running it to a foregone null is
   the honest disposition (`RESEARCH-RIGOR-STANDARD.md` § don't burn compute on a foregone
   result — reason it out and record it).
+- ~~**14 · D4 composite of the two VALIDATED leads (`vix_term` + `hy_oas_pct`)**~~ — **MOOT,
+  not built** (honest call, 2026-07-25). Distinct from entry 13 (which blended *nulls*): entry
+  13 asked "do the no-IC sleeve signals combine?", this asks "do the two signals that DID pass
+  the IC gate — `vix_term` (M31, robust) and `hy_oas_pct` (M32, robust-WF) — ensemble into a
+  DEPLOYABLE edge?" **Moot by a clean a-priori Sharpe ceiling:** the standalone timing Sharpes
+  are ~0.0–0.18 (Track A-S5), and a 2-factor ensemble caps at `single × √2 ≈ 0.25` even in the
+  *best* case (perfectly uncorrelated). Both are same-signed US-equity-*stress* gauges (VIX
+  term structure + HY credit spread), so they're plausibly positively correlated → the real
+  ensemble Sharpe is *below* 0.25, still far under the ≥0.5–1.0 a standalone deployable book
+  needs. Two thin, likely-correlated edges cannot arithmetically combine past the deployable
+  bar; running it is a foregone null. Recorded per `RESEARCH-RIGOR-STANDARD.md`. **This drains
+  the construction queue: every dimension (D1 transform / D2 conditioning / D3 cross-section /
+  D4 composite) has now been run or reasoned-to-moot on every free input.**
 
 ### Escalation — the free/cheap macro-input class is exhausted (2026-07-24)
 
