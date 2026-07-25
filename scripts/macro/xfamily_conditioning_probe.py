@@ -55,7 +55,15 @@ if _REPO_ROOT not in sys.path:
 # The two robust leads' FRED series.
 VIX_SID = "VIXCLS"        # VIX (1m implied vol)
 VIX3M_SID = "VXVCLS"      # VIX3M (3m implied vol) — numerator of the term ratio
-HY_OAS_SID = "BAMLH0A0HYM2"  # HY OAS (credit stress)
+HY_OAS_SID = "BAMLH0A0HYM2"  # HY OAS (credit stress) — ~3yr keyless FRED cap (ICE license)
+
+# Credit-stress factor proxies. The ICE BofA HY OAS (BAMLH0A0HYM2) is only ~3yr on the
+# keyless FRED CSV (a license cap on that series, confirmed by the M34 date-range
+# diagnostic #7590) — too short for a monthly conjunction. BAA10Y (Moody's Baa − 10yr
+# Treasury, on FRED since 1986, Fed/Moody's-computed → NOT ICE-license-capped) gives
+# decades of credit-stress history. Grade both side by side: HY-OAS for continuity with
+# M32, BAA10Y for a properly-powered conjunction + a long-history re-test of the lead.
+CREDIT_PROXIES = (("hy_oas_pct", "BAMLH0A0HYM2"), ("baa_10y", "BAA10Y"))
 
 # Equity targets that carry deep FRED daily history (both leads are equity-forward).
 DEFAULT_TARGETS = ("SP500", "NASDAQ100")
@@ -251,64 +259,72 @@ def walkforward_conjunction(term_series: list, credit_series: list, target_vals:
 # runners
 # ---------------------------------------------------------------------------
 
-def _fetch(targets, urlopen):
+def _fetch(targets, urlopen, credit_sids=(HY_OAS_SID,)):
     from src.units.strategies.macro_thesis.fred_adapter import (
         fetch_fred_series_history_dated,
     )
-    sids = sorted({VIX_SID, VIX3M_SID, HY_OAS_SID, *targets})
+    sids = sorted({VIX_SID, VIX3M_SID, *credit_sids, *targets})
     return fetch_fred_series_history_dated(sids, urlopen=urlopen)
 
 
 def run_probe(targets=DEFAULT_TARGETS, *, urlopen: Optional[Callable] = None,
               horizons=DEFAULT_HORIZONS, split_frac: float = 0.6,
-              cost_bps: float = 1.0, t_flag: float = 2.0) -> dict:
-    dated = _fetch(targets, urlopen)
+              cost_bps: float = 1.0, t_flag: float = 2.0,
+              credit_proxies=CREDIT_PROXIES) -> dict:
+    credit_sids = [sid for _, sid in credit_proxies]
+    dated = _fetch(targets, urlopen, credit_sids)
     cost_frac = cost_bps / 10000.0
-    shared = {sid: _series_range(dated.get(sid, [])) for sid in (VIX_SID, VIX3M_SID, HY_OAS_SID)}
+    shared = {sid: _series_range(dated.get(sid, []))
+              for sid in (VIX_SID, VIX3M_SID, *credit_sids)}
     results = []
-    for tgt in targets:
-        dates, vals = _align_many({k: dated.get(k, []) for k in
-                                   (VIX_SID, VIX3M_SID, HY_OAS_SID, tgt)})
-        overlap = {"first": dates[0] if dates else None,
-                   "last": dates[-1] if dates else None, "n": len(dates),
-                   "target_range": _series_range(dated.get(tgt, []))}
-        if len(dates) < 60:
-            results.append({"target": tgt, "verdict": "no_data", "rows": [], "overlap": overlap})
-            continue
-        term, credit = build_leads(vals[tgt], vals[VIX_SID], vals[VIX3M_SID], vals[HY_OAS_SID])
-        rows = [grade_cell(term, credit, vals[tgt], h, split_frac=split_frac,
-                           cost_frac=cost_frac, t_flag=t_flag) for h in horizons]
-        any_pay = any(r["verdict"] == "conjunction_pays" for r in rows)
-        computable = any(r["verdict"] != "no_data" for r in rows)
-        verdict = "conjunction_pays" if any_pay else ("no_conjunction_edge" if computable else "no_data")
-        results.append({"target": tgt, "n_dates": len(dates), "verdict": verdict,
-                        "rows": rows, "overlap": overlap})
+    for clabel, csid in credit_proxies:
+        for tgt in targets:
+            dates, vals = _align_many({k: dated.get(k, []) for k in
+                                       (VIX_SID, VIX3M_SID, csid, tgt)})
+            overlap = {"first": dates[0] if dates else None,
+                       "last": dates[-1] if dates else None, "n": len(dates),
+                       "target_range": _series_range(dated.get(tgt, []))}
+            base = {"target": tgt, "credit": clabel, "credit_sid": csid}
+            if len(dates) < 60:
+                results.append({**base, "verdict": "no_data", "rows": [], "overlap": overlap})
+                continue
+            term, credit = build_leads(vals[tgt], vals[VIX_SID], vals[VIX3M_SID], vals[csid])
+            rows = [grade_cell(term, credit, vals[tgt], h, split_frac=split_frac,
+                               cost_frac=cost_frac, t_flag=t_flag) for h in horizons]
+            any_pay = any(r["verdict"] == "conjunction_pays" for r in rows)
+            computable = any(r["verdict"] != "no_data" for r in rows)
+            verdict = "conjunction_pays" if any_pay else (
+                "no_conjunction_edge" if computable else "no_data")
+            results.append({**base, "n_dates": len(dates), "verdict": verdict,
+                            "rows": rows, "overlap": overlap})
     return {"cost_bps": cost_bps, "split_frac": split_frac, "t_flag": t_flag,
-            "horizons": list(horizons), "series_ranges": shared, "targets": results}
+            "horizons": list(horizons), "credit_proxies": [c[0] for c in credit_proxies],
+            "series_ranges": shared, "targets": results}
 
 
 def run_walkforward(cells=WF_CELLS, *, urlopen: Optional[Callable] = None,
-                    k_eras: int = 5, cost_bps: float = 1.0, t_flag: float = 2.0) -> dict:
+                    k_eras: int = 5, cost_bps: float = 1.0, t_flag: float = 2.0,
+                    credit_proxies=CREDIT_PROXIES) -> dict:
     tgts = sorted({c[0] for c in cells})
-    dated = _fetch(tgts, urlopen)
+    credit_sids = [sid for _, sid in credit_proxies]
+    dated = _fetch(tgts, urlopen, credit_sids)
     cost_frac = cost_bps / 10000.0
     out = []
-    cache = {}
-    for tgt, h in cells:
-        if tgt not in cache:
+    for clabel, csid in credit_proxies:
+        for tgt, h in cells:
             dates, vals = _align_many({k: dated.get(k, []) for k in
-                                       (VIX_SID, VIX3M_SID, HY_OAS_SID, tgt)})
-            cache[tgt] = (dates, vals)
-        dates, vals = cache[tgt]
-        if len(dates) < 60:
-            out.append({"target": tgt, "horizon": h, "verdict": "no_data"})
-            continue
-        term, credit = build_leads(vals[tgt], vals[VIX_SID], vals[VIX3M_SID], vals[HY_OAS_SID])
-        wf = walkforward_conjunction(term, credit, vals[tgt], h, k_eras=k_eras,
-                                     cost_frac=cost_frac, t_flag=t_flag)
-        wf["target"] = tgt
-        out.append(wf)
-    return {"cost_bps": cost_bps, "k_eras": k_eras, "t_flag": t_flag, "cells": out}
+                                       (VIX_SID, VIX3M_SID, csid, tgt)})
+            if len(dates) < 60:
+                out.append({"target": tgt, "credit": clabel, "horizon": h, "verdict": "no_data"})
+                continue
+            term, credit = build_leads(vals[tgt], vals[VIX_SID], vals[VIX3M_SID], vals[csid])
+            wf = walkforward_conjunction(term, credit, vals[tgt], h, k_eras=k_eras,
+                                         cost_frac=cost_frac, t_flag=t_flag)
+            wf["target"] = tgt
+            wf["credit"] = clabel
+            out.append(wf)
+    return {"cost_bps": cost_bps, "k_eras": k_eras, "t_flag": t_flag,
+            "credit_proxies": [c[0] for c in credit_proxies], "cells": out}
 
 
 # ---------------------------------------------------------------------------
@@ -335,7 +351,8 @@ def _print_scan(out) -> None:
     for r in out["targets"]:
         ov = r.get("overlap") or {}
         tr = ov.get("target_range") or {}
-        print(f"  {r['target']}: verdict={r['verdict']}  (n_dates={r.get('n_dates', 0)})")
+        print(f"  {r['target']} × {r.get('credit', '?')}: verdict={r['verdict']}  "
+              f"(n_dates={r.get('n_dates', 0)})")
         if ov:
             print(f"       target {r['target']:<10} {tr.get('first')}→{tr.get('last')} n={tr.get('n', 0)}"
                   f"  | 4-way overlap {ov.get('first')}→{ov.get('last')} n={ov.get('n', 0)}")
@@ -365,7 +382,7 @@ def _print_wf(out) -> None:
         if c.get("verdict") == "no_data":
             print(f"  {c['target']} · H={c['horizon']}d: no_data\n")
             continue
-        print(f"  {c['target']} · H={c['horizon']}d: verdict={c['verdict']}  "
+        print(f"  {c['target']} × {c.get('credit', '?')} · H={c['horizon']}d: verdict={c['verdict']}  "
               f"(sign_consistency={_f(c['sign_consistency'],3)}, "
               f"modern_significant={c['modern_significant']})")
         for i, e in enumerate(c.get("eras", [])):

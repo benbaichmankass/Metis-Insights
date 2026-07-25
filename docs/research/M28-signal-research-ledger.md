@@ -367,6 +367,14 @@ NFCI). Each → SP500 forward returns, through the SAME honest funnel Track A us
 | curve_10y3m (3m10y level) | no_edge | s2_only_no_s3 | regime_dependent/not_robust | null |
 | nfci (Chicago Fed FCI level) | no_edge | s2_only_no_s3 | regime_dependent/insufficient | null |
 
+> **⚠️ CAVEAT (added 2026-07-25, via the M34 diagnostic #7590):** the `hy_oas_pct` numbers above
+> were graded over **only ~3 years** — the keyless `fredgraph.csv?id=BAMLH0A0HYM2` exposes just
+> `2023-07-25→2026-07-23` (787 obs; an ICE BofA license cap on that series). So the H10 ic=0.25 /
+> H42 ic=0.53 and the "robust @ H10" walk-forward rest on a **small, recent sample** (H42
+> non-overlap over 3yr is only ~18 anchors) — small-N IC is noisy and inflation-prone. The
+> credit lead should be read as **a 3yr-window signal, not a multi-decade-validated one**; the
+> M34b re-run uses `BAA10Y` (Moody's Baa−10yr, FRED since 1986, non-ICE) to test it over decades.
+
 **Read.** HY-OAS stress-percentile → SP500 is the one construction with a coherent signal:
 S2-significant at 10d and 42d and **robust** on the multi-fold walk-forward at 10d — but it
 **fails the S3 cost gate at every horizon** (`pays_oos=False` throughout; no net-of-fee OOS
@@ -580,6 +588,39 @@ date-range diagnostic to the probe so the re-grade (#TBD) prints exactly which s
 conjunction is untestable on free data (→ honest terminus); if it's a fixable calendar/gap
 artifact, the corrected overlap gives enough anchors for a real verdict. **Held to the honest
 bar: an underpowered run is not a negative.**
+
+### M34 diagnostic (#7590): the binding series is BAMLH0A0HYM2 (~3yr keyless cap) — NOT a calendar mismatch
+
+The per-series ranges settle it:
+
+| series | first → last | n |
+|---|---|---|
+| VIXCLS | 1990-01-02 → 2026-07-23 | **9236** |
+| VXVCLS | 2007-12-04 → 2026-07-23 | **4687** |
+| **BAMLH0A0HYM2** (HY OAS) | **2023-07-25 → 2026-07-23** | **787** |
+
+So the free keyless `fredgraph.csv?id=BAMLH0A0HYM2` exposes **only ~3 years** of the ICE BofA HY
+OAS series (a license/redistribution cap on that specific series, like the 10yr cap on
+SP500/NDX) — my prior "calendar mismatch / M32 had ample history" hypothesis is **falsified**.
+Two consequences:
+
+1. **The M34 monthly conjunction is untestable on this credit series** — 3yr → 14 monthly OOS
+   anchors, permanently underpowered. Not a construction failure; a data-availability wall.
+2. **⚠️ Corrects the M32 `hy_oas_pct` "robust" verdict (see-something-say-something).** M32
+   (#7565) graded `hy_oas_pct` over this *same* 787-obs / ~3yr window (`credit_curve_probe` uses
+   the identical keyless adapter, no date params). Its H10 ic=0.25 / H42 ic=0.53 and "robust @
+   H10" walk-forward rest on **~3 years only** — small-sample IC is noisy and inflation-prone, so
+   the credit lead is a **3yr-window signal, not the multi-decade robust the tally implies.** The
+   headline "two robust leads" is really **one multi-decade robust lead (`vix_term`) + one
+   3yr-only lead (`hy_oas_pct`)** — see the M32 caveat added inline below.
+
+**Next construction (M34b): re-run with a LONG-history credit proxy (`BAA10Y`).** Moody's Baa −
+10yr-Treasury spread (`BAA10Y`, on FRED since 1986, Fed/Moody's-computed → **not** ICE-license-
+capped) gives decades of credit-stress history. Swapping it in makes VXVCLS (2007) the binding
+series (~19yr → ~88 monthly OOS anchors — properly powered) so the conjunction gets a real
+verdict, AND it independently tests whether the credit lead survives beyond the 3yr HY-OAS
+window. Probe now grades BOTH credit proxies (HY-OAS + BAA10Y) side by side so one run shows the
+short vs long comparison. Recorded pending #TBD.
 
 ## The compounding read so far (entries 1–12)
 
