@@ -68,7 +68,7 @@ CREDIT_PROXIES = (("hy_oas_pct", "BAMLH0A0HYM2"), ("baa_10y", "BAA10Y"))
 # Equity targets that carry deep FRED daily history (both leads are equity-forward).
 DEFAULT_TARGETS = ("SP500", "NASDAQ100")
 DEFAULT_HORIZONS = (21, 42)   # monthly→bimonthly — where both leads carry information
-WF_CELLS = (("NASDAQ100", 21), ("NASDAQ100", 42), ("SP500", 21))
+WF_CELLS = (("NASDAQ100", 21), ("NASDAQ100", 42), ("SP500", 21), ("SP500", 42))
 
 
 # ---------------------------------------------------------------------------
