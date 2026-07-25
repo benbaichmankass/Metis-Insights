@@ -403,6 +403,39 @@ to *"a broad US-equity-vol-term effect with TWO cost-surviving tradeable legs (E
 strongest positive result in the ledger. Forward motion is unchanged in kind (Tier-3 S4 productionization,
 now scoped ES+NQ; the point-in-time producer + soak to condition it) — but the deployable prize is larger.
 
+### M31 Track A-S5 result (#7577): the vix_term edge is REAL but too THIN to deploy standalone — the sobering size read
+
+The signal grade said *is there a robust, cost-surviving lead* → yes (A + XI). It does NOT say *how big
+the tradeable edge is*. Track A-S5 expresses `vix_term` as an actual long/short/flat timing position on
+each index future (a-priori direction, non-overlapping, OOS-split, net of a realistic ~1.5 bp futures
+round-trip) and reports the numbers a deployment decision turns on — Sharpe, CAGR, max-drawdown:
+
+| target | FULL Sharpe (H5/10/21/42) | FULL CAGR | FULL maxDD | OOS Sharpe (H5/10/21/42) | read |
+|---|---|---|---|---|---|
+| **SP500** | 0.07 / −0.02 / 0.18 / 0.05 | ~0 (−0.0002…+0.015) | −26% … −39% | 0.26 / 0.13 / 0.47 / 0.67 | barely-positive full; OOS only at small-N |
+| **NASDAQ-100** | −0.06 / −0.30 / 0.04 / 0.15 | **negative on 3 of 4** | **−45% … −82%** | 0.02 / −0.33 / 0.18 / 0.37 | worst — negative + brutal DD |
+| **DJIA** | 0.08 / 0.10 / 0.05 / −0.02 | ~0 | −26% … −41% | 0.30 / 0.42 / 0.29 / 0.77 | barely-positive full; OOS small-N |
+
+**The honest verdict: `edge_real_but_thin` — NOT deployable as a standalone directional strategy.**
+This does NOT contradict the robust-IC result (A/XI); it completes it. A small, real, sign-stable IC
+produces a timing strategy whose **full-sample Sharpe is ~0.0–0.18** (far below the ≥0.5–1.0 a standalone
+needs) with **−26% to −82% drawdowns**. The apparent OOS strength (SP500 H42 Sharpe 0.67, DJIA H42 0.77)
+is **concentrated at the small-N long horizons** (n=24–48 non-overlapping periods) — exactly the fragile,
+regime-dependent regime the earlier notes flagged; it is not a robust standalone edge, it is a thin tilt
+that happened to work in the recent 40%. NASDAQ-100 — the "2nd cost-surviving leg" from the IC read — is
+the WORST on a size basis (negative full CAGR, −82% maxDD), which sharply qualifies the XI "widens to NQ"
+optimism: it widens the *statistical* lead, not a *deployable* one.
+
+**Consequence for S4 (recommendation update).** `vix_term` should **not** be productionized as a
+standalone ES/NQ timing signal — the tradeable edge is too thin and the drawdowns too large. Its only
+defensible use is what was flagged from the start: a **low-weight conviction/exposure tilt** inside a
+larger book (observe→advise→size), never a primary entry — and even that is optional given the size read.
+This is the classic "significant IC ≠ tradeable Sharpe" outcome, recorded as an honest negative-leaning
+result. **The vix_term investigation is now complete end-to-end** (S2 edge → S3 cost → walk-forward robust
+→ cross-asset null → cross-index generalize → SIZE too thin): a *validated lead, not a deployable edge* —
+the same landing as `hy_oas_pct`, reached with more rigor. The free-macro program's honest final tally:
+**zero deployable standalone edges** across every free input class.
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a
