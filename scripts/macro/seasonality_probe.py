@@ -173,6 +173,82 @@ def run_probe(targets=DEFAULT_TARGETS, *, urlopen=None, split_frac: float = 0.6,
             "dimensions": list(dimensions), "targets": results}
 
 
+# ---------------------------------------------------------------------------
+# Per-era walk-forward confirmation of a FLAGGED candidate bucket (M33 follow-up).
+# The scan (above) picks a bucket in-sample and evaluates it OOS — good for
+# DISCOVERY but it doesn't rule out era-front-loading (a calendar anomaly strong in
+# 1985–2005 and decayed since) or fold-inconsistency. This tests a FIXED, already-
+# flagged (dimension, bucket) across K contiguous eras: is the edge sign-consistent
+# AND still significant in the MODERN era, or front-loaded and decayed?
+# ---------------------------------------------------------------------------
+
+# The cells M33's scan flagged as seasonal_edge (#7582) — the confirmation targets.
+WF_CELLS = (
+    ("NASDAQ100", "dow", "Wed"),
+    ("NASDAQ100", "tom", "turn"),
+)
+
+
+def walkforward_fixed_bucket(returns: list, dimension: str, bucket: str, *,
+                             k_eras: int, cost_frac: float, t_flag: float) -> dict:
+    """Split ``returns`` into ``k_eras`` contiguous time eras; per era report the FIXED
+    bucket's mean/t/net. Robust only if the sign is consistent across eras AND the
+    MOST-RECENT era is still t-significant + net-positive (rules out era-decay)."""
+    bucket_rows = [(d, r) for d, r in returns if _bucket(d, dimension) == bucket]
+    if len(bucket_rows) < k_eras * 8:
+        return {"dimension": dimension, "bucket": bucket, "verdict": "insufficient_sample",
+                "reason": f"{len(bucket_rows)} bucket rows for {k_eras} eras", "eras": []}
+    per = len(bucket_rows) // k_eras
+    full_mean = statistics.fmean([r for _, r in bucket_rows])
+    eras, signs = [], []
+    for e in range(k_eras):
+        lo = e * per
+        hi = len(bucket_rows) if e == k_eras - 1 else (e + 1) * per
+        seg = [r for _, r in bucket_rows[lo:hi]]
+        mean, t, n = _mean_t(seg)
+        net = (mean - cost_frac) if mean is not None else None
+        eras.append({"era": e, "span": [bucket_rows[lo][0], bucket_rows[hi - 1][0]],
+                     "mean": round(mean, 6) if mean is not None else None,
+                     "net": round(net, 6) if net is not None else None,
+                     "t": round(t, 4) if t is not None else None, "n": n})
+        if mean is not None:
+            signs.append(1 if mean > 0 else (-1 if mean < 0 else 0))
+    sign_consistency = (sum(1 for s in signs if s == (1 if full_mean > 0 else -1)) / len(signs)
+                        if signs else 0.0)
+    last = eras[-1]
+    modern_sig = bool(last["t"] is not None and abs(last["t"]) >= t_flag
+                      and last["net"] is not None and last["net"] > 0
+                      and (last["mean"] or 0) > 0)
+    if sign_consistency >= 0.75 and modern_sig:
+        verdict = "robust"
+    elif not modern_sig and any((er["t"] or 0) >= t_flag for er in eras[:-1]):
+        verdict = "era_front_loaded"
+    else:
+        verdict = "not_robust"
+    return {"dimension": dimension, "bucket": bucket, "k_eras": k_eras,
+            "sign_consistency": round(sign_consistency, 4), "modern_significant": modern_sig,
+            "verdict": verdict, "eras": eras}
+
+
+def run_walkforward(cells=WF_CELLS, *, urlopen=None, k_eras: int = 5,
+                    cost_bps: float = 1.0, t_flag: float = 2.0) -> dict:
+    tgts = sorted({c[0] for c in cells})
+    dated = fetch_fred_series_history_dated(tgts, urlopen=urlopen)
+    cost_frac = cost_bps / 10_000.0
+    results = []
+    for tgt, dim, bucket in cells:
+        series = dated.get(tgt, [])
+        if not series:
+            results.append({"target": tgt, "dimension": dim, "bucket": bucket,
+                            "verdict": "no_data", "eras": []})
+            continue
+        rets = _daily_returns(series)
+        wf = walkforward_fixed_bucket(rets, dim, bucket, k_eras=k_eras,
+                                      cost_frac=cost_frac, t_flag=t_flag)
+        results.append({"target": tgt, **wf})
+    return {"cost_bps": cost_bps, "k_eras": k_eras, "t_flag": t_flag, "cells": results}
+
+
 def _fmt(v) -> str:
     return "—" if v is None else (f"{v:.6f}" if isinstance(v, float) else str(v))
 
@@ -193,20 +269,49 @@ def _print(out) -> None:
                   f"t={_fmt(row['oos_t'])} n={row['oos_n']}  → {row['verdict']}")
 
 
+def _print_wf(out) -> None:
+    print("\nM33 — per-era WALK-FORWARD confirmation of the flagged candidate buckets")
+    print("=" * 78)
+    print(f"cost={out['cost_bps']}bps  k_eras={out['k_eras']}  t_flag={out['t_flag']}  "
+          "(FIXED bucket per era; robust needs sign-consistency + MODERN-era significance)")
+    for r in out["cells"]:
+        print(f"\n  {r['target']} · {r['dimension']}={r.get('bucket','?')}: verdict={r['verdict']}"
+              + (f"  (sign_consistency={_fmt(r.get('sign_consistency'))}, "
+                 f"modern_significant={r.get('modern_significant')})" if r.get("eras") else ""))
+        if r.get("reason"):
+            print(f"      {r['reason']}")
+        for er in r.get("eras", []):
+            print(f"      era {er['era']} [{er['span'][0]}…{er['span'][1]}]  "
+                  f"mean={_fmt(er['mean'])} net={_fmt(er['net'])} t={_fmt(er['t'])} n={er['n']}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="M33 — calendar-seasonality probe (free FRED)")
+    ap.add_argument("--mode", choices=["scan", "wf", "both"], default="both")
     ap.add_argument("--cost-bps", type=float, default=1.0)
     ap.add_argument("--split-frac", type=float, default=0.6)
     ap.add_argument("--t-flag", type=float, default=2.0)
+    ap.add_argument("--k-eras", type=int, default=5)
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
-    out = run_probe(cost_bps=args.cost_bps, split_frac=args.split_frac, t_flag=args.t_flag)
+    bundle = {}
+    if args.mode in ("scan", "both"):
+        bundle["scan"] = run_probe(cost_bps=args.cost_bps, split_frac=args.split_frac,
+                                   t_flag=args.t_flag)
+    if args.mode in ("wf", "both"):
+        bundle["wf"] = run_walkforward(cost_bps=args.cost_bps, k_eras=args.k_eras,
+                                       t_flag=args.t_flag)
     if args.json:
-        print(json.dumps(out, indent=2))
+        print(json.dumps(bundle, indent=2))
         return 0
-    _print(out)
-    print("\nHonest: bucket selected on the in-sample half only, evaluated on the untouched "
-          "OOS half, net of cost. Observe-only research.")
+    if "scan" in bundle:
+        _print(bundle["scan"])
+        print("\nScan: bucket selected on the in-sample half only, evaluated on the untouched "
+              "OOS half, net of cost.")
+    if "wf" in bundle:
+        _print_wf(bundle["wf"])
+        print("\nWalk-forward: a fixed flagged bucket across contiguous eras — robust only if "
+              "the edge is sign-consistent AND still significant in the modern era. Observe-only.")
     return 0
 
 

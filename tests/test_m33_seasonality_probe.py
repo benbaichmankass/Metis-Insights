@@ -98,3 +98,51 @@ def test_run_probe_shape_and_no_data():
 
     empty = sp.run_probe(targets=("DJIA",), urlopen=_fake_urlopen_factory({}))
     assert empty["targets"][0]["verdict"] == "no_data"
+
+
+# ---- walk-forward fixed-bucket confirmation ---------------------------------
+
+def test_walkforward_robust_when_edge_persists_all_eras():
+    # "late" bucket carries a stable +1% edge across the whole span → robust.
+    dates = _synthetic_dom_dates(500)
+    returns = [(d, (0.01 + (0.0002 if i % 2 else -0.0002)) if sp._dom(d) > 20 else 0.0)
+               for i, d in enumerate(dates)]
+    wf = sp.walkforward_fixed_bucket(returns, "dom", "late", k_eras=4,
+                                     cost_frac=0.0001, t_flag=2.0)
+    assert wf["verdict"] == "robust"
+    assert wf["sign_consistency"] == 1.0 and wf["modern_significant"] is True
+
+
+def test_walkforward_era_front_loaded_when_edge_decays():
+    # +1% in the early eras, ~0 in the late eras → sign holds early, modern insignificant.
+    dates = _synthetic_dom_dates(600)
+    cutoff = len(dates) // 2
+    returns = []
+    for i, d in enumerate(dates):
+        if sp._dom(d) > 20:
+            r = (0.01 + (0.0002 if i % 2 else -0.0002)) if i < cutoff else (0.0002 if i % 2 else -0.0002)
+        else:
+            r = 0.0
+        returns.append((d, r))
+    wf = sp.walkforward_fixed_bucket(returns, "dom", "late", k_eras=4,
+                                     cost_frac=0.0001, t_flag=2.0)
+    assert wf["modern_significant"] is False
+    assert wf["verdict"] in {"era_front_loaded", "not_robust"}
+
+
+def test_walkforward_insufficient_sample():
+    returns = [("2020-01-27", 0.01)] * 10  # only ~10 "late" rows, k_eras=5 → insufficient
+    wf = sp.walkforward_fixed_bucket(returns, "dom", "late", k_eras=5,
+                                     cost_frac=0.0001, t_flag=2.0)
+    assert wf["verdict"] == "insufficient_sample"
+
+
+def test_run_walkforward_wiring():
+    dates = _synthetic_dom_dates(500)
+    ndx = _fred_csv([(d, 3000.0 * (1.0 + 0.0005 * i)) for i, d in enumerate(dates)])
+    out = sp.run_walkforward(cells=(("NASDAQ100", "dom", "late"),),
+                             urlopen=_fake_urlopen_factory({"NASDAQ100": ndx}), k_eras=4)
+    r = out["cells"][0]
+    assert r["target"] == "NASDAQ100" and r["dimension"] == "dom"
+    assert r["verdict"] in {"robust", "era_front_loaded", "not_robust",
+                            "insufficient_sample", "no_data"}
