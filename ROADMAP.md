@@ -319,6 +319,53 @@ autonomous; every live-influencing step is Tier-3.
    EIA/weather/NG-price calibration (shares the M28 data-availability question). Anchor
    `MB-20260723-M29-AI-SYSTEM-DYNAMICS`.
 
+### Cross-session priority order — macro / signal-R&D track (adopted 2026-07-25, operator-directed)
+
+One authoritative work-order so **concurrent sessions can each claim one lane without
+colliding** (the lanes are file-disjoint; claim on the coordination board before starting).
+Work top-down — P0 is the highest-leverage unblock.
+
+- **P0 — Point-in-time data producer (highest leverage; unblocks the most). LANE: `data-producer`.**
+  An **off-VM GitHub Actions cron** that commits *dated, point-in-time* FRED (+ later EIA/weather)
+  snapshots into `comms/macro/` → the VM's `ict-git-sync` pulls them → the **already-built readers**
+  (`fred_adapter` fallback, `valuation_snapshots.jsonl`) consume them. Keyless FRED, **no operator
+  secret**, Tier-1 to build. This is the single prerequisite behind THREE stalled items:
+  `MB-20260723-M28-VALUATION-PRODUCER-UNWIRED` (M28-P4 gate), **M29-P1b** (real EIA/weather/NG
+  calibration), and the signal soaks that turn the program's two *validated leads* (`vix_term`,
+  `hy_oas_pct` — see the M28 ledger) into cost-aware, regime-conditioned, tradable signals. Anti-pattern
+  to avoid: do NOT wire a daily job that alarms on a missing feed before the producer commits its first
+  snapshot (the normalized-alarm failure class). Build producer → verify one committed snapshot → then
+  wire the reader/soak.
+
+- **P1 — M27 gold scalp: promote, don't build a new venue. LANE: `m27-scalp`.**
+  Venue check (verified against `config/accounts.yaml`, 2026-07-25): **GLD is already live on
+  `alpaca_paper`** (`gld_pullback_1d` + `gld_pullback_1h`; `GLD` in the symbol roster) and MGC micro-gold
+  futures already trade on `ib_paper` (`mgc_pullback_1d`) — so gold exposure needs **no new
+  integration**. **XAUUSD spot is dead** (`oanda_practice` shelved; `xauusd_trend_1h` removed from
+  routing; OANDA-US can't trade XAU_USD, `BL-20260611-007`) — **drop it as a target.** M27's real work is
+  the timeframe sweep + **walk-forward → `alpaca_live` promotion packet** for GLD (and MGC), gated on
+  `account_compat_matrix`; Tier-3 to go real-money. Design: `docs/research/M27-scalp-expansion-DESIGN.md`.
+
+- **P1 — Schwab registration (operator hand-off; parallel to P0). LANE: `m31-track-b`.**
+  Register the Schwab Trader API app (**Market Data Production** product — option chains + Greeks/IV, no
+  trading scope needed) → paste `SCHWAB_APP_KEY` / `SCHWAB_APP_SECRET` into Actions secrets (OAuth refresh
+  token re-auths **weekly**). Unblocks M31 **Track B** options-skew soak — the adapter + feature core are
+  **already built and turnkey** (`scripts/macro/{schwab_chain_adapter,iv_skew_probe}.py`, plan:
+  `docs/research/M31-track-b-soak-plan.md`) — and a **non-FRED gold IV feed** (the gold cell the free-FRED
+  cross-check left `no_data`). Genuine human hand-off: only the app registration + secret paste.
+
+- **P2 — M26 regime-transition program (observe-first). LANE: `m26-regime`.**
+  Phased per `docs/research/M26-regime-transition-conflict-DESIGN.md`: P1 TF-aware conflict taxonomy
+  (`tf_ratio ≥ 4` ⇒ coexist; `< 4` ⇒ transition vote) → P2 transition-score observe-only soak → P3
+  walk-forward the policy arms vs the live `hold` `FLIP_POLICY` → P4 Tier-3 `*_MODE` rollout
+  (operator-gated). Nothing touches the order path until P4.
+
+- **P3 — Free-macro frontier: CLOSED (2026-07-25).** The M32 credit/rates verdict (#7565) completed the
+  sweep of the free-keyless-FRED risk-premium input class (COT · crypto · value · implied-vol · credit/rates):
+  **two validated leads (`vix_term`, `hy_oas_pct`), zero cost-surviving edges.** No further free-FRED framing
+  is warranted — forward motion is P0 (soak the leads into tradable signals) + P1 Track B (non-FRED options
+  skew). Full record: `docs/research/M28-signal-research-ledger.md`.
+
 **Long-horizon research & testing plan (operator-directed 2026-07-19):**
 [`docs/research/AI-TRADER-RESEARCH-PLAN-2026-07-19.md`](docs/research/AI-TRADER-RESEARCH-PLAN-2026-07-19.md)
 — the authority-ladder north star (observe→advise→gate→size→select→generate),
