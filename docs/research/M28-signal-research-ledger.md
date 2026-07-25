@@ -449,6 +449,46 @@ result. **The vix_term investigation is now complete end-to-end** (S2 edge → S
 the same landing as `hy_oas_pct`, reached with more rigor. The free-macro program's honest final tally:
 **zero deployable standalone edges** across every free input class.
 
+## M33 — calendar-seasonality family (a NEW free family beyond the macro inputs, 2026-07-25)
+
+After the free *macro* input classes were exhausted (COT · crypto · value · implied-vol ·
+credit/rates → two leads, zero deployable edges), M33 opens an **orthogonal free family** the
+program never touched: intrinsic **calendar structure** of the traded instruments — does the
+forward daily return differ by **day-of-week**, **day-of-month bucket**, or **turn-of-month**?
+Honest funnel (`scripts/macro/seasonality_probe.py`): the best bucket is picked on the
+in-sample 60% ONLY and evaluated on the untouched OOS 40% (no seasonality data-snoop), with an
+OOS t-stat bar + a net-of-~1bp-cost check. Grade #7582.
+
+### M33 result (#7582): NASDAQ-100 flags a calendar CANDIDATE (Wed + turn-of-month); needs walk-forward
+
+| target (n_ret) | dow | dom | turn-of-month | verdict |
+|---|---|---|---|---|
+| **SP500** (2513, ~10yr) | Tue t=0.05 | early t=0.82 | turn t=0.59 | no_seasonal_edge |
+| **NASDAQ100** (10219, ~40yr) | **Wed net +0.105%/d t=2.51** | early t=1.95 | **turn net +0.079%/d t=2.37** | **seasonal_edge** |
+| **DJIA** (2513, ~10yr) | Tue t=−0.19 | early t=0.36 | turn t=0.91 | no_seasonal_edge |
+| **WTI** (10202, ~40yr) | Thu t=0.89 | mid t=−0.23 | turn t=1.61 | no_seasonal_edge |
+
+**Read — a candidate lead, NOT a confirmed edge, with four load-bearing caveats:**
+1. **Length asymmetry.** Only NASDAQ100 (and WTI) carry ~40yr of FRED history; SP500/DJIA are
+   FRED-capped at ~10yr. NDX's significant cells are measured partly over the 1985–2005 era
+   when calendar anomalies were demonstrably stronger and less arbitraged — the OOS-40% half
+   (~2010→) still spans ~16yr, but decay across the window is the primary thing to rule out.
+2. **Multiple testing.** 4 targets × 3 dims = 12 cells; at p<0.05 the expected false-positive
+   count is ~0.6. NDX hitting 2/3 is above per-target chance but, across all 12 cells, ~2 hits
+   is near the family-wise noise floor. The in-sample→OOS split protects each cell's *bucket
+   choice* from snooping, but not the fact that 12 cells were scanned and the winners reported.
+3. **Crowding.** Turn-of-month is among the most-published calendar anomalies; a positive read
+   on a 40yr series is the *expected* footprint of a known, likely-decaying effect.
+4. **Magnitude / exposure.** ~0.08–0.11%/day on part-time exposure (Wed only ≈ 52 days/yr;
+   turn window ≈ 5 days/month) — small, and idle-capital-heavy as a standalone.
+
+**Disposition:** the NASDAQ-100 Wed + turn-of-month cells are a **candidate worth ONE
+confirmation gate** — a multi-fold **walk-forward + per-era split** to distinguish a persistent
+edge from a decaying/era-driven/multiple-testing artifact (the same gate that separated
+`vix_term` robust from the nulls). SP500/DJIA/WTI are clean nulls. If the walk-forward shows
+the NDX edge is era-front-loaded or fold-inconsistent, M33 lands where every free family has:
+*validated-looking, not deployable*. Recorded pending that confirmation (next construction).
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a
