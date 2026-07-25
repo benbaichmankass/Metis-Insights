@@ -372,6 +372,37 @@ in the macro program is NOT more free-FRED framing — it is (a) the **point-in-
 (unblocks M28-P4 valuation + the soaks that turn a *lead* into a tradable, cost-aware, regime-
 conditioned signal) and (b) the **non-FRED tracks** (Track B / Schwab options-skew, credential-gated).
 
+### M31 Track A-XI result (#7574): vix_term GENERALIZES across US equities — a 2nd cost-surviving leg (NQ)
+
+The cross-**index** test (a follow-up to the cross-asset XA result above): point the SAME robust
+VIX3M/VIX term-ratio feature at **NASDAQ-100** and **DJIA** forward returns (both keyless FRED). XA
+showed the signal is not cross-*asset* (oil no-edge, gold data-blocked) — "equity-specific." XI asks the
+sharper question: equity-specific to the *S&P alone*, or to *US large-cap equity vol-term broadly*?
+
+| target | S2 (non-overlap IC) | S3 (cost-aware OOS) | walk-forward | read |
+|---|---|---|---|---|
+| **SP500** (control) | directional_edge (H5 t=−2.76, H10 t=−2.30, H42 t=−2.14) | **pays_oos_net** (H42) | **robust** (H5, H10, H42) | the validated lead |
+| **NASDAQ-100** (`vix_term_ndx`) | directional_edge (H5 t=−2.03) | **pays_oos_net (H5 AND H21)** | **robust** (H5) | **full trifecta — a 2nd cost-surviving leg** |
+| **DJIA** (`vix_term_djia`) | directional_edge (H5 t=−2.35, H10 t=−2.15) | s2_only_no_s3 (no horizon pays net) | **robust** (H5) | lead, not cost-surviving |
+
+**All three carry the SAME negative sign** (elevated VIX3M/VIX term ratio → lower forward equity
+returns), and **all three are walk-forward robust at H5**. So the effect is **NOT SP500-specific — it is
+a broad US-large-cap equity vol-term effect.** This both *sharpens* and *widens* the read from XA:
+
+- **Widens the tradeable S4 scope from one leg to two.** NASDAQ-100 clears the **full** cost-aware gate
+  (`pays_oos_net` at H5 and H21, walk-forward robust at H5) — the same trifecta `vix_term`/SP500 passes.
+  So the S4 productionization leg is no longer MES-only: it is **ES (MES) + NQ (MNQ/NASDAQ-100)**, a
+  materially larger deployable surface than the XA-scoped "S&P leg only."
+- **DJIA is a confirmed lead, not a deployable edge** — robust IC + significant S2, but no horizon
+  survives the round-trip-cost OOS gate (same shape as `hy_oas_pct`/M32). **YM stays OUT** of the S4 leg.
+- **The "crowded broad-premium" concern is NOT re-raised** — this is still a *within-equity-vol-term*
+  effect (SP500/NDX/DJIA co-move), not a demonstrated cross-asset risk premium; XA's oil/gold nulls stand.
+
+**Net for the program's one live lead:** `vix_term` is upgraded from *"one equity-specific robust lead"*
+to *"a broad US-equity-vol-term effect with TWO cost-surviving tradeable legs (ES + NQ)."* This is the
+strongest positive result in the ledger. Forward motion is unchanged in kind (Tier-3 S4 productionization,
+now scoped ES+NQ; the point-in-time producer + soak to condition it) — but the deployable prize is larger.
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a
