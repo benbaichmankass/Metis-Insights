@@ -110,6 +110,11 @@ jobs:
                 description: 'Triggers vix-term-backtest — the vix_term single-asset timing backtest (ES/NQ/YM, net of real futures cost) on a GitHub runner.',
               },
               {
+                name: 'm33-seasonality-grade-now',
+                color: '0e8a16',
+                description: 'Triggers m33-seasonality-grade — the calendar-seasonality family (day-of-week / day-of-month / turn-of-month → daily return) on a GitHub runner.',
+              },
+              {
                 name: 'crypto-signals-backfill-now',
                 color: '0e8a16',
                 description: 'Triggers crypto-signals-backfill — reconstruct historical BTC/ETH/SOL funding/OI/basis snapshots (Bybit) + grade them with the M28 P4 + horizon-IC scans.',
