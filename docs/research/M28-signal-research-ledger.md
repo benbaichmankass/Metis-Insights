@@ -332,6 +332,65 @@ to oil, gold-blocked on data. Remaining forward motion is the two non-FRED track
 (the VXN/VXD → NDX/DJIA family cross-check + a real gold feed) and the **Tier-3 S4 productionization**
 proposal (SP500-leg-scoped, net-of-cost-caveated).
 
+## M32 — credit/rates risk-premium sleeve (2026-07-25): the skipped free-FRED macro inputs — one near-miss, no survivor
+
+**Why this exists (honest correction, not over-mining).** The macro chapter (entries 1–12)
+declared "free macro exhausted" after testing exactly THREE inputs — COT spec-positioning,
+crypto funding, the value sleeve (ERP/real-yield/GSR). But the free keyless FRED library
+carries several *other* documented cross-asset risk-premium predictors the program never ran:
+**credit spreads** (HY/IG OAS — credit famously leads equity), the **yield-curve slope**
+(10Y-2Y / 10Y-3M — the canonical recession/risk lead), and the **Chicago Fed financial-
+conditions index** (NFCI). "Free macro exhausted" was an overclaim on those inputs; M32 tests
+them through the SAME honest funnel Track A used (non-overlapping IC → OOS/cost → multi-fold
+walk-forward), reusing `implied_vol_probe`'s graders so the honesty guarantees are shared
+program-wide (`scripts/macro/credit_curve_probe.py`, 8 offline tests). Graded on a GitHub-hosted
+US-IP runner — all keyless fredgraph, no trainer relay (`m32-credit-curve-grade`, run
+30151085613 / issue #7565, #7564).
+
+Six probes → SP500 forward returns, horizons {10,21,42,63}d:
+
+| probe (series → SP500) | S2 (non-overlap IC) | S3 (OOS/cost) | walk-forward | read |
+|---|---|---|---|---|
+| **hy_oas_pct** (HY OAS stress %ile) | **directional_edge** — 10d ic 0.252 (t **2.20**), 42d ic 0.532 (t **2.35**, n=16) | `s2_only_no_s3` — **pays_oos=False every H** (10d net +0.007, oos_t 1.95<2; 21d net −0.050) | **robust @10d** (sign 0.75, pooled oos_ic 0.258, t **2.09**); 21d regime_dependent; 42/63 insufficient | **the sleeve's one near-miss** — S2 + walk-forward robust, S3-cost-**fails** |
+| hy_oas_mom (HY OAS Δ) | no_edge (best 63d t 1.99, n=10) | s2_only_no_s3, pays_oos False | regime_dependent | no edge |
+| ig_oas_pct (IG OAS stress %ile) | no_edge (all \|t\|<1.4) | s2_only_no_s3, pays_oos False | regime_dependent | no edge |
+| curve_10y2y (2s10s slope) | no_edge (all \|t\|<0.5) | s2_only_no_s3, pays_oos False | regime_dependent/not_robust | no edge |
+| curve_10y3m (3m10y slope) | no_edge (all \|t\|<1.2, cons. neg.) | s2_only_no_s3, pays_oos False | regime_dependent/not_robust | no edge |
+| nfci (Chicago Fed FCI) | no_edge (all \|t\|<1.3) | s2_only_no_s3, pays_oos False | regime_dependent | no edge |
+
+**Verdict — `no_edge` overall / `worth_building=False`, with one honest near-miss recorded.**
+`hy_oas_pct` is the sleeve's only live lead: it is the ONLY probe with a significant S2
+directional IC (10d **and** 42d), and it is walk-forward **robust at 10d** (pooled OOS t=2.09,
+sign-consistency 0.75 — the negative-fear→bounce contrarian sign held across 3 of 4 expanding
+folds). **But it fails the S3 cost-aware OOS gate** — `pays_oos=False` at every horizon (the
+10d net conviction spread is +0.007 with oos_ic t=1.95 <2, i.e. not a positive, significant,
+cost-surviving spread; the 21d spread is negative). Per the program bar (**flagged-significant
+IC AND a positive cost-surviving conviction spread**), it does **not** clear. The other five
+probes are flat `no_edge` at S2 and never reach S3.
+
+**The clean methodological contrast with the one survivor (`vix_term`, M31).** This is the
+value of grading credit/rates through the identical funnel: it sharpens what "robust" buys you.
+
+| signal | S2 directional | S3 OOS/cost | walk-forward | disposition |
+|---|---|---|---|---|
+| **`vix_term`** (M31, VIX3M/VIX → SP500) | directional_edge | **pays_oos_net @42d** | **robust** (3/4 H) | **VALIDATED LEAD** (survivor; S4-doorstep, Tier-3-gated) |
+| **`hy_oas_pct`** (M32, HY OAS %ile → SP500) | directional_edge | **fails (pays_oos=False)** | robust @10d | **near-miss** — robust IC, but NOT cost-surviving |
+
+`hy_oas_pct` reproduces the recurring trap the program has now catalogued four times (COT entry 2,
+crypto entry 11, value entry 12, and here): a real, sign-stable **statistical** IC that does not
+translate into a **cost-surviving tradeable** spread. Walk-forward robustness validates *sign
+stability of the directional signal*; it does **not** validate the fee-net conviction — the S3
+gate is a separate, binding kill-test, and `vix_term` remains the only construction to pass BOTH.
+
+**Consequence for the "free macro exhausted" claim.** The overclaim is now *corrected and
+honestly re-tested*: the skipped credit/rates inputs were run, and the floor holds — no new
+cost-surviving survivor beyond `vix_term`. Credit/rates adds one documented **near-miss lead**
+(`hy_oas_pct`) worth a note but not a build. Forward motion is unchanged: the two non-FRED
+tracks (Track B / Schwab) and the Tier-3 `vix_term` S4 productionization; a possible cheap
+follow-up on the `hy_oas_pct` lead is a **longer trailing-percentile window or an event-scoped
+(stress-only) framing**, but only if a prior beats the S3 gate offline first — not another
+raw-window sweep of a series whose cost-net spread is already ~0.
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a
