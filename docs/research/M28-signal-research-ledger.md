@@ -259,6 +259,48 @@ which is Track B). Only after walk-forward robustness would an S4 productionizat
 `macro_thesis`-style snapshot signal on MES) even be proposed — and that would be **Tier-3**,
 operator-gated. **This is the program's first genuine forward progress past S3 in 16 constructions.**
 
+### M31 Track A — S4-prep result (#7556): `vix_term` passes the multi-fold walk-forward — ROBUST
+
+The honest robustness follow-up (#7554): an **expanding-window walk-forward** (K=4 folds, orientation
+fit on the past only, no lookahead) grading whether the negative OOS IC holds its **sign across
+several held-out windows** — the test that separates a durable edge from the "one good split" doubt
+the S3 pass rested on. Per horizon for `vix_term` (VIX3M/VIX → SP500):
+
+| H | folds holding sign | pooled OOS IC (t) | verdict |
+|---|---|---|---|
+| 5d | **4/4** | **−0.114 (−2.54)** | **robust** |
+| 10d | **4/4** | **−0.134 (−2.08)** | **robust** |
+| 21d | 4/4 | −0.145 (−1.51) | regime_dependent (sign held, pooled t<2) |
+| **42d** | **4/4** | **−0.322 (−2.33)** | **robust** |
+
+**`vix_term` is ROBUST — the program's first construction to clear BOTH the S3 OOS/cost kill-test
+AND multi-fold walk-forward robustness.** Every single one of the **16 folds across all 4 horizons
+came back negative** (the IS-fit sign), and the pooled OOS IC is significant (|t|≥2) at 3 of the 4
+horizons. This **removes reservation #2** from the S3 read (the "regime-specific / one lucky 60/40
+split" doubt): the negative directional IC is stable across *four independent expanding windows*, not
+an artifact of where one cut landed. It is also the **only** robust probe — `vix_level`, `vix_vrp`,
+`ovx_level`, `ovx_vrp` are all `regime_dependent`/`not_robust`, exactly matching their S2 `no_edge`.
+
+**The two honest reservations that SURVIVE (why this is still a LEAD, not a live edge):**
+1. **Robust IC ≠ tradeable net-of-cost edge.** The walk-forward validates the *directional signal*'s
+   sign-stability; it does not re-test the fee. Per S3, the net conviction spread only cleared the
+   10 bps round-trip decisively at **H=42d** (+0.0567) — at 5d/10d the net was +0.002/+0.000 (cost
+   eats nearly all of a real IC). So the *robust* horizons (5d/10d) are barely tradeable, and the
+   *tradeable* horizon (42d) is the smallest-N (still robust here, but on ~12-anchor folds).
+2. **It remains a known, crowded signal** (VIX term-structure / VRP harvesting). Sign-persistence is
+   *expected* for a real risk premium; the open question is a *tradeable* implementation not already
+   arbitraged — which is an execution/costs question, not an IC question.
+
+**Disposition — upgraded from "MARGINAL" to a VALIDATED LEAD.** `vix_term` has now passed every gate
+the free-FRED path can apply (S2 directional IC → S3 OOS/cost → S4-prep walk-forward). The honest next
+moves are **enrichment + productionization scoping**, not more FRED grading (the daily VIX3M/VIX
+construction is fully wrung out): (a) a **wider vol-term family** cross-check (VXN/VXD → NDX/DJIA)
+needs a non-FRED source — **Track B / Schwab** (blocked on the operator's app registration); and
+(b) an **S4 productionization** — a real `macro_thesis`-style term-structure snapshot signal on the
+MES (S&P) leg — is now a defensible proposal, but is **Tier-3, operator-gated** (order-path-affecting)
+and should carry the net-of-cost caveat (edge concentrates at the 42d hold). **This is the program's
+first construction to reach the S4 doorstep.**
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a
