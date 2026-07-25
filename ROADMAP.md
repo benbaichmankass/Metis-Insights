@@ -346,10 +346,20 @@ Work top-down — P0 is the highest-leverage unblock.
   --snapshots comms/macro/valuation_snapshots.jsonl`) can mean anything. Concrete open items:
   (a) periodically confirm the daily cron is still landing (a scheduled run that silently stops is the
   failure class to watch — check `macro-valuation-snapshot.yml` run history, don't assume); (b) once
-  ~4–6 weeks accrue, run the P4 gate and record the verdict; (c) the **EIA/weather** producer for M29-P1b
-  is the genuinely-unbuilt sibling — same off-VM-cron shape, still to build (that is where new
-  `data-producer` effort belongs, not the FRED valuation feed). `MB-20260723-M28-VALUATION-PRODUCER-UNWIRED`
-  is **resolved** (producer wired); the M28-P4 gate stays gated on history, not on tooling.
+  ~4–6 weeks accrue, run the P4 gate and record the verdict; (c) the **M29 EIA/weather/NG gas producer is
+  ALSO already built** (corrected 2026-07-25 — do NOT rebuild it): `scripts/macro/sysdyn_gas_data.py`
+  (P1b keyless Henry Hub price `WHHNGSP` + P1c observed EIA storage `eia_v2` + real weather HDD via
+  open-meteo) driven by `.github/workflows/sysdyn-gas-calibrate.yml`, with committed
+  `comms/macro/sysdyn_gas_scorecard.json` (P1b, 8yr/418 obs) + `sysdyn_gas_dual_scorecard.json` (P1c).
+  Its **only gap is one operator hand-off — the free `EIA_API_KEY` Actions secret** (referenced solely
+  in that workflow; not yet provisioned). Without it the P1c EIA-*storage* target degrades gracefully
+  (price-only + real open-meteo weather still land); WITH it the full storage+weather+price dual-target
+  calibrates on real data. Register a free key at api.eia.gov → paste as the `EIA_API_KEY` repo secret.
+  Secondary Tier-1 nicety (optional): the gas workflow is `workflow_dispatch` + label-triggered, not
+  scheduled — add a weekly `schedule:` if auto-refresh on new EIA publishes is wanted (calibration on
+  8yr history doesn't need it). `MB-20260723-M28-VALUATION-PRODUCER-UNWIRED` is **resolved** (producer
+  wired). Net: the "data-producer priority" is ~built; the real open work is (1) the `EIA_API_KEY`
+  hand-off, (2) history-accrual → the M28-P4 gate — NOT new producer construction.
 
 - **P1 — M27 gold scalp: promote, don't build a new venue. LANE: `m27-scalp`.**
   Venue check (verified against `config/accounts.yaml`, 2026-07-25): **GLD is already live on
