@@ -642,10 +642,12 @@ Exactly one of the four powered cells passes the scan (SP500·42d, t=2.21), but 
 `vix_term`-alone** (+0.067, **t=4.00**) — gating on credit *destroys* the term signal's edge
 rather than sharpening it. So the conjunction adds nothing where the sample is real. The
 **walk-forward** (the gate built to adjudicate exactly this single-cell-pass situation) came back
-`era_front_loaded` on both baa_10y H-cells it ran (SP500·21d sign 0.75, NDX·42d sign 0.80 — the
-edge concentrates in the earliest era then collapses) and `not_robust` on NDX·21d (sign 0.60);
-the hy_oas 3yr cells were `insufficient_sample`. Added **`("SP500", 42)` to `WF_CELLS`** to give
-the lone scan-pass its own walk-forward adjudication (expected `era_front_loaded`) — re-grade #TBD.
+`era_front_loaded` on SP500·21d (sign 0.75) and NDX·42d (sign 0.80 — the edge concentrates in the
+earliest era then collapses), `not_robust` on NDX·21d (sign 0.60), and — decisively, on the lone
+scan-pass itself (final grade #7594) — **`not_robust` on SP500·42d (sign_consistency 0.500,
+modern-era not significant): era 0 net +0.015, then eras 1–4 collapse to ~0/negative (era 4 −0.012)**.
+So all four powered baa_10y cells fail the per-era gate, and the one scan-pass is confirmed a
+small-N earliest-era artifact, not an edge. The hy_oas 3yr cells were `insufficient_sample`.
 
 **Credit lead FAILS the long-history re-test (confirms the M32 caveat).** Over the decades-long
 `BAA10Y` window the **credit-gate is standalone-INSIGNIFICANT at every well-powered cell** (NDX
@@ -657,12 +659,17 @@ identical series; but as the only long-history free credit-stress measure it sho
 decades-long equity-forward edge.) `vix_term`-alone remains the sole persistent free signal
 (term_gate t=4.00 at NDX·42d) — already the known robust-but-**non-deployable** lead (Track A-S5).
 
-**Disposition — conjunction construction does NOT clear the bar; program at its honest terminus.**
-Once the `SP500·42d` walk-forward adjudicates the lone scan-pass (next fire), M34 closes: every
-free input family AND their cross-family conjunction tested, **zero deployable standalone-or-
-conjoined edges**, the only persistent free signal being `vix_term`-alone (non-deployable). Net
-correction to the program tally: **one multi-decade robust-but-non-deployable lead (`vix_term`)**;
-`hy_oas_pct` is downgraded to a 3yr-window artifact by its own long-history re-test.
+**Disposition — M34 CLOSED (#7594); conjunction construction does NOT clear the bar; program at
+its honest terminus.** The `SP500·42d` walk-forward adjudicated the lone scan-pass as `not_robust`
+(sign 0.500) — so the conjunction has **no robust edge at any powered cell**, and every free input
+family AND their cross-family conjunction is now tested: **zero deployable standalone-or-conjoined
+edges**, the only persistent free signal being `vix_term`-alone (non-deployable). Net correction to
+the program tally: **one multi-decade robust-but-non-deployable lead (`vix_term`)**; `hy_oas_pct` is
+downgraded to a 3yr-window artifact by its own long-history re-test. **Forward work is now all
+operator-gated** (no tractable free-research construction remains): (a) `vix_term` S4 productionize
+decision — recommendation NOT to deploy standalone (timing Sharpe ~0, deep drawdowns); (b) Schwab
+option-skew Track B — needs the operator to register the Schwab app (`SCHWAB_APP_KEY`/`SECRET`);
+(c) the M28-P4 value gate, still accruing.
 
 ## The compounding read so far (entries 1–12)
 
