@@ -548,6 +548,39 @@ first deployable free signal. Either outcome is a real result: a pass opens a
 Tier-3 evaluation; a null makes the cross-family interaction the program's true
 terminus (every input AND their conjunction tested). Recorded pending the grade.
 
+### M34 result (#7588): INCONCLUSIVE — the 4-way FRED overlap starves the test (n_oos=14)
+
+The grade ran but is **underpowered, not a clean negative** — the binding finding is a
+**data-overlap collapse**: the 4-way strict intersection VIXCLS ∩ VXVCLS ∩ BAMLH0A0HYM2 ∩
+{SP500|NASDAQ100} yields only **`n_dates=752` (~3yr)**, so H=21d non-overlapping leaves ~36
+anchors → **`n_oos=14`**, and H=42d is `no_data` (16 anchors). Both walk-forward cells returned
+`insufficient_sample`. This is surprising: M31 (`vix_term` = VIXCLS∩VXVCLS∩SP500) and M32
+(`hy_oas` = BAMLH0A0HYM2∩SP500) each had ample history, so adding the *fourth* series should not
+cut the overlap to 3yr — it points at a **calendar/coverage mismatch** (ICE-BofA bond-market
+observation days vs equity/CBOE days, or sparse `.` gaps in one series), a data-integrity item
+worth pinning down (it could also silently shorten any future multi-FRED-series probe).
+
+| target | H | n_oos | buyhold | term_gate | credit_gate | CONJUNCTION | verdict |
+|---|---|---|---|---|---|---|---|
+| SP500 | 21d | 14 | +0.0218 | net **+0.0184 t=2.46** cov=0.79 | net −0.0127 (t—) cov=0.14 | net −0.0127 (t—) cov=0.14 | no_conjunction_edge |
+| SP500 | 42d | — | — | — | — | — | no_data (16 anchors) |
+| NASDAQ100 | 21d | 14 | +0.0317 | net +0.0592 (t—) cov=0.21 | net −0.0220 (t—) cov=0.14 | **cov=0.00** | no_conjunction_edge |
+| NASDAQ100 | 42d | — | — | — | — | — | no_data |
+
+**The one real read that survives the low N:** SP500's **term-gate alone** is net-positive and
+significant (+0.0184, t=2.46, cov=0.79) — a clean reconfirmation that `vix_term` is the robust
+leg — while the **credit-gate is negative** at this monthly horizon and drags the conjunction to
+near-zero coverage (NDX: literally 0 OOS anchors satisfied both-favorable). So on the (thin)
+evidence the conjunction gets **no lift** — it's dominated by the weaker leg — but the sample is
+too small to call it a true negative.
+
+**Disposition — re-grade with a diagnostic, don't conclude yet.** Added a per-series + overlap
+date-range diagnostic to the probe so the re-grade (#TBD) prints exactly which series binds the
+752-date overlap and over what dates. If the overlap is genuinely FRED-capped, the monthly
+conjunction is untestable on free data (→ honest terminus); if it's a fixable calendar/gap
+artifact, the corrected overlap gives enough anchors for a real verdict. **Held to the honest
+bar: an underpowered run is not a negative.**
+
 ## The compounding read so far (entries 1–12)
 
 Fifteen graded constructions across twelve ledger rows, **zero survivors** — and that is a
