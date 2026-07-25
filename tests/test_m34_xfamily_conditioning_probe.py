@@ -169,37 +169,45 @@ def _fake_urlopen_factory(series_bodies):
     return _urlopen
 
 
-def test_run_probe_shape():
-    n = 800
+def _all_bodies(n=800):
     ds = _dates(n)
-    bodies = {
+    return {
         "VIXCLS": _fred_csv([(d, 15.0 + (i % 7)) for i, d in enumerate(ds)]),
         "VXVCLS": _fred_csv([(d, 17.0 + (i % 5)) for i, d in enumerate(ds)]),
         "BAMLH0A0HYM2": _fred_csv([(d, 3.0 + (i % 11) * 0.1) for i, d in enumerate(ds)]),
+        "BAA10Y": _fred_csv([(d, 2.0 + (i % 9) * 0.1) for i, d in enumerate(ds)]),
         "SP500": _fred_csv([(d, 3000.0 + i) for i, d in enumerate(ds)]),
+        "NASDAQ100": _fred_csv([(d, 3000.0 * (1.0 + 0.0004 * i)) for i, d in enumerate(ds)]),
     }
-    out = xf.run_probe(targets=("SP500",), urlopen=_fake_urlopen_factory(bodies), horizons=(21,))
-    r = out["targets"][0]
-    assert r["target"] == "SP500"
-    assert r["verdict"] in {"conjunction_pays", "no_conjunction_edge", "no_data"}
+
+
+def test_run_probe_grades_both_credit_proxies():
+    out = xf.run_probe(targets=("SP500",), urlopen=_fake_urlopen_factory(_all_bodies()),
+                       horizons=(21,))
+    creds = {r["credit"] for r in out["targets"]}
+    assert creds == {"hy_oas_pct", "baa_10y"}          # both proxies graded in one run
+    for r in out["targets"]:
+        assert r["target"] == "SP500"
+        assert r["verdict"] in {"conjunction_pays", "no_conjunction_edge", "no_data"}
+    assert set(out["series_ranges"]) >= {"VIXCLS", "VXVCLS", "BAMLH0A0HYM2", "BAA10Y"}
     assert out["horizons"] == [21]
 
+
+def test_run_probe_single_proxy_and_empty():
+    out = xf.run_probe(targets=("SP500",), urlopen=_fake_urlopen_factory(_all_bodies()),
+                       horizons=(21,), credit_proxies=(("baa_10y", "BAA10Y"),))
+    assert len(out["targets"]) == 1 and out["targets"][0]["credit"] == "baa_10y"
+
     empty = xf.run_probe(targets=("NASDAQ100",), urlopen=_fake_urlopen_factory({}))
-    assert empty["targets"][0]["verdict"] == "no_data"
+    assert all(r["verdict"] == "no_data" for r in empty["targets"])
 
 
 def test_run_walkforward_wiring():
-    n = 800
-    ds = _dates(n)
-    bodies = {
-        "VIXCLS": _fred_csv([(d, 15.0 + (i % 7)) for i, d in enumerate(ds)]),
-        "VXVCLS": _fred_csv([(d, 17.0 + (i % 5)) for i, d in enumerate(ds)]),
-        "BAMLH0A0HYM2": _fred_csv([(d, 3.0 + (i % 11) * 0.1) for i, d in enumerate(ds)]),
-        "SP500": _fred_csv([(d, 3000.0 * (1.0 + 0.0004 * i)) for i, d in enumerate(ds)]),
-    }
     out = xf.run_walkforward(cells=(("SP500", 21),),
-                             urlopen=_fake_urlopen_factory(bodies), k_eras=4)
-    c = out["cells"][0]
-    assert c["target"] == "SP500" and c["horizon"] == 21
-    assert c["verdict"] in {"robust", "era_front_loaded", "not_robust",
-                            "insufficient_sample", "no_data"}
+                             urlopen=_fake_urlopen_factory(_all_bodies()), k_eras=4)
+    creds = {c["credit"] for c in out["cells"]}
+    assert creds == {"hy_oas_pct", "baa_10y"}
+    for c in out["cells"]:
+        assert c["target"] == "SP500" and c["horizon"] == 21
+        assert c["verdict"] in {"robust", "era_front_loaded", "not_robust",
+                                "insufficient_sample", "no_data"}
