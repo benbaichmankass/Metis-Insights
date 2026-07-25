@@ -52,6 +52,14 @@ DEFAULT_PROBES = (
     ("vix_term",     "VIXCLS",  "SP500",         "term_ratio",  "VXVCLS"),
     ("ovx_level",    "OVXCLS",  "DCOILWTICO",    "level_pct",   None),
     ("ovx_vrp",      "OVXCLS",  "DCOILWTICO",    "vrp",         None),
+    # --- cross-asset generalization of the robust vix_term signal (M31 Track A-XA) ---
+    # The VIX3M/VIX term ratio was the program's only robust construction (SP500). Open
+    # question: is that a broad vol-risk-premium (predicts multiple risk assets) or is it
+    # equity-specific? Point the SAME feature (equity-vol term structure) at GOLD and OIL
+    # forward returns. Term structure is an equity-vol input regardless of the target, so
+    # the feature is unchanged; only the predicted instrument differs.
+    ("vix_term_gold", "VIXCLS", "GOLDAMGBD228NLBM", "term_ratio", "VXVCLS"),
+    ("vix_term_oil",  "VIXCLS", "DCOILWTICO",       "term_ratio", "VXVCLS"),
 )
 
 DEFAULT_HORIZONS = (5, 10, 21, 42)   # trading days
