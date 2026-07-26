@@ -208,3 +208,67 @@ def test_sweep_unlinked_packages_reconciles_executed_trade(
     # A genuinely never-executed package is still orphaned (BUG-049 preserved).
     assert rows["op-true-orphan"][0] == "orphaned"
     assert rows["op-true-orphan"][1] is None
+
+
+def test_sweep_unlinked_packages_heals_already_orphaned_backlog(
+    isolated_env: Path,
+) -> None:
+    """A package a PRIOR sweep already stamped status='orphaned' (linked_trade_id
+    NULL) but which has an EXECUTED trade back-referencing it is HEALED — set
+    back to open/closed — not left stuck orphaned. This is the backlog-heal half
+    of BL-20260601-001 (the 2026-07-26 deploy found 1744 such rows accumulated
+    before the reconcile existed). A genuinely never-executed orphan is left
+    untouched."""
+    from src.runtime.order_monitor import _sweep_unlinked_packages
+    from src.units.db.database import Database
+    from src.utils.paths import trade_journal_db_path
+
+    db = Database(db_path=trade_journal_db_path())
+    for pid in ("op-orph-healable", "op-orph-genuine"):
+        db.insert_order_package({
+            "order_package_id": pid,
+            "strategy_name": "ict_scalp_avax_5m",
+            "symbol": "AVAXUSDT",
+            "direction": "short",
+            "entry": 6.76, "sl": 6.83, "tp": 6.64,
+            "status": "open",
+        })
+    # Both already terminal-orphaned by an earlier sweep, aged, linked_trade_id NULL.
+    conn = db.connect()
+    try:
+        conn.execute(
+            "UPDATE order_packages "
+            "SET status = 'orphaned', created_at = ?, linked_trade_id = NULL",
+            (_old_iso(120),),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    # op-orph-healable has a real closed trade back-referencing it; op-orph-genuine
+    # has none (a true never-executed orphan).
+    healable_tid = db.insert_trade({
+        "symbol": "AVAXUSDT", "direction": "short", "entry_price": 6.76,
+        "position_size": 500.0, "setup_type": "ict_scalp_avax_5m",
+        "status": "closed", "pnl": -1.2, "account_id": "bybit_1",
+        "order_package_id": "op-orph-healable", "is_backtest": 0,
+        "timestamp": _old_iso(119), "created_at": _old_iso(119),
+    })
+
+    _sweep_unlinked_packages(db)
+
+    conn = db.connect()
+    try:
+        rows = {
+            r[0]: (r[1], r[2])
+            for r in conn.execute(
+                "SELECT order_package_id, status, linked_trade_id FROM order_packages"
+            ).fetchall()
+        }
+    finally:
+        conn.close()
+
+    assert rows["op-orph-healable"][0] == "closed"
+    assert rows["op-orph-healable"][1] == healable_tid
+    assert rows["op-orph-genuine"][0] == "orphaned"
+    assert rows["op-orph-genuine"][1] is None

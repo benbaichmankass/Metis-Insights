@@ -111,6 +111,18 @@ Two ways to cut this, both live now:
   still passes through the exact same validation regex/allowlist
   individually; nothing about the trust contract is relaxed.
 
+> **Diag paths are bare; `/api/bot` paths MUST be prefixed `api/bot/`.**
+> The relay's default upstream is `/api/diag/`, so a diag path is written
+> bare (`snapshot?limit=200`, `journal?table=trades&limit=200`,
+> `db_info`). To reach an allowlisted read-only `/api/bot/*` Tier-1 GET you
+> must namespace it explicitly — `api/bot/stats`,
+> `api/bot/order-packages?limit=40`,
+> `api/bot/db/table/order_packages?filter_col=status&filter_op=eq&filter_val=orphaned&limit=1`
+> (the `db/table/<t>?filter_col=…&limit=1` form returns the filtered
+> `total`, i.e. a status count). A bare `stats` / `db/table/...` resolves
+> under `/api/diag/` → **404 → `{"error":"fetch_failed"}`** (the silent
+> footgun logged + corrected in `BL-20260726-RELAY-APIBOT-FETCHFAILED`).
+
 **`trainer-vm-diag`'s `cmd:` block already supports chaining multiple
 bash commands in one issue** — no workflow change was needed there. The
 fix for that relay is purely behavioral: combine several commands into
