@@ -75,11 +75,13 @@ The highest-leverage work; almost all doc/policy/CI.
 - **M27 — promote, don't build a venue:** GLD (`alpaca_paper`) + MGC (`ib_paper`)
   timeframe sweep → walk-forward → **`alpaca_live` promotion packet** via
   `account_compat_matrix`. Drop dead XAUUSD-spot.
-- **M28 — DECISION REQUIRED (value thesis failed OOS):** recommended = keep observe-only
-  and **iterate the *construction*** (D1 transform / D2 conditioning / D3 cross-section)
-  per `M28-signal-research-methodology.md`, since the null is about the weak
-  trailing-percentile-contrarian cell, not the whole idea. The event/thesis-engine
-  mechanics continue regardless. (Operator fork — pending explicit call.)
+- **M28 — DECIDED 2026-07-26 (operator): iterate the *construction*, keep the sleeve
+  observe-only.** The value thesis failed OOS, but the null is about the weak
+  trailing-percentile-contrarian *cell*, not the whole idea — so re-form the thesis via
+  D1 transform / D2 conditioning / D3 cross-section per `M28-signal-research-methodology.md`,
+  logging each as an entry in `M28-signal-research-ledger.md`. **No order path; `sleeve.execution:
+  shadow`; nothing graduates to live until a re-formed thesis beats a naive baseline OOS in the
+  P4 gate.** The event/thesis-engine mechanics continue regardless.
 - **M29 — P1b real calibration is unblocked now** (EIA key works) → P2 AI system-ID.
 - **Audit residue + stability:** F1 `ict-mes-ibkr-pull` failed; F2 352 stranded pings
   (#6874); F3 bybit_2 smoke `place_order` NoneType; a focused **reconciler/orphan
