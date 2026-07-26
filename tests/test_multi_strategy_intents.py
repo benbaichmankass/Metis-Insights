@@ -818,3 +818,71 @@ class TestDesiredToPipelineSignal:
         # pipeline signal carries NO risk level; sizing is the RiskManager's
         # account-level job.
         assert "strategy_risk_pct" not in signal["meta"]
+
+
+class TestRaisingBuilderIsAudited:
+    """BL-20260525-003: a strategy builder that raises must emit a
+    ``strategy_builder/exception`` audit event (so a chronically-broken
+    strategy is visible on the read-only diag surface), not merely a
+    ``logger.warning`` swallowed into the systemd journal — mirroring the
+    legacy ``multiplexed_signal_builder`` path.
+    """
+
+    def teardown_method(self) -> None:
+        clear_registered_intent_builders()
+
+    def test_raising_builder_emits_strategy_builder_exception(self, monkeypatch):
+        import src.runtime.outcomes as outcomes
+
+        calls: list = []
+        monkeypatch.setattr(
+            outcomes, "report", lambda *a, **k: calls.append((a, k))
+        )
+
+        def boom(settings):
+            raise ValueError("No numeric types to aggregate")
+
+        def stub_ok(settings):
+            return {"symbol": "BTCUSDT", "side": "none", "meta": {}}
+
+        # The tick must still complete (the raising builder is skipped).
+        signal = multiplexed_intent_signal_builder(
+            {"SYMBOL": "BTCUSDT"},
+            builders={"fade_breakout_4h": boom, "vwap": stub_ok},
+            strategies=["fade_breakout_4h", "vwap"],
+        )
+        assert signal is not None
+
+        # Exactly one strategy_builder/exception audit event, naming the
+        # raising strategy and carrying the exception type in the reason.
+        matched = [
+            (a, k) for (a, k) in calls
+            if len(a) >= 2 and a[0] == "strategy_builder" and a[1] == "exception"
+        ]
+        assert len(matched) == 1, calls
+        _, kw = matched[0]
+        assert kw.get("strategy") == "fade_breakout_4h"
+        assert "ValueError" in (kw.get("reason") or "")
+
+    def test_report_failure_never_breaks_the_tick(self, monkeypatch):
+        # A hiccup inside report() must not mask the builder failure nor break
+        # the tick — the emit is best-effort.
+        import src.runtime.outcomes as outcomes
+
+        def kaboom_report(*a, **k):
+            raise RuntimeError("outcomes down")
+
+        monkeypatch.setattr(outcomes, "report", kaboom_report)
+
+        def boom(settings):
+            raise ValueError("boom")
+
+        def stub_ok(settings):
+            return {"symbol": "BTCUSDT", "side": "none", "meta": {}}
+
+        signal = multiplexed_intent_signal_builder(
+            {"SYMBOL": "BTCUSDT"},
+            builders={"fade_breakout_4h": boom, "vwap": stub_ok},
+            strategies=["fade_breakout_4h", "vwap"],
+        )
+        assert signal is not None  # tick survived a failing report()

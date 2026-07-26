@@ -65,6 +65,55 @@ def _parse_kv_list(values: list[str]) -> dict[str, str]:
     return out
 
 
+def _check_unknown_family_kwargs(builder: Any, raw: dict[str, str]) -> None:
+    """Reject family-arg keys the builder's ``iter_rows()`` would silently swallow.
+
+    Every dataset family's ``iter_rows`` ends in a ``**catch-all`` param. For most
+    families that catch-all is a THROWAWAY sink (named ``_`` / ``_ignored``) whose
+    only purpose is forward-compat tolerance — so a MISSPELLED build param (e.g.
+    ``include_cusm`` for ``include_cusum``) is silently swallowed and the builder
+    quietly falls back to its default, producing a subtly-wrong dataset with no
+    error. That silent-swallow is the class behind the ``buildparams``/``version``
+    bugs (``MB-20260719-FAMILY-KWARG-SWALLOW``); this guard turns it into a loud,
+    fail-fast error at the CLI→family boundary.
+
+    We reject any ``key=value`` whose ``key`` is neither an explicit ``iter_rows``
+    parameter nor a reserved ``build()`` kwarg (those get lifted into the explicit
+    ``build()`` args by :func:`_lift_reserved_into_args`).
+
+    A family whose catch-all is a GENUINE forwarding channel — a ``VAR_KEYWORD``
+    whose name does NOT start with ``_`` (e.g. ``market_raw``'s
+    ``**adapter_kwargs``, forwarded verbatim to the adapter) — legitimately
+    accepts arbitrary extra keys and is therefore exempt.
+    """
+    sig = inspect.signature(builder.iter_rows)
+    named: set[str] = set()
+    var_kw_name: str | None = None
+    for param in sig.parameters.values():
+        if param.kind is inspect.Parameter.VAR_KEYWORD:
+            var_kw_name = param.name
+        elif param.kind is inspect.Parameter.VAR_POSITIONAL:
+            continue
+        elif param.name != "self":
+            named.add(param.name)
+
+    # A genuine forwarding catch-all (non-underscore name) accepts anything.
+    if var_kw_name is not None and not var_kw_name.startswith("_"):
+        return
+
+    allowed = named | _BUILDER_BUILD_RESERVED
+    unknown = sorted(k for k in raw if k not in allowed)
+    if unknown:
+        family = getattr(builder, "name", type(builder).__name__)
+        raise SystemExit(
+            f"unknown family-arg(s) for {family}: {', '.join(unknown)}. "
+            f"Valid keys: {', '.join(sorted(allowed))}. "
+            "A misspelled build param would otherwise be silently swallowed by "
+            "the family's catch-all and its default used instead — refusing to "
+            "build a subtly-wrong dataset (MB-20260719-FAMILY-KWARG-SWALLOW)."
+        )
+
+
 def _coerce_bool(value: str) -> bool:
     v = value.strip().lower()
     if v in {"true", "1", "yes", "y", "on"}:
@@ -170,6 +219,7 @@ def _lift_reserved_into_args(
 def _cmd_build(args: argparse.Namespace) -> int:
     builder = get_builder(args.family)
     raw_kwargs = _parse_kv_list(args.family_arg)
+    _check_unknown_family_kwargs(builder, raw_kwargs)
     iter_kwargs = _coerce_iter_kwargs(builder, raw_kwargs)
     iter_kwargs = _lift_reserved_into_args(iter_kwargs, args)
     paths = builder.build(

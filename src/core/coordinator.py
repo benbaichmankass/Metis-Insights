@@ -2952,8 +2952,8 @@ def _capture_account_context_snapshots(
     try:
         from src.utils.paths import trade_journal_db_path
         from src.units.accounts.context_snapshot import (
-            AccountContextSnapshot, daily_state_for, drawdown_pct,
-            now_utc, open_trades_count_for, write_snapshots,
+            AccountContextSnapshot, daily_state_for_accounts, drawdown_pct,
+            now_utc, open_trades_count_for_accounts, write_snapshots,
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("[snapshot] import failed (%s); skipping capture", exc)
@@ -2975,6 +2975,15 @@ def _capture_account_context_snapshots(
         return
 
     try:
+        # Batched read (BL-20260610-AUDIT-2): two grouped queries for the whole
+        # account set instead of the old 2-per-account fan-out (daily_state_for +
+        # open_trades_count_for per account). Absent/error entries fall back to
+        # (None,None)/None below — the same NULL-storing semantics as before.
+        account_ids = [
+            aid for aid in (getattr(a, "name", None) or "" for a in accounts) if aid
+        ]
+        daily_map = daily_state_for_accounts(ro_conn, account_ids, utc_date=utc_date)
+        open_map = open_trades_count_for_accounts(ro_conn, account_ids)
         for acc in accounts:
             account_id = getattr(acc, "name", None) or ""
             if not account_id:
@@ -2983,11 +2992,9 @@ def _capture_account_context_snapshots(
             if equity is None:
                 cached = getattr(acc, "cached_balance_usd", None)
                 equity = float(cached) if cached is not None else None
-            daily_pnl, equity_high = daily_state_for(
-                ro_conn, account_id, utc_date=utc_date,
-            )
+            daily_pnl, equity_high = daily_map.get(account_id, (None, None))
             dd = drawdown_pct(equity, equity_high)
-            open_count = open_trades_count_for(ro_conn, account_id)
+            open_count = open_map.get(account_id)
             snapshots.append(AccountContextSnapshot(
                 captured_at_utc=captured_at,
                 order_package_id=order_package_id,

@@ -2138,6 +2138,16 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: dataset-audit de-noise still pending; the empty_dataset MES skips remain the visible noise. Carried."
+        },
+        {
+          "at": "2026-07-26T08:05:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator follow-up)",
+          "note": "PROGRESS 2026-07-26 (operator follow-up). Pulled live dataset_audit.jsonl via trainer-vm-diag: the roster is now 88 manifests, 22 flagged (25%) \u2014 already DOWN from the 62/86 (72%) that opened this item, thanks to the earlier categorical-false-positive fix (BL-20260718-AUDIT-CATEGORICAL-FALSEPOS). Classified the 22: (A) 8 are n_rows=0 EMPTY datasets flagging on LABEL (TCN heads, MES baselines, exit-policy-v1, corpus-ssl) \u2014 you cannot judge a dead feature or degenerate label on 0 rows, so this is a category error / pure noise in the dead-feature channel; (B) 13 flag purely on OPTIONAL side-stream feature families whose data source isn't wired for that head: fc_* (forecast), corpus_emb_*, open_interest_* (funding), ofi/vpin/order_imbalance/microprice (order-flow, DATA-BLOCKED per MB-20260613-002), parkinson/garman_klass/rogers_satchell/yang_zhang_vol, c_reg (D2b not real per MB-20260618-XA-D2B) \u2014 these are REAL 'the head trains on a dead feature block' findings, cross-referenced to already-tracked items, NOT noise to blanket-whitelist (that would re-blind the ETH-xa class); (C) 1 real degenerate label (prop-mission-policy-baseline-v0, 267 rows, MB-20260525-005). SHIPPED (this PR, ml/datasets/audit.py + scripts/ops/run_training_cycle.sh): n_rows=0 now classifies as a distinct `empty_dataset` category and is kept OUT of the dead-feature/degenerate-label `quarantine` alarm channel (surfaced instead as a separate `manifest_dataset_empty` cycle event), removing category (A) \u2014 the single biggest noise source \u2014 from the alarm without hiding it. The ETH-xa guard is UNTOUCHED: a dead feature in a NON-empty dataset still fully flags+quarantines (regression test added). Net: the alarm channel now fires only on real dead-feature/degenerate-label conditions in datasets that DID build. REMAINING (operator direction): categories (B)+(C) are genuine, already-tracked findings \u2014 deciding whether to (i) leave them as tracked/expected nightly flags, (ii) add a per-manifest 'expected-optional feature family' declaration so a soaking head's known-unwired side-stream doesn't alarm until its data source is live (a manifest-schema change), or (iii) flip FLAGGED->skip enforce, is a design/Tier-3 call. Recommend (ii) as the durable high-precision endpoint. Kept open pending that decision."
+        },
+        {
+          "at": "2026-07-26T08:20:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator approved option a)",
+          "note": "OPTION (a) IMPLEMENTED 2026-07-26 (operator-approved). ml/datasets/audit.py now honours a per-manifest `trainer_config.expected_optional_features` declaration (exact names or fnmatch globs like `fc_*`): a flagged-dead column that matches is recorded in a new `expected_optional_dead` report field + marked `expected_optional:true` on the feature, but is kept OUT of `flags`/`quarantine` (the alarm channel). Default is EMPTY -> nothing is silenced unless a manifest EXPLICITLY opts a family out, so an UNDECLARED dead feature (the ETH-xa class) still fully alarms (regression test pins this: a declared `fc_*` is silenced while an undeclared `xa_peer` in the SAME manifest still quarantines). +6 audit tests. POPULATED the two highest-confidence, already-tracked not-yet-wired cases: (1) btc-regime-5m-lgbm-flow-v1 order-flow columns (ofi/ofi_zscore/vpin/order_imbalance/rel_spread_mean/microprice_dev) \u2014 0.0 until the ict-orderflow-capture side-car accrues forward L2 (MB-20260604-002/MB-20260613-002, DATA-BLOCKED); (2) conviction-meta-{v1,base-btc-v1,emb-btc-v1} c_reg \u2014 the regime conviction lens is not real yet (MB-20260618-XA-D2B). Each manifest carries a comment saying to REMOVE the declaration once the source is wired (that's when a still-dead column becomes a real bug again). Verified all 4 manifests parse and the resolver reads the field. REMAINING per-head declarations (fc_*, corpus_emb_*, funding open_interest_*, parkinson/gk/rs/yz vol) are left for ml-review to add as each head's intent is confirmed \u2014 the mechanism is now in place. With empty-dataset separation + these declarations, the dead-feature alarm channel is high-precision: it fires only on UNEXPECTED dead features / degenerate labels in datasets that built."
         }
       ]
     },
@@ -2151,7 +2161,7 @@
       "tier": 1,
       "trigger_condition": "Any ml/datasets-touching session.",
       "resolution_criteria": "A misspelled build param produces a loud warning or error in the build log, with a test.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -2164,8 +2174,16 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
+        },
+        {
+          "at": "2026-07-26T07:05:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1). Added _check_unknown_family_kwargs() at the ml/datasets CLI->family boundary (_cmd_build): any family-arg key that is neither an explicit iter_rows param nor a reserved build() kwarg now fails loud (SystemExit) instead of being silently swallowed by the family's throwaway `**_`/`**_ignored` sink. Families whose catch-all is a GENUINE forwarding channel (VAR_KEYWORD name not starting with `_`, e.g. market_raw's **adapter_kwargs) are exempt. VERIFIED: 5 new tests in tests/ml/datasets/test_cli.py (known/reserved pass, typo raises with the item id in the message, forwarding family accepts arbitrary, empty is no-op) + full test_cli.py 25 passed; live-checked that setup_candidates' real kwargs (market_raw_paths/live_trades_db/backtest_trades_db/include_cusum) validate while a `include_cusm` typo is caught, and market_raw forwarding is exempt. Existing e2e regression test updated to drop its incidental `unknown=raw` passthrough (that lax contract is exactly what this guard removes)."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T07:05:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1). Added _check_unknown_family_kwargs() at the ml/datasets CLI->family boundary (_cmd_build): any family-arg key that is neither an explicit iter_rows param nor a reserved build() kwarg now fails loud (SystemExit) instead of being silently swallowed by the family's throwaway `**_`/`**_ignored` sink. Families whose catch-all is a GENUINE forwarding channel (VAR_KEYWORD name not starting with `_`, e.g. market_raw's **adapter_kwargs) are exempt. VERIFIED: 5 new tests in tests/ml/datasets/test_cli.py (known/reserved pass, typo raises with the item id in the message, forwarding family accepts arbitrary, empty is no-op) + full test_cli.py 25 passed; live-checked that setup_candidates' real kwargs (market_raw_paths/live_trades_db/backtest_trades_db/include_cusum) validate while a `include_cusm` typo is caught, and market_raw forwarding is exempt. Existing e2e regression test updated to drop its incidental `unknown=raw` passthrough (that lax contract is exactly what this guard removes)."
     },
     {
       "id": "MB-20260719-M26-TRANSITION-CONFLICT",
@@ -2214,7 +2232,7 @@
       "tier": 1,
       "trigger_condition": "The M23 P2b rerun (after the WS-B shards land) or any edit to m23_phase2_labelvol.sh.",
       "resolution_criteria": "The per-(symbol,strategy) breakdown prints without a traceback on a P2b run.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -2227,8 +2245,16 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
+        },
+        {
+          "at": "2026-07-26T07:05:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1). Fixed scripts/ml/m23_phase2_labelvol.sh step-2 debug SELECT: `strategy` -> `strategy_name` (the temp BT_DB seeds the live trades schema whose strategy column is named `strategy_name`, and record_harness_trades/backtest_recorder writes strategy_name). VERIFIED: seeded the real CREATE TABLE trades DDL from src/units/db/database.py into a temp DB and confirmed the OLD query raises `no such column: strategy` exactly as reported while the NEW query returns the per-(symbol,strategy_name) breakdown."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T07:05:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1). Fixed scripts/ml/m23_phase2_labelvol.sh step-2 debug SELECT: `strategy` -> `strategy_name` (the temp BT_DB seeds the live trades schema whose strategy column is named `strategy_name`, and record_harness_trades/backtest_recorder writes strategy_name). VERIFIED: seeded the real CREATE TABLE trades DDL from src/units/db/database.py into a temp DB and confirmed the OLD query raises `no such column: strategy` exactly as reported while the NEW query returns the per-(symbol,strategy_name) breakdown."
     },
     {
       "id": "MB-20260719-MES-BASE-RTH-ONLY",

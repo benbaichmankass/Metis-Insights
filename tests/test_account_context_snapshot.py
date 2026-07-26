@@ -10,9 +10,11 @@ from pathlib import Path
 from src.units.accounts.context_snapshot import (
     AccountContextSnapshot,
     daily_state_for,
+    daily_state_for_accounts,
     drawdown_pct,
     ensure_schema,
     open_trades_count_for,
+    open_trades_count_for_accounts,
     write_snapshots,
 )
 # Build the daily_risk_state fixture from the SAME canonical DDL the
@@ -151,6 +153,69 @@ def test_daily_state_returns_none_when_table_missing(tmp_path: Path):
     db = tmp_path / "empty.db"
     conn = sqlite3.connect(str(db))
     assert daily_state_for(conn, "prop_1", utc_date="2026-06-07") == (None, None)
+    conn.close()
+
+
+# --- BL-20260610-AUDIT-2: batched grouped-query variants -------------------
+
+def test_open_trades_count_for_accounts_batches(tmp_path: Path):
+    db = tmp_path / "j.db"
+    _seed_live_db(db)
+    conn = sqlite3.connect(str(db))
+    conn.executemany(
+        "INSERT INTO trades(account_id, status, is_backtest) VALUES (?, ?, ?)",
+        [
+            ("prop_1", "open", 0),
+            ("prop_1", "open", 0),
+            ("prop_1", "closed", 0),
+            ("prop_1", "open", 1),   # backtest row excluded
+            ("prop_2", "open", 0),
+        ],
+    )
+    conn.commit()
+    out = open_trades_count_for_accounts(conn, ["prop_1", "prop_2", "absent"])
+    # Matches the per-account helper exactly, all in one grouped query.
+    assert out["prop_1"] == open_trades_count_for(conn, "prop_1") == 2
+    assert out["prop_2"] == 1
+    assert out["absent"] == 0    # queryable-but-flat → 0, not missing
+    conn.close()
+
+
+def test_open_trades_count_for_accounts_empty_or_missing_table(tmp_path: Path):
+    assert open_trades_count_for_accounts(sqlite3.connect(":memory:"), []) == {}
+    db = tmp_path / "empty.db"
+    conn = sqlite3.connect(str(db))
+    # No `trades` table → {} so the caller stores NULL (mirrors the scalar helper).
+    assert open_trades_count_for_accounts(conn, ["prop_1"]) == {}
+    conn.close()
+
+
+def test_daily_state_for_accounts_batches(tmp_path: Path):
+    db = tmp_path / "j.db"
+    _seed_live_db(db)
+    conn = sqlite3.connect(str(db))
+    conn.executemany(
+        "INSERT INTO daily_risk_state(account_id, date, daily_pnl, daily_high_equity)"
+        " VALUES (?, ?, ?, ?)",
+        [
+            ("prop_1", "2026-06-07", -120.5, 10300.0),
+            ("prop_2", "2026-06-07", 55.0, 5100.0),
+            ("prop_1", "2026-06-06", 999.0, 9999.0),  # other date, not returned
+        ],
+    )
+    conn.commit()
+    out = daily_state_for_accounts(conn, ["prop_1", "prop_2", "absent"], utc_date="2026-06-07")
+    assert out["prop_1"] == (-120.5, 10300.0)
+    assert out["prop_2"] == (55.0, 5100.0)
+    assert "absent" not in out   # caller reads missing as (None, None)
+    conn.close()
+
+
+def test_daily_state_for_accounts_empty_or_missing_table(tmp_path: Path):
+    assert daily_state_for_accounts(sqlite3.connect(":memory:"), []) == {}
+    db = tmp_path / "empty.db"
+    conn = sqlite3.connect(str(db))
+    assert daily_state_for_accounts(conn, ["prop_1"], utc_date="2026-06-07") == {}
     conn.close()
 
 

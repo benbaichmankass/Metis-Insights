@@ -135,7 +135,7 @@ NBT=$(python3 - "$BT_DB" <<'PY' 2>>"$RESULT"
 import sqlite3, sys
 c = sqlite3.connect(sys.argv[1])
 print(c.execute("select count(*) from trades where is_backtest=1").fetchone()[0])
-for r in c.execute("select symbol, strategy, count(*) from trades where is_backtest=1 group by 1,2"):
+for r in c.execute("select symbol, strategy_name, count(*) from trades where is_backtest=1 group by 1,2"):
     print("  ", r[0], r[1], r[2], file=sys.stderr)
 PY
 )

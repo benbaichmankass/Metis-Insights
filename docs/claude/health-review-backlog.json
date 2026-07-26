@@ -1894,7 +1894,7 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; or when a strategy is mysteriously silent in the audit tail.",
       "resolution_criteria": "intent_multiplexer._collect_intents emits a report()/audit event (e.g. 'strategy_builder'/'exception' with strategy + reason) on a builder exception, mirroring the legacy multiplexer, so a raising strategy shows up in signal_audit.jsonl and /api/diag/audit. (Code change \u2014 Tier-1 observability; not editable from /health-review which only writes docs + this backlog.) NOTE: this is the OBSERVABILITY gap only; the fade_breakout_4h crash itself is a separate Tier-3 strategy bug surfaced to the operator in the 2026-05-25 health-review response.",
-      "status": "kept_open",
+      "status": "resolved",
       "triage_note": "2026-05-28 /health-review: observability gap OBSERVED AGAIN. journalctl 04:50-04:54 shows the IB/MES outage making every MES strategy raise 'no candle data returned for MES \u2014 skipping this tick' as a bare logger.WARNING in intent_multiplexer; those MES skips emit NO *_eval and NO audit event, so MES strategy silence is invisible on the diag surface (only journalctl). Exactly the swallow this item flags. Remains operator-gated (Tier-1 code change, not editable from /health-review).",
       "snoozed_until": null,
       "updates": [
@@ -1913,8 +1913,16 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
+        },
+        {
+          "at": "2026-07-26T07:55:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1). intent_multiplexer._collect_intents now emits a report('strategy_builder','exception', level=ERROR, reason=..., strategy=name) audit event when a builder raises \u2014 mirroring the legacy pipeline.multiplexed_signal_builder path \u2014 so a chronically-raising strategy (e.g. the fade_breakout_4h 'No numeric types to aggregate' case) is visible on the read-only diag surface (signal_audit.jsonl / diag relays), not only in the systemd journal. The emit is a local import + best-effort try/except so an outcomes hiccup can never break the tick or mask the original builder failure; control flow is unchanged (still catch+continue). VERIFIED: 2 new tests in tests/test_multi_strategy_intents.py (a raising builder emits exactly one strategy_builder/exception event naming the strategy + carrying the exc type; a failing report() never breaks the tick) \u2014 full file 44 passed. Observe-only, no order-path behavior change."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T07:55:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1). intent_multiplexer._collect_intents now emits a report('strategy_builder','exception', level=ERROR, reason=..., strategy=name) audit event when a builder raises \u2014 mirroring the legacy pipeline.multiplexed_signal_builder path \u2014 so a chronically-raising strategy (e.g. the fade_breakout_4h 'No numeric types to aggregate' case) is visible on the read-only diag surface (signal_audit.jsonl / diag relays), not only in the systemd journal. The emit is a local import + best-effort try/except so an outcomes hiccup can never break the tick or mask the original builder failure; control flow is unchanged (still catch+continue). VERIFIED: 2 new tests in tests/test_multi_strategy_intents.py (a raising builder emits exactly one strategy_builder/exception event naming the strategy + carrying the exc type; a failing report() never breaks the tick) \u2014 full file 44 passed. Observe-only, no order-path behavior change."
     },
     {
       "id": "BL-20260525-004",
@@ -2970,10 +2978,10 @@
       "title": "regime_bar_scoring budget can starve later predictor groups (no per-tick rotation)",
       "description": "emit_regime_bar_predictions (src/runtime/regime_bar_scoring.py:~348-359) iterates groups in fixed insertion order and breaks when the per-tick wall-clock budget (REGIME_BAR_SCORING_BUDGET_S) is hit; the budget check runs before the fetch-gate skip, so the same groups are always considered first each tick. Pathological case: one group whose single fetch always consumes the whole budget could indefinitely defer the groups after it (low practical risk - an already-fetched group is a cheap continue on most ticks). Fix: rotate the group start index per tick, or order by most-overdue-for-a-fetch. Observe-only path, Tier-1.",
       "tier": 1,
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-26T07:20:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1). Added per-tick group rotation to emit_regime_bar_predictions (src/runtime/regime_bar_scoring.py): a module-level _REGIME_GROUP_ROTATION offset (injectable `rotation` param for tests) advances each call and rotates the scan start, so a group whose fetch always eats the whole REGIME_BAR_SCORING_BUDGET_S can no longer indefinitely starve the groups behind it \u2014 over successive ticks every group takes a turn at the front of the budget-bounded scan. Observe-only path, unchanged when budget=0/unset. VERIFIED: 2 new tests (a starved group gets scored when rotated to the front; the counter advances each real call) + the existing budget test pinned to rotation=0 for determinism; tests/runtime/test_regime_bar_scoring.py 35 passed.",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -2990,6 +2998,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
+        },
+        {
+          "at": "2026-07-26T07:20:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1). Added per-tick group rotation to emit_regime_bar_predictions (src/runtime/regime_bar_scoring.py): a module-level _REGIME_GROUP_ROTATION offset (injectable `rotation` param for tests) advances each call and rotates the scan start, so a group whose fetch always eats the whole REGIME_BAR_SCORING_BUDGET_S can no longer indefinitely starve the groups behind it \u2014 over successive ticks every group takes a turn at the front of the budget-bounded scan. Observe-only path, unchanged when budget=0/unset. VERIFIED: 2 new tests (a starved group gets scored when rotated to the front; the counter advances each real call) + the existing budget test pinned to rotation=0 for determinism; tests/runtime/test_regime_bar_scoring.py 35 passed."
         }
       ]
     },
@@ -3001,10 +3014,10 @@
       "title": "_capture_account_context_snapshots opens a fresh read-only SQLite connection per signal",
       "description": "src/core/coordinator.py:~2376 opens a new mode=ro connection on every order-package decision, then loops daily_state_for + open_trades_count_for per account (an N-account fan-out per signal). Best-effort + shares one connection across the account loop, but the connection is re-established each decision. Fix: cache a ro connection across decisions, or fold the per-account reads into one grouped query. Observe-only writer, Tier-1, minor.",
       "tier": 1,
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-26T07:20:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1). _capture_account_context_snapshots (src/core/coordinator.py) no longer does a 2-per-account query fan-out per signal: added daily_state_for_accounts() + open_trades_count_for_accounts() to src/units/accounts/context_snapshot.py (each ONE grouped `... IN (?)` query over the whole account set), and the coordinator now issues exactly two grouped reads per decision instead of 2N. Chose the grouped-query fix over a long-lived cached RO connection deliberately \u2014 a persistent ro fd on the live trader could read a stale inode after a DB swap/migration, whereas the per-decision open (microseconds) plus 2 grouped queries removes the real N-fan-out cost with no stale-fd risk. Absent/error entries fall back to (None,None)/None, preserving the exact NULL-storing semantics. VERIFIED: 4 new batch-helper tests (match the scalar helpers, empty/missing-table \u2192 {}) + the coordinator hook test (tests/test_account_context_snapshot*.py 17 passed).",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -3021,6 +3034,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
+        },
+        {
+          "at": "2026-07-26T07:20:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1). _capture_account_context_snapshots (src/core/coordinator.py) no longer does a 2-per-account query fan-out per signal: added daily_state_for_accounts() + open_trades_count_for_accounts() to src/units/accounts/context_snapshot.py (each ONE grouped `... IN (?)` query over the whole account set), and the coordinator now issues exactly two grouped reads per decision instead of 2N. Chose the grouped-query fix over a long-lived cached RO connection deliberately \u2014 a persistent ro fd on the live trader could read a stale inode after a DB swap/migration, whereas the per-decision open (microseconds) plus 2 grouped queries removes the real N-fan-out cost with no stale-fd risk. Absent/error entries fall back to (None,None)/None, preserving the exact NULL-storing semantics. VERIFIED: 4 new batch-helper tests (match the scalar helpers, empty/missing-table \u2192 {}) + the coordinator hook test (tests/test_account_context_snapshot*.py 17 passed)."
         }
       ]
     },
@@ -3032,10 +3050,10 @@
       "title": "[dashboard] blocking time.sleep + st.rerun refresh fallback contradicts the 'non-blocking' design claim",
       "description": "ict-trader-dashboard/streamlit_app.py: when streamlit-autorefresh is unavailable the refresh falls back to a blocking time.sleep(POLL_INTERVAL_S) + st.rerun(), freezing nav for up to POLL_INTERVAL_S - contradicting the module's 'non-blocking, nav takes effect immediately' claim. Rare (the dep is in requirements). Fix: drop the blocking-sleep fallback or gate it behind a much longer interval. Tier-1.",
       "tier": 1,
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-26T07:40:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-dashboard PR #202 (draft, pending CI+merge). Removed the legacy blocking `time.sleep(POLL_INTERVAL_S) + st.rerun()` refresh fallback in streamlit_app.py that froze nav for up to POLL_INTERVAL_S, contradicting the module's non-blocking refresh model. Only reachable on a Streamlit lacking BOTH st.fragment and streamlit-autorefresh (neither true in prod); correct degradation is no-auto-refresh (sidebar Refresh-now button), not freeze-the-UI. py_compile OK.",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -3052,6 +3070,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
+        },
+        {
+          "at": "2026-07-26T07:40:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-dashboard PR #202 (draft, pending CI+merge). Removed the legacy blocking `time.sleep(POLL_INTERVAL_S) + st.rerun()` refresh fallback in streamlit_app.py that froze nav for up to POLL_INTERVAL_S, contradicting the module's non-blocking refresh model. Only reachable on a Streamlit lacking BOTH st.fragment and streamlit-autorefresh (neither true in prod); correct degradation is no-auto-refresh (sidebar Refresh-now button), not freeze-the-UI. py_compile OK."
         }
       ]
     },
@@ -3063,10 +3086,10 @@
       "title": "[android] BacktestResult.{totalTrades,winningTrades,losingTrades} default to 0 instead of nullable",
       "description": "ict-trader-android core/network/BotApi.kt: the bot doc marks these nullable (an aborted backtest lands with NULL counts). The DTO defaults them to 0, which won't crash but renders an aborted backtest's NULL counts as 0 instead of em-dash. Very low severity. Fix: Int? = null + render null as a dash. Tier-1.",
       "tier": 1,
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-26T07:40:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-android PR #114 (draft). BacktestResult.{totalTrades,winningTrades,losingTrades} were Int = 0; with coerceInputValues an incoming null coerced to 0, rendering an aborted backtest's NULL counts as a misleading 0. Made them Int? = null and the three BacktestingScreen render sites use ?: \"\u2014\" (matching the card's existing nullable pattern). VERIFIED by inspection + repo-wide grep: the only consumers are those three render sites, no aggregation touches them. (Android repo has no build CI; release.yml compiles it.)",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -3083,6 +3106,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
+        },
+        {
+          "at": "2026-07-26T07:40:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-android PR #114 (draft). BacktestResult.{totalTrades,winningTrades,losingTrades} were Int = 0; with coerceInputValues an incoming null coerced to 0, rendering an aborted backtest's NULL counts as a misleading 0. Made them Int? = null and the three BacktestingScreen render sites use ?: \"\u2014\" (matching the card's existing nullable pattern). VERIFIED by inspection + repo-wide grep: the only consumers are those three render sites, no aggregation touches them. (Android repo has no build CI; release.yml compiles it.)"
         }
       ]
     },
@@ -3153,6 +3181,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
+        },
+        {
+          "at": "2026-07-26T07:40:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "Kept open 2026-07-26 (backlog-drain-tier1): NOT fixable from the repo. Confirmed the ict-trader-dashboard repo contains NO Cloudflare Pages / wrangler / ict-trader-widget assets (only a GitHub Pages workflow, .github/workflows/pages.yml, for the Svelte SPA). The chronically-failing 'Cloudflare Pages' PR check is an EXTERNAL Cloudflare-dashboard GitHub integration deploying a non-existent 'ict-trader-widget' project. PROPOSE-TO-OPERATOR: in the Cloudflare dashboard (or GitHub \u2192 Settings \u2192 Integrations/Apps), disconnect the Cloudflare Pages app from benbaichmankass/ict-trader-dashboard (or repoint it at a real project) so it stops adding a red X to every dashboard PR. Requires Cloudflare-account access no repo change can substitute for."
         }
       ]
     },
@@ -3305,6 +3338,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
+        },
+        {
+          "at": "2026-07-26T07:40:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "Kept open 2026-07-26 (backlog-drain-tier1): cosmetic Android Glance-widget chip-clipping with 8+ instruments; degradation-only (the in-app Overview row scrolls and shows everything). Deferred from this drain to keep the android PR scoped to the safe DTO-nullability fix \u2014 a widget layout change (two-row wrap or a widget-config symbol picker) is a larger UI change better done with live widget-render verification. Re-validation unchanged; still low priority."
         }
       ]
     },
@@ -3673,10 +3711,10 @@
       "trigger_condition": "Next dashboard chart work, or next time the preview app is in use.",
       "resolution_criteria": "Fix verified on the preview app and merged to dashboard main.",
       "check_log": [],
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-26T07:40:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-dashboard PR #202 (draft, pending CI+merge; UI-render change \u2192 verify live on prod app after merge per the repo's single-app workflow). _lc_candle_data/_lc_ema_data/_lc_volume_data called int(ts.timestamp()) on the tz-NAIVE candle timestamp column (host-local epoch), diverging from the tz-aware UTC markers on any non-UTC host. Added _lc_epoch() which localizes a naive Timestamp to UTC (a relabel, not a shift) before .timestamp() so all series share one epoch basis on any host. VERIFIED: recovers the exact epoch (1700000000) from a naive UTC-wallclock ts; aware ts pass through. Masked in prod (Streamlit Cloud runs UTC), so live behaviour there is unchanged.",
       "snoozed_until": null,
       "updates": [
         {
@@ -3694,8 +3732,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
+        },
+        {
+          "at": "2026-07-26T07:40:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-dashboard PR #202 (draft, pending CI+merge; UI-render change \u2192 verify live on prod app after merge per the repo's single-app workflow). _lc_candle_data/_lc_ema_data/_lc_volume_data called int(ts.timestamp()) on the tz-NAIVE candle timestamp column (host-local epoch), diverging from the tz-aware UTC markers on any non-UTC host. Added _lc_epoch() which localizes a naive Timestamp to UTC (a relabel, not a shift) before .timestamp() so all series share one epoch basis on any host. VERIFIED: recovers the exact epoch (1700000000) from a naive UTC-wallclock ts; aware ts pass through. Masked in prod (Streamlit Cloud runs UTC), so live behaviour there is unchanged."
         }
-      ]
+      ],
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-dashboard PR #202 (draft, pending CI+merge; UI-render change \u2192 verify live on prod app after merge per the repo's single-app workflow). _lc_candle_data/_lc_ema_data/_lc_volume_data called int(ts.timestamp()) on the tz-NAIVE candle timestamp column (host-local epoch), diverging from the tz-aware UTC markers on any non-UTC host. Added _lc_epoch() which localizes a naive Timestamp to UTC (a relabel, not a shift) before .timestamp() so all series share one epoch basis on any host. VERIFIED: recovers the exact epoch (1700000000) from a naive UTC-wallclock ts; aware ts pass through. Masked in prod (Streamlit Cloud runs UTC), so live behaviour there is unchanged."
     },
     {
       "id": "BL-20260617-ANDROID-LINT-PROMOTE",
@@ -5975,7 +6019,7 @@
       "tier": 1,
       "trigger_condition": "Picked up as an M0b incremental-drain unit (ROADMAP_MACRO \u00a71), OR when someone next tries to add a units.db.database-importing strategy to the .importlinter forbidden-Execution contracts and it fails transitively.",
       "resolution_criteria": "database.py no longer imports runtime.local_pnl (or any Execution/risk/exchange module, directly or transitively); `lint-imports` with a forbidden contract on src.units.strategies.vwap vs {units.accounts.risk, units.accounts.execute, exchange} passes; the vwap purity contract is added to .importlinter and stays green; the change is behavior-preserving (test suite green, no order-path diff).",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -5983,9 +6027,16 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-07-26T07:05:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED (already fixed upstream; verified 2026-07-26 backlog-drain-tier1). The root edge src/units/db/database.py -> src.runtime.local_pnl is GONE (grep: no local_pnl reference remains in database.py; local_pnl is now imported only in src/runtime/order_monitor.py and src/web/api/routers/dashboard.py, both legitimately Execution-layer). The M0b drain that cut this edge also added the `vwap-strategy-no-execution-impl` import-linter contract, whose own comment cites cutting this exact edge as its precondition. VERIFIED: `lint-imports` runs GREEN \u2014 all 6 contracts KEPT (307 files, 601 deps analyzed), including the vwap contract that only holds because the DB layer is now Execution-clean."
         }
       ],
-      "resolved_at": null
+      "resolved_at": "2026-07-26T07:05:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED (already fixed upstream; verified 2026-07-26 backlog-drain-tier1). The root edge src/units/db/database.py -> src.runtime.local_pnl is GONE (grep: no local_pnl reference remains in database.py; local_pnl is now imported only in src/runtime/order_monitor.py and src/web/api/routers/dashboard.py, both legitimately Execution-layer). The M0b drain that cut this edge also added the `vwap-strategy-no-execution-impl` import-linter contract, whose own comment cites cutting this exact edge as its precondition. VERIFIED: `lint-imports` runs GREEN \u2014 all 6 contracts KEPT (307 files, 601 deps analyzed), including the vwap contract that only holds because the DB layer is now Execution-clean."
     },
     {
       "id": "BL-20260723-INTENTS-ROSTER-ASSESSMENT",

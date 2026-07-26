@@ -106,6 +106,15 @@ _REGIME_BAR_SEEN: dict[str, Any] = {}
 # 2026-06-09 wedge). Cleared on process restart like _REGIME_BAR_SEEN.
 _REGIME_FETCH_WALL: dict[tuple[str, str], float] = {}
 
+# Per-process group-rotation offset (BL-20260610-AUDIT-1). The budget check runs
+# at group granularity BEFORE the fetch-gate skip, and groups were scanned in
+# fixed insertion order — so a group whose single fetch always consumes the whole
+# per-tick budget could indefinitely defer every group after it (it never even
+# reaches their cheap fetch-gate continue). Each call advances this offset by one
+# and rotates the scan start, so over successive ticks every group takes a turn
+# at the front of the budget-bounded scan. Cleared on process restart.
+_REGIME_GROUP_ROTATION: list[int] = [0]
+
 # Per-process predictor cache, keyed by (registry_root, tuple(model_ids),
 # registry_fingerprint). The fingerprint (max mtime over the registry root's
 # per-model JSONs — src.runtime.registry_fingerprint) is what lets a registry
@@ -312,6 +321,7 @@ def emit_regime_bar_predictions(
     seen: dict | None = None,
     wall_cache: dict[tuple[str, str], float] | None = None,
     now: Callable[[], float] | None = None,
+    rotation: int | None = None,
 ) -> int:
     """Score every shadow-stage regime head on its own bar cadence.
 
@@ -401,7 +411,20 @@ def emit_regime_bar_predictions(
         budget_s = _budget_seconds()
         tick_start = float(now_fn())
         deferred = 0
-        for (symbol, timeframe), group in groups.items():
+        # Rotate the scan start per call so the budget cut-off point moves across
+        # ticks — a group whose fetch eats the whole budget can't permanently
+        # starve the groups behind it (BL-20260610-AUDIT-1). Fairness only bites
+        # under budget pressure; when every group is processed the rotation is a
+        # harmless reordering. ``rotation`` is injectable for deterministic tests;
+        # otherwise the per-process counter drives it and advances each call.
+        group_items = list(groups.items())
+        if group_items:
+            rot = _REGIME_GROUP_ROTATION[0] if rotation is None else rotation
+            offset = rot % len(group_items)
+            group_items = group_items[offset:] + group_items[:offset]
+            if rotation is None:
+                _REGIME_GROUP_ROTATION[0] = rot + 1
+        for (symbol, timeframe), group in group_items:
             current_now = float(now_fn())
             # Per-tick wall-clock budget — defer the rest of the cold-start
             # burst to the next tick rather than stall the main loop (and

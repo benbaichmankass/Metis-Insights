@@ -122,6 +122,49 @@ class TestCoerceIterKwargs:
 
 
 # ---------------------------------------------------------------------------
+# _check_unknown_family_kwargs — fail loud on a misspelled build param
+# (MB-20260719-FAMILY-KWARG-SWALLOW)
+
+
+class _ForwardingBuilder:
+    """A family whose catch-all is a GENUINE forwarding channel (market_raw)."""
+
+    name = "market_raw"
+
+    def iter_rows(self, *, adapter: str = "csv", **adapter_kwargs: Any):
+        yield {}
+
+
+class TestCheckUnknownFamilyKwargs:
+    def test_known_kwarg_passes(self):
+        # `strategy_name` is a declared iter_rows param — no raise.
+        cli._check_unknown_family_kwargs(_FakeBuilder(), {"strategy_name": "ict"})
+
+    def test_reserved_build_kwarg_passes(self):
+        # `timeframe` is a reserved build() kwarg (lifted later) — no raise.
+        cli._check_unknown_family_kwargs(_FakeBuilder(), {"timeframe": "1h"})
+
+    def test_unknown_kwarg_raises_with_name(self):
+        # A misspelled param (`risk_pctt` for `risk_pct`) must fail loud, not
+        # be swallowed by the throwaway `**_` sink.
+        with pytest.raises(SystemExit) as exc:
+            cli._check_unknown_family_kwargs(_FakeBuilder(), {"risk_pctt": "1.0"})
+        msg = str(exc.value)
+        assert "risk_pctt" in msg
+        assert "MB-20260719-FAMILY-KWARG-SWALLOW" in msg
+
+    def test_forwarding_catchall_family_accepts_unknown(self):
+        # market_raw's `**adapter_kwargs` is a real forwarding channel, so an
+        # arbitrary extra key is legitimate and must NOT raise.
+        cli._check_unknown_family_kwargs(
+            _ForwardingBuilder(), {"anything_goes": "value"}
+        )
+
+    def test_empty_kwargs_is_noop(self):
+        cli._check_unknown_family_kwargs(_FakeBuilder(), {})
+
+
+# ---------------------------------------------------------------------------
 # _lift_reserved_into_args — collision resolution between kv and CLI flags
 
 def _make_args(**overrides) -> argparse.Namespace:
@@ -222,7 +265,6 @@ def test_cmd_build_coerces_path_int_bool_and_lifts_timeframe(monkeypatch):
         "include_archive=true",
         "timeframe=1h",  # lifted into args.timeframe
         "symbol_scope=BTCUSDT",  # dropped (CLI wins)
-        "unknown=raw",  # passes through as str
     ]
 
     rc = cli._cmd_build(args)
@@ -236,7 +278,6 @@ def test_cmd_build_coerces_path_int_bool_and_lifts_timeframe(monkeypatch):
     assert fake.captured["risk_pct"] == pytest.approx(1.0)
     assert isinstance(fake.captured["accounts_yaml_path"], Path)
     assert fake.captured["include_archive"] is True
-    assert fake.captured["unknown"] == "raw"
     # Most importantly: no duplicate-timeframe TypeError.
 
 

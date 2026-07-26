@@ -488,9 +488,11 @@ class TestPerTickBudget:
         wall: dict = {}
         # Tick 1: tick_start=0, group1(btc5)=0 (under budget, scores),
         # group2(mes15)=10 (>=6, deferred — no fetch, no score).
+        # rotation=0 pins btc5 first (deterministic — the module rotation
+        # counter is shared global state, BL-20260610-AUDIT-1).
         n1 = emit_regime_bar_predictions(
             predictors=[btc5, mes15], fetch_fn=_fetch, seen=seen,
-            wall_cache=wall, now=self._clock([0.0, 0.0, 10.0]),
+            wall_cache=wall, now=self._clock([0.0, 0.0, 10.0]), rotation=0,
         )
         assert n1 == 1
         assert len(btc5.wrapped.calls) == 1
@@ -501,7 +503,7 @@ class TestPerTickBudget:
         # tick), so the deferred mes15 group is the one that runs now.
         n2 = emit_regime_bar_predictions(
             predictors=[btc5, mes15], fetch_fn=_fetch, seen=seen,
-            wall_cache=wall, now=self._clock([1.0, 1.0, 1.0]),
+            wall_cache=wall, now=self._clock([1.0, 1.0, 1.0]), rotation=0,
         )
         assert n2 == 1
         assert len(mes15.wrapped.calls) == 1           # picked up on the next tick
@@ -533,6 +535,60 @@ class TestPerTickBudget:
         assert _budget_seconds() == _DEFAULT_BUDGET_S
         monkeypatch.setenv("REGIME_BAR_SCORING_BUDGET_S", "not-a-number")
         assert _budget_seconds() == _DEFAULT_BUDGET_S   # typo falls back, never strands
+
+    def test_rotation_gives_a_starved_group_its_turn(self, tmp_path, monkeypatch):
+        """BL-20260610-AUDIT-1: a group whose fetch always eats the whole budget
+        must not permanently starve the group behind it. With the budget cutting
+        off after the first group every tick, rotating the scan start means the
+        second group leads on the next tick and gets scored.
+        """
+        monkeypatch.setenv("REGIME_BAR_SCORING_BUDGET_S", "6")
+        log = tmp_path / "s.jsonl"
+        btc5 = _regime_predictor(
+            "btc-regime-5m", _spec(symbol="BTCUSDT", timeframe="5m"), log
+        )
+        mes15 = _regime_predictor(
+            "mes-regime-15m", _spec(symbol="MES", timeframe="15m"), log
+        )
+
+        def _fetch(symbol, timeframe):
+            return _candles(last_ts=hash((symbol, timeframe)) & 0xFFFF)
+
+        # Independent fresh caches each tick (simulates a bar boundary so neither
+        # group is fetch-gated) — the ONLY thing that lets the 2nd group score is
+        # the rotation, not the fetch gate. Clock jumps to 10 after the 1st group,
+        # so the budget always defers whatever is scanned second.
+        # rotation=0 → btc5 leads, mes15 starved.
+        emit_regime_bar_predictions(
+            predictors=[btc5, mes15], fetch_fn=_fetch, seen={}, wall_cache={},
+            now=self._clock([0.0, 0.0, 10.0]), rotation=0,
+        )
+        assert len(btc5.wrapped.calls) == 1
+        assert len(mes15.wrapped.calls) == 0
+
+        # rotation=1 → mes15 leads, so THIS tick the previously-starved group runs.
+        emit_regime_bar_predictions(
+            predictors=[btc5, mes15], fetch_fn=_fetch, seen={}, wall_cache={},
+            now=self._clock([0.0, 0.0, 10.0]), rotation=1,
+        )
+        assert len(mes15.wrapped.calls) == 1   # got its turn at the front
+
+    def test_rotation_counter_advances_each_call(self, tmp_path, monkeypatch):
+        """The per-process rotation counter increments on each real call (rotation
+        left to default), so successive ticks rotate the scan start automatically.
+        """
+        import src.runtime.regime_bar_scoring as mod
+
+        monkeypatch.setenv("REGIME_BAR_SCORING_BUDGET_S", "0")  # unlimited: all score
+        mod._REGIME_GROUP_ROTATION[0] = 0
+        log = tmp_path / "s.jsonl"
+        pred = _regime_predictor("btc-regime-5m", _spec(), log)
+        before = mod._REGIME_GROUP_ROTATION[0]
+        emit_regime_bar_predictions(
+            predictors=[pred], fetch_fn=lambda s, t: _candles(), seen={},
+            wall_cache={}, now=lambda: 0.0,
+        )
+        assert mod._REGIME_GROUP_ROTATION[0] == before + 1
 
 
 class _RegimeProbaBase(_RegimeBase):

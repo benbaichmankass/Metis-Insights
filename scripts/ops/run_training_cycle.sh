@@ -380,11 +380,17 @@ try:
         fh.write(json.dumps(report) + "\n")
 except Exception:
     pass
-print("FLAGGED" if report.get("quarantine") else "OK")
+print("FLAGGED" if report.get("quarantine") else ("EMPTY" if report.get("empty_dataset") else "OK"))
 PY
 )"
   if [ "$audit_verdict" = "FLAGGED" ]; then
-    emit "$(printf '{"ts":"%s","status":"manifest_audit_flagged","manifest":"%s","detail":"dataset audit flagged dead feature(s)/degenerate label (observe-only, still training) — see dataset_audit.jsonl"}' "$(iso_now)" "$manifest")"
+    emit "$(printf '{"ts":"%s","status":"manifest_audit_flagged","manifest":"%s","detail":"dataset audit flagged dead feature(s)/degenerate label in a NON-empty dataset (observe-only, still training) — see dataset_audit.jsonl"}' "$(iso_now)" "$manifest")"
+  elif [ "$audit_verdict" = "EMPTY" ]; then
+    # Distinct channel from manifest_audit_flagged so the dead-feature alarm
+    # stays high-precision (MB-20260719-DATASET-AUDIT-NOISE): a 0-row dataset is
+    # a build/coverage gap for a (often known-experimental) manifest, not a
+    # data-quality defect. Still surfaced, just not conflated with the alarm.
+    emit "$(printf '{"ts":"%s","status":"manifest_dataset_empty","manifest":"%s","detail":"dataset built 0 rows — nothing to train (build/coverage gap, not a dead-feature/label defect)"}' "$(iso_now)" "$manifest")"
   fi
   set +e
   # `timeout ... 0s` (TRAINING_MANIFEST_TIMEOUT_S=0) means no limit in GNU
