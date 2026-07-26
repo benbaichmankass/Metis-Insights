@@ -694,6 +694,39 @@ def _cmd_stage_guard(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_oos_edge_one(args: argparse.Namespace) -> int:
+    """INTERNAL: compute the OOS edge for ONE registry model, print its JSON.
+
+    Not for direct operator use (`gate-check` is the human-facing single-
+    model path). This exists so `run_stage_guard` can isolate each shadow
+    model's OOS-edge compute in a FRESH interpreter, keeping the whole-
+    registry promotion-readiness sweep at bounded memory instead of
+    D-state-thrashing the 6 GB trainer (MB-20260719-PROMOREADY-OOSEDGE-OOM).
+    Prints the ``OOSEdgeResult.to_dict()`` JSON on the last stdout line, or
+    ``null`` when the edge is uncomputable / the model_id is unknown. Always
+    exits 0 (the caller treats any non-zero / unparsable result as None).
+    """
+    from .promotion.gates import is_regime_classifier
+    from .promotion.oos_edge import compute_oos_edge
+    from .registry.model_registry import ModelRegistry
+
+    registry = ModelRegistry(Path(args.registry_root))
+    entry = next(
+        (e for e in registry.list() if e.model_id == args.model_id), None
+    )
+    if entry is None:
+        print("null")
+        return 0
+    oos_kwargs: dict[str, Any] = {"datasets_root": args.datasets_root}
+    if is_regime_classifier(entry):
+        oos_kwargs["baseline_trainer"] = (
+            "ml.trainers.regime_classifier.RegimeClassifierTrainer"
+        )
+    result = compute_oos_edge(entry, **oos_kwargs)
+    print(json.dumps(result.to_dict() if result is not None else None))
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m ml")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -1013,6 +1046,14 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    # INTERNAL (undocumented in the help banner): per-model OOS-edge worker
+    # used by run_stage_guard for subprocess isolation
+    # (MB-20260719-PROMOREADY-OOSEDGE-OOM).
+    p_oos1 = sub.add_parser("_oos-edge-one", help=argparse.SUPPRESS)
+    p_oos1.add_argument("model_id")
+    p_oos1.add_argument("--registry-root", default="./ml/registry-store")
+    p_oos1.add_argument("--datasets-root", required=True)
+
     p_guard = sub.add_parser(
         "stage-guard",
         help=(
@@ -1084,6 +1125,7 @@ def main(argv: list[str] | None = None) -> int:
         "stage-guard": _cmd_stage_guard,
         "promotion-readiness": _cmd_promotion_readiness,
         "drift-retrain": _cmd_drift_retrain,
+        "_oos-edge-one": _cmd_oos_edge_one,
     }
     handler = dispatch.get(args.cmd)
     if handler is None:

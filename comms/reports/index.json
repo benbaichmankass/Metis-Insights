@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260726-053500-weekly",
+      "window": "weekly",
+      "generated_at": "2026-07-26T05:35:00+00:00",
+      "window_start": "2026-07-19T05:20:12+00:00",
+      "window_end": "2026-07-26T05:35:00+00:00",
+      "roll_up_grade": "caution",
+      "headline": "Quiet, plumbing-healthy week in a chop regime. Real money (bybit_2, the only live real account) lost -$13.83 over 7 closed (1W/6L, PF 0.15) \u2014 small dollars, all SL-appropriate exits; entry-edge got whipsawed (worst: eth_pullback_2h -$8.69). Services/DB/accounts all healthy, no alert banners. ML: 1 advisory head flagged for drift-demote (sol-regime fc-pcv-v1); promote decisions still blocked by the readiness oos_edge OOM.",
+      "html_path": "comms/reports/weekly/20260726T053500Z/report.html",
+      "json_path": "comms/reports/weekly/20260726T053500Z/report.json",
+      "md_path": "comms/reports/weekly/20260726T053500Z/report.md"
+    },
+    {
       "id": "RPT-20260722-184651-since-last",
       "window": "since-last",
       "generated_at": "2026-07-22T18:46:51+00:00",

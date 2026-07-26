@@ -1,0 +1,1667 @@
+{
+  "report_id": "RPT-20260726-053500-weekly",
+  "reviewed_at": "2026-07-26T05:35:00+00:00",
+  "reviewer": "claude",
+  "window": "weekly",
+  "window_start": "2026-07-19T05:20:12+00:00",
+  "window_end": "2026-07-26T05:35:00+00:00",
+  "prior_report_id": "RPT-20260722-184651-since-last",
+  "overall_assessment": "caution",
+  "health": {
+    "request_id": "RPT-20260726-053500-weekly-health",
+    "reviewed_at": "2026-07-26T05:35:00+00:00",
+    "reviewer": "claude",
+    "window_start": "2026-07-19T05:20:12+00:00",
+    "window_end": "2026-07-26T05:35:00+00:00",
+    "overall_assessment": "caution",
+    "findings": {
+      "services": {
+        "status": "ok",
+        "note": "ict-trader-live / ict-web-api / ict-telegram-bot / ict-claude-bridge all active; all safety timers armed (liveness-watchdog, web-api-watchdog, db-integrity, git-sync, insights x2, hourly/health-snapshot). ict-heartbeat retired (expected)."
+      },
+      "heartbeat_pipeline": {
+        "status": "ok",
+        "note": "Heartbeat 'running' (age 177s), last tick 05:23:39Z, tick_age 53s, 51 strategies loaded. bot_uptime ~44min => a recent restart at git_sha 47747d17 (current main) \u2014 consistent with ict-git-sync auto-deploy; no wedge."
+      },
+      "db_integrity": {
+        "status": "ok",
+        "note": "trade_journal.db 634MB, all 16 tables present, 0 per-table errors, no load_error. trades=4020, order_packages=3288, signals=1.20M."
+      },
+      "ib_connection": {
+        "status": "watch",
+        "note": "Both MES IB clients state=connected, not wedged, account_data_ready; a liveness_probe_timeout occurred 04:53Z then recovered by 05:19Z (transient cold-flow, retry-tolerant probe absorbed it). No naked-position/monitor-blind alert."
+      },
+      "account_reachability": {
+        "status": "ok",
+        "note": "All declared-live probeable accounts reachable (bybit_2 real + bybit_1/bybit_portfolio/ib_paper/alpaca_paper/alpaca_portfolio/alpaca_options_paper paper). Nulls are shelved/API-less (ib_live/alpaca_live/oanda_practice/breakout_1) \u2014 expected."
+      },
+      "alert_delivery": {
+        "status": "ok",
+        "note": "/api/bot/notifications count=0, has_alerts=false, banners=[]. No trainer_down / account_down / orphan_unreconciled banner active."
+      },
+      "prop_pipeline": {
+        "status": "watch",
+        "note": "prop reconcile clean (51 tickets/25 fills, 0 unacted). BUT breakout_1 equity $4825.61 sits only ~$125.61 above the $4700 static-DD floor (thin cushion) and the last account-status snapshot is 6 days stale (2026-07-20T08:28Z). 1 open ticket awaiting_report (valid_until 05:53Z)."
+      },
+      "data_freshness": {
+        "status": "watch",
+        "note": "Trainer promotion_readiness + forecasts mirrors updated today (04:20Z/05:24Z). MES intraday manifests still skip empty_dataset (MES base frozen 06-12, known)."
+      }
+    },
+    "security_check": {
+      "status": "ok",
+      "detail": "No breach/intrusion signal observed this window; repo interaction-limited to collaborators + external-comment-alert active. Deep code-vuln review is /security-review's scope, not run here.",
+      "findings": []
+    },
+    "soak_decisions_due": [
+      {
+        "item": "sol-regime-15m-lgbm-fc-pcv-v1",
+        "decision": "DEMOTE due (advisory->shadow, significant drift) \u2014 route to /ml-review",
+        "due": "now"
+      },
+      {
+        "item": "fc-pcv v2 siblings (btc/sol)",
+        "decision": "gate-check + swap-for-frozen-v1 assessment",
+        "due": "when v2 gate-ready"
+      }
+    ],
+    "new_work_compliance": {
+      "status": "ok",
+      "detail": "No new live-path code shipped by this read-only review; recent main commits are M35 crypto-OI research (no_directional_edge) + M28 value-sleeve \u2014 observe-only research, compliant.",
+      "findings": []
+    },
+    "anomalies": [
+      "Paper soak book shows a very large negative aggregate (demo block -$27,963 over 41 trades) driven by big-notional soak sizing + prior netting artifacts \u2014 not real money, but the magnitude is a known data-quality caveat (BL-20260720-PAPER-PNL-CROSSWRITE / netting-repair items)."
+    ],
+    "backlog_drain": [],
+    "backlog_coverage": {
+      "open_at_start": 80,
+      "triaged": 80,
+      "count_untriaged": 0
+    },
+    "sprint_doc_review": {
+      "status": "ok",
+      "detail": "ROADMAP/sprint logs current with M28/M29/M35 research activity; no contradiction surfaced this window."
+    },
+    "recommended_action": "Monitor prop DD cushion + request a fresh breakout_1 balance; keep watching the eth_pullback_2h real-money leg. No Tier-1 fix landed (read-only web review).",
+    "operator_attention_required": true,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": ""
+    }
+  },
+  "performance": {
+    "request_id": "RPT-20260726-053500-weekly-perf",
+    "reviewed_at": "2026-07-26T05:35:00+00:00",
+    "reviewer": "claude",
+    "window_start": "2026-07-19T05:20:12+00:00",
+    "window_end": "2026-07-26T05:35:00+00:00",
+    "overall_assessment": "caution",
+    "strategy_performance": {
+      "real_money": {
+        "account": "bybit_2",
+        "trades": 7,
+        "wins": 1,
+        "win_rate": 14.3,
+        "pnl": -13.8265,
+        "expectancy": -1.9752,
+        "profit_factor": 0.1494,
+        "max_drawdown": -13.8265,
+        "expectancy_r": -0.5821,
+        "per_strategy": [
+          {
+            "name": "eth_pullback_2h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -8.6933
+          },
+          {
+            "name": "ict_scalp_5m",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -3.2553
+          },
+          {
+            "name": "trend_donchian_xrp_4h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -1.4872
+          },
+          {
+            "name": "trend_donchian",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -0.2512
+          },
+          {
+            "name": "xrp_pullback_2h",
+            "trades": 2,
+            "win_rate": 50.0,
+            "pnl": -0.1394
+          }
+        ]
+      },
+      "summary": "Losing real-money week: -$13.83 over 7 closed (1W/6L), PF 0.15 \u2014 a chop regime whipsawed the trend/pullback legs. Small dollars; every exit was SL-appropriate, so the loss is entry-edge in chop, not exit failure. Worst leg eth_pullback_2h -$8.69 (0/2)."
+    },
+    "trade_decision_grades": [
+      {
+        "order_package_id": "pkg-c2956a93ab2f45e9",
+        "trade_id": 3803,
+        "strategy": "eth_pullback_2h",
+        "symbol": "ETHUSDT",
+        "grade": "C",
+        "entry_quality": "late",
+        "exit_quality": "sl_appropriate",
+        "pnl": -4.4347
+      },
+      {
+        "order_package_id": "pkg-f3965217d8ec4f1f",
+        "trade_id": 3909,
+        "strategy": "ict_scalp_5m",
+        "symbol": "BTCUSDT",
+        "grade": "B",
+        "entry_quality": "optimal",
+        "exit_quality": "sl_appropriate",
+        "pnl": -3.2553
+      },
+      {
+        "order_package_id": "pkg-d8874b8edbf745ca",
+        "trade_id": 3948,
+        "strategy": "trend_donchian_xrp_4h",
+        "symbol": "XRPUSDT",
+        "grade": "B",
+        "entry_quality": "optimal",
+        "exit_quality": "sl_appropriate",
+        "pnl": -1.4872
+      },
+      {
+        "order_package_id": "pkg-639da91607cc46d3",
+        "trade_id": 4009,
+        "strategy": "xrp_pullback_2h",
+        "symbol": "XRPUSDT",
+        "grade": "C",
+        "entry_quality": "acceptable",
+        "exit_quality": "sl_appropriate",
+        "pnl": -2.568
+      }
+    ],
+    "grading_summary": {
+      "packages_graded": 18,
+      "histogram": {
+        "B": 9,
+        "C": 6,
+        "D": 3
+      },
+      "executed_closed": 4,
+      "shadow_unfilled": 14,
+      "note": "18 closed order packages graded (freshly, this session). 4 executed real-money closes (all small SL losses); 14 were shadow/unfilled data-collection. 3 D-grades = uso_trend_1h x2 + slv_trend_1h emitting conf~0.03-0.04 'should_skip' packages (degenerate-low-confidence emission \u2014 PERF-20260601-010)."
+    },
+    "insights_review": {
+      "status": "not_cross_checked",
+      "detail": "M13 insights cache not pulled this run (relay budget); no claim to cross-check. unavailable: not-fetched-this-window"
+    },
+    "proposed_tweaks": [
+      {
+        "strategy": "eth_pullback_2h",
+        "tier": 3,
+        "proposal": "Add the ADX/regime entry gate the backlog (PB-20260618-015/PB-20260614-001) calls for \u2014 the real-money ETH long leg keeps firing into chop and is the worst leg this week."
+      }
+    ],
+    "paper_book_tracker": {
+      "detail": "Paper/soak aggregate strongly negative (-$27,963, 41 trades, 22% WR) \u2014 dominated by large-notional soak sizing + netting artifacts; not comparable to real-money and not a live risk. Portfolio-mirror paper books (bybit_portfolio/alpaca_portfolio) holding open shorts."
+    },
+    "real_money_allocation_benchmark": {
+      "detail": "Incumbent real book (bybit_2) lost -$13.83 this week; no ready-for-live challenger portfolio beats the incumbent (SRQ-20260715 recurring \u2014 carried).",
+      "incumbent_pnl": -13.8265
+    },
+    "anomalies": [
+      "Very low fill rate \u2014 most window order packages closed 'never filled' (reconciler_filled/exchange_flat_reconciled); corroborates PB-20260630-003 (squeeze_breakout_4h/htf_pullback low fills)."
+    ],
+    "backlog_drain": [],
+    "backlog_coverage": {
+      "open_at_start": 50,
+      "triaged": 50,
+      "count_untriaged": 0
+    },
+    "recommended_action": "Prioritize the eth_pullback_2h regime/ADX entry gate (Tier-3). Continue watching real-money edge vs chop.",
+    "operator_attention_required": true,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": ""
+    }
+  },
+  "ml": {
+    "request_id": "RPT-20260726-053500-weekly-ml",
+    "reviewed_at": "2026-07-26T05:35:00+00:00",
+    "reviewer": "claude",
+    "window_start": "2026-07-19T05:20:12+00:00",
+    "window_end": "2026-07-26T05:35:00+00:00",
+    "overall_assessment": "caution",
+    "trainer_findings": {
+      "trainer_service": {
+        "status": "ok",
+        "detail": "ict-trainer.timer active; daily cycle ran today 01:49Z \u2014 most manifests manifest_ok; mes-setup-quality + mes-trade-outcome-winrate skipped reason=empty_dataset (known MES data gap)."
+      },
+      "trainer_datasets": {
+        "status": "watch",
+        "detail": "MES intraday manifests still empty_dataset (MES base frozen 2026-06-12, BL-20260626-MES-BASE-STALE). Dataset-audit noise (62/86 manifests) still un-de-noised (MB-20260719-DATASET-AUDIT-NOISE)."
+      },
+      "trainer_registry": {
+        "status": "ok",
+        "detail": "92 models registered (64 candidate / 28 shadow + 5 advisory live). Registry writing normally."
+      },
+      "trainer_models": {
+        "status": "watch",
+        "detail": "Promotion-readiness (04:20Z today): 0 promote, 1 DEMOTE, 91 hold. The readiness sweep ran WITHOUT datasets_root => shadow-stage oos_edge uncomputable, so 0 promote signals were derivable (MB-20260719-PROMOREADY-OOSEDGE-OOM blocks real promote evidence)."
+      }
+    },
+    "model_status": [
+      {
+        "model_id": "sol-regime-15m-lgbm-fc-pcv-v1",
+        "stage": "advisory",
+        "status": "concern",
+        "shadow_n": 525,
+        "note": "DEMOTE recommended (advisory->shadow) \u2014 score-distribution drift verdict 'significant'. Order-influencing for SOL. v2 sibling soaking as replacement.",
+        "last_training": {
+          "headline_metric": "shadow n=525",
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": "significant"
+        }
+      },
+      {
+        "model_id": "btc-regime-15m-lgbm-fc-pcv-v1",
+        "stage": "advisory",
+        "status": "ok",
+        "shadow_n": 549,
+        "note": "advisory, shadow n=549 (mean 0.966); BTC vol-gate live head. Held.",
+        "last_training": {
+          "headline_metric": "shadow n=549",
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        }
+      },
+      {
+        "model_id": "btc-regime-15m-lgbm-v2",
+        "stage": "advisory",
+        "status": "ok",
+        "shadow_n": 1354,
+        "note": "advisory n=1354 mean 0.927.",
+        "last_training": {
+          "headline_metric": "shadow n=1354",
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        }
+      },
+      {
+        "model_id": "mes-regime-5m-lgbm-v2",
+        "stage": "advisory",
+        "status": "ok",
+        "shadow_n": 1002,
+        "note": "advisory n=1002 mean 0.699.",
+        "last_training": {
+          "headline_metric": "shadow n=1002",
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        }
+      },
+      {
+        "model_id": "exit-head-donchian-1h-v1",
+        "stage": "advisory",
+        "status": "ok",
+        "shadow_n": 96,
+        "note": "exit head advisory n=96 (M20).",
+        "last_training": {
+          "headline_metric": "shadow n=96",
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        }
+      },
+      {
+        "model_id": "btc-regime-15m-lgbm-fc-pcv-v2",
+        "stage": "shadow",
+        "status": "ok",
+        "shadow_n": 508,
+        "note": "fresh-data v2 sibling soaking n=508 (swap candidate for frozen v1).",
+        "last_training": {
+          "headline_metric": "shadow n=508",
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        }
+      },
+      {
+        "model_id": "sol-regime-15m-lgbm-fc-pcv-v2",
+        "stage": "shadow",
+        "status": "ok",
+        "shadow_n": 486,
+        "note": "fresh-data v2 sibling soaking n=486 (swap candidate for the drifting v1).",
+        "last_training": {
+          "headline_metric": "shadow n=486",
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        }
+      },
+      {
+        "model_id": "setup-quality-lgbm-v2",
+        "stage": "shadow",
+        "status": "watch",
+        "shadow_n": 4962,
+        "note": "degenerate/underperforming (shadow mean -0.47) \u2014 known BL-20260526-003 / too little labeled data.",
+        "last_training": {
+          "headline_metric": "shadow n=4962",
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        }
+      },
+      {
+        "model_id": "execution-quality-baseline-v0",
+        "stage": "shadow",
+        "status": "watch",
+        "shadow_n": 4962,
+        "note": "baseline mean -0.20 (degenerate baseline, expected).",
+        "last_training": {
+          "headline_metric": "shadow n=4962",
+          "trend_vs_prior_run": null
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        }
+      }
+    ],
+    "promotion_recommendations": [
+      {
+        "direction": "DEMOTE",
+        "model_id": "sol-regime-15m-lgbm-fc-pcv-v1",
+        "current_stage": "advisory",
+        "proposed_stage": "shadow",
+        "evidence": "Significant score-distribution drift (promotion-readiness 2026-07-26T04:20Z). Consider gate-check + swap the fresh-data v2 sibling (shadow n=486) rather than run the advisory head undefended. Tier-3, operator-gated.",
+        "tier": 3
+      }
+    ],
+    "experiments_proposed": [
+      {
+        "summary": "Unblock the promotion-readiness oos_edge sweep (run WITH datasets_root on the trainer / fix the 6GB OOM, MB-20260719-PROMOREADY-OOSEDGE-OOM) so shadow->advisory promote signals become computable \u2014 currently every shadow head holds on insufficient-data.",
+        "tier": 1
+      }
+    ],
+    "anomalies": [
+      "Registry /api/bot/ml/registry by_stage under-reports advisory (top-level stage null for several rows); shadow/stats deployment-stage is authoritative (5 advisory heads confirmed)."
+    ],
+    "backlog_drain": [],
+    "backlog_coverage": {
+      "open_at_start": 37,
+      "triaged": 37,
+      "count_untriaged": 0
+    },
+    "recommended_action": "Operator: decide sol-regime-fc-pcv v1 demote / v2 swap. Unblock the readiness oos_edge sweep so promote decisions stop stalling.",
+    "operator_attention_required": true,
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)",
+      "priority": "normal",
+      "message": ""
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "Quiet, plumbing-healthy week in a chop regime. Real money (bybit_2, the only live real account) lost -$13.83 over 7 closed (1W/6L, PF 0.15) \u2014 small dollars, all SL-appropriate exits; entry-edge got whipsawed (worst: eth_pullback_2h -$8.69). Services/DB/accounts all healthy, no alert banners. ML: 1 advisory head flagged for drift-demote (sol-regime fc-pcv-v1); promote decisions still blocked by the readiness oos_edge OOM.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "eth_pullback_2h real-money leg bleeding \u2014 worst leg this week (-$8.69, 0/2), fires long into chop",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "Add the ADX/regime entry gate PB-20260618-015 / PB-20260614-001 propose. Real-money ETH pullback long keeps entering chop; grade C 'late' on the executed close.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "sol-regime-15m-lgbm-fc-pcv-v1 (advisory) flagged for DEMOTE \u2014 significant score drift",
+        "source_review": "ml",
+        "tier": 3,
+        "detail": "Today's promotion-readiness recommends advisory->shadow. Fresh-data v2 sibling is soaking (n=486). Decide: demote v1, or gate-check + swap v2 in.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 3,
+        "title": "Promotion pipeline stalled \u2014 readiness can't compute oos_edge (no datasets_root / 6GB trainer OOM)",
+        "source_review": "ml",
+        "tier": 1,
+        "detail": "92 models, 0 promote signals derivable because the readiness sweep ran without datasets. MB-20260719-PROMOREADY-OOSEDGE-OOM blocks every shadow->advisory promote decision.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 4,
+        "title": "Prop breakout_1: thin DD cushion (~$125 to floor) + 6-day-stale balance",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "equity $4825.61 vs $4700 static-DD floor = $125.61 cushion; last account-status 2026-07-20. Request a fresh balance report-back; 1 open ticket awaiting_report.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 5,
+        "title": "Degenerate low-confidence emissions \u2014 uso_trend_1h / slv_trend_1h at conf ~0.03",
+        "source_review": "performance",
+        "tier": 1,
+        "detail": "3 D-grade packages this window emitted at conf 0.03-0.04 'should_skip' (never filled). Review the confidence floor / emission on these legs (PERF-20260601-010).",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "Chop regime is the through-line: market_context shows BTC +0.75% / SOL -0.11% / XRP +0.94% (rangey with wicks) and audit-tail ADX 15-24 (transitional/chop) \u2014 this is why HEALTH reads clean while PERFORMANCE reads weak: trend & pullback legs got whipsawed, not broken. Ties eth_pullback_2h loss + the regime-router/entry-gate backlog (PB-20260614-001) + market context into one story.",
+      "All 4 executed real-money losses exited on SL/stale-stop appropriately \u2014 the exit machinery is working; the gap is entry selectivity in chop."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": -13.8265,
+        "prior_window_pnl": -7.4,
+        "trend": "down",
+        "trades": 7,
+        "wins": 1,
+        "win_rate": 14.3,
+        "expectancy": -1.9752,
+        "profit_factor": 0.1494,
+        "max_drawdown": -13.8265,
+        "per_strategy": [
+          {
+            "name": "eth_pullback_2h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -8.6933
+          },
+          {
+            "name": "ict_scalp_5m",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -3.2553
+          },
+          {
+            "name": "trend_donchian_xrp_4h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -1.4872
+          },
+          {
+            "name": "trend_donchian",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -0.2512
+          },
+          {
+            "name": "xrp_pullback_2h",
+            "trades": 2,
+            "win_rate": 50.0,
+            "pnl": -0.1394
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -13.8265,
+          "index": 0.0,
+          "commodity": 0.0,
+          "equity": 0.0,
+          "fx": 0.0
+        },
+        "equity_curve": [
+          {
+            "t": "2026-07-20 11:36:14",
+            "cum": -4.2586
+          },
+          {
+            "t": "2026-07-21 23:03:15",
+            "cum": -4.5099
+          },
+          {
+            "t": "2026-07-23 13:26:15",
+            "cum": -2.0813
+          },
+          {
+            "t": "2026-07-23 17:58:34",
+            "cum": -6.516
+          },
+          {
+            "t": "2026-07-23 20:06:01",
+            "cum": -9.7713
+          },
+          {
+            "t": "2026-07-25 16:51:31",
+            "cum": -12.3393
+          },
+          {
+            "t": "2026-07-25 20:01:24",
+            "cum": -13.8265
+          }
+        ]
+      },
+      "paper": {
+        "window_pnl": -27963.5613,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "trades": 41,
+        "wins": 9,
+        "win_rate": 22.0,
+        "expectancy": -682.04,
+        "profit_factor": 0.3332,
+        "max_drawdown": -27966.55,
+        "per_strategy": [
+          {
+            "name": "uso_trend_1h",
+            "trades": 4,
+            "win_rate": 50.0,
+            "pnl": 9300.25
+          },
+          {
+            "name": "ict_scalp_avax_5m",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -767.98
+          },
+          {
+            "name": "xrp_pullback_2h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -1147.77
+          },
+          {
+            "name": "trend_donchian",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -1336.94
+          },
+          {
+            "name": "avax_pullback_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -1552.93
+          }
+        ],
+        "per_asset_class": {},
+        "equity_curve": [],
+        "note": "Full soak roster with large-notional sizing + prior netting artifacts (BL-20260720-PAPER-PNL-CROSSWRITE) \u2014 NOT comparable to real money and not a live risk; magnitude is a known data-quality caveat, not a fresh loss."
+      },
+      "prop": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": 0.0,
+        "trend": "flat",
+        "fills_reported": 0,
+        "tickets_emitted": 51,
+        "unacted_tickets": 0,
+        "rule_distance": {
+          "daily_loss_remaining": 144.77,
+          "static_dd_remaining": 125.61
+        },
+        "per_account": [
+          {
+            "account_id": "breakout_1",
+            "balance": 4825.61,
+            "equity": 4825.61,
+            "realized_window": 0.0
+          }
+        ],
+        "note": "No prop fills reported in-window; reconcile clean (0 unacted of 51 tickets). Balance snapshot 6 days stale (07-20); cushion to static-DD floor only $125.61."
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": 63937.3,
+        "close": 64420.0,
+        "high": 66968.5,
+        "low": 63724.1,
+        "pct_change": 0.75,
+        "range_pct": 5.09,
+        "note": "Rangey/chop \u2014 traded a ~$3.2k band, closed near open; dipped to 63.7k."
+      },
+      {
+        "symbol": "ETHUSDT",
+        "open": 1841.85,
+        "close": 1883.81,
+        "high": 1956.59,
+        "low": 1837.43,
+        "pct_change": 2.28,
+        "range_pct": 6.48,
+        "note": "Modestly up but choppy (hi 1956 then faded)."
+      },
+      {
+        "symbol": "SOLUSDT",
+        "open": 75.04,
+        "close": 74.96,
+        "high": 78.88,
+        "low": 73.43,
+        "pct_change": -0.11,
+        "range_pct": 7.27,
+        "note": "Flat/rangey \u2014 round-trip week, no trend."
+      },
+      {
+        "symbol": "XRPUSDT",
+        "open": 1.0888,
+        "close": 1.099,
+        "high": 1.1646,
+        "low": 1.0831,
+        "pct_change": 0.94,
+        "range_pct": 7.49,
+        "note": "Chop \u2014 spiked to 1.16 then reverted; ADX ~16-20 (chop)."
+      },
+      {
+        "symbol": "MES",
+        "open": 7558.25,
+        "close": 7447.5,
+        "high": 7632.0,
+        "low": 7411.75,
+        "pct_change": -1.47,
+        "range_pct": 2.92,
+        "note": "S&P futures sold off ~1.5%."
+      },
+      {
+        "symbol": "MGC",
+        "open": 4008.7,
+        "close": 4070.8,
+        "high": 4171.3,
+        "low": 3962.9,
+        "pct_change": 1.55,
+        "range_pct": 5.2,
+        "note": "Gold up ~1.5%."
+      },
+      {
+        "symbol": "SPY",
+        "open": 750.93,
+        "close": 738.9,
+        "high": 755.54,
+        "low": 735.25,
+        "pct_change": -1.6,
+        "range_pct": 2.7,
+        "note": "Equities down ~1.6%."
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": 3803,
+        "order_package_id": "pkg-c2956a93ab2f45e9",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "ETHUSDT",
+        "direction": "long",
+        "strategy": "eth_pullback_2h",
+        "opened_at": "2026-07-21T18:05:03+00:00",
+        "closed_at": null,
+        "entry_price": 1919.58,
+        "exit_price": null,
+        "stop_loss": 1876.45,
+        "take_profit": 2109.62,
+        "pnl": -4.4347,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "late",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.42; entry late into chop; -0.99R"
+        },
+        "signal_logic": null,
+        "meta": {
+          "setup_type": "eth_pullback_2h"
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3909,
+        "order_package_id": "pkg-f3965217d8ec4f1f",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-07-23T19:44:07+00:00",
+        "closed_at": null,
+        "entry_price": 64765.4,
+        "exit_price": null,
+        "stop_loss": 64960.32,
+        "take_profit": 64473.02,
+        "pnl": -3.2553,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.89; clean setup; stopped -1.01R"
+        },
+        "signal_logic": null,
+        "meta": {
+          "setup_type": "ict_scalp_5m"
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 3948,
+        "order_package_id": "pkg-d8874b8edbf745ca",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "XRPUSDT",
+        "direction": "short",
+        "strategy": "trend_donchian_xrp_4h",
+        "opened_at": "2026-07-24T14:28:03+00:00",
+        "closed_at": null,
+        "entry_price": 1.0884,
+        "exit_price": null,
+        "stop_loss": 1.1231,
+        "take_profit": 0.9806,
+        "pnl": -1.4872,
+        "close_reason": "stale_stop",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.84; stale-stop exit -0.33R"
+        },
+        "signal_logic": null,
+        "meta": {
+          "setup_type": "trend_donchian_xrp_4h"
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 4009,
+        "order_package_id": "pkg-639da91607cc46d3",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "XRPUSDT",
+        "direction": "short",
+        "strategy": "xrp_pullback_2h",
+        "opened_at": "2026-07-25T14:01:33+00:00",
+        "closed_at": null,
+        "entry_price": 1.0903,
+        "exit_price": null,
+        "stop_loss": 1.1032,
+        "take_profit": 0.9824,
+        "pnl": -2.568,
+        "close_reason": "sl_cross",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.54; sl_cross -0.96R"
+        },
+        "signal_logic": null,
+        "meta": {
+          "setup_type": "xrp_pullback_2h"
+        },
+        "notable": true
+      }
+    ],
+    "dossier_coverage": {
+      "window": "weekly",
+      "full_dossiers": 4,
+      "summarized_trades": 14,
+      "rule": "outliers-only (weekly/monthly) \u2014 the 4 executed real-money closes detailed; 14 shadow/unfilled packages summarized in pnl_by_class.per_strategy + grading histogram"
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 249,
+        "open": 80,
+        "resolved": 169,
+        "drained": 0
+      },
+      "performance": {
+        "total": 79,
+        "open": 50,
+        "resolved": 29,
+        "drained": 0
+      },
+      "ml": {
+        "total": 91,
+        "open": 37,
+        "resolved": 54,
+        "drained": 0
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "summary": "eth_pullback_2h: add ADX/regime entry gate (real-money ETH long fires into chop; worst leg this week).",
+        "tier": 3
+      },
+      {
+        "source_review": "ml",
+        "summary": "sol-regime-15m-lgbm-fc-pcv-v1: demote advisory->shadow (drift) and/or gate-check+swap the fresh-data v2 sibling.",
+        "tier": 3
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "MB-20260721-FCPCV-V2-SOAK",
+        "domain": "ml",
+        "category": "soaking",
+        "detail": "fc-pcv v2 fresh-data siblings soaking (btc n=508, sol n=486) as swap for the frozen/drifting v1 advisory heads.",
+        "since": "2026-07-21",
+        "next_check": "v2 gate-check ready"
+      },
+      {
+        "item_id": "MB-20260628-REGIME-SOAK-READINESS",
+        "domain": "ml",
+        "category": "soaking",
+        "detail": "ETH/SOL regime shadow heads accruing (n=1200-1300); RG4 re-check when mature.",
+        "since": "2026-06-28",
+        "next_check": "readiness oos_edge unblocked"
+      },
+      {
+        "item_id": "MB-20260721-MES-15M-HEAD-PARKED",
+        "domain": "ml",
+        "category": "awaiting-decision",
+        "detail": "mes-regime-15m-lgbm-v2 reads gate-ready (n=1204) \u2014 2nd same-symbol advisory-head decision parked.",
+        "since": "2026-07-21",
+        "next_check": "operator go"
+      },
+      {
+        "item_id": "PB-20260618-015",
+        "domain": "performance",
+        "category": "awaiting-decision",
+        "detail": "eth_pullback_2h real-money cell under watch \u2014 worst leg this week; ADX-gate proposal ready.",
+        "since": "2026-06-18",
+        "next_check": "operator go on Tier-3 gate"
+      },
+      {
+        "item_id": "PB-20260617-002",
+        "domain": "performance",
+        "category": "soaking",
+        "detail": "Graduate the ExitPlan ladder to the real exit once the soak has accrued (exit-head-donchian-1h-v1 advisory n=96).",
+        "since": "2026-06-17",
+        "next_check": "soak volume + backtest gate"
+      },
+      {
+        "item_id": "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY",
+        "domain": "health",
+        "category": "verify",
+        "detail": "IB close-confirm fix holding (MHG/MGC healthy, IB reconnected clean, no naked-orphan alert).",
+        "since": "2026-06-24",
+        "next_check": "next IB reset window"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "sol-regime-15m-lgbm-fc-pcv-v1",
+            "gate": "DEMOTE_SHADOW",
+            "evidence": "promotion-readiness 2026-07-26T04:20Z: advisory->shadow, significant score-distribution drift; v2 sibling soaking."
+          }
+        ],
+        "summary": "Promotion-readiness (92 models): 0 promote, 1 demote (sol-regime fc-pcv-v1 drift), 91 hold. No M7 KILL/PROMOTE surfaced on live strategies. Real-money legs all HOLD; eth_pullback_2h is a demote-watch on real money (bleeding, Tier-3 entry-gate proposal). Promote signals are otherwise uncomputable this run (oos_edge OOM)."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 1,
+        "dataset_builds_ok": false,
+        "failing_or_stuck": [
+          "mes-setup-quality (empty_dataset)",
+          "mes-trade-outcome-winrate (empty_dataset)",
+          "promotion-readiness oos_edge sweep (OOM / no datasets_root \u2014 MB-20260719-PROMOREADY-OOSEDGE-OOM)"
+        ],
+        "summary": "Daily cycle ran today 01:49Z; most manifests OK; MES intraday manifests skip empty_dataset (known base-stale). No manifest_quarantine/OOM cycle event in the tail. Registry 92 healthy. Readiness sweep evidence-blocked."
+      },
+      "soak_status": [
+        {
+          "soak": "5m regime heads (btc/eth/sol/mes)",
+          "state": "accruing",
+          "detail": "n ~3000-5300 shadow, means healthy 0.67-0.99."
+        },
+        {
+          "soak": "15m regime heads (btc/eth/sol/mes)",
+          "state": "accruing",
+          "detail": "n ~500-1900 shadow; fc-pcv v2 siblings n~486-508."
+        },
+        {
+          "soak": "sol-regime-15m-lgbm-fc-pcv-v1 (advisory)",
+          "state": "gate_met",
+          "detail": "DEMOTE gate met \u2014 significant drift; flagged."
+        },
+        {
+          "soak": "conviction-meta-v1",
+          "state": "accruing",
+          "detail": "shadow n=4962."
+        },
+        {
+          "soak": "exit heads (donchian 1h/peak)",
+          "state": "accruing",
+          "detail": "advisory n=96 / shadow n=95."
+        }
+      ],
+      "flags_raised": [
+        "Real-money week net NEGATIVE: -$13.83, PF 0.15, 1/7 wins (small $; chop-driven, exits fine).",
+        "eth_pullback_2h worst real leg (-$8.69, 0/2) \u2014 fires long into chop; Tier-3 ADX-gate proposed.",
+        "sol-regime-15m-lgbm-fc-pcv-v1 advisory head flagged for DEMOTE (significant drift) \u2014 order-influencing for SOL.",
+        "Promotion pipeline evidence-blocked: readiness oos_edge sweep OOMs / lacks datasets_root => 0 promote signals computable (91/92 hold on insufficient-data).",
+        "Prop breakout_1 thin: ~$125 to the $4700 static-DD floor + balance snapshot 6 days stale.",
+        "account_reachability: ALL declared-live accounts reachable \u2014 no down account this window."
+      ],
+      "account_reachability": {
+        "checked": [
+          "bybit_2",
+          "bybit_1",
+          "bybit_portfolio",
+          "ib_paper",
+          "alpaca_paper",
+          "alpaca_portfolio",
+          "alpaca_options_paper"
+        ],
+        "down": [],
+        "summary": "All 7 declared-live probeable accounts reachable (bybit_2 real + 6 paper). Nulls (ib_live/alpaca_live/oanda_practice/breakout_1) are shelved/dry/API-less \u2014 expected, not counted."
+      },
+      "backlog_drive": {
+        "health": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "BL-20260724-TRAINER-GIT-DIVERGED",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260721-XRPTPSL-ENTRYCAPTURE-VERIFY",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260721-TRAINERDIAG-SILENT-SSH-DROP",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260715-TRAINER-CYCLE-MEM-SATURATION",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260709-IB-BROKER-PROTECTION-UNVERIFIED",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260706-PROP-REPORT-DEVNULL-NOISE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260705-ENV-DIAG-BASE-URL-STALE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260628-SEC-HARDENING-FOLLOWUPS",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260628-PROP-TICKET-UPSERT-NO-OPID-BACKFILL",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260628-RECONCILER-PAPER-ARTIFACT",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260627-OPTIONS-SEPARATE-ACCT",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260626-MES-BASE-STALE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260624-MHG-CLOSE-CONFIRM-VERIFY",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260621-ACCOUNT-HISTORY-PULL",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260617-GATE-MIGRATION",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260611-004",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260610-004",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260610-003",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260609-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260607-003",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260601-003",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260525-003",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260525-005",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260525-007",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260526-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260526-003",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260527-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260527-003",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260527-004",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260527-006",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260528-FCM404",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260601-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260604-004",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260606-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260607-005",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260610-AUDIT-1",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260610-AUDIT-2",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260610-AUDIT-3",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260610-AUDIT-4",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260610-AUDIT-7",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260611-SYM-2",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260611-M15-4",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260614-INSTALLER-GATEWAY-TIMERS",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260615-IBLIVE-2FA",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260616-TRADE-EVENT-TELEGRAM-GATE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260617-DASH-CHART-TZ",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260617-ANDROID-LINT-PROMOTE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260620-CLOSEDPNL-LOOKUP-MISMATCH-DEMO",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260622-CLOSEDPNL-AGGREGATE-SOAK",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260623-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260623-004",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260629-DEVNULL-CLOBBERED-LIVE-VM",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260629-DEVNULL-OCI-SOURCE-KILL",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260706-GPU-BURST-LEDGER-PUSH-RACE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260706-GATEWAY-VM-GIT-AUTH-UNVERIFIED",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260706-ACTIONS-MINUTES-MONITOR",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260707-FASTCI-CONFIG-DRIFT",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260707-ALPACA-PIPELINE-AUDIT-FOLLOWUPS",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260708-ALPACA-PIPELINE-VERIFICATION-WATCH",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260708-TRADE-PIPELINE-DOC-ALPACA-GAP",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260712-M20-CELL-FIRST-FIRE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260712-TRAINER-JOB-SERIALIZATION",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260713-E2-DEPTH-FIRST-FIRE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260713-DEVNULL-RESTART-MISREPORT",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260713-BYBIT2-PNL-UNDERRECORD",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260713-SET-DIAG-TOKEN-RESTORE-BROKEN",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260716-BYBIT2-SUBMIN-QTY",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260716-PAIRS-BETA-INSTABILITY",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260716-DEVNULL-DEPLOY-PERM",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260717-TRAINER-CYCLE-TERM-AT-START",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260716-ALPACA-MARKET-HOURS-EXIT",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260720-PAPER-PNL-CROSSWRITE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260720-OPTIONS-PAPER-ZERO-FILLS",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260720-MERGE-PROTOCOL-LAPSE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260720-TRAINERDIAG-FENCE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260723-DB-LAYER-IMPURITY",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260723-RUFF-016-DEFAULT-RULESET-EXPANSION",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            }
+          ]
+        },
+        "performance": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "SRQ-20260715-REALMONEY-ALLOC-BENCHMARK",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260707-IBKR-STK-ETF-SUPPORT",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260630-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260630-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260628-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260625-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260625-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260622-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260617-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260614-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260609-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260609-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PERF-20260531-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PERF-20260601-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PERF-20260601-007",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PERF-20260601-009",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PERF-20260601-010",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PERF-20260601-011",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260611-M15-1",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260611-M15-2",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260611-M15-3",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260614-IBMHG-1",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260616-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260616-004",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260618-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260618-012",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260618-013",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260618-014",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260618-015",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260620-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260620-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260620-003",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260626-003",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260626-004",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260630-004",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260630-003",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260706-ETH-BOOK-RECHECK",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260707-MGC-PULLBACK-1H-WALKFORWARD",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260707-MGC-TREND-1H-STRUCTURAL",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260707-NATIVE-MES-PULL",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260707-SPLG-IAUM-PROMOTION",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260712-PROP-BANKING-EV",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260712-PULLBACK-TRAIL4-WALKFORWARD",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260715-CHOP-SCALP-NEGATIVE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260715-MAKER-CARRY",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260715-PAIRS-SLEEVE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PRB-20260716-HTF-CROSSBOOK-NEG",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260720-M27-SCALP-EXPANSION",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "PB-20260721-ICTSCALP-ALTCOIN-PAPER-SOAK-CHECK",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            }
+          ]
+        },
+        "ml": {
+          "drained": [],
+          "deferred": [
+            {
+              "id": "MB-20260626-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260626-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260607-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260530-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260601-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260604-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260604-003",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260613-002",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260613-004",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260616-CONVICTION-P4-SIZING",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260616-CONVICTION-P5-FUSION",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260618-XA-D2B",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260618-XA-SOAK-WATCH",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260627-003",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260628-REGIME-SOAK-READINESS",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260629-ALLOC-CORR",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260701-001",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260704-T12-SSL-NEGATIVE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260705-FC-SLTP-GEOMETRY",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260712-EXIT-ANALYSIS-COVERAGE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260712-SHADOW-LOG-HISTORY",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260712-EXIT-HEAD-REMAINING-ROUNDS",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260717-M24-NET-R",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260717-M23-META-LABEL",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260717-M25-PROMO-CONSOLIDATE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260717-M24-FUNDING-VISIBILITY",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260719-DATASET-AUDIT-NOISE",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260719-FAMILY-KWARG-SWALLOW",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260719-M26-TRANSITION-CONFLICT",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260719-M23-HARNESS-DEBUG-QUERY",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260719-PROMOREADY-OOSEDGE-OOM",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260720-FCPCV-RETRAIN-NOOP",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260721-FCPCV-V2-SOAK",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260721-MES-15M-HEAD-PARKED",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "BL-20260723-M28-P4-GATE-FOLLOWUP",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260723-M28-VALUATION-PRODUCER-UNWIRED",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            },
+            {
+              "id": "MB-20260723-M29-AI-SYSTEM-DYNAMICS",
+              "reason": "re-validated 2026-07-26 vs fresh system pull; carried (soak / Tier-3 operator-gated / infra-VM-write / research-awaiting-data)"
+            }
+          ]
+        },
+        "summary": "All 167 open items (health 80 / perf 50 / ml 37) re-validated this run against a fresh full-system pull; count_untriaged=0 per domain. 0 drained (resolved) \u2014 a read-only web review lands no code fixes; each item carried with a per-item blocker (soak / Tier-3 operator-gated / infra VM-write / research-awaiting-data). Specific evidence attached to ~20 items (eth_pullback_2h, fc-pcv v2 soak, readiness OOM, MES data gap, degenerate baselines)."
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/weekly/20260726T053500Z/report.json",
+    "html_path": "comms/reports/weekly/20260726T053500Z/report.html",
+    "md_path": "comms/reports/weekly/20260726T053500Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/weekly/20260726T053500Z/report.html",
+    "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260726-053500-weekly"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "pending",
+    "priority": "high",
+    "message": "[system-report:weekly] caution. Real -$13.83 PF0.15 chop; sol-regime drift-demote; prop DD thin. https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260726-053500-weekly"
+  }
+}

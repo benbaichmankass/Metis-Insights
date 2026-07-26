@@ -12,13 +12,19 @@
       "tier": 3,
       "trigger_condition": "Every /performance-review while any real-money account is shelved (currently alpaca_live) or any candidate is queued for live promotion.",
       "resolution_criteria": "RECURRING \u2014 not closed by a single run. Retire only if the operator drops the real-money-allocation gate. Each run records real_money_allocation_benchmark in the response and refreshes this item's verdict.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Recurring benchmark run this window. Incumbent bybit_2 (n=22 priced closed, 06-29->07-21): net -$9.03, 36.4% WR -- essentially flat (small real-money risk_pct=0.015). Candidate alpaca_paper proxy (n=22 priced, 07-07->07-22): net -$1891.38, 22.7% WR, driven by gld_pullback_1h (-$1901.96) + slv_trend_1h (-$1799.83) losses only partly offset by spy_pullback_1h (+$1658.12) + uso_trend_1h (+$870.72). Verdict this window: does_not_clear (candidate net-negative in $ over a short, thin sample; too early to call decay vs noise). alpaca_live stays dry_run. See full detail in real_money_allocation_benchmark."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 (recurring): real-money (bybit_2, the only actively-live real account) had a losing week (-$13.83, PF 0.15, 1/7). No ready-for-live challenger portfolio beats the incumbent this window; benchmark carried."
         }
       ]
     },
@@ -57,7 +63,7 @@
       "tier": 3,
       "trigger_condition": "A dedicated session picks up the IBKR-STK build, OR the operator wants IBKR as a real-money ETF venue.",
       "resolution_criteria": "IBClient supports STK/ETF contracts (tested), the chosen ETF strategies run on ib_paper end-to-end (real paper fills journaled), and account_compat_matrix has scored ib_paper for them \u2014 OR a documented decision not to pursue it.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -89,6 +95,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "2026-07-22 /api/bot/config pull re-confirms ib_paper still carries spy_trend_long_1d/qqq_trend_long_1d/iwm_trend_long_1d/tlt_pullback_1d live with symbols SPY/QQQ/IWM/TLT wired (step 6 unchanged). No dedicated ib_paper SPY/QQQ/IWM/TLT fill pull this session (relay budget went to grading + the window closed-trades pull + the paper-book tracker fix) -- step-7 fill verification not re-attempted this pass."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -133,7 +145,7 @@
       "trigger_condition": "Every /performance-review and /system-review until resolved; specifically once tqqq_trend_long_1d and/or qld_trend_long_1d accrue real paper fills on alpaca_paper (US RTH only \u2014 equity ETF cells place 13:30-20:00 UTC). Check order_packages + trades + the signal audit for TQQQ/QLD disposition (fill vs no_fill vs no_signal).",
       "resolution_criteria": "Either (a) a Tier-3 PR proposes promoting tqqq_trend_long_1d / qld_trend_long_1d onto a real-money Alpaca account, citing >=20-30 clean closed paper trades per cell that track the backtest + a current account_compat_matrix ROUTE verdict (see promotion_prerequisite below \u2014 the risk adjustment is REQUIRED for that ROUTE) \u2014 and the operator approves; OR (b) a documented decision here that the paper soak diverged from the backtest (decay/gap drag, whipsaw) and the cells stay paper-only / are removed, with the evidence recorded.",
       "promotion_prerequisite": "REQUIRED RISK ADJUSTMENT BEFORE ANY alpaca_live PROMOTION (operator-flagged 2026-06-30): the account_compat_matrix run 2026-06-30 returned **SKIP** for BOTH cells on alpaca_live AT ITS CURRENT 10% per-trade risk (config/accounts.yaml::alpaca_live.risk.risk_pct = 0.10) \u2014 TQQQ P(breach)=10.8%, QLD P(breach)=20.3%, both above the 10% breach cap \u2014 because a 3x/2x leveraged instrument at 10% risk has too high a chance of tripping the account's daily-loss/static-DD limits. The SKIP is driven by the RISK SETTING, not the edge: at 1.5% risk (the alpaca_paper basis) both cells ROUTE with P(breach) ~0. SO: when promoting TQQQ/QLD to alpaca_live, FIRST lower alpaca_live.risk_pct (Tier-3 risk-cap change, operator-approved) to a level where account_compat_matrix returns ROUTE for these cells (sweep 0.02->0.05 and pick the highest that keeps P(breach)<=0.10 + survival>=0.90 for BOTH), THEN flip the routing. Do NOT add TQQQ/QLD to alpaca_live.strategies at the current 10% risk \u2014 the compat gate says it would risk a limit breach. Note this also affects the existing unleveraged alpaca_live cells' breach math; re-run the full etf_account_compat.sh after any risk_pct change.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -145,6 +157,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Not specifically re-pulled this session (no symbol-filtered alpaca_paper query run). The 23-row recent alpaca_paper sample pulled for the allocation benchmark (07-07->07-22) shows no TQQQ/QLD rows among the strategies observed (ief/uso/gld/slv/qqq/tlt/iwm only) -- consistent with still-zero fills, but the sample is a byte-capped recent slice, not exhaustive."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -158,13 +176,19 @@
       "tier": 2,
       "trigger_condition": "bybit_2 has >=20 real htf_pullback_trend_2h closed trades (non-dust, non-artifact), OR the operator asks for a htf_pullback_trend_2h live performance read.",
       "resolution_criteria": "Enough real bybit_2 htf_pullback_trend_2h trades accrue to form a meaningful track record, at which point a /performance-review can evaluate the live edge and decide keep/tune/remove independent of the contaminated bybit_1 stats.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "bybit_2 sample this session (n=23 closed trades, 06-29->07-21) shows only 1 htf_pullback_trend_2h trade (net -$0.80) -- still far below the >=20 trigger. Stays open."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
         }
       ]
     },
@@ -196,7 +220,7 @@
       "tier": 2,
       "trigger_condition": "Every /system-review and /performance-review; specifically each US market open (13:30 UTC) until a real small-ticket fill on alpaca_live is observed. Check order_packages + trades + positions for account_id=alpaca_live, and the signal audit for slv/gdx/uso disposition (fill vs no_fill vs no_signal).",
       "resolution_criteria": "A small-ticket strategy on alpaca_live (slv/gdx/uso) produces an order_packages row that FILLS (open or closed trade row for account_id=alpaca_live, non-dry_run, real qty>=1 share), proving small-ticket placement works end-to-end on real money. Record the fill (symbol, qty, price, strategy, timestamp) and resolve. ALTERNATIVELY resolve only if the operator explicitly decides to pause/deactivate alpaca_live and that decision is recorded here.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -208,6 +232,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "2026-07-22 /api/bot/config pull confirms `trading_mode.live_per_account.alpaca_live: false` -- alpaca_live remains dry_run/shelved per the 2026-07-15 operator directive. The real-money-fill trigger this item watches for cannot fire while the account stays shelved; not a bug, just structurally paused. Recommend re-arming this watch specifically when/if alpaca_live is re-approved live (tracked jointly with the real-money allocation benchmark above)."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
         }
       ]
     },
@@ -221,7 +251,7 @@
       "tier": 2,
       "trigger_condition": "A performance-review window includes bybit_2 BTCUSDT history, or a data-integrity pass investigates the unreconciled orphan canonicals, or the operator asks why bybit_2 lifetime PnL still looks off.",
       "resolution_criteria": "Each of the 26 unreconciled canonicals is either reconciled+PnL-corrected against its order package/exec history, accepted as best-available with a note, or void-flagged as phantom with evidence \u2014 and the item is closed with the disposition recorded.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -233,6 +263,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No new targeted pull this session (would need a filter_col=reconcile_status query against bybit_2, not in this run's relay batch). The 2026-07-21T07:45 note (no new bybit_2 orphan events since 06-30) stands unchanged; still needs a dedicated reconcile_status-filtered pull to move the 26-canonical count."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
         }
       ]
     },
@@ -246,7 +282,7 @@
       "tier": 3,
       "trigger_condition": "First real prop fills/closes accrue on breakout_1 for either ETH leg, OR a prop account-status report exposes the actual swap debit.",
       "resolution_criteria": "Real Breakout swap confirmed (\u22480.033%/day or corrected) AND >=10-20 closed prop ETH trades compared to the EV projection, with a documented keep/tune/drop decision per leg.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -275,6 +311,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No new prop-ticket/fill pull this session (not in this run's relay batch). The 2026-07-20 /system-review note (eth_pullback_2h the only strategy emitting live breakout_1 tickets in the 07-17->07-18 window) stands unchanged."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -288,13 +330,19 @@
       "tier": 3,
       "trigger_condition": "Enough live closed-trade history accrues for tlt_pullback_1d (e.g. >= 20-30 closed) to compare low- vs high-confidence TLT entry outcomes, OR a fresh out-of-sample min_confidence sweep is run to test stability of the 0.10 optimum.",
       "resolution_criteria": "Either a Tier-3 PR proposing a TLT-only min_confidence floor citing live + out-of-sample evidence, OR a documented decision (here) that the in-sample edge does not hold up and the sleeve stays uniformly min_confidence: 0.0.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No new TLT-specific closed-trade count this session. The alpaca_paper 23-row sample shows only 2 tlt_pullback_1d + 1 tlt_pullback_1h trades -- nowhere near the 20-30 needed to test the min_confidence floor hypothesis. Stays open, still accruing."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -333,7 +381,7 @@
       "tier": 3,
       "trigger_condition": "exit_ladder_soak accrues a meaningful window of live API records (e.g. >=30 with differs_from_single_target=true across >=2 strategies), AND the live-VM accrual is diag-confirmed.",
       "resolution_criteria": "A Tier-3 PR proposes graduating the materialized ladder to the real exit for a named venue/strategy set, citing the soak distribution + before/after backtest evidence (+ account_compat_matrix PASS for prop), with the ARCHITECTURE-CANONICAL row added.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -351,6 +399,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No new exit_ladder_soak pull this session. The 2026-06-29 finding (every soak row differs_from_single_target=false, n_rungs=0 -- structurally un-trippable until partial-TP rungs are configured) is unchanged and not re-verified this pass."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ],
       "detail": " [2026-07-12 M20 re-scope: 135 soak rows, differing=0 \u2014 STRUCTURAL: only turtle_soup declares meta.tp2 and it is execution:shadow, so no live strategy produces a ladder differing from the flat SL/TP placed. P4-as-scoped is unanswerable by more soaking. Superseding direction: the M20 memo (docs/research/M20-exit-refinement-2026-07-12.md) proposes per-strategy stale-stop / trend-invalidation exit levers instead; a real partial-TP ladder requires a strategy to declare one first (Tier-3 design decision).]"
@@ -365,7 +419,7 @@
       "tier": 3,
       "trigger_condition": "eth_pullback_2h accrues >=30 demo closed trades, OR demo eth PnL turns clearly negative over a multi-day window.",
       "resolution_criteria": "A Tier-3 proposed_tweak adds an ADX/regime entry filter to eth_pullback_2h citing per-regime demo PnL, or the chop-long concern is shown EV-neutral and closed.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
@@ -377,6 +431,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "This window's data shows eth_pullback_2h continuing to lose across every account it trades: bybit_2 real-money -$4.26 (sl exit, 1 trade), bybit_1 paper -$4.33/-$4.04 (2 trades), bybit_portfolio -$1435.71 (1 large-notional reconciler close). Directionally consistent with the chop-long D-grade cluster this item tracks, but none of these window rows carry enough context (no signal_logic pulled for these specific packages) to confirm a fresh chop-long instance this pass. Still accruing toward the >=30-close trigger."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: eth_pullback_2h long entries in chop corroborated by this week's real-money losses (worst leg). Trend/regime entry filter still warranted."
         }
       ],
       "review_notes": [
@@ -396,7 +456,7 @@
       "tier": 3,
       "trigger_condition": "ict_scalp_5m has \u226530 closed trades distributed across \u22653 (trend, vol) cells.",
       "resolution_criteria": "A Tier-3 PR proposes the ict_scalp_5m block in regime_policy.yaml, citing the per-cell PnL evidence from a recent M7 packet run.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         "2026-07-20 (/system-review): now have per-regime-cell PnL from the 06-30 M7 packet (18 closed): the only losing cell is trending+volatile (-$8.53/25%); all other cells positive. This is enough signal to draft the regime_policy.yaml 2-D cell block for ict_scalp_5m (trending/volatile OFF) once cell-level n>=30 accrues. Currently execution:shadow so no live exposure. Directly actionable next: cross-check n per (trend,vol) cell and, if >=30 in trending/volatile, propose the OFF cell (Tier-3).",
@@ -404,6 +464,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No new per-cell M7 packet pulled this session; the 2026-07-20 /system-review note (only the trending+volatile cell losing, -$8.53/25% at n=18) stands unchanged and is not yet at the >=30-per-cell trigger."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -417,13 +483,19 @@
       "tier": 1,
       "trigger_condition": "Either a future M7-style sprint extends the gate's matrix to 2-D trend_vol cells, OR a `/ml-review` session decides to train additional regime heads.",
       "resolution_criteria": "Either a Tier-1 audit doc lands explaining which (symbol, timeframe) pairs intentionally lack edges, OR new vol-detector edges land and the M7 packet's vol-axis coverage improves.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "This window's order-package sample (pkg-6aef82e07a0f49bd, htf_pullback_trend_2h, 2026-07-22) still carries `vol_regime: \"unknown\"` in signal_logic -- confirms the coverage gap this item tracks is still present. No fresh audit sweep run this session to size how many (symbol,timeframe) pairs are affected."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
         }
       ]
     },
@@ -545,7 +617,7 @@
       "tier": "tier-3",
       "priority": "low",
       "severity": "medium",
-      "status": "open",
+      "status": "kept_open",
       "trigger_condition": "Next /performance-review, or a strategy/model-training session with SPX/MES capacity.",
       "resolution_criteria": "Confirm with a dedicated LONG-ONLY trend_donchian backtest on SPX/MES + walk-forward (in/out split) + low return-correlation to the live BTC trend_donchian. If it clears net-of-fee with acceptable DD, propose a long-only trend_donchian SPX/MES adapter as a Tier-3 PR for operator approval (the new-strategy wiring checklist applies). If it does not hold out-of-sample, resolve won't-fix with the evidence.",
       "resolved_at": null,
@@ -559,6 +631,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No new evidence this session; awaiting a dedicated SPX long-only backtest + walk-forward session. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -618,7 +696,7 @@
       "title": "Regime x strategy x direction matrix (roster) + regime router + the trend_donchian long-only-vs-chop-gated-short decision",
       "description": "Flagship done: trend_donchian (gated, live 1h/trail5.0) long side = trend edge (+47R, wins trending/transitional); short side only works in chop (+16R chop, -52R trending/transitional) \u2014 BTC uptrend punishes trend-shorts. CRITICAL reconciliation: the research's BTC +43.8R OOS was over-optimistic (engine omitted the live min_confidence=0.30 gate -> -53R; gated +11R full / -6R OOS on fresh Bybit perp 1h; residual gap = data, research used a deleted /tmp/btc5m.csv 5m source). NEXT: build the same regime x direction matrix for fade/squeeze/fvg/vwap/htf/mes via each harness's --emit-trades hook driven with EXACT live params, then (a) decide trend_donchian long-only vs chop-gated-short, (b) re-promotion criteria for demoted squeeze/fade, (c) design the regime router (intent-layer weighting/gate keyed to detected regime; building blocks: existing ADX gates + regime-classifier-baseline-v0 shadow model). Tooling: scripts/research/regime_matrix.py + gated backtest_trend.py; data data/btc_1h_multiyear.csv on trainer (re-fetch via the ccxt loop if gone).",
       "tier": 3,
-      "status": "open",
+      "status": "kept_open",
       "trigger_condition": "Next session continues the broadened regime study.",
       "resolution_criteria": "Full roster regime x direction matrix produced; long-vs-short/regime configs decided together; regime-router design proposed.",
       "resolved_at": null,
@@ -630,6 +708,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No new evidence this session; awaiting a dedicated broadened regime-study session. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -727,7 +811,7 @@
       "title": "Regime router phase 4 \u2014 graduate to soft weights + classifier-v0 detector [Tier-3]",
       "description": "Phase 4 (the design doc's last step): once phase-3 hard gates have demonstrated lift in production for >= a few weeks, graduate the policy from binary on/off to soft confidence weights (numeric cells like 0.5 / 1.0 / 1.5 multiply intent.confidence before priority resolution). The phase-2 evaluator already parses `weight: N.N` cells and routes them as permissive with a tagged reason \u2014 phase 4 wires the multiplier in. Also: validate `regime-classifier-baseline-v0` (the shadow regime model in the registry) against ADX-14 on the same per-tick stream; if its predictions correlate >0.85 with ADX-14 and add value at the regime boundaries (the 18.5-22.5 ADX hysteresis zone the design doc Q4 flagged), swap the detector source from 'adx-14' to 'classifier-v0' in src/runtime/regime/detector.py (the audit-row `regime_source` field already supports this; consumer is forward-compatible).",
       "tier": 3,
-      "status": "open",
+      "status": "kept_open",
       "trigger_condition": "After phase-3 hard gates have been live for >= 2-3 weeks with measurable lift; OR when the ML lifecycle promotes regime-classifier-baseline-v0 past shadow.",
       "resolved_at": null,
       "resolved_by": null,
@@ -738,6 +822,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Trigger re-check: phase-3 hard gates have now been live >>2-3 weeks (since >=2026-06-15, confirmed via PERF-20260601-006's evidence above) -- the FIRST half of this item's trigger is met. The second half (regime-classifier-baseline-v0 promoted past shadow) is an /ml-review question this session didn't check. Flagging for /ml-review to confirm the model-promotion half; kept open pending that."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -778,7 +868,7 @@
       "title": "Retire the trend_donchian long_only flag once the regime router policy table subsumes it [Tier-3, follow-up to phase 3]",
       "description": "trend_donchian's `long_only: true` flag in config/strategies.yaml was shipped as #2570 (2026-06-01) as a simple, robust win that dropped the strategy's -37 R short drag. The regime router's policy table independently mirrors the same constraint: trend_donchian.short is OFF in trending+transitional (the regimes where the -52 R loss concentrates) and ON in chop (the +16 R chop-short edge). Once phase 3 (PERF-20260601-006) is live and the table is enforcing those gates, the strategy-level long_only flag becomes redundant \u2014 both flags would be saying the same thing in trending/transitional, AND the table is the ONLY way to recover the chop-short edge. The cleanup is: flip `long_only: false` (or remove the field entirely) on trend_donchian in config/strategies.yaml AND remove the `_short_suppressed_long_only` branch in src/units/strategies/trend_donchian.py / strategy_signal_builders.py. The router policy table will then be the single source of truth for trend_donchian's direction gating. Operator's instruction 2026-06-01: \"leave that for now\" \u2014 keep long_only as defense-in-depth until phase 3 proves out the policy-table enforcement. Mechanical risk if NOT cleaned up after phase 3: when an operator-approved exception manually flips a cell in regime_policy.yaml (e.g. enable trend_donchian chop-short in some future regime study), the YAML-level long_only flag will silently override and suppress that intent \u2014 a confusing footgun.",
       "tier": 3,
-      "status": "open",
+      "status": "kept_open",
       "trigger_condition": "After PERF-20260601-006 (regime router phase 3 hard gates) has been live for >= 1-2 weeks with no regression in trend_donchian's fill rate or PnL.",
       "resolution_criteria": "config/strategies.yaml::trend_donchian no longer carries `long_only: true`; the `short_suppressed_long_only` branch is removed from the signal builder; the existing test_trend_donchian_long_only.py is either deleted or rewritten to verify the SAME behaviour is produced via the regime router policy table cells. Operator-approved Tier-3 PR.",
       "resolved_at": null,
@@ -790,6 +880,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Trigger re-check: phase-3 has now been live >>1-2 weeks (since >=2026-06-15) -- the time trigger is clearly met. Did NOT verify 'no regression in trend_donchian's fill rate/PnL' with dedicated before/after data this session, so not yet proposing the Tier-3 removal outright; flagging as due for a dedicated fill-rate/PnL regression check next session, after which the long_only retirement should be proposed."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -803,7 +899,7 @@
       "tier": 3,
       "trigger_condition": "Next /performance-review; or when wiring a min-confidence floor or confidence-weighted sizing for vwap/htf; or when reviewing ML feature quality.",
       "resolution_criteria": "vwap and htf_pullback_trend_2h order packages carry a confidence that VARIES with setup strength (not a constant 1.0); OR it's confirmed by-design that these strategies don't expose a graded confidence and the placeholder is documented + excluded from ML features.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "evidence_log": [
         {
@@ -831,6 +927,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Partial positive update: this window's htf_pullback_trend_2h order-package samples (pkg-6aef82e07a0f49bd conf=0.5235, pkg-cf7b6b08017d4e7d conf=0.5038, and an audit-tail eval at conf=0.4845) show VARYING confidence, not the constant 1.0 flagged 2026-06-15 -- suggests this strategy's degenerate-confidence issue may already be resolved. vwap and mgc_trend_1h were not re-checked this session (not in this run's pulls). Kept open pending a targeted vwap/mgc_trend_1h re-check; note the htf_pullback_trend_2h partial resolution."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: degenerate-confidence pattern still present \u2014 uso_trend_1h + slv_trend_1h emitted order packages at conf ~0.03-0.04 (graded D 'should_skip') this window. Low-confidence emission review still open."
         }
       ]
     },
@@ -844,7 +946,7 @@
       "tier": 1,
       "trigger_condition": "EVERY /performance-review run (recurring; do not close on a single clean pass).",
       "resolution_criteria": "RECURRING \u2014 never auto-resolves. Stays open as a standing checklist item; only closed if the regime router is retired. Each review appends a dated firing+performance reading to the evidence_log and raises a tweak/backlog item on any divergence.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "evidence_log": [
         "2026-06-01 (opened): baseline reading \u2014 phase 1 stamping live (119/119 eval rows carry regime/adx_14); phase 2 deployed log-only; firing-correctness spot-check still PENDING (the two audit windows sampled this session, 17:19Z + 18:55Z, did NOT overlap the 12-16Z vwap-active window, so regime_shadow_gate count was not positively confirmed yet). Next review: pull a vwap-active window and confirm the OFF-cell events fire as designed.",
@@ -873,6 +975,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Recurring check this window: config confirms the regime hard gate is still architecturally baseline-on (no REGIME_ROUTER_DISABLED override observed). Did not directly capture a `regime_hard_gate` audit row this session -- the audit?limit=600 pull this run was dominated by non-gate `*_eval` events before hitting the relay's per-path byte cap. Recommend a dedicated `audit_query?event=regime_hard_gate` pull next session for a clean confirmation; no OFF-cell leakage observed in what we did see. Recurring -- stays open by design."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 (recurring): regime-router baseline-on; audit tail shows regime/adx stamped on evals; no gate misfire observed this window. Carried."
         }
       ],
       "review_notes": [
@@ -908,7 +1016,7 @@
       "source": "M15 WS-C alt sweep + k-fold validation (docs/research/m15-ws-c-alt-sweep-2026-06-11.md; trainer #3380/#3381). Operator endorsed the 3-fold gate and adopted eth_pullback_2h ONLY (#3378).",
       "title": "Trend-4h alt cells (ETH/XRP/AVAX/SOL) \u2014 3-fold k-fold PASS, research-validated, NOT adopted: revisit for demo-book slots",
       "description": "All four pass the operator-endorsed 3-fold gate at 7.5 bps with 2x fee headroom (totals: XRP +45.8R, ETH +27.9R, AVAX +27.6R, SOL +21.1R; every 3-fold positive). Deliberately not adopted 2026-06-11 ('merge ETH pullback only'). When revisiting: each is a separate Tier-3 PR mirroring eth_pullback_2h's wiring (per-symbol trend_donchian instance at the Phase-0 screening params donchian 20 / stop 2.5 / trail 3.0 bidirectional, bybit_1 demo only, execution: live per paper-accounts-execute). Weigh book concentration: all correlate 0.7-0.9 with BTC and with each other \u2014 adding several multiplies concurrent-drawdown exposure under the shared bybit_1 daily-loss cap.",
-      "status": "open",
+      "status": "kept_open",
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null,
@@ -917,6 +1025,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No trigger/resolution_criteria text recorded on this legacy item and no new evidence pulled this session specific to the trend-4h alt cells beyond what the paper-book tracker (below) already covers for the same cells. See the tracker's per-cell read (SRQ-20260618-001 carries the live decay detail). No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
         }
       ]
     },
@@ -927,7 +1041,7 @@
       "source": "eth_pullback_2h adopted + deployed 2026-06-11 (#3378/#3403, verified loaded #3408). NOTE: its first two signals (15:30Z/16:04Z shorts) were exchange-rejected on the lot-step bug fixed in #3406 (BL-20260611-002 flavour) \u2014 the soak clock effectively starts after that deploy (16:20Z).",
       "title": "eth_pullback_2h demo soak review \u2014 compare first weeks of bybit_1 fills against the k-fold expectation",
       "description": "After ~2-4 weeks of demo fills, compare realised expectancy/win profile vs the validation basis (OOS exp +0.36R/trade, 3-fold +22.2/+12.2/+23.6 at 7.5 bps). Check fill quality vs the flat-fee assumption (ETH perp spread/slippage), trade cadence (~1-2/week expected from 93 trades/1.5y OOS), that post-#3406 orders pass Bybit's lotSizeFilter (first two signals were qty-rejected pre-fix), and that the htf_pullback unit's monitor/trail exits behave on the second symbol. Real-money bybit_2 promotion remains a separate Tier-3 gate on this evidence.",
-      "status": "open",
+      "status": "kept_open",
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null,
@@ -939,6 +1053,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No trigger/resolution_criteria text recorded; no dedicated eth_pullback_2h demo-vs-k-fold comparison run this session. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
         }
       ]
     },
@@ -949,7 +1069,7 @@
       "source": "WS-B verdict (docs/research/m15-ws-b-spy-qqq-walkforward-2026-06-11.md) + WS-C ict k-folds (#3418).",
       "title": "Closed research lines, revisit conditions: SPY ict_scalp 5m (near-miss) and alt ict_scalp (fee-fragile)",
       "description": "SPY ict_scalp 5m failed the every-fold gate on one thin 8-trade fold (-1.45R) with robust headroom (+8.6R at 4 bps) \u2014 revisit only with materially longer history or a per-symbol re-tune (a tuning project, against the screening discipline), or on Alpaca venue bars once the paper feed accrues. Alt ict_scalp (ADA/AVAX/ETH/LINK) is definitively closed: every cell deeply negative at 2x fee (-24 to -64R at 15 bps) despite positive gross \u2014 the 5m family does not survive realistic alt-perp costs. Do not re-screen without a fee/slippage model improvement.",
-      "status": "open",
+      "status": "kept_open",
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null,
@@ -958,6 +1078,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No trigger/resolution_criteria text recorded; purely a revisit-conditions marker, no new evidence this session. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
         }
       ]
     },
@@ -968,7 +1094,7 @@
       "source": "2026-06-14 session investigating the IB integration. trade #2539 (mhg_pullback_1d, ib_paper, 2026-06-12 00:02Z) was journalled exchange_rejected on IBKR Error 10349 (TIF=DAY) but ACTUALLY FILLED \u2014 a 3-contract MHG (Micro Copper) paper position exists on ib_paper. The reverse-reconciler has been adopting it as an orphan, closing on a transient disappear, and re-adopting (trades #2540 closed, #2575 open).",
       "title": "Follow up the orphaned ib_paper MHG paper position from trade #2539's Error-10349 desync fill",
       "description": "An unowned 3-contract MHG long sits on ib_paper (entry ~6.396) from #2539's filled-but-journalled-rejected order. Naked-position auto-protect attached reverse-side GTC SL/TP (sl 6.045 / tp 7.029), so it should exit on those. Two things to confirm in a future performance/health review: (1) the position actually closes cleanly via the attached SL/TP and stops the adopt/close/re-adopt churn; (2) AFTER the #3490 position-read fix (generic root symbol + per-unit entry price, deployed 2026-06-14 on 1fb82eff), the next adopted-orphan row records symbol=MHG and entry_price=6.396 (not MHGN6 / 15989.72). If the position is still churning or still mis-recorded, escalate. NOTE: arguably a health/pipeline item, parked here at operator request during the IB session close-out.",
-      "status": "open",
+      "status": "kept_open",
       "resolved_at": null,
       "resolved_by": null,
       "resolution_note": null,
@@ -977,6 +1103,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No new ib_paper MHG orphan data pulled this session. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh pull; verification watch continues (no adverse signal this window). Carried."
         }
       ]
     },
@@ -1005,7 +1137,7 @@
     {
       "id": "PB-20260616-002",
       "title": "Verify ict_scalp_5m live edge \u2014 net-negative in 3-yr prop backtest",
-      "status": "open",
+      "status": "kept_open",
       "tier": 3,
       "opened_at": "2026-06-16T17:00:00+00:00",
       "opened_by": "claude (Breakout prop POC session 2026-06-16)",
@@ -1024,13 +1156,19 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "bybit_2 sample this session shows exactly 1 ict_scalp_5m closed trade, net +$2.86 -- far too thin to confirm or deny the net-negative 3-yr prop-backtest concern. Stays open, still accruing."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
     {
       "id": "PB-20260616-004",
       "title": "trend_donchian is +EV on Bybit high-vol alts (SOL/ETH/BNB) \u2014 prop candidate validated + WIRED (SOL live long-only, ETH shadow); soak follow-ups remain (Tier-3)",
-      "status": "in_progress",
+      "status": "kept_open",
       "tier": 3,
       "opened_at": "2026-06-17T05:40:00+00:00",
       "opened_by": "claude (Breakout prop EV sweep 2026-06-16)",
@@ -1053,6 +1191,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "in_progress, no status change this session -- breakout_1 wiring (SOL live long-only, ETH shadow) unchanged per config; no new prop-account go-live decision session this pass."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -1089,13 +1233,19 @@
       "tier": 2,
       "trigger_condition": "Next /performance-review touching mgc_trend_1h, OR after the reconciler double-adoption is fixed.",
       "resolution_criteria": "Reconciler bug fixed (health-review) AND a clean window shows mgc_trend_1h with de-duplicated trades; then assess the real edge.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No new reconciler-fix status checked this session (would need a health-review cross-check on the double-adoption bug). No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
         }
       ]
     },
@@ -1147,13 +1297,19 @@
       "source": "Direction-1/2 follow-up #2",
       "title": "account_compat_matrix is BTC/ROSTER-centric \u2014 needs futures/daily extension for non-crypto real-money gate",
       "description": "scripts/prop/account_compat_matrix.py builds ledgers via scripts.backtest_system.ROSTER (BTC-only strategies, symbol hardcoded BTCUSDT, _PANDAS_TF has no '1d'). To run the rigorous per-contract EV/survival gate on the non-crypto daily cells (mhg/mgc/mes/spy/qqq/gld), extend ROSTER+backtest_system for daily futures/equity + per-contract cost, OR add a path that consumes a precomputed emit ledger directly. Until then the per-contract cost answer is the reasoned estimate (~0.005-0.013 R/trade vs +0.43 R/trade headroom = negligible). Required before any non-crypto real-money (Tier-3) proposal.",
-      "status": "open",
+      "status": "kept_open",
       "tier": "Tier-1 (tooling)",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Tooling backlog item (account_compat_matrix BTC/ROSTER-centric); no dedicated tooling session this pass. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
         }
       ]
     },
@@ -1164,13 +1320,19 @@
       "source": "docs/research/cross-asset-feature-probe-2026-06-18.md \u00a7 7. Directional cross-asset probe was a WEAK-POSITIVE: +cross-asset lifts ETH 5-bar forward-sign accuracy from a coin-flip 50.6% to 51.5% (leak-free, purged-WF-CV) \u2014 a classifier-accuracy edge, NOT yet a demonstrated PnL edge.",
       "title": "Convert-to-PnL gate for the directional cross-asset signal (does 51.5% sign-accuracy survive net-of-fee?)",
       "description": "Turn the cross-asset directional signal into entries and run it through the net-of-fee backtest + readiness ladder (m15_ws_b_fold_report -> classify_strategy_tier). A 51.5% sign-accuracy ignores move SIZE + costs; this answers whether it is positive expectancy after fees. If yes -> that's the tradeable result (Tier-3 wire candidate). If no -> close the directional angle honestly (cross-asset stays a regime/sizing conditioner only). Cheap + decisive.",
-      "status": "open",
+      "status": "kept_open",
       "tier": "Tier-1 (research)",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Research backlog item (cross-asset directional signal PnL gate); no dedicated session this pass. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
         }
       ]
     },
@@ -1181,13 +1343,19 @@
       "source": "docs/research/recombination-sweep-2026-06-18.md. The ADX\u00d7family interaction was OOP-validated on the PULLBACK side (eth/sol/xrp/ada/avax) and shipped (S-STRAT-REFINE-0618). The TREND-side recombination survivors were never put through an out-of-pool holdout.",
       "title": "Trend-side recombination survivors \u2014 out-of-pool holdout before any proposal",
       "description": "The 90-tuple recombination sweep's trend-family (trend_donchian_*_4h) live_ready/paper_ready survivors are in-pool only. Run the same OOP holdout discipline used for the pullback ADX gate before proposing any trend-side param refinement to strategies.yaml (Tier-3). Multiple-comparisons caveat applies (76/90 survivors are variants of ~10 edges).",
-      "status": "open",
+      "status": "kept_open",
       "tier": "Tier-1 (research)",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Research backlog item (trend-side recombination holdout); no dedicated session this pass. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
         }
       ]
     },
@@ -1198,7 +1366,7 @@
       "source": "S-STRAT-REFINE-0618: eth_pullback_2h was promoted to bybit_2 REAL MONEY (operator-directed live test) + the ADX>=25 gate ported into the live htf_pullback unit on the 5 bybit_1 paper pullback cells. As of 2026-06-18 evening the market was quiet \u2014 no ETH fills on bybit_2 and no ADX-gate rejections observed yet.",
       "title": "Review eth_pullback_2h real-money performance on bybit_2 + ADX-gate firing once trades accrue",
       "description": "Once trades accrue: (a) review eth_pullback_2h real PnL on bybit_2 (real-money test cell; ETH-BTC correlation + no-prior-track-record caveats stand; rollback = remove from bybit_2.strategies), and (b) confirm the new ADX>=25 entry gate is actually firing/rejecting on the bybit_1 paper pullback cells (audit *_eval rows carry adx_14; gate raises ValueError below 25). Cross-check the live behavior matches the backtested OOP expectation.",
-      "status": "open",
+      "status": "kept_open",
       "tier": "Tier-3 (real-money cell under watch)",
       "updates": [
         "2026-07-20 (/system-review, operator-requested verify): ada/xrp_pullback_2h real-money losers are NOT chop entries \u2014 every actionable entry in 2026-06-13->07-20 fired at regime=trending, ADX 25-32 (ADA sells @31, XRP buys @25.6-26.4); the adx_min:25 gate is provably working (blocks ADX<25 live). The losses are MARGINAL-TREND / transition fakeouts (ADX just clears 25 then the move fails) \u2014 same family as ict_scalp's trending+volatile losing cell. Disposition: NOT a demote (M7 verdict HOLD, n_closed=0 in the packet window; small live n). Refinement lever (backtest-gated, Tier-3): a higher trend-quality floor (e.g. ADX>=30) and/or a vol-at-entry cap for the marginal-trend band, OR let the maturing 15m regime heads route it. Logged for the entry-refinement / regime-router track (PERF-20260601-006/007, MB-20260628).",
@@ -1212,9 +1380,15 @@
           "note": "No new eth_pullback_2h real-money bybit_2 data beyond what's already reflected in this window's 1-trade sample (net -$4.26, sl exit). The 2026-07-20 note's SOL config-exact re-run finding (trail_mult=30 is the clear peak, 61.8R) stands; not re-verified this pass."
         },
         {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 \u2014 ESCALATING: eth_pullback_2h was the worst REAL-money leg this week (-$8.69 over 2 trades, 0 wins; one executed close trade 3803 -$4.43, entry graded C 'late'). Real-money ETH cell is bleeding in chop \u2014 see PB-20260614-001. Recommend the ADX/regime entry gate review the item calls for."
+        },
+        {
           "at": "2026-07-26T07:05:00+00:00",
           "by": "claude (PB-20260618-015 ETH config-exact ADX/vol tune, branch claude/eth-pullback-2h-adx-tune-274ngb)",
-          "note": "2026-07-26 (config-exact ETH ADX + vol-at-entry sweep \u2014 the LAST un-tuned 2h-pullback leg): ran the config-exact grid on ~5y ETH 2h (data 2021-03->2026-06, backtest_pullback @ live eth_pullback_2h params trend_lookback40/pullback10/frac0.5/atr14/stop2.5/trail5.0, NO trail_decay, NO vol_skip \u2014 verified vs config/strategies.yaml; ETH's clean base DIFFERS from SOL/ADA/AVAX which carry decay/vol_skip, so this is the FIRST genuinely config-exact ETH grid, unlike the earlier family sweep that carried vol_skip 0.1). ADX-FLOOR GRID (IS net_R/exp/win%/maxDD): 25->90.23/0.358/34.5/13.57 (INCUMBENT=PEAK) | 28->51.83/0.240/37.5/10.91 | 30->30.03/0.151/33.2/15.72 | 32->28.82/0.166/32.2/11.26. Raising the floor DEGRADES net_R MONOTONICALLY (-43% at 28, -67% at 30) \u2014 the XRP pattern, NOT ADA/SOL. Per-year, adx=25 WINS the recent full years decisively (2023: 36.5 vs 12.6R@28; 2024: 14.2 vs 10.5; 2025: 16.4 vs 9.4); only partial 2021/2026 marginally favor a higher floor. FAILS the walk-forward bar (25 wins recent OOS years) -> NO floor raise. VOL-AT-ENTRY CAP (adx25 + vol-skip sweep, 11 variants on the CURRENT harness): NO variant beats incumbent net_R 90.23. Closest = volhi80 (--vol-skip-above-pctl 0.8, skip hottest-20% ATR entries): net_R 89.30(~=incumbent), exp 0.385(up), win 35.3%(up), maxDD 10.39R(-23%) \u2014 a maxDD-reduction candidate, BUT per-year it LOSES the two most-recent OOS years on net_R (2025: 13.2 vs 16.4; 2026: 6.0 vs 7.6) and 2022, winning only 2024 (22.2 vs 14.2, the high-vol year the hot-vol-skip thesis predicts) -> fails the SAME 'wins recent OOS years' bar. Dead-vol skip vollo10 (the ADA/AVAX winner) HURTS ETH (82.0 vs 90.2R); both-tails band 70.8R. VERDICT: KEEP eth_pullback_2h at adx_min=25, NO vol cap \u2014 documented NEGATIVE result. ETH is strongly +EV over 5y at 25 (90.2R, exp 0.358); the recent -$8.69/2-trade real-money bybit_2 loss is small-sample noise in a +EV strategy, NOT a fixable entry-quality defect (same conclusion the 2026-07-20 ada/xrp verify reached). Remaining forward lever = routing the 15m ETH regime head (still shadow, MB-20260628-VOLGATE-GOLIVE), gated on its own promotion, not an entry-param change. Per-symbol ADX tuning of the 2h-pullback family is now COMPLETE, ALL legs config-exactly verified: ADA=28, SOL=30 (raised+WF), XRP/AVAX/ETH=25 (held; ETH now config-exact negative). Deliverable: docs-only draft PR + sprint log S-PB-ETH-PULLBACK-ADX-20260726. Relay runs: trainer-vm-diag #7614 (ADX grid) + #7615 (vol sweep)."
+          "note": "2026-07-26 (config-exact ETH ADX + vol-at-entry sweep \u2014 the LAST un-tuned 2h-pullback leg; ANSWERS the 05:31 weekly escalation above): ran the config-exact grid on ~5y ETH 2h (data 2021-03->2026-06, backtest_pullback @ live eth_pullback_2h params trend_lookback40/pullback10/frac0.5/atr14/stop2.5/trail5.0, NO trail_decay, NO vol_skip \u2014 verified vs config/strategies.yaml; ETH's clean base DIFFERS from SOL/ADA/AVAX which carry decay/vol_skip, so this is the FIRST genuinely config-exact ETH grid, unlike the earlier family sweep that carried vol_skip 0.1). ADX-FLOOR GRID (IS net_R/exp/win%/maxDD): 25->90.23/0.358/34.5/13.57 (INCUMBENT=PEAK) | 28->51.83/0.240/37.5/10.91 | 30->30.03/0.151/33.2/15.72 | 32->28.82/0.166/32.2/11.26. Raising the floor DEGRADES net_R MONOTONICALLY (-43% at 28, -67% at 30) \u2014 the XRP pattern, NOT ADA/SOL. Per-year, adx=25 WINS the recent full years decisively (2023: 36.5 vs 12.6R@28; 2024: 14.2 vs 10.5; 2025: 16.4 vs 9.4); only partial 2021/2026 marginally favor a higher floor. FAILS the walk-forward bar (25 wins recent OOS years) -> NO floor raise. VOL-AT-ENTRY CAP (adx25 + vol-skip sweep, 11 variants on the CURRENT harness): NO variant beats incumbent net_R 90.23. Closest = volhi80 (--vol-skip-above-pctl 0.8, skip hottest-20% ATR entries): net_R 89.30(~=incumbent), exp 0.385(up), win 35.3%(up), maxDD 10.39R(-23%) \u2014 a maxDD-reduction candidate, BUT per-year it LOSES the two most-recent OOS years on net_R (2025: 13.2 vs 16.4; 2026: 6.0 vs 7.6) and 2022, winning only 2024 (22.2 vs 14.2, the high-vol year the hot-vol-skip thesis predicts) -> fails the SAME 'wins recent OOS years' bar. Dead-vol skip vollo10 (the ADA/AVAX winner) HURTS ETH (82.0 vs 90.2R); both-tails band 70.8R. VERDICT: KEEP eth_pullback_2h at adx_min=25, NO vol cap \u2014 documented NEGATIVE result. ETH is strongly +EV over 5y at 25 (90.2R, exp 0.358); the recent -$8.69/2-trade real-money bybit_2 loss is small-sample noise in a +EV strategy, NOT a fixable entry-quality defect (same conclusion the 2026-07-20 ada/xrp verify reached). Remaining forward lever = routing the 15m ETH regime head (still shadow, MB-20260628-VOLGATE-GOLIVE), gated on its own promotion, not an entry-param change. Per-symbol ADX tuning of the 2h-pullback family is now COMPLETE, ALL legs config-exactly verified: ADA=28, SOL=30 (raised+WF), XRP/AVAX/ETH=25 (held; ETH now config-exact negative). Deliverable: docs-only draft PR #7616 + sprint log S-PB-ETH-PULLBACK-ADX-20260726. Relay runs: trainer-vm-diag #7614 (ADX grid) + #7615 (vol sweep)."
         }
       ]
     },
@@ -1240,6 +1414,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No new intraday-ETF-cell fill data pulled this session (the alpaca_paper sample this run happened to include gld/slv/uso/ief/qqq/tlt but the 2026-06-28 finding about reconciler-mass-close artifact exits on the intraday cells was not re-checked against fresh fills). Status stays partially-resolved."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull; carried (snoozed/deferred state confirmed still applicable, no regression this window)."
         }
       ]
     },
@@ -1253,13 +1433,19 @@
       "tier": 3,
       "trigger_condition": "Perp funding rates elevate to a regime comparable to the 2023-24 edge window, OR a future research session re-runs the carry harness on fresh data.",
       "resolution_criteria": "Either a re-run of scripts/backtest_funding_carry.py on an elevated-funding window clears the robustness bar and a market-neutral carry cell is proposed (Tier-3, account_compat-gated), or the carry idea is re-confirmed dormant with fresh evidence and snoozed again.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Research backlog item (funding-carry sleeve dormancy); no dedicated re-run this pass. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -1273,13 +1459,19 @@
       "tier": 3,
       "trigger_condition": "A future research session surfaces evidence of a cross-sectional/relative-value factor edge worth building the rank-N sleeve for.",
       "resolution_criteria": "Either a cross-sectional sleeve is built + validated and proposed (Tier-3), or the relative-value family is re-confirmed edge-less for this universe and the item is closed won't-build with the evidence.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Deprioritized research item; no new evidence this pass. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -1311,7 +1503,7 @@
       "source": "P1 portfolio_combine by_source breakdown (relay #4675): fvg_range_BTCUSDT_15m net_r=-40.9968 over 272 trades, the single worst sleeve in the 5-yr book.",
       "title": "fvg_range_BTCUSDT_15m bleeds -41R over 5yr (272 trades) \u2014 sleeve-level review",
       "detail": "In the P1 book backtest, fvg_range on BTC 15m was the only large net-negative sleeve (-41R; next worst pullback_MES -13R on 23 trades). Worth a dedicated review: is the live fvg_range_15m config the same as the harness default? Is it a net drag on the live book? Candidate for TUNE/DEMOTE_SHADOW if the live record corroborates. NOTE: backtest-default params, not necessarily live params \u2014 verify before acting.",
-      "status": "open",
+      "status": "kept_open",
       "category": "strategy-performance",
       "updated_at": "2026-06-26T14:25:00+00:00",
       "live_check": "Live record (diag #4688, order-packages): fvg_range_15m has ~1 decision, conf 0.11, target_qty=0, never executed (orphaned 'never executed'). It is effectively DORMANT live \u2014 NOT bleeding money; the -41R is a backtest-params result. Same zero-qty sizing pattern as the alpaca ETF rejections (ties to the zero-qty investigation). Recommendation softened: LOW-PRIORITY tidy DEMOTE-to-shadow (formalize what sizing already does), not an urgent risk. Caveat: order-packages is decision-level recent history; lifetime via /api/bot/strategies not pulled.",
@@ -1320,6 +1512,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Sleeve-level review item (fvg_range_BTCUSDT_15m -41R/5yr); no dedicated review session this pass. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
         }
       ]
     },
@@ -1330,7 +1528,7 @@
       "source": "scripts/backtest_xsec_momentum.py (PR #4680) on a 6-coin daily universe (ETH/SOL/ADA/AVAX/BNB/LINK, 2020-2026); relays #4678 (universe) + #4679 (run).",
       "title": "P7 xsec momentum: 6-coin first pass FAILS gate; universe expansion (10-15 coins) is a discretionary follow-up",
       "detail": "Raw 6-coin xsec momentum ~dead (Sharpe 0.05, >1.0 maxDD). BTC-50d-SMA risk-off gate is value-additive (Sharpe 0.05->0.21, total +0.17->+0.61, 1->2 of 3 gate stages) and the P1 vol-target stacks (+0.05). But the full 4-stage gate FAILS (a k-fold net-negative @1x) and 6 coins is below the memo's 10-15 threshold (tercile = only 2L/2S). NOT promotable. Expansion case: overlays behave as theorized + holdout positive (0.57). Against: weak base, catastrophic DD, memo rates P7 high-risk. If expanded: fetch 10-15 liquid Bybit perps daily, re-run with --trend-book = the P1 BTC/ETH book for the corr<0.3 stage. Writeup: docs/research/P7-xsec-momentum-firstpass-2026-06-26.md.",
-      "status": "open",
+      "status": "kept_open",
       "category": "strategy-research",
       "tier": 3,
       "decision_needed": "Operator: invest in the 10-15 coin Bybit daily fetch for a real P7 verdict, or shelve like P5?",
@@ -1339,6 +1537,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "P7 xsec momentum universe-expansion follow-up; no dedicated session this pass. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -1428,7 +1632,7 @@
       "opened_by": "claude",
       "source": "strategy-quality M7 pass (#5243/#5245/#5246)",
       "tier": 1,
-      "status": "open",
+      "status": "kept_open",
       "title": "M7 strategy-review matrix over-fires DEMOTE_SHADOW at low n (n_closed=1..5)",
       "description": "The generate-strategy-review-packets pass (90d window) emitted demote_shadow for squeeze_breakout_4h (n_closed=1, -$1.12) and htf_pullback_trend_2h (n_closed=5, 1 win, -$4.03) on real-money bybit_2. Both verdicts rest on noise-level samples; the matrix reason itself hedges 'catastrophic at low n ... do not kill yet'. A Tier-3 real-money demotion at n<=5 is statistically unjustified (95% CI on win-rate spans ~0-72%). FIX (Tier-1 tooling): add a minimum-n guard to scripts/ml/strategy_review_packet.py so a demote/kill verdict requires n_closed>=~20 (else emit 'insufficient'/'hold'). Until fixed, treat low-n demote badges as HOLD.",
       "trigger_condition": "M7 packet emits demote/kill at n_closed<20",
@@ -1438,6 +1642,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Renamed to PB-20260630-004 this session to resolve a duplicate-ID collision with the TQQQ/QLD monitor item (both were 'PB-20260630-002' -- a backlog data-integrity bug in its own right, fixed by assigning this one the next free id). No new M7-matrix low-n over-firing data checked this session (would need a fresh M7 packet run). No change to the underlying finding."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: M7 low-n DEMOTE over-fire risk remains relevant given the sparse real-money fill counts this window. Carried."
         }
       ]
     },
@@ -1447,7 +1657,7 @@
       "opened_by": "claude",
       "source": "strategy-quality M7 pass (#5245/#5246)",
       "tier": 1,
-      "status": "open",
+      "status": "kept_open",
       "title": "Very low fill rates on squeeze_breakout_4h (1.2%) + htf_pullback_trend_2h (9%) \u2014 investigate",
       "description": "M7 90d packets: squeeze_breakout_4h 84 decisions -> 1 fill (1.2%); htf_pullback_trend_2h 55 decisions -> 5 fills (9%). 84/55 decisions in 90d but almost nothing converts to a fill. Investigate WHY: rare setup geometry, sizing/risk refusal cluster (rejection_cluster was null in both packets), regime-gate drops, or an execution issue. This \u2014 not a demote \u2014 is the actionable signal on these two cells. NOTE htf chop cell (policy off) correctly shows 0 closed (regime gate working).",
       "trigger_condition": "per /performance-review of these two cells",
@@ -1457,6 +1667,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No fill-rate root-cause investigation run this session for squeeze_breakout_4h / htf_pullback_trend_2h. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: low fill rates persist \u2014 htf_pullback_trend_2h + several ict_scalp/pullback packages graded this window closed as 'never filled' (reconciler_filled/exchange_flat_reconciled). Fill-rate investigation still open."
         }
       ]
     },
@@ -1468,13 +1684,19 @@
       "title": "ETH book: re-run the M7 gate when live n accrues (>=20 closed across the ETH strategies), anchored on the 2026-07-06 backtest fold evidence",
       "description": "When the ETH strategies (trend_donchian_eth, trend_donchian_eth_4h, eth_pullback_2h) reach a meaningful live sample (~>=20 closed trades combined, or any single strategy >=10 closed), re-dispatch generate-strategy-review-packets with backtest_anchor context from docs/research/A-vol-gating-ETH-SOL-OFFcell-evidence-2026-07-06.md (3/4 ungated folds net-negative; maxDD 15.7% full-history). If the live sample confirms the backtest shape, the expected Tier-3 proposal is demote_shadow for trend_donchian_eth (its trending|calm|long cell is the dominant loser). Do NOT act on backtest evidence alone - the M7 low-n hold stands until live n accrues. Note live fill rates are tiny (0-4.5% of decisions), so accrual may take weeks; if fill rate itself looks broken, that is a health-review item, not a performance one.",
       "tier": 3,
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": "2026-08-01T00:00:00+00:00",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "This window's ETH-strategy sample (eth_pullback_2h: bybit_2 -$4.26 n=1, bybit_1 -$4.33/-$4.04 n=2, bybit_portfolio -$1435.71 n=1; trend_donchian_eth_4h: bybit_2 +$9.96 n=1) is nowhere near the >=20-closed trigger for a fresh M7 gate re-run across the ETH book. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -1488,13 +1710,19 @@
       "tier": 3,
       "trigger_condition": "next IB-research session",
       "resolution_criteria": "walk-forward + account_compat run; either a Tier-3 proposal PR opened or a documented reject",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No IB-research session this pass. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -1508,13 +1736,19 @@
       "tier": 3,
       "trigger_condition": "next IB-research session",
       "resolution_criteria": "matched-session comparison run; driver identified; keep-shadow-or-propose decision recorded",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "This window's journal sample shows mgc_trend_1h still being refused on ib_paper via `intent_noop:flip_suppressed_hold_policy` (desired long opposes current short qty=9.0) -- consistent with it remaining shadow/inactive on the live order path. No matched-session GC=F/spot re-pull run this session. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -1528,13 +1762,19 @@
       "tier": 1,
       "trigger_condition": "next IB-research session / weekend CME break",
       "resolution_criteria": "native MES per-contract shard pulled + cells re-backtested; verdict recorded",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No IB-research session this pass. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
         }
       ]
     },
@@ -1548,13 +1788,19 @@
       "tier": 3,
       "trigger_condition": "operator go-signal + paper soak accrued",
       "resolution_criteria": "paper soak reviewed; Tier-3 promotion PR proposed or deferred with reason",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No SPLG/IAUM-specific pull this session (the alpaca_paper sample drawn for the allocation benchmark happened not to include either symbol this window). No change to the paper-soak-then-Tier-3-sizing plan."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -1586,12 +1832,18 @@
       "title": "Evaluate partial-TP banking under the prop ruleset (survival-weighted EV)",
       "detail": "Run src/prop/montecarlo.py::run_ev_montecarlo over the banked-vs-base harness trade streams (scripts/backtest_* --bank-frac ... --emit-trades) under config/prop_rulesets/breakout.yaml. If banking materially raises survival-weighted EV for the prop-routed alt strategies, propose it for the prop ticket ladder only (Tier-3).",
       "severity": "low",
-      "status": "open",
+      "status": "kept_open",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No prop-ledger EV analysis run this session. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
         }
       ]
     },
@@ -1603,12 +1855,18 @@
       "title": "Walk-forward validate pullback BTC trail_mult 5->4 before proposing the Tier-3 param change",
       "detail": "Run the M8 k-fold tune-sweep (scripts/ml/strategy_tune_sweep.py) or the research_sweep study spec on trail-mult {4,5} for htf_pullback_trend_2h; if 4 wins across folds, propose the one-line config/strategies.yaml change (Tier-3, operator-gated).",
       "severity": "medium",
-      "status": "open",
+      "status": "kept_open",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No walk-forward run this session; note PB-20260618-015's 2026-07-20 SOL config-exact re-run (peak at trail_mult=30, not 4) is the most recent related evidence and predates/relates to a different symbol's tuning -- worth cross-referencing when this item is picked up. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
         }
       ]
     },
@@ -1620,12 +1878,18 @@
       "title": "NEGATIVE RESULT \u2014 a faster multi-TF chop-boundary scalp is not net-positive; do not wire one",
       "detail": "New multi-TF harness (scripts/backtest_chop_scalp.py): HTF range boundaries + LTF (5m) bounce entries. Every tradeable-frequency variant (80-200 trades) is net-negative on BOTH BTC and ETH, IS and OOS, net-of-fee (net_R/pos-day -4 to -15, win 12-27%) \u2014 full-range-reversion target + tight boundary stop is poor R:R and 5m fees tax the churn. The only positive cells (FVG-confirmed) are 1-9 trades over 3yr and collapse OOS. The incumbent fvg_range_15m stays the ONLY capital-efficient range play (BTC +1.70 net_R/pos-day OOS, beats cash+buy-hold in the flat OOS window; negative on ETH, matching its docs). Conclusion: keep fvg_range live, do NOT chase a faster cousin \u2014 no Tier-3 proposal. Follow-ups (operator-requested, trainer #6483/#6484, PR #6485): (a) 1m rule-out \u2014 every 1m config net-negative, fee_R ~= the entire loss, and the tp1r tighter-target STEELMAN is WORSE (churns more), net_R/pos-day -51..-181 \u2192 1m DECISIVELY ruled out; (b) small-TF scan of the whole existing roster at 5m/15m \u2014 squeeze/fade/trend/pullback all catastrophically negative (net -168..-7226R, fee-dominated), only fvg_range at its native 15m is positive (+24R) \u2192 NO existing strategy has small-TF potential; roster edges are inherently 15m-4h. Book closed on faster/multi-TF range-scalping. Only untested residual: an ETH-specific NEW structure (not a re-clocked existing one) \u2014 high bar given all evidence. Reusable tooling (chop_scalp harness + study orchestrator) + a pandas-3 minute-resample fix for squeeze/fade/trend/pullback shipped.",
       "severity": "low",
-      "status": "open",
+      "status": "kept_open",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Negative-result record, no new evidence needed or sought this pass. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
         }
       ]
     },
@@ -1637,13 +1901,19 @@
       "title": "Maker-executed market-neutral funding-carry sleeve \u2014 the reliable small-TF direction from M22",
       "detail": "M22 finding: fee-drag is the UNIVERSAL small-TF killer. The maker re-scorer confirms nearly every small-TF cell is GROSS-positive (fade_5m +338R, pullback_5m +350R, trend_5m +284R, squeeze_5m +241R over 3yr BTC) \u2014 taker fees flip them negative. Maker execution CANNOT rescue the stop-based scalps: their exit is inherently a taker event, so maker-entry/taker-exit (realistic bound) stays net-negative; only both-legs-maker clears them, which stop strategies can't do. The one class that CAN be both-legs-maker is the market-neutral FUNDING CARRY (exits on funding-decay/timeout, no price stop). RESOLVED (trainer #6493, neutral carry at TAKER 7.5 vs MAKER 1.0 vs ZERO, 3yr + OOS 2025-01+): maker execution IS the lever \u2014 at 1.0bps full-history net recovers ~70% of the gross funding harvest with tiny drawdown: ETH +0.70\u2192+7.72R, SOL +0.98\u2192+6.46R, BNB -1.87\u2192+11.03R (maxDD 0.05\u20130.68R). BUT the current-regime OOS (2025-01+) maker net is thin-to-negative: ETH +0.40R, SOL +0.07R (flat), BNB -0.61R \u2014 the win is front-loaded 2023-24; funding compressed post-2024 (confirms PB-20260620-002). VERDICT: real, regime-gated candidate, NOT live-now. RE-TRIGGER: re-run the neutral-carry OOS maker net when funding elevates; only if a CURRENT-regime OOS maker net clears a meaningful bar (not the front-loaded 3yr average) is a Tier-3 proposal warranted for (a) a post-only/limit carry executor + (b) wiring the neutral-carry sleeve (incl. account_compat_matrix). Do NOT build post-only entry for the stop-based scalps (exits stay taker). Xsec momentum parked (4-symbol universe too small).",
       "severity": "medium",
-      "status": "open",
+      "status": "kept_open",
       "updated_at": "2026-07-15T13:10:00+00:00",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Design/proposal-stage item, no dedicated session this pass. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
         }
       ]
     },
@@ -1655,13 +1925,19 @@
       "title": "Market-neutral crypto cointegration PAIRS sleeve \u2014 the M22 reliable-tool finding (Tier-3, drafted)",
       "detail": "M22's reliable small-TF tool: market-neutral crypto cointegration pairs at 1h (SOL/BTC, BNB/BTC, ETH/BTC, SOL/ETH). FULLY VALIDATED as research: profitable (3yr +350..+541R), OOS-robust (held-out 2025-26 +158..+177R, NO expectancy decay, 58-60% win, maxDD 6-15R), capital-efficient (~0.8-1.2 net_R/pos-day, OOS 0.93-1.12 \u2014 the operator's original PnL-per-time metric, beats scalps+cash), cointegration-STABLE (half-life ~12h, mean-reverting in 100% of 30-day windows over 3yr, no breaks, spread bounded 100%), funding-NEGLIGIBLE (~0.5 bps/trade vs a much larger R-edge), fee-insensitive (spread-stop R dwarfs fees). Sidesteps BOTH small-TF root causes. TIER-3 PROPOSAL DRAFTED (pairs-sleeve-PROPOSAL-2026-07-15.md): the architectural lift is that a pair is a 2-LEG simultaneous-position strategy that does NOT fit the single-symbol intent model -> needs a NEW isolated pairs-executor primitive (place both legs atomically, leg-imbalance guard, spread-exit management) + account_compat_matrix + a phased shadow->demo(bybit_1)->real(bybit_2) rollout. REMAINING before live: (a) $-return-on-2-leg-margin sizing (a proposal/RiskManager choice, not a research number); (b) execution realism (2-leg simultaneous fills + slippage \u2014 only a live/paper soak settles it). OPEN OPERATOR DECISIONS: proceed to build the pairs executor + shadow soak (P-A)? which pairs (SOL/BTC+BNB/BTC best, or all 4)? concurrency/sizing caps (pairs share the BTC leg = correlated)? Cheap follow-up: fetch btcusdt_funding.csv to the trainer to confirm the /BTC pairs' funding drag (only SOL/ETH ran; the /BTC pairs are representative-by-analogy). NOTHING wired \u2014 operator-gated Tier-3.",
       "severity": "high",
-      "status": "open",
+      "status": "kept_open",
       "updated_at": "2026-07-15T15:35:00+00:00",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "The pairs sleeve is now visibly live+trading this window: pairs_bnb_btc_a/b opened+closed twice on bybit_1 (net +$1.62, +$1.38, reconciler-tagged exits) and pairs_sol_eth_a/b packages graded in a prior delta (2026-07-20, unfilled/shadow). Real signal accruing; still too early for a verdict. No status change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
         }
       ]
     },
@@ -1675,12 +1951,18 @@
       "tier": 3,
       "trigger_condition": "next performance-review: pull bybit_1 htf_pullback_trend_2h closed trades since 2026-07-16",
       "resolution_criteria": "If paper win-rate recovers >45% over >=15 fresh trades -> candidate for re-promotion (with account_compat_matrix). If it stays <25% -> propose KILL (remove from bybit_1 too).",
-      "status": "open",
+      "status": "kept_open",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "This window's htf_pullback_trend_2h bybit_1-paper sample (n=1 in the priced-closed set, net $0 on an intent_reduce_executed exit; plus several rejected/unfilled netting-guard-suppressed signals seen in the raw journal sample) is too thin to call a win-rate recovery-vs-decay verdict against the >=15-fresh-trade / 45% bar. Stays open."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -1694,12 +1976,18 @@
       "tier": 3,
       "trigger_condition": "each performance-review: pull alpaca_options_paper closed options trades (Slice-4 reconciler-closed rows) and grade the vertical soak",
       "resolution_criteria": "When an options strategy meets the promotion bar (adequate n, positive expectancy net of debit, healthy lifecycle handling), propose the Tier-3 alpaca_live+alpaca_portfolio options wiring for operator approval. If the soak stays negative or thin, it stays paper-only and the portfolio carries no options.",
-      "status": "open",
+      "status": "kept_open",
       "updates": [
         {
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No alpaca_options_paper closed-options pull run this session (not in this run's relay batch). No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         }
       ]
     },
@@ -1707,7 +1995,7 @@
       "id": "PB-20260720-M27-SCALP-EXPANSION",
       "created": "2026-07-20",
       "priority": "P1",
-      "status": "open",
+      "status": "kept_open",
       "title": "M27 Scalp Expansion \u2014 generalize the ict_scalp Phase-0->4 methodology across symbols, timeframes, and new scalp archetypes (operator-directed milestone)",
       "detail": "Operator directive 2026-07-20 (same session as the ict_scalp arc, PR #7115): expand today's work into a milestone. Design doc: docs/research/M27-scalp-expansion-DESIGN.md; ROADMAP row M27. OPERATOR BROADENED SAME-DAY: P0 covers the FULL traded universe (24 symbols, 5 venue families) with a committed coverage table (docs/research/artifacts/m27/coverage.md) where every symbol has a row \u2014 batches by data availability: Batch 1 crypto (ETH/SOL/XRP/ADA/AVAX), Batch 2 IBKR futures (MES/MGC/MHG, session-aware, per-contract commission cost model), Batch 3 equities/ETFs (base symbols SPY/QQQ/IWM/TLT/GLD/SLV/GDX/USO/IEF first; levered wrappers TQQQ/QLD/SCHA/IAUM/SPLG gated on their base passing), Batch 4 XAUUSD (OANDA). Blocked-with-reason rows recorded for the prop bridge @5m and the options expression as a scalp vehicle. Phases: P0 cross-symbol transfer of the existing 5m logic to the universe above (config-exact, net-of-fee, per-(trend,vol) cells, k-fold OOS of the OFF-cell rule per symbol; 5m data pulled trainer-side \u2014 the sandbox proxy blocks exchange endpoints; per-symbol vol edges from the registry spec where present, else frozen from the training window and committed in the artifact); P1 timeframe sweep (15m/1m on BTC + P0 passers; re-validate the M15 finding that ict_scalp 15m XAUUSD survives fees +39R/+10R toward an OANDA leg; SPY intraday via Alpaca second); P2 geometry/cost tweaks (the ~0.20R/trade taker fee load at 5m stop widths is the binding constraint \u2014 maker-entry variant, stop/R:R grids, BE behavior, M20 exit levers on scalp legs); P3 new scalp archetypes (ORB, LTF VWAP-reversion, sweep-reversal + killzone-scoped variants) on the same harness; P4 per-leg promotion (alt-variant strategy entries via the new-strategy skill, shadow soak, own regime cells from own k-fold evidence, prop account-compat matrix, M20 exit processing, one Tier-3 packet per leg). Binding discipline (from the 2026-07-20 lessons): config-exact or it doesn't count; decision-time regime stamps only; fees always netted; R from price geometry never journal pnl; k-fold OOS before any proposal. Reusable assets: scripts/backtest_ict_scalp.py (--stamp-regime/--vol-spec-json/--sim-breakeven, mfe/mae emit), scripts/research/ict_scalp_phase0/{build_percell,kfold_oos,stamp_vol_post}.py, the Phase-4 packet template. Done-condition: committed coverage table (symbol x timeframe x variant), every cell promoted/rejected/blocked with numbers. Each work session logs its own sprint log and updates the M27 row.",
       "next_step": "P0 + re-pull follow-ups COMPLETE (2026-07-21) \u2014 all four batches resolved with evidenced verdicts, coverage.md fully updated: Batch-1 crypto (BTC done pre-M27; ETH/SOL/XRP/AVAX PASS \u2014 SOL/XRP/AVAX promoted execution:live on bybit_1; ADA mixed, gate doesn't transfer), Batch-2 futures (MES/MGC/MHG rejected at both 5m AND 15m \u2014 the 15m re-run confirmed the low signal count is a genuine liquidity characteristic, not a data-pull artifact; futures family closed, PB-20260721-M27-FUTURES-5M-LOWSIGNAL resolved), Batch-3 equities (re-run at 1h \u2014 GLD STRONG PASS 4/4 folds +0.49R/trade exp, SPY/TLT weak PASS, IWM/SLV/USO mixed, QQQ/GDX reject, IEF still underpowered; PB-20260721-M27-EQUITIES-DATACAP resolved), Batch-4 XAUUSD (STRONG PASS \u2014 ungated baseline 4/4 k-fold folds positive, +44.35R net over 240 OOS trades, exp +0.1848R/trade at 15m; re-validates the M15 Phase-0 screening finding under proper walk-forward; promotion is venue-blocked, not evidence-blocked \u2014 OANDA US can't trade XAU_USD, BL-20260611-007). GLD 1h is the standout uncommitted P4 candidate. Next session: P1 (15m/1m timeframe sweep on BTC + P0 passers) per the DESIGN doc, or a P4 promotion packet for GLD 1h.",
@@ -1716,6 +2004,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "Milestone-level item, no dedicated session this pass. No change."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
         }
       ]
     },
@@ -1733,7 +2027,7 @@
     {
       "id": "PB-20260721-ICTSCALP-ALTCOIN-PAPER-SOAK-CHECK",
       "date": "2026-07-21",
-      "status": "open",
+      "status": "kept_open",
       "severity": "P3",
       "title": "Check live paper performance of ict_scalp_sol_5m / _xrp_5m / _avax_5m on bybit_1 against the M27 Batch-1 backtest \u2014 gate for real-money promotion",
       "detail": "Three new execution:live legs were promoted to the bybit_1 demo/paper account 2026-07-21 (S-M27-ALTCOIN-PROMOTION-2026-07-21.md), based on the M27 Batch-1 net-of-fee k-fold: SOL/AVAX pass ungated (4/4 folds), XRP passes with a strategy-local off-cell gate (config/strategies.yaml::ict_scalp_xrp_5m.off_cells, enforced in _ict_scalp_variant_builder \u2014 not the registry-driven regime_policy.yaml path, since no live regime head exists for these symbols). Once a meaningful live paper trade count accrues (recommend >=20-30 trades per leg), compare live win-rate/expectancy/R against the M27 backtest table (docs/research/M27-P0-crypto-findings-2026-07-20.md) as the evidence gate for promoting to bybit_2 (real money) + bybit_portfolio (its paper mirror) \u2014 a separate Tier-3, operator-approved step per the operator's flow (bybit_1 soak -> bybit_2+bybit_portfolio together on promotion).",
@@ -1743,6 +2037,12 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "bybit_1 sample this session shows ict_scalp_sol_5m (n=2) and ict_scalp_avax_5m (n=3, in the raw journal sample, mostly refusal artifacts not clean closes) trading on bybit_1 -- confirms the cells are live and generating activity, but the sample is far too thin and artifact-heavy (per the fixed classifier) for a clean win-rate read against the M27 Batch-1 backtest yet. Stays open."
+        },
+        {
+          "at": "2026-07-26T05:31:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
         }
       ]
     },
