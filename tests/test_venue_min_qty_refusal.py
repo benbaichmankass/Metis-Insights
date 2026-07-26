@@ -28,12 +28,14 @@ from __future__ import annotations
 
 import sqlite3
 import textwrap
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.core.coordinator import Coordinator, OrderPackage
 from src.units.accounts import precision
+from src.units.accounts.execute import BelowVenueMinQtyRefusal, _submit_order
+from src.units.accounts.qty_legalize import LegalizedQty
 
 
 @pytest.fixture(autouse=True)
@@ -156,3 +158,115 @@ class TestCoordinatorVenueMinRefusal:
         assert row["status"] == "rejected"
         assert row["status"] != "exchange_rejected"
         assert "below_venue_min_qty" in (row["entry_reason"] or "")
+
+    def test_sized_path_submin_refusal_emits_no_failure_ping(
+        self, coord, accounts_yaml, tmp_journal,
+    ):
+        # BL-20260716-BYBIT2-SUBMIN-QTY: the sized-path pre-check refusal must
+        # be a QUIET journaled skip — it must NOT fire the ERROR-level
+        # execution-failure ping that lands on the /notifications alert banner.
+        with patch(
+            "src.units.accounts.risk.RiskManager.position_size",
+            return_value=0.006,
+        ), patch(
+            "src.strategy_registry.execution_mode",
+            return_value="live",
+        ), patch(
+            "src.units.accounts.clients.bybit_client_for",
+            return_value=object(),
+        ), patch(
+            "src.core.coordinator._emit_execution_failure_ping",
+        ) as ping:
+            coord.multi_account_execute(
+                _eth_pkg(),
+                accounts_path=accounts_yaml,
+                balance_fetcher=lambda _a: 100.0,
+            )
+
+        ping.assert_not_called()
+        rows = _rejected_rows(tmp_journal)
+        assert len(rows) == 1
+        assert rows[0]["status"] == "rejected"
+        assert "below_venue_min_qty" in (rows[0]["entry_reason"] or "")
+
+    def test_submit_order_leak_path_routes_benign_no_ping(
+        self, coord, accounts_yaml, tmp_journal,
+    ):
+        # Covers the LEAK the fix targets: the sized-path pre-check's venue-min
+        # lookup returns None (rule unknown at gate time), so the refusal only
+        # surfaces at _submit_order as a BelowVenueMinQtyRefusal. The coordinator
+        # must route that typed exception to the benign skip — a clean 'rejected'
+        # row, no failure ping, and NOT an 'exchange_rejected' fill.
+        def _no_rule(qty, **_kw):
+            return LegalizedQty(
+                qty=qty, ok=True, reason="", venue_min=None, step=None,
+                source="unknown", qty_str=str(float(qty)),
+            )
+
+        with patch(
+            "src.units.accounts.risk.RiskManager.position_size",
+            return_value=0.006,
+        ), patch(
+            "src.strategy_registry.execution_mode",
+            return_value="live",
+        ), patch(
+            "src.units.accounts.clients.bybit_client_for",
+            return_value=object(),
+        ), patch(
+            # venue-min unknown → pre-check is skipped, refusal leaks to submit.
+            "src.units.accounts.qty_legalize.legalize_qty",
+            side_effect=_no_rule,
+        ), patch(
+            "src.units.accounts.execute.execute_pkg",
+            side_effect=BelowVenueMinQtyRefusal(
+                "qty 0.006 for ETHUSDT is below the exchange lot minimum "
+                "after step-alignment — refusing pre-flight."
+            ),
+        ), patch(
+            "src.core.coordinator._emit_execution_failure_ping",
+        ) as ping:
+            coord.multi_account_execute(
+                _eth_pkg(),
+                accounts_path=accounts_yaml,
+                balance_fetcher=lambda _a: 100.0,
+            )
+
+        ping.assert_not_called()
+        rows = _rejected_rows(tmp_journal)
+        assert len(rows) == 1
+        assert rows[0]["status"] == "rejected"
+        assert rows[0]["status"] != "exchange_rejected"
+        assert "below_venue_min_qty" in (rows[0]["entry_reason"] or "")
+
+
+class TestSubmitOrderSubMinRefusal:
+    """_submit_order raises the TYPED benign exception (not a plain
+    RuntimeError routed through report_api_failure) — BL-20260716-BYBIT2-SUBMIN-QTY.
+    """
+
+    def test_refusal_is_runtime_error_subclass(self):
+        # Guarantees existing ``except RuntimeError`` callers are unaffected.
+        assert issubclass(BelowVenueMinQtyRefusal, RuntimeError)
+
+    def test_submit_order_submin_raises_typed_without_report_api_failure(self):
+        account_cfg = {"exchange": "bybit", "market_type": "linear",
+                       "account_id": "bybit_2"}
+        order = {"symbol": "BTCUSDT", "side": "buy", "qty": 0.00037473,
+                 "sl": None, "tp": None}
+        sub_min = LegalizedQty(
+            qty=0.0, ok=False, reason="below_venue_min_qty",
+            venue_min=0.001, step=0.001, source="live_lot_rule", qty_str="0.000",
+        )
+        with patch(
+            "src.units.accounts.execute.get_tick_size", return_value=0.1,
+        ), patch(
+            "src.units.accounts.qty_legalize.legalize_qty", return_value=sub_min,
+        ), patch(
+            "src.runtime.api_reporting.report_api_failure",
+        ) as report:
+            with pytest.raises(BelowVenueMinQtyRefusal):
+                _submit_order(MagicMock(), order, account_cfg)
+
+        # The benign refusal must NOT be reported as an API/place-order failure
+        # (that is the ERROR-level ``bybit_place_order_failed`` banner row).
+        report.assert_not_called()
