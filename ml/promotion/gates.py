@@ -49,6 +49,17 @@ class GateThresholds:
     stability_metric_max_std: float = 0.05
     stability_min_runs: int = 3
     shadow_soak_days: float = 7.0
+    # Whether the fixed `shadow_soak_days` calendar gate is *required*. Default
+    # True for a trade-outcome decision model. For a regime CLASSIFIER head the
+    # regime profile turns this OFF (WS-1 de-soak, 2026-07-26, operator-approved
+    # — docs/research/WORKPLAN-desoak-and-milestone-closeout-2026-07-26.md): the
+    # M25 reframe already established that a regime head's EDGE is proven OFFLINE
+    # (`oos_edge`, purged WF-CV) and its serving MECHANICS by `live_parity` +
+    # `labels_accruing` + `drift_clean`. A fixed 7-day calendar wait on top of
+    # those adds no evidence — it only delays a head that has already cleared
+    # every quality/safety/mechanics gate. Still computed + reported (advisory),
+    # just non-blocking, mirroring how `live_regime_discrimination` was demoted.
+    require_shadow_soak: bool = True
     min_auc: float = 0.55
     min_brier_lift: float = 0.0
     score_spread_eps: float = 1e-6
@@ -167,6 +178,11 @@ def regime_classifier_thresholds(base: GateThresholds | None = None) -> GateThre
         require_live_regime_discrimination=False,
         require_live_parity=True,
         require_labels_accruing=True,
+        # WS-1 de-soak 2026-07-26: the fixed 7-day shadow-soak calendar gate is
+        # demoted to advisory for a regime head (edge = oos_edge offline;
+        # mechanics = live_parity + labels_accruing + drift_clean). It never
+        # loosens oos_edge / drift_clean — those stay required.
+        require_shadow_soak=False,
     )
 
 
@@ -509,6 +525,7 @@ def _gate_shadow_soak(entry: Any, th: GateThresholds) -> GateResult:
         return GateResult(
             "shadow_soak", "insufficient_data",
             "cannot determine when the model entered shadow",
+            required=th.require_shadow_soak,
         )
     if entered.tzinfo is None:
         entered = entered.replace(tzinfo=timezone.utc)
@@ -518,8 +535,11 @@ def _gate_shadow_soak(entry: Any, th: GateThresholds) -> GateResult:
         "shadow_soak",
         "pass" if ok else "fail",
         f"{days:.1f} days at '{entry.target_deployment_stage}' "
-        f"(since {entered.isoformat(timespec='seconds')})",
+        f"(since {entered.isoformat(timespec='seconds')})"
+        + ("" if th.require_shadow_soak
+           else " — advisory for a regime classifier (WS-1 de-soak; edge=oos_edge)"),
         value=days, threshold=th.shadow_soak_days,
+        required=th.require_shadow_soak,
     )
 
 
