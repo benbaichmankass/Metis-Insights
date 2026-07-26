@@ -361,6 +361,10 @@ def test_regime_profile_threshold_values():
     th = regime_classifier_thresholds()
     assert th.min_trades == REGIME_MIN_LIVE_TRADES
     assert th.require_beats_baseline is False
+    # WS-1 de-soak (2026-07-26): the fixed shadow-soak calendar gate is
+    # advisory for a regime head (default profile keeps it required).
+    assert th.require_shadow_soak is False
+    assert GateThresholds().require_shadow_soak is True
     # safety gates are untouched
     assert th.shadow_soak_days == 7.0
     assert th.min_oos_edge == 0.0
@@ -435,6 +439,60 @@ def test_regime_profile_ready_on_small_live_floor():
     assert bb.required is False  # oos_edge carries the beats-baseline role
     ss = next(r for r in report.results if r.name == "sample_sufficiency")
     assert ss.status == "pass" and ss.threshold == float(REGIME_MIN_LIVE_TRADES)
+
+
+def test_regime_recent_shadow_entry_still_ready_soak_advisory():
+    # WS-1 de-soak (2026-07-26): a regime head that entered shadow only 1 day
+    # ago FAILS the 7-day shadow-soak calendar gate, but because that gate is
+    # advisory under the regime profile (edge=oos_edge; mechanics=live_parity +
+    # labels_accruing + drift_clean), the head is STILL ready — the calendar
+    # wait no longer blocks a head that has cleared every other gate.
+    recent = datetime.now(timezone.utc) - timedelta(days=1)
+    entry = _entry(
+        metrics={"macro_f1": 0.66, "f1_range": 0.73, "f1_volatile": 0.48, "n_eval": 8760},
+        runs=_runs("macro_f1", [0.66, 0.66, 0.66]),
+        created_days_ago=1,
+        stage_history=(
+            StageEvent(
+                from_stage="research_only", to_stage="shadow",
+                by="t", reason="x", at=recent,
+            ),
+        ),
+    )
+    report = evaluate_gates(
+        entry, attribution=_thin_live_attr(),
+        drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(),
+        live_regime_auc=0.72,
+        live_parity=_good_parity(), labels_accruing=_good_labels(),
+        thresholds=regime_classifier_thresholds(),
+    )
+    soak = next(r for r in report.results if r.name == "shadow_soak")
+    assert soak.status == "fail"  # 1 day < 7-day threshold — still computed
+    assert soak.required is False  # but advisory, so non-blocking
+    assert report.ready, report.to_dict()["blocking"]
+
+
+def test_default_profile_recent_shadow_entry_blocks():
+    # The same recent-shadow-entry model IS blocked under the decision-model
+    # profile: shadow_soak stays required there.
+    recent = datetime.now(timezone.utc) - timedelta(days=1)
+    entry = _entry(
+        metrics={"macro_f1": 0.70, "f1_a": 0.73, "f1_b": 0.68, "n_eval": 5000},
+        runs=_runs("macro_f1", [0.70, 0.71, 0.69]),
+        stage_history=(
+            StageEvent(
+                from_stage="research_only", to_stage="shadow",
+                by="t", reason="x", at=recent,
+            ),
+        ),
+    )
+    report = evaluate_gates(
+        entry, attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+    )
+    soak = next(r for r in report.results if r.name == "shadow_soak")
+    assert soak.status == "fail" and soak.required is True
+    assert not report.ready
 
 
 def test_default_profile_blocks_same_thin_model():
