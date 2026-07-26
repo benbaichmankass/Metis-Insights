@@ -123,11 +123,29 @@ def _gate_summary_line(proposal: Proposal) -> str:
     return "all gates pass"
 
 
+def _offline_edge_note(p: Proposal) -> str:
+    """Compact 'powered offline discrimination' annotation (workplan 1.2 / M30):
+    the purged-WF-CV OOS edge, surfaced so a head's offline evidence is legible
+    at a glance without waiting on live episodes. Empty when not OOS-scored."""
+    od = p.evidence.get("offline_discrimination") if p.evidence else None
+    if not isinstance(od, dict):
+        return ""
+    edge = od.get("edge")
+    metric = od.get("metric")
+    if edge is None or metric is None:
+        return ""
+    sign = "+" if edge >= 0 else ""
+    n = od.get("n_rows")
+    tail = f", n={n}" if n is not None else ""
+    return f" · offline OOS edge {sign}{edge:.4f} ({metric}{tail})"
+
+
 def _proposal_row(p: Proposal) -> str:
     target = p.proposed_stage or "—"
     return (
         f"- **{p.model_id}** ({p.current_stage} → {target}): "
         f"{p.reasons[0] if p.reasons else '(no reason)'}"
+        f"{_offline_edge_note(p)}"
     )
 
 

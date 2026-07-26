@@ -153,6 +153,36 @@ def test_shadow_without_oos_edge_holds():
     assert any("oos_edge" in r for r in p.reasons)
 
 
+def test_offline_discrimination_surfaced_as_standing_field():
+    # Workplan 1.2 / M30: the purged-WF-CV OOS edge that the sweep already
+    # computes is surfaced as a standing top-level field on every proposal
+    # (in evidence AND in to_dict) so a head's powered-offline discrimination
+    # is legible without waiting on live episodes — and WITHOUT changing the
+    # decision. Present as OOSEdgeResult.to_dict() when oos_edge is supplied.
+    p = propose_for_model(
+        _entry("shadow", runs=_runs([0.70, 0.71, 0.69])),
+        attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(), live_regime_auc=0.72,
+        live_parity=_good_parity(), labels_accruing=_good_labels(),
+    )
+    od = p.to_dict()["offline_discrimination"]
+    assert od is not None
+    assert od["edge"] == 0.02 and od["metric"] == "mae" and od["n_rows"] == 2000
+    # Decision is unchanged by surfacing the field.
+    assert p.action == "promote"
+
+
+def test_offline_discrimination_null_when_not_oos_scored():
+    # No oos_edge supplied (e.g. an advisory head the sweep doesn't replay) →
+    # the standing field is present but null, never a fabricated value.
+    p = propose_for_model(
+        _entry("shadow", runs=_runs([0.70, 0.71, 0.69])),
+        attribution=_good_attr(), drift={"overall_verdict": "no_change"},
+        oos_edge=None,
+    )
+    assert p.to_dict()["offline_discrimination"] is None
+
+
 def test_shadow_not_ready_holds():
     p = propose_for_model(_entry("shadow"), attribution=None, drift=None)
     assert p.action == "hold"
