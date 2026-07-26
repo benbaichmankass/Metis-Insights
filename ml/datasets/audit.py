@@ -561,12 +561,28 @@ def audit_dataset(
     if label_report.flagged:
         flags.append(f"label {target_col!r}: {label_report.reason}")
 
-    # An empty dataset is itself a quarantine condition — there is nothing to
-    # train, and silently training on 0 rows is the same class of failure.
-    if n_rows == 0:
-        flags.append("dataset has 0 rows")
-
-    quarantine = bool(flags)
+    # An empty dataset (0 rows) is its OWN category, NOT a dead-feature or
+    # degenerate-label finding — you cannot judge feature-deadness or label
+    # balance with nothing to look at, so the vacuous "0 rows" / "label null for
+    # all rows" flags are pure NOISE in the dead-feature channel
+    # (MB-20260719-DATASET-AUDIT-NOISE: 8 of 22 nightly flags were empty datasets
+    # for known-not-yet-built experimental manifests — TCN/MES-baseline/exit-policy
+    # /corpus-ssl — alarming on the dead-feature channel every cycle). Classify it
+    # as `empty_dataset` and keep it OUT of `quarantine` so that channel stays
+    # HIGH-PRECISION: an alarm there always means a REAL dead feature or a
+    # degenerate label in a dataset that DID build. This does NOT weaken the
+    # BL-20260628-XA-TRAINING-ZERO guard — a dead feature in a NON-empty dataset
+    # (the ETH-xa case) is still fully flagged + quarantined. Empty datasets stay
+    # visible via the distinct `empty_dataset` field (the "which manifests built
+    # no dataset" roll-up), just not conflated with data-quality defects.
+    empty_dataset = n_rows == 0
+    if empty_dataset:
+        # Discard the vacuous label/feature flags — the empty dataset is its own
+        # signal, surfaced via `empty_dataset` below rather than the alarm channel.
+        flags = []
+        quarantine = False
+    else:
+        quarantine = bool(flags)
 
     return {
         "ok": not quarantine,
@@ -577,4 +593,5 @@ def audit_dataset(
         "label": label_report.to_dict(),
         "flags": flags,
         "quarantine": quarantine,
+        "empty_dataset": empty_dataset,
     }

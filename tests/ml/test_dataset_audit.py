@@ -273,20 +273,39 @@ def test_dead_fraction_threshold_parameter():
 # ---------------------------------------------------------------------------
 # fail-permissive: empty dataset + junk rows never raise
 # ---------------------------------------------------------------------------
-def test_empty_dataset_quarantines_not_raises():
+def test_empty_dataset_is_its_own_category_not_a_dead_feature_flag():
+    # MB-20260719-DATASET-AUDIT-NOISE: a 0-row dataset can't have a dead FEATURE
+    # or a degenerate LABEL judged on it — it's a build/coverage gap, surfaced as
+    # `empty_dataset` and kept OUT of the dead-feature/degenerate-label
+    # `quarantine` alarm channel so that channel stays high-precision.
     manifest = _manifest(["a", "b"])
     report = audit_dataset([], manifest)
     assert report["n_rows"] == 0
-    assert report["quarantine"] is True
-    assert "0 rows" in " ".join(report["flags"])
+    assert report["empty_dataset"] is True
+    assert report["quarantine"] is False   # NOT the dead-feature alarm
+    assert report["flags"] == []           # vacuous 0-row flags discarded
 
 
 def test_junk_rows_do_not_raise():
     manifest = _manifest(["a"])
-    # not iterable-of-mappings — must degrade, not crash
+    # not iterable-of-mappings — must degrade, not crash → empty dataset category
     report = audit_dataset(None, manifest)
     assert report["n_rows"] == 0
+    assert report["empty_dataset"] is True
+    assert report["quarantine"] is False
+
+
+def test_nonempty_dead_feature_still_quarantines_not_empty():
+    # The ETH-xa guard (BL-20260628-XA-TRAINING-ZERO) must be untouched: a dead
+    # feature in a NON-empty dataset still flags + quarantines, and is NOT
+    # mis-labelled empty_dataset.
+    rows = [{"log_return": (-1) ** i * 0.001, "xa_dead": 0.0,
+             "regime_label": "volatile" if i % 2 else "range"} for i in range(40)]
+    report = audit_dataset(rows, _manifest(["log_return", "xa_dead"]))
+    assert report["n_rows"] == 40
+    assert report["empty_dataset"] is False
     assert report["quarantine"] is True
+    assert any("xa_dead" in f for f in report["flags"])
 
 
 def test_report_schema_keys_present():
@@ -295,7 +314,7 @@ def test_report_schema_keys_present():
     report = audit_dataset(rows, manifest)
     for key in (
         "ok", "manifest", "n_rows", "dead_fraction_threshold",
-        "features", "label", "flags", "quarantine",
+        "features", "label", "flags", "quarantine", "empty_dataset",
     ):
         assert key in report, f"missing report key {key!r}"
     assert report["manifest"] == "test-audit-model"
