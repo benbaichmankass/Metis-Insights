@@ -264,12 +264,23 @@ jobs:
             echo "::error::DIAG_READ_TOKEN secret is unset. Add it under Settings → Secrets → Actions."
             exit 1
           fi
+          # Per-path curl --max-time (BL-20260606-001): high-volume unit
+          # journalctl tails (ict-trader-live logs a large volume per tick)
+          # can exceed a flat 40s and trip curl exit 28 → the whole SSH
+          # command exits non-zero → the workflow reports failure — so the
+          # single most useful pull for a restart-loop investigation is the
+          # one that fails. journalctl/log_file/audit paths get 120s (still
+          # well inside the 5-min job timeout); everything else keeps 40s.
+          case "${diag_path_safe}" in
+            *journalctl*|*log_file*|*/audit*) DIAG_MAX_TIME=120 ;;
+            *) DIAG_MAX_TIME=40 ;;
+          esac
           ssh -i ~/.ssh/id_rsa \
               -o BatchMode=yes \
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=15 \
               "${VM_SSH_USER}@${VM_SSH_HOST}" \
-              "curl -sS --fail --max-time 40 \
+              "curl -sS --fail --max-time ${DIAG_MAX_TIME} \
                     -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' \
                     'http://127.0.0.1:8001${diag_upstream_prefix}${diag_path_safe}'" \
               > diag-output.json
@@ -494,9 +505,19 @@ jobs:
           # even though one is JSON and captures newlines.
           REMOTE_SCRIPT=""
           while IFS=$'\t' read -r display prefix path; do
+            # Per-path curl --max-time (BL-20260606-001): a high-volume
+            # unit journalctl tail (ict-trader-live) can exceed a flat 40s
+            # and return the '{"error":"fetch_failed"}' fallback for the
+            # one pull that matters most in a restart-loop investigation.
+            # journalctl/log_file/audit paths get 120s (still inside the
+            # 5-min job timeout); everything else keeps 40s.
+            case "$path" in
+              *journalctl*|*log_file*|*/audit*) mt=120 ;;
+              *) mt=40 ;;
+            esac
             REMOTE_SCRIPT+="echo '===DIAG_PATH_START==='"$'\n'
             REMOTE_SCRIPT+="printf '%s\n' $(printf '%q' "$display")"$'\n'
-            REMOTE_SCRIPT+="curl -sS --fail --max-time 40 -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' $(printf '%q' "http://127.0.0.1:8001${prefix}${path}") || printf '%s' '{\"error\":\"fetch_failed\"}'"$'\n'
+            REMOTE_SCRIPT+="curl -sS --fail --max-time ${mt} -H 'Authorization: Bearer ${DIAG_READ_TOKEN}' $(printf '%q' "http://127.0.0.1:8001${prefix}${path}") || printf '%s' '{\"error\":\"fetch_failed\"}'"$'\n'
             REMOTE_SCRIPT+=$'\n'
             REMOTE_SCRIPT+="echo '===DIAG_PATH_END==='"$'\n'
           done < diag_paths.tsv
