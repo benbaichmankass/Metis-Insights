@@ -748,6 +748,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-07-26T10:00:23+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 2)",
+          "note": "OPERATOR DECISION 2026-07-26: WIRE a dedicated Alpaca paper login for alpaca_options_paper (removes the shared-login dual-filter collision risk). HAND-OFF: operator originates a new Alpaca paper API key+secret pair; I'll pre-create the secret placeholders (init-actions-secrets), then propagate via sync-vm-secrets + point alpaca_options_paper at them. Kept open pending the key pair."
         }
       ]
     },
@@ -3697,6 +3702,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
+        },
+        {
+          "at": "2026-07-26T10:00:23+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 2)",
+          "note": "OPERATOR DECISION 2026-07-26: SCRUB the TRADE_EVENT_TELEGRAM_DISABLED kill-switch (best-effort off-thread send; mirrors the MOBILE_PUSH_ENABLED removal #3807). Tier-1 code cleanup \u2014 queued. Kept open until the flag + its reads are removed."
         }
       ]
     },
