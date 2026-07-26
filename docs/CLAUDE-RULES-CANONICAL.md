@@ -732,14 +732,20 @@ hook surfaces both at session init. Read them before acting.
    the first failure as an expired token; there is no `create_label`. Full
    contract: root `CLAUDE.md` § "PM-side session capabilities".
 
-2. **Serialize merges — the merge protocol.** Before merging ANY PR: (a) list
-   open PRs (the real-time truth), (b) claim the single `merge_slot` on the
-   board, (c) sync your branch to `main` **last** — `git fetch origin main` +
-   merge/rebase immediately before merging so it is not behind, (d) let CI go
-   green on the *synced* head, (e) merge, (f) release the slot. This stops two
-   sessions racing a merge and forcing each other "behind" `main` → the
-   branch-protection require-up-to-date re-run churn (observed twice on
-   2026-06-28).
+2. **Serialize merges — the merge protocol (a PER-MERGE precondition, not a
+   session-start ritual).** Before EVERY `merge_pull_request` call: (a) read the
+   live board tail (`#6927` comments) + list open PRs (the real-time truth);
+   (b) post a `🔒 MERGE SLOT CLAIM` comment on the board — **that board comment
+   is the authoritative live claim** (it reaches other sessions instantly);
+   mirror it into `session-board.json::merge_slot` as the durable record;
+   (c) sync your branch to `main` **last** — `git fetch origin main` +
+   merge/rebase immediately before merging so it is not behind; (d) let CI go
+   green on the *synced* head; (e) merge; (f) post `🔓 MERGE SLOT RELEASE` +
+   clear `merge_slot`. This stops two sessions racing a merge and forcing each
+   other "behind" `main` → the branch-protection require-up-to-date re-run churn
+   (observed twice on 2026-06-28; and the 2026-07-20 lapse where 3 claim-less
+   merges raced `behind` in one day because the claim was treated as a
+   session-start ritual and skipped under load — BL-20260720-MERGE-PROTOCOL-LAPSE).
 
 3. **One PR = one concern.** Never add unrelated work to a branch that already
    has an open PR — it pollutes the PR and invalidates its CI run (and a new
