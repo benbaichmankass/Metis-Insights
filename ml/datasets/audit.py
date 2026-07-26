@@ -595,17 +595,28 @@ def audit_dataset(
     # alarm. Empty by default → nothing silenced unless explicitly opted out.
     expected_optional = _resolve_expected_optional(manifest)
     expected_optional_dead: list[str] = []
+    # Inverse guard (the fc_* clobber lesson): a column DECLARED expected-optional
+    # that is NOT dead means its data source got wired, so the silence is now
+    # STALE and must be removed — otherwise it would keep hiding a FUTURE
+    # regression of this exact column (the failure mode where a wired-but-broken
+    # column stays silenced as if it were merely unwired). Surfaced as a hygiene
+    # nag (NOT quarantine): a populated column is healthy, training proceeds.
+    stale_expected_optional: list[str] = []
 
     feature_reports: list[FeatureAudit] = []
     for col in feature_cols:
         fa = _audit_feature(
             col, record_rows, dead_fraction_threshold=dead_fraction_threshold
         )
-        if fa.flagged and _is_expected_optional(col, expected_optional):
+        is_optional = _is_expected_optional(col, expected_optional)
+        if fa.flagged and is_optional:
             fa = replace(fa, expected_optional=True)
             expected_optional_dead.append(f"feature {col!r}: {fa.reason}")
         elif fa.flagged:
             flags.append(f"feature {col!r}: {fa.reason}")
+        elif is_optional:
+            # declared expected-optional yet alive → stale declaration to remove.
+            stale_expected_optional.append(col)
         feature_reports.append(fa)
 
     label_report = _audit_label(
@@ -632,7 +643,10 @@ def audit_dataset(
     if empty_dataset:
         # Discard the vacuous label/feature flags — the empty dataset is its own
         # signal, surfaced via `empty_dataset` below rather than the alarm channel.
+        # Also drop any "stale" hits: with 0 rows a column is not flagged only
+        # because there is nothing to audit, NOT because its source is wired.
         flags = []
+        stale_expected_optional = []
         quarantine = False
     else:
         quarantine = bool(flags)
@@ -650,4 +664,8 @@ def audit_dataset(
         # Flagged-dead columns the manifest declared expected-optional — recorded
         # for visibility but NOT part of `flags`/`quarantine` (the alarm channel).
         "expected_optional_dead": expected_optional_dead,
+        # Columns declared expected-optional that are ALIVE (source now wired) —
+        # a hygiene nag to REMOVE the stale declaration before it can hide a
+        # future regression of that column. NOT part of `quarantine`.
+        "stale_expected_optional": stale_expected_optional,
     }
