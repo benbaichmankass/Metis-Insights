@@ -243,6 +243,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-07-26T09:56:02+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 1)",
+          "note": "OPERATOR APPROVED 2026-07-26: BUILD IB broker-side protection verification (IBClient.has_protective_orders + re-arm on missing resting bracket, mirroring the Alpaca path). Tier-3 live-path code \u2014 build + test, operator approves the final diff before deploy. Execution queued as its own PR. Kept open until built."
         }
       ]
     },
@@ -4166,6 +4171,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-07-26T09:56:02+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 1)",
+          "note": "OPERATOR DECISION 2026-07-26 (Tier-3): ACTIVATE the news layer via NEWS_SOURCE=rss \u2014 real-time keyless soak AND the live news veto ARMED (all accounts incl. real money), the coupling confirmed intended 2026-06-28. Execution: set NEWS_SOURCE=rss on the live VM env + restart, verify news_decisions.jsonl begins accruing and the veto path is live. Tier-3 live-behavior change \u2014 queued with a pre-deploy confirmation. Kept open until activated + verified."
         }
       ]
     },
@@ -6090,6 +6100,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; carried (snoozed/deferred state confirmed still applicable, no regression this window)."
+        },
+        {
+          "at": "2026-07-26T09:56:02+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 1)",
+          "note": "OPERATOR DECISION 2026-07-26: grant the Actions bot a BYPASS to push the data paths (gpu-burst spend ledger + FRED valuation snapshots) to protected main. Execution: (a) add github-actions[bot] to the branch-protection bypass allowlist (repo Settings->Branches, or via the branch-protection-sync workflow), (b) switch the two data workflows from the data-branch workaround back to a direct commit+push to main. Queued. Kept open until wired + verified."
         }
       ],
       "resolved_at": null

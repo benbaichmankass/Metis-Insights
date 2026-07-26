@@ -101,6 +101,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-07-26T09:56:02+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 1)",
+          "note": "OPERATOR APPROVED 2026-07-26: BUILD IBKR equity/ETF (STK) contract support so the Alpaca ETF strategies can also route to ib_paper. Tier-3 live-order-path (new IBClient STK branch) \u2014 build + test, operator approves the final diff before deploy. Queued as its own PR. Kept open until built."
         }
       ]
     },
