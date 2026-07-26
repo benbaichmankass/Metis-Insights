@@ -11,8 +11,10 @@
 #   2. Per symbol × strategy roster (trend_donchian@1h, squeeze_breakout_4h@4h,
 #      htf_pullback_trend_2h@2h): harness --emit-trades replay → up to 9 legs.
 #   3. Record ALL legs into ONE temp db (is_backtest=1; never the money journal).
-#   4. Build setup_candidates v020 (pooled 3-symbol backtest-train + each
-#      symbol's REAL closed trades as the live_holdout eval book).
+#   4. Build setup_candidates v020 (pooled 3-crypto-symbol backtest-train +
+#      the REAL closed trades of EVERY WS-B-covered shard as the live_holdout
+#      eval book — widened past the 376 BTC-only rows via the MR_PATHS roster
+#      below, WS-3b MB-20260717 follow-on).
 #   5. Train setup-candidates-metalabel-p2pool-v1 (`won`) → population-matched
 #      gate with RECOMPUTED references (majority accuracy + win base rate are
 #      derived from the NEW pooled eval book — P1's 0.756/0.244 were BTC-book
@@ -142,7 +144,46 @@ PY
 log "  pooled backtest rows recorded: $NBT"
 if [ "${NBT:-0}" = "0" ]; then log "ABORT: 0 backtest rows"; echo '{"m23_p2_done":false,"error":"no_backtest_rows"}' >> "$RESULT"; exit 1; fi
 
-MR_PATHS="datasets-out/market_raw/BTCUSDT/1h/${MR_VER},datasets-out/market_raw/ETHUSDT/1h/${MR_VER},datasets-out/market_raw/SOLUSDT/1h/${MR_VER}"
+# --- Eval-book market_raw coverage (WS-3b, MB-20260717 label-volume follow-on) ---
+# The eval book (real closed trades — the P1 wall of 376 BTC-only rows) grows only
+# for symbols whose market_raw shard is passed here: setup_candidates derives each
+# shard's symbol from its bars and path-resolves THAT symbol's REAL closed trades
+# at the covering bar (setup_candidates.py::_iter_one_symbol -> _load_live_trades).
+# So widen the resolution set to every WS-B-covered shard at its ACTUAL timeframe
+# (build_trainer_datasets.sh: crypto 1h, alt-USDT 15m, equities/metals 1d) — ONE
+# shard per symbol (a symbol listed at two timeframes would double-count its
+# trades). The backtest-TRAIN pool stays the 3 crypto symbols' intraday replay
+# above: equities (1d) / alt (15m) have no 1h base for the 1h/2h/4h strategy
+# harnesses, so this run grows the EVAL side (a measurement — the honest widening
+# of the wall's denominator), NOT a matching train-side claim; the
+# alt-15m->intraday-resample train-side growth is a further follow-on.
+# Existence-guarded: _load_market_raw_rows RAISES on a missing shard, so a
+# not-yet-built shard (e.g. an alt 15m the parity gate skipped that night) is
+# skipped and logged, never crashing the setup_candidates build.
+EVAL_SHARDS=(
+  "BTCUSDT|1h" "ETHUSDT|1h" "SOLUSDT|1h"
+  "ADAUSDT|15m" "AVAXUSDT|15m" "XRPUSDT|15m"
+  "SPY|1d" "QQQ|1d" "GLD|1d" "TLT|1d" "IWM|1d" "SLV|1d" "IEF|1d"
+  "TQQQ|1d" "QLD|1d" "SPLG|1d" "IAUM|1d" "MGC|1d" "MHG|1d"
+)
+declare -a MR_PATH_LIST=()
+declare -a MR_SKIPPED=()
+for entry in "${EVAL_SHARDS[@]}"; do
+  IFS='|' read -r esym etf <<< "$entry"
+  epath="datasets-out/market_raw/${esym}/${etf}/${MR_VER}"
+  if [ -f "${epath}/data.jsonl" ]; then
+    MR_PATH_LIST+=("$epath")
+  else
+    MR_SKIPPED+=("${esym}@${etf}")
+  fi
+done
+if [ "${#MR_PATH_LIST[@]}" = "0" ]; then
+  log "ABORT: no market_raw eval shards present under datasets-out/market_raw/*/*/${MR_VER}"
+  echo '{"m23_p2_done":false,"error":"no_eval_shards"}' >> "$RESULT"; exit 1
+fi
+MR_PATHS="$(IFS=,; echo "${MR_PATH_LIST[*]}")"
+log "  eval-book shards present (${#MR_PATH_LIST[@]}): ${MR_PATH_LIST[*]##*market_raw/}"
+[ "${#MR_SKIPPED[@]}" != "0" ] && log "  eval-book shards SKIPPED (not built): ${MR_SKIPPED[*]}"
 
 build_pool() {
   # build_pool <version> [extra build params...]
