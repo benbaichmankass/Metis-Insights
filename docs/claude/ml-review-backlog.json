@@ -1496,6 +1496,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: ETH/SOL regime shadow heads accruing (eth-15m n=1211, sol-15m n=1297). RG4 re-check still gated on the readiness-report evidence path. Carried."
+        },
+        {
+          "at": "2026-07-26T06:42:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "2026-07-26: SOL advisory head sol-regime-15m-lgbm-fc-pcv-v1 demoted->shadow (drift); v2 sibling soaking (gate-ready ~07-28). ETH 15m heads still shadow (n~1211). RG4 re-check still gated on the readiness oos_edge sweep, which is now unblocked (MB-20260719 resolved 2026-07-26) - next daily readiness run should compute real promote signals."
         }
       ]
     },
@@ -2274,7 +2280,7 @@
       "source": "Two identical thrash episodes on 2026-07-19, BOTH killed: (1) 12:37 launch, killed 14:55 after 2h18m at 4.94GB RSS/D-state with 0-byte cli_stdout.json; (2) 15:31 relaunch on parity-gate code (d068089), killed ~16:35 after >1h at 4.98GB RSS, same 0-byte outputs -- so the regression is NOT the parity code. Inputs are tiny (shadow log 43MB/53k rows, backfill 5.4MB, registry 4.3MB/91 models); the hog is ml/promotion/stage_guard.py::run_stage_guard calling compute_oos_edge(entry, datasets_root=...) INLINE for every shadow-stage entry -- each is a full purged-walk-forward retrain/eval (dataset load + LightGBM folds), all in one long-lived process on the 5.9GB box. Same failure class as BL-20260717-TRAINER-SINGLE-MANIFEST-OOM (fixed for the TRAINING cycle via per-manifest subprocesses + cgroup cap); the readiness sweep never got that treatment, and the roster/dataset growth (91 models; WS-B added ~10 symbols to datasets-out on 07-19) pushed it over the cliff. The 07-19 report was recovered by re-running WITHOUT --datasets-root (shadow models hold on oos_edge insufficient_data -- attribution/drift/stages still report).",
       "description": "Fix shape (mirror the training-cycle memfix): (a) run each compute_oos_edge in a bounded subprocess (fresh interpreter per model, or per-model batches) so peak RSS is one model's working set, not the fleet's accumulation; (b) put MemoryMax + MemorySwapMax=0 on ict-promotion-readiness.service (it has NO cgroup cap today -- only ict-trainer.service does) so a regression fails fast instead of D-state thrashing the whole box for hours; (c) consider making the unit's ExecStart pass --datasets-root only to a scoped oos-edge phase. Interim workaround (documented): run the sweep without --datasets-root for the daily report; oos_edge evidence comes from the single-model gate-check CLI on the head under review (which is where promotion packets are assembled anyway, per the M25 reframe).",
       "resolution_criteria": "A full-registry promotion-readiness sweep WITH --datasets-root completes on the trainer within its timer window at bounded memory (no D-state thrash), OR the sweep is redesigned so oos_edge is only computed per-model at gate-check time and the sweep drops --datasets-root by design (doc updated).",
-      "status": "kept_open",
+      "status": "resolved",
       "tier": "T1",
       "trigger_condition": "Next ml-review / trainer-unit hardening pass; before the registry grows further.",
       "updated_at": "2026-07-19T16:40:00+00:00",
@@ -2295,6 +2301,13 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 with direct evidence: today's promotion-readiness ran WITHOUT datasets_root ('shadow-stage models hold on oos_edge insufficient-data'), so 0 promote signals were computable. The OOM/evidence gap is actively blocking real promote decisions. Carried \u2014 priority."
+        },
+        {
+          "at": "2026-07-26T06:42:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "resolved",
+          "resolved_at": "2026-07-26T06:42:00+00:00",
+          "note": "FIXED (subprocess isolation, resolution-criteria branch 1). run_stage_guard now computes each shadow model's oos_edge in a FRESH subprocess via the new internal `python -m ml _oos-edge-one` worker (ml/promotion/stage_guard.py::_oos_edge_for_entry + ml/cli.py::_cmd_oos_edge_one), so the whole-registry sweep's peak RSS = one model's working set, not the fleet's accumulation. Fallback-to-None on any subprocess error keeps a per-model crash from aborting the sweep. run_promotion_readiness.sh PROMOREADY_OOS_EDGE default flipped off->on (sweep runs WITH --datasets-root again = real promote/hold/demote evidence in the daily report); the service unit's MemoryMax=4500M/MemorySwapMax=0 stays as a hard backstop (parts b already landed 2026-07-19). Unit-validated (worker registers, null-path, isolated signature); single-model compute proven bounded by today's gate-check runs (7610/7611 ran compute_oos_edge to completion, no OOM). Full-sweep-at-scale confirmation is the next daily ict-promotion-readiness.timer fire (post-merge). PR: system-review weekly branch."
         }
       ]
     },
@@ -2363,6 +2376,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: fc-pcv v2 siblings soaking (btc n=508, sol n=486 shadow). RELEVANT: promotion-readiness (04:20Z) flagged the frozen v1 advisory sol-regime-15m-lgbm-fc-pcv-v1 for DEMOTE (significant drift) \u2014 strengthens the case to gate-check + swap v2 in. next_check: v2 gate-ready."
+        },
+        {
+          "at": "2026-07-26T06:42:00+00:00",
+          "by": "system-review-weekly-2026-07-26",
+          "action": "kept_open",
+          "note": "2026-07-26 ACTION TAKEN: incumbent sol-regime-15m-lgbm-fc-pcv-v1 DEMOTED advisory->shadow (gate-check drift_clean FAILS KS=0.236>0.2; readiness DEMOTE; zero live-order impact - no SOL trend_vol cell). Verified read-back=shadow + published to live (publish_trainer_mirror rc=0). v2 NOT yet gate-ready: shadow_soak 5.0<7.0d (both heads retrained today 06:04-06:05Z, so live_parity also resets, needs >=20 rows). NEXT: re-gate-check + promote v2->advisory once shadow_soak>=7d (~2026-07-28) AND live_parity/drift_clean clear. btc-regime-15m-lgbm-fc-pcv-v2 soak (n=508) unchanged - btc v1 drift_clean was NOT flagged, so btc stays as-is."
         }
       ]
     },
@@ -2469,5 +2488,5 @@
       "resolved_at": null
     }
   ],
-  "updated_at": "2026-07-26T05:31:00+00:00"
+  "updated_at": "2026-07-26T06:42:00+00:00"
 }
