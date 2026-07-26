@@ -4184,8 +4184,8 @@
       "trigger_condition": "operator decision on activating the news layer",
       "resolution_criteria": "NEWS_SOURCE=rss set (layer active) \u2014 or a decision to leave it inert is recorded and the status string clarified.",
       "check_log": [],
-      "status": "kept_open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-26T10:32:29+00:00",
       "resolved_by": null,
       "resolution": null,
       "snoozed_until": null,
@@ -4210,6 +4210,11 @@
           "at": "2026-07-26T09:56:02+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 1)",
           "note": "OPERATOR DECISION 2026-07-26 (Tier-3): ACTIVATE the news layer via NEWS_SOURCE=rss \u2014 real-time keyless soak AND the live news veto ARMED (all accounts incl. real money), the coupling confirmed intended 2026-06-28. Execution: set NEWS_SOURCE=rss on the live VM env + restart, verify news_decisions.jsonl begins accruing and the veto path is live. Tier-3 live-behavior change \u2014 queued with a pre-deploy confirmation. Kept open until activated + verified."
+        },
+        {
+          "at": "2026-07-26T10:32:29+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-3 execution)",
+          "note": "EXECUTED 2026-07-26 (operator decision). set-env system-action #7640 set NEWS_SOURCE=rss in the live VM .env + restarted ict-trader-live.service (post-restart state: active, wrapper exit 0). The M9 news layer is now active: real-time keyless RSS feed + the live news veto armed on all accounts incl. real money (source-driven activation). Reversible in one flip (set-env NEWS_SOURCE=newsapi). VERIFY FOLLOW-UP: confirm news_decisions.jsonl begins accruing over the next few trader ticks (via /api/bot/news/recent or the diag log_file relay). Closing as executed."
         }
       ]
     },
