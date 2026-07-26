@@ -350,7 +350,7 @@ for manifest in "${TO_RUN_LIST[@]}"; do
   # error logs `audit_error` and falls through to the normal train step.
   AUDIT_LOG="${DATASET_AUDIT_LOG:-$REPO_ROOT/runtime_logs/trainer/dataset_audit.jsonl}"
   mkdir -p "$(dirname "$AUDIT_LOG")" 2>/dev/null || true
-  audit_verdict="$(python - "$manifest" "$DATASETS_ROOT" "$AUDIT_LOG" <<'PY' 2>/dev/null || echo OK
+  audit_out="$(python - "$manifest" "$DATASETS_ROOT" "$AUDIT_LOG" <<'PY' 2>/dev/null || echo OK
 import json, sys, datetime
 from pathlib import Path
 try:
@@ -380,11 +380,23 @@ try:
         fh.write(json.dumps(report) + "\n")
 except Exception:
     pass
-print("FLAGGED" if report.get("quarantine") else ("EMPTY" if report.get("empty_dataset") else "OK"))
+verdict = "FLAGGED" if report.get("quarantine") else ("EMPTY" if report.get("empty_dataset") else "OK")
+stale = report.get("stale_expected_optional") or []
+print(verdict + (" STALE=" + ",".join(str(c) for c in stale) if stale else ""))
 PY
 )"
+  audit_verdict="${audit_out%% *}"
   if [ "$audit_verdict" = "FLAGGED" ]; then
-    emit "$(printf '{"ts":"%s","status":"manifest_audit_flagged","manifest":"%s","detail":"dataset audit flagged dead feature(s)/degenerate label in a NON-empty dataset (observe-only, still training) — see dataset_audit.jsonl"}' "$(iso_now)" "$manifest")"
+    # ENFORCE (operator-approved 2026-07-26, MB-20260719-DATASET-AUDIT-NOISE): the
+    # audit alarm channel is now high-precision (empty datasets carved out,
+    # expected-optional declared + the inverse stale-declaration guard), so a
+    # FLAGGED manifest — a genuine dead feature / single-class label in a dataset
+    # that DID build — is SKIPPED this cycle rather than trained on known-bad
+    # data. Self-heals: a later rebuild that clears the flag trains normally. To
+    # revert to observe-only, drop the `continue` below.
+    emit "$(printf '{"ts":"%s","status":"manifest_audit_skipped_enforced","manifest":"%s","detail":"SKIPPED (enforced): dataset audit flagged a dead feature / degenerate label in a NON-empty dataset — not trained this cycle. Fix the flagged column/label (see dataset_audit.jsonl) to resume training."}' "$(iso_now)" "$manifest")"
+    progress_mark "$manifest" skipped reason=audit_flagged
+    continue
   elif [ "$audit_verdict" = "EMPTY" ]; then
     # Distinct channel from manifest_audit_flagged so the dead-feature alarm
     # stays high-precision (MB-20260719-DATASET-AUDIT-NOISE): a 0-row dataset is
@@ -392,6 +404,18 @@ PY
     # data-quality defect. Still surfaced, just not conflated with the alarm.
     emit "$(printf '{"ts":"%s","status":"manifest_dataset_empty","manifest":"%s","detail":"dataset built 0 rows — nothing to train (build/coverage gap, not a dead-feature/label defect)"}' "$(iso_now)" "$manifest")"
   fi
+  # Inverse guard (the fc_* clobber lesson): a column DECLARED
+  # expected_optional_features that is now POPULATED means its source got wired,
+  # so the silence is STALE and must be removed before it can hide a future
+  # regression of that exact column. Surfaced as its own event (not the
+  # dead-feature alarm, not a train-blocker) so /ml-review + the cycle log flag
+  # the manifest for a one-line declaration cleanup. Detail carries the columns.
+  case "$audit_out" in
+    *" STALE="*)
+      stale_cols="${audit_out#*STALE=}"
+      emit "$(printf '{"ts":"%s","status":"manifest_stale_optional_declaration","manifest":"%s","detail":"expected_optional_features silences column(s) [%s] that are NOW POPULATED — the data source is wired, so REMOVE the stale declaration from the manifest (else it hides a future regression of that column). See dataset_audit.jsonl stale_expected_optional."}' "$(iso_now)" "$manifest" "$stale_cols")"
+      ;;
+  esac
   set +e
   # `timeout ... 0s` (TRAINING_MANIFEST_TIMEOUT_S=0) means no limit in GNU
   # coreutils, so the wrapper is unconditional and 0 opts out cleanly.

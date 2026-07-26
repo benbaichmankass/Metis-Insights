@@ -369,6 +369,50 @@ def test_nonempty_dead_feature_still_quarantines_not_empty():
     assert any("xa_dead" in f for f in report["flags"])
 
 
+def test_declared_expected_optional_but_alive_is_stale():
+    # Inverse guard: a column DECLARED expected-optional that is actually
+    # populated (source got wired) is a STALE declaration to remove — surfaced
+    # in `stale_expected_optional`, NOT quarantine, NOT expected_optional_dead.
+    rows = [{"log_return": (-1) ** i * 0.001, "fc_ret_med": 0.01 + 0.001 * i,
+             "regime_label": "volatile" if i % 2 else "range"} for i in range(40)]
+    manifest = _manifest_opt(["log_return", "fc_ret_med"], ["fc_*"])
+    report = audit_dataset(rows, manifest)
+    assert report["quarantine"] is False
+    assert report["flags"] == []
+    assert report["expected_optional_dead"] == []
+    assert "fc_ret_med" in report["stale_expected_optional"]
+    # the (alive) feature row is NOT marked expected_optional/flagged
+    fc = next(f for f in report["features"] if f["name"] == "fc_ret_med")
+    assert fc["flagged"] is False and fc["expected_optional"] is False
+
+
+def test_stale_and_dead_optional_coexist():
+    # One optional family still dead (expected_optional_dead) + one now alive
+    # (stale_expected_optional): both channels report independently, neither
+    # quarantines.
+    rows = [{"log_return": (-1) ** i * 0.001, "fc_ret_med": 0.0,
+             "corpus_emb_0": 0.01 + 0.001 * i,
+             "regime_label": "volatile" if i % 2 else "range"} for i in range(40)]
+    manifest = _manifest_opt(
+        ["log_return", "fc_ret_med", "corpus_emb_0"], ["fc_*", "corpus_emb_*"]
+    )
+    report = audit_dataset(rows, manifest)
+    assert report["quarantine"] is False
+    assert any("fc_ret_med" in s for s in report["expected_optional_dead"])
+    assert "corpus_emb_0" in report["stale_expected_optional"]
+    assert "fc_ret_med" not in report["stale_expected_optional"]
+
+
+def test_empty_dataset_is_not_stale():
+    # An empty dataset must NOT report an optional column as "stale" — a column
+    # is un-flagged there only because there are no rows to audit, not because
+    # its source is wired.
+    manifest = _manifest_opt(["log_return", "fc_ret_med"], ["fc_*"])
+    report = audit_dataset([], manifest)
+    assert report["empty_dataset"] is True
+    assert report["stale_expected_optional"] == []
+
+
 def test_report_schema_keys_present():
     rows = _balanced_rows()
     manifest = _manifest(["log_return"])
@@ -376,6 +420,7 @@ def test_report_schema_keys_present():
     for key in (
         "ok", "manifest", "n_rows", "dead_fraction_threshold",
         "features", "label", "flags", "quarantine", "empty_dataset",
+        "expected_optional_dead", "stale_expected_optional",
     ):
         assert key in report, f"missing report key {key!r}"
     assert report["manifest"] == "test-audit-model"

@@ -123,6 +123,16 @@ class TestDecisionMatrix:
         assert d.action == "hold"
         assert d.tier == 1
 
+    def test_below_min_evidence_floor_holds_despite_catastrophic_stats(self):
+        # PB-20260630-004: below 20 closed trades, even catastrophic stats + a
+        # policy-OFF cell must NOT kill/demote real money (statistical noise).
+        for n, wins in ((1, 0), (5, 0), (19, 1)):
+            h = _headline(n_closed=n, n_wins=wins, win_rate=0.05,
+                          pnl_total=-200.0, expectancy=-10.0)
+            cells = [_cell(policy="off"), _cell(trend="chop", policy="on")]
+            d = decide(h, cells, _diag(), execution="live", shadow_soak_days=0)
+            assert d.action == "hold", f"n_closed={n} should hold under the floor"
+
     def test_low_n_catastrophic_with_off_cell_present_kills(self):
         h = _headline(n_closed=20, n_wins=1, win_rate=0.05, pnl_total=-200.0, expectancy=-10.0)
         cells = [_cell(policy="off"), _cell(trend="chop", policy="on")]
@@ -414,12 +424,14 @@ class TestRegimeSlicerEndToEnd:
         assert h.pnl_total == pytest.approx(-70.0)
         assert h.expectancy == pytest.approx(-14.0)
 
-    def test_build_packet_end_to_end_returns_kill_for_vwap_all_off(
+    def test_build_packet_end_to_end_holds_below_evidence_floor(
         self, populated_db: Path
     ):
-        # Test the live-execution catastrophic+all-off → kill path
-        # directly (execution=shadow with n_filled>0 trips the
-        # execution-mode-mismatch override, which is its own test below).
+        # The fixture is n_closed=5 (catastrophic + all-off). Post PB-20260630-004
+        # that is BELOW the 20-trade minimum-evidence floor, so the packet HOLDS
+        # rather than killing real money on 5 trades. The catastrophic+all-off
+        # KILL path itself is covered at n>=20 by
+        # test_low_n_25pct_winrate_all_cells_off_kills.
         cfg = {"vwap": {"execution": "live", "enabled": True}}
         policy = {
             "trending": {"vwap": {"long": "off", "short": "off"}},
@@ -438,9 +450,8 @@ class TestRegimeSlicerEndToEnd:
             shadow_soak_days=20,
         )
         assert packet["execution"] == "live"
-        # Win rate 20% over n=5 closed: matches low-n catastrophic+all-off → kill.
-        assert packet["proposed_action"] == "kill"
-        assert packet["sla_due_by"] is not None
+        # n=5 is below the 20-trade evidence floor → hold (PB-20260630-004).
+        assert packet["proposed_action"] == "hold"
 
     def test_shadow_strategy_with_anomalous_fills_holds_with_override_reason(
         self, populated_db: Path

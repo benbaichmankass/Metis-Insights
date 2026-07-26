@@ -101,6 +101,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-07-26T09:56:02+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 1)",
+          "note": "OPERATOR APPROVED 2026-07-26: BUILD IBKR equity/ETF (STK) contract support so the Alpaca ETF strategies can also route to ib_paper. Tier-3 live-order-path (new IBClient STK branch) \u2014 build + test, operator approves the final diff before deploy. Queued as its own PR. Kept open until built."
         }
       ]
     },
@@ -419,7 +424,7 @@
       "tier": 3,
       "trigger_condition": "eth_pullback_2h accrues >=30 demo closed trades, OR demo eth PnL turns clearly negative over a multi-day window.",
       "resolution_criteria": "A Tier-3 proposed_tweak adds an ADX/regime entry filter to eth_pullback_2h citing per-regime demo PnL, or the chop-long concern is shown EV-neutral and closed.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -437,6 +442,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: eth_pullback_2h long entries in chop corroborated by this week's real-money losses (worst leg). Trend/regime entry filter still warranted."
+        },
+        {
+          "at": "2026-07-26T09:49:46+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: triage + fix + decisions)",
+          "note": "RESOLVED (stale \u2014 already shipped + validated). eth_pullback_2h already carries adx_min:25 in config/strategies.yaml (operator-approved 2026-06-18), and PB-20260618-015's 2026-07-26 config-exact 5y sweep proved 25 is the PEAK (28/30/32 degrade net_R monotonically). The ADX/regime entry filter this item asked for is in place and tuned; superseded by PB-20260618-015. Closing."
         }
       ],
       "review_notes": [
@@ -444,7 +454,8 @@
           "at": "2026-06-18T11:45:00+00:00",
           "note": "/performance-review 06-18: eth_pullback_2h fired 8 LONGs this window across MIXED regimes \u2014 most in trending (adx 26-31)/transitional, NOT pure chop. Only the near-zero-conf tail (conf 0.09 adx~20, conf 0.12 transitional) graded F. Contained by intent at-target no-op (one position, no pyramiding). ADX lever + recombination orchestrator now shipped (#3945) \u2014 the regime-swap probe (adx_min~20) will tier exactly this. Refined ask: adx_min~20 cuts the F-grade weak tail while keeping trending longs."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T09:49:46+00:00"
     },
     {
       "id": "PB-20260609-002",
@@ -868,10 +879,10 @@
       "title": "Retire the trend_donchian long_only flag once the regime router policy table subsumes it [Tier-3, follow-up to phase 3]",
       "description": "trend_donchian's `long_only: true` flag in config/strategies.yaml was shipped as #2570 (2026-06-01) as a simple, robust win that dropped the strategy's -37 R short drag. The regime router's policy table independently mirrors the same constraint: trend_donchian.short is OFF in trending+transitional (the regimes where the -52 R loss concentrates) and ON in chop (the +16 R chop-short edge). Once phase 3 (PERF-20260601-006) is live and the table is enforcing those gates, the strategy-level long_only flag becomes redundant \u2014 both flags would be saying the same thing in trending/transitional, AND the table is the ONLY way to recover the chop-short edge. The cleanup is: flip `long_only: false` (or remove the field entirely) on trend_donchian in config/strategies.yaml AND remove the `_short_suppressed_long_only` branch in src/units/strategies/trend_donchian.py / strategy_signal_builders.py. The router policy table will then be the single source of truth for trend_donchian's direction gating. Operator's instruction 2026-06-01: \"leave that for now\" \u2014 keep long_only as defense-in-depth until phase 3 proves out the policy-table enforcement. Mechanical risk if NOT cleaned up after phase 3: when an operator-approved exception manually flips a cell in regime_policy.yaml (e.g. enable trend_donchian chop-short in some future regime study), the YAML-level long_only flag will silently override and suppress that intent \u2014 a confusing footgun.",
       "tier": 3,
-      "status": "kept_open",
+      "status": "resolved",
       "trigger_condition": "After PERF-20260601-006 (regime router phase 3 hard gates) has been live for >= 1-2 weeks with no regression in trend_donchian's fill rate or PnL.",
       "resolution_criteria": "config/strategies.yaml::trend_donchian no longer carries `long_only: true`; the `short_suppressed_long_only` branch is removed from the signal builder; the existing test_trend_donchian_long_only.py is either deleted or rewritten to verify the SAME behaviour is produced via the regime router policy table cells. Operator-approved Tier-3 PR.",
-      "resolved_at": null,
+      "resolved_at": "2026-07-26T10:00:23+00:00",
       "resolved_by": null,
       "resolution_note": null,
       "snoozed_until": null,
@@ -886,6 +897,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-07-26T10:00:23+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 2)",
+          "note": "OPERATOR DECISION 2026-07-26: KEEP the trend_donchian long_only:true flag (defense-in-depth). The regime router subsumes short-suppression, but REGIME_ROUTER_DISABLED is a live kill-switch and this standalone flag is the only remaining backstop against the -52R trend-short drag if the router is ever off. Decided-keep; no code change. Resolving."
         }
       ]
     },
@@ -1459,7 +1475,7 @@
       "tier": 3,
       "trigger_condition": "A future research session surfaces evidence of a cross-sectional/relative-value factor edge worth building the rank-N sleeve for.",
       "resolution_criteria": "Either a cross-sectional sleeve is built + validated and proposed (Tier-3), or the relative-value family is re-confirmed edge-less for this universe and the item is closed won't-build with the evidence.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -1472,8 +1488,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-07-26T10:00:23+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 2)",
+          "note": "OPERATOR-ALIGNED CLOSE 2026-07-26: the cross-sectional (rank-N long/short) sleeve stays UN-built \u2014 the relative-value family (pairs/stat-arb) already failed the robustness gate, lowering the prior, and there is no edge signal justifying the build cost. Closing won't-build; reopen only if a study surfaces a real cross-sectional factor."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:00:23+00:00"
     },
     {
       "id": "PB-20260626-002",
@@ -1632,7 +1654,7 @@
       "opened_by": "claude",
       "source": "strategy-quality M7 pass (#5243/#5245/#5246)",
       "tier": 1,
-      "status": "kept_open",
+      "status": "resolved",
       "title": "M7 strategy-review matrix over-fires DEMOTE_SHADOW at low n (n_closed=1..5)",
       "description": "The generate-strategy-review-packets pass (90d window) emitted demote_shadow for squeeze_breakout_4h (n_closed=1, -$1.12) and htf_pullback_trend_2h (n_closed=5, 1 win, -$4.03) on real-money bybit_2. Both verdicts rest on noise-level samples; the matrix reason itself hedges 'catastrophic at low n ... do not kill yet'. A Tier-3 real-money demotion at n<=5 is statistically unjustified (95% CI on win-rate spans ~0-72%). FIX (Tier-1 tooling): add a minimum-n guard to scripts/ml/strategy_review_packet.py so a demote/kill verdict requires n_closed>=~20 (else emit 'insufficient'/'hold'). Until fixed, treat low-n demote badges as HOLD.",
       "trigger_condition": "M7 packet emits demote/kill at n_closed<20",
@@ -1648,8 +1670,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: M7 low-n DEMOTE over-fire risk remains relevant given the sparse real-money fill counts this window. Carried."
+        },
+        {
+          "at": "2026-07-26T09:49:46+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: triage + fix + decisions)",
+          "note": "RESOLVED \u2014 fixed this PR. scripts/ml/strategy_review_packet.py now has a 20-trade minimum-evidence floor: for n_closed<20 the M7 matrix forces action='hold' (insufficient evidence) BEFORE the low-n kill/demote_shadow branches, so a real-money KILL/DEMOTE can no longer fire off 1-5 trades. The 20<=n<30 catastrophic path is intact. Added tests: below-floor holds despite catastrophic stats (n=1/5/19); updated the e2e n=5 fixture test (was asserting the buggy kill) to assert hold. 72 tests pass."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T09:49:46+00:00"
     },
     {
       "id": "PB-20260630-003",

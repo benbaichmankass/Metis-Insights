@@ -48,6 +48,17 @@ trainer_config:
     - log_return_lag_2
     - hour_of_day
     - dayofweek
+  # Expected-optional — open_interest_* ONLY (MB-20260726-OI-HISTORY-LIMIT). The
+  # funding/OI side-stream IS wired now (ICT_BUILD_FUNDING_OI=1 on the trainer):
+  # funding_rate / _zscore / _abs_z are LIVE and populated, so they are NOT
+  # silenced. But Bybit's open-interest-history endpoint only serves ~recent
+  # months (not the ≥5y training window), so open_interest_change /
+  # _change_zscore read ~99.6% zero over the window — a genuine upstream
+  # data-coverage limit, not a pipeline bug. Silenced here so the audit does not
+  # nag on a column the source can't fill; remove when the OI window is covered
+  # (e.g. the funding manifests are re-scoped to the OI-available window).
+  expected_optional_features:
+    - "open_interest_*"
   categorical_columns:
     - vol_bucket
     - hour_of_day

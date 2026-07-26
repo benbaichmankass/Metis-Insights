@@ -717,8 +717,17 @@ build_funding_oi() {
     return 0
   fi
   rm -f "/tmp/funding_oi_$$.out" "/tmp/funding_oi_$$.err"
-  # Rebuild each BTC market_features shard WITH the funding/OI join.
-  for tf in 1h 5m 15m; do
+  # Rebuild the BTC market_features shard(s) the funding manifests read, WITH the
+  # funding/OI join. **1h ONLY** — both funding manifests
+  # (btc-regime-1h-lgbm-funding-v1 + -svble-v1) are 1h, so there is nothing to
+  # gain on 5m/15m. Critically, this runs LATE (after build_bybit_15m_fc has
+  # already built the 15m shard WITH the forecast side-stream): a `--overwrite`
+  # 15m rebuild here — without forecast_path — silently ZEROED every fc_* column
+  # the fc-pcv-v2 head trains on (MB-20260726-FC-CLOBBER: the fresh forecast
+  # side-stream was produced nightly yet fc_* audited 100% dead, because this
+  # loop clobbered the 15m join minutes after it was built). Scoping to 1h
+  # removes the clobber; the fc-pcv-v2 15m shard keeps its forecast join.
+  for tf in 1h; do
     local raw_path="${DATASETS_ROOT}/market_raw/BTCUSDT/${tf}/${DATASET_VERSION}"
     [ -d "$raw_path" ] || continue
     build_family market_features \

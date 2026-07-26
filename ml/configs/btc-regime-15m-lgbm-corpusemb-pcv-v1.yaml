@@ -31,6 +31,13 @@ trainer_config:
   - corpus_emb_13
   - corpus_emb_14
   - corpus_emb_15
+  # Expected-optional (MB-20260719-DATASET-AUDIT-NOISE option a): the SSL
+  # corpus-embedding block (corpus_emb_*) reads dead until the corpus-SSL encoder
+  # produces embeddings (M19 T1.2 — corpus-ssl-encoder currently builds an empty
+  # dataset). The audit records their deadness but must NOT trip the dead-feature
+  # alarm until the encoder output is wired. Remove once corpus_emb_* is populated.
+  expected_optional_features:
+  - "corpus_emb_*"
   categorical_columns:
   - vol_bucket
   - hour_of_day

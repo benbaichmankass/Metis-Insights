@@ -30,6 +30,13 @@ trainer_config:
   - fc_skew
   - fc_q10_rel
   - fc_q90_rel
+  # NOTE (MB-20260726-FC-CLOBBER): fc_* is a WIRED side-stream — the nightly
+  # build produces a fresh forecast side-stream and joins it into this 15m v002
+  # shard (build_bybit_15m_fc). It is deliberately NOT declared expected-optional:
+  # fc_* audited 100% dead only because build_funding_oi re-overwrote the 15m
+  # shard WITHOUT forecast_path minutes after the join (fixed in
+  # scripts/ops/build_trainer_datasets.sh — funding rebuild scoped to 1h). After
+  # that fix a still-dead fc_* column is a REAL alarm again, so no silence here.
   categorical_columns:
   - vol_bucket
   - hour_of_day
