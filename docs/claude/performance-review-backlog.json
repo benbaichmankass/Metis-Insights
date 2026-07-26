@@ -1210,6 +1210,11 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22 (window 2026-07-20T08:15Z -> 2026-07-22T18:xxZ)",
           "note": "No new eth_pullback_2h real-money bybit_2 data beyond what's already reflected in this window's 1-trade sample (net -$4.26, sl exit). The 2026-07-20 note's SOL config-exact re-run finding (trail_mult=30 is the clear peak, 61.8R) stands; not re-verified this pass."
+        },
+        {
+          "at": "2026-07-26T07:05:00+00:00",
+          "by": "claude (PB-20260618-015 ETH config-exact ADX/vol tune, branch claude/eth-pullback-2h-adx-tune-274ngb)",
+          "note": "2026-07-26 (config-exact ETH ADX + vol-at-entry sweep \u2014 the LAST un-tuned 2h-pullback leg): ran the config-exact grid on ~5y ETH 2h (data 2021-03->2026-06, backtest_pullback @ live eth_pullback_2h params trend_lookback40/pullback10/frac0.5/atr14/stop2.5/trail5.0, NO trail_decay, NO vol_skip \u2014 verified vs config/strategies.yaml; ETH's clean base DIFFERS from SOL/ADA/AVAX which carry decay/vol_skip, so this is the FIRST genuinely config-exact ETH grid, unlike the earlier family sweep that carried vol_skip 0.1). ADX-FLOOR GRID (IS net_R/exp/win%/maxDD): 25->90.23/0.358/34.5/13.57 (INCUMBENT=PEAK) | 28->51.83/0.240/37.5/10.91 | 30->30.03/0.151/33.2/15.72 | 32->28.82/0.166/32.2/11.26. Raising the floor DEGRADES net_R MONOTONICALLY (-43% at 28, -67% at 30) \u2014 the XRP pattern, NOT ADA/SOL. Per-year, adx=25 WINS the recent full years decisively (2023: 36.5 vs 12.6R@28; 2024: 14.2 vs 10.5; 2025: 16.4 vs 9.4); only partial 2021/2026 marginally favor a higher floor. FAILS the walk-forward bar (25 wins recent OOS years) -> NO floor raise. VOL-AT-ENTRY CAP (adx25 + vol-skip sweep, 11 variants on the CURRENT harness): NO variant beats incumbent net_R 90.23. Closest = volhi80 (--vol-skip-above-pctl 0.8, skip hottest-20% ATR entries): net_R 89.30(~=incumbent), exp 0.385(up), win 35.3%(up), maxDD 10.39R(-23%) \u2014 a maxDD-reduction candidate, BUT per-year it LOSES the two most-recent OOS years on net_R (2025: 13.2 vs 16.4; 2026: 6.0 vs 7.6) and 2022, winning only 2024 (22.2 vs 14.2, the high-vol year the hot-vol-skip thesis predicts) -> fails the SAME 'wins recent OOS years' bar. Dead-vol skip vollo10 (the ADA/AVAX winner) HURTS ETH (82.0 vs 90.2R); both-tails band 70.8R. VERDICT: KEEP eth_pullback_2h at adx_min=25, NO vol cap \u2014 documented NEGATIVE result. ETH is strongly +EV over 5y at 25 (90.2R, exp 0.358); the recent -$8.69/2-trade real-money bybit_2 loss is small-sample noise in a +EV strategy, NOT a fixable entry-quality defect (same conclusion the 2026-07-20 ada/xrp verify reached). Remaining forward lever = routing the 15m ETH regime head (still shadow, MB-20260628-VOLGATE-GOLIVE), gated on its own promotion, not an entry-param change. Per-symbol ADX tuning of the 2h-pullback family is now COMPLETE, ALL legs config-exactly verified: ADA=28, SOL=30 (raised+WF), XRP/AVAX/ETH=25 (held; ETH now config-exact negative). Deliverable: docs-only draft PR + sprint log S-PB-ETH-PULLBACK-ADX-20260726. Relay runs: trainer-vm-diag #7614 (ADX grid) + #7615 (vol sweep)."
         }
       ]
     },
@@ -1753,5 +1758,5 @@
       "source": "S-M27-P0-BATCH1-2026-07-20 (Batch-3 continuation)"
     }
   ],
-  "updated_at": "2026-07-22T18:50:00+00:00"
+  "updated_at": "2026-07-26T07:05:00+00:00"
 }

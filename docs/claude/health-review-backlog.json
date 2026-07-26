@@ -14,7 +14,13 @@
       "resolution_criteria": "Trainer clone tracks origin/main again and `git pull --ff-only` succeeds; auto-deploy of main to the trainer confirmed working (a fresh merge to main lands on the trainer without manual intervention).",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-26T07:05:00+00:00",
+          "by": "claude (PB-20260618-015 ETH pullback tune; trainer-vm-diag #7614)",
+          "note": "STILL DIVERGED as of 2026-07-26. Corroborating evidence: relay #7614 reported the trainer working tree at HEAD=cdbaa718 with scripts/backtest_pullback.py MISSING the --vol-skip-*/--trail-decay-*/--confirm-bars flags that are on main (the M21 entry/vol + M20 exit levers) -- so the trainer is running a harness pre-those merges. Confirms the trainer is executing stale code, not just failing to fast-forward. Workaround this session: re-ran the sweep against a fresh curl of the main-branch harness to /tmp (non-mutating), results valid. The (c) recovery in trigger_condition (git fetch origin main && git reset --hard origin/main, once the local delta is confirmed non-load-bearing) still applies -- raising visibility so a trainer/health session actually drives it, per 'if you see something, say something'."
+        }
+      ]
     },
     {
       "id": "BL-20260721-BYBIT2-XRP-TPSL-LEGCAP",
@@ -5566,5 +5572,5 @@
       "resolved_at": null
     }
   ],
-  "updated_at": "2026-07-23"
+  "updated_at": "2026-07-26"
 }
