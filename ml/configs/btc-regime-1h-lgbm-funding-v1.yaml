@@ -48,14 +48,16 @@ trainer_config:
     - log_return_lag_2
     - hour_of_day
     - dayofweek
-  # Expected-optional (MB-20260719-DATASET-AUDIT-NOISE option a): the funding/OI
-  # columns read dead until a `market_features` rebuild on builder v4 JOINS the
-  # funding/OI side-stream (S-MLOPT-S11 — not yet wired). The build-time audit
-  # records their deadness but must NOT trip the dead-feature alarm until the
-  # side-stream is joined. Remove this list once funding/OI is populated (that's
-  # when a still-dead column becomes a real bug again).
+  # Expected-optional — open_interest_* ONLY (MB-20260726-OI-HISTORY-LIMIT). The
+  # funding/OI side-stream IS wired now (ICT_BUILD_FUNDING_OI=1 on the trainer):
+  # funding_rate / _zscore / _abs_z are LIVE and populated, so they are NOT
+  # silenced. But Bybit's open-interest-history endpoint only serves ~recent
+  # months (not the ≥5y training window), so open_interest_change /
+  # _change_zscore read ~99.6% zero over the window — a genuine upstream
+  # data-coverage limit, not a pipeline bug. Silenced here so the audit does not
+  # nag on a column the source can't fill; remove when the OI window is covered
+  # (e.g. the funding manifests are re-scoped to the OI-available window).
   expected_optional_features:
-    - "funding_rate*"
     - "open_interest_*"
   categorical_columns:
     - vol_bucket

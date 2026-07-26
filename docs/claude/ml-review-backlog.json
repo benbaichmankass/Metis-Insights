@@ -2153,6 +2153,11 @@
           "at": "2026-07-26T08:45:00+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: declare remaining side-streams)",
           "note": "REMAINING SIDE-STREAM FAMILIES DECLARED 2026-07-26 (operator directive). Added `expected_optional_features` to the three genuinely-not-yet-wired side-stream heads (manifest headers confirm each awaits a data source, none are advisory/live-influencing): btc-regime-1h-lgbm-funding-v1 (funding_rate*/open_interest_* \u2014 awaits a market_features builder-v4 rebuild joining the funding/OI side-stream, S-MLOPT-S11); btc-regime-15m-lgbm-fc-v1 + btc-regime-15m-lgbm-fc-pcv-v2 (fc_* \u2014 awaits the frozen-TSFM Chronos forecast computed into the dataset; fc-v1 is explicitly candidate/offline-only); btc-regime-15m-lgbm-corpusemb-pcv-v1 (corpus_emb_* \u2014 awaits the corpus-SSL encoder, which currently builds an empty dataset). Each carries a 'remove once wired' comment. Verified all 4 parse + the globs match the flagged columns. DELIBERATELY NOT DECLARED: the range-vol estimators (parkinson/garman_klass/rogers_satchell/yang_zhang) on setup-candidates-metalabel-xsym-yz-v1 \u2014 those are COMPUTED FROM OHLC that's present (builder v2 emits them per the manifest), so their deadness is a REAL build bug (dataset not rebuilt on builder v2), NOT a missing side-stream; silencing it would bury a fixable bug. Filed as MB-20260726-XSYMYZ-RANGEVOL-DEAD. Residual (not silenced, worth a look): hour_of_day/dayofweek/log_return_lag_1/2 flag on btc-regime-15m-lgbm-base-vt003-pcv-v1 (log-return lags dead is suspicious) and hour_of_day on mes-regime-1d-lgbm-v2 (legitimately constant on daily bars). Net after all this: the dead-feature alarm channel now fires only on UNEXPECTED dead features / degenerate labels in datasets that built \u2014 high-precision, stop-the-line, as the operator directive intended."
+        },
+        {
+          "at": "2026-07-26T09:12:06+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: 'why are we not training on the data we pull')",
+          "note": "CORRECTION + REAL FIX 2026-07-26. Operator pushed on WHY the not-yet-wired heads weren't accruing. Verified each column's live value via trainer-vm-diag (#7622-#7625) instead of trusting the manifest headers, and the earlier 'declare them all expected-optional' disposition was PARTLY WRONG \u2014 two of the three families were NOT 'awaiting a source', they were WIRED-BUT-BROKEN: (1) fc_* on btc-regime-15m-lgbm-fc-pcv-v2 audited 100% dead NOT because the forecast is missing (the nightly produces a fresh forecast side-stream, verified fresh on disk) but because build_funding_oi (now that ICT_BUILD_FUNDING_OI=1 is on) re-overwrote the SAME 15m v002 shard WITHOUT forecast_path minutes AFTER build_bybit_15m_fc joined it \u2014 a build-ordering clobber (15m data.jsonl mtime 05:20 > the 05:14 forecast build, fc_ret_med=0.0). FIXED: build_funding_oi's rebuild scoped to 1h only (both funding manifests are 1h; the 5m/15m rebuilds were pure waste and the 15m one destroyed the fc join). Filed MB-20260726-FC-CLOBBER (RESOLVED this PR). Removed the fc-pcv-v2 fc_* silence \u2014 a still-dead fc_* is a REAL alarm again. (2) funding_rate* is LIVE/populated (0.00010439) \u2014 silencing it was the ETH-xa over-silence mistake; DROPPED from funding-v1's declaration. Only open_interest_change/_zscore stay dead (~99.6% zero) because Bybit's OI-history endpoint serves only recent months, not the >=5y window \u2014 an upstream data-coverage limit, filed MB-20260726-OI-HISTORY-LIMIT, silenced as open_interest_* only. (3) corpus_emb_* IS genuinely unwired (no encoder producer, no timer) \u2014 declaration KEPT. fc-v1 (offline candidate on manual v004, not in the nightly cycle) declaration KEPT with a corrected comment. Lesson reinforced: 'not-yet-wired' vs 'wired-but-broken' must be verified per-column against live values before silencing \u2014 a header saying 'awaits X' can hide a clobber. Kept open (enforcement decision still pending; the mechanism + high-precision alarm channel are in place)."
         }
       ]
     },
@@ -2413,6 +2418,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "2026-07-26 ACTION TAKEN: incumbent sol-regime-15m-lgbm-fc-pcv-v1 DEMOTED advisory->shadow (gate-check drift_clean FAILS KS=0.236>0.2; readiness DEMOTE; zero live-order impact - no SOL trend_vol cell). Verified read-back=shadow + published to live (publish_trainer_mirror rc=0). v2 NOT yet gate-ready: shadow_soak 5.0<7.0d (both heads retrained today 06:04-06:05Z, so live_parity also resets, needs >=20 rows). NEXT: re-gate-check + promote v2->advisory once shadow_soak>=7d (~2026-07-28) AND live_parity/drift_clean clear. btc-regime-15m-lgbm-fc-pcv-v2 soak (n=508) unchanged - btc v1 drift_clean was NOT flagged, so btc stays as-is."
+        },
+        {
+          "at": "2026-07-26T09:12:06+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator follow-up)",
+          "note": "DURABILITY CHECK FAILED THEN FIXED 2026-07-26. This item's trigger explicitly asks to 'verify the nightly is actually keeping the forecast side-stream + v002 15m fc_* fresh'. It was NOT: the fc_* block on btc-regime-15m-lgbm-fc-pcv-v2's v002 15m shard read 100% zero in today's dataset_audit, even though the forecast side-stream (forecasts/BTCUSDT/15m/v002) was freshly rebuilt at 05:09. Root cause: build_funding_oi (enabled by ICT_BUILD_FUNDING_OI=1) rebuilt the 15m v002 market_features shard WITHOUT forecast_path at 05:20 \u2014 minutes AFTER build_bybit_15m_fc joined the forecast at 05:14 \u2014 zeroing fc_*. So the v2 head has been SOAKING ON ZERO fc_* features since ICT_BUILD_FUNDING_OI was turned on. FIX shipped (scripts/ops/build_trainer_datasets.sh: funding rebuild scoped to 1h, MB-20260726-FC-CLOBBER). The next nightly after the trainer pulls main will rebuild 15m v002 WITH the forecast join intact and fc_* will populate. IMPORTANT for the ~2026-07-28 gate decision: the v2 soak accrued so far is on dead fc_* \u2014 effectively a base-feature clone of the control \u2014 so the fc-vs-base comparison is INVALID until v2 re-soaks on real fc_* post-fix. The 7d soak clock should restart from the first post-fix nightly, not 2026-07-21. Kept open."
         }
       ]
     },
@@ -2529,7 +2539,38 @@
       "status": "open",
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "MB-20260726-FC-CLOBBER",
+      "opened_at": "2026-07-26T09:12:06+00:00",
+      "opened_by": "claude (backlog-drain-tier1 session 2026-07-26, operator: fix why models aren't training on pulled data)",
+      "source": "trainer-vm-diag #7622-#7625: fc_* audited 100% zero on btc-regime-15m-lgbm-fc-pcv-v2's v002 15m shard despite a freshly-rebuilt forecast side-stream on disk.",
+      "title": "build_funding_oi clobbered the BTC 15m forecast join \u2014 fc-pcv-v2 soaked on zero fc_* since ICT_BUILD_FUNDING_OI was enabled",
+      "description": "The nightly build_bybit_15m_fc builds BTCUSDT 15m v002 market_features WITH the forecast side-stream joined (forecast_path -> fc_* populated). Later in the same run, build_funding_oi (active since ICT_BUILD_FUNDING_OI=1 was set on ict-trainer.service) looped `for tf in 1h 5m 15m` and rebuilt the SAME 15m v002 shard with --overwrite + funding_oi_path but NO forecast_path, zeroing every fc_* column. Proven by mtimes: 15m data.jsonl mtime 05:20 (funding rebuild) > 05:14 (forecast build), fc_ret_med=fc_up_prob=0.0 in the final file. Both funding manifests (btc-regime-1h-lgbm-funding-v1 + -svble-v1) are 1h, so the 5m/15m funding rebuilds were pure waste AND the 15m one destroyed the fc join every night.",
+      "tier": 1,
+      "status": "resolved",
+      "resolved_at": "2026-07-26T09:12:06+00:00",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-07-26T09:12:06+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "FIXED this PR: scripts/ops/build_trainer_datasets.sh build_funding_oi rebuild loop scoped from `for tf in 1h 5m 15m` to `for tf in 1h` (both funding manifests are 1h; nothing consumes funding columns on 5m/15m). The 15m v002 shard's forecast join now survives to the end of the run. Also removed the (incorrect) fc_* expected-optional silence on btc-regime-15m-lgbm-fc-pcv-v2 so a still-dead fc_* alarms as a real regression. Verified: build script `bash -n` clean, all 19 dataset-audit tests pass. Self-heals on the next nightly after the trainer pulls main (v2 15m rebuilt WITH forecast). Follow-on tracked in MB-20260721-FCPCV-V2-SOAK: the v2 fc-vs-base soak clock must restart post-fix (prior soak was on zero fc_*)."
+        }
+      ]
+    },
+    {
+      "id": "MB-20260726-OI-HISTORY-LIMIT",
+      "opened_at": "2026-07-26T09:12:06+00:00",
+      "opened_by": "claude (backlog-drain-tier1 session 2026-07-26, operator follow-up)",
+      "source": "trainer-vm-diag #7625: funding_rate populated but open_interest_change ~99.6% zero on btc-regime-1h-lgbm-funding-v1's 1h v002 shard.",
+      "title": "Bybit open-interest history only covers recent months \u2014 open_interest_change reads ~99.6% dead over the >=5y funding training window",
+      "description": "The funding/OI side-stream IS wired (ICT_BUILD_FUNDING_OI=1) and funding_rate/_zscore/_abs_z populate correctly across the window. But Bybit's V5 open-interest-history endpoint (ccxt fetch_open_interest_history) only serves ~recent months regardless of the `since` cursor, while the funding manifests train on the rolling >=5y window (MARKET_START = 5 years ago). So open_interest_change / open_interest_change_zscore are 0.0 for the pre-OI-availability ~99% of rows \u2014 the audit correctly flags them dead. This is an upstream data-coverage limit, not a pipeline bug (silenced as open_interest_* only on btc-regime-1h-lgbm-funding-v1; funding_rate* left live). OPTIONS for whoever picks this up: (i) re-scope the funding manifests' dataset window to the OI-available window (a few months of 1h bars) so OI is dense \u2014 at the cost of a much shorter training set; (ii) source a deeper OI history from another provider; (iii) accept OI as a sparse recent-only feature and drop the OI columns from the funding manifests, keeping only funding_rate. The funding heads are research_only/offline (zero live-order impact), so this is not urgent. Also affects btc-regime-1h-lgbm-funding-svble-v1 (same 1h dataset).",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-26T06:42:00+00:00"
+  "updated_at": "2026-07-26T09:12:06+00:00"
 }

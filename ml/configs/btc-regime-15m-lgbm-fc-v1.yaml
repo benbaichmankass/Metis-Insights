@@ -50,12 +50,13 @@ trainer_config:
     - fc_skew
     - fc_q10_rel
     - fc_q90_rel
-  # Expected-optional (MB-20260719-DATASET-AUDIT-NOISE option a): the frozen-TSFM
-  # forecast (fc_*) block reads dead until the Chronos forecast is computed into
-  # the dataset (M19 T0.4 — trainer-side; live parity is a separate operator-gated
-  # promotion step). The audit records their deadness but must NOT trip the
-  # dead-feature alarm until the forecast source is wired. Remove once fc_* is
-  # populated (then a still-dead column is a real bug again).
+  # Expected-optional (MB-20260719-DATASET-AUDIT-NOISE option a): this is the
+  # OFFLINE T0.4 A/B candidate reading the MANUAL dataset v004 (base+fc). Unlike
+  # the fc-pcv-v2 sibling (nightly v002, now un-clobbered — MB-20260726-FC-CLOBBER),
+  # v004 is NOT built by the nightly cycle (scripts/ops/build_trainer_datasets.sh
+  # rebuilds v002 only), so fc_* here stays dead until v004 is manually rebuilt
+  # with forecast_path. Candidate/offline — never order-influencing. Remove this
+  # list once v004 is rebuilt with the forecast side-stream joined.
   expected_optional_features:
     - "fc_*"
   categorical_columns:
