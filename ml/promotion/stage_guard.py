@@ -217,6 +217,85 @@ def _drift_for_model(
     return compute_drift(ref, cur)
 
 
+def _compute_oos_edge_inline(entry: Any, datasets_root: Path | str) -> Any:
+    """The direct (in-process) shadow-stage OOS-edge compute for one entry.
+
+    A regime head needs the multiclass-compatible modal baseline; the
+    ``compute_oos_edge`` default (constant baseline) silently yields None
+    against the multiclass evaluator (BL-20260607-002).
+    """
+    from .oos_edge import compute_oos_edge
+
+    oos_kwargs: dict[str, Any] = {"datasets_root": datasets_root}
+    if is_regime_classifier(entry):
+        oos_kwargs["baseline_trainer"] = (
+            "ml.trainers.regime_classifier.RegimeClassifierTrainer"
+        )
+    return compute_oos_edge(entry, **oos_kwargs)
+
+
+def _oos_edge_for_entry(
+    entry: Any,
+    *,
+    registry_root: Path | str,
+    datasets_root: Path | str,
+    isolate: bool,
+) -> Any:
+    """Compute one shadow model's OOS edge, optionally in a fresh subprocess.
+
+    ``isolate`` (the default) runs the compute via ``python -m ml
+    _oos-edge-one`` in a **fresh interpreter per model**, so the whole-
+    registry sweep's peak RSS is one model's working set (its dataset +
+    5-fold-CV models) rather than the fleet's accumulation. The inline
+    path loaded every shadow model's dataset + CV state into ONE process
+    and D-state-thrashed the 6 GB trainer at ~5 GB RSS (twice on
+    2026-07-19; MB-20260719-PROMOREADY-OOSEDGE-OOM). Each subprocess exits
+    and frees its memory before the next model starts.
+
+    Any subprocess failure (non-zero exit, timeout, unparseable output)
+    falls back to ``None`` — i.e. ``insufficient_data``, identical to a
+    genuine inline compute miss — so a per-model crash never aborts the
+    sweep. The subprocess re-derives the regime baseline itself
+    (``is_regime_classifier``), so the result is byte-for-byte what the
+    inline path would produce.
+    """
+    if not isolate:
+        return _compute_oos_edge_inline(entry, datasets_root)
+
+    import json as _json
+    import subprocess
+    import sys
+
+    from .oos_edge import OOSEdgeResult
+
+    cmd = [
+        sys.executable, "-m", "ml", "_oos-edge-one", str(entry.model_id),
+        "--registry-root", str(registry_root),
+        "--datasets-root", str(datasets_root),
+    ]
+    try:
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=1800,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    if proc.returncode != 0:
+        return None
+    out = (proc.stdout or "").strip()
+    if not out:
+        return None
+    try:
+        payload = _json.loads(out.splitlines()[-1])
+    except (ValueError, IndexError):
+        return None
+    if not payload:
+        return None
+    try:
+        return OOSEdgeResult(**payload)
+    except (TypeError, ValueError):
+        return None
+
+
 def run_stage_guard(
     *,
     registry_root: Path | str,
@@ -228,6 +307,7 @@ def run_stage_guard(
     current_days: float = 7.0,
     include_demo: bool = False,
     datasets_root: Path | str | None = None,
+    isolate_oos_edge: bool = True,
 ) -> list[Proposal]:
     """Evaluate every registered model and return its proposal.
 
@@ -239,6 +319,14 @@ def run_stage_guard(
     ``shadow``-stage model so the promote gate has its champion-challenger
     evidence; without it those models hold on ``oos_edge`` insufficient
     data — you cannot certify readiness without the OOS evidence.
+
+    ``isolate_oos_edge`` (default ``True``) runs each model's OOS-edge
+    compute in a fresh subprocess so the whole-registry sweep stays at
+    bounded memory (one model's working set) instead of accumulating every
+    shadow model's dataset + CV state in ONE interpreter and OOM-thrashing
+    the 6 GB trainer (MB-20260719-PROMOREADY-OOSEDGE-OOM). Set ``False`` for
+    the in-process path (tests / a single-model call where the isolation
+    overhead isn't worth it).
     """
     registry = ModelRegistry(Path(registry_root))
     attribution = {
@@ -257,17 +345,12 @@ def run_stage_guard(
         )
         oos_edge = None
         if datasets_root is not None and entry.target_deployment_stage == "shadow":
-            from .oos_edge import compute_oos_edge
-
-            # A regime head needs the multiclass-compatible modal baseline;
-            # the compute_oos_edge default (constant baseline) silently yields
-            # None against the multiclass evaluator (BL-20260607-002).
-            oos_kwargs: dict[str, Any] = {"datasets_root": datasets_root}
-            if is_regime_classifier(entry):
-                oos_kwargs["baseline_trainer"] = (
-                    "ml.trainers.regime_classifier.RegimeClassifierTrainer"
-                )
-            oos_edge = compute_oos_edge(entry, **oos_kwargs)
+            oos_edge = _oos_edge_for_entry(
+                entry,
+                registry_root=registry_root,
+                datasets_root=datasets_root,
+                isolate=isolate_oos_edge,
+            )
         # NOTE: the RG4 live regime-discrimination AUC and the M25 serving-
         # mechanics inputs (`live_parity` / `labels_accruing`) are NOT
         # computed in this sweep yet — RG4 + label accrual need a per-model
