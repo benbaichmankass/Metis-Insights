@@ -40,6 +40,23 @@ from src.units.accounts.risk import (
 logger = logging.getLogger(__name__)
 
 
+class BelowVenueMinQtyRefusal(RuntimeError):
+    """A risk-sized qty that floors below the exchange lot minimum after
+    step-alignment — a BENIGN per-trade refusal (never oversize), NOT an
+    exchange/API failure.
+
+    Typed (a ``RuntimeError`` subclass, so existing ``except RuntimeError``
+    callers are unaffected) so the caller can route it to the quiet
+    ``below_venue_min_qty`` journaled-skip path instead of the ERROR-level
+    ``bybit_place_order_failed`` outcome that lands on the ``/notifications``
+    alert banner — and the consecutive-exchange-rejection counter that can
+    otherwise escalate a run of these benign refusals to a spurious CRITICAL.
+    Recurs structurally on a small real-money account whose risk-sized crypto
+    qty is below the venue lot floor (e.g. sub-0.001 BTC on ``bybit_2``).
+    BL-20260716-BYBIT2-SUBMIN-QTY.
+    """
+
+
 def _is_test_order(pkg: OrderPackage) -> bool:
     return bool(getattr(pkg, "meta", None) and pkg.meta.get("is_test"))
 
@@ -1005,7 +1022,12 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                 client=client, prefer_live=True,
             )
             if not _legal.ok:
-                raise RuntimeError(
+                # Benign per-trade refusal (BL-20260716-BYBIT2-SUBMIN-QTY):
+                # typed so the handler below + the coordinator route it to the
+                # quiet ``below_venue_min_qty`` skip instead of the ERROR-level
+                # ``bybit_place_order_failed`` alert-banner path. Never floor
+                # UP to the minimum — that would silently exceed the sized risk.
+                raise BelowVenueMinQtyRefusal(
                     f"qty {order['qty']} for {order['symbol']} is below "
                     f"the exchange lot minimum after step-alignment "
                     f"(qtyStep={_legal.step}, minOrderQty={_legal.venue_min}) — "
@@ -1093,6 +1115,16 @@ def _submit_order(client: Any, order: dict, account_cfg: dict) -> str:
                     )
             resp = client.place_order(**kwargs)
             return str((resp.get("result") or {}).get("orderId") or uuid.uuid4().hex)
+    except BelowVenueMinQtyRefusal as exc:
+        # BL-20260716-BYBIT2-SUBMIN-QTY: a sub-lot-minimum refusal is a benign
+        # per-trade skip, not an exchange/API failure. Do NOT route it through
+        # report_api_failure (which writes the ERROR-level
+        # ``bybit_place_order_failed`` outcome onto the /notifications alert
+        # banner) or log it at ERROR. Log at INFO and re-raise the typed
+        # exception so the coordinator journals it as a quiet
+        # ``below_venue_min_qty`` skip.
+        logger.info("_submit_order(%s): %s", exchange, exc)
+        raise
     except Exception as exc:
         logger.error("_submit_order(%s): %s", exchange, exc)
         # BUG-057 reopen (2026-05-06): Bybit still rejects spot SL/TP

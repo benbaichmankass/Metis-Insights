@@ -1082,7 +1082,10 @@ class Coordinator:
             # etc.) — previously ``account.place_order`` was called here,
             # causing NotImplementedError on every live signal (the VWAP
             # "0 fills despite N signals" bug).
-            from src.units.accounts.execute import execute_pkg
+            from src.units.accounts.execute import (
+                execute_pkg,
+                BelowVenueMinQtyRefusal,
+            )
             from src.units.accounts.clients import (
                 bybit_client_for,
                 ib_client_for, oanda_client_for, alpaca_client_for,
@@ -1559,13 +1562,14 @@ class Coordinator:
                         status="rejected",
                         sized_qty=0.0,
                     )
-                    _emit_execution_failure_ping(
-                        account=account.name,
-                        pkg=pkg,
-                        qty=sized_qty,
-                        reason=error_msg,
-                        demo=getattr(account, "demo", False),
-                    )
+                    # BL-20260716-BYBIT2-SUBMIN-QTY: a sub-lot-minimum refusal
+                    # is a benign per-trade skip on a small account, not a
+                    # dispatch failure — it's journaled above for audit but
+                    # must NOT fire the ERROR-level execution-failure ping /
+                    # alert-banner entry (the operator directive is "skip
+                    # cleanly without an ERROR-level outcome"). The result row
+                    # (error startswith "below_venue_min_qty") is classified
+                    # benign by _is_benign_noop below.
                     sized_qty_by_account[account.name] = 0.0
                     results.append({
                         "name": account.name,
@@ -2152,6 +2156,40 @@ class Coordinator:
                     "sized_qty": sized_qty,
                     "error": str(exc),
                 })
+            except BelowVenueMinQtyRefusal as exc:
+                # BL-20260716-BYBIT2-SUBMIN-QTY: a risk-sized qty below the
+                # exchange lot floor (e.g. a sub-0.001 BTC size on the small
+                # real-money bybit_2) is a BENIGN per-trade skip, not a
+                # dispatch failure. Journal it quietly and do NOT emit the
+                # execution-failure ping or bump the consecutive-rejection
+                # counter (which would otherwise fire the ERROR banner + a
+                # spurious CRITICAL). The sized-path pre-check above already
+                # catches this when the venue-min rule resolves; this handler
+                # covers the leak where the rule lookup returned None at gate
+                # time so the refusal only surfaced at _submit_order.
+                logger.info(
+                    "multi_account_execute: sub-min-lot refusal for %s/%s "
+                    "(benign skip): %s", account.name, pkg.symbol, exc,
+                )
+                from src.units.accounts.execute import log_rejection_to_journal
+                log_rejection_to_journal(
+                    pkg, account_cfg,
+                    reason="below_venue_min_qty",
+                    status="rejected",
+                    sized_qty=0.0,
+                )
+                results.append({
+                    "name": account.name,
+                    "exchange": account.exchange,
+                    "account_type": account.account_type,
+                    "trade_id": None,
+                    "sized_qty": 0.0,
+                    "error": "below_venue_min_qty",
+                })
+                # A benign skip must not leave a stale rejection streak that
+                # could later tip a genuine failure over the CRITICAL threshold
+                # (mirrors the success path's reset).
+                _EXCHANGE_REJECTION_COUNTS.pop(account.name, None)
             except Exception as exc:  # noqa: BLE001
                 # Catches RuntimeError (paused / order submission failed),
                 # ValueError (invalid pkg), and any exchange SDK
@@ -2230,6 +2268,11 @@ class Coordinator:
             return (
                 err.startswith("intent_noop:")
                 or err == "intent_sub_min_qty_delta"
+                # Sub-lot-minimum refusal (BL-20260716-BYBIT2-SUBMIN-QTY) —
+                # covers both the exact ``below_venue_min_qty`` from the
+                # execute_pkg-catch benign path and the sized-path pre-check's
+                # ``below_venue_min_qty: sized_qty=… < …`` detail string.
+                or err.startswith("below_venue_min_qty")
                 or err.startswith("reentry_suppressed_netting_guard:")
                 # A shelved dry_run account / prop mission-skip declining is a
                 # deliberate policy hold, not a dispatch failure — a round where
