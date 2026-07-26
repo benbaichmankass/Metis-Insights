@@ -2325,7 +2325,7 @@
       "tier": 3,
       "trigger_condition": "Operator-only \u2014 no autonomous action possible. Surface every /health-review run until resolved.",
       "resolution_criteria": "Both leaked issue comments deleted (404 on the comment URLs); FCM service-account key rotated at Google Cloud Console; ${DATA_DIR}/fcm_service_account.json updated to the new credential and a fresh push test succeeds (kicks the notifier and confirms no 404 NOT_FOUND).",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -2343,8 +2343,16 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-07-26T11:10:00+00:00",
+          "by": "claude (operator-directed housekeeping 2026-07-26)",
+          "note": "RESOLVED per operator: FCM key rotated + both leaked comments deleted. The scrub-env-noncompliant system-action had already stripped the journal copy (PR #2158). Nothing further outstanding."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T11:10:00+00:00",
+      "resolved_by": "claude (operator-directed housekeeping 2026-07-26)",
+      "resolution_note": "Operator confirmed 2026-07-26 the FCM service-account key was ROTATED at Google Cloud Console (neutralizes the exposure) and the two leaked issue comments were DELETED (issues #2157 / #2159). All three operator-only steps of the FCM private-key bleed follow-up are complete. Closing."
     },
     {
       "id": "BL-20260528-001",
@@ -3188,10 +3196,10 @@
       "title": "[dashboard] 'Cloudflare Pages' check fails on every PR (ict-trader-widget deploy)",
       "description": "ict-trader-dashboard PR checks include a 'Cloudflare Pages' integration that instant-fails (completed_at==started_at) deploying a separate 'ict-trader-widget' Pages project. The dashboard repo has no Pages/wrangler/widget assets, so there is nothing for Pages to build - the check appears chronically failing and unrelated to repo content. Decide whether to disconnect the Cloudflare Pages integration from this repo or point it at the right project, so it stops adding a red X to every dashboard PR. Tier-1 infra/CI hygiene.",
       "tier": 1,
-      "status": "kept_open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
+      "status": "wont_fix",
+      "resolved_at": "2026-07-26T11:10:00+00:00",
+      "resolved_by": "claude (operator-directed housekeeping 2026-07-26)",
+      "resolution_note": "Operator decision 2026-07-26: WON'T FIX / ignore. The failing 'Cloudflare Pages' check is posted by the Cloudflare GitHub App's Git integration (deploying a stale 'ict-trader-widget' Pages project) - it is NOT produced by any repo file (verified: no cloudflare/wrangler/pages.dev config in ict-trader-dashboard; the repo's own pages.yml is GitHub Pages for the Svelte SPA, unrelated). Cosmetic and NON-BLOCKING (PRs merge with the red X present). Nothing repo-side can disable an external GitHub App's status; the only definitive silence is removing the Cloudflare Pages app's repo access in GitHub settings (~30s operator action) or disconnecting it in the Cloudflare dashboard - operator chose to leave it and ignore the noise. Treat the 'Cloudflare Pages' red X on dashboard PRs as expected/ignorable.",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -3213,6 +3221,11 @@
           "at": "2026-07-26T07:40:00+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26)",
           "note": "Kept open 2026-07-26 (backlog-drain-tier1): NOT fixable from the repo. Confirmed the ict-trader-dashboard repo contains NO Cloudflare Pages / wrangler / ict-trader-widget assets (only a GitHub Pages workflow, .github/workflows/pages.yml, for the Svelte SPA). The chronically-failing 'Cloudflare Pages' PR check is an EXTERNAL Cloudflare-dashboard GitHub integration deploying a non-existent 'ict-trader-widget' project. PROPOSE-TO-OPERATOR: in the Cloudflare dashboard (or GitHub \u2192 Settings \u2192 Integrations/Apps), disconnect the Cloudflare Pages app from benbaichmankass/ict-trader-dashboard (or repoint it at a real project) so it stops adding a red X to every dashboard PR. Requires Cloudflare-account access no repo change can substitute for."
+        },
+        {
+          "at": "2026-07-26T11:10:00+00:00",
+          "by": "claude (operator-directed housekeeping 2026-07-26)",
+          "note": "Closed wont_fix per operator (2026-07-26). No repo-side lever exists (external Cloudflare GitHub App, not a workflow). Non-blocking; documented ignorable."
         }
       ]
     },
@@ -6228,5 +6241,5 @@
       "action": "Update the sprint log + notebook to '9 required contexts' and the current repo name (or note redirect-safe)."
     }
   ],
-  "updated_at": "2026-07-26T07:05:00+00:00"
+  "updated_at": "2026-07-26T11:10:00+00:00"
 }
