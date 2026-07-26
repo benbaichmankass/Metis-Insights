@@ -29,6 +29,18 @@
       ]
     },
     {
+      "id": "BL-20260726-ALPACA-OPTIONS-ONLY-VIA-IBKR",
+      "opened_at": "2026-07-26T11:55:00+00:00",
+      "opened_by": "claude (operator Alpaca-account direction decision 2026-07-26)",
+      "source": "operator direction decision 2026-07-26 (Alpaca paper-account crunch / can't create a 4th paper account)",
+      "title": "[direction] Make Alpaca OPTIONS-ONLY \u2014 migrate the equity/ETF strategies to IBKR (ib_paper), leaving Alpaca just the options book",
+      "description": "OPERATOR-DECIDED DIRECTION (2026-07-26). Alpaca caps the account at 3 paper logins (all in use), so a dedicated 4th for options isolation (old BL-20260627-OPTIONS-SEPARATE-ACCT) can't be created. Chosen resolution: shrink Alpaca to OPTIONS-ONLY and run the equity/ETF strategies on IBKR instead. IBKR equity/ETF (STK) support already exists (S-IBKR-EQUITY-ETF-SUPPORT-2026-07-07; ib_paper trades SPY/QQQ/IWM/TLT). Migrate the alpaca_paper / alpaca_portfolio equity+ETF strategies (SPY/QQQ/GLD/IWM/TLT/IEF/SLV/USO/GDX/TQQQ/QLD/SPLG/IAUM/SCHA) onto ib_paper (Tier-3 account routing, config/accounts.yaml + config/strategies.yaml \u2014 hard-limit files, operator-approved PR + per-account compat matrix per the prop/backtesting skills). END-STATE: Alpaca = the options book only (1 paper login) \u2192 the 3-account cap is a non-issue AND options has no Alpaca equity positions to collide with (structural isolation for free, closing the old BL-20260627 concern). CAVEATS: (1) options stay on Alpaca \u2014 IBKR options is NOT built (options overlay is Alpaca-specific: AlpacaOptionsData/AlpacaOptionsExecutor); (2) alpaca_live real-money is separately auth-blocked (BL, 'request is not authorized') \u2014 unrelated but relevant to any real-money equity go-live; (3) decide alpaca_portfolio's fate (it mirrors alpaca_live, which isn't trading). Sequencing + compat-matrix + rollback = a dedicated session (suggest branch claude/alpaca-options-only-ibkr). INTERIM until then: Alpaca options stays on the shared alpaca_paper login, isolated by the asset-class filters (status quo).",
+      "tier": 3,
+      "status": "kept_open",
+      "snoozed_until": null,
+      "updates": []
+    },
+    {
       "id": "BL-20260721-BYBIT2-XRP-TPSL-LEGCAP",
       "opened_at": "2026-07-21T05:27:00+00:00",
       "opened_by": "claude (M27 overnight loop, incidental \u2014 post-deploy journalctl tail after merging PR #7254)",
@@ -735,7 +747,7 @@
       "tier": 3,
       "trigger_condition": "Next /system-review (raise to operator); or before alpaca_live options go-live; or any session touching the alpaca shared-login asset-class isolation.",
       "resolution_criteria": "Either (a) the operator decides to wire a dedicated Alpaca paper login for alpaca_options_paper and that lands (own key pair, accounts.yaml api_key_env, secret propagation, verified isolation), OR (b) the operator explicitly decides the shared-login + dual-filter design is acceptable to keep and that decision is recorded here \u2014 at which point close.",
-      "status": "kept_open",
+      "status": "superseded",
       "snoozed_until": null,
       "updates": [
         {
@@ -758,8 +770,16 @@
           "at": "2026-07-26T10:00:23+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 2)",
           "note": "OPERATOR DECISION 2026-07-26: WIRE a dedicated Alpaca paper login for alpaca_options_paper (removes the shared-login dual-filter collision risk). HAND-OFF: operator originates a new Alpaca paper API key+secret pair; I'll pre-create the secret placeholders (init-actions-secrets), then propagate via sync-vm-secrets + point alpaca_options_paper at them. Kept open pending the key pair."
+        },
+        {
+          "at": "2026-07-26T11:55:00+00:00",
+          "by": "claude (operator Alpaca-account direction decision 2026-07-26)",
+          "note": "Superseded 2026-07-26 by the operator's Alpaca-options-only-via-IBKR direction (BL-20260726-ALPACA-OPTIONS-ONLY-VIA-IBKR). Dedicated 4th paper account no longer pursued; interim = shared login + asset-class filters."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T11:55:00+00:00",
+      "resolved_by": "claude (operator Alpaca-account direction decision 2026-07-26)",
+      "resolution_note": "Operator decision 2026-07-26: the dedicated-4th-Alpaca-paper-account approach is DROPPED. Alpaca is capped at 3 paper accounts (all 3 in use: alpaca_paper, alpaca_portfolio, alpaca_options_paper), so a 4th can't be created. Chosen direction instead: make Alpaca OPTIONS-ONLY by migrating the equity/ETF strategies to IBKR (ib_paper STK support already built 2026-07-07, S-IBKR-EQUITY-ETF-SUPPORT) \u2014 once Alpaca holds no equities, the options book has no equity positions to collide with, so the structural isolation this item wanted is achieved WITHOUT a 4th account, and the 3-account cap stops mattering. INTERIM (until equities migrate): options stays on the shared alpaca_paper login, isolated by the two asset-class filters (us_option vs non-us_option) \u2014 the known/mitigated status quo since the 2026-06-27 fix. Superseded by BL-20260726-ALPACA-OPTIONS-ONLY-VIA-IBKR (the migration). NOTE: the empty ALPACA_API_KEY_ID_OPTIONS / ALPACA_API_SECRET_KEY_OPTIONS Actions-secret placeholders created this session are now inert/unneeded (no dedicated options login will be provisioned) \u2014 harmless, can be left empty."
     },
     {
       "id": "BL-20260626-MES-BASE-STALE",
@@ -5638,6 +5658,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
+        },
+        {
+          "at": "2026-07-26T11:55:00+00:00",
+          "by": "claude (operator Alpaca-account direction decision 2026-07-26)",
+          "note": "Fix built 2026-07-26 (draft PR #7653, branch claude/bybit2-submin-qty-noise): typed BelowVenueMinQtyRefusal routes the sub-lot-minimum refusal to a quiet benign skip \u2014 no ERROR-level bybit_place_order_failed banner outcome, no execution-failure ping, no consecutive-rejection-counter bump. No sizing change (still refuses, never oversizes). Tier-2, awaiting operator merge/deploy. Will move to resolved once merged + live-verified."
         }
       ]
     },
@@ -6241,5 +6266,5 @@
       "action": "Update the sprint log + notebook to '9 required contexts' and the current repo name (or note redirect-safe)."
     }
   ],
-  "updated_at": "2026-07-26T11:10:00+00:00"
+  "updated_at": "2026-07-26T11:55:00+00:00"
 }
