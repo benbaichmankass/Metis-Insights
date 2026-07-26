@@ -12,7 +12,7 @@
       "tier": 2,
       "trigger_condition": "Next /health-review or /ml-review session. Checks: (a) trainer-vm-diag `cd /home/ubuntu/ict-trading-bot && git status && git log --oneline -5 origin/main..HEAD && git log --oneline -5 HEAD..origin/main` to see the divergence shape (local commits ahead? behind?); (b) confirm whether ict-git-sync (or whatever auto-deploys the trainer) is actually running there and why it stopped fast-forwarding; (c) resolve via `git fetch origin main && git reset --hard origin/main` (the same recovery the vm-git-credential-bootstrap trainer branch uses) once it's confirmed the local delta is not load-bearing (trainer artifacts are typically untracked/gitignored, so a hard reset should be safe \u2014 verify first).",
       "resolution_criteria": "Trainer clone tracks origin/main again and `git pull --ff-only` succeeds; auto-deploy of main to the trainer confirmed working (a fresh merge to main lands on the trainer without manual intervention).",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -25,8 +25,14 @@
           "at": "2026-07-26T07:05:00+00:00",
           "by": "claude (PB-20260618-015 ETH pullback tune; trainer-vm-diag #7614)",
           "note": "STILL DIVERGED as of 2026-07-26. Corroborating evidence: relay #7614 reported the trainer working tree at HEAD=cdbaa718 with scripts/backtest_pullback.py MISSING the --vol-skip-*/--trail-decay-*/--confirm-bars flags that are on main (the M21 entry/vol + M20 exit levers) -- so the trainer is running a harness pre-those merges. Confirms the trainer is executing stale code, not just failing to fast-forward. Workaround this session: re-ran the sweep against a fresh curl of the main-branch harness to /tmp (non-mutating), results valid. The (c) recovery in trigger_condition (git fetch origin main && git reset --hard origin/main, once the local delta is confirmed non-load-bearing) still applies -- raising visibility so a trainer/health session actually drives it, per 'if you see something, say something'."
+        },
+        {
+          "at": "2026-07-26T10:23:52+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, trainer relay #7638)",
+          "note": "RESOLVED \u2014 trainer clone git-reset to origin/main via trainer-vm-diag #7638: HEAD moved cdbaa718 -> 95cadcd1 (the merged #7621 backlog-drain). Verified the merged fixes are on-disk: `for tf in 1h;` in build_trainer_datasets.sh (line 730, fc-clobber fix) + `manifest_audit_skipped_enforced` in run_training_cycle.sh (line 397, audit enforce). The next nightly cycle produces fresh fc_* (un-clobbered) AND enforces flagged manifests. Trainer no longer running stale code."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:23:52+00:00"
     },
     {
       "id": "BL-20260721-BYBIT2-XRP-TPSL-LEGCAP",

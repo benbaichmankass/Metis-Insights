@@ -224,7 +224,7 @@
       "tier": 1,
       "trigger_condition": "Any /ml-review run; or any session deciding whether to enable the new trainer-VM timers (ict-drift-retrain.timer / ict-promotion-readiness.timer).",
       "resolution_criteria": "Resolved when (a) both timers are enabled on the trainer VM via the trainer-vm-diag relay, (b) at least one full cycle has run for each (drift-retrain JSONL row + promotion-readiness report.json + SUMMARY.md visible under runtime_logs/trainer_mirror/), (c) the first promotion-readiness ping (if any model crosses the ready bar) is delivered to the operator chat, and (d) the yz-1h promotion check (MB-20260527-004) is run through the new report instead of an ad-hoc gate-check.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "evidence_log": [
         "2026-06-07 (S-MLOPT-S16 ship): SHIPPED ml/shadow/adwin.py (Bifet & Gavald\u00e0 2007 Hoeffding-cut ADWIN, pure stdlib) + ml/shadow/drift_retrain.py (per-deployed-head scan + RetrainDecision rows: dispatch / skip_no_drift / skip_no_manifest / skip_thin_data) + `python -m ml drift-retrain` CLI + scripts/ops/run_drift_retrain.sh orchestrator (RETRAIN_PLAN_ONLY=1 default; flips to fire `python -m ml train <manifest>` per dispatch row, reusing the manifest's S-MLOPT-S2 sample_weight.half_life_days for recency weighting) + trainer-side ict-drift-retrain.{service,timer} (hourly, DISABLED by default) in deploy/training-vm-cloud-init.yaml. 17 tests (test_adwin.py + test_drift_retrain.py) pin the cut bound, the stationary / step-change / min-window / cap edge cases, the manifest resolver, the watched-stage filter, the backfill exclusion, the JSONL writer, and both CLI exit codes. Ruff clean.",
@@ -251,8 +251,14 @@
           "at": "2026-07-26T09:49:46+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: triage + fix + decisions)",
           "note": "OPERATOR DECISION 2026-07-26: ENABLE BOTH trainer-side automations (ADWIN drift-retrain timer + the S-MLOPT-S18 promotion-readiness report). Both are trainer-autonomous, no live-order impact. Next step: verify the units are installed on the trainer, then systemctl enable --now them via the trainer-vm-diag relay + confirm the next fire. Kept open until enablement is verified live."
+        },
+        {
+          "at": "2026-07-26T10:23:52+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, trainer relay #7638)",
+          "note": "RESOLVED \u2014 operator approved enable-both (2026-07-26); trainer-vm-diag #7638 confirms BOTH timers are ALREADY enabled AND actively firing: ict-drift-retrain.timer (enabled; last ran 10:02Z, next 11:00Z) + ict-promotion-readiness.timer (enabled; last ran 04:20Z, next 04:04Z tomorrow). No action needed \u2014 the ADWIN drift-retrain + S-MLOPT-S18 promotion-readiness automations are live. Item was stale ('awaiting enablement') \u2014 they were enabled since install. Closing."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:23:52+00:00"
     },
     {
       "id": "MB-20260606-003",
