@@ -495,6 +495,43 @@ def test_default_profile_recent_shadow_entry_blocks():
     assert not report.ready
 
 
+def test_no_required_calendar_edge_gate_under_regime_profile():
+    # GOVERNANCE GUARD — docs/CLAUDE-RULES-CANONICAL.md § "Promotion evidence —
+    # offline edge, live mechanics" (2026-07-26). A regime head's EDGE is proven
+    # offline (oos_edge); a fixed calendar-time wait ("N days at stage") is a
+    # policy artifact, not evidence, so it must NEVER be a required (blocking)
+    # gate under the regime profile. `shadow_soak` is the only calendar-time
+    # gate; this asserts it stays advisory. A future edit that re-requires it
+    # (or adds another required time-since-stage gate) fails CI here.
+    th = regime_classifier_thresholds()
+    assert th.require_shadow_soak is False
+    entry = _entry(
+        metrics={"macro_f1": 0.66, "f1_range": 0.73, "f1_volatile": 0.48, "n_eval": 8760},
+        runs=_runs("macro_f1", [0.66, 0.66, 0.66]),
+        created_days_ago=1,
+        stage_history=(
+            StageEvent(
+                from_stage="research_only", to_stage="shadow",
+                by="t", reason="x",
+                at=datetime.now(timezone.utc) - timedelta(days=1),
+            ),
+        ),
+    )
+    report = evaluate_gates(
+        entry, attribution=_thin_live_attr(),
+        drift={"overall_verdict": "no_change"},
+        oos_edge=_good_oos_edge(), live_regime_auc=0.72,
+        live_parity=_good_parity(), labels_accruing=_good_labels(),
+        thresholds=th,
+    )
+    required = {r.name for r in report.results if r.required}
+    assert "shadow_soak" not in required, (
+        f"a calendar-time gate is required under the regime profile: {required}"
+    )
+    # oos_edge (the offline-edge gate) IS required — it carries the promote decision.
+    assert "oos_edge" in required
+
+
 def test_default_profile_blocks_same_thin_model():
     # The identical thin-live-trade regime head is NOT ready under the
     # decision-model profile: it fails the 200-trade floor and the required

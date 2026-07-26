@@ -522,6 +522,41 @@ disagree, the actual code and active deployment files take precedence
 over summaries; this document remains the authority for **process**
 rules.
 
+## Promotion evidence — offline edge, live mechanics (2026-07-26, binding)
+
+Adopted after the de-soak workplan
+([`docs/research/WORKPLAN-desoak-and-milestone-closeout-2026-07-26.md`](research/WORKPLAN-desoak-and-milestone-closeout-2026-07-26.md))
+found that the "weeks of soak" blocking ML promotions was mostly stale framing +
+un-retired policy gates, not missing evidence. The infrastructure to prove an
+edge over history already exists (purged walk-forward CV `oos_edge`; the
+`replay_pregate_fleet` / `backfill-shadow-predictions` replays; the point-in-time
+`valuation_snapshot_backfill`), so a gate that instead **waits on live outcome
+statistics to accrue** re-proves offline evidence on a slower clock.
+
+**The rule.** For any promotion / graduation gate:
+
+1. **Edge is proven OFFLINE.** Whether a model/head/policy has an edge is a
+   question historical data already answers — purged walk-forward CV, a
+   live-faithful historical replay, or an as-of point-in-time backfill. That is
+   the gate that carries the promote decision.
+2. **A live soak may only prove serving-MECHANICS** — that the live pipeline
+   feeds the model what it trained on (train/serve parity, label accrual) and
+   that it hasn't drifted. These accrue in **hours** (bar cadence), not weeks,
+   and drift is a *rolling* check, not a fixed multi-week wait.
+3. **No gate may require calendar-time accrual to prove edge.** A fixed
+   "N days at stage" / "wait for K live episodes" requirement is a policy
+   artifact, not evidence — if the offline edge + live mechanics + rolling drift
+   all pass, the model is promotable. Such a gate is demoted to advisory
+   (computed + reported, non-blocking), mirroring the 2026-07-19 M25 reframe
+   (`live_regime_discrimination`) and the 2026-07-26 WS-1 `shadow_soak` demotion.
+
+This is **mechanically guarded**: `tests/ml/test_gates.py` asserts that no
+required gate under the regime-classifier profile is a calendar-time edge gate
+(the `shadow_soak` calendar gate stays `required=False` there). A future edit
+that re-requires it fails CI. Promotion past shadow remains the operator-gated
+Tier-3 switch regardless — this rule governs *what counts as evidence*, never
+*who* approves the live promotion.
+
 ## Documentation Hygiene & Premise Verification (2026-05-17)
 
 Adopted in response to the PR #1358 incident, where a Claude session
