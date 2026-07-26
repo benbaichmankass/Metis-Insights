@@ -50,6 +50,14 @@ trainer_config:
     - fc_skew
     - fc_q10_rel
     - fc_q90_rel
+  # Expected-optional (MB-20260719-DATASET-AUDIT-NOISE option a): the frozen-TSFM
+  # forecast (fc_*) block reads dead until the Chronos forecast is computed into
+  # the dataset (M19 T0.4 — trainer-side; live parity is a separate operator-gated
+  # promotion step). The audit records their deadness but must NOT trip the
+  # dead-feature alarm until the forecast source is wired. Remove once fc_* is
+  # populated (then a still-dead column is a real bug again).
+  expected_optional_features:
+    - "fc_*"
   categorical_columns:
     - vol_bucket
     - hour_of_day

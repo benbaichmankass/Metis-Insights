@@ -48,6 +48,15 @@ trainer_config:
     - log_return_lag_2
     - hour_of_day
     - dayofweek
+  # Expected-optional (MB-20260719-DATASET-AUDIT-NOISE option a): the funding/OI
+  # columns read dead until a `market_features` rebuild on builder v4 JOINS the
+  # funding/OI side-stream (S-MLOPT-S11 — not yet wired). The build-time audit
+  # records their deadness but must NOT trip the dead-feature alarm until the
+  # side-stream is joined. Remove this list once funding/OI is populated (that's
+  # when a still-dead column becomes a real bug again).
+  expected_optional_features:
+    - "funding_rate*"
+    - "open_interest_*"
   categorical_columns:
     - vol_bucket
     - hour_of_day

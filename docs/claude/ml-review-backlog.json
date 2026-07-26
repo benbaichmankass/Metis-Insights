@@ -2148,6 +2148,11 @@
           "at": "2026-07-26T08:20:00+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator approved option a)",
           "note": "OPTION (a) IMPLEMENTED 2026-07-26 (operator-approved). ml/datasets/audit.py now honours a per-manifest `trainer_config.expected_optional_features` declaration (exact names or fnmatch globs like `fc_*`): a flagged-dead column that matches is recorded in a new `expected_optional_dead` report field + marked `expected_optional:true` on the feature, but is kept OUT of `flags`/`quarantine` (the alarm channel). Default is EMPTY -> nothing is silenced unless a manifest EXPLICITLY opts a family out, so an UNDECLARED dead feature (the ETH-xa class) still fully alarms (regression test pins this: a declared `fc_*` is silenced while an undeclared `xa_peer` in the SAME manifest still quarantines). +6 audit tests. POPULATED the two highest-confidence, already-tracked not-yet-wired cases: (1) btc-regime-5m-lgbm-flow-v1 order-flow columns (ofi/ofi_zscore/vpin/order_imbalance/rel_spread_mean/microprice_dev) \u2014 0.0 until the ict-orderflow-capture side-car accrues forward L2 (MB-20260604-002/MB-20260613-002, DATA-BLOCKED); (2) conviction-meta-{v1,base-btc-v1,emb-btc-v1} c_reg \u2014 the regime conviction lens is not real yet (MB-20260618-XA-D2B). Each manifest carries a comment saying to REMOVE the declaration once the source is wired (that's when a still-dead column becomes a real bug again). Verified all 4 manifests parse and the resolver reads the field. REMAINING per-head declarations (fc_*, corpus_emb_*, funding open_interest_*, parkinson/gk/rs/yz vol) are left for ml-review to add as each head's intent is confirmed \u2014 the mechanism is now in place. With empty-dataset separation + these declarations, the dead-feature alarm channel is high-precision: it fires only on UNEXPECTED dead features / degenerate labels in datasets that built."
+        },
+        {
+          "at": "2026-07-26T08:45:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: declare remaining side-streams)",
+          "note": "REMAINING SIDE-STREAM FAMILIES DECLARED 2026-07-26 (operator directive). Added `expected_optional_features` to the three genuinely-not-yet-wired side-stream heads (manifest headers confirm each awaits a data source, none are advisory/live-influencing): btc-regime-1h-lgbm-funding-v1 (funding_rate*/open_interest_* \u2014 awaits a market_features builder-v4 rebuild joining the funding/OI side-stream, S-MLOPT-S11); btc-regime-15m-lgbm-fc-v1 + btc-regime-15m-lgbm-fc-pcv-v2 (fc_* \u2014 awaits the frozen-TSFM Chronos forecast computed into the dataset; fc-v1 is explicitly candidate/offline-only); btc-regime-15m-lgbm-corpusemb-pcv-v1 (corpus_emb_* \u2014 awaits the corpus-SSL encoder, which currently builds an empty dataset). Each carries a 'remove once wired' comment. Verified all 4 parse + the globs match the flagged columns. DELIBERATELY NOT DECLARED: the range-vol estimators (parkinson/garman_klass/rogers_satchell/yang_zhang) on setup-candidates-metalabel-xsym-yz-v1 \u2014 those are COMPUTED FROM OHLC that's present (builder v2 emits them per the manifest), so their deadness is a REAL build bug (dataset not rebuilt on builder v2), NOT a missing side-stream; silencing it would bury a fixable bug. Filed as MB-20260726-XSYMYZ-RANGEVOL-DEAD. Residual (not silenced, worth a look): hour_of_day/dayofweek/log_return_lag_1/2 flag on btc-regime-15m-lgbm-base-vt003-pcv-v1 (log-return lags dead is suspicious) and hour_of_day on mes-regime-1d-lgbm-v2 (legitimately constant on daily bars). Net after all this: the dead-feature alarm channel now fires only on UNEXPECTED dead features / degenerate labels in datasets that built \u2014 high-precision, stop-the-line, as the operator directive intended."
         }
       ]
     },
@@ -2512,6 +2517,18 @@
         }
       ],
       "resolved_at": null
+    },
+    {
+      "id": "MB-20260726-XSYMYZ-RANGEVOL-DEAD",
+      "opened_at": "2026-07-26T08:45:00+00:00",
+      "opened_by": "claude (backlog-drain-tier1 session 2026-07-26, operator: declare remaining side-streams)",
+      "source": "MB-20260719-DATASET-AUDIT-NOISE classification pull (trainer dataset_audit.jsonl 2026-07-26).",
+      "title": "setup-candidates-metalabel-xsym-yz-v1 range-vol estimators read DEAD despite being OHLC-computable \u2014 the dataset wasn't rebuilt on setup_candidates builder v2",
+      "description": "The audit flags parkinson_vol/garman_klass_vol/rogers_satchell_vol/yang_zhang_vol as dead (nan) on setup-candidates-metalabel-xsym-yz-v1. Unlike the fc_*/corpus_emb_*/funding/order-flow side-streams (which await an external source), these four range-vol estimators are COMPUTED FROM each candidate's past-only OHLC window by setup_candidates builder v2 (the manifest header documents this + says to rebuild with --overwrite so the columns are present). OHLC is present, so dead range-vol columns mean the on-disk dataset was built on builder v1 (no range-vol emission) or the emission is broken. This is a REAL fixable build bug, deliberately NOT silenced via expected_optional_features. FIX: rebuild the xsym-yz setup_candidates dataset on builder v2 (--overwrite) and confirm the four range-vol columns populate; then re-audit. If they're STILL dead after a v2 rebuild, the estimator computation in the setup_candidates family is broken and needs a code fix.",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
   "updated_at": "2026-07-26T06:42:00+00:00"

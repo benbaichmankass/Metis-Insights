@@ -30,6 +30,13 @@ trainer_config:
   - fc_skew
   - fc_q10_rel
   - fc_q90_rel
+  # Expected-optional (MB-20260719-DATASET-AUDIT-NOISE option a): the frozen-TSFM
+  # forecast (fc_*) block reads dead until the Chronos forecast is computed into
+  # the dataset (fc-pcv v2 soak, MB-20260721-FCPCV-V2-SOAK). The audit records
+  # their deadness but must NOT trip the dead-feature alarm until the forecast
+  # source is wired. Remove once fc_* is populated.
+  expected_optional_features:
+  - "fc_*"
   categorical_columns:
   - vol_bucket
   - hour_of_day
