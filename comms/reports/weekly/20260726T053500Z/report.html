@@ -1,0 +1,185 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — weekly</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — weekly</h1>
+<p class="meta">Generated 2026-07-26T05:35:00+00:00 · window 2026-07-19T05:20:12+00:00 → 2026-07-26T05:35:00+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>Quiet, plumbing-healthy week in a chop regime. Real money (bybit_2, the only live real account) lost -$13.83 over 7 closed (1W/6L, PF 0.15) — small dollars, all SL-appropriate exits; entry-edge got whipsawed (worst: eth_pullback_2h -$8.69). Services/DB/accounts all healthy, no alert banners. ML: 1 advisory head flagged for drift-demote (sol-regime fc-pcv-v1); promote decisions still blocked by the readiness oos_edge OOM.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>eth_pullback_2h real-money leg bleeding — worst leg this week (-$8.69, 0/2), fires long into chop</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>Add the ADX/regime entry gate PB-20260618-015 / PB-20260614-001 propose. Real-money ETH pullback long keeps entering chop; grade C &#x27;late&#x27; on the executed close.</span></li>
+<li><b>sol-regime-15m-lgbm-fc-pcv-v1 (advisory) flagged for DEMOTE — significant score drift</b> <span class="pill">ml · T3</span> ⚠️ operator<br><span class='muted'>Today&#x27;s promotion-readiness recommends advisory-&gt;shadow. Fresh-data v2 sibling is soaking (n=486). Decide: demote v1, or gate-check + swap v2 in.</span></li>
+<li><b>Promotion pipeline stalled — readiness can&#x27;t compute oos_edge (no datasets_root / 6GB trainer OOM)</b> <span class="pill">ml · T1</span><br><span class='muted'>92 models, 0 promote signals derivable because the readiness sweep ran without datasets. MB-20260719-PROMOREADY-OOSEDGE-OOM blocks every shadow-&gt;advisory promote decision.</span></li>
+<li><b>Prop breakout_1: thin DD cushion (~$125 to floor) + 6-day-stale balance</b> <span class="pill">health · T2</span> ⚠️ operator<br><span class='muted'>equity $4825.61 vs $4700 static-DD floor = $125.61 cushion; last account-status 2026-07-20. Request a fresh balance report-back; 1 open ticket awaiting_report.</span></li>
+<li><b>Degenerate low-confidence emissions — uso_trend_1h / slv_trend_1h at conf ~0.03</b> <span class="pill">performance · T1</span><br><span class='muted'>3 D-grade packages this window emitted at conf 0.03-0.04 &#x27;should_skip&#x27; (never filled). Review the confidence floor / emission on these legs (PERF-20260601-010).</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">80 open / 249 total</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">50 open / 79 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">37 open / 91 total</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>performance</span> eth_pullback_2h: add ADX/regime entry gate (real-money ETH long fires into chop; worst leg this week).</li>
+<li><span class='pill'>ml</span> sol-regime-15m-lgbm-fc-pcv-v1: demote advisory-&gt;shadow (drift) and/or gate-check+swap the fresh-data v2 sibling.</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>Chop regime is the through-line: market_context shows BTC +0.75% / SOL -0.11% / XRP +0.94% (rangey with wicks) and audit-tail ADX 15-24 (transitional/chop) — this is why HEALTH reads clean while PERFORMANCE reads weak: trend &amp; pullback legs got whipsawed, not broken. Ties eth_pullback_2h loss + the regime-router/entry-gate backlog (PB-20260614-001) + market context into one story.</li>
+<li>All 4 executed real-money losses exited on SL/stale-stop appropriately — the exit machinery is working; the gap is entry selectivity in chop.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>services</td><td class="sev-ok">🟢 ok</td><td>ict-trader-live / ict-web-api / ict-telegram-bot / ict-claude-bridge all active; all safety timers armed (liveness-watchdog, web-api-watchdog, db-integrity, git-sync, insights x2, hourly/health-snapshot). ict-heartbeat retired (expected).</td></tr>
+<tr><td>heartbeat_pipeline</td><td class="sev-ok">🟢 ok</td><td>Heartbeat &#x27;running&#x27; (age 177s), last tick 05:23:39Z, tick_age 53s, 51 strategies loaded. bot_uptime ~44min =&gt; a recent restart at git_sha 47747d17 (current main) — consistent with ict-git-sync auto-deploy; no wedge.</td></tr>
+<tr><td>db_integrity</td><td class="sev-ok">🟢 ok</td><td>trade_journal.db 634MB, all 16 tables present, 0 per-table errors, no load_error. trades=4020, order_packages=3288, signals=1.20M.</td></tr>
+<tr><td>ib_connection</td><td class="sev-watch">🟡 watch</td><td>Both MES IB clients state=connected, not wedged, account_data_ready; a liveness_probe_timeout occurred 04:53Z then recovered by 05:19Z (transient cold-flow, retry-tolerant probe absorbed it). No naked-position/monitor-blind alert.</td></tr>
+<tr><td>account_reachability</td><td class="sev-ok">🟢 ok</td><td>All declared-live probeable accounts reachable (bybit_2 real + bybit_1/bybit_portfolio/ib_paper/alpaca_paper/alpaca_portfolio/alpaca_options_paper paper). Nulls are shelved/API-less (ib_live/alpaca_live/oanda_practice/breakout_1) — expected.</td></tr>
+<tr><td>alert_delivery</td><td class="sev-ok">🟢 ok</td><td>/api/bot/notifications count=0, has_alerts=false, banners=[]. No trainer_down / account_down / orphan_unreconciled banner active.</td></tr>
+<tr><td>prop_pipeline</td><td class="sev-watch">🟡 watch</td><td>prop reconcile clean (51 tickets/25 fills, 0 unacted). BUT breakout_1 equity $4825.61 sits only ~$125.61 above the $4700 static-DD floor (thin cushion) and the last account-status snapshot is 6 days stale (2026-07-20T08:28Z). 1 open ticket awaiting_report (valid_until 05:53Z).</td></tr>
+<tr><td>data_freshness</td><td class="sev-watch">🟡 watch</td><td>Trainer promotion_readiness + forecasts mirrors updated today (04:20Z/05:24Z). MES intraday manifests still skip empty_dataset (MES base frozen 06-12, known).</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-13.83</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v neg">$-7.40 ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">7</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">14.3%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-1.98</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.15</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-13.83</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">1</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>eth_pullback_2h</td><td>2</td><td>0.0%</td><td class="neg">$-8.69</td></tr>
+<tr><td>ict_scalp_5m</td><td>1</td><td>0.0%</td><td class="neg">$-3.26</td></tr>
+<tr><td>trend_donchian_xrp_4h</td><td>1</td><td>0.0%</td><td class="neg">$-1.49</td></tr>
+<tr><td>trend_donchian</td><td>1</td><td>0.0%</td><td class="neg">$-0.25</td></tr>
+<tr><td>xrp_pullback_2h</td><td>2</td><td>50.0%</td><td class="neg">$-0.14</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-27,963.56</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">41</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">22.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-682.04</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.33</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-27,966.55</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">9</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>uso_trend_1h</td><td>4</td><td>50.0%</td><td class="pos">+$9,300.25</td></tr>
+<tr><td>ict_scalp_avax_5m</td><td>1</td><td>0.0%</td><td class="neg">$-767.98</td></tr>
+<tr><td>xrp_pullback_2h</td><td>2</td><td>0.0%</td><td class="neg">$-1,147.77</td></tr>
+<tr><td>trend_donchian</td><td>2</td><td>0.0%</td><td class="neg">$-1,336.94</td></tr>
+<tr><td>avax_pullback_2h</td><td>1</td><td>0.0%</td><td class="neg">$-1,552.93</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">0</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">+$144.77</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">+$125.61</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">51</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">4 full dossiers, 14 summarized (outliers-only (weekly/monthly) — the 4 executed real-money closes detailed; 14 shadow/unfilled packages summarized in pnl_by_class.per_strategy + grading histogram).</p>
+<details><summary><span class="pill real">real_money</span> ETHUSDT long · eth_pullback_2h · <span class="neg">$-4.43</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3803</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-21T18:05:03+00:00</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1919.58</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>1876.45</div><div class="k">target</div><div>2109.62</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler_filled</div><div class="k">setup</div><div>eth_pullback_2h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>late</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>conf 0.42; entry late into chop; -0.99R</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> BTCUSDT short · ict_scalp_5m · <span class="neg">$-3.26</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3909</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-23T19:44:07+00:00</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>64765.4</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>64960.32</div><div class="k">target</div><div>64473.02</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>sl</div><div class="k">setup</div><div>ict_scalp_5m</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>optimal</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>conf 0.89; clean setup; stopped -1.01R</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> XRPUSDT short · trend_donchian_xrp_4h · <span class="neg">$-1.49</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>3948</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-24T14:28:03+00:00</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1.0884</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>1.1231</div><div class="k">target</div><div>0.9806</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>stale_stop</div><div class="k">setup</div><div>trend_donchian_xrp_4h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>optimal</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>conf 0.84; stale-stop exit -0.33R</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> XRPUSDT short · xrp_pullback_2h · <span class="neg">$-2.57</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4009</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-25T14:01:33+00:00</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1.0903</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>1.1032</div><div class="k">target</div><div>0.9824</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>sl_cross</div><div class="k">setup</div><div>xrp_pullback_2h</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>conf 0.54; sl_cross -0.96R</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>63937.3</td><td>64420.0</td><td>66968.5</td><td>63724.1</td><td class="pos">0.8%</td><td>Rangey/chop — traded a ~$3.2k band, closed near open; dipped to 63.7k.</td></tr>
+<tr><td>ETHUSDT</td><td>1841.85</td><td>1883.81</td><td>1956.59</td><td>1837.43</td><td class="pos">2.3%</td><td>Modestly up but choppy (hi 1956 then faded).</td></tr>
+<tr><td>SOLUSDT</td><td>75.04</td><td>74.96</td><td>78.88</td><td>73.43</td><td class="neg">-0.1%</td><td>Flat/rangey — round-trip week, no trend.</td></tr>
+<tr><td>XRPUSDT</td><td>1.0888</td><td>1.099</td><td>1.1646</td><td>1.0831</td><td class="pos">0.9%</td><td>Chop — spiked to 1.16 then reverted; ADX ~16-20 (chop).</td></tr>
+<tr><td>MES</td><td>7558.25</td><td>7447.5</td><td>7632.0</td><td>7411.75</td><td class="neg">-1.5%</td><td>S&amp;P futures sold off ~1.5%.</td></tr>
+<tr><td>MGC</td><td>4008.7</td><td>4070.8</td><td>4171.3</td><td>3962.9</td><td class="pos">1.6%</td><td>Gold up ~1.5%.</td></tr>
+<tr><td>SPY</td><td>750.93</td><td>738.9</td><td>755.54</td><td>735.25</td><td class="neg">-1.6%</td><td>Equities down ~1.6%.</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>sol-regime-15m-lgbm-fc-pcv-v1</td><td>advisory</td><td>shadow n=525</td><td>—</td><td>significant</td><td>DEMOTE recommended (advisory-&gt;shadow) — score-distribution drift verdict &#x27;significant&#x27;. Order-influencing for SOL. v2 sibling soaking as replacement.</td></tr>
+<tr><td>btc-regime-15m-lgbm-fc-pcv-v1</td><td>advisory</td><td>shadow n=549</td><td>—</td><td>—</td><td>advisory, shadow n=549 (mean 0.966); BTC vol-gate live head. Held.</td></tr>
+<tr><td>btc-regime-15m-lgbm-v2</td><td>advisory</td><td>shadow n=1354</td><td>—</td><td>—</td><td>advisory n=1354 mean 0.927.</td></tr>
+<tr><td>mes-regime-5m-lgbm-v2</td><td>advisory</td><td>shadow n=1002</td><td>—</td><td>—</td><td>advisory n=1002 mean 0.699.</td></tr>
+<tr><td>exit-head-donchian-1h-v1</td><td>advisory</td><td>shadow n=96</td><td>—</td><td>—</td><td>exit head advisory n=96 (M20).</td></tr>
+<tr><td>btc-regime-15m-lgbm-fc-pcv-v2</td><td>shadow</td><td>shadow n=508</td><td>—</td><td>—</td><td>fresh-data v2 sibling soaking n=508 (swap candidate for frozen v1).</td></tr>
+<tr><td>sol-regime-15m-lgbm-fc-pcv-v2</td><td>shadow</td><td>shadow n=486</td><td>—</td><td>—</td><td>fresh-data v2 sibling soaking n=486 (swap candidate for the drifting v1).</td></tr>
+<tr><td>setup-quality-lgbm-v2</td><td>shadow</td><td>shadow n=4962</td><td>—</td><td>—</td><td>degenerate/underperforming (shadow mean -0.47) — known BL-20260526-003 / too little labeled data.</td></tr>
+<tr><td>execution-quality-baseline-v0</td><td>shadow</td><td>shadow n=4962</td><td>—</td><td>—</td><td>baseline mean -0.20 (degenerate baseline, expected).</td></tr>
+</table></div>
+<h3>Promotion / demotion recommendations (Tier-3)</h3><ul class='pri'>
+<li>DEMOTE <b>sol-regime-15m-lgbm-fc-pcv-v1</b> advisory→shadow: Significant score-distribution drift (promotion-readiness 2026-07-26T04:20Z). Consider gate-check + swap the fresh-data v2 sibling (shadow n=486) rather than run the advisory head undefended. Tier-3, operator-gated.</li>
+</ul>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li>DEMOTE_SHADOW <b>sol-regime-15m-lgbm-fc-pcv-v1</b> — promotion-readiness 2026-07-26T04:20Z: advisory-&gt;shadow, significant score-distribution drift; v2 sibling soaking.</li>
+<li class='muted'>Promotion-readiness (92 models): 0 promote, 1 demote (sol-regime fc-pcv-v1 drift), 91 hold. No M7 KILL/PROMOTE surfaced on live strategies. Real-money legs all HOLD; eth_pullback_2h is a demote-watch on real money (bleeding, Tier-3 entry-gate proposal). Promote signals are otherwise uncomputable this run (oos_edge OOM).</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">1</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">False</div></div>
+</div>
+<p class='muted'>Daily cycle ran today 01:49Z; most manifests OK; MES intraday manifests skip empty_dataset (known base-stale). No manifest_quarantine/OOM cycle event in the tail. Registry 92 healthy. Readiness sweep evidence-blocked.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>5m regime heads (btc/eth/sol/mes)</td><td>accruing</td><td>n ~3000-5300 shadow, means healthy 0.67-0.99.</td></tr>
+<tr><td>15m regime heads (btc/eth/sol/mes)</td><td>accruing</td><td>n ~500-1900 shadow; fc-pcv v2 siblings n~486-508.</td></tr>
+<tr><td>sol-regime-15m-lgbm-fc-pcv-v1 (advisory)</td><td>gate_met</td><td>DEMOTE gate met — significant drift; flagged.</td></tr>
+<tr><td>conviction-meta-v1</td><td>accruing</td><td>shadow n=4962.</td></tr>
+<tr><td>exit heads (donchian 1h/peak)</td><td>accruing</td><td>advisory n=96 / shadow n=95.</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 Real-money week net NEGATIVE: -$13.83, PF 0.15, 1/7 wins (small $; chop-driven, exits fine).</li><li>🚩 eth_pullback_2h worst real leg (-$8.69, 0/2) — fires long into chop; Tier-3 ADX-gate proposed.</li><li>🚩 sol-regime-15m-lgbm-fc-pcv-v1 advisory head flagged for DEMOTE (significant drift) — order-influencing for SOL.</li><li>🚩 Promotion pipeline evidence-blocked: readiness oos_edge sweep OOMs / lacks datasets_root =&gt; 0 promote signals computable (91/92 hold on insufficient-data).</li><li>🚩 Prop breakout_1 thin: ~$125 to the $4700 static-DD floor + balance snapshot 6 days stale.</li><li>🚩 account_reachability: ALL declared-live accounts reachable — no down account this window.</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>MB-20260721-FCPCV-V2-SOAK</code></td><td>ml</td><td>⏳ soaking</td><td>fc-pcv v2 fresh-data siblings soaking (btc n=508, sol n=486) as swap for the frozen/drifting v1 advisory heads.</td><td>v2 gate-check ready</td></tr>
+<tr><td><code>MB-20260628-REGIME-SOAK-READINESS</code></td><td>ml</td><td>⏳ soaking</td><td>ETH/SOL regime shadow heads accruing (n=1200-1300); RG4 re-check when mature.</td><td>readiness oos_edge unblocked</td></tr>
+<tr><td><code>MB-20260721-MES-15M-HEAD-PARKED</code></td><td>ml</td><td>🗳️ awaiting-decision</td><td>mes-regime-15m-lgbm-v2 reads gate-ready (n=1204) — 2nd same-symbol advisory-head decision parked.</td><td>operator go</td></tr>
+<tr><td><code>PB-20260618-015</code></td><td>performance</td><td>🗳️ awaiting-decision</td><td>eth_pullback_2h real-money cell under watch — worst leg this week; ADX-gate proposal ready.</td><td>operator go on Tier-3 gate</td></tr>
+<tr><td><code>PB-20260617-002</code></td><td>performance</td><td>⏳ soaking</td><td>Graduate the ExitPlan ladder to the real exit once the soak has accrued (exit-head-donchian-1h-v1 advisory n=96).</td><td>soak volume + backtest gate</td></tr>
+<tr><td><code>BL-20260624-MHG-CLOSE-CONFIRM-VERIFY</code></td><td>health</td><td>🔁 verify</td><td>IB close-confirm fix holding (MHG/MGC healthy, IB reconnected clean, no naked-orphan alert).</td><td>next IB reset window</td></tr>
+</table></div>
+<footer>report_id RPT-20260726-053500-weekly · reviewer claude · prior RPT-20260722-184651-since-last · ICT Trading Bot system-report</footer></div></body></html>
