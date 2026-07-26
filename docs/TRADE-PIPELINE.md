@@ -181,13 +181,22 @@ If a stage is added, removed, or reordered, also update the top-level diagram be
 
 **Description:** Per-account `mode: live | dry_run` in `config/accounts.yaml` is the canonical execution gate. `_submit_order` dispatches by the account's exchange: Bybit (`pybit`) for BTCUSDT, and the `interactive_brokers` branch (`IBClient.place`) for MES futures — a native bracket (market entry + TP limit + SL stop) snapped to the 0.25 tick grid; IB uses no API keys (auth is the Gateway login session). A symbol→exchange dispatch gate ensures a BTCUSDT signal never reaches the MES account and vice-versa. Dry-run mode logs the intended order but does not submit. There is no process-wide live/dry switch — every account is independent, so live and dry coexist within one bot instance (e.g. `ib_paper` live on paper money, `ib_live` held dry_run).
 
+This stage is **broker-generic** by design — the two branches above are the reference detail, but `_submit_order` dispatches the same way for every configured integration. Notable per-broker behaviours (see each connector for the full contract):
+
+- **Alpaca** (`AlpacaClient`, equities/ETFs like SPY/QQQ + the options-expression paper account): bracket orders reject fractional shares, so these accounts size in **whole shares** (`risk.WHOLE_UNIT_QTY_EXCHANGES`, sub-1-share ⇒ per-trade refusal). `placeOrder` accept/reject is async, so both the open and the flatten confirm-poll the broker before reporting success — bounded by `ALPACA_PLACE_CONFIRM_S` / `ALPACA_CLOSE_CONFIRM_S`; a US-equity exit outside regular hours places a marketable **LIMIT + `extended_hours=true`** (`ALPACA_EXT_LIMIT_BUFFER_BPS`) rather than a market order that can't fill, and defers entirely while the market is fully closed. `is_market_open()` gates entries.
+- **OANDA** (`OandaClient`, FX): market order + attached stop/take-profit; `positions()` returns `None` (not `[]`) on a read failure so an unreadable snapshot is never mistaken for flat.
+- **IB** (futures) additionally confirm-polls the flatten (`IB_CLOSE_CONFIRM_S`) so a "DB closed" always means "broker confirmed flat", and re-arms a naked bracket if a fill leaves a stop-less position (Stage 8).
+
+The per-broker confirm-poll knobs (`*_CONFIRM_S`) and sizing rules live at their connector call sites; CLAUDE.md's Environment Variables table is the canonical reference for each.
+
 **Failure modes:**
-- Exchange rejects (insufficient margin, symbol halted, etc.) — recorded with the rejection reason; no retry by default.
+- Exchange rejects (insufficient margin, symbol halted, fractional-qty rejection, etc.) — recorded with the rejection reason; no retry by default.
 - IB Gateway unreachable / API handshake fails — `IBClient.place` raises `IBConnectionError`; the order is refused for that account this tick (crypto unaffected).
+- Broker accepts-but-doesn't-fill (async place/close) — the bounded `*_CONFIRM_S` poll surfaces an immediate rejection as a journaled failure and leaves an unfilled close's DB row **open** so the position isn't phantom-closed while still live on the broker.
 - Network blip mid-submit — order may have landed; reconciliation at the next tick relies on broker fills, not local optimism.
 - `mode` typo in `config/accounts.yaml` — startup config validation rejects unknown values; the bot won't start with an invalid account mode.
 
-**Last verified:** 2026-05-22 (MES go-live)
+**Last verified:** 2026-07-26 (broker-dispatch detail extended to Alpaca/OANDA — BL-20260708-TRADE-PIPELINE-DOC-ALPACA-GAP; execution branches unchanged since 2026-05-22 MES go-live)
 
 ---
 

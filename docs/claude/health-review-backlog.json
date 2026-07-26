@@ -2833,9 +2833,9 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run that needs the trader or watchdog journal to root-cause a restart/stall; or the Tuesday compliance-audit rotation hitting .github/workflows/.",
       "resolution_criteria": "A /api/diag/journalctl pull for ict-trader-live.service returns successfully via the relay at a useful line/time window (or a dedicated small restart-cause diag exists), so a future health-review can capture the autoheal/crash trigger without the pull failing.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-07-26T10:56:24+00:00",
       "resolved_by": null,
       "resolution_note": null,
       "updates": [
@@ -2854,6 +2854,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-07-26T10:56:24+00:00",
+          "by": "claude (backlog-drain Tier-1, 2026-07-26)",
+          "action": "resolved",
+          "note": "Fixed candidate (a): vm-diag-snapshot.yml now sets a per-path curl --max-time \u2014 journalctl/log_file/audit paths get 120s (still inside the 5-min job timeout), everything else keeps 40s \u2014 at BOTH curl sites (workflow_dispatch single-fetch + the issue-driven batched loop). A high-volume unit tail (ict-trader-live) no longer trips curl exit 28 -> non-zero SSH -> workflow-fail (dispatch path) / '{\"error\":\"fetch_failed\"}' fallback (issue path). since=/until= narrowing guidance remains the belt-and-suspenders for even larger pulls."
         }
       ]
     },
@@ -5219,7 +5225,7 @@
       "tier": 1,
       "trigger_condition": "Next /health-review, or the next session that materially changes a pipeline stage (a natural forcing function to read + settle this doc's current scope).",
       "resolution_criteria": "Read docs/TRADE-PIPELINE.md's stage-by-stage content in full, determine whether Alpaca-specific execution behavior belongs in a stage description per the doc's actual intended scope, and either add the missing coverage or note explicitly why broker-specific detail is out of scope (so this doesn't get re-flagged every sweep).",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -5242,8 +5248,15 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh pull; verification watch continues (no adverse signal this window). Carried."
+        },
+        {
+          "at": "2026-07-26T10:56:24+00:00",
+          "by": "claude (backlog-drain Tier-1, 2026-07-26)",
+          "action": "resolved",
+          "note": "Resolved the remaining doc-scope question by EXTENDING Stage 7 (Broker Execution) in docs/TRADE-PIPELINE.md: added a 'broker-generic by design' note plus a per-broker behaviours list covering Alpaca (whole-share sizing, ALPACA_PLACE_CONFIRM_S/ALPACA_CLOSE_CONFIRM_S confirm-poll, extended-hours marketable-LIMIT exit + ALPACA_EXT_LIMIT_BUFFER_BPS, is_market_open gate), OANDA (positions()->None on read failure), and IB's IB_CLOSE_CONFIRM_S flatten-confirm; added the accepts-but-doesn't-fill failure mode; pointed at CLAUDE.md's env-var table as the canonical knob reference. The earlier consumer-note contradiction was already fixed 2026-07-08."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:56:24+00:00"
     },
     {
       "id": "BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE",
@@ -5995,7 +6008,7 @@
       "id": "BL-20260720-MERGE-PROTOCOL-LAPSE",
       "created": "2026-07-20",
       "priority": "P2",
-      "status": "kept_open",
+      "status": "resolved",
       "title": "Merge-serialization protocol lapsed under load: 3 claim-less merges raced 'behind' 3x in one day while claimed merges raced 0x \u2014 the protocol needs per-merge framing + a mechanical nudge",
       "detail": "2026-07-20 (operator flagged it: 'are we using the merge queue and message board correctly? we added those specifically to prevent this'). Self-audit of board #6927: on 07-19 every merge by this session carried MERGE SLOT CLAIM/RELEASE comments and zero races occurred. On 07-20 the same session merged/attempted #7082, #7155, #7167 WITHOUT claiming first and hit mergeable_state 'behind' THREE times (each costing a branch refresh + a full ~10-min CI rerun + a squash-vs-original conflict in one case); the two merges where a claim WAS posted (reactively) merged cleanly first try. Root causes: (1) the claim step lives in session memory, and under time pressure (racing an approved promotion chain) it was skipped exactly when the repo was busiest; (2) the session also did not READ the board before merging, so even a counterpart's claim would have been missed; (3) docs/claude/session-board.json (the merge-queue file) went untouched all day \u2014 the two mechanisms (file queue + live board) have drifted, with the 07-19 note declaring the live board 'the real-time signal', leaving the file's role unclear. PROPOSED FIXES for a review session: (a) reword session-coordination SKILL.md + the SessionStart clause-0 text to frame the claim as a PER-MERGE precondition ('before every merge_pull_request call: read board tail, post CLAIM, merge, post RELEASE'), not a session-start ritual; (b) clarify or retire session-board.json's merge_slot in favor of the board comments (one source of truth); (c) optional mechanical nudge: a tiny helper script sessions are told to run (checks the newest CLAIM/RELEASE comment pair and refuses to proceed on someone else's open claim) \u2014 cheap, no branch-protection change. Evidence: board comments 5026296972 (reactive claim #7167), 5025958114 (reactive claim #7155), merge failures at 16:11Z/18:52Z/19:11Z-19:19Z in the session log.",
       "updates": [
@@ -6009,8 +6022,15 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-07-26T10:56:24+00:00",
+          "by": "claude (backlog-drain Tier-1, 2026-07-26)",
+          "action": "resolved",
+          "note": "Shipped proposed fixes (a)+(b): reworded session-coordination/SKILL.md \u00a7 2 to frame the merge claim as a PER-MERGE precondition on the merge_pull_request call ('read board tail -> post \ud83d\udd12 MERGE SLOT CLAIM comment -> sync -> merge on green -> \ud83d\udd13 RELEASE'), not a session-start ritual, and made the LIVE BOARD COMMENT (#6927) the authoritative claim with session-board.json::merge_slot demoted to a durable mirror (one source of truth) \u2014 updated the two-surfaces preamble, \u00a7 2 steps, the session-board.json _doc + merge_slot schema, and coordination-board.md's 'complements not replaces' bullet to match. Fix (c) (a mechanical nudge helper script) intentionally deferred as optional \u2014 the reframe + one-source-of-truth addresses root causes (1)+(2)+(3) without new tooling; re-log if the lapse recurs after the reword."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:56:24+00:00"
     },
     {
       "id": "BL-20260720-TRAINERDIAG-FENCE",
@@ -6269,5 +6289,5 @@
       "action": "Update the sprint log + notebook to '9 required contexts' and the current repo name (or note redirect-safe)."
     }
   ],
-  "updated_at": "2026-07-26T07:05:00+00:00"
+  "updated_at": "2026-07-26T10:56:24+00:00"
 }
