@@ -81,7 +81,13 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     "ict-trader-live.service",
     "ict-web-api.service",
     "ict-telegram-bot.service",
-    "ict-heartbeat.service",
+    # NB: the retired daily-digest unit "ict-heartbeat.service" was removed here
+    # (2026-07-26 full-system audit, WS-B). The daily operator digest was retired
+    # 2026-07-08 (notification streamlining) — its timer is in _RETIRED_TIMERS in
+    # scripts/install_systemd_units.sh and is never re-enabled, so the service is
+    # dead/inactive on the VM. Keeping it in this allowlist only made
+    # /api/diag/services perpetually report a retired-and-inactive unit as though
+    # it were a monitored one. Superseded by ict-hourly-snapshot (below). Do not re-add.
     "ict-git-sync.service",
     "ict-git-sync.timer",
     # 2026-05-11 — external liveness watchdog (PR #950). Both the
@@ -162,6 +168,28 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     "ict-devnull-guard.timer",
     "ict-shadow-log-rotate.service",
     "ict-shadow-log-rotate.timer",
+    # 2026-07-26 (full-system audit Workstream B) — three recurring data-ingest
+    # timers installed + enabled by scripts/install_systemd_units.sh (deploy/*.timer
+    # glob) but missing from this allowlist, so /api/diag/services + journalctl
+    # could not report them. Each exists *because* its store silently went empty
+    # once, and each is precisely the "silently-skipped scheduled job" class the
+    # "if you see something, say something" rule targets — invisible to diag +
+    # health-review is how those stalls hid:
+    #   - ict-exchange-fills-pull: populates runtime_state/exchange_fills.sqlite
+    #     (backs /api/bot/pnl/exchange). Went empty once — BL-20260713.
+    #   - ict-exchange-funding-pull: feeds the broker-truth funding/cost sweep —
+    #     BL-20260719-FUNDING-NO-TIMER.
+    #   - ict-mes-ibkr-pull: keeps the trainer MES base candle set fresh —
+    #     BL-20260626-MES-BASE-STALE.
+    # Both the oneshot service and its driving timer are queryable so a session
+    # can verify the pull is firing on cadence and tail its journal — same
+    # rationale as the watchdog / insights / snapshot pairs above.
+    "ict-exchange-fills-pull.service",
+    "ict-exchange-fills-pull.timer",
+    "ict-exchange-funding-pull.service",
+    "ict-exchange-funding-pull.timer",
+    "ict-mes-ibkr-pull.service",
+    "ict-mes-ibkr-pull.timer",
 )
 
 _ADVISORY_LOG = runtime_logs_dir() / "advisory_decisions.jsonl"

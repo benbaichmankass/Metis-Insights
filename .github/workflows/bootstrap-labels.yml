@@ -125,6 +125,16 @@ jobs:
                 description: 'Triggers crypto-signals-backfill — reconstruct historical BTC/ETH/SOL funding/OI/basis snapshots (Bybit) + grade them with the M28 P4 + horizon-IC scans.',
               },
               {
+                name: 'replay-pregate-now',
+                color: '0e8a16',
+                description: 'Triggers replay-pregate-nightly — run the ML shadow pre-gate replay on demand (added 2026-07-26 full-system audit WS-B: the workflow filtered on this label but it was never bootstrapped, so the label-dispatch path was dead).',
+              },
+              {
+                name: 'test-alpaca-from-vm',
+                color: '0e8a16',
+                description: 'Triggers test-alpaca-from-vm — probe Alpaca credentials from the VM (added 2026-07-26 full-system audit WS-B: the workflow filtered on this label but it was never bootstrapped, so the workflow was undispatchable).',
+              },
+              {
                 name: 'cancel-queued-runs',
                 color: 'cfd3d7',
                 description: 'Triggers cancel-queued-runs — bulk-cancel stale queued Actions runs.',

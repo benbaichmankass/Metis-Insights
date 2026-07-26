@@ -6137,9 +6137,90 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; carried (snoozed/deferred state confirmed still applicable, no regression this window)."
+        },
+        {
+          "at": "2026-07-26T10:03:08+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 2)",
+          "note": "OPERATOR DECISION 2026-07-26: BUMP to ruff 0.16 now \u2014 adopt the expanded default ruleset, clear the ~8228 residuals (6558 autofixable via `ruff check --fix`), then unpin from `<0.16`. Land as its own focused PR: autofix pass, manual triage of the non-autofixable residuals (likely per-file-ignores or targeted refactors), then remove the version pin in requirements-dev.txt + the CI installs. Kept open until landed."
         }
       ],
       "resolved_at": null
+    },
+    {
+      "id": "BL-20260726-MES-IBKR-PULL-SERVICE-FAILED",
+      "opened_at": "2026-07-26",
+      "opened_by": "claude (full-system-audit 2026-07-26, WS-F)",
+      "severity": "medium-high",
+      "source": "status-check #7633 enumeration shows `ict-mes-ibkr-pull.service` in `failed`/`failed` state on the live trader (its timer is active/waiting, but the last pull run errored). This service keeps the trainer MES deep-history base fresh (BL-20260626-MES-BASE-STALE); a failing pull means the MES base may be going stale again. It was invisible to /api/diag/services because it was not in _CANONICAL_UNITS \u2014 now added (this audit). ",
+      "action": "Pull `journalctl -u ict-mes-ibkr-pull.service` via the diag relay to get the failure cause; fix the pull (likely an IBKR deep-history fetch error or a path/creds issue) and confirm a clean timer fire. Tier-1 to diagnose; the fix may be Tier-2 (VM). ",
+      "status": "fix_landed_monitoring",
+      "resolution": "2026-07-26 (PR #7635): root cause = the off-VM IBKR adapter returns asyncio.TimeoutError on a single timeframe on ~half the daily runs (per ibkr_mes_pull.jsonl); when BOTH timeframes time out the oneshot exits 1 \u2192 systemd `failed`. Added a bounded per-timeframe retry (MES_PULL_ATTEMPTS=2, MES_PULL_RETRY_PAUSE_S=30) to scripts/ops/pull_mes_ibkr_history.sh so a transient timeout self-heals within the run. VERIFY: after deploy, the 23:30 UTC timer fire should exit 0 and the service leave `failed`; confirm via /api/diag/services (now lists ict-mes-ibkr-pull) + log_file?name=ibkr_mes_pull."
+    },
+    {
+      "id": "BL-20260726-CLAUDE-PING-INBOX-SPLIT-BRAIN",
+      "opened_at": "2026-07-26",
+      "opened_by": "claude (full-system-audit 2026-07-26, WS-F)",
+      "severity": "medium",
+      "source": "status-check #7633: `/data/bot-data/runtime_logs/pending_claude_pings` = 0 queued (drained), but the pre-migration repo-path `/home/ubuntu/ict-trading-bot/runtime_logs/pending_claude_pings` = 352 queued .json, undelivered. A writer is emitting pings to the repo-relative path while the drainer reads the canonical DATA_DIR path. Repo-path signal_audit.jsonl mtime is 2026-07-26 (recent) so dual-path writing persists post data-dir migration. Relates to still-open issue #6874.",
+      "action": "Find the ping writer that resolves via a repo-relative path instead of src.utils.paths/DATA_DIR (grep for pending_claude_pings write sites); route it through the canonical resolver. Then drain or discard the 352 stranded pings. Close #6874 once the inbox count holds at 0 on both paths.",
+      "status": "fix_landed_monitoring",
+      "resolution": "2026-07-26 (PR #7635): all 3 ping code sites already used the canonical runtime_logs_dir(); the stranding is a writer PROCESS running without DATA_DIR (resolver falls back to repo-relative). Fixed defense-in-depth in src/bot/cloud_notifier.py::_drain_pending_pings: after draining the canonical inbox it now sweeps the repo-relative twin \u2014 delivers a FRESH mis-routed ping, DISCARDS a >2h stale straggler (auto-cleans the 352 pre-migration backlog). Regression test added. VERIFY: after deploy the repo-path pending_claude_pings inbox drains to 0 (status-check enumeration)."
+    },
+    {
+      "id": "BL-20260726-SMOKE-BYBIT2-PLACE-ORDER-NONETYPE",
+      "opened_at": "2026-07-26",
+      "opened_by": "claude (full-system-audit 2026-07-26, WS-F)",
+      "severity": "low-medium",
+      "source": "signal_audit.jsonl tail (status-check #7633) shows recurring `smoke_open_result status=failed_exchange reason=\"'NoneType' object has no attribute 'place_order'\"` on account bybit_2 (real-money) at 2026-07-25 19:14, 07-26 03:25, 07-26 08:32. The S-017 plumbing smoke can't resolve a client on the smoke path, though the live trader trades bybit_2 fine. Harness/plumbing defect, no live-trade impact.",
+      "action": "Trace the smoke-test client resolution (src S-017 smoke path) \u2014 the client is None where the executor's own path is not; either fix the smoke client factory or disable the recurring smoke if it's obsolete."
+    },
+    {
+      "id": "BL-20260726-FRED-ADAPTER-SILENT-SWALLOW",
+      "opened_at": "2026-07-26",
+      "opened_by": "claude (full-system-audit 2026-07-26, WS-E)",
+      "severity": "low",
+      "source": "src/units/strategies/macro_thesis/fred_adapter.py:184-187 and :211-214 wrap per-series FRED CSV fetch/parse in `except Exception: out[sid]=[]` with NO logging, so a persistent FRED outage silently degrades a series to empty (unlike the store append paths which logger.warning). M28 is observe-only (no order path), so not a data-integrity risk \u2014 a legibility nit.",
+      "action": "Add a logger.warning/debug on the FRED fetch/parse failure so a silent feed outage is legible in the journal."
+    },
+    {
+      "id": "BL-20260726-CONSUMER-DISPLAY-GAPS",
+      "opened_at": "2026-07-26",
+      "opened_by": "claude (full-system-audit 2026-07-26, WS-D)",
+      "severity": "low",
+      "source": "Consumer-wiring audit found no breaks, but several bot endpoints have no consumer yet: /liquidity, /pnl/exchange, /positions/net, /strategy/attribution, /allocator/soak, /pairs/soak, /fc-geometry/soak, /health/{history,snapshot}, /shadow/predictions; android Accounts lacks the /pnl/broker-truth + /pnl/history lines the dashboard shows. All observe-only/soak/attribution surfaces.",
+      "action": "Incrementally wire the highest-value gaps when a consumer need arises (e.g. /strategy/attribution + /pnl/exchange on the dashboard; broker-truth on android Accounts). No correctness risk; pure feature-surfacing."
+    },
+    {
+      "id": "BL-20260726-M27-15M-CHANGELOG-BACKFILL",
+      "opened_at": "2026-07-26",
+      "opened_by": "claude (full-system-audit 2026-07-26, WS-C)",
+      "severity": "low",
+      "source": "config/strategy_changelog.json has no entries for the 6 M27 15m/5m scalp legs (ict_scalp_{sol,xrp,avax}_5m, ict_scalp_{xrp,eth,sol}_15m); only the original 5m variants are logged. Not a compliance violation \u2014 an observability gap in the changelog the Strategies tab renders.",
+      "action": "Backfill strategy_changelog.json with the M27 leg additions (date 2026-07-22, paper-soak on bybit_1)."
+    },
+    {
+      "id": "BL-20260726-LAYER-GUARD-NOT-REQUIRED",
+      "opened_at": "2026-07-26",
+      "opened_by": "claude (full-system-audit 2026-07-26, WS-C)",
+      "severity": "low",
+      "source": "The M0a/M0b platform-layering guard (.importlinter + layer-guard.yml) runs on every PR and genuinely enforces its 6 contracts, but layer-guard is NOT in branch-protection-sync.yml::REQUIRED_CONTEXTS (9 required checks), so a PR that breaks layering can still merge if the author ignores the advisory failure. Operator call \u2014 promoting it to required could newly-block merges.",
+      "action": "PROPOSE to operator: add `layer-guard` to REQUIRED_CONTEXTS once confident the contract set is stable. Governance decision, not self-apply."
+    },
+    {
+      "id": "BL-20260726-WEBAPI-UNIT-STALE-VERCEL-COMMENT",
+      "opened_at": "2026-07-26",
+      "opened_by": "claude (full-system-audit 2026-07-26, WS-B)",
+      "severity": "low",
+      "source": "deploy/ict-web-api.service:5,37 still carries a 'Vercel React dashboard' comment + DASHBOARD_ORIGIN=https://bentzbk-ict-trader-dashboard.vercel.app (a documented no-op; the dashboard is server-side Streamlit/Svelte). Not touched in the audit PR because it's a live-VM unit file (Tier-3-adjacent).",
+      "action": "Refresh the stale comment + drop/annotate the legacy DASHBOARD_ORIGIN in a small operator-acked unit-file PR (Tier-2/3 unit-file change)."
+    },
+    {
+      "id": "BL-20260726-BRANCH-PROTECTION-DOC-STALE-4-CHECKS",
+      "opened_at": "2026-07-26",
+      "opened_by": "claude (full-system-audit 2026-07-26, WS-C)",
+      "severity": "low",
+      "source": "docs/sprint-logs/S-CANON-FU-3-branch-protection.md and notebooks/operator/update_branch_protection.ipynb both say 'four required checks' and the notebook references the old owner 'the-lizardking/ict-trading-bot'. The actual REQUIRED_CONTEXTS in branch-protection-sync.yml is 9 checks. Stale doc drift.",
+      "action": "Update the sprint log + notebook to '9 required contexts' and the current repo name (or note redirect-safe)."
     }
   ],
   "updated_at": "2026-07-26T07:05:00+00:00"
