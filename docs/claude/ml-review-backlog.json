@@ -1983,15 +1983,23 @@
       "tier": 1,
       "trigger_condition": "Any ml/datasets-touching session.",
       "resolution_criteria": "A misspelled build param produces a loud warning or error in the build log, with a test.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-22T18:30:00+00:00",
           "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
           "note": "No new evidence this session (no dataset-family CLI work touched). Kept open."
+        },
+        {
+          "at": "2026-07-26T07:05:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1). Added _check_unknown_family_kwargs() at the ml/datasets CLI->family boundary (_cmd_build): any family-arg key that is neither an explicit iter_rows param nor a reserved build() kwarg now fails loud (SystemExit) instead of being silently swallowed by the family's throwaway `**_`/`**_ignored` sink. Families whose catch-all is a GENUINE forwarding channel (VAR_KEYWORD name not starting with `_`, e.g. market_raw's **adapter_kwargs) are exempt. VERIFIED: 5 new tests in tests/ml/datasets/test_cli.py (known/reserved pass, typo raises with the item id in the message, forwarding family accepts arbitrary, empty is no-op) + full test_cli.py 25 passed; live-checked that setup_candidates' real kwargs (market_raw_paths/live_trades_db/backtest_trades_db/include_cusum) validate while a `include_cusm` typo is caught, and market_raw forwarding is exempt. Existing e2e regression test updated to drop its incidental `unknown=raw` passthrough (that lax contract is exactly what this guard removes)."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T07:05:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1). Added _check_unknown_family_kwargs() at the ml/datasets CLI->family boundary (_cmd_build): any family-arg key that is neither an explicit iter_rows param nor a reserved build() kwarg now fails loud (SystemExit) instead of being silently swallowed by the family's throwaway `**_`/`**_ignored` sink. Families whose catch-all is a GENUINE forwarding channel (VAR_KEYWORD name not starting with `_`, e.g. market_raw's **adapter_kwargs) are exempt. VERIFIED: 5 new tests in tests/ml/datasets/test_cli.py (known/reserved pass, typo raises with the item id in the message, forwarding family accepts arbitrary, empty is no-op) + full test_cli.py 25 passed; live-checked that setup_candidates' real kwargs (market_raw_paths/live_trades_db/backtest_trades_db/include_cusum) validate while a `include_cusm` typo is caught, and market_raw forwarding is exempt. Existing e2e regression test updated to drop its incidental `unknown=raw` passthrough (that lax contract is exactly what this guard removes)."
     },
     {
       "id": "MB-20260719-M26-TRANSITION-CONFLICT",
@@ -2034,15 +2042,23 @@
       "tier": 1,
       "trigger_condition": "The M23 P2b rerun (after the WS-B shards land) or any edit to m23_phase2_labelvol.sh.",
       "resolution_criteria": "The per-(symbol,strategy) breakdown prints without a traceback on a P2b run.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
           "at": "2026-07-22T18:30:00+00:00",
           "by": "claude (/ml-review, part of /system-review, 2026-07-22)",
           "note": "No new evidence this session (cosmetic bug, no m23_phase2_labelvol.sh run observed this window). Kept open, low priority."
+        },
+        {
+          "at": "2026-07-26T07:05:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1). Fixed scripts/ml/m23_phase2_labelvol.sh step-2 debug SELECT: `strategy` -> `strategy_name` (the temp BT_DB seeds the live trades schema whose strategy column is named `strategy_name`, and record_harness_trades/backtest_recorder writes strategy_name). VERIFIED: seeded the real CREATE TABLE trades DDL from src/units/db/database.py into a temp DB and confirmed the OLD query raises `no such column: strategy` exactly as reported while the NEW query returns the per-(symbol,strategy_name) breakdown."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T07:05:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1). Fixed scripts/ml/m23_phase2_labelvol.sh step-2 debug SELECT: `strategy` -> `strategy_name` (the temp BT_DB seeds the live trades schema whose strategy column is named `strategy_name`, and record_harness_trades/backtest_recorder writes strategy_name). VERIFIED: seeded the real CREATE TABLE trades DDL from src/units/db/database.py into a temp DB and confirmed the OLD query raises `no such column: strategy` exactly as reported while the NEW query returns the per-(symbol,strategy_name) breakdown."
     },
     {
       "id": "MB-20260719-MES-BASE-RTH-ONLY",
