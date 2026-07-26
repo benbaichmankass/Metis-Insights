@@ -248,6 +248,11 @@
           "at": "2026-07-26T09:56:02+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 1)",
           "note": "OPERATOR APPROVED 2026-07-26: BUILD IB broker-side protection verification (IBClient.has_protective_orders + re-arm on missing resting bracket, mirroring the Alpaca path). Tier-3 live-path code \u2014 build + test, operator approves the final diff before deploy. Execution queued as its own PR. Kept open until built."
+        },
+        {
+          "at": "2026-07-26T00:00:00+00:00",
+          "by": "claude (ib-broker-protection-verify session 2026-07-26)",
+          "note": "BUILT (DRAFT PR, awaiting operator merge-approval \u2014 Tier-3 live-order-path). (1) IBClient.has_protective_orders(symbol) -> Optional[bool]: forces an ACCOUNT-WIDE reqAllOpenOrders refresh (new _req_all_open_orders helper, bounded like _req_positions_snapshot) then filters the refreshed openTrades() by contract.symbol for a resting STP/LMT/TRAIL leg \u2014 NOT openTrades() alone (per-client-session visibility, build constraint 2). True=protected / False=broker-naked / None=could-not-confirm (breaker open / connect fail / account-read raised \u2014 fail-safe, caller never re-arms on None, build constraint 3). (2) _check_broker_naked_ib_positions(db) in order_monitor.py: mirrors _check_broker_naked_equity_positions but for IB accounts, CADENCE-GATED via IB_BROKER_NAKED_CHECK_SECONDS (default 300s, <=0 disables) so the account-wide read is never a per-tick cost (build constraint 1, BL-20260609 pacing class); per-(account,symbol) verdict cache within a sweep; skips active-close symbols; re-arms via the shared _attempt_naked_autoprotect (existing GTC OCA path, no new order construction). Wired into run_monitor_tick beside the Alpaca sweep. 16 new tests (tests/test_ib_naked_rearm.py) all green; ruff clean; env-gate-guard OK (_SECONDS knob, not *_ENABLED). Docs: CLAUDE.md naked-autoprotect note + env-var table. Sandbox can't reach a live Gateway \u2014 the reqAllOpenOrders account-wide semantics + a real broker-naked re-arm are the documented live-verify step for the operator post-merge. Kept open until merged + live-verified."
         }
       ]
     },
