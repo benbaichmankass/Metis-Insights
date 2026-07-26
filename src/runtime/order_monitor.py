@@ -3984,6 +3984,19 @@ def _sweep_unlinked_packages(db) -> int:
             #     Runs FIRST so an actual fill wins over a co-fanned rejection leg
             #     (step 1). Pure link/label reconciliation — no order is placed
             #     or modified.
+            #
+            #     Scope is status IN ('open','orphaned') — NOT just 'open' — so
+            #     this ALSO HEALS the accumulated backlog of packages a PRIOR
+            #     sweep already false-orphaned before this reconcile existed (the
+            #     2026-07-26 deploy found 1744 orphaned packages, dominated by
+            #     this exact executed-but-unlinked class; a status='open'-only
+            #     filter left every one of them stuck 'orphaned' forever because
+            #     they are no longer 'open'). Re-examining 'orphaned' rows each
+            #     tick is cheap: idx_order_packages_status selects the candidate
+            #     set and the correlated EXISTS rides idx_trades_order_package_id,
+            #     and a healed row drops out immediately (linked_trade_id is then
+            #     non-NULL). A genuinely never-executed orphan simply fails the
+            #     EXISTS and is left untouched.
             conn.execute(
                 "UPDATE order_packages "
                 "SET linked_trade_id = ( "
@@ -4008,7 +4021,7 @@ def _sweep_unlinked_packages(db) -> int:
                 "(trades.order_package_id) but linked_trade_id was never written "
                 "(multi-writer fan-out); reconciled from the journalled executed "
                 "trade row instead of orphaning') "
-                "WHERE status = 'open' "
+                "WHERE status IN ('open', 'orphaned') "
                 "  AND linked_trade_id IS NULL "
                 "  AND datetime(created_at) <= datetime('now', '-5 minutes') "
                 "  AND EXISTS ( "
@@ -4125,9 +4138,10 @@ def _sweep_unlinked_packages(db) -> int:
             conn.close()
         if affected:
             logger.info(
-                "_sweep_unlinked_packages: reconciled %d unlinked open package(s) "
-                "(%d reconciled from executed trade, %d relabelled from journalled "
-                "rejection, %d shadow_expired, %d orphaned)",
+                "_sweep_unlinked_packages: reconciled %d unlinked package(s) "
+                "(%d reconciled from executed trade incl. backlog heal, %d "
+                "relabelled from journalled rejection, %d shadow_expired, "
+                "%d orphaned)",
                 affected,
                 executed_reconciled,
                 rejected_relabelled,
