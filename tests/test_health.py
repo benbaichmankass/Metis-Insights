@@ -231,76 +231,99 @@ def test_tick_missing_is_critical(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_accounts_api_all_ok():
+# BL-20260604-004: check_accounts_api now reads the connection-free
+# ``balance_snapshots`` DB (get_db().get_latest_balance_snapshots()) instead of
+# a live broker probe, so it doesn't perma-WARN in the oneshot writer. These
+# helpers stub both seams: list_accounts (via sys.modules) + the DB snapshot map.
+class _FakeDB:
+    def __init__(self, snaps: dict) -> None:
+        self._snaps = snaps
+
+    def get_latest_balance_snapshots(self) -> dict:
+        return self._snaps
+
+
+def _set_accounts(accounts):
     fake = MagicMock()
-    fake.list_accounts = lambda: [{"account_id": "main"}, {"account_id": "alt"}]
-    fake.account_balance = lambda _: {"total_usdt": 100.0}
+    fake.list_accounts = lambda: accounts
     sys.modules["src.bot.data_loaders"] = fake
+
+
+def _set_snapshots(monkeypatch, snaps: dict) -> None:
+    monkeypatch.setattr("src.units.db.database.get_db", lambda: _FakeDB(snaps))
+
+
+def _snap(balance=100.0, api_ok=True):
+    return {"balance": balance, "api_ok": api_ok, "delta_1h": None,
+            "open_positions": None, "ts": "2026-07-26T10:00:00Z"}
+
+
+def test_accounts_api_all_ok(monkeypatch):
+    _set_accounts([{"account_id": "main"}, {"account_id": "alt"}])
+    _set_snapshots(monkeypatch, {"main": _snap(), "alt": _snap()})
     c = check_accounts_api()
     assert c.status == "ok"
-    assert "2 broker-API accounts" in c.detail
+    assert "2 recorded broker-API accounts" in c.detail
 
 
-def test_accounts_api_partial_failure_is_warn():
-    fake = MagicMock()
-    fake.list_accounts = lambda: [
+def test_accounts_api_recorded_down_is_warn(monkeypatch):
+    # A snapshot with api_ok=false AND no balance is the real down signal.
+    _set_accounts([
         {"account_id": "main"}, {"account_id": "alt"}, {"account_id": "third"},
-    ]
-    fake.account_balance = lambda acc: (
-        {"total_usdt": 100.0} if acc["account_id"] == "main" else None
-    )
-    sys.modules["src.bot.data_loaders"] = fake
+    ])
+    _set_snapshots(monkeypatch, {
+        "main": _snap(),
+        "alt": _snap(balance=None, api_ok=False),
+        "third": _snap(balance=None, api_ok=False),
+    })
     c = check_accounts_api()
     assert c.status == "warn"
     assert "alt" in c.detail and "third" in c.detail
 
 
-def test_accounts_api_no_accounts_is_ok():
-    fake = MagicMock()
-    fake.list_accounts = lambda: []
-    fake.account_balance = lambda _: None
-    sys.modules["src.bot.data_loaders"] = fake
+def test_accounts_api_no_snapshot_is_not_an_outage(monkeypatch):
+    # No recorded snapshot yet is "no data", NOT a failure — the per-tick
+    # reachability latch owns real-time down detection.
+    _set_accounts([{"account_id": "main"}, {"account_id": "alt"}])
+    _set_snapshots(monkeypatch, {"main": _snap()})  # alt absent
+    c = check_accounts_api()
+    assert c.status == "ok"
+    assert c.ctx.get("no_data") == ["alt"]
+    assert "1 no snapshot yet" in c.detail
+
+
+def test_accounts_api_no_accounts_is_ok(monkeypatch):
+    _set_accounts([])
+    _set_snapshots(monkeypatch, {})
     c = check_accounts_api()
     assert c.status == "ok"
 
 
-def test_accounts_api_skips_manual_bridge_breakout():
+def test_accounts_api_skips_manual_bridge_breakout(monkeypatch):
     # BL-20260623-003: the breakout prop account has an explicitly-empty
     # EXCHANGE_MANAGEMENT_CAPS set (no broker balance API — it executes via
-    # Telegram/FCM tickets). It must be SKIPPED, not counted as "API down",
-    # so a real broker outage isn't inflated (the false 3/7 -> real 2/7).
-    fake = MagicMock()
-    fake.list_accounts = lambda: [
+    # Telegram/FCM tickets). It must be SKIPPED, not counted as "API down".
+    _set_accounts([
         {"account_id": "bybit_2", "exchange": "bybit"},
         {"account_id": "breakout_1", "exchange": "breakout"},
-    ]
-    fake.account_balance = lambda acc: (
-        {"total_usdt": 100.0} if acc.get("exchange") == "bybit" else None
-    )
-    sys.modules["src.bot.data_loaders"] = fake
+    ])
+    _set_snapshots(monkeypatch, {"bybit_2": _snap()})
     c = check_accounts_api()
-    # breakout returns None but is skipped → still OK over the 1 real account.
     assert c.status == "ok"
     assert c.ctx.get("skipped") == ["breakout_1"]
     assert c.ctx.get("total") == 1
     assert "1 manual-bridge skipped" in c.detail
 
 
-def test_accounts_api_skips_shelved_dry_account():
+def test_accounts_api_skips_shelved_dry_account(monkeypatch):
     # BL-20260705-HEALTHCHECK-SHELVED-ACCOUNTS: a dry/shelved account
-    # (mode != live, e.g. the 2FA-blocked ib_live) reads unreachable BY
-    # DESIGN. It must be SKIPPED into the 'shelved' bucket, not counted as
-    # "API down" — otherwise the roll-up is perma-WARN and everyone learns
-    # to ignore WARN. The one genuinely-live account still grades OK.
-    fake = MagicMock()
-    fake.list_accounts = lambda: [
+    # (mode != live) reads unreachable BY DESIGN and must land in the
+    # 'shelved' bucket, not "API down". The one live account still grades OK.
+    _set_accounts([
         {"account_id": "bybit_2", "exchange": "bybit", "mode": "live"},
         {"account_id": "ib_live", "exchange": "interactive_brokers", "mode": "dry_run"},
-    ]
-    fake.account_balance = lambda acc: (
-        {"total_usdt": 100.0} if acc.get("account_id") == "bybit_2" else None
-    )
-    sys.modules["src.bot.data_loaders"] = fake
+    ])
+    _set_snapshots(monkeypatch, {"bybit_2": _snap()})
     c = check_accounts_api()
     assert c.status == "ok"
     assert c.ctx.get("shelved") == ["ib_live"]
@@ -308,14 +331,12 @@ def test_accounts_api_skips_shelved_dry_account():
     assert "1 dry/shelved skipped" in c.detail
 
 
-def test_accounts_api_absent_mode_defaults_live_and_is_probed():
+def test_accounts_api_absent_mode_defaults_live_and_is_checked(monkeypatch):
     # An account that omits `mode` is treated as live (default-permissive) and
-    # still probed — so a genuinely-down account without an explicit mode is
-    # NOT silently hidden in the shelved bucket.
-    fake = MagicMock()
-    fake.list_accounts = lambda: [{"account_id": "bybit_2", "exchange": "bybit"}]
-    fake.account_balance = lambda _: None
-    sys.modules["src.bot.data_loaders"] = fake
+    # still checked — a recorded-down snapshot without an explicit mode is NOT
+    # silently hidden in the shelved bucket.
+    _set_accounts([{"account_id": "bybit_2", "exchange": "bybit"}])
+    _set_snapshots(monkeypatch, {"bybit_2": _snap(balance=None, api_ok=False)})
     c = check_accounts_api()
     assert c.status == "warn"
     assert "bybit_2" in c.detail
@@ -324,7 +345,6 @@ def test_accounts_api_absent_mode_defaults_live_and_is_probed():
 def test_accounts_api_loader_explosion_is_warn():
     fake = MagicMock()
     fake.list_accounts.side_effect = RuntimeError("loaders broken")
-    fake.account_balance = lambda _: None
     sys.modules["src.bot.data_loaders"] = fake
     c = check_accounts_api()
     assert c.status == "warn"

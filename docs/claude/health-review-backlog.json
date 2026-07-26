@@ -2780,9 +2780,9 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; or whenever the dashboard health card shows accounts_api failing while the live trader is confirmed healthy.",
       "resolution_criteria": "check_accounts_api reports ok in the standalone ict-health-snapshot writer context when the trader's accounts are healthy (e.g. by reading the connection-free balance snapshot), so the M13 health card grades `good`/ok on a healthy system instead of a perpetual accounts_api `watch`. Verify via insights_history (endpoint=health) after the fix deploys.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-07-26T10:43:47+00:00",
       "resolved_by": null,
       "resolution_note": null,
       "updates": [
@@ -2801,6 +2801,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-07-26T10:43:47+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-1 execution batch 2)",
+          "note": "RESOLVED \u2014 src/runtime/health.py::check_accounts_api now reads the connection-free balance_snapshots DB (get_db().get_latest_balance_snapshots(), the same DB-authoritative source /api/bot/accounts/balances uses) instead of a live account_balance() probe. In the standalone health-snapshot writer there are no live broker clients, so the live probe returned None for every account and pinned this check at a permanent WARN; the per-tick account_reachability_alert latch already owns real-time down detection. Now: a snapshot with api_ok (or a balance) = healthy; api_ok=false + no balance = real down; no snapshot yet = 'no data' (not an outage). Updated tests/test_health.py (8 accounts-api tests, incl. a new no-snapshot-is-not-an-outage case) \u2014 all pass."
         }
       ]
     },
@@ -4959,7 +4964,7 @@
       "tier": 1,
       "trigger_condition": "Next CI/tooling pass, or when a config PR merges green but a later PR's full suite goes red.",
       "resolution_criteria": "A config-only PR that breaks a config-assertion test is caught before merge (full-suite-on-config-paths, an affected-test mapping, or a main nightly full run).",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -4977,8 +4982,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-07-26T10:43:47+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-1 execution batch 2)",
+          "note": "RESOLVED \u2014 extended the pytest-run 'relevant changed files' matcher to include `^config/` and `^\\.github/workflows/`, so a config-only or workflow-only PR now RUNS the full suite instead of short-circuiting past it and merging green while main's full CI is red. The incident PRs (#5850 config demote breaking test_strategy_execution_gate; #5851 system-action breaking test_system_actions_workflow) would now be caught pre-merge. Verified: pytest-run.yml valid YAML. (CI-minutes cost: config/workflow-only PRs now pay one full suite run \u2014 correctness over minutes for test-asserted paths.)"
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:43:47+00:00"
     },
     {
       "id": "BL-20260707-ALPACA-PAPER-NEGATIVE-EQUITY",
