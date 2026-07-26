@@ -15,6 +15,9 @@ name: Strategy-coverage guard
 # "pending" on a non-matching PR); the check is cheap (stdlib + pyyaml, no diff).
 
 on:
+  # Dormant until the native merge queue is enabled (BL-20260726 merge-queue enablement);
+  # required checks MUST run on the merge_group ref or the queue stalls.
+  merge_group:
   pull_request:
     branches: [main]
 

@@ -37,6 +37,9 @@ name: pytest-run
 # relevant changed files" below.
 
 on:
+  # Dormant until the native merge queue is enabled (BL-20260726 merge-queue enablement);
+  # required checks MUST run on the merge_group ref or the queue stalls.
+  merge_group:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]

@@ -6,6 +6,9 @@ name: canonical-doc-coherence
 # falling out of sync. See scripts/ci/check_canonical_doc_coherence.py.
 
 on:
+  # Dormant until the native merge queue is enabled (BL-20260726 merge-queue enablement);
+  # required checks MUST run on the merge_group ref or the queue stalls.
+  merge_group:
   pull_request:
     paths:
       - "CLAUDE.md"
