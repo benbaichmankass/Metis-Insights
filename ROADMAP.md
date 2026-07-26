@@ -342,25 +342,37 @@ Work top-down — P0 is the highest-leverage unblock.
     #7532); committed log holds rows for 2026-07-23 + 2026-07-24 across 7 symbols (GLD/IEF/SLV/SPY/TLT +
     credit_risk/term_structure). Today's cron may lag hours (GitHub free-tier schedule delay) — not a bug.
 
-  **Remaining work is NOT "build" — it is accrue + gate:** the store now needs **weeks** of daily
-  point-in-time history before the M28-P4 value-thesis gate (`scripts/macro/thesis_backtest_run.py
-  --snapshots comms/macro/valuation_snapshots.jsonl`) can mean anything. Concrete open items:
+  **CORRECTION (2026-07-26, `WORKPLAN-desoak-and-milestone-closeout-2026-07-26.md`): the "weeks of
+  accrual" framing was STALE — the M28-P4 gate already RAN, over historical point-in-time data, and
+  the value thesis FAILED out-of-sample.** `scripts/macro/valuation_snapshot_backfill.py` already
+  reconstructed **10,125 point-in-time rows over 21 years (2005→2026)** from full FRED history (valid
+  PIT because the wired metrics — real yield / term slope / credit spread — are unrevised market rates,
+  so latest==vintage), and `comms/macro/thesis_p4_scorecard.json` records the run: calibration ≈ 0,
+  **edge_vs_baseline −0.0047 (loses to naive all-long, net of zero cost)**. No amount of go-forward
+  accrual changes an OOS-fail over 21 years. Concrete open items:
   (a) periodically confirm the daily cron is still landing (a scheduled run that silently stops is the
-  failure class to watch — check `macro-valuation-snapshot.yml` run history, don't assume); (b) once
-  ~4–6 weeks accrue, run the P4 gate and record the verdict; (c) the **M29 EIA/weather/NG gas producer is
+  failure class to watch — check `macro-valuation-snapshot.yml` run history, don't assume) — it now
+  just keeps the live sleeve's snapshots fresh, it is NOT the P4 gate's data source; (b) the P4 gate's
+  decision is IN HAND (negative) → the value-thesis **construction** needs iterating (D1/D2/D3 per
+  `M28-signal-research-methodology.md`), not more accrual — see the M28 row + the workplan Phase-2 fork;
+  (c) the **M29 EIA/weather/NG gas producer is
   ALSO already built** (corrected 2026-07-25 — do NOT rebuild it): `scripts/macro/sysdyn_gas_data.py`
   (P1b keyless Henry Hub price `WHHNGSP` + P1c observed EIA storage `eia_v2` + real weather HDD via
   open-meteo) driven by `.github/workflows/sysdyn-gas-calibrate.yml`, with committed
   `comms/macro/sysdyn_gas_scorecard.json` (P1b, 8yr/418 obs) + `sysdyn_gas_dual_scorecard.json` (P1c).
-  Its **only gap is one operator hand-off — the free `EIA_API_KEY` Actions secret** (referenced solely
-  in that workflow; not yet provisioned). Without it the P1c EIA-*storage* target degrades gracefully
-  (price-only + real open-meteo weather still land); WITH it the full storage+weather+price dual-target
-  calibrates on real data. Register a free key at api.eia.gov → paste as the `EIA_API_KEY` repo secret.
+  **`EIA_API_KEY` IS PROVISIONED AND WORKING** (corrected 2026-07-26): `fetch_eia_storage_dated` has
+  no keyless fallback (returns `[]` without a key), yet the committed `sysdyn_gas_dual_scorecard.json`
+  (generated 2026-07-25) holds **864 real EIA storage obs** (`target_source: eia_v2`, OOS storage
+  R²≈0.58) — empirical proof the key resolved and the full storage+weather+price dual-target calibrated
+  on real data. The earlier "not yet provisioned / register a free key" ask is **stale — no operator
+  hand-off is outstanding here.**
   Secondary Tier-1 nicety (optional): the gas workflow is `workflow_dispatch` + label-triggered, not
   scheduled — add a weekly `schedule:` if auto-refresh on new EIA publishes is wanted (calibration on
   8yr history doesn't need it). `MB-20260723-M28-VALUATION-PRODUCER-UNWIRED` is **resolved** (producer
-  wired). Net: the "data-producer priority" is ~built; the real open work is (1) the `EIA_API_KEY`
-  hand-off, (2) history-accrual → the M28-P4 gate — NOT new producer construction.
+  wired). Net (corrected 2026-07-26): the data producers are built AND the EIA key is provisioned; the
+  M28-P4 value gate already ran (OOS-negative). There is **no outstanding operator hand-off and no
+  history-accrual blocker here** — the open work is the M28 value-thesis **construction** iteration
+  (workplan Phase 2) + keeping the daily crons alive (Phase 0 WS-5 cron-liveness monitoring).
 
 - **P1 — M27 gold scalp: promote, don't build a new venue. LANE: `m27-scalp`.**
   Venue check (verified against `config/accounts.yaml`, 2026-07-25): **GLD is already live on

@@ -15,6 +15,7 @@ later increment); it does not fetch FRED on the money box.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any, Callable, Mapping, Optional, Sequence
 
@@ -22,6 +23,8 @@ from .valuation_feed import _iter_metrics, required_series
 
 _FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={}"
 _TRUTHY = {"1", "true", "yes", "on"}
+
+_log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +185,10 @@ def fetch_fred_series_history(
             with urlopen(_FRED_CSV_URL.format(sid), timeout=timeout) as resp:
                 text = resp.read().decode()
             out[sid] = parse_fredgraph_csv(text)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            # A FRED outage silently degrades a series to empty; log so the
+            # degradation is legible rather than invisible (audit E-1).
+            _log.warning("FRED fetch failed for series %s: %s", sid, exc)
             out[sid] = []
     return out
 
@@ -209,7 +215,10 @@ def fetch_fred_series_history_dated(
             with urlopen(_FRED_CSV_URL.format(sid), timeout=timeout) as resp:
                 text = resp.read().decode()
             out[sid] = parse_fredgraph_csv_dated(text)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            # As above (audit E-1): a fetch/parse failure degrades this series
+            # to empty — log it so a FRED outage is not silent.
+            _log.warning("FRED dated fetch failed for series %s: %s", sid, exc)
             out[sid] = []
     return out
 
