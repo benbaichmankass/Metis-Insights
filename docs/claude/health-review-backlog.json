@@ -2814,10 +2814,10 @@
       "title": "[dashboard] blocking time.sleep + st.rerun refresh fallback contradicts the 'non-blocking' design claim",
       "description": "ict-trader-dashboard/streamlit_app.py: when streamlit-autorefresh is unavailable the refresh falls back to a blocking time.sleep(POLL_INTERVAL_S) + st.rerun(), freezing nav for up to POLL_INTERVAL_S - contradicting the module's 'non-blocking, nav takes effect immediately' claim. Rare (the dep is in requirements). Fix: drop the blocking-sleep fallback or gate it behind a much longer interval. Tier-1.",
       "tier": 1,
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-26T07:40:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-dashboard PR #202 (draft, pending CI+merge). Removed the legacy blocking `time.sleep(POLL_INTERVAL_S) + st.rerun()` refresh fallback in streamlit_app.py that froze nav for up to POLL_INTERVAL_S, contradicting the module's non-blocking refresh model. Only reachable on a Streamlit lacking BOTH st.fragment and streamlit-autorefresh (neither true in prod); correct degradation is no-auto-refresh (sidebar Refresh-now button), not freeze-the-UI. py_compile OK.",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -2828,6 +2828,11 @@
           "at": "2026-07-22T18:20:00+00:00",
           "by": "claude (/health-review 2026-07-22, inside /system-review)",
           "note": "Dashboard repo item; out of this repo's PR window, no fix observed."
+        },
+        {
+          "at": "2026-07-26T07:40:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-dashboard PR #202 (draft, pending CI+merge). Removed the legacy blocking `time.sleep(POLL_INTERVAL_S) + st.rerun()` refresh fallback in streamlit_app.py that froze nav for up to POLL_INTERVAL_S, contradicting the module's non-blocking refresh model. Only reachable on a Streamlit lacking BOTH st.fragment and streamlit-autorefresh (neither true in prod); correct degradation is no-auto-refresh (sidebar Refresh-now button), not freeze-the-UI. py_compile OK."
         }
       ]
     },
@@ -2839,10 +2844,10 @@
       "title": "[android] BacktestResult.{totalTrades,winningTrades,losingTrades} default to 0 instead of nullable",
       "description": "ict-trader-android core/network/BotApi.kt: the bot doc marks these nullable (an aborted backtest lands with NULL counts). The DTO defaults them to 0, which won't crash but renders an aborted backtest's NULL counts as 0 instead of em-dash. Very low severity. Fix: Int? = null + render null as a dash. Tier-1.",
       "tier": 1,
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-26T07:40:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-android PR #114 (draft). BacktestResult.{totalTrades,winningTrades,losingTrades} were Int = 0; with coerceInputValues an incoming null coerced to 0, rendering an aborted backtest's NULL counts as a misleading 0. Made them Int? = null and the three BacktestingScreen render sites use ?: \"\u2014\" (matching the card's existing nullable pattern). VERIFIED by inspection + repo-wide grep: the only consumers are those three render sites, no aggregation touches them. (Android repo has no build CI; release.yml compiles it.)",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -2853,6 +2858,11 @@
           "at": "2026-07-22T18:20:00+00:00",
           "by": "claude (/health-review 2026-07-22, inside /system-review)",
           "note": "Android repo item; out of this repo's PR window, no fix observed."
+        },
+        {
+          "at": "2026-07-26T07:40:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-android PR #114 (draft). BacktestResult.{totalTrades,winningTrades,losingTrades} were Int = 0; with coerceInputValues an incoming null coerced to 0, rendering an aborted backtest's NULL counts as a misleading 0. Made them Int? = null and the three BacktestingScreen render sites use ?: \"\u2014\" (matching the card's existing nullable pattern). VERIFIED by inspection + repo-wide grep: the only consumers are those three render sites, no aggregation touches them. (Android repo has no build CI; release.yml compiles it.)"
         }
       ]
     },
@@ -2917,6 +2927,11 @@
           "at": "2026-07-22T18:20:00+00:00",
           "by": "claude (/health-review 2026-07-22, inside /system-review)",
           "note": "Dashboard repo CI item; not re-checked this window."
+        },
+        {
+          "at": "2026-07-26T07:40:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "Kept open 2026-07-26 (backlog-drain-tier1): NOT fixable from the repo. Confirmed the ict-trader-dashboard repo contains NO Cloudflare Pages / wrangler / ict-trader-widget assets (only a GitHub Pages workflow, .github/workflows/pages.yml, for the Svelte SPA). The chronically-failing 'Cloudflare Pages' PR check is an EXTERNAL Cloudflare-dashboard GitHub integration deploying a non-existent 'ict-trader-widget' project. PROPOSE-TO-OPERATOR: in the Cloudflare dashboard (or GitHub \u2192 Settings \u2192 Integrations/Apps), disconnect the Cloudflare Pages app from benbaichmankass/ict-trader-dashboard (or repoint it at a real project) so it stops adding a red X to every dashboard PR. Requires Cloudflare-account access no repo change can substitute for."
         }
       ]
     },
@@ -3063,6 +3078,11 @@
           "at": "2026-07-22T18:20:00+00:00",
           "by": "claude (/health-review 2026-07-22, inside /system-review)",
           "note": "Android widget cosmetic item; unchanged."
+        },
+        {
+          "at": "2026-07-26T07:40:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "Kept open 2026-07-26 (backlog-drain-tier1): cosmetic Android Glance-widget chip-clipping with 8+ instruments; degradation-only (the in-app Overview row scrolls and shows everything). Deferred from this drain to keep the android PR scoped to the safe DTO-nullability fix \u2014 a widget layout change (two-row wrap or a widget-config symbol picker) is a larger UI change better done with live widget-render verification. Re-validation unchanged; still low priority."
         }
       ]
     },
@@ -3407,10 +3427,10 @@
       "trigger_condition": "Next dashboard chart work, or next time the preview app is in use.",
       "resolution_criteria": "Fix verified on the preview app and merged to dashboard main.",
       "check_log": [],
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-26T07:40:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-dashboard PR #202 (draft, pending CI+merge; UI-render change \u2192 verify live on prod app after merge per the repo's single-app workflow). _lc_candle_data/_lc_ema_data/_lc_volume_data called int(ts.timestamp()) on the tz-NAIVE candle timestamp column (host-local epoch), diverging from the tz-aware UTC markers on any non-UTC host. Added _lc_epoch() which localizes a naive Timestamp to UTC (a relabel, not a shift) before .timestamp() so all series share one epoch basis on any host. VERIFIED: recovers the exact epoch (1700000000) from a naive UTC-wallclock ts; aware ts pass through. Masked in prod (Streamlit Cloud runs UTC), so live behaviour there is unchanged.",
       "snoozed_until": null,
       "updates": [
         {
@@ -3422,8 +3442,14 @@
           "at": "2026-07-22T18:20:00+00:00",
           "by": "claude (/health-review 2026-07-22, inside /system-review)",
           "note": "Dashboard repo item; not touched this window."
+        },
+        {
+          "at": "2026-07-26T07:40:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-dashboard PR #202 (draft, pending CI+merge; UI-render change \u2192 verify live on prod app after merge per the repo's single-app workflow). _lc_candle_data/_lc_ema_data/_lc_volume_data called int(ts.timestamp()) on the tz-NAIVE candle timestamp column (host-local epoch), diverging from the tz-aware UTC markers on any non-UTC host. Added _lc_epoch() which localizes a naive Timestamp to UTC (a relabel, not a shift) before .timestamp() so all series share one epoch basis on any host. VERIFIED: recovers the exact epoch (1700000000) from a naive UTC-wallclock ts; aware ts pass through. Masked in prod (Streamlit Cloud runs UTC), so live behaviour there is unchanged."
         }
-      ]
+      ],
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1) \u2014 fix pushed in ict-trader-dashboard PR #202 (draft, pending CI+merge; UI-render change \u2192 verify live on prod app after merge per the repo's single-app workflow). _lc_candle_data/_lc_ema_data/_lc_volume_data called int(ts.timestamp()) on the tz-NAIVE candle timestamp column (host-local epoch), diverging from the tz-aware UTC markers on any non-UTC host. Added _lc_epoch() which localizes a naive Timestamp to UTC (a relabel, not a shift) before .timestamp() so all series share one epoch basis on any host. VERIFIED: recovers the exact epoch (1700000000) from a naive UTC-wallclock ts; aware ts pass through. Masked in prod (Streamlit Cloud runs UTC), so live behaviour there is unchanged."
     },
     {
       "id": "BL-20260617-ANDROID-LINT-PROMOTE",
