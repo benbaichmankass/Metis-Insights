@@ -43,8 +43,9 @@ The threshold for "dead" is a parameter (``dead_fraction_threshold``, default
 """
 from __future__ import annotations
 
+import fnmatch
 import math
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from typing import Any, Mapping, Sequence
 
 # A feature whose zero-fraction OR nan-fraction is >= this is "dead".
@@ -151,6 +152,44 @@ def _resolve_feature_columns(manifest: Any) -> list[str]:
         return []
 
 
+def _resolve_expected_optional(manifest: Any) -> list[str]:
+    """Resolve the manifest's declared **expected-optional feature families**.
+
+    An entry names a feature column (exact) or an ``fnmatch`` glob over columns
+    (e.g. ``fc_*``, ``corpus_emb_*``, ``ofi*``) whose data source is deliberately
+    **not yet wired** for this head, so its deadness is EXPECTED and must not
+    trip the dead-feature quarantine alarm (MB-20260719-DATASET-AUDIT-NOISE
+    option (a)). Read from ``trainer_config.expected_optional_features`` (the
+    canonical spot, alongside ``feature_columns``) with a top-level fallback for
+    minimal/hand-built manifests. Returns ``[]`` when none declared — the
+    conservative default: nothing is silenced unless the manifest EXPLICITLY
+    opts a family out, so an *undeclared* dead feature (the ETH-xa class) still
+    alarms in full.
+    """
+    cfg = _trainer_config(manifest)
+    raw = cfg.get("expected_optional_features")
+    if raw is None and isinstance(manifest, Mapping):
+        raw = manifest.get("expected_optional_features")
+    if raw is None:
+        raw = getattr(manifest, "expected_optional_features", None)
+    if not raw:
+        return []
+    try:
+        return [str(p) for p in raw]
+    except TypeError:
+        return []
+
+
+def _is_expected_optional(name: str, patterns: Sequence[str]) -> bool:
+    """True when ``name`` matches an expected-optional pattern (exact or glob)."""
+    if not patterns:
+        return False
+    for pat in patterns:
+        if name == pat or fnmatch.fnmatchcase(name, pat):
+            return True
+    return False
+
+
 def _resolve_target_column(manifest: Any) -> str:
     """Resolve the label/target column name from a manifest."""
     cfg = _trainer_config(manifest)
@@ -227,6 +266,11 @@ class FeatureAudit:
     n_unique: int
     flagged: bool
     reason: str | None = None
+    # True when this column is flagged dead BUT the manifest declared it an
+    # expected-optional side-stream (its data source is known-not-yet-wired) —
+    # so its deadness is recorded but does NOT trip the quarantine alarm
+    # (MB-20260719-DATASET-AUDIT-NOISE option (a)).
+    expected_optional: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -545,15 +589,24 @@ def audit_dataset(
     target_col = _resolve_target_column(manifest)
 
     flags: list[str] = []
+    # Manifest-declared expected-optional feature families (MB-20260719 option a):
+    # a flagged-dead column matching one of these is a KNOWN-not-yet-wired
+    # side-stream, so its deadness is recorded but kept OUT of the quarantine
+    # alarm. Empty by default → nothing silenced unless explicitly opted out.
+    expected_optional = _resolve_expected_optional(manifest)
+    expected_optional_dead: list[str] = []
 
     feature_reports: list[FeatureAudit] = []
     for col in feature_cols:
         fa = _audit_feature(
             col, record_rows, dead_fraction_threshold=dead_fraction_threshold
         )
-        feature_reports.append(fa)
-        if fa.flagged:
+        if fa.flagged and _is_expected_optional(col, expected_optional):
+            fa = replace(fa, expected_optional=True)
+            expected_optional_dead.append(f"feature {col!r}: {fa.reason}")
+        elif fa.flagged:
             flags.append(f"feature {col!r}: {fa.reason}")
+        feature_reports.append(fa)
 
     label_report = _audit_label(
         target_col, record_rows, task_hint=_manifest_task_hint(manifest, target_col)
@@ -594,4 +647,7 @@ def audit_dataset(
         "flags": flags,
         "quarantine": quarantine,
         "empty_dataset": empty_dataset,
+        # Flagged-dead columns the manifest declared expected-optional — recorded
+        # for visibility but NOT part of `flags`/`quarantine` (the alarm channel).
+        "expected_optional_dead": expected_optional_dead,
     }

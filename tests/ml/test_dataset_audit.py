@@ -295,6 +295,67 @@ def test_junk_rows_do_not_raise():
     assert report["quarantine"] is False
 
 
+# ---------------------------------------------------------------------------
+# expected-optional feature families (MB-20260719-DATASET-AUDIT-NOISE option a)
+# ---------------------------------------------------------------------------
+
+def _manifest_opt(features, expected_optional, target="regime_label"):
+    return {
+        "model_id": "test-audit-model",
+        "trainer_config": {
+            "target_column": target,
+            "feature_columns": list(features),
+            "expected_optional_features": list(expected_optional),
+        },
+    }
+
+
+def test_declared_expected_optional_dead_does_not_quarantine():
+    # A dead feature the manifest declared expected-optional (its data source is
+    # known-not-yet-wired) is recorded but must NOT trip the quarantine alarm.
+    rows = [{"log_return": (-1) ** i * 0.001, "fc_ret_med": 0.0,
+             "regime_label": "volatile" if i % 2 else "range"} for i in range(40)]
+    manifest = _manifest_opt(["log_return", "fc_ret_med"], ["fc_*"])
+    report = audit_dataset(rows, manifest)
+    assert report["quarantine"] is False
+    assert report["flags"] == []
+    assert any("fc_ret_med" in s for s in report["expected_optional_dead"])
+    # the feature row carries the marker
+    fc = next(f for f in report["features"] if f["name"] == "fc_ret_med")
+    assert fc["flagged"] is True and fc["expected_optional"] is True
+
+
+def test_undeclared_dead_feature_still_quarantines_even_with_optional_siblings():
+    # ETH-xa PROTECTION: silencing fc_* must NOT silence an UNDECLARED dead
+    # feature (xa_peer) in the same manifest — it still fully quarantines.
+    rows = [{"log_return": (-1) ** i * 0.001, "fc_ret_med": 0.0, "xa_peer": 0.0,
+             "regime_label": "volatile" if i % 2 else "range"} for i in range(40)]
+    manifest = _manifest_opt(["log_return", "fc_ret_med", "xa_peer"], ["fc_*"])
+    report = audit_dataset(rows, manifest)
+    assert report["quarantine"] is True
+    assert any("xa_peer" in f for f in report["flags"])          # undeclared → alarms
+    assert not any("fc_ret_med" in f for f in report["flags"])    # declared → silenced
+    assert any("fc_ret_med" in s for s in report["expected_optional_dead"])
+
+
+def test_exact_name_expected_optional_match():
+    rows = [{"log_return": (-1) ** i * 0.001, "c_reg": 0.0,
+             "regime_label": "volatile" if i % 2 else "range"} for i in range(40)]
+    manifest = _manifest_opt(["log_return", "c_reg"], ["c_reg"])  # exact, no glob
+    report = audit_dataset(rows, manifest)
+    assert report["quarantine"] is False
+    assert any("c_reg" in s for s in report["expected_optional_dead"])
+
+
+def test_no_declaration_means_nothing_silenced():
+    # Default (no expected_optional_features) → a dead feature still alarms.
+    rows = [{"log_return": (-1) ** i * 0.001, "fc_ret_med": 0.0,
+             "regime_label": "volatile" if i % 2 else "range"} for i in range(40)]
+    report = audit_dataset(rows, _manifest(["log_return", "fc_ret_med"]))
+    assert report["quarantine"] is True
+    assert report["expected_optional_dead"] == []
+
+
 def test_nonempty_dead_feature_still_quarantines_not_empty():
     # The ETH-xa guard (BL-20260628-XA-TRAINING-ZERO) must be untouched: a dead
     # feature in a NON-empty dataset still flags + quarantines, and is NOT

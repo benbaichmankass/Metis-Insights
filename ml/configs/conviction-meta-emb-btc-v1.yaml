@@ -54,6 +54,12 @@ trainer_config:
     - tsfm_emb_5
     - tsfm_emb_6
     - tsfm_emb_7
+  # Expected-optional (MB-20260719-DATASET-AUDIT-NOISE option a): the c_reg
+  # conviction lens is not a real signal yet (MB-20260618-XA-D2B), so it reads
+  # dead in the dataset. The audit records this but must NOT alarm until the lens
+  # is wired. (The tsfm_emb_* embedding dims ARE populated and stay audited.)
+  expected_optional_features:
+    - c_reg
   categorical_columns:
     - regime
     - vol_regime

@@ -40,6 +40,13 @@ trainer_config:
     - symbol
     - direction
     - strategy_name
+  # Expected-optional (MB-20260719-DATASET-AUDIT-NOISE option a): the c_reg
+  # conviction lens is not a real signal yet (MB-20260618-XA-D2B — the regime
+  # conviction contribution is still to be built), so it reads dead in the
+  # dataset. The audit records this but must NOT alarm until the lens is wired.
+  # Remove once c_reg carries a real value.
+  expected_optional_features:
+    - c_reg
   categorical_columns:
     - regime
     - vol_regime

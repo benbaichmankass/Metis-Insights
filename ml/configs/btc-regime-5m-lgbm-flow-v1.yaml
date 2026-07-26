@@ -43,6 +43,19 @@ trainer_config:
     - log_return_lag_2
     - hour_of_day
     - dayofweek
+  # Expected-optional (MB-20260719-DATASET-AUDIT-NOISE option a): the order-flow
+  # columns are 0.0 until the ict-orderflow-capture side-car accrues forward L2
+  # bars (MB-20260604-002 / MB-20260613-002 — DATA-BLOCKED, not idle). The
+  # build-time dataset audit records their deadness but must NOT trip the
+  # dead-feature alarm until the data source is wired. Remove this list once the
+  # capture window is populated (that's when a still-dead column becomes a real bug).
+  expected_optional_features:
+    - ofi
+    - ofi_zscore
+    - vpin
+    - order_imbalance
+    - rel_spread_mean
+    - microprice_dev
   categorical_columns:
     - vol_bucket
     - hour_of_day
