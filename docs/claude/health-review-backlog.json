@@ -6110,7 +6110,9 @@
       "opened_by": "claude (full-system-audit 2026-07-26, WS-F)",
       "severity": "medium-high",
       "source": "status-check #7633 enumeration shows `ict-mes-ibkr-pull.service` in `failed`/`failed` state on the live trader (its timer is active/waiting, but the last pull run errored). This service keeps the trainer MES deep-history base fresh (BL-20260626-MES-BASE-STALE); a failing pull means the MES base may be going stale again. It was invisible to /api/diag/services because it was not in _CANONICAL_UNITS — now added (this audit). ",
-      "action": "Pull `journalctl -u ict-mes-ibkr-pull.service` via the diag relay to get the failure cause; fix the pull (likely an IBKR deep-history fetch error or a path/creds issue) and confirm a clean timer fire. Tier-1 to diagnose; the fix may be Tier-2 (VM). "
+      "action": "Pull `journalctl -u ict-mes-ibkr-pull.service` via the diag relay to get the failure cause; fix the pull (likely an IBKR deep-history fetch error or a path/creds issue) and confirm a clean timer fire. Tier-1 to diagnose; the fix may be Tier-2 (VM). ",
+      "status": "fix_landed_monitoring",
+      "resolution": "2026-07-26 (PR #7635): root cause = the off-VM IBKR adapter returns asyncio.TimeoutError on a single timeframe on ~half the daily runs (per ibkr_mes_pull.jsonl); when BOTH timeframes time out the oneshot exits 1 → systemd `failed`. Added a bounded per-timeframe retry (MES_PULL_ATTEMPTS=2, MES_PULL_RETRY_PAUSE_S=30) to scripts/ops/pull_mes_ibkr_history.sh so a transient timeout self-heals within the run. VERIFY: after deploy, the 23:30 UTC timer fire should exit 0 and the service leave `failed`; confirm via /api/diag/services (now lists ict-mes-ibkr-pull) + log_file?name=ibkr_mes_pull."
     },
     {
       "id": "BL-20260726-CLAUDE-PING-INBOX-SPLIT-BRAIN",
@@ -6118,7 +6120,9 @@
       "opened_by": "claude (full-system-audit 2026-07-26, WS-F)",
       "severity": "medium",
       "source": "status-check #7633: `/data/bot-data/runtime_logs/pending_claude_pings` = 0 queued (drained), but the pre-migration repo-path `/home/ubuntu/ict-trading-bot/runtime_logs/pending_claude_pings` = 352 queued .json, undelivered. A writer is emitting pings to the repo-relative path while the drainer reads the canonical DATA_DIR path. Repo-path signal_audit.jsonl mtime is 2026-07-26 (recent) so dual-path writing persists post data-dir migration. Relates to still-open issue #6874.",
-      "action": "Find the ping writer that resolves via a repo-relative path instead of src.utils.paths/DATA_DIR (grep for pending_claude_pings write sites); route it through the canonical resolver. Then drain or discard the 352 stranded pings. Close #6874 once the inbox count holds at 0 on both paths."
+      "action": "Find the ping writer that resolves via a repo-relative path instead of src.utils.paths/DATA_DIR (grep for pending_claude_pings write sites); route it through the canonical resolver. Then drain or discard the 352 stranded pings. Close #6874 once the inbox count holds at 0 on both paths.",
+      "status": "fix_landed_monitoring",
+      "resolution": "2026-07-26 (PR #7635): all 3 ping code sites already used the canonical runtime_logs_dir(); the stranding is a writer PROCESS running without DATA_DIR (resolver falls back to repo-relative). Fixed defense-in-depth in src/bot/cloud_notifier.py::_drain_pending_pings: after draining the canonical inbox it now sweeps the repo-relative twin — delivers a FRESH mis-routed ping, DISCARDS a >2h stale straggler (auto-cleans the 352 pre-migration backlog). Regression test added. VERIFY: after deploy the repo-path pending_claude_pings inbox drains to 0 (status-check enumeration)."
     },
     {
       "id": "BL-20260726-SMOKE-BYBIT2-PLACE-ORDER-NONETYPE",

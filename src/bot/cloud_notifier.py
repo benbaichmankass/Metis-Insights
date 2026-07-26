@@ -10,6 +10,7 @@ import logging
 import os
 import shutil
 import subprocess
+import time
 
 from src.utils.paths import repo_root as _repo_root
 from src.utils.paths import runtime_logs_dir as _runtime_logs_dir
@@ -43,6 +44,18 @@ PENDING_PINGS_DIR = str(_runtime_logs_dir() / "pending_pings")
 PENDING_CLAUDE_PINGS_DIR = str(_runtime_logs_dir() / "pending_claude_pings")
 PING_DRAIN_INTERVAL_S = 5
 
+# BL-20260726-CLAUDE-PING-INBOX-SPLIT-BRAIN. When DATA_DIR is set (the live VM,
+# /data/bot-data) the canonical inboxes above live under $DATA_DIR/runtime_logs.
+# A ping *writer* that runs without DATA_DIR in its env (a mis-provisioned
+# service, a bare off-cron script invocation) resolves runtime_logs_dir() to the
+# REPO-relative <repo>/runtime_logs and drops its ping in the repo-relative twin
+# of these dirs, where the canonical drainer never looks — silently stranding it
+# (352 such files found in the 2026-07-26 full-system audit). After draining the
+# canonical inbox the drainer now ALSO sweeps that repo-relative twin: a FRESH
+# file is DELIVERED (a mis-routed live ping is never lost) and a STALE one is
+# DISCARDED (the pre-migration backlog is cleaned, not replayed as days-old spam).
+LEGACY_PING_STALE_AFTER_S = 2 * 60 * 60  # 2h — older than this = stranded straggler
+
 _PRIORITY_ICONS = {
     "urgent": "🚨 URGENT",
     "high":   "🔔",
@@ -51,15 +64,28 @@ _PRIORITY_ICONS = {
 }
 
 
-async def _drain_pending_pings(context, chat_id: str | None = None,
-                                pings_dir: str | None = None) -> None:
-    """JobQueue task — scan the inbox, send each ping, delete on success.
+def _legacy_repo_ping_dir(pings_dir: str) -> str | None:
+    """The repo-relative twin of a canonical (DATA_DIR) inbox — or ``None`` when
+    the two are the same directory (DATA_DIR unset → nothing extra to sweep)."""
+    legacy = os.path.join(REPO_ROOT, "runtime_logs", os.path.basename(pings_dir.rstrip("/")))
+    try:
+        if os.path.realpath(legacy) == os.path.realpath(pings_dir):
+            return None
+    except OSError:
+        return None
+    return legacy
 
-    Failures (Telegram 4xx, malformed JSON) move the offending file aside
-    with a .broken suffix so the drainer never loops on the same bad file.
+
+async def _drain_one_ping_dir(context, chat_id: str, pings_dir: str,
+                              discard_older_than_s: float | None = None) -> None:
+    """Drain one inbox: send each ping, delete on success. Failures (Telegram
+    4xx, malformed JSON) move the file aside with a ``.broken`` suffix so the
+    drainer never loops on the same bad file.
+
+    ``discard_older_than_s`` is set only for the legacy repo-relative twin
+    (BL-20260726): a file older than this is a stranded straggler — unlink it
+    WITHOUT delivering (days-old status pings are noise), rather than replay it.
     """
-    pings_dir = pings_dir or PENDING_PINGS_DIR
-    chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID") or ""
     try:
         os.makedirs(pings_dir, exist_ok=True)
         names = sorted(
@@ -76,8 +102,27 @@ async def _drain_pending_pings(context, chat_id: str | None = None,
         logger.warning("ping inbox has %d file(s) but TELEGRAM_CHAT_ID is unset", len(names))
         return
 
+    now = time.time()
     for name in names:
         path = os.path.join(pings_dir, name)
+
+        # Legacy-twin cleanup: discard a stranded straggler without delivery.
+        if discard_older_than_s is not None:
+            try:
+                age = now - os.path.getmtime(path)
+            except OSError:
+                age = 0.0
+            if age > discard_older_than_s:
+                try:
+                    os.unlink(path)
+                    logger.warning(
+                        "ping inbox: discarded stale stranded ping %s (%.0fh old) "
+                        "from the legacy inbox %s (BL-20260726)", name, age / 3600.0, pings_dir,
+                    )
+                except OSError:
+                    pass
+                continue
+
         try:
             with open(path, encoding="utf-8") as fh:
                 payload = json.load(fh)
@@ -97,6 +142,13 @@ async def _drain_pending_pings(context, chat_id: str | None = None,
             except OSError:
                 pass
             continue
+
+        if discard_older_than_s is not None:
+            logger.warning(
+                "ping inbox: delivering a MIS-ROUTED ping %s found in the legacy "
+                "inbox %s — a writer resolved runtime_logs without DATA_DIR "
+                "(BL-20260726)", name, pings_dir,
+            )
 
         # Self-titled HTML pings (trade lifecycle events) carry their own
         # header and a parse_mode; plain pings get the priority icon prefix.
@@ -121,6 +173,23 @@ async def _drain_pending_pings(context, chat_id: str | None = None,
             os.unlink(path)
         except OSError:
             pass
+
+
+async def _drain_pending_pings(context, chat_id: str | None = None,
+                                pings_dir: str | None = None) -> None:
+    """JobQueue task — drain the canonical inbox, then (defense in depth) sweep
+    the legacy repo-relative twin so a ping written by a process missing DATA_DIR
+    is delivered rather than stranded, and the pre-migration backlog is discarded
+    (BL-20260726-CLAUDE-PING-INBOX-SPLIT-BRAIN)."""
+    pings_dir = pings_dir or PENDING_PINGS_DIR
+    chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID") or ""
+    await _drain_one_ping_dir(context, chat_id, pings_dir)
+    legacy = _legacy_repo_ping_dir(pings_dir)
+    if legacy is not None:
+        await _drain_one_ping_dir(
+            context, chat_id, legacy,
+            discard_older_than_s=LEGACY_PING_STALE_AFTER_S,
+        )
 
 
 # ── Shell / systemd helpers ────────────────────────────────────────────────
