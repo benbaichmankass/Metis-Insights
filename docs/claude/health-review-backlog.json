@@ -2754,10 +2754,10 @@
       "title": "regime_bar_scoring budget can starve later predictor groups (no per-tick rotation)",
       "description": "emit_regime_bar_predictions (src/runtime/regime_bar_scoring.py:~348-359) iterates groups in fixed insertion order and breaks when the per-tick wall-clock budget (REGIME_BAR_SCORING_BUDGET_S) is hit; the budget check runs before the fetch-gate skip, so the same groups are always considered first each tick. Pathological case: one group whose single fetch always consumes the whole budget could indefinitely defer the groups after it (low practical risk - an already-fetched group is a cheap continue on most ticks). Fix: rotate the group start index per tick, or order by most-overdue-for-a-fetch. Observe-only path, Tier-1.",
       "tier": 1,
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-26T07:20:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1). Added per-tick group rotation to emit_regime_bar_predictions (src/runtime/regime_bar_scoring.py): a module-level _REGIME_GROUP_ROTATION offset (injectable `rotation` param for tests) advances each call and rotates the scan start, so a group whose fetch always eats the whole REGIME_BAR_SCORING_BUDGET_S can no longer indefinitely starve the groups behind it \u2014 over successive ticks every group takes a turn at the front of the budget-bounded scan. Observe-only path, unchanged when budget=0/unset. VERIFIED: 2 new tests (a starved group gets scored when rotated to the front; the counter advances each real call) + the existing budget test pinned to rotation=0 for determinism; tests/runtime/test_regime_bar_scoring.py 35 passed.",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -2768,6 +2768,11 @@
           "at": "2026-07-22T18:20:00+00:00",
           "by": "claude (/health-review 2026-07-22, inside /system-review)",
           "note": "Tier-2 code fix (per-tick group rotation) not shipped this window."
+        },
+        {
+          "at": "2026-07-26T07:20:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1). Added per-tick group rotation to emit_regime_bar_predictions (src/runtime/regime_bar_scoring.py): a module-level _REGIME_GROUP_ROTATION offset (injectable `rotation` param for tests) advances each call and rotates the scan start, so a group whose fetch always eats the whole REGIME_BAR_SCORING_BUDGET_S can no longer indefinitely starve the groups behind it \u2014 over successive ticks every group takes a turn at the front of the budget-bounded scan. Observe-only path, unchanged when budget=0/unset. VERIFIED: 2 new tests (a starved group gets scored when rotated to the front; the counter advances each real call) + the existing budget test pinned to rotation=0 for determinism; tests/runtime/test_regime_bar_scoring.py 35 passed."
         }
       ]
     },
@@ -2779,10 +2784,10 @@
       "title": "_capture_account_context_snapshots opens a fresh read-only SQLite connection per signal",
       "description": "src/core/coordinator.py:~2376 opens a new mode=ro connection on every order-package decision, then loops daily_state_for + open_trades_count_for per account (an N-account fan-out per signal). Best-effort + shares one connection across the account loop, but the connection is re-established each decision. Fix: cache a ro connection across decisions, or fold the per-account reads into one grouped query. Observe-only writer, Tier-1, minor.",
       "tier": 1,
-      "status": "open",
-      "resolved_at": null,
-      "resolved_by": null,
-      "resolution_note": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-26T07:20:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1). _capture_account_context_snapshots (src/core/coordinator.py) no longer does a 2-per-account query fan-out per signal: added daily_state_for_accounts() + open_trades_count_for_accounts() to src/units/accounts/context_snapshot.py (each ONE grouped `... IN (?)` query over the whole account set), and the coordinator now issues exactly two grouped reads per decision instead of 2N. Chose the grouped-query fix over a long-lived cached RO connection deliberately \u2014 a persistent ro fd on the live trader could read a stale inode after a DB swap/migration, whereas the per-decision open (microseconds) plus 2 grouped queries removes the real N-fan-out cost with no stale-fd risk. Absent/error entries fall back to (None,None)/None, preserving the exact NULL-storing semantics. VERIFIED: 4 new batch-helper tests (match the scalar helpers, empty/missing-table \u2192 {}) + the coordinator hook test (tests/test_account_context_snapshot*.py 17 passed).",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -2793,6 +2798,11 @@
           "at": "2026-07-22T18:20:00+00:00",
           "by": "claude (/health-review 2026-07-22, inside /system-review)",
           "note": "Tier-2 code fix (cached ro connection) not shipped this window."
+        },
+        {
+          "at": "2026-07-26T07:20:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1). _capture_account_context_snapshots (src/core/coordinator.py) no longer does a 2-per-account query fan-out per signal: added daily_state_for_accounts() + open_trades_count_for_accounts() to src/units/accounts/context_snapshot.py (each ONE grouped `... IN (?)` query over the whole account set), and the coordinator now issues exactly two grouped reads per decision instead of 2N. Chose the grouped-query fix over a long-lived cached RO connection deliberately \u2014 a persistent ro fd on the live trader could read a stale inode after a DB swap/migration, whereas the per-decision open (microseconds) plus 2 grouped queries removes the real N-fan-out cost with no stale-fd risk. Absent/error entries fall back to (None,None)/None, preserving the exact NULL-storing semantics. VERIFIED: 4 new batch-helper tests (match the scalar helpers, empty/missing-table \u2192 {}) + the coordinator hook test (tests/test_account_context_snapshot*.py 17 passed)."
         }
       ]
     },

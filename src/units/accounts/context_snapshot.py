@@ -251,6 +251,75 @@ def daily_state_for(
         return (None, None)
 
 
+def daily_state_for_accounts(
+    conn: sqlite3.Connection,
+    account_ids: Iterable[str],
+    *,
+    utc_date: str | None = None,
+) -> dict[str, tuple[float | None, float | None]]:
+    """Batched :func:`daily_state_for` — ONE grouped query for many accounts
+    (BL-20260610-AUDIT-2, replacing the per-account fan-out).
+
+    Returns ``{account_id: (daily_pnl_realized, daily_equity_high)}``. An account
+    with no ``daily_risk_state`` row for ``utc_date`` is simply absent from the
+    mapping; on any SQLite error the mapping is empty. Callers treat a missing
+    entry as ``(None, None)`` — identical absent/error semantics to the
+    single-account helper, so the snapshot stores NULLs rather than fake zeros.
+    """
+    ids = [a for a in dict.fromkeys(account_ids) if a]
+    if not ids:
+        return {}
+    if utc_date is None:
+        utc_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    placeholders = ",".join("?" for _ in ids)
+    out: dict[str, tuple[float | None, float | None]] = {}
+    try:
+        cur = conn.execute(
+            "SELECT account_id, daily_pnl, daily_high_equity FROM daily_risk_state "
+            f"WHERE date = ? AND account_id IN ({placeholders})",
+            (utc_date, *ids),
+        )
+        for aid, pnl, peak in cur.fetchall():
+            out[str(aid)] = (
+                float(pnl) if pnl is not None else None,
+                float(peak) if peak is not None else None,
+            )
+    except sqlite3.Error:
+        return {}
+    return out
+
+
+def open_trades_count_for_accounts(
+    conn: sqlite3.Connection, account_ids: Iterable[str],
+) -> dict[str, int]:
+    """Batched :func:`open_trades_count_for` — ONE grouped query for many
+    accounts (BL-20260610-AUDIT-2).
+
+    Returns ``{account_id: open_count}`` with every requested account defaulted
+    to ``0`` (a queryable-but-flat account has zero open trades). On any SQLite
+    error (missing table / schema drift) the mapping is empty, so the caller
+    stores a NULL ``open_trades_count`` — matching the single-account helper's
+    ``None``-on-error contract.
+    """
+    ids = [a for a in dict.fromkeys(account_ids) if a]
+    if not ids:
+        return {}
+    placeholders = ",".join("?" for _ in ids)
+    out: dict[str, int] = {aid: 0 for aid in ids}
+    try:
+        cur = conn.execute(
+            "SELECT account_id, COUNT(*) FROM trades "
+            "WHERE status = 'open' AND is_backtest = 0 "
+            f"AND account_id IN ({placeholders}) GROUP BY account_id",
+            tuple(ids),
+        )
+        for aid, cnt in cur.fetchall():
+            out[str(aid)] = int(cnt)
+    except sqlite3.Error:
+        return {}
+    return out
+
+
 def drawdown_pct(equity: float | None, equity_high: float | None) -> float | None:
     """``(peak - equity) / peak`` — positive = below the peak. ``None`` when
     either input is missing or the peak is non-positive."""
