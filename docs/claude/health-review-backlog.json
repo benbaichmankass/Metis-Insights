@@ -1762,7 +1762,7 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; or when a strategy is mysteriously silent in the audit tail.",
       "resolution_criteria": "intent_multiplexer._collect_intents emits a report()/audit event (e.g. 'strategy_builder'/'exception' with strategy + reason) on a builder exception, mirroring the legacy multiplexer, so a raising strategy shows up in signal_audit.jsonl and /api/diag/audit. (Code change \u2014 Tier-1 observability; not editable from /health-review which only writes docs + this backlog.) NOTE: this is the OBSERVABILITY gap only; the fade_breakout_4h crash itself is a separate Tier-3 strategy bug surfaced to the operator in the 2026-05-25 health-review response.",
-      "status": "open",
+      "status": "resolved",
       "triage_note": "2026-05-28 /health-review: observability gap OBSERVED AGAIN. journalctl 04:50-04:54 shows the IB/MES outage making every MES strategy raise 'no candle data returned for MES \u2014 skipping this tick' as a bare logger.WARNING in intent_multiplexer; those MES skips emit NO *_eval and NO audit event, so MES strategy silence is invisible on the diag surface (only journalctl). Exactly the swallow this item flags. Remains operator-gated (Tier-1 code change, not editable from /health-review).",
       "snoozed_until": null,
       "updates": [
@@ -1775,8 +1775,16 @@
           "at": "2026-07-22T18:20:00+00:00",
           "by": "claude (/health-review 2026-07-22, inside /system-review)",
           "note": "Code gap unchanged (intent_multiplexer still only logger.warning on a raising builder). No strategy-silence anomaly observed this window (all enabled strategies had eval events in the audit tail sample pulled)."
+        },
+        {
+          "at": "2026-07-26T07:55:00+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26)",
+          "note": "RESOLVED 2026-07-26 (backlog-drain-tier1). intent_multiplexer._collect_intents now emits a report('strategy_builder','exception', level=ERROR, reason=..., strategy=name) audit event when a builder raises \u2014 mirroring the legacy pipeline.multiplexed_signal_builder path \u2014 so a chronically-raising strategy (e.g. the fade_breakout_4h 'No numeric types to aggregate' case) is visible on the read-only diag surface (signal_audit.jsonl / diag relays), not only in the systemd journal. The emit is a local import + best-effort try/except so an outcomes hiccup can never break the tick or mask the original builder failure; control flow is unchanged (still catch+continue). VERIFIED: 2 new tests in tests/test_multi_strategy_intents.py (a raising builder emits exactly one strategy_builder/exception event naming the strategy + carrying the exc type; a failing report() never breaks the tick) \u2014 full file 44 passed. Observe-only, no order-path behavior change."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T07:55:00+00:00",
+      "resolved_by": "claude (backlog-drain-tier1 session 2026-07-26)",
+      "resolution_note": "RESOLVED 2026-07-26 (backlog-drain-tier1). intent_multiplexer._collect_intents now emits a report('strategy_builder','exception', level=ERROR, reason=..., strategy=name) audit event when a builder raises \u2014 mirroring the legacy pipeline.multiplexed_signal_builder path \u2014 so a chronically-raising strategy (e.g. the fade_breakout_4h 'No numeric types to aggregate' case) is visible on the read-only diag surface (signal_audit.jsonl / diag relays), not only in the systemd journal. The emit is a local import + best-effort try/except so an outcomes hiccup can never break the tick or mask the original builder failure; control flow is unchanged (still catch+continue). VERIFIED: 2 new tests in tests/test_multi_strategy_intents.py (a raising builder emits exactly one strategy_builder/exception event naming the strategy + carrying the exc type; a failing report() never breaks the tick) \u2014 full file 44 passed. Observe-only, no order-path behavior change."
     },
     {
       "id": "BL-20260525-004",

@@ -449,6 +449,27 @@ def _collect_intents(
                 "intent_multiplexer: strategy '%s' raised %s — skipping this tick",
                 name, exc,
             )
+            # Emit an audit/diag event so a chronically-raising builder is
+            # visible on the read-only diag surface (signal_audit.jsonl / the
+            # diag relays), not only in the systemd journal — mirroring the
+            # legacy multiplexed_signal_builder path (BL-20260525-003). Local
+            # import + best-effort: an outcomes hiccup must never break the tick
+            # or mask the original builder failure.
+            try:
+                from src.runtime.outcomes import Level, report
+
+                report(
+                    "strategy_builder",
+                    "exception",
+                    level=Level.ERROR,
+                    reason=f"{type(exc).__name__}: {exc}",
+                    strategy=name,
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception(
+                    "intent_multiplexer: report() for strategy_builder "
+                    "exception failed"
+                )
             continue
 
         intent = intent_from_signal(
