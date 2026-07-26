@@ -75,11 +75,19 @@ jobs:
           FILES=$(git diff --name-only $RANGE || true)
           echo "Changed files ($RANGE):"
           echo "$FILES"
-          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|\.github/workflows/pytest-run\.yml$'; then
+          # Run the full suite when the diff touches code/test-config OR
+          # config/** OR any workflow — the latter two because the suite ASSERTS
+          # over them (e.g. test_strategy_execution_gate reads config/strategies.yaml;
+          # test_system_actions_workflow reads .github/workflows/system-actions.yml).
+          # Before this, a config-only / workflow-only PR short-circuited past the
+          # test run and merged GREEN while it had actually reddened main's full
+          # suite (BL-20260707-FASTCI-CONFIG-DRIFT: #5850 config demote + #5851
+          # system-action both slipped through).
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No .py/test-config files changed — skipping the pip install + test-run steps (short-circuit, MB-20260706-CI-MINUTES)."
+            echo "::notice::No code/config/workflow files changed — skipping the pip install + test-run steps (short-circuit, MB-20260706-CI-MINUTES)."
           fi
 
       - name: Set up Python 3.11

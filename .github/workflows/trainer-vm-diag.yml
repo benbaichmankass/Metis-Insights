@@ -144,6 +144,13 @@ jobs:
               found && /^[A-Za-z0-9_-]+:/{
                 exit
               }
+              # Strip markdown code-fence lines (``` or ```lang) so a fenced
+              # cmd body does not leak the fence into bash — an un-stripped
+              # ```bash line runs as the command ``` (error) and any backticks
+              # in the body get command-substituted (BL-20260720-TRAINERDIAG-FENCE).
+              found && /^[[:space:]]*```/{
+                next
+              }
               found { print }
             ' )"
           if [ -z "${cmd_raw}" ]; then
@@ -186,10 +193,17 @@ jobs:
           # Send the command file via stdin — command string is never
           # interpolated in the SSH invocation, so issue body can't
           # inject shell metacharacters.
+          # ServerAlive* keepalives: a long-running trainer command (a full
+          # dataset build, a training cycle) can be silent for minutes; without
+          # keepalives the SSH session is torn down mid-run and the relay reports
+          # a spurious empty/failed result (BL-20260721-TRAINERDIAG-SILENT-SSH-DROP).
+          # 30s x 10 = tolerate ~5 min of silence before declaring the link dead.
           ssh -i ~/.ssh/trainer_key \
               -o BatchMode=yes \
               -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=20 \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=10 \
               "${TRAINER_USER}@${TRAINER_IP}" \
               'bash -s' < /tmp/trainer_diag_cmd.sh \
               > /tmp/trainer_diag_output.txt 2>&1 || true
