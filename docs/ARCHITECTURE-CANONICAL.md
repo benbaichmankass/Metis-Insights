@@ -1,7 +1,12 @@
 # Architecture — Canonical (v2)
 
 > **Status:** Canonical. Adopted in sprint **S-CANON-1** (2026-05-10).
-> **Repo:** `benbaichmankass/ict-trading-bot`.
+> **Repo:** `benbaichmankass/ict-trading-bot` — **renamed to `benbaichmankass/Metis-Insights`
+> 2026-07-23** (the system is no longer ICT-only: ICT + pairs + macro/value +
+> macro-events). The old name is redirect-safe and is deliberately KEPT as the
+> GitHub-MCP scope string and in the VM clone paths (`/home/ubuntu/ict-trading-bot`,
+> `/opt/ict-trading-bot`) — do NOT sweep those. See `CLAUDE.md` § "Repo identity"
+> and `ROADMAP_MACRO.md` § 7.
 > **Authority:** This document supersedes the older
 > [`docs/architecture.md`](architecture.md) and the architecture
 > sections of the root `CLAUDE.md`. When this doc and an older note
@@ -178,8 +183,10 @@ See `docs/runbooks/ib-integration.md`.
 
 ### Step 2 — Strategy evaluation
 Strategy modules in `src/units/strategies/` consume market data and emit
-signals. The roster has **48 strategy cells registered** in
-`config/strategies.yaml` (verified 2026-07-09 — grown from the 12-cell
+signals. The roster has **54 strategy cells registered** in
+`config/strategies.yaml` (verified 2026-07-26 — the +6 over the 2026-07-09
+count are the M27 15m scalp legs `ict_scalp_{sol,xrp,avax}_5m` +
+`ict_scalp_{xrp,eth,sol}_15m`, paper-soak on `bybit_1`; grown from the 12-cell
 2026-06-10 crypto+futures core through the multi-symbol crypto alts
 (ETH/SOL/XRP/ADA/AVAX + prop variants), the OANDA/Alpaca/IBKR equity-ETF
 sleeves, and the sub-$100 real-money proxy cells; see the change log).
@@ -207,9 +214,11 @@ the earlier "12-cell" snapshot). Current roster *shape*, by instrument family
   `IBClient._build_contract` resolves FUT vs STK per-symbol via `ib_instruments.py`.
 - **Equity/ETF (Alpaca):** `alpaca_paper` (paper) runs the broad ETF sleeve
   (SPY/QQQ/GLD/IWM/TLT/IEF/SLV/USO/GDX + leveraged TQQQ/QLD + proxies
-  SPLG/IAUM/SCHA); **`alpaca_live` runs a real-money subset** (operator-approved
-  2026-06-25→2026-07-07, incl. the sub-$100 proxies SPLG/IAUM at `risk_pct 0.02`
-  — the earlier "Real-money Alpaca remains gated" note is superseded);
+  SPLG/IAUM/SCHA); **`alpaca_live` is currently `mode: dry_run` — SHELVED to dry
+  2026-07-15** (Tier-3, operator-directed; `config/accounts.yaml`), so it sends no
+  real-money orders right now. It *ran* a real-money ETF subset 2026-06-25→07-14
+  (operator-approved, incl. the sub-$100 proxies SPLG/IAUM at `risk_pct 0.02`); the
+  re-arm is gated on the /performance-review portfolio-vs-bybit benchmark.
   `alpaca_options_paper` runs the defined-risk options overlay (SLV/GDX).
 - **FX/metals (OANDA `oanda_practice`):** `xauusd_trend_1h` (currently
   `enabled: false`; account `mode: dry_run`).
@@ -323,10 +332,13 @@ dispatches to `src/units/accounts/alpaca_client.py::AlpacaClient`
 The real-money `alpaca_live` account (its own `ALPACA_API_KEY_ID_LIVE`/
 `ALPACA_API_SECRET_KEY_LIVE` pair + `alpaca_env: live`) went **live
 2026-06-25→26** (operator-approved; the host-routing bug where `alpaca_env`
-was dropped by the account loaders was fixed #4916) and runs a real-money ETF
+was dropped by the account loaders was fixed #4916) and ran a real-money ETF
 subset — incl. the sub-$100 proxies SPLG/IAUM added 2026-07-07 at the
-normalized 5% caps / `risk_pct 0.02`. The earlier "Real-money Alpaca remains
-gated" note is **superseded**. Runbook: `docs/runbooks/alpaca-integration.md`.
+normalized 5% caps / `risk_pct 0.02` — until it was **SHELVED to `mode: dry_run`
+on 2026-07-15** (Tier-3, operator-directed): it currently places no real-money
+orders (runtime `live.alpaca_live=false`), and the re-arm is gated on the
+/performance-review portfolio-vs-bybit benchmark. Runbook:
+`docs/runbooks/alpaca-integration.md`.
 
 ### Step 7 — Logging and state updates
 The runtime records:
@@ -525,9 +537,15 @@ The canonical reference is
 catalogues every workflow under `.github/workflows/` with trigger,
 purpose, secrets, outputs, and the rules for when Claude may modify it.
 
-Current workflows include CI guards (`pytest-collect`, `ruff-lint`,
-`secret-scan`, `dry-run-guard`, `env-gate-guard`,
-`silent-empty-guard`), VM ops (`system-actions`, `vm-diag-snapshot`,
+Current workflows include CI guards (`pytest-collect`, `pytest-run`,
+`ruff-lint`, `secret-scan`, `dry-run-guard`, `env-gate-guard`,
+`silent-empty-guard`, `canonical-config-loaders`, `canonical-db-resolver`
+— these nine are the `REQUIRED_CONTEXTS` that gate `main` in
+`branch-protection-sync.yml`; plus advisory-only guards incl.
+`layer-guard`/import-linter (M0a/M0b platform-layering enforcement — see
+`ROADMAP_MACRO.md § 1`; runs on every PR but is NOT yet a required check),
+`strategy-coverage-guard`, `arch-doc-guard`, `new-table-wiring-guard`), VM ops
+(`system-actions`, `vm-diag-snapshot`,
 `vm-web-api-recover`, `vm-net-diag`, `vm-net-fix`, `vm-cloud-fix`),
 training (`training-run`, `training-rerun-5m`, `hf-cron`),
 inventory/labels (`repo-inventory`, `bootstrap-labels`,
@@ -539,7 +557,8 @@ inventory/labels (`repo-inventory`, `bootstrap-labels`,
 | Area | Path | Notes |
 |---|---|---|
 | Runtime pipeline | `src/runtime/` | `pipeline.py`, `orders.py`, `validation.py`, `health.py`, `heartbeat.py`, `outcomes.py` |
-| Strategies | `src/units/strategies/` | Strategy modules; wired via `config/strategies.yaml` |
+| Strategies | `src/units/strategies/` | Strategy modules; wired via `config/strategies.yaml`. Two ISOLATED (non-`multi_account_execute`) sleeves live here: `pairs_executor.py`/`pairs_engine.py`/`pairs_sizing.py` (M22 2-leg pairs) and `macro_thesis/` (M28 macro/value thesis former — observe-only tick hook, no order path, import-linter-locked out of Execution). |
+| Macro/value + sys-dynamics | `src/units/strategies/macro_thesis/`, `src/sysdyn/` | M28/M29 (NEW 2026-07): thesis former + valuation/event stores + FRED adapter + P4 thesis backtest (`macro_thesis/`); pure system-dynamics engine (`sysdyn/`, not yet tick-wired). Config `config/macro_*.yaml`; file-backed JSONL stores; import-linter-locked out of the order path. |
 | Strategy registry | `src/strategy_registry.py` | Single source of truth for which strategies exist |
 | Account / risk | `src/units/accounts/` | `risk.py`, `prop_risk.py`, `execute.py`, broker clients (`ib_client.py`/`alpaca_client.py`/`oanda_client.py`), `ib_instruments.py`, `__init__.py` (`load_accounts`). After the safeguards PR follow-on, `_DRY_RUN_OVERRIDES` and `set_account_dry_run()` are deleted; `_resolve_mode()` reads YAML directly. |
 | Prop accounts | `src/prop/` | Breakout manual-bridge — `breakout_executor.py` (Telegram-ping prop executor), `account_rulesets.py`, `multi_account_ticket.py`, `montecarlo.py`, `prop_journal.py`, `prop_report.py` |
@@ -883,6 +902,9 @@ filtered to architecture-level deltas only.
 | 2026-07-09 | (Full-system audit 2026-07-09 — canonical-doc reconciliation, S-AUDIT-A) | **Reconciled this doc + `ROADMAP.md` against config/code on disk after Phase-0 of the full-system audit found material drift in the #2/#3 yardsticks.** Fixes: the "12 strategies registered (verified 2026-06-10)" count → **48 cells**, and the exhaustive per-cell enumeration in Step 2 replaced with a family-level *shape* + a pointer to the authoritative source (`config/strategies.yaml` / `/api/bot/strategies`) so the prose can't re-drift; the stale per-cell gate claims corrected (`squeeze_breakout_4h` is `execution: live`, re-promoted 2026-06-23 operator-approved, NOT shadow; `turtle_soup`/`ict_scalp_5m` are shadow, not "all live"); the 2026-05-24 "IBKR offline pending approval" note retired (MES/MGC/MHG + the 2026-07-07 ETFs execute live on `ib_paper`); the Step-3 "bybit_1/bybit_2 are mirrors" claim corrected to the 2026-06-02 winners-only divergence; the Step-6 "Real-money Alpaca remains gated" note superseded (`alpaca_live` is a live real-money book, operator-approved). The `_DRY_RUN_OVERRIDES`/`set_account_dry_run()` "deletion never landed" self-contradiction resolved in favour of reality (deleted; regression test asserts absence). Residual tail completed in the follow-up S-AUDIT-A PR: the Step-6 Alpaca prose (still reading "Real-money Alpaca remains gated") corrected to `alpaca_live` live-real-money; the stale breaker line-number (`coordinator.py:1669-1689` → symbol-anchored `_EXCHANGE_REJECTION_COUNTS` reference); the equity-penny-tick note added for `ib_paper`'s STK/ETF cells; the repo-map omissions filled (IB market-data connector, the broker clients, a `src/prop/` prop-executor row); plus the `ROADMAP.md` M15 `alpaca_live` SPLG/IAUM sub-$100-proxy detail (D9) and the stale "next is WS5-B-PART-2" AI-traders queue note (D10 — it closed 2026-05-10). No code/config changed — documentation-hygiene only (field-beats-comment; the field changes were all operator-approved). Audit program doc: `docs/audits/full-system-audit-2026-07-09.md`. | `docs/ARCHITECTURE-CANONICAL.md`, `ROADMAP.md`, `docs/CLAUDE-RULES-CANONICAL.md` (Phase-0 rule fixes R1-R5), `docs/audits/full-system-audit-2026-07-09.md` | Tier-1 (docs only; no runtime/order-path/config change). |
 | 2026-07-15 | M22 D2 — market-neutral pairs sleeve (NEW isolated 2-leg order path) | **A NEW order path distinct from `multi_account_execute`.** The winner of the M22 small-TF research is a market-neutral crypto cointegration-pairs sleeve — a pair is TWO simultaneous opposite legs, which does not fit the single-symbol intent model. So it runs as its own once-per-tick hook `src.units.strategies.pairs_executor.run_pairs_tick` (prop-bridge pattern), called from `src/main.py` after `run_monitor_tick` — NOT through the coordinator. Config is a dedicated `config/pairs.yaml` (the 4 validated pairs SOL/BTC, BNB/BTC, ETH/BTC, SOL/ETH; each carries the sanctioned `execution: shadow|live` gate, `account_id`, params). Per closed 1h bar per pair: fetch both legs' candles → reconstruct open-state from journal-durable `order_packages.meta` → `decide_pair` (pure) → for an `execution: live` pair place BOTH legs via `_log_new_order_package` + `execute_pkg` (reusing the validated placement + atomic SL/TP + journal-write), linked by a shared `meta.pairs_group_id`, with a leg-imbalance unwind if the 2nd leg fails; close flattens both legs. Legs are journalled with per-leg strategy names `pairs_<name>_a`/`_b`, which `pipeline.monitor_unit_for` resolves to `pairs_executor` (whose `monitor()` returns None — the executor owns the joint spread-exit; the per-package monitor cleanly no-ops on a pairs leg, the wide per-leg catastrophe SL/TP is the last-resort net). Observe-only soak `src.runtime.pairs_soak` → `runtime_logs/pairs_soak.jsonl`, surfaced Tier-1 read-only at `GET /api/bot/pairs/soak`. `BNBUSDT` added to `config/instruments.yaml` (BNB/BTC leg; reporting/routing only, not in any account's `symbols` roster). Shipped foundation at `execution: shadow` (#6519) then flipped all 4 to `execution: live` on `bybit_1` (Bybit demo / paper venue) operator-approved (#6521). | `src/units/strategies/pairs_executor.py` (NEW), `src/units/strategies/pairs_engine.py` (NEW, #6518), `src/units/strategies/pairs_sizing.py` (NEW, #6518), `src/runtime/pairs_soak.py` (NEW), `src/web/api/routers/pairs.py` (NEW), `src/web/api/main.py`, `src/main.py`, `src/runtime/pipeline.py`, `config/pairs.yaml` (NEW), `config/instruments.yaml`, `CLAUDE.md`, this file | Live VM (next deploy): the pairs sleeve places real 2-leg orders on `bybit_1` **paper** money on a cointegration entry signal — a NEW order path, isolated from the single-symbol flow. Real-money/paper KPIs unaffected (paper account). Rollback: set a pair back to `execution: shadow` in `config/pairs.yaml` (or delete the file) — one-line, no redeploy. Tier-3, operator-approved. |
 | 2026-07-16 | S-PAPER-PORTFOLIO — live-portfolio-mirror paper accounts + `paper_role` axis | **Two new PAPER accounts that mirror the *actual live-traded portfolio*, so the real portfolio's performance + risk-management plumbing can be read on paper money without the small-account trading constraints of the real books and without the full soak-roster noise.** (1) `config/accounts.yaml::bybit_portfolio` — Bybit DEMO (paper), `account_class: paper`, mirrors `bybit_2`'s winners-only roster + symbols + linear-perp/3× profile; keys `BYBIT_API_KEY_3`/`_SECRET_3` (reutilized "bybit 3" demo keys, secret auto-derived). (2) `config/accounts.yaml::alpaca_portfolio` — Alpaca PAPER host, `account_class: paper`, dedicated login `ALPACA_API_KEY_PAPER_PORTFOLIO`/`ALPACA_API_SECRET_KEY_PAPER_PORTFOLIO`, mirrors `alpaca_live`'s roster + symbols **minus the affordability proxies** `splg_trend_long_1d`/`iaum_pullback_1d` (SPLG/IAUM) — operator-approved divergence: those proxies exist only for the ~$150 real account's whole-share affordability, so running them alongside the primaries (SPY/GLD) on a large paper balance would double S&P/gold exposure. Both are `mode: live` (paper money executes). No new tick-loop symbols (all already in the union) and no `strategies.yaml` change (rosters are all `execution: live`, except `ict_scalp_5m` which shadow-logs on `bybit_2` too). (3) NEW optional per-account field **`paper_role: portfolio | soak`** (absent ⇒ soak) — distinguishes the live-PORTFOLIO mirror from a data-only SOAK book (`bybit_1`/`alpaca_paper`/`ib_paper`/`alpaca_options_paper`); surfaced on `/api/bot/config` (added to `_ACCOUNT_PUBLIC_FIELDS`). Consumer semantic (operator directive): the dashboard/Android **"Paper" view scopes to `paper_role: portfolio`**; soak books appear only on the Accounts page. (4) `sync-vm-secrets` OPTIONAL set + steps extended with the 4 new secret names. | `config/accounts.yaml`, `src/web/api/routers/bot_config.py`, `.github/workflows/sync-vm-secrets.yml`, this file (+ dashboard/Android UI PRs) | Live VM (next deploy): after `sync-vm-secrets` lands the 4 keys in `.env`, then `pull-and-deploy`, the two paper-portfolio accounts start trading the mirrored rosters on paper money. Real-money KPIs unaffected (paper). Rollback: delete the two account blocks. **Bybit key IP-allowlist: add the live-trader egress IP `141.145.193.91`.** Tier-3 (config/accounts.yaml) — operator-approved. |
+| 2026-07-22 | M27 P1 — 15m scalp legs (paper soak) | **Six new ICT-scalp cells wired for a paper soak on `bybit_1`.** The M27 small-TF research added `ict_scalp_{sol,xrp,avax}_5m` + `ict_scalp_{xrp,eth,sol}_15m` (roster 48 → 54). All are `execution: live` + `enabled: true` but routed **only** to `bybit_1` (Bybit demo / **paper**) — absent from real-money `bybit_2`/`bybit_portfolio`, so it is a deliberate paper-soak, not a real-money change. Signal builders registered via the named `_ict_scalp_variant_builder` (`strategy_signal_builders.py`), in the intent roster (`intent_multiplexer.py`) + monitor registry; symbol pinned from each cell's `symbols:`, no hidden gate. Operator-approved paper soak 2026-07-22 (`docs/research/M27-P1-15m-promotion-proposal-2026-07-22.md`). | `config/strategies.yaml`, `config/accounts.yaml` (bybit_1 roster), `src/runtime/strategy_signal_builders.py`, `src/runtime/intent_multiplexer.py`, this file | Live VM: `bybit_1` (paper) evaluates the 6 new scalp legs; real-money KPIs unaffected. Rollback: `enabled: false` on the cells. Tier-3, operator-approved paper soak. |
+| 2026-07-23 | M28/M29 — macro/value thesis subsystem + system-dynamics engine (NEW, OFF-VM/observe-only) | **A substantial new, fully ISOLATED subsystem** (no live order path; import-linter-locked out of Execution). **M28** (`src/units/strategies/macro_thesis/` — `thesis_engine`, `thesis_store`, `event_store`, `event_calendar`, `valuation_feed`/`valuation_store`, `fred_adapter`, `thesis_backtest`/`thesis_replay`, `thesis_tick`): a macro/value trade-thesis former — point-in-time valuation snapshots (FRED + non-FRED sources), an event subsystem, a rule-based thesis former, and a no-lookahead P4 thesis backtest. Wired live ONLY as the best-effort once-per-tick `run_macro_thesis_tick` hook in `src/main.py` (places no order — P5 executor unbuilt). Gate `config/macro_theses.yaml::sleeve.execution: shadow`; eventual venue `alpaca_options_paper` (paper). Stores are file-backed JSONL (`comms/macro/`, `runtime_logs/*_soak.jsonl`) via `src.utils.paths` — not yet DB tables. **M29** (`src/sysdyn/`): a pure system-dynamics engine (identify/structure/gas-storage seed) — shipped, import-linter-locked, tested, NOT yet tick-wired (P1a pure package; wiring is backtest-gated P3+). Grading workflows: `m28-value-grade` + `m31/m32/m33/m34-*-grade` + `macro-valuation-{snapshot,backfill}`. Full design: `ROADMAP_MACRO.md`. | `src/units/strategies/macro_thesis/*` (NEW), `src/sysdyn/*` (NEW), `config/macro_{events,theses,valuation}.yaml` (NEW), `scripts/macro/*`, `.importlinter` (macro_thesis/sysdyn purity contracts), `.github/workflows/{m28-value-grade,m3{1,2,3,4}-*-grade,macro-valuation-*}.yml`, `ROADMAP_MACRO.md` | **None on live-VM order path** — observe-only tick hook + off-VM research/grading only. No web-API router (so no `CLAUDE.md` API-table entry). Rollback: the tick hook is best-effort try/except; `sleeve.execution` flip is Tier-3 + P4-gated. |
+| 2026-07-26 | Full-system audit 2026-07-26 — canonical-doc + observability reconciliation | **Periodic full-system audit (all 3 repos, both VMs, canonical store).** Verdict: recent infra (M28/M27/M26/M0a-b) is **compliant** (zero Prime-Directive/Tier-3/isolation violations; 19/19 CI guards + ruff green; layer-guard enforcing). Doc/observability fixes landed this pass: (A2) this M28/M29 + M27 change-log documentation + Repo-Map row; (A4) `alpaca_live` corrected to its shelved `dry_run` state (was overstated as live real-money); (A1) strategy count 48 → 54; (A3) `layer-guard`/import-linter + `REQUIRED_CONTEXTS` added to the CI-guard list; (WS-B) diag `_CANONICAL_UNITS` gained the 3 data-ingest timers (`ict-exchange-{fills,funding}-pull`, `ict-mes-ibkr-pull`) + dropped retired `ict-heartbeat.service`; `replay-pregate-nightly` ref → `main`; 2 missing labels bootstrapped. Surfaced to operator (not self-fixed): `ict-mes-ibkr-pull.service` in `failed` state; 352 Claude-pings stranded in the pre-migration repo-path inbox; recurring bybit_2 smoke-test `place_order` NoneType failures. Program doc + per-file coverage: `docs/audits/full-system-audit-2026-07-26.md`. | `docs/ARCHITECTURE-CANONICAL.md`, `src/web/api/routers/diag.py`, `.github/workflows/{replay-pregate-nightly,bootstrap-labels}.yml`, `docs/audits/full-system-audit-2026-07-26.md`, `ROADMAP.md`, the three review backlogs | Tier-1 (docs + diag read-surface observability + CI workflow config). `diag.py` change ships via `ict-git-sync`; makes the 3 ingest timers queryable on `/api/diag/services`. No order-path/config-gate change. |
 
 ---
 
