@@ -333,10 +333,23 @@ def check_tick_freshness(
 
 
 def check_accounts_api() -> HealthCheck:
-    """Reuse data_loaders.account_balance() per account; any None → WARN."""
+    """Broker-API account health from the connection-free ``balance_snapshots``
+    DB (the same DB-authoritative source ``/api/bot/accounts/balances`` reads).
+
+    BL-20260604-004: the standalone health-snapshot writer runs in its OWN
+    process with no live broker clients, so the old live ``account_balance()``
+    probe returned ``None`` for every account and pinned this check at a
+    permanent WARN — training everyone to ignore WARN. The per-tick
+    ``account_reachability_alert`` latch already owns real-time API-down
+    detection; here we read the LAST RECORDED balance snapshot instead of
+    opening a socket. An account with a snapshot whose ``api_ok`` is truthy (or
+    that carries a balance) is healthy; a recorded ``api_ok=false`` with no
+    balance is the real down signal; no snapshot yet is "no data", not an
+    outage. Connection-free, so it is correct in the oneshot writer too.
+    """
     name = "accounts_api"
     try:
-        from src.bot.data_loaders import account_balance, list_accounts
+        from src.bot.data_loaders import list_accounts
     except Exception as exc:  # noqa: BLE001
         return _warn(name, f"data_loaders unavailable: {exc}")
 
@@ -378,9 +391,20 @@ def check_accounts_api() -> HealthCheck:
         # is demoted only by an EXPLICIT ``dry_run``).
         return str(acc.get("mode") or "live").strip().lower() == "live"
 
+    # Connection-free: newest balance_snapshots row per account (WC-5). Never
+    # opens a broker socket, so it is correct in the oneshot writer context.
+    try:
+        from src.units.db.database import get_db
+
+        snapshots = get_db().get_latest_balance_snapshots() or {}
+    except Exception as exc:  # noqa: BLE001
+        # Our own read error must not masquerade as an account outage.
+        return _ok(name, f"balance-snapshot read unavailable ({type(exc).__name__}); skipped")
+
     failed: List[str] = []
     skipped: List[str] = []
     shelved: List[str] = []
+    no_data: List[str] = []
     for acc in accounts:
         aid = acc.get("account_id") or "unknown"
         if not _has_broker_api(acc):
@@ -389,29 +413,32 @@ def check_accounts_api() -> HealthCheck:
         if not _is_declared_live(acc):
             shelved.append(aid)
             continue
-        try:
-            bal = account_balance(acc)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("check_accounts_api: balance(%s) raised: %s", aid, exc)
-            bal = None
-        if bal is None:
+        snap = snapshots.get(aid)
+        if snap is None:
+            no_data.append(aid)
+            continue
+        # A recorded reading that was NOT api_ok and carries no balance is the
+        # real down signal; anything else (api_ok, or a balance present) is up.
+        if not snap.get("api_ok") and snap.get("balance") is None:
             failed.append(aid)
 
     total = len(accounts) - len(skipped) - len(shelved)
     if not failed:
-        detail = f"all {total} broker-API accounts ok"
+        detail = f"all {total - len(no_data)} recorded broker-API accounts ok"
         extras: List[str] = []
+        if no_data:
+            extras.append(f"{len(no_data)} no snapshot yet: {', '.join(no_data)}")
         if skipped:
             extras.append(f"{len(skipped)} manual-bridge skipped: {', '.join(skipped)}")
         if shelved:
             extras.append(f"{len(shelved)} dry/shelved skipped: {', '.join(shelved)}")
         if extras:
             detail += " (" + "; ".join(extras) + ")"
-        return _ok(name, detail, total=total, skipped=skipped, shelved=shelved)
+        return _ok(name, detail, total=total, skipped=skipped, shelved=shelved, no_data=no_data)
     return _warn(
         name,
-        f"{len(failed)}/{total} accounts API down: {', '.join(failed)}",
-        failed=failed, total=total, skipped=skipped, shelved=shelved,
+        f"{len(failed)}/{total} accounts recorded API-down: {', '.join(failed)}",
+        failed=failed, total=total, skipped=skipped, shelved=shelved, no_data=no_data,
     )
 
 

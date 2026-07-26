@@ -31,11 +31,21 @@ This skill owns **two** coordination surfaces, and both are mandatory:
   protocol: **`docs/claude/coordination-board.md`**.
 - **The merge queue — `docs/claude/session-board.json`.** Honour-system
   last-writer-wins, not a hard lock; the hard safety net is GitHub
-  branch-protection (require-up-to-date). Its job is to serialize the *one* merge
-  slot + mirror session intent durably.
+  branch-protection (require-up-to-date). Its job is to **mirror** session intent
+  durably (the `active_sessions` array).
 
-The board makes concurrent work *visible in real time*; the JSON serializes the
-merge and records intent durably. Use both.
+**One source of truth for the merge claim: the live board (#6927), not the JSON.**
+The 2026-07-20 lapse (BL-20260720-MERGE-PROTOCOL-LAPSE — 3 claim-less merges raced
+`behind` 3× in one day, each costing a branch refresh + a full ~10-min CI rerun,
+while the 2 merges that DID post a claim comment merged cleanly first try) showed
+the two surfaces had drifted: sessions treated `merge_slot` in the JSON as the
+claim, but it went untouched all day while the *board comment* claims were what
+actually prevented collisions. So: the **`🔒 MERGE SLOT CLAIM` / `🔓 MERGE SLOT
+RELEASE` board comments are the authoritative live claim** (they reach other
+sessions instantly); the JSON `merge_slot` is a best-effort durable mirror, not
+the claim itself. The board makes concurrent work *visible in real time*; the JSON
+records intent durably. Use both, but the board comment is the one that gates a
+merge.
 
 ## 1. Session-start preflight (before your FIRST substantive tool call)
 
@@ -84,25 +94,38 @@ contract + generation discipline. This skill adds the two missing halves:
    because every session edits that one JSON, treat conflicts on it as expected
    and resolve by union, never by clobbering another session's entry).
 
-## 2. The merge protocol (BEFORE every `merge_pull_request`)
+## 2. The merge protocol — a PER-MERGE precondition (BEFORE every `merge_pull_request`)
 
-Run these in order. This is the part that stops the retest churn.
+**This is not a session-start ritual — it is a precondition on the
+`merge_pull_request` call itself.** Every merge, every time, no matter how busy the
+repo is (the 07-20 lapse happened precisely because the claim lived in session
+memory and got skipped under time pressure while racing an approved chain). If
+you are about to call `merge_pull_request`, you run steps 1–2 in the *same turn*
+first. Run all of these in order — this is the part that stops the retest churn:
 
-1. **List open PRs** (`list_pull_requests state=open`) — the authoritative
-   real-time signal. If another session's PR is `mergeable_state: behind`/ready
-   and clearly mid-merge, or holds `merge_slot` on the board, **wait** (watch it
-   via a Monitor poll on its state; merge yours after it lands).
-2. **Claim the slot.** Set `merge_slot` in the board to
-   `{held_by, branch, pr, claimed_at}`. If the slot is already held by a live
-   session, do not merge — wait or coordinate.
+1. **Read the board tail + open PRs FIRST.** `issue_read method=get_comments` on
+   **#6927** (read the *newest* comments — an open `🔒 MERGE SLOT CLAIM` with no
+   matching `🔓 RELEASE` means another session holds it: **wait**) AND
+   `list_pull_requests state=open` (the authoritative real-time signal — a PR
+   `mergeable_state: behind`/ready and clearly mid-merge means wait). Not reading
+   the board before merging is root-cause (2) of the 07-20 lapse.
+2. **Post your `🔒 MERGE SLOT CLAIM` comment on #6927** (session id, branch, PR #).
+   This board comment is the live claim that reaches other sessions in time; also
+   mirror it into `session-board.json::merge_slot` (`{held_by, branch, pr,
+   claimed_at}`) as the durable record. If a live session already holds the claim,
+   do not merge — wait or coordinate.
 3. **Sync to `main` LAST, right before merging** — `git fetch origin main &&
    git merge origin/main` (or rebase) so your branch is up-to-date at merge time,
    not minutes before. Push; let CI go green on the synced head.
 4. **Merge on green.** Confirm all required checks pass on the *synced* head SHA
    (a Monitor poll on `commits/<sha>/check-runs` is the clean wait), then
    `merge_pull_request`. Squash unless the history matters.
-5. **Release the slot** — clear `merge_slot` back to nulls immediately after the
-   merge resolves (merged OR aborted). A held-but-abandoned slot blocks everyone.
+5. **Release the slot** — post a `🔓 MERGE SLOT RELEASE` comment on #6927 AND clear
+   `session-board.json::merge_slot` back to nulls immediately after the merge
+   resolves (merged OR aborted). A held-but-abandoned claim blocks everyone.
+
+Mnemonic: **read board → 🔒 CLAIM → sync → merge on green → 🔓 RELEASE**, on every
+`merge_pull_request`.
 
 Corollary: **one PR = one concern.** Never add unrelated work to a branch that
 already has an open PR — it pollutes the PR and invalidates its CI run (and a new

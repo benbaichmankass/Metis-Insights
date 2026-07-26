@@ -12,7 +12,7 @@
       "tier": 2,
       "trigger_condition": "Next /health-review or /ml-review session. Checks: (a) trainer-vm-diag `cd /home/ubuntu/ict-trading-bot && git status && git log --oneline -5 origin/main..HEAD && git log --oneline -5 HEAD..origin/main` to see the divergence shape (local commits ahead? behind?); (b) confirm whether ict-git-sync (or whatever auto-deploys the trainer) is actually running there and why it stopped fast-forwarding; (c) resolve via `git fetch origin main && git reset --hard origin/main` (the same recovery the vm-git-credential-bootstrap trainer branch uses) once it's confirmed the local delta is not load-bearing (trainer artifacts are typically untracked/gitignored, so a hard reset should be safe \u2014 verify first).",
       "resolution_criteria": "Trainer clone tracks origin/main again and `git pull --ff-only` succeeds; auto-deploy of main to the trainer confirmed working (a fresh merge to main lands on the trainer without manual intervention).",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -25,16 +25,22 @@
           "at": "2026-07-26T07:05:00+00:00",
           "by": "claude (PB-20260618-015 ETH pullback tune; trainer-vm-diag #7614)",
           "note": "STILL DIVERGED as of 2026-07-26. Corroborating evidence: relay #7614 reported the trainer working tree at HEAD=cdbaa718 with scripts/backtest_pullback.py MISSING the --vol-skip-*/--trail-decay-*/--confirm-bars flags that are on main (the M21 entry/vol + M20 exit levers) -- so the trainer is running a harness pre-those merges. Confirms the trainer is executing stale code, not just failing to fast-forward. Workaround this session: re-ran the sweep against a fresh curl of the main-branch harness to /tmp (non-mutating), results valid. The (c) recovery in trigger_condition (git fetch origin main && git reset --hard origin/main, once the local delta is confirmed non-load-bearing) still applies -- raising visibility so a trainer/health session actually drives it, per 'if you see something, say something'."
+        },
+        {
+          "at": "2026-07-26T10:23:52+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, trainer relay #7638)",
+          "note": "RESOLVED \u2014 trainer clone git-reset to origin/main via trainer-vm-diag #7638: HEAD moved cdbaa718 -> 95cadcd1 (the merged #7621 backlog-drain). Verified the merged fixes are on-disk: `for tf in 1h;` in build_trainer_datasets.sh (line 730, fc-clobber fix) + `manifest_audit_skipped_enforced` in run_training_cycle.sh (line 397, audit enforce). The next nightly cycle produces fresh fc_* (un-clobbered) AND enforces flagged manifests. Trainer no longer running stale code."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:23:52+00:00"
     },
     {
       "id": "BL-20260726-ALPACA-OPTIONS-ONLY-VIA-IBKR",
-      "opened_at": "2026-07-26T11:55:00+00:00",
+      "opened_at": "2026-07-26T12:10:00+00:00",
       "opened_by": "claude (operator Alpaca-account direction decision 2026-07-26)",
       "source": "operator direction decision 2026-07-26 (Alpaca paper-account crunch / can't create a 4th paper account)",
-      "title": "[direction] Make Alpaca OPTIONS-ONLY \u2014 migrate the equity/ETF strategies to IBKR (ib_paper), leaving Alpaca just the options book",
-      "description": "OPERATOR-DECIDED DIRECTION (2026-07-26). Alpaca caps the account at 3 paper logins (all in use), so a dedicated 4th for options isolation (old BL-20260627-OPTIONS-SEPARATE-ACCT) can't be created. Chosen resolution: shrink Alpaca to OPTIONS-ONLY and run the equity/ETF strategies on IBKR instead. IBKR equity/ETF (STK) support already exists (S-IBKR-EQUITY-ETF-SUPPORT-2026-07-07; ib_paper trades SPY/QQQ/IWM/TLT). Migrate the alpaca_paper / alpaca_portfolio equity+ETF strategies (SPY/QQQ/GLD/IWM/TLT/IEF/SLV/USO/GDX/TQQQ/QLD/SPLG/IAUM/SCHA) onto ib_paper (Tier-3 account routing, config/accounts.yaml + config/strategies.yaml \u2014 hard-limit files, operator-approved PR + per-account compat matrix per the prop/backtesting skills). END-STATE: Alpaca = the options book only (1 paper login) \u2192 the 3-account cap is a non-issue AND options has no Alpaca equity positions to collide with (structural isolation for free, closing the old BL-20260627 concern). CAVEATS: (1) options stay on Alpaca \u2014 IBKR options is NOT built (options overlay is Alpaca-specific: AlpacaOptionsData/AlpacaOptionsExecutor); (2) alpaca_live real-money is separately auth-blocked (BL, 'request is not authorized') \u2014 unrelated but relevant to any real-money equity go-live; (3) decide alpaca_portfolio's fate (it mirrors alpaca_live, which isn't trading). Sequencing + compat-matrix + rollback = a dedicated session (suggest branch claude/alpaca-options-only-ibkr). INTERIM until then: Alpaca options stays on the shared alpaca_paper login, isolated by the asset-class filters (status quo).",
+      "title": "[direction] Make Alpaca OPTIONS-ONLY - migrate the equity/ETF strategies to IBKR (ib_paper), leaving Alpaca just the options book",
+      "description": "OPERATOR-DECIDED DIRECTION (2026-07-26). Alpaca caps the account at 3 paper logins (all in use), so a dedicated 4th for options isolation (old BL-20260627-OPTIONS-SEPARATE-ACCT) can't be created. Chosen resolution: shrink Alpaca to OPTIONS-ONLY and run the equity/ETF strategies on IBKR instead. IBKR equity/ETF (STK) support already exists (S-IBKR-EQUITY-ETF-SUPPORT-2026-07-07; ib_paper trades SPY/QQQ/IWM/TLT). Migrate the alpaca_paper / alpaca_portfolio equity+ETF strategies onto ib_paper (Tier-3 account routing, config/accounts.yaml + config/strategies.yaml hard-limit files, operator-approved PR + per-account compat matrix). END-STATE: Alpaca = the options book only (1 paper login) -> the 3-account cap is a non-issue AND options has no Alpaca equity positions to collide with (structural isolation for free). CAVEATS: (1) options stay on Alpaca - IBKR options is NOT built (overlay is Alpaca-specific: AlpacaOptionsData/AlpacaOptionsExecutor); (2) alpaca_live real-money is separately auth-blocked ('request is not authorized'); (3) decide alpaca_portfolio's fate (it mirrors alpaca_live, which isn't trading). Sequencing + compat-matrix + rollback = a dedicated session (suggest branch claude/alpaca-options-only-ibkr). INTERIM: Alpaca options stays on the shared alpaca_paper login, isolated by the asset-class filters (status quo).",
       "tier": 3,
       "status": "kept_open",
       "snoozed_until": null,
@@ -107,7 +113,7 @@
       "tier": 1,
       "trigger_condition": "Next session touching `.github/workflows/trainer-vm-diag.yml`, or the next time a trainer-vm-diag dispatch needs to run a command expected to take more than ~1 minute with little/no stdout in that window.",
       "resolution_criteria": "Either (a) the workflow itself is hardened \u2014 an SSH keepalive/ServerAliveInterval setting so a silent multi-minute command survives, AND the cmd-extraction step is changed to isolate the `cmd:` block from any trailing free-text (so issue-body prose is never executed as shell); or (b) short of a workflow change, this finding is folded into the workflow's own header-comment documentation so future sessions default to the `setsid ... & disown -a` detached-launch pattern for any command expected to run long/silent, without having to rediscover it empirically each time.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -120,8 +126,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-07-26T10:22:41+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-1 execution batch)",
+          "note": "RESOLVED \u2014 added `-o ServerAliveInterval=30 -o ServerAliveCountMax=10` to the trainer-vm-diag.yml ssh invocation, so a long-silent trainer command (a full dataset build / training cycle) no longer has its SSH session torn down mid-run (~5 min silence tolerated). Verified: workflow parses as valid YAML."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:22:41+00:00"
     },
     {
       "id": "BL-20260715-TRAINER-CYCLE-MEM-SATURATION",
@@ -260,11 +272,6 @@
           "at": "2026-07-26T09:56:02+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 1)",
           "note": "OPERATOR APPROVED 2026-07-26: BUILD IB broker-side protection verification (IBClient.has_protective_orders + re-arm on missing resting bracket, mirroring the Alpaca path). Tier-3 live-path code \u2014 build + test, operator approves the final diff before deploy. Execution queued as its own PR. Kept open until built."
-        },
-        {
-          "at": "2026-07-26T00:00:00+00:00",
-          "by": "claude (ib-broker-protection-verify session 2026-07-26)",
-          "note": "BUILT (DRAFT PR, awaiting operator merge-approval \u2014 Tier-3 live-order-path). (1) IBClient.has_protective_orders(symbol) -> Optional[bool]: forces an ACCOUNT-WIDE reqAllOpenOrders refresh (new _req_all_open_orders helper, bounded like _req_positions_snapshot) then filters the refreshed openTrades() by contract.symbol for a resting STP/LMT/TRAIL leg \u2014 NOT openTrades() alone (per-client-session visibility, build constraint 2). True=protected / False=broker-naked / None=could-not-confirm (breaker open / connect fail / account-read raised \u2014 fail-safe, caller never re-arms on None, build constraint 3). (2) _check_broker_naked_ib_positions(db) in order_monitor.py: mirrors _check_broker_naked_equity_positions but for IB accounts, CADENCE-GATED via IB_BROKER_NAKED_CHECK_SECONDS (default 300s, <=0 disables) so the account-wide read is never a per-tick cost (build constraint 1, BL-20260609 pacing class); per-(account,symbol) verdict cache within a sweep; skips active-close symbols; re-arms via the shared _attempt_naked_autoprotect (existing GTC OCA path, no new order construction). Wired into run_monitor_tick beside the Alpaca sweep. 16 new tests (tests/test_ib_naked_rearm.py) all green; ruff clean; env-gate-guard OK (_SECONDS knob, not *_ENABLED). Docs: CLAUDE.md naked-autoprotect note + env-var table. Sandbox can't reach a live Gateway \u2014 the reqAllOpenOrders account-wide semantics + a real broker-naked re-arm are the documented live-verify step for the operator post-merge. Kept open until merged + live-verified."
         }
       ]
     },
@@ -772,14 +779,14 @@
           "note": "OPERATOR DECISION 2026-07-26: WIRE a dedicated Alpaca paper login for alpaca_options_paper (removes the shared-login dual-filter collision risk). HAND-OFF: operator originates a new Alpaca paper API key+secret pair; I'll pre-create the secret placeholders (init-actions-secrets), then propagate via sync-vm-secrets + point alpaca_options_paper at them. Kept open pending the key pair."
         },
         {
-          "at": "2026-07-26T11:55:00+00:00",
+          "at": "2026-07-26T12:10:00+00:00",
           "by": "claude (operator Alpaca-account direction decision 2026-07-26)",
           "note": "Superseded 2026-07-26 by the operator's Alpaca-options-only-via-IBKR direction (BL-20260726-ALPACA-OPTIONS-ONLY-VIA-IBKR). Dedicated 4th paper account no longer pursued; interim = shared login + asset-class filters."
         }
       ],
-      "resolved_at": "2026-07-26T11:55:00+00:00",
+      "resolved_at": "2026-07-26T12:10:00+00:00",
       "resolved_by": "claude (operator Alpaca-account direction decision 2026-07-26)",
-      "resolution_note": "Operator decision 2026-07-26: the dedicated-4th-Alpaca-paper-account approach is DROPPED. Alpaca is capped at 3 paper accounts (all 3 in use: alpaca_paper, alpaca_portfolio, alpaca_options_paper), so a 4th can't be created. Chosen direction instead: make Alpaca OPTIONS-ONLY by migrating the equity/ETF strategies to IBKR (ib_paper STK support already built 2026-07-07, S-IBKR-EQUITY-ETF-SUPPORT) \u2014 once Alpaca holds no equities, the options book has no equity positions to collide with, so the structural isolation this item wanted is achieved WITHOUT a 4th account, and the 3-account cap stops mattering. INTERIM (until equities migrate): options stays on the shared alpaca_paper login, isolated by the two asset-class filters (us_option vs non-us_option) \u2014 the known/mitigated status quo since the 2026-06-27 fix. Superseded by BL-20260726-ALPACA-OPTIONS-ONLY-VIA-IBKR (the migration). NOTE: the empty ALPACA_API_KEY_ID_OPTIONS / ALPACA_API_SECRET_KEY_OPTIONS Actions-secret placeholders created this session are now inert/unneeded (no dedicated options login will be provisioned) \u2014 harmless, can be left empty."
+      "resolution_note": "Operator decision 2026-07-26: the dedicated-4th-Alpaca-paper-account approach is DROPPED. Alpaca is capped at 3 paper accounts (all in use), so a 4th can't be created. Chosen direction: make Alpaca OPTIONS-ONLY by migrating the equity/ETF strategies to IBKR (ib_paper STK support already built 2026-07-07) - once Alpaca holds no equities, the options book has no equity positions to collide with, achieving the structural isolation this item wanted WITHOUT a 4th account. INTERIM (until equities migrate): options stays on the shared alpaca_paper login, isolated by the two asset-class filters (status quo since the 2026-06-27 fix). Superseded by BL-20260726-ALPACA-OPTIONS-ONLY-VIA-IBKR. NOTE: the empty ALPACA_API_KEY_ID_OPTIONS / ALPACA_API_SECRET_KEY_OPTIONS placeholders created this session are now inert/unneeded (harmless)."
     },
     {
       "id": "BL-20260626-MES-BASE-STALE",
@@ -2365,12 +2372,12 @@
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
         },
         {
-          "at": "2026-07-26T11:10:00+00:00",
+          "at": "2026-07-26T12:10:00+00:00",
           "by": "claude (operator-directed housekeeping 2026-07-26)",
           "note": "RESOLVED per operator: FCM key rotated + both leaked comments deleted. The scrub-env-noncompliant system-action had already stripped the journal copy (PR #2158). Nothing further outstanding."
         }
       ],
-      "resolved_at": "2026-07-26T11:10:00+00:00",
+      "resolved_at": "2026-07-26T12:10:00+00:00",
       "resolved_by": "claude (operator-directed housekeeping 2026-07-26)",
       "resolution_note": "Operator confirmed 2026-07-26 the FCM service-account key was ROTATED at Google Cloud Console (neutralizes the exposure) and the two leaked issue comments were DELETED (issues #2157 / #2159). All three operator-only steps of the FCM private-key bleed follow-up are complete. Closing."
     },
@@ -2801,9 +2808,9 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; or whenever the dashboard health card shows accounts_api failing while the live trader is confirmed healthy.",
       "resolution_criteria": "check_accounts_api reports ok in the standalone ict-health-snapshot writer context when the trader's accounts are healthy (e.g. by reading the connection-free balance snapshot), so the M13 health card grades `good`/ok on a healthy system instead of a perpetual accounts_api `watch`. Verify via insights_history (endpoint=health) after the fix deploys.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-07-26T10:43:47+00:00",
       "resolved_by": null,
       "resolution_note": null,
       "updates": [
@@ -2822,6 +2829,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-07-26T10:43:47+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-1 execution batch 2)",
+          "note": "RESOLVED \u2014 src/runtime/health.py::check_accounts_api now reads the connection-free balance_snapshots DB (get_db().get_latest_balance_snapshots(), the same DB-authoritative source /api/bot/accounts/balances uses) instead of a live account_balance() probe. In the standalone health-snapshot writer there are no live broker clients, so the live probe returned None for every account and pinned this check at a permanent WARN; the per-tick account_reachability_alert latch already owns real-time down detection. Now: a snapshot with api_ok (or a balance) = healthy; api_ok=false + no balance = real down; no snapshot yet = 'no data' (not an outage). Updated tests/test_health.py (8 accounts-api tests, incl. a new no-snapshot-is-not-an-outage case) \u2014 all pass."
         }
       ]
     },
@@ -2849,9 +2861,9 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run that needs the trader or watchdog journal to root-cause a restart/stall; or the Tuesday compliance-audit rotation hitting .github/workflows/.",
       "resolution_criteria": "A /api/diag/journalctl pull for ict-trader-live.service returns successfully via the relay at a useful line/time window (or a dedicated small restart-cause diag exists), so a future health-review can capture the autoheal/crash trigger without the pull failing.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-07-26T10:56:24+00:00",
       "resolved_by": null,
       "resolution_note": null,
       "updates": [
@@ -2870,6 +2882,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-07-26T10:56:24+00:00",
+          "by": "claude (backlog-drain Tier-1, 2026-07-26)",
+          "action": "resolved",
+          "note": "Fixed candidate (a): vm-diag-snapshot.yml now sets a per-path curl --max-time \u2014 journalctl/log_file/audit paths get 120s (still inside the 5-min job timeout), everything else keeps 40s \u2014 at BOTH curl sites (workflow_dispatch single-fetch + the issue-driven batched loop). A high-volume unit tail (ict-trader-live) no longer trips curl exit 28 -> non-zero SSH -> workflow-fail (dispatch path) / '{\"error\":\"fetch_failed\"}' fallback (issue path). since=/until= narrowing guidance remains the belt-and-suspenders for even larger pulls."
         }
       ]
     },
@@ -3217,7 +3235,7 @@
       "description": "ict-trader-dashboard PR checks include a 'Cloudflare Pages' integration that instant-fails (completed_at==started_at) deploying a separate 'ict-trader-widget' Pages project. The dashboard repo has no Pages/wrangler/widget assets, so there is nothing for Pages to build - the check appears chronically failing and unrelated to repo content. Decide whether to disconnect the Cloudflare Pages integration from this repo or point it at the right project, so it stops adding a red X to every dashboard PR. Tier-1 infra/CI hygiene.",
       "tier": 1,
       "status": "wont_fix",
-      "resolved_at": "2026-07-26T11:10:00+00:00",
+      "resolved_at": "2026-07-26T12:10:00+00:00",
       "resolved_by": "claude (operator-directed housekeeping 2026-07-26)",
       "resolution_note": "Operator decision 2026-07-26: WON'T FIX / ignore. The failing 'Cloudflare Pages' check is posted by the Cloudflare GitHub App's Git integration (deploying a stale 'ict-trader-widget' Pages project) - it is NOT produced by any repo file (verified: no cloudflare/wrangler/pages.dev config in ict-trader-dashboard; the repo's own pages.yml is GitHub Pages for the Svelte SPA, unrelated). Cosmetic and NON-BLOCKING (PRs merge with the red X present). Nothing repo-side can disable an external GitHub App's status; the only definitive silence is removing the Cloudflare Pages app's repo access in GitHub settings (~30s operator action) or disconnecting it in the Cloudflare dashboard - operator chose to leave it and ignore the noise. Treat the 'Cloudflare Pages' red X on dashboard PRs as expected/ignorable.",
       "updates": [
@@ -3243,7 +3261,7 @@
           "note": "Kept open 2026-07-26 (backlog-drain-tier1): NOT fixable from the repo. Confirmed the ict-trader-dashboard repo contains NO Cloudflare Pages / wrangler / ict-trader-widget assets (only a GitHub Pages workflow, .github/workflows/pages.yml, for the Svelte SPA). The chronically-failing 'Cloudflare Pages' PR check is an EXTERNAL Cloudflare-dashboard GitHub integration deploying a non-existent 'ict-trader-widget' project. PROPOSE-TO-OPERATOR: in the Cloudflare dashboard (or GitHub \u2192 Settings \u2192 Integrations/Apps), disconnect the Cloudflare Pages app from benbaichmankass/ict-trader-dashboard (or repoint it at a real project) so it stops adding a red X to every dashboard PR. Requires Cloudflare-account access no repo change can substitute for."
         },
         {
-          "at": "2026-07-26T11:10:00+00:00",
+          "at": "2026-07-26T12:10:00+00:00",
           "by": "claude (operator-directed housekeeping 2026-07-26)",
           "note": "Closed wont_fix per operator (2026-07-26). No repo-side lever exists (external Cloudflare GitHub App, not a workflow). Non-blocking; documented ignorable."
         }
@@ -3541,7 +3559,7 @@
       "title": "install_systemd_units.sh blanket enable --now activates IB-gateway timers on the trader box",
       "description": "The timer-enable loop at the end of scripts/install_systemd_units.sh does `enable --now` on EVERY deploy/*.timer it finds, including ict-ib-gateway-watchdog.timer and ict-ib-gateway-reset.timer. Post gateway-isolation (2026-06-10) those belong on the dedicated IB-gateway VM, NOT the trader -- on the trader they probe a non-existent local container / unreachable IB and spam alerts. Pre-existing design wart (predates the split topology). Worked around on the candidate this session by `systemctl mask`-ing both timers so the blanket enable is a no-op for them. Durable fix: make the enable loop topology-aware (skip gateway timers unless the host IS the gateway VM, via a marker file or unit allowlist). Tier-2 (deploy tooling).",
       "tier": 2,
-      "status": "kept_open",
+      "status": "resolved",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -3558,8 +3576,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-07-26T10:22:41+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-1 execution batch)",
+          "note": "RESOLVED (already fixed \u2014 triage found the code in place). scripts/install_systemd_units.sh already gates the gateway timers role-aware: `_GATEWAY_ONLY_TIMERS=\" ict-ib-gateway-watchdog.timer ict-ib-gateway-reset.timer \"` + an `/etc/ict-vm-role`==gateway check skips auto-enabling them on the trader box (lines ~320-335, BL-20260622-GATEWAY-ISOLATE-UNITS). The blanket-enable concern this item raised no longer applies. Closing as already-resolved."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:22:41+00:00"
     },
     {
       "id": "BL-20260614-BYBIT-IP",
@@ -3723,7 +3747,7 @@
       "trigger_condition": "Next /health-review.",
       "resolution_criteria": "Decision recorded: either (a) keep with a documented concrete rollback rationale, or (b) scrub the env read + allow-silent + update trade_events.py docstring/tests, mirroring the MOBILE_PUSH_ENABLED removal.",
       "tier": "Tier-1 (notification side-channel; code-only change if scrubbed)",
-      "status": "kept_open",
+      "status": "resolved",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -3745,8 +3769,14 @@
           "at": "2026-07-26T10:00:23+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 2)",
           "note": "OPERATOR DECISION 2026-07-26: SCRUB the TRADE_EVENT_TELEGRAM_DISABLED kill-switch (best-effort off-thread send; mirrors the MOBILE_PUSH_ENABLED removal #3807). Tier-1 code cleanup \u2014 queued. Kept open until the flag + its reads are removed."
+        },
+        {
+          "at": "2026-07-26T10:22:41+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-1 execution batch)",
+          "note": "RESOLVED (operator-decided SCRUB, 2026-07-26) \u2014 removed the TRADE_EVENT_TELEGRAM_DISABLED kill-switch: dropped `_telegram_enabled()`, the `os`/`_TRUTHY` imports, the call-site guard, and the docstring config note in src/runtime/mobile_push/trade_events.py. The per-trade Telegram line is now unconditional (best-effort, off-thread, never gates the order path), mirroring the MOBILE_PUSH_ENABLED removal (#3807). Updated tests/test_trade_events_dispatch.py (the disabled-skips-send test became fires-unconditionally); 4 tests pass."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:22:41+00:00"
     },
     {
       "id": "BL-20260617-PROP-RISK-ACCOUNT-ID",
@@ -4198,8 +4228,8 @@
       "trigger_condition": "operator decision on activating the news layer",
       "resolution_criteria": "NEWS_SOURCE=rss set (layer active) \u2014 or a decision to leave it inert is recorded and the status string clarified.",
       "check_log": [],
-      "status": "kept_open",
-      "resolved_at": null,
+      "status": "resolved",
+      "resolved_at": "2026-07-26T10:32:29+00:00",
       "resolved_by": null,
       "resolution": null,
       "snoozed_until": null,
@@ -4224,6 +4254,11 @@
           "at": "2026-07-26T09:56:02+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 1)",
           "note": "OPERATOR DECISION 2026-07-26 (Tier-3): ACTIVATE the news layer via NEWS_SOURCE=rss \u2014 real-time keyless soak AND the live news veto ARMED (all accounts incl. real money), the coupling confirmed intended 2026-06-28. Execution: set NEWS_SOURCE=rss on the live VM env + restart, verify news_decisions.jsonl begins accruing and the veto path is live. Tier-3 live-behavior change \u2014 queued with a pre-deploy confirmation. Kept open until activated + verified."
+        },
+        {
+          "at": "2026-07-26T10:32:29+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-3 execution)",
+          "note": "EXECUTED 2026-07-26 (operator decision). set-env system-action #7640 set NEWS_SOURCE=rss in the live VM .env + restarted ict-trader-live.service (post-restart state: active, wrapper exit 0). The M9 news layer is now active: real-time keyless RSS feed + the live news veto armed on all accounts incl. real money (source-driven activation). Reversible in one flip (set-env NEWS_SOURCE=newsapi). VERIFY FOLLOW-UP: confirm news_decisions.jsonl begins accruing over the next few trader ticks (via /api/bot/news/recent or the diag log_file relay). Closing as executed."
         }
       ]
     },
@@ -4968,7 +5003,7 @@
       "tier": 1,
       "trigger_condition": "Next CI/tooling pass, or when a config PR merges green but a later PR's full suite goes red.",
       "resolution_criteria": "A config-only PR that breaks a config-assertion test is caught before merge (full-suite-on-config-paths, an affected-test mapping, or a main nightly full run).",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -4986,8 +5021,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-07-26T10:43:47+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-1 execution batch 2)",
+          "note": "RESOLVED \u2014 extended the pytest-run 'relevant changed files' matcher to include `^config/` and `^\\.github/workflows/`, so a config-only or workflow-only PR now RUNS the full suite instead of short-circuiting past it and merging green while main's full CI is red. The incident PRs (#5850 config demote breaking test_strategy_execution_gate; #5851 system-action breaking test_system_actions_workflow) would now be caught pre-merge. Verified: pytest-run.yml valid YAML. (CI-minutes cost: config/workflow-only PRs now pay one full suite run \u2014 correctness over minutes for test-asserted paths.)"
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:43:47+00:00"
     },
     {
       "id": "BL-20260707-ALPACA-PAPER-NEGATIVE-EQUITY",
@@ -5217,7 +5258,7 @@
       "tier": 1,
       "trigger_condition": "Next /health-review, or the next session that materially changes a pipeline stage (a natural forcing function to read + settle this doc's current scope).",
       "resolution_criteria": "Read docs/TRADE-PIPELINE.md's stage-by-stage content in full, determine whether Alpaca-specific execution behavior belongs in a stage description per the doc's actual intended scope, and either add the missing coverage or note explicitly why broker-specific detail is out of scope (so this doesn't get re-flagged every sweep).",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -5240,8 +5281,15 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh pull; verification watch continues (no adverse signal this window). Carried."
+        },
+        {
+          "at": "2026-07-26T10:56:24+00:00",
+          "by": "claude (backlog-drain Tier-1, 2026-07-26)",
+          "action": "resolved",
+          "note": "Resolved the remaining doc-scope question by EXTENDING Stage 7 (Broker Execution) in docs/TRADE-PIPELINE.md: added a 'broker-generic by design' note plus a per-broker behaviours list covering Alpaca (whole-share sizing, ALPACA_PLACE_CONFIRM_S/ALPACA_CLOSE_CONFIRM_S confirm-poll, extended-hours marketable-LIMIT exit + ALPACA_EXT_LIMIT_BUFFER_BPS, is_market_open gate), OANDA (positions()->None on read failure), and IB's IB_CLOSE_CONFIRM_S flatten-confirm; added the accepts-but-doesn't-fill failure mode; pointed at CLAUDE.md's env-var table as the canonical knob reference. The earlier consumer-note contradiction was already fixed 2026-07-08."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:56:24+00:00"
     },
     {
       "id": "BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE",
@@ -5660,9 +5708,9 @@
           "note": "Re-validated 07-26 against fresh full-system pull; no in-scope Tier-1 fix landable from a read-only web review this window \u2014 carried for a dedicated session."
         },
         {
-          "at": "2026-07-26T11:55:00+00:00",
-          "by": "claude (operator Alpaca-account direction decision 2026-07-26)",
-          "note": "Fix built 2026-07-26 (draft PR #7653, branch claude/bybit2-submin-qty-noise): typed BelowVenueMinQtyRefusal routes the sub-lot-minimum refusal to a quiet benign skip \u2014 no ERROR-level bybit_place_order_failed banner outcome, no execution-failure ping, no consecutive-rejection-counter bump. No sizing change (still refuses, never oversizes). Tier-2, awaiting operator merge/deploy. Will move to resolved once merged + live-verified."
+          "at": "2026-07-26T12:10:00+00:00",
+          "by": "claude (operator-directed housekeeping 2026-07-26)",
+          "note": "Fix built 2026-07-26 (PR #7653, branch claude/bybit2-submin-qty-noise): typed BelowVenueMinQtyRefusal routes the sub-lot-minimum refusal to a quiet benign skip - no ERROR-level bybit_place_order_failed banner outcome, no execution-failure ping, no consecutive-rejection-counter bump. No sizing change (still refuses, never oversizes). Tier-2; moves to resolved once merged + live-verified."
         }
       ]
     },
@@ -5998,7 +6046,7 @@
       "id": "BL-20260720-MERGE-PROTOCOL-LAPSE",
       "created": "2026-07-20",
       "priority": "P2",
-      "status": "kept_open",
+      "status": "resolved",
       "title": "Merge-serialization protocol lapsed under load: 3 claim-less merges raced 'behind' 3x in one day while claimed merges raced 0x \u2014 the protocol needs per-merge framing + a mechanical nudge",
       "detail": "2026-07-20 (operator flagged it: 'are we using the merge queue and message board correctly? we added those specifically to prevent this'). Self-audit of board #6927: on 07-19 every merge by this session carried MERGE SLOT CLAIM/RELEASE comments and zero races occurred. On 07-20 the same session merged/attempted #7082, #7155, #7167 WITHOUT claiming first and hit mergeable_state 'behind' THREE times (each costing a branch refresh + a full ~10-min CI rerun + a squash-vs-original conflict in one case); the two merges where a claim WAS posted (reactively) merged cleanly first try. Root causes: (1) the claim step lives in session memory, and under time pressure (racing an approved promotion chain) it was skipped exactly when the repo was busiest; (2) the session also did not READ the board before merging, so even a counterpart's claim would have been missed; (3) docs/claude/session-board.json (the merge-queue file) went untouched all day \u2014 the two mechanisms (file queue + live board) have drifted, with the 07-19 note declaring the live board 'the real-time signal', leaving the file's role unclear. PROPOSED FIXES for a review session: (a) reword session-coordination SKILL.md + the SessionStart clause-0 text to frame the claim as a PER-MERGE precondition ('before every merge_pull_request call: read board tail, post CLAIM, merge, post RELEASE'), not a session-start ritual; (b) clarify or retire session-board.json's merge_slot in favor of the board comments (one source of truth); (c) optional mechanical nudge: a tiny helper script sessions are told to run (checks the newest CLAIM/RELEASE comment pair and refuses to proceed on someone else's open claim) \u2014 cheap, no branch-protection change. Evidence: board comments 5026296972 (reactive claim #7167), 5025958114 (reactive claim #7155), merge failures at 16:11Z/18:52Z/19:11Z-19:19Z in the session log.",
       "updates": [
@@ -6012,14 +6060,21 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-07-26T10:56:24+00:00",
+          "by": "claude (backlog-drain Tier-1, 2026-07-26)",
+          "action": "resolved",
+          "note": "Shipped proposed fixes (a)+(b): reworded session-coordination/SKILL.md \u00a7 2 to frame the merge claim as a PER-MERGE precondition on the merge_pull_request call ('read board tail -> post \ud83d\udd12 MERGE SLOT CLAIM comment -> sync -> merge on green -> \ud83d\udd13 RELEASE'), not a session-start ritual, and made the LIVE BOARD COMMENT (#6927) the authoritative claim with session-board.json::merge_slot demoted to a durable mirror (one source of truth) \u2014 updated the two-surfaces preamble, \u00a7 2 steps, the session-board.json _doc + merge_slot schema, and coordination-board.md's 'complements not replaces' bullet to match. Fix (c) (a mechanical nudge helper script) intentionally deferred as optional \u2014 the reframe + one-source-of-truth addresses root causes (1)+(2)+(3) without new tooling; re-log if the lapse recurs after the reword."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:56:24+00:00"
     },
     {
       "id": "BL-20260720-TRAINERDIAG-FENCE",
       "date": "2026-07-20",
       "severity": "P2",
-      "status": "kept_open",
+      "status": "resolved",
       "title": "trainer-vm-diag cmd extractor executes markdown-fenced bodies via backtick command substitution",
       "detail": "A trainer-vm-diag-request issue whose cmd: block is wrapped in markdown ``` fences is passed to bash WITH the backticks intact \u2014 triple-backtick acts as nested command substitution, so the request half-executes and stray output is itself executed as a command (issues #7208/#7209: pgrep's PID line ran as a command, '275311: command not found'). The documented `cmd: |` YAML-block form works (#7211). Fix: in .github/workflows/trainer-vm-diag.yml's extractor, strip leading/trailing ``` fence lines from cmd_raw (the vm-diag-snapshot relay may share the pattern \u2014 check both), or reject fenced bodies with a loud comment instead of executing them mangled. Repro: any fenced cmd body.",
       "source": "S-M27-P0-BATCH1-2026-07-20",
@@ -6034,8 +6089,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-07-26T10:22:41+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-1 execution batch)",
+          "note": "RESOLVED \u2014 the trainer-vm-diag.yml cmd extractor now strips markdown code-fence lines (```/```lang) from the cmd body via a `found && /^[[:space:]]*```/{ next }` awk rule, so a fenced cmd body no longer leaks the fence into bash (an un-stripped ```bash line ran as command ``` + backticks got command-substituted). Verified: valid YAML."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:22:41+00:00"
     },
     {
       "id": "BL-20260722-PYTESTRUN-DATASETCHECK-FLAKE",
@@ -6266,5 +6327,5 @@
       "action": "Update the sprint log + notebook to '9 required contexts' and the current repo name (or note redirect-safe)."
     }
   ],
-  "updated_at": "2026-07-26T11:55:00+00:00"
+  "updated_at": "2026-07-26T12:10:00+00:00"
 }

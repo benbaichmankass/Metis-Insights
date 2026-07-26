@@ -85,8 +85,13 @@ Shipped: <PR # / what merged> — area now clear.
   `ict-trader-android`) — every session has cross-repo access; post here whatever
   repo you're in and name the repo in the comment.
 - The board **complements, does not replace**, the merge queue and branch
-  protection. You still claim `merge_slot` in `session-board.json` before merging
-  (see `.claude/skills/session-coordination/SKILL.md` § 2).
+  protection. The **per-merge claim is a `🔒 MERGE SLOT CLAIM` comment on THIS
+  board** (mirrored into `session-board.json::merge_slot` as the durable record) —
+  post it as a precondition on every `merge_pull_request`, read the board tail
+  first, and post `🔓 MERGE SLOT RELEASE` after (see
+  `.claude/skills/session-coordination/SKILL.md` § 2 — the board comment is the
+  authoritative live claim; the JSON is its mirror, per
+  BL-20260720-MERGE-PROTOCOL-LAPSE).
 - The board grants **no authority**. Tier-3 changes still need explicit operator
   approval before merge; a START comment is a heads-up, not a go-ahead.
 - **Honesty applies.** If the GitHub MCP was dropping and you couldn't post
