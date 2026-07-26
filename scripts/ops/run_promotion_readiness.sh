@@ -96,16 +96,20 @@ UTC_DATE="$(date -u +%Y-%m-%d)"
 OUTPUT_DIR="$READINESS_MIRROR_ROOT/$UTC_DATE"
 mkdir -p "$OUTPUT_DIR"
 
-# Optional dataset root — forwarding it makes the sweep run a full
-# purged-walk-forward oos_edge for EVERY shadow-stage model INLINE in one
-# process, which OOM-thrashes the 6 GB trainer at the current registry size
-# (~5 GB RSS, D-state, 0-byte outputs — killed twice on 2026-07-19;
-# MB-20260719-PROMOREADY-OOSEDGE-OOM). INTERIM: default OFF so the daily
-# report always lands; per-head oos_edge evidence comes from the
-# single-model `gate-check` CLI, which is where promotion packets are
-# assembled anyway (M25 reframe). Set PROMOREADY_OOS_EDGE=on to restore the
-# in-sweep oos_edge once per-model subprocess isolation lands.
-PROMOREADY_OOS_EDGE="${PROMOREADY_OOS_EDGE:-off}"
+# Optional dataset root — forwarding it makes the sweep compute a full
+# purged-walk-forward oos_edge for every shadow-stage model. Historically
+# this ran INLINE in one process and OOM-thrashed the 6 GB trainer at the
+# current registry size (~5 GB RSS, D-state, 0-byte outputs — killed twice
+# on 2026-07-19; MB-20260719-PROMOREADY-OOSEDGE-OOM). **RESOLVED
+# 2026-07-26:** `run_stage_guard` now isolates each model's oos_edge compute
+# in a FRESH subprocess (`python -m ml _oos-edge-one`), so peak RSS is one
+# model's working set, not the fleet's accumulation — and the service unit
+# keeps MemoryMax=4500M / MemorySwapMax=0 as a hard backstop. So the sweep
+# can safely run WITH --datasets-root again: default ON, restoring real
+# promote/hold/demote oos_edge evidence in the daily report. Set
+# PROMOREADY_OOS_EDGE=off to revert to the report-lands-without-oos_edge
+# interim (oos_edge then comes per-head from the `gate-check` CLI).
+PROMOREADY_OOS_EDGE="${PROMOREADY_OOS_EDGE:-on}"
 DATASETS_ARG=()
 case "${PROMOREADY_OOS_EDGE,,}" in
   1|true|yes|on)
@@ -116,7 +120,7 @@ case "${PROMOREADY_OOS_EDGE,,}" in
     fi
     ;;
   *)
-    log_err "PROMOREADY_OOS_EDGE=off (interim, MB-20260719-PROMOREADY-OOSEDGE-OOM): sweep runs WITHOUT --datasets-root; oos_edge reports insufficient_data — use 'python -m ml gate-check' per head for oos_edge evidence"
+    log_err "PROMOREADY_OOS_EDGE=off (explicit opt-out): sweep runs WITHOUT --datasets-root; oos_edge reports insufficient_data — use 'python -m ml gate-check' per head for oos_edge evidence. Default is now ON (subprocess-isolated, MB-20260719-PROMOREADY-OOSEDGE-OOM resolved 2026-07-26)"
     ;;
 esac
 
