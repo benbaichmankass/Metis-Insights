@@ -17,6 +17,9 @@ name: layer-guard
 # no .py / config file changed — the import graph can only change with those.
 
 on:
+  # Dormant until the native merge queue is enabled (BL-20260726 merge-queue enablement);
+  # required checks MUST run on the merge_group ref or the queue stalls.
+  merge_group:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
