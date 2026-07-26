@@ -1655,6 +1655,111 @@ class IBClient:
             return {"retCode": 1, "retMsg": f"cancel-resting failed: {exc}"}
         return {"retCode": 0, "result": {"symbol": sym}, "retMsg": "OK"}
 
+    def _req_all_open_orders(self, ib: Any) -> list:
+        """Force an ACCOUNT-WIDE open-order refresh, then return active trades.
+
+        IB order visibility is **per client session**: ``ib.openTrades()`` alone
+        reflects only the orders THIS client knows about — a resting protective
+        bracket placed by a PRIOR trader process (before a restart) or by any
+        other client / TWS reads absent from it. A naked-ness verdict off
+        ``openTrades()`` alone would therefore false-read "naked" and re-arm a
+        duplicate bracket over an already-protected position (the
+        BL-20260709-IB-BROKER-PROTECTION-UNVERIFIED build constraint 2). This
+        issues a ``reqAllOpenOrders`` first — which repopulates ``ib.trades()``
+        with every client's + TWS's open orders as contract-bearing ``Trade``
+        objects — and then returns the refreshed active trades.
+
+        Bounded exactly like :meth:`_req_positions_snapshot` (prefer the async
+        variant under a timeout on this client's owned, idle loop) so a wedged
+        Gateway can't hang the call. Raises on a refresh failure so the caller
+        (:meth:`has_protective_orders`) maps it to ``None`` (could-not-confirm)
+        rather than trusting a partial view.
+        """
+        req_async = getattr(ib, "reqAllOpenOrdersAsync", None)
+        loop = self._loop
+        used_async = False
+        if req_async is not None and loop is not None and not loop.is_closed():
+            try:
+                running = loop.is_running()
+            except Exception:  # noqa: BLE001
+                running = True
+            if not running:
+                import asyncio
+
+                timeout = (
+                    _IB_ACCOUNT_WARMUP_TIMEOUT_S if _IB_ACCOUNT_WARMUP_TIMEOUT_S > 0
+                    else _IB_PROBE_TIMEOUT_S if _IB_PROBE_TIMEOUT_S > 0
+                    else 8.0
+                )
+                loop.run_until_complete(
+                    asyncio.wait_for(req_async(), timeout=timeout)
+                )
+                used_async = True
+        if not used_async:
+            # Sync fallback (test stubs, or no usable owned loop). ib_insync's
+            # reqAllOpenOrders blocks until openOrderEnd; the connect breaker +
+            # IB_FETCH_TIMEOUT_S bound the surrounding lifecycle. Last resort.
+            ib.reqAllOpenOrders()
+        return self._open_trades(ib)
+
+    def has_protective_orders(self, symbol: Optional[str]) -> Optional[bool]:
+        """Does *symbol* have a resting protective leg (a stop OR a limit) open
+        at the broker, ACCOUNT-WIDE?
+
+        The IB analogue of :meth:`AlpacaClient.has_protective_orders` for the
+        broker-side naked sweep (BL-20260709-IB-BROKER-PROTECTION-UNVERIFIED).
+        The DB-driven naked check (:func:`order_monitor._check_naked_positions`)
+        only flags a row whose *journal* SL/TP is missing — but an IB position
+        whose broker OCA bracket was never placed, got cancelled, or was dropped
+        during a Gateway breaker-flap KEEPS its journal SL/TP, so it is
+        broker-naked yet invisible to that check (the MGC monitor-blind incident,
+        2026-07-09). This reads the broker's own order state so the sweep can
+        detect and re-arm it.
+
+        Returns ``True`` when at least one resting stop/limit leg exists for the
+        symbol, ``False`` when the position is broker-naked (a confirmed clean
+        account-wide read with zero matching legs), or ``None`` on any read
+        failure / breaker-open / not-connected state — so the caller REFUSES to
+        act rather than re-arm blindly or treat a transient outage as naked
+        (mirrors the ``positions() -> None`` and Alpaca rules). Never raises.
+
+        Uses an account-wide ``reqAllOpenOrders`` refresh, NOT this client's
+        ``openTrades()`` alone (see :meth:`_req_all_open_orders`). Matches on the
+        contract's generic root symbol (``contract.symbol`` — ``MHG``/``MES``/a
+        stock ticker), the same axis :meth:`_cancel_resting_orders_for_symbol`,
+        :meth:`positions`, and the journal/reconciler use, so the caller passes
+        the base root (a futures month-code is normalised away upstream).
+        """
+        sym = str(symbol or self.symbol or "").upper()
+        if not sym:
+            return None
+        try:
+            ib = self.connect()
+        except Exception:  # noqa: BLE001 — breaker open / connect failed ⇒ cannot confirm
+            return None
+        try:
+            trades = self._req_all_open_orders(ib)
+        except Exception:  # noqa: BLE001 — account-wide read failed ⇒ cannot confirm
+            return None
+        for trade in trades:
+            try:
+                contract = getattr(trade, "contract", None)
+                trade_sym = str(getattr(contract, "symbol", "") or "").upper()
+                if trade_sym != sym:
+                    continue
+                order = getattr(trade, "order", None)
+                otype = str(getattr(order, "orderType", "") or "").upper()
+                # A protective bracket leg is a resting stop or (take-profit)
+                # limit; ``STP LMT`` / ``TRAIL LIMIT`` carry both substrings.
+                # ``openTrades()`` already filters to active orders, and entries
+                # are market (``MKT``) orders, so any resting STP/LMT on the
+                # symbol is a protective leg (mirrors Alpaca's stop/limit test).
+                if "STP" in otype or "LMT" in otype or "TRAIL" in otype:
+                    return True
+            except Exception:  # noqa: BLE001 — one malformed trade never breaks the read
+                continue
+        return False
+
     @staticmethod
     def _await_parent_rejection(ib: Any, parent_trade: Any) -> Optional[str]:
         """Watch a just-placed parent order for an immediate IBKR reject.

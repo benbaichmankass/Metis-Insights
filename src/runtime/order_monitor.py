@@ -50,6 +50,7 @@ import importlib
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -5902,6 +5903,35 @@ def _decode_notes(notes_raw: Optional[str]) -> Dict[str, Any]:
 
 _NAKED_POSITION_GRACE_SECONDS = 300  # 5 min after opening before alerting
 
+# Cadence gate for the IB broker-side naked sweep
+# (:func:`_check_broker_naked_ib_positions`, BL-20260709-IB-BROKER-PROTECTION-
+# UNVERIFIED). Build constraint 1: an account-wide IB order read
+# (``reqAllOpenOrders``) on EVERY monitor tick risks the tick-latency / IB
+# pacing wedge class (BL-20260609), so this sweep runs at most once per
+# interval — NOT each tick. The Alpaca equity sweep needs no such gate (cheap
+# HTTP). Default 300s (≈ every 5th 60s monitor tick); ``<= 0`` disables the
+# sweep entirely. In-process monotonic latch, reset on a fresh restart.
+_DEFAULT_IB_BROKER_NAKED_CHECK_SECONDS = 300
+_LAST_IB_BROKER_NAKED_CHECK_MONO: float = 0.0
+
+
+def _ib_broker_naked_check_interval_seconds() -> float:
+    """Min seconds between IB broker-side naked sweeps.
+
+    Reads ``IB_BROKER_NAKED_CHECK_SECONDS`` at call time (next-tick effect);
+    falls back to ``_DEFAULT_IB_BROKER_NAKED_CHECK_SECONDS`` on missing /
+    unparseable values, clamped ``>= 0``. ``0`` disables the sweep (it runs the
+    account-wide IB order read, so it is a cadence-gated capability, not an
+    always-on one).
+    """
+    raw = os.environ.get("IB_BROKER_NAKED_CHECK_SECONDS")
+    if raw is None or str(raw).strip() == "":
+        return float(_DEFAULT_IB_BROKER_NAKED_CHECK_SECONDS)
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        return float(_DEFAULT_IB_BROKER_NAKED_CHECK_SECONDS)
+
 # Futures contract-month codes (CME/COMEX): one letter + 1-2 digit year,
 # e.g. "MHGN6" (July 2026 micro copper) -> base "MHG". Used to normalize an
 # adopted-orphan's specific-contract symbol back to the base symbol the rest
@@ -6182,6 +6212,163 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
             summary["errors"] += 1
             logger.warning(
                 "_check_broker_naked_equity_positions: failed for trade_id=%s: %s",
+                row["id"], exc,
+            )
+    return summary
+
+
+def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
+    """Re-arm GTC OCA protection on IB positions that are NAKED at the broker.
+
+    The IB analogue of :func:`_check_broker_naked_equity_positions`
+    (BL-20260709-IB-BROKER-PROTECTION-UNVERIFIED). The DB-driven
+    :func:`_check_naked_positions` only flags a row whose *journal* SL/TP is
+    missing — but an IB futures/ETF position whose broker OCA bracket was never
+    placed, got cancelled, or was dropped during a Gateway breaker-flap keeps
+    its journal SL/TP and so is invisible to that check while sitting
+    broker-naked (the 2026-07-09 MGC monitor-blind incident: the alert claimed
+    "Broker SL/TP backstop still holds" with no way to VERIFY it). This pass
+    closes that gap: for each open, past-grace IB position it asks the broker
+    whether a resting protective leg exists (``IBClient.has_protective_orders``,
+    an account-wide ``reqAllOpenOrders`` read) and, when none does, re-arms a
+    GTC OCA via :func:`_attempt_naked_autoprotect` (the SAME re-arm path the
+    reconciler and DB-naked check use).
+
+    **Cadence-gated** (build constraint 1): the account-wide IB order read is
+    NOT run every monitor tick — it runs at most once per
+    ``_ib_broker_naked_check_interval_seconds`` to stay clear of the IB
+    tick-latency / pacing wedge class (BL-20260609). A read failure
+    (``has_protective_orders`` → ``None`` — breaker open, gateway wedged,
+    ambiguous) is skipped: a transient outage must never be read as naked
+    (build constraint 3, fail-safe: never PLACE on an unconfirmed read). Never
+    raises.
+
+    Returns ``{"checked", "broker_naked", "rearmed", "errors", "skipped"}``.
+    """
+    global _LAST_IB_BROKER_NAKED_CHECK_MONO
+    summary: Dict[str, int] = {
+        "checked": 0, "broker_naked": 0, "rearmed": 0, "errors": 0, "skipped": 0,
+    }
+    interval = _ib_broker_naked_check_interval_seconds()
+    if interval <= 0:
+        summary["skipped"] = 1
+        return summary  # sweep disabled (IB_BROKER_NAKED_CHECK_SECONDS<=0)
+    now_mono = time.monotonic()
+    if (now_mono - _LAST_IB_BROKER_NAKED_CHECK_MONO) < interval:
+        summary["skipped"] = 1
+        return summary  # within the cadence window — not this tick
+    _LAST_IB_BROKER_NAKED_CHECK_MONO = now_mono
+
+    try:
+        from src.bot import data_loaders
+        from src.units.accounts.clients import ib_client_for
+
+        accounts = data_loaders.list_accounts() or []
+        ib_ids = {
+            str(a.get("account_id"))
+            for a in accounts
+            if str(a.get("exchange", "")).lower() in ("interactive_brokers", "ib")
+        }
+        if not ib_ids:
+            return summary
+        acc_by_id = {str(a.get("account_id")): a for a in accounts}
+
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            rows = conn.execute(
+                "SELECT id, account_id, symbol, direction, position_size, "
+                "stop_loss, take_profit_1, created_at, notes "
+                "FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0"
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_check_broker_naked_ib_positions: read failed: %s", exc)
+        summary["errors"] += 1
+        return summary
+
+    now = datetime.now(timezone.utc)
+    clients: Dict[str, object] = {}
+    # Cache the account-wide has_protective_orders verdict per
+    # (account_id, protect_symbol) within this sweep so two open trades on the
+    # same symbol don't each pay a fresh reqAllOpenOrders read.
+    protected_cache: Dict[Tuple[str, str], Optional[bool]] = {}
+    for row in rows:
+        account_id = str(row["account_id"] or "")
+        if account_id not in ib_ids:
+            continue
+        summary["checked"] += 1
+        created = _parse_created_at(row["created_at"])
+        if (
+            created is not None
+            and (now - created).total_seconds() < _NAKED_POSITION_GRACE_SECONDS
+        ):
+            continue  # fresh fill may not have propagated; let the entry settle
+        symbol = str(row["symbol"] or "")
+        if not symbol:
+            continue
+        # Match the has_protective read on the generic root (contract.symbol
+        # axis) — an adopted ``MHGN6`` resolves to the ``MHG`` bracket.
+        protect_symbol = _base_futures_symbol(symbol)
+        # Skip a position the monitor is ACTIVELY CLOSING this tick — re-arming
+        # a protective OCA on it would fight the in-flight close (mirrors the
+        # equity sweep's BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT guard).
+        if (account_id, symbol.upper()) in _TICK_ACTIVE_CLOSE_SYMBOLS:
+            logger.info(
+                "_check_broker_naked_ib_positions: skipping re-arm for "
+                "%s/%s — an active close is in flight this tick (let it flatten)",
+                account_id, symbol,
+            )
+            continue
+        try:
+            if account_id not in clients:
+                clients[account_id] = ib_client_for(
+                    acc_by_id[account_id], readonly=False
+                )
+            client = clients[account_id]
+            if client is None:
+                continue
+            cache_key = (account_id, protect_symbol)
+            if cache_key not in protected_cache:
+                protected_cache[cache_key] = client.has_protective_orders(
+                    protect_symbol
+                )
+            protected = protected_cache[cache_key]
+            if protected is None or protected:
+                continue  # read failure (skip, fail-safe) or already protected
+            summary["broker_naked"] += 1
+            sl = row["stop_loss"]
+            tp = row["take_profit_1"]
+            a_sl = sl if (sl not in (None, 0) and sl > 0) else None
+            a_tp = tp if (tp not in (None, 0) and tp > 0) else None
+            if a_sl is None or a_tp is None:
+                r_sl, r_tp = _resolve_protective_levels(
+                    db, symbol, str(row["direction"] or "")
+                )
+                a_sl = a_sl if a_sl is not None else r_sl
+                a_tp = a_tp if a_tp is not None else r_tp
+            if a_sl is None or a_tp is None:
+                logger.warning(
+                    "_check_broker_naked_ib_positions: trade_id=%s %s "
+                    "broker-naked but no SL/TP resolvable — leaving for alert",
+                    row["id"], symbol,
+                )
+                continue
+            if _attempt_naked_autoprotect(row, a_sl, a_tp):
+                summary["rearmed"] += 1
+                # Invalidate the per-symbol cache: this symbol is now protected,
+                # so a sibling trade on it must not re-read "naked" and stack.
+                protected_cache[cache_key] = True
+                logger.info(
+                    "_check_broker_naked_ib_positions: re-armed GTC OCA "
+                    "(sl=%s tp=%s) on broker-naked trade_id=%s account=%s "
+                    "symbol=%s", a_sl, a_tp, row["id"], account_id, symbol,
+                )
+        except Exception as exc:  # noqa: BLE001
+            summary["errors"] += 1
+            logger.warning(
+                "_check_broker_naked_ib_positions: failed for trade_id=%s: %s",
                 row["id"], exc,
             )
     return summary
@@ -7303,6 +7490,23 @@ def run_monitor_tick(
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "run_monitor_tick: broker-naked equity sweep raised: %s", exc
+        )
+
+    # Broker-naked IB sweep (BL-20260709-IB-BROKER-PROTECTION-UNVERIFIED): an IB
+    # futures/ETF position whose broker OCA bracket was never placed / got
+    # cancelled / dropped during a Gateway breaker-flap keeps its journal SL/TP,
+    # so it is broker-naked yet invisible to the DB-driven check above. This
+    # asks the broker (account-wide reqAllOpenOrders) whether a resting
+    # protective leg exists and re-arms a GTC OCA when none does. Cadence-gated
+    # (IB_BROKER_NAKED_CHECK_SECONDS, default 300s) so the account-wide IB order
+    # read is never a per-tick cost (BL-20260609 pacing class).
+    try:
+        ib_naked_summary = _check_broker_naked_ib_positions(db)
+        if ib_naked_summary.get("broker_naked") or ib_naked_summary.get("errors"):
+            summaries["__broker_naked_ib__"] = ib_naked_summary
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "run_monitor_tick: broker-naked IB sweep raised: %s", exc
         )
 
     # S-067 follow-up #3: closed → exchange-flat invariant check.
