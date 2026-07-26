@@ -198,45 +198,68 @@ export ICT_IB_HISTORICAL_OK=1
 emit "$(printf '{"ts":"%s","status":"pull_start","symbol":"%s","timeframes":"%s","start":"%s","end":"%s","client_id":%s,"pause_s":%s,"max_contracts":%s}' \
   "$(iso_now)" "$MES_SYMBOL" "$MES_TIMEFRAMES" "$MES_HIST_START" "$MES_HIST_END" "$IB_HIST_CLIENT_ID" "$IB_HIST_PAUSE_S" "$MES_MAX_CONTRACTS")"
 
+# Bounded per-timeframe retry (2026-07-26, BL-20260626-MES-BASE-STALE follow-up):
+# the off-VM IBKR adapter intermittently returns asyncio.TimeoutError on a single
+# timeframe (a transient gateway/pacing stall) — observed in ibkr_mes_pull.jsonl
+# failing ~half the daily runs, and when BOTH timeframes time out the oneshot
+# exits 1 so the systemd unit goes `failed` and that day's MES base is stale.
+# Retry a timeframe up to MES_PULL_ATTEMPTS times (paced by MES_PULL_RETRY_PAUSE_S)
+# so a transient timeout self-heals within the run instead of failing the unit.
+MES_PULL_ATTEMPTS="${MES_PULL_ATTEMPTS:-2}"
+MES_PULL_RETRY_PAUSE_S="${MES_PULL_RETRY_PAUSE_S:-30}"
+
 any_ok=0
 family="market_raw"; [ -n "${PER_CONTRACT// }" ] && family="market_raw_percontract"
 for tf in $MES_TIMEFRAMES; do
   out_path="${IBKR_OUT}/${family}/${MES_SYMBOL}/${tf}/${DATASET_VERSION}/data.jsonl"
   emit "$(printf '{"ts":"%s","status":"building","family":"%s","symbol":"%s","timeframe":"%s"}' "$(iso_now)" "$family" "$MES_SYMBOL" "$tf")"
-  set +e
-  if [ -n "${PER_CONTRACT// }" ]; then
-    # Roll-adjustment increment 2: per-contract stream (tagged, no cross-contract
-    # dedup) -> market_raw_percontract/. Same gateway + pacing + guard as below.
-    "$PY" -m ml.datasets.percontract_pull \
-      --symbol "${MES_SYMBOL}" --timeframe "${tf}" \
-      --start "${MES_HIST_START}" --end "${MES_HIST_END}" \
-      --out-dir "${IBKR_OUT}" --version "${DATASET_VERSION}" \
-      --host "${IB_HOST}" --port "${IB_PORT}" --client-id "${IB_HIST_CLIENT_ID}" \
-      --pause-s "${IB_HIST_PAUSE_S}" --max-contracts "${MES_MAX_CONTRACTS}" \
-      >"/tmp/ibkr_mes_${tf}_$$.out" 2>"/tmp/ibkr_mes_${tf}_$$.err"
-  else
-    "$PY" -m ml build-dataset market_raw \
-      --output-dir "$IBKR_OUT" --version "$DATASET_VERSION" \
-      --source ibkr_offvm --symbol-scope "$MES_SYMBOL" --timeframe "$tf" --overwrite \
-      "adapter=ibkr_offvm" "symbol=${MES_SYMBOL}" "timeframe=${tf}" \
-      "start=${MES_HIST_START}" "end=${MES_HIST_END}" \
-      "host=${IB_HOST}" "port=${IB_PORT}" "client_id=${IB_HIST_CLIENT_ID}" \
-      "use_rth=false" "pause_s=${IB_HIST_PAUSE_S}" "max_contracts=${MES_MAX_CONTRACTS}" \
-      >"/tmp/ibkr_mes_${tf}_$$.out" 2>"/tmp/ibkr_mes_${tf}_$$.err"
-  fi
-  rc=$?
-  set -e
-  rows=0
-  if [ -f "$out_path" ]; then
-    rows="$(wc -l < "$out_path" 2>/dev/null | tr -d ' ' || echo 0)"
-  fi
+  rc=1; rows=0; attempt=1
+  while [ "$attempt" -le "$MES_PULL_ATTEMPTS" ]; do
+    set +e
+    if [ -n "${PER_CONTRACT// }" ]; then
+      # Roll-adjustment increment 2: per-contract stream (tagged, no cross-contract
+      # dedup) -> market_raw_percontract/. Same gateway + pacing + guard as below.
+      "$PY" -m ml.datasets.percontract_pull \
+        --symbol "${MES_SYMBOL}" --timeframe "${tf}" \
+        --start "${MES_HIST_START}" --end "${MES_HIST_END}" \
+        --out-dir "${IBKR_OUT}" --version "${DATASET_VERSION}" \
+        --host "${IB_HOST}" --port "${IB_PORT}" --client-id "${IB_HIST_CLIENT_ID}" \
+        --pause-s "${IB_HIST_PAUSE_S}" --max-contracts "${MES_MAX_CONTRACTS}" \
+        >"/tmp/ibkr_mes_${tf}_$$.out" 2>"/tmp/ibkr_mes_${tf}_$$.err"
+    else
+      "$PY" -m ml build-dataset market_raw \
+        --output-dir "$IBKR_OUT" --version "$DATASET_VERSION" \
+        --source ibkr_offvm --symbol-scope "$MES_SYMBOL" --timeframe "$tf" --overwrite \
+        "adapter=ibkr_offvm" "symbol=${MES_SYMBOL}" "timeframe=${tf}" \
+        "start=${MES_HIST_START}" "end=${MES_HIST_END}" \
+        "host=${IB_HOST}" "port=${IB_PORT}" "client_id=${IB_HIST_CLIENT_ID}" \
+        "use_rth=false" "pause_s=${IB_HIST_PAUSE_S}" "max_contracts=${MES_MAX_CONTRACTS}" \
+        >"/tmp/ibkr_mes_${tf}_$$.out" 2>"/tmp/ibkr_mes_${tf}_$$.err"
+    fi
+    rc=$?
+    set -e
+    rows=0
+    if [ -f "$out_path" ]; then
+      rows="$(wc -l < "$out_path" 2>/dev/null | tr -d ' ' || echo 0)"
+    fi
+    if [ "$rc" -eq 0 ] && [ "${rows:-0}" -gt 0 ]; then
+      break
+    fi
+    if [ "$attempt" -lt "$MES_PULL_ATTEMPTS" ]; then
+      err="$(tail -n 3 "/tmp/ibkr_mes_${tf}_$$.err" 2>/dev/null | tr '\n' ' ' | head -c 300 || true)"
+      emit "$(python3 -c "import json,sys; print(json.dumps({'ts':sys.argv[1],'status':'retry','family':sys.argv[6],'symbol':sys.argv[2],'timeframe':sys.argv[3],'attempt':int(sys.argv[4]),'stderr_tail':sys.argv[5]}))" \
+        "$(iso_now)" "$MES_SYMBOL" "$tf" "$attempt" "$err" "$family")"
+      sleep "$MES_PULL_RETRY_PAUSE_S"
+    fi
+    attempt=$((attempt + 1))
+  done
   if [ "$rc" -eq 0 ] && [ "${rows:-0}" -gt 0 ]; then
     emit "$(printf '{"ts":"%s","status":"ok","family":"%s","symbol":"%s","timeframe":"%s","rows":%s}' "$(iso_now)" "$family" "$MES_SYMBOL" "$tf" "${rows:-0}")"
     any_ok=1
   else
     err="$(tail -n 3 "/tmp/ibkr_mes_${tf}_$$.err" 2>/dev/null | tr '\n' ' ' | head -c 400 || true)"
-    emit "$(python3 -c "import json,sys; print(json.dumps({'ts':sys.argv[1],'status':'failed','family':sys.argv[6],'symbol':sys.argv[2],'timeframe':sys.argv[3],'exit_code':int(sys.argv[4]),'stderr_tail':sys.argv[5]}))" \
-      "$(iso_now)" "$MES_SYMBOL" "$tf" "$rc" "$err" "$family")"
+    emit "$(python3 -c "import json,sys; print(json.dumps({'ts':sys.argv[1],'status':'failed','family':sys.argv[6],'symbol':sys.argv[2],'timeframe':sys.argv[3],'exit_code':int(sys.argv[4]),'stderr_tail':sys.argv[5],'attempts':int(sys.argv[7])}))" \
+      "$(iso_now)" "$MES_SYMBOL" "$tf" "$rc" "$err" "$family" "$MES_PULL_ATTEMPTS")"
   fi
   rm -f "/tmp/ibkr_mes_${tf}_$$.out" "/tmp/ibkr_mes_${tf}_$$.err"
 done

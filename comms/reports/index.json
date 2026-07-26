@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "AUDIT-20260726",
+      "window": "audit",
+      "generated_at": "2026-07-26T09:32:00+00:00",
+      "window_start": "2026-07-09",
+      "window_end": "2026-07-26T09:32:00+00:00",
+      "roll_up_grade": "caution",
+      "headline": "Full-system audit (all 3 repos + both VMs + canonical store, 8 workstreams). The recent infra push \u2014 M28 macro/value, M27 15m scalp legs, M26 conflict taxonomy, M0a/M0b layer guard \u2014 is COMPLIANT and fit for purpose: zero Prime-Directive / Tier-3 / isolation violations, 19/19 CI guards + ruff green, layer-guard genuinely enforcing, consumer wiring has no breaks, live VM on latest main, canonical store single-source-clean. Older surfaces mostly up to date; Tier-1 doc-drift + diag-observability + workflow-liveness fixes landed in draft PR #7635. Roll-up is CAUTION (not healthy) only because 3 live operational issues were surfaced for the operator \u2014 none a money-loss risk.",
+      "html_path": "comms/reports/audit/20260726T093200Z/report.html",
+      "json_path": "comms/reports/audit/20260726T093200Z/report.json",
+      "md_path": "comms/reports/audit/20260726T093200Z/report.md"
+    },
+    {
       "id": "RPT-20260726-053500-weekly",
       "window": "weekly",
       "generated_at": "2026-07-26T05:35:00+00:00",

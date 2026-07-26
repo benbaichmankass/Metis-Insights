@@ -40,7 +40,7 @@ on:
       ref:
         description: "Git ref to run the pre-gate from (branch/sha)"
         required: false
-        default: "claude/ml-strategies-deep-review-51n3cw"
+        default: "main"
       models:
         description: "Comma-separated model ids (blank = all shadow regime heads)"
         required: false
@@ -77,7 +77,13 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
           set -euo pipefail
-          REF="claude/ml-strategies-deep-review-51n3cw"
+          # 2026-07-26 full-system audit (WS-B): default the pre-gate ref to `main`.
+          # It previously defaulted to the long-dead feature branch
+          # `claude/ml-strategies-deep-review-51n3cw`, so the nightly cron ran the
+          # pre-gate off a stale ref (or failed the checkout once the branch was
+          # deleted). Overridable per-run via workflow_dispatch `ref:` or an issue
+          # body `ref:` line.
+          REF="main"
           MODELS=""
           if [ "$EVENT" = "workflow_dispatch" ]; then
             [ -n "${DISPATCH_REF:-}" ] && REF="${DISPATCH_REF}"

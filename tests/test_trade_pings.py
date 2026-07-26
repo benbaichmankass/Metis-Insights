@@ -119,6 +119,47 @@ def test_drainer_plain_ping_keeps_priority_prefix(tmp_path, monkeypatch):
     assert sent[0]["text"].startswith("🔔")  # high-priority icon prefix
 
 
+def test_drainer_sweeps_legacy_inbox_delivers_fresh_discards_stale(tmp_path, monkeypatch):
+    """BL-20260726: a ping mis-routed to the repo-relative twin (a writer without
+    DATA_DIR) is delivered if FRESH and discarded if STALE — never stranded."""
+    import os
+
+    from src.bot import cloud_notifier
+
+    canonical = tmp_path / "data" / "runtime_logs" / "pending_claude_pings"
+    repo_root = tmp_path / "repo"
+    legacy = repo_root / "runtime_logs" / "pending_claude_pings"
+    canonical.mkdir(parents=True)
+    legacy.mkdir(parents=True)
+
+    monkeypatch.setattr(cloud_notifier, "REPO_ROOT", str(repo_root))
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "1234")
+
+    fresh = legacy / "100-fresh.json"
+    fresh.write_text(json.dumps({"priority": "normal", "body": "mis-routed but live"}),
+                     encoding="utf-8")
+    stale = legacy / "099-stale.json"
+    stale.write_text(json.dumps({"priority": "normal", "body": "days-old straggler"}),
+                     encoding="utf-8")
+    # Age the stale file well past the 2h discard threshold.
+    old = __import__("time").time() - (cloud_notifier.LEGACY_PING_STALE_AFTER_S + 3600)
+    os.utime(stale, (old, old))
+
+    sent = []
+    ctx = MagicMock()
+    ctx.bot.send_message = AsyncMock(side_effect=lambda **kw: sent.append(kw))
+
+    asyncio.new_event_loop().run_until_complete(
+        cloud_notifier._drain_pending_pings(ctx, pings_dir=str(canonical))
+    )
+
+    # Fresh mis-routed ping delivered + removed; stale one discarded, not sent.
+    assert len(sent) == 1
+    assert "mis-routed but live" in sent[0]["text"]
+    assert not fresh.exists()
+    assert not stale.exists()
+
+
 def test_modify_path_fires_update_ping(monkeypatch):
     """order_monitor's SL/TP-modify branch emits a trade-update ping."""
     from src.runtime import order_monitor as om
