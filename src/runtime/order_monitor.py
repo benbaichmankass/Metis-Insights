@@ -3961,6 +3961,64 @@ def _sweep_unlinked_packages(db) -> int:
         conn = db.connect()
         try:
             now_iso = datetime.now(timezone.utc).isoformat()
+            # (0) Packages that ACTUALLY EXECUTED but were never linked back.
+            #     A non-rejection trade row back-references the package via
+            #     ``trades.order_package_id`` (the many-to-one column added in
+            #     database._migrate_add_order_package_id), yet the package's
+            #     one-slot ``linked_trade_id`` is NULL. This is the multi-writer
+            #     fan-out gap that column was added to close: when a single
+            #     decision fans out into several trade rows (real-money entry +
+            #     demo mirror + intent_reduce flip leg + multi-account fanout),
+            #     only the LAST update_order_package(linked_trade_id=...) survives
+            #     — so a package can be left linked_trade_id NULL even though it
+            #     filled. The BUG-049 sweep in step (2) keys solely on
+            #     ``linked_trade_id IS NULL`` and would falsely stamp such a
+            #     package 'orphaned — never executed', polluting per-strategy
+            #     orphan-rate stats AND (when the linked trade is still open)
+            #     wrongly terminalising a package whose position is LIVE — which
+            #     clears the strategy-monocle open gate on a live position
+            #     (BL-20260601-001). Reconcile from the executed trade instead:
+            #     back-fill ``linked_trade_id`` and set the package status to
+            #     match the trade (open→'open', else 'closed'), preferring an open
+            #     trade so a live position is reflected, else the newest closed.
+            #     Runs FIRST so an actual fill wins over a co-fanned rejection leg
+            #     (step 1). Pure link/label reconciliation — no order is placed
+            #     or modified.
+            conn.execute(
+                "UPDATE order_packages "
+                "SET linked_trade_id = ( "
+                "        SELECT t.id FROM trades t "
+                "        WHERE t.order_package_id = order_packages.order_package_id "
+                "          AND COALESCE(t.is_backtest, 0) = 0 "
+                "          AND t.status IN ('open', 'closed') "
+                "        ORDER BY (t.status = 'open') DESC, t.id DESC LIMIT 1), "
+                "    status = ( "
+                "        SELECT CASE WHEN t.status = 'open' THEN 'open' ELSE 'closed' END "
+                "        FROM trades t "
+                "        WHERE t.order_package_id = order_packages.order_package_id "
+                "          AND COALESCE(t.is_backtest, 0) = 0 "
+                "          AND t.status IN ('open', 'closed') "
+                "        ORDER BY (t.status = 'open') DESC, t.id DESC LIMIT 1), "
+                "    updated_at = ?, "
+                "    meta = json_set(COALESCE(meta, '{}'), "
+                "        '$.executed_reconciled_at', ?, "
+                "        '$.executed_reconciled_by', 'monitor_reconciler', "
+                "        '$.executed_reconciled_reason', "
+                "        'executed trade back-references this package "
+                "(trades.order_package_id) but linked_trade_id was never written "
+                "(multi-writer fan-out); reconciled from the journalled executed "
+                "trade row instead of orphaning') "
+                "WHERE status = 'open' "
+                "  AND linked_trade_id IS NULL "
+                "  AND datetime(created_at) <= datetime('now', '-5 minutes') "
+                "  AND EXISTS ( "
+                "        SELECT 1 FROM trades t "
+                "        WHERE t.order_package_id = order_packages.order_package_id "
+                "          AND COALESCE(t.is_backtest, 0) = 0 "
+                "          AND t.status IN ('open', 'closed')) ",
+                (now_iso, now_iso),
+            )
+            executed_reconciled = conn.execute("SELECT changes()").fetchone()[0]
             # (1) Packages whose refusal WAS journalled as a rejection trades row
             #     (same order_package_id, a rejected*/exchange_rejected status) are
             #     not generic orphans — the strategy fired and the RiskManager
@@ -4057,7 +4115,8 @@ def _sweep_unlinked_packages(db) -> int:
                 (now_iso, now_iso),
             )
             affected = (
-                rejected_relabelled
+                executed_reconciled
+                + rejected_relabelled
                 + shadow_relabelled
                 + conn.execute("SELECT changes()").fetchone()[0]
             )
@@ -4067,12 +4126,13 @@ def _sweep_unlinked_packages(db) -> int:
         if affected:
             logger.info(
                 "_sweep_unlinked_packages: reconciled %d unlinked open package(s) "
-                "(%d relabelled from journalled rejection, %d shadow_expired, "
-                "%d orphaned)",
+                "(%d reconciled from executed trade, %d relabelled from journalled "
+                "rejection, %d shadow_expired, %d orphaned)",
                 affected,
+                executed_reconciled,
                 rejected_relabelled,
                 shadow_relabelled,
-                affected - rejected_relabelled - shadow_relabelled,
+                affected - executed_reconciled - rejected_relabelled - shadow_relabelled,
             )
         return affected
     except Exception as exc:  # noqa: BLE001
