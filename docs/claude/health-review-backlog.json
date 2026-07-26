@@ -2247,7 +2247,7 @@
       "tier": 1,
       "trigger_condition": "Any /health-review run; tractable as a code-only investigation (no live-trading risk).",
       "resolution_criteria": "Either (a) confirm + ship a token-cleanup-on-404 path in notifier.py so dead tokens are pruned automatically, or (b) confirm the cleanup already exists and the token store has been drained, and document the operator path to re-register the Android app's FCM token. The 404 cluster should stop appearing in the journal after a fresh signal emission.",
-      "status": "partially-resolved",
+      "status": "resolved",
       "triage_note": "2026-05-28 /health-review: CONFIRMED STILL OCCURRING. journalctl shows a flood of 'FCM publish non-2xx: status=404 ... NOT_FOUND' on every signal emission \u2014 ~12+ per emit at 04:55:36-38 (post-boot fade signal) and again at 06:00:35-36 (vwap signal_emitted). Dead/unregistered device tokens are not being pruned on 404; the notifier keeps targeting them each emit. No token-cleanup-on-404 path is taking effect. Tier-1 code investigation in src/runtime/mobile_push/notifier.py \u2014 not editable from /health-review.",
       "snoozed_until": null,
       "check_log": [
@@ -2274,8 +2274,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; carried (snoozed/deferred state confirmed still applicable, no regression this window)."
+        },
+        {
+          "at": "2026-07-26T09:49:46+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: triage + fix + decisions)",
+          "note": "RESOLVED (stale \u2014 fix verified shipped). The FCM stale-token cleanup-on-404 path is live: src/runtime/mobile_push/notifier.py::_prune_tokens prunes device tokens on 404/400/403 responses, which is exactly this item's resolution criterion. The 404-flood condition both these items track is eliminated by that prune. Closing as already-resolved."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T09:49:46+00:00"
     },
     {
       "id": "BL-20260527-005",
@@ -2374,7 +2380,7 @@
           "note": "2026-05-30 (/health-review, operator-confirmed): push DELIVERY IS WORKING - operator confirms notifications are landing on the phone. So the FCM 404 NOT_FOUND lines (still seen in ict-trader-live journalctl, e.g. ~23:50Z 2026-05-30) are LOG-NOISE from a stale/secondary unregistered token, NOT a delivery outage. Severity downgraded: remaining work is just pruning 404'd tokens from the registry so the notifier stops logging WARN+error bodies on every cycle. Not a user-facing problem."
         }
       ],
-      "status": "partially-resolved",
+      "status": "resolved",
       "severity_note": "log-noise / token-pruning cleanup (delivery confirmed working 2026-05-30)",
       "updates": [
         {
@@ -2392,8 +2398,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; carried (snoozed/deferred state confirmed still applicable, no regression this window)."
+        },
+        {
+          "at": "2026-07-26T09:49:46+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: triage + fix + decisions)",
+          "note": "RESOLVED (stale \u2014 fix verified shipped). The FCM stale-token cleanup-on-404 path is live: src/runtime/mobile_push/notifier.py::_prune_tokens prunes device tokens on 404/400/403 responses, which is exactly this item's resolution criterion. The 404-flood condition both these items track is eliminated by that prune. Closing as already-resolved."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T09:49:46+00:00"
     },
     {
       "id": "BL-20260529-001",

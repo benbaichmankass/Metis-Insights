@@ -812,6 +812,17 @@ def decide(
     if n == 0:
         decision.action = "hold"
         decision.reasons.append("no closed trades in window — insufficient evidence.")
+    elif n < 20:
+        # Minimum-evidence floor (PB-20260630-004): below 20 closed trades the
+        # low-n matrix below could emit a real-money KILL / DEMOTE_SHADOW off
+        # 1-5 trades (win<=0.10, exp<0, a policy-OFF cell) — statistical noise,
+        # not evidence. Force HOLD under the floor; the 20<=n<30 catastrophic
+        # path is intact.
+        decision.action = "hold"
+        decision.reasons.append(
+            f"insufficient evidence (n_closed={n} < 20) — no KILL/DEMOTE fires at "
+            "very low n; hold until more trades close."
+        )
     elif n < 30:
         if win <= 0.10 and exp_neg and any_off:
             decision.action = "kill"

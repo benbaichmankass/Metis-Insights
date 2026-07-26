@@ -246,6 +246,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-07-26T09:49:46+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: triage + fix + decisions)",
+          "note": "OPERATOR DECISION 2026-07-26: ENABLE BOTH trainer-side automations (ADWIN drift-retrain timer + the S-MLOPT-S18 promotion-readiness report). Both are trainer-autonomous, no live-order impact. Next step: verify the units are installed on the trainer, then systemctl enable --now them via the trainer-vm-diag relay + confirm the next fire. Kept open until enablement is verified live."
         }
       ]
     },
@@ -1620,6 +1625,11 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-07-26T09:49:46+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: triage + fix + decisions)",
+          "note": "OPERATOR DECISION 2026-07-26: pursue via SHADOW A/B at vol_threshold~0.004 (not a direct live switch). Plan: build a BTC 15m market_features variant at vol_threshold=0.004 (+ matching trend_threshold), train a shadow-stage regime head on it alongside the 0.005 incumbent, and compare f1_volatile on a soak before ANY live vol-gate change (Tier-3). This is the evidence-first path the operator chose. Next step: dispatch the 0.004 dataset build + shadow manifest on the trainer. Kept open (A/B build pending)."
         }
       ]
     },
@@ -2120,7 +2130,7 @@
       "tier": 1,
       "trigger_condition": "Next /ml-review or trainer session with spare cycles.",
       "resolution_criteria": "A nightly cycle where every audit flag is a genuine data problem (or whitelisted with a reason), and the enforce/observe decision is recorded.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -2158,8 +2168,14 @@
           "at": "2026-07-26T09:12:06+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: 'why are we not training on the data we pull')",
           "note": "CORRECTION + REAL FIX 2026-07-26. Operator pushed on WHY the not-yet-wired heads weren't accruing. Verified each column's live value via trainer-vm-diag (#7622-#7625) instead of trusting the manifest headers, and the earlier 'declare them all expected-optional' disposition was PARTLY WRONG \u2014 two of the three families were NOT 'awaiting a source', they were WIRED-BUT-BROKEN: (1) fc_* on btc-regime-15m-lgbm-fc-pcv-v2 audited 100% dead NOT because the forecast is missing (the nightly produces a fresh forecast side-stream, verified fresh on disk) but because build_funding_oi (now that ICT_BUILD_FUNDING_OI=1 is on) re-overwrote the SAME 15m v002 shard WITHOUT forecast_path minutes AFTER build_bybit_15m_fc joined it \u2014 a build-ordering clobber (15m data.jsonl mtime 05:20 > the 05:14 forecast build, fc_ret_med=0.0). FIXED: build_funding_oi's rebuild scoped to 1h only (both funding manifests are 1h; the 5m/15m rebuilds were pure waste and the 15m one destroyed the fc join). Filed MB-20260726-FC-CLOBBER (RESOLVED this PR). Removed the fc-pcv-v2 fc_* silence \u2014 a still-dead fc_* is a REAL alarm again. (2) funding_rate* is LIVE/populated (0.00010439) \u2014 silencing it was the ETH-xa over-silence mistake; DROPPED from funding-v1's declaration. Only open_interest_change/_zscore stay dead (~99.6% zero) because Bybit's OI-history endpoint serves only recent months, not the >=5y window \u2014 an upstream data-coverage limit, filed MB-20260726-OI-HISTORY-LIMIT, silenced as open_interest_* only. (3) corpus_emb_* IS genuinely unwired (no encoder producer, no timer) \u2014 declaration KEPT. fc-v1 (offline candidate on manual v004, not in the nightly cycle) declaration KEPT with a corrected comment. Lesson reinforced: 'not-yet-wired' vs 'wired-but-broken' must be verified per-column against live values before silencing \u2014 a header saying 'awaits X' can hide a clobber. Kept open (enforcement decision still pending; the mechanism + high-precision alarm channel are in place)."
+        },
+        {
+          "at": "2026-07-26T09:49:46+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: triage + fix + decisions)",
+          "note": "RESOLVED \u2014 the enforce/observe decision is now MADE + SHIPPED. Operator chose ENFORCE (2026-07-26): run_training_cycle.sh now SKIPS a FLAGGED manifest (real dead-feature/degenerate-label in a dataset that built) instead of training on known-bad data (emits manifest_audit_skipped_enforced + progress_mark skipped reason=audit_flagged; self-heals when a rebuild clears the flag). Combined with the high-precision channel (empty-dataset carve-out, expected_optional declarations, the inverse stale-declaration guard) the alarm now fires only on genuine defects AND blocks training on them. The de-noise + enforcement mandate of this item is complete. Residual per-head declaration cleanups + the OI/xsym follow-ups are tracked in their own items (MB-20260726-OI-HISTORY-LIMIT, MB-20260726-XSYMYZ-RANGEVOL-DEAD)."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T09:49:46+00:00"
     },
     {
       "id": "MB-20260719-FAMILY-KWARG-SWALLOW",
@@ -2538,7 +2554,13 @@
       "tier": 1,
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-26T09:49:46+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: triage + fix + decisions)",
+          "note": "ROOT CAUSE CONFIRMED (triage): setup_candidates builder emits all four range-vol estimators at builder_version v2 (ml/datasets/families/setup_candidates.py lines 524-530, builder_version='v2'). So the code is correct and the on-disk xsym-yz dataset is simply STALE (built pre-v2 / not rebuilt with --overwrite) \u2014 a stale-dataset condition, NOT a code bug. Low stakes: setup-candidates-metalabel-xsym-yz-v1 is research_only/offline (never order-influencing) and is not in the nightly cycle (ICT_BUILD_XSYM=0), so a one-off rebuild wouldn't stay fresh. FIX (deferred, low-pri): rebuild the xsym-yz setup_candidates dataset on builder v2 whenever that track is next activated, then re-audit. Kept open, correctly scoped."
+        }
+      ]
     },
     {
       "id": "MB-20260726-FC-CLOBBER",
@@ -2569,7 +2591,13 @@
       "tier": 1,
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-26T09:49:46+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, operator: triage + fix + decisions)",
+          "note": "OPERATOR DECISION 2026-07-26: LEAVE SILENCED for now. The funding heads are research_only/offline (zero live-order impact) and open_interest_* being ~99.6% dead over the 5y window is an accepted upstream Bybit data-coverage limit, not a bug. The expected_optional open_interest_* silence stays; funding_rate* remains live (not silenced). Revisit (re-scope window / deeper OI source / drop OI columns) only if a funding head becomes a promotion candidate. Kept open as a low-priority parked note."
+        }
+      ]
     }
   ],
   "updated_at": "2026-07-26T09:12:06+00:00"

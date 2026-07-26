@@ -387,7 +387,16 @@ PY
 )"
   audit_verdict="${audit_out%% *}"
   if [ "$audit_verdict" = "FLAGGED" ]; then
-    emit "$(printf '{"ts":"%s","status":"manifest_audit_flagged","manifest":"%s","detail":"dataset audit flagged dead feature(s)/degenerate label in a NON-empty dataset (observe-only, still training) — see dataset_audit.jsonl"}' "$(iso_now)" "$manifest")"
+    # ENFORCE (operator-approved 2026-07-26, MB-20260719-DATASET-AUDIT-NOISE): the
+    # audit alarm channel is now high-precision (empty datasets carved out,
+    # expected-optional declared + the inverse stale-declaration guard), so a
+    # FLAGGED manifest — a genuine dead feature / single-class label in a dataset
+    # that DID build — is SKIPPED this cycle rather than trained on known-bad
+    # data. Self-heals: a later rebuild that clears the flag trains normally. To
+    # revert to observe-only, drop the `continue` below.
+    emit "$(printf '{"ts":"%s","status":"manifest_audit_skipped_enforced","manifest":"%s","detail":"SKIPPED (enforced): dataset audit flagged a dead feature / degenerate label in a NON-empty dataset — not trained this cycle. Fix the flagged column/label (see dataset_audit.jsonl) to resume training."}' "$(iso_now)" "$manifest")"
+    progress_mark "$manifest" skipped reason=audit_flagged
+    continue
   elif [ "$audit_verdict" = "EMPTY" ]; then
     # Distinct channel from manifest_audit_flagged so the dead-feature alarm
     # stays high-precision (MB-20260719-DATASET-AUDIT-NOISE): a 0-row dataset is
