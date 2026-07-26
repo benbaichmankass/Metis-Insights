@@ -45,6 +45,19 @@
         ]
       }
     ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|Bash|mcp__github__push_files|mcp__github__create_or_update_file|mcp__github__merge_pull_request|mcp__github__create_pull_request",
+        "hooks": [
+          {
+            "_comment": "START-OF-SESSION COORDINATION NUDGE (operator-directed 2026-07-26). Non-blocking, fires ONCE per session at the FIRST mutating tool call (Edit/Write/Bash or a github push/PR-merge MCP write). The SessionStart contract already prints the board-registration duty, but that advisory text gets skipped under load; the operator directive was to enforce board engagement at the START of a session, not at merge time (the merge-slot claim is a net that is already too late to prevent a collision). This hook injects the reminder into the model context via additionalContext with permissionDecision:allow — it warns but never blocks (deliberately the softer of the two options: a hard PreToolUse deny risked stranding a legitimate first action and could not distinguish read-only from mutating Bash cleanly). Warn-once state is a per-session marker keyed on the stdin session_id under /tmp, so a fresh session (new session_id) re-warns while the same session does not nag on every subsequent call. READ-ONLY tools (Read/Grep/Glob and the github READ MCP calls incl. issue_read on #6927 itself) are intentionally NOT matched, so a session can read the canonical docs and the board FIRST without being nagged. Keep the message in sync with .claude/skills/session-coordination/SKILL.md + docs/claude/coordination-board.md; if issue #6927 is ever recreated, update the number here too.",
+            "type": "command",
+            "command": "input=$(cat); sid=$(printf '%s' \"$input\" | sed -n 's/.*\"session_id\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' | head -n1); marker=\"/tmp/.claude-board-nudge-${sid:-default}\"; if [ -f \"$marker\" ]; then exit 0; fi; touch \"$marker\" 2>/dev/null || true; printf '%s' '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"additionalContext\":\"COORDINATION-BOARD CHECK (fires once per session, at your first mutating action). Operator directive 2026-07-26: engage the coordination board at the START of a session, not at merge time (the merge-slot claim is too late to prevent a collision). If you have NOT already done so THIS session: (1) READ GitHub issue #6927 (the Claude Coordination Board) via the github MCP issue_read get_comments to see what other live sessions are touching, and answer any open question; (2) POST a START comment naming your session id, branch, and the files/subsystems/PRs you are about to touch, BEFORE this change; (3) register your session in docs/claude/session-board.json active_sessions. Do these NOW before continuing if you skipped them. Merges still require the per-merge MERGE SLOT CLAIM on #6927 plus a sync-to-main-immediately-before (or the native merge queue once enabled). This is a non-blocking reminder — proceed once you have registered.\"}}'; exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
