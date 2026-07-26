@@ -117,6 +117,27 @@ def test_run_probe_thin_coverage_yields_no_edge():
     assert out["coverage"]["BTCUSDT"] <= 15
 
 
+def test_default_kline_wrapper_uses_category(monkeypatch):
+    # The default (live) kline wrapper inside run_probe must call
+    # fetch_kline_close with category= (not spot=), else it TypeErrors,
+    # is swallowed per-symbol, and yields coverage=0 (issue #7598 false null).
+    import crypto_signals_data as cs
+    calls = []
+    monkeypatch.setattr(cs, "fetch_open_interest",
+                        lambda s, **k: [(_ms(i), 1000.0 + (i % 11) * 10.0) for i in range(80)])
+
+    def _fkc(sym, **k):
+        calls.append(k)
+        base = 100.0 if k.get("category") == "linear" else 99.5
+        return [(_ms(i), base + i * 0.5) for i in range(80)]
+
+    monkeypatch.setattr(cs, "fetch_kline_close", _fkc)
+    out = cm.run_probe(symbols=("BTCUSDT",), horizons=(1, 3), windows=(7,))
+    assert out["coverage"]["BTCUSDT"] > 40
+    cats = {c.get("category") for c in calls}
+    assert "spot" in cats and "linear" in cats
+
+
 def test_build_symbol_series_aligns():
     s = cm.build_symbol_series("BTCUSDT", oi_fetch=_oi_fetch_factory(50),
                                kline_fetch=_kline_fetch_factory(50))

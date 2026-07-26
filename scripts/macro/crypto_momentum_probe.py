@@ -210,7 +210,8 @@ def run_probe(symbols=DEFAULT_SYMBOLS, *, oi_fetch: Optional[Callable] = None,
             oi_fetch = cs.fetch_open_interest
         if kline_fetch is None:
             def kline_fetch(sym, spot=False):  # noqa: E306
-                return cs.fetch_kline_close(sym, spot=spot)
+                # fetch_kline_close selects the book via category=, not spot=
+                return cs.fetch_kline_close(sym, category="spot" if spot else "linear")
     series = {}
     for sym in symbols:
         try:
