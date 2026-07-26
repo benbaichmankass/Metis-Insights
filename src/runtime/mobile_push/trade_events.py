@@ -29,38 +29,25 @@ Trust contract (mirrors ``mobile_push``):
   logged.
 - **Reductive.** Informs the operator only; holds no decision authority.
 
-Configuration (environment):
-
-- ``TRADE_EVENT_TELEGRAM_DISABLED`` — truthy to suppress the per-trade
-  Telegram line (rollback lever; default off → Telegram on). The typed
-  FCM push is unconditional (no flag). This is a notification side-channel
-  switch, not a trading gate.
+The per-trade Telegram line + the typed FCM push are both **unconditional** —
+best-effort, off-thread, and never gate the order path. (The
+``TRADE_EVENT_TELEGRAM_DISABLED`` kill-switch was scrubbed 2026-07-26,
+operator-decided — it guarded a best-effort side-channel send that degrades
+cleanly on its own, mirroring the ``MOBILE_PUSH_ENABLED`` removal in #3807.)
 """
 from __future__ import annotations
 
 import logging
-import os
 import threading
 from typing import Any
 
 logger = logging.getLogger(__name__)
-
-_TRUTHY = {"1", "true", "yes", "y", "on"}
 
 # Kinds this module knows how to format. Kept loose — an unknown kind
 # still dispatches with a generic line so a future kind isn't dropped.
 TRADE_OPENED = "trade_opened"
 TRADE_CLOSED = "trade_closed"
 TRADE_UPDATED = "trade_updated"
-
-
-def _telegram_enabled() -> bool:
-    # allow-silent: notification side-channel kill-switch, NOT a
-    # trading/live-dry gate — the BUG-039 rule targets *_ENABLED/*_DISABLED
-    # flags that strand order-path capability; this one only mutes the
-    # per-trade Telegram line.
-    raw = os.environ.get("TRADE_EVENT_TELEGRAM_DISABLED", "")  # allow-silent: see above — comms side-channel, not a trading gate
-    return raw.strip().lower() not in _TRUTHY
 
 
 def _fmt_num(value: Any) -> str:
@@ -154,8 +141,7 @@ def notify_trade_event(kind: str, payload: dict[str, Any]) -> None:
         logger.warning("trade_events: FCM publish failed (%s): %s", kind, exc)
 
     # 2) Telegram line — off-thread, mirror disabled (no double push).
-    if not _telegram_enabled():
-        return
+    #    Unconditional: best-effort side-channel, never gates the order path.
     try:
         threading.Thread(
             target=_send_telegram,

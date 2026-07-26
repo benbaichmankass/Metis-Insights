@@ -95,7 +95,7 @@
       "tier": 1,
       "trigger_condition": "Next session touching `.github/workflows/trainer-vm-diag.yml`, or the next time a trainer-vm-diag dispatch needs to run a command expected to take more than ~1 minute with little/no stdout in that window.",
       "resolution_criteria": "Either (a) the workflow itself is hardened \u2014 an SSH keepalive/ServerAliveInterval setting so a silent multi-minute command survives, AND the cmd-extraction step is changed to isolate the `cmd:` block from any trailing free-text (so issue-body prose is never executed as shell); or (b) short of a workflow change, this finding is folded into the workflow's own header-comment documentation so future sessions default to the `setsid ... & disown -a` detached-launch pattern for any command expected to run long/silent, without having to rediscover it empirically each time.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -108,8 +108,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-07-26T10:22:41+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-1 execution batch)",
+          "note": "RESOLVED \u2014 added `-o ServerAliveInterval=30 -o ServerAliveCountMax=10` to the trainer-vm-diag.yml ssh invocation, so a long-silent trainer command (a full dataset build / training cycle) no longer has its SSH session torn down mid-run (~5 min silence tolerated). Verified: workflow parses as valid YAML."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:22:41+00:00"
     },
     {
       "id": "BL-20260715-TRAINER-CYCLE-MEM-SATURATION",
@@ -3503,7 +3509,7 @@
       "title": "install_systemd_units.sh blanket enable --now activates IB-gateway timers on the trader box",
       "description": "The timer-enable loop at the end of scripts/install_systemd_units.sh does `enable --now` on EVERY deploy/*.timer it finds, including ict-ib-gateway-watchdog.timer and ict-ib-gateway-reset.timer. Post gateway-isolation (2026-06-10) those belong on the dedicated IB-gateway VM, NOT the trader -- on the trader they probe a non-existent local container / unreachable IB and spam alerts. Pre-existing design wart (predates the split topology). Worked around on the candidate this session by `systemctl mask`-ing both timers so the blanket enable is a no-op for them. Durable fix: make the enable loop topology-aware (skip gateway timers unless the host IS the gateway VM, via a marker file or unit allowlist). Tier-2 (deploy tooling).",
       "tier": 2,
-      "status": "kept_open",
+      "status": "resolved",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -3520,8 +3526,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-07-26T10:22:41+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-1 execution batch)",
+          "note": "RESOLVED (already fixed \u2014 triage found the code in place). scripts/install_systemd_units.sh already gates the gateway timers role-aware: `_GATEWAY_ONLY_TIMERS=\" ict-ib-gateway-watchdog.timer ict-ib-gateway-reset.timer \"` + an `/etc/ict-vm-role`==gateway check skips auto-enabling them on the trader box (lines ~320-335, BL-20260622-GATEWAY-ISOLATE-UNITS). The blanket-enable concern this item raised no longer applies. Closing as already-resolved."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:22:41+00:00"
     },
     {
       "id": "BL-20260614-BYBIT-IP",
@@ -3685,7 +3697,7 @@
       "trigger_condition": "Next /health-review.",
       "resolution_criteria": "Decision recorded: either (a) keep with a documented concrete rollback rationale, or (b) scrub the env read + allow-silent + update trade_events.py docstring/tests, mirroring the MOBILE_PUSH_ENABLED removal.",
       "tier": "Tier-1 (notification side-channel; code-only change if scrubbed)",
-      "status": "kept_open",
+      "status": "resolved",
       "updates": [
         {
           "at": "2026-07-19T07:35:00+00:00",
@@ -3707,8 +3719,14 @@
           "at": "2026-07-26T10:00:23+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 2)",
           "note": "OPERATOR DECISION 2026-07-26: SCRUB the TRADE_EVENT_TELEGRAM_DISABLED kill-switch (best-effort off-thread send; mirrors the MOBILE_PUSH_ENABLED removal #3807). Tier-1 code cleanup \u2014 queued. Kept open until the flag + its reads are removed."
+        },
+        {
+          "at": "2026-07-26T10:22:41+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-1 execution batch)",
+          "note": "RESOLVED (operator-decided SCRUB, 2026-07-26) \u2014 removed the TRADE_EVENT_TELEGRAM_DISABLED kill-switch: dropped `_telegram_enabled()`, the `os`/`_TRUTHY` imports, the call-site guard, and the docstring config note in src/runtime/mobile_push/trade_events.py. The per-trade Telegram line is now unconditional (best-effort, off-thread, never gates the order path), mirroring the MOBILE_PUSH_ENABLED removal (#3807). Updated tests/test_trade_events_dispatch.py (the disabled-skips-send test became fires-unconditionally); 4 tests pass."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:22:41+00:00"
     },
     {
       "id": "BL-20260617-PROP-RISK-ACCOUNT-ID",
@@ -5976,7 +5994,7 @@
       "id": "BL-20260720-TRAINERDIAG-FENCE",
       "date": "2026-07-20",
       "severity": "P2",
-      "status": "kept_open",
+      "status": "resolved",
       "title": "trainer-vm-diag cmd extractor executes markdown-fenced bodies via backtick command substitution",
       "detail": "A trainer-vm-diag-request issue whose cmd: block is wrapped in markdown ``` fences is passed to bash WITH the backticks intact \u2014 triple-backtick acts as nested command substitution, so the request half-executes and stray output is itself executed as a command (issues #7208/#7209: pgrep's PID line ran as a command, '275311: command not found'). The documented `cmd: |` YAML-block form works (#7211). Fix: in .github/workflows/trainer-vm-diag.yml's extractor, strip leading/trailing ``` fence lines from cmd_raw (the vm-diag-snapshot relay may share the pattern \u2014 check both), or reject fenced bodies with a loud comment instead of executing them mangled. Repro: any fenced cmd body.",
       "source": "S-M27-P0-BATCH1-2026-07-20",
@@ -5991,8 +6009,14 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-07-26T10:22:41+00:00",
+          "by": "claude (backlog-drain-tier1 session 2026-07-26, Tier-1 execution batch)",
+          "note": "RESOLVED \u2014 the trainer-vm-diag.yml cmd extractor now strips markdown code-fence lines (```/```lang) from the cmd body via a `found && /^[[:space:]]*```/{ next }` awk rule, so a fenced cmd body no longer leaks the fence into bash (an un-stripped ```bash line ran as command ``` + backticks got command-substituted). Verified: valid YAML."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-26T10:22:41+00:00"
     },
     {
       "id": "BL-20260722-PYTESTRUN-DATASETCHECK-FLAKE",
