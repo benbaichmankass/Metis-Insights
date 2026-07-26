@@ -9,6 +9,14 @@
     ``execution: shadow`` order package as ``shadow_expired`` (NOT
     ``orphaned``), so shadow-soak noise never pollutes orphan-rate
     analytics.
+  * BL-20260601-001 — ``_sweep_unlinked_packages`` must NOT stamp a
+    package 'orphaned — never executed' when a real (open/closed) trade
+    back-references it via ``trades.order_package_id`` but the one-slot
+    ``order_packages.linked_trade_id`` was never written (multi-writer
+    fan-out: real entry + demo mirror + intent_reduce leg + multi-account).
+    It reconciles from the executed trade instead (back-fills
+    linked_trade_id, sets status from the trade), so executed packages
+    stop polluting the per-strategy orphan rate.
 """
 from __future__ import annotations
 
@@ -116,3 +124,87 @@ def test_sweep_unlinked_packages_shadow_vs_live(
     assert rows["op-shadow"][0] == "shadow_expired"
     assert rows["op-shadow"][1] == "shadow_no_execute"
     assert rows["op-live"][0] == "orphaned"
+
+
+def test_sweep_unlinked_packages_reconciles_executed_trade(
+    isolated_env: Path,
+) -> None:
+    """A package whose ``linked_trade_id`` is NULL but which has an EXECUTED
+    trade back-referencing it via ``trades.order_package_id`` is reconciled
+    (not orphaned) — the fan-out gap that inflated the orphan rate
+    (BL-20260601-001).
+
+    Covers both live cases seen in the 2026-07-26 diag pull: a package whose
+    executed leg is an ``intent_reduce`` (status='closed') and one whose leg is
+    a still-open fill (status='open')."""
+    from src.runtime.order_monitor import _sweep_unlinked_packages
+    from src.units.db.database import Database
+    from src.utils.paths import trade_journal_db_path
+
+    db = Database(db_path=trade_journal_db_path())
+
+    # Three packages, all older than the 5-min sweep threshold, all
+    # linked_trade_id NULL:
+    #   op-exec-closed → a CLOSED intent_reduce leg references it
+    #   op-exec-open   → an OPEN fill references it
+    #   op-true-orphan → nothing references it (genuine BUG-049 orphan)
+    for pid in ("op-exec-closed", "op-exec-open", "op-true-orphan"):
+        db.insert_order_package({
+            "order_package_id": pid,
+            "strategy_name": "ict_scalp_avax_5m",
+            "symbol": "AVAXUSDT",
+            "direction": "short",
+            "entry": 6.76,
+            "sl": 6.83,
+            "tp": 6.64,
+            "status": "open",
+        })
+    conn = db.connect()
+    try:
+        conn.execute(
+            "UPDATE order_packages SET created_at = ?, linked_trade_id = NULL",
+            (_old_iso(10),),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    # is_backtest=0 mirrors the executor (the schema DEFAULT is 1; every real
+    # writer passes 0) — the sweep intentionally never links a backtest row.
+    closed_tid = db.insert_trade({
+        "symbol": "AVAXUSDT", "direction": "short", "entry_price": 6.76,
+        "position_size": 6409.2, "setup_type": "intent_reduce",
+        "status": "closed", "pnl": None, "account_id": "bybit_1",
+        "order_package_id": "op-exec-closed", "is_backtest": 0,
+        "timestamp": _old_iso(9), "created_at": _old_iso(9),
+    })
+    open_tid = db.insert_trade({
+        "symbol": "AVAXUSDT", "direction": "short", "entry_price": 6.76,
+        "position_size": 719.8, "setup_type": "ict_scalp_avax_5m",
+        "status": "open", "account_id": "bybit_1",
+        "order_package_id": "op-exec-open", "is_backtest": 0,
+        "timestamp": _old_iso(9), "created_at": _old_iso(9),
+    })
+
+    _sweep_unlinked_packages(db)
+
+    conn = db.connect()
+    try:
+        rows = {
+            r[0]: (r[1], r[2])
+            for r in conn.execute(
+                "SELECT order_package_id, status, linked_trade_id "
+                "FROM order_packages"
+            ).fetchall()
+        }
+    finally:
+        conn.close()
+
+    # Executed-but-unlinked packages are reconciled from the trade, not orphaned.
+    assert rows["op-exec-closed"][0] == "closed"
+    assert rows["op-exec-closed"][1] == closed_tid
+    assert rows["op-exec-open"][0] == "open"
+    assert rows["op-exec-open"][1] == open_tid
+    # A genuinely never-executed package is still orphaned (BUG-049 preserved).
+    assert rows["op-true-orphan"][0] == "orphaned"
+    assert rows["op-true-orphan"][1] is None

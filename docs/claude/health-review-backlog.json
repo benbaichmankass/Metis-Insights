@@ -2617,6 +2617,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: still soaking / awaiting more live data; no regression in this window's pull. Carried."
+        },
+        {
+          "at": "2026-07-26T12:05:00+00:00",
+          "by": "claude (orphan-rate-investigation session)",
+          "action": "fix_prepared_draft_pr",
+          "note": "NEW ROOT CAUSE FOUND + FIX PREPARED (draft PR, Tier-2, operator-gated) for a DISTINCT, currently-ACTIVE orphan-rate driver — the FALSE-ORPHAN / split-attribution class, separate from the closed-pnl-attribution class. Live re-measure via /api/diag/journal (issue #7657, git_sha 08154e3a): the two most-recent orphaned order_packages — pkg-07d51e1d986447b3 + pkg-da56584ddd114439 (both ict_scalp_avax_5m, bybit_1 demo) — carry status='orphaned' + meta.orphaned_reason='BUG-049 — no linked_trade_id after 5 min; package was never executed', YET each HAS a real trade back-referencing it via trades.order_package_id: pkg-07d51e1d986447b3 ← trade #4022 (setup_type=intent_reduce, status=closed), pkg-da56584ddd114439 ← trade #4021 (status=OPEN, a live position). So these packages DID execute; they were falsely stamped 'orphaned — never executed'. ROOT CAUSE: order_packages.linked_trade_id is a ONE-SLOT 'primary entry trade' pointer (database._migrate_add_order_package_id docstring) — when a decision fans out into several trade rows (real entry + demo mirror + intent_reduce leg + multi-account), only the LAST update_order_package(linked_trade_id=...) survives, so the slot is often left NULL even though the package filled. order_monitor._sweep_unlinked_packages keys the BUG-049 orphan stamp SOLELY on linked_trade_id IS NULL and only consults the newer trades.order_package_id back-reference for REJECTION rows (stage 1) and shadow strategies (stage 1.5) — there was NO stage recognizing a package whose linked trade actually EXECUTED (open/closed). This both (a) pollutes per-strategy orphan-rate stats with executed packages (the resolution_criteria) and (b) when the linked trade is still OPEN, wrongly terminalises a package whose position is LIVE, clearing the strategy-monocle open gate on a live position. FIX (order_monitor.py::_sweep_unlinked_packages, new stage 0 run BEFORE the rejection relabel): reconcile any status='open'+linked_trade_id-NULL+>=5min package that has a non-backtest trade with status IN ('open','closed') back-referencing it via trades.order_package_id — back-fill linked_trade_id from that trade (prefer an open leg, else newest closed) and set the package status to match (open→'open', else 'closed') instead of orphaning. Precedence executed>rejected>shadow>orphaned. Pure link/label reconciliation — NO order placed/modified; self-healing (repairs already-affected rows next monitor tick). Tests: tests/test_reconciler_reduce_and_shadow.py::test_sweep_unlinked_packages_reconciles_executed_trade (executed-closed + executed-open reconcile, genuine-orphan still orphans); full reconciler/monocle/order-packages-log/prop-shadow suites green locally (141 tests; pandas-dependent monocle-gate import skipped in-sandbox, runs in CI). Branch claude/orphan-rate-investigation-ags4xs. Does NOT close this item — the closed-pnl-attribution / executed-then-exchange-flat class (BL-20260622-CLOSEDPNL-AGGREGATE-SOAK) remains its own soak-verify item; this fix addresses the false-orphan pollution half."
         }
       ],
       "check_log": [
@@ -2628,6 +2634,38 @@
       "progress_notes": [
         "2026-06-23 PARTIAL: the dry/shadow zero-qty share of these orphans is RESOLVED by the orphan-labeling fix (PR #4339/#4342 \u2014 such packages now relabel 'rejected', verified live). The remaining open scope is the EXECUTED-then-exchange-flat-without-a-clean-fill class (reconciler/closed-pnl recovery domain) \u2014 still open."
       ]
+    },
+    {
+      "id": "BL-20260726-RELAY-APIBOT-FETCHFAILED",
+      "opened_at": "2026-07-26T12:05:00+00:00",
+      "opened_by": "claude (orphan-rate-investigation session)",
+      "source": "While pulling live orphan data for BL-20260601-001 via the vm-diag-snapshot relay, EVERY /api/bot/* and db/table/* path returned {\"error\":\"fetch_failed\"} while /api/diag/* paths in the SAME batched SSH run succeeded.",
+      "severity": "medium",
+      "title": "vm-diag-snapshot relay returns fetch_failed for ALL /api/bot/* + db/table/* paths while /api/diag/* works (blocks review pulls of decision-level + filtered-count endpoints)",
+      "description": "Isolated across 3 relay runs: issue #7654 (batch of /api/bot + db/table, all fetch_failed), issue #7656 (version → OK with git_sha 08154e3a; stats + all /api/bot/db/table → fetch_failed in the same run), issue #7657 (/api/diag db_info + status + services + journal all OK). The web-api is UP and serving (db_info: error_per_table {}, order_packages=3290, trades=4022 rows; recovery-log journal shows the dashboard getting /api/bot/stats 200s), and the DB is healthy — so this is NOT a web-api/DB outage. It is a relay-side handling issue specific to the /api/bot/ upstream_prefix in the batched issues path (.github/workflows/vm-diag-snapshot.yml resolve_one/curl loop), OR the /api/bot GETs 5xx specifically to the localhost curl (note the relay sends 'Authorization: Bearer DIAG_READ_TOKEN' to /api/bot Tier-1 GETs, which are unauthenticated — a stray bearer + curl --fail could interact; and /api/bot/stats returns HTTP 503 on structural DB failure per S-067, but db_info shows the DB is fine, so that path is not it). Impact: future health/system reviews cannot pull the /api/bot decision-level view (/order-packages) OR the filtered-count endpoints (/db/table/<t>?filter_col=status&...&limit=1 → total) through the relay — the cleanest way to MEASURE the orphan rate (per resolution_criteria of BL-20260601-001). This session worked around it with /api/diag/journal + db_info. NOTE (honesty): on the first all-fetch_failed batch (#7654, before /api/diag/version was tested) this session fired a vm-web-api-recover (#7655) diagnosing a web-api outage; the recovery log showed the service was already active and serving — the restart was a harmless ~2s no-op (health 200 after), and the true cause is this relay/endpoint /api/bot handling, not a down service.",
+      "tier": "1",
+      "status": "open",
+      "trigger_condition": "Next session touching .github/workflows/vm-diag-snapshot.yml or any review that needs /api/bot/* or db/table/* data via the relay. Repro: open a vm-diag-request issue with any /api/bot path (e.g. 'stats' or 'db/table/order_packages?limit=1') and observe fetch_failed while a sibling /api/diag path (e.g. 'version') returns 200.",
+      "resolution_criteria": "The relay returns real JSON for allowlisted /api/bot/* + db/table/* GETs (verify 'stats' and 'db/table/order_packages?filter_col=status&filter_op=eq&filter_val=orphaned&limit=1' both return a body, not fetch_failed). Root-cause whether it is the curl --fail/Bearer handling for the /api/bot prefix in the batched loop, or a genuine localhost 5xx on those endpoints.",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
+    },
+    {
+      "id": "BL-20260726-MES-IBKR-PULL-FAILED",
+      "opened_at": "2026-07-26T12:05:00+00:00",
+      "opened_by": "claude (orphan-rate-investigation session)",
+      "source": "/api/diag/services pull (issue #7657, 2026-07-26 11:46Z) shows ict-mes-ibkr-pull.service in state 'failed' (its .timer is active).",
+      "severity": "low",
+      "title": "ict-mes-ibkr-pull.service in 'failed' state (timer active)",
+      "description": "The MES IBKR candle-pull one-shot service reads 'failed' in the services snapshot while ict-mes-ibkr-pull.timer is active. A timer-driven one-shot reading 'failed' usually means its last run exited non-zero (e.g. the IB gateway was momentarily unreachable / inside the ~03:45-05:45 UTC IBKR reset window), which can be transient — but per the 'if you see something, say something' directive it is logged rather than walked past. Not confirmed transient vs persistent this session (would need journalctl?unit=ict-mes-ibkr-pull.service). If persistent it could starve the MES candle feed the mes_* strategies + /api/bot/candles rely on.",
+      "tier": "1",
+      "status": "open",
+      "trigger_condition": "Next /health-review: pull /api/diag/journalctl?unit=ict-mes-ibkr-pull.service (and re-check /api/diag/services) to confirm whether the failure is a one-off (IBKR reset-window blip → self-heals next timer fire) or persistent (needs a look at the pull script / IB gateway reachability).",
+      "resolution_criteria": "Either confirmed transient (a subsequent services pull shows the unit active/inactive-success, no persistent failure) or the persistent cause is identified + fixed.",
+      "resolved_at": null,
+      "resolved_by": null,
+      "resolution_note": null
     },
     {
       "id": "BL-20260602-001",
