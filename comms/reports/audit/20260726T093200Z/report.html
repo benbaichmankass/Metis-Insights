@@ -1,0 +1,80 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Full-system audit report</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>Full-system audit report</h1>
+<p class="meta">Generated 2026-07-26T09:32:00+00:00 · window 2026-07-09 → 2026-07-26T09:32:00+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>Full-system audit (all 3 repos + both VMs + canonical store, 8 workstreams). The recent infra push — M28 macro/value, M27 15m scalp legs, M26 conflict taxonomy, M0a/M0b layer guard — is COMPLIANT and fit for purpose: zero Prime-Directive / Tier-3 / isolation violations, 19/19 CI guards + ruff green, layer-guard genuinely enforcing, consumer wiring has no breaks, live VM on latest main, canonical store single-source-clean. Older surfaces mostly up to date; Tier-1 doc-drift + diag-observability + workflow-liveness fixes landed in draft PR #7635. Roll-up is CAUTION (not healthy) only because 3 live operational issues were surfaced for the operator — none a money-loss risk.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>ict-mes-ibkr-pull.service is in a failed state on the live trader</b> <span class="pill">audit-WS-F · T2</span> ⚠️ operator<br><span class='muted'>The MES deep-history pull (keeps the trainer MES base fresh, BL-20260626) last-ran failed; its timer is active but the run errors. Was invisible to diag until this audit added it to _CANONICAL_UNITS. Needs journalctl -u ict-mes-ibkr-pull to diagnose. BL-20260726-MES-IBKR-PULL-SERVICE-FAILED.</span></li>
+<li><b>352 Claude-pings stranded in the pre-migration repo-path inbox</b> <span class="pill">audit-WS-F · T1</span> ⚠️ operator<br><span class='muted'>A ping writer resolves via a repo-relative path while the drainer reads the canonical DATA_DIR path, so 352 pings sit undelivered in /home/ubuntu/ict-trading-bot/runtime_logs/pending_claude_pings. Relates to open #6874. BL-20260726-CLAUDE-PING-INBOX-SPLIT-BRAIN.</span></li>
+<li><b>Recurring bybit_2 smoke-test place_order NoneType failures</b> <span class="pill">audit-WS-F · T1</span><br><span class='muted'>S-017 plumbing smoke can&#x27;t resolve a client on the smoke path (real trader trades bybit_2 fine). Harness defect, no live-trade impact. BL-20260726-SMOKE-BYBIT2-PLACE-ORDER-NONETYPE.</span></li>
+<li><b>PROPOSAL: promote layer-guard to a required branch-protection check</b> <span class="pill">audit-WS-C · T1</span> ⚠️ operator<br><span class='muted'>M0a/M0b layering guard enforces its 6 contracts and blocks CI on its own job, but it is NOT in REQUIRED_CONTEXTS (9 checks), so a PR can merge past a broken-layering advisory. Operator call (could newly-block merges). BL-20260726-LAYER-GUARD-NOT-REQUIRED.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">258 open / 258 total</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">— open</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">— open</div></div>
+</div>
+<h2>System &amp; technical health <span class="grade">🟢 ok</span></h2>
+<div class="tablewrap"><table><tr><th>Service</th><th>State</th><th>Since</th></tr>
+<tr><td>ict-trader-live.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-web-api.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-telegram-bot.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-mes-ibkr-pull.service</td><td>failed/failed</td><td>—</td></tr>
+<tr><td>ict-exchange-fills-pull.timer</td><td>active/waiting</td><td>—</td></tr>
+<tr><td>ict-exchange-funding-pull.timer</td><td>active/waiting</td><td>—</td></tr>
+<tr><td>ict-mes-ibkr-pull.timer</td><td>active/waiting</td><td>—</td></tr>
+</table></div>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>New-infra compliance (M28 / M27 / M26 / M0a-b)</td><td class="sev-ok">🟢 ok</td><td>Zero confirmed violations. M28 macro/value fully isolated (no order path, import-linter-locked); M27 15m legs paper-only on bybit_1 with proper gates; M26 conflict taxonomy observe-only; layer guard genuinely enforces 6 contracts with teeth.</td></tr>
+<tr><td>CI / guards / tests</td><td class="sev-ok">🟢 ok</td><td>19/19 CI guards + ruff PASS; 8117 tests collect cleanly; layer-guard 6 kept / 0 broken.</td></tr>
+<tr><td>Consumer wiring (dashboard + android)</td><td class="sev-ok">🟢 ok</td><td>No missing/mismatched endpoints; null-&gt;em-dash honored; no hardcoded strategy list. Only low-sev unsurfaced-endpoint gaps (backlogged).</td></tr>
+<tr><td>Canonical store (trade_journal.db)</td><td class="sev-ok">🟢 ok</td><td>Resolves to /data/bot-data canonical path, no stray/duplicate journal, no load errors, all tables populated sanely.</td></tr>
+<tr><td>Live VM</td><td class="sev-ok">🟢 ok</td><td>On latest main (748dcbed), heartbeat running, all core services active, MES/IB connected no wedge, loadavg 0.12.</td></tr>
+<tr><td>Doc drift (ARCHITECTURE-CANONICAL)</td><td class="sev-watch">🟡 watch</td><td>M28/M29 macro subsystem was undocumented + alpaca_live overstated as live (it is shelved dry) + strategy count stale (48-&gt;54). FIXED in PR #7635.</td></tr>
+<tr><td>Diag observability</td><td class="sev-watch">🟡 watch</td><td>3 data-ingest timers were invisible to /api/diag/services (silent-death class); retired ict-heartbeat still listed. FIXED in PR #7635.</td></tr>
+<tr><td>ict-mes-ibkr-pull.service</td><td class="sev-concern">🔴 concern</td><td>In failed state — MES base freshness at risk. Surfaced to operator (BL-20260726).</td></tr>
+<tr><td>Claude-ping delivery</td><td class="sev-concern">🔴 concern</td><td>352 pings stranded in the pre-migration repo-path inbox (path split-brain). Surfaced (BL-20260726).</td></tr>
+</table></div>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>BL-20260724-TRAINER-GIT-DIVERGED</code></td><td>ml</td><td>🗳️ awaiting-decision</td><td>Trainer worktree stale at cdbaa718 (pre-vol-flag harness) — trainer re-pulls main per-run for backtests, but the persistent worktree lags. Known; verify next trainer cycle re-syncs.</td><td>next trainer cycle</td></tr>
+<tr><td><code>M28/M29 macro sleeve</code></td><td>performance</td><td>⏳ soaking</td><td>sleeve.execution: shadow (no order path — P5 executor unbuilt). Observe-only soak accruing; graduation is Tier-3 + P4-backtest-gated.</td><td>P4 gate</td></tr>
+<tr><td><code>alpaca_live re-arm</code></td><td>performance</td><td>🗳️ awaiting-decision</td><td>Shelved to dry_run 2026-07-15; re-arm gated on the /performance-review portfolio-vs-bybit benchmark.</td><td>perf-review</td></tr>
+</table></div>
+<footer>report_id AUDIT-20260726 · reviewer claude (full-system-audit) · prior audit-2026-07-09 · ICT Trading Bot full-system-audit</footer></div></body></html>
