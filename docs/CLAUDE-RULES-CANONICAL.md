@@ -820,12 +820,42 @@ big-task decomposition — the same discipline of splitting work into
 independently-resumable units, applied across a session boundary instead of
 across concurrent agents.
 
-This is discipline + a skill, not a mechanical token-count gate — this
-harness gives no reliable token-count introspection to the main loop, so the
-skill's triggers are structural/observable signals (a compaction having
-already happened, a context-sharing test), never an invented numeric
-threshold. An explicit operator instruction to keep going in the current
-session overrides the recommendation for that session.
+This is discipline + a skill, not a *self-introspected* token-count gate —
+this harness gives the main loop no reliable read of its own 5-hour or weekly
+usage, so the skill's **default** triggers are structural/observable signals
+(a compaction having already fired, a context-sharing test), never a numeric
+threshold a session invents from nothing.
+
+**Token/time-budget wrap-up gate (operator-directed 2026-07-27, binding on
+every session).** Two things extend the above:
+
+1. **Scope is every session**, not only long/autonomous ones. A short
+   interactive session that is near a limit still finishes its current unit
+   and closes the books cleanly rather than dying mid-edit and stranding
+   half-done work for the next session to rediscover.
+2. **When the operator surfaces a budget** — an explicit `+500k`-style
+   target, a "you've got ~X left", or the Workflow `budget` global — that is
+   a *real* number, not an invented one, so the no-invented-threshold rule
+   does not forbid acting on it. Apply a **two-stage gate against that
+   operator-given budget**:
+   - **At ~85% spent** — STOP starting any *new* unit of work; finish only
+     the one already in flight.
+   - **At ~95% spent** — hard stop and run the **wrap-up sequence**:
+     finish/checkpoint the current unit (commit → push → PR open at
+     minimum), run the `doc-freshness` sweep, land the durable record
+     (roadmap row / sprint-log / backlog id), post the coordination-board
+     `✅ DONE`, and **ping the operator that work is pausing near the budget**
+     with a paste-ready continuation prompt (the `session-handoff` handoff).
+
+   The gap between 95% and the true ceiling **plus** the reserved cost of the
+   wrap-up sequence itself is the deliberate **emergency reserve** — so a
+   session never has to buy fresh tokens just to close its own books.
+
+Absent an operator-surfaced budget, the structural proxies above remain the
+only trigger (the no-invented-threshold rule stands — a session must not
+fabricate a usage percentage it cannot actually measure). An explicit
+operator instruction to keep going overrides the wrap-up for that session.
+Mechanics live in the `session-handoff` skill.
 
 ## GitHub Actions Rule
 

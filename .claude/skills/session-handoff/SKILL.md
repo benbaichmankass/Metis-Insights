@@ -56,6 +56,18 @@ unrelated one — never mid-flight on unfinished work (see Step 2's ordering).
    yes, this usually already agrees.
 4. **Explicit operator ask** ("wrap this up", "let's continue in a new
    session", "hand this off") — wins immediately, skip straight to Step 2.
+5. **An operator-surfaced budget is ~85% spent** (binding on every session,
+   operator-directed 2026-07-27). When the operator has stated a budget — a
+   `+500k`-style target, a "you've got ~X left", or the Workflow `budget`
+   global — that is a *real* number, so acting on it is not the
+   forbidden invented-threshold (see "does NOT do"). Two stages:
+   **at ~85% spent** stop *starting* new units (finish the one in flight);
+   **at ~95% spent** hard-stop into Step 2's wrap-up regardless of where the
+   current unit is — the ~5% tail + the wrap-up's own cost is the deliberate
+   emergency reserve so the session never overruns the budget just to close
+   its books. **Ping the operator** that work is pausing near the budget as
+   part of the Step 3 handoff. Absent an operator-surfaced budget this
+   trigger is inert (triggers 1–3 still apply) — never fabricate a usage %.
 
 None of these block finishing the **current** unit of work — they only gate
 whether to *start the next one* here. Never hand off mid-flight on something
@@ -124,6 +136,9 @@ operator needs to be able to copy it straight into a new session.
 - It does not invent a fake token-budget number to poll against — this
   harness gives no reliable token-count introspection to the main loop, so
   the triggers in Step 1 are structural/observable signals, not a counter.
+  The one number it *will* act on is a budget the **operator explicitly
+  surfaces** (Step 1 trigger #5): that is a real figure, not a self-invented
+  one, so the 85%/95% two-stage gate against it is legitimate.
 - It does not override an explicit operator instruction to keep going in
   this session — Step 1's triggers are a recommendation this skill surfaces
   proactively; an operator "keep going" overrides them for that session.
