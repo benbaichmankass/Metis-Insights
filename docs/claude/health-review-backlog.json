@@ -725,6 +725,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; carried (snoozed/deferred state confirmed still applicable, no regression this window)."
+        },
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "partially-resolved",
+          "note": "Re-validated 07-27: root cause fixed (#4858+#4867); residual is historical paper-row cleanup only. No regression this window."
         }
       ]
     },
@@ -2288,6 +2294,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; carried (snoozed/deferred state confirmed still applicable, no regression this window)."
+        },
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "partially-resolved",
+          "note": "Re-validated 07-27: IBC nightly auto-restart reliability still deferred; the reactive gateway watchdog + daily reset cover it. IB state this pull shows breaker flaps self-recovering (likely_wedged:false), no sustained wedge."
         }
       ]
     },
@@ -2662,13 +2674,13 @@
           "at": "2026-07-26T12:05:00+00:00",
           "by": "claude (orphan-rate-investigation session)",
           "action": "fix_prepared_draft_pr",
-          "note": "NEW ROOT CAUSE FOUND + FIX PREPARED (draft PR, Tier-2, operator-gated) for a DISTINCT, currently-ACTIVE orphan-rate driver — the FALSE-ORPHAN / split-attribution class, separate from the closed-pnl-attribution class. Live re-measure via /api/diag/journal (issue #7657, git_sha 08154e3a): the two most-recent orphaned order_packages — pkg-07d51e1d986447b3 + pkg-da56584ddd114439 (both ict_scalp_avax_5m, bybit_1 demo) — carry status='orphaned' + meta.orphaned_reason='BUG-049 — no linked_trade_id after 5 min; package was never executed', YET each HAS a real trade back-referencing it via trades.order_package_id: pkg-07d51e1d986447b3 ← trade #4022 (setup_type=intent_reduce, status=closed), pkg-da56584ddd114439 ← trade #4021 (status=OPEN, a live position). So these packages DID execute; they were falsely stamped 'orphaned — never executed'. ROOT CAUSE: order_packages.linked_trade_id is a ONE-SLOT 'primary entry trade' pointer (database._migrate_add_order_package_id docstring) — when a decision fans out into several trade rows (real entry + demo mirror + intent_reduce leg + multi-account), only the LAST update_order_package(linked_trade_id=...) survives, so the slot is often left NULL even though the package filled. order_monitor._sweep_unlinked_packages keys the BUG-049 orphan stamp SOLELY on linked_trade_id IS NULL and only consults the newer trades.order_package_id back-reference for REJECTION rows (stage 1) and shadow strategies (stage 1.5) — there was NO stage recognizing a package whose linked trade actually EXECUTED (open/closed). This both (a) pollutes per-strategy orphan-rate stats with executed packages (the resolution_criteria) and (b) when the linked trade is still OPEN, wrongly terminalises a package whose position is LIVE, clearing the strategy-monocle open gate on a live position. FIX (order_monitor.py::_sweep_unlinked_packages, new stage 0 run BEFORE the rejection relabel): reconcile any status='open'+linked_trade_id-NULL+>=5min package that has a non-backtest trade with status IN ('open','closed') back-referencing it via trades.order_package_id — back-fill linked_trade_id from that trade (prefer an open leg, else newest closed) and set the package status to match (open→'open', else 'closed') instead of orphaning. Precedence executed>rejected>shadow>orphaned. Pure link/label reconciliation — NO order placed/modified; self-healing (repairs already-affected rows next monitor tick). Tests: tests/test_reconciler_reduce_and_shadow.py::test_sweep_unlinked_packages_reconciles_executed_trade (executed-closed + executed-open reconcile, genuine-orphan still orphans); full reconciler/monocle/order-packages-log/prop-shadow suites green locally (141 tests; pandas-dependent monocle-gate import skipped in-sandbox, runs in CI). Branch claude/orphan-rate-investigation-ags4xs. Does NOT close this item — the closed-pnl-attribution / executed-then-exchange-flat class (BL-20260622-CLOSEDPNL-AGGREGATE-SOAK) remains its own soak-verify item; this fix addresses the false-orphan pollution half."
+          "note": "NEW ROOT CAUSE FOUND + FIX PREPARED (draft PR, Tier-2, operator-gated) for a DISTINCT, currently-ACTIVE orphan-rate driver \u2014 the FALSE-ORPHAN / split-attribution class, separate from the closed-pnl-attribution class. Live re-measure via /api/diag/journal (issue #7657, git_sha 08154e3a): the two most-recent orphaned order_packages \u2014 pkg-07d51e1d986447b3 + pkg-da56584ddd114439 (both ict_scalp_avax_5m, bybit_1 demo) \u2014 carry status='orphaned' + meta.orphaned_reason='BUG-049 \u2014 no linked_trade_id after 5 min; package was never executed', YET each HAS a real trade back-referencing it via trades.order_package_id: pkg-07d51e1d986447b3 \u2190 trade #4022 (setup_type=intent_reduce, status=closed), pkg-da56584ddd114439 \u2190 trade #4021 (status=OPEN, a live position). So these packages DID execute; they were falsely stamped 'orphaned \u2014 never executed'. ROOT CAUSE: order_packages.linked_trade_id is a ONE-SLOT 'primary entry trade' pointer (database._migrate_add_order_package_id docstring) \u2014 when a decision fans out into several trade rows (real entry + demo mirror + intent_reduce leg + multi-account), only the LAST update_order_package(linked_trade_id=...) survives, so the slot is often left NULL even though the package filled. order_monitor._sweep_unlinked_packages keys the BUG-049 orphan stamp SOLELY on linked_trade_id IS NULL and only consults the newer trades.order_package_id back-reference for REJECTION rows (stage 1) and shadow strategies (stage 1.5) \u2014 there was NO stage recognizing a package whose linked trade actually EXECUTED (open/closed). This both (a) pollutes per-strategy orphan-rate stats with executed packages (the resolution_criteria) and (b) when the linked trade is still OPEN, wrongly terminalises a package whose position is LIVE, clearing the strategy-monocle open gate on a live position. FIX (order_monitor.py::_sweep_unlinked_packages, new stage 0 run BEFORE the rejection relabel): reconcile any status='open'+linked_trade_id-NULL+>=5min package that has a non-backtest trade with status IN ('open','closed') back-referencing it via trades.order_package_id \u2014 back-fill linked_trade_id from that trade (prefer an open leg, else newest closed) and set the package status to match (open\u2192'open', else 'closed') instead of orphaning. Precedence executed>rejected>shadow>orphaned. Pure link/label reconciliation \u2014 NO order placed/modified; self-healing (repairs already-affected rows next monitor tick). Tests: tests/test_reconciler_reduce_and_shadow.py::test_sweep_unlinked_packages_reconciles_executed_trade (executed-closed + executed-open reconcile, genuine-orphan still orphans); full reconciler/monocle/order-packages-log/prop-shadow suites green locally (141 tests; pandas-dependent monocle-gate import skipped in-sandbox, runs in CI). Branch claude/orphan-rate-investigation-ags4xs. Does NOT close this item \u2014 the closed-pnl-attribution / executed-then-exchange-flat class (BL-20260622-CLOSEDPNL-AGGREGATE-SOAK) remains its own soak-verify item; this fix addresses the false-orphan pollution half."
         },
         {
           "at": "2026-07-26T13:15:00+00:00",
           "by": "claude (orphan-rate-investigation session)",
           "action": "shipped_deployed_LIVE_VERIFIED",
-          "note": "FALSE-ORPHAN / split-attribution class RESOLVED + LIVE-VERIFIED. Shipped in two operator-approved PRs: #7658 (prevent — stage-0 reconcile at status='open') then #7665 (heal — widened to status IN ('open','orphaned') so it also repairs the already-orphaned backlog; the #7658 self-healing claim was wrong, caught by live post-deploy check and corrected). Deployed to the live trader (git_sha 6eaeae5a, ict-trader-live restarted 13:09Z). LIVE PROOF (issue #7670, first healing sweep 13:11:43Z): orphaned order_packages 1744 -> 1687 (the 57 executed-but-unlinked false-orphans healed in one sweep; the correlated UPDATE has no LIMIT so a single tick heals all matching). Both known targets healed: pkg-07d51e1d986447b3 orphaned->CLOSED linked_trade_id=4022 (its intent_reduce leg); pkg-da56584ddd114439 orphaned->OPEN linked_trade_id=4021 (live position restored, monocle gate un-cleared). Heal spans strategies/venues, not just the AVAX targets: sampled reconciled rows incl. trend_donchian_ada_4h (bybit_1, ->closed, tid 3142) + mgc_pullback_1d (IB ib_paper, ->open, tid 3341), each carrying meta.executed_reconciled_reason. The residual 1687 orphaned are GENUINE never-executed orphans (correctly untouched — the EXISTS filter fails for them), dominated by historical killed-vwap SHADOW leftovers from May 2026 (the sampled oldest is a 2026-05-02 vwap pkg; vwap was M7-killed, ~917/1460 orphan rate in the original audit) plus dead-end-routed/refused packages — those are historical noise, not the split-attribution bug, and the go-forward flow is covered by the shadow_expired relabel (PR #4339/#4342) + the emit-then-orphan post-dispatch backstop (2026-06-25). NET: the specific false-orphan driver that was actively mis-attributing EXECUTED trades (incl. wrongly orphaning LIVE positions + clearing their monocle gate) is fixed, self-healing every tick, and verified on live data. REMAINING OPEN scope on THIS item is now ONLY the closed-pnl-attribution / executed-then-exchange-flat class tracked as the soak BL-20260622-CLOSEDPNL-AGGREGATE-SOAK (which this session separately re-verified clean on bybit_2 — see that item's 2026-07-26 update)."
+          "note": "FALSE-ORPHAN / split-attribution class RESOLVED + LIVE-VERIFIED. Shipped in two operator-approved PRs: #7658 (prevent \u2014 stage-0 reconcile at status='open') then #7665 (heal \u2014 widened to status IN ('open','orphaned') so it also repairs the already-orphaned backlog; the #7658 self-healing claim was wrong, caught by live post-deploy check and corrected). Deployed to the live trader (git_sha 6eaeae5a, ict-trader-live restarted 13:09Z). LIVE PROOF (issue #7670, first healing sweep 13:11:43Z): orphaned order_packages 1744 -> 1687 (the 57 executed-but-unlinked false-orphans healed in one sweep; the correlated UPDATE has no LIMIT so a single tick heals all matching). Both known targets healed: pkg-07d51e1d986447b3 orphaned->CLOSED linked_trade_id=4022 (its intent_reduce leg); pkg-da56584ddd114439 orphaned->OPEN linked_trade_id=4021 (live position restored, monocle gate un-cleared). Heal spans strategies/venues, not just the AVAX targets: sampled reconciled rows incl. trend_donchian_ada_4h (bybit_1, ->closed, tid 3142) + mgc_pullback_1d (IB ib_paper, ->open, tid 3341), each carrying meta.executed_reconciled_reason. The residual 1687 orphaned are GENUINE never-executed orphans (correctly untouched \u2014 the EXISTS filter fails for them), dominated by historical killed-vwap SHADOW leftovers from May 2026 (the sampled oldest is a 2026-05-02 vwap pkg; vwap was M7-killed, ~917/1460 orphan rate in the original audit) plus dead-end-routed/refused packages \u2014 those are historical noise, not the split-attribution bug, and the go-forward flow is covered by the shadow_expired relabel (PR #4339/#4342) + the emit-then-orphan post-dispatch backstop (2026-06-25). NET: the specific false-orphan driver that was actively mis-attributing EXECUTED trades (incl. wrongly orphaning LIVE positions + clearing their monocle gate) is fixed, self-healing every tick, and verified on live data. REMAINING OPEN scope on THIS item is now ONLY the closed-pnl-attribution / executed-then-exchange-flat class tracked as the soak BL-20260622-CLOSEDPNL-AGGREGATE-SOAK (which this session separately re-verified clean on bybit_2 \u2014 see that item's 2026-07-26 update)."
         }
       ],
       "check_log": [
@@ -4840,6 +4852,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; carried (snoozed/deferred state confirmed still applicable, no regression this window)."
+        },
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "partially-resolved",
+          "note": "Re-validated 07-27: still blocked on the protected-main autonomous-commit path (BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN); operator granted an Actions-bot bypass 07-26 \u2014 awaiting execution. Carried."
         }
       ]
     },
@@ -5950,6 +5968,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; carried (snoozed/deferred state confirmed still applicable, no regression this window)."
+        },
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "partially-resolved",
+          "note": "Re-validated 07-27: POSITIVE \u2014 trainer_status shows cycles_24h=2, last_cycle overall_rc=0 (cycle_end 05:34Z), manifests_24h ok=74/failed=0, dataset_builds ok=116/failed=0. The 'cycle terminates ~90s after start' symptom is NOT reproducing; cycles complete cleanly. Downgrade candidate \u2014 keep one more window of confirmation, then resolve."
         }
       ]
     },
@@ -6288,6 +6312,12 @@
           "at": "2026-07-26T09:56:02+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 1)",
           "note": "OPERATOR DECISION 2026-07-26: grant the Actions bot a BYPASS to push the data paths (gpu-burst spend ledger + FRED valuation snapshots) to protected main. Execution: (a) add github-actions[bot] to the branch-protection bypass allowlist (repo Settings->Branches, or via the branch-protection-sync workflow), (b) switch the two data workflows from the data-branch workaround back to a direct commit+push to main. Queued. Kept open until wired + verified."
+        },
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "partially-resolved",
+          "note": "Re-validated 07-27: operator decision recorded 07-26 (grant Actions-bot bypass for the data paths). Awaiting execution of the bypass + producer wiring. Carried."
         }
       ],
       "resolved_at": null
@@ -6315,6 +6345,12 @@
           "at": "2026-07-26T10:03:08+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator decisions batch 2)",
           "note": "OPERATOR DECISION 2026-07-26: BUMP to ruff 0.16 now \u2014 adopt the expanded default ruleset, clear the ~8228 residuals (6558 autofixable via `ruff check --fix`), then unpin from `<0.16`. Land as its own focused PR: autofix pass, manual triage of the non-autofixable residuals (likely per-file-ignores or targeted refactors), then remove the version pin in requirements-dev.txt + the CI installs. Kept open until landed."
+        },
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "partially-resolved",
+          "note": "Re-validated 07-27: operator decision recorded 07-26 (bump to ruff 0.16, clear ~8228 residuals). Awaiting the cleanup PR(s). Carried."
         }
       ],
       "resolved_at": null
@@ -6327,7 +6363,15 @@
       "source": "status-check #7633 enumeration shows `ict-mes-ibkr-pull.service` in `failed`/`failed` state on the live trader (its timer is active/waiting, but the last pull run errored). This service keeps the trainer MES deep-history base fresh (BL-20260626-MES-BASE-STALE); a failing pull means the MES base may be going stale again. It was invisible to /api/diag/services because it was not in _CANONICAL_UNITS \u2014 now added (this audit). ",
       "action": "Pull `journalctl -u ict-mes-ibkr-pull.service` via the diag relay to get the failure cause; fix the pull (likely an IBKR deep-history fetch error or a path/creds issue) and confirm a clean timer fire. Tier-1 to diagnose; the fix may be Tier-2 (VM). ",
       "status": "fix_landed_monitoring",
-      "resolution": "2026-07-26 (PR #7635): root cause = the off-VM IBKR adapter returns asyncio.TimeoutError on a single timeframe on ~half the daily runs (per ibkr_mes_pull.jsonl); when BOTH timeframes time out the oneshot exits 1 \u2192 systemd `failed`. Added a bounded per-timeframe retry (MES_PULL_ATTEMPTS=2, MES_PULL_RETRY_PAUSE_S=30) to scripts/ops/pull_mes_ibkr_history.sh so a transient timeout self-heals within the run. VERIFY: after deploy, the 23:30 UTC timer fire should exit 0 and the service leave `failed`; confirm via /api/diag/services (now lists ict-mes-ibkr-pull) + log_file?name=ibkr_mes_pull."
+      "resolution": "2026-07-26 (PR #7635): root cause = the off-VM IBKR adapter returns asyncio.TimeoutError on a single timeframe on ~half the daily runs (per ibkr_mes_pull.jsonl); when BOTH timeframes time out the oneshot exits 1 \u2192 systemd `failed`. Added a bounded per-timeframe retry (MES_PULL_ATTEMPTS=2, MES_PULL_RETRY_PAUSE_S=30) to scripts/ops/pull_mes_ibkr_history.sh so a transient timeout self-heals within the run. VERIFY: after deploy, the 23:30 UTC timer fire should exit 0 and the service leave `failed`; confirm via /api/diag/services (now lists ict-mes-ibkr-pull) + log_file?name=ibkr_mes_pull.",
+      "updates": [
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "fix_landed_monitoring",
+          "note": "Re-validated 07-27: fix (per-timeframe retry, PR #7635) is landed. Still monitoring \u2014 this window's ML cycle shows the mes-* datasets still building 0 rows (empty-dataset skips) and mes-regime-1d audit-quarantined, i.e. the MES base staleness symptom (BL-20260626) persists downstream. Keep monitoring the pull service + MES base freshness together."
+        }
+      ]
     },
     {
       "id": "BL-20260726-CLAUDE-PING-INBOX-SPLIT-BRAIN",
@@ -6337,7 +6381,15 @@
       "source": "status-check #7633: `/data/bot-data/runtime_logs/pending_claude_pings` = 0 queued (drained), but the pre-migration repo-path `/home/ubuntu/ict-trading-bot/runtime_logs/pending_claude_pings` = 352 queued .json, undelivered. A writer is emitting pings to the repo-relative path while the drainer reads the canonical DATA_DIR path. Repo-path signal_audit.jsonl mtime is 2026-07-26 (recent) so dual-path writing persists post data-dir migration. Relates to still-open issue #6874.",
       "action": "Find the ping writer that resolves via a repo-relative path instead of src.utils.paths/DATA_DIR (grep for pending_claude_pings write sites); route it through the canonical resolver. Then drain or discard the 352 stranded pings. Close #6874 once the inbox count holds at 0 on both paths.",
       "status": "fix_landed_monitoring",
-      "resolution": "2026-07-26 (PR #7635): all 3 ping code sites already used the canonical runtime_logs_dir(); the stranding is a writer PROCESS running without DATA_DIR (resolver falls back to repo-relative). Fixed defense-in-depth in src/bot/cloud_notifier.py::_drain_pending_pings: after draining the canonical inbox it now sweeps the repo-relative twin \u2014 delivers a FRESH mis-routed ping, DISCARDS a >2h stale straggler (auto-cleans the 352 pre-migration backlog). Regression test added. VERIFY: after deploy the repo-path pending_claude_pings inbox drains to 0 (status-check enumeration)."
+      "resolution": "2026-07-26 (PR #7635): all 3 ping code sites already used the canonical runtime_logs_dir(); the stranding is a writer PROCESS running without DATA_DIR (resolver falls back to repo-relative). Fixed defense-in-depth in src/bot/cloud_notifier.py::_drain_pending_pings: after draining the canonical inbox it now sweeps the repo-relative twin \u2014 delivers a FRESH mis-routed ping, DISCARDS a >2h stale straggler (auto-cleans the 352 pre-migration backlog). Regression test added. VERIFY: after deploy the repo-path pending_claude_pings inbox drains to 0 (status-check enumeration).",
+      "updates": [
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "fix_landed_monitoring",
+          "note": "Re-validated 07-27: defense-in-depth drain sweep (PR #7635) landed. No new evidence of re-stranding this window; keep monitoring until the repo-path inbox holds at 0 and #6874 can close."
+        }
+      ]
     },
     {
       "id": "BL-20260726-SMOKE-BYBIT2-PLACE-ORDER-NONETYPE",
@@ -6345,7 +6397,16 @@
       "opened_by": "claude (full-system-audit 2026-07-26, WS-F)",
       "severity": "low-medium",
       "source": "signal_audit.jsonl tail (status-check #7633) shows recurring `smoke_open_result status=failed_exchange reason=\"'NoneType' object has no attribute 'place_order'\"` on account bybit_2 (real-money) at 2026-07-25 19:14, 07-26 03:25, 07-26 08:32. The S-017 plumbing smoke can't resolve a client on the smoke path, though the live trader trades bybit_2 fine. Harness/plumbing defect, no live-trade impact.",
-      "action": "Trace the smoke-test client resolution (src S-017 smoke path) \u2014 the client is None where the executor's own path is not; either fix the smoke client factory or disable the recurring smoke if it's obsolete."
+      "action": "Trace the smoke-test client resolution (src S-017 smoke path) \u2014 the client is None where the executor's own path is not; either fix the smoke client factory or disable the recurring smoke if it's obsolete.",
+      "status": "kept_open",
+      "updates": [
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "kept_open",
+          "note": "Re-validated 07-27: harness/smoke-path client-resolution defect only; the real trader trades bybit_2 fine (balances api_ok:true, 1 open real position this pull). No live-trade impact. Tier-1 follow-up to fix/retire the S-017 smoke client factory \u2014 out of scope for a report session (touches src/)."
+        }
+      ]
     },
     {
       "id": "BL-20260726-FRED-ADAPTER-SILENT-SWALLOW",
@@ -6353,7 +6414,16 @@
       "opened_by": "claude (full-system-audit 2026-07-26, WS-E)",
       "severity": "low",
       "source": "src/units/strategies/macro_thesis/fred_adapter.py:184-187 and :211-214 wrap per-series FRED CSV fetch/parse in `except Exception: out[sid]=[]` with NO logging, so a persistent FRED outage silently degrades a series to empty (unlike the store append paths which logger.warning). M28 is observe-only (no order path), so not a data-integrity risk \u2014 a legibility nit.",
-      "action": "Add a logger.warning/debug on the FRED fetch/parse failure so a silent feed outage is legible in the journal."
+      "action": "Add a logger.warning/debug on the FRED fetch/parse failure so a silent feed outage is legible in the journal.",
+      "status": "kept_open",
+      "updates": [
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "kept_open",
+          "note": "Re-validated 07-27: legibility nit in fred_adapter.py (silent except\u2192[]). M28 macro is observe-only (no order path) so no data-integrity risk. Actionable Tier-1 (add logger.warning) \u2014 queued as a small focused follow-up PR; a report session must not touch src/."
+        }
+      ]
     },
     {
       "id": "BL-20260726-CONSUMER-DISPLAY-GAPS",
@@ -6361,7 +6431,16 @@
       "opened_by": "claude (full-system-audit 2026-07-26, WS-D)",
       "severity": "low",
       "source": "Consumer-wiring audit found no breaks, but several bot endpoints have no consumer yet: /liquidity, /pnl/exchange, /positions/net, /strategy/attribution, /allocator/soak, /pairs/soak, /fc-geometry/soak, /health/{history,snapshot}, /shadow/predictions; android Accounts lacks the /pnl/broker-truth + /pnl/history lines the dashboard shows. All observe-only/soak/attribution surfaces.",
-      "action": "Incrementally wire the highest-value gaps when a consumer need arises (e.g. /strategy/attribution + /pnl/exchange on the dashboard; broker-truth on android Accounts). No correctness risk; pure feature-surfacing."
+      "action": "Incrementally wire the highest-value gaps when a consumer need arises (e.g. /strategy/attribution + /pnl/exchange on the dashboard; broker-truth on android Accounts). No correctness risk; pure feature-surfacing.",
+      "status": "kept_open",
+      "updates": [
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "kept_open",
+          "note": "Re-validated 07-27: observe-only/soak endpoints still lack consumers; no correctness risk. Feature-surfacing backlog \u2014 wire the highest-value gaps (/strategy/attribution, /pnl/exchange, android broker-truth) when a consumer need arises."
+        }
+      ]
     },
     {
       "id": "BL-20260726-M27-15M-CHANGELOG-BACKFILL",
@@ -6369,7 +6448,16 @@
       "opened_by": "claude (full-system-audit 2026-07-26, WS-C)",
       "severity": "low",
       "source": "config/strategy_changelog.json has no entries for the 6 M27 15m/5m scalp legs (ict_scalp_{sol,xrp,avax}_5m, ict_scalp_{xrp,eth,sol}_15m); only the original 5m variants are logged. Not a compliance violation \u2014 an observability gap in the changelog the Strategies tab renders.",
-      "action": "Backfill strategy_changelog.json with the M27 leg additions (date 2026-07-22, paper-soak on bybit_1)."
+      "action": "Backfill strategy_changelog.json with the M27 leg additions (date 2026-07-22, paper-soak on bybit_1).",
+      "status": "kept_open",
+      "updates": [
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "kept_open",
+          "note": "Re-validated 07-27: strategy_changelog.json still missing the 6 M27 15m/5m scalp legs. Observability-only gap. Actionable Tier-1 backfill \u2014 queued as a focused follow-up (report session does not touch config/)."
+        }
+      ]
     },
     {
       "id": "BL-20260726-LAYER-GUARD-NOT-REQUIRED",
@@ -6377,7 +6465,16 @@
       "opened_by": "claude (full-system-audit 2026-07-26, WS-C)",
       "severity": "low",
       "source": "The M0a/M0b platform-layering guard (.importlinter + layer-guard.yml) runs on every PR and genuinely enforces its 6 contracts, but layer-guard is NOT in branch-protection-sync.yml::REQUIRED_CONTEXTS (9 required checks), so a PR that breaks layering can still merge if the author ignores the advisory failure. Operator call \u2014 promoting it to required could newly-block merges.",
-      "action": "PROPOSE to operator: add `layer-guard` to REQUIRED_CONTEXTS once confident the contract set is stable. Governance decision, not self-apply."
+      "action": "PROPOSE to operator: add `layer-guard` to REQUIRED_CONTEXTS once confident the contract set is stable. Governance decision, not self-apply.",
+      "status": "kept_open",
+      "updates": [
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "kept_open",
+          "note": "Re-validated 07-27: layer-guard.yml still enforces its 6 contracts on its own job but is NOT in REQUIRED_CONTEXTS. Carried to operator_priorities as a governance decision (adding it could newly-block merges)."
+        }
+      ]
     },
     {
       "id": "BL-20260726-WEBAPI-UNIT-STALE-VERCEL-COMMENT",
@@ -6385,7 +6482,16 @@
       "opened_by": "claude (full-system-audit 2026-07-26, WS-B)",
       "severity": "low",
       "source": "deploy/ict-web-api.service:5,37 still carries a 'Vercel React dashboard' comment + DASHBOARD_ORIGIN=https://bentzbk-ict-trader-dashboard.vercel.app (a documented no-op; the dashboard is server-side Streamlit/Svelte). Not touched in the audit PR because it's a live-VM unit file (Tier-3-adjacent).",
-      "action": "Refresh the stale comment + drop/annotate the legacy DASHBOARD_ORIGIN in a small operator-acked unit-file PR (Tier-2/3 unit-file change)."
+      "action": "Refresh the stale comment + drop/annotate the legacy DASHBOARD_ORIGIN in a small operator-acked unit-file PR (Tier-2/3 unit-file change).",
+      "status": "kept_open",
+      "updates": [
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "kept_open",
+          "note": "Re-validated 07-27: deploy/ict-web-api.service still carries the stale Vercel comment + no-op DASHBOARD_ORIGIN. Cosmetic; needs an operator-acked unit-file PR (Tier-2/3, live-VM unit)."
+        }
+      ]
     },
     {
       "id": "BL-20260726-BRANCH-PROTECTION-DOC-STALE-4-CHECKS",
@@ -6393,8 +6499,17 @@
       "opened_by": "claude (full-system-audit 2026-07-26, WS-C)",
       "severity": "low",
       "source": "docs/sprint-logs/S-CANON-FU-3-branch-protection.md and notebooks/operator/update_branch_protection.ipynb both say 'four required checks' and the notebook references the old owner 'the-lizardking/ict-trading-bot'. The actual REQUIRED_CONTEXTS in branch-protection-sync.yml is 9 checks. Stale doc drift.",
-      "action": "Update the sprint log + notebook to '9 required contexts' and the current repo name (or note redirect-safe)."
+      "action": "Update the sprint log + notebook to '9 required contexts' and the current repo name (or note redirect-safe).",
+      "status": "kept_open",
+      "updates": [
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "kept_open",
+          "note": "Re-validated 07-27: sprint log + notebook still say 'four required checks' vs the real 9 REQUIRED_CONTEXTS. Pure doc drift \u2014 actionable Tier-1 docs fix, queued as a focused follow-up."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-07-26T13:05:00+00:00"
+  "updated_at": "2026-07-27T08:05:00+00:00"
 }

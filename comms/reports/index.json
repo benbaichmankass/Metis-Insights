@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260727-081005-since-last",
+      "window": "since-last",
+      "generated_at": "2026-07-27T08:10:05Z",
+      "window_start": "2026-07-26T09:32:00+00:00",
+      "window_end": "2026-07-27T08:10:05Z",
+      "roll_up_grade": "caution",
+      "headline": "CAUTION (quiet, plumbing-healthy since-last window; nothing new at money-risk). System restarted cleanly 07:44Z onto 52d51dfe (L3 paper-eval merge); services/DB/accounts all healthy, all live accounts reachable, prop reconcile clean. Real money bled small in a chop regime - 1 in-window close (eth_pullback_2h -$3.75, SL, graded D 'should_skip' @ conf 0.21); 7d real -$17.58, PF 0.12, 1W/7L, all SL-appropriate. Paper soak large & isolated (-$4.1k/24h, big paper notionals). ML lifecycle healthy: 2 trainer cycles/24h completing rc=0, 116 builds OK, shadow soaks accruing. Live flags (none money-risk): 3 IB 'no candle data' ALERT banners (MGC/MHG - draft PR #7701 in flight to reclassify severity); heartbeat 'paused' label is a post-restart transient (trader confirmed ticking); prop account-status 7d stale; MES base stale keeps 4 mes-* datasets empty + mes-regime-1d audit-quarantined; promotion-readiness OOM still blocks automated promote packets. Grading ran (18 rows, B9/C8/D1). Backlogs worked to zero untriaged (H:13 P:1 M:2 re-validated).",
+      "html_path": "comms/reports/since-last/20260727T081005Z/report.html",
+      "json_path": "comms/reports/since-last/20260727T081005Z/report.json",
+      "md_path": "comms/reports/since-last/20260727T081005Z/report.md"
+    },
+    {
       "id": "AUDIT-20260726",
       "window": "audit",
       "generated_at": "2026-07-26T09:32:00+00:00",
