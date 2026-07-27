@@ -279,3 +279,49 @@ def test_trend_donchian_has_no_idiosyncratic_graded_axis():
     # only the common graded set (confidence / adx_14 / rolling_log_return_vol).
     assert "confidence" in names
     assert not any(n.startswith("donchian") or n == "pullback_depth" for n in names)
+
+
+# ---------------------------------------------------------------------------
+# P4 — decision-time session/bias context from order_packages.meta
+# ---------------------------------------------------------------------------
+
+
+def test_meta_killzone_bias_setup_type_extract_as_categoricals():
+    # killzone / bias / setup_type live in order_packages.meta and now
+    # instrument for EVERY strategy (common specs). vwap stamps all three.
+    comps = extract(
+        "vwap",
+        {"deviation_std": 2.1, "killzone": "NY_AM", "bias": "Bullish", "setup_type": "mean_revert"},
+        extra={"confidence": 0.5},
+    )
+    assert comps["killzone"].kind == KIND_CATEGORICAL
+    assert comps["killzone"].value == "ny_am"  # lowercased
+    assert comps["bias"].value == "bullish"
+    assert comps["setup_type"].value == "mean_revert"
+
+
+def test_meta_setup_tf_alias_and_session_alias():
+    # ict_scalp / turtle_soup stamp the setup archetype under `setup_tf`;
+    # a builder that ever writes `session` maps to the killzone axis.
+    comps = extract(
+        "ict_scalp_5m",
+        {"setup_tf": "5m_fvg", "session": "london"},
+        extra={"confidence": 0.4},
+    )
+    assert comps["setup_type"].value == "5m_fvg"
+    assert comps["killzone"].value == "london"
+
+
+def test_meta_context_absent_is_omitted_not_fabricated():
+    # A strategy row with no session/bias context → those components are simply
+    # absent (never a fabricated "unknown"), per the tolerance contract.
+    comps = extract("trend_donchian", {"atr": 12.0, "regime": "trending"}, extra={"confidence": 0.7})
+    assert "killzone" not in comps
+    assert "bias" not in comps
+    assert "setup_type" not in comps
+
+
+def test_meta_context_is_common_for_unknown_strategy():
+    comps = extract("totally_unknown", {"killzone": "asia", "bias": "bearish"})
+    assert comps["killzone"].value == "asia"
+    assert comps["bias"].value == "bearish"

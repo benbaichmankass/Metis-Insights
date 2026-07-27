@@ -266,18 +266,27 @@ def fetch_panel_rows(
 
     if have_op:
         have_ms = "model_scores" in ocols
+        have_meta = "meta" in ocols
         sel_sl = "op.signal_logic AS signal_logic,"
         sel_conf = "op.confidence AS op_confidence,"
         sel_ms = "op.model_scores AS model_scores," if have_ms else "NULL AS model_scores,"
-        # MIN(model_scores) mirrors the report's MIN() collapse for the
+        # P4: the killzone / bias / setup_type (+ stamped regime) decision-time
+        # context lives in the SEPARATE order_packages.meta column, which C1
+        # historically didn't read — the binding feature-capture gap Study 2
+        # found. Pull it in (guarded on the column existing) so it merges into
+        # the component extractor below.
+        sel_meta = "op.meta AS op_meta," if have_meta else "NULL AS op_meta,"
+        # MIN(...) mirrors the report's MIN() collapse for the
         # one-order-package-per-trade case (deterministic pick when >1).
         ms_agg = "MIN(model_scores) AS model_scores," if have_ms else ""
+        meta_agg = "MIN(meta) AS meta," if have_meta else ""
         join = (
             "LEFT JOIN (\n"
             "  SELECT linked_trade_id,\n"
             "         MIN(signal_logic) AS signal_logic,\n"
             "         MIN(confidence)   AS confidence,\n"
             f"         {ms_agg}\n"
+            f"         {meta_agg}\n"
             "         MIN(updated_at)   AS updated_at\n"
             "  FROM order_packages\n"
             "  WHERE linked_trade_id IS NOT NULL\n"
@@ -288,6 +297,7 @@ def fetch_panel_rows(
         sel_sl = "NULL AS signal_logic,"
         sel_conf = "NULL AS op_confidence,"
         sel_ms = "NULL AS model_scores,"
+        sel_meta = "NULL AS op_meta,"
         join = ""
 
     where = [
@@ -310,7 +320,7 @@ def fetch_panel_rows(
                t.symbol AS symbol,
                t.pnl AS pnl,
                {sel_entry}{sel_stop}{sel_qty}
-               {sel_sl}{sel_conf}{sel_ms}
+               {sel_sl}{sel_conf}{sel_ms}{sel_meta}
                {close_expr} AS closed_at
         FROM trades t
         {join}
@@ -337,8 +347,22 @@ def fetch_panel_rows(
         rr = r_multiple(pnl, entry, stop, qty, contract_value_usd_for(symbol))
 
         signal_logic = _decode_json(row["signal_logic"] if "signal_logic" in keys else None)
+        meta = _decode_json(row["op_meta"] if "op_meta" in keys else None)
         conf = row["op_confidence"] if "op_confidence" in keys else None
-        comp = extract(strat, signal_logic, extra={"confidence": conf})
+        # P4: merge order_packages.meta UNDER signal_logic (signal_logic wins on
+        # any key collision, preserving the pre-P4 regime/adx behaviour) so the
+        # meta-only session/bias context (killzone / bias / setup_type) flows to
+        # the extractor for every strategy, while a strategy that also writes a
+        # richer signal_logic key keeps its own value.
+        if meta or signal_logic:
+            combined: Dict[str, Any] = {}
+            if isinstance(meta, dict):
+                combined.update(meta)
+            if isinstance(signal_logic, dict):
+                combined.update(signal_logic)
+        else:
+            combined = None  # type: ignore[assignment]
+        comp = extract(strat, combined, extra={"confidence": conf})
 
         feat: Dict[str, float] = {}
         cat: Dict[str, str] = {}
