@@ -144,7 +144,10 @@ def test_panel_schema_and_features():
 
 def test_microstructure_features_present_and_leakage_clean():
     _register_fake_adapter()
-    rows, manifest = bb.build_backtest_panel(harness="_fake", adapter_opts={})
+    # microstructure is opt-in (default off, Study 9) — enable it explicitly here.
+    rows, manifest = bb.build_backtest_panel(
+        harness="_fake", adapter_opts={}, microstructure=True
+    )
     win = rows[0]  # entry_index=2 → pre-entry window [0..2], decision bar index 2
     # decision-bar range_position: high 103, low 97, close 100 → 0.5
     assert win["feat_ms_range_position"] == 0.5
@@ -160,13 +163,19 @@ def test_microstructure_features_present_and_leakage_clean():
     assert not any(k.startswith("feat_ms_") for k in rows[1])
 
 
-def test_microstructure_can_be_disabled():
+def test_microstructure_is_opt_in_default_off():
+    # Study 9: microstructure defaults OFF (they dilute the win-FDR panel); both the
+    # default and an explicit False must omit feat_ms_* entirely.
     _register_fake_adapter()
-    rows, manifest = bb.build_backtest_panel(
+    rows_default, man_default = bb.build_backtest_panel(harness="_fake", adapter_opts={})
+    assert man_default["microstructure"]["enabled"] is False
+    assert not any(k.startswith("feat_ms_") for row in rows_default for k in row)
+
+    rows_off, man_off = bb.build_backtest_panel(
         harness="_fake", adapter_opts={}, microstructure=False
     )
-    assert manifest["microstructure"]["enabled"] is False
-    assert not any(k.startswith("feat_ms_") for row in rows for k in row)
+    assert man_off["microstructure"]["enabled"] is False
+    assert not any(k.startswith("feat_ms_") for row in rows_off for k in row)
 
 
 def test_native_excursions_are_exact():

@@ -413,7 +413,7 @@ def build_backtest_panel(
     *,
     harness: str,
     adapter_opts: Dict[str, Any],
-    microstructure: bool = True,
+    microstructure: bool = False,
     ms_vol_short: int = _MS_VOL_SHORT,
     ms_vol_long: int = _MS_VOL_LONG,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
@@ -422,12 +422,21 @@ def build_backtest_panel(
     Tolerant end-to-end: an unknown harness, a missing candle file, or a run that
     produces no trades yields an empty panel + an honest manifest, never a crash.
 
-    When ``microstructure`` is on (default), each trade also carries the
-    decision-time intrabar-OHLCV-shape features (``feat_ms_*`` via
+    When ``microstructure`` is on (**opt-in, default off** — see below), each trade
+    also carries the decision-time intrabar-OHLCV-shape features (``feat_ms_*`` via
     ``src.research.microstructure``), computed PIT from the pre-entry window
     ``[entry_index - ms_vol_long .. entry_index]`` — strictly before the
     ``entry_index + 1`` fill, so leakage-clean. A trade with no usable candle index
     simply omits them.
+
+    **Why opt-in (Study 9, ledger 2026-07-27).** On the `win`/entry outcome the ms
+    features add **no** OOS directional discrimination and, being noise-on-win, they
+    *raise the BH-FDR denominator* — the first powered run washed out Study 8's thin
+    `cat_regime` win survivor (AUC 0.555 @ m=9 → 0.530 @ m=14, no survivor). Their
+    real association is the **volatility/excursion axis** (`mae_r`/`time_to_mfe_frac`
+    univariate-FDR survivors), matching the external microstructure literature
+    ("magnitude, not direction"). So they are scoped to exit/regime/vol studies
+    (pass ``--microstructure``), NOT blanket-added to entry-discovery panels.
     """
     adapter = ADAPTERS.get(harness)
     rows: List[Dict[str, Any]] = []
@@ -668,11 +677,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--reentry-policy", default="suppress",
                         choices=["suppress", "net"],
                         help="[backtest_system] same-direction re-entry policy.")
-    parser.add_argument("--microstructure", action=argparse.BooleanOptionalAction, default=True,
+    parser.add_argument("--microstructure", action=argparse.BooleanOptionalAction, default=False,
                         help="Add decision-time intrabar-OHLCV-shape features (feat_ms_*) "
-                             "computed PIT from the pre-entry window. Default on (a "
-                             "leakage-clean feature class beyond the ICT geometry). "
-                             "--no-microstructure to drop them.")
+                             "computed PIT from the pre-entry window. **Opt-in (default off)**: "
+                             "Study 9 showed they add no OOS entry (win) edge and dilute the "
+                             "win-FDR panel; their association is the volatility/excursion axis. "
+                             "Enable for exit/regime/vol outcome studies (mae_r/time_to_mfe/giveback).")
     parser.add_argument("--ms-vol-short", type=int, default=_MS_VOL_SHORT,
                         help="Microstructure short realized-vol window (bars).")
     parser.add_argument("--ms-vol-long", type=int, default=_MS_VOL_LONG,
