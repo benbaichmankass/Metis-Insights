@@ -1,0 +1,94 @@
+# v2 conviction meta-model — BACKTEST-AUGMENTED variant (M36 Track D).
+#
+# Identical trainer / feature / target config to conviction-meta-v1.yaml, but
+# built on the UNION of live closed-order-package rows AND M30 backtest-panel
+# rows (source="backtest") so the data-bottlenecked stacker (design § 4.5:
+# "the v2 meta-model is data-bottlenecked and will likely need backtest-augmented
+# rows") has enough rows to have a testable fit at all. Registers at `candidate`
+# under its OWN model_id so it soaks ALONGSIDE the live-only v1 for an honest
+# A/B — neither influences a live decision until the operator promotes it up the
+# candidate → shadow → advisory ladder (Tier-3).
+#
+# Design of record: docs/research/m30-to-m16-integration-backbone-DESIGN.md.
+#
+# Build the augmented dataset first (union of live + backtest rows):
+#
+#   # 1. build M30 panels on the trainer feed (ict_scalp + backtest_system)
+#   python scripts/research/build_backtest_panel.py --harness ict_scalp \
+#     --data data/backtest_BTCUSDT_5m.csv --stamp-regime \
+#     --out datasets-out/_panels/ict_scalp_btc_5m.jsonl
+#   # 2. build the union dataset (default source_mode=live is byte-identical to v1)
+#   python -m ml build-dataset conviction_meta --output-dir ./datasets-out \
+#     --version v002 --overwrite -- \
+#     source_mode=union backtest_panels='datasets-out/_panels/*.jsonl'
+#   # 3. train the augmented candidate (zero live influence)
+#   python -m ml train ml/configs/conviction-meta-v1-bt.yaml --datasets-root ./datasets-out
+#
+# The evaluator's time_aware_holdout runs on `created_at`; the `source` column is
+# carried so a live-only holdout / cohort-stratified calibration read is
+# available — the augmented model must beat the live-only v1 ON THE LIVE HOLDOUT
+# before any promotion (design § 4.5).
+
+manifest_version: v1
+model_id: conviction-meta-v1-bt
+description: "v2 conviction meta-model (stacker), BACKTEST-AUGMENTED — same LightGBM P(win) head as conviction-meta-v1 trained on the UNION of live + M30 backtest-substrate rows (source axis) to escape the ~few-hundred-row live-label bottleneck. Logs alongside the formulaic v1 blend AND the live-only conviction-meta-v1 with zero influence; rides candidate → shadow → advisory."
+model_family: classification_lightgbm
+trainer: ml.trainers.lightgbm_multiclass.LightGBMMulticlassTrainer
+trainer_config:
+  target_column: won
+  feature_columns:
+    - c_strat
+    - c_setup
+    - c_wr
+    - c_reg
+    - adx_14
+    - regime
+    - vol_regime
+    - symbol
+    - direction
+    - strategy_name
+  # c_setup/c_wr/c_reg are honestly absent on backtest rows (no shadow heads
+  # replayed offline) → NaN, exactly as a live row whose heads didn't score.
+  # c_reg is additionally dead pending MB-20260618-XA-D2B. LightGBM handles NaN.
+  expected_optional_features:
+    - c_reg
+    - c_setup
+    - c_wr
+  categorical_columns:
+    - regime
+    - vol_regime
+    - symbol
+    - direction
+    - strategy_name
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 31
+    min_data_in_leaf: 20
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    bagging_freq: 5
+dataset:
+  family: conviction_meta
+  symbol_scope: all
+  timeframe: all
+  version: v002
+evaluator: ml.evaluators.multiclass_classification.MulticlassClassificationEvaluator
+evaluator_config:
+  target_column: won
+  split_strategy: time_aware_holdout
+  time_column: created_at
+  holdout_fraction: 0.2
+target_deployment_stage: candidate
+notes: |
+  BACKTEST-AUGMENTED sibling of conviction-meta-v1. The dataset must be built
+  with `source_mode=union backtest_panels=<glob>` (see the recipe above); a build
+  with the default source_mode=live produces the live-only population and this
+  manifest degenerates to conviction-meta-v1 with a different model_id. The
+  augmentation is a TRAINING-DATA change to an observe-only model — it is NOT a
+  new order path and changes no live decision. Promotion past candidate is
+  operator-gated (Tier-3) and requires beating the live-only v1 on the LIVE
+  holdout. The trainer's _OUTCOME_FORBIDDEN gate rejects pnl/pnl_percent/won/
+  r_multiple as features (leakage); backtest pnl is an R proxy, but the `won`
+  target is directly comparable to live.
