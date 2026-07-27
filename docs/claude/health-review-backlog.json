@@ -730,7 +730,7 @@
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "partially-resolved",
-          "note": "Re-validated 07-27: root cause fixed (#4858+#4867); residual is historical paper-row cleanup only. No regression this window."
+          "note": "Re-validated 07-27: root cause fixed (#4858+#4867); residual is historical paper-row cleanup only. No regression."
         }
       ]
     },
@@ -2299,7 +2299,7 @@
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "partially-resolved",
-          "note": "Re-validated 07-27: IBC nightly auto-restart reliability still deferred; the reactive gateway watchdog + daily reset cover it. IB state this pull shows breaker flaps self-recovering (likely_wedged:false), no sustained wedge."
+          "note": "Re-validated 07-27: IBC nightly restart reliability deferred; reactive watchdog + daily reset cover it. IB state shows breaker flaps self-recovering, no sustained wedge."
         }
       ]
     },
@@ -4857,7 +4857,7 @@
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "partially-resolved",
-          "note": "Re-validated 07-27: still blocked on the protected-main autonomous-commit path (BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN); operator granted an Actions-bot bypass 07-26 \u2014 awaiting execution. Carried."
+          "note": "Re-validated 07-27: blocked on the protected-main autonomous-commit path (BL-20260723); operator granted an Actions-bot bypass 07-26 \u2014 awaiting execution."
         }
       ]
     },
@@ -5973,7 +5973,7 @@
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "partially-resolved",
-          "note": "Re-validated 07-27: POSITIVE \u2014 trainer_status shows cycles_24h=2, last_cycle overall_rc=0 (cycle_end 05:34Z), manifests_24h ok=74/failed=0, dataset_builds ok=116/failed=0. The 'cycle terminates ~90s after start' symptom is NOT reproducing; cycles complete cleanly. Downgrade candidate \u2014 keep one more window of confirmation, then resolve."
+          "note": "Re-validated 07-27: POSITIVE \u2014 trainer cycles_24h=2, last_cycle rc=0, manifests ok=74/failed=0, builds ok=116/failed=0. The 'terminates ~90s after start' symptom is NOT reproducing. Downgrade candidate \u2014 one more clean window then resolve."
         }
       ]
     },
@@ -6317,7 +6317,7 @@
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "partially-resolved",
-          "note": "Re-validated 07-27: operator decision recorded 07-26 (grant Actions-bot bypass for the data paths). Awaiting execution of the bypass + producer wiring. Carried."
+          "note": "Re-validated 07-27: operator decision recorded 07-26 (Actions-bot bypass for the data paths). Awaiting execution."
         }
       ],
       "resolved_at": null
@@ -6350,7 +6350,7 @@
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "partially-resolved",
-          "note": "Re-validated 07-27: operator decision recorded 07-26 (bump to ruff 0.16, clear ~8228 residuals). Awaiting the cleanup PR(s). Carried."
+          "note": "Re-validated 07-27: operator decision recorded 07-26 (bump to ruff 0.16, clear ~8228 residuals). Awaiting cleanup PR(s)."
         }
       ],
       "resolved_at": null
@@ -6369,7 +6369,7 @@
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "fix_landed_monitoring",
-          "note": "Re-validated 07-27: fix (per-timeframe retry, PR #7635) is landed. Still monitoring \u2014 this window's ML cycle shows the mes-* datasets still building 0 rows (empty-dataset skips) and mes-regime-1d audit-quarantined, i.e. the MES base staleness symptom (BL-20260626) persists downstream. Keep monitoring the pull service + MES base freshness together."
+          "note": "Re-validated 07-27: per-timeframe-retry fix (PR #7635) landed. Still monitoring \u2014 this cycle's mes-* datasets still build 0 rows + mes-regime-1d audit-quarantined (MES base staleness, BL-20260626, persists downstream)."
         }
       ]
     },
@@ -6387,7 +6387,7 @@
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "fix_landed_monitoring",
-          "note": "Re-validated 07-27: defense-in-depth drain sweep (PR #7635) landed. No new evidence of re-stranding this window; keep monitoring until the repo-path inbox holds at 0 and #6874 can close."
+          "note": "Re-validated 07-27: defense-in-depth drain sweep (PR #7635) landed. No new re-stranding evidence this window; keep monitoring until #6874 can close."
         }
       ]
     },
@@ -6438,7 +6438,7 @@
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "kept_open",
-          "note": "Re-validated 07-27: observe-only/soak endpoints still lack consumers; no correctness risk. Feature-surfacing backlog \u2014 wire the highest-value gaps (/strategy/attribution, /pnl/exchange, android broker-truth) when a consumer need arises."
+          "note": "Re-validated 07-27: observe-only/soak endpoints still lack consumers; no correctness risk. Feature-surfacing backlog."
         }
       ]
     },
@@ -6455,7 +6455,7 @@
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "kept_open",
-          "note": "Re-validated 07-27: strategy_changelog.json still missing the 6 M27 15m/5m scalp legs. Observability-only gap. Actionable Tier-1 backfill \u2014 queued as a focused follow-up (report session does not touch config/)."
+          "note": "Re-validated 07-27: strategy_changelog.json still missing the 6 M27 15m/5m scalp legs. Observability-only. Actionable Tier-1 backfill \u2014 queued (report session does not touch config/)."
         }
       ]
     },
@@ -6472,7 +6472,7 @@
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "kept_open",
-          "note": "Re-validated 07-27: layer-guard.yml still enforces its 6 contracts on its own job but is NOT in REQUIRED_CONTEXTS. Carried to operator_priorities as a governance decision (adding it could newly-block merges)."
+          "note": "Re-validated 07-27: layer-guard.yml enforces its 6 contracts but is NOT in REQUIRED_CONTEXTS. Carried to operator_priorities as a governance decision."
         }
       ]
     },
@@ -6489,7 +6489,7 @@
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "kept_open",
-          "note": "Re-validated 07-27: deploy/ict-web-api.service still carries the stale Vercel comment + no-op DASHBOARD_ORIGIN. Cosmetic; needs an operator-acked unit-file PR (Tier-2/3, live-VM unit)."
+          "note": "Re-validated 07-27: stale Vercel comment + no-op DASHBOARD_ORIGIN in the live-VM unit file. Needs an operator-acked unit-file PR (Tier-2/3)."
         }
       ]
     },
@@ -6506,9 +6506,25 @@
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "kept_open",
-          "note": "Re-validated 07-27: sprint log + notebook still say 'four required checks' vs the real 9 REQUIRED_CONTEXTS. Pure doc drift \u2014 actionable Tier-1 docs fix, queued as a focused follow-up."
+          "note": "Re-validated 07-27: sprint log + notebook say 'four required checks' vs the real 9. Doc drift \u2014 fix via forward-annotation (do NOT rewrite the historical sprint log's point-in-time count); focused follow-up."
         }
       ]
+    },
+    {
+      "id": "BL-20260727-IB-LIVENESS-PROBE-CACHED-HANDLE-FALSETRIP",
+      "opened_at": "2026-07-27",
+      "opened_by": "claude (live IB alert investigation, 2026-07-27)",
+      "severity": "medium",
+      "source": "Recurring [ERROR] strategy_builder no-candle-data pages for MES/MGC/MHG. ib_state relay #7699 (2026-07-27 06:53Z, PAST the 03:45-05:45 IBKR reset window) showed the IB connection FLAPPING on last_fail_reason='liveness_probe_timeout': clients breaker_open with likely_wedged=false, consecutive_failures=1, last_ok ~2-4 min ago, breaker_seconds_remaining <90s. BL-20260709 cold-socat-relay class but on CACHED handles: IB_PROBE_TRUST_FRESH_HANDSHAKE (default true) downgrades a probe timeout on a FRESH handle to best-effort, but a probe timeout on a CACHED (previously-good) handle STILL condemns -> breaker opens ~2 min -> IBKR candle fetches blocked -> per-tick no-candle-data. Self-recovers (NOT a wedge), but the flap intermittently blinds the IBKR strategies + (pre-fix) spammed ERROR pages.",
+      "action": "Root-cause the cached-handle liveness-probe false-trip over the socat relay (ib_client.py::_probe_liveness / connect). Candidate: extend the fresh-handle best-effort tolerance (or a bounded extra retry) to a CACHED handle that `ib` still reports connected, WITHOUT weakening genuine mid-life-wedge detection (a real wedge never answers either attempt). Read docs/runbooks/ib-integration.md + `git log -p src/units/accounts/ib_client.py` first. Tier-2 live-connection change; soak/verify before deploy. The alert-SPAM symptom is already fixed by PR #7701 (transient no-candle-data -> Level.WARN); THIS item is the underlying flap."
+    },
+    {
+      "id": "BL-20260727-ICT-MES-IBKR-PULL-SERVICE-FAILED",
+      "opened_at": "2026-07-27",
+      "opened_by": "claude (live IB investigation, 2026-07-27)",
+      "severity": "low",
+      "source": "vm-diag-snapshot services (relay #7699, 2026-07-27): ict-mes-ibkr-pull.service state=failed (its .timer is active). The audit-residue F1 item (MES IBKR data-pull sidecar), confirmed STILL failing 2026-07-27. Separate process from the trader's live IB connection + from the strategy-builder no-candle-data pages.",
+      "action": "Pull `journalctl -u ict-mes-ibkr-pull.service` via the diag relay, diagnose (likely the same IB gateway cold-flow reachability class or a script error), then fix or disable if the sidecar is redundant with the trader's own candle fetch. Dedupe against the existing N6/F1 audit-residue item if already tracked."
     }
   ],
   "updated_at": "2026-07-27T08:05:00+00:00"
