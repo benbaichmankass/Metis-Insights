@@ -1,0 +1,237 @@
+name: macro-producer-liveness
+
+# Workplan §0.WS-5 — the dead-man switch for the scheduled macro PRODUCERS.
+#
+# THE FAILURE CLASS THIS EXISTS TO KILL ("silently-skipped scheduled job"):
+#   A cron-scheduled producer (today: macro-valuation-snapshot.yml, daily 07:30
+#   UTC → comms/macro/valuation_snapshots.jsonl) can quietly stop firing —
+#   GitHub auto-disables a schedule after 60 days of repo inactivity, a renamed
+#   secret breaks the commit-to-main hop, a bad merge removes the cron — and
+#   NOTHING notices, because the append-only ledger still exists and still reads
+#   cleanly. The P4 value-thesis gate downstream just keeps replaying a log that
+#   stopped growing. This is exactly the stale-feed-everyone-walks-past incident
+#   the "if you see something, say something" directive (CLAUDE.md) is about.
+#
+# WHAT IT DOES:
+#   Runs scripts/macro/check_producer_liveness.py (stdlib-only, read-only) on a
+#   daily cadence. The script reports STALE when a producer's freshest
+#   observed_at is older than its threshold (48h = 2 missed daily runs). On
+#   staleness it (1) Telegrams the loud operator channel and (2) opens/updates a
+#   GitHub issue labelled `macro-producer-stale`, AND the job fails (red in the
+#   Actions UI). When everything is fresh it is SILENT — no ping, no issue (the
+#   notification-streamlining posture: alert on the exception, not the norm) — and
+#   auto-resolves any previously-opened stale issue.
+#
+# WHY OFF-VM / TIER-1:
+#   Pure read of committed ledgers on a GitHub-hosted runner. No SSH, no VM
+#   touch, no order path, no secret needed for the check itself (the Telegram
+#   secrets are only for the alert). It is the observability sibling of the
+#   producer workflow it watches (macro-valuation-snapshot.yml).
+#
+# Triggers:
+#   1. schedule          — daily 12:00 UTC (~4.5h after the 07:30 producer, so a
+#                          same-day run has had time to land + git-commit).
+#   2. workflow_dispatch — operator "Run workflow".
+#   3. issues.opened w/ label `macro-producer-liveness-now` — the Claude-driven
+#      path (a web session can't dispatch a workflow, but can open a labelled
+#      issue). Owner / github-actions-authored only.
+
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: macro-producer-liveness
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'macro-producer-liveness-now'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run producer liveness check
+        # continue-on-error so we can branch on the verdict (alert + fail
+        # deliberately at the end) rather than aborting the alerting steps.
+        id: check
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          # Human-readable to the log, JSON to a file for the alert steps.
+          python3 scripts/macro/check_producer_liveness.py | tee /tmp/liveness.txt
+          rc=$?
+          python3 scripts/macro/check_producer_liveness.py --json > /tmp/liveness.json || true
+          echo "rc=${rc}" >> "$GITHUB_OUTPUT"
+          # Surface a one-line summary for the alert body.
+          summary=$(python3 - <<'PY'
+          import json
+          try:
+              d = json.load(open("/tmp/liveness.json"))
+          except Exception:
+              print("liveness verdict unavailable")
+          else:
+              bad = [r for r in d.get("results", [])
+                     if r.get("status") not in ("fresh", "missing_ok")]
+              if not bad:
+                  print("all producer ledgers fresh")
+              else:
+                  print("; ".join(f"{r['ledger']} [{r['status']}] {r.get('detail','')}"
+                                  for r in bad))
+          PY
+          )
+          {
+            echo "summary<<__S__"
+            echo "$summary"
+            echo "__S__"
+          } >> "$GITHUB_OUTPUT"
+          if [ "${rc}" -ne 0 ]; then echo "stale=true" >> "$GITHUB_OUTPUT"; else echo "stale=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Telegram alert (only when stale)
+        if: steps.check.outputs.stale == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          STALE_SUMMARY: ${{ steps.check.outputs.summary }}
+        run: |
+          set +e
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PYTHONPATH=. python scripts/notify_session.py alert \
+            --summary "🚨 Macro producer STALE — ${STALE_SUMMARY}" \
+            --link "${RUN_URL}" \
+            || echo "::warning::telegram notify failed (non-fatal)"
+
+      - name: Open / update stale issue (only when stale)
+        if: steps.check.outputs.stale == 'true'
+        uses: actions/github-script@v7
+        env:
+          STALE_SUMMARY: ${{ steps.check.outputs.summary }}
+        with:
+          script: |
+            const label = 'macro-producer-stale';
+            const summary = process.env.STALE_SUMMARY || 'a scheduled macro producer ledger is stale';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // Self-heal: ensure the label exists (bootstrap-labels also declares
+            // it, but do not depend on ordering).
+            try {
+              await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name: label });
+            } catch (e) {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner, repo: context.repo.repo,
+                name: label, color: 'd93f0b',
+                description: 'A scheduled macro producer ledger has gone stale (cron may have stopped).',
+              });
+            }
+            // Dedupe: comment on the existing open stale issue rather than open a
+            // fresh one every day it stays stale.
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: label, per_page: 10,
+            });
+            const body =
+              `🚨 **Macro producer liveness — STALE**\n\n` +
+              `${summary}\n\n` +
+              `A scheduled macro producer's ledger has stopped growing past its ` +
+              `freshness threshold — the cron may have silently stopped firing ` +
+              `(GitHub auto-disables a schedule after 60d repo inactivity; a broken ` +
+              `commit-to-main hop; a removed cron). Check ` +
+              `\`.github/workflows/macro-valuation-snapshot.yml\` run history and ` +
+              `re-dispatch it (label \`macro-valuation-snapshot-now\`) to top up.\n\n` +
+              `Run: ${runUrl}`;
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: `🚨 Macro producer stale (${new Date().toISOString().slice(0,10)})`,
+                labels: [label], body,
+              });
+            }
+
+      - name: Auto-resolve stale issue (only when fresh)
+        if: steps.check.outputs.stale == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const label = 'macro-producer-stale';
+            let existing;
+            try {
+              existing = await github.rest.issues.listForRepo({
+                owner: context.repo.owner, repo: context.repo.repo,
+                state: 'open', labels: label, per_page: 10,
+              });
+            } catch (e) {
+              // Label never created ⇒ nothing to resolve.
+              return;
+            }
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            for (const iss of existing.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: iss.number,
+                body: `✅ Producer freshness recovered — all ledgers fresh again. Auto-closing.\nRun: ${runUrl}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: iss.number, state: 'closed', state_reason: 'completed',
+              });
+            }
+
+      - name: Reply to trigger issue (issue-driven path)
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        env:
+          VERDICT_SUMMARY: ${{ steps.check.outputs.summary }}
+          STALE: ${{ steps.check.outputs.stale }}
+        with:
+          script: |
+            const stale = process.env.STALE === 'true';
+            const summary = process.env.VERDICT_SUMMARY || '(no summary)';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const emoji = stale ? '🚨' : '✅';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `${emoji} **macro-producer-liveness** ran.\n\n${summary}\n\nRun: ${runUrl}`,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed', state_reason: stale ? 'not_planned' : 'completed',
+            });
+
+      - name: Fail the run if any producer is stale
+        # Deferred to the end so the alert + issue steps always run first. This
+        # keeps the scheduled run RED in the Actions UI (belt-and-suspenders with
+        # the loud Telegram/issue alert) — a red-but-ignored check alone would be
+        # the very normalization the directive warns against, which is why the
+        # loud channels above carry the real signal.
+        if: steps.check.outputs.stale == 'true'
+        run: |
+          echo "::error::A scheduled macro producer ledger is stale — see the alert above."
+          exit 1
