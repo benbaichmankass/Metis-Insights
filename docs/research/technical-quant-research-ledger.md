@@ -44,6 +44,7 @@ config change (that is Tier-3, operator-gated).
 | 1 | **All strategies · real (377) + real+paper (612)** — live closed trades, VM-side run (2026-07-27) | full 15-col decision-time panel (structure vector + regime/vol cats + gates + model-score summary) | `win` (+ `r`) | C1 (no `--strategy` filter) → C2, purged WF-CV (5 folds), BH-FDR α=0.1, on the **live** `trade_journal.db` via the trainer-vm-diag relay | **LEADS-ONLY (multivariate blocked).** 2 BH-FDR univariate survivors — `feat_vwap_deviation_std` (n=274, p=0.0073, q=0.044 real / 0.079 both) + `feat_model_score_mean` (n=38/41, p=0.021/0.014, q=0.064 real / 0.079 both) — stable across real/win, real/r, both/win. Multivariate regression + permutation-importance + VIF **not computed**: **0 complete-case rows** across the 11 graded feats (block-sparse by strategy), so criterion (b) OOS-discrimination is **unmet** → **LEADS, not findings**. | The real book is **84% one strategy** (`vwap` = 318/377); features are block-sparse (non-null of 612: confidence 409, vwap-dev 274, adx 61, regime 54, model-score 41, **all others ≤11**). The `vwap_deviation_std` lead is **confounded with strategy identity** (populated ≈only on vwap trades). → platform iteration #1: **per-strategy panels + a cross-strategy common-core feature set**. |
 | 2 | **`vwap`, real-money** (318 closed trades) — per-strategy, VM-side (2026-07-27) | vwap's own dense features — only **2 graded feats instrument on vwap**: `feat_confidence`, `feat_vwap_deviation_std` | `win` + `r` | C1 `--strategy vwap` → C2, purged WF-CV (5 folds), BH-FDR α=0.1 | **WEAK on `win`, NULL on `r` — not a confirmed finding.** Multivariate now runs (complete cases exist at 2 dense feats). `feat_vwap_deviation_std`: FDR q=0.0145; **OOS win AUC 0.593** but unstable (folds [0.87, 0.68, 0.48, 0.54, 0.39] — 2/5 < 0.5); **OOS `r` R² −0.54** (fails — worse than the mean). `feat_confidence` perm-importance 0.0. VIF clean. | Even per-strategy, **vwap instruments only 2 graded decision-time features** — the "multivariate" is effectively bivariate. The lead clears FDR (a) but OOS discrimination (b) is marginal+fragile for win and negative for r → **does not clear the bar**; also strategy-mechanical (vwap-deviation on a vwap strategy ≈ "how far the entry sat from vwap"). → the binding gap is now **feature-CAPTURE breadth**, not row count. |
 | 3 | **All strategies · real (377)** — pooled common-core, VM-side (2026-07-27) | common-core dense strategy-agnostic cols via the P1 `--features` selector: `feat_confidence`, `feat_model_score_mean`, `feat_model_score_max`, `feat_adx_14` | `win` + `r` | C1 (pooled, `--db` populated journal) → C2 `--features …`, purged WF-CV (5 folds), BH-FDR α=0.1 | **NULL — `feat_model_score_mean` FAILS its first OOS test.** P1 `--features` works (mv fit restricted to the 4 requested cols, none ignored/missing). But listwise-complete cases across the 4 collapse to **35 rows** (model-score pair populate ~41/377) → **`win` OOS not computable** (degenerate CV, <2 usable folds) and **`r` OOS R² −10.79** on the single usable fold (catastrophic — far worse than the mean). FDR survivors unchanged (vwap_dev q=0.044, model_score_mean q=0.064). VIF clean. | The Study-1 lead `feat_model_score_mean` gets its OOS test at last — and **does not clear (b)**. Root cause is the same at the pooled level as per-strategy: the strategy-agnostic ML features are too **sparse** (~41/377), so even the densest common-core can't muster a powered complete-case set. **The binding constraint is decision-time feature DENSITY, not the `--features` mechanic.** → next common-core should drop the sparse `model_score_*` and lean on the P4-widened dense cats (`feat_confidence`+`feat_adx_14`+`cat_killzone`/`cat_bias`/`cat_setup_type`); grow rows via L3 paper-book + P2 sweep. |
+| 4 | **Every strategy · real (377)** — P2 sweep, one pass, VM-side (2026-07-27) | full panel per group; strategies ≥ floor 30 get their own C2, thinner books pooled by asset class | `win` + `r` | **P2 sweep driver** (`sweep_research_panels.py`) → C1 once + C2 per group, purged WF-CV, BH-FDR α=0.1, power-floor 30 | **NOTHING NEW clears the bar.** Only 2 groups reach the floor: **`vwap` (318)** — `win` auto-**candidate_finding** (`feat_vwap_deviation_std`, OOS AUC 0.611) but per-fold **[0.83, 0.49, 0.56, 0.42, 0.75] = 2/5 < 0.5** → the SAME unstable, strategy-mechanical lead Study 2 already declined; `r` **lead** (OOS R² −0.065). **`asset:crypto` pool (58, 10 thin books)** — **null** both: no FDR survivor AND multivariate not computable (**0 complete-case rows** for 10 feats — block-sparse pooling doesn't rescue it). `asset:bond` (n=1) underpowered. | **The P2 driver is validated end-to-end on the real book** — one command covered the whole roster. Coverage verdict: the real book is too thin + block-sparse for cross-strategy discovery — pooling grows the *univariate* denominator but **not the complete-case count** the multivariate needs, so the crypto pool nulls. The P4 session/bias cats surfaced **no** FDR survivor either → the regime/session-conditioned angle is a null at this cut. Also a **driver caveat**: the auto `candidate_finding` label (mean OOS AUC > 0.5) is a *triage flag*, not a confirmation — it re-flagged the known unstable vwap lead; per-fold stability + mechanical-confound scrutiny still gate a true finding. |
 
 ### Study 1 detail — pooled real-book first pass (2026-07-27)
 
@@ -215,6 +216,113 @@ discovery is decision-time feature DENSITY, not row count and not the
 
 Tier-1, observe-only; no order-path or config touch.
 
+### Study 4 detail — P2 per-strategy sweep, one pass (2026-07-27)
+
+The first use of the **P2 sweep driver** (`scripts/research/sweep_research_panels.py`,
+#7730) — self-serve coverage across the whole roster in one command instead of a
+hand-run per book. Run VM-side via the `trainer-vm-diag` relay (#7732) against the
+populated real journal (377 rows, power-floor 30).
+
+**Coverage.** Only **2 of the roster's ~20 strategies clear the floor** as an
+analyzable group; everything else is a thin book:
+
+| Group | kind | n | `win` verdict | `r` verdict | FDR survivor |
+|---|---|---|---|---|---|
+| `vwap` | strategy | 318 | candidate_finding (auto) | lead | `feat_vwap_deviation_std` |
+| `asset:crypto` | asset_pool (10 books) | 58 | null | null | — |
+| `asset:bond` | — | 1 | underpowered | underpowered | — |
+
+**`vwap` — the auto `candidate_finding` is the known, already-declined lead.**
+`win` OOS AUC **0.611** with FDR survivor `feat_vwap_deviation_std` trips the
+driver's `candidate_finding` label — but the per-fold trace is
+**[0.83, 0.49, 0.56, 0.42, 0.75]** (2/5 < 0.5), the same instability Study 2
+scrutinized, and it is the same strategy-mechanical feature ("how far the entry
+sat from vwap" on a vwap strategy). `r` is a **lead** (OOS R² −0.065, all folds
+negative). So the driver **correctly narrows** discovery to this one cell, but the
+Study-2 verdict stands: it does **not** graduate to a confirmed finding. **Nothing
+new surfaced.**
+
+**`asset:crypto` pool — pooling does NOT rescue block-sparsity.** Pooling the 10
+thin crypto books (ada/eth/xrp pullbacks, ict_scalp, trend_donchian family,
+squeeze, fade, htf_pullback) gives n=58 but **0 complete-case rows across the 10
+graded feats** — each book instruments different columns, so listwise-complete
+cases stay zero even pooled. The multivariate can't run; the univariate FDR runs
+and finds **no survivor** → an honest null. This is the pooled restatement of the
+Studies 1–3 lesson: **pooling grows the univariate denominator, not the
+complete-case count the OOS pass needs.** (A follow-up sweep with `--features`
+restricting to the dense graded common-core — `feat_confidence`, `feat_adx_14` —
+is the way to let a pool attempt the multivariate; not run here.)
+
+**Regime/session (P4 cats) — null at this cut.** The P4-widened
+`cat_killzone` / `cat_bias` / `cat_setup_type` (+ `cat_regime`/`cat_vol_regime`)
+are in every group's panel and feed the univariate FDR, but **none surfaced as an
+FDR survivor** in either analyzable group, and as categoricals they don't enter
+the graded multivariate fit. So the widened session/bias context does **not**
+yield a univariate edge on the real book at the per-strategy / per-pool cut — the
+regime/session-conditioned entry angle is a **null** here (its stronger form is
+the feature×regime-cell interaction analysis + the exit-timing study, both of
+which need more instrumentation/rows than the current book supports).
+
+**Driver caveat (a real P2 follow-up).** The auto `candidate_finding` verdict
+uses **mean OOS AUC > 0.5**, which is a permissive *triage* threshold — it flagged
+the unstable vwap lead a human read (Study 2) declined on per-fold stability +
+mechanical confound. The label is a search-narrowing flag, **not** a confirmation;
+the confirmation gate remains stricter. A worthwhile driver refinement: annotate
+`candidate_finding` with a fold-stability flag (e.g. "k/5 folds < 0.5") so the
+summary carries the caveat inline. Logged in the queued items below.
+
+**Net:** the sweep is validated and the roster is now covered in one pass — and
+the honest finding is that **the real book is too thin + block-sparse for
+cross-strategy discovery today.** The compounding value is the coverage map: it
+tells the next session exactly which cells are exhausted (vwap = mechanical lead
+only; crypto pool = block-sparse null; everything else sub-floor) so no compute is
+burned re-deriving them. The unblock is instrumentation density (P4 continued) +
+eval volume (L3 paper book), not more discovery passes on this book.
+
+### P5 feasibility (per-bar exit-timing panel) — BLOCKED on infrastructure (2026-07-27)
+
+Scoping P5 (the per-bar panel that the operator's load-bearing prior —
+"edge lives in exit/regime" — most wants, for MFE/MAE / realized-R-giveback exit
+studies) against the live infrastructure (relay #7731) found it **cannot be built
+as a Tier-1 offline join**, unlike C1:
+
+1. **No per-bar source is persisted.** `trade_journal.db` has **no
+   `market_features` / `market_raw` / candle table** (tables are
+   trades/order_packages/signals/prop_*/insights/etc.), and `trades` carries
+   **no MFE/MAE** — only entry/exit price, SL, TP1-3, entry+close timestamps,
+   symbol, direction. (The scoping doc's assumption that `market_features`
+   regime/vol/session/flow is queryable does not hold on the money DB.)
+2. **The offline candle fetcher cannot reach historical windows.** Every
+   connector's `get_ohlcv(symbol, timeframe, limit)` (`src/exchange/*_connector.py`)
+   returns only the **most-recent `limit` candles** — there is no `since`/`start`
+   parameter, and `src/runtime/market_data.fetch_candles` exposes none. So MFE/MAE
+   for the 897 historical closed trades (weeks-to-months old) is **unreconstructable
+   offline** with the current path.
+
+**Consequence.** Per-bar exit-timing needs one of:
+- **(a) a historical-range candle-fetch capability** — extend `get_ohlcv` /
+  `fetch_candles` with a `since`/`[start,end]` window (modest for the
+  Bybit/CCXT path — `fetch_ohlcv` already takes `since=`; more work for
+  IBKR `endDateTime`+`durationStr` and Alpaca/OANDA `start`/`end`). This is a
+  **Tier-2 read-path change** to `src/exchange/*` + `src/runtime/market_data.py`
+  (touches runtime, makes historical exchange calls) — a bounded, well-scoped
+  build, but not Tier-1 observe-only. **Recommended first step**, since it also
+  unblocks any future historical backfill and covers the crypto book (the bulk of
+  the real trades) cheaply.
+- **(b) a forward per-bar excursion soak** — a live writer that records MFE/MAE
+  per open trade going forward. This is the "live per-bar soak on the money box"
+  the scoping doc already flags as **Tier-3, operator-gated**; it also only
+  accrues new data (no backfill).
+
+The **pure excursion math** (given a candle path + entry/SL/side/exit →
+MFE_R / MAE_R / giveback_R / capture-ratio / bars-to-MFE) is a small, unit-testable
+Tier-1 helper that any of the above feeds — but building it in isolation is
+premature until (a) or (b) supplies the price path. **Recommendation to the
+operator:** approve the **(a) Tier-2 range-fetch extension** (Bybit/CCXT first) as
+the unblock; then P5 = range-fetch → excursion helper → exit panel is a clean
+Tier-1 build on top. Filed so the next session doesn't blind-build a panel that
+returns empty for ~every historical trade.
+
 ## Reproducing a study
 
 Run the two bricks in sequence against the book you want (real `trade_journal.db`
@@ -251,6 +359,19 @@ to model if the panel's feature/outcome split is violated), the BH-FDR survivor
 set, and the OOS CV metric per fold. Read the `.md` sibling for the human
 summary.
 
+**Whole-roster coverage in one pass — the P2 sweep** (`sweep_research_panels.py`):
+
+```bash
+# C1 once + C2 per strategy (>= floor) / per asset-class pool (thin books),
+# rolling each group into the platform-bar verdict. Writes sweep.md + sweep.json
+# + one full C2 report per group under groups/.
+python scripts/research/sweep_research_panels.py \
+    --db /home/ubuntu/ict-trading-bot/data/trade_journal.db \
+    --cohort real --power-floor 30 --out-dir runtime_logs/research/sweep
+# add --features feat_confidence,feat_adx_14 to let block-sparse pools attempt
+# the multivariate on a dense common-core.
+```
+
 ## Next entries (queued)
 
 - **2 · `vwap` per-strategy panel** — **DONE** (Study 2 above): weak/unstable on
@@ -268,21 +389,40 @@ summary.
   with `feat_confidence` + `feat_adx_14` + `cat_killzone` / `cat_bias` /
   `cat_setup_type` (P4-landed, dense across strategies) instead of the sparse
   `feat_model_score_*`. Best driven by the P2 sweep once it exists.
-- **4+ · per-strategy sweep** — the same C1→C2 pass per remaining live strategy
-  above the power floor, pooling thin books by asset class. Best done via the
-  sweep driver (P2 loose-end) rather than hand-running each.
-- **C3 bridge** — any feature that clears BOTH bar conditions routes into the
-  standing backtest→walk-forward gate. No survivor has cleared the bar yet
-  (Study 1 leads-only; Study 2 weak/null), so there is nothing to route today —
-  but the wire (P3) is still the increment that closes the discovery loop.
+- **4 · per-strategy sweep** — **DONE** (Study 4 above, via the merged P2 driver):
+  one pass covered the roster; only `vwap` (318) + an `asset:crypto` pool (58)
+  clear floor 30. `vwap/win` auto-flagged candidate_finding on the known unstable
+  vwap-mechanical lead (2/5 folds < 0.5 — Study-2 caveat stands); crypto pool null
+  (block-sparse, 0 complete-case); regime/session cats no FDR survivor. **Nothing
+  new clears the bar.** The real book is too thin + block-sparse for cross-strategy
+  discovery today.
+- **4a · P2 driver refinement (open)** — annotate the auto `candidate_finding`
+  verdict with a per-fold-stability flag ("k/N folds < 0.5") so the triage label
+  carries its caveat inline; optionally a `--features` default of the dense graded
+  common-core for pools. Small tooling follow-up.
+- **3b · common-core v2 (post-P4 dense cats)** — re-run the pooled/pool common-core
+  with `feat_confidence` + `feat_adx_14` (the dense graded cols) via the sweep's
+  `--features`, and lean on the P4 `cat_killzone`/`cat_bias`/`cat_setup_type` in
+  the univariate edge tables. Runnable now via the P2 sweep `--features`.
+- **P5 · per-bar exit-timing panel — BLOCKED** (feasibility section above): needs a
+  **(a) Tier-2 historical-range candle-fetch extension** (recommended, Bybit/CCXT
+  first) or **(b) Tier-3 forward per-bar soak**. Operator decision required before
+  build. The pure excursion helper is a small Tier-1 piece that sits on top of (a).
+- **C3 bridge (P3)** — any feature that clears BOTH bar conditions routes into the
+  standing backtest→walk-forward gate. **No survivor has cleared the bar across
+  Studies 1–4** (leads / weak-unstable / null), so there is **nothing to route
+  today** — the wire (P3) is the increment that closes the loop, worth building
+  ahead of a confirmed finding but lower-value than unblocking density (P4/P5) +
+  volume (L3).
 
-> **Platform loose-ends feeding these studies** (from the 2026-07-27 readiness
-> audit; tracked in the scoping doc): **P1** C2 `--features` selector (small —
-> unblocks Study 3), **P2** per-strategy sweep driver (medium), **P3** C3
-> backtest bridge (medium), **P4** widen C1 decision-time feature capture incl.
-> killzone/session (medium — the Study-2 instrumentation finding), **P5** per-bar
-> panel (large), **P6** SHAP (small). Plus **L3** paper-book eval population
-> (operator-approved) to grow the eval count past the ~376 real-money wall.
+> **Platform loose-ends status** (SESSION-PROMPT numbering; from the 2026-07-27
+> readiness audit): **P1** C2 `--features` selector — **DONE** (`f4cbc3b`);
+> **P4** widen C1 capture (killzone/bias/setup_type from `order_packages.meta`) —
+> **DONE** (#7723); **P2** per-strategy sweep driver — **DONE** (#7730, exercised
+> in Study 4); **L3** paper-book eval population — **DONE** (merged prior session).
+> Open: **P5** per-bar panel (large) — **BLOCKED** on a Tier-2 range-fetch
+> extension or Tier-3 forward soak (feasibility section above); **P3** C3 backtest
+> bridge (medium — nothing to route yet); **P6** SHAP (small, low-priority).
 
 ## Reading the ledger
 
