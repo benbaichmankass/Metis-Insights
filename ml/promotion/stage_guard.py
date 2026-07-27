@@ -63,6 +63,16 @@ class Proposal:
             "proposed_stage": self.proposed_stage,
             "reasons": list(self.reasons),
             "evidence": self.evidence,
+            # Standing per-head OFFLINE-discrimination evidence (workplan 1.2 /
+            # M30): the purged-WF-CV champion-vs-baseline OOS edge that
+            # `run_stage_guard` already computes, surfaced as a top-level field
+            # so a head's *powered offline* discrimination is legible without
+            # digging into `evidence.gate_report` and without waiting on live
+            # soak episodes. `OOSEdgeResult.to_dict()` (or null when the stage
+            # isn't OOS-scored / data is insufficient). Observe-only — this is
+            # a READ of a value the gate already produced; it does NOT change
+            # any promotion/demotion decision (see propose_for_model).
+            "offline_discrimination": self.evidence.get("offline_discrimination"),
         }
 
 
@@ -143,6 +153,14 @@ def propose_for_model(
     except ValueError:
         stage = entry.target_deployment_stage
 
+    # Standing offline-discrimination evidence (workplan 1.2 / M30): surface the
+    # purged-WF-CV OOS edge the caller already computed. Pure READ — attached to
+    # every proposal's evidence so it rides the report; it never enters a gate or
+    # a demote trigger, so the decision is byte-for-byte unchanged. `None` when
+    # the stage isn't OOS-scored (e.g. an advisory head the sweep doesn't replay)
+    # or the compute returned insufficient_data.
+    offline = oos_edge.to_dict() if oos_edge is not None else None
+
     if stage == "shadow":
         report: GateReport = evaluate_gates(
             entry, target_stage="advisory",
@@ -155,12 +173,14 @@ def propose_for_model(
             return Proposal(
                 entry.model_id, stage, "promote", "advisory",
                 reasons=("all promotion gates pass",),
-                evidence={"gate_report": report.to_dict()},
+                evidence={"gate_report": report.to_dict(),
+                          "offline_discrimination": offline},
             )
         return Proposal(
             entry.model_id, stage, "hold", None,
             reasons=tuple(f"gate not met: {r.name} ({r.status})" for r in report.blocking),
-            evidence={"gate_report": report.to_dict()},
+            evidence={"gate_report": report.to_dict(),
+                      "offline_discrimination": offline},
         )
 
     if stage in _LIVE_STAGES:
@@ -177,6 +197,7 @@ def propose_for_model(
                 evidence={
                     "attribution": attribution.to_dict() if attribution else None,
                     "drift_verdict": getattr(drift, "overall_verdict", None),
+                    "offline_discrimination": offline,
                 },
             )
         return Proposal(
@@ -185,6 +206,7 @@ def propose_for_model(
             evidence={
                 "attribution": attribution.to_dict() if attribution else None,
                 "drift_verdict": getattr(drift, "overall_verdict", None),
+                "offline_discrimination": offline,
             },
         )
 
