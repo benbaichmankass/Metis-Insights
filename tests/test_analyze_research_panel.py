@@ -356,3 +356,73 @@ def test_cli_end_to_end(tmp_path):
     report = json.loads(out.read_text())
     assert report["row_count"] == 200
     assert report["feature_count"] == len(_feature_cols())
+
+
+# ---------------------------------------------------------------------------
+# Cohort discipline (B1) — real + paper are never silently blended
+# ---------------------------------------------------------------------------
+
+_ANALYZE_KW = dict(
+    outcome="win", n_buckets=4, min_bucket=10, fdr_alpha=0.1, cv_folds=5,
+    min_train_fraction=0.5, label_horizon=1, embargo_fraction=0.02,
+    perm_repeats=3, seed=1,
+)
+
+
+def _mixed_rows(n_real=120, n_paper=80):
+    real = _make_rows(n_real, seed=11)
+    paper = _make_rows(n_paper, seed=22)
+    for r in paper:
+        r["cohort"] = "paper"
+    return real + paper
+
+
+def test_cohort_mixed_panel_refused_by_default():
+    report = tk.analyze(_mixed_rows(), _manifest(), cohort="auto", **_ANALYZE_KW)
+    assert "error" in report and "cohort" in report["error"].lower()
+    assert "regression" not in report  # refused before any modelling
+    assert report["cohort_mix"] == {"real": 120, "paper": 80}
+
+
+def test_cohort_filter_isolates_one_cohort():
+    report = tk.analyze(_mixed_rows(), _manifest(), cohort="real", **_ANALYZE_KW)
+    assert "error" not in report
+    assert report["row_count"] == 120  # only the real rows analyzed
+    assert report["cohort_selection"] == "real"
+    assert "regression" in report
+
+
+def test_cohort_all_pools_explicitly():
+    report = tk.analyze(_mixed_rows(), _manifest(), cohort="all", **_ANALYZE_KW)
+    assert "error" not in report
+    assert report.get("cohort_pooled") is True
+    assert report["row_count"] == 200
+
+
+def test_single_cohort_panel_unchanged():
+    report = tk.analyze(_make_rows(200), _manifest(), cohort="auto", **_ANALYZE_KW)
+    assert "error" not in report  # single cohort → no refusal
+    assert "regression" in report
+
+
+# ---------------------------------------------------------------------------
+# NaN-safe JSON (B2) — a zero-variance feature must not leak a NaN token
+# ---------------------------------------------------------------------------
+
+
+def test_zero_variance_feature_yields_json_safe_output(tmp_path):
+    rows = _make_rows(200)
+    for r in rows:
+        r["feat_noise1"] = 0.5  # constant column → corrcoef 0/0 → NaN
+    p = _write_panel(tmp_path, rows, _manifest())
+    out = tmp_path / "analysis.json"
+    rc = tk.main(["--panel", str(p), "--out", str(out), "--quiet"])
+    assert rc == 0
+    text = out.read_text()
+    assert "NaN" not in text and "Infinity" not in text  # no invalid JSON token
+    parsed = json.loads(text)
+    corr = parsed.get("collinearity", {}).get("correlation")
+    if corr:  # any non-finite corr entry emitted as null, never NaN
+        for row_ in corr.values():
+            for v in row_.values():
+                assert v is None or isinstance(v, (int, float))
