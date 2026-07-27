@@ -105,3 +105,40 @@ If #6927 is closed or unreachable, do **not** silently proceed uncoordinated:
 recreate it (`issue_write method=create`, same title, this doc's body), update
 the number here + in the `session-coordination` skill + the `SessionStart` hook
 echo, and post a `⚠️` note. Then continue.
+
+## Enforcement: the hard merge-guard (2026-07-27)
+
+The per-merge slot claim used to be **announced** (SessionStart contract, this
+doc, the `session-coordination` skill) but not **enforced** — so a session could
+read the contract and still auto-merge PR after PR without ever claiming a slot.
+On 2026-07-27 exactly that happened: a full M36 Track-D session auto-merged its
+whole PR chain with only `START`/`DONE` posted, never a `🔒 MERGE SLOT CLAIM`,
+and raced a concurrent Track-C session into repeated behind-rebase churn. The
+operator's directive: make the claim a **physical precondition of merging**, at
+session start, not a gate bolted on at the end.
+
+So the claim is now hard-enforced by a **`PreToolUse` guard** in
+[`.claude/settings.json`](../../.claude/settings.json) on
+`mcp__github__merge_pull_request` **and** `mcp__github__enable_pr_auto_merge`:
+
+- The guard **denies** the merge/auto-merge call unless a per-PR marker
+  `/tmp/.claude-merge-claim-<session_id>-<pr>` exists and is **fresh (< 20 min)**.
+- The deny message is the runbook: (1) list OPEN PRs (real-time truth — is
+  another session mid-merge?); (2) post a `🔒 MERGE SLOT CLAIM` on #6927 naming
+  the PR; (3) sync THIS branch to `origin/main` immediately before merging and
+  let CI go green on the synced head; (4) `touch` the marker and RETRY the call;
+  (5) post `🔓 MERGE SLOT RELEASE` on #6927 after it merges.
+- The marker is a **speed-bump, not the claim** — setting it without posting the
+  board comment defeats the purpose and is a coordination failure. The board
+  comment is the claim other sessions actually see; the marker just proves this
+  session went through the motions for *this specific PR*.
+- The guard is **per-PR and time-boxed** so one claim can't blanket-authorise a
+  whole session's merges — every distinct PR re-runs the protocol, and a stale
+  marker (> 20 min) forces a re-claim + re-sync (the sync is the part that
+  actually prevents the behind-rebase churn).
+
+Because hooks load at **session start**, a session that edits `settings.json`
+mid-run does **not** pick up the new guard itself — it must still follow the
+protocol manually for its own PRs; the guard protects the *next* session onward.
+Keep the guard, this section, the `session-coordination` skill, and
+`docs/CLAUDE-RULES-CANONICAL.md` § "Multi-session coordination" in sync.

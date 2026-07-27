@@ -812,16 +812,30 @@ hook surfaces both at session init. Read them before acting.
    (observed twice on 2026-06-28; and the 2026-07-20 lapse where 3 claim-less
    merges raced `behind` in one day because the claim was treated as a
    session-start ritual and skipped under load — BL-20260720-MERGE-PROTOCOL-LAPSE).
+   **Hard-enforced since 2026-07-27** (BL-20260727-MERGE-PROTOCOL-LAPSE-2, after a
+   full M36 Track-D session auto-merged its whole PR chain claim-less and raced a
+   concurrent Track-C session into behind-rebase churn): a `PreToolUse` guard in
+   `.claude/settings.json` **denies** `merge_pull_request` **and**
+   `enable_pr_auto_merge` until the session has run steps (a)–(d) for the specific
+   PR and set a fresh (< 20 min) per-PR marker
+   `/tmp/.claude-merge-claim-<session_id>-<pr>`. The marker is a speed-bump proving
+   the protocol ran for *that* PR — not the claim itself; the `🔒 CLAIM` board
+   comment is still what other sessions see. Full rationale:
+   `docs/claude/coordination-board.md` § "Enforcement: the hard merge-guard".
 
 3. **One PR = one concern.** Never add unrelated work to a branch that already
    has an open PR — it pollutes the PR and invalidates its CI run (and a new
    head SHA strands any merge-gate watcher). Start a fresh branch off `main` for
    a distinct deliverable, even mid-session.
 
-Consistent with § "Why no new mechanical guardrails" above, this is discipline +
-a shared board + the hook surfacing it — **not** a new CI gate (operator
-decision, 2026-06-28). The hard safety net remains GitHub branch-protection
-(require-up-to-date); the board only coordinates intent + the one merge slot.
+This is discipline + a shared board + the hook surfacing it, **not** a new CI
+gate (operator decision, 2026-06-28). The 2026-07-27 merge-guard is a
+**client-side `PreToolUse` speed-bump** on the merge tools — it does not gate CI
+or branch-protection, it just forces the session to run the claim+sync protocol
+before the merge tool fires (operator-directed after the claim-less-auto-merge
+lapse). The hard safety net remains GitHub branch-protection (require-up-to-date);
+the board coordinates intent + the one merge slot, and the guard makes the
+per-merge claim a physical precondition rather than an honour-system step.
 
 ## Session-length discipline & handoff (2026-07-23, binding)
 
