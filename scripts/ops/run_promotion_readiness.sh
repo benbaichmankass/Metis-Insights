@@ -100,16 +100,26 @@ mkdir -p "$OUTPUT_DIR"
 # purged-walk-forward oos_edge for every shadow-stage model. Historically
 # this ran INLINE in one process and OOM-thrashed the 6 GB trainer at the
 # current registry size (~5 GB RSS, D-state, 0-byte outputs — killed twice
-# on 2026-07-19; MB-20260719-PROMOREADY-OOSEDGE-OOM). **RESOLVED
-# 2026-07-26:** `run_stage_guard` now isolates each model's oos_edge compute
-# in a FRESH subprocess (`python -m ml _oos-edge-one`), so peak RSS is one
-# model's working set, not the fleet's accumulation — and the service unit
-# keeps MemoryMax=4500M / MemorySwapMax=0 as a hard backstop. So the sweep
-# can safely run WITH --datasets-root again: default ON, restoring real
-# promote/hold/demote oos_edge evidence in the daily report. Set
-# PROMOREADY_OOS_EDGE=off to revert to the report-lands-without-oos_edge
-# interim (oos_edge then comes per-head from the `gate-check` CLI).
-PROMOREADY_OOS_EDGE="${PROMOREADY_OOS_EDGE:-on}"
+# on 2026-07-19; MB-20260719-PROMOREADY-OOSEDGE-OOM). A 2026-07-26 change
+# isolated each model's oos_edge into a FRESH subprocess (`python -m ml
+# _oos-edge-one`) and flipped the default back ON, believing peak RSS was
+# then bounded to one model's working set.
+#
+# **REGRESSED — default reverted to OFF 2026-07-27 (BL-20260715 verify).**
+# Subprocess isolation only bounds fleet ACCUMULATION; it does NOT bound a
+# SINGLE model's footprint. `ml/promotion/oos_edge.compute_oos_edge` does
+# `rows = _load_jsonl(data_path)` — it materializes the WHOLE dataset
+# (market_features ≈ 2.1e5 rows × many float cols, as dicts) for ONE head's
+# k-fold CV, which alone exceeds MemoryMax=4500M → the subprocess is
+# OOM-killed, failing the unit. Live-confirmed 2026-07-27: with the default
+# ON the daily sweep OOM-killed at ~5 min (04:04Z scheduled + an 08:49Z
+# manual run), producing NO packet — whereas the OFF runs on 07-25 + 07-26
+# completed in ~5 s and wrote packets. So OFF is the known-good state and
+# is the default again. oos_edge evidence remains available per-head via the
+# `gate-check` CLI. Re-enable (default ON) only AFTER oos_edge's dataset
+# load is made memory-bounded (columnar/compact CV load — the real fix,
+# MB-20260719).
+PROMOREADY_OOS_EDGE="${PROMOREADY_OOS_EDGE:-off}"
 DATASETS_ARG=()
 case "${PROMOREADY_OOS_EDGE,,}" in
   1|true|yes|on)
