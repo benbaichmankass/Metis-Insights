@@ -440,9 +440,12 @@ def build_backtest_panel(
                 r = None
             win = 1 if (r is not None and r > 0) else 0
 
+            side = str(st.side or "").strip().lower()
+            direction = "long" if side in ("long", "buy") else ("short" if side in ("short", "sell") else side)
             rec: Dict[str, Any] = {
                 "strategy": st.strategy,
                 "symbol": st.symbol,
+                "direction": direction,
                 "cohort": _COHORT,
                 "closed_at": _iso_closed_at(st.exit_time),
                 "excursion_present": present,
