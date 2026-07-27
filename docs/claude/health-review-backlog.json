@@ -157,7 +157,7 @@
       "tier": 2,
       "trigger_condition": "Next trainer-infra / ML-ops code session. Highest-leverage first pass: make ml/promotion/attribution.py stream-aggregate or window the shadow-log read instead of list(records). Then add systemd MemoryMax on the trainer units for containment + serialize the heavy cycle stages.",
       "resolution_criteria": "A trainer ML cycle (promotion-readiness + train) completes without driving the 6 GB box into deep swap (avail stays > ~500 MB, swap use bounded); a single runaway job OOM-kills itself (MemoryMax) rather than wedging the whole VM; verified over a few cycles via the trainer publish-heartbeat staying fresh (no 'Trainer VM DOWN' banner).",
-      "status": "kept_open",
+      "status": "partially-resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -180,6 +180,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: infra/VM-side item needing a VM write or dedicated ops session; condition not observed to regress this window. Carried."
+        },
+        {
+          "at": "2026-07-27T08:40:00+00:00",
+          "by": "system-review-followup-2026-07-27 (promotion-readiness OOM fix)",
+          "action": "partially-resolved",
+          "note": "CODE FIX LANDED (the highest-leverage first pass from trigger_condition): ml/promotion/attribution.py now STREAMS the shadow log instead of materializing it. Removed both whole-log materializations (load_shadow_records list + the list(records) at join) \u2014 compute_attribution feeds iter_shadow_records (a generator) into a rewritten join_scores_to_trades that indexes the small side (trades, by id + symbol) and streams records once, inverting the old trades-outer/records-inner nested scan. Byte-for-byte identical join semantics + output order (13/13 edge-case equivalence vs the old impl: backfill, window edges, symbol match/miss, empty-symbol + feature_row=None records, symbol-less trades, pnl-None skip, ties, overlapping windows; original tests pass; ruff clean). tracemalloc: 0.1 MB vs 49 MB peak at 100k records (the log materialization WAS the ~3.2 GB RSS). Also cuts the ~99-min O(trades*records) scan toward O(records) via the symbol/id index. REMAINING (follow-up): (a) systemd MemoryMax on the trainer units for box-level containment of ANY runaway job; (b) live-verify on the trainer over a few cycles that avail stays >~500MB + no deep swap + publish-heartbeat stays fresh. Ship: draft PR (Tier-1, trainer decision-support tooling, not the order path)."
         }
       ]
     },
@@ -6527,5 +6533,5 @@
       "action": "Pull `journalctl -u ict-mes-ibkr-pull.service` via the diag relay, diagnose (likely the same IB gateway cold-flow reachability class or a script error), then fix or disable if the sidecar is redundant with the trader's own candle fetch. Dedupe against the existing N6/F1 audit-residue item if already tracked."
     }
   ],
-  "updated_at": "2026-07-27T08:05:00+00:00"
+  "updated_at": "2026-07-27T08:40:00+00:00"
 }

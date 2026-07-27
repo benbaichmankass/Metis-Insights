@@ -49,7 +49,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Iterator, Mapping
 
 from ..shadow.inspector import ShadowRecord, iter_records
 
@@ -145,17 +145,34 @@ def load_closed_trades(
 
 
 def load_shadow_records(*paths: Path | str) -> list[ShadowRecord]:
-    """Read shadow records from one or more JSONL logs (best-effort)."""
-    out: list[ShadowRecord] = []
+    """Read shadow records from one or more JSONL logs (best-effort).
+
+    NOTE: materializes the whole log in memory. Prefer
+    :func:`iter_shadow_records` for the join path — the shadow log runs to
+    ~10^5 rows and holding it all was the trainer-VM OOM
+    (BL-20260715-TRAINER-CYCLE-MEM-SATURATION). Kept for callers that
+    genuinely need a list.
+    """
+    return list(iter_shadow_records(*paths))
+
+
+def iter_shadow_records(*paths: Path | str) -> Iterator[ShadowRecord]:
+    """Stream shadow records from one or more JSONL logs (best-effort),
+    **without materializing the whole log**.
+
+    Chains :func:`ml.shadow.inspector.iter_records` across the given paths
+    (missing paths + per-path read errors are skipped). This is the
+    memory-safe feedstock for :func:`join_scores_to_trades` — the log is
+    read exactly once and never held whole in RAM.
+    """
     for p in paths:
         path = Path(p)
         if not path.exists():
             continue
         try:
-            out.extend(iter_records(path))
+            yield from iter_records(path)
         except (OSError, ValueError):
             continue
-    return out
 
 
 # ---------------------------------------------------------------------------
@@ -188,41 +205,81 @@ def join_scores_to_trades(
     real-time records. The earliest record in the window wins (the
     signal-time prediction). Trades whose ``pnl`` is ``None`` are
     skipped — there is no outcome to attribute to.
+
+    **Memory-safe streaming (BL-20260715):** ``records`` is consumed as a
+    generator exactly **once** and never materialized — the shadow log
+    runs to ~10^5 rows and holding it whole (the old ``list(records)`` +
+    the ``load_shadow_records`` list) drove the 6 GB trainer VM into deep
+    swap during ``promotion-readiness``. The loop is inverted vs. the
+    naive form: the **trades** are the small side, so they are indexed in
+    memory (by id for backfill records, by symbol for real-time records),
+    and each streamed record updates the earliest-per-(trade, model)
+    pick. Output (objects + order) is identical to the prior
+    trade-outer/record-inner form, and the ``feature_row.symbol`` filter
+    matches the endpoint byte-for-byte (a record with no symbol matches
+    any trade in-window; a symbol-bearing record matches same-symbol and
+    symbol-less trades). Indexing also cuts the old O(trades×records)
+    full nested scan (the ~99-min stage) down toward O(records).
     """
-    records = list(records)
-    out: list[JoinedScore] = []
+    # Index the SMALL side (trades) in memory; stream the LARGE side once.
+    trades_by_id: dict[str, Mapping[str, Any]] = {}
+    trades_by_symbol: dict[Any, list[Mapping[str, Any]]] = {}
+    ordered: list[Mapping[str, Any]] = []  # input order, pnl-None dropped
     for t in trades:
-        pnl = t.get("pnl")
-        if pnl is None:
+        if t.get("pnl") is None:
             continue
-        trade_id = str(t.get("id") or "")
-        symbol = t.get("symbol")
-        window_start: datetime = t["opened_at"]
-        window_end: datetime = t["closed_at"]
-        # earliest record per model for this trade
-        best: dict[str, tuple[datetime, ShadowRecord]] = {}
-        for r in records:
-            if r.trade_id is not None:
-                if r.trade_id != trade_id:
+        tid = str(t.get("id") or "")
+        trades_by_id[tid] = t
+        trades_by_symbol.setdefault(t.get("symbol"), []).append(t)
+        ordered.append(t)
+    symless_trades = trades_by_symbol.get(None, [])
+
+    # best[trade_id][model_id] = (predicted_at, score, stage); earliest wins.
+    # model_id insertion order per trade = first-seen record order (file
+    # order) — preserves the prior output ordering.
+    best: dict[str, dict[str, tuple[datetime, float, str]]] = {}
+
+    def _consider(t: Mapping[str, Any], r: ShadowRecord) -> None:
+        tb = best.setdefault(str(t.get("id") or ""), {})
+        prev = tb.get(r.model_id)
+        if prev is None or r.predicted_at_utc < prev[0]:
+            tb[r.model_id] = (r.predicted_at_utc, r.score, r.stage)
+
+    for r in records:
+        if r.trade_id is not None:
+            t = trades_by_id.get(r.trade_id)
+            if t is not None:
+                _consider(t, r)
+            continue
+        rec_symbol = r.feature_row.get("symbol") if r.feature_row is not None else None
+        if rec_symbol:
+            groups: tuple[list[Mapping[str, Any]], ...] = (
+                (trades_by_symbol.get(rec_symbol, []), symless_trades)
+                if symless_trades else (trades_by_symbol.get(rec_symbol, []),)
+            )
+        else:
+            groups = (ordered,)  # no record symbol -> any trade in-window
+        for group in groups:
+            for t in group:
+                if r.predicted_at_utc < t["opened_at"] or r.predicted_at_utc > t["closed_at"]:
                     continue
-            else:
-                if r.predicted_at_utc < window_start or r.predicted_at_utc > window_end:
-                    continue
-                if r.feature_row is not None and symbol is not None:
-                    rec_symbol = r.feature_row.get("symbol")
-                    if rec_symbol and rec_symbol != symbol:
-                        continue
-            prev = best.get(r.model_id)
-            if prev is None or r.predicted_at_utc < prev[0]:
-                best[r.model_id] = (r.predicted_at_utc, r)
-        for model_id, (_, r) in best.items():
+                _consider(t, r)
+
+    out: list[JoinedScore] = []
+    for t in ordered:
+        tb = best.get(str(t.get("id") or ""))
+        if not tb:
+            continue
+        pnl = float(t["pnl"])
+        win = pnl > 0
+        for model_id, (_, score, stage) in tb.items():
             out.append(JoinedScore(
                 model_id=model_id,
-                stage=r.stage,
-                trade_id=trade_id,
-                score=r.score,
-                win=pnl > 0,
-                pnl=float(pnl),
+                stage=stage,
+                trade_id=str(t.get("id") or ""),
+                score=score,
+                win=win,
+                pnl=pnl,
             ))
     return out
 
@@ -322,6 +379,7 @@ def compute_attribution(
     """End-to-end: load trades + shadow records, join, aggregate."""
     trades = load_closed_trades(db_path, limit=trade_limit, include_demo=include_demo)
     paths = [shadow_log] + ([backfill_log] if backfill_log else [])
-    records = load_shadow_records(*paths)
+    # Stream the shadow log (never materialize it) — BL-20260715.
+    records = iter_shadow_records(*paths)
     joined = join_scores_to_trades(trades, records)
     return aggregate_attribution(joined)
