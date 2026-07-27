@@ -117,6 +117,30 @@ logger = logging.getLogger(__name__)
 IntentBuilder = Callable[[dict], Dict[str, Any]]
 
 
+# Stable shared signature emitted by EVERY builder's ``if candles_df is None:``
+# raise in ``strategy_signal_builders.py`` (the phrase is identical across all
+# ~30 builders — "<strategy>: no candle data returned for symbol=... Check that
+# the <broker> connection is configured ..."). A candle fetch returning None is
+# a TRANSIENT market-data outage (most often an IB circuit-breaker backoff that
+# self-recovers in ~90s), so the per-tick builder exception it produces is
+# reclassified below to WARN rather than an ERROR page.
+_TRANSIENT_MARKET_DATA_SIGNATURE = "no candle data returned"
+
+
+def _is_transient_market_data_error(exc: Exception) -> bool:
+    """True when a builder exception is the transient no-candle-data outage.
+
+    Matches a ``RuntimeError`` whose message carries the stable
+    ``"no candle data returned"`` signature every builder raises when
+    ``fetch_candles`` returns None (case-insensitive substring). Kept narrow
+    (RuntimeError + signature) so a genuine builder bug never matches.
+    """
+    return (
+        isinstance(exc, RuntimeError)
+        and _TRANSIENT_MARKET_DATA_SIGNATURE in str(exc).lower()
+    )
+
+
 def _default_intent_builders() -> Dict[str, IntentBuilder]:
     """Strategy name → signal builder — the AUTHORITATIVE roster.
 
@@ -458,13 +482,35 @@ def _collect_intents(
             try:
                 from src.runtime.outcomes import Level, report
 
-                report(
-                    "strategy_builder",
-                    "exception",
-                    level=Level.ERROR,
-                    reason=f"{type(exc).__name__}: {exc}",
-                    strategy=name,
-                )
+                # A candle fetch returning None is a TRANSIENT market-data
+                # outage (typically an IB circuit-breaker backoff that
+                # self-recovers in ~90s), not a code bug — and it fires on
+                # EVERY tick for the whole outage. A *persistent* outage is
+                # already paged separately + loudly by
+                # ``src.runtime.account_reachability_alert`` (the latched
+                # account-down alert — the correct channel for a sustained
+                # broker outage), so the per-tick builder no-data does NOT
+                # need to Telegram-page too. Emit it at WARN — still visible
+                # on the diag surface (outcomes.jsonl) + the
+                # ``operator_warning`` banner feed, just not an ERROR page.
+                # Every OTHER exception stays ERROR so a genuine builder bug
+                # still pages.
+                if _is_transient_market_data_error(exc):
+                    report(
+                        "strategy_builder",
+                        "exception",
+                        level=Level.WARN,
+                        reason=f"transient_market_data_unavailable: {exc}",
+                        strategy=name,
+                    )
+                else:
+                    report(
+                        "strategy_builder",
+                        "exception",
+                        level=Level.ERROR,
+                        reason=f"{type(exc).__name__}: {exc}",
+                        strategy=name,
+                    )
             except Exception:  # noqa: BLE001
                 logger.exception(
                     "intent_multiplexer: report() for strategy_builder "
