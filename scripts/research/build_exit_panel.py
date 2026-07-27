@@ -354,8 +354,16 @@ def build_exit_panel(
     strategy: Optional[str] = None,
     timeframe: str = "15m",
     fetcher: Optional[Fetcher] = None,
+    limit: Optional[int] = None,
 ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    """Return ``(rows, manifest)`` — the exit panel. Tolerant end-to-end."""
+    """Return ``(rows, manifest)`` — the exit panel. Tolerant end-to-end.
+
+    ``limit`` bounds the build to the **most-recent** N closed trades (by
+    close-time). Each trade costs one historical candle fetch, so a large book
+    (e.g. 318 vwap trades) makes an unbounded run slow — long enough to be
+    preempted by a concurrent VM-relay or to trip a job timeout. ``--limit``
+    keeps a study run fast + bounded; ``None`` = every trade.
+    """
     fetch = fetcher or _default_fetcher
     tf_seconds = _TF_SECONDS.get(timeframe, 900)
     conn = _open_ro(db_path)
@@ -366,6 +374,9 @@ def build_exit_panel(
             trade_rows = fetch_exit_rows(conn, cohort=cohort, strategy=strategy)
         finally:
             conn.close()
+    # fetch_exit_rows returns close-time ASC, so the tail is the most recent.
+    if limit and limit > 0 and len(trade_rows) > limit:
+        trade_rows = trade_rows[-limit:]
 
     flat: List[Dict[str, Any]] = []
     covered = 0
@@ -375,8 +386,8 @@ def build_exit_panel(
         exc: Dict[str, Any] = {k: None for k in _EXCURSION_COLS}
         present = False
         if entry_ms is not None and exit_ms is not None and exit_ms >= entry_ms:
-            limit = _needed_limit(entry_ms, exit_ms, tf_seconds)
-            candles = fetch(tr["symbol"], timeframe, entry_ms, limit)
+            bar_limit = _needed_limit(entry_ms, exit_ms, tf_seconds)
+            candles = fetch(tr["symbol"], timeframe, entry_ms, bar_limit)
             if candles:
                 window = _slice_window(candles, entry_ms, exit_ms)
                 res = compute_excursions(
@@ -428,6 +439,7 @@ def build_exit_panel(
         "cohort": cohort,
         "strategy_filter": strategy,
         "timeframe": timeframe,
+        "limit": limit,
         "row_count": len(flat),
         "excursion_covered": covered,
         "excursion_coverage_pct": round(100.0 * covered / len(flat), 1) if flat else 0.0,
@@ -470,13 +482,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--strategy", default=None, help="Restrict to one strategy_name.")
     parser.add_argument("--timeframe", default="15m",
                         help=f"Candle timeframe for excursions ({'/'.join(_TF_SECONDS)}).")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="Bound the build to the most-recent N closed trades "
+                             "(one candle fetch each) — keeps a run fast + bounded. "
+                             "Omit for every trade.")
     parser.add_argument("--out", default="runtime_logs/research/exit_panel.jsonl")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
 
     db_path = args.db or str(trade_journal_db_path())
     rows, manifest = build_exit_panel(
-        db_path=db_path, cohort=args.cohort, strategy=args.strategy,
+        db_path=db_path, cohort=args.cohort, strategy=args.strategy, limit=args.limit,
         timeframe=args.timeframe,
     )
     out_path, manifest_path = write_panel(rows, manifest, Path(args.out))

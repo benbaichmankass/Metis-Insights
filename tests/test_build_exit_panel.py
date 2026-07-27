@@ -166,3 +166,15 @@ def test_main_cli_runs(tmp_path, monkeypatch):
     rc = bx.main(["--db", db, "--out", str(out), "--quiet"])
     assert rc == 0
     assert out.exists() and out.with_suffix(".jsonl.manifest.json").exists()
+
+
+def test_limit_bounds_to_most_recent_trades(tmp_path):
+    db = str(tmp_path / "tj.db")
+    _make_db(db)
+    # 2 trades; trade 2 (ETHUSDT) closes later (04:00 > 02:00) → most-recent
+    rows, manifest = bx.build_exit_panel(
+        db_path=db, limit=1, fetcher=_fetcher_factory()
+    )
+    assert manifest["row_count"] == 1
+    assert manifest["limit"] == 1
+    assert rows[0]["symbol"] == "ETHUSDT"
