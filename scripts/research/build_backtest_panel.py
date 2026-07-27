@@ -208,8 +208,121 @@ def _adapter_ict_scalp(
     return df, sim, info
 
 
+def _r_multiple_from_prices(
+    side: str, entry: Optional[float], stop: Optional[float], exit_px: Optional[float]
+) -> Optional[float]:
+    """Signed realized R from entry/stop/exit — 1R = |entry − stop|.
+
+    ``None`` when any price is missing or the stop distance is degenerate (so the
+    row emits an honest null ``r`` rather than a fabricated 0). Long: (exit−entry)/risk;
+    short: (entry−exit)/risk.
+    """
+    try:
+        entry_f = float(entry)
+        stop_f = float(stop)
+        exit_f = float(exit_px)
+    except (TypeError, ValueError):
+        return None
+    risk = abs(entry_f - stop_f)
+    if risk <= 0:
+        return None
+    move = (exit_f - entry_f) if str(side).lower() in ("long", "buy") else (entry_f - exit_f)
+    return move / risk
+
+
+def _adapter_backtest_system(
+    *,
+    data_path: str,
+    symbol: str = "BTCUSDT",
+    roster: Optional[str] = None,
+    clock_tf: str = "15m",
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    initial_balance: float = 10_000.0,
+    risk_pct: float = 0.3,
+    daily_loss_pct: float = 3.0,
+    signal_ttl_bars: int = 1,
+    flip_policy: str = "reverse",
+    reentry_policy: str = "suppress",
+    **_ignored: Any,
+) -> Tuple[Any, List[SimTrade], Dict[str, Any]]:
+    """Run scripts/backtest_system.py (the PORTFOLIO harness) in-process and
+    normalize its per-strategy closed trades into SimTrades.
+
+    Unlike the single-strategy ict_scalp adapter, this drives the WHOLE roster
+    through the real ``aggregate_intents`` on one shared account, so the panel
+    spans every roster strategy (each closed trade carries its winning strategy
+    as ``owner`` + that strategy's decision-time ``meta``) — broadening the
+    feature→outcome discovery beyond one strategy. Uses the harness's additive
+    ``attach_full=True`` hook to expose the full closed ledger + the clock-tf
+    candle frame the excursion window slices. The panel's ``strategy`` column is
+    per-row (the winning strategy), so ``component_vector.extract`` reads each
+    row against its own strategy's decision-time specs.
+    """
+    import scripts.backtest_system as BS  # noqa: PLC0415 — local import by design
+
+    base5m = BS._load_candles(data_path)
+    roster_list = (
+        [r.strip() for r in roster.split(",") if r.strip() in BS.ROSTER]
+        if roster
+        else list(BS.ROSTER.keys())
+    )
+    summary = BS.run_system_backtest(
+        base5m,
+        roster=roster_list,
+        start=start,
+        end=end,
+        initial_balance=initial_balance,
+        risk_pct=risk_pct,
+        daily_loss_pct=daily_loss_pct,
+        signal_ttl_bars=signal_ttl_bars,
+        overrides={},
+        refresh=False,
+        clock_tf=clock_tf,
+        flip_policy=flip_policy,
+        reentry_policy=reentry_policy,
+        attach_full=True,
+        symbol=symbol,
+    )
+    closed = summary.get("closed_trades", []) or []
+    clock = summary.get("clock_frame")
+    sim: List[SimTrade] = [
+        SimTrade(
+            strategy=t.owner,
+            symbol=symbol,
+            side=t.side,
+            entry_price=t.entry,
+            stop_loss=t.sl,
+            exit_price=t.exit,
+            r_multiple=_r_multiple_from_prices(t.side, t.entry, t.sl, t.exit),
+            entry_index=t.entry_idx,
+            exit_index=t.exit_idx,
+            exit_time=t.exit_ts,
+            meta=dict(t.meta or {}),
+            confidence=t.confidence,
+        )
+        for t in closed
+    ]
+    info = {
+        "harness": "backtest_system",
+        "data_path": data_path,
+        "roster": roster_list,
+        "clock_tf": clock_tf,
+        "flip_policy": flip_policy,
+        "reentry_policy": reentry_policy,
+        "n_bars": int(len(clock)) if clock is not None else None,
+        "harness_total_trades": len(closed),
+        "harness_net_pnl": summary.get("net_pnl") or summary.get("total_pnl"),
+        "per_strategy_trade_counts": {
+            name: sum(1 for t in closed if t.owner == name) for name in roster_list
+        },
+    }
+    return clock, sim, info
+
+
 ADAPTERS: Dict[str, Adapter] = {
     "ict_scalp": _adapter_ict_scalp,
+    "backtest_system": _adapter_backtest_system,
 }
 
 
@@ -416,6 +529,17 @@ def _build_adapter_opts(args: argparse.Namespace) -> Dict[str, Any]:
         "htf_ema_period": int(args.htf_ema_period),
         "vol_spec": vol_spec,
         "sim_breakeven": bool(args.sim_breakeven),
+        # backtest_system adapter opts (ignored by the ict_scalp adapter via **_ignored)
+        "roster": args.roster,
+        "clock_tf": str(args.clock_tf),
+        "start": args.start,
+        "end": args.end,
+        "initial_balance": float(args.initial_balance),
+        "risk_pct": float(args.risk_pct),
+        "daily_loss_pct": float(args.daily_loss_pct),
+        "signal_ttl_bars": int(args.signal_ttl_bars),
+        "flip_policy": str(args.flip_policy),
+        "reentry_policy": str(args.reentry_policy),
     }
 
 
@@ -454,6 +578,29 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="Frozen vol spec JSON for vol_regime parity (else vol_regime=unknown).")
     parser.add_argument("--sim-breakeven", action="store_true",
                         help="Simulate the live break-even SL trail (matches the live monitor).")
+    # --- backtest_system (portfolio) adapter options (ignored by ict_scalp) ---
+    parser.add_argument("--roster", default=None,
+                        help="[backtest_system] comma list of roster strategies "
+                             "(default: all ROSTER members).")
+    parser.add_argument("--clock-tf", default="15m",
+                        help="[backtest_system] clock timeframe the shared account "
+                             "ticks on (default 15m).")
+    parser.add_argument("--start", default=None, help="[backtest_system] start date filter.")
+    parser.add_argument("--end", default=None, help="[backtest_system] end date filter.")
+    parser.add_argument("--initial-balance", type=float, default=10_000.0,
+                        help="[backtest_system] starting account balance.")
+    parser.add_argument("--risk-pct", type=float, default=0.3,
+                        help="[backtest_system] per-trade risk %% of balance.")
+    parser.add_argument("--daily-loss-pct", type=float, default=3.0,
+                        help="[backtest_system] daily-loss halt cap %%.")
+    parser.add_argument("--signal-ttl-bars", type=int, default=1,
+                        help="[backtest_system] clock bars a signal stays live.")
+    parser.add_argument("--flip-policy", default="reverse",
+                        choices=["reverse", "hold", "flat"],
+                        help="[backtest_system] opposite-vote conflict policy.")
+    parser.add_argument("--reentry-policy", default="suppress",
+                        choices=["suppress", "net"],
+                        help="[backtest_system] same-direction re-entry policy.")
     parser.add_argument("--out", default="runtime_logs/research/backtest_panel.jsonl",
                         help="Output JSONL path (a sibling .manifest.json is written too).")
     parser.add_argument("--quiet", action="store_true")
