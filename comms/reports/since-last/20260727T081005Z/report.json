@@ -1,0 +1,681 @@
+{
+  "report_id": "RPT-20260727-081005-since-last",
+  "reviewed_at": "2026-07-27T08:10:05Z",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-07-26T09:32:00+00:00",
+  "window_end": "2026-07-27T08:10:05Z",
+  "prior_report_id": "AUDIT-20260726",
+  "overall_assessment": "caution",
+  "health": {
+    "overall_assessment": "caution",
+    "findings": {
+      "services": {
+        "status": "ok",
+        "note": "ict-trader-live + ict-web-api both active/running; restarted 07:44:30Z (auto-deploy of 52d51dfe / L3 paper-eval merge)."
+      },
+      "database": {
+        "status": "ok",
+        "note": "trade_journal.db 644MB, inode 3634988, all 16 tables present, no per-table errors; canonical single-source clean."
+      },
+      "account_reachability": {
+        "status": "ok",
+        "note": "All declared-live probeable accounts reachable (bybit_2 real api_ok; bybit_1/portfolio, ib_paper, alpaca_paper/portfolio/options api_ok). Zero down. breakout_1 api-less (expected); ib_live/alpaca_live/oanda_practice dry."
+      },
+      "alerts": {
+        "status": "concern",
+        "note": "3 active operator_warning ALERT banners: 'no candle data returned' for MHG(1d)/MGC(1h/1d) IBKR builders (since 07:21Z). Known IB-gateway cold-flow flap; draft PR #7701 reclassifies this transient RuntimeError ERROR->WARN so it stops paging. Persistent IB outage still paged by account_reachability_alert."
+      },
+      "heartbeat": {
+        "status": "watch",
+        "note": "Heartbeat label 'paused' (mtime age ~211-273s) while the trader is ticking (tick_age 75s, pipeline_results flowing). Post-restart transient (uptime ~12min at capture). Should self-resolve as the heartbeat writer catches up; verify next cycle."
+      },
+      "ib_state": {
+        "status": "ok",
+        "note": "3 MES clients connected, account_data_ready true, no breaker open, likely_wedged false. Recent connect_failed TimeoutErrors are self-recovering cold socat-relay flaps, not a wedge."
+      },
+      "prop_bridge": {
+        "status": "watch",
+        "note": "Reconcile clean (51 tickets / 26 fills / 0 unacted). But latest account-status snapshot is 2026-07-20 (7d stale); no fresh balance since. No open prop position currently. Cushion: daily-loss 44.77, static-DD 25.61."
+      }
+    },
+    "backlog_drained": "13 counter-open items re-validated (see review_coverage.backlog_drive.health)",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "performance": {
+    "overall_assessment": "caution",
+    "summary": "Real money (bybit_2, only live real account) closed 1 trade in-window (eth_pullback_2h ETHUSDT short -$3.75, SL, graded D: entry should_skip @ conf 0.21). 7d real: 8 trades 1W/7L -$17.58, PF 0.12 - chop-regime entry-edge whipsaw, all SL-appropriate exits, small dollars. Grading ran this session (18-row delta, histogram B:9 C:8 D:1). Paper soak large & isolated (-$4.1k/24h across 7, dominated by trend_donchian_sol_4h -$2474 + eth_pullback_2h -$1481, both large paper notionals).",
+    "grading": {
+      "ran_this_session": true,
+      "delta_rows": 18,
+      "histogram": {
+        "B": 9,
+        "C": 8,
+        "D": 1
+      },
+      "newest_reviewed_at": "2026-07-27T07:57:47.234555+00:00"
+    },
+    "backlog_drained": "1 counter-open item re-validated (PB-20260620-001)",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "ml": {
+    "overall_assessment": "caution",
+    "summary": "Trainer healthy & progressing: 2 cycles/24h completing (last_cycle rc=0), 116 dataset builds OK / 0 failed, 74 manifests OK / 7 skipped, DB sync live->trainer OK (00:39Z). Registry 92 models (2 advisory, 28 shadow, 61 candidate, 1 research_only). Shadow soaks actively accruing (regime 5m heads ~5300-5700 preds, conviction-meta 5263, setup-quality heads 5263; last_seen 07:54Z). Gaps: promotion-readiness oos_edge OOM still blocks automated readiness packets (weekly-flagged); mes-regime-1d-lgbm-v2 audit-quarantined (dead feature) + 4 mes-* datasets built 0 rows (MES base stale, BL-20260626); sol-regime-15m fc-pcv-v1 already demoted advisory->shadow 07-26 (drift KS 0.236).",
+    "trainer": {
+      "cycles_24h": 2,
+      "dataset_builds_ok": 116,
+      "dataset_builds_failed": 0,
+      "manifests_ok": 74,
+      "manifests_skipped": 7,
+      "last_cycle_rc": 0,
+      "registry_models": 92,
+      "stages": {
+        "advisory": 2,
+        "shadow": 28,
+        "candidate": 61,
+        "research_only": 1
+      },
+      "mem_used_mb": 238,
+      "load_1m": 0.14
+    },
+    "backlog_drained": "2 counter-open items re-validated (MB-20260726-XSYMYZ-RANGEVOL-DEAD, MB-20260726-OI-HISTORY-LIMIT)",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "CAUTION (quiet, plumbing-healthy since-last window; nothing new at money-risk). System restarted cleanly 07:44Z onto 52d51dfe (L3 paper-eval merge); services/DB/accounts all healthy, all live accounts reachable, prop reconcile clean. Real money bled small in a chop regime - 1 in-window close (eth_pullback_2h -$3.75, SL, graded D 'should_skip' @ conf 0.21); 7d real -$17.58, PF 0.12, 1W/7L, all SL-appropriate. Paper soak large & isolated (-$4.1k/24h, big paper notionals). ML lifecycle healthy: 2 trainer cycles/24h completing rc=0, 116 builds OK, shadow soaks accruing. Live flags (none money-risk): 3 IB 'no candle data' ALERT banners (MGC/MHG - draft PR #7701 in flight to reclassify severity); heartbeat 'paused' label is a post-restart transient (trader confirmed ticking); prop account-status 7d stale; MES base stale keeps 4 mes-* datasets empty + mes-regime-1d audit-quarantined; promotion-readiness OOM still blocks automated promote packets. Grading ran (18 rows, B9/C8/D1). Backlogs worked to zero untriaged (H:13 P:1 M:2 re-validated).",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "Review/merge draft PR #7701 (IB no-candle-data alert reclassification)",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "3 IB 'no candle data' RuntimeError banners (MGC/MHG) are paging on every gateway cold-flow flap. PR #7701 reclassifies the transient no-data RuntimeError ERROR->WARN (still banner/diag-visible, stops paging); persistent IB outages remain paged by account_reachability_alert. Zero trading-behavior change, 46+13 tests pass. Held for operator review.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "Execute the protected-main autonomous-commit bypass (operator-approved 07-26)",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN: operator granted an Actions-bot bypass 07-26 to push the data paths (gpu-burst spend ledger + FRED valuation snapshots) to protected main. Awaiting execution (needs a branch-protection setting OR a PAT secret value). Blocks the gpu-ledger persistence AND the M28 valuation-snapshot producer.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 3,
+        "title": "Governance call: add layer-guard to REQUIRED_CONTEXTS",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "BL-20260726-LAYER-GUARD-NOT-REQUIRED: the M0a/M0b layering guard enforces its 6 contracts on its own CI job but is NOT a required branch-protection check, so a PR can merge past a broken-layering advisory. Operator decision (could newly-block merges).",
+        "operator_action_required": true
+      },
+      {
+        "rank": 4,
+        "title": "ruff 0.16 adoption cleanup (operator-decided 07-26)",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "BL-20260723-RUFF-016: operator decided 07-26 to bump to ruff 0.16 and clear the ~8228 pre-existing residuals (6558 autofixable). Awaiting the cleanup PR(s); the interim <0.16 pin holds CI green meanwhile.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 5,
+        "title": "MES base staleness keeps blinding the MES ML fleet",
+        "source_review": "ml",
+        "tier": 2,
+        "detail": "BL-20260626-MES-BASE-STALE + BL-20260726-MES-IBKR-PULL: the trainer MES market_raw base is stale, so 4 mes-* datasets build 0 rows and mes-regime-1d-lgbm-v2 is audit-quarantined (dead feature). The MES-IBKR-pull per-timeframe-retry fix (PR #7635) is landed/monitoring; verify a clean pull refreshes the base.",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "IBKR-data-plumbing theme spans health+ml: the same IB-gateway cold-flow flap that fires the MGC/MHG 'no candle data' banners (health) is upstream of the stale MES base that leaves 4 mes-* datasets empty and quarantines mes-regime-1d (ml). One root cause (IBKR deep-history/gateway reliability), two surfaces.",
+      "The one in-window real-money trade graded D (eth_pullback_2h short, conf 0.21, entry 'should_skip') is the exact chop-regime entry-edge whipsaw the regime-router / vol-gate work (PERF-20260601 family, MB vol-head soaks) targets. Small-dollar, SL-appropriate - a known pattern, not a new defect.",
+      "Heartbeat 'paused' label + 12-min uptime + services active_enter 07:44:30 are one event: a clean auto-deploy restart. The 'paused' label is a post-restart heartbeat-writer catch-up artifact, not a stall (trader confirmed ticking)."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": -3.75,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "trades": 1,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": -3.75,
+        "profit_factor": 0.0,
+        "max_drawdown": -3.75,
+        "per_strategy": [
+          {
+            "name": "eth_pullback_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -3.75
+          }
+        ],
+        "per_asset_class": [
+          {
+            "assetClass": "crypto",
+            "trades": 1,
+            "pnl": -3.75
+          }
+        ],
+        "context_7d": {
+          "trades": 8,
+          "wins": 1,
+          "win_rate": 12.5,
+          "pnl": -17.58,
+          "profit_factor": 0.12,
+          "expectancy": -2.2
+        }
+      },
+      "paper": {
+        "window_pnl": -4141.6,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "trades": 7,
+        "wins": 1,
+        "win_rate": 14.3,
+        "expectancy": -591.66,
+        "profit_factor": 0.016,
+        "max_drawdown": -4209.98,
+        "per_strategy": [
+          {
+            "name": "trend_donchian_sol_4h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -2474.23
+          },
+          {
+            "name": "eth_pullback_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -1481.58
+          },
+          {
+            "name": "ict_scalp_xrp_15m",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -152.86
+          },
+          {
+            "name": "pairs_sol_eth_a",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -91.37
+          },
+          {
+            "name": "ict_scalp_xrp_5m",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -8.24
+          },
+          {
+            "name": "pairs_bnb_btc_b",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -1.69
+          },
+          {
+            "name": "ict_scalp_avax_5m",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 68.38
+          }
+        ],
+        "per_asset_class": [
+          {
+            "assetClass": "crypto",
+            "trades": 7,
+            "pnl": -4141.6
+          }
+        ],
+        "note": "Isolated soak book (bybit_1 + portfolio mirrors); large paper notionals - never blended into real-money KPIs."
+      },
+      "prop": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": 0.0,
+        "trend": "flat",
+        "fills_reported": 26,
+        "tickets_emitted": 51,
+        "unacted_tickets": 0,
+        "rule_distance": {
+          "daily_loss_remaining": 144.77,
+          "static_dd_remaining": 125.61,
+          "as_of": "2026-07-20T08:28:32Z",
+          "note": "account-status snapshot 7d stale; no open prop position this window"
+        },
+        "per_account": [
+          {
+            "account": "breakout_1",
+            "balance": 4825.61,
+            "equity": 4825.61
+          }
+        ]
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "ETHUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Candles not separately pulled this ~22h window (token-conservation). Live signal_logic read: ADX-14 48.6 (trending) but vol_regime 'calm' (rolling_log_return_vol 0.0037) - a trending-but-low-vol tape; consistent with the SL-whipsaw on the eth_pullback short."
+      },
+      {
+        "symbol": "BTCUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Chop regime per the weekly (07-26); paper trend_donchian BTC entries this window closed same-tick (netting artifacts, null pnl)."
+      },
+      {
+        "symbol": "MES/MGC/MHG",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "IBKR candle feed intermittently returning no data (gateway cold-flow flap) - the 3 active alert banners; MES base also stale trainer-side."
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": "3926",
+        "order_package_id": "pkg-4c8f0a8f39a04c32",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "ETHUSDT",
+        "direction": "short",
+        "strategy": "eth_pullback_2h",
+        "opened_at": "2026-07-24T08:03:05Z",
+        "closed_at": "2026-07-26T22:00:01Z",
+        "entry_price": 1892.84,
+        "exit_price": 1932.99,
+        "stop_loss": 1932.89,
+        "take_profit": 1706.67,
+        "qty": 0.09,
+        "pnl": -3.75,
+        "pnl_percent": -2.204,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "D"
+        },
+        "signal_logic": {
+          "note": "eth_pullback_2h short @ conf 0.21"
+        },
+        "meta": {
+          "note": "entry=should_skip; exit=sl_appropriate(-1.00R)"
+        },
+        "notable": true
+      },
+      {
+        "trade_id": "3933",
+        "order_package_id": "pkg-3110eef3bb024109",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "short",
+        "strategy": "trend_donchian_sol_4h",
+        "opened_at": "2026-07-24T13:07:40Z",
+        "closed_at": "2026-07-26T23:09:50Z",
+        "entry_price": 74.32,
+        "exit_price": 77.03,
+        "pnl": -2474.23,
+        "pnl_percent": -3.65,
+        "close_reason": "sl_cross",
+        "claude_grade": {
+          "grade": "C"
+        },
+        "meta": {
+          "note": "entry=acceptable; exit=sl_appropriate(-1.05R); large paper notional"
+        },
+        "notable": true
+      },
+      {
+        "trade_id": "3927",
+        "order_package_id": null,
+        "account": "bybit_portfolio",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "short",
+        "strategy": "eth_pullback_2h",
+        "opened_at": "2026-07-24T08:03:06Z",
+        "closed_at": "2026-07-26T22:09:44Z",
+        "entry_price": 1892.84,
+        "exit_price": 1938.19,
+        "pnl": -1481.58,
+        "pnl_percent": -2.4,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": null
+        },
+        "meta": {
+          "note": "paper-portfolio mirror of the bybit_2 eth short; same signal, large notional"
+        },
+        "notable": true
+      },
+      {
+        "trade_id": "4026",
+        "order_package_id": "pkg-79141815d7874704",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "short",
+        "strategy": "ict_scalp_xrp_15m",
+        "opened_at": "2026-07-26T13:56:23Z",
+        "closed_at": null,
+        "entry_price": 1.098,
+        "exit_price": 1.1023,
+        "pnl": -152.86,
+        "pnl_percent": -0.44,
+        "close_reason": "reconciler_filled",
+        "claude_grade": {
+          "grade": "B"
+        },
+        "meta": {
+          "note": "entry=optimal; exit=sl_appropriate(-0.82R)"
+        },
+        "notable": false
+      },
+      {
+        "trade_id": "3921",
+        "order_package_id": "pkg-0e33655be52b423d",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "short",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-07-24T03:01:41Z",
+        "closed_at": "2026-07-26T23:15:02Z",
+        "entry_price": 75.52,
+        "exit_price": 76.85,
+        "pnl": -91.37,
+        "pnl_percent": -1.76,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C"
+        },
+        "meta": {
+          "note": "pairs leg; exit=sl_appropriate(-0.02R)"
+        },
+        "notable": false
+      },
+      {
+        "trade_id": "3871",
+        "order_package_id": "pkg-1a962ce12b0d4ce2",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "pairs_bnb_btc_b",
+        "opened_at": "2026-07-23T08:03:42Z",
+        "closed_at": "2026-07-26T22:01:41Z",
+        "entry_price": 65474.5,
+        "exit_price": 65051.3,
+        "pnl": -1.69,
+        "pnl_percent": -0.65,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": "C"
+        },
+        "meta": {
+          "note": "pairs leg; exit=sl_appropriate(-0.01R)"
+        },
+        "notable": false
+      },
+      {
+        "trade_id": "4033/4031",
+        "order_package_id": null,
+        "account": "bybit_portfolio/bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "sell",
+        "strategy": "trend_donchian",
+        "opened_at": "2026-07-26T22:01:43Z",
+        "closed_at": "2026-07-26T22:01:43Z",
+        "pnl": null,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": null
+        },
+        "meta": {
+          "note": "same-tick open+close, null pnl - reconciler/netting artifacts on the paper book (no P&L impact)"
+        },
+        "notable": false
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 7,
+      "summarized_trades": 0,
+      "rule": "since-last: full dossier per closed trade in window; the single real-money close (3926) + largest paper losses detailed; 2 same-tick paper netting artifacts noted."
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 262,
+        "open": 6,
+        "resolved": 256,
+        "drained": 18
+      },
+      "performance": {
+        "total": 79,
+        "open": 1,
+        "resolved": 78,
+        "drained": 4
+      },
+      "ml": {
+        "total": 94,
+        "open": 0,
+        "resolved": 94,
+        "drained": 2
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "ml",
+        "summary": "SOL trend_vol regime cell authoring (config/regime_policy.yaml) - the unblocked Tier-3 follow-up once SOL advisory head restored (fc-pcv-v2 soak matures ~07-28).",
+        "tier": 3
+      },
+      {
+        "source_review": "ml",
+        "summary": "fc-pcv v2 fresh-data advisory swap: promote btc/sol-regime-15m fc-pcv-v2 over the frozen v1 heads once the soak matures (~07-28) and re-gate-check passes.",
+        "tier": 3
+      },
+      {
+        "source_review": "performance",
+        "summary": "Standing Tier-3 param/cell items (trend_donchian long-only SPX diversification, conviction P4 real-money sizing, pullback trail_mult 5->4) - all previously logged, none newly proposed this window.",
+        "tier": 3
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "BL-20260717-TRAINER-CYCLE-TERM-AT-START",
+        "domain": "health",
+        "category": "verify",
+        "detail": "Trainer cycles now completing (2/24h, rc=0) - the ~90s-termination symptom is NOT reproducing. Resolve after one more clean window.",
+        "since": "2026-07-17",
+        "next_check": "next daily trainer cycle (00:03Z)"
+      },
+      {
+        "item_id": "PB-20260620-001",
+        "domain": "performance",
+        "category": "verify",
+        "detail": "6 intraday ETF cells confirmed producing live paper fills (alpaca_paper 6 open +35/1h). Resolve after one more window of sustained fills.",
+        "since": "2026-07-20",
+        "next_check": "next since-last review"
+      },
+      {
+        "item_id": "MB-20260721-FCPCV-V2-SOAK",
+        "domain": "ml",
+        "category": "awaiting-data",
+        "detail": "btc/sol-regime-15m fc-pcv-v2 fresh-data siblings soaking; gate-check + swap for the frozen v1 advisory heads when mature.",
+        "since": "2026-07-21",
+        "next_check": "~2026-07-28 (soak maturity)"
+      },
+      {
+        "item_id": "REGIME_ML_VERDICT-SOL-ADVISORY",
+        "domain": "ml",
+        "category": "awaiting-data",
+        "detail": "SOL has NO advisory head after the 07-26 drift-demote of fc-pcv-v1; v2 sibling to restore it ~07-28, then SOL trend_vol cell authoring unblocks.",
+        "since": "2026-07-26",
+        "next_check": "~2026-07-28"
+      },
+      {
+        "item_id": "BL-20260726-MES-IBKR-PULL-SERVICE-FAILED",
+        "domain": "health",
+        "category": "verify",
+        "detail": "Per-timeframe-retry fix landed (PR #7635); verify a clean pull refreshes the stale MES base (4 mes-* datasets still empty this cycle).",
+        "since": "2026-07-26",
+        "next_check": "next trainer cycle"
+      },
+      {
+        "item_id": "PROP-STATUS-STALE",
+        "domain": "health",
+        "category": "verify",
+        "detail": "Prop account-status snapshot 7d stale (last 07-20); no open prop position. Watch for a fresh balance report on next prop activity.",
+        "since": "2026-07-20",
+        "next_check": "next prop fill/status report"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "sol-regime-15m-lgbm-fc-pcv-v1",
+            "evidence": "already demoted advisory->shadow 2026-07-26 (drift KS 0.236>0.2 + readiness DEMOTE); zero live-order impact (no SOL trend_vol cell depended on it). v2 sibling soaking as replacement.",
+            "gate": "DEMOTE_SHADOW"
+          }
+        ],
+        "summary": "Mostly HOLD this window. No strategy met a promote gate; the only demotion (sol-regime fc-pcv-v1) already executed 07-26. Automated promotion-readiness packets remain blocked by the oos_edge OOM (weekly-flagged) - promotion decisions are running manually off drift + gate-checks. Next scheduled ML gate: fc-pcv-v2 advisory swap ~07-28."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 2,
+        "dataset_builds_ok": 116,
+        "dataset_builds_failed": 0,
+        "manifests_ok": 74,
+        "manifests_skipped": 7,
+        "failing_or_stuck": "None. 7 skipped = 4 mes-* datasets built 0 rows (MES base stale, BL-20260626) + mes-regime-1d-lgbm-v2 audit-quarantined (dead feature, guard working as designed) + exit-policy/mes-execution-quality empty datasets. NO manifest_quarantine_tripped (no single-manifest OOM this cycle).",
+        "summary": "Healthy & progressing. Last cycle rc=0 (cycle_end 05:34Z), DB sync live->trainer OK (00:39Z), trainer VM relaxed (mem 238MB used, load 0.14). The trainer-cycle-termination concern (BL-20260717) is NOT reproducing - cycles complete."
+      },
+      "soak_status": [
+        {
+          "soak": "Shadow regime heads (btc/eth/sol 5m variants) accruing ~5300",
+          "state": "accruing",
+          "detail": "Shadow regime heads (btc/eth/sol 5m variants) accruing ~5300-5700 preds each, last_seen 07:54Z - actively scoring, no stall."
+        },
+        {
+          "soak": "conviction-meta-v1 + setup-quality heads 5263 preds each, la",
+          "state": "accruing",
+          "detail": "conviction-meta-v1 + setup-quality heads 5263 preds each, last_seen 05:57Z - accruing."
+        },
+        {
+          "soak": "fc-geometry soak 146 rows, exit-ladder soak 267 rows",
+          "state": "growing",
+          "detail": "fc-geometry soak 146 rows, exit-ladder soak 267 rows - growing steadily."
+        },
+        {
+          "soak": "fc-pcv v2 advisory-candidate soak maturing toward the ~07-28",
+          "state": "maturing",
+          "detail": "fc-pcv v2 advisory-candidate soak maturing toward the ~07-28 gate-check."
+        },
+        {
+          "soak": "No soak stalled; none met-but-unactioned (fc-pcv-v2 is the n",
+          "state": "maturing",
+          "detail": "No soak stalled; none met-but-unactioned (fc-pcv-v2 is the next due, still maturing)."
+        }
+      ],
+      "flags_raised": [
+        "3 IB 'no candle data' ALERT banners active (MGC/MHG, IBKR) - known cold-flow flap; draft PR #7701 in flight to reclassify severity. Not a money-loss risk; IB clients confirmed connected/not-wedged.",
+        "Real-money 7d PF 0.12 (1W/7L, -7.58) - chop-regime entry-edge whipsaw; the one in-window close graded D (should_skip, conf 0.21). Small dollars, SL-appropriate. Watch; addressed by ongoing regime/vol-gate work.",
+        "Heartbeat 'paused' label - post-restart transient (services restarted 07:44:30Z, trader confirmed ticking tick_age 75s). Verify it clears next cycle.",
+        "MES base stale -> 4 mes-* datasets empty + mes-regime-1d audit-quarantined; MES ML fleet blinded (BL-20260626).",
+        "Trainer promotion-readiness oos_edge OOM still blocks automated readiness packets (weekly-flagged; promote decisions running manually).",
+        "Prop account-status 7d stale (last 07-20); reconcile clean, no open prop position - minor."
+      ],
+      "account_reachability": {
+        "checked": [
+          "bybit_2 (real)",
+          "bybit_1",
+          "bybit_portfolio",
+          "ib_paper",
+          "alpaca_paper",
+          "alpaca_portfolio",
+          "alpaca_options_paper"
+        ],
+        "down": [],
+        "summary": "All declared-live probeable accounts reachable (api_ok true; bybit_2 real 1 open position). Zero down. Excluded: breakout_1 (api-less prop bridge), ib_live/alpaca_live/oanda_practice (dry/shelved)."
+      },
+      "backlog_drive": {
+        "health": {
+          "open_at_start": 13,
+          "triaged": 13,
+          "count_untriaged": 0,
+          "drained": [],
+          "deferred": [
+            "6 partially-resolved carried w/ fresh 07-27 re-validation (RECONCILER-PAPER-ARTIFACT, BL-20260527-003, GPU-BURST-LEDGER-PUSH-RACE, TRAINER-CYCLE-TERM (downgrade candidate), WORKFLOW-COMMIT-TO-PROTECTED-MAIN (op-approved, awaiting exec), RUFF-016 (op-decided, awaiting cleanup))",
+            "2 fix_landed_monitoring (MES-IBKR-PULL, CLAUDE-PING-INBOX)",
+            "5 BL-20260726 kept as tracked follow-ups (SMOKE-NONETYPE=harness/no-live-impact, FRED-SILENT-SWALLOW=src Tier-1 nit, CONSUMER-DISPLAY-GAPS=feature, M27-CHANGELOG-BACKFILL=config, WEBAPI-VERCEL-COMMENT=op unit-file, BRANCH-PROTECTION-DOC=forward-annotate not rewrite-history)"
+          ]
+        },
+        "performance": {
+          "open_at_start": 1,
+          "triaged": 1,
+          "count_untriaged": 0,
+          "drained": [],
+          "deferred": [
+            "PB-20260620-001: ETF paper fills confirmed active this pull; keep 1 more window then resolve"
+          ]
+        },
+        "ml": {
+          "open_at_start": 2,
+          "triaged": 2,
+          "count_untriaged": 0,
+          "drained": [],
+          "deferred": [
+            "MB-20260726-XSYMYZ-RANGEVOL-DEAD: audit-guard confirmed enforcing (mes-regime-1d quarantined); trainer-side data fix",
+            "MB-20260726-OI-HISTORY-LIMIT: data-source depth limit, research follow-up"
+          ]
+        },
+        "summary": "All 16 counter-open items across the three backlogs re-validated against this session's live pull (count_untriaged=0). No new resolutions this window - every open item is genuinely soaking, awaiting a focused/operator follow-up, or an operator-approved action awaiting execution; each carries a 07-27 note with its blocker. No fixable-in-scope bug was left as a post-it (BRANCH-PROTECTION-DOC deliberately kept as forward-annotate to avoid corrupting a historical sprint log)."
+      }
+    },
+    "services": [
+      {
+        "unit": "ict-trader-live.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "Mon 2026-07-27 07:44:30 UTC"
+      },
+      {
+        "unit": "ict-web-api.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "Mon 2026-07-27 07:44:32 UTC"
+      }
+    ]
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260727T081005Z/report.json",
+    "html_path": "comms/reports/since-last/20260727T081005Z/report.html",
+    "md_path": "comms/reports/since-last/20260727T081005Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260727T081005Z/report.html",
+    "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260727-081005-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "pending (send-ping at deliver step)",
+    "priority": "normal",
+    "message": "[system-report:since-last] roll-up caution: H:caution P:caution M:caution. https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260727-081005-since-last"
+  }
+}

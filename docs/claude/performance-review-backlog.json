@@ -1436,6 +1436,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull; carried (snoozed/deferred state confirmed still applicable, no regression this window)."
+        },
+        {
+          "at": "2026-07-27T08:05:00+00:00",
+          "by": "system-review-since-last-2026-07-27",
+          "action": "partially-resolved",
+          "note": "Re-validated 07-27: the 6 intraday ETF cells ARE producing live paper fills \u2014 alpaca_paper shows 6 open positions with delta_1h +$135.55 and alpaca_portfolio 5 open (+$131.23) this pull, both api_ok. Fills confirmed active; keep one more window then resolve."
         }
       ]
     },
@@ -2086,5 +2092,5 @@
       "source": "S-M27-P0-BATCH1-2026-07-20 (Batch-3 continuation)"
     }
   ],
-  "updated_at": "2026-07-26T07:05:00+00:00"
+  "updated_at": "2026-07-27T08:05:00+00:00"
 }
