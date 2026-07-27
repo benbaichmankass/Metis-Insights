@@ -843,3 +843,122 @@ def test_load_live_trades_old_schema_no_account_class(tmp_path):
 
     out = _load_live_trades(db, "BTCUSDT")
     assert [r["pnl"] for r in out] == [10.0]  # demo excluded, real kept, no crash
+
+
+# -----------------------------------------------------------------------------
+# L3 paper-book eval population (include_paper) — a DISTINCT, TAGGED population
+# NEVER blended into the real-money eval side of split_live_holdout.
+# -----------------------------------------------------------------------------
+
+def _seed_trades_funding(
+    db: Path,
+    entries: list[tuple[str, str, float, int, str | None]],
+) -> None:
+    """entries = [(iso_ts, direction, pnl, is_demo, account_class), ...].
+
+    Seeds a trades table carrying the funding-class columns so the paper cohort
+    can be distinguished: real_money, paper(is_demo=1), and the paper seam
+    (account_class='paper', is_demo=0). All rows are closed non-backtest BTCUSDT.
+    """
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "CREATE TABLE trades (id INTEGER PRIMARY KEY, symbol TEXT, direction TEXT, "
+        "timestamp TEXT, status TEXT, pnl REAL, pnl_percent REAL, "
+        "is_backtest INT, is_demo INT, account_class TEXT)"
+    )
+    for i, (ts, direction, pnl, dem, ac) in enumerate(entries):
+        conn.execute(
+            "INSERT INTO trades VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (i, "BTCUSDT", direction, ts, "closed", pnl, pnl / 100.0, 0, dem, ac),
+        )
+    conn.commit()
+    conn.close()
+
+
+def test_load_live_trades_include_paper_tags_cohorts(tmp_path):
+    """`include_paper=True` returns the real cohort (is_paper=False) AND the full
+    paper cohort (is_paper=True) — both is_demo=1 and the account_class='paper'
+    seam; default (include_paper=False) returns real only, tagged is_paper=False."""
+    from ml.datasets.families.setup_candidates import _load_live_trades
+
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    _seed_trades_funding(db, [
+        ((base + timedelta(hours=40)).isoformat(), "buy", 10.0, 0, "real_money"),
+        ((base + timedelta(hours=80)).isoformat(), "buy", 20.0, 1, "paper"),
+        ((base + timedelta(hours=120)).isoformat(), "buy", 30.0, 0, "paper"),  # seam
+    ])
+    # Default: real only, stamped is_paper=False (byte-for-byte the old loader).
+    real_only = _load_live_trades(db, "BTCUSDT")
+    assert [r["pnl"] for r in real_only] == [10.0]
+    assert all(r["is_paper"] is False for r in real_only)
+    # include_paper: real + BOTH paper rows, tagged.
+    both = _load_live_trades(db, "BTCUSDT", include_paper=True)
+    real = [r for r in both if not r["is_paper"]]
+    paper = [r for r in both if r["is_paper"]]
+    assert [r["pnl"] for r in real] == [10.0]
+    assert sorted(r["pnl"] for r in paper) == [20.0, 30.0]  # both paper admitted
+
+
+def test_include_paper_emits_tagged_live_paper_rows(tmp_path: Path):
+    """iter_rows(include_paper=True): paper trades emit event_source='live_paper'
+    + is_live_trade=False; the real trade stays event_source='live' +
+    is_live_trade=True (a) + (c)."""
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    _seed_trades_funding(db, [
+        ((base + timedelta(hours=40)).isoformat(), "buy", 10.0, 0, "real_money"),
+        ((base + timedelta(hours=80)).isoformat(), "buy", 20.0, 1, "paper"),
+        ((base + timedelta(hours=120)).isoformat(), "buy", 30.0, 0, "paper"),  # seam
+    ])
+    rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db, include_paper=True,
+    ))
+    real = [r for r in rows if r["event_source"] == "live"]
+    paper = [r for r in rows if r["event_source"] == "live_paper"]
+    assert len(real) == 1
+    assert len(paper) == 2  # both paper rows (is_demo=1 AND the account_class seam)
+    # Real: eval-side of the real-money holdout.
+    assert real[0]["is_live_trade"] is True
+    # Paper: NEVER on the real-money eval side — is_live_trade must be False.
+    for r in paper:
+        assert r["is_live_trade"] is False
+        assert r["barrier_touched"] == "live"
+        assert r["signal_vol"] > 0  # same past-only feature space as real rows
+
+
+def test_include_paper_false_emits_no_paper_rows(tmp_path: Path):
+    """Default (include_paper=False): NO paper rows are emitted, and the
+    real-money eval population is byte-for-byte unchanged vs include_paper=True's
+    real rows (b) + (c) — the never-blended contract."""
+    closes = _trending_closes()
+    ddir = _write_market_raw(tmp_path, closes)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db = tmp_path / "trade_journal.db"
+    entries = [
+        ((base + timedelta(hours=40)).isoformat(), "buy", 10.0, 0, "real_money"),
+        ((base + timedelta(hours=80)).isoformat(), "buy", 20.0, 1, "paper"),
+        ((base + timedelta(hours=120)).isoformat(), "buy", 30.0, 0, "paper"),
+    ]
+    _seed_trades_funding(db, entries)
+    default_rows = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db,  # include_paper defaults False
+    ))
+    # No paper rows at all under the default.
+    assert not any(r["event_source"] == "live_paper" for r in default_rows)
+    assert not any(r["is_live_trade"] is False and r["barrier_touched"] == "live"
+                   for r in default_rows)
+    real_default = [r for r in default_rows if r["event_source"] == "live"]
+    assert len(real_default) == 1  # only the one real trade
+
+    # The real-money 'live' rows are IDENTICAL whether or not paper is included.
+    with_paper = list(SetupCandidatesBuilder().iter_rows(
+        market_raw_path=ddir, vol_window_n=10, max_holding=8,
+        cusum_threshold_mult=0.5, live_trades_db=db, include_paper=True,
+    ))
+    real_with = [r for r in with_paper if r["event_source"] == "live"]
+    assert real_default == real_with  # byte-for-byte unchanged real-money eval

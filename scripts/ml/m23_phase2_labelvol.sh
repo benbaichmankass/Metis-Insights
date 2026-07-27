@@ -40,6 +40,11 @@ RUN_TAG="${RUN_TAG:-m23-p2-$(date +%Y%m%d 2>/dev/null || echo 20260719)}"
 RESULT="${RESULT:-/tmp/m23_p2_result.txt}"
 SYMBOLS=(BTCUSDT ETHUSDT SOLUSDT)
 MR_VER="${MR_VER:-v002}"
+# L3 paper-book eval population — OFF by default (byte-for-byte the real-only
+# build). Set INCLUDE_PAPER=true to ALSO emit the PAPER cohort as a distinct,
+# tagged (event_source="live_paper") population for the paper-eval manifest;
+# NEVER blended into the real-money eval (see setup_candidates.py::iter_rows).
+INCLUDE_PAPER="${INCLUDE_PAPER:-false}"
 
 : > "$RESULT"
 log() { echo "[$(date -u +%H:%M:%S 2>/dev/null || echo m23p2)] $*" | tee -a "$RESULT"; }
@@ -191,7 +196,8 @@ build_pool() {
   python3 -m ml.datasets build setup_candidates --output-dir datasets-out \
     --version "$ver" --source market_raw --symbol-scope all --timeframe all --overwrite -- \
     "market_raw_paths=$MR_PATHS" "backtest_trades_db=$BT_DB" \
-    "live_trades_db=$LIVE_JOURNAL" "include_cusum=false" "$@" >>"$RESULT" 2>&1
+    "live_trades_db=$LIVE_JOURNAL" "include_cusum=false" \
+    "include_paper=$INCLUDE_PAPER" "$@" >>"$RESULT" 2>&1
   python3 - "datasets-out/setup_candidates/all/all/$ver/data.jsonl" <<'PY' 2>&1 | tee -a "$RESULT"
 import json, sys, collections
 try:

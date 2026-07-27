@@ -198,8 +198,10 @@ def _load_market_raw_rows(market_raw_path: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
-    """REAL closed (non-backtest, real-money) trades for one symbol.
+def _load_live_trades(
+    db_path: Path | str, symbol: str, *, include_paper: bool = False,
+) -> list[dict[str, Any]]:
+    """REAL closed (non-backtest) trades for one symbol, tagged by funding class.
 
     The held-out real population for the domain-shift eval (S-MLOPT-S6). The
     real-vs-paper filter is **account_class-authoritative with an is_demo
@@ -211,11 +213,21 @@ def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
     journal missing the `account_class` column (old fixtures / a
     migration-behind copy) degrades to the legacy is_demo-only filter. Returns
     `{entry_ts, direction(±1), pnl, pnl_percent, entry_price, stop_loss,
-    position_size}` newest-first — the last three are the risk columns the live
-    rows' realized-R is reconstructed from (`MB-20260717-M23-LIVEROW-REALIZED-R`);
+    position_size, is_paper}` — the risk columns are what the live rows'
+    realized-R is reconstructed from (`MB-20260717-M23-LIVEROW-REALIZED-R`);
     they serialize as `None` on a pre-schema DB (old fixtures / a journal missing
     those columns) so callers fall back to a coarse unit-R. Best-effort: a
     missing DB / table returns `[]`.
+
+    ``include_paper`` (L3 paper-book eval population) — when True, ALSO run a
+    SECOND query for the PAPER cohort (the complement of the real filter:
+    `account_class='paper' OR is_demo=1`, soak books included) and stamp each
+    paper dict ``is_paper: True``; real rows are stamped ``is_paper: False``.
+    This admits paper trades as a **DISTINCT, TAGGED** population — the caller
+    emits them with `event_source="live_paper"` + `is_live_trade=False`, so they
+    are NEVER blended into the real-money eval side of `split_live_holdout`. The
+    default (``include_paper=False``) is byte-for-byte the old real-only loader:
+    only real rows, each stamped ``is_paper: False``.
     """
     path = Path(db_path)
     if not path.exists():
@@ -257,22 +269,51 @@ def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
             db_rows = conn.execute(sql, (symbol,)).fetchall()
         except sqlite3.OperationalError:
             return []
+        # PAPER cohort (L3 paper-book eval population). The complement of the
+        # real predicate above: a row is paper iff account_class IS 'paper' OR
+        # is_demo is 1 (ALL paper admitted — soak books included). Same
+        # PRAGMA-guarded account_class tolerance (an old-schema journal degrades
+        # to the is_demo-only paper predicate), same status/backtest/pnl/symbol
+        # filters, same best-effort posture. Only run when include_paper=True so
+        # the default path is byte-for-byte the old real-only loader.
+        paper_rows: list[Any] = []
+        if include_paper:
+            paper_pred = (
+                "(COALESCE(account_class,'')='paper' OR COALESCE(is_demo,0)=1)"
+                if "account_class" in have
+                else "COALESCE(is_demo,0)=1"
+            )
+            paper_sql = (
+                f"SELECT {', '.join(select_cols)} FROM trades "
+                "WHERE status='closed' AND COALESCE(is_backtest,0)=0 "
+                f"AND {paper_pred} "
+                "AND symbol=? AND pnl IS NOT NULL "
+                "ORDER BY timestamp"
+            )
+            try:
+                paper_rows = conn.execute(paper_sql, (symbol,)).fetchall()
+            except sqlite3.OperationalError:
+                paper_rows = []
     finally:
         conn.close()
     out: list[dict[str, Any]] = []
-    for r in db_rows:
-        side = str(r["direction"] or "").lower()
-        direction = -1 if side in ("sell", "short", "-1") else 1
-        keys = r.keys()
-        out.append({
-            "entry_ts": str(r["timestamp"] or ""),
-            "direction": direction,
-            "pnl": r["pnl"],
-            "pnl_percent": r["pnl_percent"],
-            "entry_price": r["entry_price"] if "entry_price" in keys else None,
-            "stop_loss": r["stop_loss"] if "stop_loss" in keys else None,
-            "position_size": r["position_size"] if "position_size" in keys else None,
-        })
+    for group, is_paper in ((db_rows, False), (paper_rows, True)):
+        for r in group:
+            side = str(r["direction"] or "").lower()
+            direction = -1 if side in ("sell", "short", "-1") else 1
+            keys = r.keys()
+            out.append({
+                "entry_ts": str(r["timestamp"] or ""),
+                "direction": direction,
+                "pnl": r["pnl"],
+                "pnl_percent": r["pnl_percent"],
+                "entry_price": r["entry_price"] if "entry_price" in keys else None,
+                "stop_loss": r["stop_loss"] if "stop_loss" in keys else None,
+                "position_size": (
+                    r["position_size"] if "position_size" in keys else None
+                ),
+                "is_paper": is_paper,
+            })
     return out
 
 
@@ -608,13 +649,19 @@ class SetupCandidatesBuilder(DatasetBuilder):
         # real-vs-synthetic split flag (domain-shift discipline)
         "is_live_trade": bool,
         # which sampler emitted this row: 'cusum' / 'signal_log' / 'backtest' /
-        # 'live'. ``cusum`` + ``signal_log`` carry synthetic triple-barrier
-        # labels; ``backtest`` carries a harness's real-execution outcome
-        # (S-MLOPT-S6-FU-2) — all three ride the TRAIN side of ``live_holdout``
-        # (``is_live_trade=False``). ``live`` carries the real PnL outcome and
-        # is the only eval side. Added MB-20260603-002 (S-MLOPT-S6 follow-up)
-        # so the meta-label can be re-evaluated when the training distribution
-        # matches real setups instead of CUSUM momentum events.
+        # 'live' / 'live_paper'. ``cusum`` + ``signal_log`` carry synthetic
+        # triple-barrier labels; ``backtest`` carries a harness's real-execution
+        # outcome (S-MLOPT-S6-FU-2) — all three ride the TRAIN side of
+        # ``live_holdout`` (``is_live_trade=False``). ``live`` carries the real
+        # (real-money) PnL outcome and is the only eval side of the real-money
+        # holdout. ``live_paper`` (L3 paper-book eval population) carries a
+        # PAPER-account trade's real PnL outcome and is ALSO
+        # ``is_live_trade=False`` — a DISTINCT, TAGGED population NEVER blended
+        # into the real-money eval; a dedicated paper manifest holds it out via
+        # ``live_flag_column: event_source`` + ``live_flag_true_value:
+        # live_paper``. Added MB-20260603-002 (S-MLOPT-S6 follow-up) so the
+        # meta-label can be re-evaluated when the training distribution matches
+        # real setups instead of CUSUM momentum events.
         "event_source": str,
     }
 
@@ -634,6 +681,7 @@ class SetupCandidatesBuilder(DatasetBuilder):
         include_synthetic: bool = True,
         include_cusum: bool | None = None,
         live_trades_db: Path | str | None = None,
+        include_paper: bool = False,
         signal_log_db: Path | str | None = None,
         signal_log_strategies: tuple[str, ...] | list[str] | str | None = None,
         signal_log_sides: tuple[str, ...] | list[str] | str | None = None,
@@ -679,6 +727,17 @@ class SetupCandidatesBuilder(DatasetBuilder):
         ``backtest`` row's ``r_multiple`` BEFORE computing its ``won_r``, correcting
         the harness's idealized-cost/exit optimism (the ~0.6R barrier-vs-live gap)
         so the TRAIN label matches live-like R. Live (eval) rows are never haircut.
+
+        ``include_paper`` (L3 paper-book eval population) — OFF by default. When
+        True, ``live_trades_db``'s PAPER closed trades (ALL paper, soak books
+        included) are ALSO emitted, tagged ``event_source="live_paper"`` +
+        ``is_live_trade=False``. They are a DISTINCT population NEVER blended
+        into the real-money eval: because they carry ``is_live_trade=False`` they
+        can never land on the real-money eval side of ``split_live_holdout``
+        (which holds out ``is_live_trade`` truthy rows); a dedicated paper
+        manifest instead holds them out via ``live_flag_column: event_source`` +
+        ``live_flag_true_value: live_paper``. The default emits only the
+        real-money ``live`` rows — byte-for-byte the pre-L3 behaviour.
         """
         if vol_window_n < 2:
             raise ValueError(f"vol_window_n must be >= 2; got {vol_window_n}")
@@ -728,6 +787,7 @@ class SetupCandidatesBuilder(DatasetBuilder):
                 cusum_threshold_mult=cusum_threshold_mult,
                 n_vol_buckets=n_vol_buckets, include_cusum=emit_cusum,
                 live_trades_db=live_trades_db,
+                include_paper=include_paper,
                 signal_log_db=signal_log_db,
                 signal_log_strategies=strat_tuple,
                 signal_log_sides=sides_tuple,
@@ -756,6 +816,7 @@ class SetupCandidatesBuilder(DatasetBuilder):
         n_vol_buckets: int,
         include_cusum: bool,
         live_trades_db: Path | str | None,
+        include_paper: bool = False,
         signal_log_db: Path | str | None = None,
         signal_log_strategies: tuple[str, ...] | None = None,
         signal_log_sides: tuple[str, ...] = ("buy", "sell"),
@@ -944,7 +1005,9 @@ class SetupCandidatesBuilder(DatasetBuilder):
         if live_trades_db is not None:
             symbol = str(rows[0].get("symbol", "")) if rows else ""
             bar_ts = [str(r.get("ts", "")) for r in rows]  # already sorted
-            for tr in _load_live_trades(live_trades_db, symbol):
+            for tr in _load_live_trades(
+                live_trades_db, symbol, include_paper=include_paper,
+            ):
                 e = _bar_index_at_or_before(bar_ts, tr["entry_ts"])
                 if e is None:
                     continue
@@ -961,6 +1024,13 @@ class SetupCandidatesBuilder(DatasetBuilder):
                 # (MB-20260717-M23-LIVEROW-REALIZED-R). Falls back to signed
                 # unit-R when the risk columns are absent.
                 r_multiple, r_source = _live_realized_r(tr, won)
+                # L3 paper-book eval population: a PAPER trade is a DISTINCT,
+                # TAGGED population — event_source="live_paper" +
+                # is_live_trade=FALSE so it can NEVER land on the real-money
+                # eval side of split_live_holdout (which holds out is_live_trade
+                # truthy rows). Real-money rows keep event_source="live" +
+                # is_live_trade=True. include_paper=False emits only real rows.
+                is_paper = bool(tr.get("is_paper"))
                 yield {
                     **_feature_fields(rows, e, log_returns, vol,
                                       boundaries, bucket_labels, momentum_window,
@@ -975,6 +1045,6 @@ class SetupCandidatesBuilder(DatasetBuilder):
                     "r_multiple_source": r_source,
                     "ret": ret,
                     "holding_bars": 0,
-                    "is_live_trade": True,
-                    "event_source": "live",
+                    "is_live_trade": not is_paper,
+                    "event_source": "live_paper" if is_paper else "live",
                 }
