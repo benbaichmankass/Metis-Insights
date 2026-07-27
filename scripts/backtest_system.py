@@ -53,7 +53,7 @@ import hashlib
 import json
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -535,6 +535,16 @@ class _Position:
     notional: float
     regime: Any = None        # ADX trend regime at entry (cell attribution)
     vol_regime: Any = None    # vol_regime at entry (frozen or ML, per --vol-verdict)
+    confidence: float = 0.0   # decision-time strategy confidence (c_strat) at entry
+    entry_sl: Optional[float] = None  # entry-time stop, kept for R-normalized excursions
+                                      # (pos.sl is trailed by monitor; this is not)
+
+    def __post_init__(self) -> None:
+        # Snapshot the entry-time stop once; pos.sl is later trailed by the
+        # owner's monitor, but 1R for the excursion outcomes is defined against
+        # the ENTRY stop.
+        if self.entry_sl is None:
+            self.entry_sl = self.sl
 
 
 @dataclass
@@ -552,6 +562,16 @@ class _ClosedTrade:
     bars_held: int
     regime: Any = None
     vol_regime: Any = None
+    # M30 · C1-for-backtests thread — decision-time facts + candle-window
+    # indices so build_backtest_panel's backtest_system adapter can extract the
+    # SAME feature vector component_vector reads and slice the held-window bars
+    # for native MFE/MAE excursions. Populated on close; the summary/PnL math
+    # never reads them (purely additive).
+    entry_idx: Optional[int] = None
+    exit_idx: Optional[int] = None
+    sl: Optional[float] = None   # entry-time stop (for R-normalized excursions)
+    meta: dict = field(default_factory=dict)
+    confidence: Optional[float] = None
 
 
 def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
@@ -797,7 +817,9 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
             owner=p.owner, side=p.side, entry_ts=p.entry_ts, exit_ts=ts_i,
             entry=p.entry, exit=price, qty=p.qty, pnl=pnl, fee=fee,
             reason=reason, bars_held=idx_i - p.entry_idx,
-            regime=p.regime, vol_regime=p.vol_regime))
+            regime=p.regime, vol_regime=p.vol_regime,
+            entry_idx=p.entry_idx, exit_idx=idx_i, sl=p.entry_sl, meta=p.meta,
+            confidence=p.confidence))
 
     for i in range(n):
         # refresh per-day loss budget
@@ -951,7 +973,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                                     tp=row["tp"], owner=win_name, entry_ts=ts.iloc[i],
                                     entry_idx=i, meta=json.loads(row["meta_json"]),
                                     notional=qty * fill,
-                                    regime=regime_label, vol_regime=bar_vol_regime)
+                                    regime=regime_label, vol_regime=bar_vol_regime,
+                                    confidence=float(row.get("confidence", 0.0) or 0.0))
             elif (
                 pos is not None and pos.side == des_side
                 and reentry_policy == "net" and not daily_halted
@@ -977,6 +1000,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                     pos.tp = float(row["tp"])   # each new entry (one-way mode)
                     pos.owner = win_name
                     pos.notional = new_qty * fill
+                    pos.confidence = float(row.get("confidence", 0.0) or 0.0)
             elif pos is not None and pos.side != des_side and not daily_halted:
                 # opposite net desire — behaviour governed by flip_policy:
                 #   "reverse" (default/live-faithful): close current + open the
@@ -1006,7 +1030,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                                             entry_ts=ts.iloc[i], entry_idx=i,
                                             meta=json.loads(row["meta_json"]),
                                             notional=qty * fill,
-                                            regime=regime_label, vol_regime=bar_vol_regime)
+                                            regime=regime_label, vol_regime=bar_vol_regime,
+                                            confidence=float(row.get("confidence", 0.0) or 0.0))
 
         eq = balance + _unrealized(pos, c[i])
         equity_high = max(equity_high, eq)
@@ -1069,6 +1094,11 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         # byte-for-byte unchanged.
         summary["full_equity_curve"] = equity_curve
         summary["closed_trades"] = closed
+        # M30 · C1-for-backtests — the clock-tf candle frame that _ClosedTrade's
+        # entry_idx/exit_idx index into, so build_backtest_panel can slice the
+        # held-window bars for native MFE/MAE excursions. Additive; the CLI/JSON
+        # output is unaffected (attach_full is never set there).
+        summary["clock_frame"] = clock
     return summary
 
 
