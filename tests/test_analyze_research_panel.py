@@ -260,6 +260,39 @@ def test_regression_r_outcome_linear():
     assert "oos_r2" in reg["cv"]
 
 
+def test_regression_drops_null_time_rows():
+    pytest.importorskip("numpy")
+    if not tk._SPLITTERS_OK:
+        pytest.skip("splitters unavailable")
+    rows = _make_rows(240)
+    # A real book carries some rows with no resolvable close time; they cannot
+    # be chronologically ordered for the purged CV and must be dropped, not
+    # crash it (the end-to-end smoke that caught this).
+    for r in rows[:30]:
+        r["closed_at"] = None
+    reg = tk.regression_and_importance(
+        rows, _feature_cols(), outcome="win", cv_folds=5, min_train_fraction=0.5,
+        label_horizon=1, embargo_fraction=0.02, perm_repeats=3, seed=1729,
+    )
+    assert reg["computed"], reg.get("note")
+    assert reg["cv"]["dropped_null_time"] == 30
+    assert reg["cv"]["cv_rows"] == 210
+
+
+def test_regression_all_null_time_is_honest():
+    pytest.importorskip("numpy")
+    if not tk._SPLITTERS_OK:
+        pytest.skip("splitters unavailable")
+    rows = _make_rows(240)
+    for r in rows:
+        r["closed_at"] = None
+    reg = tk.regression_and_importance(
+        rows, _feature_cols(), outcome="win", cv_folds=5, min_train_fraction=0.5,
+        label_horizon=1, embargo_fraction=0.02, perm_repeats=3, seed=1,
+    )
+    assert reg["computed"] is False and "null-time" in reg["note"]
+
+
 def test_regression_too_few_rows_is_honest():
     pytest.importorskip("numpy")
     rows = _make_rows(8)

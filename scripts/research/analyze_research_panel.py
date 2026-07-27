@@ -547,10 +547,29 @@ def regression_and_importance(
     is_logistic = outcome == "win"
     config = _cv_config(cv_folds, min_train_fraction, label_horizon, embargo_fraction)
 
+    # The purged/embargoed WF-CV orders rows by ``closed_at``; a row with no
+    # close time cannot be placed on that axis (and the canonical splitter's
+    # sort key chokes on a None), so drop null-time rows from the CV set with an
+    # honest count. Full-sample coefficients below still use every kept row.
+    time_col = config["time_column"]
+
+    def _has_time(r: Dict[str, Any]) -> bool:
+        v = r.get(time_col)
+        return v is not None and str(v).strip() != ""
+
+    cv_rows = [r for r in kept if _has_time(r)]
+    dropped_null_time = len(kept) - len(cv_rows)
+    if len(cv_rows) < max(20, 5 * n_feat):
+        return _not_computed(
+            f"only {len(cv_rows)} rows carry a usable '{time_col}' for the "
+            f"purged CV ({dropped_null_time} dropped as null-time) — too few "
+            f"for a stable out-of-sample fit"
+        )
+
     # ---- OOS metric + permutation importance across purged folds -----------
     rng = _np.random.default_rng(seed)
     try:
-        folds = iter_folds(kept, config)
+        folds = iter_folds(cv_rows, config)
     except Exception as exc:  # noqa: BLE001
         return _not_computed(f"CV produced no usable folds: {exc}")
 
@@ -641,6 +660,8 @@ def regression_and_importance(
             "strategy": "purged_walk_forward",
             "folds_requested": cv_folds,
             "folds_usable": usable_folds,
+            "cv_rows": len(cv_rows),
+            "dropped_null_time": dropped_null_time,
             "min_train_fraction": min_train_fraction,
             "label_horizon": label_horizon,
             "embargo_fraction": embargo_fraction,
