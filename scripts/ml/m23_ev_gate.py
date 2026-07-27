@@ -69,6 +69,12 @@ def main() -> int:
     ap.add_argument("--model-state", default=None)
     ap.add_argument("--cost-r", type=float, default=0.05,
                     help="per-trade roundtrip cost in R subtracted from each selected trade")
+    ap.add_argument("--population", choices=("live", "live_paper"), default="live",
+                    help="which held-out cohort to score. 'live' (default) = the "
+                         "real-money eval rows (is_live_trade=True) — byte-for-byte "
+                         "the historical behaviour. 'live_paper' = the L3 PAPER-book "
+                         "cohort (event_source=='live_paper'), a DISTINCT population "
+                         "NEVER blended into the real-money EV gate.")
     ap.add_argument("--raw-score", action="store_true",
                     help="the model outputs a raw score (e.g. predicted R from a "
                          "regression head), NOT a [0,1] probability: skip the [0,1] "
@@ -82,7 +88,10 @@ def main() -> int:
     predictor = Evaluator._resolve_predictor(model_state)
     print(f"model_state: {ms_path}")
 
-    # Load the REAL holdout rows (is_live_trade=True) with a score + R outcome.
+    # Load the held-out cohort rows (per --population) with a score + R outcome.
+    # 'live' (default): the real-money rows (is_live_trade=True) — byte-for-byte
+    # the historical filter. 'live_paper': the L3 paper cohort
+    # (event_source=='live_paper'), a distinct population never blended in.
     scored: list[tuple[float, int, float, bool]] = []  # (prob, won, r, r_is_fallback)
     n_r_fallback = 0
     with open(args.data) as fh:
@@ -91,7 +100,10 @@ def main() -> int:
             if not line:
                 continue
             row = json.loads(line)
-            if not bool(row.get("is_live_trade")):
+            if args.population == "live_paper":
+                if row.get("event_source") != "live_paper":
+                    continue
+            elif not bool(row.get("is_live_trade")):
                 continue
             if row.get("won") is None:
                 continue
