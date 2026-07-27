@@ -327,6 +327,11 @@ jobs:
                 description: 'Triggers ict-scalp-backtest workflow — self-contained pre-live gate for the ict_scalp_5m strategy.',
               },
               {
+                name: 'research-panel-build-request',
+                color: '0075ca',
+                description: 'Triggers research-panel-build workflow — self-contained M30 backtest-substrate panel build on a GH runner (fetch feed + build + C2 sweep + per-regime).',
+              },
+              {
                 name: 'set-diag-token',
                 color: 'b60205',
                 description: 'Triggers set-diag-token workflow — push the DIAG_READ_TOKEN repo secret onto the live VM + restart web-api.',
