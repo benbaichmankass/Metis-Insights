@@ -1,0 +1,109 @@
+# M23 / L3 — PAPER-BOOK eval population meta-label (`won` target).
+#
+# The P1/P2 conclusion (docs/research/M23-phase1-C1-results-2026-07-17.md) is
+# that the binding wall is LABEL VOLUME: even the 3-symbol pooled book capped
+# the real-money eval side at ~376 closed trades. L3 breaks that wall from the
+# OTHER direction — it admits the PAPER-account closed trades (the paper books
+# trade continuously and accrue outcomes far faster than the real-money books)
+# as a DISTINCT, TAGGED eval population.
+#
+# NEVER-BLENDED CONTRACT (the whole point): paper is a SEPARATE population, never
+# mixed into the real-money eval / EV-gate. It rides the dataset with
+# `event_source="live_paper"` + `is_live_trade=False`, so it can never land on
+# the real-money eval side of `split_live_holdout` (which holds out
+# `is_live_trade` truthy rows). THIS manifest inverts the hold-out: it evaluates
+# on the PAPER cohort by splitting on `live_flag_column: event_source` +
+# `live_flag_true_value: live_paper` (the splitter supports the equals-a-value
+# form, ml/experiments/splitters.py::split_live_holdout). Train = everything
+# else (cusum / signal_log / backtest / real `live`); eval = the paper cohort
+# only. The real-money `live` rows on the train side never contaminate the paper
+# eval, and paper rows never contaminate any real-money manifest's eval.
+#
+# Build: identical to setup-candidates-metalabel-p2pool-v1's pooled build EXCEPT
+# `include_paper=true` (scripts/ml/m23_phase2_labelvol.sh INCLUDE_PAPER=true):
+#   python -m ml.datasets build setup_candidates --output-dir datasets-out \
+#     --version v030 --source market_raw --symbol-scope all --timeframe all --overwrite -- \
+#     "market_raw_paths=<...>" backtest_trades_db=<tmp.db> \
+#     live_trades_db=data/trade_journal.db include_cusum=false include_paper=true
+#
+# GATE (recomputed, not hardcoded): majority accuracy + win base rate are derived
+# from the PAPER eval book by the orchestrator — a different book from the
+# real-money 0.756/0.244, so those constants do NOT transfer.
+#
+# TIER: adopting / promoting past `research_only` is Tier-3 (operator-gated).
+
+manifest_version: v1
+model_id: setup-candidates-metalabel-paper-v1
+description: "M23 L3 paper-book eval leg (won target): admits the PAPER-account closed trades as a DISTINCT, TAGGED eval population (event_source=live_paper, is_live_trade=False) to break the ~376 real-row eval wall. Held out via live_flag_column=event_source + live_flag_true_value=live_paper; train = cusum/signal_log/backtest/real-live, eval = the paper cohort only. NEVER blended into the real-money eval/EV-gate."
+model_family: regression_lightgbm
+trainer: ml.trainers.lightgbm_regression.LightGBMRegressionTrainer
+trainer_config:
+  target_column: won
+  feature_columns:
+    - direction
+    - symbol
+    - rolling_log_return_vol
+    - log_return
+    - vol_bucket
+    - momentum
+    - hour_of_day
+    - dayofweek
+    - log_return_lag_1
+    - log_return_lag_2
+  categorical_columns:
+    - direction
+    - symbol
+    - vol_bucket
+    - hour_of_day
+    - dayofweek
+  # Outcome / label / source columns — never features. `event_source` is the
+  # hold-out key for this manifest and MUST stay forbidden as a feature.
+  forbidden_features:
+    - won
+    - won_r
+    - label
+    - r_multiple
+    - r_multiple_source
+    - ret
+    - barrier_touched
+    - is_live_trade
+    - event_source
+    - entry_price
+    - signal_vol
+    - holding_bars
+  seed: 42
+  n_iter: 200
+  lgbm_params:
+    learning_rate: 0.05
+    num_leaves: 15
+    min_data_in_leaf: 50
+    feature_fraction: 0.9
+    bagging_fraction: 0.9
+    lambda_l2: 1.0
+dataset:
+  family: setup_candidates
+  symbol_scope: all
+  timeframe: all
+  version: v030
+evaluator: ml.evaluators.classification.ClassificationEvaluator
+evaluator_config:
+  target_column: won
+  threshold: 0.5
+  split_strategy: live_holdout
+  # Hold out the PAPER cohort as eval (splitter equals-a-value form): eval =
+  # rows whose event_source == "live_paper"; train = everything else. This is
+  # what makes the eval population paper-only — the never-blended contract.
+  live_flag_column: event_source
+  live_flag_true_value: live_paper
+  time_column: ts
+target_deployment_stage: research_only
+notes: |
+  M23 L3 (MB-20260717-M23-META-LABEL): the paper-book eval-population leg.
+  Identical stack to setup-candidates-metalabel-p2pool-v1 EXCEPT the dataset is
+  built with `include_paper=true` (so the paper cohort rides as
+  event_source="live_paper" rows) and the evaluator holds those out via
+  live_flag_column=event_source + live_flag_true_value=live_paper instead of the
+  boolean is_live_trade. Paper is admitted in full (soak books included) as a
+  DISTINCT population and is NEVER blended into the real-money eval/EV-gate. The
+  orchestrator recomputes the majority-accuracy and win-base-rate references
+  from the paper eval book. Promotion past `research_only` is Tier-3.
