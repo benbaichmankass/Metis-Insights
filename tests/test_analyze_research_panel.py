@@ -552,3 +552,90 @@ def test_cli_features_flag(tmp_path):
     assert report["regression"]["computed"] is True
     md = out.with_suffix(".md").read_text()
     assert "--features" in md  # selection surfaced in the human summary
+
+
+# ---------------------------------------------------------------------------
+# Continuous-outcome support (P5 exit study: giveback_r / capture_ratio / …)
+# ---------------------------------------------------------------------------
+
+
+def _make_cont_rows(n=200, seed=999):
+    """n rows where a continuous outcome `giveback` monotonically tracks
+    `feat_signal` (+ noise); `feat_noise1` is unrelated. Mirrors the exit
+    panel's shape (a continuous excursion outcome instead of win/r)."""
+    rng = _lcg(seed)
+    rows = []
+    for i in range(n):
+        sig = rng()
+        giveback = 2.0 * sig + (rng() - 0.5) * 0.4  # strong monotone signal
+        rows.append({
+            "strategy": "synthetic", "symbol": "BTCUSDT", "cohort": "real",
+            "closed_at": str(1_800_000_000 + i * 3600),
+            "pnl": 0.0, "win": 1 if giveback > 1.0 else 0, "r": round(giveback, 4),
+            "giveback": round(giveback, 6),
+            "feat_signal": round(sig, 6),
+            "feat_noise1": round(rng(), 6),
+            "gate_g": bool(rng() < 0.5),
+        })
+    return rows
+
+
+def _cont_manifest():
+    return {
+        "feature_cols": ["feat_noise1", "feat_signal", "gate_g"],
+        "outcome_cols": ["pnl", "win", "r", "giveback"],
+        "key_cols": ["strategy", "symbol", "cohort", "closed_at"],
+    }
+
+
+def test_spearman_p_recovers_monotone_and_rejects_noise():
+    xs = list(range(50))
+    ys = [2 * v + 1 for v in xs]  # perfectly monotone
+    rho, p = tk._spearman_p(xs, ys)
+    assert rho is not None and rho > 0.99 and p < 1e-6
+    # too few points → honest (None, 1.0)
+    assert tk._spearman_p([1.0], [1.0]) == (None, 1.0)
+
+
+def test_group_outcome_p_detects_shift():
+    # outcome clearly higher in the group than the rest
+    rows = [{"o": 10.0, "g": True} for _ in range(30)] + [{"o": 1.0, "g": False} for _ in range(30)]
+    p = tk._group_outcome_p(rows, "o", lambda r: r["g"])
+    assert p < 0.01
+    # no separation → not significant
+    flat = [{"o": 5.0, "g": i % 2 == 0} for i in range(40)]
+    assert tk._group_outcome_p(flat, "o", lambda r: r["g"]) > 0.05
+
+
+def test_edge_tables_continuous_outcome_uses_spearman_and_mean_outcome():
+    rows = _make_cont_rows()
+    tables, pvalues = tk.conditional_edge_tables(
+        rows, ["feat_noise1", "feat_signal", "gate_g"],
+        n_buckets=4, min_bucket=10, outcome="giveback",
+    )
+    by = {t["feature"]: t for t in tables}
+    # the graded signal gets a Spearman rho + a small p; noise does not
+    assert "spearman_rho" in by["feat_signal"] and by["feat_signal"]["p_value"] < 0.001
+    assert by["feat_noise1"]["p_value"] > 0.05
+    # buckets carry the mean of the continuous outcome, and the base too
+    assert by["feat_signal"]["buckets"][0]["mean_outcome"] is not None
+    assert by["feat_signal"]["_base"]["base_mean_outcome"] is not None
+
+
+@pytest.mark.skipif(not tk._NUMPY_OK or not tk._SPLITTERS_OK, reason="numpy/splitters required")
+def test_analyze_continuous_outcome_end_to_end(tmp_path):
+    rows = _make_cont_rows()
+    panel = _write_panel(tmp_path, rows, _cont_manifest())
+    loaded, manifest = tk.load_panel(panel)
+    report = tk.analyze(
+        loaded, manifest, outcome="giveback", n_buckets=4, min_bucket=10,
+        fdr_alpha=0.1, cv_folds=5, min_train_fraction=0.5, label_horizon=1,
+        embargo_fraction=0.02, perm_repeats=5, seed=1729,
+    )
+    # leakage clean (giveback is an outcome col, never a feature)
+    assert report["leakage"]["clean"] is True
+    # the real signal survives FDR; the regression is the linear (R²) path
+    assert "feat_signal" in report["fdr"]["survivors"]
+    reg = report["regression"]
+    assert reg["computed"] is True and reg["model"] == "ridge_ols"
+    assert "oos_r2" in reg["cv"]

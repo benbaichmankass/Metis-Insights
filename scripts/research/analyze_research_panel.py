@@ -246,6 +246,69 @@ def _two_proportion_p(w1: int, n1: int, w2: int, n2: int) -> float:
     return _two_sided_p((p1 - p2) / se)
 
 
+def _rank(xs: Sequence[float]) -> List[float]:
+    """Average (tie-corrected) 1-based ranks of ``xs``. Pure-python."""
+    order = sorted(range(len(xs)), key=lambda i: xs[i])
+    ranks = [0.0] * len(xs)
+    i = 0
+    while i < len(xs):
+        j = i
+        while j + 1 < len(xs) and xs[order[j + 1]] == xs[order[i]]:
+            j += 1
+        avg = (i + j) / 2.0 + 1.0
+        for k in range(i, j + 1):
+            ranks[order[k]] = avg
+        i = j + 1
+    return ranks
+
+
+def _spearman_p(values: Sequence[float], ys: Sequence[float]) -> Tuple[Optional[float], float]:
+    """(rho, two-sided p) for the Spearman rank correlation of a graded feature
+    vs a **continuous** outcome (normal approx z = rho·√(n−1)). The continuous
+    analogue of the win-AUC univariate test, so continuous outcomes (e.g. the
+    excursion columns giveback_r / capture_ratio) get their own BH-FDR p. Pure
+    python; ``(None, 1.0)`` when under-powered or degenerate."""
+    pairs = [
+        (float(v), float(y))
+        for v, y in zip(values, ys)
+        if v is not None and y is not None
+    ]
+    n = len(pairs)
+    if n < 3:
+        return None, 1.0
+    xr = _rank([p[0] for p in pairs])
+    yr = _rank([p[1] for p in pairs])
+    mx, my = sum(xr) / n, sum(yr) / n
+    cov = sum((xr[i] - mx) * (yr[i] - my) for i in range(n))
+    vx = sum((xr[i] - mx) ** 2 for i in range(n))
+    vy = sum((yr[i] - my) ** 2 for i in range(n))
+    if vx <= 0 or vy <= 0:
+        return 0.0, 1.0
+    rho = cov / math.sqrt(vx * vy)
+    return round(rho, 4), _two_sided_p(rho * math.sqrt(n - 1))
+
+
+def _group_outcome_p(rows, outcome, in_group):
+    """Two-sided p that a **continuous** ``outcome`` differs between a group
+    (``in_group(r)`` truthy) and the rest — Mann-Whitney via the rank-AUC,
+    reusing ``auc_win`` (the outcome as the value, group membership as the
+    binary label). The continuous analogue of the two-proportion gate /
+    categorical test. ``1.0`` when a class is empty / degenerate."""
+    vals: List[float] = []
+    labs: List[int] = []
+    for r in rows:
+        o = r.get(outcome)
+        if o is None:
+            continue
+        vals.append(float(o))
+        labs.append(1 if in_group(r) else 0)
+    auc = auc_win(vals, labs)
+    if auc is None:
+        return 1.0
+    n_pos = sum(labs)
+    return _auc_pvalue(auc, n_pos, len(labs) - n_pos)
+
+
 def _quantile_edges(values: Sequence[float], n_buckets: int) -> List[float]:
     s = sorted(values)
     if not s:
@@ -267,18 +330,28 @@ def _bucket_of(v: float, edges: Sequence[float]) -> int:
     return len(edges)
 
 
-def _bucket_stats(rows_slice: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+def _bucket_stats(
+    rows_slice: Sequence[Dict[str, Any]], outcome: str = "win"
+) -> Dict[str, Any]:
     n = len(rows_slice)
     wins = sum(int(r.get("win", 0)) for r in rows_slice)
     pnls = [float(r["pnl"]) for r in rows_slice if r.get("pnl") is not None]
     rs = [float(r["r"]) for r in rows_slice if r.get("r") is not None]
-    return {
+    stats = {
         "n": n,
         "win_rate": round(wins / n, 4) if n else None,
         "expectancy": round(sum(pnls) / len(pnls), 4) if pnls else None,
         "mean_r": round(sum(rs) / len(rs), 4) if rs else None,
         "r_n": len(rs),
     }
+    # For a non-standard (continuous) outcome, report the mean of THAT column
+    # per bucket so the edge table is meaningful (win_rate/mean_r stay for
+    # reference, computed only where those columns exist).
+    if outcome not in ("win", "pnl", "r"):
+        ovals = [float(r[outcome]) for r in rows_slice if r.get(outcome) is not None]
+        stats["mean_outcome"] = round(sum(ovals) / len(ovals), 4) if ovals else None
+        stats["outcome_n"] = len(ovals)
+    return stats
 
 
 def conditional_edge_tables(
@@ -287,12 +360,23 @@ def conditional_edge_tables(
     *,
     n_buckets: int,
     min_bucket: int,
+    outcome: str = "win",
 ) -> Tuple[List[Dict[str, Any]], List[Tuple[str, float]]]:
     """Per-feature edge-by-bucket table + one univariate p-value per feature.
 
     Returns ``(tables, pvalues)`` where ``pvalues`` is ``[(feature, p), ...]``
     for the BH-FDR pass. Pure-python — always computes.
+
+    ``outcome`` selects the univariate test: ``win`` / ``r`` keep the original
+    **win-AUC** univariate (unchanged, backward-compatible); any OTHER (continuous)
+    outcome — e.g. the P5 excursion columns ``giveback_r`` / ``capture_ratio`` —
+    uses a **rank** test against that column (Spearman for graded features,
+    Mann-Whitney of the outcome between groups for gate/categorical), so the
+    FDR p reflects the actual outcome being studied.
     """
+    # Continuous-outcome mode: a genuinely new numeric outcome column (not the
+    # legacy win/r whose univariate stays win-AUC for backward compatibility).
+    continuous = outcome not in ("win", "r")
     base_n = len(rows)
     base_wins = sum(int(r.get("win", 0)) for r in rows)
     tables: List[Dict[str, Any]] = []
@@ -320,18 +404,25 @@ def conditional_edge_tables(
                 members = [measured[i] for i, v in enumerate(values) if _bucket_of(v, edges) == b]
                 if not members:
                     continue
-                bstat = _bucket_stats(members)
+                bstat = _bucket_stats(members, outcome)
                 bstat["bucket"] = b
                 buckets.append(bstat)
             table["buckets"] = buckets
-            auc = auc_win(values, labels)
-            n_pos = sum(labels)
-            n_neg = len(labels) - n_pos
-            if auc is not None:
-                table["auc"] = round(auc, 4)
-                pval = _auc_pvalue(auc, n_pos, n_neg)
+            if continuous:
+                rho, pval = _spearman_p(values, [r.get(outcome) for r in measured])
+                if rho is not None:
+                    table["spearman_rho"] = rho
+                else:
+                    table["note"] = "too few outcome-measured rows for Spearman"
             else:
-                table["note"] = "single outcome class — AUC undefined"
+                auc = auc_win(values, labels)
+                n_pos = sum(labels)
+                n_neg = len(labels) - n_pos
+                if auc is not None:
+                    table["auc"] = round(auc, 4)
+                    pval = _auc_pvalue(auc, n_pos, n_neg)
+                else:
+                    table["note"] = "single outcome class — AUC undefined"
 
         elif kind == "gate":
             true_rows = [r for r in measured if bool(r[col])]
@@ -339,15 +430,18 @@ def conditional_edge_tables(
             buckets = []
             for label, grp in (("true", true_rows), ("false", false_rows)):
                 if grp:
-                    bstat = _bucket_stats(grp)
+                    bstat = _bucket_stats(grp, outcome)
                     bstat["level"] = label
                     buckets.append(bstat)
             table["buckets"] = buckets
             if true_rows and false_rows:
-                pval = _two_proportion_p(
-                    sum(int(r.get("win", 0)) for r in true_rows), len(true_rows),
-                    sum(int(r.get("win", 0)) for r in false_rows), len(false_rows),
-                )
+                if continuous:
+                    pval = _group_outcome_p(measured, outcome, lambda r: bool(r[col]))
+                else:
+                    pval = _two_proportion_p(
+                        sum(int(r.get("win", 0)) for r in true_rows), len(true_rows),
+                        sum(int(r.get("win", 0)) for r in false_rows), len(false_rows),
+                    )
 
         else:  # categorical
             levels: Dict[str, List[Dict[str, Any]]] = {}
@@ -356,18 +450,23 @@ def conditional_edge_tables(
             buckets = []
             best_p = 1.0
             for lvl, grp in sorted(levels.items()):
-                bstat = _bucket_stats(grp)
+                bstat = _bucket_stats(grp, outcome)
                 bstat["level"] = lvl
                 buckets.append(bstat)
-                # best level-vs-rest two-proportion test (implicit multi-compare
-                # — conservatively folded into the FDR denominator via one p).
+                # best level-vs-rest test (implicit multi-compare — conservatively
+                # folded into the FDR denominator via one p).
                 if len(grp) >= min_bucket:
                     rest = [r for r in measured if str(r.get(col)) != lvl]
                     if rest:
-                        p = _two_proportion_p(
-                            sum(int(r.get("win", 0)) for r in grp), len(grp),
-                            sum(int(r.get("win", 0)) for r in rest), len(rest),
-                        )
+                        if continuous:
+                            p = _group_outcome_p(
+                                measured, outcome, lambda r, _lvl=lvl: str(r.get(col)) == _lvl
+                            )
+                        else:
+                            p = _two_proportion_p(
+                                sum(int(r.get("win", 0)) for r in grp), len(grp),
+                                sum(int(r.get("win", 0)) for r in rest), len(rest),
+                            )
                         best_p = min(best_p, p)
             table["buckets"] = buckets
             table["note"] = (
@@ -380,7 +479,14 @@ def conditional_edge_tables(
         tables.append(table)
         pvalues.append((col, pval))
 
-    tables_meta = {"base_n": base_n, "base_win_rate": round(base_wins / base_n, 4) if base_n else None}
+    tables_meta: Dict[str, Any] = {
+        "base_n": base_n,
+        "base_win_rate": round(base_wins / base_n, 4) if base_n else None,
+    }
+    if continuous:
+        ov = [float(r[outcome]) for r in rows if r.get(outcome) is not None]
+        tables_meta["outcome"] = outcome
+        tables_meta["base_mean_outcome"] = round(sum(ov) / len(ov), 4) if ov else None
     for t in tables:
         t["_base"] = tables_meta
     return tables, pvalues
@@ -880,7 +986,7 @@ def analyze(
         report["cohort_pooled"] = True
 
     tables, pvalues = conditional_edge_tables(
-        rows, feature_cols, n_buckets=n_buckets, min_bucket=min_bucket
+        rows, feature_cols, n_buckets=n_buckets, min_bucket=min_bucket, outcome=outcome
     )
     report["conditional_edge_tables"] = tables
     report["fdr"] = benjamini_hochberg(pvalues, fdr_alpha)
@@ -1000,8 +1106,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument("--panel", default="runtime_logs/research/panel.jsonl",
                         help="Panel JSONL from build_research_panel.py.")
-    parser.add_argument("--outcome", choices=["win", "r"], default="win",
-                        help="Regression outcome (win→logistic/AUC, r→linear/R²).")
+    parser.add_argument("--outcome", default="win",
+                        help="Outcome column: 'win' (logistic/OOS-AUC) or any "
+                             "numeric column — 'r' or a P5 excursion outcome like "
+                             "giveback_r / capture_ratio / mfe_r (linear/OOS-R², "
+                             "Spearman univariate). Must be an outcome column in "
+                             "the panel manifest, never a feature.")
     parser.add_argument("--cohort", default="auto",
                         help="Cohort discipline: 'auto' (refuse a mixed real+paper "
                              "panel), 'all' (explicitly pool cohorts), or a specific "

@@ -202,6 +202,7 @@ def fetch_candles(
     settings: Optional[Dict[str, Any]] = None,
     limit: int,
     exchange_client: Any = None,
+    since: Optional[int] = None,
 ) -> Optional[pd.DataFrame]:
     """Fetch OHLCV candles for *symbol* / *timeframe* and return a DataFrame.
 
@@ -218,6 +219,14 @@ def fetch_candles(
         ``BYBIT_API_KEY``, ``BYBIT_API_SECRET``.
     limit : int
         Number of candles to fetch.
+    since : int, optional
+        Epoch MILLISECONDS (CCXT convention) to fetch candles FORWARD from —
+        the historical-range read the M30 P5 exit panel uses to reconstruct
+        MFE/MAE over a closed trade's holding window. ``None`` (default) fetches
+        the exchange's most-recent ``limit`` candles (unchanged behaviour). Only
+        connectors whose ``get_ohlcv`` accepts ``since`` honour it (Bybit/CCXT
+        today); against a connector that does not, ``fetch_candles`` returns
+        ``None`` rather than silently returning the wrong (recent) bars.
     exchange_client : object, optional
         Pre-built connector. When provided, ``fetch_candles`` skips
         the construction step and uses this client directly. The
@@ -246,7 +255,22 @@ def fetch_candles(
             return None
 
     try:
-        candles_raw = exchange_client.get_ohlcv(symbol, timeframe, limit=limit)
+        if since is not None:
+            candles_raw = exchange_client.get_ohlcv(
+                symbol, timeframe, limit=limit, since=since
+            )
+        else:
+            candles_raw = exchange_client.get_ohlcv(symbol, timeframe, limit=limit)
+    except TypeError as exc:
+        # A `since` request against a connector whose get_ohlcv predates the
+        # range param — do NOT silently fall back to recent bars (that would
+        # misrepresent the requested historical window); return None so the
+        # caller records the window as uncovered.
+        logger.warning(
+            "fetch_candles: connector get_ohlcv does not accept since= "
+            "(symbol=%s timeframe=%s): %s", symbol, timeframe, exc,
+        )
+        return None
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "fetch_candles: get_ohlcv failed for symbol=%s timeframe=%s (%s)",
