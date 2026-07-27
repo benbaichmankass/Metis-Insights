@@ -45,6 +45,8 @@ config change (that is Tier-3, operator-gated).
 | 2 | **`vwap`, real-money** (318 closed trades) — per-strategy, VM-side (2026-07-27) | vwap's own dense features — only **2 graded feats instrument on vwap**: `feat_confidence`, `feat_vwap_deviation_std` | `win` + `r` | C1 `--strategy vwap` → C2, purged WF-CV (5 folds), BH-FDR α=0.1 | **WEAK on `win`, NULL on `r` — not a confirmed finding.** Multivariate now runs (complete cases exist at 2 dense feats). `feat_vwap_deviation_std`: FDR q=0.0145; **OOS win AUC 0.593** but unstable (folds [0.87, 0.68, 0.48, 0.54, 0.39] — 2/5 < 0.5); **OOS `r` R² −0.54** (fails — worse than the mean). `feat_confidence` perm-importance 0.0. VIF clean. | Even per-strategy, **vwap instruments only 2 graded decision-time features** — the "multivariate" is effectively bivariate. The lead clears FDR (a) but OOS discrimination (b) is marginal+fragile for win and negative for r → **does not clear the bar**; also strategy-mechanical (vwap-deviation on a vwap strategy ≈ "how far the entry sat from vwap"). → the binding gap is now **feature-CAPTURE breadth**, not row count. |
 | 3 | **All strategies · real (377)** — pooled common-core, VM-side (2026-07-27) | common-core dense strategy-agnostic cols via the P1 `--features` selector: `feat_confidence`, `feat_model_score_mean`, `feat_model_score_max`, `feat_adx_14` | `win` + `r` | C1 (pooled, `--db` populated journal) → C2 `--features …`, purged WF-CV (5 folds), BH-FDR α=0.1 | **NULL — `feat_model_score_mean` FAILS its first OOS test.** P1 `--features` works (mv fit restricted to the 4 requested cols, none ignored/missing). But listwise-complete cases across the 4 collapse to **35 rows** (model-score pair populate ~41/377) → **`win` OOS not computable** (degenerate CV, <2 usable folds) and **`r` OOS R² −10.79** on the single usable fold (catastrophic — far worse than the mean). FDR survivors unchanged (vwap_dev q=0.044, model_score_mean q=0.064). VIF clean. | The Study-1 lead `feat_model_score_mean` gets its OOS test at last — and **does not clear (b)**. Root cause is the same at the pooled level as per-strategy: the strategy-agnostic ML features are too **sparse** (~41/377), so even the densest common-core can't muster a powered complete-case set. **The binding constraint is decision-time feature DENSITY, not the `--features` mechanic.** → next common-core should drop the sparse `model_score_*` and lean on the P4-widened dense cats (`feat_confidence`+`feat_adx_14`+`cat_killzone`/`cat_bias`/`cat_setup_type`); grow rows via L3 paper-book + P2 sweep. |
 | 4 | **Every strategy · real (377)** — P2 sweep, one pass, VM-side (2026-07-27) | full panel per group; strategies ≥ floor 30 get their own C2, thinner books pooled by asset class | `win` + `r` | **P2 sweep driver** (`sweep_research_panels.py`) → C1 once + C2 per group, purged WF-CV, BH-FDR α=0.1, power-floor 30 | **NOTHING NEW clears the bar.** Only 2 groups reach the floor: **`vwap` (318)** — `win` auto-**candidate_finding** (`feat_vwap_deviation_std`, OOS AUC 0.611) but per-fold **[0.83, 0.49, 0.56, 0.42, 0.75] = 2/5 < 0.5** → the SAME unstable, strategy-mechanical lead Study 2 already declined; `r` **lead** (OOS R² −0.065). **`asset:crypto` pool (58, 10 thin books)** — **null** both: no FDR survivor AND multivariate not computable (**0 complete-case rows** for 10 feats — block-sparse pooling doesn't rescue it). `asset:bond` (n=1) underpowered. | **The P2 driver is validated end-to-end on the real book** — one command covered the whole roster. Coverage verdict: the real book is too thin + block-sparse for cross-strategy discovery — pooling grows the *univariate* denominator but **not the complete-case count** the multivariate needs, so the crypto pool nulls. The P4 session/bias cats surfaced **no** FDR survivor either → the regime/session-conditioned angle is a null at this cut. Also a **driver caveat**: the auto `candidate_finding` label (mean OOS AUC > 0.5) is a *triage flag*, not a confirmation — it re-flagged the known unstable vwap lead; per-fold stability + mechanical-confound scrutiny still gate a true finding. |
+| 5 | **Live-journal exit-timing** (relay #7742) | — | `giveback_r` / excursions | — | **SUPERSEDED — not landed as a live-journal study.** The operator re-scoped discovery to the **backtest substrate** (2026-07-27 CORRECTION): MFE/MAE come free on the backtest candle path, so the offline range-fetch exit-timing run on the ~376-row journal is subsumed by the C1-for-backtests platform (row 6). No live-journal exit study recorded. | The offline range-fetch approach (P5, #7737/#7741) is superseded by the in-memory backtest candle path — the backtest loop already holds the bars, so no per-trade historical fetch is needed. The P5 exit-panel toolchain remains valid for a live-journal exit study if ever wanted; it is simply not the discovery substrate. |
+| 6 | **Platform · backtest substrate** (C1-for-backtests) — the PIVOT, NOT a live finding | full ict_scalp decision-time vector (sweep/fvg/displacement/mitigation/regime/adx/htf-gate) + native MFE/MAE/giveback | `win` + `r` + excursions | `build_backtest_panel.py` (new bridge) → the **existing** C2 analyzer unchanged, purged WF-CV + BH-FDR | `platform_built` — the backtest bridge produces a **feature-RICH** panel: on ict_scalp it emits **9 feature columns** (sweep_depth_atr, fvg_size_atr, displacement_strength, adx_14, confidence, mitigation_mode, regime, setup_type, htf_bias gate) vs the live journal's **2** for the same strategy — Study 2's binding feature-capture-breadth constraint is **solved on this substrate** — plus full excursion outcomes (mfe_r/mae_r/giveback_r/capture_ratio/…) at 100% coverage. C2 reads it unchanged: leakage `clean:true`, `manifest_asserted:true`, both `--outcome win` and `--outcome giveback_r` run. **No discovery result yet:** the committed candle sample (`data/backtest_candles.csv`, 5k bars) yields only ~4 ict_scalp trades — a large-N run needs the full 5m feed (VM-side / a fetched history). | **The substrate change is the whole game.** The prior 5 studies nulled because discovery ran on the row-starved, block-sparse ~376-row journal (M18 coin-flip prior binding). The backtest gives large N *and* live-faithful features (it calls the live `order_package` per bar) *and* MFE/MAE for free — the three things the journal couldn't. This is a *platform* entry (like Entry 0), not a live finding: it proves the bridge is wired and C2-clean end-to-end. The first real discovery run is gated only on a large candle feed. |
 
 ### Study 1 detail — pooled real-book first pass (2026-07-27)
 
@@ -279,6 +281,122 @@ only; crypto pool = block-sparse null; everything else sub-floor) so no compute 
 burned re-deriving them. The unblock is instrumentation density (P4 continued) +
 eval volume (L3 paper book), not more discovery passes on this book.
 
+### Study 6 detail — C1-for-backtests: the backtest-substrate pivot (2026-07-27)
+
+The operator's re-scope (2026-07-27 CORRECTION on the coordination board): **stop
+discovering on the ~376-row live journal; discover on the backtest engine.** The
+backtest already produces large-N samples with the full candle path in memory —
+that is the discovery substrate; the live/paper journal is validation. Studies 1–5
+nulled for a *structural* reason (row-starvation + block-sparsity under the M18
+prior), not because there is no edge.
+
+**The bridge — `scripts/research/build_backtest_panel.py`.** Runs a backtest harness
+in-process and emits, per simulated trade, the **same C1 schema** the journal panel
+produces: decision-time features via `src.research.component_vector.extract` +
+outcomes `win`/`r` + **native MFE/MAE/giveback** from the backtest's own candle path
+via `src.research.excursions.compute_excursions`. Feeds the **existing** C2 analyzer
+(`analyze_research_panel.py`) unchanged, under purged/embargoed WF-CV + BH-FDR. A
+harness-adapter architecture; the flagship **ict_scalp** adapter is implemented
+(system / vwap adapters are the documented follow-ups).
+
+**Why the backtest panel is feature-rich where the journal is sparse.** The bridge
+targets the harnesses that call the **live signal builder** per bar
+(`scripts/backtest_ict_scalp.py` → live `order_package`), so each simulated trade
+carries the same rich `meta` a live order-package would. On ict_scalp the panel
+emits **9 feature columns** — `feat_sweep_depth_atr`, `feat_fvg_size_atr`,
+`feat_displacement_strength`, `feat_adx_14`, `feat_confidence`,
+`cat_mitigation_mode`, `cat_regime`, `cat_setup_type`, `gate_htf_bias_aligned` —
+against the **2** graded feats the same strategy's live book carried (Study 2). The
+binding feature-capture-breadth constraint Studies 1–3 identified is **solved on
+this substrate.** Excursion outcomes are 100%-covered (the candle path is always in
+memory). The harnesses that only re-implement a thin entry inline
+(trend/fade/squeeze/ICTBacktester) are deliberately **not** wired — they'd feed C2
+an empty feature vector, the very sparsity the pivot escapes.
+
+**Leakage discipline (the whole game on a backtest — future info leaks trivially).**
+Three guards: (a) the feature set is EXACTLY `component_vector.extract`'s output,
+which reads only decision-time specs — the harness ALSO stamps outcome keys on the
+meta (`mfe_r`/`exit_price`/`bars_held`), and those can never enter a `feat_` column
+because no spec reads them (unit-tested: `feat_mfe_r`/`feat_exit_price` never
+appear); (b) the excursion columns are stamped OUTCOMES in the manifest, never
+regressors; (c) the C2 purged WF-CV orders rows by `closed_at` = the trade's **exit
+timestamp**, so the split respects backtest time order, not row order.
+
+**Validation (this session).** End-to-end on the committed sample
+(`data/backtest_candles.csv`, 5k bars): bridge → 4-row panel (9 feature cols, 100%
+excursion coverage, ISO-8601 `closed_at`) → C2 reads it with leakage `clean:true` +
+`manifest_asserted:true`, both `--outcome win` and `--outcome giveback_r` (exit
+timing) run and correctly decline the fit as underpowered at N=4. 7 new unit tests
+(synthetic-adapter, offline) + the 51 existing ict_scalp/component/excursion tests
+pass; ruff clean. The harness change is a **single additive, default-off**
+`return_trades` hook on `run_backtest` (every existing caller byte-for-byte
+unchanged).
+
+**No discovery result yet — gated only on a large candle feed.** The committed
+sample yields ~4 ict_scalp trades; the whole point (large N) needs the full 5m
+history (a fetched/VM-side feed). This is a *platform* entry (like Entry 0): it
+proves the bridge is wired + C2-clean, and says nothing about any live edge. The
+first real discovery run — ict_scalp on years of 5m BTCUSDT, `win` + `giveback_r`
+under the FDR×OOS bar — is the immediate next turn.
+
+**Reproduce:**
+
+```bash
+python scripts/research/build_backtest_panel.py \
+    --harness ict_scalp --data <5m_ohlcv.csv> --stamp-regime \
+    --out runtime_logs/research/bt_ict_scalp_panel.jsonl
+python scripts/research/analyze_research_panel.py \
+    --panel runtime_logs/research/bt_ict_scalp_panel.jsonl --outcome win
+python scripts/research/analyze_research_panel.py \
+    --panel runtime_logs/research/bt_ict_scalp_panel.jsonl --outcome giveback_r
+```
+
+### Task 2 — L3 paper-ledger volume audit: root cause found (2026-07-27)
+
+Study 1 flagged the paper eval cohort at only ~235 rows — "implausibly low for
+soak books that trade the full instrument roster." Audited via the `trainer-vm-diag`
+relay (#7743) against the synced journal (897 closed total). **The eval-population
+writer is NOT broken and the cohort filter is NOT dropping soak books — the paper
+cohort is small because the soak books' *closed-trade yield* is genuinely low.**
+
+The funnel (paper = `account_class='paper' OR is_demo=1`, closed, non-backtest):
+
+| Stage | N |
+|---|---|
+| paper closed non-backtest | 477 |
+| + `pnl IS NOT NULL` | 371 |
+| + exclude `adopted_orphan` | 327 |
+| + exclude `superseded` (final panel N) | **219** |
+
+Per-account **closed** counts (with the account's **total** rows in parens):
+`bybit_1` 385 (1380) · `alpaca_paper` 44 (266) · `ib_paper` 26 (151) ·
+`alpaca_options_paper` 8 (31) · `bybit_portfolio` 7 (29) · `alpaca_portfolio` 7
+(71) · `prop_velotrade_1` **0** (267) · `oanda_practice` **0** (8).
+
+**Root cause.** The soak books DO trade at scale in *rows* (bybit_1 1380,
+prop_velotrade_1 267, alpaca_paper 266, ib_paper 151 total) — but the vast majority
+never reach `status='closed'`: the whole DB carries **2594 `rejected` + 380
+`exchange_rejected`** rows (risk-/exchange-refused order attempts that never
+opened), plus 131 `orphaned` and only 28 `open`. So the full-roster soak generates
+mostly **rejections**, not closed positions. Only ~477 paper rows ever close with an
+outcome; ~106 of those carry NULL pnl (non-Bybit local-compute lag) and ~150 are
+orphan/superseded artifacts → **219** clean rows.
+
+**Disposition — confirmed working-as-designed, NOT a bug.** L3 (#7700, `52d51df`)
+admits **all** paper (every soak book appears in the breakdown); it populates
+exactly as much as the books actually close. The ceiling is soak closed-yield, not a
+filter. Two sub-observations (neither a defect): `prop_velotrade_1` /
+`oanda_practice` close **zero** — prop is a manual bridge (no auto-close path) and
+oanda_practice is shelved, both expected; the large `rejected` population is the risk
+manager doing its job on a full-roster soak (and is itself the eval-audit near-miss
+population for a future L1b hard-gate-ablation study, not closed-trade data).
+
+**The compounding lesson.** Live + paper together top out at **~596 clean closed
+rows** (377 real + 219 paper) even with all paper admitted — still far below what
+purged-WF-CV × BH-FDR discovery needs. This is the same wall from the paper side,
+and it is exactly why the backtest substrate (Study 6) is the right move: the eval
+book cannot be grown to discovery scale from the journal alone.
+
 ### P5 feasibility (per-bar exit-timing panel) — BLOCKED on infrastructure (2026-07-27)
 
 Scoping P5 (the per-bar panel that the operator's load-bearing prior —
@@ -414,6 +532,26 @@ python scripts/research/sweep_research_panels.py \
   today** — the wire (P3) is the increment that closes the loop, worth building
   ahead of a confirmed finding but lower-value than unblocking density (P4/P5) +
   volume (L3).
+
+### Backtest-first discovery (the pivot — operator re-scope 2026-07-27)
+
+- **C1-for-backtests bridge** — **DONE** (Study 6): `scripts/research/build_backtest_panel.py`
+  (ict_scalp adapter) → C2 unchanged. Feature-rich (9 cols vs 2), leakage-clean,
+  excursions free. **Next: the first large-N discovery run** — ict_scalp on years
+  of 5m BTCUSDT (`--outcome win` + `--outcome giveback_r`) under the FDR×OOS bar.
+  Gated on a large candle feed (the committed `data/backtest_candles.csv` is a 5k
+  sample → ~4 trades). Fetch a multi-year 5m history (keyless Bybit klines) or run
+  VM-side once merged.
+- **More adapters** — `backtest_system.py` (portfolio-realistic, netted; needs the
+  `_ClosedTrade`→meta/confidence/entry_idx thread the harness map flagged) and
+  `run_backtest_vwap.py` (live `build_vwap_signal`, vwap-only). Both call the live
+  builder → feature-rich. The three inline-entry harnesses (trend/fade/squeeze) +
+  `ICTBacktester` are feature-poor (confidence-only) → excursion-only studies at
+  best; not wired.
+- **L3 paper-ledger volume** — **DONE** (Task 2 above): the L3 writer works as
+  designed (all soak books admitted); the paper cohort is bounded by genuine
+  closed-yield (~477 paper closed, 219 clean), not a filter bug. Live+paper top out
+  at ~596 clean rows — reinforces the backtest-substrate pivot.
 
 > **Platform loose-ends status** (SESSION-PROMPT numbering; from the 2026-07-27
 > readiness audit): **P1** C2 `--features` selector — **DONE** (`f4cbc3b`);
