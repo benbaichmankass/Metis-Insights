@@ -43,6 +43,11 @@ Usage::
     python scripts/research/analyze_research_panel.py                         # reads runtime_logs/research/panel.jsonl
     python scripts/research/analyze_research_panel.py --panel /tmp/panel.jsonl --outcome win
     python scripts/research/analyze_research_panel.py --n-buckets 4 --fdr-alpha 0.1 --cv-folds 5
+    # Restrict the MULTIVARIATE fit to a dense common-core subset so a pooled,
+    # block-sparse panel can run regression/importance/VIF (edge tables + FDR
+    # stay over the full univariate set):
+    python scripts/research/analyze_research_panel.py \\
+        --features feat_confidence,feat_model_score_mean,feat_model_score_max,feat_adx_14
 """
 from __future__ import annotations
 
@@ -779,6 +784,7 @@ def analyze(
     perm_repeats: int,
     seed: int,
     cohort: Optional[str] = None,
+    feature_subset: Optional[Sequence[str]] = None,
 ) -> Dict[str, Any]:
     feature_cols, outcome_cols, leakage = resolve_columns(rows, manifest)
 
@@ -798,6 +804,37 @@ def analyze(
     if cohort_sel not in ("auto", "all"):
         rows = [r for r in rows if str(r.get("cohort", "unknown")) == cohort_sel]
 
+    # --- P1: --features common-core selector for the MULTIVARIATE fit. ---
+    # On a pooled panel the graded features are block-sparse by strategy, so
+    # listwise-complete cases across ALL graded cols collapse to zero and the
+    # multivariate regression / permutation-importance / VIF path returns
+    # not_computed (Study 1). Restricting the fit to a chosen dense,
+    # strategy-agnostic subset (e.g. feat_confidence, feat_model_score_*,
+    # feat_adx_14) recovers complete-case rows so the OOS pass can run. The
+    # multivariate model is graded-only by construction (categorical/gate cols
+    # are not encoded into the design matrix), so a cat_/gate_ name passed here
+    # is honored in the univariate edge tables (which already cover every
+    # feature) but does NOT enter the fit — recorded honestly below. The edge
+    # tables + BH-FDR always run over the FULL feature set: the univariate pass
+    # is sparsity-tolerant and the FDR denominator must reflect every feature
+    # actually tested, not just the fitted subset.
+    mv_feature_cols: List[str] = list(feature_cols)
+    mv_selection: Optional[Dict[str, Any]] = None
+    if feature_subset:
+        requested = [str(c).strip() for c in feature_subset if str(c).strip()]
+        in_panel = [c for c in requested if c in feature_cols]
+        missing = [c for c in requested if c not in feature_cols]
+        graded_used = [c for c in in_panel if _col_kind(c) == "graded"]
+        non_graded = [c for c in in_panel if _col_kind(c) != "graded"]
+        mv_feature_cols = graded_used
+        mv_selection = {
+            "applied": True,
+            "requested": requested,
+            "used": graded_used,
+            "missing_from_panel": missing,
+            "ignored_non_graded": non_graded,
+        }
+
     report: Dict[str, Any] = {
         "row_count": len(rows),
         "feature_count": len(feature_cols),
@@ -805,6 +842,7 @@ def analyze(
         "leakage": leakage,
         "cohort_mix": cohort_counts,
         "cohort_selection": cohort_sel,
+        "multivariate_feature_selection": mv_selection,
         "coin_flip_prior": _COIN_FLIP_PRIOR,
         "numpy_available": _NUMPY_OK,
         "splitters_available": _SPLITTERS_OK,
@@ -847,12 +885,12 @@ def analyze(
     report["conditional_edge_tables"] = tables
     report["fdr"] = benjamini_hochberg(pvalues, fdr_alpha)
     report["regression"] = regression_and_importance(
-        rows, feature_cols, outcome=outcome, cv_folds=cv_folds,
+        rows, mv_feature_cols, outcome=outcome, cv_folds=cv_folds,
         min_train_fraction=min_train_fraction, label_horizon=label_horizon,
         embargo_fraction=embargo_fraction, perm_repeats=perm_repeats, seed=seed,
     )
     report["collinearity"] = collinearity_map(
-        rows, feature_cols, top_interactions=3
+        rows, mv_feature_cols, top_interactions=3
     )
     return report
 
@@ -887,6 +925,21 @@ def format_markdown(report: Dict[str, Any]) -> str:
     else:
         lines.append("- _none survive_ — no univariate feature clears FDR (expected on a small book)")
     lines.append("")
+
+    mv_sel = report.get("multivariate_feature_selection")
+    if mv_sel and mv_sel.get("applied"):
+        lines.append(
+            f"## Multivariate feature selection (--features)\n"
+            f"- fit restricted to: **{mv_sel.get('used') or 'none (no graded match)'}**"
+        )
+        if mv_sel.get("missing_from_panel"):
+            lines.append(f"- requested but not in panel: {mv_sel['missing_from_panel']}")
+        if mv_sel.get("ignored_non_graded"):
+            lines.append(
+                f"- requested but non-graded (edge-tables only, not in the fit): "
+                f"{mv_sel['ignored_non_graded']}"
+            )
+        lines.append("")
 
     reg = report.get("regression", {})
     lines.append(f"## Multivariate {reg.get('model', 'regression')} (outcome={reg.get('outcome', report['params']['outcome'])})")
@@ -954,6 +1007,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                              "panel), 'all' (explicitly pool cohorts), or a specific "
                              "cohort (e.g. real / paper) to isolate. A single-cohort "
                              "panel needs no flag.")
+    parser.add_argument("--features", default=None,
+                        help="Comma-separated graded feature columns to restrict the "
+                             "MULTIVARIATE fit (regression + permutation importance + "
+                             "VIF) to — the common-core selector that lets a pooled, "
+                             "block-sparse panel produce complete-case rows. Edge "
+                             "tables + BH-FDR still run over the FULL feature set. "
+                             "Non-graded (cat_/gate_) names are honored in the edge "
+                             "tables but excluded from the fit. Omit for all graded cols.")
     parser.add_argument("--n-buckets", type=int, default=4,
                         help="Quantile buckets for graded-feature edge tables.")
     parser.add_argument("--min-bucket", type=int, default=10,
@@ -980,13 +1041,17 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     panel_path = Path(args.panel)
     rows, manifest = load_panel(panel_path)
+    feature_subset = (
+        [c.strip() for c in args.features.split(",") if c.strip()]
+        if args.features else None
+    )
     report = analyze(
         rows, manifest,
         outcome=args.outcome, n_buckets=args.n_buckets, min_bucket=args.min_bucket,
         fdr_alpha=args.fdr_alpha, cv_folds=args.cv_folds,
         min_train_fraction=args.min_train_fraction, label_horizon=args.label_horizon,
         embargo_fraction=args.embargo_fraction, perm_repeats=args.perm_repeats,
-        seed=args.seed, cohort=args.cohort,
+        seed=args.seed, cohort=args.cohort, feature_subset=feature_subset,
     )
 
     out_path = Path(args.out)
