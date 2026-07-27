@@ -138,18 +138,29 @@ downsize — reuse it); **(exit)** a high crowding read **tightens B1's exit tri
 - **C3 — `crowding_read` conditioner (Tier-1 pure).** Pure read from the existing
   free feeds (price over-extension + COT extremity + funding/VIX + M9 sentiment
   intensity); observe-only reductive annotation on entry size + exit timing.
-- **C4 — the gate (Tier-1, decisive).** Extend `thesis_backtest.py` to score the
-  **conditioned lifecycle** (scenario-conviction + progress/crowding exit) vs the
-  naive hold-to-horizon / value-only baseline, **net-of-cost, out-of-sample**, on
-  calibration + net-R. **Nothing graduates until the conditioned lifecycle beats
-  the baseline here.** **Runs on HISTORY now — NOT accrual-gated (corrected
-  2026-07-27):** the ~21yr point-in-time backfill
-  `comms/macro/valuation_snapshots_backfill.jsonl` (2005→2026) is committed, so
-  `thesis_backtest_run.py --snapshots comms/macro/valuation_snapshots_backfill.jsonl`
-  scores the value gate + the conditioned lifecycle on decades of history today.
-  The "wait for the forward FRED producer to accrue" framing was stale — the
-  historical backfill (`scripts/macro/valuation_snapshot_backfill.py`) reconstructs
-  the past in one shot. The M29/EIA/NG seed is available the same way.
+- **C4 — the gate (Tier-1, decisive). ✅ RAN 2026-07-27 → NULL on net edge.**
+  Built `thesis_conditioned.py` (`conditioned_exit_on_path` drives the shipped C2
+  `thesis_progress` + C3 `crowding_read` over the realized price path — exits only
+  ever *earlier* than the baseline, no look-ahead) + `equity_and_maxdd`
+  (`thesis_backtest.py`) + the runner `scripts/macro/thesis_c4_run.py` (full grid
+  over `expected_move_pct × {crowding on/off}`, no in-sample cell selection).
+  **Ran on the committed 21yr point-in-time history** + real off-VM candles
+  (SPY/TLT/GLD/SLV/IEF), 1,104 theses — the "backtest history first" rule, no
+  accrual wait. **Result** (`M36-C4-conditioned-lifecycle-run-2026-07-27.md`,
+  scorecard `comms/macro/thesis_c4_scorecard.json`): the conditioned lifecycle
+  **does NOT beat the value-only baseline on net return** (Δnet −0.0010…+0.0004,
+  noise-of-zero) → **the C4 gate is NOT cleared, nothing graduates.** It DOES
+  deliver a modest *reductive* win — up to ~19% maxDD reduction at the widest
+  target without hurting net, + a weak positive calibration shift — so the
+  conditioner is validated as **safe + mildly risk-reducing**, but **pointless
+  without an edge-positive base thesis**. The blocker is the **thesis
+  construction** (the value sleeve is itself OOS-null), not the exit lifecycle.
+  **Re-run trigger:** whenever an M28 construction beats its own P4 baseline,
+  re-run the C4 runner to test whether the conditioned lifecycle adds net edge on
+  top of a base thesis that actually has one. (Note: the "wait for the forward
+  FRED producer to accrue" framing was stale — the historical backfill
+  `scripts/macro/valuation_snapshot_backfill.py` reconstructs 2005→2026 in one
+  shot; the M29/EIA/NG seed is available the same way.)
 - **C5 — apply (Tier-3, operator + backtest gated).** The scenario-conditioned
   conviction + progress/crowding exit go live **in the sleeve, paper first**
   (`alpaca_options_paper`); then the `c_macro` global overlay per M28 §7 /
