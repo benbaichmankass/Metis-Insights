@@ -48,6 +48,7 @@ config change (that is Tier-3, operator-gated).
 | 5 | **Live-journal exit-timing** (relay #7742) | — | `giveback_r` / excursions | — | **SUPERSEDED — not landed as a live-journal study.** The operator re-scoped discovery to the **backtest substrate** (2026-07-27 CORRECTION): MFE/MAE come free on the backtest candle path, so the offline range-fetch exit-timing run on the ~376-row journal is subsumed by the C1-for-backtests platform (row 6). No live-journal exit study recorded. | The offline range-fetch approach (P5, #7737/#7741) is superseded by the in-memory backtest candle path — the backtest loop already holds the bars, so no per-trade historical fetch is needed. The P5 exit-panel toolchain remains valid for a live-journal exit study if ever wanted; it is simply not the discovery substrate. |
 | 6 | **Platform · backtest substrate** (C1-for-backtests) — the PIVOT, NOT a live finding | full ict_scalp decision-time vector (sweep/fvg/displacement/mitigation/regime/adx/htf-gate) + native MFE/MAE/giveback | `win` + `r` + excursions | `build_backtest_panel.py` (new bridge) → the **existing** C2 analyzer unchanged, purged WF-CV + BH-FDR | `platform_built` — the backtest bridge produces a **feature-RICH** panel: on ict_scalp it emits **9 feature columns** (sweep_depth_atr, fvg_size_atr, displacement_strength, adx_14, confidence, mitigation_mode, regime, setup_type, htf_bias gate) vs the live journal's **2** for the same strategy — Study 2's binding feature-capture-breadth constraint is **solved on this substrate** — plus full excursion outcomes (mfe_r/mae_r/giveback_r/capture_ratio/…) at 100% coverage. C2 reads it unchanged: leakage `clean:true`, `manifest_asserted:true`, both `--outcome win` and `--outcome giveback_r` run. **No discovery result yet:** the committed candle sample (`data/backtest_candles.csv`, 5k bars) yields only ~4 ict_scalp trades — a large-N run needs the full 5m feed (VM-side / a fetched history). | **The substrate change is the whole game.** The prior 5 studies nulled because discovery ran on the row-starved, block-sparse ~376-row journal (M18 coin-flip prior binding). The backtest gives large N *and* live-faithful features (it calls the live `order_package` per bar) *and* MFE/MAE for free — the three things the journal couldn't. This is a *platform* entry (like Entry 0), not a live finding: it proves the bridge is wired and C2-clean end-to-end. The first real discovery run is gated only on a large candle feed. |
 | 7 | **`ict_scalp_5m` · backtest** — 282 simulated trades on ~1.4yr real 5m BTCUSDT (VM-side, relay #7747) | the 9-col decision-time vector (sweep_depth/fvg_size/displacement/adx/confidence + mitigation/regime/setup_type cats + htf gate) | `win` + `r` + `giveback_r` | C1-for-backtests bridge → C2, purged WF-CV (5 folds), BH-FDR α=0.1 | **NULL on a POWERED sample — the first real out-of-sample null the platform has produced.** 282 trades (vs 13 real ict_scalp in the journal — ~20×); the multivariate + OOS pass **actually runs** (`regression: computed`, not the "0 complete-case rows / not_computed" of Studies 1–4). **No FDR survivor** on any outcome. OOS: **`win` AUC 0.443** (folds [0.49, 0.38, 0.42, 0.34, 0.59] — below chance), **`giveback_r` R² −0.177** (all folds negative), **`r` R² −0.063** — all **fail (b)**. Permutation importances ≈0/negative across the board; `feat_confidence` high-VIF (redundant); interaction leads tiny (~0.03). | **The substrate delivers, and the honest answer is a clean null.** For the first time discovery ran on a **powered** panel where the OOS pass computed — and ict_scalp's decision-time **entry** features are **~coin-flip out-of-sample** (`win` AUC 0.44 < 0.5), directly **confirming the platform's load-bearing prior** ("entries are ~coin-flip; edge lives in exit/regime") on 282 trades. The **exit-timing** angle (`giveback_r`) also nulls **at this N** — but 282 is still modest (~1.4yr); the exit prior is not refuted, just untested at scale. Next turns: the **full 647k-bar feed** (~1200 trades) + **per-regime-cell** conditioning + **more strategies** (system/vwap adapters). |
+| 8 | **M36 Track D** — substrate broadened + full exit-outcome sweep + M16 backbone (2026-07-27) | (tooling) `backtest_system` portfolio adapter + per-regime-cell C2b driver | full excursion set (`giveback_r`/`capture_ratio`/`mae_r`/`time_to_mfe_frac`) + per-regime `win` | merged #7752; full-647k build detached (#7761) | **Tooling landed + infra wall found + integration drafted; full-feed numeric verdict PENDING.** (1) `backtest_system` adapter (whole-roster discovery) + per-regime C2b driver merged. (2) The full exit-outcome sweep is now runnable (Study 7 ran only `win`/`giveback_r`/`r`). (3) **Infra finding:** every *bounded* relay build times out (500k/300k/250k/**150k** all exit 124 on the CPU-contended 1-OCPU trainer) → the 10-min relay cap can't hold a useful build; **detached `nohup` build** is the fix (GPU wouldn't help — CPU-bound replay, not a train job). (4) full-647k exit verdict amends this once #7761's detached build reads back. | **M30 becomes the integration backbone.** The tooling broadens discovery past one strategy + adds the per-regime lens; the relay-wall datum is logged so the next session skips the four dead bounded runs. **Phase 2:** M30 panels feed the **M16 conviction master model** as `source="backtest"` training rows (`conviction_meta` `source_mode` axis + `conviction-meta-v1-bt` manifest, DRAFT #7756) — the design-§4.5 backtest augmentation that escapes the ~99-live-label T0.3 bottleneck. Observe-only; Tier-3 to influence. |
 
 ### Study 1 detail — pooled real-book first pass (2026-07-27)
 
@@ -394,6 +395,58 @@ conditioning, where the exit signal (if any) has the power to show.
 **The compounding value.** The substrate is proven to run *real* discovery (powered,
 OOS-computed, leakage-clean) — the thing the ~376-row journal structurally could not
 do. A null here is a real datum about ict_scalp entries, not a pipeline artifact.
+
+### Study 8 — M36 Track D: broadened substrate + full exit-outcome sweep + per-regime + the M16 backbone (2026-07-27)
+
+The M36 Track D session. Four threads, three landed + one in flight:
+
+**(1) Substrate broadened (tooling, merged #7752).** Two additions to the M30
+discovery toolchain: a **`backtest_system` portfolio adapter** for
+`build_backtest_panel.py` (drives the WHOLE roster through the real
+`aggregate_intents` on one shared account — each simulated closed trade carries
+its winning strategy as the per-row `strategy` + that strategy's decision-time
+`meta`, so discovery spans every roster strategy, not just ict_scalp; the
+`_ClosedTrade → meta/confidence/entry_idx/entry_sl` thread the harness-map flagged
+now lets the adapter extract features + native MFE/MAE excursions), and a
+**per-regime-cell conditional-discovery driver** (`analyze_panel_by_cell.py`, C2b)
+— partitions a panel by a decision-time `cat_regime`/`cat_vol_regime` cell and runs
+the SAME C2 `analyze` per cell, to test whether an overall coin-flip entry (Study 7)
+is directional *within* a regime. Every C2 guard inherited; the cell count is
+stamped as the implicit multiple-comparison denominator.
+
+**(2) The full exit-outcome sweep is now runnable.** Study 7 ran only
+`win`/`giveback_r`/`r`. The C2 analyzer already supports the full excursion set as
+continuous outcomes (Spearman univariate + ridge-OLS OOS), so this session runs the
+**complete exit-timing outcome sweep** — `giveback_r` / `capture_ratio` / `mae_r` /
+`time_to_mfe_frac` — plus per-regime `win`+`giveback_r`, on a powered panel.
+
+**(3) Infra finding — the relay time-wall (a real, logged datum).** Every *bounded*
+`trainer-vm-diag` relay build **timed out** (`timeout` exit 124): 500k, 300k, 250k,
+and even **150k** (which Study 7's prior-session relay had completed). The trainer
+is a 1-OCPU/6-GB box and was **CPU-contended** (concurrent Track-C relays + the
+per-bar `order_package` cost puts ict_scalp well under ~350 bars/s), so the 10-min
+GitHub-Actions relay cap cannot hold a build of useful size. **Fix (no GPU needed —
+this is CPU-bound backtest replay, not an ML train job): run the build DETACHED**
+(`nohup … &`, past the relay cap) and read the finished panel with a follow-up
+relay. The full **647,586-bar** build was launched detached (relay #7761).
+
+**(4) Numeric exit-timing verdict @ full-647k — PENDING** the detached build
+(#7761); it amends this entry. _Prior (Study 7, N=282): `giveback_r` OOS R² −0.177,
+a null but underpowered at ~1.4 yr; the full feed (~1200+ trades / ~6 yr) is where
+the exit signal, if any, has the power to show._
+
+**(5) The M16 integration backbone (Phase 2, DRAFT PR #7756).** M30's outputs are
+wired into the **M16 conviction master model** (`conviction-meta-v1`) as **training
+data** — the `conviction_meta` family gains a `source_mode ∈ {live, backtest, union}`
++ `backtest_panels` axis (`live` default = byte-for-byte unchanged; `backtest`/`union`
+map M30 panel rows → `conviction_meta` payloads tagged `source="backtest"`, reusing
+the live `build_conviction_inputs` for `c_strat` so there is no train/serve skew),
+plus an augmented `conviction-meta-v1-bt` manifest at `candidate`. This escapes the
+~99-live-label bottleneck that stalled the stacker (T0.3) — the exact
+"backtest-augmented rows" the unified-confidence design § 4.5 anticipated.
+**Observe-only, not a new order path**; the augmented model rides
+candidate → shadow → advisory before any influence (Tier-3). Design of record:
+[`m30-to-m16-integration-backbone-DESIGN.md`](m30-to-m16-integration-backbone-DESIGN.md).
 
 ### Task 2 — L3 paper-ledger volume audit: root cause found (2026-07-27)
 
