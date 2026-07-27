@@ -1,0 +1,42 @@
+emitted 6 constructions to /tmp/m28-constructions:
+  level                  rows=  7380  /tmp/m28-constructions/value_level.jsonl
+  change                 rows=  7373  /tmp/m28-constructions/value_change.jsonl
+  detrend                rows=  7023  /tmp/m28-constructions/value_detrend.jsonl
+  accel                  rows=  7366  /tmp/m28-constructions/value_accel.jsonl
+  level_x_turning        rows=  7380  /tmp/m28-constructions/value_level_x_turning.jsonl
+  xsec                   rows=  4020  /tmp/m28-constructions/value_xsec.jsonl
+
+M28 value-construction sweep — P4 lifecycle gate (observe-only)
+========================================================================
+construction               n     win  mean_net    calib  edge_vs_base
+------------------------------------------------------------------------
+level_x_turning          574 +0.5052   +0.0011  +0.0049       -0.0017
+change                   837 +0.5149   +0.0027  +0.0225       -0.0031
+detrend                  918 +0.5087   +0.0029  +0.0094       -0.0034
+composite_eq(D4)         674 +0.5223   +0.0015  +0.0549       -0.0034
+change_x_calm_vol(D2reg)   413 +0.5036   +0.0010  +0.0127       -0.0043
+baseline(committed)     1104 +0.4973   +0.0018  -0.0038       -0.0047
+composite_ic(D4)         684 +0.5219   +0.0003  +0.0160       -0.0050
+change_x_uptrend(D2reg)   481 +0.4969   -0.0000  +0.0512       -0.0056
+xsec                     776 +0.4936   -0.0001  -0.0340       -0.0059
+accel                    804 +0.5062   -0.0001  +0.0108       -0.0066
+level                   1028 +0.4815   -0.0004  -0.0185       -0.0068
+level_x_price_turning    610 +0.4639   -0.0007  -0.0279       -0.0097
+------------------------------------------------------------------------
+GATE (operator directive): a construction CLEARS iff edge_vs_baseline > 0 net-of-cost
+AND calibration_rank > 0, OOS. Baseline to beat (level/S1-former): edge_vs_baseline = -0.0047.
+
+M28 value D5 — horizon × cost sweep on the `change` cell (fee_frac=0.001)
+========================================================================
+horizon                    n     win  mean_net    calib  edge_vs_base
+------------------------------------------------------------------------
+change@7d                837 +0.4827   -0.0001  -0.0328       -0.0025
+change@14d               837 +0.5018   +0.0009  +0.0015       -0.0025
+change@30d               837 +0.5149   +0.0027  +0.0225       -0.0031
+change@60d               837 +0.5137   +0.0031  -0.0104       -0.0102
+change@90d               837 +0.5245   +0.0041  +0.0120       -0.0147
+change@180d              837 +0.5161   +0.0043  +0.0643       -0.0342
+------------------------------------------------------------------------
+D5 clears iff SOME horizon has edge_vs_baseline > 0 net-of-cost (its edge survives cost).
+
+wrote /tmp/m28_value_construction_scorecard.json
