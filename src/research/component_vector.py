@@ -41,6 +41,10 @@ The real keys each builder persists (read off the code 2026-06-30):
     top-level ``confidence``, threaded through ``extra``).
   * common (stamped by ``_stamp_regime_on_meta`` on every signal):
     ``regime``, ``adx_14``, ``vol_regime``, ``rolling_log_return_vol``.
+  * decision-time session/bias context in ``order_packages.meta`` (P4):
+    ``killzone`` (ICT session/time-of-day), ``bias`` (HTF directional bias),
+    ``setup_type`` / ``setup_tf`` (the setup archetype). C1 reads the ``meta``
+    column and merges it so these instrument for every strategy.
 """
 from __future__ import annotations
 
@@ -195,6 +199,26 @@ def _common_specs() -> List[ComponentSpec]:
         ComponentSpec("regime", KIND_CATEGORICAL, _categorical_key("regime")),
         ComponentSpec(
             "vol_regime", KIND_CATEGORICAL, _categorical_key("vol_regime")
+        ),
+        # Decision-time SESSION / TIME-OF-DAY + directional-bias context
+        # (P4 — widen decision-time capture). These live in the separate
+        # ``order_packages.meta`` column (setup_type / killzone / bias), which
+        # C1 now reads and merges in, so they instrument for EVERY strategy —
+        # the binding feature-capture gap Study 2 surfaced (even the richest
+        # book carried only 2 graded feats). ``killzone`` is the ICT
+        # session/time-of-day axis (London/NY/Asia); ``session`` is accepted as
+        # a fallback alias if a builder ever stamps it under that name.
+        ComponentSpec(
+            "killzone", KIND_CATEGORICAL, _categorical_key("killzone", "kill_zone", "session")
+        ),
+        # HTF directional bias at entry (bullish / bearish / neutral).
+        ComponentSpec(
+            "bias", KIND_CATEGORICAL, _categorical_key("bias", "htf_bias", "directional_bias")
+        ),
+        # The setup archetype the builder recorded. Raw key is ``setup_type``
+        # (vwap et al.) or ``setup_tf`` (ict_scalp / turtle_soup).
+        ComponentSpec(
+            "setup_type", KIND_CATEGORICAL, _categorical_key("setup_type", "setup_tf")
         ),
     ]
 

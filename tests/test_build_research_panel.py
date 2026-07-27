@@ -206,3 +206,60 @@ def test_main_cli_runs(tmp_path):
     assert rc == 0
     assert out.exists()
     assert out.with_suffix(".jsonl.manifest.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# P4 — order_packages.meta (killzone / bias / setup_type) capture
+# ---------------------------------------------------------------------------
+
+
+def _make_db_with_meta(path):
+    """A fixture whose order_packages carries the separate `meta` column (the
+    P4 source of killzone / bias / setup_type)."""
+    c = sqlite3.connect(path)
+    c.executescript(
+        """
+        CREATE TABLE trades (
+          id INTEGER PRIMARY KEY, strategy_name TEXT, symbol TEXT, status TEXT,
+          pnl REAL, is_backtest INT, account_class TEXT, is_demo INT,
+          entry_price REAL, stop_loss REAL, position_size REAL,
+          closed_at TEXT, timestamp TEXT, setup_type TEXT, reconcile_status TEXT);
+        CREATE TABLE order_packages (
+          id INTEGER PRIMARY KEY, linked_trade_id INT, signal_logic TEXT,
+          confidence REAL, model_scores TEXT, meta TEXT, updated_at TEXT);
+        """
+    )
+    c.execute(
+        "INSERT INTO trades VALUES "
+        "(1,'vwap','BTCUSDT','closed',30.0,0,'real_money',0,80000,79800,0.01,"
+        "'2026-07-25T00:00:00Z','2026-07-25T00:00:00Z',NULL,NULL)"
+    )
+    # signal_logic carries the strategy edge + regime; meta carries the
+    # session/bias context that ONLY lives in the meta column.
+    c.execute(
+        "INSERT INTO order_packages VALUES (10,1,?,0.7,NULL,?, '2026-07-25T00:00:00Z')",
+        (
+            json.dumps({"deviation_std": 1.8, "regime": "range"}),
+            json.dumps({"killzone": "NY_AM", "bias": "bullish", "setup_type": "mean_revert"}),
+        ),
+    )
+    c.commit()
+    c.close()
+
+
+def test_meta_column_captures_killzone_bias_setup_type(tmp_path):
+    db = str(tmp_path / "tj_meta.db")
+    _make_db_with_meta(db)
+    rows, manifest = panel.build_panel(db_path=db, cohort="real")
+    assert manifest["row_count"] == 1
+    row = rows[0]
+    # meta-only session/bias context now instruments the panel
+    assert row["cat_killzone"] == "ny_am"
+    assert row["cat_bias"] == "bullish"
+    assert row["cat_setup_type"] == "mean_revert"
+    # signal_logic still wins on its own keys (regime came from signal_logic)
+    assert row["cat_regime"] == "range"
+    assert abs(row["feat_vwap_deviation_std"] - 1.8) < 1e-9
+    # and the new categoricals are registered decision-time feature columns
+    assert "cat_killzone" in manifest["feature_cols"]
+    assert "cat_bias" in manifest["feature_cols"]
