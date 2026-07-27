@@ -43,6 +43,7 @@ config change (that is Tier-3, operator-gated).
 | 0 | **Synthetic** (platform validation — NOT a live finding) | injected `feat_confidence` (drives P(win)) + noise model-score features | `win` | C1→C2 end-to-end on a 220-row synthetic ISO-timestamped `trade_journal.db`; purged WF-CV (5 folds), BH-FDR α=0.1 | `platform_validated` — the injected signal is recovered end-to-end: **OOS AUC 0.72** across 5 purged folds, `feat_confidence` **tops permutation importance (0.25)** AND is the **sole BH-FDR survivor**; the noise features sit at ≈0 importance and do not survive. | **The platform works and the guards bite.** The CV recovers a real injected edge out-of-sample and the FDR correctly rejects the noise — so a null on the real book will be a real null, not a broken pipeline. This entry is a *pipeline* proof on fabricated data; it says **nothing** about any live strategy. The smoke that produced it also caught + fixed a real null-`closed_at` CV-crash bug (#7687) before the real-book run. |
 | 1 | **All strategies · real (377) + real+paper (612)** — live closed trades, VM-side run (2026-07-27) | full 15-col decision-time panel (structure vector + regime/vol cats + gates + model-score summary) | `win` (+ `r`) | C1 (no `--strategy` filter) → C2, purged WF-CV (5 folds), BH-FDR α=0.1, on the **live** `trade_journal.db` via the trainer-vm-diag relay | **LEADS-ONLY (multivariate blocked).** 2 BH-FDR univariate survivors — `feat_vwap_deviation_std` (n=274, p=0.0073, q=0.044 real / 0.079 both) + `feat_model_score_mean` (n=38/41, p=0.021/0.014, q=0.064 real / 0.079 both) — stable across real/win, real/r, both/win. Multivariate regression + permutation-importance + VIF **not computed**: **0 complete-case rows** across the 11 graded feats (block-sparse by strategy), so criterion (b) OOS-discrimination is **unmet** → **LEADS, not findings**. | The real book is **84% one strategy** (`vwap` = 318/377); features are block-sparse (non-null of 612: confidence 409, vwap-dev 274, adx 61, regime 54, model-score 41, **all others ≤11**). The `vwap_deviation_std` lead is **confounded with strategy identity** (populated ≈only on vwap trades). → platform iteration #1: **per-strategy panels + a cross-strategy common-core feature set**. |
 | 2 | **`vwap`, real-money** (318 closed trades) — per-strategy, VM-side (2026-07-27) | vwap's own dense features — only **2 graded feats instrument on vwap**: `feat_confidence`, `feat_vwap_deviation_std` | `win` + `r` | C1 `--strategy vwap` → C2, purged WF-CV (5 folds), BH-FDR α=0.1 | **WEAK on `win`, NULL on `r` — not a confirmed finding.** Multivariate now runs (complete cases exist at 2 dense feats). `feat_vwap_deviation_std`: FDR q=0.0145; **OOS win AUC 0.593** but unstable (folds [0.87, 0.68, 0.48, 0.54, 0.39] — 2/5 < 0.5); **OOS `r` R² −0.54** (fails — worse than the mean). `feat_confidence` perm-importance 0.0. VIF clean. | Even per-strategy, **vwap instruments only 2 graded decision-time features** — the "multivariate" is effectively bivariate. The lead clears FDR (a) but OOS discrimination (b) is marginal+fragile for win and negative for r → **does not clear the bar**; also strategy-mechanical (vwap-deviation on a vwap strategy ≈ "how far the entry sat from vwap"). → the binding gap is now **feature-CAPTURE breadth**, not row count. |
+| 3 | **All strategies · real (377)** — pooled common-core, VM-side (2026-07-27) | common-core dense strategy-agnostic cols via the P1 `--features` selector: `feat_confidence`, `feat_model_score_mean`, `feat_model_score_max`, `feat_adx_14` | `win` + `r` | C1 (pooled, `--db` populated journal) → C2 `--features …`, purged WF-CV (5 folds), BH-FDR α=0.1 | **NULL — `feat_model_score_mean` FAILS its first OOS test.** P1 `--features` works (mv fit restricted to the 4 requested cols, none ignored/missing). But listwise-complete cases across the 4 collapse to **35 rows** (model-score pair populate ~41/377) → **`win` OOS not computable** (degenerate CV, <2 usable folds) and **`r` OOS R² −10.79** on the single usable fold (catastrophic — far worse than the mean). FDR survivors unchanged (vwap_dev q=0.044, model_score_mean q=0.064). VIF clean. | The Study-1 lead `feat_model_score_mean` gets its OOS test at last — and **does not clear (b)**. Root cause is the same at the pooled level as per-strategy: the strategy-agnostic ML features are too **sparse** (~41/377), so even the densest common-core can't muster a powered complete-case set. **The binding constraint is decision-time feature DENSITY, not the `--features` mechanic.** → next common-core should drop the sparse `model_score_*` and lean on the P4-widened dense cats (`feat_confidence`+`feat_adx_14`+`cat_killzone`/`cat_bias`/`cat_setup_type`); grow rows via L3 paper-book + P2 sweep. |
 
 ### Study 1 detail — pooled real-book first pass (2026-07-27)
 
@@ -154,10 +155,83 @@ volume. Two concrete platform loose-ends fall out:
    soak paper books as a distinct tagged population to grow the eval count past
    the ~376 real-money wall; paper trades exist precisely to accrue this.
 
+### Study 3 detail — pooled common-core panel (2026-07-27)
+
+Platform iteration #1's second item from Study 1: consume the new **P1 C2
+`--features` selector** (merged `f4cbc3b`, #7718) to restrict the pooled
+multivariate fit to the strategy-agnostic dense columns, so
+`feat_model_score_mean` — the cleaner cross-strategy lead from Study 1 — finally
+gets the OOS discrimination test criterion (b) demands. Run VM-side via the
+`trainer-vm-diag` relay (#7725, after the first attempt #7720 mis-resolved the
+empty repo-root DB — see the repro note below).
+
+**Panel (C1, pooled `--cohort real`).** 377 real closed trades, 15 feature
+cols, leakage clean (`manifest_asserted: true`). Sourced from the populated
+`/home/ubuntu/ict-trading-bot/data/trade_journal.db` (897 closed) via `--db`.
+
+**The P1 `--features` mechanic works.** The mv fit was restricted exactly to the
+requested `['feat_confidence', 'feat_model_score_mean', 'feat_model_score_max',
+'feat_adx_14']` — `applied: true`, nothing ignored-as-non-graded, nothing
+missing-from-panel. So the selector delivers what Study 1 asked for.
+
+**Criterion (b) — OOS discrimination:**
+
+| Outcome | Model | Complete-case rows | OOS metric | Verdict |
+|---|---|---|---|---|
+| `win` | logistic | ~35 | **not computed** — no fold had both a stable fit AND a defined OOS metric (only 1 usable purged fold) | **cannot clear (b)** |
+| `r` | ridge-OLS | 35 (cv_rows 35, folds_usable **1**) | **OOS R² −10.79** (single fold [−10.79]) | **fails (b)** — catastrophically worse than the mean |
+
+FDR survivors unchanged from Study 1 (`feat_vwap_deviation_std` q=0.0435,
+`feat_model_score_mean` q=0.0644). The `r` regression's in-sample standardized
+coeffs (adx 0.32, model_score_mean 0.21, confidence 0.13) and permutation
+importances are **leads only** and, sitting on a model with R² ≪ 0, carry no
+weight. VIF clean; top interaction `confidence × model_score_mean` (0.24).
+
+**Verdict — NULL.** `feat_model_score_mean` gets its long-awaited OOS test and
+**does not clear the bar**: `win` OOS is not even computable and `r` OOS is
+deeply negative. It stays a lead that has now **failed** its first honest OOS
+reading on the pooled common-core — **do not route to the C3 bridge.**
+
+**The real yield — density, not the mechanic, is binding.** The listwise-complete
+set across the 4 chosen dense columns is only **35 of 377 rows**, because the
+strategy-agnostic ML features (`feat_model_score_{mean,max}`) fire on just
+~41/377 trades, so their intersection with `feat_adx_14` (~61) collapses the
+powered sample below any purged-CV floor. This is the pooled-level restatement
+of Study 2's instrumentation finding: **the binding constraint on multivariate
+discovery is decision-time feature DENSITY, not row count and not the
+`--features` selector** (which works). Concrete dispositions:
+
+1. **Re-pick the common-core off the P4-widened capture.** P4 (#7723, merged)
+   now lands `cat_killzone` / `cat_bias` / `cat_setup_type` on every strategy
+   from `order_packages.meta`. The next pooled run should drop the sparse
+   `feat_model_score_*` pair and use `feat_confidence` + `feat_adx_14` + those
+   three common cats — densely populated across strategies, so complete-cases
+   should survive. (Best driven by the P2 sweep, not hand-run.)
+2. **Grow rows** via the L3 paper-book population (merged) + pooling thin books
+   by asset class in the P2 sweep — attacks the sample-size half.
+3. **Model-score density is its own gap** — if `feat_model_score_mean` is to be
+   testable pooled, decision-time shadow-prediction capture must be denser than
+   ~11% of trades. Logged as the model-score-capture follow-up (P4-adjacent).
+
+Tier-1, observe-only; no order-path or config touch.
+
 ## Reproducing a study
 
 Run the two bricks in sequence against the book you want (real `trade_journal.db`
 resolved by the canonical resolver, or `--db <path>`):
+
+> **VM-side `--db` is REQUIRED on the trainer relay (Study-3 repro note).** The
+> trainer VM's clone has **two** `trade_journal.db` files: the populated synced
+> journal at **`/home/ubuntu/ict-trading-bot/data/trade_journal.db`** (897 closed
+> trades) and an **empty repo-root `/home/ubuntu/ict-trading-bot/trade_journal.db`**
+> (0 rows) that the canonical resolver picks up when `DATA_DIR` is unset — which
+> is what silently produced Study 3's first empty run (#7720, "0 closed trades",
+> **not a real null**). Always pass `--db "$(populated journal)"` on the relay, or
+> locate it by closed-trade count first (as #7725 does). **Recommendation for the
+> relay harness:** export `DATA_DIR=/home/ubuntu/ict-trading-bot/data` (or set
+> `TRADE_JOURNAL_DB`) so `src.utils.paths.trade_journal_db_path()` resolves the
+> synced DB without the per-command `--db` — this is the durable fix and avoids
+> the next session re-hitting the empty-DB trap.
 
 ```bash
 # C1 — build the panel for one strategy's real closed trades
@@ -183,12 +257,17 @@ summary.
   `win` (OOS AUC 0.593), null on `r`; not a confirmed finding. Surfaced the
   binding gap = **feature-capture breadth** (vwap instruments only 2 graded
   feats).
-- **3 · common-core pooled panel** — **blocked on a platform build, not
-  runnable today**: needs the additive **C2 `--features` selector** (P1 in the
-  platform loose-ends) to restrict the pooled multivariate fit to the
-  strategy-agnostic dense columns (`feat_confidence`, `feat_model_score_*`,
-  `cat_regime`, `feat_adx_14`). This is where `feat_model_score_mean` finally
-  gets its OOS test. Build P1 first, then run.
+- **3 · common-core pooled panel** — **DONE** (Study 3 above): P1 `--features`
+  selector works, but the strategy-agnostic dense columns are too sparse
+  (~41/377 for model-score) → complete-cases collapse to 35 rows → `win` OOS not
+  computable, `r` OOS R² −10.79. `feat_model_score_mean` **fails** its first OOS
+  test → NULL. Yield: **decision-time feature DENSITY** is the binding
+  constraint; next common-core should use the P4-widened dense cats and drop the
+  sparse model-score pair.
+- **3b · common-core v2 (post-P4 dense cats)** — re-run the pooled common-core
+  with `feat_confidence` + `feat_adx_14` + `cat_killzone` / `cat_bias` /
+  `cat_setup_type` (P4-landed, dense across strategies) instead of the sparse
+  `feat_model_score_*`. Best driven by the P2 sweep once it exists.
 - **4+ · per-strategy sweep** — the same C1→C2 pass per remaining live strategy
   above the power floor, pooling thin books by asset class. Best done via the
   sweep driver (P2 loose-end) rather than hand-running each.
