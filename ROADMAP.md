@@ -305,13 +305,20 @@ autonomous; every live-influencing step is Tier-3.
    incl. the xasset head merged tonight); promotion stays the operator's Tier-3 switch.
 
 **Macro / modelling track — M28 + M29 (added 2026-07-23).**
-1. **M28 P4 gate is BLOCKED on an unwired producer** (`BL-20260723-M28-P4-GATE-FOLLOWUP`
-   step 1, [findings](docs/research/M28-P4-fred-producer-unwired-2026-07-23.md)): the P4
-   read side + runner are built, but nothing schedules the FRED valuation-snapshot
-   producer, so `valuation_snapshots.jsonl` never accrues. **The prerequisite next step is
-   wiring the off-VM producer** (`MB-20260723-M28-VALUATION-PRODUCER-UNWIRED`: an Actions
-   cron committing snapshots to `comms/macro/` → VM git-sync → reader fallback; keyless
-   FRED, no operator secret). Tier-1 to build; P5/P6 stay Tier-3.
+1. **M28 P4 gate: RAN on 21yr history → OOS-NULL (not producer-blocked).** The earlier
+   "blocked on an unwired FRED producer / waiting for `valuation_snapshots.jsonl` to
+   accrue" framing (`BL-20260723-M28-P4-GATE-FOLLOWUP` step 1) was a **phantom gate** and
+   is **resolved**: `scripts/macro/valuation_snapshot_backfill.py` reconstructs FRED's full
+   point-in-time history in one shot (the wired metrics are unrevised market rates, so
+   latest==vintage → valid PIT), and the committed
+   `comms/macro/valuation_snapshots_backfill.jsonl` (21yr, 10,125 rows) ran the gate in
+   minutes → **edge_vs_baseline −0.0047 (loses to naive all-long, net of zero cost)**;
+   full record [`M28-P4-value-gate-run-2026-07-27.md`](docs/research/M28-P4-value-gate-run-2026-07-27.md).
+   The daily producer (`MB-20260723-M28-VALUATION-PRODUCER-UNWIRED`, **resolved** — see
+   P0 below) now only keeps the live sleeve's snapshots fresh; it was never the gate's data
+   source. Open work is the value-thesis **construction** iteration, NOT accrual (this is
+   the [`RESEARCH-RIGOR-STANDARD.md`](docs/research/RESEARCH-RIGOR-STANDARD.md) §
+   "Backtest history first" rule in action). P5/P6 stay Tier-3.
 2. **M29 — AI-Driven System-Dynamics Modelling (P0 SCOPE LOCKED, operator-directed 2026-07-23).**
    Design-of-record written ([`M29-ai-system-dynamics-DESIGN.md`](docs/research/M29-ai-system-dynamics-DESIGN.md));
    **operator confirmed P0 scope**: target **A (macro–energy) first**, seed = **EIA weekly NG

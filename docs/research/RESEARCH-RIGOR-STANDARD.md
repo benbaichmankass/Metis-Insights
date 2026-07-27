@@ -11,6 +11,65 @@ Consolidates the research-rigor principles that were previously
 duplicated/scattered across `exit-refinement` and `backtesting`, so a new
 skill can reference this doc instead of re-deriving or re-copying them.
 
+## Backtest history first — a "wait for forward accrual" gate is a phantom unless the data genuinely can't be reconstructed
+
+**The default for any discovery, validation, or calibration question is: run it
+on reconstructed history NOW.** Do not gate a research decision on "wait N
+weeks/days for the live producer to accrue rows" unless you have positively
+established that the data cannot be reconstructed from history. A forward-soak
+framing that could have been a one-shot backfill/backtest is a **phantom gate** —
+it burns real weeks on a decision that was answerable in minutes, and it is the
+single most expensive recurring anti-pattern in this program (M30, M28-P4, the
+allocator, the exit levers all hit it).
+
+**The classification test — before you ever write "waiting for data to
+accrue", answer this:**
+
+> *Can the decision-time state this study needs be reconstructed as-of each
+> historical date from data I already have (or can fetch history for) —
+> point-in-time, no look-ahead?*
+
+- **YES → it's a phantom gate. Backfill/backtest it now.** Reconstruct the
+  point-in-time series (a `*_backfill.py` that walks dated history), or run the
+  question through the backtest engine, and get the decision this session. Log
+  the result (edge or null) per "Honest negatives are recorded".
+- **NO → it's a genuine forward soak, and only for the specific reason that
+  makes it irreducible.** The legitimate reasons are narrow: (a) the row is a
+  *record of a live event that only exists once it happens* (an actual live
+  fill, a real broker-truth reconciliation, a live A/B outcome under the real
+  execution path); (b) the feature is a *live-only artifact* with no offline
+  analogue (true live latency, real slippage on real orders); (c) reconstructing
+  it would itself inject look-ahead you can't strip. "The producer writes one
+  row per tick and only started last week" is **not** a genuine reason if the
+  same rows can be recomputed from candles/config/FRED/exchange history.
+
+**When a genuine forward soak IS required, still say why in the same breath** —
+name the irreducible reason (a/b/c above), and check whether a *shadow/annotate*
+soak on reconstructed history can answer the design question while the forward
+soak accrues the live-outcome confirmation in parallel. Never let a genuine
+live-confirmation soak block a decision a backtest could already make.
+
+**Worked examples (both were phantom gates, both corrected):**
+
+- **M30 discovery** — the conditional-edge/importance study was framed as
+  starved by the ~376-row live journal. It wasn't data-gated: the backtest
+  engine (`build_backtest_panel.py`) replays the same decision-time features +
+  native excursion outcomes over large-N history, so the C2 analyzer ran on 282
+  `ict_scalp` trades in one session (Study 7, powered NULL) instead of waiting
+  months for the journal to fill.
+- **M28-P4 value gate** — recorded as "waiting ~weeks for the FRED producer to
+  accrue point-in-time snapshots." The `valuation_snapshot_backfill.py` backfill
+  (the value analogue of `backfill-shadow-predictions`) reconstructs FRED's full
+  dated history in one shot; the committed
+  `comms/macro/valuation_snapshots_backfill.jsonl` (21 yr, 10,125 rows) ran the
+  gate in minutes → clean NULL (`M28-P4-value-gate-run-2026-07-27.md`), the
+  honest baseline the conditioners must beat — all on history, no wait.
+
+The reusable move both share: **a `*_backfill.py` that reconstructs the
+decision-time series from full history, committed as a `.jsonl`, then the
+existing scorer/analyzer run over it unchanged.** Reach for that before you ever
+reach for "let it soak."
+
 ## Walk-forward / out-of-sample discipline
 
 No in-sample-only claims. Any parameter/lever/model verdict that ships
