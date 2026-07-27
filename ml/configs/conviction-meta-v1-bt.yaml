@@ -18,9 +18,14 @@
 #     --data data/backtest_BTCUSDT_5m.csv --stamp-regime \
 #     --out datasets-out/_panels/ict_scalp_btc_5m.jsonl
 #   # 2. build the union dataset (default source_mode=live is byte-identical to v1)
+#   #    `--source <label>` is REQUIRED; pass db_path= EXPLICITLY at the pulled
+#   #    live journal — on the trainer DATA_DIR is unset so the resolver falls back
+#   #    to the STALE repo-root trade_journal.db (empty) and union silently
+#   #    degenerates to backtest-only (BL-20260727-CONVICTION-UNION-NO-LIVE-ROWS).
 #   python -m ml build-dataset conviction_meta --output-dir ./datasets-out \
-#     --version v002 --overwrite -- \
-#     source_mode=union backtest_panels='datasets-out/_panels/*.jsonl'
+#     --version v002 --overwrite --source union -- \
+#     source_mode=union backtest_panels='datasets-out/_panels/*.jsonl' \
+#     db_path="${DATA_DIR:-$PWD/data}/trade_journal.db"
 #   # 3. train the augmented candidate (zero live influence)
 #   python -m ml train ml/configs/conviction-meta-v1-bt.yaml --datasets-root ./datasets-out
 #
