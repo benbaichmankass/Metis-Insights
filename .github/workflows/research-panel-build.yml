@@ -1,0 +1,297 @@
+name: research-panel-build
+
+# Self-contained M30 research-panel build — the STABLE backtest-substrate
+# discovery infrastructure (S-M36-TRACK-D infra fix).
+#
+# Why this exists. The M30 panel build replays the live order_package() signal
+# builder once per bar (that per-bar call is what makes the panel feature-rich —
+# the whole value). It is CPU-bound Python, NOT a GPU workload. The full 647k-bar
+# 5m feed lives ONLY on the 1-OCPU trainer VM (it is gitignored), which is both
+# the slowest box AND contended with ML training, so every bounded trainer-diag
+# relay build hit the 10-min relay cap (500k/300k/250k/150k all timed out).
+#
+# This workflow moves the build onto a GitHub-hosted runner (4 vCPUs, up to 6 h,
+# free on this public repo): it FETCHES the feed itself from Bybit's keyless
+# public OHLCV (so there is no gitignored-data dependency and the run is fully
+# reproducible), builds the panel, runs the C2 outcome sweep + per-regime-cell
+# conditioning, and uploads the panel + posts the verdict. No VM, no trainer
+# contention, no relay cap, $0 GPU spend.
+#
+# Speed follow-up (documented, not blocking): multiprocessing-chunked builds
+# across the runner's cores (~4x) — the build is embarrassingly parallel across
+# non-overlapping time windows since a trade spans <= timeout_bars. Single-process
+# already completes the full feed well inside the timeout below; chunking just
+# makes it faster. See ledger Study 8 + the S-M36-TRACK-D sprint log.
+#
+# Triggers:
+#   1. workflow_dispatch — operator clicks "Run workflow"
+#   2. issues.opened with label `research-panel-build-request` (owner-guarded)
+#
+# Issue body (optional, all keys have defaults):
+#   harness: ict_scalp          # ict_scalp | backtest_system
+#   symbol: BTCUSDT
+#   timeframe: 5m
+#   days: 2200                  # trailing days to fetch (~6y of 5m bars)
+#   outcomes: win,giveback_r,capture_ratio,mae_r,time_to_mfe_frac
+#   cell: cat_regime            # per-cell conditioning column ("" to skip)
+#
+# Outputs:
+#   * `research-panel-<run_id>` artifact (panel JSONL + manifest + analyses)
+#   * Issue comment with the C2 + per-regime verdict (when triggered by issue)
+#
+# Safety: READS the repo + fetches public candles + runs the strategy unit on
+# historical data. It does not push, deploy, or touch config/strategies.yaml. A
+# discovered edge still routes through the standing net-of-cost walk-forward gate
+# + Tier-3 before any live change.
+
+on:
+  workflow_dispatch:
+    inputs:
+      harness:
+        description: "Backtest harness (ict_scalp | backtest_system)"
+        default: "ict_scalp"
+      symbol:
+        description: "Symbol to fetch + backtest"
+        default: "BTCUSDT"
+      timeframe:
+        description: "Strategy timeframe label"
+        default: "5m"
+      days:
+        description: "Trailing days of candles to fetch from Bybit (~2200 = ~6y of 5m)"
+        default: "2200"
+      outcomes:
+        description: "Comma list of C2 outcomes to sweep"
+        default: "win,giveback_r,capture_ratio,mae_r,time_to_mfe_frac"
+      cell:
+        description: "Per-cell conditioning column (cat_regime / cat_vol_regime; empty to skip)"
+        default: "cat_regime"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: research-panel-build-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Actor-guard on the issue path: owner (or repo automation) only — this is a
+    # compute job, so without this any public user could fire it. AND-ed
+    # (restrict-only), mirroring ict-scalp-backtest.yml.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'research-panel-build-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 330  # < the 6h GH job ceiling; the full feed builds in ~15-20 min single-process
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse issue body
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          HARNESS=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^harness:' | awk '{print $2}' || true)
+          SYMBOL=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^symbol:' | awk '{print $2}' || true)
+          TIMEFRAME=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^timeframe:' | awk '{print $2}' || true)
+          DAYS=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^days:' | awk '{print $2}' || true)
+          OUTCOMES=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^outcomes:' | awk '{print $2}' || true)
+          CELL=$(printf '%s' "${ISSUE_BODY}" | grep -m1 -i '^cell:' | awk '{print $2}' || true)
+
+          [ -z "${HARNESS}" ]   && HARNESS="ict_scalp"
+          [ -z "${SYMBOL}" ]    && SYMBOL="BTCUSDT"
+          [ -z "${TIMEFRAME}" ] && TIMEFRAME="5m"
+          [ -z "${DAYS}" ]      && DAYS="2200"
+          [ -z "${OUTCOMES}" ]  && OUTCOMES="win,giveback_r,capture_ratio,mae_r,time_to_mfe_frac"
+          [ -z "${CELL}" ]      && CELL="cat_regime"
+
+          # Sanity-validate so a malformed issue body can't inject args.
+          printf '%s' "${HARNESS}" | grep -qE '^(ict_scalp|backtest_system)$' || HARNESS="ict_scalp"
+          printf '%s' "${SYMBOL}" | grep -qE '^[A-Z0-9]+$' || SYMBOL="BTCUSDT"
+          printf '%s' "${TIMEFRAME}" | grep -qE '^[0-9]+[mhdMHD]$' || TIMEFRAME="5m"
+          printf '%s' "${DAYS}" | grep -qE '^[0-9]+$' || DAYS="2200"
+          printf '%s' "${OUTCOMES}" | grep -qE '^[a-z_,]+$' || OUTCOMES="win,giveback_r,capture_ratio,mae_r,time_to_mfe_frac"
+          printf '%s' "${CELL}" | grep -qE '^(cat_[a-z_]+)?$' || CELL="cat_regime"
+
+          {
+            echo "rp_harness=${HARNESS}"
+            echo "rp_symbol=${SYMBOL}"
+            echo "rp_timeframe=${TIMEFRAME}"
+            echo "rp_days=${DAYS}"
+            echo "rp_outcomes=${OUTCOMES}"
+            echo "rp_cell=${CELL}"
+          } >> "$GITHUB_ENV"
+
+      - name: Set params from dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          {
+            echo "rp_harness=${{ inputs.harness }}"
+            echo "rp_symbol=${{ inputs.symbol }}"
+            echo "rp_timeframe=${{ inputs.timeframe }}"
+            echo "rp_days=${{ inputs.days }}"
+            echo "rp_outcomes=${{ inputs.outcomes }}"
+            echo "rp_cell=${{ inputs.cell }}"
+          } >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal deps
+        run: |
+          python -m pip install --upgrade pip
+          # build_backtest_panel + analyze_research_panel + the strategy unit +
+          # the candle fetcher need only these (same set ict-scalp-backtest.yml uses,
+          # plus scipy is NOT required — the C2 stats are pure-python / numpy).
+          pip install numpy pandas pyyaml requests
+
+      - name: Fetch feed from Bybit (keyless public)
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          # Map the strategy timeframe label (5m/15m/1h/4h/1d) to the Bybit kline
+          # interval code (5/15/60/240/D) the fetcher expects.
+          case "${rp_timeframe}" in
+            *m) BYBIT_INT="${rp_timeframe%m}" ;;
+            1h) BYBIT_INT=60 ;;
+            2h) BYBIT_INT=120 ;;
+            4h) BYBIT_INT=240 ;;
+            1d|1D) BYBIT_INT=D ;;
+            *)  BYBIT_INT="${rp_timeframe}" ;;
+          esac
+          echo "timeframe=${rp_timeframe} -> bybit interval=${BYBIT_INT}"
+          python scripts/ops/fetch_backtest_candles.py \
+            --symbol "${rp_symbol}" \
+            --interval "${BYBIT_INT}" \
+            --days "${rp_days}" \
+            --output "data/rp_feed.csv"
+          echo "feed rows: $(wc -l < data/rp_feed.csv)"
+          head -3 data/rp_feed.csv
+
+      - name: Build the research panel
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/research
+          /usr/bin/time -v python scripts/research/build_backtest_panel.py \
+            --harness "${rp_harness}" \
+            --data "data/rp_feed.csv" \
+            --symbol "${rp_symbol}" \
+            --timeframe "${rp_timeframe}" \
+            --stamp-regime \
+            --out artifacts/research/panel.jsonl 2> artifacts/research/build_time.txt || true
+          echo "=== manifest ==="
+          cat artifacts/research/panel.jsonl.manifest.json | grep -E 'row_count|excursion_cov|harness_total|harness_win|harness_exp|error' || true
+          tail -3 artifacts/research/build_time.txt || true
+
+      - name: C2 outcome sweep
+        run: |
+          set -euo pipefail
+          PANEL=artifacts/research/panel.jsonl
+          IFS=',' read -ra OUTS <<< "${rp_outcomes}"
+          for OUT in "${OUTS[@]}"; do
+            [ -z "${OUT}" ] && continue
+            python scripts/research/analyze_research_panel.py \
+              --panel "${PANEL}" --outcome "${OUT}" \
+              --out "artifacts/research/an_${OUT}.json" --quiet || true
+          done
+
+      - name: Per-regime-cell conditioning
+        if: env.rp_cell != ''
+        run: |
+          set -euo pipefail
+          python scripts/research/analyze_panel_by_cell.py \
+            --panel artifacts/research/panel.jsonl \
+            --cell "${rp_cell}" --outcome win \
+            --out artifacts/research/by_cell_win.json --quiet || true
+          python scripts/research/analyze_panel_by_cell.py \
+            --panel artifacts/research/panel.jsonl \
+            --cell "${rp_cell}" --outcome giveback_r \
+            --out artifacts/research/by_cell_giveback.json --quiet || true
+
+      - name: Summarize verdict
+        run: |
+          set -euo pipefail
+          python - <<'PYEOF' | tee artifacts/research/VERDICT.md
+          import json, glob, os
+          root = "artifacts/research"
+          def load(p):
+              try:
+                  return json.load(open(p))
+              except Exception:
+                  return {}
+          man = load(f"{root}/panel.jsonl.manifest.json")
+          lines = ["# M30 research-panel verdict", ""]
+          lines.append(f"- harness: **{man.get('harness')}** · rows: **{man.get('row_count')}** · "
+                       f"excursion coverage: {man.get('excursion_coverage_pct')}% · "
+                       f"features: {len(man.get('feature_cols') or [])}")
+          ri = man.get("run_info", {})
+          if ri:
+              lines.append(f"- harness: {ri.get('harness_total_trades')} trades, "
+                           f"win {ri.get('harness_win_rate_pct')}%, exp {ri.get('harness_expectancy_r')}R")
+          lines.append("")
+          lines.append("## C2 outcome sweep (OOS + FDR)")
+          for p in sorted(glob.glob(f"{root}/an_*.json")):
+              o = os.path.basename(p)[3:-5]
+              r = load(p); f = r.get("fdr", {}); g = r.get("regression", {}); cv = g.get("cv", {})
+              mn = "oos_auc" if g.get("model") == "logistic" else "oos_r2"
+              metric = (f"{mn}={cv.get(mn)} folds={cv.get('folds_usable')}"
+                        if g.get("computed") else f"not computed ({str(g.get('note'))[:60]})")
+              lines.append(f"- **{o}** — n={r.get('row_count')} · FDR survivors: "
+                           f"{f.get('survivors') or 'none'} · {metric}")
+          for cellf, label in ((f"{root}/by_cell_win.json", "win"), (f"{root}/by_cell_giveback.json", "giveback_r")):
+              c = load(cellf)
+              if not c:
+                  continue
+              lines.append("")
+              lines.append(f"## Per-cell `{c.get('cell_col')}` (outcome={label})")
+              ov = c.get("overall", {})
+              lines.append(f"- overall: n={ov.get('n')} OOS={ov.get('oos_metric')} "
+                           f"survivors={ov.get('fdr_survivors') or 'none'}")
+              for cv2, s in (c.get("by_cell") or {}).items():
+                  if s.get("skipped"):
+                      lines.append(f"- {cv2}: n={s.get('n')} (skipped)")
+                  else:
+                      lines.append(f"- {cv2}: n={s.get('n')} OOS={s.get('oos_metric')} "
+                                   f"survivors={s.get('fdr_survivors') or 'none'}")
+          print("\n".join(lines))
+          PYEOF
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-panel-${{ github.run_id }}
+          path: |
+            artifacts/research/panel.jsonl
+            artifacts/research/panel.jsonl.manifest.json
+            artifacts/research/an_*.json
+            artifacts/research/by_cell_*.json
+            artifacts/research/VERDICT.md
+            artifacts/research/build_time.txt
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Comment verdict on issue
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '_(verdict not produced)_';
+            try { body = fs.readFileSync('artifacts/research/VERDICT.md', 'utf8'); } catch (e) {}
+            const footer = '\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 60000) + footer,
+            });
