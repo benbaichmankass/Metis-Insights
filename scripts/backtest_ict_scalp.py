@@ -251,6 +251,7 @@ def run_backtest(
     htf_ema_period: int = 20,
     min_confidence: float = 0.0,
     _collect_trades: bool = False,
+    return_trades: bool = False,
     emit_path: Optional[str] = None,
     vol_spec: Optional[Dict[str, Any]] = None,
     stamp_regime: bool = False,
@@ -409,6 +410,14 @@ def run_backtest(
         # (confidence, r_multiple) per trade — lets the sweep filter by
         # threshold without re-walking the (expensive) 5m frame N times.
         summary["_trades"] = [(t.confidence, t.r_multiple) for t in trades]
+    if return_trades:
+        # Full Trade objects (with entry_index/exit_index/meta/confidence) for an
+        # in-process consumer — the M30 backtest-panel bridge
+        # (scripts/research/build_backtest_panel.py) slices the caller's own df by
+        # entry_index:exit_index to compute native MFE/MAE excursions and extracts
+        # the decision-time feature vector from meta. Additive + default-off: every
+        # existing caller (CLI, sweep, ML recorder) is byte-for-byte unchanged.
+        summary["_trades_full"] = list(trades)
     return summary
 
 
