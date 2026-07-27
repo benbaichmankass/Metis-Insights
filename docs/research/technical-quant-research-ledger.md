@@ -47,6 +47,7 @@ config change (that is Tier-3, operator-gated).
 | 4 | **Every strategy · real (377)** — P2 sweep, one pass, VM-side (2026-07-27) | full panel per group; strategies ≥ floor 30 get their own C2, thinner books pooled by asset class | `win` + `r` | **P2 sweep driver** (`sweep_research_panels.py`) → C1 once + C2 per group, purged WF-CV, BH-FDR α=0.1, power-floor 30 | **NOTHING NEW clears the bar.** Only 2 groups reach the floor: **`vwap` (318)** — `win` auto-**candidate_finding** (`feat_vwap_deviation_std`, OOS AUC 0.611) but per-fold **[0.83, 0.49, 0.56, 0.42, 0.75] = 2/5 < 0.5** → the SAME unstable, strategy-mechanical lead Study 2 already declined; `r` **lead** (OOS R² −0.065). **`asset:crypto` pool (58, 10 thin books)** — **null** both: no FDR survivor AND multivariate not computable (**0 complete-case rows** for 10 feats — block-sparse pooling doesn't rescue it). `asset:bond` (n=1) underpowered. | **The P2 driver is validated end-to-end on the real book** — one command covered the whole roster. Coverage verdict: the real book is too thin + block-sparse for cross-strategy discovery — pooling grows the *univariate* denominator but **not the complete-case count** the multivariate needs, so the crypto pool nulls. The P4 session/bias cats surfaced **no** FDR survivor either → the regime/session-conditioned angle is a null at this cut. Also a **driver caveat**: the auto `candidate_finding` label (mean OOS AUC > 0.5) is a *triage flag*, not a confirmation — it re-flagged the known unstable vwap lead; per-fold stability + mechanical-confound scrutiny still gate a true finding. |
 | 5 | **Live-journal exit-timing** (relay #7742) | — | `giveback_r` / excursions | — | **SUPERSEDED — not landed as a live-journal study.** The operator re-scoped discovery to the **backtest substrate** (2026-07-27 CORRECTION): MFE/MAE come free on the backtest candle path, so the offline range-fetch exit-timing run on the ~376-row journal is subsumed by the C1-for-backtests platform (row 6). No live-journal exit study recorded. | The offline range-fetch approach (P5, #7737/#7741) is superseded by the in-memory backtest candle path — the backtest loop already holds the bars, so no per-trade historical fetch is needed. The P5 exit-panel toolchain remains valid for a live-journal exit study if ever wanted; it is simply not the discovery substrate. |
 | 6 | **Platform · backtest substrate** (C1-for-backtests) — the PIVOT, NOT a live finding | full ict_scalp decision-time vector (sweep/fvg/displacement/mitigation/regime/adx/htf-gate) + native MFE/MAE/giveback | `win` + `r` + excursions | `build_backtest_panel.py` (new bridge) → the **existing** C2 analyzer unchanged, purged WF-CV + BH-FDR | `platform_built` — the backtest bridge produces a **feature-RICH** panel: on ict_scalp it emits **9 feature columns** (sweep_depth_atr, fvg_size_atr, displacement_strength, adx_14, confidence, mitigation_mode, regime, setup_type, htf_bias gate) vs the live journal's **2** for the same strategy — Study 2's binding feature-capture-breadth constraint is **solved on this substrate** — plus full excursion outcomes (mfe_r/mae_r/giveback_r/capture_ratio/…) at 100% coverage. C2 reads it unchanged: leakage `clean:true`, `manifest_asserted:true`, both `--outcome win` and `--outcome giveback_r` run. **No discovery result yet:** the committed candle sample (`data/backtest_candles.csv`, 5k bars) yields only ~4 ict_scalp trades — a large-N run needs the full 5m feed (VM-side / a fetched history). | **The substrate change is the whole game.** The prior 5 studies nulled because discovery ran on the row-starved, block-sparse ~376-row journal (M18 coin-flip prior binding). The backtest gives large N *and* live-faithful features (it calls the live `order_package` per bar) *and* MFE/MAE for free — the three things the journal couldn't. This is a *platform* entry (like Entry 0), not a live finding: it proves the bridge is wired and C2-clean end-to-end. The first real discovery run is gated only on a large candle feed. |
+| 7 | **`ict_scalp_5m` · backtest** — 282 simulated trades on ~1.4yr real 5m BTCUSDT (VM-side, relay #7747) | the 9-col decision-time vector (sweep_depth/fvg_size/displacement/adx/confidence + mitigation/regime/setup_type cats + htf gate) | `win` + `r` + `giveback_r` | C1-for-backtests bridge → C2, purged WF-CV (5 folds), BH-FDR α=0.1 | **NULL on a POWERED sample — the first real out-of-sample null the platform has produced.** 282 trades (vs 13 real ict_scalp in the journal — ~20×); the multivariate + OOS pass **actually runs** (`regression: computed`, not the "0 complete-case rows / not_computed" of Studies 1–4). **No FDR survivor** on any outcome. OOS: **`win` AUC 0.443** (folds [0.49, 0.38, 0.42, 0.34, 0.59] — below chance), **`giveback_r` R² −0.177** (all folds negative), **`r` R² −0.063** — all **fail (b)**. Permutation importances ≈0/negative across the board; `feat_confidence` high-VIF (redundant); interaction leads tiny (~0.03). | **The substrate delivers, and the honest answer is a clean null.** For the first time discovery ran on a **powered** panel where the OOS pass computed — and ict_scalp's decision-time **entry** features are **~coin-flip out-of-sample** (`win` AUC 0.44 < 0.5), directly **confirming the platform's load-bearing prior** ("entries are ~coin-flip; edge lives in exit/regime") on 282 trades. The **exit-timing** angle (`giveback_r`) also nulls **at this N** — but 282 is still modest (~1.4yr); the exit prior is not refuted, just untested at scale. Next turns: the **full 647k-bar feed** (~1200 trades) + **per-regime-cell** conditioning + **more strategies** (system/vwap adapters). |
 
 ### Study 1 detail — pooled real-book first pass (2026-07-27)
 
@@ -351,6 +352,49 @@ python scripts/research/analyze_research_panel.py \
     --panel runtime_logs/research/bt_ict_scalp_panel.jsonl --outcome giveback_r
 ```
 
+### Study 7 detail — ict_scalp on the real 5m feed, first powered run (2026-07-27)
+
+The first discovery run on the backtest substrate (Study 6's bridge), VM-side via
+the `trainer-vm-diag` relay (#7747) against the real committed feed
+`data/backtest_BTCUSDT_5m.csv` (**647,586 5m BTCUSDT bars, ~6 yr**), bounded to the
+most-recent **150,000 bars (~1.4 yr)** to keep the run fast + un-preempted.
+
+**Panel (C1-for-backtests).** **282 simulated ict_scalp trades**, 9 feature columns,
+**100% excursion coverage**, leakage `clean:true` / `manifest_asserted:true`. Harness
+sanity: win-rate 52.5%, expectancy +0.171 R. For comparison the live journal carries
+**13** real ict_scalp closed trades — this is a **~20× larger, feature-dense** panel,
+and (unlike Studies 1–4) the multivariate + permutation-importance + VIF pass **all
+compute** (complete-case rows exist because the features are dense on this substrate).
+
+**Criterion (a) — BH-FDR (α=0.1, m=9): no survivor** on any of `win` / `giveback_r`
+/ `r`. **Criterion (b) — OOS discrimination (5 purged folds):**
+
+| Outcome | Model | OOS metric | Per-fold | Verdict |
+|---|---|---|---|---|
+| `win` | logistic | **AUC 0.443** | [0.49, 0.38, 0.42, 0.34, 0.59] | **fails** — below chance (4/5 folds < 0.5) |
+| `giveback_r` | ridge-OLS | **R² −0.177** | [−0.05, −0.56, −0.00, −0.17, −0.10] | **fails** — all folds negative |
+| `r` | ridge-OLS | **R² −0.063** | [−0.12, −0.11, −0.06, −0.06, +0.04] | **fails** — worse than the mean |
+
+Permutation importances are ≈0 or negative for every feature on every outcome (no
+feature carries OOS signal); `feat_confidence` is high-VIF (redundant with the
+geometry); top interaction leads are tiny (~0.03–0.04).
+
+**Verdict — NULL, and it is a *meaningful* null.** This is the **first time the
+discovery machinery ran end-to-end on a powered sample with the OOS pass actually
+computing** — Studies 1–4 could never reach criterion (b) (0 complete-case rows).
+The clean out-of-sample result: **ict_scalp's decision-time ENTRY features are
+~coin-flip** (`win` AUC 0.44 < 0.5), which **directly confirms the platform's
+load-bearing prior** — "entries are ~coin-flip; edge lives in exit/regime"
+(`where-edge-lives-entry-wall-2026-06-30.md`) — now on 282 backtest trades, OOS, not
+just the traded-journal cut. The **exit-timing** angle (`giveback_r`) also nulls, but
+**only at N=282 over ~1.4 yr** — the exit prior is **not refuted**, merely untested at
+scale; the immediate next turn is the full 647k feed (~1200 trades) + per-regime-cell
+conditioning, where the exit signal (if any) has the power to show.
+
+**The compounding value.** The substrate is proven to run *real* discovery (powered,
+OOS-computed, leakage-clean) — the thing the ~376-row journal structurally could not
+do. A null here is a real datum about ict_scalp entries, not a pipeline artifact.
+
 ### Task 2 — L3 paper-ledger volume audit: root cause found (2026-07-27)
 
 Study 1 flagged the paper eval cohort at only ~235 rows — "implausibly low for
@@ -537,11 +581,20 @@ python scripts/research/sweep_research_panels.py \
 
 - **C1-for-backtests bridge** — **DONE** (Study 6): `scripts/research/build_backtest_panel.py`
   (ict_scalp adapter) → C2 unchanged. Feature-rich (9 cols vs 2), leakage-clean,
-  excursions free. **Next: the first large-N discovery run** — ict_scalp on years
-  of 5m BTCUSDT (`--outcome win` + `--outcome giveback_r`) under the FDR×OOS bar.
-  Gated on a large candle feed (the committed `data/backtest_candles.csv` is a 5k
-  sample → ~4 trades). Fetch a multi-year 5m history (keyless Bybit klines) or run
-  VM-side once merged.
+  excursions free.
+- **First large-N discovery run** — **DONE** (Study 7): ict_scalp, 282 trades on
+  ~1.4yr real 5m BTCUSDT → **powered NULL** (`win` OOS AUC 0.44 confirms the
+  coin-flip-entry prior; `giveback_r`/`r` null at this N). The substrate is proven
+  to run real, OOS-computed discovery. **Next turns:**
+  1. **Scale up** — the full **647k-bar** feed (~1200 trades) for `win` + the
+     **exit-timing** outcomes (`giveback_r`/`capture_ratio`/`mae_r`) — the exit
+     prior is untested at scale, and the VM feed lives at
+     `data/backtest_BTCUSDT_5m.csv` (use `python3`/`.venv/bin/python`, NOT `python`).
+  2. **Per-regime-cell** conditioning — the coin-flip is *overall*; test whether
+     entries discriminate *within* a `cat_regime`/`cat_vol_regime` cell (the
+     scoping doc's Study #2).
+  3. **More adapters** — `backtest_system.py` (portfolio-realistic, needs the
+     `_ClosedTrade`→meta thread) + `run_backtest_vwap.py` (vwap).
 - **More adapters** — `backtest_system.py` (portfolio-realistic, netted; needs the
   `_ClosedTrade`→meta/confidence/entry_idx thread the harness map flagged) and
   `run_backtest_vwap.py` (live `build_vwap_signal`, vwap-only). Both call the live
