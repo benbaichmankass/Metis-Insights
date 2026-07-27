@@ -695,10 +695,18 @@ def collinearity_map(
         got = 0 if x is None else len(kept)
         return _not_computed(f"only {got} complete-vector rows — too few for VIF")
 
-    # Correlation matrix.
-    corr = _np.corrcoef(x, rowvar=False)
+    # Correlation matrix. A zero-variance (constant) graded column makes
+    # corrcoef divide 0/0 → NaN; suppress the benign warning and emit NaN as
+    # JSON-safe ``None`` (a literal ``NaN`` token is invalid JSON for a strict
+    # non-Python consumer). VIF/interactions below are unaffected.
+    def _finite3(v: Any) -> Optional[float]:
+        fv = float(v)
+        return round(fv, 3) if math.isfinite(fv) else None
+
+    with _np.errstate(invalid="ignore", divide="ignore"):
+        corr = _np.corrcoef(x, rowvar=False)
     corr_out = {
-        graded[i]: {graded[j]: round(float(corr[i, j]), 3) for j in range(len(graded))}
+        graded[i]: {graded[j]: _finite3(corr[i, j]) for j in range(len(graded))}
         for i in range(len(graded))
     }
     # VIF_j = 1/(1-R²_j) from regressing x_j on the other columns.
@@ -770,14 +778,33 @@ def analyze(
     embargo_fraction: float,
     perm_repeats: int,
     seed: int,
+    cohort: Optional[str] = None,
 ) -> Dict[str, Any]:
     feature_cols, outcome_cols, leakage = resolve_columns(rows, manifest)
+
+    # --- Cohort discipline: real and paper are NEVER silently blended. ---
+    # C1 stamps a per-row ``cohort`` (real/paper). A panel built ``--cohort both``
+    # carries >1 cohort; pooling those in one fit / edge-table would blend
+    # real-money and paper outcomes — the "real and paper are never blended"
+    # contract forbids it. So: always report the mix, and require an EXPLICIT
+    # choice on a mixed panel (``--cohort <name>`` to isolate, ``--cohort all``
+    # to opt into pooling). A single-cohort panel (the C1 default) is unchanged.
+    cohort_counts: Dict[str, int] = {}
+    for _r in rows:
+        _c = str(_r.get("cohort", "unknown"))
+        cohort_counts[_c] = cohort_counts.get(_c, 0) + 1
+    distinct_cohorts = sorted(cohort_counts)
+    cohort_sel = (cohort or "auto").strip().lower()
+    if cohort_sel not in ("auto", "all"):
+        rows = [r for r in rows if str(r.get("cohort", "unknown")) == cohort_sel]
 
     report: Dict[str, Any] = {
         "row_count": len(rows),
         "feature_count": len(feature_cols),
         "outcome_cols": outcome_cols,
         "leakage": leakage,
+        "cohort_mix": cohort_counts,
+        "cohort_selection": cohort_sel,
         "coin_flip_prior": _COIN_FLIP_PRIOR,
         "numpy_available": _NUMPY_OK,
         "splitters_available": _SPLITTERS_OK,
@@ -804,6 +831,15 @@ def analyze(
             "refusing to regress an outcome on itself"
         )
         return report
+    if cohort_sel == "auto" and len(distinct_cohorts) > 1:
+        report["error"] = (
+            f"panel blends {len(distinct_cohorts)} cohorts {distinct_cohorts} — "
+            "refusing to silently pool real + paper. Pass --cohort <name> to "
+            "isolate one, or --cohort all to pool explicitly."
+        )
+        return report
+    if cohort_sel == "all" and len(distinct_cohorts) > 1:
+        report["cohort_pooled"] = True
 
     tables, pvalues = conditional_edge_tables(
         rows, feature_cols, n_buckets=n_buckets, min_bucket=min_bucket
@@ -887,6 +923,19 @@ def format_markdown(report: Dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _json_safe(obj: Any) -> Any:
+    """Recursively replace non-finite floats (NaN/±Inf) with ``None`` so the
+    emitted JSON is valid for a strict (non-Python) consumer — a literal
+    ``NaN``/``Infinity`` token is not spec-legal JSON."""
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    return obj
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -900,6 +949,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="Panel JSONL from build_research_panel.py.")
     parser.add_argument("--outcome", choices=["win", "r"], default="win",
                         help="Regression outcome (win→logistic/AUC, r→linear/R²).")
+    parser.add_argument("--cohort", default="auto",
+                        help="Cohort discipline: 'auto' (refuse a mixed real+paper "
+                             "panel), 'all' (explicitly pool cohorts), or a specific "
+                             "cohort (e.g. real / paper) to isolate. A single-cohort "
+                             "panel needs no flag.")
     parser.add_argument("--n-buckets", type=int, default=4,
                         help="Quantile buckets for graded-feature edge tables.")
     parser.add_argument("--min-bucket", type=int, default=10,
@@ -932,12 +986,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         fdr_alpha=args.fdr_alpha, cv_folds=args.cv_folds,
         min_train_fraction=args.min_train_fraction, label_horizon=args.label_horizon,
         embargo_fraction=args.embargo_fraction, perm_repeats=args.perm_repeats,
-        seed=args.seed,
+        seed=args.seed, cohort=args.cohort,
     )
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    out_path.write_text(
+        json.dumps(_json_safe(report), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     md_path = out_path.with_suffix(".md")
     md_path.write_text(format_markdown(report), encoding="utf-8")
 
