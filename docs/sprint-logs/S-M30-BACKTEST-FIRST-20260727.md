@@ -116,3 +116,32 @@ session.
 - [x] Ledger + ROADMAP + sprint log updated; coherence scan green.
 - [x] Coordination board `✅ DONE` posted.
 - [x] No live-VM / config / order-path change.
+
+## Addendum — session continuation (2026-07-27 pm): the binding rule + M36 C4 run
+
+Two follow-on deliverables in the same session (PR #7758, branch
+`claude/m30-backtest-first-discovery-lzapv4`):
+
+1. **Codified "backtest history first" as a binding rule** (root-cause fix for the
+   operator-flagged recurring "wait weeks for data to accrue" anti-pattern). New
+   lead section in `docs/research/RESEARCH-RIGOR-STANDARD.md` (phantom-vs-genuine
+   forward-soak classification test + M30/M28-P4 worked examples) + a binding
+   pointer section in `docs/CLAUDE-RULES-CANONICAL.md`. Fixed the residual stale
+   M28-P4 "blocked on unwired producer" bullet in `ROADMAP.md`. Swept the
+   remaining accrual mentions → the exit/fc-geometry soaks + regime-head items are
+   *genuine* forward soaks (already name their irreducible reason); no phantom
+   candidates left.
+
+2. **Built + ran M36 Track C · C4** — the conditioned-lifecycle backtest gate
+   (`M36-C4-conditioned-lifecycle-run-2026-07-27.md`). New pure module
+   `thesis_conditioned.py` (`conditioned_exit_on_path` drives the shipped C2/C3
+   over the price path; exits only ever earlier than baseline → no look-ahead) +
+   `equity_and_maxdd` + runner `scripts/macro/thesis_c4_run.py` (full grid, no
+   in-sample cell selection) + 10 unit tests. **Ran on the committed 21yr history
+   + real off-VM candles** (trainer relay #7760), 1,104 theses. **Verdict: NULL on
+   net edge** — the conditioned lifecycle does not beat the value baseline
+   (Δnet −0.0010…+0.0004), so **nothing graduates**; a modest ~19% maxDD reduction
+   confirms the conditioner is safe + reductive but pointless without an
+   edge-positive base thesis. **The blocker is M28 value-thesis construction, not
+   the exit lifecycle** — re-run C4 once a construction beats its own P4 baseline.
+   Scorecard `comms/macro/thesis_c4_scorecard.json`.

@@ -1,0 +1,43 @@
+{
+  "result": {
+    "baseline_value_holdtohorizon": {
+      "n": 1104,
+      "win_rate": 0.49728260869565216,
+      "mean_net_return": 0.0017939628213192863,
+      "avg_win": 0.04066689747815985,
+      "avg_loss": -0.036658723893285144,
+      "expectancy": 0.0017939628213192863,
+      "calibration_bins": [
+        {"lo": 0.0, "hi": 0.25, "n": 0, "hit_rate": null, "mean_net_return": null},
+        {"lo": 0.25, "hi": 0.5, "n": 84, "hit_rate": 0.5833333333333334, "mean_net_return": 0.00672918615853512},
+        {"lo": 0.5, "hi": 0.75, "n": 308, "hit_rate": 0.4935064935064935, "mean_net_return": -0.0020117638981568538},
+        {"lo": 0.75, "hi": 1.0, "n": 712, "hit_rate": 0.4887640449438202, "mean_net_return": 0.002858014884904289}
+      ],
+      "calibration_rank": -0.0037827004465008558,
+      "risk": {"n": 1104, "final_equity": 1.980534954736492, "max_drawdown": 1.3344940260380587, "peak_equity": 2.209710232730811}
+    },
+    "grid": [
+      {"expected_move_pct": 0.01, "crowding": false, "n": 1104, "win_rate": 0.7264492753623188, "mean_net_return": 0.0012863026836692911, "calibration_rank": 0.06914783711267922, "max_drawdown": 1.4336761669303693, "mean_hold_days": 14.25090579710145, "edge_vs_value_baseline": -0.0005076601376499952, "maxdd_delta_vs_baseline": 0.09918214089231059},
+      {"expected_move_pct": 0.01, "crowding": true, "n": 1104, "win_rate": 0.7681159420289855, "mean_net_return": 0.0008595048937412973, "calibration_rank": 0.06050274439930862, "max_drawdown": 1.3148835085798765, "mean_hold_days": 12.305253623188406, "edge_vs_value_baseline": -0.000934457927577989, "maxdd_delta_vs_baseline": -0.01961051745818221},
+      {"expected_move_pct": 0.02, "crowding": false, "n": 1104, "win_rate": 0.6195652173913043, "mean_net_return": 0.001176677144542739, "calibration_rank": 0.041601433307362996, "max_drawdown": 1.2602018782443278, "mean_hold_days": 19.49003623188406, "edge_vs_value_baseline": -0.0006172856767765473, "maxdd_delta_vs_baseline": -0.07429214779373083},
+      {"expected_move_pct": 0.02, "crowding": true, "n": 1104, "win_rate": 0.6739130434782609, "mean_net_return": 0.000813658764848405, "calibration_rank": 0.06279847350634557, "max_drawdown": 1.4621826762174956, "mean_hold_days": 16.733695652173914, "edge_vs_value_baseline": -0.0009803040564708813, "maxdd_delta_vs_baseline": 0.12768865017943698},
+      {"expected_move_pct": 0.03, "crowding": false, "n": 1104, "win_rate": 0.572463768115942, "mean_net_return": 0.0017120475204991186, "calibration_rank": 0.01304633524567748, "max_drawdown": 1.2040132418020761, "mean_hold_days": 22.630434782608695, "edge_vs_value_baseline": -8.191530082016772e-05, "maxdd_delta_vs_baseline": -0.13048078423598253},
+      {"expected_move_pct": 0.03, "crowding": true, "n": 1104, "win_rate": 0.6177536231884058, "mean_net_return": 0.0014413527939624194, "calibration_rank": 0.04069508398811961, "max_drawdown": 1.2067981080209174, "mean_hold_days": 19.71195652173913, "edge_vs_value_baseline": -0.00035261002735686693, "maxdd_delta_vs_baseline": -0.1276959180171413},
+      {"expected_move_pct": 0.05, "crowding": false, "n": 1104, "win_rate": 0.529891304347826, "mean_net_return": 0.0021822368386361438, "calibration_rank": 0.02143359024122692, "max_drawdown": 1.0775375268294793, "mean_hold_days": 26.04076086956522, "edge_vs_value_baseline": 0.00038827401731685745, "maxdd_delta_vs_baseline": -0.2569564992085793},
+      {"expected_move_pct": 0.05, "crowding": true, "n": 1104, "win_rate": 0.5552536231884058, "mean_net_return": 0.0018079124396216336, "calibration_rank": 0.013457338101409828, "max_drawdown": 1.2776890075328757, "mean_hold_days": 23.741847826086957, "edge_vs_value_baseline": 1.3949618302347335e-05, "maxdd_delta_vs_baseline": -0.056805018505182936}
+    ],
+    "baseline_mean_net_return": 0.0017939628213192863,
+    "baseline_max_drawdown": 1.3344940260380587
+  },
+  "meta": {
+    "rebalances": 263,
+    "horizon_days": 30.0,
+    "fee_frac": 0.001,
+    "carry_frac_per_day": 0.0,
+    "snapshot_records": 10125,
+    "thesis_records": 1104,
+    "symbols_with_candles": ["GLD", "IEF", "SLV", "SPY", "TLT"],
+    "move_pcts": [0.01, 0.02, 0.03, 0.05],
+    "run_context": "trainer-vm-diag relay (issue #7760); real daily candles fetched off-VM (SPY/TLT/GLD/SLV/IEF, 5091-5423 closes each); committed 21yr point-in-time snapshots comms/macro/valuation_snapshots_backfill.jsonl"
+  }
+}
