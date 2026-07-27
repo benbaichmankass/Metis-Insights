@@ -199,11 +199,17 @@ def _load_market_raw_rows(market_raw_path: Path) -> list[dict[str, Any]]:
 
 
 def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
-    """REAL closed (non-backtest, non-demo) trades for one symbol.
+    """REAL closed (non-backtest, real-money) trades for one symbol.
 
-    The held-out real population for the domain-shift eval (S-MLOPT-S6). Mirrors
-    the filter the `setup_labels` / `trade_outcomes` families use so the live
-    holdout reflects exactly the trades the journal counts. Returns
+    The held-out real population for the domain-shift eval (S-MLOPT-S6). The
+    real-vs-paper filter is **account_class-authoritative with an is_demo
+    fallback** — the canonical predicate the rest of the system uses (and the
+    C1 research panel, `build_research_panel.py`), NOT `is_demo` alone: a paper
+    row carrying `account_class='paper'` but `is_demo=0` (e.g. a
+    portfolio-mirror book) must never leak into the real-money holdout / EV
+    gate (the "real and paper are never blended" contract). Schema-tolerant: a
+    journal missing the `account_class` column (old fixtures / a
+    migration-behind copy) degrades to the legacy is_demo-only filter. Returns
     `{entry_ts, direction(±1), pnl, pnl_percent, entry_price, stop_loss,
     position_size}` newest-first — the last three are the risk columns the live
     rows' realized-R is reconstructed from (`MB-20260717-M23-LIVEROW-REALIZED-R`);
@@ -231,9 +237,19 @@ def _load_live_trades(db_path: Path | str, symbol: str) -> list[dict[str, Any]]:
         risk_cols = [c for c in ("entry_price", "stop_loss", "position_size")
                      if c in have]
         select_cols = ["timestamp", "direction", "pnl", "pnl_percent", *risk_cols]
+        # account_class-authoritative real filter (mirrors build_research_panel.py):
+        # a row is real only if account_class isn't 'paper' AND is_demo is 0.
+        # Guarded on column presence so an old-schema journal (no account_class)
+        # degrades to the legacy is_demo-only predicate instead of raising.
+        account_pred = (
+            "AND COALESCE(account_class,'') != 'paper' "
+            if "account_class" in have
+            else ""
+        )
         sql = (
             f"SELECT {', '.join(select_cols)} FROM trades "
             "WHERE status='closed' AND COALESCE(is_backtest,0)=0 "
+            f"{account_pred}"
             "AND COALESCE(is_demo,0)=0 AND symbol=? AND pnl IS NOT NULL "
             "ORDER BY timestamp"
         )
