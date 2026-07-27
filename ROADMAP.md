@@ -394,8 +394,11 @@ Work top-down — P0 is the highest-leverage unblock.
   (a) periodically confirm the daily cron is still landing (a scheduled run that silently stops is the
   failure class to watch — check `macro-valuation-snapshot.yml` run history, don't assume) — it now
   just keeps the live sleeve's snapshots fresh, it is NOT the P4 gate's data source; (b) the P4 gate's
-  decision is IN HAND (negative) → the value-thesis **construction** needs iterating (D1/D2/D3 per
-  `M28-signal-research-methodology.md`), not more accrual — see the M28 row + the workplan Phase-2 fork;
+  decision is IN HAND (negative) and the value-thesis **construction iteration is now COMPLETE** — the
+  full D1/D2/D3/D4/D5 + regime space was graded through the P4 gate (entries 13 + 16, PRs #7766/#7777)
+  and **nothing clears**, so value is **cross-gate-conclusively exhausted** (do NOT re-open value
+  construction). The forward direction is the **post-value pivot** (microstructure / Schwab skew) —
+  see `POST-VALUE-PIVOT-WORKPLAN-2026-07-27.md` + the M28 row;
   (c) the **M29 EIA/weather/NG gas producer is
   ALSO already built** (corrected 2026-07-25 — do NOT rebuild it): `scripts/macro/sysdyn_gas_data.py`
   (P1b keyless Henry Hub price `WHHNGSP` + P1c observed EIA storage `eia_v2` + real weather HDD via
