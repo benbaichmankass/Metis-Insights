@@ -256,16 +256,29 @@ _STRATEGY_SPECS: Dict[str, List[ComponentSpec]] = {
         ),
     ],
     # trend_donchian / fade_breakout_4h / htf_pullback_trend_2h are
-    # ATR-trailing breakout/pullback units whose graded entry edge is the
-    # composite ``confidence`` (breakout/pierce/pullback depth ÷ ATR), already
-    # covered by the common ``confidence`` spec. fade_breakout_4h additionally
+    # ATR-trailing breakout/pullback units. fade_breakout_4h additionally
     # stamps a raw ``adx`` in meta — surface it as a strategy-specific graded
     # axis (its fade thesis is ADX-gated).
     "fade_breakout_4h": [
         ComponentSpec("fade_adx", KIND_GRADED, _graded_key("adx")),
     ],
+    # trend_donchian's entry edge is the composite ``confidence`` (already a
+    # common spec); its meta carries no *additional* idiosyncratic graded axis
+    # that varies meaningfully across trades — ``tp_r`` is a near-constant
+    # ride-the-trail sentinel (50.0) and raw ``atr`` isn't comparable
+    # cross-symbol. So the strategy-specific list is deliberately empty (not an
+    # unfinished stub); the common ``confidence`` covers it. Verified against
+    # ``src/units/strategies/trend_donchian.py`` meta 2026-07-27.
     "trend_donchian": [],
-    "htf_pullback_trend_2h": [],
+    # htf_pullback_trend_2h DOES stamp a real graded entry-quality axis:
+    # ``pullback_pos_in_range`` (0..1, the close's position in the recent range
+    # at entry — the pullback depth). Surface it as ``pullback_depth``. Verified
+    # against ``src/units/strategies/htf_pullback_trend_2h.py`` meta 2026-07-27.
+    "htf_pullback_trend_2h": [
+        ComponentSpec(
+            "pullback_depth", KIND_GRADED, _graded_key("pullback_pos_in_range")
+        ),
+    ],
 }
 
 

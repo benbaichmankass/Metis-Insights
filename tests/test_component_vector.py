@@ -251,3 +251,31 @@ def test_component_is_frozen_record():
     assert isinstance(c, Component)
     # frozen dataclass — value/kind are read-only attributes
     assert hasattr(c, "value") and hasattr(c, "kind")
+
+
+# ---------------------------------------------------------------------------
+# htf_pullback_trend_2h — the graded pullback-depth axis (M30 C1, 2026-07-27)
+# ---------------------------------------------------------------------------
+
+
+def test_htf_pullback_depth_graded():
+    # htf_pullback_trend_2h stamps pullback_pos_in_range (0..1) → pullback_depth.
+    comps = extract(
+        "htf_pullback_trend_2h",
+        {"pullback_pos_in_range": 0.3, "atr": 10.0, "regime": "trend"},
+        extra={"confidence": 0.6},
+    )
+    assert comps["pullback_depth"].kind == KIND_GRADED
+    assert abs(comps["pullback_depth"].value - 0.3) < 1e-9
+    # common confidence still surfaces alongside it.
+    assert abs(comps["confidence"].value - 0.6) < 1e-9
+    assert "pullback_depth" in graded_component_names("htf_pullback_trend_2h")
+
+
+def test_trend_donchian_has_no_idiosyncratic_graded_axis():
+    # trend_donchian's entry edge IS the common confidence — no strategy-specific
+    # graded axis (deliberately empty, not an unfinished stub).
+    names = graded_component_names("trend_donchian")
+    # only the common graded set (confidence / adx_14 / rolling_log_return_vol).
+    assert "confidence" in names
+    assert not any(n.startswith("donchian") or n == "pullback_depth" for n in names)
