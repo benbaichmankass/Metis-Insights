@@ -58,9 +58,13 @@ class BybitConnector:
             print(f"Error fetching price: {e}")
             return None
 
-    def get_ohlcv(self, symbol="BTC/USDT:USDT", timeframe="15m", limit=100):
+    def get_ohlcv(self, symbol="BTC/USDT:USDT", timeframe="15m", limit=100, since=None):
+        # ``since`` (epoch MILLISECONDS, CCXT convention) fetches candles FORWARD
+        # from that time — the historical-range read the M30 P5 exit panel needs
+        # to reconstruct MFE/MAE over a closed trade's holding window. Default
+        # None = the exchange's most-recent ``limit`` candles (unchanged behaviour).
         try:
-            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, since=since, limit=limit)
             df = pd.DataFrame(ohlcv, columns=["timestamp","open","high","low","close","volume"])
             df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
             return df
