@@ -745,6 +745,35 @@ def _gate_labels_accruing(labels: Any, th: GateThresholds) -> GateResult:
 
 
 def _gate_drift_clean(drift: Any, th: GateThresholds) -> GateResult:
+    """`drift_clean` — the SOLE legitimate *rolling live-window* promotion gate
+    (workplan 1.3a / M30, anti-soak governance formalization 2026-07-27).
+
+    The de-soak reframe (docs/CLAUDE-RULES-CANONICAL.md § "Anti-soak" / WS-1 +
+    WS-2, 2026-07-26) partitions a head's promotion evidence into two kinds, and
+    this gate is the one member of the second kind:
+
+    - **EDGE is proven OFFLINE**, never by waiting: `oos_edge` (purged-WF-CV
+      champion-vs-baseline) + `live_regime_discrimination` on the historical
+      book. No gate may require calendar-time accrual to prove edge — that is
+      the rule the `check_no_calendar_edge_gate` CI guard enforces, and why
+      `require_shadow_soak` is advisory (non-blocking) for regime heads.
+    - **SERVING-MECHANICS are proven on LIVE rows**, but accrue in hours, not
+      weeks: `live_parity` (live == train serving path) + `labels_accruing`
+      (the live feed is producing usable labels).
+
+    `drift_clean` is neither an edge gate nor a one-shot mechanics check: it is
+    the ONE genuinely *rolling* live property — "the live score distribution has
+    not drifted away from the reference window." It is a continuous safety
+    monitor (a *rolling* window comparison, KS + PSI), not a fixed multi-week
+    wait, so it is compatible with the anti-soak rule: it never blocks a head to
+    accrue calendar time; it blocks only when live scores have *actually* drifted
+    right now (it correctly demoted `sol-regime-15m-lgbm-fc-pcv-v1` on KS=0.236,
+    2026-07-26). Keep this the only rolling-live gate; any new "wait N days"
+    promotion criterion is a governance regression.
+
+    Behaviour is unchanged by this docstring — the gate logic below is exactly
+    as before (numeric KS/PSI ceilings, verdict-bucket fallback).
+    """
     if drift is None:
         return GateResult(
             "drift_clean", "insufficient_data",
