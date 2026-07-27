@@ -141,6 +141,18 @@ first. Run all of these in order — this is the part that stops the retest chur
 Mnemonic: **read board → 🔒 CLAIM → sync → merge on green → 🔓 RELEASE**, on every
 `merge_pull_request`.
 
+**This is now hard-enforced (2026-07-27).** A `PreToolUse` guard in
+`.claude/settings.json` **denies** `merge_pull_request` **and**
+`enable_pr_auto_merge` until this session has run the protocol for the specific
+PR and set a fresh (< 20 min) per-PR marker `/tmp/.claude-merge-claim-<sid>-<pr>`
+(you `touch` it in step 4, after posting the `🔒 CLAIM` and syncing). The deny
+message restates steps 1–5. The marker is a speed-bump proving you went through
+the motions for *that* PR — it is **not** the claim; the `🔒 CLAIM` comment on
+#6927 is what other sessions see, so post it for real. Rationale + the incident
+that forced it: `docs/claude/coordination-board.md` § "Enforcement: the hard
+merge-guard". (Because hooks load at session start, a session that *edits*
+`settings.json` mid-run still follows the protocol manually for its own PRs.)
+
 Corollary: **one PR = one concern.** Never add unrelated work to a branch that
 already has an open PR — it pollutes the PR and invalidates its CI run (and a new
 head SHA strands any merge-gate watcher). Start a fresh branch off `main` for a
