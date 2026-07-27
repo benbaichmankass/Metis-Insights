@@ -121,13 +121,130 @@ def _context_from(meta: Mapping[str, Any], signal_logic: Mapping[str, Any]) -> d
     }
 
 
+def _iter_panel_paths(backtest_panels: Any) -> Iterator[Path]:
+    """Resolve ``backtest_panels`` (a path, a glob, or an iterable of either) to
+    concrete JSONL panel files. Tolerant: a non-matching glob / missing path
+    yields nothing rather than raising (an empty augmentation, not a crash)."""
+    import glob as _glob  # noqa: PLC0415
+
+    if backtest_panels is None:
+        return
+    items = (
+        [backtest_panels]
+        if isinstance(backtest_panels, (str, Path))
+        else list(backtest_panels)
+    )
+    for item in items:
+        s = str(item)
+        matches = _glob.glob(s)
+        if matches:
+            for m in sorted(matches):
+                yield Path(m)
+        else:
+            p = Path(s)
+            if p.is_file():
+                yield p
+
+
+def _row_from_panel(
+    panel_row: Mapping[str, Any], *, risk_pct: float, r_cap: float
+) -> dict[str, Any] | None:
+    """Map one M30 backtest panel row (C1-for-backtests schema) to a
+    ``conviction_meta`` payload tagged ``source="backtest"``.
+
+    Reuses ``build_conviction_inputs`` for ``c_strat`` (no train/serve skew — the
+    same live adapter). The ML head slots (``c_setup``/``c_wr``/``c_reg``) are
+    honestly absent offline (no shadow heads replayed) → NaN for LightGBM, exactly
+    as a live row whose heads didn't score. ``pnl`` is an R proxy on the backtest
+    substrate (no dollar PnL); ``won`` (``r > 0``) is directly comparable to the
+    live target. Returns ``None`` for a row with no usable outcome.
+
+    See docs/research/m30-to-m16-integration-backbone-DESIGN.md § 2.
+    """
+    r = panel_row.get("r")
+    if r is None:
+        r = panel_row.get("pnl")
+    if r is None:
+        return None
+    try:
+        r_val = float(r)
+    except (TypeError, ValueError):
+        return None
+
+    strategy = str(panel_row.get("strategy") or "")
+    conf_raw = panel_row.get("feat_confidence")
+    confidence = float(conf_raw) if isinstance(conf_raw, (int, float)) else None
+    lens_inputs, _prov = build_conviction_inputs(strategy, confidence, None)
+
+    adx_raw = panel_row.get("feat_adx_14")
+    payload: dict[str, Any] = {
+        "order_package_id": "",  # no order package on the backtest substrate
+        "trade_id": -1,          # sentinel — backtest rows have no journal trade id
+        "created_at": str(panel_row.get("closed_at") or ""),
+        "strategy_name": strategy,
+        "symbol": str(panel_row.get("symbol") or ""),
+        "direction": str(
+            canon_direction(panel_row.get("direction")) or panel_row.get("direction") or ""
+        ),
+        "regime": str(panel_row.get("cat_regime") or ""),
+        "adx_14": float(adx_raw) if isinstance(adx_raw, (int, float)) else None,
+        "vol_regime": str(panel_row.get("cat_vol_regime") or ""),
+        "confidence": float(confidence) if confidence is not None else 0.0,
+        # R-unit outcomes (backtest has no dollar PnL): pnl == r proxy,
+        # pnl_percent == r * risk_pct so r_multiple round-trips consistently.
+        "pnl": r_val,
+        "pnl_percent": r_val * float(risk_pct),
+        "won": bool(r_val > 0),
+        "r_multiple": _clip(r_val, float(r_cap)),
+        "source": "backtest",
+    }
+    for col in _LENS_COLUMNS:
+        if col in lens_inputs:
+            payload[col] = float(lens_inputs[col])
+    return payload
+
+
+def _iter_backtest_payloads(
+    backtest_panels: Any, *, risk_pct: float, r_cap: float,
+    strategy_name: str | None, symbol: str | None,
+) -> Iterator[dict[str, Any]]:
+    """Yield ``conviction_meta`` payloads from every resolved panel JSONL,
+    honoring the same ``strategy_name`` / ``symbol`` scoping the DB scan uses."""
+    for path in _iter_panel_paths(backtest_panels):
+        try:
+            with path.open("r", encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except (TypeError, ValueError):
+                        continue
+                    if not isinstance(obj, dict):
+                        continue
+                    if strategy_name is not None and str(obj.get("strategy")) != strategy_name:
+                        continue
+                    if symbol is not None and str(obj.get("symbol")) != symbol:
+                        continue
+                    payload = _row_from_panel(obj, risk_pct=risk_pct, r_cap=r_cap)
+                    if payload is not None:
+                        yield payload
+        except OSError:
+            continue
+
+
 class ConvictionMetaBuilder(DatasetBuilder):
     family: ClassVar[str] = "conviction_meta"
     # v2 (M19 T0.3): adds the optional pretrained-TSFM embedding block
     # (`tsfm_emb_0..31`, as-of joined from an `embedding_path` side-stream). The
     # columns are ALWAYS present (0.0 when no `embedding_path` given), so the v1
     # manifest — which never lists them in `feature_columns` — is unaffected.
-    builder_version: ClassVar[str] = "v2"
+    # v3 (M36 Track D): adds the `source_mode`/`backtest_panels` axis — an
+    # optional M30 backtest-panel row-source tagged source="backtest". Default
+    # source_mode="live" keeps the live-only output byte-for-byte, so a v1
+    # manifest build is unchanged; the augmented population is opt-in.
+    builder_version: ClassVar[str] = "v3"
     leakage_test_status: ClassVar[LeakageStatus] = LeakageStatus.SKIPPED
     label_version: ClassVar[str] = "won-from-pnl-v1"
     schema: ClassVar[Mapping[str, type]] = {
@@ -168,12 +285,44 @@ class ConvictionMetaBuilder(DatasetBuilder):
         strategy_name: str | None = None,
         symbol: str | None = None,
         embedding_path: Path | str | None = None,
+        source_mode: str = "live",
+        backtest_panels: Any = None,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         if risk_pct <= 0:
             raise ValueError(f"risk_pct must be > 0; got {risk_pct}")
         if r_cap <= 0:
             raise ValueError(f"r_cap must be > 0; got {r_cap}")
+
+        # M36 Track D — source axis. "live" (default → today's behaviour
+        # byte-for-byte): DB order-packages only. "backtest": M30 backtest-panel
+        # rows only (source="backtest"). "union": both (the backtest-augmented
+        # training population the design § 4.5 anticipated). Observe-only — the
+        # augmented model still rides candidate → shadow → advisory before any
+        # influence. See docs/research/m30-to-m16-integration-backbone-DESIGN.md.
+        mode = str(source_mode or "live").strip().lower()
+        if mode not in ("live", "backtest", "union"):
+            raise ValueError(
+                f"source_mode must be live|backtest|union; got {source_mode!r}"
+            )
+        include_live = mode in ("live", "union")
+        include_backtest = mode in ("backtest", "union")
+
+        payloads: list[dict[str, Any]] = []
+
+        if include_backtest:
+            payloads.extend(
+                _iter_backtest_payloads(
+                    backtest_panels, risk_pct=risk_pct, r_cap=r_cap,
+                    strategy_name=strategy_name, symbol=symbol,
+                )
+            )
+
+        if not include_live:
+            # Backtest-only: skip the DB scan entirely and attach the (inert)
+            # embedding block to the panel rows.
+            yield from _attach_embeddings(payloads, embedding_path)
+            return
 
         if db_path is None:
             # Canonical resolver (env → $DATA_DIR/trade_journal.db → repo-root).
@@ -226,7 +375,8 @@ class ConvictionMetaBuilder(DatasetBuilder):
                 params.append(symbol)
             sql += " ORDER BY t.id ASC"
 
-            payloads: list[dict[str, Any]] = []
+            # NB: append to the (possibly backtest-seeded) payloads list — do
+            # NOT re-declare it, or source_mode="union" would drop the backtest rows.
             for row in conn.execute(sql, params):
                 pnl = row["pnl"]
                 if pnl is None:
