@@ -167,6 +167,48 @@ def build_cv_config(
     return cfg
 
 
+def _referenced_columns(manifest: TrainingManifest) -> set[str] | None:
+    """Columns the trainer + evaluator actually read — for a memory-lean
+    *projected* dataset load (MB-20260719 oos_edge OOM).
+
+    A single head's ``compute_oos_edge`` loads the whole dataset
+    (``market_features`` ≈ 2×10⁵ rows × many float cols). Loaded row-major
+    with every column, that one head's working set alone breaches the
+    trainer unit's ``MemoryMax=4500M`` and the ``_oos-edge-one`` subprocess
+    is OOM-killed. But the trainer only reads ``feature_columns`` (+ the
+    target / time / vol / sample-weight columns) and the evaluator only the
+    target + time column — so the rest is dead weight in RAM.
+
+    Walks ``trainer_config`` + ``evaluator_config`` and collects every value
+    under a key ending in ``_column`` (one name) or ``_columns`` (a list) —
+    the convention these configs use (``feature_columns``,
+    ``categorical_columns``, ``target_column``, ``time_column``,
+    ``vol_feature_column``, nested ``sample_weight.time_column``). Returns
+    ``None`` (→ full load) when nothing resolves. Safety: ``_load_jsonl`` is
+    itself fail-open when the keep-set doesn't intersect the data, and a
+    genuinely-missed column makes the trainer/evaluator raise →
+    ``compute_oos_edge`` returns ``None`` (``insufficient_data``), identical
+    to a real compute miss — never a *wrong* edge. So projection can only
+    save memory, never corrupt a result.
+    """
+    cols: set[str] = set()
+
+    def _walk(cfg: Any) -> None:
+        if not isinstance(cfg, Mapping):
+            return
+        for key, val in cfg.items():
+            if key.endswith("_columns") and isinstance(val, (list, tuple)):
+                cols.update(str(c) for c in val if c)
+            elif key.endswith("_column") and isinstance(val, str) and val:
+                cols.add(val)
+            elif isinstance(val, Mapping):
+                _walk(val)
+
+    _walk(manifest.trainer_config)
+    _walk(manifest.evaluator_config)
+    return cols or None
+
+
 def compute_oos_edge(
     entry: Any,
     *,
@@ -198,7 +240,11 @@ def compute_oos_edge(
     if not data_path.is_file():
         return None
     try:
-        rows = _load_jsonl(data_path)
+        # Project to only the columns the trainer + evaluator read — the
+        # rest is dead RAM (MB-20260719 single-head OOM). _load_jsonl is
+        # fail-open when the keep-set misses; a wrongly-dropped column then
+        # degrades this head to insufficient_data, never a wrong edge.
+        rows = _load_jsonl(data_path, keep=_referenced_columns(manifest))
     except (OSError, ValueError):
         return None
     if len(rows) < n_folds + 1:
