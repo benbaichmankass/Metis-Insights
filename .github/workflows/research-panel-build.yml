@@ -155,12 +155,23 @@ jobs:
           # plus scipy is NOT required — the C2 stats are pure-python / numpy).
           pip install numpy pandas pyyaml requests
 
-      - name: Fetch feed from Bybit (keyless public)
+      - name: Fetch feed (Binance public archive — Bybit geoblocks US GH-runners)
+        env:
+          # GitHub-hosted runners are US-based Azure IPs and Bybit geoblocks the
+          # US (api.bybit.com 403s here — the run-1 failure of #7769,
+          # BL-20260727-BYBIT-USGEOBLOCK-GHRUNNER). Pin the fetch to Binance's
+          # public data archive (data.binance.vision — keyless, globally
+          # reachable, no geoblock; UM-futures BTCUSDT tracks Bybit linear within
+          # a few bps). `--source auto` would fall back on its own, but pinning
+          # skips the doomed ~14s Bybit retry loop. On the trainer/local (where
+          # Bybit IS reachable) leave the env unset to keep the Bybit source.
+          BACKTEST_FEED_SOURCE: binance_vision
         run: |
           set -euo pipefail
           mkdir -p data
-          # Map the strategy timeframe label (5m/15m/1h/4h/1d) to the Bybit kline
-          # interval code (5/15/60/240/D) the fetcher expects.
+          # Map the strategy timeframe label (5m/15m/1h/4h/1d) to the kline
+          # interval code (5/15/60/240/D) the fetcher expects (Binance mapping
+          # is derived from this inside the fetcher).
           case "${rp_timeframe}" in
             *m) BYBIT_INT="${rp_timeframe%m}" ;;
             1h) BYBIT_INT=60 ;;
@@ -169,7 +180,7 @@ jobs:
             1d|1D) BYBIT_INT=D ;;
             *)  BYBIT_INT="${rp_timeframe}" ;;
           esac
-          echo "timeframe=${rp_timeframe} -> bybit interval=${BYBIT_INT}"
+          echo "timeframe=${rp_timeframe} -> interval=${BYBIT_INT} (source=${BACKTEST_FEED_SOURCE})"
           python scripts/ops/fetch_backtest_candles.py \
             --symbol "${rp_symbol}" \
             --interval "${BYBIT_INT}" \
