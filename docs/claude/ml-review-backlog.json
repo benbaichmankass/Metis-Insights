@@ -2374,6 +2374,12 @@
           "by": "system-review-followup-2026-07-27 (readiness OOM verify)",
           "action": "reopened",
           "note": "REOPENED \u2014 the 2026-07-26 'resolved via subprocess isolation' does NOT hold. Live-confirmed 2026-07-27: with PROMOREADY_OOS_EDGE default ON, ict-promotion-readiness.service OOM-killed (Result=oom-kill) on both the 04:04Z scheduled run and an 08:49Z manual run (~5 min, no packet). ROOT CAUSE: ml/promotion/oos_edge.py:201 compute_oos_edge does rows=_load_jsonl(data_path) \u2014 materializes the ENTIRE dataset (market_features ~2.1e5 rows x many float cols, as Python dicts) for ONE head's CV, then _pooled_cv_metrics trains candidate+baseline on it. A SINGLE head's footprint exceeds MemoryMax=4500M, so per-head subprocess isolation (which only bounds fleet-accumulation) can't save it. INTERIM (shipped 2026-07-27): reverted PROMOREADY_OOS_EDGE default to OFF (restores the proven 07-25/26 packet-producing state; oos_edge evidence stays available per-head via `gate-check`). REAL FIX (this item): make oos_edge's CV dataset load memory-bounded \u2014 load only the manifest feature_columns + target + time column, as compact arrays/typed columns rather than full-row dicts, through _pooled_cv_metrics; then re-enable default ON only after a trainer live-verify shows the full sweep stays under the 4500M cap. Sibling of BL-20260715's attribution streaming fix (#7716), same materialization class."
+        },
+        {
+          "at": "2026-07-27T10:12:00+00:00",
+          "by": "system-review-followup-2026-07-27 (readiness verify)",
+          "action": "kept_open",
+          "note": "MEMORY FIX SHIPPED (#7722): compute_oos_edge now projects the dataset load to only the trainer/evaluator-referenced columns via _load_jsonl(keep=), cutting a single head's rows-list footprint. ON-viability first measure (transient systemd-run scope, MemoryMax=4500M, PROMOREADY_OOS_EDGE=on) was INCONCLUSIVE \u2014 the pipe masked systemd-run's real exit and captured no /usr/bin/time -v RSS line, so it's unknown whether the ON sweep completed under the cap or OOM'd early. Re-measuring cleanly (explicit scope exit + time -v RSS + dmesg OOM check). Default stays OFF until a definitive under-cap result; then flip ON + resolve. oos_edge evidence remains available per-head via `gate-check`."
         }
       ]
     },
@@ -2626,5 +2632,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-27T09:25:00+00:00"
+  "updated_at": "2026-07-27T10:12:00+00:00"
 }
