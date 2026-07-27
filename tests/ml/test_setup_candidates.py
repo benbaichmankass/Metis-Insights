@@ -787,3 +787,59 @@ def test_backtest_strategies_string_form(tmp_path: Path):
         backtest_strategies="squeeze,trend",
     ))
     assert sum(1 for r in rows if r["event_source"] == "backtest") == 2
+
+
+def test_load_live_trades_account_class_authoritative(tmp_path):
+    """Real/paper filter is account_class-authoritative: a paper row with
+    is_demo=0 (the portfolio-mirror seam) must NOT leak into the real holdout,
+    and an account_class=NULL row falls back to the is_demo verdict."""
+    from ml.datasets.families.setup_candidates import _load_live_trades
+
+    db = tmp_path / "trade_journal.db"
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "CREATE TABLE trades (id INTEGER PRIMARY KEY, symbol TEXT, direction TEXT, "
+        "timestamp TEXT, status TEXT, pnl REAL, pnl_percent REAL, "
+        "is_backtest INT, is_demo INT, account_class TEXT)"
+    )
+    # (direction, pnl, is_demo, account_class) — all closed non-backtest BTCUSDT
+    rows = [
+        ("buy", 10.0, 0, "real_money"),  # real → included
+        ("buy", 20.0, 1, "paper"),       # paper (demo-flagged) → excluded
+        ("buy", 30.0, 0, "paper"),       # THE SEAM: paper, is_demo=0 → excluded
+        ("buy", 40.0, 0, None),          # account_class NULL, is_demo=0 → real (fallback)
+    ]
+    for i, (d, pnl, dem, ac) in enumerate(rows):
+        conn.execute(
+            "INSERT INTO trades VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (i, "BTCUSDT", d, f"2026-01-0{i + 1}T00:00:00Z", "closed",
+             pnl, pnl / 100.0, 0, dem, ac),
+        )
+    conn.commit()
+    conn.close()
+
+    out = _load_live_trades(db, "BTCUSDT")
+    assert sorted(r["pnl"] for r in out) == [10.0, 40.0]  # paper seam excluded
+
+
+def test_load_live_trades_old_schema_no_account_class(tmp_path):
+    """A journal missing account_class degrades to the legacy is_demo-only
+    filter (schema tolerance) — real rows still returned, no crash."""
+    from ml.datasets.families.setup_candidates import _load_live_trades
+
+    db = tmp_path / "trade_journal.db"
+    conn = sqlite3.connect(str(db))
+    conn.execute(
+        "CREATE TABLE trades (id INTEGER PRIMARY KEY, symbol TEXT, direction TEXT, "
+        "timestamp TEXT, status TEXT, pnl REAL, pnl_percent REAL, "
+        "is_backtest INT, is_demo INT)"  # no account_class column
+    )
+    conn.execute("INSERT INTO trades VALUES "
+                 "(0,'BTCUSDT','buy','2026-01-01T00:00:00Z','closed',10.0,0.1,0,0)")
+    conn.execute("INSERT INTO trades VALUES "
+                 "(1,'BTCUSDT','buy','2026-01-02T00:00:00Z','closed',20.0,0.2,0,1)")
+    conn.commit()
+    conn.close()
+
+    out = _load_live_trades(db, "BTCUSDT")
+    assert [r["pnl"] for r in out] == [10.0]  # demo excluded, real kept, no crash
