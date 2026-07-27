@@ -886,3 +886,87 @@ class TestRaisingBuilderIsAudited:
             strategies=["fade_breakout_4h", "vwap"],
         )
         assert signal is not None  # tick survived a failing report()
+
+    def test_transient_no_candle_data_emits_warning_not_error(self, monkeypatch):
+        # A candle fetch returning None (transient IB breaker backoff, etc.)
+        # is the shared "no candle data returned" RuntimeError every builder
+        # raises. It fires every tick for the whole outage, so it must NOT
+        # page at ERROR — a persistent outage is paged separately by
+        # account_reachability_alert. Assert it emits at WARN and the raising
+        # strategy is still skipped (the tick survives via the other builder).
+        import src.runtime.outcomes as outcomes
+
+        calls: list = []
+        monkeypatch.setattr(
+            outcomes, "report", lambda *a, **k: calls.append((a, k))
+        )
+
+        def no_candles(settings):
+            # Same signature phrase every builder raises when fetch_candles
+            # returns None (the IB-fed MES/MGC/MHG wording shown here).
+            raise RuntimeError(
+                "mes_trend_long_1d: no candle data returned for symbol=MES "
+                "timeframe=1d. Check that the IBKR connection is configured "
+                "and the symbol is valid."
+            )
+
+        def stub_ok(settings):
+            return {"symbol": "BTCUSDT", "side": "none", "meta": {}}
+
+        # Registered under a non-symbol-scoped strategy name (fade_breakout_4h,
+        # as the sibling tests do) so the builder actually runs on a BTCUSDT
+        # tick — the reclassification is on the exception message, not the name.
+        signal = multiplexed_intent_signal_builder(
+            {"SYMBOL": "BTCUSDT"},
+            builders={"fade_breakout_4h": no_candles, "vwap": stub_ok},
+            strategies=["fade_breakout_4h", "vwap"],
+        )
+        # Crash isolation: the raising builder is skipped, the tick completes.
+        assert signal is not None
+
+        matched = [
+            (a, k) for (a, k) in calls
+            if len(a) >= 2 and a[0] == "strategy_builder" and a[1] == "exception"
+        ]
+        assert len(matched) == 1, calls
+        _, kw = matched[0]
+        assert kw.get("strategy") == "fade_breakout_4h"
+        # Reclassified to WARN, not the ERROR page.
+        assert kw.get("level") == outcomes.Level.WARN
+        assert kw.get("level") != outcomes.Level.ERROR
+        # Greppable distinct reason prefix.
+        assert "transient_market_data_unavailable" in (kw.get("reason") or "")
+
+    def test_non_transient_exception_still_emits_error(self, monkeypatch):
+        # A genuine builder bug (not the no-candle-data signature) must still
+        # page at ERROR — the transient reclassification is narrowly scoped.
+        import src.runtime.outcomes as outcomes
+
+        calls: list = []
+        monkeypatch.setattr(
+            outcomes, "report", lambda *a, **k: calls.append((a, k))
+        )
+
+        def boom(settings):
+            raise ValueError("boom")
+
+        def stub_ok(settings):
+            return {"symbol": "BTCUSDT", "side": "none", "meta": {}}
+
+        signal = multiplexed_intent_signal_builder(
+            {"SYMBOL": "BTCUSDT"},
+            builders={"fade_breakout_4h": boom, "vwap": stub_ok},
+            strategies=["fade_breakout_4h", "vwap"],
+        )
+        assert signal is not None
+
+        matched = [
+            (a, k) for (a, k) in calls
+            if len(a) >= 2 and a[0] == "strategy_builder" and a[1] == "exception"
+        ]
+        assert len(matched) == 1, calls
+        _, kw = matched[0]
+        assert kw.get("strategy") == "fade_breakout_4h"
+        # Non-transient → still the ERROR page.
+        assert kw.get("level") == outcomes.Level.ERROR
+        assert "ValueError" in (kw.get("reason") or "")
