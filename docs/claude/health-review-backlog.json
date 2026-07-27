@@ -6570,10 +6570,13 @@
       "tier": "Tier-1 (research; the eventual promotion past candidate is Tier-3/operator)",
       "trigger_condition": "the M16 backtest-augmentation A/B is picked back up",
       "resolution_criteria": "a union conviction_meta build with source_mode=union contains both live and backtest rows, and the live-holdout eval of conviction-meta-v1-bt vs conviction-meta-v1 has run",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": [],
-      "resolved_at": null
+      "updates": [
+        "2026-07-27 (M36 Track D continuation): ROOT CAUSE was NOT missing live data — it was an ad-hoc-relay resolver-path bug. On the trainer DATA_DIR is unset, so trade_journal_db_path() returns the STALE repo-root trade_journal.db (empty) while sync_trainer_data.sh writes the fresh live DB to $REPO_ROOT/data/trade_journal.db. relay #7772's ad-hoc `ml build-dataset` passed neither db_path= nor DATA_DIR, so source_mode=union scanned the empty file -> 0 live rows. The normal build_trainer_datasets.sh cycle is IMMUNE (it passes db_path=${DATA_DIR}/trade_journal.db explicitly). Fixed the recipe in docs/research/m30-to-m16-integration-backbone-DESIGN.md §5.4 + ml/configs/conviction-meta-v1-bt.yaml header (add the required --source flag, which the recipe also omitted, + explicit db_path=). Operator-approved path: pull fresh journal -> trainer (not build-on-live-VM).",
+        "2026-07-27 A/B RESULT (NEGATIVE): union = ~400 live + 1525 backtest rows. Live-holdout A/B (time_aware_holdout on created_at -> most-recent = live rows): conviction-meta-v1-bt (augmented) accuracy 0.5247 / macro-F1 0.509 on n=385; conviction-meta-v1 (live-only baseline) accuracy 0.5250 / macro-F1 0.514 on n=80. The augmented model does NOT beat the live-only baseline (v1-bt <= v1 on every metric), and BOTH are below their majority-class baseline (~0.64-0.66) -> neither has usable classification edge (corroborates Study 8, conviction feats ~0.555 AUC). Augmentation gave the stacker a testable fit but no lift. conviction-meta-v1-bt stays at candidate (zero influence) -> NO Tier-3 promotion. Caveat: tiny live label pool makes the A/B statistically weak; a matched-holdout AUC read is the rigorous follow-up but the verdict is unchanged."
+      ],
+      "resolved_at": "2026-07-27"
     }
   ],
   "updated_at": "2026-07-27T18:30:00+00:00"

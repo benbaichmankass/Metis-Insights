@@ -175,9 +175,16 @@ python scripts/research/build_backtest_panel.py --harness ict_scalp \
     --data data/backtest_BTCUSDT_5m.csv --stamp-regime --vol-spec-json <spec> \
     --out datasets-out/_panels/ict_scalp_btc_5m.jsonl
 # 2. Build the augmented conviction_meta dataset (union of live + backtest rows)
+#    NOTE: `--source <label>` is REQUIRED (freeform provenance text), and pass
+#    `db_path=` EXPLICITLY at the pulled live journal — on the trainer DATA_DIR
+#    is unset, so the resolver's fallback is the STALE repo-root trade_journal.db
+#    (empty) and source_mode=union silently degenerates to backtest-only. The
+#    normal build_trainer_datasets.sh cycle already passes db_path=${DATA_DIR}/
+#    trade_journal.db; an ad-hoc build must do the same (mirror it here).
 python -m ml build-dataset conviction_meta --output-dir ./datasets-out \
-    --version v002 --overwrite -- \
-    source_mode=union backtest_panels=datasets-out/_panels/'*.jsonl'
+    --version v002 --overwrite --source union -- \
+    source_mode=union backtest_panels=datasets-out/_panels/'*.jsonl' \
+    db_path="${DATA_DIR:-$PWD/data}/trade_journal.db"
 # 3. Train the candidate augmented meta-model (registers at candidate, zero influence)
 python -m ml train ml/configs/conviction-meta-v1-bt.yaml --datasets-root ./datasets-out
 ```
@@ -189,13 +196,33 @@ python -m ml train ml/configs/conviction-meta-v1-bt.yaml --datasets-root ./datas
   source.
 - **P1 (drafted here, DRAFT PR):** the `conviction_meta` backtest row-source +
   `direction` emit + the `-bt` manifest. Operator review (touches `ml/`).
-- **P2 (trainer, gated):** build the augmented dataset, train
-  `conviction-meta-v1-bt` at `candidate`, and evaluate it on the **live holdout**
-  vs the live-only v1. Report calibration by `source`.
+- **P2 (trainer, gated) — DONE 2026-07-27, NEGATIVE.** Ran on the trainer after a
+  fresh `sync_trainer_data.sh` journal pull (the union needs the *live* rows, which
+  live only on the live VM's journal). Union = ~400 live + 1525 M30 backtest rows.
+  Live-holdout A/B (`time_aware_holdout` on `created_at`, so the most-recent rows —
+  all live — are the eval set):
+
+  | Model | Train pop. | Live-holdout n | Accuracy | Macro-F1 |
+  |---|---|---|---|---|
+  | `conviction-meta-v1-bt` (augmented, union) | ~400 live + 1525 bt | 385 | 0.5247 | 0.509 |
+  | `conviction-meta-v1` (live-only baseline) | ~400 live | 80 | 0.5250 | 0.514 |
+
+  **The augmented model does NOT beat the live-only baseline** — v1-bt ≤ v1 on
+  every metric, and *both* sit at coin-flip, below their majority-class baseline
+  (~0.64–0.66), i.e. neither has usable classification edge. This corroborates
+  Study 8 (conviction features ~0.555 AUC). Augmentation delivered its one stated
+  purpose (the stacker now has a testable 385-row live fit rather than degenerating)
+  but produced no lift. Caveats logged honestly: the tiny live label pool (~400 rows,
+  ~56 of them ict_scalp) makes the A/B statistically weak, and accuracy is a blunt
+  metric for a P(win) ranker (a matched-holdout AUC read is the rigorous follow-up,
+  but the promotion verdict is unchanged — v1-bt ≤ v1). `conviction-meta-v1-bt`
+  stays at **candidate (zero influence)**.
 - **P3 (Tier-3, operator):** if the augmented model beats v1 on the live gate,
   promote candidate → shadow (observe-only logging), then the standard
   shadow → advisory ladder. Only advisory ever influences a decision, and that
-  step is the operator's.
+  step is the operator's. **Not reached** — P2 was negative, so there is nothing to
+  promote; the `-bt` candidate stays observe-only pending a materially larger live
+  label pool (the real bottleneck).
 
 ## 7. What this is not
 
