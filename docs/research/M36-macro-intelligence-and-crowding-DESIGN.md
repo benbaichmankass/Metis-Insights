@@ -142,9 +142,14 @@ downsize — reuse it); **(exit)** a high crowding read **tightens B1's exit tri
   **conditioned lifecycle** (scenario-conviction + progress/crowding exit) vs the
   naive hold-to-horizon / value-only baseline, **net-of-cost, out-of-sample**, on
   calibration + net-R. **Nothing graduates until the conditioned lifecycle beats
-  the baseline here.** (Prerequisite: the M28-P4 value gate needs the daily FRED
-  producer `macro-valuation-snapshot.yml` to have accrued point-in-time history —
-  check/kick that first; C4 can also run on M29's EIA/NG history for the seed.)
+  the baseline here.** **Runs on HISTORY now — NOT accrual-gated (corrected
+  2026-07-27):** the ~21yr point-in-time backfill
+  `comms/macro/valuation_snapshots_backfill.jsonl` (2005→2026) is committed, so
+  `thesis_backtest_run.py --snapshots comms/macro/valuation_snapshots_backfill.jsonl`
+  scores the value gate + the conditioned lifecycle on decades of history today.
+  The "wait for the forward FRED producer to accrue" framing was stale — the
+  historical backfill (`scripts/macro/valuation_snapshot_backfill.py`) reconstructs
+  the past in one shot. The M29/EIA/NG seed is available the same way.
 - **C5 — apply (Tier-3, operator + backtest gated).** The scenario-conditioned
   conviction + progress/crowding exit go live **in the sleeve, paper first**
   (`alpaca_options_paper`); then the `c_macro` global overlay per M28 §7 /
