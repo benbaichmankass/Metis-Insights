@@ -149,6 +149,38 @@ def calibration_rank(outcomes: Sequence[Mapping[str, Any]]) -> Optional[float]:
 
 
 # ---------------------------------------------------------------------------
+# equity curve + max drawdown (the risk axis — Track C's reductive gate)
+# ---------------------------------------------------------------------------
+
+
+def equity_and_maxdd(outcomes: Sequence[Mapping[str, Any]]) -> dict:
+    """Cumulative-net-return equity curve + max drawdown over an ordered sequence.
+
+    ``outcomes`` are scored rows carrying ``net_return`` **in the order they
+    should compound** (the caller sorts by exit date — the realized sequence).
+    Equity is the running sum of net returns (additive R-space, so cross-symbol
+    theses compound on one axis); ``max_drawdown`` is the largest peak-to-trough
+    drop of that curve (``>= 0``; ``0.0`` on a monotone-up or empty curve). Pure.
+    Returns ``{n, final_equity, max_drawdown, peak_equity}`` — all ``None`` on an
+    empty sample except ``max_drawdown`` which is ``None`` (honest-empty, never a
+    fabricated 0-risk)."""
+    rets = [float(o["net_return"]) for o in outcomes or [] if o.get("net_return") is not None]
+    if not rets:
+        return {"n": 0, "final_equity": None, "max_drawdown": None, "peak_equity": None}
+    equity = 0.0
+    peak = 0.0
+    max_dd = 0.0
+    for r in rets:
+        equity += r
+        if equity > peak:
+            peak = equity
+        dd = peak - equity
+        if dd > max_dd:
+            max_dd = dd
+    return {"n": len(rets), "final_equity": equity, "max_drawdown": max_dd, "peak_equity": peak}
+
+
+# ---------------------------------------------------------------------------
 # aggregate scorecard
 # ---------------------------------------------------------------------------
 

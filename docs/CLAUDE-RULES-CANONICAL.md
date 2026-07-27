@@ -387,6 +387,37 @@ reality" is. A deviation that is neither fixed nor explicitly approved
 table without a declared `# data-wiring:` canonical-source relationship —
 docs alone get skipped, so the recurring bug class gets a CI gate too.
 
+## Research: backtest history first (2026-07-27, binding)
+
+A recurring, expensive anti-pattern: a research decision (discovery,
+validation, calibration) is gated on **"wait N weeks/days for the live
+producer to accrue data"** when the same decision-time state could have been
+**reconstructed from history and answered this session.** That is a **phantom
+gate** — it burns real weeks on a question a backfill/backtest answers in
+minutes. It has recurred per-milestone (M30 journal-starvation, the M28-P4
+value gate, the allocator, the exit levers) precisely because the lesson was
+never a binding rule. It is now.
+
+**Before writing or accepting any "waiting for data to accrue" framing, apply
+the classification test:** *can the decision-time state be reconstructed as-of
+each historical date from data already available (point-in-time, no
+look-ahead)?*
+
+- **Yes → phantom gate. Backfill/backtest it now** (a `*_backfill.py` that
+  walks dated history into a committed `.jsonl`, or the backtest engine),
+  then run the existing scorer/analyzer over it. Get the decision this session.
+- **No → genuine forward soak, but only for the narrow irreducible reason**
+  that makes it so (a live-only event/fill/A-B outcome, a live-only artifact
+  with no offline analogue, or unavoidable look-ahead in reconstruction).
+  Name that reason in the same breath, and still run a
+  shadow/annotate backtest on reconstructed history to answer the design
+  question while the live-outcome soak accrues in parallel — never let a
+  live-confirmation soak block a decision a backtest already makes.
+
+Full test + worked examples (M30, M28-P4) live in
+[`docs/research/RESEARCH-RIGOR-STANDARD.md`](research/RESEARCH-RIGOR-STANDARD.md)
+§ "Backtest history first" — binding on all `research-driver` work.
+
 ## Ship-Autonomously Rule
 
 A sprint is **not done** when the code lands on `main`. A sprint is
