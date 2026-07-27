@@ -192,6 +192,61 @@ def emit_value_constructions(drivers: dict, *, lookback: int = 156, min_history:
     return merged
 
 
+def _base_metric(metric: str) -> str:
+    """Strip the trailing ``_<construction>`` tag emitted by ``emit_value_constructions``
+    (``equity_risk_premium_change`` → ``equity_risk_premium``) so the composite can
+    align a driver's ``change`` and ``detrend`` legs by their common base driver."""
+    return str(metric).rsplit("_", 1)[0]
+
+
+def emit_composite_construction(constructions: dict, *, legs=("change", "detrend"),
+                                weights: Optional[dict] = None, name: str = "composite") -> list:
+    """D4 composite — blend the per-driver ``legs`` cheap_scores into ONE conviction.
+
+    Each leg's rows already carry a leakage-safe ``cheap_score`` in ``[0,1]`` on the
+    SAME oriented axis (cheaper→higher), so the composite is their weighted mean on
+    the intersecting ``(symbol, base-driver, as_of)`` keys — no re-percentiling, no
+    new leakage surface (blending point-in-time reads is itself point-in-time). A
+    date is emitted only when EVERY leg reports it for that driver (a real composite,
+    never a single-leg passthrough).
+
+    ``weights`` = ``{leg: w}`` (defaults equal). The blended row is graded through the
+    UNCHANGED P4 gate exactly like any other construction (``form_tick_theses`` reads
+    ``cheap_score`` regardless of the ``metric`` tag). Pure — no candles, no IO."""
+    leg_rows = {leg: constructions.get(leg) or [] for leg in legs}
+    if any(not rows for rows in leg_rows.values()):
+        return []
+    w = {leg: float((weights or {}).get(leg, 1.0)) for leg in legs}
+    tot = sum(w.values()) or 1.0
+    # index each leg by (symbol, base-driver, as_of) → (cheap_score, row)
+    leg_idx: dict = {leg: {} for leg in legs}
+    for leg, rows in leg_rows.items():
+        for r in rows:
+            key = (r["symbol"], _base_metric(r["metric"]), r["as_of"])
+            leg_idx[leg][key] = r
+    # keys present in EVERY leg
+    common = set(leg_idx[legs[0]])
+    for leg in legs[1:]:
+        common &= set(leg_idx[leg])
+    out = []
+    for key in sorted(common):
+        symbol, base, as_of = key
+        blended = sum(w[leg] * float(leg_idx[leg][key]["cheap_score"]) for leg in legs) / tot
+        template = leg_idx["change"][key] if "change" in legs else leg_idx[legs[0]][key]
+        r = dict(template)
+        r["metric"] = f"{base}_{name}"
+        r["cheap_score"] = blended
+        r["label"] = "cheap" if blended >= 0.7 else "rich" if blended <= 0.3 else "fair"
+        r["value"] = None
+        r["z_score"] = None
+        r["percentile"] = blended
+        r["note"] = f"D4:{name}(" + "+".join(f"{leg}*{w[leg]:.2f}" for leg in legs) + ")"
+        r["inputs"] = {"composite_legs": {leg: float(leg_idx[leg][key]["cheap_score"])
+                                          for leg in legs}, "weights": dict(w)}
+        out.append(r)
+    return out
+
+
 def emit_xsec_construction(drivers: dict, *, lookback: int = 156, min_history: int = 52,
                            xsec_drivers: tuple = XSEC_DRIVERS) -> list:
     """D3 cross-section: rank the distinct drivers against EACH OTHER per date on their
@@ -239,6 +294,69 @@ def _price_momentum_gate(panels: dict, symbol: str, *, lookback_days: int = 63):
         prev = rows[i - lookback_days][1]
         if prev:
             out.append((rows[i][0], (rows[i][1] - prev) / abs(prev)))
+    return out
+
+
+def _asof_gate(gate_series, snapshot_rows) -> list:
+    """Resolve a trading-day gate series onto the snapshot ``as_of`` dates AS-OF-OR-PRIOR.
+
+    The value-snapshot ``as_of`` dates are weekly Saturdays (FRED weekly series), which
+    are never trading days — so an exact-date gate match (``condition_snapshots``'
+    ``gate.get(as_of)``) finds NOTHING and neutralizes every row (the n=0 that voided
+    the price-turning cell). This keys a gate value onto each ``as_of`` using the most
+    recent trading-day reading at-or-before that Saturday (PIT-safe: never a future
+    bar). An ``as_of`` before the gate's first reading is omitted (honestly neutralized:
+    no gate known yet). Returns ``[(as_of, gate_value)]`` keyed exactly on the rows'
+    ``as_of`` strings so ``condition_snapshots`` reads the right value."""
+    g = sorted((str(d)[:10], float(v)) for d, v in (gate_series or []))
+    gdates = [d for d, _ in g]
+    out, seen = [], set()
+    import bisect
+    for r in snapshot_rows:
+        aso = r.get("as_of")
+        if aso is None or aso in seen:
+            continue
+        seen.add(aso)
+        pos = bisect.bisect_right(gdates, str(aso)[:10])
+        if pos > 0:
+            out.append((aso, g[pos - 1][1]))
+    return out
+
+
+def _price_vol_regime_gate(panels: dict, symbol: str, *, vol_window: int = 21,
+                           median_window: int = 252):
+    """Build a dated ``[(date, calm_flag)]`` series for the D2 regime conditioner:
+    ``calm_flag = 1.0`` when the symbol's trailing ``vol_window``-day realized vol is
+    at/below its trailing ``median_window``-day median (a CALM regime), else ``0.0``.
+
+    Hypothesis: a value/mean-reversion read resolves in calm regimes and gets run over
+    in a stress regime (catching-a-knife) — so keep conviction only when calm. Both
+    windows are trailing/past-only (PIT-safe): the flag on date t uses only closes up to
+    t. Uses the same as-of panel the gate prices from."""
+    rows = panels.get(symbol.upper())
+    if not rows or len(rows) < vol_window + 2:
+        return []
+    # daily log-ish returns then a trailing rolling stdev = realized vol at each date.
+    rets = []
+    for i in range(1, len(rows)):
+        prev = rows[i - 1][1]
+        if prev:
+            rets.append((rows[i][0], (rows[i][1] - prev) / abs(prev)))
+    import statistics as _st
+    vol_series = []
+    for i in range(vol_window, len(rets)):
+        window = [v for _d, v in rets[i - vol_window:i]]
+        try:
+            vol_series.append((rets[i][0], _st.pstdev(window)))
+        except _st.StatisticsError:
+            continue
+    out = []
+    for i in range(len(vol_series)):
+        hist = [v for _d, v in vol_series[max(0, i + 1 - median_window):i + 1]]
+        if len(hist) < 2:
+            continue
+        med = _st.median(hist)
+        out.append((vol_series[i][0], 1.0 if vol_series[i][1] <= med else 0.0))
     return out
 
 
@@ -295,6 +413,22 @@ def render_table(rows: list) -> str:
     return "\n".join(out)
 
 
+def render_horizon_table(rows: list, *, fee_frac: float) -> str:
+    """D5 horizon-sweep table: the `change` cell graded at each hold horizon, so a
+    reader can see where (if anywhere) its edge_vs_baseline turns positive net-of-cost."""
+    hdr = f"{'horizon':22s} {'n':>5s} {'win':>7s} {'mean_net':>9s} {'calib':>8s} {'edge_vs_base':>13s}"
+    out = [f"M28 value D5 — horizon × cost sweep on the `change` cell (fee_frac={fee_frac})",
+           "=" * 72, hdr, "-" * 72]
+    for r in rows:
+        out.append(
+            f"{r['construction']:22s} {str(r['n'] or 0):>5s} {_fmt(r['win_rate']):>7s} "
+            f"{_fmt(r['mean_net_return']):>9s} {_fmt(r['calibration_rank']):>8s} "
+            f"{_fmt(r['edge_vs_baseline']):>13s}")
+    out += ["-" * 72,
+            "D5 clears iff SOME horizon has edge_vs_baseline > 0 net-of-cost (its edge survives cost)."]
+    return "\n".join(out)
+
+
 def write_construction_files(out_dir: str, constructions: dict, xsec: Optional[list] = None) -> dict:
     """Write one JSONL per construction under ``out_dir``; return {name: path}."""
     d = Path(out_dir)
@@ -326,6 +460,8 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--fee-frac", type=float, default=0.001)
     ap.add_argument("--carry-frac-per-day", type=float, default=0.0)
     ap.add_argument("--n-bins", type=int, default=4)
+    ap.add_argument("--horizon-sweep", default="7,14,30,60,90,180",
+                    help="CSV of hold horizons (days) for the D5 sweep on the `change` cell")
     ap.add_argument("--json", default=None, help="write the sweep scorecard JSON here")
     args = ap.parse_args(argv)
 
@@ -357,6 +493,7 @@ def main(argv: Optional[list] = None) -> int:
                        carry_frac_per_day=args.carry_frac_per_day, n_bins=args.n_bins)
 
     summary_rows = []
+    cards: dict = {}  # name -> full scorecard, so D4 IC-weights can read leg calibration
     # baseline (control): the committed backfill itself, run through the same gate.
     from thesis_backtest_run import read_snapshot_records
     base_records = read_snapshot_records(path=args.backfill)
@@ -366,7 +503,44 @@ def main(argv: Optional[list] = None) -> int:
     allc = dict(constructions)
     allc["xsec"] = xsec
     for name, rows in allc.items():
-        summary_rows.append(_summary_row(name, grade_construction_records(rows, price_at, **gate_kwargs)))
+        card = grade_construction_records(rows, price_at, **gate_kwargs)
+        cards[name] = card
+        summary_rows.append(_summary_row(name, card))
+
+    # D4 · composite (change ⊕ detrend). Equal-weight first (pure), then IC-weighted:
+    # weight each leg by its OWN standalone calibration_rank clamped >= 0 (a leg whose
+    # conviction anti-predicts gets zero weight). The IC weights are read from the
+    # full-sample grade above — deliberately IN-SAMPLE-OPTIMISTIC: if even a composite
+    # tuned on the same data it's graded over fails to clear, the null is conclusive.
+    comp_equal = emit_composite_construction(constructions, name="composite_eq")
+    if comp_equal:
+        summary_rows.append(_summary_row(
+            "composite_eq(D4)", grade_construction_records(comp_equal, price_at, **gate_kwargs)))
+    ic_w = {leg: max(0.0, (cards.get(leg, {}).get("calibration_rank") or 0.0))
+            for leg in ("change", "detrend")}
+    if sum(ic_w.values()) <= 0:
+        ic_w = {"change": 1.0, "detrend": 1.0}  # both non-predictive → fall back to equal
+    comp_ic = emit_composite_construction(constructions, weights=ic_w, name="composite_ic")
+    if comp_ic:
+        summary_rows.append(_summary_row(
+            "composite_ic(D4)", grade_construction_records(comp_ic, price_at, **gate_kwargs)))
+
+    # D2 · regime-conditioning — condition the `change` cell (the identified lever) on
+    # a PRICE-DERIVED regime gate: (a) calm realized-vol regime, (b) up-trend (price
+    # momentum > 0). "value read resolves in a calm/up regime, gets run over in stress."
+    change_rows = constructions.get("change", [])
+    if change_rows:
+        for gate_name, gate_fn, pred in (
+            ("change_x_calm_vol(D2reg)", _price_vol_regime_gate, lambda x: x > 0.5),
+            ("change_x_uptrend(D2reg)", _price_momentum_gate, lambda x: x > 0),
+        ):
+            conditioned = []
+            for sym in {r["symbol"] for r in change_rows}:
+                sym_rows = [dict(r) for r in change_rows if r["symbol"] == sym]
+                gate = _asof_gate(gate_fn(panels, sym), sym_rows)
+                conditioned.extend(sc.condition_snapshots(sym_rows, gate, pred))
+            summary_rows.append(_summary_row(
+                gate_name, grade_construction_records(conditioned, price_at, **gate_kwargs)))
 
     # D2 price-turning conditioner (needs candles): level neutralized unless price rising.
     price_cond_rows = []
@@ -377,7 +551,7 @@ def main(argv: Optional[list] = None) -> int:
         conditioned = []
         for sym in {r["symbol"] for r in price_cond_rows}:
             sym_rows = [r for r in price_cond_rows if r["symbol"] == sym]
-            gate = _price_momentum_gate(panels, sym)
+            gate = _asof_gate(_price_momentum_gate(panels, sym), sym_rows)
             conditioned.extend(sc.condition_snapshots(sym_rows, gate, lambda x: x > 0))
         summary_rows.append(_summary_row(
             "level_x_price_turning", grade_construction_records(conditioned, price_at, **gate_kwargs)))
@@ -391,14 +565,31 @@ def main(argv: Optional[list] = None) -> int:
     summary_rows.sort(key=_key, reverse=True)
     print("\n" + render_table(summary_rows))
 
+    # D5 · horizon × cost sweep on the `change` cell — find the hold horizon where its
+    # edge_vs_baseline survives the fee model (each horizon's baseline is horizon-matched
+    # inside run_thesis_backtest, so edge is apples-to-apples per horizon).
+    horizon_sweep = []
+    try:
+        horizons = [float(h) for h in str(args.horizon_sweep).split(",") if h.strip()]
+    except ValueError:
+        horizons = []
+    if change_rows and horizons:
+        for h in horizons:
+            hk = dict(gate_kwargs)
+            hk["horizon_days"] = h
+            horizon_sweep.append(_summary_row(f"change@{int(h)}d",
+                                              grade_construction_records(change_rows, price_at, **hk)))
+        print("\n" + render_horizon_table(horizon_sweep, fee_frac=args.fee_frac))
+
     if args.json:
         p = Path(args.json)
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps({"rows": summary_rows, "meta": {
+        p.write_text(json.dumps({"rows": summary_rows, "horizon_sweep": horizon_sweep, "meta": {
             "backfill": args.backfill, "candles_dir": args.candles_dir,
             "lookback": args.lookback, "min_history": args.min_history,
             "rebalance_every": args.rebalance_every, "horizon_days": args.horizon_days,
-            "fee_frac": args.fee_frac, "symbols_with_candles": sorted(panels.keys()),
+            "fee_frac": args.fee_frac, "ic_weights": ic_w,
+            "symbols_with_candles": sorted(panels.keys()),
         }}, indent=2, default=str), encoding="utf-8")
         print(f"\nwrote {args.json}")
     return 0

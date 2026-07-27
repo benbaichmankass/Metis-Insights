@@ -100,6 +100,47 @@ def test_xsec_construction_ranks_across_symbols_per_date():
     assert any(len(s) >= 3 for s in by_date.values())
 
 
+def test_composite_construction_blends_legs_equal_and_weighted():
+    """D4: the composite cheap_score is the (weighted) mean of the change + detrend
+    legs on their intersecting (symbol, base-driver, date) keys, in [0,1]."""
+    cons = vcs.emit_value_constructions(_drivers(), lookback=52, min_history=30)
+    eq = vcs.emit_composite_construction(cons, name="composite_eq")
+    assert eq, "composite emitted no rows"
+    # every composite key exists in BOTH legs (a real composite, not a passthrough)
+    ch = {(r["symbol"], vcs._base_metric(r["metric"]), r["as_of"]): r["cheap_score"]
+          for r in cons["change"]}
+    dt_ = {(r["symbol"], vcs._base_metric(r["metric"]), r["as_of"]): r["cheap_score"]
+           for r in cons["detrend"]}
+    for r in eq:
+        assert r["metric"].endswith("_composite_eq")
+        assert 0.0 <= r["cheap_score"] <= 1.0
+        base = r["metric"][: -len("_composite_eq")]
+        k = (r["symbol"], base, r["as_of"])
+        assert k in ch and k in dt_
+        assert abs(r["cheap_score"] - (ch[k] + dt_[k]) / 2.0) < 1e-9  # equal-weight = mean
+        legs = r["inputs"]["composite_legs"]
+        assert set(legs) == {"change", "detrend"}
+    # weighted: all-weight-on-change must reproduce the change leg's score exactly
+    only_change = vcs.emit_composite_construction(
+        cons, weights={"change": 1.0, "detrend": 0.0}, name="composite_ic")
+    for r in only_change:
+        base = r["metric"][: -len("_composite_ic")]
+        k = (r["symbol"], base, r["as_of"])
+        assert abs(r["cheap_score"] - ch[k]) < 1e-9
+
+
+def test_asof_gate_resolves_saturday_snapshot_to_prior_trading_day():
+    """The D2 price-gate fix: a weekly-Saturday as_of must resolve to the most recent
+    trading-day gate reading at-or-before it (as-of-or-prior, never a future bar)."""
+    gate_series = [("2005-01-03", 0.0), ("2005-01-04", 1.0), ("2005-01-05", 1.0),
+                   ("2005-01-06", 0.0), ("2005-01-07", 1.0)]  # Mon–Fri
+    rows = [{"as_of": "2005-01-08"},  # Saturday → prior trading day is Fri 01-07 → 1.0
+            {"as_of": "2005-01-01"}]  # before the gate's first reading → omitted
+    out = dict(vcs._asof_gate(gate_series, rows))
+    assert out.get("2005-01-08") == 1.0
+    assert "2005-01-01" not in out
+
+
 def test_emit_is_leakage_safe_prefix_stable():
     """A row's cheap_score for an early date must not change when future data is appended
     (trailing-window PIT). Emit on a prefix and on the full series; the overlapping

@@ -10,7 +10,9 @@
     "pr": null,
     "claimed_at": null
   },
-  "active_sessions": [],
+  "active_sessions": [
+    { "session_id": "session_01X9HcdqY1K9k9nGjfGCFKAc", "branch": "claude/m28-value-thesis-sweep-evapa5", "intent": "M28 value-construction D4 composite + D5 horizon sweep + D2 regime-conditioning (continuation of ledger entry 13). Tier-1 observe-only research tooling + docs. NOTE: this session's GitHub integration cannot post issue comments (403 not-accessible-by-integration), so the live #6927 START/CLAIM comments could not be posted — coordinating via this durable record + the real-time open-PR list instead.", "started_at": "2026-07-27", "updated_at": "2026-07-27" }
+  ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
   "_pruned_2026-07-15": "Pruned two >24h-stale full-system-audit-2026-07-09 entries (session_013YMtQmKVzkDCPECSU4tbwD, session_01886WsrJNuwMJqnMQmxDgCn) — no matching open PR/branch after 6 days. Registered health-review session.",
   "_pruned_2026-07-21": "Pruned all 6 entries dated 2026-07-13→2026-07-19 (exit-refinement-sprint-l74k6o, system-health-review-f4i2v1, scalping-chop-strategies-b9n05u, paper-portfolio-accounts-31p76k, ml-vol-regime-probe-21az61-f0au4r, system-health-review-rk852g) — all >24h stale (2-8 days), confirmed via `git ls-remote --heads` that none of the six branches exist remotely anymore (all merged-and-deleted or abandoned). No entry registered for the M27 Batch-4/session-close-out work — this session communicated via the live #6927 board comments (claim/release) rather than this JSON's active_sessions list."
