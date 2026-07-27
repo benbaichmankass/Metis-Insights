@@ -426,3 +426,129 @@ def test_zero_variance_feature_yields_json_safe_output(tmp_path):
         for row_ in corr.values():
             for v in row_.values():
                 assert v is None or isinstance(v, (int, float))
+
+
+# ---------------------------------------------------------------------------
+# P1 — --features common-core selector for the multivariate fit
+# ---------------------------------------------------------------------------
+
+
+def _block_sparse_rows(n=160, seed=999):
+    """A pooled-panel analogue of the real book: two 'strategies' whose dense
+    features are MUTUALLY EXCLUSIVE, so NO row carries every graded column
+    (listwise-complete across all graded → 0, exactly the Study-1 block-sparsity
+    wall), but a strategy-agnostic common-core (feat_confidence +
+    feat_model_score_mean) is present on every row. Time-ordered for the CV.
+    """
+    rng = _lcg(seed)
+    rows = []
+    for i in range(n):
+        conf = rng()
+        ms = rng()
+        p_win = 0.1 + 0.5 * conf + 0.3 * ms  # common-core drives P(win)
+        win = 1 if rng() < min(0.95, p_win) else 0
+        r = (1.4 if win else -1.0) + (rng() - 0.5) * 0.3
+        row = {
+            "strategy": "A" if i % 2 == 0 else "B",
+            "symbol": "BTCUSDT",
+            "cohort": "real",
+            "closed_at": str(1_800_000_000 + i * 3600),
+            "pnl": round(r * 100.0, 4),
+            "win": win,
+            "r": round(r, 4),
+            "feat_confidence": round(conf, 6),
+            "feat_model_score_mean": round(ms, 6),
+        }
+        # strategy-specific dense-but-block-sparse cols (mutually exclusive)
+        if i % 2 == 0:
+            row["feat_vwap_deviation_std"] = round(rng(), 6)
+        else:
+            row["feat_fvg_size_atr"] = round(rng(), 6)
+        rows.append(row)
+    return rows
+
+
+def _block_sparse_manifest():
+    return {
+        "feature_cols": sorted([
+            "feat_confidence", "feat_model_score_mean",
+            "feat_vwap_deviation_std", "feat_fvg_size_atr",
+        ]),
+        "outcome_cols": ["pnl", "win", "r"],
+        "key_cols": ["strategy", "symbol", "cohort", "closed_at"],
+    }
+
+
+def test_features_selector_unblocks_block_sparse_multivariate():
+    """The headline P1 behaviour: a pooled block-sparse panel is multivariate-
+    not_computed by default (0 complete-case rows across all graded cols), but
+    the common-core --features subset recovers complete cases so the OOS fit
+    runs — the exact Study-1 → Study-3 unblock."""
+    pytest.importorskip("numpy")
+    if not tk._SPLITTERS_OK:
+        pytest.skip("ml.experiments.splitters unavailable")
+    rows = _block_sparse_rows()
+    man = _block_sparse_manifest()
+
+    # Without the selector: listwise-complete across all 4 graded cols = 0.
+    base = tk.analyze(rows, man, cohort="auto", **_ANALYZE_KW)
+    assert base["multivariate_feature_selection"] is None
+    assert base["regression"]["computed"] is False
+    assert "complete-vector" in base["regression"]["note"]
+
+    # With the common-core selector: complete cases exist → the fit runs.
+    sel = tk.analyze(
+        rows, man, cohort="auto",
+        feature_subset=["feat_confidence", "feat_model_score_mean"],
+        **_ANALYZE_KW,
+    )
+    mv = sel["multivariate_feature_selection"]
+    assert mv["applied"] and mv["used"] == ["feat_confidence", "feat_model_score_mean"]
+    assert sel["regression"]["computed"] is True, sel["regression"].get("note")
+    assert sel["regression"]["n_features"] == 2
+    # edge tables + FDR are UNAFFECTED — still over the full feature set.
+    assert sel["feature_count"] == 4
+    feats_in_tables = {t["feature"] for t in sel["conditional_edge_tables"]}
+    assert {"feat_vwap_deviation_std", "feat_fvg_size_atr"} <= feats_in_tables
+    assert sel["fdr"]["m"] == base["fdr"]["m"]  # FDR denominator unchanged
+
+
+def test_features_selector_records_missing_and_non_graded():
+    rows = _make_rows(80)
+    rep = tk.analyze(
+        rows, _manifest(), cohort="auto",
+        feature_subset=["feat_signal", "cat_regime", "feat_ghost"],
+        **_ANALYZE_KW,
+    )
+    mv = rep["multivariate_feature_selection"]
+    assert mv["applied"] is True
+    assert mv["used"] == ["feat_signal"]                 # graded + in panel
+    assert "cat_regime" in mv["ignored_non_graded"]      # in panel, non-graded
+    assert "feat_ghost" in mv["missing_from_panel"]      # not in the panel
+    # the fit ran on just the one selected graded feature
+    assert rep["regression"]["computed"] and rep["regression"]["n_features"] == 1
+
+
+def test_features_selector_default_none_unchanged():
+    rows = _make_rows(200)
+    rep = tk.analyze(rows, _manifest(), cohort="auto", **_ANALYZE_KW)
+    assert rep["multivariate_feature_selection"] is None
+    # all 3 graded cols participate when no selector is passed
+    assert rep["regression"]["computed"] and rep["regression"]["n_features"] == 3
+
+
+def test_cli_features_flag(tmp_path):
+    rows = _block_sparse_rows()
+    p = _write_panel(tmp_path, rows, _block_sparse_manifest())
+    out = tmp_path / "analysis.json"
+    rc = tk.main([
+        "--panel", str(p), "--out", str(out), "--quiet",
+        "--features", "feat_confidence, feat_model_score_mean",  # whitespace tolerated
+    ])
+    assert rc == 0
+    report = json.loads(out.read_text())
+    mv = report["multivariate_feature_selection"]
+    assert mv["applied"] and mv["used"] == ["feat_confidence", "feat_model_score_mean"]
+    assert report["regression"]["computed"] is True
+    md = out.with_suffix(".md").read_text()
+    assert "--features" in md  # selection surfaced in the human summary
