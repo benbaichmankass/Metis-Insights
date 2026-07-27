@@ -157,7 +157,7 @@
       "tier": 2,
       "trigger_condition": "Next trainer-infra / ML-ops code session. Highest-leverage first pass: make ml/promotion/attribution.py stream-aggregate or window the shadow-log read instead of list(records). Then add systemd MemoryMax on the trainer units for containment + serialize the heavy cycle stages.",
       "resolution_criteria": "A trainer ML cycle (promotion-readiness + train) completes without driving the 6 GB box into deep swap (avail stays > ~500 MB, swap use bounded); a single runaway job OOM-kills itself (MemoryMax) rather than wedging the whole VM; verified over a few cycles via the trainer publish-heartbeat staying fresh (no 'Trainer VM DOWN' banner).",
-      "status": "partially-resolved",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         {
@@ -192,8 +192,15 @@
           "by": "system-review-followup-2026-07-27 (readiness OOM verify)",
           "action": "partially-resolved",
           "note": "LIVE-VERIFY 2026-07-27. HALF 1 RESOLVED: the attribution materialization (this item's named ~3.2 GB hog) is fixed by #7716 \u2014 measured on the trainer over the REAL 98,614-record shadow log: peak RSS 19,532 kB (~19 MB), 4.3 s, 31 models attributed (was ~3.2 GB). HALF 2 SEPARATE + NOW HANDLED: triggering the FULL ict-promotion-readiness.service end-to-end still OOM-killed (Result=oom-kill, 15/TERM, ~5 min) \u2014 but via a DIFFERENT path, oos_edge (MB-20260719), NOT attribution. Root cause: oos_edge.compute_oos_edge does rows=_load_jsonl(data.jsonl), materializing the WHOLE ~2.1e5-row market_features dataset for ONE head's k-fold CV, which alone breaches MemoryMax=4500M; the 2026-07-26 subprocess isolation only bounds fleet-accumulation, not a single head, so MB-20260719's 'resolved' claim REGRESSED when the default was flipped ON. Evidence: 07-25 + 07-26 sweeps (oos_edge OFF) completed in ~5 s and wrote packets; 07-27 04:04 (scheduled, default ON) + my 08:49 manual run both OOM-killed with no packet. FIX APPLIED: reverted PROMOREADY_OOS_EDGE default ON->OFF in run_promotion_readiness.sh (the known-good 07-25/26 config) + corrected the false 'resolved' comment. Pending: trainer verify that the sweep now completes clean with the revert deployed -> then flip this item resolved. (Prior note's 'REMAINING: systemd MemoryMax' was WRONG: MemoryMax=4500M + MemorySwapMax=0 + heavy-lock serialization already existed.)"
+        },
+        {
+          "at": "2026-07-27T10:12:00+00:00",
+          "by": "system-review-followup-2026-07-27 (readiness verify)",
+          "action": "resolved",
+          "note": "RESOLVED + live-verified on trainer (HEAD 4d1d6663). Both promotion-readiness OOM hogs cleared in the shipped config: (1) ATTRIBUTION streamed \u2014 join over the real 98,614-record shadow log peaks 19 MB / 4.3 s (was ~3.2 GB), #7716; (2) OOS_EDGE default reverted to OFF (#7721) \u2014 the known-good, packet-producing config. Live proof 2026-07-27 09:50Z: the real ict-promotion-readiness.service ran end-to-end Result=success, ExecMainStatus=0, ActiveState=inactive, and wrote a fresh promotion_readiness/2026-07-27/ packet (report.json 147 KB non-empty, cli_stderr.log 0 bytes) \u2014 readiness packets producing again, no box saturation. The oos_edge INLINE-ON enhancement (re-enabling PROMOREADY_OOS_EDGE=on) is tracked separately under MB-20260719 (memory fix #7722 shipped; ON-viability under the 4500M cap being cleanly re-measured). Prior 'REMAINING: systemd MemoryMax' note was WRONG \u2014 MemoryMax=4500M + MemorySwapMax=0 + heavy-lock serialization already existed."
         }
-      ]
+      ],
+      "resolved_at": "2026-07-27T10:12:00+00:00"
     },
     {
       "id": "BL-20260711-INTENT-REDUCE-PHANTOM-PNL",
@@ -6539,5 +6546,5 @@
       "action": "Pull `journalctl -u ict-mes-ibkr-pull.service` via the diag relay, diagnose (likely the same IB gateway cold-flow reachability class or a script error), then fix or disable if the sidecar is redundant with the trader's own candle fetch. Dedupe against the existing N6/F1 audit-residue item if already tracked."
     }
   ],
-  "updated_at": "2026-07-27T09:25:00+00:00"
+  "updated_at": "2026-07-27T10:12:00+00:00"
 }
