@@ -2630,7 +2630,19 @@
           "note": "Re-validated 07-27: Bybit open-interest history depth limit unchanged (data-source constraint). open_interest_change reads ~dead over the >=5y frame. Research follow-up; no live-order impact. Carried."
         }
       ]
+    },
+    {
+      "id": "MB-20260727-CONVICTION-AB-AUC",
+      "opened_at": "2026-07-27",
+      "opened_by": "claude (M36 Track D M16 #2 continuation, 2026-07-27)",
+      "source": "The M16 backtest-augmentation live-holdout A/B (conviction-meta-v1-bt vs conviction-meta-v1) was graded on accuracy/macro-F1 from the trainer's default MulticlassClassificationEvaluator (relay #7782). Accuracy at a 0.5 threshold is a blunt metric for a P(win) RANKING/sizing model \u2014 a model can carry AUC ~0.56 while accuracy sits below the majority-class baseline.",
+      "title": "M16 conviction A/B: matched-holdout AUC read (both models on identical live rows)",
+      "description": "The A/B verdict was NEGATIVE on accuracy (v1-bt 0.5247 <= v1 0.5250, both below the ~0.64-0.66 majority-class baseline); conviction-meta-v1-bt stays candidate/observe-only. The rigorous cut NOT yet run: evaluate BOTH models on the IDENTICAL held-out live rows and compare AUC / log-loss (the metric the conviction stacker is actually used for \u2014 ranking/sizing, not 0.5-threshold classification). The current A/B used each model's own time_aware_holdout (n=385 union vs n=80 live-only), so the holdout row sets differ. Method: build the live conviction_meta dataset once (db_path pointed at the pulled trainer journal), take a fixed time-ordered live split, score v1-bt and v1 on the SAME eval rows, report AUC + log-loss + calibration by source. LOW priority + LOW expected value: the promotion verdict is very unlikely to flip (both at/below coin-flip on accuracy; augmentation gave no lift), so this is rigor/completeness, not a live decision \u2014 and the real bottleneck is the tiny live label pool (~400 rows), so also revisit only if that grows materially. Parent (resolved): BL-20260727-CONVICTION-UNION-NO-LIVE-ROWS (health-review-backlog). Recipe + verdict: docs/research/m30-to-m16-integration-backbone-DESIGN.md sec 5.4/6.",
+      "tier": "Tier-1 (research; any eventual promotion past candidate is Tier-3/operator)",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-27T10:12:00+00:00"
+  "updated_at": "2026-07-27T20:15:00+00:00"
 }
