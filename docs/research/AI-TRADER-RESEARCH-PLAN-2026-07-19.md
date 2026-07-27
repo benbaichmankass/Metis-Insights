@@ -22,6 +22,43 @@ observe (shadow logs)  →  advise (annotations)  →  gate (veto/filter)
        →  size (scale qty)  →  select (allocate)  →  generate (originate entries)
 ```
 
+## ⚠️ CORRECTION — the "label wall" is a system-misunderstanding (operator-confirmed 2026-07-27)
+
+**Binding on every session. This supersedes the "label volume is the binding
+constraint" framing in "Where we honestly are" (below) and in "Thrust 1".**
+
+The recurring claim that research/training is capped by a "**376-row real-money
+eval book**" is **wrong** and must not be repeated. We built the infrastructure
+to escape it, and it is proven:
+
+1. **Labels are manufactured at scale by running the models BACKWARD over
+   historical data** — the M30 backtest substrate (`build_backtest_panel.py`
+   replays the live signal builder per bar). This is BUILT and VALIDATED: Study 8
+   produced **1,525** leakage-clean, OOS-computable labels for ONE strategy on ONE
+   symbol; whole-roster × all-symbols × years yields far more. Discovery, training,
+   and edge-proving all happen here (+ the paper soak books), never on the live
+   row count.
+2. **The live soak's ONLY role is to validate MECHANICS in a live environment —
+   AFTER edge is already proven in testing — before real money.** It is not a
+   data-collection step and not an edge-proving step. Real-money outcomes gate only
+   the *final Tier-3 promotion*; nothing upstream depends on them. So L3's
+   "real-money rows remain the only eval book" (below) is corrected: **eval is OOS
+   on the backtest-synthesized + paper population under purged WF-CV**; live is the
+   mechanics smoke-test + promotion gate, not the eval book.
+3. **Therefore, disposition of the closed negatives:** a negative is only
+   "label-bound" if it was run on the thin LIVE book. Any lever run at that scale
+   (M23 P1/P2, the conviction stacker) must be **re-tested on backtest-synthesized
+   labels at full roster/symbol/year scale** before concluding anything. Where a
+   method WAS run at scale and still failed (Study 8 entry features ≈ 0.54 AUC; the
+   `conviction-meta-v1-bt` augmentation at 1,525 rows), the honest conclusion is
+   **weak base signal**, which routes to *discovery* (better regime/exit features) —
+   NOT "we need more live labels." A session that reaches for the 376-row framing
+   as a blocker has misunderstood the system and must fix that understanding first.
+
+The North Star + authority ladder above are unchanged. What changes is the frame:
+the constraint was never live-label count — it was *running the synthesis at
+scale*, which is a Tier-1 job on free infrastructure, not a wait.
+
 ## Where we honestly are
 
 - **ML influences real money in exactly ONE place today**: the BTC 15m
