@@ -86,6 +86,8 @@ Composable workflows — prefer a skill over improvising; chain them.
 - `trainer-vm-mode.md`: the autonomous-Claude **trainer VM** charter.
 - `system-actions.md`: tiered production-mutation bridge (allowlist + tiers).
 - `diag-relay.md`: PM-side VM diag relay (issue → workflow → JSON comment).
+- `vm-resource-management.md`: cross-session resource optimization — free GH runners default, the scarce trainer VM's FIFO board lane (running-never-preempted), GPU-burst budget, and the loud-failure flag.
+- `coordination-board.md`: the live cross-session comms board (GitHub issue #6927) — START/QUESTION/DONE, the merge-slot claim, and the VM-lane claim.
 - `deployment-ops.md`: Oracle/live bot operations.
 - `telegram-pings.md`: what triggers which Telegram ping, and where the wiring lives.
 - `web-automations.md`: Claude Code on the Web — recurring automations.
