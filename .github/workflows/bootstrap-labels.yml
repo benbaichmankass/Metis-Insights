@@ -332,6 +332,11 @@ jobs:
                 description: 'Triggers research-panel-build workflow — self-contained M30 backtest-substrate panel build on a GH runner (fetch feed + build + C2 sweep + per-regime).',
               },
               {
+                name: 'research-exit-head-request',
+                color: '0075ca',
+                description: 'Triggers research-exit-head-build workflow — self-contained M30×M20 per-bar in-trade exit-head build on a GH runner (fetch feed + dense panel + uniqueness-weighted meta-label head + net-of-fee verdict).',
+              },
+              {
                 name: 'set-diag-token',
                 color: 'b60205',
                 description: 'Triggers set-diag-token workflow — push the DIAG_READ_TOKEN repo secret onto the live VM + restart web-api.',
