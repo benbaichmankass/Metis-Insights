@@ -697,16 +697,16 @@
         "ref": "ict_scalp is a fixed SL/TP/timeout bracket (tp = entry \u00b1 tp_at_r\u00b7risk); its monitor() only trails to break-even after 1R (monitor_breakeven_sl) \u2014 there is no primary trailing stop to reshape, so trail geometry is structurally inapplicable. Assessed 2026-07-28 (docs/research/M27-MGC-15m-exit-refinement-assessment-2026-07-28.md)."
       },
       "stale_stop": {
-        "status": "blocked:no_harness_levers",
-        "ref": "Meaningful for a fixed-bracket scalp, but un-processable today: the ict_scalp research harness (scripts/backtest_ict_scalp.py) exposes no --stale flag and the family is absent from m20_fleet_exit_sweep.FAMILY_HARNESS, AND the live ict_scalp.monitor() enforces only break-even-after-1R (no stale-exit path). Needs the M20 family-extension build (harness lever + Tier-3 monitor enforcement) \u2014 ml-review-backlog MB-20260728-ICTSCALP-EXIT-LEVERS. Family-wide (also ict_scalp_5m + sol/xrp/avax_5m). Assessed 2026-07-28."
+        "status": "honest_negative",
+        "ref": "M27 config-exact IS/OOS lever sweep (2026-07-28, scripts/research/m27/ict_scalp_exit_sweep.py on the Dukascopy XAU 15m proxy, 178,953 bars, split 2025-07-01; harness levers added same day). Baseline +51.18R/229 trades (IS) - +12.39R/56 (OOS). stale8 cuts -7.43R IS / -5.32R OOS; stale12 -6.12R / -4.06R (maxDD no better) - a time-exit chops trades that recover under the fixed 1.5R-TP + break-even-after-1R bracket. Fails the beat-net_R-AND-maxDD gate in BOTH windows. Robust to fees (stale8 adds a trade). verdicts.json in the run dir."
       },
       "giveback_stop": {
-        "status": "blocked:no_harness_levers",
-        "ref": "Same block as stale_stop: no giveback lever in scripts/backtest_ict_scalp.py (ict_scalp absent from m20_fleet_exit_sweep.FAMILY_HARNESS) and no giveback path in the live ict_scalp.monitor() (break-even-after-1R only). Needs the M20 family-extension build \u2014 ml-review-backlog MB-20260728-ICTSCALP-EXIT-LEVERS. Assessed 2026-07-28."
+        "status": "honest_negative",
+        "ref": "M27 config-exact IS/OOS lever sweep (2026-07-28, scripts/research/m27/ict_scalp_exit_sweep.py on the Dukascopy XAU 15m proxy, 178,953 bars, split 2025-07-01; harness levers added same day). Baseline +51.18R/229 trades (IS) - +12.39R/56 (OOS). gb@MFE1R -1.04R IS / +0.00R OOS (maxDD slightly worse); gb@MFE2R a near-no-op (TP sits at 1.5R so MFE rarely reaches 2R before the fixed TP fires). Neither beats baseline net_R+maxDD. Fails the gate."
       },
       "exit_ladder": {
         "status": "blocked:no_harness_levers",
-        "ref": "No partial-TP ladder in the ict_scalp harness or monitor (family absent from m20_fleet_exit_sweep.FAMILY_HARNESS); fleet-wide 'banking parked' besides. Needs the M20 family-extension build \u2014 ml-review-backlog MB-20260728-ICTSCALP-EXIT-LEVERS. Assessed 2026-07-28."
+        "ref": "No partial-TP ladder lever in the ict_scalp harness (NOT built/swept in the 2026-07-28 round, which covered stale+giveback only) and fleet-wide 'banking parked' (memo section 5). Distinct from stale_stop/giveback_stop, which were built + swept honest_negative 2026-07-28. Would need a ladder lever build before a verdict."
       },
       "exit_head_ml": {
         "status": "blocked:native-history-thin",

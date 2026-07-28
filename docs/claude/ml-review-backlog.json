@@ -2648,12 +2648,18 @@
       "opened_at": "2026-07-28T00:00:00+00:00",
       "opened_by": "claude (post-merge follow-up of PR #7848, ict_scalp_mgc_15m exit-refinement)",
       "source": "exit-refinement P0/P1 assessment of ict_scalp_mgc_15m (docs/research/M27-MGC-15m-exit-refinement-assessment-2026-07-28.md). scripts/backtest_ict_scalp.py exposes no exit-lever flags and the family is absent from m20_fleet_exit_sweep.FAMILY_HARNESS={donchian,pullback,squeeze,fvg}; the live ict_scalp.monitor() enforces only break-even-after-1R. So NO ict_scalp leg (mgc_15m + 5m + sol/xrp/avax_5m) can be exit-swept or ship a stale/giveback lever today.",
-      "title": "Build ict_scalp exit-lever support (stale_stop + giveback_stop) \u2014 unblocks the whole ict_scalp family's exit-refinement coverage",
+      "title": "Sweep the remaining ict_scalp legs' exit levers on the trainer (harness built + MGC swept honest_negative 2026-07-28)",
       "description": "Family-wide M20 extension. Blocks the stale_stop/giveback_stop/exit_ladder coverage cells for ict_scalp_mgc_15m AND ict_scalp_5m AND ict_scalp_sol/xrp/avax_5m (all currently blocked:no_harness_levers or pending). Trail_geometry/trail_decay/vol_trail/regime_flip_exit are n/a for this fixed-bracket scalp (no primary trailing stop; no MGC regime head) \u2014 do NOT build those. Plan: (1) Tier-1 \u2014 add --stale-exit-bars/--stale-exit-below-r/--giveback-min-mfe-r/--giveback-r to scripts/backtest_ict_scalp.py mirroring backtest_pullback.py's lever semantics, and register ict_scalp in m20_fleet_exit_sweep.FAMILY_HARNESS. (2) Compute (trainer VM, NOT the sandbox \u2014 a single 178k-bar baseline run >120s) \u2014 config-exact IS/OOS + yearly walk-forward sweep on data/XAUUSD_15m_deep.csv (178,953 bars, Dukascopy spot-XAU proxy) under MGC economics (--fee-usd-roundtrip 3.0 --contract-value-usd 10.0); gate = beat baseline on net_R AND maxDD in BOTH IS and OOS. Repeat per crypto leg on its own native data. (3) Tier-3 (ONLY if a lever passes) \u2014 teach ict_scalp.monitor() to read+enforce the winning lever from cfg, declare on the leg YAML, propose exact diff to operator. Strong M20 prior: trend-oriented levers on a mean-reverting fixed-bracket scalp are usually honest-negatives, so step 3 may never be reached \u2014 the sweep is the honest way to confirm. Update docs/research/exit-refinement-coverage.json in the same PR as any verdict.",
       "tier": "Tier-1 (harness/sweep) \u2192 Tier-3 only if a lever passes (live monitor enforcement)",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-28T00:00:00+00:00",
+          "by": "claude (operator-greenlit build, same day)",
+          "note": "Tier-1 DONE (PR #7849): stale/giveback lever flags added to scripts/backtest_ict_scalp.py + ict_scalp registered as a `scalp` family in m20_fleet_exit_sweep.py (classify+FAMILY_HARNESS+base_args) + tests (tests/test_ict_scalp_exit_levers.py). MGC sweep DONE: config-exact IS/OOS on the XAU 15m proxy (scripts/research/m27/ict_scalp_exit_sweep.py) -> ALL cells honest_negative (stale8 -7.4R/-5.3R, stale12 -6.1R/-4.1R, gb@MFE1R -1.0R/0, gb@MFE2R no-op; baseline +51.18R IS/+12.39R OOS). No Tier-3 monitor declare warranted. REMAINING: run the fleet sweep on the other ict_scalp legs (ict_scalp_5m + sol/xrp/avax/eth 5m/15m) ON THE TRAINER VM (their native data lives there; this sandbox only has the XAU proxy). exit_ladder still un-built + fleet-parked; exit_head_ml blocked on native history."
+        }
+      ]
     }
   ],
   "updated_at": "2026-07-28"

@@ -18,12 +18,50 @@ eight silently-optimistic `pending` cells to honest, evidence-grounded verdicts.
 | `trail_decay` | **n/a** | Presupposes a trailing stop — none exists. |
 | `vol_trail` | **n/a** | Presupposes a trailing stop — none exists. |
 | `regime_flip_exit` | **n/a** | Fires on an ADX→OFF regime-policy cell; MGC has **no regime head** + an explicit `regime_coverage_exemptions` entry, so the flip can never fire. (Mechanism is a fleet-wide honest_negative besides.) |
-| `stale_stop` | **blocked:no_harness_levers** | Meaningful for a fixed bracket, but neither the harness nor the live monitor supports it yet. |
-| `giveback_stop` | **blocked:no_harness_levers** | Same as `stale_stop`. |
-| `exit_ladder` | **blocked:no_harness_levers** | No partial-TP path in harness/monitor; fleet-wide "banking parked". |
+| `stale_stop` | **honest_negative** | Harness lever built + swept 2026-07-28 (see P2 below): cuts −7.4R/−6.1R vs baseline, fails the gate in both windows. |
+| `giveback_stop` | **honest_negative** | Harness lever built + swept 2026-07-28: −1.0R IS / no-op OOS, fails the gate. |
+| `exit_ladder` | **blocked:no_harness_levers** | No partial-TP path in harness/monitor (NOT built this round); fleet-wide "banking parked". |
 | `exit_head_ml` | **blocked:native-history-thin** | E0 needs native MGC-15m history; IBKR caps at ~1yr + flat-bar contamination. Proxy is OK for levers, not head training. |
 
-## Evidence
+> **Note (same-day update):** the "blocked:no_harness_levers" state below was the
+> *starting* state. Following operator greenlight, the stale/giveback harness
+> levers were **built** (`scripts/backtest_ict_scalp.py`, PR #7849) and the
+> config-exact P2 sweep **run** — both cells came back **honest_negative** (§ P2).
+> The trailing-family / regime / ML-head / ladder verdicts are unchanged.
+
+## P2 — config-exact IS/OOS lever sweep (2026-07-28)
+
+Harness levers `--stale-exit-bars` / `--stale-exit-below-r` / `--giveback-min-mfe-r` /
+`--giveback-r` were added to `scripts/backtest_ict_scalp.py` (stop-first, fire at
+bar close, mirroring `backtest_pullback.py`; default off = baseline unchanged;
+tests in `tests/test_ict_scalp_exit_levers.py`). Driver:
+`scripts/research/m27/ict_scalp_exit_sweep.py`, config-exact
+(`--symbol MGC --timeframe 15m --sim-breakeven`, `ict_scalp_5m` YAML params — the
+mgc leg is a copy), on the committed Dukascopy XAU 15m proxy
+(`data/XAUUSD_15m_deep.csv`, 178,953 bars), split 2025-07-01.
+
+**Gate:** a cell must beat the baseline on net_R **AND** maxDD in **both** windows.
+
+| Cell | IS ΔnetR | IS ΔmaxDD | OOS ΔnetR | OOS ΔmaxDD | Verdict |
+|---|---|---|---|---|---|
+| baseline | +51.18R (n=229) | 3.89R | +12.39R (n=56) | 2.18R | — |
+| stale8 (<0R) | −7.43 | −0.02 | −5.32 | −0.00 | honest_negative |
+| stale12 (<0R) | −6.12 | +0.15 | −4.06 | +0.13 | honest_negative |
+| giveback 1R after MFE≥1R | −1.04 | +0.12 | +0.00 | +0.00 | honest_negative |
+| giveback 1R after MFE≥2R | +0.00 | +0.00 | +0.00 | +0.00 | honest_negative |
+
+**Read.** None passes. A **stale time-exit** chops trades that recover under the
+fixed 1.5R-TP + break-even-after-1R bracket (it removes tail winners without
+meaningfully cutting drawdown). **Giveback** barely fires: with TP pinned at
+1.5R, MFE rarely reaches the 2R arm (the MFE≥2R cell is a near-no-op), and the
+MFE≥1R arm just clips a little net_R with slightly worse maxDD. The result is
+robust to fees — the harness R is fee-free and every cell already loses or ties
+on R (stale8 even *adds* a trade). This matches the fleet-wide M20 prior:
+trend-oriented time/giveback exits don't help a mean-reverting fixed-bracket
+scalp. **No lever advances to the walk-forward step; no Tier-3 live-monitor
+declare is warranted.** Raw: `verdicts.json` from the driver run.
+
+## Evidence (starting state, pre-build)
 
 ### 1. The `ict_scalp` family has no exit-lever support — at BOTH layers
 
@@ -85,28 +123,35 @@ meaningful closed-trade history in the journal yet. `m20_exit_analysis.py`
 (`stale_stop`, `giveback_stop`) can be prioritized by the failure mode the live
 paths actually show.
 
-## What would unblock the buildable levers
+## What was built + swept, and what remains
 
-A family-wide M20 extension (tracked as `MB-20260728-ICTSCALP-EXIT-LEVERS`),
-which would also unblock `ict_scalp_5m` + `ict_scalp_sol/xrp/avax_5m`:
+The family-wide M20 extension (tracked as `MB-20260728-ICTSCALP-EXIT-LEVERS`):
 
-1. **Tier-1** — add `--stale-exit-bars` / `--stale-exit-below-r` /
-   `--giveback-min-mfe-r` / `--giveback-r` to `scripts/backtest_ict_scalp.py`
-   (mirroring the `backtest_pullback.py` lever semantics) and register
-   `ict_scalp` in `m20_fleet_exit_sweep.FAMILY_HARNESS`.
-2. **Compute** — run the config-exact IS/OOS + yearly walk-forward lever sweep
-   on `data/XAUUSD_15m_deep.csv` (178,953 bars) under MGC economics
-   (`--fee-usd-roundtrip 3.0 --contract-value-usd 10.0`) on the **trainer VM**
-   (a single 178k-bar baseline run exceeds 120s; a full sweep is multi-hour and
-   must not run on the live-adjacent sandbox). Gate: beat baseline on net_R AND
-   maxDD in BOTH IS and OOS.
-3. **Tier-3 (only if a lever passes)** — teach `ict_scalp.monitor()` to read +
-   enforce the winning lever from cfg, declare it on the leg's YAML, and
-   propose to the operator with the exact diff.
+1. **Tier-1 — DONE (PR #7849).** `--stale-exit-bars` / `--stale-exit-below-r` /
+   `--giveback-min-mfe-r` / `--giveback-r` added to
+   `scripts/backtest_ict_scalp.py` (mirroring `backtest_pullback.py`), plus a
+   `scalp` family registered in `m20_fleet_exit_sweep.py`
+   (classify + `FAMILY_HARNESS` + a `base_args` branch). Unit tests in
+   `tests/test_ict_scalp_exit_levers.py`.
+2. **Compute — DONE for MGC (§ P2).** The config-exact IS/OOS sweep ran on the
+   committed XAU proxy → **all cells honest_negative**. (The fleet infra's
+   `GC_F` proxy-file naming can't reach the deep `XAUUSD_15m_deep.csv`, so the
+   dedicated `scripts/research/m27/ict_scalp_exit_sweep.py` driver was used for
+   the MGC run; a yearly walk-forward was unnecessary since nothing passed the
+   IS/OOS pre-filter.)
+3. **Tier-3 — NOT reached.** No lever passed, so `ict_scalp.monitor()` is left
+   unchanged (still break-even-after-1R only). This matches the M20 prior:
+   trend-oriented time/giveback exits don't help a mean-reverting fixed-bracket
+   scalp.
 
-The strong M20 fleet prior is that these levers are mostly honest-negatives
-(trend-oriented levers on a mean-reverting fixed-bracket scalp are a poor fit),
-so step 3 may well never be reached — but the sweep is the honest way to find out.
+**Remaining (open under the backlog item):** the OTHER `ict_scalp` legs
+(`ict_scalp_5m` BTC + `sol/xrp/avax/eth` 5m/15m) are now lever-capable in the
+fleet infra and should get their own config-exact sweeps **on the trainer VM**,
+where their native data lives (`m20_fleet_exit_sweep.py` resolves e.g.
+`SOLUSDT_5m.csv` there; this sandbox only carries the XAU proxy, which is why
+the `--list` above showed them `data_missing`). `exit_ladder` (partial-TP
+banking) is still un-built and fleet-wide parked; `exit_head_ml` stays blocked
+on native history.
 
 ## Item 2 — real-money `ib_live` route (the other PR #7848 follow-up)
 
