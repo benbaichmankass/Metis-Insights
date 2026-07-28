@@ -6,6 +6,53 @@
 > Arm B real-instrument cross-check). **No Tier-3 here — research verdict + a
 > proposal.**
 
+## ADDENDUM (2026-07-28 later) — deep 4-fold runner re-validation tempers this
+
+The Arm A numbers below were a re-score of one XAUUSD k-fold. A **fresh deep
+4-fold walk-forward on the same Dukascopy spot XAU (2012→now, 15m) under the
+identical MGC economics** was re-run on a **free GitHub runner** (not the trainer
+VM — the resource-optimized path; `research-symbol-p0-build`, issue #7845,
+`derive_window: prefix:0.25`). It **replicates the ungated edge but reframes the
+gate and tempers the confidence:**
+
+| Comparator | Σ net-R | mean exp-R | n | folds +ve | prior Arm A (for compare) |
+|---|---|---|---|---|---|
+| baseline (ungated) | **+41.09** | +0.094 | 402 | **3/4** | +47.35 (4/4, exp +0.197) |
+| conf070_fixed | +21.8 | +0.121 | 171 | 3/4 | +22.36 (4/4) |
+| fitted_conf_oos | **+7.94** | +0.076 | 122 | 3/4 | +36.24 (4/4) |
+
+Per-fold baseline: **−14.08 / +8.64 / +25.87 / +20.66 R** — fold 1 (2014–17) is a
+genuine drawdown regime; the year-split's "4/4 all-positive" masked it.
+
+**What replicates (robust):** the **ungated baseline** edge (+41 vs +47R) and
+**conf070_fixed** (~+22R both runs). The unfiltered ict_scalp-on-gold edge is
+real and positive across both independent splits.
+
+**What does NOT replicate (fragile) — the key finding:** the **fitted confidence
+gate** swings from +36.24R (year-split) to **+7.94R** (prefix-split) — its OOS
+capture is derive-window-dependent, i.e. **over-filtering that throws away most of
+the edge** (gate +7.94 vs baseline +41 on this split). **Do not ship the
+fitted-confidence-gate config.** If ict_scalp-gold is ever wired, it should be the
+**ungated (or conf070_fixed) config**, which both runs agree captures the edge.
+
+**Tempering:** the deep split's exp-R (**+0.094**, ~1.9σ over 402 trades) is **half**
+the year-split's +0.197, with one negative regime. So the edge is **real but modest
+and regime-dependent**, not the strong clean read the +47.35R/4-4 line implied.
+
+**Updated recommendation:** the Option-1 paper-soak-on-`ib_paper` below remains
+*defensible* (the baseline edge replicates positive) **but** (a) with the **ungated
+/ light-gate config, never the fitted gate**, (b) with **tempered expectations**
+(+0.09 exp-R, fold-1-type drawdowns expected), and (c) the soak is **mechanics-only**
+(edge already decided offline here — a handful of early losing paper trades is
+variance, not a demotion signal; per the soak doctrine). **The offline gate-config
+question is now answered — ungated wins — so no more offline validation is needed
+before a mechanics soak; the remaining decision is the Tier-3 wire itself.** Logged
+to `performance-review-backlog.json` (PB-20260728-ICTSCALP-GOLD-GATE-CONFIG).
+
+The runner-based deep validation is itself the win the M27 IBKR-cap deadlock
+needed: deep gold history is fully powerable off-VM at $0, so the "can't power MGC
+15m" constraint never has to block a gold-proxy read again.
+
 ## Question
 
 Does the `ict_scalp` gold-15m edge (validated on clean Dukascopy spot XAU:
