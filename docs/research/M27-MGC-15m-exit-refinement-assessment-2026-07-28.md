@@ -105,7 +105,13 @@ harness `_simulate_exit` stale rule; guard it so it only applies to the leg(s)
 that declare it); (2) declare `stale_exit_bars: 12` (stale12, the stronger cell)
 + `stale_exit_below_r: 0.0` on the `config/strategies.yaml::ict_scalp_eth_15m`
 block. Given the marginality + that it's a paper leg (bybit_1), an equally
-defensible call is to **hold** and let the leg soak first. Operator decides.
+defensible call is to **hold** and let the leg soak first.
+
+**Decision (2026-07-28): HELD.** The operator chose to hold — no Tier-3
+live-monitor change and no `config/strategies.yaml` edit were made;
+`ict_scalp.monitor()` is left unchanged (break-even-after-1R only). The matrix
+cell stays `passed_unshipped`; re-open the ship decision once the paper soak has
+a real closed-trade sample.
 
 **Tooling note (worktree gotcha).** The first walk-forward attempt via the
 `trainer-vm-diag` relay ran the driver from a `git worktree` under the trainer's
