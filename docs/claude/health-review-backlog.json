@@ -6468,13 +6468,19 @@
       "severity": "low",
       "source": "config/strategy_changelog.json has no entries for the 6 M27 15m/5m scalp legs (ict_scalp_{sol,xrp,avax}_5m, ict_scalp_{xrp,eth,sol}_15m); only the original 5m variants are logged. Not a compliance violation — an observability gap in the changelog the Strategies tab renders.",
       "action": "Backfill strategy_changelog.json with the M27 leg additions (date 2026-07-22, paper-soak on bybit_1).",
-      "status": "kept_open",
+      "status": "resolved",
       "updates": [
         {
           "at": "2026-07-27T08:05:00+00:00",
           "by": "system-review-since-last-2026-07-27",
           "action": "kept_open",
           "note": "Re-validated 07-27: strategy_changelog.json still missing the 6 M27 15m/5m scalp legs. Observability-only. Actionable Tier-1 backfill — queued (report session does not touch config/)."
+        },
+        {
+          "at": "2026-07-28T06:10:00+00:00",
+          "by": "claude (Track-1 continuation session)",
+          "action": "resolved",
+          "note": "Backfilled config/strategy_changelog.json with all 6 M27 scalp legs (ict_scalp_{sol,xrp,avax}_5m dated 2026-07-21 per S-M27-ALTCOIN-PROMOTION; ict_scalp_{xrp,eth,sol}_15m dated 2026-07-22 per M27-P1-15m-promotion-proposal). Each entry records execution: live on bybit_1 DEMO only, the k-fold evidence, the XRP strategy-local off-cells gate, and that real-money bybit_2 routing remains a separate Tier-3 gate."
         }
       ]
     },
