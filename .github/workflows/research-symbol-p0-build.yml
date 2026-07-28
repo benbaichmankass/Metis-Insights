@@ -159,27 +159,76 @@ jobs:
           tail -3 artifacts/research/p0_build_time.txt || true
 
       - name: Summarize verdict
+        # Emits a compact per-fold + AGGREGATE roll-up (not raw truncated JSON):
+        # every fold's fitted-conf gate vs baseline, the Σnet-R / mean-exp-R /
+        # folds-positive aggregate for the decision comparators, and a heuristic
+        # PASS/WEAK verdict — so the whole deep-history read fits the comment
+        # budget and is legible at a glance. Full kfold JSON stays in the artifact.
         run: |
           set -euo pipefail
           python - <<'PYEOF' | tee artifacts/research/P0_VERDICT.md
           import json, glob, os
           files = sorted(glob.glob("artifacts/research/p0_out/**/kfold.json", recursive=True))
-          L = ["# Symbol P0 verdict — " + os.environ.get("p0_symbol", "?"), ""]
+          sym = os.environ.get("p0_symbol", "?")
+          L = [f"# Symbol P0 verdict — {sym}", ""]
           L.append(f"- instrument `{os.environ.get('p0_instrument')}` · timeframe {os.environ.get('p0_timeframe')} "
                    f"· start {os.environ.get('p0_start')} · economics fee_usd={os.environ.get('p0_feeusd')} "
                    f"contract_value_usd={os.environ.get('p0_cvusd')} · folds {os.environ.get('p0_folds')}")
           L.append("")
           if not files:
               L.append("**No kfold.json produced** — the run failed to complete. Read the run log / build_time.txt.")
-          else:
-              try:
-                  d = json.load(open(files[-1]))
-                  L.append(f"- kfold file: `{files[-1]}`")
-                  L.append("```json")
-                  L.append(json.dumps(d, indent=1, default=str)[:2600])
-                  L.append("```")
-              except Exception as e:
-                  L.append(f"- kfold.json present but unreadable: {e}")
+              print("\n".join(L)); raise SystemExit(0)
+
+          d = json.load(open(files[-1]))
+          folds = d.get("folds", []) or []
+
+          def sub(fd, comp):
+              return fd.get(comp) or {}
+          def num(x):
+              try: return float(x)
+              except (TypeError, ValueError): return None
+
+          # Decision comparators to roll up (label shown in the table).
+          COMPS = [
+              ("fitted_conf_oos", "Fitted-conf gate (candidate)"),
+              ("conf070_fixed",   "Fixed 0.70 gate"),
+              ("baseline",        "Baseline (all trades)"),
+          ]
+
+          L.append(f"## Aggregate across {len(folds)} folds (net of ${os.environ.get('p0_feeusd')} round-trip)")
+          L.append("")
+          L.append("| Comparator | Σ net-R | mean exp-R | total n | folds +ve | mean win% |")
+          L.append("|---|---|---|---|---|---|")
+          for comp, label in COMPS:
+              tot = sum((num(sub(fd, comp).get("tot_r_net")) or 0.0) for fd in folds)
+              n = sum(int(sub(fd, comp).get("n") or 0) for fd in folds)
+              pos = sum(1 for fd in folds if (num(sub(fd, comp).get("tot_r_net")) or 0.0) > 0)
+              exps = [num(sub(fd, comp).get("exp_r_net")) for fd in folds if num(sub(fd, comp).get("exp_r_net")) is not None]
+              wins = [num(sub(fd, comp).get("win_rate")) for fd in folds if num(sub(fd, comp).get("win_rate")) is not None]
+              mexp = round(sum(exps) / len(exps), 4) if exps else None
+              mwin = round(100 * sum(wins) / len(wins), 1) if wins else None
+              L.append(f"| {label} | {round(tot, 2)} | {mexp} | {n} | {pos}/{len(folds)} | {mwin} |")
+          L.append("")
+
+          L.append("## Per-fold — fitted-conf gate (candidate) vs baseline")
+          L.append("")
+          L.append("| Fold | Window | gate n | gate net-R | gate win% | base n | base net-R |")
+          L.append("|---|---|---|---|---|---|---|")
+          for fd in folds:
+              g = sub(fd, "fitted_conf_oos"); b = sub(fd, "baseline")
+              ws = str(fd.get("test_start", ""))[:10]; we = str(fd.get("test_end", ""))[:10]
+              gw = num(g.get("win_rate")); gw = round(100 * gw, 1) if gw is not None else None
+              L.append(f"| {fd.get('fold')} | {ws}→{we} | {g.get('n')} | {g.get('tot_r_net')} | {gw} | {b.get('n')} | {b.get('tot_r_net')} |")
+          L.append("")
+
+          tot_gate = sum((num(sub(fd, "fitted_conf_oos").get("tot_r_net")) or 0.0) for fd in folds)
+          pos_gate = sum(1 for fd in folds if (num(sub(fd, "fitted_conf_oos").get("tot_r_net")) or 0.0) > 0)
+          need = max(1, (len(folds) + 1) // 2)
+          verdict = "PASS" if (tot_gate > 0 and pos_gate >= need) else "WEAK/FAIL"
+          L.append(f"## VERDICT (heuristic): **{verdict}** — fitted-conf gate Σnet-R={round(tot_gate, 2)} "
+                   f"over {len(folds)} folds, {pos_gate}/{len(folds)} folds positive (need ≥{need}).")
+          L.append("> Heuristic only — thin samples make a positive Σ with <half folds positive fragile. "
+                   "The operator makes the promote/hold call; full kfold JSON is in the run artifact.")
           print("\n".join(L))
           PYEOF
 
