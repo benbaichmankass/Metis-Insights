@@ -83,3 +83,45 @@ The code wiring needs nothing. Enablement is: **(1) run the fit on the trainer
 mirror-publish → `c_reg` soaks observe-only.** Proposed to the operator in the
 Track-1 continuation session wrap (alongside the other Tier-3 items) rather than
 shipped, because Step 2 populates the Tier-3-path conviction soak.
+
+## Step-1 fit result (2026-07-28, trainer-vm-diag #7811)
+
+Ran `fit_regime_alignment_calibrators.py --method logistic` against the trainer's
+synced live journal (`data/trade_journal.db`). **Step 1 is CONFIRMED: the fit runs
+and produces calibrators — the wiring is complete, the only blocker was running
+it.** It fit **8 regime heads / 11 direction-calibrators**:
+
+| head | rows (all/long/short) | fit | method | note |
+|---|---|---|---|---|
+| `btc-regime-1h-lgbm-funding-svble-v1` | 18 / 18 / — | all, long | platt | borderline usable |
+| `btc-regime-1h-lgbm-v2` | 18 / 18 / — | all, long | platt | borderline usable |
+| `btc-regime-1h-lgbm-yz-v1` | 11 / 11 / — | all, long | platt | a=−34/b=+32 — overfit |
+| `btc-regime-5m-baseline-v1` | 13 / 6 / 7 | all | platt | a=−163/b=+163 — overfit |
+| `btc-regime-5m-lgbm-v2` | 13 / 6 / 7 | all | platt | overfit |
+| `btc-regime-5m-lgbm-yz-v1` | 13 / 6 / 7 | all | platt | overfit |
+| `eth-regime-1h-lgbm-v1` | 1 / 1 / — | all | constant rate=0.0 | degenerate (n=1) |
+| `eth-regime-1h-lgbm-xasset-v1` | 1 / 1 / — | all | constant rate=0.0 | degenerate (n=1) |
+
+**Assessment: fittable but thin.** Only the two BTC 1h heads (n=18) are borderline
+trustworthy; the BTC 5m heads (n=13) show extreme platt coefficients (overfit
+signatures on a tiny sample), and the ETH heads (n=1) are degenerate constants.
+The corpus is the join of `order_packages.model_scores` (regime-head signal-time
+scores) to *resolved closed* trades — it thickens only as more regime-head-scored
+trades close.
+
+**Implication for the Step-2 ship (operator decision).** Because publishing the
+calibrator only makes `c_reg` flow into the **observe-only conviction soak** (never
+the order until `CONVICTION_SIZING_MODE` graduates it, Tier-3), shipping now is
+**low-risk even with a thin calibrator** — it starts accruing `c_reg` soak data and
+the calibrator is re-fit as the corpus grows. Two reasonable paths:
+
+1. **Ship now (observe-only)** + schedule a re-fit as the corpus thickens (esp.
+   for the non-BTC heads). Starts the soak; the degenerate ETH/overfit-5m mappings
+   are inert in the soak and get corrected on re-fit.
+2. **Wait** until the corpus is less degenerate (more scored closed trades per head,
+   beyond the BTC 1h pair) before the first publish.
+
+Given the observe-only boundary, path 1 is defensible, but the early calibrator
+must be treated as **provisional** (flagged here so a later session doesn't mistake
+the n=1 ETH constant for a real mapping). No live sizing influence is possible
+without the separate Tier-3 `CONVICTION_SIZING_MODE` graduation regardless.
