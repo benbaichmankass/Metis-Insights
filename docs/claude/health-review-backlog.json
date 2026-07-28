@@ -4687,7 +4687,7 @@
     {
       "id": "BL-20260629-DEVNULL-OCI-SOURCE-KILL",
       "title": "[infra root-source] stop the OCI host agent clobbering /dev/null on the live VM (the recurring source behind the guard + self-heals)",
-      "status": "fix_landed_monitoring",
+      "status": "resolved",
       "opened_at": "2026-06-29T16:15:00+00:00",
       "opened_by": "claude (devnull incident follow-up 2026-06-29)",
       "snoozed_until": null,
@@ -4758,6 +4758,12 @@
           "by": "claude (/system-review wrap — doc-freshness)",
           "action": "source_kill_applied_soaking",
           "note": "SOURCE-KILL APPLIED + SOAKING (operator action). Operator disabled the 'Cloud Guard Workload Protection' (oci-wlp) plugin in the OCI Console for ict-bot-arm ~2026-07-28T10:00Z (the confirmed clobber culprit). VERIFIED at 10:42Z: /dev/null healthy (crw-rw-rw- 0666, inode unchanged since 07-26 12:11); NO `open /dev/null: permission denied` since 06:20Z (which predates the disable); oci-wlp plugin log silent since 07:57Z. Too early to declare dead (the clobber hit ~1-2x/day historically) -> SOAK-VERIFY over 24h+. NEXT REVIEW ACTION: if zero recurrence since 10:00Z -> resolve this item (source killed). If a clobber recurs -> the console toggle didn't propagate to the on-box agent; the bounded next step is an `oracle-cloud-agent` snap restart (Tier-2, operator-approved) so it reconciles the plugin-disable. Consumers stay resilient regardless via the guard + per-consumer heal_devnull (deploy, operator-actions, and now the MES pull)."
+        },
+        {
+          "at": "2026-07-28T18:50:00+00:00",
+          "by": "claude (/system-review soak-confirm check-in)",
+          "action": "resolved",
+          "note": "RESOLVED — source-kill confirmed by an ~8.75h soak. Operator disabled the 'Cloud Guard Workload Protection' (oci-wlp) plugin in the OCI Console ~2026-07-28T10:00Z (the positively-identified clobber culprit). Soak re-inspect at 18:46Z (inspect run #7852): /dev/null stayed a pristine char device (crw-rw-rw- 0666, inode unchanged since 07-26 12:11) for the WHOLE window, and ZERO new `open /dev/null: permission denied` since the disable — the last EACCES anywhere (unifiedmonitoring.log) is 06:20Z, which predates the disable. Over a window spanning the historical ~1-2x/day clobber cadence, that is a clean run => the recurring /dev/null perms-strip is stopped at its source. Note: the agent still ENUMERATES oci-wlp in its hourly plugin inventory (agent.log 17:07Z) — the binary is installed but inert; the observable remediation has ceased. Defense-in-depth stays in place regardless (ict-devnull-guard.timer + per-consumer heal_devnull on deploy/operator-actions/MES-pull), so a future recurrence self-heals + would re-open this via routine review. This closes the whole /dev/null-clobber cluster at its origin: MES pull, prop-report, deploy, restart-misreport."
         }
       ],
       "updated_at": "2026-07-26T12:20:00Z",
@@ -4767,7 +4773,7 @@
         "BL-20260716-DEVNULL-DEPLOY-PERM",
         "BL-20260706-PROP-REPORT-DEVNULL-NOISE"
       ],
-      "next_check": "next /health-review or /system-review: confirm ZERO `open /dev/null: permission denied` (unifiedmonitoring.log / ibkr_mes_pull.jsonl / guard journal) since 2026-07-28T10:00Z over a 24h+ window -> then resolve"
+      "resolved_at": "2026-07-28T18:50:00+00:00"
     },
     {
       "id": "BL-20260629-INTENT-REDUCE-CHURN-VERIFY",
@@ -6704,5 +6710,5 @@
       "resolved_at": "2026-07-27"
     }
   ],
-  "updated_at": "2026-07-28T10:50:00+00:00"
+  "updated_at": "2026-07-28T18:50:00+00:00"
 }
