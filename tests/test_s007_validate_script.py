@@ -182,6 +182,9 @@ def test_run_checks_strategies_match_roster():
         # M27 P1 15m alt legs (2026-07-22, Tier-3, operator-approved promotion):
         # execution:live paper-soak on bybit_1 only, ungated.
         "ict_scalp_xrp_15m", "ict_scalp_eth_15m", "ict_scalp_sol_15m",
+        # M27 gold re-target (2026-07-28, Tier-3, operator-approved paper soak):
+        # execution:live mechanics-only soak on ib_paper (IBKR PAPER money), ungated.
+        "ict_scalp_mgc_15m",
     }
 
 
