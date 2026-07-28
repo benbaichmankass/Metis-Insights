@@ -31,6 +31,7 @@ import argparse
 import json
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pandas as pd
@@ -56,6 +57,13 @@ BASE_FLAGS = ["--symbol", "MGC", "--timeframe", "15m", "--sim-breakeven"]
 
 
 def run_cell(data_csv: Path, extra: list[str], out_json: Path) -> dict:
+    # Cache: a valid prior JSON is reused (each run is a pure function of its
+    # args), so an interrupted sweep resumes instead of re-walking.
+    if out_json.exists():
+        try:
+            return json.loads(out_json.read_text())
+        except Exception:  # noqa: BLE001 — corrupt/partial, re-run
+            pass
     cmd = [sys.executable, str(_HARNESS), "--data", str(data_csv),
            *BASE_FLAGS, *extra, "--json", str(out_json)]
     res = subprocess.run(cmd, capture_output=True, text=True)
@@ -107,10 +115,26 @@ def main(argv: list[str]) -> int:
           f"IS {int((ts < split).sum())} / OOS {int((ts >= split).sum())} bars",
           flush=True)
 
-    # Baseline per window.
-    base = {}
+    # Build every (tag, window) job, then run them concurrently — each harness
+    # subprocess is single-threaded, so a pool of 4 keeps the box busy. Every
+    # run is byte-identical to the serial version (same args); only wall-clock
+    # changes. A finished JSON is reused (cache), so an interrupted run resumes.
+    jobs = []  # (result_key, window, extra, out_json)
     for w, csv in windows.items():
-        base[w] = metrics(run_cell(csv, [], out / f"base_{w}.json"))
+        jobs.append((("base", w), csv, [], out / f"base_{w}.json"))
+    for tag, lever, extra in CELLS:
+        for w, csv in windows.items():
+            jobs.append(((tag, w), csv, extra, out / f"{tag}_{w}.json"))
+
+    computed: dict = {}
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        futs = {ex.submit(run_cell, csv, extra, oj): key
+                for key, csv, extra, oj in jobs}
+        for fut, key in list(futs.items()):
+            computed[key] = metrics(fut.result())
+
+    base = {"IS": computed[("base", "IS")], "OOS": computed[("base", "OOS")]}
+    for w in ("IS", "OOS"):
         print(f"  BASE {w:3s}: trades={base[w]['trades']} "
               f"total_R={base[w]['total_r']} maxDD={base[w]['max_dd_r']} "
               f"exp_R={base[w]['expectancy_r']}", flush=True)
@@ -118,9 +142,7 @@ def main(argv: list[str]) -> int:
     results = {"data": args.data, "split": args.split,
                "baseline": base, "cells": {}}
     for tag, lever, extra in CELLS:
-        cell = {}
-        for w, csv in windows.items():
-            cell[w] = metrics(run_cell(csv, extra, out / f"{tag}_{w}.json"))
+        cell = {"IS": computed[(tag, "IS")], "OOS": computed[(tag, "OOS")]}
         is_beat = beats(cell["IS"], base["IS"])
         oos_beat = beats(cell["OOS"], base["OOS"])
         verdict = "CANDIDATE" if (is_beat and oos_beat) else "honest_negative"
