@@ -70,7 +70,54 @@
    "summary": "v2 promotion to enabled=true after pre-live gate cleared (issues #1153 + #1154): 59.3% win rate, +0.301 R expectancy, max DD 3.47R on 90 days of fresh BTCUSDT 5m candles. Strategy uses wick rejection + HTF 1h EMA-20 bias + displacement 1.3 × ATR"
   }
  ],
+ "ict_scalp_sol_5m": [
+  {
+   "date": "2026-07-21",
+   "ref": "M27 Batch-1 promotion (S-M27-ALTCOIN-PROMOTION-2026-07-21) — Tier-3, operator-approved",
+   "summary": "New leg wired execution: live on bybit_1 (DEMO/paper) only. Ports the ict_scalp_5m setup to SOLUSDT 5m per the M27 Batch-1 crypto transfer study (config-exact params; the study tested the same setup logic across symbols, not a re-tune). SOL passes the net k-fold gate UNGATED (no off_cells filter). Built via the shared _ict_scalp_variant_builder. NOT routed to real-money bybit_2 / bybit_portfolio — that is a separate later Tier-3 gate contingent on the live paper soak matching the backtest (PB-20260721-ICTSCALP-ALTCOIN-PAPER-SOAK-CHECK). Regime coverage: exempt (strategy-local gate; no registry regime head)."
+  }
+ ],
+ "ict_scalp_xrp_5m": [
+  {
+   "date": "2026-07-21",
+   "ref": "M27 Batch-1 promotion (S-M27-ALTCOIN-PROMOTION-2026-07-21) — Tier-3, operator-approved",
+   "summary": "New leg wired execution: live on bybit_1 (DEMO/paper) only. Ports the ict_scalp_5m setup to XRPUSDT 5m per M27 Batch-1. XRP passes ONLY when the off-cells regime gate is applied (ungated 2/4 folds FAILS; gated 4/4 +34.3R), so the gate is enforced strategy-locally: the YAML block carries off_cells + a frozen 2023 5m vol tercile vol_spec that _ict_scalp_variant_builder evaluates via detect_regime + vol_regime_from_spec (no registry dependency) and suppresses matching signals — shipping it through the global regime_policy.yaml would resolve vol=unknown and run the FAILING ungated profile. NOT routed to real-money (separate Tier-3 gate). Regime coverage: exempt (strategy-local frozen-spec gate)."
+  }
+ ],
+ "ict_scalp_avax_5m": [
+  {
+   "date": "2026-07-21",
+   "ref": "M27 Batch-1 promotion (S-M27-ALTCOIN-PROMOTION-2026-07-21) — Tier-3, operator-approved",
+   "summary": "New leg wired execution: live on bybit_1 (DEMO/paper) only. Ports the ict_scalp_5m setup to AVAXUSDT 5m per M27 Batch-1. AVAX passes the net k-fold gate UNGATED (no off_cells filter). NOT routed to real-money bybit_2 / bybit_portfolio (separate later Tier-3 gate, contingent on the paper soak). Regime coverage: exempt (strategy-local gate)."
+  }
+ ],
+ "ict_scalp_xrp_15m": [
+  {
+   "date": "2026-07-22",
+   "ref": "M27 P1 15m promotion (M27-P1-15m-promotion-proposal-2026-07-22) — Tier-3, operator-approved",
+   "summary": "New leg wired execution: live on bybit_1 (DEMO/paper) only. XRPUSDT on the 15m timeframe — the strongest M27 P1 15m passer: baseline 4/4 OOS folds +20.66R (exp 0.068) AND off-cells 4/4 +15.89R (net 7.5bps). Same ict_scalp setup params as the 5m leg; only timeframe differs. Shipped ungated (baseline clears >=3/4 on its own). Runs ALONGSIDE ict_scalp_xrp_5m (more concurrent same-symbol scalp exposure; safe under the 2026-07-20 cascade-close + qty-scoped partial-tpsl hardening). CAVEAT: the P1 sweep resampled 5m shards to 15m; a native Bybit-15m confirmation pull is required before any real-money routing. NOT routed to real-money (separate Tier-3 gate). Regime coverage: exempt."
+  }
+ ],
+ "ict_scalp_eth_15m": [
+  {
+   "date": "2026-07-22",
+   "ref": "M27 P1 15m promotion (M27-P1-15m-promotion-proposal-2026-07-22) — Tier-3, operator-approved",
+   "summary": "New leg wired execution: live on bybit_1 (DEMO/paper) only. ETHUSDT 15m — M27 P1: baseline 3/4 OOS folds +23.28R (exp 0.076), off-cells 4/4 +14.31R (exp 0.142), net 7.5bps. (ETH was held out of the 5m Batch-1 promotion as its weakest passer; the 15m sweep cleared it.) Same ict_scalp setup params; only timeframe differs. Shipped ungated. Native-15m confirmation pull required before real-money. NOT routed to real-money (separate Tier-3 gate). Regime coverage: exempt."
+  }
+ ],
+ "ict_scalp_sol_15m": [
+  {
+   "date": "2026-07-22",
+   "ref": "M27 P1 15m promotion (M27-P1-15m-promotion-proposal-2026-07-22) — Tier-3, operator-approved",
+   "summary": "New leg wired execution: live on bybit_1 (DEMO/paper) only. SOLUSDT 15m — M27 P1: baseline 3/4 OOS folds +26.47R (exp 0.075), the strongest baseline of the three P1 legs. Same ict_scalp setup params; only timeframe differs. Shipped ungated. Runs alongside ict_scalp_sol_5m. Native-15m confirmation pull required before real-money. NOT routed to real-money (separate Tier-3 gate). Regime coverage: exempt."
+  }
+ ],
  "fvg_range_15m": [
+  {
+   "date": "2026-07-28",
+   "ref": "Demote live -> shadow (Tier-3, operator-approved via AskUserQuestion 2026-07-28)",
+   "summary": "Demoted execution: live -> shadow. Was promoted shadow->live and graduated to real-money bybit_2 on 2026-06-02 on the 5.2y backtest evidence; demoted back after a Track-1 review found the LIVE record DORMANT and edgeless (diag order-packages: ~1 decision, confidence ~0.11, target_qty=0 — never executes a live order, so it was NOT bleeding real money; the -41R figure is a 5.2y BACKTEST sleeve result on non-live P1-book params, not a live loss). shadow removes the real-money route for a no-edge dormant sleeve while it keeps logging order packages on bybit_1 (demo) AND bybit_2 (real) for continued data collection. Reversible: flip execution: shadow -> live to restore."
+  },
   {
    "date": "2026-06-02",
    "ref": "Promote shadow -> live on bybit_1 demo (operator policy: paper/demo always execute) - Tier-3, operator-approved",
