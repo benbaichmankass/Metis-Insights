@@ -2135,7 +2135,21 @@
           "note": "RESOLVED - the demote shipped this window: PR #7792 merged (fvg_range_15m execution: live -> shadow, Tier-3 operator-approved via AskUserQuestion). fvg_range_15m no longer sends live orders on any account; the real-money bybit_2 route (-41R live vs a strong backtest) is removed, shadow order-package logging retained. Verified in config/strategies.yaml + strategy_changelog on main."
         }
       ]
+    },
+    {
+      "id": "PB-20260728-ICTSCALP-GOLD-GATE-CONFIG",
+      "opened_at": "2026-07-28T14:00:00+00:00",
+      "opened_by": "claude (Track-1, deep XAU/MGC runner re-validation)",
+      "source": "Deep 4-fold walk-forward on Dukascopy spot XAU 15m (2012->now) under MGC economics, run on a free GH runner (research-symbol-p0-build, issue #7845). Full read in docs/research/M27-P0-MGC-15m-findings-2026-07-28.md ADDENDUM.",
+      "title": "ict_scalp-on-gold (M27): ship the UNGATED/light-gate config, not the fitted confidence gate — the fitted gate over-filters and is derive-window-fragile",
+      "description": "The deep 4-fold re-validation REPLICATES the ungated baseline edge (+41.09R, 3/4 folds, exp-R +0.094 net of $3/contract) and conf070_fixed (+21.8R) across an independent split, BUT the fitted_conf_oos gate is fragile — its OOS capture swung +36.24R (year-split, prior Arm A) -> +7.94R (prefix:0.25 split), i.e. it throws away most of the edge (gate +7.94 vs baseline +41). Two independent splits agree: ungated >= conf070 >> fitted gate. Also a TEMPER on the prior +47.35R/4-4 Arm A: the deep exp-R is half (+0.094 vs +0.197) with a genuine negative regime (fold 1, 2014-17, baseline -14.08R) that the year-split's 4/4 masked — the edge is real but modest and regime-dependent. The offline gate-config question is ANSWERED (ungated wins); no further offline validation is needed before a mechanics soak.",
+      "tier": "tier-3",
+      "trigger_condition": "When the operator decides whether to wire ict_scalp_mgc_15m (or an ict_scalp-gold leg) to ib_paper per M27 findings Option 1.",
+      "resolution_criteria": "A Tier-3 decision: EITHER (a) wire ict_scalp-gold to ib_paper at execution:live using the UNGATED (or conf070_fixed) config — NOT the fitted confidence gate — as a mechanics-only paper soak with tempered expectations (+0.09 exp-R, fold-1-type drawdowns expected), per the new-strategy skill (account_compat_matrix + descriptions + regime coverage); OR (b) explicitly hold. Either disposition closes this. Do NOT ship the fitted-conf-gate config.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-28T09:12:00+00:00"
+  "updated_at": "2026-07-28T14:00:00+00:00"
 }
