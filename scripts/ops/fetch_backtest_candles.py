@@ -179,7 +179,7 @@ def _parse_vision_kline_row(fields: list[str]) -> dict | None:
     except (ValueError, IndexError):
         return None  # header line or malformed
     ts_ms = ts_raw // 1000 if ts_raw >= 10**14 else ts_raw
-    return {
+    row = {
         "timestamp": datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc),
         "open": float(fields[1]),
         "high": float(fields[2]),
@@ -188,6 +188,15 @@ def _parse_vision_kline_row(fields: list[str]) -> dict | None:
         "volume": float(fields[5]),
         "_ts_ms": ts_ms,
     }
+    # taker_buy_base (field 9): the aggressive-buy share of the bar's volume — the
+    # free order-flow-imbalance (OFI) proxy the M30 exit/regime studies use
+    # (2*taker_buy_base/volume - 1). Present on Binance-vision, absent on Bybit
+    # klines; kept when parseable so downstream feature builders can compute it.
+    try:
+        row["taker_buy_base"] = float(fields[9])
+    except (ValueError, IndexError):
+        pass
+    return row
 
 
 def _download_vision_zip(url: str) -> list[dict] | None:
