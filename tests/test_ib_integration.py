@@ -221,6 +221,7 @@ class TestAccountsYaml:
         # record and the 9 cells that SKIPPED and stay unwired.
         assert paper["strategies"] == [
             "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d", "mgc_trend_1h",
+            "ict_scalp_mgc_15m",
             "spy_trend_long_1d", "qqq_trend_long_1d", "iwm_trend_long_1d", "tlt_pullback_1d",
         ]
 
@@ -279,6 +280,7 @@ class TestLoadAccounts:
         assert paper.ib_client_id == 497
         assert paper.strategies == [
             "mes_trend_long_1d", "mgc_pullback_1d", "mhg_pullback_1d", "mgc_trend_1h",
+            "ict_scalp_mgc_15m",
             "spy_trend_long_1d", "qqq_trend_long_1d", "iwm_trend_long_1d", "tlt_pullback_1d",
         ]  # long-only diversifier + WS-A metals sleeve; BTCUSDT strats (turtle_soup/
         #   vwap/ict_scalp_5m) dropped 2026-07-07 (#5850) — dead no-ops on IBKR futures.
