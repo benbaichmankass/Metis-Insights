@@ -314,7 +314,12 @@ jobs:
               {
                 name: 'trainer-vm-diag-request',
                 color: '5319e7',
-                description: 'Triggers trainer-vm-diag workflow — full-visibility SSH command runner on the trainer VM (autonomous Claude).',
+                description: 'Triggers trainer-vm-diag workflow — full-visibility SSH command runner on the trainer VM (autonomous Claude). QUICK read-only pulls (parallel-safe).',
+              },
+              {
+                name: 'trainer-vm-heavy-request',
+                color: 'b60205',
+                description: 'HEAVY/exclusive trainer-VM job (backtest/dataset-build/training cycle). Requires a board VM-LANE CLAIM first (FIFO, running-never-preempted) — the claude-vm-lane-guard PreToolUse hook enforces it. Prefer a free GH runner if the work needs no VM state (docs/claude/vm-resource-management.md).',
               },
               {
                 name: 'gpu-burst-train',
@@ -335,6 +340,11 @@ jobs:
                 name: 'research-exit-head-request',
                 color: '0075ca',
                 description: 'Triggers research-exit-head-build workflow — self-contained M30×M20 per-bar in-trade exit-head build on a GH runner (fetch feed + dense panel + uniqueness-weighted meta-label head + net-of-fee verdict).',
+              },
+              {
+                name: 'research-symbol-p0-request',
+                color: '0075ca',
+                description: 'Triggers research-symbol-p0-build workflow — deep-history symbol P0 validation (Dukascopy fetch + ict_scalp k-fold under a target account economics) on a FREE GH runner. The resource-optimized home for the M27 XAU/MGC re-target work (off the scarce trainer VM).',
               },
               {
                 name: 'set-diag-token',

@@ -137,6 +137,16 @@ tail, a `cat`, `systemctl status`, a registry list) — they are parallel-safe.
 avoid queuing on the scarce VM is to not need it: if the work is CPU-only, run it on
 a free runner and no lane is involved at all.
 
+**Hard-enforced, mirroring the merge guard.** The claim is a physical precondition,
+not just discipline: a `PreToolUse` guard (`.claude/hooks/vm_lane_guard.sh`, wired in
+`.claude/settings.json`) **denies** an `issue_write` carrying the
+**`trainer-vm-heavy-request`** label unless a fresh (< 30 min)
+`/tmp/.claude-vm-lane-claim-<session_id>` marker exists. It is narrowly scoped and
+fail-open — quick `trainer-vm-diag-request` reads and every non-heavy issue are never
+blocked. So a HEAVY trainer job goes out under the `trainer-vm-heavy-request` label
+and must claim the lane first; a quick read stays on `trainer-vm-diag-request` and
+needs nothing. The runner path (§ 1) has no lane and no guard — the intended default.
+
 ## 4. Composition
 
 - **`docs/claude/coordination-board.md`** — the board mechanics + the VM-lane and
@@ -148,5 +158,9 @@ a free runner and no lane is involved at all.
   one-liner + pointer here.
 - Workflows: `claude-run-failure-alert.yml` (the loud flag), `trainer-vm-diag.yml`
   (relay + honest messaging + 60-min cap), `vm-diag-snapshot.yml` (live read relay),
-  `research-exit-head-build.yml` / `research-panel-build.yml` (the free-runner
-  heavy-compute pattern to copy).
+  `research-symbol-p0-build.yml` (the deep-history symbol-P0 validation on a free
+  runner — the home for the M27 XAU/MGC re-target work), `research-exit-head-build.yml`
+  / `research-panel-build.yml` (the free-runner heavy-compute pattern to copy).
+- Enforcement: `.claude/hooks/vm_lane_guard.sh` (the VM-lane PreToolUse guard) +
+  the `trainer-vm-heavy-request` / `research-symbol-p0-request` labels
+  (`bootstrap-labels.yml`).

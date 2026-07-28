@@ -126,6 +126,17 @@ that keeps most work off the VM entirely: [`docs/claude/vm-resource-management.m
 🔓 VM-LANE RELEASE · trainer · <session-id>
 ```
 
+**Hard-enforced (2026-07-28), mirroring the merge guard.** A `PreToolUse` guard in
+[`.claude/settings.json`](../../.claude/settings.json) (`.claude/hooks/vm_lane_guard.sh`)
+**denies** an `issue_write` that carries the **`trainer-vm-heavy-request`** label
+unless a fresh (< 30 min) `/tmp/.claude-vm-lane-claim-<session_id>` marker exists —
+so a heavy trainer dispatch can't skip the claim under load. The guard is
+narrowly scoped and **fail-open**: quick `trainer-vm-diag-request` reads,
+system-actions, prop-reports, and every other issue are never matched. The marker
+is a speed-bump proving the protocol ran; the `🔒 VM-LANE CLAIM` comment on #6927 is
+the claim other sessions actually see. Same session-start caveat as the merge guard
+(a session that edits `settings.json` mid-run protects the *next* session onward).
+
 ## If the board is ever missing
 
 If #6927 is closed or unreachable, do **not** silently proceed uncoordinated:

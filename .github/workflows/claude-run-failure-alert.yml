@@ -41,6 +41,7 @@ on:
       - prop-report
       - research-exit-head-build
       - research-panel-build
+      - research-symbol-p0-build
     types: [completed]
 
 permissions:

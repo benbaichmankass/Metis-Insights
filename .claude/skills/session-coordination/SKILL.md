@@ -189,6 +189,11 @@ core"). The essentials every session applies:
    **Quick read-only pulls need no claim** (parallel-safe). Format:
    `docs/claude/coordination-board.md` § "The VM-lane queue". This is a **board**
    FIFO, not a GitHub concurrency group (which can't queue depth > 1).
+   **Hard-enforced (2026-07-28):** a `PreToolUse` guard (`.claude/hooks/vm_lane_guard.sh`)
+   denies an `issue_write` carrying the `trainer-vm-heavy-request` label unless a fresh
+   `/tmp/.claude-vm-lane-claim-<sid>` marker exists — so a HEAVY trainer job uses that
+   label + claims first; quick `trainer-vm-diag-request` reads (and everything else) are
+   never blocked. The marker is a speed-bump; the `🔒 VM-LANE CLAIM` comment is the claim.
 3. **A dead run flags loudly + immediately.** `claude-run-failure-alert.yml` pings
    the operator the moment a watched VM/relay/research run fails/cancels/times-out,
    and each workflow posts an **honest** failure/cancelled comment (a `cancelled`

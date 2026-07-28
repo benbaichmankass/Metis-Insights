@@ -67,6 +67,17 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "mcp__github__issue_write",
+        "hooks": [
+          {
+            "_comment": "VM-LANE GUARD (operator-directed 2026-07-28). The structural teeth on the FIFO VM-lane queue — mirrors the merge-slot guard. DENIES an issue_write ONLY when it carries the `trainer-vm-heavy-request` label (a HEAVY/exclusive trainer-VM job) and no fresh (<30min) /tmp/.claude-vm-lane-claim-<sid> marker exists. Quick trainer-vm-diag-request reads, system-actions, prop-reports, and every other issue create are NOT matched → always allowed (fail-open on any ambiguity). Forces the board VM-LANE CLAIM protocol (FIFO, running-never-preempted) before a heavy trainer dispatch so sessions stop disrupting each other on the one scarce core. The real claim is the 🔒 VM-LANE CLAIM comment on #6927; the marker is a speed-bump. Prefer a FREE GH runner for CPU-only work (research-symbol-p0-build / research-exit-head-build). Logic + tests: .claude/hooks/vm_lane_guard.sh. Keep in sync with docs/claude/vm-resource-management.md + coordination-board.md + session-coordination SKILL.",
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/vm_lane_guard.sh\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [

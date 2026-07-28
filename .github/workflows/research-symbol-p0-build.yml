@@ -1,0 +1,231 @@
+name: research-symbol-p0-build
+
+# Symbol P0 validation (ict_scalp k-fold under a target account's economics) on a
+# FREE GitHub-hosted runner — the resource-optimized home for the M27 re-target /
+# re-validation work that was WRONGLY being run as a trainer-vm-diag SSH job.
+#
+# WHY this exists (operator directive 2026-07-28, docs/claude/vm-resource-management.md):
+# the deep ~14-year XAU/MGC re-validation (fetch_dukascopy_ohlcv.py +
+# run_symbol_p0.py k-fold) needs NO VM-resident state — only repo code + a public
+# Dukascopy fetch. It kept dying at the trainer relay's 10-min job cap (issues
+# #7815/#7816/#7829), mislabelled "preempted by a newer diag request" (it was a
+# timeout). It belongs HERE: a GitHub-hosted runner (4 vCPU, up to ~5.5h, $0 on
+# this public repo, parallel across sessions, ZERO trainer contention). This is the
+# structural fix that lets the full validation actually RUN, uninterrupted.
+#
+# Sibling of research-exit-head-build.yml / research-panel-build.yml — same
+# off-VM economics; this one runs the entry-side symbol-P0 validation instead of
+# the exit head.
+#
+# Triggers:
+#   1. workflow_dispatch — operator clicks "Run workflow"
+#   2. issues.opened with label `research-symbol-p0-request` (owner-guarded)
+#
+# Issue body (optional, all keys have defaults matching the XAU→MGC Arm A):
+#   instrument: INSTRUMENT_FX_METALS_XAU_USD   # dukascopy_python.instruments attr
+#   symbol: XAUUSD                             # label passed to run_symbol_p0
+#   timeframe: 15m
+#   start: 2012-01-01                          # deep-history start (UTC YYYY-MM-DD)
+#   derive_window: prefix:0.25                 # OOS derivation window spec
+#   fee_usd_roundtrip: 3.0                     # per-contract cost (MGC economics)
+#   contract_value_usd: 10.0                   # whole-contract sizing (MGC = $10)
+#   folds: 4
+#
+# Safety: READS the repo + fetches PUBLIC Dukascopy candles + runs the strategy
+# unit on historical data. It does not push, deploy, or touch config/. A passing
+# result routes through the new-strategy skill + Tier-3 before any live surface.
+
+on:
+  workflow_dispatch:
+    inputs:
+      instrument:
+        description: "Dukascopy instrument attribute (e.g. INSTRUMENT_FX_METALS_XAU_USD)"
+        default: "INSTRUMENT_FX_METALS_XAU_USD"
+      symbol:
+        description: "Symbol label for run_symbol_p0"
+        default: "XAUUSD"
+      timeframe:
+        description: "Strategy timeframe label"
+        default: "15m"
+      start:
+        description: "Deep-history start (UTC YYYY-MM-DD)"
+        default: "2012-01-01"
+      derive_window:
+        description: "OOS derivation window spec"
+        default: "prefix:0.25"
+      fee_usd_roundtrip:
+        description: "Per-contract round-trip cost in USD"
+        default: "3.0"
+      contract_value_usd:
+        description: "Contract value in USD (whole-contract sizing)"
+        default: "10.0"
+      folds:
+        description: "k-fold count"
+        default: "4"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: research-symbol-p0-build-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'research-symbol-p0-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse issue body
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          get() { printf '%s' "${ISSUE_BODY}" | grep -m1 -i "^$1:" | sed "s/^$1:[[:space:]]*//I" | tr -d '\r' || true; }
+          INSTRUMENT=$(get instrument);   [ -z "${INSTRUMENT}" ] && INSTRUMENT="INSTRUMENT_FX_METALS_XAU_USD"
+          SYMBOL=$(get symbol);           [ -z "${SYMBOL}" ] && SYMBOL="XAUUSD"
+          TIMEFRAME=$(get timeframe);     [ -z "${TIMEFRAME}" ] && TIMEFRAME="15m"
+          START=$(get start);             [ -z "${START}" ] && START="2012-01-01"
+          DWIN=$(get derive_window);      [ -z "${DWIN}" ] && DWIN="prefix:0.25"
+          FEEUSD=$(get fee_usd_roundtrip);[ -z "${FEEUSD}" ] && FEEUSD="3.0"
+          CVUSD=$(get contract_value_usd);[ -z "${CVUSD}" ] && CVUSD="10.0"
+          FOLDS=$(get folds);             [ -z "${FOLDS}" ] && FOLDS="4"
+          # sanity-validate so a malformed body can't inject args
+          printf '%s' "${INSTRUMENT}" | grep -qE '^[A-Z0-9_]+$' || INSTRUMENT="INSTRUMENT_FX_METALS_XAU_USD"
+          printf '%s' "${SYMBOL}" | grep -qE '^[A-Za-z0-9]+$' || SYMBOL="XAUUSD"
+          printf '%s' "${TIMEFRAME}" | grep -qE '^[0-9]+[mhdMHD]$' || TIMEFRAME="15m"
+          printf '%s' "${START}" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' || START="2012-01-01"
+          printf '%s' "${DWIN}" | grep -qE '^[a-z]+:[0-9.]+$' || DWIN="prefix:0.25"
+          printf '%s' "${FEEUSD}" | grep -qE '^[0-9.]+$' || FEEUSD="3.0"
+          printf '%s' "${CVUSD}" | grep -qE '^[0-9.]+$' || CVUSD="10.0"
+          printf '%s' "${FOLDS}" | grep -qE '^[0-9]+$' || FOLDS="4"
+          { echo "p0_instrument=${INSTRUMENT}"; echo "p0_symbol=${SYMBOL}";
+            echo "p0_timeframe=${TIMEFRAME}"; echo "p0_start=${START}";
+            echo "p0_dwin=${DWIN}"; echo "p0_feeusd=${FEEUSD}";
+            echo "p0_cvusd=${CVUSD}"; echo "p0_folds=${FOLDS}"; } >> "$GITHUB_ENV"
+
+      - name: Set params from dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          { echo "p0_instrument=${{ inputs.instrument }}"; echo "p0_symbol=${{ inputs.symbol }}";
+            echo "p0_timeframe=${{ inputs.timeframe }}"; echo "p0_start=${{ inputs.start }}";
+            echo "p0_dwin=${{ inputs.derive_window }}"; echo "p0_feeusd=${{ inputs.fee_usd_roundtrip }}";
+            echo "p0_cvusd=${{ inputs.contract_value_usd }}"; echo "p0_folds=${{ inputs.folds }}"; } >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas pyyaml requests dukascopy-python
+
+      - name: Fetch deep Dukascopy history
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          OUT="data/${p0_symbol}_${p0_timeframe}_deep.csv"
+          echo "=== fetch ${p0_instrument} ${p0_timeframe} from ${p0_start} ==="
+          python scripts/ops/fetch_dukascopy_ohlcv.py \
+            --instrument "${p0_instrument}" --interval "${p0_timeframe}" \
+            --start "${p0_start}" --output "${OUT}" 2>&1 | tail -8
+          echo "p0_csv=${OUT}" >> "$GITHUB_ENV"
+          echo "=== coverage ==="; head -2 "${OUT}" 2>/dev/null; tail -1 "${OUT}" 2>/dev/null; wc -l "${OUT}" 2>/dev/null
+
+      - name: Run symbol P0 (ict_scalp k-fold under the target economics)
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/research/p0_out
+          /usr/bin/time -v python scripts/research/m27/run_symbol_p0.py \
+            --csv "${p0_csv}" --symbol "${p0_symbol}" \
+            --out-dir artifacts/research/p0_out --timeframe "${p0_timeframe}" \
+            --derive-window "${p0_dwin}" --folds "${p0_folds}" \
+            --fee-usd-roundtrip "${p0_feeusd}" --contract-value-usd "${p0_cvusd}" \
+            2> artifacts/research/p0_build_time.txt | tail -60 || true
+          tail -3 artifacts/research/p0_build_time.txt || true
+
+      - name: Summarize verdict
+        run: |
+          set -euo pipefail
+          python - <<'PYEOF' | tee artifacts/research/P0_VERDICT.md
+          import json, glob, os
+          files = sorted(glob.glob("artifacts/research/p0_out/**/kfold.json", recursive=True))
+          L = ["# Symbol P0 verdict — " + os.environ.get("p0_symbol", "?"), ""]
+          L.append(f"- instrument `{os.environ.get('p0_instrument')}` · timeframe {os.environ.get('p0_timeframe')} "
+                   f"· start {os.environ.get('p0_start')} · economics fee_usd={os.environ.get('p0_feeusd')} "
+                   f"contract_value_usd={os.environ.get('p0_cvusd')} · folds {os.environ.get('p0_folds')}")
+          L.append("")
+          if not files:
+              L.append("**No kfold.json produced** — the run failed to complete. Read the run log / build_time.txt.")
+          else:
+              try:
+                  d = json.load(open(files[-1]))
+                  L.append(f"- kfold file: `{files[-1]}`")
+                  L.append("```json")
+                  L.append(json.dumps(d, indent=1, default=str)[:2600])
+                  L.append("```")
+              except Exception as e:
+                  L.append(f"- kfold.json present but unreadable: {e}")
+          print("\n".join(L))
+          PYEOF
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: symbol-p0-${{ github.run_id }}
+          path: |
+            artifacts/research/p0_out/**
+            artifacts/research/P0_VERDICT.md
+            artifacts/research/p0_build_time.txt
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Comment verdict on issue
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '_(verdict not produced)_';
+            try { body = fs.readFileSync('artifacts/research/P0_VERDICT.md', 'utf8'); } catch (e) {}
+            const footer = '\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 60000) + footer,
+            });
+
+      # Honest failure/cancelled handler — a failed runner build must never leave a
+      # waiting session hanging with no signal (the "waited hours on a dead run"
+      # defect). The claude-run-failure-alert listener also pings the operator.
+      - name: Comment failure/cancellation on issue
+        if: github.event_name == 'issues' && (failure() || cancelled())
+        uses: actions/github-script@v7
+        env:
+          JOB_STATUS: ${{ job.status }}
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const state = process.env.JOB_STATUS === 'cancelled' ? 'cancelled' : 'failed';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `🔴 **research-symbol-p0-build ${state}.**\nRun: ${runUrl}\n\n`
+                + `No verdict produced — if you were waiting on it, it is **dead, not still running**. Read the run log, fix the cause, re-fire. A cancel is usually the job time budget (\`timeout-minutes: 330\`) or a manual cancel.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_`
+            });
