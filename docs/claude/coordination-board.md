@@ -99,6 +99,44 @@ Shipped: <PR # / what merged> — area now clear.
   Fall back to the live open-PR list (`list_pull_requests state=open`) as the
   real-time truth.
 
+## The VM-lane queue (scarce-VM FIFO — running is never preempted)
+
+The trainer VM is a **single core** shared by every session; concurrent heavy jobs
+starve each other. The board carries a **FIFO queue** for it (and for any exclusive
+heavy live-VM action), mirroring the merge slot. **Full contract + the routing rule
+that keeps most work off the VM entirely: [`docs/claude/vm-resource-management.md`](vm-resource-management.md).**
+
+- **First, route (don't queue).** Before claiming, ask: does this work need
+  VM-resident state? If it's CPU-only (a public-feed fetch + a backtest over it),
+  run it on a **free GitHub-hosted runner** (`research-exit-head-build.yml` pattern)
+  — no VM, no lane, no contention, $0. Most heavy work does not belong on the VM.
+- **Claim only for a heavy/exclusive VM job** (a backtest/dataset-build/training
+  cycle that must run on the VM). Quick read-only pulls (log tail, `cat`,
+  `systemctl status`) need **no** claim — they're parallel-safe.
+- **FIFO, running-never-preempted:**
+  1. Read the board tail for an open `🔒 VM-LANE CLAIM · <vm>` with no `🔓 RELEASE`.
+  2. Lane **free** → post `🔒 VM-LANE CLAIM · <vm> · <session> · <task> · ETA <min>`, dispatch.
+  3. Lane **held** → post `🕓 VM-LANE QUEUED · <vm> · <session> · behind <holder>`, **wait**. When the holder releases, the earliest-queued claims next. Newest never wins.
+  4. Post `🔓 VM-LANE RELEASE · <vm> · <session>` the instant the job ends or is abandoned.
+  5. Override (real priority OR provable non-contention only): `⚡ VM-LANE OVERRIDE · <vm> · <session> · reason: <…>`.
+
+```
+🔒 VM-LANE CLAIM · trainer · <session-id> · <task> · ETA <min>
+🕓 VM-LANE QUEUED · trainer · <session-id> · behind <holder> · <task>
+🔓 VM-LANE RELEASE · trainer · <session-id>
+```
+
+**Hard-enforced (2026-07-28), mirroring the merge guard.** A `PreToolUse` guard in
+[`.claude/settings.json`](../../.claude/settings.json) (`.claude/hooks/vm_lane_guard.sh`)
+**denies** an `issue_write` that carries the **`trainer-vm-heavy-request`** label
+unless a fresh (< 30 min) `/tmp/.claude-vm-lane-claim-<session_id>` marker exists —
+so a heavy trainer dispatch can't skip the claim under load. The guard is
+narrowly scoped and **fail-open**: quick `trainer-vm-diag-request` reads,
+system-actions, prop-reports, and every other issue are never matched. The marker
+is a speed-bump proving the protocol ran; the `🔒 VM-LANE CLAIM` comment on #6927 is
+the claim other sessions actually see. Same session-start caveat as the merge guard
+(a session that edits `settings.json` mid-run protects the *next* session onward).
+
 ## If the board is ever missing
 
 If #6927 is closed or unreachable, do **not** silently proceed uncoordinated:

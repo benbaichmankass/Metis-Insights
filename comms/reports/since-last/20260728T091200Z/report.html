@@ -1,0 +1,173 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-07-28T09:12:00Z · window 2026-07-27T08:10:05Z → 2026-07-28T09:12:00Z</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>CAUTION (plumbing-healthy since-last window; nothing new at money-risk, and real money edged POSITIVE). Services all active (trader ticking, fresh shadow scoring to 09:07Z), web-api up, all live accounts reachable, notifications clean (0 banners), prop reconcile clean. Real money +$0.49 in-window (3 closes: ict_scalp_5m BTC +$5.35 TP, trend_donchian -$1.04 SL, eth_pullback_2h -$3.82 SL; PF 1.10) - up from the prior window&#x27;s -$3.75, still tiny dollars in a chop tape. Paper soak large &amp; isolated (-$6,949/24h, big notionals). Grading ran fresh (19 order-packages: B6/C12/D1; the sole D is a PAPER htf leg, no real should_skip loss). ML healthy (trainer read confirmed): 2 cycles/24h rc=0, 92 builds OK / 0 failed, soaks accruing to 09:07Z, fc-pcv-v2 maturing toward its ~07-28 gate. Money-risk reduced this window: fvg_range_15m demoted live-&gt;shadow (#7792, operator-approved) - removed a -41R real-money bybit_2 route. Live flags (none money-risk): ict-mes-ibkr-pull.service still FAILED (MES base stale, #7635 fix didn&#x27;t clear it); DIAG_BASE_URL stale (relay-only); alpaca_options_paper still 0 fills.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>MES IBKR pull service still FAILED after the #7635 fix - decide next MES-base remediation</b> <span class="pill">health · T2</span> ⚠️ operator<br><span class='muted'>ict-mes-ibkr-pull.service = failed (live-confirmed this window). The per-timeframe-retry fix (#7635) was &#x27;landed/monitoring&#x27; per 07-27 but has NOT cleared the failure - the MES market_raw base stays frozen, keeping the MES 1d/other datasets blinded + mes-regime-1d audit-quarantined. Track-1 has a native-15m MGC study in flight that may re-target the gap. Recommend: read the failed-unit journal on next trainer/diag window and decide re-pull vs a different MES source. Not money-at-risk (mes-regime-5m advisory still scores).</span></li>
+<li><b>M27 alt-scalp real-money graduation (SOL/XRP/AVAX/ETH 5m+15m) - Tier-3, per-leg operator call</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>SRQ-20260728-M27-WINNERS-SHIP (corrected #7796): only the SOL/XRP/AVAX/ETH 5m+15m paper legs are graduation candidates (XAUUSD 15m venue-blocked; no GLD ict_scalp leg exists). Under the merged soak-doctrine (#7813) their OFFLINE edge is already proven (k-fold); the paper soak is a MECHANICS check, not a wait-for-edge. Track-1 is running the alt-leg mechanics-match read now. Real-money (bybit_2) graduation is a per-leg Tier-3 operator decision once mechanics confirm - not a time-gated wait.</span></li>
+<li><b>Protected-main autonomous-commit bypass (op-approved 07-26) - still awaiting execution</b> <span class="pill">health · T2</span> ⚠️ operator<br><span class='muted'>BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN: operator granted an Actions-bot bypass 07-26 to push the data paths (gpu-burst spend ledger + FRED valuation snapshots) to protected main; still needs the branch-protection setting OR a PAT secret value applied. Blocks the gpu-ledger persistence (BL-20260706-GPU-BURST-LEDGER) AND the M28 valuation-snapshot producer (MB-20260723-M28-VALUATION-PRODUCER-UNWIRED). Carried from 07-27.</span></li>
+<li><b>fc-pcv v2 advisory swap gate-check due ~07-28 (today)</b> <span class="pill">ml · T3</span><br><span class='muted'>MB-20260721-FCPCV-V2-SOAK: btc/sol-regime-15m fc-pcv-v2 fresh-data siblings soaking (btc v2 732 preds, accruing 09:06Z). Gate-check + swap for the frozen v1 advisory heads is due today; SOL&#x27;s advisory head (demoted 07-26) is restored by its v2 swap, which then unblocks SOL trend_vol cell authoring. Needs the trainer gate-check read.</span></li>
+<li><b>ruff 0.16 residual cleanup (op-decided 07-26) - still awaiting the cleanup PR(s)</b> <span class="pill">health · T1</span> ⚠️ operator<br><span class='muted'>BL-20260723-RUFF-016: operator decided 07-26 to bump to ruff 0.16 + clear the ~8228 pre-existing residuals (6558 autofixable). The interim &lt;0.16 pin holds CI green; the cleanup PR(s) are still pending. Carried.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">6 open / 266 total · 3 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">2 open / 81 total · 1 drained</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">2 open / 95 total</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>—</span> —</li>
+<li><span class='pill'>—</span> —</li>
+<li><span class='pill'>—</span> —</li>
+<li><span class='pill'>—</span> —</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>{&#x27;note&#x27;: &#x27;MES base staleness is a cross-domain thread: health (ict-mes-ibkr-pull.service failed) -&gt; ml (mes 1d/other datasets blinded, mes-regime-1d audit-quarantined). The mes-regime-5m advisory head still scores live, so the fleet is only PARTIALLY blinded. One remediation (a clean MES pull) closes both the health finding and the ml dataset gap.&#x27;}</li>
+<li>{&#x27;note&#x27;: &#x27;Money-risk was actively REDUCED this window: the fvg_range_15m live-&gt;shadow demote (#7792, operator-approved) removed a -41R real-money bybit_2 route for an edgeless sleeve - a performance finding (deep live-vs-backtest divergence) driven to a Tier-3 config fix. Confirms the deep-survey process is catching real leaks.&#x27;}</li>
+<li>{&#x27;note&#x27;: &#x27;The one D-graded decision this window (htf_pullback_trend_2h BTC long, conf 0.25, should_skip) is a PAPER leg (bybit_1) - htf_pullback_trend_2h was already demoted from real money (PRB-20260716-HTF-CROSSBOOK-NEG); its continued paper bleed confirms the demotion was correct. No real-money should_skip exposure.&#x27;}</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>services</td><td class="sev-ok">🟢 ok</td><td>ict-trader-live + ict-web-api + ict-telegram-bot + ict-claude-bridge all active; all timers active. Trader ticking (fresh per-bar shadow predictions to 09:07Z =&gt; heartbeat healthy). web-api up (diag/dashboard reachable).</td></tr>
+<tr><td>mes_ibkr_pull</td><td class="sev-concern">🔴 concern</td><td>ict-mes-ibkr-pull.service = FAILED (re-confirmed live this window). The per-timeframe-retry fix (#7635, &#x27;landed/monitoring&#x27; per 07-27) has NOT cleared it - the MES IBKR pull still fails, so the MES market_raw base stays stale and the MES ML datasets (1d + others) stay blinded. NOT money-at-risk (mes-regime-5m advisory head still scores live). BL-20260726/0727-MES-IBKR-PULL re-validated STILL failing.</td></tr>
+<tr><td>accounts</td><td class="sev-ok">🟢 ok</td><td>All declared-live probeable accounts reachable (exchange_positions: bybit_1/2/portfolio, ib_paper, alpaca_paper/portfolio/options all returned live position lists; zero unreachable). bybit_2 (real) 1 open XRPUSDT short uPnL +$2.51. No account_down banner.</td></tr>
+<tr><td>notifications</td><td class="sev-ok">🟢 ok</td><td>/api/bot/notifications: 0 banners, has_alerts false. No trainer_down, account_down, orphan_unreconciled, or operator_warning banner in-window.</td></tr>
+<tr><td>prop</td><td class="sev-ok">🟢 ok</td><td>prop/reconcile clean: 51 tickets / 26 fills / unacted_count 0. No open prop position (breakout_1 api-less, no in-window fill).</td></tr>
+<tr><td>diag_env</td><td class="sev-watch">🟡 watch</td><td>Cloud-env DIAG_BASE_URL still points at retired micro 158.178.210.252 + direct egress to live VM 141.145.193.91 firewalled -&gt; relay-only. Re-confirms BL-20260705-ENV-DIAG-BASE-URL-STALE (environment config, not repo-fixable).</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.49</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v neg">$-3.75 ↑</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">3</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">33.3%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$0.16</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">1.10</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-3.82</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">1</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>ict_scalp_5m</td><td>1</td><td>100.0%</td><td class="pos">+$5.35</td></tr>
+<tr><td>trend_donchian</td><td>1</td><td>0.0%</td><td class="neg">$-1.04</td></tr>
+<tr><td>eth_pullback_2h</td><td>1</td><td>0.0%</td><td class="neg">$-3.82</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-6,949.30</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v neg">$-4,141.60 ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">22</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">36.4%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-315.88</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.34</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-6,949.30</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">8</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>ict_scalp_sol_5m</td><td>1</td><td>0.0%</td><td class="neg">$-2,073.50</td></tr>
+<tr><td>htf_pullback_trend_2h</td><td>1</td><td>0.0%</td><td class="neg">$-1,873.94</td></tr>
+<tr><td>ict_scalp_avax_5m</td><td>3</td><td>33.3%</td><td class="neg">$-1,564.21</td></tr>
+<tr><td>eth_pullback_2h</td><td>1</td><td>0.0%</td><td class="neg">$-1,344.78</td></tr>
+<tr><td>tlt_pullback_1h</td><td>2</td><td>0.0%</td><td class="neg">$-606.76</td></tr>
+<tr><td>trend_donchian</td><td>2</td><td>0.0%</td><td class="neg">$-556.80</td></tr>
+<tr><td>ict_scalp_xrp_5m</td><td>3</td><td>33.3%</td><td class="neg">$-475.58</td></tr>
+<tr><td>xrp_pullback_2h</td><td>1</td><td>100.0%</td><td class="pos">+$1,036.49</td></tr>
+<tr><td>trend_donchian_xrp_4h</td><td>1</td><td>100.0%</td><td class="pos">+$502.57</td></tr>
+<tr><td>pairs_bnb_btc_a</td><td>3</td><td>100.0%</td><td class="pos">+$15.29</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">26</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">0</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">51</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">4 full dossiers, 15 summarized (Full dossiers for all 3 real-money closes + the single D-graded (paper) decision. The remaining 15 graded order-packages are paper big-notional / unfilled-pairs shadow legs (data-collection under the soak doctrine) - summarized in pnl_by_class.paper.per_strategy + the grading histogram (B6/C12/D1).).</p>
+<details><summary><span class="pill real">real_money</span> BTCUSDT short · ict_scalp_5m · <span class="pos">+$5.35</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4076</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-27T14:24:06Z</div><div class="k">closed</div><div>2026-07-27T~</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>64975.1</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>64877.63735</div><div class="k">target</div><div>63788.58714286</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> ETHUSDT long · eth_pullback_2h · <span class="neg">$-3.82</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4087</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-27T16:03:42Z</div><div class="k">closed</div><div>2026-07-27T~</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1928.74</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>1875.47928571</div><div class="k">target</div><div>2119.68526</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> BTCUSDT — · trend_donchian · <span class="neg">$-1.04</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>trend_donchian_real</div><div class="k">account</div><div>bybit_2 (real)</div><div class="k">opened</div><div>pre-window</div><div class="k">closed</div><div>in-window</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>—</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> BTCUSDT long · htf_pullback_trend_2h · <span class="neg">$-1,873.94</span> · grade D</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4091</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-27T16:31:53Z</div><div class="k">closed</div><div>2026-07-27T~</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>64793.3</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>63713.26428571</div><div class="k">target</div><div>71207.8367</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>Candles not separately pulled (relay/token-economy; the concurrent Track-1 session holds the trainer lane). Live read: real BTC book +$4.31/2 trades (ict_scalp_5m +$5.35 TP, a trend_donchian -$1.04 SL); chop-with-scalp-edge tape.</td></tr>
+<tr><td>ETHUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>eth_pullback_2h -$3.82 SL (late entry, conf 0.42, -1.01R) - the recurring pullback-into-chop whipsaw. Real ETH -$3.82 window.</td></tr>
+<tr><td>XRPUSDT</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="">—</td><td>bybit_2 real XRPUSDT short open, uPnL +$2.51. Paper XRP scalps mixed (5 trades, 60% win on paper). No real close this window.</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟢 healthy</span></h2>
+<p class="section-empty">No model status in this report.</p>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li>DEMOTE_SHADOW (executed) <b>fvg_range_15m</b> — DEMOTED live-&gt;shadow this window (#7792, operator-approved) - -41R live on real money (bybit_2) vs a strong backtest; removed the real-money route, kept shadow logging.</li>
+<li class='muted'>Mostly HOLD; the material move this window was a DEMOTION (fvg_range_15m live-&gt;shadow, executed #7792 - money-risk reduced). No strategy auto-met a promote gate. M27 alt-scalp legs are the graduation candidates, gated on the Track-1 mechanics read + per-leg operator approval. fc-pcv-v2 advisory swap (ML head) due ~07-28. Automated promotion-readiness packets are restored (07-27 fix); promotion decisions run off drift + gate-checks.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">—</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>Per-bar regime heads (btc/eth/sol/mes 5m+15m)</td><td>—</td><td>Fresh to 09:00-09:07Z. btc-5m variants 5964 preds, eth-5m 5834, sol-5m 5624, mes-5m 3492, mes-15m 1352. No stall.</td></tr>
+<tr><td>fc-pcv v2 advisory-candidate (btc-regime-15m-lgbm-fc-pcv-v2)</td><td>—</td><td>732 preds, last_seen 09:06Z - maturing toward the ~07-28 gate-check/swap for the frozen v1 advisory head.</td></tr>
+<tr><td>mes-regime-5m-lgbm-v2 (advisory)</td><td>—</td><td>1360 preds live at advisory, last_seen 09:00Z - the MES ML fleet is live+scoring at 5m despite the stale base blinding the 1d datasets.</td></tr>
+<tr><td>conviction-meta-v1 + setup-quality heads</td><td>—</td><td>5530 preds each; last_seen 00:44Z - signal-triggered (not per-bar), so the overnight gap reflects fewer actionable signals, not a stall.</td></tr>
+<tr><td>eth cross-asset shadow heads (xasset/selfonly-ctrl)</td><td>—</td><td>1101/1099 preds, last_seen 09:07Z - the A/B control soak is live and fresh.</td></tr>
+<tr><td>—</td><td>—</td><td>—</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 ict-mes-ibkr-pull.service = FAILED (live-confirmed) - the #7635 fix did NOT clear it; MES base stays stale, MES 1d/other datasets blinded, mes-regime-1d audit-quarantined. NOT money-at-risk (mes-5m advisory still scores). Operator-priority #1.</li><li>🚩 Real-money 7d edge remains thin (in-window +$0.49 PF 1.10 is small-positive but tiny dollars; the prior report&#x27;s 7d was PF 0.12) - chop-regime entry whipsaw; being addressed by regime/vol-gate work. Watch, not act.</li><li>🚩 Paper soak -$6,949/24h (isolated big notionals) - expected soak variance under the soak doctrine, NOT money-at-risk.</li><li>🚩 alpaca_options_paper still 0 fills since go-live 07-07 (BL-20260720-OPTIONS-PAPER-ZERO-FILLS) - 100% selection-refusal; options-portfolio direction pending operator (PRB-20260720).</li><li>🚩 DIAG_BASE_URL cloud-env stale (retired micro) - relay-only; BL-20260705 re-confirmed.</li><li>🚩 NO account down, NO trainer_down banner, NO orphan_unreconciled banner, prop reconcile clean - the money-critical surfaces are all green this window.</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>MB-20260721-FCPCV-V2-SOAK</code></td><td>ml</td><td>🗳️ awaiting-decision</td><td>btc/sol fc-pcv-v2 siblings soaking (btc v2 732 preds); gate-check + swap due today.</td><td>trainer gate-check (~07-28)</td></tr>
+<tr><td><code>REGIME_ML_VERDICT-SOL-ADVISORY</code></td><td>ml</td><td>🧱 awaiting-data</td><td>SOL has no advisory head since the 07-26 fc-pcv-v1 drift-demote; v2 sibling restores it on swap, then SOL trend_vol cell authoring unblocks.</td><td>fc-pcv-v2 swap</td></tr>
+<tr><td><code>MB-20260719-PROMOREADY-OOSEDGE-OOM</code></td><td>ml</td><td>🗳️ awaiting-decision</td><td>promotion-readiness packets restored (07-27 fix, #7716/#7722); only the secondary oos_edge-inline-ON under-cap measurement remains. Not blocking.</td><td>clean under-4500M measurement</td></tr>
+<tr><td><code>BL-20260726-MES-IBKR-PULL / BL-20260727-ICT-MES-IBKR-PULL</code></td><td>health</td><td>🔁 verify</td><td>ict-mes-ibkr-pull.service STILL failed this window despite #7635; MES base stays stale.</td><td>next MES pull / trainer window</td></tr>
+<tr><td><code>PB-20260721-ICTSCALP-ALTCOIN-PAPER-SOAK-CHECK</code></td><td>performance</td><td>🧱 awaiting-data</td><td>Track-1-owned: alt-leg mechanics-match read (M27 ict_scalp executions vs simulator) in progress - the evidence for the M27 real-money graduation proposal.</td><td>Track-1 mechanics read result</td></tr>
+<tr><td><code>PB-20260620-001</code></td><td>performance</td><td>🔁 verify</td><td>6 intraday ETF cells confirmed AGAIN producing live paper fills (alpaca_paper 6 open ETF shorts this window). Resolvable after this 2nd confirming window.</td><td>resolve next review</td></tr>
+<tr><td><code>BL-20260720-OPTIONS-PAPER-ZERO-FILLS</code></td><td>health</td><td>🔁 verify</td><td>alpaca_options_paper still 0 positions/fills (100% selection-refusal since go-live 07-07). Options-portfolio direction is under operator decision (PRB-20260720).</td><td>options-portfolio direction call</td></tr>
+</table></div>
+<footer>report_id RPT-20260728-091200-since-last · reviewer claude · prior RPT-20260727-081005-since-last · ICT Trading Bot system-report</footer></div></body></html>

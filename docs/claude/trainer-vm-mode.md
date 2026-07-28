@@ -351,6 +351,33 @@ available.
 - Claude closes the loop by reacting to the issue comment in the same
   conversation turn — it reads the output, diagnoses, and acts.
 
+### 9.e Resource routing, the VM-lane, and honest failures (2026-07-28)
+
+Binding contract: **[`docs/claude/vm-resource-management.md`](vm-resource-management.md)**.
+The trainer VM is a **single core** shared by every session — it is scarce.
+
+- **Route CPU-only work to a free runner, NOT this relay.** Work that needs **no
+  VM-resident state** (a public-feed fetch + a backtest/k-fold/validation over it)
+  belongs on a **free GitHub-hosted runner** (the `research-exit-head-build.yml`
+  pattern: 4 vCPU, ~5.5h, $0, parallel across sessions), not a `trainer-vm-diag` SSH
+  job on the 1-OCPU box. The deep XAU/MGC re-validation that kept dying at the relay's
+  job cap (#7829) is the worked example — it was CPU-only and should have been a
+  runner workflow. Reserve this relay for work that genuinely needs the on-box
+  dataset cache / registry / services / GPU.
+- **Heavy VM jobs claim the board FIFO lane first.** Before a heavy/exclusive job
+  that must run on the VM, claim `🔒 VM-LANE CLAIM · trainer` on board #6927; if held,
+  `🕓 QUEUED` and wait (FIFO, running never preempted). Quick read-only pulls need no
+  claim. Jobs longer than ~an hour → dispatch **detached** (nohup + sentinel), poll
+  via a follow-up relay (§ 10 shows the pattern), don't hold one SSH session.
+- **The relay job cap is 60 min and a `cancelled` run means TIMEOUT, not preemption.**
+  A `trainer-vm-diag` run that comes back `⏹ cancelled` hit `timeout-minutes` (or was
+  manually cancelled). There is **no "newest-open-issue-wins" preemption** — concurrency
+  is per-issue (`cancel-in-progress: false`), so a newer request cannot kill yours. The
+  old "preempted by a newer diag request" copy was a false artifact of the 10-min cap
+  and is gone. A dead run also pings the operator via `claude-run-failure-alert.yml`;
+  don't sit blocked on a run — poll its issue and treat a cancelled/failed comment as
+  terminal.
+
 ---
 
 ## 10. Running an interactive backtest sweep

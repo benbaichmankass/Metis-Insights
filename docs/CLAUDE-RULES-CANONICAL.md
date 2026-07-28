@@ -564,6 +564,20 @@ edge over history already exists (purged walk-forward CV `oos_edge`; the
 `valuation_snapshot_backfill`), so a gate that instead **waits on live outcome
 statistics to accrue** re-proves offline evidence on a slower clock.
 
+**Scope: this applies to STRATEGY legs, not just ML models/heads/policies.** A
+new strategy cell (e.g. an `ict_scalp` alt leg) wired to a paper/demo account
+(`bybit_1`, `ib_paper`) is a **paper-SOAK**, and a paper-soak is a
+**mechanics check, not a performance test**. Its edge is decided by the
+offline live-faithful backtest + backfill BEFORE it is wired; the soak only
+confirms the live executions match the simulator, which needs **1–2 executed
+trades**, not calendar time. Never frame an alt-leg paper-soak as a
+calendar-time wait to see if the edge holds — that is the recurring drift this
+rule kills (the operational how-to lives in the `new-strategy` skill and is
+CI-guarded by `scripts/check_soak_doctrine.py`). A handful of early losing paper
+trades is variance, not a demotion signal, as long as the mechanics match; if a
+leg reaches soak without an adequate offline proof, the gap is the missing
+backtest, not more soak time.
+
 **The rule.** For any promotion / graduation gate:
 
 1. **Edge is proven OFFLINE.** Whether a model/head/policy has an edge is a
@@ -827,6 +841,26 @@ hook surfaces both at session init. Read them before acting.
    has an open PR — it pollutes the PR and invalidates its CI run (and a new
    head SHA strands any merge-gate watcher). Start a fresh branch off `main` for
    a distinct deliverable, even mid-session.
+
+4. **Cross-session resource optimization (2026-07-28, binding).** Full contract:
+   [`docs/claude/vm-resource-management.md`](claude/vm-resource-management.md).
+   (a) **Route to the cheapest sufficient resource** — GitHub-hosted runners are
+   free ($0 on this public repo), abundant, and parallel across sessions (4 vCPU,
+   ~5.5h); the trainer VM is a **single core, scarce and serialized**. CPU-heavy
+   work needing **no VM-resident state** (a public-feed fetch + a backtest over it)
+   runs on a **runner** (`research-exit-head-build.yml` pattern), NOT the
+   `trainer-vm-diag` SSH relay. (b) **Serialize the scarce VM with a board FIFO
+   lane** — before a heavy/exclusive VM job, claim `🔒 VM-LANE CLAIM` on #6927;
+   if held, `🕓 QUEUED` and wait (FIFO, running never preempted, one `⚡ OVERRIDE`
+   escape hatch); `🔓 RELEASE` when done. Quick read-only pulls need no claim. This
+   is a **board** FIFO, not a GitHub concurrency group (which can't queue depth > 1).
+   (c) **A dead run flags loudly + immediately** — `claude-run-failure-alert.yml`
+   pings the operator the instant a watched VM/relay/research run fails/cancels/
+   times-out, and every such workflow posts an **honest** failure comment (a
+   `cancelled` relay run is the job time budget or a manual cancel — NEVER a sibling
+   preemption). Never block indefinitely on a dispatched run; treat a failure comment
+   as terminal. The whole reason: sessions were disrupting each other by piling heavy
+   work onto the one scarce VM, then waiting hours on runs that had already died.
 
 This is discipline + a shared board + the hook surfacing it, **not** a new CI
 gate (operator decision, 2026-06-28). The 2026-07-27 merge-guard is a

@@ -1,0 +1,657 @@
+{
+  "report_id": "RPT-20260728-091200-since-last",
+  "reviewed_at": "2026-07-28T09:12:00Z",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-07-27T08:10:05Z",
+  "window_end": "2026-07-28T09:12:00Z",
+  "prior_report_id": "RPT-20260727-081005-since-last",
+  "overall_assessment": "caution",
+  "health": {
+    "overall_assessment": "caution",
+    "findings": {
+      "services": {
+        "status": "ok",
+        "note": "ict-trader-live + ict-web-api + ict-telegram-bot + ict-claude-bridge all active; all timers active. Trader ticking (fresh per-bar shadow predictions to 09:07Z => heartbeat healthy). web-api up (diag/dashboard reachable)."
+      },
+      "mes_ibkr_pull": {
+        "status": "concern",
+        "note": "ict-mes-ibkr-pull.service = FAILED (re-confirmed live this window). The per-timeframe-retry fix (#7635, 'landed/monitoring' per 07-27) has NOT cleared it - the MES IBKR pull still fails, so the MES market_raw base stays stale and the MES ML datasets (1d + others) stay blinded. NOT money-at-risk (mes-regime-5m advisory head still scores live). BL-20260726/0727-MES-IBKR-PULL re-validated STILL failing."
+      },
+      "accounts": {
+        "status": "ok",
+        "note": "All declared-live probeable accounts reachable (exchange_positions: bybit_1/2/portfolio, ib_paper, alpaca_paper/portfolio/options all returned live position lists; zero unreachable). bybit_2 (real) 1 open XRPUSDT short uPnL +$2.51. No account_down banner."
+      },
+      "notifications": {
+        "status": "ok",
+        "note": "/api/bot/notifications: 0 banners, has_alerts false. No trainer_down, account_down, orphan_unreconciled, or operator_warning banner in-window."
+      },
+      "prop": {
+        "status": "ok",
+        "note": "prop/reconcile clean: 51 tickets / 26 fills / unacted_count 0. No open prop position (breakout_1 api-less, no in-window fill)."
+      },
+      "diag_env": {
+        "status": "watch",
+        "note": "Cloud-env DIAG_BASE_URL still points at retired micro 158.178.210.252 + direct egress to live VM 141.145.193.91 firewalled -> relay-only. Re-confirms BL-20260705-ENV-DIAG-BASE-URL-STALE (environment config, not repo-fixable)."
+      }
+    },
+    "backlog_drained": [],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "performance": {
+    "overall_assessment": "caution",
+    "summary": "Real money +$0.49 in-window (3 closed: ict_scalp_5m BTC +$5.35 TP / trend_donchian -$1.04 SL / eth_pullback_2h -$3.82 SL); PF 1.10, maxDD -$3.82 - a small-positive window, up from the prior window's -$3.75. Chop regime persists; dollars remain tiny. Paper soak -$6,949/24h (22 trades, big notionals, ISOLATED - not money-at-risk). Grading ran fresh this session: 19 order-packages graded (B:6 / C:12 / D:1). The one D (htf_pullback_trend_2h BTC long, conf 0.25, should_skip) is a PAPER leg (bybit_1, -$1,874 notional) - NO real-money should_skip loss this window. All real-money exits SL/TP-appropriate.",
+    "grading": {
+      "graded_this_session": 19,
+      "histogram": {
+        "B": 6,
+        "C": 12,
+        "D": 1
+      },
+      "newest_reviewed_at": "2026-07-28T08:59:14Z",
+      "source": "grade-closed-trades system-action (#7817)"
+    },
+    "backlog_drained": [],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "ml": {
+    "overall_assessment": "healthy",
+    "summary": "ML lifecycle CONFIRMED healthy (trainer read #7826): 2 cycles/24h, last cycle rc=0 (cycle_end 05:14Z); dataset_builds_24h ok=92 / failed=0; manifests_24h ok=75 / failed=0 / skipped=8 (empty-dataset build/coverage gaps - MES-base-stale mes-* + known-negative btc-15m-tcn + exit-policy-v1/setup-metalabel-paper - flagged 'not dead-feature/label defects'). Registry 93 models (advisory 2 / candidate 62 / shadow 28); trainer VM relaxed (load 0.08, head 4ed94e7 current). DB sync live->trainer OK (05:00Z). Shadow soaks accruing fresh to 09:07Z; fc-pcv v2 (btc-regime-15m) 732 preds maturing toward the ~07-28 gate-check/swap; mes-regime-5m-lgbm-v2 advisory 1360 preds (MES ML live at 5m despite the stale base). promotion-readiness runs clean with oos_edge=off (a 07-27 08:53 OOM was PRE-restore; MB-20260719 restored per 07-27 fix, only the oos_edge-inline-ON under-cap measurement remains).",
+    "trainer": {
+      "cycles_24h": 2,
+      "last_cycle_rc": 0,
+      "last_cycle_ts": "2026-07-28T05:14:12Z",
+      "dataset_builds_24h": {
+        "ok": 92,
+        "failed": 0,
+        "skipped": 0
+      },
+      "manifests_24h": {
+        "ok": 75,
+        "failed": 0,
+        "skipped": 8
+      },
+      "registry": {
+        "models": 93,
+        "advisory": 2,
+        "candidate": 62,
+        "shadow": 28
+      },
+      "vm": {
+        "load_1m": 0.08,
+        "head_sha": "4ed94e7b",
+        "uptime_days": 13
+      },
+      "promotion_readiness": "runs clean (oos_edge=off, packets producing); 07-27 08:53 OOM was pre-restore; MB-20260719 restored."
+    },
+    "backlog_drained": [],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "CAUTION (plumbing-healthy since-last window; nothing new at money-risk, and real money edged POSITIVE). Services all active (trader ticking, fresh shadow scoring to 09:07Z), web-api up, all live accounts reachable, notifications clean (0 banners), prop reconcile clean. Real money +$0.49 in-window (3 closes: ict_scalp_5m BTC +$5.35 TP, trend_donchian -$1.04 SL, eth_pullback_2h -$3.82 SL; PF 1.10) - up from the prior window's -$3.75, still tiny dollars in a chop tape. Paper soak large & isolated (-$6,949/24h, big notionals). Grading ran fresh (19 order-packages: B6/C12/D1; the sole D is a PAPER htf leg, no real should_skip loss). ML healthy (trainer read confirmed): 2 cycles/24h rc=0, 92 builds OK / 0 failed, soaks accruing to 09:07Z, fc-pcv-v2 maturing toward its ~07-28 gate. Money-risk reduced this window: fvg_range_15m demoted live->shadow (#7792, operator-approved) - removed a -41R real-money bybit_2 route. Live flags (none money-risk): ict-mes-ibkr-pull.service still FAILED (MES base stale, #7635 fix didn't clear it); DIAG_BASE_URL stale (relay-only); alpaca_options_paper still 0 fills.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "MES IBKR pull service still FAILED after the #7635 fix - decide next MES-base remediation",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "ict-mes-ibkr-pull.service = failed (live-confirmed this window). The per-timeframe-retry fix (#7635) was 'landed/monitoring' per 07-27 but has NOT cleared the failure - the MES market_raw base stays frozen, keeping the MES 1d/other datasets blinded + mes-regime-1d audit-quarantined. Track-1 has a native-15m MGC study in flight that may re-target the gap. Recommend: read the failed-unit journal on next trainer/diag window and decide re-pull vs a different MES source. Not money-at-risk (mes-regime-5m advisory still scores).",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "M27 alt-scalp real-money graduation (SOL/XRP/AVAX/ETH 5m+15m) - Tier-3, per-leg operator call",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "SRQ-20260728-M27-WINNERS-SHIP (corrected #7796): only the SOL/XRP/AVAX/ETH 5m+15m paper legs are graduation candidates (XAUUSD 15m venue-blocked; no GLD ict_scalp leg exists). Under the merged soak-doctrine (#7813) their OFFLINE edge is already proven (k-fold); the paper soak is a MECHANICS check, not a wait-for-edge. Track-1 is running the alt-leg mechanics-match read now. Real-money (bybit_2) graduation is a per-leg Tier-3 operator decision once mechanics confirm - not a time-gated wait.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 3,
+        "title": "Protected-main autonomous-commit bypass (op-approved 07-26) - still awaiting execution",
+        "source_review": "health",
+        "tier": 2,
+        "detail": "BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN: operator granted an Actions-bot bypass 07-26 to push the data paths (gpu-burst spend ledger + FRED valuation snapshots) to protected main; still needs the branch-protection setting OR a PAT secret value applied. Blocks the gpu-ledger persistence (BL-20260706-GPU-BURST-LEDGER) AND the M28 valuation-snapshot producer (MB-20260723-M28-VALUATION-PRODUCER-UNWIRED). Carried from 07-27.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 4,
+        "title": "fc-pcv v2 advisory swap gate-check due ~07-28 (today)",
+        "source_review": "ml",
+        "tier": 3,
+        "detail": "MB-20260721-FCPCV-V2-SOAK: btc/sol-regime-15m fc-pcv-v2 fresh-data siblings soaking (btc v2 732 preds, accruing 09:06Z). Gate-check + swap for the frozen v1 advisory heads is due today; SOL's advisory head (demoted 07-26) is restored by its v2 swap, which then unblocks SOL trend_vol cell authoring. Needs the trainer gate-check read.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 5,
+        "title": "ruff 0.16 residual cleanup (op-decided 07-26) - still awaiting the cleanup PR(s)",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "BL-20260723-RUFF-016: operator decided 07-26 to bump to ruff 0.16 + clear the ~8228 pre-existing residuals (6558 autofixable). The interim <0.16 pin holds CI green; the cleanup PR(s) are still pending. Carried.",
+        "operator_action_required": true
+      }
+    ],
+    "cross_review_notes": [
+      {
+        "note": "MES base staleness is a cross-domain thread: health (ict-mes-ibkr-pull.service failed) -> ml (mes 1d/other datasets blinded, mes-regime-1d audit-quarantined). The mes-regime-5m advisory head still scores live, so the fleet is only PARTIALLY blinded. One remediation (a clean MES pull) closes both the health finding and the ml dataset gap."
+      },
+      {
+        "note": "Money-risk was actively REDUCED this window: the fvg_range_15m live->shadow demote (#7792, operator-approved) removed a -41R real-money bybit_2 route for an edgeless sleeve - a performance finding (deep live-vs-backtest divergence) driven to a Tier-3 config fix. Confirms the deep-survey process is catching real leaks."
+      },
+      {
+        "note": "The one D-graded decision this window (htf_pullback_trend_2h BTC long, conf 0.25, should_skip) is a PAPER leg (bybit_1) - htf_pullback_trend_2h was already demoted from real money (PRB-20260716-HTF-CROSSBOOK-NEG); its continued paper bleed confirms the demotion was correct. No real-money should_skip exposure."
+      }
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 0.4875,
+        "prior_window_pnl": -3.75,
+        "trend": "up",
+        "trades": 3,
+        "wins": 1,
+        "win_rate": 33.3,
+        "expectancy": 0.1625,
+        "profit_factor": 1.1003,
+        "max_drawdown": -3.8215,
+        "per_strategy": [
+          {
+            "name": "ict_scalp_5m",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 5.3492
+          },
+          {
+            "name": "trend_donchian",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -1.0402
+          },
+          {
+            "name": "eth_pullback_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -3.8215
+          }
+        ],
+        "per_asset_class": [
+          {
+            "assetClass": "crypto",
+            "trades": 3,
+            "pnl": 0.4875
+          }
+        ],
+        "note": "Real-money book: +$0.49 window, PF 1.10, R-expectancy +6.13R (rCoverage 1.0). Recovered from prior -$3.75. 1 open real position: bybit_2 XRPUSDT short uPnL +$2.51. Small dollars, chop regime; all exits SL/TP-appropriate."
+      },
+      "paper": {
+        "window_pnl": -6949.3043,
+        "prior_window_pnl": -4141.6,
+        "trend": "down",
+        "trades": 22,
+        "wins": 8,
+        "win_rate": 36.4,
+        "expectancy": -315.8775,
+        "profit_factor": 0.339,
+        "max_drawdown": -6949.3043,
+        "per_strategy": [
+          {
+            "name": "ict_scalp_sol_5m",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -2073.496
+          },
+          {
+            "name": "htf_pullback_trend_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -1873.9397
+          },
+          {
+            "name": "ict_scalp_avax_5m",
+            "trades": 3,
+            "win_rate": 33.3,
+            "pnl": -1564.2119
+          },
+          {
+            "name": "eth_pullback_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -1344.7811
+          },
+          {
+            "name": "tlt_pullback_1h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -606.76
+          },
+          {
+            "name": "trend_donchian",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -556.7998
+          },
+          {
+            "name": "ict_scalp_xrp_5m",
+            "trades": 3,
+            "win_rate": 33.3,
+            "pnl": -475.5815
+          },
+          {
+            "name": "xrp_pullback_2h",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 1036.486
+          },
+          {
+            "name": "trend_donchian_xrp_4h",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 502.572
+          },
+          {
+            "name": "pairs_bnb_btc_a",
+            "trades": 3,
+            "win_rate": 100.0,
+            "pnl": 15.289
+          }
+        ],
+        "note": "ISOLATED paper/soak book (bybit_1 + soak accounts), big notionals - variance, NOT money-at-risk. Never blended with real. Per the soak-doctrine (#7813) these are mechanics/data-collection, not a performance verdict."
+      },
+      "prop": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": 0.0,
+        "trend": "flat",
+        "tickets_emitted": 51,
+        "fills_reported": 26,
+        "unacted_tickets": 0,
+        "note": "Prop isolated journal. No open prop position, reconcile clean (unacted 0). breakout_1 api-less bridge; no in-window fill."
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "Candles not separately pulled (relay/token-economy; the concurrent Track-1 session holds the trainer lane). Live read: real BTC book +$4.31/2 trades (ict_scalp_5m +$5.35 TP, a trend_donchian -$1.04 SL); chop-with-scalp-edge tape."
+      },
+      {
+        "symbol": "ETHUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "eth_pullback_2h -$3.82 SL (late entry, conf 0.42, -1.01R) - the recurring pullback-into-chop whipsaw. Real ETH -$3.82 window."
+      },
+      {
+        "symbol": "XRPUSDT",
+        "open": null,
+        "close": null,
+        "high": null,
+        "low": null,
+        "pct_change": null,
+        "range_pct": null,
+        "note": "bybit_2 real XRPUSDT short open, uPnL +$2.51. Paper XRP scalps mixed (5 trades, 60% win on paper). No real close this window."
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": "4076",
+        "order_package_id": "pkg-5cb693d02642432f",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-07-27T14:24:06Z",
+        "closed_at": "2026-07-27T~",
+        "entry_price": 64975.1,
+        "stop_loss": 64877.63735,
+        "take_profit": 63788.58714286,
+        "pnl": 5.3492,
+        "exit_reason": "tp",
+        "claude_grade": {
+          "grade": "B",
+          "entryQuality": "late",
+          "exitQuality": "tp_appropriate",
+          "riskManagement": "unknown",
+          "confidence": 0.39,
+          "r_multiple": 12.23
+        },
+        "notable": true,
+        "note": "Best real trade of the window: late entry but rode a 12.23R scalp to TP. +$5.35."
+      },
+      {
+        "trade_id": "4087",
+        "order_package_id": "pkg-f2a700e6f3fb4033",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "ETHUSDT",
+        "direction": "long",
+        "strategy": "eth_pullback_2h",
+        "opened_at": "2026-07-27T16:03:42Z",
+        "closed_at": "2026-07-27T~",
+        "entry_price": 1928.74,
+        "stop_loss": 1875.47928571,
+        "take_profit": 2119.68526,
+        "pnl": -3.8215,
+        "exit_reason": "sl",
+        "claude_grade": {
+          "grade": "C",
+          "entryQuality": "late",
+          "exitQuality": "sl_appropriate",
+          "riskManagement": "unknown",
+          "confidence": 0.42,
+          "r_multiple": -1.01
+        },
+        "notable": true,
+        "note": "Largest real loss: late pullback entry (conf 0.42) into a chop tape, stopped at -1.01R. SL-appropriate; the recurring pullback whipsaw."
+      },
+      {
+        "trade_id": "trend_donchian_real",
+        "order_package_id": null,
+        "account": "bybit_2 (real)",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": null,
+        "strategy": "trend_donchian",
+        "opened_at": "pre-window",
+        "closed_at": "in-window",
+        "entry_price": null,
+        "stop_loss": null,
+        "take_profit": null,
+        "pnl": -1.0402,
+        "exit_reason": "sl",
+        "claude_grade": null,
+        "notable": false,
+        "note": "Real trend_donchian close -$1.04 (-4.83R). Order package opened pre-window so not in the fresh grade delta (grade filter is on op.created_at); the close is captured in /performance real perStrategy. Minor grading-coverage gap (pre-window opens closing in-window)."
+      },
+      {
+        "trade_id": "4091",
+        "order_package_id": "pkg-2f74381cb7824f70",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "htf_pullback_trend_2h",
+        "opened_at": "2026-07-27T16:31:53Z",
+        "closed_at": "2026-07-27T~",
+        "entry_price": 64793.3,
+        "stop_loss": 63713.26428571,
+        "take_profit": 71207.8367,
+        "pnl": -1873.9397,
+        "exit_reason": "sl",
+        "claude_grade": {
+          "grade": "D",
+          "entryQuality": "should_skip",
+          "exitQuality": "sl_appropriate",
+          "riskManagement": "unknown",
+          "confidence": 0.25,
+          "r_multiple": -0.89
+        },
+        "notable": true,
+        "note": "The ONLY D of the window - and it is a PAPER leg (no real-money exposure). conf 0.25 should_skip; htf_pullback_trend_2h was already demoted from real money (PRB-20260716). Confirms the demotion; paper bleed continues."
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last (~25h)",
+      "full_dossiers": 4,
+      "summarized_trades": 15,
+      "rule": "Full dossiers for all 3 real-money closes + the single D-graded (paper) decision. The remaining 15 graded order-packages are paper big-notional / unfilled-pairs shadow legs (data-collection under the soak doctrine) - summarized in pnl_by_class.paper.per_strategy + the grading histogram (B6/C12/D1)."
+    },
+    "backlog_summary": {
+      "_comment": "Computed via scripts/reports/backlog_counts.py --since 2026-07-27T08:10:05Z (verbatim). 'open' = literally-open/untriaged (kept_open soak/awaiting items are parked, carried in monitoring[]). 'drained' = resolved this window.",
+      "health": {
+        "total": 266,
+        "open": 6,
+        "resolved": 260,
+        "drained": 3
+      },
+      "performance": {
+        "total": 81,
+        "open": 2,
+        "resolved": 79,
+        "drained": 1
+      },
+      "ml": {
+        "total": 95,
+        "open": 2,
+        "resolved": 93,
+        "drained": 0
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "id": "SRQ-20260728-M27-WINNERS-SHIP",
+        "domain": "performance",
+        "detail": "M27 alt-scalp real-money graduation (SOL/XRP/AVAX/ETH 5m+15m) - offline edge proven (k-fold), mechanics-check in progress (Track-1). Per-leg operator approval to route to bybit_2 real money.",
+        "tier": 3
+      },
+      {
+        "id": "MB-20260721-FCPCV-V2-SOAK",
+        "domain": "ml",
+        "detail": "fc-pcv v2 advisory swap (btc/sol-regime-15m) - gate-check due ~07-28; swap restores SOL advisory head + unblocks SOL trend_vol cell authoring.",
+        "tier": 3
+      },
+      {
+        "id": "MB-20260719-M26-TRANSITION-CONFLICT",
+        "domain": "ml",
+        "detail": "M26 regime-transition & directional-conflict intelligence - P0 bleed quantification; the per-bar in-trade exit head (draft #7788) is the M30xM20 build awaiting operator design review (Tier-3 to ship).",
+        "tier": 3
+      },
+      {
+        "id": "BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN",
+        "domain": "health",
+        "detail": "Protected-main autonomous-commit bypass - operator-approved 07-26, awaiting the branch-protection/PAT application to unblock gpu-ledger + M28 valuation producer.",
+        "tier": 2
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "MB-20260721-FCPCV-V2-SOAK",
+        "domain": "ml",
+        "category": "awaiting-decision",
+        "detail": "btc/sol fc-pcv-v2 siblings soaking (btc v2 732 preds); gate-check + swap due today.",
+        "since": "2026-07-21",
+        "next_check": "trainer gate-check (~07-28)"
+      },
+      {
+        "item_id": "REGIME_ML_VERDICT-SOL-ADVISORY",
+        "domain": "ml",
+        "category": "awaiting-data",
+        "detail": "SOL has no advisory head since the 07-26 fc-pcv-v1 drift-demote; v2 sibling restores it on swap, then SOL trend_vol cell authoring unblocks.",
+        "since": "2026-07-26",
+        "next_check": "fc-pcv-v2 swap"
+      },
+      {
+        "item_id": "MB-20260719-PROMOREADY-OOSEDGE-OOM",
+        "domain": "ml",
+        "category": "awaiting-decision",
+        "detail": "promotion-readiness packets restored (07-27 fix, #7716/#7722); only the secondary oos_edge-inline-ON under-cap measurement remains. Not blocking.",
+        "since": "2026-07-19",
+        "next_check": "clean under-4500M measurement"
+      },
+      {
+        "item_id": "BL-20260726-MES-IBKR-PULL / BL-20260727-ICT-MES-IBKR-PULL",
+        "domain": "health",
+        "category": "verify",
+        "detail": "ict-mes-ibkr-pull.service STILL failed this window despite #7635; MES base stays stale.",
+        "since": "2026-07-26",
+        "next_check": "next MES pull / trainer window"
+      },
+      {
+        "item_id": "PB-20260721-ICTSCALP-ALTCOIN-PAPER-SOAK-CHECK",
+        "domain": "performance",
+        "category": "awaiting-data",
+        "detail": "Track-1-owned: alt-leg mechanics-match read (M27 ict_scalp executions vs simulator) in progress - the evidence for the M27 real-money graduation proposal.",
+        "since": "2026-07-21",
+        "next_check": "Track-1 mechanics read result"
+      },
+      {
+        "item_id": "PB-20260620-001",
+        "domain": "performance",
+        "category": "verify",
+        "detail": "6 intraday ETF cells confirmed AGAIN producing live paper fills (alpaca_paper 6 open ETF shorts this window). Resolvable after this 2nd confirming window.",
+        "since": "2026-06-20",
+        "next_check": "resolve next review"
+      },
+      {
+        "item_id": "BL-20260720-OPTIONS-PAPER-ZERO-FILLS",
+        "domain": "health",
+        "category": "verify",
+        "detail": "alpaca_options_paper still 0 positions/fills (100% selection-refusal since go-live 07-07). Options-portfolio direction is under operator decision (PRB-20260720).",
+        "since": "2026-07-20",
+        "next_check": "options-portfolio direction call"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "fvg_range_15m",
+            "evidence": "DEMOTED live->shadow this window (#7792, operator-approved) - -41R live on real money (bybit_2) vs a strong backtest; removed the real-money route, kept shadow logging.",
+            "gate": "DEMOTE_SHADOW (executed)"
+          }
+        ],
+        "candidates_awaiting_operator": [
+          {
+            "name": "M27 alt-scalp legs (ict_scalp SOL/XRP/AVAX/ETH 5m+15m)",
+            "evidence": "offline k-fold edge proven; paper mechanics-check in progress (Track-1); per-leg Tier-3 real-money graduation is an operator call (SRQ-20260728-M27-WINNERS-SHIP).",
+            "gate": "PROMOTE (operator-gated)"
+          }
+        ],
+        "summary": "Mostly HOLD; the material move this window was a DEMOTION (fvg_range_15m live->shadow, executed #7792 - money-risk reduced). No strategy auto-met a promote gate. M27 alt-scalp legs are the graduation candidates, gated on the Track-1 mechanics read + per-leg operator approval. fc-pcv-v2 advisory swap (ML head) due ~07-28. Automated promotion-readiness packets are restored (07-27 fix); promotion decisions run off drift + gate-checks."
+      },
+      "ml_training_health": {
+        "trainer_alive": "yes - trainer_status.json fresh (ts 09:15Z), no trainer_down banner, VM load 0.08",
+        "cycles_ran_since_last": "YES - 2 cycles/24h; last cycle rc=0 (cycle_end 05:14Z); a full cycle 00:17->01:03 completed overall_rc=0. DB sync live->trainer OK (05:00Z).",
+        "dataset_builds": "92 OK / 0 failed (last_overall_rc 0). 8 manifests SKIPPED on empty datasets (build/coverage gaps, NOT defects): MES family (mes-execution-quality/setup-quality/trade-outcome - tied to the failed ict-mes-ibkr-pull.service stale base) + btc-15m-tcn variants (known-negative deep-sequence) + exit-policy-v1 + setup-candidates-metalabel-paper-v1.",
+        "manifest_quarantine": "No NEW manifest_quarantine_tripped this window. mes-regime-1d-lgbm-v2 remains audit-quarantined (carried, stale-MES-base dead feature). The 8 empty-dataset skips are explicitly logged 'build/coverage gap, not a dead-feature/label defect'.",
+        "promotion_readiness_packets": "Restored (07-27 #7716/#7722). Runs clean with oos_edge=off (07-27 09:50 + 07-28 04:25 both Deactivated successfully). The 07-27 08:53Z OOM-kill was the PRE-restore state. Only the secondary oos_edge-inline-ON under-4500M measurement remains (MB-20260719, not blocking).",
+        "fc_pcv_v2": "btc-regime-15m-lgbm-fc-pcv-v2 accruing 732 preds (last_seen 09:06Z), maturing toward the ~07-28 gate-check/swap for the frozen v1 advisory head.",
+        "status": "HEALTHY & progressing - cycles completing rc=0, builds clean, registry advancing, soaks accruing. The only ML drag is dataset COVERAGE (8 empty-dataset skips, MES-base-stale-led), not a training failure."
+      },
+      "soak_status": [
+        {
+          "soak": "Per-bar regime heads (btc/eth/sol/mes 5m+15m)",
+          "status": "accruing",
+          "detail": "Fresh to 09:00-09:07Z. btc-5m variants 5964 preds, eth-5m 5834, sol-5m 5624, mes-5m 3492, mes-15m 1352. No stall."
+        },
+        {
+          "soak": "fc-pcv v2 advisory-candidate (btc-regime-15m-lgbm-fc-pcv-v2)",
+          "status": "maturing",
+          "detail": "732 preds, last_seen 09:06Z - maturing toward the ~07-28 gate-check/swap for the frozen v1 advisory head."
+        },
+        {
+          "soak": "mes-regime-5m-lgbm-v2 (advisory)",
+          "status": "accruing",
+          "detail": "1360 preds live at advisory, last_seen 09:00Z - the MES ML fleet is live+scoring at 5m despite the stale base blinding the 1d datasets."
+        },
+        {
+          "soak": "conviction-meta-v1 + setup-quality heads",
+          "status": "accruing",
+          "detail": "5530 preds each; last_seen 00:44Z - signal-triggered (not per-bar), so the overnight gap reflects fewer actionable signals, not a stall."
+        },
+        {
+          "soak": "eth cross-asset shadow heads (xasset/selfonly-ctrl)",
+          "status": "accruing",
+          "detail": "1101/1099 preds, last_seen 09:07Z - the A/B control soak is live and fresh."
+        },
+        {
+          "soak_summary": "No soak stalled. Per-bar heads all fresh to ~09:07Z. fc-pcv-v2 is the next due (gate-check ~07-28). None met-but-unactioned except fc-pcv-v2 (the operator/trainer gate this window)."
+        }
+      ],
+      "flags_raised": [
+        "ict-mes-ibkr-pull.service = FAILED (live-confirmed) - the #7635 fix did NOT clear it; MES base stays stale, MES 1d/other datasets blinded, mes-regime-1d audit-quarantined. NOT money-at-risk (mes-5m advisory still scores). Operator-priority #1.",
+        "Real-money 7d edge remains thin (in-window +$0.49 PF 1.10 is small-positive but tiny dollars; the prior report's 7d was PF 0.12) - chop-regime entry whipsaw; being addressed by regime/vol-gate work. Watch, not act.",
+        "Paper soak -$6,949/24h (isolated big notionals) - expected soak variance under the soak doctrine, NOT money-at-risk.",
+        "alpaca_options_paper still 0 fills since go-live 07-07 (BL-20260720-OPTIONS-PAPER-ZERO-FILLS) - 100% selection-refusal; options-portfolio direction pending operator (PRB-20260720).",
+        "DIAG_BASE_URL cloud-env stale (retired micro) - relay-only; BL-20260705 re-confirmed.",
+        "NO account down, NO trainer_down banner, NO orphan_unreconciled banner, prop reconcile clean - the money-critical surfaces are all green this window."
+      ],
+      "account_reachability": {
+        "checked": [
+          "bybit_2 (real)",
+          "bybit_1",
+          "bybit_portfolio",
+          "ib_paper",
+          "alpaca_paper",
+          "alpaca_portfolio",
+          "alpaca_options_paper"
+        ],
+        "down": [],
+        "summary": "All declared-live probeable accounts reachable (exchange_positions returned live position lists for every one; zero down). bybit_2 (real) 1 open XRPUSDT short uPnL +$2.51; ib_paper 2 open (MHG/MGC shorts, uPnL null on the readonly reqPositions path - expected); alpaca_paper 6 ETF shorts, alpaca_portfolio 5, bybit_1 5. Excluded (positions=null, expected): ib_live / alpaca_live / oanda_practice (dry/shelved), breakout_1 (api-less prop bridge). Zero down; no account_down banner."
+      },
+      "backlog_drive": {
+        "health": {
+          "open_at_start": 8,
+          "triaged": 8,
+          "count_untriaged": 0,
+          "drained": [
+            "BL-20260727-ICT-MES-IBKR-PULL-SERVICE-FAILED + BL-20260726-MES-IBKR-PULL: re-validated live (service STILL failed) + set proper status/disposition"
+          ],
+          "deferred": [
+            "BL-20260705-ENV-DIAG-BASE-URL-STALE (re-confirmed live; environment config, not repo-fixable)",
+            "BL-20260727-IB-LIVENESS-PROBE-CACHED-HANDLE-FALSETRIP (new; status set kept_open - code-fix candidate, no live impact this window)",
+            "BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN + BL-20260706-GPU-BURST-LEDGER (op-approved, awaiting exec)",
+            "BL-20260723-RUFF-016 (op-decided, awaiting cleanup PR)",
+            "BL-20260720-OPTIONS-PAPER-ZERO-FILLS (re-confirmed 0 fills; awaiting options-portfolio direction)",
+            "branch-protection-sync 301 alarm-fatigue: RESOLVED this window via #7793 (REPO hardcode fixed)"
+          ]
+        },
+        "performance": {
+          "open_at_start": 4,
+          "triaged": 4,
+          "count_untriaged": 0,
+          "drained": [
+            "SRQ-20260728-FVGRANGE-DEMOTE: RESOLVED - the demote shipped this window (#7792, operator-approved)"
+          ],
+          "deferred": [
+            "SRQ-20260728-M27-WINNERS-SHIP (Tier-3, per-leg operator approval; mechanics-check in progress)",
+            "PB-20260620-001 (ETF paper fills confirmed AGAIN this window - resolvable next review)",
+            "PB-20260721-ICTSCALP-ALTCOIN-PAPER-SOAK-CHECK (Track-1-owned, not touched)"
+          ]
+        },
+        "ml": {
+          "open_at_start": 4,
+          "triaged": 4,
+          "count_untriaged": 0,
+          "drained": [],
+          "deferred": [
+            "MB-20260721-FCPCV-V2-SOAK (accruing 732 preds; gate-check due ~07-28 - awaiting trainer)",
+            "MB-20260719-PROMOREADY-OOSEDGE-OOM (packets restored 07-27; only oos_edge-ON measurement remains)",
+            "MB-20260727-CONVICTION-AB-AUC (new; matched-holdout AUC read - awaiting identical-live-rows data)",
+            "MB-20260626-MES-BASE-STALE (tied to the health MES-pull failure; carried)"
+          ]
+        },
+        "note": "open_at_start = the WORKING SET for this since-last window (newly-filed / changed-status / partially-resolved-carried / this-window-actionable items), matching the 07-27 review's convention - NOT the full standing kept_open backlog (H:68/P:48/M:35), whose soak/awaiting-operator items are carried in monitoring[]. count_untriaged=0 for all three: every working-set item was re-validated + dispositioned this run."
+      }
+    }
+  },
+  "artifacts": {
+    "_comment": "Rendered artifacts + links.",
+    "json_path": "comms/reports/since-last/20260728T091200Z/report.json",
+    "html_path": "comms/reports/since-last/20260728T091200Z/report.html",
+    "md_path": "comms/reports/since-last/20260728T091200Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/Metis-Insights/blob/main/comms/reports/since-last/20260728T091200Z/report.html",
+    "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260728-091200-since-last"
+  },
+  "claude_channel_ping": {
+    "_comment": "One consolidated ping (the three sub-review pings stay suppressed).",
+    "delivered_via": "pending send-ping",
+    "priority": "normal",
+    "message": "[system-report:since-last] caution: real +$0.49; fvg_range->shadow; MES-pull svc failed; ML healthy. https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260728-091200-since-last"
+  }
+}

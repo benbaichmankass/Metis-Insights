@@ -668,12 +668,15 @@ jobs:
               state_reason: 'not_planned'
             });
 
-      # Concurrency-cancel handler (FU-20260511-005). When
-      # cancel-in-progress: true preempts this run because a newer
-      # diag-request arrived, GitHub marks the run "cancelled" — which
-      # is neither success() nor failure(). Without this step the
-      # preempted issue stays commentless and looks identical to a
-      # wedge. With it, the operator sees "preempted, re-open to retry."
+      # Concurrency-cancel handler (FU-20260511-005). A `cancelled()` run is
+      # neither success() nor failure(); without this step the issue stays
+      # commentless and looks identical to a wedge.
+      # HONEST copy (2026-07-28): concurrency here is PER-ISSUE with
+      # cancel-in-progress:false, so a sibling diag-request CANNOT cancel this
+      # run — the old "a newer diag-request preempted this (cancel-in-progress
+      # =true)" copy was flatly false (the config says the opposite) and fed the
+      # "newest-wins" myth. A cancel here is almost always the job time budget
+      # (`timeout-minutes: 5`) or a manual cancel.
       - name: Reply to issue when run was cancelled
         if: github.event_name == 'issues' && cancelled() && steps.dedup.outputs.skip != 'true'
         uses: actions/github-script@v7
@@ -684,7 +687,9 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `⏭ **vm-diag-snapshot run cancelled** — a newer diag-request preempted this one (concurrency.cancel-in-progress=true).\nRun: ${runUrl}\n\nRe-open this issue (or open a fresh one with the same title) to retry. If multiple back-to-back diag pulls are needed, space them ~90 s apart so each completes before the next arrives.`
+              body: `⏹ **vm-diag-snapshot run cancelled.**\nRun: ${runUrl}\n\n`
+                + `Most likely the job hit its **time budget** (\`timeout-minutes: 5\`) or was manually cancelled. **It was NOT preempted by another diag request** — concurrency is per-issue (\`cancel-in-progress: false\`), so a sibling request cannot cancel this run.\n\n`
+                + `If you were waiting on this it is **dead, not still running** — re-open (or file a fresh issue with the same title) to retry. For many back-to-back reads, batch them in ONE issue body (a JSON array or one path per line) so they ride a single run — see docs/claude/diag-relay.md.`
             });
             await github.rest.issues.update({
               owner: context.repo.owner,

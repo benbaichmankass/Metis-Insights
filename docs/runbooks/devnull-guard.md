@@ -86,3 +86,39 @@ whatever FIM/hardening profile is attached to the instance) for a rule that
 the writer on the VM: `sudo auditctl -w /dev/null -p a -k devnull` then
 `sudo ausearch -k devnull` after it next flips. (Requires root shell access —
 not available through the restricted live-VM relays.)
+
+## Culprit confirmed — `oci-wlp` Cloud Guard Workload Protection (2026-07-28)
+
+The long-standing "suspected `oracle-cloud-agent` oci-wlp" guess is now
+**positively attributed** (inspect run of `vm-devnull-source-diagnose`,
+issue #7831):
+
+- `oci-wlp` is present + running on `ict-bot-arm` and its Oracle-published
+  name is literally **"Cloud Guard Workload Protection"**
+  (`/var/log/oracle-cloud-agent/agent.log`:
+  `instance.go:136: publicName Cloud Guard Workload Protection for plugin oci-wlp`).
+- This explains why the 2026-07-14 syscall forensics (rounds 5-7 of the
+  diagnose workflow) found the mode-strip **invisible to every audited syscall
+  class** (chmod/fchmod/fchmodat/fchmodat2/setxattr/mount) and to udev: a
+  Cloud-Guard workload-protection / FIM agent remediates outside the standard
+  host chmod syscall path the box's auditd observes.
+- **Cross-confirmation that /dev/null really is being clobbered (not a false
+  read):** Oracle's own `unified-monitoring-agent` is *itself a victim* —
+  `plugins/unifiedmonitoring/unifiedmonitoring.log` logs
+  `service_unix.go:204: ... open /dev/null: permission denied` on 2026-07-23,
+  -25, -26, and -28, i.e. a *second, independent* Oracle process hitting the
+  exact same EACCES our scripts hit. So the FIM plugin is clobbering a file
+  its own sibling plugin then can't open.
+
+### The durable source-kill (operator / OCI console)
+
+Disable the **Cloud Guard Workload Protection (`oci-wlp`)** plugin for the
+`ict-bot-arm` instance: OCI Console → the instance → **Oracle Cloud Agent**
+tab → toggle **Cloud Guard Workload Protection** *off*. It is a security/FIM
+agent that is not load-bearing for a single-tenant trading VM, and it is the
+remaining unexplained `/dev/null` mutator. This is a genuine operator/console
+action (the agent-plugin toggle is an instance-management control, not a repo
+or SSH action). The `ict-devnull-guard.timer` + the per-consumer `heal_devnull`
+self-heals (deploy path, operator-action wrappers, and — as of 2026-07-28 —
+`pull_mes_ibkr_history.sh`) keep every consumer resilient regardless, so this
+source-kill is a "stop the recurrence at its origin" cleanup, not an outage fix.
