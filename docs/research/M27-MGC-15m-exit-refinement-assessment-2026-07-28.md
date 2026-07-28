@@ -61,6 +61,40 @@ trend-oriented time/giveback exits don't help a mean-reverting fixed-bracket
 scalp. **No lever advances to the walk-forward step; no Tier-3 live-monitor
 declare is warranted.** Raw: `verdicts.json` from the driver run.
 
+## P2b — crypto legs (2026-07-28)
+
+Operator directive ("do the crypto leg first") — the harness build unblocked the
+whole `ict_scalp` family, so all seven live crypto legs were swept. Because this
+sandbox can't reach Bybit and the 1-core trainer would take ~15h, the sweep ran
+as a **GitHub Actions matrix** (`.github/workflows/ict-scalp-exit-sweep.yml`,
+run 30384837775) — one 4-core runner per leg, in parallel (~15 min wall), each
+`scp`-ing its config-exact M27 candle CSV from the trainer's `m27_data` and
+running the same IS/OOS driver. Verdicts posted back as PR #7849 comments.
+
+| Leg | Account | Baseline (IS / OOS net_R) | IS/OOS verdict |
+|---|---|---|---|
+| `ict_scalp_5m` (BTCUSDT) | **bybit_2 real-money** + bybit_1/portfolio | +88.70R / +40.18R | all honest_negative |
+| `ict_scalp_sol_5m` | bybit_1 | +81.33R / +51.27R | all honest_negative |
+| `ict_scalp_xrp_5m` | bybit_1 | +106.01R / +24.10R | all honest_negative |
+| `ict_scalp_avax_5m` | bybit_1 | +147.04R / +43.14R | all honest_negative |
+| `ict_scalp_xrp_15m` | bybit_1 | +20.87R / +15.71R | all honest_negative |
+| `ict_scalp_sol_15m` | bybit_1 | +23.65R / +20.46R | all honest_negative |
+| **`ict_scalp_eth_15m`** | bybit_1 | +36.27R / +12.82R | **stale8 + stale12 CANDIDATE** |
+
+**Read.** 6 of 7 crypto legs (including the real-money BTC-5m leg) are clean
+honest_negatives — the levers typically help one window and hurt the other, so
+they fail the both-windows gate. **ETH-15m is the sole exception:** a stale-stop
+beats baseline on net_R AND maxDD in both windows at the IS/OOS pre-filter
+(stale8 IS +12.63R/OOS +0.26R; stale12 IS +8.09R/OOS +2.92R). The giveback cells
+are honest_negative everywhere (the MFE≥2R arm is a no-op fleet-wide — TP at 1.5R).
+
+**ETH-15m walk-forward.** The IS/OOS pass is only the pre-filter; the M20 gate
+requires the yearly walk-forward (beat-or-tie net_R AND maxDD in ≥ ceil(2/3)
+usable folds). Run via `--walkforward` (see the coverage-matrix `ict_scalp_eth_15m`
+`stale_stop` cell for the outcome). A survivor would be a **Tier-3** proposal
+(teach `ict_scalp.monitor()` to enforce a stale-stop + declare on the ETH-15m
+YAML) — never an autonomous change.
+
 ## Evidence (starting state, pre-build)
 
 ### 1. The `ict_scalp` family has no exit-lever support — at BOTH layers

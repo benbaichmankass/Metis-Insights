@@ -579,36 +579,36 @@
       "tf": "5m",
       "execution": "live",
       "trail_geometry": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "n/a",
+        "ref": "Fixed SL/TP/timeout bracket; ict_scalp.monitor() only trails to break-even after 1R \u2014 no primary trailing stop to reshape. Same basis as ict_scalp_mgc_15m."
       },
       "stale_stop": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "honest_negative",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). Baseline +81.33R/629 (IS) / +51.27R/286 (OOS). stale/gb help IS but lose OOS (stale8 OOS -12.83R, stale12 OOS -7.33R). Fails both-windows gate."
       },
       "giveback_stop": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "honest_negative",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). giveback honest_negative (gb@MFE1R OOS -1.69R)."
       },
       "exit_ladder": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "blocked:no_harness_levers",
+        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
       },
       "exit_head_ml": {
         "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "ref": "Native crypto 15m/5m history exists (m27_data), so an E0 per-bar exit head is trainable (unlike the data-thin mgc leg) \u2014 not yet built. Lower priority given the hard-lever sweep is honest_negative."
       },
       "trail_decay": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
       },
       "regime_flip_exit": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "n/a",
+        "ref": "Fires on an ADX->OFF regime-policy cell; ict_scalp has no regime-policy cell so the flip never fires. Mechanism is a fleet-wide honest_negative besides."
       },
       "vol_trail": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
       }
     },
     {
@@ -617,36 +617,36 @@
       "tf": "5m",
       "execution": "live",
       "trail_geometry": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "n/a",
+        "ref": "Fixed SL/TP/timeout bracket; ict_scalp.monitor() only trails to break-even after 1R \u2014 no primary trailing stop to reshape. Same basis as ict_scalp_mgc_15m."
       },
       "stale_stop": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "honest_negative",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). Baseline +106.01R/487 (IS) / +24.10R/261 (OOS). Levers help OOS but hurt IS (stale8 IS -13.55R). Fails both-windows gate."
       },
       "giveback_stop": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "honest_negative",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). giveback honest_negative."
       },
       "exit_ladder": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "blocked:no_harness_levers",
+        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
       },
       "exit_head_ml": {
         "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "ref": "Native crypto 15m/5m history exists (m27_data), so an E0 per-bar exit head is trainable (unlike the data-thin mgc leg) \u2014 not yet built. Lower priority given the hard-lever sweep is honest_negative."
       },
       "trail_decay": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
       },
       "regime_flip_exit": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "n/a",
+        "ref": "Fires on an ADX->OFF regime-policy cell; ict_scalp has no regime-policy cell so the flip never fires. Mechanism is a fleet-wide honest_negative besides."
       },
       "vol_trail": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
       }
     },
     {
@@ -655,36 +655,36 @@
       "tf": "5m",
       "execution": "live",
       "trail_geometry": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "n/a",
+        "ref": "Fixed SL/TP/timeout bracket; ict_scalp.monitor() only trails to break-even after 1R \u2014 no primary trailing stop to reshape. Same basis as ict_scalp_mgc_15m."
       },
       "stale_stop": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "honest_negative",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). Baseline +147.04R/744 (IS) / +43.14R/358 (OOS). Mixed signs across windows; none beat in both. honest_negative."
       },
       "giveback_stop": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "honest_negative",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). giveback honest_negative."
       },
       "exit_ladder": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "blocked:no_harness_levers",
+        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
       },
       "exit_head_ml": {
         "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "ref": "Native crypto 15m/5m history exists (m27_data), so an E0 per-bar exit head is trainable (unlike the data-thin mgc leg) \u2014 not yet built. Lower priority given the hard-lever sweep is honest_negative."
       },
       "trail_decay": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
       },
       "regime_flip_exit": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "n/a",
+        "ref": "Fires on an ADX->OFF regime-policy cell; ict_scalp has no regime-policy cell so the flip never fires. Mechanism is a fleet-wide honest_negative besides."
       },
       "vol_trail": {
-        "status": "pending",
-        "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
       }
     },
     {
@@ -723,6 +723,158 @@
       "vol_trail": {
         "status": "n/a",
         "ref": "Volatility-scaled trailing lever \u2014 presupposes a primary trailing stop ict_scalp does not have (fixed bracket, break-even-after-1R only). Structurally inapplicable \u2014 same basis as trail_geometry. Assessed 2026-07-28."
+      }
+    },
+    {
+      "strategy": "ict_scalp_5m",
+      "symbol": "BTCUSDT",
+      "tf": "5m",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "n/a",
+        "ref": "Fixed SL/TP/timeout bracket; ict_scalp.monitor() only trails to break-even after 1R \u2014 no primary trailing stop to reshape. Same basis as ict_scalp_mgc_15m."
+      },
+      "stale_stop": {
+        "status": "honest_negative",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). Baseline +88.70R/499 (IS) / +40.18R/198 (OOS). stale8 IS -18.22R (fails IS); stale12 IS -11.23R; gb@MFE1R OOS ties maxDD (not a strict beat). None beat net_R+maxDD in BOTH windows. **Real-money leg (bybit_2)** \u2014 no live-exit change warranted."
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). giveback cells honest_negative (see stale_stop ref)."
+      },
+      "exit_ladder": {
+        "status": "blocked:no_harness_levers",
+        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
+      },
+      "exit_head_ml": {
+        "status": "pending",
+        "ref": "Native crypto 15m/5m history exists (m27_data), so an E0 per-bar exit head is trainable (unlike the data-thin mgc leg) \u2014 not yet built. Lower priority given the hard-lever sweep is honest_negative."
+      },
+      "trail_decay": {
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      },
+      "regime_flip_exit": {
+        "status": "n/a",
+        "ref": "Fires on an ADX->OFF regime-policy cell; ict_scalp has no regime-policy cell so the flip never fires. Mechanism is a fleet-wide honest_negative besides."
+      },
+      "vol_trail": {
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      }
+    },
+    {
+      "strategy": "ict_scalp_xrp_15m",
+      "symbol": "XRPUSDT",
+      "tf": "15m",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "n/a",
+        "ref": "Fixed SL/TP/timeout bracket; ict_scalp.monitor() only trails to break-even after 1R \u2014 no primary trailing stop to reshape. Same basis as ict_scalp_mgc_15m."
+      },
+      "stale_stop": {
+        "status": "honest_negative",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). Baseline +20.87R/227 (IS) / +15.71R/134 (OOS). stale8 beats IS but loses OOS; others negative. Fails both-windows gate."
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). giveback honest_negative."
+      },
+      "exit_ladder": {
+        "status": "blocked:no_harness_levers",
+        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
+      },
+      "exit_head_ml": {
+        "status": "pending",
+        "ref": "Native crypto 15m/5m history exists (m27_data), so an E0 per-bar exit head is trainable (unlike the data-thin mgc leg) \u2014 not yet built. Lower priority given the hard-lever sweep is honest_negative."
+      },
+      "trail_decay": {
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      },
+      "regime_flip_exit": {
+        "status": "n/a",
+        "ref": "Fires on an ADX->OFF regime-policy cell; ict_scalp has no regime-policy cell so the flip never fires. Mechanism is a fleet-wide honest_negative besides."
+      },
+      "vol_trail": {
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      }
+    },
+    {
+      "strategy": "ict_scalp_sol_15m",
+      "symbol": "SOLUSDT",
+      "tf": "15m",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "n/a",
+        "ref": "Fixed SL/TP/timeout bracket; ict_scalp.monitor() only trails to break-even after 1R \u2014 no primary trailing stop to reshape. Same basis as ict_scalp_mgc_15m."
+      },
+      "stale_stop": {
+        "status": "honest_negative",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). Baseline +23.65R/280 (IS) / +20.46R/142 (OOS). stale/gb help IS, lose OOS. honest_negative."
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). giveback honest_negative."
+      },
+      "exit_ladder": {
+        "status": "blocked:no_harness_levers",
+        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
+      },
+      "exit_head_ml": {
+        "status": "pending",
+        "ref": "Native crypto 15m/5m history exists (m27_data), so an E0 per-bar exit head is trainable (unlike the data-thin mgc leg) \u2014 not yet built. Lower priority given the hard-lever sweep is honest_negative."
+      },
+      "trail_decay": {
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      },
+      "regime_flip_exit": {
+        "status": "n/a",
+        "ref": "Fires on an ADX->OFF regime-policy cell; ict_scalp has no regime-policy cell so the flip never fires. Mechanism is a fleet-wide honest_negative besides."
+      },
+      "vol_trail": {
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      }
+    },
+    {
+      "strategy": "ict_scalp_eth_15m",
+      "symbol": "ETHUSDT",
+      "tf": "15m",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "n/a",
+        "ref": "Fixed SL/TP/timeout bracket; ict_scalp.monitor() only trails to break-even after 1R \u2014 no primary trailing stop to reshape. Same basis as ict_scalp_mgc_15m."
+      },
+      "stale_stop": {
+        "status": "pending",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). IS/OOS CANDIDATE (the only crypto leg to pass the pre-filter): stale8 IS +12.63R/OOS +0.26R and stale12 IS +8.09R/OOS +2.92R both beat baseline (+36.27R/256 IS, +12.82R/129 OOS) on net_R AND maxDD in both windows. **Yearly walk-forward (M20 gate, >=4/6 folds) running to confirm before any conclusion.** OOS edge is thin for stale8; stale12 stronger."
+      },
+      "giveback_stop": {
+        "status": "honest_negative",
+        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). ETH-15m giveback cells honest_negative (gb@MFE1R OOS -1.93R; gb@MFE2R no-op)."
+      },
+      "exit_ladder": {
+        "status": "blocked:no_harness_levers",
+        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
+      },
+      "exit_head_ml": {
+        "status": "pending",
+        "ref": "Native crypto 15m/5m history exists (m27_data), so an E0 per-bar exit head is trainable (unlike the data-thin mgc leg) \u2014 not yet built. Lower priority given the hard-lever sweep is honest_negative."
+      },
+      "trail_decay": {
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
+      },
+      "regime_flip_exit": {
+        "status": "n/a",
+        "ref": "Fires on an ADX->OFF regime-policy cell; ict_scalp has no regime-policy cell so the flip never fires. Mechanism is a fleet-wide honest_negative besides."
+      },
+      "vol_trail": {
+        "status": "n/a",
+        "ref": "Presupposes a primary trailing stop ict_scalp lacks. Same basis as trail_geometry."
       }
     }
   ]

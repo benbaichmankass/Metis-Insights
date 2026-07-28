@@ -92,11 +92,67 @@ def metrics(summary: dict) -> dict:
 
 
 def beats(cell: dict, base: dict) -> bool:
-    """M20 gate: beat baseline on net_R AND maxDD (lower dd better)."""
+    """M20 IS/OOS pre-filter: beat baseline on net_R AND maxDD (lower dd better)."""
     if cell.get("error") or base.get("error"):
         return False
     return (cell["total_r"] > base["total_r"]
             and cell["max_dd_r"] < base["max_dd_r"])
+
+
+def beats_or_ties(cell: dict, base: dict) -> bool:
+    """Walk-forward per-fold rule: beat-or-tie baseline on net_R AND maxDD."""
+    if cell.get("error") or base.get("error"):
+        return False
+    return (cell["total_r"] >= base["total_r"]
+            and cell["max_dd_r"] <= base["max_dd_r"])
+
+
+# Yearly walk-forward folds (mirror scripts/research/m20_fleet_exit_sweep.py).
+FOLDS = [("2021", "2021-01-01", "2022-01-01"), ("2022", "2022-01-01", "2023-01-01"),
+         ("2023", "2023-01-01", "2024-01-01"), ("2024", "2024-01-01", "2025-01-01"),
+         ("2025", "2025-01-01", "2026-01-01"), ("2026", "2026-01-01", None)]
+_WF_MIN_TRADES = 10  # a fold with fewer baseline trades is not usable
+
+
+def walk_forward(df, ts, out: Path, cell_tags: dict) -> dict:
+    """M20 confirmation gate for the IS/OOS candidate cells: run baseline vs each
+    candidate cell on every yearly fold; a cell PASSES if it beats-or-ties the
+    baseline on net_R AND maxDD in >= ceil(2/3) of the USABLE folds (usable =
+    baseline has >= _WF_MIN_TRADES trades). Returns {tag: {folds, pass, usable,
+    verdict}}."""
+    import math
+    wf: dict = {}
+    # slice + run baseline once per fold
+    fold_base = {}
+    fold_csv = {}
+    for name, start, end in FOLDS:
+        mask = (ts >= pd.Timestamp(start, tz="UTC"))
+        if end is not None:
+            mask &= (ts < pd.Timestamp(end, tz="UTC"))
+        csv = out / f"wf_{name}.csv"
+        df[mask].to_csv(csv, index=False)
+        fold_csv[name] = csv
+        fold_base[name] = metrics(run_cell(csv, [], out / f"wf_base_{name}.json"))
+    for tag, extra in cell_tags.items():
+        rows = []
+        pass_n = usable = 0
+        for name, _s, _e in FOLDS:
+            base_m = fold_base[name]
+            if base_m.get("error") or base_m["trades"] < _WF_MIN_TRADES:
+                rows.append({"fold": name, "usable": False}); continue
+            usable += 1
+            cell_m = metrics(run_cell(fold_csv[name], extra, out / f"wf_{tag}_{name}.json"))
+            ok = beats_or_ties(cell_m, base_m)
+            pass_n += 1 if ok else 0
+            rows.append({"fold": name, "usable": True, "pass": ok,
+                         "d_netR": round(cell_m["total_r"] - base_m["total_r"], 2),
+                         "d_maxDD": round(cell_m["max_dd_r"] - base_m["max_dd_r"], 2)})
+        need = math.ceil(2 * usable / 3) if usable else 99
+        verdict = ("PASS" if (usable >= 3 and pass_n >= need)
+                   else "honest_negative")
+        wf[tag] = {"pass_folds": pass_n, "usable_folds": usable,
+                   "need": need, "verdict": verdict, "folds": rows}
+    return wf
 
 
 def main(argv: list[str]) -> int:
@@ -108,6 +164,9 @@ def main(argv: list[str]) -> int:
                     help="Leg timeframe label (default 15m).")
     ap.add_argument("--split", default="2025-07-01",
                     help="IS/OOS boundary (UTC date; IS < split <= OOS).")
+    ap.add_argument("--walkforward", action="store_true",
+                    help="After IS/OOS, run the yearly walk-forward confirmation "
+                         "(M20 gate) on any cell that passed the IS/OOS pre-filter.")
     ap.add_argument("--out", required=True, help="Output dir for slices + JSON.")
     args = ap.parse_args(argv[1:])
 
@@ -172,10 +231,30 @@ def main(argv: list[str]) -> int:
               f"ΔDD={cell['OOS']['max_dd_r'] - base['OOS']['max_dd_r']:+.2f} "
               f"(n{cell['OOS']['trades']})  -> {verdict}", flush=True)
 
-    (out / "verdicts.json").write_text(json.dumps(results, indent=2, default=str))
     cands = [t for t, c in results["cells"].items() if c["verdict"] == "CANDIDATE"]
-    print(f"\nCANDIDATES (pass IS+OOS, would go to walk-forward): "
+    print(f"\nCANDIDATES (pass IS+OOS pre-filter): "
           f"{cands or 'NONE — all honest_negative'}", flush=True)
+
+    # Walk-forward confirmation (M20 gate) for the IS/OOS candidates.
+    if args.walkforward and cands:
+        print("\n=== yearly walk-forward (M20 gate: beat-or-tie net_R AND maxDD "
+              ">= ceil(2/3) usable folds) ===", flush=True)
+        cell_tags = {t: dict(results["cells"][t])["extra"] for t in cands}
+        wf = walk_forward(df, ts, out, cell_tags)
+        results["walkforward"] = wf
+        for tag, r in wf.items():
+            results["cells"][tag]["walkforward_verdict"] = r["verdict"]
+            fold_str = " ".join(
+                f"{f['fold']}:{'PASS' if f.get('pass') else ('-' if f.get('usable') else 'skip')}"
+                for f in r["folds"])
+            print(f"  {tag:18s} {r['pass_folds']}/{r['usable_folds']} usable folds "
+                  f"(need {r['need']}) -> {r['verdict']}   [{fold_str}]", flush=True)
+        survivors = [t for t, r in wf.items() if r["verdict"] == "PASS"]
+        print(f"\nWALK-FORWARD SURVIVORS (M20-gated, -> Tier-3 proposal): "
+              f"{survivors or 'NONE — candidates fail walk-forward, honest_negative'}",
+              flush=True)
+
+    (out / "verdicts.json").write_text(json.dumps(results, indent=2, default=str))
     print(f"verdicts.json -> {out / 'verdicts.json'}", flush=True)
     return 0
 

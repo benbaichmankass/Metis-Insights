@@ -2658,6 +2658,11 @@
           "at": "2026-07-28T00:00:00+00:00",
           "by": "claude (operator-greenlit build, same day)",
           "note": "Tier-1 DONE (PR #7849): stale/giveback lever flags added to scripts/backtest_ict_scalp.py + ict_scalp registered as a `scalp` family in m20_fleet_exit_sweep.py (classify+FAMILY_HARNESS+base_args) + tests (tests/test_ict_scalp_exit_levers.py). MGC sweep DONE: config-exact IS/OOS on the XAU 15m proxy (scripts/research/m27/ict_scalp_exit_sweep.py) -> ALL cells honest_negative (stale8 -7.4R/-5.3R, stale12 -6.1R/-4.1R, gb@MFE1R -1.0R/0, gb@MFE2R no-op; baseline +51.18R IS/+12.39R OOS). No Tier-3 monitor declare warranted. REMAINING: run the fleet sweep on the other ict_scalp legs (ict_scalp_5m + sol/xrp/avax/eth 5m/15m) ON THE TRAINER VM (their native data lives there; this sandbox only has the XAU proxy). exit_ladder still un-built + fleet-parked; exit_head_ml blocked on native history."
+        },
+        {
+          "at": "2026-07-28T00:00:00+00:00",
+          "by": "claude (crypto legs, operator-directed same day)",
+          "note": "Crypto legs swept (GitHub Actions matrix run 30384837775, one 4-core runner per leg, config-exact m27_data via scp). 6/7 honest_negative INCLUDING the real-money BTC-5m (ict_scalp_5m on bybit_2). ONLY ict_scalp_eth_15m produced IS/OOS candidates (stale8 IS+12.63R/OOS+0.26R, stale12 IS+8.09R/OOS+2.92R). Added --walkforward to the driver; ETH-15m walk-forward result recorded in the coverage matrix. All 7 crypto legs now have matrix rows (added ict_scalp_5m/eth_15m/sol_15m/xrp_15m; ict_scalp_5m was previously only in the stale 'shadow fleet' bucket though it is execution:live). REMAINING: only a walk-forward SURVIVOR (if any) becomes a Tier-3 monitor-enforcement proposal; exit_ladder still un-built; exit_head_ml pending (crypto native data exists)."
         }
       ]
     }
