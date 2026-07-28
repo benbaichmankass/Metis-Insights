@@ -693,36 +693,36 @@
       "tf": "15m",
       "execution": "live",
       "trail_geometry": {
-        "status": "pending",
-        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+        "status": "n/a",
+        "ref": "ict_scalp is a fixed SL/TP/timeout bracket (tp = entry \u00b1 tp_at_r\u00b7risk); its monitor() only trails to break-even after 1R (monitor_breakeven_sl) \u2014 there is no primary trailing stop to reshape, so trail geometry is structurally inapplicable. Assessed 2026-07-28 (docs/research/M27-MGC-15m-exit-refinement-assessment-2026-07-28.md)."
       },
       "stale_stop": {
-        "status": "pending",
-        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+        "status": "blocked:no_harness_levers",
+        "ref": "Meaningful for a fixed-bracket scalp, but un-processable today: the ict_scalp research harness (scripts/backtest_ict_scalp.py) exposes no --stale flag and the family is absent from m20_fleet_exit_sweep.FAMILY_HARNESS, AND the live ict_scalp.monitor() enforces only break-even-after-1R (no stale-exit path). Needs the M20 family-extension build (harness lever + Tier-3 monitor enforcement) \u2014 ml-review-backlog MB-20260728-ICTSCALP-EXIT-LEVERS. Family-wide (also ict_scalp_5m + sol/xrp/avax_5m). Assessed 2026-07-28."
       },
       "giveback_stop": {
-        "status": "pending",
-        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+        "status": "blocked:no_harness_levers",
+        "ref": "Same block as stale_stop: no giveback lever in scripts/backtest_ict_scalp.py (ict_scalp absent from m20_fleet_exit_sweep.FAMILY_HARNESS) and no giveback path in the live ict_scalp.monitor() (break-even-after-1R only). Needs the M20 family-extension build \u2014 ml-review-backlog MB-20260728-ICTSCALP-EXIT-LEVERS. Assessed 2026-07-28."
       },
       "exit_ladder": {
-        "status": "pending",
-        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+        "status": "blocked:no_harness_levers",
+        "ref": "No partial-TP ladder in the ict_scalp harness or monitor (family absent from m20_fleet_exit_sweep.FAMILY_HARNESS); fleet-wide 'banking parked' besides. Needs the M20 family-extension build \u2014 ml-review-backlog MB-20260728-ICTSCALP-EXIT-LEVERS. Assessed 2026-07-28."
       },
       "exit_head_ml": {
-        "status": "pending",
-        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+        "status": "blocked:native-history-thin",
+        "ref": "E0 per-bar exit head needs native MGC-15m history; IBKR serves only ~1yr and the 15m series is flat-bar contaminated (M27-P0-MGC-15m-findings) \u2014 structurally too thin for a purged walk-forward. The Dukascopy spot-XAU proxy is OK for lever sweeps but NOT for head training (mgc_pullback_1d precedent). Blocked until a deeper non-IBKR MGC/gold-futures 15m source is wired. Assessed 2026-07-28."
       },
       "trail_decay": {
-        "status": "pending",
-        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+        "status": "n/a",
+        "ref": "A trailing-stop-decay lever presupposes a primary trailing stop; ict_scalp has none (fixed bracket, monitor() = break-even-after-1R only). Structurally inapplicable \u2014 same basis as trail_geometry. Assessed 2026-07-28."
       },
       "regime_flip_exit": {
-        "status": "pending",
-        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+        "status": "n/a",
+        "ref": "Fires at the first bar whose ADX label maps to an OFF regime-policy cell for (family, direction); MGC has NO regime head and an explicit config/regime_coverage_exemptions.yaml entry (no MGC/15m cell authored), so the flip can never fire on this leg. The mechanism itself is a fleet-wide honest_negative. Structurally inapplicable here. Assessed 2026-07-28."
       },
       "vol_trail": {
-        "status": "pending",
-        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+        "status": "n/a",
+        "ref": "Volatility-scaled trailing lever \u2014 presupposes a primary trailing stop ict_scalp does not have (fixed bracket, break-even-after-1R only). Structurally inapplicable \u2014 same basis as trail_geometry. Assessed 2026-07-28."
       }
     }
   ]
