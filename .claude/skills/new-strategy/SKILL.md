@@ -122,14 +122,36 @@ short-circuit; no new order path). The gate **fails OPEN on a
 registry-read error** (treats the strategy as shadow / dry), which is
 why a shadow strategy's safe home is **bybit_1 (demo)**.
 
-**Lifecycle of a new strategy:** ship `enabled: true` + `execution:
-live` → route to **bybit_1 (demo)** / `ib_paper` (paper money — it
-EXECUTES there to build a real-fill track record) → let live paper data
-confirm the backtest (days–weeks) → add to `bybit_2.strategies` (REAL
-money, Tier-3, operator-approved). A strategy goes `shadow` ONLY with
-explicit operator permission — e.g. to log on the REAL-money account
-before it executes there. This is the path `trend_donchian` took (now
-`live` on bybit_2).
+**Lifecycle of a new strategy** — governed by
+[`docs/CLAUDE-RULES-CANONICAL.md`](../../../docs/CLAUDE-RULES-CANONICAL.md)
+§ "Promotion evidence — **offline edge, live mechanics**" (binding; a
+soak-doctrine CI guard enforces this). Read that rule before wiring anything.
+
+The **edge is decided OFFLINE, before the soak** — a live-faithful backtest
+(config-exact, live-exit-faithful) plus the backfill / live-simulator over deep
+history must already show the leg meets our standard. That offline gate carries
+the promote decision. THEN:
+
+1. ship `enabled: true` + `execution: live` → route to **bybit_1 (demo)** /
+   `ib_paper` (paper money — it EXECUTES there);
+2. the paper run is a **MECHANICS check ONLY** — confirm the live executions
+   match the simulator (entry vs the logged signal, fill/fee/slippage, SL/TP
+   placement, whole-unit sizing). This needs **1–2 live executions** and
+   accrues in **HOURS (not calendar time)**;
+3. add to `bybit_2.strategies` (REAL money, Tier-3, operator-approved).
+
+**A paper soak is never a calendar-time wait to re-establish the edge — the edge
+was already decided offline. A handful of early losing paper trades is variance,
+NOT a demotion signal, as long as the mechanics match.** If a leg reaches soak
+without an adequate offline proof, the gap is the
+missing backtest (go run the live-faithful backtest / backfill), not more soak
+time. The only legitimate reason a soak blocks a promotion is a **mechanics
+divergence** — the live executions don't match what the simulator produced (bad
+fills, wrong sizing, SL/TP not placed) — which you fix, not wait out.
+
+A strategy goes `shadow` ONLY with explicit operator permission — e.g. to log on
+the REAL-money account before it executes there. This is the path
+`trend_donchian` took (now `live` on bybit_2).
 
 ## Touch points (canonical wiring)
 
@@ -476,8 +498,15 @@ pytest tests/test_multi_strategy_intents.py \
    live ticks (data collection) without risking money. Confirm
    `<name>_eval` rows in the audit log and the coordinator logging
    `execution:shadow … NOT executing`.
-4. Let the live shadow data mature (days–weeks); confirm the live
-   signals match the backtest.
+4. **Mechanics check (HOURS, not calendar time).** Confirm the live executions
+   mechanically match the simulator — **1–2 executed trades are enough** to
+   verify entry-vs-signal, fill/fee/slippage, SL/TP placement, and whole-unit
+   sizing parity. Per the canonical rule (§ "Promotion evidence — offline edge,
+   live mechanics") the EDGE was already decided by the offline live-faithful
+   backtest before this point, so this step does **not** wait for live
+   performance to accrue; a couple of early losing paper trades are variance if
+   the mechanics match. If the live executions DIVERGE from the simulator, fix
+   that mechanics gap before promoting.
 5. Promote `shadow → live`: flip `execution: live` in strategies.yaml
    and add the strategy to `bybit_2.strategies` (separate draft Tier-3
    PRs, operator-approved). Fire `pull-and-deploy`. The strategy now

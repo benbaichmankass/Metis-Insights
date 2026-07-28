@@ -564,6 +564,20 @@ edge over history already exists (purged walk-forward CV `oos_edge`; the
 `valuation_snapshot_backfill`), so a gate that instead **waits on live outcome
 statistics to accrue** re-proves offline evidence on a slower clock.
 
+**Scope: this applies to STRATEGY legs, not just ML models/heads/policies.** A
+new strategy cell (e.g. an `ict_scalp` alt leg) wired to a paper/demo account
+(`bybit_1`, `ib_paper`) is a **paper-SOAK**, and a paper-soak is a
+**mechanics check, not a performance test**. Its edge is decided by the
+offline live-faithful backtest + backfill BEFORE it is wired; the soak only
+confirms the live executions match the simulator, which needs **1–2 executed
+trades**, not calendar time. Never frame an alt-leg paper-soak as a
+calendar-time wait to see if the edge holds — that is the recurring drift this
+rule kills (the operational how-to lives in the `new-strategy` skill and is
+CI-guarded by `scripts/check_soak_doctrine.py`). A handful of early losing paper
+trades is variance, not a demotion signal, as long as the mechanics match; if a
+leg reaches soak without an adequate offline proof, the gap is the missing
+backtest, not more soak time.
+
 **The rule.** For any promotion / graduation gate:
 
 1. **Edge is proven OFFLINE.** Whether a model/head/policy has an edge is a
