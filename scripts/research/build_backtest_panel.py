@@ -75,6 +75,12 @@ from src.research.excursions import (  # noqa: E402
     compute_excursions,
     excursion_feature_names,
 )
+from src.research.microstructure import (  # noqa: E402
+    DEFAULT_VOL_LONG as _MS_VOL_LONG,
+    DEFAULT_VOL_SHORT as _MS_VOL_SHORT,
+    FEATURE_NAMES,
+    decision_bar_features,
+)
 
 _EXCURSION_COLS = excursion_feature_names()
 # The backtest has no dollar PnL — ``r`` (realized R) is the canonical outcome and
@@ -356,6 +362,31 @@ def _window_candles(df: Any, entry_index: Optional[int], exit_index: Optional[in
     return [r for r in recs if isinstance(r, dict)]
 
 
+def _pre_entry_candles(df: Any, entry_index: Optional[int], lookback: int) -> List[Dict[str, Any]]:
+    """The DECISION-TIME window bars for the microstructure features.
+
+    Slices ``[entry_index - lookback .. entry_index]`` (inclusive of the decision
+    bar, the closed bar the strategy signalled on), so the features see only price
+    at or BEFORE the decision — the fill is ``entry_index + 1`` (see
+    ``_window_candles``), which these bars strictly precede. Returns ``[]`` when the
+    index is unusable (→ an honest microstructure-absent row).
+    """
+    if entry_index is None:
+        return []
+    try:
+        ei = int(entry_index)
+    except (TypeError, ValueError):
+        return []
+    start = max(0, ei - int(lookback))
+    end = ei + 1  # inclusive of the decision bar
+    try:
+        window = df.iloc[start:end]
+        recs = window.to_dict("records")
+    except Exception:  # noqa: BLE001 — any slicing/serialization miss → no features
+        return []
+    return [r for r in recs if isinstance(r, dict)]
+
+
 def _iso_closed_at(value: Any) -> Optional[str]:
     """A sortable string for the WF-CV ``closed_at`` time column.
 
@@ -382,11 +413,30 @@ def build_backtest_panel(
     *,
     harness: str,
     adapter_opts: Dict[str, Any],
+    microstructure: bool = False,
+    ms_vol_short: int = _MS_VOL_SHORT,
+    ms_vol_long: int = _MS_VOL_LONG,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Return ``(rows, manifest)`` — the backtest panel in the C1 schema.
 
     Tolerant end-to-end: an unknown harness, a missing candle file, or a run that
     produces no trades yields an empty panel + an honest manifest, never a crash.
+
+    When ``microstructure`` is on (**opt-in, default off** — see below), each trade
+    also carries the decision-time intrabar-OHLCV-shape features (``feat_ms_*`` via
+    ``src.research.microstructure``), computed PIT from the pre-entry window
+    ``[entry_index - ms_vol_long .. entry_index]`` — strictly before the
+    ``entry_index + 1`` fill, so leakage-clean. A trade with no usable candle index
+    simply omits them.
+
+    **Why opt-in (Study 9, ledger 2026-07-27).** On the `win`/entry outcome the ms
+    features add **no** OOS directional discrimination and, being noise-on-win, they
+    *raise the BH-FDR denominator* — the first powered run washed out Study 8's thin
+    `cat_regime` win survivor (AUC 0.555 @ m=9 → 0.530 @ m=14, no survivor). Their
+    real association is the **volatility/excursion axis** (`mae_r`/`time_to_mfe_frac`
+    univariate-FDR survivors), matching the external microstructure literature
+    ("magnitude, not direction"). So they are scoped to exit/regime/vol studies
+    (pass ``--microstructure``), NOT blanket-added to entry-discovery panels.
     """
     adapter = ADAPTERS.get(harness)
     rows: List[Dict[str, Any]] = []
@@ -415,6 +465,16 @@ def build_backtest_panel(
                     cat[name] = c.value
                 elif c.kind == KIND_GATE:
                     gate[name] = bool(c.value)
+
+            # Decision-time intrabar-OHLCV-shape features (leakage-clean: the
+            # window ends at the decision bar, strictly before the fill bar).
+            if microstructure:
+                pre = _pre_entry_candles(df, st.entry_index, ms_vol_long + 5)
+                if pre:
+                    for name, val in decision_bar_features(
+                        pre, vol_short=ms_vol_short, vol_long=ms_vol_long
+                    ).items():
+                        feat[name] = val
 
             candles = _window_candles(df, st.entry_index, st.exit_index)
             exc: Dict[str, Any] = {k: None for k in _EXCURSION_COLS}
@@ -480,6 +540,19 @@ def build_backtest_panel(
         "key_cols": list(_KEY_COLS),
         "outcome_cols": list(_OUTCOME_COLS),
         "feature_cols": feature_cols,
+        "microstructure": {
+            "enabled": bool(microstructure),
+            "vol_short": int(ms_vol_short),
+            "vol_long": int(ms_vol_long),
+            "feature_names": list(FEATURE_NAMES),
+            "note": (
+                "feat_ms_* are decision-time intrabar-OHLCV-shape features "
+                "(src.research.microstructure) computed PIT from the pre-entry "
+                "window [entry_index - vol_long .. entry_index] — strictly before "
+                "the entry_index+1 fill, so leakage-clean. A different feature "
+                "class from the ICT-geometry component vector; both are regressors."
+            ),
+        },
         "pnl_note": (
             "pnl is an R-proxy (== r_multiple): a backtest has no dollar PnL, so the "
             "C2 expectancy/edge tables read in R units. win = r > 0."
@@ -604,13 +677,27 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--reentry-policy", default="suppress",
                         choices=["suppress", "net"],
                         help="[backtest_system] same-direction re-entry policy.")
+    parser.add_argument("--microstructure", action=argparse.BooleanOptionalAction, default=False,
+                        help="Add decision-time intrabar-OHLCV-shape features (feat_ms_*) "
+                             "computed PIT from the pre-entry window. **Opt-in (default off)**: "
+                             "Study 9 showed they add no OOS entry (win) edge and dilute the "
+                             "win-FDR panel; their association is the volatility/excursion axis. "
+                             "Enable for exit/regime/vol outcome studies (mae_r/time_to_mfe/giveback).")
+    parser.add_argument("--ms-vol-short", type=int, default=_MS_VOL_SHORT,
+                        help="Microstructure short realized-vol window (bars).")
+    parser.add_argument("--ms-vol-long", type=int, default=_MS_VOL_LONG,
+                        help="Microstructure long realized-vol / z-score window (bars).")
     parser.add_argument("--out", default="runtime_logs/research/backtest_panel.jsonl",
                         help="Output JSONL path (a sibling .manifest.json is written too).")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
 
     rows, manifest = build_backtest_panel(
-        harness=args.harness, adapter_opts=_build_adapter_opts(args)
+        harness=args.harness,
+        adapter_opts=_build_adapter_opts(args),
+        microstructure=bool(args.microstructure),
+        ms_vol_short=int(args.ms_vol_short),
+        ms_vol_long=int(args.ms_vol_long),
     )
     out_path, manifest_path = write_panel(rows, manifest, Path(args.out))
     if not args.quiet:

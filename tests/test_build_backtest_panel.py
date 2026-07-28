@@ -142,6 +142,42 @@ def test_panel_schema_and_features():
     assert isinstance(win["closed_at"], str) and win["closed_at"].startswith("2024-01-01T00:30")
 
 
+def test_microstructure_features_present_and_leakage_clean():
+    _register_fake_adapter()
+    # microstructure is opt-in (default off, Study 9) — enable it explicitly here.
+    rows, manifest = bb.build_backtest_panel(
+        harness="_fake", adapter_opts={}, microstructure=True
+    )
+    win = rows[0]  # entry_index=2 → pre-entry window [0..2], decision bar index 2
+    # decision-bar range_position: high 103, low 97, close 100 → 0.5
+    assert win["feat_ms_range_position"] == 0.5
+    # realized_vol over the (constant-close) window is a real 0.0, not omitted
+    assert win["feat_ms_realized_vol"] == 0.0
+    # the ms features are FEATURES, never outcomes
+    ms_cols = [c for c in manifest["feature_cols"] if c.startswith("feat_ms_")]
+    assert ms_cols and not (set(ms_cols) & set(manifest["outcome_cols"]))
+    # manifest stamps the microstructure config + leakage note
+    assert manifest["microstructure"]["enabled"] is True
+    assert "leakage-clean" in manifest["microstructure"]["note"]
+    # the no-window trade (entry_index=None) honestly omits ms features
+    assert not any(k.startswith("feat_ms_") for k in rows[1])
+
+
+def test_microstructure_is_opt_in_default_off():
+    # Study 9: microstructure defaults OFF (they dilute the win-FDR panel); both the
+    # default and an explicit False must omit feat_ms_* entirely.
+    _register_fake_adapter()
+    rows_default, man_default = bb.build_backtest_panel(harness="_fake", adapter_opts={})
+    assert man_default["microstructure"]["enabled"] is False
+    assert not any(k.startswith("feat_ms_") for row in rows_default for k in row)
+
+    rows_off, man_off = bb.build_backtest_panel(
+        harness="_fake", adapter_opts={}, microstructure=False
+    )
+    assert man_off["microstructure"]["enabled"] is False
+    assert not any(k.startswith("feat_ms_") for row in rows_off for k in row)
+
+
 def test_native_excursions_are_exact():
     _register_fake_adapter()
     rows, _ = bb.build_backtest_panel(harness="_fake", adapter_opts={})
