@@ -52,8 +52,15 @@ CELLS = [
 ]
 
 # Config-exact base flags (M27 run_symbol_p0.py invocation, minus the
-# regime-attribution flags which do not touch the exit path).
-BASE_FLAGS = ["--symbol", "MGC", "--timeframe", "15m", "--sim-breakeven"]
+# regime-attribution flags which do not touch the exit path). SYMBOL/TIMEFRAME
+# are filled per-leg by main(); every ict_scalp leg is a config-exact copy so the
+# harness self-loads the shared ict_scalp_5m detection params for all of them.
+def base_flags(symbol: str, timeframe: str) -> list[str]:
+    return ["--symbol", symbol, "--timeframe", timeframe, "--sim-breakeven"]
+
+
+# module-level, set in main() so run_cell stays a pure (data, extra)->metrics call
+BASE_FLAGS: list[str] = ["--symbol", "MGC", "--timeframe", "15m", "--sim-breakeven"]
 
 
 def run_cell(data_csv: Path, extra: list[str], out_json: Path) -> dict:
@@ -95,10 +102,17 @@ def beats(cell: dict, base: dict) -> bool:
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--data", default=str(_REPO / "data" / "XAUUSD_15m_deep.csv"))
+    ap.add_argument("--symbol", default="MGC",
+                    help="Bot symbol for the leg (default MGC — the gold leg).")
+    ap.add_argument("--timeframe", default="15m",
+                    help="Leg timeframe label (default 15m).")
     ap.add_argument("--split", default="2025-07-01",
                     help="IS/OOS boundary (UTC date; IS < split <= OOS).")
     ap.add_argument("--out", required=True, help="Output dir for slices + JSON.")
     args = ap.parse_args(argv[1:])
+
+    global BASE_FLAGS
+    BASE_FLAGS = base_flags(args.symbol, args.timeframe)
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
