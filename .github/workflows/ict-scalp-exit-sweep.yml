@@ -32,15 +32,12 @@ jobs:
     strategy:
       fail-fast: false
       max-parallel: 7
+      # Narrowed to the ETH-15m candidate leg for the walk-forward confirmation
+      # phase (the other 6 crypto legs are already honest_negative at IS/OOS).
+      # Restore the full 7-leg list to re-run the whole family.
       matrix:
         leg:
-          - { sym: BTCUSDT,  tf: 5m }
-          - { sym: SOLUSDT,  tf: 5m }
-          - { sym: XRPUSDT,  tf: 5m }
-          - { sym: AVAXUSDT, tf: 5m }
-          - { sym: XRPUSDT,  tf: 15m }
           - { sym: ETHUSDT,  tf: 15m }
-          - { sym: SOLUSDT,  tf: 15m }
     steps:
       - uses: actions/checkout@v4
 
@@ -83,7 +80,7 @@ jobs:
           python3 scripts/research/m27/ict_scalp_exit_sweep.py \
             --data "data/${SYM}_${TF}.csv" \
             --symbol "${SYM}" --timeframe "${TF}" \
-            --split 2025-07-01 \
+            --split 2025-07-01 --walkforward \
             --out "out/${SYM}_${TF}" 2>&1 | tee sweep.out
           echo "---VERDICTS_JSON---"
           cat "out/${SYM}_${TF}/verdicts.json" >> verdicts_raw.json || true
