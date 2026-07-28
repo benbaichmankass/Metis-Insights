@@ -44,13 +44,18 @@ import yaml
 REPO = Path(__file__).resolve().parents[2]
 
 # families with harness exit-lever support; everything else is reported
-# no_harness_levers (vwap/ict_scalp/turtle_soup/fade — pending harness levers)
+# no_harness_levers (vwap/turtle_soup/fade — pending harness levers).
+# ict_scalp gained stale/giveback lever support 2026-07-28 (M27 follow-up) — the
+# trailing levers (trail_geometry/trail_decay/vol_trail) stay n/a for a
+# fixed-bracket scalp, so cells_for only emits its stale/giveback cells here.
 DONCHIAN_HARNESS = "scripts/research/backtest_trend.py"
 PULLBACK_HARNESS = "scripts/backtest_pullback.py"
 SQUEEZE_HARNESS = "scripts/backtest_squeeze.py"
 FVG_HARNESS = "scripts/backtest_fvg_range.py"
+SCALP_HARNESS = "scripts/backtest_ict_scalp.py"
 FAMILY_HARNESS = {"donchian": DONCHIAN_HARNESS, "pullback": PULLBACK_HARNESS,
-                  "squeeze": SQUEEZE_HARNESS, "fvg": FVG_HARNESS}
+                  "squeeze": SQUEEZE_HARNESS, "fvg": FVG_HARNESS,
+                  "scalp": SCALP_HARNESS}
 
 PROXY_DATA = {"MGC": "GC_F", "XAUUSD": "GC_F", "MES": "ES_F", "MHG": "HG_F"}
 DATA_GRAIN = ["5m", "15m", "1h", "1d"]
@@ -62,6 +67,8 @@ FOLDS = [("2021", "2021-01-01", "2022-01-01"), ("2022", "2022-01-01", "2023-01-0
 
 
 def classify(name: str) -> str | None:
+    if "ict_scalp" in name or "scalp" in name:
+        return "scalp"
     if "pullback" in name and "htf_pullback" not in name:
         return "pullback"
     if "htf_pullback" in name:
@@ -180,6 +187,18 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None) -
                           ("--timeout-bars", "timeout_bars"),
                           ("--min-confidence", "min_confidence")):
             opt(flag, key)
+    elif fam == "scalp":
+        # ict_scalp self-loads its detection params from the ict_scalp_5m YAML
+        # block (backtest_ict_scalp._load_yaml_params); every ict_scalp leg is a
+        # config-exact copy, so only the leg-level knobs need passing. The live
+        # monitor trails SL to break-even after 1R, so --sim-breakeven is part of
+        # the config-exact base (matches M27 run_symbol_p0.py). tp_at_r / timeout
+        # come from YAML / harness defaults.
+        a.append("--sim-breakeven")
+        opt("--htf-rule", "htf_filter_timeframe")
+        opt("--htf-ema-period", "htf_filter_ema_period")
+        opt("--min-confidence", "min_confidence")
+        declared_levers()
     else:
         opt("--trend-lookback", "trend_len")
         opt("--pullback-lookback", "pullback_len")
