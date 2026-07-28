@@ -832,6 +832,21 @@ def ict_scalp_sol_15m_signal_builder(settings: dict) -> Dict[str, Any]:
     return _ict_scalp_variant_builder("ict_scalp_sol_15m", settings)
 
 
+def ict_scalp_mgc_15m_signal_builder(settings: dict) -> Dict[str, Any]:
+    """ict_scalp on MGC (micro gold futures) 15m — M27 gold re-target (2026-07-28,
+    Tier-3 paper soak). The venue-blocked XAUUSD 15m ict_scalp winner re-targeted
+    onto IBKR MGC micro-gold, live-tradeable on ib_paper (the same venue/contract as
+    mgc_trend_1h). Deep 4-fold walk-forward on the powered Dukascopy spot-XAU proxy
+    under MGC per-contract economics replicates the UNGATED edge (Σ +41.09 net-R,
+    exp-R +0.094, 3/4 folds); the fitted-confidence gate is fragile so it ships
+    UNGATED (no off_cells/vol_spec). Reuses the shared _ict_scalp_variant_builder,
+    which reads the 15m timeframe + [MGC] symbol from config and routes the candle
+    fetch to IBKR the same way mgc_trend_1h does (settings["EXCHANGE"] resolves to
+    interactive_brokers on the MGC tick). Evidence:
+    docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."""
+    return _ict_scalp_variant_builder("ict_scalp_mgc_15m", settings)
+
+
 def vwap_signal_builder(settings: dict) -> Dict[str, Any]:
     """
     Fetch OHLCV candles from the configured exchange and return a VWAP
@@ -5488,6 +5503,9 @@ for _builder, _monitor_unit in (
     (ict_scalp_xrp_15m_signal_builder, "ict_scalp"),
     (ict_scalp_eth_15m_signal_builder, "ict_scalp"),
     (ict_scalp_sol_15m_signal_builder, "ict_scalp"),
+    # M27 gold re-target (2026-07-28) — MGC 15m ict_scalp on ib_paper; reuse the
+    # ict_scalp unit's monitor() for break-even trail / SL-TP-cross exits.
+    (ict_scalp_mgc_15m_signal_builder, "ict_scalp"),
     (trend_donchian_1h_signal_builder, "trend_donchian"),
     (trend_donchian_sol_signal_builder, "trend_donchian"),
     (trend_donchian_eth_signal_builder, "trend_donchian"),

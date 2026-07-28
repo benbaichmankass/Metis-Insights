@@ -514,7 +514,18 @@ accounts:
     ib_account: DUQ325724
     ib_client_id: 497                  # unique per concurrent socket
     strategies: [mes_trend_long_1d, mgc_pullback_1d, mhg_pullback_1d, mgc_trend_1h,
+      ict_scalp_mgc_15m,
       spy_trend_long_1d, qqq_trend_long_1d, iwm_trend_long_1d, tlt_pullback_1d]
+                                       # ict_scalp_mgc_15m added 2026-07-28 (Tier-3,
+                                       # M27 gold re-target, PB-20260728-ICTSCALP-GOLD-
+                                       # GATE-CONFIG): the venue-blocked XAUUSD 15m
+                                       # ict_scalp winner re-targeted onto MGC micro-gold,
+                                       # execution: live on this PAPER account for a
+                                       # mechanics-only soak. Same venue/contract/whole-
+                                       # contract sizing as mgc_trend_1h. Ungated (deep
+                                       # 4-fold Dukascopy-XAU-proxy under MGC economics
+                                       # replicates +41R baseline; fitted gate fragile).
+                                       # NOT routed to real-money ib_live (separate Tier-3).
                                        # 2026-07-07 (Tier-3, operator-approved, routing-coverage
                                        # audit): DROPPED the three BTCUSDT crypto strategies
                                        # (turtle_soup, vwap, ict_scalp_5m) that were parked here.

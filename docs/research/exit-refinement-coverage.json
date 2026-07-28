@@ -1,6 +1,6 @@
 {
   "_doc": "M20 exit-refinement coverage matrix \u2014 one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) \u2014 never inferred.",
-  "updated_at": "2026-07-21",
+  "updated_at": "2026-07-28",
   "lever_columns": [
     "trail_geometry",
     "stale_stop",
@@ -685,6 +685,44 @@
       "vol_trail": {
         "status": "pending",
         "ref": "M27 P0 Batch-1 promotion (2026-07-21) \u2014 new paper-execution leg on bybit_1, not yet exit-processed. Evidence: docs/research/M27-P0-crypto-findings-2026-07-20.md."
+      }
+    },
+    {
+      "strategy": "ict_scalp_mgc_15m",
+      "symbol": "MGC",
+      "tf": "15m",
+      "execution": "live",
+      "trail_geometry": {
+        "status": "pending",
+        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+      },
+      "stale_stop": {
+        "status": "pending",
+        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+      },
+      "giveback_stop": {
+        "status": "pending",
+        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+      },
+      "exit_ladder": {
+        "status": "pending",
+        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+      },
+      "exit_head_ml": {
+        "status": "pending",
+        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+      },
+      "trail_decay": {
+        "status": "pending",
+        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+      },
+      "regime_flip_exit": {
+        "status": "pending",
+        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
+      },
+      "vol_trail": {
+        "status": "pending",
+        "ref": "M27 gold re-target (2026-07-28) \u2014 new ib_paper mechanics-only soak leg, not yet exit-processed. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md."
       }
     }
   ]

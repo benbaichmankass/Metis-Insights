@@ -149,3 +149,45 @@ net-negative and underpowered; the proxy alone doesn't justify real capital.
 - Arm B k-fold: trainer `/tmp/mgc_armB.json` (from `/home/ubuntu/m27_out_fut15/MGC/emit.json`).
 - Relay run: trainer-vm-diag issue #7806.
 - Data: `m27_data_xau/XAUUSD_15m.csv` (Dukascopy spot), `m27_data_fut15/MGC_15m.csv` (IBKR).
+
+## Wiring evidence (2026-07-28) — Option-1 executed as a DRAFT Tier-3 PR
+
+Ungated `ict_scalp_mgc_15m` wired to `ib_paper` as a mechanics-only paper soak
+(branch `claude/wire-ict-scalp-mgc-15m-j8i7i4`, DRAFT pending operator Tier-3
+approval). The two mandatory evidence steps were re-run locally on the powered
+Dukascopy spot-XAU 15m proxy (2019-01-01 → 2026-07-28, **178,953 bars** — the same
+178k-bar dataset the findings above cite) under the MGC per-contract economics
+(`--fee-usd-roundtrip 3.0 --contract-value-usd 10.0`):
+
+1. **k-fold re-replication** (`run_symbol_p0.py`, 4 folds): ungated **baseline
+   4/4 folds, +47.38 net-R, +0.197 exp-R** over 241 OOS trades (285 total). The
+   fitted-confidence gate returns +36.28R / 4/4 — but per the ADDENDUM it is
+   derive-window-fragile, so the leg ships **UNGATED** (no min-confidence filter,
+   no `off_cells`). Per-fold baseline net-R: 10.19 / 15.04 / 9.59 / 12.56.
+
+2. **account-compat matrix** (`scripts/prop/account_compat_matrix.py --ledger
+   <emit, MGC-fee-adjusted> --symbol MGC --accounts ib_paper`): the full ungated
+   ledger nets **+55.96R over 285 trades** after the MGC per-contract fee
+   (`net_fee_r = net_r − 3.0/(risk×10)`, mirroring `kfold_oos.fee_r_for`), and the
+   `ib_paper` (standard, paper) row verdict = **ROUTE** — mean end-return **+12.2%**,
+   survival **99.83%**, P(breach) **0.33%** (gate: positive + survival ≥ 90% +
+   P(breach) ≤ 10%).
+
+Reproduce (free GH runner or any repo checkout with network to Dukascopy):
+
+```bash
+python scripts/ops/fetch_dukascopy_ohlcv.py \
+  --instrument INSTRUMENT_FX_METALS_XAU_USD --interval 15m \
+  --start 2019-01-01 --output data/XAUUSD_15m_deep.csv
+python scripts/research/m27/run_symbol_p0.py --csv data/XAUUSD_15m_deep.csv \
+  --symbol XAUUSD --out-dir artifacts/research/p0_out --timeframe 15m \
+  --derive-window prefix:0.25 --folds 4 \
+  --fee-usd-roundtrip 3.0 --contract-value-usd 10.0
+# apply MGC per-contract fee to the emit ledger (net_r -= 3.0/(risk*10)), then:
+python scripts/prop/account_compat_matrix.py \
+  --ledger <emit_mgc_netfee.jsonl> --symbol MGC --accounts ib_paper
+```
+
+The soak is **mechanics-only** — the edge was decided offline here (both steps
+positive); a handful of early losing paper trades is variance, not a demotion
+signal. Real-money `ib_live` remains a separate later Tier-3 gate.

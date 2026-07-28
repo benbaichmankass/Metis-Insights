@@ -229,7 +229,13 @@ def test_real_yaml_loads():
     # >=3/4-fold net-of-fee k-fold). Added to config in #7400; the roster count +
     # required-set below were left stale by #7400 and are corrected here alongside
     # the builder wiring. Evidence: docs/research/M27-P1-15m-findings-2026-07-22.md.
-    assert len(strategies) == 54
+    # 54 → 55 by the M27 gold re-target ict_scalp_mgc_15m (2026-07-28, Tier-3,
+    # operator-approved paper soak): execution:live mechanics-only soak on ib_paper
+    # (IBKR PAPER money) only, ungated. The venue-blocked XAUUSD 15m ict_scalp winner
+    # re-targeted onto MGC micro-gold futures (live-tradeable on ib_paper, unlike
+    # XAUUSD's shelved OANDA venue). Evidence:
+    # docs/research/M27-P0-MGC-15m-findings-2026-07-28.md.
+    assert len(strategies) == 55
 
 
 def test_real_yaml_has_required_strategies():
@@ -271,6 +277,11 @@ def test_real_yaml_has_required_strategies():
         # M27 P1 15m alt legs (2026-07-22, Tier-3, operator-approved promotion):
         # execution:live paper-soak on bybit_1 only, ungated.
         "ict_scalp_xrp_15m", "ict_scalp_eth_15m", "ict_scalp_sol_15m",
+        # M27 gold re-target (2026-07-28, Tier-3, operator-approved paper soak):
+        # execution:live mechanics-only soak on ib_paper (IBKR PAPER money) only,
+        # ungated — the venue-blocked XAUUSD 15m ict_scalp winner re-targeted onto
+        # MGC micro-gold futures.
+        "ict_scalp_mgc_15m",
     }
 
 

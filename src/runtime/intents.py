@@ -177,6 +177,13 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     "ict_scalp_xrp_15m": 0,
     "ict_scalp_eth_15m": 0,
     "ict_scalp_sol_15m": 0,
+    # ict_scalp_mgc_15m — M27 gold re-target (2026-07-28) on ib_paper; a
+    # single-instrument ict_scalp instance on MGC. Deliberately 0 (untested-roster
+    # floor, same as the other ict_scalp alt legs AND the established gold sleeves
+    # mgc_trend_1h / mgc_pullback_1d which are also 0), so this new leg can never
+    # OVERRIDE the established gold sleeves on (MGC, ib_paper) in a conflict — a
+    # wiring slip stays safe.
+    "ict_scalp_mgc_15m": 0,
     # trend_donchian — deliberately the LOWEST priority on the roster
     # (S-STRAT-IMPROVE-S8 go-live). It runs alone on bybit_2 so its
     # priority never actually arbitrates there; the low value is a

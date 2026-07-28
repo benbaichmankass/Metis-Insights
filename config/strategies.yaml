@@ -765,6 +765,68 @@ strategies:
     session_end_hour: 17
     shadow_model_ids: []
 
+  ict_scalp_mgc_15m:
+    # MGC (micro gold futures, COMEX / IBKR) 15m ict_scalp — M27 gold re-target
+    # (2026-07-28, Tier-3 operator-approved paper soak). The venue-blocked XAUUSD
+    # 15m ict_scalp winner re-targeted onto MGC micro-gold futures, which — unlike
+    # XAUUSD's shelved OANDA venue — is live-tradeable on ib_paper (the same venue,
+    # contract, and whole-contract sizing as the existing mgc_trend_1h / mgc_pullback_1d
+    # gold sleeves).
+    #
+    # EVIDENCE — the edge was DECIDED OFFLINE (soak doctrine: offline edge, live
+    # mechanics). A deep 4-fold walk-forward on clean Dukascopy spot XAU (2012→now,
+    # 15m — the powered proxy; MGC's own IBKR history is structurally too thin at
+    # ~1yr to power a 15m walk-forward) under the identical MGC per-contract economics
+    # ($3/contract RT, contract_value_usd=10) replicates the UNGATED edge:
+    #   baseline (ungated): Σ +41.09 net-R, mean exp-R +0.094, n=402, 3/4 folds +ve.
+    # Per-fold: −14.08 / +8.64 / +25.87 / +20.66 R (fold 1 = a genuine 2014–17
+    # drawdown regime — the edge is real but MODEST and regime-dependent, expect
+    # fold-1-type drawdowns). Shipped UNGATED (NO min-confidence filter): the deep
+    # prefix-split found the fitted-confidence gate FRAGILE + counterproductive
+    # (+7.94R vs baseline +41R — it over-filters away most of the edge).
+    # Full findings + ADDENDUM: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md;
+    # backlog PB-20260728-ICTSCALP-GOLD-GATE-CONFIG.
+    #
+    # Config-exact copy of ict_scalp_5m's sweep→displacement→FVG params (the exact
+    # values run_symbol_p0.py → backtest_ict_scalp.py loaded from the ict_scalp_5m
+    # YAML block, overriding ONLY timeframe→15m); symbols pinned to [MGC]. Same 5m
+    # lookback bar-counts as the SOL/ETH/XRP 15m siblings — that is what the
+    # validation used, so no wall-clock rescale. NO local off_cells/vol_spec gate
+    # (ungated evidence is the config that clears the gate; no live regime head is
+    # trained for MGC/15m anyway, so a global regime_policy cell would resolve
+    # vol_regime="unknown" and silently never fire — see the regime-coverage exempt
+    # entry). execution: live because ib_paper is a PAPER account that EXECUTES —
+    # NOT shadow (shadow would strand it as signal-only logging and defeat the soak).
+    # The soak is a MECHANICS check only (entry-vs-signal, fill/fee/slippage, SL/TP
+    # placement, whole-contract sizing parity); a handful of early losing paper
+    # trades is variance, not a demotion. Real-money (ib_live) is a separate later
+    # Tier-3 gate.
+    model: null
+    signal_prefixes: [ict_scalp]
+    enabled: true
+    execution: live
+    timeframe: "15m"
+    symbols:
+      - MGC
+    sweep_lookback_bars: 12
+    swing_lookback_bars: 20
+    atr_period: 14
+    sweep_buffer_bps: 5.0
+    displacement_atr_mult: 1.3
+    min_displacement_body_to_range: 0.55
+    min_fvg_size_bps: 2.0
+    mitigation_mode: "wick_rejection"
+    htf_trend_filter_enabled: true
+    htf_filter_timeframe: "1h"
+    htf_filter_ema_period: 20
+    atr_sl_buffer_mult: 0.20
+    tp_at_r: 1.5
+    be_offset_bps: 15
+    session_filter_enabled: false
+    session_start_hour: 7
+    session_end_hour: 17
+    shadow_model_ids: []
+
   fvg_range_15m:
     # FVG range / mean-reversion (S-STRAT-IMPROVE, 2026-05-30) — the RANGE
     # member the roster was missing. Inside a confirmed STATIC horizontal

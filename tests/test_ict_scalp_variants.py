@@ -180,3 +180,26 @@ def test_no_off_cells_configured_never_gates(monkeypatch):
     )
     assert sig["side"] == "buy"
     assert sig["meta"].get("reason") != "regime_off_cell_local"
+
+
+# ---------------------------------------------------------------------------
+# MGC 15m gold re-target (M27, 2026-07-28) — the futures-symbol variant
+# ---------------------------------------------------------------------------
+
+def test_mgc_15m_pins_symbol_and_timeframe_ungated(monkeypatch):
+    # ict_scalp_mgc_15m is a config-exact copy on MGC (IBKR micro-gold futures)
+    # at 15m, shipped UNGATED (no off_cells/vol_spec). Assert the variant builder
+    # pins MGC + 15m from its own config and fires ungated even when the regime
+    # would be a would-be off-cell (there is no local gate to consult).
+    cfg = _base_cfg("MGC", timeframe="15m")
+    assert "off_cells" not in cfg and "vol_spec" not in cfg
+    frame = _bullish_scalp_frame(base=2400.0, freq="15min")
+    sig = _wire(
+        monkeypatch, "ict_scalp_mgc_15m", "MGC", frame, cfg,
+        trend_label="trending", vol_label="volatile", fire_signal=True,
+    )
+    assert sig["symbol"] == "MGC"
+    assert sig["side"] == "buy"
+    assert sig["meta"]["strategy_name"] == "ict_scalp_mgc_15m"
+    assert sig["meta"]["timeframe"] == "15m"
+    assert sig["meta"].get("reason") != "regime_off_cell_local"

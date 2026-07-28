@@ -95,6 +95,7 @@ from src.runtime.strategy_signal_builders import (
     ict_scalp_xrp_15m_signal_builder,
     ict_scalp_eth_15m_signal_builder,
     ict_scalp_sol_15m_signal_builder,
+    ict_scalp_mgc_15m_signal_builder,
     trend_donchian_1h_signal_builder,
     trend_donchian_eth_signal_builder,
     trend_donchian_sol_signal_builder,
@@ -183,6 +184,14 @@ def _default_intent_builders() -> Dict[str, IntentBuilder]:
         "ict_scalp_xrp_15m": ict_scalp_xrp_15m_signal_builder,
         "ict_scalp_eth_15m": ict_scalp_eth_15m_signal_builder,
         "ict_scalp_sol_15m": ict_scalp_sol_15m_signal_builder,
+        # M27 gold re-target (2026-07-28, Tier-3 operator-approved paper soak) —
+        # MGC 15m ict_scalp on ib_paper. The venue-blocked XAUUSD 15m winner
+        # re-targeted onto IBKR MGC micro-gold; ungated (deep 4-fold Dukascopy-XAU
+        # proxy under MGC economics replicates +41R baseline, fitted gate fragile).
+        # Reuses the generic _ict_scalp_variant_builder (reads 15m + [MGC] from
+        # config, routes candles to IBKR). Evidence:
+        # docs/research/M27-P0-MGC-15m-findings-2026-07-28.md.
+        "ict_scalp_mgc_15m": ict_scalp_mgc_15m_signal_builder,
         # trend_donchian: Donchian-breakout trend-follower going live on
         # bybit_2 (real money) per the 2026-05-23 go-live plan. Builder
         # honours the YAML `enabled` flag; priority 20 (below the others)
