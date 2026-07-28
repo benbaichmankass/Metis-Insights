@@ -75,10 +75,18 @@ jobs:
           # runner. See pytest-run.yml header.
           REQUIRED_CONTEXTS='["pytest-collect","pytest-run","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver"]'
 
-          OWNER="benbaichmankass"
-          REPO="ict-trading-bot"
+          # Use the CURRENT canonical repo path from the Actions context, NOT a
+          # hardcoded owner/repo. The 2026-07-23 rename (ict-trading-bot ->
+          # Metis-Insights) made the hardcoded `repos/benbaichmankass/ict-trading-bot`
+          # path 301-redirect, and neither the GET nor the PUT curl follows
+          # redirects (no `-L`), so this workflow started FAILING on every push to
+          # main with `GET protection returned HTTP 301: Moved Permanently`
+          # (BL-20260728-BRANCHPROT-RENAME-301 — a real bug, not the "admin-token
+          # noise" it was first guessed to be). ${{ github.repository }} resolves
+          # to the live canonical name, so the redirect never happens and any
+          # residual PAT/scope issue surfaces cleanly instead of being masked.
           BRANCH="main"
-          API="https://api.github.com/repos/${OWNER}/${REPO}/branches/${BRANCH}/protection"
+          API="https://api.github.com/repos/${{ github.repository }}/branches/${BRANCH}/protection"
 
           # GET current protection so we can preserve any existing
           # PR-review / restrictions / admin-enforcement values that
