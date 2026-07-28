@@ -6541,7 +6541,16 @@
       "opened_by": "claude (live IB alert investigation, 2026-07-27)",
       "severity": "medium",
       "source": "Recurring [ERROR] strategy_builder no-candle-data pages for MES/MGC/MHG. ib_state relay #7699 (2026-07-27 06:53Z, PAST the 03:45-05:45 IBKR reset window) showed the IB connection FLAPPING on last_fail_reason='liveness_probe_timeout': clients breaker_open with likely_wedged=false, consecutive_failures=1, last_ok ~2-4 min ago, breaker_seconds_remaining <90s. BL-20260709 cold-socat-relay class but on CACHED handles: IB_PROBE_TRUST_FRESH_HANDSHAKE (default true) downgrades a probe timeout on a FRESH handle to best-effort, but a probe timeout on a CACHED (previously-good) handle STILL condemns -> breaker opens ~2 min -> IBKR candle fetches blocked -> per-tick no-candle-data. Self-recovers (NOT a wedge), but the flap intermittently blinds the IBKR strategies + (pre-fix) spammed ERROR pages.",
-      "action": "Root-cause the cached-handle liveness-probe false-trip over the socat relay (ib_client.py::_probe_liveness / connect). Candidate: extend the fresh-handle best-effort tolerance (or a bounded extra retry) to a CACHED handle that `ib` still reports connected, WITHOUT weakening genuine mid-life-wedge detection (a real wedge never answers either attempt). Read docs/runbooks/ib-integration.md + `git log -p src/units/accounts/ib_client.py` first. Tier-2 live-connection change; soak/verify before deploy. The alert-SPAM symptom is already fixed by PR #7701 (transient no-candle-data -> Level.WARN); THIS item is the underlying flap."
+      "action": "Root-cause the cached-handle liveness-probe false-trip over the socat relay (ib_client.py::_probe_liveness / connect). Candidate: extend the fresh-handle best-effort tolerance (or a bounded extra retry) to a CACHED handle that `ib` still reports connected, WITHOUT weakening genuine mid-life-wedge detection (a real wedge never answers either attempt). Read docs/runbooks/ib-integration.md + `git log -p src/units/accounts/ib_client.py` first. Tier-2 live-connection change; soak/verify before deploy. The alert-SPAM symptom is already fixed by PR #7701 (transient no-candle-data -> Level.WARN); THIS item is the underlying flap.",
+      "status": "kept_open",
+      "title": "IB liveness-probe can false-trip on a cached handle (code-fix candidate)",
+      "updates": [
+        {
+          "at": "2026-07-28T09:12:00+00:00",
+          "by": "claude (/system-review)",
+          "note": "Triaged: set proper status (was unset). No live impact observed this window - ib_paper reachable with 2 open positions (MHG/MGC), no account_down/no IB banner. Code-fix candidate for the IB connect path; carry for a health/dev session."
+        }
+      ]
     },
     {
       "id": "BL-20260727-ICT-MES-IBKR-PULL-SERVICE-FAILED",
@@ -6549,7 +6558,16 @@
       "opened_by": "claude (live IB investigation, 2026-07-27)",
       "severity": "low",
       "source": "vm-diag-snapshot services (relay #7699, 2026-07-27): ict-mes-ibkr-pull.service state=failed (its .timer is active). The audit-residue F1 item (MES IBKR data-pull sidecar), confirmed STILL failing 2026-07-27. Separate process from the trader's live IB connection + from the strategy-builder no-candle-data pages.",
-      "action": "Pull `journalctl -u ict-mes-ibkr-pull.service` via the diag relay, diagnose (likely the same IB gateway cold-flow reachability class or a script error), then fix or disable if the sidecar is redundant with the trader's own candle fetch. Dedupe against the existing N6/F1 audit-residue item if already tracked."
+      "action": "Pull `journalctl -u ict-mes-ibkr-pull.service` via the diag relay, diagnose (likely the same IB gateway cold-flow reachability class or a script error), then fix or disable if the sidecar is redundant with the trader's own candle fetch. Dedupe against the existing N6/F1 audit-residue item if already tracked.",
+      "status": "kept_open",
+      "title": "ict-mes-ibkr-pull.service in failed state (MES market_raw base stays stale)",
+      "updates": [
+        {
+          "at": "2026-07-28T09:12:00+00:00",
+          "by": "claude (/system-review)",
+          "note": "Re-validated live via /api/diag/services: ict-mes-ibkr-pull.service = FAILED. The per-timeframe-retry fix (#7635, 'landed/monitoring' per RPT-20260727) has NOT cleared it - the MES base stays frozen, MES 1d/other datasets stay empty, mes-regime-1d audit-quarantined. NOT money-at-risk (mes-regime-5m advisory head still scores live, 1360 preds). Set proper status. Next: read the failed-unit journal + decide re-pull vs alternate source (Track-1 has a native-15m MGC study in flight)."
+        }
+      ]
     },
     {
       "id": "BL-20260727-BYBIT-USGEOBLOCK-GHRUNNER",
@@ -6585,5 +6603,5 @@
       "resolved_at": "2026-07-27"
     }
   ],
-  "updated_at": "2026-07-27T18:30:00+00:00"
+  "updated_at": "2026-07-28T09:12:00+00:00"
 }
