@@ -2090,7 +2090,23 @@
       "resolution_note": "2026-07-21 (data-cap diagnosis): tested yfinance interval lookback limits directly (trainer relay #7277, SPY) rather than guessing \u2014 5m/15m/30m/90m are ALL hard-capped at 60 days (Yahoo server-side error, not a request-size issue), but 60m/1h returned 5082 bars spanning ~2.9 years (2023-08-21 to 2026-07-20), comparable in depth to Batch-1's crypto and Batch-2's futures windows. No new credentials needed \u2014 resolves the credential-provisioning question this item originally raised. 2026-07-21 (repull-followup, RESOLVED): extended fetch_yfinance_5m.py for --interval 1h, re-pulled all 9 symbols (3,480 bars/symbol, ~2y), re-ran the config-exact backtest+kfold chain. Now genuinely statistically powered (12-25 trades/symbol vs 1-15/60d before): GLD \u2705 STRONG PASS (kfold baseline 4/4 folds, net +5.92R, exp +0.4933/trade \u2014 the strongest non-crypto M27 cell to date), SPY/TLT \u2705 weak PASS (3/4 folds, exp +0.05 to +0.195), IWM/SLV/USO \u26a0\ufe0f MIXED (baseline marginal or gate-dependent), QQQ/GDX \u274c REJECT (net-negative under fees), IEF still underpowered (only 6 trades even at 1h \u2014 bonds too quiet for this setup). Full write-up: docs/research/M27-P0-repull-followups-2026-07-21.md; coverage.md gained a new 1h column.",
       "next_step": "GLD is the standout P4 candidate (own regime-cell authorship + shadow-first wiring via the new-strategy skill, per the M27 DESIGN doc's promotion path) \u2014 not actioned in this follow-up, left for a future session's deliberate P4 decision. SPY/TLT are marginal candidates; QQQ/GDX/IEF are closed rejects at this timeframe.",
       "source": "S-M27-P0-BATCH1-2026-07-20 (Batch-3 continuation)"
+    },
+    {
+      "id": "SRQ-20260728-M27-WINNERS-SHIP",
+      "opened_at": "2026-07-28T05:30:00+00:00",
+      "opened_by": "claude (Track-1 continuation session)",
+      "source": "Operator directive (overnight Track-1 plan) + M27 P1 promotion evidence.",
+      "title": "[Tier-3] Ship the tested-unshipped M27 winners \u2014 XAUUSD 15m, GLD 1h (Alpaca), SOL/XRP 5m",
+      "description": "M27 P0/P1 validated these legs but they were never wired live. Evidence: docs/research/M27-P1-15m-findings-2026-07-22.md, M27-P1-15m-promotion-proposal-2026-07-22.md, M27-P0-batch4-xauusd-findings-2026-07-21.md, S-M27-ALTCOIN-PROMOTION-2026-07-21.md. Action = config/strategies.yaml (+ config/accounts.yaml routing) new legs \u2014 Tier-3, operator-approved merge. Confirm each against its M27 promotion packet before wiring. Proposed on board #6927 2026-07-28; NOT executed."
+    },
+    {
+      "id": "SRQ-20260728-FVGRANGE-DEMOTE",
+      "opened_at": "2026-07-28T05:30:00+00:00",
+      "opened_by": "claude (Track-1 continuation session)",
+      "source": "Deep-survey live-vs-backtest divergence; field-checked routing.",
+      "title": "[Tier-3] Demote fvg_range_15m live->shadow \u2014 -41R live on real money (bybit_2) vs strong backtest",
+      "description": "fvg_range_15m is execution: live and routes to bybit_1 (demo) AND bybit_2 (REAL money) since 2026-06-02 (field-checked config/strategies.yaml:768). Backtest evidence is strong (+24.4R full / OOS +21.8R) but the LIVE result is -41R per this session's deep survey. Recommend /performance-review confirm the -41R from the live journal (trade_journal.db closed trades for the strategy on bybit_2), then flip execution: live -> shadow (Tier-3, reversible, stops the real-money bleed, keeps the soak). Proposed on board #6927 2026-07-28; NOT executed."
     }
   ],
-  "updated_at": "2026-07-27T08:05:00+00:00"
+  "updated_at": "2026-07-28T05:30:00+00:00"
 }
