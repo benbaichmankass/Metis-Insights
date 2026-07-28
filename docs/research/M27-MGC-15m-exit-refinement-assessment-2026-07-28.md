@@ -88,12 +88,32 @@ beats baseline on net_R AND maxDD in both windows at the IS/OOS pre-filter
 (stale8 IS +12.63R/OOS +0.26R; stale12 IS +8.09R/OOS +2.92R). The giveback cells
 are honest_negative everywhere (the MFE≥2R arm is a no-op fleet-wide — TP at 1.5R).
 
-**ETH-15m walk-forward.** The IS/OOS pass is only the pre-filter; the M20 gate
-requires the yearly walk-forward (beat-or-tie net_R AND maxDD in ≥ ceil(2/3)
-usable folds). Run via `--walkforward` (see the coverage-matrix `ict_scalp_eth_15m`
-`stale_stop` cell for the outcome). A survivor would be a **Tier-3** proposal
-(teach `ict_scalp.monitor()` to enforce a stale-stop + declare on the ETH-15m
-YAML) — never an autonomous change.
+**ETH-15m walk-forward — SURVIVED (marginal).** The M20 gate requires the yearly
+walk-forward (beat-or-tie net_R AND maxDD in ≥ ceil(2/3) usable folds). Both cells
+pass: **stale8 and stale12 each clear 3/4 usable folds** (2023/2024/2026 PASS,
+2025 fail; 2021–22 skipped — thin data). This is the **only lever in the whole
+`ict_scalp` family (8 legs) to clear the full gate.** Marginality caveats: only 4
+usable folds, one (2025) fails, and stale8's OOS net_R edge is negligible (+0.26R
+— its value is a ~3R lower maxDD); **stale12 is the stronger** (OOS +2.92R).
+Matrix cell → `passed_unshipped`.
+
+**Tier-3 proposal (operator-gated, NOT implemented).** To ship a stale-stop on
+ETH-15m: (1) teach `src/units/strategies/ict_scalp.py::monitor()` to read
+`stale_exit_bars` / `stale_exit_below_r` from cfg and cut a trade held ≥ N bars
+still below the R threshold (the live analogue of the swept lever — mirrors the
+harness `_simulate_exit` stale rule; guard it so it only applies to the leg(s)
+that declare it); (2) declare `stale_exit_bars: 12` (stale12, the stronger cell)
++ `stale_exit_below_r: 0.0` on the `config/strategies.yaml::ict_scalp_eth_15m`
+block. Given the marginality + that it's a paper leg (bybit_1), an equally
+defensible call is to **hold** and let the leg soak first. Operator decides.
+
+**Tooling note (worktree gotcha).** The first walk-forward attempt via the
+`trainer-vm-diag` relay ran the driver from a `git worktree` under the trainer's
+main-clone venv and produced **0 trades** on data the runner scored as 256 (a
+stale `import src` / config resolution against the installed package). Re-run on
+a clean-checkout GitHub runner, it matched the IS/OOS run exactly. Lesson: run
+these harnesses on a clean runner (or a fresh venv), not a worktree over an
+installed clone.
 
 ## Evidence (starting state, pre-build)
 

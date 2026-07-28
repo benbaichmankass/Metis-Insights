@@ -849,8 +849,8 @@
         "ref": "Fixed SL/TP/timeout bracket; ict_scalp.monitor() only trails to break-even after 1R \u2014 no primary trailing stop to reshape. Same basis as ict_scalp_mgc_15m."
       },
       "stale_stop": {
-        "status": "pending",
-        "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). IS/OOS CANDIDATE (the only crypto leg to pass the pre-filter): stale8 IS +12.63R/OOS +0.26R and stale12 IS +8.09R/OOS +2.92R both beat baseline (+36.27R/256 IS, +12.82R/129 OOS) on net_R AND maxDD in both windows. **Yearly walk-forward (M20 gate, >=4/6 folds) running to confirm before any conclusion.** OOS edge is thin for stale8; stale12 stronger."
+        "status": "passed_unshipped",
+        "ref": "M27 crypto exit-lever sweep + walk-forward (2026-07-28, GitHub Actions runs 30384837775 IS/OOS + 30390499867 walk-forward). The ONLY lever to clear the full M20 gate across the whole ict_scalp family. Baseline +36.27R/256 (IS) / +12.82R/129 (OOS). Both cells pass: stale8 (IS +12.63R/OOS +0.26R) and stale12 (IS +8.09R/OOS +2.92R) beat baseline on net_R AND maxDD in both windows AND survive the yearly walk-forward 3/4 usable folds (2023/2024/2026 PASS, 2025 fail; 2021-22 skipped, thin data). MARGINAL: 4 usable folds only, one fails, stale8 OOS net_R edge negligible (value is a ~3R lower maxDD); stale12 the stronger. **Tier-3 proposal pending operator approval** \u2014 enforce stale_exit_bars in ict_scalp.monitor() + declare on the config/strategies.yaml ict_scalp_eth_15m block; NOT implemented autonomously. ib_paper-class paper leg (bybit_1)."
       },
       "giveback_stop": {
         "status": "honest_negative",
