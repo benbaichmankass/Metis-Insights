@@ -81,6 +81,22 @@ SCRIPT_NAME="pull_mes_ibkr_history.sh"
 # shellcheck source=scripts/ops/_lib.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lib.sh"
 
+# SELF-HEAL /dev/null BEFORE any redirect (BL-20260629-DEVNULL-* cluster).
+# ROOT-CAUSE (2026-07-28 system-review): this unit's recurring `failed` state is
+# NOT a MES-pipeline fault — the daily timer pull SUCCEEDS and keeps the MES base
+# fresh (verified in ibkr_mes_pull.jsonl). The `failed` runs are ad-hoc/off-timer
+# fires that land while the live VM's /dev/null is clobbered into a non-writable
+# regular file by the OCI host agent (docs/runbooks/devnull-guard.md): the
+# script's own `2>/dev/null` redirects AND the sourced `.venv/bin/activate`
+# (line 21) then error `Permission denied` under `set -e` → exit 1 → unit failed.
+# The #7635 per-timeframe-retry band-aid targeted a DIFFERENT, minor transient
+# (IBKR asyncio.TimeoutError) and never could have cleared this. Every other
+# clobber-cluster consumer already self-heals (deploy_pull_restart.sh,
+# _lib.sh::require_systemctl); this pull was the one that was missed. Call the
+# canonical helper here — best-effort `sudo -n` restore, idempotent no-op when
+# /dev/null is healthy — before the detach/nice re-exec and the venv source.
+heal_devnull || true
+
 REPO_ROOT="${REPO_ROOT:-/opt/ict-trading-bot}"
 VENV_DIR="${VENV_DIR:-$REPO_ROOT/.venv}"
 DATA_DIR="${DATA_DIR:-/data/bot-data}"
