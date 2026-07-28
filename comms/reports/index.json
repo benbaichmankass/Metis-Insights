@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260728-091200-since-last",
+      "window": "since-last",
+      "generated_at": "2026-07-28T09:12:00Z",
+      "window_start": "2026-07-27T08:10:05Z",
+      "window_end": "2026-07-28T09:12:00Z",
+      "roll_up_grade": "caution",
+      "headline": "CAUTION (plumbing-healthy since-last window; nothing new at money-risk, and real money edged POSITIVE). Services all active (trader ticking, fresh shadow scoring to 09:07Z), web-api up, all live accounts reachable, notifications clean (0 banners), prop reconcile clean. Real money +$0.49 in-window (3 closes: ict_scalp_5m BTC +$5.35 TP, trend_donchian -$1.04 SL, eth_pullback_2h -$3.82 SL; PF 1.10) - up from the prior window's -$3.75, still tiny dollars in a chop tape. Paper soak large & isolated (-$6,949/24h, big notionals). Grading ran fresh (19 order-packages: B6/C12/D1; the sole D is a PAPER htf leg, no real should_skip loss). ML healthy (trainer read confirmed): 2 cycles/24h rc=0, 92 builds OK / 0 failed, soaks accruing to 09:07Z, fc-pcv-v2 maturing toward its ~07-28 gate. Money-risk reduced this window: fvg_range_15m demoted live->shadow (#7792, operator-approved) - removed a -41R real-money bybit_2 route. Live flags (none money-risk): ict-mes-ibkr-pull.service still FAILED (MES base stale, #7635 fix didn't clear it); DIAG_BASE_URL stale (relay-only); alpaca_options_paper still 0 fills.",
+      "html_path": "comms/reports/since-last/20260728T091200Z/report.html",
+      "json_path": "comms/reports/since-last/20260728T091200Z/report.json",
+      "md_path": "comms/reports/since-last/20260728T091200Z/report.md"
+    },
+    {
       "id": "RPT-20260727-081005-since-last",
       "window": "since-last",
       "generated_at": "2026-07-27T08:10:05Z",
