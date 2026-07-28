@@ -816,7 +816,8 @@ strategies:
     model: null
     signal_prefixes: [fvg_range, fvg_mr]
     enabled: true
-    execution: shadow          # DEMOTED live -> shadow 2026-07-28 (Tier-3,
+    execution: shadow          # shadow-guard: allow — operator-approved demote 2026-07-28 (AskUserQuestion)
+                               # DEMOTED live -> shadow 2026-07-28 (Tier-3,
                                # operator-approved). Was promoted shadow->live +
                                # graduated to real-money bybit_2 on 2026-06-02;
                                # demoted back after review found it DORMANT live
