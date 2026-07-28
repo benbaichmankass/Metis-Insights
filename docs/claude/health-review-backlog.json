@@ -4687,7 +4687,7 @@
     {
       "id": "BL-20260629-DEVNULL-OCI-SOURCE-KILL",
       "title": "[infra root-source] stop the OCI host agent clobbering /dev/null on the live VM (the recurring source behind the guard + self-heals)",
-      "status": "kept_open",
+      "status": "fix_landed_monitoring",
       "opened_at": "2026-06-29T16:15:00+00:00",
       "opened_by": "claude (devnull incident follow-up 2026-06-29)",
       "snoozed_until": null,
@@ -4752,6 +4752,12 @@
           "by": "claude (/system-review)",
           "action": "culprit_identified",
           "note": "CULPRIT IDENTIFIED (2026-07-28, inspect run #7831). The clobber source is the Oracle Cloud Agent plugin **oci-wlp = 'Cloud Guard Workload Protection'** (agent.log: 'publicName Cloud Guard Workload Protection for plugin oci-wlp'; plugin present + running, snap.oracle-cloud-agent). This EXPLAINS why prior rounds 5-7 found the mode-strip invisible to host syscall auditing: a Cloud-Guard workload-protection/FIM agent operates outside the standard host chmod syscall path this box's auditd sees. CROSS-CONFIRM: the oracle unified-monitoring-agent is itself a VICTIM of the same clobber (unifiedmonitoring.log: 'service_unix.go:204: open /dev/null: permission denied' on 07-23/25/26/28) - a second independent process failing on the exact same EACCES, so /dev/null really is being clobbered, and oci-wlp (the FIM 'remediating' world-writable files) is the remaining unexplained mutator. DURABLE SOURCE-KILL = disable the 'Cloud Guard Workload Protection' plugin for the ict-bot-arm instance in the OCI Console (Instance details -> Oracle Cloud Agent tab -> toggle oci-wlp OFF) - a genuine OPERATOR/console action (not load-bearing for a trading VM). Until then the guard + per-consumer heal_devnull (now incl. the MES pull, this PR) keep every consumer resilient. /dev/null was healthy (crw-rw-rw- 0666) at inspect time; last node recreation Jul 26 12:11."
+        },
+        {
+          "at": "2026-07-28T10:50:00+00:00",
+          "by": "claude (/system-review wrap — doc-freshness)",
+          "action": "source_kill_applied_soaking",
+          "note": "SOURCE-KILL APPLIED + SOAKING (operator action). Operator disabled the 'Cloud Guard Workload Protection' (oci-wlp) plugin in the OCI Console for ict-bot-arm ~2026-07-28T10:00Z (the confirmed clobber culprit). VERIFIED at 10:42Z: /dev/null healthy (crw-rw-rw- 0666, inode unchanged since 07-26 12:11); NO `open /dev/null: permission denied` since 06:20Z (which predates the disable); oci-wlp plugin log silent since 07:57Z. Too early to declare dead (the clobber hit ~1-2x/day historically) -> SOAK-VERIFY over 24h+. NEXT REVIEW ACTION: if zero recurrence since 10:00Z -> resolve this item (source killed). If a clobber recurs -> the console toggle didn't propagate to the on-box agent; the bounded next step is an `oracle-cloud-agent` snap restart (Tier-2, operator-approved) so it reconciles the plugin-disable. Consumers stay resilient regardless via the guard + per-consumer heal_devnull (deploy, operator-actions, and now the MES pull)."
         }
       ],
       "updated_at": "2026-07-26T12:20:00Z",
@@ -4760,7 +4766,8 @@
         "BL-20260713-DEVNULL-RESTART-MISREPORT",
         "BL-20260716-DEVNULL-DEPLOY-PERM",
         "BL-20260706-PROP-REPORT-DEVNULL-NOISE"
-      ]
+      ],
+      "next_check": "next /health-review or /system-review: confirm ZERO `open /dev/null: permission denied` (unifiedmonitoring.log / ibkr_mes_pull.jsonl / guard journal) since 2026-07-28T10:00Z over a 24h+ window -> then resolve"
     },
     {
       "id": "BL-20260629-INTENT-REDUCE-CHURN-VERIFY",
@@ -6654,6 +6661,12 @@
           "by": "claude (/system-review MES-pipeline deep-dive)",
           "note": "ROOT-CAUSED (2026-07-28 deep-dive) + FIX SHIPPED. The `failed` unit state is NOT a MES-pipeline fault: the DAILY 23:30 timer pull SUCCEEDS (ibkr_mes_pull.jsonl 07-27T23:39 pull_end any_ok:1, 5m 41820 rows + 15m 13960 rows) — the MES base is FRESH, within the 5-day gate. The `failed` runs are ad-hoc/off-timer fires (journalctl: 17:25/04:59/06:09/06:20/07:24/08:07) that die on `/dev/null: Permission denied` (script `2>/dev/null` + sourced `.venv/bin/activate` line 21) — the OCI /dev/null-clobber cluster (BL-20260629), NOT the IBKR pull. #7635's per-timeframe-retry band-aid targeted a DIFFERENT minor transient and never could have cleared this. FIX: added the canonical `heal_devnull` self-heal to pull_mes_ibkr_history.sh (the one clobber-cluster consumer that sourced _lib.sh but never called it) — this PR. Monitoring for the unit to stop going `failed`; the true root remains BL-20260629-DEVNULL-OCI-SOURCE-KILL.",
           "action": "fix_landed"
+        },
+        {
+          "at": "2026-07-28T10:50:00+00:00",
+          "by": "claude (/system-review wrap — doc-freshness)",
+          "action": "unit_green_verified",
+          "note": "VERIFIED GREEN post-fix. After #7832 (heal_devnull) deployed via git-sync (git_sha 9741ae4a live-confirmed) + the operator's oci-wlp source-kill, ict-mes-ibkr-pull.service is INACTIVE (no longer `failed`) and a pull SUCCEEDED 2026-07-28T10:04-10:08Z (5m 25178 + 15m 14046 rows; one transient IBKR 15m timeout self-healed by the #7635 retry - the two fixes are complementary). Resolves the operator-visible symptom. Residual monitoring folds into the BL-20260629 /dev/null source-kill soak (this same window)."
         }
       ]
     },
@@ -6691,5 +6704,5 @@
       "resolved_at": "2026-07-27"
     }
   ],
-  "updated_at": "2026-07-28T09:47:00+00:00"
+  "updated_at": "2026-07-28T10:50:00+00:00"
 }
