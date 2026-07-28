@@ -777,13 +777,20 @@ strategies:
     # the breakout direction). Strategy code: src/units/strategies/fvg_range_15m.py;
     # validated harness: scripts/backtest_fvg_range.py.
     #
-    # STATUS: execution: live (PROMOTED 2026-06-02 from shadow). Operator policy:
-    # paper/demo accounts exist to TEST strategies, so a strategy routed only to a
-    # paper/demo accounts execute first for no-risk data. GRADUATED to
-    # real-money bybit_2 on 2026-06-02 (Tier-3, operator-approved:
-    # validated, OOS-robust, no overfit decay). Runs on bybit_1 (DEMO)
-    # AND bybit_2 (REAL money). Executes its order
-    # packages on real demo ticks to collect the live confirmation. Evidence
+    # STATUS: execution: shadow (DEMOTED live -> shadow 2026-07-28, Tier-3,
+    # operator-approved). History: PROMOTED shadow -> live 2026-06-02 then
+    # GRADUATED to real-money bybit_2 the same day on the backtest evidence below.
+    # DEMOTED back to shadow 2026-07-28 because the LIVE record is DORMANT and
+    # edgeless: diag (order-packages) shows ~1 decision, confidence ~0.11,
+    # target_qty=0 — it never actually executes a live order (so it was NOT
+    # bleeding real money — the -41R figure is a 5.2y BACKTEST sleeve result on
+    # non-live P1-book params, docs/claude/performance-review-backlog.json
+    # SRQ fvg_range_BTCUSDT_15m, not a live loss). Demoting to shadow removes the
+    # real-money (bybit_2) route for a no-edge dormant sleeve while keeping it
+    # logging order packages everywhere. Reversible (flip execution: shadow ->
+    # live). Still routed to bybit_1 (DEMO) AND bybit_2 (REAL money) in
+    # accounts.yaml, but SHADOW-gated so it places NO live order on either.
+    # Backtest evidence that drove the (now-reverted) 2026-06-02 promotion
     # (docs/audits/fvg-range-complement-2026-05-30.md), BTCUSDT 15m, net-of-fee,
     # 5.2y 2021-01..2026-02:
     #   * FULL 5y +24.4R, expectancy +0.363, win-rate 50.8%, max-DD 3.0R, 57%
@@ -802,16 +809,25 @@ strategies:
     # Coordinator.multi_account_execute). NOTE: this gate is GLOBAL across the
     # accounts a strategy routes to — live on a paper/demo-only strategy is safe,
     # but DO NOT set live on any strategy that also routes to a real-money account
-    # (it would execute there too). fvg_range_15m runs on bybit_1 (demo)
-    # AND bybit_2 (real money) as of 2026-06-02.
+    # (it would execute there too). fvg_range_15m is routed to bybit_1 (demo)
+    # AND bybit_2 (real money), but as of 2026-07-28 runs `execution: shadow`
+    # (below) so it places NO live order on either account — it only logs order
+    # packages for continued data collection.
     model: null
     signal_prefixes: [fvg_range, fvg_mr]
     enabled: true
-    execution: live            # PROMOTED shadow -> live 2026-06-02; GRADUATED to
-                               # real-money bybit_2 2026-06-02 (Tier-3, operator-
-                               # approved). Runs on bybit_1 (demo) AND bybit_2 (real).
-                              # STRATEGY_RISK_PCT fallback in src/runtime/pipeline.py.
-                              # Now live on bybit_1 (demo) AND bybit_2 (real money).
+    execution: shadow          # shadow-guard: allow — operator-approved demote 2026-07-28 (AskUserQuestion)
+                               # DEMOTED live -> shadow 2026-07-28 (Tier-3,
+                               # operator-approved). Was promoted shadow->live +
+                               # graduated to real-money bybit_2 on 2026-06-02;
+                               # demoted back after review found it DORMANT live
+                               # (near-zero-confidence signals, target_qty=0, no
+                               # executions) and its 5yr backtest sleeve at -41R
+                               # net on the P1 params. shadow = logs order packages
+                               # on bybit_1 (demo) AND bybit_2 (real) for data
+                               # collection but sends no live order. Reversible:
+                               # flip shadow -> live to restore. STRATEGY_RISK_PCT
+                               # fallback in src/runtime/pipeline.py.
     timeframe: "15m"          # served as Bybit 15m via CCXT.
     symbols:
       - BTCUSDT               # currently the only supported symbol

@@ -2096,8 +2096,16 @@
       "opened_at": "2026-07-28T05:30:00+00:00",
       "opened_by": "claude (Track-1 continuation session)",
       "source": "Operator directive (overnight Track-1 plan) + M27 P1 promotion evidence.",
-      "title": "[Tier-3] Ship the tested-unshipped M27 winners \u2014 XAUUSD 15m, GLD 1h (Alpaca), SOL/XRP 5m",
-      "description": "M27 P0/P1 validated these legs but they were never wired live. Evidence: docs/research/M27-P1-15m-findings-2026-07-22.md, M27-P1-15m-promotion-proposal-2026-07-22.md, M27-P0-batch4-xauusd-findings-2026-07-21.md, S-M27-ALTCOIN-PROMOTION-2026-07-21.md. Action = config/strategies.yaml (+ config/accounts.yaml routing) new legs \u2014 Tier-3, operator-approved merge. Confirm each against its M27 promotion packet before wiring. Proposed on board #6927 2026-07-28; NOT executed."
+      "title": "[Tier-3] M27 real-money graduation - status corrected: only SOL/XRP/AVAX/ETH 5m+15m paper legs are candidates (soak-gated); XAUUSD venue-blocked; no GLD ict_scalp leg exists",
+      "description": "CORRECTED 2026-07-28 after a field-check of the M27 evidence + live config (the original 'ship XAUUSD 15m / GLD 1h / SOL-XRP 5m' framing was over-optimistic). Reality per leg: (1) XAUUSD 15m - validated (k-fold 4/4, +44.35R net, M27-P0-batch4-xauusd-findings) but PROMOTION IS VENUE-BLOCKED, not evidence-blocked: no live-tradeable OANDA account for XAU_USD (OANDA US cannot trade it; oanda_practice shelved dry_run 2026-06-12, BL-20260611-007). Wiring it now = a dead leg (the fvg_range_15m failure mode). Needs a spot-gold-capable OANDA entity (operator credential) OR a native-15m MGC re-target study (untested; MGC 5m was rejected underpowered/gross-negative). (2) 'GLD 1h ict_scalp' - DOES NOT EXIST. The M27 equities/ETF batch (SPY/QQQ/IWM/TLT/GLD/SLV/GDX/USO/IEF, M27-P0-batch3-equities-findings) reached 'no verdict - severely underpowered' (1-15 trades/symbol on the yfinance ~60-day intraday cap); GLD passed nothing. The only GLD legs are gld_pullback_1d/_1h - a DIFFERENT (pullback) family already execution: live on alpaca_paper. Nothing to ship here. (3) SOL/XRP/AVAX 5m + XRP/ETH/SOL 15m - ALREADY execution: live on bybit_1 (paper). 'Shipping' = graduating to real-money bybit_2 (+ bybit_portfolio mirror), a SEPARATE Tier-3 gate contingent on: (a) PB-20260721-ICTSCALP-ALTCOIN-PAPER-SOAK-CHECK (live paper P&L matches the backtest - legs only wired 2026-07-21, likely thin), (b) a native-Bybit-15m confirmation pull for the 15m legs (P1 sweep resampled 5m shards), (c) scripts/prop/account_compat_matrix.py per leg x bybit_2. NET: nothing is a same-session real-money merge. Genuinely-actionable next step = the paper-soak check (Tier-1) once enough trades accrue; then a per-leg real-money proposal for operator approval.",
+      "updates": [
+        {
+          "at": "2026-07-28T06:20:00+00:00",
+          "by": "claude (Track-1 continuation session)",
+          "action": "corrected",
+          "note": "Field-checked against M27 findings + live config. Corrected the shippability premise: XAUUSD venue-blocked, GLD ict_scalp nonexistent, alt legs already-on-paper + soak-gated for real money."
+        }
+      ]
     },
     {
       "id": "SRQ-20260728-FVGRANGE-DEMOTE",
