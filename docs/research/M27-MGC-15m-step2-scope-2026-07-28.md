@@ -59,12 +59,17 @@ per contract.
   bps — the correct futures accounting.
 
 ```bash
-# Arm A — on the trainer, reusing the existing XAUUSD emit.json:
+# Arm A — on the trainer, reusing the existing XAUUSD artifacts.
+# kfold_oos.py consumes a PRE-DERIVED volspec (--volspec-15m); it has no
+# --derive-window (that flag lives on the volspec-derivation step). The
+# XAUUSD run already froze volspec_15m.json, so Arm A is a single re-score:
 python scripts/research/ict_scalp_phase0/kfold_oos.py \
+    --emit       /home/ubuntu/m27_out_xau/XAUUSD/emit.json \
+    --data       <xauusd_15m.csv> \
+    --volspec-15m /home/ubuntu/m27_out_xau/XAUUSD/volspec_15m.json \
     --folds 4 \
     --fee-usd-roundtrip 3.0 --contract-value-usd 10.0 \
-    --derive-window prefix:0.25 \
-    /home/ubuntu/m27_out_xau/XAUUSD/emit.json
+    --out /tmp/mgc_armA_kfold.json
 ```
 
 **Expectation:** the edge should survive comfortably — Batch-2 found the futures
@@ -90,17 +95,28 @@ trades). This is a directional sanity/tradability check, not the gate.
      path to a genuinely clean MGC series, and defer Arm B to that pull.
 
 ```bash
-# Arm B — once step-1 confirms the MGC 15m CSV path (flat-bar-filtered):
-python scripts/backtest_ict_scalp.py \
-    --timeframe 15m --symbol MGC \
+# Arm B — once step-1 confirms the MGC 15m CSV path (flat-bar-filtered).
+# Three stages (mirroring the XAUUSD rig): derive the MGC 15m volspec from the
+# data prefix, run the harness to emit trades, then k-fold with the pre-derived
+# volspec. The --derive-window lives on the volspec-derivation step, NOT kfold.
+python scripts/research/m27/run_symbol_p0.py \
+    --symbol MGC --timeframe 15m \
     --data <mgc_ibkr_15m_flatfiltered.csv> \
-    --stamp-regime --sim-breakeven
+    --derive-window prefix:0.2 --emit-out /tmp/mgc_emit.jsonl \
+    --volspec-out /tmp/mgc_volspec_15m.json
 python scripts/research/ict_scalp_phase0/kfold_oos.py \
+    --emit /tmp/mgc_emit.jsonl \
+    --data <mgc_ibkr_15m_flatfiltered.csv> \
+    --volspec-15m /tmp/mgc_volspec_15m.json \
     --folds 4 \
     --fee-usd-roundtrip 3.0 --contract-value-usd 10.0 \
-    --derive-window prefix:0.2 \
-    <emit.json>
+    --out /tmp/mgc_armB_kfold.json
 ```
+(If `run_symbol_p0.py`'s flags differ on the trainer, the equivalent two-step is
+`backtest_ict_scalp.py --timeframe 15m --symbol MGC --data … --stamp-regime
+--sim-breakeven` to emit + a volspec derivation, then the same kfold call — the
+invariant is: **kfold always takes `--emit/--data/--volspec-15m` + the cost
+flags, never a positional or `--derive-window`.**)
 
 Use the **15m vol label** for any regime cut (Batch-2: the 5m futures vol label
 is degenerate; 15m is healthy). XAUUSD passed **ungated baseline** anyway, so the
