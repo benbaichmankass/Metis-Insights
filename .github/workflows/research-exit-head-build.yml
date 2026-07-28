@@ -1,0 +1,248 @@
+name: research-exit-head-build
+
+# M30 × M20 — the per-bar in-trade EXIT-HEAD discovery run (dense-substrate fusion).
+#
+# The sibling of `research-panel-build.yml`, for the EXIT frontier. Where that
+# workflow builds the decision-time ENTRY panel (block-sparse feature vector, now
+# exhausted — Studies 7/8/9/10), this one builds the **dense** per-bar in-trade
+# EXIT panel (running MFE/MAE-R, dMAE/dt, bars-in-trade, dist-to-stop, giveback,
+# in-trade vol, taker-imbalance OFI) + the triple-barrier/time-stop hold-vs-exit
+# meta-label, and trains the take/skip exit head under uniqueness-weighted grouped
+# purged WF-CV, grading it net-of-fee (deflated Sharpe). The panel is dense by
+# construction, so the OOS multivariate pass runs at scale — the structural escape
+# from the block-sparsity wall.
+#
+# Same off-trainer economics as research-panel-build: a GitHub-hosted runner
+# (4 vCPUs, up to ~5.5h, $0 on this public repo) FETCHES the feed from Binance's
+# public archive (keyless, globally reachable — Bybit geoblocks US GH-runners),
+# builds, analyzes, uploads, and posts the verdict. No VM, no trainer contention,
+# no relay cap, no GPU.
+#
+# The feed fetch now preserves `taker_buy_base` (Binance-vision field 9) so the
+# taker-imbalance OFI feature is dense on the run (it is None → dropped only on a
+# feed without the taker split).
+#
+# Triggers:
+#   1. workflow_dispatch — operator clicks "Run workflow"
+#   2. issues.opened with label `research-exit-head-request` (owner-guarded)
+#
+# Issue body (optional, all keys have defaults):
+#   harness: ict_scalp          # ict_scalp | backtest_system
+#   symbol: BTCUSDT
+#   timeframe: 5m
+#   days: 2200
+#   time_stop_bars: 12          # the vertical barrier / time-stop
+#   tp_r: 2.0                   # the upper barrier profit target in R
+#   exit_threshold: 0.5         # P(hold) below which the head exits
+#
+# Safety: READS the repo + fetches public candles + runs the strategy unit on
+# historical data. It does not push, deploy, or touch config/strategies.yaml. A
+# discovered exit edge routes through the M20 net-of-cost backtest gate + Tier-3
+# before any live surface (observe-only).
+
+on:
+  workflow_dispatch:
+    inputs:
+      harness:
+        description: "Backtest harness (ict_scalp | backtest_system)"
+        default: "ict_scalp"
+      symbol:
+        description: "Symbol to fetch + backtest"
+        default: "BTCUSDT"
+      timeframe:
+        description: "Strategy timeframe label"
+        default: "5m"
+      days:
+        description: "Trailing days of candles to fetch (~2200 = ~6y of 5m)"
+        default: "2200"
+      time_stop_bars:
+        description: "Vertical barrier / time-stop (bars forward from the decision bar)"
+        default: "12"
+      tp_r:
+        description: "Upper-barrier profit target in R"
+        default: "2.0"
+      exit_threshold:
+        description: "P(hold) below which the head exits now"
+        default: "0.5"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: research-exit-head-build-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'research-exit-head-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse issue body
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          get() { printf '%s' "${ISSUE_BODY}" | grep -m1 -i "^$1:" | awk '{print $2}' || true; }
+          HARNESS=$(get harness);      [ -z "${HARNESS}" ] && HARNESS="ict_scalp"
+          SYMBOL=$(get symbol);        [ -z "${SYMBOL}" ] && SYMBOL="BTCUSDT"
+          TIMEFRAME=$(get timeframe);  [ -z "${TIMEFRAME}" ] && TIMEFRAME="5m"
+          DAYS=$(get days);            [ -z "${DAYS}" ] && DAYS="2200"
+          TSB=$(get time_stop_bars);   [ -z "${TSB}" ] && TSB="12"
+          TPR=$(get tp_r);             [ -z "${TPR}" ] && TPR="2.0"
+          THR=$(get exit_threshold);   [ -z "${THR}" ] && THR="0.5"
+          # sanity-validate so a malformed body can't inject args
+          printf '%s' "${HARNESS}" | grep -qE '^(ict_scalp|backtest_system)$' || HARNESS="ict_scalp"
+          printf '%s' "${SYMBOL}" | grep -qE '^[A-Z0-9]+$' || SYMBOL="BTCUSDT"
+          printf '%s' "${TIMEFRAME}" | grep -qE '^[0-9]+[mhdMHD]$' || TIMEFRAME="5m"
+          printf '%s' "${DAYS}" | grep -qE '^[0-9]+$' || DAYS="2200"
+          printf '%s' "${TSB}" | grep -qE '^[0-9]+$' || TSB="12"
+          printf '%s' "${TPR}" | grep -qE '^[0-9.]+$' || TPR="2.0"
+          printf '%s' "${THR}" | grep -qE '^[0-9.]+$' || THR="0.5"
+          { echo "eh_harness=${HARNESS}"; echo "eh_symbol=${SYMBOL}";
+            echo "eh_timeframe=${TIMEFRAME}"; echo "eh_days=${DAYS}";
+            echo "eh_tsb=${TSB}"; echo "eh_tpr=${TPR}"; echo "eh_thr=${THR}"; } >> "$GITHUB_ENV"
+
+      - name: Set params from dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          { echo "eh_harness=${{ inputs.harness }}"; echo "eh_symbol=${{ inputs.symbol }}";
+            echo "eh_timeframe=${{ inputs.timeframe }}"; echo "eh_days=${{ inputs.days }}";
+            echo "eh_tsb=${{ inputs.time_stop_bars }}"; echo "eh_tpr=${{ inputs.tp_r }}";
+            echo "eh_thr=${{ inputs.exit_threshold }}"; } >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas pyyaml requests
+
+      - name: Fetch feed (Binance public archive — with taker_buy_base for the OFI feature)
+        env:
+          BACKTEST_FEED_SOURCE: binance_vision
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          case "${eh_timeframe}" in
+            *m) INT="${eh_timeframe%m}" ;;
+            1h) INT=60 ;; 2h) INT=120 ;; 4h) INT=240 ;;
+            1d|1D) INT=D ;; *) INT="${eh_timeframe}" ;;
+          esac
+          echo "timeframe=${eh_timeframe} -> interval=${INT}"
+          python scripts/ops/fetch_backtest_candles.py \
+            --symbol "${eh_symbol}" --interval "${INT}" --days "${eh_days}" \
+            --output "data/eh_feed.csv"
+          echo "feed rows: $(wc -l < data/eh_feed.csv)"; head -2 data/eh_feed.csv
+
+      - name: Build the per-bar in-trade exit panel
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/research
+          /usr/bin/time -v python scripts/research/build_intrabar_exit_panel.py \
+            --harness "${eh_harness}" --data "data/eh_feed.csv" \
+            --symbol "${eh_symbol}" --timeframe "${eh_timeframe}" \
+            --time-stop-bars "${eh_tsb}" --tp-r "${eh_tpr}" \
+            --out artifacts/research/exit_panel.jsonl 2> artifacts/research/build_time.txt || true
+          echo "=== manifest ==="
+          python -c "import json;m=json.load(open('artifacts/research/exit_panel.jsonl.manifest.json'));print({k:m.get(k) for k in ('row_count','trades_used','base_hold_rate','dense_feature_cols','error')})" || true
+          tail -3 artifacts/research/build_time.txt || true
+
+      - name: Analyze the exit head
+        run: |
+          set -euo pipefail
+          python scripts/research/analyze_exit_head.py \
+            --panel artifacts/research/exit_panel.jsonl \
+            --exit-threshold "${eh_thr}" \
+            --out artifacts/research/exit_head.json || true
+
+      - name: Summarize verdict
+        run: |
+          set -euo pipefail
+          python - <<'PYEOF' | tee artifacts/research/VERDICT.md
+          import json
+          def load(p):
+              try: return json.load(open(p))
+              except Exception: return {}
+          m = load("artifacts/research/exit_panel.jsonl.manifest.json")
+          r = load("artifacts/research/exit_head.json")
+          reg = r.get("regression", {}); pol = r.get("exit_policy", {}); v = r.get("verdict", {})
+          fdr = r.get("fdr", {})
+          L = ["# M30×M20 exit-head verdict", ""]
+          L.append(f"- panel: **{m.get('harness')}** · rows **{m.get('row_count')}** from "
+                   f"{m.get('trades_used')} trades ({m.get('rows_per_trade')}/trade) · "
+                   f"base hold rate {m.get('base_hold_rate')} · dense feats {len(m.get('dense_feature_cols') or [])}")
+          lc = m.get("label_config", {})
+          L.append(f"- label: triple-barrier time_stop={lc.get('time_stop_bars')} tp_r={lc.get('tp_r')} cost_r={lc.get('cost_r')}")
+          L.append("")
+          L.append("## OOS discrimination (take/skip, uniqueness-weighted, grouped purged WF-CV)")
+          if reg.get("computed"):
+              L.append(f"- **OOS AUC {reg.get('oos_auc')}** · by fold {reg.get('oos_auc_by_fold')} "
+                       f"({reg.get('folds_above_half')}/{reg.get('n_folds_used')} > 0.5)")
+              if reg.get("oos_r2_advantage") is not None:
+                  L.append(f"- OOS R² (advantage/size head) {reg.get('oos_r2_advantage')}")
+              L.append(f"- top importances: {reg.get('permutation_importance_ranked', [])[:5]}")
+          else:
+              L.append(f"- not computed: {reg.get('note')}")
+          L.append(f"- FDR survivors: {fdr.get('survivors') or 'none'}")
+          L.append("")
+          L.append("## Net-of-fee exit-policy vs the fixed SL/TP")
+          if pol.get("computed"):
+              L.append(f"- **mean net-R improvement {pol.get('mean_net_r_improvement')}** "
+                       f"(head {pol.get('mean_head_r')} vs base {pol.get('mean_baseline_r')} over "
+                       f"{pol.get('n_policy_trades')} trades; {pol.get('pct_trades_early_exited')}% early-exited)")
+              L.append(f"- head Sharpe {pol.get('head_sharpe')} · PSR {pol.get('head_psr')}")
+          else:
+              L.append(f"- not computed: {pol.get('note')}")
+          L.append("")
+          if v:
+              L.append(f"## VERDICT — clears_bar: **{v.get('clears_bar')}**  "
+                       f"(a: AUC>0.55 stable = {v.get('criterion_a_oos_auc_gt_0_55_stable')}; "
+                       f"b: net-R>0 = {v.get('criterion_b_net_r_improvement_positive')})")
+              L.append(f"> {v.get('note')}")
+          print("\n".join(L))
+          PYEOF
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: exit-head-${{ github.run_id }}
+          path: |
+            artifacts/research/exit_panel.jsonl
+            artifacts/research/exit_panel.jsonl.manifest.json
+            artifacts/research/exit_head.json
+            artifacts/research/VERDICT.md
+            artifacts/research/build_time.txt
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Comment verdict on issue
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '_(verdict not produced)_';
+            try { body = fs.readFileSync('artifacts/research/VERDICT.md', 'utf8'); } catch (e) {}
+            const footer = '\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 60000) + footer,
+            });
