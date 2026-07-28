@@ -49,6 +49,7 @@ config change (that is Tier-3, operator-gated).
 | 6 | **Platform · backtest substrate** (C1-for-backtests) — the PIVOT, NOT a live finding | full ict_scalp decision-time vector (sweep/fvg/displacement/mitigation/regime/adx/htf-gate) + native MFE/MAE/giveback | `win` + `r` + excursions | `build_backtest_panel.py` (new bridge) → the **existing** C2 analyzer unchanged, purged WF-CV + BH-FDR | `platform_built` — the backtest bridge produces a **feature-RICH** panel: on ict_scalp it emits **9 feature columns** (sweep_depth_atr, fvg_size_atr, displacement_strength, adx_14, confidence, mitigation_mode, regime, setup_type, htf_bias gate) vs the live journal's **2** for the same strategy — Study 2's binding feature-capture-breadth constraint is **solved on this substrate** — plus full excursion outcomes (mfe_r/mae_r/giveback_r/capture_ratio/…) at 100% coverage. C2 reads it unchanged: leakage `clean:true`, `manifest_asserted:true`, both `--outcome win` and `--outcome giveback_r` run. **No discovery result yet:** the committed candle sample (`data/backtest_candles.csv`, 5k bars) yields only ~4 ict_scalp trades — a large-N run needs the full 5m feed (VM-side / a fetched history). | **The substrate change is the whole game.** The prior 5 studies nulled because discovery ran on the row-starved, block-sparse ~376-row journal (M18 coin-flip prior binding). The backtest gives large N *and* live-faithful features (it calls the live `order_package` per bar) *and* MFE/MAE for free — the three things the journal couldn't. This is a *platform* entry (like Entry 0), not a live finding: it proves the bridge is wired and C2-clean end-to-end. The first real discovery run is gated only on a large candle feed. |
 | 7 | **`ict_scalp_5m` · backtest** — 282 simulated trades on ~1.4yr real 5m BTCUSDT (VM-side, relay #7747) | the 9-col decision-time vector (sweep_depth/fvg_size/displacement/adx/confidence + mitigation/regime/setup_type cats + htf gate) | `win` + `r` + `giveback_r` | C1-for-backtests bridge → C2, purged WF-CV (5 folds), BH-FDR α=0.1 | **NULL on a POWERED sample — the first real out-of-sample null the platform has produced.** 282 trades (vs 13 real ict_scalp in the journal — ~20×); the multivariate + OOS pass **actually runs** (`regression: computed`, not the "0 complete-case rows / not_computed" of Studies 1–4). **No FDR survivor** on any outcome. OOS: **`win` AUC 0.443** (folds [0.49, 0.38, 0.42, 0.34, 0.59] — below chance), **`giveback_r` R² −0.177** (all folds negative), **`r` R² −0.063** — all **fail (b)**. Permutation importances ≈0/negative across the board; `feat_confidence` high-VIF (redundant); interaction leads tiny (~0.03). | **The substrate delivers, and the honest answer is a clean null.** For the first time discovery ran on a **powered** panel where the OOS pass computed — and ict_scalp's decision-time **entry** features are **~coin-flip out-of-sample** (`win` AUC 0.44 < 0.5), directly **confirming the platform's load-bearing prior** ("entries are ~coin-flip; edge lives in exit/regime") on 282 trades. The **exit-timing** angle (`giveback_r`) also nulls **at this N** — but 282 is still modest (~1.4yr); the exit prior is not refuted, just untested at scale. Next turns: the **full 647k-bar feed** (~1200 trades) + **per-regime-cell** conditioning + **more strategies** (system/vwap adapters). |
 | 9 | **`ict_scalp_5m` · backtest + intrabar-microstructure** — 1194 trades on ~6yr real 5m BTCUSDT (Binance-vision feed, GH-runner #30301233871, 2026-07-27) | the 9-col geometry vector **+ 5 intrabar-OHLCV-shape `feat_ms_*`** (realized-vol, RV term-structure, lag-1 return autocorr, close-in-range position, volume z-score — same PIT math as the S0/S2 `microstructure_probe`) | `win` + `mae_r` + `time_to_mfe_frac` + `giveback_r` + `capture_ratio` + per-regime | `build_backtest_panel --microstructure` → C2, purged WF-CV (5 folds), BH-FDR α=0.1, m=14 | **NULL on direction; the microstructure signal is on the VOLATILITY/EXCURSION axis, not entry.** `win` OOS AUC **0.5298, no FDR survivor** — the ms features add **zero** directional entry edge, AND being noise-on-win they raised the FDR denominator and **washed out Study 8's thin `cat_regime` win survivor** (0.555 @ m=9 → 0.530 @ m=14). But `feat_ms_{volume_zscore,realized_vol,ret_autocorr_lag1,rv_term_structure}` ARE univariate-FDR survivors on **`mae_r`** (+ adx, cat_regime) and **`time_to_mfe_frac`** (+ sweep_depth) — the risk/excursion outcomes — though multivariate OOS R² ≈ 0 (association, not prediction). Exits still firmly null multivariate (`giveback_r` −0.13, `capture_ratio` −3.12). | **Empirically confirms the external microstructure literature on our own data: intrabar OHLCV shape carries MAGNITUDE (volatility/regime), NOT DIRECTION** (Frontiers-in-Blockchain 2026: range/vol proxies most-robust; OFI-class dies as entries). Two dispositions: (1) **microstructure features made OPT-IN (default off)** in `build_backtest_panel` — they belong on regime/exit/vol-sizing studies, never blanket-added to entry-discovery (where they dilute). (2) The real free-microstructure add the literature points at is **taker buy/sell volume imbalance** (already in the klines payload) — untested here, queued. |
+| 10 | **Whole roster · `backtest_system`** — 1574 simulated trades on ~6yr real 5m BTCUSDT (Binance-vision feed, GH-runner #30303698142, 2026-07-27) | the pooled cross-roster panel: every roster strategy's own decision-time vector (9 feature cols total, block-sparse by strategy) | `win` + `giveback_r` + `mae_r` + `time_to_mfe_frac` + per-regime | `build_backtest_panel --harness backtest_system --stamp-regime` → C2, purged WF-CV (5 folds), BH-FDR α=0.1, m=9 | **NULL / INCONCLUSIVE — Study 8's `cat_regime` entry edge does NOT replicate at roster scale; the whole-roster substrate reproduces the block-sparsity wall.** 1574 trades but **0 complete-vector rows across the 6 graded feats on EVERY outcome** → multivariate + OOS **not computed** anywhere (exactly the pooled live-journal Studies 1/3/4 failure, now on the backtest substrate — each roster strategy instruments its own columns, so listwise-complete cases collapse to zero when pooled). FDR **univariate**-only survivors: `win` → `['feat_confidence']` (NOT `cat_regime`); `mae_r`/`giveback_r`/`time_to_mfe_frac` → `feat_confidence`/`cat_setup_type`/`feat_displacement_strength`/`feat_adx_14` — association, no OOS. **Per-regime conditioning was inoperative**: the `cat_regime` partition collapsed to a single `∅missing` cell for all 1574 rows — the `--stamp-regime` label the single-strategy ict_scalp adapter carries is **not emitted per-row by the `backtest_system` portfolio adapter** (an infra gap, queued). | **Pooling grows N, not the complete-case count the multivariate needs — the SAME lesson as Studies 1–4, now confirmed on the backtest substrate.** Study 8's thin stable `cat_regime` edge is a property of the **dense single-strategy** ict_scalp panel (9 cols, all populated), not a roster-wide effect: cross-strategy pooling destroys the density. So the `backtest_system` whole-roster adapter is **not a valid multivariate-discovery substrate as-is** — it needs a per-strategy common-core `--features` restriction, or per-strategy sweeps, **and** the per-row regime-stamp fix on the portfolio adapter. **This is the decisive motivation for the centerpiece:** the block-sparse *decision-time* feature wall is escaped only by a **dense-by-construction** panel — the per-bar in-trade EXIT features (running MFE/MAE-R, dMAE/dt, bars-in-trade, dist-to-stop, giveback), populated on EVERY row, so the OOS multivariate pass finally runs at scale. |
 | 8 | **M36 Track D** — substrate broadened + full exit-outcome sweep + M16 backbone (2026-07-27) | (tooling) `backtest_system` portfolio adapter + per-regime-cell C2b driver | full excursion set (`giveback_r`/`capture_ratio`/`mae_r`/`time_to_mfe_frac`) + per-regime `win` | **1525 trades** (full 647k feed, detached #7761 → read-back #7763); tooling #7752; infra #7764 | **POWERED result — the story flips from Study 7.** `win`: **FDR survivor `cat_regime`, OOS AUC 0.538, all 5 folds > 0.5** — a thin but STABLE regime-conditioned ENTRY edge at scale (Study 7's 0.443 at N=282 was noise), **concentrated in chop (0.551)** vs trending/transitional (~0.51). Exit outcomes: `giveback_r` R² −0.03 / `capture_ratio` −1.47 = **firmly NULL**; `mae_r`/`time_to_mfe` have thin univariate FDR survivors (cat_regime/adx, sweep_depth) but ~0 multivariate OOS. So "entries are pure coin-flip" is too strong (a thin regime-conditioned entry signal exists), while "edge lives in EXIT" is **not** supported from decision-time features. First FDR-surviving OOS lead on real powered volume. | **M30 becomes the integration backbone.** The tooling broadens discovery past one strategy + adds the per-regime lens; the entry edge is a **regime/FVG/ADX-conditioned ENTRY**, not an exit overlay — the next look. **Phase 2:** M30 panels feed the **M16 conviction master model** as `source="backtest"` training rows (`conviction_meta` `source_mode` axis + `conviction-meta-v1-bt` manifest, #7756) — the design-§4.5 augmentation that escapes the ~99-live-label T0.3 bottleneck. **Infra:** bounded relays all timed out → the stable fix is the self-contained GH-runner `research-panel-build` workflow (#7764), NOT GPU (CPU-bound replay). Observe-only; Tier-3 to influence. |
 
 ### Study 1 detail — pooled real-book first pass (2026-07-27)
@@ -483,6 +484,80 @@ plus an augmented `conviction-meta-v1-bt` manifest at `candidate`. This escapes 
 candidate → shadow → advisory before any influence (Tier-3). Design of record:
 [`m30-to-m16-integration-backbone-DESIGN.md`](m30-to-m16-integration-backbone-DESIGN.md).
 
+### Study 10 detail — whole-roster `backtest_system` regime discovery (2026-07-28)
+
+The question Study 8 left open: its thin, stable `cat_regime` entry edge (OOS AUC
+0.538 at N=1525) was found on the **single-strategy** ict_scalp panel — does it
+**generalize across the roster**? Run via the stable off-trainer
+`research-panel-build` GH-runner workflow (dispatch, run **#30303698142**;
+`harness=backtest_system`, symbol BTCUSDT, tf 5m, days 2200, outcomes
+`win,giveback_r,mae_r,time_to_mfe_frac`, cell `cat_regime`), which drives the
+WHOLE roster through the real `aggregate_intents` on one shared account so each
+simulated closed trade carries its winning strategy + that strategy's
+decision-time `meta`.
+
+**Panel.** **1574 simulated trades**, 100% excursion coverage, 9 feature columns
+(the union across the roster — block-sparse: each strategy instruments only its
+own subset).
+
+**Criterion (b) — OOS discrimination: NOT COMPUTED on any outcome.** Every
+outcome (`win`/`giveback_r`/`mae_r`/`time_to_mfe_frac`) returned
+`not computed — only 0 complete-vector rows for 6 features`. This is the **pooled
+block-sparsity collapse of Studies 1/3/4**, reproduced on the backtest substrate:
+1574 trades is plenty of rows, but no single trade carries all 6 graded features
+(a trend trade has no FVG geometry, an ict_scalp trade has no fade-ADX, …), so
+the **listwise-complete-case count is zero** and the multivariate/OOS pass cannot
+run. Univariate BH-FDR still runs (it tolerates sparsity per-feature):
+
+| Outcome | FDR univariate survivors |
+|---|---|
+| `win` | `feat_confidence` **only** (NOT `cat_regime`) |
+| `mae_r` | `feat_confidence`, `feat_adx_14`, `cat_setup_type` |
+| `giveback_r` | `feat_confidence`, `cat_setup_type`, `feat_displacement_strength` |
+| `time_to_mfe_frac` | `cat_setup_type`, `feat_confidence`, `feat_displacement_strength` |
+
+**Per-regime conditioning was inoperative.** The `analyze_panel_by_cell`
+partition on `cat_regime` collapsed to a **single `∅missing` cell** holding all
+1574 rows: the `backtest_system` portfolio adapter does **not** stamp the
+decision-time regime label per-row the way the single-strategy ict_scalp adapter
+does under `--stamp-regime`, so there was no regime axis to partition on. (Infra
+gap, queued below — the fix is to thread the per-row regime stamp through the
+portfolio adapter's `_ClosedTrade → meta`, the same thread the M36 Track-D
+tooling flagged.)
+
+**Verdict — NULL / inconclusive-for-generalization, and it is a *meaningful*
+null.** Study 8's `cat_regime` win survivor **does not even appear** in the
+whole-roster univariate FDR set (only `feat_confidence` does), and the
+multivariate OOS pass that could confirm/deny it **cannot run** on the pooled
+panel. So the honest answer to "does the regime-conditioned entry edge
+generalize across the roster?" is: **we cannot show that it does on this
+substrate, and there is positive evidence the pooled substrate is the wrong tool
+for the question** — Study 8's edge is a property of the *dense single-strategy*
+panel, and cross-strategy pooling destroys the density the OOS pass needs.
+
+**Dispositions (the compounding yield):**
+
+1. **The whole-roster `backtest_system` adapter is not a valid multivariate
+   substrate as-is.** To make roster-wide discovery work it needs a per-strategy
+   common-core `--features` restriction (the dense strategy-agnostic cols:
+   `feat_confidence`, `feat_adx_14`, `cat_regime`/`cat_setup_type`) OR per-strategy
+   sweeps (each strategy's own dense panel, floor-gated) — never a blind pooled
+   multivariate.
+2. **Fix the portfolio adapter's per-row regime stamp** so `cat_regime` (and
+   `cat_vol_regime`) are populated per closed trade, enabling the per-cell lens.
+   Queued as a tooling follow-up (mirrors the ict_scalp adapter's `--stamp-regime`
+   path).
+3. **This is the decisive case FOR the centerpiece.** The block-sparse
+   *decision-time* feature wall — which has now nulled discovery on the live
+   journal (Studies 1/3/4) AND on the pooled backtest substrate (Study 10) — is
+   escaped only by a **dense-by-construction** panel. The **per-bar in-trade EXIT
+   panel** (running MFE/MAE-R, dMAE/dt, bars-in-trade, dist-to-stop, giveback,
+   in-trade vol) is populated on **every** row of **every** trade, so the OOS
+   multivariate pass finally runs at scale — the structural fix, not another
+   discovery pass on a block-sparse cut.
+
+Tier-1, observe-only; no order-path or config touch.
+
 ### Task 2 — L3 paper-ledger volume audit: root cause found (2026-07-27)
 
 Study 1 flagged the paper eval cohort at only ~235 rows — "implausibly low for
@@ -683,12 +758,20 @@ python scripts/research/sweep_research_panels.py \
      scoping doc's Study #2).
   3. **More adapters** — `backtest_system.py` (portfolio-realistic, needs the
      `_ClosedTrade`→meta thread) + `run_backtest_vwap.py` (vwap).
-- **More adapters** — `backtest_system.py` (portfolio-realistic, netted; needs the
-  `_ClosedTrade`→meta/confidence/entry_idx thread the harness map flagged) and
-  `run_backtest_vwap.py` (live `build_vwap_signal`, vwap-only). Both call the live
-  builder → feature-rich. The three inline-entry harnesses (trend/fade/squeeze) +
-  `ICTBacktester` are feature-poor (confidence-only) → excursion-only studies at
-  best; not wired.
+- **More adapters** — `backtest_system.py` — **wired + run DONE** (Study 10 above):
+  the whole-roster portfolio adapter builds 1574 trades, but the pooled panel is
+  **block-sparse** (each roster strategy instruments its own columns → 0
+  complete-case rows → multivariate/OOS not computed) — so it is **not a valid
+  multivariate substrate as-is**. Two open tooling follow-ups fall out: (a) restrict
+  the pooled fit to a per-strategy common-core via `--features`, or run per-strategy
+  sweeps; (b) **thread the per-row regime stamp through the portfolio adapter's
+  `_ClosedTrade → meta`** so `cat_regime`/`cat_vol_regime` are populated per closed
+  trade (Study 10's per-cell partition collapsed to a single `∅missing` cell —
+  the portfolio adapter doesn't stamp regime per-row the way the ict_scalp adapter
+  does under `--stamp-regime`). `run_backtest_vwap.py` (live `build_vwap_signal`,
+  vwap-only) remains the unwired adapter. The three inline-entry harnesses
+  (trend/fade/squeeze) + `ICTBacktester` are feature-poor (confidence-only) →
+  excursion-only studies at best; not wired.
 - **L3 paper-ledger volume** — **DONE** (Task 2 above): the L3 writer works as
   designed (all soak books admitted); the paper cohort is bounded by genuine
   closed-yield (~477 paper closed, 219 clean), not a filter bug. Live+paper top out
