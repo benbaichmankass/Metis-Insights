@@ -71,6 +71,9 @@ def test_registry_roster_is_exactly_turtle_soup_and_vwap():
         # M27 P1 15m alt legs (2026-07-22, Tier-3, operator-approved) — sorted
         # positions interleave with the 5m legs.
         "ict_scalp_eth_15m",
+        # M27 gold re-target (2026-07-28, Tier-3, operator-approved) — MGC 15m
+        # ict_scalp on ib_paper (paper), ungated; sorts between eth_15m and sol_15m.
+        "ict_scalp_mgc_15m",
         "ict_scalp_sol_15m",
         "ict_scalp_sol_5m",
         "ict_scalp_xrp_15m",

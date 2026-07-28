@@ -112,6 +112,13 @@
    "summary": "New leg wired execution: live on bybit_1 (DEMO/paper) only. SOLUSDT 15m — M27 P1: baseline 3/4 OOS folds +26.47R (exp 0.075), the strongest baseline of the three P1 legs. Same ict_scalp setup params; only timeframe differs. Shipped ungated. Runs alongside ict_scalp_sol_5m. Native-15m confirmation pull required before real-money. NOT routed to real-money (separate Tier-3 gate). Regime coverage: exempt."
   }
  ],
+ "ict_scalp_mgc_15m": [
+  {
+   "date": "2026-07-28",
+   "ref": "M27 gold re-target (M27-P0-MGC-15m-findings-2026-07-28, PB-20260728-ICTSCALP-GOLD-GATE-CONFIG) — Tier-3, DRAFT PR, operator approval pending",
+   "summary": "New leg wired execution: live on ib_paper (IBKR PAPER money) only — the venue-blocked XAUUSD 15m ict_scalp winner re-targeted onto MGC micro-gold futures, live-tradeable on ib_paper (same venue/contract/whole-contract sizing as mgc_trend_1h / mgc_pullback_1d). Config-exact copy of ict_scalp_5m params; only timeframe (15m) + symbol ([MGC]) differ. Shipped UNGATED (no min-confidence filter, no off_cells): a deep 4-fold walk-forward on the powered Dukascopy spot-XAU proxy under MGC per-contract economics ($3/contract RT) replicates the ungated edge (baseline +41.09 net-R, exp-R +0.094, 3/4 folds — real but modest, expect fold-1-type drawdowns); the fitted-confidence gate was found fragile/counterproductive so it is NOT used. MGC's own IBKR history (~1yr) is too thin to power a native-15m walk-forward, so the powered proxy carries the offline promote decision. Paper soak is MECHANICS-ONLY (edge decided offline; early losing paper trades are variance, not a demotion). NOT routed to real-money ib_live (separate later Tier-3 gate). Regime coverage: exempt (no MGC/15m regime head trained)."
+  }
+ ],
  "fvg_range_15m": [
   {
    "date": "2026-07-28",

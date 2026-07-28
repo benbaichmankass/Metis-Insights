@@ -74,6 +74,19 @@ exempt:
       M27 P1 15m net-of-fee k-fold passed (baseline 3/4 folds +26.47R;
       off_cells 2/4 — baseline is the stronger config). Ungated. No live regime
       head for SOLUSDT/15m. bybit_1 paper soak (operator-approved 2026-07-22).
+  ict_scalp_mgc_15m:
+    tracking_id: PB-20260728-ICTSCALP-GOLD-GATE-CONFIG
+    added: '2026-07-28'
+    reason: >-
+      M27 gold re-target — MGC 15m ict_scalp on ib_paper (IBKR paper). Deep
+      4-fold walk-forward on the powered Dukascopy spot-XAU proxy under MGC
+      per-contract economics ($3/contract RT) passed UNGATED (baseline +41.09
+      net-R, exp-R +0.094, 3/4 folds); the fitted-confidence gate was found
+      fragile/counterproductive so the leg ships ungated. No live regime head is
+      trained for MGC/15m, so a config/regime_policy.yaml cell would resolve
+      vol_regime="unknown" and silently never fire. ib_paper mechanics-only soak
+      (Tier-3, operator-approved 2026-07-28); revisit once an MGC 15m regime head
+      is registered. Evidence: docs/research/M27-P0-MGC-15m-findings-2026-07-28.md.
 
 # Live strategies with NO description entry are tracked here so the guard's
 # description check passes while the copy is written. Empty = all have descriptions.
