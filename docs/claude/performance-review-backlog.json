@@ -2077,6 +2077,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26: research/experiment follow-up, not started or awaiting data/compute this window. Carried."
+        },
+        {
+          "at": "2026-07-28T07:40:00+00:00",
+          "by": "claude (Track-1 continuation session)",
+          "action": "soak_read_too_thin",
+          "note": "First soak read (7 days post-wiring, 2026-07-21 -> 07-28), trainer synced journal (data/trade_journal.db, fresh to 03:00Z). Resolved CLOSED trades per leg on bybit_1 paper: avax_5m n=5 (40% win, net -2263.81 demo$), xrp_5m n=5 (20%, -2151.94), sol_5m n=2 (0%, -2170.29), xrp_15m n=2 (0%, -2284.86), sol_15m n=1 (100%, +708.40), eth_15m n=0 (1 open). ~15 resolved closed total; 1 null-pnl unresolved per leg. VERDICT: WAY too thin to graduate to real-money bybit_2 -- 1-5 trades/leg vs the M27 backtest's hundreds; win rates 0-40% are noise at this N. Early lean is mildly NEGATIVE (4/5 legs net-negative in demo $), NOT confirming the backtest expectancy -- a watch signal, not an act signal. Legs fire ~2-3 closed/leg/week, so a decision-grade sample (~30-50/leg) is WEEKS out. RE-CHECK in ~2-3 weeks (target ~2026-08-18) before any real-money proposal; if the negative lean persists as N grows, investigate the live==backtest gap (fees/slippage/sizing/concurrent-same-symbol exposure) rather than promoting."
         }
       ]
     },
