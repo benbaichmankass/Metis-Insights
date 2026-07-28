@@ -139,7 +139,8 @@ def walk_forward(df, ts, out: Path, cell_tags: dict) -> dict:
         for name, _s, _e in FOLDS:
             base_m = fold_base[name]
             if base_m.get("error") or base_m["trades"] < _WF_MIN_TRADES:
-                rows.append({"fold": name, "usable": False}); continue
+                rows.append({"fold": name, "usable": False})
+                continue
             usable += 1
             cell_m = metrics(run_cell(fold_csv[name], extra, out / f"wf_{tag}_{name}.json"))
             ok = beats_or_ties(cell_m, base_m)
