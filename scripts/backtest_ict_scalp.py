@@ -96,6 +96,10 @@ def _simulate_exit(
     timeout_bars: int,
     entry: Optional[float] = None,
     be_offset_bps: Optional[float] = None,
+    stale_exit_bars: Optional[int] = None,
+    stale_exit_below_r: float = 0.0,
+    giveback_min_mfe_r: float = 0.0,
+    giveback_r: float = 1.0,
 ) -> Dict[str, Any]:
     """Walk forward from start_idx checking SL/TP hits against bar
     extremes. Assumes intra-bar SL/TP fills are at the level (no slippage).
@@ -141,6 +145,32 @@ def _simulate_exit(
                         "mfe_price": best, "mae_price": worst}
             if bar_low <= tp:
                 return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp,
+                        "mfe_price": best, "mae_price": worst}
+        # M20 exit levers (giveback / stale) — fire at bar CLOSE, and only when
+        # neither the stop NOR the TP hit this bar (the SL/TP checks above return
+        # first, so stop-first ordering is preserved exactly). Mirrors the
+        # backtest_pullback.py lever semantics; both default off, so with no
+        # lever configured the baseline is byte-for-byte unchanged.
+        if entry is not None and risk_1r and risk_1r > 0 and (
+                giveback_min_mfe_r > 0.0 or stale_exit_bars is not None):
+            lever_close = float(df["close"].iloc[j])
+            open_r = ((lever_close - entry) / risk_1r if direction == "long"
+                      else (entry - lever_close) / risk_1r)
+            mfe_r = ((best - entry) / risk_1r if direction == "long"
+                     else (entry - best) / risk_1r)
+            # giveback-stop: once peak open profit >= min_mfe R, exit when
+            # >= giveback_r R has been surrendered from that peak.
+            if (giveback_min_mfe_r > 0.0 and mfe_r >= giveback_min_mfe_r
+                    and (mfe_r - open_r) >= giveback_r):
+                return {"outcome": "giveback_stop", "exit_index": j,
+                        "exit_price": lever_close,
+                        "mfe_price": best, "mae_price": worst}
+            # stale-stop: cut a trade held >= N bars that is still below
+            # stale_exit_below_r of open profit (default 0.0 = only cut losers).
+            if (stale_exit_bars is not None and (j - start_idx) >= stale_exit_bars
+                    and open_r < stale_exit_below_r):
+                return {"outcome": "stale_stop", "exit_index": j,
+                        "exit_price": lever_close,
                         "mfe_price": best, "mae_price": worst}
         if (be_offset_bps is not None and not be_armed
                 and entry is not None and risk_1r and risk_1r > 0):
@@ -256,6 +286,10 @@ def run_backtest(
     vol_spec: Optional[Dict[str, Any]] = None,
     stamp_regime: bool = False,
     sim_breakeven: bool = False,
+    stale_exit_bars: Optional[int] = None,
+    stale_exit_below_r: float = 0.0,
+    giveback_min_mfe_r: float = 0.0,
+    giveback_r: float = 1.0,
 ) -> Dict[str, Any]:
     cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
     htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
@@ -334,6 +368,10 @@ def run_backtest(
                 float(cfg.get("be_offset_bps", 0.0) or 0.0)
                 if sim_breakeven else None
             ),
+            stale_exit_bars=stale_exit_bars,
+            stale_exit_below_r=stale_exit_below_r,
+            giveback_min_mfe_r=giveback_min_mfe_r,
+            giveback_r=giveback_r,
         )
         exit_price = float(result["exit_price"])
         if direction == "long":
@@ -621,6 +659,19 @@ def main(argv: List[str]) -> int:
                         "bar closes >= 1R in favour, SL moves to entry +/- be_offset_bps from YAML). "
                         "The legacy harness (and the -467R demotion baseline) did NOT model this — "
                         "static SL/TP + timeout only.")
+    # M20 exit levers (mirror scripts/backtest_pullback.py; both default off).
+    p.add_argument("--stale-exit-bars", type=int, default=None, metavar="N",
+                   help="M20 stale-stop lever: cut a trade held >= N bars whose open "
+                        "R is below --stale-exit-below-r (None=off, legacy behaviour).")
+    p.add_argument("--stale-exit-below-r", type=float, default=0.0, metavar="R",
+                   help="Threshold R for --stale-exit-bars (default 0.0 = only cut "
+                        "trades still under water at N bars).")
+    p.add_argument("--giveback-min-mfe-r", type=float, default=0.0, metavar="R",
+                   help="M20 giveback-stop lever: arm once peak open profit reaches "
+                        "this many R (0.0=off).")
+    p.add_argument("--giveback-r", type=float, default=1.0, metavar="R",
+                   help="Once armed, exit when >= this many R has been surrendered "
+                        "from the peak (default 1.0).")
     args = p.parse_args(argv[1:])
 
     try:
@@ -649,6 +700,11 @@ def main(argv: List[str]) -> int:
         vol_spec=vol_spec,
         stamp_regime=bool(args.stamp_regime),
         sim_breakeven=bool(args.sim_breakeven),
+        stale_exit_bars=(int(args.stale_exit_bars)
+                         if args.stale_exit_bars is not None else None),
+        stale_exit_below_r=float(args.stale_exit_below_r),
+        giveback_min_mfe_r=float(args.giveback_min_mfe_r),
+        giveback_r=float(args.giveback_r),
     )
 
     try:
