@@ -68,6 +68,17 @@ concurrency:
   # concurrently while the ``opened``+``labeled`` double-fire on ONE
   # issue (issue #3000 race) still shares a group, queues serially, and
   # is short-circuited by the dedup step (2026-06-08).
+  #
+  # This per-issue keying is CORRECT and deliberate: quick read-only pulls
+  # must run in parallel and must never be dropped. It does NOT serialize
+  # HEAVY jobs on the single 1-OCPU trainer VM, and it CANNOT — GitHub
+  # concurrency keeps at most one PENDING run per group, so a true FIFO queue
+  # of depth > 1 is impossible at this layer (that limitation is exactly why
+  # the shared group dropped bursts). Cross-session serialization of heavy VM
+  # work is therefore an APPLICATION-level FIFO on the coordination board
+  # (issue #6927) — the `🔒 VM-LANE CLAIM` / `🔓 VM-LANE RELEASE` protocol,
+  # mirroring the merge queue — NOT a concurrency group here. Full contract:
+  # docs/claude/vm-resource-management.md + docs/claude/coordination-board.md.
   group: trainer-vm-diag-${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: false
 
@@ -80,7 +91,24 @@ jobs:
         github.event.issue.user.login == 'github-actions[bot]') &&
        contains(github.event.issue.labels.*.name, 'trainer-vm-diag-request'))
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 2026-07-28: raised 10 -> 60. A 10-min cap silently killed legitimate heavy
+    # trainer reads (a deep multi-year backtest / k-fold, a dataset build) at
+    # exactly 10 min — and because a job-timeout renders as `cancelled()`, the
+    # cancellation handler below FALSELY reported "preempted by a newer diag
+    # request" (issues #7815/#7816/#7829). That false message was the entire
+    # source of the "newest-wins preemption" mental model; there is no sibling
+    # preemption (concurrency is per-issue, cancel-in-progress:false). The SSH
+    # keepalive (ServerAliveInterval=30 x CountMax=10) still bounds a genuinely
+    # DEAD link to ~5 min regardless, so a longer job cap only extends a run that
+    # is actually alive and producing keepalive traffic. Jobs expected to run
+    # longer than ~an hour (a full training cycle, an hours-long sweep) MUST be
+    # dispatched DETACHED (nohup ... & + a sentinel file) and polled via a
+    # follow-up relay, NOT held synchronously in this SSH session — see
+    # docs/claude/trainer-vm-mode.md § 10 + docs/claude/vm-resource-management.md.
+    # And CPU-heavy work that needs NO VM-resident state (a public-feed fetch +
+    # a backtest over it) should run on a FREE GitHub-hosted runner
+    # (research-exit-head-build.yml pattern), not this scarce 1-OCPU relay.
+    timeout-minutes: 60
     steps:
       - name: Dedup — bail if a bot comment already exists (2026-06-08)
         if: github.event_name == 'issues'
@@ -289,13 +317,24 @@ jobs:
         if: github.event_name == 'issues' && cancelled() && steps.dedup.outputs.skip != 'true'
         uses: actions/github-script@v7
         with:
+          # HONEST cancellation copy (2026-07-28). This step fires on ANY
+          # `cancelled()` — and the overwhelmingly common cause is the job
+          # exceeding `timeout-minutes` (GitHub renders a job-timeout as a
+          # cancel), NOT a newer diag request. Concurrency here is PER-ISSUE
+          # (cancel-in-progress:false), so a sibling request CANNOT cancel this
+          # run. The old "preempted by a newer diag request" copy was false and
+          # seeded a whole "newest-wins" myth — do not reintroduce it.
           script: |
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `⏭ **trainer-vm-diag cancelled** — preempted by a newer diag request.\nRun: ${runUrl}\n\nRe-open this issue to retry.`
+              body: `⏹ **trainer-vm-diag cancelled.**\nRun: ${runUrl}\n\n`
+                + `Most likely cause: the job hit its **time budget** (\`timeout-minutes: 60\`) — a long synchronous read/backtest ran past the cap — or it was manually cancelled. **This was NOT preempted by another diag request** (concurrency is per-issue; a sibling request cannot cancel this run).\n\n`
+                + `If you were waiting on this: it is **dead, not still running** — re-diagnose, don't just re-open. Fixes:\n`
+                + `- CPU-heavy work that needs **no VM-resident state** (a public-feed fetch + a backtest over it) → run it on a **free GitHub-hosted runner** (\`research-exit-head-build.yml\` pattern), not this scarce 1-OCPU relay. See \`docs/claude/vm-resource-management.md\`.\n`
+                + `- A genuinely long VM-resident job (training cycle, hours-long sweep) → dispatch it **detached** (\`nohup … & \` + a sentinel file) and poll via a follow-up relay, not held in one SSH session.`
             });
             await github.rest.issues.update({
               owner: context.repo.owner,

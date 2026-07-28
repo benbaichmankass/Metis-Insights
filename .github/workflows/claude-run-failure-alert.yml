@@ -1,0 +1,94 @@
+name: claude-run-failure-alert
+
+# The LOUD failure flag for Claude-driven VM / relay / heavy-compute workflows
+# (operator directive 2026-07-28: "when a run fails there needs to be an
+# immediate loud flag — I'm tired of poking claudes after hours of waiting just
+# for them to learn they've been waiting on a run that failed hours earlier").
+#
+# WHY this exists as a separate `workflow_run` listener instead of a step inside
+# each workflow: the pain is a session (or the operator) BLOCKING on a run's
+# result and never being told it died. Each relay already posts a per-run issue
+# comment on failure/cancel (a session polling the issue eventually sees it), but
+# (a) the operator gets no push, and (b) some heavy workflows only comment on
+# success (e.g. research-exit-head-build), so a failed run leaves the waiter
+# hanging with no signal at all. This listener fires the instant ANY of the named
+# workflows concludes failure / cancelled / timed_out and sends ONE Telegram ping
+# to the operator alert channel — "stop waiting, it's dead" — so no one ever again
+# waits hours on a run that failed minutes in. It is the universal backstop; the
+# per-workflow honest issue comment is the session-facing half.
+#
+# NOT noisy by design: it is scoped to the Claude-driven workflows where a
+# waiting-blind failure is the actual cost (the diag/action relays + the
+# GH-runner research builds). Ordinary CI check failures are visible on the PR and
+# are deliberately NOT in scope — an alarm that fires on everything is itself a P1
+# bug (CLAUDE.md § "If you see something, say something").
+#
+# `workflow_run` listeners run from the DEFAULT branch (main) — so this is live
+# once merged, and fires regardless of which branch/issue triggered the watched
+# run.
+#
+# Required repo secrets (already used by env-gate-guard.yml etc.):
+#   * TELEGRAM_BOT_TOKEN
+#   * TELEGRAM_CHAT_ID   — the operator alert channel
+
+on:
+  workflow_run:
+    workflows:
+      - trainer-vm-diag
+      - vm-diag-snapshot
+      - system-actions
+      - vm-web-api-recover
+      - prop-report
+      - research-exit-head-build
+      - research-panel-build
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  alert:
+    # Fire only on a genuinely-dead conclusion. A job-timeout surfaces as
+    # `cancelled` (GitHub cancels the job when `timeout-minutes` is exceeded);
+    # `timed_out` covers the rarer explicit-timeout conclusion. `success` and
+    # `skipped` never alert.
+    if: >
+      github.event.workflow_run.conclusion == 'failure' ||
+      github.event.workflow_run.conclusion == 'cancelled' ||
+      github.event.workflow_run.conclusion == 'timed_out'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Loud Telegram flag — a Claude-driven run just died
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WF_NAME: ${{ github.event.workflow_run.name }}
+          WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WF_URL: ${{ github.event.workflow_run.html_url }}
+          WF_TITLE: ${{ github.event.workflow_run.display_title }}
+          WF_EVENT: ${{ github.event.workflow_run.event }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "::warning::Telegram secrets not configured; skipping the failure ping."
+            exit 0
+          fi
+          # A cancelled trainer-vm-diag is almost always the job time budget
+          # (timeout-minutes), NOT a sibling preemption — per-issue concurrency
+          # cannot cancel a sibling. Say so, so the reader doesn't chase a ghost.
+          HINT=""
+          if [ "${WF_CONCLUSION}" = "cancelled" ]; then
+            HINT="(a 'cancelled' relay run is almost always the job time budget being hit, or a manual cancel — NOT a sibling request preempting it. A long CPU job that needs no VM state belongs on a free GH runner, not the trainer SSH relay — see docs/claude/vm-resource-management.md.)"
+          fi
+          MSG="🔴 [RUN ${WF_CONCLUSION}] ${WF_NAME}
+          ${WF_TITLE}
+          A Claude-driven run just concluded '${WF_CONCLUSION}'. If a session is WAITING on this result: STOP waiting — it is dead, not still running.
+          ${HINT}
+          Next: read the run log / the issue comment, re-diagnose, re-fire — do not keep blocking.
+          ${WF_URL}"
+          curl -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MSG}" >/dev/null
+          echo "Alerted: ${WF_NAME} concluded ${WF_CONCLUSION} (${WF_URL})"

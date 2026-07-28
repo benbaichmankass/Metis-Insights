@@ -842,6 +842,26 @@ hook surfaces both at session init. Read them before acting.
    head SHA strands any merge-gate watcher). Start a fresh branch off `main` for
    a distinct deliverable, even mid-session.
 
+4. **Cross-session resource optimization (2026-07-28, binding).** Full contract:
+   [`docs/claude/vm-resource-management.md`](claude/vm-resource-management.md).
+   (a) **Route to the cheapest sufficient resource** — GitHub-hosted runners are
+   free ($0 on this public repo), abundant, and parallel across sessions (4 vCPU,
+   ~5.5h); the trainer VM is a **single core, scarce and serialized**. CPU-heavy
+   work needing **no VM-resident state** (a public-feed fetch + a backtest over it)
+   runs on a **runner** (`research-exit-head-build.yml` pattern), NOT the
+   `trainer-vm-diag` SSH relay. (b) **Serialize the scarce VM with a board FIFO
+   lane** — before a heavy/exclusive VM job, claim `🔒 VM-LANE CLAIM` on #6927;
+   if held, `🕓 QUEUED` and wait (FIFO, running never preempted, one `⚡ OVERRIDE`
+   escape hatch); `🔓 RELEASE` when done. Quick read-only pulls need no claim. This
+   is a **board** FIFO, not a GitHub concurrency group (which can't queue depth > 1).
+   (c) **A dead run flags loudly + immediately** — `claude-run-failure-alert.yml`
+   pings the operator the instant a watched VM/relay/research run fails/cancels/
+   times-out, and every such workflow posts an **honest** failure comment (a
+   `cancelled` relay run is the job time budget or a manual cancel — NEVER a sibling
+   preemption). Never block indefinitely on a dispatched run; treat a failure comment
+   as terminal. The whole reason: sessions were disrupting each other by piling heavy
+   work onto the one scarce VM, then waiting hours on runs that had already died.
+
 This is discipline + a shared board + the hook surfacing it, **not** a new CI
 gate (operator decision, 2026-06-28). The 2026-07-27 merge-guard is a
 **client-side `PreToolUse` speed-bump** on the merge tools — it does not gate CI
