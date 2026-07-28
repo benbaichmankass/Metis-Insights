@@ -72,6 +72,11 @@
  ],
  "fvg_range_15m": [
   {
+   "date": "2026-07-28",
+   "ref": "Demote live -> shadow (Tier-3, operator-approved via AskUserQuestion 2026-07-28)",
+   "summary": "Demoted execution: live -> shadow. Was promoted shadow->live and graduated to real-money bybit_2 on 2026-06-02 on the 5.2y backtest evidence; demoted back after a Track-1 review found the LIVE record DORMANT and edgeless (diag order-packages: ~1 decision, confidence ~0.11, target_qty=0 — never executes a live order, so it was NOT bleeding real money; the -41R figure is a 5.2y BACKTEST sleeve result on non-live P1-book params, not a live loss). shadow removes the real-money route for a no-edge dormant sleeve while it keeps logging order packages on bybit_1 (demo) AND bybit_2 (real) for continued data collection. Reversible: flip execution: shadow -> live to restore."
+  },
+  {
    "date": "2026-06-02",
    "ref": "Promote shadow -> live on bybit_1 demo (operator policy: paper/demo always execute) - Tier-3, operator-approved",
    "summary": "Promoted execution: shadow -> live. Routed to the bybit_1 DEMO account ONLY (paper money) - no real-money risk; NOT added to real-money bybit_2 (that stays a separate Tier-3 gate). Operator directive: paper/demo accounts exist to test strategies, so they execute rather than log data-only. Now builds its live confirmation via real demo execution instead of shadow logging."
