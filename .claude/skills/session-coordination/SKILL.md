@@ -4,9 +4,13 @@ description: >
   Binding cross-session workflow governance — the session preflight (read the
   rules + know your tool/capability limits), the MANDATORY live coordination
   board (GitHub issue #6927 — post updates + questions, NOT gated on merging),
-  and the multi-session MERGE PROTOCOL that serializes PRs so concurrent sessions
-  don't race a merge and force each other into behind-rebase retest churn. Use at
-  the START of every session and BEFORE every merge. Owns docs/claude/session-board.json
+  the multi-session MERGE PROTOCOL that serializes PRs so concurrent sessions
+  don't race a merge and force each other into behind-rebase retest churn, and
+  CROSS-SESSION RESOURCE OPTIMIZATION — route CPU-heavy work to free GitHub runners
+  (not the scarce 1-core trainer VM), serialize the VM with a board FIFO lane, and
+  flag any dead run loudly (docs/claude/vm-resource-management.md). Use at
+  the START of every session, BEFORE every merge, and BEFORE dispatching heavy VM
+  work. Owns docs/claude/session-board.json
   + docs/claude/coordination-board.md. Composes with git-actions (dispatch),
   doc-freshness (session end), full-system-audit, and delegate-work (the "how to
   split + run a big task" half — this skill is the "how concurrent sessions don't
@@ -157,6 +161,47 @@ Corollary: **one PR = one concern.** Never add unrelated work to a branch that
 already has an open PR — it pollutes the PR and invalidates its CI run (and a new
 head SHA strands any merge-gate watcher). Start a fresh branch off `main` for a
 distinct deliverable, even mid-session.
+
+## 2b. Cross-session resource optimization + the VM-lane protocol (BEFORE dispatching heavy VM work)
+
+Binding contract: **[`docs/claude/vm-resource-management.md`](../../../docs/claude/vm-resource-management.md)**
+(operator-directed 2026-07-28 — "cross-session resource optimization needs to be the
+core"). The essentials every session applies:
+
+1. **Route to the cheapest sufficient resource.** GitHub-hosted runners are **free
+   ($0 on this public repo), abundant, and parallel across sessions** (4 vCPU, up to
+   ~5.5h). The trainer VM is a **single core — scarce and serialized.** So
+   **CPU-heavy work that needs NO VM-resident state** (a public-feed fetch + a
+   backtest/k-fold/validation over it) belongs on a **runner** (the
+   `research-exit-head-build.yml` pattern — fetch from a public archive: Binance-
+   vision keyless, Dukascopy for FX/metals; Bybit geoblocks US runners), **NOT** the
+   `trainer-vm-diag` SSH relay. Reserve the trainer VM for work that genuinely needs
+   its on-box state (dataset cache, registry, on-box services, GPU). The deep XAU/MGC
+   re-validation that kept dying at the trainer relay's job cap (#7829) is the worked
+   example: it was CPU-only and belonged on a runner.
+2. **Serialize the scarce VM with the board FIFO — running is never preempted.**
+   Before dispatching a **heavy/exclusive** VM job (a backtest/dataset-build/training
+   cycle on the VM), read the board tail; if a `🔒 VM-LANE CLAIM · <vm>` is open with
+   no `🔓 RELEASE`, **wait** (post `🕓 VM-LANE QUEUED`); else post
+   `🔒 VM-LANE CLAIM · <vm> · <session> · <task> · ETA <min>`, dispatch, and post
+   `🔓 VM-LANE RELEASE` the instant it ends. FIFO; newest never wins; one documented
+   `⚡ VM-LANE OVERRIDE` escape hatch for real priority / provable non-contention.
+   **Quick read-only pulls need no claim** (parallel-safe). Format:
+   `docs/claude/coordination-board.md` § "The VM-lane queue". This is a **board**
+   FIFO, not a GitHub concurrency group (which can't queue depth > 1).
+   **Hard-enforced (2026-07-28):** a `PreToolUse` guard (`.claude/hooks/vm_lane_guard.sh`)
+   denies an `issue_write` carrying the `trainer-vm-heavy-request` label unless a fresh
+   `/tmp/.claude-vm-lane-claim-<sid>` marker exists — so a HEAVY trainer job uses that
+   label + claims first; quick `trainer-vm-diag-request` reads (and everything else) are
+   never blocked. The marker is a speed-bump; the `🔒 VM-LANE CLAIM` comment is the claim.
+3. **A dead run flags loudly + immediately.** `claude-run-failure-alert.yml` pings
+   the operator the moment a watched VM/relay/research run fails/cancels/times-out,
+   and each workflow posts an **honest** failure/cancelled comment (a `cancelled`
+   relay run is the **job time budget** or a manual cancel — **never** a sibling
+   preemption). **Never wait indefinitely on a dispatched run** — poll its issue, and
+   treat a failure/cancelled comment as terminal (re-diagnose, don't blindly re-open).
+   Any new Claude-driven workflow a session can BLOCK on MUST post honest terminal
+   comments AND be added to `claude-run-failure-alert.yml`.
 
 ## 3. Tiering still applies
 
