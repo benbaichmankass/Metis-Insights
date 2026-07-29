@@ -2160,9 +2160,15 @@
       "tier": "3 (would gate/alter live pullback entries — operator-approved + walk-forward-gated)",
       "trigger_condition": "Revisited on a performance-review / ml-review cadence, or when the offload path can run a multi-window walk-forward.",
       "resolution_criteria": "Run a proper walk-forward (>=3-4 folds, net-of-fee) on eth/sol/xrp_pullback_2h split by direction. If the long-side drag holds out-of-sample across folds, propose a Tier-3 change (long-side gate / short-only variant) as a draft PR with evidence. If it does not hold, close as regime-of-sample and record the null.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "date": "2026-07-29",
+          "by": "svcfl1 (same-session follow-up)",
+          "note": "REFUTED out-of-sample. 2yr walk-forward (2024-07..2026-07, exact live params, 8 folds pooled across eth/sol/xrp): pooled long_r +5.77 (n137) vs -27.6 on the 300d window; long negative in only 5/8 folds with two strongly-positive folds (+8.5, +20.0); ETH+XRP longs net-positive over 2yr (only SOL keeps a negative long side). stable_drag=False, stable_edge=False. The 300d asymmetry was regime-of-sample (recent bearish-long stretch, folds 6-8). No Tier-3 short-only/long-gate change. Evidence: docs/research/pullback-2h-direction-walkforward-2026-07-29.md; tool: scripts/research/direction_walkforward.py."
+        }
+      ]
     }
   ],
   "updated_at": "2026-07-29"
