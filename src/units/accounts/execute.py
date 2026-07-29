@@ -563,6 +563,49 @@ def execute_pkg(
             exchange_client, _bybit_category(account_cfg), order["symbol"],
             _tpsl_pre_leg_ids,
         )
+        # Entry-side bracket VERIFICATION (BL-20260729-BYBIT-NAKED-POSITION-
+        # BLINDSPOT): a Partial-mode entry can fill while its SL/TP legs are
+        # silently rejected (the 20-leg cap) — the position opens NAKED but the
+        # place_order parent still returned success, so the None sl_order_id
+        # above would otherwise be treated as merely "untracked". When no SL leg
+        # id was captured, positively confirm against the broker whether the
+        # position is actually unprotected and, if so, surface it LOUDLY (an
+        # ERROR outcome → the /notifications alert banner) with a journal note.
+        # Recovery is the monitor's Bybit broker-naked sweep (re-arms next tick);
+        # this makes the naked-at-birth condition VISIBLE immediately instead of
+        # silent. Fail-safe: a read failure (None) never raises a false alarm.
+        if sl_order_id is None and not is_dry:
+            try:
+                _naked = _bybit_open_missing_sl_leg(
+                    exchange_client, _bybit_category(account_cfg), order["symbol"],
+                )
+                if _naked is True:
+                    logger.error(
+                        "execute_pkg: %s %s opened with NO stop-loss leg at the "
+                        "broker (Partial-mode leg rejected — likely the 20-leg "
+                        "cap). Position is NAKED; the monitor Bybit broker-naked "
+                        "sweep will re-arm it. trade_id=%s",
+                        account_id, order["symbol"], trade_id,
+                    )
+                    try:
+                        from src.runtime.api_reporting import report_api_failure
+                        report_api_failure(
+                            exchange="bybit",
+                            op="bracket_missing_at_entry",
+                            account_id=str(account_id),
+                            error=(
+                                f"{order['symbol']} opened NAKED — no SL leg "
+                                f"created at entry (partial-mode leg cap?); "
+                                f"monitor sweep will re-arm"
+                            ),
+                        )
+                    except Exception:  # noqa: BLE001
+                        pass
+            except Exception as _ve:  # noqa: BLE001
+                logger.debug(
+                    "execute_pkg: entry bracket verification raised for %s: %s",
+                    order["symbol"], _ve,
+                )
 
     # CLAUDE.md § Architecture rules § 3 + architecture-audit-2026-05-02
     # P0-2: every executed trade must land a row in the trade log so
@@ -1783,6 +1826,55 @@ def _classify_new_partial_tpsl_legs(
     sl_id = new_sl[0] if len(new_sl) == 1 else None
     tp_id = new_tp[0] if len(new_tp) == 1 else None
     return sl_id, tp_id
+
+
+def _bybit_open_missing_sl_leg(exchange_client: Any, category: str, symbol: str):
+    """Confirm whether a live Bybit position exists WITH NO stop protection.
+
+    BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT — entry-side verification. Under
+    ``BYBIT_TPSL_MODE=partial`` the SL/TP legs are created as a side effect of
+    the entry ``place_order``; if that leg creation is silently rejected (the
+    20-combined-leg cap, ErrCode 110061) the parent order still fills and the
+    position opens NAKED, while ``_classify_new_partial_tpsl_legs`` merely
+    returns a ``None`` leg id (treated as "untracked", not "bracket failed").
+    This is the definitive post-entry check: True only when a live position
+    exists AND carries neither a Full-mode position ``stopLoss`` nor a resting
+    Partial SL leg. Returns ``None`` on any read failure so the caller does NOT
+    raise a false alarm (fail-safe — the monitor's Bybit broker-naked sweep is
+    the backstop either way). Mirrors ``order_monitor._bybit_position_protection``.
+    """
+    try:
+        pos_resp = exchange_client.get_positions(category=category, symbol=symbol)
+        prows = ((pos_resp or {}).get("result") or {}).get("list") or []
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("_bybit_open_missing_sl_leg: get_positions failed %s: %s",
+                     symbol, exc)
+        return None
+    if not prows:
+        return False  # flat — nothing unprotected
+    pos = prows[0]
+    try:
+        size = abs(float(pos.get("size") or 0) or 0.0)
+    except (TypeError, ValueError):
+        return None
+    if size <= 0:
+        return False
+    pos_sl = str(pos.get("stopLoss") or "").strip()
+    if pos_sl and pos_sl not in ("0", "0.0", "0.00"):
+        return False  # Full-mode position stop present
+    try:
+        oo_resp = exchange_client.get_open_orders(
+            category=category, symbol=symbol, orderFilter="StopOrder",
+        )
+        rows = ((oo_resp or {}).get("result") or {}).get("list") or []
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("_bybit_open_missing_sl_leg: get_open_orders failed %s: %s",
+                     symbol, exc)
+        return None
+    has_sl_leg = any(
+        str(o.get("stopOrderType") or "").lower() in _SL_LEG_TYPES for o in rows
+    )
+    return not has_sl_leg
 
 
 def _amend_partial_tpsl_leg(

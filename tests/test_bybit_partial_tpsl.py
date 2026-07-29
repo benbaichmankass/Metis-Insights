@@ -10,10 +10,63 @@ from __future__ import annotations
 import pytest
 
 from src.units.accounts.execute import (
+    _bybit_open_missing_sl_leg,
     _bybit_tpsl_mode,
     _submit_order,
     modify_open_order,
 )
+
+
+class _ProtClient:
+    """Stub for the entry-side bracket-verification helper."""
+
+    def __init__(self, pos, legs=None, raise_pos=False, raise_oo=False):
+        self._pos = pos
+        self._legs = legs or []
+        self._rp = raise_pos
+        self._ro = raise_oo
+
+    def get_positions(self, category=None, symbol=None):
+        if self._rp:
+            raise RuntimeError("pos boom")
+        return {"result": {"list": [self._pos] if self._pos else []}}
+
+    def get_open_orders(self, category=None, symbol=None, orderFilter=None):
+        if self._ro:
+            raise RuntimeError("oo boom")
+        return {"result": {"list": self._legs}}
+
+
+def test_entry_bracket_verification_detects_naked_open():
+    """BL-20260729: a live position with no Full stop and no resting SL leg is
+    confirmed NAKED (only a TP leg present → still naked)."""
+    c = _ProtClient({"size": "100", "stopLoss": ""},
+                    [{"stopOrderType": "PartialTakeProfit"}])
+    assert _bybit_open_missing_sl_leg(c, "linear", "XRPUSDT") is True
+
+
+def test_entry_bracket_verification_protected_paths():
+    # Full-mode position stop present → not naked.
+    assert _bybit_open_missing_sl_leg(
+        _ProtClient({"size": "100", "stopLoss": "1.08"}), "linear", "XRPUSDT") is False
+    # Resting Partial SL leg present → not naked.
+    assert _bybit_open_missing_sl_leg(
+        _ProtClient({"size": "100", "stopLoss": ""},
+                    [{"stopOrderType": "PartialStopLoss"}]), "linear", "XRPUSDT") is False
+    # Flat / no position → not naked.
+    assert _bybit_open_missing_sl_leg(
+        _ProtClient({"size": "0", "stopLoss": ""}), "linear", "XRPUSDT") is False
+    assert _bybit_open_missing_sl_leg(_ProtClient(None), "linear", "XRPUSDT") is False
+
+
+def test_entry_bracket_verification_read_failure_is_none():
+    """A read failure must return None (never a false naked alarm)."""
+    assert _bybit_open_missing_sl_leg(
+        _ProtClient({"size": "1", "stopLoss": ""}, raise_pos=True),
+        "linear", "XRPUSDT") is None
+    assert _bybit_open_missing_sl_leg(
+        _ProtClient({"size": "1", "stopLoss": ""}, raise_oo=True),
+        "linear", "XRPUSDT") is None
 
 
 class _Client:

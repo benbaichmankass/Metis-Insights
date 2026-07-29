@@ -6046,7 +6046,14 @@ def _attempt_naked_autoprotect(row, sl, tp) -> bool:
         that survives the close. (Detection differs too — see
         ``_check_broker_naked_equity_positions``: the journal row keeps its
         sl/tp, so the DB-driven naked check never flags it.)
-      * **Bybit/OANDA** — no-op: SL/TP attach atomically at entry and the legs
+      * **Bybit** — a Full-mode position-level bracket via ``set_trading_stop``
+        (BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT). Under
+        ``BYBIT_TPSL_MODE=partial`` the per-trade qty-scoped legs desync from the
+        netted one-way position (intent_reduce legs add none; a close cancels its
+        own trade's legs; the 20-leg cap can block an amend), so a Bybit position
+        CAN go naked. Full mode REPLACES (never adds) so the recovery re-arm can't
+        itself trip the leg cap and covers the whole net position.
+      * **OANDA** — no-op: SL/TP attach atomically at entry and the legs
         do not expire at a session boundary, so a naked state can't arise.
 
     Unconditional baseline behaviour — there is no enable flag. A live position
@@ -6075,6 +6082,41 @@ def _attempt_naked_autoprotect(row, sl, tp) -> bool:
         if acc is None:
             return False
         exchange = str(acc.get("exchange", "")).lower()
+        if exchange == "bybit":
+            # BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT: Bybit CAN go naked —
+            # under BYBIT_TPSL_MODE=partial the qty-scoped SL/TP legs desync from
+            # the NETTED one-way position (intent_reduce legs add none; a close
+            # cancels its own trade's legs; the 20-leg cap can block an amend),
+            # so the earlier "atomic at entry, can't go naked" assumption is
+            # false. Re-arm a POSITION-LEVEL (Full-mode) bracket over the whole
+            # net position via set_trading_stop — Full REPLACES rather than adds,
+            # so a recovery re-arm never grows the leg count (never itself trips
+            # the cap) and guarantees the entire naked position is protected.
+            from src.units.accounts.clients import bybit_client_for
+            from src.units.accounts.execute import _bybit_category
+            client = bybit_client_for(acc)
+            if client is None:
+                return False
+            category = _bybit_category(acc)
+            if category == "spot":
+                return False  # spot has no position-level SL/TP; monitor exits it
+            resp = client.set_trading_stop(
+                category=category,
+                symbol=symbol,
+                positionIdx=0,
+                tpslMode="Full",
+                stopLoss=str(sl),
+                takeProfit=str(tp),
+            )
+            ret_code = (resp or {}).get("retCode")
+            if ret_code in (0, "0", None):
+                return True
+            logger.warning(
+                "_attempt_naked_autoprotect: bybit set_trading_stop refused for "
+                "trade_id=%s: retCode=%s retMsg=%s",
+                row["id"], ret_code, (resp or {}).get("retMsg"),
+            )
+            return False
         if exchange in ("interactive_brokers", "ib"):
             client = ib_client_for(acc, readonly=False)
             protect_symbol = _base_futures_symbol(symbol)
@@ -6082,7 +6124,7 @@ def _attempt_naked_autoprotect(row, sl, tp) -> bool:
             client = alpaca_client_for(acc)
             protect_symbol = symbol
         else:
-            return False  # not a re-armable broker (bybit/oanda atomic at entry)
+            return False  # not a re-armable broker (oanda atomic at entry)
         if client is None:
             return False
         resp = client.place_protective(
@@ -6383,6 +6425,189 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
             summary["errors"] += 1
             logger.warning(
                 "_check_broker_naked_ib_positions: failed for trade_id=%s: %s",
+                row["id"], exc,
+            )
+    return summary
+
+
+def _bybit_position_protection(client, category: str, symbol: str):
+    """Read a Bybit symbol's live protection state, mode-agnostically.
+
+    Returns ``(size, protected)`` where *size* is the absolute net position
+    size (0.0 = flat) and *protected* is True when the position carries EITHER a
+    Full-mode position-level stopLoss OR at least one resting Partial-mode SL
+    conditional leg. Returns ``None`` on any read failure so the caller SKIPS
+    (never re-arms on an unconfirmed read — the fail-safe the Alpaca/IB sweeps
+    also honour). BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT.
+    """
+    try:
+        pos_resp = client.get_positions(category=category, symbol=symbol)
+        rows = ((pos_resp or {}).get("result") or {}).get("list") or []
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("_bybit_position_protection: get_positions failed %s: %s",
+                     symbol, exc)
+        return None
+    if not rows:
+        return 0.0, True  # flat — nothing to protect
+    pos = rows[0]
+    try:
+        size = abs(float(pos.get("size") or 0) or 0.0)
+    except (TypeError, ValueError):
+        return None
+    if size <= 0:
+        return 0.0, True  # flat
+    # (a) Full-mode position-level stop lives on the position row itself.
+    pos_sl = str(pos.get("stopLoss") or "").strip()
+    if pos_sl and pos_sl not in ("0", "0.0", "0.00"):
+        return size, True
+    # (b) Partial-mode SL legs are separate resting conditional orders.
+    try:
+        oo_resp = client.get_open_orders(
+            category=category, symbol=symbol, orderFilter="StopOrder",
+        )
+        legs = ((oo_resp or {}).get("result") or {}).get("list") or []
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("_bybit_position_protection: get_open_orders failed %s: %s",
+                     symbol, exc)
+        return None
+    has_sl_leg = any(
+        str(o.get("stopOrderType") or "").lower() in {"stoploss", "partialstoploss"}
+        for o in legs
+    )
+    return size, has_sl_leg
+
+
+def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
+    """Re-arm protection on Bybit positions that are NAKED at the broker.
+
+    The Bybit analogue of :func:`_check_broker_naked_equity_positions` /
+    :func:`_check_broker_naked_ib_positions`
+    (BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT). The DB-driven
+    :func:`_check_naked_positions` only flags a row whose *journal* SL/TP is
+    missing — but a Bybit position keeps its journal SL/TP (written from the
+    intended levels at open) while its actual broker protection is gone: under
+    ``BYBIT_TPSL_MODE=partial`` the qty-scoped legs desync from the netted
+    one-way position (intent_reduce legs add none; a close cancels its own
+    trade's legs; the 20-leg cap can silently block an amend), so a broker-naked
+    Bybit position is invisible to that check. The earlier design assumed Bybit
+    "attaches SL/TP atomically at entry, so a naked orphan can't occur" — the
+    real-money bybit_2 XRPUSDT no-bracket incident (2026-07-29) disproved it.
+
+    For each open, past-grace Bybit position this asks the broker whether the
+    net position actually carries a stop (Full-mode position stopLoss OR a
+    resting Partial SL leg — :func:`_bybit_position_protection`) and, when none
+    does, re-arms a Full-mode position-level bracket via
+    :func:`_attempt_naked_autoprotect` (levels from the journal row, or the
+    originating order package as a fallback). The broker's own protection state
+    IS the idempotency; a read failure is skipped; an actively-closing symbol is
+    skipped (mirrors the Alpaca sweep's close-vs-rearm guard). Never raises.
+
+    Returns ``{"checked", "broker_naked", "rearmed", "errors"}``.
+    """
+    summary: Dict[str, int] = {
+        "checked": 0, "broker_naked": 0, "rearmed": 0, "errors": 0,
+    }
+    try:
+        from src.bot import data_loaders
+        from src.units.accounts.clients import bybit_client_for
+        from src.units.accounts.execute import _bybit_category
+
+        accounts = data_loaders.list_accounts() or []
+        bybit_ids = {
+            str(a.get("account_id"))
+            for a in accounts
+            if str(a.get("exchange", "")).lower() == "bybit"
+        }
+        if not bybit_ids:
+            return summary
+        acc_by_id = {str(a.get("account_id")): a for a in accounts}
+
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            rows = conn.execute(
+                "SELECT id, account_id, symbol, direction, position_size, "
+                "stop_loss, take_profit_1, created_at, notes "
+                "FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0"
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_check_broker_naked_bybit_positions: read failed: %s", exc)
+        summary["errors"] += 1
+        return summary
+
+    now = datetime.now(timezone.utc)
+    clients: Dict[str, object] = {}
+    # One protection read per (account, symbol) per tick — a netted symbol has
+    # many journal rows but one exchange position.
+    protection_cache: Dict[tuple, object] = {}
+    for row in rows:
+        account_id = str(row["account_id"] or "")
+        if account_id not in bybit_ids:
+            continue
+        summary["checked"] += 1
+        created = _parse_created_at(row["created_at"])
+        if (
+            created is not None
+            and (now - created).total_seconds() < _NAKED_POSITION_GRACE_SECONDS
+        ):
+            continue  # fresh fill may not have propagated; let the entry settle
+        symbol = str(row["symbol"] or "")
+        if not symbol:
+            continue
+        if (account_id, symbol.upper()) in _TICK_ACTIVE_CLOSE_SYMBOLS:
+            continue  # an active close is in flight this tick — let it flatten
+        try:
+            acc = acc_by_id[account_id]
+            if account_id not in clients:
+                clients[account_id] = bybit_client_for(acc)
+            client = clients[account_id]
+            if client is None:
+                continue
+            category = _bybit_category(acc)
+            cache_key = (account_id, symbol.upper())
+            if cache_key not in protection_cache:
+                protection_cache[cache_key] = _bybit_position_protection(
+                    client, category, symbol,
+                )
+            state = protection_cache[cache_key]
+            if state is None:
+                continue  # read failure — never re-arm on an unconfirmed read
+            size, protected = state
+            if size <= 0 or protected:
+                continue  # flat, or already carries a stop
+            summary["broker_naked"] += 1
+            sl = row["stop_loss"]
+            tp = row["take_profit_1"]
+            a_sl = sl if (sl not in (None, 0) and sl > 0) else None
+            a_tp = tp if (tp not in (None, 0) and tp > 0) else None
+            if a_sl is None or a_tp is None:
+                r_sl, r_tp = _resolve_protective_levels(
+                    db, symbol, str(row["direction"] or "")
+                )
+                a_sl = a_sl if a_sl is not None else r_sl
+                a_tp = a_tp if a_tp is not None else r_tp
+            if a_sl is None or a_tp is None:
+                logger.warning(
+                    "_check_broker_naked_bybit_positions: trade_id=%s %s "
+                    "broker-naked but no SL/TP resolvable — leaving for alert",
+                    row["id"], symbol,
+                )
+                continue
+            if _attempt_naked_autoprotect(row, a_sl, a_tp):
+                summary["rearmed"] += 1
+                protection_cache[cache_key] = (size, True)  # don't re-arm again
+                logger.info(
+                    "_check_broker_naked_bybit_positions: re-armed Full-mode "
+                    "position bracket (sl=%s tp=%s) on broker-naked trade_id=%s "
+                    "account=%s symbol=%s",
+                    a_sl, a_tp, row["id"], account_id, symbol,
+                )
+        except Exception as exc:  # noqa: BLE001
+            summary["errors"] += 1
+            logger.warning(
+                "_check_broker_naked_bybit_positions: failed for trade_id=%s: %s",
                 row["id"], exc,
             )
     return summary
@@ -7521,6 +7746,27 @@ def run_monitor_tick(
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "run_monitor_tick: broker-naked IB sweep raised: %s", exc
+        )
+
+    # Broker-naked Bybit sweep (BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT): a
+    # Bybit position keeps its journal SL/TP while its actual broker protection
+    # is gone — under BYBIT_TPSL_MODE=partial the qty-scoped legs desync from the
+    # netted one-way position (intent_reduce adds none; a close cancels its own
+    # trade's legs; the 20-leg cap can block an amend), so a broker-naked Bybit
+    # position is invisible to the DB-driven check above. This asks the broker
+    # whether the net position carries a stop (Full position stopLoss OR a
+    # resting Partial SL leg) and re-arms a Full-mode position bracket when none
+    # does. The real-money bybit_2 XRPUSDT no-bracket incident (2026-07-29)
+    # disproved the earlier "Bybit atomic at entry, can't go naked" assumption.
+    try:
+        bybit_naked_summary = _check_broker_naked_bybit_positions(db)
+        if bybit_naked_summary.get("broker_naked") or bybit_naked_summary.get(
+            "errors"
+        ):
+            summaries["__broker_naked_bybit__"] = bybit_naked_summary
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "run_monitor_tick: broker-naked Bybit sweep raised: %s", exc
         )
 
     # S-067 follow-up #3: closed → exchange-flat invariant check.
