@@ -11,7 +11,7 @@
 # tracking: BL-20260717-REGIME-COVERAGE-DEBT
 
 schema_version: 1
-debt_ceiling: 35
+debt_ceiling: 34   # 35 -> 34: gld_pullback_1h paid down to a real trending-short OFF cell (rec #5 walk-forward, 2026-07-29)
 
 # Permanent, regime-gating genuinely N/A (reasoned).
 exempt:
@@ -120,11 +120,6 @@ coverage_debt:
     reason: >-
       Directional pullback trend-follower on GDX; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
   gld_pullback_1d:
-    tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
-    added: '2026-07-17'
-    reason: >-
-      Directional pullback trend-follower on GLD; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
-  gld_pullback_1h:
     tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
     added: '2026-07-17'
     reason: >-
