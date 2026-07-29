@@ -150,7 +150,9 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  adx_min: Optional[float] = None,
                  adx_max: Optional[float] = None,
                  adx_period: int = 14,
-                 direction_filter: str = "off") -> Dict[str, Any]:
+                 direction_filter: str = "off",
+                 stale_exit_bars: Optional[int] = None,
+                 stale_exit_below_r: float = 0.0) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
     # Channel from the PRIOR N bars only (shift(1)) — no lookahead. Same
@@ -280,6 +282,22 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                 ext = min(ext, bl)
                 trail = min(trail, ext + trail_mult * atr)
                 mfe = max(mfe, (entry - ext) / risk)
+            # M20 stale-exit lever (faithful re-run of the debt matrix's
+            # `stale_exit_bars`/`stale_exit_below_r` config — BL-20260717-REGIME
+            # -COVERAGE-DEBT rec #5 follow-up). Fires at bar CLOSE only when the
+            # protective stop did NOT hit this bar (a stop hit breaks above,
+            # stop-first stays intact). Mirrors the pullback harness semantics
+            # exactly: cut the trade at bar N-after-entry when its open R is
+            # still below the floor. No-op (byte-identical) when the lever is
+            # unset — the default the whole prior debt-matrix run used.
+            if stale_exit_bars is not None and (j - i) >= stale_exit_bars:
+                bc = float(df["close"].iloc[j])
+                open_r = ((bc - entry) / risk if direction == "long"
+                          else (entry - bc) / risk)
+                if open_r < stale_exit_below_r:
+                    exit_price, exit_idx = bc, j
+                    exit_reason = "stale_stop"
+                    break
         if exit_price is None:
             exit_price = float(df["close"].iloc[exit_idx])
         r = ((exit_price - entry) / risk if direction == "long"
@@ -312,6 +330,9 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         params["adx_period"] = adx_period
     if direction_filter != "off":
         params["direction_filter"] = direction_filter
+    if stale_exit_bars is not None:
+        params["stale_exit_bars"] = stale_exit_bars
+        params["stale_exit_below_r"] = stale_exit_below_r
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params)
 
 
@@ -460,6 +481,13 @@ def main(argv: List[str]) -> int:
                    help="Regime filter: skip entries whose Wilder ADX is above this (None=off).")
     p.add_argument("--adx-period", type=int, default=14,
                    help="Wilder ADX period for the regime filter (default 14).")
+    p.add_argument("--stale-exit-bars", type=int, default=None,
+                   help="M20 exit lever: close at bar N after entry when open "
+                        "R is below --stale-exit-below-r (None=off, legacy "
+                        "behaviour; mirrors backtest_pullback.py).")
+    p.add_argument("--stale-exit-below-r", type=float, default=0.0,
+                   help="Threshold R for --stale-exit-bars (default 0.0 = only "
+                        "cut trades still underwater at the bar count).")
     p.add_argument("--direction-filter", choices=["off", "di", "slope"], default="off",
                    help="Phase-2 direction-aware regime gate (default off, byte-identical): "
                         "skip a long in a DOWN regime / a short in an UP regime. "
@@ -487,7 +515,9 @@ def main(argv: List[str]) -> int:
                      long_only=args.long_only,
                      adx_min=args.adx_min, adx_max=args.adx_max,
                      adx_period=args.adx_period,
-                     direction_filter=args.direction_filter)
+                     direction_filter=args.direction_filter,
+                     stale_exit_bars=args.stale_exit_bars,
+                     stale_exit_below_r=args.stale_exit_below_r)
     if args.confidence_sweep:
         out = _confidence_sweep(df, _parse_grid(args.confidence_sweep), bt_kwargs)
         print(_fmt_sweep(out))
