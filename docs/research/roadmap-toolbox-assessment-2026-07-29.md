@@ -190,6 +190,15 @@ Only 3/8 accounts have broker-truth; `bybit_2` journal under-records PnL vs wall
 (−$33 journal vs −$262.52 truth). This blocks M24 net-R and makes honest grading
 untrustworthy *everywhere* — a precondition, not a feature. **Effort:** low–medium.
 
+> **✅ IN PROGRESS 2026-07-29.** The gap was a *rollout* gap, not a hard problem
+> (scheduling already existed since 2026-07-13/07-19; the pull was single-account).
+> **Bybit trio** (#7891) + **Alpaca trio** (#7895) shipped — the 6 API-automatable
+> accounts now accrue exchange-truth fills on the daily timer. Remaining is the
+> **operator-gated tail**: `ib_paper` needs an **IB Flex token** (design +
+> operator steps: [`broker-truth-ib-flex-DESIGN.md`](broker-truth-ib-flex-DESIGN.md);
+> secret slots minted via #7896), and `bybit_2` lifetime wallet-truth needs the UM
+> CSV export (netting stitch). No further code for the automatable set.
+
 **Sequencing note:** #1, #3, #6, #7 are independent and can start now. #2 waits on a
 macro edge clearing the gate (#1 makes that possible). #4 and #5 are steady
 consolidation work that fits M36.
