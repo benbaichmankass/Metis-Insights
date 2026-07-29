@@ -1,0 +1,254 @@
+name: trainer-offload-train
+
+# rec #3 (roadmap-toolbox-assessment-2026-07-29) — the FREE-RUNNER OFFLOAD for
+# OOM-prone ML manifests. The trainer VM is 1 OCPU / 6 GB and OOM-quarantines the
+# heavy manifests (btc-regime-5m-lgbm-flow-v1 wedged it 18.7h in D-state,
+# BL-20260717-TRAINER-SINGLE-MANIFEST-OOM). A standard GitHub-hosted runner is
+# 4 vCPU / 16 GB / $0 — ~2.7x the RAM — so the manifest that OOMs at 6 GB trains
+# here. The gap was never compute; it was that the pipeline runs ON the trainer.
+# This is the sibling of research-{panel,exit-head,symbol-p0}-build.yml: same
+# off-VM economics, fetch the feed from Binance's public archive (keyless,
+# globally reachable — Bybit geoblocks US GH-runners), build the ML dataset
+# families from the CSV, train the manifest, upload the model + metrics.
+#
+# ⚠️ FIRST-RUN VERIFICATION (honest): the CSV -> `market_raw` family ->
+# `market_features` -> `ml train` path is wired from the verified ingredients
+# (fetch_backtest_candles Binance-vision path + the `csv` market_raw adapter +
+# the nightly's `k=v` adapter-kwarg convention: `adapter=csv path=<csv>`), but
+# this exact end-to-end has not run off-VM before (the research-build cluster
+# feeds its CSV to bespoke readers, not the dataset families). The build step
+# echoes diagnostics + never hard-aborts so the FIRST run pins any adapter-kwarg
+# mismatch. Same "ships needing a first-run verify" posture as every workflow in
+# this cluster.
+#
+# Triggers:
+#   1. workflow_dispatch — operator clicks "Run workflow"
+#   2. issues.opened with label `trainer-offload-train-request` (owner-guarded)
+#
+# Issue body (optional, all keys have defaults for the flow head):
+#   manifest: btc-regime-5m-lgbm-flow-v1
+#   symbol: BTCUSDT
+#   timeframe: 5m
+#   days: 2200
+#
+# Safety: READS the repo + fetches PUBLIC candles + trains on historical data +
+# uploads an artifact. It does NOT push, deploy, touch config/, or register into
+# the live registry (--no-register). Wiring the trained model back into the
+# trainer's registry/mirror (so it joins the live shadow fleet) is the documented
+# v2 slice; a promotion past shadow stays Tier-3. NOTE the flow head additionally
+# needs the trainer-resident `market_microstructure` capture for its full-history
+# shard (v2) — on public data alone its ofi/vpin cols are 0 pre-capture.
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest:
+        description: "Manifest id under ml/configs/ (no .yaml)"
+        default: "btc-regime-5m-lgbm-flow-v1"
+      symbol:
+        description: "Symbol to fetch + build"
+        default: "BTCUSDT"
+      timeframe:
+        description: "Dataset timeframe label"
+        default: "5m"
+      days:
+        description: "Trailing days of candles to fetch (~2200 = ~6y of 5m)"
+        default: "2200"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: trainer-offload-train-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  train:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'trainer-offload-train-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse issue body
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          get() { printf '%s' "${ISSUE_BODY}" | grep -m1 -i "^$1:" | awk '{print $2}' || true; }
+          MANIFEST=$(get manifest);   [ -z "${MANIFEST}" ] && MANIFEST="btc-regime-5m-lgbm-flow-v1"
+          SYMBOL=$(get symbol);       [ -z "${SYMBOL}" ] && SYMBOL="BTCUSDT"
+          TIMEFRAME=$(get timeframe); [ -z "${TIMEFRAME}" ] && TIMEFRAME="5m"
+          DAYS=$(get days);           [ -z "${DAYS}" ] && DAYS="2200"
+          # sanity-validate so a malformed body can't inject args
+          printf '%s' "${MANIFEST}" | grep -qE '^[a-z0-9][a-z0-9._-]*$' || MANIFEST="btc-regime-5m-lgbm-flow-v1"
+          printf '%s' "${SYMBOL}" | grep -qE '^[A-Z0-9]+$' || SYMBOL="BTCUSDT"
+          printf '%s' "${TIMEFRAME}" | grep -qE '^[0-9]+[mhdMHD]$' || TIMEFRAME="5m"
+          printf '%s' "${DAYS}" | grep -qE '^[0-9]+$' || DAYS="2200"
+          { echo "of_manifest=${MANIFEST}"; echo "of_symbol=${SYMBOL}";
+            echo "of_timeframe=${TIMEFRAME}"; echo "of_days=${DAYS}"; } >> "$GITHUB_ENV"
+
+      - name: Set params from dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          { echo "of_manifest=${{ inputs.manifest }}"; echo "of_symbol=${{ inputs.symbol }}";
+            echo "of_timeframe=${{ inputs.timeframe }}"; echo "of_days=${{ inputs.days }}"; } >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ML deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas pyyaml requests lightgbm scikit-learn scipy
+
+      - name: Guard — manifest exists
+        run: |
+          set -euo pipefail
+          test -f "ml/configs/${of_manifest}.yaml" || { echo "::error::manifest ml/configs/${of_manifest}.yaml not found"; exit 1; }
+          echo "manifest: ml/configs/${of_manifest}.yaml"
+
+      - name: Fetch feed (Binance public archive — dodges the Bybit geoblock)
+        run: |
+          set -euo pipefail
+          mkdir -p data datasets-out artifacts/offload
+          case "${of_timeframe}" in
+            *m) INT="${of_timeframe%m}" ;;
+            1h) INT=60 ;; 2h) INT=120 ;; 4h) INT=240 ;;
+            1d|1D) INT=D ;; *) INT="${of_timeframe}" ;;
+          esac
+          echo "timeframe=${of_timeframe} -> interval=${INT}"
+          python scripts/ops/fetch_backtest_candles.py \
+            --symbol "${of_symbol}" --interval "${INT}" --days "${of_days}" \
+            --output "data/offload_feed.csv"
+          echo "feed rows: $(wc -l < data/offload_feed.csv)"; head -2 data/offload_feed.csv
+
+      - name: Build ML dataset families from the CSV (FIRST-RUN VERIFY of the csv path)
+        run: |
+          set +e   # never hard-abort — the first run pins any adapter-kwarg mismatch
+          DR=datasets-out; VER=v002
+          echo "=== market_raw (csv adapter) ==="
+          python -m ml build-dataset market_raw \
+            --output-dir "$DR" --version "$VER" --source "data/offload_feed.csv" \
+            --symbol-scope "${of_symbol}" --timeframe "${of_timeframe}" --overwrite \
+            "adapter=csv" "path=data/offload_feed.csv" "symbol=${of_symbol}" "timeframe=${of_timeframe}" \
+            2>&1 | tail -20
+          RAW="$DR/market_raw/${of_symbol}/${of_timeframe}/$VER"
+          echo "raw dir: $RAW"; ls -la "$RAW" 2>&1 | head
+          echo "=== market_features ==="
+          python -m ml build-dataset market_features \
+            --output-dir "$DR" --version "$VER" --source "$RAW" \
+            --symbol-scope "${of_symbol}" --timeframe "${of_timeframe}" --overwrite \
+            "market_raw_path=$RAW" "vol_window_n=20" "forward_window_m=5" \
+            "vol_threshold=0.005" "trend_threshold=0.005" "n_vol_buckets=3" \
+            2>&1 | tail -20
+          FEAT="$DR/market_features/${of_symbol}/${of_timeframe}/$VER"
+          echo "features dir: $FEAT"; ls -la "$FEAT" 2>&1 | head
+
+      - name: Train the manifest on the 16 GB runner (--no-register)
+        run: |
+          set +e
+          echo "=== free -h before ==="; free -h
+          /usr/bin/time -v python -m ml train "ml/configs/${of_manifest}.yaml" \
+            --datasets-root datasets-out \
+            --experiments-root ml/experiments-runs \
+            --registry-root /tmp/offload-registry \
+            --no-register \
+            > artifacts/offload/train_out.json 2> artifacts/offload/train_time.txt
+          echo "rc=$?"
+          echo "=== train stdout (metrics JSON) ==="; cat artifacts/offload/train_out.json | tail -40
+          echo "=== peak RSS (proves the 16 GB headroom) ==="; grep -i 'Maximum resident' artifacts/offload/train_time.txt || true
+
+      - name: Summarize verdict
+        run: |
+          set +e
+          python - <<'PYEOF' | tee artifacts/offload/VERDICT.md
+          import json, os, re
+          man = os.environ.get("of_manifest", "?")
+          def load_json_tail(p):
+              try:
+                  txt = open(p).read().strip().splitlines()
+              except Exception:
+                  return {}
+              for line in reversed(txt):
+                  line = line.strip()
+                  if line.startswith("{"):
+                      try: return json.loads(line)
+                      except Exception: continue
+              return {}
+          r = load_json_tail("artifacts/offload/train_out.json")
+          peak = "?"
+          try:
+              t = open("artifacts/offload/train_time.txt").read()
+              m = re.search(r"Maximum resident set size \(kbytes\):\s*(\d+)", t)
+              if m: peak = f"{int(m.group(1))/1024/1024:.2f} GB"
+          except Exception: pass
+          L = [f"# trainer-offload-train — {man}", ""]
+          L.append(f"- **peak RSS: {peak}** (the 6 GB trainer OOMs; a 16 GB runner has the headroom)")
+          metrics = r.get("metrics") or {k: r[k] for k in r if isinstance(r.get(k), (int, float))}
+          if metrics:
+              L.append(f"- registered: {r.get('registered')} · model_id: {r.get('model_id')}")
+              L.append("- metrics:")
+              for k in ("accuracy", "macro_f1", "f1_volatile", "support_volatile", "n_eval"):
+                  if k in metrics: L.append(f"  - {k}: {metrics[k]}")
+          else:
+              L.append("- ⚠️ no metrics parsed — read train_out.json / train_time.txt in the artifact "
+                       "(first-run: this is where a csv-adapter-kwarg or build mismatch surfaces).")
+          print("\n".join(L))
+          PYEOF
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: trainer-offload-${{ github.run_id }}
+          path: |
+            artifacts/offload/train_out.json
+            artifacts/offload/train_time.txt
+            artifacts/offload/VERDICT.md
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Comment verdict on issue
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '_(verdict not produced)_';
+            try { body = fs.readFileSync('artifacts/offload/VERDICT.md', 'utf8'); } catch (e) {}
+            const footer = '\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 60000) + footer,
+            });
+
+      - name: Comment failure/cancellation on issue
+        if: github.event_name == 'issues' && (failure() || cancelled())
+        uses: actions/github-script@v7
+        env:
+          JOB_STATUS: ${{ job.status }}
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const state = process.env.JOB_STATUS === 'cancelled' ? 'cancelled' : 'failed';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `🔴 **trainer-offload-train ${state}.**\nRun: ${runUrl}\n\n`
+                + `This run produced **no verdict** — if you were waiting on it, it is **dead, not still running**. Read the run log, fix the cause, and re-fire the request. A cancel is usually the job time budget (\`timeout-minutes: 330\`) or a manual cancel.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_`
+            });
