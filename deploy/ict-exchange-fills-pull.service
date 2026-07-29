@@ -38,7 +38,7 @@
 # ============================================
 
 [Unit]
-Description=ICT exchange-fills pull — keep /api/bot/pnl/exchange fresh (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY)
+Description=ICT exchange-fills pull (Bybit + Alpaca) — keep /api/bot/pnl/exchange + broker-truth cost fresh (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY)
 After=network-online.target ict-trader-live.service
 Wants=network-online.target
 
@@ -60,6 +60,12 @@ TimeoutStartSec=300
 # Run under the trader venv so ccxt imports (same interpreter the trader uses
 # for Bybit) — not system /usr/bin/python3.
 ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_exchange_fills.py --all-bybit-accounts --days 7
+# Alpaca fills (rec #7): the same daily timer also pulls every live Alpaca
+# account's FILL activities (distinct sub-accounts, distinct creds from .env) so
+# the equity accounts accrue exchange-truth fills too. Runs after the Bybit pull;
+# both pullers are fail-soft internally (skip a missing-cred account, exit 2 only
+# when ALL creds are missing — a deploy problem worth failing the unit loudly).
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_alpaca_fills.py --all-alpaca-accounts --days 7
 StandardOutput=journal
 StandardError=journal
 
