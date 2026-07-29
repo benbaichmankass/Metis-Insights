@@ -175,10 +175,15 @@ The roster grew 6 → 44+ live strategies while `regime_policy.yaml` stayed at 4
 tooling exists (`strategy-coverage-guard`); the debt is the gap. Folds into M36
 consolidation. **Effort:** medium (per-strategy direction-aware cells).
 
-### #6 — A dedicated `macro-research` skill. *[Cross-cutting]*
+### #6 — A dedicated `macro-research` skill. *[Cross-cutting]* — ✅ SHIPPED 2026-07-29
 Macro work runs ad hoc under `research-driver`. A skill gives it the same repeatable
 rigor the technical side already has (`backtesting`, `exit-refinement`,
 `model-training`). Cheap, high consistency payoff. **Effort:** low.
+**Built:** `.claude/skills/macro-research/SKILL.md` — codifies the three binding
+invariants (off-VM compute · point-in-time/no-lookahead consensus · verify-the-source-
+before-you-build), the data→PIT-store→honest-edge pipeline, and the toolbox map
+(`src/units/strategies/macro_thesis/`, `scripts/macro/`, the macro workflow cluster,
+`comms/macro/` artifacts, `config/macro_*.yaml`). `research-driver` dispatches to it.
 
 ### #7 — Broker-truth cost coverage across all accounts. *[Cross-cutting data integrity]*
 Only 3/8 accounts have broker-truth; `bybit_2` journal under-records PnL vs wallet
