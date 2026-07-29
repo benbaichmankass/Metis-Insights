@@ -7,6 +7,42 @@ from src.runtime.trade_costs import estimate_roundtrip_fee_usd
 from src.units.db.database import Database
 
 
+class TestVenueAwareFeeBps:
+    """`roundtrip_fee_bps_for` — commission-free equities resolve to 0 bps so the
+    close-path estimate doesn't over-charge them the crypto-perp default (the
+    `spy_pullback_1h` net-R sign-flip artifact, M24 2026-07-29)."""
+
+    def _resolver(self):
+        import src.core.profile_loader as pl
+        pl._ROUNDTRIP_FEE_BPS_CACHE = None  # force a reload of the real config
+        return pl.roundtrip_fee_bps_for
+
+    def test_alpaca_spot_equities_are_commission_free(self):
+        r = self._resolver()
+        # every (alpaca, spot) roster row, regardless of underlying asset_class
+        for sym in ("SPY", "QQQ", "IWM", "GLD", "SLV", "TLT", "USO", "GDX"):
+            assert r(sym) == 0.0, sym
+
+    def test_other_venues_defer_to_estimator_default(self):
+        r = self._resolver()
+        for sym in ("BTCUSDT", "MES", "MGC", "EURUSD"):
+            assert r(sym) is None, sym
+
+    def test_unknown_and_empty_defer(self):
+        r = self._resolver()
+        assert r("ZZZ_NOT_A_SYMBOL") is None
+        assert r("") is None
+        assert r(None) is None  # type: ignore[arg-type]
+
+    def test_composed_fee_zero_for_equity_nonzero_for_crypto(self):
+        r = self._resolver()
+        # equity: 0 bps → $0 fee; crypto: default 7.5 bps → real fee
+        eq_bps = r("SPY")
+        assert estimate_roundtrip_fee_usd(
+            entry_price=550.0, qty=2.0, fee_bps_roundtrip=eq_bps) == 0.0
+        assert estimate_roundtrip_fee_usd(entry_price=550.0, qty=2.0) > 0.0
+
+
 class TestEstimator:
     def test_basic_notional_fee(self):
         # (7.5/1e4) * 100 * 2 * 1 = 0.15
@@ -70,6 +106,23 @@ class TestMigrationAndCloseWriter:
         conn.close()
         assert src == "estimate"
         assert abs(fee - 0.15) < 1e-6  # (7.5/1e4)*100*2*1 (BTCUSDT cvu=1)
+
+    def test_close_stamps_zero_for_commission_free_equity(self, db):
+        # SPY (alpaca spot) is commission-free → estimate fee is $0, still
+        # cost_source='estimate' (a modelled-zero, not a missing cost). This is
+        # the spy_pullback_1h net-R sign-flip fix (M24 2026-07-29).
+        import src.core.profile_loader as pl
+        pl._ROUNDTRIP_FEE_BPS_CACHE = None
+        tid = _open_trade(db, symbol="SPY", account_id="alpaca_paper",
+                          entry_price=550.0, position_size=2.0)
+        db.update_trade(tid, {"status": "closed", "exit_price": 560.0, "pnl": 20.0})
+        conn = db.connect()
+        fee, src = conn.execute(
+            "SELECT fee_taker_usd, cost_source FROM trades WHERE id = ?", (tid,)
+        ).fetchone()
+        conn.close()
+        assert src == "estimate"
+        assert fee == 0.0
 
     def test_backtest_row_not_costed(self, db):
         tid = _open_trade(db, is_backtest=1)

@@ -130,3 +130,47 @@ def contract_value_usd_for(symbol: str) -> float:
         except Exception:  # noqa: BLE001 — best-effort; default keeps crypto correct
             _CONTRACT_VALUE_USD_CACHE = {}
     return _CONTRACT_VALUE_USD_CACHE.get(symbol, 1.0)
+
+
+# Commission-free venues: US equities/ETFs on Alpaca settle at $0 commission
+# (only sub-basis-point SEC/TAF regulatory fees on the SELL leg, treated as
+# negligible). The flat crypto-style round-trip-bps estimate over-charges them
+# ~25× — this is the `spy_pullback_1h` net-R sign-flip: gross +1.456R →
+# net −0.457R was a fee-model artifact, not a real cost (M24 net-R re-grade,
+# `docs/research/M24-net-r-regrade-findings-2026-07-17.md`; resolved 2026-07-29).
+# All 14 (alpaca, spot) roster rows (SPY/QQQ/IWM/GLD/SLV/GDX/IAUM/IEF/QLD/TQQQ/
+# SPLG/SCHA/USO/TLT) are commission-free regardless of underlying asset_class —
+# so this keys on the VENUE, not the asset class.
+_COMMISSION_FREE_VENUES: set[tuple[str, str]] = {("alpaca", "spot")}
+_ROUNDTRIP_FEE_BPS_CACHE: dict[str, float] | None = None
+
+
+def roundtrip_fee_bps_for(symbol: str) -> float | None:
+    """Venue-appropriate round-trip fee in basis points for *symbol*, or ``None``.
+
+    Returns ``0.0`` for a commission-free venue (US equity/ETF on Alpaca), or
+    **``None``** meaning "no venue-specific rate — use the estimator's default"
+    (crypto / futures / fx keep ``trade_costs.DEFAULT_FEE_BPS_ROUNDTRIP``). Pure
+    resolver over ``config/instruments.yaml`` (keyed on the instrument's
+    ``exchange`` + ``category``); best-effort — an unknown symbol → ``None``
+    (conservative: never silently zero an unknown venue's cost), never raises.
+    Memoized process-wide; reset ``_ROUNDTRIP_FEE_BPS_CACHE`` to force a reload
+    (tests only). Sibling of ``contract_value_usd_for`` — the single resolver
+    the close-path cost estimate (``database._record_trade_cost_estimate``)
+    reads so a commission-free equity is not charged a crypto-perp fee.
+    """
+    global _ROUNDTRIP_FEE_BPS_CACHE
+    if not symbol:
+        return None
+    if _ROUNDTRIP_FEE_BPS_CACHE is None:
+        try:
+            profiles = load_instrument_profiles()
+            cache: dict[str, float] = {}
+            for sym, p in (profiles or {}).items():
+                venue = (getattr(p, "exchange", None), getattr(p, "category", None))
+                if venue in _COMMISSION_FREE_VENUES:
+                    cache[sym] = 0.0
+            _ROUNDTRIP_FEE_BPS_CACHE = cache
+        except Exception:  # noqa: BLE001 — best-effort; None keeps the estimator default
+            _ROUNDTRIP_FEE_BPS_CACHE = {}
+    return _ROUNDTRIP_FEE_BPS_CACHE.get(symbol)
