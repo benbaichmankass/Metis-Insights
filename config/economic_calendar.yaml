@@ -39,6 +39,10 @@ symbol_event_classes:
 # Auto-populated from the Bigdata.com economic-calendar producer
 # (scripts/macro/econ_calendar_produce.py --emit-config). Forward
 # high/medium-impact events mapped to the news-layer classes above.
+
+# Auto-populated from the Bigdata.com economic-calendar producer
+# (scripts/macro/econ_calendar_produce.py --emit-config). Forward
+# high/medium-impact events mapped to the news-layer classes above.
 events:
   - {class: fomc, time: "2026-07-29T18:30:00Z", impact: 1.0}
   - {class: pce, time: "2026-07-30T12:30:00Z", impact: 0.9}

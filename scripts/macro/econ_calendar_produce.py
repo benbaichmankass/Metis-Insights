@@ -59,6 +59,7 @@ from econ_calendar_data import (  # noqa: E402
     parse_tearsheet,
     to_event_rows,
 )
+from econ_calendar_fmp import normalize_fmp  # noqa: E402
 
 REPO_ROOT = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 DEFAULT_CAPTURES_DIR = REPO_ROOT / "comms" / "macro" / "econ_calendar_captures"
@@ -92,27 +93,59 @@ def _capture_meta(path: Path, text: str) -> tuple[Optional[str], Optional[str]]:
     return None, None
 
 
+def _rows_from_md(path: Path, text: str, skipped: list[dict]) -> list[dict]:
+    """A Bigdata.com tearsheet ``.md`` capture → PIT rows."""
+    country, observed_at = _capture_meta(path, text)
+    if not country or not observed_at:
+        skipped.append({"file": path.name, "reason": "no_country_or_observed_at"})
+        return []
+    return to_event_rows(parse_tearsheet(text, country=country), observed_at=observed_at)
+
+
+def _rows_from_fmp(path: Path, text: str, skipped: list[dict]) -> list[dict]:
+    """An FMP ``.fmp.json`` capture (``{observed_at, countries, rows:[...]}``) → PIT
+    rows. One capture can span several countries — each normalized separately so
+    every event carries its own country/entity."""
+    try:
+        doc = json.loads(text)
+    except ValueError as exc:
+        skipped.append({"file": path.name, "reason": f"bad_json:{exc}"})
+        return []
+    observed_at = doc.get("observed_at")
+    fmp_rows = doc.get("rows") or []
+    countries = [c.upper() for c in (doc.get("countries") or ["US"])]
+    if not observed_at or not isinstance(fmp_rows, list):
+        skipped.append({"file": path.name, "reason": "no_observed_at_or_rows"})
+        return []
+    out: list[dict] = []
+    for ctry in countries:
+        parsed = normalize_fmp(fmp_rows, countries={ctry}, country=ctry)
+        out.extend(to_event_rows(parsed, observed_at=observed_at))
+    return out
+
+
 def rows_from_captures(captures_dir: Path) -> tuple[list[dict], list[dict]]:
-    """Parse every ``*.md`` capture → ``(pit_rows, skipped)``.
+    """Parse every capture → ``(pit_rows, skipped)`` — both source formats:
+    ``*.md`` (Bigdata.com tearsheet) and ``*.fmp.json`` (FMP economic calendar).
 
     ``pit_rows`` are the ``macro_events``-schema PIT rows across all captures,
-    sorted deterministically (``observed_at``, then ``event_id``). ``skipped``
-    records any capture we couldn't stamp (missing country/observed_at) so the
-    run summary is honest rather than silently dropping data."""
+    sorted deterministically (``observed_at``, ``event_id``, ``status``).
+    ``skipped`` records any capture we couldn't stamp/parse so the run summary is
+    honest rather than silently dropping data."""
     pit_rows: list[dict] = []
     skipped: list[dict] = []
-    for path in sorted(captures_dir.glob("*.md")):
+    for path in sorted(captures_dir.glob("*")):
+        if path.suffix.lower() not in {".md", ".json"} or path.name.startswith("."):
+            continue
         try:
             text = path.read_text(encoding="utf-8")
         except OSError as exc:
             skipped.append({"file": path.name, "reason": f"read_error:{exc}"})
             continue
-        country, observed_at = _capture_meta(path, text)
-        if not country or not observed_at:
-            skipped.append({"file": path.name, "reason": "no_country_or_observed_at"})
-            continue
-        parsed = parse_tearsheet(text, country=country)
-        pit_rows.extend(to_event_rows(parsed, observed_at=observed_at))
+        if path.name.endswith(".fmp.json"):
+            pit_rows.extend(_rows_from_fmp(path, text, skipped))
+        elif path.suffix.lower() == ".md":
+            pit_rows.extend(_rows_from_md(path, text, skipped))
     pit_rows.sort(key=lambda r: (str(r.get("observed_at")), str(r.get("event_id")), str(r.get("status"))))
     return pit_rows, skipped
 
@@ -249,7 +282,8 @@ def produce(
             config_events = _emit_config_yaml(ev, out_path=Path(emit_config), base_path=DEFAULT_CONFIG)
 
     return {
-        "captures": len(list(captures_dir.glob("*.md"))),
+        "captures": len([p for p in captures_dir.glob("*")
+                         if p.name.endswith(".fmp.json") or p.suffix.lower() == ".md"]),
         "skipped": skipped,
         "rows": len(pit_rows),
         "written": written,

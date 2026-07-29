@@ -18,19 +18,41 @@ event-response backtest are the follow-ons; the P5 order path stays unwired.
 | Tests | `tests/test_m1_econ_calendar_{data,produce}.py` | 20 tests — parsing quirks, the canonical EIA case, PIT stamping, idempotent regen, config gating. |
 | Real seed | `comms/macro/econ_calendar_captures/US-20260729T063800Z.md` → `comms/macro/econ_calendar_snapshots.jsonl` | 110 PIT rows (40 scheduled + 70 resolved, 54 with a computed surprise) from a real US tearsheet, incl. the ROADMAP_MACRO canonical case. |
 
-## Data source
+## Data sources — two feeds, one pipeline
 
-Bigdata.com's **`bigdata_country_tearsheet`** MCP tool (`content-economic-calendar`
-access, PAYG) returns — in one call — a forward **Economic Calendar - Upcoming
-Events** table (date, event, impact, **consensus**) and a **Macroeconomic
-Overview** of already-printed releases per sector (**Actual / Consensus / Previous
-/ Surprise**), sourced by Bigdata from FXStreet. The canonical M1 test case
-verified end-to-end:
+The parser/PIT-mapper/store/tests are **source-agnostic** at the `to_event_rows`
+boundary, so two sources produce the *same* normalized event dicts:
+
+1. **FMP economic calendar — the AUTONOMOUS feed (primary going forward).**
+   Financial Modeling Prep's `/api/v3/economic_calendar` (free tier + a free
+   `FMP_API_KEY`), fetched **directly on a GitHub-hosted runner over plain HTTPS**
+   — no session dependency, exactly like the FRED valuation producer. Fields:
+   date · country · event · previous · **estimate (consensus)** · actual · impact.
+   `scripts/macro/econ_calendar_fmp.py` (off-VM-guarded fetch + pure `normalize_fmp`
+   + a `.fmp.json` capture writer). **This is what the daily schedule runs.**
+2. **Bigdata.com `bigdata_country_tearsheet` MCP — a richer cross-check.** Returns
+   the forward calendar + a per-sector Macroeconomic Overview (Actual/Consensus/
+   Previous/**Surprise**) sourced from FXStreet, plus the Treasury curve / VIX /
+   CFTC positioning. It is **session-bound** (a runner can't call it), so it's a
+   Claude-session-dropped `.md` capture, not the load-bearing autonomous feed
+   (Bigdata is PAYG, not free). The producer parses both capture formats identically.
+
+The canonical M1 test case verified end-to-end (from the real Bigdata seed;
+FMP names the same release "EIA Natural Gas Stocks Change" → same `eia_natgas_storage` kind):
 
 ```
 EIA Natural Gas Storage Change (2026-07-23): actual 32 · consensus 29
   → surprise = +3.0 (raw) / +10.3% (vendor)   ✓ matches ROADMAP_MACRO §3
 ```
+
+**Why FMP replaced the scheduled-Claude-session plan:** relying on a Routine to
+pull the data was the design's weakest link (session-bound, autonomous-commit +
+PAYG). A free keyed HTTP source makes `econ-calendar-produce.yml` a normal
+scheduled workflow — `FMP_API_KEY` (free, an Actions secret used **only on the
+runner**, never on the live VM). Safe to merge before the key exists: the FMP fetch
+step is gated on the secret, so a keyless run just regenerates from existing
+captures. One open verification: FMP's free-tier gating of the calendar endpoint
+is confirmed by the workflow's first live run (the sandbox has no FMP egress).
 
 ## The compute + point-in-time invariants (how they're honored)
 
@@ -52,21 +74,16 @@ EIA Natural Gas Storage Change (2026-07-23): actual 32 · consensus 29
 
 ## Operating model — how the spine accrues going forward
 
-1. **Fetch (Claude session).** Call `bigdata_country_tearsheet(country)`, write the
-   markdown to `comms/macro/econ_calendar_captures/<COUNTRY>-<ISO8601Z>.md` (with a
-   `<!-- country: … observed_at: … -->` header), run
-   `scripts/macro/econ_calendar_produce.py`, commit. This session did one real US run.
-2. **Recurring (PROPOSED — operator-gated).** A **scheduled Claude session** (a
-   Routine / `create_trigger` with a fresh session per fire) is the honest
-   recurring "off-VM producer" given the MCP is session-bound. It re-runs step 1
-   on a cadence (daily/weekly is plenty for a weeks-horizon event study). Not
-   auto-created here — a recurring autonomous repo-committing job + PAYG spend is
-   an operating-model decision. **$-budget:** each tearsheet call is a small PAYG
-   charge (Bigdata balance was ~$987 at build time); one call/country/day is
-   negligible, but it must stay observable — surface it alongside `insights_usage`
-   when the cadence is turned on.
-3. **Re-land / verify (`econ-calendar-produce` workflow).** Regenerates the PIT log
-   from committed captures deterministically — the CI-reproducible, non-MCP path.
+1. **Autonomous daily (`econ-calendar-produce.yml`, `schedule: 22:30 UTC`).** The
+   workflow fetches the FMP calendar on the runner (`econ_calendar_fmp.py`, gated on
+   `FMP_API_KEY`), writes a `.fmp.json` capture, regenerates the PIT log from ALL
+   committed captures, and lands it via the PAT auto-merge PR. **No Claude session,
+   no live-VM touch, no PAYG.** This is the load-bearing feed.
+2. **Optional cross-check (Claude session, ad hoc).** Call `bigdata_country_tearsheet`,
+   write a `.md` capture, run the producer — for the richer curve/VIX/CFTC context or
+   to reconcile FMP vs FXStreet consensus. Not required for accrual.
+3. **Re-land / verify.** The same workflow (dispatch / `econ-calendar-produce-now`
+   label) regenerates deterministically from committed captures.
 
 ## Live-path change requiring operator approval (Tier-3, in this draft PR)
 

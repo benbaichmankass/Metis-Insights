@@ -156,32 +156,42 @@ _PERIOD_RE = re.compile(
 # Curated canonical kinds for the highest-signal releases (stable slugs the
 # thesis engine + the news config key on). Order matters — first match wins;
 # more specific patterns precede their generic parents.
+#
+# The patterns are worded to catch BOTH the FXStreet naming (Bigdata tearsheet)
+# and the FMP naming (the free scheduled source) for the same release — e.g.
+# "EIA Natural Gas Storage Change" (FXStreet) and "EIA Natural Gas Stocks Change"
+# (FMP) both → eia_natgas_storage; "Nonfarm Payrolls" and "Non Farm Payrolls" both
+# → nfp; FMP's "Inflation Rate YoY" and FXStreet's "Consumer Price Index (YoY)"
+# both → cpi_yoy — so the kind (and thus the news-class mapping + PIT linkage) is
+# stable across sources.
 _KIND_PATTERNS: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"eia natural gas storage", re.I), "eia_natgas_storage"),
-    (re.compile(r"eia crude oil", re.I), "eia_crude_stocks"),
+    (re.compile(r"natural gas (?:storage|stocks)", re.I), "eia_natgas_storage"),
+    (re.compile(r"(?:eia )?crude oil (?:stocks|inventories)", re.I), "eia_crude_stocks"),
     (re.compile(r"api weekly crude", re.I), "api_crude_stocks"),
-    (re.compile(r"fed interest rate|fomc|monetary policy statement", re.I), "fomc"),
+    (re.compile(r"fed interest rate|fomc|monetary policy statement|interest rate decision", re.I), "fomc"),
     (re.compile(r"core personal consumption.*price index.*mom", re.I), "core_pce_mom"),
     (re.compile(r"core personal consumption.*price index.*yoy", re.I), "core_pce_yoy"),
+    (re.compile(r"core pce.*mom", re.I), "core_pce_mom"),
+    (re.compile(r"core pce.*yoy", re.I), "core_pce_yoy"),
     (re.compile(r"personal consumption expenditures.*price index.*mom", re.I), "pce_mom"),
     (re.compile(r"personal consumption expenditures.*price index.*yoy", re.I), "pce_yoy"),
-    (re.compile(r"consumer price index ex food.*mom", re.I), "core_cpi_mom"),
-    (re.compile(r"consumer price index ex food.*yoy", re.I), "core_cpi_yoy"),
-    (re.compile(r"consumer price index.*mom", re.I), "cpi_mom"),
-    (re.compile(r"consumer price index.*yoy", re.I), "cpi_yoy"),
-    (re.compile(r"producer price index.*mom", re.I), "ppi_mom"),
-    (re.compile(r"producer price index.*yoy", re.I), "ppi_yoy"),
-    (re.compile(r"nonfarm payrolls(?!.*benchmark)", re.I), "nfp"),
+    (re.compile(r"consumer price index ex food.*mom|core (?:inflation rate|cpi).*mom", re.I), "core_cpi_mom"),
+    (re.compile(r"consumer price index ex food.*yoy|core (?:inflation rate|cpi).*yoy", re.I), "core_cpi_yoy"),
+    (re.compile(r"consumer price index.*mom|inflation rate.*mom", re.I), "cpi_mom"),
+    (re.compile(r"consumer price index.*yoy|inflation rate.*yoy", re.I), "cpi_yoy"),
+    (re.compile(r"producer price index.*mom|ppi.*mom", re.I), "ppi_mom"),
+    (re.compile(r"producer price index.*yoy|ppi.*yoy", re.I), "ppi_yoy"),
+    (re.compile(r"non[\s-]?farm payrolls(?!.*benchmark)", re.I), "nfp"),
     (re.compile(r"unemployment rate", re.I), "unemployment_rate"),
     (re.compile(r"initial jobless claims(?! 4)", re.I), "initial_jobless_claims"),
     (re.compile(r"average hourly earnings.*yoy", re.I), "avg_hourly_earnings_yoy"),
-    (re.compile(r"gross domestic product annualized", re.I), "gdp_annualized"),
-    (re.compile(r"gross domestic product price index", re.I), "gdp_price_index"),
+    (re.compile(r"gross domestic product annualized|gdp growth rate.*(?:qoq|annualized)", re.I), "gdp_annualized"),
+    (re.compile(r"gross domestic product price index|gdp price index", re.I), "gdp_price_index"),
     (re.compile(r"ism manufacturing pmi", re.I), "ism_manufacturing"),
-    (re.compile(r"ism services pmi", re.I), "ism_services"),
+    (re.compile(r"ism services pmi|ism non[\s-]?manufacturing", re.I), "ism_services"),
     (re.compile(r"s&p global manufacturing pmi", re.I), "spglobal_manufacturing"),
     (re.compile(r"retail sales control", re.I), "retail_sales_control"),
-    (re.compile(r"retail sales \(mom\)", re.I), "retail_sales_mom"),
+    (re.compile(r"retail sales.*mom|retail sales(?! (?:yoy|ex|control))", re.I), "retail_sales_mom"),
     (re.compile(r"michigan consumer sentiment", re.I), "michigan_sentiment"),
     (re.compile(r"consumer confidence", re.I), "consumer_confidence"),
     (re.compile(r"durable goods orders(?! ex)", re.I), "durable_goods_orders"),

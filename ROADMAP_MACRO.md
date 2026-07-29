@@ -217,9 +217,12 @@ lazily via the redirect.
   the calendar/consensus/surprise half of M1's clean-joined-dataset gate. **PIT-safe by
   construction:** `surprise = actual − consensus` keys on the never-revised consensus column
   (§6's #1 rule); every row carries the fetch `observed_at`, a revision is a new line.
-  **Compute invariant honored:** the Bigdata MCP is session-bound, so fetch (a Claude session
-  writes a raw capture) is split from parse→PIT-map→land (pure committed script + workflow);
-  the live tick only reads the pre-computed snapshots. Files: `scripts/macro/econ_calendar_data.py`
+  **Compute invariant honored:** fetch is split from parse→PIT-map→land (pure committed script +
+  workflow); the live tick only reads the pre-computed snapshots. **Autonomous feed = FMP economic
+  calendar** (free tier + `FMP_API_KEY`, fetched on a GitHub runner — `scripts/macro/econ_calendar_fmp.py`,
+  daily `schedule:` in `econ-calendar-produce.yml`), replacing the initial session-bound-MCP plan; the
+  Bigdata.com tearsheet stays a richer cross-check (curve/VIX/CFTC). Both produce the same PIT rows
+  (source-agnostic at the `to_event_rows` boundary). Files: `scripts/macro/econ_calendar_data.py`
   (pure parser+mapper), `scripts/macro/econ_calendar_produce.py` (captures→full-regen PIT log +
   forward-calendar json + gated config), `.github/workflows/econ-calendar-produce.yml`
   (deterministic re-land), `tests/test_m1_econ_calendar_*.py` (20 tests). **Real seed landed:**
