@@ -4,7 +4,7 @@
 
 One row per `execution: live` strategy. `regime`: **cell** = has a `config/regime_policy.yaml` entry; **exempt** = permanently regime-gating-N/A (reasoned); **debt** = grandfathered, owed a cell (paid down by Phase-2 / the system-review). `desc` = has a `config/strategy_descriptions.json` entry.
 
-**Coverage:** 4 celled · 7 exempt · **33 in debt** (ceiling 35). The debt count must trend to 0.
+**Coverage:** 5 celled · 7 exempt · **32 in debt** (ceiling 34). The debt count must trend to 0.
 
 | strategy | regime | desc |
 |---|---|---|
@@ -13,7 +13,7 @@ One row per `execution: live` strategy. `regime`: **cell** = has a `config/regim
 | `eth_pullback_prop_2h` | 🟠 debt | ✅ |
 | `gdx_pullback_1d` | 🟠 debt | ✅ |
 | `gld_pullback_1d` | 🟠 debt | ✅ |
-| `gld_pullback_1h` | 🟠 debt | ✅ |
+| `gld_pullback_1h` | ✅ cell | ✅ |
 | `htf_pullback_trend_2h` | ✅ cell | ✅ |
 | `iaum_pullback_1d` | 🟠 debt | ✅ |
 | `ict_scalp_5m` | ✅ cell | ✅ |
@@ -63,7 +63,6 @@ One row per `execution: live` strategy. `regime`: **cell** = has a `config/regim
 | `eth_pullback_prop_2h` | BL-20260717-REGIME-COVERAGE-DEBT | Directional pullback trend-follower on ETHUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell. |
 | `gdx_pullback_1d` | BL-20260717-REGIME-COVERAGE-DEBT | Directional pullback trend-follower on GDX; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell. |
 | `gld_pullback_1d` | BL-20260717-REGIME-COVERAGE-DEBT | Directional pullback trend-follower on GLD; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell. |
-| `gld_pullback_1h` | BL-20260717-REGIME-COVERAGE-DEBT | Directional pullback trend-follower on GLD; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell. |
 | `iaum_pullback_1d` | BL-20260717-REGIME-COVERAGE-DEBT | Directional pullback trend-follower on IAUM; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell. |
 | `ief_pullback_1d` | BL-20260717-REGIME-COVERAGE-DEBT | Directional pullback trend-follower on IEF; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell. |
 | `iwm_trend_long_1d` | BL-20260717-REGIME-COVERAGE-DEBT | Directional trend-follower on IWM; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell. |
