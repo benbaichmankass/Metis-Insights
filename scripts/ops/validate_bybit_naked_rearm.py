@@ -191,10 +191,19 @@ def main() -> int:
             except (TypeError, ValueError):
                 size = 0.0
             if size > 0:
-                client.set_trading_stop(  # clear any position stop before flatten
-                    category=CATEGORY, symbol=SYMBOL, positionIdx=0,
-                    tpslMode="Full", stopLoss="0", takeProfit="0",
-                )
+                # Best-effort clear the position stop — Bybit returns
+                # ErrCode 34040 "not modified" when there's nothing to clear;
+                # that must NOT abort the flatten (the earlier bug left the
+                # demo position open). Its own try/except so the reduce-only
+                # close ALWAYS runs. A reduceOnly Market close cancels a Full
+                # position stop on its own anyway.
+                try:
+                    client.set_trading_stop(
+                        category=CATEGORY, symbol=SYMBOL, positionIdx=0,
+                        tpslMode="Full", stopLoss="0", takeProfit="0",
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    print(f"  clear position stop (non-fatal): {exc}")
                 client.place_order(
                     category=CATEGORY, symbol=SYMBOL, side="Sell",
                     orderType="Market", qty=str(size), reduceOnly=True,

@@ -243,3 +243,78 @@ def test_resolver_returns_none_when_no_link(tmp_path):
         is_demo=False, pkg_id=None,
     )
     assert _resolve_linked_package_id(db, trade_id) is None
+
+
+# ---------------------------------------------------------------------------
+# BL-20260729 — immediate linked_trade_id stamp for paper-only packages
+# ---------------------------------------------------------------------------
+
+
+def _linked(db, pkg_id):
+    conn = db.connect()
+    try:
+        return conn.execute(
+            "SELECT linked_trade_id FROM order_packages "
+            "WHERE order_package_id = ?", (pkg_id,),
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+
+def test_link_if_unset_fills_a_null_slot(tmp_path):
+    """A paper-only package's first leg links immediately (no 5-min wait)."""
+    db = _make_db(tmp_path)
+    pkg_id = "pkg-paper-only-001"
+    _insert_package(db, pkg_id=pkg_id, linked_trade_id=None)
+    leg = _insert_leg(
+        db, account_id="bybit_1", setup_type="pairs_sol_eth_a",
+        is_demo=True, pkg_id=pkg_id,
+    )
+    rows = db.update_order_package_linked_trade_if_unset(pkg_id, leg)
+    assert rows == 1
+    assert _linked(db, pkg_id) == leg
+
+
+def test_link_if_unset_does_not_overwrite(tmp_path):
+    """First-writer-wins: a second (paper) leg must NOT clobber the slot —
+    this is what lets a real-money leg's unconditional write win in a mixed
+    fanout regardless of execution order."""
+    db = _make_db(tmp_path)
+    pkg_id = "pkg-mixed-001"
+    _insert_package(db, pkg_id=pkg_id, linked_trade_id=None)
+    real = _insert_leg(
+        db, account_id="bybit_2", setup_type="eth_pullback_2h",
+        is_demo=False, pkg_id=pkg_id,
+    )
+    paper = _insert_leg(
+        db, account_id="bybit_portfolio", setup_type="eth_pullback_2h",
+        is_demo=True, pkg_id=pkg_id,
+    )
+    # Real-money leg writes unconditionally (the executor path).
+    db.update_order_package(pkg_id, {"linked_trade_id": real})
+    # Paper mirror then tries the conditional write → no-op (slot set).
+    rows = db.update_order_package_linked_trade_if_unset(pkg_id, paper)
+    assert rows == 0
+    assert _linked(db, pkg_id) == real
+
+
+def test_real_money_unconditional_overwrites_a_paper_tentative_fill(tmp_path):
+    """Opposite leg order: paper executes first (conditional fill), then the
+    real-money leg's unconditional write overwrites → link ends at the real
+    trade either way."""
+    db = _make_db(tmp_path)
+    pkg_id = "pkg-mixed-002"
+    _insert_package(db, pkg_id=pkg_id, linked_trade_id=None)
+    paper = _insert_leg(
+        db, account_id="bybit_portfolio", setup_type="eth_pullback_2h",
+        is_demo=True, pkg_id=pkg_id,
+    )
+    real = _insert_leg(
+        db, account_id="bybit_2", setup_type="eth_pullback_2h",
+        is_demo=False, pkg_id=pkg_id,
+    )
+    # Paper leg fills the NULL slot first...
+    assert db.update_order_package_linked_trade_if_unset(pkg_id, paper) == 1
+    # ...then the real-money leg's UNCONDITIONAL write wins.
+    db.update_order_package(pkg_id, {"linked_trade_id": real})
+    assert _linked(db, pkg_id) == real
