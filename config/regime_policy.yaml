@@ -1,12 +1,15 @@
-# Regime × strategy × direction policy table — PHASE 2 (SHADOW, LOG-ONLY).
+# Regime × strategy × direction policy table — PHASE 3 (HARD GATE, LIVE since 2026-06-28).
 #
 # Seeded from `docs/research/regime-roster-matrix-2026-06-01.md` and the
 # decision rationale in `docs/research/regime-router-design-2026-06-01.md`
-# (§ 4.2). The aggregator evaluates this table per tick and emits a
-# `regime_shadow_gate` audit row for any intent that an `off` cell WOULD
-# suppress — but it does NOT actually gate the intent. Phase 3 (Tier-3,
-# operator-gated) turns the `off` cells into hard gates; phase 4 graduates
-# `weight: N.N` cells to soft confidence multipliers.
+# (§ 4.2). The aggregator evaluates this table per tick. As of the Design-A
+# vol-gate go-live (2026-06-28) the 1-D `off` cells are HARD-ENFORCED —
+# `Coordinator.aggregate_intents` DROPS every `off`-cell candidate intent and
+# emits a `regime_hard_gate` audit row with `enforced: true` (kill-switch
+# `REGIME_ROUTER_DISABLED` reverts to shadow-log-only). Editing a cell is a
+# LIVE order-routing change → **Tier-3, operator-gated** (see CLAUDE.md
+# § Environment Variables → `REGIME_ROUTER_DISABLED`). Phase 4 graduates
+# `weight: N.N` cells to soft confidence multipliers (not active yet).
 #
 # DEFAULT (unlisted cells)
 # ------------------------
@@ -57,6 +60,7 @@ trending:
   fade_breakout_4h:      { long: off, short: off }   # ADX-gated by strategy anyway
   fvg_range_15m:         { long: off, short: off }
   vwap:                  { long: off, short: off }   # net −6,179 in trending; no-edge any regime
+  gld_pullback_1h:       { long: on,  short: off }   # rec #5 (2026-07-29): trending short −15.68R@36, negative 4/4 walk-forward folds; long +32.98R kept. Evidence: docs/research/regime-cell-walkforward-2026-07-29.md (#7920)
 
 transitional:
   trend_donchian:        { long: on,  short: off }   # short −24

@@ -82,8 +82,15 @@ def test_symbol_suffix_stripped(monkeypatch):
     assert abs(risk - 0.5) < 1e-6
 
 
-def test_real_config_loads_and_is_inert():
-    # The shipped config has an empty events list -> risk 0 everywhere, never raises.
+def test_real_config_loads_and_never_raises():
+    # The shipped economic_calendar.yaml loads cleanly and event_risk stays a
+    # well-formed [0,1] float that never raises — REGARDLESS of wall-clock
+    # proximity to a real calendar event. (The shipped calendar is no longer
+    # guaranteed empty now that the macro/energy-events calendar is populated,
+    # so the old `risk == 0.0` assertion was a wall-clock time-bomb — it went
+    # red whenever "now" fell inside a real event's pre/post window.)
     news_events.reload_calendar()
-    risk, _ = news_events.event_risk_for_symbol("MES")
-    assert risk == 0.0
+    risk, meta = news_events.event_risk_for_symbol("MES")
+    assert isinstance(risk, float)
+    assert 0.0 <= risk <= 1.0
+    assert isinstance(meta, dict)
