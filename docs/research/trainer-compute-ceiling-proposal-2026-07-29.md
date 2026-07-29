@@ -1,69 +1,87 @@
-# Trainer compute-ceiling relief — paid-spot-compute proposal (2026-07-29)
+# Trainer compute-ceiling relief — free-runner offload first, paid deferred (2026-07-29)
 
-> **Type:** Tier-1 analysis + proposal (rec #3 of `roadmap-toolbox-assessment-2026-07-29.md`).
-> Operator steer 2026-07-29: **authorize paid spot compute** — "come back with a
-> concrete $/mo + what it buys before anything is provisioned." This doc is that.
-> **Provisioning is Tier-2/3** (a new/resized billed VM) — nothing is provisioned
-> without an explicit dollar figure + go-ahead.
->
-> **Honesty note:** the $/mo figures below are **estimates** from public
-> pay-as-you-go rate cards; firm each against the provider's live cost estimator
-> at provisioning before committing.
+> **Type:** Tier-1 analysis + implementation (rec #3 of `roadmap-toolbox-assessment-2026-07-29.md`).
+> **Corrected 2026-07-29** after an operator challenge: the original draft led
+> with paid compute; that over-reached. **A free GitHub-hosted runner already has
+> more RAM and cores than the trainer**, so the fix is a $0 offload, not a budget
+> raise. Paid compute is a deferred fallback, not the recommendation.
 
 ## 1. The constraint, precisely
 
-The trainer is **1 OCPU / 6 GB Ampere** (`158.178.209.121`), and the Always-Free
-Ampere pool is **full (4/4 OCPU: trainer 1 + gateway 1 + live 2)** — so a bigger
-*free* box would require shrinking the live/gateway boxes (not viable). Two distinct
+The trainer is **1 OCPU / 6 GB Ampere**, and the Always-Free Ampere pool is **full
+(4/4 OCPU)** — no bigger *free* box is possible without shrinking live/gateway. Two
 bottlenecks bite:
 
-- **RAM (6 GB) — the hard wall.** Some manifests can't fit even trained ALONE:
-  `btc-regime-5m-lgbm-flow-v1` **wedged the box for 18.7h in D-state, swap-thrashing**
-  (2026-07-15/16) and is now **OOM-quarantined** (`BL-20260717-TRAINER-SINGLE-MANIFEST-OOM`).
-  Promotion-readiness + drift-retrain sweeps also OOM. This is why the mitigations to
-  date are *defensive* (a 5 GB cgroup, `TRAINING_MANIFEST_TIMEOUT_S=1800`, single-manifest
+- **RAM (6 GB) — the hard wall.** `btc-regime-5m-lgbm-flow-v1` can't fit even trained
+  ALONE — it **wedged the box 18.7h in D-state, swap-thrashing** (2026-07-15/16) and
+  is now **OOM-quarantined** (`BL-20260717-TRAINER-SINGLE-MANIFEST-OOM`).
+  Promotion-readiness + drift-retrain sweeps OOM too. The mitigations to date are
+  *defensive* (5 GB cgroup, `TRAINING_MANIFEST_TIMEOUT_S=1800`, single-manifest
   quarantine, checkpoint/resume) — they contain the OOM, they don't remove it.
-- **1 OCPU — the throughput wall.** The ~90-manifest nightly cycle is **fully
-  serialized** behind one core + the enforced heavy-job lock. More advisory-head
-  throughput (the whole point of the fleet) is gated on this.
+- **1 OCPU — the throughput wall.** The ~90-manifest nightly cycle is fully
+  serialized behind one core + the enforced heavy-job lock.
 
-**What paid compute does NOT need to fix:** gpu-burst (`runpod` RTX 3090, **$0.22/hr**,
-$10/mo cap) is already approved and **barely used (~$0.07 lifetime)** — but it's GPU
-and per-experiment; it does nothing for the CPU nightly cycle. Lifting its cap is
-cheap but off-target for this constraint.
+## 2. Why the existing tooling already covers most of this
 
-## 2. Options + concrete $/mo
+**The key fact:** a standard GitHub-hosted Linux runner is **4 vCPU / 16 GB RAM,
+$0, parallel** — **~2.7× the RAM and 4× the cores of the trainer.** So the manifest
+that OOMs at 6 GB **very likely just trains on a free runner.** The gap is not
+compute availability — it is **plumbing**: the nightly pipeline is architected to run
+*on* the trainer VM (its registry, dataset cache, mirror). Moving a heavy manifest
+off it needs a **fetch → build → train → publish-back** workflow — which already
+exists in *pattern* (`research-{panel,exit-head,symbol-p0}-build.yml` run
+training-shaped jobs on runners today).
 
-| # | Option | Est. $/mo | What it buys | Effort |
-|---|---|---:|---|---|
-| **A** | **Resize the trainer to a paid OCI Ampere PAYG shape — 2 OCPU / 12 GB** | **~$28** | Kills the OOM wall (12 GB fits every current manifest incl. the flow head + sweeps) and doubles cycle throughput. Same tenancy/tooling (`provision-live-vm`/`vm-migration` skill); no new provider. | Med (a VM migration) |
-| **B** | **Resize the trainer to 4 OCPU / 24 GB PAYG** | **~$55** | As A, plus real headroom — the ~90-manifest cycle parallelizes across 4 cores; promotion sweeps + drift-retrain stop being special-cased. The durable "stop being one-live-head" fix (rec #3's stated goal). | Med (a VM migration) |
-| **C** | **Keep the free trainer; add a small on-demand paid spot VM for the heavy/OOM manifests only** | **~$3–10** | Routes just the OOM-prone manifests (flow head, sweeps) to a short-lived spot box (ARM/x86 spot ~$0.005–0.02/hr × a few hrs/day), results published back to the mirror. Minimal spend; the nightly CPU cycle stays serialized on the free box. | High (new routing + publish-back + a spot-launch/teardown workflow, gpu-burst-style) |
-| **D** | **Status-quo + lift gpu-burst usage** | **~$1** | Push GPU-trainable heavy manifests through the existing runpod path within (or slightly above) the $10 cap. Off-target: the LGBM cycle is CPU, so this helps only the few GPU-shaped experiments, not the OOM/serialization. | Low |
+Two tools we already have, and their real fit:
+- **Free GitHub runners** — the right tool for the OOM manifests (16 GB fits them, $0).
+  Feasibility verified: the crypto fetch dodges the Bybit-geoblock on US runners via
+  **Binance-vision** (`scripts/ops/fetch_backtest_candles.py`, already proven in the
+  research-build workflows), and `ml build-dataset market_raw` accepts a plain **`csv`
+  adapter** — so `fetch → build_raw(csv) → build_features → ml train` runs entirely
+  off-VM.
+- **runpod GPU-burst** (RTX 3090 @ $0.22/hr, $10/mo cap, ~$0.07 lifetime) — for
+  *GPU-shaped* experiments (TCN/deep nets). The OOM manifests are **LightGBM (CPU)**;
+  paying for a GPU to fix a RAM problem is the wrong tool. Keep it as-is; **don't lift
+  its cap for this.**
 
-Rate basis (estimates): OCI Ampere A1.Flex PAYG ≈ **$0.01/OCPU-hr + $0.0015/GB-hr**
-× 730 hr/mo (A: (2×0.01 + 12×0.0015)×730 ≈ $28; B: (4×0.01 + 24×0.0015)×730 ≈ $55).
+## 3. Recommendation — free-runner offload (no budget raise)
 
-## 3. Recommendation
+1. **Ship a `trainer-offload-train` workflow** (sibling of the research-build cluster):
+   given a manifest, on a 16 GB runner, fetch its candles from Binance-vision → build
+   `market_raw`(csv)+`market_features` → `ml train` → upload the trained model +
+   report metrics. **This recovers the ability to train + eval the OOM manifests the
+   6 GB box literally cannot** — at **$0**. (Implemented alongside this doc.)
+2. **Keep runpod for genuine GPU experiments.** No cap change.
+3. **Defer paid compute.** Revisit *only* if a manifest OOMs even at **16 GB**, or if
+   the *whole* ~90-manifest nightly cycle's serialized runtime becomes a real pain
+   (a throughput convenience, not a fix for anything breaking).
 
-**Option A (~$28/mo) is the best value** — it removes the RAM wall entirely (the
-concrete, recurring pain: OOM, the 18.7h wedge, the quarantine) and doubles
-throughput, on the same tenancy with the existing migration tooling, for the price
-of a couple of coffees. **Option B (~$55/mo)** is the choice if you want the fleet to
-genuinely parallelize and stop treating heavy jobs as exceptions — the truer fix for
-"one live advisory head → many." **Option C** trades money for engineering and keeps
-the serialized cycle; worth it only if the monthly bill must stay near zero.
+## 4. Honest coverage of the offload (v1 vs the tail)
 
-**Pick a monthly figure** (or A/B/C) and I'll: (1) firm the estimate against OCI's
-live cost estimator, (2) bring the exact resize/provision plan (a Tier-2/3 VM
-migration via the `vm-migration` skill — new billed shape, data-dir + registry carry-
-over, cutover, teardown of the free box), and (3) execute on your go-ahead. Nothing
-is billed until you approve the figure.
+- **v1 covers:** any manifest whose dataset is **public-fetchable** — the crypto
+  regime + funding heads (Binance-vision candles + the public Bybit funding/OI REST),
+  and the OOM-prone `flow`/sweep jobs run for their **eval metrics** (the thing the
+  trainer can't produce today).
+- **Two honest tail items (v2, documented, not hand-waved):**
+  1. **`btc-regime-5m-lgbm-flow-v1` needs the `market_microstructure` capture** —
+     forward-captured on the trainer, **not public**. The offload must pull that
+     side-stream from the trainer (mirror-publish it, or fetch as an artifact) before
+     it can build the flow head's full-history shard. Until then the offload trains it
+     on public data only (flow cols 0 pre-capture — the same windowed-eval caveat as
+     the rec #4 A/B).
+  2. **Register-back into the live registry.** v1 uploads the trained model + metrics
+     as a run artifact; wiring the result back into the trainer's `ml/registry-store`
+     + mirror (so it joins the live shadow fleet) is the v2 slice — the research-build
+     cluster's `comms/` PAT-auto-merge publish is the pattern to mirror.
 
-## 4. Cross-links
-- Free-runner offload (the $0 complement, already in use for CPU-only stateless jobs)
-  is `docs/claude/vm-resource-management.md` — it stays the default for backtests /
-  k-folds / the rec #5 regime matrix; this proposal is for the **stateful** nightly
-  cycle + OOM manifests that offload can't move.
-- Trainer resource protocol + the defensive mitigations: `docs/claude/trainer-resource-protocol.md`,
-  `BL-20260717-TRAINER-SINGLE-MANIFEST-OOM`.
+## 5. Cost line
+
+- **Free-runner offload: $0.** GitHub-hosted runners are free + unmetered on this
+  public repo.
+- **Paid fallback (deferred):** if ever needed, an OCI Ampere PAYG resize to 2 OCPU /
+  12 GB is ~$28/mo (estimate, firm against OCI's cost estimator) — but **only** if the
+  16 GB runner proves insufficient.
+
+## 6. Cross-links
+- `docs/claude/vm-resource-management.md` (route stateless CPU work to free runners),
+  `research-exit-head-build.yml` (the proven template), `BL-20260717-TRAINER-SINGLE-MANIFEST-OOM`.
