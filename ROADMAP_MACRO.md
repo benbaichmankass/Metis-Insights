@@ -167,7 +167,7 @@ Each milestone has a **gate** (criterion to proceed) and a **stop condition**.
 | # | Milestone | Layer | Deliverables | Gate | Stop |
 |---|---|---|---|---|---|
 | **M0** | Layer enforcement + legacy migration | all | import-linter guard (M0a: **DONE** — 5 contracts, 0 broken); both flagged violations resolved (#1 by classification, #2 assessed→declined, operator-accepted); M0b first drain **DONE** (#7459, db.database→local_pnl cut + vwap locked); incremental drain continues | No behavioral change to ICT; CI enforces the boundary; contracts broaden | A violation fix would require rewriting live order logic → defer, keep the narrower contract |
-| **M1** | Energy event calendar + signals | Signals | EIA release history + **point-in-time** published consensus + realized values + MNG price series, joined | Clean joined dataset over multiple years of releases | Consensus not available point-in-time (revised-only) → the whole study is unsafe; stop and re-scope the data source |
+| **M1** | Energy event calendar + signals | Signals | EIA release history + **point-in-time** published consensus + realized values + MNG price series, joined. **Calendar/consensus/surprise half BUILT 2026-07-29** (Bigdata.com econ-calendar spine — `scripts/macro/econ_calendar_{data,produce}.py`, PIT snapshots at `comms/macro/econ_calendar_snapshots.jsonl`; [design](docs/research/M1-econ-calendar-spine-2026-07-29.md)). Remaining: MNG price join + multi-year accrual. | Clean joined dataset over multiple years of releases | Consensus not available point-in-time (revised-only) → the whole study is unsafe; stop and re-scope the data source |
 | **M2** | Event-response backtest | Strategy | surprise-vs-consensus → forward returns at several horizons, via `thesis_backtest` calibration + the cost model | **Pre-registered thresholds met** (calibration rank + net-of-cost edge vs a naive baseline) | Thresholds not met → repricing is not systematic; do not build the strategy |
 | **M3** | Paper trading | Strategy+Execution | strategy emits intents; execution runs the new venue in paper mode (the M28-deferred handoff) | Realized paper behavior matches backtest expectation | Live behavior diverges from backtest → the model is mis-specified |
 | **M4** | Carbon extension | Signals+Strategy | port the validated methodology to the slower policy-driven markets | M2-equivalent evidence on carbon events (accounting for the ETF cost drag) | No M2-equivalent evidence → carbon does not carry the edge at our cost structure |
@@ -209,6 +209,30 @@ lazily via the redirect.
 ---
 
 ## Change log
+- **2026-07-29** — **M1 economic-calendar + surprise-vs-consensus DATA SPINE built**
+  (recommendation #1 of [`roadmap-toolbox-assessment-2026-07-29.md`](docs/research/roadmap-toolbox-assessment-2026-07-29.md)).
+  Wired a Bigdata.com econ-calendar producer that turns the country tearsheet (forward
+  calendar + consensus + actual-vs-consensus-vs-**surprise** per release, source FXStreet)
+  into **point-in-time** `macro_events`-schema rows the existing M28 engine reads unchanged —
+  the calendar/consensus/surprise half of M1's clean-joined-dataset gate. **PIT-safe by
+  construction:** `surprise = actual − consensus` keys on the never-revised consensus column
+  (§6's #1 rule); every row carries the fetch `observed_at`, a revision is a new line.
+  **Compute invariant honored:** fetch is split from parse→PIT-map→land (pure committed script +
+  workflow); the live tick only reads the pre-computed snapshots. **Autonomous feed = FMP economic
+  calendar** (free tier + `FMP_API_KEY`, fetched on a GitHub runner — `scripts/macro/econ_calendar_fmp.py`,
+  daily `schedule:` in `econ-calendar-produce.yml`), replacing the initial session-bound-MCP plan; the
+  Bigdata.com tearsheet stays a richer cross-check (curve/VIX/CFTC). Both produce the same PIT rows
+  (source-agnostic at the `to_event_rows` boundary). Files: `scripts/macro/econ_calendar_data.py`
+  (pure parser+mapper), `scripts/macro/econ_calendar_produce.py` (captures→full-regen PIT log +
+  forward-calendar json + gated config), `.github/workflows/econ-calendar-produce.yml`
+  (deterministic re-land), `tests/test_m1_econ_calendar_*.py` (20 tests). **Real seed landed:**
+  110 PIT rows from a real US tearsheet (40 scheduled + 70 resolved, 54 with a computed surprise),
+  incl. the canonical EIA nat-gas case (actual 32 vs consensus 29, +10.3%). `config/economic_calendar.yaml`
+  populated from the forward calendar (fomc/pce/gdp) — the one **Tier-3 live-path change** (news-layer
+  config), in the draft PR pending operator sign-off; the scheduled producer never emits config.
+  Design: [`M1-econ-calendar-spine-2026-07-29.md`](docs/research/M1-econ-calendar-spine-2026-07-29.md).
+  **Next:** MNG price join (M1's other half) → M2 event-response backtest; a scheduled Claude-session
+  producer (proposed, operator-gated) to accrue history + widen countries.
 - **2026-07-23 (cont. 9)** — **M28 reframed as a signal-research METHODOLOGY program (operator directive).**
   The three sleeves (value/COT/crypto) all came back null under honest (non-overlapping) grading
   ([re-grade](docs/research/M28-sleeve-honest-horizon-ic-regrade-2026-07-23.md)) — but that is the

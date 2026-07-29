@@ -35,7 +35,15 @@ symbol_event_classes:
 # past events are simply ignored (out of window → proximity 0). `impact ∈ [0,1]`.
 # Optional `pre_window_minutes` / `post_window_minutes` override the defaults
 # per event (e.g. a wider ramp for FOMC).
-events: []
-#  - {class: cpi,  time: "2026-06-10T12:30:00Z", impact: 0.9}
-#  - {class: fomc, time: "2026-06-18T18:00:00Z", impact: 1.0, pre_window_minutes: 120}
-#  - {class: nfp,  time: "2026-07-03T12:30:00Z", impact: 0.8}
+
+# Auto-populated from the Bigdata.com economic-calendar producer
+# (scripts/macro/econ_calendar_produce.py --emit-config). Forward
+# high/medium-impact events mapped to the news-layer classes above.
+
+# Auto-populated from the Bigdata.com economic-calendar producer
+# (scripts/macro/econ_calendar_produce.py --emit-config). Forward
+# high/medium-impact events mapped to the news-layer classes above.
+events:
+  - {class: fomc, time: "2026-07-29T18:30:00Z", impact: 1.0}
+  - {class: pce, time: "2026-07-30T12:30:00Z", impact: 0.9}
+  - {class: gdp, time: "2026-07-30T12:30:00Z", impact: 0.9}
