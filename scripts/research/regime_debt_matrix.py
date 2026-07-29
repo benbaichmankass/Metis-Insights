@@ -14,10 +14,14 @@ For each `coverage_debt` strategy (config/regime_coverage_exemptions.yaml) it:
 
 **Fidelity.** A strategy is `faithful` when the base harness models every lever
 its config declares. The pullback harness exposes the vol-skip / stale-exit /
-trail-vol lever flags, so those variants run faithfully. The trend harness does
-NOT, so a Donchian variant carrying stale-exit / exit-head levers is
-`approximate` (base geometry only, levers omitted — labelled, never hidden). An
-`exit_head_model` lever is never replayable offline -> always `approximate`.
+trail-vol lever flags, so those variants run faithfully. The trend harness models
+the **stale-exit** lever (`--stale-exit-bars`/`--stale-exit-below-r`, ported for
+rec #5 so the debt matrix can re-measure a Donchian variant with its declared exit
+lever ON) — so a Donchian variant carrying ONLY stale-exit runs faithfully now. A
+variant still carrying trail-decay / vol-skip / giveback levers the trend harness
+doesn't yet expose stays `approximate` (base geometry only, those levers omitted —
+labelled, never hidden). An `exit_head_model` lever is never replayable offline ->
+always `approximate`.
 
 Yahoo needs network the sandbox firewalls, so this is built to run on a free
 GitHub-hosted runner (see .github/workflows/regime-debt-matrix.yml). The crypto
@@ -54,6 +58,15 @@ _TREND_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe",
                 "symbols", "donchian", "atr_period", "atr_stop_mult", "trail_mult",
                 "tp_r", "min_confidence", "long_only", "adx_min", "adx_max",
                 "adx_period", "shadow_model_ids", "description"}
+# Trend lever config-key -> harness flag (levers the trend harness DOES model,
+# so a trend strategy carrying ONLY these is faithful, not approximate). The
+# stale-exit lever was ported into scripts/backtest_trend.py as the rec #5
+# follow-up so trend_donchian_sol's chop-long cell can be re-measured with its
+# declared exit lever ON (BL-20260717-REGIME-COVERAGE-DEBT). exit_head_* stay in
+# _UNREPLAYABLE — an ML exit head can never be replayed offline.
+_TREND_LEVER_FLAG = {
+    "stale_exit_bars": "--stale-exit-bars", "stale_exit_below_r": "--stale-exit-below-r",
+}
 # Pullback lever config-key -> harness flag (these the pullback harness DOES model).
 _PB_LEVER_FLAG = {
     "stale_exit_bars": "--stale-exit-bars", "stale_exit_below_r": "--stale-exit-below-r",
@@ -135,7 +148,12 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
                 "--donchian", str(cfg.get("donchian", 20))] + common
         if cfg.get("long_only"):
             argv.append("--long-only")
-        omitted = sorted(k for k in cfg if k not in _TREND_PLAIN)
+        # pass every trend lever the harness can now model (stale-exit)
+        for k, flag in _TREND_LEVER_FLAG.items():
+            if cfg.get(k) is not None:
+                argv += [flag, str(cfg[k])]
+        omitted = sorted(k for k in cfg
+                         if k not in _TREND_PLAIN and k not in _TREND_LEVER_FLAG)
         faithful = not omitted
     else:
         argv = [py, os.path.join(REPO, "scripts/backtest_pullback.py"),
