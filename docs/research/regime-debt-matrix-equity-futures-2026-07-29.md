@@ -100,4 +100,10 @@ could plausibly be the cause):
   daily cells stay tracked debt; approximate rows await a faithful re-run.
 - Full per-strategy matrix: [#7917](https://github.com/benbaichmankass/Metis-Insights/issues/7917#issuecomment-5119466817).
 
+**Follow-up (2026-07-29):** the walk-forward gate ran on the candidate + the two
+watches — `docs/research/regime-cell-walkforward-2026-07-29.md`. `gld_pullback_1h`
+trending-short **survived** (4/4 folds) → Tier-3 draft OFF cell (#7923);
+`qqq_pullback_1h` survived weakly (offered); `slv_trend_1h` was **refuted**
+(regime-of-sample) and stays debt.
+
 **Tier-1** — research evidence only; no `config/`, no order path.
