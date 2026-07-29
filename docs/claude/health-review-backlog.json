@@ -6739,7 +6739,28 @@
         }
       ],
       "resolved_at": null
+    },
+    {
+      "id": "BL-20260729-IB-FLEX-FILLS",
+      "opened_at": "2026-07-29T11:00:00+00:00",
+      "opened_by": "claude (broker-truth rollout S-BROKER-TRUTH-ROLLOUT-20260729, assessment rec #7)",
+      "source": "Broker-truth cost coverage rec #7: Bybit (#7891) + Alpaca (#7895) fills now multi-account on the daily ict-exchange-fills-pull timer (6/8 accounts). ib_paper is the operator-gated tail — IB reqExecutions is clientId-scoped (a separate pull process sees zero of the trader's fills, unless it is the gateway master client), and no Flex integration exists in the repo.",
+      "title": "[broker-truth] ib_paper fills not captured — needs the IB Flex Web Service (operator-gated on a Flex token)",
+      "description": "Design + operator steps landed in docs/research/broker-truth-ib-flex-DESIGN.md. Secret slots IB_FLEX_TOKEN / IB_FLEX_QUERY_ID minted via issue #7896 (empty placeholders). A blind reqExecutions parser would return nothing (clientId scope) and a blind Flex-XML parser is the FMP-403 anti-pattern, so the adapter is deliberately NOT built until the token exists + a real Flex XML is captured (verify-before-build).",
+      "tier": 2,
+      "trigger_condition": "Operator sets IB_FLEX_TOKEN + IB_FLEX_QUERY_ID (creates an Activity Flex Query + Flex Web Service token in IB Account Management).",
+      "resolution_criteria": "Capture a real Flex XML fixture, then build scripts/pull_ib_flex_fills.py (2-step SendRequest→GetStatement) + src/runtime/exchange_fills_ib_flex.py mapper (Trade -> exchange_fills, real ibCommission) + a 3rd ExecStart on ict-exchange-fills-pull.service + add the 2 secrets to sync-vm-secrets OPTIONAL_SECRETS. Takes broker-truth coverage 6/8 -> 7/8. Separately, bybit_2 lifetime wallet-truth stays UM-export-only (structural, not this item).",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-07-29T11:15:00+00:00",
+          "note": "OPERATOR DEPRIORITIZED 2026-07-29: the 6/8 automated broker-truth coverage (Bybit+Alpaca, live-tracked) is sufficient; not pursuing the manual IB Flex-token / bybit_2 UM-export tail now ('not interested in manual work just to make extra sure'). Left open at LOW severity as a future option, NOT a needed follow-up — do not chase in /health-review."
+        }
+      ],
+      "resolved_at": null,
+      "severity": "low"
     }
   ],
-  "updated_at": "2026-07-29T08:20:00+00:00"
+  "updated_at": "2026-07-29T11:00:00+00:00"
 }
