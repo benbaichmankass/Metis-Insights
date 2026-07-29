@@ -65,10 +65,6 @@ jobs:
        contains(github.event.issue.labels.*.name, 'econ-calendar-produce-now'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      # Job-level so the FMP fetch step's `if: env.FMP_API_KEY != ''` gate resolves
-      # (a `secrets.*` context can't be referenced directly in an `if`).
-      FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -85,20 +81,21 @@ jobs:
       - name: Install deps
         run: python -m pip install --upgrade pip "pyyaml>=6.0"
 
-      - name: Fetch FMP economic-calendar capture (autonomous feed)
-        # Gated on the free FMP_API_KEY secret being present — without it the run
-        # just regenerates from existing captures (no-op), so this never fails for a
-        # missing key. FMP is keyless-of-the-VM: used only here on the runner.
-        if: ${{ env.FMP_API_KEY != '' }}
+      - name: Fetch FXStreet economic-calendar capture (autonomous feed)
+        # FXStreet's calendar-api is KEYLESS (the empirical source probe picked it:
+        # 92 US events with consensus + actual + revised — docs/research/
+        # M1-econ-calendar-source-probe-2026-07-29.md). No secret, so the scheduled
+        # run always fetches. Best-effort: a fetch failure regenerates from existing
+        # captures rather than failing the run.
         env:
           ICT_OFFVM_BUILD_HOST: "1"
         run: |
           set -uo pipefail
-          python scripts/macro/econ_calendar_fmp.py \
+          python scripts/macro/econ_calendar_fxstreet.py \
             --countries US \
             --days-back 45 --days-forward 14 \
             --out-dir comms/macro/econ_calendar_captures || \
-            echo "::warning::FMP fetch degraded — regenerating from existing captures only"
+            echo "::warning::FXStreet fetch degraded — regenerating from existing captures only"
 
       - name: Regenerate PIT snapshots from ALL committed captures
         id: produce
