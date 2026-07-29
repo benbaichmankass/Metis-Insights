@@ -48,6 +48,14 @@ natural-gas price join must come from elsewhere (the repo's existing
 yfinance/Stooq macro-candle fetcher covers `NG=F`/`UNG`). These FMP repurposes
 are proposed follow-ons, not wired here.
 
+> **⚠️ SUPERSEDED by a deeper probe (2026-07-29) — NO-BUILD.** A second capture
+> round found the "usable" reading above is too optimistic: single-company
+> fundamentals are **capped at 5 annual rows** (`limit>5`/`period=quarter` → 402),
+> ETF fundamentals return **0 rows** (SPY), the index (`^GSPC`) is **402**, and the
+> treasury/EOD data is **redundant** with FRED + yfinance/Stooq that M28 already
+> has. FMP free fills **no** M28 gap → no adapter built. Full verified table +
+> verdict: [`M28-fmp-stable-freetier-findings-2026-07-29.md`](M28-fmp-stable-freetier-findings-2026-07-29.md).
+
 ## Operating-model impact
 
 `econ-calendar-produce.yml` now fetches **FXStreet** (keyless) on its daily
