@@ -18,7 +18,6 @@ import os
 import sys
 
 import pandas as pd
-import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
