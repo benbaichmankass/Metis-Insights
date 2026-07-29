@@ -88,10 +88,14 @@ def resolve_feed(symbol: str, timeframe: str) -> dict:
 def _fetch_csv(feed: dict, days: int, out: str) -> None:
     """Populate `out` with a timestamp,open,high,low,close,volume CSV."""
     if feed["source"] == "binance":
+        # Force Binance-vision: fetch_backtest_candles defaults to source=auto,
+        # which tries Bybit first — Bybit geoblocks US GH-runners (403), wasting
+        # ~14s of retries per symbol before it falls back. Skip straight to the
+        # feed that actually works off-VM.
         subprocess.run(
             [sys.executable, os.path.join(REPO, "scripts/ops/fetch_backtest_candles.py"),
              "--symbol", feed["ticker"], "--interval", feed["interval"],
-             "--days", str(days), "--output", out],
+             "--days", str(days), "--output", out, "--source", "binance_vision"],
             check=True, cwd=REPO)
         return
     # Yahoo via yfinance -> write the same CSV shape the harnesses read.
