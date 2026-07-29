@@ -1,6 +1,6 @@
 {
   "_doc": "M20 exit-refinement coverage matrix \u2014 one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) \u2014 never inferred.",
-  "updated_at": "2026-07-28",
+  "updated_at": "2026-07-29",
   "lever_columns": [
     "trail_geometry",
     "stale_stop",
@@ -849,8 +849,8 @@
         "ref": "Fixed SL/TP/timeout bracket; ict_scalp.monitor() only trails to break-even after 1R \u2014 no primary trailing stop to reshape. Same basis as ict_scalp_mgc_15m."
       },
       "stale_stop": {
-        "status": "passed_unshipped",
-        "ref": "M27 crypto exit-lever sweep + walk-forward (2026-07-28, GitHub Actions runs 30384837775 IS/OOS + 30390499867 walk-forward). The ONLY lever to clear the full M20 gate across the whole ict_scalp family. Baseline +36.27R/256 (IS) / +12.82R/129 (OOS). Both cells pass: stale8 (IS +12.63R/OOS +0.26R) and stale12 (IS +8.09R/OOS +2.92R) beat baseline on net_R AND maxDD in both windows AND survive the yearly walk-forward 3/4 usable folds (2023/2024/2026 PASS, 2025 fail; 2021-22 skipped, thin data). MARGINAL: 4 usable folds only, one fails, stale8 OOS net_R edge negligible (value is a ~3R lower maxDD); stale12 the stronger. **Tier-3 proposal pending operator approval** \u2014 enforce stale_exit_bars in ict_scalp.monitor() + declare on the config/strategies.yaml ict_scalp_eth_15m block; NOT implemented autonomously. ib_paper-class paper leg (bybit_1)."
+        "status": "shipped",
+        "ref": "Shipped 2026-07-29 (branch claude/ict-scalp-stale-stop-exit-fgl91i, MB-20260728-ICTSCALP-EXIT-LEVERS). stale_exit_bars:12 + stale_exit_below_r:0.0 declared on the config/strategies.yaml ict_scalp_eth_15m block; enforced in src/units/strategies/ict_scalp.py::monitor() via _stale_stop_verdict (default-OFF, stop-first, harness-exact bar count). PAPER-ONLY (leg routes solely to bybit_1, Bybit demo account_class:paper \u2014 zero real-money exposure; the real-money 5m BTC leg declares nothing and is byte-for-byte unchanged). Monitor<->harness parity test in tests/test_ict_scalp_exit_levers.py. Evidence: stale12 IS +8.09R / OOS +2.92R, beats baseline on net_R AND maxDD both windows, walk-forward 3/4 usable folds (2025 fails); marginal, benefit mostly a ~3R lower maxDD. Tier-3, operator-approved."
       },
       "giveback_stop": {
         "status": "honest_negative",
