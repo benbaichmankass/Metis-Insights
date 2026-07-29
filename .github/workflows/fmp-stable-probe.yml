@@ -1,0 +1,44 @@
+name: fmp-stable-probe
+
+# ROADMAP_MACRO M28 — throwaway diagnostic: capture the REAL FMP /stable response
+# shapes so the backtest-history adapter is built against observed fields, not
+# guessed ones (the macro-research skill's verify-before-build invariant).
+#
+# WHY push-triggered on this branch (not issue/schedule): issue- and schedule-
+# triggered workflows only run from the DEFAULT branch. A push-triggered workflow
+# runs the file AS IT EXISTS ON THE PUSHED BRANCH, so this probe runs from the
+# feature branch without first merging diagnostic scaffolding to main. It only
+# prints to the run log (read via the Actions MCP) — no repo write, no order path.
+#
+# Retire this workflow + scripts/macro/fmp_stable_probe.py once the shapes are
+# captured and the real adapter lands (it is not part of the shipped adapter).
+
+on:
+  push:
+    branches: [claude/fmp-stable-sources]
+    paths:
+      - scripts/macro/fmp_stable_probe.py
+      - .github/workflows/fmp-stable-probe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fmp-stable-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Probe FMP /stable response shapes
+        env:
+          ICT_OFFVM_BUILD_HOST: "1"
+          FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+        run: python scripts/macro/fmp_stable_probe.py
