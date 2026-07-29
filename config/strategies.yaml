@@ -732,6 +732,18 @@ strategies:
     session_start_hour: 7
     session_end_hour: 17
     shadow_model_ids: []
+    # M20 stale-stop exit lever (Tier-3, PAPER-ONLY — this leg routes solely to
+    # bybit_1, a Bybit demo account_class:paper). The ONLY lever to clear the
+    # full M20 gate across the 8-leg ict_scalp family: stale12 beats baseline on
+    # net_R AND maxDD in BOTH IS (+8.09R) and OOS (+2.92R) windows and survives
+    # the yearly walk-forward on 3/4 usable folds (2023/2024/2026 PASS, 2025
+    # fail). Marginal — benefit is mostly a lower maxDD. ict_scalp.monitor()
+    # cuts a trade held >= stale_exit_bars native (15m) bars still below
+    # stale_exit_below_r open-R at bar close. Rollback = delete these two lines.
+    # Evidence: docs/research/exit-refinement-coverage.json (ict_scalp_eth_15m
+    # stale_stop) + MB-20260728-ICTSCALP-EXIT-LEVERS.
+    stale_exit_bars: 12
+    stale_exit_below_r: 0.0
 
   ict_scalp_sol_15m:
     # SOLUSDT 15m — M27 P1 PASS (operator-approved paper soak 2026-07-22):

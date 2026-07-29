@@ -43,6 +43,7 @@ Strategies are pure signal generators (see ``_base.py``): no
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -311,6 +312,19 @@ def _passes_session_filter(
     return hour >= start_hour or hour < end_hour
 
 
+def _extract_entry_time(candles_df: pd.DataFrame) -> Optional[str]:
+    """Return the signal (last) bar's time as a string, for the meta
+    ``entry_time`` stamp the M20 stale-stop reads. Prefers the ``timestamp``
+    column (the live ``fetch_candles`` shape), else the frame index (some test
+    fixtures), else ``None`` — never raises."""
+    try:
+        if "timestamp" in getattr(candles_df, "columns", []):
+            return str(candles_df["timestamp"].iloc[-1])
+        return str(candles_df.index[-1])
+    except Exception:  # noqa: BLE001
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -530,6 +544,17 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
         4,
     )
 
+    # entry_time anchors the M20 stale-stop's since-entry bar count in
+    # monitor() — the timestamp of the signal (last) bar, matching what the
+    # harness (scripts/backtest_ict_scalp.py) treats as the entry bar (entry =
+    # its close, exit walk starts at the next bar). Additive + inert: no order
+    # decision or exit depends on it unless a leg DECLARES a stale lever in
+    # config/strategies.yaml, so every non-declaring leg (incl. the real-money
+    # ict_scalp_5m BTC leg) is behaviorally unchanged. Mirrors trend_donchian's
+    # entry_time stamp. Falls back to the frame index when there's no timestamp
+    # column (test fixtures), or None when neither is available.
+    entry_time = _extract_entry_time(candles_df)
+
     package = {
         "symbol": symbol,
         "direction": direction,
@@ -557,6 +582,7 @@ def order_package(cfg: dict, candles_df: Optional[pd.DataFrame] = None) -> dict:
             "fvg_size": float(fvg["size"]),
             "atr": atr_now,
             "risk_per_unit": float(risk),
+            "entry_time": entry_time,
         },
     }
     return with_shadow_preds(
@@ -636,25 +662,188 @@ def _build_shadow_feature_row(package: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# monitor() — break-even-after-1R, same contract as turtle_soup / vwap
+# monitor() — break-even-after-1R (baseline) + M20 conditional stale-stop
 # ---------------------------------------------------------------------------
+
+
+def _coerce_float(value: Any) -> Optional[float]:
+    """Best-effort float, None on failure/NaN (never raises)."""
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if out != out else out  # drop NaN
+
+
+def _coerce_int(value: Any) -> Optional[int]:
+    """Best-effort int, None on failure (never raises)."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _bars_since_entry(candles_df: pd.DataFrame, entry_time: Any) -> Optional[int]:
+    """Bars elapsed since entry, matching the harness's ``j - start_idx`` with
+    ``start_idx = signal_bar + 1`` (scripts/backtest_ict_scalp.py:361).
+
+    ``entry_time`` is the signal (entry) bar's timestamp. The bars STRICTLY
+    after it are ``[signal+1 … current]``; the harness numbers the first of
+    those as ``bars_since_entry = 0``, so the current (last) bar sits at
+    ``count - 1``. Returns ``None`` (fail-safe skip) when the age is unknowable
+    or ambiguous:
+
+    * no ``timestamp`` column, or an unparseable ``entry_time``;
+    * EVERY window bar is strictly after the cutoff — the entry bar isn't in
+      the fetched window (trade older than the ~200-bar fetch), so the count is
+      an undercount, not a real age. A genuinely fresh trade's entry bar is
+      well inside the window, so this guard only trips on stale/fallback rows.
+    """
+    if "timestamp" not in getattr(candles_df, "columns", []):
+        return None
+    if entry_time is None or entry_time == "":
+        return None
+    try:
+        ts = pd.to_datetime(candles_df["timestamp"], utc=True, errors="coerce")
+        cutoff = pd.to_datetime(entry_time, utc=True, errors="coerce")
+        if pd.isna(cutoff):
+            return None
+        after = int((ts > cutoff).sum())
+        if after <= 0 or after >= len(candles_df):
+            return None
+        return after - 1
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _stale_stop_verdict(
+    open_pkg: Dict[str, Any],
+    cfg_dict: Dict[str, Any],
+    candles_df: pd.DataFrame,
+) -> Optional[Dict[str, Any]]:
+    """M20 conditional stale-stop for ict_scalp — the ONLY lever that cleared
+    the M20 gate across the ict_scalp family (ict_scalp_eth_15m; evidence:
+    docs/research/exit-refinement-coverage.json + MB-20260728-ICTSCALP-EXIT-LEVERS).
+
+    **YAML-declared, default-OFF.** Fires a real
+    ``{"action": "close", "reason": "stale_stop"}`` ONLY when the leg declares
+    ``stale_exit_bars`` in config/strategies.yaml (threaded live to monitor()
+    by ``order_monitor._load_live_strategy_cfgs``; meta is the fallback). A leg
+    that declares nothing — incl. the real-money ict_scalp_5m BTC leg — returns
+    ``None`` here, so its behaviour is byte-for-byte unchanged.
+
+    Matches the harness semantics EXACTLY (scripts/backtest_ict_scalp.py:170):
+    fire when ``bars_since_entry >= stale_exit_bars`` AND the open R (at the
+    current bar's close) ``< stale_exit_below_r`` (default 0.0 = only cut a
+    still-losing trade). **Stop-first:** if the current bar has already crossed
+    SL or TP, defer to the exchange bracket / normal path (mirrors the harness's
+    SL→TP→stale precedence), so the stale-stop never pre-empts a real stop/target.
+
+    Fail-safe: any missing/ambiguous input (no declared bars, no risk, unknowable
+    age, SL/TP already crossed) returns ``None`` — never a spurious close, never
+    raises.
+    """
+    try:
+        meta = open_pkg.get("meta") or {}
+        if isinstance(meta, str):
+            try:
+                meta = json.loads(meta) if meta else {}
+            except Exception:  # noqa: BLE001
+                meta = {}
+        if not isinstance(meta, dict):
+            meta = {}
+
+        # Declared params: cfg (live YAML) first, meta as the fallback. Absent
+        # ⇒ lever OFF (return None) ⇒ baseline unchanged.
+        declared_bars = _coerce_int(
+            cfg_dict.get("stale_exit_bars") if cfg_dict.get("stale_exit_bars") is not None
+            else meta.get("stale_exit_bars")
+        )
+        if declared_bars is None:
+            return None
+        below_r = _coerce_float(
+            cfg_dict.get("stale_exit_below_r")
+            if cfg_dict.get("stale_exit_below_r") is not None
+            else meta.get("stale_exit_below_r")
+        )
+        if below_r is None:
+            below_r = 0.0
+
+        try:
+            current_price = float(candles_df["close"].iloc[-1])
+        except (KeyError, IndexError, ValueError, TypeError):
+            return None
+
+        entry = _coerce_float(open_pkg.get("entry"))
+        direction = str(open_pkg.get("direction") or "").lower()
+        if entry is None or direction not in ("long", "short"):
+            return None
+        sl = _coerce_float(open_pkg.get("sl"))
+        tp = _coerce_float(open_pkg.get("tp"))
+
+        # Frozen risk: prefer the signal-time meta value, else |entry - sl|.
+        risk = _coerce_float(meta.get("risk_per_unit"))
+        if (risk is None or risk <= 0) and sl is not None:
+            risk = abs(entry - sl)
+        if risk is None or risk <= 0:
+            return None
+
+        # Stop-first: a real SL/TP cross this bar wins (exchange bracket / normal
+        # path owns it) — mirrors the harness's SL→TP→stale ordering.
+        if sl is not None:
+            if direction == "long" and current_price <= sl:
+                return None
+            if direction == "short" and current_price >= sl:
+                return None
+        if tp is not None:
+            if direction == "long" and current_price >= tp:
+                return None
+            if direction == "short" and current_price <= tp:
+                return None
+
+        bars_since_entry = _bars_since_entry(candles_df, meta.get("entry_time"))
+        if bars_since_entry is None or bars_since_entry < declared_bars:
+            return None
+
+        open_r = ((current_price - entry) if direction == "long"
+                  else (entry - current_price)) / risk
+        if open_r >= below_r:
+            return None
+        return {"action": "close", "reason": "stale_stop", "exit_price": current_price}
+    except Exception:  # noqa: BLE001 — monitor must never crash on this lever
+        return None
 
 
 def monitor(cfg, candles_df, open_pkg):
     """Re-evaluate an open ict_scalp package against fresh candles.
 
-    v1 monitor: trail SL to break-even once price has moved 1R in the
-    trade's favour. Delegates to ``monitor_breakeven_sl`` so the
-    behaviour matches the rest of the strategy roster.
+    Verdict order (first match wins):
 
-    ``be_offset_bps`` (2026-05-18) reads from cfg and shifts the
-    trailed SL above entry (long) / below entry (short) by N bps so
-    Bybit's round-trip fees don't turn the protective close into a
-    scratch loss. See `_base.monitor_breakeven_sl` docstring.
+    1. **M20 stale-stop** (YAML-declared, default-OFF; ``_stale_stop_verdict``).
+       Cuts a trade held ≥ ``stale_exit_bars`` native bars that is still below
+       ``stale_exit_below_r`` open-R at bar close — but only when the current
+       bar hasn't already crossed SL/TP (stop-first). A leg that declares
+       nothing (incl. the real-money ict_scalp_5m BTC leg) skips this entirely.
+    2. **Break-even-after-1R** — trail SL to break-even once price has moved 1R
+       in the trade's favour. Delegates to ``monitor_breakeven_sl`` so the
+       behaviour matches the rest of the strategy roster. ``be_offset_bps``
+       (2026-05-18) reads from cfg and shifts the trailed SL above entry (long)
+       / below entry (short) by N bps so Bybit's round-trip fees don't turn the
+       protective close into a scratch loss (see ``_base.monitor_breakeven_sl``).
+
+    The stale-stop sits BEFORE the break-even ratchet: ``monitor_breakeven_sl``
+    only ever returns a break-even SL-modify (no close path), so "stop-first,
+    before the break-even modify" (per the M20 exit-refinement pipeline) is
+    exactly this ordering.
     """
     if candles_df is None:
         return None
     cfg_dict = cfg if isinstance(cfg, dict) else {}
+
+    stale_verdict = _stale_stop_verdict(open_pkg, cfg_dict, candles_df)
+    if stale_verdict is not None:
+        return stale_verdict
+
     try:
         be_offset_bps = float(cfg_dict.get("be_offset_bps", 0.0))
     except (TypeError, ValueError):
