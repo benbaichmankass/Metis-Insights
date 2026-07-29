@@ -31,14 +31,14 @@ _BASE = "https://financialmodelingprep.com/stable"
 # like SPY even though the NGUSD commodity symbol was 402 — worth confirming as a
 # keyless-free M1 NG price source).
 _TARGETS = [
-    ("treasury_rates", "treasury-rates", ""),
-    ("equity_eod_spy", "historical-price-eod/full", "symbol=SPY"),
-    ("equity_eod_ung", "historical-price-eod/full", "symbol=UNG"),   # natgas ETF proxy
-    ("commodity_eod_ngusd", "historical-price-eod/full", "symbol=NGUSD"),  # expect 402
-    ("key_metrics_aapl", "key-metrics", "symbol=AAPL"),
-    ("ratios_aapl", "ratios", "symbol=AAPL"),
-    ("econ_indicator_gdp", "economic-indicators", "name=GDP"),
-    ("econ_indicator_realgdp", "economic-indicators", "name=realGDP"),
+    # Round 2 — resolve the one concrete M28 gap (index-level earnings yield for the
+    # equity_risk_premium metric) + the history-depth questions round 1 left open.
+    ("key_metrics_spy", "key-metrics", "symbol=SPY"),               # ETF fundamentals free?
+    ("ratios_spy", "ratios", "symbol=SPY"),
+    ("key_metrics_gspc", "key-metrics", "symbol=^GSPC"),            # index proxy
+    ("key_metrics_aapl_q", "key-metrics", "symbol=AAPL&period=quarter&limit=40"),  # quarterly depth?
+    ("treasury_rates_ranged", "treasury-rates", "from=2015-01-01&to=2020-01-01"),  # history depth?
+    ("ratios_aapl_q", "ratios", "symbol=AAPL&period=quarter&limit=40"),
 ]
 
 
