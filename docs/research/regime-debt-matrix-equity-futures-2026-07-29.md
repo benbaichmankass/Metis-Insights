@@ -85,7 +85,12 @@ could plausibly be the cause):
 
 - **`trend_donchian_sol` (1h)** — chop long −9.26R@35 (long-only), but `exit_head_*`
   + `stale_exit_*` levers omitted (material exit levers). Re-run through the faithful
-  exit path before any read.
+  exit path before any read. **RESOLVED (2026-07-29):** the trend harness was
+  extended to model the stale-exit lever (#7926) and the row was re-measured with
+  it ON (#7928) — the chop-long drag **collapses −9.26R → −2.32R@39** (~−0.06R/trade),
+  the unmodeled `exit_head_*` only shrinks it further. The drag was largely the
+  omitted lever, **not a cell** → stays tracked debt. Detail:
+  `docs/research/regime-cell-walkforward-2026-07-29.md` § "Follow-up dispositions".
 - **`spy_pullback_1h`** — chop −8.70R, trending short −9.38@25; `skip_hours` omitted.
 - **`avax_pullback_2h`** — see §3 (long-drag, already refuted class).
 

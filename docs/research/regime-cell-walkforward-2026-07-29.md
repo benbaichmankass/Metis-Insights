@@ -59,3 +59,69 @@ Short is negative in only **2/4 folds** (positive in folds 1 & 4) → **`short_s
 - The gate replicates #7915's methodology and is now reusable for any future debt cell (dispatch `regime-cell-walkforward-request` with `strategy:`/`regime:`/`folds:`).
 
 **Tier-1** — research evidence only. The one live-routing change it motivates is the separate operator-gated Tier-3 draft (#7923); this document authors no cell.
+
+## Follow-up dispositions (continued 2026-07-29)
+
+Two rec #5 follow-ups from the equity/futures matrix + the offers above, both
+resolved to **no cell**:
+
+### A. `qqq_pullback_1h` (trending, short) — RE-CONFIRMED at finer folds → REFUTED
+
+The 4-fold gate above graded this `short_stable_drag: TRUE` but weak
+(pooled −2.84R@41, drag concentrated in fold 1) → **offered**, not authored.
+The operator held for a re-confirm with more data. The Yahoo 60m feed caps
+history at ~730d, so *more days* is unavailable for a 1h symbol — the lever is
+**finer folds**. Re-run at **6 folds** (#7927):
+
+| fold | short-R (n) | long-R (n) | net-R |
+|---|--:|--:|--:|
+| 1 | −2.07 (5) | +2.71 (9) | +0.64 |
+| 2 | −0.62 (5) | +3.64 (8) | +3.02 |
+| 3 | +0.04 (7) | −4.24 (7) | −4.20 |
+| 4 | +0.39 (10) | +1.54 (3) | +1.93 |
+| 5 | −1.56 (7) | −5.57 (7) | −7.14 |
+| 6 | +1.82 (7) | −1.93 (6) | −0.11 |
+| **pooled** | **−2.01 (41)** | −3.85 (40) | −5.86 |
+
+Short is negative in only **3/6 folds** (not a strict majority) →
+**`short_stable_drag: FALSE`**. The mechanical verdict *flips* from TRUE (3/4)
+to FALSE (3/6) once the sample is cut finer — the drag was fold-concentrated,
+i.e. **regime-of-sample**, exactly the concern the operator raised. **No cell;
+`qqq_pullback_1h` stays tracked debt.** (Read the per-fold n with the caveat
+that 6 folds leaves ~7 short trades/fold.)
+
+### B. `trend_donchian_sol` (chop, long) — FAITHFUL re-run (stale-exit ON) → drag was the omitted lever
+
+The equity/futures matrix (§5) flagged `trend_donchian_sol` chop-long
+**−9.26R@35** as **approximate** — its `stale_exit_bars: 12` /
+`stale_exit_below_r: 0.0` exit levers were omitted by the trend harness, so the
+drag could be an artifact of the missing lever rather than a real cell. The
+trend harness was extended to model the stale-exit lever (#7926) — the **same**
+harness the matrix already uses, so base geometry + fee model are unchanged and
+the only delta is the now-modeled lever. Faithful re-run (#7928, stale-exit ON;
+only the unreplayable `exit_head_*` still omitted):
+
+| regime | net-R (approx, lever OFF) | net-R (faithful, stale-exit ON) |
+|---|--:|--:|
+| chop **(long)** | **−9.26 (35)** | **−2.32 (39)** |
+| trending (long) | — | +1.42 (45) |
+| transitional (long) | — | +3.47 (40) |
+| **total** | — | **+2.56** |
+
+Modeling the stale-exit lever **collapses the chop-long drag from −9.26R to
+−2.32R@39** (~−0.06R/trade) — the lever accounts for ~75% of the measured drag
+(it cuts stale underwater trades at bar 12 instead of letting them ride to a
+worse exit). The residual −2.32R is small per-trade and below the confidence bar
+for a cell, and the still-unmodeled `exit_head_*` (an ML exit head, action=close
+— unreplayable offline) can only shrink it further (it cuts losers earlier). So
+the **−9.26R "cell" was largely an artifact of the omitted exit lever, not a
+real regime cell. No cell; `trend_donchian_sol` stays tracked debt.** This is the
+faithful re-run doing its job — preventing a spurious OFF cell.
+
+The other approximate trend rows (`trail_decay_*` / `vol_skip_*` / `giveback_*`
+/ `skip_hours` families) carry levers the trend harness doesn't yet model; a
+faithful read of those is the next lever-port follow-up.
+
+**Net:** both follow-ups → **no cell**. rec #5 stands at **1 cell shipped**
+(`gld_pullback_1h`, #7923); qqq refuted on re-confirm, sol drag explained by the
+omitted lever. Still Tier-1 research — no `config/regime_policy.yaml` change.
