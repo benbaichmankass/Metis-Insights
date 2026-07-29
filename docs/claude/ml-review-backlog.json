@@ -1583,6 +1583,10 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 \u2014 awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-07-28T23:10:00+00:00",
+          "note": "S-ROADMAP-RECONCILE: the decision-time correlation FEATURE primitive is now BUILT \u2014 src/runtime/allocator_corr.py (pure, observe-only, stdlib-only, 18 tests): pearson / pairwise_correlations / correlated_exposure (max_abs_corr, corr_weighted_aligned_risk, corr_concentration, effective_independent_bets) + a candidate adapter. NOT wired into any live path. Kept OPEN: the consumer half (feed it into allocator_ev + the M24 P4 within-tick net-R ranker, then a sizing-normalized A/B) remains Tier-3, gated on broker-truth cost coverage (MB-20260629-ALLOC-COSTCAP)."
         }
       ]
     },
@@ -2667,5 +2671,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-28"
+  "updated_at": "2026-07-28T23:10:00+00:00"
 }
