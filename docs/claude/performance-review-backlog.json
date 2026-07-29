@@ -2169,7 +2169,20 @@
           "note": "REFUTED out-of-sample. 2yr walk-forward (2024-07..2026-07, exact live params, 8 folds pooled across eth/sol/xrp): pooled long_r +5.77 (n137) vs -27.6 on the 300d window; long negative in only 5/8 folds with two strongly-positive folds (+8.5, +20.0); ETH+XRP longs net-positive over 2yr (only SOL keeps a negative long side). stable_drag=False, stable_edge=False. The 300d asymmetry was regime-of-sample (recent bearish-long stretch, folds 6-8). No Tier-3 short-only/long-gate change. Evidence: docs/research/pullback-2h-direction-walkforward-2026-07-29.md; tool: scripts/research/direction_walkforward.py."
         }
       ]
+    },
+    {
+      "id": "PB-20260729-ALLOCATOR-VENUE-FEE",
+      "opened_at": "2026-07-29T00:00:00+00:00",
+      "opened_by": "claude (rec #5 continuation / spy_pullback_1h sign-flip investigation)",
+      "source": "M24 net-R re-grade sign-flip investigation: the close-path cost estimate was made venue-aware (profile_loader.roundtrip_fee_bps_for → 0 bps for commission-free Alpaca-spot equities), but allocator_ev.candidate_ev_score still applies the flat DEFAULT_FEE_BPS_ROUNDTRIP (7.5 bps) to every venue.",
+      "title": "Allocator EV scorer fee term is not venue-aware — over-charges commission-free equities (parallel to the trade_costs fix)",
+      "description": "src/runtime/allocator_ev.py::candidate_ev_score computes fee_R with a flat 7.5-bps roundtrip on the entry notional, regardless of venue. For US equities/ETFs on Alpaca (commission-free) this over-charges the EV cost term ~25x — the same bug just fixed on the close-path estimate (trade_costs, via profile_loader.roundtrip_fee_bps_for). HARMLESS TODAY: the M18 allocator is observe-only/parked (P2/P3 selection does not beat dumb priority; graduation is backtest-gated). But when the allocator graduates to actually select/size, its equity candidates would be systematically penalized vs crypto/futures, and decision-time cost would disagree with the logged (venue-aware) close-path cost. FIX: have candidate_ev_score resolve the per-symbol roundtrip bps via profile_loader.roundtrip_fee_bps_for (falling back to DEFAULT_FEE_BPS_ROUNDTRIP) so the two cost models agree.",
+      "tier": "Tier-1 (observability; the allocator is parked so no live-routing impact until it graduates — then it becomes part of the Tier-3 graduation gate)",
+      "status": "open",
+      "trigger_condition": "Before the M18 allocator graduates past observe-only (P2+ selection/sizing), OR any allocator-EV backtest that includes equity candidates.",
+      "resolution_criteria": "candidate_ev_score's fee_R uses the venue-aware per-symbol roundtrip bps (equities → ~0), verified by a test that an equity candidate's EV cost term is ~0 while a crypto candidate's is unchanged.",
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-29"
+  "updated_at": "2026-07-29T00:00:00+00:00"
 }

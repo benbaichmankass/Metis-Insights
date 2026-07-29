@@ -838,7 +838,10 @@ class Database:
         ``cost_source='estimate'`` in its own connection (the update's conn is
         already closed by here, mirroring ``_fire_trade_closed_event``).
         """
-        from src.core.profile_loader import contract_value_usd_for
+        from src.core.profile_loader import (
+            contract_value_usd_for,
+            roundtrip_fee_bps_for,
+        )
         from src.runtime.trade_costs import estimate_roundtrip_fee_usd
 
         conn = self.connect()
@@ -856,10 +859,17 @@ class Database:
                 return
             if cost_src is not None or fee_existing is not None:
                 return  # never overwrite broker truth / a prior estimate
+            # Venue-appropriate round-trip bps: commission-free US equities/ETFs
+            # (Alpaca spot) resolve to 0.0 so the crypto-perp default fee doesn't
+            # over-charge them (the spy_pullback_1h net-R sign-flip artifact,
+            # M24 2026-07-29); crypto/futures/fx resolve to None → the estimator
+            # keeps its DEFAULT_FEE_BPS_ROUNDTRIP.
+            fee_bps = roundtrip_fee_bps_for(symbol)
             fee = estimate_roundtrip_fee_usd(
                 entry_price=entry,
                 qty=qty,
                 contract_value_usd=contract_value_usd_for(symbol),
+                **({} if fee_bps is None else {"fee_bps_roundtrip": fee_bps}),
             )
             if fee is None:
                 return

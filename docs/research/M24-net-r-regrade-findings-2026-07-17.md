@@ -93,6 +93,21 @@ broker-truth row), and +0.21 R/trade of drag is high for an equity — the estim
 fee model may over-charge here. **Tier-3 review candidate, pending broker-truth
 confirmation** — do not demote on the estimate alone.
 
+> **RESOLVED 2026-07-29 — the sign-flip was a fee-model artifact, not a real
+> cost.** The Slice-A estimate (`trade_costs.estimate_roundtrip_fee_usd`) applied
+> the flat crypto-perp `DEFAULT_FEE_BPS_ROUNDTRIP` (7.5 bps) to **every** venue,
+> including SPY — an Alpaca US-equity/ETF that trades **commission-free** (only
+> sub-basis-point SEC/TAF regulatory fees on the sell leg). 7.5 bps on SPY is a
+> ~25× over-charge; +0.21 R/trade of "cost" is that phantom fee, and the
+> −0.457R net was entirely it (gross +1.456R is the honest read). Fixed by making
+> the close-path estimate **venue-aware** (`profile_loader.roundtrip_fee_bps_for`
+> → 0 bps for all 14 `(alpaca, spot)` roster rows; crypto/futures/fx unchanged).
+> **No demote; `spy_pullback_1h` is not a net-negative cell** — it stays live as
+> a mildly-positive equity pullback. New closes stamp the corrected estimate;
+> the pre-fix historical `estimate` rows (observe-only) are stale-high and can be
+> ignored or re-stamped in a separate one-off pass. `PB-20260729-ALLOCATOR-VENUE-FEE`
+> tracks the parallel fix for the (parked) allocator EV scorer's fee term.
+
 Every other net-negative strategy was **already gross-negative** — costs only
 deepen the loss, never flip the sign:
 
