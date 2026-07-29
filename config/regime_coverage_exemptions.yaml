@@ -163,7 +163,7 @@ coverage_debt:
     tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
     added: '2026-07-17'
     reason: >-
-      Directional pullback trend-follower on QQQ; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+      Directional pullback trend-follower on QQQ; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). rec #5 (2026-07-29): trending-short walk-forward re-confirmed at 6 folds (#7927) flips short_stable_drag TRUE(3/4)->FALSE(3/6) -> regime-of-sample, NO cell. Measured debt. Evidence: docs/research/regime-cell-walkforward-2026-07-29.md.
   qqq_trend_long_1d:
     tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
     added: '2026-07-17'
@@ -243,7 +243,7 @@ coverage_debt:
     tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
     added: '2026-07-17'
     reason: >-
-      Directional trend-follower on SOLUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). Owed a Phase-2 direction-aware cell.
+      Directional trend-follower on SOLUSDT; live since before the regime-coverage guard, no regime_policy cell (roster grew 6->44, policy did not). rec #5 (2026-07-29): faithful matrix re-run with the stale-exit lever modeled (#7926/#7928) collapses the chop-long drag -9.26R->-2.32R@39 (the omitted lever, not a cell) -> measured debt, NO cell. Evidence: docs/research/regime-cell-walkforward-2026-07-29.md.
   trend_donchian_sol_4h:
     tracking_id: BL-20260717-REGIME-COVERAGE-DEBT
     added: '2026-07-17'
