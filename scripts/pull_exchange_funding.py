@@ -18,9 +18,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.runtime.exchange_accounts import live_bybit_fill_accounts
-from src.runtime.exchange_fills_store import upsert_funding
-from src.runtime.exchange_funding_puller import fetch_funding_window
+from src.runtime.exchange_accounts import live_bybit_fill_accounts  # noqa: E402
+from src.runtime.exchange_fills_store import upsert_funding  # noqa: E402
+from src.runtime.exchange_funding_puller import fetch_funding_window  # noqa: E402
 
 logger = logging.getLogger("pull_exchange_funding")
 
@@ -73,7 +73,7 @@ def _pull_one_account(
     swap/linear regardless of account; a fresh ccxt client per account keeps the
     credentials isolated across the loop.
     """
-    import ccxt
+    import ccxt  # noqa: PLC0415
 
     exchange = ccxt.bybit({
         "apiKey": api_key,

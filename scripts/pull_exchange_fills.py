@@ -33,9 +33,9 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from src.runtime.exchange_accounts import live_bybit_fill_accounts
-from src.runtime.exchange_fills_puller import fetch_fills_window
-from src.runtime.exchange_fills_store import upsert_fills
+from src.runtime.exchange_accounts import live_bybit_fill_accounts  # noqa: E402
+from src.runtime.exchange_fills_puller import fetch_fills_window  # noqa: E402
+from src.runtime.exchange_fills_store import upsert_fills  # noqa: E402
 
 logger = logging.getLogger("pull_exchange_fills")
 
@@ -126,7 +126,7 @@ def _pull_one_account(
     """
     # Local import: ccxt is heavy and the puller may run in a tight
     # cron cycle. Importing inside the call keeps `--help` snappy.
-    import ccxt
+    import ccxt  # noqa: PLC0415
 
     exchange = ccxt.bybit({
         "apiKey": api_key,
