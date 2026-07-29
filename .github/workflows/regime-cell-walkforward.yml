@@ -1,0 +1,182 @@
+name: regime-cell-walkforward
+
+# Walk-forwards the temporal (out-of-sample) stability of ONE (regime, direction)
+# debt-matrix cell on a free GitHub-hosted runner (rec #5 follow-up). The
+# regime-debt matrix grades each cell on the FULL sample; this is the gate a
+# losing cell must pass before it can become a Tier-3 OFF-cell draft — a
+# full-sample cell can be an artifact of when a regime occurred (#7915 refuted
+# the 2h-pullback long-drag on exactly that basis). Engine:
+# scripts/research/regime_cell_walkforward.py (fetch -> harness --emit-trades ->
+# regime-filter -> direction_walkforward folds), verified in-sandbox on a crypto
+# cell. The sandbox firewalls Yahoo, so equity/ETF/futures cells only run here.
+#
+# Triggers:
+#   1. workflow_dispatch — inputs: strategy (required), regime, folds, days
+#   2. issues.opened with label `regime-cell-walkforward-request` (owner-guarded);
+#      issue-body lines `strategy: <name>` (required), `regime: trending`,
+#      `folds: 4`, `days: 730`
+#
+# Safety: READS the repo + fetches PUBLIC candles + runs the read-only harness +
+# comments the verdict. It does NOT push, deploy, or touch config/ — it authors
+# no cell (a surviving cell is a separate Tier-3 draft PR for operator approval).
+
+on:
+  workflow_dispatch:
+    inputs:
+      strategy:
+        description: "Debt-roster strategy name (e.g. gld_pullback_1h)"
+        required: true
+      regime:
+        description: "Regime cell to walk-forward (trending|transitional|chop)"
+        default: "trending"
+      folds:
+        description: "Number of contiguous time-folds"
+        default: "4"
+      days:
+        description: "Trailing days of candles"
+        default: "730"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: regime-cell-walkforward-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  walkforward:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'regime-cell-walkforward-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse issue body
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          strat=$(printf '%s' "$ISSUE_BODY" | grep -iE '^strategy:' | head -1 | cut -d: -f2- | xargs || true)
+          regime=$(printf '%s' "$ISSUE_BODY" | grep -iE '^regime:' | head -1 | cut -d: -f2- | xargs || true)
+          folds=$(printf '%s' "$ISSUE_BODY" | grep -iE '^folds:' | head -1 | cut -d: -f2- | xargs || true)
+          days=$(printf '%s' "$ISSUE_BODY" | grep -iE '^days:' | head -1 | cut -d: -f2- | xargs || true)
+          echo "RCWF_STRAT=${strat}" >> "$GITHUB_ENV"
+          echo "RCWF_REGIME=${regime:-trending}" >> "$GITHUB_ENV"
+          echo "RCWF_FOLDS=${folds:-4}" >> "$GITHUB_ENV"
+          echo "RCWF_DAYS=${days:-730}" >> "$GITHUB_ENV"
+
+      - name: Set params from dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "RCWF_STRAT=${{ github.event.inputs.strategy }}" >> "$GITHUB_ENV"
+          echo "RCWF_REGIME=${{ github.event.inputs.regime || 'trending' }}" >> "$GITHUB_ENV"
+          echo "RCWF_FOLDS=${{ github.event.inputs.folds || '4' }}" >> "$GITHUB_ENV"
+          echo "RCWF_DAYS=${{ github.event.inputs.days || '730' }}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install --quiet pyyaml pandas numpy yfinance
+
+      - name: Guard — strategy required
+        run: |
+          if [ -z "${RCWF_STRAT}" ]; then
+            echo "No strategy provided (issue body needs a 'strategy: <name>' line)."; exit 1
+          fi
+          echo "strategy=${RCWF_STRAT} regime=${RCWF_REGIME} folds=${RCWF_FOLDS} days=${RCWF_DAYS}"
+
+      - name: Run the walk-forward
+        run: |
+          set +e
+          mkdir -p artifacts/rcwf
+          python scripts/research/regime_cell_walkforward.py \
+            --strategy "${RCWF_STRAT}" --regime "${RCWF_REGIME}" \
+            --folds "${RCWF_FOLDS}" --days "${RCWF_DAYS}" \
+            --workdir artifacts/rcwf/work --json \
+            > artifacts/rcwf/result.json 2> artifacts/rcwf/run.log
+          echo "rc=$?"; tail -20 artifacts/rcwf/run.log || true
+          echo "result bytes: $(wc -c < artifacts/rcwf/result.json)"
+
+      - name: Render summary
+        run: |
+          python - <<'PYEOF' | tee artifacts/rcwf/SUMMARY.md
+          import json
+          try:
+              r = json.load(open("artifacts/rcwf/result.json"))
+          except Exception as e:
+              print(f"# regime-cell-walkforward\n\n_(no result — {e}; read run.log in the artifact)_"); raise SystemExit(0)
+          L = ["# regime-cell-walkforward", ""]
+          if r.get("error"):
+              L += [f"**`{r.get('strategy')}` [{r.get('regime')}]** — ERROR: {r['error'][:300]}"]
+              print("\n".join(L)); raise SystemExit(0)
+          wf = r.get("walkforward", {})
+          cv = r.get("cell_verdict", {})
+          L += [f"**`{r['strategy']}`** — {r['symbol']} {r['timeframe']} · {r['harness']} · "
+                f"feed {r['feed']['source']} · fidelity **{r['fidelity']}**",
+                f"Walk-forward of the **{r['regime']}** cell over {r['days']}d, "
+                f"{wf.get('folds')} contiguous time-folds (window {wf.get('window',{}).get('start')}"
+                f"..{wf.get('window',{}).get('end')}).", ""]
+          if r.get("omitted_levers"):
+              L += [f"_omitted levers (approximate): {', '.join(r['omitted_levers'])}_", ""]
+          L += ["| fold | dates | n | long-R (n) | short-R (n) | net-R |",
+                "|---|---|--:|--:|--:|--:|"]
+          for s in wf.get("by_fold", []):
+              L.append(f"| {s['fold']} | {s.get('from')}..{s.get('to')} | {s['trades']} | "
+                       f"{s['long_r']} ({s['long_n']}) | {s['short_r']} ({s['short_n']}) | {s['net_r']} |")
+          p = wf.get("pooled", {})
+          L.append(f"| **pooled** | | {p.get('trades')} | {p.get('long_r')} ({p.get('long_n')}) | "
+                   f"{p.get('short_r')} ({p.get('short_n')}) | {p.get('net_r')} |")
+          L += ["",
+                "## Cell verdict (OOS-stability gate)",
+                f"- **regime trades:** {cv.get('regime_trades')} · folds: {cv.get('of_folds')}",
+                f"- **short side:** negative in {cv.get('short_folds_negative')}/{cv.get('of_folds')} folds · "
+                f"pooled short-R = {cv.get('pooled_short_r')}",
+                f"- **long side:** negative in {cv.get('long_folds_negative')}/{cv.get('of_folds')} folds · "
+                f"pooled long-R = {cv.get('pooled_long_r')}",
+                "",
+                f"- **`short_stable_drag`: {cv.get('short_stable_drag')}** — a short-side OFF cell is "
+                "justified ONLY when this is true (short < 0 in a strict majority of folds AND pooled short-R < 0).",
+                f"- **`long_stable_drag`: {cv.get('long_stable_drag')}** (long-side analogue).",
+                "",
+                "**No cell is authored by this run.** A surviving (`*_stable_drag: true`) cell is still a "
+                "Tier-3, operator-gated OFF-cell **draft** PR — never merged autonomously; a false verdict "
+                "means the full-sample cell was regime-of-sample noise and the strategy stays tracked debt."]
+          print("\n".join(L))
+          PYEOF
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: regime-cell-walkforward-${{ github.run_id }}
+          path: |
+            artifacts/rcwf/result.json
+            artifacts/rcwf/SUMMARY.md
+            artifacts/rcwf/run.log
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Comment summary on issue
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '_(summary not produced)_';
+            try { body = fs.readFileSync('artifacts/rcwf/SUMMARY.md', 'utf8'); } catch (e) {}
+            const footer = '\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 60000) + footer,
+            });

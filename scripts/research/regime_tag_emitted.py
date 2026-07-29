@@ -58,6 +58,28 @@ def _read_trades(path: str) -> List[Dict[str, Any]]:
     return rows
 
 
+def annotate_trades_with_regime(trades: List[Dict[str, Any]], adx: pd.Series,
+                                df: pd.DataFrame) -> List[Dict[str, Any]]:
+    """Return a copy of each trade with a ``regime`` field = the ADX regime at
+    its entry bar (the same primitive ``tag_emitted_by_regime`` buckets on).
+
+    Trades whose ``entry_time`` is unparseable are dropped (they have no bar to
+    label against) — the count is reported by the caller via the difference.
+    """
+    ts = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    out: List[Dict[str, Any]] = []
+    for t in trades:
+        et = pd.to_datetime(t.get("entry_time"), utc=True, errors="coerce")
+        if et is pd.NaT:
+            continue
+        idx = ts.searchsorted(et, side="right") - 1  # nearest bar at/just-before entry
+        a = float(adx.iloc[idx]) if 0 <= idx < len(adx) else float("nan")
+        tagged = dict(t)
+        tagged["regime"] = _regime(a)
+        out.append(tagged)
+    return out
+
+
 def tag_emitted_by_regime(trades: List[Dict[str, Any]], adx: pd.Series,
                           df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
     """Bucket each emitted trade's (already-net) R by the ADX regime at entry.
@@ -116,6 +138,12 @@ def main(argv: List[str]) -> int:
     p.add_argument("--adx-period", type=int, default=14)
     p.add_argument("--label", default="strategy")
     p.add_argument("--json", action="store_true", help="emit machine-readable JSON for roster aggregation")
+    p.add_argument("--emit-tagged", default=None,
+                   help="write each trade + its entry `regime` field to this JSONL "
+                        "(for a downstream regime-filtered walk-forward)")
+    p.add_argument("--only-regime", default=None,
+                   choices=["trending", "transitional", "chop", "unknown"],
+                   help="when set with --emit-tagged, write ONLY trades in this regime")
     a = p.parse_args(argv)
 
     df = _load(a.data)
@@ -123,6 +151,14 @@ def main(argv: List[str]) -> int:
         df = _resample(df, a.resample)
     adx = _adx(df, a.adx_period)
     trades = _read_trades(a.trades)
+
+    if a.emit_tagged:
+        tagged = annotate_trades_with_regime(trades, adx, df)
+        if a.only_regime:
+            tagged = [t for t in tagged if t.get("regime") == a.only_regime]
+        with open(a.emit_tagged, "w", encoding="utf-8") as fh:
+            for t in tagged:
+                fh.write(json.dumps(t, default=str) + "\n")
 
     by = tag_emitted_by_regime(trades, adx, df)
     dist = regime_distribution(adx)
