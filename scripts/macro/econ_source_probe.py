@@ -151,9 +151,66 @@ def probe_eodhd() -> list[dict]:
     )]
 
 
+def probe_fmp_endpoints() -> list[dict]:
+    """Probe which FMP endpoints THIS key (FMP_API_KEY) can actually reach on the
+    free tier — so we know what to repurpose vs what's premium-gated. FMP gates a
+    premium endpoint with either an HTTP 401/403 OR an HTTP-200 JSON carrying an
+    "Error Message" about an "exclusive"/"upgrade" plan; both are treated as gated.
+    Curated to the endpoints THIS repo could actually use (commodity/NG EOD for the
+    M1 price join, Treasury curve for M28, stock EOD failover, fundamentals for the
+    value sleeve, economic indicators)."""
+    key = os.environ.get("FMP_API_KEY")
+    if not key:
+        return [{"source": "fmp:<no key>", "error": "FMP_API_KEY not set in probe env", "usable": False}]
+    base = "https://financialmodelingprep.com/api/v3"
+    today = _dt.date.today()
+    frm = (today - _dt.timedelta(days=30)).isoformat()
+    endpoints = [
+        ("fmp:treasury-curve", f"{base}/treasury?from={frm}&to={today.isoformat()}"),
+        ("fmp:commodity-natgas-eod", f"{base}/historical-price-full/NGUSD?from={frm}&to={today.isoformat()}"),
+        ("fmp:commodity-gold-eod", f"{base}/historical-price-full/GCUSD?from={frm}&to={today.isoformat()}"),
+        ("fmp:stock-eod-SPY", f"{base}/historical-price-full/SPY?from={frm}&to={today.isoformat()}"),
+        ("fmp:etf-eod-UNG", f"{base}/historical-price-full/UNG?from={frm}&to={today.isoformat()}"),
+        ("fmp:key-metrics-AAPL", f"{base}/key-metrics/AAPL?limit=4"),
+        ("fmp:ratios-AAPL", f"{base}/ratios/AAPL?limit=4"),
+        ("fmp:income-statement-AAPL", f"{base}/income-statement/AAPL?limit=4"),
+        ("fmp:economic-indicator-GDP", f"{base}/economic?name=GDP"),
+        ("fmp:economic-calendar", f"{base}/economic_calendar?from={frm}&to={today.isoformat()}"),
+        ("fmp:earnings-calendar", f"{base}/earning_calendar?from={frm}&to={today.isoformat()}"),
+        ("fmp:sector-pe", f"{base}/sector_price_earning_ratio?date={today.isoformat()}&exchange=NYSE"),
+        ("fmp:forex-eod-EURUSD", f"{base}/historical-price-full/EURUSD?from={frm}&to={today.isoformat()}"),
+        ("fmp:crypto-eod-BTCUSD", f"{base}/historical-price-full/BTCUSD?from={frm}&to={today.isoformat()}"),
+    ]
+    out = []
+    for name, url in endpoints:
+        status, body, err = _get(f"{url}{'&' if '?' in url else '?'}apikey={key}")
+        gated = False
+        rows = None
+        note = None
+        if body:
+            low = body.lower()
+            if '"error message"' in low or "exclusive endpoint" in low or "upgrade your plan" in low or "special endpoint" in low:
+                gated = True
+                note = body[:180]
+            else:
+                try:
+                    data = json.loads(body)
+                    if isinstance(data, list):
+                        rows = len(data)
+                    elif isinstance(data, dict):
+                        rows = len(data.get("historical", data.get("data", []))) or (1 if data else 0)
+                        note = "keys: " + ",".join(list(data.keys())[:6])
+                except ValueError:
+                    note = body[:120]
+        usable = status == 200 and not gated and (rows is None or rows > 0)
+        out.append({"source": name, "http_status": status, "gated_premium": gated,
+                    "rows": rows, "note": note, "error": err, "usable": usable})
+    return out
+
+
 def main() -> int:
     results: list[dict] = []
-    for probe in (probe_faireconomy, probe_fxstreet, probe_tradingeconomics, probe_eodhd):
+    for probe in (probe_faireconomy, probe_fxstreet, probe_tradingeconomics, probe_eodhd, probe_fmp_endpoints):
         try:
             results.extend(probe())
         except Exception as e:  # noqa: BLE001
