@@ -3,6 +3,24 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260729-ICTSCALP-ETH15M-STALE-FIRSTFIRE",
+      "opened_at": "2026-07-29T12:40:00+00:00",
+      "opened_by": "claude (ict_scalp_eth_15m stale-stop ship session — wrap handoff)",
+      "source": "M20 exit-refinement P5/P7 for the shipped ict_scalp_eth_15m stale-stop (PR #7863 MERGED + deployed live git_sha 91ff9a96; MB-20260728-ICTSCALP-EXIT-LEVERS). The lever is live but the paper leg (bybit_1, ETHUSDT 15m) had taken ZERO trades as of ~6h post-deploy (strict 4-gate ICT scalp, quiet in chop; ict_scalp_eth_15m_signal count=0), so the first real lever-driven exit has not yet been mechanically verified. The in-session hourly watch is being retired with this session; this item carries the verification forward.",
+      "title": "Verify P5 parity + P7 first-fire mechanics on the first ict_scalp_eth_15m stale_stop close",
+      "tier": "Tier-1 (observe-only verification of an already-shipped lever)",
+      "status": "open",
+      "snoozed_until": null,
+      "what_to_check": [
+        "When ict_scalp_eth_15m first opens a POST-deploy trade (created_at after 2026-07-29T05:50Z, so it carries meta.entry_time) and it ages to >= stale_exit_bars(12) 15m-bars still below stale_exit_below_r(0.0) open-R, the monitor should emit a REAL close: order_packages.close_reason='stale_stop'.",
+        "P5 (feature/trigger parity): diff the live bars_since_entry / open_r against an offline recompute on the same bars — expect near-exact (harness start_idx=signal_bar+1 == live strictly-after-entry_time bar count minus 1).",
+        "P7 (first-fire mechanics): fired at bars_since_entry>=12, open_r<0, reason=stale_stop, exit_price=the firing bar's close; and a current-bar SL/TP cross defers (stop-first).",
+        "Confirm NO real-money leg was touched — only ict_scalp_eth_15m (bybit_1 paper); the real-money ict_scalp_5m BTC leg declares nothing and must never emit stale_stop."
+      ],
+      "how": "diag relay (label vm-diag-request): audit_query?strategy=ict_scalp_eth_15m&event=ict_scalp_eth_15m_signal (has it traded?) then journal?table=order_packages (find the eth_15m package + close_reason). Cross-check: trend_donchian_xrp_4h already fired a real stale_stop 2026-07-29T04:40 (same lever family) — the mechanism is confirmed working live.",
+      "disposition_when_verified": "Mark this item resolved; note the first-fire result on the M20 coverage matrix ref / coordination board #6927. No config change expected (the lever is already declared)."
+    },
+    {
       "id": "BL-20260724-TRAINER-GIT-DIVERGED",
       "opened_at": "2026-07-24T15:30:00+00:00",
       "opened_by": "claude (M30 microstructure research loop, incidental — trainer-vm-diag probe dispatch)",
