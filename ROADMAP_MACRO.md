@@ -209,6 +209,18 @@ lazily via the redirect.
 ---
 
 ## Change log
+- **2026-07-29 (cont.)** — **M1 econ-calendar autonomous source resolved → FXStreet (keyless).**
+  The initial FMP feed 403'd on the free tier (calendar is premium). Rather than assume, ran an
+  empirical **source probe** on a runner across every free candidate
+  ([findings](docs/research/M1-econ-calendar-source-probe-2026-07-29.md)). Winner: **FXStreet's own
+  `calendar-api`** (`calendar-api.fxstreet.com` — the exact upstream Bigdata resells): **keyless**,
+  92 US events with consensus + actual + revised in one call. Built `scripts/macro/econ_calendar_fxstreet.py`
+  (off-VM fetch + pure `normalize_fxstreet` → the same `to_event_rows` boundary) and swapped it in as
+  `econ-calendar-produce.yml`'s daily keyless fetch (no `FMP_API_KEY`, no session dependency, no PAYG).
+  **FMP free-tier repurpose finding:** the `/api/v3/` uniform 403 was a retired-path issue — on `/stable/`
+  the free key DOES serve **Treasury curve + equity EOD + fundamentals** (usable for backtest history:
+  M28 term-slope / candle failover / value sleeve) but **NOT commodities** (natural gas → 402 paid, so
+  M1's NG price join comes from the existing yfinance/Stooq fetcher). 31 M1 tests, import-linter 6/6.
 - **2026-07-29** — **M1 economic-calendar + surprise-vs-consensus DATA SPINE built**
   (recommendation #1 of [`roadmap-toolbox-assessment-2026-07-29.md`](docs/research/roadmap-toolbox-assessment-2026-07-29.md)).
   Wired a Bigdata.com econ-calendar producer that turns the country tearsheet (forward

@@ -60,6 +60,7 @@ from econ_calendar_data import (  # noqa: E402
     to_event_rows,
 )
 from econ_calendar_fmp import normalize_fmp  # noqa: E402
+from econ_calendar_fxstreet import normalize_fxstreet  # noqa: E402
 
 REPO_ROOT = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 DEFAULT_CAPTURES_DIR = REPO_ROOT / "comms" / "macro" / "econ_calendar_captures"
@@ -102,24 +103,25 @@ def _rows_from_md(path: Path, text: str, skipped: list[dict]) -> list[dict]:
     return to_event_rows(parse_tearsheet(text, country=country), observed_at=observed_at)
 
 
-def _rows_from_fmp(path: Path, text: str, skipped: list[dict]) -> list[dict]:
-    """An FMP ``.fmp.json`` capture (``{observed_at, countries, rows:[...]}``) → PIT
-    rows. One capture can span several countries — each normalized separately so
-    every event carries its own country/entity."""
+def _rows_from_json_capture(path: Path, text: str, skipped: list[dict], normalize) -> list[dict]:
+    """A JSON capture (``{observed_at, countries, rows:[...]}``) → PIT rows via the
+    given ``normalize`` fn (FMP or FXStreet). One capture can span several
+    countries — each normalized separately so every event carries its own
+    country/entity."""
     try:
         doc = json.loads(text)
     except ValueError as exc:
         skipped.append({"file": path.name, "reason": f"bad_json:{exc}"})
         return []
     observed_at = doc.get("observed_at")
-    fmp_rows = doc.get("rows") or []
+    raw_rows = doc.get("rows") or []
     countries = [c.upper() for c in (doc.get("countries") or ["US"])]
-    if not observed_at or not isinstance(fmp_rows, list):
+    if not observed_at or not isinstance(raw_rows, list):
         skipped.append({"file": path.name, "reason": "no_observed_at_or_rows"})
         return []
     out: list[dict] = []
     for ctry in countries:
-        parsed = normalize_fmp(fmp_rows, countries={ctry}, country=ctry)
+        parsed = normalize(raw_rows, countries={ctry}, country=ctry)
         out.extend(to_event_rows(parsed, observed_at=observed_at))
     return out
 
@@ -142,8 +144,10 @@ def rows_from_captures(captures_dir: Path) -> tuple[list[dict], list[dict]]:
         except OSError as exc:
             skipped.append({"file": path.name, "reason": f"read_error:{exc}"})
             continue
-        if path.name.endswith(".fmp.json"):
-            pit_rows.extend(_rows_from_fmp(path, text, skipped))
+        if path.name.endswith(".fxstreet.json"):
+            pit_rows.extend(_rows_from_json_capture(path, text, skipped, normalize_fxstreet))
+        elif path.name.endswith(".fmp.json"):
+            pit_rows.extend(_rows_from_json_capture(path, text, skipped, normalize_fmp))
         elif path.suffix.lower() == ".md":
             pit_rows.extend(_rows_from_md(path, text, skipped))
     pit_rows.sort(key=lambda r: (str(r.get("observed_at")), str(r.get("event_id")), str(r.get("status"))))
@@ -283,7 +287,7 @@ def produce(
 
     return {
         "captures": len([p for p in captures_dir.glob("*")
-                         if p.name.endswith(".fmp.json") or p.suffix.lower() == ".md"]),
+                         if p.name.endswith((".fxstreet.json", ".fmp.json")) or p.suffix.lower() == ".md"]),
         "skipped": skipped,
         "rows": len(pit_rows),
         "written": written,
