@@ -1,1 +1,1 @@
-probe-run: 2 (2026-07-29 + FMP-endpoint reachability for backtest history)
+probe-run: 3 (FMP /stable/ retest + full FXStreet schema capture)

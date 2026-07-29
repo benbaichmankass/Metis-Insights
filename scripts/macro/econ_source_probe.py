@@ -63,12 +63,15 @@ def _verdict(
             "consensus": next((r.get(k) for k in consensus_keys if r.get(k) not in (None, "", "-")), None),
             "actual": next((r.get(k) for k in actual_keys if r.get(k) not in (None, "", "-")), None),
         })
+    # Full raw field set of the first 2 US rows — so an adapter is built against
+    # the REAL schema, not guessed field names.
+    raw_samples = [r for r in us[:2]]
     ok = status == 200 and len(us) > 0 and us_with_consensus > 0
     return {
         "source": name, "url": url, "http_status": status, "error": error,
         "total_rows": len(rows), "us_rows": len(us),
         "us_with_consensus": us_with_consensus, "us_with_actual": us_with_actual,
-        "usable": ok, "samples": samples,
+        "usable": ok, "samples": samples, "raw_samples": raw_samples,
     }
 
 
@@ -208,9 +211,59 @@ def probe_fmp_endpoints() -> list[dict]:
     return out
 
 
+def probe_fmp_stable() -> list[dict]:
+    """Re-probe FMP on the NEW ``/stable/`` path — every ``/api/v3/`` endpoint
+    returned a uniform HTTP 403 (even normally-free SPY EOD), which signals FMP
+    retired free access to the legacy path, not per-endpoint gating. If ``/stable/``
+    works on the free key, FMP free is actually usable (calendar + backtest history)."""
+    key = os.environ.get("FMP_API_KEY")
+    if not key:
+        return [{"source": "fmp-stable:<no key>", "usable": False}]
+    base = "https://financialmodelingprep.com/stable"
+    today = _dt.date.today()
+    frm = (today - _dt.timedelta(days=30)).isoformat()
+    endpoints = [
+        ("fmp-stable:economics-calendar", f"{base}/economics-calendar?from={frm}&to={today.isoformat()}"),
+        ("fmp-stable:treasury-rates", f"{base}/treasury-rates?from={frm}&to={today.isoformat()}"),
+        ("fmp-stable:eod-SPY", f"{base}/historical-price-eod/full?symbol=SPY&from={frm}&to={today.isoformat()}"),
+        ("fmp-stable:eod-NGUSD", f"{base}/historical-price-eod/full?symbol=NGUSD&from={frm}&to={today.isoformat()}"),
+        ("fmp-stable:eod-UNG", f"{base}/historical-price-eod/full?symbol=UNG&from={frm}&to={today.isoformat()}"),
+        ("fmp-stable:key-metrics-AAPL", f"{base}/key-metrics?symbol=AAPL&limit=4"),
+        ("fmp-stable:ratios-AAPL", f"{base}/ratios?symbol=AAPL&limit=4"),
+        ("fmp-stable:economic-indicators-GDP", f"{base}/economic-indicators?name=GDP&from={frm}&to={today.isoformat()}"),
+    ]
+    out = []
+    for name, url in endpoints:
+        status, body, err = _get(f"{url}&apikey={key}")
+        gated = False
+        rows = None
+        sample = None
+        if body:
+            low = body.lower()
+            if '"error message"' in low or "exclusive" in low or "upgrade" in low or "premium" in low or "legacy" in low:
+                gated = True
+                sample = body[:200]
+            else:
+                try:
+                    data = json.loads(body)
+                    if isinstance(data, list):
+                        rows = len(data)
+                        sample = json.dumps(data[0])[:300] if data else None
+                    elif isinstance(data, dict):
+                        rows = 1
+                        sample = json.dumps(data)[:300]
+                except ValueError:
+                    sample = body[:160]
+        usable = status == 200 and not gated and (rows is None or rows > 0)
+        out.append({"source": name, "http_status": status, "gated_premium": gated,
+                    "rows": rows, "sample": sample, "error": err, "usable": usable})
+    return out
+
+
 def main() -> int:
     results: list[dict] = []
-    for probe in (probe_faireconomy, probe_fxstreet, probe_tradingeconomics, probe_eodhd, probe_fmp_endpoints):
+    for probe in (probe_faireconomy, probe_fxstreet, probe_tradingeconomics, probe_eodhd,
+                  probe_fmp_endpoints, probe_fmp_stable):
         try:
             results.extend(probe())
         except Exception as e:  # noqa: BLE001
