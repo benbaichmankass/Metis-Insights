@@ -1,0 +1,145 @@
+name: econ-event-study
+
+# ROADMAP_MACRO M1 — the economic-surprise → forward-price event study.
+#
+# The M1 gate wants a CLEAN JOINED DATASET: point-in-time release history joined to
+# the traded price series so M2 can calibrate surprise → forward returns. The
+# calendar/consensus/surprise half is landed daily by econ-calendar-produce.yml
+# (comms/macro/econ_calendar_snapshots.jsonl). This workflow is the JOIN: it fetches
+# the daily-close price panels off-VM (yfinance→Stooq, keyless) and runs
+# scripts/macro/econ_event_study.py — IC(H)=Spearman(surprise, forward return) across
+# trading-day horizons — then lands the scorecard.
+#
+# OBSERVE-ONLY: reads the PIT snapshots + prices, writes a scorecard JSON. No order
+# path, no live-VM mutation. The price fetch runs on the hosted runner (never the
+# live trading VM) exactly like the M28 macro-candle backfill.
+#
+# HONEST small-n: the free calendar feeds start with a shallow PIT-consensus window,
+# so the scorecard verdict caps at `insufficient_history` until enough releases
+# accrue. The cadence is WEEKLY (the study only moves as new releases land — a daily
+# run would re-land an identical scorecard).
+#
+# HOW IT LANDS ON PROTECTED main: checks out with the BRANCH_PROTECTION_TOKEN PAT and
+# hands off to ./.github/actions/commit-to-main (PAT-authored auto-merge PR — same as
+# econ-calendar-produce / the macro-*-backfill cluster).
+#
+# Triggers:
+#   1. schedule          — weekly, Sunday 23:10 UTC (after the week's prints landed).
+#   2. workflow_dispatch — operator "Run workflow".
+#   3. issues.opened w/ label `econ-event-study-now` — Claude-driven (owner only).
+#
+# Tier-1: observability producer.
+
+on:
+  schedule:
+    - cron: "10 23 * * 0"
+  workflow_dispatch:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: econ-event-study
+  cancel-in-progress: false
+
+jobs:
+  study:
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       github.event.issue.user.login == github.repository_owner &&
+       contains(github.event.issue.labels.*.name, 'econ-event-study-now'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: python -m pip install --upgrade pip "pyyaml>=6.0"
+
+      - name: Fetch price panels off-VM (yfinance→Stooq, keyless)
+        # Best-effort: a fetch miss just yields an empty panel → the study reports
+        # price_bars=0 for that kind rather than failing the run. yfinance is optional;
+        # the Stooq urllib fallback is dependency-free.
+        env:
+          ICT_OFFVM_BUILD_HOST: "1"
+        run: |
+          set -uo pipefail
+          python scripts/macro/fetch_macro_candles.py \
+            --symbols "NG=F,CL=F" \
+            --start 2023-01-01 \
+            --out-dir /tmp/econ_event_candles || \
+            echo "::warning::macro-candle fetch degraded — the study reports empty panels for affected kinds"
+
+      - name: Run the event study (natural gas + crude)
+        id: study
+        run: |
+          set -euo pipefail
+          python scripts/macro/econ_event_study.py \
+            --kind eia_natgas_storage --candles-dir /tmp/econ_event_candles \
+            --json comms/macro/econ_event_study_scorecard.json
+          python scripts/macro/econ_event_study.py \
+            --kind eia_crude_stocks --candles-dir /tmp/econ_event_candles \
+            --json comms/macro/econ_event_study_crude_scorecard.json
+          {
+            echo "summary<<EOF"
+            python -c "import json; d=json.load(open('comms/macro/econ_event_study_scorecard.json')); print(json.dumps({'natgas': d['summary'], 'meta': d['meta']}, indent=2))"
+            echo
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Land the scorecards on main (auto-merge PR)
+        id: commit
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: comms/macro/econ_event_study_scorecard.json comms/macro/econ_event_study_crude_scorecard.json
+          message: "chore(m1): econ-surprise event-study scorecard"
+          pr-title: "chore(m1): econ-surprise event-study scorecard (auto)"
+          pr-body: "Economic-surprise → forward-price event-study scorecards (econ-event-study). Observe-only, data-only; auto-merge. Verdict caps at insufficient_history until PIT-consensus history accrues."
+          branch-prefix: automation/econ-event-study
+
+      - name: Comment + close issue (issue-driven path)
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        env:
+          SUMMARY: ${{ steps.study.outputs.summary }}
+          COMMITTED: ${{ steps.commit.outputs.committed }}
+          PR: ${{ steps.commit.outputs.pr }}
+        with:
+          script: |
+            const summary = process.env.SUMMARY || '(no summary captured)';
+            const committed = process.env.COMMITTED || 'unknown';
+            const pr = process.env.PR || '';
+            const body = [
+              '📈 **econ-event-study** — surprise → forward-price IC(H) scorecard.',
+              '',
+              '```json', summary.trim(), '```',
+              '',
+              committed === 'true' ? `landed via auto-merge PR: ${pr}` : 'no scorecard change this run.',
+              '',
+              '---',
+              '_Generated by [Claude Code](https://claude.ai/code)_',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed',
+            });
