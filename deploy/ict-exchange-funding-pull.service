@@ -1,9 +1,10 @@
 # ============================================
 # ICT EXCHANGE-FUNDING PULL (BL-20260719-FUNDING-NO-TIMER)
 # Refreshes the exchange_funding table in runtime_state/exchange_fills.sqlite
-# with the last 7 days of REAL Bybit perp funding for bybit_2 so the
-# broker-truth cost sweep can attribute funding_paid_usd (Slice B / B1,
-# MB-20260629-ALLOC-COSTCAP).
+# with the last 7 days of REAL Bybit perp funding for EVERY live Bybit account
+# (bybit_1 / bybit_2 / bybit_portfolio) so the broker-truth cost sweep can
+# attribute funding_paid_usd across the whole roster (Slice B / B1,
+# MB-20260629-ALLOC-COSTCAP; multi-account rollout rec #7, 2026-07-29).
 #
 # Why this exists: the funding puller (scripts/pull_exchange_funding.py, the
 # sibling of the fills puller) shipped with a system-action but NO timer — so
@@ -13,17 +14,17 @@
 # refresh durable, mirroring ict-exchange-fills-pull.service so fees AND funding
 # are both captured going forward.
 #
-# LIVE-TRADER BOX ONLY. Reads Bybit over the public API using BYBIT_API_KEY_2 /
-# BYBIT_API_SECRET_2 from the trader .env; read-only on the exchange side
-# (fetch_funding_history). Touches NO service and NO trade_journal.db table. The
-# store keys on funding_id, so the daily 7-day over-sampling is idempotent
-# (duplicate funding rows are dropped).
+# LIVE-TRADER BOX ONLY. Reads Bybit over the public API using each account's
+# BYBIT_API_KEY_* / BYBIT_API_SECRET_* from the trader .env; read-only on the
+# exchange side (fetch_funding_history). Touches NO service and NO
+# trade_journal.db table. The store keys on funding_id, so the daily 7-day
+# over-sampling is idempotent (duplicate funding rows are dropped).
 #
 # Per-symbol query: Bybit V5 funding is retrieved per contract, so an
 # all-symbols (symbol=None) query returns 0 records (BL-20260717-FUNDING-ZERO).
-# The symbol list mirrors scripts/ops/pull_exchange_funding_action.sh — the
-# perp instruments bybit_2 actually holds across 8h funding timestamps; a symbol
-# with no such position just returns empty.
+# --all-bybit-accounts pulls each account's OWN declared symbols from
+# config/accounts.yaml::symbols (config-driven — no hard-coded symbol list to
+# drift); a symbol with no funding position just returns empty.
 #
 # DATA_DIR: this unit MUST resolve runtime_state_dir() to the SAME root as
 # ict-web-api (the reader) + ict-exchange-fills-pull (the fills writer, same
@@ -57,7 +58,7 @@ Environment=DATA_DIR=/data/bot-data
 TimeoutStartSec=300
 # Run under the trader venv so ccxt imports (same interpreter the trader uses
 # for Bybit) — not system /usr/bin/python3.
-ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_exchange_funding.py --account bybit_2 --days 7 --symbol BTCUSDT --symbol ETHUSDT --symbol XRPUSDT --symbol ADAUSDT --api-key-env BYBIT_API_KEY_2 --api-secret-env BYBIT_API_SECRET_2
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_exchange_funding.py --all-bybit-accounts --days 7
 StandardOutput=journal
 StandardError=journal
 
