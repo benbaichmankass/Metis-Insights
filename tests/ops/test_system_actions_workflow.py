@@ -216,6 +216,7 @@ EXPECTED_ACTIONS = {
     # brackets, Fix 2 of BL-20260720-ICTSCALP-PASTSTOP-EXITS). Demo-locked
     # to bybit_1; places + cleans up two tiny netted orders.
     "validate-partial-tpsl": "validate_partial_tpsl_action.sh",
+    "validate-bybit-naked-rearm": "validate_bybit_naked_rearm_action.sh",
     # 2026-07-21 — stopgap cleanup for BL-20260721-BYBIT2-XRP-TPSL-LEGCAP:
     # cancels stale/duplicate Partial-tpsl legs accumulated on one symbol
     # (keeps the most-recent SL/TP), relieving Bybit's 20-leg cap so
@@ -284,6 +285,7 @@ TIER_2_ACTIONS = {
     "repair-malformed-notes",
     "repair-netted-rows",
     "validate-partial-tpsl",
+    "validate-bybit-naked-rearm",
     "cancel-stale-tpsl-legs",
     "backfill-tpsl-leg-ids",
 }
