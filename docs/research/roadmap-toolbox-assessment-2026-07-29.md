@@ -116,7 +116,7 @@ durable, deployable edge** beyond the ICT/crypto-regime core — and it says so 
 
 | Category | Inventory (representative) | Utilization |
 |---|---|---|
-| **Claude skills** (27) | session-coordination, system-review + the 3 reviews, vm-ops, diag-data, git-actions, backtesting, exit-refinement, model-training, new-strategy/new-broker, drift-remediation | **Mature & heavily used** — the autonomous-ops backbone. *Gap: no macro-research skill.* |
+| **Claude skills** (28) | session-coordination, system-review + the 3 reviews, vm-ops, diag-data, git-actions, backtesting, exit-refinement, model-training, new-strategy/new-broker, drift-remediation, **macro-research** | **Mature & heavily used** — the autonomous-ops backbone. *macro-research skill added 2026-07-29 (rec #6), closing the last catalog gap.* |
 | **GitHub Actions** (~110) | CI invariant guards (layer-guard, strategy-coverage-guard, dry-run-guard, env-gate-guard…), diag relays, provisioning, training, backtest harnesses, m28–m34 macro grading | **Mature & heavily used.** *Note: macro-grade workflows are `workflow_dispatch`-only (run-on-demand), unlike the scheduled ML cadence.* |
 | **Backtest / research harnesses** | `backtest_*.py` (13 strategies), `src/backtest/`, M5 `/test` consumer, trainer-VM sweep mirror, `src/research/` (triple-barrier, meta-label, microstructure) | **Mature & heavily used** — arguably the deepest single area. Strongest on intraday crypto/futures. |
 | **Market-data feeds** | Bybit, IBKR, Alpaca, OANDA connectors; historical fetchers; **news layer** (RSS active, NewsAPI key-gated) | **Connectors mature; news built-but-underused** (RSS-only, influence-only). |
