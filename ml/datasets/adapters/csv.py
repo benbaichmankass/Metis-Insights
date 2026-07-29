@@ -32,6 +32,12 @@ class CsvMarketRawAdapter(MarketRawAdapter):
         timeframe: str,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
+        # The CLI's `k=v` family-arg parser (`_parse_kv_list`) delivers every
+        # adapter kwarg as a str, so `csv_path` arrives as a str through
+        # `python -m ml build-dataset market_raw ... csv_path=<file>`. Coerce to
+        # Path here so the adapter works via the CLI, not only when a test hands
+        # it a real Path (BL-20260729-OFFLOAD-CSV-ADAPTER).
+        csv_path = Path(csv_path)
         if not csv_path.is_file():
             raise FileNotFoundError(f"CSV not found at {csv_path}")
         with csv_path.open("r", encoding="utf-8", newline="") as fh:

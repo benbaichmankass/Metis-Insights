@@ -11,15 +11,15 @@ name: trainer-offload-train
 # globally reachable — Bybit geoblocks US GH-runners), build the ML dataset
 # families from the CSV, train the manifest, upload the model + metrics.
 #
-# ⚠️ FIRST-RUN VERIFICATION (honest): the CSV -> `market_raw` family ->
-# `market_features` -> `ml train` path is wired from the verified ingredients
-# (fetch_backtest_candles Binance-vision path + the `csv` market_raw adapter +
-# the nightly's `k=v` adapter-kwarg convention: `adapter=csv path=<csv>`), but
-# this exact end-to-end has not run off-VM before (the research-build cluster
-# feeds its CSV to bespoke readers, not the dataset families). The build step
-# echoes diagnostics + never hard-aborts so the FIRST run pins any adapter-kwarg
-# mismatch. Same "ships needing a first-run verify" posture as every workflow in
-# this cluster.
+# The CSV -> `market_raw` family -> `market_features` -> `ml train` path:
+# fetch_backtest_candles Binance-vision feed + the `csv` market_raw adapter via
+# the `k=v` adapter-kwarg convention (`adapter=csv csv_path=<csv>`). The first
+# run (#7910) pinned two csv-path mismatches, now fixed + guarded
+# (BL-20260729-OFFLOAD-CSV-ADAPTER): (a) the adapter kwarg is `csv_path`, not
+# `path`, and it now coerces the CLI's str value to Path; (b) the feed's
+# `timestamp` header is renamed to the adapter's required `ts` after fetch. The
+# build step now hard-fails on a 0-row market_raw/market_features so a silent
+# empty build can never again report "success".
 #
 # Triggers:
 #   1. workflow_dispatch — operator clicks "Run workflow"
@@ -133,20 +133,31 @@ jobs:
           python scripts/ops/fetch_backtest_candles.py \
             --symbol "${of_symbol}" --interval "${INT}" --days "${of_days}" \
             --output "data/offload_feed.csv"
+          # fetch_backtest_candles emits a `timestamp` header (what the backtest
+          # harnesses read); the `market_raw` csv adapter requires a `ts` column
+          # (BL-20260729-OFFLOAD-CSV-ADAPTER). Rename the header cell only.
+          sed -i '1s/^timestamp,/ts,/' data/offload_feed.csv
           echo "feed rows: $(wc -l < data/offload_feed.csv)"; head -2 data/offload_feed.csv
 
-      - name: Build ML dataset families from the CSV (FIRST-RUN VERIFY of the csv path)
+      - name: Build ML dataset families from the CSV
         run: |
-          set +e   # never hard-abort — the first run pins any adapter-kwarg mismatch
+          set -euo pipefail
           DR=datasets-out; VER=v002
           echo "=== market_raw (csv adapter) ==="
+          # csv adapter kwarg is `csv_path` (the CLI k=v parser passes str; the
+          # adapter coerces to Path). BL-20260729-OFFLOAD-CSV-ADAPTER.
           python -m ml build-dataset market_raw \
             --output-dir "$DR" --version "$VER" --source "data/offload_feed.csv" \
             --symbol-scope "${of_symbol}" --timeframe "${of_timeframe}" --overwrite \
-            "adapter=csv" "path=data/offload_feed.csv" "symbol=${of_symbol}" "timeframe=${of_timeframe}" \
+            "adapter=csv" "csv_path=data/offload_feed.csv" "symbol=${of_symbol}" "timeframe=${of_timeframe}" \
             2>&1 | tail -20
           RAW="$DR/market_raw/${of_symbol}/${of_timeframe}/$VER"
           echo "raw dir: $RAW"; ls -la "$RAW" 2>&1 | head
+          raw_rows=$(wc -l < "$RAW/data.jsonl")
+          echo "market_raw rows: $raw_rows"
+          if [ "$raw_rows" -lt 1 ]; then
+            echo "::error::market_raw produced 0 rows — csv build broken (adapter kwarg / header mismatch)"; exit 1
+          fi
           echo "=== market_features ==="
           python -m ml build-dataset market_features \
             --output-dir "$DR" --version "$VER" --source "$RAW" \
@@ -156,6 +167,11 @@ jobs:
             2>&1 | tail -20
           FEAT="$DR/market_features/${of_symbol}/${of_timeframe}/$VER"
           echo "features dir: $FEAT"; ls -la "$FEAT" 2>&1 | head
+          feat_rows=$(wc -l < "$FEAT/data.jsonl")
+          echo "market_features rows: $feat_rows"
+          if [ "$feat_rows" -lt 1 ]; then
+            echo "::error::market_features produced 0 rows — feature build broken"; exit 1
+          fi
 
       - name: Train the manifest on the 16 GB runner (--no-register)
         run: |
