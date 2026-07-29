@@ -85,6 +85,11 @@ jobs:
                 description: 'Triggers econ-calendar-produce — regenerate the M1 point-in-time economic-calendar snapshots from committed Bigdata.com tearsheet captures.',
               },
               {
+                name: 'econ-event-study-now',
+                color: '0e8a16',
+                description: 'Triggers econ-event-study — run the M1 economic-surprise → forward-price IC(H) event study + land its scorecard.',
+              },
+              {
                 name: 'sysdyn-gas-calibrate-now',
                 color: '0e8a16',
                 description: 'Triggers sysdyn-gas-calibrate — calibrate the M29 gas_storage_price_v1 seed on real weekly NG price (FRED) + emit its scorecard.',
