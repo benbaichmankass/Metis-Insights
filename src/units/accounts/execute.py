@@ -1604,17 +1604,34 @@ def _log_trade_to_journal(
         #
         # Rejection rows still skip this — the trade was never live;
         # gating on it would suppress legitimate retries forever.
-        is_primary_entry = (
+        #
+        # BL-20260729 (linked_trade_id fan-out): a REAL-money primary entry
+        # writes the slot UNCONDITIONALLY (it must win over any paper mirror in
+        # the same fan-out — the link points at the real trade). A PAPER-only
+        # package (e.g. the pairs legs on bybit_1) has no real-money leg, so
+        # nothing used to write the slot at execution and it relied on the
+        # +5-min reconciler back-fill (``_sweep_unlinked_packages``). We now
+        # ALSO stamp a paper primary entry, but only if the slot is still NULL
+        # (``update_order_package_linked_trade_if_unset``) — first-writer-wins
+        # for paper, while a real-money leg's unconditional write still
+        # overwrites a paper mirror's tentative fill regardless of leg order.
+        # Net: mixed fan-out always resolves to the real-money trade; a
+        # paper-only package links immediately instead of after the 5-min sweep.
+        _open_primary_entry = (
             status == "open"
             and trade_row_id is not None
             and not intent_reduce
-            and not is_paper_account
         )
-        if is_primary_entry and pkg_id:
+        if _open_primary_entry and pkg_id:
             try:
-                db.update_order_package(pkg_id, {
-                    "linked_trade_id": int(trade_row_id),
-                })
+                if not is_paper_account:
+                    db.update_order_package(pkg_id, {
+                        "linked_trade_id": int(trade_row_id),
+                    })
+                else:
+                    db.update_order_package_linked_trade_if_unset(
+                        pkg_id, int(trade_row_id),
+                    )
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "execute_pkg: linked_trade_id update failed "
