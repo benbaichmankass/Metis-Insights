@@ -2149,7 +2149,21 @@
       "status": "open",
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "PB-20260729-CRYPTO-PULLBACK-2H-LONG-DRAG",
+      "opened_at": "2026-07-29",
+      "opened_by": "rec5-regime-debt-matrix session (svcfl1)",
+      "source": "docs/research/regime-debt-matrix-results-2026-07-29.md",
+      "title": "Pullback-2h family: long side is a net drag, short side carries the edge (walk-forward before any action)",
+      "description": "The regime-coverage-debt matrix (rec #5) found that eth/sol/xrp_pullback_2h — all already ADX-gated (adx_min 25/30) so every entry is in the trending regime — show a consistent, adequately-powered DIRECTIONAL asymmetry over a single ~300d in-sample Binance-vision window: long-R pooled -27.6 over 57 long trades (eth -11.96/n21, sol -10.66/n16, xrp -4.99/n20) vs short-R pooled +40.4 over 60 short trades (eth +9.21/n25, sol +9.96/n14, xrp +21.22/n21). This is a strategy-logic signal (the long side), NOT a regime-coverage cell (a regime_policy cell would be cosmetic/redundant with adx_min). NOT yet actionable: one in-sample window, no walk-forward folds; the asymmetry is consistent with the 2025-26 crypto tape favoring shorts on failed pullback-longs, so it may be regime-of-sample rather than a durable edge.",
+      "tier": "3 (would gate/alter live pullback entries — operator-approved + walk-forward-gated)",
+      "trigger_condition": "Revisited on a performance-review / ml-review cadence, or when the offload path can run a multi-window walk-forward.",
+      "resolution_criteria": "Run a proper walk-forward (>=3-4 folds, net-of-fee) on eth/sol/xrp_pullback_2h split by direction. If the long-side drag holds out-of-sample across folds, propose a Tier-3 change (long-side gate / short-only variant) as a draft PR with evidence. If it does not hold, close as regime-of-sample and record the null.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-28T14:00:00+00:00"
+  "updated_at": "2026-07-29"
 }
