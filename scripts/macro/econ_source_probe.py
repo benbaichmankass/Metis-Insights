@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+"""ROADMAP_MACRO M1 — free economic-calendar SOURCE PROBE (validate before we build).
+
+FMP's free tier 403s the economic-calendar endpoint (it's premium), so before
+building another adapter we EMPIRICALLY test every credible free source on a
+GitHub runner (open egress; the sandbox can't reach these hosts) and report which
+actually deliver **US events with a consensus AND an actual** — the two fields the
+surprise spine needs. Runs in CI; prints a structured verdict to stdout +
+``$GITHUB_STEP_SUMMARY``. No production wiring — pure diagnostics.
+
+Each candidate reports: reachable?, HTTP status, total rows, US rows, whether a
+consensus/forecast field and an actual field are present, and 2 sample US rows —
+so the pick is made on real data, not documentation claims.
+
+Candidates (keyless or trivially-keyed, likely-real US coverage):
+  1. ForexFactory via faireconomy — the classic keyless MT4/MT5 weekly JSON feed.
+  2. FXStreet calendar-api — the actual upstream Bigdata/FXStreet widget endpoint.
+  3. Trading Economics guest:guest — free but historically a thin country sample.
+  4. EODHD demo token — economic-events endpoint on the demo key.
+"""
+
+from __future__ import annotations
+
+import datetime as _dt
+import json
+import os
+import urllib.error
+import urllib.request
+from typing import Callable, Optional
+
+_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
+_TIMEOUT = 30.0
+
+
+def _get(url: str, *, headers: Optional[dict] = None) -> tuple[Optional[int], Optional[str], Optional[str]]:
+    """Return (http_status, body_text, error). Best-effort — never raises."""
+    req = urllib.request.Request(url, headers={"User-Agent": _UA, "Accept": "application/json", **(headers or {})})
+    try:
+        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+            return resp.status, resp.read().decode("utf-8", "replace"), None
+    except urllib.error.HTTPError as e:  # noqa: PERF203
+        return e.code, None, f"HTTPError {e.code}"
+    except Exception as e:  # noqa: BLE001
+        return None, None, f"{type(e).__name__}: {e}"
+
+
+def _verdict(
+    name: str, url: str, *, rows: list, is_us: Callable[[dict], bool],
+    consensus_keys: list[str], actual_keys: list[str], event_key: str,
+    status: Optional[int], error: Optional[str],
+) -> dict:
+    us = [r for r in rows if isinstance(r, dict) and is_us(r)]
+
+    def _present(row: dict, keys: list[str]) -> bool:
+        return any(row.get(k) not in (None, "", "-") for k in keys)
+
+    us_with_consensus = sum(1 for r in us if _present(r, consensus_keys))
+    us_with_actual = sum(1 for r in us if _present(r, actual_keys))
+    samples = []
+    for r in us[:3]:
+        samples.append({
+            "event": r.get(event_key),
+            "consensus": next((r.get(k) for k in consensus_keys if r.get(k) not in (None, "", "-")), None),
+            "actual": next((r.get(k) for k in actual_keys if r.get(k) not in (None, "", "-")), None),
+        })
+    ok = status == 200 and len(us) > 0 and us_with_consensus > 0
+    return {
+        "source": name, "url": url, "http_status": status, "error": error,
+        "total_rows": len(rows), "us_rows": len(us),
+        "us_with_consensus": us_with_consensus, "us_with_actual": us_with_actual,
+        "usable": ok, "samples": samples,
+    }
+
+
+def probe_faireconomy() -> list[dict]:
+    """ForexFactory weekly JSON (keyless). thisweek + lastweek span ~2 weeks."""
+    out = []
+    for wk in ("thisweek", "lastweek", "nextweek"):
+        url = f"https://nfs.faireconomy.media/ff_calendar_{wk}.json"
+        status, body, err = _get(url)
+        rows = []
+        if body:
+            try:
+                rows = json.loads(body)
+            except ValueError as e:
+                err = f"json: {e}"
+        out.append(_verdict(
+            f"faireconomy:{wk}", url, rows=rows if isinstance(rows, list) else [],
+            is_us=lambda r: str(r.get("country", "")).upper() in {"USD", "US", "UNITED STATES"},
+            consensus_keys=["forecast"], actual_keys=["actual"], event_key="title",
+            status=status, error=err,
+        ))
+    return out
+
+
+def probe_fxstreet() -> list[dict]:
+    """FXStreet calendar-api (the actual upstream widget endpoint)."""
+    today = _dt.date.today()
+    frm = (today - _dt.timedelta(days=10)).strftime("%Y-%m-%dT00:00:00Z")
+    to = (today + _dt.timedelta(days=7)).strftime("%Y-%m-%dT00:00:00Z")
+    url = f"https://calendar-api.fxstreet.com/en/api/v1/eventDates/{frm}/{to}"
+    status, body, err = _get(url, headers={"Origin": "https://www.fxstreet.com", "Referer": "https://www.fxstreet.com/"})
+    rows = []
+    if body:
+        try:
+            rows = json.loads(body)
+        except ValueError as e:
+            err = f"json: {e}"
+    return [_verdict(
+        "fxstreet:calendar-api", url, rows=rows if isinstance(rows, list) else [],
+        is_us=lambda r: str(r.get("countryCode", "")).upper() == "US",
+        consensus_keys=["consensus"], actual_keys=["actual"], event_key="name",
+        status=status, error=err,
+    )]
+
+
+def probe_tradingeconomics() -> list[dict]:
+    """Trading Economics guest:guest (free sample)."""
+    url = "https://api.tradingeconomics.com/calendar?c=guest:guest&f=json"
+    status, body, err = _get(url)
+    rows = []
+    if body:
+        try:
+            rows = json.loads(body)
+        except ValueError as e:
+            err = f"json: {e}"
+    return [_verdict(
+        "tradingeconomics:guest", url, rows=rows if isinstance(rows, list) else [],
+        is_us=lambda r: str(r.get("Country", "")).strip().lower() == "united states",
+        consensus_keys=["Forecast", "TEForecast"], actual_keys=["Actual"], event_key="Event",
+        status=status, error=err,
+    )]
+
+
+def probe_eodhd() -> list[dict]:
+    """EODHD economic-events on the public demo token."""
+    url = "https://eodhd.com/api/economic-events?api_token=demo&fmt=json&limit=1000"
+    status, body, err = _get(url)
+    rows = []
+    if body:
+        try:
+            data = json.loads(body)
+            rows = data if isinstance(data, list) else data.get("data", []) if isinstance(data, dict) else []
+        except ValueError as e:
+            err = f"json: {e}"
+    return [_verdict(
+        "eodhd:demo", url, rows=rows if isinstance(rows, list) else [],
+        is_us=lambda r: str(r.get("country", "")).upper() in {"US", "USA", "UNITED STATES"},
+        consensus_keys=["estimate"], actual_keys=["actual"], event_key="event",
+        status=status, error=err,
+    )]
+
+
+def main() -> int:
+    results: list[dict] = []
+    for probe in (probe_faireconomy, probe_fxstreet, probe_tradingeconomics, probe_eodhd):
+        try:
+            results.extend(probe())
+        except Exception as e:  # noqa: BLE001
+            results.append({"source": probe.__name__, "error": f"probe crashed: {e}", "usable": False})
+
+    print("=" * 72)
+    print("ROADMAP_MACRO M1 — free economic-calendar source probe")
+    print("=" * 72)
+    lines = ["| source | http | total | US | US+consensus | US+actual | usable |",
+             "|---|---|---|---|---|---|---|"]
+    for r in results:
+        lines.append(
+            f"| {r.get('source')} | {r.get('http_status')} | {r.get('total_rows','-')} | "
+            f"{r.get('us_rows','-')} | {r.get('us_with_consensus','-')} | "
+            f"{r.get('us_with_actual','-')} | {'✅' if r.get('usable') else '❌'} |"
+        )
+    table = "\n".join(lines)
+    print(table)
+    print("\nfull JSON:\n" + json.dumps(results, indent=2, default=str))
+
+    # GitHub step summary (when running in Actions).
+    summ = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summ:
+        with open(summ, "a", encoding="utf-8") as fh:
+            fh.write("## Free economic-calendar source probe\n\n" + table + "\n\n")
+            fh.write("<details><summary>samples + errors</summary>\n\n```json\n")
+            fh.write(json.dumps(results, indent=2, default=str))
+            fh.write("\n```\n</details>\n")
+
+    usable = [r["source"] for r in results if r.get("usable")]
+    print(f"\nUSABLE (US events + consensus): {usable or 'NONE — all free sources failed the US+consensus bar'}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

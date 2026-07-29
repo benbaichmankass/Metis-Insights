@@ -1,0 +1,38 @@
+name: econ-source-probe
+
+# ROADMAP_MACRO M1 — throwaway diagnostic: probe every free economic-calendar
+# source on a runner (open egress) and report which actually deliver US events
+# with a consensus + actual. Validates BEFORE we build another adapter (FMP's
+# free tier 403'd the calendar endpoint). No secrets, no commit — prints a verdict
+# table to the job log + the run's Step Summary.
+#
+# Trigger: push to a claude/** branch that bumps .github/econ-source-probe-request,
+# or manual workflow_dispatch. Runs from the branch, so no main merge is needed.
+
+on:
+  push:
+    branches: ["claude/**"]
+    paths:
+      - ".github/econ-source-probe-request"
+      - "scripts/macro/econ_source_probe.py"
+      - ".github/workflows/econ-source-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: econ-source-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Probe free economic-calendar sources
+        run: python scripts/macro/econ_source_probe.py
