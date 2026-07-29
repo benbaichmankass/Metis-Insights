@@ -167,7 +167,7 @@ Each milestone has a **gate** (criterion to proceed) and a **stop condition**.
 | # | Milestone | Layer | Deliverables | Gate | Stop |
 |---|---|---|---|---|---|
 | **M0** | Layer enforcement + legacy migration | all | import-linter guard (M0a: **DONE** — 5 contracts, 0 broken); both flagged violations resolved (#1 by classification, #2 assessed→declined, operator-accepted); M0b first drain **DONE** (#7459, db.database→local_pnl cut + vwap locked); incremental drain continues | No behavioral change to ICT; CI enforces the boundary; contracts broaden | A violation fix would require rewriting live order logic → defer, keep the narrower contract |
-| **M1** | Energy event calendar + signals | Signals | EIA release history + **point-in-time** published consensus + realized values + MNG price series, joined. **Calendar/consensus/surprise half BUILT 2026-07-29** (Bigdata.com econ-calendar spine — `scripts/macro/econ_calendar_{data,produce}.py`, PIT snapshots at `comms/macro/econ_calendar_snapshots.jsonl`; [design](docs/research/M1-econ-calendar-spine-2026-07-29.md)). Remaining: MNG price join + multi-year accrual. | Clean joined dataset over multiple years of releases | Consensus not available point-in-time (revised-only) → the whole study is unsafe; stop and re-scope the data source |
+| **M1** | Energy event calendar + signals | Signals | EIA release history + **point-in-time** published consensus + realized values + MNG price series, joined. **Calendar/consensus/surprise half BUILT 2026-07-29** (Bigdata.com econ-calendar spine — `scripts/macro/econ_calendar_{data,produce}.py`, PIT snapshots at `comms/macro/econ_calendar_snapshots.jsonl`; [design](docs/research/M1-econ-calendar-spine-2026-07-29.md)). **Price-JOIN + surprise→forward-return measurement BUILT 2026-07-29** (`scripts/macro/econ_event_study.py` — IC(H)=Spearman(surprise, forward return) across trading-day horizons, NG=F/CL=F via the existing off-VM candle fetcher; [design](docs/research/M1-econ-event-study-2026-07-29.md)). Remaining: **multi-year PIT-consensus accrual** (the join + measurement work now; the sample is honestly thin — the verdict self-graduates from `insufficient_history` as history accrues). | Clean joined dataset over multiple years of releases | Consensus not available point-in-time (revised-only) → the whole study is unsafe; stop and re-scope the data source |
 | **M2** | Event-response backtest | Strategy | surprise-vs-consensus → forward returns at several horizons, via `thesis_backtest` calibration + the cost model | **Pre-registered thresholds met** (calibration rank + net-of-cost edge vs a naive baseline) | Thresholds not met → repricing is not systematic; do not build the strategy |
 | **M3** | Paper trading | Strategy+Execution | strategy emits intents; execution runs the new venue in paper mode (the M28-deferred handoff) | Realized paper behavior matches backtest expectation | Live behavior diverges from backtest → the model is mis-specified |
 | **M4** | Carbon extension | Signals+Strategy | port the validated methodology to the slower policy-driven markets | M2-equivalent evidence on carbon events (accounting for the ETF cost drag) | No M2-equivalent evidence → carbon does not carry the edge at our cost structure |
@@ -209,6 +209,22 @@ lazily via the redirect.
 ---
 
 ## Change log
+- **2026-07-29 (cont.)** — **M1 price-JOIN + surprise→forward-return event study built.**
+  The other half of M1's clean-joined-dataset gate: `scripts/macro/econ_event_study.py` joins the
+  PIT resolved releases (`comms/macro/econ_calendar_snapshots.jsonl`) to a daily-close price panel
+  (NG=F for gas, via the existing off-VM `fetch_macro_candles`) and reports **IC(H) = Spearman(surprise,
+  forward return)** across trading-day horizons (`1,3,5,10,21`) + Pearson + sign-hit-rate, writing
+  `comms/macro/econ_event_study_scorecard.json`. **Reuses the value-sleeve machinery** (`load_close_panels`,
+  `ic_t_stat`) — pure + injectable, no network in tests. **PIT-safe:** reads only the never-revised-consensus
+  surprise, base price at/before the release, forward a strictly-later bar; right-censored releases (no
+  forward bar yet) are excluded from n, never zero-filled. **Honest small-n:** the verdict caps at
+  `insufficient_history` until `max_n` exceeds the honest-n floor (default 12) — at today's ~6 resolved
+  NG-storage releases an IC is a lead, not a result; it self-graduates as PIT-consensus accrues. Weekly
+  `econ-event-study.yml` (workflow_dispatch + issue-label `econ-event-study-now`) fetches NG=F/CL=F off-VM,
+  runs gas + crude, and lands the scorecards via the PAT auto-merge PR. 9 tests, ruff clean. Tier-1,
+  observe-only (no order path, no live-VM mutation). Design:
+  [`M1-econ-event-study-2026-07-29.md`](docs/research/M1-econ-event-study-2026-07-29.md). **Remaining M1:**
+  multi-year PIT-consensus accrual (the one genuine constraint — the join + measurement are done).
 - **2026-07-29 (cont.)** — **M1 econ-calendar autonomous source resolved → FXStreet (keyless).**
   The initial FMP feed 403'd on the free tier (calendar is premium). Rather than assume, ran an
   empirical **source probe** on a runner across every free candidate
