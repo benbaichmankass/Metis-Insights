@@ -741,6 +741,41 @@ build_funding_oi() {
 
 build_funding_oi
 
+# ---- Crypto order-flow / microstructure features (S-MLOPT-S10, MB-20260604-002) --
+# OPT-IN (default OFF): set ICT_BUILD_MICROSTRUCTURE=1 to REBUILD the BTCUSDT 5m
+# market_features WITH the order-flow / microstructure side-stream joined, so the
+# S-MLOPT-S10 columns (ofi / ofi_zscore / vpin / order_imbalance / rel_spread_mean
+# / microprice_dev) become non-zero over the captured window. The side-stream is
+# written FORWARD by the ict-orderflow-capture.service side-car on the trainer VM
+# (scripts/ml/orderflow_capture.py -> datasets-out/market_microstructure/BTCUSDT/5m/v001);
+# there is no historical L2 to backfill, so the columns are 0.0 before the capture
+# start (2026-06-04). Default off keeps the daily cycle's 5m market_features
+# byte-identical (the flow columns emit 0.0) — the flow A/B manifest
+# (btc-regime-5m-lgbm-flow-v1) only needs this when it is being evaluated; a bare
+# 5m rebuild without this join is what kept the head data-blocked for weeks after
+# the capture had accrued enough bars (F5 / MB-20260613-002 — the join was never
+# wired). Non-fatal: a missing capture dir just leaves the flow columns at 0.0.
+#
+# **5m ONLY** (the flow manifest is 5m) and runs LAST: nothing rebuilds the BTC 5m
+# shard after this (build_funding_oi is 1h, build_bybit_15m_fc is 15m), so the
+# microstructure join survives to the end of the run — the same ordering
+# discipline that scopes build_funding_oi to 1h (MB-20260726-FC-CLOBBER).
+build_microstructure() {
+  [ "${ICT_BUILD_MICROSTRUCTURE:-0}" = "1" ] || return 0
+  local ms_dir="${DATASETS_ROOT}/market_microstructure/BTCUSDT/5m/v001"
+  if [ ! -d "$ms_dir" ]; then
+    emit "$(printf '{"ts":"%s","status":"skipped","family":"market_microstructure","symbol":"BTCUSDT","detail":"capture dir not found"}' "$(iso_now)")"
+    return 0
+  fi
+  emit "$(printf '{"ts":"%s","status":"building","family":"market_microstructure","symbol":"BTCUSDT","timeframe":"5m"}' "$(iso_now)")"
+  # Re-run ONLY the market_features half for BTCUSDT 5m, reusing the exact base
+  # params (build_bybit_features forwards these) + the microstructure join, so the
+  # shard stays apples-to-apples with the v2 head — only the flow columns change.
+  build_bybit_features BTCUSDT 5m "microstructure_path=${ms_dir}" "microstructure_window_n=50"
+}
+
+build_microstructure
+
 # ---- Cross-symbol joint setup_candidates (S-MLOPT-S8 / M14 Phase 1.4) -----
 # OPT-IN (default OFF): set ICT_BUILD_XSYM=1 to build the JOINT BTC+MES
 # setup_candidates/all/all/v001 dataset that the cross-symbol meta-label
