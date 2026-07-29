@@ -103,6 +103,34 @@ class AlpacaClient:
         msg = payload.get("message") or f"HTTP {resp.status_code}"
         return {"retCode": resp.status_code, "retMsg": str(msg)}
 
+    # ------------------------------------------------------------ reads
+    def account_activities(
+        self,
+        *,
+        activity_types: Optional[str] = None,
+        after: Optional[str] = None,
+        page_token: Optional[str] = None,
+        page_size: int = 100,
+    ) -> Dict[str, Any]:
+        """Read one page of ``/v2/account/activities`` → retCode envelope.
+
+        General read (the options-lifecycle reconciler has its own filtered
+        variant in ``alpaca_options_exec``); the broker-truth fills puller passes
+        ``activity_types="FILL"``. ``after`` is an RFC3339 lower bound;
+        ``page_token`` is the id of the last activity of the previous page (Alpaca
+        cursor pagination). On success ``result`` is the JSON list of activity
+        records. **Read-only** — the trading API, key-pair auth, no order path.
+        """
+        self._require_creds("account_activities")
+        params = [f"page_size={int(page_size)}"]
+        if activity_types:
+            params.append(f"activity_types={activity_types}")
+        if after:
+            params.append(f"after={after}")
+        if page_token:
+            params.append(f"page_token={page_token}")
+        return self._request("GET", "/v2/account/activities?" + "&".join(params))
+
     # ------------------------------------------------------------ orders
     def place(self, order: Dict[str, Any]) -> Dict[str, Any]:
         """Place a bracket MARKET order; retCode envelope.
