@@ -367,6 +367,11 @@ jobs:
                 description: 'Triggers regime-debt-matrix workflow — run the per-(trend-regime, direction) net-R matrix for the regime-coverage debt roster on a free GH runner (Binance-vision crypto + Yahoo equities/futures). rec #5 follow-up.',
               },
               {
+                name: 'regime-cell-walkforward-request',
+                color: '0075ca',
+                description: 'Triggers regime-cell-walkforward workflow — walk-forward the OOS stability of ONE (regime, direction) debt-matrix cell on a free GH runner (the gate a losing cell must pass before a Tier-3 OFF-cell draft). rec #5 follow-up.',
+              },
+              {
                 name: 'set-diag-token',
                 color: 'b60205',
                 description: 'Triggers set-diag-token workflow — push the DIAG_READ_TOKEN repo secret onto the live VM + restart web-api.',

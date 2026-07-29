@@ -7,7 +7,7 @@ name: regime-debt-matrix
 # runner's Bybit geoblock doesn't matter). The engine is
 # scripts/research/regime_debt_matrix.py (verified in-sandbox on the crypto
 # subset — it reproduces the manual matrices and labels fidelity faithful vs
-# approximate). rec #5: docs/research/regime-debt-matrix-results-2026-07-29.md.
+# approximate). rec #5: docs/research/regime-debt-matrix-equity-futures-2026-07-29.md.
 #
 # FIRST-RUN VERIFY: the crypto path is exercised; the Yahoo (yfinance) path has
 # not run here before, so the driver is per-strategy fail-soft (a fetch/harness
