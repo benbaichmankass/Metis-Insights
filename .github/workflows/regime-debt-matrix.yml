@@ -1,0 +1,169 @@
+name: regime-debt-matrix
+
+# Runs the per-(trend-regime, direction) net-R matrix for the regime-coverage
+# debt roster on a free GitHub-hosted runner (rec #5 follow-up). The sandbox
+# firewalls Yahoo, so the equity/ETF/futures debt strategies can only be
+# backtested here; crypto (`*USDT`) rides Binance-vision (keyless, and the US
+# runner's Bybit geoblock doesn't matter). The engine is
+# scripts/research/regime_debt_matrix.py (verified in-sandbox on the crypto
+# subset — it reproduces the manual matrices and labels fidelity faithful vs
+# approximate). rec #5: docs/research/regime-debt-matrix-results-2026-07-29.md.
+#
+# FIRST-RUN VERIFY: the crypto path is exercised; the Yahoo (yfinance) path has
+# not run here before, so the driver is per-strategy fail-soft (a fetch/harness
+# error on one strategy is recorded in its row, never aborts the roster) and the
+# summary flags any errored rows. Same posture as the research-build cluster.
+#
+# Triggers:
+#   1. workflow_dispatch — inputs: only (CSV of strategy names, blank=all), days
+#   2. issues.opened with label `regime-debt-matrix-request` (owner-guarded);
+#      optional issue-body lines `only: a,b,c` and `days: 730`
+#
+# Safety: READS the repo + fetches PUBLIC candles (Binance-vision + Yahoo) + runs
+# the read-only backtest harnesses + comments/uploads results. It does NOT push,
+# deploy, or touch config/ — it proposes no cell (any OFF cell that gates live
+# routing is a separate Tier-3 draft PR for operator approval).
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "CSV of debt strategy names (blank = full roster)"
+        default: ""
+      days:
+        description: "Trailing days of candles"
+        default: "730"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: regime-debt-matrix-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  matrix:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'regime-debt-matrix-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse issue body
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          only=$(printf '%s' "$ISSUE_BODY" | grep -iE '^only:' | head -1 | cut -d: -f2- | xargs || true)
+          days=$(printf '%s' "$ISSUE_BODY" | grep -iE '^days:' | head -1 | cut -d: -f2- | xargs || true)
+          echo "RDM_ONLY=${only}" >> "$GITHUB_ENV"
+          echo "RDM_DAYS=${days:-730}" >> "$GITHUB_ENV"
+
+      - name: Set params from dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "RDM_ONLY=${{ github.event.inputs.only }}" >> "$GITHUB_ENV"
+          echo "RDM_DAYS=${{ github.event.inputs.days || '730' }}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install --quiet pyyaml pandas numpy yfinance
+
+      - name: Run the regime-debt matrix
+        run: |
+          set +e
+          mkdir -p artifacts/rdm
+          ONLY_ARG=""
+          if [ -n "${RDM_ONLY}" ]; then
+            ONLY_ARG="--only $(printf '%s' "${RDM_ONLY}" | tr ',' ' ')"
+          fi
+          echo "days=${RDM_DAYS} only='${RDM_ONLY}'"
+          python scripts/research/regime_debt_matrix.py \
+            --json --days "${RDM_DAYS}" --workdir artifacts/rdm/work ${ONLY_ARG} \
+            > artifacts/rdm/results.json 2> artifacts/rdm/run.log
+          echo "rc=$?"; tail -20 artifacts/rdm/run.log || true
+          echo "results bytes: $(wc -c < artifacts/rdm/results.json)"
+
+      - name: Render summary
+        run: |
+          python - <<'PYEOF' | tee artifacts/rdm/SUMMARY.md
+          import json
+          try:
+              d = json.load(open("artifacts/rdm/results.json"))
+          except Exception as e:
+              print(f"# regime-debt-matrix\n\n_(no results — {e}; read run.log in the artifact)_"); raise SystemExit(0)
+          rows = d.get("results", [])
+          faithful = [r for r in rows if r.get("fidelity") == "faithful" and r.get("matrix")]
+          approx = [r for r in rows if r.get("fidelity") == "approximate" and r.get("matrix")]
+          errs = [r for r in rows if r.get("error")]
+          skips = [r for r in rows if r.get("skipped")]
+          L = ["# regime-debt-matrix", "",
+               f"- roster rows: {len(rows)} · faithful: {len(faithful)} · approximate: {len(approx)} · errored: {len(errs)} · skipped: {len(skips)}",
+               "- OFF cell = a (regime, direction) with net-R < 0 at adequate n. **No cell is authored by this run** — any live-routing gate is a separate Tier-3 draft PR.",
+               ""]
+          def render(group, title):
+              if not group: return
+              L.append(f"## {title}")
+              for r in sorted(group, key=lambda x: x["strategy"]):
+                  m = r["matrix"]; tot = m.get("totals", {})
+                  br = m.get("regime_base_rate_pct", {})
+                  L.append(f"### `{r['strategy']}` — {r['symbol']} {r['timeframe']} "
+                           f"({r['harness']}, {r['feed']['source']})")
+                  if r.get("omitted_levers"):
+                      L.append(f"  _omitted levers: {', '.join(r['omitted_levers'])}_")
+                  L.append("")
+                  L.append("| regime | net-R | long-R (n) | short-R (n) |")
+                  L.append("|---|--:|--:|--:|")
+                  order = ["trending", "transitional", "chop"]
+                  for reg in order:
+                      s = m.get("by_regime", {}).get(reg)
+                      if not s: continue
+                      L.append(f"| {reg} | {s['net_r']} | {s['long_r']} ({s['long_n']}) | {s['short_r']} ({s['short_n']}) |")
+                  L.append(f"| **total** | **{tot.get('net_r')}** | {tot.get('long_r')} | {tot.get('short_r')} |")
+                  L.append("")
+          render(faithful, "Faithful (base harness models every declared lever)")
+          render(approx, "Approximate (unmodelled levers — base geometry only)")
+          if errs:
+              L.append("## Errored")
+              for r in errs:
+                  L.append(f"- `{r['strategy']}`: {r['error'][:200]}")
+          print("\n".join(L))
+          PYEOF
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: regime-debt-matrix-${{ github.run_id }}
+          path: |
+            artifacts/rdm/results.json
+            artifacts/rdm/SUMMARY.md
+            artifacts/rdm/run.log
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Comment summary on issue
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '_(summary not produced)_';
+            try { body = fs.readFileSync('artifacts/rdm/SUMMARY.md', 'utf8'); } catch (e) {}
+            const footer = '\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 60000) + footer,
+            });

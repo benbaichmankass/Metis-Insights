@@ -362,6 +362,11 @@ jobs:
                 description: 'Triggers trainer-offload-train workflow — train an OOM-prone ML manifest on a FREE 16 GB GH runner (Binance-vision fetch → market_raw(csv)+market_features → ml train → metrics artifact), off the 6 GB trainer that OOMs it. rec #3 free-runner offload.',
               },
               {
+                name: 'regime-debt-matrix-request',
+                color: '0075ca',
+                description: 'Triggers regime-debt-matrix workflow — run the per-(trend-regime, direction) net-R matrix for the regime-coverage debt roster on a free GH runner (Binance-vision crypto + Yahoo equities/futures). rec #5 follow-up.',
+              },
+              {
                 name: 'set-diag-token',
                 color: 'b60205',
                 description: 'Triggers set-diag-token workflow — push the DIAG_READ_TOKEN repo secret onto the live VM + restart web-api.',
