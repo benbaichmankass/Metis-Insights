@@ -126,3 +126,28 @@ toward their RG4 gates; SOL `-v2` re-gate ~2026-07-28.
 - Tier-3 items in section C await operator decisions.
 - M21 coverage is stale since 2026-07-14 — a dedicated entry-refinement session
   should refresh it or the milestone should be explicitly parked.
+
+## Session continuation (overnight hourly wakes → 2026-07-29)
+
+The autonomous loop kept working past the core deliverable:
+
+- **`BL-20260626-MES-BASE-STALE` RESOLVED** (#7859) — dispatched read-only
+  trainer diagnostics (#7857/#7858) and proved the MES 5m/15m `market_raw` base
+  is fresh again (regenerated 2026-07-29, `end=2026-07-29`, `use_rth=false`,
+  42103/14054 rows vs the frozen 17113 ending 2026-06-12); the IBKR→trainer sync
+  recovered after the #7635 pull-fix. Follow-up filed: re-check the dependent MES
+  setup-quality/trade-outcome manifests next trainer cycle.
+- **New forward direction added** (#7860) — a Claude-proposed *correlation-aware
+  exposure cap* under Items Under Consideration, the natural graduation of the
+  M24 correlation feature.
+- **Tier-3 review of the open queue** (operator-requested): **A** = `ict_scalp_eth_15m`
+  stale12 — the sole M20-gate-clearer (paper-only, marginal 3/4 folds); NOT
+  blind-shipped (shared live-money `ict_scalp.monitor()` + skill-mandated P5
+  parity); ready-to-execute spec filed to `MB-20260728-ICTSCALP-EXIT-LEVERS`
+  (#7861) for a fresh focused `exit-refinement` session. **B** = `xauusd_trend_1h`
+  `p_win_head`→allocator — NO-OP: the coverage row is already `honest_negative`
+  (the "gate PASS 6/6 / AUC 0.792" was leakage-invalidated by the #6381 signal-bar
+  re-gate); the earlier surfacing was built on a stale secondary read, corrected.
+  **C** = `spy_pullback_1h` net-R sign-flip — HOLD (9-trade estimate-cost flip,
+  likely fee over-charge, paper-only; do not demote on the estimate).
+  PRs #7848/#7849 confirmed already operator-merged (not pending).
