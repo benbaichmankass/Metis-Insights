@@ -193,18 +193,28 @@ jobs:
           python - <<'PYEOF' | tee artifacts/offload/VERDICT.md
           import json, os, re
           man = os.environ.get("of_manifest", "?")
-          def load_json_tail(p):
+          def load_train_json(p):
+              # `ml train`'s stdout is a single (pretty-printed, multi-line) JSON
+              # object redirected to this file. Parse the whole file; if a stray
+              # log line leaked to stdout, fall back to the outermost {...} span.
               try:
-                  txt = open(p).read().strip().splitlines()
+                  txt = open(p).read().strip()
               except Exception:
                   return {}
-              for line in reversed(txt):
-                  line = line.strip()
-                  if line.startswith("{"):
-                      try: return json.loads(line)
-                      except Exception: continue
+              if not txt:
+                  return {}
+              try:
+                  return json.loads(txt)
+              except Exception:
+                  pass
+              i, j = txt.find("{"), txt.rfind("}")
+              if 0 <= i < j:
+                  try:
+                      return json.loads(txt[i:j + 1])
+                  except Exception:
+                      pass
               return {}
-          r = load_json_tail("artifacts/offload/train_out.json")
+          r = load_train_json("artifacts/offload/train_out.json")
           peak = "?"
           try:
               t = open("artifacts/offload/train_time.txt").read()
@@ -213,15 +223,20 @@ jobs:
           except Exception: pass
           L = [f"# trainer-offload-train — {man}", ""]
           L.append(f"- **peak RSS: {peak}** (the 6 GB trainer OOMs; a 16 GB runner has the headroom)")
-          metrics = r.get("metrics") or {k: r[k] for k in r if isinstance(r.get(k), (int, float))}
+          m_raw = r.get("metrics")
+          # `ml train` nests eval metrics under "metrics"; a skip/error envelope
+          # has none. Accept only a non-empty dict (a bare bool like
+          # "skipped": true must NOT read as a metric — bool is an int subclass).
+          metrics = m_raw if isinstance(m_raw, dict) and m_raw else {}
           if metrics:
               L.append(f"- registered: {r.get('registered')} · model_id: {r.get('model_id')}")
               L.append("- metrics:")
               for k in ("accuracy", "macro_f1", "f1_volatile", "support_volatile", "n_eval"):
                   if k in metrics: L.append(f"  - {k}: {metrics[k]}")
           else:
-              L.append("- ⚠️ no metrics parsed — read train_out.json / train_time.txt in the artifact "
-                       "(first-run: this is where a csv-adapter-kwarg or build mismatch surfaces).")
+              reason = r.get("reason") or r.get("detail") or "unknown"
+              L.append(f"- ⚠️ no metrics — train produced no eval metrics (reason: {reason}). "
+                       "Read train_out.json / train_time.txt in the artifact.")
           print("\n".join(L))
           PYEOF
 
