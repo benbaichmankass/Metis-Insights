@@ -3,6 +3,24 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260729-ICTSCALP-ETH15M-STALE-FIRSTFIRE",
+      "opened_at": "2026-07-29T12:40:00+00:00",
+      "opened_by": "claude (ict_scalp_eth_15m stale-stop ship session — wrap handoff)",
+      "source": "M20 exit-refinement P5/P7 for the shipped ict_scalp_eth_15m stale-stop (PR #7863 MERGED + deployed live git_sha 91ff9a96; MB-20260728-ICTSCALP-EXIT-LEVERS). The lever is live but the paper leg (bybit_1, ETHUSDT 15m) had taken ZERO trades as of ~6h post-deploy (strict 4-gate ICT scalp, quiet in chop; ict_scalp_eth_15m_signal count=0), so the first real lever-driven exit has not yet been mechanically verified. The in-session hourly watch is being retired with this session; this item carries the verification forward.",
+      "title": "Verify P5 parity + P7 first-fire mechanics on the first ict_scalp_eth_15m stale_stop close",
+      "tier": "Tier-1 (observe-only verification of an already-shipped lever)",
+      "status": "open",
+      "snoozed_until": null,
+      "what_to_check": [
+        "When ict_scalp_eth_15m first opens a POST-deploy trade (created_at after 2026-07-29T05:50Z, so it carries meta.entry_time) and it ages to >= stale_exit_bars(12) 15m-bars still below stale_exit_below_r(0.0) open-R, the monitor should emit a REAL close: order_packages.close_reason='stale_stop'.",
+        "P5 (feature/trigger parity): diff the live bars_since_entry / open_r against an offline recompute on the same bars — expect near-exact (harness start_idx=signal_bar+1 == live strictly-after-entry_time bar count minus 1).",
+        "P7 (first-fire mechanics): fired at bars_since_entry>=12, open_r<0, reason=stale_stop, exit_price=the firing bar's close; and a current-bar SL/TP cross defers (stop-first).",
+        "Confirm NO real-money leg was touched — only ict_scalp_eth_15m (bybit_1 paper); the real-money ict_scalp_5m BTC leg declares nothing and must never emit stale_stop."
+      ],
+      "how": "diag relay (label vm-diag-request): audit_query?strategy=ict_scalp_eth_15m&event=ict_scalp_eth_15m_signal (has it traded?) then journal?table=order_packages (find the eth_15m package + close_reason). Cross-check: trend_donchian_xrp_4h already fired a real stale_stop 2026-07-29T04:40 (same lever family) — the mechanism is confirmed working live.",
+      "disposition_when_verified": "Mark this item resolved; note the first-fire result on the M20 coverage matrix ref / coordination board #6927. No config change expected (the lever is already declared)."
+    },
+    {
       "id": "BL-20260724-TRAINER-GIT-DIVERGED",
       "opened_at": "2026-07-24T15:30:00+00:00",
       "opened_by": "claude (M30 microstructure research loop, incidental — trainer-vm-diag probe dispatch)",
@@ -6739,7 +6757,28 @@
         }
       ],
       "resolved_at": null
+    },
+    {
+      "id": "BL-20260729-IB-FLEX-FILLS",
+      "opened_at": "2026-07-29T11:00:00+00:00",
+      "opened_by": "claude (broker-truth rollout S-BROKER-TRUTH-ROLLOUT-20260729, assessment rec #7)",
+      "source": "Broker-truth cost coverage rec #7: Bybit (#7891) + Alpaca (#7895) fills now multi-account on the daily ict-exchange-fills-pull timer (6/8 accounts). ib_paper is the operator-gated tail — IB reqExecutions is clientId-scoped (a separate pull process sees zero of the trader's fills, unless it is the gateway master client), and no Flex integration exists in the repo.",
+      "title": "[broker-truth] ib_paper fills not captured — needs the IB Flex Web Service (operator-gated on a Flex token)",
+      "description": "Design + operator steps landed in docs/research/broker-truth-ib-flex-DESIGN.md. Secret slots IB_FLEX_TOKEN / IB_FLEX_QUERY_ID minted via issue #7896 (empty placeholders). A blind reqExecutions parser would return nothing (clientId scope) and a blind Flex-XML parser is the FMP-403 anti-pattern, so the adapter is deliberately NOT built until the token exists + a real Flex XML is captured (verify-before-build).",
+      "tier": 2,
+      "trigger_condition": "Operator sets IB_FLEX_TOKEN + IB_FLEX_QUERY_ID (creates an Activity Flex Query + Flex Web Service token in IB Account Management).",
+      "resolution_criteria": "Capture a real Flex XML fixture, then build scripts/pull_ib_flex_fills.py (2-step SendRequest→GetStatement) + src/runtime/exchange_fills_ib_flex.py mapper (Trade -> exchange_fills, real ibCommission) + a 3rd ExecStart on ict-exchange-fills-pull.service + add the 2 secrets to sync-vm-secrets OPTIONAL_SECRETS. Takes broker-truth coverage 6/8 -> 7/8. Separately, bybit_2 lifetime wallet-truth stays UM-export-only (structural, not this item).",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-07-29T11:15:00+00:00",
+          "note": "OPERATOR DEPRIORITIZED 2026-07-29: the 6/8 automated broker-truth coverage (Bybit+Alpaca, live-tracked) is sufficient; not pursuing the manual IB Flex-token / bybit_2 UM-export tail now ('not interested in manual work just to make extra sure'). Left open at LOW severity as a future option, NOT a needed follow-up — do not chase in /health-review."
+        }
+      ],
+      "resolved_at": null,
+      "severity": "low"
     }
   ],
-  "updated_at": "2026-07-29T08:20:00+00:00"
+  "updated_at": "2026-07-29T11:00:00+00:00"
 }
