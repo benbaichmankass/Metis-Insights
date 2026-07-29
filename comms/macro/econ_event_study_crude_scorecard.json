@@ -1,0 +1,77 @@
+{
+  "rows": [
+    {
+      "horizon_days": 1,
+      "n": 0,
+      "ic": null,
+      "ic_t": null,
+      "pearson": null,
+      "sign_hit_rate": null,
+      "mean_fwd_return": null
+    },
+    {
+      "horizon_days": 3,
+      "n": 0,
+      "ic": null,
+      "ic_t": null,
+      "pearson": null,
+      "sign_hit_rate": null,
+      "mean_fwd_return": null
+    },
+    {
+      "horizon_days": 5,
+      "n": 0,
+      "ic": null,
+      "ic_t": null,
+      "pearson": null,
+      "sign_hit_rate": null,
+      "mean_fwd_return": null
+    },
+    {
+      "horizon_days": 10,
+      "n": 0,
+      "ic": null,
+      "ic_t": null,
+      "pearson": null,
+      "sign_hit_rate": null,
+      "mean_fwd_return": null
+    },
+    {
+      "horizon_days": 21,
+      "n": 0,
+      "ic": null,
+      "ic_t": null,
+      "pearson": null,
+      "sign_hit_rate": null,
+      "mean_fwd_return": null
+    }
+  ],
+  "summary": {
+    "max_n": 0,
+    "min_honest_n": 12,
+    "sufficient_history": false,
+    "any_flagged_horizon": false,
+    "strongest_ic_horizon_days": null,
+    "strongest_ic": null,
+    "strongest_ic_t": null,
+    "t_flag": 2.0,
+    "verdict": "no_data"
+  },
+  "meta": {
+    "kind": "eia_crude_stocks",
+    "symbol": "CL=F",
+    "value_key": "surprise",
+    "releases": 6,
+    "releases_with_value": 6,
+    "price_bars": 0,
+    "horizons": [
+      1,
+      3,
+      5,
+      10,
+      21
+    ],
+    "snapshots_path": "comms/macro/econ_calendar_snapshots.jsonl",
+    "generated_at": null
+  }
+}
