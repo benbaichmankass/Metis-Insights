@@ -1,9 +1,10 @@
 # ============================================
 # ICT EXCHANGE-FILLS PULL (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY)
 # Refreshes runtime_state/exchange_fills.sqlite with the last 7 days of REAL
-# Bybit fills for bybit_2 (category=linear — USDT-margined perps) so the
-# exchange-truth P&L surface /api/bot/pnl/exchange stays populated instead of
-# serving zeros.
+# Bybit fills for EVERY live Bybit account (bybit_1 / bybit_2 / bybit_portfolio,
+# each category=linear — USDT-margined perps) so the exchange-truth P&L surface
+# /api/bot/pnl/exchange + the broker-truth cost sweep have data for the whole
+# roster instead of just bybit_2.
 #
 # Why this exists: the S-067 puller (scripts/pull_exchange_fills.py) shipped
 # with NO timer and NO system-action, AND pulled the spot category only — so
@@ -12,12 +13,16 @@
 # with 0 fills/7d). PR #6290 added --category linear + the on-demand
 # pull-exchange-fills action; this unit makes the refresh durable so the
 # surface doesn't go stale again the moment the on-demand run ages out of the
-# 7-day window.
+# 7-day window. Multi-account rollout (rec #7 broker-truth cost coverage,
+# 2026-07-29): --all-bybit-accounts loops every live Bybit account from
+# config/accounts.yaml (config-driven — a roster change needs no unit edit),
+# each pulled with its own api_key_env credentials; fail-soft on a missing-cred
+# account.
 #
-# LIVE-TRADER BOX ONLY. Reads Bybit over the public API using BYBIT_API_KEY_2 /
-# BYBIT_API_SECRET_2 from the trader .env; read-only on the exchange side
-# (fetch_my_trades). Touches NO service and NO trade_journal.db table. The
-# store's primary key is exec_id, so the daily 7-day over-sampling is
+# LIVE-TRADER BOX ONLY. Reads Bybit over the public API using each account's
+# BYBIT_API_KEY_* / BYBIT_API_SECRET_* from the trader .env; read-only on the
+# exchange side (fetch_my_trades). Touches NO service and NO trade_journal.db
+# table. The store's primary key is exec_id, so the daily 7-day over-sampling is
 # idempotent (duplicate fills are dropped).
 #
 # DATA_DIR: this unit MUST resolve runtime_state_dir() to the SAME root as
@@ -41,7 +46,9 @@ Wants=network-online.target
 Type=oneshot
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ict-trading-bot
-# Load the trader .env for the Bybit creds (BYBIT_API_KEY_2 / _SECRET_2).
+# Load the trader .env for every Bybit account's creds (BYBIT_API_KEY_1/2/3 +
+# their _SECRET_ pairs); --all-bybit-accounts resolves each account's env-var
+# names from config/accounts.yaml::api_key_env.
 EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
 # Pin DATA_DIR so runtime_state_dir() resolves to the block-volume root the
 # web-api reads from, regardless of whether .env carries it.
@@ -52,7 +59,7 @@ Environment=DATA_DIR=/data/bot-data
 TimeoutStartSec=300
 # Run under the trader venv so ccxt imports (same interpreter the trader uses
 # for Bybit) — not system /usr/bin/python3.
-ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_exchange_fills.py --account bybit_2 --category linear --days 7 --api-key-env BYBIT_API_KEY_2 --api-secret-env BYBIT_API_SECRET_2
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_exchange_fills.py --all-bybit-accounts --days 7
 StandardOutput=journal
 StandardError=journal
 

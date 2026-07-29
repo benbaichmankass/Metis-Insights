@@ -33,8 +33,9 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from src.runtime.exchange_fills_puller import fetch_fills_window  # noqa: E402
-from src.runtime.exchange_fills_store import upsert_fills  # noqa: E402
+from src.runtime.exchange_accounts import live_bybit_fill_accounts
+from src.runtime.exchange_fills_puller import fetch_fills_window
+from src.runtime.exchange_fills_store import upsert_fills
 
 logger = logging.getLogger("pull_exchange_fills")
 
@@ -72,6 +73,18 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         ),
     )
     p.add_argument(
+        "--all-bybit-accounts",
+        action="store_true",
+        help=(
+            "Ignore --account/--category/--api-*-env and instead loop EVERY "
+            "live Bybit account declared in config/accounts.yaml (each pulled "
+            "with its own api_key_env + market_type category). Config-driven so "
+            "a roster change needs no puller/unit edit — the daily broker-truth "
+            "cost sweep uses this. Fail-soft: an account whose creds aren't set "
+            "is skipped with a warning, not a hard abort."
+        ),
+    )
+    p.add_argument(
         "--api-key-env",
         default="BYBIT_API_KEY",
         help="Env var holding the Bybit API key (default: BYBIT_API_KEY)",
@@ -96,9 +109,96 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
+def _pull_one_account(
+    *,
+    account_id: str,
+    api_key: str,
+    api_secret: str,
+    category: str,
+    days: int,
+    symbols,
+    fills_path,
+) -> int:
+    """Pull one Bybit account's fills into the store; return rows inserted.
+
+    Builds a fresh ccxt client per account so each authenticates with its own
+    key pair (a shared client can't switch credentials mid-loop).
+    """
+    # Local import: ccxt is heavy and the puller may run in a tight
+    # cron cycle. Importing inside the call keeps `--help` snappy.
+    import ccxt
+
+    exchange = ccxt.bybit({
+        "apiKey": api_key,
+        "secret": api_secret,
+        "enableRateLimit": True,
+        # ccxt's Bybit V5 routing: perp fills need defaultType=swap AND an
+        # explicit category param on the call (same convention as
+        # src/exchange/bybit_connector.py — the construction-time default
+        # alone is not load-bearing on the unified account).
+        "options": {"defaultType": "swap" if category == "linear" else "spot"},
+    })
+
+    def _fetch_my_trades(sym, since, limit, params):
+        merged = dict(params or {})
+        merged["category"] = category
+        return exchange.fetch_my_trades(sym, since, limit, merged)
+
+    rows = fetch_fills_window(
+        _fetch_my_trades,
+        account_id=account_id,
+        days=days,
+        symbols=symbols,
+    )
+    inserted = upsert_fills(rows, path=fills_path)
+    logger.info(
+        "pull_exchange_fills: account=%s category=%s days=%d candidates=%d inserted=%d store=%s",
+        account_id, category, days, len(rows), inserted,
+        fills_path if fills_path is not None else "(default resolver)",
+    )
+    return inserted
+
+
 def main(argv: list[str]) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = _parse_args(argv)
+    fills_path = Path(args.fills_db) if args.fills_db else None
+
+    if args.all_bybit_accounts:
+        accounts = live_bybit_fill_accounts()
+        if not accounts:
+            logger.error(
+                "--all-bybit-accounts: no live Bybit accounts in config/accounts.yaml"
+            )
+            return 2
+        ran = 0
+        total_inserted = 0
+        for acct in accounts:
+            api_key = os.environ.get(acct.key_env)
+            api_secret = os.environ.get(acct.secret_env)
+            if not api_key or not api_secret:
+                logger.warning(
+                    "pull_exchange_fills: skip %s — %s / %s not set",
+                    acct.account_id, acct.key_env, acct.secret_env,
+                )
+                continue
+            total_inserted += _pull_one_account(
+                account_id=acct.account_id,
+                api_key=api_key,
+                api_secret=api_secret,
+                category=acct.category,
+                days=args.days,
+                symbols=args.symbol,
+                fills_path=fills_path,
+            )
+            ran += 1
+        logger.info(
+            "pull_exchange_fills: all-bybit-accounts done — ran=%d/%d total_inserted=%d",
+            ran, len(accounts), total_inserted,
+        )
+        # A run that authenticated no account at all is a failure worth surfacing
+        # (all creds missing); one that ran ≥1 is a success even if others skipped.
+        return 0 if ran > 0 else 2
 
     api_key = os.environ.get(args.api_key_env)
     api_secret = os.environ.get(args.api_secret_env)
@@ -109,38 +209,14 @@ def main(argv: list[str]) -> int:
         )
         return 2
 
-    # Local import: ccxt is heavy and the puller may run in a tight
-    # cron cycle. Importing inside main keeps `--help` snappy.
-    import ccxt  # noqa: PLC0415
-
-    exchange = ccxt.bybit({
-        "apiKey": api_key,
-        "secret": api_secret,
-        "enableRateLimit": True,
-        # ccxt's Bybit V5 routing: perp fills need defaultType=swap AND an
-        # explicit category param on the call (same convention as
-        # src/exchange/bybit_connector.py — the construction-time default
-        # alone is not load-bearing on the unified account).
-        "options": {"defaultType": "swap" if args.category == "linear" else "spot"},
-    })
-
-    def _fetch_my_trades(sym, since, limit, params):
-        merged = dict(params or {})
-        merged["category"] = args.category
-        return exchange.fetch_my_trades(sym, since, limit, merged)
-
-    rows = fetch_fills_window(
-        _fetch_my_trades,
+    _pull_one_account(
         account_id=args.account,
+        api_key=api_key,
+        api_secret=api_secret,
+        category=args.category,
         days=args.days,
         symbols=args.symbol,
-    )
-    fills_path = Path(args.fills_db) if args.fills_db else None
-    inserted = upsert_fills(rows, path=fills_path)
-    logger.info(
-        "pull_exchange_fills: account=%s days=%d candidates=%d inserted=%d store=%s",
-        args.account, args.days, len(rows), inserted,
-        fills_path if fills_path is not None else "(default resolver)",
+        fills_path=fills_path,
     )
     return 0
 

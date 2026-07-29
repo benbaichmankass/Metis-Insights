@@ -3,13 +3,15 @@
 # exchange-fills store (runtime_state/exchange_fills.sqlite) so the
 # exchange-truth P&L surface (/api/bot/pnl/exchange) has data.
 #
-# Wraps scripts/pull_exchange_fills.py for the REAL-MONEY account
-# bybit_2 (BYBIT_API_KEY_2 / BYBIT_API_SECRET_2, category=linear —
-# USDT-margined perps per config/accounts.yaml::bybit_2.market_type).
-# Added 2026-07-13 (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY): the
-# puller existed since S-067 but had no timer, no system-action, and
+# Wraps scripts/pull_exchange_fills.py for EVERY live Bybit account
+# (--all-bybit-accounts: bybit_1 / bybit_2 / bybit_portfolio, each with
+# its own BYBIT_API_KEY_* creds + market_type category from
+# config/accounts.yaml). Added 2026-07-13 (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY):
+# the puller existed since S-067 but had no timer, no system-action, and
 # pulled the spot category only — so the store had never accrued a
-# single fill while bybit_2 traded linear perps daily.
+# single fill while bybit_2 traded linear perps daily. Multi-account
+# rollout (rec #7 broker-truth cost coverage, 2026-07-29) so bybit_1 +
+# bybit_portfolio accrue exchange-truth fees too, not just bybit_2.
 #
 # Read-only on the exchange side (fetch_my_trades). Idempotent — the
 # store's primary key is exec_id, so overlapping windows are safe.
@@ -24,7 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/ops/_lib.sh
 source "${SCRIPT_DIR}/_lib.sh"
 
-load_runtime_secrets  # BYBIT_API_KEY_2 / BYBIT_API_SECRET_2 from .env
+load_runtime_secrets  # every account's BYBIT_API_KEY_* / _SECRET_* from .env
 # Canonical, DATA_DIR-anchored fills-store path so the puller writes to the
 # SAME absolute file the systemd web-api reader + the offline cost sweep use.
 # A fresh SSH wrapper shell does not inherit the systemd DATA_DIR, so without
@@ -41,18 +43,15 @@ if [ ! -f "${PY_SCRIPT}" ]; then
 fi
 
 echo
-echo "===== pull_exchange_fills.py --account bybit_2 --category linear --days 7 ====="
+echo "===== pull_exchange_fills.py --all-bybit-accounts --days 7 ====="
 echo "fills store: ${FILLS_DB}"
 python3 "${PY_SCRIPT}" \
-    --account bybit_2 \
-    --category linear \
+    --all-bybit-accounts \
     --days 7 \
-    --api-key-env BYBIT_API_KEY_2 \
-    --api-secret-env BYBIT_API_SECRET_2 \
     --fills-db "${FILLS_DB}"
 rc=$?
 
 record_audit "pull-exchange-fills" "$([ ${rc} -eq 0 ] && echo ok || echo error)" \
-    "{\"account\": \"bybit_2\", \"category\": \"linear\", \"days\": 7, \"fills_db\": \"${FILLS_DB}\", \"exit\": ${rc}}" >/dev/null || true
+    "{\"accounts\": \"all-bybit\", \"days\": 7, \"fills_db\": \"${FILLS_DB}\", \"exit\": ${rc}}" >/dev/null || true
 log "pull-exchange-fills complete (exit ${rc})."
 exit ${rc}
