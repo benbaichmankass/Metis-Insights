@@ -1145,6 +1145,46 @@ class Database:
         finally:
             conn.close()
 
+    def update_order_package_linked_trade_if_unset(
+        self, order_package_id, linked_trade_id
+    ):
+        """Stamp ``linked_trade_id`` ONLY if the slot is still NULL.
+
+        BL-20260729 (linked_trade_id fan-out): a paper-only package links its
+        first-executed leg immediately at execution instead of waiting for the
+        +5-min reconciler back-fill, WITHOUT a paper mirror clobbering a
+        real-money leg's link — the ``linked_trade_id IS NULL`` guard makes it
+        first-writer-wins, and the real-money leg's own UNCONDITIONAL
+        :meth:`update_order_package` write still overwrites a tentative paper
+        fill regardless of which leg executed first. ``updated_at`` is bumped
+        only when the row is actually written. Returns rows affected (0 if the
+        slot was already set or the id was not found).
+        """
+        from datetime import timezone
+
+        if not order_package_id:
+            raise ValueError(
+                "update_order_package_linked_trade_if_unset requires "
+                "order_package_id"
+            )
+        conn = self.connect()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "UPDATE order_packages "
+                "SET linked_trade_id = ?, updated_at = ? "
+                "WHERE order_package_id = ? AND linked_trade_id IS NULL",
+                [
+                    int(linked_trade_id),
+                    datetime.now(timezone.utc).isoformat(),
+                    order_package_id,
+                ],
+            )
+            conn.commit()
+            return cursor.rowcount
+        finally:
+            conn.close()
+
     def insert_signal(self, signal_data):
         """Insert a row into the signals table.
 

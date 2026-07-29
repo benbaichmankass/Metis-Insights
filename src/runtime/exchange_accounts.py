@@ -88,3 +88,52 @@ def live_bybit_fill_accounts(
             )
         )
     return out
+
+
+@dataclass(frozen=True)
+class AlpacaFillAccount:
+    """One live Alpaca account the cost sweep should pull fills for.
+
+    ``key_env`` / ``secret_env`` name the env vars holding this account's
+    credentials; ``env`` (``paper``/``live``) selects the Alpaca host. Alpaca's
+    default credential naming is asymmetric (``ALPACA_API_KEY_ID`` /
+    ``ALPACA_API_SECRET_KEY``), so the secret env is taken from the explicit
+    ``api_secret_env`` or that default — NOT key→secret string-derived.
+    """
+
+    account_id: str
+    key_env: str
+    secret_env: str
+    env: str
+
+
+def live_alpaca_fill_accounts(
+    path: Path | str | None = None,
+) -> list[AlpacaFillAccount]:
+    """Return every ``mode: live`` Alpaca account from ``config/accounts.yaml``.
+
+    The live Alpaca accounts (``alpaca_paper``, ``alpaca_portfolio``,
+    ``alpaca_options_paper``) are DISTINCT Alpaca sub-accounts with distinct
+    credentials, so their fills never double-count. ``dry_run`` (``alpaca_live``)
+    is excluded. Returns ``[]`` on any config read failure.
+    """
+    out: list[AlpacaFillAccount] = []
+    for account_id, cfg in load_accounts_dict(path).items():
+        if str(cfg.get("exchange", "")).lower() != "alpaca":
+            continue
+        if str(cfg.get("mode", "")).lower() != "live":
+            continue
+        key_env = str(cfg.get("api_key_env") or "ALPACA_API_KEY_ID")
+        secret_env = str(cfg.get("api_secret_env") or "ALPACA_API_SECRET_KEY")
+        env = str(cfg.get("alpaca_env") or "paper").lower()
+        if env not in ("paper", "live"):
+            env = "paper"
+        out.append(
+            AlpacaFillAccount(
+                account_id=str(account_id),
+                key_env=key_env,
+                secret_env=secret_env,
+                env=env,
+            )
+        )
+    return out
