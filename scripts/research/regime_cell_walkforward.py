@@ -120,7 +120,6 @@ def cell_verdict(wf: dict, regime: str) -> dict:
     `stable_drag` test, applied to the short leg within one regime); the LONG-side
     analogue is reported symmetrically. Neither is a trade decision — both are the
     evidence gate a Tier-3 OFF-cell draft must pass first."""
-    v = wf.get("verdict") or {}
     p = wf.get("pooled") or {}
     folds = wf.get("folds", 0) or 0
     by_fold = wf.get("by_fold", [])
