@@ -357,6 +357,11 @@ jobs:
                 description: 'Triggers research-symbol-p0-build workflow — deep-history symbol P0 validation (Dukascopy fetch + ict_scalp k-fold under a target account economics) on a FREE GH runner. The resource-optimized home for the M27 XAU/MGC re-target work (off the scarce trainer VM).',
               },
               {
+                name: 'trainer-offload-train-request',
+                color: '0075ca',
+                description: 'Triggers trainer-offload-train workflow — train an OOM-prone ML manifest on a FREE 16 GB GH runner (Binance-vision fetch → market_raw(csv)+market_features → ml train → metrics artifact), off the 6 GB trainer that OOMs it. rec #3 free-runner offload.',
+              },
+              {
                 name: 'set-diag-token',
                 color: 'b60205',
                 description: 'Triggers set-diag-token workflow — push the DIAG_READ_TOKEN repo secret onto the live VM + restart web-api.',
