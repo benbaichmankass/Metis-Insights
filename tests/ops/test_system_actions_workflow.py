@@ -56,6 +56,10 @@ EXPECTED_ACTIONS = {
     "gateway-logs": "gateway_logs.sh",
     "inspect-closed-pnl": "inspect_closed_pnl_action.sh",
     "bybit-account-audit": "bybit_account_audit_action.sh",
+    # Read-only broker-truth audit of Bybit protective-bracket COVERAGE
+    # (SL-covered qty vs position size, per-trade leg liveness) + the
+    # three-source effective BYBIT_TPSL_MODE read. Places/cancels nothing.
+    "bybit-bracket-audit": "bybit_bracket_audit_action.sh",
     "strategy-performance-audit": "strategy_performance_audit_action.sh",
     "monitor-miss-analysis": "monitor_miss_analysis_action.sh",
     "vwap-backtest-sweep": "vwap_backtest_sweep_action.sh",
