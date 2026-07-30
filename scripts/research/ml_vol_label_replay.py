@@ -694,10 +694,12 @@ def run_verify(*, labels_path: Path, audit_path: Path) -> Dict[str, Any]:
     disagreements: List[Dict[str, Any]] = []
     no_live_label = 0
     no_bar = 0
+    p_deltas: List[float] = []
 
     for rec in iter_dataset_rows(audit_path):
         total += 1
-        ts = rec.get("ts") or rec.get("timestamp") or rec.get("predicted_at_utc")
+        ts = (rec.get("ts") or rec.get("timestamp")
+              or rec.get("predicted_at_utc") or rec.get("logged_at"))
         live = rec.get("vol_regime_ml")
         if live is None and str(rec.get("vol_label_source") or "") == "ml":
             live = rec.get("vol_regime")
@@ -713,6 +715,16 @@ def run_verify(*, labels_path: Path, audit_path: Path) -> Dict[str, Any]:
             no_bar += 1
             continue
         comparable += 1
+        # The STRONGER check: the audit rows carry the live P(volatile) the
+        # gate actually read. Comparing the probability — not just the label
+        # it thresholded to — catches a feature-row mismatch that happens to
+        # land on the same side of 0.5, which pure label agreement cannot.
+        lp, mp = rec.get("p_volatile"), labels[bar].get("p_volatile")
+        if lp is not None and mp is not None:
+            try:
+                p_deltas.append(abs(float(lp) - float(mp)))
+            except (TypeError, ValueError):
+                pass
         if mine == live:
             agree += 1
         elif len(disagreements) < 25:
@@ -721,12 +733,37 @@ def run_verify(*, labels_path: Path, audit_path: Path) -> Dict[str, Any]:
                 "label_bar_ts": bar,
                 "live": live,
                 "replayed": mine,
-                "replayed_p_volatile": labels[bar].get("p_volatile"),
+                "live_p_volatile": lp,
+                "replayed_p_volatile": mp,
                 "strategy": rec.get("strategy"),
                 "symbol": rec.get("symbol"),
             })
 
+    p_delta_stats: Dict[str, Any]
+    if p_deltas:
+        srt = sorted(p_deltas)
+        p_delta_stats = {
+            "n": len(srt),
+            "median": round(srt[len(srt) // 2], 6),
+            "p90": round(srt[min(len(srt) - 1, int(0.90 * len(srt)))], 6),
+            "max": round(srt[-1], 6),
+            "note": (
+                "|live P(volatile) - replayed P(volatile)| per comparable row. "
+                "Near-zero means the offline feature row reproduces the served "
+                "one; a large delta with matching LABELS is still a parity "
+                "finding — the labels agree by luck of the threshold."
+            ),
+        }
+    else:
+        p_delta_stats = {
+            "n": 0,
+            "note": ("no row carried both a live and a replayed p_volatile — "
+                     "the probability check ran but compared nothing, which is "
+                     "NOT a pass"),
+        }
+
     return {
+        "p_volatile_delta": p_delta_stats,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "labels_path": str(labels_path),
         "audit_path": str(audit_path),
@@ -876,6 +913,9 @@ def main(argv: List[str]) -> int:
         print(f"comparable        {res['comparable']}")
         print(f"agreement         {res['agree']}/{res['comparable']} "
               f"= {res['agreement_pct']}%")
+        pd_ = res["p_volatile_delta"]
+        print(f"|dP(volatile)|    n={pd_.get('n')} median={pd_.get('median')} "
+              f"p90={pd_.get('p90')} max={pd_.get('max')}")
         print(f"verdict           {res['verdict']}")
         for d in res["disagreement_sample"][:10]:
             print(f"  disagree {d['audit_ts']} live={d['live']} "

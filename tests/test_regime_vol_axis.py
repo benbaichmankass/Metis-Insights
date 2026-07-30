@@ -290,6 +290,43 @@ def test_verify_counts_agreement_and_flags_disagreement(tmp_path):
     assert res["disagreement_sample"][0]["replayed"] == "volatile"
 
 
+def test_verify_compares_the_probability_not_just_the_label(tmp_path):
+    """Label agreement can hide a feature-row mismatch; the probability can't.
+
+    The live audit rows carry the ``p_volatile`` the gate actually read. Two
+    rows can agree on the LABEL while their probabilities differ wildly — they
+    just happened to land the same side of 0.5. That is still a parity failure,
+    and only the probability delta surfaces it.
+    """
+    labels = tmp_path / "labels.jsonl"
+    labels.write_text(
+        '{"ts": "2026-01-01T00:00:00Z", "vol_regime": "volatile", "p_volatile": 0.95}\n',
+        encoding="utf-8",
+    )
+    audit = tmp_path / "audit.jsonl"
+    audit.write_text(
+        # same LABEL, very different probability -> agreement 100% but a real delta
+        '{"ts": "2026-01-01T00:10:00Z", "vol_regime_ml": "volatile", "p_volatile": 0.55}\n',
+        encoding="utf-8",
+    )
+    res = replay.run_verify(labels_path=labels, audit_path=audit)
+    assert res["agreement_pct"] == 100.0
+    assert res["p_volatile_delta"]["n"] == 1
+    assert res["p_volatile_delta"]["median"] == pytest.approx(0.40, abs=1e-6)
+
+
+def test_verify_probability_check_reports_when_it_compared_nothing(tmp_path):
+    labels = tmp_path / "labels.jsonl"
+    labels.write_text(
+        '{"ts": "2026-01-01T00:00:00Z", "vol_regime": "calm"}\n', encoding="utf-8")
+    audit = tmp_path / "audit.jsonl"
+    audit.write_text(
+        '{"ts": "2026-01-01T00:10:00Z", "vol_regime_ml": "calm"}\n', encoding="utf-8")
+    res = replay.run_verify(labels_path=labels, audit_path=audit)
+    assert res["p_volatile_delta"]["n"] == 0
+    assert "NOT a pass" in res["p_volatile_delta"]["note"]
+
+
 def test_verify_reads_vol_regime_when_source_is_ml(tmp_path):
     """``regime_hard_gate`` rows carry the decision label in ``vol_regime``."""
     labels = tmp_path / "labels.jsonl"
