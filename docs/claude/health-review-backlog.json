@@ -7648,8 +7648,41 @@
       "source": "Static consumer sweep over src/ scripts/ ml/ (2026-07-30), generalising BL-20260730-PROVENANCE-RECORDED-THEN-IGNORED.",
       "description": "Counting writers vs value-branches vs ml/ refs vs src/web/api refs for every known data-quality signal:\n\n  exit_price_source   writes~14 branches~1(unrelated) ml=0 api=0   WRITE-ONLY\n  close_exec_type     writes~1  branches~0            ml=0 api=0   WRITE-ONLY\n  fc_present          writes~2  branches~0            ml=0 api=0   WRITE-ONLY\n  exit_reason_source  writes~3  branches~0            ml=0 api=0   WRITE-ONLY\n  pnl_source          writes~12 branches~1            ml=0 api=6    near-write-only\n  reconcile_status    writes~6  branches~24           ml=0 api=5    healthy\n  cost_source         writes~5  branches~9            ml=0 api=0    healthy\n  backfill_kind       writes~4  branches~4            ml=16 api=6   healthy\n\nTWO of the write-only fields matter independently of the PnL-provenance bug:\n\n* `close_exec_type` (order_monitor.py:~7162, written from Bybit /v5/execution/list) distinguishes 'BustTrade' = LIQUIDATION / demo margin call, 'AdlTrade' = auto-deleveraging, 'Trade' = a normal fill. A liquidated position is a categorically different event from a bracket exit, and would present as an enormous adverse exit price. Nothing reads this field, so no analysis, review skill, or ML label has EVER distinguished a liquidation from a stop. This is a live candidate explanation for part of the bybit_1 loss tail and for the unexplained long holds (BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED) -- CHECK IT before theorising further about exit geometry.\n\n* `fc_present` is the M19 fc-geometry soak's HONEST COVERAGE DENOMINATOR -- the field whose entire purpose is to record 'no forecast was served here'. It is written and never consumed, which is precisely the failure the canonical 'green is not evidence' rule (§ obligation 1, assert the inputs) exists to prevent. The rule is stated; nothing enforces it.\n\nNote ml=0 for EVERY provenance signal except backfill_kind: the training pipeline cannot express 'this label is untrustworthy' about anything.\n\nGENERAL FIX (the class, not the instances): a signal that is written and never read is indistinguishable from one that does not exist, so recording it creates false assurance -- reviewers see the field and assume something acts on it. Proposal: a CI guard that fails when a declared quality/provenance key gains a writer but no consumer (the same shape as the existing canonical-db-resolver / env-gate-guard guards), plus a consumer contract requiring each decision surface to declare which provenance values it accepts.",
       "next_action": "(1) Query close_exec_type distribution over the bybit_1 loss tail -- cheap, may reclassify a chunk of the 'exit leak' as liquidations. (2) Propose the write-only-signal CI guard."
+    },
+    {
+      "id": "BL-20260730-JSON-EXTRACT-GUARD-PROMOTE",
+      "opened_at": "2026-07-30T17:00:00+00:00",
+      "opened_by": "claude (provenance IB-executions session)",
+      "source": "PR #8069 added scripts/ci/check_json_extract_guarded.py + .github/workflows/json-extract-guard.yml as an ADVISORY check, after nearly reintroducing the unguarded-json_extract crash class in check_db_integrity's INV-2 predicate. It is green on the repo today (891 files scanned, 0 violations) and has 13 tests proving it actually FIRES on real violations.",
+      "title": "Promote json-extract-guard to a REQUIRED status check once green on main",
+      "detail": "Add \"json-extract-guard\" to REQUIRED_CONTEXTS in .github/workflows/branch-protection-sync.yml. Deliberately left advisory on introduction: two new required checks in one PR doubles the wedge risk if either workflow misbehaves on its first real run, and this repo's own precedent (pytest-run, promoted 2026-05-22 'once its baseline went green on main') is promote-after-green. The sibling provenance-consumer-guard WAS promoted in the same PR because it is the central anti-recurrence control for the +$247,683.78 provenance defect; this one is the narrower sibling. Verify one PR's run is green, then promote — it is a one-line change.",
+      "severity": "low",
+      "status": "open",
+      "tier": 1
+    },
+    {
+      "id": "BL-20260730-ML-LABELS-IGNORE-PNL-PROVENANCE",
+      "opened_at": "2026-07-30T17:00:00+00:00",
+      "opened_by": "claude (provenance IB-executions session)",
+      "source": "Sweep during PR #8069: `grep -rn 'pnl_source|exit_price_source|is_measured|provenance' ml/` returns exactly ONE hit, an unrelated comment in conviction_meta.py. The whole ml/ tree is provenance-blind.",
+      "title": "ML label builders derive `won` from trades.pnl with NO provenance filter",
+      "detail": "ml/datasets/families/trade_outcomes.py (label_version 'won-from-pnl-v1') sets `payload['won'] = bool(payload['pnl'] > 0)` straight off trades.pnl. A mark-price-fabricated pnl flips that label arbitrarily, so any model trained on this family has been learning from up to 64.9% manufactured outcomes on the affected books (the +$247,683.78 local_markprice population, concentrated on ib_paper). Other families reading pnl should be checked the same way (execution_quality, backtest_results, setup_labels). Recommended shape, mirroring what /performance now does: emit a `pnl_provenance` metadata column (leakage-safe — excluded from features exactly like `pnl` already is), report measured-coverage in the dataset metadata, and make any row filtering an EXPLICIT training decision rather than a silent drop. Do NOT silently change the training population without measuring first. Live exposure measurement was requested via trainer-diag issues #8068/#8071; #8068 failed (no sqlite3 CLI on the trainer) and its journal copy was dated Jul 20 (see the sibling staleness item).",
+      "severity": "high",
+      "status": "open",
+      "tier": 1
+    },
+    {
+      "id": "BL-20260730-TRAINER-JOURNAL-COPY-STALE",
+      "opened_at": "2026-07-30T17:00:00+00:00",
+      "opened_by": "claude (provenance IB-executions session)",
+      "source": "trainer-vm-diag issue #8068 output: /home/ubuntu/ict-trading-bot/trade_journal.db on the trainer VM was dated 'Jul 20 21:56' when read on 2026-07-30 — 10 days stale.",
+      "title": "Trainer VM's trade_journal.db copy read 10 days stale (Jul 20 vs Jul 30)",
+      "detail": "Observed incidentally while measuring provenance exposure, so it is NOT yet confirmed as a broken sync: the trainer may pull to a different path for training, or that file may be a retired copy. Needs confirming against the db_pulls record and the path the dataset builders actually read. IF the training population really is 10 days behind live, every dataset build and every training cycle since Jul 20 has been fitting stale data — which would matter a great deal for the promotion decisions being made off those models. Filed rather than fixed because it is outside this PR's scope and needs a trainer-side read to confirm. Also note the trainer has NO sqlite3 CLI (#8068 failed on that); use python3 for journal reads via the relay.",
+      "severity": "high",
+      "status": "open",
+      "tier": 1
     }
   ],
-  "updated_at": "2026-07-30T16:10:00+00:00",
+  "updated_at": "2026-07-30T17:00:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

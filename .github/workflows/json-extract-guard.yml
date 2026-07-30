@@ -1,0 +1,82 @@
+name: json-extract-guard
+
+# Fails the PR check when a SQL `json_extract` is not `json_valid`-guarded.
+#
+# SQLite's `json_extract` RAISES `malformed JSON` on an unparseable argument —
+# it does NOT return NULL. One bad row therefore aborts the WHOLE statement, so
+# the failure mode is total, not partial: a data-quality check becomes an
+# outage. The live trade_journal.db DOES contain rows with empty/malformed
+# `notes` (hence scripts/ops/repair_malformed_notes.py and json-notes-cap-guard).
+#
+# `COALESCE(json_extract(...), '')` LOOKS null-safe and is not. That is the
+# trap, and it is why review alone does not catch this: the pattern reads
+# correct. It bit `closed_flat_invariant` once, and was very nearly
+# reintroduced in `check_db_integrity`'s INV-2 predicate on 2026-07-30 — caught
+# only because a test happened to feed it malformed notes.
+#
+# Advisory on introduction; promote to a REQUIRED context once it has been
+# green on main (BL-20260730-JSON-EXTRACT-GUARD-PROMOTE), following the same
+# promote-after-green precedent this repo used for pytest-run.
+#
+# Actions-minutes cap (MB-20260706-CI-MINUTES): the job always runs (cheap) but
+# skips the script when no .py/.sh file changed.
+
+on: the 2026-05-16 orphan-backfill failure (issue #1308 —
+# 14 candidates processed against a stale repo-local DB while the
+# live trader writes to /data/bot-data/trade_journal.db per the
+# systemd drop-in) was caused by every operator wrapper rolling its
+# own DB-path resolution. This guard freezes the count at zero.
+
+# **2026-07-06 (Actions-minutes billing cap, MB-20260706-CI-MINUTES):**
+# this is a REQUIRED status check, so its trigger can NEVER carry a
+# `paths:` filter (would leave the check permanently "pending" on a
+# non-matching PR). Instead the job always runs (cheap: checkout +
+# `git diff --name-only`) but skips the guard script itself when no
+# `.py`/`.sh` file changed — the fallback pattern this guards against
+# can only appear in a script.
+
+on:
+  # Dormant until the native merge queue is enabled (BL-20260726 merge-queue enablement);
+  # required checks MUST run on the merge_group ref or the queue stalls.
+  merge_group:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  json-extract-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine relevant changed files
+        id: changed
+        run: |
+          set -e
+          git fetch origin "${{ github.base_ref }}" --quiet
+          RANGE="origin/${{ github.base_ref }}...HEAD"
+          FILES=$(git diff --name-only $RANGE || true)
+          echo "Changed files ($RANGE):"
+          echo "$FILES"
+          if echo "$FILES" | grep -Eq '\.py$|\.sh$|\.github/workflows/json-extract-guard\.yml$'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No .py/.sh files changed — skipping the guard (short-circuit, MB-20260706-CI-MINUTES)."
+          fi
+
+      - name: Set up Python
+        if: steps.changed.outputs.relevant == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run guard
+        if: steps.changed.outputs.relevant == 'true'
+        run: python scripts/ci/check_json_extract_guarded.py --verbose
