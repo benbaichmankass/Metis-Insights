@@ -7313,9 +7313,9 @@
       "opened_by": "claude (research program)",
       "source": "Attempting to build the M3 overlap validator found ZERO joinable rows between the forward consensus file and the FRED backfill, for all 3 kinds (initial_jobless_claims fwd=8 dates / bf=3031 dates / intersect=0; continuing 8/3030/0; cpi_yoy 1/917/0). Cause: scheduled_for means DIFFERENT THINGS in the two files. Forward (bigdata:fxstreet) = the RELEASE date (cpi_yoy 2026-07-14). Backfill (keyless FRED) = the OBSERVATION / REFERENCE PERIOD (cpi_yoy 2026-04-01, 2026-05-01, 2026-06-01).",
       "title": "[macro/M1] backfill `scheduled_for` is the FRED reference period, not the release date — zero join with the forward file, and the event study joins prices at the wrong date",
-      "description": "TWO consequences, the second worse than the first. (1) M3 CANNOT RUN AT ALL -- the overlap validation the operator-approved M1 gate names as its satisfiability condition for option (b) has an empty join. I previously told the operator M3 was 'runnable right now on the labour kinds (n=13/8)'; that was WRONG and is corrected -- those counts were rows with a survey consensus, not rows joinable to a model expectation. (2) THE EVENT STUDY ITSELF JOINS AT THE WRONG DATE when fed backfilled rows. CPI for reference period 2026-06-01 is released ~2026-07-15; joining forward returns at 06-01 measures a window that mostly PRECEDES the release, i.e. the wrong window entirely. That does not create lookahead (the window is too EARLY, not too late) but it does guarantee a measured null that a reader would misinterpret as 'no edge in economic surprise'. Any M1/M2 verdict computed off backfilled rows before this is fixed is meaningless. ROOT CAUSE IS A DATA LIMITATION, NOT JUST A BUG: keyless FRED (fredgraph.csv) serves OBSERVATION dates only; true release timestamps live in ALFRED / the FRED releases API. So there is no exact release date available on the keyless path. PROPOSED FIX (declared approximation, never presented as truth): add a per-kind `release_lag_days` to config/macro_econ_series.yaml (weekly claims: week-ending Saturday -> Thursday release, ~+5d; CPI: ~+15d), emit BOTH `reference_period` and a computed `scheduled_for`/release date, and stamp `release_date_basis: modeled_lag` alongside the existing `pit_basis` so a modeled release date can never be mistaken for an observed one. Join on that. Then re-verify the overlap is non-empty BEFORE trusting any M3 result. || FIX LANDED 2026-07-30, NOT YET RE-RUN. Per-kind release_lag_days added to config (claims +5d week-ending Sat -> Thu; continuing +12d; CPI +45d reference-month -> mid next month; natgas +6d; crude +5d). rows_for_kind now emits scheduled_for = MODELED RELEASE date, keeps FRED's own date as `reference_period`, sets observed_at to the release instant, and stamps release_date_basis: modeled_lag + release_lag_days. The misleading comment that claimed the reference date WAS the observation instant 'because the expectation used only strictly-prior data' is replaced -- it conflated the EXPECTATION being leakage-safe (true) with the reference date being the RELEASE date (false). STILL UNVERIFIED: the backfill has not been re-run, so the overlap with the forward feed is not yet confirmed non-empty. Do not close until a re-run shows a NON-ZERO join.",
+      "description": "TWO consequences, the second worse than the first. (1) M3 CANNOT RUN AT ALL -- the overlap validation the operator-approved M1 gate names as its satisfiability condition for option (b) has an empty join. I previously told the operator M3 was 'runnable right now on the labour kinds (n=13/8)'; that was WRONG and is corrected -- those counts were rows with a survey consensus, not rows joinable to a model expectation. (2) THE EVENT STUDY ITSELF JOINS AT THE WRONG DATE when fed backfilled rows. CPI for reference period 2026-06-01 is released ~2026-07-15; joining forward returns at 06-01 measures a window that mostly PRECEDES the release, i.e. the wrong window entirely. That does not create lookahead (the window is too EARLY, not too late) but it does guarantee a measured null that a reader would misinterpret as 'no edge in economic surprise'. Any M1/M2 verdict computed off backfilled rows before this is fixed is meaningless. ROOT CAUSE IS A DATA LIMITATION, NOT JUST A BUG: keyless FRED (fredgraph.csv) serves OBSERVATION dates only; true release timestamps live in ALFRED / the FRED releases API. So there is no exact release date available on the keyless path. PROPOSED FIX (declared approximation, never presented as truth): add a per-kind `release_lag_days` to config/macro_econ_series.yaml (weekly claims: week-ending Saturday -> Thursday release, ~+5d; CPI: ~+15d), emit BOTH `reference_period` and a computed `scheduled_for`/release date, and stamp `release_date_basis: modeled_lag` alongside the existing `pit_basis` so a modeled release date can never be mistaken for an observed one. Join on that. Then re-verify the overlap is non-empty BEFORE trusting any M3 result. || FIX LANDED 2026-07-30, NOT YET RE-RUN. Per-kind release_lag_days added to config (claims +5d week-ending Sat -> Thu; continuing +12d; CPI +45d reference-month -> mid next month; natgas +6d; crude +5d). rows_for_kind now emits scheduled_for = MODELED RELEASE date, keeps FRED's own date as `reference_period`, sets observed_at to the release instant, and stamps release_date_basis: modeled_lag + release_lag_days. The misleading comment that claimed the reference date WAS the observation instant 'because the expectation used only strictly-prior data' is replaced -- it conflated the EXPECTATION being leakage-safe (true) with the reference date being the RELEASE date (false). STILL UNVERIFIED: the backfill has not been re-run, so the overlap with the forward feed is not yet confirmed non-empty. Do not close until a re-run shows a NON-ZERO join. || VERIFIED END-TO-END 2026-07-30 via the regenerated backfill (issue #8004 -> PR #8005, 6966 rows) + the M3 validator run. Row-level proof: initial_jobless_claims actual=189.0 (THOUSANDS, not 189000), reference_period=1968-06-22 -> scheduled_for=1968-06-27 (+5d, a Thursday), release_date_basis=modeled_lag, units_transform=scale:0.001. cpi_yoy dropped to 905 rows from 917 -- exactly the 12 months yoy_pct_from_level discards for having no prior year, which is the predicted behaviour rather than a loss. M3 NUMBERS, before vs after the two fixes (same model, same survey data, ONLY units + date basis changed): Spearman -0.5982 -> +0.7364; Pearson -0.4629 -> +0.9465; sign agreement 0.455 -> 0.909; OLS slope -49205 -> 1.1288; match offset -5..+2 -> 0/0/0 on every row. The slope near 1 is the load-bearing one: it shows the model's surprises are on the SAME SCALE as the survey's, which correlation alone cannot establish. The old -0.5982 was ENTIRELY artifact and would have read as the M1 gate's kill condition -- i.e. these two defects came within one reading of killing the expectation-model path. M3's verdict remains insufficient_overlap (n=11 < min_honest_n 12) and that stands: the numbers look like a pass but one row short of the pre-registered floor is not a pass, and lowering the floor to reach a verdict is the exact move being eliminated. One more weekly claims release closes it.",
       "severity": "high",
-      "status": "fix_landed_unverified",
+      "status": "resolved",
       "area": "macro",
       "refs": [
         "scripts/macro/econ_calendar_snapshot_backfill.py",
@@ -7323,7 +7323,8 @@
         "scripts/macro/econ_event_study.py",
         "ROADMAP_MACRO.md",
         "BL-20260730-EIA-SERIES-IDS-NOT-FRED"
-      ]
+      ],
+      "resolved_at": "2026-07-30T15:45:00+00:00"
     },
     {
       "id": "BL-20260730-BACKFILL-UNITS-DIFFER-FROM-SURVEY-FEED",
@@ -7331,15 +7332,16 @@
       "opened_by": "claude (research program)",
       "source": "Same investigation. For every overlapping kind the two sources report the SAME release in DIFFERENT units: initial_jobless_claims forward actual=187.0 (thousands) vs backfill 187000.0 (units, x1000); continuing_jobless_claims forward 1.796 (millions) vs backfill 1796000.0 (x1e6); cpi_yoy forward 3.5 (YoY percent) vs backfill 332.568 (CPI INDEX LEVEL).",
       "title": "[macro/M1] backfill emits raw FRED units while the survey feed uses the release convention — and `cpi_yoy` is actually the CPI LEVEL",
-      "description": "Blocks M3 independently of the date-key bug: even once the join works, comparing survey-surprise to model-surprise across mismatched units is meaningless. Two DIFFERENT severities here. (a) The claims series differ by a pure SCALE factor (x1000 / x1e6) -- a normalization, mechanical to fix, and note that a scale factor cancels in a CORRELATION but NOT in a slope/magnitude check or in surprise_pct, so it cannot simply be ignored. (b) cpi_yoy is not a scale problem, it is THE WRONG QUANTITY: the backfill emits the CPI index level (332.568) under a kind named `cpi_yoy` while the survey feed emits year-over-year percent (3.5). config/macro_econ_series.yaml even says 'level; YoY derived downstream' -- and nothing downstream derives it. So the backfilled cpi_yoy series is MISLABELED; it is cpi_level. Its 917 rows are not usable as cpi_yoy by anything, and its model expectation is an expectation of the wrong series. FIX: declare a per-kind `units` + `transform` in config (identity / x1e-3 / yoy_pct_from_level) applied in the backfill so emitted rows match the release convention the survey feed uses, and rename or derive cpi_yoy properly. A unit/transform mismatch that silently produces plausible numbers is the same class as the fee over-charge (BL-20260730-RESEARCH-VENUE-FEE) -- wrong scale, right-looking output. || FIX LANDED 2026-07-30, NOT YET RE-RUN. Per-kind `transform` added and applied BEFORE the expectation is fitted -- ordering is load-bearing: fitting on a level and converting afterwards would forecast the wrong series. claims scale:0.001 (persons -> thousands), continuing scale:0.000001 (-> millions), cpi_yoy yoy_pct_from_level (the mislabeled-series fix: it was emitting the CPI INDEX LEVEL under a kind named cpi_yoy). An UNKNOWN transform now RAISES rather than passing raw units through, because a silent pass-through emits plausible numbers in the wrong units -- the bug itself. yoy drops the first `period` observations rather than fabricating a value. Every row records units_transform. 40 tests. STILL UNVERIFIED on a runner.",
+      "description": "Blocks M3 independently of the date-key bug: even once the join works, comparing survey-surprise to model-surprise across mismatched units is meaningless. Two DIFFERENT severities here. (a) The claims series differ by a pure SCALE factor (x1000 / x1e6) -- a normalization, mechanical to fix, and note that a scale factor cancels in a CORRELATION but NOT in a slope/magnitude check or in surprise_pct, so it cannot simply be ignored. (b) cpi_yoy is not a scale problem, it is THE WRONG QUANTITY: the backfill emits the CPI index level (332.568) under a kind named `cpi_yoy` while the survey feed emits year-over-year percent (3.5). config/macro_econ_series.yaml even says 'level; YoY derived downstream' -- and nothing downstream derives it. So the backfilled cpi_yoy series is MISLABELED; it is cpi_level. Its 917 rows are not usable as cpi_yoy by anything, and its model expectation is an expectation of the wrong series. FIX: declare a per-kind `units` + `transform` in config (identity / x1e-3 / yoy_pct_from_level) applied in the backfill so emitted rows match the release convention the survey feed uses, and rename or derive cpi_yoy properly. A unit/transform mismatch that silently produces plausible numbers is the same class as the fee over-charge (BL-20260730-RESEARCH-VENUE-FEE) -- wrong scale, right-looking output. || FIX LANDED 2026-07-30, NOT YET RE-RUN. Per-kind `transform` added and applied BEFORE the expectation is fitted -- ordering is load-bearing: fitting on a level and converting afterwards would forecast the wrong series. claims scale:0.001 (persons -> thousands), continuing scale:0.000001 (-> millions), cpi_yoy yoy_pct_from_level (the mislabeled-series fix: it was emitting the CPI INDEX LEVEL under a kind named cpi_yoy). An UNKNOWN transform now RAISES rather than passing raw units through, because a silent pass-through emits plausible numbers in the wrong units -- the bug itself. yoy drops the first `period` observations rather than fabricating a value. Every row records units_transform. 40 tests. STILL UNVERIFIED on a runner. || VERIFIED END-TO-END 2026-07-30 via the regenerated backfill (issue #8004 -> PR #8005, 6966 rows) + the M3 validator run. Row-level proof: initial_jobless_claims actual=189.0 (THOUSANDS, not 189000), reference_period=1968-06-22 -> scheduled_for=1968-06-27 (+5d, a Thursday), release_date_basis=modeled_lag, units_transform=scale:0.001. cpi_yoy dropped to 905 rows from 917 -- exactly the 12 months yoy_pct_from_level discards for having no prior year, which is the predicted behaviour rather than a loss. M3 NUMBERS, before vs after the two fixes (same model, same survey data, ONLY units + date basis changed): Spearman -0.5982 -> +0.7364; Pearson -0.4629 -> +0.9465; sign agreement 0.455 -> 0.909; OLS slope -49205 -> 1.1288; match offset -5..+2 -> 0/0/0 on every row. The slope near 1 is the load-bearing one: it shows the model's surprises are on the SAME SCALE as the survey's, which correlation alone cannot establish. The old -0.5982 was ENTIRELY artifact and would have read as the M1 gate's kill condition -- i.e. these two defects came within one reading of killing the expectation-model path. M3's verdict remains insufficient_overlap (n=11 < min_honest_n 12) and that stands: the numbers look like a pass but one row short of the pre-registered floor is not a pass, and lowering the floor to reach a verdict is the exact move being eliminated. One more weekly claims release closes it.",
       "severity": "high",
-      "status": "fix_landed_unverified",
+      "status": "resolved",
       "area": "macro",
       "refs": [
         "scripts/macro/econ_calendar_snapshot_backfill.py",
         "config/macro_econ_series.yaml",
         "BL-20260730-BACKFILL-DATE-IS-REFERENCE-PERIOD-NOT-RELEASE"
-      ]
+      ],
+      "resolved_at": "2026-07-30T15:45:00+00:00"
     },
     {
       "id": "BL-20260730-MONTHLY-RELEASE-DATE-DRIFT",
@@ -7418,7 +7420,99 @@
         "src/units/accounts/clients.py",
         "BL-20260713-BYBIT2-PNL-UNDERRECORD"
       ]
+    },
+    {
+      "id": "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
+      "opened_at": "2026-07-30T12:35:00+00:00",
+      "opened_by": "claude (deploy-verify session 2026-07-30)",
+      "severity": "high",
+      "status": "open",
+      "area": "order-path",
+      "tier": 2,
+      "title": "[bybit] bybit_1 XRPUSDT resting SL legs are DIVERGING from the position, not merely stale — 444.7% -> 830% over-coverage in 41 minutes, with the remediation still unbuilt",
+      "source": "Live receipts, same day. bybit-bracket-audit at 2026-07-30T11:48Z: bybit_1 XRPUSDT position 32557.2, resting SL legs 58686.8 + 86102.5 = 144789.3 (444.7%). The #8000 monitor sweep at 12:29:55Z on live HEAD dd07b45f: 'LEG OVER-ACCUMULATION bybit_1/XRPUSDT — position size=17438.9 but resting SL legs total 144789.3 (830%) across 2 leg(s)'. The leg total is byte-identical across both reads; the POSITION halved. So the legs are not tracking the position at all.",
+      "description": "This is the leg-accumulation failure mode of BL-20260721-BYBIT2-XRP-TPSL-LEGCAP observed mid-drift rather than as a static snapshot, and it is getting worse on its own. Because Bybit Partial-mode set_trading_stop is ADD-only, a leg that outlives the qty it was sized for is never reduced when the position shrinks — so any partial close widens the gap. At 830%, the first leg to trip would close roughly 3.4x the live position: it over-closes, flips the sign of the exposure, and strands the remaining legs against a position that no longer exists. PR #8000 detects this (that is where these numbers come from) but deliberately does NOT remediate — detection was in scope, de-accumulation was not. The detector now proves the condition is live, escalating, and unattended. Scope is bybit_1 (paper), so no real money is at risk today; bybit_2 (real money) audited clean at 11:48Z. That is the only reason this is not a P1.",
+      "resolution_criteria": "Either (a) the one-off cancel-stale-tpsl-legs system-action is run against bybit_1 XRPUSDT and a follow-up bybit-bracket-audit shows coverage back within the 0.5% epsilon of position size, AND a structural fix keeps it there (close/reduce cancels or amends the leg it sized, so coverage tracks the position); or (b) an explicit, recorded decision that add-only leg drift is acceptable on paper accounts, with the real-money guard named. Detection alone does not close this item.",
+      "refs": [
+        "BL-20260721-BYBIT2-XRP-TPSL-LEGCAP",
+        "BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/8000",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8009",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8016"
+      ]
+    },
+    {
+      "id": "BL-20260730-BRACKET-AUDIT-ROLLUP-MISLEADING",
+      "opened_at": "2026-07-30T12:35:00+00:00",
+      "opened_by": "claude (deploy-verify session 2026-07-30)",
+      "severity": "medium",
+      "status": "open",
+      "area": "observability",
+      "tier": 1,
+      "title": "[audit] bybit_bracket_audit.py prints 'every audited symbol is fully SL-covered at the broker' directly beneath a 444.7% over-coverage — an all-clear over a live anomaly",
+      "source": "scripts/ops/bybit_bracket_audit.py (added in PR #7993), run 2026-07-30T11:48Z via the bybit-bracket-audit system-action (issue #8009). The body reported 'bybit_1 XRPUSDT ... SL coverage: 144789.3 / 32557.2 qty (444.7%) ... uncovered=0.0' and the ROLL-UP then printed 'every audited symbol is fully SL-covered at the broker.'",
+      "description": "The roll-up is derived solely from uncovered qty, so over-coverage satisfies it: 444.7% covered is not under-covered, therefore 'fully covered', therefore all-clear. Both statements are individually true and the composite reads as 'nothing to see here' on the one account that had the worst anomaly of the run. This is the normalization failure mode the see-something-say-something directive names as a bug in its own right: a reader who trusts the summary line — which is the point of a summary line — walks straight past a live 830%-and-climbing leg pile-up (see BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING). Note this is NOT fixed by PR #8000: #8000 added over_covered/journal_qty_divergent to the order_monitor SWEEP, a different code path. The standalone audit script — the thing an operator actually runs and reads — still summarises as all-clear.",
+      "resolution_criteria": "The roll-up distinguishes 'covered' from 'correctly covered': a symbol whose SL legs exceed the position beyond the over-cover factor, or whose open journal qty exceeds the broker position beyond the divergence fraction, must break the all-clear line and be named in the roll-up. Reuse the thresholds already in order_monitor (_BYBIT_OVERCOVER_FACTOR, _BYBIT_QTY_DIVERGENCE_FRAC) rather than introducing a second set. A regression test should assert the roll-up does NOT read all-clear for the 144789.3-vs-32557.2 case.",
+      "refs": [
+        "https://github.com/benbaichmankass/Metis-Insights/pull/7993",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/8000",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8009",
+        "MB-20260719-DATASET-AUDIT-NOISE"
+      ]
+    },
+    {
+      "id": "BL-20260730-DIAG-RELAY-BODY-PARSE-FOOTGUN",
+      "opened_at": "2026-07-30T12:35:00+00:00",
+      "opened_by": "claude (deploy-verify session 2026-07-30)",
+      "severity": "medium",
+      "status": "open",
+      "area": "tooling",
+      "tier": 1,
+      "title": "[diag-relay] vm-diag-snapshot parses the issue BODY line-by-line as paths, so any prose in the body hard-fails the run with a misleading 'illegal characters in resolved path'",
+      "source": "Three failed runs in one session, 2026-07-30. Issue #8010 (body = a JSON array plus explanatory prose) failed with 'Rejected diag path [\"/api/diag/journalctl?...\", \"...\"]: illegal characters in resolved path'. Issue #8012 (body = a single explanatory paragraph, path correctly in the title) failed with the same error naming the PARAGRAPH as the rejected path. #8013 succeeded only once the body was reduced to bare path lines and the context moved to a comment.",
+      "description": "The documented pattern is a '[diag-request] <path>' TITLE, which invites the reasonable assumption that the body is free text for context. It is not: the body is parsed as the path list, and the title is consulted only when the body is empty or unparsable. So adding a sentence of context — or the mandatory Claude Code attribution footer — silently converts a valid request into a failed run. The error message compounds it by reporting 'illegal characters in resolved path', which reads as a malformed PATH and sends the next session hunting the query string (it cost this session one wrong diagnosis: the array literal was blamed before #8012 proved it was prose in general). Two cheap fixes: state the rule where people look, and make the error say what is actually wrong.",
+      "resolution_criteria": "(a) docs/claude/diag-relay.md states explicitly that for a multi-path request the body must contain ONLY paths, one per line — no JSON, no prose, no attribution footer — and that context belongs in a follow-up comment; (b) the workflow's rejection message distinguishes 'this line does not look like a diag path (did you put prose in the body? context goes in a comment)' from a genuinely malformed path. Either half alone is a partial fix.",
+      "refs": [
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8010",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8012",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8013",
+        "docs/claude/diag-relay.md"
+      ]
+    },
+    {
+      "id": "BL-20260730-DEVNULL-DEPLOY-REDIRECT-FRAGILITY",
+      "opened_at": "2026-07-30T12:35:00+00:00",
+      "opened_by": "claude (deploy-verify session 2026-07-30)",
+      "severity": "low",
+      "status": "open",
+      "area": "deploy",
+      "tier": 1,
+      "title": "[deploy] install_systemd_units.sh:407 redirects to /dev/null, so an OCI-agent 0444 window makes 'systemctl enable --now' a no-op that reports nothing",
+      "source": "pull-and-deploy 2026-07-30T11:42Z (issue #8008) logged 'install_systemd_units.sh: line 407: /dev/null: Permission denied' six times while enabling timers. ict-devnull-guard.service is healthy — running and finishing cleanly every ~60s (#8013) — and its own unit description names the cause: 'OCI agent resets it to 0444, breaking >/dev/null for the trader + auto-deploy'.",
+      "description": "In bash a failed redirection aborts the command before it executes, so each of those six 'systemctl enable --now <timer> >/dev/null' calls did not merely lose its output — it did not run. IMPORTANT, so nobody re-chases this as an outage: it caused NO harm on this deploy. /api/diag/services (#8015) confirms ict-db-integrity.timer, ict-exchange-fills-pull.timer, ict-exchange-funding-pull.timer, ict-health-snapshot.timer and ict-devnull-guard.timer are all active — they were already enabled, so the skipped call was a no-op regardless. (ict-ib-gateway-watchdog.timer reads inactive, which is correct: gateway-only, and the trader's role is unset.) The latent bug is the case that has not happened yet: a genuine FIRST-time enable of a new timer landing inside a 0444 window would be skipped silently, the deploy would report success, and the new scheduled job would simply never run — discoverable only by noticing its absence.",
+      "resolution_criteria": "install_systemd_units.sh no longer makes command execution contingent on a writable /dev/null for these enables — e.g. drop the redirect, or guard it so a redirect failure cannot swallow the command — and a failed enable is surfaced rather than silent. Bonus: have the deploy assert /dev/null is a 0666 char device up front and re-assert (the guard's own logic) instead of racing it.",
+      "refs": [
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8008",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8013",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8015"
+      ]
+    },
+    {
+      "id": "BL-20260730-EVENT-STUDY-REPORTED-A-STALE-SCORECARD",
+      "opened_at": "2026-07-30T16:10:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "econ-event-study run 30538274453 (issue #8007) measured all three kinds correctly at full scale -- initial_jobless_claims releases=3031 joined n=1349, continuing_jobless_claims 3030/1349, cpi_yoy 905/309, price_bars=6530 -- yet the issue comment showed `kind: eia_natgas_storage, releases: 6, price_bars: 899, snapshots_path: ...econ_calendar_snapshots.jsonl`. Reading the comment alone, the run looked like it had ignored its parameters entirely.",
+      "title": "[macro/M1] the event study REPORTED a stale natgas scorecard while its own n=1349 results were discarded",
+      "description": "TWO leftovers from the two-energy-kind era that my kind-parameterization did not follow through on. Both fixed; filed because the failure SHAPE is the day's recurring one and I nearly mis-reported it. (1) The summary step hardcoded `json.load('comms/macro/econ_event_study_scorecard.json')` and labelled it `natgas`. That file was NOT regenerated by a run over other kinds, so the comment published a PREVIOUS run's n=6 natgas verdict as though it were this run's result -- a plausible, decision-shaped, completely wrong report over a correct run. Now summarizes the kinds EES_KINDS actually names, resolving each kind's own scorecard path. (2) commit-to-main's `paths:` were hardcoded to the two energy scorecards, so the three per-kind scorecards this run wrote were never committed -- the action logged 'nothing to commit -- no PR opened' and the real results survived only in the run log. Now globbed. LESSON: I diagnosed 'the parameterization was ignored' from the comment and was WRONG -- the log showed the run had been correct all along. Verify a run from its LOG, not from the artifact it chose to report; a reporting step is as capable of being scoped-wrong as a producer. HONEST RESULT of that run, now recoverable: all three kinds `no_edge_at_tested_horizons` -- claims |t| <= 1.57 across every horizon at n=1349, cpi_yoy strongest +0.1064 IC at H=1 with t=1.876 (below the t=2 flag) at n=309. A clean measured null at real n, which is a stronger result than the same null at n=6.",
+      "severity": "medium",
+      "status": "resolved-in-pr",
+      "area": "macro",
+      "refs": [
+        ".github/workflows/econ-event-study.yml",
+        "scripts/macro/econ_event_study.py",
+        "BL-20260730-M1-PRICE-JOIN-DEAD"
+      ]
     }
   ],
-  "updated_at": "2026-07-30T10:45:00+00:00"
+  "updated_at": "2026-07-30T16:10:00+00:00"
 }

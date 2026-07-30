@@ -56,6 +56,10 @@ on:
         description: "Fourier harmonic pairs of seasonal phase"
         required: false
         default: "2"
+      mode:
+        description: "backfill (default) | probe — probe only REPORTS which FRED ids resolve"
+        required: false
+        default: "backfill"
   issues:
     types: [opened]
 
@@ -103,9 +107,14 @@ jobs:
           kinds=$(printf '%s' "$ISSUE_BODY" | grep -iE '^kinds:' | head -1 | cut -d: -f2- | xargs || true)
           mt=$(printf '%s' "$ISSUE_BODY" | grep -iE '^min_train:' | head -1 | cut -d: -f2- | xargs || true)
           hm=$(printf '%s' "$ISSUE_BODY" | grep -iE '^harmonics:' | head -1 | cut -d: -f2- | xargs || true)
+          md=$(printf '%s' "$ISSUE_BODY" | grep -iE '^mode:' | head -1 | cut -d: -f2- | xargs || true)
+          # Only `probe` is accepted; anything else falls back to a real backfill so a typo
+          # can never silently turn a backfill into a no-op diagnostic.
+          case "${md}" in probe) md=probe ;; *) md=backfill ;; esac
           echo "ECB_KINDS=${kinds}"      >> "$GITHUB_ENV"
           echo "ECB_MIN_TRAIN=${mt:-24}" >> "$GITHUB_ENV"
           echo "ECB_HARMONICS=${hm:-2}"  >> "$GITHUB_ENV"
+          echo "ECB_MODE=${md}"          >> "$GITHUB_ENV"
 
       - name: Set params (dispatch path)
         if: github.event_name == 'workflow_dispatch'
@@ -113,10 +122,32 @@ jobs:
           echo "ECB_KINDS=${{ github.event.inputs.kinds }}"                  >> "$GITHUB_ENV"
           echo "ECB_MIN_TRAIN=${{ github.event.inputs.min_train || '24' }}"  >> "$GITHUB_ENV"
           echo "ECB_HARMONICS=${{ github.event.inputs.harmonics || '2' }}"   >> "$GITHUB_ENV"
+          echo "ECB_MODE=${{ github.event.inputs.mode || 'backfill' }}"       >> "$GITHUB_ENV"
 
       # Deliberately NO `|| echo` here. A failure to reconstruct is a failure of the
       # run — that is the whole point (BL-20260730-M1-PRICE-JOIN-DEAD).
+      # PROBE MODE — answers "is this FRED id real?" on a host that can actually reach FRED.
+      # The sandbox is firewalled from fred.stlouisfed.org, so this question is NOT answerable
+      # where the config is edited, and guessing an id there is how two EIA `dnav` codes ended
+      # up in a FRED-series config and 404'd for the producer's entire life
+      # (BL-20260730-EIA-SERIES-IDS-NOT-FRED). Reports only; writes NO output; never adopts an
+      # alternate id. Exits non-zero when any configured id fails to resolve.
+      - name: Probe the configured FRED series ids (diagnostic only)
+        if: env.ECB_MODE == 'probe'
+        env:
+          ICT_OFFVM_BUILD_HOST: "1"
+        run: |
+          set -euo pipefail
+          python scripts/macro/econ_calendar_snapshot_backfill.py --probe-ids | tee /tmp/probe.txt
+          {
+            echo "probe<<PROBEEOF"
+            cat /tmp/probe.txt
+            echo "PROBEEOF"
+          } >> "$GITHUB_OUTPUT"
+        id: probe
+
       - name: Reconstruct PIT release snapshots from FRED history
+        if: env.ECB_MODE != 'probe'
         env:
           ICT_OFFVM_BUILD_HOST: "1"
         run: |
@@ -131,6 +162,7 @@ jobs:
             ${KINDS_ARG} | tee /tmp/backfill.txt
 
       - name: Assert the reconstruction is non-empty
+        if: env.ECB_MODE != 'probe'
         id: assert
         run: |
           set -euo pipefail
@@ -158,6 +190,7 @@ jobs:
           fi
 
       - name: Land the reconstructed history on main (auto-merge PR)
+        if: env.ECB_MODE != 'probe'
         id: commit
         uses: ./.github/actions/commit-to-main
         with:
@@ -184,8 +217,43 @@ jobs:
           PER_KIND: ${{ steps.assert.outputs.per_kind }}
           COMMITTED: ${{ steps.commit.outputs.committed }}
           PR: ${{ steps.commit.outputs.pr }}
+          MODE: ${{ env.ECB_MODE }}
+          PROBE: ${{ steps.probe.outputs.probe }}
         with:
           script: |
+            // Probe mode skips the assert/commit steps, so their outputs are empty. Reporting
+            // the backfill template here would post a blank "Rows: ?" that reads like a failed
+            // backfill instead of a successful diagnostic.
+            if (process.env.MODE === 'probe') {
+              const pbody = [
+                '🔎 **econ-calendar-backfill — ID PROBE** (diagnostic only, nothing written).',
+                '',
+                '```', (process.env.PROBE || '(no output)').trim(), '```',
+                '',
+                'A **FAIL** here is a CONFIG question, not a code change:',
+                '- `HTTP 404` → the id is wrong or the series is not on FRED at all. Note',
+                '  `WNGSTUS` / `WCESTUS1` are EIA `dnav` codes, **not** FRED ids — for those the',
+                "  answer may be a different SOURCE (EIA's keyless weekly feed, or the keyed",
+                '  API), not a different id. `BL-20260730-EIA-SERIES-IDS-NOT-FRED`.',
+                '- `HTTP 200 but EMPTY history` → the id resolves but serves nothing; a data',
+                '  question, not a typo.',
+                '',
+                'The probe never tries candidate ids and adopts whichever resolves — that would',
+                'backfill from whatever happened to work.',
+                '',
+                '---',
+                '_Generated by [Claude Code](https://claude.ai/code)_',
+              ].join('\n');
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, body: pbody,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, state: 'closed',
+              });
+              return;
+            }
             const body = [
               '📚 **econ-calendar-backfill** — PIT release history reconstructed from FRED.',
               '',

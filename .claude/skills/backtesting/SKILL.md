@@ -71,6 +71,57 @@ compat run is the MANDATORY gate before promoting any cell onto the real-money
 `alpaca_live` account** (Tier-3); the ROUTE verdict must still be revalidated on
 Alpaca's own real venue fills + fees before the live wire.
 
+## Before a backtest number justifies a live change (added 2026-07-30)
+
+Three checks. Each one caught a real error on 2026-07-30, and in every case the harness
+reported success — the number was wrong, not missing.
+
+### 1. Does the MEASURED population match the LIVE-TRADED population?
+
+A verdict is only decision-grade if the trades measured are the trades that actually happen.
+Two live examples, hours apart:
+
+- **`side_filter` wasn't forwarded** to the harnesses, so two live *short-only* strategies
+  (`sol_pullback_2h`, `trend_donchian_xrp_4h`) were measured on **both** legs. It didn't
+  fail closed — the row degraded to `approximate`, which is common enough to be background
+  noise.
+- **The regime harness has no vol axis at all** (grep: zero hits for
+  `trend_vol|vol_regime|calm|volatile`). So a 1-D cell re-audit **pools every vol state**,
+  including states a 2-D `trend_vol` cell already gates live. A `squeeze_breakout_4h`
+  trending-short proposal passed every stability gate and was **withheld** for exactly this:
+  an unknown fraction of its 26 short trades are calm-regime trades live already refuses.
+  Contaminated today: `squeeze_breakout_4h`, `trend_donchian`. Clean: `htf_pullback_trend_2h`,
+  `gld_pullback_1h` — **checked, not assumed** (`BL-20260730-2D-VOL-CELLS-UNAUDITABLE`).
+
+So: enumerate every live gate on the strategy (`config/strategies.yaml` levers **and** every
+`config/regime_policy.yaml` cell, 1-D *and* 2-D) and confirm the harness models each, or name
+what it omits. **`fidelity: faithful` is load-bearing** — never author or retire a live gate
+off an `approximate` row.
+
+### 2. Is n enough, and is the edge concentrated in one fold?
+
+Pooled net-R alone is not evidence.
+
+- **n matters more than it looks.** `squeeze_breakout_4h` over 730d gave n=28; at 2900d,
+  n=135 — and **both** flagged cells reversed, *in opposite directions*: trending long went
+  −2.24 (n=3) → **+11.60** (n=29), trending short went +1.15 (n=6) → **−3.40** (n=26).
+  Acting on the thin read would have been wrong either way. Treat any cell under ~20 trades
+  as unmeasured, and a cell at **n=0** as **cosmetic** — zero trades is not evidence a gate
+  works.
+- **Always check the ex-max-fold sign.** `htf_pullback_trend_2h`'s short leg pooled **+7.89R**
+  and was **−3.70R ex-fold-3** — ~147% of the edge in one fold, so the sign flipped.
+  `squeeze_breakout_4h`'s short pooled −3.40R and held at **−0.77R ex-fold-3** — the sign
+  survived. Report both numbers; a pooled figure that inverts without its biggest fold is
+  a single-period artifact.
+
+### 3. Restrictive vs permissive — they need different evidence
+
+Turning a leg **off** is restrictive and can be justified *affirmatively* (a stable drag).
+Turning one **on** is permissive, and "we can't justify keeping it off" is **not** "we have
+evidence it makes money." On 2026-07-30 only the restrictive half of a two-sided finding was
+proposed, because only that half was affirmatively supported. Don't flatten a two-sided
+result into one change — it smuggles the weak half in on the strong half's evidence.
+
 ## Where backtest code lives (on `main`)
 
 | Entry point | Strategy | Invocation |
