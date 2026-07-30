@@ -65,7 +65,7 @@ def run_cell(strategy: str, regime: str, folds: int, workdir: str, days: int) ->
     sym = (cfg.get("symbols") or [None])[0]
     tf = cfg.get("timeframe")
     if harness is None or not sym or not tf:
-        out["error"] = "unclassifiable (no donchian/pullback params or no symbol/timeframe)"
+        out["error"] = "unclassifiable (no donchian/pullback/squeeze params or no symbol/timeframe)"
         return out
     out.update({"symbol": sym, "timeframe": tf, "harness": harness})
 

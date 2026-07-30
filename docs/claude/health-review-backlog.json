@@ -7019,7 +7019,41 @@
       "updates": [],
       "resolved_at": null,
       "severity": "low-medium"
+    },
+    {
+      "id": "BL-20260730-SQZ-TPR-EMPIRICAL-CHECK",
+      "opened_at": "2026-07-30T09:05:00+00:00",
+      "opened_by": "claude (squeeze-harness wiring, self-filed)",
+      "source": "scripts/research/regime_debt_matrix.py::_SQZ_TP_R_NONBINDING. Wiring backtest_squeeze.py into classify() exposed one infidelity: the harness has no --tp-r flag (it models the Chandelier trail as the sole profit-exit). The live config's tp_r: 50.0 cannot bind before a 3.5-ATR trail fires, so the omission is harmless there — but that is currently asserted via a THRESHOLD CONSTANT (20R), not measured.",
+      "title": "[regime] squeeze tp_r non-binding bound is a threshold constant, not an empirical check",
+      "description": "The honest version of this check is empirical: after the harness run, verify no emitted trade's MFE ever reached tp_r on the sample; only then is ignoring tp_r provably non-binding FOR THAT SAMPLE. The threshold form can be wrong in principle (a tighter trail or a calmer regime could let a 20R+ target bind, and a future strategy could sit just above the line). Implementing it needs a post-run fidelity adjustment in BOTH callers (regime_debt_matrix.run_one and regime_cell_walkforward.run_cell), which return fidelity before the subprocess runs — a real refactor, not a one-liner, which is why it is filed rather than inlined. Severity is low because the current bound fails CLOSED (below 20R the row degrades to `approximate`, blocking cell authoring) and the live value is 50R. Note this is self-filed: the guard I wrote is weaker than the guard I would want reviewing someone else's.",
+      "severity": "low",
+      "status": "open",
+      "area": "research-tooling",
+      "refs": [
+        "scripts/research/regime_debt_matrix.py",
+        "scripts/backtest_squeeze.py",
+        "tests/test_regime_debt_matrix_squeeze.py",
+        "BL-20260730-SQUEEZE-NO-HARNESS"
+      ]
+    },
+    {
+      "id": "BL-20260730-SQZ-WIRING-UNVERIFIED-E2E",
+      "opened_at": "2026-07-30T09:05:00+00:00",
+      "opened_by": "claude (squeeze-harness wiring, self-filed)",
+      "source": "Local verification of the squeeze wiring reached classification only: `regime_debt_matrix.py --only squeeze_breakout_4h` now returns harness=\"squeeze\" (was error=\"unclassifiable\"), but the run then stops at `fetch failed` because this sandbox has no pandas for scripts/ops/fetch_backtest_candles.py. 18 unit tests pass, including a static check that every flag emitted is one backtest_squeeze.py actually declares.",
+      "title": "[regime] squeeze-harness wiring is unit-verified but has NEVER produced a real measurement",
+      "description": "BUILT != VERIFIED. What is proven: classification resolves, the flag set is accepted by the harness's own declared options, adx degrades instead of crashing, and the tp_r bound fails closed. What is NOT proven: that an end-to-end run yields trades at usable n, that regime_tag_emitted.py can tag them, and therefore that squeeze_breakout_4h's FOUR live cells are actually re-auditable now. Until a runner-side run returns a populated matrix, the correct statement is 'the blocker is removed in code', NOT 'the cells are re-auditable'. Close this by dispatching regime-debt-matrix (or regime-cell-walkforward) for squeeze_breakout_4h on a GitHub-hosted runner once the wiring is on main, and recording the n per regime.",
+      "severity": "medium",
+      "status": "open",
+      "area": "research-tooling",
+      "refs": [
+        "scripts/research/regime_debt_matrix.py",
+        ".github/workflows/regime-debt-matrix.yml",
+        "BL-20260730-SQUEEZE-NO-HARNESS",
+        "BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER"
+      ]
     }
   ],
-  "updated_at": "2026-07-30T08:30:00+00:00"
+  "updated_at": "2026-07-30T09:05:00+00:00"
 }
