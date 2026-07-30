@@ -40,6 +40,7 @@ import os
 import pathlib
 import re
 import subprocess
+import sys
 
 REPO = pathlib.Path(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -70,18 +71,42 @@ def _git(args: list[str], repo: pathlib.Path) -> str:
                           capture_output=True, text=True).stdout
 
 
+def _refs_in_file_at(ref: str, path: str, repo: pathlib.Path) -> set[str]:
+    """Every tracking id cited in one file as of `ref` (empty if the file is new)."""
+    out = subprocess.run(["git", "-C", str(repo), "show", f"{ref}:{path}"],
+                         capture_output=True, text=True)
+    return set(REF.findall(out.stdout)) if out.returncode == 0 else set()
+
+
 def refs_in_added_lines(base: str, repo: pathlib.Path = REPO) -> dict[str, set[str]]:
-    """Tracking ids appearing on ADDED diff lines, mapped id -> {files}."""
+    """Tracking ids GENUINELY introduced by the diff, mapped id -> {files}.
+
+    "On an added line" is not the same as "introduced". Re-sorting or reformatting a file
+    rewrites every line, so long-standing content shows up as added and its pre-existing
+    references read as new. That is not hypothetical: union-merging the health-review backlog
+    re-ordered it and this guard fired on 12 dangling ids that had been there for weeks —
+    precisely the pre-existing debt the diff-scoping exists to EXCLUDE (see the module
+    docstring on alarm fatigue). A guard that cries wolf on a reformat teaches sessions to
+    suppress it, which is worse than not having it.
+
+    So an id is only "introduced" if it was NOT already cited in that same file at `base`.
+    A genuinely new dangling ref is still caught; moving an existing one is not a finding.
+    """
     diff = _git(["diff", "-U0", f"{base}...HEAD", "--"] + list(SEARCH_DIRS), repo)
     found: dict[str, set[str]] = {}
     current = "?"
+    already: dict[str, set[str]] = {}
     for line in diff.splitlines():
         if line.startswith("+++ b/"):
             current = line[6:]
+            if current not in already:
+                already[current] = _refs_in_file_at(base, current, repo)
             continue
         if not line.startswith("+") or line.startswith("+++"):
             continue
         for m in REF.findall(line):
+            if m in already.get(current, set()):
+                continue  # already cited in this file before the change — not introduced
             found.setdefault(m, set()).add(current)
     return found
 
@@ -156,4 +181,14 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except BrokenPipeError:
+        # The `--all` report is piped through `head` in artifact-validity-guard.yml, which
+        # closes the pipe early and made this exit with a traceback on stderr. Harmless today
+        # only because the step's exit status is `head`'s — adding `pipefail` there would have
+        # turned a cosmetic wart into a red CI step for no reason.
+        try:
+            sys.stderr.close()
+        finally:
+            raise SystemExit(0) from None

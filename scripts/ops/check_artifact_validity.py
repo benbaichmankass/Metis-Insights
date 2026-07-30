@@ -91,6 +91,16 @@ CHECKS: dict[str, dict[str, Any]] = {
         "jsonl_min_rows": 1,
         "note": "The forward PIT calendar ledger.",
     },
+    "comms/macro/econ_expectation_validation.json": {
+        "inputs": [("report.n_overlap", 1)],
+        "note": "M3 — the M1 gate's satisfiability condition. Its verdict is only "
+                "meaningful over a non-empty overlap, and this artifact is exactly the "
+                "shape that goes vacuous quietly: the survey side is a JOIN, so a "
+                "renamed/absent input file yields zero pairs rather than an error. "
+                "(It reported insufficient_overlap at n=11 while 1,263 joinable rows sat "
+                "committed beside it, because the tool read only one of its two survey "
+                "sources.)",
+    },
 }
 
 

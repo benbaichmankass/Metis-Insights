@@ -2204,7 +2204,17 @@
       ],
       "resolved_at": null,
       "severity": "high"
+    },
+    {
+      "id": "PB-20260730-SCALP-CAPTURE-STANDING-WATCH",
+      "opened_at": "2026-07-30T13:00:00+00:00",
+      "opened_by": "claude (full-system-review-807m08)",
+      "source": "The scalp exit leak (5m bybit scalps closing reconciler_filled after multi-hour holds, giving back MFE) is REAL and quantified, but its root cause is OPEN: BYBIT_TPSL_MODE=partial was already live since ~07-21 (BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-TPSL-PREMISE), so partial-vs-full is NOT the fix. The real cause is under investigation by the concurrent 2026-07-30 session (Bybit partial-leg desync / naked-bracket, fixed in PR #8000; leg over-accumulation BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING; NULL exit_price/pnl on reconciler closes BL-20260730-CLOSED-TRADE-NULL-EXITPRICE-PNL).",
+      "title": "[exit][capture] Standing watch: track scalp hold-time / roundtrippers / giveback via the new execution_capture review metric as #8000 + follow-ups soak",
+      "description": "NOT a re-verify-the-flip item (that premise is disproven). The durable hook: the /system-review execution_capture metric (added PR #7973 -- m20_exit_analysis roundtrippers_pct / mean_giveback_r / hold_h_actual-vs-expected per live strategy, aged across reviews) is now the STANDING measurement for whether bybit ict_scalp capture actually improves as the concurrent session's real fixes (#8000 Bybit broker-naked sweep; the leg-desync + over-accum remediation) land and soak. Each /system-review: confirm post-fix bybit scalp hold-times trend toward minutes and roundtrippers/giveback drop vs the ~9h-avg / 80%-reconciler_filled pre-fix baseline (docs/research/exit-capture-deepdive-2026-07-30.md, read through its top correction banner). If they do NOT improve after the #8000-family soaks, the root cause is still unaddressed -- escalate. Baseline reference for the compare: pre-2026-07-30 bybit ict_scalp -- avg hold 9.05h / median 2.53h, 47/59 reconciler_filled.",
+      "status": "open",
+      "tier": "observe (standing review-metric watch; the real fix is the concurrent session's Tier-2 #8000-family, not this item)"
     }
   ],
-  "updated_at": "2026-07-30T07:00:00+00:00"
+  "updated_at": "2026-07-30T13:00:00+00:00"
 }
