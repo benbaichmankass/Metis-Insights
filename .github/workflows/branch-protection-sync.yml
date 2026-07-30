@@ -73,7 +73,16 @@ jobs:
           # the order-dependent + post-IB-merge regressions, and #1717
           # the non-root sudo-stub fix that was failing only on the CI
           # runner. See pytest-run.yml header.
-          REQUIRED_CONTEXTS='["pytest-collect","pytest-run","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver"]'
+          # provenance-consumer-guard promoted to REQUIRED on 2026-07-30, in the
+          # same PR that made it green: a provenance signal with a writer and no
+          # consumer is what let +$247,683.78 of mark-price PnL accumulate
+          # unnoticed through several clean line-by-line audits. Advisory-only
+          # would reproduce the exact failure it exists to prevent — a signal
+          # everyone can walk past. Its four previously-write-only keys
+          # (pnl_source / exit_reason_source / close_exec_type /
+          # unrealizedPnlSource) all gained real consumers in that PR, so it is
+          # green on merge, NOT waivered green.
+          REQUIRED_CONTEXTS='["pytest-collect","pytest-run","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver","provenance-consumer-guard"]'
 
           # Use the CURRENT canonical repo path from the Actions context, NOT a
           # hardcoded owner/repo. The 2026-07-23 rename (ict-trading-bot ->

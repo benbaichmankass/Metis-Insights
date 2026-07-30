@@ -100,6 +100,11 @@ def _consumer_patterns(key: str) -> List[re.Pattern]:
         # Routed through the canonical module — the preferred consumer.
         re.compile(rf'classify_row\([^)]*{k}'),
         re.compile(rf'(is_measured|split_counts|require_measured)\([^)]*{k}'),
+        # classify(value, "<key>") — the value-level entry point, for a caller
+        # that holds the source string rather than a whole row. Same canonical
+        # module, same key-aware semantics; recognising it rewards routing
+        # through the vocabulary instead of re-deriving buckets at the callsite.
+        re.compile(rf'classify\([^)]*{k}'),
     ]
 
 

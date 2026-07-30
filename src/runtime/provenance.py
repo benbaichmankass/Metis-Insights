@@ -133,6 +133,12 @@ ESTIMATED_SOURCES = frozenset({
     # for a confirmed close whose real fill was never recovered. Anchored to
     # the close TIME, unlike `local_markprice` which is simply "now".
     "candle_at_close",
+    # The exit REASON (sl/tp) derived by comparing the recovered exit price to
+    # the order package's bracket. A defensible derivation, but the venue never
+    # said "this was a stop-out" — so it is not a measurement of the reason.
+    # Its sibling value `unresolved` is deliberately absent here: it falls to
+    # UNVERIFIED, which is exactly what it means.
+    "price_vs_pkg_bracket",
 })
 
 FABRICATED_SOURCES = frozenset({
@@ -149,17 +155,61 @@ FABRICATED_SOURCES = frozenset({
 })
 
 
+#: Per-key bucket overrides — the SAME source string can mean different things
+#: depending on what it is the provenance OF.
+#:
+#: The motivating case is a mark price. Substituting a live mark for the exit of
+#: a trade that CLOSED hours earlier is fabrication: there is a true value (the
+#: fill) and the mark is not it. But marking an OPEN position to the current
+#: market is not fabrication at all — it is the standard, correct valuation, and
+#: no truer number exists while the position is still open. Filing both under
+#: :data:`FABRICATED` because they share a string would cry wolf on every open
+#: position and devalue the signal for the case that actually matters.
+#:
+#: This changes REPORTING only, never trust: everything here is still outside
+#: :data:`MEASURED`, so :func:`is_measured` stays False, :func:`require_measured`
+#: still rejects it, and :func:`coverage` still counts only real measurements.
+_KEY_BUCKET_OVERRIDES: Dict[str, Dict[str, str]] = {
+    "unrealizedPnlSource": {
+        # An open position marked to the live market — the correct valuation,
+        # anchored to the current price. Not a fill, so not MEASURED.
+        "markprice_local": ESTIMATED,
+        "local_markprice": ESTIMATED,
+        # Prop has no broker feed at all, so its uPnL is a dashboard-side mark
+        # estimate (and assumes 1:1 contract value) — weaker than a broker mark,
+        # but still anchored to a current price rather than invented.
+        "prop_estimate": ESTIMATED,
+        # Broker-reported unrealised PnL — the venue's own number.
+        "broker": MEASURED,
+        # The honest "we could not measure this leg" value. NOT zero, and never
+        # summed as zero (see the uPnL aggregation rule in CLAUDE.md).
+        "unavailable": UNVERIFIED,
+    },
+}
+
+
 class ProvenanceError(RuntimeError):
     """Raised by :func:`require_measured` when untrusted values would be used."""
 
 
-def classify(source: Any) -> str:
+def classify(source: Any, key: Optional[str] = None) -> str:
     """Bucket a raw provenance string. Unknown/empty -> :data:`UNVERIFIED`.
+
+    *key* selects the provenance key the string belongs to, so a value whose
+    meaning depends on context resolves correctly (see
+    :data:`_KEY_BUCKET_OVERRIDES` — a mark on an OPEN position is an estimate,
+    the same mark stamped on a CLOSED trade's exit is a fabrication). Omitting
+    *key* keeps the strict, closed-trade reading, which is the safe default: it
+    can over-report fabrication, never under-report it.
 
     Deliberately total (never raises, never returns None) so a caller can't
     accidentally skip the check via an exception path.
     """
     s = str(source or "").strip()
+    if key:
+        override = _KEY_BUCKET_OVERRIDES.get(key, {}).get(s)
+        if override is not None:
+            return override
     if s in FABRICATED_SOURCES:
         return FABRICATED
     if s in ESTIMATED_SOURCES:
@@ -205,7 +255,7 @@ def classify_row(row: Any, key: str = "exit_price_source") -> Tuple[str, str]:
         except (KeyError, IndexError, TypeError):
             notes = None
         raw = str(_decode_notes(notes).get(key) or "")
-    return classify(raw), (raw or "(none)")
+    return classify(raw, key), (raw or "(none)")
 
 
 def is_measured(row: Any, key: str = "exit_price_source") -> bool:
