@@ -7239,7 +7239,63 @@
         "scripts/ops/check_research_index.py",
         "docs/CLAUDE-RULES-CANONICAL.md"
       ]
+    },
+    {
+      "id": "BL-20260730-EIA-SERIES-IDS-NOT-FRED",
+      "opened_at": "2026-07-30T12:45:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "econ-calendar-backfill first run (#7977) FAILED closed: 3 of 5 series ids returned real FRED history (ICSA 3107 rows, CCSA 3106, CPIAUCSL 953) while eia_crude_stocks (WCESTUS1) and eia_natgas_storage (WNGSTUS) both returned HTTP 404. No output was written -- the fail-closed design refused a partial success.",
+      "title": "[macro/M1] the two ENERGY event kinds use EIA series codes in a FRED-series config — 404, and they are the M1 targets",
+      "description": "CATEGORY ERROR, not a typo. WCESTUS1 and WNGSTUS are EIA's own dnav series codes (eia.gov/dnav/pet/hist/LeafHandler.ashx?s=WCESTUS1), not FRED series ids, so fredgraph.csv correctly 404s them. I authored them into config/macro_econ_series.yaml from EIA's catalogue while the fetcher is a FRED fetcher. THE FIX IS A SOURCE DECISION, NOT AN ID GUESS -- two possibilities needing different work: (1) FRED republishes these EIA series under different ids => a config edit; (2) FRED does not carry them keyless at all => needs EIA's own feed (ir.eia.gov weekly text/CSV is keyless; EIA API v2 needs a KEY, which is an operator hand-off). I CANNOT DETERMINE WHICH FROM THE SANDBOX: fred.stlouisfed.org is firewalled here (confirmed twice -- WebFetch 403, direct fetch fails) while the same call works on a GitHub runner. Guessing candidate ids into config would reproduce precisely the bug being fixed (an unverified id that looks authoritative), so it is deliberately NOT done. PROPOSED NEXT STEP: add a `--probe-ids` DIAGNOSTIC mode to econ_calendar_snapshot_backfill.py that tests candidate ids on the runner and REPORTS which resolve, writing no output ever -- so the runner does the verification instead of the sandbox guessing. It must stay a diagnostic: a try-candidates-until-one-resolves FALLBACK inside the producer would silently backfill from whatever id happened to work, which is the same class as the original bug. IMPACT: these two kinds ARE the ROADMAP_MACRO M1/M2 energy-event targets, so M1 stays blocked on this even though the machinery now works -- the 3 verified kinds (jobless claims x2, CPI) unblock the study END-TO-END but are not the energy sleeve. Do not report M1 as unblocked on the strength of the 3 working kinds.",
+      "severity": "high",
+      "status": "open",
+      "area": "macro",
+      "refs": [
+        "config/macro_econ_series.yaml",
+        "scripts/macro/econ_calendar_snapshot_backfill.py",
+        ".github/workflows/econ-calendar-backfill.yml",
+        "ROADMAP_MACRO.md",
+        "BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER",
+        "BL-20260730-M1-PRICE-JOIN-DEAD"
+      ]
+    },
+    {
+      "id": "BL-20260730-SQZ-CELLS-N-TOO-THIN",
+      "opened_at": "2026-07-30T12:45:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "regime-debt-matrix run #7978 (730d) for squeeze_breakout_4h: harness=squeeze, fidelity=faithful, errored=0 -- the wiring works -- but only 28 trades TOTAL across all regimes (trending long n=3 / short n=6; transitional long n=5 / SHORT n=0; chop long n=7 / short n=7).",
+      "title": "[regime] squeeze_breakout_4h wiring VERIFIED but n=28 over 730d — cells still ungradeable; transitional-short is cosmetic (n=0)",
+      "description": "Splits BL-20260730-SQZ-WIRING-UNVERIFIED-E2E cleanly: the WIRING claim is now verified on a runner (harness=squeeze, faithful, real per-regime numbers, previously 'unclassifiable'), but the CELL claim is not and must not be conflated with it. At n=3-7 per cell nothing separates from noise. A 4h squeeze (BB-inside-KC then breakout) is a genuinely rare setup, so this is expected for the window, not a bug. Re-dispatched at 2900d (#7986, ~8y, Binance-vision has BTC from 2017) for ~4x the sample. TWO THINGS TO CARRY FORWARD: (a) transitional SHORT measured n=0 while the live cell has short:on -- zero trades is not evidence of a working gate, it is a COSMETIC CELL, same class as BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS; if 2900d still shows n=0 there, record it as decorative rather than reading it as 'short trading is fine in transitional'. (b) two live cells disagree in SIGN with the thin measurement (trending long -2.24 with long:on; chop short -2.03 with short:on) -- not actionable at this n, but the longer run should be read as a test of THOSE TWO specifically. GATE: any cell that still reads negative at adequate n goes to regime_cell_walkforward for the #7915 *_stable_drag gate BEFORE any proposal -- pooled net-R alone is what produced the htf_pullback_trend_2h fold-3 artifact (+7.89R short leg that is -3.70R ex-fold-3).",
+      "severity": "medium",
+      "status": "open",
+      "area": "research",
+      "refs": [
+        "config/regime_policy.yaml",
+        "scripts/research/regime_debt_matrix.py",
+        "BL-20260730-SQZ-WIRING-UNVERIFIED-E2E",
+        "BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS",
+        "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER"
+      ]
+    },
+    {
+      "id": "BL-20260730-DONCHIAN-EXIT-PANEL-BUILT-NOT-REGIME-SPLIT",
+      "opened_at": "2026-07-30T12:55:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "research-exit-head-build run #7976 for trend_donchian (backtest_system roster, BTCUSDT 1h, 730d): panel 4600 rows from 127 trades, base hold rate 0.4276. OOS AUC 0.5722 stable 5/5 folds (criterion a PASS). Net-of-fee exit-policy improvement -0.0402 (head 0.0554 vs base 0.0955 over 106 trades, 18.9% early-exited) => criterion b FAIL. VERDICT clears_bar: False.",
+      "title": "[research] trend_donchian exit panel BUILT (4600 rows) and the head is an honest NULL — but this did NOT re-audit the 6 regime cells",
+      "description": "THREE distinct claims, and conflating them is the trap. (1) VERIFIED: the per-bar in-trade panel for trend_donchian now EXISTS -- 4600 rows / 127 trades, real substrate (contrast squeeze_breakout_4h's n=28). The A6d re-audit path has its input. (2) HONEST NULL, worth recording: a freshly-trained take/skip exit head DISCRIMINATES out-of-sample (AUC 0.5722, above the pre-registered 0.55 bar, positive in 5/5 folds, top features running_mfe_r + upnl_r + mfe_giveback_r, 6 FDR survivors) but the resulting exit POLICY does NOT beat the fixed SL/TP net of fees (-0.0402 R/trade). Per the pre-registered design bar (both criteria required) this is a MISS and stops here -- exactly the 'record the null' case, not a tuning invitation. (3) NOT DONE, and must not be reported as done: this does NOT re-audit the six live regime cells. Two gaps: (i) the workflow trains a NEW head, it does not replay the LIVE exit-head-donchian-1h-v1 at its live tau 0.10 / action close -- and per BL-20260730-EXITHEAD-REPLAY-SINGLE-THRESHOLD the analyzer's single-threshold policy sim cannot reproduce the live CONDITIONAL rule (score<tau AND open_r<below_r) anyway; (ii) nothing split per-trade R by REGIME, which is the entire point of the cell re-audit. So A6d step 1 is done, steps 2 and 3 are not. NEXT: split the panel's per-trade realized R by the regime_tag_emitted axis and apply the same #7915 *_stable_drag gate every other cell is held to; the live-head replay needs the exit_head_shadow.would_exit predicate wired into the policy sim first.",
+      "severity": "medium",
+      "status": "open",
+      "area": "research",
+      "refs": [
+        "scripts/research/build_intrabar_exit_panel.py",
+        "scripts/research/analyze_exit_head.py",
+        "scripts/research/regime_tag_emitted.py",
+        "BL-20260730-EXITHEAD-REPLAY-SINGLE-THRESHOLD",
+        "BL-20260730-DONCHIAN-CELLS-SUPERSEDED-EVIDENCE",
+        "docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md"
+      ]
     }
   ],
-  "updated_at": "2026-07-30T12:15:00+00:00"
+  "updated_at": "2026-07-30T12:55:00+00:00"
 }
