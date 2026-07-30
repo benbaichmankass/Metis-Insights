@@ -401,6 +401,25 @@ jobs:
                 color: 'd93f0b',
                 description: 'A scheduled macro producer ledger has gone stale (cron may have stopped) — opened by macro-producer-liveness.',
               },
+              // M1/M3 backfill triggers. These were being auto-created implicitly by the
+              // issues API on first use, which works but leaves the declared set incomplete —
+              // and this file exists so the labels workflows FILTER on are declared, not
+              // discovered. Declaring them also documents what each one fires.
+              {
+                name: 'econ-calendar-backfill-now',
+                color: '0e8a16',
+                description: 'Triggers econ-calendar-backfill — reconstruct PIT release history from FRED (or `mode: probe` to only report which series ids resolve).',
+              },
+              {
+                name: 'econ-survey-backfill-now',
+                color: '0e8a16',
+                description: 'Triggers econ-calendar-survey-backfill — reconstruct the SURVEY-consensus side from FXStreet history, raising M3\'s joinable overlap.',
+              },
+              {
+                name: 'econ-event-study-now',
+                color: '0e8a16',
+                description: 'Triggers econ-event-study — surprise → forward-return IC(H) over the PIT snapshots (takes kinds/snapshots/start).',
+              },
             ];
             // Resilient bootstrap: one bad label must not abort the rest.
             // GitHub caps label descriptions at 100 chars (422 otherwise), so

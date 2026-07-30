@@ -48,6 +48,59 @@ seasonality. NOT the ICT/technical strategies (→ `new-strategy` / `backtesting
    calendar 403'd, so an empirical probe across every free candidate picked
    FXStreet (keyless) instead. A 200 is not enough — capture the field shapes.
 
+## The two-source join contract (added 2026-07-30 — learned the hard way)
+
+Macro work constantly compares **two independently-sourced views of the same release**
+(a backfilled model expectation vs a captured survey consensus; a reconstructed history vs
+a forward producer). Before comparing them, verify all three of these. Skipping any one
+produced a real failure on 2026-07-30 and each failure looked like a plausible result
+rather than an error.
+
+1. **Date basis — what does the date field MEAN in each source?**
+   Keyless FRED dates an observation by its **reference period**; a calendar feed dates it
+   by the **release date**. CPI for reference `2026-06-01` publishes ~`07-15`. Getting this
+   wrong gave a **zero-row join** *and* made the event study measure forward returns over a
+   window that mostly **precedes** the release. Emit both (`reference_period` +
+   `scheduled_for`) and stamp the basis (`release_date_basis: modeled_lag`) so a modeled
+   date can never be read as an observed one.
+   **A fixed lag only works for a fixed-weekday series.** Weekly claims/EIA land exactly;
+   the BLS CPI release drifts (~10th–15th), so monthly joins need a **tolerance window** +
+   a reported offset distribution, or a partial join reads as a small sample rather than a
+   systematic miss (`BL-20260730-MONTHLY-RELEASE-DATE-DRIFT`).
+
+2. **Units — same quantity, or merely a similar-looking number?**
+   FRED served claims as persons (`187000`) against a survey convention of thousands
+   (`187.0`), and `cpi_yoy` as the CPI **index level** (`332.568`) against YoY percent
+   (`3.5`). The second is not a scale error, it is **the wrong quantity under the right
+   name**. Note a scale **cancels in a correlation but not in a slope or a percent**, so it
+   cannot be waved off. Declare a per-kind `transform`, apply it **before** fitting any
+   expectation (fitting a level and converting after forecasts the wrong series), and make
+   an unknown transform **raise** — a silent pass-through emits plausible numbers in the
+   wrong units.
+
+3. **Vintage basis** — already invariant 2 above; keyless FRED = current vintage, never
+   first prints.
+
+**Then prove the join is non-empty before you consume it.** A joined dataset of zero rows
+computes a verdict just as happily as a real one.
+
+## Verify offline before you spend a runner
+
+When a check can be run against **already-committed** data, run it locally first. On
+2026-07-30 a local join test against the committed forward feed caught a wrong CPI lag
+(45d, off by 2 days) *before* a runner was spent — and would have caught it even if the run
+had come back green, because a green run with a partial join looks like thin data.
+
+Corollary for the sandbox: **FRED/most data hosts are firewalled here** (`fredgraph.csv`
+and `WebFetch` both fail). So "is this series id real?" is **not answerable locally** — do
+not settle it by guessing an id into config, which is how two EIA `dnav` codes ended up in a
+FRED-series config and 404'd for the producer's life. Use a **runner-side probe** that
+reports and writes nothing (`econ_calendar_snapshot_backfill.py --probe-ids`), and make it
+distinguish **404** (wrong id/source) from **200 + empty** (right id, data question) —
+those need different fixes and the shared adapter collapses both into one message.
+A probe must never try candidates and adopt whichever resolves: that backfills from
+whatever happened to work.
+
 ## The repeatable pipeline (data → PIT store → honest edge)
 
 Mirror the existing producers; don't invent a new shape.
@@ -94,7 +147,11 @@ Mirror the existing producers; don't invent a new shape.
   (and `src/sysdyn`) must NEVER import Execution / a broker / the order path —
   keep new modules on the pure side of that contract.
 - **Producers / harnesses (`scripts/macro/`)** — calendar: `econ_calendar_{data,
-  produce,fxstreet,fmp}.py`, `econ_event_study.py`; value: `valuation_snapshot_
+  produce,fxstreet,fmp}.py`, **`econ_calendar_snapshot_backfill.py`** (the PIT
+  release-history backfill sibling; `--probe-ids` is its runner-side id diagnostic),
+  **`econ_expectation.py`** (the pinned `seasonal_ar_ols_v1` PIT expectation model),
+  **`econ_expectation_validate.py`** (**M3** — the model-vs-survey overlap validation the
+  M1 gate names as its own satisfiability condition), `econ_event_study.py`; value: `valuation_snapshot_
   {produce,backfill}.py`, `value_construction_sweep.py`; system-dynamics:
   `sysdyn_gas_{data,calibrate}.py`, `sysdyn_mispricing.py`; positioning/crypto:
   `cot_data.py`, `crypto_signals_data.py`; shared: `fetch_macro_candles.py`,
