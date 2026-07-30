@@ -658,7 +658,11 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `❌ **vm-diag-snapshot run failed.**\nRun: ${runUrl}\n\nCheck the run logs for the failing step. Common causes: VM_SSH_KEY/DIAG_READ_TOKEN secret unset, malformed key, VM web-api down, token mismatch with /etc/ict-trader/web-api.env.`
+              body: (
+                '${{ steps.resolve.outcome }}' === 'failure' || '${{ steps.resolve_multi.outcome }}' === 'failure'
+              )
+                ? `❌ **vm-diag-snapshot run failed — MALFORMED REQUEST, not a VM outage.**\nRun: ${runUrl}\n\nThe diag path failed validation before any VM contact was attempted, so this says **nothing** about the live VM's health.\n\n**The path is read from the issue BODY** (the title is display-only). Put ONE \`/api/diag/...\` path per line in the body and **no prose** — a sentence like "path is in the title" is itself parsed as a path and rejected. Example body:\n\n\`\`\`\n/api/diag/audit_query?event=regime_hard_gate&limit=500\n\`\`\`\n\nSee the exact rejection in the run log's "Resolve and validate diag path" step.`
+                : `❌ **vm-diag-snapshot run failed.**\nRun: ${runUrl}\n\nThe request parsed fine, so this is an infrastructure failure. Common causes: VM_SSH_KEY/DIAG_READ_TOKEN secret unset, malformed key, VM web-api down, token mismatch with /etc/ict-trader/web-api.env.`
             });
             await github.rest.issues.update({
               owner: context.repo.owner,
