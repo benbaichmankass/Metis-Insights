@@ -230,6 +230,30 @@ def _unwrap(predictor: Any) -> Any:
     return getattr(predictor, "wrapped", None) or predictor
 
 
+def iter_projected_rows(
+    path: Path, keep: Sequence[str]
+) -> Iterator[Dict[str, Any]]:
+    """Stream the dataset, keeping ONLY the columns the head actually reads.
+
+    Memory discipline, not tidiness. ``market_features`` rows are wide — the
+    BTCUSDT/15m frame carries ~100 columns (``tsfm_emb_*``, ``corpus_emb_*``,
+    macro, microstructure, funding/OI) across 175,272 rows in a 480 MB file.
+    Materialising that as full Python dicts is several GB, on a **1 OCPU /
+    6 GB trainer with a standing OOM history** (`BL-20260717-OOM`, and its
+    `ict-trainer.service` memory cap) — a replay that OOMs mid-write also
+    leaves a truncated labels file, which is the "present but wrong" artifact
+    class this tool exists to refuse.
+
+    Projecting to the head's 13 feature columns + ``ts`` keeps the working set
+    roughly an order of magnitude smaller and flat in the number of columns the
+    dataset happens to carry. The JSON parse still touches every byte; only the
+    retained dict is bounded.
+    """
+    keep_set = set(keep) | {"ts"}
+    for row in iter_dataset_rows(path):
+        yield {k: row.get(k) for k in keep_set if k in row}
+
+
 def _score_rows(
     predictor: Any,
     rows: Sequence[Mapping[str, Any]],
@@ -504,7 +528,10 @@ def run_replay(
     )
     tau = float(threshold) if threshold is not None else live_threshold()
 
-    rows = list(iter_dataset_rows(dataset))
+    # Project to the head's own feature columns as we stream — see
+    # iter_projected_rows for why this matters on the 6 GB trainer.
+    feature_cols = list(getattr(_unwrap(head["predictor"]), "_feature_columns", []) or [])
+    rows = list(iter_projected_rows(dataset, feature_cols))
     if not rows:
         raise RuntimeError(
             f"dataset {dataset} yielded 0 rows — nothing to label. A zero-row "
@@ -763,7 +790,8 @@ def main(argv: List[str]) -> int:
         head = resolve_advisory_head(
             a.symbol, model_id=a.model_id, registry_root=a.registry_root
         )
-        rows = list(iter_dataset_rows(Path(a.dataset)))
+        _fc = list(getattr(_unwrap(head["predictor"]), "_feature_columns", []) or [])
+        rows = list(iter_projected_rows(Path(a.dataset), _fc))
         rep = audit_feature_rows(head["predictor"], rows)
         rep["head"] = {"model_id": head.get("model_id"), "stage": head.get("stage")}
         rep["dataset"] = str(a.dataset)

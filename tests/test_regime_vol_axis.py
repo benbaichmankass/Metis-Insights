@@ -23,6 +23,7 @@ scripts/research is not a package, so modules load via importlib.
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import sys
 
@@ -404,6 +405,41 @@ def test_audit_uses_the_live_bucketing_function_not_a_reimplementation():
     assert bucket_for_vol(0.001, edges, labels) == "vol_b0"   # <= is inclusive
     assert bucket_for_vol(0.0011, edges, labels) == "vol_b1"
     assert bucket_for_vol(99.0, edges, labels) == "vol_b2"    # saturates
+
+
+def test_projection_keeps_ts_plus_only_the_heads_columns(tmp_path):
+    """Memory discipline: a wide market_features row must not be materialised whole.
+
+    The BTCUSDT/15m frame is ~100 columns × 175,272 rows in a 480 MB file, and
+    the trainer is 1 OCPU / 6 GB with a standing OOM history. A replay that
+    OOMs mid-write leaves a TRUNCATED labels file — a present-but-wrong
+    artifact, which is worse than no artifact.
+    """
+    p = tmp_path / "wide.jsonl"
+    wide = {"ts": "2026-01-01T00:00:00Z", "vol_bucket": "vol_b0",
+            "rolling_log_return_vol": 0.0005, "log_return": 0.001,
+            "regime_label": "range", "forward_log_return": 0.02}
+    wide.update({f"tsfm_emb_{i}": 0.1 for i in range(40)})
+    p.write_text(json.dumps(wide) + "\n", encoding="utf-8")
+
+    got = list(replay.iter_projected_rows(
+        p, ["vol_bucket", "rolling_log_return_vol", "log_return"]))
+    assert len(got) == 1
+    assert set(got[0]) == {"ts", "vol_bucket", "rolling_log_return_vol", "log_return"}
+    # the forward label must never ride along — it is the thing being predicted
+    assert "forward_log_return" not in got[0]
+    assert "regime_label" not in got[0]
+    assert not any(k.startswith("tsfm_emb_") for k in got[0])
+
+
+def test_projection_leaves_a_genuinely_absent_column_detectable():
+    """Projection must not MASK a missing feature — the audit still has to see it."""
+    head = _StubHead()
+    rows = [{"ts": "2026-01-01T00:00:00Z", "vol_bucket": "vol_b0",
+             "rolling_log_return_vol": 0.0005}]  # log_return absent entirely
+    rep = replay.audit_feature_rows(head, rows)
+    assert rep["ok"] is False
+    assert rep["missing_or_null_by_column"] == {"log_return": 1}
 
 
 def test_score_distribution_flags_a_degenerate_head():
