@@ -7578,6 +7578,25 @@
         "BL-20260730-M3-CONTINUING-CLAIMS-NO-TRACK",
         "ROADMAP_MACRO.md"
       ]
+    },
+    {
+      "id": "BL-20260730-TRAINER-DISK-95PCT",
+      "opened_at": "2026-07-30T16:00:00+00:00",
+      "opened_by": "claude (offline vol-axis session — noticed in passing, not the session's task)",
+      "source": "trainer-vm-diag #8059 section K: `/dev/sda1 45G 43G 2.4G 95% /` on ict-trainer-vm. Observed while inventorying datasets for the vol-axis replay; not what the probe was looking for.",
+      "title": "[trainer][infra] trainer VM root filesystem at 95% — 2.4G free against a workload that writes ~480MB per dataset build",
+      "description": "Not urgent-broken, but on a clear trajectory and cheap to fix now. The trainer's root fs is 43G/45G used with 2.4 GB free. That box's normal work is writing market_features builds of ~480 MB each (BTCUSDT/15m/v520 alone is 480,607,056 bytes), and `datasets-out/market_features/BTCUSDT/15m/` currently holds SIXTEEN versions (v001-v006, v104, v106, v107, v513-v515, v520, v903, v905, vfmac003), most of them 175,272-row siblings differing only in which optional side-stream was joined. Several are plainly superseded (v003/v004/v104/v106/v107 have NO fc_ columns at all; v513/v514/v515 are same-day predecessors of v520). WHY THIS MATTERS BEYOND HOUSEKEEPING: a build that runs out of disk mid-write is exactly the failure mode that produces a TRUNCATED-BUT-PRESENT artifact — the 'green but vacuous' class the binding 'Green is not evidence' rule exists for. A half-written data.jsonl looks like a dataset until something asserts its row count. Two things worth doing: (a) prune superseded market_features versions on the trainer (keep the one each live/advisory head actually trained on — v520 for btc-regime-15m-lgbm-fc-pcv-v1 — plus the newest), and (b) consider whether the dataset-build path should pre-check free space and fail loudly rather than write a partial file. NOTE the pruning is NOT purely mechanical: the registry pins heads to specific dataset versions, so a version must be confirmed unreferenced before deletion.",
+      "tier": 1,
+      "trigger_condition": "Trainer root fs above ~90%, or any dataset build failing/short-writing.",
+      "resolution_criteria": "Trainer root fs back under ~80% via a verified-unreferenced prune, and a decision recorded on whether build writes pre-check free space.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "medium",
+      "refs": [
+        "BL-20260730-PRODUCER-VACUITY-GUARD"
+      ]
     }
   ],
   "updated_at": "2026-07-30T16:10:00+00:00",

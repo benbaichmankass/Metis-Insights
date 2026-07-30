@@ -101,6 +101,30 @@
    `vol_detector`); `BL-20260730-2D-VOL-CELLS-UNAUDITABLE` updated with an
    honest "tool built, nothing measured yet" entry and left **open**.
 
+6. **Trainer inventory completed (#8059) — it validates the design end-to-end**,
+   which matters because every one of these was an assumption until checked:
+   - the head loads: `LightGBMMulticlassPredictor`, `class_labels ('range',
+     'volatile')`, **13 features** exactly matching the manifest, `regime_spec`
+     `BTCUSDT`/`15m`. So the replay's `predict_proba(row)["volatile"]` read is
+     correct against the real artifact, not just against the manifest.
+   - the **router itself** resolves `BTCUSDT → btc-regime-15m-lgbm-fc-pcv-v1`;
+     `ETHUSDT`/`SOLUSDT`/`XRPUSDT` → `None` (consistent with SOL's 2026-07-26
+     demotion and ETH still being shadow — so those symbols genuinely have no ML
+     vol axis to replay, and live keeps the frozen label for them).
+   - `ML_VOL_VERDICT_THRESHOLD` = **0.5** live.
+   - `.venv`: python 3.11, lightgbm 4.6.0, pandas 3.0.3, numpy 2.4.4 — **no
+     torch/Chronos needed**, since `v520` already carries the `fc_*` columns.
+   - **Unlooked-for finding:** `MES` also has an advisory head
+     (`mes-regime-5m-lgbm-v2`, 5m). The vol axis is therefore available for
+     MES-symbol strategies too, not only BTC — worth knowing before anyone
+     assumes this tool is BTC-only.
+   - **Filed, not walked past:** the trainer root fs is at **95% (2.4 GB free)**
+     against a workload writing ~480 MB per dataset build, with 16 sibling
+     `market_features/BTCUSDT/15m/` versions present →
+     `BL-20260730-TRAINER-DISK-95PCT`. A build that runs out of disk mid-write
+     produces a truncated-but-present artifact, which is the same
+     "green but vacuous" class the binding rule exists for.
+
 ## Validation Performed
 - **Tests run:** 21 new (`tests/test_regime_vol_axis.py`) — all pass. The
   load-bearing one is a **parity test that drives the real live
