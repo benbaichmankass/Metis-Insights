@@ -9,6 +9,10 @@
     "pearson": 0.7151355844806011,
     "ols_slope_model_on_survey": 0.9335138735439852,
     "sign_agreement": 0.7197986577181208,
+    "dispersion_ratio_model_over_survey": 1.3053662743156476,
+    "rmse_model": 155.04757234769986,
+    "rmse_survey": 118.9438360751076,
+    "rmse_ratio_model_over_survey": 1.3035360003842016,
     "offset_days_min": -5,
     "offset_days_max": 5,
     "offset_days_mean": 0.10372129849564529,
@@ -19,6 +23,10 @@
         "spearman": 0.5176005798684161,
         "sign_agreement": 0.7528089887640449,
         "ols_slope_model_on_survey": 1.3643037400457456,
+        "dispersion_ratio_model_over_survey": 2.591195863341973,
+        "rmse_model": 0.35258595803735066,
+        "rmse_survey": 0.1354490926249172,
+        "rmse_ratio_model_over_survey": 2.603088372202864,
         "verdict": "model_tracks_survey"
       },
       "initial_jobless_claims": {
@@ -27,6 +35,10 @@
         "spearman": 0.6311917341778821,
         "sign_agreement": 0.7907801418439716,
         "ols_slope_model_on_survey": 0.9359864663674521,
+        "dispersion_ratio_model_over_survey": 1.3075047545791096,
+        "rmse_model": 227.6234549535798,
+        "rmse_survey": 174.62005561368258,
+        "rmse_ratio_model_over_survey": 1.3035355770196198,
         "verdict": "model_tracks_survey"
       },
       "continuing_jobless_claims": {
@@ -35,6 +47,10 @@
         "spearman": 0.4239084805368559,
         "sign_agreement": 0.640074211502783,
         "ols_slope_model_on_survey": 0.5234317805197273,
+        "dispersion_ratio_model_over_survey": 1.3623216210015825,
+        "rmse_model": 0.4260725768324447,
+        "rmse_survey": 0.31367368974200494,
+        "rmse_ratio_model_over_survey": 1.3583306179835717,
         "verdict": "model_does_not_track_survey"
       }
     },

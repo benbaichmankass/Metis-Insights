@@ -18,9 +18,23 @@ For each release present in BOTH sources:
     model_surprise  = actual - model_expectation    (our stand-in)
 
 and reports how well the second tracks the first: Spearman + Pearson correlation, **sign
-agreement**, and an OLS slope (model on survey). Correlation alone is not enough — a scale
-error is invisible to it but shows up in the slope, and the units bug this pipeline already
-hit (persons vs thousands, index level vs YoY percent) was exactly a scale error.
+agreement**, an OLS slope (model on survey), a **dispersion ratio**, and the **RMSE of each
+surprise**. Correlation alone is not enough — the units bug this pipeline already hit (persons
+vs thousands, index level vs YoY percent) was a pure scale error, invisible to correlation.
+
+But the OLS slope is NOT the scale diagnostic it was originally described as here. Since
+``slope = pearson × sd(model)/sd(survey)``, it conflates correlation with scale, and reading a
+slope below 1 as "the model's surprises are smaller" produces a wrong diagnosis. That happened
+on the first real run: continuing claims' slope of 0.523 was written up as a scale error when
+``sd(model)=0.426`` vs ``sd(survey)=0.313`` — the model surprises are MORE dispersed and the low
+slope is weak correlation (pearson ≈ 0.38). So:
+
+* ``dispersion_ratio_model_over_survey`` — scale ONLY, correlation factored out.
+* ``rmse_model`` / ``rmse_survey`` — accuracy. ``surprise = actual − expectation``, so the RMSE
+  of a surprise series IS that expectation's error against what happened. This asks the question
+  the correlation bars never do: *which expectation was closer to the outcome?* On the first real
+  run the model was WORSE than the survey on all three kinds (1.30× / 1.36× / 2.60×) — a fact the
+  pooled pass concealed entirely, and the one that most limits what option (b) can claim.
 
 THE JOIN IS TOLERANT ON PURPOSE
 -------------------------------
@@ -182,6 +196,36 @@ def spearman(xs: list[float], ys: list[float]) -> Optional[float]:
     return pearson(_rank(xs), _rank(ys))
 
 
+def _rmse(vals: list[float]) -> Optional[float]:
+    """Root-mean-square of a surprise series.
+
+    `surprise = actual - expectation`, so this IS the expectation's own error against what
+    happened. It is the accuracy question the correlation bars never ask: two expectations can
+    correlate strongly while one is systematically further from the outcome.
+    """
+    if not vals:
+        return None
+    return math.sqrt(sum(v * v for v in vals) / len(vals))
+
+
+def _dispersion_ratio(ys: list[float], xs: list[float]) -> Optional[float]:
+    """sd(ys)/sd(xs) — the SCALE comparison, with correlation factored out.
+
+    Use this, not the OLS slope, to ask "are the model's surprises bigger or smaller than the
+    survey's?". slope = pearson x this, so a slope below 1 can mean weak correlation, smaller
+    scale, or both, and reading it as scale alone produces a wrong diagnosis (it did).
+    """
+    if len(ys) < 2 or len(xs) < 2:
+        return None
+
+    def _sd(v):
+        m = sum(v) / len(v)
+        return math.sqrt(sum((q - m) ** 2 for q in v) / len(v))
+
+    sx = _sd(xs)
+    return (_sd(ys) / sx) if sx else None
+
+
 def ols_slope(xs: list[float], ys: list[float]) -> Optional[float]:
     """Slope of ys on xs. A units/scale error is invisible to correlation but shows here."""
     n = len(xs)
@@ -341,6 +385,22 @@ def score(pairs: list[dict], *, min_honest_n: int = MIN_HONEST_N) -> dict:
             "spearman": ksp,
             "sign_agreement": ksg,
             "ols_slope_model_on_survey": ols_slope(kxs, kys),
+            # THE SLOPE IS NOT A SCALE DIAGNOSTIC. slope = pearson x sd(model)/sd(survey), so
+            # it conflates correlation with scale and a slope < 1 says nothing on its own about
+            # magnitudes. This bit me on the first real run: continuing claims' slope of 0.523
+            # was written up as "the model surprise is ~half the survey's — a scale error", when
+            # sd(model)=0.426 vs sd(survey)=0.313 means the model surprise is MORE dispersed and
+            # the low slope is weak correlation (pearson ~0.38). These two columns are the
+            # separated versions — dispersion_ratio is scale ONLY, rmse_* is accuracy.
+            "dispersion_ratio_model_over_survey": _dispersion_ratio(kys, kxs),
+            # `surprise` is `actual - expectation`, so |surprise| IS the expectation's own error:
+            # rmse_* answers "which expectation is closer to what happened?" — the question the
+            # correlation bars never ask. On the first real run the model was WORSE than the
+            # survey on all three kinds (1.30x / 1.36x / 2.60x), which the pooled pass hid.
+            "rmse_model": _rmse(kys),
+            "rmse_survey": _rmse(kxs),
+            "rmse_ratio_model_over_survey": (
+                _rmse(kys) / _rmse(kxs) if _rmse(kxs) else None),
             # Each kind is graded against the SAME pre-registered bars, and a kind below
             # min_honest_n gets `insufficient_overlap` rather than a flattering pass on
             # a handful of rows.
@@ -397,6 +457,12 @@ def score(pairs: list[dict], *, min_honest_n: int = MIN_HONEST_N) -> dict:
         "pearson": pe,
         "ols_slope_model_on_survey": sl,
         "sign_agreement": sg,
+        # Scale and accuracy, separated from correlation -- see `_dispersion_ratio` /
+        # `_rmse`. The OLS slope alone is NOT a scale diagnostic.
+        "dispersion_ratio_model_over_survey": _dispersion_ratio(ys, xs),
+        "rmse_model": _rmse(ys),
+        "rmse_survey": _rmse(xs),
+        "rmse_ratio_model_over_survey": (_rmse(ys) / _rmse(xs)) if _rmse(xs) else None,
         "offset_days_min": min(offsets) if offsets else None,
         "offset_days_max": max(offsets) if offsets else None,
         "offset_days_mean": (sum(offsets) / len(offsets)) if offsets else None,
@@ -418,12 +484,18 @@ def render(report: dict, pairs: list[dict]) -> str:
         f"- Spearman **{f(report['spearman'])}** · Pearson {f(report['pearson'])} "
         f"· sign agreement {f(report['sign_agreement'], 3)}",
         f"- OLS slope (model on survey) {f(report['ols_slope_model_on_survey'])} "
-        "— a scale error hides from correlation but shows here",
+        f"= pearson × dispersion {f(report.get('dispersion_ratio_model_over_survey'), 3)} "
+        "— the slope CONFLATES the two, so read the dispersion for scale",
+        f"- expectation error (RMSE of the surprise): model {f(report.get('rmse_model'))} "
+        f"vs survey {f(report.get('rmse_survey'))} "
+        f"= **{f(report.get('rmse_ratio_model_over_survey'), 3)}×** "
+        "— >1 means the model expectation is FURTHER from the outcome than the survey's, "
+        "which the correlation bars do not test",
         f"- match offset days: min {report['offset_days_min']} / "
         f"mean {f(report['offset_days_mean'], 2)} / max {report['offset_days_max']}",
         "", "## Per kind — graded on the SAME pre-registered bars as the pooled verdict", "",
-        "| kind | n | Spearman | sign agr. | slope | mean abs gap | verdict |",
-        "|---|--:|--:|--:|--:|--:|---|",
+        "| kind | n | Spearman | sign agr. | slope | dispersion | RMSE mdl/svy | verdict |",
+        "|---|--:|--:|--:|--:|--:|--:|---|",
     ]
     for k, v in sorted(report["per_kind"].items()):
         mark = {"model_tracks_survey": "✅ tracks",
@@ -431,7 +503,9 @@ def render(report: dict, pairs: list[dict]) -> str:
                 "insufficient_overlap": "— insufficient n"}.get(v["verdict"], v["verdict"])
         lines.append(
             f"| {k} | {v['n']} | {f(v.get('spearman'))} | {f(v.get('sign_agreement'), 3)} "
-            f"| {f(v.get('ols_slope_model_on_survey'))} | {f(v.get('mean_abs_gap'))} | {mark} |")
+            f"| {f(v.get('ols_slope_model_on_survey'))} "
+            f"| {f(v.get('dispersion_ratio_model_over_survey'), 3)} "
+            f"| {f(v.get('rmse_ratio_model_over_survey'), 3)} | {mark} |")
     if report.get("kinds_not_tracking"):
         lines += ["", "**Per-kind misses:** " + ", ".join(report["kinds_not_tracking"])
                   + " — the model expectation is NOT a sound stand-in for these kinds, "

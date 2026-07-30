@@ -349,3 +349,48 @@ class TestPerKindIsGradedNotJustTabulated:
         # ...and yet the big-gap kind is the one that TRACKS.
         assert big["verdict"] == "model_tracks_survey"
         assert small["verdict"] == "model_does_not_track_survey"
+
+
+class TestSlopeIsNotAScaleDiagnostic:
+    """`slope = pearson × sd(model)/sd(survey)`, so it conflates correlation with scale.
+
+    Reading a slope < 1 as "the model's surprises are smaller" is a wrong diagnosis, and it
+    was made on the first real run: continuing claims' slope of 0.523 was written up as a
+    scale error when the model surprises are in fact MORE dispersed (0.426 vs 0.313) and the
+    low slope is weak correlation. `dispersion_ratio` is the scale-only column.
+    """
+
+    @staticmethod
+    def _p(i, survey_s, model_s):
+        return {"kind": "k", "scheduled_for": f"2026-01-{(i % 28) + 1:02d}",
+                "survey_surprise": survey_s, "model_surprise": model_s, "offset_days": 0,
+                "release_date_basis": "modeled_lag", "units_transform": "identity"}
+
+    def test_a_sub_unit_slope_can_coexist_with_larger_model_dispersion(self):
+        # Weak correlation, but the model surprises are deliberately MORE spread out.
+        survey = [1.0, -1.0, 2.0, -2.0, 0.5, -0.5, 1.5, -1.5,
+                  0.8, -0.8, 1.2, -1.2, 0.3, -0.3, 1.8, -1.8, 0.6, -0.6, 1.1, -1.1]
+        model = [4.0, 3.0, -5.0, 6.0, -4.5, 5.5, -3.5, 4.5,
+                 -6.0, 3.5, 5.0, -4.0, 6.5, -5.0, 3.0, -3.0, 4.2, -6.2, -4.8, 5.2]
+        rep = v.score([self._p(i, s, m) for i, (s, m) in enumerate(zip(survey, model))],
+                      min_honest_n=12)
+        assert rep["ols_slope_model_on_survey"] < 1.0, rep["ols_slope_model_on_survey"]
+        # ...yet the model side is unambiguously the MORE dispersed one.
+        assert rep["dispersion_ratio_model_over_survey"] > 1.0
+
+    def test_rmse_says_which_expectation_was_closer_to_the_outcome(self):
+        """A question the correlation bars never ask. `surprise = actual - expectation`, so
+        the RMSE of a surprise series IS that expectation's error."""
+        pairs = [self._p(i, 0.1 * ((-1) ** i), 3.0 * ((-1) ** i)) for i in range(30)]
+        rep = v.score(pairs, min_honest_n=12)
+        assert rep["rmse_survey"] < rep["rmse_model"]
+        assert rep["rmse_ratio_model_over_survey"] > 1.0, "model is further from the outcome"
+        # And it is reported per kind too, not only pooled.
+        assert rep["per_kind"]["k"]["rmse_ratio_model_over_survey"] > 1.0
+
+    def test_the_rendered_report_states_the_slope_conflates_the_two(self):
+        pairs = [self._p(i, float(i), float(i) + 0.01) for i in range(20)]
+        rep = v.score(pairs, min_honest_n=12)
+        out = v.render(rep, pairs)
+        assert "CONFLATES" in out
+        assert "expectation error (RMSE of the surprise)" in out
