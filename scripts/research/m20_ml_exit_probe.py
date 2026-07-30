@@ -28,11 +28,22 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
+import sys
 from bisect import bisect_right
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
 from typing import Tuple
+
+# Repo root on sys.path BEFORE the `scripts.*` imports below. Without this the
+# documented invocation in the module docstring
+# (`python3 scripts/research/m20_ml_exit_probe.py ...`) dies with
+# `ModuleNotFoundError: No module named 'scripts'` — verified on the trainer VM
+# 2026-07-30. The probe was only ever runnable via `PYTHONPATH=.`, which
+# nothing said. Matches the bootstrap in `scripts/ml/_feature_parity_probe.py`.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 # Reuse the M20 analyzer's loaders/metrics — same data contracts.
 from scripts.research.m20_exit_analysis import (  # noqa: E402
