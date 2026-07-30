@@ -7763,10 +7763,15 @@
           "at": "2026-07-30T18:05:00+00:00",
           "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
           "note": "LIVE-SIDE MEASUREMENT (fixed probe, trainer-diag #8092 + live audit rows #8094). The BTC advisory head btc-regime-15m-lgbm-fc-pcv-v1 gates VOLATILE only 10/979 = 1.02% of advisory-stage rows (shadow stage 6/1357 = 0.44%); mean P(volatile) 0.0366. Training base rate on the MANIFEST-PINNED v520 is 4.6% (the buggy probe was reading vfmac003 at 16.04% — a 3.5x different base rate). My offline replay is 9.1%. Independently corroborated on the LIVE gate's own audit rows: 40/40 sampled regime_hard_gate rows for BTCUSDT carry vol_regime='calm' with vol_label_source='ml' and vol_regime_frozen='unknown' — so the ML label is the ONLY thing supplying the vol axis, and it reads calm essentially always. CAVEAT, stated because it bounds the claim: the live rows span 2026-07-07..2026-07-30, a calm ~3-week window, against 5 years of training — so part of the offline-vs-live gap is market conditions, not necessarily skew. The column-level residual: xa_breadth_up is present in TRAIN at 100% but CONSTANT 0.0, and entirely ABSENT from live rows (pres=0.0%) — the BL-20260628-XA-TRAINING-ZERO dead-feature class; a constant-0 column carries no information so the impact is probably nil, but that should be confirmed, not assumed."
+        },
+        {
+          "at": "2026-07-30T19:05:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "SELF-CORRECTION — THE HEADLINE COMPARISON WAS EPOCH-MISMATCHED. I went looking for a reason my own finding might be wrong and found one. `v520` (the replay's dataset) covers **2021-07-01 -> 2026-06-30T22:30Z**. The live rows I compared it against start **2026-07-07** (shadow) / **2026-07-20** (advisory). The windows are effectively DISJOINT — the only overlap is a ~2-day sliver at the end of June, which is where the 34 'comparable' rows in the #8081 verify came from.\n\nSo 'offline 9.1% volatile vs live 1.02%' does NOT measure a serve-path gap: the 9.1% is a 5-year average (2021-07..2026-06) and the 1.02% is July 2026, a month absent from the dataset entirely.\n\nThe dataset's OWN per-month regime_label rate settles it — sub-1% months are common and recent:\n  2025-05 0.64% | 2025-06 0.94% | 2025-07 0.27% | 2025-09 0.14% | 2026-04 1.42% | 2026-05 0.74% | 2026-06 4.73%\nLast three available months pooled = 199/8731 = 2.28%. A live July reading of ~1% sits INSIDE this label's ordinary recent variation. It is not anomalous and is not evidence of skew.\n\nWHAT SURVIVES: the #8081 matched-timestamp comparison (median |dP| 0.043, p90 0.209, max 0.412) — those 34 rows were joined BY TIMESTAMP inside the overlap, so they are genuinely apples-to-apples. That is now the ONLY evidence for a gap, and it is thin: n=34 over ~2 days.\n\nWHAT WOULD ACTUALLY TEST IT: rebuild market_features BTCUSDT/15m through today (now unblocked — trainer went 96%->85%, 6.8G free) and re-run the replay over the SAME window the live rows cover. Until then this item should not be cited as an established gap. Severity dropped high -> medium accordingly."
         }
       ],
       "resolved_at": null,
-      "severity": "high",
+      "severity": "medium",
       "refs": [
         "BL-20260730-2D-VOL-CELLS-UNAUDITABLE",
         "scripts/research/ml_vol_label_replay.py",
@@ -7828,6 +7833,11 @@
           "at": "2026-07-30T18:25:00+00:00",
           "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
           "note": "PER-CELL LIVE COUNTS — the six cells are UNGRADEABLE on live evidence. Pulled complete, untruncated audit_query payloads per strategy (dual_write_present:true on all three; the same query shape returned 11 and 1 for the other strategies, so the zeros are genuine, not a broken query). Live `regime_hard_gate` enforcement events over the WHOLE enforce era (hard gate live 2026-06-28; rows span 2026-06-29..2026-07-29):\n  transitional/calm  trend_donchian{long:off}          n=6   (diag #8096)\n  chop/calm          trend_donchian{long:off}          n=3   (diag #8096)\n  trending/volatile  trend_donchian{long:off}          n=2   (diag #8096)\n  trending/calm      squeeze_breakout_4h{short:off}    n=1   (diag #8095, single row 2026-06-30)\n  trending/volatile  ict_scalp_5m{long,short:off}      n=0   (diag #8098)\n  chop/volatile      ict_scalp_5m{long,short:off}      n=0   (diag #8098)\n  TOTAL n=12 across all six cells.\n`ict_scalp_5m` IS a real configured strategy (config/strategies.yaml:452), so n=0 means 'never fired in the enforce era', NOT a cell keyed to a non-existent strategy name.\n\nAND these are gate-EVENT counts, not outcome counts — a gate row records a SUPPRESSION, so the suppressed trade never happened and has no PnL. Grading a cell needs the counterfactual outcome, which the live record structurally cannot supply. So live evidence gives neither sufficient n NOR the right quantity.\n\nSEPARATE LIVE-VERIFIED FINDING (supports the cells' authoring premise): in 4 of the 11 trend_donchian rows the ML and frozen labels DISAGREE — all transitional, vol_regime_frozen='volatile' vs vol_regime_ml='calm'. In those 4 the ML label is what caused the gate; the frozen label would NOT have gated. That is direct live confirmation that the ML-vs-frozen distinction changes real outcomes, consistent with docs/research/A-vol-gating-OFFcell-design-2026-06-27.md's claim that these cells are correct ONLY under the ML label."
+        },
+        {
+          "at": "2026-07-30T19:05:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "SCOPE CORRECTION (see the same-day correction on BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP). The dormancy observation STANDS as a live fact — the live BTC ML vol label reads calm ~99%, so the three volatile-keyed cells rarely fire and the three calm-keyed cells carry ~all enforcement. But the implied CAUSE was wrong: I framed it as the served axis possibly not reproducing the authoring label. `v520` ends 2026-06-30 and the live rows start 2026-07-07, so that comparison was epoch-mismatched. The dataset's own recent months run 0.14%-4.73% volatile with several under 1%, so a live ~1% is ORDINARY market conditions, not a defect. The cells are dormant because July 2026 was calm — which is what a vol-conditioned gate is supposed to do."
         }
       ]
     },
@@ -7853,6 +7863,6 @@
       "updates": []
     }
   ],
-  "updated_at": "2026-07-30T18:25:00+00:00",
+  "updated_at": "2026-07-30T19:05:00+00:00",
   "generated_at": "2026-07-30T15:55:00+00:00"
 }
