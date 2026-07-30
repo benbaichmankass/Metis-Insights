@@ -106,7 +106,7 @@ the class applies to your instruments, not only to your data. Enforced at sessio
 by the `git_history_check` SessionStart hook + `scripts/ops/git_history_check.py`, which
 **refuses** a history question on a shallow clone rather than answering it.
 
-**Four binding obligations:**
+**Five binding obligations:**
 
 1. **Assert the inputs, not just the exit code.** Before reading a verdict out of any
    artifact, check the counts that make it meaningful (`price_bars`, `n`, `rows`,
@@ -149,10 +149,44 @@ by the `git_history_check` SessionStart hook + `scripts/ops/git_history_check.py
    can remove it from the queue, so the queue systematically excludes exactly the
    decisions most in need of re-checking.
 
+5. **Before waiting for data to accrue, establish what actually BOUNDS it.** "We need
+   more rows, check back in N weeks" is a *claim about the data source*, and it must be
+   verified like any other. Ask: is the producer forward-only **by nature**, or only by
+   **schedule**? A source that accepts an arbitrary date range has no accrual limit — it
+   has a missing backfill sibling.
+
+   This fired **twice in one day, on both sides of the same join** (2026-07-30):
+
+   | Side | "Ceiling" | Actual bound | After backfill |
+   |---|--:|---|--:|
+   | model (FRED) | n=7, "no verdict until mid-September" | none — FRED serves 75 years | **6,966 rows** |
+   | survey (FXStreet) | n=11, below `min_honest_n=12` | none — the API takes any range; the producer had pulled ONE window | **12,076 rows / 1,263 joinable** |
+
+   The survey side is the sharper lesson: a verdict was one row short of its own honesty
+   floor, and the tempting move was to lower the floor. The right move was to ask why n was
+   11 — a **scheduling artifact**, not a data limit — and the answer was 115× the supposed
+   ceiling. Lowering the floor would also have published a materially inflated estimate: at
+   n=11 the correlation read 0.7364/0.909, at n=1263 it read 0.5885/0.720. **The small
+   sample was optimistic.**
+
+   So: **never lower a pre-registered bar or an honesty floor to manufacture a verdict.**
+   Raise the sample instead, or report `insufficient_*` and say what would raise it. Three
+   backfill siblings already exist as precedent (`macro-valuation-backfill`,
+   `cot-positioning-backfill`, `crypto-signals-backfill`); if a producer you depend on has
+   none, that is the finding.
+
 **Corollary — a decision is not permanent evidence.** A gate authored on a bug stays
 authored unless something re-checks it. When you act on evidence, record how that
 evidence gets re-audited later; do not rely on the tool that produced it, which may
 no longer be able to see the case at all.
+
+**Corollary — "could not measure" is its own outcome.** It is neither a pass nor a
+finding. A guard whose dependency is missing must say *nothing was checked* and fail
+distinctly (`check_workflow_shell.py` exits **2**, vs **1** for real findings) — never
+report the failure-to-check as defects. Its own first CI run emitted 117 fake findings
+from one absent import, burying the only fact that mattered. **Red while measuring
+nothing is the same sin as green while measuring nothing**, and it is worse for trust:
+an alarm that fires on its own plumbing teaches every later session to skim past it.
 
 ## Honesty
 

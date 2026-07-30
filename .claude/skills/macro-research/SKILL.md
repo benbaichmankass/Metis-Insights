@@ -1,6 +1,6 @@
 ---
 name: macro-research
-description: The repeatable pipeline for MACRO / value / event-study research — the ROADMAP_MACRO family (energy event calendars, surprise-vs-consensus, the M28 value sleeve, M29 system-dynamics, COT/crowding, crypto-funding). Turns a raw macro data source into a point-in-time store and an honest edge measurement, the same way `backtesting` / `exit-refinement` / `model-training` do for the technical side. Use when the operator says "work on the macro unit", "wire a macro data source", "run/extend the event study", "build an M28/M29 producer", "does <macro signal> predict returns", or any ROADMAP_MACRO milestone (M1–M2 energy events, M28 valuation, M29 system-dynamics, cross-asset). Owns the binding invariants (off-VM compute, point-in-time / no-lookahead consensus, verify-the-source-before-you-build) + the toolbox map (`src/units/strategies/macro_thesis/`, `scripts/macro/`, the macro workflow cluster, `comms/macro/` artifacts, `config/macro_*.yaml`). NOT for the technical trading strategies (use `new-strategy` / `backtesting` / `exit-refinement`) and NOT for ML model training (use `model-training` / `ml-review`) — this is the macro/value/event research half. Composes with `research-driver` (which dispatches here), `git-actions` (workflow dispatch), and `sprint-format` / `doc-freshness` (landing).
+description: The repeatable pipeline for MACRO / value / event-study research — the ROADMAP_MACRO family (energy event calendars, surprise-vs-consensus, the M28 value sleeve, M29 system-dynamics, COT/crowding, crypto-funding). Turns a raw macro data source into a point-in-time store and an honest edge measurement, the same way `backtesting` / `exit-refinement` / `model-training` do for the technical side. Use when the operator says "work on the macro unit", "wire a macro data source", "run/extend the event study", "build an M28/M29 producer", "does <macro signal> predict returns", or any ROADMAP_MACRO milestone (M1–M2 energy events, M28 valuation, M29 system-dynamics, cross-asset). Owns the five binding invariants (off-VM compute, point-in-time / no-lookahead consensus, verify-the-source-before-you-build, establish-what-bounds-n-before-waiting-for-accrual, beat-the-naive-floor-not-just-the-correlation-bar) + the toolbox map (`src/units/strategies/macro_thesis/`, `scripts/macro/`, the macro workflow cluster, `comms/macro/` artifacts, `config/macro_*.yaml`). NOT for the technical trading strategies (use `new-strategy` / `backtesting` / `exit-refinement`) and NOT for ML model training (use `model-training` / `ml-review`) — this is the macro/value/event research half. Composes with `research-driver` (which dispatches here), `git-actions` (workflow dispatch), and `sprint-format` / `doc-freshness` (landing).
 ---
 
 # macro-research — the point-in-time macro/value research pipeline
@@ -25,7 +25,7 @@ seasonality. NOT the ICT/technical strategies (→ `new-strategy` / `backtesting
 `exit-refinement`), NOT ML model lifecycle (→ `model-training` / `ml-review`).
 `research-driver` dispatches here once it recognizes a session is macro-shaped.
 
-## The three binding invariants (violate none)
+## The five binding invariants (violate none)
 
 1. **Off-VM compute (ROADMAP_MACRO §1c).** All heavy fetch/compute runs OFF the
    live trading VM — a scheduled GitHub-runner workflow or the trainer VM — and
@@ -47,6 +47,36 @@ seasonality. NOT the ICT/technical strategies (→ `new-strategy` / `backtesting
    (`docs/research/M1-econ-calendar-source-probe-2026-07-29.md`): FMP's free
    calendar 403'd, so an empirical probe across every free candidate picked
    FXStreet (keyless) instead. A 200 is not enough — capture the field shapes.
+
+4. **Before waiting for n to accrue, establish what BOUNDS it** (added 2026-07-30,
+   binding — `CLAUDE-RULES-CANONICAL.md` § "Green is not evidence", obligation 5).
+   "Not enough rows yet, check back in N weeks" is a claim about the *source*, and it
+   needs verifying like any other. Ask whether the producer is forward-only **by
+   nature** or only **by schedule** — a source that takes an arbitrary date range has
+   no accrual limit, it has a **missing backfill sibling**.
+
+   This fired twice in one day on both sides of the same join: the model side read
+   n=7 ("no verdict until mid-September") against a FRED history of 75 years →
+   **6,966 rows**; the survey side read n=11, one short of `min_honest_n=12`, purely
+   because the forward producer had ever pulled ONE window from a range-based keyless
+   API → **12,076 rows / 1,263 joinable**, 115× the supposed ceiling.
+
+   **Never lower a pre-registered bar or an honesty floor to manufacture a verdict.**
+   Raise the sample or report `insufficient_*` and say what would raise it. At n=11
+   the M3 correlation read 0.7364/0.909; at n=1263 it read 0.5885/0.720 — the small
+   sample was *optimistic*, so lowering the floor would have published an inflated
+   estimate. Existing backfill siblings to copy: `macro-valuation-backfill`,
+   `cot-positioning-backfill`, `crypto-signals-backfill`,
+   `econ-calendar-backfill` (model side), `econ-calendar-survey-backfill` (survey side).
+
+5. **Beat the naive floor, not just the correlation bar** (added 2026-07-30).
+   An expectation model that tracks a survey can still be *worse than no model*. Check
+   it against "assume no change since last release" on the same information set — M3
+   does this per kind (`rmse_ratio_model_over_naive`, `kinds_worse_than_naive`), and
+   found `initial_jobless_claims` to be the **best tracker** (Spearman 0.6312) **and**
+   1.101× worse than the naive walk. Tracking and usefulness are different axes;
+   a correlation bar tests only the first
+   (`BL-20260730-M3-GATE-TESTS-TRACKING-NOT-USEFULNESS`).
 
 ## The two-source join contract (added 2026-07-30 — learned the hard way)
 
