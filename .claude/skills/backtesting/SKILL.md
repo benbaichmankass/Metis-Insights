@@ -6,8 +6,25 @@ description: Run and interpret strategy backtests for the ICT bot — the standa
 # /backtesting — run and read ICT strategy backtests
 
 Backtesting is the evidence step before any Tier-3 strategy change. This
-skill maps every real backtest entry point in the repo (verified against
-the scripts on `main`), the data each needs, and where results land.
+skill covers the **per-strategy P&L harnesses** — the data each needs and where
+results land.
+
+> **This skill is NOT the full research toolbox, and must not be read as it.**
+> The authoritative map of what this repo can measure is
+> [`docs/research/RESEARCH-CAPABILITY-INDEX.md`](../../../docs/research/RESEARCH-CAPABILITY-INDEX.md)
+> — regime conditioning, exit panels + **offline ML exit-head replay**, entry heads,
+> research panels, allocator, pairs, and the robustness gates all live there and are
+> **not** listed below.
+>
+> This paragraph replaces an earlier claim that the skill mapped *"every real backtest
+> entry point in the repo (verified against the scripts on `main`)"*. That was false —
+> 47 of 51 `scripts/research/` tools were in no skill at all — and the false claim of
+> completeness did real damage on 2026-07-30: a session looking for a way to replay an
+> ML exit head found none here, trusted a code comment saying it was impossible, and
+> reported six live regime gates as permanently un-auditable. `analyze_exit_head.py`
+> had done exactly that job the whole time. **A skill that overstates its coverage
+> stops a session from looking further, which is worse than one that says "partial".**
+> Audit: [`docs/research/RESEARCH-INFRA-AUDIT-2026-07-30.md`](../../../docs/research/RESEARCH-INFRA-AUDIT-2026-07-30.md).
 
 **Per-strategy research harnesses are net-of-fee — with one exception.**
 Gross-R sweeps mislead — S-STRAT-IMPROVE-S2/S4-A showed vwap was

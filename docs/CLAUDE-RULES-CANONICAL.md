@@ -83,13 +83,13 @@ at the top of the root `CLAUDE.md`.
 
 **A passing run, a fresh artifact, and a completed roster are not evidence that
 anything was measured.** This bug class has now recurred repeatedly — an S-067 audit
-in 2026-05, then **four instances in a single day** on 2026-07-30 — always with the
+in 2026-05, then **five instances in a single day** on 2026-07-30 — always with the
 same shape:
 
 > **an artifact reports success that is true relative to its own scope, while the
 > scope is wrong or the measurement inside is empty.**
 
-The four 2026-07-30 instances, as the canonical examples:
+The 2026-07-30 instances, as the canonical examples:
 
 | Instance | Reported | Reality |
 |---|---|---|
@@ -97,8 +97,16 @@ The four 2026-07-30 instances, as the canonical examples:
 | corrected-cost regime re-grade | 34 rows, **0 errored, 0 skipped** | the roster excluded `gld_pullback_1h` — the one LIVE cell the re-grade existed to re-check (`BL-20260730-REGIME-CELL-UNAUDITABLE`) |
 | `splg_trend_long_1d` | a row in a successful run | 0 trades in every regime, no error |
 | exit-ladder soak | 135 rows | 0 differing (`BL-20260730-EXIT-LADDER-SOAK-VACUITY`) |
+| **`git log -p <file>`** on a session clone | a clean one-commit history | the clone was **shallow** (57 commits, 3 days) — the mandated Tier-2/3 history check returned a plausible wrong answer with no error (`BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE`) |
 
-**Three binding obligations:**
+The fifth instance is the one to remember, because the affected tool was **this rule's
+own enforcement mechanism**: the history check that exists to stop a session undoing an
+operator-approved decision was itself silently answering out of a truncated scope. Assume
+the class applies to your instruments, not only to your data. Enforced at session start
+by the `git_history_check` SessionStart hook + `scripts/ops/git_history_check.py`, which
+**refuses** a history question on a shallow clone rather than answering it.
+
+**Four binding obligations:**
 
 1. **Assert the inputs, not just the exit code.** Before reading a verdict out of any
    artifact, check the counts that make it meaningful (`price_bars`, `n`, `rows`,
@@ -113,7 +121,27 @@ The four 2026-07-30 instances, as the canonical examples:
    what kept instance 1 green. An intentional exception carries
    `# allow-degraded: <reason>` inline. Enforced by `artifact-validity-guard`.
 
-3. **State your population, and justify every exclusion.** When an audit or re-grade
+3. **An IMPOSSIBILITY claim gets more scepticism than a success claim, not less.**
+   Before writing that something **cannot be measured / is not replayable / needs new
+   tooling**, check [`docs/research/RESEARCH-CAPABILITY-INDEX.md`](research/RESEARCH-CAPABILITY-INDEX.md)
+   and grep `scripts/research/`. Say *which* tool you checked. A code comment, a constant
+   name (`_UNREPLAYABLE`), or a skill asserting impossibility is **scoped to its own
+   module** until proven otherwise.
+
+   A tool wrongly reporting "measured: OK" wastes a decision. A tool wrongly reporting
+   "this cannot be measured" **closes off the work** — nobody re-checks a dead end, and
+   the claim propagates into backlog rows and operator decisions as settled fact. On
+   2026-07-30 a session reported six live regime gates as permanently un-auditable on the
+   strength of one such comment; `scripts/research/analyze_exit_head.py` had been doing
+   exactly that job the whole time. Audit:
+   [`docs/research/RESEARCH-INFRA-AUDIT-2026-07-30.md`](research/RESEARCH-INFRA-AUDIT-2026-07-30.md).
+
+   The same applies to a skill or doc that **claims completeness**. `backtesting/SKILL.md`
+   said it mapped "every real backtest entry point in the repo" while 47 of 51 research
+   tools appeared in no skill — and that false completeness is what stopped the session
+   looking further. Prefer "partial — see <index>" over an unenforced claim of coverage.
+
+4. **State your population, and justify every exclusion.** When an audit or re-grade
    iterates a **work queue** (a debt list, a backlog, an open-items set) rather than
    the full population, "finished the queue" silently reads as "finished the audit."
    Declare what you claim to cover, what you actually covered, and why the difference

@@ -199,22 +199,59 @@ jobs:
             --symbol "${rp_symbol}" \
             --timeframe "${rp_timeframe}" \
             --stamp-regime \
-            --out artifacts/research/panel.jsonl 2> artifacts/research/build_time.txt || true
+            --out artifacts/research/panel.jsonl 2> artifacts/research/build_time.txt
           echo "=== manifest ==="
           cat artifacts/research/panel.jsonl.manifest.json | grep -E 'row_count|excursion_cov|harness_total|harness_win|harness_exp|error' || true
           tail -3 artifacts/research/build_time.txt || true
+
+      # A panel that measured nothing yields a VACUOUS verdict, and vacuous is
+      # indistinguishable from thin once it reaches the summary. Assert before analyzing.
+      # (docs/CLAUDE-RULES-CANONICAL.md "Green is not evidence" obligation 1.)
+      - name: Assert the panel is non-empty
+        run: |
+          set -euo pipefail
+          python - <<'PYEOF'
+          import json, sys
+          m = json.load(open("artifacts/research/panel.jsonl.manifest.json"))
+          rows = m.get("row_count") or 0
+          if m.get("error"):
+              print(f"::error::panel build reported error: {m['error']}"); sys.exit(1)
+          if rows < 1:
+              print("::error::panel is EMPTY -- every downstream analysis would be "
+                    "computed from zero rows. Check the harness produced trades on this "
+                    "feed/timeframe.")
+              sys.exit(1)
+          print(f"OK -- panel has {rows} rows.")
+          PYEOF
 
       - name: C2 outcome sweep
         run: |
           set -euo pipefail
           PANEL=artifacts/research/panel.jsonl
           IFS=',' read -ra OUTS <<< "${rp_outcomes}"
+          ok=0; failed=""
           for OUT in "${OUTS[@]}"; do
             [ -z "${OUT}" ] && continue
-            python scripts/research/analyze_research_panel.py \
-              --panel "${PANEL}" --outcome "${OUT}" \
-              --out "artifacts/research/an_${OUT}.json" --quiet || true
+            # Per-outcome tolerance is intentional (one bad outcome should not lose the
+            # rest) but it is TRACKED, not swallowed: a sweep in which every outcome
+            # failed produced nothing and must not exit 0.
+            if python scripts/research/analyze_research_panel.py \
+                 --panel "${PANEL}" --outcome "${OUT}" \
+                 --out "artifacts/research/an_${OUT}.json" --quiet; then
+              ok=$((ok+1))
+            else
+              failed="${failed} ${OUT}"
+              echo "::warning::outcome '${OUT}' failed to analyze"
+            fi
           done
+          if [ -n "${failed}" ]; then
+            echo "::warning::outcomes that produced NO analysis:${failed}"
+          fi
+          if [ "${ok}" -eq 0 ]; then
+            echo "::error::every outcome failed -- the sweep measured nothing"
+            exit 1
+          fi
+          echo "analyzed ${ok} outcome(s)"
 
       - name: Per-regime-cell conditioning
         if: env.rp_cell != ''
@@ -223,11 +260,11 @@ jobs:
           python scripts/research/analyze_panel_by_cell.py \
             --panel artifacts/research/panel.jsonl \
             --cell "${rp_cell}" --outcome win \
-            --out artifacts/research/by_cell_win.json --quiet || true
+            --out artifacts/research/by_cell_win.json --quiet
           python scripts/research/analyze_panel_by_cell.py \
             --panel artifacts/research/panel.jsonl \
             --cell "${rp_cell}" --outcome giveback_r \
-            --out artifacts/research/by_cell_giveback.json --quiet || true
+            --out artifacts/research/by_cell_giveback.json --quiet
 
       - name: Summarize verdict
         run: |

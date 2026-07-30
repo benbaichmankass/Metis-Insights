@@ -4,8 +4,8 @@ debt roster — the rec #5 follow-up for the strategies the sandbox can't reach.
 
 For each `coverage_debt` strategy (config/regime_coverage_exemptions.yaml) it:
   1. classifies the harness (Donchian trend -> backtest_trend.py; pullback ->
-     backtest_pullback.py) and extracts the EXACT live params from
-     config/strategies.yaml,
+     backtest_pullback.py; TTM-style BB-inside-KC squeeze -> backtest_squeeze.py)
+     and extracts the EXACT live params from config/strategies.yaml,
   2. resolves the candle feed for the symbol — Binance-vision for `*USDT` crypto,
      Yahoo (yfinance) for equities/ETFs, and Yahoo continuous futures for
      MES/MGC/MHG (ES=F/GC=F/HG=F, mirroring the dashboard `_yf_ticker`),
@@ -65,9 +65,28 @@ _TREND_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe",
 # stale-exit lever was ported into scripts/backtest_trend.py as the rec #5
 # follow-up so trend_donchian_sol's chop-long cell can be re-measured with its
 # declared exit lever ON (BL-20260717-REGIME-COVERAGE-DEBT). exit_head_* stay in
-# _UNREPLAYABLE — an ML exit head can never be replayed offline.
+# _UNREPLAYABLE — levers THIS harness cannot model. NOT a statement about the system.
+# (Corrected 2026-07-30, operator: the previous comment here read "an ML exit head can
+# never be replayed offline", which is FALSE and was propagated into a research
+# conclusion. The M20 toolchain replays exactly this: build_intrabar_exit_panel.py
+# builds the per-bar in-trade panel and analyze_exit_head.py SIMULATES the head's exit
+# decisions per trade -- first bar the head says exit, the trade realizes its
+# mark-to-market R there -- under grouped/purged/embargoed walk-forward, scored against
+# the baseline fixed SL/TP exit. So exit_head_* is out of scope for backtest_trend.py,
+# and that is all this set means. See docs/research/regime-debt-matrix-corrected-cost-
+# 2026-07-30.md A6 for the correction and the actual re-audit path.)
+#
+# `side_filter` (added live 2026-07-30 by #7966, with matching --side-filter flags in
+# backtest_trend.py + backtest_pullback.py) MUST be forwarded. Two LIVE, enabled
+# strategies carry `side_filter: short` — sol_pullback_2h and trend_donchian_xrp_4h.
+# Without forwarding, the matrix measures BOTH legs for a strategy that only ever
+# trades short live, so any cell read off that row rests partly on long trades the
+# strategy will never take. Caught while wiring the squeeze harness, hours after
+# #7966 landed; the capability was added correctly, it just did not know these lever
+# maps existed. BL-20260730-SIDE-FILTER-NOT-FORWARDED.
 _TREND_LEVER_FLAG = {
     "stale_exit_bars": "--stale-exit-bars", "stale_exit_below_r": "--stale-exit-below-r",
+    "side_filter": "--side-filter",
 }
 # Pullback lever config-key -> harness flag (these the pullback harness DOES model).
 _PB_LEVER_FLAG = {
@@ -75,11 +94,48 @@ _PB_LEVER_FLAG = {
     "vol_skip_below_pctl": "--vol-skip-below-pctl", "vol_skip_above_pctl": "--vol-skip-above-pctl",
     "trail_vol_below_pctl": "--trail-vol-below-pctl", "trail_vol_above_pctl": "--trail-vol-above-pctl",
     "trail_vol_tight_mult": "--trail-vol-tight-mult", "vol_pctl_window": "--vol-pctl-window",
+    "side_filter": "--side-filter",  # see the note on _TREND_LEVER_FLAG above
 }
 _PB_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe", "symbols",
              "trend_lookback", "pullback_lookback", "pullback_frac", "atr_period",
              "atr_stop_mult", "trail_mult", "tp_r", "min_confidence", "adx_min",
              "adx_max", "adx_period", "shadow_model_ids", "description"}
+# Squeeze (TTM-style BB-inside-KC) lever config-key -> harness flag. The squeeze
+# harness (scripts/backtest_squeeze.py) is the SAME harness that validated the
+# strategy in docs/audits/squeeze-breakout-complement-2026-05-24.md — it was simply
+# never wired into classify(), so squeeze_breakout_4h fell through to
+# "unclassifiable" and its FOUR live regime cells could not be re-audited at all
+# (BL-20260730-SQUEEZE-NO-HARNESS, found by the 2026-07-30 authored-cell re-audit).
+_SQZ_LEVER_FLAG = {
+    "stale_exit_bars": "--stale-exit-bars", "stale_exit_below_r": "--stale-exit-below-r",
+    "giveback_min_mfe_r": "--giveback-min-mfe-r", "giveback_r": "--giveback-r",
+    "timeout_bars": "--timeout-bars", "cooldown_bars": "--cooldown-bars",
+}
+_SQZ_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe", "symbols",
+              "bb_period", "bb_std", "kc_mult", "atr_period", "atr_stop_mult",
+              "trail_mult", "min_confidence", "shadow_model_ids", "description"}
+# NOTE `side_filter` is absent from BOTH _SQZ_PLAIN and _SQZ_LEVER_FLAG on purpose:
+# backtest_squeeze.py has no --side-filter flag (only the trend + pullback harnesses
+# gained one in #7966). So a squeeze strategy declaring side_filter degrades to
+# `approximate` and names it as an omitted lever — the honest outcome. Do NOT "fix"
+# that by adding it to _SQZ_PLAIN; that would silently claim the harness applies a
+# side filter it does not implement. Porting --side-filter into backtest_squeeze.py is
+# the real fix if a squeeze variant ever needs it.
+# `tp_r` is DELIBERATELY not in _SQZ_PLAIN. scripts/backtest_squeeze.py has no
+# --tp-r flag: it models the Chandelier trail as the sole profit-exit, which is
+# what src/units/strategies/squeeze_breakout_4h.py itself documents ("No fixed
+# profit target — the trail is the sole profit-exit; ``tp`` is [a formality]").
+# So the omission is harmless ONLY while tp_r is far enough out that it cannot
+# bind before the trail fires. That is a CHECKED bound, not an assumption: below
+# the threshold `tp_r` is reported as an omitted lever and the row degrades to
+# `approximate`, which correctly blocks cell authoring.
+#
+# 20R is chosen as comfortably beyond any plausible 3.5-ATR-trail exit while
+# still failing loudly if someone sets a real target (e.g. tp_r: 3). The live
+# config is tp_r: 50.0. The STRONGER form of this check is empirical — verify no
+# emitted trade's MFE ever reached tp_r on the sample — which needs a post-run
+# fidelity adjustment in both callers: BL-20260730-SQZ-TPR-EMPIRICAL-CHECK.
+_SQZ_TP_R_NONBINDING = 20.0
 # Levers no offline harness can replay.
 _UNREPLAYABLE = {"exit_head_model", "exit_head_threshold", "exit_head_action"}
 
@@ -89,6 +145,11 @@ def classify(cfg: dict) -> str | None:
         return "trend"
     if "trend_lookback" in cfg or "pullback_frac" in cfg:
         return "pullback"
+    # TTM-style squeeze: Bollinger Bands contracting inside the Keltner Channels.
+    # Checked AFTER trend/pullback so a strategy carrying both shapes keeps its
+    # existing harness (no silent re-routing of an already-measured strategy).
+    if "kc_mult" in cfg and "bb_period" in cfg:
+        return "squeeze"
     return None
 
 
@@ -180,10 +241,19 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
               "--min-confidence", str(cfg.get("min_confidence", 0.0)),
               "--fee-bps-roundtrip", str(roundtrip_fee_bps(symbol)),
               "--emit-trades", emit, "--json", jout]
+    # ADX gating is supported by the trend + pullback harnesses but NOT by
+    # scripts/backtest_squeeze.py (it has no --adx-* flags). Kept OUT of `common`
+    # so an adx-carrying squeeze strategy degrades honestly to `approximate`
+    # instead of crashing the subprocess with "unrecognized arguments" — a
+    # harness failure reads as a fetch/harness error, which would misattribute a
+    # missing capability as a broken run.
+    adx_flags: list[str] = []
     if cfg.get("adx_min") is not None:
-        common += ["--adx-min", str(cfg["adx_min"])]
+        adx_flags += ["--adx-min", str(cfg["adx_min"])]
     if cfg.get("adx_max") is not None:
-        common += ["--adx-max", str(cfg["adx_max"])]
+        adx_flags += ["--adx-max", str(cfg["adx_max"])]
+    if harness != "squeeze":
+        common += adx_flags
     omitted: list[str] = []
     if harness == "trend":
         argv = [py, os.path.join(REPO, "scripts/backtest_trend.py"),
@@ -196,6 +266,24 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
                 argv += [flag, str(cfg[k])]
         omitted = sorted(k for k in cfg
                          if k not in _TREND_PLAIN and k not in _TREND_LEVER_FLAG)
+        faithful = not omitted
+    elif harness == "squeeze":
+        argv = [py, os.path.join(REPO, "scripts/backtest_squeeze.py"),
+                "--bb-period", str(cfg.get("bb_period", 20)),
+                "--bb-std", str(cfg.get("bb_std", 2.0)),
+                "--kc-mult", str(cfg.get("kc_mult", 1.0))] + common
+        for k, flag in _SQZ_LEVER_FLAG.items():
+            if cfg.get(k) is not None:
+                argv += [flag, str(cfg[k])]
+        omitted = sorted(k for k in cfg
+                         if k not in _SQZ_PLAIN and k not in _SQZ_LEVER_FLAG
+                         and k != "tp_r")
+        # tp_r counts as omitted only when it is near enough to actually bind —
+        # see _SQZ_TP_R_NONBINDING. A missing tp_r is the harness's own default
+        # (trail-only), so it is not an omission either.
+        tp_r = cfg.get("tp_r")
+        if tp_r is not None and float(tp_r) < _SQZ_TP_R_NONBINDING:
+            omitted = sorted(set(omitted) | {"tp_r"})
         faithful = not omitted
     else:
         argv = [py, os.path.join(REPO, "scripts/backtest_pullback.py"),
@@ -218,7 +306,7 @@ def run_one(name: str, cfg: dict, workdir: str, days: int) -> dict:
     tf = cfg.get("timeframe")
     row: dict = {"strategy": name, "symbol": sym, "timeframe": tf, "harness": harness}
     if harness is None or not sym or not tf:
-        row["error"] = "unclassifiable (no donchian/pullback params or no symbol/timeframe)"
+        row["error"] = "unclassifiable (no donchian/pullback/squeeze params or no symbol/timeframe)"
         return row
     unreplayable = sorted(k for k in cfg if k in _UNREPLAYABLE)
     feed = resolve_feed(sym, tf)
