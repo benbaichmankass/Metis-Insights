@@ -7076,17 +7076,20 @@
       "opened_at": "2026-07-30T09:40:00+00:00",
       "opened_by": "claude (research-program session)",
       "source": "Dated via git after deepening the clone: trend_donchian's 1-D cells were authored 2026-06-01 (#2583), its 2-D trend_vol OFF cells 2026-06-28 (#4868), while exit_head_model exit-head-donchian-1h-v1 began driving REAL exits on 2026-07-12 (#6211, Tier-3 operator-approved). All 6 live cells predate the exit head by 2-6 weeks. Blast radius enumerated programmatically against regime_policy.yaml + strategies.yaml: 6 live cells (3x 1-D + 3x 2-D) on one live strategy.",
-      "title": "[regime] trend_donchian's 6 live cells rest on evidence SUPERSEDED by the exit head, and cannot be re-measured offline",
-      "description": "This SUPERSEDES the framing of BL-20260730-DONCHIAN-APPROX-ONLY, which read as 'the harness omits levers so re-run it later'. It cannot be re-run later: an ML exit head is permanently unreplayable offline (_UNREPLAYABLE), so no offline measurement can confirm or refute these six gates. The cells were NOT authored below standard -- they were faithful when authored; a lever that changes the measured outcome was added afterwards. A task that cannot be completed silently becomes a task everyone walks past, which is why this is filed as a decision rather than a re-run. Three options, in docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md A6b: (1) re-validate LIVE via a per-cell shadow A/B (only path that measures what actually trades); (2) accept as untestable debt and label each cell with 'evidence predates the exit head, not reproducible'; (3) build an exit-head replay (heavy, and a replay that silently diverges from the live head would manufacture false confidence). Recommendation: (2) now, (1) for any cell someone later wants to change; explicitly NOT (3). OPERATOR CALL -- six live gates.",
-      "severity": "high",
+      "title": "[regime] trend_donchian's 6 live cells rest on evidence SUPERSEDED by the exit head — re-audit via the M20 exit-panel path",
+      "description": "CORRECTED 2026-07-30 by the operator. This row previously claimed the cells could NEVER be re-measured because an ML exit head cannot be replayed offline. THAT WAS FALSE and the row is rewritten so the false premise is not carried forward. The M20 toolchain replays exactly this: scripts/research/build_intrabar_exit_panel.py builds the per-bar in-trade panel and scripts/research/analyze_exit_head.py SIMULATES the head's exit decisions per trade (first bar the head says exit, the trade realizes its mark-to-market R there, net of an exit fee) under grouped-by-trade_id, purged, embargoed, uniqueness-weighted walk-forward, scored against the baseline fixed SL/TP exit. That is more rigorous than the harness I had treated as the only option. ROOT CAUSE OF THE ERROR: regime_debt_matrix.py::_UNREPLAYABLE carried the comment 'an ML exit head can never be replayed offline'; its real meaning is narrow (backtest_trend.py does not model this lever). A local scope limitation was read as a global impossibility and promoted to a research conclusion. Same bug class as the rest of this session, one level up -- a tool reporting IMPOSSIBILITY out of a wrong scope deserves at least as much suspicion as one reporting success, because it closes off work rather than merely mis-reporting it. The stale comment is fixed in place. WHAT STANDS: the dates. Cells authored 2026-06-01 (#2583) and 2026-06-28 (#4868); exit-head-donchian-1h-v1 began driving real exits 2026-07-12 (#6211). All 6 live cells predate it by 2-6 weeks, so the evidence IS superseded. ACTUAL NEXT STEP (no operator decision needed): (1) build the intrabar exit panel for trend_donchian over the regime-tagged window; (2) replay exit-head-donchian-1h-v1 at its LIVE threshold 0.10 / action close so simulated exits match the live exit policy; (3) split per-trade R by regime via regime_tag_emitted.py and apply the SAME short_stable_drag/long_stable_drag gate used for every other cell (#7915), so all six are graded on one consistent bar.",
+      "severity": "medium",
       "status": "open",
       "area": "regime",
       "refs": [
+        "scripts/research/build_intrabar_exit_panel.py",
+        "scripts/research/analyze_exit_head.py",
+        "scripts/research/regime_tag_emitted.py",
         "config/regime_policy.yaml",
-        "config/strategies.yaml",
         "BL-20260730-DONCHIAN-APPROX-ONLY",
         "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER"
-      ]
+      ],
+      "corrected_at": "2026-07-30T11:05:00+00:00"
     },
     {
       "id": "BL-20260730-SIDE-FILTER-NOT-FORWARDED",
@@ -7122,5 +7125,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-30T10:20:00+00:00"
+  "updated_at": "2026-07-30T11:05:00+00:00"
 }

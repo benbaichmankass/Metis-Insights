@@ -343,15 +343,14 @@ happened is that a **new exit lever was added afterwards that changes the very o
 cells were measured on**: an ML exit head closing positions at threshold 0.10. Every cell
 predates it by 2–6 weeks.
 
-Two consequences, and the second is the one that matters:
+Two consequences:
 
 1. The cells now rest on **superseded** evidence — same class as the
-   `htf_pullback_trend_2h` "evidence age" finding in A2.
-2. Unlike A2, **this one is not repairable by the current toolchain.** An ML exit head can
-   never be replayed offline (`_UNREPLAYABLE`), so there is no offline measurement that can
-   either confirm or refute these six gates. This is a **structural dead-end, not a
-   to-do** — filing it as "re-measure later" would be filing a task that cannot be
-   completed.
+   `htf_pullback_trend_2h` "evidence age" finding in A2. The dates are facts and this
+   part stands.
+2. ~~Unlike A2, this one is not repairable by the current toolchain.~~ **WRONG — see
+   A6c. Corrected 2026-07-30 by the operator.** These cells ARE re-auditable; the
+   machinery already exists.
 
 **Blast radius: 6 live cells** on one live strategy — 3 × 1-D (`trending`,
 `transitional`, `chop`) + 3 × 2-D (`trend_vol/trending/volatile`,
@@ -372,21 +371,55 @@ scope. `git fetch --deepen=2000` recovered history to 2026-03-22 (2718 commits) 
 dates above became checkable immediately. Filed:
 `BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE`.
 
-### A6b. Disposition — three options, none of them "re-measure offline"
+### A6b. ~~Disposition — three options, none of them "re-measure offline"~~ — RETRACTED
 
-1. **Re-validate live** — the exit head runs in production, so the honest measurement is a
-   live/shadow A/B per regime cell, not a backtest. Slow, but it is the only path that
-   measures the strategy that actually trades.
-2. **Accept as untestable debt and label it** — keep the cells, record on each that its
-   evidence predates the exit head and cannot be reproduced. Cheap and honest; leaves six
-   live gates un-auditable indefinitely.
-3. **Build an exit-head replay** — needs the model artifact plus decision-time feature
-   reconstruction. Heavy, and it re-introduces live-vs-train skew risk in the harness.
+**Retracted in full.** It rested on the false premise corrected in A6c below. Preserved
+only as the record of the error; do not act on it.
 
-**Recommendation: (2) now, (1) for any cell someone later wants to change.** Not (3) — the
-cost is high and a replay harness that silently diverges from the live head would
-manufacture exactly the false confidence this whole exercise is about. **Operator call**,
-since it concerns six live gates. What must NOT happen is the fourth option: leaving
-`BL-20260730-DONCHIAN-APPROX-ONLY` open as though a future session could just re-run the
-matrix — it cannot, and a task that can't be completed silently becomes a task everyone
-walks past.
+### A6c. CORRECTION (operator, 2026-07-30) — the ML exit head *is* replayable, and the tooling already exists
+
+I claimed an ML exit head "can never be replayed offline" and built a whole disposition
+on it. **That is false.** The operator's correction: *we already know how to use the
+labellers to back-label the data so that we can do the walk forward for the ML.* Verified
+against the repo — the M20 toolchain does exactly this:
+
+| Piece | What it does |
+|---|---|
+| `scripts/research/build_intrabar_exit_panel.py` | builds the **per-bar in-trade** panel — one row per bar while a position is open |
+| `scripts/research/analyze_exit_head.py` | trains the take/skip head **and simulates its decisions per trade** — "first bar the head says *exit* ⇒ the trade realizes its mark-to-market R there, net of an exit fee" — vs the baseline fixed SL/TP exit |
+| its CV | **grouped by `trade_id`, purged, embargoed** walk-forward, uniqueness-weighted |
+| siblings | `m20_ml_exit_probe.py`, `m20_exit_sweep.py`, `m20_fleet_exit_sweep.py`, `m20_exit_analysis.py`, `build_exit_panel.py` |
+
+That is an offline replay of an ML exit head with de-Prado-grade walk-forward. It is not
+hypothetical and it is not heavy — it is built, and it is more rigorous than the harness
+I was treating as the only option.
+
+**Where my error came from, precisely:** `regime_debt_matrix.py::_UNREPLAYABLE` carried
+the comment *"an ML exit head can never be replayed offline"*. That constant's real
+meaning is narrow — *`backtest_trend.py` does not model this lever*. I read a local
+scope limitation as a global impossibility and promoted it to a research conclusion
+without checking whether the system could do it some other way.
+
+This is the **same bug class as everything else in this session, one level up.** I spent
+the session refusing to trust artifacts that reported success out of a wrong scope, then
+trusted a code comment that reported *impossibility* out of a wrong scope. A tool saying
+"this cannot be measured" deserves exactly as much suspicion as one saying "measured:
+OK" — arguably more, because it closes off work rather than merely mis-reporting it. The
+stale comment has been corrected in place (field beats comment).
+
+### A6d. Actual disposition
+
+`trend_donchian`'s 6 live cells are **re-auditable**, via the exit-panel path rather than
+`regime_debt_matrix.py`:
+
+1. Build the intrabar exit panel for `trend_donchian` over the regime-tagged window.
+2. Replay `exit-head-donchian-1h-v1` at its live threshold (0.10) / action (`close`) so
+   the simulated exits match the live exit policy.
+3. Split the resulting per-trade R by regime (the existing `regime_tag_emitted.py` axis)
+   and apply the **same** `short_stable_drag` / `long_stable_drag` gate used for every
+   other cell (#7915 standard), so the six cells are graded on one consistent bar.
+
+This measures *the strategy that actually trades*, exit head included — strictly better
+than what I was proposing to accept as un-auditable. Tracked by the rewritten
+`BL-20260730-DONCHIAN-CELLS-SUPERSEDED-EVIDENCE`; the exit-panel run is the next concrete
+step and needs no operator decision.

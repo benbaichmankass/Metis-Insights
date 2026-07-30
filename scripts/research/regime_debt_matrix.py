@@ -65,7 +65,16 @@ _TREND_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe",
 # stale-exit lever was ported into scripts/backtest_trend.py as the rec #5
 # follow-up so trend_donchian_sol's chop-long cell can be re-measured with its
 # declared exit lever ON (BL-20260717-REGIME-COVERAGE-DEBT). exit_head_* stay in
-# _UNREPLAYABLE — an ML exit head can never be replayed offline.
+# _UNREPLAYABLE — levers THIS harness cannot model. NOT a statement about the system.
+# (Corrected 2026-07-30, operator: the previous comment here read "an ML exit head can
+# never be replayed offline", which is FALSE and was propagated into a research
+# conclusion. The M20 toolchain replays exactly this: build_intrabar_exit_panel.py
+# builds the per-bar in-trade panel and analyze_exit_head.py SIMULATES the head's exit
+# decisions per trade -- first bar the head says exit, the trade realizes its
+# mark-to-market R there -- under grouped/purged/embargoed walk-forward, scored against
+# the baseline fixed SL/TP exit. So exit_head_* is out of scope for backtest_trend.py,
+# and that is all this set means. See docs/research/regime-debt-matrix-corrected-cost-
+# 2026-07-30.md A6 for the correction and the actual re-audit path.)
 #
 # `side_filter` (added live 2026-07-30 by #7966, with matching --side-filter flags in
 # backtest_trend.py + backtest_pullback.py) MUST be forwarded. Two LIVE, enabled
