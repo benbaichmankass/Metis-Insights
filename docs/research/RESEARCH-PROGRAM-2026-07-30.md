@@ -236,6 +236,80 @@ live influence are the gap.
 | **A4** | Offload v2 register-back into the live registry | — | Converts the free-runner offload from "emits an artifact" to "grows the shadow fleet"; unblocks the OOM-quarantined manifests' eval |
 | **A5** | **Reframe the flow head's blocker:** it is a *label-threshold* problem, not a wait | 15.4k captured bars | The captured window is 0.27% volatile at `vol_threshold=0.005`, so both arms collapse to the trivial predictor. `MB-20260701-001` already proposes ~0.004 for the sibling head. **Re-label, don't wait for a volatile era** — the §1 principle a third time |
 
+### Track R — regime classification & selectivity (operator-added 2026-07-30)
+
+> *"Regime classification — making sure that we know when strategies are strong and
+> when they're not, so that we're a little bit more selective."*
+
+**This is already designed, and the design has been stalled at a review gate for six
+weeks.** `docs/research/regime-conditional-strategy-weighting-DESIGN.md` (2026-06-18)
+opens with the operator's own framing, which is the same ask almost verbatim:
+
+> *"not every strategy has to win all the time. As long as we can know when it's a
+> winning strategy and when it's not… so we know when we should listen to it and when
+> we shouldn't. I want a realistic workplan that is overall P&L positive."*
+
+Status: **"DESIGN — for operator review before build."** So Track R is not a new
+invention — it is **resurrecting a complete, phased, OOS-disciplined design** whose
+Step 1 is explicitly *"Tier-1, offline, cheap, and decisive."*
+
+**What the evidence says NOT to do.** Two attempts at better regime *model classes*
+are documented negatives — do not redo them:
+- **T0.2 unsupervised Gaussian-HMM regime discovery** — collapsed to all-`range`; the
+  class-weight salvage reached near-parity on BTC (Δmacro_f1 −0.007) but **did not
+  generalize** (ETH −0.100). Its own conclusion: *"the real levers are better data +
+  a task-specific encoder."*
+- **T1.2 corpus-SSL encoder** — also a closed negative (`MB-20260704-T12-SSL-NEGATIVE`).
+
+So the lever is **not** a fancier classifier. It is (a) the **meta-layer** that learns
+per-strategy when to listen, and (b) fixing the classifier where it is *provably* weak.
+
+**Where it is provably weak:**
+- The **1-D trend axis is hand-set ADX-14** with `CHOP_MAX_ADX=20` / `TREND_MIN_ADX=25`
+  — `regime_label()` is a pure function of one ADX value. Every `regime_policy.yaml`
+  cell and the whole selectivity apparatus rests on those two constants, which have
+  never been swept.
+- The **vol axis is only good for BTC.** `REGIME_ML_VERDICT_MODE=use` beats the frozen
+  label decisively, but resolution is **per-symbol** and only BTC has an advisory head
+  — every other symbol silently falls back to the frozen label.
+- Even BTC's head is **weak at its own operating point**: `f1_volatile 0.24` at
+  `vol_threshold=0.005` (`MB-20260701-001`), and `regime-classifier-baseline-v0`
+  collapses outright (`f1_volatile=0.0`, `MB-20260601-002`).
+
+| # | Item | n-source | Why it pays |
+|---|---|---|---|
+| **R1** | Run the design's **Step 1 — regime-conditional performance map**: per-strategy edge (net-R / win-rate / expectancy) bucketed by regime **and** direction, with walk-forward persistence | 730d backtest, free runners | The falsifiable question: *does each strategy have an identifiable regime where it is reliably +EV, persistent enough to act on?* Decides whether the whole initiative has legs **before** any model is built |
+| **R2** | Sweep the **ADX cut-points** (20/25) per strategy-family instead of inheriting two global constants | same | Two unswept constants gate every cell. Cheap, and a fold-split-validated sweep is the same discipline that caught the June ADX overfit |
+| **R3** | Fix the **vol label's operating point** rather than the model — re-label at ~0.004 (`MB-20260701-001`) and re-read `f1_volatile` | existing captured bars | Converges with **A5**: the flow head's "wait for a volatile era" is the same label-threshold problem |
+| **R4** | Extend the **ML vol label beyond BTC** — the advisory-head queue is what unlocks per-symbol selectivity | existing soaks | Converges with **A2**; this is *why* the head queue matters, not just fleet hygiene |
+| **R5** | Step 2 (soft weight overlay, train/holdout split) → Step 3 (phase-4 soft multipliers replacing hard cells) | — | `regime_policy.yaml` already documents `weight: N.N` phase-4 as future. **Step 2 is gated on R1 having legs; Step 3 is Tier-3** |
+
+#### The convergence — S1 + S2 + R1 + rec #5 are ONE computation
+
+Step 1 asks for *"net-R / win-rate / expectancy bucketed by regime, per strategy, from
+backtest data we already have."* That is **exactly** what `regime_debt_matrix.py`
+computes (per-`(regime, direction)` net-R from exact live params over 730d, on free
+runners), and `regime_cell_walkforward.py` supplies the OOS-persistence half Step 1's
+*"persistent enough to act on"* question requires.
+
+**The tooling for Step 1 was built yesterday under a different name.** So one corrected
+sweep simultaneously delivers: **S1** (corrected-cost re-grade), **S2** (roster-wide
+direction evidence), **R1** (the selectivity map), and the **rec #5 debt paydown**.
+Four objectives, one job — which is why T1's fee fix must land first: all four inherit
+its correctness.
+
+#### Skill gap identified
+
+There is **no regime skill** in the 28-skill catalog, yet regime work now has binding
+rules that were established ad hoc yesterday (the **no-cosmetic-cell** rule, the
+**walk-forward-before-Tier-3** gate, the faithful-vs-approximate fidelity split, the
+enforceability split between the 1-D and 2-D axes). Per `research-driver`'s promotion
+criterion, that is a recurring pattern that should become a skill. **Proposing
+`regime-selectivity`** — owning those rules plus the `regime_debt_matrix` /
+`regime_cell_walkforward` / `regime_tag_emitted` toolbox and the phased
+Step 1→2→3 ladder. Cheap; prevents the next session re-deriving the rules or
+authoring a cosmetic cell.
+
 ---
 
 ## 5. Proposed binding rule — "backfill before you wait"
