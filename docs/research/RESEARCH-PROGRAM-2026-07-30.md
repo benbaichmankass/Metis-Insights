@@ -346,6 +346,23 @@ to arrive," check whether the **label threshold** is what is starving the window
 
 ---
 
+## 6a. Execution log — Day 1 (live, updated as items land)
+
+| Item | Status | Evidence |
+|---|---|---|
+| **M1 gate redefinition** | ✅ **LANDED** | `ROADMAP_MACRO.md` M1 row: acceptance criteria now satisfiable by archived consensus **or** a pre-registered PIT expectation model validated on the overlap; mandatory vintage-basis stamp; the old stop condition superseded but its anti-lookahead intent re-carried |
+| **T1 · venue-aware research fees** | ✅ **LANDED** | `regime_debt_matrix.roundtrip_fee_bps` → `profile_loader.roundtrip_fee_bps_for` (0 bps for the 14 commission-free rows, `DEFAULT_FEE_BPS_ROUNDTRIP` elsewhere, single owner). `regime_cell_walkforward` inherits via `rdm.build_harness_cmd`. Rows now carry `fee_bps_roundtrip`. Resolver failure logs to stderr, never degrades silently. **26 new + 27 existing tests green** |
+| **T2 · M1 price join + fail-loud** | ✅ **LANDED** | yfinance installed on the runner; `stooq_symbol()` maps `*=F`→`<root>.f` (was `s=ng=f.us`); study exits **2** on an empty panel (`--allow-empty-panel` opt-out); workflow asserts ≥100 closes/symbol. Guard verified live. **5 new tests** |
+| **M2 · PIT expectation model** | ✅ **LANDED** | `scripts/macro/econ_expectation.py` — expanding-window OLS on lag-1 + lag-seasonal + Fourier harmonics, `SPEC_VERSION` pinned, stdlib-only (ridge-stabilised normal equations). **Leakage safety proven, not asserted:** 4 tests mutate every future value (incl. the target) and require bit-identical output, plus truncation-equivalence and a control that past values *do* move it. Honest nulls on thin history / NaN lag / singular system. **16 tests green** |
+| **T1/T2 landing on `main`** | ⏳ in flight | **Sequencing dependency found:** `regime-debt-matrix.yml` uses `actions/checkout@v4` with no `ref`, so an issue-driven run checks out **`main`**. The corrected sweep therefore cannot run until T1 is merged — dispatching earlier would silently re-run the venue-blind code and produce another wrong matrix |
+| **S1/S2/R1 corrected sweep** | ⛔ blocked on the row above | Dispatch via label `regime-debt-matrix-request` once T1 is on `main` |
+| **M1 backfill sibling** | 📋 next | Built for a runner, not the sandbox: **FRED is firewalled here** (verified — `fredgraph.csv` returns empty for `DFII10`/`ICSA`), so it follows the existing backfills' `urlopen`-injectable + `ICT_OFFVM_BUILD_HOST`-guarded pattern and is verified on a free runner |
+
+**Skill-gap note:** the `regime-selectivity` skill proposed in Track R is *not* yet
+written — it is a proposal for operator sign-off, not a shipped artifact.
+
+---
+
 ## 7. Day 1 (today)
 
 Ordered so the two small unblockers land first, the long free-runner jobs are
