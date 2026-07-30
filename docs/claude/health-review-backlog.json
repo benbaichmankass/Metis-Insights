@@ -7823,7 +7823,13 @@
         "docs/research/A-vol-gating-OFFcell-design-2026-06-27.md",
         "src/runtime/regime/ml_vol_verdict.py"
       ],
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-30T18:25:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "PER-CELL LIVE COUNTS — the six cells are UNGRADEABLE on live evidence. Pulled complete, untruncated audit_query payloads per strategy (dual_write_present:true on all three; the same query shape returned 11 and 1 for the other strategies, so the zeros are genuine, not a broken query). Live `regime_hard_gate` enforcement events over the WHOLE enforce era (hard gate live 2026-06-28; rows span 2026-06-29..2026-07-29):\n  transitional/calm  trend_donchian{long:off}          n=6   (diag #8096)\n  chop/calm          trend_donchian{long:off}          n=3   (diag #8096)\n  trending/volatile  trend_donchian{long:off}          n=2   (diag #8096)\n  trending/calm      squeeze_breakout_4h{short:off}    n=1   (diag #8095, single row 2026-06-30)\n  trending/volatile  ict_scalp_5m{long,short:off}      n=0   (diag #8098)\n  chop/volatile      ict_scalp_5m{long,short:off}      n=0   (diag #8098)\n  TOTAL n=12 across all six cells.\n`ict_scalp_5m` IS a real configured strategy (config/strategies.yaml:452), so n=0 means 'never fired in the enforce era', NOT a cell keyed to a non-existent strategy name.\n\nAND these are gate-EVENT counts, not outcome counts — a gate row records a SUPPRESSION, so the suppressed trade never happened and has no PnL. Grading a cell needs the counterfactual outcome, which the live record structurally cannot supply. So live evidence gives neither sufficient n NOR the right quantity.\n\nSEPARATE LIVE-VERIFIED FINDING (supports the cells' authoring premise): in 4 of the 11 trend_donchian rows the ML and frozen labels DISAGREE — all transitional, vol_regime_frozen='volatile' vs vol_regime_ml='calm'. In those 4 the ML label is what caused the gate; the frozen label would NOT have gated. That is direct live confirmation that the ML-vs-frozen distinction changes real outcomes, consistent with docs/research/A-vol-gating-OFFcell-design-2026-06-27.md's claim that these cells are correct ONLY under the ML label."
+        }
+      ]
     },
     {
       "id": "BL-20260730-DIAG-RELAY-FAILURE-COMMENT-MISLEADING",
@@ -7847,6 +7853,6 @@
       "updates": []
     }
   ],
-  "updated_at": "2026-07-30T18:05:00+00:00",
+  "updated_at": "2026-07-30T18:25:00+00:00",
   "generated_at": "2026-07-30T15:55:00+00:00"
 }
