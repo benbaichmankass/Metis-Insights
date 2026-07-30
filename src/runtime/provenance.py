@@ -70,8 +70,9 @@ import json
 from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 
 __all__ = [
-    "MEASURED", "FABRICATED", "UNVERIFIED",
-    "PROVENANCE_KEYS", "MEASURED_SOURCES", "FABRICATED_SOURCES",
+    "MEASURED", "ESTIMATED", "FABRICATED", "UNVERIFIED", "UNTRUSTED_BUCKETS",
+    "PROVENANCE_KEYS", "MEASURED_SOURCES", "ESTIMATED_SOURCES",
+    "FABRICATED_SOURCES",
     "classify", "classify_row", "is_measured", "split_counts", "coverage",
     "require_measured", "ProvenanceError",
 ]
@@ -80,14 +81,32 @@ __all__ = [
 MEASURED = "measured"
 """The value came from the venue or an actual recorded fill."""
 
+ESTIMATED = "estimated"
+"""The value was DERIVED from a defensible anchor — e.g. the OHLC bar covering
+the recorded ``closed_at``. Much closer to truth than a stale mark, but still
+not a fill: the bar says where the market was, not where THIS order filled.
+
+Kept distinct from :data:`FABRICATED` deliberately (operator decision,
+2026-07-30). Collapsing the two would lose the only signal that separates "we
+reconstructed this responsibly" from "we substituted an unrelated price hours
+later". It is NOT measured, and :func:`is_measured` is False for it — the
+binary trust gate is unchanged."""
+
 FABRICATED = "fabricated"
-"""The value was synthesised by the bot (mark-to-market, proration, estimate).
-It is a model output, not an observation. Never aggregate silently."""
+"""The value was synthesised with no defensible anchor to the close — a
+mark-to-market read at an arbitrary later time, or a proration assumption. A
+model output, not an observation. Never aggregate silently."""
+
+UNTRUSTED_BUCKETS: Tuple[str, ...]
+"""Every bucket that is NOT a fill — defined below once the names exist. Use
+this rather than re-listing buckets at a call site."""
 
 UNVERIFIED = "unverified"
 """No provenance was recorded, or the source is unrecognised. Deliberately NOT
 ``MEASURED``: absence of a provenance record is not evidence of measurement.
 This is the bucket that the 247 legacy rows fall into."""
+
+UNTRUSTED_BUCKETS = (ESTIMATED, FABRICATED, UNVERIFIED)
 
 # --- The keys this module governs -------------------------------------------
 # Adding a key here without adding a consumer will FAIL the provenance-consumer
@@ -107,6 +126,13 @@ MEASURED_SOURCES = frozenset({
     "exchange", "broker_truth",
     # A real fill the bot itself recorded at close time.
     "recorded_exit_price", "operator_flatten_fill", "verdict",
+})
+
+ESTIMATED_SOURCES = frozenset({
+    # OHLC bar covering the recorded closed_at — the sanctioned reconstruction
+    # for a confirmed close whose real fill was never recovered. Anchored to
+    # the close TIME, unlike `local_markprice` which is simply "now".
+    "candle_at_close",
 })
 
 FABRICATED_SOURCES = frozenset({
@@ -136,6 +162,8 @@ def classify(source: Any) -> str:
     s = str(source or "").strip()
     if s in FABRICATED_SOURCES:
         return FABRICATED
+    if s in ESTIMATED_SOURCES:
+        return ESTIMATED
     if s in MEASURED_SOURCES:
         return MEASURED
     return UNVERIFIED
@@ -188,8 +216,8 @@ def is_measured(row: Any, key: str = "exit_price_source") -> bool:
 def split_counts(
     rows: Iterable[Any], key: str = "exit_price_source",
 ) -> Dict[str, int]:
-    """``{measured, fabricated, unverified, total}`` over *rows*."""
-    out = {MEASURED: 0, FABRICATED: 0, UNVERIFIED: 0, "total": 0}
+    """``{measured, estimated, fabricated, unverified, total}`` over *rows*."""
+    out = {MEASURED: 0, ESTIMATED: 0, FABRICATED: 0, UNVERIFIED: 0, "total": 0}
     for row in rows:
         out[classify_row(row, key)[0]] += 1
         out["total"] += 1
@@ -227,11 +255,13 @@ def require_measured(
     but still rejects known-fabricated ones.
     """
     counts = split_counts(rows, key)
-    bad = counts[FABRICATED] + (0 if allow_unverified else counts[UNVERIFIED])
+    bad = (counts[FABRICATED] + counts[ESTIMATED]
+           + (0 if allow_unverified else counts[UNVERIFIED]))
     if bad:
         raise ProvenanceError(
             f"{context}: refusing to use {bad} untrusted value(s) for {key!r} "
-            f"(measured={counts[MEASURED]} fabricated={counts[FABRICATED]} "
+            f"(measured={counts[MEASURED]} estimated={counts[ESTIMATED]} "
+            f"fabricated={counts[FABRICATED]} "
             f"unverified={counts[UNVERIFIED]} of {counts['total']}). "
             f"Filter with provenance.is_measured() or report the split via "
             f"provenance.coverage() instead of aggregating blind."
