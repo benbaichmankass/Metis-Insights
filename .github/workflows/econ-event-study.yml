@@ -196,7 +196,28 @@ jobs:
           done
           {
             echo "summary<<EOF"
-            python -c "import json; d=json.load(open('comms/macro/econ_event_study_scorecard.json')); print(json.dumps({'natgas': d['summary'], 'meta': d['meta']}, indent=2))"
+            # Summarize the kinds THIS RUN produced. It previously hardcoded the natgas
+            # scorecard, so a run over other kinds reported a STALE natgas file (n=6) while
+            # its own real results — n=1349 per claims kind — existed only in the log. The
+            # run was correct; the report was reading a different artifact.
+            python3 - <<'SUMEOF'
+            import json, os
+            out = {}
+            for k in os.environ["EES_KINDS"].split(","):
+                k = k.strip()
+                if not k:
+                    continue
+                path = {"eia_natgas_storage": "comms/macro/econ_event_study_scorecard.json",
+                        "eia_crude_stocks": "comms/macro/econ_event_study_crude_scorecard.json",
+                        }.get(k, f"comms/macro/econ_event_study_{k}_scorecard.json")
+                try:
+                    d = json.load(open(path))
+                except Exception as exc:  # noqa: BLE001
+                    out[k] = {"error": f"scorecard unreadable: {exc}"}
+                    continue
+                out[k] = {"summary": d.get("summary"), "meta": d.get("meta")}
+            print(json.dumps(out, indent=2))
+            SUMEOF
             echo
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
@@ -206,7 +227,10 @@ jobs:
         uses: ./.github/actions/commit-to-main
         with:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
-          paths: comms/macro/econ_event_study_scorecard.json comms/macro/econ_event_study_crude_scorecard.json
+          # Was hardcoded to the two energy scorecards, so a run over any other kind
+          # produced real results and then threw them away ("nothing to commit"). Glob so
+          # every per-kind scorecard this run wrote is actually landed.
+          paths: comms/macro/econ_event_study_scorecard.json comms/macro/econ_event_study_crude_scorecard.json comms/macro/econ_event_study_*_scorecard.json
           message: "chore(m1): econ-surprise event-study scorecard"
           pr-title: "chore(m1): econ-surprise event-study scorecard (auto)"
           pr-body: "Economic-surprise → forward-price event-study scorecards (econ-event-study). Observe-only, data-only; auto-merge. Verdict caps at insufficient_history until PIT-consensus history accrues."
