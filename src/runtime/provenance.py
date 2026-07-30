@@ -71,6 +71,7 @@ from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 
 __all__ = [
     "MEASURED", "ESTIMATED", "FABRICATED", "UNVERIFIED", "UNTRUSTED_BUCKETS",
+    "UNMEASURED_MARKER",
     "PROVENANCE_KEYS", "MEASURED_SOURCES", "ESTIMATED_SOURCES",
     "FABRICATED_SOURCES",
     "classify", "classify_row", "is_measured", "split_counts", "coverage",
@@ -104,7 +105,34 @@ this rather than re-listing buckets at a call site."""
 UNVERIFIED = "unverified"
 """No provenance was recorded, or the source is unrecognised. Deliberately NOT
 ``MEASURED``: absence of a provenance record is not evidence of measurement.
-This is the bucket that the 247 legacy rows fall into."""
+This is the bucket that the 247 legacy rows fall into.
+
+Also the bucket for :data:`UNMEASURED_MARKER` — a value that was *explicitly*
+declared unmeasurable. For TRUST the two are identical (neither is a
+measurement), which is why they share a bucket. They differ only in
+ACCOUNTABILITY, and that distinction is read from the raw source string, not the
+bucket: see :data:`UNMEASURED_MARKER`."""
+
+UNMEASURED_MARKER = "unmeasured"
+"""The canonical ``pnl_source`` value meaning **"this close is real, its PnL
+could not be measured, and we are saying so on the record."**
+
+The honest terminal state the schema previously had no way to express — and its
+absence is what turned ``check_db_integrity`` INV-2 into a forcing function
+pointed the wrong way. INV-2 demanded a number for every closed row past the
+sweep grace and never asked what KIND of number, so the only way to clear it was
+to put *something* in ``pnl``; ``_sweep_local_pnl_for_unpriced`` obliged with a
+mark price taken hours after the close, and the check went green on
++$247,683.78 of manufactured money while a correct, honest NULL would have
+stayed red forever.
+
+With this marker, "we don't know" becomes a *declarable* answer. INV-2 now
+alerts only on SILENCE (an undeclared NULL); a declaration clears it and is
+counted separately by INV-2b, so the unmeasured population stays visible and the
+marker can never be used to quietly mute the check.
+
+One spelling, defined here. Do not inline the string at a call site — a second
+spelling would split the population and hide half of it."""
 
 UNTRUSTED_BUCKETS = (ESTIMATED, FABRICATED, UNVERIFIED)
 
