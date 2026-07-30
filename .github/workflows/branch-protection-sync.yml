@@ -82,7 +82,22 @@ jobs:
           # (pnl_source / exit_reason_source / close_exec_type /
           # unrealizedPnlSource) all gained real consumers in that PR, so it is
           # green on merge, NOT waivered green.
-          REQUIRED_CONTEXTS='["pytest-collect","pytest-run","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver","provenance-consumer-guard"]'
+          # diagnostic-provenance-guard promoted to REQUIRED on 2026-07-30, same
+          # reasoning one level up: provenance-consumer-guard asks whether a
+          # STORED value's provenance is read; this asks whether a HUMAN-FACING
+          # diagnostic states the derivation of what it printed. Advisory-only
+          # is self-defeating for both — a check everyone can walk past is the
+          # failure mode, not the mitigation.
+          #
+          # Green on merge, NOT waivered green: it has run and passed on every
+          # push to this PR, it is diff-scoped (pre-existing sites grandfathered,
+          # same contract as silent-empty-guard), and — the part that matters for
+          # trusting a green — the workflow SELF-TESTS its own failure path on
+          # every run, feeding the guard a known-bad diagnostic and failing the
+          # job unless it returns exit 1. A guard whose failure path is never
+          # exercised is exactly the "green that checked nothing" this defect
+          # class is about.
+          REQUIRED_CONTEXTS='["pytest-collect","pytest-run","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver","provenance-consumer-guard","diagnostic-provenance-guard"]'
 
           # Use the CURRENT canonical repo path from the Actions context, NOT a
           # hardcoded owner/repo. The 2026-07-23 rename (ict-trading-bot ->
