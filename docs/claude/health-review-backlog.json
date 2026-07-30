@@ -7597,6 +7597,27 @@
       "refs": [
         "BL-20260730-PRODUCER-VACUITY-GUARD"
       ]
+    },
+    {
+      "id": "BL-20260730-ECON-SCORECARD-NAMING-TRAP",
+      "opened_at": "2026-07-30T16:10:00+00:00",
+      "opened_by": "claude (vol-axis session, found while closing issue #8048)",
+      "source": "Verifying that #8048's five econ event-study scorecards actually landed on main (#8053, dc6b0a0). Four are comms/macro/econ_event_study_<kind>_scorecard.json; eia_natgas_storage is comms/macro/econ_event_study_scorecard.json — the UNSUFFIXED default name.",
+      "title": "[macro][naming] eia_natgas_storage's scorecard uses the unsuffixed default filename — a `econ_event_study_*_scorecard.json` glob enumerates 4 of 5 kinds and looks complete",
+      "description": "Low-severity but exactly the recurring wrong-roster shape, so it is filed rather than shrugged at. `scripts/macro/econ_event_study.py` writes to a per-kind suffixed path when given one and to the bare default otherwise; the #8053 run left natgas on the default. Consequence: any future consumer, audit, or re-grade that enumerates the family with a `econ_event_study_*_scorecard.json` glob gets FOUR kinds, no error, and no way to tell one is missing — and the missing one is natgas, the kind carrying the strongest (wrong-signed vs the pre-registered hypothesis) IC. Same failure class as BL-20260730-REGIME-CELL-UNAUDITABLE (complete with respect to its roster; roster is the wrong set) and the 'Green is not evidence' § instance table. NOT urgent: all five scorecards exist, all carry non-zero releases + price_bars, and the M1 null verdict is unaffected and already recorded. FIX (either is fine, pick one): (a) rename to econ_event_study_eia_natgas_storage_scorecard.json and have the producer ALWAYS suffix, so the default bare name never exists; or (b) if the bare name is deliberately 'the primary kind', document that in the producer + wherever the family is consumed, so a glob author knows to add it. Prefer (a) — an implicit primary is how the trap re-forms. Whichever is chosen, add the family to the artifact-validity registry so its COUNT is asserted, not its existence.",
+      "tier": 1,
+      "trigger_condition": "Any consumer or audit that enumerates the econ event-study scorecard family by glob.",
+      "resolution_criteria": "Either every kind's scorecard is suffix-named (no bare default written), or the bare name's meaning is documented at the producer and every consumer; and the family's expected kind-count is asserted rather than assumed.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "low",
+      "refs": [
+        "BL-20260730-REGIME-CELL-UNAUDITABLE",
+        "scripts/macro/econ_event_study.py",
+        "comms/macro/econ_event_study_scorecard.json"
+      ]
     }
   ],
   "updated_at": "2026-07-30T16:10:00+00:00",
