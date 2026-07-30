@@ -59,7 +59,10 @@ anything.
    (§ "Verification").
 7. **Persist scores** to `comms/claude_strategy_scores.jsonl`
    (append-only, dedupe by `order_package_id`).
-8. **Propose tweaks** — config/strategies.yaml params to consider, with
+8. **Diagnose before proposing a demote/kill** — underperformance is a
+   trigger to root-cause + robustly re-test, NEVER a reason to reflexively
+   flip a strategy off (§ "Underperformance → diagnose, don't demote").
+9. **Propose tweaks** — config/strategies.yaml params to consider, with
    evidence (§ "Proposed tweaks").
 9. **Drain the performance-review backlog** — strategy follow-ups from
    prior sessions (§ "Draining the backlog").
@@ -281,6 +284,61 @@ false` if the generator hasn't run yet) and:
   hours), note it as `insights_staleness: watch`. The generator is
   the responsible owner — not this skill — but staleness affects the
   dashboard users see.
+
+## Underperformance → diagnose, don't demote (BINDING — operator directive 2026-07-30)
+
+**A red number is a trigger to diagnose and robustly re-test, NEVER an
+instruction to demote.** Reflexively flipping a strategy to `shadow` because
+this window looks bad is the failure mode this section exists to kill —
+it turns a strategy off at a regime bottom, discards a real edge, and (worst)
+learns nothing about *why* it underperformed, so the same mistake recurs. This
+is the strategy-level analogue of the `drift-remediation` skill's one rule;
+follow it before ANY demote/kill enters `proposed_tweaks[]`.
+
+When a live strategy underperforms in the window, the mandatory next step is a
+**root-cause diagnosis + robust re-test**, not a proposal to turn it off:
+
+1. **Robustly re-test the edge** — a walk-forward with **exact live params**
+   over the full reconstructable history (the `backtesting` / `exit-refinement`
+   harnesses: `scripts/backtest_*.py --emit-trades` →
+   `scripts/research/direction_walkforward.py`, contiguous OOS time-folds).
+   Answer: did it **ever** have a durable net-of-cost edge, or was it overfit
+   from the start? A real multi-fold edge that is negative only in recent folds
+   is **regime**, not death.
+2. **Attribute the WHY** to one of four causes — the disposition depends on it:
+   - **Regime (transient)** — edge is real across history, negative only in the
+     current regime slice → **KEEP / regime-tune** (a vol/chop/adx gate to skip
+     the adverse regime), do NOT demote. Self-heals when the regime turns.
+   - **Cost** — the backtest was net-of-fee only but the live venue adds
+     **funding** (perp holds) and **slippage** (tight-stop scalps) the gate never
+     modelled → the fix is a **cost/sizing/venue** change (or re-gate net of the
+     full cost stack), not a kill. See `docs/research/research-to-results-gap-2026-07-30.md`.
+   - **Execution divergence** — live behaviour differs from the idealized
+     backtest (a bracket bug, partial fills, a monitor gap) → **fix the bug**;
+     the strategy edge was never the problem.
+   - **Genuine capability loss / overfit** — no durable edge in the robust
+     re-test → *now* a demote is on the table, **as the last resort**.
+3. **Ask whether it is STRUCTURAL, not per-strategy.** If the diagnosed cause is
+   a **tools/methodology gap** (the cost model omits funding/slippage; the
+   graduation gate is net-of-fee only; the paper-mirror signal isn't gated on;
+   an offline metric over-selects) then it almost certainly affects **multiple**
+   strategies — the fix is to the **tooling/methodology**, filed as its own
+   backlog item (health backlog for a tool/CI bug, performance backlog for a
+   gate-methodology change), NOT a one-off demote that leaves the structural
+   hole open for the next strategy to fall into. **A pattern of demote proposals
+   across several strategies is itself the tell that the tooling — not the
+   strategies — is what's broken.**
+
+**Fine-tune is the default remediation; demote is interim safety only** — used
+only when a leg is *actively harmful now* AND no fine-tune/replacement is ready,
+and even then it is a stopgap while the fix is built, never the endpoint. **Every
+`proposed_tweaks[]` entry that is a demote/kill MUST carry the completed
+diagnosis** (`diagnosis: {reidentified_edge_R, cause ∈ regime|cost|execution|overfit,
+robust_retest_ref, why_finetune_insufficient, structural_finding?}`); a demote
+proposed without that block is an incomplete review — do not emit it. This
+composes with `drift-remediation` (the model analog), `backtesting` /
+`exit-refinement` (the re-test harnesses), and the `research-to-results-gap`
+memo (the standing structural findings).
 
 ## Proposed tweaks
 

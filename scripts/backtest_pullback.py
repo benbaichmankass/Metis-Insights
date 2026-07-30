@@ -162,7 +162,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  vol_pctl_window: int = 200,
                  trail_vol_above_pctl: float = 0.0,
                  trail_vol_below_pctl: float = 0.0,
-                 trail_vol_tight_mult: float = 0.0) -> Dict[str, Any]:
+                 trail_vol_tight_mult: float = 0.0,
+                 side_filter: str = "both") -> Dict[str, Any]:
     # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
     # NEW entry whose TRIGGER bar's UTC hour is in the CSV set. Exits are
     # never touched — an open trade rides through skipped hours unchanged.
@@ -247,6 +248,15 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             direction = "short"
             depth = (mid - c) / atr
         if direction is None:
+            i += 1
+            continue
+        # Live-parity directional gate (side_filter). The live pullback builder
+        # honours a per-strategy ``side_filter: long|short|both``; a config-exact
+        # sweep must apply the same gate. ``both`` (default) = byte-identical no
+        # gate. Added 2026-07-30 for the sol_pullback_2h short-only fine-tune
+        # (docs/research/crypto-finetune-proposals-2026-07-30.md).
+        if (side_filter == "long" and direction == "short") or \
+                (side_filter == "short" and direction == "long"):
             i += 1
             continue
         # Direction-aware regime gate (Phase 2): skip a long whose direction read
@@ -666,6 +676,10 @@ def main(argv: List[str]) -> int:
     p.add_argument("--trail-vol-tight-mult", type=float, default=0.0,
                    help="The tightened trail mult while the vol condition fires "
                         "(0 disables the lever).")
+    p.add_argument("--side-filter", choices=["long", "short", "both"], default="both",
+                   help="Config-exact directional gate matching the live builder's "
+                        "side_filter: skip shorts (long) / skip longs (short) / no gate "
+                        "(both, default). Used for the crypto short-only fine-tunes.")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for regime tagging.")
@@ -713,7 +727,8 @@ def main(argv: List[str]) -> int:
                        vol_pctl_window=args.vol_pctl_window,
                        trail_vol_above_pctl=args.trail_vol_above_pctl,
                        trail_vol_below_pctl=args.trail_vol_below_pctl,
-                       trail_vol_tight_mult=args.trail_vol_tight_mult)
+                       trail_vol_tight_mult=args.trail_vol_tight_mult,
+                       side_filter=args.side_filter)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)

@@ -144,6 +144,62 @@ def _with_signal_package(strategy_id: str, sig: dict) -> dict:
     return sig
 
 
+def _resolve_side_filter(cfg: dict) -> str:
+    """Resolve a strategy's directional gate to ``"long" | "short" | "both"``.
+
+    One reusable gate for the trend + pullback signal builders (Tier-1 capability
+    added 2026-07-30 for the crypto short-only fine-tunes — the alt-crypto LONG
+    side is a persistent bearish-regime drag on ``sol_pullback_2h`` /
+    ``trend_donchian_xrp_4h``; see docs/research/crypto-finetune-proposals-2026-07-30.md).
+
+    Precedence:
+      1. an explicit ``side_filter: long|short|both`` in the strategy config wins;
+      2. otherwise the legacy ``long_only: true`` maps to ``"long"`` (back-compat
+         — the pre-existing flag on trend_donchian variants);
+      3. otherwise the default is ``"both"`` (two-sided — omitting the key never
+         strands a side, per the two-execution-gate discipline).
+
+    An unrecognised ``side_filter`` value is ignored (warned) and resolution falls
+    back to the ``long_only``/``both`` rule rather than silently gating a side.
+    """
+    raw = cfg.get("side_filter")
+    if isinstance(raw, str):
+        val = raw.strip().lower()
+        if val in ("long", "short", "both"):
+            return val
+        logger.warning(
+            "side_filter=%r unrecognised (expected long|short|both) — "
+            "falling back to long_only/both resolution", raw)
+    return "long" if bool(cfg.get("long_only", False)) else "both"
+
+
+def _side_filter_suppresses(direction: str, side_filter: str) -> bool:
+    """True when ``side_filter`` suppresses this signal's ``direction``.
+
+    ``both`` never suppresses; ``long`` suppresses shorts; ``short`` suppresses
+    longs. ``direction`` is the order package's ``"long"``/``"short"``.
+    """
+    if side_filter == "long":
+        return direction != "long"
+    if side_filter == "short":
+        return direction != "short"
+    return False
+
+
+def _side_filter_reason(side_filter: str) -> str:
+    """Audit/meta reason string for a side_filter suppression.
+
+    The ``long`` gate keeps the legacy ``short_suppressed_long_only`` string
+    (back-compat: the pre-existing ``long_only`` flag and downstream analytics
+    key on it); the new ``short`` gate uses the symmetric
+    ``long_suppressed_short_only``.
+    """
+    return (
+        "short_suppressed_long_only" if side_filter == "long"
+        else "long_suppressed_short_only"
+    )
+
+
 # Per-process shadow predictor cache for the signal-builder path.
 # Keyed by (strategy_name, tuple(resolved_model_ids)) so a config reload
 # or registry promotion that changes the resolved set gets a fresh
@@ -1129,14 +1185,16 @@ def trend_donchian_signal_builder(settings: dict) -> Dict[str, Any]:
             },
         })
 
-    # LONG-ONLY gate (operator-approved 2026-06-01, Tier-3). The
+    # DIRECTIONAL gate (side_filter, Tier-3 per-strategy). The
     # regime×direction matrix (docs/research/regime-roster-matrix-2026-06-01.md)
     # showed trend_donchian's SHORT side is a net −37 R drag that earns only in
-    # chop, while the LONG side is the +47 R trend edge. Honour an opt-in
-    # ``long_only`` flag from strategies.yaml — suppress shorts, keep longs.
-    # Default off, so omitting it preserves the two-sided behaviour.
-    if bool(trend_cfg.get("long_only", False)) and pkg["direction"] != "long":
-        logger.info("trend_donchian: short signal suppressed (long_only)")
+    # chop, while the LONG side is the +47 R trend edge. Honour a per-strategy
+    # ``side_filter: long|short|both`` (legacy ``long_only: true`` → ``long``);
+    # default ``both``, so omitting it preserves the two-sided behaviour.
+    _side_filter = _resolve_side_filter(trend_cfg)
+    if _side_filter_suppresses(pkg["direction"], _side_filter):
+        _reason = _side_filter_reason(_side_filter)
+        logger.info("trend_donchian: signal suppressed (side_filter=%s)", _side_filter)
         try:
             log_signal(_stamp_regime({
                 "event": "trend_donchian_eval",
@@ -1144,7 +1202,7 @@ def trend_donchian_signal_builder(settings: dict) -> Dict[str, Any]:
                 "symbol": symbol,
                 "timeframe": timeframe,
                 "side": "none",
-                "reason": "short_suppressed_long_only",
+                "reason": _reason,
             }, candles_df))
         except Exception:  # noqa: BLE001
             logger.exception("trend_donchian: dedicated audit emit failed")
@@ -1153,7 +1211,7 @@ def trend_donchian_signal_builder(settings: dict) -> Dict[str, Any]:
             "side": "none",
             "meta": {
                 "strategy_name": "trend_donchian",
-                "reason": "short_suppressed_long_only",
+                "reason": _reason,
             },
         })
 
@@ -1688,20 +1746,25 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
             "meta": {"strategy_name": name, "reason": str(exc)},
         })
 
-    # LONG-ONLY gate (operator-approved 2026-06-16, Tier-3). Mirrors the
-    # flagship trend_donchian builder's directional discipline. The Breakout
-    # daily-swap walk-forward A/B (PB-20260616-004) showed SOL's edge survives
-    # long-only (pre +$1,325 → post +$1,158, EV@1.5% +$1,131/86%, 4/4 folds)
-    # while ETH's edge is short-side-dependent (long-only flips it negative) —
-    # so trend_donchian_sol sets ``long_only: true`` and trend_donchian_eth
-    # stays two-sided. Honoured per-variant from strategies.yaml; default off.
-    if bool(vcfg.get("long_only", False)) and pkg["direction"] != "long":
-        logger.info("%s: short signal suppressed (long_only)", name)
+    # DIRECTIONAL gate (side_filter, Tier-3 per-variant). Mirrors the flagship
+    # trend_donchian builder's directional discipline. The Breakout daily-swap
+    # walk-forward A/B (PB-20260616-004) showed SOL's edge survives long-only
+    # (pre +$1,325 → post +$1,158, EV@1.5% +$1,131/86%, 4/4 folds) while ETH's
+    # edge is short-side-dependent (long-only flips it negative). The 2yr WF
+    # (crypto-finetune-proposals-2026-07-30) then showed trend_donchian_xrp_4h's
+    # LONG side is a persistent drag (long −2.05R stable_drag) while short carries
+    # it (+7.34R) — so it takes ``side_filter: short``. Honoured per-variant from
+    # strategies.yaml (``side_filter: long|short|both``; legacy ``long_only: true``
+    # → ``long``); default ``both``.
+    _side_filter = _resolve_side_filter(vcfg)
+    if _side_filter_suppresses(pkg["direction"], _side_filter):
+        _reason = _side_filter_reason(_side_filter)
+        logger.info("%s: signal suppressed (side_filter=%s)", name, _side_filter)
         try:
             log_signal(_stamp_regime({
                 "event": f"{name}_eval", "strategy": name, "symbol": symbol,
                 "timeframe": timeframe, "side": "none",
-                "reason": "short_suppressed_long_only",
+                "reason": _reason,
             }, candles_df))
         except Exception:  # noqa: BLE001
             logger.exception("%s: dedicated audit emit failed", name)
@@ -1709,7 +1772,7 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
             "symbol": symbol, "side": "none",
             "meta": {
                 "strategy_name": name,
-                "reason": "short_suppressed_long_only",
+                "reason": _reason,
             },
         })
 
@@ -5360,6 +5423,29 @@ def _htf_pullback_variant_builder(
             "symbol": symbol,
             "side": "none",
             "meta": {"strategy_name": name, "reason": str(exc)},
+        })
+
+    # DIRECTIONAL gate (side_filter, Tier-3 per-variant). Default ``both`` — the
+    # pullback family was two-sided until now, so omitting the key is byte-for-byte
+    # unchanged. The 2yr walk-forward (crypto-finetune-proposals-2026-07-30) found
+    # ``sol_pullback_2h``'s LONG side is the whole loss (long −12.39R / short
+    # +6.96R), a single-symbol bearish-alt drag — so it takes ``side_filter:
+    # short``. Honoured per-variant from strategies.yaml (``side_filter:
+    # long|short|both``; legacy ``long_only: true`` → ``long``).
+    _side_filter = _resolve_side_filter(cfg_yaml)
+    if _side_filter_suppresses(pkg["direction"], _side_filter):
+        _reason = _side_filter_reason(_side_filter)
+        logger.info("%s: signal suppressed (side_filter=%s)", name, _side_filter)
+        try:
+            log_signal(_stamp_regime({
+                "event": f"{name}_eval", "strategy": name, "symbol": symbol,
+                "timeframe": timeframe, "side": "none", "reason": _reason,
+            }, candles_df))
+        except Exception:  # noqa: BLE001
+            logger.exception("%s: dedicated audit emit failed", name)
+        return _with_signal_package(name, {
+            "symbol": symbol, "side": "none",
+            "meta": {"strategy_name": name, "reason": _reason},
         })
 
     side = "buy" if pkg["direction"] == "long" else "sell"

@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260730-045200-since-last",
+      "window": "since-last",
+      "generated_at": "2026-07-30T04:52:00+00:00",
+      "window_start": "2026-07-28T09:12:00+00:00",
+      "window_end": "2026-07-30T04:50:00+00:00",
+      "roll_up_grade": "caution",
+      "headline": "Quiet, plumbing-healthy ~44h window. All services up, all 7 live accounts reachable, IB connected, zero alert banners. Real money (bybit_2 ~$268) essentially flat: 24h -$4.38 (0/2), 7d -$17.33 but +12R; both open real positions SL/TP-protected. 16 closed trades graded (B4/C10/D2). ML cycles clean (2/24h rc=0, 104 dataset builds). Big $ swings are all paper. Bybit naked-position blindspot fix (#7874) confirmed live.",
+      "html_path": "comms/reports/since-last/20260730T045200Z/report.html",
+      "json_path": "comms/reports/since-last/20260730T045200Z/report.json",
+      "md_path": "comms/reports/since-last/20260730T045200Z/report.md"
+    },
+    {
       "id": "RPT-20260728-091200-since-last",
       "window": "since-last",
       "generated_at": "2026-07-28T09:12:00Z",
