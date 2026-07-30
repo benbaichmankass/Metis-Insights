@@ -47,6 +47,9 @@ routing layer, not a replacement for reading it.
 | Question | Tool |
 |---|---|
 | Net-R per (trend regime × direction) from **any** harness's emitted trades? | `scripts/research/regime_tag_emitted.py` |
+| The same, split by the **2-D `(trend, vol)` cell the live router gates on**? | `scripts/research/regime_tag_emitted.py --vol-labels` |
+| **Per-bar `calm`/`volatile` labels** — replay the live ML vol axis offline | `scripts/research/ml_vol_label_replay.py` |
+| Does that replay actually reproduce the LIVE label? | `scripts/research/ml_vol_label_replay.py verify` |
 | The same, driven per-strategy off live config, with a fidelity label? | `scripts/research/regime_debt_matrix.py` |
 | Is ONE (regime, direction) cell **temporally stable** (the #7915 gate)? | `scripts/research/regime_cell_walkforward.py` |
 | Regime × strategy matrix (routing groundwork)? | `scripts/research/regime_matrix.py` |
@@ -56,6 +59,22 @@ routing layer, not a replacement for reading it.
 lever the live config declares; `approximate` = it does not, and the omitted levers are
 named. **Never author or retire a live cell off an `approximate` row.** A lever the harness
 cannot model is not necessarily unmeasurable — check §3 before concluding that.
+
+⚠️ **The vol axis is a SECOND fidelity question, and it is about POPULATION, not levers**
+(`BL-20260730-2D-VOL-CELLS-UNAUDITABLE`). Six live cells are 2-D `trend_vol` cells. Grading
+such a strategy on the 1-D trend axis alone POOLS vol states the live gate already refuses,
+so the verdict measures a population live does not trade — it can be complete, green, and
+still wrong-signed (a near-miss Tier-3 proposal on `squeeze_breakout_4h` was withheld for
+exactly this on 2026-07-30). Pass `--vol-labels` for any strategy carrying a `trend_vol`
+cell; `regime_tag_emitted` declares `vol_axis: absent` when you don't, so the gap is always
+visible in the artifact rather than assumed away.
+
+⚠️ **The vol label comes from the ADVISORY ML HEAD, never from `vol_detector`.** Under
+`REGIME_ML_VERDICT_MODE=use` (live for BTC since 2026-06-28) `intents._decision_vol_regime`
+resolves the vol axis from the advisory head's `P(volatile)` keyed **per symbol**. The
+frozen-edge `vol_detector` is a *different* label whose own docstring records that the
+authored cells "LOSE money under the frozen label" — splitting a harness on it is not a
+cheaper approximation, it is a second, opposite mismatch that looks like a fix.
 
 ## 3. Exits — including ML exit heads (the 2026-07-30 blind spot)
 

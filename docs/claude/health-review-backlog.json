@@ -6922,7 +6922,13 @@
       "resolution_criteria": "A repeatable vol-split matrix exists (per (trend, vol, direction) net-R using the router's own vol-label resolution) and all six 2-D cells have a recorded re-audit verdict.",
       "status": "open",
       "snoozed_until": null,
-      "updates": [],
+      "updates": [
+        {
+          "at": "2026-07-30T15:55:00+00:00",
+          "by": "claude (offline vol-axis build session)",
+          "note": "TOOL BUILT (path A), NOT YET RUN — this update is the build, not the verdict. Two committed pieces: (1) scripts/research/ml_vol_label_replay.py replays the ADVISORY head offline into per-bar calm/volatile labels, resolving the head + threshold through the ROUTER'S OWN resolvers (discover_advisory_stage_regime_specs / _ml_vol_verdict_threshold) rather than a hardcoded model id — so the 2026-07-20-style head swap is tracked automatically instead of drifting; (2) regime_tag_emitted.py gained --vol-labels / --only-vol, a by_cell 'trending/calm'-keyed breakdown, and an explicit vol_axis: present|absent declaration on EVERY run so a 1-D grade can never again be read as covering the vol axis. 21 new tests (tests/test_regime_vol_axis.py), incl. a PARITY test that drives the real live ml_vol_regime_for_symbol through its per-bar cache and asserts the replay lands on the same label at the >= boundary. TRAINER INVENTORY (#8054/#8055) confirms the replay needs NO Chronos re-run: the registry entry is target_deployment_stage=advisory with model_state_path=.../20260730T012123Z/model_state.json, and the head's own training frame market_features/BTCUSDT/15m/v520 (175,272 rows) already carries the six fc_* columns joined — so scoring reads the built dataset. TWO LIMITS FOUND, both to declare not hide: (a) v520 SPANS 2021-07-01 -> 2026-06-30 ONLY, so any emitted trade after 2026-06-30 gets vol_regime=unknown and lands in a */unknown row (the harness counts + prints this coverage rather than folding it into calm); the fresher forecasts side-stream v002 already runs to 2026-07-29, so closing the gap is a market_features rebuild, not new tooling; (b) the replay is IN-SAMPLE over the head's training window (the production artifact is fit on full history) — stamped into the labels manifest as fidelity.in_sample=true. NOT DONE, and the row STAYS OPEN: nothing has been measured yet. Next, in order: run the replay on the trainer against v520; run `verify` against the live gate's own regime_ml_vol_shadow / regime_hard_gate audit rows (the empirical test of the offline-vs-serve feature-row caveat — an unverified label file must NOT grade a cell, and the tool returns verdict=no_overlap_nothing_verified rather than a pass when nothing was compared); only then grade the six 2-D cells. The withheld squeeze_breakout_4h trending-short proposal stays withheld until that sequence completes."
+        }
+      ],
       "resolved_at": null,
       "severity": "high",
       "refs": [
