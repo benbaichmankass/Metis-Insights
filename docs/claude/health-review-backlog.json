@@ -7178,9 +7178,9 @@
       "opened_by": "claude (research program)",
       "source": "comms/macro/econ_event_study_scorecard.json published `verdict: insufficient_history` with `price_bars: 0` for the producer's ENTIRE life. The study never joined a single price bar, so its verdict was VACUOUS, not thin -- and the two are indistinguishable from the outside.",
       "title": "[macro/M1] econ event study joined ZERO price bars for its entire life — the flagship 'green is not evidence' instance",
-      "description": "FILED LATE, and that is itself the finding. This id is cited from docs/CLAUDE-RULES-CANONICAL.md (as the canonical example of the binding 'Green is not evidence' rule), scripts/ops/check_artifact_validity.py, scripts/macro/{econ_event_study,fetch_macro_candles,econ_calendar_snapshot_backfill}.py, and FOUR workflows -- but it existed only as other rows' `refs` and was never filed as a row of its own. So the flagship instance of the rule was 'tracked by' an id that resolved to nothing, which reads as tracked while being tracked by nobody. Exactly the crack the operator's 2026-07-30 directive names. THREE causes, all fixed but NOT ALL VERIFIED: (1) the Stooq URL/symbol mapping was wrong so the candle fetch returned nothing -- fixed (_STOOQ_URL + _STOOQ_FUTURES map + stooq_symbol()); (2) econ_event_study.py treated an empty panel as a soft zero and exited 0 -- fixed, now exits 2 unless --allow-empty-panel is passed explicitly; (3) the workflow swallowed the fetch with `|| echo` so a dead fetch stayed green -- fixed, plus a >=100-closes-per-symbol assertion. STILL UNVERIFIED ON A RUNNER: the econ-event-study workflow has not re-run since. Until it does, the fix is code-complete and evidence-free -- the same state that produced the bug. Verify then close.",
+      "description": "FILED LATE, and that is itself the finding. This id is cited from docs/CLAUDE-RULES-CANONICAL.md (as the canonical example of the binding 'Green is not evidence' rule), scripts/ops/check_artifact_validity.py, scripts/macro/{econ_event_study,fetch_macro_candles,econ_calendar_snapshot_backfill}.py, and FOUR workflows -- but it existed only as other rows' `refs` and was never filed as a row of its own. So the flagship instance of the rule was 'tracked by' an id that resolved to nothing, which reads as tracked while being tracked by nobody. Exactly the crack the operator's 2026-07-30 directive names. THREE causes, all fixed but NOT ALL VERIFIED: (1) the Stooq URL/symbol mapping was wrong so the candle fetch returned nothing -- fixed (_STOOQ_URL + _STOOQ_FUTURES map + stooq_symbol()); (2) econ_event_study.py treated an empty panel as a soft zero and exited 0 -- fixed, now exits 2 unless --allow-empty-panel is passed explicitly; (3) the workflow swallowed the fetch with `|| echo` so a dead fetch stayed green -- fixed, plus a >=100-closes-per-symbol assertion. STILL UNVERIFIED ON A RUNNER: the econ-event-study workflow has not re-run since. Until it does, the fix is code-complete and evidence-free -- the same state that produced the bug. Verify then close. || RESOLVED + LIVE-VERIFIED 2026-07-30 (econ-event-study run on issue #7991): **price_bars: 899** for NG=F, against `price_bars: 0` for the producer's entire life. The join is alive, on the ENERGY symbol, through the same yfinance->Stooq fetcher whose `=F` URL mapping was fixed today -- so all three causes (Stooq URL/symbol map, the empty-panel soft-zero, the `|| echo` that kept it green) are confirmed fixed on a real runner, not just in code. This closes the 'code-complete and evidence-free' state the row was deliberately held open for. NOTE the run reported verdict `insufficient_history` at max_n=6 (< min_honest_n=12) -- that is the HONEST small-n gate working, not a failure, and it is a DIFFERENT limitation from the one this row tracked. It also reported strongest_ic -0.9 at H=10 with t=-3.576 and any_flagged_horizon true; at n=6 that is noise and is correctly suppressed by sufficient_history:false -- do not read it as a finding. The run used the DEFAULT kinds/snapshots because the kind-parameterization was not yet on main when it fired (flagged in the dispatch as a possibility).",
       "severity": "high",
-      "status": "open",
+      "status": "resolved",
       "area": "macro",
       "refs": [
         "scripts/macro/econ_event_study.py",
@@ -7188,7 +7188,8 @@
         ".github/workflows/econ-event-study.yml",
         "docs/CLAUDE-RULES-CANONICAL.md",
         "BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER"
-      ]
+      ],
+      "resolved_at": "2026-07-30T13:20:00+00:00"
     },
     {
       "id": "BL-20260730-RESEARCH-VENUE-FEE",
@@ -7297,5 +7298,5 @@
       ]
     }
   ],
-  "updated_at": "2026-07-30T12:55:00+00:00"
+  "updated_at": "2026-07-30T13:20:00+00:00"
 }
