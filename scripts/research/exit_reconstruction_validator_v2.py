@@ -157,6 +157,8 @@ def main():
 
     st = defaultdict(int)
     A = {"e": [], "s": []}          # arm A: v1 rule (journal bracket, no BE)
+    Aok = {"e": [], "s": []}        # arm A, time-consistent
+    Aflag = {"e": [], "s": []}      # arm A, flagged
     B = {"e": [], "s": []}          # arm B: v2 (package bracket + BE replay)
     Bok = {"e": [], "s": []}        # arm B, time-consistent only
     Bflag = {"e": [], "s": []}      # arm B, flagged
@@ -201,12 +203,16 @@ def main():
 
         # arm A — v1 behaviour for direct comparison
         if r["t_sl"] and r["t_tp"] and r["t_sl"] > 0 and r["t_tp"] > 0:
-            pa, _, _, _, _ = reconstruct(bars, r["direction"], entry,
-                                         float(r["t_sl"]), float(r["t_tp"]),
-                                         replay_be=False)
+            pa, _, ats, _, _ = reconstruct(bars, r["direction"], entry,
+                                           float(r["t_sl"]), float(r["t_tp"]),
+                                           replay_be=False)
             if pa:
-                A["e"].append(abs((pa-actual)/actual*1e4))
-                A["s"].append((pa-actual)/actual*1e4)
+                ae = (pa-actual)/actual*1e4
+                A["e"].append(abs(ae)); A["s"].append(ae)
+                # Same time-consistency flag as arm B, so the two are comparable.
+                a_flag = ((c1 - ats) / 60000.0) > STALE_MIN
+                (Aflag if a_flag else Aok)["e"].append(abs(ae))
+                (Aflag if a_flag else Aok)["s"].append(ae)
 
         # arm B — v2
         pb, reason, ts, amb, armed = reconstruct(
@@ -245,6 +251,9 @@ def main():
 
     print("\n=== ERROR vs BROKER TRUTH ===")
     stats("ARM A  v1 (journal bracket, no BE replay)", A["e"], A["s"])
+    stats("ARM A  time-consistent only", Aok["e"], Aok["s"],
+          f"<= {STALE_MIN}m before closed_at  <-- THE CANDIDATE ESTIMATOR")
+    stats("ARM A  flagged (time-inconsistent)", Aflag["e"], Aflag["s"])
     stats("ARM B  v2 (package bracket + BE replay)", B["e"], B["s"])
     stats("ARM B  time-consistent only", Bok["e"], Bok["s"],
           f"<= {STALE_MIN}m before closed_at")
