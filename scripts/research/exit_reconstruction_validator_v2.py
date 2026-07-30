@@ -208,7 +208,8 @@ def main():
                                            replay_be=False)
             if pa:
                 ae = (pa-actual)/actual*1e4
-                A["e"].append(abs(ae)); A["s"].append(ae)
+                A["e"].append(abs(ae))
+                A["s"].append(ae)
                 # Same time-consistency flag as arm B, so the two are comparable.
                 a_flag = ((c1 - ats) / 60000.0) > STALE_MIN
                 (Aflag if a_flag else Aok)["e"].append(abs(ae))
@@ -223,7 +224,8 @@ def main():
             continue
         st["bracket_resolved"] += 1
         e = (pb - actual) / actual * 1e4
-        B["e"].append(abs(e)); B["s"].append(e)
+        B["e"].append(abs(e))
+        B["s"].append(e)
         lag_min = (c1 - ts) / 60000.0
         flagged = lag_min > STALE_MIN
         (Bflag if flagged else Bok)["e"].append(abs(e))

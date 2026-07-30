@@ -14,7 +14,6 @@ cleared every stage, with n stated.
 import json
 import sqlite3
 import statistics
-import sys
 import urllib.request
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -76,7 +75,7 @@ def klines(symbol, start_ms, end_ms):
             cur = nxt
             if len(rows) < 1000:
                 break
-    except Exception as e:
+    except Exception:
         _cache[key] = None
         return None
     out = sorted(set(out))
