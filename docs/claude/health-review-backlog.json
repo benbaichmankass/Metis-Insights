@@ -6842,7 +6842,23 @@
       "updates": [],
       "resolved_at": null,
       "severity": "medium"
+    },
+    {
+      "id": "BL-20260730-REGIME-CELL-UNAUDITABLE",
+      "opened_at": "2026-07-30T06:35:00+00:00",
+      "opened_by": "claude (research-program session, roadmap-progress-work-plan-xp7f9h)",
+      "source": "Found by the corrected-cost re-run itself (issue #7955, run 30519435812 on f67df73). Both re-grade tools iterate config/regime_coverage_exemptions.yaml::coverage_debt — and authoring a Tier-3 cell PAYS THE STRATEGY DOWN OUT of coverage_debt. So the moment a cell is authored, the strategy becomes unmeasurable by the tooling that authored it: regime_cell_walkforward.run_cell returned the literal error 'not in coverage_debt roster'. The tools could grade CANDIDATES but never RE-AUDIT a DECISION.",
+      "title": "[regime][governance] Authoring a cell removed the strategy from the debt roster, making the authored cell permanently un-re-auditable by its own tooling",
+      "description": "This bit immediately and exactly where it mattered most: the 2026-07-30 corrected-cost re-run (the whole point of which was to re-check evidence graded under a ~25x fee over-charge) silently DID NOT re-measure `gld_pullback_1h` — the one live Tier-3 cell the fee fix most called into question — because authoring that cell in #7923 had removed it from coverage_debt. The run reported 34 rows and zero errors, so nothing looked wrong: a blind spot precisely at the live gate, presented as a complete re-grade. Same shape as the 'green but vacuous' class (BL-20260730-PRODUCER-VACUITY-GUARD) one level up: the artifact was complete WITH RESPECT TO ITS ROSTER, and the roster was the wrong set. FIXED in this session: regime_debt_matrix.resolve_strategy(name) resolves ANY strategy declared in config/strategies.yaml, and both --only and regime_cell_walkforward.run_cell fall back to it, so an explicitly-named already-celled strategy stays auditable. The DEFAULT roster is unchanged (still the debt list). FOLLOW-UP still open: (a) re-measure gld_pullback_1h + walk-forward it on corrected costs and record the verdict; (b) consider whether every AUTHORED cell should be on a standing re-audit list, so a cell's evidence is periodically re-checked rather than frozen at authoring time — a cell authored on a bug is otherwise permanent.",
+      "tier": 1,
+      "trigger_condition": "Any re-grade or audit whose roster is a WORK-QUEUE (debt/backlog) rather than the full population — completing the queue then reads as completing the audit.",
+      "resolution_criteria": "gld_pullback_1h re-measured + walk-forwarded on corrected costs with the verdict recorded; and a decision taken on whether authored cells get a standing re-audit list.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "medium-high"
     }
   ],
-  "updated_at": "2026-07-30T06:00:00+00:00"
+  "updated_at": "2026-07-30T06:35:00+00:00"
 }

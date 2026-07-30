@@ -40,6 +40,8 @@ import os
 import subprocess
 import sys
 
+from typing import Optional
+
 import yaml
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -264,9 +266,34 @@ def load_roster() -> dict:
     return {n: strat.get(n, {}) for n in (ex.get("coverage_debt") or {})}
 
 
+def resolve_strategy(name: str) -> Optional[dict]:
+    """Config for ANY declared strategy, whether or not it is in `coverage_debt`.
+
+    Why this exists (BL-20260730-REGIME-CELL-UNAUDITABLE): the roster above is the
+    **debt list**, and authoring a cell PAYS THE STRATEGY DOWN OUT of `coverage_debt`
+    — so the moment a Tier-3 cell is authored, both re-grade tools stop being able to
+    measure that strategy at all (`regime_cell_walkforward.run_cell` returned the
+    literal error "not in coverage_debt roster"). The tooling could grade candidates
+    but never RE-AUDIT a decision it had already made.
+
+    That bit immediately: the 2026-07-30 corrected-cost re-run could not re-measure
+    `gld_pullback_1h` — the one live Tier-3 cell whose evidence the fee fix most
+    called into question — because authoring that cell had removed it from the
+    roster. A blind spot exactly where the live gate is.
+
+    So an explicitly-named strategy (`--only`, or a walk-forward request) resolves
+    against `config/strategies.yaml` directly. The DEFAULT roster is unchanged: still
+    the debt list, so a bare full-roster run means the same thing it always did.
+    """
+    strat = yaml.safe_load(
+        open(os.path.join(REPO, "config/strategies.yaml"))).get("strategies", {}) or {}
+    cfg = strat.get(name)
+    return cfg if isinstance(cfg, dict) else None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--only", nargs="*", help="run only these debt strategies")
+    ap.add_argument("--only", nargs="*", help="run only these strategies (may be outside coverage_debt — an already-celled strategy stays auditable)")
     ap.add_argument("--crypto-only", action="store_true", help="skip Yahoo feeds (sandbox-testable)")
     ap.add_argument("--workdir", default="/tmp/regime_debt_matrix")
     ap.add_argument("--days", type=int, default=730)
@@ -277,9 +304,12 @@ def main() -> int:
     names = args.only or sorted(roster)
     results = []
     for n in names:
-        cfg = roster.get(n)
+        # An explicitly-named strategy may live outside `coverage_debt` (an
+        # already-celled one, e.g. gld_pullback_1h) — resolve it so an authored
+        # cell stays auditable. BL-20260730-REGIME-CELL-UNAUDITABLE.
+        cfg = roster.get(n) or resolve_strategy(n)
         if cfg is None:
-            results.append({"strategy": n, "error": "not in coverage_debt"})
+            results.append({"strategy": n, "error": "not declared in strategies.yaml"})
             continue
         sym = (cfg.get("symbols") or [None])[0]
         if args.crypto_only and not (sym or "").upper().endswith("USDT"):
