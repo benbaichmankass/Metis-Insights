@@ -25,6 +25,34 @@
 # `symbol` is the instrument the release is hypothesised to move, mirroring
 # econ_event_study.KIND_DEFAULT_SYMBOL. Declared here so one file answers
 # "what do we study, against what, at what cadence".
+#
+# ⚠️ `release_lag_days` + `transform` were added 2026-07-30 to fix TWO defects that
+# together made the backfilled rows unusable. Owning rows (kept on ONE line each — a
+# line-wrapped id resolves to nothing and is ungreppable; the backlog-ref CI guard
+# caught exactly that here):
+#   BL-20260730-BACKFILL-DATE-IS-REFERENCE-PERIOD-NOT-RELEASE
+#   BL-20260730-BACKFILL-UNITS-DIFFER-FROM-SURVEY-FEED
+#
+# `release_lag_days` — keyless FRED (fredgraph.csv) dates every observation by its
+#   REFERENCE PERIOD, not by when the market learned it. CPI for reference 2026-06-01
+#   is released ~2026-07-15. Joining forward returns at the reference date measures a
+#   window that mostly PRECEDES the release, so the event study measured the wrong
+#   window entirely, AND the rows would not join the forward feed (which keys on the
+#   real release date) — the intersection was literally ZERO. These lags are MODELED
+#   approximations of the publication calendar, never observed timestamps, so every
+#   emitted row stamps `release_date_basis: modeled_lag` and keeps `reference_period`
+#   alongside. True release timestamps need ALFRED / the FRED releases API; that is
+#   the documented upgrade, exactly like `pit_basis` for vintages.
+#
+# `transform` — FRED serves each series in its own native units while the survey feed
+#   uses the RELEASE convention. Claims: FRED 187000 vs survey 187.0 (thousands).
+#   Continuing: 1796000 vs 1.796 (millions). Those are pure scales — note a scale
+#   CANCELS in a correlation but NOT in a slope or in `surprise_pct`, so it cannot be
+#   ignored. CPI is worse than a scale: FRED CPIAUCSL is the INDEX LEVEL (332.568)
+#   while the kind is named `cpi_yoy` and the survey reports YoY percent (3.5) — the
+#   backfilled series was the WRONG QUANTITY under a `cpi_yoy` label.
+#   The transform is applied BEFORE the expectation is fitted, so the model models the
+#   quantity actually released rather than a level that is then converted.
 
 schema_version: 1
 
@@ -34,6 +62,9 @@ series:
     fred_series: WNGSTUS          # Weekly working gas in underground storage, US
     cadence: weekly
     symbol: "NG=F"
+    # Week-ending Friday; EIA publishes the following Thursday.
+    release_lag_days: 6
+    transform: identity
     units: Bcf
     note: >
       The ROADMAP_MACRO M1 canonical case. Storage is strongly weather-seasonal,
@@ -42,6 +73,9 @@ series:
     fred_series: WCESTUS1         # Weekly ending stocks of crude oil, US
     cadence: weekly
     symbol: "CL=F"
+    # Week-ending Friday; EIA Weekly Petroleum Status Report the following Wednesday.
+    release_lag_days: 5
+    transform: identity
     units: thousand barrels
 
   # --- Labour (highest-n weekly series available) ---
@@ -49,18 +83,39 @@ series:
     fred_series: ICSA             # Initial claims, SA, weekly
     cadence: weekly
     symbol: "ES=F"
+    # Week-ending Saturday; DoL publishes the following Thursday.
+    release_lag_days: 5
+    # FRED serves persons (187000); the release convention is THOUSANDS (187.0).
+    transform: "scale:0.001"
     units: claims
   continuing_jobless_claims:
     fred_series: CCSA             # Continued claims, SA, weekly
     cadence: weekly
     symbol: "ES=F"
+    # Continued claims lag initial claims by a week; published the same Thursday.
+    release_lag_days: 12
+    # FRED serves persons (1796000); the release convention is MILLIONS (1.796).
+    transform: "scale:0.000001"
     units: claims
 
   # --- Monthly macro (lower n; included so the study spans cadences) ---
   cpi_yoy:
-    fred_series: CPIAUCSL         # CPI-U, SA, monthly (level; YoY derived downstream)
+    fred_series: CPIAUCSL         # CPI-U, SA, monthly — an INDEX LEVEL, see transform
     cadence: monthly
     symbol: "ES=F"
+    # Reference month is dated on the 1st; BLS publishes ~mid the following month.
+    # 43d VERIFIED against the real forward capture: reference 2026-06-01 -> released
+    # 2026-07-14. (45d was a guess and missed by +2d, which the join test caught before
+    # a runner was spent on it.)
+    # ⚠️ CAVEAT: the BLS CPI release day DRIFTS month to month (~10th-15th), so a FIXED
+    # lag cannot land exactly on every month. Weekly series are stable (fixed weekday),
+    # monthly ones are not -- so a monthly join needs a TOLERANCE WINDOW rather than
+    # exact-date equality. Tracked: BL-20260730-MONTHLY-RELEASE-DATE-DRIFT
+    release_lag_days: 43
+    # THE FIX for the mislabeled series: derive YoY percent from the level so the kind
+    # matches its name and the survey feed's units. Applied BEFORE the expectation fit,
+    # so the model forecasts YoY -- not a level that is converted afterwards.
+    transform: yoy_pct_from_level
     units: index
     note: >
       Monthly cadence reaches n=12 only over a year of releases, so this is a
