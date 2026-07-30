@@ -35,12 +35,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sqlite3
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))))
@@ -66,6 +67,28 @@ if _REPO_ROOT not in sys.path:
 from src.runtime.provenance import (  # noqa: E402
     FABRICATED, MEASURED, UNVERIFIED, classify_row, coverage,
 )
+
+# Bybit execType values that mean THE VENUE closed the position, not the bot:
+# a liquidation / demo margin call, and an auto-deleverage. Recorded on
+# notes.close_exec_type by the reconciler.
+_FORCED_CLOSE_EXEC_TYPES = frozenset({"BustTrade", "AdlTrade"})
+
+
+def _notes_of(row: Any) -> Dict[str, Any]:
+    """Decode a trade row's ``notes`` JSON. ``{}`` on anything unreadable."""
+    try:
+        raw = row["notes"]
+    except (KeyError, IndexError, TypeError):
+        return {}
+    if isinstance(raw, Mapping):
+        return dict(raw)
+    if not raw:
+        return {}
+    try:
+        decoded = json.loads(raw)
+    except (ValueError, TypeError):
+        return {}
+    return decoded if isinstance(decoded, dict) else {}
 
 
 def _f(x: Any, default: Optional[float] = None) -> Optional[float]:
@@ -189,6 +212,19 @@ def main() -> int:
     skipped: List[Tuple[int, str]] = []
     prov_counts: Dict[str, int] = defaultdict(int)
     prov_excluded: Dict[str, int] = defaultdict(int)
+    # A venue FORCE-CLOSE is not a strategy exit. Bybit reports the close's
+    # execType on notes.close_exec_type: `BustTrade` = liquidation / demo margin
+    # call, `AdlTrade` = auto-deleverage. Measuring either against the strategy's
+    # own SL/TP bracket is a category error — the strategy never chose that exit,
+    # so a liquidation lands arbitrarily far past the stop and shows up as an
+    # impossible `beyond_SL` outlier. Segregated and reported, never silently
+    # blended into the exit-quality verdict.
+    forced_close_counts: Dict[str, int] = defaultdict(int)
+    # Provenance of the exit REASON label itself (sl/tp/…): `price_vs_pkg_bracket`
+    # = derived from the recovered price, `unresolved` = never determined. An
+    # `unresolved` label is a placeholder, NOT a finding — grouping by it as if
+    # it were evidence is the same write-only trap this whole module exists for.
+    reason_src_counts: Dict[str, int] = defaultdict(int)
     in_window = 0
 
     for row in rows:
@@ -203,6 +239,16 @@ def main() -> int:
         # loudly below rather than silently dropped.
         if bucket == FABRICATED and not args.include_fabricated:
             prov_excluded[raw_src] += 1
+            continue
+
+        # Exit-REASON provenance ledger (reported below; does not gate).
+        reason_bucket, reason_raw = classify_row(row, "exit_reason_source")
+        reason_src_counts[f"{reason_raw} ({reason_bucket})"] += 1
+
+        # Venue force-close gate. Read the close's execType and refuse to
+        # classify a liquidation / auto-deleverage against the strategy bracket.
+        if _notes_of(row).get("close_exec_type") in _FORCED_CLOSE_EXEC_TYPES:
+            forced_close_counts[str(_notes_of(row)["close_exec_type"])] += 1
             continue
         entry = _f(row["entry_price"])
         exit_ = _f(row["exit_price"])
@@ -258,6 +304,31 @@ def main() -> int:
           f"  (measured share -- the PnL analogue of /performance rCoverage)")
     for src, cnt in sorted(prov_excluded.items(), key=lambda kv: -kv[1]):
         print(f"      excluded {cnt} row(s) with exit_price_source={src!r}")
+
+    if forced_close_counts:
+        total_forced = sum(forced_close_counts.values())
+        print()
+        print("===== venue force-closes (EXCLUDED — not strategy exits) =====")
+        for et, cnt in sorted(forced_close_counts.items(), key=lambda kv: -kv[1]):
+            label = ("liquidation / margin call" if et == "BustTrade"
+                     else "auto-deleverage" if et == "AdlTrade" else et)
+            print(f"    {et:<12} {cnt:>4}   ({label})")
+        print(f"  {total_forced} row(s) closed BY THE VENUE. The strategy never "
+              f"chose these exits, so measuring them against its own SL/TP "
+              f"bracket is a category error — they would surface as impossible "
+              f"'beyond_SL' outliers.")
+
+    if reason_src_counts:
+        print()
+        print("===== exit-REASON provenance =====")
+        for src, cnt in sorted(reason_src_counts.items(), key=lambda kv: -kv[1]):
+            print(f"    {src:<40} {cnt:>4}")
+        unresolved = sum(c for k, c in reason_src_counts.items()
+                         if k.startswith("unresolved"))
+        if unresolved:
+            print(f"  {unresolved} row(s) carry an UNRESOLVED exit_reason — the "
+                  f"label is a placeholder, not a determination. Do not read "
+                  f"those as an sl/tp finding.")
     if in_window and n_mea == 0:
         print()
         print("  *** WARNING: ZERO measured rows. Every classification below "

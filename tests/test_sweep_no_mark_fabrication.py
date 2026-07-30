@@ -1,0 +1,236 @@
+"""`_sweep_local_pnl_for_unpriced` must never price a CONFIRMED CLOSE from a mark.
+
+The Tier-2 remedy, tested at the level that matters: not "does the anchor module
+work" (that's `test_exit_anchor`) but **"can this sweep still fabricate?"**
+
+The regression being locked out: the sweep substituted `last_mark_price(symbol)`
+— the market at SWEEP time, hours after the close — and booked `pnl` from it.
+Matched-pair proof from the live journal: trade 4180 (real) −$4.00 vs its mirror
+4181 −$2,589.78, same strategy/symbol/bracket/minute.
+
+Verified structurally *and* behaviourally, because a behavioural test alone
+could pass while a stray `last_mark_price` call remains on some other branch.
+"""
+from __future__ import annotations
+
+import inspect
+import json
+import sqlite3
+
+import pytest
+
+from src.runtime import order_monitor as om
+from src.runtime.provenance import (
+    ESTIMATED, FABRICATED, UNMEASURED_MARKER, classify_pnl,
+)
+
+_SCHEMA = """
+CREATE TABLE trades (
+    id INTEGER PRIMARY KEY,
+    account_id TEXT, symbol TEXT, direction TEXT,
+    position_size REAL, entry_price REAL, exit_price REAL,
+    pnl REAL, pnl_percent REAL, status TEXT,
+    is_backtest INTEGER DEFAULT 0, setup_type TEXT,
+    order_package_id TEXT, closed_at TEXT, created_at TEXT,
+    timestamp TEXT, notes TEXT
+);
+"""
+
+
+class _DB:
+    """Minimal journal double with the two methods the sweep uses."""
+
+    def __init__(self, path):
+        self.path = str(path)
+        self.updates = {}
+
+    def connect(self):
+        c = sqlite3.connect(self.path)
+        c.row_factory = sqlite3.Row
+        return c
+
+    def update_trade(self, tid, updates):
+        self.updates[int(tid)] = updates
+        sets = ", ".join(f"{k} = ?" for k in updates)
+        c = sqlite3.connect(self.path)
+        c.execute(f"UPDATE trades SET {sets} WHERE id = ?",
+                  (*updates.values(), int(tid)))
+        c.commit()
+        c.close()
+
+
+@pytest.fixture
+def db(tmp_path, monkeypatch):
+    path = tmp_path / "j.db"
+    conn = sqlite3.connect(str(path))
+    conn.executescript(_SCHEMA)
+    conn.execute(
+        "INSERT INTO trades (id, account_id, symbol, direction, position_size, "
+        "entry_price, exit_price, pnl, status, is_backtest, closed_at, "
+        "created_at, timestamp, notes) VALUES "
+        "(1,'ib_paper','MES','long',1.0,5000.0,NULL,NULL,'closed',0,"
+        "'2026-07-30T12:00:30Z','2026-07-30T11:00:00Z','2026-07-30T11:00:00Z','{}')",
+    )
+    conn.commit()
+    conn.close()
+    # No account configs -> no broker-reader deferral, no options deferral.
+    monkeypatch.setattr(om, "_load_account_cfgs_for_reconcile", lambda: {})
+    return _DB(path)
+
+
+def _row(db_, tid=1):
+    c = sqlite3.connect(db_.path)
+    c.row_factory = sqlite3.Row
+    r = dict(c.execute("SELECT * FROM trades WHERE id = ?", (tid,)).fetchone())
+    c.close()
+    return r
+
+
+# --------------------------------------------------------------- structural
+def _code_only(fn) -> str:
+    """Source with comment lines stripped.
+
+    The first version of this test matched the explanatory COMMENT that names
+    `last_mark_price` while describing why it was removed — the same
+    prose-vs-code confusion that made the json-extract guard cry wolf on its own
+    docstring. Check what executes, not what is written about it.
+    """
+    return "\n".join(
+        line for line in inspect.getsource(fn).splitlines()
+        if not line.lstrip().startswith("#")
+    )
+
+
+def test_the_sweep_no_longer_calls_last_mark_price():
+    """A stray call on any branch would reintroduce the fabrication silently."""
+    assert "last_mark_price" not in _code_only(om._sweep_local_pnl_for_unpriced), (
+        "the mark-price substitution is back in the sweep — that is the exact "
+        "fabrication this change removed"
+    )
+
+
+def test_the_sweep_uses_the_close_time_anchor():
+    src = _code_only(om._sweep_local_pnl_for_unpriced)
+    assert "bar_close_at" in src
+    assert "UNMEASURED_MARKER" in src
+
+
+# -------------------------------------------------------------- behavioural
+def test_no_anchor_declares_unmeasured_instead_of_pricing(db, monkeypatch):
+    """IBKR historical coverage is 0%, so an `ib_paper` close hits this path.
+    The row must be DECLARED, not priced — and `pnl` must stay NULL."""
+    monkeypatch.setattr(om, "bar_close_at", lambda *a, **k: (None, "no_anchor"),
+                        raising=False)
+    import src.runtime.exit_anchor as EA
+    monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (None, "no_anchor"))
+
+    summary = om._sweep_local_pnl_for_unpriced(db)
+    row = _row(db)
+
+    assert row["pnl"] is None, "a row with no anchor must NOT be priced"
+    notes = json.loads(row["notes"])
+    assert notes["pnl_source"] == UNMEASURED_MARKER
+    assert notes["unmeasured_reason"] == "no_close_time_anchor"
+    assert summary["declared_unmeasured"] == 1
+
+
+def test_declaring_is_idempotent(db, monkeypatch):
+    """A second sweep must not re-write or double-count an already-declared row."""
+    import src.runtime.exit_anchor as EA
+    monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (None, "no_anchor"))
+    om._sweep_local_pnl_for_unpriced(db)
+    second = om._sweep_local_pnl_for_unpriced(db)
+    assert second["declared_unmeasured"] == 0
+    assert second["already_unmeasured"] == 1
+
+
+def test_deferred_neither_prices_nor_declares(db, monkeypatch):
+    """Budget spent / transient failure: we did not look, so we may not declare."""
+    import src.runtime.exit_anchor as EA
+    monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (None, "deferred"))
+    summary = om._sweep_local_pnl_for_unpriced(db)
+    row = _row(db)
+    assert row["pnl"] is None
+    assert json.loads(row["notes"]).get("pnl_source") != UNMEASURED_MARKER
+    assert summary["still_pending"] == 1
+    assert summary["declared_unmeasured"] == 0
+
+
+def test_anchored_prices_and_stamps_estimated(db, monkeypatch):
+    import src.runtime.exit_anchor as EA
+    monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (5010.0, "anchored"))
+    summary = om._sweep_local_pnl_for_unpriced(db)
+    row = _row(db)
+
+    assert summary["filled"] == 1
+    assert row["pnl"] is not None
+    assert row["exit_price"] == 5010.0
+    notes = json.loads(row["notes"])
+    assert notes["exit_price_source"] == "candle_at_close"
+    # And it classifies as ESTIMATED — better than a mark, still NOT a fill.
+    bucket, _ = classify_pnl(row)
+    assert bucket == ESTIMATED
+    assert bucket != FABRICATED
+
+
+def test_a_recorded_fill_is_still_preferred(db, monkeypatch):
+    """Broker truth must win over the anchor — the anchor is a fallback only."""
+    c = sqlite3.connect(db.path)
+    c.execute("UPDATE trades SET exit_price = 5020.0, "
+              "notes = '{\"exit_price_source\": \"bybit_closed_pnl\"}' WHERE id = 1")
+    c.commit()
+    c.close()
+
+    called = []
+
+    import src.runtime.exit_anchor as EA
+    monkeypatch.setattr(EA, "bar_close_at",
+                        lambda *a, **k: (called.append(1), (9999.0, "anchored"))[1])
+    om._sweep_local_pnl_for_unpriced(db)
+    row = _row(db)
+    assert row["exit_price"] == 5020.0
+    assert not called, "the anchor must not be consulted when a fill is recorded"
+    assert json.loads(row["notes"])["exit_price_source"] == "recorded_exit_price"
+
+
+def test_anchoring_a_previously_declared_row_clears_the_marker(db, monkeypatch):
+    """Otherwise INV-2b would keep counting a row that IS now measured."""
+    import src.runtime.exit_anchor as EA
+    monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (None, "no_anchor"))
+    om._sweep_local_pnl_for_unpriced(db)
+    assert json.loads(_row(db)["notes"])["pnl_source"] == UNMEASURED_MARKER
+
+    monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (5010.0, "anchored"))
+    om._sweep_local_pnl_for_unpriced(db)
+    notes = json.loads(_row(db)["notes"])
+    assert notes["pnl_source"] == "local_compute"
+    assert "unmeasured_reason" not in notes
+
+
+def test_sweep_never_raises_on_a_broken_anchor(db, monkeypatch):
+    import src.runtime.exit_anchor as EA
+
+    def _boom(*a, **k):
+        raise RuntimeError("network on fire")
+
+    monkeypatch.setattr(EA, "bar_close_at", _boom)
+    summary = om._sweep_local_pnl_for_unpriced(db)   # must not raise
+    assert summary["errors"] >= 1
+    assert _row(db)["pnl"] is None
+
+
+# ------------------------------------------------------------------- budget
+def test_fetch_budget_knob_defaults_to_three(monkeypatch):
+    monkeypatch.delenv("EXIT_ANCHOR_FETCHES_PER_TICK", raising=False)
+    assert om._exit_anchor_fetches_per_tick() == 3
+
+
+def test_fetch_budget_knob_is_a_tuning_knob_not_a_gate(monkeypatch):
+    """`0` pauses the NETWORK path (rows defer) — it must never re-enable
+    fabrication, and a garbage value must fall back rather than crash the tick."""
+    monkeypatch.setenv("EXIT_ANCHOR_FETCHES_PER_TICK", "0")
+    assert om._exit_anchor_fetches_per_tick() == 0
+    monkeypatch.setenv("EXIT_ANCHOR_FETCHES_PER_TICK", "-5")
+    assert om._exit_anchor_fetches_per_tick() == 0
+    monkeypatch.setenv("EXIT_ANCHOR_FETCHES_PER_TICK", "banana")
+    assert om._exit_anchor_fetches_per_tick() == 3

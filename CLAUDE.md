@@ -595,18 +595,76 @@ raises rather than quietly averaging manufactured numbers.
 
 **Why it exists.** The journal already recorded provenance and **nothing read it** —
 `exit_price_source` written in 12 files, branched on in one (for an unrelated value), zero
-references in the whole `ml/` tree. Lifetime that meant 226 closed rows carrying
-**+$247,683.78** of `local_markprice` PnL, and a fabricated share of closed trades running
-0.0% (May) → 30.5% (Jun) → **64.9% (Jul)**. It also produced a "−$6,358 Bybit scalp exit
-leak" that did not exist. Every contributing component was individually correct, which is
-why line-by-line audits kept returning clean: the defect lives at the seams. Full account:
+references in the whole `ml/` tree. It produced a "−$6,358 Bybit scalp exit leak" that did
+not exist. Every contributing component was individually correct, which is why
+line-by-line audits kept returning clean: the defect lives at the seams. Full account:
 `docs/sprint-logs/S-PROVENANCE-EXITLEAK-ROOTCAUSE-2026-07-30.md`.
+
+**ALWAYS STATE THE POPULATION.** Measured against the live journal on 2026-07-30
+(`scripts/ops/provenance_exposure_audit.py`, trainer-diag #8073) the headline figure moves
+by more than its own SIGN depending on which rows you count:
+
+| population | rows | fabricated | fabricated PnL |
+|---|---|---|---|
+| **closed, non-backtest, `pnl NOT NULL`** — the decision population | 829 | 206 | **−$36,018.60** |
+| any status, incl. backtest | 845 | 222 | **+$247,683.78** |
+
+Both are correct. The widely-quoted **+$247,683.78 is the ALL-STATUS figure**, and it is
+dominated by **4 `orphaned` `ib_paper` rows carrying +$284,084.92** — a stale mark times a
+futures multiplier on rows that appear in neither Positions nor Trades. Restricted to rows
+any consumer actually aggregates, the fabricated total is **negative** and concentrated in
+**`bybit_1`** (152/323, 47.1%, −$18,125) and **`bybit_portfolio`** (11/12, 91.7%,
+−$13,100); `ib_paper` closed rows are 3 of 27. What reproduces across both populations is
+the **trend**: fabricated share of closed trades 0.0% (May) → 23.7% (Jun) → **65.3% (Jul)**.
+
+A headline whose sign flips on a filter choice is exactly the kind of number this module
+exists to stop trusting — including when it is ours. Quote the population or don't quote
+the number.
+
+**`pnl` provenance needs BOTH keys.** `pnl_source` alone is nearly information-free in
+practice (live: only `(none)` ×576 and `local_compute` ×253), so keying coverage on it
+reports 0.0 for every window including the 504 rows whose exit price is genuine broker
+truth. Use `provenance.classify_pnl(row)`, which takes the **worst recognised** bucket
+across `pnl_source` + `exit_price_source` — `local_compute` describes the arithmetic, not
+the evidence. Live coverage on that basis: **504/829 = 60.8% measured**, 206 fabricated,
+119 unverified.
 
 **Enforced by `provenance-consumer-guard`** (`scripts/check_provenance_consumers.py`) —
 CI fails when a declared provenance key gains a writer but no consumer, the same shape as
 `canonical-db-resolver` / `env-gate-guard` / `silent-empty-guard`. A signal that is written
 and never read is worse than a missing one: reviewers see the field and assume something
 acts on it.
+
+**A confirmed close is anchored to its `closed_at`, NEVER to a live mark** (Tier-2,
+operator-approved 2026-07-30). `order_monitor._sweep_local_pnl_for_unpriced` used to price a
+trade that had *already closed* from `last_mark_price()` — the market at SWEEP time — which
+is the single source behind the fabricated totals above (matched-pair proof: trade 4180 −$4.00
+vs its mirror 4181 −$2,589.78, same strategy/symbol/bracket/minute). It now calls
+`src/runtime/exit_anchor.py::bar_close_at`, whose **three-way status is the contract** —
+`anchored` (stamp `candle_at_close`, ESTIMATED) · `deferred` (budget spent or a transient read
+failure: **we did not look**, so retry, never declare) · `no_anchor` (venue asked and has
+nothing: declare `UNMEASURED_MARKER`, never substitute a price). Collapsing any two of those
+reintroduces a defect. Runtime bounds are load-bearing, not decoration — this runs on the live
+trader's monitor tick, so an unbounded per-row fetch is the 2026-06-09 cold-start wedge shape:
+5s per-call timeout, a per-tick budget (`EXIT_ANCHOR_FETCHES_PER_TICK`, a tuning knob whose `0`
+**defers** rather than re-enabling fabrication), and positive **plus negative** caching so an
+unsupported root costs one request per process, not one per row per tick.
+
+**IBKR is a broker-truth reader now**, because the anchoring change alone would have made IB
+*worse-looking-but-honest* rather than correct: **IBKR historical-candle coverage is 0%**, so
+every future IB close would land as a declared gap. `interactive_brokers` is in
+`BROKER_PNL_READER_EXCHANGES`; `exchange_fills_ib.closed_pnl_from_fills` reads IBKR's own
+`CommissionReport.realizedPNL` back from the exchange-fills store — a **local SQLite read, not
+a broker call** — fed by `ict-ib-executions-pull.timer`. That timer is **hourly, not daily like
+`ict-exchange-fills-pull`**: IBKR's `reqExecutions` serves roughly the current trading day AND
+`_LOCAL_PNL_BROKER_DEFER_MS` is 6h, so a daily pull would look correct and be inert.
+
+**A broker closed-pnl record carries its own `source`; never stamp a literal.** All four
+monitor sites that persist a broker close hardcoded `exit_price_source = "bybit_closed_pnl"` —
+accurate while Bybit was the only reader, a provenance *lie* the moment IBKR was wired. Read
+`rec["source"]` via `order_monitor._broker_pnl_source`. Related: any `*_prorated` source is
+FABRICATED (`classify` handles it as a suffix, since the base varies per reader) — the SPLIT is
+an assumption about attribution however measured the underlying record was.
 
 ## Dashboard REST API (S-014)
 

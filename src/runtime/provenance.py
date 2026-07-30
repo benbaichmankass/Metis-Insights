@@ -22,11 +22,22 @@ real prior incident. There is no wrong line of code. That is precisely why
 repeated line-by-line audits returned clean while the defect kept producing
 wrong decisions: it lives at the seams, not in any component.
 
-The blast radius when it was finally measured: 226 closed rows carrying
-+$247,683.78 of ``local_markprice`` PnL (the bulk of it ``ib_paper``, where a
-stale mark is multiplied by a futures contract value), 247 more rows with no
-provenance recorded at all, and a fabricated share of closed trades running
-0.0% (May) → 30.5% (June) → **64.9% (July)**.
+The blast radius, **and the population it is measured over** — a rule this
+module's own first measurement pass produced the hard way, because the headline
+figure changes SIGN depending on which rows you count (see ``CLAUDE.md`` §
+"Number provenance" for the full table):
+
+* *closed, non-backtest,* ``pnl NOT NULL`` — the decision population any
+  consumer actually aggregates: **829 rows, 206 fabricated, −$36,018.60**,
+  concentrated in ``bybit_1`` (152/323) and ``bybit_portfolio`` (11/12).
+* *any status, incl. backtest*: **845 rows, 222 fabricated, +$247,683.78** —
+  the widely-quoted figure, dominated by **4 ``orphaned`` ``ib_paper`` rows
+  carrying +$284,084.92** (a stale mark times a futures multiplier, on rows that
+  appear in neither Positions nor Trades).
+
+Both are correct. What reproduces across both is the TREND: fabricated share of
+closed trades 0.0% (May) → 23.7% (June) → **65.3% (July)**. Quote the population
+or don't quote the number — including when the number is ours.
 
 THE ACTUAL ROOT CAUSE, AND WHAT THIS MODULE FIXES
 -------------------------------------------------
@@ -71,9 +82,11 @@ from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 
 __all__ = [
     "MEASURED", "ESTIMATED", "FABRICATED", "UNVERIFIED", "UNTRUSTED_BUCKETS",
+    "UNMEASURED_MARKER",
     "PROVENANCE_KEYS", "MEASURED_SOURCES", "ESTIMATED_SOURCES",
     "FABRICATED_SOURCES",
-    "classify", "classify_row", "is_measured", "split_counts", "coverage",
+    "classify", "classify_row", "classify_pnl", "is_measured",
+    "split_counts", "coverage",
     "require_measured", "ProvenanceError",
 ]
 
@@ -104,7 +117,34 @@ this rather than re-listing buckets at a call site."""
 UNVERIFIED = "unverified"
 """No provenance was recorded, or the source is unrecognised. Deliberately NOT
 ``MEASURED``: absence of a provenance record is not evidence of measurement.
-This is the bucket that the 247 legacy rows fall into."""
+This is the bucket that the 247 legacy rows fall into.
+
+Also the bucket for :data:`UNMEASURED_MARKER` — a value that was *explicitly*
+declared unmeasurable. For TRUST the two are identical (neither is a
+measurement), which is why they share a bucket. They differ only in
+ACCOUNTABILITY, and that distinction is read from the raw source string, not the
+bucket: see :data:`UNMEASURED_MARKER`."""
+
+UNMEASURED_MARKER = "unmeasured"
+"""The canonical ``pnl_source`` value meaning **"this close is real, its PnL
+could not be measured, and we are saying so on the record."**
+
+The honest terminal state the schema previously had no way to express — and its
+absence is what turned ``check_db_integrity`` INV-2 into a forcing function
+pointed the wrong way. INV-2 demanded a number for every closed row past the
+sweep grace and never asked what KIND of number, so the only way to clear it was
+to put *something* in ``pnl``; ``_sweep_local_pnl_for_unpriced`` obliged with a
+mark price taken hours after the close, and the check went green on
+the all-status +$247,683.78 of manufactured money while a correct, honest NULL would have
+stayed red forever.
+
+With this marker, "we don't know" becomes a *declarable* answer. INV-2 now
+alerts only on SILENCE (an undeclared NULL); a declaration clears it and is
+counted separately by INV-2b, so the unmeasured population stays visible and the
+marker can never be used to quietly mute the check.
+
+One spelling, defined here. Do not inline the string at a call site — a second
+spelling would split the population and hide half of it."""
 
 UNTRUSTED_BUCKETS = (ESTIMATED, FABRICATED, UNVERIFIED)
 
@@ -124,6 +164,11 @@ MEASURED_SOURCES = frozenset({
     # Broker truth.
     "bybit_closed_pnl", "bybit_closed_pnl_rebuild", "bybit_closed_pnl_backfill",
     "exchange", "broker_truth",
+    # IBKR per-execution truth: CommissionReport.realizedPNL, read back from
+    # the exchange-fills store (src.runtime.exchange_fills_ib). A venue-reported
+    # fill, so MEASURED — and strictly better than `candle_at_close`, which is
+    # all IB could otherwise get (IBKR historical-candle coverage is 0%).
+    "ib_execution",
     # A real fill the bot itself recorded at close time.
     "recorded_exit_price", "operator_flatten_fill", "verdict",
 })
@@ -133,12 +178,18 @@ ESTIMATED_SOURCES = frozenset({
     # for a confirmed close whose real fill was never recovered. Anchored to
     # the close TIME, unlike `local_markprice` which is simply "now".
     "candle_at_close",
+    # The exit REASON (sl/tp) derived by comparing the recovered exit price to
+    # the order package's bracket. A defensible derivation, but the venue never
+    # said "this was a stop-out" — so it is not a measurement of the reason.
+    # Its sibling value `unresolved` is deliberately absent here: it falls to
+    # UNVERIFIED, which is exactly what it means.
+    "price_vs_pkg_bracket",
 })
 
 FABRICATED_SOURCES = frozenset({
     # entry x mark x qty, where the mark is `last_mark_price()` at SWEEP time —
     # for a CONFIRMED CLOSE this is the market hours after the exit, not the
-    # exit. This single source accounts for the +$247,683.78 above.
+    # exit. This single source accounts for the fabricated totals above.
     "local_markprice",
     "markprice_local",
     # A netted record's economics split across rows by qty share — a modelling
@@ -148,24 +199,84 @@ FABRICATED_SOURCES = frozenset({
     "prop_estimate",
 })
 
+#: Suffix marking a value prorated across netted sibling rows by qty share.
+#: See :func:`classify` — any source carrying it is FABRICATED regardless of how
+#: measured the underlying broker record was, because the SPLIT is an assumption.
+_PRORATED_SUFFIX = "_prorated"
+
+
+#: Per-key bucket overrides — the SAME source string can mean different things
+#: depending on what it is the provenance OF.
+#:
+#: The motivating case is a mark price. Substituting a live mark for the exit of
+#: a trade that CLOSED hours earlier is fabrication: there is a true value (the
+#: fill) and the mark is not it. But marking an OPEN position to the current
+#: market is not fabrication at all — it is the standard, correct valuation, and
+#: no truer number exists while the position is still open. Filing both under
+#: :data:`FABRICATED` because they share a string would cry wolf on every open
+#: position and devalue the signal for the case that actually matters.
+#:
+#: This changes REPORTING only, never trust: everything here is still outside
+#: :data:`MEASURED`, so :func:`is_measured` stays False, :func:`require_measured`
+#: still rejects it, and :func:`coverage` still counts only real measurements.
+_KEY_BUCKET_OVERRIDES: Dict[str, Dict[str, str]] = {
+    "unrealizedPnlSource": {
+        # An open position marked to the live market — the correct valuation,
+        # anchored to the current price. Not a fill, so not MEASURED.
+        "markprice_local": ESTIMATED,
+        "local_markprice": ESTIMATED,
+        # Prop has no broker feed at all, so its uPnL is a dashboard-side mark
+        # estimate (and assumes 1:1 contract value) — weaker than a broker mark,
+        # but still anchored to a current price rather than invented.
+        "prop_estimate": ESTIMATED,
+        # Broker-reported unrealised PnL — the venue's own number.
+        "broker": MEASURED,
+        # The honest "we could not measure this leg" value. NOT zero, and never
+        # summed as zero (see the uPnL aggregation rule in CLAUDE.md).
+        "unavailable": UNVERIFIED,
+    },
+}
+
 
 class ProvenanceError(RuntimeError):
     """Raised by :func:`require_measured` when untrusted values would be used."""
 
 
-def classify(source: Any) -> str:
+def classify(source: Any, key: Optional[str] = None) -> str:
     """Bucket a raw provenance string. Unknown/empty -> :data:`UNVERIFIED`.
+
+    *key* selects the provenance key the string belongs to, so a value whose
+    meaning depends on context resolves correctly (see
+    :data:`_KEY_BUCKET_OVERRIDES` — a mark on an OPEN position is an estimate,
+    the same mark stamped on a CLOSED trade's exit is a fabrication). Omitting
+    *key* keeps the strict, closed-trade reading, which is the safe default: it
+    can over-report fabrication, never under-report it.
 
     Deliberately total (never raises, never returns None) so a caller can't
     accidentally skip the check via an exception path.
     """
     s = str(source or "").strip()
+    if key:
+        override = _KEY_BUCKET_OVERRIDES.get(key, {}).get(s)
+        if override is not None:
+            return override
     if s in FABRICATED_SOURCES:
         return FABRICATED
     if s in ESTIMATED_SOURCES:
         return ESTIMATED
     if s in MEASURED_SOURCES:
         return MEASURED
+    # A `_prorated` suffix means a netted record's economics were split across
+    # sibling rows by qty share. That is a modelling assumption about
+    # ATTRIBUTION, not an observed per-row fill — for exactly the reason
+    # `netted_prorated` is in FABRICATED_SOURCES — and it stays true however
+    # measured the underlying record was. Handled as a suffix, not an
+    # enumeration, because the base varies per reader
+    # (`bybit_closed_pnl_prorated`, `ib_execution_prorated`, ...): before this,
+    # `bybit_closed_pnl_prorated` fell through to UNVERIFIED, so a prorated
+    # number read as merely-unrecorded rather than manufactured.
+    if s.endswith(_PRORATED_SUFFIX) and len(s) > len(_PRORATED_SUFFIX):
+        return FABRICATED
     return UNVERIFIED
 
 
@@ -205,7 +316,56 @@ def classify_row(row: Any, key: str = "exit_price_source") -> Tuple[str, str]:
         except (KeyError, IndexError, TypeError):
             notes = None
         raw = str(_decode_notes(notes).get(key) or "")
-    return classify(raw), (raw or "(none)")
+    return classify(raw, key), (raw or "(none)")
+
+
+#: Bucket severity, worst first — used to combine evidence from several keys.
+_SEVERITY = (FABRICATED, ESTIMATED, MEASURED)
+
+
+def classify_pnl(row: Any) -> Tuple[str, str]:
+    """Bucket a row's ``pnl`` using BOTH provenance keys. Returns ``(bucket, why)``.
+
+    **Why this is not just ``classify_row(row, "pnl_source")``.** Measured
+    against the live journal on 2026-07-30 (829-row closed population):
+
+    ===================  ====================================================
+    ``pnl_source``       ``(none)`` × 576, ``local_compute`` × 253 — and nothing else
+    ``exit_price_source``  ``bybit_closed_pnl`` × 324, ``local_markprice`` × 206,
+                         ``bybit_closed_pnl_rebuild`` × 131, ``(none)`` × 119,
+                         ``recorded_exit_price`` × 46, …
+    ===================  ====================================================
+
+    So ``pnl_source`` alone is nearly information-free — keying coverage on it
+    would report **0.0 for every window**, including the 504 rows whose exit
+    price is genuine broker truth. Technically true, operationally useless, and
+    a metric nobody can act on is one everybody learns to ignore — the precise
+    failure mode this module exists to prevent.
+
+    The rule: classify BOTH keys, discard the ones that say nothing
+    (:data:`UNVERIFIED` — absent or unrecognised), and take the **worst
+    remaining** bucket. ``pnl`` is only as trustworthy as the weakest evidence
+    behind it: a locally-computed PnL derived from a mark-substituted exit price
+    is fabricated no matter how the arithmetic was done. If neither key says
+    anything, the result is ``UNVERIFIED`` — never promoted to measured.
+
+    ``local_compute`` is deliberately NOT in any source set. It describes the
+    *arithmetic*, not the *evidence*: its trustworthiness is entirely inherited
+    from the exit price it was computed from, so leaving it unrecognised makes
+    this function defer to ``exit_price_source``, which is exactly right.
+
+    Against that live population this yields 504/829 = **60.8%** measured
+    coverage, 206 fabricated, 119 unverified — numbers an operator can act on.
+    """
+    buckets = {}
+    for key in ("pnl_source", "exit_price_source"):
+        bucket, raw = classify_row(row, key)
+        if bucket != UNVERIFIED:
+            buckets[bucket] = f"{key}={raw}"
+    for bucket in _SEVERITY:
+        if bucket in buckets:
+            return bucket, buckets[bucket]
+    return UNVERIFIED, "(no provenance on either key)"
 
 
 def is_measured(row: Any, key: str = "exit_price_source") -> bool:

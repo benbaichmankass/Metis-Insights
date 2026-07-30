@@ -2034,6 +2034,124 @@ class IBClient:
         loop.run_until_complete(asyncio.wait_for(req(), timeout=timeout))
         return list(ib.positions() or [])
 
+    def _req_executions(self, ib: Any, since: str) -> list:
+        """Bounded ``reqExecutions`` for executions reported at/after *since*.
+
+        Bounded exactly like :meth:`_req_all_open_orders` /
+        :meth:`_req_positions_snapshot` — prefer the async variant under a
+        timeout on this client's owned, idle loop — so a wedged Gateway can
+        never hang the call. Raises on failure so :meth:`executions` maps it to
+        ``None`` (could-not-read) rather than to ``[]`` (genuinely no fills):
+        the two are NOT interchangeable, and conflating them is precisely the
+        class of error the provenance work exists to stop.
+
+        *since* is IBKR's ``ExecutionFilter.time`` wire format
+        (``YYYYMMDD-HH:MM:SS``, UTC) — see
+        :data:`src.runtime.exchange_fills_ib.IB_EXEC_TIME_FORMAT`.
+        """
+        exec_filter = None
+        try:  # noqa: SIM105 — the stub path (tests) has no ib_insync at all.
+            from ib_insync import ExecutionFilter  # noqa: PLC0415
+
+            exec_filter = ExecutionFilter(time=since)
+        except Exception:  # noqa: BLE001 — no ib_insync ⇒ let the stub decide.
+            exec_filter = None
+
+        req_async = getattr(ib, "reqExecutionsAsync", None)
+        loop = self._loop
+        if req_async is not None and loop is not None and not loop.is_closed():
+            try:
+                running = loop.is_running()
+            except Exception:  # noqa: BLE001
+                running = True
+            if not running:
+                import asyncio
+
+                timeout = (
+                    _IB_ACCOUNT_WARMUP_TIMEOUT_S if _IB_ACCOUNT_WARMUP_TIMEOUT_S > 0
+                    else _IB_PROBE_TIMEOUT_S if _IB_PROBE_TIMEOUT_S > 0
+                    else 8.0
+                )
+                coro = (
+                    req_async(exec_filter) if exec_filter is not None else req_async()
+                )
+                return list(
+                    loop.run_until_complete(asyncio.wait_for(coro, timeout=timeout))
+                    or []
+                )
+        # Sync fallback (test stubs, or no usable owned loop). The connect
+        # breaker + IB_FETCH_TIMEOUT_S bound the surrounding lifecycle.
+        if exec_filter is not None:
+            return list(ib.reqExecutions(exec_filter) or [])
+        return list(ib.reqExecutions() or [])
+
+    def executions(self, since: str) -> Optional[list]:
+        """Broker-truth executions reported at/after *since*. Never raises.
+
+        The IB half of the broker-truth fills story — the read that makes an IB
+        close **measured** instead of reconstructed. Each returned ``Fill``
+        carries a ``CommissionReport`` with IB's own ``commission`` and
+        ``realizedPNL``; :mod:`src.runtime.exchange_fills_ib` maps them into
+        ``exchange_fills`` rows.
+
+        Context (2026-07-30 provenance audit — **state the population**):
+        ``ib_paper`` carries +$284,084.92 of fabricated PnL in the *all-status*
+        population, but that is 4 ``orphaned`` rows; in the *closed,
+        non-backtest* decision population it is only 3 of 27 rows. The reason
+        this read matters is forward-looking: the companion Tier-2 change
+        stopped the sweep substituting a mark, and IBKR historical-candle
+        coverage is 0%, so without this every future IB close is a declared
+        unmeasured gap. Root cause of both:
+        ``interactive_brokers`` is absent from
+        :data:`~src.units.accounts.clients.BROKER_PNL_READER_EXCHANGES` and no
+        IB fills reader existed, so every IB close fell through to
+        ``order_monitor._sweep_local_pnl_for_unpriced``'s mark substitution.
+
+        Returns the raw ``Fill`` list, ``[]`` on a confirmed-clean read with no
+        executions in the window, or **``None`` on any read failure /
+        breaker-open / not-connected state** — the same
+        could-not-read-is-not-flat rule :meth:`has_protective_orders` and
+        ``AlpacaClient.positions`` follow. A caller must never treat ``None`` as
+        "no fills"; doing so would record an absence of measurement as evidence
+        of none.
+
+        **Read-only.** Places no order and is safe on a ``readonly`` client —
+        ``reqExecutions`` is a stateless one-shot request, not a persistent
+        per-account subscription, so it carries none of the multi-client
+        collision risk that forced ``positions()`` off ``reqAccountUpdates``
+        (BL-20260706-IBACCTUPDATES-COLLISION).
+        """
+        if not str(since or "").strip():
+            return None
+        try:
+            ib = self.connect()
+        except Exception:  # noqa: BLE001 — breaker open / connect failed ⇒ cannot read
+            return None
+        try:
+            fills = self._req_executions(ib, str(since))
+        except Exception as exc:  # noqa: BLE001 — a failed read is NOT an empty one
+            logger.warning(
+                "IBClient.executions: reqExecutions failed for %s: %s: %s",
+                self._masked_account(), type(exc).__name__, exc,
+            )
+            return None
+        if not self.account:
+            return fills
+        # A multi-account login reports every account on the login; keep only
+        # this client's so a shared Gateway can't attribute another account's
+        # realised PnL to this one. A fill with no acctNumber is KEPT (the
+        # single-account case, and dropping it would silently lose real fills).
+        out = []
+        for fill in fills:
+            try:
+                acct = getattr(getattr(fill, "execution", None), "acctNumber", None)
+            except Exception:  # noqa: BLE001 — one malformed fill never breaks the read
+                acct = None
+            if acct and str(acct) != str(self.account):
+                continue
+            out.append(fill)
+        return out
+
     # ------------------------------------------------------------------
     # Diagnostics
     # ------------------------------------------------------------------

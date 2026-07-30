@@ -33,6 +33,12 @@ EXPECTED_SERVICES = {
     "ict-liveness-watchdog.service",
     # Hourly snapshot collector.
     "ict-hourly-snapshot.service",
+    # Added 2026-07-30 (S-PROVENANCE-IB-EXECUTIONS): hourly IBKR executions
+    # pull, so an IB close resolves from CommissionReport.realizedPNL rather
+    # than a reconstruction. Hourly, NOT daily like ict-exchange-fills-pull —
+    # IBKR reqExecutions serves ~the current trading day and the sweep's
+    # broker-defer grace is 6h, so a daily pull would look correct and be inert.
+    "ict-ib-executions-pull.service",
     # Claude bridge bot (ict-claude-bridge.service manages it separately).
     "ict-claude-bridge.service",
     # Shadow log rotation for the shadow-predictions audit log.

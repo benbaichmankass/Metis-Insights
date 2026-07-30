@@ -35,6 +35,7 @@ from src.web.api._clean_trades import (
     paper_predicate,
 )
 from src.web.api._closed_at import close_time_sql
+from src.runtime.provenance import classify
 
 logger = logging.getLogger(__name__)
 
@@ -784,6 +785,19 @@ async def get_positions(
             "entryPrice": r[5],
             "unrealizedPnl": upnl,
             "unrealizedPnlSource": upnl_source,
+            # Is that number a MEASUREMENT? Resolved through the one canonical
+            # vocabulary (src/runtime/provenance) rather than re-derived from
+            # the source string at each consumer — which is exactly how the
+            # signal stayed write-only while 206 of 829 closed rows of mark-price PnL
+            # accumulated unnoticed (2026-07-30 audit).
+            #
+            # Note the classification is KEY-AWARE: a live mark on an OPEN
+            # position is `estimated` (the correct valuation — no truer number
+            # exists until it closes), NOT the `fabricated` that the same
+            # source string means when stamped on a CLOSED trade's exit price.
+            # `unavailable` resolves to `unverified` and must never be summed
+            # as $0 (see the uPnL aggregation rule in CLAUDE.md).
+            "unrealizedPnlProvenance": classify(upnl_source, "unrealizedPnlSource"),
             "openedAt": r[6],
             "stopLoss": float(r[7]) if r[7] is not None else None,
             "takeProfit": float(r[8]) if r[8] is not None else None,
