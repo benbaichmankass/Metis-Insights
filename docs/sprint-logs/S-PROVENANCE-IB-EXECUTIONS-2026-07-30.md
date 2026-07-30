@@ -92,7 +92,7 @@ measure different populations:
 The all-status figure is dominated by **4 `orphaned` `ib_paper` rows carrying
 +$284,084.92**. In the closed population the concentration is **`bybit_1`**
 (152/323, 47.1%, −$18,125) and **`bybit_portfolio`** (11/12, 91.7%, −$13,100);
-`ib_paper` closed rows are 3 of 24. The **trend** reproduces closely across both:
+`ib_paper` closed rows are 3 of 27. The **trend** reproduces closely across both:
 0.0% (May) → 23.7% (Jun) → **65.3% (Jul)**.
 
 This re-orders the work: the IB reader is correct and worth having, but ib_paper
@@ -159,10 +159,33 @@ a `workflow_dispatch` trigger to close that gap; dispatch **404s until the
 workflow file exists on the default branch**, so the proof is only available
 after merge. First action post-merge: dispatch both and confirm they execute.
 
-**High — `ml/` is provenance-blind** (`BL-20260730-ML-LABELS-IGNORE-PNL-PROVENANCE`).
-`trade_outcomes.py` sets `won = pnl > 0` straight off `trades.pnl` with no filter;
-one grep hit in the whole tree, an unrelated comment. Filed rather than fixed —
-measure before altering a training population.
+**High — `ml/` is provenance-blind, and it is now MEASURED**
+(`BL-20260730-ML-LABELS-IGNORE-PNL-PROVENANCE`). `trade_outcomes.py` sets
+`won = pnl > 0` straight off `trades.pnl` with no filter; one grep hit in the whole
+tree, an unrelated comment. The filing said *measure before altering a training
+population* — so I measured it rather than leaving it a hypothesis (trainer-diag
+#8100):
+
+| label source | rows | won | lost |
+|---|---|---|---|
+| `bybit_closed_pnl` (measured) | 324 | 111 | 213 |
+| **`local_markprice` (FABRICATED)** | **206** | **71** | 135 |
+| `bybit_closed_pnl_rebuild` | 131 | 22 | 109 |
+| `(none)` — unverified | 119 | 28 | 91 |
+| `recorded_exit_price` | 46 | 17 | 29 |
+
+**206 of 829 = 24.8% of the ML label population has its `won`/`lost` decided by a
+price the sweep substituted**, and **71 of those are labelled WON** — a phantom win
+is the worst case, because it teaches the model that a losing setup pays. Worse for
+anything retrained recently: the fabricated share of closed rows runs
+0.0% (May) → 23.7% (Jun) → **65.3% (Jul)**, so a fresh-data retrain is *more*
+affected than the lifetime figure suggests.
+
+Still filed rather than fixed, deliberately. Dropping 24.8% of labels unannounced
+would itself be a silent population change — the exact failure class this workstream
+is about. The resolution criteria now specify the `/performance` shape: emit
+provenance as a leakage-safe metadata column, report coverage, and make row
+filtering an **explicit** training decision.
 
 **Medium — stray 8 MB `trade_journal.db` at the trainer repo root**
 (`BL-20260730-TRAINER-JOURNAL-COPY-STALE`, corrected in-session). I first filed

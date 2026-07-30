@@ -614,7 +614,7 @@ dominated by **4 `orphaned` `ib_paper` rows carrying +$284,084.92** — a stale 
 futures multiplier on rows that appear in neither Positions nor Trades. Restricted to rows
 any consumer actually aggregates, the fabricated total is **negative** and concentrated in
 **`bybit_1`** (152/323, 47.1%, −$18,125) and **`bybit_portfolio`** (11/12, 91.7%,
-−$13,100); `ib_paper` closed rows are 3 of 24. What reproduces across both populations is
+−$13,100); `ib_paper` closed rows are 3 of 27. What reproduces across both populations is
 the **trend**: fabricated share of closed trades 0.0% (May) → 23.7% (Jun) → **65.3% (Jul)**.
 
 A headline whose sign flips on a filter choice is exactly the kind of number this module

@@ -10,7 +10,7 @@ WHY (2026-07-30 provenance audit)
 **State the population.** Measured on 2026-07-30: ``ib_paper`` carries
 **+$284,084.92** of fabricated PnL in the *all-status* population (845 rows) —
 but that is **4 ``orphaned`` rows**. In the *closed, non-backtest* decision
-population (829 rows, −$36,018.60 fabricated) ``ib_paper`` is **3 of 24** rows
+population (829 rows, −$36,018.60 fabricated) ``ib_paper`` is **3 of 27** rows
 and the concentration is ``bybit_1`` / ``bybit_portfolio``.
 
 The forward-looking reason this puller matters: the companion Tier-2 change

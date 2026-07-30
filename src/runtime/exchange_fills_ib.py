@@ -12,7 +12,7 @@ exposure is real but is NOT what the briefing framed:
   Positions nor Trades.
 * **Closed, non-backtest, ``pnl NOT NULL``** — the decision population any
   consumer actually aggregates (829 rows, 206 fabricated, **−$36,018.60**):
-  ``ib_paper`` is **3 of 24 closed rows**. The concentration there is
+  ``ib_paper`` is **3 of 27 closed rows**. The concentration there is
   ``bybit_1`` (152/323) and ``bybit_portfolio`` (11/12).
 
 So this module is not the biggest *closed-population* lever. It matters for a

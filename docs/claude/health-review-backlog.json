@@ -7669,7 +7669,24 @@
       "detail": "ml/datasets/families/trade_outcomes.py (label_version 'won-from-pnl-v1') sets `payload['won'] = bool(payload['pnl'] > 0)` straight off trades.pnl. A mark-price-fabricated pnl flips that label arbitrarily, so any model trained on this family has been learning from up to 64.9% manufactured outcomes on the affected books (the +$247,683.78 local_markprice population, concentrated on ib_paper). Other families reading pnl should be checked the same way (execution_quality, backtest_results, setup_labels). Recommended shape, mirroring what /performance now does: emit a `pnl_provenance` metadata column (leakage-safe — excluded from features exactly like `pnl` already is), report measured-coverage in the dataset metadata, and make any row filtering an EXPLICIT training decision rather than a silent drop. Do NOT silently change the training population without measuring first. Live exposure measurement was requested via trainer-diag issues #8068/#8071; #8068 failed (no sqlite3 CLI on the trainer) and its journal copy was dated Jul 20 (see the sibling staleness item).",
       "severity": "high",
       "status": "open",
-      "tier": 1
+      "tier": 1,
+      "measured_2026_07_30": {
+        "source": "trainer-diag #8100, scripts/ops/provenance_exposure_audit.py against the live 677 MB data/trade_journal.db (newest closed 07:40Z)",
+        "label_population": "829 closed non-backtest rows with pnl NOT NULL — the population `won = pnl > 0` is computed over",
+        "fabricated_labels": "206 of 829 = 24.8% of ML labels derive from a `local_markprice` price (a mark read at SWEEP time, not the exit)",
+        "won_labels_at_risk": "71 of those 206 are labelled WON. A phantom win is the worst case: it teaches the model that a losing setup pays.",
+        "by_source": {
+          "bybit_closed_pnl": "324 (111W/213L)",
+          "local_markprice": "206 (71W/135L)",
+          "bybit_closed_pnl_rebuild": "131 (22W/109L)",
+          "(none)": "119 (28W/91L)",
+          "recorded_exit_price": "46 (17W/29L)"
+        },
+        "concentration": "bybit_1 152/323 (47.1%), bybit_portfolio 11/12 (91.7%), alpaca_paper 26/44 (59.1%), alpaca_options_paper 6/8 (75.0%). ib_paper closed is 3 of 27.",
+        "trend": "fabricated share of closed rows 0.0% (May) -> 23.7% (Jun) -> 65.3% (Jul) — so a model retrained on RECENT data is worse affected than these lifetime figures suggest",
+        "note": "119 rows additionally carry NO exit_price_source at all (-$37,785.32). UNVERIFIED is not MEASURED; do not fold it into the clean bucket."
+      },
+      "resolution_criteria": "Mirror what /performance now does: emit provenance as a leakage-safe METADATA column on the label frame and report coverage, then make row filtering an EXPLICIT training decision rather than a silent drop. Dropping 24.8% of labels unannounced would itself be a silent population change — the failure class this workstream is about. Re-measure with this audit after the anchoring change has been live long enough to shift the July share, since new closes now resolve as measured/estimated/declared rather than mark-substituted."
     },
     {
       "id": "BL-20260730-TRAINER-JOURNAL-COPY-STALE",
