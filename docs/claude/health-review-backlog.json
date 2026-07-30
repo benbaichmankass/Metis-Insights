@@ -7546,8 +7546,18 @@
         "scripts/ops/check_artifact_validity.py",
         "BL-20260730-M1-PRICE-JOIN-DEAD"
       ]
+    },
+    {
+      "id": "BL-20260730-TRAINER-JOURNAL-PULL-STALE",
+      "opened_at": "2026-07-30T13:00:00+00:00",
+      "opened_by": "claude (full-system-review-807m08 exit-fix re-check)",
+      "source": "During the 2026-07-30 ~12:38Z exit-fix re-check, the trainer VM's synced /home/ubuntu/ict-trading-bot/data/trade_journal.db (677MB) had journal_latest_close = 2026-07-29T20:57Z -- ~15-16h behind the live journal (live newest row id 4221 at 2026-07-30 12:22Z). The trainer copy held only n=1 post-flip bybit scalp while the live journal was current.",
+      "title": "[trainer][data-freshness] Trainer synced trade_journal.db was ~15h stale vs live -- verify the live->trainer db_pull cadence/health",
+      "description": "NOT a live-trading bug (the trainer pulls the live DB periodically for training/ML, not real-time), but a data-freshness gap worth confirming is intentional, not a stalled db_pull. Operational consequence: the trainer mirror is UNSUITABLE for recent-window (hours) verification queries -- go to the LIVE journal via vm-diag-request (/api/diag/journal) for post-flip / recent reads; reserve the trainer copy (+ m20_exit_analysis, which needs the trainer candle store) for windows old enough to have synced. CHECK: is the db_pulls cadence running on schedule (/api/bot/ml/db_pulls, trainer_store db_pulls)? If infrequent-by-design, document the expected lag so a future review doesn't mistake the mirror for current; if actually stalled, that's a real finding. (Composes with BL-20260730-TRADES-TIMESTAMP-FORMAT-MIXED -- both bit this session's exit re-check.)",
+      "status": "open",
+      "severity": "low"
     }
   ],
   "updated_at": "2026-07-30T16:10:00+00:00",
-  "generated_at": "2026-07-30T13:30:00+00:00"
+  "generated_at": "2026-07-30T13:35:00+00:00"
 }

@@ -99,3 +99,54 @@ class TestThisRepo:
                   "BL-20260730-EXITHEAD-REPLAY-SINGLE-THRESHOLD",
                   "BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS"):
             assert i in filed, f"{i} must stay filed"
+
+
+class TestReformatDoesNotLookLikeIntroduction:
+    """"On an added line" is not "introduced".
+
+    Re-sorting a file rewrites every line, so pre-existing references read as new. That
+    happened for real: union-merging the health-review backlog re-ordered it and this guard
+    fired on 12 dangling ids that had been there for weeks — exactly the pre-existing debt
+    the diff-scoping exists to exclude. A guard that cries wolf on a reformat teaches
+    sessions to suppress it.
+    """
+
+    @staticmethod
+    def _repo(tmp_path, initial: str):
+        import subprocess
+        r = tmp_path / "repo"
+        (r / "docs" / "claude").mkdir(parents=True)
+        (r / "docs" / "claude" / "health-review-backlog.json").write_text(
+            json.dumps({"items": [{"id": "BL-20200101-REAL"}]}), encoding="utf-8")
+        (r / "docs" / "note.md").write_text(initial, encoding="utf-8")
+        for c in (["init"], ["add", "-A"], ["-c", "user.email=t@t", "-c", "user.name=t",
+                                            "commit", "-m", "base"]):
+            subprocess.run(["git", "-C", str(r)] + c, capture_output=True, check=True)
+        return r
+
+    def _commit(self, r, text):
+        import subprocess
+        (r / "docs" / "note.md").write_text(text, encoding="utf-8")
+        subprocess.run(["git", "-C", str(r), "add", "-A"], capture_output=True, check=True)
+        subprocess.run(["git", "-C", str(r), "-c", "user.email=t@t", "-c", "user.name=t",
+                        "commit", "-m", "change"], capture_output=True, check=True)
+
+    def test_moving_an_existing_dangling_ref_is_not_a_finding(self, tmp_path):
+        # BL-20200202-DANGLING is unfiled, but it was ALREADY in this file before the change.
+        r = self._repo(tmp_path, "alpha BL-20200202-DANGLING\nbeta\ngamma\n")
+        # Reorder the lines: every line is "added" from the diff's point of view.
+        self._commit(r, "gamma\nbeta\nalpha BL-20200202-DANGLING\n")
+        bad = cbr.dangling(cbr.refs_in_added_lines("HEAD~1", r), cbr.filed_ids(r))
+        assert bad == {}, f"a reformat must not report pre-existing debt: {bad}"
+
+    def test_a_genuinely_new_dangling_ref_is_still_caught(self, tmp_path):
+        r = self._repo(tmp_path, "alpha\n")
+        self._commit(r, "alpha\ntracked by BL-20300303-NEVERFILED\n")
+        bad = cbr.dangling(cbr.refs_in_added_lines("HEAD~1", r), cbr.filed_ids(r))
+        assert "BL-20300303-NEVERFILED" in bad
+
+    def test_a_filed_ref_is_never_a_finding(self, tmp_path):
+        r = self._repo(tmp_path, "alpha\n")
+        self._commit(r, "alpha\nsee BL-20200101-REAL\n")
+        bad = cbr.dangling(cbr.refs_in_added_lines("HEAD~1", r), cbr.filed_ids(r))
+        assert bad == {}
