@@ -666,6 +666,55 @@ accurate while Bybit was the only reader, a provenance *lie* the moment IBKR was
 FABRICATED (`classify` handles it as a suffix, since the base varies per reader) — the SPLIT is
 an assumption about attribution however measured the underlying record was.
 
+### Diagnostic provenance — does the OUTPUT say what it actually computed? (2026-07-30)
+
+The sibling of the number-provenance rule above, one level up: that one asks
+whether a **stored value** is measured or manufactured; this one asks whether a
+**human-facing diagnostic** states the derivation of what it printed.
+
+**The class — UNPROVENANCED DIAGNOSTIC OUTPUT.** A tool reports a value under a
+label that does not describe what it computed, and nothing in the output reveals
+the substitution. The number is real, the label is confident, and a reader who
+trusts the label reaches a confident *wrong* conclusion. Three sub-classes:
+
+| | Shape | Canonical instance |
+|---|---|---|
+| **A** semantic substitution | the label names quantity `Q`; the code called accessor `f()`; `f() ≠ Q` | `max(proba)` printed as `P(volatile)` — **inverted**, a 97%-CALM head reads as saturated-volatile (`BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA`) |
+| **B** implicit input selection | newest / alphabetically-last / a function **default** substituted for the declared or pinned input | `sorted(glob(...))[-1]` labelled "TRAINING dataset"; `market_features` defaulting `vol_threshold=0.003` while the canonical builder passes `0.005` — two different `regime_label` definitions, nothing marks which |
+| **C** unasserted denominator | an empty / zero / truncated result reads as a clean negative | a `curl … \|\| echo '{}'` poller turning HTTP 403 into `0 checks`; "every audited symbol is fully SL-covered" printed over a 444.7% over-coverage |
+
+A **failure message that names a cause no code path tested** is the A-variant
+that bites hardest (a diag relay blaming "VM down" for a request that never
+reached the VM) — fix it by branching on the actual failure *stage*, not by
+rewording the label.
+
+**Enforced by `diagnostic-provenance-guard`**
+([`scripts/check_diagnostic_provenance.py`](scripts/check_diagnostic_provenance.py))
+over `scripts/{ml,research,ops,macro,reports}/` and the guard scripts — the same
+family as `canonical-db-resolver` / `env-gate-guard` / `silent-empty-guard` /
+`provenance-consumer-guard`. Diff-scoped in CI (pre-existing sites are
+grandfathered); `--all` is the standing audit.
+
+Note the split with **`silent-empty-guard`**: that guard catches the *producer*
+(a broad `except` returning `[]`); sub-class **C** catches the *consumer*
+(reading `[]` as a clean, labelled answer). Neither covers the other.
+
+**The override is verified, not presence-only.** `# provenance: <accessor> —
+<meaning>` must name an identifier that actually appears in the file, and the
+annotation is excluded from its own evidence. This is the direct lesson from
+`new-table-wiring-guard`, whose presence-only `# data-wiring:` marker made the
+cheapest way to silence a real finding *naming a table that does not exist* —
+a guard that is cheaper to lie to than to satisfy is worse than no guard.
+
+**One module owns "what is the shadow log's `score`?"** —
+[`scripts/ml/_regime_score_semantics.py`](scripts/ml/_regime_score_semantics.py).
+`score` is `ShadowPredictor.predict` → `wrapped.predict(row)`: P(positive) for a
+binary head, `max(proba.values())` for a multiclass one. Every regime head is
+multiclass. The live gate reads `predict_proba(row)["volatile"]` — a diagnostic
+claiming to say anything about the gate must report *that*. Import the module;
+do not re-derive the answer per probe (two probes re-derived it independently and
+both got it wrong on the same day).
+
 ## Dashboard REST API (S-014)
 
 Unauthenticated GET routes — Tier 1 read surface. See

@@ -118,7 +118,7 @@ def _spec(vol_feature_column: str, edges: list[float], labels: list[str]) -> dic
 def test_live_row_matches_builder_continuous_features(tmp_path: Path):
     closes = _varied_closes(40)
     market_raw, raw = _stage_market_raw(tmp_path, closes)
-    ref_rows = list(MarketFeaturesBuilder().iter_rows(
+    ref_rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
         market_raw_path=market_raw, vol_window_n=_VOL_WINDOW_N,
         forward_window_m=_FORWARD_M, n_vol_buckets=3,
     ))

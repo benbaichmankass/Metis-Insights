@@ -53,7 +53,7 @@ import json
 import os
 import sqlite3
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))))
@@ -260,6 +260,48 @@ def _audit_symbol(
     return res
 
 
+def classify_rollup(summary: Dict[str, Any]) -> Tuple[List[Tuple], List[Tuple], int]:
+    """Bucket audited symbols into ``(under_covered, over_covered, audited_n)``.
+
+    Extracted from ``main`` so the roll-up's CLAIM is testable without a live
+    broker (the live run then only has to verify integration).
+
+    The roll-up used to bucket ONLY under-coverage and then print "every
+    audited symbol is fully SL-covered at the broker" — a clean bill of health
+    that rendered above a **444.7% OVER-coverage** sitting in the body
+    (2026-07-30). ``PROTECTED`` is *literally true* there (``covered >= size``),
+    which is what makes this sub-class A2 rather than a simple mislabel: the
+    summary asserts something far stronger than the verdict measured, and a
+    reader who stops at the roll-up walks past live leg over-accumulation — the
+    very condition the runtime's own ``_check_broker_naked_bybit_positions``
+    flags as ``over_covered`` (BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING).
+    The audit and the runtime disagreed about the same position, and only the
+    audit was being read.
+
+    ``FLAT`` symbols are excluded from the denominator — a symbol with no
+    position is not evidence of coverage either way, and counting it inflates
+    the reassurance.
+    """
+    bad: List[Tuple] = []
+    over: List[Tuple] = []
+    audited = 0
+    for a in summary.get("accounts", []):
+        for s in a.get("symbols", []):
+            v = str(s.get("verdict") or "")
+            if v == "FLAT":
+                continue
+            audited += 1
+            pct = s.get("coverage_pct")
+            if v.startswith("PARTIALLY_NAKED") or v.startswith("NAKED") \
+                    or "UNRELIABLE" in v:
+                bad.append((a.get("account_id"), s.get("symbol"), v,
+                            s.get("uncovered_qty"), pct))
+            elif pct is not None and pct > 100.0 + 100.0 * _COVERAGE_EPS_FRAC:
+                over.append((a.get("account_id"), s.get("symbol"), v,
+                             s.get("sl_covered_qty"), pct))
+    return bad, over, audited
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--account", default=None,
@@ -394,21 +436,25 @@ def main() -> int:
     print("=" * 74)
     print("ROLL-UP")
     print("=" * 74)
-    bad = []
-    for a in summary["accounts"]:
-        for s in a.get("symbols", []):
-            v = str(s.get("verdict") or "")
-            if v.startswith("PARTIALLY_NAKED") or v.startswith("NAKED") \
-                    or "UNRELIABLE" in v:
-                bad.append((a["account_id"], s["symbol"], v,
-                            s.get("uncovered_qty"), s.get("coverage_pct")))
+    bad, over, audited = classify_rollup(summary)
     if bad:
         print("  %d symbol(s) NOT fully protected at the broker:" % len(bad))
         for aid, sym, v, unc, pct in bad:
             print("    %-16s %-10s %-32s uncovered_qty=%s coverage=%.1f%%"
                   % (aid, sym, v, unc, pct or 0.0))
-    else:
-        print("  every audited symbol is fully SL-covered at the broker.")
+    if over:
+        print("  %d symbol(s) OVER-covered (SL legs exceed the netted position "
+              "— leg over-accumulation, not a naked risk but not clean either):"
+              % len(over))
+        for aid, sym, v, cov_qty, pct in over:
+            print("    %-16s %-10s %-32s sl_covered_qty=%s coverage=%.1f%%"
+                  % (aid, sym, v, cov_qty, pct or 0.0))
+    if not bad and not over:
+        print("  %d/%d audited non-flat symbol(s) SL-covered at the broker "
+              "within [100%%, %.1f%%]; 0 naked, 0 over-covered."
+              % (audited, audited, 100.0 + 100.0 * _COVERAGE_EPS_FRAC))
+    summary["rollup"] = {"audited_non_flat": audited,
+                         "under_covered": len(bad), "over_covered": len(over)}
     if args.json:
         print()
         print("===== JSON =====")
