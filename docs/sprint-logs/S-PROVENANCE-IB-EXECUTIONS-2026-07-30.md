@@ -284,11 +284,23 @@ Historical relabel remains **RELABEL ONLY, never re-price** (operator decision).
 
 ## 7. CI attached — and immediately earned its keep
 
-The P1 above (`pull_request` CI returning `total_count: 0`) **resolved** partway
-through the session: 25 checks attached on the merge commit that brought #8039's
-files down from `main`. The cause is still not established — the merge commit is
-correlated, not proven causal — so the backlog item stays open pending a root
-cause rather than being closed as "it works now".
+The P1 above stayed open and got **sharper — and smaller — once I correlated every
+SHA against actual workflow runs instead of trusting a status call.** Two
+corrections to my own earlier reporting, both in the direction of overstating:
+
+1. **`get_status` returns `total_count: 0` on this repo ALWAYS.** It reads the
+   legacy commit-status API while every check here is a Check Run. Several of my
+   "zero checks" readings came from that call and were evidence of nothing. Use
+   `get_check_runs`, or correlate `actions_list` runs by `head_sha`.
+2. On the real data, **one** confirmed dropped delivery, not a near-total outage:
+   6 of 8 branch SHAs got their runs; `f10d2b54` and `19a5d883` did not, and
+   those two were pushed ~25 s apart, so the first is plausibly normal
+   coalescing of a superseded head. `19a5d883` is the genuine case — PR head for
+   ~6 minutes with no event, while a later push fired normally. Concurrency
+   cancellation is ruled out (neither workflow declares a `concurrency:` group).
+
+Lowered critical → **high** on that evidence. Still not medium: a check that runs
+*sometimes* is not a check, and zero checks renders identically to green.
 
 The first three runs failed, all on real problems in this PR, none a flake:
 
