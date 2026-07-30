@@ -53,7 +53,7 @@ import json
 import os
 import sqlite3
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))))
@@ -207,7 +207,7 @@ def _audit_symbol(
         covered = size
         res["coverage_source"] = "full_mode_position_stopLoss"
     else:
-        covered = sum(l["qty"] for l in sl_legs if l["qty"] is not None)
+        covered = sum(leg_rec["qty"] for leg_rec in sl_legs if leg_rec["qty"] is not None)
         res["coverage_source"] = "partial_sl_legs"
     res["sl_covered_qty"] = covered
     res["uncovered_qty"] = max(0.0, size - covered)
@@ -226,7 +226,7 @@ def _audit_symbol(
         res["verdict"] += "_UNRELIABLE_LEG_QTY"
 
     # --- per-trade protection (the level partial mode actually promises) ----
-    live_ids = {str(l["orderId"]) for l in sl_legs if l.get("orderId")}
+    live_ids = {str(leg_rec["orderId"]) for leg_rec in sl_legs if leg_rec.get("orderId")}
     per_trade = []
     for r in journal_rows:
         if str(r["symbol"] or "").upper() != symbol.upper():
@@ -365,14 +365,14 @@ def main() -> int:
                      "  (!! %d SL leg(s) with unparseable qty)"
                      % r["sl_legs_unknown_qty"]
                      if r["sl_legs_unknown_qty"] else ""))
-            for l in r["sl_legs"]:
+            for leg_rec in r["sl_legs"]:
                 print("        SL  qty=%-10s trigger=%-12s %-18s %s"
-                      % (l["qty"], l["triggerPrice"], l["stopOrderType"],
-                         str(l["orderId"])[:12]))
-            for l in r["tp_legs"]:
+                      % (leg_rec["qty"], leg_rec["triggerPrice"], leg_rec["stopOrderType"],
+                         str(leg_rec["orderId"])[:12]))
+            for leg_rec in r["tp_legs"]:
                 print("        TP  qty=%-10s trigger=%-12s %-18s %s"
-                      % (l["qty"], l["triggerPrice"], l["stopOrderType"],
-                         str(l["orderId"])[:12]))
+                      % (leg_rec["qty"], leg_rec["triggerPrice"], leg_rec["stopOrderType"],
+                         str(leg_rec["orderId"])[:12]))
             print("      journal: %d open trade(s), qty_sum=%s | "
                   "tracked leg alive=%d dead=%d untracked=%d"
                   % (r["journal_open_trade_count"], r["journal_qty_sum"],
