@@ -1,0 +1,77 @@
+{
+  "rows": [
+    {
+      "horizon_days": 1,
+      "n": 136,
+      "ic": -0.078605,
+      "ic_t": -0.913,
+      "pearson": -0.10404,
+      "sign_hit_rate": 0.446809,
+      "mean_fwd_return": -0.000431
+    },
+    {
+      "horizon_days": 3,
+      "n": 136,
+      "ic": -0.128642,
+      "ic_t": -1.502,
+      "pearson": -0.127426,
+      "sign_hit_rate": 0.468085,
+      "mean_fwd_return": 0.001543
+    },
+    {
+      "horizon_days": 5,
+      "n": 136,
+      "ic": -0.126004,
+      "ic_t": -1.47,
+      "pearson": -0.129255,
+      "sign_hit_rate": 0.43617,
+      "mean_fwd_return": 0.000891
+    },
+    {
+      "horizon_days": 10,
+      "n": 136,
+      "ic": -0.03229,
+      "ic_t": -0.374,
+      "pearson": -0.041078,
+      "sign_hit_rate": 0.510638,
+      "mean_fwd_return": 0.00057
+    },
+    {
+      "horizon_days": 21,
+      "n": 135,
+      "ic": -0.049336,
+      "ic_t": -0.57,
+      "pearson": -0.071966,
+      "sign_hit_rate": 0.467391,
+      "mean_fwd_return": 0.00904
+    }
+  ],
+  "summary": {
+    "max_n": 136,
+    "min_honest_n": 12,
+    "sufficient_history": true,
+    "any_flagged_horizon": false,
+    "strongest_ic_horizon_days": 3,
+    "strongest_ic": -0.128642,
+    "strongest_ic_t": -1.502,
+    "t_flag": 2.0,
+    "verdict": "no_edge_at_tested_horizons"
+  },
+  "meta": {
+    "kind": "cpi_yoy",
+    "symbol": "ES=F",
+    "value_key": "surprise",
+    "releases": 136,
+    "releases_with_value": 136,
+    "price_bars": 2911,
+    "horizons": [
+      1,
+      3,
+      5,
+      10,
+      21
+    ],
+    "snapshots_path": "comms/macro/econ_calendar_snapshots_survey_backfill.jsonl",
+    "generated_at": null
+  }
+}
