@@ -194,37 +194,106 @@
   operator: the M1 gate wording (`BL-20260730-M3-GATE-TESTS-TRACKING-NOT-USEFULNESS`).
 - **Blockers:** none. The next step needs only the merged tool + a trainer run.
 
+---
+
+# Continuation — the axis was then RUN, and what it produced
+
+Everything above was written at PR #8056 (the instrument). The sprint continued
+through eight further merges. **The sections below supersede the original
+"Deferred Items" / "Next Recommended Sprint" / "Wrap-Up Check", which claimed
+"nothing has been measured yet" — that is no longer true.**
+
+## Work Completed (continued)
+
+Merged, in order: **#8085** (staleness ruled out) · **#8091** (feature-parity
+probe fixed + 7 guard tests) · **#8097** (dormancy finding + diag-relay failure
+comment) · **#8099** (the six cells are ungradeable on live data) · **#8102**
+(self-correction: epoch-mismatched comparison) · **#8109** (no serve-path gap) ·
+**#8113** (squeeze Tier-3 decision packet) · **#8118** (trend_donchian 2-D
+grade) · **#8119** (self-refutation of #8118).
+
+**The three questions the axis was built to answer are answered:**
+
+1. **Is there an offline-vs-serve gap?** No. Offline **1.15%** vs live **1.02%**
+   volatile on a *matched* window (#8109). My earlier 9.1%-vs-1% reading
+   compared disjoint epochs and was withdrawn in #8102.
+2. **Can the six cells be graded on live data?** **No, at any n** — a gate row
+   records a *suppression*, so it has no outcome to grade. Live n=12 total.
+   Offline is the only valid instrument (#8099).
+3. **Does the parked `squeeze_breakout_4h` 1-D `trending short: off` proposal
+   survive?** No — **superseded**, needing no config change (#8113).
+
+**Two live-VM defects fixed en route:** the feature-parity probe printed
+`max(proba)` under the label `PREDICTED score(volatile)` (every regime head read
+as pinned to volatile — this nearly became a false P1 against the live
+real-money BTC vol gate) and read `sorted(glob(...))[-1]` instead of the
+manifest-pinned dataset version. Both fixed with tests in #8091.
+
+## The `trend_donchian` result, and its refutation
+
+`trend_donchian` runs on **`bybit_2` (real money)**. The offline 2-D grade
+(#8115) put `transitional/calm {long: off}` — an *active* gate — at **+32.6577R
+/ n=57 / expR +0.573**, contradicting its authoring comment (−$356 / 43t) in
+sign. Landed in #8118 **without a proposal**, because the pre-registered gate
+(`BL-20260730-SQZ-CELLS-N-TOO-THIN`) demands a walk-forward first.
+
+**The walk-forward then refuted it** (#8117, landed in #8119). Same 1-D
+`transitional` population, **same harness file** (md5-verified):
+
+| population | my grade (#8115) | walk-forward (#8117) |
+|---|---|---|
+| `transitional` | **+29.4913R**, n=86 | **−1.25R**, n=94 |
+| `chop` | −10.8281R, n=141 | −4.3089R, n=134 |
+
+Opposite sign on `transitional`. The finding is **not established** and is
+marked `UNSAFE-DO-NOT-ACT`. **The open question is now the discrepancy itself,
+not the cell.**
+
+## Contradictions Found (continued)
+
+- **My own dormancy claim was over-generalised.** "The vol axis reads calm ~99%
+  of the time" came from ~979 live rows. Full replay (175,272 rows): **8.92%
+  volatile**, ranging **0.44%–30.42%** monthly. The cells are *conditionally*
+  dormant. Severity high → medium.
+- **Same error twice in one session** (this and the 9.1%-vs-1% comparison).
+  Recorded as a pattern, not two slips: **generalising from a narrow window is
+  this session's characteristic failure mode.**
+- **Two of my own measurements disagree in sign** — see above.
+
 ## Deferred Items
-- **Running the replay + `verify` + grading the six cells** — deliberately not
-  attempted in this sprint. The tool lands first so the trainer (which syncs
-  `main`) can run it against the registry and `v520` without shipping a
-  one-off script through the relay.
-- **`regime_debt_matrix` / `regime_cell_walkforward` vol-split** — the labels
-  file is now the shared primitive, but those two drivers still have no
-  `--vol-labels`. Deferred deliberately: wiring them before the labels are
-  *verified* would spread an unvalidated axis across three tools.
-- **The authored-cell re-audit register** (`BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER`)
-  — untouched this sprint, still open.
+
+- **Reconciling the two instruments** — the decisive experiment is running both
+  paths on **one** feed with **identical** forwarded params, to isolate
+  feed-vs-params. Until then **no per-cell number from either run should be
+  quoted**, including the table in merged #8118.
+- **`regime_cell_walkforward` vol-split** — still 1-D
+  (`BL-20260730-WALKFORWARD-NO-VOL-AXIS`, high). Now a *hard blocker*: the gate
+  required before proposing a 2-D change cannot be run on a 2-D cell, and it
+  fails silently — it returns a confident verdict for a different population.
+- **Fold-count verdict flip** (`BL-20260730-WF-FOLDCOUNT-VERDICT-FLIP`, high) —
+  identical pooled −1.25R yields `stable_drag` FALSE at 4 folds, TRUE at 3.
+- Both were left unfixed **deliberately**: `scripts/research/` was ceded to a
+  concurrent session on board #6927 and posted there instead.
+- **`BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER`** — still open, untouched.
 
 ## Next Recommended Sprint
-- **Suggested next sprint:** run and validate the axis, then grade.
-  1. Trainer relay: `ml_vol_label_replay.py replay --symbol BTCUSDT --dataset
-     datasets-out/market_features/BTCUSDT/15m/v520/data.jsonl`.
-  2. Pull `regime_ml_vol_shadow` / `regime_hard_gate` rows via
-     `/api/diag/audit_query` and run `verify`. **Treat a low agreement rate as a
-     finding, not a rounding issue.**
-  3. Only then: grade the six 2-D cells and record each verdict.
-- **Why next:** six live cells drop real BTC intents on evidence nothing has
-  re-checked, and one Tier-3 proposal is already blocked behind this.
-- **Required verification before starting:** the labels manifest must show a
-  non-trivial `calm`/`volatile` split (a 100/0 split is a broken replay, not a
-  regime finding), and `verify` must report a real `comparable` count — not
-  `no_overlap_nothing_verified`.
+
+1. **Reconcile the instruments first.** One feed, identical params, both paths.
+   Nothing downstream is trustworthy until the sign flip is explained.
+2. Then make the walk-forward 2-D-capable and fold-count-honest.
+3. Only then re-open the `trend_donchian` cell question.
+- **Required verification before starting:** treat every per-cell number
+  produced so far as unverified. The vol axis *itself* is sound (96.4% / 89.6%
+  join coverage, internally consistent arithmetic in both runs) — the defect is
+  at the **seam** between tools, the class
+  `S-PROVENANCE-EXITLEAK-ROOTCAUSE-2026-07-30` documents.
 
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries.
-- [x] Documentation was reviewed and updated as part of the sprint.
+- [x] Documentation reviewed and updated (this continuation).
 - [x] N/A — no pipeline stage touched.
-- [x] Roadmap status was checked (tracked in the backlog row, not a roadmap row).
-- [x] Contradictions were recorded — including my own withdrawn measurement.
-- [x] Remaining unknowns were stated clearly: **nothing has been measured yet.**
+- [x] Roadmap status checked (tracked in backlog rows, not a roadmap row).
+- [x] Contradictions recorded — **including two of my own withdrawn findings.**
+- [x] Remaining unknowns stated: **the two instruments disagree in sign and I
+      cannot say which is right.** No Tier-3 change was proposed;
+      `config/regime_policy.yaml` was never touched.
