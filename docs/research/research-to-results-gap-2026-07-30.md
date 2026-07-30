@@ -87,14 +87,48 @@ just doesn't read it.
    reported per-regime, and the live router should keep it off in the regimes
    where it has no net-of-cost edge (the regime-policy machinery exists).
 
-## Concrete first steps (crypto)
+## Diagnose before demoting — the eth_pullback_2h case (drift-remediation)
 
-- **Now (Tier-3, operator):** demote `eth_pullback_2h` — the top real-money
-  bleeder (−$24.65 real, −$5,601 mirror) — to shadow while the re-gate runs.
-- **Build:** the funding + slippage cost terms in the directional crypto
-  harnesses; re-run `account_compat_matrix` net-of-full-cost for the crypto legs.
-- **Adopt:** the paper-mirror-net-positive gate as the standing promotion/retention
-  rule (this is the durable methodology fix).
+**A red number is a trigger to diagnose, not an instruction to demote** (operator
+directive 2026-07-30; mirrors the `drift-remediation` one-rule). Worked example,
+and it reverses my own earlier reflex:
+
+`eth_pullback_2h` looked like the obvious demote (−$24.65 real, −$5,601 mirror).
+But its own **2-year walk-forward** (`pullback-2h-direction-walkforward-2026-07-29.md`,
+exact live params, net-of-fee, 8 contiguous OOS folds) shows a **genuine +18.43R
+net edge** (long +8.86R/46, short +9.58R/50). It is **not** a dead strategy. The
+recent bleed is **regime**: folds 6–8 (2025-11 → 2026-07) reproduce a −27.6R
+long-drag while folds 1–5 are net-positive — an adverse pullback regime, not a
+capability loss. In drift-remediation terms this is **transient/regime → do NOT
+demote** (turning it off at the regime bottom is exactly the "got scared and
+flipped it off" failure). The fine-tune candidates instead:
+
+1. **Re-verify the +18.43R net of the FULL cost stack** (funding + slippage, not
+   just fee) — a 2h hold pays funding; if cost eats the edge that's a
+   sizing/venue fix, still not a kill.
+2. **Chop/vol regime filter** — it's already `adx_min: 25`-gated, but the
+   walk-forward shows the drawdown concentrates in a specific regime; test a
+   tighter vol/chop guard to skip the adverse folds (targeted sweep, not a
+   blanket direction gate — the WF already refuted a directional gate).
+
+**Interim demote stays a last resort** — only if a leg is *actively harmful now*
+AND no fine-tune/replacement is ready. `bybit_2` is tiny (−$24.65 is not an
+emergency), so there is time to diagnose properly.
+
+## Concrete plan (crypto) — per-leg diagnosis, fine-tune-default
+
+1. **Per-leg diagnosis** (the eth_pullback lens applied to each live crypto
+   strategy): 2-yr walk-forward with exact live params → real edge or overfit?
+   when/why did it turn (regime vs cost vs execution)? Sort into
+   {real-edge-adverse-regime → keep/regime-tune} vs {cost-killed → cost-fix} vs
+   {overfit/no-edge → demote-as-last-resort}.
+2. **Build:** funding + slippage cost terms in `backtest_trend`/`backtest_pullback`/
+   `backtest_ict_scalp`; re-run `account_compat_matrix` net-of-full-cost.
+   (Prereq: close the M24 funding-visibility gap so it's calibrated.)
+3. **Adopt:** the paper-mirror-net-positive gate as the standing
+   promotion/retention rule (the durable methodology fix).
+4. **Fine-tune the fixable, demote only the genuinely dead** — each as a
+   validated change, Tier-3 to the operator.
 
 Then repeat the same lens for the equities/ETF book (where the mirror is
 +$3,953 but carried entirely by one unverified `uso_trend_1h` run — the *inverse*
