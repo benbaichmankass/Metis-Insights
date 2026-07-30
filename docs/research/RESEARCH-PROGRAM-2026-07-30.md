@@ -358,6 +358,42 @@ to arrive," check whether the **label threshold** is what is starving the window
 | **S1/S2/R1 corrected sweep** | ⛔ blocked on the row above | Dispatch via label `regime-debt-matrix-request` once T1 is on `main` |
 | **M1 backfill sibling** | 📋 next | Built for a runner, not the sandbox: **FRED is firewalled here** (verified — `fredgraph.csv` returns empty for `DFII10`/`ICSA`), so it follows the existing backfills' `urlopen`-injectable + `ICT_OFFVM_BUILD_HOST`-guarded pattern and is verified on a free runner |
 
+### ⚠️ BUILT ≠ VERIFIED — read this before citing anything above
+
+Operator directive 2026-07-30: *"make sure the tasks don't fall between the cracks so
+that we think they're done, and then it turns out in two weeks that something has
+been failing because we incorrectly thought that we finished building something that
+we hadn't."* So, explicitly:
+
+**Two things shipped today have NEVER executed against their real upstream source.**
+The planning sandbox firewalls both `stooq.com` and `fred.stlouisfed.org` (both
+confirmed empty from here). The unit tests prove the **logic**; they cannot prove the
+**ticker forms** or **series ids**.
+
+| Thing | Status | Why it can't silently rot |
+|---|---|---|
+| **Stooq futures ticker form** (`NG=F`→`ng.f`) | **PLUMBED, NOT PROVEN** | If wrong, the study now **fails visibly** — the workflow's ≥100-closes assertion + the study's exit-2 on an empty panel. Loud, not silent. But unconfirmed until a green run reports `price_bars > 0` |
+| **FRED series ids** (`WNGSTUS`, `WCESTUS1`, `ICSA`, `CCSA`, `CPIAUCSL`) | **PLUMBED, NOT PROVEN** | The backfill hard-fails per series, names the offending id, and writes **no output** — a wrong id cannot produce a partial-looking success. But each is unconfirmed until the first runner run |
+
+**Until both are confirmed by a green runner execution, treat the M1 event-study
+pipeline as PLUMBED-NOT-PROVEN and do not cite any verdict it produces.** Tracked as
+`BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER`.
+
+**And the rest of this program has NOT run.** Day 1 shipped the gate change, T1, T2,
+the expectation model and the backfill. **Everything else in §4 — T3/T4/T5, S1–S4,
+M3–M5, A1–A5, R1–R5 — is not started or not finished**, registered item-by-item as
+`BL-20260730-RESEARCH-PROGRAM-OPEN-ITEMS` so no future session reads this document's
+*existence* as evidence the program ran.
+
+Two of those deserve singling out because they are easy to lose:
+
+- **M3 is a precondition, not a nicety.** The operator-approved gate change is
+  *conditional* on validating model-surprise against the captured survey consensus on
+  the overlap. Until M3 runs, the gate is approved-in-principle but **unsatisfied** —
+  an M1 verdict produced before it is not gate-clearing evidence.
+- **T3 protects everything else.** Today's vacuity guard was fixed in exactly **one**
+  place (the event study). The class is unswept.
+
 **Skill-gap note:** the `regime-selectivity` skill proposed in Track R is *not* yet
 written — it is a proposal for operator sign-off, not a shipped artifact.
 
