@@ -56,7 +56,16 @@ schema_version: 2
 trending:
   trend_donchian:        { long: on,  short: off }   # short −28 (matrix net R)
   squeeze_breakout_4h:   { long: on,  short: on  }   # +5 net
-  htf_pullback_trend_2h: { long: on,  short: off }   # long +30, short flat (−0.05)
+  # 2026-07-30: long OFF on walk-forward evidence (#7968, operator-approved).
+  # long_stable_drag TRUE  -- negative 3/4 folds, pooled -6.85R over n=42.
+  # short stays OFF: short_stable_drag was FALSE (so the OFF cell is NOT
+  # affirmatively justified) but flipping it ON is a PERMISSIVE change resting
+  # on one fold -- pooled +7.89R is ~147% attributable to fold 3 alone, and
+  # ex-fold-3 the short leg is -3.70R. Operator directive: take long->off, HOLD
+  # short->on pending its own evidence pass. Authoring evidence for the old
+  # 'long +30' comment was the 2026-06-01 matrix, superseded by the corrected-cost
+  # re-measure. See docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md A5.
+  htf_pullback_trend_2h: { long: off, short: off }   # was long:on (long +30 @2026-06-01); re-measured -6.85R
   fade_breakout_4h:      { long: off, short: off }   # ADX-gated by strategy anyway
   fvg_range_15m:         { long: off, short: off }
   vwap:                  { long: off, short: off }   # net −6,179 in trending; no-edge any regime
