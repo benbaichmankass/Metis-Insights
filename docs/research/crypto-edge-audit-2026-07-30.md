@@ -43,6 +43,26 @@ trend_donchian — trainer relay #7957 (this session); ML-exit-head context —
   strategies. This is why the fix is regime-tuning + the cost-model/gate rebuild,
   not a demotion sweep.
 
+## Measured cost decomposition (2026-07-30, relay #7961) — slippage is NOT the culprit
+
+Entry slippage (intended signal price vs actual fill, bps, 45d, crypto book):
+**small and often favorable.** `ict_scalp_5m` bybit_2 (n=13): **abs 3.45 bps,
+adverse −0.95** (fills slightly *better* than intended); sol_5m −3.4 adverse,
+xrp_5m −1.6, eth_pullback −1.07. Worst was `ada_pullback_2h` bybit_2 at +7.16
+adverse (not a keeper leg). The backtest's "fills at the level" assumption is
+**roughly correct for entries** — entry slippage does not explain the live loss.
+
+**So the scalp's research→results gap is dominated by EXECUTION** (the
+`BYBIT_TPSL_MODE=full` bracket bug: trades held 6–14h giving back MFE), **not by
+slippage or funding** (funding near-zero per broker-truth; the M24 funding-
+visibility gap remains but is second-order for this tiny account). This is the
+value of *measuring* the hypothesised cost rather than assuming it: the big lever
+was the exit fix (deployed today), not a cost-model rebuild. The cost-model /
+net-of-full-cost gate is still worth building as a **methodology** gate (it closes
+the structural hole for future legs + models exit-side slippage, which this
+entry-only measure doesn't cover), but it is not recovering large measured
+dollars on the current book.
+
 ## Next
 
 1. ~~Finish `ict_scalp_5m` + `trend_donchian_xrp_4h` WFs.~~ **DONE — all 6 legs audited.**
