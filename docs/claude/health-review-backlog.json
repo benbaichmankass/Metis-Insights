@@ -7993,6 +7993,24 @@
         "scripts/check_new_table_wiring.py",
         "scripts/ci/check_json_extract_guarded.py"
       ]
+    },
+    {
+      "id": "BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ",
+      "status": "open",
+      "tier": 2,
+      "severity": "high",
+      "opened_at": "2026-07-30T21:30:00+00:00",
+      "opened_by": "claude (provenance-ib-executions session) — operator-challenged",
+      "source": "Operator, 2026-07-30: 'We're running an API-based system. There's absolutely no reason for this.' Correct — the provenance work made the system HONEST about fabrication without making it ACQUIRE the real numbers.",
+      "title": "[data][broker] Every broker's fills are pulled on a timer and never read back into trades.pnl",
+      "description": "96% of fabricated closed rows (198 of 206) sit on accounts whose fills are ALREADY being collected on a schedule. The store is read only by the /api/bot/pnl/exchange display endpoint and two offline scripts. Until PR #8069's IB path, nothing read it into trades.pnl. Same defect class as the provenance keys themselves — written and never read — one level up.\n\nRoot cause per account:\n* bybit_1 (152/323 fabricated) and bybit_portfolio (11/12) are `demo: true`, and account_closed_pnl_for_trade returns None unconditionally for demo. The lookup is never ATTEMPTED. bybit_2 — same exchange, same code path, NOT demo — is 2.0% fabricated, which is the control proving the venue's data is fine.\n* That demo exclusion (BL-20260608-DEMOPNL) is a CORRECT fix for the closed-pnl endpoint, silently over-generalised into 'there is no broker truth for demo'. False: live_bybit_fill_accounts explicitly pulls both demo accounts via fetch_my_trades (a different endpoint) and its own docstring calls them 'real exchange-side fills'.\n* alpaca_paper (26/44) and alpaca_options_paper (6/8) — alpaca is not in BROKER_PNL_READER_EXCHANGES at all, although pull_alpaca_fills.py runs daily.",
+      "resolution_criteria": "STEP 0 FIRST, do not build before it: verify exchange_fills.sqlite on the live VM actually holds rows for bybit_1 / bybit_portfolio (counts per account_id + exec_time span). BL-20260713-EXCHANGE-FILLS-STORE-EMPTY is precedent that a scheduled puller can accrue nothing unnoticed. If empty, the fix is upstream and cheaper.\nThen: generalise exchange_fills_ib.closed_pnl_from_fills into a venue-neutral resolver (local SQLite read, never a broker call on the monitor tick) and give Bybit-demo and Alpaca branches. Keep its refusal semantics exactly. Narrow the demo `if` so demo skips the closed-pnl ENDPOINT and falls through to the fills-derived resolver. Bybit fills need FIFO matching (_fifo_match, already written) since they carry no realizedPNL; Alpaca options realised PnL comes from /v2/account/activities cash, not the equity formula.\nMove pnlCoverage as the metric; re-run scripts/ops/provenance_exposure_audit.py before and after. Target is not 100% — it is that every remaining fabricated row has a stated reason it could not be measured.",
+      "refs": [
+        "docs/research/WHY-BROKER-TRUTH-ISNT-REACHING-THE-JOURNAL-2026-07-30.md",
+        "PR #8069",
+        "BL-20260608-DEMOPNL",
+        "BL-20260730-ML-LABELS-IGNORE-PNL-PROVENANCE"
+      ]
     }
   ],
   "updated_at": "2026-07-30T17:45:00+00:00",
