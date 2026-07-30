@@ -14,30 +14,18 @@ name: json-extract-guard
 # reintroduced in `check_db_integrity`'s INV-2 predicate on 2026-07-30 — caught
 # only because a test happened to feed it malformed notes.
 #
-# Advisory on introduction; promote to a REQUIRED context once it has been
+# ADVISORY on introduction; promote to a REQUIRED context once it has been
 # green on main (BL-20260730-JSON-EXTRACT-GUARD-PROMOTE), following the same
 # promote-after-green precedent this repo used for pytest-run.
 #
-# Actions-minutes cap (MB-20260706-CI-MINUTES): the job always runs (cheap) but
-# skips the script when no .py/.sh file changed.
-
-on: the 2026-05-16 orphan-backfill failure (issue #1308 —
-# 14 candidates processed against a stale repo-local DB while the
-# live trader writes to /data/bot-data/trade_journal.db per the
-# systemd drop-in) was caused by every operator wrapper rolling its
-# own DB-path resolution. This guard freezes the count at zero.
-
-# **2026-07-06 (Actions-minutes billing cap, MB-20260706-CI-MINUTES):**
-# this is a REQUIRED status check, so its trigger can NEVER carry a
-# `paths:` filter (would leave the check permanently "pending" on a
-# non-matching PR). Instead the job always runs (cheap: checkout +
-# `git diff --name-only`) but skips the guard script itself when no
-# `.py`/`.sh` file changed — the fallback pattern this guards against
-# can only appear in a script.
+# Actions-minutes billing cap (MB-20260706-CI-MINUTES): the job always runs
+# (cheap: checkout + `git diff --name-only`) but skips the guard script itself
+# when no `.py`/`.sh` file changed — an unguarded extract can only appear there.
 
 on:
-  # Dormant until the native merge queue is enabled (BL-20260726 merge-queue enablement);
-  # required checks MUST run on the merge_group ref or the queue stalls.
+  # Dormant until the native merge queue is enabled (BL-20260726 merge-queue
+  # enablement); required checks MUST run on the merge_group ref or the queue
+  # stalls. Harmless while the queue is off.
   merge_group:
   pull_request:
     branches: [main]
