@@ -73,6 +73,23 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Run artifact VALIDITY check (vacuity / under-coverage)
+        # The other half of the dead-man switch. The liveness check below guards
+        # STALENESS (a producer stopped firing). This guards VACUITY: the producer
+        # fires, the ledger grows, the artifact is FRESH — and the measurement inside
+        # is empty, so a verdict gets published from zero inputs. Every liveness
+        # signal was green while econ_event_study reported price_bars:0 for the
+        # producer's entire life (BL-20260730-M1-PRICE-JOIN-DEAD), so freshness alone
+        # provably does not cover this class.
+        # continue-on-error so the alerting steps below still run on a finding.
+        id: validity
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          python3 scripts/ops/check_artifact_validity.py --allow-missing \
+            | tee /tmp/validity.txt
+          echo "rc=$?" >> "$GITHUB_OUTPUT"
+
       - name: Run producer liveness check
         # continue-on-error so we can branch on the verdict (alert + fail
         # deliberately at the end) rather than aborting the alerting steps.
