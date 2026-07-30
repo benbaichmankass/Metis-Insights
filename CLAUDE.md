@@ -635,6 +635,37 @@ CI fails when a declared provenance key gains a writer but no consumer, the same
 and never read is worse than a missing one: reviewers see the field and assume something
 acts on it.
 
+**A confirmed close is anchored to its `closed_at`, NEVER to a live mark** (Tier-2,
+operator-approved 2026-07-30). `order_monitor._sweep_local_pnl_for_unpriced` used to price a
+trade that had *already closed* from `last_mark_price()` — the market at SWEEP time — which
+is the single source behind the fabricated totals above (matched-pair proof: trade 4180 −$4.00
+vs its mirror 4181 −$2,589.78, same strategy/symbol/bracket/minute). It now calls
+`src/runtime/exit_anchor.py::bar_close_at`, whose **three-way status is the contract** —
+`anchored` (stamp `candle_at_close`, ESTIMATED) · `deferred` (budget spent or a transient read
+failure: **we did not look**, so retry, never declare) · `no_anchor` (venue asked and has
+nothing: declare `UNMEASURED_MARKER`, never substitute a price). Collapsing any two of those
+reintroduces a defect. Runtime bounds are load-bearing, not decoration — this runs on the live
+trader's monitor tick, so an unbounded per-row fetch is the 2026-06-09 cold-start wedge shape:
+5s per-call timeout, a per-tick budget (`EXIT_ANCHOR_FETCHES_PER_TICK`, a tuning knob whose `0`
+**defers** rather than re-enabling fabrication), and positive **plus negative** caching so an
+unsupported root costs one request per process, not one per row per tick.
+
+**IBKR is a broker-truth reader now**, because the anchoring change alone would have made IB
+*worse-looking-but-honest* rather than correct: **IBKR historical-candle coverage is 0%**, so
+every future IB close would land as a declared gap. `interactive_brokers` is in
+`BROKER_PNL_READER_EXCHANGES`; `exchange_fills_ib.closed_pnl_from_fills` reads IBKR's own
+`CommissionReport.realizedPNL` back from the exchange-fills store — a **local SQLite read, not
+a broker call** — fed by `ict-ib-executions-pull.timer`. That timer is **hourly, not daily like
+`ict-exchange-fills-pull`**: IBKR's `reqExecutions` serves roughly the current trading day AND
+`_LOCAL_PNL_BROKER_DEFER_MS` is 6h, so a daily pull would look correct and be inert.
+
+**A broker closed-pnl record carries its own `source`; never stamp a literal.** All four
+monitor sites that persist a broker close hardcoded `exit_price_source = "bybit_closed_pnl"` —
+accurate while Bybit was the only reader, a provenance *lie* the moment IBKR was wired. Read
+`rec["source"]` via `order_monitor._broker_pnl_source`. Related: any `*_prorated` source is
+FABRICATED (`classify` handles it as a suffix, since the base varies per reader) — the SPLIT is
+an assumption about attribution however measured the underlying record was.
+
 ## Dashboard REST API (S-014)
 
 Unauthenticated GET routes — Tier 1 read surface. See

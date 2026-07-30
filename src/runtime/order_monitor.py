@@ -7057,9 +7057,23 @@ def _check_naked_positions(db) -> Dict[str, int]:
 
 
 def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
-    """Fill ``pnl`` / ``exit_price`` / ``notes.bybit_closed_pnl`` for
-    any DB-closed trade that hasn't yet been reconciled against
-    Bybit's authoritative ``/v5/position/closed-pnl`` record.
+    """Fill ``pnl`` / ``exit_price`` / the broker-PnL note for any DB-closed
+    trade that hasn't yet been reconciled against its broker's authoritative
+    closed-pnl record.
+
+    .. note::
+       **The name is historical: this is no longer Bybit-only.** It dispatches
+       through :func:`~src.units.accounts.clients.account_closed_pnl_for_trade`,
+       which serves every exchange in ``BROKER_PNL_READER_EXCHANGES`` — Bybit's
+       ``/v5/position/closed-pnl`` and, since 2026-07-30, IBKR executions read
+       from the exchange-fills store. The provenance stamp and the notes key are
+       both taken from the RECORD (``_broker_pnl_source`` /
+       ``_broker_pnl_note_key``), never hardcoded, so an IBKR fill is never
+       labelled Bybit truth. Kept un-renamed deliberately: the symbol is
+       referenced across the monitor, the reconciler docs and the runbooks, and
+       a rename is churn with no behavioural payoff — but a stale docstring is
+       exactly the "field beats comment" drift the repo's rules call out, hence
+       this note.
 
     Sister sweep to :func:`_reconcile_open_trades`. Where that one
     detects DB-open / exchange-flat orphans, this one detects DB-
