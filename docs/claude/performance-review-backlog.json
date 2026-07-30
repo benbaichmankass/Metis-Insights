@@ -2193,12 +2193,18 @@
       "tier": 1,
       "trigger_condition": "T1 (venue-aware research fees) is on main and the regime-debt-matrix + regime-cell-walkforward workflows can be dispatched against it.",
       "resolution_criteria": "A corrected full-roster matrix + the three walk-forward re-runs are landed WITH a diff table vs #7918/#7924 (one row per changed verdict, fee delta attributed), and every changed disposition is recorded — including a Tier-3 draft if the gld cell no longer clears.",
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
-      "updates": [],
+      "updates": [
+        {
+          "at": "2026-07-30T07:00:00+00:00",
+          "by": "claude (roadmap-progress-work-plan-xp7f9h)",
+          "note": "CORRECTED RE-GRADE RAN (issue #7955, run 30519330796 on f67df73). Findings doc: docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md. PREDICTIONS: (a) qqq_pullback_1h trending short CONFIRMED as a false OFF — -2.99R@41 -> -0.85R@41 (+0.052 R/trade, inside the predicted 0.04-0.12 band); -0.021 R/trade is inside noise, so the OFFERED cell is WITHDRAWN (never shipped, so no revert needed; recorded as a no-cell disposition). The long side also improved (-3.08 -> -0.35), so the whole trending cell is ~flat not a -6R hole. (b) slv_trend_1h CONFIRMED stays refuted (short still negative; #7922 refuted it on walk-forward STABILITY, which corrected costs cannot change). (c) gld_pullback_1h NOT MEASURED — it is not in the coverage_debt roster the matrix iterates, because authoring its cell paid it down out of that roster (BL-20260730-REGIME-CELL-UNAUDITABLE). The estimate (survives at 10-27% reduced magnitude) is UNCHANGED AND STILL AN ESTIMATE; the live cell's evidence remains un-re-checked. Blocked on PR #7958 reaching main. (d) asset-class re-read DEFERRED — see the caveat below. NEW: spy_pullback_1h trending short is the largest surviving drag (-7.96R@25 = -0.318 R/trade) but the row is APPROXIMATE (omits skip_hours), so per the no-cosmetic-cell rule it cannot source a cell until re-run faithfully. Its TOTAL is +7.31R — a directional drag inside a profitable strategy. METHODOLOGICAL CAVEAT (important): the 730d window is ROLLING and the runs are ~a day apart, so each delta mixes the fee fix with a window slide. 4/5 cells land in the predicted band, but one (slv chop short, n=10) moved the WRONG way by -0.56R -- impossible from a fee reduction, hence drift. The deltas are therefore CONSISTENT WITH but not ATTRIBUTED TO the fee fix. The clean experiment (one pass, two --fee-bps-roundtrip arms, same window) has NOT been run and is follow-up #1."
+        }
+      ],
       "resolved_at": null,
       "severity": "high"
     }
   ],
-  "updated_at": "2026-07-30T06:00:00+00:00"
+  "updated_at": "2026-07-30T07:00:00+00:00"
 }

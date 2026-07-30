@@ -6839,7 +6839,13 @@
       "resolution_criteria": "Every listed item is either shipped, closed as honest-negative, or re-filed as its own tracked backlog row. Close this register only when the list is empty.",
       "status": "open",
       "snoozed_until": null,
-      "updates": [],
+      "updates": [
+        {
+          "at": "2026-07-30T07:00:00+00:00",
+          "by": "claude",
+          "note": "S1 (corrected re-grade) RAN — findings in docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md. It is NOT complete: gld_pullback_1h unmeasured (blocked on #7958), spy_pullback_1h needs a faithful re-run before it is even a walk-forward candidate, and the deltas are inferred not attributed (BL-20260730-FEE-AB-FIXED-WINDOW). New rows filed: BL-20260730-FEE-AB-FIXED-WINDOW, BL-20260730-SPLG-ZERO-TRADES. S2/S3/S4, M3-M5, A1-A5, R1-R5, T3-T5 all still NOT started or NOT finished."
+        }
+      ],
       "resolved_at": null,
       "severity": "medium"
     },
@@ -6858,7 +6864,39 @@
       "updates": [],
       "resolved_at": null,
       "severity": "medium-high"
+    },
+    {
+      "id": "BL-20260730-FEE-AB-FIXED-WINDOW",
+      "opened_at": "2026-07-30T07:00:00+00:00",
+      "opened_by": "claude (corrected-cost re-grade harvest)",
+      "source": "The corrected-cost regime re-grade (issue #7955) cannot cleanly attribute its deltas: the matrix window is a ROLLING 730 days and the baseline run was ~a day earlier, so every delta mixes the fee correction with a window slide. Proof the confound is real: slv_trend_1h chop short moved -0.56R the WRONG way at n=10, which a fee REDUCTION cannot cause.",
+      "title": "[research][method] Run the fixed-window fee A/B — the corrected-cost deltas are inferred, not attributed",
+      "description": "One matrix pass, same candle window, two --fee-bps-roundtrip arms (0 for commission-free vs the flat 7.5), diffed per cell. That isolates the fee effect from window drift and turns 'consistent with the predicted 0.04-0.12 R/trade band' into a measured number. Cheap (a second arm in the same run). Until it exists, no per-cell delta in docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md should be quoted as a fee amount, and the asset-class re-read (whether marginal-negative equity/ETF legs flip positive) stays deferred — the legs that would flip are small-n, which is exactly where drift dominates.",
+      "tier": 1,
+      "trigger_condition": "Anyone quoting a corrected-cost delta as a measured fee effect, or re-reading the equity/ETF sleeve off the uncontrolled comparison.",
+      "resolution_criteria": "A fixed-window two-arm fee A/B is run and its per-cell deltas recorded; the findings doc's §1 caveat is replaced with measured attribution.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "medium"
+    },
+    {
+      "id": "BL-20260730-SPLG-ZERO-TRADES",
+      "opened_at": "2026-07-30T07:00:00+00:00",
+      "opened_by": "claude (corrected-cost re-grade harvest)",
+      "source": "regime-debt-matrix run 30519330796: splg_trend_long_1d returned ALL ZEROS (no trades in any regime) with NO error, inside a run reporting '0 errored, 0 skipped'. Found while harvesting, not by any guard.",
+      "title": "[strategy] splg_trend_long_1d produced ZERO trades over 730d — no signals, or a broken feed/params?",
+      "description": "A row that measured nothing, presented as a measured row — the BL-20260730-PRODUCER-VACUITY-GUARD class at row level rather than artifact level. Two possibilities, both worth knowing: (a) the strategy legitimately fired no signals in two years, which is significant for a LIVE-declared strategy (is it stranded?); or (b) its feed/params resolve to nothing in the harness. Diagnose which. If (a), it belongs in the same conversation as strategy-silence detection; if (b), the harness row should ERROR rather than return zeros. Consider whether the matrix should flag an all-zero row rather than emit it silently.",
+      "tier": 1,
+      "trigger_condition": "A matrix/backtest row returns zero trades across every regime with no error.",
+      "resolution_criteria": "Root cause identified (no-signal vs broken resolution); if no-signal, the live-strategy implication recorded; the matrix flags all-zero rows explicitly.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "medium"
     }
   ],
-  "updated_at": "2026-07-30T06:35:00+00:00"
+  "updated_at": "2026-07-30T07:00:00+00:00"
 }
