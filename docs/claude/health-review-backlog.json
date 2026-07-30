@@ -7019,10 +7019,16 @@
       "tier": 1,
       "trigger_condition": "A celled strategy errors as unclassifiable in a re-audit run.",
       "resolution_criteria": "squeeze_breakout_4h's cells are either re-measured by a new harness, or shown to be all-permissive/cosmetic and dropped.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": [],
-      "resolved_at": null,
+      "updates": [
+        {
+          "at": "2026-07-30T21:45:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "DISPROVED — squeeze_breakout_4h DOES map to an offline harness and its cells ARE re-auditable. I ran the full offline audit today.\n\nHarness run receipt (trainer-diag #8110): scripts/backtest_squeeze.py --data data/btc_1h_multiyear.csv --symbol BTCUSDT --timeframe 4h --resample 4h --bb-period 20 --bb-std 2.0 --kc-mult 1.0 --atr-period 14 --atr-stop-mult 2.5 --trail-mult 3.5  ->  trades=110, win_rate 38.18%, net_r 17.6142, maxdd_r 7.8888, span 2021-01-01..2026-06-01. That reproduces the documented basis in config/strategies.yaml:315 ('+17.6R multiyear ... lowest DD (7.9R)') to 4 significant figures, which is the independent check that the harness was driven with the strategy's REAL live params and not defaults. NOTE --kc-mult 1.0: the harness default is 1.5, so omitting it silently grades a different strategy.\n\nThe harness is named in config/strategies.yaml:303 ('harness: scripts/backtest_squeeze.py'), and scripts/research/regime_tag_emitted.py is the engine-agnostic post-processor for exactly this — its own docstring lists backtest_squeeze.py as a supported emitter. Tagged output with the vol axis attached, 96.4% vol coverage (106/110).\n\nThis mattered: the item as written ('its 4 live cells can never be re-audited') would stop a future session from even attempting the audit that just resolved a parked Tier-3 proposal. Leaving a false blocker standing is as costly as leaving a bug standing."
+        }
+      ],
+      "resolved_at": "2026-07-30T21:45:00+00:00",
       "severity": "medium"
     },
     {
@@ -7312,6 +7318,13 @@
         "BL-20260730-SQZ-WIRING-UNVERIFIED-E2E",
         "BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS",
         "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER"
+      ],
+      "updates": [
+        {
+          "at": "2026-07-30T21:45:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "INSTRUMENT CORRECTION. This row grades the cells on LIVE n (28 over 730d). Live n can never grade a gate cell at ANY size, because a gate row records a SUPPRESSION — the trade was blocked, so it has no outcome to score (see BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT, live n=12 across all six cells). The right instrument is the OFFLINE harness, which yields n=110 over 5.4 years with a 96.4%-covered vol axis. Done today: see the resolution on BL-20260730-SQUEEZE-NO-HARNESS and the new BL-20260730-SQZ-TRENDING-SHORT-SUPERSEDED."
+        }
       ]
     },
     {
@@ -7727,15 +7740,21 @@
       "source": "Observed while driving PR #8069 to green. Verified against three independent PRs and the Actions run list.",
       "title": "P1: pull_request-triggered CI does not run on ANY PR — merges are landing unchecked",
       "detail": "EVIDENCE (all read via the GitHub MCP, 2026-07-30):\n1. PR #8069 (this session's): total_count=0 checks across FIVE separate real pushes (826cfe89, f6e2b100, c77344c7, 6f80d2e5, 1d9a7886).\n2. PR #8039: mergeable_state 'blocked', total_count=0.\n3. PR #8053 — **already MERGED to main today** — also total_count=0. So recent merges went in with NO checks run at all.\n4. actions_list filtered to event=pull_request repo-wide returns only 'claude-run-failure-alert' runs (all on main). No ruff-lint / pytest-run / pytest-collect / secret-scan / dry-run-guard / env-gate-guard / silent-empty-guard / canonical-config-loaders / canonical-db-resolver run for any PR.\n\nWHAT STILL WORKS (so Actions itself is NOT disabled):\n- push-triggered workflows DO run (json-extract-guard.yml fired on two pushes to a claude/** branch).\n- issues-triggered workflows DO run (the trainer-vm-diag relay served four requests this session: #8068, #8071, #8072, #8073).\nSo the fault is specific to the `pull_request` event, not to Actions or to runners.\n\nWHY THIS IS P1: 'zero checks' renders identically to 'all green' in the PR UI and in the MCP status payload. Branch protection lists nine REQUIRED contexts (branch-protection-sync.yml) — if those are genuinely required and never report, PRs should be unmergeable; #8053 merged anyway, which means either protection is not actually enforcing or the contexts are not matching. Either way the repo currently has NO pre-merge verification, on a live-money system.\n\nNOT DIAGNOSED (needs operator/console access this session does not have): repository Actions permission settings, branch-protection enforcement state, or an org policy. Ruled OUT: a `paths:` filter (the required guards deliberately carry none), workflow syntax (unchanged files that used to run), and runner availability (push + issue workflows run fine).\n\nIMMEDIATE CONSEQUENCE for PR #8069: the promotion of provenance-consumer-guard to a REQUIRED context in that PR cannot be verified by a green run, because no PR run happens. The guard passes locally (`python3 scripts/check_provenance_consumers.py` -> OK) and its workflow is a copy of the canonical-db-resolver template validated with a duplicate-key-rejecting YAML loader, but 'CI green' is NOT available as evidence for it or for anything else merged right now.",
-      "severity": "high",
+      "severity": "medium",
       "status": "open",
       "tier": 1,
       "observation_2026_07_30_evening": "NOT resolved — INTERMITTENT, which is worse than consistently broken because it reads as fixed. Checks attached for exactly three consecutive SHAs (8377f29c, 31d61f69, 09c7a11a; 25 runs each, 18:37-18:43Z) and then stopped again: f10d2b54, 19a5d883 and bf29519b produced ZERO runs. Correlation with the merge commit that brought #8039 down from main is therefore coincidence, not cause.\n\nRuled out this pass: no `draft` guard exists in any workflow (checked), so draft status is not the gate; `paths:` filters are not it either (pytest-run has none and still did not fire); and Actions is plainly not disabled, since push- and issue-triggered workflows have run reliably all session.\n\nNote for whoever picks this up: `pytest-run.yml` CANNOT be dispatched as a workaround — its `push` trigger is `branches: [main]` only and it has no `workflow_dispatch`, so on a feature branch `pull_request` is the ONLY event that can run it. While that event is dropping, a feature branch has no way to run the test suite in CI at all.",
       "why_critical": "Zero checks renders identically to green in every UI and in `get_status`. This PR shipped 11 test failures, a false-positive guard trip and a deploy-safety gap that were ALL invisible until the event happened to fire — on a repo where main receives live-trading code.",
       "evidence_2026_07_30_2000z": "SHARPENED, and one of my own earlier claims corrected. Correlating every branch SHA against actual workflow runs (ruff-lint, one run per SHA expected):\n  8377f29c pull_request OK | 31d61f69 OK | 09c7a11a OK\n  f10d2b54 NO RUN | 19a5d883 NO RUN\n  bf29519b OK | 6c5273a1 OK | e02b0ada OK\n\nSo the gap is TWO SHAs, not three as I first wrote, and the two are not equally damning. f10d2b54 and 19a5d883 were pushed ~25s apart; a `synchronize` for a head that has already moved on is plausibly normal coalescing, so f10d2b54 alone would not evidence a defect. **19a5d883 is the real case**: it was the PR head for ~6 minutes with no event at all, then bf29519b (pushed later) fired normally. Concurrency cancellation is ruled out — neither ruff-lint nor pytest-run declares a `concurrency:` group.\n\nTOOLING TRAP I fell into, worth recording: `pull_request_read get_status` returns `total_count: 0` on this repo ALWAYS, because it reads the legacy commit-status API while every check here is a Check Run. Some of my earlier 'zero checks' readings came from that call and were not evidence of anything. **Use `get_check_runs`, or correlate `actions_list` workflow runs by head_sha** — that is what the table above is built from. A watcher polling `get_status` would report a permanently-red repo.",
       "severity_note": "Lowered critical -> high on the sharper evidence: 1 confirmed dropped delivery out of 8 pushes, not the near-total outage the first reading suggested (part of which was the get_status artifact above). Still high, not medium: a check that runs SOMETIMES is not a check, and zero checks renders identically to green.",
-      "mitigation_2026_07_30": "MITIGATED (not fixed): pytest-run gained a `workflow_dispatch` trigger. Its `push` trigger is main-only, so `pull_request` was the ONLY event that could run the suite on a feature branch — meaning a single dropped delivery left the branch with no way to run its tests in CI at all. Dispatch makes that self-serviceable regardless of whether the delivery flakiness recurs.\n\nThe underlying delivery gap is NOT fixed and this row stays open. But the sharpened evidence (1 confirmed drop in 8 pushes, after removing the get_status artifact) points at GitHub-side flakiness rather than a repo misconfiguration, so there may be nothing actionable on our side beyond this mitigation. Anyone reopening it: the failure mode worth defending against is not 'a check went red', it is 'a check silently did not run', which renders identically to green.",
-      "recurrence_2026_07_30_2150Z": "RECURRED, and the earlier 'probably GitHub-side flakiness, possibly nothing actionable on our side' read is now too soft — recording that rather than leaving it standing. Commit 7b814d64 was pushed to PR #8111 at 21:43:43Z; at 21:50Z, ~7 minutes later, `get_check_runs` still returned total_count:0 and `actions_list` showed pytest-run runs for a2f6fdc2 / 7612feef / fd0c875f but NOT for the tip. Same shape as 19a5d883 earlier today (PR head ~6 min with no event while later pushes fired normally). So this is at least 2 confirmed drops, not 1, and it is NOT explained by coalescing of a superseded head — 7b814d64 WAS the tip.\n\nCHICKEN-AND-EGG worth flagging: the workflow_dispatch mitigation added in this same PR CANNOT unblock this PR. GitHub registers workflow_dispatch from the DEFAULT branch, and pytest-run.yml on main does not have the trigger yet — so the escape hatch only starts working for PRs opened after this one merges. The mitigation is still right; it just cannot help its own PR.\n\nPractical unblock in the meantime: push another commit to re-trigger delivery. That is a workaround, not a fix, and it depends on the next delivery landing."
+      "updates": [
+        {
+          "at": "2026-07-30T21:45:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "SCOPE CORRECTION + detail, so a review session doesn't start from a false premise. This row's TITLE says CI 'does not run on ANY PR' and its description is EMPTY. The 'any PR' claim is too broad, measured:\n  #8085 15 checks all green | #8091 19 | #8097 15 | #8099 15 | #8102 15 | #8109 15 — six PRs merged by this session on 2026-07-30, every one fully checked. #8099 was a SINGLE-FILE docs-only change and still drew all 15.\nMeanwhile #8069 read total_count:0 at 19:1x and 25/25 by 21:xx — i.e. INTERMITTENT, and PR/SHA-specific, not a repo-wide Actions outage.\n\nRuled out (checked directly, not inferred): no workflow carries a `draft == false` condition, so draft status is not the filter; and required checks deliberately carry NO `paths:` filter — env-gate-guard.yml documents exactly why ('trigger can never carry paths: — would leave the check permanently pending').\n\nWHY IT STILL MATTERS AT THIS SEVERITY: zero checks renders identically to green in the UI and in get_status, so an unchecked merge is indistinguishable from a verified one. Keep it open. But the investigation should start from 'intermittent per-SHA' rather than 'Actions is down', which is a much cheaper problem.\n\nCross-referenced from a concurrent session's PR #8069, which independently reached the same intermittent conclusion."
+        }
+      ],
+      "correction_2026_07_30_2205Z": "I WAS WRONG about the 'second confirmed drop'. Retracting it rather than leaving a false data point in a row whose whole value is its evidence.\n\nThe two pushes I recorded as dropped deliveries (7b814d64, bc70ef48) were NOT drops. PR #8111 was in `mergeable_state: dirty` — a merge conflict against main. `pull_request`-triggered workflows run against the MERGE REF (refs/pull/N/merge), and a conflicted PR cannot produce one, so no check CAN attach. The absence was correct behaviour, not a delivery failure. Proof it was never an outage: other branches got runs throughout the same window (21:53, 21:56, 21:59).\n\nTwo lessons, both about my own method:\n1. I diagnosed 'CI is not delivering' from the ABSENCE of runs without first checking the PR's own mergeable_state — the same shape as the get_status artifact that inflated my original P1: reading a zero and concluding a cause instead of asking what else produces a zero.\n2. Checking whether the symptom was repo-wide is what unstuck it. A branch-specific symptom with a healthy repo means look at the branch, not the platform.\n\nSo the standing evidence remains ONE unexplained drop (19a5d883), not two. Severity lowered back to medium. The workflow_dispatch mitigation is still worth having — a feature branch genuinely had no way to run the suite when pull_request did not fire — but it is now a defence against a single observed event, and the honest headline is 'one drop in ~10 pushes', not 'CI is unreliable'."
     },
     {
       "id": "BL-20260730-DESTRUCTIVE-GIT-SYNC-NO-GUARD",
@@ -7885,7 +7904,7 @@
       "opened_at": "2026-07-30T18:05:00+00:00",
       "opened_by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
       "source": "Cross-referencing config/regime_policy.yaml::trend_vol (the six authored 2-D cells) against the MEASURED live ML vol label (BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP).",
-      "title": "[regime] three of the six 2-D trend_vol cells are effectively DORMANT live — the ML vol axis reads 'calm' ~99% of the time",
+      "title": "[regime] the three volatile-keyed trend_vol cells are dormant IN THE CURRENT CALM STRETCH — NOT structurally: the ML vol label averages 8.92% volatile over 5y and has ranged 0.44%–30.42% monthly",
       "description": "The six authored cells split 3 volatile-keyed / 3 calm-keyed:\n  VOLATILE-keyed: trending/volatile trend_donchian{long:off}; trending/volatile ict_scalp_5m{long,short:off}; chop/volatile ict_scalp_5m{long,short:off}\n  CALM-keyed:     trending/calm squeeze_breakout_4h{short:off}; transitional/calm trend_donchian{long:off}; chop/calm trend_donchian{long:off}\n\nThe live BTC ML vol label resolves VOLATILE ~1% of the time (10/979 advisory rows; 40/40 sampled live regime_hard_gate rows read calm). So the three volatile-keyed cells can fire on ~1% of bars and the three calm-keyed cells carry essentially all the enforcement. The vol axis, as SERVED, is close to a constant — a 2-D gate whose second axis is ~99% one value is barely 2-D.\n\nThis does NOT say the cells are wrong. They were authored from a vol-SPLIT of BTC history where volatile was a meaningful share, and the A/B that justified them (docs/research/A-vol-gating-OFFcell-design-2026-06-27.md) lifted the book 4.3x. The question this raises is whether the LIVE label reproduces the label the cells were authored under — which is exactly the open parity gap.\n\nCONSEQUENCE FOR GRADING (why the cells are still ungraded): grading them off the OFFLINE replay's vol labels would grade a COUNTERFACTUAL — the replay says volatile 9.1% of bars, the live gate ~1%. Cells must be graded off the LIVE gate's own recorded labels (regime_hard_gate rows carry vol_regime + vol_cell + vol_enforced), not off replayed labels.",
       "tier": 3,
       "trigger_condition": "n/a — a standing property of the live vol axis, surfaced by measurement",
@@ -7893,7 +7912,7 @@
       "status": "open",
       "snoozed_until": null,
       "resolved_at": null,
-      "severity": "high",
+      "severity": "medium",
       "refs": [
         "config/regime_policy.yaml",
         "BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP",
@@ -7915,6 +7934,11 @@
           "at": "2026-07-30T19:55:00+00:00",
           "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
           "note": "CAUSE CONFIRMED — market conditions, not a defect. The matched-window measurement (see the resolution on BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP) shows offline 1.15% vs live 1.02% over 2026-07-20..07-29, and the per-month offline rate runs 2026-02 20.50% -> 2026-07 3.35%. So the live vol axis reading calm ~99% in July reflects a genuinely calm month, NOT a serve-path problem. The three volatile-keyed cells are dormant for the right reason. This item stays OPEN only as the standing observation that a 2-D gate whose second axis is ~99% one value in a given month is barely 2-D over that month — a design note for whoever revisits the cells, not a bug."
+        },
+        {
+          "at": "2026-07-30T22:05:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "HEADLINE CORRECTED + SEVERITY high→medium. This row asserted 'the ML vol axis reads calm ~99% of the time' as a standing property. It is not. That number generalised from ~979 live advisory rows (~10 days of 15m bars) and a 40-row sample — the SAME over-generalisation-from-a-narrow-window error as the 9.1%-vs-1% comparison I already self-corrected in #8102. Measured properly on the full replay (trainer-diag #8115, btc-regime-15m-lgbm-fc-pcv-v1, 175,272 rows, 0 unusable): OVERALL volatile = 8.92% (calm 159,636 / volatile 15,636). By year: 2021 14.45% | 2022 13.46% | 2023 4.19% | 2024 9.42% | 2025 7.00% | 2026 7.65%. By month it ranges 0.44% (2023-07) to 30.42% (2022-06); recent months 2026-05 1.65%, 2026-06 8.51%, 2026-07 3.35%. So the volatile-keyed cells would have gated on ~1-in-5 bars as recently as 2026-02 (20.50%). The cells are CONDITIONALLY dormant — a conditional gate is idle while its condition does not hold, which is the gate working, not a defect. What survives from the original finding: the live sample really was ~1%, and a reviewer reading only the last ten days would wrongly conclude the axis is inert. SECOND CORRECTION: the paragraph 'grading them off the OFFLINE replay's vol labels would grade a COUNTERFACTUAL (replay 9.1% vs live ~1%)' is VOID. #8109 measured offline 1.15% vs live 1.02% on a MATCHED window — offline and live agree, so offline labels are a valid grading instrument. That void paragraph was the stated reason the cells stayed ungraded; with it removed they were gradeable, and #8115 graded the three trend_donchian ones (see BL-20260730-DONCHIAN-TRANSITIONAL-CALM-CONTRADICTED)."
         }
       ]
     },
@@ -7994,6 +8018,112 @@
         "PR #8069",
         "scripts/check_new_table_wiring.py",
         "scripts/ci/check_json_extract_guarded.py"
+      ]
+    },
+    {
+      "id": "BL-20260730-SQZ-TRENDING-SHORT-SUPERSEDED",
+      "opened_at": "2026-07-30T21:45:00+00:00",
+      "opened_by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+      "source": "Operator directed this session to drive the parked squeeze_breakout_4h trending-short Tier-3 proposal to a decision. Evidence run: trainer-diag #8110.",
+      "title": "[regime][tier-3] the parked squeeze_breakout_4h 1-D `trending short: off` proposal is SUPERSEDED — the entire loss is in trending/CALM, which is already gated",
+      "description": "The proposal was parked pending the ML vol axis. That axis now exists and is verified against live serve to 0.13pp on a matched window (PR #8109), so the block is cleared and the question is answerable.\n\nTHE QUESTION: trending/calm squeeze_breakout_4h {short: off} is ALREADY authored. So the 1-D proposal only adds value if trending/VOLATILE short ALSO loses.\n\nTHE ANSWER (offline, 4h BTCUSDT, 2021-01..2026-06, vol_axis present, coverage 106/110 = 96.4%):\n  trending short, 1-D (what the proposal targets) : net_R -2.7288  n=18\n    trending/calm     short  [ALREADY GATED]      : net_R -3.2101  n=17   exp_R -0.1888\n    trending/volatile short                       : net_R  0.0     n=0\n    trending/unknown  short                       : net_R +0.4813  n=1\n  Arithmetic closes exactly: -3.2101 + 0 + 0.4813 = -2.7288 ; 17 + 0 + 1 = 18.\n\nSo the whole 1-D trending-short loss IS the calm sub-population, and that sub-population is already suppressed by the existing 2-D cell. trending/volatile has ZERO short trades in 5.4 years — authoring the 1-D cell would additionally gate a population with no evidence in either direction.\n\nRECOMMENDATION (Tier-3, operator decides — nothing was changed): DROP the parked 1-D proposal as superseded by the existing trending/calm cell. This requires NO config/regime_policy.yaml edit, so there is no Tier-3 change to approve — only a parked item to close.\n\nThe existing cell is also well-targeted, which is worth recording: it gates only `short` in trending/calm and leaves `long` on — and trending/calm LONG is the strategy's best cell at +9.8014R over n=24.\n\nEXPOSURE CONTEXT for weighting this: squeeze_breakout_4h is routed ONLY to bybit_1 (demo/PAPER). It was removed from real-money bybit_2 at its 2026-06-01 demotion and the 2026-06-23 re-promotion is paper-only (config/strategies.yaml:320-323). No real-money exposure today either way.\n\nHarness run receipt (trainer-diag #8110): scripts/backtest_squeeze.py --data data/btc_1h_multiyear.csv --symbol BTCUSDT --timeframe 4h --resample 4h --bb-period 20 --bb-std 2.0 --kc-mult 1.0 --atr-period 14 --atr-stop-mult 2.5 --trail-mult 3.5  ->  trades=110, win_rate 38.18%, net_r 17.6142, maxdd_r 7.8888, span 2021-01-01..2026-06-01. That reproduces the documented basis in config/strategies.yaml:315 ('+17.6R multiyear ... lowest DD (7.9R)') to 4 significant figures, which is the independent check that the harness was driven with the strategy's REAL live params and not defaults. NOTE --kc-mult 1.0: the harness default is 1.5, so omitting it silently grades a different strategy.\n\nHONEST LIMITS: (a) the -3.2101R/17t figure is a different measurement basis from the '-$55 / 30t' recorded in the cell's own comment (R vs dollars, different run/period) — they are not in conflict, they are not the same measurement, and I did not try to reconcile them; (b) n=0 in trending/volatile means NO evidence, which is not the same as evidence of no effect; (c) nothing here re-grades the OTHER five cells — see BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT.",
+      "tier": 3,
+      "trigger_condition": "n/a — a parked proposal reaching a decision",
+      "resolution_criteria": "Operator closes the parked 1-D trending-short proposal as superseded, or states why the 2-D cell is insufficient.",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "severity": "medium",
+      "refs": [
+        "config/regime_policy.yaml",
+        "config/strategies.yaml",
+        "scripts/backtest_squeeze.py",
+        "scripts/research/regime_tag_emitted.py",
+        "BL-20260730-SQUEEZE-NO-HARNESS",
+        "BL-20260730-SQZ-CELLS-N-TOO-THIN",
+        "BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT"
+      ],
+      "updates": []
+    },
+    {
+      "id": "BL-20260730-DONCHIAN-TRANSITIONAL-CALM-CONTRADICTED",
+      "opened_at": "2026-07-30T22:05:00+00:00",
+      "opened_by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+      "source": "Offline 2-D grade of the three authored trend_donchian trend_vol cells, trainer-diag #8115. Harness scripts/backtest_trend.py driven with EXACT live params from config/strategies.yaml (donchian 20 / atr_period 14 / atr_stop_mult 2.5 / trail_mult 5.0 [harness default is 3.0] / min_confidence 0.7 / long_only), tagged by scripts/research/regime_tag_emitted.py --vol-labels against the replayed advisory head btc-regime-15m-lgbm-fc-pcv-v1.",
+      "title": "[regime][UNSAFE-DO-NOT-ACT] trend_donchian transitional/calm graded +32.66R offline, but the repo's own walk-forward scores the SAME 1-D transitional population -1.25R — two instruments disagree in SIGN; the finding is NOT established",
+      "tier": 3,
+      "description": "trend_donchian runs on bybit_2 (mode: live, account_class: real_money) as well as bybit_1 / bybit_portfolio / breakout_1, so all three of its trend_vol cells gate real-money intents. Offline grade over 2021-01 → 2026-06 (357 trades, all long — the strategy is long_only, so the direction axis is degenerate and the 'cosmetic short cell' concern does not apply here), vol coverage 320/357 = 89.6%:\n\n  CELL                    net_R      n    expR    authoring comment   verdict\n  trending/calm         +54.7485    93  +0.5887  (not gated)         — best cell, correctly left on\n  trending/volatile      -2.7016    21  -0.1286  −$224 / 136t        GATE SUPPORTED (sign agrees)\n  transitional/calm     +32.6577    57  +0.5729  −$356 / 43t         *** CONTRADICTED (sign flips) ***\n  transitional/volatile  -1.4852    17  -0.0874  (not gated)         mildly negative, ungated\n  chop/calm             -11.5476   124  -0.0931  −$218 / 11t         GATE SUPPORTED (sign agrees)\n  chop/volatile          -0.2376     8  -0.0297  (not gated)         near zero, thin, ungated\n\nArithmetic closes exactly against the harness total: the nine cells (incl. the three */unknown rows +8.5701/-1.6812/+0.9571) sum to 79.2802 = the reported net_r, and the per-regime subtotals reproduce 60.617 / 29.4913 / -10.8281. So this is not a bookkeeping artifact.\n\nTWO of the three authored cells are directionally supported. The third is not: transitional/calm is the SECOND-most-profitable cell in the entire strategy by this measurement, and the live router drops it.\n\nA SECOND, SEPARATE ANOMALY worth its own attention: the per-cell POPULATION SHAPE disagrees with the authoring comments, not just the sign. Authoring n = 136 / 43 / 11 across trending-volatile / transitional-calm / chop-calm; mine = 21 / 57 / 124. The totals are comparable (190 vs 202) but the mass has moved from trending/volatile to chop/calm. Two measurements of the 'same' cells that disagree this much on WHICH BARS FALL WHERE are probably not using the same labelling basis (candidate explanations: a different vol label — note the frozen vol_detector is documented to behave OPPOSITELY to the ML label — and/or a different trend classifier, period, or a live-journal dollar basis rather than a backtest R basis). I did NOT resolve which, and the sign contradiction cannot be adjudicated until someone does.\n\nWHAT I AM NOT DOING: I am NOT proposing that this cell be un-gated. My own pre-registered gate (BL-20260730-SQZ-CELLS-N-TOO-THIN) requires regime_cell_walkforward's #7915 *_stable_drag test before any cell-level proposal, precisely because pooled net-R is what produced the htf_pullback_trend_2h fold-3 artifact (+7.89R pooled that was −3.70R ex-fold-3). A +32.66R pooled reading is that exact shape and gets that exact suspicion. The gate is UNMET and cannot currently be met — see BL-20260730-WALKFORWARD-NO-VOL-AXIS: the walk-forward driver is 1-D and cannot fold a 2-D cell at all. A 1-D `transitional` proxy was dispatched (#8117) and is explicitly NOT the same test.\n\nFIDELITY LIMITS, stated rather than graded past: (1) trend_donchian runs exit_head_model exit-head-donchian-1h-v1 (threshold 0.1, action close) LIVE; this harness simulates only the mechanical trail/stop, so live per-cell PnL can differ and an ML exit head that cuts early would plausibly hit the long-runner cells hardest. (2) 89.6% vol coverage — 37 trades sit in */unknown and are NOT folded into calm/volatile. (3) R vs dollars is a different basis from the authoring comment; the SIGN comparison is meaningful, the magnitude comparison is not.\n\nDIRECTION OF THE RISK: this is opportunity cost, not loss. A wrongly-gated profitable cell blocks trades it should have taken; it cannot itself lose money. That is why this is filed high rather than as a P1 — but at expR +0.573 over ~10 trades/yr on a real-money book it is not small either.",
+      "severity": "high",
+      "status": "open",
+      "area": "research",
+      "trigger_condition": "n/a — a standing property of an authored live gate cell, surfaced by measurement",
+      "resolution_criteria": "FIRST reconcile the two instruments on ONE feed with IDENTICAL forwarded params and explain the sign flip; only THEN is the cell question re-openable, and only then through a 2-D-capable walk-forward (BL-20260730-WALKFORWARD-NO-VOL-AXIS). Any config/regime_policy.yaml change remains Tier-3.",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "refs": [
+        "config/regime_policy.yaml",
+        "config/strategies.yaml",
+        "config/accounts.yaml",
+        "scripts/backtest_trend.py",
+        "scripts/research/regime_tag_emitted.py",
+        "BL-20260730-SQZ-CELLS-N-TOO-THIN",
+        "BL-20260730-WALKFORWARD-NO-VOL-AXIS",
+        "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER",
+        "trainer-diag #8115",
+        "trainer-diag #8117",
+        "PR #8118",
+        "BL-20260730-WF-FOLDCOUNT-VERDICT-FLIP"
+      ],
+      "updates": [
+        {
+          "at": "2026-07-30T22:10:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "SELF-REFUTATION, SAME DAY, BEFORE ANYONE ACTED ON IT. Read this update BEFORE the description above; the description's +32.66R table is NOT safe to act on.\n\nThe walk-forward proxy (trainer-diag #8117) was dispatched as a REFUTATION instrument and it refuted. On the SAME 1-D population, with the SAME harness (regime_debt_matrix resolves harness 'trend' to scripts/backtest_trend.py — verified by md5, it is the same file I drove, NOT the scripts/research/ sibling):\n    transitional : my grade (#8115) +29.4913R n=86   |   walk-forward (#8117) -1.25R  n=94   <-- OPPOSITE SIGN\n    chop         : my grade (#8115) -10.8281R n=141  |   walk-forward (#8117) -4.3089R n=134  <-- same sign, 2.5x magnitude\nMy +32.66R transitional/calm cell lives INSIDE the transitional population that the second instrument scores negative. So the sign contradiction I reported against the authoring comment is not established — I have two of my own measurements that disagree with EACH OTHER, and I cannot say which is right.\n\nKNOWN DIFFERENCES between the two runs, none yet shown to be the cause: (a) DATA FEED — mine data/btc_1h_multiyear.csv (2021-01-01..2026-06-01), walk-forward Binance-vision 48,000 rows (2021-02-06..2026-07-29); (b) the walk-forward self-reports fidelity 'approximate' with omitted_levers [exit_head_action, exit_head_model, exit_head_threshold, trail_decay_arm_r, trail_decay_tight_mult] — my invocation omitted the same trail_decay_* levers, so that is NOT obviously the difference; (c) param forwarding is done by the driver in one case and by me in the other. A ~30R swing on ~8 differing trades is a big ask, so 'just the extra span' is a hypothesis, not an explanation.\n\nTHE OPEN QUESTION IS NOW THE DISCREPANCY ITSELF, not the cell. Until the two instruments are reconciled on a SINGLE feed with IDENTICAL forwarded params, no per-cell number from either run should be quoted. That includes the numbers in the description above and the ones in merged PR #8118.\n\nFOLD-COUNT FRAGILITY, worth its own note: the walk-forward's own verdict flips on fold count at an IDENTICAL pooled value. 4 folds -> [-2.7163, +1.0116, +2.5854, -2.1307], 2/4 negative, stable_drag FALSE. 3 folds -> [+2.7118, -3.4177, -0.5441], 2/3 negative, stable_drag TRUE. Same pooled -1.25R, opposite verdict. A gate whose PASS/FAIL depends on an unstated fold count is not a gate yet; whoever fixes BL-20260730-WALKFORWARD-NO-VOL-AXIS should pin or report fold-count sensitivity too.\n\nWHAT SURVIVES: (1) the vol axis joins and grades cleanly (96.4% / 89.6% coverage) — the tagger is not in question; (2) the arithmetic within each run closes exactly, so neither run is internally inconsistent — which is precisely why this is a seam defect, the class docs/sprint-logs/S-PROVENANCE-EXITLEAK-ROOTCAUSE-2026-07-30 was written about: every component individually correct, the defect between them; (3) NOTHING was proposed and config/regime_policy.yaml was never touched, so no live behaviour depended on the wrong number.\n\nPROCESS NOTE FOR THE NEXT SESSION: the pre-registered walk-forward bar is the only reason this was caught before it became a proposal. It was dispatched expecting it could only refute, never establish — and it refuted. Do not weaken that bar."
+        }
+      ]
+    },
+    {
+      "id": "BL-20260730-WALKFORWARD-NO-VOL-AXIS",
+      "opened_at": "2026-07-30T22:05:00+00:00",
+      "opened_by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+      "source": "Attempting to run the pre-registered walk-forward gate on a 2-D cell (transitional/calm trend_donchian) and finding the driver cannot express one.",
+      "title": "[research][tooling] regime_cell_walkforward.py is 1-D only — the pre-registered *_stable_drag gate CANNOT be run on any of the six authored 2-D trend_vol cells",
+      "description": "scripts/research/regime_tag_emitted.py gained a --vol-labels axis (PR #8056) so 2-D cells could be graded. That axis was NOT propagated to scripts/research/regime_cell_walkforward.py, whose CLI is --strategy/--regime/--folds/--days/--workdir/--json: it folds on the 1-D trend regime only.\n\nWHY THIS MATTERS MORE THAN A MISSING FLAG: the repo's own rule is that a cell-level Tier-3 proposal must clear the #7915 *_stable_drag walk-forward before it is made, because pooled net-R produced the htf_pullback_trend_2h fold-3 artifact. The live router gates on 2-D (trend, vol) cells. So the gate that is REQUIRED before proposing a change to a 2-D cell cannot be run on a 2-D cell. Every one of the six authored trend_vol cells is currently un-gateable by its own required gate. That is a silent blocker: nothing errors, the 1-D tool runs happily and returns a confident-looking verdict for a DIFFERENT population than the one under review — which is worse than an outright failure, because the output looks like the answer.\n\nCONCRETE BLOCK RIGHT NOW: BL-20260730-DONCHIAN-TRANSITIONAL-CALM-CONTRADICTED found an active real-money gate cell whose offline grade contradicts its authoring comment in sign, and it cannot be driven to a proposal because of this gap. A 1-D proxy was run (#8117) and is sound ONLY as a refutation instrument — an unstable 1-D result kills the 2-D claim, a stable one does not establish it.\n\nFIX SHAPE (not applied here): thread --vol-labels + a --vol filter through the driver the same way regime_tag_emitted.py --only-vol already does, so the fold population is the actual cell. NOT DONE IN THIS SESSION because scripts/research/ was ceded to a concurrent session under the coordination board; this session ran the tool without modifying it.",
+      "severity": "high",
+      "status": "open",
+      "area": "research",
+      "trigger_condition": "n/a — blocks the required gate for all six authored 2-D cells",
+      "resolution_criteria": "regime_cell_walkforward.py can fold a (trend, vol) cell and the six authored trend_vol cells become gate-testable.",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "refs": [
+        "scripts/research/regime_cell_walkforward.py",
+        "scripts/research/regime_tag_emitted.py",
+        "BL-20260730-DONCHIAN-TRANSITIONAL-CALM-CONTRADICTED",
+        "BL-20260730-SQZ-CELLS-N-TOO-THIN",
+        "config/regime_policy.yaml"
+      ]
+    },
+    {
+      "id": "BL-20260730-WF-FOLDCOUNT-VERDICT-FLIP",
+      "opened_at": "2026-07-30T22:10:00+00:00",
+      "opened_by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+      "source": "trainer-diag #8117: the same trend_donchian/transitional walk-forward run at 4 folds and at 3 folds.",
+      "title": "[research][tooling] regime_cell_walkforward's *_stable_drag verdict FLIPS on fold count at an identical pooled net-R — 4 folds says FALSE, 3 folds says TRUE",
+      "description": "Same strategy, same regime, same 2000-day window, same pooled result (-1.25R over n=94). Only --folds changed:\n  --folds 4 -> [-2.7163, +1.0116, +2.5854, -2.1307]  2/4 negative  long_stable_drag = FALSE\n  --folds 3 -> [+2.7118, -3.4177, -0.5441]           2/3 negative  long_stable_drag = TRUE\n\nThe verdict is a 'strict majority of folds negative' test, so with an even fold count 2/4 is not a majority while with an odd count 2/3 is. That makes PASS/FAIL a function of an argument the caller picks, at identical underlying evidence. --folds defaults to 4 and no caller is required to state it.\n\nWHY IT MATTERS: this driver IS the repo's gate for promoting a cell observation into a Tier-3 draft (#7915). A gate that can be flipped by an unstated, defaulted knob is not yet a gate — and the failure is silent, since both runs exit 0 and emit a confident verdict field. Same class as BL-20260730-WALKFORWARD-NO-VOL-AXIS: confident output, unstated population/parameterisation.\n\nSUGGESTED SHAPE (not applied — scripts/research/ is ceded to a concurrent session this session): either require an odd fold count, or report the verdict across a fold sweep and demand agreement, or state the fold count in the verdict field so a reader cannot quote it context-free.",
+      "severity": "high",
+      "status": "open",
+      "area": "research",
+      "trigger_condition": "n/a — a standing property of the gate driver",
+      "resolution_criteria": "The *_stable_drag verdict is either fold-count invariant or reports its sensitivity.",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "refs": [
+        "scripts/research/regime_cell_walkforward.py",
+        "scripts/research/direction_walkforward.py",
+        "BL-20260730-WALKFORWARD-NO-VOL-AXIS",
+        "BL-20260730-DONCHIAN-TRANSITIONAL-CALM-CONTRADICTED",
+        "trainer-diag #8117"
       ]
     },
     {
