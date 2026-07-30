@@ -194,33 +194,34 @@ jobs:
               --snapshots "${EES_SNAPSHOTS}" \
               --json "$out"
           done
-          {
-            echo "summary<<EOF"
-            # Summarize the kinds THIS RUN produced. It previously hardcoded the natgas
-            # scorecard, so a run over other kinds reported a STALE natgas file (n=6) while
-            # its own real results — n=1349 per claims kind — existed only in the log. The
-            # run was correct; the report was reading a different artifact.
-            python3 - <<'SUMEOF'
-            import json, os
-            out = {}
-            for k in os.environ["EES_KINDS"].split(","):
-                k = k.strip()
-                if not k:
-                    continue
-                path = {"eia_natgas_storage": "comms/macro/econ_event_study_scorecard.json",
-                        "eia_crude_stocks": "comms/macro/econ_event_study_crude_scorecard.json",
-                        }.get(k, f"comms/macro/econ_event_study_{k}_scorecard.json")
-                try:
-                    d = json.load(open(path))
-                except Exception as exc:  # noqa: BLE001
-                    out[k] = {"error": f"scorecard unreadable: {exc}"}
-                    continue
-                out[k] = {"summary": d.get("summary"), "meta": d.get("meta")}
-            print(json.dumps(out, indent=2))
-            SUMEOF
-            echo
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          # Summarize the kinds THIS RUN produced (it once hardcoded the natgas scorecard).
+          #
+          # THE HEREDOC AND ITS BODY SIT AT THIS BLOCK'S BASE INDENT, DELIBERATELY.
+          # YAML strips a block scalar's COMMON indent, so base-indent lines land at column 0 in
+          # the real script — which is the only place bash accepts a heredoc terminator (`<<-`
+          # strips TABS, not spaces) and the only place Python can start a module-level line.
+          # Nesting this inside a `{ }` group added two spaces, so the terminator was never
+          # found and bash read to EOF: the study computed every scorecard and the results were
+          # then DISCARDED because the reporting step could not parse. Do not re-indent.
+          python3 - <<'SUMEOF' > /tmp/ees_summary.json
+          import json, os
+          out = {}
+          for k in os.environ["EES_KINDS"].split(","):
+              k = k.strip()
+              if not k:
+                  continue
+              path = {"eia_natgas_storage": "comms/macro/econ_event_study_scorecard.json",
+                      "eia_crude_stocks": "comms/macro/econ_event_study_crude_scorecard.json",
+                      }.get(k, f"comms/macro/econ_event_study_{k}_scorecard.json")
+              try:
+                  d = json.load(open(path))
+              except Exception as exc:  # noqa: BLE001
+                  out[k] = {"error": f"scorecard unreadable: {exc}"}
+                  continue
+              out[k] = {"summary": d.get("summary"), "meta": d.get("meta")}
+          print(json.dumps(out, indent=2))
+          SUMEOF
+          { echo "summary<<EOF"; cat /tmp/ees_summary.json; echo "EOF"; } >> "$GITHUB_OUTPUT"
 
       - name: Land the scorecards on main (auto-merge PR)
         id: commit
