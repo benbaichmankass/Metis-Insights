@@ -141,10 +141,13 @@ including on the exact shape I nearly shipped.
 
 ## Flags raised
 
-**P1 — `pull_request` CI does not run on ANY PR in this repo**
-(`BL-20260730-PR-CI-NOT-ATTACHING`). PR #8069 shows `total_count: 0` across five
-real pushes; #8039 the same; **#8053 merged to `main` today with zero checks**.
-`actions_list` filtered to `event=pull_request` returns only alert workflows.
+**High — `pull_request` CI delivery is UNRELIABLE**
+(`BL-20260730-PR-CI-NOT-ATTACHING`). **Filed first as P1 "does not run on ANY PR";
+that was overstated and is corrected in § 7** — see there for the per-SHA table and
+the `get_status`-vs-`get_check_runs` tooling trap that produced much of the original
+evidence. What survives verification: one branch SHA was PR head for ~6 minutes with
+no `pull_request` event at all while later pushes fired normally, and concurrency
+cancellation is ruled out. Zero checks still renders identically to green.
 Push-triggered and issue-triggered workflows DO run, so Actions is not disabled —
 the fault is specific to the `pull_request` event. Zero checks renders identically
 to green. Needs operator/console access to diagnose.
