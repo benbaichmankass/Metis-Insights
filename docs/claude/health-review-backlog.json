@@ -7019,10 +7019,16 @@
       "tier": 1,
       "trigger_condition": "A celled strategy errors as unclassifiable in a re-audit run.",
       "resolution_criteria": "squeeze_breakout_4h's cells are either re-measured by a new harness, or shown to be all-permissive/cosmetic and dropped.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": [],
-      "resolved_at": null,
+      "updates": [
+        {
+          "at": "2026-07-30T21:45:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "DISPROVED — squeeze_breakout_4h DOES map to an offline harness and its cells ARE re-auditable. I ran the full offline audit today.\n\nHarness run receipt (trainer-diag #8110): scripts/backtest_squeeze.py --data data/btc_1h_multiyear.csv --symbol BTCUSDT --timeframe 4h --resample 4h --bb-period 20 --bb-std 2.0 --kc-mult 1.0 --atr-period 14 --atr-stop-mult 2.5 --trail-mult 3.5  ->  trades=110, win_rate 38.18%, net_r 17.6142, maxdd_r 7.8888, span 2021-01-01..2026-06-01. That reproduces the documented basis in config/strategies.yaml:315 ('+17.6R multiyear ... lowest DD (7.9R)') to 4 significant figures, which is the independent check that the harness was driven with the strategy's REAL live params and not defaults. NOTE --kc-mult 1.0: the harness default is 1.5, so omitting it silently grades a different strategy.\n\nThe harness is named in config/strategies.yaml:303 ('harness: scripts/backtest_squeeze.py'), and scripts/research/regime_tag_emitted.py is the engine-agnostic post-processor for exactly this — its own docstring lists backtest_squeeze.py as a supported emitter. Tagged output with the vol axis attached, 96.4% vol coverage (106/110).\n\nThis mattered: the item as written ('its 4 live cells can never be re-audited') would stop a future session from even attempting the audit that just resolved a parked Tier-3 proposal. Leaving a false blocker standing is as costly as leaving a bug standing."
+        }
+      ],
+      "resolved_at": "2026-07-30T21:45:00+00:00",
       "severity": "medium"
     },
     {
@@ -7312,6 +7318,13 @@
         "BL-20260730-SQZ-WIRING-UNVERIFIED-E2E",
         "BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS",
         "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER"
+      ],
+      "updates": [
+        {
+          "at": "2026-07-30T21:45:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "INSTRUMENT CORRECTION. This row grades the cells on LIVE n (28 over 730d). Live n can never grade a gate cell at ANY size, because a gate row records a SUPPRESSION — the trade was blocked, so it has no outcome to score (see BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT, live n=12 across all six cells). The right instrument is the OFFLINE harness, which yields n=110 over 5.4 years with a 96.4%-covered vol axis. Done today: see the resolution on BL-20260730-SQUEEZE-NO-HARNESS and the new BL-20260730-SQZ-TRENDING-SHORT-SUPERSEDED."
+        }
       ]
     },
     {
@@ -7733,7 +7746,14 @@
       "observation_2026_07_30_evening": "NOT resolved — INTERMITTENT, which is worse than consistently broken because it reads as fixed. Checks attached for exactly three consecutive SHAs (8377f29c, 31d61f69, 09c7a11a; 25 runs each, 18:37-18:43Z) and then stopped again: f10d2b54, 19a5d883 and bf29519b produced ZERO runs. Correlation with the merge commit that brought #8039 down from main is therefore coincidence, not cause.\n\nRuled out this pass: no `draft` guard exists in any workflow (checked), so draft status is not the gate; `paths:` filters are not it either (pytest-run has none and still did not fire); and Actions is plainly not disabled, since push- and issue-triggered workflows have run reliably all session.\n\nNote for whoever picks this up: `pytest-run.yml` CANNOT be dispatched as a workaround — its `push` trigger is `branches: [main]` only and it has no `workflow_dispatch`, so on a feature branch `pull_request` is the ONLY event that can run it. While that event is dropping, a feature branch has no way to run the test suite in CI at all.",
       "why_critical": "Zero checks renders identically to green in every UI and in `get_status`. This PR shipped 11 test failures, a false-positive guard trip and a deploy-safety gap that were ALL invisible until the event happened to fire — on a repo where main receives live-trading code.",
       "evidence_2026_07_30_2000z": "SHARPENED, and one of my own earlier claims corrected. Correlating every branch SHA against actual workflow runs (ruff-lint, one run per SHA expected):\n  8377f29c pull_request OK | 31d61f69 OK | 09c7a11a OK\n  f10d2b54 NO RUN | 19a5d883 NO RUN\n  bf29519b OK | 6c5273a1 OK | e02b0ada OK\n\nSo the gap is TWO SHAs, not three as I first wrote, and the two are not equally damning. f10d2b54 and 19a5d883 were pushed ~25s apart; a `synchronize` for a head that has already moved on is plausibly normal coalescing, so f10d2b54 alone would not evidence a defect. **19a5d883 is the real case**: it was the PR head for ~6 minutes with no event at all, then bf29519b (pushed later) fired normally. Concurrency cancellation is ruled out — neither ruff-lint nor pytest-run declares a `concurrency:` group.\n\nTOOLING TRAP I fell into, worth recording: `pull_request_read get_status` returns `total_count: 0` on this repo ALWAYS, because it reads the legacy commit-status API while every check here is a Check Run. Some of my earlier 'zero checks' readings came from that call and were not evidence of anything. **Use `get_check_runs`, or correlate `actions_list` workflow runs by head_sha** — that is what the table above is built from. A watcher polling `get_status` would report a permanently-red repo.",
-      "severity_note": "Lowered critical -> high on the sharper evidence: 1 confirmed dropped delivery out of 8 pushes, not the near-total outage the first reading suggested (part of which was the get_status artifact above). Still high, not medium: a check that runs SOMETIMES is not a check, and zero checks renders identically to green."
+      "severity_note": "Lowered critical -> high on the sharper evidence: 1 confirmed dropped delivery out of 8 pushes, not the near-total outage the first reading suggested (part of which was the get_status artifact above). Still high, not medium: a check that runs SOMETIMES is not a check, and zero checks renders identically to green.",
+      "updates": [
+        {
+          "at": "2026-07-30T21:45:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "SCOPE CORRECTION + detail, so a review session doesn't start from a false premise. This row's TITLE says CI 'does not run on ANY PR' and its description is EMPTY. The 'any PR' claim is too broad, measured:\n  #8085 15 checks all green | #8091 19 | #8097 15 | #8099 15 | #8102 15 | #8109 15 — six PRs merged by this session on 2026-07-30, every one fully checked. #8099 was a SINGLE-FILE docs-only change and still drew all 15.\nMeanwhile #8069 read total_count:0 at 19:1x and 25/25 by 21:xx — i.e. INTERMITTENT, and PR/SHA-specific, not a repo-wide Actions outage.\n\nRuled out (checked directly, not inferred): no workflow carries a `draft == false` condition, so draft status is not the filter; and required checks deliberately carry NO `paths:` filter — env-gate-guard.yml documents exactly why ('trigger can never carry paths: — would leave the check permanently pending').\n\nWHY IT STILL MATTERS AT THIS SEVERITY: zero checks renders identically to green in the UI and in get_status, so an unchecked merge is indistinguishable from a verified one. Keep it open. But the investigation should start from 'intermittent per-SHA' rather than 'Actions is down', which is a much cheaper problem.\n\nCross-referenced from a concurrent session's PR #8069, which independently reached the same intermittent conclusion."
+        }
+      ]
     },
     {
       "id": "BL-20260730-DESTRUCTIVE-GIT-SYNC-NO-GUARD",
@@ -7993,8 +8013,33 @@
         "scripts/check_new_table_wiring.py",
         "scripts/ci/check_json_extract_guarded.py"
       ]
+    },
+    {
+      "id": "BL-20260730-SQZ-TRENDING-SHORT-SUPERSEDED",
+      "opened_at": "2026-07-30T21:45:00+00:00",
+      "opened_by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+      "source": "Operator directed this session to drive the parked squeeze_breakout_4h trending-short Tier-3 proposal to a decision. Evidence run: trainer-diag #8110.",
+      "title": "[regime][tier-3] the parked squeeze_breakout_4h 1-D `trending short: off` proposal is SUPERSEDED — the entire loss is in trending/CALM, which is already gated",
+      "description": "The proposal was parked pending the ML vol axis. That axis now exists and is verified against live serve to 0.13pp on a matched window (PR #8109), so the block is cleared and the question is answerable.\n\nTHE QUESTION: trending/calm squeeze_breakout_4h {short: off} is ALREADY authored. So the 1-D proposal only adds value if trending/VOLATILE short ALSO loses.\n\nTHE ANSWER (offline, 4h BTCUSDT, 2021-01..2026-06, vol_axis present, coverage 106/110 = 96.4%):\n  trending short, 1-D (what the proposal targets) : net_R -2.7288  n=18\n    trending/calm     short  [ALREADY GATED]      : net_R -3.2101  n=17   exp_R -0.1888\n    trending/volatile short                       : net_R  0.0     n=0\n    trending/unknown  short                       : net_R +0.4813  n=1\n  Arithmetic closes exactly: -3.2101 + 0 + 0.4813 = -2.7288 ; 17 + 0 + 1 = 18.\n\nSo the whole 1-D trending-short loss IS the calm sub-population, and that sub-population is already suppressed by the existing 2-D cell. trending/volatile has ZERO short trades in 5.4 years — authoring the 1-D cell would additionally gate a population with no evidence in either direction.\n\nRECOMMENDATION (Tier-3, operator decides — nothing was changed): DROP the parked 1-D proposal as superseded by the existing trending/calm cell. This requires NO config/regime_policy.yaml edit, so there is no Tier-3 change to approve — only a parked item to close.\n\nThe existing cell is also well-targeted, which is worth recording: it gates only `short` in trending/calm and leaves `long` on — and trending/calm LONG is the strategy's best cell at +9.8014R over n=24.\n\nEXPOSURE CONTEXT for weighting this: squeeze_breakout_4h is routed ONLY to bybit_1 (demo/PAPER). It was removed from real-money bybit_2 at its 2026-06-01 demotion and the 2026-06-23 re-promotion is paper-only (config/strategies.yaml:320-323). No real-money exposure today either way.\n\nHarness run receipt (trainer-diag #8110): scripts/backtest_squeeze.py --data data/btc_1h_multiyear.csv --symbol BTCUSDT --timeframe 4h --resample 4h --bb-period 20 --bb-std 2.0 --kc-mult 1.0 --atr-period 14 --atr-stop-mult 2.5 --trail-mult 3.5  ->  trades=110, win_rate 38.18%, net_r 17.6142, maxdd_r 7.8888, span 2021-01-01..2026-06-01. That reproduces the documented basis in config/strategies.yaml:315 ('+17.6R multiyear ... lowest DD (7.9R)') to 4 significant figures, which is the independent check that the harness was driven with the strategy's REAL live params and not defaults. NOTE --kc-mult 1.0: the harness default is 1.5, so omitting it silently grades a different strategy.\n\nHONEST LIMITS: (a) the -3.2101R/17t figure is a different measurement basis from the '-$55 / 30t' recorded in the cell's own comment (R vs dollars, different run/period) — they are not in conflict, they are not the same measurement, and I did not try to reconcile them; (b) n=0 in trending/volatile means NO evidence, which is not the same as evidence of no effect; (c) nothing here re-grades the OTHER five cells — see BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT.",
+      "tier": 3,
+      "trigger_condition": "n/a — a parked proposal reaching a decision",
+      "resolution_criteria": "Operator closes the parked 1-D trending-short proposal as superseded, or states why the 2-D cell is insufficient.",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "severity": "medium",
+      "refs": [
+        "config/regime_policy.yaml",
+        "config/strategies.yaml",
+        "scripts/backtest_squeeze.py",
+        "scripts/research/regime_tag_emitted.py",
+        "BL-20260730-SQUEEZE-NO-HARNESS",
+        "BL-20260730-SQZ-CELLS-N-TOO-THIN",
+        "BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT"
+      ],
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-30T17:45:00+00:00",
+  "updated_at": "2026-07-30T21:45:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
