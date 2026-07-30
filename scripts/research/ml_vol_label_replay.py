@@ -239,10 +239,16 @@ def iter_projected_rows(
     BTCUSDT/15m frame carries ~100 columns (``tsfm_emb_*``, ``corpus_emb_*``,
     macro, microstructure, funding/OI) across 175,272 rows in a 480 MB file.
     Materialising that as full Python dicts is several GB, on a **1 OCPU /
-    6 GB trainer with a standing OOM history** (`BL-20260717-OOM`, and its
-    `ict-trainer.service` memory cap) — a replay that OOMs mid-write also
-    leaves a truncated labels file, which is the "present but wrong" artifact
-    class this tool exists to refuse.
+    6 GB trainer with a standing OOM history** and an `ict-trainer.service`
+    memory cap: ``BL-20260717-TRAINER-SINGLE-MANIFEST-OOM`` (a single manifest
+    OOMing alone on that box) and, closest to this job's shape, the still-open
+    ``MB-20260719-PROMOREADY-OOSEDGE-OOM`` — a *research sweep* that
+    memory-thrashed the trainer to ~5 GB RSS, D-state, **and 0-byte outputs**.
+
+    That last symptom is the point. A replay that OOMs mid-write leaves a
+    TRUNCATED labels file, which is the "present but wrong" artifact class
+    this tool exists to refuse — it would look like a labels file and grade
+    cells on a partial population.
 
     Projecting to the head's 13 feature columns + ``ts`` keeps the working set
     roughly an order of magnitude smaller and flat in the number of columns the
