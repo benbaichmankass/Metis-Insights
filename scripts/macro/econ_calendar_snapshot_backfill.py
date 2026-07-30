@@ -313,10 +313,21 @@ def render_probe(rows: list[dict]) -> str:
         status = "OK" if r["resolved"] else f"FAIL {r['error']}"
         lines.append(f"{r['kind']:29s} {str(r['fred_series']):13s} "
                      f"{r['observations']:>6d}  {span:22s}  {status}")
-    ok = sum(1 for r in rows if r["resolved"])
+    # Configured and candidate ids are counted SEPARATELY: a resolving candidate must not
+    # inflate the configured tally into looking healthier than it is, and a failing candidate
+    # must not read as a broken config.
+    cfg = [r for r in rows if not str(r["kind"]).startswith("candidate:")]
+    cand = [r for r in rows if str(r["kind"]).startswith("candidate:")]
     lines.append("")
-    lines.append(f"{ok}/{len(rows)} ids resolved. A FAIL is a CONFIG question "
-                 "(right source? right id?), not a code change.")
+    lines.append(f"{sum(1 for r in cfg if r['resolved'])}/{len(cfg)} CONFIGURED ids resolved. "
+                 "A FAIL is a CONFIG question (right source? right id?), not a code change.")
+    if cand:
+        good = [str(r["kind"]).split(":", 1)[1] for r in cand if r["resolved"]]
+        lines.append(f"{len(good)}/{len(cand)} CANDIDATE ids resolved"
+                     + (f": {', '.join(good)}" if good else "")
+                     + ". Candidates are REPORTED, never auto-adopted — a resolving id still "
+                       "has to be checked for the right series (units, frequency, vintage) "
+                       "before it is committed to config.")
     return "\n".join(lines)
 
 
@@ -334,6 +345,13 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--probe-ids", action="store_true",
                     help="DIAGNOSTIC: report which configured FRED ids resolve; writes "
                          "nothing and never adopts an alternate id")
+    ap.add_argument("--probe-extra", default=None,
+                    help="CSV of CANDIDATE FRED ids to probe alongside the configured ones "
+                         "(requires --probe-ids). Lets an id be VERIFIED BEFORE it is "
+                         "committed to config — without this, the only way to test a "
+                         "candidate is to commit it, which is the very bug "
+                         "BL-20260730-EIA-SERIES-IDS-NOT-FRED describes. Reports only; a "
+                         "resolving candidate is never auto-adopted.")
     args = ap.parse_args(argv)
 
     series = load_series_config(args.config)
@@ -341,9 +359,18 @@ def main(argv: Optional[list] = None) -> int:
     # Probe short-circuits everything else: it answers "is this id real?" on a host that
     # can actually reach FRED, and deliberately writes no output.
     if args.probe_ids:
-        rows = probe_series(series)
+        probe_cfg = dict(series or {})
+        # Candidates ride the SAME probe under a `candidate:` prefix so they are visually
+        # unmistakable in the output and can never be confused with a configured kind.
+        for cand in [c.strip() for c in (args.probe_extra or "").split(",") if c.strip()]:
+            probe_cfg[f"candidate:{cand}"] = {"fred_series": cand}
+        rows = probe_series(probe_cfg)
         print(render_probe(rows))
-        return 0 if all(r["resolved"] for r in rows) else 1
+        # A candidate is a QUESTION, not a requirement: its failure must not turn the exit
+        # code into a false alarm about the configured set, and its success must not mask a
+        # configured id that is still broken. So the exit code tracks the CONFIGURED ids only.
+        configured = [r for r in rows if not str(r["kind"]).startswith("candidate:")]
+        return 0 if all(r["resolved"] for r in configured) else 1
     wanted = ([k.strip() for k in args.kinds.split(",") if k.strip()]
               if args.kinds else sorted(series))
     unknown = [k for k in wanted if k not in series]

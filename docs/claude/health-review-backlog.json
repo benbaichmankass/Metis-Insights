@@ -18,7 +18,8 @@
         "Confirm NO real-money leg was touched — only ict_scalp_eth_15m (bybit_1 paper); the real-money ict_scalp_5m BTC leg declares nothing and must never emit stale_stop."
       ],
       "how": "diag relay (label vm-diag-request): audit_query?strategy=ict_scalp_eth_15m&event=ict_scalp_eth_15m_signal (has it traded?) then journal?table=order_packages (find the eth_15m package + close_reason). Cross-check: trend_donchian_xrp_4h already fired a real stale_stop 2026-07-29T04:40 (same lever family) — the mechanism is confirmed working live.",
-      "disposition_when_verified": "Mark this item resolved; note the first-fire result on the M20 coverage matrix ref / coordination board #6927. No config change expected (the lever is already declared)."
+      "disposition_when_verified": "Mark this item resolved; note the first-fire result on the M20 coverage matrix ref / coordination board #6927. No config change expected (the lever is already declared).",
+      "severity": "needs-triage"
     },
     {
       "id": "BL-20260724-TRAINER-GIT-DIVERGED",
@@ -7255,19 +7256,19 @@
       "id": "BL-20260730-EIA-SERIES-IDS-NOT-FRED",
       "opened_at": "2026-07-30T12:45:00+00:00",
       "opened_by": "claude (research program)",
-      "source": "econ-calendar-backfill first run (#7977) FAILED closed: 3 of 5 series ids returned real FRED history (ICSA 3107 rows, CCSA 3106, CPIAUCSL 953) while eia_crude_stocks (WCESTUS1) and eia_natgas_storage (WNGSTUS) both returned HTTP 404. No output was written -- the fail-closed design refused a partial success.",
+      "source": "econ-calendar-backfill first run (#7977) FAILED closed: 3 of 5 series ids returned real FRED history (ICSA 3107 rows, CCSA 3106, CPIAUCSL 953) while eia_crude_stocks (WCESTUS1) and eia_natgas_storage (WNGSTUS) both returned HTTP 404. No output was written -- the fail-closed design refused a partial success. | MEASURED 2026-07-30 on a runner (#8023, run 30544889032): the probe CONFIRMS both ids 404 on FRED while the other three return real history (ICSA 3108 rows 1967-01-07..2026-07-25, CCSA 3107, CPIAUCSL 953). 3/5 configured ids resolve. So possibility (1) 'FRED republishes them under these ids' is now RULED OUT; whether FRED carries them under DIFFERENT ids is still open and is the remaining question.",
       "title": "[macro/M1] the two ENERGY event kinds use EIA series codes in a FRED-series config — 404, and they are the M1 targets",
-      "description": "CATEGORY ERROR, not a typo. WCESTUS1 and WNGSTUS are EIA's own dnav series codes (eia.gov/dnav/pet/hist/LeafHandler.ashx?s=WCESTUS1), not FRED series ids, so fredgraph.csv correctly 404s them. I authored them into config/macro_econ_series.yaml from EIA's catalogue while the fetcher is a FRED fetcher. THE FIX IS A SOURCE DECISION, NOT AN ID GUESS -- two possibilities needing different work: (1) FRED republishes these EIA series under different ids => a config edit; (2) FRED does not carry them keyless at all => needs EIA's own feed (ir.eia.gov weekly text/CSV is keyless; EIA API v2 needs a KEY, which is an operator hand-off). I CANNOT DETERMINE WHICH FROM THE SANDBOX: fred.stlouisfed.org is firewalled here (confirmed twice -- WebFetch 403, direct fetch fails) while the same call works on a GitHub runner. Guessing candidate ids into config would reproduce precisely the bug being fixed (an unverified id that looks authoritative), so it is deliberately NOT done. PROPOSED NEXT STEP: add a `--probe-ids` DIAGNOSTIC mode to econ_calendar_snapshot_backfill.py that tests candidate ids on the runner and REPORTS which resolve, writing no output ever -- so the runner does the verification instead of the sandbox guessing. It must stay a diagnostic: a try-candidates-until-one-resolves FALLBACK inside the producer would silently backfill from whatever id happened to work, which is the same class as the original bug. IMPACT: these two kinds ARE the ROADMAP_MACRO M1/M2 energy-event targets, so M1 stays blocked on this even though the machinery now works -- the 3 verified kinds (jobless claims x2, CPI) unblock the study END-TO-END but are not the energy sleeve. Do not report M1 as unblocked on the strength of the 3 working kinds. || PROBE BUILT 2026-07-30 (`--probe-ids`): reports which configured ids resolve, writes nothing, and DISTINGUISHES the two cases that need different config actions -- HTTP 404 (wrong id / wrong source) vs HTTP 200 with empty history (right id, data question). The shared adapter logs-and-returns-empty on an HTTP error, collapsing both into one message, so the probe reads the status itself; the production path still goes through the adapter untouched. Deliberately NOT a fallback -- it never tries candidate ids and adopts whichever resolves, which would backfill from whatever happened to work (same defect class one level down); a test guards that by inspecting the code with the docstring stripped AND behaviourally. Run it on a runner to decide FRED-republished vs EIA keyless feed vs keyed API.",
+      "description": "CATEGORY ERROR, not a typo. WCESTUS1 and WNGSTUS are EIA's own dnav series codes (eia.gov/dnav/pet/hist/LeafHandler.ashx?s=WCESTUS1), not FRED series ids, so fredgraph.csv correctly 404s them. I authored them into config/macro_econ_series.yaml from EIA's catalogue while the fetcher is a FRED fetcher. THE FIX IS A SOURCE DECISION, NOT AN ID GUESS -- two possibilities needing different work: (1) FRED republishes these EIA series under different ids => a config edit; (2) FRED does not carry them keyless at all => needs EIA's own feed (ir.eia.gov weekly text/CSV is keyless; EIA API v2 needs a KEY, which is an operator hand-off). I CANNOT DETERMINE WHICH FROM THE SANDBOX: fred.stlouisfed.org is firewalled here (confirmed twice -- WebFetch 403, direct fetch fails) while the same call works on a GitHub runner. Guessing candidate ids into config would reproduce precisely the bug being fixed (an unverified id that looks authoritative), so it is deliberately NOT done. PROPOSED NEXT STEP: add a `--probe-ids` DIAGNOSTIC mode to econ_calendar_snapshot_backfill.py that tests candidate ids on the runner and REPORTS which resolve, writing no output ever -- so the runner does the verification instead of the sandbox guessing. It must stay a diagnostic: a try-candidates-until-one-resolves FALLBACK inside the producer would silently backfill from whatever id happened to work, which is the same class as the original bug. IMPACT: these two kinds ARE the ROADMAP_MACRO M1/M2 energy-event targets, so M1 stays blocked on this even though the machinery now works -- the 3 verified kinds (jobless claims x2, CPI) unblock the study END-TO-END but are not the energy sleeve. Do not report M1 as unblocked on the strength of the 3 working kinds. || PROBE BUILT 2026-07-30 (`--probe-ids`): reports which configured ids resolve, writes nothing, and DISTINGUISHES the two cases that need different config actions -- HTTP 404 (wrong id / wrong source) vs HTTP 200 with empty history (right id, data question). The shared adapter logs-and-returns-empty on an HTTP error, collapsing both into one message, so the probe reads the status itself; the production path still goes through the adapter untouched. Deliberately NOT a fallback -- it never tries candidate ids and adopts whichever resolves, which would backfill from whatever happened to work (same defect class one level down); a test guards that by inspecting the code with the docstring stripped AND behaviourally. Run it on a runner to decide FRED-republished vs EIA keyless feed vs keyed API. || UPDATE 2026-07-30: the --probe-ids diagnostic proposed above was built and RUN, and it settled the first half: the ids as configured are dead (HTTP 404, measured on a runner that can reach FRED, not inferred). The second half needs candidate ids TESTED, which --probe-ids could not do because it probes only what is already configured -- meaning the sole way to test a candidate was to COMMIT it, i.e. the bug itself. So --probe-extra <csv> now probes CANDIDATE ids alongside the configured ones under a `candidate:` prefix, reports them separately, never auto-adopts one, and deliberately does NOT let a failing candidate fail the run nor a resolving candidate mask a broken configured id. NEXT STEP is now cheap: dispatch econ-calendar-backfill with `mode: probe` + `probe_extra: <candidates>` and read which resolve; a resolving id STILL has to be checked for units/frequency/vintage before it is committed. SCOPE CORRECTION: this is a COVERAGE gap on the two ENERGY kinds, not the M1 gate blocker it was called when the probe was dispatched -- the full-scale event study and the M3 verdict both ran on the three resolving kinds.",
       "severity": "high",
       "status": "open",
       "area": "macro",
       "refs": [
-        "config/macro_econ_series.yaml",
-        "scripts/macro/econ_calendar_snapshot_backfill.py",
         ".github/workflows/econ-calendar-backfill.yml",
-        "ROADMAP_MACRO.md",
         "BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER",
-        "BL-20260730-M1-PRICE-JOIN-DEAD"
+        "BL-20260730-M1-PRICE-JOIN-DEAD",
+        "ROADMAP_MACRO.md",
+        "config/macro_econ_series.yaml",
+        "scripts/macro/econ_calendar_snapshot_backfill.py"
       ]
     },
     {
@@ -7512,7 +7513,41 @@
         "scripts/macro/econ_event_study.py",
         "BL-20260730-M1-PRICE-JOIN-DEAD"
       ]
+    },
+    {
+      "id": "BL-20260730-M3-CONTINUING-CLAIMS-NO-TRACK",
+      "opened_at": "2026-07-30T13:30:00+00:00",
+      "opened_by": "claude (research program)",
+      "severity": "medium",
+      "status": "open",
+      "source": "M3 first real verdict at n=1263 after the FXStreet survey backfill (#8024/#8025). Pooled: Spearman 0.5885 / sign agreement 0.720 / slope 0.9335 -> model_tracks_survey (bars 0.50 / 0.70). PER KIND: initial_jobless_claims 0.6312/0.791 slope 0.936 TRACKS (n=586); cpi_yoy 0.5176/0.753 slope 1.364 TRACKS (n=127); continuing_jobless_claims 0.4239/0.640 slope 0.5234 DOES NOT TRACK (n=550).",
+      "title": "[macro/M3] the pooled M3 pass is carried by 2 of 3 kinds — the model expectation does NOT track survey consensus for continuing_jobless_claims",
+      "description": "The M1 gate's option-(b) satisfiability condition PASSES pooled, but the pass is not uniform and the failing kind is 550 of 1263 pairs. continuing_jobless_claims misses BOTH pre-registered bars individually (Spearman 0.4239 < 0.50, sign agreement 0.640 < 0.70) and its OLS slope of 0.5234 says the model surprise is roughly HALF the survey surprise in magnitude — a scale error, not just noise, which correlation alone would have hidden. CONSEQUENCE: any M1/M2 consumer that uses the MODEL expectation as a stand-in for survey consensus on continuing claims is measuring a systematically undersized surprise. Do not read the pooled `model_tracks_survey` as licence for that kind; the validator now names it in `kinds_not_tracking` and in the rendered note. WHAT THIS IS NOT: it is not a reason to lower a bar or to re-pool. The bars were pre-registered before the first run and the pooled rule was deliberately left unchanged when the per-kind split was added, so the goalposts have not moved. NEXT: (a) investigate the 0.52 slope — continuing claims is a LEVEL series with strong autocorrelation, so the seasonal-AR expectation may be over-smoothing (a period/harmonics question in econ_expectation, testable offline against the 550 pairs already committed); (b) until it tracks, prefer the real survey consensus for this kind and treat model-expectation rows for it as unusable. A NOTE ON READING THE SCORECARD: mean_abs_gap CANNOT rank kinds (it is in each kind's own units) — that column made initial_jobless_claims look like the weak kind (gap 26.6) when it is the STRONGEST tracker, while continuing claims has the SMALLEST gap (0.11) and the worst tracking. Use the scale-free columns.",
+      "refs": [
+        "scripts/macro/econ_expectation_validate.py",
+        "scripts/macro/econ_expectation.py",
+        "comms/macro/econ_expectation_validation.json",
+        "BL-20260730-MONTHLY-RELEASE-DATE-DRIFT"
+      ]
+    },
+    {
+      "id": "BL-20260730-M3-VALIDATOR-READ-ONE-SURVEY-SOURCE",
+      "opened_at": "2026-07-30T13:30:00+00:00",
+      "opened_by": "claude (research program)",
+      "severity": "low",
+      "status": "resolved",
+      "resolved_at": "2026-07-30T13:30:00+00:00",
+      "source": "Ran econ_expectation_validate.py right after the survey backfill landed 12,076 rows and it still reported overlap=11 / insufficient_overlap. The survey-backfill WORKFLOW had already demonstrated overlap 11 -> 1263 by passing `fwd + survey` to join_overlap by hand; the validator's own DEFAULT_SURVEY was still a single path.",
+      "title": "[macro/M3] the M3 validator read ONE of its two survey sources — a join proven in a runner was never wired into the tool that reads out the verdict",
+      "description": "RECORDED AS A PATTERN, not just a fix. The runner and the tool disagreed about what the survey side IS, and the tool is the one that publishes the verdict — so the published verdict was insufficient_overlap at n=11 while 1,263 joinable rows sat committed in the repo. Nothing errored: read_rows is FileNotFound-tolerant and the missing file simply was not named, so the tool measured a fraction of the available data and graded it. Same family as BL-20260730-M1-PRICE-JOIN-DEAD (a verdict published over an input that was not there), one layer up. FIXED IN THIS CHANGE: DEFAULT_SURVEY is now a LIST of both sources; --survey takes nargs=+; the report records survey_paths / survey_rows_by_path / survey_paths_missing, and an absent declared path emits a warning so 'the file is not there' can never present as 'the overlap is thin'; the artifact is registered with check_artifact_validity (report.n_overlap >= 1); and the survey-backfill workflow now RE-READS M3 in the same run that changes n, so the verdict cannot sit at a stale n behind a comment telling a human to re-run it. GENERAL LESSON worth carrying: when a runner has to hand-assemble inputs to demonstrate a result, that assembly is missing from the tool.",
+      "refs": [
+        "scripts/macro/econ_expectation_validate.py",
+        ".github/workflows/econ-calendar-survey-backfill.yml",
+        "scripts/ops/check_artifact_validity.py",
+        "BL-20260730-M1-PRICE-JOIN-DEAD"
+      ]
     }
   ],
-  "updated_at": "2026-07-30T16:10:00+00:00"
+  "updated_at": "2026-07-30T16:10:00+00:00",
+  "generated_at": "2026-07-30T13:30:00+00:00"
 }

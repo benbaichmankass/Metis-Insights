@@ -60,6 +60,10 @@ on:
         description: "backfill (default) | probe — probe only REPORTS which FRED ids resolve"
         required: false
         default: "backfill"
+      probe_extra:
+        description: "CSV of CANDIDATE FRED ids to probe (probe mode only; never auto-adopted)"
+        required: false
+        default: ""
   issues:
     types: [opened]
 
@@ -111,6 +115,12 @@ jobs:
           # Only `probe` is accepted; anything else falls back to a real backfill so a typo
           # can never silently turn a backfill into a no-op diagnostic.
           case "${md}" in probe) md=probe ;; *) md=backfill ;; esac
+          # Candidate ids to PROBE (never adopted). Restricted to FRED's own id charset so an
+          # untrusted issue body cannot reach the shell through this value.
+          pe=$(printf '%s' "$ISSUE_BODY" | grep -iE '^probe_extra:' | head -1 | cut -d: -f2- | xargs || true)
+          pe=$(printf '%s' "${pe}" | tr -d '[:space:]')
+          printf '%s' "${pe}" | grep -qE '^[A-Za-z0-9_,]*$' || pe=""
+          echo "ECB_PROBE_EXTRA=${pe}" >> "$GITHUB_ENV"
           echo "ECB_KINDS=${kinds}"      >> "$GITHUB_ENV"
           echo "ECB_MIN_TRAIN=${mt:-24}" >> "$GITHUB_ENV"
           echo "ECB_HARMONICS=${hm:-2}"  >> "$GITHUB_ENV"
@@ -123,6 +133,7 @@ jobs:
           echo "ECB_MIN_TRAIN=${{ github.event.inputs.min_train || '24' }}"  >> "$GITHUB_ENV"
           echo "ECB_HARMONICS=${{ github.event.inputs.harmonics || '2' }}"   >> "$GITHUB_ENV"
           echo "ECB_MODE=${{ github.event.inputs.mode || 'backfill' }}"       >> "$GITHUB_ENV"
+          echo "ECB_PROBE_EXTRA=${{ github.event.inputs.probe_extra }}"      >> "$GITHUB_ENV"
 
       # Deliberately NO `|| echo` here. A failure to reconstruct is a failure of the
       # run — that is the whole point (BL-20260730-M1-PRICE-JOIN-DEAD).
@@ -138,7 +149,10 @@ jobs:
           ICT_OFFVM_BUILD_HOST: "1"
         run: |
           set -euo pipefail
-          python scripts/macro/econ_calendar_snapshot_backfill.py --probe-ids | tee /tmp/probe.txt
+          EXTRA=""
+          if [ -n "${ECB_PROBE_EXTRA:-}" ]; then EXTRA="--probe-extra ${ECB_PROBE_EXTRA}"; fi
+          python scripts/macro/econ_calendar_snapshot_backfill.py --probe-ids ${EXTRA} \
+            | tee /tmp/probe.txt
           {
             echo "probe<<PROBEEOF"
             cat /tmp/probe.txt

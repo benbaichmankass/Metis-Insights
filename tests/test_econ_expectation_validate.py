@@ -233,3 +233,119 @@ class TestMainRefusesToMeasureNothing:
         m = tmp_path / "m.jsonl"
         m.write_text(json.dumps(model_row("b", "2026-09-09", 1.0, 2.0)) + "\n", encoding="utf-8")
         assert v.main(["--survey", str(s), "--model", str(m), "--dry-run"]) == 2
+
+
+class TestSurveySideReadsALLItsSources:
+    """The survey side has TWO files and the tool must read both by default.
+
+    Wiring only the forward producer is how this tool reported `insufficient_overlap` at
+    n=11 while 1,263 joinable rows sat committed beside it: the survey-backfill WORKFLOW
+    proved the 1,263 by passing `fwd + survey` to join_overlap by hand, but the tool's own
+    defaults never grew the second path. Proving a join in a runner is not wiring it into
+    the thing that reads out the verdict.
+    """
+
+    def test_default_survey_paths_include_the_backfill_sibling(self):
+        assert any("survey_backfill" in p for p in v.DEFAULT_SURVEY), (
+            "the FXStreet survey backfill must be a DEFAULT survey source, not opt-in")
+        assert any(p.endswith("econ_calendar_snapshots.jsonl") for p in v.DEFAULT_SURVEY)
+
+    def test_rows_from_several_survey_files_are_unioned(self, tmp_path):
+        a = tmp_path / "fwd.jsonl"
+        b = tmp_path / "back.jsonl"
+        m = tmp_path / "model.jsonl"
+        a.write_text(json.dumps(survey_row("k", "2026-01-01", 1.0, 3.0)) + "\n",
+                     encoding="utf-8")
+        b.write_text("".join(
+            json.dumps(survey_row("k", f"2026-02-{d:02d}", 1.0, 3.0)) + "\n"
+            for d in range(1, 20)), encoding="utf-8")
+        m.write_text(
+            json.dumps(model_row("k", "2026-01-01", 1.0, 3.0)) + "\n" + "".join(
+                json.dumps(model_row("k", f"2026-02-{d:02d}", 1.0, 3.0)) + "\n"
+                for d in range(1, 20)), encoding="utf-8")
+        out = tmp_path / "o.json"
+        # Both paths together clear the join; the forward file ALONE would be 1 pair.
+        rc = v.main(["--survey", str(a), str(b), "--model", str(m), "--json", str(out)])
+        assert rc == 0
+        rep = json.loads(out.read_text(encoding="utf-8"))["report"]
+        assert rep["n_overlap"] == 20, rep["n_overlap"]
+        assert rep["survey_rows_by_path"][str(a)] == 1
+        assert rep["survey_rows_by_path"][str(b)] == 19
+
+    def test_an_absent_survey_path_is_reported_not_silently_thin(self, tmp_path):
+        """`read_rows` is FileNotFound-tolerant, which would otherwise make "the file
+        isn't there" and "the file is thin" produce the same n."""
+        a = tmp_path / "fwd.jsonl"
+        m = tmp_path / "model.jsonl"
+        a.write_text("".join(
+            json.dumps(survey_row("k", f"2026-02-{d:02d}", 1.0, 3.0)) + "\n"
+            for d in range(1, 20)), encoding="utf-8")
+        m.write_text("".join(
+            json.dumps(model_row("k", f"2026-02-{d:02d}", 1.0, 3.0)) + "\n"
+            for d in range(1, 20)), encoding="utf-8")
+        out = tmp_path / "o.json"
+        missing = str(tmp_path / "never_written.jsonl")
+        rc = v.main(["--survey", str(a), missing, "--model", str(m), "--json", str(out)])
+        assert rc == 0
+        rep = json.loads(out.read_text(encoding="utf-8"))["report"]
+        assert rep["survey_paths_missing"] == [missing]
+
+
+class TestPerKindIsGradedNotJustTabulated:
+    """A pooled verdict over kinds that don't behave alike can pass while a kind fails.
+
+    Same population-match discipline the rigor standard requires everywhere else: the
+    decision is per-kind, so the grade must be too.
+    """
+
+    @staticmethod
+    def _pair(kind, i, survey_s, model_s):
+        return {"kind": kind, "scheduled_for": f"2026-01-{(i % 28) + 1:02d}",
+                "survey_surprise": survey_s, "model_surprise": model_s, "offset_days": 0,
+                "release_date_basis": "modeled_lag", "units_transform": "identity"}
+
+    def test_a_failing_kind_is_named_even_when_the_pooled_verdict_passes(self):
+        pairs = []
+        # A strongly-tracking kind, big enough to carry the pooled number.
+        for i in range(60):
+            pairs.append(self._pair("good", i, float(i), float(i) + 0.01))
+        # A kind whose model surprise is essentially unrelated to the survey's.
+        noise = [7, -3, 11, -9, 2, -14, 5, -1, 13, -6, 8, -12, 4, -10, 1, -5, 9, -2, 6, -8]
+        for i, z in enumerate(noise):
+            pairs.append(self._pair("bad", i, float(z), float(-z)))
+        rep = v.score(pairs, min_honest_n=12)
+        assert rep["verdict"] == "model_tracks_survey", "pooled rule must not be moved post-hoc"
+        assert "bad" in rep["kinds_not_tracking"]
+        assert "POOLED PASS, PER-KIND MISS" in rep["note"]
+        assert rep["per_kind"]["bad"]["verdict"] == "model_does_not_track_survey"
+        assert rep["per_kind"]["good"]["verdict"] == "model_tracks_survey"
+
+    def test_a_thin_kind_gets_insufficient_overlap_not_a_flattering_pass(self):
+        pairs = [self._pair("plenty", i, float(i), float(i) + 0.01) for i in range(40)]
+        pairs += [self._pair("thin", i, float(i), float(i) + 0.01) for i in range(3)]
+        rep = v.score(pairs, min_honest_n=12)
+        assert rep["per_kind"]["thin"]["verdict"] == "insufficient_overlap"
+        assert "thin" in rep["kinds_insufficient_overlap"]
+        # A thin kind is neither a pass nor a fail, so it must not be named as a miss.
+        assert "thin" not in rep["kinds_not_tracking"]
+
+    def test_mean_abs_gap_cannot_rank_kinds_across_units(self):
+        """The trap that fired on the first real run: the kind with the LARGEST gap was
+        read as the weak one, when it was the strongest tracker. `mean_abs_gap` is in each
+        kind's own units (claims in thousands, CPI in percentage points); only the
+        scale-free columns compare across kinds."""
+        pairs = []
+        # Large-unit kind: huge absolute gaps, near-perfect rank correlation.
+        for i in range(40):
+            pairs.append(self._pair("thousands", i, float(i) * 1000, float(i) * 1000 + 500))
+        # Small-unit kind: tiny absolute gaps, no rank correlation.
+        noise = [0.3, -0.1, 0.5, -0.4, 0.2, -0.6, 0.1, -0.2, 0.4, -0.3,
+                 0.6, -0.5, 0.15, -0.45, 0.25, -0.55]
+        for i, z in enumerate(noise):
+            pairs.append(self._pair("tiny", i, z, -z))
+        rep = v.score(pairs, min_honest_n=12)
+        big, small = rep["per_kind"]["thousands"], rep["per_kind"]["tiny"]
+        assert big["mean_abs_gap"] > small["mean_abs_gap"] * 100
+        # ...and yet the big-gap kind is the one that TRACKS.
+        assert big["verdict"] == "model_tracks_survey"
+        assert small["verdict"] == "model_does_not_track_survey"

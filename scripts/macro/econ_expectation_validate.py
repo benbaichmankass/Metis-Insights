@@ -31,21 +31,31 @@ drops months (`BL-20260730-MONTHLY-RELEASE-DATE-DRIFT`). This matches within
 ``--tolerance-days`` and **reports the offset distribution**, so a systematic bias is visible
 rather than absorbed into "small sample".
 
-HONEST SMALL-n
---------------
-The gate text assumes ~6 months of captured consensus; the real capture window is ~3 months,
-which yields roughly a dozen joinable rows. Below ``--min-honest-n`` the verdict is
-``insufficient_overlap`` — NOT a pass and NOT a fail. Asserting the kill condition at n=11
-would be the same false confidence this pipeline keeps producing.
+HONEST SMALL-n — AND WHY THE SMALL n WASN'T REAL
+------------------------------------------------
+Below ``--min-honest-n`` the verdict is ``insufficient_overlap`` — NOT a pass and NOT a
+fail. Asserting a kill condition at n=11 would be the same false confidence this pipeline
+keeps producing, so the floor is never lowered to manufacture a verdict.
 
-Observe-only, stdlib-only, Tier-1. Reads two committed JSONL files, writes a scorecard.
+The floor is also not the thing to work around. This module first ran at n=11 and its
+docstring explained that as a data limit ("the real capture window is ~3 months"). That
+was **wrong**: the survey side was thin because the forward producer had only ever pulled
+ONE window, and FXStreet's calendar API takes an arbitrary range. Backfilling it took the
+overlap to **1,263** (12,076 survey rows) — 115× the supposed ceiling. The lesson worth
+keeping: when a sample size blocks a verdict, ask what BOUNDS it before scheduling around
+it. "Wait for accrual" was the wrong answer twice in one day, on both sides of this join.
+
+Observe-only, stdlib-only, Tier-1. Reads committed JSONL files, writes a scorecard.
 
 Usage::
 
     python scripts/macro/econ_expectation_validate.py \\
         --survey    comms/macro/econ_calendar_snapshots.jsonl \\
+                    comms/macro/econ_calendar_snapshots_survey_backfill.jsonl \\
         --model     comms/macro/econ_calendar_snapshots_backfill.jsonl \\
         --json      comms/macro/econ_expectation_validation.json
+
+(Both survey paths are the DEFAULT — pass ``--survey`` only to narrow.)
 """
 from __future__ import annotations
 
@@ -57,7 +67,19 @@ import os
 from typing import Optional
 
 SPEC_VERSION = "m3_overlap_validation_v1"
-DEFAULT_SURVEY = os.path.join("comms", "macro", "econ_calendar_snapshots.jsonl")
+# The survey side has TWO sources and BOTH must be read, or the tool measures a
+# fraction of the available overlap and reports a verdict on it:
+#   * the forward producer's file — one window, ever (~11 joinable rows), and
+#   * the FXStreet history backfill — 12,076 rows, 1,263 joinable.
+# Wiring only the first is how this tool reported `insufficient_overlap` at n=11 on
+# 2026-07-30 while 1,263 joinable rows sat committed beside it: the survey-backfill
+# WORKFLOW proved the 1,263 by passing `fwd + survey` to join_overlap by hand, but the
+# tool's own defaults never grew the second path. Proving a join in the runner is not
+# the same as wiring it into the thing that reads out the verdict.
+DEFAULT_SURVEY = [
+    os.path.join("comms", "macro", "econ_calendar_snapshots.jsonl"),
+    os.path.join("comms", "macro", "econ_calendar_snapshots_survey_backfill.jsonl"),
+]
 DEFAULT_MODEL = os.path.join("comms", "macro", "econ_calendar_snapshots_backfill.jsonl")
 DEFAULT_OUT = os.path.join("comms", "macro", "econ_expectation_validation.json")
 
@@ -287,14 +309,48 @@ def score(pairs: list[dict], *, min_honest_n: int = MIN_HONEST_N) -> dict:
     sl, sg = ols_slope(xs, ys), sign_agreement(xs, ys)
     offsets = [p["offset_days"] for p in pairs]
 
-    per_kind: dict[str, dict] = {}
+    # PER-KIND ON THE SAME AXES AS THE VERDICT, not just a gap column.
+    # The pooled number is an average over kinds that do NOT behave alike: at n=1263 the
+    # pooled Spearman was 0.5885 while the per-kind spread was wide, and `initial_jobless_claims`
+    # carried a mean abs gap of 26.6 against 0.11 / 0.24 for the other two. A pooled pass can
+    # therefore be carried by two kinds while a third fails — and it is the PER-KIND answer that
+    # decides whether the model is a sound stand-in for the kind you are about to trade. Same
+    # population-match discipline the rigor standard requires of every other harness here:
+    # measure the thing you will act on, not a blend that contains it.
+    by_kind_pairs: dict[str, list[dict]] = {}
     for p in pairs:
-        per_kind.setdefault(p["kind"], {"n": 0, "sum_abs_gap": 0.0})
-        per_kind[p["kind"]]["n"] += 1
-        per_kind[p["kind"]]["sum_abs_gap"] += abs(p["model_surprise"] - p["survey_surprise"])
-    for k, v in per_kind.items():
-        v["mean_abs_gap"] = v["sum_abs_gap"] / v["n"] if v["n"] else None
-        v.pop("sum_abs_gap")
+        by_kind_pairs.setdefault(p["kind"], []).append(p)
+
+    # ⚠️ `mean_abs_gap` CANNOT RANK KINDS — it is in each kind's own units. Claims surprises
+    # are in thousands-of-persons, CPI in percentage points, so a gap of 26.6 and a gap of 0.11
+    # are not comparable numbers. On the first n=1263 run this trap fired immediately: the 26.6
+    # gap on `initial_jobless_claims` was read as "the weak kind", when it is in fact the
+    # STRONGEST tracker (Spearman 0.63 / sign 0.79), while `continuing_jobless_claims` — the
+    # SMALLEST gap at 0.11 — is the one that misses the bars (0.42 / 0.64, slope 0.52). Use the
+    # scale-free columns (Spearman, sign agreement) to compare kinds; read mean_abs_gap only
+    # within a kind, and the slope for a scale error inside one.
+    per_kind: dict[str, dict] = {}
+    for k, kp in by_kind_pairs.items():
+        kxs = [q["survey_surprise"] for q in kp]
+        kys = [q["model_surprise"] for q in kp]
+        ksp, ksg = spearman(kxs, kys), sign_agreement(kxs, kys)
+        enough = len(kp) >= min_honest_n
+        per_kind[k] = {
+            "n": len(kp),
+            "mean_abs_gap": sum(abs(a - b) for a, b in zip(kys, kxs)) / len(kp),
+            "spearman": ksp,
+            "sign_agreement": ksg,
+            "ols_slope_model_on_survey": ols_slope(kxs, kys),
+            # Each kind is graded against the SAME pre-registered bars, and a kind below
+            # min_honest_n gets `insufficient_overlap` rather than a flattering pass on
+            # a handful of rows.
+            "verdict": (
+                "insufficient_overlap" if not enough
+                else "model_tracks_survey"
+                if (ksp is not None and ksp >= BAR_SPEARMAN
+                    and ksg is not None and ksg >= BAR_SIGN_AGREEMENT)
+                else "model_does_not_track_survey"),
+        }
 
     n = len(pairs)
     stale = provenance_problems(pairs)
@@ -307,8 +363,10 @@ def score(pairs: list[dict], *, min_honest_n: int = MIN_HONEST_N) -> dict:
     elif n < min_honest_n:
         verdict, note = "insufficient_overlap", (
             f"n={n} < min_honest_n={min_honest_n}. NOT a pass and NOT a fail: the gate's kill "
-            "condition cannot be asserted either way at this n. The captured-consensus window "
-            "is ~3 months, while the gate text assumed ~6.")
+            "condition cannot be asserted either way at this n. Before scheduling around this, "
+            "check what actually BOUNDS the overlap — a thin survey side was a scheduling "
+            "artifact once already (one pulled window vs a range-based API), and backfilling it "
+            "took n from 11 to 1263.")
     else:
         tracks = (sp is not None and sp >= BAR_SPEARMAN
                   and sg is not None and sg >= BAR_SIGN_AGREEMENT)
@@ -316,6 +374,18 @@ def score(pairs: list[dict], *, min_honest_n: int = MIN_HONEST_N) -> dict:
         note = ("Pre-registered bar: Spearman >= %.2f AND sign agreement >= %.2f. A miss is the "
                 "gate's kill condition -- option (b) is not a sound stand-in; fall back to (a) "
                 "and re-scope the source." % (BAR_SPEARMAN, BAR_SIGN_AGREEMENT))
+
+    # The pooled verdict stays EXACTLY the pre-registered rule — narrowing it after seeing the
+    # data would be post-hoc bar-moving, the failure this module exists to avoid. But a pooled
+    # pass that hides a failing kind must not read as "the model tracks the survey, full stop",
+    # so the failing kinds ride alongside the verdict instead of being left in a table.
+    failing = sorted(k for k, v in per_kind.items()
+                     if v["verdict"] == "model_does_not_track_survey")
+    thin = sorted(k for k, v in per_kind.items() if v["verdict"] == "insufficient_overlap")
+    if failing and verdict == "model_tracks_survey":
+        note += (" ⚠️ POOLED PASS, PER-KIND MISS: " + ", ".join(failing) + " miss the same bars "
+                 "individually. The pooled pass is carried by the other kinds — do NOT read it "
+                 "as licence to use the model expectation for a kind in that list.")
 
     return {
         "spec_version": SPEC_VERSION,
@@ -331,6 +401,8 @@ def score(pairs: list[dict], *, min_honest_n: int = MIN_HONEST_N) -> dict:
         "offset_days_max": max(offsets) if offsets else None,
         "offset_days_mean": (sum(offsets) / len(offsets)) if offsets else None,
         "per_kind": per_kind,
+        "kinds_not_tracking": failing,
+        "kinds_insufficient_overlap": thin,
         "verdict": verdict,
         "note": note,
         "provenance_problems": stale,
@@ -349,11 +421,21 @@ def render(report: dict, pairs: list[dict]) -> str:
         "— a scale error hides from correlation but shows here",
         f"- match offset days: min {report['offset_days_min']} / "
         f"mean {f(report['offset_days_mean'], 2)} / max {report['offset_days_max']}",
-        "", "## Per kind", "",
-        "| kind | n | mean abs gap (model−survey surprise) |", "|---|--:|--:|",
+        "", "## Per kind — graded on the SAME pre-registered bars as the pooled verdict", "",
+        "| kind | n | Spearman | sign agr. | slope | mean abs gap | verdict |",
+        "|---|--:|--:|--:|--:|--:|---|",
     ]
     for k, v in sorted(report["per_kind"].items()):
-        lines.append(f"| {k} | {v['n']} | {f(v.get('mean_abs_gap'))} |")
+        mark = {"model_tracks_survey": "✅ tracks",
+                "model_does_not_track_survey": "❌ does NOT track",
+                "insufficient_overlap": "— insufficient n"}.get(v["verdict"], v["verdict"])
+        lines.append(
+            f"| {k} | {v['n']} | {f(v.get('spearman'))} | {f(v.get('sign_agreement'), 3)} "
+            f"| {f(v.get('ols_slope_model_on_survey'))} | {f(v.get('mean_abs_gap'))} | {mark} |")
+    if report.get("kinds_not_tracking"):
+        lines += ["", "**Per-kind misses:** " + ", ".join(report["kinds_not_tracking"])
+                  + " — the model expectation is NOT a sound stand-in for these kinds, "
+                    "whatever the pooled row says."]
     if report.get("provenance_problems"):
         lines += ["", "## ⚠️ INPUTS ARE STALE — the numbers above are NOT interpretable", ""]
         lines += [f"- {p}" for p in report["provenance_problems"]]
@@ -368,7 +450,8 @@ def render(report: dict, pairs: list[dict]) -> str:
 
 def main(argv: Optional[list] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--survey", default=DEFAULT_SURVEY)
+    ap.add_argument("--survey", nargs="+", default=list(DEFAULT_SURVEY),
+                    help="one or more survey-side JSONL files (forward producer + backfill)")
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--json", default=DEFAULT_OUT)
     ap.add_argument("--tolerance-days", type=int, default=DEFAULT_TOLERANCE_DAYS)
@@ -378,7 +461,21 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--dry-run", action="store_true", help="print; write nothing")
     args = ap.parse_args(argv)
 
-    survey, model = read_rows(args.survey), read_rows(args.model)
+    survey_paths = [args.survey] if isinstance(args.survey, str) else list(args.survey)
+    survey, per_path, missing = [], {}, []
+    for p in survey_paths:
+        rows = read_rows(p)
+        per_path[p] = len(rows)
+        # `read_rows` is FileNotFound-tolerant, which is right for an optional source but
+        # would otherwise make "the file isn't there" and "the file is thin" produce the
+        # same n. Record it so a small overlap can never be silently an absent input.
+        if not os.path.exists(p):
+            missing.append(p)
+        survey.extend(rows)
+    model = read_rows(args.model)
+    if missing:
+        print("::warning::survey source(s) absent, so the overlap below is measured "
+              "WITHOUT them: " + ", ".join(missing))
     if not survey or not model:
         # Empty input is a hard failure, not an empty verdict: a scorecard computed from
         # nothing is vacuous, and vacuous is indistinguishable from thin once published.
@@ -399,7 +496,9 @@ def main(argv: Optional[list] = None) -> int:
 
     report = score(pairs, min_honest_n=args.min_honest_n)
     report["generated_at"] = args.generated_at
-    report["survey_path"] = args.survey
+    report["survey_paths"] = survey_paths
+    report["survey_rows_by_path"] = per_path
+    report["survey_paths_missing"] = missing
     report["model_path"] = args.model
     report["tolerance_days"] = args.tolerance_days
     print(render(report, pairs))

@@ -381,3 +381,79 @@ class TestIdProbe:
         assert len(rows) == 1, "must not invent extra rows for alternate ids"
         assert rows[0]["fred_series"] == "WNGSTUS", "must not swap in a different id"
         assert not rows[0]["resolved"], "must report the failure, not resolve around it"
+
+
+class TestCandidateIdProbe:
+    """`--probe-extra` exists so an id can be VERIFIED BEFORE it is committed.
+
+    Without it, the only way to test a candidate FRED id is to commit it to config and run
+    — which is exactly the bug BL-20260730-EIA-SERIES-IDS-NOT-FRED describes (an unverified
+    id that looks authoritative). The probe reports; it never adopts.
+    """
+
+    class _Resp:
+        def __init__(self, body=b"DATE,VALUE\n2020-01-01,1.0\n"):
+            self.status = 200
+            self._b = body
+
+        def read(self):
+            return self._b
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    @classmethod
+    def _opener(cls, url, timeout=None):
+        if "GOOD" in url:
+            return cls._Resp()
+        err = OSError("not found")
+        err.code = 404
+        raise err
+
+    def test_a_candidate_is_probed_but_never_adopted_into_the_config(self):
+        cfg = {"real_kind": {"fred_series": "GOOD"}}
+        rows = backfill.probe_series({**cfg, "candidate:MAYBE": {"fred_series": "GOOD"}},
+                              urlopen=self._opener)
+        # The candidate resolving must not have mutated the caller's config.
+        assert cfg == {"real_kind": {"fred_series": "GOOD"}}
+        assert any(r["kind"] == "candidate:MAYBE" and r["resolved"] for r in rows)
+
+    def test_configured_and_candidate_tallies_are_reported_separately(self):
+        rows = backfill.probe_series({"cfg_ok": {"fred_series": "GOOD"},
+                               "candidate:NOPE": {"fred_series": "BAD"}},
+                              urlopen=self._opener)
+        out = backfill.render_probe(rows)
+        assert "1/1 CONFIGURED ids resolved" in out
+        assert "0/1 CANDIDATE ids resolved" in out
+        assert "never auto-adopted" in out
+
+    def test_a_failing_candidate_does_not_fail_the_run(self, tmp_path, monkeypatch, capsys):
+        """A candidate is a QUESTION. Its failure must not read as a broken config, and its
+        success must not mask a configured id that is still broken."""
+        cfgfile = tmp_path / "series.yaml"
+        cfgfile.write_text("series:\n  cfg_ok:\n    fred_series: GOOD\n", encoding="utf-8")
+        monkeypatch.setattr(backfill, "_fetch_history",
+                            lambda sid, urlopen=None: [("2020-01-01", 1.0)]
+                            if "GOOD" in sid else [])
+        import urllib.request as rq
+        monkeypatch.setattr(rq, "urlopen", self._opener)
+        rc = backfill.main(["--config", str(cfgfile), "--probe-ids", "--probe-extra", "BADCAND"])
+        out = capsys.readouterr().out
+        assert "candidate:BADCAND" in out
+        assert rc == 0, "a failing CANDIDATE must not fail the run; only a configured id does"
+
+    def test_a_broken_configured_id_still_fails_even_when_a_candidate_resolves(
+            self, tmp_path, monkeypatch, capsys):
+        cfgfile = tmp_path / "series.yaml"
+        cfgfile.write_text("series:\n  cfg_broken:\n    fred_series: BAD\n", encoding="utf-8")
+        monkeypatch.setattr(backfill, "_fetch_history",
+                            lambda sid, urlopen=None: [("2020-01-01", 1.0)]
+                            if "GOOD" in sid else [])
+        import urllib.request as rq
+        monkeypatch.setattr(rq, "urlopen", self._opener)
+        rc = backfill.main(["--config", str(cfgfile), "--probe-ids", "--probe-extra", "GOODCAND"])
+        capsys.readouterr()
+        assert rc == 1, "a resolving candidate must not mask a broken configured id"
