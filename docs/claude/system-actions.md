@@ -207,6 +207,28 @@ Claude may dispatch these without operator approval:
 - `pull-latest-logs`
 - `inspect-closed-pnl`
 - `bybit-account-audit`
+- `bybit-bracket-audit` — **READ-ONLY broker-truth audit of Bybit protective
+  bracket COVERAGE**, plus a definitive three-source read of the effective
+  `BYBIT_TPSL_MODE`. Answers the two questions nothing else could:
+  (a) *what value is the RUNNING trader actually using?* — printed from the
+  `.env` file, the systemd unit's `Environment=`/`EnvironmentFiles=`, AND
+  `/proc/<MainPID>/environ` (a `set-env` writes the FILE while the running
+  process keeps whatever it started with, so those can legitimately disagree
+  and **only the process environ is the truth**); and (b) *is every open Bybit
+  trade actually protected right now?* — per account+symbol it reports the
+  venue position row (`size`/`stopLoss`/`tpslMode`), every resting conditional
+  leg, and crucially the **SL-covered qty vs position size**
+  (`coverage_pct` / `uncovered_qty` → `PROTECTED` / `PARTIALLY_NAKED` /
+  `NAKED`), plus a per-trade join showing whether each journal row's tracked
+  `sl_order_id` leg is still alive at the broker. This measures the *quantity*
+  dimension that `order_monitor._bybit_position_protection` treats as a mere
+  boolean (`any()` resting SL leg ⇒ "protected"), which is how a netted
+  position with partly-missing per-trade legs read as protected while being
+  only partially covered. Places/amends/cancels **nothing**, writes no DB row —
+  safe to run against real money at any time. Optional issue-body fields:
+  `account: <bybit_id>` (default all), `symbol: <SYM>` (default every symbol
+  with an open journal row). Scripts: `scripts/ops/bybit_bracket_audit.py` +
+  `scripts/ops/bybit_bracket_audit_action.sh`.
 - `strategy-performance-audit`
 - `monitor-miss-analysis`
 - `vwap-backtest-sweep`
