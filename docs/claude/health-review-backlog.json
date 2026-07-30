@@ -7357,7 +7357,68 @@
         "scripts/macro/econ_event_study.py",
         "BL-20260730-BACKFILL-DATE-IS-REFERENCE-PERIOD-NOT-RELEASE"
       ]
+    },
+    {
+      "id": "BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-TPSL-PREMISE",
+      "opened_at": "2026-07-30T10:45:00+00:00",
+      "opened_by": "claude (deploy-verify session 2026-07-30)",
+      "severity": "high",
+      "status": "open",
+      "area": "research-integrity/exits",
+      "tier": 1,
+      "title": "[research] exit-capture-deepdive-2026-07-30 asserts BYBIT_TPSL_MODE=full/'not deployed' — it was ALREADY partial, so its root cause for the scalp exit leak is unproven and the real cause is still unknown",
+      "source": "Deploy-verification session 2026-07-30. docs/research/exit-capture-deepdive-2026-07-30.md states 'BYBIT_TPSL_MODE is at its default full on the live VM' and 'It is not deployed (default full)', and builds its root-cause attribution for the scalp exit leak on that. The new bybit-bracket-audit action (PR #7993) read the live value three ways on 2026-07-30 (issue #7999): .env:81 = partial, the unit's EnvironmentFiles points at that .env, and /proc/<MainPID>/environ = partial (the authoritative source — a set-env writes the FILE while the running process keeps what it started with). _bybit_tpsl_mode() resolves 'partial'. Independently, trades.sl_order_id (written ONLY on the _bybit_tpsl_mode()=='partial' branch of execute_pkg) is non-null on 75 of 211 bybit opens between 07-21 and the 05:37Z flip, across bybit_1, bybit_2 and bybit_portfolio — a non-null PROVES the partial path ran, and the one-off backfill-tpsl-leg-ids (07-21, single trade) cannot explain 75 rows over 9 days. Earliest entry-time capture: #3789 2026-07-21 14:45:59, the day PR #7321 deployed. This matches ROADMAP.md L19 ('FLIPPED live' 2026-07-20) and S-XRP-TPSL-LEGCAP-2026-07-21 ('already partial ... per the earlier PR #7115 rollout').",
+      "description": "TWO problems, the second is the expensive one. (1) DOC DRIFT: the memo's premise is false and it is the document a future session will read to understand the exit leak, so it must be corrected in place (not deleted — it is the record of a real measurement; the MFE/giveback/round-tripper numbers stand, only the CAUSE attribution is wrong). (2) THE REAL CAUSE IS STILL UNKNOWN: because the memo blamed BYBIT_TPSL_MODE=full, today's 05:37Z set-env flip was dispatched as the fix (issues #7945 gate + #7946 flip) — but it was a no-op re-assertion of an already-active value, so NOTHING was actually changed and the leak is unaddressed. The leak is real and measured: in the 7 days BEFORE the flip, bybit scalp closes were 37 trades / -$6,358.37 with only 2 of 37 (5%) exiting via a clean broker bracket — exit_reason was reconciler_filled on 28 of them carrying essentially the whole loss (-$6,360.46), vs tp n=1 (+$5.35) and sl n=1 (-$3.26). And it persisted straight THROUGH the days when partial-mode leg capture was demonstrably running, which is what rules the mode out as the cause. The single best evidence is trade #4218 (ict_scalp_avax_5m, bybit_1) opened 05:44:22Z — 7 min AFTER the flip, WITH both legs captured at entry (sl 58e24253, tp 610837ec) — which still held 1h56m (a 5-MINUTE scalp) and exited reconciler_filled. ACTION: correct the memo, then re-derive the cause from the reconciler_filled exit path itself (why is the broker bracket not producing a clean tp/sl journal exit, and is reconciler_filled even the expected recording for a broker-side Bybit SL fire?) rather than from the bracket-scope env var.",
+      "resolution_criteria": "(a) docs/research/exit-capture-deepdive-2026-07-30.md corrected: the BYBIT_TPSL_MODE claim fixed and the root-cause section reopened as unresolved, with a pointer to the audit receipts (issue #7999); (b) a re-derived, evidence-backed cause for the reconciler_filled-dominated scalp exits, or an explicit finding that reconciler_filled IS the normal recording for a broker-side Bybit bracket fire (in which case the real defect is the hold time, not the exit reason); (c) ROADMAP/L19 vs the memo reconciled so the next session cannot re-derive the wrong premise.",
+      "refs": [
+        "docs/research/exit-capture-deepdive-2026-07-30.md",
+        "src/units/accounts/execute.py",
+        "scripts/ops/bybit_bracket_audit.py",
+        "ROADMAP.md",
+        "docs/sprint-logs/S-XRP-TPSL-LEGCAP-2026-07-21.md",
+        "BL-20260720-ICTSCALP-PASTSTOP-EXITS",
+        "BL-20260721-BYBIT2-XRP-TPSL-LEGCAP"
+      ]
+    },
+    {
+      "id": "BL-20260730-TRADES-TIMESTAMP-FORMAT-MIXED",
+      "opened_at": "2026-07-30T10:45:00+00:00",
+      "opened_by": "claude (deploy-verify session 2026-07-30)",
+      "severity": "medium-high",
+      "status": "open",
+      "area": "db-integrity",
+      "tier": 1,
+      "title": "[db] trades.created_at and trades.closed_at use DIFFERENT timestamp formats in the same table — string comparisons across them silently return wrong rows",
+      "source": "Deploy-verification session 2026-07-30, found by being bitten by it. Live rows on trade #4218: created_at = '2026-07-30 05:44:22' (space-separated, no offset) while closed_at = '2026-07-30T07:40:36.498032+00:00' (ISO 'T' + microseconds + offset). Because ' ' (0x20) sorts BELOW 'T' (0x54), any SQL string comparison of a space-separated column against a 'T'-separated literal silently excludes every row: `created_at >= '2026-07-30T05:37'` matched ZERO of today's rows and made a read report '0 opens since the flip' when there were 5. Same class of error is the likely cause of scripts/research/m20_exit_analysis.py reporting journal_latest_close = 2026-07-30T00:57:54 while #4218 demonstrably closed at 07:40:36 — a verified 0 of 67 closed rows since 07-25 have a NULL closed_at, so the under-report is a parse/compare artifact, not missing data.",
+      "description": "This is a silent-wrong-answer generator, not a crash: every consumer that windows or sorts on these columns can quietly drop rows, and the result looks like a small sample rather than a systematic miss. The repo already has scar tissue from exactly this shape — src/web/api/_closed_at.py exists because the reconciler-filled close path writes closed_at as a raw epoch-ms string that an unguarded datetime() drops from the window (the '0 closed trades in 24h while lifetime is non-zero' bug). So there are now at least THREE closed_at encodings in the wild (space-separated, ISO T+offset, raw epoch-ms) and the normalisation lives in one API helper rather than at the writer. INVESTIGATE: enumerate the distinct formats actually present per column (a cheap GROUP BY on shape), identify which writers emit which, then decide between normalising AT THE WRITER (one canonical encoding, plus a migration for existing rows — note migrate-closed-at-iso already exists as a system-action) or making the _closed_at.py normaliser the mandatory read path for every consumer and guarding new raw comparisons in CI. Do NOT hand-fix rows without first establishing which writers produce which format, or it will drift back.",
+      "resolution_criteria": "(a) the distinct timestamp encodings present in trades.created_at / closed_at enumerated with counts, and each mapped to its writing code path; (b) a decision recorded (writer-side canonicalisation + migration, or mandatory read-side normalisation) and implemented; (c) m20_exit_analysis.py's journal_latest_close verified to agree with the newest closed_at in the DB; (d) if read-side normalisation is chosen, a CI guard against new raw string comparisons on these columns.",
+      "refs": [
+        "src/web/api/_closed_at.py",
+        "scripts/research/m20_exit_analysis.py",
+        "src/runtime/order_monitor.py",
+        "docs/claude/system-actions.md"
+      ]
+    },
+    {
+      "id": "BL-20260730-CLOSED-TRADE-NULL-EXITPRICE-PNL",
+      "opened_at": "2026-07-30T10:45:00+00:00",
+      "opened_by": "claude (deploy-verify session 2026-07-30)",
+      "severity": "medium",
+      "status": "open",
+      "area": "pnl-integrity",
+      "tier": 1,
+      "title": "[pnl] a reconciler_filled Bybit close can land with exit_price = NULL AND pnl = NULL — the trade is closed and we do not know at what price or for how much money",
+      "source": "Deploy-verification session 2026-07-30. Trade #4218 (bybit_1, AVAXUSDT, ict_scalp_avax_5m, qty 21971.2, entry 6.463) closed at 2026-07-30T07:40:36 with exit_reason='reconciler_filled', and BOTH exit_price and pnl are NULL. notes records closed_by='monitor_reconciler', closed_reason='reconciler — Bybit reports order filled and position flat', and — the tell — exit_price_source='entry_order_avg_price_unreliable'. So the close path knew it could not trust the price it had and recorded nothing rather than something wrong (honest, and better than a fabricated number) — but it then left the money unmeasured with no follow-up.",
+      "description": "Being honest about an unknown is right; leaving it permanently unknown is not. A closed trade with NULL pnl is invisible to every dollar aggregate (the P&L scoreboard is DOLLARS per the 2026-07-30 doctrine), so this silently shrinks the denominator of exactly the exit-capture measurement the exits work depends on. There IS already a backfill path for this class — order_monitor._sweep_local_pnl_for_unpriced fills non-Bybit realised PnL via local compute — but Bybit is the venue that HAS broker truth (clients.BROKER_PNL_READER_EXCHANGES = {bybit}), so the right resolution is probably to read the actual fill back from Bybit (get_closed_pnl / the exchange-fills store, which scripts/pull_exchange_fills.py already populates and /api/bot/pnl/exchange already serves) rather than to local-compute it. INVESTIGATE: how many closed rows carry NULL pnl and/or NULL exit_price, per account and per exit_reason (is #4218 one instance or a standing population?); whether the reconciler_filled path can always resolve a fill price from the exchange-fills store after the fact; and whether a closed row with NULL pnl should raise an operator signal instead of settling silently.",
+      "resolution_criteria": "(a) a count of closed non-backtest rows with NULL pnl and/or NULL exit_price, broken out by account and exit_reason, so the size of the population is known rather than assumed; (b) #4218's dollars recovered from exchange truth (or a stated, evidenced reason they cannot be); (c) a decision on whether the reconciler_filled close path should resolve price from the exchange-fills store before recording NULL; (d) a signal (not silence) when a close settles with unmeasured money.",
+      "refs": [
+        "src/runtime/order_monitor.py",
+        "src/runtime/exchange_fills_store.py",
+        "scripts/pull_exchange_fills.py",
+        "src/units/accounts/clients.py",
+        "BL-20260713-BYBIT2-PNL-UNDERRECORD"
+      ]
     }
   ],
-  "updated_at": "2026-07-30T15:15:00+00:00"
+  "updated_at": "2026-07-30T10:45:00+00:00"
 }
