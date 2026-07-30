@@ -142,3 +142,65 @@ def test_resolve_fetchers_degrades_to_stooq_without_yfinance(monkeypatch):
     download, stooq = fmc._resolve_fetchers(None, None, "2005-01-01")
     assert download is None                              # yfinance skipped, not fatal
     assert stooq is not None                             # Stooq (urllib) still wired as fallback
+
+
+# --- Stooq ticker resolution (BL-20260730-M1-PRICE-JOIN-DEAD) ----------------
+# The fetcher used a single `?s={sym}.us` template, appending the US-EQUITY suffix
+# to every symbol. For a yfinance futures ticker like `NG=F` that produced
+# `s=ng=f.us` — a literal `=` inside the value plus an equity suffix on a futures
+# symbol — so the Stooq fallback could never return a bar. With yfinance also
+# absent from the econ-event-study runner, that is why the M1 study reported
+# `price_bars: 0` on every run of its life while the workflow stayed green.
+
+def test_stooq_symbol_maps_futures_to_dot_f():
+    assert fmc.stooq_symbol("NG=F") == "ng.f"
+    assert fmc.stooq_symbol("CL=F") == "cl.f"
+    assert fmc.stooq_symbol("GC=F") == "gc.f"
+    assert fmc.stooq_symbol("HG=F") == "hg.f"
+    assert fmc.stooq_symbol("ES=F") == "es.f"
+
+
+def test_stooq_symbol_keeps_us_suffix_for_equities_and_etfs():
+    assert fmc.stooq_symbol("SPY") == "spy.us"
+    assert fmc.stooq_symbol("UNG") == "ung.us"
+    assert fmc.stooq_symbol("GLD") == "gld.us"
+
+
+def test_stooq_symbol_unmapped_future_still_gets_dot_f_not_dot_us():
+    """An unrecognised `*=F` must not be handed an equity suffix it can never
+    resolve under — the exact shape of the original bug."""
+    assert fmc.stooq_symbol("ZZ=F") == "zz.f"
+
+
+def test_stooq_url_for_a_future_has_no_stray_equals_or_us_suffix():
+    url = fmc._STOOQ_URL.format(sym=fmc.stooq_symbol("NG=F"))
+    assert "s=ng.f" in url
+    assert "ng=f" not in url          # the malformed form
+    assert ".us" not in url           # equity suffix on a future
+
+
+def test_futures_fetch_requests_the_dot_f_ticker(tmp_path):
+    """End-to-end: the URL actually handed to urlopen carries the futures form."""
+    seen = []
+
+    class _Resp:
+        def __init__(self, body):
+            self._body = body
+
+        def read(self):
+            return self._body.encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def stooq(url, timeout=None):
+        seen.append(url)
+        return _Resp(
+            "Date,Open,High,Low,Close,Volume\n2020-01-02,1,1,1,2.75,10\n"
+        )
+
+    fmc.fetch_candles(["NG=F"], tmp_path, download=None, stooq_urlopen=stooq, min_rows=1)
+    assert seen and "s=ng.f" in seen[0], seen

@@ -1,0 +1,89 @@
+name: artifact-validity-guard
+
+# Structural guard against the "green while measuring nothing" bug class
+# (2026-07-30: four instances in one day, plus an S-067 audit of the same class from
+# 2026-05-10 that recurred anyway).
+#
+# TWO checks, because the class has two halves and the existing guards cover neither:
+#
+#   1. VACUOUS ARTIFACTS — scripts/ops/check_artifact_validity.py asserts every
+#      registered research artifact actually measured something (non-zero
+#      load-bearing inputs), and heuristically flags unregistered comms/** JSON whose
+#      every known input count is zero. This catches the OUTPUT side: a verdict
+#      computed from an empty input set. `econ_event_study_scorecard.json` published
+#      exactly that for its entire life (BL-20260730-M1-PRICE-JOIN-DEAD).
+#
+#   2. SWALLOWED FETCH FAILURES — a load-bearing fetch step in a workflow must not
+#      end in `|| echo` / `|| true`. That idiom is what kept the price-join failure
+#      GREEN: the fetch degraded to a warning, the study treated an empty panel as a
+#      soft zero, and the run exited 0 with a plausible-looking verdict. This catches
+#      the INPUT side.
+#
+# Why the existing guards don't cover it: `silent-empty-guard`
+# (scripts/check_silent_empty_in_diff.py) is a diff-scoped Python-`except` scanner
+# over three src/ paths. It can see neither the research/producer layer, nor shell,
+# nor an output-side contract. A guard scoped to three paths and one language's
+# syntax is not a guard against a bug class.
+#
+# Tier-1 CI guard: read-only, no VM, no order path.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: artifact-validity-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # --- 1. no vacuous research artifact may be committed -------------------
+      # --allow-missing: a producer that has never run is legitimately absent; the
+      # bug class is a PRESENT artifact that measured nothing.
+      - name: Assert committed research artifacts measured something
+        run: python3 scripts/ops/check_artifact_validity.py --allow-missing
+
+      # --- 2. no load-bearing fetch may swallow its own failure ---------------
+      - name: Forbid `|| echo` / `|| true` on a load-bearing fetch step
+        run: |
+          set -uo pipefail
+          # Look for a fetch/producer invocation whose failure is swallowed. Scoped to
+          # the lines that actually run our producer scripts, so ordinary shell
+          # tolerance elsewhere (e.g. optional cleanup) is unaffected.
+          #
+          # An intentional exception carries `# allow-degraded: <reason>` on the same
+          # line — the same explicit-override shape silent-empty-guard uses.
+          hits=$(grep -rnE '(fetch_[a-z_]*\.py|_produce\.py|_backfill\.py|_snapshot\.py).*\|\|[[:space:]]*(echo|true)' \
+                   .github/workflows/ 2>/dev/null \
+                 | grep -v 'allow-degraded:' || true)
+          if [ -n "$hits" ]; then
+            echo "::error::A load-bearing fetch step swallows its own failure. This is the idiom that kept BL-20260730-M1-PRICE-JOIN-DEAD green for the producer's entire life: the fetch degraded to a warning, the study read an empty panel as a soft zero, and the run exited 0 with a plausible verdict."
+            echo "$hits"
+            echo ""
+            echo "Fix: let the step fail (set -e), and assert the fetched inputs are non-empty before using them. If a degraded fetch is genuinely acceptable, annotate the line with '# allow-degraded: <reason>'."
+            exit 1
+          fi
+          echo "OK — no load-bearing fetch swallows its failure."
+
+      # --- 3. the guard's own tests ------------------------------------------
+      # A guard against 'green while doing nothing' must not itself be able to go
+      # green while doing nothing.
+      - name: Install test deps
+        run: python -m pip install --upgrade pip pytest
+
+      - name: Test the guard itself
+        run: python3 -m pytest tests/test_check_artifact_validity.py -q

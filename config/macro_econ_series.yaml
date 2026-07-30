@@ -1,0 +1,68 @@
+# ROADMAP_MACRO M1 — event kind → FRED series map for the PIT release backfill.
+#
+# Read by `scripts/macro/econ_calendar_snapshot_backfill.py`, the missing backfill
+# sibling of the forward-only `econ_calendar_produce.py`. Its job: reconstruct
+# DECADES of point-in-time release history so the M1/M2 event study can be graded
+# now instead of waiting for the live producer to accrue n=12 (the 2026-07-30
+# "wait for accrual" correction — see docs/research/RESEARCH-PROGRAM-2026-07-30.md
+# §1-§2). Same pattern as valuation_snapshot_backfill / cot_snapshot_backfill /
+# crypto_signals_backfill.
+#
+# `kind` MUST match the kind the live producer emits, so backfilled rows and
+# forward rows land in one comparable series (the study filters on `kind`).
+#
+# ⚠️ SERIES IDS ARE UNVERIFIED FROM THE SANDBOX. FRED egress is firewalled here
+# (confirmed 2026-07-30: fredgraph.csv returns empty for DFII10/ICSA), so these
+# ids are declared from FRED's published catalogue and MUST be confirmed on the
+# first runner execution. The backfill FAILS LOUDLY per series on an empty fetch
+# (it does not silently skip) — that is deliberate: a silent skip is exactly the
+# Class-B "green but vacuous" failure T2 just removed from the event study.
+# Correcting an id is a config edit, never a code change.
+#
+# `cadence` picks the seasonal period in OBSERVATIONS for the expectation model
+# (weekly=52, monthly=12, quarterly=4) — see scripts/macro/econ_expectation.py.
+#
+# `symbol` is the instrument the release is hypothesised to move, mirroring
+# econ_event_study.KIND_DEFAULT_SYMBOL. Declared here so one file answers
+# "what do we study, against what, at what cadence".
+
+schema_version: 1
+
+series:
+  # --- Energy (the canonical M1 test cases) ---
+  eia_natgas_storage:
+    fred_series: WNGSTUS          # Weekly working gas in underground storage, US
+    cadence: weekly
+    symbol: "NG=F"
+    units: Bcf
+    note: >
+      The ROADMAP_MACRO M1 canonical case. Storage is strongly weather-seasonal,
+      so lag_seasonal + Fourier carries most of the anticipated component.
+  eia_crude_stocks:
+    fred_series: WCESTUS1         # Weekly ending stocks of crude oil, US
+    cadence: weekly
+    symbol: "CL=F"
+    units: thousand barrels
+
+  # --- Labour (highest-n weekly series available) ---
+  initial_jobless_claims:
+    fred_series: ICSA             # Initial claims, SA, weekly
+    cadence: weekly
+    symbol: "ES=F"
+    units: claims
+  continuing_jobless_claims:
+    fred_series: CCSA             # Continued claims, SA, weekly
+    cadence: weekly
+    symbol: "ES=F"
+    units: claims
+
+  # --- Monthly macro (lower n; included so the study spans cadences) ---
+  cpi_yoy:
+    fred_series: CPIAUCSL         # CPI-U, SA, monthly (level; YoY derived downstream)
+    cadence: monthly
+    symbol: "ES=F"
+    units: index
+    note: >
+      Monthly cadence reaches n=12 only over a year of releases, so this is a
+      breadth row, not a near-term verdict driver. Kept because the SAME model
+      spec must be shown to behave across cadences, not just on weekly energy.

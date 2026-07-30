@@ -53,10 +53,13 @@ REPO = rdm.REPO
 
 def run_cell(strategy: str, regime: str, folds: int, workdir: str, days: int) -> dict:
     roster = rdm.load_roster()
-    cfg = roster.get(strategy)
+    # Fall back to strategies.yaml so an ALREADY-CELLED strategy can still be
+    # re-audited — authoring a cell pays it down out of coverage_debt, which used to
+    # make it permanently unmeasurable here. BL-20260730-REGIME-CELL-UNAUDITABLE.
+    cfg = roster.get(strategy) or rdm.resolve_strategy(strategy)
     out: dict = {"strategy": strategy, "regime": regime, "folds": folds, "days": days}
     if cfg is None:
-        out["error"] = "not in coverage_debt roster"
+        out["error"] = "not declared in strategies.yaml"
         return out
     harness = rdm.classify(cfg)
     sym = (cfg.get("symbols") or [None])[0]

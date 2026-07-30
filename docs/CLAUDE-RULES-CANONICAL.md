@@ -79,6 +79,53 @@ extends the session-end reconciliation duty (no walking past known
 contradictions) from documents to ALL infrastructure, at all times. Mirrored
 at the top of the root `CLAUDE.md`.
 
+### Green is not evidence (operator directive 2026-07-30, binding)
+
+**A passing run, a fresh artifact, and a completed roster are not evidence that
+anything was measured.** This bug class has now recurred repeatedly — an S-067 audit
+in 2026-05, then **four instances in a single day** on 2026-07-30 — always with the
+same shape:
+
+> **an artifact reports success that is true relative to its own scope, while the
+> scope is wrong or the measurement inside is empty.**
+
+The four 2026-07-30 instances, as the canonical examples:
+
+| Instance | Reported | Reality |
+|---|---|---|
+| M1 econ event study | `verdict: insufficient_history` | **`price_bars: 0`** — never joined a single bar in the producer's entire life (`BL-20260730-M1-PRICE-JOIN-DEAD`) |
+| corrected-cost regime re-grade | 34 rows, **0 errored, 0 skipped** | the roster excluded `gld_pullback_1h` — the one LIVE cell the re-grade existed to re-check (`BL-20260730-REGIME-CELL-UNAUDITABLE`) |
+| `splg_trend_long_1d` | a row in a successful run | 0 trades in every regime, no error |
+| exit-ladder soak | 135 rows | 0 differing (`BL-20260730-EXIT-LADDER-SOAK-VACUITY`) |
+
+**Three binding obligations:**
+
+1. **Assert the inputs, not just the exit code.** Before reading a verdict out of any
+   artifact, check the counts that make it meaningful (`price_bars`, `n`, `rows`,
+   `releases`, `total_scanned`). A verdict computed from zero inputs is **vacuous, not
+   thin** — the two are indistinguishable from the outside, which is exactly why the
+   distinction must be asserted rather than assumed. Enforced by
+   `scripts/ops/check_artifact_validity.py` (CI: `artifact-validity-guard`; scheduled:
+   `macro-producer-liveness`).
+
+2. **A load-bearing step may not swallow its own failure.** No `|| echo` / `|| true`
+   on a fetch or producer invocation whose output the run depends on. That idiom is
+   what kept instance 1 green. An intentional exception carries
+   `# allow-degraded: <reason>` inline. Enforced by `artifact-validity-guard`.
+
+3. **State your population, and justify every exclusion.** When an audit or re-grade
+   iterates a **work queue** (a debt list, a backlog, an open-items set) rather than
+   the full population, "finished the queue" silently reads as "finished the audit."
+   Declare what you claim to cover, what you actually covered, and why the difference
+   exists. Beware the self-erasing case that produced instance 2: *acting* on an item
+   can remove it from the queue, so the queue systematically excludes exactly the
+   decisions most in need of re-checking.
+
+**Corollary — a decision is not permanent evidence.** A gate authored on a bug stays
+authored unless something re-checks it. When you act on evidence, record how that
+evidence gets re-audited later; do not rely on the tool that produced it, which may
+no longer be able to see the case at all.
+
 ## Honesty
 
 Give only true, verifiable answers.

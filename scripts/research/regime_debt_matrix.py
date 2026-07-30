@@ -40,6 +40,8 @@ import os
 import subprocess
 import sys
 
+from typing import Optional
+
 import yaml
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -128,16 +130,56 @@ def _fetch_csv(feed: dict, days: int, out: str) -> None:
     df[cols].to_csv(out, index=False)
 
 
+def roundtrip_fee_bps(symbol: str) -> float:
+    """Venue-appropriate round-trip fee in bps for *symbol* — the research-harness
+    counterpart of the live close path's resolver.
+
+    Delegates to ``core.profile_loader.roundtrip_fee_bps_for``, which returns
+    ``0.0`` for a commission-free venue (US equity/ETF on Alpaca) and ``None``
+    meaning "no venue-specific rate — use the estimator default" for
+    crypto/futures/fx. ``None`` (and any resolver failure) falls back to
+    ``trade_costs.DEFAULT_FEE_BPS_ROUNDTRIP`` so the default lives in exactly one
+    place and is never duplicated here.
+
+    Why this exists (BL-20260730-RESEARCH-VENUE-FEE): this function used to be the
+    literal constant ``7.5`` for EVERY symbol, so all 14 commission-free
+    ``(alpaca, spot)`` instruments (SPY QQQ TQQQ QLD GLD IWM TLT IEF SLV USO GDX
+    SPLG IAUM SCHA) were charged a crypto-perp fee — a ~25x over-charge worth
+    ~0.04-0.12 R/trade. Over-charging can only make a strategy look WORSE, so the
+    bug's signature is **false OFF cells** (gating a leg that is actually fine),
+    never a fabricated edge. #7930 fixed the identical bug in the live close-path
+    writer (``database._record_trade_cost_estimate``); the research harness that
+    sources Tier-3 regime cells was missed, which is why the equity/ETF matrix
+    (#7918) and its walk-forward verdicts (#7920-#7924) need re-running.
+    """
+    if REPO not in sys.path:
+        sys.path.insert(0, REPO)
+    try:
+        from src.core.profile_loader import roundtrip_fee_bps_for
+        from src.runtime.trade_costs import DEFAULT_FEE_BPS_ROUNDTRIP
+    except Exception as exc:  # noqa: BLE001
+        # Loud, not silent: a resolver miss would quietly restore the 25x
+        # over-charge this function exists to remove. Fall back to the documented
+        # default and SAY SO, so a degraded run is visible in the log.
+        print(f"[fee] resolver unavailable ({exc}); falling back to 7.5 bps for {symbol}",
+              file=sys.stderr)
+        return 7.5
+    resolved = roundtrip_fee_bps_for(symbol)
+    return float(DEFAULT_FEE_BPS_ROUNDTRIP if resolved is None else resolved)
+
+
 def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: str,
                       emit: str, jout: str) -> tuple[list[str], bool, list[str]]:
     """Return (argv, faithful, omitted_levers)."""
     py = sys.executable
-    common = ["--data", csv, "--symbol", cfg["symbols"][0], "--resample", resample,
+    symbol = cfg["symbols"][0]
+    common = ["--data", csv, "--symbol", symbol, "--resample", resample,
               "--atr-period", str(cfg.get("atr_period", 14)),
               "--atr-stop-mult", str(cfg.get("atr_stop_mult", 2.5)),
               "--trail-mult", str(cfg.get("trail_mult", 5.0)),
               "--min-confidence", str(cfg.get("min_confidence", 0.0)),
-              "--fee-bps-roundtrip", "7.5", "--emit-trades", emit, "--json", jout]
+              "--fee-bps-roundtrip", str(roundtrip_fee_bps(symbol)),
+              "--emit-trades", emit, "--json", jout]
     if cfg.get("adx_min") is not None:
         common += ["--adx-min", str(cfg["adx_min"])]
     if cfg.get("adx_max") is not None:
@@ -196,6 +238,10 @@ def run_one(name: str, cfg: dict, workdir: str, days: int) -> dict:
         omitted = sorted(set(omitted) | set(unreplayable))
     row["fidelity"] = "faithful" if faithful else "approximate"
     row["omitted_levers"] = omitted
+    # Record WHICH fee graded this row, so a reader can never again have to guess
+    # whether a verdict was produced under the venue-blind 7.5-bps default
+    # (BL-20260730-RESEARCH-VENUE-FEE). 0.0 = commission-free venue.
+    row["fee_bps_roundtrip"] = roundtrip_fee_bps(cfg["symbols"][0])
     try:
         subprocess.run(argv, check=True, cwd=REPO,
                        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -220,9 +266,34 @@ def load_roster() -> dict:
     return {n: strat.get(n, {}) for n in (ex.get("coverage_debt") or {})}
 
 
+def resolve_strategy(name: str) -> Optional[dict]:
+    """Config for ANY declared strategy, whether or not it is in `coverage_debt`.
+
+    Why this exists (BL-20260730-REGIME-CELL-UNAUDITABLE): the roster above is the
+    **debt list**, and authoring a cell PAYS THE STRATEGY DOWN OUT of `coverage_debt`
+    — so the moment a Tier-3 cell is authored, both re-grade tools stop being able to
+    measure that strategy at all (`regime_cell_walkforward.run_cell` returned the
+    literal error "not in coverage_debt roster"). The tooling could grade candidates
+    but never RE-AUDIT a decision it had already made.
+
+    That bit immediately: the 2026-07-30 corrected-cost re-run could not re-measure
+    `gld_pullback_1h` — the one live Tier-3 cell whose evidence the fee fix most
+    called into question — because authoring that cell had removed it from the
+    roster. A blind spot exactly where the live gate is.
+
+    So an explicitly-named strategy (`--only`, or a walk-forward request) resolves
+    against `config/strategies.yaml` directly. The DEFAULT roster is unchanged: still
+    the debt list, so a bare full-roster run means the same thing it always did.
+    """
+    strat = yaml.safe_load(
+        open(os.path.join(REPO, "config/strategies.yaml"))).get("strategies", {}) or {}
+    cfg = strat.get(name)
+    return cfg if isinstance(cfg, dict) else None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--only", nargs="*", help="run only these debt strategies")
+    ap.add_argument("--only", nargs="*", help="run only these strategies (may be outside coverage_debt — an already-celled strategy stays auditable)")
     ap.add_argument("--crypto-only", action="store_true", help="skip Yahoo feeds (sandbox-testable)")
     ap.add_argument("--workdir", default="/tmp/regime_debt_matrix")
     ap.add_argument("--days", type=int, default=730)
@@ -233,16 +304,48 @@ def main() -> int:
     names = args.only or sorted(roster)
     results = []
     for n in names:
-        cfg = roster.get(n)
+        # An explicitly-named strategy may live outside `coverage_debt` (an
+        # already-celled one, e.g. gld_pullback_1h) — resolve it so an authored
+        # cell stays auditable. BL-20260730-REGIME-CELL-UNAUDITABLE.
+        cfg = roster.get(n) or resolve_strategy(n)
         if cfg is None:
-            results.append({"strategy": n, "error": "not in coverage_debt"})
+            results.append({"strategy": n, "error": "not declared in strategies.yaml"})
             continue
         sym = (cfg.get("symbols") or [None])[0]
         if args.crypto_only and not (sym or "").upper().endswith("USDT"):
             results.append({"strategy": n, "symbol": sym, "skipped": "non-crypto (crypto-only)"})
             continue
         results.append(run_one(n, cfg, args.workdir, args.days))
-    payload = {"count": len(results), "results": results}
+
+    # COVERAGE DECLARATION (BL-20260730-REGIME-CELL-UNAUDITABLE, and the binding
+    # "Green is not evidence" rule §3). This run's roster is a WORK QUEUE — the
+    # coverage_debt list — not the population of live strategies. Authoring a cell
+    # PAYS THE STRATEGY DOWN OUT of that queue, so the queue systematically excludes
+    # exactly the decisions most in need of re-checking: the 2026-07-30 corrected-cost
+    # re-grade reported "34 rows, 0 errored, 0 skipped" while silently omitting
+    # gld_pullback_1h, the one live Tier-3 cell it existed to re-check. Emitting the
+    # population + the excluded set means "34 rows" can never again be read as "the
+    # whole audit".
+    try:
+        strat_all = yaml.safe_load(
+            open(os.path.join(REPO, "config/strategies.yaml"))).get("strategies", {}) or {}
+        live = {k for k, v in strat_all.items()
+                if isinstance(v, dict) and v.get("execution", "live") != "shadow"}
+        covered = {r.get("strategy") for r in results}
+        coverage = {
+            "roster_kind": "coverage_debt (a WORK QUEUE, not the live population)",
+            "declared_live_strategies": len(live),
+            "covered": len(covered),
+            "not_covered": sorted(live - covered),
+            "warning": ("Strategies absent here are NOT cleared — they were never "
+                        "measured by this run. An ALREADY-CELLED strategy is absent "
+                        "precisely because a cell was authored for it; re-audit those "
+                        "explicitly with --only <name>."),
+        }
+    except Exception as exc:  # noqa: BLE001
+        coverage = {"error": f"could not compute coverage: {type(exc).__name__}: {exc}"}
+
+    payload = {"count": len(results), "coverage": coverage, "results": results}
     if args.json:
         print(json.dumps(payload))
     else:
