@@ -108,6 +108,14 @@ grading-freshness guard. Required, non-empty:
 - `review_coverage.soak_status` — each active soak (shadow models, conviction,
   exit-ladder) and whether it is accruing as expected, stalled, or has met its
   gate; flags for any stall / met-but-unactioned.
+- `review_coverage.execution_capture` — **mandatory** (2026-07-30). Proof the
+  review MEASURED how much of each live strategy's edge actually reached the
+  account (not just graded the decision). See § "Execution-capture review". This
+  is the guard against the failure that motivated it: the `BYBIT_TPSL_MODE=full`
+  shared-bracket bug made 5m scalps ride 6–14h and round-trip their MFE back to
+  the stop for **weeks**, unnoticed by successive reviews, because no review was
+  measuring capture. Any anomaly open across **≥2 reviews** (`reviews_open>=2`)
+  is a MANDATORY `flags_raised[]` + `operator_priorities` escalation.
 - `review_coverage.flags_raised[]` — the loud flags this review surfaced (may be
   empty only if genuinely nothing is degrading — state that explicitly).
 - `review_coverage.account_reachability` — **mandatory** per-account up/down for
@@ -131,15 +139,21 @@ grading-freshness guard. Required, non-empty:
   open item is non-actionable — "no time" / "didn't look" / triaging only "the
   recent few" is a review FAILURE, not a valid reason.
 
-**STOP and complete the assessment if any of the five required keys
-(`strategy_promotion`, `ml_training_health`, `soak_status`, `backlog_drive`,
-`account_reachability`) is missing or empty, OR if any domain's
+**STOP and complete the assessment if any of the six required keys
+(`strategy_promotion`, `ml_training_health`, `soak_status`, `execution_capture`,
+`backlog_drive`, `account_reachability`) is missing or empty, OR if any domain's
 `backlog_drive.count_untriaged > 0`** — a review that can't show its
-promotion/training/soak coverage, its *full* backlog drive (every open item
-triaged, not a sample), *or its per-account reachability* has not actually run,
-regardless of how complete the trade/health summary looks. (Relay-blocked data
-is allowed only as an explicit `"unavailable: <reason>"` string — never silently
-omitted.)
+promotion/training/soak coverage, its *execution-capture* measurement, its
+*full* backlog drive (every open item triaged, not a sample), *or its
+per-account reachability* has not actually run, regardless of how complete the
+trade/health summary looks. (Relay-blocked data is allowed only as an explicit
+`"unavailable: <reason>"` string — never silently omitted.)
+
+The renderer surfaces this mechanically: `render_system_report.py --strict`
+exits non-zero when a required `review_coverage` key is missing/empty or an
+`execution_capture` anomaly with `reviews_open>=2` is not escalated into
+`flags_raised[]`. Run the render step with `--strict` (see § "Render & deliver")
+so a skipped assessment can't quietly ship.
 
 ## Coordination (binding — check before the first diag pull)
 
@@ -305,7 +319,17 @@ do not recompute what an endpoint already returns):
   sub-block) and `/api/pnl/history` for the current AND prior equal-length
   window. Prop from `/api/bot/prop/{status,fills,reconcile}` (isolated journal,
   never `trades`). Fill `consolidated.pnl_by_class.{real,paper,prop}` incl.
-  `trend` ∈ up/down/flat and `prior_window_pnl`.
+  `trend` ∈ up/down/flat and `prior_window_pnl`. **Dollars, reconciled (binding
+  — see § "Dollars are the scoreboard"):** the real-money `window_pnl` you report
+  MUST be the DOLLAR figure reconciled against `/api/bot/pnl/exchange` (FIFO
+  exchange-fills wallet truth) and `/api/bot/pnl/broker-truth` (lifetime
+  wallet-truth for accounts the journal under-records, e.g. `bybit_2`) — NOT a
+  journal-R sum. If real money is down, say down. Set
+  `review_coverage.execution_capture.dollars_reconciled = true` only after this
+  reconciliation actually ran.
+- **Execution capture** — see § "Execution-capture review". Fill
+  `review_coverage.execution_capture` (per-strategy roundtrippers% / giveback /
+  hold-vs-expected + aged `anomalies[]`).
 - **Trade dossiers** — `/api/bot/trades/closed?since=<window_start>&include_paper=true`
   joined to `/api/bot/order-packages` (by `linkedTradeId`) for `signalLogic` +
   `meta` + `modelScores`, and to the performance review's A–F grade
@@ -329,6 +353,78 @@ do not recompute what an endpoint already returns):
   a candle-fetch failure.
 
 Render any null as em-dash downstream — never `0`/"unknown".
+
+## Execution-capture review (mandatory — 2026-07-30)
+
+**Grading a decision is not the same as measuring whether its edge reached the
+account.** A trade can be an A-grade decision and still bleed because the
+*execution* gave the edge back — the exact failure that soaked for weeks: the
+`BYBIT_TPSL_MODE=full` shared-bracket bug made 5-minute scalps hold 6–14 hours
+and round-trip their MFE back to the stop, while every review graded the entries
+and moved on. This section makes capture a **first-class, measured** output so
+that class of bug screams on the *first* review, not the tenth.
+
+**Measure it (don't eyeball it):** run
+`scripts/research/m20_exit_analysis.py --since-days <window>` on the **trainer
+VM** (the box with the `datasets-out/market_raw` candle store — via the
+`trainer-vm-diag` relay; the script is stdlib-only so it runs on the trainer's
+plain `python3`). Real / paper / prop are **never blended**; reconciler /
+superseded / adopted-orphan artifact rows are excluded. Per live strategy that
+closed ≥1 trade in the window, record into
+`review_coverage.execution_capture.per_strategy[]`:
+
+- **`roundtrippers_pct`** — % of trades that went **≥1.0R favorable** (MFE) then
+  **closed negative** (the literal "near-TP then snap to SL" trade).
+- **`mean_giveback_r`** — mean `MFE − realized_R` (value reached but not kept).
+- **`hold_h_actual` vs `hold_h_expected`** — expected hold from the strategy's
+  timeframe (a 5m scalp's clean hold is minutes, a 2h pullback's is hours). **A
+  leg whose actual hold is an order of magnitude over expected is the execution
+  smoking gun** — it means the per-trade bracket isn't firing and the position
+  sits open until a reconciler/time event closes it.
+- **`state`** ∈ `ok` | `degraded` | `anomaly`.
+
+**Flag + AGE anomalies (the normalization killer).** Any strategy reading
+`anomaly` (hold ≫ expected, roundtrippers spiking vs its own history, giveback
+dominating realized) goes into `execution_capture.anomalies[]` **with an age**:
+
+- `first_seen` — the UTC date it was first flagged (carry forward from the prior
+  report's `execution_capture` — read `comms/reports/index.json` → the prior
+  report JSON; do NOT reset it to today).
+- `reviews_open` — consecutive reviews it has been open (prior value + 1).
+- `backlog_id` — the health/performance-review backlog item tracking it (file
+  one if none exists — this is the "if you see something, say something" duty).
+
+**`reviews_open >= 2` is a MANDATORY standalone escalation** — a
+`flags_raised[]` entry AND an `operator_priorities` row, exactly like a down
+live account. An execution defect that survives two reviews is by definition
+being walked past; the age forces it loud instead of letting it soak. (This is
+the mechanism that would have caught the bracket bug in days, not weeks.)
+
+## Dollars are the scoreboard (honesty — binding, 2026-07-30)
+
+**Report real-money P&L in DOLLARS, reconciled against broker truth. R is a
+diagnostic, never the headline.** R is risk-normalized and excludes fees +
+funding, and the `bybit_2` journal under-records (netting + spot/perp +
+sub-account — `BL-20260713`), so a positive R-sum can sit on top of a losing
+dollar account (a phantom journal row once inflated a review to "+8.9R,
+positive" while the wallet was **down**). Non-negotiable:
+
+1. The real-money figure in `pnl_by_class.real` and the headline is the **dollar**
+   value from `/api/bot/pnl/exchange` (FIFO exchange-fills) + `/api/bot/pnl/broker-truth`
+   (lifetime wallet-truth) reconciled against the journal — **not** a journal-R sum.
+2. **If real money is down, the report says down.** No rounding a loss up to R,
+   no "net positive" that is really paper.
+3. **Real / paper / prop are never blended** (already the contract) — and the
+   `*_portfolio` **paper mirror** (`bybit_portfolio` / `alpaca_portfolio`) is the
+   honest net-of-everything predictor: surface it, and when the paper mirror and
+   real money **disagree** (paper green, live red, or vice-versa), that *gap* is a
+   finding — note it in `cross_review_notes[]` (the "translation gap").
+4. **Field beats comment for account routing.** Before you call a strategy
+   real-money or demo (which sets the stakes of any promote/demote), verify its
+   ACTUAL routing from `config/accounts.yaml` (`/api/bot/config` account
+   `strategies` lists), not a strategy-config comment — a stale "demo-only soak"
+   comment on a leg that `accounts.yaml` routes to `bybit_2` (real money) is
+   exactly how a real-money change gets mis-scoped.
 
 ## Assemble
 
@@ -360,22 +456,27 @@ Build the consolidated object per
   `operator go`). This is the human-readable "what are we waiting on" companion to
   `review_coverage.backlog_drive.deferred` (which is the audit trail).
 - `consolidated.review_coverage` — **required** (the Review-coverage guard): the
-  `strategy_promotion`, `ml_training_health`, `soak_status`, `flags_raised[]`, and
-  `backlog_drive` (what was drained vs deferred + why) the review produced. A run
-  with any of the four required keys (`strategy_promotion`, `ml_training_health`,
-  `soak_status`, `backlog_drive`) missing/empty must STOP and complete the work
-  before rendering.
+  `strategy_promotion`, `ml_training_health`, `soak_status`, `execution_capture`,
+  `flags_raised[]`, and `backlog_drive` (what was drained vs deferred + why) the
+  review produced. A run with any of the required keys (`strategy_promotion`,
+  `ml_training_health`, `soak_status`, `execution_capture`, `backlog_drive`)
+  missing/empty must STOP and complete the work before rendering.
 
 ## Render & deliver
 
-1. Write the consolidated JSON to a temp file, then run:
+1. Write the consolidated JSON to a temp file, then run (with **`--strict`** — the
+   mechanical coverage backstop):
    ```
-   python3 scripts/reports/render_system_report.py <consolidated.json> --out-dir comms/reports
+   python3 scripts/reports/render_system_report.py <consolidated.json> --out-dir comms/reports --strict
    ```
    It writes `comms/reports/<window>/<UTC-ts>/{report.json,report.html,report.md}`,
    updates `comms/reports/index.json` (newest-first), and prints the HTML path.
-   **Commit** the new `comms/reports/**` files (so the GitHub link is live and the
-   VM's `ict-git-sync` mirrors them for `/api/bot/reports`).
+   **`--strict` exits non-zero (and writes nothing) if a required `review_coverage`
+   key is missing/empty or an `execution_capture` anomaly with `reviews_open>=2`
+   is not escalated into `flags_raised[]`** — fix the payload and re-run rather
+   than shipping an incomplete review. **Commit** the new `comms/reports/**` files
+   (so the GitHub link is live and the VM's `ict-git-sync` mirrors them for
+   `/api/bot/reports`).
 2. Set `artifacts.{json_path,html_path,md_path}`, `artifacts.github_link`
    (`https://github.com/benbaichmankass/ict-trading-bot/blob/main/<html_path>`),
    and **`artifacts.dashboard_link`** — the Reports deep link into the **new
