@@ -11,7 +11,20 @@
     "claimed_at": null
   },
   "active_sessions": [
-    { "session_id": "session_01X9HcdqY1K9k9nGjfGCFKAc", "branch": "claude/m28-value-thesis-sweep-evapa5", "intent": "M28 value-construction D4 composite + D5 horizon sweep + D2 regime-conditioning (continuation of ledger entry 13). Tier-1 observe-only research tooling + docs. NOTE: this session's GitHub integration cannot post issue comments (403 not-accessible-by-integration), so the live #6927 START/CLAIM comments could not be posted — coordinating via this durable record + the real-time open-PR list instead.", "started_at": "2026-07-27", "updated_at": "2026-07-27" }
+    {
+      "session_id": "session_01X9HcdqY1K9k9nGjfGCFKAc",
+      "branch": "claude/m28-value-thesis-sweep-evapa5",
+      "intent": "M28 value-construction D4 composite + D5 horizon sweep + D2 regime-conditioning (continuation of ledger entry 13). Tier-1 observe-only research tooling + docs. NOTE: this session's GitHub integration cannot post issue comments (403 not-accessible-by-integration), so the live #6927 START/CLAIM comments could not be posted — coordinating via this durable record + the real-time open-PR list instead.",
+      "started_at": "2026-07-27",
+      "updated_at": "2026-07-27"
+    },
+    {
+      "session_id": "session_015foGxJvVbJoRWVBWaHdpYb",
+      "branch": "claude/offline-vol-axis-regime-5u1p7k",
+      "intent": "Offline ML vol axis (path A of BL-20260730-2D-VOL-CELLS-UNAUDITABLE) — replay the ADVISORY regime head per bar into calm/volatile labels + add the 2-D (trend, vol) split to regime_tag_emitted, so the six live trend_vol cells become measurable. Tier-1 research tooling only; touches NO config/regime_policy.yaml, no live path, proposes no cell change. PR #8056 (draft). Also merged #8051 under the merge protocol.",
+      "started_at": "2026-07-30",
+      "updated_at": "2026-07-30"
+    }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
   "_pruned_2026-07-15": "Pruned two >24h-stale full-system-audit-2026-07-09 entries (session_013YMtQmKVzkDCPECSU4tbwD, session_01886WsrJNuwMJqnMQmxDgCn) — no matching open PR/branch after 6 days. Registered health-review session.",
