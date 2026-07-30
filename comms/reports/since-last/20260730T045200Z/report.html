@@ -1,0 +1,195 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-07-30T04:52:00+00:00 · window 2026-07-28T09:12:00+00:00 → 2026-07-30T04:50:00+00:00</p>
+<p><span class="grade">Roll-up: 🟡 caution</span></p>
+<p>Quiet, plumbing-healthy ~44h window. All services up, all 7 live accounts reachable, IB connected, zero alert banners. Real money (bybit_2 ~$268) essentially flat: 24h -$4.38 (0/2), 7d -$17.33 but +12R; both open real positions SL/TP-protected. 16 closed trades graded (B4/C10/D2). ML cycles clean (2/24h rc=0, 104 dataset builds). Big $ swings are all paper. Bybit naked-position blindspot fix (#7874) confirmed live.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>M27 real-money graduation decision (SOL/XRP/AVAX/ETH scalps + ungated gold config)</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>SRQ-20260728 + PB-20260728-GOLD-GATE: paper-validated scalp winners await a Tier-3 real-money sizing decision; gold config should ship UNGATED (fitted gate over-filters, derive-window-fragile).</span></li>
+<li><b>Fix promotion-readiness OOM (subprocess-per-model) — readiness output unconfirmed this pull</b> <span class="pill">ml · T1</span><br><span class='muted'>MB-20260719: sweep memory-thrashes the 6GB trainer (~5GB RSS, 0-byte outputs); readiness dir was empty in this pull. Ready-to-fix (bounded subprocess + MemoryMax), mirrors the training-cycle memfix. Trainer PR.</span></li>
+<li><b>Venue-aware allocator EV fee (ready Tier-1 follow-up PR)</b> <span class="pill">performance · T1</span><br><span class='muted'>PB-20260729: allocator_ev.py charges a flat 7.5bps roundtrip regardless of venue — ~25x over-charge on commission-free equities. Parallel to the shipped #7930 cost-model fix; allocator is parked (soak-only) so no live impact yet, but it feeds the future graduation gate.</span></li>
+<li><b>slv_trend_1h emitting degenerate should-skip entries</b> <span class="pill">performance · T3</span><br><span class='muted'>conf 0.06 and 0.15 signals, both graded D, 0/4 win -$629 (paper 24h). Confidence-floor / regime gate review warranted before any real-money exposure.</span></li>
+<li><b>Close BL-20260729-BYBIT-NAKED via demo validation</b> <span class="pill">health · T1</span><br><span class='muted'>Primary sweep landed live (#7874). Remaining gate: run validate-bybit-naked-rearm on bybit_1 demo to confirm the re-arm path, then close. Autonomous.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">7 open / 269 total · 11 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">4 open / 84 total · 1 drained</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">3 open / 96 total</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>performance</span> M27 real-money graduation of the SOL/XRP/AVAX/ETH 5m+15m scalp winners (SRQ-20260728-M27-WINNERS-SHIP).</li>
+<li><span class='pill'>performance</span> ict_scalp-on-gold ungated/light-gate config to real money (PB-20260728-ICTSCALP-GOLD-GATE-CONFIG).</li>
+<li><span class='pill'>ml</span> SOL trend_vol regime cell authoring once sol-regime-15m-lgbm-fc-pcv-v2 re-gates to advisory (~08-01).</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>Real vs paper separation holding cleanly: the -$1426 XRP and +$650/+$588 SOL swings are all bybit_1 demo / paper-mirror; real-money bybit_2 moved only -$4.38 in 24h. No blending.</li>
+<li>slv_trend_1h surfaces in BOTH the performance grades (2 D-grade should-skip losers) AND the paper aggregate (SLV commodity -$629, 0/4) — a single degenerate-confidence strategy, not noise.</li>
+<li>ML dataset-audit enforcement skipped 4 manifests for dead-feature/degenerate-label (mes-regime-1d-lgbm-v2, setup-quality-lgbm-v2, trade-outcome-lgbm-v1, setup-candidates-metalabel-xsym-yz-v1 = the tracked MB-20260726-XSYMYZ range-vol-dead item) — the audit is doing its job, not a regression.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Service</th><th>State</th><th>Since</th></tr>
+<tr><td>ict-trader-live.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-web-api.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-telegram-bot.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-claude-bridge.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-trainer.service (trainer VM)</td><td>inactive/waiting/timer active</td><td>next 2026-07-31 00:37</td></tr>
+</table></div>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>trader_liveness</td><td class="sev-ok">🟢 ok</td><td>Heartbeat running (age 179s); uptime ~5h; last tick 04:39:20; git_sha d90ca90f = current main.</td></tr>
+<tr><td>services</td><td class="sev-ok">🟢 ok</td><td>ict-trader-live, ict-web-api, ict-telegram-bot, ict-claude-bridge all active; all watchdog/publish timers active.</td></tr>
+<tr><td>notification_banners</td><td class="sev-ok">🟢 ok</td><td>/notifications count=0, has_alerts=false — no trainer_down/account_down/orphan_unreconciled/operator_warning.</td></tr>
+<tr><td>account_reachability</td><td class="sev-ok">🟢 ok</td><td>All 7 declared-live accounts reachable (bybit_1/2/portfolio, ib_paper, alpaca_paper/portfolio/options_paper); exchange_positions non-null + balances api_ok true. Dry: ib_live/alpaca_live/oanda; API-less: breakout_1.</td></tr>
+<tr><td>ib_connection</td><td class="sev-ok">🟢 ok</td><td>All 3 MES IB clients connected, account_data_ready, breaker closed, consecutive_failures=0 (last liveness_probe_timeout was during the 00:00 IBKR reset window, recovered).</td></tr>
+<tr><td>real_money_protection</td><td class="sev-ok">🟢 ok</td><td>Both open real-money bybit_2 positions (XRPUSDT, ETHUSDT) carry SL+TP — not naked. #7874 Bybit broker-naked sweep live.</td></tr>
+<tr><td>prop_status_feed</td><td class="sev-watch">🟡 watch</td><td>breakout_1 account_status snapshot 10d stale (last 2026-07-20); no open prop position so no live risk, but the balance feed is dark. reconcile clean.</td></tr>
+<tr><td>canonical_db</td><td class="sev-ok">🟢 ok</td><td>snapshot read order_packages/trades cleanly; trainer_store mirror age 89s.</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-4.38</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">3</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">0.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-2.19</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.00</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-4.38</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>ict_scalp_5m</td><td>1</td><td>0.0%</td><td class="neg">$-4.00</td></tr>
+<tr><td>xrp_pullback_2h</td><td>1</td><td>0.0%</td><td class="neg">$-0.38</td></tr>
+<tr><td>trend_donchian_xrp_4h</td><td>1</td><td>—</td><td class="">—</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$3,513.40</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↑</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">16</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">56.2%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$219.59</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">1.70</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-3,188.55</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">9</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>ict_scalp_sol_5m</td><td>4</td><td>100.0%</td><td class="pos">+$3,481.63</td></tr>
+<tr><td>ict_scalp_sol_15m</td><td>2</td><td>50.0%</td><td class="pos">+$3,464.81</td></tr>
+<tr><td>slv_trend_1h</td><td>4</td><td>0.0%</td><td class="neg">$-629.52</td></tr>
+<tr><td>ict_scalp_5m</td><td>1</td><td>0.0%</td><td class="neg">$-2,589.78</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">0</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">+$144.77</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">+$125.61</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">0</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">16 full dossiers, — summarized (—).</p>
+<details><summary><span class="pill paper">paper</span> ADAUSDT short · ada_pullback_2h · <span class="">—</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4113</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-28T13:29:36Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.157</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>0.162875</div><div class="k">target</div><div>0.141457</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>late</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SLV short · slv_trend_1h · <span class="neg">$-314.16</span> · grade D</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4115</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-28T13:30:34Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>51.63</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>52.606</div><div class="k">target</div><div>46.519</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>sl</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>should_skip</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> XRPUSDT short · ict_scalp_xrp_5m · <span class="neg">$-1,425.96</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4122</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-28T13:40:02Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1.046</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>1.0564</div><div class="k">target</div><div>1.0304</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT short · ada_pullback_2h · <span class="">—</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4125</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-28T16:07:06Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.1587</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>0.1647</div><div class="k">target</div><div>0.143</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> ADAUSDT short · ada_pullback_2h · <span class="neg">$-420.34</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4148</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-28T18:10:16Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>0.1589</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>0.164</div><div class="k">target</div><div>0.1432</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> XRPUSDT short · xrp_pullback_2h · <span class="neg">$-0.38</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4154</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-28T20:00:10Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1.0614</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>1.0851</div><div class="k">target</div><div>0.9563</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>optimal</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT long · pairs_sol_eth_a · <span class="pos">+$16.65</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4159</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-29T06:04:10Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>73.65</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>36.825</div><div class="k">target</div><div>147.3</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>unknown</div><div class="k">exit quality</div><div>premature_exit</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> BTCUSDT long · ict_scalp_5m · <span class="neg">$-4.00</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4180</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-29T14:00:25Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>64677.5</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>64110.3</div><div class="k">target</div><div>65528.3</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>late</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT long · ict_scalp_sol_5m · <span class="pos">+$481.65</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4187</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-29T16:25:50Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>73.32</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>72.948</div><div class="k">target</div><div>73.879</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>tp_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT long · ict_scalp_sol_15m · <span class="">—</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4192</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-29T18:02:03Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>74.23</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>72.847</div><div class="k">target</div><div>76.305</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>optimal</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT long · ict_scalp_sol_15m · <span class="neg">$-467.55</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4193</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-29T18:16:26Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>74.14</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>72.85</div><div class="k">target</div><div>76.075</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SLV long · slv_trend_1h · <span class="neg">$-31.59</span> · grade D</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4197</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-29T18:50:21Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>53.37</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>52.197</div><div class="k">target</div><div>58.654</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>sl</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>should_skip</div><div class="k">exit quality</div><div>sl_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT long · ict_scalp_sol_5m · <span class="pos">+$649.92</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4210</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-29T20:15:50Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>72.95</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>72.793</div><div class="k">target</div><div>73.186</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>tp_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> AVAXUSDT long · ict_scalp_avax_5m · <span class="pos">+$83.21</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4211</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-29T20:16:35Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>6.383</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>6.364</div><div class="k">target</div><div>6.411</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>tp_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SOLUSDT long · ict_scalp_sol_5m · <span class="pos">+$588.10</span> · grade C</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4212</div><div class="k">account</div><div>bybit_1</div><div class="k">opened</div><div>2026-07-29T20:46:36Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>73.05</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>72.794</div><div class="k">target</div><div>73.434</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>acceptable</div><div class="k">exit quality</div><div>tp_appropriate</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> XRPUSDT short · ict_scalp_xrp_5m · <span class="">—</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4217</div><div class="k">account</div><div>bybit_2</div><div class="k">opened</div><div>2026-07-30T00:57:53Z</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>1.069</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>1.0774</div><div class="k">target</div><div>1.0564</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>reconciler</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>optimal</div><div class="k">exit quality</div><div>unknown</div><div class="k">risk mgmt</div><div>unknown</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>63349.2</td><td>64141.9</td><td>64742.7</td><td>62747.3</td><td class="pos">1.2%</td><td>Tight chop, mild up-drift; ADX chop/transitional</td></tr>
+<tr><td>ETHUSDT</td><td>1879.2</td><td>1906.4</td><td>1936.05</td><td>1856.65</td><td class="pos">1.4%</td><td>Range 1856–1936, chop with slight lift</td></tr>
+<tr><td>XRPUSDT</td><td>1.0565</td><td>1.0763</td><td>1.0937</td><td>1.0448</td><td class="pos">1.9%</td><td>Pushed to 1.094 then faded; net up</td></tr>
+<tr><td>SOLUSDT</td><td>73.2</td><td>73.63</td><td>74.59</td><td>72.35</td><td class="pos">0.6%</td><td>Flat/chop 72.3–74.6, no trend</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟢 healthy</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>registry (fleet)</td><td>93 models</td><td>cycles_24h=2 rc=0</td><td>stable</td><td>—</td><td>advisory 2 · shadow 28 · candidate 62 · research_only 1. Last cycle 2026-07-30 01:52 rc=0; dataset_builds 104 ok / 0 failed; manifests 75 ok / 0 failed / 8 skipped.</td></tr>
+<tr><td>btc-regime-5m-lgbm-v2</td><td>shadow</td><td>—</td><td>—</td><td>accruing (6493 preds, last 04:43)</td><td>Soak healthy, score range 0.50–1.00.</td></tr>
+<tr><td>conviction-meta-v1</td><td>shadow</td><td>—</td><td>—</td><td>accruing (5854)</td><td>score_mean 0.806, varied — healthy soak.</td></tr>
+<tr><td>execution-quality-baseline-v0</td><td>shadow</td><td>—</td><td>—</td><td>DEGENERATE</td><td>score constant -0.2017 (min==max) — degenerate baseline soak (same class as BL-20260525-005 prop-mission all-zero).</td></tr>
+</table></div>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li>REVIEW/gate <b>slv_trend_1h</b> — conf 0.06/0.15 degenerate should-skip entries, 0/4 win -$629 paper 24h; two D grades. Confidence-floor/regime gate before any real-money.</li>
+<li class='muted'>All live strategies HOLD. No M7 packet flipped to PROMOTE/KILL this window. Pending Tier-3: M27 scalp winners graduation (SRQ-20260728) + ungated gold config. sol-regime-15m-lgbm-fc-pcv-v2 soaking toward advisory (~08-01) to restore the SOL vol head.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">2</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">104</div></div>
+</div>
+<p class='muted'>Trainer healthy (load 0.02, mem fine). Last cycle 2026-07-30 01:52 rc=0. 8 skips = known dead-feature audit-enforcement (4) + empty-dataset MES coverage gaps (4). No OOM/quarantine this cycle. Promotion-readiness output NOT found in this pull (dir empty) — possible MB-20260719 OOM still producing 0-byte; verify next readiness fire.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>shadow regime heads (btc/eth/sol 5m)</td><td>accruing</td><td>6100–6500 preds each, last_seen current (04:43). Healthy.</td></tr>
+<tr><td>conviction-meta-v1</td><td>accruing</td><td>5854 preds, score_mean 0.806 varied. Matched-holdout AUC read pending (MB-20260727).</td></tr>
+<tr><td>execution-quality-baseline-v0</td><td>degenerate</td><td>score constant -0.2017 (min==max) — flag; known-class degenerate baseline.</td></tr>
+<tr><td>fc-pcv v2 (BTC/SOL vol heads)</td><td>soaking</td><td>fresh-data siblings soaking; gate re-check + swap for frozen v1 advisory ~2026-08-01 (MB-20260721).</td></tr>
+<tr><td>SOL advisory vol head</td><td>awaiting-decision</td><td>sol-regime-15m-lgbm-fc-pcv-v1 demoted advisory→shadow 07-26 (KS drift); v2 replacement soaking. No live-order impact (no SOL trend_vol cell).</td></tr>
+<tr><td>promotion-readiness sweep</td><td>stalled?</td><td>readiness output dir empty this pull — verify (MB-20260719 OOM).</td></tr>
+</table></div>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 slv_trend_1h emitting degenerate low-confidence (0.06/0.15) should-skip entries → 0/4 win, -$629 paper, 2× D-grade. Needs a confidence-floor/regime gate before real money.</li><li>🚩 Promotion-readiness output not present in the trainer pull (empty dir) — possible MB-20260719 OOM still producing 0-byte; verify at the next readiness fire.</li><li>🚩 prop breakout_1 account_status snapshot 10 days stale (no open prop position, so no live risk — the feed is just dark).</li><li>🚩 execution-quality-baseline-v0 shadow score constant (-0.2017 min==max) — degenerate soak (known-class).</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>BL-20260729-ICTSCALP-ETH15M-STALE-FIRSTFIRE</code></td><td>health</td><td>🧱 awaiting-data</td><td>stale12 exit lever shipped paper-only (#7863); verify P5 parity + P7 first-fire on the first close</td><td>first ict_scalp_eth_15m stale_stop close</td></tr>
+<tr><td><code>BL-20260729-IB-FLEX-FILLS</code></td><td>health</td><td>🗳️ awaiting-decision</td><td>ib_paper broker-truth fills need the IB Flex Web Service; design landed, secret slots minted empty</td><td>operator provides IB_FLEX_TOKEN/QUERY_ID</td></tr>
+<tr><td><code>SRQ-20260728-M27-WINNERS-SHIP</code></td><td>performance</td><td>🗳️ awaiting-decision</td><td>Tier-3 M27 real-money graduation of SOL/XRP/AVAX/ETH scalp winners</td><td>operator go</td></tr>
+<tr><td><code>PB-20260728-ICTSCALP-GOLD-GATE-CONFIG</code></td><td>performance</td><td>🗳️ awaiting-decision</td><td>ship ungated gold scalp config to real money (fitted gate fragile)</td><td>operator go</td></tr>
+<tr><td><code>PB-20260620-001</code></td><td>performance</td><td>🧱 awaiting-data</td><td>verify 6 intraday ETF cells produce live paper fills</td><td>paper fills accrue</td></tr>
+<tr><td><code>MB-20260727-CONVICTION-AB-AUC</code></td><td>ml</td><td>🧱 awaiting-data</td><td>matched-holdout AUC read (both conviction models on identical live rows)</td><td>enough shared live rows</td></tr>
+<tr><td><code>MB-20260728-ICTSCALP-EXIT-LEVERS</code></td><td>ml</td><td>⏳ soaking</td><td>family-wide ict_scalp exit-lever sweeps (harness built, MGC swept honest_negative)</td><td>remaining legs swept on trainer</td></tr>
+<tr><td><code>MB-20260721-FCPCV-V2-SOAK</code></td><td>ml</td><td>⏳ soaking</td><td>fc-pcv v2 fresh-data siblings soak → gate-check + swap for frozen v1 advisory (BTC/SOL vol heads)</td><td>~2026-08-01 gate re-check</td></tr>
+</table></div>
+<footer>report_id RPT-20260730-045200-since-last · reviewer claude · prior RPT-20260728-091200-since-last · ICT Trading Bot system-report</footer></div></body></html>
