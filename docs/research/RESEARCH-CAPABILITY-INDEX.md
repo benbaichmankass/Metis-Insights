@@ -69,6 +69,7 @@ cannot model is not necessarily unmeasurable — check §3 before concluding tha
 | Trainer-side exit analysis | `scripts/research/m20_exit_analysis.py` |
 | Would a **regime-flip** exit have helped? | `scripts/research/m20_regime_flip_replay.py` · fleet: `m20_flip_replay_sweep.py` |
 | Drive one (family, tf) exit-head round end-to-end | `scripts/research/m20_exit_head_round.py` |
+| **Can a closed trade's exit price be RECONSTRUCTED when the broker fill was never recovered — and how wrong is it?** Hides the known fill on measured rows, rebuilds the exit from 1m klines with the harness's SL-first rule, and reports error in bps against broker truth + per-venue candle coverage | `scripts/research/exit_reconstruction_validator.py` · v2 (decision-time bracket, BE replay, time-consistency stratification): `scripts/research/exit_reconstruction_validator_v2.py` |
 | Runner (off-VM) | `.github/workflows/research-exit-head-build.yml` — label `research-exit-head-request` |
 
 **`analyze_exit_head.py` is the answer to "can an ML exit head be backtested?" — yes.** It
