@@ -149,7 +149,15 @@ Push-triggered and issue-triggered workflows DO run, so Actions is not disabled 
 the fault is specific to the `pull_request` event. Zero checks renders identically
 to green. Needs operator/console access to diagnose.
 
-**Consequence to state plainly: nothing in this PR has been verified by CI.**
+**RESOLVED for this PR (19:16Z): all 25 checks green on `6c5273a1`** — including
+`pytest-run` (9,362 tests), `provenance-consumer-guard` and `json-extract-guard`.
+Both guards this PR adds have now demonstrably EXECUTED on a runner, which is the
+gap the paragraph below was written about. The P1 itself stays open: the event is
+INTERMITTENT (see § 7), and a check that runs sometimes is not a check.
+
+The original caveat, kept as the record of what it took to get here:
+
+**When first written, nothing in this PR had been verified by CI.**
 Everything below was verified locally — 196 tests, `ruff check .` on the
 repo-pinned ruff, both guard scripts run directly — but neither guard *workflow*
 has ever executed on a runner. A guard that has never run is indistinguishable
