@@ -7230,6 +7230,20 @@ _BROKER_PNL_RECOVERY_MS = 7 * 24 * 60 * 60 * 1000  # Bybit closed-pnl retention
 _LOCAL_PNL_BROKER_DEFER_MS = 6 * 60 * 60 * 1000  # 6h — match INV-2 grace
 
 
+def _exit_anchor_fetches_per_tick() -> int:
+    """How many close-time candle fetches `_sweep_local_pnl_for_unpriced` may
+    make per monitor tick (``EXIT_ANCHOR_FETCHES_PER_TICK``, default 3).
+
+    A tuning knob, NOT an enable gate — the anchoring itself is unconditional
+    (Prime Directive). `0` pauses the network path entirely without a redeploy,
+    which leaves rows deferred rather than fabricated: the safe direction.
+    """
+    try:
+        return max(0, int(os.environ.get("EXIT_ANCHOR_FETCHES_PER_TICK", "3")))
+    except (TypeError, ValueError):
+        return 3
+
+
 def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
     """Local-compute the realised ``pnl`` the broker can't provide — the
     **universal fallback** half of the bot's PnL-resolution contract.
@@ -7279,6 +7293,9 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
     summary: Dict[str, int] = {
         "scanned": 0, "filled": 0, "relinked": 0,
         "still_pending": 0, "deferred_broker": 0, "errors": 0,
+        # Rows we ASKED about and could not anchor, so declared unmeasured
+        # rather than priced from an unrelated mark. Counted, never silent.
+        "declared_unmeasured": 0, "already_unmeasured": 0,
     }
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
 
@@ -7289,7 +7306,7 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
             cursor.execute(
                 "SELECT id, symbol, direction, position_size, "
                 "       entry_price, exit_price, account_id, created_at, "
-                "       notes, order_package_id "
+                "       closed_at, notes, order_package_id "
                 "  FROM trades "
                 " WHERE status IN ('closed', 'orphaned') "
                 "   AND COALESCE(is_backtest, 0) = 0 "
@@ -7334,12 +7351,21 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
             compute_pnl_percent,
             compute_realized_pnl,
             contract_value_usd_for,
-            last_mark_price,
         )
+        from src.runtime.exit_anchor import ANCHOR_SOURCE, AnchorBudget, bar_close_at
+        from src.runtime.provenance import UNMEASURED_MARKER
         from src.units.accounts.clients import account_has_broker_pnl_reader
     except Exception as exc:  # noqa: BLE001
         logger.warning("_sweep_local_pnl_for_unpriced: import failed: %s", exc)
         return summary
+
+    # Per-tick NETWORK budget for the close-time anchor. Deliberately small:
+    # this sweep runs on the LIVE trader's monitor tick, and an unbounded
+    # per-row historical fetch here is the same shape as the 2026-06-09
+    # cold-start wedge that pegged the 2-core box and froze the heartbeat.
+    # Rows beyond the budget are DEFERRED to a later tick — never fabricated,
+    # and never falsely declared unmeasured (we didn't actually look).
+    anchor_budget = AnchorBudget(_exit_anchor_fetches_per_tick())
 
     for row in rows:
         try:
@@ -7374,14 +7400,60 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
             entry = _safe_float(row.get("entry_price"))
             qty = _safe_float(row.get("position_size"))
 
-            # Exit price: recorded fill first, else mark-to-market last close.
+            # Exit price: recorded fill first, else the bar covering closed_at.
+            #
+            # 2026-07-30 (Tier-2, operator-approved). This previously fell back
+            # to `last_mark_price(symbol)` — the market at SWEEP time, up to the
+            # convergence grace AFTER the close — and booked pnl from it. For a
+            # CONFIRMED CLOSE that is fabrication: a true value exists (the fill)
+            # and the mark is not it. Matched-pair proof: trade 4180 (real)
+            # -$4.00 vs mirror 4181 -$2,589.78 — same strategy, symbol, bracket
+            # and minute, ~650x apart.
+            #
+            # The replacement is anchored to the close TIME (validated: median
+            # 1.33 bps, p90 16.05, 46/48 within 50 bps) and is stamped
+            # ESTIMATED, never MEASURED — a bar close says where the market was,
+            # not where THIS order filled.
             exit_price = _safe_float(row.get("exit_price"))
             exit_source = "recorded_exit_price"
             if not exit_price or exit_price <= 0:
-                exit_price = last_mark_price(symbol)
-                exit_source = "local_markprice"
+                anchored, anchor_status = bar_close_at(
+                    symbol, row.get("closed_at"), budget=anchor_budget,
+                )
+                if anchor_status == "deferred":
+                    # Budget spent or a transient read failure. We did NOT look,
+                    # so we may not declare — retry on a later tick.
+                    summary["still_pending"] += 1
+                    continue
+                if anchor_status == "no_anchor":
+                    # We DID ask and the venue has no bar for that time (every
+                    # IBKR root today — historical-candle coverage is 0%). The
+                    # honest terminal state is to say so on the record, not to
+                    # substitute an unrelated price. INV-2 accepts this marker
+                    # and INV-2b counts it, so the row converges and stays
+                    # visible instead of being fabricated or stranded.
+                    notes = _decode_notes(row.get("notes"))
+                    if notes.get("pnl_source") != UNMEASURED_MARKER:
+                        notes["pnl_source"] = UNMEASURED_MARKER
+                        notes["unmeasured_reason"] = "no_close_time_anchor"
+                        try:
+                            db.update_trade(int(row["id"]), {
+                                "notes": dump_capped(notes, 500),
+                            })
+                            summary["declared_unmeasured"] = (
+                                summary.get("declared_unmeasured", 0) + 1
+                            )
+                        except Exception:  # noqa: BLE001 — best-effort declaration
+                            summary["errors"] += 1
+                    else:
+                        summary["already_unmeasured"] = (
+                            summary.get("already_unmeasured", 0) + 1
+                        )
+                    continue
+                exit_price = anchored
+                exit_source = ANCHOR_SOURCE
             if not exit_price or exit_price <= 0:
-                # No broker fill and no mark available this tick — retry later.
+                # Nothing usable this tick — retry later.
                 summary["still_pending"] += 1
                 continue
 
@@ -7396,9 +7468,16 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
                 continue
 
             notes = _decode_notes(row.get("notes"))
+            # `local_compute` describes the ARITHMETIC, not the evidence — it is
+            # deliberately unrecognised by the provenance vocabulary so
+            # `classify_pnl` defers to `exit_price_source`, which is what
+            # actually determines whether this number is trustworthy.
             notes["pnl_source"] = "local_compute"
             notes["exit_price_source"] = exit_source
             notes["contract_value_usd"] = cvu
+            # A row that previously declared itself unmeasured and has now been
+            # anchored must drop the marker, or INV-2b would count it forever.
+            notes.pop("unmeasured_reason", None)
 
             updates: Dict[str, Any] = {
                 "pnl": pnl,
@@ -7438,12 +7517,15 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
             )
             summary["errors"] += 1
 
-    if summary["filled"] or summary["relinked"] or summary["errors"]:
+    if (summary["filled"] or summary["relinked"] or summary["errors"]
+            or summary["declared_unmeasured"]):
         logger.info(
             "_sweep_local_pnl_for_unpriced: scanned=%d filled=%d relinked=%d "
-            "still_pending=%d deferred_broker=%d errors=%d",
+            "still_pending=%d deferred_broker=%d declared_unmeasured=%d "
+            "already_unmeasured=%d errors=%d",
             summary["scanned"], summary["filled"], summary["relinked"],
             summary["still_pending"], summary["deferred_broker"],
+            summary["declared_unmeasured"], summary["already_unmeasured"],
             summary["errors"],
         )
     return summary
