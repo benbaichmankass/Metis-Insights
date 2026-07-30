@@ -295,7 +295,13 @@ def trade_path(candles, cand_ts, t_open, t_close, entry, sl, is_long
 # ------------------------------------------------------------------- main
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--db", default="data/trade_journal.db")
+    ap.add_argument("--db", default="data/trade_journal.db",
+                    help="trade journal. NOTE the default is the TRAINER's SYNCED COPY, "
+                         "which lags live by hours — see --max-journal-age-hours")
+    ap.add_argument("--max-journal-age-hours", type=float, default=6.0,
+                    help="warn loudly when the newest close is older than this, so a "
+                         "stale mirror cannot present as 'nothing closed recently' "
+                         "(BL-20260730-TRAINER-JOURNAL-PULL-STALE)")
     ap.add_argument("--datasets-root", default="datasets-out")
     ap.add_argument("--ladder-soak", default="runtime_logs/exit_ladder_soak.jsonl")
     ap.add_argument("--instruments", default="config/instruments.yaml")
@@ -366,14 +372,43 @@ def main() -> int:
 
     print("\n===S1 COVERAGE===")
     max_close = max((t["t_close"] for t in trades), default=None)
-    print(json.dumps({
+    # JOURNAL FRESHNESS MUST JUDGE ITSELF, not just report a timestamp.
+    # `--db` defaults to the TRAINER's synced copy of trade_journal.db, which is pulled
+    # periodically, not in real time — it was measured ~15-16h behind live on 2026-07-30
+    # (BL-20260730-TRAINER-JOURNAL-PULL-STALE). A stale mirror produces a perfectly
+    # plausible `journal_latest_close` and silently omits recent closes, so "the mirror is
+    # behind" is indistinguishable from "nothing closed recently" — and on 2026-07-30 that
+    # under-report was attributed to a timestamp PARSE artifact instead
+    # (BL-20260730-TRADES-TIMESTAMP-FORMAT-MIXED). `_epoch` above in fact handles all four
+    # encodings in the wild (epoch-ms, bare digits, ISO±offset, space-separated
+    # CURRENT_TIMESTAMP) and this field is a Python max() over already-parsed values — there
+    # is no SQL string comparison in this path. Staleness is the live hypothesis; so say so
+    # loudly here rather than let a future reader re-derive it.
+    age_h = ((datetime.now(timezone.utc).timestamp() - max_close) / 3600.0
+             if max_close else None)
+    max_age_h = args.max_journal_age_hours
+    stale = (age_h is not None and age_h > max_age_h)
+    s1 = {
         "closed_trades_in_window": len(trades),
         "by_class": {c: sum(1 for t in trades if t["cls"] == c)
                      for c in {t["cls"] for t in trades}},
         "journal_latest_close": datetime.fromtimestamp(
             max_close, tz=timezone.utc).isoformat() if max_close else None,
+        "journal_age_hours": round(age_h, 2) if age_h is not None else None,
+        "journal_stale": stale,
+        "journal_db": str(args.db),
         "candle_coverage": coverage,
-    }, indent=1))
+    }
+    if stale:
+        s1["journal_stale_warning"] = (
+            f"newest close is {age_h:.1f}h old (> {max_age_h}h). If this is the TRAINER's "
+            "synced copy, recent closes are ABSENT, not missing — do not read a small recent "
+            "sample as 'few trades'. Use the LIVE journal (/api/diag/journal) for "
+            "recent-window questions; reserve this copy for windows old enough to have synced.")
+    print(json.dumps(s1, indent=1))
+    if stale:
+        print(f"::warning::journal mirror is {age_h:.1f}h stale ({args.db}) — "
+              "recent-window conclusions from this run are not trustworthy")
 
     # ---------- S2 ladder soak
     soak_rows = []

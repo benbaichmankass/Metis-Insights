@@ -107,10 +107,20 @@ or database before you assert.
 > [`ROADMAP_MACRO.md`](./ROADMAP_MACRO.md)). **The old name keeps working
 > everywhere via GitHub's 301 redirect — do not chase a full rename sweep.**
 > Operational reality for this + future sessions:
-> - **GitHub MCP tools + git remotes still use the string `ict-trading-bot`** —
->   the session's repo-access scope is pinned to that name and GitHub redirects
->   it to `Metis-Insights`; passing the new name to an MCP tool is denied at the
->   session-scope layer. Keep using `owner: benbaichmankass, repo: ict-trading-bot`.
+> - **The MCP repo name is whatever THIS session's scope says — read it, don't
+>   assume it.** A session's allowed-repository list is printed in its own system
+>   context, and it has changed: sessions through 2026-07-29 were scoped to
+>   `ict-trading-bot` (the new name was denied at the session-scope layer, which is
+>   what the previous version of this bullet recorded), while a 2026-07-30 session
+>   was scoped to **`metis-insights`** and got `Access denied: repository
+>   "benbaichmankass/ict-trading-bot" is not configured for this session` on the OLD
+>   name. Either name can be the denied one, so **hardcoding either here is a trap**:
+>   the denial is a scope mismatch, NOT the "hosted GitHub MCP dropped" blip below,
+>   and must not be retried with backoff or escalated as a token problem. Take the
+>   name from the session's own allowed list; if a call is denied, re-read that list
+>   before concluding anything about GitHub's availability.
+>   **`git remote` is unaffected** — it points at whichever name the clone was made
+>   with and the 301 redirect resolves it either way.
 > - **VM clone dirs stay `/home/ubuntu/ict-trading-bot` + `/opt/ict-trading-bot`** —
 >   a GitHub repo rename does NOT move the on-disk clone. Workflow paths that
 >   reference those dirs are correct and MUST NOT be swept to the new name (doing

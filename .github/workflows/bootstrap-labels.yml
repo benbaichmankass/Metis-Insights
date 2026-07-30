@@ -415,11 +415,12 @@ jobs:
                 color: '0e8a16',
                 description: 'Triggers econ-calendar-survey-backfill — reconstruct the SURVEY-consensus side from FXStreet history, raising M3\'s joinable overlap.',
               },
-              {
-                name: 'econ-event-study-now',
-                color: '0e8a16',
-                description: 'Triggers econ-event-study — surprise → forward-return IC(H) over the PIT snapshots (takes kinds/snapshots/start).',
-              },
+              // NOTE: `econ-event-study-now` is deliberately NOT re-declared here — it is
+              // already declared above. A second entry for the same name is DEAD TEXT, not a
+              // second declaration: the loop is get-then-skip, so an existing label is left
+              // as-is and the later entry's description is never applied. (One was added here
+              // on 2026-07-30 and removed the same day.) Before adding a label, grep this
+              // array for the name — a duplicate reads like an update while updating nothing.
             ];
             // Resilient bootstrap: one bad label must not abort the rest.
             // GitHub caps label descriptions at 100 chars (422 otherwise), so
