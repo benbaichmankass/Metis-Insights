@@ -7171,7 +7171,75 @@
         "config/regime_policy.yaml",
         "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER"
       ]
+    },
+    {
+      "id": "BL-20260730-M1-PRICE-JOIN-DEAD",
+      "opened_at": "2026-07-30T12:15:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "comms/macro/econ_event_study_scorecard.json published `verdict: insufficient_history` with `price_bars: 0` for the producer's ENTIRE life. The study never joined a single price bar, so its verdict was VACUOUS, not thin -- and the two are indistinguishable from the outside.",
+      "title": "[macro/M1] econ event study joined ZERO price bars for its entire life — the flagship 'green is not evidence' instance",
+      "description": "FILED LATE, and that is itself the finding. This id is cited from docs/CLAUDE-RULES-CANONICAL.md (as the canonical example of the binding 'Green is not evidence' rule), scripts/ops/check_artifact_validity.py, scripts/macro/{econ_event_study,fetch_macro_candles,econ_calendar_snapshot_backfill}.py, and FOUR workflows -- but it existed only as other rows' `refs` and was never filed as a row of its own. So the flagship instance of the rule was 'tracked by' an id that resolved to nothing, which reads as tracked while being tracked by nobody. Exactly the crack the operator's 2026-07-30 directive names. THREE causes, all fixed but NOT ALL VERIFIED: (1) the Stooq URL/symbol mapping was wrong so the candle fetch returned nothing -- fixed (_STOOQ_URL + _STOOQ_FUTURES map + stooq_symbol()); (2) econ_event_study.py treated an empty panel as a soft zero and exited 0 -- fixed, now exits 2 unless --allow-empty-panel is passed explicitly; (3) the workflow swallowed the fetch with `|| echo` so a dead fetch stayed green -- fixed, plus a >=100-closes-per-symbol assertion. STILL UNVERIFIED ON A RUNNER: the econ-event-study workflow has not re-run since. Until it does, the fix is code-complete and evidence-free -- the same state that produced the bug. Verify then close.",
+      "severity": "high",
+      "status": "open",
+      "area": "macro",
+      "refs": [
+        "scripts/macro/econ_event_study.py",
+        "scripts/macro/fetch_macro_candles.py",
+        ".github/workflows/econ-event-study.yml",
+        "docs/CLAUDE-RULES-CANONICAL.md",
+        "BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER"
+      ]
+    },
+    {
+      "id": "BL-20260730-RESEARCH-VENUE-FEE",
+      "opened_at": "2026-07-30T12:15:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "scripts/research/regime_debt_matrix.py::roundtrip_fee_bps was the literal constant 7.5 bps for EVERY symbol, so all 14 commission-free (alpaca, spot) instruments (SPY QQQ TQQQ QLD GLD IWM TLT IEF SLV USO GDX SPLG IAUM SCHA) were charged a crypto-perp round-trip fee -- a ~25x over-charge worth ~0.04-0.12 R/trade.",
+      "title": "[research] regime debt matrix charged a crypto-perp fee to 14 commission-free equity/ETF instruments (~25x)",
+      "description": "FIXED (delegates to core.profile_loader.roundtrip_fee_bps_for, with trade_costs.DEFAULT_FEE_BPS_ROUNDTRIP as the single fallback) and the row now records WHICH fee graded it, so a reader never has to guess whether a verdict came from the venue-blind default. Filed late: the id was cited in the function's own docstring but never existed as a row. WHY IT MATTERED: this harness is what sourced Tier-3 regime cells. Over-charging can only make a strategy look WORSE, so the risk is asymmetric -- it cannot have created a false positive, but it can have created false NEGATIVES: OFF cells authored against a ~25x fee that would not survive the correct one. The gld_pullback_1h re-audit confirmed the mechanism is real (both deltas landed in the predicted 0.04-0.12 band) though that cell SURVIVED. RESIDUAL: every OTHER cell authored off an equity/ETF row before this fix rests on an over-charged measurement and needs re-checking -- tracked by BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER.",
+      "severity": "medium",
+      "status": "resolved",
+      "area": "research",
+      "refs": [
+        "scripts/research/regime_debt_matrix.py",
+        "docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md",
+        "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER",
+        "BL-20260730-FEE-AB-FIXED-WINDOW"
+      ]
+    },
+    {
+      "id": "BL-20260730-EXITHEAD-REPLAY-SINGLE-THRESHOLD",
+      "opened_at": "2026-07-30T12:15:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "The LIVE exit-head firing rule (src/units/strategies/trend_donchian.py::_exit_head_verdict) is CONDITIONAL and shape-dependent: for below_half_r it fires on `score < tau AND open_r < below_r`; for peak shapes the comparison INVERTS (`score > tau`, plus `open_r >= below_r` for peak_winner). scripts/research/analyze_exit_head.py applies a SINGLE --exit-threshold and models neither the second condition nor the shape inversion.",
+      "title": "[research] analyze_exit_head's policy sim is a single threshold — it does not reproduce the live CONDITIONAL exit-head rule",
+      "description": "So a run at --exit-threshold 0.10 reproduces tau ONLY and will fire on trades the live head leaves open, OVERSTATING the head's activity. It is an APPROXIMATION of the live policy, not a replay of it -- and the difference decides whether a regime cell can be graded against the strategy that actually trades. Noted explicitly in the dispatch (issue #7976) so the result cannot be misread as 'the live head replayed'. CONTEXT: this was found while correcting a WORSE error in the opposite direction -- I had claimed an ML exit head can never be replayed offline at all, which is false (the M20 toolchain does exactly that). The correct position is the narrow one: replay IS possible, and the current analyzer's policy sim is not yet faithful to the live conditional rule. FIX: the live-matching predicate already exists as src/runtime/.../exit_head_shadow.py::would_exit (the docstring of _exit_head_verdict says it mirrors it) -- reuse that in the policy sim rather than re-deriving a threshold rule, so live==replay by construction. Until then, no trend_donchian cell may be authored or retired off analyze_exit_head output.",
+      "severity": "medium",
+      "status": "open",
+      "area": "research",
+      "refs": [
+        "scripts/research/analyze_exit_head.py",
+        "src/units/strategies/trend_donchian.py",
+        "BL-20260730-DONCHIAN-CELLS-SUPERSEDED-EVIDENCE",
+        "docs/research/RESEARCH-CAPABILITY-INDEX.md"
+      ]
+    },
+    {
+      "id": "BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS",
+      "opened_at": "2026-07-30T12:15:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "A self-audit of every BL-20260730-* id cited in docs/, scripts/, .github/, config/ against the actual backlog files found FOUR cited ids that were never filed: M1-PRICE-JOIN-DEAD (cited from the canonical rules + 4 workflows), RESEARCH-VENUE-FEE, EXITHEAD-WF-SWALLOWED-FAILURES (a name mismatch -- filed under RESEARCH-WF-*), and EXITHEAD-REPLAY-SINGLE-THRESHOLD (cited in a dispatched issue).",
+      "title": "[process] cited-but-unfiled backlog ids read as tracked while being tracked by nobody — needs a CI check",
+      "description": "All four are now filed and the name mismatch reconciled to one canonical id. But the CLASS needs a mechanical guard, because this is the operator's 2026-07-30 directive almost verbatim: 'make sure the tasks don't fall between the cracks so that we think they're done, and then it turns out in two weeks that something has been failing because we incorrectly thought that we finished building something that we hadn't.' A doc or code comment saying 'tracked by BL-X' where BL-X does not exist is WORSE than no reference: it reads as tracked, so nobody re-checks it. The flagship case proves the severity -- BL-20260730-M1-PRICE-JOIN-DEAD is the canonical example in the binding 'Green is not evidence' rule and is cited from four workflows, and it resolved to nothing. PROPOSED FIX: a CI check (sibling of check_research_index.py, same shape) that greps every BL-*/MB-* id referenced in docs/ scripts/ .github/ config/ and fails when one is absent from the backlog files -- treating a dangling tracking reference exactly like an unindexed research script. Cheap, mechanical, and it closes a class rather than four instances.",
+      "severity": "medium",
+      "status": "open",
+      "area": "process",
+      "refs": [
+        "docs/claude/health-review-backlog.json",
+        "scripts/ops/check_research_index.py",
+        "docs/CLAUDE-RULES-CANONICAL.md"
+      ]
     }
   ],
-  "updated_at": "2026-07-30T11:40:00+00:00"
+  "updated_at": "2026-07-30T12:15:00+00:00"
 }
