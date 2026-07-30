@@ -58,32 +58,101 @@ class _FakeBybit:
 
 
 # --------------------------------------------------------- protection reader
+# 2026-07-30: this reader returns COVERAGE, not a boolean. It used to return
+# ``(size, any(<an SL leg exists>))``, which under BYBIT_TPSL_MODE=partial let a
+# netted position with only SOME of its per-trade qty-scoped legs read as fully
+# PROTECTED — so the sweep skipped a partially-unprotected real position. Tests
+# below pin the quantity semantics.
 def test_position_protection_full_mode_stop():
     c = _FakeBybit(positions={"XRPUSDT": {"size": "157.7", "stopLoss": "1.085"}})
-    assert om._bybit_position_protection(c, "linear", "XRPUSDT") == (157.7, True)
+    st = om._bybit_position_protection(c, "linear", "XRPUSDT")
+    # A Full-mode position stop genuinely covers the WHOLE net position.
+    assert st["size"] == 157.7
+    assert st["covered_qty"] == 157.7
+    assert st["source"] == "full_position_stop"
 
 
-def test_position_protection_partial_leg():
+def test_position_protection_partial_leg_covering_whole_size():
     c = _FakeBybit(
         positions={"XRPUSDT": {"size": "15.8", "stopLoss": ""}},
-        stop_legs={"XRPUSDT": [{"stopOrderType": "PartialStopLoss"}]},
+        stop_legs={"XRPUSDT": [
+            {"stopOrderType": "PartialStopLoss", "qty": "15.8", "orderId": "a"},
+        ]},
     )
-    size, protected = om._bybit_position_protection(c, "linear", "XRPUSDT")
-    assert size == 15.8 and protected is True
+    st = om._bybit_position_protection(c, "linear", "XRPUSDT")
+    assert st["size"] == 15.8 and st["covered_qty"] == 15.8
+    assert st["source"] == "partial_sl_legs" and st["sl_leg_ids"] == {"a"}
+
+
+def test_position_protection_partial_legs_SUM_toward_coverage():
+    """Two qty-scoped legs on one netted position add up."""
+    c = _FakeBybit(
+        positions={"XRPUSDT": {"size": "10", "stopLoss": ""}},
+        stop_legs={"XRPUSDT": [
+            {"stopOrderType": "PartialStopLoss", "qty": "4", "orderId": "a"},
+            {"stopOrderType": "PartialStopLoss", "qty": "6", "orderId": "b"},
+        ]},
+    )
+    st = om._bybit_position_protection(c, "linear", "XRPUSDT")
+    assert st["covered_qty"] == 10.0 and st["sl_leg_ids"] == {"a", "b"}
+
+
+def test_position_protection_PARTIAL_COVERAGE_is_visible():
+    """THE regression this change exists to prevent.
+
+    One surviving 4-qty leg on a 10-qty netted position: the old ``any()``
+    boolean called this PROTECTED. Coverage must show the 6-qty hole.
+    """
+    c = _FakeBybit(
+        positions={"BNBUSDT": {"size": "10", "stopLoss": ""}},
+        stop_legs={"BNBUSDT": [
+            {"stopOrderType": "PartialStopLoss", "qty": "4", "orderId": "a"},
+        ]},
+    )
+    st = om._bybit_position_protection(c, "linear", "BNBUSDT")
+    assert st["size"] == 10.0
+    assert st["covered_qty"] == 4.0          # NOT 10 — the hole is measured
+    assert st["size"] - st["covered_qty"] == 6.0
 
 
 def test_position_protection_naked():
-    """Live size, no Full stop, no SL leg (only a TP leg) → naked."""
+    """Live size, no Full stop, no SL leg (only a TP leg) → zero coverage."""
     c = _FakeBybit(
         positions={"XRPUSDT": {"size": "157.7", "stopLoss": "0"}},
-        stop_legs={"XRPUSDT": [{"stopOrderType": "PartialTakeProfit"}]},
+        stop_legs={"XRPUSDT": [{"stopOrderType": "PartialTakeProfit",
+                                "qty": "157.7"}]},
     )
-    assert om._bybit_position_protection(c, "linear", "XRPUSDT") == (157.7, False)
+    st = om._bybit_position_protection(c, "linear", "XRPUSDT")
+    # A resting TAKE-PROFIT leg is not protection.
+    assert st["size"] == 157.7 and st["covered_qty"] == 0.0
+
+
+def test_position_protection_unparseable_leg_qty_is_flagged():
+    """An SL leg with no readable qty must not be counted as coverage."""
+    c = _FakeBybit(
+        positions={"XRPUSDT": {"size": "10", "stopLoss": ""}},
+        stop_legs={"XRPUSDT": [{"stopOrderType": "PartialStopLoss",
+                                "orderId": "a"}]},  # no qty
+    )
+    st = om._bybit_position_protection(c, "linear", "XRPUSDT")
+    assert st["covered_qty"] == 0.0
+    assert st["unknown_qty_sl_legs"] == 1
 
 
 def test_position_protection_flat():
-    c = _FakeBybit(positions={})  # no open position
-    assert om._bybit_position_protection(c, "linear", "XRPUSDT") == (0.0, True)
+    st = om._bybit_position_protection(_FakeBybit(positions={}), "linear", "X")
+    assert st["size"] == 0.0 and st["source"] == "flat"
+    st2 = om._bybit_position_protection(
+        _FakeBybit(positions={"X": {"size": "0", "stopLoss": ""}}), "linear", "X")
+    assert st2["size"] == 0.0 and st2["source"] == "flat"
+
+
+def test_sl_leg_qty_parser():
+    assert om._bybit_sl_leg_qty({"qty": "4"}) == 4.0
+    assert om._bybit_sl_leg_qty({"triggerQty": "2.5"}) == 2.5
+    assert om._bybit_sl_leg_qty({}) is None
+    assert om._bybit_sl_leg_qty({"qty": "0"}) is None
+    assert om._bybit_sl_leg_qty({"qty": "nope"}) is None
 
 
 def test_position_protection_read_failure_returns_none():
@@ -222,3 +291,110 @@ def test_attempt_autoprotect_bybit_branch(monkeypatch):
     assert om._attempt_naked_autoprotect(row, 1.085, 0.95) is True
     assert client.stops_set[0]["tpslMode"] == "Full"
     assert client.stops_set[0]["positionIdx"] == 0
+
+
+# ---------------------------------------------- 2026-07-30 anomaly detection
+# Both of these were found LIVE by the bybit-bracket-audit action and were
+# invisible to every pre-existing check. They are detect-only in the sweep
+# (loud ERROR + a counter) — remediation is deliberately separate.
+def test_sweep_flags_leg_OVER_accumulation(tmp_path, monkeypatch, caplog):
+    """bybit_1 XRPUSDT, live: position 32557.2, resting SL legs 144789.3 (444.7%).
+
+    Legs piled up instead of tracking the position. A trip would OVER-close and
+    strand the rest. Coverage alone reads "protected", so this needs its own
+    signal.
+    """
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="bybit_2", symbol="XRPUSDT", direction="short",
+            position_size=32557.2, stop_loss=1.094, take_profit_1=1.054,
+            created_at="2026-07-01T00:00:00+00:00", status="open")
+    client = _FakeBybit(
+        positions={"XRPUSDT": {"size": "32557.2", "stopLoss": ""}},
+        stop_legs={"XRPUSDT": [
+            {"stopOrderType": "PartialStopLoss", "qty": "58686.8", "orderId": "a"},
+            {"stopOrderType": "PartialStopLoss", "qty": "86102.5", "orderId": "b"},
+        ]},
+    )
+    _patch_accounts(monkeypatch, client)
+    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+
+    with caplog.at_level("ERROR"):
+        summary = om._check_broker_naked_bybit_positions(db)
+    assert summary["over_covered"] == 1
+    # Over-covered is still "covered" — no re-arm, nothing placed.
+    assert summary["rearmed"] == 0 and summary["topped_up"] == 0
+    assert client.stops_set == []
+    assert "LEG OVER-ACCUMULATION" in caplog.text
+
+
+def test_sweep_flags_journal_vs_broker_qty_divergence(tmp_path, monkeypatch, caplog):
+    """bybit_1 BTCUSDT, live: journal rows sum 1.553 vs exchange size 0.01.
+
+    The 1.543 row is a phantom — the broker has no such position — yet analytics
+    and risk sizing both read the journal.
+    """
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="bybit_2", symbol="BTCUSDT", direction="long",
+            position_size=0.01, stop_loss=31757.85, take_profit_1=127031.4,
+            created_at="2026-07-01T00:00:00+00:00", status="open")
+    _insert(db, id=2, account_id="bybit_2", symbol="BTCUSDT", direction="long",
+            position_size=1.543, stop_loss=64110.32, take_profit_1=65528.26,
+            created_at="2026-07-01T00:00:00+00:00", status="open")
+    client = _FakeBybit(
+        positions={"BTCUSDT": {"size": "0.01", "stopLoss": ""}},
+        stop_legs={"BTCUSDT": [
+            {"stopOrderType": "PartialStopLoss", "qty": "0.01", "orderId": "a"},
+        ]},
+    )
+    _patch_accounts(monkeypatch, client)
+    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+
+    with caplog.at_level("ERROR"):
+        summary = om._check_broker_naked_bybit_positions(db)
+    # Flagged exactly ONCE for the symbol even though 2 rows reference it.
+    assert summary["journal_qty_divergent"] == 1
+    assert "JOURNAL/BROKER QTY DIVERGENCE" in caplog.text
+    # The real 0.01 position IS covered, so no re-arm fires.
+    assert summary["rearmed"] == 0 and client.stops_set == []
+
+
+def test_sweep_tops_up_a_real_partial_gap(tmp_path, monkeypatch):
+    """A genuine coverage hole: 10 qty position, one surviving 4-qty leg.
+
+    The old any()-boolean skipped this entirely. Now it top-ups a qty-scoped
+    Partial SL leg for exactly the uncovered 6.
+    """
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="bybit_2", symbol="BNBUSDT", direction="short",
+            position_size=10.0, stop_loss=1149.8, take_profit_1=287.5,
+            created_at="2026-07-01T00:00:00+00:00", status="open")
+    client = _FakeBybit(
+        positions={"BNBUSDT": {"size": "10", "stopLoss": ""}},
+        stop_legs={"BNBUSDT": [
+            {"stopOrderType": "PartialStopLoss", "qty": "4", "orderId": "a"},
+        ]},
+    )
+    _patch_accounts(monkeypatch, client)
+    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+
+    calls = {}
+
+    def _fake_modify(cl, acc, *, symbol, sl, tp, qty, sl_order_id, tp_order_id):
+        calls.update(symbol=symbol, sl=sl, tp=tp, qty=qty,
+                     sl_order_id=sl_order_id)
+        return {"ok": True, "error": None}
+
+    monkeypatch.setattr(
+        "src.units.accounts.execute.modify_open_order", _fake_modify)
+
+    summary = om._check_broker_naked_bybit_positions(db)
+    assert summary["partially_naked"] == 1
+    assert summary["topped_up"] == 1
+    # Exactly the uncovered qty, and NO tracked leg id (so execute.py takes its
+    # add-a-leg Partial branch rather than amending someone else's leg).
+    assert calls["qty"] == 6.0
+    assert calls["sl_order_id"] is None
+    assert calls["tp"] is None          # protection only; don't burn a TP leg
+    assert calls["symbol"] == "BNBUSDT"
+    # The Full-mode whole-position re-arm must NOT also fire.
+    assert summary["rearmed"] == 0 and client.stops_set == []
