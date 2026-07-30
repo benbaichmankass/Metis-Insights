@@ -114,13 +114,23 @@ def test_broker_pnl_reader_capability_is_declarative():
     # capability, not a hardcoded "is it Bybit".
     assert "interactive_brokers" in BROKER_PNL_READER_EXCHANGES
     assert exchange_has_broker_pnl_reader("interactive_brokers") is True
-    # Integrations with no wired reader → local fallback (still the default).
-    assert exchange_has_broker_pnl_reader("alpaca") is False
+    # alpaca joined 2026-07-30 (BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ):
+    # pull_alpaca_fills.py had been landing FILL activities in the same store on
+    # a daily timer the whole time and nothing read them, while alpaca_paper sat
+    # at 59.1% fabricated. Alpaca fills carry no realised PnL, so it resolves a
+    # MEASURED exit PRICE and the caller computes locally — a different mode from
+    # IB, same capability declaration.
+    assert "alpaca" in BROKER_PNL_READER_EXCHANGES
+    assert exchange_has_broker_pnl_reader("alpaca") is True
+    # oanda still has no wired reader → local fallback, which remains the
+    # DEFAULT. That is the property this test exists to pin: membership is an
+    # explicit opt-in per integration, not a hardcoded venue check.
     assert exchange_has_broker_pnl_reader("oanda") is False
+    assert account_has_broker_pnl_reader({"exchange": "oanda"}) is False
     assert account_has_broker_pnl_reader({"exchange": "bybit"}) is True
     assert account_has_broker_pnl_reader(
         {"exchange": "interactive_brokers"}) is True
-    assert account_has_broker_pnl_reader({"exchange": "alpaca"}) is False
+    assert account_has_broker_pnl_reader({"exchange": "alpaca"}) is True
     assert account_has_broker_pnl_reader(None) is False
 
 

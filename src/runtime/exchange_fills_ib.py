@@ -361,14 +361,6 @@ _QTY_TOLERANCE = 0.05
 _OPEN_SLACK_MS = 60_000
 
 
-def _iso_from_ms(ms: int) -> str:
-    return (
-        datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
-
-
 def closed_pnl_from_fills(
     *,
     account_id: str,
@@ -379,121 +371,23 @@ def closed_pnl_from_fills(
     qty: Optional[float] = None,
     conn_factory: Optional[Callable[[], Any]] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Broker-truth close for one journal trade, read from the fills store.
+    """IB broker-truth close for one journal trade.
 
-    The IB half of :func:`src.units.accounts.clients.account_closed_pnl_for_trade`,
-    and deliberately a **local SQLite read, not a broker call**: the caller runs
-    on the live trader's monitor tick, where a per-row network request is the
-    2026-06-09 cold-start wedge shape. ``scripts/pull_ib_executions.py`` does the
-    network half on its own timer; this only reads what that already landed.
-
-    Returns the same contract as the Bybit reader —
-    ``{"avg_exit_price", "avg_entry_price", "closed_pnl", "qty", "side",
-    "closed_at", "source"}`` — or ``None``. ``avg_entry_price`` is ``None``:
-    close-side executions do not carry the position's entry, and inventing one
-    is precisely what this module exists to stop.
-
-    ``None`` is returned — never a partial record — when ANY of these hold:
-
-    * the store is missing/unreadable, or holds no matching close-side fill;
-    * the matched fills' cumulative qty is off by more than
-      :data:`_QTY_TOLERANCE` (a partial-close cycle, or another trade's fills
-      bleeding into the window — attributing those would be the netting-prorate
-      error in a new costume);
-    * **any** matched fill lacks broker ``realized_pnl``. A close whose PnL IB
-      did not report is not measurable here, and summing the subset that did
-      report would silently under-count. ``None`` sends the row to the honest
-      fallback (anchor, else declare unmeasured) instead.
-
-    Never raises.
+    Thin wrapper over the venue-neutral :func:`src.runtime.fills_pnl.exit_from_fills`
+    with ``require_realized=True`` — IBKR is the one venue that serves its own
+    per-fill realised PnL, so it is the one venue whose result carries
+    ``closed_pnl`` directly. Kept as a named entry point because the module
+    docstring, the puller and the tests all refer to it.
     """
-    side = {"long": "sell", "short": "buy"}.get(str(direction or "").lower())
-    sym = str(symbol or "").strip()
-    acct = str(account_id or "").strip()
-    if not side or not sym or not acct:
-        return None
-    try:
-        start_ms = int(opened_at_ms) - _OPEN_SLACK_MS
-    except (TypeError, ValueError):
-        return None
-    end_ms = (
-        int(closed_at_ms)
-        if closed_at_ms
-        else int(datetime.now(timezone.utc).timestamp() * 1000)
+    from src.runtime.fills_pnl import exit_from_fills
+
+    return exit_from_fills(
+        account_id=account_id,
+        symbol=symbol,
+        direction=direction,
+        opened_at_ms=opened_at_ms,
+        closed_at_ms=closed_at_ms,
+        qty=qty,
+        require_realized=True,
+        conn_factory=conn_factory,
     )
-    if end_ms <= start_ms:
-        return None
-
-    try:
-        if conn_factory is not None:
-            conn = conn_factory()
-        else:
-            import sqlite3  # noqa: PLC0415 — keeps the mapping half import-light
-
-            from src.runtime.exchange_fills_store import (  # noqa: PLC0415
-                get_fills_db_path,
-            )
-
-            path = get_fills_db_path()
-            if not path.exists():
-                return None
-            conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT price, qty, exec_time, raw FROM exchange_fills "
-                " WHERE account_id = ? AND symbol = ? AND side = ? "
-                "   AND datetime(exec_time) >= datetime(?) "
-                "   AND datetime(exec_time) <= datetime(?) "
-                " ORDER BY datetime(exec_time) ASC",
-                (acct, sym, side, _iso_from_ms(start_ms), _iso_from_ms(end_ms)),
-            )
-            fills = cur.fetchall()
-        finally:
-            try:
-                conn.close()
-            except Exception:  # noqa: BLE001
-                pass
-    except Exception:  # noqa: BLE001 — a store read never breaks the monitor tick
-        return None
-
-    if not fills:
-        return None
-
-    target = _f(qty)
-    matched: List[tuple] = []
-    filled_qty = 0.0
-    for price, fqty, exec_time, raw in fills:
-        p, q = _f(price), _f(fqty)
-        if p is None or q is None or q <= 0 or p <= 0:
-            # An unusable row makes the whole match ungradeable: silently
-            # skipping it would under-count the close and mis-price the exit.
-            return None
-        matched.append((p, q, exec_time, raw))
-        filled_qty += q
-        if target is not None and filled_qty >= target * (1 - _QTY_TOLERANCE):
-            break
-
-    if target is not None and target > 0:
-        if abs(filled_qty - target) > target * _QTY_TOLERANCE:
-            return None
-    if filled_qty <= 0:
-        return None
-
-    realized_total = 0.0
-    for _p, _q, _t, raw in matched:
-        realized = realized_pnl_from_raw(raw)
-        if realized is None:
-            return None
-        realized_total += realized
-
-    avg_exit = sum(p * q for p, q, _t, _r in matched) / filled_qty
-    return {
-        "avg_exit_price": avg_exit,
-        "avg_entry_price": None,
-        "closed_pnl": realized_total,
-        "qty": filled_qty,
-        "side": side,
-        "closed_at": matched[-1][2],
-        "source": IB_EXIT_SOURCE,
-    }

@@ -45,6 +45,15 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Manually dispatchable so a FEATURE BRANCH can always run the suite.
+  # Without this, `push` is main-only and `pull_request` is the sole event that
+  # can run these tests on a branch — so the one confirmed dropped
+  # `pull_request` delivery (BL-20260730-PR-CI-NOT-ATTACHING) left a branch with
+  # NO way to run its tests in CI at all. That is the part worth fixing
+  # regardless of whether the delivery flakiness recurs: the failure mode is not
+  # "a check went red", it is "a check silently did not run", which renders
+  # identically to green.
+  workflow_dispatch:
 
 permissions:
   contents: read
