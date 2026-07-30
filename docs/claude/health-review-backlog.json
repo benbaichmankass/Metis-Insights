@@ -7123,7 +7123,55 @@
         "config/strategies.yaml",
         "BL-20260730-SIDE-FILTER-NOT-FORWARDED"
       ]
+    },
+    {
+      "id": "BL-20260730-CAPABILITY-INDEX-NEEDS-FIDELITY-LIMITS",
+      "opened_at": "2026-07-30T11:40:00+00:00",
+      "opened_by": "claude (research-infra audit)",
+      "source": "docs/research/RESEARCH-CAPABILITY-INDEX.md routes every research tool to the question it answers, and CI keeps it complete. But it does NOT state each tool's FIDELITY LIMITS -- which live levers that tool cannot model.",
+      "title": "[research-tooling] capability index routes tools but does not declare their fidelity limits",
+      "description": "This is where the 2026-07-30 error actually lived, so it is the highest-value follow-up to the index itself. Knowing analyze_exit_head.py exists is necessary but not sufficient: a session also needs to know that backtest_trend.py cannot model exit_head_*, that backtest_squeeze.py has no --side-filter and no --tp-r, and that backtest_ict_scalp.py has NO fee model at all (gross only, BL-20260610-M15-1). Today those facts live scattered in lever maps and code comments -- and a code comment is exactly what produced the false impossibility conclusion. Proposal: a per-tool 'cannot model' column in the index, generated from the lever maps rather than hand-written (hand-written would drift, which is the failure mode being fixed). Composes with BL-20260730-HARNESS-LEVER-MAP-COUPLING-GUARD: the same extraction feeds both.",
+      "severity": "medium",
+      "status": "open",
+      "area": "research-tooling",
+      "refs": [
+        "docs/research/RESEARCH-CAPABILITY-INDEX.md",
+        "scripts/ops/check_research_index.py",
+        "BL-20260730-HARNESS-LEVER-MAP-COUPLING-GUARD"
+      ]
+    },
+    {
+      "id": "BL-20260730-RESEARCH-WF-SWALLOWED-FAILURES",
+      "opened_at": "2026-07-30T11:40:00+00:00",
+      "opened_by": "claude (research-infra audit)",
+      "source": "Found while auditing the exit-head path. research-exit-head-build.yml swallowed BOTH the panel build and the analyzer with `|| true`, so an empty panel still rendered a VERDICT.md; it also had no roster/clock_tf input, so a backtest_system run silently used the DEFAULT roster instead of the requested strategy. research-panel-build.yml swallowed five steps. The artifact-validity guard's PRODUCER pattern matched only fetch_*/_produce/_backfill/_snapshot and missed the entire research family (build_*_panel.py, analyze_*.py).",
+      "title": "[research-tooling] both research workflows swallowed producer failures; the guard's pattern missed the whole family",
+      "description": "FIXED in this PR; filed as the record and because the guard-coverage lesson generalizes. Fixes: exit-head workflow gained validated roster/clock_tf inputs, lost both `|| true`s, and now asserts a non-empty panel BEFORE the analyzer runs. research-panel-build got three DIFFERENT treatments rather than one blanket rule -- the panel build is load-bearing (must fail), the multi-outcome sweep tolerates one outcome failing but now fails if EVERY outcome failed and warns on partial, and the explicitly-requested per-cell step must fail. The guard's PRODUCER regex was widened to build_*/analyze_*/_resolve and is now clean repo-wide. LESSON: a guard that names a bug class but matches only one naming convention is scoped-wrong in exactly the way the class describes -- worth re-checking the other guards' patterns against the families they claim to cover.",
+      "severity": "medium",
+      "status": "resolved-in-pr",
+      "area": "research-tooling",
+      "refs": [
+        ".github/workflows/research-exit-head-build.yml",
+        ".github/workflows/research-panel-build.yml",
+        ".github/workflows/artifact-validity-guard.yml"
+      ]
+    },
+    {
+      "id": "BL-20260730-REGIME-SELECTIVITY-SKILL",
+      "opened_at": "2026-07-30T11:40:00+00:00",
+      "opened_by": "claude (research-infra audit)",
+      "source": "No skill owns the regime-cell LIFECYCLE (author -> re-audit -> retire). It rides research-driver's loose umbrella. Consequences observed in one day: the self-erasing work queue (acting on a cell removes it from coverage_debt, so the queue excludes the decisions most needing re-check), cosmetic cells (trend_donchian short cells with zero short trades), cells authored on evidence a later lever superseded, and a side_filter that silently un-modelled two live strategies.",
+      "title": "[skills] no skill owns the regime-cell lifecycle — proposed `regime-selectivity`",
+      "description": "Operator asked for regime classification to be a first-class research area ('knowing when strategies are strong and when they're not so that we're a little bit more selective'). The tooling now exists (regime_debt_matrix + regime_cell_walkforward + regime_tag_emitted + analyze_panel_by_cell, all routed in the capability index) but the RULESET does not: what evidence authors a cell, what fidelity is required (never `approximate`), the #7915 stable-drag gate, the mandatory re-audit cadence with a register that is NOT the work queue, the no-cosmetic-cell rule, and that every cell change is Tier-3 operator-gated. Proposed as a skill so a session inherits it instead of rediscovering it -- which is the same argument that produced macro-research on 2026-07-29. Needs operator approval to create.",
+      "severity": "medium",
+      "status": "open",
+      "area": "skills",
+      "refs": [
+        "docs/research/RESEARCH-INFRA-AUDIT-2026-07-30.md",
+        "config/regime_policy.yaml",
+        "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER"
+      ]
     }
   ],
-  "updated_at": "2026-07-30T11:05:00+00:00"
+  "updated_at": "2026-07-30T11:40:00+00:00"
 }

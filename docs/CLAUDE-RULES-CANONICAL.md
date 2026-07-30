@@ -106,7 +106,7 @@ the class applies to your instruments, not only to your data. Enforced at sessio
 by the `git_history_check` SessionStart hook + `scripts/ops/git_history_check.py`, which
 **refuses** a history question on a shallow clone rather than answering it.
 
-**Three binding obligations:**
+**Four binding obligations:**
 
 1. **Assert the inputs, not just the exit code.** Before reading a verdict out of any
    artifact, check the counts that make it meaningful (`price_bars`, `n`, `rows`,
@@ -121,7 +121,27 @@ by the `git_history_check` SessionStart hook + `scripts/ops/git_history_check.py
    what kept instance 1 green. An intentional exception carries
    `# allow-degraded: <reason>` inline. Enforced by `artifact-validity-guard`.
 
-3. **State your population, and justify every exclusion.** When an audit or re-grade
+3. **An IMPOSSIBILITY claim gets more scepticism than a success claim, not less.**
+   Before writing that something **cannot be measured / is not replayable / needs new
+   tooling**, check [`docs/research/RESEARCH-CAPABILITY-INDEX.md`](research/RESEARCH-CAPABILITY-INDEX.md)
+   and grep `scripts/research/`. Say *which* tool you checked. A code comment, a constant
+   name (`_UNREPLAYABLE`), or a skill asserting impossibility is **scoped to its own
+   module** until proven otherwise.
+
+   A tool wrongly reporting "measured: OK" wastes a decision. A tool wrongly reporting
+   "this cannot be measured" **closes off the work** — nobody re-checks a dead end, and
+   the claim propagates into backlog rows and operator decisions as settled fact. On
+   2026-07-30 a session reported six live regime gates as permanently un-auditable on the
+   strength of one such comment; `scripts/research/analyze_exit_head.py` had been doing
+   exactly that job the whole time. Audit:
+   [`docs/research/RESEARCH-INFRA-AUDIT-2026-07-30.md`](research/RESEARCH-INFRA-AUDIT-2026-07-30.md).
+
+   The same applies to a skill or doc that **claims completeness**. `backtesting/SKILL.md`
+   said it mapped "every real backtest entry point in the repo" while 47 of 51 research
+   tools appeared in no skill — and that false completeness is what stopped the session
+   looking further. Prefer "partial — see <index>" over an unenforced claim of coverage.
+
+4. **State your population, and justify every exclusion.** When an audit or re-grade
    iterates a **work queue** (a debt list, a backlog, an open-items set) rather than
    the full population, "finished the queue" silently reads as "finished the audit."
    Declare what you claim to cover, what you actually covered, and why the difference

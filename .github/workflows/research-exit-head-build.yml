@@ -64,6 +64,12 @@ on:
       exit_threshold:
         description: "P(hold) below which the head exits now"
         default: "0.5"
+      roster:
+        description: "[backtest_system] comma strategy roster, e.g. trend_donchian. Blank = harness default."
+        default: ""
+      clock_tf:
+        description: "[backtest_system] clock timeframe"
+        default: "15m"
   issues:
     types: [opened]
 
@@ -103,6 +109,8 @@ jobs:
           TSB=$(get time_stop_bars);   [ -z "${TSB}" ] && TSB="12"
           TPR=$(get tp_r);             [ -z "${TPR}" ] && TPR="2.0"
           THR=$(get exit_threshold);   [ -z "${THR}" ] && THR="0.5"
+          ROSTER=$(get roster)
+          CLOCKTF=$(get clock_tf);     [ -z "${CLOCKTF}" ] && CLOCKTF="15m"
           # sanity-validate so a malformed body can't inject args
           printf '%s' "${HARNESS}" | grep -qE '^(ict_scalp|backtest_system)$' || HARNESS="ict_scalp"
           printf '%s' "${SYMBOL}" | grep -qE '^[A-Z0-9]+$' || SYMBOL="BTCUSDT"
@@ -111,9 +119,14 @@ jobs:
           printf '%s' "${TSB}" | grep -qE '^[0-9]+$' || TSB="12"
           printf '%s' "${TPR}" | grep -qE '^[0-9.]+$' || TPR="2.0"
           printf '%s' "${THR}" | grep -qE '^[0-9.]+$' || THR="0.5"
+          # roster is a comma list of strategy names; anything else is dropped, not
+          # passed through (an unvalidated value here would be arg injection).
+          printf '%s' "${ROSTER}" | grep -qE '^[a-z0-9_,]*$' || ROSTER=""
+          printf '%s' "${CLOCKTF}" | grep -qE '^[0-9]+[mhdMHD]$' || CLOCKTF="15m"
           { echo "eh_harness=${HARNESS}"; echo "eh_symbol=${SYMBOL}";
             echo "eh_timeframe=${TIMEFRAME}"; echo "eh_days=${DAYS}";
-            echo "eh_tsb=${TSB}"; echo "eh_tpr=${TPR}"; echo "eh_thr=${THR}"; } >> "$GITHUB_ENV"
+            echo "eh_tsb=${TSB}"; echo "eh_tpr=${TPR}"; echo "eh_thr=${THR}";
+            echo "eh_roster=${ROSTER}"; echo "eh_clocktf=${CLOCKTF}"; } >> "$GITHUB_ENV"
 
       - name: Set params from dispatch inputs
         if: github.event_name == 'workflow_dispatch'
@@ -121,7 +134,9 @@ jobs:
           { echo "eh_harness=${{ inputs.harness }}"; echo "eh_symbol=${{ inputs.symbol }}";
             echo "eh_timeframe=${{ inputs.timeframe }}"; echo "eh_days=${{ inputs.days }}";
             echo "eh_tsb=${{ inputs.time_stop_bars }}"; echo "eh_tpr=${{ inputs.tp_r }}";
-            echo "eh_thr=${{ inputs.exit_threshold }}"; } >> "$GITHUB_ENV"
+            echo "eh_thr=${{ inputs.exit_threshold }}";
+            echo "eh_roster=${{ inputs.roster }}";
+            echo "eh_clocktf=${{ inputs.clock_tf || '15m' }}"; } >> "$GITHUB_ENV"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -154,14 +169,43 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/research
+          ROSTER_ARG=""
+          if [ -n "${eh_roster:-}" ]; then
+            ROSTER_ARG="--roster ${eh_roster} --clock-tf ${eh_clocktf}"
+          fi
           /usr/bin/time -v python scripts/research/build_intrabar_exit_panel.py \
             --harness "${eh_harness}" --data "data/eh_feed.csv" \
             --symbol "${eh_symbol}" --timeframe "${eh_timeframe}" \
             --time-stop-bars "${eh_tsb}" --tp-r "${eh_tpr}" \
-            --out artifacts/research/exit_panel.jsonl 2> artifacts/research/build_time.txt || true
+            ${ROSTER_ARG} \
+            --out artifacts/research/exit_panel.jsonl 2> artifacts/research/build_time.txt
           echo "=== manifest ==="
-          python -c "import json;m=json.load(open('artifacts/research/exit_panel.jsonl.manifest.json'));print({k:m.get(k) for k in ('row_count','trades_used','base_hold_rate','dense_feature_cols','error')})" || true
+          python -c "import json;m=json.load(open('artifacts/research/exit_panel.jsonl.manifest.json'));print({k:m.get(k) for k in ('row_count','trades_used','base_hold_rate','dense_feature_cols','error')})"
           tail -3 artifacts/research/build_time.txt || true
+
+      # A verdict computed from an empty panel is VACUOUS, not thin -- and the two are
+      # indistinguishable from the outside. Before the analyzer runs, assert the panel
+      # actually measured something. (docs/CLAUDE-RULES-CANONICAL.md "Green is not
+      # evidence" obligation 1; BL-20260730-EXITHEAD-WF-SWALLOWED-FAILURES.)
+      - name: Assert the panel is non-empty
+        run: |
+          set -euo pipefail
+          python - <<'PYEOF'
+          import json, sys
+          m = json.load(open("artifacts/research/exit_panel.jsonl.manifest.json"))
+          rows, trades = m.get("row_count") or 0, m.get("trades_used") or 0
+          if m.get("error"):
+              print(f"::error::panel build reported error: {m['error']}"); sys.exit(1)
+          if rows < 1 or trades < 1:
+              print(f"::error::panel is EMPTY (rows={rows}, trades={trades}) -- the exit "
+                    "head would be graded on nothing. Check the roster actually produced "
+                    "trades on this feed/timeframe.")
+              sys.exit(1)
+          if trades < 30:
+              print(f"::warning::only {trades} trades in the panel -- per-regime splits "
+                    "will be too thin to grade a cell; treat as indicative only.")
+          print(f"OK -- panel has {rows} rows from {trades} trades.")
+          PYEOF
 
       - name: Analyze the exit head
         run: |
@@ -169,7 +213,7 @@ jobs:
           python scripts/research/analyze_exit_head.py \
             --panel artifacts/research/exit_panel.jsonl \
             --exit-threshold "${eh_thr}" \
-            --out artifacts/research/exit_head.json || true
+            --out artifacts/research/exit_head.json
 
       - name: Summarize verdict
         run: |

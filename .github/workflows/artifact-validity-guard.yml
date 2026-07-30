@@ -79,7 +79,18 @@ jobs:
           python3 - <<'PY'
           import pathlib, re, sys
 
-          PRODUCER = re.compile(r'(fetch_[a-z_]*\.py|_produce\.py|_backfill\.py|_snapshot\.py)')
+          # WIDENED 2026-07-30. The first pattern only matched fetch_*/_produce/_backfill/
+          # _snapshot, which missed the entire RESEARCH producer family — build_*_panel.py
+          # and analyze_*.py. Those are precisely the scripts whose output a verdict is
+          # read out of, and both research workflows were swallowing them: the exit-head
+          # build + analyze (so an empty panel still rendered a VERDICT.md) and five more
+          # in research-panel-build.yml. A guard that names a bug class but matches only
+          # one naming convention is scoped-wrong in exactly the way the class describes.
+          PRODUCER = re.compile(
+              r'(fetch_[a-z0-9_]*\.py'
+              r'|build_[a-z0-9_]*\.py'
+              r'|analyze_[a-z0-9_]*\.py'
+              r'|_produce\.py|_backfill\.py|_snapshot\.py|_resolve\.py)')
           SWALLOW  = re.compile(r'\|\|\s*(echo|true)\b')
           hits = []
           for p in sorted(pathlib.Path('.github/workflows').glob('*.yml')):
@@ -116,7 +127,16 @@ jobs:
           print('OK — no load-bearing producer/fetch step swallows its failure.')
           PY
 
-      # --- 3. the guard's own tests ------------------------------------------
+      # --- 3. the research capability index must stay complete ----------------
+      # A session cannot route to a tool it cannot find. On 2026-07-30, 47 of 51
+      # scripts/research/ tools were in no skill, and a session consequently reported
+      # six live regime gates as permanently un-auditable when the tool to measure them
+      # already existed. An index only helps while it is complete, and a stale index that
+      # LOOKS complete is the same false-completeness that caused the incident.
+      - name: Assert every research script is routed in the capability index
+        run: python3 scripts/ops/check_research_index.py --list
+
+      # --- 4. the guard's own tests ------------------------------------------
       # A guard against 'green while doing nothing' must not itself be able to go
       # green while doing nothing.
       - name: Install test deps
