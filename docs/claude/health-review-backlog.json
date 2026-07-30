@@ -7871,8 +7871,177 @@
         "docs/CLAUDE-RULES-CANONICAL.md"
       ],
       "updates": []
+    },
+    {
+      "opened_at": "2026-07-30T21:30:00+00:00",
+      "opened_by": "claude (diagnostic-output-defect-class session, diagnostic-output-defects-wtsxg2)",
+      "trigger_condition": "n/a",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "updates": [],
+      "id": "BL-20260730-DIAGNOSTIC-PROVENANCE-CLASS",
+      "source": "Class-level investigation commissioned after seven single instances landed on 2026-07-30 (BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA, BL-20260730-DIAG-RELAY-FAILURE-COMMENT-MISLEADING, PR #8069's audit roll-up + new-table-wiring findings). Every instance was caught by luck or paranoia, not by a check.",
+      "title": "[tooling][meta] UNPROVENANCED DIAGNOSTIC OUTPUT is a defect CLASS — guard shipped (diagnostic-provenance-guard); residual sites grandfathered",
+      "description": "THE CLASS. A human-facing diagnostic asserts a labelled claim without emitting the derivation that would let a reader falsify it. The number is real; the label is confident; the substitution is invisible. Because every component is individually correct, line-by-line review keeps returning clean — the defect lives at the seams, exactly like the provenance/exit-leak incident the same day.\n\nTHREE SUB-CLASSES (mechanically distinguishable, different fixes):\n  A SEMANTIC SUBSTITUTION — the printed label names quantity Q; the code called accessor f(); f() != Q.\n    A1 inverted (max(proba) vs P(volatile) — meaning destroyed, low bucket empty by construction);\n    A2 narrowed/widened (\"every audited symbol is fully SL-covered\" is TRUE at 444.7% coverage but asserts far more than the verdict measured);\n    A3 untested causal claim (a failure comment names a cause no code path tested — the diag-relay 'VM down' for a pre-contact request rejection). A3 is really its own thing: the fix is to branch on the actual failure stage, not to rename a label.\n  B IMPLICIT INPUT SELECTION — newest/alphabetically-last/default substituted for the declared or pinned input.\n    B1 input artifact (sorted(glob(...))[-1] instead of the manifest's dataset.version);\n    B2 input PARAMETER (a function default that differs from what the canonical caller passes — see the vol_threshold item below). Same class, and the one most likely to recur, because nothing in the output distinguishes the two label definitions.\n  C UNASSERTED DENOMINATOR — an empty/zero/truncated result reads as a clean negative (a curl||echo '{}' poller turning HTTP 403 into '0 checks'; 'limit: 500' mistaken for a row count).\n\nNOTE the division of labour with silent-empty-guard: that guard catches the PRODUCER (a broad except returning []). C is the CONSUMER (reading [] as a clean, labelled answer). Neither covers the other.\n\nSYSTEMIC FIX SHIPPED (this PR, Tier-1): scripts/check_diagnostic_provenance.py + .github/workflows/diagnostic-provenance-guard.yml + tests/test_diagnostic_provenance_guard.py — same family as canonical-db-resolver / env-gate-guard / silent-empty-guard / provenance-consumer-guard. Diff-scoped in CI (pre-existing sites grandfathered, same contract as silent-empty-guard); `--all` is the standing audit mode. Its override is VERIFIED, not presence-only: `# provenance: <accessor> — <meaning>` must name an identifier that actually appears in the file, and the annotation is excluded from its own evidence pool. This is the direct lesson from new-table-wiring-guard, whose presence-only marker made the cheapest way to silence it naming a table that does not exist.\n\nVALIDATION that the guard generalises rather than memorises: run against the tree it independently re-found bybit_bracket_audit.py:411 (the PR #8069 roll-up finding) and scripts/research/m20_ml_exit_probe.py:64 (a NEW instance nobody had reported), and it passes PR #8091's fixed parity probe.\n\nRESIDUAL (grandfathered, discoverable via --all; ~20 sites, mostly B on market_raw candle dirs where a wrong version is far less dangerous than a wrong LABELLED feature dir): scripts/ml/_labeling_gap_probe.py, scripts/ml/fc_sltp_geometry_backtest.py, scripts/ml/gpu_burst/_remote.py, scripts/research/m20_exit_analysis.py, scripts/research/ws_a_s{2,3,3b}_*.py, ml/cli.py:579 (the promotion gate-check's candle pick — highest blast radius of the B residue), scripts/ml/m23_ev_gate.py:110 and scripts/research/build_research_panel.py:228 (A, latent: predictor is binary today, nothing enforces it).",
+      "tier": 1,
+      "severity": "high",
+      "resolution_criteria": "Guard is a required check; the --all residue is driven to zero or each remaining site carries a verified `# provenance:` annotation.",
+      "refs": [
+        "scripts/check_diagnostic_provenance.py",
+        ".github/workflows/diagnostic-provenance-guard.yml",
+        "tests/test_diagnostic_provenance_guard.py",
+        "scripts/ml/_regime_score_semantics.py",
+        "docs/CLAUDE-RULES-CANONICAL.md"
+      ]
+    },
+    {
+      "opened_at": "2026-07-30T21:30:00+00:00",
+      "opened_by": "claude (diagnostic-output-defect-class session, diagnostic-output-defects-wtsxg2)",
+      "trigger_condition": "n/a",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "updates": [],
+      "id": "BL-20260730-M20-EXIT-PROBE-BUCKETS-MAXPROBA",
+      "source": "Found by the diagnostic-provenance sweep, then independently re-found by the new guard. Nobody had reported it.",
+      "title": "[research][tooling] m20_ml_exit_probe bucketed max(proba) as 'P(volatile)' — its 'lo' bucket was empty by construction and 'hi' mixed calm with volatile",
+      "description": "Same defect as BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA, in a second probe, undetected.\n\nscripts/research/m20_ml_exit_probe.py read the shadow log's `score` (line 64) and bucketed it at `score>=0.6`/`score<=0.4` (line 135), printing the result under the header '=== future_dR by P(volatile) bucket ==='. `score` is ShadowPredictor.predict -> wrapped.predict(row), and every regime head is a MulticlassPredictor whose predict is max(proba.values()). Therefore:\n  * score >= 0.5 by construction for a 2-class head, so the `lo` bucket (score<=0.4) was EMPTY BY CONSTRUCTION and `mid` only spanned (0.5,0.6];\n  * a row reading 0.97 may mean '97% sure the regime is CALM', so the `hi` bucket labelled high-P(volatile) was a MIXTURE of confidently-volatile and confidently-calm bars.\n\nThe probe's stated question — does a high regime-head P(volatile) predict a worse REMAINING hold? — was therefore unanswerable from what it computed, while the printed output (bucket means + an 'Interpretation:' paragraph telling the reader how to conclude) looked exactly like an answer.\n\nBLAST RADIUS: this probe's output is the evidence for whether to build an ML exit trigger (M20). That decision is Tier-3 downstream (an exit-geometry change on live legs). No live-money decision was changed — as far as this session can establish the probe's output was never acted on — but it is the same severity CLASS as the parity probe, not merely confusing.\n\nFIX (this PR): buckets the real predict_proba(row)['volatile'] — the quantity regime_bar_scoring._maybe_publish_p_volatile hands the live gate — via a new SHARED accessor, scripts/ml/_regime_score_semantics.py, which is now the one module that owns what `score` means. Rows whose predictor cannot be resolved are DROPPED and COUNTED (an honest coverage denominator, the rCoverage pattern), never bucketed on the substituted value; if nothing resolves the probe ABORTS rather than emitting a plausible wrong answer. Header now states the accessor and the gate cut.",
+      "tier": 1,
+      "severity": "high",
+      "resolution_criteria": "Probe buckets predict_proba[volatile], reports coverage, and aborts rather than substituting. Regression-pinned.",
+      "refs": [
+        "scripts/research/m20_ml_exit_probe.py",
+        "scripts/ml/_regime_score_semantics.py",
+        "tests/ml/test_regime_score_semantics.py"
+      ]
+    },
+    {
+      "opened_at": "2026-07-30T21:30:00+00:00",
+      "opened_by": "claude (diagnostic-output-defect-class session, diagnostic-output-defects-wtsxg2)",
+      "trigger_condition": "n/a",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "updates": [],
+      "id": "BL-20260730-TRAINER-DIAG-FAILURE-COMMENT-MISLEADING",
+      "source": "Found by the diagnostic-provenance sweep as the unfixed TWIN of BL-20260730-DIAG-RELAY-FAILURE-COMMENT-MISLEADING (PR #8097 fixed vm-diag-snapshot only).",
+      "title": "[infra][tooling] trainer-vm-diag's failure comment blamed 'SSH timeout (VM down?)' for a pre-SSH request-parse rejection",
+      "description": "The sibling relay had the identical defect and PR #8097 did not reach it.\n\n.github/workflows/trainer-vm-diag.yml 'Parse command from issue body' (step at L138) exits 1 at L185 when the body carries no `cmd:` line. That step runs BEFORE 'Set up SSH key' (L198), so on a parse rejection the SSH key is never installed and NO trainer-VM contact is attempted. The failure comment nonetheless posted: 'Common causes: VM_SSH_KEY unset, SSH timeout (VM down?), malformed cmd: block' — lumping the one true cause in with two that are impossible on that path, with nothing telling the reader which applied.\n\nThis is exactly the reading that produced a false 'VM web-api down' diagnosis twice in one session on the sibling relay, and reached the coordination board before anyone opened the run log. It matters more here: a false 'trainer VM down' is a conclusion the ml-review / system-review skills treat as a mandatory standalone flag.\n\nFIX (this PR): the comment branches on steps.parse.outputs.cmd_present. A parse rejection now leads with 'MALFORMED REQUEST, not a VM outage', states that the BODY is what is parsed (the title is display-only — the recurring operator trap), shows a correct example body, and points at the parse step's log. The infra text is kept, unchanged, for genuine post-parse failures.\n\nSTILL OPEN (lower severity, same shape, NOT fixed here): system-actions.yml — 'Validate action and tier policy' (L511) holds ~40 exit-1 paths, all ~250 lines BEFORE 'Set up SSH key' (L764), while the failure comment leads 'Common causes: VM_SSH_KEY secret unset/corrupted; SSH host unreachable'. It is milder (it does print `exitCode || '(set up failed before exec)'`, which a careful reader can use) but the cause list is still untested. health-snapshot.yml and set-diag-token.yml carry the same untested cause lists.",
+      "tier": 1,
+      "severity": "medium",
+      "resolution_criteria": "A pre-contact rejection produces a request-shaped message on every relay; infra text is reserved for genuine infra failures.",
+      "refs": [
+        ".github/workflows/trainer-vm-diag.yml",
+        ".github/workflows/system-actions.yml",
+        ".github/workflows/health-snapshot.yml",
+        "docs/claude/diag-relay.md"
+      ]
+    },
+    {
+      "opened_at": "2026-07-30T21:30:00+00:00",
+      "opened_by": "claude (diagnostic-output-defect-class session, diagnostic-output-defects-wtsxg2)",
+      "trigger_condition": "n/a",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "updates": [],
+      "id": "BL-20260730-MARKET-FEATURES-VOL-THRESHOLD-DEFAULT-DRIFT",
+      "source": "Operator-reported (item 4 of the 2026-07-30 defect-class brief); caught BEFORE a hand-rolled rebuild was run. Verified against the code this session.",
+      "title": "[ml][TIER-3 PROPOSAL] market_features vol_threshold default 0.003 silently disagrees with the canonical builder's 0.005 — two different regime_label definitions, no marker in the output",
+      "description": "VERIFIED: ml/datasets/families/market_features.py L504 defaults vol_threshold=0.003 (docstring L22 agrees). scripts/ops/build_trainer_datasets.sh — the CANONICAL builder — passes 0.005 for the Bybit legs (L275, L738) and a DATA-DRIVEN median for MES (L519-525, deliberately: a fixed threshold collapses MES intraday to all-range, MB-20260527-002).\n\nSo a hand-rolled `python -m ml build-dataset ...` that omits the argument produces a dataset whose `regime_label` means something DIFFERENT from every dataset the fleet trained on — measured on disk, 0.003 dirs read 16.04% volatile vs 4.6% at 0.005 — and NOTHING in the resulting dataset dir, the manifest, or any downstream metric says which definition it carries. This is sub-class B2 (implicit input PARAMETER selection) and it is the residue most likely to recur, because it needs no code change to bite: just a rebuild that forgets an argument.\n\nIt has already caused real confusion: the parity-probe incident (BL-20260730-PARITY-PROBE-...) compared a head pinned to v520 (4.6% volatile) against vfmac003 (16.04%) — datasets built at DIFFERENT thresholds — and ml/cli.py:585 carries a comment recording an earlier burn by the same class ('the legacy hardcoded 0.003 that mis-scores the fleet', MB-20260628-RG4-THRESH).\n\nNOT FIXED HERE — TIER-3. Changing the default changes the LABEL DEFINITION of every dataset built without an explicit argument, which changes what models learn. Three options for the operator, in preference order:\n  1 (recommended) Make it REQUIRED, no default. A caller must state the threshold; the canonical builder already does. Nothing can drift because nothing is implicit. Cost: any ad-hoc caller must be updated (grep shows the canonical builder + the MES path already pass it explicitly).\n  2 Stamp the resolved vol_threshold into the dataset dir's metadata AND require every consumer that compares distributions to read it. This is the provenance-consumer-guard shape and is strictly better than (3), but it is more code.\n  3 Change the default 0.003 -> 0.005. Cheapest, but it silently reinterprets any historical rebuild and leaves the same class of trap for the MES data-driven path.\nRecommendation: (1) + (2). (3) alone re-arms the trap.",
+      "tier": 3,
+      "severity": "high",
+      "resolution_criteria": "Operator picks an option; vol_threshold can no longer be implicit, or the resolved value is stamped and read by every distribution consumer.",
+      "refs": [
+        "ml/datasets/families/market_features.py",
+        "scripts/ops/build_trainer_datasets.sh",
+        "ml/cli.py"
+      ]
+    },
+    {
+      "opened_at": "2026-07-30T21:30:00+00:00",
+      "opened_by": "claude (diagnostic-output-defect-class session, diagnostic-output-defects-wtsxg2)",
+      "trigger_condition": "n/a",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "updates": [],
+      "id": "BL-20260730-ML-CLI-HELP-TAKES-TRAINER-HEAVY-LOCK",
+      "source": "Operator-reported (item 5 of the 2026-07-30 defect-class brief), unfiled until now. Verified against the code this session.",
+      "title": "[ml][tooling] `python -m ml <heavy-cmd> --help` acquires the trainer heavy-job lock before arg parsing — printing help queues behind a training run",
+      "description": "VERIFIED: ml/cli.py::main resolves `cmd = argv[0]` and, at L1100, `if cmd in _HEAVY_COMMANDS: _heavy_lock = _acquire_heavy_lock(...)` — BEFORE the `build-dataset`/`validate-dataset` dispatch (L1102-1105) and before `_build_parser().parse_args()` (L1108-1109). `--help` is just another argv element at that point.\n\nSo `python -m ml build-dataset --help` takes the shared flock on a 1-core trainer VM with a FIFO queue: it blocks behind any running training cycle, and while held it blocks the next real job. The lock is bound for the whole process lifetime by design (correct for a real run), so a help invocation holds it until argparse exits. On a clean-timeout it raises SystemExit(75) — a documentation lookup failing with a queue-timeout exit code.\n\nThis is adjacent to the diagnostic-provenance class rather than an instance of it (nothing is mislabelled), but it shares the root: the tool's OBSERVABLE behaviour disagrees with what the invocation says it is doing. It is filed here because it was surfaced by the same sweep and would otherwise be lost.\n\nFIX (Tier-1, trainer-autonomous, NOT applied here to keep this PR to one class): hoist a pure-help/version short-circuit above the lock — if any of {-h, --help, --version} appears in argv, dispatch to the parser and return without ever calling _acquire_heavy_lock. Guard it with a test asserting `main(['build-dataset','--help'])` never touches the lock. Deliberately left unmerged here because ml/cli.py is the trainer's real entry point and it deserves its own change + test rather than riding a tooling-guard PR.",
+      "tier": 1,
+      "severity": "low",
+      "resolution_criteria": "`--help`/`-h`/`--version` on any heavy command returns without acquiring the flock; pinned by a test.",
+      "refs": [
+        "ml/cli.py",
+        "docs/claude/trainer-resource-protocol.md"
+      ]
+    },
+    {
+      "opened_at": "2026-07-30T21:30:00+00:00",
+      "opened_by": "claude (diagnostic-output-defect-class session, diagnostic-output-defects-wtsxg2)",
+      "trigger_condition": "n/a",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "updates": [],
+      "id": "BL-20260730-BINARY-EVALUATOR-ACCEPTS-MULTICLASS-HEAD",
+      "source": "Found by the diagnostic-provenance sweep while establishing which predict() call sites are genuinely ambiguous.",
+      "title": "[ml] the multiclass evaluator type-checks its predictor; the BINARY evaluators do not — the guard runs in one direction only",
+      "description": "ml/evaluators/multiclass_classification.py L36-38 raises when handed a non-MulticlassPredictor. The reverse check does not exist: ml/evaluators/classification.py L37 and classification_auc.py L89 call `predictor.predict(row)` and treat the float as P(positive). Handed a MulticlassPredictor they would silently score accuracy / Brier / AUC on max(proba) — a quantity that is >= 0.5 by construction and HIGH for a confidently-CALM regime bar, i.e. a meaningless metric reported under a standard metric name.\n\nNOT CURRENTLY LIVE — checked: all 70 regime manifests route to MulticlassClassificationEvaluator; the 11 ClassificationEvaluator + 1 ClassificationAUCEvaluator manifests are binary heads. So this is LATENT, and the exposure is one manifest edit away, with no error at the point of the mistake.\n\nPROPOSED FIX (Tier-1, ml/ trainer-side, not applied here): mirror the existing isinstance check — ClassificationEvaluator raises when handed a MulticlassPredictor, pointing the author at MulticlassClassificationEvaluator. Two lines, symmetric with code already there, and it converts a silent wrong metric into a loud manifest error.",
+      "tier": 1,
+      "severity": "low",
+      "resolution_criteria": "A binary evaluator handed a MulticlassPredictor raises instead of scoring max(proba).",
+      "refs": [
+        "ml/evaluators/classification.py",
+        "ml/evaluators/classification_auc.py",
+        "ml/evaluators/multiclass_classification.py"
+      ]
+    },
+    {
+      "opened_at": "2026-07-30T21:30:00+00:00",
+      "opened_by": "claude (diagnostic-output-defect-class session, diagnostic-output-defects-wtsxg2)",
+      "trigger_condition": "n/a",
+      "status": "resolved",
+      "snoozed_until": null,
+      "resolved_at": "2026-07-30T21:30:00+00:00",
+      "updates": [],
+      "id": "BL-20260730-NEW-TABLE-WIRING-GUARD-TAUGHT-LYING",
+      "source": "Operator-reported (item 6 of the 2026-07-30 brief, from concurrent session PR #8069). Verified and fixed this session.",
+      "title": "[tooling] new-table-wiring-guard matched PROSE and accepted a presence-only marker — the cheapest way to silence it was to name a table that does not exist",
+      "description": "Two defects that made the guard's own output untrustworthy. A guard is a diagnostic; 'clean' is a claim a human acts on.\n\n  1 PROSE MATCHING. `_CREATE_TABLE_RE = CREATE\\s+TABLE` fired on any added line containing the words — a docstring sentence or a comment describing the rule. A guard that flags prose trains reviewers to wave its findings through, which is the alarm-fatigue failure this repo already classes as its own P1 bug (MB-20260719-DATASET-AUDIT-NOISE).\n  2 PRESENCE-ONLY MARKER. Any `# data-wiring:` line anywhere in the file's added lines cleared every finding in that file, content unchecked. The path of least resistance to silencing a real finding was therefore to add a marker naming a table that does not exist — the guard actively taught contributors to lie to it.\n\nFIX (this PR): (1) the pattern now requires an actual table NAME after CREATE TABLE and skips comment/docstring lines; (2) the marker must name either the table itself or an identifier that appears in the change's added lines, and — the subtle half — the annotation line is EXCLUDED from its own evidence pool, otherwise its own prose validates it. A marker that names nothing real now produces a distinct, explanatory finding rather than silence. (3) The all-clear now prints its denominator ('N changed file(s) scanned, 0 unannotated CREATE TABLE') so 'clean' is distinguishable from 'scanned nothing'.\n\nThe same verified-annotation rule is what the new diagnostic-provenance-guard uses for its `# provenance:` override, so the lesson is encoded in both. All 33 pre-existing new-table-wiring tests still pass.",
+      "tier": 1,
+      "severity": "medium",
+      "resolution_criteria": "Prose no longer matches; an annotation naming nothing real no longer clears a finding; the all-clear carries a denominator.",
+      "refs": [
+        "scripts/check_new_table_wiring.py",
+        "tests/test_new_table_wiring_guard.py",
+        "scripts/check_diagnostic_provenance.py"
+      ]
+    },
+    {
+      "opened_at": "2026-07-30T21:30:00+00:00",
+      "opened_by": "claude (diagnostic-output-defect-class session, diagnostic-output-defects-wtsxg2)",
+      "trigger_condition": "n/a",
+      "status": "resolved",
+      "snoozed_until": null,
+      "resolved_at": "2026-07-30T21:30:00+00:00",
+      "updates": [],
+      "id": "BL-20260730-BYBIT-BRACKET-AUDIT-ROLLUP-OVERCOVERAGE",
+      "source": "Operator-reported (item 6 of the 2026-07-30 brief, from concurrent session PR #8069). Independently re-found by the new diagnostic-provenance guard, which is the validation that the guard generalises.",
+      "title": "[ops][tooling] bybit_bracket_audit's roll-up printed 'every audited symbol is fully SL-covered' over a 444.7% over-coverage",
+      "description": "VERIFIED in code: the verdict ladder (L216-222) has no OVER_COVERED bucket — `covered + eps >= size` resolves to PROTECTED regardless of how far above `size` the summed SL legs run — and the roll-up (L397-411) buckets only PARTIALLY_NAKED / NAKED / *_UNRELIABLE, so an over-covered symbol fell into the `else` and printed the all-clear.\n\n'Fully SL-covered' is LITERALLY TRUE at 444.7% coverage. That is what makes it sub-class A2 rather than a simple mislabel: the summary asserts a clean bill of health far stronger than the verdict measured, and a reader who stops at the roll-up walks past live leg over-accumulation — the very condition the runtime's own _check_broker_naked_bybit_positions flags as `over_covered` (BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING, live-verified firing the same day). The audit and the runtime disagreed about the same position, and only the audit was being read.\n\nBLAST RADIUS: this audit is the operator-facing check for whether real-money positions are protected. It did not mis-state NAKED (under-coverage was always bucketed correctly), so no position was reported protected while actually naked — the failure is a missed anomaly, not a false safety claim about stop coverage.\n\nFIX (this PR): over-coverage gets its own roll-up bucket with its own explanatory line ('not a naked risk but not clean either'), FLAT symbols are excluded from the denominator, the all-clear now carries the count it ranges over, and the JSON summary gains a `rollup` block so a machine consumer sees the same three numbers.",
+      "tier": 1,
+      "severity": "medium",
+      "resolution_criteria": "Over-coverage is bucketed and named; the all-clear carries its denominator.",
+      "refs": [
+        "scripts/ops/bybit_bracket_audit.py",
+        "src/units/accounts/order_monitor.py"
+      ]
     }
   ],
-  "updated_at": "2026-07-30T19:55:00+00:00",
+  "updated_at": "2026-07-30T21:30:00+00:00",
   "generated_at": "2026-07-30T15:55:00+00:00"
 }

@@ -394,21 +394,49 @@ def main() -> int:
     print("=" * 74)
     print("ROLL-UP")
     print("=" * 74)
-    bad = []
+    # The roll-up used to bucket ONLY under-coverage, then print "every audited
+    # symbol is fully SL-covered at the broker." — a clean bill of health that
+    # rendered above a 444.7% OVER-coverage sitting in the body (2026-07-30).
+    # `PROTECTED` is literally true there (covered >= size) but the summary
+    # line asserts something much stronger than the verdict measured, and a
+    # reader who stops at the roll-up walks past live leg over-accumulation —
+    # the very condition `_check_broker_naked_bybit_positions` flags as
+    # `over_covered` (BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING).
+    # Over-coverage now gets its own bucket, and the all-clear carries the
+    # denominator it ranges over.
+    bad, over, audited = [], [], 0
     for a in summary["accounts"]:
         for s in a.get("symbols", []):
             v = str(s.get("verdict") or "")
+            if v == "FLAT":
+                continue
+            audited += 1
+            pct = s.get("coverage_pct")
             if v.startswith("PARTIALLY_NAKED") or v.startswith("NAKED") \
                     or "UNRELIABLE" in v:
                 bad.append((a["account_id"], s["symbol"], v,
-                            s.get("uncovered_qty"), s.get("coverage_pct")))
+                            s.get("uncovered_qty"), pct))
+            elif pct is not None and pct > 100.0 + 100.0 * _COVERAGE_EPS_FRAC:
+                over.append((a["account_id"], s["symbol"], v,
+                             s.get("sl_covered_qty"), pct))
     if bad:
         print("  %d symbol(s) NOT fully protected at the broker:" % len(bad))
         for aid, sym, v, unc, pct in bad:
             print("    %-16s %-10s %-32s uncovered_qty=%s coverage=%.1f%%"
                   % (aid, sym, v, unc, pct or 0.0))
-    else:
-        print("  every audited symbol is fully SL-covered at the broker.")
+    if over:
+        print("  %d symbol(s) OVER-covered (SL legs exceed the netted position "
+              "— leg over-accumulation, not a naked risk but not clean either):"
+              % len(over))
+        for aid, sym, v, cov_qty, pct in over:
+            print("    %-16s %-10s %-32s sl_covered_qty=%s coverage=%.1f%%"
+                  % (aid, sym, v, cov_qty, pct or 0.0))
+    if not bad and not over:
+        print("  %d/%d audited non-flat symbol(s) SL-covered at the broker "
+              "within [100%%, %.1f%%]; 0 naked, 0 over-covered."
+              % (audited, audited, 100.0 + 100.0 * _COVERAGE_EPS_FRAC))
+    summary["rollup"] = {"audited_non_flat": audited,
+                         "under_covered": len(bad), "over_covered": len(over)}
     if args.json:
         print()
         print("===== JSON =====")

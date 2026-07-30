@@ -46,9 +46,32 @@ _IGNORE_PATH_RE = re.compile(
 )
 
 # A new persistent table. Tolerates `IF NOT EXISTS` + leading quote/paren.
-_CREATE_TABLE_RE = re.compile(r"CREATE\s+TABLE\b", re.IGNORECASE)
+#
+# 2026-07-30 hardening (diagnostic-provenance sweep). Two defects made this
+# guard's own output untrustworthy — the guard is a diagnostic, and "clean" is
+# a claim a human acts on:
+#
+#  1. It matched PROSE. `CREATE\s+TABLE` fires on any added line containing the
+#     words, including a docstring sentence or a comment describing the rule.
+#     A guard that flags prose trains reviewers to dismiss its findings.
+#  2. The `# data-wiring:` marker was PRESENCE-ONLY and file-scoped, so the
+#     path of least resistance to silencing a real finding was to add a line
+#     naming a table that does not exist. A guard that is cheaper to lie to
+#     than to satisfy is worse than no guard.
+#
+# Fixed by (1) requiring a table NAME after CREATE TABLE and skipping lines
+# that are comments or bare prose, and (2) requiring the marker to name an
+# identifier that actually appears in the diff's added lines. Mirrors the
+# verified-annotation rule in scripts/check_diagnostic_provenance.py.
+_CREATE_TABLE_RE = re.compile(
+    r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[\"'`\[]?([A-Za-z_][A-Za-z0-9_]*)",
+    re.IGNORECASE,
+)
+# A line that is purely a comment/docstring mention, not code creating a table.
+_PROSE_LINE_RE = re.compile(r'^\s*(#|"""|\'\'\'|\*|--\s)')
 # The required justification marker (anywhere in the file's added lines).
-_MARKER_RE = re.compile(r"#\s*data-wiring:", re.IGNORECASE)
+_MARKER_RE = re.compile(r"#\s*data-wiring:\s*(.*)$", re.IGNORECASE)
+_IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{2,}")
 # Only scan code-ish files.
 _CODE_SUFFIXES = (".py", ".sql")
 
@@ -84,25 +107,52 @@ def _iter_added_lines(diff_text: str) -> Iterable[Tuple[str, int, str]]:
 
 def scan_diff(diff_text: str) -> List[str]:
     """Return findings: files that add a CREATE TABLE with no data-wiring marker."""
-    creates: Dict[str, List[Tuple[int, str]]] = {}
-    has_marker: Dict[str, bool] = {}
+    creates: Dict[str, List[Tuple[int, str, str]]] = {}
+    markers: Dict[str, List[str]] = {}
+    added_idents: Dict[str, set] = {}
     for path, lineno, content in _iter_added_lines(diff_text):
         if _IGNORE_PATH_RE.search(path):
             continue
         if not path.endswith(_CODE_SUFFIXES):
             continue
-        if _MARKER_RE.search(content):
-            has_marker[path] = True
-        if _CREATE_TABLE_RE.search(content):
-            creates.setdefault(path, []).append((lineno, content.strip()[:100]))
+        m_marker = _MARKER_RE.search(content)
+        if m_marker:
+            markers.setdefault(path, []).append(m_marker.group(1))
+            # The annotation must NOT count as evidence for itself. Pooling its
+            # own words into the identifier set is what let a marker naming a
+            # fictitious table validate against its own prose.
+            continue
+        added_idents.setdefault(path, set()).update(_IDENT_RE.findall(content))
+        if _PROSE_LINE_RE.match(content):
+            # A comment or docstring line MENTIONING create-table is not a
+            # table creation. Flagging it is how a guard earns a reputation
+            # for noise and starts getting waved through.
+            continue
+        m_create = _CREATE_TABLE_RE.search(content)
+        if m_create:
+            creates.setdefault(path, []).append(
+                (lineno, m_create.group(1), content.strip()[:100]))
 
     findings: List[str] = []
     for path, hits in creates.items():
-        if has_marker.get(path):
-            continue
-        for lineno, snippet in hits:
-            findings.append(f"{path}:{lineno} — new table without "
-                            f"`# data-wiring:` annotation: {snippet}")
+        idents = added_idents.get(path, set())
+        for lineno, table, snippet in hits:
+            annotations = markers.get(path, [])
+            # The annotation must name something REAL in this diff — ideally
+            # the table itself, else at least an identifier the change touches.
+            # A marker naming nothing that exists does not satisfy the guard.
+            if any(table.lower() in a.lower() for a in annotations):
+                continue
+            if any(t in idents for a in annotations for t in _IDENT_RE.findall(a)):
+                continue
+            if annotations:
+                findings.append(
+                    f"{path}:{lineno} — table `{table}` has a `# data-wiring:` "
+                    f"annotation that names neither the table nor any identifier "
+                    f"in this change; name the real relationship: {snippet}")
+            else:
+                findings.append(f"{path}:{lineno} — new table `{table}` without "
+                                f"`# data-wiring:` annotation: {snippet}")
     return findings
 
 
@@ -113,7 +163,13 @@ def main(argv: List[str]) -> int:
     )
     findings = scan_diff(diff_text)
     if not findings:
-        print("new_table_wiring: clean (no offending changes)")
+        # State the denominator. "clean" with nothing behind it is
+        # indistinguishable from "scanned nothing" — an empty diff, a path
+        # filter that matched no files, or a real all-clear all printed the
+        # same word (diagnostic-provenance check C).
+        n_files = len({p for p, _, _ in _iter_added_lines(diff_text)})
+        print(f"new_table_wiring: clean — {n_files} changed file(s) scanned, "
+              f"0 unannotated CREATE TABLE")
         return 0
     msg = [
         "🚨 NEW-TABLE WIRING GUARD: a PR creates a persistent table without "
