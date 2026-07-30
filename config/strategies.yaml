@@ -1259,7 +1259,19 @@ strategies:
     model: null
     signal_prefixes: [trend_donchian_xrp_4h, donchian_xrp_4h]
     enabled: true
-    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    execution: live          # LIVE on REAL-MONEY bybit_2 (promoted 2026-06-30, Tier-3
+                             # operator-approved) AND paper bybit_1/bybit_portfolio.
+                             # (Corrected 2026-07-30: the prior "demo-only soak" comment
+                             # was stale — accounts.yaml routes this leg to bybit_2.)
+    side_filter: short       # SHORT-ONLY fine-tune (Tier-3, 2026-07-30). 2yr WF: blended
+                             # +5.29R/maxDD-7.94 vs short-only +7.34R/maxDD-4.16 (better
+                             # net-R AND ~half the drawdown, 4/6 folds). The alt-crypto LONG
+                             # side is a persistent bearish-regime drag (long -2.05R,
+                             # stable_drag 4/6 folds); short carries the leg. DEFENSIVE
+                             # (short-only positive in 2/6 folds standalone — one dominant
+                             # window) — size modestly. Evidence:
+                             # docs/research/crypto-finetune-proposals-2026-07-30.md (B).
+                             # ROLLBACK: delete this line (reverts to two-sided).
     timeframe: "4h"
     symbols:
       - XRPUSDT
@@ -2211,6 +2223,18 @@ strategies:
                              # 07-07/07-10). Thin n (5 trades) — a 4-6wk shadow re-eval is expected
                              # before any permanent kill decision, not a permanent demotion.
                              # ROLLBACK: set back to `live`.
+                             # NOTE (2026-07-30): the short-only fine-tune below is the diagnose-
+                             # don't-demote remedy for this leg — re-promoting shadow->live as a
+                             # SHORT-ONLY leg is the activation (a separate Tier-3 execution flip,
+                             # left for explicit operator sign-off; see the PR).
+    side_filter: short       # SHORT-ONLY fine-tune (Tier-3, 2026-07-30). Demo/paper only (bybit_1).
+                             # 2yr WF: blended -5.43R/maxDD-12.57 vs short-only +6.96R/maxDD-7.19
+                             # (the LONG side is the whole loss: long -12.39R / short +6.96R — a
+                             # single-symbol bearish-alt drag). DEFENSIVE (short-only positive in
+                             # 3/6 folds standalone) — size modestly. Currently INERT (execution:
+                             # shadow) — it gates the would-be signal once re-promoted. Evidence:
+                             # docs/research/crypto-finetune-proposals-2026-07-30.md (A).
+                             # ROLLBACK: delete this line (reverts to two-sided).
     timeframe: "2h"          # served as Bybit 120m via CCXT.
     symbols:
       - SOLUSDT              # Bybit USDT linear perp.
