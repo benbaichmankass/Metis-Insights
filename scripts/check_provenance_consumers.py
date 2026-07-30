@@ -10,7 +10,8 @@ was measured or manufactured, and every consumer — ``/performance``, the repor
 renderer, the three review skills, every ML label builder — treated the two as
 identical.
 
-The cost, once measured (2026-07-30): 226 closed rows carrying +$247,683.78 of
+The cost, once measured (2026-07-30 — state the population): 206 of 829 closed
+non-backtest rows carrying -$36,018.60 of
 mark-price PnL, 247 more with no provenance at all, and a fabricated share of
 closed trades rising 0.0% (May) -> 30.5% (June) -> 64.9% (July). It also
 produced a "-$6,358 scalp exit leak" that did not exist, and a diagnostic
@@ -173,7 +174,7 @@ def main() -> int:
     print(
         "\n  A provenance signal nothing reads is worse than one that does not\n"
         "  exist: reviewers see the field and assume something acts on it. That\n"
-        "  false assurance is exactly how +$247,683.78 of mark-price PnL and a\n"
+        "  false assurance is exactly how 206 of 829 closed rows of mark-price PnL and a\n"
         "  non-existent '-$6,358 scalp exit leak' both survived repeated audits.\n"
         "\n  Fix by EITHER:\n"
         "    * consuming it — filter or report the split via\n"

@@ -7,9 +7,17 @@ windows.
 
 WHY (2026-07-30 provenance audit)
 ---------------------------------
-``ib_paper`` carries **+$240,569 of the +$247,683.78** of ``local_markprice``
-PnL in the journal — the largest single concentration of manufactured money the
-audit found. Cause: ``interactive_brokers`` is absent from
+**State the population.** Measured on 2026-07-30: ``ib_paper`` carries
+**+$284,084.92** of fabricated PnL in the *all-status* population (845 rows) —
+but that is **4 ``orphaned`` rows**. In the *closed, non-backtest* decision
+population (829 rows, −$36,018.60 fabricated) ``ib_paper`` is **3 of 24** rows
+and the concentration is ``bybit_1`` / ``bybit_portfolio``.
+
+The forward-looking reason this puller matters: the companion Tier-2 change
+stopped ``_sweep_local_pnl_for_unpriced`` substituting a live mark, and IBKR
+historical-candle coverage is 0% — so without a broker-truth read every future
+IB close is a *declared unmeasured* gap rather than a number. Cause of both:
+``interactive_brokers`` is absent from
 ``clients.BROKER_PNL_READER_EXCHANGES``, no IB fills reader existed, so every IB
 close fell through to ``order_monitor._sweep_local_pnl_for_unpriced``, which
 prices a CONFIRMED CLOSE off ``last_mark_price()`` hours later and then

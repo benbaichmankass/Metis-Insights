@@ -2,10 +2,26 @@
 
 WHY THIS EXISTS
 ---------------
-``ib_paper`` holds **+$240,569 of the +$247,683.78** of ``local_markprice``
-PnL the 2026-07-30 provenance audit found — the single largest concentration of
-manufactured money in the journal (see :mod:`src.runtime.provenance`). The
-mechanism is structural, not a bug: ``interactive_brokers`` is absent from
+**State the population** (the rule this workstream produced, ``CLAUDE.md`` §
+"Number provenance"). Measured against the live journal on 2026-07-30, IB's
+exposure is real but is NOT what the briefing framed:
+
+* **All-status population** (845 rows): ``ib_paper`` carries **+$284,084.92** of
+  fabricated PnL — the figure behind the widely-quoted "+$247,683.78 net, the
+  bulk of it IB". It is **4 ``orphaned`` rows**, which appear in neither
+  Positions nor Trades.
+* **Closed, non-backtest, ``pnl NOT NULL``** — the decision population any
+  consumer actually aggregates (829 rows, 206 fabricated, **−$36,018.60**):
+  ``ib_paper`` is **3 of 24 closed rows**. The concentration there is
+  ``bybit_1`` (152/323) and ``bybit_portfolio`` (11/12).
+
+So this module is not the biggest *closed-population* lever. It matters for a
+different reason: the companion Tier-2 change stopped the sweep substituting a
+mark, and IBKR historical-candle coverage is **0%**, so without a broker-truth
+read every future IB close becomes a *declared unmeasured* gap. This module is
+what converts that gap into a measurement instead.
+
+The mechanism is structural, not a bug: ``interactive_brokers`` is absent from
 ``clients.BROKER_PNL_READER_EXCHANGES`` (today ``{"bybit"}``), there is no
 ``IBClient.fills()``, and so every IB close falls through to
 ``order_monitor._sweep_local_pnl_for_unpriced``, which prices a CONFIRMED CLOSE

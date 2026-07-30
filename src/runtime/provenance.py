@@ -22,11 +22,22 @@ real prior incident. There is no wrong line of code. That is precisely why
 repeated line-by-line audits returned clean while the defect kept producing
 wrong decisions: it lives at the seams, not in any component.
 
-The blast radius when it was finally measured: 226 closed rows carrying
-+$247,683.78 of ``local_markprice`` PnL (the bulk of it ``ib_paper``, where a
-stale mark is multiplied by a futures contract value), 247 more rows with no
-provenance recorded at all, and a fabricated share of closed trades running
-0.0% (May) → 30.5% (June) → **64.9% (July)**.
+The blast radius, **and the population it is measured over** — a rule this
+module's own first measurement pass produced the hard way, because the headline
+figure changes SIGN depending on which rows you count (see ``CLAUDE.md`` §
+"Number provenance" for the full table):
+
+* *closed, non-backtest,* ``pnl NOT NULL`` — the decision population any
+  consumer actually aggregates: **829 rows, 206 fabricated, −$36,018.60**,
+  concentrated in ``bybit_1`` (152/323) and ``bybit_portfolio`` (11/12).
+* *any status, incl. backtest*: **845 rows, 222 fabricated, +$247,683.78** —
+  the widely-quoted figure, dominated by **4 ``orphaned`` ``ib_paper`` rows
+  carrying +$284,084.92** (a stale mark times a futures multiplier, on rows that
+  appear in neither Positions nor Trades).
+
+Both are correct. What reproduces across both is the TREND: fabricated share of
+closed trades 0.0% (May) → 23.7% (June) → **65.3% (July)**. Quote the population
+or don't quote the number — including when the number is ours.
 
 THE ACTUAL ROOT CAUSE, AND WHAT THIS MODULE FIXES
 -------------------------------------------------
@@ -124,7 +135,7 @@ pointed the wrong way. INV-2 demanded a number for every closed row past the
 sweep grace and never asked what KIND of number, so the only way to clear it was
 to put *something* in ``pnl``; ``_sweep_local_pnl_for_unpriced`` obliged with a
 mark price taken hours after the close, and the check went green on
-+$247,683.78 of manufactured money while a correct, honest NULL would have
+the all-status +$247,683.78 of manufactured money while a correct, honest NULL would have
 stayed red forever.
 
 With this marker, "we don't know" becomes a *declarable* answer. INV-2 now
@@ -173,7 +184,7 @@ ESTIMATED_SOURCES = frozenset({
 FABRICATED_SOURCES = frozenset({
     # entry x mark x qty, where the mark is `last_mark_price()` at SWEEP time —
     # for a CONFIRMED CLOSE this is the market hours after the exit, not the
-    # exit. This single source accounts for the +$247,683.78 above.
+    # exit. This single source accounts for the fabricated totals above.
     "local_markprice",
     "markprice_local",
     # A netted record's economics split across rows by qty share — a modelling

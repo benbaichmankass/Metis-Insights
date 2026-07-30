@@ -307,7 +307,7 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         # whole 2026-07-30 defect: `rCoverage` correctly refused to let partial
         # R-measurement masquerade as full, while the `pnl` it normalises was
         # silently fabricated for 64.9% of July's closed trades
-        # (+$247,683.78 of `local_markprice` money). See src/runtime/provenance.
+        # (206 of 829 closed rows of `local_markprice` money). See src/runtime/provenance.
         pnl_bucket = classify_pnl(r)[0]
         pnl_prov[pnl_bucket] = pnl_prov.get(pnl_bucket, 0) + 1
 
@@ -454,7 +454,7 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         #
         # Added 2026-07-30 after the audit that found `rCoverage`'s discipline
         # had been applied to the derived R-metric and NOT to the `pnl` it is
-        # derived from: 226 closed rows carrying +$247,683.78 of mark-price PnL,
+        # derived from: 206 of 829 closed rows carrying -$36,018.60 of mark-price PnL,
         # with the fabricated share running 0.0% (May) -> 30.5% (Jun) -> 64.9%
         # (Jul) while every consumer treated measured and manufactured alike.
         "pnlCoverage": coverage({**pnl_prov, "total": total}),

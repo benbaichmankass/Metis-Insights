@@ -788,7 +788,7 @@ async def get_positions(
             # Is that number a MEASUREMENT? Resolved through the one canonical
             # vocabulary (src/runtime/provenance) rather than re-derived from
             # the source string at each consumer — which is exactly how the
-            # signal stayed write-only while +$247,683.78 of mark-price PnL
+            # signal stayed write-only while 206 of 829 closed rows of mark-price PnL
             # accumulated unnoticed (2026-07-30 audit).
             #
             # Note the classification is KEY-AWARE: a live mark on an OPEN

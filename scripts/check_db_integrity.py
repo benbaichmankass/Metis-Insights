@@ -268,7 +268,7 @@ def run_checks(
         # As originally written this check demanded a number and never asked
         # what KIND of number. The only way to clear it was to put something in
         # `pnl`, so `_sweep_local_pnl_for_unpriced` substituted a mark price
-        # taken hours after the close — and INV-2 went green on +$247,683.78 of
+        # taken hours after the close — and INV-2 went green on 206 of 829 closed rows of
         # manufactured money while a correct, honest NULL would have stayed red
         # forever. An invariant whose only satisfying move is to invent data is
         # not a safety net; it is a forcing function pointed the wrong way.

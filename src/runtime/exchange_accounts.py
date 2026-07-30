@@ -163,9 +163,10 @@ def live_ib_fill_accounts(
     """Return every ``mode: live`` IBKR account from ``config/accounts.yaml``.
 
     Today that is ``ib_paper`` alone (``ib_live`` is ``dry_run`` / shelved) —
-    which is exactly the account holding **+$240,569 of the +$247,683.78** of
-    ``local_markprice`` PnL the 2026-07-30 provenance audit measured, so it is
-    the whole point of the pull. Enumerated from config rather than hardcoded so
+    the account with **zero** broker-truth PnL coverage until this pull existed
+    (IBKR historical-candle coverage is 0% too, so every IB close would
+    otherwise be a *declared unmeasured* gap once the Tier-2 sweep change
+    stopped it being priced from a mark). Enumerated from config rather than hardcoded so
     a roster change (``ib_live`` going live, a second IB account) is picked up
     with no puller edit — the same rule ``live_bybit_fill_accounts`` follows.
 

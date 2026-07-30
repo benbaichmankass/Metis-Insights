@@ -2094,8 +2094,14 @@ class IBClient:
         ``realizedPNL``; :mod:`src.runtime.exchange_fills_ib` maps them into
         ``exchange_fills`` rows.
 
-        Context (2026-07-30 provenance audit): ``ib_paper`` carries +$240,569 of
-        the +$247,683.78 of ``local_markprice`` PnL in the journal, because
+        Context (2026-07-30 provenance audit — **state the population**):
+        ``ib_paper`` carries +$284,084.92 of fabricated PnL in the *all-status*
+        population, but that is 4 ``orphaned`` rows; in the *closed,
+        non-backtest* decision population it is only 3 of 24 rows. The reason
+        this read matters is forward-looking: the companion Tier-2 change
+        stopped the sweep substituting a mark, and IBKR historical-candle
+        coverage is 0%, so without this every future IB close is a declared
+        unmeasured gap. Root cause of both:
         ``interactive_brokers`` is absent from
         :data:`~src.units.accounts.clients.BROKER_PNL_READER_EXCHANGES` and no
         IB fills reader existed, so every IB close fell through to
