@@ -352,6 +352,10 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--json", default=DEFAULT_SCORECARD_PATH, help=f"scorecard JSON out (default {DEFAULT_SCORECARD_PATH})")
     ap.add_argument("--generated-at", default=None)
     ap.add_argument("--dry-run", action="store_true", help="compute + print; write nothing")
+    ap.add_argument("--allow-empty-panel", action="store_true",
+                    help="exit 0 even when the price panel is empty (deliberate dry probe "
+                         "only; the default is to FAIL so a vacuous scorecard can't pass as "
+                         "a thin one — BL-20260730-M1-PRICE-JOIN-DEAD)")
     args = ap.parse_args(argv)
 
     horizons = (
@@ -386,6 +390,25 @@ def main(argv: Optional[list] = None) -> int:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(out, indent=2, default=str), encoding="utf-8")
         print(f"\nwrote {args.json}")
+
+    # VACUITY GUARD (BL-20260730-M1-PRICE-JOIN-DEAD). A study asked to measure a
+    # kind and handed ZERO price bars has not produced a thin result — it has
+    # produced NO result, and must not exit 0. This study reported
+    # `price_bars: 0` / `verdict: no_data` on every run of its life while its
+    # workflow stayed green and the roadmap recorded the verdict as one that would
+    # "self-graduate as history accrues" — it never could. A fresh, well-formed,
+    # entirely vacuous artifact is the failure mode; exiting non-zero is what makes
+    # it visible. `--allow-empty-panel` is the explicit opt-out for a deliberate
+    # dry probe.
+    if not args.allow_empty_panel and len(panel) == 0:
+        print(
+            f"\nFAIL: no price bars for symbol={symbol} (kind={args.kind}). The "
+            "surprise->forward-return join measured NOTHING, so the verdict above is "
+            "vacuous, not thin. Check the candle fetch (yfinance installed? Stooq "
+            "ticker resolvable?) — do not read this scorecard as evidence.",
+            file=sys.stderr,
+        )
+        return 2
     return 0
 
 

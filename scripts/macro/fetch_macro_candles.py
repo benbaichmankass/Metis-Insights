@@ -33,7 +33,45 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from src.units.strategies.macro_thesis.valuation_feed import load_valuation_config  # noqa: E402
 
 _TRUTHY = {"1", "true", "yes", "on"}
-_STOOQ_URL = "https://stooq.com/q/d/l/?s={sym}.us&i=d"
+_STOOQ_URL = "https://stooq.com/q/d/l/?s={sym}&i=d"
+
+# Stooq ticker forms differ by asset class, and the previous single-template
+# `?s={sym}.us` appended the **US-equity** suffix to everything. For a yfinance
+# futures ticker like `NG=F` that produced `s=ng=f.us` — a literal `=` inside the
+# value plus an equity suffix on a futures symbol — so the fallback could never
+# return a bar. Combined with yfinance being absent on the runner, that is why the
+# M1 econ event study reported `price_bars: 0` / `verdict: no_data` for its entire
+# life (BL-20260730-M1-PRICE-JOIN-DEAD).
+#
+# Stooq's own forms: US equities/ETFs are `<ticker>.us`; continuous futures are
+# `<root>.f`. Map the `=F` tickers explicitly rather than string-munging, so an
+# unmapped futures symbol is an honest miss instead of a silently wrong URL.
+_STOOQ_FUTURES: dict[str, str] = {
+    "NG=F": "ng.f",   # Henry Hub natural gas
+    "CL=F": "cl.f",   # WTI crude
+    "GC=F": "gc.f",   # gold
+    "SI=F": "si.f",   # silver
+    "HG=F": "hg.f",   # copper
+    "ES=F": "es.f",   # S&P 500 e-mini
+    "NQ=F": "nq.f",   # Nasdaq 100 e-mini
+    "ZN=F": "zn.f",   # 10y Treasury note
+}
+
+
+def stooq_symbol(symbol: str) -> str:
+    """Stooq ticker for a yfinance-style *symbol*.
+
+    `NG=F` → `ng.f` (continuous future); `SPY` → `spy.us` (US equity/ETF). An
+    unrecognised `*=F` ticker keeps the `.f` shape via its root rather than being
+    given an equity suffix it can never resolve under.
+    """
+    s = str(symbol).strip().upper()
+    mapped = _STOOQ_FUTURES.get(s)
+    if mapped:
+        return mapped
+    if s.endswith("=F"):
+        return f"{s[:-2].lower()}.f"
+    return f"{s.lower()}.us"
 
 
 def _offvm_enabled() -> bool:
@@ -143,7 +181,7 @@ def symbol_close_pairs(
             print(f"{symbol}: yfinance failed ({exc})")
     if len(pairs) < min_rows and stooq_urlopen is not None:
         try:
-            with stooq_urlopen(_STOOQ_URL.format(sym=str(symbol).lower()), timeout=timeout) as resp:
+            with stooq_urlopen(_STOOQ_URL.format(sym=stooq_symbol(symbol)), timeout=timeout) as resp:
                 sp = stooq_close_pairs(resp.read().decode())
             if len(sp) > len(pairs):
                 pairs = sp
