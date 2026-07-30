@@ -46,6 +46,12 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The backlog-ref guard diffs against the PR base, so it needs real history --
+          # a depth-1 clone would make every added line look new. (Same class as
+          # BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE: a truncated clone yields a
+          # plausible wrong answer rather than an error.)
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -136,11 +142,36 @@ jobs:
       - name: Assert every research script is routed in the capability index
         run: python3 scripts/ops/check_research_index.py --list
 
-      # --- 4. the guard's own tests ------------------------------------------
+      # --- 4. no NEW dangling tracking reference ------------------------------
+      # A doc saying "tracked by BL-X" where BL-X was never filed reads as tracked while
+      # being tracked by nobody. Four such ids existed on 2026-07-30 -- including
+      # BL-20260730-M1-PRICE-JOIN-DEAD, the canonical example in the "Green is not
+      # evidence" rule, cited from four workflows, resolving to nothing.
+      # DIFF-SCOPED on purpose: ~109 pre-existing dangling refs would make an alarm every
+      # session walks past, which the rules name as itself a P1 bug. The debt is measured
+      # and attributed in BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS instead.
+      - name: Forbid a NEW tracking reference that resolves to nothing
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=0 origin "${{ github.event.pull_request.base.ref }}" \
+            2>/dev/null || git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
+          python3 scripts/ops/check_backlog_refs.py \
+            --base "origin/${{ github.event.pull_request.base.ref }}"
+
+      # Report-only visibility on the pre-existing debt, so it stays a known number
+      # rather than quietly growing.
+      - name: Report pre-existing dangling references (non-blocking)
+        run: python3 scripts/ops/check_backlog_refs.py --all | head -20
+
+      # --- 5. the guard's own tests ------------------------------------------
       # A guard against 'green while doing nothing' must not itself be able to go
       # green while doing nothing.
       - name: Install test deps
         run: python -m pip install --upgrade pip pytest
 
       - name: Test the guard itself
-        run: python3 -m pytest tests/test_check_artifact_validity.py -q
+        run: |
+          python3 -m pytest tests/test_check_artifact_validity.py \
+                            tests/test_check_research_index.py \
+                            tests/test_check_backlog_refs.py -q

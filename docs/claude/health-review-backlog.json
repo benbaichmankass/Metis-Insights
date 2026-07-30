@@ -6914,8 +6914,8 @@
       "opened_at": "2026-07-30T07:40:00+00:00",
       "opened_by": "claude (authored-cell re-audit, operator-directed)",
       "source": "Found while scoping the operator-directed re-audit of authored regime cells (#7962, #7963). regime_debt_matrix measures the 1-D TREND axis only — it has no vol-split — so the six 2-D `trend_vol` cells cannot be re-measured by ANY existing tool. This is a second, independent instance of BL-20260730-REGIME-CELL-UNAUDITABLE: cells that gate live routing with no mechanism to re-check them.",
-      "title": "[regime][governance] The six 2-D trend_vol cells cannot be re-audited by any tool — ict_scalp_5m's cells are entirely unreachable",
-      "description": "The 2-D cells and why they matter: trend_donchian (trending/volatile, transitional/calm, chop/calm), squeeze_breakout_4h (trending/calm), ict_scalp_5m (trending/volatile, chop/volatile). All six affect LIVE BTC routing — BTC has an advisory regime head and REGIME_ML_VERDICT_MODE=use enforce is live, so these cells drop real intents. Yet regime_debt_matrix has no vol axis, so a matrix re-run cannot see them. ict_scalp_5m is the worst case: it carries NO 1-D cells at all, so its entire live gating rests on two 2-D cells that NOTHING can currently re-measure. After #7962 + #7963 land, 6 of 16 live-affecting cells remain un-re-audited. NEEDED: a vol-split re-run — tag emitted trades with the vol label the router would resolve (ml_vol_regime_for_symbol when an advisory head exists, else the frozen vol_detector edges) and break the matrix down per (trend, vol, direction). The 2026-06-27 Design-A vol-split (docs/research/A-vol-gating-OFFcell-design-2026-06-27.md) did this once by hand; the gap is that it was never turned into repeatable tooling. Until it is, do NOT describe the authored cells as re-checked.",
+      "title": "[regime] harness has NO vol axis — so a 1-D re-audit of any strategy that ALSO has a 2-D trend_vol cell measures a population live does not trade",
+      "description": "The 2-D cells and why they matter: trend_donchian (trending/volatile, transitional/calm, chop/calm), squeeze_breakout_4h (trending/calm), ict_scalp_5m (trending/volatile, chop/volatile). All six affect LIVE BTC routing — BTC has an advisory regime head and REGIME_ML_VERDICT_MODE=use enforce is live, so these cells drop real intents. Yet regime_debt_matrix has no vol axis, so a matrix re-run cannot see them. ict_scalp_5m is the worst case: it carries NO 1-D cells at all, so its entire live gating rests on two 2-D cells that NOTHING can currently re-measure. After #7962 + #7963 land, 6 of 16 live-affecting cells remain un-re-audited. NEEDED: a vol-split re-run — tag emitted trades with the vol label the router would resolve (ml_vol_regime_for_symbol when an advisory head exists, else the frozen vol_detector edges) and break the matrix down per (trend, vol, direction). The 2026-06-27 Design-A vol-split (docs/research/A-vol-gating-OFFcell-design-2026-06-27.md) did this once by hand; the gap is that it was never turned into repeatable tooling. Until it is, do NOT describe the authored cells as re-checked. || ESCALATED 2026-07-30 (severity medium -> high) after this nearly caused a bad Tier-3 proposal. The scope is worse than 'the 2-D cells cannot be audited': because regime_cell_walkforward / regime_debt_matrix / regime_tag_emitted contain NO vol axis at all (verified by grep: zero hits for trend_vol|vol_regime|calm|volatile), a 1-D cell re-audit POOLS every vol state -- including the vol states a 2-D cell already gates live. The measured trade population therefore differs from the live-traded population, so the verdict is not decision-grade. Same fidelity class as the side_filter bug fixed this morning (BL-20260730 side_filter forwarding): the harness measured legs the strategy never takes. CONCRETE NEAR-MISS: I was about to propose squeeze_breakout_4h trending short -> off on walk-forward #7990 (short_stable_drag TRUE, 3/4 folds, pooled -3.40R n=26, sign holds ex-fold-3). But config/regime_policy.yaml already gates trending/calm squeeze short via a 2-D cell, so an unknown fraction of those 26 shorts are calm trades LIVE ALREADY REFUSES. If the drag sits in the calm shorts, live is already protected and the 1-D change only adds a block on volatile shorts that may be fine; if it sits in the volatile shorts the change is justified -- and the harness cannot tell these apart. Proposal WITHHELD. EXACT CONTAMINATED SET (both 1-D and 2-D cells): squeeze_breakout_4h (trending/calm) and trend_donchian (trending/volatile, transitional/calm, chop/calm). VERIFIED CLEAN, so prior conclusions on them STAND: htf_pullback_trend_2h has NO 2-D cell (the operator-approved long->off merged in #7979 is unaffected -- checked, not assumed) and gld_pullback_1h has none (its SURVIVES verdict is unaffected). FIX: add the vol axis to the harness so a cell is graded on the (trend, vol) population live actually trades; until then NO 1-D cell change may be proposed for a contaminated strategy. || SCOPED 2026-07-30 -- and the fix is NOT 'add a vol indicator to the harness', which is what this row would previously have led a session to build. Verified in intents.py's own docstring: 'BTC has the 15m advisory head, so every BTC cell resolves the ML label regardless of the strategy's timeframe (the live trend_vol cells gate BTC trend_donchian (1h) + squeeze_breakout_4h (4h) and they DO resolve ML, not frozen)'. BOTH contaminated strategies are BTCUSDT, so their LIVE vol label comes from the ADVISORY ML HEAD btc-regime-15m-lgbm-fc-pcv-v1 thresholded at ML_VOL_VERDICT_THRESHOLD (0.5) -- NOT from the frozen vol_detector. Splitting the harness on the frozen detector would therefore NOT reproduce live; it would be a SECOND, different mismatch that looks like a fix. TWO PATHS, and they answer different questions: (A) BACKTEST-BASED CELL GRADING requires replaying the ML vol head offline per bar. The manifest IS in-repo (ml/configs/btc-regime-15m-lgbm-fc-pcv-v1.yaml) but the trained ARTIFACT is not -- it lives in the trainer registry, pullable via the trainer-vm-diag relay (autonomous territory). Steps: pull the artifact; score it on historical BTC 15m bars using the manifest's feature list via the offline pure fns so live==train; threshold at 0.5 -> calm/volatile per bar; map each emitted trade's entry time to the containing 15m bar's label; then add a --vol-split to regime_tag_emitted / regime_debt_matrix / regime_cell_walkforward so a cell is graded on the (trend, vol) population. This is the real unlock and it is a MULTI-STEP BUILD, not a one-commit change -- do not scope it as one. Same replay class as analyze_exit_head (see BL-20260730-EXITHEAD-REPLAY-SINGLE-THRESHOLD); it is feasible, just not cheap. (B) CHEAPER, COMPLEMENTARY, DIFFERENT QUESTION: for LIVE trades the vol label is ALREADY RECORDED -- the hard gate writes a regime_hard_gate audit row carrying the resolved `cell`, queryable via /api/diag/audit_query?event=regime_hard_gate. That measures what live is actually gating and can be done now with no ML replay, but it CANNOT grade a backtest cell (historical backtest trades have no audit rows) so it does not substitute for (A). UNTIL (A) LANDS: no 1-D cell change may be proposed for squeeze_breakout_4h or trend_donchian.",
       "tier": 1,
       "trigger_condition": "Any claim that the authored regime cells have been re-audited, or any 2-D cell authoring/revocation without a vol-split measurement.",
       "resolution_criteria": "A repeatable vol-split matrix exists (per (trend, vol, direction) net-R using the router's own vol-label resolution) and all six 2-D cells have a recorded re-audit verdict.",
@@ -6923,7 +6923,17 @@
       "snoozed_until": null,
       "updates": [],
       "resolved_at": null,
-      "severity": "medium-high"
+      "severity": "high",
+      "refs": [
+        "BL-20260730-DONCHIAN-CELLS-SUPERSEDED-EVIDENCE",
+        "BL-20260730-SQZ-CELLS-N-TOO-THIN",
+        "config/regime_policy.yaml",
+        "scripts/research/regime_cell_walkforward.py",
+        "scripts/research/regime_debt_matrix.py",
+        "scripts/research/regime_tag_emitted.py"
+      ],
+      "escalated_at": "2026-07-30T14:05:00+00:00",
+      "scoped_at": "2026-07-30T14:25:00+00:00"
     },
     {
       "id": "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER",
@@ -7171,7 +7181,183 @@
         "config/regime_policy.yaml",
         "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER"
       ]
+    },
+    {
+      "id": "BL-20260730-M1-PRICE-JOIN-DEAD",
+      "opened_at": "2026-07-30T12:15:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "comms/macro/econ_event_study_scorecard.json published `verdict: insufficient_history` with `price_bars: 0` for the producer's ENTIRE life. The study never joined a single price bar, so its verdict was VACUOUS, not thin -- and the two are indistinguishable from the outside.",
+      "title": "[macro/M1] econ event study joined ZERO price bars for its entire life — the flagship 'green is not evidence' instance",
+      "description": "FILED LATE, and that is itself the finding. This id is cited from docs/CLAUDE-RULES-CANONICAL.md (as the canonical example of the binding 'Green is not evidence' rule), scripts/ops/check_artifact_validity.py, scripts/macro/{econ_event_study,fetch_macro_candles,econ_calendar_snapshot_backfill}.py, and FOUR workflows -- but it existed only as other rows' `refs` and was never filed as a row of its own. So the flagship instance of the rule was 'tracked by' an id that resolved to nothing, which reads as tracked while being tracked by nobody. Exactly the crack the operator's 2026-07-30 directive names. THREE causes, all fixed but NOT ALL VERIFIED: (1) the Stooq URL/symbol mapping was wrong so the candle fetch returned nothing -- fixed (_STOOQ_URL + _STOOQ_FUTURES map + stooq_symbol()); (2) econ_event_study.py treated an empty panel as a soft zero and exited 0 -- fixed, now exits 2 unless --allow-empty-panel is passed explicitly; (3) the workflow swallowed the fetch with `|| echo` so a dead fetch stayed green -- fixed, plus a >=100-closes-per-symbol assertion. STILL UNVERIFIED ON A RUNNER: the econ-event-study workflow has not re-run since. Until it does, the fix is code-complete and evidence-free -- the same state that produced the bug. Verify then close. || RESOLVED + LIVE-VERIFIED 2026-07-30 (econ-event-study run on issue #7991): **price_bars: 899** for NG=F, against `price_bars: 0` for the producer's entire life. The join is alive, on the ENERGY symbol, through the same yfinance->Stooq fetcher whose `=F` URL mapping was fixed today -- so all three causes (Stooq URL/symbol map, the empty-panel soft-zero, the `|| echo` that kept it green) are confirmed fixed on a real runner, not just in code. This closes the 'code-complete and evidence-free' state the row was deliberately held open for. NOTE the run reported verdict `insufficient_history` at max_n=6 (< min_honest_n=12) -- that is the HONEST small-n gate working, not a failure, and it is a DIFFERENT limitation from the one this row tracked. It also reported strongest_ic -0.9 at H=10 with t=-3.576 and any_flagged_horizon true; at n=6 that is noise and is correctly suppressed by sufficient_history:false -- do not read it as a finding. The run used the DEFAULT kinds/snapshots because the kind-parameterization was not yet on main when it fired (flagged in the dispatch as a possibility).",
+      "severity": "high",
+      "status": "resolved",
+      "area": "macro",
+      "refs": [
+        "scripts/macro/econ_event_study.py",
+        "scripts/macro/fetch_macro_candles.py",
+        ".github/workflows/econ-event-study.yml",
+        "docs/CLAUDE-RULES-CANONICAL.md",
+        "BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER"
+      ],
+      "resolved_at": "2026-07-30T13:20:00+00:00"
+    },
+    {
+      "id": "BL-20260730-RESEARCH-VENUE-FEE",
+      "opened_at": "2026-07-30T12:15:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "scripts/research/regime_debt_matrix.py::roundtrip_fee_bps was the literal constant 7.5 bps for EVERY symbol, so all 14 commission-free (alpaca, spot) instruments (SPY QQQ TQQQ QLD GLD IWM TLT IEF SLV USO GDX SPLG IAUM SCHA) were charged a crypto-perp round-trip fee -- a ~25x over-charge worth ~0.04-0.12 R/trade.",
+      "title": "[research] regime debt matrix charged a crypto-perp fee to 14 commission-free equity/ETF instruments (~25x)",
+      "description": "FIXED (delegates to core.profile_loader.roundtrip_fee_bps_for, with trade_costs.DEFAULT_FEE_BPS_ROUNDTRIP as the single fallback) and the row now records WHICH fee graded it, so a reader never has to guess whether a verdict came from the venue-blind default. Filed late: the id was cited in the function's own docstring but never existed as a row. WHY IT MATTERED: this harness is what sourced Tier-3 regime cells. Over-charging can only make a strategy look WORSE, so the risk is asymmetric -- it cannot have created a false positive, but it can have created false NEGATIVES: OFF cells authored against a ~25x fee that would not survive the correct one. The gld_pullback_1h re-audit confirmed the mechanism is real (both deltas landed in the predicted 0.04-0.12 band) though that cell SURVIVED. RESIDUAL: every OTHER cell authored off an equity/ETF row before this fix rests on an over-charged measurement and needs re-checking -- tracked by BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER.",
+      "severity": "medium",
+      "status": "resolved",
+      "area": "research",
+      "refs": [
+        "scripts/research/regime_debt_matrix.py",
+        "docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md",
+        "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER",
+        "BL-20260730-FEE-AB-FIXED-WINDOW"
+      ]
+    },
+    {
+      "id": "BL-20260730-EXITHEAD-REPLAY-SINGLE-THRESHOLD",
+      "opened_at": "2026-07-30T12:15:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "The LIVE exit-head firing rule (src/units/strategies/trend_donchian.py::_exit_head_verdict) is CONDITIONAL and shape-dependent: for below_half_r it fires on `score < tau AND open_r < below_r`; for peak shapes the comparison INVERTS (`score > tau`, plus `open_r >= below_r` for peak_winner). scripts/research/analyze_exit_head.py applies a SINGLE --exit-threshold and models neither the second condition nor the shape inversion.",
+      "title": "[research] analyze_exit_head's policy sim is a single threshold — it does not reproduce the live CONDITIONAL exit-head rule",
+      "description": "So a run at --exit-threshold 0.10 reproduces tau ONLY and will fire on trades the live head leaves open, OVERSTATING the head's activity. It is an APPROXIMATION of the live policy, not a replay of it -- and the difference decides whether a regime cell can be graded against the strategy that actually trades. Noted explicitly in the dispatch (issue #7976) so the result cannot be misread as 'the live head replayed'. CONTEXT: this was found while correcting a WORSE error in the opposite direction -- I had claimed an ML exit head can never be replayed offline at all, which is false (the M20 toolchain does exactly that). The correct position is the narrow one: replay IS possible, and the current analyzer's policy sim is not yet faithful to the live conditional rule. FIX: the live-matching predicate already exists as src/runtime/.../exit_head_shadow.py::would_exit (the docstring of _exit_head_verdict says it mirrors it) -- reuse that in the policy sim rather than re-deriving a threshold rule, so live==replay by construction. Until then, no trend_donchian cell may be authored or retired off analyze_exit_head output.",
+      "severity": "medium",
+      "status": "open",
+      "area": "research",
+      "refs": [
+        "scripts/research/analyze_exit_head.py",
+        "src/units/strategies/trend_donchian.py",
+        "BL-20260730-DONCHIAN-CELLS-SUPERSEDED-EVIDENCE",
+        "docs/research/RESEARCH-CAPABILITY-INDEX.md"
+      ]
+    },
+    {
+      "id": "BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS",
+      "opened_at": "2026-07-30T12:15:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "A self-audit of every BL-20260730-* id cited in docs/, scripts/, .github/, config/ against the actual backlog files found FOUR cited ids that were never filed: M1-PRICE-JOIN-DEAD (cited from the canonical rules + 4 workflows), RESEARCH-VENUE-FEE, EXITHEAD-WF-SWALLOWED-FAILURES (a name mismatch -- filed under RESEARCH-WF-*), and EXITHEAD-REPLAY-SINGLE-THRESHOLD (cited in a dispatched issue).",
+      "title": "[process] cited-but-unfiled backlog ids read as tracked while being tracked by nobody — needs a CI check",
+      "description": "All four are now filed and the name mismatch reconciled to one canonical id. But the CLASS needs a mechanical guard, because this is the operator's 2026-07-30 directive almost verbatim: 'make sure the tasks don't fall between the cracks so that we think they're done, and then it turns out in two weeks that something has been failing because we incorrectly thought that we finished building something that we hadn't.' A doc or code comment saying 'tracked by BL-X' where BL-X does not exist is WORSE than no reference: it reads as tracked, so nobody re-checks it. The flagship case proves the severity -- BL-20260730-M1-PRICE-JOIN-DEAD is the canonical example in the binding 'Green is not evidence' rule and is cited from four workflows, and it resolved to nothing. PROPOSED FIX: a CI check (sibling of check_research_index.py, same shape) that greps every BL-*/MB-* id referenced in docs/ scripts/ .github/ config/ and fails when one is absent from the backlog files -- treating a dangling tracking reference exactly like an unindexed research script. Cheap, mechanical, and it closes a class rather than four instances.",
+      "severity": "medium",
+      "status": "open",
+      "area": "process",
+      "refs": [
+        "docs/claude/health-review-backlog.json",
+        "scripts/ops/check_research_index.py",
+        "docs/CLAUDE-RULES-CANONICAL.md"
+      ]
+    },
+    {
+      "id": "BL-20260730-EIA-SERIES-IDS-NOT-FRED",
+      "opened_at": "2026-07-30T12:45:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "econ-calendar-backfill first run (#7977) FAILED closed: 3 of 5 series ids returned real FRED history (ICSA 3107 rows, CCSA 3106, CPIAUCSL 953) while eia_crude_stocks (WCESTUS1) and eia_natgas_storage (WNGSTUS) both returned HTTP 404. No output was written -- the fail-closed design refused a partial success.",
+      "title": "[macro/M1] the two ENERGY event kinds use EIA series codes in a FRED-series config — 404, and they are the M1 targets",
+      "description": "CATEGORY ERROR, not a typo. WCESTUS1 and WNGSTUS are EIA's own dnav series codes (eia.gov/dnav/pet/hist/LeafHandler.ashx?s=WCESTUS1), not FRED series ids, so fredgraph.csv correctly 404s them. I authored them into config/macro_econ_series.yaml from EIA's catalogue while the fetcher is a FRED fetcher. THE FIX IS A SOURCE DECISION, NOT AN ID GUESS -- two possibilities needing different work: (1) FRED republishes these EIA series under different ids => a config edit; (2) FRED does not carry them keyless at all => needs EIA's own feed (ir.eia.gov weekly text/CSV is keyless; EIA API v2 needs a KEY, which is an operator hand-off). I CANNOT DETERMINE WHICH FROM THE SANDBOX: fred.stlouisfed.org is firewalled here (confirmed twice -- WebFetch 403, direct fetch fails) while the same call works on a GitHub runner. Guessing candidate ids into config would reproduce precisely the bug being fixed (an unverified id that looks authoritative), so it is deliberately NOT done. PROPOSED NEXT STEP: add a `--probe-ids` DIAGNOSTIC mode to econ_calendar_snapshot_backfill.py that tests candidate ids on the runner and REPORTS which resolve, writing no output ever -- so the runner does the verification instead of the sandbox guessing. It must stay a diagnostic: a try-candidates-until-one-resolves FALLBACK inside the producer would silently backfill from whatever id happened to work, which is the same class as the original bug. IMPACT: these two kinds ARE the ROADMAP_MACRO M1/M2 energy-event targets, so M1 stays blocked on this even though the machinery now works -- the 3 verified kinds (jobless claims x2, CPI) unblock the study END-TO-END but are not the energy sleeve. Do not report M1 as unblocked on the strength of the 3 working kinds. || PROBE BUILT 2026-07-30 (`--probe-ids`): reports which configured ids resolve, writes nothing, and DISTINGUISHES the two cases that need different config actions -- HTTP 404 (wrong id / wrong source) vs HTTP 200 with empty history (right id, data question). The shared adapter logs-and-returns-empty on an HTTP error, collapsing both into one message, so the probe reads the status itself; the production path still goes through the adapter untouched. Deliberately NOT a fallback -- it never tries candidate ids and adopts whichever resolves, which would backfill from whatever happened to work (same defect class one level down); a test guards that by inspecting the code with the docstring stripped AND behaviourally. Run it on a runner to decide FRED-republished vs EIA keyless feed vs keyed API.",
+      "severity": "high",
+      "status": "open",
+      "area": "macro",
+      "refs": [
+        "config/macro_econ_series.yaml",
+        "scripts/macro/econ_calendar_snapshot_backfill.py",
+        ".github/workflows/econ-calendar-backfill.yml",
+        "ROADMAP_MACRO.md",
+        "BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER",
+        "BL-20260730-M1-PRICE-JOIN-DEAD"
+      ]
+    },
+    {
+      "id": "BL-20260730-SQZ-CELLS-N-TOO-THIN",
+      "opened_at": "2026-07-30T12:45:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "regime-debt-matrix run #7978 (730d) for squeeze_breakout_4h: harness=squeeze, fidelity=faithful, errored=0 -- the wiring works -- but only 28 trades TOTAL across all regimes (trending long n=3 / short n=6; transitional long n=5 / SHORT n=0; chop long n=7 / short n=7).",
+      "title": "[regime] squeeze_breakout_4h wiring VERIFIED but n=28 over 730d — cells still ungradeable; transitional-short is cosmetic (n=0)",
+      "description": "Splits BL-20260730-SQZ-WIRING-UNVERIFIED-E2E cleanly: the WIRING claim is now verified on a runner (harness=squeeze, faithful, real per-regime numbers, previously 'unclassifiable'), but the CELL claim is not and must not be conflated with it. At n=3-7 per cell nothing separates from noise. A 4h squeeze (BB-inside-KC then breakout) is a genuinely rare setup, so this is expected for the window, not a bug. Re-dispatched at 2900d (#7986, ~8y, Binance-vision has BTC from 2017) for ~4x the sample. TWO THINGS TO CARRY FORWARD: (a) transitional SHORT measured n=0 while the live cell has short:on -- zero trades is not evidence of a working gate, it is a COSMETIC CELL, same class as BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS; if 2900d still shows n=0 there, record it as decorative rather than reading it as 'short trading is fine in transitional'. (b) two live cells disagree in SIGN with the thin measurement (trending long -2.24 with long:on; chop short -2.03 with short:on) -- not actionable at this n, but the longer run should be read as a test of THOSE TWO specifically. GATE: any cell that still reads negative at adequate n goes to regime_cell_walkforward for the #7915 *_stable_drag gate BEFORE any proposal -- pooled net-R alone is what produced the htf_pullback_trend_2h fold-3 artifact (+7.89R short leg that is -3.70R ex-fold-3).",
+      "severity": "medium",
+      "status": "open",
+      "area": "research",
+      "refs": [
+        "config/regime_policy.yaml",
+        "scripts/research/regime_debt_matrix.py",
+        "BL-20260730-SQZ-WIRING-UNVERIFIED-E2E",
+        "BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS",
+        "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER"
+      ]
+    },
+    {
+      "id": "BL-20260730-DONCHIAN-EXIT-PANEL-BUILT-NOT-REGIME-SPLIT",
+      "opened_at": "2026-07-30T12:55:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "research-exit-head-build run #7976 for trend_donchian (backtest_system roster, BTCUSDT 1h, 730d): panel 4600 rows from 127 trades, base hold rate 0.4276. OOS AUC 0.5722 stable 5/5 folds (criterion a PASS). Net-of-fee exit-policy improvement -0.0402 (head 0.0554 vs base 0.0955 over 106 trades, 18.9% early-exited) => criterion b FAIL. VERDICT clears_bar: False.",
+      "title": "[research] trend_donchian exit panel BUILT (4600 rows) and the head is an honest NULL — but this did NOT re-audit the 6 regime cells",
+      "description": "THREE distinct claims, and conflating them is the trap. (1) VERIFIED: the per-bar in-trade panel for trend_donchian now EXISTS -- 4600 rows / 127 trades, real substrate (contrast squeeze_breakout_4h's n=28). The A6d re-audit path has its input. (2) HONEST NULL, worth recording: a freshly-trained take/skip exit head DISCRIMINATES out-of-sample (AUC 0.5722, above the pre-registered 0.55 bar, positive in 5/5 folds, top features running_mfe_r + upnl_r + mfe_giveback_r, 6 FDR survivors) but the resulting exit POLICY does NOT beat the fixed SL/TP net of fees (-0.0402 R/trade). Per the pre-registered design bar (both criteria required) this is a MISS and stops here -- exactly the 'record the null' case, not a tuning invitation. (3) NOT DONE, and must not be reported as done: this does NOT re-audit the six live regime cells. Two gaps: (i) the workflow trains a NEW head, it does not replay the LIVE exit-head-donchian-1h-v1 at its live tau 0.10 / action close -- and per BL-20260730-EXITHEAD-REPLAY-SINGLE-THRESHOLD the analyzer's single-threshold policy sim cannot reproduce the live CONDITIONAL rule (score<tau AND open_r<below_r) anyway; (ii) nothing split per-trade R by REGIME, which is the entire point of the cell re-audit. So A6d step 1 is done, steps 2 and 3 are not. NEXT: split the panel's per-trade realized R by the regime_tag_emitted axis and apply the same #7915 *_stable_drag gate every other cell is held to; the live-head replay needs the exit_head_shadow.would_exit predicate wired into the policy sim first.",
+      "severity": "medium",
+      "status": "open",
+      "area": "research",
+      "refs": [
+        "scripts/research/build_intrabar_exit_panel.py",
+        "scripts/research/analyze_exit_head.py",
+        "scripts/research/regime_tag_emitted.py",
+        "BL-20260730-EXITHEAD-REPLAY-SINGLE-THRESHOLD",
+        "BL-20260730-DONCHIAN-CELLS-SUPERSEDED-EVIDENCE",
+        "docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md"
+      ]
+    },
+    {
+      "id": "BL-20260730-BACKFILL-DATE-IS-REFERENCE-PERIOD-NOT-RELEASE",
+      "opened_at": "2026-07-30T13:35:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "Attempting to build the M3 overlap validator found ZERO joinable rows between the forward consensus file and the FRED backfill, for all 3 kinds (initial_jobless_claims fwd=8 dates / bf=3031 dates / intersect=0; continuing 8/3030/0; cpi_yoy 1/917/0). Cause: scheduled_for means DIFFERENT THINGS in the two files. Forward (bigdata:fxstreet) = the RELEASE date (cpi_yoy 2026-07-14). Backfill (keyless FRED) = the OBSERVATION / REFERENCE PERIOD (cpi_yoy 2026-04-01, 2026-05-01, 2026-06-01).",
+      "title": "[macro/M1] backfill `scheduled_for` is the FRED reference period, not the release date — zero join with the forward file, and the event study joins prices at the wrong date",
+      "description": "TWO consequences, the second worse than the first. (1) M3 CANNOT RUN AT ALL -- the overlap validation the operator-approved M1 gate names as its satisfiability condition for option (b) has an empty join. I previously told the operator M3 was 'runnable right now on the labour kinds (n=13/8)'; that was WRONG and is corrected -- those counts were rows with a survey consensus, not rows joinable to a model expectation. (2) THE EVENT STUDY ITSELF JOINS AT THE WRONG DATE when fed backfilled rows. CPI for reference period 2026-06-01 is released ~2026-07-15; joining forward returns at 06-01 measures a window that mostly PRECEDES the release, i.e. the wrong window entirely. That does not create lookahead (the window is too EARLY, not too late) but it does guarantee a measured null that a reader would misinterpret as 'no edge in economic surprise'. Any M1/M2 verdict computed off backfilled rows before this is fixed is meaningless. ROOT CAUSE IS A DATA LIMITATION, NOT JUST A BUG: keyless FRED (fredgraph.csv) serves OBSERVATION dates only; true release timestamps live in ALFRED / the FRED releases API. So there is no exact release date available on the keyless path. PROPOSED FIX (declared approximation, never presented as truth): add a per-kind `release_lag_days` to config/macro_econ_series.yaml (weekly claims: week-ending Saturday -> Thursday release, ~+5d; CPI: ~+15d), emit BOTH `reference_period` and a computed `scheduled_for`/release date, and stamp `release_date_basis: modeled_lag` alongside the existing `pit_basis` so a modeled release date can never be mistaken for an observed one. Join on that. Then re-verify the overlap is non-empty BEFORE trusting any M3 result. || FIX LANDED 2026-07-30, NOT YET RE-RUN. Per-kind release_lag_days added to config (claims +5d week-ending Sat -> Thu; continuing +12d; CPI +45d reference-month -> mid next month; natgas +6d; crude +5d). rows_for_kind now emits scheduled_for = MODELED RELEASE date, keeps FRED's own date as `reference_period`, sets observed_at to the release instant, and stamps release_date_basis: modeled_lag + release_lag_days. The misleading comment that claimed the reference date WAS the observation instant 'because the expectation used only strictly-prior data' is replaced -- it conflated the EXPECTATION being leakage-safe (true) with the reference date being the RELEASE date (false). STILL UNVERIFIED: the backfill has not been re-run, so the overlap with the forward feed is not yet confirmed non-empty. Do not close until a re-run shows a NON-ZERO join.",
+      "severity": "high",
+      "status": "fix_landed_unverified",
+      "area": "macro",
+      "refs": [
+        "scripts/macro/econ_calendar_snapshot_backfill.py",
+        "config/macro_econ_series.yaml",
+        "scripts/macro/econ_event_study.py",
+        "ROADMAP_MACRO.md",
+        "BL-20260730-EIA-SERIES-IDS-NOT-FRED"
+      ]
+    },
+    {
+      "id": "BL-20260730-BACKFILL-UNITS-DIFFER-FROM-SURVEY-FEED",
+      "opened_at": "2026-07-30T13:35:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "Same investigation. For every overlapping kind the two sources report the SAME release in DIFFERENT units: initial_jobless_claims forward actual=187.0 (thousands) vs backfill 187000.0 (units, x1000); continuing_jobless_claims forward 1.796 (millions) vs backfill 1796000.0 (x1e6); cpi_yoy forward 3.5 (YoY percent) vs backfill 332.568 (CPI INDEX LEVEL).",
+      "title": "[macro/M1] backfill emits raw FRED units while the survey feed uses the release convention — and `cpi_yoy` is actually the CPI LEVEL",
+      "description": "Blocks M3 independently of the date-key bug: even once the join works, comparing survey-surprise to model-surprise across mismatched units is meaningless. Two DIFFERENT severities here. (a) The claims series differ by a pure SCALE factor (x1000 / x1e6) -- a normalization, mechanical to fix, and note that a scale factor cancels in a CORRELATION but NOT in a slope/magnitude check or in surprise_pct, so it cannot simply be ignored. (b) cpi_yoy is not a scale problem, it is THE WRONG QUANTITY: the backfill emits the CPI index level (332.568) under a kind named `cpi_yoy` while the survey feed emits year-over-year percent (3.5). config/macro_econ_series.yaml even says 'level; YoY derived downstream' -- and nothing downstream derives it. So the backfilled cpi_yoy series is MISLABELED; it is cpi_level. Its 917 rows are not usable as cpi_yoy by anything, and its model expectation is an expectation of the wrong series. FIX: declare a per-kind `units` + `transform` in config (identity / x1e-3 / yoy_pct_from_level) applied in the backfill so emitted rows match the release convention the survey feed uses, and rename or derive cpi_yoy properly. A unit/transform mismatch that silently produces plausible numbers is the same class as the fee over-charge (BL-20260730-RESEARCH-VENUE-FEE) -- wrong scale, right-looking output. || FIX LANDED 2026-07-30, NOT YET RE-RUN. Per-kind `transform` added and applied BEFORE the expectation is fitted -- ordering is load-bearing: fitting on a level and converting afterwards would forecast the wrong series. claims scale:0.001 (persons -> thousands), continuing scale:0.000001 (-> millions), cpi_yoy yoy_pct_from_level (the mislabeled-series fix: it was emitting the CPI INDEX LEVEL under a kind named cpi_yoy). An UNKNOWN transform now RAISES rather than passing raw units through, because a silent pass-through emits plausible numbers in the wrong units -- the bug itself. yoy drops the first `period` observations rather than fabricating a value. Every row records units_transform. 40 tests. STILL UNVERIFIED on a runner.",
+      "severity": "high",
+      "status": "fix_landed_unverified",
+      "area": "macro",
+      "refs": [
+        "scripts/macro/econ_calendar_snapshot_backfill.py",
+        "config/macro_econ_series.yaml",
+        "BL-20260730-BACKFILL-DATE-IS-REFERENCE-PERIOD-NOT-RELEASE"
+      ]
+    },
+    {
+      "id": "BL-20260730-MONTHLY-RELEASE-DATE-DRIFT",
+      "opened_at": "2026-07-30T15:15:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "After adding per-kind release_lag_days, a local join test against the real forward feed showed the two WEEKLY kinds now join (initial_jobless_claims 6 rows, continuing_jobless_claims 4) while cpi_yoy still joined ZERO -- the modeled release landed 2 days off. Corrected 45d -> 43d against the actual capture (reference 2026-06-01 released 2026-07-14), but the underlying issue is structural.",
+      "title": "[macro/M1] a FIXED release lag cannot join a MONTHLY series — BLS/CPI release day drifts, so the join needs a tolerance window",
+      "description": "Weekly series are safe: DoL/EIA publish on a fixed weekday, so reference + constant lag lands exactly every week (verified -- claims now join). MONTHLY is different: the BLS CPI release falls roughly the 10th-15th of the following month and MOVES, so no single constant hits every month. A fixed lag will join some months and silently miss others, and a partial join looks like a small sample rather than a systematic miss -- the same read-it-wrong failure mode as the rest of this class. FIX: the consumer should join on NEAREST RELEASE WITHIN A TOLERANCE WINDOW (e.g. +/- 5 trading days) instead of exact-date equality, and REPORT the matched offset distribution so a systematic bias is visible rather than absorbed. That belongs in the M3 validator + the event study, not in the backfill (the backfill's job is to emit an honest modeled date; the consumer's job is to match tolerantly). Until then cpi_yoy's contribution to any overlap is unreliable even though 43d happens to hit the one captured month -- do NOT read a cpi_yoy join count as complete. The clean long-term answer is the same one already documented for vintages: ALFRED / the FRED releases API give TRUE release dates and remove the need to model this at all.",
+      "severity": "medium",
+      "status": "open",
+      "area": "macro",
+      "refs": [
+        "config/macro_econ_series.yaml",
+        "scripts/macro/econ_calendar_snapshot_backfill.py",
+        "scripts/macro/econ_event_study.py",
+        "BL-20260730-BACKFILL-DATE-IS-REFERENCE-PERIOD-NOT-RELEASE"
+      ]
     }
   ],
-  "updated_at": "2026-07-30T11:40:00+00:00"
+  "updated_at": "2026-07-30T15:15:00+00:00"
 }

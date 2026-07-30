@@ -62,6 +62,7 @@ No order path, no DB write, no live-VM touch.
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
 import json
 import os
 import sys
@@ -106,6 +107,63 @@ def _fetch_history(series_id: str, *, urlopen=None, timeout: float = 25.0):
     return got.get(series_id) or []
 
 
+PIT_BASIS_MODELED_LAG = "modeled_lag"
+# Mirrors fred_adapter._FRED_CSV_URL. Used ONLY by the id probe, for the HTTP status the
+# adapter deliberately swallows; the production path always goes through the adapter.
+_FRED_PROBE_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={}"
+
+
+def apply_transform(history: list, transform: Optional[str], *, period: int) -> list:
+    """Convert FRED's native units into the RELEASE convention the survey feed uses.
+
+    Applied to the (date, value) history BEFORE any expectation is fitted, so the model
+    forecasts the quantity actually released. Fitting on a level and converting after
+    would forecast the wrong series -- which is how `cpi_yoy` came to hold a CPI index
+    level (BL-20260730-BACKFILL-UNITS-DIFFER-FROM-SURVEY-FEED).
+
+    - ``identity`` / ``None``        -> unchanged
+    - ``scale:<factor>``            -> value * factor (claims: persons -> thousands)
+    - ``yoy_pct_from_level``        -> 100 * (v[i]/v[i-period] - 1); the first ``period``
+                                       observations are DROPPED (no prior year to compare),
+                                       never back-filled with a fabricated value.
+
+    Raises on an unknown transform: silently passing the raw series through would emit
+    plausible numbers in the wrong units, which is the bug this exists to prevent.
+    """
+    t = (transform or "identity").strip()
+    if t in ("", "identity"):
+        return list(history)
+    if t.startswith("scale:"):
+        try:
+            factor = float(t.split(":", 1)[1])
+        except ValueError as exc:
+            raise ValueError(f"bad scale transform {t!r}") from exc
+        return [(d, float(v) * factor) for d, v in history]
+    if t == "yoy_pct_from_level":
+        if period <= 0:
+            raise ValueError("yoy_pct_from_level needs a positive cadence period")
+        out = []
+        for i in range(period, len(history)):
+            prev = float(history[i - period][1])
+            if prev == 0:
+                continue
+            out.append((history[i][0], 100.0 * (float(history[i][1]) / prev - 1.0)))
+        return out
+    raise ValueError(f"unknown transform {t!r} for a backfill series")
+
+
+def release_date_for(reference_period: str, lag_days: int) -> str:
+    """Modeled release date = reference period + declared publication lag.
+
+    An APPROXIMATION of the publication calendar, never an observed timestamp -- keyless
+    FRED dates observations by reference period only. Rows stamp
+    ``release_date_basis: modeled_lag`` so this can never be read as an observed release
+    time (BL-20260730-BACKFILL-DATE-IS-REFERENCE-PERIOD-NOT-RELEASE).
+    """
+    d = _dt.date.fromisoformat(reference_period)
+    return (d + _dt.timedelta(days=int(lag_days))).isoformat()
+
+
 def rows_for_kind(
     kind: str,
     spec: dict,
@@ -122,6 +180,10 @@ def rows_for_kind(
     head yields no rows rather than a fabricated expectation.
     """
     period = period_for_cadence(spec.get("cadence") or "weekly")
+    # UNITS BEFORE EXPECTATION -- see apply_transform's docstring for why the order
+    # is load-bearing rather than cosmetic.
+    history = apply_transform(history, spec.get("transform"), period=period)
+    lag_days = int(spec.get("release_lag_days") or 0)
     dates = [d for d, _v in history]
     values = [float(v) for _d, v in history]
     out: list[dict] = []
@@ -140,8 +202,12 @@ def rows_for_kind(
             "event_name": kind.replace("_", " ").title(),
             "entity": "US",
             "country": "US",
-            "scheduled_for": dates[i],
-            "scheduled_at": f"{dates[i]}T00:00:00Z",
+            # `scheduled_for` is the MODELED RELEASE date -- the key the forward feed
+            # uses, so backfilled and forward rows are joinable. `reference_period`
+            # keeps FRED's own observation date, which is what dates[i] actually is.
+            "scheduled_for": release_date_for(dates[i], lag_days),
+            "scheduled_at": f"{release_date_for(dates[i], lag_days)}T00:00:00Z",
+            "reference_period": dates[i],
             "status": "resolved",
             "impact": None,
             "impact_score": None,
@@ -170,13 +236,88 @@ def rows_for_kind(
             "source": f"fred:{spec.get('fred_series')}",
             "source_url": "https://fred.stlouisfed.org",
             "symbol": spec.get("symbol"),
-            # The release date IS the observation instant for a reconstructed row:
-            # the expectation used only strictly-prior data, so the row is PIT by
-            # construction. Distinguishable from a forward capture via `backfilled`.
-            "observed_at": f"{dates[i]}T00:00:00Z",
+            "release_date_basis": PIT_BASIS_MODELED_LAG,
+            "release_lag_days": lag_days,
+            "units_transform": (spec.get("transform") or "identity"),
+            # observed_at = the MODELED RELEASE instant, i.e. the earliest time this
+            # information could have been acted on.
+            #
+            # The prior comment here claimed the reference date WAS the observation
+            # instant "because the expectation used only strictly-prior data, so the row
+            # is PIT by construction". That conflated two different properties: the
+            # EXPECTATION being leakage-safe (true) with the reference date being the
+            # RELEASE date (false). CPI for reference 2026-06-01 is published ~07-15; a
+            # leakage-safe expectation does not move the publication date.
+            "observed_at": f"{release_date_for(dates[i], lag_days)}T00:00:00Z",
             "generated_at": generated_at,
         })
     return out
+
+
+def probe_series(series_cfg: dict, *, urlopen=None) -> list[dict]:
+    """DIAGNOSTIC: report which configured FRED ids actually resolve. Writes NOTHING.
+
+    Exists because two configured ids (WNGSTUS / WCESTUS1) are EIA `dnav` codes, not FRED
+    ids, and 404 (BL-20260730-EIA-SERIES-IDS-NOT-FRED). The planning sandbox is firewalled
+    from FRED, so the id question can only be answered on a runner — and guessing candidate
+    ids into config would reproduce exactly the unverified-but-authoritative-looking id
+    that caused the bug.
+
+    DELIBERATELY NOT A FALLBACK. It does not try alternates and silently adopt whichever
+    one resolves: that would backfill from whatever id happened to work, which is the same
+    class of defect one level down. It REPORTS; a human/session then edits config.
+    """
+    out = []
+    for kind, spec in (series_cfg or {}).items():
+        sid = spec.get("fred_series")
+        row = {"kind": kind, "fred_series": sid, "resolved": False, "observations": 0,
+               "first": None, "last": None, "http_status": None, "error": None}
+        if not sid:
+            row["error"] = "no fred_series declared"
+            out.append(row)
+            continue
+        # STATUS-AWARE on purpose. The shared adapter logs-and-returns-empty on an HTTP
+        # error, which would collapse two DIFFERENT config actions into one message:
+        #   404          => wrong id / wrong source  -> find the real id, or change source
+        #   200 + empty  => right id, no data served -> a data question, not an id typo
+        # A diagnostic that cannot tell those apart is not much of a diagnostic, so the
+        # probe fetches the URL itself for the status and uses the adapter for the rows.
+        try:
+            import urllib.request as _rq
+            opener = urlopen or _rq.urlopen
+            try:
+                with opener(_FRED_PROBE_URL.format(sid), timeout=25.0) as resp:
+                    code = getattr(resp, "status", None) or getattr(resp, "code", 200)
+                row["http_status"] = int(code) if code else 200
+            except Exception as exc:  # noqa: BLE001
+                row["http_status"] = getattr(exc, "code", None)
+                row["error"] = (f"HTTP {row['http_status']}"
+                                if row["http_status"] else f"{type(exc).__name__}: {exc}")
+            if row["error"] is None:
+                hist = _fetch_history(sid, urlopen=urlopen)
+                if hist:
+                    row.update(resolved=True, observations=len(hist),
+                               first=hist[0][0], last=hist[-1][0])
+                else:
+                    row["error"] = "HTTP 200 but EMPTY history (data question, not an id typo)"
+        except Exception as exc:  # noqa: BLE001 — a probe reports failures, never raises
+            row["error"] = f"{type(exc).__name__}: {exc}"
+        out.append(row)
+    return out
+
+
+def render_probe(rows: list[dict]) -> str:
+    lines = ["kind                          series        obs     span                    status"]
+    for r in rows:
+        span = f"{r['first']}..{r['last']}" if r["resolved"] else "-"
+        status = "OK" if r["resolved"] else f"FAIL {r['error']}"
+        lines.append(f"{r['kind']:29s} {str(r['fred_series']):13s} "
+                     f"{r['observations']:>6d}  {span:22s}  {status}")
+    ok = sum(1 for r in rows if r["resolved"])
+    lines.append("")
+    lines.append(f"{ok}/{len(rows)} ids resolved. A FAIL is a CONFIG question "
+                 "(right source? right id?), not a code change.")
+    return "\n".join(lines)
 
 
 def main(argv: Optional[list] = None) -> int:
@@ -190,9 +331,19 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--min-train", type=int, default=DEFAULT_MIN_TRAIN)
     ap.add_argument("--generated-at", default=None)
     ap.add_argument("--dry-run", action="store_true", help="compute + print; write nothing")
+    ap.add_argument("--probe-ids", action="store_true",
+                    help="DIAGNOSTIC: report which configured FRED ids resolve; writes "
+                         "nothing and never adopts an alternate id")
     args = ap.parse_args(argv)
 
     series = load_series_config(args.config)
+
+    # Probe short-circuits everything else: it answers "is this id real?" on a host that
+    # can actually reach FRED, and deliberately writes no output.
+    if args.probe_ids:
+        rows = probe_series(series)
+        print(render_probe(rows))
+        return 0 if all(r["resolved"] for r in rows) else 1
     wanted = ([k.strip() for k in args.kinds.split(",") if k.strip()]
               if args.kinds else sorted(series))
     unknown = [k for k in wanted if k not in series]

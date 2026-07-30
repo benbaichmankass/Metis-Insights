@@ -186,7 +186,7 @@ jobs:
       # A verdict computed from an empty panel is VACUOUS, not thin -- and the two are
       # indistinguishable from the outside. Before the analyzer runs, assert the panel
       # actually measured something. (docs/CLAUDE-RULES-CANONICAL.md "Green is not
-      # evidence" obligation 1; BL-20260730-EXITHEAD-WF-SWALLOWED-FAILURES.)
+      # evidence" obligation 1; BL-20260730-RESEARCH-WF-SWALLOWED-FAILURES.)
       - name: Assert the panel is non-empty
         run: |
           set -euo pipefail
