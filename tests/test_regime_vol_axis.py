@@ -444,6 +444,40 @@ def test_audit_uses_the_live_bucketing_function_not_a_reimplementation():
     assert bucket_for_vol(99.0, edges, labels) == "vol_b2"    # saturates
 
 
+def test_live_vol_bucket_derives_from_the_heads_frozen_edges():
+    """The gate NEVER reads a stored vol_bucket — it computes one.
+
+    `feature_row_for_predictor` buckets the head's `vol_feature_column` against
+    the head's own frozen edges. A replay that trusts the dataset's stored
+    column is therefore LESS faithful to live, and silently couples a head to
+    the single dataset build whose quantile edges happen to match. This is the
+    correction the feature audit surfaced on its first real head/dataset
+    mismatch (btc-regime-15m-lgbm-v2 over v520, 2026-07-30).
+    """
+    spec = {"vol_bucket_edges": [0.001, 0.002],
+            "vol_bucket_labels": ["vol_b0", "vol_b1", "vol_b2"],
+            "vol_feature_column": "rolling_log_return_vol"}
+    assert replay.live_vol_bucket({"rolling_log_return_vol": 0.0005}, spec) == "vol_b0"
+    assert replay.live_vol_bucket({"rolling_log_return_vol": 0.001}, spec) == "vol_b0"
+    assert replay.live_vol_bucket({"rolling_log_return_vol": 0.0015}, spec) == "vol_b1"
+    assert replay.live_vol_bucket({"rolling_log_return_vol": 9.9}, spec) == "vol_b2"
+    # unusable input -> None so the caller can REFUSE rather than guess
+    assert replay.live_vol_bucket({"rolling_log_return_vol": None}, spec) is None
+    assert replay.live_vol_bucket({}, spec) is None
+
+
+def test_live_vol_bucket_honours_a_yz_heads_own_estimator():
+    """A yz head buckets `yang_zhang_vol`, not close-to-close vol.
+
+    Using the wrong estimator against yz-unit edges was the pre-S17 live bug;
+    the replay must not reintroduce it offline.
+    """
+    spec = {"vol_bucket_edges": [0.01], "vol_bucket_labels": ["lo", "hi"],
+            "vol_feature_column": "yang_zhang_vol"}
+    row = {"yang_zhang_vol": 0.5, "rolling_log_return_vol": 0.001}
+    assert replay.live_vol_bucket(row, spec) == "hi"  # reads yz, not the c2c value
+
+
 def test_projection_keeps_ts_plus_only_the_heads_columns(tmp_path):
     """Memory discipline: a wide market_features row must not be materialised whole.
 

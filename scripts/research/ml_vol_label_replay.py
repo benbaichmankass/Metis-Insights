@@ -230,6 +230,43 @@ def _unwrap(predictor: Any) -> Any:
     return getattr(predictor, "wrapped", None) or predictor
 
 
+def live_vol_bucket(row: Mapping[str, Any], spec: Mapping[str, Any]) -> Optional[str]:
+    """Derive ``vol_bucket`` the way the LIVE serve path does.
+
+    This is the correction the feature audit surfaced on its first real
+    head/dataset mismatch. ``feature_row_for_predictor`` — the function that
+    builds the row the gate actually scores — **never reads a stored
+    ``vol_bucket``**. It takes the head's own frozen ``vol_bucket_edges`` /
+    ``vol_bucket_labels`` and buckets the live value of the estimator named by
+    the head's frozen ``vol_feature_column``::
+
+        vol_value = parity.get(vol_col, rolling_vol)
+        bucket = bucket_for_vol(float(vol_value), edges, labels)
+
+    So a replay that trusts the dataset's stored column is **less faithful to
+    live than computing it**, and it silently couples a head to the one dataset
+    build whose quantile edges happen to match. Computing here is therefore
+    both more correct and head/dataset-agnostic — and where the two agree (the
+    head scored on its own training build) it is identical by construction.
+
+    Returns ``None`` when the estimator value is absent/unparseable, so the
+    caller can refuse rather than guess.
+    """
+    labels = list(spec.get("vol_bucket_labels") or [])
+    if not labels:
+        return None
+    edges = [float(e) for e in (spec.get("vol_bucket_edges") or [])]
+    vol_col = str(spec.get("vol_feature_column") or "rolling_log_return_vol")
+    raw = row.get(vol_col)
+    if raw is None:
+        return None
+    try:
+        from src.runtime.regime_shadow import bucket_for_vol  # noqa: PLC0415
+        return bucket_for_vol(float(raw), edges, labels)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def iter_projected_rows(
     path: Path, keep: Sequence[str]
 ) -> Iterator[Dict[str, Any]]:
@@ -519,6 +556,7 @@ def run_replay(
     threshold: Optional[float] = None,
     batch: bool = True,
     audit: bool = True,
+    vol_bucket_mode: str = "live",
 ) -> Dict[str, Any]:
     """Score every dataset bar and write ``{ts, p_volatile, vol_regime}`` JSONL.
 
@@ -535,14 +573,59 @@ def run_replay(
     tau = float(threshold) if threshold is not None else live_threshold()
 
     # Project to the head's own feature columns as we stream — see
-    # iter_projected_rows for why this matters on the 6 GB trainer.
-    feature_cols = list(getattr(_unwrap(head["predictor"]), "_feature_columns", []) or [])
-    rows = list(iter_projected_rows(dataset, feature_cols))
+    # iter_projected_rows for why this matters on the 6 GB trainer. The head's
+    # vol_feature_column rides along even when it isn't itself a feature (the
+    # yz heads bucket an estimator they don't otherwise consume).
+    _base = _unwrap(head["predictor"])
+    spec = getattr(_base, "regime_spec", None) or {}
+    feature_cols = list(getattr(_base, "_feature_columns", []) or [])
+    keep = list(feature_cols) + [str(spec.get("vol_feature_column")
+                                     or "rolling_log_return_vol")]
+    rows = list(iter_projected_rows(dataset, keep))
     if not rows:
         raise RuntimeError(
             f"dataset {dataset} yielded 0 rows — nothing to label. A zero-row "
             "labels file would silently grade every cell as 'unknown'."
         )
+
+    # LIVE-FAITHFUL vol_bucket. The gate computes this from the head's frozen
+    # edges and never reads a stored column, so we do the same — see
+    # live_vol_bucket. Any disagreement with the dataset's stored value is
+    # REPORTED (it means the frame was built for a different head) but is not
+    # an error, because the value we score on is the live-faithful one.
+    bucket_col = str(spec.get("feature_column") or "vol_bucket")
+    rebucket: Dict[str, Any] = {"mode": vol_bucket_mode}
+    if vol_bucket_mode == "live" and spec.get("vol_bucket_labels"):
+        changed = uncomputable = 0
+        for r in rows:
+            live_b = live_vol_bucket(r, spec)
+            if live_b is None:
+                uncomputable += 1
+                continue
+            if r.get(bucket_col) != live_b:
+                changed += 1
+            r[bucket_col] = live_b
+        rebucket.update({
+            "recomputed_from_frozen_edges": True,
+            "rows": len(rows),
+            "differed_from_dataset_value": changed,
+            "differed_pct": round(100.0 * changed / len(rows), 3) if rows else None,
+            "uncomputable": uncomputable,
+            "note": (
+                "vol_bucket was DERIVED from the head's frozen edges via the "
+                "live bucket_for_vol, exactly as feature_row_for_predictor does. "
+                "A non-zero 'differed' count means this dataset build's stored "
+                "vol_bucket used different quantile edges than the head froze — "
+                "which is why trusting the stored column would have mis-scored."
+            ),
+        })
+        if uncomputable:
+            raise RuntimeError(
+                f"{uncomputable} of {len(rows)} rows have no usable "
+                f"{spec.get('vol_feature_column')!r} value, so the live-faithful "
+                "vol_bucket cannot be derived for them. Refusing to score a "
+                "partially-bucketed population."
+            )
 
     # PRE-FLIGHT (default ON). _encode_row degrades silently — unknown
     # categorical → -1, missing numeric → NaN — so a subtly-wrong dataset
@@ -619,6 +702,7 @@ def run_replay(
         "ts_last": str(rows[-1].get("ts")) if rows else None,
         "scoring": score_diag,
         "feature_audit": feature_audit,
+        "vol_bucket": rebucket,
         # A near-constant P(volatile) produces a 100/0 split that READS like a
         # dramatic regime finding and is actually a scoring bug. Published so
         # the split can be judged rather than assumed.
@@ -807,6 +891,9 @@ def main(argv: List[str]) -> int:
                    help="override ML_VOL_VERDICT_THRESHOLD (default: the live resolver)")
     r.add_argument("--no-batch", action="store_true",
                    help="score row-by-row via predict_proba (slower; the canonical path)")
+    r.add_argument("--vol-bucket", choices=["live", "dataset"], default="live",
+                   help="live (default) = derive vol_bucket from the head's FROZEN edges "
+                        "exactly as the serve path does; dataset = trust the frame's stored column")
     r.add_argument("--skip-audit", action="store_true",
                    help="skip the feature pre-flight (NOT recommended — _encode_row "
                         "degrades silently, so this can emit confident wrong labels)")
@@ -859,6 +946,7 @@ def main(argv: List[str]) -> int:
             dataset=Path(a.dataset), symbol=a.symbol, out_path=Path(a.out),
             model_id=a.model_id, registry_root=a.registry_root,
             threshold=a.threshold, batch=not a.no_batch, audit=not a.skip_audit,
+            vol_bucket_mode=a.vol_bucket,
         )
         if a.json:
             print(json.dumps(m, indent=2))
@@ -874,6 +962,7 @@ def main(argv: List[str]) -> int:
                   f"unknown={m['counts'][VOL_UNKNOWN]}  "
                   f"(volatile {m['volatile_pct']}%)")
             print(f"scoring   {m['scoring']}")
+            print(f"vol_bkt   {m['vol_bucket']}")
             print(f"audit     ok={m['feature_audit'].get('ok')} "
                   f"(ran={m['feature_audit'].get('ran')})")
             print(f"p_vol     {m['p_volatile_distribution']}")
