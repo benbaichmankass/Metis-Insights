@@ -5,6 +5,16 @@ The fallback exists because the Bybit closed-pnl sweep
 ``ib_paper``) and other non-Bybit paper trades never get a realised PnL and
 render ``$0.00`` (operator report 2026-06-16). The sweep computes it locally
 from entry × exit × qty × direction × contract multiplier.
+
+**Updated 2026-07-30 (Tier-2).** Two things changed and several tests here were
+rewritten rather than relaxed:
+
+1. The exit price is no longer ``last_mark_price()`` — the market at SWEEP time.
+   For a CONFIRMED CLOSE that is FABRICATED. It is now the close of the bar
+   covering ``closed_at`` (ESTIMATED), and when no anchor exists the row is
+   DECLARED unmeasured instead of priced from an unrelated number.
+2. ``interactive_brokers`` is now a declared broker-PnL reader, so IB rows defer
+   to it exactly as Bybit rows do instead of falling straight to local compute.
 """
 from __future__ import annotations
 
@@ -97,13 +107,20 @@ def test_broker_pnl_reader_capability_is_declarative():
     assert "bybit" in BROKER_PNL_READER_EXCHANGES
     assert exchange_has_broker_pnl_reader("bybit") is True
     assert exchange_has_broker_pnl_reader("Bybit") is True
-    # Integrations with no wired reader → local fallback (default).
-    assert exchange_has_broker_pnl_reader("interactive_brokers") is False
+    # interactive_brokers joined the set 2026-07-30 (Tier-2): IBKR serves
+    # per-execution truth via reqExecutions (CommissionReport.realizedPNL),
+    # read back from the exchange-fills store. Two members rather than one is
+    # what actually exercises this test's premise — the decision is a DECLARED
+    # capability, not a hardcoded "is it Bybit".
+    assert "interactive_brokers" in BROKER_PNL_READER_EXCHANGES
+    assert exchange_has_broker_pnl_reader("interactive_brokers") is True
+    # Integrations with no wired reader → local fallback (still the default).
     assert exchange_has_broker_pnl_reader("alpaca") is False
     assert exchange_has_broker_pnl_reader("oanda") is False
     assert account_has_broker_pnl_reader({"exchange": "bybit"}) is True
     assert account_has_broker_pnl_reader(
-        {"exchange": "interactive_brokers"}) is False
+        {"exchange": "interactive_brokers"}) is True
+    assert account_has_broker_pnl_reader({"exchange": "alpaca"}) is False
     assert account_has_broker_pnl_reader(None) is False
 
 
@@ -140,20 +157,55 @@ def _pnl_of(db, trade_id):
     return rows[0] if rows else None
 
 
-def test_sweep_computes_pnl_for_ibkr_orphan(db, monkeypatch):
-    tid = _insert(db)  # closed/orphaned ib_paper MGC long, pnl NULL
+def test_sweep_defers_fresh_ibkr_row_to_the_broker_reader(db, monkeypatch):
+    """Was `test_sweep_computes_pnl_for_ibkr_orphan`, and the rewrite IS the
+    2026-07-30 Tier-2 change.
+
+    It used to assert the sweep priced this row at 4300.0 from
+    `last_mark_price` — the market at SWEEP time, not the exit. For a CONFIRMED
+    CLOSE that is FABRICATED: a true value exists (the fill) and the mark is not
+    it. It produced a plausible $536.00 with nothing behind it.
+
+    Now `interactive_brokers` is a declared broker reader, so a FRESH row is
+    deferred to it (pull_ib_executions -> the fills store) exactly as a Bybit
+    row is, rather than being priced from an unrelated number.
+    """
+    tid = _insert(db)  # orphaned ib_paper MGC long, pnl NULL, created just now
     monkeypatch.setattr(
         "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
         lambda: {"ib_paper": {"exchange": "interactive_brokers"}},
     )
-    monkeypatch.setattr(
-        "src.runtime.local_pnl.last_mark_price", lambda *a, **k: 4300.0,
-    )
     summary = _sweep_local_pnl_for_unpriced(db)
-    assert summary["filled"] == 1
+    assert summary["deferred_broker"] == 1
+    assert summary["filled"] == 0
+    assert _pnl_of(db, tid)["pnl"] is None  # NULL, not an invented 536.00
+
+
+def test_sweep_declares_unmeasured_when_aged_ibkr_row_has_no_anchor(db, monkeypatch):
+    """The other half: once past the broker grace with no anchor available,
+    the row must converge to a DECLARATION, not to a mark.
+
+    IBKR historical-candle coverage is 0%, so this is the real steady state for
+    an IB close the executions pull never captured. Declaring keeps the row
+    visible (INV-2 accepts the marker, INV-2b counts it) without inventing a
+    number — the alternative the old test enshrined."""
+    import src.runtime.exit_anchor as EA
+    from src.runtime.provenance import UNMEASURED_MARKER
+
+    aged = (datetime.now(timezone.utc) - timedelta(hours=7)).isoformat()
+    tid = _insert(db, created_at=aged)
+    monkeypatch.setattr(
+        "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
+        lambda: {"ib_paper": {"exchange": "interactive_brokers"}},
+    )
+    monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (None, "no_anchor"))
+    summary = _sweep_local_pnl_for_unpriced(db)
+    assert summary["declared_unmeasured"] == 1
+    assert summary["filled"] == 0
     row = _pnl_of(db, tid)
-    assert row["pnl"] == pytest.approx(536.0)  # (4300-4286.6)*4*10
-    assert row["exit_price"] == pytest.approx(4300.0)
+    assert row["pnl"] is None
+    import json
+    assert json.loads(row["notes"])["pnl_source"] == UNMEASURED_MARKER
 
 
 def test_sweep_defers_recent_broker_reader_rows(db, monkeypatch):
@@ -185,12 +237,19 @@ def test_sweep_rescues_abandoned_broker_row_past_window(db, monkeypatch):
         "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
         lambda: {"bybit_2": {"exchange": "bybit"}},
     )
-    monkeypatch.setattr(
-        "src.runtime.local_pnl.last_mark_price", lambda *a, **k: 110.0,
-    )
+    # The rescue is now ANCHORED to the recorded close time rather than read
+    # from `last_mark_price` at sweep time. Same outcome — the row converges
+    # instead of stranding NULL — but the number now has something behind it.
+    import src.runtime.exit_anchor as EA
+    monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (110.0, "anchored"))
     summary = _sweep_local_pnl_for_unpriced(db)
     assert summary["filled"] == 1
-    assert _pnl_of(db, tid)["pnl"] == pytest.approx(10.0)  # (110-100)*1*1
+    row = _pnl_of(db, tid)
+    assert row["pnl"] == pytest.approx(10.0)  # (110-100)*1*1
+    import json
+    # ESTIMATED, never MEASURED — a bar close says where the market was, not
+    # where THIS order filled.
+    assert json.loads(row["notes"])["exit_price_source"] == "candle_at_close"
 
 
 def test_sweep_rescues_aged_broker_row_with_no_closed_pnl(db, monkeypatch):
@@ -207,16 +266,20 @@ def test_sweep_rescues_aged_broker_row_with_no_closed_pnl(db, monkeypatch):
         "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
         lambda: {"bybit_2": {"exchange": "bybit"}},
     )
-    monkeypatch.setattr(
-        "src.runtime.local_pnl.last_mark_price", lambda *a, **k: 110.0,
-    )
+    import src.runtime.exit_anchor as EA
+    monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (110.0, "anchored"))
     summary = _sweep_local_pnl_for_unpriced(db)
     assert summary["filled"] == 1
     assert summary["deferred_broker"] == 0
     row = _pnl_of(db, tid)
     assert row["pnl"] == pytest.approx(10.0)  # (110-100)*1*1
     import json
-    assert json.loads(row["notes"]).get("pnl_source") == "local_compute"
+    notes = json.loads(row["notes"])
+    # `local_compute` describes the ARITHMETIC; `exit_price_source` is what
+    # says whether the number is trustworthy — which is why classify_pnl reads
+    # both keys and treats `local_compute` alone as information-free.
+    assert notes.get("pnl_source") == "local_compute"
+    assert notes.get("exit_price_source") == "candle_at_close"
 
 
 def test_sweep_ignores_rejected_zero_size(db, monkeypatch):
@@ -230,16 +293,25 @@ def test_sweep_ignores_rejected_zero_size(db, monkeypatch):
     assert _pnl_of(db, tid)["pnl"] is None
 
 
-def test_sweep_still_pending_when_no_mark(db, monkeypatch):
-    tid = _insert(db)
+def test_sweep_still_pending_when_the_anchor_defers(db, monkeypatch):
+    """`deferred` means we did NOT look (budget spent / transient read failure),
+    so the row must be RETRIED — not priced, and not declared unmeasured.
+    Declaring here would record a gap we never actually searched for."""
+    import src.runtime.exit_anchor as EA
+    from src.runtime.provenance import UNMEASURED_MARKER
+
+    aged = (datetime.now(timezone.utc) - timedelta(hours=7)).isoformat()
+    tid = _insert(db, created_at=aged)
     monkeypatch.setattr(
         "src.runtime.order_monitor._load_account_cfgs_for_reconcile",
         lambda: {"ib_paper": {"exchange": "interactive_brokers"}},
     )
-    monkeypatch.setattr(
-        "src.runtime.local_pnl.last_mark_price", lambda *a, **k: None,
-    )
+    monkeypatch.setattr(EA, "bar_close_at", lambda *a, **k: (None, "deferred"))
     summary = _sweep_local_pnl_for_unpriced(db)
     assert summary["still_pending"] == 1
     assert summary["filled"] == 0
-    assert _pnl_of(db, tid)["pnl"] is None
+    assert summary["declared_unmeasured"] == 0
+    row = _pnl_of(db, tid)
+    assert row["pnl"] is None
+    import json
+    assert json.loads(row["notes"] or "{}").get("pnl_source") != UNMEASURED_MARKER

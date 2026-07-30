@@ -215,6 +215,14 @@ def test_positions_returns_open_trade_against_canonical_schema(
         # the null as "not measured" (Position-shape contract).
         "unrealizedPnl": None,
         "unrealizedPnlSource": "unavailable",
+        # 2026-07-30: the canonical provenance BUCKET for the raw source string
+        # above, via src.runtime.provenance.classify. Additive and derived — it
+        # introduces no new measurement, it just stops the existing signal being
+        # write-only (the defect that let mark-price PnL be aggregated as if it
+        # were measured). "unavailable" is unrecognised by the vocabulary, and
+        # UNVERIFIED is deliberately NOT folded into MEASURED: absence of a
+        # provenance record is not evidence of measurement.
+        "unrealizedPnlProvenance": "unverified",
         "openedAt": "2026-05-09T10:00:00Z",
         # stopLoss, takeProfit, pattern added in ff2512e (shadow-backfill PR)
         "stopLoss": None,

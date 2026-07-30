@@ -211,11 +211,18 @@ def _query(
             )
             if col in avail
         )
+        # `notes` carries the provenance keys behind pnlCoverage, and is OPTIONAL
+        # for exactly the same reason the R inputs above are: selecting it
+        # unconditionally makes a schema without the column raise
+        # `no such column: t.notes`, which the caller turns into a ZEROED envelope
+        # — every metric for every window blanked to buy one coverage figure.
+        # A missing column degrades pnlCoverage to 0/unverified (the honest
+        # reading: no provenance was recorded) and leaves the rest intact.
+        notes_select = "\n                   t.notes AS notes," if "notes" in avail else""
         sql = f"""
             SELECT t.strategy_name,
                    t.symbol AS symbol,
-                   t.pnl AS pnl,{r_select}
-                   t.notes AS notes,
+                   t.pnl AS pnl,{r_select}{notes_select}
                    {_CLOSE_TIME_SQL} AS closed_at
             FROM trades t
             LEFT JOIN (
