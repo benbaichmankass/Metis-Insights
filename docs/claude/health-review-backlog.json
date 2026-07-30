@@ -7589,6 +7589,21 @@
       ]
     },
     {
+      "id": "BL-20260730-DESTRUCTIVE-GIT-SYNC-NO-GUARD",
+      "opened_at": "2026-07-30T15:55:00+00:00",
+      "opened_by": "claude (research program) — self-reported",
+      "severity": "medium",
+      "status": "open",
+      "source": "Self-reported after THREE near-misses in ONE session (2026-07-30, session_01HSz1HjdRBCF63MhT5iXfvJ). Each destroyed or would have destroyed committed work; in every case the ONLY thing that surfaced it was git's own rejection on a LATER push, not any guard, check, or rule. (1) `git checkout -B <branch> origin/main` discarded PR #8003's already-pushed commits; caught by the non-fast-forward rejection, recovered from origin/<branch> + cherry-pick. (2) `git reset --soft HEAD~1` on a MERGE commit during #8027's conflict resolution: --soft moves HEAD to the FIRST parent, silently dropping the second, so the union CONTENT landed while the merge LINK did not -- GitHub correctly kept reporting mergeable_state 'dirty' and I misdiagnosed it as a stale async computation, burning a diagnostic cycle before re-doing the merge properly. (3) `git reset --hard origin/main` at the start of the session-end doc sweep discarded commit 26333205 (vol-axis scoping), which was already PUSHED and open as PR #8051; caught by the non-fast-forward rejection, recovered by cherry-pick onto the remote tip.",
+      "title": "[process/tooling] destructive git sync (`reset --hard` / `checkout -B` / `reset --soft` on a merge) has NO pre-flight guard — 3 near-miss data losses in one session, all caught by luck",
+      "description": "ROOT CAUSE, stated as a behaviour not an accident: `git reset --hard <remote-ref>` and `git checkout -B <branch> <remote-ref>` are used as a 'sync to main' idiom WITHOUT first asking whether the branch carries commits that are not in the target. That question is one cheap command (`git log --oneline <target>..HEAD` must be empty, or `git diff <target> HEAD` must be empty when the content is expected to be equivalent). It was not asked in any of the three incidents. WHY THE CURRENT SAFETY NET IS NOT ONE: recovery depended on git's non-fast-forward / stale-info rejection on the NEXT push. That only fires IF a push happens, only AFTER the local work is already gone, and is easy to misread -- my push-retry loop treats every push failure as a transient network error and retried 4x with exponential backoff on a 'stale info' rejection, which is deterministic and will never succeed on retry. If a session resets, does not push, and the container is later reclaimed, the work is simply gone with no signal at all. THE MERGE-COMMIT SUB-CASE IS THE NASTIEST and deserves calling out separately: `git reset --soft HEAD~1` reads as 'undo one commit', but on a merge commit it moves to the FIRST parent and discards the merge relationship. The tree looks correct afterwards (content intact), so nothing local reveals the loss -- only the REMOTE disagrees, by continuing to report a conflict that the operator can see and the session cannot explain. BLAST RADIUS: bounded so far -- Tier-1 research/docs branches, all recoverable from the remote, zero production or live-VM impact. Severity is medium rather than high for that reason, NOT because the behaviour is acceptable; the same idiom on a branch whose commits were never pushed loses the work outright. PROPOSED FIXES (pick one or more; a later session decides): (a) a `scripts/ops/git_safe_sync.sh` helper that REFUSES to reset/checkout -B onto a ref when `<target>..HEAD` is non-empty unless an explicit --force-discard flag is passed, and which stashes-to-a-branch rather than discarding by default; (b) a binding line in `.claude/skills/git-actions/SKILL.md` requiring the emptiness check before any destructive sync, plus an explicit 'never `reset --soft` a merge commit' note; (c) make the push-retry loop classify failures -- non-fast-forward / stale info / rejected are DETERMINISTIC and must short-circuit to diagnosis, never burn 4 backoff retries (this half is cheap and independently useful); (d) consider a SessionStart or pre-tool hook, analogous to the existing `git_history_check` hook that refuses a history question on a shallow clone -- same spirit: refuse the unsafe operation rather than answer/perform it. NOTE ON SCOPE: this is NOT the same as the stop-hook's unverified-commit check, which watches commit ATTRIBUTION. Nothing currently watches DESTRUCTIVENESS. Three times today the hook's own suggested remedy (`git rebase --exec ... --reset-author`) would itself have rewritten published main history for GitHub-authored squash commits, which is a related instance of 'the suggested git operation is more destructive than the problem'.",
+      "refs": [
+        "scripts/ops/git_history_check.py",
+        ".claude/skills/git-actions/SKILL.md",
+        "BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE"
+      ]
+    },
+    {
       "id": "BL-20260730-DEMO-MARKPRICE-FABRICATES-PAPER-PNL",
       "opened_at": "2026-07-30T13:35:00+00:00",
       "opened_by": "claude (bybit scalp exit-leak root cause)",
@@ -7702,5 +7717,5 @@
     }
   ],
   "updated_at": "2026-07-30T16:10:00+00:00",
-  "generated_at": "2026-07-30T14:40:00+00:00"
+  "generated_at": "2026-07-30T15:55:00+00:00"
 }
