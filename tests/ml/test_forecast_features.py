@@ -233,7 +233,7 @@ class TestMarketFeaturesIntegration:
         from ml.datasets.families.market_features import MarketFeaturesBuilder
 
         mr = _stage_market_raw(tmp_path, self._closes())
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=mr, vol_window_n=5, forward_window_m=3,
         ))
         assert rows, "baseline build should emit rows"
@@ -247,7 +247,7 @@ class TestMarketFeaturesIntegration:
         closes = self._closes()
         mr = _stage_market_raw(tmp_path, closes)
         fc = _stage_forecast_sidestream(tmp_path, mr)
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=mr, vol_window_n=5, forward_window_m=3,
             forecast_path=fc,
         ))

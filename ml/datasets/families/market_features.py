@@ -19,14 +19,18 @@ Knobs (all kwargs):
   log-return vol feature. Larger = smoother feature.
 - `forward_window_m` (int, default 5) — forward window for the
   regime label. Larger = more "regime"-flavored labels.
-- `vol_threshold`    (float, default 0.003) — forward-window vol
-  cutoff above which the regime is classified as "volatile".
-  Calibrated to ≈p50 of forward_vol on BTCUSDT 1h so the two
-  classes are balanced and vol_autocorrelation makes each bucket
-  non-trivially predictable (vol_b0→range, vol_b1/b2→volatile).
-- `trend_threshold`  (float, default 0.005) — abs forward-window
-  log return above which the (non-volatile) regime is classified
-  as "trend".
+- `vol_threshold`    (float, **REQUIRED — no default**) — forward-window
+  vol cutoff above which the regime is classified as "volatile".
+  There is deliberately no default: this value DEFINES `regime_label`,
+  production passes four different ones (0.001 / 0.005 / 0.01 / a
+  data-driven median), and a defaulted value never reaches
+  `metadata.json::build_params`, so an omission produced a dataset whose
+  label definition was both different from the fleet's AND unrecorded.
+  State it explicitly; the canonical builder
+  (`scripts/ops/build_trainer_datasets.sh`) always does.
+- `trend_threshold`  (float, **REQUIRED — no default**) — abs
+  forward-window log return above which the (non-volatile) regime is
+  classified as "trend". Required for the same reason.
 - `n_vol_buckets`    (int, default 3) — feature buckets for the
   rolling vol (quantile-based). Bucket labels: `vol_b0`..`vol_bK-1`,
   where `vol_b0` is lowest. Bucket count is configurable so a
@@ -501,8 +505,27 @@ class MarketFeaturesBuilder(DatasetBuilder):
         market_raw_path: Path | str,
         vol_window_n: int = 20,
         forward_window_m: int = 5,
-        vol_threshold: float = 0.003,
-        trend_threshold: float = 0.005,
+        # REQUIRED — no default (operator-approved 2026-07-30,
+        # BL-20260730-MARKET-FEATURES-VOL-THRESHOLD-DEFAULT-DRIFT).
+        #
+        # These two DEFINE `regime_label`. They used to default to 0.003/0.005,
+        # and the 0.003 was ORPHANED: every one of the ten production call sites
+        # passes an explicit value, and they pass FOUR different ones (0.001
+        # run_serious_baseline · 0.005 Bybit/GPU-burst/ETH/trainer-offload ·
+        # 0.01 run_mes_training · a data-driven median for MES daily). So the
+        # default applied only when a caller FORGOT — and a forgotten arg
+        # produced a dataset whose `regime_label` meant something different
+        # from the fleet's, with nothing marking which.
+        #
+        # Worse, and the reason a default is unfixable here rather than merely
+        # risky: `builder.build` records `effective_build_params` from the
+        # kwargs it was PASSED, so a defaulted value never reaches
+        # `iter_rows_kwargs` and never lands in `metadata.json`. The dir was
+        # self-describing about every param EXCEPT the one that silently
+        # defaulted. Requiring them means the resolved value is always in
+        # `build_params` — the metadata hole closes for free.
+        vol_threshold: float,
+        trend_threshold: float,
         direction_threshold: float = 0.0,
         trend_chop_max: float = 0.30,
         trend_trend_min: float = 0.55,

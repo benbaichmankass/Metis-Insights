@@ -208,7 +208,7 @@ class TestMarketFeaturesBuilder:
         market_raw = _stage_market_raw(tmp_path, closes=closes)
         builder = MarketFeaturesBuilder()
         rows = list(
-            builder.iter_rows(
+            builder.iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
                 market_raw_path=market_raw,
                 vol_window_n=10,
                 forward_window_m=5,
@@ -262,7 +262,7 @@ class TestMarketFeaturesBuilder:
         market_raw = _stage_market_raw(tmp_path, closes=closes)
         builder = MarketFeaturesBuilder()
         rows = list(
-            builder.iter_rows(
+            builder.iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
                 market_raw_path=market_raw,
                 vol_window_n=3,
                 forward_window_m=3,
@@ -287,16 +287,16 @@ class TestMarketFeaturesBuilder:
         market_raw = _stage_market_raw(tmp_path, closes=[100.0] * 100)
         builder = MarketFeaturesBuilder()
         with pytest.raises(ValueError, match="vol_window_n"):
-            list(builder.iter_rows(market_raw_path=market_raw, vol_window_n=1))
+            list(builder.iter_rows(vol_threshold=0.005, trend_threshold=0.005, market_raw_path=market_raw, vol_window_n=1))
         with pytest.raises(ValueError, match="forward_window_m"):
             list(
-                builder.iter_rows(
+                builder.iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
                     market_raw_path=market_raw, forward_window_m=1
                 )
             )
         with pytest.raises(ValueError, match="vol_threshold"):
             list(
-                builder.iter_rows(
+                builder.iter_rows(trend_threshold=0.005, 
                     market_raw_path=market_raw, vol_threshold=-0.1
                 )
             )
@@ -305,7 +305,7 @@ class TestMarketFeaturesBuilder:
         builder = MarketFeaturesBuilder()
         with pytest.raises(FileNotFoundError):
             list(
-                builder.iter_rows(
+                builder.iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
                     market_raw_path=tmp_path / "does-not-exist"
                 )
             )
@@ -316,7 +316,7 @@ class TestMarketFeaturesBuilder:
         market_raw = _stage_market_raw(tmp_path, closes=[100.0] * 5)
         builder = MarketFeaturesBuilder()
         rows = list(
-            builder.iter_rows(
+            builder.iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
                 market_raw_path=market_raw,
                 vol_window_n=10,
                 forward_window_m=5,
@@ -332,7 +332,7 @@ class TestMarketFeaturesBuilder:
         )
         out = tmp_path / "datasets"
         builder = MarketFeaturesBuilder()
-        paths = builder.build(
+        paths = builder.build(vol_threshold=0.005, trend_threshold=0.005, 
             output_dir=out,
             version="v001",
             source=str(market_raw),
@@ -372,7 +372,7 @@ class TestV2FeatureExpansion:
         )
         builder = MarketFeaturesBuilder()
         rows = list(
-            builder.iter_rows(
+            builder.iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
                 market_raw_path=market_raw, vol_window_n=10, forward_window_m=5
             )
         )
@@ -396,7 +396,7 @@ class TestV2FeatureExpansion:
         )
         builder = MarketFeaturesBuilder()
         rows = list(
-            builder.iter_rows(
+            builder.iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
                 market_raw_path=market_raw, vol_window_n=10, forward_window_m=5
             )
         )
@@ -415,7 +415,7 @@ class TestV2FeatureExpansion:
         )
         builder = MarketFeaturesBuilder()
         rows = list(
-            builder.iter_rows(
+            builder.iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
                 market_raw_path=market_raw, vol_window_n=10, forward_window_m=5
             )
         )
@@ -449,7 +449,7 @@ class TestRangeVolEstimators:
         market_raw = _stage_market_raw(
             tmp_path, closes=_trending_then_choppy(n_per_phase=80)
         )
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
         ))
         assert rows
@@ -468,7 +468,7 @@ class TestRangeVolEstimators:
         builder = MarketFeaturesBuilder()
         for c in self._COLS:
             assert c in builder.schema
-        paths = builder.build(
+        paths = builder.build(vol_threshold=0.005, trend_threshold=0.005, 
             output_dir=tmp_path / "out", version="v001", source="csv",
             symbol_scope="BTCUSDT", timeframe="1h",
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
@@ -519,7 +519,7 @@ class TestFundingOiFeatures:
 
     def test_columns_zero_without_funding_path(self, tmp_path: Path):
         market_raw = _stage_market_raw(tmp_path, closes=_trending_then_choppy(80))
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
         ))
         assert rows
@@ -532,7 +532,7 @@ class TestFundingOiFeatures:
     def test_columns_populated_with_funding_path(self, tmp_path: Path):
         market_raw = _stage_market_raw(tmp_path, closes=[100.0 * (1.001 ** i) for i in range(200)])
         funding_oi = _stage_funding_oi(tmp_path, n_bars=200)
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
             funding_oi_path=funding_oi, funding_window_n=48,
         ))
@@ -552,7 +552,7 @@ class TestFundingOiFeatures:
         funding_oi = _stage_funding_oi(
             tmp_path, base_ts_iso="2030-01-01T00:00:00Z", n_bars=120,
         )
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
             funding_oi_path=funding_oi, funding_window_n=48,
         ))
@@ -565,7 +565,7 @@ class TestFundingOiFeatures:
         builder = MarketFeaturesBuilder()
         for c in self._COLS:
             assert c in builder.schema
-        paths = builder.build(
+        paths = builder.build(vol_threshold=0.005, trend_threshold=0.005, 
             output_dir=tmp_path / "out", version="v001", source="csv",
             symbol_scope="BTCUSDT", timeframe="1h",
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
@@ -577,7 +577,7 @@ class TestFundingOiFeatures:
     def test_invalid_funding_window_raises(self, tmp_path: Path):
         market_raw = _stage_market_raw(tmp_path, closes=[100.0] * 100)
         with pytest.raises(ValueError):
-            list(MarketFeaturesBuilder().iter_rows(
+            list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
                 market_raw_path=market_raw, funding_window_n=1,
             ))
 
@@ -617,7 +617,7 @@ class TestMicrostructureFeatures:
 
     def test_columns_zero_without_path(self, tmp_path: Path):
         market_raw = _stage_market_raw(tmp_path, closes=_trending_then_choppy(80))
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
         ))
         assert rows
@@ -631,7 +631,7 @@ class TestMicrostructureFeatures:
             timeframe="5m",
         )
         micro = _stage_microstructure(tmp_path, n_bars=200)
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
             microstructure_path=micro, microstructure_window_n=20,
         ))
@@ -645,7 +645,7 @@ class TestMicrostructureFeatures:
         # Side-stream entirely AFTER the bars → no bar may see it (carry-forward 0).
         market_raw = _stage_market_raw(tmp_path, closes=[100.0] * 120, bar_seconds=300, timeframe="5m")
         micro = _stage_microstructure(tmp_path, base_ts_iso="2030-01-01T00:00:00Z", n_bars=120)
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
             microstructure_path=micro, microstructure_window_n=20,
         ))
@@ -661,7 +661,7 @@ class TestMicrostructureFeatures:
         builder = MarketFeaturesBuilder()
         for c in self._COLS:
             assert c in builder.schema
-        paths = builder.build(
+        paths = builder.build(vol_threshold=0.005, trend_threshold=0.005, 
             output_dir=tmp_path / "out", version="v001", source="csv",
             symbol_scope="BTCUSDT", timeframe="5m",
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
@@ -673,7 +673,7 @@ class TestMicrostructureFeatures:
     def test_invalid_window_raises(self, tmp_path: Path):
         market_raw = _stage_market_raw(tmp_path, closes=[100.0] * 100)
         with pytest.raises(ValueError):
-            list(MarketFeaturesBuilder().iter_rows(
+            list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
                 market_raw_path=market_raw, microstructure_window_n=1,
             ))
 
@@ -762,7 +762,7 @@ class TestDirectionLabel:
         # Monotonic-up closes → forward return > 0 → every label "up".
         market_raw = _stage_market_raw(
             tmp_path, closes=[100.0 + i for i in range(60)])
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5))
         assert rows
         assert all(r["direction_label"] == "up" for r in rows)
@@ -771,7 +771,7 @@ class TestDirectionLabel:
     def test_down_when_falling(self, tmp_path: Path):
         market_raw = _stage_market_raw(
             tmp_path, closes=[200.0 - i for i in range(60)])
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5))
         assert rows
         assert all(r["direction_label"] == "down" for r in rows)
@@ -780,7 +780,7 @@ class TestDirectionLabel:
         # A big dead-band swallows small moves into "flat".
         market_raw = _stage_market_raw(
             tmp_path, closes=[100.0 + (i % 2) * 0.01 for i in range(80)])
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
             direction_threshold=0.5))
         assert rows
@@ -797,7 +797,7 @@ class TestCrossAssetFeatures:
 
     def test_columns_zero_without_cross_asset_path(self, tmp_path: Path):
         market_raw = _stage_market_raw(tmp_path, closes=_trending_then_choppy(60))
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
         ))
         assert rows
@@ -809,7 +809,7 @@ class TestCrossAssetFeatures:
         market_raw = _stage_market_raw(
             tmp_path, symbol="ETHUSDT", closes=[100.0 + i for i in range(80)])
         xa = _stage_cross_asset(tmp_path, n_bars=80)
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
             cross_asset_path=xa,
         ))
@@ -824,7 +824,7 @@ class TestCrossAssetFeatures:
             tmp_path, symbol="ETHUSDT", closes=[100.0] * 80)
         xa = _stage_cross_asset(
             tmp_path, base_ts_iso="2030-01-01T00:00:00Z", n_bars=80)
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
             cross_asset_path=xa,
         ))
@@ -848,7 +848,7 @@ class TestMacroFeatures:
 
     def test_columns_zero_without_macro_path(self, tmp_path: Path):
         market_raw = _stage_market_raw(tmp_path, closes=_trending_then_choppy(80))
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
         ))
         assert rows
@@ -862,7 +862,7 @@ class TestMacroFeatures:
             bar_seconds=300, timeframe="5m",
         )
         macro = _stage_macro(tmp_path, n_bars=200)
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
             macro_path=macro,
         ))
@@ -877,7 +877,7 @@ class TestMacroFeatures:
             tmp_path, closes=[100.0] * 120, bar_seconds=300, timeframe="5m",
         )
         macro = _stage_macro(tmp_path, base_ts_iso="2030-01-01T00:00:00Z", n_bars=120)
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,
             macro_path=macro,
         ))
@@ -893,7 +893,7 @@ class TestMacroFeatures:
         builder = MarketFeaturesBuilder()
         for c in self._COLS:
             assert c in builder.schema
-        paths = builder.build(
+        paths = builder.build(vol_threshold=0.005, trend_threshold=0.005, 
             output_dir=tmp_path / "out", version="v001", source="csv",
             symbol_scope="MES", timeframe="5m",
             market_raw_path=market_raw, vol_window_n=10, forward_window_m=5,

@@ -65,6 +65,44 @@ jobs:
             echo "::notice::No scripts/**.py changes — skipping the scan."
           fi
 
+      # SELF-TEST FIRST — prove the guard can still FAIL before trusting it to
+      # pass. A guard whose failure path is never exercised in CI is the
+      # "green that checked nothing" this whole defect class is about: if a
+      # refactor broke the exit code, every PR would go green and nobody would
+      # know. This runs unconditionally (no `relevant` gate) so the failure
+      # path is exercised on EVERY run, not only on PRs that touch scripts/.
+      - name: Self-test — the guard must fail on a known-bad diagnostic
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/gselftest
+          cat > /tmp/gselftest/bad.diff <<'DIFF'
+          +++ b/scripts/ml/_selftest_probe.py
+          @@ -0,0 +1,4 @@
+          +def go(rows):
+          +    for r in rows:
+          +        s = r.get("score")
+          +        print(f"P(volatile) = {s}")
+          DIFF
+          mkdir -p scripts/ml
+          cat > scripts/ml/_selftest_probe.py <<'PY'
+          def go(rows):
+              for r in rows:
+                  s = r.get("score")
+                  print(f"P(volatile) = {s}")
+          PY
+          set +e
+          python3 scripts/check_diagnostic_provenance.py /tmp/gselftest/bad.diff
+          rc=$?
+          set -e
+          rm -f scripts/ml/_selftest_probe.py
+          if [ "$rc" -ne 1 ]; then
+            echo "::error::SELF-TEST FAILED — the guard returned $rc on a known-bad \
+            diagnostic (expected 1). Its failure path is broken, so a green from \
+            it means nothing. Fix the guard before trusting this check."
+            exit 1
+          fi
+          echo "self-test OK — the guard still fails closed (exit 1 on a known-bad input)."
+
       - name: Scan changed diagnostics for unprovenanced output
         id: scan
         if: steps.changed.outputs.relevant == 'true'

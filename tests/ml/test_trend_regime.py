@@ -107,7 +107,7 @@ class TestMarketFeaturesIntegration:
             p *= 1 + (0.02 if i % 2 == 0 else -0.02)
             closes.append(p)
         market_raw = _stage_market_raw(tmp_path, closes)
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=20, forward_window_m=5,
         ))
         assert rows
@@ -120,7 +120,7 @@ class TestMarketFeaturesIntegration:
         # Pure smooth uptrend → every bar's forward window is trending.
         closes = [100.0 * (1.004 ** i) for i in range(80)]
         market_raw = _stage_market_raw(tmp_path, closes)
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=20, forward_window_m=5,
         ))
         assert rows
@@ -132,7 +132,7 @@ class TestMarketFeaturesIntegration:
         for i in range(120):
             closes.append(closes[-1] * (1 + (0.02 if i % 2 == 0 else -0.02)))
         market_raw = _stage_market_raw(tmp_path, closes)
-        rows = list(MarketFeaturesBuilder().iter_rows(
+        rows = list(MarketFeaturesBuilder().iter_rows(vol_threshold=0.005, trend_threshold=0.005, 
             market_raw_path=market_raw, vol_window_n=20, forward_window_m=4,
         ))
         assert rows
