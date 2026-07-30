@@ -116,6 +116,38 @@ def audit(db: str) -> Dict[str, Any]:
                 "7_malformed_notes": _query(conn,
                     "SELECT COUNT(*) total, SUM(CASE WHEN notes IS NOT NULL "
                     "AND NOT json_valid(notes) THEN 1 ELSE 0 END) malformed FROM trades"),
+                # --- Population-definition sensitivity -----------------------
+                # The 2026-07-30 root-cause recorded "+$247,683.78 of
+                # local_markprice PnL, the bulk of it ib_paper". Against the
+                # canonical label population that does NOT reproduce (the
+                # fabricated total is NEGATIVE and concentrated in bybit_1 /
+                # bybit_portfolio, with ib_paper a rounding error). Before
+                # accusing either number of being wrong, show how much the
+                # answer MOVES with the population definition — a headline
+                # figure whose sign flips on a filter is exactly the kind of
+                # number this whole workstream exists to stop trusting.
+                "8_population_sensitivity": _query(conn,
+                    "SELECT 'canonical (closed, non-backtest, pnl NOT NULL)' AS population, "
+                    f"COUNT(*) n, SUM({_FAB}) fab, "
+                    f"ROUND(SUM(CASE WHEN {_FAB} THEN pnl ELSE 0 END),2) fab_pnl "
+                    f"FROM trades WHERE {_POP} "
+                    "UNION ALL SELECT 'incl. backtest rows', COUNT(*), "
+                    f"SUM({_FAB}), ROUND(SUM(CASE WHEN {_FAB} THEN pnl ELSE 0 END),2) "
+                    "FROM trades WHERE status='closed' AND pnl IS NOT NULL "
+                    "UNION ALL SELECT 'any status, incl. backtest', COUNT(*), "
+                    f"SUM({_FAB}), ROUND(SUM(CASE WHEN {_FAB} THEN pnl ELSE 0 END),2) "
+                    "FROM trades WHERE pnl IS NOT NULL "
+                    "UNION ALL SELECT 'ABS(pnl) over canonical', COUNT(*), "
+                    f"SUM({_FAB}), ROUND(SUM(CASE WHEN {_FAB} THEN ABS(pnl) ELSE 0 END),2) "
+                    f"FROM trades WHERE {_POP} "
+                    "UNION ALL SELECT 'positive-only over canonical', COUNT(*), "
+                    f"SUM({_FAB}), "
+                    f"ROUND(SUM(CASE WHEN {_FAB} AND pnl>0 THEN pnl ELSE 0 END),2) "
+                    f"FROM trades WHERE {_POP}"),
+                "9_ib_paper_detail": _query(conn,
+                    "SELECT status, COALESCE(is_backtest,0) bt, COUNT(*) n, "
+                    f"SUM({_FAB}) fab, ROUND(SUM(pnl),2) total_pnl "
+                    "FROM trades WHERE account_id='ib_paper' GROUP BY 1,2 ORDER BY n DESC"),
             },
         }
     finally:
