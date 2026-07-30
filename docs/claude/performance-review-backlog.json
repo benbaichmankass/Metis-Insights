@@ -2182,7 +2182,23 @@
       "trigger_condition": "Before the M18 allocator graduates past observe-only (P2+ selection/sizing), OR any allocator-EV backtest that includes equity candidates.",
       "resolution_criteria": "candidate_ev_score's fee_R uses the venue-aware per-symbol roundtrip bps (equities → ~0), verified by a test that an equity candidate's EV cost term is ~0 while a crypto candidate's is unchanged.",
       "updates": []
+    },
+    {
+      "id": "PB-20260730-REGIME-EVIDENCE-VENUE-FEE-REGRADE",
+      "opened_at": "2026-07-30T06:00:00+00:00",
+      "opened_by": "claude (research-program session, roadmap-progress-work-plan-xp7f9h)",
+      "source": "regime_debt_matrix.py hardcoded --fee-bps-roundtrip 7.5 for EVERY symbol, incl. all 14 commission-free (alpaca, spot) instruments (SPY QQQ TQQQ QLD GLD IWM TLT IEF SLV USO GDX SPLG IAUM SCHA); regime_cell_walkforward inherited it via rdm.build_harness_cmd. #7930 fixed the identical bug in the live close path on 2026-07-29 but missed the research harness built the day before — the harness that SOURCES Tier-3 regime cells. Fixed in this session (T1); the AFFECTED CONCLUSIONS have not yet been re-run.",
+      "title": "[regime][fees] Re-run the equity/ETF regime evidence with corrected costs — #7918 + #7920-#7924 + the shipped gld cell all rest on a ~25x fee over-charge",
+      "description": "Phantom drag = (bps/1e4) * price / risk ~= 0.04-0.12 R/trade for a 1h ETF pullback. Over-charging can only make a strategy look WORSE, so the signature is FALSE OFF CELLS, never a fabricated edge. Specific predictions to check against the re-run: (a) qqq_pullback_1h trending-short reported -2.84R/41t = -0.069 R/trade, which is ENTIRELY inside the phantom-fee band -> likely a false OFF; the offered cell should probably be withdrawn. (b) gld_pullback_1h trending-short reported -15.68R/36t = -0.436 R/trade -> likely SURVIVES at ~10-27% reduced magnitude, and its +32.98R long side is UNDERSTATED. (c) slv_trend_1h was refuted; removing an over-charge makes a short look better, so a refutation stays refuted. (d) Any equity/ETF leg the matrix judged marginal-negative may be positive — that is an ASSET-CLASS-level distortion (12 of 32 debt strategies are equity/ETF) and bears on whether alpaca_live should ever leave dry_run (Tier-3, separate). If (b) fails to clear the walk-forward gate, open a Tier-3 DRAFT revert PR for config/regime_policy.yaml trending.gld_pullback_1h — never self-merge.",
+      "tier": 1,
+      "trigger_condition": "T1 (venue-aware research fees) is on main and the regime-debt-matrix + regime-cell-walkforward workflows can be dispatched against it.",
+      "resolution_criteria": "A corrected full-roster matrix + the three walk-forward re-runs are landed WITH a diff table vs #7918/#7924 (one row per changed verdict, fee delta attributed), and every changed disposition is recorded — including a Tier-3 draft if the gld cell no longer clears.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "high"
     }
   ],
-  "updated_at": "2026-07-29T00:00:00+00:00"
+  "updated_at": "2026-07-30T06:00:00+00:00"
 }

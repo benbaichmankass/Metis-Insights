@@ -69,21 +69,42 @@ jobs:
           python-version: "3.11"
 
       - name: Install deps
-        run: python -m pip install --upgrade pip "pyyaml>=6.0"
+        # yfinance is the PRIMARY price feed, not an optional extra. It was missing
+        # here, so `_resolve_fetchers` caught the ImportError and silently degraded to
+        # Stooq on every run — half of why the study never joined a bar
+        # (BL-20260730-M1-PRICE-JOIN-DEAD).
+        run: python -m pip install --upgrade pip "pyyaml>=6.0" "yfinance>=0.2.40" "pandas>=2.0"
 
       - name: Fetch price panels off-VM (yfinance→Stooq, keyless)
-        # Best-effort: a fetch miss just yields an empty panel → the study reports
-        # price_bars=0 for that kind rather than failing the run. yfinance is optional;
-        # the Stooq urllib fallback is dependency-free.
         env:
           ICT_OFFVM_BUILD_HOST: "1"
         run: |
-          set -uo pipefail
+          set -euo pipefail
           python scripts/macro/fetch_macro_candles.py \
             --symbols "NG=F,CL=F" \
             --start 2023-01-01 \
-            --out-dir /tmp/econ_event_candles || \
-            echo "::warning::macro-candle fetch degraded — the study reports empty panels for affected kinds"
+            --out-dir /tmp/econ_event_candles
+
+      - name: Assert the panels are non-empty
+        # A load-bearing fetch may NOT degrade to a warning. This step is the
+        # tripwire that the previous `|| echo "::warning::"` removed: if the panels
+        # are missing or trivially short, fail here with a legible message rather
+        # than letting the study publish a vacuous scorecard on a green run.
+        run: |
+          set -euo pipefail
+          for sym in "NG=F" "CL=F"; do
+            f="/tmp/econ_event_candles/${sym}.csv"
+            if [ ! -s "$f" ]; then
+              echo "::error::no price panel for ${sym} — the event-study join would measure nothing"
+              exit 1
+            fi
+            rows=$(( $(wc -l < "$f") - 1 ))
+            echo "${sym}: ${rows} daily closes"
+            if [ "$rows" -lt 100 ]; then
+              echo "::error::${sym} panel has only ${rows} rows (<100) — fetch is degraded"
+              exit 1
+            fi
+          done
 
       - name: Run the event study (natural gas + crude)
         id: study

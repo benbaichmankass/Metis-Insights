@@ -128,16 +128,56 @@ def _fetch_csv(feed: dict, days: int, out: str) -> None:
     df[cols].to_csv(out, index=False)
 
 
+def roundtrip_fee_bps(symbol: str) -> float:
+    """Venue-appropriate round-trip fee in bps for *symbol* — the research-harness
+    counterpart of the live close path's resolver.
+
+    Delegates to ``core.profile_loader.roundtrip_fee_bps_for``, which returns
+    ``0.0`` for a commission-free venue (US equity/ETF on Alpaca) and ``None``
+    meaning "no venue-specific rate — use the estimator default" for
+    crypto/futures/fx. ``None`` (and any resolver failure) falls back to
+    ``trade_costs.DEFAULT_FEE_BPS_ROUNDTRIP`` so the default lives in exactly one
+    place and is never duplicated here.
+
+    Why this exists (BL-20260730-RESEARCH-VENUE-FEE): this function used to be the
+    literal constant ``7.5`` for EVERY symbol, so all 14 commission-free
+    ``(alpaca, spot)`` instruments (SPY QQQ TQQQ QLD GLD IWM TLT IEF SLV USO GDX
+    SPLG IAUM SCHA) were charged a crypto-perp fee — a ~25x over-charge worth
+    ~0.04-0.12 R/trade. Over-charging can only make a strategy look WORSE, so the
+    bug's signature is **false OFF cells** (gating a leg that is actually fine),
+    never a fabricated edge. #7930 fixed the identical bug in the live close-path
+    writer (``database._record_trade_cost_estimate``); the research harness that
+    sources Tier-3 regime cells was missed, which is why the equity/ETF matrix
+    (#7918) and its walk-forward verdicts (#7920-#7924) need re-running.
+    """
+    if REPO not in sys.path:
+        sys.path.insert(0, REPO)
+    try:
+        from src.core.profile_loader import roundtrip_fee_bps_for
+        from src.runtime.trade_costs import DEFAULT_FEE_BPS_ROUNDTRIP
+    except Exception as exc:  # noqa: BLE001
+        # Loud, not silent: a resolver miss would quietly restore the 25x
+        # over-charge this function exists to remove. Fall back to the documented
+        # default and SAY SO, so a degraded run is visible in the log.
+        print(f"[fee] resolver unavailable ({exc}); falling back to 7.5 bps for {symbol}",
+              file=sys.stderr)
+        return 7.5
+    resolved = roundtrip_fee_bps_for(symbol)
+    return float(DEFAULT_FEE_BPS_ROUNDTRIP if resolved is None else resolved)
+
+
 def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: str,
                       emit: str, jout: str) -> tuple[list[str], bool, list[str]]:
     """Return (argv, faithful, omitted_levers)."""
     py = sys.executable
-    common = ["--data", csv, "--symbol", cfg["symbols"][0], "--resample", resample,
+    symbol = cfg["symbols"][0]
+    common = ["--data", csv, "--symbol", symbol, "--resample", resample,
               "--atr-period", str(cfg.get("atr_period", 14)),
               "--atr-stop-mult", str(cfg.get("atr_stop_mult", 2.5)),
               "--trail-mult", str(cfg.get("trail_mult", 5.0)),
               "--min-confidence", str(cfg.get("min_confidence", 0.0)),
-              "--fee-bps-roundtrip", "7.5", "--emit-trades", emit, "--json", jout]
+              "--fee-bps-roundtrip", str(roundtrip_fee_bps(symbol)),
+              "--emit-trades", emit, "--json", jout]
     if cfg.get("adx_min") is not None:
         common += ["--adx-min", str(cfg["adx_min"])]
     if cfg.get("adx_max") is not None:
@@ -196,6 +236,10 @@ def run_one(name: str, cfg: dict, workdir: str, days: int) -> dict:
         omitted = sorted(set(omitted) | set(unreplayable))
     row["fidelity"] = "faithful" if faithful else "approximate"
     row["omitted_levers"] = omitted
+    # Record WHICH fee graded this row, so a reader can never again have to guess
+    # whether a verdict was produced under the venue-blind 7.5-bps default
+    # (BL-20260730-RESEARCH-VENUE-FEE). 0.0 = commission-free venue.
+    row["fee_bps_roundtrip"] = roundtrip_fee_bps(cfg["symbols"][0])
     try:
         subprocess.run(argv, check=True, cwd=REPO,
                        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
