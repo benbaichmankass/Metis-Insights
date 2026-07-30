@@ -27,8 +27,11 @@
 # "what do we study, against what, at what cadence".
 #
 # ⚠️ `release_lag_days` + `transform` were added 2026-07-30 to fix TWO defects that
-# together made the backfilled rows unusable (BL-20260730-BACKFILL-DATE-IS-REFERENCE-
-# PERIOD-NOT-RELEASE + BL-20260730-BACKFILL-UNITS-DIFFER-FROM-SURVEY-FEED):
+# together made the backfilled rows unusable. Owning rows (kept on ONE line each — a
+# line-wrapped id resolves to nothing and is ungreppable; the backlog-ref CI guard
+# caught exactly that here):
+#   BL-20260730-BACKFILL-DATE-IS-REFERENCE-PERIOD-NOT-RELEASE
+#   BL-20260730-BACKFILL-UNITS-DIFFER-FROM-SURVEY-FEED
 #
 # `release_lag_days` — keyless FRED (fredgraph.csv) dates every observation by its
 #   REFERENCE PERIOD, not by when the market learned it. CPI for reference 2026-06-01
@@ -101,7 +104,14 @@ series:
     cadence: monthly
     symbol: "ES=F"
     # Reference month is dated on the 1st; BLS publishes ~mid the following month.
-    release_lag_days: 45
+    # 43d VERIFIED against the real forward capture: reference 2026-06-01 -> released
+    # 2026-07-14. (45d was a guess and missed by +2d, which the join test caught before
+    # a runner was spent on it.)
+    # ⚠️ CAVEAT: the BLS CPI release day DRIFTS month to month (~10th-15th), so a FIXED
+    # lag cannot land exactly on every month. Weekly series are stable (fixed weekday),
+    # monthly ones are not -- so a monthly join needs a TOLERANCE WINDOW rather than
+    # exact-date equality. Tracked: BL-20260730-MONTHLY-RELEASE-DATE-DRIFT
+    release_lag_days: 43
     # THE FIX for the mislabeled series: derive YoY percent from the level so the kind
     # matches its name and the survey feed's units. Applied BEFORE the expectation fit,
     # so the model forecasts YoY -- not a level that is converted afterwards.

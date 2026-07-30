@@ -7340,7 +7340,24 @@
         "config/macro_econ_series.yaml",
         "BL-20260730-BACKFILL-DATE-IS-REFERENCE-PERIOD-NOT-RELEASE"
       ]
+    },
+    {
+      "id": "BL-20260730-MONTHLY-RELEASE-DATE-DRIFT",
+      "opened_at": "2026-07-30T15:15:00+00:00",
+      "opened_by": "claude (research program)",
+      "source": "After adding per-kind release_lag_days, a local join test against the real forward feed showed the two WEEKLY kinds now join (initial_jobless_claims 6 rows, continuing_jobless_claims 4) while cpi_yoy still joined ZERO -- the modeled release landed 2 days off. Corrected 45d -> 43d against the actual capture (reference 2026-06-01 released 2026-07-14), but the underlying issue is structural.",
+      "title": "[macro/M1] a FIXED release lag cannot join a MONTHLY series — BLS/CPI release day drifts, so the join needs a tolerance window",
+      "description": "Weekly series are safe: DoL/EIA publish on a fixed weekday, so reference + constant lag lands exactly every week (verified -- claims now join). MONTHLY is different: the BLS CPI release falls roughly the 10th-15th of the following month and MOVES, so no single constant hits every month. A fixed lag will join some months and silently miss others, and a partial join looks like a small sample rather than a systematic miss -- the same read-it-wrong failure mode as the rest of this class. FIX: the consumer should join on NEAREST RELEASE WITHIN A TOLERANCE WINDOW (e.g. +/- 5 trading days) instead of exact-date equality, and REPORT the matched offset distribution so a systematic bias is visible rather than absorbed. That belongs in the M3 validator + the event study, not in the backfill (the backfill's job is to emit an honest modeled date; the consumer's job is to match tolerantly). Until then cpi_yoy's contribution to any overlap is unreliable even though 43d happens to hit the one captured month -- do NOT read a cpi_yoy join count as complete. The clean long-term answer is the same one already documented for vintages: ALFRED / the FRED releases API give TRUE release dates and remove the need to model this at all.",
+      "severity": "medium",
+      "status": "open",
+      "area": "macro",
+      "refs": [
+        "config/macro_econ_series.yaml",
+        "scripts/macro/econ_calendar_snapshot_backfill.py",
+        "scripts/macro/econ_event_study.py",
+        "BL-20260730-BACKFILL-DATE-IS-REFERENCE-PERIOD-NOT-RELEASE"
+      ]
     }
   ],
-  "updated_at": "2026-07-30T14:55:00+00:00"
+  "updated_at": "2026-07-30T15:15:00+00:00"
 }
