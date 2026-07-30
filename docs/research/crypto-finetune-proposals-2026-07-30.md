@@ -18,9 +18,11 @@ requires. **Nothing here is applied** — all Tier-3, operator-gated. These are
 - **diagnosis.why_finetune_insufficient (for a demote):** demoting the whole leg
   throws away the +6.96R short edge. The fix is to keep shorts, drop longs.
 - **proposed change:** run `sol_pullback_2h` **short-only**.
-- **validation:** short-only net-R +6.96 vs blended −5.43 (WF). maxDD + per-fold
-  short-only stability — **running (relay #7965)**; gate = short-only beats
-  blended on net-R AND maxDD across folds before merge.
+- **validation (#7965, DONE):** short-only **+6.96R / maxDD −7.19** vs blended
+  **−5.43R / maxDD −12.57** — beats blended on net-R AND maxDD (drawdown ~halved).
+  **Caveat:** short-only is positive in only **3/6 folds** on its own (carried by
+  2 recent folds) — a thin, regime-concentrated edge. **Defensive** improvement
+  (removes the −12.4R long drag), not a strong standalone; size modestly.
 - **config-capability gap:** there is **no `short_only` option** today (the
   pullback builder has no direction gate; `trend_donchian` has only `long_only`).
   So this needs a **small Tier-1 code add** — a `side_filter: long|short|both`
@@ -36,8 +38,10 @@ requires. **Nothing here is applied** — all Tier-3, operator-gated. These are
   alt-crypto long side is a bearish-regime drag across the book.
 - **proposed change:** run `trend_donchian_xrp_4h` **short-only** (or `long_only:
   false` → a `short_only` equivalent).
-- **validation:** short-only +7.34 vs blended +5.29 (WF) — improves net-R and
-  removes the −2.05 drag. maxDD + per-fold **running (#7965)**.
+- **validation (#7965, DONE):** short-only **+7.34R / maxDD −4.16** vs blended
+  **+5.29R / maxDD −7.94** — beats blended on net-R AND maxDD (drawdown ~halved),
+  better in 4/6 folds. **Caveat:** short-only positive in only **2/6 folds** on
+  its own (one dominant window). Defensive improvement; size modestly.
 - **config-capability gap:** `trend_donchian` supports `long_only` but not
   `short_only` — same small capability add as (A).
 
