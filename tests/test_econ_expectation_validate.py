@@ -394,3 +394,60 @@ class TestSlopeIsNotAScaleDiagnostic:
         out = v.render(rep, pairs)
         assert "CONFLATES" in out
         assert "expectation error (RMSE of the surprise)" in out
+
+
+class TestNaiveRandomWalkFloor:
+    """A model that cannot beat "assume no change since last release" adds no information.
+
+    The tracking bars never test this, and on the first real run at n=1263 the model LOST to
+    the floor on `initial_jobless_claims` (RMSE 227.6 vs 206.8) — the very kind M3 graded as
+    the STRONGEST tracker. So a pass on this gate does not imply usefulness, and the report
+    must say so rather than leave the two axes conflated.
+    """
+
+    @staticmethod
+    def _p(i, actual, model_exp, naive_exp, survey_exp=None):
+        s = actual - (survey_exp if survey_exp is not None else model_exp)
+        return {"kind": "k", "scheduled_for": f"2026-01-{(i % 28) + 1:02d}",
+                "actual": actual, "model_expectation": model_exp,
+                "naive_expectation": naive_exp,
+                "survey_surprise": s, "model_surprise": actual - model_exp,
+                "offset_days": 0, "release_date_basis": "modeled_lag",
+                "units_transform": "identity"}
+
+    def test_a_model_worse_than_naive_is_named_even_when_it_tracks(self):
+        # Model tracks the survey perfectly (identical surprises) but is FURTHER from the
+        # outcome than the naive floor.
+        pairs = []
+        for i in range(30):
+            act = 100.0 + i
+            pairs.append(self._p(i, act, model_exp=act - 5.0, naive_exp=act - 1.0,
+                                 survey_exp=act - 5.0))
+        rep = v.score(pairs, min_honest_n=12)
+        assert rep["per_kind"]["k"]["model_beats_naive"] is False
+        assert "k" in rep["kinds_worse_than_naive"]
+        assert "WORSE THAN A NAIVE RANDOM WALK" in rep["note"]
+        assert "WORSE THAN A NAIVE RANDOM WALK" in v.render(rep, pairs)
+
+    def test_a_model_better_than_naive_is_not_flagged(self):
+        pairs = [self._p(i, 100.0 + i, model_exp=100.0 + i - 0.5,
+                         naive_exp=100.0 + i - 4.0, survey_exp=100.0 + i - 0.5)
+                 for i in range(30)]
+        rep = v.score(pairs, min_honest_n=12)
+        assert rep["per_kind"]["k"]["model_beats_naive"] is True
+        assert rep["kinds_worse_than_naive"] == []
+
+    def test_the_naive_denominator_is_reported_not_assumed(self):
+        """A thin naive sample must not masquerade as a clean floor test."""
+        pairs = [self._p(i, 100.0 + i, 99.0 + i, 96.0 + i) for i in range(20)]
+        pairs += [dict(self._p(99, 200.0, 199.0, 0.0), naive_expectation=None)]
+        rep = v.score(pairs, min_honest_n=12)
+        assert rep["per_kind"]["k"]["naive_pairs"] == 20, "rows without a prior release must "\
+            "not be counted into the floor test"
+
+    def test_no_prior_release_never_fabricates_a_naive_expectation(self):
+        """`_prev_actual` must return None at the head of a series, not invent a value."""
+        row = {"kind": "k", "scheduled_for": "2026-01-01"}
+        by_kind = {"k": [(None, row)]}
+        pos = {id(row): ("k", 0)}
+        assert v._prev_actual(row, by_kind, pos) is None

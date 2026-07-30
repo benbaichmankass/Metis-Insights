@@ -164,6 +164,20 @@ jobs:
       - name: Report pre-existing dangling references (non-blocking)
         run: python3 scripts/ops/check_backlog_refs.py --all | head -20
 
+      # --- 4b. every workflow `run:` block must be valid shell ----------------
+      # YAML linting does not look inside a run block, so a malformed heredoc fails only at
+      # RUNTIME — after the expensive work has run. On 2026-07-30 that discarded a COMPLETED
+      # event study (553/575/136 releases, price_bars ~2911): every scorecard was computed,
+      # then the summary step died on a heredoc terminator sitting at column 2 and the commit
+      # step never ran. Parse-only; nothing is executed.
+      # PyYAML is a real dependency of this check, and it is NOT present by default on the
+      # runner — the guard's first CI run exited 2 ("could not check") for exactly this.
+      - name: Install the shell guard's dependency
+        run: python -m pip install --upgrade pip "pyyaml>=6.0"
+
+      - name: Assert every workflow `run:` block is valid shell
+        run: python3 scripts/ops/check_workflow_shell.py
+
       # --- 5. the guard's own tests ------------------------------------------
       # A guard against 'green while doing nothing' must not itself be able to go
       # green while doing nothing.

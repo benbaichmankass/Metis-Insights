@@ -251,6 +251,48 @@ def sign_agreement(xs: list[float], ys: list[float]) -> Optional[float]:
 
 
 # ------------------------------------------------------------------------- join
+def _naive_block(pairs: list[dict]) -> dict:
+    """RMSE of the naive random-walk expectation on these pairs + the beats-naive verdict.
+
+    Only pairs that HAVE a prior release contribute, and the covered count is reported, so a
+    thin naive sample can never masquerade as a clean floor test.
+    """
+    have = [p for p in pairs
+            if isinstance(p.get("naive_expectation"), (int, float))
+            and not isinstance(p.get("naive_expectation"), bool)]
+    if not have:
+        return {"rmse_naive": None, "naive_pairs": 0, "model_beats_naive": None,
+                "rmse_ratio_model_over_naive": None}
+    r_naive = _rmse([p["actual"] - p["naive_expectation"] for p in have])
+    r_model = _rmse([p["actual"] - p["model_expectation"] for p in have])
+    ratio = (r_model / r_naive) if r_naive else None
+    return {
+        "rmse_naive": r_naive,
+        "naive_pairs": len(have),
+        "rmse_ratio_model_over_naive": ratio,
+        # < 1 means the model is closer to the outcome than "assume no change".
+        "model_beats_naive": (ratio is not None and ratio < 1.0),
+    }
+
+
+def _prev_actual(row: dict, by_kind: dict, pos: dict) -> Optional[float]:
+    """The PREVIOUS release's actual for this row's kind — the naive random-walk expectation.
+
+    "Assume no change since last release", formed from the same information set the model had.
+    It is the floor any expectation model must clear to be adding information at all, and the
+    correlation bars never test it: on the first real run the model LOST to this floor on
+    `initial_jobless_claims` (227.6 vs 206.8) — the very kind M3 graded as the STRONGEST
+    tracker. A model can pass "tracks the survey" while being worse than doing nothing.
+    """
+    at = pos.get(id(row))
+    if at is None:
+        return None
+    kind_key, idx = at
+    if idx < 1:
+        return None  # no prior release in the series; never fabricate one
+    return actual_of(by_kind[kind_key][idx - 1][1])
+
+
 def join_overlap(survey: list[dict], model: list[dict], *,
                  tolerance_days: int = DEFAULT_TOLERANCE_DAYS) -> list[dict]:
     """Pair survey rows with model rows on (kind, date within tolerance).
@@ -271,6 +313,14 @@ def join_overlap(survey: list[dict], model: list[dict], *,
             continue
     for v in by_kind.values():
         v.sort(key=lambda t: t[0])
+    # Position index so each matched model row can reach its own PREVIOUS release. That
+    # previous actual is the NAIVE RANDOM-WALK expectation ("assume no change"), formed from
+    # exactly the same information set the model had — so it is a fair floor, and any model
+    # that cannot clear it is not adding information.
+    pos: dict[int, tuple[str, int]] = {}
+    for kind_key, v in by_kind.items():
+        for idx, (_d, row) in enumerate(v):
+            pos[id(row)] = (kind_key, idx)
 
     used: set[int] = set()
     out: list[dict] = []
@@ -312,6 +362,7 @@ def join_overlap(survey: list[dict], model: list[dict], *,
             "model_surprise": sa - mc,
             "units_transform": m.get("units_transform"),
             "release_date_basis": m.get("release_date_basis"),
+            "naive_expectation": _prev_actual(m, by_kind, pos),
         })
     return out
 
@@ -401,6 +452,10 @@ def score(pairs: list[dict], *, min_honest_n: int = MIN_HONEST_N) -> dict:
             "rmse_survey": _rmse(kxs),
             "rmse_ratio_model_over_survey": (
                 _rmse(kys) / _rmse(kxs) if _rmse(kxs) else None),
+            # THE FLOOR TEST. A model that cannot beat "assume no change since last release"
+            # is not adding information, however well its surprises correlate with the
+            # survey's. Reported alongside so a tracking pass can never imply usefulness.
+            **_naive_block(kp),
             # Each kind is graded against the SAME pre-registered bars, and a kind below
             # min_honest_n gets `insufficient_overlap` rather than a flattering pass on
             # a handful of rows.
@@ -441,7 +496,17 @@ def score(pairs: list[dict], *, min_honest_n: int = MIN_HONEST_N) -> dict:
     # so the failing kinds ride alongside the verdict instead of being left in a table.
     failing = sorted(k for k, v in per_kind.items()
                      if v["verdict"] == "model_does_not_track_survey")
+    # A SEPARATE axis from tracking, and it must ride next to the verdict: a kind whose model
+    # is beaten by "assume no change since last release" is not adding information at all.
+    worse_than_naive = sorted(k for k, v in per_kind.items()
+                              if v.get("model_beats_naive") is False)
     thin = sorted(k for k, v in per_kind.items() if v["verdict"] == "insufficient_overlap")
+    if worse_than_naive:
+        note += (" ⚠️ WORSE THAN A NAIVE RANDOM WALK on: " + ", ".join(worse_than_naive)
+                 + ". For these kinds the model expectation is FURTHER from the outcome than "
+                   "'assume no change since last release', so it adds no information even where "
+                   "it passes the tracking bars — tracking and usefulness are different axes and "
+                   "this gate only tests the first.")
     if failing and verdict == "model_tracks_survey":
         note += (" ⚠️ POOLED PASS, PER-KIND MISS: " + ", ".join(failing) + " miss the same bars "
                  "individually. The pooled pass is carried by the other kinds — do NOT read it "
@@ -468,6 +533,7 @@ def score(pairs: list[dict], *, min_honest_n: int = MIN_HONEST_N) -> dict:
         "offset_days_mean": (sum(offsets) / len(offsets)) if offsets else None,
         "per_kind": per_kind,
         "kinds_not_tracking": failing,
+        "kinds_worse_than_naive": worse_than_naive,
         "kinds_insufficient_overlap": thin,
         "verdict": verdict,
         "note": note,
@@ -494,8 +560,9 @@ def render(report: dict, pairs: list[dict]) -> str:
         f"- match offset days: min {report['offset_days_min']} / "
         f"mean {f(report['offset_days_mean'], 2)} / max {report['offset_days_max']}",
         "", "## Per kind — graded on the SAME pre-registered bars as the pooled verdict", "",
-        "| kind | n | Spearman | sign agr. | slope | dispersion | RMSE mdl/svy | verdict |",
-        "|---|--:|--:|--:|--:|--:|--:|---|",
+        "| kind | n | Spearman | sign agr. | slope | dispersion | RMSE mdl/svy "
+        "| RMSE mdl/naive | verdict |",
+        "|---|--:|--:|--:|--:|--:|--:|--:|---|",
     ]
     for k, v in sorted(report["per_kind"].items()):
         mark = {"model_tracks_survey": "✅ tracks",
@@ -505,7 +572,16 @@ def render(report: dict, pairs: list[dict]) -> str:
             f"| {k} | {v['n']} | {f(v.get('spearman'))} | {f(v.get('sign_agreement'), 3)} "
             f"| {f(v.get('ols_slope_model_on_survey'))} "
             f"| {f(v.get('dispersion_ratio_model_over_survey'), 3)} "
-            f"| {f(v.get('rmse_ratio_model_over_survey'), 3)} | {mark} |")
+            f"| {f(v.get('rmse_ratio_model_over_survey'), 3)} "
+            f"| {f(v.get('rmse_ratio_model_over_naive'), 3)}"
+            f"{'' if v.get('model_beats_naive') is not False else ' ⚠️'} | {mark} |")
+    if report.get("kinds_worse_than_naive"):
+        lines += ["", "**⚠️ WORSE THAN A NAIVE RANDOM WALK:** "
+                  + ", ".join(report["kinds_worse_than_naive"])
+                  + " — the model expectation is further from the outcome than \"assume no "
+                    "change since last release\". These kinds add NO information, including "
+                    "where they pass the tracking bars above. Tracking and usefulness are "
+                    "different axes; this gate only tests the first."]
     if report.get("kinds_not_tracking"):
         lines += ["", "**Per-kind misses:** " + ", ".join(report["kinds_not_tracking"])
                   + " — the model expectation is NOT a sound stand-in for these kinds, "

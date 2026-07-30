@@ -7558,6 +7558,22 @@
       "severity": "medium"
     },
     {
+      "id": "BL-20260730-M3-GATE-TESTS-TRACKING-NOT-USEFULNESS",
+      "opened_at": "2026-07-30T14:40:00+00:00",
+      "opened_by": "claude (research program)",
+      "severity": "high",
+      "status": "open",
+      "source": "Naive-baseline floor test added to the M3 validator and run at n=1263. RMSE of the model expectation vs a NAIVE RANDOM WALK ('assume no change since last release', same information set): initial_jobless_claims 227.62 vs 206.83 = model 1.101x WORSE; continuing_jobless_claims 0.4261 vs 0.4701 = 0.906x better; cpi_yoy 0.3526 vs 0.3702 = 0.952x better. Survey consensus beats all three everywhere (174.62 / 0.3137 / 0.1354). Computed independently by hand first, then reproduced by the tool to the third decimal.",
+      "title": "[macro/M1][gate] the operator-approved M1 gate tests whether the model TRACKS the survey, not whether it is USEFUL — and the best-tracking kind is worse than a random walk",
+      "description": "OPERATOR DECISION NEEDED — this is about the gate's wording, which the operator approved, so it is not mine to change. THE FINDING: M3's pre-registered bars ask whether model-surprise tracks survey-surprise. `initial_jobless_claims` PASSES them most convincingly of all three kinds (Spearman 0.6312, sign agreement 0.791) and is SIMULTANEOUSLY the one kind whose model expectation is FURTHER from the outcome than 'assume no change since last release' (1.101x worse RMSE). The other two clear the naive floor only narrowly (0.906x, 0.952x). So the gate as written can be satisfied by an expectation model that adds no information at all, and on one kind demonstrably does not. WHY BOTH CAN BE TRUE: tracking is about the CORRELATION of two error series; the naive floor is about the MAGNITUDE of one of them. A model that errs in the same direction as the survey, but by more, tracks well and predicts badly. Nothing in the gate's bars separates those. WHAT THIS DOES AND DOES NOT INVALIDATE: it does NOT invalidate the M3 measurement (the verdict is honest about what it measured) and it does NOT retroactively break the gate change. It DOES bound every downstream M1/M2 claim: a surprise computed against the model is computed against a yardstick that is noisier than the survey everywhere and worse than no-model on initial claims, so a NULL result (which is what the full-scale event study returned: no_edge_at_tested_horizons at n=1349) is much weaker evidence of no-edge than it appears. MITIGATED IN TOOLING (not in the gate): the validator now computes rmse_naive / rmse_ratio_model_over_naive / model_beats_naive per kind, lists kinds_worse_than_naive next to the verdict, and renders a loud block, so a tracking pass can never again be read as usefulness. PROPOSED (operator call): add a floor condition to the gate — a kind may only use the MODEL surprise where the model beats the naive random walk on that kind — which would today exclude initial_jobless_claims. THE BETTER ALTERNATIVE, now cheap: 12,076 survey rows exist, so for the overlap period the study can use REAL survey consensus and skip the stand-in entirely; the model is then only needed OUTSIDE the survey window. That converts the weakest part of the macro line into its strongest.",
+      "refs": [
+        "scripts/macro/econ_expectation_validate.py",
+        "comms/macro/econ_expectation_validation.json",
+        "BL-20260730-M3-CONTINUING-CLAIMS-NO-TRACK",
+        "ROADMAP_MACRO.md"
+      ]
+    },
+    {
       "id": "BL-20260730-DEMO-MARKPRICE-FABRICATES-PAPER-PNL",
       "opened_at": "2026-07-30T13:35:00+00:00",
       "opened_by": "claude (bybit scalp exit-leak root cause)",
@@ -7631,5 +7647,5 @@
     }
   ],
   "updated_at": "2026-07-30T16:10:00+00:00",
-  "generated_at": "2026-07-30T13:35:00+00:00"
+  "generated_at": "2026-07-30T14:40:00+00:00"
 }
