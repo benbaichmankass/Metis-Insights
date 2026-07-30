@@ -266,3 +266,62 @@ are cosmetic cells, the exact anti-pattern the no-cosmetic-cell rule names. File
 | `trend_donchian` measurable only as `approximate` → 6 cells un-actionable | `BL-20260730-DONCHIAN-APPROX-ONLY` |
 | `trend_donchian` carries short cells with zero short trades (cosmetic) | `BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS` |
 | `gld_pullback_1h` — **closed**, cell survives | this addendum |
+
+## A5. Walk-forward verdict on the `htf_pullback_trend_2h` inversion (#7968) — it HOLDS
+
+The #7915 OOS-stability gate, 4 contiguous folds, 730d (2024-08-04..2026-07-27),
+`faithful` fidelity, 96 regime trades:
+
+| fold | dates | n | long-R (n) | short-R (n) | net-R |
+|---|---|--:|--:|--:|--:|
+| 1 | 2024-08-04..2025-02-04 | 24 | **+2.35** (10) | −2.21 (14) | +0.13 |
+| 2 | 2025-02-26..2025-08-27 | 24 | −3.66 (10) | −2.49 (14) | −6.15 |
+| 3 | 2025-09-23..2026-02-28 | 24 | −2.02 (10) | **+11.59** (14) | +9.56 |
+| 4 | 2026-03-08..2026-07-27 | 24 | −3.51 (12) | **+1.01** (12) | −2.50 |
+| **pooled** | | 96 | **−6.85 (42)** | **+7.89 (54)** | +1.05 |
+
+Gate verdicts:
+
+- **`long_stable_drag: True`** — long negative in **3 of 4** folds (strict majority)
+  AND pooled long-R < 0. By the harness's own standard, **a long-side OFF cell is
+  justified.** The live cell has long **ON**.
+- **`short_stable_drag: False`** — short negative in only 2 of 4 folds (not a strict
+  majority) AND pooled short-R > 0. **A short-side OFF cell is NOT justified.** The
+  live cell has short **OFF**.
+
+So the inversion is **not** the regime-of-sample artifact #7915 caught. It survives the
+very gate that refuted the earlier full-sample read on this same strategy family. Both
+halves of the live cell fail their own authoring standard, in opposite directions.
+
+### A5a. The two halves have DIFFERENT evidential strength — do not conflate them
+
+This distinction is load-bearing for the Tier-3 proposal and must not be flattened into
+"the cell is backwards":
+
+| Change | Direction | Justification | Strength |
+|---|---|---|---|
+| `long: on → off` | **restrictive** (less trading) | **Affirmative** — `long_stable_drag: True`, the gate's own positive standard | **Strong.** 3/4 folds, pooled −6.85, n=42. Also doctrinally the safe direction. |
+| `short: off → on` | **permissive** (more trading) | **Negative only** — the OFF cell has no support; this is *not* evidence the short leg is profitable | **Weak.** Pooled +7.89 is ~147% attributable to fold 3 (+11.59); ex-fold-3 the short leg is **−3.70**. |
+
+"We cannot justify keeping it OFF" and "we have evidence it makes money" are different
+claims. Only the first is established. The Prime Directive does say a leg is gated only
+by *explicit* evidence — which is the argument for removing the unjustified OFF cell —
+but a permissive change resting on one fold is exactly the shape that should reach the
+operator with its fragility stated, not buried.
+
+### A5b. Disposition
+
+**Tier-3, operator-gated, DRAFT.** No cell is authored by a walk-forward run and none is
+merged autonomously. The proposal is sequenced *after* the Tier-1 PR #7970 lands so a
+Tier-3 config edit is never mixed into a Tier-1 branch (which would strand the
+`econ-calendar-backfill` runner behind an operator approval it does not need).
+
+Recommended split when it is filed, because the two halves do not deserve one decision:
+
+1. **`long: on → off`** — take it. Affirmatively justified at the gate's standard.
+2. **`short: off → on`** — hold pending its own evidence pass, OR take it with the
+   fold-3 concentration recorded in the changelog. My recommendation is **hold**: the
+   long fix captures the measured drag, and pairing a strong restrictive change with a
+   weak permissive one lets the weak half ride in on the strong half's evidence.
+
+Owning rows: `BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER` · `BL-20260730-FEE-AB-FIXED-WINDOW`.
