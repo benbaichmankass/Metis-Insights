@@ -61,13 +61,14 @@ def store(tmp_path):
     conn.close()
 
     def add(exec_id, *, account="bybit_1", symbol="BTCUSDT", side="sell",
-            price=64100.0, qty=1.0, offset_ms=1_800_000, realized=None):
+            price=64100.0, qty=1.0, offset_ms=1_800_000, realized=None,
+            fee=0.1):
         raw = json.dumps({"realized_pnl": realized}) if realized is not None else None
         c = sqlite3.connect(str(path))
         c.execute(
             "INSERT INTO exchange_fills (exec_id, account_id, symbol, side, price,"
             " qty, fee, exec_time, raw) VALUES (?,?,?,?,?,?,?,?,?)",
-            (exec_id, account, symbol, side, price, qty, 0.1,
+            (exec_id, account, symbol, side, price, qty, fee,
              _iso(_OPEN_MS + offset_ms), raw),
         )
         c.commit()
@@ -252,3 +253,43 @@ def test_the_fold_does_not_collapse_DIFFERENT_instruments(store):
     attributed to a BTC trade."""
     store.add("e1", symbol="ETH/USDT:USDT")
     assert _resolve(store, symbol="BTCUSDT") is None
+
+
+# ------------------------------------------------------ close-side fees
+def test_resolver_sums_close_side_fees(store):
+    """Fee-blindness is DIRECTIONAL — always flattering — so a marginal loser
+    books as a winner. Measured on the live store (diag #8114, 90d, Bybit
+    crypto): fees are 15.6% of gross realised in aggregate and 61.8% on BTC.
+    That is a correctness bug, not a rounding one."""
+    store.add("e1", price=64000.0, qty=1.0, offset_ms=1_000_000)
+    store.add("e2", price=64400.0, qty=3.0, offset_ms=1_100_000)
+    rec = _resolve(store, qty=4.0)
+    assert rec["fees"] == pytest.approx(0.2)      # 2 fills x 0.1 in the fixture
+
+
+def test_fee_magnitude_is_material_not_cosmetic():
+    """Guards the REASON for the fee fix with the real numbers, so a future
+    reader cannot dismiss it as negligible. Live store, Bybit crypto, 90d."""
+    fees, net = 6.8686, -50.7617
+    gross = net + fees                             # FIFO already netted fees out
+    assert abs(fees / gross) > 0.15, "aggregate overstatement must be material"
+    btc_fees, btc_net = 3.5879, -9.3934
+    btc_gross = btc_net + btc_fees
+    assert abs(btc_fees / btc_gross) > 0.60, "BTC overstatement is ~61.8%"
+    # And the direction is what makes it dangerous: ignoring fees moves the
+    # booked figure TOWARD profit on every single trade.
+    assert btc_gross > btc_net
+
+
+def test_zero_fee_rows_are_a_noop_not_a_special_case(store):
+    """Equities/futures fills in the same store carry fee=0.0, so the fee
+    subtraction is inert there — no venue special-casing needed."""
+    store.add("z1", account="alpaca_paper", symbol="GLD",
+              price=372.8, qty=10.0, fee=0.0)
+    rec = exit_from_fills(
+        account_id="alpaca_paper", symbol="GLD", direction="long",
+        opened_at_ms=_OPEN_MS, closed_at_ms=_CLOSE_MS, qty=10.0,
+        conn_factory=store.factory,
+    )
+    assert rec is not None
+    assert rec["fees"] == 0.0

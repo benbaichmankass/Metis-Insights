@@ -190,7 +190,8 @@ def exit_from_fills(
             # lifetime on one account, so the row count is small.
             rows = [
                 r for r in conn.execute(
-                    "SELECT price, qty, exec_time, raw, symbol FROM exchange_fills "
+                    "SELECT price, qty, exec_time, raw, symbol, fee "
+                    "  FROM exchange_fills "
                     " WHERE account_id = ? AND side = ? "
                     "   AND datetime(exec_time) >= datetime(?) "
                     "   AND datetime(exec_time) <= datetime(?) "
@@ -213,11 +214,11 @@ def exit_from_fills(
     target = _f(qty)
     matched: List[tuple] = []
     filled = 0.0
-    for price, fqty, exec_time, raw, _sym in rows:
+    for price, fqty, exec_time, raw, _sym, _fee in rows:
         p, q = _f(price), _f(fqty)
         if p is None or q is None or p <= 0 or q <= 0:
             return None
-        matched.append((p, q, exec_time, raw))
+        matched.append((p, q, exec_time, raw, _f(_fee) or 0.0))
         filled += q
         if target is not None and filled >= target * (1 - QTY_TOLERANCE):
             break
@@ -234,7 +235,7 @@ def exit_from_fills(
         )
 
         total = 0.0
-        for _p, _q, _t, raw in matched:
+        for _p, _q, _t, raw, _fee in matched:
             realized = realized_pnl_from_raw(raw)
             if realized is None:
                 return None
@@ -242,7 +243,20 @@ def exit_from_fills(
         closed_pnl = total
 
     return {
-        "avg_exit_price": sum(p * q for p, q, _t, _r in matched) / filled,
+        "avg_exit_price": sum(p * q for p, q, _t, _r, _fe in matched) / filled,
+        # Close-side fees actually charged on these fills. The local compute is
+        # fee-BLIND — order_monitor deleted an earlier fee-blind write for
+        # exactly this reason, and only the Bybit closed-pnl sweep recovered a
+        # "fee-accurate" number. Measured on the live store (diag #8114, 90d,
+        # Bybit crypto): fees are 15.6% of gross realised in aggregate and
+        # **61.8% on BTC**. Omitting them does not merely round — it biases
+        # toward looking PROFITABLE, flipping marginal losers into winners,
+        # which is the same direction that corrupts the ML labels
+        # (BL-20260730-ML-LABELS-IGNORE-PNL-PROVENANCE). Equities/futures rows
+        # carry fee=0.0, so this is a no-op there rather than a special case.
+        # Only CLOSE-side fees: the open-side fee belongs to the open, and this
+        # resolver only ever matches the closing side.
+        "fees": sum(fe for _p, _q, _t, _r, fe in matched),
         "avg_entry_price": None,
         "closed_pnl": closed_pnl,
         "qty": filled,
