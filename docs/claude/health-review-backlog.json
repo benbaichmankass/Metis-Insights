@@ -7695,10 +7695,16 @@
       "tier": 1,
       "trigger_condition": "Trainer root fs above ~90%, or any dataset build failing/short-writing.",
       "resolution_criteria": "Trainer root fs back under ~80% via a verified-unreferenced prune, and a decision recorded on whether build writes pre-check free space.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": [],
-      "resolved_at": null,
+      "updates": [
+        {
+          "at": "2026-07-30T17:40:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "RESOLVED. Measured first (trainer-diag #8087): root was at 96% (43G used / 2.3G free of 45G), worse than the 95% filed. Pruned CACHES AND LOGS ONLY (#8089): ~/.cache/pip 3.1G + journalctl --vacuum-size=200M freeing 1.5G of archived journals. Result 96% -> 85%, free 2.2G -> 6.8G. Deliberately did NOT touch datasets-out/ (15G) despite ~14 redundant market_features/BTCUSDT/15m versions: manifests PIN dataset versions (btc-regime-15m-lgbm-fc-pcv-v1 pins v520), so pruning there could strand a head's training provenance — that is a reviewed decision, not a disk-pressure reflex. Verified v520/data.jsonl intact at 480,607,056 bytes after the prune."
+        }
+      ],
+      "resolved_at": "2026-07-30T17:40:00+00:00",
       "severity": "medium",
       "refs": [
         "BL-20260730-PRODUCER-VACUITY-GUARD"
@@ -7747,6 +7753,11 @@
           "at": "2026-07-30T17:20:00+00:00",
           "by": "claude (autonomous vol-axis drive)",
           "note": "HYPOTHESIS worth testing, explicitly NOT a finding — but it connects two items tracked separately and would be easy to lose. FRAMING CORRECTION FIRST: I have been calling this 'the offline replay does not reproduce live', which quietly assumes LIVE is the reference and offline is the deviation. That assumption is not obviously right. The OFFLINE row comes from the canonical MarketFeaturesBuilder — literally the rows the head TRAINED on. The LIVE row is assembled by feature_row_for_predictor from live-fetched candles. If the two differ, it is at least as likely that the LIVE row is the deviant one, i.e. the head is being served feature rows unlike its training distribution. That is train/serve SKEW, and it is a live model-quality issue rather than an offline-tooling caveat. THE CONNECTION: M25's promotion work found the shadow regime fleet blocking FLEET-WIDE on `live_regime_discrimination` (the RG4 gate) — the same wall the vol-gate operating-curve study MB-20260701-001 hit, and the reason the 2026-07-19 gate reframe demoted RG4 to advisory so promotions could proceed on offline oos_edge instead. A head scored live on rows that differ from its training rows is EXACTLY what would produce good offline metrics and poor live discrimination. So 'the fleet cannot discriminate live' and 'the live feature row differs from the builder row' may be the same bug seen from two ends, and the fleet-wide-ness is itself suggestive — a per-head modelling failure would not hit every head equally, whereas a shared serve-path defect would. WHAT WOULD TEST IT: the same matched-pair column diff already needed for column isolation. If a specific column (rolling_log_return_vol over its 20-bar window is the prime suspect, being shared by every regime head) is systematically offset live-vs-builder, that single defect would explain both symptoms. If the columns match and only the score differs, this hypothesis is dead and the gap is elsewhere. DO NOT act on this as established. It is recorded so the column-diff, when it happens, is read against BOTH questions rather than only the narrow tooling one — and so nobody re-derives the connection from scratch. Refs MB-20260701-001 and the M25 RG4 reframe."
+        },
+        {
+          "at": "2026-07-30T17:40:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "CORRECTION + SCOPE. While isolating the column difference I ran scripts/ml/_feature_parity_probe.py against the BTC ADVISORY head (#8088) and read its 'PREDICTED score(volatile)' line as mean 0.967 / min 0.504 over 2336 live rows — i.e. the live gate pinned to volatile on real money. THAT READING WAS WRONG and I did not escalate it. The shadow log's `score` is ShadowPredictor.predict -> MulticlassPredictor.predict = max(proba.values()) (ml/predictors/multiclass.py:38), the PREDICTED CLASS's confidence, hence >= 0.5 by construction for a 2-class head. Fleet sweep (#8090) confirms: frac(score<0.5)==0.0000 for ALL ~30 regime heads, while non-multiclass heads in the SAME log (exit-head-donchian-1h-v1 0.036-0.452, setup-quality-lgbm-v2 -0.755-0.278, execution-quality-baseline-v0 constant -0.20) sit below 0.5 freely — a clean natural control. The live gate is NOT affected: regime_bar_scoring._maybe_publish_p_volatile reads predict_proba['volatile'] explicitly, and RG4 (replay_pregate_live.py:249) does the same, so neither the gate nor the fleet-wide RG4 block is an artifact of this. THE ORIGINAL FINDING IS UNAFFECTED — it was measured on p_volatile from the gate's own audit rows vs the replay, not on this `score` field. Still open; still ungraded cells."
         }
       ],
       "resolved_at": null,
@@ -7756,8 +7767,38 @@
         "scripts/research/ml_vol_label_replay.py",
         "src/runtime/regime_shadow.py"
       ]
+    },
+    {
+      "id": "BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA",
+      "opened_at": "2026-07-30T17:40:00+00:00",
+      "opened_by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+      "source": "Found while using scripts/ml/_feature_parity_probe.py to isolate the offline-vs-serve feature gap (BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP). The probe is a PROMOTION-DECISION diagnostic, so a misleading line in it propagates into stage decisions.",
+      "title": "[ml][tooling] feature-parity probe reported max(proba) as 'P(volatile)' and compared against the wrong dataset version — nearly produced a false P1 on the live money gate",
+      "description": "TWO defects, both fixed in the same PR that files this item.\n\n(1) MISLABEL. The probe printed the shadow log's `score` under the label 'PREDICTED score(volatile)'. That field is max(proba.values()) — the predicted class's confidence — not P(volatile), so it is >= 0.5 by construction for a 2-class regime head. Every regime head therefore rendered as saturated-volatile (BTC advisory read mean 0.967 / min 0.504). A head that is 97% sure the regime is CALM prints 0.97 under a label that says volatile: the meaning is INVERTED, not merely imprecise. I came within one step of escalating a false P1 against the live real-money BTC vol gate on the strength of this line.\n\n(2) WRONG TRAINING DATASET. _training_rows took sorted(glob(...))[-1] — the alphabetically LAST version dir — not the manifest's pinned dataset. datasets-out/market_features/BTCUSDT/15m holds ~14 versions, so it silently selected vfmac003 while btc-regime-15m-lgbm-fc-pcv-v1 actually pins v520. Every 'TRAINING dataset' distribution line was therefore potentially against data the head never saw — which is the probe's entire output.\n\nFIX: the probe now (a) prints the logged value as 'LOGGED score = max(proba), NOT P(vol)' AND separately re-runs predict_proba to report the real P(volatile) the gate thresholds plus the would-gate-VOLATILE share, degrading honestly when the predictor can't be resolved; and (b) resolves ml/configs/<id>.yaml::dataset.version, warning LOUDLY on any fallback instead of silently substituting. Regression guard: tests/ml/test_feature_parity_probe_score_semantics.py pins max(proba) semantics (including the inverted 0.03 case) and forbids the old print label.",
+      "tier": 1,
+      "trigger_condition": "n/a — a defect in a committed diagnostic, not a runtime condition",
+      "resolution_criteria": "Probe reports P(volatile) distinctly from the logged max-proba, resolves the manifest-pinned dataset, and warns on fallback; regression test present and green.",
+      "status": "resolved",
+      "snoozed_until": null,
+      "resolved_at": "2026-07-30T17:40:00+00:00",
+      "severity": "high",
+      "refs": [
+        "scripts/ml/_feature_parity_probe.py",
+        "ml/predictors/multiclass.py",
+        "tests/ml/test_feature_parity_probe_score_semantics.py",
+        "src/runtime/regime_bar_scoring.py",
+        "scripts/ml/replay_pregate_live.py",
+        "BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP"
+      ],
+      "updates": [
+        {
+          "at": "2026-07-30T17:40:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "Fixed on discovery rather than filed-and-left: it is a live trap for the next reader, and the next reader might escalate instead of checking. Fleet evidence in trainer-diag #8090; probe output showing the bad line in #8088."
+        }
+      ]
     }
   ],
-  "updated_at": "2026-07-30T16:10:00+00:00",
+  "updated_at": "2026-07-30T17:40:00+00:00",
   "generated_at": "2026-07-30T15:55:00+00:00"
 }
