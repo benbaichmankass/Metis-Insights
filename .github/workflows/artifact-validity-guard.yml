@@ -61,23 +61,60 @@ jobs:
       - name: Forbid `|| echo` / `|| true` on a load-bearing fetch step
         run: |
           set -uo pipefail
-          # Look for a fetch/producer invocation whose failure is swallowed. Scoped to
-          # the lines that actually run our producer scripts, so ordinary shell
-          # tolerance elsewhere (e.g. optional cleanup) is unaffected.
+          # Look for a producer/fetch invocation whose failure is swallowed, scoped to
+          # the commands that actually run our producer scripts so ordinary shell
+          # tolerance elsewhere (optional cleanup, etc.) is unaffected.
           #
-          # An intentional exception carries `# allow-degraded: <reason>` on the same
-          # line — the same explicit-override shape silent-empty-guard uses.
-          hits=$(grep -rnE '(fetch_[a-z_]*\.py|_produce\.py|_backfill\.py|_snapshot\.py).*\|\|[[:space:]]*(echo|true)' \
-                   .github/workflows/ 2>/dev/null \
-                 | grep -v 'allow-degraded:' || true)
-          if [ -n "$hits" ]; then
-            echo "::error::A load-bearing fetch step swallows its own failure. This is the idiom that kept BL-20260730-M1-PRICE-JOIN-DEAD green for the producer's entire life: the fetch degraded to a warning, the study read an empty panel as a soft zero, and the run exited 0 with a plausible verdict."
-            echo "$hits"
-            echo ""
-            echo "Fix: let the step fail (set -e), and assert the fetched inputs are non-empty before using them. If a degraded fetch is genuinely acceptable, annotate the line with '# allow-degraded: <reason>'."
-            exit 1
-          fi
-          echo "OK — no load-bearing fetch swallows its failure."
+          # MULTILINE-AWARE. A first cut used a line-based grep and was trivially
+          # evaded by a shell line continuation:
+          #     python scripts/macro/fetch_macro_candles.py \
+          #       --start 2005-01-01 || \
+          #       echo "::warning::degraded"
+          # ...which is the real shape already present in macro-valuation-backfill.yml.
+          # A guard that only catches the single-line form would be decorative on
+          # exactly the instances that exist. So: join continuations first, then match.
+          #
+          # An intentional exception carries `# allow-degraded: <reason>` anywhere in
+          # the joined command — the explicit-override shape silent-empty-guard uses.
+          python3 - <<'PY'
+          import pathlib, re, sys
+
+          PRODUCER = re.compile(r'(fetch_[a-z_]*\.py|_produce\.py|_backfill\.py|_snapshot\.py)')
+          SWALLOW  = re.compile(r'\|\|\s*(echo|true)\b')
+          hits = []
+          for p in sorted(pathlib.Path('.github/workflows').glob('*.yml')):
+              raw = p.read_text(encoding='utf-8', errors='replace').splitlines()
+              # Fold shell line-continuations into one logical command, remembering
+              # the line the command STARTED on so the error points somewhere useful.
+              buf, start = '', None
+              for i, line in enumerate(raw, 1):
+                  if start is None:
+                      start = i
+                  stripped = line.rstrip()
+                  if stripped.endswith('\\'):
+                      buf += stripped[:-1] + ' '
+                      continue
+                  buf += stripped
+                  if PRODUCER.search(buf) and SWALLOW.search(buf) \
+                     and 'allow-degraded:' not in buf:
+                      hits.append(f'{p}:{start}: {buf.strip()[:200]}')
+                  buf, start = '', None
+
+          if hits:
+              print('::error::A load-bearing producer/fetch step swallows its own '
+                    'failure. This is the idiom that kept BL-20260730-M1-PRICE-JOIN-DEAD '
+                    "green for the producer's entire life: the fetch degraded to a "
+                    'warning, the study read an empty panel as a soft zero, and the run '
+                    'exited 0 with a plausible verdict.')
+              for h in hits:
+                  print('  ' + h)
+              print('')
+              print('Fix: let the step fail (set -e) and assert the fetched inputs are '
+                    'non-empty before using them. If a degraded fetch is genuinely '
+                    "acceptable, annotate the command with '# allow-degraded: <reason>'.")
+              sys.exit(1)
+          print('OK — no load-bearing producer/fetch step swallows its failure.')
+          PY
 
       # --- 3. the guard's own tests ------------------------------------------
       # A guard against 'green while doing nothing' must not itself be able to go

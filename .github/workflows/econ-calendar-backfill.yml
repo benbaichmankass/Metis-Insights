@@ -1,0 +1,215 @@
+name: econ-calendar-backfill
+
+# ROADMAP_MACRO M1 — reconstruct DECADES of point-in-time economic-release snapshots
+# from FRED history, so the M1/M2 event study can be graded now instead of waiting
+# for the forward-only producer to accrue n=12.
+#
+# This is the runner for scripts/macro/econ_calendar_snapshot_backfill.py — the
+# backfill sibling the econ-calendar producer was missing. It is the direct fix for
+# the 2026-07-30 "wait for accrual" error: the forward producer capped the study at
+# n=7 per event kind, which had been read as "no verdict until mid-September" and
+# scheduled around. The repo already implements this pattern three times
+# (macro-valuation-backfill / cot-positioning-backfill / crypto-signals-backfill);
+# the econ calendar simply never got its sibling. Rationale:
+# docs/research/RESEARCH-PROGRAM-2026-07-30.md §1-§2.
+#
+# Runs entirely off-VM on a GitHub-hosted runner (FRED's fredgraph.csv is KEYLESS;
+# ICT_OFFVM_BUILD_HOST=1 gates the guarded fetcher). No SSH, no live-VM touch, no
+# order path. One-shot / occasional — the DAILY forward accrual stays with the
+# separate econ-calendar-produce producer, and the two land in different files so a
+# reconstructed row is never confused with a forward-observed one (every backfilled
+# row carries `backfilled: true` + `expectation_source` + `pit_basis`).
+#
+# ⚠️ FIRST-RUN PURPOSE — this run VERIFIES the unverified.
+# The FRED series ids in config/macro_econ_series.yaml are declared from FRED's
+# published catalogue and have NEVER been fetched (the planning sandbox firewalls
+# fred.stlouisfed.org — confirmed empty for DFII10/ICSA). The backfill hard-fails
+# per series with the offending id named and writes NO output, so a wrong id cannot
+# produce a partial-looking success. Correcting one is a CONFIG edit, not a code
+# change. Owning row: BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER.
+#
+# NO SWALLOWED FAILURES. Per the binding "Green is not evidence" rule
+# (docs/CLAUDE-RULES-CANONICAL.md), the fetch/backfill step may not degrade to a
+# warning: a run that reconstructs nothing must NOT look like a run that
+# reconstructed a little. `set -euo pipefail`, no `|| echo`, and an explicit
+# non-empty assertion on the output before it is committed.
+#
+# Triggers:
+#   1. workflow_dispatch — operator "Run workflow" (with kind/param overrides).
+#   2. issues.opened w/ label `econ-calendar-backfill-now` — Claude-driven (owner only).
+#
+# Tier-1: observability producer. Lands on protected main via the shared
+# ./.github/actions/commit-to-main (PAT auto-merge PR).
+
+on:
+  workflow_dispatch:
+    inputs:
+      kinds:
+        description: "CSV subset of event kinds (blank = every kind in the config)"
+        required: false
+        default: ""
+      min_train:
+        description: "Minimum training rows before an expectation is emitted"
+        required: false
+        default: "24"
+      harmonics:
+        description: "Fourier harmonic pairs of seasonal phase"
+        required: false
+        default: "2"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: econ-calendar-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       github.event.issue.user.login == github.repository_owner &&
+       contains(github.event.issue.labels.*.name, 'econ-calendar-backfill-now'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # The backfill + expectation model are stdlib-only by design (they run on a
+      # bare runner); only the config loader needs PyYAML.
+      - name: Install deps
+        run: python -m pip install --upgrade pip "pyyaml>=6.0"
+
+      - name: Parse issue body (Claude-driven path)
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -uo pipefail
+          kinds=$(printf '%s' "$ISSUE_BODY" | grep -iE '^kinds:' | head -1 | cut -d: -f2- | xargs || true)
+          mt=$(printf '%s' "$ISSUE_BODY" | grep -iE '^min_train:' | head -1 | cut -d: -f2- | xargs || true)
+          hm=$(printf '%s' "$ISSUE_BODY" | grep -iE '^harmonics:' | head -1 | cut -d: -f2- | xargs || true)
+          echo "ECB_KINDS=${kinds}"      >> "$GITHUB_ENV"
+          echo "ECB_MIN_TRAIN=${mt:-24}" >> "$GITHUB_ENV"
+          echo "ECB_HARMONICS=${hm:-2}"  >> "$GITHUB_ENV"
+
+      - name: Set params (dispatch path)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "ECB_KINDS=${{ github.event.inputs.kinds }}"                  >> "$GITHUB_ENV"
+          echo "ECB_MIN_TRAIN=${{ github.event.inputs.min_train || '24' }}"  >> "$GITHUB_ENV"
+          echo "ECB_HARMONICS=${{ github.event.inputs.harmonics || '2' }}"   >> "$GITHUB_ENV"
+
+      # Deliberately NO `|| echo` here. A failure to reconstruct is a failure of the
+      # run — that is the whole point (BL-20260730-M1-PRICE-JOIN-DEAD).
+      - name: Reconstruct PIT release snapshots from FRED history
+        env:
+          ICT_OFFVM_BUILD_HOST: "1"
+        run: |
+          set -euo pipefail
+          KINDS_ARG=""
+          if [ -n "${ECB_KINDS}" ]; then KINDS_ARG="--kinds ${ECB_KINDS}"; fi
+          python scripts/macro/econ_calendar_snapshot_backfill.py \
+            --out comms/macro/econ_calendar_snapshots_backfill.jsonl \
+            --min-train "${ECB_MIN_TRAIN}" \
+            --harmonics "${ECB_HARMONICS}" \
+            --generated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            ${KINDS_ARG} | tee /tmp/backfill.txt
+
+      - name: Assert the reconstruction is non-empty
+        id: assert
+        run: |
+          set -euo pipefail
+          f=comms/macro/econ_calendar_snapshots_backfill.jsonl
+          if [ ! -s "$f" ]; then
+            echo "::error::backfill wrote no rows — the M1 study would measure nothing"
+            exit 1
+          fi
+          rows=$(wc -l < "$f")
+          kinds=$(python3 -c "
+          import json,collections,sys
+          c=collections.Counter()
+          for l in open('$f'):
+              l=l.strip()
+              if l: c[json.loads(l)['kind']] += 1
+          print(' '.join(f'{k}={v}' for k,v in sorted(c.items())))
+          ")
+          echo "rows=${rows}"        >> "$GITHUB_OUTPUT"
+          echo "per_kind=${kinds}"   >> "$GITHUB_OUTPUT"
+          echo "reconstructed ${rows} rows :: ${kinds}"
+          # A per-kind count of 1-2 is not a usable sample; surface it loudly rather
+          # than letting a technically-non-empty file read as success.
+          if [ "$rows" -lt 50 ]; then
+            echo "::warning::only ${rows} rows reconstructed — check the series ids resolved the FULL history, not a short tail"
+          fi
+
+      - name: Land the reconstructed history on main (auto-merge PR)
+        id: commit
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: comms/macro/econ_calendar_snapshots_backfill.jsonl
+          message: "chore(m1): PIT release-history backfill (FRED)"
+          pr-title: "chore(m1): PIT release-history backfill (FRED) (auto)"
+          pr-body: |
+            Reconstructed point-in-time economic-release snapshots from FRED history
+            (`econ-calendar-backfill`). Observe-only, data-only; auto-merge.
+
+            Every row carries `backfilled: true`, `expectation_source`
+            (the pinned expectation SPEC_VERSION) and `pit_basis`
+            (`fred_current_vintage` — keyless FRED serves the CURRENT vintage, NOT
+            first prints; ALFRED is the documented upgrade path). A model
+            expectation must never be read as an archived survey consensus.
+          branch-prefix: automation/econ-calendar-backfill
+
+      - name: Comment + close issue (issue-driven path)
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        env:
+          ROWS: ${{ steps.assert.outputs.rows }}
+          PER_KIND: ${{ steps.assert.outputs.per_kind }}
+          COMMITTED: ${{ steps.commit.outputs.committed }}
+          PR: ${{ steps.commit.outputs.pr }}
+        with:
+          script: |
+            const body = [
+              '📚 **econ-calendar-backfill** — PIT release history reconstructed from FRED.',
+              '',
+              `Rows: **${process.env.ROWS || '?'}**`,
+              '',
+              '```', `per kind: ${process.env.PER_KIND || '(none)'}`, '```',
+              '',
+              process.env.COMMITTED === 'true'
+                ? `landed via auto-merge PR: ${process.env.PR}`
+                : 'no change to land this run.',
+              '',
+              'Next: run the event study against this file to get an M1/M2 read at real n —',
+              '`--snapshots comms/macro/econ_calendar_snapshots_backfill.jsonl`. Then **M3**:',
+              'validate model-surprise against the captured survey consensus on the overlap.',
+              'M3 is a **precondition** of the operator-approved gate, not a follow-up.',
+              '',
+              '---',
+              '_Generated by [Claude Code](https://claude.ai/code)_',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed',
+            });

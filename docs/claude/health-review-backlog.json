@@ -6934,7 +6934,39 @@
       "updates": [],
       "resolved_at": null,
       "severity": "medium-high"
+    },
+    {
+      "id": "BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0",
+      "opened_at": "2026-07-30T08:10:00+00:00",
+      "opened_by": "claude (multiline guard hardening)",
+      "source": "The multiline-aware `|| echo` guard found FOUR producer workflows whose candle fetch swallows its own failure and lets the downstream gate report 'the honest n=0': cot-positioning-backfill.yml, m28-value-grade.yml, macro-valuation-backfill.yml, sysdyn-gas-calibrate.yml. All four were INVISIBLE to the first (line-based) version of the guard because the `||` sits on a shell line-continuation.",
+      "title": "[research] Four macro gates degrade a failed candle fetch into an 'honest n=0' verdict — annotated allow-degraded, not resolved",
+      "description": "Each workflow comments that a degraded fetch means the gate 'will report the honest n=0 / insufficient_data'. That framing is exactly the class BL-20260730-PRODUCER-VACUITY-GUARD exists to kill: a gate publishing a verdict computed from zero inputs, on a green run. 'Honest n=0' is honest about the COUNT but not about the CAUSE — a reader cannot tell 'no data exists' from 'the fetch broke'. Annotated with `# allow-degraded: <this id>` so the guard passes and the debt is attributed rather than silent; NOT fixed, because changing four producers' failure semantics is a real behaviour change that deserves its own reviewed pass. THE FIX for each: let the fetch fail (set -e), or keep it tolerant but have the DOWNSTREAM gate distinguish 'no candles fetched' from 'candles fetched, no signal' and refuse to emit a verdict in the former case (register those artifacts in check_artifact_validity.CHECKS). NOTE the annotation has no expiry mechanism — unlike KNOWN_VACUOUS, which fails once its date passes; consider giving allow-degraded the same treatment so these cannot become permanent.",
+      "tier": 1,
+      "trigger_condition": "A macro gate reports n=0 / insufficient_data and nobody checks whether its inputs were fetched at all.",
+      "resolution_criteria": "Each of the four either fails on a degraded fetch, or its downstream gate distinguishes unfetched from no-signal and is registered in check_artifact_validity; the allow-degraded annotations are then removed.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "medium"
+    },
+    {
+      "id": "BL-20260730-ALLOW-DEGRADED-NEEDS-EXPIRY",
+      "opened_at": "2026-07-30T08:10:00+00:00",
+      "opened_by": "claude (self-review of the guard I just shipped)",
+      "source": "Self-review. KNOWN_VACUOUS in check_artifact_validity.py requires a backlog owner AND an `until` date, and the guard FAILS once the date passes — so tracked debt cannot become permanent. The sibling override for swallowed fetches, the inline `# allow-degraded: <reason>` comment, has NEITHER requirement enforced: any string satisfies it, forever. I shipped the weaker override in the same PR as the stronger one.",
+      "title": "[tooling] `# allow-degraded:` has no owner/expiry enforcement — the weaker sibling of KNOWN_VACUOUS",
+      "description": "Make the guard parse the annotation and require (a) a backlog id matching a real row in one of the three review backlogs, and (b) an `until:` date, failing once it passes — mirroring known_vacuous_problems(). Otherwise allow-degraded is exactly the silence list KNOWN_VACUOUS was deliberately designed not to be, and the four annotations added in this PR (BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0) will sit forever. Small change; worth doing before the annotation spreads.",
+      "tier": 1,
+      "trigger_condition": "An `# allow-degraded:` annotation exists with no backlog row or no expiry.",
+      "resolution_criteria": "The guard validates every allow-degraded annotation for a resolvable backlog id + an unexpired `until:`, and fails otherwise.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "medium"
     }
   ],
-  "updated_at": "2026-07-30T07:40:00+00:00"
+  "updated_at": "2026-07-30T08:10:00+00:00"
 }

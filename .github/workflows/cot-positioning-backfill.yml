@@ -80,7 +80,7 @@ jobs:
             --out-dir data/macro_candles \
             --symbols USO,UNG,GLD,CPER,SPY,FXE,IEF \
             --start "2010-01-01" || \
-            echo "::warning::candle fetch degraded — P4/horizon will report the honest n=0 for uncovered symbols"
+            echo "::warning::candle fetch degraded — P4/horizon will report the honest n=0 for uncovered symbols"  # allow-degraded: BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0
 
       - name: Run the M28 P4 value-thesis gate over the COT snapshots
         id: gate
