@@ -578,6 +578,36 @@ OCI block volume (`/data/bot-data`), both browsable from the dashboard's
   trader. The `/api/bot/ml/*` and `/api/bot/backtests/sweeps` file-based
   endpoints remain; the sidecar makes the same data SQL-queryable.
 
+### Number provenance — is this value MEASURED or MANUFACTURED? (2026-07-30)
+
+**One module owns this: [`src/runtime/provenance.py`](src/runtime/provenance.py).** Import
+it; do not re-derive the vocabulary and do not add another bespoke `exclude_*` predicate
+(four already exist in `src/web/api/_clean_trades.py`, one per past incident, and they
+collectively still missed the general case).
+
+Buckets: `MEASURED` (a broker fill / recorded exit) · `ESTIMATED` (a defensible
+reconstruction, e.g. a bar anchored to `closed_at`) · `FABRICATED` (synthesised with no
+anchor to the close — a mark read at an arbitrary later time, a proration) · `UNVERIFIED`
+(no provenance recorded — **never** folded into `MEASURED`). `is_measured()` is strictly
+binary; `coverage()` is the PnL analogue of the `rCoverage` pattern `/performance` already
+uses correctly for R (*"transparency, never a raw-pnl fallback"*); `require_measured()`
+raises rather than quietly averaging manufactured numbers.
+
+**Why it exists.** The journal already recorded provenance and **nothing read it** —
+`exit_price_source` written in 12 files, branched on in one (for an unrelated value), zero
+references in the whole `ml/` tree. Lifetime that meant 226 closed rows carrying
+**+$247,683.78** of `local_markprice` PnL, and a fabricated share of closed trades running
+0.0% (May) → 30.5% (Jun) → **64.9% (Jul)**. It also produced a "−$6,358 Bybit scalp exit
+leak" that did not exist. Every contributing component was individually correct, which is
+why line-by-line audits kept returning clean: the defect lives at the seams. Full account:
+`docs/sprint-logs/S-PROVENANCE-EXITLEAK-ROOTCAUSE-2026-07-30.md`.
+
+**Enforced by `provenance-consumer-guard`** (`scripts/check_provenance_consumers.py`) —
+CI fails when a declared provenance key gains a writer but no consumer, the same shape as
+`canonical-db-resolver` / `env-gate-guard` / `silent-empty-guard`. A signal that is written
+and never read is worse than a missing one: reviewers see the field and assume something
+acts on it.
+
 ## Dashboard REST API (S-014)
 
 Unauthenticated GET routes — Tier 1 read surface. See
