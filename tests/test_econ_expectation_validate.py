@@ -115,6 +115,47 @@ class TestJoin:
         assert v.join_overlap([m], [m]) == []
 
 
+class TestModelSurveyDiscriminator:
+    """`backfilled` must NOT imply "model".
+
+    An earlier `is_model_row` treated any backfilled row as a model row — fine while the model
+    side was the only thing ever backfilled, and broken the moment a SURVEY backfill exists
+    (FXStreet's calendar API takes an arbitrary date range, so retro-fetched REAL survey
+    consensus is legitimately `backfilled: true`). Misclassifying those would silently drop
+    them from the survey side, leaving M3 comparing the model against itself or against
+    nothing — a wrong answer with no error.
+    """
+
+    @staticmethod
+    def _survey_backfill_row(kind, date, consensus, actual):
+        return {"kind": kind, "scheduled_for": date, "backfilled": True,
+                "expectation_source": "survey:fxstreet",
+                "expected": {"consensus": consensus},
+                "realized_outcome": {"consensus": consensus, "actual": actual}}
+
+    def test_a_backfilled_SURVEY_row_is_not_a_model_row(self):
+        r = self._survey_backfill_row("k", "2026-07-16", 10.0, 12.0)
+        assert r["backfilled"] is True
+        assert not v.is_model_row(r), "backfilled != model"
+
+    def test_a_model_row_still_reads_as_model(self):
+        assert v.is_model_row(model_row("k", "2026-07-16", 11.0, 12.0))
+
+    def test_a_row_with_no_expectation_source_is_survey_side(self):
+        """The forward feed's own rows carry no expectation_source at all."""
+        assert not v.is_model_row(survey_row("k", "2026-07-16", 10.0, 12.0))
+
+    def test_a_backfilled_survey_row_JOINS_against_a_model_row(self):
+        """The end-to-end property the fix exists for: a survey backfill must widen the
+        overlap, not be silently discarded from it."""
+        pairs = v.join_overlap(
+            [self._survey_backfill_row("k", "2026-07-16", 10.0, 12.0)],
+            [model_row("k", "2026-07-16", 11.0, 12.0)])
+        assert len(pairs) == 1
+        assert pairs[0]["survey_consensus"] == 10.0
+        assert pairs[0]["model_expectation"] == 11.0
+
+
 class TestProvenanceGuard:
     """THE load-bearing property — see the module docstring."""
 

@@ -1,0 +1,210 @@
+name: econ-calendar-survey-backfill
+
+# ROADMAP_MACRO M1/M3 — backfill the SURVEY-CONSENSUS side of the econ calendar.
+#
+# M3 compares the PIT expectation MODEL against real SURVEY consensus on their overlap. The
+# model side has 75 years (6,966 rows). The survey side had **11 joinable rows** — not because
+# anything was capped, but because the forward producer had only ever pulled ONE window
+# (2026-02 → 2026-08, one snapshot). FXStreet's calendar API takes an ARBITRARY date range and
+# is KEYLESS, so the survey window was a scheduling artifact, not a data limit.
+#
+# Same missing-backfill-sibling insight that fixed the model side, one layer up.
+#
+# ⚠️ These rows are NOT a model. They carry a real survey consensus and are stamped
+# `expectation_source: survey:fxstreet` — never `model:`. That is load-bearing:
+# econ_expectation_validate.is_model_row keys on it to decide which SIDE of the comparison a
+# row belongs to. (It previously keyed on `backfilled`, which would have misclassified every
+# row this writes and silently dropped it from the survey side.)
+#
+# PIT: `consensus` is genuinely pre-release (surveys are not revised after the print);
+# `actual` MAY be a revision, since a historical fetch returns current state. Both are stamped
+# (`consensus_basis` / `pit_basis`) so neither half is over-trusted.
+#
+# NO SWALLOWED FAILURES: a run that reconstructs no consensus exits non-zero rather than
+# writing an empty file that reads as "no data available".
+#
+# Triggers: workflow_dispatch, or issues.opened w/ label `econ-survey-backfill-now` (owner).
+# Runs entirely off-VM on a hosted runner. Tier-1, observe-only, no order path.
+
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "First calendar date (YYYY-MM-DD)"
+        required: false
+        default: "2015-01-01"
+      end:
+        description: "Last calendar date (blank = today UTC)"
+        required: false
+        default: ""
+      chunk_days:
+        description: "Days per request (the API is range-based; chunking is politeness)"
+        required: false
+        default: "90"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: econ-calendar-survey-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       github.event.issue.user.login == github.repository_owner &&
+       contains(github.event.issue.labels.*.name, 'econ-survey-backfill-now'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # The script + the FXStreet adapter are stdlib-only by design.
+      - name: Install deps
+        run: python -m pip install --upgrade pip "pyyaml>=6.0"
+
+      - name: Parse issue body (Claude-driven path)
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -uo pipefail
+          get() { printf '%s' "$ISSUE_BODY" | grep -m1 -iE "^$1:" | cut -d: -f2- | xargs || true; }
+          st=$(get start); en=$(get end); cd=$(get chunk_days)
+          # Validate rather than interpolate — an unvalidated value would reach the shell.
+          printf '%s' "${st}" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' || st="2015-01-01"
+          printf '%s' "${en}" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' || en=""
+          printf '%s' "${cd}" | grep -qE '^[0-9]{1,3}$' || cd="90"
+          {
+            echo "SB_START=${st}"; echo "SB_END=${en}"; echo "SB_CHUNK=${cd}"
+          } >> "$GITHUB_ENV"
+
+      - name: Set params (dispatch path)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          {
+            echo "SB_START=${{ github.event.inputs.start || '2015-01-01' }}"
+            echo "SB_END=${{ github.event.inputs.end }}"
+            echo "SB_CHUNK=${{ github.event.inputs.chunk_days || '90' }}"
+          } >> "$GITHUB_ENV"
+
+      # Deliberately NO `|| echo` — a failure to reconstruct is a failure of the run.
+      - name: Backfill the survey consensus from FXStreet history
+        env:
+          ICT_OFFVM_BUILD_HOST: "1"
+        run: |
+          set -euo pipefail
+          END_ARG=""
+          if [ -n "${SB_END:-}" ]; then END_ARG="--end ${SB_END}"; fi
+          python scripts/macro/econ_calendar_survey_backfill.py \
+            --start "${SB_START}" ${END_ARG} \
+            --chunk-days "${SB_CHUNK}" \
+            --out comms/macro/econ_calendar_snapshots_survey_backfill.jsonl \
+            | tee /tmp/survey.txt
+
+      - name: Assert the reconstruction is non-empty and report the overlap gain
+        id: assert
+        run: |
+          set -euo pipefail
+          f=comms/macro/econ_calendar_snapshots_survey_backfill.jsonl
+          if [ ! -s "$f" ]; then
+            echo "::error::survey backfill wrote no rows"
+            exit 1
+          fi
+          rows=$(wc -l < "$f")
+          echo "rows=${rows}" >> "$GITHUB_OUTPUT"
+          # The number that actually matters is not the row count but the JOINABLE OVERLAP
+          # with the model side — that is what M3's n is, and what this run exists to raise.
+          python3 - <<'PYEOF' | tee /tmp/overlap.txt
+          import json, sys, os
+          sys.path.insert(0, os.path.join("scripts", "macro"))
+          import econ_expectation_validate as v
+          survey = v.read_rows("comms/macro/econ_calendar_snapshots_survey_backfill.jsonl")
+          fwd    = v.read_rows("comms/macro/econ_calendar_snapshots.jsonl")
+          model  = v.read_rows("comms/macro/econ_calendar_snapshots_backfill.jsonl")
+          before = len(v.join_overlap(fwd, model))
+          after  = len(v.join_overlap(fwd + survey, model))
+          print(f"joinable overlap: {before} -> {after}  (M3 min_honest_n={v.MIN_HONEST_N})")
+          if after <= before:
+              print("::warning::the overlap did NOT grow — check the date range actually "
+                    "covers releases the model side also has")
+          PYEOF
+          { echo "overlap<<EOF"; cat /tmp/overlap.txt; echo "EOF"; } >> "$GITHUB_OUTPUT"
+
+      - name: Land the survey history on main (auto-merge PR)
+        id: commit
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: comms/macro/econ_calendar_snapshots_survey_backfill.jsonl
+          message: "chore(m3): survey-consensus backfill (FXStreet history)"
+          pr-title: "chore(m3): survey-consensus backfill (FXStreet history) (auto)"
+          pr-body: |
+            Backfilled the SURVEY side of the econ calendar from FXStreet's range-based
+            keyless API. Observe-only, data-only; auto-merge.
+
+            Rows carry `expectation_source: survey:fxstreet` (a real poll, **not** a model),
+            `consensus_basis: pre_release_survey` and `pit_basis: fxstreet_current_state` —
+            the consensus is genuinely pre-release, the actual may be a revision.
+
+            This raises M3's joinable overlap, which was 11 rows purely because the forward
+            producer had only ever pulled one window.
+          branch-prefix: automation/econ-survey-backfill
+
+      - name: Comment + close issue (issue-driven path)
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        env:
+          ROWS: ${{ steps.assert.outputs.rows }}
+          OVERLAP: ${{ steps.assert.outputs.overlap }}
+          COMMITTED: ${{ steps.commit.outputs.committed }}
+          PR: ${{ steps.commit.outputs.pr }}
+        with:
+          script: |
+            const body = [
+              '🗳️ **econ-calendar-survey-backfill** — survey consensus reconstructed from FXStreet history.',
+              '',
+              `Rows: **${process.env.ROWS || '?'}**`,
+              '',
+              '```', (process.env.OVERLAP || '(no overlap report)').trim(), '```',
+              '',
+              process.env.COMMITTED === 'true'
+                ? `landed via auto-merge PR: ${process.env.PR}`
+                : 'no change to land this run.',
+              '',
+              'Rows are stamped `expectation_source: survey:fxstreet` — a REAL poll, never a',
+              'model. `consensus` is genuinely pre-release; `actual` may be a revision',
+              '(`pit_basis: fxstreet_current_state`), the same revision caveat the model side',
+              'already carries.',
+              '',
+              'Next: re-run M3 (`scripts/macro/econ_expectation_validate.py`) at the new n. If',
+              'the overlap now clears `min_honest_n`, that is the first real verdict on whether',
+              'the expectation model is a sound stand-in for survey consensus — the',
+              'operator-approved M1 gate\'s own satisfiability condition.',
+              '',
+              '---',
+              '_Generated by [Claude Code](https://claude.ai/code)_',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed',
+            });

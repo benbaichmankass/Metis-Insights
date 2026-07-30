@@ -109,9 +109,19 @@ def actual_of(row: dict) -> Optional[float]:
 
 
 def is_model_row(row: dict) -> bool:
-    """A model expectation, never a survey poll — provenance, not a guess by file name."""
-    return bool(row.get("backfilled")) or str(
-        row.get("expectation_source") or "").startswith("model:")
+    """A MODEL expectation, never a survey poll — keyed on `expectation_source` alone.
+
+    An earlier version also treated any `backfilled: true` row as a model row. That was a
+    shortcut that held only while the model side was the ONLY thing ever backfilled, and it
+    breaks the moment a SURVEY backfill exists: a retro-fetched real survey consensus is
+    legitimately `backfilled: true`, so it would have been misclassified as a model row and
+    silently dropped from the survey side of the comparison — leaving M3 quietly comparing the
+    model against itself on those rows, or against nothing.
+
+    `backfilled` answers "was this row reconstructed?"; `expectation_source` answers "where did
+    the expectation come from?". Only the second is the axis this function is about.
+    """
+    return str(row.get("expectation_source") or "").startswith("model:")
 
 
 # ------------------------------------------------------------------- statistics
