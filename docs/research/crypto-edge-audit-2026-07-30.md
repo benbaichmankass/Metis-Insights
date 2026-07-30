@@ -15,8 +15,8 @@ OOS time-folds (`backtest_*.py --emit-trades` → `direction_walkforward.py`).
 | `xrp_pullback_2h` | **+31.82** | long +9.30 / short +22.52 | **KEEP** — real edge |
 | `sol_pullback_2h` | **−5.43** | **long −12.39** / short +6.96 | **FINE-TUNE the LONG side** — short is fine; SOL-long is the single genuine negative (single-symbol effect, not a family property) |
 | `trend_donchian` (BTC 1h) | **+1.12** (base geometry) | long-only; **2025 +9.6 / 2026 −9.3**; folds 6–8 adverse | **WATCH / regime-tune** — thin base edge, but the live **ML exit head** (`exit-head-donchian-1h-v1`, M20-shipped precisely because this leg's base exits are bad) lifts the live version above this number. Not a demote; regime-gate the adverse 2026 slice. |
-| `ict_scalp_5m` (BTC) | *pending* (harness re-run) | — | pending; M27 backtest showed net-of-fee edge, live leak was the now-fixed bracket bug |
-| `trend_donchian_xrp_4h` | *not yet run* | — | pending |
+| `ict_scalp_5m` (BTC) | **+26.63** (1yr) | 187 tr, 49% win; **stable_edge=TRUE**; short +18.8 / long +7.8; folds 4/5/6 (recent 2026) all positive | **KEEP** — strong, stable, *currently*-positive backtest edge. The live loss (mirror −$4k) is the **cleanest research→results-gap case**: execution (the bracket bug, fixed today) + **slippage** the harness doesn't model ("fills at the level"). Validates the exit fix; measure slippage next. |
+| `trend_donchian_xrp_4h` | *running* | — | pending |
 
 Source WFs: pullback family — `pullback-2h-direction-walkforward-2026-07-29.md`;
 trend_donchian — trainer relay #7957 (this session); ML-exit-head context —
