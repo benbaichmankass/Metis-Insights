@@ -66,8 +66,18 @@ _TREND_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe",
 # follow-up so trend_donchian_sol's chop-long cell can be re-measured with its
 # declared exit lever ON (BL-20260717-REGIME-COVERAGE-DEBT). exit_head_* stay in
 # _UNREPLAYABLE — an ML exit head can never be replayed offline.
+#
+# `side_filter` (added live 2026-07-30 by #7966, with matching --side-filter flags in
+# backtest_trend.py + backtest_pullback.py) MUST be forwarded. Two LIVE, enabled
+# strategies carry `side_filter: short` — sol_pullback_2h and trend_donchian_xrp_4h.
+# Without forwarding, the matrix measures BOTH legs for a strategy that only ever
+# trades short live, so any cell read off that row rests partly on long trades the
+# strategy will never take. Caught while wiring the squeeze harness, hours after
+# #7966 landed; the capability was added correctly, it just did not know these lever
+# maps existed. BL-20260730-SIDE-FILTER-NOT-FORWARDED.
 _TREND_LEVER_FLAG = {
     "stale_exit_bars": "--stale-exit-bars", "stale_exit_below_r": "--stale-exit-below-r",
+    "side_filter": "--side-filter",
 }
 # Pullback lever config-key -> harness flag (these the pullback harness DOES model).
 _PB_LEVER_FLAG = {
@@ -75,6 +85,7 @@ _PB_LEVER_FLAG = {
     "vol_skip_below_pctl": "--vol-skip-below-pctl", "vol_skip_above_pctl": "--vol-skip-above-pctl",
     "trail_vol_below_pctl": "--trail-vol-below-pctl", "trail_vol_above_pctl": "--trail-vol-above-pctl",
     "trail_vol_tight_mult": "--trail-vol-tight-mult", "vol_pctl_window": "--vol-pctl-window",
+    "side_filter": "--side-filter",  # see the note on _TREND_LEVER_FLAG above
 }
 _PB_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe", "symbols",
              "trend_lookback", "pullback_lookback", "pullback_frac", "atr_period",
@@ -94,6 +105,13 @@ _SQZ_LEVER_FLAG = {
 _SQZ_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe", "symbols",
               "bb_period", "bb_std", "kc_mult", "atr_period", "atr_stop_mult",
               "trail_mult", "min_confidence", "shadow_model_ids", "description"}
+# NOTE `side_filter` is absent from BOTH _SQZ_PLAIN and _SQZ_LEVER_FLAG on purpose:
+# backtest_squeeze.py has no --side-filter flag (only the trend + pullback harnesses
+# gained one in #7966). So a squeeze strategy declaring side_filter degrades to
+# `approximate` and names it as an omitted lever — the honest outcome. Do NOT "fix"
+# that by adding it to _SQZ_PLAIN; that would silently claim the harness applies a
+# side filter it does not implement. Porting --side-filter into backtest_squeeze.py is
+# the real fix if a squeeze variant ever needs it.
 # `tp_r` is DELIBERATELY not in _SQZ_PLAIN. scripts/backtest_squeeze.py has no
 # --tp-r flag: it models the Chandelier trail as the sole profit-exit, which is
 # what src/units/strategies/squeeze_breakout_4h.py itself documents ("No fixed

@@ -184,3 +184,57 @@ class TestAdxDegradesRatherThanCrashes:
         cfg = {"symbols": ["BTCUSDT"], "donchian": 20, "adx_min": 15}
         argv, _, _ = _build(cfg)
         assert "--adx-min" in argv
+
+
+class TestSideFilterIsForwarded:
+    """`side_filter` went live 2026-07-30 (#7966) on TWO enabled strategies, with
+    matching --side-filter flags in the trend + pullback harnesses. The debt matrix
+    did not forward it, so those strategies would be measured on BOTH legs while
+    trading short-only live — any cell read off such a row would rest partly on long
+    trades the strategy never takes. BL-20260730-SIDE-FILTER-NOT-FORWARDED.
+    """
+
+    def test_trend_harness_receives_side_filter(self):
+        cfg = {"symbols": ["XRPUSDT"], "donchian": 20, "side_filter": "short"}
+        argv, _, _ = _build(cfg)
+        assert "--side-filter" in argv
+        assert argv[argv.index("--side-filter") + 1] == "short"
+
+    def test_pullback_harness_receives_side_filter(self):
+        cfg = {"symbols": ["SOLUSDT"], "pullback_frac": 0.5, "side_filter": "short"}
+        argv, _, _ = _build(cfg)
+        assert "--side-filter" in argv
+        assert argv[argv.index("--side-filter") + 1] == "short"
+
+    def test_forwarding_keeps_the_row_faithful(self):
+        """A modelled lever must not also count as omitted — otherwise the row
+        degrades to `approximate` and blocks a cell it should be able to source."""
+        cfg = {"symbols": ["XRPUSDT"], "donchian": 20, "side_filter": "short",
+               "atr_period": 14}
+        _, faithful, omitted = _build(cfg)
+        assert "side_filter" not in omitted and faithful
+
+    def test_squeeze_declares_side_filter_omitted_rather_than_faking_it(self):
+        """backtest_squeeze.py has NO --side-filter. Claiming faithful here would
+        assert the harness applies a filter it does not implement."""
+        argv, faithful, omitted = _build(dict(LIVE_SQUEEZE, side_filter="short"))
+        assert "--side-filter" not in argv
+        assert "side_filter" in omitted and not faithful
+
+    def test_the_two_live_side_filtered_strategies_are_measured_correctly(self):
+        """Anchored on the real config so a roster change surfaces here."""
+        import yaml
+        S = yaml.safe_load(
+            open(os.path.join(REPO, "config/strategies.yaml"))
+        )["strategies"]
+        filtered = {n: c for n, c in S.items()
+                    if isinstance(c, dict) and c.get("side_filter")}
+        assert filtered, "expected at least one side_filter strategy (#7966)"
+        for name, cfg in filtered.items():
+            harness = rdm.classify(cfg)
+            if harness not in ("trend", "pullback"):
+                continue  # squeeze/unclassifiable handled above
+            argv, _, omitted = _build(cfg, harness)
+            assert "--side-filter" in argv, f"{name}: side filter dropped"
+            assert argv[argv.index("--side-filter") + 1] == str(cfg["side_filter"])
+            assert "side_filter" not in omitted, f"{name}: modelled yet called omitted"
