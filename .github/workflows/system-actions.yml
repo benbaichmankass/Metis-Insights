@@ -101,6 +101,7 @@ on:
           - net-r-regrade
           - inspect-closed-pnl
           - bybit-account-audit
+          - bybit-bracket-audit
           - strategy-performance-audit
           - monitor-miss-analysis
           - vwap-backtest-sweep
@@ -511,7 +512,7 @@ jobs:
         run: |
           set -euo pipefail
           case "${ACTION}" in
-            status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade)
+            status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
             pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|flatten-bybit-position|flatten-alpaca-position|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids)
@@ -863,6 +864,7 @@ jobs:
             net-r-regrade)                      SCRIPT="net_r_regrade_action.sh" ;;
             inspect-closed-pnl)                 SCRIPT="inspect_closed_pnl_action.sh" ;;
             bybit-account-audit)                SCRIPT="bybit_account_audit_action.sh" ;;
+            bybit-bracket-audit)                SCRIPT="bybit_bracket_audit_action.sh" ;;
             strategy-performance-audit)         SCRIPT="strategy_performance_audit_action.sh" ;;
             generate-strategy-review-packets)   SCRIPT="generate_strategy_review_packets_action.sh" ;;
             grade-closed-trades)                SCRIPT="grade_closed_trades_action.sh" ;;
@@ -1020,6 +1022,12 @@ jobs:
           fi
           if [ "${ACTION}" = "bybit-account-audit" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
+          fi
+          # bybit-bracket-audit: both selectors are OPTIONAL (empty = all bybit
+          # accounts / every symbol with an open journal row), so unlike the
+          # flatten-* actions there is no non-empty validation on either.
+          if [ "${ACTION}" = "bybit-bracket-audit" ]; then
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "rebuild-pnl-from-bybit" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
