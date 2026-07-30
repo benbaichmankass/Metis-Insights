@@ -108,6 +108,15 @@ Pooled net-R alone is not evidence.
   Acting on the thin read would have been wrong either way. Treat any cell under ~20 trades
   as unmeasured, and a cell at **n=0** as **cosmetic** — zero trades is not evidence a gate
   works.
+- **Before accepting a small n, establish what BOUNDS it.** "Not enough trades yet" is a
+  claim about the *source*, and it needs verifying like any other — see
+  `CLAUDE-RULES-CANONICAL.md` § "Green is not evidence", obligation 5. A candle-replay
+  harness is bounded by the history you request, not by the calendar: the same
+  `squeeze_breakout_4h` cell went n=28 at 730d and n=135 at 2900d purely because of the
+  `--days` argument. **Never lower a pre-registered bar or an honesty floor to manufacture
+  a verdict** — raise the sample, or report insufficient and say what would raise it. A
+  thin sample is also frequently OPTIMISTIC, not merely noisy: the macro M3 join read
+  0.7364/0.909 at n=11 and 0.5885/0.720 at n=1263.
 - **Always check the ex-max-fold sign.** `htf_pullback_trend_2h`'s short leg pooled **+7.89R**
   and was **−3.70R ex-fold-3** — ~147% of the edge in one fold, so the sign flipped.
   `squeeze_breakout_4h`'s short pooled −3.40R and held at **−0.77R ex-fold-3** — the sign
