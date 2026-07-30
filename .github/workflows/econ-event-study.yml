@@ -34,6 +34,16 @@ on:
   schedule:
     - cron: "10 23 * * 0"
   workflow_dispatch:
+    inputs:
+      kinds:
+        description: "CSV of event kinds to study (blank = the two energy defaults)"
+        default: ""
+      snapshots:
+        description: "PIT snapshots JSONL (blank = the forward producer's file)"
+        default: ""
+      start:
+        description: "Price-panel start date"
+        default: "2005-01-01"
   issues:
     types: [opened]
 
@@ -75,14 +85,72 @@ jobs:
         # (BL-20260730-M1-PRICE-JOIN-DEAD).
         run: python -m pip install --upgrade pip "pyyaml>=6.0" "yfinance>=0.2.40" "pandas>=2.0"
 
+      # Resolve kinds -> symbols from the SAME map the study uses, so the fetch can
+      # never silently omit a panel the study will then ask for. Previously both the
+      # kind list and the symbol list were hardcoded to the two energy cases and had
+      # to be kept in sync by hand.
+      - name: Resolve kinds + symbols
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          IN_KINDS: ${{ github.event.inputs.kinds }}
+          IN_SNAPS: ${{ github.event.inputs.snapshots }}
+          IN_START: ${{ github.event.inputs.start }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PYEOF' >> "$GITHUB_ENV"
+          import importlib.util, os, re
+          spec = importlib.util.spec_from_file_location(
+              "ees", "scripts/macro/econ_event_study.py")
+          ees = importlib.util.module_from_spec(spec); spec.loader.exec_module(ees)
+
+          def from_body(field, default=""):
+              body = os.environ.get("ISSUE_BODY") or ""
+              m = re.search(rf'^{field}:\s*(.+)$', body, re.I | re.M)
+              return (m.group(1).strip() if m else "") or default
+
+          kinds = (os.environ.get("IN_KINDS") or from_body("kinds")
+                   or "eia_natgas_storage,eia_crude_stocks")
+          snaps = (os.environ.get("IN_SNAPS") or from_body("snapshots")
+                   or "comms/macro/econ_calendar_snapshots.jsonl")
+          start = (os.environ.get("IN_START") or from_body("start") or "2005-01-01")
+
+          # Validate rather than interpolate: an unmapped kind or a path outside
+          # comms/macro would otherwise reach the shell.
+          klist, syms = [], []
+          for k in [x.strip() for x in kinds.split(",") if x.strip()]:
+              if not re.fullmatch(r'[a-z0-9_]+', k):
+                  raise SystemExit(f"::error::bad kind {k!r}")
+              sym = ees.KIND_DEFAULT_SYMBOL.get(k)
+              if not sym:
+                  raise SystemExit(
+                      f"::error::kind {k!r} has no symbol in KIND_DEFAULT_SYMBOL — "
+                      "add it there and to config/macro_econ_series.yaml")
+              klist.append(k)
+              if sym not in syms:
+                  syms.append(sym)
+          if not re.fullmatch(r'comms/macro/[A-Za-z0-9_.-]+\.jsonl', snaps):
+              raise SystemExit(f"::error::snapshots path not allowed: {snaps!r}")
+          if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', start):
+              raise SystemExit(f"::error::bad start date {start!r}")
+
+          print(f"EES_KINDS={','.join(klist)}")
+          print(f"EES_SYMBOLS={','.join(syms)}")
+          print(f"EES_SNAPSHOTS={snaps}")
+          print(f"EES_START={start}")
+          PYEOF
+          echo "resolved: kinds=${EES_KINDS:-?} symbols=${EES_SYMBOLS:-?}" || true
+
       - name: Fetch price panels off-VM (yfinance→Stooq, keyless)
         env:
           ICT_OFFVM_BUILD_HOST: "1"
         run: |
           set -euo pipefail
+          # --start was pinned at 2023-01-01, which capped the JOIN at ~3 years while
+          # the reconstructed release history runs to DECADES (ICSA: 3031 weekly rows).
+          # The study could not have used the history even once the backfill landed.
           python scripts/macro/fetch_macro_candles.py \
-            --symbols "NG=F,CL=F" \
-            --start 2023-01-01 \
+            --symbols "${EES_SYMBOLS}" \
+            --start "${EES_START}" \
             --out-dir /tmp/econ_event_candles
 
       - name: Assert the panels are non-empty
@@ -92,7 +160,8 @@ jobs:
         # than letting the study publish a vacuous scorecard on a green run.
         run: |
           set -euo pipefail
-          for sym in "NG=F" "CL=F"; do
+          IFS=',' read -ra SYMS <<< "${EES_SYMBOLS}"
+          for sym in "${SYMS[@]}"; do
             f="/tmp/econ_event_candles/${sym}.csv"
             if [ ! -s "$f" ]; then
               echo "::error::no price panel for ${sym} — the event-study join would measure nothing"
@@ -110,12 +179,21 @@ jobs:
         id: study
         run: |
           set -euo pipefail
-          python scripts/macro/econ_event_study.py \
-            --kind eia_natgas_storage --candles-dir /tmp/econ_event_candles \
-            --json comms/macro/econ_event_study_scorecard.json
-          python scripts/macro/econ_event_study.py \
-            --kind eia_crude_stocks --candles-dir /tmp/econ_event_candles \
-            --json comms/macro/econ_event_study_crude_scorecard.json
+          # Back-compat scorecard paths for the two original kinds (they are registered
+          # in scripts/ops/check_artifact_validity.py); any other kind gets its own file.
+          IFS=',' read -ra KINDS <<< "${EES_KINDS}"
+          for k in "${KINDS[@]}"; do
+            case "$k" in
+              eia_natgas_storage) out=comms/macro/econ_event_study_scorecard.json ;;
+              eia_crude_stocks)   out=comms/macro/econ_event_study_crude_scorecard.json ;;
+              *) out="comms/macro/econ_event_study_${k}_scorecard.json" ;;
+            esac
+            echo "--- ${k} -> ${out}"
+            python scripts/macro/econ_event_study.py \
+              --kind "$k" --candles-dir /tmp/econ_event_candles \
+              --snapshots "${EES_SNAPSHOTS}" \
+              --json "$out"
+          done
           {
             echo "summary<<EOF"
             python -c "import json; d=json.load(open('comms/macro/econ_event_study_scorecard.json')); print(json.dumps({'natgas': d['summary'], 'meta': d['meta']}, indent=2))"

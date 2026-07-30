@@ -60,6 +60,13 @@ KIND_DEFAULT_SYMBOL = {
     "baker_hughes_us_oil_rig_count": "CL=F",
     "cpi_yoy": "ES=F",
     "cpi_mom": "ES=F",
+    # Added 2026-07-30: the two weekly labour series are the HIGHEST-n kinds the
+    # keyless FRED backfill actually resolves (ICSA 3031 rows / CCSA 3030 vs the two
+    # energy kinds, whose ids 404 — BL-20260730-EIA-SERIES-IDS-NOT-FRED). Without a
+    # mapping here the study refuses them for want of a symbol, so the only kinds it
+    # could ever run were the two that are blocked. Mirrors config/macro_econ_series.yaml.
+    "initial_jobless_claims": "ES=F",
+    "continuing_jobless_claims": "ES=F",
     "nfp": "ES=F",
     "fomc": "ES=F",
 }
