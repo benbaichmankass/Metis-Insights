@@ -1,0 +1,1046 @@
+{
+  "report_id": "RPT-20260730-045200-since-last",
+  "reviewed_at": "2026-07-30T04:52:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-07-28T09:12:00+00:00",
+  "window_end": "2026-07-30T04:50:00+00:00",
+  "prior_report_id": "RPT-20260728-091200-since-last",
+  "overall_assessment": "caution",
+  "health": {
+    "overall_assessment": "healthy",
+    "reviewed_at": "2026-07-30T04:52:00+00:00",
+    "window_start": "2026-07-28T09:12:00+00:00",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "findings": {
+      "trader_liveness": {
+        "status": "ok",
+        "note": "Heartbeat running (age 179s); uptime ~5h; last tick 04:39:20; git_sha d90ca90f = current main."
+      },
+      "services": {
+        "status": "ok",
+        "note": "ict-trader-live, ict-web-api, ict-telegram-bot, ict-claude-bridge all active; all watchdog/publish timers active."
+      },
+      "notification_banners": {
+        "status": "ok",
+        "note": "/notifications count=0, has_alerts=false \u2014 no trainer_down/account_down/orphan_unreconciled/operator_warning."
+      },
+      "account_reachability": {
+        "status": "ok",
+        "note": "All 7 declared-live accounts reachable (bybit_1/2/portfolio, ib_paper, alpaca_paper/portfolio/options_paper); exchange_positions non-null + balances api_ok true. Dry: ib_live/alpaca_live/oanda; API-less: breakout_1."
+      },
+      "ib_connection": {
+        "status": "ok",
+        "note": "All 3 MES IB clients connected, account_data_ready, breaker closed, consecutive_failures=0 (last liveness_probe_timeout was during the 00:00 IBKR reset window, recovered)."
+      },
+      "real_money_protection": {
+        "status": "ok",
+        "note": "Both open real-money bybit_2 positions (XRPUSDT, ETHUSDT) carry SL+TP \u2014 not naked. #7874 Bybit broker-naked sweep live."
+      },
+      "prop_status_feed": {
+        "status": "watch",
+        "note": "breakout_1 account_status snapshot 10d stale (last 2026-07-20); no open prop position so no live risk, but the balance feed is dark. reconcile clean."
+      },
+      "canonical_db": {
+        "status": "ok",
+        "note": "snapshot read order_packages/trades cleanly; trainer_store mirror age 89s."
+      }
+    }
+  },
+  "performance": {
+    "overall_assessment": "caution",
+    "reviewed_at": "2026-07-30T04:52:00+00:00",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "summary": "16 closed trades graded (B4/C10/D2). Real book tiny & controlled (bybit_2 ~$268, 24h -$4.38 / 7d -$17.33 but +12R). slv_trend_1h is a degenerate-confidence D-grade offender (conf 0.06/0.15, should_skip, 0/4 win -$629 paper)."
+  },
+  "ml": {
+    "overall_assessment": "healthy",
+    "reviewed_at": "2026-07-30T04:52:00+00:00",
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "model_status": [
+      {
+        "model_id": "registry (fleet)",
+        "stage": "93 models",
+        "last_training": {
+          "headline_metric": "cycles_24h=2 rc=0",
+          "trend_vs_prior_run": "stable"
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        },
+        "note": "advisory 2 \u00b7 shadow 28 \u00b7 candidate 62 \u00b7 research_only 1. Last cycle 2026-07-30 01:52 rc=0; dataset_builds 104 ok / 0 failed; manifests 75 ok / 0 failed / 8 skipped."
+      },
+      {
+        "model_id": "btc-regime-5m-lgbm-v2",
+        "stage": "shadow",
+        "last_training": {
+          "headline_metric": "\u2014",
+          "trend_vs_prior_run": "\u2014"
+        },
+        "live_shadow": {
+          "drift": "accruing (6493 preds, last 04:43)"
+        },
+        "note": "Soak healthy, score range 0.50\u20131.00."
+      },
+      {
+        "model_id": "conviction-meta-v1",
+        "stage": "shadow",
+        "last_training": {
+          "headline_metric": "\u2014",
+          "trend_vs_prior_run": "\u2014"
+        },
+        "live_shadow": {
+          "drift": "accruing (5854)"
+        },
+        "note": "score_mean 0.806, varied \u2014 healthy soak."
+      },
+      {
+        "model_id": "execution-quality-baseline-v0",
+        "stage": "shadow",
+        "last_training": {
+          "headline_metric": "\u2014",
+          "trend_vs_prior_run": "\u2014"
+        },
+        "live_shadow": {
+          "drift": "DEGENERATE"
+        },
+        "note": "score constant -0.2017 (min==max) \u2014 degenerate baseline soak (same class as BL-20260525-005 prop-mission all-zero)."
+      }
+    ],
+    "promotion_recommendations": []
+  },
+  "consolidated": {
+    "roll_up_grade": "caution",
+    "headline": "Quiet, plumbing-healthy ~44h window. All services up, all 7 live accounts reachable, IB connected, zero alert banners. Real money (bybit_2 ~$268) essentially flat: 24h -$4.38 (0/2), 7d -$17.33 but +12R; both open real positions SL/TP-protected. 16 closed trades graded (B4/C10/D2). ML cycles clean (2/24h rc=0, 104 dataset builds). Big $ swings are all paper. Bybit naked-position blindspot fix (#7874) confirmed live.",
+    "services": [
+      {
+        "unit": "ict-trader-live.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "\u2014"
+      },
+      {
+        "unit": "ict-web-api.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "\u2014"
+      },
+      {
+        "unit": "ict-telegram-bot.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "\u2014"
+      },
+      {
+        "unit": "ict-claude-bridge.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "\u2014"
+      },
+      {
+        "unit": "ict-trainer.service (trainer VM)",
+        "state": "inactive/waiting",
+        "sub_state": "timer active",
+        "active_enter_iso": "next 2026-07-31 00:37"
+      }
+    ],
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "M27 real-money graduation decision (SOL/XRP/AVAX/ETH scalps + ungated gold config)",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "SRQ-20260728 + PB-20260728-GOLD-GATE: paper-validated scalp winners await a Tier-3 real-money sizing decision; gold config should ship UNGATED (fitted gate over-filters, derive-window-fragile).",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "Fix promotion-readiness OOM (subprocess-per-model) \u2014 readiness output unconfirmed this pull",
+        "source_review": "ml",
+        "tier": 1,
+        "detail": "MB-20260719: sweep memory-thrashes the 6GB trainer (~5GB RSS, 0-byte outputs); readiness dir was empty in this pull. Ready-to-fix (bounded subprocess + MemoryMax), mirrors the training-cycle memfix. Trainer PR.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 3,
+        "title": "Venue-aware allocator EV fee (ready Tier-1 follow-up PR)",
+        "source_review": "performance",
+        "tier": 1,
+        "detail": "PB-20260729: allocator_ev.py charges a flat 7.5bps roundtrip regardless of venue \u2014 ~25x over-charge on commission-free equities. Parallel to the shipped #7930 cost-model fix; allocator is parked (soak-only) so no live impact yet, but it feeds the future graduation gate.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 4,
+        "title": "slv_trend_1h emitting degenerate should-skip entries",
+        "source_review": "performance",
+        "tier": 3,
+        "detail": "conf 0.06 and 0.15 signals, both graded D, 0/4 win -$629 (paper 24h). Confidence-floor / regime gate review warranted before any real-money exposure.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 5,
+        "title": "Close BL-20260729-BYBIT-NAKED via demo validation",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "Primary sweep landed live (#7874). Remaining gate: run validate-bybit-naked-rearm on bybit_1 demo to confirm the re-arm path, then close. Autonomous.",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "Real vs paper separation holding cleanly: the -$1426 XRP and +$650/+$588 SOL swings are all bybit_1 demo / paper-mirror; real-money bybit_2 moved only -$4.38 in 24h. No blending.",
+      "slv_trend_1h surfaces in BOTH the performance grades (2 D-grade should-skip losers) AND the paper aggregate (SLV commodity -$629, 0/4) \u2014 a single degenerate-confidence strategy, not noise.",
+      "ML dataset-audit enforcement skipped 4 manifests for dead-feature/degenerate-label (mes-regime-1d-lgbm-v2, setup-quality-lgbm-v2, trade-outcome-lgbm-v1, setup-candidates-metalabel-xsym-yz-v1 = the tracked MB-20260726-XSYMYZ range-vol-dead item) \u2014 the audit is doing its job, not a regression."
+    ],
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "summary": "M27 real-money graduation of the SOL/XRP/AVAX/ETH 5m+15m scalp winners (SRQ-20260728-M27-WINNERS-SHIP)."
+      },
+      {
+        "source_review": "performance",
+        "summary": "ict_scalp-on-gold ungated/light-gate config to real money (PB-20260728-ICTSCALP-GOLD-GATE-CONFIG)."
+      },
+      {
+        "source_review": "ml",
+        "summary": "SOL trend_vol regime cell authoring once sol-regime-15m-lgbm-fc-pcv-v2 re-gates to advisory (~08-01)."
+      }
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": -4.38,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "trades": 3,
+        "wins": 0,
+        "win_rate": 0.0,
+        "expectancy": -2.19,
+        "profit_factor": 0.0,
+        "max_drawdown": -4.38,
+        "per_strategy": [
+          {
+            "name": "ict_scalp_5m",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -4.0
+          },
+          {
+            "name": "xrp_pullback_2h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -0.38
+          },
+          {
+            "name": "trend_donchian_xrp_4h",
+            "trades": 1,
+            "win_rate": null,
+            "pnl": null
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -4.38,
+          "index": 0.0,
+          "commodity": 0.0,
+          "equity": 0.0,
+          "fx": 0.0
+        },
+        "equity_curve": [
+          {
+            "t": "2026-07-29 05:09:57",
+            "cum": -0.38
+          },
+          {
+            "t": "2026-07-29 14:31:43",
+            "cum": -4.38
+          }
+        ]
+      },
+      "paper": {
+        "window_pnl": 3513.4,
+        "prior_window_pnl": null,
+        "trend": "up",
+        "trades": 16,
+        "wins": 9,
+        "win_rate": 56.2,
+        "expectancy": 219.59,
+        "profit_factor": 1.7,
+        "max_drawdown": -3188.55,
+        "per_strategy": [
+          {
+            "name": "ict_scalp_sol_5m",
+            "trades": 4,
+            "win_rate": 100.0,
+            "pnl": 3481.63
+          },
+          {
+            "name": "ict_scalp_sol_15m",
+            "trades": 2,
+            "win_rate": 50.0,
+            "pnl": 3464.81
+          },
+          {
+            "name": "slv_trend_1h",
+            "trades": 4,
+            "win_rate": 0.0,
+            "pnl": -629.52
+          },
+          {
+            "name": "ict_scalp_5m",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -2589.78
+          }
+        ],
+        "per_asset_class": {
+          "crypto": 4142.92,
+          "commodity": -629.52,
+          "index": 0.0,
+          "equity": 0.0,
+          "fx": 0.0
+        },
+        "equity_curve": [],
+        "_note": "24h-equivalent aggregate (endpoint windows are 24h/7d); since-last window ~44h. 7d demo is -22,731 (chop regime)."
+      },
+      "prop": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": 0.0,
+        "trend": "flat",
+        "fills_reported": 0,
+        "tickets_emitted": 0,
+        "unacted_tickets": 0,
+        "rule_distance": {
+          "daily_loss_remaining": 144.77,
+          "static_dd_remaining": 125.61
+        },
+        "per_account": [
+          {
+            "account_id": "breakout_1",
+            "balance": 4825.61,
+            "equity": 4825.61,
+            "realized_window": 0.0
+          }
+        ],
+        "_note": "Quiet window \u2014 no new prop fills/tickets. account_status snapshot last reported 2026-07-20 (10d stale); reconcile clean (51 tickets / 27 fills / 0 un-acted)."
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": 63349.2,
+        "close": 64141.9,
+        "high": 64742.7,
+        "low": 62747.3,
+        "pct_change": 1.25,
+        "range_pct": 3.15,
+        "note": "Tight chop, mild up-drift; ADX chop/transitional"
+      },
+      {
+        "symbol": "ETHUSDT",
+        "open": 1879.2,
+        "close": 1906.4,
+        "high": 1936.05,
+        "low": 1856.65,
+        "pct_change": 1.45,
+        "range_pct": 4.23,
+        "note": "Range 1856\u20131936, chop with slight lift"
+      },
+      {
+        "symbol": "XRPUSDT",
+        "open": 1.0565,
+        "close": 1.0763,
+        "high": 1.0937,
+        "low": 1.0448,
+        "pct_change": 1.87,
+        "range_pct": 4.63,
+        "note": "Pushed to 1.094 then faded; net up"
+      },
+      {
+        "symbol": "SOLUSDT",
+        "open": 73.2,
+        "close": 73.63,
+        "high": 74.59,
+        "low": 72.35,
+        "pct_change": 0.59,
+        "range_pct": 3.06,
+        "note": "Flat/chop 72.3\u201374.6, no trend"
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": 4113,
+        "order_package_id": "pkg-62e894e62bad49d7",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ADAUSDT",
+        "direction": "short",
+        "strategy": "ada_pullback_2h",
+        "opened_at": "2026-07-28T13:29:36Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 0.157,
+        "exit_price": null,
+        "stop_loss": 0.162875,
+        "take_profit": 0.141457,
+        "qty": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "late",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "score": 3
+        },
+        "model_scores": null,
+        "notable": false
+      },
+      {
+        "trade_id": 4115,
+        "order_package_id": "pkg-f729cdaa32ed4adb",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SLV",
+        "direction": "short",
+        "strategy": "slv_trend_1h",
+        "opened_at": "2026-07-28T13:30:34Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 51.63,
+        "exit_price": null,
+        "stop_loss": 52.606,
+        "take_profit": 46.519,
+        "qty": null,
+        "pnl": -314.16,
+        "pnl_percent": null,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "D",
+          "entry_quality": "should_skip",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "score": 2
+        },
+        "model_scores": null,
+        "notable": true
+      },
+      {
+        "trade_id": 4122,
+        "order_package_id": "pkg-4371a1625e1b42cc",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "short",
+        "strategy": "ict_scalp_xrp_5m",
+        "opened_at": "2026-07-28T13:40:02Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 1.046,
+        "exit_price": null,
+        "stop_loss": 1.0564,
+        "take_profit": 1.0304,
+        "qty": null,
+        "pnl": -1425.96,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "score": 3
+        },
+        "model_scores": null,
+        "notable": false
+      },
+      {
+        "trade_id": 4125,
+        "order_package_id": "pkg-39647f73f38345a8",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ADAUSDT",
+        "direction": "short",
+        "strategy": "ada_pullback_2h",
+        "opened_at": "2026-07-28T16:07:06Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 0.1587,
+        "exit_price": null,
+        "stop_loss": 0.1647,
+        "take_profit": 0.143,
+        "qty": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "score": 3
+        },
+        "model_scores": null,
+        "notable": false
+      },
+      {
+        "trade_id": 4148,
+        "order_package_id": "pkg-226adae1bb6b4c8b",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ADAUSDT",
+        "direction": "short",
+        "strategy": "ada_pullback_2h",
+        "opened_at": "2026-07-28T18:10:16Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 0.1589,
+        "exit_price": null,
+        "stop_loss": 0.164,
+        "take_profit": 0.1432,
+        "qty": null,
+        "pnl": -420.34,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "score": 3
+        },
+        "model_scores": null,
+        "notable": false
+      },
+      {
+        "trade_id": 4154,
+        "order_package_id": "pkg-1508715717e84e91",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "XRPUSDT",
+        "direction": "short",
+        "strategy": "xrp_pullback_2h",
+        "opened_at": "2026-07-28T20:00:10Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 1.0614,
+        "exit_price": null,
+        "stop_loss": 1.0851,
+        "take_profit": 0.9563,
+        "qty": null,
+        "pnl": -0.38,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "score": 4
+        },
+        "model_scores": null,
+        "notable": true
+      },
+      {
+        "trade_id": 4159,
+        "order_package_id": "pkg-4e4f6187ffb84c35",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "long",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-07-29T06:04:10Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 73.65,
+        "exit_price": null,
+        "stop_loss": 36.825,
+        "take_profit": 147.3,
+        "qty": null,
+        "pnl": 16.65,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "unknown",
+          "exit_quality": "premature_exit",
+          "risk_management": "unknown",
+          "score": 3
+        },
+        "model_scores": null,
+        "notable": false
+      },
+      {
+        "trade_id": 4180,
+        "order_package_id": "pkg-38ecc9d6764946d5",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-07-29T14:00:25Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 64677.5,
+        "exit_price": null,
+        "stop_loss": 64110.3,
+        "take_profit": 65528.3,
+        "qty": null,
+        "pnl": -4.0,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "late",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "score": 4
+        },
+        "model_scores": null,
+        "notable": true
+      },
+      {
+        "trade_id": 4187,
+        "order_package_id": "pkg-ad9ddb1f8a09423f",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_sol_5m",
+        "opened_at": "2026-07-29T16:25:50Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 73.32,
+        "exit_price": null,
+        "stop_loss": 72.948,
+        "take_profit": 73.879,
+        "qty": null,
+        "pnl": 481.65,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "tp_appropriate",
+          "risk_management": "unknown",
+          "score": 3
+        },
+        "model_scores": null,
+        "notable": false
+      },
+      {
+        "trade_id": 4192,
+        "order_package_id": "pkg-eb32f009dce84f53",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_sol_15m",
+        "opened_at": "2026-07-29T18:02:03Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 74.23,
+        "exit_price": null,
+        "stop_loss": 72.847,
+        "take_profit": 76.305,
+        "qty": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "score": 4
+        },
+        "model_scores": null,
+        "notable": false
+      },
+      {
+        "trade_id": 4193,
+        "order_package_id": "pkg-43852107563d4fda",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_sol_15m",
+        "opened_at": "2026-07-29T18:16:26Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 74.14,
+        "exit_price": null,
+        "stop_loss": 72.85,
+        "take_profit": 76.075,
+        "qty": null,
+        "pnl": -467.55,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "score": 3
+        },
+        "model_scores": null,
+        "notable": false
+      },
+      {
+        "trade_id": 4197,
+        "order_package_id": "pkg-403a097ee8674374",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SLV",
+        "direction": "long",
+        "strategy": "slv_trend_1h",
+        "opened_at": "2026-07-29T18:50:21Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 53.37,
+        "exit_price": null,
+        "stop_loss": 52.197,
+        "take_profit": 58.654,
+        "qty": null,
+        "pnl": -31.59,
+        "pnl_percent": null,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "D",
+          "entry_quality": "should_skip",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "score": 2
+        },
+        "model_scores": null,
+        "notable": true
+      },
+      {
+        "trade_id": 4210,
+        "order_package_id": "pkg-b8015f61af084b1e",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_sol_5m",
+        "opened_at": "2026-07-29T20:15:50Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 72.95,
+        "exit_price": null,
+        "stop_loss": 72.793,
+        "take_profit": 73.186,
+        "qty": null,
+        "pnl": 649.92,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "tp_appropriate",
+          "risk_management": "unknown",
+          "score": 3
+        },
+        "model_scores": null,
+        "notable": false
+      },
+      {
+        "trade_id": 4211,
+        "order_package_id": "pkg-c6295673618d4381",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "AVAXUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_avax_5m",
+        "opened_at": "2026-07-29T20:16:35Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 6.383,
+        "exit_price": null,
+        "stop_loss": 6.364,
+        "take_profit": 6.411,
+        "qty": null,
+        "pnl": 83.21,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "tp_appropriate",
+          "risk_management": "unknown",
+          "score": 3
+        },
+        "model_scores": null,
+        "notable": false
+      },
+      {
+        "trade_id": 4212,
+        "order_package_id": "pkg-08d914fff18d4b06",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_sol_5m",
+        "opened_at": "2026-07-29T20:46:36Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 73.05,
+        "exit_price": null,
+        "stop_loss": 72.794,
+        "take_profit": 73.434,
+        "qty": null,
+        "pnl": 588.1,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "tp_appropriate",
+          "risk_management": "unknown",
+          "score": 3
+        },
+        "model_scores": null,
+        "notable": false
+      },
+      {
+        "trade_id": 4217,
+        "order_package_id": "pkg-b29def835383457c",
+        "account": "bybit_2",
+        "account_class": "real_money",
+        "symbol": "XRPUSDT",
+        "direction": "short",
+        "strategy": "ict_scalp_xrp_5m",
+        "opened_at": "2026-07-30T00:57:53Z",
+        "closed_at": null,
+        "hold_seconds": null,
+        "entry_price": 1.069,
+        "exit_price": null,
+        "stop_loss": 1.0774,
+        "take_profit": 1.0564,
+        "qty": null,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "score": 4
+        },
+        "model_scores": null,
+        "notable": true
+      }
+    ],
+    "dossier_coverage": {
+      "resolution": "full",
+      "full_dossiers": 16,
+      "notable_only": 0,
+      "note": "since-last window \u2192 full dossier per closed trade (16). Real-money: 4154, 4180, 4217 (bybit_2)."
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 269,
+        "open": 7,
+        "resolved": 262,
+        "drained": 11
+      },
+      "performance": {
+        "total": 84,
+        "open": 4,
+        "resolved": 80,
+        "drained": 1
+      },
+      "ml": {
+        "total": 96,
+        "open": 3,
+        "resolved": 93,
+        "drained": 0
+      }
+    },
+    "monitoring": [
+      {
+        "item_id": "BL-20260729-ICTSCALP-ETH15M-STALE-FIRSTFIRE",
+        "domain": "health",
+        "category": "awaiting-data",
+        "detail": "stale12 exit lever shipped paper-only (#7863); verify P5 parity + P7 first-fire on the first close",
+        "since": "2026-07-29",
+        "next_check": "first ict_scalp_eth_15m stale_stop close"
+      },
+      {
+        "item_id": "BL-20260729-IB-FLEX-FILLS",
+        "domain": "health",
+        "category": "awaiting-decision",
+        "detail": "ib_paper broker-truth fills need the IB Flex Web Service; design landed, secret slots minted empty",
+        "since": "2026-07-29",
+        "next_check": "operator provides IB_FLEX_TOKEN/QUERY_ID"
+      },
+      {
+        "item_id": "SRQ-20260728-M27-WINNERS-SHIP",
+        "domain": "performance",
+        "category": "awaiting-decision",
+        "detail": "Tier-3 M27 real-money graduation of SOL/XRP/AVAX/ETH scalp winners",
+        "since": "2026-07-28",
+        "next_check": "operator go"
+      },
+      {
+        "item_id": "PB-20260728-ICTSCALP-GOLD-GATE-CONFIG",
+        "domain": "performance",
+        "category": "awaiting-decision",
+        "detail": "ship ungated gold scalp config to real money (fitted gate fragile)",
+        "since": "2026-07-28",
+        "next_check": "operator go"
+      },
+      {
+        "item_id": "PB-20260620-001",
+        "domain": "performance",
+        "category": "awaiting-data",
+        "detail": "verify 6 intraday ETF cells produce live paper fills",
+        "since": "2026-06-20",
+        "next_check": "paper fills accrue"
+      },
+      {
+        "item_id": "MB-20260727-CONVICTION-AB-AUC",
+        "domain": "ml",
+        "category": "awaiting-data",
+        "detail": "matched-holdout AUC read (both conviction models on identical live rows)",
+        "since": "2026-07-27",
+        "next_check": "enough shared live rows"
+      },
+      {
+        "item_id": "MB-20260728-ICTSCALP-EXIT-LEVERS",
+        "domain": "ml",
+        "category": "soaking",
+        "detail": "family-wide ict_scalp exit-lever sweeps (harness built, MGC swept honest_negative)",
+        "since": "2026-07-28",
+        "next_check": "remaining legs swept on trainer"
+      },
+      {
+        "item_id": "MB-20260721-FCPCV-V2-SOAK",
+        "domain": "ml",
+        "category": "soaking",
+        "detail": "fc-pcv v2 fresh-data siblings soak \u2192 gate-check + swap for frozen v1 advisory (BTC/SOL vol heads)",
+        "since": "2026-07-21",
+        "next_check": "~2026-08-01 gate re-check"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "slv_trend_1h",
+            "gate": "REVIEW/gate",
+            "evidence": "conf 0.06/0.15 degenerate should-skip entries, 0/4 win -$629 paper 24h; two D grades. Confidence-floor/regime gate before any real-money."
+          }
+        ],
+        "summary": "All live strategies HOLD. No M7 packet flipped to PROMOTE/KILL this window. Pending Tier-3: M27 scalp winners graduation (SRQ-20260728) + ungated gold config. sol-regime-15m-lgbm-fc-pcv-v2 soaking toward advisory (~08-01) to restore the SOL vol head."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 2,
+        "dataset_builds_ok": 104,
+        "dataset_builds_failed": 0,
+        "manifests_ok": 75,
+        "manifests_failed": 0,
+        "manifests_skipped": 8,
+        "summary": "Trainer healthy (load 0.02, mem fine). Last cycle 2026-07-30 01:52 rc=0. 8 skips = known dead-feature audit-enforcement (4) + empty-dataset MES coverage gaps (4). No OOM/quarantine this cycle. Promotion-readiness output NOT found in this pull (dir empty) \u2014 possible MB-20260719 OOM still producing 0-byte; verify next readiness fire."
+      },
+      "soak_status": [
+        {
+          "soak": "shadow regime heads (btc/eth/sol 5m)",
+          "state": "accruing",
+          "detail": "6100\u20136500 preds each, last_seen current (04:43). Healthy."
+        },
+        {
+          "soak": "conviction-meta-v1",
+          "state": "accruing",
+          "detail": "5854 preds, score_mean 0.806 varied. Matched-holdout AUC read pending (MB-20260727)."
+        },
+        {
+          "soak": "execution-quality-baseline-v0",
+          "state": "degenerate",
+          "detail": "score constant -0.2017 (min==max) \u2014 flag; known-class degenerate baseline."
+        },
+        {
+          "soak": "fc-pcv v2 (BTC/SOL vol heads)",
+          "state": "soaking",
+          "detail": "fresh-data siblings soaking; gate re-check + swap for frozen v1 advisory ~2026-08-01 (MB-20260721)."
+        },
+        {
+          "soak": "SOL advisory vol head",
+          "state": "awaiting-decision",
+          "detail": "sol-regime-15m-lgbm-fc-pcv-v1 demoted advisory\u2192shadow 07-26 (KS drift); v2 replacement soaking. No live-order impact (no SOL trend_vol cell)."
+        },
+        {
+          "soak": "promotion-readiness sweep",
+          "state": "stalled?",
+          "detail": "readiness output dir empty this pull \u2014 verify (MB-20260719 OOM)."
+        }
+      ],
+      "flags_raised": [
+        "slv_trend_1h emitting degenerate low-confidence (0.06/0.15) should-skip entries \u2192 0/4 win, -$629 paper, 2\u00d7 D-grade. Needs a confidence-floor/regime gate before real money.",
+        "Promotion-readiness output not present in the trainer pull (empty dir) \u2014 possible MB-20260719 OOM still producing 0-byte; verify at the next readiness fire.",
+        "prop breakout_1 account_status snapshot 10 days stale (no open prop position, so no live risk \u2014 the feed is just dark).",
+        "execution-quality-baseline-v0 shadow score constant (-0.2017 min==max) \u2014 degenerate soak (known-class)."
+      ],
+      "account_reachability": {
+        "all_live_reachable": true,
+        "down_accounts": [],
+        "detail": "7 declared-live accounts (bybit_1/2/portfolio, ib_paper, alpaca_paper/portfolio/options_paper) all reachable: exchange_positions non-null + balances api_ok true. No latched-down accounts, no account_down banner. Dry/shelved (ib_live, alpaca_live, oanda_practice) and API-less breakout_1 correctly excluded."
+      },
+      "backlog_drive": {
+        "health": {
+          "open_at_start": 8,
+          "triaged": 8,
+          "count_untriaged": 0,
+          "drained": [
+            "BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT (open\u2192fix_landed_monitoring: #7874 primary sweep live-verified; both real positions SL/TP-protected)"
+          ],
+          "deferred": [
+            "BL-20260729-ICTSCALP-ETH15M-STALE-FIRSTFIRE (awaiting first stale_stop close)",
+            "BL-20260729-IB-FLEX-FILLS (operator secret)",
+            "BL-20260628-RECONCILER-PAPER-ARTIFACT (root-cause fixed; cleanup monitoring)",
+            "BL-20260527-003 (IBC restart \u2014 watchdog-mitigated)",
+            "BL-20260706-GPU-BURST-LEDGER-PUSH-RACE (infra: protected-main commit path)",
+            "BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN (infra; partly worked around via claude-pr-automerge)",
+            "BL-20260723-RUFF-016-DEFAULT-RULESET-EXPANSION (CI hygiene)"
+          ]
+        },
+        "performance": {
+          "open_at_start": 4,
+          "triaged": 4,
+          "count_untriaged": 0,
+          "drained": [],
+          "deferred": [
+            "PB-20260729-ALLOCATOR-VENUE-FEE (Tier-1 code-fix; ready follow-up PR, allocator parked \u2192 no live impact)",
+            "PB-20260728-ICTSCALP-GOLD-GATE-CONFIG (Tier-3 operator)",
+            "SRQ-20260728-M27-WINNERS-SHIP (Tier-3 operator)",
+            "PB-20260620-001 (awaiting paper fills)"
+          ]
+        },
+        "ml": {
+          "open_at_start": 3,
+          "triaged": 3,
+          "count_untriaged": 0,
+          "drained": [],
+          "deferred": [
+            "MB-20260719-PROMOREADY-OOSEDGE-OOM (Tier-1 trainer code-fix; surfaced as operator_priority #2)",
+            "MB-20260727-CONVICTION-AB-AUC (awaiting shared live rows)",
+            "MB-20260728-ICTSCALP-EXIT-LEVERS (trainer sweeps in progress)"
+          ]
+        }
+      }
+    }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260730T045200Z/report.json",
+    "html_path": "comms/reports/since-last/20260730T045200Z/report.html",
+    "md_path": "comms/reports/since-last/20260730T045200Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260730T045200Z/report.html",
+    "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260730-045200-since-last"
+  }
+}
