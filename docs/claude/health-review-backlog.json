@@ -7053,7 +7053,40 @@
         "BL-20260730-SQUEEZE-NO-HARNESS",
         "BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER"
       ]
+    },
+    {
+      "id": "BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE",
+      "opened_at": "2026-07-30T09:40:00+00:00",
+      "opened_by": "claude (research-program session)",
+      "source": "The session's working clone was SHALLOW: 57 commits, spanning 2026-07-28..07-30 only (.git/shallow present). Discovered because `git log -S'exit_head_model' -- config/strategies.yaml` dead-ended at a single 2026-07-28 whole-file commit, which looked like a real answer. `git fetch --deepen=2000` recovered history to 2026-03-22 (2718 commits) and immediately changed a research conclusion (see docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md A6).",
+      "title": "[tooling] shallow session clone silently defeats the mandated `git log -p` history check",
+      "description": "CLAUDE.md § 'Every session' requires, for Tier-2/3 files, 'also read its recent history (git log -p <file>) so you don't undo a load-bearing, operator-approved decision.' On a shallow clone that check returns a PLAUSIBLE BUT WRONG answer with no error: the file reads as having one commit, three days old. This is the session's own bug class turned on its own tooling -- green relative to a wrong scope -- and it is the highest-leverage item here because it silently degrades EVERY session's compliance with a rule meant to prevent undoing operator-approved decisions. Concrete harm already observed: without the deepen, trend_donchian's regime cells appeared to have no authoring history, so the fact that all 6 predate the 2026-07-12 exit-head go-live (#6211) was invisible. Fix options: (a) have the session bootstrap/CLAUDE.md instruct `git fetch --deepen` (or --unshallow) before any history-dependent check; (b) better, make the check fail LOUD -- a tiny helper that refuses to answer a history question on a shallow clone rather than answering it wrongly. (b) is preferred and is the same fail-closed shape as the artifact-validity guard.",
+      "severity": "high",
+      "status": "open",
+      "area": "tooling",
+      "refs": [
+        "CLAUDE.md",
+        "docs/CLAUDE-RULES-CANONICAL.md",
+        "docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md"
+      ]
+    },
+    {
+      "id": "BL-20260730-DONCHIAN-CELLS-SUPERSEDED-EVIDENCE",
+      "opened_at": "2026-07-30T09:40:00+00:00",
+      "opened_by": "claude (research-program session)",
+      "source": "Dated via git after deepening the clone: trend_donchian's 1-D cells were authored 2026-06-01 (#2583), its 2-D trend_vol OFF cells 2026-06-28 (#4868), while exit_head_model exit-head-donchian-1h-v1 began driving REAL exits on 2026-07-12 (#6211, Tier-3 operator-approved). All 6 live cells predate the exit head by 2-6 weeks. Blast radius enumerated programmatically against regime_policy.yaml + strategies.yaml: 6 live cells (3x 1-D + 3x 2-D) on one live strategy.",
+      "title": "[regime] trend_donchian's 6 live cells rest on evidence SUPERSEDED by the exit head, and cannot be re-measured offline",
+      "description": "This SUPERSEDES the framing of BL-20260730-DONCHIAN-APPROX-ONLY, which read as 'the harness omits levers so re-run it later'. It cannot be re-run later: an ML exit head is permanently unreplayable offline (_UNREPLAYABLE), so no offline measurement can confirm or refute these six gates. The cells were NOT authored below standard -- they were faithful when authored; a lever that changes the measured outcome was added afterwards. A task that cannot be completed silently becomes a task everyone walks past, which is why this is filed as a decision rather than a re-run. Three options, in docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md A6b: (1) re-validate LIVE via a per-cell shadow A/B (only path that measures what actually trades); (2) accept as untestable debt and label each cell with 'evidence predates the exit head, not reproducible'; (3) build an exit-head replay (heavy, and a replay that silently diverges from the live head would manufacture false confidence). Recommendation: (2) now, (1) for any cell someone later wants to change; explicitly NOT (3). OPERATOR CALL -- six live gates.",
+      "severity": "high",
+      "status": "open",
+      "area": "regime",
+      "refs": [
+        "config/regime_policy.yaml",
+        "config/strategies.yaml",
+        "BL-20260730-DONCHIAN-APPROX-ONLY",
+        "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER"
+      ]
     }
   ],
-  "updated_at": "2026-07-30T09:05:00+00:00"
+  "updated_at": "2026-07-30T09:40:00+00:00"
 }

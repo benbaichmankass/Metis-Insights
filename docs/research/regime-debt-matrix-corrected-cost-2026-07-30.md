@@ -325,3 +325,68 @@ Recommended split when it is filed, because the two halves do not deserve one de
    weak permissive one lets the weak half ride in on the strong half's evidence.
 
 Owning rows: `BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER` · `BL-20260730-FEE-AB-FIXED-WINDOW`.
+
+## A6. `trend_donchian`'s 6 live cells rest on **superseded, unreproducible** evidence
+
+`BL-20260730-DONCHIAN-APPROX-ONLY` was filed as "the harness omits levers, so the row is
+`approximate` and can't source or un-source a cell." Deepening the clone (see A6a) let the
+actual dates be checked, and the finding is worse than "approximate":
+
+| Event | Date | Ref |
+|---|---|---|
+| `trend_donchian` 1-D regime cells authored | **2026-06-01** | #2583 (regime-router phase 2) |
+| `trend_donchian` 2-D `trend_vol` OFF cells authored | **2026-06-28** | #4868 (operator-approved) |
+| `exit_head_model: exit-head-donchian-1h-v1` **drives real exits** | **2026-07-12** | #6211 (Tier-3, operator-approved) |
+
+So the cells were **not** authored below standard — they were faithful *at the time*. What
+happened is that a **new exit lever was added afterwards that changes the very outcome the
+cells were measured on**: an ML exit head closing positions at threshold 0.10. Every cell
+predates it by 2–6 weeks.
+
+Two consequences, and the second is the one that matters:
+
+1. The cells now rest on **superseded** evidence — same class as the
+   `htf_pullback_trend_2h` "evidence age" finding in A2.
+2. Unlike A2, **this one is not repairable by the current toolchain.** An ML exit head can
+   never be replayed offline (`_UNREPLAYABLE`), so there is no offline measurement that can
+   either confirm or refute these six gates. This is a **structural dead-end, not a
+   to-do** — filing it as "re-measure later" would be filing a task that cannot be
+   completed.
+
+**Blast radius: 6 live cells** on one live strategy — 3 × 1-D (`trending`,
+`transitional`, `chop`) + 3 × 2-D (`trend_vol/trending/volatile`,
+`trend_vol/transitional/calm`, `trend_vol/chop/calm`). Enumerated programmatically against
+`config/regime_policy.yaml` + `config/strategies.yaml`, not by hand.
+
+### A6a. The clone was shallow — the mandated history check silently could not run
+
+This was only findable after noticing that `git log -S` on any config file dead-ended at a
+single 2026-07-28 whole-file commit. The session clone was **shallow: 57 commits, spanning
+2026-07-28..07-30 only.** `CLAUDE.md` § "Every session" requires, for Tier-2/3 files,
+*"also read its recent history (`git log -p <file>`) so you don't undo a load-bearing,
+operator-approved decision."* On a shallow clone that check **returns a plausible answer
+that is wrong** — it reports the file as having one commit, three days old, with no error.
+
+That is the session's own theme applied to its own tooling: green relative to a wrong
+scope. `git fetch --deepen=2000` recovered history to 2026-03-22 (2718 commits) and the
+dates above became checkable immediately. Filed:
+`BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE`.
+
+### A6b. Disposition — three options, none of them "re-measure offline"
+
+1. **Re-validate live** — the exit head runs in production, so the honest measurement is a
+   live/shadow A/B per regime cell, not a backtest. Slow, but it is the only path that
+   measures the strategy that actually trades.
+2. **Accept as untestable debt and label it** — keep the cells, record on each that its
+   evidence predates the exit head and cannot be reproduced. Cheap and honest; leaves six
+   live gates un-auditable indefinitely.
+3. **Build an exit-head replay** — needs the model artifact plus decision-time feature
+   reconstruction. Heavy, and it re-introduces live-vs-train skew risk in the harness.
+
+**Recommendation: (2) now, (1) for any cell someone later wants to change.** Not (3) — the
+cost is high and a replay harness that silently diverges from the live head would
+manufacture exactly the false confidence this whole exercise is about. **Operator call**,
+since it concerns six live gates. What must NOT happen is the fourth option: leaving
+`BL-20260730-DONCHIAN-APPROX-ONLY` open as though a future session could just re-run the
+matrix — it cannot, and a task that can't be completed silently becomes a task everyone
+walks past.
