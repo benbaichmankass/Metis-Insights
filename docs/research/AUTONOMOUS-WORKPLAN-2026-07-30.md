@@ -1,5 +1,23 @@
 # Autonomous Work Plan — 2026-07-30
 
+> ## ⚠️ SUPERSEDED IN PART — read [`RESEARCH-PROGRAM-2026-07-30.md`](RESEARCH-PROGRAM-2026-07-30.md) first
+>
+> **§1 (the rec #1–#7 scorecard) and §2 (the three blockers) remain valid** and are
+> inputs to the program doc. **§3–§4 (the priority ranking and the day plan) are
+> superseded**, and **§2.3's conclusion is WRONG.**
+>
+> §2.3 concluded the macro sleeve "cannot produce a graded edge this month" because
+> the PIT store caps at n=7 vs a threshold of 12, and then scheduled around that
+> wait. That was a framing error: the econ-calendar producer is simply **missing its
+> backfill sibling** — the pattern this repo already implements three times
+> (`valuation_snapshot_backfill.py`, `cot_snapshot_backfill.py`,
+> `crypto_signals_backfill.py`). FRED serves the weekly release families keylessly
+> with **decades** of history, so the real n is in the thousands and the verdict is
+> achievable **this week**. See `RESEARCH-PROGRAM-2026-07-30.md` §1–§2.
+>
+> Treat any "waiting for accrual" statement below as **not authoritative** — the
+> proposed `backfill-before-you-wait` rule (program doc §5) governs.
+>
 > **Type:** Tier-1 planning doc. Successor to
 > [`roadmap-toolbox-assessment-2026-07-29.md`](roadmap-toolbox-assessment-2026-07-29.md)
 > (yesterday's 7-recommendation plan against the three north stars).
