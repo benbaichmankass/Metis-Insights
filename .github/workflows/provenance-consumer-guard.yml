@@ -9,10 +9,13 @@ name: provenance-consumer-guard
 # renderer, the three review skills, every ML label builder — treated the two as
 # identical.
 #
-# The cost, once measured: 226 closed rows carrying +$247,683.78 of mark-price
-# PnL, 247 more with no provenance at all, and a fabricated share of closed
-# trades running 0.0% (May) -> 30.5% (June) -> 64.9% (July). It also produced a
-# "-$6,358 scalp exit leak" that did not exist.
+# The cost, once measured -- and STATE THE POPULATION, because the headline
+# figure changes sign with the filter (CLAUDE.md, "Number provenance"):
+# in the closed, non-backtest, `pnl NOT NULL` decision population, 206 of 829
+# rows carrying -$36,018.60 of mark-price PnL; over any status incl. backtest,
+# 222 of 845 carrying +$247,683.78. 119 more rows have no provenance at all.
+# The trend reproduces across both: 0.0% (May) -> 23.7% (June) -> 65.3% (July).
+# It also produced a "-$6,358 scalp exit leak" that did not exist.
 #
 # A field that is written and never read is WORSE than a missing field:
 # reviewers see it and assume something acts on it. That false assurance is what
@@ -33,6 +36,12 @@ on:
   # Dormant until the native merge queue is enabled (BL-20260726 merge-queue
   # enablement); required checks MUST run on the merge_group ref or the queue
   # stalls.
+  # Manually dispatchable so the workflow DEFINITION can be proven to execute
+  # even while BL-20260730-PR-CI-NOT-ATTACHING keeps the `pull_request` event
+  # from firing repo-wide. A guard that has never actually run in CI is
+  # indistinguishable from a broken one -- the precise failure mode this guard
+  # exists to catch, so it must not apply to the guard itself.
+  workflow_dispatch:
   merge_group:
   pull_request:
     branches: [main]

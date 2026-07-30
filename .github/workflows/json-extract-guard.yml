@@ -26,6 +26,12 @@ on:
   # Dormant until the native merge queue is enabled (BL-20260726 merge-queue
   # enablement); required checks MUST run on the merge_group ref or the queue
   # stalls. Harmless while the queue is off.
+  # Manually dispatchable so the workflow DEFINITION can be proven to execute
+  # even while BL-20260730-PR-CI-NOT-ATTACHING keeps the `pull_request` event
+  # from firing repo-wide. A guard that has never actually run in CI is
+  # indistinguishable from a broken one -- the precise failure mode this guard
+  # exists to catch, so it must not apply to the guard itself.
+  workflow_dispatch:
   merge_group:
   pull_request:
     branches: [main]
