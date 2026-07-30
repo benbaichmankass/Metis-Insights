@@ -74,7 +74,8 @@ __all__ = [
     "UNMEASURED_MARKER",
     "PROVENANCE_KEYS", "MEASURED_SOURCES", "ESTIMATED_SOURCES",
     "FABRICATED_SOURCES",
-    "classify", "classify_row", "is_measured", "split_counts", "coverage",
+    "classify", "classify_row", "classify_pnl", "is_measured",
+    "split_counts", "coverage",
     "require_measured", "ProvenanceError",
 ]
 
@@ -284,6 +285,55 @@ def classify_row(row: Any, key: str = "exit_price_source") -> Tuple[str, str]:
             notes = None
         raw = str(_decode_notes(notes).get(key) or "")
     return classify(raw, key), (raw or "(none)")
+
+
+#: Bucket severity, worst first — used to combine evidence from several keys.
+_SEVERITY = (FABRICATED, ESTIMATED, MEASURED)
+
+
+def classify_pnl(row: Any) -> Tuple[str, str]:
+    """Bucket a row's ``pnl`` using BOTH provenance keys. Returns ``(bucket, why)``.
+
+    **Why this is not just ``classify_row(row, "pnl_source")``.** Measured
+    against the live journal on 2026-07-30 (829-row closed population):
+
+    ===================  ====================================================
+    ``pnl_source``       ``(none)`` × 576, ``local_compute`` × 253 — and nothing else
+    ``exit_price_source``  ``bybit_closed_pnl`` × 324, ``local_markprice`` × 206,
+                         ``bybit_closed_pnl_rebuild`` × 131, ``(none)`` × 119,
+                         ``recorded_exit_price`` × 46, …
+    ===================  ====================================================
+
+    So ``pnl_source`` alone is nearly information-free — keying coverage on it
+    would report **0.0 for every window**, including the 504 rows whose exit
+    price is genuine broker truth. Technically true, operationally useless, and
+    a metric nobody can act on is one everybody learns to ignore — the precise
+    failure mode this module exists to prevent.
+
+    The rule: classify BOTH keys, discard the ones that say nothing
+    (:data:`UNVERIFIED` — absent or unrecognised), and take the **worst
+    remaining** bucket. ``pnl`` is only as trustworthy as the weakest evidence
+    behind it: a locally-computed PnL derived from a mark-substituted exit price
+    is fabricated no matter how the arithmetic was done. If neither key says
+    anything, the result is ``UNVERIFIED`` — never promoted to measured.
+
+    ``local_compute`` is deliberately NOT in any source set. It describes the
+    *arithmetic*, not the *evidence*: its trustworthiness is entirely inherited
+    from the exit price it was computed from, so leaving it unrecognised makes
+    this function defer to ``exit_price_source``, which is exactly right.
+
+    Against that live population this yields 504/829 = **60.8%** measured
+    coverage, 206 fabricated, 119 unverified — numbers an operator can act on.
+    """
+    buckets = {}
+    for key in ("pnl_source", "exit_price_source"):
+        bucket, raw = classify_row(row, key)
+        if bucket != UNVERIFIED:
+            buckets[bucket] = f"{key}={raw}"
+    for bucket in _SEVERITY:
+        if bucket in buckets:
+            return bucket, buckets[bucket]
+    return UNVERIFIED, "(no provenance on either key)"
 
 
 def is_measured(row: Any, key: str = "exit_price_source") -> bool:

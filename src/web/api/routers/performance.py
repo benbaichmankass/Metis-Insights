@@ -72,7 +72,7 @@ from src.runtime.provenance import (
     FABRICATED,
     MEASURED,
     UNVERIFIED,
-    classify_row,
+    classify_pnl,
     coverage,
 )
 
@@ -308,7 +308,7 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         # R-measurement masquerade as full, while the `pnl` it normalises was
         # silently fabricated for 64.9% of July's closed trades
         # (+$247,683.78 of `local_markprice` money). See src/runtime/provenance.
-        pnl_bucket = classify_row(r, "pnl_source")[0]
+        pnl_bucket = classify_pnl(r)[0]
         pnl_prov[pnl_bucket] = pnl_prov.get(pnl_bucket, 0) + 1
 
         name = r["strategy_name"] or "(unknown)"

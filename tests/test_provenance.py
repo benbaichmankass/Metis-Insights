@@ -240,3 +240,73 @@ def test_override_table_keys_are_declared_provenance_keys():
     never see."""
     for key in P._KEY_BUCKET_OVERRIDES:
         assert key in P.PROVENANCE_KEYS
+
+
+# ---------------------------------------------------- classify_pnl (two-key)
+def _row(**kw):
+    return {"notes": json.dumps(kw)}
+
+
+def test_classify_pnl_defers_to_exit_price_when_pnl_source_says_nothing():
+    """The live journal's `pnl_source` is only `(none)` or `local_compute` —
+    nearly information-free. Keying coverage on it alone reported 0.0 for every
+    window, including the 504 rows whose exit price is genuine broker truth."""
+    assert _row(pnl_source="local_compute",
+                exit_price_source="bybit_closed_pnl") and \
+        P.classify_pnl(_row(pnl_source="local_compute",
+                            exit_price_source="bybit_closed_pnl"))[0] == P.MEASURED
+    assert P.classify_pnl(_row(exit_price_source="bybit_closed_pnl"))[0] == P.MEASURED
+
+
+def test_classify_pnl_takes_the_WORST_recognised_evidence():
+    """`pnl` is only as trustworthy as the weakest evidence behind it: a
+    locally-computed PnL derived from a mark-substituted exit price is
+    fabricated no matter how the arithmetic was done."""
+    assert P.classify_pnl(_row(pnl_source="local_compute",
+                               exit_price_source="local_markprice"))[0] == P.FABRICATED
+    assert P.classify_pnl(_row(pnl_source="bybit_closed_pnl",
+                               exit_price_source="local_markprice"))[0] == P.FABRICATED
+    assert P.classify_pnl(_row(pnl_source="bybit_closed_pnl",
+                               exit_price_source="candle_at_close"))[0] == P.ESTIMATED
+
+
+def test_classify_pnl_unverified_when_neither_key_speaks():
+    assert P.classify_pnl(_row())[0] == P.UNVERIFIED
+    assert P.classify_pnl({})[0] == P.UNVERIFIED
+    assert P.classify_pnl(_row(pnl_source="local_compute"))[0] == P.UNVERIFIED
+
+
+def test_classify_pnl_never_promotes_to_measured_without_evidence():
+    """`local_compute` describes the ARITHMETIC, not the evidence — it must
+    never be enough on its own."""
+    bucket, why = P.classify_pnl(_row(pnl_source="local_compute"))
+    assert bucket == P.UNVERIFIED
+    assert "no provenance" in why
+
+
+def test_classify_pnl_returns_the_deciding_evidence():
+    _, why = P.classify_pnl(_row(exit_price_source="local_markprice"))
+    assert "exit_price_source=local_markprice" in why
+
+
+def test_classify_pnl_reproduces_the_live_2026_07_30_distribution():
+    """Regression against REAL measured data (trainer journal, 829-row closed
+    population, trainer-diag #8073). If a vocabulary edit silently moves
+    coverage, this fails."""
+    live = [("bybit_closed_pnl", 324), ("local_markprice", 206),
+            ("bybit_closed_pnl_rebuild", 131), (None, 119),
+            ("recorded_exit_price", 46), ("bybit_closed_pnl_backfill", 2),
+            ("operator_flatten_fill", 1)]
+    counts = {"total": 0}
+    for xsrc, n in live:
+        kw = {"pnl_source": "local_compute"}
+        if xsrc:
+            kw["exit_price_source"] = xsrc
+        b = P.classify_pnl(_row(**kw))[0]
+        counts[b] = counts.get(b, 0) + n
+        counts["total"] += n
+    assert counts["total"] == 829
+    assert counts[P.MEASURED] == 504
+    assert counts[P.FABRICATED] == 206
+    assert counts[P.UNVERIFIED] == 119
+    assert P.coverage(counts) == 0.608
