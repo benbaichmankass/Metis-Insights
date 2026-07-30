@@ -147,6 +147,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  emit_path: Optional[str] = None,
                  min_confidence: float = 0.0,
                  long_only: bool = False,
+                 side_filter: str = "both",
                  adx_min: Optional[float] = None,
                  adx_max: Optional[float] = None,
                  adx_period: int = 14,
@@ -207,10 +208,14 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         if direction is None:
             i += 1
             continue
-        # Live-parity direction gate: trend_donchian is LONG-ONLY on the live
-        # config (2026-06-01, Tier-3), so a long-only sweep must skip shorts or
-        # the optimum reflects trades the strategy never takes.
-        if long_only and direction == "short":
+        # Live-parity direction gate (side_filter). The live builder honours a
+        # per-strategy ``side_filter: long|short|both`` (legacy ``long_only:
+        # true`` → ``long``), so a config-exact sweep must apply the same gate or
+        # the optimum reflects trades the strategy never takes. ``long_only``
+        # (legacy CLI/param) is folded in below; ``both`` = no gate.
+        _sf = "long" if long_only else side_filter
+        if (_sf == "long" and direction == "short") or \
+                (_sf == "short" and direction == "long"):
             i += 1
             continue
         # Direction-aware regime gate (Phase 2): skip a long whose direction read
@@ -474,7 +479,12 @@ def main(argv: List[str]) -> int:
     p.add_argument("--min-confidence", type=float, default=0.0,
                    help="Skip entries whose live-parity confidence (breakout/ATR) is below this.")
     p.add_argument("--long-only", action="store_true",
-                   help="Skip short entries (matches the live LONG-ONLY config since 2026-06-01).")
+                   help="Skip short entries (legacy alias for --side-filter long; "
+                        "matches the live LONG-ONLY config since 2026-06-01).")
+    p.add_argument("--side-filter", choices=["long", "short", "both"], default="both",
+                   help="Config-exact directional gate matching the live builder's "
+                        "side_filter: skip shorts (long) / skip longs (short) / no gate "
+                        "(both, default). --long-only overrides to 'long'.")
     p.add_argument("--adx-min", type=float, default=None,
                    help="Regime filter: skip entries whose Wilder ADX is below this (None=off).")
     p.add_argument("--adx-max", type=float, default=None,
@@ -513,6 +523,7 @@ def main(argv: List[str]) -> int:
                      timeout_bars=args.timeout_bars, cooldown_bars=args.cooldown_bars,
                      timeframe=args.timeframe, symbol=args.symbol,
                      long_only=args.long_only,
+                     side_filter=args.side_filter,
                      adx_min=args.adx_min, adx_max=args.adx_max,
                      adx_period=args.adx_period,
                      direction_filter=args.direction_filter,
