@@ -137,3 +137,55 @@ def live_alpaca_fill_accounts(
             )
         )
     return out
+
+
+@dataclass(frozen=True)
+class IBFillAccount:
+    """One live IBKR account the broker-truth executions pull should cover.
+
+    Unlike the Bybit/Alpaca siblings this carries **no credential env vars**:
+    an IB account authenticates through the Gateway session (host/port +
+    ``ib_account``), not an API key pair, so there is nothing to resolve from
+    the environment. The account dict itself is carried through as ``config`` so
+    the puller can hand it straight to
+    :func:`src.units.accounts.clients.ib_read_client_for` — the canonical
+    read-only client factory — instead of re-deriving host/port/account.
+    """
+
+    account_id: str
+    ib_account: str
+    config: dict
+
+
+def live_ib_fill_accounts(
+    path: Path | str | None = None,
+) -> list[IBFillAccount]:
+    """Return every ``mode: live`` IBKR account from ``config/accounts.yaml``.
+
+    Today that is ``ib_paper`` alone (``ib_live`` is ``dry_run`` / shelved) —
+    which is exactly the account holding **+$240,569 of the +$247,683.78** of
+    ``local_markprice`` PnL the 2026-07-30 provenance audit measured, so it is
+    the whole point of the pull. Enumerated from config rather than hardcoded so
+    a roster change (``ib_live`` going live, a second IB account) is picked up
+    with no puller edit — the same rule ``live_bybit_fill_accounts`` follows.
+
+    An account with no ``ib_port`` is skipped: ``ib_read_client_for`` returns
+    ``None`` for it, so it could never be pulled anyway. Returns ``[]`` on any
+    config read failure (the canonical loader degrades gracefully).
+    """
+    out: list[IBFillAccount] = []
+    for account_id, cfg in load_accounts_dict(path).items():
+        if str(cfg.get("exchange", "")).lower() != "interactive_brokers":
+            continue
+        if str(cfg.get("mode", "")).lower() != "live":
+            continue
+        if not cfg.get("ib_port"):
+            continue
+        out.append(
+            IBFillAccount(
+                account_id=str(account_id),
+                ib_account=str(cfg.get("ib_account") or ""),
+                config=dict(cfg),
+            )
+        )
+    return out
