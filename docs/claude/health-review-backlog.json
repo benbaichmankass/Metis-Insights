@@ -7591,6 +7591,78 @@
         ".claude/skills/git-actions/SKILL.md",
         "BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE"
       ]
+    },
+    {
+      "id": "BL-20260730-DEMO-MARKPRICE-FABRICATES-PAPER-PNL",
+      "opened_at": "2026-07-30T13:35:00+00:00",
+      "opened_by": "claude (bybit scalp exit-leak root cause)",
+      "severity": "high",
+      "tier": 2,
+      "status": "open",
+      "title": "[pnl] paper/demo Bybit realised PnL is entry-vs-mark-6h-later, not realised PnL -- fabricates the entire 'scalp exit leak'",
+      "source": "trainer-diag #8035/#8036/#8038 against /home/ubuntu/ict-trading-bot/data/trade_journal.db (max_created 2026-07-30 08:38).",
+      "description": "CAUSAL CHAIN, evidenced end-to-end. (1) clients.py:884 `if is_demo: return None` (landed 2026-06-25 #4503, correct fix for BL-20260608-DEMOPNL record mis-mapping) makes account_closed_pnl_for_trade return None for EVERY demo account -- bybit_1 and bybit_portfolio both carry `demo: true`. (2) order_monitor._close_trade_from_order_status therefore always takes the fallback branch (:5664): exit_price NULL, notes.exit_price_source='entry_order_avg_price_unreliable', exit_reason hard-coded 'reconciler_filled'. (3) _classify_broker_exit (2026-06-23) can only label sl/tp FROM that recovered exit price, so on demo the sl/tp label is structurally unreachable -- the two changes landed 2 days apart and the second silently disabled the first for demo. (4) 6h later (_LOCAL_PNL_BROKER_DEFER_MS) _sweep_local_pnl_for_unpriced (:7381) substitutes last_mark_price() -- the CURRENT market price, 6+h after the actual exit -- as exit_price and books pnl from it, stamping exit_price_source='local_markprice'. RECEIPTS: 38 of 39 bybit_1 reconciler_filled rows (7d) are local_markprice carrying -$8,209.89; the 1 exception is trade 4218, closed 07:40:36 and still inside the 6h defer at snapshot time with exit_price/pnl both NULL -- the same mechanism caught mid-flight. MATCHED-PAIR PROOF (bybit_portfolio is the paper mirror of bybit_2 -- same strategy/symbol/bracket/minute): trade 4180 bybit_2 exit 64100.0 vs sl 64110.32 = -$4.00 (bybit_closed_pnl) while its mirror 4181 booked exit 63486.2 = -$2,589.78 (local_markprice); trade 3909 bybit_2 exit 64962.0 vs sl 64960.32 labelled 'sl' = -$3.26 while mirror 3910 booked 65104.5 = -$1,434.99. Same trade, same stop, ~650x the loss. IMPACT: the operator-visible '7d bybit scalps -$6,358' is ~-$6,297 of demo mark-price artifact (bybit_1 -$2,272.10 + bybit_portfolio -$4,024.78) against -$1.91 of actual real-money scalp PnL on bybit_2. Paper is the ML training signal, so every model learning exit quality from these rows is learning a 6h-forward random walk. NOT a real-money loss and NOT an order-path defect. FIX DIRECTION (Tier-2, NOT applied): a CONFIRMED CLOSE must never be priced from a live mark -- either anchor the exit to a candle at closed_at, or leave pnl NULL behind an explicit 'unmeasured' marker. Interacts with the INV-2 closed-with-NULL-pnl invariant, which is why the sweep exists; that interaction must be designed, not patched.",
+      "next_action": "Design the closed-trade pricing path with INV-2 in mind; do not flip the demo guard (its own incident BL-20260608-DEMOPNL is still valid)."
+    },
+    {
+      "id": "BL-20260730-MONITOR-MISS-ANALYSIS-VACUOUS-ON-DEMO",
+      "opened_at": "2026-07-30T13:35:00+00:00",
+      "opened_by": "claude (bybit scalp exit-leak root cause)",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "title": "[tooling] monitor_miss_analysis.py silently classifies mark-price-contaminated exits and reports an impossible R distribution",
+      "source": "system-action monitor-miss-analysis runs #8033 (bybit_1) and #8034 (bybit_2).",
+      "description": "The script classifies reconciler_filled closes by exit_price vs bracket, but does not check notes.exit_price_source. On bybit_1 (demo) 38/39 exit prices are a 6h-later mark (see BL-20260730-DEMO-MARKPRICE-FABRICATES-PAPER-PNL), so it reported beyond_SL n=9 mean_R=-3.94 and beyond_TP n=6 mean_R=+6.31 -- values impossible for a bracket exit and a pure artifact of the substituted price. The real-money control on the identical code path returned SL_hit n=2 mean_R=-1.008, entirely inside [-1.0, 0.0], i.e. the instrument is fine and the INPUT is not. This is the 'green is not evidence' class applied to a diagnostic: the tool exits 0, prints a plausible table, and the measurement inside is vacuous. It is also the tool an operator would most likely use to conclude 'positions are closing way past their stops', so it actively manufactures the wrong root cause. FIX (Tier-1, bounded): filter/segregate rows whose notes.exit_price_source is 'local_markprice' (and surface the excluded count + the honest denominator) rather than classifying them.",
+      "next_action": "Add an exit_price_source guard + explicit excluded-count reporting to scripts/ops/monitor_miss_analysis.py."
+    },
+    {
+      "id": "BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED",
+      "opened_at": "2026-07-30T13:35:00+00:00",
+      "opened_by": "claude (bybit scalp exit-leak root cause)",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "title": "[exits] some ict_scalp legs hold far past any plausible bracket touch -- unexplained, and currently UNMEASURABLE",
+      "source": "trainer-diag #8038, scalp hold-time table (7d).",
+      "description": "Holds are bimodal: many scalps close in 10-35 min (trades 4212 10.8m, 4211 15.0m, 4210 15.8m, 4181 31.3m) but several run enormously long -- 4070 2392 min, 4052 2503 min, and 3929 (ict_scalp_eth_15m) 6213 min = 4.3 DAYS against a bracket only ~0.23% to SL / ~0.10% to TP. ETH not touching a 0.1% band for 4.3 days is not credible, so either the bracket was not actually resting at the venue for that row, or the position/leg desynced (add-only Partial legs, BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING). NOTE the anchor trade 4218 is NOT in this class: 116 min on a 5m leg with a -0.65%/+1.4% bracket is unremarkable, and the timeframe is the SIGNAL cadence, not a holding period -- ict_scalp.monitor() has no close path at all (only a default-OFF stale-stop and a break-even SL modify), so a scalp holds until the broker bracket fires. CANNOT be resolved today: exit_price on every affected row is mark-price-contaminated, so 'where did it actually exit' is unanswerable from the journal. Needs the leg-state-at-close capture before anyone touches exit geometry.",
+      "next_action": "Blocked on a trustworthy close-time exit price + a per-close leg-state record. Do NOT tune scalp exit geometry on the current numbers."
+    },
+    {
+      "id": "BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-IN-A-SECOND-WAY",
+      "opened_at": "2026-07-30T13:35:00+00:00",
+      "opened_by": "claude (bybit scalp exit-leak root cause)",
+      "severity": "medium",
+      "tier": 1,
+      "status": "open",
+      "title": "[docs] exit-capture-deepdive doc is wrong on its TPSL premise AND on the leak's actual mechanism",
+      "source": "This session's root-cause pass; supersedes the open question in BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-TPSL-PREMISE.",
+      "description": "docs/research/exit-capture-deepdive-2026-07-30.md rests on 'BYBIT_TPSL_MODE was default full and newly flipped', already disproven. This session establishes the actual mechanism (demo closed-pnl guard -> no exit price -> no sl/tp classification -> 6h-later mark substituted as exit_price). The doc is therefore wrong twice over. Deliberately still NOT rewritten in this session: the causal account is established but the residual question -- whether a REAL exit defect hides under the contamination -- is open, and rewriting the doc to look correct while that is open would repeat the original error. Rewrite only once the close-time-anchored exit price exists.",
+      "next_action": "Rewrite after the close-time exit-price measurement lands; fold both corrections in together."
+    },
+    {
+      "id": "BL-20260730-PROVENANCE-RECORDED-THEN-IGNORED",
+      "opened_at": "2026-07-30T13:50:00+00:00",
+      "opened_by": "claude (provenance audit)",
+      "severity": "critical",
+      "tier": 2,
+      "status": "open",
+      "title": "[data-integrity] the journal records whether each number was MEASURED or FABRICATED, and every consumer ignores it -- 64.9% of July closed trades carry a fabricated exit price",
+      "source": "trainer-diag #8040 (provenance audit over /home/ubuntu/ict-trading-bot/data/trade_journal.db) + static analysis of exit_price_source/pnl_source consumers.",
+      "description": "THIS IS THE STRUCTURAL DEFECT BEHIND THE REPEATED 'audited it again and still found bugs' CYCLE. It is not one bug; it is the shape all of them share.\n\nFINDING 1 -- provenance is write-only. `exit_price_source` is WRITTEN in 12 files (order_monitor, clients, 8 ops backfill scripts, json_notes, a research script) and READ in exactly ONE place: order_monitor.py:1001, which tests for 'verdict', an unrelated internal value. NOTHING downstream branches on it -- not /performance, not _clean_trades, not the report renderer, not monitor_miss_analysis.py. `pnl_source` likewise: the only branch found is on UNREALIZED pnl in dashboard.py:353. The entire ml/ tree contains ZERO references to exit_price_source, pnl_source or local_markprice -- the training pipeline is structurally blind to whether a label was measured or manufactured.\n\nFINDING 2 -- the blast radius, lifetime, non-backtest closed rows: local_markprice/local_compute = 226 rows carrying +$247,683.78; a further 247 rows carry NO provenance key at all (-$37,785.32); measured bybit_closed_pnl = 328 rows (-$8,174.77). By account_class: PAPER shows FABRICATED_mark 210 rows = +$247,657.43 against measured 183 rows = -$14,968.68 -- i.e. the paper book's headline profitability is an artifact of mark-price arithmetic, not trading. REAL_MONEY is largely clean (187 measured / 12 fabricated), so live decisions are mostly safe; the ML trains on paper.\n\nFINDING 3 -- it is accelerating: fabricated share of closed trades ran 2026-05 = 0/397 (0.0%), 2026-06 = 61/200 (30.5%, +$286,199.61), 2026-07 = 161/248 (64.9%, -$38,515.83). Onset coincides with _sweep_local_pnl_for_unpriced (2026-06-16) and accelerates after the demo closed-pnl guard (#4503, 2026-06-25). TWO THIRDS of July's training corpus has a fabricated exit price.\n\nFINDING 4 -- why audits keep missing it. Each fill is individually CORRECT and individually justified by a real prior incident, so no line of code is wrong and line-by-line review returns clean. Worse, INV-2 (closed-with-NULL-pnl is a violation) actively PRESSURES the system to fill every hole: the invariant enforces that a number exists and never checks what kind of number it is. And when sessions do hit fabricated data they patch it per-species with a bespoke heuristic instead of reading the provenance field -- src/web/api/_clean_trades.py's docstring literally calls trend_donchian rows 2604/2607/2610 'a fabricated win/loss' and then excludes them by setup_type, not by provenance. There are now four such predicates (exclude_reduce_leg / reconciler / superseded / reset_flat), one per incident.\n\nWHAT WOULD ACTUALLY FIX THE CLASS (not applied -- Tier-2/3, needs design): make provenance a first-class, typed, QUERYABLE column rather than a JSON note; have every decision surface (/performance, the ML label builders, the three review skills, the report renderer) declare whether it accepts fabricated inputs and report the measured/fabricated split alongside every aggregate; and make INV-2 satisfiable by an explicit 'unmeasured' terminal state so the invariant stops forcing fabrication.",
+      "next_action": "Operator decision on scope. Do NOT tune any strategy, exit, or promotion gate on paper PnL until the measured/fabricated split is surfaced -- the last two months of paper training signal is majority-fabricated."
+    },
+    {
+      "id": "BL-20260730-WRITE-ONLY-SIGNAL-SWEEP",
+      "opened_at": "2026-07-30T14:05:00+00:00",
+      "opened_by": "claude (provenance audit, sibling sweep)",
+      "severity": "high",
+      "tier": 1,
+      "status": "open",
+      "title": "[data-integrity] sibling sweep: 5 of 9 quality/provenance signals are WRITE-ONLY, and the ML pipeline consumes none of them",
+      "source": "Static consumer sweep over src/ scripts/ ml/ (2026-07-30), generalising BL-20260730-PROVENANCE-RECORDED-THEN-IGNORED.",
+      "description": "Counting writers vs value-branches vs ml/ refs vs src/web/api refs for every known data-quality signal:\n\n  exit_price_source   writes~14 branches~1(unrelated) ml=0 api=0   WRITE-ONLY\n  close_exec_type     writes~1  branches~0            ml=0 api=0   WRITE-ONLY\n  fc_present          writes~2  branches~0            ml=0 api=0   WRITE-ONLY\n  exit_reason_source  writes~3  branches~0            ml=0 api=0   WRITE-ONLY\n  pnl_source          writes~12 branches~1            ml=0 api=6    near-write-only\n  reconcile_status    writes~6  branches~24           ml=0 api=5    healthy\n  cost_source         writes~5  branches~9            ml=0 api=0    healthy\n  backfill_kind       writes~4  branches~4            ml=16 api=6   healthy\n\nTWO of the write-only fields matter independently of the PnL-provenance bug:\n\n* `close_exec_type` (order_monitor.py:~7162, written from Bybit /v5/execution/list) distinguishes 'BustTrade' = LIQUIDATION / demo margin call, 'AdlTrade' = auto-deleveraging, 'Trade' = a normal fill. A liquidated position is a categorically different event from a bracket exit, and would present as an enormous adverse exit price. Nothing reads this field, so no analysis, review skill, or ML label has EVER distinguished a liquidation from a stop. This is a live candidate explanation for part of the bybit_1 loss tail and for the unexplained long holds (BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED) -- CHECK IT before theorising further about exit geometry.\n\n* `fc_present` is the M19 fc-geometry soak's HONEST COVERAGE DENOMINATOR -- the field whose entire purpose is to record 'no forecast was served here'. It is written and never consumed, which is precisely the failure the canonical 'green is not evidence' rule (§ obligation 1, assert the inputs) exists to prevent. The rule is stated; nothing enforces it.\n\nNote ml=0 for EVERY provenance signal except backfill_kind: the training pipeline cannot express 'this label is untrustworthy' about anything.\n\nGENERAL FIX (the class, not the instances): a signal that is written and never read is indistinguishable from one that does not exist, so recording it creates false assurance -- reviewers see the field and assume something acts on it. Proposal: a CI guard that fails when a declared quality/provenance key gains a writer but no consumer (the same shape as the existing canonical-db-resolver / env-gate-guard guards), plus a consumer contract requiring each decision surface to declare which provenance values it accepts.",
+      "next_action": "(1) Query close_exec_type distribution over the bybit_1 loss tail -- cheap, may reclassify a chunk of the 'exit leak' as liquidations. (2) Propose the write-only-signal CI guard."
     }
   ],
   "updated_at": "2026-07-30T16:10:00+00:00",
