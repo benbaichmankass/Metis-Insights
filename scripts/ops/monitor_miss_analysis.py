@@ -35,7 +35,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sqlite3
 import sys
@@ -43,61 +42,30 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-# --- Exit-price provenance (BL-20260730-MONITOR-MISS-ANALYSIS-VACUOUS-ON-DEMO) ---
-#
-# This script classifies a close by comparing its ``exit_price`` against the
-# bracket. That is only meaningful when ``exit_price`` is the ACTUAL close
-# fill. It is not always: ``order_monitor._sweep_local_pnl_for_unpriced``
-# substitutes ``last_mark_price()`` -- the market price at sweep time, 6+ hours
-# after the close (``_LOCAL_PNL_BROKER_DEFER_MS``) -- for any row whose real
-# exit fill was never recovered, and stamps ``notes.exit_price_source =
-# 'local_markprice'``. On a demo account that is nearly every row, because
-# ``clients.account_closed_pnl_for_trade`` returns None for demo (#4503).
-#
-# Classifying such a row measures a 6h-forward random walk, not an exit. Live
-# receipt (2026-07-30, bybit_1 7d): 38/39 rows were ``local_markprice`` and the
-# script reported beyond_SL mean_R = -3.94 and beyond_TP mean_R = +6.31 --
-# values impossible for a bracket exit. The real-money control on the identical
-# code path returned SL_hit mean_R = -1.008. The instrument was fine; the INPUT
-# was not.
-#
-# So: bucket by provenance, classify only measured rows by DEFAULT, and report
-# the excluded counts LOUDLY with an honest denominator. A silent filter would
-# just move the same "looks clean, measured nothing" failure up one level.
-_MEASURED_SOURCES = frozenset({
-    "bybit_closed_pnl", "bybit_closed_pnl_rebuild", "bybit_closed_pnl_backfill",
-    "recorded_exit_price", "exchange", "operator_flatten_fill",
-})
-_FABRICATED_SOURCES = frozenset({"local_markprice"})
-
-
-def _exit_price_provenance(notes: Any) -> Tuple[str, str]:
-    """Return ``(bucket, raw_source)`` for a trade row's ``notes``.
-
-    ``bucket`` is ``"measured"`` / ``"fabricated"`` / ``"unverified"``.
-    ``unverified`` covers rows with no ``exit_price_source`` key at all (473 of
-    them journal-wide as of 2026-07-30) and any source not yet classified --
-    deliberately NOT folded into ``measured``, because "we never recorded where
-    this came from" is not evidence that it was measured.
-    """
-    raw = ""
-    if notes:
-        try:
-            decoded = json.loads(notes) if isinstance(notes, str) else notes
-            if isinstance(decoded, dict):
-                raw = str(decoded.get("exit_price_source") or "")
-        except (ValueError, TypeError):
-            raw = ""
-    if raw in _FABRICATED_SOURCES:
-        return "fabricated", raw
-    if raw in _MEASURED_SOURCES:
-        return "measured", raw
-    return "unverified", raw or "(none)"
-
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
+
+# --- Exit-price provenance -------------------------------------------------
+#
+# This script classifies a close by comparing exit_price against the bracket.
+# That is only meaningful when exit_price is the ACTUAL close fill. It is not
+# always: order_monitor._sweep_local_pnl_for_unpriced substitutes
+# last_mark_price() -- the market 6+h after the close -- for any row whose real
+# exit fill was never recovered. On a demo account that is nearly every row,
+# because clients.account_closed_pnl_for_trade returns None for demo (#4503).
+#
+# Live receipt (2026-07-30, bybit_1 7d): 38/39 rows were mark-substituted and
+# this script reported beyond_SL mean_R = -3.94 / beyond_TP = +6.31 -- values
+# impossible for a bracket exit. The real-money control on the identical code
+# path returned SL_hit mean_R = -1.008. The instrument was fine; the INPUT was.
+#
+# The vocabulary lives in ONE place -- src.runtime.provenance. A local copy
+# here is exactly how the four bespoke exclude_* predicates came about.
+from src.runtime.provenance import (  # noqa: E402
+    FABRICATED, MEASURED, UNVERIFIED, classify_row, coverage,
+)
 
 
 def _f(x: Any, default: Optional[float] = None) -> Optional[float]:
@@ -228,12 +196,12 @@ def main() -> int:
         if target_reasons and reason not in target_reasons:
             continue
         in_window += 1
-        bucket, raw_src = _exit_price_provenance(row["notes"])
+        bucket, raw_src = classify_row(row, "exit_price_source")
         prov_counts[bucket] += 1
         # Provenance gate. A fabricated exit_price cannot be classified against
         # a bracket; an unverified one has no evidence that it can. Excluded
         # loudly below rather than silently dropped.
-        if bucket == "fabricated" and not args.include_fabricated:
+        if bucket == FABRICATED and not args.include_fabricated:
             prov_excluded[raw_src] += 1
             continue
         entry = _f(row["entry_price"])
@@ -274,9 +242,9 @@ def main() -> int:
     # --- Provenance ledger: the honest denominator. Printed ALWAYS, even when
     # nothing was excluded, so a clean run is distinguishable from a run that
     # measured nothing (BL-20260730-MONITOR-MISS-ANALYSIS-VACUOUS-ON-DEMO).
-    n_fab = prov_counts.get("fabricated", 0)
-    n_unv = prov_counts.get("unverified", 0)
-    n_mea = prov_counts.get("measured", 0)
+    n_fab = prov_counts.get(FABRICATED, 0)
+    n_unv = prov_counts.get(UNVERIFIED, 0)
+    n_mea = prov_counts.get(MEASURED, 0)
     print()
     print("===== exit-price provenance (denominator) =====")
     print(f"  in-window rows matching exit_reason: {in_window}")
@@ -285,6 +253,9 @@ def main() -> int:
           + ("  <-- EXCLUDED from classification" if prov_excluded else
              ("  <-- INCLUDED via --include-fabricated" if n_fab else "")))
     print(f"    unverified : {n_unv}  (no exit_price_source recorded)")
+    _cov = coverage({MEASURED: n_mea, "total": in_window})
+    print(f"    coverage   : {'n/a' if _cov is None else f'{_cov:.1%}'}"
+          f"  (measured share -- the PnL analogue of /performance rCoverage)")
     for src, cnt in sorted(prov_excluded.items(), key=lambda kv: -kv[1]):
         print(f"      excluded {cnt} row(s) with exit_price_source={src!r}")
     if in_window and n_mea == 0:
