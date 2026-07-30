@@ -412,6 +412,37 @@ def _section_review_coverage(report: dict) -> str:
             out.append(f"<tr><td>{_f(s.get('soak'))}</td><td>{_f(s.get('state'))}</td>"
                        f"<td>{_f(s.get('detail'))}</td></tr>")
         out.append("</table></div>")
+    ec = rc.get("execution_capture") or {}
+    if ec:
+        out.append("<h3>Execution capture <span class='muted'>— did the edge reach the account?</span></h3>")
+        rows = ec.get("per_strategy") or []
+        if rows:
+            out.append('<div class="tablewrap"><table>'
+                       '<tr><th>Strategy</th><th>Book</th><th>n</th>'
+                       '<th>Round-trip %</th><th>Giveback R</th>'
+                       '<th>Hold h (act/exp)</th><th>State</th></tr>')
+            for r in rows:
+                st = _f(r.get("state"))
+                mark = {"anomaly": "🔴", "degraded": "🟡", "ok": "🟢"}.get(r.get("state"), "")
+                out.append(
+                    f"<tr><td>{_f(r.get('strategy'))}</td><td>{_f(r.get('book'))}</td>"
+                    f"<td>{_f(r.get('n_closed'))}</td><td>{_pct(r.get('roundtrippers_pct'))}</td>"
+                    f"<td>{_num(r.get('mean_giveback_r'))}</td>"
+                    f"<td>{_num(r.get('hold_h_actual'))} / {_num(r.get('hold_h_expected'))}</td>"
+                    f"<td>{mark} {st}</td></tr>"
+                )
+            out.append("</table></div>")
+        for a in (ec.get("anomalies") or []):
+            ro = a.get("reviews_open")
+            loud = " ⚠️ ESCALATE" if isinstance(ro, (int, float)) and ro >= 2 else ""
+            out.append(
+                f"<p class='pri'>🔴 <b>{_f(a.get('strategy'))}</b>: {_f(a.get('symptom'))} "
+                f"<span class='muted'>(open {_f(ro)} review(s), since {_f(a.get('first_seen'))}, "
+                f"{_f(a.get('backlog_id'))}){loud}</span></p>"
+            )
+        if ec.get("summary"):
+            out.append(f"<p class='muted'>{_f(ec.get('summary'))} "
+                       f"· dollars reconciled: {_f(ec.get('dollars_reconciled'))}</p>")
     flags = rc.get("flags_raised") or []
     out.append("<h3>Flags raised</h3>")
     if flags:
@@ -540,6 +571,23 @@ def render_md(report: dict) -> str:
         lines.append(f"- ML training health: {mh.get('summary', DASH)}")
         for s in (rc.get("soak_status") or []):
             lines.append(f"- Soak `{s.get('soak', DASH)}`: {s.get('state', DASH)} — {s.get('detail', '')}")
+        ec = rc.get("execution_capture") or {}
+        if ec:
+            lines.append(f"- Execution capture: {ec.get('summary', DASH)} "
+                         f"(dollars reconciled: {ec.get('dollars_reconciled', DASH)})")
+            for r in (ec.get("per_strategy") or []):
+                if r.get("state") in ("anomaly", "degraded"):
+                    lines.append(
+                        f"  - `{r.get('strategy', DASH)}` [{r.get('book', DASH)}]: "
+                        f"round-trip {_pct(r.get('roundtrippers_pct'))}, "
+                        f"giveback {_num(r.get('mean_giveback_r'))}R, "
+                        f"hold {_num(r.get('hold_h_actual'))}/{_num(r.get('hold_h_expected'))}h "
+                        f"→ {r.get('state')}")
+            for a in (ec.get("anomalies") or []):
+                ro = a.get("reviews_open")
+                loud = " ⚠️ ESCALATE" if isinstance(ro, (int, float)) and ro >= 2 else ""
+                lines.append(f"  - 🔴 `{a.get('strategy', DASH)}`: {a.get('symptom', '')} "
+                             f"(open {ro} review(s), {a.get('backlog_id', DASH)}){loud}")
         for fl in (rc.get("flags_raised") or []):
             lines.append(f"- 🚩 {fl}")
     mon = cons.get("monitoring") or []
@@ -644,11 +692,54 @@ def _is_under(path: Path, parent: Path) -> bool:
         return False
 
 
+# Required review_coverage keys — the mechanical half of the Review-coverage
+# guard (SKILL.md § "Review-coverage guard"). execution_capture added 2026-07-30
+# so an execution-blindspot (the BYBIT_TPSL_MODE=full bracket bug that soaked for
+# weeks) can't ship unmeasured.
+_REQUIRED_COVERAGE_KEYS = (
+    "strategy_promotion", "ml_training_health", "soak_status",
+    "execution_capture", "backlog_drive",
+)
+
+
+def _validate_review_coverage(report: dict) -> list[str]:
+    """Return a list of coverage violations (empty = clean).
+
+    Enforces, mechanically, what the SKILL's Review-coverage guard requires:
+    every required key present + non-empty, AND every execution_capture anomaly
+    that has survived >=2 reviews is escalated into flags_raised[] (the
+    anti-normalization rule — a defect open across sessions must be loud).
+    """
+    violations: list[str] = []
+    rc = (report.get("consolidated") or {}).get("review_coverage") or {}
+    if not rc:
+        return ["review_coverage block missing/empty"]
+    for key in _REQUIRED_COVERAGE_KEYS:
+        val = rc.get(key)
+        if val is None or val == "" or val == [] or val == {}:
+            violations.append(f"review_coverage.{key} missing/empty")
+    # Anti-normalization: a >=2-review execution-capture anomaly must be escalated.
+    flags_blob = " ".join(str(f) for f in (rc.get("flags_raised") or []))
+    for a in ((rc.get("execution_capture") or {}).get("anomalies") or []):
+        ro = a.get("reviews_open")
+        if isinstance(ro, (int, float)) and ro >= 2:
+            strat = str(a.get("strategy") or "")
+            if strat and strat not in flags_blob:
+                violations.append(
+                    f"execution_capture anomaly '{strat}' open {ro} reviews but "
+                    "not escalated into flags_raised[]")
+    return violations
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Render a consolidated system-report JSON to HTML + MD.")
     ap.add_argument("json_path", help="Path to the consolidated report JSON.")
     ap.add_argument("--out-dir", default="comms/reports", help="Report artifact root (default: comms/reports).")
     ap.add_argument("--no-index", action="store_true", help="Do not update index.json.")
+    ap.add_argument("--strict", action="store_true",
+                    help="Fail (exit 3, write nothing) if the Review-coverage guard is "
+                         "violated: a required review_coverage key is missing/empty, or an "
+                         "execution_capture anomaly open >=2 reviews is not in flags_raised[].")
     args = ap.parse_args(argv)
 
     try:
@@ -656,6 +747,15 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, json.JSONDecodeError) as exc:
         print(f"ERROR: cannot read consolidated JSON {args.json_path}: {exc}", file=sys.stderr)
         return 1
+
+    violations = _validate_review_coverage(report)
+    if violations:
+        for v in violations:
+            print(f"::warning:: review-coverage: {v}", file=sys.stderr)
+        if args.strict:
+            print("ERROR: --strict: review-coverage guard failed — fix the payload "
+                  "and re-run (nothing written).", file=sys.stderr)
+            return 3
 
     result = write_report(report, Path(args.out_dir), update_index=not args.no_index)
     print(result["html"])

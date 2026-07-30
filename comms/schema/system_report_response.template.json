@@ -141,7 +141,7 @@
       }
     ],
     "review_coverage": {
-      "_comment": "REQUIRED (the Review-coverage guard, 2026-06-23). Proves the SYSTEM REVIEW actually covered its mandate — strategy promotion, ML training health, soak progress, AND that it WORKED THE BACKLOGS DOWN (not just counted them) — not just the trade/health summary. A run with any of strategy_promotion / ml_training_health / soak_status / backlog_drive missing or empty must STOP and complete the work before rendering. Relay-blocked data is allowed only as an explicit 'unavailable: <reason>' string, never silently omitted.",
+      "_comment": "REQUIRED (the Review-coverage guard, 2026-06-23; execution_capture added 2026-07-30). Proves the SYSTEM REVIEW actually covered its mandate — strategy promotion, ML training health, soak progress, EXECUTION CAPTURE (did the edge reach the account?), AND that it WORKED THE BACKLOGS DOWN (not just counted them) — not just the trade/health summary. A run with any of strategy_promotion / ml_training_health / soak_status / execution_capture / backlog_drive missing or empty must STOP and complete the work before rendering. Relay-blocked data is allowed only as an explicit 'unavailable: <reason>' string, never silently omitted.",
       "strategy_promotion": {
         "_comment": "Per-strategy promotion/demotion stance vs each gate (KILL/DEMOTE_SHADOW/TUNE/HOLD/PROMOTE), from the ml/performance sub-reviews + /api/bot/strategies/{name}/review. List ready-to-promote + demote/kill candidates, or state 'all HOLD'.",
         "ready_to_promote": [{"name": "", "gate": "PROMOTE", "evidence": ""}],
@@ -161,6 +161,26 @@
           "soak": "", "state": "accruing | stalled | gate_met", "detail": ""
         }
       ],
+      "execution_capture": {
+        "_comment": "REQUIRED (2026-07-30 — the anti-execution-blindspot guard). Proves the review MEASURED how much of each live strategy's edge actually reached the account, not just graded decisions. The motivating incident: the BYBIT_TPSL_MODE=full shared-bracket bug made 5m scalps ride 6-14h and round-trip their MFE back to the stop for WEEKS, unnoticed by successive reviews, because no review measured capture. Source: scripts/research/m20_exit_analysis.py --since-days <window> on the trainer VM (the box with the market_raw candle store). Real/paper/prop NEVER blended. `dollars_reconciled` MUST be true — see the honesty rule: the P&L scoreboard is DOLLARS (exchange-fills + broker-truth), R is diagnostic only. Any `anomalies[]` entry with reviews_open>=2 is a MANDATORY flags_raised[] escalation (the normalization killer).",
+        "per_strategy": [
+          {
+            "_comment": "One row per live strategy that closed >=1 trade in the window. hold_h_actual vs hold_h_expected (from the strategy's timeframe): a 5m/2h leg holding hours is the execution smoking gun. roundtrippers_pct = % of trades that went >=1.0R favorable then closed negative. state ∈ ok|degraded|anomaly.",
+            "strategy": "", "book": "real | paper | prop", "n_closed": 0,
+            "roundtrippers_pct": null, "mean_giveback_r": null,
+            "hold_h_actual": null, "hold_h_expected": null,
+            "state": "ok | degraded | anomaly", "note": ""
+          }
+        ],
+        "anomalies": [
+          {
+            "_comment": "The loud execution-capture failures this review found (hold >> expected, roundtrippers spiking, giveback dominating realized). Each carries an AGE so a defect can't soak across sessions: first_seen (UTC date first flagged), reviews_open (how many consecutive reviews it has been open — carry forward from the prior report's execution_capture), and backlog_id (the review-backlog item tracking it). reviews_open>=2 → MANDATORY standalone flags_raised[] entry + operator_priorities row.",
+            "strategy": "", "symptom": "", "first_seen": "", "reviews_open": 1, "backlog_id": ""
+          }
+        ],
+        "dollars_reconciled": null,
+        "summary": "<= 240 chars — capture health + the dollars-vs-R reconciliation result (real-money DOLLARS from /pnl/exchange + /pnl/broker-truth, stated as down when down) | 'unavailable: <reason>'"
+      },
       "flags_raised": [
         "free-form — the loud flags this review surfaced (degrading strategy, stalled soak, gate met-but-unactioned, training failure). Empty ONLY if genuinely nothing is degrading — say so explicitly."
       ],
