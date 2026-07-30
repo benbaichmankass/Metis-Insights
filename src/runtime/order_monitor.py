@@ -5917,6 +5917,27 @@ def _decode_notes(notes_raw: Optional[str]) -> Dict[str, Any]:
 
 _NAKED_POSITION_GRACE_SECONDS = 300  # 5 min after opening before alerting
 
+# Bybit conditional-order types that constitute a STOP (protection). Mirrors
+# execute.py's ``_SL_LEG_TYPES`` — a divergence here would misgrade coverage.
+_SL_LEG_TYPES_MON = {"stoploss", "partialstoploss"}
+
+# Fractional slack when comparing summed leg qty against position size. Bybit
+# echoes leg qty as a string at the instrument's qty step, so a hair of float
+# noise must not be read as a coverage hole. 0.5% of position size.
+_BYBIT_COVERAGE_EPS_FRAC = 0.005
+
+# Resting SL legs totalling more than this multiple of the position size means
+# legs have ACCUMULATED rather than tracking the position (the BL-20260721
+# 20-leg-cap failure mode). 1.5× tolerates one legitimately-stale leg mid-amend;
+# the live case that motivated it was 4.4× (bybit_1 XRPUSDT, 2026-07-30).
+_BYBIT_OVERCOVER_FACTOR = 1.5
+
+# Fractional tolerance before open-journal-qty EXCEEDING the netted exchange
+# size is reported as a phantom-row divergence. Generous (10%) so ordinary
+# rounding / a mid-fill race never cries wolf; the live cases were +38% and
+# +15,000%.
+_BYBIT_QTY_DIVERGENCE_FRAC = 0.10
+
 # Cadence gate for the IB broker-side naked sweep
 # (:func:`_check_broker_naked_ib_positions`, BL-20260709-IB-BROKER-PROTECTION-
 # UNVERIFIED). Build constraint 1: an account-wide IB order read
@@ -6430,15 +6451,51 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
     return summary
 
 
-def _bybit_position_protection(client, category: str, symbol: str):
-    """Read a Bybit symbol's live protection state, mode-agnostically.
+def _bybit_sl_leg_qty(leg: dict):
+    """Qty a resting Bybit SL leg would close, or ``None`` if unparseable.
 
-    Returns ``(size, protected)`` where *size* is the absolute net position
-    size (0.0 = flat) and *protected* is True when the position carries EITHER a
-    Full-mode position-level stopLoss OR at least one resting Partial-mode SL
-    conditional leg. Returns ``None`` on any read failure so the caller SKIPS
-    (never re-arms on an unconfirmed read — the fail-safe the Alpaca/IB sweeps
-    also honour). BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT.
+    Bybit reports a Partial-mode leg's scoped size on ``qty``; some response
+    shapes carry ``triggerQty``. An unknown qty must NOT be silently treated as
+    full coverage — the caller counts these and refuses to grade coverage.
+    """
+    for key in ("qty", "triggerQty", "size"):
+        try:
+            q = float(leg.get(key))
+        except (TypeError, ValueError):
+            continue
+        if q == q and q > 0:  # not NaN, positive
+            return q
+    return None
+
+
+def _bybit_position_protection(client, category: str, symbol: str):
+    """Read a Bybit symbol's live protection COVERAGE, mode-agnostically.
+
+    Returns ``None`` on any read failure so the caller SKIPS (never re-arms on
+    an unconfirmed read — the fail-safe the Alpaca/IB sweeps also honour), else
+    a dict::
+
+        {"size", "covered_qty", "source", "sl_leg_ids", "unknown_qty_sl_legs"}
+
+    **Why this measures QUANTITY, not a boolean** (the 2026-07-30 finding).
+    This function used to return ``(size, protected)`` with
+    ``protected = any(<a resting SL leg exists>)``. Under
+    ``BYBIT_TPSL_MODE=partial`` that is wrong in a way that silently loses
+    protection: one-way netting means a symbol is ONE exchange position holding
+    N journal trades and N qty-scoped legs, and a Partial leg's ``slSize``
+    covers only **its own qty**. If some legs are gone — rejected at Bybit's
+    20-combined-leg cap (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP), or cancelled when
+    a sibling trade closed — the surviving leg still satisfied ``any()``, so
+    :func:`_check_broker_naked_bybit_positions` reported PROTECTED and skipped
+    while the position was only PARTIALLY covered. The DB-driven
+    :func:`_check_naked_positions` cannot see it either (the journal rows keep
+    their SL/TP), so a partially-naked netted position was invisible to every
+    layer. Live example (2026-07-30): ``bybit_1`` BNBUSDT held 5 netted shorts
+    totalling ~13.4 qty with only 2 of 5 rows carrying a tracked leg.
+
+    A Full-mode position-level ``stopLoss`` genuinely covers the whole net
+    position, so that path reports ``covered_qty == size``.
+    BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT + the 2026-07-30 coverage fix.
     """
     try:
         pos_resp = client.get_positions(category=category, symbol=symbol)
@@ -6447,20 +6504,30 @@ def _bybit_position_protection(client, category: str, symbol: str):
         logger.debug("_bybit_position_protection: get_positions failed %s: %s",
                      symbol, exc)
         return None
+    _flat = {
+        "size": 0.0, "covered_qty": 0.0, "source": "flat",
+        "sl_leg_ids": set(), "unknown_qty_sl_legs": 0,
+    }
     if not rows:
-        return 0.0, True  # flat — nothing to protect
+        return _flat  # flat — nothing to protect
     pos = rows[0]
     try:
         size = abs(float(pos.get("size") or 0) or 0.0)
     except (TypeError, ValueError):
         return None
     if size <= 0:
-        return 0.0, True  # flat
-    # (a) Full-mode position-level stop lives on the position row itself.
+        return _flat
+    # (a) Full-mode position-level stop lives on the position row itself and
+    #     genuinely covers the WHOLE net position.
     pos_sl = str(pos.get("stopLoss") or "").strip()
     if pos_sl and pos_sl not in ("0", "0.0", "0.00"):
-        return size, True
-    # (b) Partial-mode SL legs are separate resting conditional orders.
+        return {
+            "size": size, "covered_qty": size,
+            "source": "full_position_stop",
+            "sl_leg_ids": set(), "unknown_qty_sl_legs": 0,
+        }
+    # (b) Partial-mode SL legs are separate resting conditional orders, each
+    #     covering only its own qty — so SUM them and compare against size.
     try:
         oo_resp = client.get_open_orders(
             category=category, symbol=symbol, orderFilter="StopOrder",
@@ -6470,11 +6537,75 @@ def _bybit_position_protection(client, category: str, symbol: str):
         logger.debug("_bybit_position_protection: get_open_orders failed %s: %s",
                      symbol, exc)
         return None
-    has_sl_leg = any(
-        str(o.get("stopOrderType") or "").lower() in {"stoploss", "partialstoploss"}
-        for o in legs
-    )
-    return size, has_sl_leg
+    covered = 0.0
+    leg_ids = set()
+    unknown = 0
+    for o in legs:
+        if str(o.get("stopOrderType") or "").lower() not in _SL_LEG_TYPES_MON:
+            continue
+        oid = o.get("orderId")
+        if oid:
+            leg_ids.add(str(oid))
+        q = _bybit_sl_leg_qty(o)
+        if q is None:
+            unknown += 1
+            continue
+        covered += q
+    return {
+        "size": size, "covered_qty": covered, "source": "partial_sl_legs",
+        "sl_leg_ids": leg_ids, "unknown_qty_sl_legs": unknown,
+    }
+
+
+def _bybit_top_up_partial_sl(acc: dict, symbol: str, row, uncovered_qty, sl) -> bool:
+    """Add a qty-scoped Partial SL leg covering exactly *uncovered_qty*.
+
+    The precise remedy for a PARTIALLY-covered netted Bybit position: rather
+    than stamping one trade's levels over the whole position (what a Full-mode
+    re-arm does), add a single leg for just the qty that has lost its own leg,
+    at *sl*. Trades that still hold a live leg keep the geometry they chose.
+
+    Routes through ``execute.modify_open_order`` with ``sl_order_id=None`` so it
+    takes that function's legacy add-a-leg branch
+    (``set_trading_stop(tpslMode="Partial", slSize=<qty>)``) — the one sanctioned
+    order path; this function never talks to the venue directly. TP is
+    deliberately omitted: a missing take-profit is not a risk, and adding one
+    would burn a second leg against Bybit's 20-leg cap.
+
+    Returns True only on a confirmed OK. Best-effort — any failure returns False
+    so the caller falls back to the whole-position Full-mode re-arm rather than
+    leaving the gap open. 2026-07-30 coverage fix.
+    """
+    try:
+        qty = float(uncovered_qty)
+    except (TypeError, ValueError):
+        return False
+    if qty <= 0 or sl in (None, 0):
+        return False
+    try:
+        from src.units.accounts.clients import bybit_client_for
+        from src.units.accounts.execute import modify_open_order
+
+        client = bybit_client_for(acc)
+        if client is None:
+            return False
+        resp = modify_open_order(
+            client, acc, symbol=symbol, sl=float(sl), tp=None, qty=qty,
+            sl_order_id=None, tp_order_id=None,
+        )
+        ok = bool((resp or {}).get("ok"))
+        if not ok:
+            logger.warning(
+                "_bybit_top_up_partial_sl: refused for %s/%s uncovered=%s: %r",
+                acc.get("account_id"), symbol, qty, (resp or {}).get("error"),
+            )
+        return ok
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_bybit_top_up_partial_sl: failed for %s/%s uncovered=%s: %s",
+            acc.get("account_id"), symbol, uncovered_qty, exc,
+        )
+        return False
 
 
 def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
@@ -6506,6 +6637,14 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
     """
     summary: Dict[str, int] = {
         "checked": 0, "broker_naked": 0, "rearmed": 0, "errors": 0,
+        # 2026-07-30 coverage fix: a netted position can be PARTIALLY
+        # covered (some per-trade qty-scoped legs lost). Counted and
+        # remediated separately from a fully-naked position.
+        "partially_naked": 0, "topped_up": 0, "unconfirmed": 0,
+        # Detect-only anomalies found live by bybit-bracket-audit 2026-07-30:
+        # resting legs summing far over the position (accumulation), and open
+        # journal qty exceeding the netted exchange size (phantom rows).
+        "over_covered": 0, "journal_qty_divergent": 0,
     }
     try:
         from src.bot import data_loaders
@@ -6542,6 +6681,23 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
     # One protection read per (account, symbol) per tick — a netted symbol has
     # many journal rows but one exchange position.
     protection_cache: Dict[tuple, object] = {}
+    # Symbol-level anomaly checks run ONCE per (account, symbol), not per row.
+    anomaly_checked: set = set()
+    # Sum of open journal qty per (account, symbol) — compared against the
+    # netted exchange size to surface phantom open rows.
+    journal_qty_by_key: Dict[tuple, float] = {}
+    for row in rows:
+        _aid = str(row["account_id"] or "")
+        _sym = str(row["symbol"] or "").upper()
+        if not _aid or not _sym or _aid not in bybit_ids:
+            continue
+        try:
+            _q = abs(float(row["position_size"]))
+        except (TypeError, ValueError):
+            continue
+        journal_qty_by_key[(_aid, _sym)] = (
+            journal_qty_by_key.get((_aid, _sym), 0.0) + _q
+        )
     for row in rows:
         account_id = str(row["account_id"] or "")
         if account_id not in bybit_ids:
@@ -6574,10 +6730,92 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
             state = protection_cache[cache_key]
             if state is None:
                 continue  # read failure — never re-arm on an unconfirmed read
-            size, protected = state
-            if size <= 0 or protected:
-                continue  # flat, or already carries a stop
+            size = float(state["size"])
+            covered = float(state["covered_qty"])
+            if size <= 0:
+                continue  # flat
+            eps = size * _BYBIT_COVERAGE_EPS_FRAC
+
+            # ---- symbol-level ANOMALY detection (once per symbol, no action) --
+            # Both of these were found live by the bybit-bracket-audit on
+            # 2026-07-30 and were invisible to every existing check. They are
+            # DETECT-ONLY here: remediation is a separate, reviewed change —
+            # the point is that they stop being silent.
+            if cache_key not in anomaly_checked:
+                anomaly_checked.add(cache_key)
+                # (a) Leg OVER-accumulation. Resting SL legs summing to well
+                #     over the position size means legs have piled up (the
+                #     BL-20260721 20-leg-cap failure mode). Live example:
+                #     bybit_1 XRPUSDT, position 32557.2, legs 144789.3 (444.7%)
+                #     — if the first leg trips it OVER-closes, and the rest are
+                #     stranded.
+                if (
+                    state["source"] == "partial_sl_legs"
+                    and covered > size * _BYBIT_OVERCOVER_FACTOR
+                ):
+                    summary["over_covered"] += 1
+                    logger.error(
+                        "_check_broker_naked_bybit_positions: LEG OVER-ACCUMULATION "
+                        "%s/%s — position size=%s but resting SL legs total %s "
+                        "(%.0f%%) across %d leg(s). Legs have piled up; a trip "
+                        "would over-close and strand the rest. Run "
+                        "cancel-stale-tpsl-legs.",
+                        account_id, symbol, size, covered,
+                        (100.0 * covered / size) if size else 0.0,
+                        len(state["sl_leg_ids"]),
+                    )
+                # (b) Journal qty vs BROKER qty divergence. The journal rows for
+                #     this (account, symbol) should sum to the netted exchange
+                #     position. When the journal claims MORE than the broker
+                #     holds, some open row is a phantom. Live examples:
+                #     bybit_1 BNBUSDT journal 13.43 vs exchange 9.72; BTCUSDT
+                #     journal 1.553 vs exchange 0.01 (the 1.543 ict_scalp_5m row
+                #     also had a DEAD tracked leg).
+                j_qty = journal_qty_by_key.get(cache_key, 0.0)
+                if j_qty > size * (1.0 + _BYBIT_QTY_DIVERGENCE_FRAC):
+                    summary["journal_qty_divergent"] += 1
+                    logger.error(
+                        "_check_broker_naked_bybit_positions: JOURNAL/BROKER QTY "
+                        "DIVERGENCE %s/%s — open journal rows sum to %s but the "
+                        "exchange position is %s (excess %s). At least one open "
+                        "row is a phantom; analytics and risk sizing both read "
+                        "the journal.",
+                        account_id, symbol, j_qty, size, j_qty - size,
+                    )
+            # An SL leg whose qty we could not parse makes coverage ungradeable.
+            # Do NOT re-arm on a guess (a Full-mode re-arm would stamp ONE
+            # trade's levels over the whole netted position); surface it instead.
+            if state["unknown_qty_sl_legs"] and state["source"] == "partial_sl_legs":
+                summary["unconfirmed"] += 1
+                logger.warning(
+                    "_check_broker_naked_bybit_positions: %s/%s has %d SL leg(s) "
+                    "with unparseable qty — coverage ungradeable, skipping re-arm "
+                    "(size=%s covered>=%s). Run the bybit-bracket-audit action.",
+                    account_id, symbol, state["unknown_qty_sl_legs"], size, covered,
+                )
+                protection_cache[cache_key] = None  # don't re-grade this tick
+                continue
+            if covered + eps >= size:
+                continue  # fully covered
+            # ---- NOT fully covered -------------------------------------------
+            # covered == 0 → fully naked (the pre-2026-07-30 case).
+            # 0 < covered < size → PARTIALLY naked: the netted position carries
+            # SOME per-trade legs but not enough qty to cover all of it. This is
+            # the case the old any()-boolean silently skipped.
+            partial = covered > 0
             summary["broker_naked"] += 1
+            if partial:
+                summary["partially_naked"] += 1
+                logger.error(
+                    "_check_broker_naked_bybit_positions: PARTIALLY NAKED "
+                    "%s/%s — position size=%s but resting SL legs cover only %s "
+                    "(uncovered=%s). Per-trade qty-scoped legs have been lost "
+                    "(20-leg cap rejection, or cancelled with a sibling close).",
+                    account_id, symbol, size, covered, size - covered,
+                )
+            summary["broker_naked_qty_uncovered"] = int(
+                summary.get("broker_naked_qty_uncovered", 0)
+            ) + 1
             sl = row["stop_loss"]
             tp = row["take_profit_1"]
             a_sl = sl if (sl not in (None, 0) and sl > 0) else None
@@ -6595,14 +6833,36 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                     row["id"], symbol,
                 )
                 continue
-            if _attempt_naked_autoprotect(row, a_sl, a_tp):
+            # A PARTIAL gap is topped up with a qty-scoped Partial SL leg for
+            # exactly the uncovered qty, so the trades that still hold a good
+            # leg keep the geometry they chose. Only if that is refused do we
+            # fall back to the whole-position Full-mode re-arm (which protects
+            # everything but stamps one trade's levels over the netted position).
+            topped_up = False
+            if partial:
+                uncovered = size - covered
+                topped_up = _bybit_top_up_partial_sl(
+                    acc, symbol, row, uncovered, a_sl,
+                )
+                if topped_up:
+                    summary["topped_up"] += 1
+                    protection_cache[cache_key] = {
+                        **state, "covered_qty": size,
+                    }
+                    logger.warning(
+                        "_check_broker_naked_bybit_positions: topped up %s/%s "
+                        "with a qty-scoped Partial SL leg for the uncovered %s "
+                        "@ sl=%s (trade_id=%s)",
+                        account_id, symbol, uncovered, a_sl, row["id"],
+                    )
+            if not topped_up and _attempt_naked_autoprotect(row, a_sl, a_tp):
                 summary["rearmed"] += 1
-                protection_cache[cache_key] = (size, True)  # don't re-arm again
+                protection_cache[cache_key] = {**state, "covered_qty": size}
                 logger.info(
                     "_check_broker_naked_bybit_positions: re-armed Full-mode "
                     "position bracket (sl=%s tp=%s) on broker-naked trade_id=%s "
-                    "account=%s symbol=%s",
-                    a_sl, a_tp, row["id"], account_id, symbol,
+                    "account=%s symbol=%s (partial=%s)",
+                    a_sl, a_tp, row["id"], account_id, symbol, partial,
                 )
         except Exception as exc:  # noqa: BLE001
             summary["errors"] += 1
