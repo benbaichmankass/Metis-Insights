@@ -316,7 +316,36 @@ def main() -> int:
             results.append({"strategy": n, "symbol": sym, "skipped": "non-crypto (crypto-only)"})
             continue
         results.append(run_one(n, cfg, args.workdir, args.days))
-    payload = {"count": len(results), "results": results}
+
+    # COVERAGE DECLARATION (BL-20260730-REGIME-CELL-UNAUDITABLE, and the binding
+    # "Green is not evidence" rule §3). This run's roster is a WORK QUEUE — the
+    # coverage_debt list — not the population of live strategies. Authoring a cell
+    # PAYS THE STRATEGY DOWN OUT of that queue, so the queue systematically excludes
+    # exactly the decisions most in need of re-checking: the 2026-07-30 corrected-cost
+    # re-grade reported "34 rows, 0 errored, 0 skipped" while silently omitting
+    # gld_pullback_1h, the one live Tier-3 cell it existed to re-check. Emitting the
+    # population + the excluded set means "34 rows" can never again be read as "the
+    # whole audit".
+    try:
+        strat_all = yaml.safe_load(
+            open(os.path.join(REPO, "config/strategies.yaml"))).get("strategies", {}) or {}
+        live = {k for k, v in strat_all.items()
+                if isinstance(v, dict) and v.get("execution", "live") != "shadow"}
+        covered = {r.get("strategy") for r in results}
+        coverage = {
+            "roster_kind": "coverage_debt (a WORK QUEUE, not the live population)",
+            "declared_live_strategies": len(live),
+            "covered": len(covered),
+            "not_covered": sorted(live - covered),
+            "warning": ("Strategies absent here are NOT cleared — they were never "
+                        "measured by this run. An ALREADY-CELLED strategy is absent "
+                        "precisely because a cell was authored for it; re-audit those "
+                        "explicitly with --only <name>."),
+        }
+    except Exception as exc:  # noqa: BLE001
+        coverage = {"error": f"could not compute coverage: {type(exc).__name__}: {exc}"}
+
+    payload = {"count": len(results), "coverage": coverage, "results": results}
     if args.json:
         print(json.dumps(payload))
     else:
