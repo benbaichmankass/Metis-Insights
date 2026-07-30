@@ -17,6 +17,22 @@ reports the live predicted-score distribution and (when labels join) the
 score↔label point-biserial sign, so a "head emits a near-constant score live"
 degeneracy shows up directly.
 
+CORRECTION (2026-07-30) — two defects that made this probe's output misleading:
+
+1. It printed the logged ``score`` under the label ``PREDICTED score(volatile)``.
+   That field is ``max(proba.values())`` (the *predicted class's* confidence),
+   not P(volatile), so for a 2-class regime head it is ``>= 0.5`` by
+   construction. Every regime head therefore read as "pinned to volatile" — a
+   fleet sweep found ``frac(score < 0.5) == 0.0000`` across all ~30 regime
+   heads, while non-multiclass heads in the same log ranged freely below 0.5.
+   This nearly produced a false P1 against the live real-money BTC vol gate.
+   The probe now reports the logged value under an honest label AND the real
+   ``predict_proba[volatile]`` the gate thresholds, plus the would-gate share.
+2. It picked the training dataset as ``sorted(glob(...))[-1]`` — alphabetically
+   last, not the manifest's pinned version — so it could compare a head against
+   data it never trained on. It now resolves ``ml/configs/<id>.yaml`` and warns
+   loudly on any fallback.
+
 Read-only, trainer-side (datasets + registry + the mirrored shadow log live
 there). Never touches the order path. No inline python -c (the trainer-vm-diag
 relay mis-parses quoted -c), so this is a committed helper the relay calls.
@@ -58,6 +74,61 @@ _NUMERIC_COLS = [
     "xa_breadth_up",
 ]
 _CATEGORICAL = ["vol_bucket", "hour_of_day", "dayofweek"]
+
+# The class whose probability the live vol verdict thresholds
+# (``regime_bar_scoring._VOLATILE_CLASS`` / ``ml_vol_verdict``).
+_POSITIVE_CLASS = "volatile"
+# ``ML_VOL_VERDICT_THRESHOLD`` default — the gate's calm/volatile cut.
+_VOL_THRESHOLD = 0.5
+
+
+def _p_volatile_for_rows(
+    model_id: str, feature_rows: List[Dict[str, Any]],
+) -> Optional[List[float]]:
+    """Re-run ``predict_proba`` on the logged live rows → **P(volatile)**.
+
+    The logged ``score`` field is **NOT** P(volatile).
+    ``ShadowPredictor.predict`` returns the wrapped predictor's ``predict``,
+    and for a regime head that is
+    ``MulticlassPredictor.predict = max(proba.values())`` — the confidence of
+    the *predicted* class, hence ``>= 0.5`` by construction for a 2-class head.
+    Printing it as "P(volatile)" made **every** regime head look pinned to
+    volatile: a 2026-07-30 fleet sweep found `frac(score < 0.5) == 0.0000` for
+    all ~30 regime heads, while the non-multiclass heads in the same log
+    (``exit-head-donchian-1h-v1``, ``setup-quality-lgbm-v2``) ranged freely
+    below 0.5. That mislabel nearly produced a false P1 against the live
+    real-money BTC vol gate.
+
+    The gate reads ``predict_proba[volatile]``
+    (``regime_bar_scoring._maybe_publish_p_volatile``), so that is what a parity
+    probe must report. Rows are passed through **unmodified**, exactly as the
+    live path does, so the predictor's own ``_encode_row`` handles categoricals.
+
+    Returns ``None`` when the predictor can't be resolved (no registry on this
+    host) — the caller then reports only the logged max-proba, honestly labelled.
+    """
+    try:
+        from ml.registry.model_registry import ModelRegistry  # noqa: PLC0415
+        from ml.shadow import factory as _factory  # noqa: PLC0415
+        from ml.shadow.factory import resolve_predictor  # noqa: PLC0415
+
+        reg = ModelRegistry(_factory._resolve_default_registry_root())
+        sp = resolve_predictor(model_id, reg, log_path=None)  # no audit writes
+        base = getattr(sp, "wrapped", sp)
+        proba_fn = getattr(base, "predict_proba", None)
+        if proba_fn is None:
+            return None
+    except Exception:  # noqa: BLE001 — probe degrades, never dies
+        return None
+    out: List[float] = []
+    for row in feature_rows:
+        try:
+            p = (proba_fn(row) or {}).get(_POSITIVE_CLASS)
+        except Exception:  # noqa: BLE001 — one bad row must not kill the sweep
+            continue
+        if p is not None:
+            out.append(float(p))
+    return out or None
 
 
 def _num(v: Any) -> Optional[float]:
@@ -113,13 +184,60 @@ def _load_jsonl(path: Path, limit: Optional[int] = None) -> List[Dict[str, Any]]
     return rows
 
 
-def _training_rows(symbol: str, timeframe: str) -> (Optional[str], List[Dict[str, Any]]):
-    cands = sorted(glob.glob(
-        f"datasets-out/market_features/{symbol}/{timeframe}/*/data.jsonl"))
+def _manifest_dataset_version(model_id: str) -> Optional[str]:
+    """The dataset VERSION this head's manifest pins, or ``None``.
+
+    Read from ``ml/configs/<model_id>.yaml::dataset.version`` — the same block
+    ``replay_pregate_fleet._manifest_dataset`` uses.
+    """
+    cfg = _REPO_ROOT / "ml" / "configs" / f"{model_id}.yaml"
+    if not cfg.is_file():
+        return None
+    try:
+        import yaml  # noqa: PLC0415
+
+        doc = yaml.safe_load(cfg.read_text(encoding="utf-8")) or {}
+    except Exception:  # noqa: BLE001 — a probe never dies on a bad manifest
+        return None
+    version = (doc.get("dataset") or {}).get("version")
+    return str(version) if version else None
+
+
+def _training_rows(
+    symbol: str, timeframe: str, model_id: str,
+) -> (Optional[str], List[Dict[str, Any]], Optional[str]):
+    """Load the head's TRAINING rows, preferring the manifest's pinned version.
+
+    This used to take ``sorted(glob(...))[-1]`` — the *alphabetically last*
+    version dir. ``datasets-out/market_features/BTCUSDT/15m`` holds ~14 versions
+    (v002…v006, v104, v107, v513…v515, v520, vfmac003), so that silently picked
+    ``vfmac003`` regardless of which dataset the head actually trained on, and
+    labelled it "TRAINING dataset". Comparing a head's live rows against a
+    dataset it never saw makes every distribution line untrustworthy — the
+    probe's entire output.
+
+    Returns ``(path, rows, warning_or_None)``; the caller prints the warning so
+    a fallback is never silent.
+    """
+    base = f"datasets-out/market_features/{symbol}/{timeframe}"
+    version = _manifest_dataset_version(model_id)
+    if version:
+        pinned = Path(base) / version / "data.jsonl"
+        if pinned.is_file():
+            return str(pinned), _load_jsonl(pinned), None
+    cands = sorted(glob.glob(f"{base}/*/data.jsonl"))
     if not cands:
-        return None, []
+        return None, [], f"no market_features dataset on disk under {base}"
     path = cands[-1]
-    return path, _load_jsonl(Path(path))
+    if version:
+        warn = (f"manifest pins dataset version {version!r} but it is ABSENT on "
+                f"disk — fell back to {path}. Distributions below are NOT "
+                f"necessarily this head's training data.")
+    else:
+        warn = (f"no dataset version in ml/configs/{model_id}.yaml — fell back "
+                f"to newest-on-disk {path}. Distributions below are NOT "
+                f"necessarily this head's training data.")
+    return path, _load_jsonl(Path(path)), warn
 
 
 def _shadow_rows(symbol: str, model_id: str) -> (Optional[str], List[Dict[str, Any]]):
@@ -165,8 +283,10 @@ def main() -> int:
 
     print(f"== feature-parity probe: {a.model_id} ({a.symbol}/{a.timeframe}) ==")
 
-    tr_path, tr_rows = _training_rows(a.symbol, a.timeframe)
+    tr_path, tr_rows, tr_warn = _training_rows(a.symbol, a.timeframe, a.model_id)
     print(f"\n-- TRAINING dataset --\n  path={tr_path}  rows={len(tr_rows)}")
+    if tr_warn:
+        print(f"  !! {tr_warn}")
     if tr_rows:
         # Which of the candidate columns actually appear in the training data.
         keys = set()
@@ -216,9 +336,26 @@ def main() -> int:
         sc = score_by_stage.get(st, [])
         if sc:
             blk = _stat_block(sc, len(sc))
-            print(f"    {'PREDICTED score(volatile)':34s} "
+            # NOT P(volatile) — see _p_volatile_for_rows. Labelled explicitly so
+            # a reader can never mistake a max-proba confidence for the gate's
+            # calm/volatile probability.
+            print(f"    {'LOGGED score = max(proba), NOT P(vol)':34s} "
                   f"mean={blk['mean']}  std={blk['std']}  "
                   f"min={blk['min']}  max={blk['max']}  (n={len(sc)})")
+        # The number the gate actually thresholds.
+        pvol = _p_volatile_for_rows(a.model_id, frs)
+        if pvol:
+            blk = _stat_block(pvol, len(pvol))
+            hot = sum(1 for x in pvol if x >= _VOL_THRESHOLD)
+            print(f"    {'P(volatile) [what the GATE reads]':34s} "
+                  f"mean={blk['mean']}  std={blk['std']}  "
+                  f"min={blk['min']}  max={blk['max']}  (n={len(pvol)})")
+            print(f"    {'  -> would gate VOLATILE':34s} "
+                  f"{hot}/{len(pvol)} = {round(100.0 * hot / len(pvol), 2)}% "
+                  f"(threshold {_VOL_THRESHOLD})")
+        else:
+            print(f"    {'P(volatile)':34s} unavailable — predictor not "
+                  f"resolvable here; only the logged max-proba is shown above")
         # which trained cols are entirely ABSENT from the live row
         missing_cols = sorted(c for c in (_CATEGORICAL + _NUMERIC_COLS)
                               if c in train_keys and c not in keys)
