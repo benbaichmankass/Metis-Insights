@@ -1035,5 +1035,12 @@
         }
       }
     }
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260730T045200Z/report.json",
+    "html_path": "comms/reports/since-last/20260730T045200Z/report.html",
+    "md_path": "comms/reports/since-last/20260730T045200Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/since-last/20260730T045200Z/report.html",
+    "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260730-045200-since-last"
   }
 }
