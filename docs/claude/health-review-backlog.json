@@ -7758,6 +7758,11 @@
           "at": "2026-07-30T17:40:00+00:00",
           "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
           "note": "CORRECTION + SCOPE. While isolating the column difference I ran scripts/ml/_feature_parity_probe.py against the BTC ADVISORY head (#8088) and read its 'PREDICTED score(volatile)' line as mean 0.967 / min 0.504 over 2336 live rows — i.e. the live gate pinned to volatile on real money. THAT READING WAS WRONG and I did not escalate it. The shadow log's `score` is ShadowPredictor.predict -> MulticlassPredictor.predict = max(proba.values()) (ml/predictors/multiclass.py:38), the PREDICTED CLASS's confidence, hence >= 0.5 by construction for a 2-class head. Fleet sweep (#8090) confirms: frac(score<0.5)==0.0000 for ALL ~30 regime heads, while non-multiclass heads in the SAME log (exit-head-donchian-1h-v1 0.036-0.452, setup-quality-lgbm-v2 -0.755-0.278, execution-quality-baseline-v0 constant -0.20) sit below 0.5 freely — a clean natural control. The live gate is NOT affected: regime_bar_scoring._maybe_publish_p_volatile reads predict_proba['volatile'] explicitly, and RG4 (replay_pregate_live.py:249) does the same, so neither the gate nor the fleet-wide RG4 block is an artifact of this. THE ORIGINAL FINDING IS UNAFFECTED — it was measured on p_volatile from the gate's own audit rows vs the replay, not on this `score` field. Still open; still ungraded cells."
+        },
+        {
+          "at": "2026-07-30T18:05:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "LIVE-SIDE MEASUREMENT (fixed probe, trainer-diag #8092 + live audit rows #8094). The BTC advisory head btc-regime-15m-lgbm-fc-pcv-v1 gates VOLATILE only 10/979 = 1.02% of advisory-stage rows (shadow stage 6/1357 = 0.44%); mean P(volatile) 0.0366. Training base rate on the MANIFEST-PINNED v520 is 4.6% (the buggy probe was reading vfmac003 at 16.04% — a 3.5x different base rate). My offline replay is 9.1%. Independently corroborated on the LIVE gate's own audit rows: 40/40 sampled regime_hard_gate rows for BTCUSDT carry vol_regime='calm' with vol_label_source='ml' and vol_regime_frozen='unknown' — so the ML label is the ONLY thing supplying the vol axis, and it reads calm essentially always. CAVEAT, stated because it bounds the claim: the live rows span 2026-07-07..2026-07-30, a calm ~3-week window, against 5 years of training — so part of the offline-vs-live gap is market conditions, not necessarily skew. The column-level residual: xa_breadth_up is present in TRAIN at 100% but CONSTANT 0.0, and entirely ABSENT from live rows (pres=0.0%) — the BL-20260628-XA-TRAINING-ZERO dead-feature class; a constant-0 column carries no information so the impact is probably nil, but that should be confirmed, not assumed."
         }
       ],
       "resolved_at": null,
@@ -7797,8 +7802,51 @@
           "note": "Fixed on discovery rather than filed-and-left: it is a live trap for the next reader, and the next reader might escalate instead of checking. Fleet evidence in trainer-diag #8090; probe output showing the bad line in #8088."
         }
       ]
+    },
+    {
+      "id": "BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT",
+      "opened_at": "2026-07-30T18:05:00+00:00",
+      "opened_by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+      "source": "Cross-referencing config/regime_policy.yaml::trend_vol (the six authored 2-D cells) against the MEASURED live ML vol label (BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP).",
+      "title": "[regime] three of the six 2-D trend_vol cells are effectively DORMANT live — the ML vol axis reads 'calm' ~99% of the time",
+      "description": "The six authored cells split 3 volatile-keyed / 3 calm-keyed:\n  VOLATILE-keyed: trending/volatile trend_donchian{long:off}; trending/volatile ict_scalp_5m{long,short:off}; chop/volatile ict_scalp_5m{long,short:off}\n  CALM-keyed:     trending/calm squeeze_breakout_4h{short:off}; transitional/calm trend_donchian{long:off}; chop/calm trend_donchian{long:off}\n\nThe live BTC ML vol label resolves VOLATILE ~1% of the time (10/979 advisory rows; 40/40 sampled live regime_hard_gate rows read calm). So the three volatile-keyed cells can fire on ~1% of bars and the three calm-keyed cells carry essentially all the enforcement. The vol axis, as SERVED, is close to a constant — a 2-D gate whose second axis is ~99% one value is barely 2-D.\n\nThis does NOT say the cells are wrong. They were authored from a vol-SPLIT of BTC history where volatile was a meaningful share, and the A/B that justified them (docs/research/A-vol-gating-OFFcell-design-2026-06-27.md) lifted the book 4.3x. The question this raises is whether the LIVE label reproduces the label the cells were authored under — which is exactly the open parity gap.\n\nCONSEQUENCE FOR GRADING (why the cells are still ungraded): grading them off the OFFLINE replay's vol labels would grade a COUNTERFACTUAL — the replay says volatile 9.1% of bars, the live gate ~1%. Cells must be graded off the LIVE gate's own recorded labels (regime_hard_gate rows carry vol_regime + vol_cell + vol_enforced), not off replayed labels.",
+      "tier": 3,
+      "trigger_condition": "n/a — a standing property of the live vol axis, surfaced by measurement",
+      "resolution_criteria": "Either (a) the parity gap is closed and the live volatile share matches the authoring distribution, or (b) the three volatile-keyed cells are re-evaluated against the live label distribution. BOTH are Tier-3 — propose only, operator decides.",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "severity": "high",
+      "refs": [
+        "config/regime_policy.yaml",
+        "BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP",
+        "docs/research/A-vol-gating-OFFcell-design-2026-06-27.md",
+        "src/runtime/regime/ml_vol_verdict.py"
+      ],
+      "updates": []
+    },
+    {
+      "id": "BL-20260730-DIAG-RELAY-FAILURE-COMMENT-MISLEADING",
+      "opened_at": "2026-07-30T18:05:00+00:00",
+      "opened_by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+      "source": "Hit twice in one session (issues #8086 and an earlier request) while pulling live gate rows.",
+      "title": "[infra][tooling] vm-diag-snapshot's failure comment blames the VM for what is actually a malformed request",
+      "description": "When the diag path fails VALIDATION, the workflow posts: 'Common causes: VM_SSH_KEY/DIAG_READ_TOKEN secret unset, malformed key, VM web-api down, token mismatch.' All four are infrastructure causes; none is what happened. No VM contact is even attempted on that path. I read that comment and recorded 'VM web-api down' — a false infra diagnosis — and later re-derived the same wrong conclusion, then posted it to the coordination board before checking the run log.\n\nRoot cause of the malformed request itself: the workflow reads the path from the issue BODY; a prose body ('path is in the title') is parsed AS a path and rejected.\n\nFIX (this PR): the failure comment now branches on steps.resolve/resolve_multi.outcome and, for a validation rejection, leads with 'MALFORMED REQUEST, not a VM outage', states that the BODY is what is parsed, and shows a correct example body. The infra text is kept for genuine infra failures.",
+      "tier": 1,
+      "trigger_condition": "n/a",
+      "resolution_criteria": "Validation rejections produce a request-shaped message; infra failures keep the infra message.",
+      "status": "resolved",
+      "snoozed_until": null,
+      "resolved_at": "2026-07-30T18:05:00+00:00",
+      "severity": "medium",
+      "refs": [
+        ".github/workflows/vm-diag-snapshot.yml",
+        "docs/claude/diag-relay.md",
+        "docs/CLAUDE-RULES-CANONICAL.md"
+      ],
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-30T17:40:00+00:00",
+  "updated_at": "2026-07-30T18:05:00+00:00",
   "generated_at": "2026-07-30T15:55:00+00:00"
 }
