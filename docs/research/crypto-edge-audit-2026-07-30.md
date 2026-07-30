@@ -16,7 +16,7 @@ OOS time-folds (`backtest_*.py --emit-trades` → `direction_walkforward.py`).
 | `sol_pullback_2h` | **−5.43** | **long −12.39** / short +6.96 | **FINE-TUNE the LONG side** — short is fine; SOL-long is the single genuine negative (single-symbol effect, not a family property) |
 | `trend_donchian` (BTC 1h) | **+1.12** (base geometry) | long-only; **2025 +9.6 / 2026 −9.3**; folds 6–8 adverse | **WATCH / regime-tune** — thin base edge, but the live **ML exit head** (`exit-head-donchian-1h-v1`, M20-shipped precisely because this leg's base exits are bad) lifts the live version above this number. Not a demote; regime-gate the adverse 2026 slice. |
 | `ict_scalp_5m` (BTC) | **+26.63** (1yr) | 187 tr, 49% win; **stable_edge=TRUE**; short +18.8 / long +7.8; folds 4/5/6 (recent 2026) all positive | **KEEP** — strong, stable, *currently*-positive backtest edge. The live loss (mirror −$4k) is the **cleanest research→results-gap case**: execution (the bracket bug, fixed today) + **slippage** the harness doesn't model ("fills at the level"). Validates the exit fix; measure slippage next. |
-| `trend_donchian_xrp_4h` | *running* | — | pending |
+| `trend_donchian_xrp_4h` | **+5.29** | short **+7.34** / long **−2.05** (stable_drag on the long side, 4/6 folds); 2026 −1.6 | **FINE-TUNE the LONG side** — short carries it; long is a persistent drag (same shape as sol_pullback) |
 
 Source WFs: pullback family — `pullback-2h-direction-walkforward-2026-07-29.md`;
 trend_donchian — trainer relay #7957 (this session); ML-exit-head context —
@@ -24,10 +24,18 @@ trend_donchian — trainer relay #7957 (this session); ML-exit-head context —
 
 ## Cross-cutting read (the important part)
 
-- **No leg audited so far is genuinely dead.** eth/xrp pullback have strong
-  durable edge; sol-pullback is a one-sided (long) problem; trend_donchian is
-  thin-but-regime-driven with a value-adding exit head. **The reflexive "demote
-  the red strategies" would have been wrong on every one.**
+- **No leg is genuinely dead (all 6 audited).** ict_scalp / eth / xrp pullback
+  have strong durable edge; trend_donchian is thin-but-regime-driven with a
+  value-adding exit head; sol_pullback and trend_donchian_xrp_4h are one-sided
+  (**long-side**) problems. **The reflexive "demote the red strategies" would
+  have been wrong on all six.**
+- **Cross-cutting pattern — the alt-crypto LONG side is a persistent drag.** Both
+  `sol_pullback_2h` (long −12.4R) and `trend_donchian_xrp_4h` (long −2.05R,
+  stable_drag 4/6 folds) lose on longs while their shorts carry them — a real,
+  actionable regime signature (bearish alt tape), not noise. A short-bias /
+  long-gate variant is the fine-tune to test (leg-specific: the eth/xrp
+  *pullback-2h* WF refuted a directional gate for those, so this is not a
+  blanket rule).
 - **The bleed is dominated by (a) an adverse recent regime** hitting legs that
   are net-positive across history, **and (b) the structural cost/execution gaps**
   in `research-to-results-gap-2026-07-30.md` (net-of-fee-only gate, no
@@ -37,7 +45,7 @@ trend_donchian — trainer relay #7957 (this session); ML-exit-head context —
 
 ## Next
 
-1. Finish `ict_scalp_5m` + `trend_donchian_xrp_4h` WFs.
+1. ~~Finish `ict_scalp_5m` + `trend_donchian_xrp_4h` WFs.~~ **DONE — all 6 legs audited.**
 2. The structural build (research-to-results-gap plan): funding+slippage into the
    crypto harnesses → re-gate net-of-full-cost → adopt the paper-mirror-net-positive
    retention gate.
