@@ -6866,6 +6866,11 @@
           "at": "2026-07-30T07:40:00+00:00",
           "by": "claude",
           "note": "TOOL FIX MERGED (72712c9, #7958) — resolve_strategy() makes an already-celled strategy measurable again, and regime_debt_matrix now emits a coverage declaration. Re-audits DISPATCHED: #7962 (gld_pullback_1h, the fee-affected live cell) and #7963 (trend_donchian, htf_pullback_trend_2h, squeeze_breakout_4h — 1-D axis; evidence-age re-check, not a fee re-check, since those are BTCUSDT and were always correctly charged). TWO GAPS FOUND WHILE SCOPING, both filed: BL-20260730-2D-VOL-CELLS-UNAUDITABLE (the six 2-D trend_vol cells cannot be re-measured by ANY tool — no vol-split exists — and ict_scalp_5m carries ONLY 2-D cells, so its entire live gating is unreachable; 6 of 16 live-affecting cells stay un-re-audited even after #7962+#7963) and BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER (the practice, not the tool: nothing re-measures cells on a cadence). Follow-up (2) of this row — 'decide whether authored cells get a standing re-audit list' — is ANSWERED YES by the operator and now tracked in that register row."
+        },
+        {
+          "at": "2026-07-30T08:30:00+00:00",
+          "by": "claude",
+          "note": "RE-AUDIT RESULTS IN (#7962, #7963). gld_pullback_1h: the live cell SURVIVES — trending short -13.88R@37 = -0.375 R/trade (predicted -0.32 to -0.40), long +37.18R@54 confirming the predicted understatement. NO revert needed; that sub-item is CLOSED. htf_pullback_trend_2h: the trending cell looks INVERTED on current data (long -6.85@42 while permitted, short +7.89@54 while gated) — walk-forward dispatched #7968, NOT proposed as a change (#7915 already refuted a full-sample directional read on this family). COVERAGE: only 4 of 16 live-affecting cells are actually re-auditable. Three distinct blockers, two NEW: no vol-split (6 2-D cells), no harness mapping (squeeze_breakout_4h errors unclassifiable -> BL-20260730-SQUEEZE-NO-HARNESS), and approximate-only (trend_donchian -> BL-20260730-DONCHIAN-APPROX-ONLY). Plus a cosmetic-cell instance found in passing: BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS."
         }
       ],
       "resolved_at": null,
@@ -6966,7 +6971,55 @@
       "updates": [],
       "resolved_at": null,
       "severity": "medium"
+    },
+    {
+      "id": "BL-20260730-SQUEEZE-NO-HARNESS",
+      "opened_at": "2026-07-30T08:30:00+00:00",
+      "opened_by": "claude (authored-cell re-audit #7963)",
+      "source": "The re-audit run errored on squeeze_breakout_4h: 'unclassifiable (no donchian/pullback params or no symbol/timeframe)'. regime_debt_matrix.classify() only recognises Donchian-trend and pullback shapes, so a squeeze/breakout strategy maps to no offline harness at all.",
+      "title": "[regime] squeeze_breakout_4h maps to NO offline harness — its 4 live cells can never be re-audited",
+      "description": "squeeze_breakout_4h is execution: live and carries THREE 1-D cells (trending {long:on,short:on}, transitional {long:on,short:on}, chop {long:on,short:on}) plus ONE 2-D cell (trending/calm {short:off}). None can be re-measured: classify() returns None so the matrix errors the row. The cells therefore rest permanently on their 2026-06-01 authoring evidence with no mechanism to re-check. Options: (a) add a squeeze/breakout harness to scripts/ (the real fix — it also unlocks exit-refinement and tuning for this strategy); (b) if the strategy's cells are all-permissive on the 1-D axis (they are: every 1-D cell is on/on), note that they gate nothing and could be dropped as cosmetic, leaving only the 2-D cell to worry about. Do (b)'s analysis first — it may shrink the problem to one cell.",
+      "tier": 1,
+      "trigger_condition": "A celled strategy errors as unclassifiable in a re-audit run.",
+      "resolution_criteria": "squeeze_breakout_4h's cells are either re-measured by a new harness, or shown to be all-permissive/cosmetic and dropped.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "medium"
+    },
+    {
+      "id": "BL-20260730-DONCHIAN-APPROX-ONLY",
+      "opened_at": "2026-07-30T08:30:00+00:00",
+      "opened_by": "claude (authored-cell re-audit #7963)",
+      "source": "trend_donchian re-measured as APPROXIMATE — the trend harness omits its declared exit_head_action / exit_head_model / exit_head_threshold / trail_decay_arm_r / trail_decay_tight_mult. Per the no-cosmetic-cell rule an approximate row cannot source or un-source a cell, so its SIX cells (3x 1-D + 3x 2-D) are measurable but not actionable.",
+      "title": "[regime] trend_donchian is only measurable as `approximate` — its 6 cells cannot be acted on either way",
+      "description": "This is the most-celled live strategy and the one whose cells were used as the exemplar for the whole debt roster, yet a re-audit cannot act on it: any losing cell could be an artifact of the omitted lever, and any winning cell could be flattered by it. exit_head_* is inherently unreplayable offline (an ML exit head) — so the honest options are (a) port trail_decay into the trend harness (mechanical, mirrors the stale-exit port done for rec #5) which would leave only exit_head_* omitted, then judge whether that residual is small enough to call the row faithful; or (b) accept that a strategy carrying an ML exit head can never be re-audited offline and require a LIVE-evidence path for its cells instead. Note (a) is a real improvement regardless — the same omission blocks exit-refinement work on this leg.",
+      "tier": 1,
+      "trigger_condition": "A cell decision is proposed or defended on an approximate row.",
+      "resolution_criteria": "trail_decay is modelled in the trend harness (or an equivalent path exists), and trend_donchian's cells have a recorded re-audit verdict on a row whose omissions are declared acceptable.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "medium"
+    },
+    {
+      "id": "BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS",
+      "opened_at": "2026-07-30T08:30:00+00:00",
+      "opened_by": "claude (authored-cell re-audit #7963)",
+      "source": "The re-audit shows trend_donchian producing ZERO short trades in every regime over 730d (short-R 0.0, n=0 throughout) — it runs long-only — yet config/regime_policy.yaml carries short directions for it in all three 1-D regimes (chop {short:on}, transitional {short:off}, trending {short:off}).",
+      "title": "[regime] trend_donchian carries SHORT cells while producing zero short trades — cosmetic cells, the named anti-pattern",
+      "description": "A cell that gates a direction the strategy never takes is exactly the cosmetic cell the no-cosmetic-cell rule exists to prevent — it looks like governance and enforces nothing. Worse, it is actively misleading: the chop {short: on} cell carries the comment 'short +16 <- reclaims long-only drop', i.e. the authoring evidence measured shorts that the current config cannot produce, so the comment documents a configuration that no longer exists. Verify whether long_only was always set or is a later change (git log config/strategies.yaml), then either drop the short halves of those cells or record why they are retained (e.g. so the gate is already correct if long_only is ever lifted — a defensible reason, but it should be WRITTEN).",
+      "tier": 1,
+      "trigger_condition": "An authored cell gates a direction the strategy cannot produce.",
+      "resolution_criteria": "trend_donchian's short cells are dropped or their retention rationale is recorded in regime_policy.yaml.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "low-medium"
     }
   ],
-  "updated_at": "2026-07-30T08:10:00+00:00"
+  "updated_at": "2026-07-30T08:30:00+00:00"
 }

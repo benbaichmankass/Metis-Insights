@@ -163,3 +163,106 @@ bad again is precisely what the walk-forward gate exists to override.
 tracked debt — a no-cell verdict is a *measured* disposition, not a paydown), and
 `slv_trend_1h` stays refuted. No `config/regime_policy.yaml` edit is proposed by this
 document.
+
+---
+
+# Addendum — the authored-cell re-audit (2026-07-30, operator-directed)
+
+**Runs:** [#7962](https://github.com/benbaichmankass/Metis-Insights/issues/7962) (`gld_pullback_1h`) ·
+[#7963](https://github.com/benbaichmankass/Metis-Insights/issues/7963) (`trend_donchian`, `htf_pullback_trend_2h`, `squeeze_breakout_4h`),
+both on `72712c9` — possible only because `resolve_strategy()` made already-celled
+strategies measurable again.
+
+## A1. `gld_pullback_1h` — the live cell **SURVIVES**. Estimate confirmed.
+
+`faithful` row, 730d:
+
+| regime | net-R | long-R (n) | short-R (n) |
+|---|--:|--:|--:|
+| **trending** | +23.31 | **+37.18 (54)** | **−13.88 (37)** |
+| transitional | +20.08 | +21.87 (14) | −1.79 (10) |
+| chop | +12.59 | +7.34 (4) | +5.25 (4) |
+| **total** | **+55.97** | +66.39 | −10.42 |
+
+Against the over-charged authoring evidence (#7920: trending short −15.68 @ 36, long +32.98 @ 54):
+
+| leg | over-charged | corrected | Δ per trade | in predicted 0.04–0.12 band? |
+|---|--:|--:|--:|:--|
+| trending short | −15.68 @ 36 | **−13.88 @ 37** | **+0.049** | ✅ |
+| trending long | +32.98 @ 54 | **+37.18 @ 54** | **+0.078** | ✅ |
+
+**Verdict: `trending.gld_pullback_1h { long: on, short: off }` remains warranted.**
+Trending short is **−0.375 R/trade** at n=37 — a large, unambiguous drag. The
+prediction recorded in `PB-20260730-REGIME-EVIDENCE-VENUE-FEE-REGRADE` was
+−0.32 to −0.40 R/trade; measured −0.375. **No revert. No Tier-3 PR needed.**
+
+The predicted *understatement* of the long side also holds: **+37.18R / 54 =
++0.688 R/trade**, a stronger engine than the record showed. The cell is doing its
+job — gating a real drag while leaving a real edge alone.
+
+Nothing warranted in `transitional` (short −1.79 @ 10, thin) or `chop` (short
+**positive** +5.25 @ 4).
+
+## A2. `htf_pullback_trend_2h` — the authored cell looks **INVERTED** on current data
+
+`faithful` row, 730d:
+
+| regime | net-R | long-R (n) | short-R (n) |
+|---|--:|--:|--:|
+| **trending** | +1.05 | **−6.85 (42)** | **+7.89 (54)** |
+| transitional | +8.70 | +7.85 (17) | +0.86 (18) |
+| **chop** | **−4.63** | −0.39 (18) | −4.24 (10) |
+
+The live cell is `trending { long: on, short: off }`, authored from *"long +30, short
+flat (−0.05)"*. Both legs now read the **opposite sign** at adequate n — so the cell
+**permits the negative leg and gates the positive one**. Two sibling cells also
+disagree with their comments (`transitional` short now **+0.86** vs "−4"; `chop` long
+now ~flat **−0.39** vs "−8"; `chop` short **−4.24**, still negative, still warranted).
+
+**Not proposed as a change.** Walk-forward dispatched (**#7968**). #7915 already
+walk-forward-**refuted** a full-sample directional read on this exact strategy family
+on regime-of-sample grounds — that precedent is directly on point, so a full-sample
+inversion is a *candidate*, never a verdict. Also **not** a fee artifact: BTCUSDT was
+always correctly charged. This is **evidence age** — the authoring evidence is the
+2026-06-01 matrix, a different window, before the harness modelled several levers.
+
+## A3. Coverage — only **4 of 16** live-affecting cells are actually re-auditable
+
+The honest tally, which matters more than either result above:
+
+| Strategy | live cells | re-auditable? |
+|---|--:|---|
+| `gld_pullback_1h` | 1 | ✅ faithful — **done** |
+| `htf_pullback_trend_2h` | 3 | ✅ faithful — **done**, walk-forward pending |
+| `trend_donchian` | 3 × 1-D + 3 × 2-D | ⚠️ **`approximate` only** (omits `exit_head_*` + `trail_decay`) → cannot source or un-source a cell |
+| `squeeze_breakout_4h` | 3 × 1-D + 1 × 2-D | ❌ **`errored`: "unclassifiable"** — neither Donchian nor pullback, so no harness maps to it |
+| `ict_scalp_5m` | 2 × 2-D | ❌ no 1-D cell; 2-D unreachable (no vol-split) |
+
+Three distinct reasons a live gate can't be re-checked, only one of which was known
+before today:
+
+1. **No vol-split** → the six 2-D `trend_vol` cells (`BL-20260730-2D-VOL-CELLS-UNAUDITABLE`).
+2. **No harness mapping** → `squeeze_breakout_4h` errors as unclassifiable. **New.**
+3. **Approximate-only** → `trend_donchian` can be measured but not *acted on*, because
+   an unmodelled lever could explain any losing cell. **New.**
+
+**So: 4 of 16 live-affecting cells re-audited; 12 cannot currently be.** Reporting
+this re-audit as "the cells are re-checked" would be the same scope error the whole
+exercise exists to prevent.
+
+### A3a. And a cosmetic-cell instance found in passing
+
+`trend_donchian` shows **zero short trades in every regime** (n=0 across 730d — it
+runs long-only now), yet carries authored **short** cells (`chop { short: on }`,
+`transitional { short: off }`, `trending { short: off }`). Those gate nothing: they
+are cosmetic cells, the exact anti-pattern the no-cosmetic-cell rule names. Filed.
+
+## A4. Follow-ups added
+
+| Item | Owner |
+|---|---|
+| Walk-forward the `htf_pullback_trend_2h` trending inversion | #7968 (running) |
+| `squeeze_breakout_4h` has no harness → 4 live cells unauditable | `BL-20260730-SQUEEZE-NO-HARNESS` |
+| `trend_donchian` measurable only as `approximate` → 6 cells un-actionable | `BL-20260730-DONCHIAN-APPROX-ONLY` |
+| `trend_donchian` carries short cells with zero short trades (cosmetic) | `BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS` |
+| `gld_pullback_1h` — **closed**, cell survives | this addendum |
