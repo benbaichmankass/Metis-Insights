@@ -2217,23 +2217,20 @@ strategies:
     model: null
     signal_prefixes: [sol_pullback, sol_pullback_2h]
     enabled: true
-    execution: shadow        # shadow-guard: allow — DEMOTED 2026-07-22 (Tier-3, operator-approved
-                             # same session): 3rd-consecutive-review-confirmed diversified-paper-book
-                             # laggard (this window -$2646.02/5t/0%WR; unchanged-negative since
-                             # 07-07/07-10). Thin n (5 trades) — a 4-6wk shadow re-eval is expected
-                             # before any permanent kill decision, not a permanent demotion.
-                             # ROLLBACK: set back to `live`.
-                             # NOTE (2026-07-30): the short-only fine-tune below is the diagnose-
-                             # don't-demote remedy for this leg — re-promoting shadow->live as a
-                             # SHORT-ONLY leg is the activation (a separate Tier-3 execution flip,
-                             # left for explicit operator sign-off; see the PR).
+    execution: live          # RE-PROMOTED shadow->live 2026-07-30 (Tier-3, operator-approved) AS A
+                             # SHORT-ONLY leg — the diagnose-don't-demote remedy for the 07-22 demote.
+                             # Demo/paper only (bybit_1); no real-money routing (not in bybit_2's list).
+                             # The 07-22 demote was of the BLENDED two-sided leg (this window
+                             # -$2646.02/5t/0%WR); the 2yr WF showed the LONG side was the whole loss
+                             # (long -12.39R / short +6.96R), so we re-promote the SHORT side (which
+                             # carries the edge) rather than leave the whole leg dead. ROLLBACK to the
+                             # demote: set execution back to `shadow`.
     side_filter: short       # SHORT-ONLY fine-tune (Tier-3, 2026-07-30). Demo/paper only (bybit_1).
                              # 2yr WF: blended -5.43R/maxDD-12.57 vs short-only +6.96R/maxDD-7.19
                              # (the LONG side is the whole loss: long -12.39R / short +6.96R — a
                              # single-symbol bearish-alt drag). DEFENSIVE (short-only positive in
-                             # 3/6 folds standalone) — size modestly. Currently INERT (execution:
-                             # shadow) — it gates the would-be signal once re-promoted. Evidence:
-                             # docs/research/crypto-finetune-proposals-2026-07-30.md (A).
+                             # 3/6 folds standalone) — size modestly. Active now (execution: live).
+                             # Evidence: docs/research/crypto-finetune-proposals-2026-07-30.md (A).
                              # ROLLBACK: delete this line (reverts to two-sided).
     timeframe: "2h"          # served as Bybit 120m via CCXT.
     symbols:
