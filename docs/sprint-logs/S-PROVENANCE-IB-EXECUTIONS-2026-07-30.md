@@ -273,3 +273,56 @@ Historical relabel remains **RELABEL ONLY, never re-price** (operator decision).
   the rule **quote the population or don't quote the number**, plus the
   `classify_pnl` two-key requirement.
 - `docs/claude/health-review-backlog.json` — 4 items filed, 1 corrected.
+
+## 7. CI attached — and immediately earned its keep
+
+The P1 above (`pull_request` CI returning `total_count: 0`) **resolved** partway
+through the session: 25 checks attached on the merge commit that brought #8039's
+files down from `main`. The cause is still not established — the merge commit is
+correlated, not proven causal — so the backlog item stays open pending a root
+cause rather than being closed as "it works now".
+
+The first three runs failed, all on real problems in this PR, none a flake:
+
+- **`guard`** — 4 tracking ids I had copied from `CLAUDE.md` prose
+  (`BL-20260613-IBPOS`, `BL-20260717-FILLS-STORE-PATH-SPLIT`,
+  `MB-20260706-CI-MINUTES`) that were never filed as backlog rows. My first
+  instinct was to strip the citations rather than file rows to turn a check
+  green. That instinct was wrong here, and checking rather than acting on it is
+  what caught it: the ids are real and heavily referenced (28 files between
+  them), and the backlog **keeps** resolved rows (210 of 331). So the rows
+  genuinely should exist, and their absence was itself the defect. Filed all
+  three as `resolved`.
+- **`new-table-wiring-guard`** — a **false positive on prose**. It matched a
+  docstring sentence *describing* that `exchange_fills` is created idempotently;
+  the module declares no table. Reworded rather than annotated: adding a
+  `# data-wiring:` line for a table that does not exist would falsify the exact
+  declaration the guard protects, and it is the path of least resistance — a
+  prose-blind guard actively teaches contributors to lie to it. Filed
+  `BL-20260730-NEW-TABLE-GUARD-MATCHES-PROSE`; **third** instance of prose-vs-code
+  confusion in this one session, so it is a systematic blind spot in the
+  diff-scanning guards, not a one-off.
+- **`pytest-run` — 11 failures out of 9,362**, and one was a genuine defect in
+  code I had already shipped: `/performance` selected `t.notes`
+  unconditionally, so a schema without the column raised and the caller
+  returned a **zeroed envelope** — every metric for every window blanked to buy
+  one coverage figure. It sat directly beneath the block that gates the R inputs
+  on `PRAGMA table_info`, whose comment states the rule I broke. Now gated the
+  same way.
+
+  Five more were sweep tests **asserting the fabrication** — one pinned a
+  $536.00 exit priced from `last_mark_price`. Rewritten to the new contract
+  rather than relaxed, including a test that pins the `deferred` vs `no_anchor`
+  distinction directly.
+
+And one problem CI could *not* have caught, found by reading the sibling unit:
+`ict-ib-executions-pull.service` was missing from `deploy_pull_restart.sh`'s
+`DEFAULT_SKIP`, so every deploy would have opened an **unscheduled IB gateway
+connection** — the costliest of these oneshots to fire needlessly, given the
+gateway's wedge history and that a deploy can land inside IBKR's ~03:45–05:45
+UTC reset window.
+
+**The honest summary of this section:** two of the three CI failures, and the
+deploy gap, were defects I introduced. The PR was locally green and internally
+consistent throughout; it took an independent check to find them. That is the
+argument for the P1 mattering, and against ever reading zero checks as green.
