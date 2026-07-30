@@ -312,6 +312,157 @@ def _score_rows(
     return scores, diag
 
 
+def audit_feature_rows(
+    predictor: Any,
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    sample: int = 5000,
+) -> Dict[str, Any]:
+    """Pre-flight: would the head be scored on the row it EXPECTS, or a degraded one?
+
+    ``ml/predictors/lightgbm.py::_encode_row`` degrades **silently** in two
+    ways — an unknown categorical value becomes ``-1`` and a missing numeric
+    becomes ``NaN``. Either still yields a perfectly plausible
+    ``P(volatile)``. So a dataset that is subtly wrong for this head produces
+    confident, wrong labels with no error anywhere, and every downstream cell
+    verdict inherits it.
+
+    Three things are checked, each of which can only be caught here:
+
+    1. **Feature presence** — every one of the head's feature columns present
+       and non-null. A missing column silently becomes NaN.
+    2. **Categorical coverage** — every categorical value appears in the head's
+       frozen ``categorical_mappings``. An unseen value silently becomes -1,
+       i.e. a category the head never trained on.
+    3. **vol_bucket parity** — the dataset's stored ``vol_bucket`` equals what
+       the head's **frozen edges** would assign to that row's
+       ``vol_feature_column`` value, computed with the LIVE function
+       (``regime_shadow.bucket_for_vol``). This is the train/serve parity check
+       (S-MLOPT-S17) applied to the replay: if the dataset was built with
+       different quantile edges than the head froze, the replay feeds a
+       different category than live would, and NOTHING else would notice.
+
+    Returns a report dict with ``ok: bool``. Never fabricates a pass: a check
+    that could not be run is reported as ``"not_checked"`` with the reason,
+    never silently counted as clean.
+    """
+    from src.runtime.regime_shadow import bucket_for_vol  # noqa: PLC0415
+
+    base = _unwrap(predictor)
+    feature_cols = list(getattr(base, "_feature_columns", []) or [])
+    cat_cols = set(getattr(base, "_categorical_columns", []) or [])
+    cat_maps = getattr(base, "_cat_mappings", {}) or {}
+    spec = getattr(base, "regime_spec", None) or {}
+
+    n = len(rows)
+    step = max(1, n // sample) if sample and n > sample else 1
+    checked = rows[::step]
+
+    missing: Dict[str, int] = {c: 0 for c in feature_cols}
+    unseen_cat: Dict[str, Dict[str, int]] = {c: {} for c in cat_cols}
+    for r in checked:
+        for c in feature_cols:
+            v = r.get(c)
+            if v is None or (isinstance(v, str) and not v.strip()):
+                missing[c] += 1
+            elif c in cat_cols:
+                s = str(v).strip()
+                if s not in (cat_maps.get(c) or {}):
+                    d = unseen_cat[c]
+                    d[s] = d.get(s, 0) + 1
+
+    # 3. vol_bucket parity against the head's FROZEN edges.
+    edges = [float(e) for e in (spec.get("vol_bucket_edges") or [])]
+    labels = list(spec.get("vol_bucket_labels") or [])
+    vol_col = str(spec.get("vol_feature_column") or "rolling_log_return_vol")
+    bucket_col = str(spec.get("feature_column") or "vol_bucket")
+    if not labels or bucket_col not in feature_cols:
+        parity: Dict[str, Any] = {
+            "status": "not_checked",
+            "reason": (
+                "head has no frozen vol_bucket_labels"
+                if not labels
+                else f"{bucket_col!r} is not one of this head's feature columns"
+            ),
+        }
+    else:
+        mism = 0
+        cmp_n = 0
+        examples: List[Dict[str, Any]] = []
+        for r in checked:
+            raw = r.get(vol_col)
+            stored = r.get(bucket_col)
+            if raw is None or stored is None:
+                continue
+            try:
+                expect = bucket_for_vol(float(raw), edges, labels)
+            except Exception:  # noqa: BLE001
+                continue
+            cmp_n += 1
+            if expect != str(stored):
+                mism += 1
+                if len(examples) < 5:
+                    examples.append({"ts": r.get("ts"), vol_col: raw,
+                                     "dataset_bucket": stored,
+                                     "frozen_edge_bucket": expect})
+        parity = {
+            "status": "checked" if cmp_n else "not_checked",
+            "compared": cmp_n,
+            "mismatches": mism,
+            "mismatch_pct": round(100.0 * mism / cmp_n, 3) if cmp_n else None,
+            "vol_feature_column": vol_col,
+            "frozen_edges": edges,
+            "frozen_labels": labels,
+            "examples": examples,
+        }
+        if not cmp_n:
+            parity["reason"] = (
+                f"no row carried both {vol_col!r} and {bucket_col!r} — the "
+                "parity check ran but compared nothing, which is NOT a pass"
+            )
+
+    missing_bad = {c: k for c, k in missing.items() if k}
+    unseen_bad = {c: v for c, v in unseen_cat.items() if v}
+    ok = (
+        not missing_bad
+        and not unseen_bad
+        and parity.get("status") == "checked"
+        and not parity.get("mismatches")
+    )
+    return {
+        "ok": ok,
+        "rows_total": n,
+        "rows_checked": len(checked),
+        "sample_stride": step,
+        "feature_columns": feature_cols,
+        "missing_or_null_by_column": missing_bad,
+        "unseen_categorical_values": unseen_bad,
+        "vol_bucket_parity": parity,
+    }
+
+
+def _describe_scores(scores: Sequence[Optional[float]]) -> Dict[str, Any]:
+    """Distribution of ``P(volatile)`` — a degenerate one is a broken replay.
+
+    A head that returns a near-constant probability for every bar produces a
+    100/0 label split that reads like a dramatic regime finding and is
+    actually a scoring bug. Reported next to the labels so the split can be
+    judged rather than assumed.
+    """
+    vals = sorted(v for v in scores if v is not None)
+    if not vals:
+        return {"n": 0, "note": "no scorable rows"}
+    def q(p: float) -> float:
+        i = min(len(vals) - 1, max(0, int(round(p * (len(vals) - 1)))))
+        return round(vals[i], 6)
+    return {
+        "n": len(vals), "min": q(0.0), "p05": q(0.05), "p25": q(0.25),
+        "median": q(0.5), "p75": q(0.75), "p95": q(0.95), "max": q(1.0),
+        "mean": round(sum(vals) / len(vals), 6),
+        "distinct_values": len({round(v, 6) for v in vals}),
+    }
+
+
 def _p_from_proba(proba_fn: Any, row: Mapping[str, Any]) -> Optional[float]:
     try:
         proba = proba_fn(row)
@@ -337,6 +488,7 @@ def run_replay(
     registry_root: Optional[str] = None,
     threshold: Optional[float] = None,
     batch: bool = True,
+    audit: bool = True,
 ) -> Dict[str, Any]:
     """Score every dataset bar and write ``{ts, p_volatile, vol_regime}`` JSONL.
 
@@ -358,6 +510,30 @@ def run_replay(
             f"dataset {dataset} yielded 0 rows — nothing to label. A zero-row "
             "labels file would silently grade every cell as 'unknown'."
         )
+
+    # PRE-FLIGHT (default ON). _encode_row degrades silently — unknown
+    # categorical → -1, missing numeric → NaN — so a subtly-wrong dataset
+    # yields confident wrong labels with no error. Refuse to score rather than
+    # emit labels whose feature rows we have not verified.
+    feature_audit: Dict[str, Any] = {"ran": False, "reason": "skipped via --skip-audit"}
+    if audit:
+        feature_audit = audit_feature_rows(head["predictor"], rows)
+        feature_audit["ran"] = True
+        if not feature_audit["ok"]:
+            raise RuntimeError(
+                "FEATURE AUDIT FAILED — refusing to emit labels the head would "
+                "be scored on a degraded row for. This is not a warning: "
+                "_encode_row turns an unknown categorical into -1 and a missing "
+                "numeric into NaN, both of which still return a plausible "
+                "P(volatile).\n"
+                + json.dumps({
+                    "missing_or_null_by_column": feature_audit["missing_or_null_by_column"],
+                    "unseen_categorical_values": feature_audit["unseen_categorical_values"],
+                    "vol_bucket_parity": feature_audit["vol_bucket_parity"],
+                }, indent=2, default=str)
+                + "\nIf this is understood and intended, re-run with --skip-audit "
+                "(and say so in whatever the labels are used for)."
+            )
 
     scores, score_diag = _score_rows(head["predictor"], rows, batch=batch)
 
@@ -409,6 +585,11 @@ def run_replay(
         "ts_first": str(rows[0].get("ts")) if rows else None,
         "ts_last": str(rows[-1].get("ts")) if rows else None,
         "scoring": score_diag,
+        "feature_audit": feature_audit,
+        # A near-constant P(volatile) produces a 100/0 split that READS like a
+        # dramatic regime finding and is actually a scoring bug. Published so
+        # the split can be judged rather than assumed.
+        "p_volatile_distribution": _describe_scores(scores),
         # Fidelity flags travel with the artifact — see the module docstring.
         "fidelity": {
             "in_sample": True,
@@ -556,7 +737,17 @@ def main(argv: List[str]) -> int:
                    help="override ML_VOL_VERDICT_THRESHOLD (default: the live resolver)")
     r.add_argument("--no-batch", action="store_true",
                    help="score row-by-row via predict_proba (slower; the canonical path)")
+    r.add_argument("--skip-audit", action="store_true",
+                   help="skip the feature pre-flight (NOT recommended — _encode_row "
+                        "degrades silently, so this can emit confident wrong labels)")
     r.add_argument("--json", action="store_true")
+
+    a2 = sub.add_parser("audit", help="run ONLY the feature pre-flight against a dataset")
+    a2.add_argument("--symbol", required=True)
+    a2.add_argument("--dataset", required=True)
+    a2.add_argument("--model-id", default=None)
+    a2.add_argument("--registry-root", default=None)
+    a2.add_argument("--json", action="store_true")
 
     v = sub.add_parser("verify", help="compare replayed labels against the LIVE gate's audit rows")
     v.add_argument("--labels", required=True)
@@ -568,11 +759,35 @@ def main(argv: List[str]) -> int:
 
     a = p.parse_args(argv)
 
+    if a.cmd == "audit":
+        head = resolve_advisory_head(
+            a.symbol, model_id=a.model_id, registry_root=a.registry_root
+        )
+        rows = list(iter_dataset_rows(Path(a.dataset)))
+        rep = audit_feature_rows(head["predictor"], rows)
+        rep["head"] = {"model_id": head.get("model_id"), "stage": head.get("stage")}
+        rep["dataset"] = str(a.dataset)
+        if a.json:
+            print(json.dumps(rep, indent=2, default=str))
+        else:
+            print(f"head     {rep['head']['model_id']} (stage={rep['head']['stage']})")
+            print(f"rows     {rep['rows_total']} (checked {rep['rows_checked']}, "
+                  f"stride {rep['sample_stride']})")
+            print(f"missing  {rep['missing_or_null_by_column'] or 'none'}")
+            print(f"unseen   {rep['unseen_categorical_values'] or 'none'}")
+            pa = rep["vol_bucket_parity"]
+            print(f"parity   {pa.get('status')} compared={pa.get('compared')} "
+                  f"mismatches={pa.get('mismatches')} ({pa.get('mismatch_pct')}%)")
+            for ex in (pa.get("examples") or [])[:5]:
+                print(f"           {ex}")
+            print(f"VERDICT  {'ok' if rep['ok'] else 'FAILED'}")
+        return 0 if rep["ok"] else 3
+
     if a.cmd == "replay":
         m = run_replay(
             dataset=Path(a.dataset), symbol=a.symbol, out_path=Path(a.out),
             model_id=a.model_id, registry_root=a.registry_root,
-            threshold=a.threshold, batch=not a.no_batch,
+            threshold=a.threshold, batch=not a.no_batch, audit=not a.skip_audit,
         )
         if a.json:
             print(json.dumps(m, indent=2))
@@ -588,12 +803,31 @@ def main(argv: List[str]) -> int:
                   f"unknown={m['counts'][VOL_UNKNOWN]}  "
                   f"(volatile {m['volatile_pct']}%)")
             print(f"scoring   {m['scoring']}")
+            print(f"audit     ok={m['feature_audit'].get('ok')} "
+                  f"(ran={m['feature_audit'].get('ran')})")
+            print(f"p_vol     {m['p_volatile_distribution']}")
             print(f"wrote     {a.out} (+ .manifest.json)")
             print("NOTE: fidelity.live_verified=false — run `verify` against live "
                   "audit rows before grading any cell with this file.")
         # A vacuous artifact must fail loudly, not be reported as a success.
         if m["labelled"] == 0:
             print("ERROR: 0 bars labelled — this file cannot grade anything.",
+                  file=sys.stderr)
+            return 2
+        # A degenerate split is a broken replay wearing the costume of a
+        # dramatic regime finding. Surface it as a failure, not a result.
+        dist = m["p_volatile_distribution"]
+        if m["counts"][VOL_CALM] == 0 or m["counts"][VOL_VOLATILE] == 0:
+            print(f"ERROR: degenerate label split "
+                  f"(calm={m['counts'][VOL_CALM]}, volatile={m['counts'][VOL_VOLATILE]}) "
+                  f"— every bar landed on one side of the threshold. "
+                  f"P(volatile) distribution: {dist}. Treat this as a scoring bug "
+                  f"until proven otherwise, NOT as a regime finding.", file=sys.stderr)
+            return 2
+        if dist.get("distinct_values", 0) < 10:
+            print(f"ERROR: P(volatile) took only {dist.get('distinct_values')} distinct "
+                  f"values across {dist.get('n')} bars — the head is returning a "
+                  f"near-constant score, which is a scoring bug, not a regime.",
                   file=sys.stderr)
             return 2
         return 0

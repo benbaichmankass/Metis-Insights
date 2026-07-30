@@ -306,6 +306,116 @@ def test_verify_reads_vol_regime_when_source_is_ml(tmp_path):
     assert res["verdict"] == "verified"
 
 
+# ---------------------------------------------------------------------------
+# 5. the feature pre-flight — the checks that catch a SILENTLY degraded score
+# ---------------------------------------------------------------------------
+#
+# `ml/predictors/lightgbm.py::_encode_row` turns an unknown categorical into
+# -1 and a missing numeric into NaN. Both still return a plausible
+# P(volatile). So a subtly-wrong dataset yields confident WRONG labels with no
+# error, and every downstream cell verdict inherits it. These are the only
+# checks that can catch that before it becomes a decision.
+
+
+class _StubHead:
+    """Minimal stand-in for LightGBMMulticlassPredictor's audited surface."""
+
+    def __init__(self, edges=(0.001, 0.002), labels=("vol_b0", "vol_b1", "vol_b2")):
+        self._feature_columns = ["vol_bucket", "rolling_log_return_vol", "log_return"]
+        self._categorical_columns = ["vol_bucket"]
+        self._cat_mappings = {"vol_bucket": {"vol_b0": 0, "vol_b1": 1, "vol_b2": 2}}
+        self.class_labels = ("range", "volatile")
+        self.regime_spec = {
+            "feature_column": "vol_bucket",
+            "vol_feature_column": "rolling_log_return_vol",
+            "vol_bucket_edges": list(edges),
+            "vol_bucket_labels": list(labels),
+            "symbol": "BTCUSDT",
+            "timeframe": "15m",
+        }
+
+
+def _row(**kw):
+    base = {"ts": "2026-01-01T00:00:00Z", "vol_bucket": "vol_b0",
+            "rolling_log_return_vol": 0.0005, "log_return": 0.001}
+    base.update(kw)
+    return base
+
+
+def test_audit_passes_on_a_consistent_dataset():
+    rows = [_row(), _row(rolling_log_return_vol=0.0015, vol_bucket="vol_b1"),
+            _row(rolling_log_return_vol=0.005, vol_bucket="vol_b2")]
+    rep = replay.audit_feature_rows(_StubHead(), rows)
+    assert rep["ok"] is True
+    assert rep["vol_bucket_parity"]["status"] == "checked"
+    assert rep["vol_bucket_parity"]["mismatches"] == 0
+
+
+def test_audit_catches_a_missing_numeric_feature():
+    """A missing numeric silently becomes NaN and still scores."""
+    rows = [_row(), _row(log_return=None)]
+    rep = replay.audit_feature_rows(_StubHead(), rows)
+    assert rep["ok"] is False
+    assert rep["missing_or_null_by_column"] == {"log_return": 1}
+
+
+def test_audit_catches_an_unseen_categorical_value():
+    """An unseen categorical silently becomes -1 — a category never trained on."""
+    rows = [_row(), _row(vol_bucket="vol_b9")]
+    rep = replay.audit_feature_rows(_StubHead(), rows)
+    assert rep["ok"] is False
+    assert rep["unseen_categorical_values"]["vol_bucket"] == {"vol_b9": 1}
+
+
+def test_audit_catches_vol_bucket_built_with_different_edges_than_the_head_froze():
+    """The train/serve parity check, applied to the replay.
+
+    If the dataset's stored ``vol_bucket`` was computed with different quantile
+    edges than the head froze, the replay feeds the head a DIFFERENT category
+    than the live serve path would — and nothing else in the pipeline notices,
+    because the value is a perfectly valid category.
+    """
+    # vol=0.0005 is below edge 0.001 → frozen edges say vol_b0; dataset says b2.
+    rows = [_row(vol_bucket="vol_b2", rolling_log_return_vol=0.0005)]
+    rep = replay.audit_feature_rows(_StubHead(), rows)
+    assert rep["ok"] is False
+    pa = rep["vol_bucket_parity"]
+    assert pa["status"] == "checked" and pa["mismatches"] == 1
+    assert pa["examples"][0]["dataset_bucket"] == "vol_b2"
+    assert pa["examples"][0]["frozen_edge_bucket"] == "vol_b0"
+
+
+def test_audit_parity_reports_not_checked_rather_than_faking_a_pass():
+    """'Could not compare' is its own outcome — never counted as clean."""
+    rows = [{"ts": "2026-01-01T00:00:00Z", "vol_bucket": "vol_b0",
+             "rolling_log_return_vol": None, "log_return": 0.001}]
+    rep = replay.audit_feature_rows(_StubHead(), rows)
+    pa = rep["vol_bucket_parity"]
+    assert pa["status"] == "not_checked"
+    assert "NOT a pass" in pa["reason"]
+    assert rep["ok"] is False  # an unrunnable parity check must not pass the audit
+
+
+def test_audit_uses_the_live_bucketing_function_not_a_reimplementation():
+    """Parity must be computed with the same fn the serve path uses."""
+    from src.runtime.regime_shadow import bucket_for_vol
+    edges, labels = [0.001, 0.002], ["vol_b0", "vol_b1", "vol_b2"]
+    # saturation + boundary semantics are the live function's, whatever they are
+    assert bucket_for_vol(0.001, edges, labels) == "vol_b0"   # <= is inclusive
+    assert bucket_for_vol(0.0011, edges, labels) == "vol_b1"
+    assert bucket_for_vol(99.0, edges, labels) == "vol_b2"    # saturates
+
+
+def test_score_distribution_flags_a_degenerate_head():
+    """A near-constant P(volatile) is a scoring bug, not a regime."""
+    flat = replay._describe_scores([0.5] * 100)
+    assert flat["distinct_values"] == 1
+    varied = replay._describe_scores([i / 100 for i in range(100)])
+    assert varied["distinct_values"] == 100
+    assert varied["median"] == pytest.approx(0.5, abs=0.02)
+    assert replay._describe_scores([])["n"] == 0
+
+
 def test_malformed_labels_line_raises_rather_than_silently_dropping(tmp_path):
     """A holed labels file would grade cells on a partial population."""
     p = tmp_path / "bad.jsonl"
