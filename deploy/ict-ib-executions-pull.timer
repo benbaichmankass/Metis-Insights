@@ -1,0 +1,31 @@
+# ============================================
+# ICT IB-EXECUTIONS PULL TIMER (S-PROVENANCE-IB-EXECUTIONS-2026-07-30)
+# Fires the IBKR executions pull HOURLY. Full cadence rationale (IBKR's short
+# execution retention AND order_monitor's 6h broker-defer grace, both of which
+# a daily pull would lose to) is in the .service header — read it before
+# retiming this.
+#
+# :17 past the hour keeps it clear of the 00:20 exchange-fills pull, the 23:30
+# MES pull, the ~00:50 trainer sync and the 06:05 gateway reset. A fire landing
+# inside IBKR's ~03:45-05:45 UTC reset window simply fails soft; --days 2 means
+# the next hour recovers it.
+#
+# Auto-enabled on the trader box by scripts/install_systemd_units.sh (not a
+# gateway-only or retired timer); the gateway VM and trainer never enable it.
+# Save to: /etc/systemd/system/ict-ib-executions-pull.timer
+# ============================================
+
+[Unit]
+Description=Trigger ict-ib-executions-pull hourly (broker-truth IBKR fills)
+Requires=ict-ib-executions-pull.service
+
+[Timer]
+OnCalendar=*-*-* *:17:00
+# Small spread so it never lands exactly on another job's minute.
+RandomizedDelaySec=120
+# Catch up one missed run if the VM was down at fire time.
+Persistent=true
+Unit=ict-ib-executions-pull.service
+
+[Install]
+WantedBy=timers.target

@@ -164,6 +164,11 @@ MEASURED_SOURCES = frozenset({
     # Broker truth.
     "bybit_closed_pnl", "bybit_closed_pnl_rebuild", "bybit_closed_pnl_backfill",
     "exchange", "broker_truth",
+    # IBKR per-execution truth: CommissionReport.realizedPNL, read back from
+    # the exchange-fills store (src.runtime.exchange_fills_ib). A venue-reported
+    # fill, so MEASURED — and strictly better than `candle_at_close`, which is
+    # all IB could otherwise get (IBKR historical-candle coverage is 0%).
+    "ib_execution",
     # A real fill the bot itself recorded at close time.
     "recorded_exit_price", "operator_flatten_fill", "verdict",
 })
@@ -193,6 +198,11 @@ FABRICATED_SOURCES = frozenset({
     # Dashboard-side mark estimate for prop (no broker feed exists at all).
     "prop_estimate",
 })
+
+#: Suffix marking a value prorated across netted sibling rows by qty share.
+#: See :func:`classify` — any source carrying it is FABRICATED regardless of how
+#: measured the underlying broker record was, because the SPLIT is an assumption.
+_PRORATED_SUFFIX = "_prorated"
 
 
 #: Per-key bucket overrides — the SAME source string can mean different things
@@ -256,6 +266,17 @@ def classify(source: Any, key: Optional[str] = None) -> str:
         return ESTIMATED
     if s in MEASURED_SOURCES:
         return MEASURED
+    # A `_prorated` suffix means a netted record's economics were split across
+    # sibling rows by qty share. That is a modelling assumption about
+    # ATTRIBUTION, not an observed per-row fill — for exactly the reason
+    # `netted_prorated` is in FABRICATED_SOURCES — and it stays true however
+    # measured the underlying record was. Handled as a suffix, not an
+    # enumeration, because the base varies per reader
+    # (`bybit_closed_pnl_prorated`, `ib_execution_prorated`, ...): before this,
+    # `bybit_closed_pnl_prorated` fell through to UNVERIFIED, so a prorated
+    # number read as merely-unrecorded rather than manufactured.
+    if s.endswith(_PRORATED_SUFFIX) and len(s) > len(_PRORATED_SUFFIX):
+        return FABRICATED
     return UNVERIFIED
 
 

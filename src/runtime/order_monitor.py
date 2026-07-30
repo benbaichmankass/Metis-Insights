@@ -4399,6 +4399,39 @@ def _pkg_age_minutes(updated_at: Any) -> Optional[float]:
     return delta.total_seconds() / 60.0
 
 
+#: Historical ``exit_price_source`` stamp, used when a broker closed-pnl record
+#: predates the ``source`` field (2026-07-30). Bybit was the only reader then,
+#: so this is the correct — and only possible — value for such a record.
+_LEGACY_BROKER_PNL_SOURCE = "bybit_closed_pnl"
+
+
+def _broker_pnl_source(rec: Optional[Dict[str, Any]]) -> str:
+    """The provenance stamp for a broker closed-pnl record.
+
+    Every caller used to hardcode ``"bybit_closed_pnl"``. That was accurate
+    while ``BROKER_PNL_READER_EXCHANGES`` held only ``bybit`` — and became a
+    provenance LIE the moment IB was wired, labelling an IBKR execution as a
+    Bybit closed-pnl record. The record now declares its own source
+    (``clients.account_closed_pnl_for_trade``); read it, never a literal.
+
+    Falls back to the historical value for a record with no ``source``, which
+    can only have come from the Bybit reader.
+    """
+    src = (rec or {}).get("source") if isinstance(rec, dict) else None
+    return str(src) if src else _LEGACY_BROKER_PNL_SOURCE
+
+
+def _broker_pnl_note_key(rec: Optional[Dict[str, Any]]) -> str:
+    """Notes key the raw broker PnL figure is filed under.
+
+    Kept as ``bybit_closed_pnl`` for Bybit so every existing reader of that key
+    (and every historical row) is unaffected; a non-Bybit reader files under
+    ``<source>`` so the two are never conflated in one field.
+    """
+    src = _broker_pnl_source(rec)
+    return "bybit_closed_pnl" if src.startswith("bybit") else src
+
+
 def _recover_close_from_broker_pnl(
     db,
     trade_row: Any,
@@ -4491,8 +4524,12 @@ def _recover_close_from_broker_pnl(
             "watchdog — position flat at exchange; recovered the real close "
             "from Bybit closed-pnl rather than orphaning"
         ),
-        "exit_price_source": "bybit_closed_pnl",
-        "bybit_closed_pnl": closed_pnl,
+        # The record carries its own provenance (`rec["source"]`); stamping a
+        # literal here was correct only while Bybit was the sole reader, and
+        # became a provenance LIE the moment IB was wired (2026-07-30). A
+        # pre-`source` record falls back to the historical value.
+        "exit_price_source": _broker_pnl_source(rec),
+        _broker_pnl_note_key(rec): closed_pnl,
         "exit_reason_source":
             ("price_vs_pkg_bracket" if resolved_reason else "unresolved"),
     })
@@ -5410,7 +5447,7 @@ def _cascade_close_netted_siblings(
                 ),
                 "netted_primary_trade_id": primary_id,
                 "exit_price_source": (
-                    "bybit_closed_pnl_prorated" if avg_exit > 0
+                    f"{_broker_pnl_source(rec)}_prorated" if avg_exit > 0
                     else "netted_flat_no_record"
                 ),
                 "exit_reason_source": (
@@ -5587,8 +5624,9 @@ def _close_trade_from_order_status(
             "closed_by": "monitor_reconciler",
             "closed_reason":
                 "reconciler — Bybit reports order filled and position flat",
-            "exit_price_source": "bybit_closed_pnl",
-            "bybit_closed_pnl": closed_pnl_rec.get("closed_pnl"),
+            "exit_price_source": _broker_pnl_source(closed_pnl_rec),
+            _broker_pnl_note_key(closed_pnl_rec):
+                closed_pnl_rec.get("closed_pnl"),
             "finalised_by": "reconciler",
             "exit_reason_source":
                 ("price_vs_pkg_bracket" if resolved_reason else "unresolved"),
@@ -7159,9 +7197,9 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
             avg_exit_price = float(rec["avg_exit_price"])
             closed_pnl = rec.get("closed_pnl")
             notes = _decode_notes(row.get("notes"))
-            notes["exit_price_source"] = "bybit_closed_pnl"
+            notes["exit_price_source"] = _broker_pnl_source(rec)
             if closed_pnl is not None:
-                notes["bybit_closed_pnl"] = closed_pnl
+                notes[_broker_pnl_note_key(rec)] = closed_pnl
             if rec.get("closed_at") and "closed_at" not in notes:
                 # Normalise epoch-ms → ISO (BL-20260620-RECONCILER-CLOSEDAT-MS).
                 notes["closed_at"] = (
