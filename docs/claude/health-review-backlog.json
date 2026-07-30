@@ -7675,14 +7675,14 @@
       "id": "BL-20260730-TRAINER-JOURNAL-COPY-STALE",
       "opened_at": "2026-07-30T17:00:00+00:00",
       "opened_by": "claude (provenance IB-executions session)",
-      "source": "trainer-vm-diag issue #8068 output: /home/ubuntu/ict-trading-bot/trade_journal.db on the trainer VM was dated 'Jul 20 21:56' when read on 2026-07-30 — 10 days stale.",
-      "title": "Trainer VM's trade_journal.db copy read 10 days stale (Jul 20 vs Jul 30)",
-      "detail": "Observed incidentally while measuring provenance exposure, so it is NOT yet confirmed as a broken sync: the trainer may pull to a different path for training, or that file may be a retired copy. Needs confirming against the db_pulls record and the path the dataset builders actually read. IF the training population really is 10 days behind live, every dataset build and every training cycle since Jul 20 has been fitting stale data — which would matter a great deal for the promotion decisions being made off those models. Filed rather than fixed because it is outside this PR's scope and needs a trainer-side read to confirm. Also note the trainer has NO sqlite3 CLI (#8068 failed on that); use python3 for journal reads via the relay.",
-      "severity": "high",
+      "source": "trainer-vm-diag #8071: TWO journal copies exist on the trainer VM — /home/ubuntu/ict-trading-bot/trade_journal.db (8 MB, Jul 20 21:56) and /home/ubuntu/ict-trading-bot/data/trade_journal.db (677 MB, Jul 30 09:20).",
+      "title": "Stray 8 MB trade_journal.db at the trainer repo root beside the real 677 MB store",
+      "detail": "CORRECTION to the first version of this item: the trainer is NOT 10 days stale. My initial read grabbed the small repo-root file first and I filed it as NEEDS-CONFIRMING; #8071 then showed the real store under data/ is current (Jul 30 09:20). The residual finding is the 8 MB repo-root file itself: a CWD-relative `trade_journal.db` next to the canonical DATA_DIR-anchored one is exactly the stray-duplicate artifact the `canonical-db-resolver` guard exists to prevent, and anything that resolves to it silently reads a Jul-20 snapshot. Action: confirm nothing on the trainer resolves to the repo-root path (the Python resolver src.utils.paths and the shell runtime_db_path should both prefer $DATA_DIR), then delete or rename the stale file so it cannot be picked up. Low risk, but it is a live foot-gun of a class this repo has already been burned by.",
+      "severity": "medium",
       "status": "open",
       "tier": 1
     }
   ],
-  "updated_at": "2026-07-30T17:00:00+00:00",
+  "updated_at": "2026-07-30T17:20:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
