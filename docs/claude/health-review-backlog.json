@@ -7997,7 +7997,7 @@
     },
     {
       "id": "BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ",
-      "status": "open",
+      "status": "in_progress",
       "tier": 2,
       "severity": "high",
       "opened_at": "2026-07-30T21:30:00+00:00",
@@ -8011,7 +8011,10 @@
         "PR #8069",
         "BL-20260608-DEMOPNL",
         "BL-20260730-ML-LABELS-IGNORE-PNL-PROVENANCE"
-      ]
+      ],
+      "step0_measured_2026_07_30": "MEASURED via diag #8114 (/api/bot/pnl/exchange?days=90). The store is NOT empty: 305 fills across 12 symbols over 90 days, spanning 2026-07-06 to 2026-07-30. So the pullers are working and the data was there all along — the gap was purely that nothing read it. Proceeded to the resolver on that basis.\n\nTHE MEASUREMENT ALSO CAUGHT A BUG THAT WOULD HAVE MADE THE FIX INERT: the Bybit puller stores ccxt symbols (BTC/USDT:USDT, ADA/USDT:USDT, XRP/USDT:USDT) while the journal carries plain form (BTCUSDT). An equality match on `symbol` would have returned ZERO rows for every Bybit trade — the resolver would have run clean, logged nothing, and changed nothing. Equities (GLD/SLV/TLT/SPY/USO/GDX/IEF) and MGC are stored plain, so a test written against a hand-made fixture would never have surfaced it. Fixed by folding both forms through the canonical broker_cost_attribution.normalize_symbol, with three tests pinning it (including that the fold does not collapse DIFFERENT instruments).",
+      "shipped_2026_07_30": "src/runtime/fills_pnl.py — venue-neutral resolver, two modes (require_realized for IB's own realizedPNL; measured exit PRICE for Bybit/Alpaca which serve none). clients.py: the demo branch narrowed to skip the closed-pnl ENDPOINT only and fall through to fills; alpaca added to BROKER_PNL_READER_EXCHANGES; exchange_fills_ib delegates so there is one implementation. Alpaca OPTIONS deliberately excluded (their realised PnL is /v2/account/activities cash, owned by the options-lifecycle reconciler). Also fixed a real ordering bug the tests caught: the linear/inverse gate ran BEFORE the demo branch, but that constraint belongs to the closed-pnl endpoint, not the fills store — a spot demo account was dead-ended for a reason that did not apply to its path.",
+      "remaining": "(1) DEPLOY + re-measure: the change is inert until the live VM runs it. Re-run scripts/ops/provenance_exposure_audit.py after deploy and confirm pnlCoverage moves off 504/829. (2) The store holds 90d; the journal's fabricated rows run back to June, so forward rows resolve but older ones stay unmeasured — historical relabel remains RELABEL ONLY per the 2026-07-30 operator decision unless re-derivation is explicitly approved. (3) Bybit fills carry no realised PnL, so fees are not yet folded into the local compute on that path — the exit PRICE is measured, the fee treatment is unchanged. Worth a follow-up measurement, not an assumption."
     }
   ],
   "updated_at": "2026-07-30T17:45:00+00:00",

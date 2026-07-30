@@ -222,3 +222,33 @@ def test_a_demo_account_now_reaches_the_resolver(monkeypatch, store):
     assert rec["source"] == FP.FILL_EXIT_SOURCE
     assert seen["require_realized"] is False   # Bybit serves no realised PnL
     assert seen["account_id"] == "bybit_1"
+
+
+# ----------------------------------------------- the ccxt/plain symbol fold
+def test_ccxt_stored_symbol_matches_a_plain_journal_symbol(store):
+    """THE bug that would have made this whole change inert.
+
+    The Bybit puller stores ccxt form (`BTC/USDT:USDT`); the journal carries the
+    plain form (`BTCUSDT`). A `WHERE symbol = ?` equality match returns ZERO rows
+    for every Bybit trade — so the resolver would run clean, log nothing, and
+    silently change nothing at all. Caught only by looking at the real store
+    (diag #8114), not by any test written against my own fixture.
+    """
+    store.add("e1", symbol="BTC/USDT:USDT", price=64100.0)
+    rec = _resolve(store, symbol="BTCUSDT")
+    assert rec is not None, "ccxt-stored fills must match a plain journal symbol"
+    assert rec["avg_exit_price"] == 64100.0
+
+
+def test_the_fold_is_symmetric(store):
+    """Either side may be in either form — equities/futures are stored plain,
+    crypto in ccxt, and the journal is plain throughout."""
+    store.add("e1", symbol="XRPUSDT", price=1.08)
+    assert _resolve(store, symbol="XRP/USDT:USDT") is not None
+
+
+def test_the_fold_does_not_collapse_DIFFERENT_instruments(store):
+    """Folding must not become 'match anything' — ETH fills may never be
+    attributed to a BTC trade."""
+    store.add("e1", symbol="ETH/USDT:USDT")
+    assert _resolve(store, symbol="BTCUSDT") is None

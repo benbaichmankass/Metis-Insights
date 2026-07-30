@@ -58,6 +58,11 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+# The ONE symbol folder. `BTC/USDT:USDT` (how the Bybit puller stores it) and
+# `BTCUSDT` (how the journal carries it) are the same instrument; re-deriving
+# this mapping locally is how the two halves drift apart.
+from src.runtime.broker_cost_attribution import normalize_symbol
+
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -153,9 +158,9 @@ def exit_from_fills(
     Never raises.
     """
     side = {"long": "sell", "short": "buy"}.get(str(direction or "").lower())
-    sym = str(symbol or "").strip()
+    want_sym = normalize_symbol(symbol)
     acct = str(account_id or "").strip()
-    if not side or not sym or not acct:
+    if not side or not want_sym or not acct:
         return None
     try:
         start_ms = int(opened_at_ms) - _OPEN_SLACK_MS
@@ -174,14 +179,26 @@ def exit_from_fills(
         if conn is None:
             return None
         try:
-            rows = conn.execute(
-                "SELECT price, qty, exec_time, raw FROM exchange_fills "
-                " WHERE account_id = ? AND symbol = ? AND side = ? "
-                "   AND datetime(exec_time) >= datetime(?) "
-                "   AND datetime(exec_time) <= datetime(?) "
-                " ORDER BY datetime(exec_time) ASC",
-                (acct, sym, side, _iso(start_ms), _iso(end_ms)),
-            ).fetchall()
+            # Symbol is matched on the NORMALISED key, not by equality.
+            # The Bybit puller stores ccxt form (`BTC/USDT:USDT`) while the
+            # journal carries the plain form (`BTCUSDT`), so `symbol = ?` would
+            # match ZERO rows for every Bybit trade — the resolver would look
+            # correct, run clean, and silently change nothing. Verified against
+            # the live store (diag #8114): 12 symbols, Bybit in ccxt form,
+            # equities/futures plain. Filtering happens in Python because SQL
+            # cannot call the canonical folder; the window is one trade's
+            # lifetime on one account, so the row count is small.
+            rows = [
+                r for r in conn.execute(
+                    "SELECT price, qty, exec_time, raw, symbol FROM exchange_fills "
+                    " WHERE account_id = ? AND side = ? "
+                    "   AND datetime(exec_time) >= datetime(?) "
+                    "   AND datetime(exec_time) <= datetime(?) "
+                    " ORDER BY datetime(exec_time) ASC",
+                    (acct, side, _iso(start_ms), _iso(end_ms)),
+                ).fetchall()
+                if normalize_symbol(r[4]) == want_sym
+            ]
         finally:
             try:
                 conn.close()
@@ -196,7 +213,7 @@ def exit_from_fills(
     target = _f(qty)
     matched: List[tuple] = []
     filled = 0.0
-    for price, fqty, exec_time, raw in rows:
+    for price, fqty, exec_time, raw, _sym in rows:
         p, q = _f(price), _f(fqty)
         if p is None or q is None or p <= 0 or q <= 0:
             return None
