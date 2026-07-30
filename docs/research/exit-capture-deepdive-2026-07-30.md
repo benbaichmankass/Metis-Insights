@@ -107,6 +107,55 @@ pullback legs — mechanical exit levers there don't beat baseline. Their bleed 
 5. *(Secondary, entries)* `slv_trend_1h` fired conf 0.06/0.15 "should-skip"
    losers → confidence floor / regime gate. Lower priority than exits.
 
+## Corrected book-level picture (per-account, per-strategy) — the real state
+
+Per-account journal-realized $ (artifacts excluded), reconciled against
+exchange-fills wallet truth:
+
+| account | role | 14d $ | 30d $ |
+|---|---|---|---|
+| **`bybit_2`** | **REAL money** | **−$30** | **−$30** |
+| `bybit_portfolio` | paper mirror of bybit_2 (~$87k) | −$12,597 | −$12,597 |
+| `bybit_1` | crypto soak fleet | −$14,750 | −$25,065 |
+| **`alpaca_portfolio`** | paper mirror of the equity live-portfolio | **+$3,953** | +$3,953 |
+| `alpaca_paper` | equity soak | −$2,616 | −$4,216 |
+
+**Crypto is losing at every scale and in every strategy** (bybit_portfolio 30d):
+`eth_pullback_2h` −$5,601 · `ict_scalp_5m` −$4,025 · `trend_donchian` −$1,705 ·
+`trend_donchian_xrp_4h` −$938 · `xrp_pullback_2h` −$329. On real `bybit_2` the
+same shape: `eth_pullback_2h` −$24.65 dominates, scalps ≈ flat. **This is a
+strategy-edge problem, not only an exit problem.** Note `ict_scalp_5m` is
+−$4,025 at portfolio scale — the +24R "win" that inflated the R-metric does not
+survive at scale, so **the scalps are not clean winners and should not be
+graduated to real money on this evidence.**
+
+**The equity portfolio mirror is net-positive (+$3,953) but ENTIRELY carried by
+one strategy:** `uso_trend_1h` **+$9,730** vs `slv_trend_1h` −$2,299 /
+`tlt_pullback_1h` −$2,161 / `gld_pullback_1h` −$1,093 / `spy_pullback_1h` −$224.
+So it is not "equities work" — it is "one oil-trend strategy had a big run and
+everything else lost." And `alpaca_live` is **dry ($0)** — none of it is real.
+
+**Bottom line:** the system is not currently profitable at any scale except one
+oil-trend strategy whose edge is unverified (2 trades). Real money (`bybit_2`) is
+down ~$30/14d, ~$262 lifetime. The exit-bracket fix (below) is real and worth
+shipping, but it is a *contributing* fix to the crypto scalps, not the cure for
+the bleed.
+
+## Reset priorities (highest real-money leverage first)
+
+1. **`eth_pullback_2h`** — top real-money bleeder (−$24.65 real, −$5,601 mirror).
+   Pull its M7 review / backtest; if it fails net-of-cost, **demote to shadow**
+   (Tier-3, operator).
+2. **Crypto-book edge audit** — every crypto strategy is red at scale. Backtest-
+   truth read of which crypto legs have *any* net-of-cost edge; demote the rest.
+3. **Validate `uso_trend_1h`** — is +$9,730 a real edge or one oil spike (2
+   trades)? Backtest before it's a deploy candidate.
+4. **Scalp exit fix (shipped)** — keep + re-measure capture, but **do not
+   graduate scalps to real money** (−$4k at scale).
+5. **Deployment** — `alpaca_live` is dry. If a validated equity edge exists, the
+   real opportunity is deploying live equity capital (operator/Tier-3), not more
+   crypto scalps.
+
 ## Validation is BACKTEST-gated, not soak-days (operator correction 2026-07-30)
 
 The fast-gate doctrine applies: **the confidence gate is the backtest, run and
