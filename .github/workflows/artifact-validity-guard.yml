@@ -170,6 +170,11 @@ jobs:
       # event study (553/575/136 releases, price_bars ~2911): every scorecard was computed,
       # then the summary step died on a heredoc terminator sitting at column 2 and the commit
       # step never ran. Parse-only; nothing is executed.
+      # PyYAML is a real dependency of this check, and it is NOT present by default on the
+      # runner — the guard's first CI run exited 2 ("could not check") for exactly this.
+      - name: Install the shell guard's dependency
+        run: python -m pip install --upgrade pip "pyyaml>=6.0"
+
       - name: Assert every workflow `run:` block is valid shell
         run: python3 scripts/ops/check_workflow_shell.py
 

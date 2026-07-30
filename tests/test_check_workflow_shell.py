@@ -126,3 +126,41 @@ class TestTheRepoItself:
     def test_every_committed_workflow_parses(self):
         """The guard must be green on the real repo — a guard that ships red is ignored."""
         assert mod.main([]) == 0
+
+
+class TestCouldNotCheckIsItsOwnOutcome:
+    """A missing dependency must be neither a pass nor a pile of fake findings.
+
+    The guard's FIRST CI run exited with 117 "PyYAML not available" findings because the
+    per-file helper returned the missing import as a per-file result. That is the mirror
+    image of the bug this repo keeps hitting: red while measuring nothing, instead of green
+    while measuring nothing — same root, the result did not reflect what was checked.
+    """
+
+    @staticmethod
+    def _hide_yaml(monkeypatch):
+        import builtins
+        real_import = builtins.__import__
+
+        def no_yaml(name, *a, **k):
+            if name == "yaml":
+                raise ImportError("No module named 'yaml'")
+            return real_import(name, *a, **k)
+
+        monkeypatch.setattr(builtins, "__import__", no_yaml)
+
+    def test_missing_pyyaml_exits_2_not_1_and_says_nothing_was_checked(self, monkeypatch,
+                                                                      capsys):
+        self._hide_yaml(monkeypatch)
+        rc = mod.main([])
+        out = capsys.readouterr().out
+        # 2 == could not check; 1 == real findings. They must not be confusable.
+        assert rc == 2, "a missing dependency must not share an exit code with real findings"
+        assert "NOT a finding" in out
+        assert "nothing was checked" in out
+        # and it must not enumerate the workflows as if each were a defect
+        assert out.count(".yml") <= 1
+
+    def test_missing_dependency_never_silently_passes(self, monkeypatch, capsys):
+        self._hide_yaml(monkeypatch)
+        assert mod.main([]) != 0, "could-not-check must never be reported as OK"

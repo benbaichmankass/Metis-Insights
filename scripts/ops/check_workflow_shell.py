@@ -65,10 +65,7 @@ def _is_bash(step: dict, job_default: str) -> bool:
 
 def check_run_blocks(path: pathlib.Path) -> list[str]:
     """Return a list of human-readable failures for one workflow file."""
-    try:
-        import yaml
-    except ImportError:  # pragma: no cover - CI installs pyyaml
-        return [f"{path}: PyYAML not available"]
+    import yaml  # caller must have verified availability — see `main`
     try:
         doc = yaml.safe_load(path.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001 — invalid YAML is another guard's job
@@ -113,6 +110,21 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--repo-root", default=str(REPO))
     ap.add_argument("--dir", default=DEFAULT_DIR)
     args = ap.parse_args(argv)
+
+    # "COULD NOT CHECK" IS ITS OWN OUTCOME — never a pass, never a pile of fake findings.
+    # First CI run of this guard: PyYAML was absent from the job, and because the per-file
+    # helper returned "PyYAML not available" as a FINDING, the run reported 117 defects and
+    # buried the one fact that mattered. That is the mirror image of the bug this repo keeps
+    # hitting — red while measuring nothing instead of green while measuring nothing, same
+    # root: the result did not reflect what was actually checked. Exit 2 (distinct from 1 =
+    # real findings) so a missing dependency can never be read as a broken repo.
+    try:
+        import yaml  # noqa: F401
+    except ImportError:
+        print("::error::cannot check: PyYAML is not installed in this environment. This is "
+              "NOT a finding about the workflows — nothing was checked. Install pyyaml "
+              "(`pip install pyyaml`) in the job that runs this guard.")
+        return 2
 
     root = pathlib.Path(args.repo_root) / args.dir
     if not root.is_dir():
