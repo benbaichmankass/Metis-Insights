@@ -7874,6 +7874,63 @@
         "docs/CLAUDE-RULES-CANONICAL.md"
       ],
       "updates": []
+    },
+    {
+      "id": "MB-20260706-CI-MINUTES",
+      "status": "resolved",
+      "tier": 1,
+      "severity": "low",
+      "opened_at": "2026-07-06T00:00:00+00:00",
+      "opened_by": "claude (Actions-minutes budget work, 2026-07-06)",
+      "resolved_at": "2026-07-06T00:00:00+00:00",
+      "resolved_by": "the diff-scoped short-circuit rolled out across the guard workflows",
+      "title": "[infra][ci] Actions-minutes billing cap — guards short-circuit when no relevant file changed",
+      "source": "Filed retroactively 2026-07-30 by check_backlog_refs: the id is cited in ~20 workflow files and was never filed as a row, so every one of those citations resolved to nothing.",
+      "description": "The convention every guard workflow cites when explaining why its job always RUNS (cheap: checkout + `git diff --name-only`) but skips the expensive step when no relevant file changed. A required status check can never carry a `paths:` filter — that would leave it permanently 'pending' on a non-matching PR — so the skip has to happen inside the job. The behaviour is live across the guard suite; only the backlog row was missing.",
+      "resolution": "Behaviour shipped 2026-07-06. This row exists so the ~20 citations resolve to something. Filed as `resolved`, matching the backlog's convention of KEEPING resolved rows rather than archiving them."
+    },
+    {
+      "id": "BL-20260613-IBPOS",
+      "status": "resolved",
+      "tier": 1,
+      "severity": "medium",
+      "opened_at": "2026-06-13T00:00:00+00:00",
+      "opened_by": "claude (IB position-multiplier fix, 2026-06-13)",
+      "resolved_at": "2026-06-13T00:00:00+00:00",
+      "title": "[bug][ib] IB reports averageCost multiplier-inflated; positions must divide it back out",
+      "source": "Filed retroactively 2026-07-30 by check_backlog_refs: cited in 5 files, never filed.",
+      "description": "IBKR reports a futures position's `averageCost` multiplied by the contract multiplier, so `IBClient.positions` divides by exactly that to recover a per-unit entry price. The same incident is why fills are keyed on the GENERIC contract root (`MES`/`MHG`) and never `localSymbol`, which carries the expiry month code and can never join back to a journal row.",
+      "resolution": "Fixed 2026-06-13 in IBClient.positions; the root-vs-localSymbol rule is upheld by src/runtime/exchange_fills_ib.py."
+    },
+    {
+      "id": "BL-20260717-FILLS-STORE-PATH-SPLIT",
+      "status": "resolved",
+      "tier": 1,
+      "severity": "high",
+      "opened_at": "2026-07-17T00:00:00+00:00",
+      "opened_by": "claude (fills-store path split, 2026-07-17)",
+      "resolved_at": "2026-07-17T00:00:00+00:00",
+      "title": "[bug][data] exchange-fills writer and reader resolved different absolute paths, leaving the surface empty",
+      "source": "Filed retroactively 2026-07-30 by check_backlog_refs: cited in 3 files, never filed.",
+      "description": "A fresh SSH wrapper shell does not inherit systemd's DATA_DIR, so the puller's python child resolved `runtime_state/` repo-relative while the web-api reader used the DATA_DIR-anchored path. Writer and reader disagreed and the endpoint read empty — the same class as the ict-health-snapshot artifacts-path bug. Every caller must pass the canonical path explicitly (scripts/ops/_lib.sh::fills_store_path, or Environment=DATA_DIR in the unit).",
+      "resolution": "Fixed 2026-07-17. Upheld by the explicit DATA_DIR pin in ict-ib-executions-pull.service and the --fills-db flag on both pullers."
+    },
+    {
+      "id": "BL-20260730-NEW-TABLE-GUARD-MATCHES-PROSE",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "opened_at": "2026-07-30T18:50:00+00:00",
+      "opened_by": "claude (provenance-ib-executions session, provenance-ib-executions-s582dx)",
+      "source": "Tripped on PR #8069 against a DOCSTRING sentence, not a table declaration.",
+      "title": "[ci][tooling] new-table-wiring-guard matches CREATE TABLE inside prose, producing false trips",
+      "description": "scripts/check_new_table_wiring.py scans a raw diff for CREATE TABLE and does not distinguish code from prose. On PR #8069 it failed on src/runtime/exchange_fills_ib.py for a docstring line that merely SAID the exchange_fills schema is created with CREATE TABLE IF NOT EXISTS. That module declares no table at all — it maps into the existing store.\n\nWhy this matters more than one false positive: the only ways to clear a false trip are to reword the prose (what PR #8069 did) or to add a `# data-wiring:` annotation for a table that does not exist. The second is FALSIFYING the wiring declaration the guard exists to protect, and it is the path of least resistance — so a prose-blind guard actively teaches contributors to lie to it. Combined with routine false trips, that is the alarm-fatigue failure mode CLAUDE.md names as itself a P1.\n\nThird instance of this exact class in one session: my own json-extract guard first flagged 3 docstring-prose lines, and a structural test matched the explanatory comment NAMING the thing it forbade. Prose-vs-code is a systematic blind spot in this repo's diff-scanning guards, not a one-off.",
+      "resolution_criteria": "The guard ignores CREATE TABLE occurrences inside string literals and comments. scripts/ci/check_json_extract_guarded.py::_prose_lines already solves this with ast+tokenize and is the reference implementation — but it parses FILES, while this guard parses a DIFF (hunks are not valid Python), so the fix likely means resolving each touched file at HEAD and mapping added line numbers onto it rather than porting _prose_lines directly. Add a test asserting a prose mention does NOT trip while a real CREATE TABLE does.",
+      "refs": [
+        "PR #8069",
+        "scripts/check_new_table_wiring.py",
+        "scripts/ci/check_json_extract_guarded.py"
+      ]
     }
   ],
   "updated_at": "2026-07-30T17:45:00+00:00",

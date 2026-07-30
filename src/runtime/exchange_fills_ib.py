@@ -46,12 +46,15 @@ DESIGN CONSTRAINTS
 * **No ``ib_insync`` import.** Everything is duck-typed via ``getattr`` and the
   fetcher is injected, so the mapping is unit-testable on a host with no IB
   dependency and no gateway (the same contract ``exchange_fills_alpaca`` keeps).
-* **Broker-truth ``realizedPNL`` rides in the row's ``raw`` JSON.** The
-  ``exchange_fills`` schema is created with ``CREATE TABLE IF NOT EXISTS``, so
-  adding a typed column would silently not apply to the existing store on the
-  VM. ``raw`` is already a JSON blob on every row, so IB's extra broker-truth
-  fields land there with **no migration** — read them back with
-  :func:`realized_pnl_from_raw`.
+* **This module defines NO table.** It maps into, and reads back out of, the
+  EXISTING ``exchange_fills`` table owned by
+  :mod:`src.runtime.exchange_fills_store` — the canonical-store-projection rule,
+  not a new parallel store.
+* **Broker-truth ``realizedPNL`` rides in the row's ``raw`` JSON.** That store's
+  schema is declared idempotently (create-if-absent), so a *new typed column*
+  would silently not apply to the store already on the VM. ``raw`` is already a
+  JSON blob on every row, so IB's extra broker-truth fields land there with
+  **no migration** — read them back with :func:`realized_pnl_from_raw`.
 * **Honest coverage, not an assumed window.** IBKR's execution history is
   short-lived (the API serves roughly the current trading day; TWS/Gateway
   discards on its nightly reset), which is why this is a **forward-accruing**
