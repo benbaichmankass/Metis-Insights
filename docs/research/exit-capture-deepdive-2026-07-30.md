@@ -1,5 +1,25 @@
 # Exit-capture deep-dive — MFE-vs-realized, 14-day live evidence (2026-07-30)
 
+> **⚠️ ROOT-CAUSE PREMISE DISPROVEN (2026-07-30, concurrent-session finding —
+> `BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-TPSL-PREMISE`).** This memo attributes
+> the scalp exit leak to `BYBIT_TPSL_MODE=full` and treats `partial` as a fix
+> "deployed today (05:37Z)." **That is wrong.** `BYBIT_TPSL_MODE=partial` was
+> ALREADY live from ~2026-07-21 — verified three ways (`.env`, the unit's
+> `EnvironmentFiles`, `/proc/<MainPID>/environ`) and corroborated by the journal
+> (75 of 211 pre-"flip" opens already carried a non-NULL `sl_order_id`, a column
+> written ONLY on the partial branch; the 05:37Z change was a **no-op
+> re-assertion**, not an activation). So the pre/post-flip comparison below is
+> **not an A/B** (both sides were partial mode) and the `full`-bracket-bug root
+> cause is **unproven** — the scalps hold hours + close `reconciler_filled`
+> *under partial mode*. The real cause is still open (see the concurrent
+> session's items: the Bybit partial-leg desync/naked-bracket blindspot fixed in
+> PR #8000 / `BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT`, plus
+> `BL-20260730-CLOSED-TRADE-NULL-EXITPRICE-PNL` and
+> `BL-20260730-TRADES-TIMESTAMP-FORMAT-MIXED`). **The MFE/giveback/round-tripper
+> METRIC below (and the standing `execution_capture` review metric it seeded)
+> stand; the TPSL-mode root-cause attribution does not.** Kept as-is below for
+> the record; read it through this correction.
+
 **Operator directive (2026-07-30):** "We're bleeding… trades get very close to
 take-profit then snap back to the stop-loss instead… come up with a metric for
 max unrealized PnL vs actual PnL and figure out what we're doing wrong to not
