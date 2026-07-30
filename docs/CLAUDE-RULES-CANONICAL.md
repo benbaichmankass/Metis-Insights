@@ -27,6 +27,23 @@ Issue title format: `[diag-request] <endpoint>` where `<endpoint>` is relative t
 
 Use `mcp__github__issue_write` with `method: create`, `labels: ["vm-diag-request"]`, title as above. Then poll the issue for the comment using `mcp__github__issue_read`.
 
+> ⚠️ **The BODY IS NOT A PLACE FOR PROSE — a non-empty body OVERRIDES the title**
+> (verified against `.github/workflows/vm-diag-snapshot.yml`, 2026-07-30). The
+> workflow supports **batching**: if the body is non-empty it parses **every
+> non-blank line as its own diag path** (or a JSON array of paths) and the title
+> is used only as the fallback for an *empty* body. Paths are validated against
+> `^[A-Za-z0-9/?&=_.:%-]+$` — **no spaces** — so an explanatory sentence fails
+> the charset check and the whole run **exits 1** having fetched nothing, with a
+> generic "check the run logs… VM web-api down, token mismatch" comment that
+> points at infrastructure rather than at the real cause.
+>
+> This is a live trap because writing an explanation is the natural, and
+> elsewhere-encouraged, thing to do — a session did exactly that on 2026-07-30
+> and spent a round trip diagnosing a "failed relay" that was its own prose. So:
+> **either leave the body empty (title carries the path), or make the body
+> exactly one path per line.** Put the rationale in a follow-up comment after the
+> issue is created, never in the opening body.
+
 **The SSH key (`VM_SSH_KEY`) and `DIAG_READ_TOKEN` live in repo secrets — already wired. You do not need the operator to provide anything.**
 
 ### How to get TRAINING_CENTER data

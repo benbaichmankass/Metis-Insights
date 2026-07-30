@@ -6922,7 +6922,18 @@
       "resolution_criteria": "A repeatable vol-split matrix exists (per (trend, vol, direction) net-R using the router's own vol-label resolution) and all six 2-D cells have a recorded re-audit verdict.",
       "status": "open",
       "snoozed_until": null,
-      "updates": [],
+      "updates": [
+        {
+          "at": "2026-07-30T15:55:00+00:00",
+          "by": "claude (offline vol-axis build session)",
+          "note": "TOOL BUILT (path A), NOT YET RUN — this update is the build, not the verdict. Two committed pieces: (1) scripts/research/ml_vol_label_replay.py replays the ADVISORY head offline into per-bar calm/volatile labels, resolving the head + threshold through the ROUTER'S OWN resolvers (discover_advisory_stage_regime_specs / _ml_vol_verdict_threshold) rather than a hardcoded model id — so the 2026-07-20-style head swap is tracked automatically instead of drifting; (2) regime_tag_emitted.py gained --vol-labels / --only-vol, a by_cell 'trending/calm'-keyed breakdown, and an explicit vol_axis: present|absent declaration on EVERY run so a 1-D grade can never again be read as covering the vol axis. 21 new tests (tests/test_regime_vol_axis.py), incl. a PARITY test that drives the real live ml_vol_regime_for_symbol through its per-bar cache and asserts the replay lands on the same label at the >= boundary. TRAINER INVENTORY (#8054/#8055) confirms the replay needs NO Chronos re-run: the registry entry is target_deployment_stage=advisory with model_state_path=.../20260730T012123Z/model_state.json, and the head's own training frame market_features/BTCUSDT/15m/v520 (175,272 rows) already carries the six fc_* columns joined — so scoring reads the built dataset. TWO LIMITS FOUND, both to declare not hide: (a) v520 SPANS 2021-07-01 -> 2026-06-30 ONLY, so any emitted trade after 2026-06-30 gets vol_regime=unknown and lands in a */unknown row (the harness counts + prints this coverage rather than folding it into calm); the fresher forecasts side-stream v002 already runs to 2026-07-29, so closing the gap is a market_features rebuild, not new tooling; (b) the replay is IN-SAMPLE over the head's training window (the production artifact is fit on full history) — stamped into the labels manifest as fidelity.in_sample=true. NOT DONE, and the row STAYS OPEN: nothing has been measured yet. Next, in order: run the replay on the trainer against v520; run `verify` against the live gate's own regime_ml_vol_shadow / regime_hard_gate audit rows (the empirical test of the offline-vs-serve feature-row caveat — an unverified label file must NOT grade a cell, and the tool returns verdict=no_overlap_nothing_verified rather than a pass when nothing was compared); only then grade the six 2-D cells. The withheld squeeze_breakout_4h trending-short proposal stays withheld until that sequence completes."
+        },
+        {
+          "at": "2026-07-30T16:20:00+00:00",
+          "by": "claude (offline vol-axis build session)",
+          "note": "CROSS-FINDING with the same-day provenance work (#8039, merged 15:55Z) — recording it so a future session grading these cells does not have to rediscover it. #8039 established that on DEMO bybit books `exit_price` is a mark taken 6+ hours after the close, producing FABRICATED `local_markprice` pnl (226 rows / +$247,683 lifetime; fabricated share 0.0% May -> 30.5% Jun -> 64.9% Jul), and that the headline '-$6,358 7d bybit scalp exit leak' is substantially a MEASUREMENT ARTIFACT — real-money 7d scalp pnl on bybit_2 is -$1.91. WHY IT MATTERS HERE: the vol-axis cell grading built in this session consumes HARNESS-EMITTED backtest trades (`net_r` computed by the harness itself), so it is NOT contaminated by journal provenance — that is the reason to keep grading on the backtest substrate. But the moment anyone grades a 2-D cell from LIVE/journal rows instead (e.g. joining `regime_hard_gate` audit rows to realised pnl — the tempting path (B) shortcut in this row's own scoping), the `exit_price_source` / provenance split becomes load-bearing: on the demo books the pnl is fabricated and a cell verdict computed from it would be measuring a number nobody observed. Use `src/runtime/provenance.py::is_measured` / `coverage()` (shipped in #8039) to gate any such join, and report the measured share next to the verdict the way `/performance` reports rCoverage. Related rows: BL-20260730-DEMO-MARKPRICE-FABRICATES-PAPER-PNL, BL-20260730-PROVENANCE-RECORDED-THEN-IGNORED."
+        }
+      ],
       "resolved_at": null,
       "severity": "high",
       "refs": [
@@ -7663,6 +7674,46 @@
       "source": "Static consumer sweep over src/ scripts/ ml/ (2026-07-30), generalising BL-20260730-PROVENANCE-RECORDED-THEN-IGNORED.",
       "description": "Counting writers vs value-branches vs ml/ refs vs src/web/api refs for every known data-quality signal:\n\n  exit_price_source   writes~14 branches~1(unrelated) ml=0 api=0   WRITE-ONLY\n  close_exec_type     writes~1  branches~0            ml=0 api=0   WRITE-ONLY\n  fc_present          writes~2  branches~0            ml=0 api=0   WRITE-ONLY\n  exit_reason_source  writes~3  branches~0            ml=0 api=0   WRITE-ONLY\n  pnl_source          writes~12 branches~1            ml=0 api=6    near-write-only\n  reconcile_status    writes~6  branches~24           ml=0 api=5    healthy\n  cost_source         writes~5  branches~9            ml=0 api=0    healthy\n  backfill_kind       writes~4  branches~4            ml=16 api=6   healthy\n\nTWO of the write-only fields matter independently of the PnL-provenance bug:\n\n* `close_exec_type` (order_monitor.py:~7162, written from Bybit /v5/execution/list) distinguishes 'BustTrade' = LIQUIDATION / demo margin call, 'AdlTrade' = auto-deleveraging, 'Trade' = a normal fill. A liquidated position is a categorically different event from a bracket exit, and would present as an enormous adverse exit price. Nothing reads this field, so no analysis, review skill, or ML label has EVER distinguished a liquidation from a stop. This is a live candidate explanation for part of the bybit_1 loss tail and for the unexplained long holds (BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED) -- CHECK IT before theorising further about exit geometry.\n\n* `fc_present` is the M19 fc-geometry soak's HONEST COVERAGE DENOMINATOR -- the field whose entire purpose is to record 'no forecast was served here'. It is written and never consumed, which is precisely the failure the canonical 'green is not evidence' rule (§ obligation 1, assert the inputs) exists to prevent. The rule is stated; nothing enforces it.\n\nNote ml=0 for EVERY provenance signal except backfill_kind: the training pipeline cannot express 'this label is untrustworthy' about anything.\n\nGENERAL FIX (the class, not the instances): a signal that is written and never read is indistinguishable from one that does not exist, so recording it creates false assurance -- reviewers see the field and assume something acts on it. Proposal: a CI guard that fails when a declared quality/provenance key gains a writer but no consumer (the same shape as the existing canonical-db-resolver / env-gate-guard guards), plus a consumer contract requiring each decision surface to declare which provenance values it accepts.",
       "next_action": "(1) Query close_exec_type distribution over the bybit_1 loss tail -- cheap, may reclassify a chunk of the 'exit leak' as liquidations. (2) Propose the write-only-signal CI guard."
+    },
+    {
+      "id": "BL-20260730-TRAINER-DISK-95PCT",
+      "opened_at": "2026-07-30T16:00:00+00:00",
+      "opened_by": "claude (offline vol-axis session — noticed in passing, not the session's task)",
+      "source": "trainer-vm-diag #8059 section K: `/dev/sda1 45G 43G 2.4G 95% /` on ict-trainer-vm. Observed while inventorying datasets for the vol-axis replay; not what the probe was looking for.",
+      "title": "[trainer][infra] trainer VM root filesystem at 95% — 2.4G free against a workload that writes ~480MB per dataset build",
+      "description": "Not urgent-broken, but on a clear trajectory and cheap to fix now. The trainer's root fs is 43G/45G used with 2.4 GB free. That box's normal work is writing market_features builds of ~480 MB each (BTCUSDT/15m/v520 alone is 480,607,056 bytes), and `datasets-out/market_features/BTCUSDT/15m/` currently holds SIXTEEN versions (v001-v006, v104, v106, v107, v513-v515, v520, v903, v905, vfmac003), most of them 175,272-row siblings differing only in which optional side-stream was joined. Several are plainly superseded (v003/v004/v104/v106/v107 have NO fc_ columns at all; v513/v514/v515 are same-day predecessors of v520). WHY THIS MATTERS BEYOND HOUSEKEEPING: a build that runs out of disk mid-write is exactly the failure mode that produces a TRUNCATED-BUT-PRESENT artifact — the 'green but vacuous' class the binding 'Green is not evidence' rule exists for. A half-written data.jsonl looks like a dataset until something asserts its row count. Two things worth doing: (a) prune superseded market_features versions on the trainer (keep the one each live/advisory head actually trained on — v520 for btc-regime-15m-lgbm-fc-pcv-v1 — plus the newest), and (b) consider whether the dataset-build path should pre-check free space and fail loudly rather than write a partial file. NOTE the pruning is NOT purely mechanical: the registry pins heads to specific dataset versions, so a version must be confirmed unreferenced before deletion.",
+      "tier": 1,
+      "trigger_condition": "Trainer root fs above ~90%, or any dataset build failing/short-writing.",
+      "resolution_criteria": "Trainer root fs back under ~80% via a verified-unreferenced prune, and a decision recorded on whether build writes pre-check free space.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "medium",
+      "refs": [
+        "BL-20260730-PRODUCER-VACUITY-GUARD"
+      ]
+    },
+    {
+      "id": "BL-20260730-ECON-SCORECARD-NAMING-TRAP",
+      "opened_at": "2026-07-30T16:10:00+00:00",
+      "opened_by": "claude (vol-axis session, found while closing issue #8048)",
+      "source": "Verifying that #8048's five econ event-study scorecards actually landed on main (#8053, dc6b0a0). Four are comms/macro/econ_event_study_<kind>_scorecard.json; eia_natgas_storage is comms/macro/econ_event_study_scorecard.json — the UNSUFFIXED default name.",
+      "title": "[macro][naming] eia_natgas_storage's scorecard uses the unsuffixed default filename — a `econ_event_study_*_scorecard.json` glob enumerates 4 of 5 kinds and looks complete",
+      "description": "Low-severity but exactly the recurring wrong-roster shape, so it is filed rather than shrugged at. `scripts/macro/econ_event_study.py` writes to a per-kind suffixed path when given one and to the bare default otherwise; the #8053 run left natgas on the default. Consequence: any future consumer, audit, or re-grade that enumerates the family with a `econ_event_study_*_scorecard.json` glob gets FOUR kinds, no error, and no way to tell one is missing — and the missing one is natgas, the kind carrying the strongest (wrong-signed vs the pre-registered hypothesis) IC. Same failure class as BL-20260730-REGIME-CELL-UNAUDITABLE (complete with respect to its roster; roster is the wrong set) and the 'Green is not evidence' § instance table. NOT urgent: all five scorecards exist, all carry non-zero releases + price_bars, and the M1 null verdict is unaffected and already recorded. FIX (either is fine, pick one): (a) rename to econ_event_study_eia_natgas_storage_scorecard.json and have the producer ALWAYS suffix, so the default bare name never exists; or (b) if the bare name is deliberately 'the primary kind', document that in the producer + wherever the family is consumed, so a glob author knows to add it. Prefer (a) — an implicit primary is how the trap re-forms. Whichever is chosen, add the family to the artifact-validity registry so its COUNT is asserted, not its existence.",
+      "tier": 1,
+      "trigger_condition": "Any consumer or audit that enumerates the econ event-study scorecard family by glob.",
+      "resolution_criteria": "Either every kind's scorecard is suffix-named (no bare default written), or the bare name's meaning is documented at the producer and every consumer; and the family's expected kind-count is asserted rather than assumed.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "low",
+      "refs": [
+        "BL-20260730-REGIME-CELL-UNAUDITABLE",
+        "scripts/macro/econ_event_study.py",
+        "comms/macro/econ_event_study_scorecard.json"
+      ]
     }
   ],
   "updated_at": "2026-07-30T16:10:00+00:00",

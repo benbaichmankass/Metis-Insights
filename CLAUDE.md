@@ -942,6 +942,22 @@ environment created at **Full** network access — at the default
 **Trusted** level egress to the VM is firewalled and the issue relay is
 the only channel.
 
+**The GitHub REST API is NOT reachable by `curl` — use the MCP (2026-07-30).**
+`*.github.com` being nominally allowlisted does **not** mean
+`https://api.github.com/...` works: the sandbox intercepts it and returns
+**HTTP 403** with a Claude-specific body (`"GitHub access is not enabled for
+this session. An org admin must connect the Claude GitHub App…"`). This bites
+hardest in a **poll loop**, because the natural defensive idiom hides it: a
+`curl … || echo '{}'` fallback turns the 403 into an empty result, `len(check_runs)`
+reads `0`, and a CI watcher then spins its full timeout and reports
+**`TIMEOUT`** — a red that checked nothing, which
+`docs/CLAUDE-RULES-CANONICAL.md` § "Green is not evidence" names as the same
+sin as a green that checked nothing, and worse for trust. A session hit exactly
+this watching its own PR on 2026-07-30. **Poll CI/PR state through
+`mcp__github__pull_request_read` (`get_check_runs`), never `curl`** — and if you
+do write a shell poller against any API, assert a plausible non-zero denominator
+(`total_count > 0`) before believing a "nothing pending" answer.
+
 **Network from inside the session** — governed by the cloud
 environment's **Network access** level (None / Trusted / Full /
 Custom). At the default **Trusted** level outbound is allowlisted to
