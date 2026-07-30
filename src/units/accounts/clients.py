@@ -636,9 +636,14 @@ def _bybit_closed_pnl_lookup(
 # ``_sweep_local_pnl_for_unpriced`` no longer substitutes a live mark for a
 # confirmed close, and IBKR historical-candle coverage is 0% — so WITHOUT this
 # reader every IB close would land as a *declared unmeasured* gap.
+# ``alpaca`` added 2026-07-30 for the same reason as IB: pull_alpaca_fills.py has
+# been landing its FILL activities in the same store on a daily timer the whole
+# time, and nothing read them — alpaca_paper sat at 59.1% fabricated while its own
+# fills were on disk (BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ).
 BROKER_PNL_READER_EXCHANGES: frozenset[str] = frozenset({
     "bybit",
     "interactive_brokers",
+    "alpaca",
 })
 
 
@@ -855,23 +860,97 @@ def account_closed_pnl_for_trade(
     # the live trader's monitor tick, where a per-row network request is the
     # 2026-06-09 cold-start wedge shape. The network half is
     # ``scripts/pull_ib_executions.py`` on its own timer.
-    if ex == "interactive_brokers":
+    # IBKR serves its own per-fill realised PnL; Alpaca equities do not, so the
+    # latter resolves a MEASURED exit PRICE and the caller computes locally.
+    # Alpaca OPTIONS realised PnL comes from /v2/account/activities cash, not the
+    # equity formula, and is handled by the options-lifecycle reconciler — so an
+    # options-expressing account is left to that path rather than mis-priced here.
+    if ex in ("interactive_brokers", "alpaca"):
         try:
-            from src.runtime.exchange_fills_ib import closed_pnl_from_fills
-            return closed_pnl_from_fills(
+            if ex == "alpaca":
+                from src.units.accounts.options_overlay import (
+                    account_expresses_options,
+                )
+                if account_expresses_options(account):
+                    return None
+            from src.runtime.fills_pnl import exit_from_fills
+            return exit_from_fills(
                 account_id=str(account.get("account_id") or ""),
                 symbol=symbol,
                 direction=direction,
                 opened_at_ms=int(opened_at_ms),
                 closed_at_ms=closed_at_ms,
                 qty=qty,
+                require_realized=(ex == "interactive_brokers"),
             )
         except Exception as exc:  # noqa: BLE001 — a store read never breaks a tick
             logger.warning(
-                "account_closed_pnl_for_trade(ib account=%s symbol=%s): %s",
+                "account_closed_pnl_for_trade(%s account=%s symbol=%s): %s",
+                ex, account.get("account_id") or "unknown", symbol, exc,
+            )
+            return None
+
+    # DEMO resolves from FILLS, and is decided BEFORE the category gate
+    # below. That gate encodes a constraint of the closed-pnl ENDPOINT (which
+    # serves linear/inverse only); the fills store has no such restriction, so
+    # leaving this after it would dead-end a spot demo account for a reason
+    # that does not apply to the path it actually takes.
+    is_demo = str(account.get("demo", "false")).strip().lower() in (
+        "true", "1", "yes",
+    )
+
+    # BL-20260608-DEMOPNL / BL-20260620-CLOSEDPNL-LOOKUP-MISMATCH-DEMO:
+    # Bybit's closed-pnl endpoint does NOT return reliable per-trade records for
+    # the DEMO / testnet account — distinct demo trades on the same symbol share
+    # / mis-map records, and the wide fallback below booked the SAME -864.45 onto
+    # two separate SOL paper trades. There is no trustworthy broker-truth realised
+    # PnL for demo, so DON'T guess from this lookup: return None here (both
+    # writers — the monitor close path and ``_sweep_pending_pnl_from_bybit`` —
+    # funnel through this function, so a single early return stops both from
+    # booking the wrong record). The row then stays "unpriced" and the universal
+    # local-compute sweep (``order_monitor._sweep_local_pnl_for_unpriced``:
+    # entry × exit × qty × contract_value_usd, multiplier-aware, or a
+    # mark-to-market exit) resolves it deterministically — the same local path
+    # IBKR/Alpaca/OANDA already use. Real-money (non-demo) Bybit is untouched and
+    # keeps the strict broker-truth contract below.
+    if is_demo:
+        # NARROWED 2026-07-30 (BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ).
+        # This used to `return None` outright, which silently generalised "the
+        # closed-pnl ENDPOINT is unreliable on demo" into "there is no broker
+        # truth for demo". The second is false, and it is why bybit_1 sat at
+        # 47.1% fabricated and bybit_portfolio at 91.7% while bybit_2 — same
+        # exchange, same code path, not demo — sat at 2.0%. The lookup was never
+        # ATTEMPTED; the difference was this one branch, not the venue's data.
+        #
+        # The 2026-06-08 incident is still fully honoured: the closed-pnl
+        # endpoint stays untrusted for demo and is NOT called below. But demo
+        # accounts DO have real exchange-side fills — `live_bybit_fill_accounts`
+        # has been pulling them via `fetch_my_trades` (a different endpoint) on a
+        # daily timer all along, and says so in its own docstring. Resolve the
+        # exit from those instead of throwing the whole venue away.
+        #
+        # Fills carry no realised PnL on Bybit, so this yields a MEASURED exit
+        # PRICE and the caller computes the PnL locally — which is exactly the
+        # distinction `classify_pnl` grades: `pnl_source` describes the
+        # arithmetic, `exit_price_source` describes the evidence.
+        try:
+            from src.runtime.fills_pnl import exit_from_fills
+            return exit_from_fills(
+                account_id=str(account.get("account_id") or ""),
+                symbol=symbol,
+                direction=direction,
+                opened_at_ms=int(opened_at_ms),
+                closed_at_ms=closed_at_ms,
+                qty=qty,
+                require_realized=False,
+            )
+        except Exception as exc:  # noqa: BLE001 — a store read never breaks a tick
+            logger.warning(
+                "account_closed_pnl_for_trade(demo account=%s symbol=%s): %s",
                 account.get("account_id") or "unknown", symbol, exc,
             )
             return None
+
 
     try:
         from src.units.accounts.execute import _bybit_category
@@ -901,27 +980,6 @@ def account_closed_pnl_for_trade(
     # ``_bybit_closed_pnl_lookup``'s ``allow_wide_fallback`` docstring.
     # The parse mirrors ``bybit_client_for`` so a string "true"/"1"/"yes"
     # all count as demo; live accounts stay on the strict contract.
-    is_demo = str(account.get("demo", "false")).strip().lower() in (
-        "true", "1", "yes",
-    )
-
-    # BL-20260608-DEMOPNL / BL-20260620-CLOSEDPNL-LOOKUP-MISMATCH-DEMO:
-    # Bybit's closed-pnl endpoint does NOT return reliable per-trade records for
-    # the DEMO / testnet account — distinct demo trades on the same symbol share
-    # / mis-map records, and the wide fallback below booked the SAME -864.45 onto
-    # two separate SOL paper trades. There is no trustworthy broker-truth realised
-    # PnL for demo, so DON'T guess from this lookup: return None here (both
-    # writers — the monitor close path and ``_sweep_pending_pnl_from_bybit`` —
-    # funnel through this function, so a single early return stops both from
-    # booking the wrong record). The row then stays "unpriced" and the universal
-    # local-compute sweep (``order_monitor._sweep_local_pnl_for_unpriced``:
-    # entry × exit × qty × contract_value_usd, multiplier-aware, or a
-    # mark-to-market exit) resolves it deterministically — the same local path
-    # IBKR/Alpaca/OANDA already use. Real-money (non-demo) Bybit is untouched and
-    # keeps the strict broker-truth contract below.
-    if is_demo:
-        return None
-
     # Reduce-leg lookup (BL-20260601-001 prong 2): the journal direction
     # is the close-order side, not the reduced position's side, and the
     # recorded entry is the primary leg's intent — both unreliable. Match

@@ -169,6 +169,14 @@ MEASURED_SOURCES = frozenset({
     # fill, so MEASURED — and strictly better than `candle_at_close`, which is
     # all IB could otherwise get (IBKR historical-candle coverage is 0%).
     "ib_execution",
+    # Exit price built from ACTUAL exchange fills on a venue that serves no
+    # per-fill realised PnL (Bybit, Alpaca equities). The arithmetic downstream
+    # is still local compute — `pnl_source` says so — but the exit PRICE is a
+    # recorded fill rather than a mark read at sweep time, and the price is what
+    # `classify_pnl` grades. This is the source that closes the 96% of fabricated
+    # rows sitting on accounts whose fills were already being collected and
+    # discarded (BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ).
+    "exchange_fill",
     # A real fill the bot itself recorded at close time.
     "recorded_exit_price", "operator_flatten_fill", "verdict",
 })

@@ -5625,6 +5625,11 @@ def _close_trade_from_order_status(
             "closed_reason":
                 "reconciler — Bybit reports order filled and position flat",
             "exit_price_source": _broker_pnl_source(closed_pnl_rec),
+            # Close-side fees the venue charged on these fills, stamped HERE
+            # because this is the only point they are known — the later local
+            # sweep sees only the row, not the fill records.
+            **({"close_fees_usd": round(float(closed_pnl_rec["fees"]), 6)}
+               if closed_pnl_rec.get("fees") else {}),
             _broker_pnl_note_key(closed_pnl_rec):
                 closed_pnl_rec.get("closed_pnl"),
             "finalised_by": "reconciler",
@@ -7405,6 +7410,7 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
             contract_value_usd_for,
         )
         from src.runtime.exit_anchor import ANCHOR_SOURCE, AnchorBudget, bar_close_at
+        from src.runtime.fills_pnl import FILL_EXIT_SOURCE
         from src.runtime.provenance import UNMEASURED_MARKER
         from src.units.accounts.clients import account_has_broker_pnl_reader
     except Exception as exc:  # noqa: BLE001
@@ -7519,7 +7525,25 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
                 summary["still_pending"] += 1
                 continue
 
+
             notes = _decode_notes(row.get("notes"))
+            # Net out the close-side fees when the exit came from real fills
+            # that recorded them (stamped at close by the fills resolver). This
+            # arithmetic was fee-BLIND, and that is a CORRECTNESS bug, not a
+            # precision one: measured on the live store (diag #8114, 90d, Bybit
+            # crypto) fees are 15.6% of gross realised in aggregate and 61.8%
+            # on BTC — and the error is DIRECTIONAL, always flattering, so a
+            # marginal loser books as a winner. Same bias that corrupts the ML
+            # labels (BL-20260730-ML-LABELS-IGNORE-PNL-PROVENANCE).
+            #
+            # Gated on the row's OWN recorded exit provenance: an anchored or
+            # mark-derived exit has no fee record, and estimating one would be
+            # fabrication in the other direction. Equities/futures fills carry
+            # fee=0.0, so this is a no-op there rather than a special case.
+            _fees = _safe_float(notes.get("close_fees_usd")) or 0.0
+            if _fees > 0 and notes.get("exit_price_source") == FILL_EXIT_SOURCE:
+                pnl = round(pnl - _fees, 4)
+                notes["pnl_net_of_close_fees"] = True
             # `local_compute` describes the ARITHMETIC, not the evidence — it is
             # deliberately unrecognised by the provenance vocabulary so
             # `classify_pnl` defers to `exit_price_source`, which is what
