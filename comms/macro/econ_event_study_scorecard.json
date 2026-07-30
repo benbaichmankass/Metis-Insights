@@ -2,60 +2,60 @@
   "rows": [
     {
       "horizon_days": 1,
-      "n": 0,
-      "ic": null,
-      "ic_t": null,
-      "pearson": null,
-      "sign_hit_rate": null,
-      "mean_fwd_return": null
+      "n": 6,
+      "ic": -0.485714,
+      "ic_t": -1.111,
+      "pearson": -0.524212,
+      "sign_hit_rate": 0.166667,
+      "mean_fwd_return": -0.005463
     },
     {
       "horizon_days": 3,
-      "n": 0,
-      "ic": null,
-      "ic_t": null,
-      "pearson": null,
-      "sign_hit_rate": null,
-      "mean_fwd_return": null
+      "n": 6,
+      "ic": -0.085714,
+      "ic_t": -0.172,
+      "pearson": -0.249207,
+      "sign_hit_rate": 0.333333,
+      "mean_fwd_return": -0.02326
     },
     {
       "horizon_days": 5,
-      "n": 0,
-      "ic": null,
-      "ic_t": null,
-      "pearson": null,
-      "sign_hit_rate": null,
-      "mean_fwd_return": null
+      "n": 6,
+      "ic": -0.6,
+      "ic_t": -1.5,
+      "pearson": -0.769061,
+      "sign_hit_rate": 0.166667,
+      "mean_fwd_return": -0.036152
     },
     {
       "horizon_days": 10,
-      "n": 0,
-      "ic": null,
-      "ic_t": null,
-      "pearson": null,
-      "sign_hit_rate": null,
-      "mean_fwd_return": null
+      "n": 5,
+      "ic": -0.9,
+      "ic_t": -3.576,
+      "pearson": -0.942017,
+      "sign_hit_rate": 0.2,
+      "mean_fwd_return": -0.056045
     },
     {
       "horizon_days": 21,
-      "n": 0,
+      "n": 2,
       "ic": null,
       "ic_t": null,
       "pearson": null,
-      "sign_hit_rate": null,
-      "mean_fwd_return": null
+      "sign_hit_rate": 0.5,
+      "mean_fwd_return": -0.143063
     }
   ],
   "summary": {
-    "max_n": 0,
+    "max_n": 6,
     "min_honest_n": 12,
     "sufficient_history": false,
-    "any_flagged_horizon": false,
-    "strongest_ic_horizon_days": null,
-    "strongest_ic": null,
-    "strongest_ic_t": null,
+    "any_flagged_horizon": true,
+    "strongest_ic_horizon_days": 10,
+    "strongest_ic": -0.9,
+    "strongest_ic_t": -3.576,
     "t_flag": 2.0,
-    "verdict": "no_data"
+    "verdict": "insufficient_history"
   },
   "meta": {
     "kind": "eia_natgas_storage",
@@ -63,7 +63,7 @@
     "value_key": "surprise",
     "releases": 6,
     "releases_with_value": 6,
-    "price_bars": 0,
+    "price_bars": 899,
     "horizons": [
       1,
       3,
