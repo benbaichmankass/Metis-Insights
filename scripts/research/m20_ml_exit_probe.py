@@ -222,10 +222,27 @@ def main() -> int:
             parts.append(f"{b}: n={len(v)} mean={mean(v):.3f}" if v
                          else f"{b}: n=0")
         print(f"{mid}: " + " | ".join(parts))
-    print("\nInterpretation: a materially MORE NEGATIVE mean future_dR in the "
-          "'hi' bucket than 'lo' = the regime head carries exit information "
-          "(candidate for an ML exit-trigger experiment); similar buckets = "
-          "no exit signal in the current heads.")
+    # Do NOT print how to interpret buckets that have nothing in them. Caught
+    # by running this on the trainer 2026-07-30: with every bucket at n=0 the
+    # probe still printed the full "a materially MORE NEGATIVE mean future_dR
+    # in 'hi' means the head carries exit information" paragraph, so an empty
+    # result rendered identically to a measured negative one — sub-class C, in
+    # the very file this sweep was fixing.
+    n_bucketed = sum(len(v) for v in buckets.values())
+    if n_bucketed == 0:
+        print("\nNO CONCLUSION AVAILABLE: 0 predictions fell inside a resolvable "
+              f"trade hold (trades joined={n_joined}; "
+              f"P(volatile)-resolved records={cov['resolved']}/{cov['rows']}).")
+        print("This is an ABSENT measurement, not a negative result — do not read "
+              "it as 'the regime heads carry no exit information'. The usual "
+              "cause is that the heads whose predictors resolve here are not the "
+              "ones that scored during the trade windows; see the UNRESOLVED "
+              "list above.")
+        return 0
+    print(f"\nInterpretation (over {n_bucketed} bucketed predictions): a materially "
+          "MORE NEGATIVE mean future_dR in the 'hi' bucket than 'lo' = the regime "
+          "head carries exit information (candidate for an ML exit-trigger "
+          "experiment); similar buckets = no exit signal in the current heads.")
     return 0
 
 
