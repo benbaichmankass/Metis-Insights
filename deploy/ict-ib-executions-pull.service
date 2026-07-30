@@ -1,0 +1,74 @@
+# ============================================
+# ICT IB-EXECUTIONS PULL (S-PROVENANCE-IB-EXECUTIONS-2026-07-30)
+# Pulls IBKR broker-truth executions into runtime_state/exchange_fills.sqlite so
+# an IB close resolves from the venue's own CommissionReport.realizedPNL
+# instead of a reconstruction.
+#
+# WHY THIS EXISTS
+# ---------------
+# `interactive_brokers` had no fills reader and was absent from
+# clients.BROKER_PNL_READER_EXCHANGES, so every IB close fell through to
+# order_monitor._sweep_local_pnl_for_unpriced. That sweep used to substitute
+# last_mark_price() — the market at SWEEP time, hours after the close — and
+# multiply the error by the futures contract multiplier.
+#
+# The companion Tier-2 change stopped the mark substitution and anchors to the
+# bar at closed_at instead. But IBKR historical-candle coverage is 0%, so for IB
+# that change alone converts fabrication into a *declared unmeasured* gap. THIS
+# unit is what turns the gap into a measurement.
+#
+# CADENCE RATIONALE — why hourly and NOT daily like ict-exchange-fills-pull
+# -------------------------------------------------------------------------
+# Two independent windows both demand sub-6h:
+#
+#   1. IBKR execution retention is SHORT — reqExecutions serves roughly the
+#      current trading day and the Gateway discards on its nightly reset. A
+#      daily 00:20 fire (the Bybit/Alpaca cadence) would run when the current
+#      day is nearly empty and lose the previous day's fills outright.
+#   2. order_monitor's _LOCAL_PNL_BROKER_DEFER_MS grace is 6h: a closed row
+#      whose account HAS a broker reader waits 6h for the store to catch up,
+#      then falls back. A pull slower than that grace guarantees the fallback
+#      wins every time and the reader is decorative.
+#
+# Hourly with --days 2 over-samples both, so a missed run (or one that lands
+# inside IBKR's ~03:45-05:45 UTC reset window, or the 06:05 UTC gateway reset)
+# is fully recovered by the next fire. exec_id is the store's PRIMARY KEY, so
+# the overlap is idempotent.
+#
+# LIVE-TRADER BOX ONLY. Read-only on the broker side (reqExecutions is a
+# stateless one-shot request, safe on a readonly client and carrying none of the
+# multi-client collision risk that forced positions() off reqAccountUpdates —
+# BL-20260706-IBACCTUPDATES-COLLISION). Touches NO service and NO
+# trade_journal.db table.
+#
+# DATA_DIR: pinned so the writer resolves runtime_state/exchange_fills.sqlite to
+# the SAME absolute path the web-api reader and the monitor's read-back use. A
+# writer/reader path split would leave the reader permanently empty and every IB
+# close silently on the fallback (BL-20260717-FILLS-STORE-PATH-SPLIT).
+#
+# Save to: /etc/systemd/system/ict-ib-executions-pull.service
+# (installed automatically by scripts/install_systemd_units.sh)
+# ============================================
+
+[Unit]
+Description=ICT IB-executions pull — broker-truth IBKR fills into the exchange-fills store
+After=network-online.target ict-trader-live.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
+Environment=DATA_DIR=/data/bot-data
+# One bounded reqExecutions per IB account. IBClient bounds the read itself
+# (IB_FETCH_TIMEOUT_S / the connect circuit breaker); this is the outer stop so
+# a wedged Gateway can never leave the unit hanging until the next fire.
+TimeoutStartSec=180
+# Run under the trader venv — ib_insync lives there, not in system python3.
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_ib_executions.py --all-ib-accounts --days 2
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

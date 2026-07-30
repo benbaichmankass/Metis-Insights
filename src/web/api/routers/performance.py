@@ -67,6 +67,14 @@ from src.web.api._clean_trades import (
     r_multiple,
 )
 from src.web.api._closed_at import close_time_sql
+from src.runtime.provenance import (
+    ESTIMATED,
+    FABRICATED,
+    MEASURED,
+    UNVERIFIED,
+    classify_pnl,
+    coverage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +132,14 @@ def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, 
         "expectancyR": None,
         "rTradeCount": 0,
         "rCoverage": 0.0,
+        # PnL provenance — null (not 0.0) here so an empty/errored window stays
+        # distinguishable from a window in which nothing was measured. That
+        # exact distinction is what `coverage()` exists to preserve.
+        "pnlCoverage": None,
+        "pnlMeasuredCount": 0,
+        "pnlEstimatedCount": 0,
+        "pnlFabricatedCount": 0,
+        "pnlUnverifiedCount": 0,
         "profitFactor": None,
         "maxDrawdown": None,
         "perStrategy": [],
@@ -195,10 +211,18 @@ def _query(
             )
             if col in avail
         )
+        # `notes` carries the provenance keys behind pnlCoverage, and is OPTIONAL
+        # for exactly the same reason the R inputs above are: selecting it
+        # unconditionally makes a schema without the column raise
+        # `no such column: t.notes`, which the caller turns into a ZEROED envelope
+        # — every metric for every window blanked to buy one coverage figure.
+        # A missing column degrades pnlCoverage to 0/unverified (the honest
+        # reading: no provenance was recorded) and leaves the rest intact.
+        notes_select = "\n                   t.notes AS notes," if "notes" in avail else""
         sql = f"""
             SELECT t.strategy_name,
                    t.symbol AS symbol,
-                   t.pnl AS pnl,{r_select}
+                   t.pnl AS pnl,{r_select}{notes_select}
                    {_CLOSE_TIME_SQL} AS closed_at
             FROM trades t
             LEFT JOIN (
@@ -257,6 +281,7 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     total_pnl = 0.0
     total_r = 0.0          # sum of per-trade R over R-measurable trades only
     r_count = 0            # # trades with a computable R (entry+stop+size known)
+    pnl_prov: Dict[str, int] = {}   # pnl-provenance split (measured/…/unverified)
     per: Dict[str, Dict[str, float]] = {}
     per_class: Dict[str, Dict[str, float]] = {}
     per_symbol: Dict[str, Dict[str, Any]] = {}
@@ -283,14 +308,28 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         if rr is not None:
             total_r += rr
             r_count += 1
+        # PnL PROVENANCE — is this number a measurement or a manufacture?
+        # The exact sibling of the R-coverage discipline two lines up, applied
+        # to the BASE metric instead of the derived one. That asymmetry is the
+        # whole 2026-07-30 defect: `rCoverage` correctly refused to let partial
+        # R-measurement masquerade as full, while the `pnl` it normalises was
+        # silently fabricated for 64.9% of July's closed trades
+        # (206 of 829 closed rows of `local_markprice` money). See src/runtime/provenance.
+        pnl_bucket = classify_pnl(r)[0]
+        pnl_prov[pnl_bucket] = pnl_prov.get(pnl_bucket, 0) + 1
+
         name = r["strategy_name"] or "(unknown)"
         bucket = per.setdefault(
-            name, {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "r": 0.0, "rc": 0.0}
+            name,
+            {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "r": 0.0, "rc": 0.0,
+             "pnl_measured": 0.0},
         )
         bucket["trades"] += 1
         if pnl > 0:
             bucket["wins"] += 1
         bucket["pnl"] += pnl
+        if pnl_bucket == MEASURED:
+            bucket["pnl_measured"] += 1
         if rr is not None:
             bucket["r"] += rr
             bucket["rc"] += 1
@@ -342,6 +381,13 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             "totalR": round(b["r"], 4) if b["rc"] else None,
             "expectancyR": round(b["r"] / b["rc"], 4) if b["rc"] else None,
             "rTradeCount": int(b["rc"]),
+            # Per-strategy PnL provenance. This is the field that must be read
+            # BEFORE tuning a strategy: a bucket at pnlCoverage 0.0 is being
+            # judged entirely on manufactured money.
+            "pnlMeasuredCount": int(b["pnl_measured"]),
+            "pnlCoverage": (
+                round(b["pnl_measured"] / b["trades"], 4) if b["trades"] else None
+            ),
         }
         for name, b in per.items()
     ]
@@ -408,6 +454,21 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         "expectancyR": round(total_r / r_count, 4) if r_count else None,
         "rTradeCount": r_count,
         "rCoverage": round(r_count / total, 4) if total else 0.0,
+        # --- PnL provenance (the base metric's honest denominator) ---------
+        # `totalPnl` above sums whatever the journal recorded. These say how
+        # much of that sum is a MEASUREMENT. A window at pnlCoverage 0.0 with a
+        # large totalPnl is not a profitable window — it is an unmeasured one.
+        #
+        # Added 2026-07-30 after the audit that found `rCoverage`'s discipline
+        # had been applied to the derived R-metric and NOT to the `pnl` it is
+        # derived from: 206 of 829 closed rows carrying -$36,018.60 of mark-price PnL,
+        # with the fabricated share running 0.0% (May) -> 30.5% (Jun) -> 64.9%
+        # (Jul) while every consumer treated measured and manufactured alike.
+        "pnlCoverage": coverage({**pnl_prov, "total": total}),
+        "pnlMeasuredCount": int(pnl_prov.get(MEASURED, 0)),
+        "pnlEstimatedCount": int(pnl_prov.get(ESTIMATED, 0)),
+        "pnlFabricatedCount": int(pnl_prov.get(FABRICATED, 0)),
+        "pnlUnverifiedCount": int(pnl_prov.get(UNVERIFIED, 0)),
         "profitFactor": profit_factor,
         "maxDrawdown": max_drawdown,
         "perStrategy": per_strategy,

@@ -107,6 +107,31 @@ _WINDOW_TS = "COALESCE(t.closed_at, t.created_at, t.timestamp)"
 # is_backtest=1 research rows (which legitimately omit closed_at/pnl/etc).
 _NON_BACKTEST = "COALESCE(t.is_backtest, 0) = 0"
 
+# A row is "declared unmeasured" when it explicitly records that its PnL could
+# not be measured, rather than leaving the question unanswered. The marker is
+# the canonical `unmeasured` value of `notes.pnl_source`
+# (src/runtime/provenance.py) — the ONE vocabulary; do not invent a second
+# spelling here.
+#
+# The `json_valid` guard is LOAD-BEARING, not defensive dressing: SQLite's
+# `json_extract` RAISES `malformed JSON` on an unparseable argument — it does
+# NOT return NULL (verified: `''` and `'not json'` both raise; only genuine
+# NULL and well-formed JSON return). The live journal contains rows with empty
+# and malformed `notes`, so an unguarded extract here would abort the entire
+# integrity report with an OperationalError — turning a data-quality check into
+# an outage. Wrapped, a bad-notes row correctly reads as UNDECLARED and stays
+# in the INV-2 alert set, which is the safe direction.
+try:
+    from src.runtime.provenance import UNMEASURED_MARKER as _DECLARED_UNMEASURED_MARKER
+except Exception:  # noqa: BLE001 — stdlib-only fallback; the value is canonical above
+    _DECLARED_UNMEASURED_MARKER = "unmeasured"
+_NOT_DECLARED_UNMEASURED = (
+    "COALESCE("
+    "  CASE WHEN json_valid(t.notes) "
+    "       THEN json_extract(t.notes, '$.pnl_source') END, '') != "
+    f"'{_DECLARED_UNMEASURED_MARKER}'"
+)
+
 
 def _resolve_db_path(explicit: Optional[str]) -> str:
     """Resolve the canonical DB path (``--db`` wins, else the resolver)."""
@@ -238,22 +263,64 @@ def run_checks(
         # baked into base_where so BOTH the recent and the total counts
         # already exclude the in-grace window — the "recent" count is the
         # alertable set (past-grace AND inside the review window).
+        #
+        # 2026-07-30 — THE INVARIANT WAS PRESSURING FABRICATION.
+        # As originally written this check demanded a number and never asked
+        # what KIND of number. The only way to clear it was to put something in
+        # `pnl`, so `_sweep_local_pnl_for_unpriced` substituted a mark price
+        # taken hours after the close — and INV-2 went green on 206 of 829 closed rows of
+        # manufactured money while a correct, honest NULL would have stayed red
+        # forever. An invariant whose only satisfying move is to invent data is
+        # not a safety net; it is a forcing function pointed the wrong way.
+        #
+        # So an EXPLICIT `unmeasured` marker now satisfies it. That is not a
+        # loophole — it is the honest terminal state the schema previously had
+        # no way to express: "this close is real, its PnL could not be measured,
+        # and we are saying so on the record" is strictly better information
+        # than a plausible fabricated figure. Silence still alerts; only a
+        # deliberate declaration clears.
+        #
+        # The declaration is NOT free: INV-2b below counts every explicitly
+        # unmeasured row, so the population stays visible and can never be used
+        # to quietly mute the check. See src/runtime/provenance.py.
         checks.append(
             _check(
                 conn,
                 check_id="INV-2",
                 title=(
                     "closed trade with pnl IS NULL past the "
-                    f"{pnl_grace_hours:g}h broker-sweep grace"
+                    f"{pnl_grace_hours:g}h broker-sweep grace "
+                    "(undeclared — an explicit 'unmeasured' marker clears it)"
                 ),
                 base_where=(
                     f"{_NON_BACKTEST} AND t.status = 'closed' "
                     "AND t.pnl IS NULL "
-                    f"AND {_WINDOW_TS} < '{pnl_cutoff_iso}'"
+                    f"AND {_WINDOW_TS} < '{pnl_cutoff_iso}' "
+                    f"AND {_NOT_DECLARED_UNMEASURED}"
                 ),
                 since_iso=since_iso,
             )
         )
+
+        # INV-2b — rows that DID declare themselves unmeasured. Reported, never
+        # alerted: an honest declaration is not a defect, but it must stay
+        # counted. Without this line the INV-2 relaxation above would be a way
+        # to make the check quiet rather than a way to make it truthful, and a
+        # growing unmeasured population would be invisible — which is precisely
+        # how the fabricated share reached 64.9% unnoticed.
+        inv2b = _check(
+            conn,
+            check_id="INV-2b",
+            title="closed trade explicitly declared unmeasured (reported, not alerted)",
+            base_where=(
+                f"{_NON_BACKTEST} AND t.status = 'closed' "
+                "AND t.pnl IS NULL "
+                f"AND NOT ({_NOT_DECLARED_UNMEASURED})"
+            ),
+            since_iso=since_iso,
+        )
+        inv2b["alert"] = False
+        checks.append(inv2b)
 
         # INV-3 — open/closed real trade with NO resolvable package link by
         # EITHER direction. order_package_id NULL (forward link absent) AND

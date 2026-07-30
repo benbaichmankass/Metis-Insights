@@ -7019,10 +7019,16 @@
       "tier": 1,
       "trigger_condition": "A celled strategy errors as unclassifiable in a re-audit run.",
       "resolution_criteria": "squeeze_breakout_4h's cells are either re-measured by a new harness, or shown to be all-permissive/cosmetic and dropped.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": [],
-      "resolved_at": null,
+      "updates": [
+        {
+          "at": "2026-07-30T21:45:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "DISPROVED — squeeze_breakout_4h DOES map to an offline harness and its cells ARE re-auditable. I ran the full offline audit today.\n\nHarness run receipt (trainer-diag #8110): scripts/backtest_squeeze.py --data data/btc_1h_multiyear.csv --symbol BTCUSDT --timeframe 4h --resample 4h --bb-period 20 --bb-std 2.0 --kc-mult 1.0 --atr-period 14 --atr-stop-mult 2.5 --trail-mult 3.5  ->  trades=110, win_rate 38.18%, net_r 17.6142, maxdd_r 7.8888, span 2021-01-01..2026-06-01. That reproduces the documented basis in config/strategies.yaml:315 ('+17.6R multiyear ... lowest DD (7.9R)') to 4 significant figures, which is the independent check that the harness was driven with the strategy's REAL live params and not defaults. NOTE --kc-mult 1.0: the harness default is 1.5, so omitting it silently grades a different strategy.\n\nThe harness is named in config/strategies.yaml:303 ('harness: scripts/backtest_squeeze.py'), and scripts/research/regime_tag_emitted.py is the engine-agnostic post-processor for exactly this — its own docstring lists backtest_squeeze.py as a supported emitter. Tagged output with the vol axis attached, 96.4% vol coverage (106/110).\n\nThis mattered: the item as written ('its 4 live cells can never be re-audited') would stop a future session from even attempting the audit that just resolved a parked Tier-3 proposal. Leaving a false blocker standing is as costly as leaving a bug standing."
+        }
+      ],
+      "resolved_at": "2026-07-30T21:45:00+00:00",
       "severity": "medium"
     },
     {
@@ -7312,6 +7318,13 @@
         "BL-20260730-SQZ-WIRING-UNVERIFIED-E2E",
         "BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS",
         "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER"
+      ],
+      "updates": [
+        {
+          "at": "2026-07-30T21:45:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "INSTRUMENT CORRECTION. This row grades the cells on LIVE n (28 over 730d). Live n can never grade a gate cell at ANY size, because a gate row records a SUPPRESSION — the trade was blocked, so it has no outcome to score (see BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT, live n=12 across all six cells). The right instrument is the OFFLINE harness, which yields n=110 over 5.4 years with a 96.4%-covered vol axis. Done today: see the resolution on BL-20260730-SQUEEZE-NO-HARNESS and the new BL-20260730-SQZ-TRENDING-SHORT-SUPERSEDED."
+        }
       ]
     },
     {
@@ -7599,21 +7612,6 @@
       ]
     },
     {
-      "id": "BL-20260730-DESTRUCTIVE-GIT-SYNC-NO-GUARD",
-      "opened_at": "2026-07-30T15:55:00+00:00",
-      "opened_by": "claude (research program) — self-reported",
-      "severity": "medium",
-      "status": "open",
-      "source": "Self-reported after THREE near-misses in ONE session (2026-07-30, session_01HSz1HjdRBCF63MhT5iXfvJ). Each destroyed or would have destroyed committed work; in every case the ONLY thing that surfaced it was git's own rejection on a LATER push, not any guard, check, or rule. (1) `git checkout -B <branch> origin/main` discarded PR #8003's already-pushed commits; caught by the non-fast-forward rejection, recovered from origin/<branch> + cherry-pick. (2) `git reset --soft HEAD~1` on a MERGE commit during #8027's conflict resolution: --soft moves HEAD to the FIRST parent, silently dropping the second, so the union CONTENT landed while the merge LINK did not -- GitHub correctly kept reporting mergeable_state 'dirty' and I misdiagnosed it as a stale async computation, burning a diagnostic cycle before re-doing the merge properly. (3) `git reset --hard origin/main` at the start of the session-end doc sweep discarded commit 26333205 (vol-axis scoping), which was already PUSHED and open as PR #8051; caught by the non-fast-forward rejection, recovered by cherry-pick onto the remote tip.",
-      "title": "[process/tooling] destructive git sync (`reset --hard` / `checkout -B` / `reset --soft` on a merge) has NO pre-flight guard — 3 near-miss data losses in one session, all caught by luck",
-      "description": "ROOT CAUSE, stated as a behaviour not an accident: `git reset --hard <remote-ref>` and `git checkout -B <branch> <remote-ref>` are used as a 'sync to main' idiom WITHOUT first asking whether the branch carries commits that are not in the target. That question is one cheap command (`git log --oneline <target>..HEAD` must be empty, or `git diff <target> HEAD` must be empty when the content is expected to be equivalent). It was not asked in any of the three incidents. WHY THE CURRENT SAFETY NET IS NOT ONE: recovery depended on git's non-fast-forward / stale-info rejection on the NEXT push. That only fires IF a push happens, only AFTER the local work is already gone, and is easy to misread -- my push-retry loop treats every push failure as a transient network error and retried 4x with exponential backoff on a 'stale info' rejection, which is deterministic and will never succeed on retry. If a session resets, does not push, and the container is later reclaimed, the work is simply gone with no signal at all. THE MERGE-COMMIT SUB-CASE IS THE NASTIEST and deserves calling out separately: `git reset --soft HEAD~1` reads as 'undo one commit', but on a merge commit it moves to the FIRST parent and discards the merge relationship. The tree looks correct afterwards (content intact), so nothing local reveals the loss -- only the REMOTE disagrees, by continuing to report a conflict that the operator can see and the session cannot explain. BLAST RADIUS: bounded so far -- Tier-1 research/docs branches, all recoverable from the remote, zero production or live-VM impact. Severity is medium rather than high for that reason, NOT because the behaviour is acceptable; the same idiom on a branch whose commits were never pushed loses the work outright. PROPOSED FIXES (pick one or more; a later session decides): (a) a `scripts/ops/git_safe_sync.sh` helper that REFUSES to reset/checkout -B onto a ref when `<target>..HEAD` is non-empty unless an explicit --force-discard flag is passed, and which stashes-to-a-branch rather than discarding by default; (b) a binding line in `.claude/skills/git-actions/SKILL.md` requiring the emptiness check before any destructive sync, plus an explicit 'never `reset --soft` a merge commit' note; (c) make the push-retry loop classify failures -- non-fast-forward / stale info / rejected are DETERMINISTIC and must short-circuit to diagnosis, never burn 4 backoff retries (this half is cheap and independently useful); (d) consider a SessionStart or pre-tool hook, analogous to the existing `git_history_check` hook that refuses a history question on a shallow clone -- same spirit: refuse the unsafe operation rather than answer/perform it. NOTE ON SCOPE: this is NOT the same as the stop-hook's unverified-commit check, which watches commit ATTRIBUTION. Nothing currently watches DESTRUCTIVENESS. Three times today the hook's own suggested remedy (`git rebase --exec ... --reset-author`) would itself have rewritten published main history for GitHub-authored squash commits, which is a related instance of 'the suggested git operation is more destructive than the problem'.",
-      "refs": [
-        "scripts/ops/git_history_check.py",
-        ".claude/skills/git-actions/SKILL.md",
-        "BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE"
-      ]
-    },
-    {
       "id": "BL-20260730-DEMO-MARKPRICE-FABRICATES-PAPER-PNL",
       "opened_at": "2026-07-30T13:35:00+00:00",
       "opened_by": "claude (bybit scalp exit-leak root cause)",
@@ -7684,6 +7682,93 @@
       "source": "Static consumer sweep over src/ scripts/ ml/ (2026-07-30), generalising BL-20260730-PROVENANCE-RECORDED-THEN-IGNORED.",
       "description": "Counting writers vs value-branches vs ml/ refs vs src/web/api refs for every known data-quality signal:\n\n  exit_price_source   writes~14 branches~1(unrelated) ml=0 api=0   WRITE-ONLY\n  close_exec_type     writes~1  branches~0            ml=0 api=0   WRITE-ONLY\n  fc_present          writes~2  branches~0            ml=0 api=0   WRITE-ONLY\n  exit_reason_source  writes~3  branches~0            ml=0 api=0   WRITE-ONLY\n  pnl_source          writes~12 branches~1            ml=0 api=6    near-write-only\n  reconcile_status    writes~6  branches~24           ml=0 api=5    healthy\n  cost_source         writes~5  branches~9            ml=0 api=0    healthy\n  backfill_kind       writes~4  branches~4            ml=16 api=6   healthy\n\nTWO of the write-only fields matter independently of the PnL-provenance bug:\n\n* `close_exec_type` (order_monitor.py:~7162, written from Bybit /v5/execution/list) distinguishes 'BustTrade' = LIQUIDATION / demo margin call, 'AdlTrade' = auto-deleveraging, 'Trade' = a normal fill. A liquidated position is a categorically different event from a bracket exit, and would present as an enormous adverse exit price. Nothing reads this field, so no analysis, review skill, or ML label has EVER distinguished a liquidation from a stop. This is a live candidate explanation for part of the bybit_1 loss tail and for the unexplained long holds (BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED) -- CHECK IT before theorising further about exit geometry.\n\n* `fc_present` is the M19 fc-geometry soak's HONEST COVERAGE DENOMINATOR -- the field whose entire purpose is to record 'no forecast was served here'. It is written and never consumed, which is precisely the failure the canonical 'green is not evidence' rule (§ obligation 1, assert the inputs) exists to prevent. The rule is stated; nothing enforces it.\n\nNote ml=0 for EVERY provenance signal except backfill_kind: the training pipeline cannot express 'this label is untrustworthy' about anything.\n\nGENERAL FIX (the class, not the instances): a signal that is written and never read is indistinguishable from one that does not exist, so recording it creates false assurance -- reviewers see the field and assume something acts on it. Proposal: a CI guard that fails when a declared quality/provenance key gains a writer but no consumer (the same shape as the existing canonical-db-resolver / env-gate-guard guards), plus a consumer contract requiring each decision surface to declare which provenance values it accepts.",
       "next_action": "(1) Query close_exec_type distribution over the bybit_1 loss tail -- cheap, may reclassify a chunk of the 'exit leak' as liquidations. (2) Propose the write-only-signal CI guard."
+    },
+    {
+      "id": "BL-20260730-JSON-EXTRACT-GUARD-PROMOTE",
+      "opened_at": "2026-07-30T17:00:00+00:00",
+      "opened_by": "claude (provenance IB-executions session)",
+      "source": "PR #8069 added scripts/ci/check_json_extract_guarded.py + .github/workflows/json-extract-guard.yml as an ADVISORY check, after nearly reintroducing the unguarded-json_extract crash class in check_db_integrity's INV-2 predicate. It is green on the repo today (891 files scanned, 0 violations) and has 13 tests proving it actually FIRES on real violations.",
+      "title": "Promote json-extract-guard to a REQUIRED status check once green on main",
+      "detail": "Add \"json-extract-guard\" to REQUIRED_CONTEXTS in .github/workflows/branch-protection-sync.yml. Deliberately left advisory on introduction: two new required checks in one PR doubles the wedge risk if either workflow misbehaves on its first real run, and this repo's own precedent (pytest-run, promoted 2026-05-22 'once its baseline went green on main') is promote-after-green. The sibling provenance-consumer-guard WAS promoted in the same PR because it is the central anti-recurrence control for the +$247,683.78 provenance defect; this one is the narrower sibling. Verify one PR's run is green, then promote — it is a one-line change.",
+      "severity": "low",
+      "status": "open",
+      "tier": 1
+    },
+    {
+      "id": "BL-20260730-ML-LABELS-IGNORE-PNL-PROVENANCE",
+      "opened_at": "2026-07-30T17:00:00+00:00",
+      "opened_by": "claude (provenance IB-executions session)",
+      "source": "Sweep during PR #8069: `grep -rn 'pnl_source|exit_price_source|is_measured|provenance' ml/` returns exactly ONE hit, an unrelated comment in conviction_meta.py. The whole ml/ tree is provenance-blind.",
+      "title": "ML label builders derive `won` from trades.pnl with NO provenance filter",
+      "detail": "ml/datasets/families/trade_outcomes.py (label_version 'won-from-pnl-v1') sets `payload['won'] = bool(payload['pnl'] > 0)` straight off trades.pnl. A mark-price-fabricated pnl flips that label arbitrarily, so any model trained on this family has been learning from up to 64.9% manufactured outcomes on the affected books (the +$247,683.78 local_markprice population, concentrated on ib_paper). Other families reading pnl should be checked the same way (execution_quality, backtest_results, setup_labels). Recommended shape, mirroring what /performance now does: emit a `pnl_provenance` metadata column (leakage-safe — excluded from features exactly like `pnl` already is), report measured-coverage in the dataset metadata, and make any row filtering an EXPLICIT training decision rather than a silent drop. Do NOT silently change the training population without measuring first. Live exposure measurement was requested via trainer-diag issues #8068/#8071; #8068 failed (no sqlite3 CLI on the trainer) and its journal copy was dated Jul 20 (see the sibling staleness item).",
+      "severity": "high",
+      "status": "open",
+      "tier": 1,
+      "measured_2026_07_30": {
+        "source": "trainer-diag #8100, scripts/ops/provenance_exposure_audit.py against the live 677 MB data/trade_journal.db (newest closed 07:40Z)",
+        "label_population": "829 closed non-backtest rows with pnl NOT NULL — the population `won = pnl > 0` is computed over",
+        "fabricated_labels": "206 of 829 = 24.8% of ML labels derive from a `local_markprice` price (a mark read at SWEEP time, not the exit)",
+        "won_labels_at_risk": "71 of those 206 are labelled WON. A phantom win is the worst case: it teaches the model that a losing setup pays.",
+        "by_source": {
+          "bybit_closed_pnl": "324 (111W/213L)",
+          "local_markprice": "206 (71W/135L)",
+          "bybit_closed_pnl_rebuild": "131 (22W/109L)",
+          "(none)": "119 (28W/91L)",
+          "recorded_exit_price": "46 (17W/29L)"
+        },
+        "concentration": "bybit_1 152/323 (47.1%), bybit_portfolio 11/12 (91.7%), alpaca_paper 26/44 (59.1%), alpaca_options_paper 6/8 (75.0%). ib_paper closed is 3 of 27.",
+        "trend": "fabricated share of closed rows 0.0% (May) -> 23.7% (Jun) -> 65.3% (Jul) — so a model retrained on RECENT data is worse affected than these lifetime figures suggest",
+        "note": "119 rows additionally carry NO exit_price_source at all (-$37,785.32). UNVERIFIED is not MEASURED; do not fold it into the clean bucket."
+      },
+      "resolution_criteria": "Mirror what /performance now does: emit provenance as a leakage-safe METADATA column on the label frame and report coverage, then make row filtering an EXPLICIT training decision rather than a silent drop. Dropping 24.8% of labels unannounced would itself be a silent population change — the failure class this workstream is about. Re-measure with this audit after the anchoring change has been live long enough to shift the July share, since new closes now resolve as measured/estimated/declared rather than mark-substituted."
+    },
+    {
+      "id": "BL-20260730-TRAINER-JOURNAL-COPY-STALE",
+      "opened_at": "2026-07-30T17:00:00+00:00",
+      "opened_by": "claude (provenance IB-executions session)",
+      "source": "trainer-vm-diag #8071: TWO journal copies exist on the trainer VM — /home/ubuntu/ict-trading-bot/trade_journal.db (8 MB, Jul 20 21:56) and /home/ubuntu/ict-trading-bot/data/trade_journal.db (677 MB, Jul 30 09:20).",
+      "title": "Stray 8 MB trade_journal.db at the trainer repo root beside the real 677 MB store",
+      "detail": "CORRECTION to the first version of this item: the trainer is NOT 10 days stale. My initial read grabbed the small repo-root file first and I filed it as NEEDS-CONFIRMING; #8071 then showed the real store under data/ is current (Jul 30 09:20). The residual finding is the 8 MB repo-root file itself: a CWD-relative `trade_journal.db` next to the canonical DATA_DIR-anchored one is exactly the stray-duplicate artifact the `canonical-db-resolver` guard exists to prevent, and anything that resolves to it silently reads a Jul-20 snapshot. Action: confirm nothing on the trainer resolves to the repo-root path (the Python resolver src.utils.paths and the shell runtime_db_path should both prefer $DATA_DIR), then delete or rename the stale file so it cannot be picked up. Low risk, but it is a live foot-gun of a class this repo has already been burned by.",
+      "severity": "medium",
+      "status": "open",
+      "tier": 1
+    },
+    {
+      "id": "BL-20260730-PR-CI-NOT-ATTACHING",
+      "opened_at": "2026-07-30T17:45:00+00:00",
+      "opened_by": "claude (provenance IB-executions session)",
+      "source": "Observed while driving PR #8069 to green. Verified against three independent PRs and the Actions run list.",
+      "title": "P1: pull_request-triggered CI does not run on ANY PR — merges are landing unchecked",
+      "detail": "EVIDENCE (all read via the GitHub MCP, 2026-07-30):\n1. PR #8069 (this session's): total_count=0 checks across FIVE separate real pushes (826cfe89, f6e2b100, c77344c7, 6f80d2e5, 1d9a7886).\n2. PR #8039: mergeable_state 'blocked', total_count=0.\n3. PR #8053 — **already MERGED to main today** — also total_count=0. So recent merges went in with NO checks run at all.\n4. actions_list filtered to event=pull_request repo-wide returns only 'claude-run-failure-alert' runs (all on main). No ruff-lint / pytest-run / pytest-collect / secret-scan / dry-run-guard / env-gate-guard / silent-empty-guard / canonical-config-loaders / canonical-db-resolver run for any PR.\n\nWHAT STILL WORKS (so Actions itself is NOT disabled):\n- push-triggered workflows DO run (json-extract-guard.yml fired on two pushes to a claude/** branch).\n- issues-triggered workflows DO run (the trainer-vm-diag relay served four requests this session: #8068, #8071, #8072, #8073).\nSo the fault is specific to the `pull_request` event, not to Actions or to runners.\n\nWHY THIS IS P1: 'zero checks' renders identically to 'all green' in the PR UI and in the MCP status payload. Branch protection lists nine REQUIRED contexts (branch-protection-sync.yml) — if those are genuinely required and never report, PRs should be unmergeable; #8053 merged anyway, which means either protection is not actually enforcing or the contexts are not matching. Either way the repo currently has NO pre-merge verification, on a live-money system.\n\nNOT DIAGNOSED (needs operator/console access this session does not have): repository Actions permission settings, branch-protection enforcement state, or an org policy. Ruled OUT: a `paths:` filter (the required guards deliberately carry none), workflow syntax (unchanged files that used to run), and runner availability (push + issue workflows run fine).\n\nIMMEDIATE CONSEQUENCE for PR #8069: the promotion of provenance-consumer-guard to a REQUIRED context in that PR cannot be verified by a green run, because no PR run happens. The guard passes locally (`python3 scripts/check_provenance_consumers.py` -> OK) and its workflow is a copy of the canonical-db-resolver template validated with a duplicate-key-rejecting YAML loader, but 'CI green' is NOT available as evidence for it or for anything else merged right now.",
+      "severity": "high",
+      "status": "open",
+      "tier": 1,
+      "observation_2026_07_30_evening": "NOT resolved — INTERMITTENT, which is worse than consistently broken because it reads as fixed. Checks attached for exactly three consecutive SHAs (8377f29c, 31d61f69, 09c7a11a; 25 runs each, 18:37-18:43Z) and then stopped again: f10d2b54, 19a5d883 and bf29519b produced ZERO runs. Correlation with the merge commit that brought #8039 down from main is therefore coincidence, not cause.\n\nRuled out this pass: no `draft` guard exists in any workflow (checked), so draft status is not the gate; `paths:` filters are not it either (pytest-run has none and still did not fire); and Actions is plainly not disabled, since push- and issue-triggered workflows have run reliably all session.\n\nNote for whoever picks this up: `pytest-run.yml` CANNOT be dispatched as a workaround — its `push` trigger is `branches: [main]` only and it has no `workflow_dispatch`, so on a feature branch `pull_request` is the ONLY event that can run it. While that event is dropping, a feature branch has no way to run the test suite in CI at all.",
+      "why_critical": "Zero checks renders identically to green in every UI and in `get_status`. This PR shipped 11 test failures, a false-positive guard trip and a deploy-safety gap that were ALL invisible until the event happened to fire — on a repo where main receives live-trading code.",
+      "evidence_2026_07_30_2000z": "SHARPENED, and one of my own earlier claims corrected. Correlating every branch SHA against actual workflow runs (ruff-lint, one run per SHA expected):\n  8377f29c pull_request OK | 31d61f69 OK | 09c7a11a OK\n  f10d2b54 NO RUN | 19a5d883 NO RUN\n  bf29519b OK | 6c5273a1 OK | e02b0ada OK\n\nSo the gap is TWO SHAs, not three as I first wrote, and the two are not equally damning. f10d2b54 and 19a5d883 were pushed ~25s apart; a `synchronize` for a head that has already moved on is plausibly normal coalescing, so f10d2b54 alone would not evidence a defect. **19a5d883 is the real case**: it was the PR head for ~6 minutes with no event at all, then bf29519b (pushed later) fired normally. Concurrency cancellation is ruled out — neither ruff-lint nor pytest-run declares a `concurrency:` group.\n\nTOOLING TRAP I fell into, worth recording: `pull_request_read get_status` returns `total_count: 0` on this repo ALWAYS, because it reads the legacy commit-status API while every check here is a Check Run. Some of my earlier 'zero checks' readings came from that call and were not evidence of anything. **Use `get_check_runs`, or correlate `actions_list` workflow runs by head_sha** — that is what the table above is built from. A watcher polling `get_status` would report a permanently-red repo.",
+      "severity_note": "Lowered critical -> high on the sharper evidence: 1 confirmed dropped delivery out of 8 pushes, not the near-total outage the first reading suggested (part of which was the get_status artifact above). Still high, not medium: a check that runs SOMETIMES is not a check, and zero checks renders identically to green.",
+      "updates": [
+        {
+          "at": "2026-07-30T21:45:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "SCOPE CORRECTION + detail, so a review session doesn't start from a false premise. This row's TITLE says CI 'does not run on ANY PR' and its description is EMPTY. The 'any PR' claim is too broad, measured:\n  #8085 15 checks all green | #8091 19 | #8097 15 | #8099 15 | #8102 15 | #8109 15 — six PRs merged by this session on 2026-07-30, every one fully checked. #8099 was a SINGLE-FILE docs-only change and still drew all 15.\nMeanwhile #8069 read total_count:0 at 19:1x and 25/25 by 21:xx — i.e. INTERMITTENT, and PR/SHA-specific, not a repo-wide Actions outage.\n\nRuled out (checked directly, not inferred): no workflow carries a `draft == false` condition, so draft status is not the filter; and required checks deliberately carry NO `paths:` filter — env-gate-guard.yml documents exactly why ('trigger can never carry paths: — would leave the check permanently pending').\n\nWHY IT STILL MATTERS AT THIS SEVERITY: zero checks renders identically to green in the UI and in get_status, so an unchecked merge is indistinguishable from a verified one. Keep it open. But the investigation should start from 'intermittent per-SHA' rather than 'Actions is down', which is a much cheaper problem.\n\nCross-referenced from a concurrent session's PR #8069, which independently reached the same intermittent conclusion."
+        }
+      ]
+    },
+    {
+      "id": "BL-20260730-DESTRUCTIVE-GIT-SYNC-NO-GUARD",
+      "opened_at": "2026-07-30T15:55:00+00:00",
+      "opened_by": "claude (research program) — self-reported",
+      "severity": "medium",
+      "status": "open",
+      "source": "Self-reported after THREE near-misses in ONE session (2026-07-30, session_01HSz1HjdRBCF63MhT5iXfvJ). Each destroyed or would have destroyed committed work; in every case the ONLY thing that surfaced it was git's own rejection on a LATER push, not any guard, check, or rule. (1) `git checkout -B <branch> origin/main` discarded PR #8003's already-pushed commits; caught by the non-fast-forward rejection, recovered from origin/<branch> + cherry-pick. (2) `git reset --soft HEAD~1` on a MERGE commit during #8027's conflict resolution: --soft moves HEAD to the FIRST parent, silently dropping the second, so the union CONTENT landed while the merge LINK did not -- GitHub correctly kept reporting mergeable_state 'dirty' and I misdiagnosed it as a stale async computation, burning a diagnostic cycle before re-doing the merge properly. (3) `git reset --hard origin/main` at the start of the session-end doc sweep discarded commit 26333205 (vol-axis scoping), which was already PUSHED and open as PR #8051; caught by the non-fast-forward rejection, recovered by cherry-pick onto the remote tip.",
+      "title": "[process/tooling] destructive git sync (`reset --hard` / `checkout -B` / `reset --soft` on a merge) has NO pre-flight guard — 3 near-miss data losses in one session, all caught by luck",
+      "description": "ROOT CAUSE, stated as a behaviour not an accident: `git reset --hard <remote-ref>` and `git checkout -B <branch> <remote-ref>` are used as a 'sync to main' idiom WITHOUT first asking whether the branch carries commits that are not in the target. That question is one cheap command (`git log --oneline <target>..HEAD` must be empty, or `git diff <target> HEAD` must be empty when the content is expected to be equivalent). It was not asked in any of the three incidents. WHY THE CURRENT SAFETY NET IS NOT ONE: recovery depended on git's non-fast-forward / stale-info rejection on the NEXT push. That only fires IF a push happens, only AFTER the local work is already gone, and is easy to misread -- my push-retry loop treats every push failure as a transient network error and retried 4x with exponential backoff on a 'stale info' rejection, which is deterministic and will never succeed on retry. If a session resets, does not push, and the container is later reclaimed, the work is simply gone with no signal at all. THE MERGE-COMMIT SUB-CASE IS THE NASTIEST and deserves calling out separately: `git reset --soft HEAD~1` reads as 'undo one commit', but on a merge commit it moves to the FIRST parent and discards the merge relationship. The tree looks correct afterwards (content intact), so nothing local reveals the loss -- only the REMOTE disagrees, by continuing to report a conflict that the operator can see and the session cannot explain. BLAST RADIUS: bounded so far -- Tier-1 research/docs branches, all recoverable from the remote, zero production or live-VM impact. Severity is medium rather than high for that reason, NOT because the behaviour is acceptable; the same idiom on a branch whose commits were never pushed loses the work outright. PROPOSED FIXES (pick one or more; a later session decides): (a) a `scripts/ops/git_safe_sync.sh` helper that REFUSES to reset/checkout -B onto a ref when `<target>..HEAD` is non-empty unless an explicit --force-discard flag is passed, and which stashes-to-a-branch rather than discarding by default; (b) a binding line in `.claude/skills/git-actions/SKILL.md` requiring the emptiness check before any destructive sync, plus an explicit 'never `reset --soft` a merge commit' note; (c) make the push-retry loop classify failures -- non-fast-forward / stale info / rejected are DETERMINISTIC and must short-circuit to diagnosis, never burn 4 backoff retries (this half is cheap and independently useful); (d) consider a SessionStart or pre-tool hook, analogous to the existing `git_history_check` hook that refuses a history question on a shallow clone -- same spirit: refuse the unsafe operation rather than answer/perform it. NOTE ON SCOPE: this is NOT the same as the stop-hook's unverified-commit check, which watches commit ATTRIBUTION. Nothing currently watches DESTRUCTIVENESS. Three times today the hook's own suggested remedy (`git rebase --exec ... --reset-author`) would itself have rewritten published main history for GitHub-authored squash commits, which is a related instance of 'the suggested git operation is more destructive than the problem'.",
+      "refs": [
+        "scripts/ops/git_history_check.py",
+        ".claude/skills/git-actions/SKILL.md",
+        "BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE"
+      ]
     },
     {
       "id": "BL-20260730-TRAINER-DISK-95PCT",
@@ -7873,6 +7958,88 @@
       "updates": []
     },
     {
+      "id": "MB-20260706-CI-MINUTES",
+      "status": "resolved",
+      "tier": 1,
+      "severity": "low",
+      "opened_at": "2026-07-06T00:00:00+00:00",
+      "opened_by": "claude (Actions-minutes budget work, 2026-07-06)",
+      "resolved_at": "2026-07-06T00:00:00+00:00",
+      "resolved_by": "the diff-scoped short-circuit rolled out across the guard workflows",
+      "title": "[infra][ci] Actions-minutes billing cap — guards short-circuit when no relevant file changed",
+      "source": "Filed retroactively 2026-07-30 by check_backlog_refs: the id is cited in ~20 workflow files and was never filed as a row, so every one of those citations resolved to nothing.",
+      "description": "The convention every guard workflow cites when explaining why its job always RUNS (cheap: checkout + `git diff --name-only`) but skips the expensive step when no relevant file changed. A required status check can never carry a `paths:` filter — that would leave it permanently 'pending' on a non-matching PR — so the skip has to happen inside the job. The behaviour is live across the guard suite; only the backlog row was missing.",
+      "resolution": "Behaviour shipped 2026-07-06. This row exists so the ~20 citations resolve to something. Filed as `resolved`, matching the backlog's convention of KEEPING resolved rows rather than archiving them."
+    },
+    {
+      "id": "BL-20260613-IBPOS",
+      "status": "resolved",
+      "tier": 1,
+      "severity": "medium",
+      "opened_at": "2026-06-13T00:00:00+00:00",
+      "opened_by": "claude (IB position-multiplier fix, 2026-06-13)",
+      "resolved_at": "2026-06-13T00:00:00+00:00",
+      "title": "[bug][ib] IB reports averageCost multiplier-inflated; positions must divide it back out",
+      "source": "Filed retroactively 2026-07-30 by check_backlog_refs: cited in 5 files, never filed.",
+      "description": "IBKR reports a futures position's `averageCost` multiplied by the contract multiplier, so `IBClient.positions` divides by exactly that to recover a per-unit entry price. The same incident is why fills are keyed on the GENERIC contract root (`MES`/`MHG`) and never `localSymbol`, which carries the expiry month code and can never join back to a journal row.",
+      "resolution": "Fixed 2026-06-13 in IBClient.positions; the root-vs-localSymbol rule is upheld by src/runtime/exchange_fills_ib.py."
+    },
+    {
+      "id": "BL-20260717-FILLS-STORE-PATH-SPLIT",
+      "status": "resolved",
+      "tier": 1,
+      "severity": "high",
+      "opened_at": "2026-07-17T00:00:00+00:00",
+      "opened_by": "claude (fills-store path split, 2026-07-17)",
+      "resolved_at": "2026-07-17T00:00:00+00:00",
+      "title": "[bug][data] exchange-fills writer and reader resolved different absolute paths, leaving the surface empty",
+      "source": "Filed retroactively 2026-07-30 by check_backlog_refs: cited in 3 files, never filed.",
+      "description": "A fresh SSH wrapper shell does not inherit systemd's DATA_DIR, so the puller's python child resolved `runtime_state/` repo-relative while the web-api reader used the DATA_DIR-anchored path. Writer and reader disagreed and the endpoint read empty — the same class as the ict-health-snapshot artifacts-path bug. Every caller must pass the canonical path explicitly (scripts/ops/_lib.sh::fills_store_path, or Environment=DATA_DIR in the unit).",
+      "resolution": "Fixed 2026-07-17. Upheld by the explicit DATA_DIR pin in ict-ib-executions-pull.service and the --fills-db flag on both pullers."
+    },
+    {
+      "id": "BL-20260730-NEW-TABLE-GUARD-MATCHES-PROSE",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "opened_at": "2026-07-30T18:50:00+00:00",
+      "opened_by": "claude (provenance-ib-executions session, provenance-ib-executions-s582dx)",
+      "source": "Tripped on PR #8069 against a DOCSTRING sentence, not a table declaration.",
+      "title": "[ci][tooling] new-table-wiring-guard matches CREATE TABLE inside prose, producing false trips",
+      "description": "scripts/check_new_table_wiring.py scans a raw diff for CREATE TABLE and does not distinguish code from prose. On PR #8069 it failed on src/runtime/exchange_fills_ib.py for a docstring line that merely SAID the exchange_fills schema is created with CREATE TABLE IF NOT EXISTS. That module declares no table at all — it maps into the existing store.\n\nWhy this matters more than one false positive: the only ways to clear a false trip are to reword the prose (what PR #8069 did) or to add a `# data-wiring:` annotation for a table that does not exist. The second is FALSIFYING the wiring declaration the guard exists to protect, and it is the path of least resistance — so a prose-blind guard actively teaches contributors to lie to it. Combined with routine false trips, that is the alarm-fatigue failure mode CLAUDE.md names as itself a P1.\n\nThird instance of this exact class in one session: my own json-extract guard first flagged 3 docstring-prose lines, and a structural test matched the explanatory comment NAMING the thing it forbade. Prose-vs-code is a systematic blind spot in this repo's diff-scanning guards, not a one-off.",
+      "resolution_criteria": "The guard ignores CREATE TABLE occurrences inside string literals and comments. scripts/ci/check_json_extract_guarded.py::_prose_lines already solves this with ast+tokenize and is the reference implementation — but it parses FILES, while this guard parses a DIFF (hunks are not valid Python), so the fix likely means resolving each touched file at HEAD and mapping added line numbers onto it rather than porting _prose_lines directly. Add a test asserting a prose mention does NOT trip while a real CREATE TABLE does.",
+      "refs": [
+        "PR #8069",
+        "scripts/check_new_table_wiring.py",
+        "scripts/ci/check_json_extract_guarded.py"
+      ]
+    },
+    {
+      "id": "BL-20260730-SQZ-TRENDING-SHORT-SUPERSEDED",
+      "opened_at": "2026-07-30T21:45:00+00:00",
+      "opened_by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+      "source": "Operator directed this session to drive the parked squeeze_breakout_4h trending-short Tier-3 proposal to a decision. Evidence run: trainer-diag #8110.",
+      "title": "[regime][tier-3] the parked squeeze_breakout_4h 1-D `trending short: off` proposal is SUPERSEDED — the entire loss is in trending/CALM, which is already gated",
+      "description": "The proposal was parked pending the ML vol axis. That axis now exists and is verified against live serve to 0.13pp on a matched window (PR #8109), so the block is cleared and the question is answerable.\n\nTHE QUESTION: trending/calm squeeze_breakout_4h {short: off} is ALREADY authored. So the 1-D proposal only adds value if trending/VOLATILE short ALSO loses.\n\nTHE ANSWER (offline, 4h BTCUSDT, 2021-01..2026-06, vol_axis present, coverage 106/110 = 96.4%):\n  trending short, 1-D (what the proposal targets) : net_R -2.7288  n=18\n    trending/calm     short  [ALREADY GATED]      : net_R -3.2101  n=17   exp_R -0.1888\n    trending/volatile short                       : net_R  0.0     n=0\n    trending/unknown  short                       : net_R +0.4813  n=1\n  Arithmetic closes exactly: -3.2101 + 0 + 0.4813 = -2.7288 ; 17 + 0 + 1 = 18.\n\nSo the whole 1-D trending-short loss IS the calm sub-population, and that sub-population is already suppressed by the existing 2-D cell. trending/volatile has ZERO short trades in 5.4 years — authoring the 1-D cell would additionally gate a population with no evidence in either direction.\n\nRECOMMENDATION (Tier-3, operator decides — nothing was changed): DROP the parked 1-D proposal as superseded by the existing trending/calm cell. This requires NO config/regime_policy.yaml edit, so there is no Tier-3 change to approve — only a parked item to close.\n\nThe existing cell is also well-targeted, which is worth recording: it gates only `short` in trending/calm and leaves `long` on — and trending/calm LONG is the strategy's best cell at +9.8014R over n=24.\n\nEXPOSURE CONTEXT for weighting this: squeeze_breakout_4h is routed ONLY to bybit_1 (demo/PAPER). It was removed from real-money bybit_2 at its 2026-06-01 demotion and the 2026-06-23 re-promotion is paper-only (config/strategies.yaml:320-323). No real-money exposure today either way.\n\nHarness run receipt (trainer-diag #8110): scripts/backtest_squeeze.py --data data/btc_1h_multiyear.csv --symbol BTCUSDT --timeframe 4h --resample 4h --bb-period 20 --bb-std 2.0 --kc-mult 1.0 --atr-period 14 --atr-stop-mult 2.5 --trail-mult 3.5  ->  trades=110, win_rate 38.18%, net_r 17.6142, maxdd_r 7.8888, span 2021-01-01..2026-06-01. That reproduces the documented basis in config/strategies.yaml:315 ('+17.6R multiyear ... lowest DD (7.9R)') to 4 significant figures, which is the independent check that the harness was driven with the strategy's REAL live params and not defaults. NOTE --kc-mult 1.0: the harness default is 1.5, so omitting it silently grades a different strategy.\n\nHONEST LIMITS: (a) the -3.2101R/17t figure is a different measurement basis from the '-$55 / 30t' recorded in the cell's own comment (R vs dollars, different run/period) — they are not in conflict, they are not the same measurement, and I did not try to reconcile them; (b) n=0 in trending/volatile means NO evidence, which is not the same as evidence of no effect; (c) nothing here re-grades the OTHER five cells — see BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT.",
+      "tier": 3,
+      "trigger_condition": "n/a — a parked proposal reaching a decision",
+      "resolution_criteria": "Operator closes the parked 1-D trending-short proposal as superseded, or states why the 2-D cell is insufficient.",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "severity": "medium",
+      "refs": [
+        "config/regime_policy.yaml",
+        "config/strategies.yaml",
+        "scripts/backtest_squeeze.py",
+        "scripts/research/regime_tag_emitted.py",
+        "BL-20260730-SQUEEZE-NO-HARNESS",
+        "BL-20260730-SQZ-CELLS-N-TOO-THIN",
+        "BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT"
+      ],
+      "updates": []
+    },
+    {
       "opened_at": "2026-07-30T21:30:00+00:00",
       "opened_by": "claude (diagnostic-output-defect-class session, diagnostic-output-defects-wtsxg2)",
       "trigger_condition": "n/a",
@@ -8042,6 +8209,6 @@
       ]
     }
   ],
-  "updated_at": "2026-07-30T21:30:00+00:00",
-  "generated_at": "2026-07-30T15:55:00+00:00"
+  "updated_at": "2026-07-30T21:45:00+00:00",
+  "generated_at": "2026-07-30T14:40:00+00:00"
 }

@@ -625,7 +625,21 @@ def _bybit_closed_pnl_lookup(
 # explicit opt-in: extend ``account_closed_pnl_for_trade`` to handle it AND add
 # the exchange string here. The `new-broker` skill carries this as a wiring
 # step ("declare the integration's PnL source").
-BROKER_PNL_READER_EXCHANGES: frozenset[str] = frozenset({"bybit"})
+#
+# ``interactive_brokers`` added 2026-07-30 (Tier-2, operator-approved). IB
+# serves per-execution truth via ``reqExecutions`` — each fill carries a
+# ``CommissionReport`` with the broker's own ``realizedPNL``. The reader is a
+# LOCAL read of the ``exchange_fills`` store (populated on its own timer by
+# ``scripts/pull_ib_executions.py``), not a broker call on the monitor tick.
+#
+# The companion change is what makes this load-bearing rather than merely nice:
+# ``_sweep_local_pnl_for_unpriced`` no longer substitutes a live mark for a
+# confirmed close, and IBKR historical-candle coverage is 0% — so WITHOUT this
+# reader every IB close would land as a *declared unmeasured* gap.
+BROKER_PNL_READER_EXCHANGES: frozenset[str] = frozenset({
+    "bybit",
+    "interactive_brokers",
+})
 
 
 def exchange_has_broker_pnl_reader(exchange: Any) -> bool:
@@ -835,6 +849,30 @@ def account_closed_pnl_for_trade(
     # below AND adding its exchange to that set.
     if not account_has_broker_pnl_reader(account):
         return None
+
+    # --- IBKR ---------------------------------------------------------------
+    # A LOCAL read of the exchange-fills store, NOT a broker call: this runs on
+    # the live trader's monitor tick, where a per-row network request is the
+    # 2026-06-09 cold-start wedge shape. The network half is
+    # ``scripts/pull_ib_executions.py`` on its own timer.
+    if ex == "interactive_brokers":
+        try:
+            from src.runtime.exchange_fills_ib import closed_pnl_from_fills
+            return closed_pnl_from_fills(
+                account_id=str(account.get("account_id") or ""),
+                symbol=symbol,
+                direction=direction,
+                opened_at_ms=int(opened_at_ms),
+                closed_at_ms=closed_at_ms,
+                qty=qty,
+            )
+        except Exception as exc:  # noqa: BLE001 — a store read never breaks a tick
+            logger.warning(
+                "account_closed_pnl_for_trade(ib account=%s symbol=%s): %s",
+                account.get("account_id") or "unknown", symbol, exc,
+            )
+            return None
+
     try:
         from src.units.accounts.execute import _bybit_category
         category = _bybit_category(account)
@@ -940,6 +978,12 @@ def account_closed_pnl_for_trade(
         "qty": _f(rec.get("qty")),
         "side": str(rec.get("side") or ""),
         "closed_at": rec.get("updatedTime") or rec.get("createdTime"),
+        # The record carries its OWN provenance so a caller cannot mislabel it.
+        # Before 2026-07-30 all three callers hardcoded
+        # ``exit_price_source = "bybit_closed_pnl"`` — correct while Bybit was
+        # the only reader, and a provenance LIE the moment a second one exists.
+        # Callers must stamp ``rec["source"]``, never a literal.
+        "source": "bybit_closed_pnl",
     }
 
 
