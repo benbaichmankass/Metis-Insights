@@ -7418,7 +7418,83 @@
         "src/units/accounts/clients.py",
         "BL-20260713-BYBIT2-PNL-UNDERRECORD"
       ]
+    },
+    {
+      "id": "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
+      "opened_at": "2026-07-30T12:35:00+00:00",
+      "opened_by": "claude (deploy-verify session 2026-07-30)",
+      "severity": "high",
+      "status": "open",
+      "area": "order-path",
+      "tier": 2,
+      "title": "[bybit] bybit_1 XRPUSDT resting SL legs are DIVERGING from the position, not merely stale — 444.7% -> 830% over-coverage in 41 minutes, with the remediation still unbuilt",
+      "source": "Live receipts, same day. bybit-bracket-audit at 2026-07-30T11:48Z: bybit_1 XRPUSDT position 32557.2, resting SL legs 58686.8 + 86102.5 = 144789.3 (444.7%). The #8000 monitor sweep at 12:29:55Z on live HEAD dd07b45f: 'LEG OVER-ACCUMULATION bybit_1/XRPUSDT — position size=17438.9 but resting SL legs total 144789.3 (830%) across 2 leg(s)'. The leg total is byte-identical across both reads; the POSITION halved. So the legs are not tracking the position at all.",
+      "description": "This is the leg-accumulation failure mode of BL-20260721-BYBIT2-XRP-TPSL-LEGCAP observed mid-drift rather than as a static snapshot, and it is getting worse on its own. Because Bybit Partial-mode set_trading_stop is ADD-only, a leg that outlives the qty it was sized for is never reduced when the position shrinks — so any partial close widens the gap. At 830%, the first leg to trip would close roughly 3.4x the live position: it over-closes, flips the sign of the exposure, and strands the remaining legs against a position that no longer exists. PR #8000 detects this (that is where these numbers come from) but deliberately does NOT remediate — detection was in scope, de-accumulation was not. The detector now proves the condition is live, escalating, and unattended. Scope is bybit_1 (paper), so no real money is at risk today; bybit_2 (real money) audited clean at 11:48Z. That is the only reason this is not a P1.",
+      "resolution_criteria": "Either (a) the one-off cancel-stale-tpsl-legs system-action is run against bybit_1 XRPUSDT and a follow-up bybit-bracket-audit shows coverage back within the 0.5% epsilon of position size, AND a structural fix keeps it there (close/reduce cancels or amends the leg it sized, so coverage tracks the position); or (b) an explicit, recorded decision that add-only leg drift is acceptable on paper accounts, with the real-money guard named. Detection alone does not close this item.",
+      "refs": [
+        "BL-20260721-BYBIT2-XRP-TPSL-LEGCAP",
+        "BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/8000",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8009",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8016"
+      ]
+    },
+    {
+      "id": "BL-20260730-BRACKET-AUDIT-ROLLUP-MISLEADING",
+      "opened_at": "2026-07-30T12:35:00+00:00",
+      "opened_by": "claude (deploy-verify session 2026-07-30)",
+      "severity": "medium",
+      "status": "open",
+      "area": "observability",
+      "tier": 1,
+      "title": "[audit] bybit_bracket_audit.py prints 'every audited symbol is fully SL-covered at the broker' directly beneath a 444.7% over-coverage — an all-clear over a live anomaly",
+      "source": "scripts/ops/bybit_bracket_audit.py (added in PR #7993), run 2026-07-30T11:48Z via the bybit-bracket-audit system-action (issue #8009). The body reported 'bybit_1 XRPUSDT ... SL coverage: 144789.3 / 32557.2 qty (444.7%) ... uncovered=0.0' and the ROLL-UP then printed 'every audited symbol is fully SL-covered at the broker.'",
+      "description": "The roll-up is derived solely from uncovered qty, so over-coverage satisfies it: 444.7% covered is not under-covered, therefore 'fully covered', therefore all-clear. Both statements are individually true and the composite reads as 'nothing to see here' on the one account that had the worst anomaly of the run. This is the normalization failure mode the see-something-say-something directive names as a bug in its own right: a reader who trusts the summary line — which is the point of a summary line — walks straight past a live 830%-and-climbing leg pile-up (see BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING). Note this is NOT fixed by PR #8000: #8000 added over_covered/journal_qty_divergent to the order_monitor SWEEP, a different code path. The standalone audit script — the thing an operator actually runs and reads — still summarises as all-clear.",
+      "resolution_criteria": "The roll-up distinguishes 'covered' from 'correctly covered': a symbol whose SL legs exceed the position beyond the over-cover factor, or whose open journal qty exceeds the broker position beyond the divergence fraction, must break the all-clear line and be named in the roll-up. Reuse the thresholds already in order_monitor (_BYBIT_OVERCOVER_FACTOR, _BYBIT_QTY_DIVERGENCE_FRAC) rather than introducing a second set. A regression test should assert the roll-up does NOT read all-clear for the 144789.3-vs-32557.2 case.",
+      "refs": [
+        "https://github.com/benbaichmankass/Metis-Insights/pull/7993",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/8000",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8009",
+        "MB-20260719-DATASET-AUDIT-NOISE"
+      ]
+    },
+    {
+      "id": "BL-20260730-DIAG-RELAY-BODY-PARSE-FOOTGUN",
+      "opened_at": "2026-07-30T12:35:00+00:00",
+      "opened_by": "claude (deploy-verify session 2026-07-30)",
+      "severity": "medium",
+      "status": "open",
+      "area": "tooling",
+      "tier": 1,
+      "title": "[diag-relay] vm-diag-snapshot parses the issue BODY line-by-line as paths, so any prose in the body hard-fails the run with a misleading 'illegal characters in resolved path'",
+      "source": "Three failed runs in one session, 2026-07-30. Issue #8010 (body = a JSON array plus explanatory prose) failed with 'Rejected diag path [\"/api/diag/journalctl?...\", \"...\"]: illegal characters in resolved path'. Issue #8012 (body = a single explanatory paragraph, path correctly in the title) failed with the same error naming the PARAGRAPH as the rejected path. #8013 succeeded only once the body was reduced to bare path lines and the context moved to a comment.",
+      "description": "The documented pattern is a '[diag-request] <path>' TITLE, which invites the reasonable assumption that the body is free text for context. It is not: the body is parsed as the path list, and the title is consulted only when the body is empty or unparsable. So adding a sentence of context — or the mandatory Claude Code attribution footer — silently converts a valid request into a failed run. The error message compounds it by reporting 'illegal characters in resolved path', which reads as a malformed PATH and sends the next session hunting the query string (it cost this session one wrong diagnosis: the array literal was blamed before #8012 proved it was prose in general). Two cheap fixes: state the rule where people look, and make the error say what is actually wrong.",
+      "resolution_criteria": "(a) docs/claude/diag-relay.md states explicitly that for a multi-path request the body must contain ONLY paths, one per line — no JSON, no prose, no attribution footer — and that context belongs in a follow-up comment; (b) the workflow's rejection message distinguishes 'this line does not look like a diag path (did you put prose in the body? context goes in a comment)' from a genuinely malformed path. Either half alone is a partial fix.",
+      "refs": [
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8010",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8012",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8013",
+        "docs/claude/diag-relay.md"
+      ]
+    },
+    {
+      "id": "BL-20260730-DEVNULL-DEPLOY-REDIRECT-FRAGILITY",
+      "opened_at": "2026-07-30T12:35:00+00:00",
+      "opened_by": "claude (deploy-verify session 2026-07-30)",
+      "severity": "low",
+      "status": "open",
+      "area": "deploy",
+      "tier": 1,
+      "title": "[deploy] install_systemd_units.sh:407 redirects to /dev/null, so an OCI-agent 0444 window makes 'systemctl enable --now' a no-op that reports nothing",
+      "source": "pull-and-deploy 2026-07-30T11:42Z (issue #8008) logged 'install_systemd_units.sh: line 407: /dev/null: Permission denied' six times while enabling timers. ict-devnull-guard.service is healthy — running and finishing cleanly every ~60s (#8013) — and its own unit description names the cause: 'OCI agent resets it to 0444, breaking >/dev/null for the trader + auto-deploy'.",
+      "description": "In bash a failed redirection aborts the command before it executes, so each of those six 'systemctl enable --now <timer> >/dev/null' calls did not merely lose its output — it did not run. IMPORTANT, so nobody re-chases this as an outage: it caused NO harm on this deploy. /api/diag/services (#8015) confirms ict-db-integrity.timer, ict-exchange-fills-pull.timer, ict-exchange-funding-pull.timer, ict-health-snapshot.timer and ict-devnull-guard.timer are all active — they were already enabled, so the skipped call was a no-op regardless. (ict-ib-gateway-watchdog.timer reads inactive, which is correct: gateway-only, and the trader's role is unset.) The latent bug is the case that has not happened yet: a genuine FIRST-time enable of a new timer landing inside a 0444 window would be skipped silently, the deploy would report success, and the new scheduled job would simply never run — discoverable only by noticing its absence.",
+      "resolution_criteria": "install_systemd_units.sh no longer makes command execution contingent on a writable /dev/null for these enables — e.g. drop the redirect, or guard it so a redirect failure cannot swallow the command — and a failed enable is surfaced rather than silent. Bonus: have the deploy assert /dev/null is a 0666 char device up front and re-assert (the guard's own logic) instead of racing it.",
+      "refs": [
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8008",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8013",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8015"
+      ]
     }
   ],
-  "updated_at": "2026-07-30T10:45:00+00:00"
+  "updated_at": "2026-07-30T12:35:00+00:00"
 }
