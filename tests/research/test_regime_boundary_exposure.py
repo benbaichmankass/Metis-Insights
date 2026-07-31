@@ -95,10 +95,10 @@ def test_fragile_flag_reports_its_own_threshold_and_basis():
 def test_feed_sensitivity_surfaces_a_sign_flip():
     """The finding that matters most: positive on one feed, negative on another."""
     trades = [_trade("2024-01-01T05:00:00Z", 5.0)]
-    baseline = {"chop": {"trades": 1, "net_r": 5.0}}
-    # Second feed reads the same bar as TRENDING, so chop empties to 0.0 and
-    # trending gains +5.0 -> chop 5.0 -> 0.0 is not a flip, trending 0.0 -> 5.0
-    # is not either. Force a real flip by making the baseline negative there.
+    # A bucket merely emptying (5.0 -> 0.0) or filling (0.0 -> 5.0) is NOT a
+    # flip — that is trades moving in or out. A flip needs the same bucket to
+    # carry opposite signs on the two feeds, so the baseline is negative here
+    # while feed B (ADX 40 = trending) puts +5.0 in it.
     baseline_neg = {"trending": {"trades": 1, "net_r": -5.0}}
     out = rte.feed_sensitivity(trades, baseline_neg, _adx_const(40.0), _df())
     assert out["any_sign_flip"] is True
