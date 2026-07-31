@@ -8599,8 +8599,18 @@
         "BL-20260730-DONCHIAN-TRANSITIONAL-CALM-CONTRADICTED",
         "BL-20260731-REGIME-ATTRIBUTION-FEED-SENSITIVE"
       ]
+    },
+    {
+      "id": "BL-20260731-AUDIT-0731-NEW-FINDINGS",
+      "title": "Full-system audit 2026-07-31: consolidated NEW findings + prioritized P0-P3 work plan",
+      "status": "open",
+      "severity": "high",
+      "tier": "mixed (each sub-item tiered in the audit doc)",
+      "opened_at": "2026-07-31",
+      "source": "docs/audits/full-system-audit-2026-07-31.md (audit lead session, branch claude/system-infrastructure-audit-5zzdr8)",
+      "action": "Work the P0-P3 plan in the audit doc. NEW items not previously backlogged: (1) ict-ib-executions-pull absent from diag _CANONICAL_UNITS (3rd recurrence of invisible-unit class - fix + add a deploy/*.timer vs allowlist diff guard); (2) macro-producer-liveness.yml vacuity half wired to nothing (orphaned steps.validity.outputs.rc + rc=$? after tee); (3) branch-protection-sync fails OPEN on missing BRANCH_PROTECTION_TOKEN; (4) merge_group base_ref empty-fetch bug in 8 guard workflows (queue would stall on day one); (5) consumers provenance-blind on realized PnL (both clients drop any new field - coordinated 3-repo change required); (6) dashboard repo CLAUDE.md has zero mention of the deployed Svelte SPA (never audited); (7) trainer outcome families (trade_outcomes/setup_labels/execution_quality/review_journal) build 0 rows 'ok' with no artifacts since 2026-05-22; (8) trainer root disk 86%; (9) training-cycle rc=0 ambiguous between trained and lock-skipped/nothing-to-do; (10) ml/promotion/attribution.py + 5 other read-sites consume unfiltered pnl>0 while the trainer filters (promotion gate reads what training refuses); (11) 2 stale-open duplicate backlog rows (BRACKET-AUDIT-ROLLUP-MISLEADING, NEW-TABLE-GUARD-MATCHES-PROSE) whose fixed twins are resolved - close the open copies; (12) BL-20260730-PR-CI-NOT-ATTACHING largely resolved by bp-report #8177 (protection live, 11 contexts) - update the row."
     }
   ],
-  "updated_at": "2026-07-31T07:30:00+00:00",
+  "updated_at": "2026-07-31",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
