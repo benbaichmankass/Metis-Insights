@@ -8399,8 +8399,37 @@
         "runtime_logs/trainer/dataset_audit.jsonl",
         "diag #8142"
       ]
+    },
+    {
+      "id": "BL-20260731-SYSTEM-ACTION-HALF-REGISTERED",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "opened_at": "2026-07-31T07:15:00+00:00",
+      "opened_by": "claude (provenance session)",
+      "title": "[ci][ops] a system-action registered in the SCRIPT dispatch but NOT the tier allowlist is unreachable, and CI passes",
+      "description": "PR #8149 added `backfill-fabricated-exits` to the SCRIPT dispatch case (system-actions.yml:863) and to the ACTION_ALLOW_MIRROR plumbing, but NOT to the tier-2 allowlist (line ~520) or the workflow_dispatch inputs list (~98). An action name must appear in THREE places; missing the allowlist makes the action unreachable — the 'Validate action and tier policy' step falls through to `*)` and exits 2 before the SSH key is installed.\n\nCI passed the PR: the YAML is valid, shellcheck is clean, and nothing cross-checks the three lists against each other. Fixed in #8152, but the CLASS remains — the next action added the same way breaks the same way.\n\nSECOND DEFECT, diagnostic-provenance sub-class A: the failure comment posted back to the issue says 'Common causes: VM_SSH_KEY secret unset/corrupted; SSH host unreachable; wrapper script returned nonzero' — NONE of which was tested or true here. The real cause (unknown action, allowlist miss) is printed via ::error:: in the run log but never reaches the comment, so the operator-facing message actively points AWAY from the actual fault. A `pull-and-deploy` had succeeded minutes earlier with the same secret, which is what disproved the suggested causes.\n\nFIX: a guard asserting the three lists are consistent (the same shape as canonical-db-resolver / provenance-consumer-guard), plus surfacing the resolved failure STAGE in the issue comment instead of a static cause list.",
+      "refs": [
+        ".github/workflows/system-actions.yml",
+        "scripts/ops/backfill_fabricated_exits_action.sh"
+      ]
+    },
+    {
+      "id": "BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "opened_at": "2026-07-31T07:15:00+00:00",
+      "opened_by": "claude (provenance session)",
+      "title": "[ml][data] backtest augmentation is fully built and has NEVER been fed — zero is_backtest=1 rows in trades",
+      "description": "Measured on the live journal 2026-07-31 (trainer-diag #8155): of 833 closed rows with non-null pnl, `is_backtest=0` for 833 and there are ZERO `is_backtest=1` rows — none, in any month.\n\nThe augmentation path is fully built and unused: `trade_outcomes` takes `include_backtest`, emits a `source` ('live'|'backtest') column for exactly this purpose, and `ml/experiments/splitters.py::split_live_holdout` exists to train on simulated rows while holding out real ones. The family docstring states the intent — 'manufactures more labeled training data than the ~80 real trades collapse the decision models against (gap G4)'. Nothing ever writes the rows: the backtest harness records to the `backtest_results` TABLE, not to `trades.is_backtest=1`.\n\nCONSEQUENCE: the decision-model corpus is capped at live trades only (833, and 506 after the provenance filter), and every 'not enough data to train' conclusion in this repo has been reached WITHOUT the augmentation that was built to solve it. Operator raised this directly 2026-07-31: 'there is lots of infrastructure to backtest and backfill rows of data so that we can train things not on live data only.' They are right; the infrastructure exists and is not connected.\n\nNOTE the trap for whoever picks this up: switching a manifest to `split_live_holdout` BEFORE the rows exist RAISES ('no synthetic (train) rows') rather than degrading — it would convert a quarantine-skip into a hard failure. Write the rows first, then switch the split.\n\nSame defect class as the two other findings this session: infrastructure READ but never WRITTEN (cf. BL-20260731-KILLZONE-BIAS-NEVER-PERSISTED), the mirror of provenance WRITTEN but never READ.",
+      "refs": [
+        "ml/datasets/families/trade_outcomes.py",
+        "ml/experiments/splitters.py",
+        "scripts/ops/build_trainer_datasets.sh"
+      ]
     }
   ],
-  "updated_at": "2026-07-30T22:35:00+00:00",
+  "updated_at": "2026-07-31T07:15:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
