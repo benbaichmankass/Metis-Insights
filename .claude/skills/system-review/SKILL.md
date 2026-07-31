@@ -108,6 +108,18 @@ grading-freshness guard. Required, non-empty:
 - `review_coverage.soak_status` — each active soak (shadow models, conviction,
   exit-ladder) and whether it is accruing as expected, stalled, or has met its
   gate; flags for any stall / met-but-unactioned.
+- `review_coverage.authored_cells` — **mandatory on the weekly window**
+  (2026-07-31, P0.4). Proof the review checked the standing
+  [`docs/audits/authored-cell-reaudit-register.md`](../../../docs/audits/authored-cell-reaudit-register.md)
+  against `config/regime_policy.yaml`: (a) every authored cell has a register
+  row (a cell added since the last review with no row is a FAIL), (b) no
+  live-affecting cell is past its `Next due` without a recorded verdict, and
+  (c) any due cell gets its re-audit dispatched this run (or a named blocker
+  cited from the register). A decision is not permanent evidence — this is the
+  guard against a cell authored on a since-invalidated measurement staying
+  authored indefinitely (the gld_pullback_1h ~25× fee over-charge shape,
+  `BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER`). Cell EDITS remain Tier-3 —
+  this block only proves the evidence age was checked.
 - `review_coverage.execution_capture` — **mandatory** (2026-07-30). Proof the
   review MEASURED how much of each live strategy's edge actually reached the
   account (not just graded the decision). See § "Execution-capture review". This
