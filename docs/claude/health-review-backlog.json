@@ -8506,8 +8506,23 @@
       "refs": [
         ".github/workflows/system-actions.yml"
       ]
+    },
+    {
+      "id": "BL-20260731-FILLS-STORE-PREDATES-THE-FABRICATION",
+      "status": "open",
+      "tier": 2,
+      "severity": "high",
+      "opened_at": "2026-07-31T07:40:00+00:00",
+      "opened_by": "claude (provenance session)",
+      "title": "[data][provenance] the backfill recovers only 4% of fabricated exits — the fills store starts AFTER most of the fabrication",
+      "description": "MEASURED, live dry run (system-action #8161, run_id bf-20260731T073535Z), against 833 closed non-backtest rows:\n\n  already measured/estimated : 506\n  resolvable via OWN fills   :  13  -> MEASURED   (4.0% of the 327 bad rows)\n  resolvable via MIRROR only :  11  -> ESTIMATED  (delta between the two tiers)\n  unresolved, left alone     : 303\n\nSo the backfill repairs 24 of 327 (7.3%). It does NOT rescue July, which was the point of building it.\n\nCORRECTION TO MY OWN CLAIM. `backfill_fabricated_exits.py`'s docstring and the #8146/#8149 PR bodies argue: 'the standing RELABEL-ONLY rule exists because IBKR's execution history is short-lived; Bybit's evidence is NOT gone — it is on disk, pulled daily.' That is true only from 2026-07-13 onward. It is FALSE for the period that matters.\n\nWHY, structurally:\n  * Fabrication starts 2026-06-08 (the `if is_demo: return None` dead-end).\n  * The fills store held ZERO fills until 2026-07-13 — the puller existed since     S-067 but had no timer and no system-action (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY).\n  * `pull_exchange_fills_action.sh` pulls a **7-day** window on a daily timer, so the     store only ever accrues FORWARD from that date.\n  * Measured store contents (trainer-diag #8114): 305 fills, 12 symbols,     2026-07-06..07-30.\n\nThe ~5 weeks of fabrication between 2026-06-08 and 2026-07-13 have no local fills, and Bybit's V5 execution endpoint does not serve arbitrarily deep history. For those rows the evidence really is gone — the same venue-retention constraint I argued did not apply to Bybit. It does; it just applies to a different window than IB's.\n\nOPEN QUESTION worth ONE cheap experiment before concluding the rows are unrecoverable: how deep does Bybit actually serve? `exchange_fills_puller` calls `fetch_my_trades(sym, since_ms, 200, {})` with **limit 200 and NO pagination loop**, so even a widened `--days` would silently truncate at 200/symbol and could return the wrong end of the range. Test with a parameterised window + pagination on ONE symbol before trusting any wider pull. If Bybit serves 30-90d, recovery could go from 13 to hundreds; if it serves 7d, the 303 are permanently UNVERIFIED and the exclusion filter (not the backfill) is the whole remedy.\n\nDO NOT paper over the 303 with the mirror tier to make the number look better. The mirror is ESTIMATED for a reason the operator stated themselves — capacity differs between the books — and promoting it to MEASURED would re-import fabrication wearing a better label, which is the exact failure this workstream exists to end.",
+      "refs": [
+        "scripts/ops/backfill_fabricated_exits.py",
+        "scripts/ops/pull_exchange_fills_action.sh",
+        "src/runtime/exchange_fills_puller.py"
+      ]
     }
   ],
-  "updated_at": "2026-07-31T07:30:00+00:00",
+  "updated_at": "2026-07-31T07:40:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
