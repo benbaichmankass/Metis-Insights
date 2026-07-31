@@ -182,7 +182,7 @@ def test_annotation_naming_a_real_accessor_clears_the_finding():
         '    for r in rows:',
         '        # provenance: predict_proba — this is P(volatile), the gate cut',
         '        s = r.get("score")',
-        '        print(f"P(volatile) = {s}")',
+        '        print(f"P(volatile) = {predict_proba} {s}")',
     ])
     assert _scan(src) == []
 
@@ -255,3 +255,100 @@ def test_the_fixed_parity_probe_passes():
     lines = (_ROOT / "scripts" / "ml" / "_feature_parity_probe.py").read_text(
         encoding="utf-8").splitlines()
     assert guard.check_file("scripts/ml/_feature_parity_probe.py", lines) == []
+
+
+# --------------------------------------------------------------------------- #
+# D and E — added 2026-07-31 because the guard MISSED the worst instance of its
+# own class, committed by the session that wrote it. The acceptance test for
+# "is the class actually fixed" is whether the guard catches what I shipped.
+# --------------------------------------------------------------------------- #
+def test_D_flags_a_parameter_the_body_never_reads():
+    """The ROOT of the trend_threshold mislabel.
+
+    `_label_regime` accepts `trend_threshold` and ignores it, so every doc
+    describing its effect asserted something that does not exist. Catching the
+    dead parameter catches the mislabel before anyone can write it.
+    """
+    src = '\n'.join([
+        'def label(forward_vol, *, vol_threshold, trend_threshold):',
+        '    if forward_vol > vol_threshold:',
+        '        return "volatile"',
+        '    return "range"',
+    ])
+    findings = _scan(src, "ml/datasets/families/x.py")
+    inert = [f for f in findings if f.check.startswith("D")]
+    assert [f for f in inert if "trend_threshold" in f.detail]
+    assert not [f for f in inert if "vol_threshold" in f.detail and
+                "trend" not in f.detail], "a USED parameter must not be flagged"
+
+
+def test_D_ignores_abstract_and_stub_bodies():
+    """An ABC declaring an interface asserts nothing about what the args do.
+
+    Flagging those is the alarm-fatigue failure mode — ml/evaluators/base.py
+    alone would contribute a wall of noise and get the guard waved through.
+    """
+    src = '\n'.join([
+        'class E:',
+        '    def score(self, model_state, rows, config):',
+        '        ...',
+        '    def other(self, a, b):',
+        '        raise NotImplementedError',
+    ])
+    assert [f for f in _scan(src, "ml/evaluators/base.py")
+            if f.check.startswith("D")] == []
+
+
+def test_D_respects_a_deliberate_inert_marker():
+    src = '\n'.join([
+        'def label(forward_vol, *, vol_threshold,',
+        '          trend_threshold):  # inert: kept for back-compat, 2-class collapse',
+        '    return "volatile" if forward_vol > vol_threshold else "range"',
+    ])
+    assert not [f for f in _scan(src, "ml/datasets/families/x.py")
+                if f.check.startswith("D") and "trend_threshold" in f.detail]
+
+
+def test_E_flags_an_interpretation_printed_unconditionally():
+    """The m20 probe shape: conclusion emitted with every bucket at n=0.
+
+    Sub-class C did not fire — the sentence has no universal quantifier. What
+    makes it wrong is that it is UNCONDITIONAL, so an ABSENT measurement reads
+    exactly like a measured one.
+    """
+    src = '\n'.join([
+        'def main():',
+        '    buckets = compute()',
+        '    for b in ("lo", "mid", "hi"):',
+        '        print(f"{b} n={len(buckets[b])}")',
+        '    print("Interpretation: a more negative mean in hi means the head "',
+        '          "carries exit information")',
+        '    return 0',
+    ])
+    assert [f for f in _scan(src, "scripts/research/probe.py")
+            if f.check.startswith("E")]
+
+
+def test_E_accepts_a_guard_clause_as_gating():
+    """The idiomatic fix must not itself be flagged, or the check punishes
+    exactly the change it asks for."""
+    src = '\n'.join([
+        'def main():',
+        '    buckets = compute()',
+        '    n = sum(len(v) for v in buckets.values())',
+        '    if n == 0:',
+        '        print("NO CONCLUSION AVAILABLE: nothing measured")',
+        '        return 0',
+        '    print("Interpretation: a more negative mean in hi means the head "',
+        '          "carries exit information")',
+        '    return 0',
+    ])
+    assert not [f for f in _scan(src, "scripts/research/probe.py")
+                if f.check.startswith("E")]
+
+
+def test_the_ml_dataset_surface_is_in_scope():
+    """It was not, which is why the guard missed its own worst instance."""
+    assert guard.in_surface("ml/datasets/families/market_features.py")
+    assert guard.in_surface("ml/labeling/trend_regime.py")
+    assert not guard.in_surface("src/runtime/pipeline.py")

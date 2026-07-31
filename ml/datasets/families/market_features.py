@@ -28,9 +28,19 @@ Knobs (all kwargs):
   label definition was both different from the fleet's AND unrecorded.
   State it explicitly; the canonical builder
   (`scripts/ops/build_trainer_datasets.sh`) always does.
-- `trend_threshold`  (float, **REQUIRED — no default**) — abs
-  forward-window log return above which the (non-volatile) regime is
-  classified as "trend". Required for the same reason.
+- `trend_threshold`  (float, **REQUIRED — no default**) — **INERT: this
+  parameter affects NO emitted column.** It described the abs
+  forward-window log return above which a non-volatile regime was
+  classified "trend", but the 3-class → 2-class collapse
+  (S-ML-REGIME-CLASSIFIER-FIX, 2026-05-20) removed the "trend" class;
+  `_label_regime` now takes the argument and ignores it, and the
+  trend-axis label (`trend_regime_label`) keys off `trend_chop_max` /
+  `trend_trend_min` instead. It stays REQUIRED on **provenance** grounds
+  only — every production caller passes it, and a required kwarg always
+  lands in `metadata.json::build_params`, so the dir records what the
+  caller believed it was building with. Do not read a difference in this
+  value as a difference in labels. Removal is tracked in
+  BL-20260730-TREND-THRESHOLD-INERT.
 - `n_vol_buckets`    (int, default 3) — feature buckets for the
   rolling vol (quantile-based). Bucket labels: `vol_b0`..`vol_bK-1`,
   where `vol_b0` is lowest. Bucket count is configurable so a
@@ -508,14 +518,30 @@ class MarketFeaturesBuilder(DatasetBuilder):
         # REQUIRED — no default (operator-approved 2026-07-30,
         # BL-20260730-MARKET-FEATURES-VOL-THRESHOLD-DEFAULT-DRIFT).
         #
-        # These two DEFINE `regime_label`. They used to default to 0.003/0.005,
-        # and the 0.003 was ORPHANED: every one of the ten production call sites
-        # passes an explicit value, and they pass FOUR different ones (0.001
+        # CORRECTION (2026-07-30, same day): the first version of this comment
+        # said "these two DEFINE regime_label". That is TRUE of `vol_threshold`
+        # and FALSE of `trend_threshold` — a mislabel introduced in the PR about
+        # mislabels, which is precisely why the rule is "verify, don't assert".
+        # `_label_regime` takes `trend_threshold` and then ignores it (the
+        # 3-class → 2-class collapse in S-ML-REGIME-CLASSIFIER-FIX made it
+        # dead), and `trend_regime_label` keys off `trend_chop_max` /
+        # `trend_trend_min`, not this. See BL-20260730-TREND-THRESHOLD-INERT.
+        #
+        # `vol_threshold` DEFINES `regime_label` (`forward_vol > vol_threshold`
+        # → "volatile"). It used to default to 0.003, and that default was
+        # ORPHANED: every one of the ten production call sites passes an
+        # explicit value, and they pass FOUR different ones (0.001
         # run_serious_baseline · 0.005 Bybit/GPU-burst/ETH/trainer-offload ·
         # 0.01 run_mes_training · a data-driven median for MES daily). So the
         # default applied only when a caller FORGOT — and a forgotten arg
         # produced a dataset whose `regime_label` meant something different
         # from the fleet's, with nothing marking which.
+        #
+        # `trend_threshold` stays REQUIRED anyway, on provenance grounds rather
+        # than label grounds: every production caller already passes it, and a
+        # required kwarg is always recorded in `build_params` (see below), so
+        # the dir records what the caller believed it was building with. Its
+        # inertness is documented, not silently relied on.
         #
         # Worse, and the reason a default is unfixable here rather than merely
         # risky: `builder.build` records `effective_build_params` from the

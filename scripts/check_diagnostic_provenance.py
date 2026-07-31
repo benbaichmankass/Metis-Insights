@@ -86,6 +86,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ast
 import os
 import re
 import sys
@@ -103,6 +104,15 @@ _SURFACE_PREFIXES: Tuple[str, ...] = (
     "scripts/analysis/",
     "scripts/macro/",
     "scripts/reports/",
+    # Added 2026-07-31 after the guard MISSED the worst instance of its own
+    # class: `market_features`'s docstring documented `trend_threshold` as
+    # label-defining while `_label_regime` accepts it and never reads it. A
+    # dataset builder's docstring is a human-facing claim about what a
+    # parameter does — the same defect as a mislabelled print, one level up.
+    # Checks D/E below are the ones that apply here; A/B/C rarely fire.
+    "ml/datasets/",
+    "ml/labeling/",
+    "ml/evaluators/",
 )
 # Guards are diagnostics too — their "clean" is a claim a human acts on.
 _SURFACE_FILES: Tuple[str, ...] = tuple(
@@ -173,6 +183,32 @@ _ANNOTATION_RE = re.compile(r'#\s*provenance:\s*(.+)$', re.IGNORECASE)
 _IDENT_RE = re.compile(r'[A-Za-z_][A-Za-z0-9_.]{2,}')
 
 _CONTEXT_LINES = 3
+
+# --- D: a parameter accepted and never read ---------------------------------- #
+# The ROOT of the worst instance this guard initially missed. `_label_regime`
+# takes `trend_threshold` and never references it (dead since the 3-class ->
+# 2-class collapse), so every caller passing it, and every doc describing it,
+# was asserting an effect that does not exist. A parameter the body never reads
+# is either dead or a bug; either way no doc may claim it does something.
+# Override: `# inert: <reason>` on the parameter's own line — deliberate
+# back-compat is fine, silently pretending is not.
+_INERT_OK_RE = re.compile(r'#\s*inert:', re.IGNORECASE)
+# Names that are conventionally accepted-and-ignored.
+_INERT_EXEMPT = {"self", "cls", "args", "kwargs", "_"}
+
+# --- E: a conclusion printed unconditionally --------------------------------- #
+# The m20 probe printed "a materially MORE NEGATIVE mean future_dR in 'hi'
+# means the head carries exit information" with every bucket at n=0 — an ABSENT
+# measurement rendering identically to a measured one. Sub-class C did not fire
+# because the sentence contains no universal quantifier. What makes it wrong is
+# that it is UNCONDITIONAL: an interpretation emitted whether or not anything
+# was measured.
+_CONCLUSION_RE = re.compile(
+    r'\b(interpretation|means that|indicates|suggests|implies|'
+    r'conclude|conclusion|=\s*the\s+\w+\s+carries|carries\s+\w+\s+information|'
+    r'candidate for a[n]?\s+\w+\s+experiment|no\s+\w+\s+signal\s+in)\b',
+    re.IGNORECASE,
+)
 
 
 class Finding(NamedTuple):
@@ -280,6 +316,107 @@ def _near(lines: Sequence[str], idx: int, pattern: re.Pattern) -> bool:
     return any(pattern.search(lines[i]) for i in range(lo, hi))
 
 
+def _ast_findings(path: str, lines: Sequence[str]) -> List[Finding]:
+    """Checks D and E — both need structure, not regex over lines."""
+    out: List[Finding] = []
+    try:
+        tree = ast.parse("\n".join(lines))
+    except SyntaxError:
+        return out
+
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+
+        # --- D: parameters accepted and never referenced in the body -------
+        # An abstract/stub body ignores every parameter BY DESIGN — an ABC
+        # declaring an interface asserts nothing about what the args do.
+        # Flagging those is the alarm-fatigue failure this guard must avoid.
+        real_body = [st for st in node.body
+                     if not (isinstance(st, ast.Expr)
+                             and isinstance(st.value, ast.Constant))]
+        is_stub = not real_body or all(
+            isinstance(st, ast.Pass)
+            or (isinstance(st, ast.Expr) and isinstance(st.value, ast.Constant)
+                and st.value.value is Ellipsis)
+            or (isinstance(st, ast.Raise)
+                and "NotImplementedError" in (ast.dump(st) or ""))
+            for st in real_body)
+        if is_stub or any(
+                isinstance(d, ast.Name) and d.id in ("abstractmethod", "overload")
+                or isinstance(d, ast.Attribute) and d.attr in ("abstractmethod", "overload")
+                for d in node.decorator_list):
+            continue
+
+        a = node.args
+        params = [p for p in (a.posonlyargs + a.args + a.kwonlyargs)]
+        if a.vararg or a.kwarg:
+            # **kwargs / *args absorb the unused; the signature is deliberately
+            # permissive and "unused" carries no claim.
+            params = []
+        body_names: Set[str] = set()
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Name):
+                body_names.add(sub.id)
+            elif isinstance(sub, ast.Attribute):
+                body_names.add(sub.attr)
+        # The signature line itself is not a use.
+        for p in params:
+            name = p.arg
+            if name in _INERT_EXEMPT or name.startswith("_"):
+                continue
+            if name in body_names:
+                continue
+            ln = getattr(p, "lineno", node.lineno)
+            line = lines[ln - 1] if 0 < ln <= len(lines) else ""
+            if _INERT_OK_RE.search(line):
+                continue
+            out.append(Finding(
+                path, ln, "D/inert-parameter",
+                f"`{node.name}` accepts `{name}` and never reads it. A parameter "
+                f"the body ignores is either dead or a bug — and any doc saying "
+                f"it affects behaviour is then a false claim. This is the exact "
+                f"root of the trend_threshold mislabel. Remove it, use it, or "
+                f"mark it `# inert: <reason>`",
+                (line.strip() or f"def {node.name}(...)")[:120]))
+
+        # --- E: an interpretation emitted unconditionally ------------------
+        # Only top-level statements of the function body: a conclusion nested
+        # under `if`/`for`/`try` is at least gated on something.
+        # A guard clause (`if <cond>: ... return`) EARLIER in the body makes a
+        # later top-level print conditional in effect. That is the idiomatic
+        # way to write "no conclusion when there is nothing to conclude from",
+        # and flagging it would penalise the exact fix this check asks for.
+        guarded_from = None
+        for idx, st in enumerate(node.body):
+            if isinstance(st, ast.If) and any(
+                    isinstance(x, ast.Return) for x in ast.walk(st)):
+                guarded_from = idx
+                break
+        for pos, stmt in enumerate(node.body):
+            if guarded_from is not None and pos > guarded_from:
+                continue
+            if not isinstance(stmt, ast.Expr):
+                continue
+            call = stmt.value
+            if not (isinstance(call, ast.Call)
+                    and getattr(call.func, "id", "") == "print"):
+                continue
+            seg = ast.get_source_segment("\n".join(lines), call) or ""
+            if not _CONCLUSION_RE.search(seg):
+                continue
+            ln = call.lineno
+            line = lines[ln - 1] if 0 < ln <= len(lines) else ""
+            out.append(Finding(
+                path, ln, "E/unconditional-conclusion",
+                "prints an interpretation at function top level, so it is "
+                "emitted whether or not anything was measured — an ABSENT "
+                "result then reads identically to a measured one. Gate it on a "
+                "non-zero denominator and say NO CONCLUSION AVAILABLE otherwise",
+                line.strip()[:120]))
+    return out
+
+
 def check_file(
     path: str, lines: Sequence[str], targets: Optional[Set[int]] = None,
 ) -> List[Finding]:
@@ -291,6 +428,14 @@ def check_file(
     # A file that prints a probability-shaped label anywhere is a file whose
     # ambiguous reads matter; a pure data-mover is not making a claim.
     file_claims_probability = bool(_PROBABILITY_CLAIM_RE.search(blob))
+
+    # Structural checks (D, E) run first; they are annotation-aware below.
+    for f in _ast_findings(path, lines):
+        if targets is not None and f.lineno not in targets:
+            continue
+        covered, _ = annotation_for(lines, f.lineno - 1, idents)
+        if not covered:
+            findings.append(f)
 
     for i, line in enumerate(lines):
         if targets is not None and (i + 1) not in targets:
