@@ -4,7 +4,7 @@ name: claim-basis-guard
 # must carry a parseable denominator/basis in the same row. Mechanical floor
 # of docs/CLAUDE-RULES-CANONICAL.md § "Always state the population" —
 # P2.5 of the 2026-07-31 full-system-audit plan
-# (BL-20260731-CLAUDE-SURFACE... see BL-20260731-CLAIM-SURFACE-UNGUARDED).
+# (BL-20260731-CLAIM-SURFACE-UNGUARDED, preventer P2).
 # Diff-scoped: pre-existing rows are grandfathered; only rows whose id is new
 # vs the base are held to it. Advisory for now — promote via
 # branch-protection-sync.yml after a soak with ~0 false positives.

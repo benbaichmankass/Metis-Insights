@@ -5,7 +5,7 @@ installed-but-unqueryable class: a unit lands in deploy/, the installer
 enables it on the VM, and `/api/diag/services` + the diag `journalctl` route
 cannot see it because nobody added it to `_CANONICAL_UNITS` in
 `src/web/api/routers/diag.py`. Each prior recurrence hid a real stall
-(BL-20260713-EXCHANGE-FILLS-STORE-EMPTY, BL-20260719-FUNDING-NO-TIMER,
+(BL-20260713-EXCHANGE-FILLS-STORE-EMPTY, the 07-19 funding-pull timer gap,
 BL-20260626-MES-BASE-STALE) until an audit swept for it; `ict-ib-executions-pull`
 (2026-07-30) repeated the pattern within four days of the last sweep.
 
