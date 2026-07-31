@@ -81,12 +81,51 @@ def test_the_bracket_is_a_real_containment_not_a_nearest_match(tmp_path):
 
 
 def test_refuses_when_the_bracket_admits_two_candidates(tmp_path):
-    """Coarse data cannot separate 0.003 from 0.005 — so it must not try."""
+    """Coarse data cannot separate nearby thresholds — so it must not try."""
     rows = [(0.0005, "range"), (0.0008, "range"), (0.02, "volatile"), (0.03, "volatile")]
     _stage(tmp_path, rows)
     (res,) = bf.scan(str(tmp_path))
     assert res["state"] == "refused"
     assert "ambiguous" in res["reason"]
+
+
+def test_a_data_driven_threshold_is_BRACKETED_not_refused(tmp_path):
+    """MES builds with a data-driven median that matches no fixed candidate.
+
+    The interval is still measured to ~7 significant figures — throwing it away
+    for want of a named candidate would discard a real measurement. Observed
+    live: MES/5m/v001 bracketed to [0.00034529, 0.00034532).
+    """
+    _stage(tmp_path, _rows_for(0.0003453))
+    (res,) = bf.scan(str(tmp_path))
+    assert res["state"] == "bracketed"
+    assert res["bracket"]["lo"] <= 0.0003453 < res["bracket"]["hi"]
+
+
+def test_bracket_only_writes_NO_vol_threshold_key(tmp_path):
+    """The absence of a point value is the honest state and must survive.
+
+    A consumer keying on `vol_threshold` must not pick up an interval midpoint
+    as though the builder had recorded it — that would be manufacturing
+    provenance by a subtler route than a wrong number.
+    """
+    d = _stage(tmp_path, _rows_for(0.0003453))
+    (res,) = bf.scan(str(tmp_path))
+    bf.apply_one(res["path"], None, res["bracket"]["lo"], res["bracket"]["hi"])
+    bp = json.loads((d / "metadata.json").read_text(encoding="utf-8"))["build_params"]
+    assert "vol_threshold" not in bp
+    assert bp["vol_threshold_source"] == "bracket_only_no_candidate"
+    assert bp["vol_threshold_bracket"][0] <= 0.0003453 < bp["vol_threshold_bracket"][1]
+
+
+@pytest.mark.parametrize("threshold", [0.004, 0.006, 0.007])
+def test_recovers_the_rg4_sweep_thresholds(threshold):
+    """0.004/0.006/0.007 come from rg4_vt_sweep.sh's own usage line and the
+    S-ETH-REGIME-RG4-RETRAIN sprint log — sourced from the callers, NOT
+    reverse-engineered from the brackets this tool computes (which would be
+    circular). Observed live: v104/v514 at 0.004, v106 at 0.006, v107 at 0.007.
+    """
+    assert threshold in bf.KNOWN_CANDIDATES
 
 
 def test_refuses_a_degenerate_all_range_dir(tmp_path):

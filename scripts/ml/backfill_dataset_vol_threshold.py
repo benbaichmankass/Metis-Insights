@@ -37,16 +37,27 @@ exists to prevent. A recovered value is stamped `vol_threshold_source:
 "derived_from_labels"` WITH its bracket, so no reader can mistake it for a
 value the builder recorded.
 
-WHAT IT REFUSES TO DO
----------------------
-* An **ambiguous** bracket (0 or 2+ candidates inside) is left ABSENT and
-  reported. An unknown threshold is a better artifact than a plausible wrong one.
-* A **degenerate** dir (all one class, so one side of the bracket is empty)
-  is left ABSENT — with only `range` rows the threshold is merely "above the
-  max", which is an open interval, not a value.
-* `trend_threshold` is never recovered: it is INERT (it affects no emitted
-  column — see market_features' docstring), so the labels carry no information
-  about it. Claiming otherwise would be the same defect one level down.
+THREE OUTCOMES, AND ONLY ONE NAMES A VALUE
+------------------------------------------
+* ``derived`` — exactly one known candidate inside the bracket. Writes
+  ``vol_threshold`` + ``vol_threshold_source="derived_from_labels"`` + the
+  bracket.
+* ``bracketed`` — the bracket is measured but matches NO known candidate.
+  Writes the **bracket only**, with ``vol_threshold_source=
+  "bracket_only_no_candidate"`` and **no** ``vol_threshold`` key, so a consumer
+  keying on that field cannot silently pick up an interval midpoint as if it
+  were the builder's input. This is the right artifact for MES, which builds
+  with a DATA-DRIVEN median (``build_trainer_datasets.sh::mes_median_vt``) that
+  by construction matches no fixed candidate — demanding one would throw away a
+  real measurement. An interval is not a guess.
+* ``refused`` — nothing written. Covers a **degenerate** dir (one class only,
+  so the bracket is an open interval), an **ambiguous** bracket (2+ candidates
+  inside), and labels that no single threshold explains.
+
+`trend_threshold` is never recovered in any outcome: it is INERT (it affects no
+emitted column — see market_features' docstring), so the labels carry zero
+information about it. Claiming otherwise would be the same defect one level
+down, in the tool built to repair it.
 
 Read-only unless `--apply`. Writes only `metadata.json`, never `data.jsonl`.
 
@@ -62,13 +73,25 @@ import math
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-#: Thresholds any production path has ever passed. Sourced from the callers,
-#: not invented: build_trainer_datasets.sh (0.005 Bybit; a data-driven median
-#: for MES), run_serious_baseline.sh (0.001), run_mes_training.sh (0.01),
-#: gpu_burst _CRYPTO_MARKET_FEATURES_DEFAULTS (0.005), the ETH finetf builder
-#: (0.005), trainer-offload-train.yml (0.005), plus the retired code default
-#: (0.003) which is exactly what this backfill exists to detect.
-KNOWN_CANDIDATES: Tuple[float, ...] = (0.001, 0.003, 0.005, 0.01)
+#: Thresholds a production path has actually passed. Every entry is SOURCED
+#: from a caller or a committed record — none is reverse-engineered from the
+#: brackets this script computes, which would be circular:
+#:   0.001  scripts/ops/run_serious_baseline.sh
+#:   0.003  the retired code default — exactly what this backfill exists to detect
+#:   0.005  build_trainer_datasets.sh (Bybit) · gpu_burst defaults · ETH finetf
+#:          · trainer-offload-train.yml
+#:   0.01   scripts/ops/run_mes_training.sh
+#:   0.004 / 0.006 / 0.007  the RG4 threshold sweep — `rg4_vt_sweep.sh`'s own
+#:          usage line sweeps "0.003 0.004 0.005 0.006", and
+#:          docs/sprint-logs/S-ETH-REGIME-RG4-RETRAIN-2026-06-28.md records the
+#:          result "across 0.003-0.007". The vt003/vt004/vt005-pin manifests in
+#:          ml/configs/ are the heads trained on those sweep datasets.
+#: MES also builds with a DATA-DRIVEN median (build_trainer_datasets.sh::
+#: mes_median_vt), which by construction matches no fixed candidate — those
+#: dirs get a bracket and no point value, which is the honest outcome.
+KNOWN_CANDIDATES: Tuple[float, ...] = (
+    0.001, 0.003, 0.004, 0.005, 0.006, 0.007, 0.01,
+)
 
 VOL_COL = "forward_log_return_vol"
 LABEL_COL = "regime_label"
@@ -134,9 +157,20 @@ def resolve(br: Dict[str, Any]) -> Dict[str, Any]:
     inside = [c for c in KNOWN_CANDIDATES if lo <= c < hi]
     if len(inside) == 1:
         return {"status": "derived", "value": inside[0], "lo": lo, "hi": hi}
-    return {"status": "refused", "reason":
-            (f"bracket [{lo!r}, {hi!r}) admits {len(inside)} known candidates "
-             f"{inside} — ambiguous, left ABSENT rather than guessed")}
+    if len(inside) > 1:
+        return {"status": "refused", "lo": lo, "hi": hi, "reason":
+                (f"bracket [{lo!r}, {hi!r}) admits {len(inside)} known "
+                 f"candidates {inside} — ambiguous, no point value written")}
+    # ZERO candidates inside, but the bracket is still a MEASUREMENT — and on
+    # the live trainer it is a tight one (the observed refusals pinned the
+    # threshold to ~7 significant figures). MES builds with a DATA-DRIVEN
+    # median (build_trainer_datasets.sh::mes_median_vt) which by construction
+    # matches no fixed candidate, so demanding one would permanently discard a
+    # real measurement. Record the interval, withhold the point value, and say
+    # which is which. An interval is not a guess.
+    return {"status": "bracketed", "lo": lo, "hi": hi, "reason":
+            (f"bracket [{lo!r}, {hi!r}) matches no known candidate — likely a "
+             f"data-driven threshold. Interval recorded; no point value claimed")}
 
 
 def scan(datasets_root: str, family: str = "market_features") -> List[Dict[str, Any]]:
@@ -167,16 +201,28 @@ def scan(datasets_root: str, family: str = "market_features") -> List[Dict[str, 
     return out
 
 
-def apply_one(md_path: str, value: float, lo: float, hi: float) -> None:
-    """Write the recovered value, flagged as DERIVED with its evidence."""
+def apply_one(md_path: str, value: Optional[float], lo: float, hi: float) -> None:
+    """Write the recovered evidence, flagged so it can never read as recorded.
+
+    ``value=None`` writes the BRACKET ONLY — the measurement without a point
+    claim. That is the right artifact for a data-driven threshold: the interval
+    is known to ~7 significant figures while no named candidate applies.
+    """
     p = Path(md_path)
     md = json.loads(p.read_text(encoding="utf-8"))
     bp = dict(md.get("build_params") or {})
-    bp["vol_threshold"] = value
-    # The flag is the whole point: a reader must be able to tell a recovered
-    # value from one the builder recorded. Never write the value alone.
-    bp["vol_threshold_source"] = "derived_from_labels"
+    # The bracket is the measurement and is always recorded.
     bp["vol_threshold_bracket"] = [lo, hi]
+    if value is None:
+        # No `vol_threshold` key: absence of a point value is the honest state,
+        # and a consumer keying on `vol_threshold` must not silently pick up an
+        # interval midpoint as though it were the builder's input.
+        bp["vol_threshold_source"] = "bracket_only_no_candidate"
+    else:
+        bp["vol_threshold"] = value
+        # The flag is the whole point: a reader must be able to tell a
+        # recovered value from one the builder recorded.
+        bp["vol_threshold_source"] = "derived_from_labels"
     md["build_params"] = bp
     p.write_text(json.dumps(md, indent=2, ensure_ascii=False) + "\n",
                  encoding="utf-8")
@@ -210,15 +256,23 @@ def main() -> int:
             print(f"  DERIVED   {rel:<44s} vol_threshold={r['value']} "
                   f"bracket=[{br['lo']:.8g}, {br['hi']:.8g}) "
                   f"n_range={br['n_range']} n_volatile={br['n_volatile']}")
+        elif r["state"] == "bracketed":
+            br = r["bracket"]
+            print(f"  BRACKET   {rel:<44s} vol_threshold=(no point value) "
+                  f"bracket=[{br['lo']:.8g}, {br['hi']:.8g}) "
+                  f"n_range={br['n_range']} n_volatile={br['n_volatile']}")
         else:
             print(f"  REFUSED   {rel:<44s} {r.get('reason') or r.get('detail')}")
 
     derived = [r for r in rows if r["state"] == "derived"]
+    bracketed = [r for r in rows if r["state"] == "bracketed"]
+    refused = [r for r in rows if r["state"] not in
+               ("already_recorded", "derived", "bracketed")]
     print()
     print(f"summary: {by_state}")
-    print(f"  recoverable by measurement: {len(derived)}")
-    print(f"  left ABSENT on purpose:     "
-          f"{sum(v for k, v in by_state.items() if k not in ('already_recorded', 'derived'))}")
+    print(f"  point value recoverable exactly: {len(derived)}")
+    print(f"  interval measured, no point claimed: {len(bracketed)}")
+    print(f"  left wholly ABSENT on purpose: {len(refused)}")
 
     if not a.apply:
         print("\n(dry run — re-run with --apply to write. Values are stamped "
@@ -228,8 +282,10 @@ def main() -> int:
 
     for r in derived:
         apply_one(r["path"], r["value"], r["bracket"]["lo"], r["bracket"]["hi"])
-    print(f"\nAPPLIED to {len(derived)} metadata.json file(s). "
-          f"data.jsonl untouched.")
+    for r in bracketed:
+        apply_one(r["path"], None, r["bracket"]["lo"], r["bracket"]["hi"])
+    print(f"\nAPPLIED: {len(derived)} with a point value, {len(bracketed)} "
+          f"bracket-only. {len(refused)} left untouched. data.jsonl untouched.")
     return 0
 
 
