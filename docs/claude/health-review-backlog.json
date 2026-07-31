@@ -8432,7 +8432,7 @@
       "opened_by": "claude (diagnostic-output-defect-class session)",
       "source": "Classified via /api/diag/ib_state (#8140) after seeing 'circuit breaker OPEN' in the pull-and-deploy log (#8131).",
       "title": "[infra][no-action] the IB 'circuit breaker OPEN' log line was the TRANSITORY backoff, not a wedge — measured, and closed as such",
-      "description": "Filed as a RESOLVED no-action item so the next session that sees this log line does not re-derive it, and so the negative result is on record rather than lost.\n\nThe pull-and-deploy log showed repeated `IBClient: circuit breaker OPEN for 10.0.0.251:4002 ... gateway was unresponsive, retrying in 90s`. That line alone does not distinguish the normal backoff from a real wedge — which is precisely why /api/diag/ib_state exists (BL-20260707-IB-STATE-LEGIBILITY). Read rather than guessed, all three clients (498 exec, 497 exec, 9784 readonly) came back:\n  state=connected · connected=true · account_data_ready=true · breaker_open=FALSE · breaker_seconds_remaining=0.0 · consecutive_failures=0 · likely_wedged=FALSE\n  last_ok_age_seconds 1.2 / 29.0 / 59.8\nThe failures in `last_fail_reason` (connect_failed: TimeoutError at 06:11, liveness_probe_timeout at 06:05) are HISTORICAL and recovered — the retry-tolerant probe and the breaker cooldown did their job.\n\nCONCLUSION: transitory, auto-recovered, no action. Recorded because 'I saw a scary log line and it turned out to be fine' is a result worth keeping — the alternative is every future session paying the same triage cost, which is how an alarm becomes background noise.",
+      "description": "Filed as a RESOLVED no-action item so the next session that sees this log line does not re-derive it, and so the negative result is on record rather than lost.\n\nThe pull-and-deploy log showed repeated `IBClient: circuit breaker OPEN for 10.0.0.251:4002 ... gateway was unresponsive, retrying in 90s`. That line alone does not distinguish the normal backoff from a real wedge — which is precisely why the /api/diag/ib_state surface exists (see its entry in CLAUDE.md's Diagnostic-API table). Read rather than guessed, all three clients (498 exec, 497 exec, 9784 readonly) came back:\n  state=connected · connected=true · account_data_ready=true · breaker_open=FALSE · breaker_seconds_remaining=0.0 · consecutive_failures=0 · likely_wedged=FALSE\n  last_ok_age_seconds 1.2 / 29.0 / 59.8\nThe failures in `last_fail_reason` (connect_failed: TimeoutError at 06:11, liveness_probe_timeout at 06:05) are HISTORICAL and recovered — the retry-tolerant probe and the breaker cooldown did their job.\n\nCONCLUSION: transitory, auto-recovered, no action. Recorded because 'I saw a scary log line and it turned out to be fine' is a result worth keeping — the alternative is every future session paying the same triage cost, which is how an alarm becomes background noise.",
       "tier": 1,
       "severity": "low",
       "status": "resolved",
@@ -8448,6 +8448,6 @@
       "updates": []
     }
   ],
-  "updated_at": "2026-07-31T06:40:00+00:00",
+  "updated_at": "2026-07-31T06:57:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
