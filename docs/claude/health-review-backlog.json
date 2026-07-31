@@ -7889,13 +7889,19 @@
         "tests/ml/test_feature_parity_probe_score_semantics.py",
         "src/runtime/regime_bar_scoring.py",
         "scripts/ml/replay_pregate_live.py",
-        "BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP"
+        "BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP",
+        "BL-20260731-CLAIM-SURFACE-UNGUARDED"
       ],
       "updates": [
         {
           "at": "2026-07-30T17:40:00+00:00",
           "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
           "note": "Fixed on discovery rather than filed-and-left: it is a live trap for the next reader, and the next reader might escalate instead of checking. Fleet evidence in trainer-diag #8090; probe output showing the bad line in #8088."
+        },
+        {
+          "at": "2026-07-31T07:05:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "CLASS LINK (operator-directed 2026-07-31): this row is one INSTANCE of BL-20260731-CLAIM-SURFACE-UNGUARDED — claim-defects on the evidence surface, which no CI guard covers. Do not treat this row's resolution as evidence the class is handled; the class closes only when a PREVENTER lands."
         }
       ]
     },
@@ -7917,7 +7923,8 @@
         "config/regime_policy.yaml",
         "BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP",
         "docs/research/A-vol-gating-OFFcell-design-2026-06-27.md",
-        "src/runtime/regime/ml_vol_verdict.py"
+        "src/runtime/regime/ml_vol_verdict.py",
+        "BL-20260731-CLAIM-SURFACE-UNGUARDED"
       ],
       "updates": [
         {
@@ -7939,6 +7946,11 @@
           "at": "2026-07-30T22:05:00+00:00",
           "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
           "note": "HEADLINE CORRECTED + SEVERITY high→medium. This row asserted 'the ML vol axis reads calm ~99% of the time' as a standing property. It is not. That number generalised from ~979 live advisory rows (~10 days of 15m bars) and a 40-row sample — the SAME over-generalisation-from-a-narrow-window error as the 9.1%-vs-1% comparison I already self-corrected in #8102. Measured properly on the full replay (trainer-diag #8115, btc-regime-15m-lgbm-fc-pcv-v1, 175,272 rows, 0 unusable): OVERALL volatile = 8.92% (calm 159,636 / volatile 15,636). By year: 2021 14.45% | 2022 13.46% | 2023 4.19% | 2024 9.42% | 2025 7.00% | 2026 7.65%. By month it ranges 0.44% (2023-07) to 30.42% (2022-06); recent months 2026-05 1.65%, 2026-06 8.51%, 2026-07 3.35%. So the volatile-keyed cells would have gated on ~1-in-5 bars as recently as 2026-02 (20.50%). The cells are CONDITIONALLY dormant — a conditional gate is idle while its condition does not hold, which is the gate working, not a defect. What survives from the original finding: the live sample really was ~1%, and a reviewer reading only the last ten days would wrongly conclude the axis is inert. SECOND CORRECTION: the paragraph 'grading them off the OFFLINE replay's vol labels would grade a COUNTERFACTUAL (replay 9.1% vs live ~1%)' is VOID. #8109 measured offline 1.15% vs live 1.02% on a MATCHED window — offline and live agree, so offline labels are a valid grading instrument. That void paragraph was the stated reason the cells stayed ungraded; with it removed they were gradeable, and #8115 graded the three trend_donchian ones (see BL-20260730-DONCHIAN-TRANSITIONAL-CALM-CONTRADICTED)."
+        },
+        {
+          "at": "2026-07-31T07:05:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "CLASS LINK (operator-directed 2026-07-31): this row is one INSTANCE of BL-20260731-CLAIM-SURFACE-UNGUARDED — claim-defects on the evidence surface, which no CI guard covers. Do not treat this row's resolution as evidence the class is handled; the class closes only when a PREVENTER lands."
         }
       ]
     },
@@ -7959,9 +7971,16 @@
       "refs": [
         ".github/workflows/vm-diag-snapshot.yml",
         "docs/claude/diag-relay.md",
-        "docs/CLAUDE-RULES-CANONICAL.md"
+        "docs/CLAUDE-RULES-CANONICAL.md",
+        "BL-20260731-CLAIM-SURFACE-UNGUARDED"
       ],
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-31T07:05:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "CLASS LINK (operator-directed 2026-07-31): this row is one INSTANCE of BL-20260731-CLAIM-SURFACE-UNGUARDED — claim-defects on the evidence surface, which no CI guard covers. Do not treat this row's resolution as evidence the class is handled; the class closes only when a PREVENTER lands."
+        }
+      ]
     },
     {
       "id": "MB-20260706-CI-MINUTES",
@@ -8025,14 +8044,14 @@
       "opened_at": "2026-07-30T21:45:00+00:00",
       "opened_by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
       "source": "Operator directed this session to drive the parked squeeze_breakout_4h trending-short Tier-3 proposal to a decision. Evidence run: trainer-diag #8110.",
-      "title": "[regime][tier-3] the parked squeeze_breakout_4h 1-D `trending short: off` proposal is SUPERSEDED — the entire loss is in trending/CALM, which is already gated",
+      "title": "[regime][tier-3] CLOSED by operator 2026-07-31 — the parked squeeze_breakout_4h 1-D `trending short: off` proposal is DROPPED as superseded by the existing trending/calm cell",
       "description": "The proposal was parked pending the ML vol axis. That axis now exists and is verified against live serve to 0.13pp on a matched window (PR #8109), so the block is cleared and the question is answerable.\n\nTHE QUESTION: trending/calm squeeze_breakout_4h {short: off} is ALREADY authored. So the 1-D proposal only adds value if trending/VOLATILE short ALSO loses.\n\nTHE ANSWER (offline, 4h BTCUSDT, 2021-01..2026-06, vol_axis present, coverage 106/110 = 96.4%):\n  trending short, 1-D (what the proposal targets) : net_R -2.7288  n=18\n    trending/calm     short  [ALREADY GATED]      : net_R -3.2101  n=17   exp_R -0.1888\n    trending/volatile short                       : net_R  0.0     n=0\n    trending/unknown  short                       : net_R +0.4813  n=1\n  Arithmetic closes exactly: -3.2101 + 0 + 0.4813 = -2.7288 ; 17 + 0 + 1 = 18.\n\nSo the whole 1-D trending-short loss IS the calm sub-population, and that sub-population is already suppressed by the existing 2-D cell. trending/volatile has ZERO short trades in 5.4 years — authoring the 1-D cell would additionally gate a population with no evidence in either direction.\n\nRECOMMENDATION (Tier-3, operator decides — nothing was changed): DROP the parked 1-D proposal as superseded by the existing trending/calm cell. This requires NO config/regime_policy.yaml edit, so there is no Tier-3 change to approve — only a parked item to close.\n\nThe existing cell is also well-targeted, which is worth recording: it gates only `short` in trending/calm and leaves `long` on — and trending/calm LONG is the strategy's best cell at +9.8014R over n=24.\n\nEXPOSURE CONTEXT for weighting this: squeeze_breakout_4h is routed ONLY to bybit_1 (demo/PAPER). It was removed from real-money bybit_2 at its 2026-06-01 demotion and the 2026-06-23 re-promotion is paper-only (config/strategies.yaml:320-323). No real-money exposure today either way.\n\nHarness run receipt (trainer-diag #8110): scripts/backtest_squeeze.py --data data/btc_1h_multiyear.csv --symbol BTCUSDT --timeframe 4h --resample 4h --bb-period 20 --bb-std 2.0 --kc-mult 1.0 --atr-period 14 --atr-stop-mult 2.5 --trail-mult 3.5  ->  trades=110, win_rate 38.18%, net_r 17.6142, maxdd_r 7.8888, span 2021-01-01..2026-06-01. That reproduces the documented basis in config/strategies.yaml:315 ('+17.6R multiyear ... lowest DD (7.9R)') to 4 significant figures, which is the independent check that the harness was driven with the strategy's REAL live params and not defaults. NOTE --kc-mult 1.0: the harness default is 1.5, so omitting it silently grades a different strategy.\n\nHONEST LIMITS: (a) the -3.2101R/17t figure is a different measurement basis from the '-$55 / 30t' recorded in the cell's own comment (R vs dollars, different run/period) — they are not in conflict, they are not the same measurement, and I did not try to reconcile them; (b) n=0 in trending/volatile means NO evidence, which is not the same as evidence of no effect; (c) nothing here re-grades the OTHER five cells — see BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT.",
       "tier": 3,
       "trigger_condition": "n/a — a parked proposal reaching a decision",
       "resolution_criteria": "Operator closes the parked 1-D trending-short proposal as superseded, or states why the 2-D cell is insufficient.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-07-31T07:05:00+00:00",
       "severity": "medium",
       "refs": [
         "config/regime_policy.yaml",
@@ -8043,7 +8062,13 @@
         "BL-20260730-SQZ-CELLS-N-TOO-THIN",
         "BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT"
       ],
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-31T07:05:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "OPERATOR DECISION 2026-07-31: \"Drop the squeeze. Leave it.\" The parked 1-D proposal is CLOSED as superseded.\nNo config/regime_policy.yaml edit was made or required — the existing trending/calm cell already suppresses 100% of the measured 1-D loss, and trending/volatile had ZERO short trades in 5.4 years. Nothing to deploy, nothing to verify post-state. squeeze_breakout_4h remains paper-only (bybit_1), so there was no real-money exposure on either branch of the decision."
+        }
+      ]
     },
     {
       "id": "BL-20260730-DONCHIAN-TRANSITIONAL-CALM-CONTRADICTED",
@@ -8072,7 +8097,8 @@
         "trainer-diag #8115",
         "trainer-diag #8117",
         "PR #8118",
-        "BL-20260730-WF-FOLDCOUNT-VERDICT-FLIP"
+        "BL-20260730-WF-FOLDCOUNT-VERDICT-FLIP",
+        "BL-20260731-CLAIM-SURFACE-UNGUARDED"
       ],
       "updates": [
         {
@@ -8084,6 +8110,11 @@
           "at": "2026-07-31T06:25:00+00:00",
           "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
           "note": "CAUSE IDENTIFIED, finding withdrawn. Isolation run trainer-diag #8137.\n\nParams and fees were eliminated FIRST by code inspection, no run needed: regime_debt_matrix.build_harness_cmd forwards exactly the flags I passed; _TREND_LEVER_FLAG = {stale_exit_bars, stale_exit_below_r, side_filter} and trend_donchian carries NONE of them; no adx_min/adx_max; fee 7.5 on both sides (backtest_trend.FEE_BPS_ROUNDTRIP = 7.5, and roundtrip_fee_bps_for('BTCUSDT') -> None -> DEFAULT_FEE_BPS_ROUNDTRIP = 7.5). Byte-identical parameterisation.\n\nThat left the FEED, which the 2x2 then split into trade GENERATION vs regime LABELLING:\n  A_on_A  (feed A trades, feed A ADX)  transitional +29.4913  n=86   <- reproduces #8115 exactly\n  A_on_B  (feed A trades, feed B ADX)  transitional  +4.5742  n=90   <- SAME 357 trades, total net_r 79.28 both\n  B_on_B  (feed B trades, feed B ADX)  transitional  -1.6799  n=93   <- reproduces the walk-forward\nAttribution: LABELLING 29.4913 - 4.5742 = 24.9171R (79.9% of the swing); GENERATION 4.5742 - (-1.6799) = 6.2541R (20.1%). Total 31.1712R.\n\nCorroboration that the feeds do NOT meaningfully disagree about outcomes: of 357 trades each, 331 entry times (92.7%) are shared, and on those shared trades the two feeds total A=67.8283 vs B=68.8762 -- a 1.05R difference. Aggregate regime base rates are near-identical too (chop 30.0 vs 29.7, transitional 18.8 vs 18.8, trending 51.1 vs 51.5). The ~25R MIGRATED BETWEEN BUCKETS: out of transitional, into trending (+12.98) and chop (+12.30).\n\nCONSEQUENCE FOR THIS ROW: the +32.66R transitional/calm cell is not a finding. Its 1-D parent collapses +29.49 -> +4.57 from an ADX-source swap alone, so the cell number was never separable from label noise. The authoring comment (-$356/43t) is NOT contradicted -- and equally is NOT confirmed; this instrument cannot adjudicate it at this resolution. NOTHING was proposed and config/regime_policy.yaml was never touched.\n\nNEITHER RUN WAS WRONG. Both are correct computations of a quantity that is fragile to its input feed. The generalised defect is filed separately as BL-20260731-REGIME-ATTRIBUTION-FEED-SENSITIVE, which is the item that actually matters -- it reaches every 1-D regime grade in the repo, not just this cell."
+        },
+        {
+          "at": "2026-07-31T07:05:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "CLASS LINK (operator-directed 2026-07-31): this row is one INSTANCE of BL-20260731-CLAIM-SURFACE-UNGUARDED — claim-defects on the evidence surface, which no CI guard covers. Do not treat this row's resolution as evidence the class is handled; the class closes only when a PREVENTER lands."
         }
       ]
     },
@@ -8381,17 +8412,50 @@
         "BL-20260730-WALKFORWARD-NO-VOL-AXIS",
         "BL-20260730-WF-FOLDCOUNT-VERDICT-FLIP",
         "trainer-diag #8137",
-        "PR #8118"
+        "PR #8118",
+        "BL-20260731-CLAIM-SURFACE-UNGUARDED"
       ],
       "updates": [
         {
           "at": "2026-07-31T06:55:00+00:00",
           "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
           "note": "DETECTION SHIPPED (operator-directed, same session). scripts/research/regime_tag_emitted.py now emits two honesty metrics in the same shape as vol_coverage / rCoverage:\n  (1) BOUNDARY EXPOSURE - always computed, no second feed needed, so there is no run for which it is unavailable. Share of sum|net_R| sitting within +/-band ADX of the 20/25 cutoffs, per bucket, plus the largest single near-boundary |R| (one trade able to move a bucket alone). ABSOLUTE value deliberately: a +8R and a -8R at a cutoff are BOTH one relabel from moving, and netting them first would report 0% for a maximally-fragile grade.\n  (2) FEED SENSITIVITY - optional --sensitivity-data: re-tags the SAME trades against a second feed's ADX and reports per-bucket delta + any SIGN FLIP. Holding the trade set fixed is the point: every delta is attributable to LABELLING, never to generation. A sign-flipped bucket cannot source a Tier-3 proposal in EITHER direction, at any n.\nBoth are DECLARED on every run (feed_sensitivity_checked: bool + a 'NOT CHECKED' console line), the same contract as vol_axis: present|absent - a grade with no second feed must never read as one that was cross-checked.\n\nA TAUTOLOGY WAS CAUGHT AND FIXED DURING THE BUILD, worth recording because it is the exact class the repo now guards: the first working version reported `transitional` at 100% exposure on EVERY run. That is not a finding - the transitional band is only (25-20)=5 ADX wide, so no point in it is further than 2.5 from a cutoff and the bucket is 100% 'near' by construction at any band >= 2.5. Shipping that would have manufactured a permanent false alarm from a real number. Fixed with _structural_floor_pct: every bucket now reports the floor its own WIDTH implies plus the excess over it, and `trending` returns None rather than an invented floor because it is unbounded above.\n\nVerified: 14 new tests (tests/research/test_regime_boundary_exposure.py) covering both metrics, the absolute-value property, NaN-never-counted-as-safe, both cutoffs, the declared-on-every-run contract, and all three structural-floor cases. Existing 34 vol-axis tests still green. diagnostic-provenance-guard clean. check_research_index OK (54/54 routed). END-TO-END on synthetic fixtures, both CLI paths - and the synthetic case independently reproduces the defect: a 6% feed jitter moved `chop` -5.023R and `transitional` +2.55R across the SAME 60 trades.\n\nSTILL OPEN, and why this row stays open at medium rather than resolved: detection is not remediation. The SHIPPED gld_pullback_1h trending-short cell (operator-approved #7923) has NOT been re-checked against a second feed - it is Yahoo-sourced equity on a different data path from the BTCUSDT measurement, so it is still UNVALIDATED rather than shown wrong. That re-check, and threading the same axis through regime_cell_walkforward (BL-20260730-WALKFORWARD-NO-VOL-AXIS), are the remaining work. Any config/regime_policy.yaml change stays Tier-3."
+        },
+        {
+          "at": "2026-07-31T07:05:00+00:00",
+          "by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+          "note": "CLASS LINK (operator-directed 2026-07-31): this row is one INSTANCE of BL-20260731-CLAIM-SURFACE-UNGUARDED — claim-defects on the evidence surface, which no CI guard covers. Do not treat this row's resolution as evidence the class is handled; the class closes only when a PREVENTER lands."
         }
+      ]
+    },
+    {
+      "id": "BL-20260731-CLAIM-SURFACE-UNGUARDED",
+      "opened_at": "2026-07-31T07:05:00+00:00",
+      "opened_by": "claude (offline-vol-axis session, offline-vol-axis-regime-5u1p7k)",
+      "source": "Operator directive 2026-07-31, verbatim intent: log this session's mistakes \"in the system health review so that we know as things that need to be investigated and fixed, NOT on a case by case basis — as a STRUCTURAL way to make sure that Claude stops doing bullshit in the middle of my repo.\"",
+      "title": "[meta][STRUCTURAL] every CI guard in this repo checks CODE SHAPE — nothing checks the CLAIMS that Tier-3 decisions are actually made from. 5 claim-defects in one session, each filed as a harmless one-off",
+      "description": "THE OPERATOR'S POINT, restated so it is not softened: filing each of these as its own row is what lets the pattern survive. Individually every one reads as 'caught and fixed, no harm done'. Collectively they are a single recurring defect with no preventer, and the next session repeats it from a clean context. This row exists so the CLASS is the tracked object.\n\nWHAT HAPPENED (one session, 2026-07-30/31, all self-caught, none by a repo mechanism):\n  1. Epoch-mismatched comparison stated as a finding — 9.1% offline vs 1% live over DISJOINT windows (withdrawn #8102).\n  2. Same error again, different dressing — 'the ML vol axis reads calm ~99% of the time' generalised from ~979 live rows; the full 175,272-row replay says 8.92%, ranging 0.44%-30.42% monthly (corrected #8118).\n  3. A decision-grade finding published off an unvalidated instrument — trend_donchian transitional/calm at +32.66R against an ACTIVE REAL-MONEY gate cell (#8118), destroyed by my own follow-up 15 minutes later (#8119) and root-caused as an ADX labelling artifact (#8144).\n  4. A diagnostic printing max(proba) under the label P(volatile) — INVERTED, so a 97%-CALM head read as saturated volatile; nearly escalated as a false P1 against the live BTC vol gate (#8091).\n  5. A public failure diagnosis naming a cause no code path had tested — a diag relay blaming 'VM down' for a request that never reached the VM (#8097).\n  (+ a 6th caught pre-merge during #8147: a boundary metric that would have reported `transitional` 100% fragile on EVERY run — a tautology of the band's 5-ADX width, i.e. a permanent false alarm.)\n\nTHE STRUCTURAL OBSERVATION — this is the actionable part.\nThis repo has an unusually strong guard family: canonical-db-resolver, env-gate-guard, silent-empty-guard, provenance-consumer-guard, diagnostic-provenance-guard, new-table-wiring-guard, writer-conformance-guard, strategy-coverage-guard, qty-legalization-guard, layer-guard. EVERY ONE OF THEM CHECKS CODE SHAPE.\nA wrong NUMBER in a backlog row, a PR body, a ROADMAP cell, or a research doc passes all of them. And those numbers are precisely what Tier-3 cell/promotion/risk decisions get made from. **The code surface is heavily guarded; the evidence surface is unguarded.** Every defect above lived on the evidence surface, which is why zero of them were caught by CI and all of them were caught by a bar the session happened to set for itself. A bar that depends on the session setting it is not a control.\n\nA DOC-PLACEMENT DEFECT MADE IT WORSE, and it is cheap to fix. CLAUDE.md ALREADY carries the exact rule that would have stopped defects 1 and 2: 'ALWAYS STATE THE POPULATION ... A headline whose sign flips on a filter choice is exactly the kind of number this module exists to stop trusting — including when it is ours.' It is well written and it was violated twice in one session by a session that had read it — because it lives UNDER the 'Number provenance' heading, scoped to PnL rows in the journal, so it does not read as governing research claims. The rule is right; its scope is wrong.\n\nPROPOSED PREVENTERS (a review session should pick, refine, and land — none applied here):\n  P1 (Tier-1, cheap, highest value): PROMOTE 'always state the population' out of the provenance section into a top-level canonical rule covering EVERY quantitative claim in any artifact — chat, PR body, backlog row, ROADMAP cell, research doc. Required basis: population + window + instrument + n. Mirrors the existing instruction-hierarchy mirroring already enforced by canonical-doc-coherence.\n  P2 (Tier-1, mechanical): a `claim-basis-guard` in the existing guard family — a backlog row or research doc asserting a % or R figure must carry an explicit basis block. Same shape as check_backlog_refs. NOTE the lesson from new-table-wiring-guard recorded in CLAUDE.md: a presence-only marker is cheaper to LIE to than to satisfy, so the basis must be verified (n parses as an integer, window parses as a date range), not merely present.\n  P3 (Tier-1, process): INSTRUMENT-BEFORE-FINDING — a new measurement instrument may not produce a decision-grade number until it emits its own honesty metric, shipped in the SAME PR. Precedent already exists and works: rCoverage, vol_coverage, and now boundary_exposure/feed_sensitivity (#8147). Defect 3 is exactly what happens without it.\n  P4 (Tier-1, process): FULL-SPAN DEFAULT — a rate claimed as a standing property must be computed over the full available span or carry an explicit scope. Direct preventer for defects 1 and 2, which are the same error twice.\n\nWHAT NOT TO DO WITH THIS ROW: do not close it by fixing the five instances — they are already fixed and closing on that basis is the exact failure mode the operator called out. It closes when a PREVENTER exists.",
+      "severity": "critical",
+      "status": "open",
+      "area": "process",
+      "trigger_condition": "n/a — a standing gap in the control surface, not an incident",
+      "resolution_criteria": "At least P1 (rule promotion) AND one mechanical or process preventer are landed and in force. Explicitly NOT resolvable by fixing the individual instances.",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "refs": [
+        "CLAUDE.md",
+        "docs/CLAUDE-RULES-CANONICAL.md",
+        "scripts/check_diagnostic_provenance.py",
+        "scripts/ops/check_backlog_refs.py",
+        "scripts/ci/check_canonical_doc_coherence.py",
+        "BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA",
+        "BL-20260730-DIAG-RELAY-FAILURE-COMMENT-MISLEADING",
+        "BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT",
+        "BL-20260730-DONCHIAN-TRANSITIONAL-CALM-CONTRADICTED",
+        "BL-20260731-REGIME-ATTRIBUTION-FEED-SENSITIVE"
       ]
     }
   ],
-  "updated_at": "2026-07-31T06:55:00+00:00",
+  "updated_at": "2026-07-31T07:05:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

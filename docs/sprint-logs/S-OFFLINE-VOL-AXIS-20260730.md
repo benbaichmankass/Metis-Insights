@@ -304,6 +304,32 @@ large winners near a boundary carry tens of R across it. Filed
 live `gld_pullback_1h` cell — not shown wrong, but **unvalidated against a
 defect class the pipeline cannot currently detect.**
 
+## Session close — 2026-07-31
+
+**Operator decisions taken:**
+- **`squeeze_breakout_4h` 1-D `trending short: off` — DROPPED** as superseded. No
+  `config/regime_policy.yaml` edit was required or made.
+- **Feed-sensitivity detection — IMPLEMENTED** (#8147): `boundary_exposure` (always
+  computed, no second feed needed) + `feed_sensitivity` (`--sensitivity-data`), both
+  declared on every run like `vol_axis`. A tautology was caught mid-build — the first
+  version reported `transitional` 100% fragile on every run, which is an artifact of the
+  band's 5-ADX width — and fixed with `_structural_floor_pct`.
+
+**The mistakes are filed as a CLASS, not as incidents** (operator-directed):
+`BL-20260731-CLAIM-SURFACE-UNGUARDED` (**critical**). Six claim-defects in one session,
+every one self-caught, **none caught by a repo mechanism**. The structural observation:
+this repo's guard family (canonical-db-resolver, env-gate-guard, silent-empty-guard,
+provenance-consumer-guard, diagnostic-provenance-guard, …) checks **code shape** — a wrong
+*number* in a backlog row, PR body, or ROADMAP cell passes all of them, and those numbers
+are what Tier-3 decisions are made from. **The code surface is guarded; the evidence
+surface is not.** Compounding it, `CLAUDE.md` already carries the rule that would have
+prevented two of the six ("ALWAYS STATE THE POPULATION") — but it sits under the
+*provenance* heading scoped to PnL rows, so it doesn't read as governing research claims.
+The rule is right; its scope is wrong. Four preventers proposed in the row (P1 promote the
+rule; P2 a mechanical `claim-basis-guard`; P3 instrument-before-finding; P4 full-span
+default). **The row explicitly cannot be closed by fixing the six instances** — that is the
+failure mode being corrected.
+
 ## Next Recommended Sprint
 
 1. ~~Reconcile the instruments~~ — **done above.** The successor is: make
