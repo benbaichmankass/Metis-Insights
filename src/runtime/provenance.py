@@ -186,6 +186,17 @@ ESTIMATED_SOURCES = frozenset({
     # for a confirmed close whose real fill was never recovered. Anchored to
     # the close TIME, unlike `local_markprice` which is simply "now".
     "candle_at_close",
+    # A price taken from the MIRROR account's fill (bybit_portfolio <- bybit_2,
+    # alpaca_portfolio <- alpaca_live). ESTIMATED, deliberately NOT MEASURED.
+    # The paper book mirrors the live book's SETUPS, so the sibling's fill is a
+    # defensible anchor for where this order would have gone — but it remains an
+    # inference about a DIFFERENT account's execution, not a fill of this order.
+    # Capacity between the books differs (the operator's own caveat when
+    # proposing it, 2026-07-31), which is exactly why it is not a measurement.
+    # Same bucket as `candle_at_close`, for the same reason: responsibly
+    # reconstructed, still not a fill. Promoting it to MEASURED would re-import
+    # fabrication wearing a better label.
+    "mirror_account_fill",
     # The exit REASON (sl/tp) derived by comparing the recovered exit price to
     # the order package's bracket. A defensible derivation, but the venue never
     # said "this was a stop-out" — so it is not a measurement of the reason.
