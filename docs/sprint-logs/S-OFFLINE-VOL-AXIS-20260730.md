@@ -276,10 +276,40 @@ not the cell.**
   concurrent session on board #6927 and posted there instead.
 - **`BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER`** — still open, untouched.
 
+## Instruments reconciled — 2026-07-31 (#8137)
+
+**Done, and the answer generalises past the cell.** Params/fees eliminated by
+code inspection (identical flags; no `_TREND_LEVER_FLAG` key on
+`trend_donchian`; fee 7.5 both sides), leaving the feed — which a 2×2 split
+into trade GENERATION vs regime LABELLING:
+
+| run | what changed | `transitional` net_R | n |
+|---|---|---|---|
+| `A_on_A` | — (baseline) | +29.4913 | 86 |
+| `A_on_B` | **only the ADX source; identical 357 trades** | **+4.5742** | 90 |
+| `B_on_B` | + trade generation | −1.6799 | 93 |
+
+**Labelling is 24.92R of the 31.17R swing (79.9%).** The feeds barely disagree
+about outcomes — 331/357 shared entry times totalling 67.83 vs 68.88 (1.05R
+apart), base rates within 0.5pp. The ~25R **migrated between buckets**
+(trending +12.98, chop +12.30).
+
+So the `transitional/calm` finding is **dead**, and the authoring comment is
+neither contradicted nor confirmed. **The real finding is the instrument:**
+per-regime net-R is unstable to the candle feed — hard ADX cutoffs at 20/25
+over a noisy rolling indicator, against a heavy-tailed R distribution, so a few
+large winners near a boundary carry tens of R across it. Filed
+`BL-20260731-REGIME-ATTRIBUTION-FEED-SENSITIVE` (**critical**); it reaches every
+1-D regime grade in the rec #5 programme, including the one that shipped the
+live `gld_pullback_1h` cell — not shown wrong, but **unvalidated against a
+defect class the pipeline cannot currently detect.**
+
 ## Next Recommended Sprint
 
-1. **Reconcile the instruments first.** One feed, identical params, both paths.
-   Nothing downstream is trustworthy until the sign flip is explained.
+1. ~~Reconcile the instruments~~ — **done above.** The successor is: make
+   per-regime grades **report feed-sensitivity** as a required output (the way
+   `vol_coverage` / `rCoverage` already publish their own honesty metric), and
+   re-check the shipped `gld_pullback_1h` cell against a second feed.
 2. Then make the walk-forward 2-D-capable and fold-count-honest.
 3. Only then re-open the `trend_donchian` cell question.
 - **Required verification before starting:** treat every per-cell number
