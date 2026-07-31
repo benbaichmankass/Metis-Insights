@@ -117,13 +117,26 @@ def _seed_db(path: Path):
         "updated_at TEXT)"
     )
     now = datetime.now(timezone.utc)
+    # Rows 1/2 carry MEASURED pnl provenance so they survive the default-on
+    # untrusted-pnl filter (P0.1) — the pre-filter fixture wrote notes=NULL,
+    # which correctly reads as UNVERIFIED and would (rightly) be excluded.
+    measured = '{"exit_price_source": "recorded_exit_price"}'
     conn.execute(
-        "INSERT INTO trades VALUES (1,'BTCUSDT',12.0,0.5,'closed',?,NULL,0,0)",
-        ((now - timedelta(hours=3)).isoformat(),),
+        "INSERT INTO trades VALUES (1,'BTCUSDT',12.0,0.5,'closed',?,?,0,0)",
+        ((now - timedelta(hours=3)).isoformat(), measured),
     )
     conn.execute(
-        "INSERT INTO trades VALUES (2,'BTCUSDT',-4.0,-0.2,'closed',?,NULL,0,0)",
-        ((now - timedelta(hours=3)).isoformat(),),
+        "INSERT INTO trades VALUES (2,'BTCUSDT',-4.0,-0.2,'closed',?,?,0,0)",
+        ((now - timedelta(hours=3)).isoformat(), measured),
+    )
+    # Row 5: FABRICATED pnl provenance (mark substituted at sweep time) —
+    # excluded by default, admitted only via exclude_untrusted_pnl=False.
+    conn.execute(
+        "INSERT INTO trades VALUES (5,'BTCUSDT',77.0,0.9,'closed',?,?,0,0)",
+        (
+            (now - timedelta(hours=3)).isoformat(),
+            '{"exit_price_source": "local_markprice"}',
+        ),
     )
     # backtest + demo rows that must be excluded
     conn.execute(
@@ -146,6 +159,22 @@ def test_load_closed_trades_excludes_backtest_and_demo(tmp_path: Path):
     trades = load_closed_trades(db)
     ids = {t["id"] for t in trades}
     assert ids == {"1", "2"}
+
+
+def test_load_closed_trades_excludes_untrusted_pnl_by_default(tmp_path: Path):
+    """P0.1 (2026-07-31 audit): the promotion gate must read the same trusted
+    population the trainer labels on — a fabricated-pnl row (row 5, exit
+    priced from a sweep-time mark) is excluded by default and only admitted
+    via the explicit escape hatch."""
+    db = tmp_path / "j.db"
+    _seed_db(db)
+    default_ids = {t["id"] for t in load_closed_trades(db)}
+    assert "5" not in default_ids
+    unfiltered_ids = {
+        t["id"] for t in load_closed_trades(db, exclude_untrusted_pnl=False)
+    }
+    assert "5" in unfiltered_ids
+    assert unfiltered_ids - default_ids == {"5"}
 
 
 def test_load_closed_trades_tolerates_unset_or_missing_db(tmp_path: Path):

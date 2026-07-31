@@ -55,6 +55,21 @@ SCHEMA_VERSION = 1
 GENERATOR_NAME = "scripts/ml/strategy_review_packet.py v1.0"
 
 
+def _pnl_trusted(notes_raw: Any) -> bool:
+    """True when a row's ``pnl`` rests on a MEASURED or ESTIMATED exit.
+
+    Thin delegate to :func:`src.runtime.provenance.pnl_is_trustworthy` (P0.1,
+    2026-07-31 audit): the packet's KILL/DEMOTE/TUNE/PROMOTE matrix consumes
+    ``pnl > 0`` win rates, so a fabricated pnl is a WRONG matrix input.
+    Only consulted when the pulled row carries ``trade_notes`` (a journal
+    without the ``notes`` column cannot be judged and is passed through
+    unfiltered).
+    """
+    from src.runtime.provenance import pnl_is_trustworthy  # noqa: PLC0415
+
+    return pnl_is_trustworthy(notes_raw)
+
+
 # ---------------------------------------------------------------------------
 # Data classes — the wire shape mirrors docs/strategy-review-gate.md.
 # ---------------------------------------------------------------------------
@@ -66,6 +81,11 @@ class Headline:
     n_filled: int = 0
     n_closed: int = 0
     n_wins: int = 0
+    # Closed rows EXCLUDED from every pnl-derived stat because their pnl
+    # provenance is not measured/estimated (P0.1, 2026-07-31 audit). Kept as
+    # its own count so the packet states its population instead of silently
+    # shrinking n_closed.
+    n_closed_untrusted_pnl: int = 0
     win_rate: Optional[float] = None
     pnl_total: float = 0.0
     expectancy: Optional[float] = None
@@ -79,6 +99,7 @@ class Headline:
             "n_decisions": self.n_decisions,
             "n_filled": self.n_filled,
             "n_closed": self.n_closed,
+            "n_closed_untrusted_pnl": self.n_closed_untrusted_pnl,
             "n_wins": self.n_wins,
             "win_rate": self.win_rate,
             "pnl_total": round(self.pnl_total, 4),
@@ -97,6 +118,7 @@ class RegimeCell:
     n_decisions: int = 0
     n_closed: int = 0
     n_wins: int = 0
+    n_closed_untrusted_pnl: int = 0
     win_rate: Optional[float] = None
     pnl_total: float = 0.0
     expectancy: Optional[float] = None
@@ -107,6 +129,7 @@ class RegimeCell:
             "cell": {"trend": self.trend, "vol": self.vol},
             "n_decisions": self.n_decisions,
             "n_closed": self.n_closed,
+            "n_closed_untrusted_pnl": self.n_closed_untrusted_pnl,
             "n_wins": self.n_wins,
             "win_rate": self.win_rate,
             "pnl_total": round(self.pnl_total, 4),
@@ -291,8 +314,14 @@ def pull_decisions(
     contribution.
     """
     with _ro_conn(db_path) as conn:
+        # P0.1 (2026-07-31 audit): pull `trades.notes` so the aggregators can
+        # judge each closed row's pnl provenance. Guarded on the column
+        # existing — a legacy/fixture journal without `notes` omits the key
+        # entirely, which the aggregators read as "not judgeable → keep".
+        tcols = {r[1] for r in conn.execute("PRAGMA table_info(trades)")}
+        sel_notes = "t.notes      AS trade_notes," if "notes" in tcols else ""
         rows = conn.execute(
-            """
+            f"""
             SELECT
               op.order_package_id, op.strategy_name, op.symbol, op.direction,
               op.entry, op.sl, op.tp, op.confidence,
@@ -308,6 +337,7 @@ def pull_decisions(
               t.entry_price AS trade_entry_price,
               t.exit_price  AS trade_exit_price,
               t.pnl         AS trade_pnl,
+              {sel_notes}
               t.status      AS trade_status,
               t.exit_reason AS trade_exit_reason,
               t.is_backtest AS trade_is_backtest
@@ -517,16 +547,29 @@ def compute_headline(decisions: Sequence[Mapping[str, Any]]) -> Headline:
         if row.get("linked_trade_id"):
             h.n_filled += 1
         if _is_closed(row):
-            h.n_closed += 1
             pnl = row.get("trade_pnl")
-            if pnl is not None:
-                pnls.append(float(pnl))
-                if float(pnl) > 0:
-                    h.n_wins += 1
-            opened = _isoparse(row.get("pkg_created_at"))
-            closed = _isoparse(row.get("pkg_updated_at"))
-            if opened and closed:
-                hold_seconds.append(int((closed - opened).total_seconds()))
+            # A closed row whose pnl provenance is not measured/estimated is
+            # excluded from EVERY pnl-derived stat (win_rate/pnl_total/
+            # expectancy/drawdown denominators included) and counted
+            # separately, so the matrix never acts on a fabricated number and
+            # the packet states its population. Judgeable only when the row
+            # carries `trade_notes` (see pull_decisions).
+            if (
+                pnl is not None
+                and "trade_notes" in row
+                and not _pnl_trusted(row.get("trade_notes"))
+            ):
+                h.n_closed_untrusted_pnl += 1
+            else:
+                h.n_closed += 1
+                if pnl is not None:
+                    pnls.append(float(pnl))
+                    if float(pnl) > 0:
+                        h.n_wins += 1
+                opened = _isoparse(row.get("pkg_created_at"))
+                closed = _isoparse(row.get("pkg_updated_at"))
+                if opened and closed:
+                    hold_seconds.append(int((closed - opened).total_seconds()))
         pstatus = (row.get("pkg_status") or "").lower()
         if pstatus.startswith("failed"):
             reason = (row.get("pkg_close_reason") or pstatus) or "unknown"
@@ -653,8 +696,15 @@ def compute_regime_cells(
         pnls: List[float] = []
         for r in rows:
             if _is_closed(r):
-                cell.n_closed += 1
                 pnl = r.get("trade_pnl")
+                if (
+                    pnl is not None
+                    and "trade_notes" in r
+                    and not _pnl_trusted(r.get("trade_notes"))
+                ):
+                    cell.n_closed_untrusted_pnl += 1
+                    continue
+                cell.n_closed += 1
                 if pnl is not None:
                     pnls.append(float(pnl))
                     if float(pnl) > 0:
@@ -978,6 +1028,11 @@ def render_markdown(packet: Dict[str, Any]) -> str:
     lines.append(f"| n_decisions | {h['n_decisions']} |")
     lines.append(f"| n_filled | {h['n_filled']} |")
     lines.append(f"| n_closed | {h['n_closed']} |")
+    if h.get("n_closed_untrusted_pnl"):
+        lines.append(
+            f"| n_closed_untrusted_pnl (excluded — pnl provenance not "
+            f"measured/estimated) | {h['n_closed_untrusted_pnl']} |"
+        )
     lines.append(f"| n_wins | {h['n_wins']} |")
     lines.append(
         "| win_rate | "

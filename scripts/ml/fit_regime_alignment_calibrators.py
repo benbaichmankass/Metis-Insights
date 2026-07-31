@@ -65,31 +65,46 @@ def _decode_json_obj(raw):
     return obj if isinstance(obj, dict) else {}
 
 
-def load_corpus_rows(db_path: str) -> list[dict]:
+def load_corpus_rows(
+    db_path: str, *, exclude_untrusted_pnl: bool = True
+) -> list[dict]:
     """Read closed/filled/non-backtest trades joined to their order package.
 
     Mirrors the ``conviction_meta`` family's row scope. Each returned row carries
     ``model_scores`` (decoded ``{model_id:{stage,score}}``), ``direction``, and
     ``pnl`` — the inputs ``corpus_for_model`` transforms into ``(score, won)``
     pairs per regime model. Read-only (SQLite ``mode=ro``).
+
+    ``exclude_untrusted_pnl`` (default **True** — P0.1 of the 2026-07-31
+    full-system audit): the calibrators fit ``won = pnl > 0``, so a
+    fabricated pnl fits a WRONG target. Rows whose pnl provenance is not
+    MEASURED/ESTIMATED (``provenance.pnl_is_trustworthy`` over
+    ``trades.notes``) are dropped, and the exclusion is printed — never
+    silent.
     """
+    from src.runtime.provenance import pnl_is_trustworthy  # noqa: PLC0415
+
     p = Path(db_path)
     if not p.is_file():
         raise FileNotFoundError(f"trade_journal.db not found at {p}")
     uri = f"file:{p.as_posix()}?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     rows: list[dict] = []
+    excluded_untrusted = 0
     try:
         conn.row_factory = sqlite3.Row
         sql = (
             "SELECT op.direction AS direction, op.model_scores AS model_scores, "
-            "       t.pnl AS pnl "
+            "       t.pnl AS pnl, t.notes AS notes "
             "FROM trades t "
             "JOIN order_packages op ON t.order_package_id = op.order_package_id "
             "WHERE t.status = 'closed' AND t.is_backtest = 0 "
             "  AND t.pnl IS NOT NULL AND t.order_package_id IS NOT NULL"
         )
         for r in conn.execute(sql):
+            if exclude_untrusted_pnl and not pnl_is_trustworthy(r["notes"]):
+                excluded_untrusted += 1
+                continue
             rows.append({
                 "direction": r["direction"],
                 "model_scores": _decode_json_obj(r["model_scores"]),
@@ -97,6 +112,15 @@ def load_corpus_rows(db_path: str) -> list[dict]:
             })
     finally:
         conn.close()
+    if excluded_untrusted:
+        total = len(rows) + excluded_untrusted
+        print(
+            f"load_corpus_rows: POPULATION CHANGED — excluded "
+            f"{excluded_untrusted} of {total} closed rows whose pnl "
+            f"provenance is not measured/estimated "
+            f"(provenance.pnl_is_trustworthy over trades.notes); "
+            f"{len(rows)} kept for calibrator fitting."
+        )
     return rows
 
 

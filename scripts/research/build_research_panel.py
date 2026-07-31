@@ -263,6 +263,13 @@ def fetch_panel_rows(
     sel_entry = "t.entry_price AS entry_price," if "entry_price" in tcols else ""
     sel_stop = "t.stop_loss AS stop_loss," if "stop_loss" in tcols else ""
     sel_qty = "t.position_size AS qty," if "position_size" in tcols else ""
+    # P0.1 (2026-07-31 audit): the panel's `pnl`/`win`/`r` outcome columns are
+    # the substrate for standing research verdicts, so rows whose pnl
+    # provenance is not measured/estimated are excluded — judged via
+    # provenance.pnl_is_trustworthy over trades.notes. Guarded on the column
+    # existing (a fixture/legacy journal without `notes` cannot be judged and
+    # is passed through unfiltered, with the skip printed below).
+    sel_notes = "t.notes AS trade_notes," if "notes" in tcols else ""
 
     if have_op:
         have_ms = "model_scores" in ocols
@@ -319,7 +326,7 @@ def fetch_panel_rows(
         SELECT t.strategy_name AS strategy,
                t.symbol AS symbol,
                t.pnl AS pnl,
-               {sel_entry}{sel_stop}{sel_qty}
+               {sel_entry}{sel_stop}{sel_qty}{sel_notes}
                {sel_sl}{sel_conf}{sel_ms}{sel_meta}
                {close_expr} AS closed_at
         FROM trades t
@@ -332,6 +339,16 @@ def fetch_panel_rows(
     except sqlite3.Error:
         return []
 
+    judge_provenance = bool(sel_notes)
+    if judge_provenance:
+        from src.runtime.provenance import pnl_is_trustworthy
+    else:
+        print(
+            f"  note: provenance filter SKIPPED for cohort={cohort} — this "
+            f"journal has no trades.notes column, so pnl provenance cannot "
+            f"be judged; panel rows are unfiltered."
+        )
+    excluded_untrusted = 0
     out: List[PanelRow] = []
     for row in raw:
         keys = row.keys()
@@ -340,6 +357,9 @@ def fetch_panel_rows(
         try:
             pnl = float(row["pnl"])
         except (TypeError, ValueError):
+            continue
+        if judge_provenance and not pnl_is_trustworthy(row["trade_notes"]):
+            excluded_untrusted += 1
             continue
         entry = row["entry_price"] if "entry_price" in keys else None
         stop = row["stop_loss"] if "stop_loss" in keys else None
@@ -395,6 +415,15 @@ def fetch_panel_rows(
                 model_score_max=ms_max,
                 model_score_count=ms_count,
             )
+        )
+    if excluded_untrusted:
+        total = len(out) + excluded_untrusted
+        print(
+            f"  POPULATION CHANGED (cohort={cohort}): excluded "
+            f"{excluded_untrusted} of {total} closed rows whose pnl "
+            f"provenance is not measured/estimated "
+            f"(provenance.pnl_is_trustworthy over trades.notes); "
+            f"{len(out)} panel rows kept."
         )
     return out
 

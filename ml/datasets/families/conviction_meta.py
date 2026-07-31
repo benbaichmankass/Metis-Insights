@@ -60,6 +60,7 @@ Builder is read-only against the live DB (SQLite ``mode=ro`` URI).
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from pathlib import Path
 from typing import Any, ClassVar, Iterator, Mapping
@@ -71,6 +72,21 @@ from ..builder import DatasetBuilder
 from ..embedding_features import EMBEDDING_FEATURE_COLUMNS, _finite_or_zero
 from ..metadata import LeakageStatus
 from .market_features import _align_asof, _load_funding_oi_rows
+
+logger = logging.getLogger(__name__)
+
+
+def _pnl_is_trustworthy(notes_raw: Any) -> bool:
+    """True when this row's ``pnl`` rests on a MEASURED or ESTIMATED exit.
+
+    Thin delegate to :func:`src.runtime.provenance.pnl_is_trustworthy` — the
+    ONE vocabulary, shared with ``trade_outcomes`` / ``setup_labels``. Do not
+    re-derive the source list here; two copies of a provenance rule is
+    exactly the drift that module exists to prevent.
+    """
+    from src.runtime.provenance import pnl_is_trustworthy  # noqa: PLC0415
+
+    return pnl_is_trustworthy(notes_raw)
 
 # Lens-input feature columns produced by build_conviction_inputs. c_strat is
 # always present; the head slots are present only when a matching head scored
@@ -287,6 +303,7 @@ class ConvictionMetaBuilder(DatasetBuilder):
         embedding_path: Path | str | None = None,
         source_mode: str = "live",
         backtest_panels: Any = None,
+        exclude_fabricated_pnl: bool = False,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         if risk_pct <= 0:
@@ -337,6 +354,12 @@ class ConvictionMetaBuilder(DatasetBuilder):
         conn = sqlite3.connect(uri, uri=True)
         try:
             conn.row_factory = sqlite3.Row
+            # `notes` is SELECTed ONLY when the provenance filter is on —
+            # same contract as trade_outcomes: the default path stays
+            # byte-for-byte compatible with a schema lacking the column,
+            # while with the filter ON a missing `notes` errs loudly rather
+            # than silently reading as "every row is trustworthy".
+            notes_select = ", t.notes AS notes " if exclude_fabricated_pnl else " "
             sql = (
                 "SELECT "
                 "  op.order_package_id   AS order_package_id, "
@@ -350,7 +373,8 @@ class ConvictionMetaBuilder(DatasetBuilder):
                 "  op.created_at         AS created_at, "
                 "  t.id                  AS trade_id, "
                 "  t.pnl                 AS pnl, "
-                "  t.pnl_percent         AS pnl_percent "
+                "  t.pnl_percent         AS pnl_percent"
+                f"{notes_select}"
                 # Join on the trade->package back-reference: in this system
                 # `trades.order_package_id` is the populated link, while
                 # `order_packages.linked_trade_id` is almost always NULL (a
@@ -377,10 +401,28 @@ class ConvictionMetaBuilder(DatasetBuilder):
 
             # NB: append to the (possibly backtest-seeded) payloads list — do
             # NOT re-declare it, or source_mode="union" would drop the backtest rows.
+            excluded_fabricated = 0
+            excluded_by_month: dict[str, int] = {}
+            emitted_live = 0
             for row in conn.execute(sql, params):
                 pnl = row["pnl"]
                 if pnl is None:
                     continue  # belt-and-braces; the WHERE already filters
+                # `won` IS `pnl > 0` and `r_multiple` derives from
+                # `pnl_percent`, so a fabricated pnl is a WRONG training row
+                # for the conviction meta-model, not a noisy one. Backtest
+                # rows are inherently exempt (they ride the panel path above,
+                # not this DB scan). Opt-in here, flipped ON by
+                # build_trainer_datasets.sh — same wiring as trade_outcomes.
+                if (
+                    exclude_fabricated_pnl
+                    and not _pnl_is_trustworthy(row["notes"])
+                ):
+                    excluded_fabricated += 1
+                    ym = str(row["created_at"] or "")[:7] or "unknown"
+                    excluded_by_month[ym] = excluded_by_month.get(ym, 0) + 1
+                    continue
+                emitted_live += 1
 
                 meta = _decode_json_obj(row["meta"])
                 signal_logic = _decode_json_obj(row["signal_logic"])
@@ -433,6 +475,20 @@ class ConvictionMetaBuilder(DatasetBuilder):
                     if col in lens_inputs:
                         payload[col] = float(lens_inputs[col])
                 payloads.append(payload)
+            if exclude_fabricated_pnl and excluded_fabricated:
+                total = emitted_live + excluded_fabricated
+                pct = (excluded_fabricated / total * 100.0) if total else 0.0
+                logger.warning(
+                    "conviction_meta: POPULATION CHANGED — excluded %d of %d "
+                    "LIVE rows (%.1f%%) whose pnl was not measured/estimated; "
+                    "%d emitted. Per-month excluded: %s. Fabrication is a "
+                    "REGRESSION WITH A START DATE, not drift — the exclusion "
+                    "removes far more of the recent months. Backtest-panel "
+                    "rows are unaffected (deterministic sim, no broker "
+                    "provenance to judge).",
+                    excluded_fabricated, total, pct, emitted_live,
+                    dict(sorted(excluded_by_month.items())),
+                )
         finally:
             conn.close()
 
