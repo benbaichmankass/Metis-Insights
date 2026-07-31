@@ -10,6 +10,12 @@
 # only label density varies. Candidate/offline — refused by the shadow factory,
 # never order-influencing. The genuine 0.004 operating point (vt004-pcv trained
 # on a MISLABELED 0.003 v004 dir; this arm fixes that).
+# 2026-07-31 (P1.1, full-system-audit): the superseded btc-regime-15m-lgbm-
+# vt004-pcv-v1 manifest was RETIRED — its declared build_params
+# (vol_threshold 0.004) contradict the v004 dir's measured metadata (0.003),
+# so the ManifestDatasetMismatch guard correctly failed it every cycle
+# (reddening the whole cycle rc); this pin arm on the genuine v514 IS the
+# 0.004 decider. Registry history for the retired id is retained.
 manifest_version: v1
 model_id: btc-regime-15m-lgbm-vt004-pin-v1
 description: "MB-20260701-001 gate-2 operating-curve pin: live-faithful BTC-15m LightGBM regime head (mirror of lgbm-v2) trained on the GENUINE 0.004-labeled dataset v514 (8.4% volatile), purged 5-fold walk-forward CV, class_weight matched to the base rate. Candidate/offline — never order-influencing."

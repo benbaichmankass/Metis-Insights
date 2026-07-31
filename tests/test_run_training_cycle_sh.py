@@ -98,7 +98,8 @@ def _init_fixture_repo(root: Path, manifests: list[str]) -> None:
     (root / "scripts" / "ops").mkdir(parents=True)
     (root / "runtime_logs").mkdir()
     for m in manifests:
-        (root / m).write_text(f"name: {Path(m).stem}\n", encoding="utf-8")
+        (root / m).write_text(
+            f"name: {Path(m).stem}\nmodel_id: {Path(m).stem}\n", encoding="utf-8")
     for helper in ("sync_trainer_data.sh", "build_trainer_datasets.sh",
                     "publish_trainer_mirror.sh", "fit_calibrators.sh"):
         p = root / "scripts" / "ops" / helper
@@ -117,6 +118,13 @@ def _init_fixture_repo(root: Path, manifests: list[str]) -> None:
     lock_dst = root / "scripts" / "ops" / "_trainer_heavy_lock.sh"
     lock_dst.write_text(lock_src.read_text(encoding="utf-8"), encoding="utf-8")
     lock_dst.chmod(0o755)
+    # The cycle script recovers the train summary via the shared
+    # last-JSON-object extractor, and runs the post-cycle staleness reporter
+    # when present — copy the REAL helpers so both paths are exercised.
+    for helper in ("_last_json_object.py", "manifest_training_staleness.py"):
+        src = _REPO_ROOT / "scripts" / "ops" / helper
+        (root / "scripts" / "ops" / helper).write_text(
+            src.read_text(encoding="utf-8"), encoding="utf-8")
     (root / ".venv" / "bin").mkdir(parents=True)
     (root / ".venv" / "bin" / "activate").write_text("", encoding="utf-8")
     subprocess.run(["git", "checkout", "-q", "-b", "main"], cwd=root, check=True)
@@ -128,13 +136,18 @@ def _init_fixture_repo(root: Path, manifests: list[str]) -> None:
     subprocess.run(["git", "push", "-q", "origin", "main"], cwd=root, check=True)
 
 
+# Mirrors the REAL `python -m ml train` output shape: json.dumps(...,
+# indent=2) — MULTI-LINE. The old shim printed a single-line object, which is
+# exactly why the extraction bug (grep '^{' capturing the bare "{" line →
+# model_id null on every live manifest_ok) survived these tests.
 _FAKE_PYTHON_SHIM = """#!/usr/bin/env bash
 if [ "$1" = "-m" ] && [ "$2" = "ml" ] && [ "$3" = "train" ]; then
   manifest="$4"
   if [ "$manifest" = "${KILL_TARGET:-}" ]; then
     kill -9 $$
   fi
-  echo '{"model_id": "'"$(basename "$manifest")"'-model"}'
+  stem="$(basename "$manifest" .yaml)"
+  printf '{\\n  "experiment_dir": "runs/%s",\\n  "metrics": {},\\n  "model_id": "%s-model",\\n  "registered": true\\n}\\n' "$stem" "$stem"
   exit 0
 fi
 exec /usr/bin/env python3 "$@"
@@ -258,3 +271,152 @@ class TestCheckpointResume:
         completed = [o for o in outputs if "cycle_end" in o]
         assert len(locked) == 1, outputs
         assert len(completed) == 1, outputs
+
+
+# ---------------------------------------------------------------------------
+# Cycle legibility (P1.5) + audit-FLAGGED enforce skip (P1.3d) — 2026-07-31
+# full-system-audit plan. The FLAGGED branch had no test; the summary
+# extraction bug (model_id null on every manifest_ok) survived because the
+# shim printed single-line JSON the real CLI never prints.
+# ---------------------------------------------------------------------------
+
+
+def _events(stdout: str) -> list[dict]:
+    out = []
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            out.append(json.loads(line))
+        except Exception:
+            continue
+    return out
+
+
+def _write_stub_ml_package(root: Path) -> None:
+    """A minimal `ml` package importable from the fixture repo root, giving
+    the in-script dataset-audit heredoc full control of its verdict via the
+    AUDIT_FLAG_TARGET env var (set to a manifest stem to quarantine it)."""
+    pkg = root / "ml"
+    (pkg / "datasets").mkdir(parents=True, exist_ok=True)
+    (pkg / "experiments").mkdir(parents=True, exist_ok=True)
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "manifest.py").write_text(
+        "from pathlib import Path\n"
+        "class _DS:\n"
+        "    def path_under(self, root):\n"
+        "        return Path(root) / 'nonexistent'\n"
+        "class TrainingManifest:\n"
+        "    def __init__(self, model_id):\n"
+        "        self.model_id = model_id\n"
+        "        self.dataset = _DS()\n"
+        "    @classmethod\n"
+        "    def from_yaml(cls, path):\n"
+        "        return cls(Path(path).stem)\n",
+        encoding="utf-8")
+    (pkg / "datasets" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "datasets" / "audit.py").write_text(
+        "import os\n"
+        "def audit_dataset(rows, m):\n"
+        "    if os.environ.get('AUDIT_FLAG_TARGET') == getattr(m, 'model_id', None):\n"
+        "        return {'ok': False, 'quarantine': True,\n"
+        "                'quarantined_columns': ['stub_dead_col']}\n"
+        "    return {'ok': True, 'quarantine': False}\n"
+        "def _resolve_feature_columns(m):\n"
+        "    return []\n"
+        "def _resolve_target_column(m):\n"
+        "    return 'y'\n",
+        encoding="utf-8")
+    (pkg / "experiments" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "experiments" / "runner.py").write_text(
+        "def _load_jsonl(path, keep=None):\n"
+        "    return []\n",
+        encoding="utf-8")
+
+
+class TestCycleLegibility:
+    MANIFESTS = ["ml/configs/manifest-a.yaml", "ml/configs/manifest-b.yaml"]
+
+    def test_manifest_ok_recovers_model_id_from_multiline_summary(self, tmp_path: Path):
+        # The real `ml train` prints indent=2 JSON; the event must carry the
+        # summary's model_id, not null (the pre-fix grep failed exactly here).
+        _init_fixture_repo(tmp_path, self.MANIFESTS)
+        env = _fixture_env(tmp_path, self.MANIFESTS)
+        r = subprocess.run(["/bin/bash", "scripts/ops/run_training_cycle.sh"],
+                           cwd=tmp_path, env=env, capture_output=True, text=True, timeout=30)
+        assert r.returncode == 0, r.stdout + r.stderr
+        oks = [e for e in _events(r.stdout) if e.get("status") == "manifest_ok"]
+        assert len(oks) == 2
+        assert {e["model_id"] for e in oks} == {"manifest-a-model", "manifest-b-model"}
+        assert all(e.get("registered") is True for e in oks)
+        assert all(e.get("experiment_dir") for e in oks)
+
+    def test_cycle_end_outcome_and_counts(self, tmp_path: Path):
+        _init_fixture_repo(tmp_path, self.MANIFESTS)
+        env = _fixture_env(tmp_path, self.MANIFESTS)
+        r1 = subprocess.run(["/bin/bash", "scripts/ops/run_training_cycle.sh"],
+                            cwd=tmp_path, env=env, capture_output=True, text=True, timeout=30)
+        assert r1.returncode == 0, r1.stdout + r1.stderr
+        end1 = [e for e in _events(r1.stdout) if e.get("status") == "cycle_end"][-1]
+        assert end1["outcome"] == "trained"
+        assert end1["trained"] == 2
+        assert end1["skipped"] == 0
+        assert end1["failed"] == 0
+
+        # Second same-day run: everything already done → already_complete.
+        r2 = subprocess.run(["/bin/bash", "scripts/ops/run_training_cycle.sh"],
+                            cwd=tmp_path, env=env, capture_output=True, text=True, timeout=30)
+        assert r2.returncode == 0, r2.stdout + r2.stderr
+        end2 = [e for e in _events(r2.stdout) if e.get("status") == "cycle_end"][-1]
+        assert end2["outcome"] == "already_complete"
+        assert end2["trained"] == 0
+        assert end2["already_done"] == 2
+
+    def test_staleness_summary_always_emitted(self, tmp_path: Path):
+        # The post-cycle staleness reporter must emit its denominator line
+        # even when nothing is stale (fresh manifests are inside the grace
+        # window) — an absent report must never read as a clean one.
+        _init_fixture_repo(tmp_path, self.MANIFESTS)
+        env = _fixture_env(tmp_path, self.MANIFESTS)
+        r = subprocess.run(["/bin/bash", "scripts/ops/run_training_cycle.sh"],
+                           cwd=tmp_path, env=env, capture_output=True, text=True, timeout=30)
+        assert r.returncode == 0, r.stdout + r.stderr
+        summaries = [e for e in _events(r.stdout)
+                     if e.get("status") == "training_staleness_summary"]
+        assert len(summaries) == 1
+        assert summaries[0]["scanned"] == 2
+        assert summaries[0]["stale"] == 0  # fresh manifests: grace window
+
+
+class TestAuditFlaggedEnforceSkip:
+    MANIFESTS = ["ml/configs/manifest-a.yaml", "ml/configs/manifest-b.yaml",
+                 "ml/configs/manifest-c.yaml"]
+
+    def test_flagged_manifest_is_skipped_not_trained(self, tmp_path: Path):
+        _init_fixture_repo(tmp_path, self.MANIFESTS)
+        _write_stub_ml_package(tmp_path)
+        subprocess.run(["git", "add", "-A"], cwd=tmp_path, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "stub ml"], cwd=tmp_path, check=True)
+        subprocess.run(["git", "push", "-q", "origin", "main"], cwd=tmp_path, check=True)
+        env = _fixture_env(tmp_path, self.MANIFESTS,
+                           {"AUDIT_FLAG_TARGET": "manifest-b"})
+        r = subprocess.run(["/bin/bash", "scripts/ops/run_training_cycle.sh"],
+                           cwd=tmp_path, env=env, capture_output=True, text=True, timeout=30)
+        # An audit-flagged skip is not a failure: the cycle stays green.
+        assert r.returncode == 0, r.stdout + r.stderr
+        events = _events(r.stdout)
+        flagged = [e for e in events
+                   if e.get("status") == "manifest_audit_skipped_enforced"]
+        assert [e["manifest"] for e in flagged] == ["ml/configs/manifest-b.yaml"]
+        # b was never handed to `ml train`; a and c were.
+        oks = {e["model_id"] for e in events if e.get("status") == "manifest_ok"}
+        assert oks == {"manifest-a-model", "manifest-c-model"}
+        progress = _progress_file(tmp_path)
+        row = progress["manifests"]["ml/configs/manifest-b.yaml"]
+        assert row["status"] == "skipped"
+        assert row.get("reason") == "audit_flagged"
+        end = [e for e in events if e.get("status") == "cycle_end"][-1]
+        assert end["outcome"] == "trained"
+        assert end["trained"] == 2
+        assert end["skipped"] == 1
