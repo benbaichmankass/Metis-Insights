@@ -88,6 +88,9 @@ def test_returns_closed_trade_with_full_shape(db, client):
         "openedAt": "2026-05-08T10:00:00Z",
         "closedAt": "2026-05-08T10:42:00Z",  # from order_packages.updated_at
         "closeReason": "tp",
+        # no provenance recorded in this seed's notes — honestly "unverified",
+        # never promoted to measured (P0.3, 2026-07-31)
+        "pnlProvenance": "unverified",
     }
 
 
@@ -592,3 +595,39 @@ def test_normalize_closed_at_value_helper():
     assert fn("") is None
     # A short numeric (not a 13-digit ms epoch) is NOT treated as ms.
     assert fn("123") == "123"
+
+
+# ---------------------------------------------------------------------------
+# pnlProvenance (P0.3, 2026-07-31) — per-row measured/manufactured grade
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("notes,expected", [
+    (json.dumps({"exit_price_source": "recorded_exit_price"}), "measured"),
+    (json.dumps({"exit_price_source": "candle_at_close"}), "estimated"),
+    (json.dumps({"exit_price_source": "local_markprice"}), "fabricated"),
+    (None, "unverified"),
+    ("not json {", "unverified"),
+])
+def test_pnl_provenance_buckets(db, client, notes, expected):
+    _insert_trade(
+        db, timestamp="2026-07-30T10:00:00Z", symbol="BTCUSDT",
+        direction="long", entry_price=100.0, position_size=1.0,
+        status="closed", is_backtest=0, account_id="bybit_2",
+        pnl=1.0, notes=notes,
+    )
+    rows = client.get("/api/bot/trades/closed").json()
+    assert rows[0]["pnlProvenance"] == expected
+
+
+def test_pnl_provenance_null_when_pnl_null(db, client):
+    """No number to grade — the field is null, never a fabricated bucket."""
+    _insert_trade(
+        db, timestamp="2026-07-30T10:00:00Z", symbol="BTCUSDT",
+        direction="long", entry_price=100.0, position_size=1.0,
+        status="closed", is_backtest=0, account_id="bybit_2", pnl=None,
+        notes=json.dumps({"exit_price_source": "recorded_exit_price"}),
+    )
+    rows = client.get("/api/bot/trades/closed").json()
+    assert rows[0]["realizedPnl"] is None
+    assert rows[0]["pnlProvenance"] is None
