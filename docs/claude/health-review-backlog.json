@@ -8613,7 +8613,14 @@
       "tier": "mixed (each sub-item tiered in the audit doc)",
       "opened_at": "2026-07-31",
       "source": "docs/audits/full-system-audit-2026-07-31.md (audit lead session, branch claude/system-infrastructure-audit-5zzdr8)",
-      "action": "Work the P0-P3 plan in the audit doc. NEW items not previously backlogged: (1) ict-ib-executions-pull absent from diag _CANONICAL_UNITS (3rd recurrence of invisible-unit class - fix + add a deploy/*.timer vs allowlist diff guard); (2) macro-producer-liveness.yml vacuity half wired to nothing (orphaned steps.validity.outputs.rc + rc=$? after tee); (3) branch-protection-sync fails OPEN on missing BRANCH_PROTECTION_TOKEN; (4) merge_group base_ref empty-fetch bug in 8 guard workflows (queue would stall on day one); (5) consumers provenance-blind on realized PnL (both clients drop any new field - coordinated 3-repo change required); (6) dashboard repo CLAUDE.md has zero mention of the deployed Svelte SPA (never audited); (7) trainer outcome families (trade_outcomes/setup_labels/execution_quality/review_journal) build 0 rows 'ok' with no artifacts since 2026-05-22; (8) trainer root disk 86%; (9) training-cycle rc=0 ambiguous between trained and lock-skipped/nothing-to-do; (10) ml/promotion/attribution.py + 5 other read-sites consume unfiltered pnl>0 while the trainer filters (promotion gate reads what training refuses); (11) 2 stale-open duplicate backlog rows (BRACKET-AUDIT-ROLLUP-MISLEADING, NEW-TABLE-GUARD-MATCHES-PROSE) whose fixed twins are resolved - close the open copies; (12) BL-20260730-PR-CI-NOT-ATTACHING largely resolved by bp-report #8177 (protection live, 11 contexts) - update the row."
+      "action": "Work the P0-P3 plan in the audit doc. NEW items not previously backlogged: (1) ict-ib-executions-pull absent from diag _CANONICAL_UNITS (3rd recurrence of invisible-unit class - fix + add a deploy/*.timer vs allowlist diff guard); (2) macro-producer-liveness.yml vacuity half wired to nothing (orphaned steps.validity.outputs.rc + rc=$? after tee); (3) branch-protection-sync fails OPEN on missing BRANCH_PROTECTION_TOKEN; (4) merge_group base_ref empty-fetch bug in 8 guard workflows (queue would stall on day one); (5) consumers provenance-blind on realized PnL (both clients drop any new field - coordinated 3-repo change required); (6) dashboard repo CLAUDE.md has zero mention of the deployed Svelte SPA (never audited); (7) trainer outcome families (trade_outcomes/setup_labels/execution_quality/review_journal) build 0 rows 'ok' with no artifacts since 2026-05-22; (8) trainer root disk 86%; (9) training-cycle rc=0 ambiguous between trained and lock-skipped/nothing-to-do; (10) ml/promotion/attribution.py + 5 other read-sites consume unfiltered pnl>0 while the trainer filters (promotion gate reads what training refuses); (11) 2 stale-open duplicate backlog rows (BRACKET-AUDIT-ROLLUP-MISLEADING, NEW-TABLE-GUARD-MATCHES-PROSE) whose fixed twins are resolved - close the open copies; (12) BL-20260730-PR-CI-NOT-ATTACHING largely resolved by bp-report #8177 (protection live, 11 contexts) - update the row.",
+      "updates": [
+        {
+          "at": "2026-07-31",
+          "by": "claude (audit lead session, P1 execution)",
+          "note": "Items (7)+(9) RESOLVED by S-AUDIT-P1-TRAINER-HONESTY-2026-07-31: (7) was a build-log reporting defect, not starvation — build_family read row_count from the alphabetically-first glob match (the empty May-22 MES/all/v001 dir) instead of the dir the build wrote; trade_outcomes/execution_quality all/all/v002 rebuild daily with data (255KB/841KB on 2026-07-31). Fixed to read the build's own 'wrote dataset under' dir; genuinely-empty manifests now surface per-cycle via manifest_training_staleness.py (manifest_untrained_stale events). (9) cycle_end now carries trained/skipped/failed/already_done + outcome (trained|nothing_trained|already_complete); rc semantics unchanged for systemd. Bonus fix: ml train prints indent=2 multi-line JSON, the grep-'^{' extraction lost model_id on EVERY manifest_ok and the real reason on every rc-78 skip — shared scripts/ops/_last_json_object.py recovers it. Also P1.1 (vt004-pcv manifest retired — superseded by the pin triple; guard was correct), P1.2 verified already applied (34/38 recorded + 4 bracket-annotated, v520=0.005), P1.4 tool shipped (trainer_dataset_gc.py). See the sprint log."
+        }
+      ]
     },
     {
       "id": "BL-20260731-FILLS-STORE-PREDATES-THE-FABRICATION",
@@ -8625,6 +8632,29 @@
       "source": "PR #8163 (draft) measured it: 833 closed non-backtest rows; 506 already measured/estimated; 13 recoverable via own fills (4.0%), 11 mirror-only -> ESTIMATED; 303-314 unresolved. Fabrication starts 2026-06-08 (clients.py is_demo short-circuit); the fills store held zero fills until 2026-07-13 (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY) and accrues forward-only in 7-day pull windows.",
       "action": "1) Operator decision on PR #8163 (doc/backlog correction) + the Tier-2 relabel-only pass (never re-price). 2) Before any --days widening of pull_exchange_fills: exchange_fills_puller calls fetch_my_trades(sym, since_ms, 200, {}) with NO pagination — a widened window truncates silently at 200/symbol; test pagination on one symbol first. If Bybit serves 30-90d, recovery could reach hundreds of rows; if 7d, the ~303 stay UNVERIFIED permanently. 3) Do NOT promote the ESTIMATED mirror tier to MEASURED (capacity differs between books). NOTE: PR #8163's branch carries its own copy of this row — on its merge, dedupe to this row (keep this id).",
       "note_dedupe": "Filed from the 2026-07-31 full-system-audit session because the audit doc cites this id and the id must resolve on main (check_backlog_refs). PR #8163 branch has a sibling copy."
+    },
+    {
+      "id": "BL-20260731-TRAINER-BUILDLOG-ROWCOUNT-LIE",
+      "opened_at": "2026-07-31T15:00:00+00:00",
+      "opened_by": "claude (audit lead session, P1 execution)",
+      "source": "trainer-vm-diag #8184: dataset_builds.jsonl logged {status:ok, family:trade_outcomes, row_count:0} at 2026-07-31T09:35:59Z while datasets-out/trade_outcomes/all/all/v002/data.jsonl was 254,957 bytes modified the same morning (execution_quality: 840,991 bytes, same shape).",
+      "title": "[fixed][provenance-B] trainer build log reported the alphabetically-first metadata's row_count as the build's — 'ok, 0 rows' over a 255KB build read as two months of family starvation",
+      "description": "build_trainer_datasets.sh::build_family recovered row_count via a bash-expanded glob '<family>/*/*/*/metadata.json' passed to a python that read sys.argv[1] — the FIRST expanded match, alphabetical, i.e. the empty 2026-05-22 MES/all/v001 dir for trade_outcomes/execution_quality/setup_labels, and v001 (not the just-written v002) for review_journal. The all/all/v002 datasets the nightly build actually wrote were never read. Consequence: the 2026-07-31 full-system-audit item (7) concluded the outcome families were dead-but-green since May 22 — the FAMILIES were alive; the LOG was lying (sub-class B implicit input selection, the exact class diagnostic-provenance-guard exists for — this site predated the guard and was grandfathered as diff-scoped). Fixed: build_family parses the build's own 'wrote dataset under <dir>' stdout line (DatasetPaths.root) and reads THAT dir's metadata, emitting dataset_dir alongside row_count and an explicit 'count UNKNOWN (not zero)' note when unparseable. The genuinely-empty datasets (MES-scoped variants, review_journal, the rc-78 manifests) now surface per-cycle via manifest_training_staleness.py instead of hiding in a green stream.",
+      "tier": 1,
+      "severity": "high",
+      "status": "resolved",
+      "resolved_at": "2026-07-31T15:00:00+00:00",
+      "snoozed_until": null,
+      "trigger_condition": null,
+      "resolution_criteria": "build log row_count matches the built dir's metadata (dataset_dir emitted alongside); covered by the fixture tests in tests/test_run_training_cycle_sh.py + tests/test_trainer_cycle_legibility_helpers.py; first live nightly cycle after merge shows real row_counts.",
+      "refs": [
+        "scripts/ops/build_trainer_datasets.sh",
+        "scripts/ops/_last_json_object.py",
+        "scripts/ops/manifest_training_staleness.py",
+        "docs/sprint-logs/S-AUDIT-P1-TRAINER-HONESTY-2026-07-31.md",
+        "BL-20260731-AUDIT-0731-NEW-FINDINGS"
+      ],
+      "updates": []
     }
   ],
   "updated_at": "2026-07-31",

@@ -51,6 +51,26 @@
 #   0   every manifest succeeded (or was already done/skipped on a resume)
 #   1   one or more manifests failed
 #   2   environment misconfigured (missing venv tooling, repo, etc.)
+#
+# Cycle legibility (P1.5, 2026-07-31 audit): rc=0 alone cannot distinguish
+# "trained the fleet" from "lock-skipped" from "everything already done" from
+# "every manifest skipped". The exit codes above are UNCHANGED (systemd treats
+# non-zero as unit failure, and a routine lock-skip must not read as one) —
+# instead the `cycle_end` event now carries the disambiguation:
+#   {"status":"cycle_end","overall_rc":R,"trained":N,"skipped":N,"failed":N,
+#    "already_done":N,"outcome":"trained|nothing_trained|already_complete"}
+# Consumers (the mirror → /api/bot/ml/cycle → the review skills) read
+# `outcome`, never infer from rc. The lock-skip paths keep their own distinct
+# events (cycle_locked / heavy_lock_timeout) and emit no cycle_end.
+#
+# Staleness escalation (P1.3, same audit): the cycle has four independent
+# "correctly skip this manifest" paths; each is right, but nothing added them
+# up, so a manifest could skip every cycle for months unnoticed (the outcome
+# families sat dead-but-green since 2026-05-22). After cycle_end,
+# scripts/ops/manifest_training_staleness.py emits one
+# `manifest_untrained_stale` event per roster manifest with no registered run
+# in TRAINING_STALENESS_ALERT_DAYS (default 7; <=0 disables) + an
+# always-emitted `training_staleness_summary` denominator line.
 set -euo pipefail
 
 REPO_ROOT="${REPO_ROOT:-/home/ubuntu/ict-trading-bot}"
@@ -288,6 +308,9 @@ bash scripts/ops/publish_trainer_mirror.sh >/dev/null 2>&1 \
 
 # --- Train each manifest --------------------------------------------------
 overall_rc=0
+trained_n=0
+skipped_n=0
+failed_n=0
 # Per-manifest wall-clock cap (BL-20260716-TRAINER-WEDGE). Without this a single
 # manifest that hangs or OOM-thrashes (btc-regime-5m-lgbm-flow-v1 wedged the
 # 6 GB trainer for 18.7h in D-state on 2026-07-15/16, swap-thrashing at ~52s CPU,
@@ -302,6 +325,7 @@ for manifest in "${TO_RUN_LIST[@]}"; do
   if [ ! -f "$manifest" ]; then
     emit "$(printf '{"ts":"%s","status":"manifest_missing","manifest":"%s"}' "$(iso_now)" "$manifest")"
     overall_rc=1
+    failed_n=$((failed_n + 1))
     continue
   fi
   # --- Single-manifest OOM quarantine (BL-20260717-TRAINER-SINGLE-MANIFEST-OOM) -
@@ -320,6 +344,7 @@ for manifest in "${TO_RUN_LIST[@]}"; do
   if [ "$q_rc" -eq 10 ]; then
     emit "$(printf '{"ts":"%s","status":"manifest_quarantined","manifest":"%s","detail":"skipped: repeatedly OOMs alone on the 6 GB box — route to GPU burst (gpu-burst-train.yml) or shrink its peak RSS. trainer-resource-protocol.md Rule 3."}' "$(iso_now)" "$manifest")"
     progress_mark "$manifest" skipped reason=quarantined_oom
+    skipped_n=$((skipped_n + 1))
     continue
   fi
   # --- Dataset-unchanged retrain skip (MB-20260720-FCPCV-RETRAIN-NOOP) ------
@@ -336,6 +361,7 @@ for manifest in "${TO_RUN_LIST[@]}"; do
   if [ "$skip_verdict" = "SKIP" ]; then
     emit "$(printf '{"ts":"%s","status":"manifest_dataset_unchanged","manifest":"%s","detail":"pinned dataset + manifest unmodified since the newest registered run — retrain would be a byte-identical no-op (MB-20260720-FCPCV-RETRAIN-NOOP). Refresh the dataset version, rebuild it, or touch the manifest to resume training."}' "$(iso_now)" "$manifest")"
     progress_mark "$manifest" skipped reason=dataset_unchanged
+    skipped_n=$((skipped_n + 1))
     continue
   fi
   start="$(iso_now)"
@@ -396,6 +422,7 @@ PY
     # revert to observe-only, drop the `continue` below.
     emit "$(printf '{"ts":"%s","status":"manifest_audit_skipped_enforced","manifest":"%s","detail":"SKIPPED (enforced): dataset audit flagged a dead feature / degenerate label in a NON-empty dataset — not trained this cycle. Fix the flagged column/label (see dataset_audit.jsonl) to resume training."}' "$(iso_now)" "$manifest")"
     progress_mark "$manifest" skipped reason=audit_flagged
+    skipped_n=$((skipped_n + 1))
     continue
   elif [ "$audit_verdict" = "EMPTY" ]; then
     # Distinct channel from manifest_audit_flagged so the dead-feature alarm
@@ -428,10 +455,12 @@ PY
   rc=$?
   set -e
   if [ "$rc" -eq 0 ]; then
-    # `python -m ml train` prints a JSON summary on success
-    # ({"model_id": "...", "metrics_path": "...", ...}). Grab the last
-    # non-empty line and shove it into the event.
-    summary="$(tail -n 50 "/tmp/train_$$.out" | grep -E '^\{' | tail -n 1 || true)"
+    # `python -m ml train` prints its summary as MULTI-LINE JSON
+    # (json.dumps(..., indent=2)) — the old `grep -E '^{' | tail -1` captured
+    # the bare "{" line, json.loads failed, and every manifest_ok logged
+    # model_id null (live-verified across the whole 2026-07-31 cycle,
+    # trainer-diag #8184). Recover the last complete object instead.
+    summary="$(python scripts/ops/_last_json_object.py "/tmp/train_$$.out" 2>/dev/null || echo '{}')"
     if [ -z "$summary" ]; then summary='{}'; fi
     emit "$(python -c '
 import json, sys
@@ -446,10 +475,12 @@ print(json.dumps({
     "manifest": manifest,
     "started": start,
     "model_id": summary.get("model_id"),
-    "metrics_path": summary.get("metrics_path"),
+    "registered": summary.get("registered"),
+    "experiment_dir": summary.get("experiment_dir"),
 }))
 ' "$(iso_now)" "$manifest" "$start" "$summary")"
     progress_mark "$manifest" done
+    trained_n=$((trained_n + 1))
     # Trained fit → clear any OOM streak/quarantine for this manifest (self-heal).
     python -m src.utils.trainer_manifest_health record-success "$manifest" >/dev/null 2>&1 || true
   elif [ "$rc" -eq 78 ]; then
@@ -462,7 +493,10 @@ print(json.dumps({
     # MB-20260606-001). BOTH are clean skips, not failures: overall_rc stays
     # unchanged so the cycle reports green when every manifest either trained
     # or was correctly skipped. The `reason` field below disambiguates them.
-    summary="$(tail -n 50 "/tmp/train_$$.out" | grep -E '^\{' | tail -n 1 || true)"
+    # The skip payload is ALSO multi-line JSON — the old single-line grep lost
+    # `reason`, so a dataset_absent skip mislabelled as the empty_dataset
+    # default (same extraction defect as the manifest_ok branch above).
+    summary="$(python scripts/ops/_last_json_object.py "/tmp/train_$$.out" 2>/dev/null || echo '{}')"
     if [ -z "$summary" ]; then summary='{}'; fi
     emit "$(python -c '
 import json, sys
@@ -482,6 +516,7 @@ print(json.dumps({
 }))
 ' "$(iso_now)" "$manifest" "$start" "$summary")"
     progress_mark "$manifest" skipped
+    skipped_n=$((skipped_n + 1))
     rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
     continue
   elif [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
@@ -505,6 +540,7 @@ print(json.dumps({
 ' "$(iso_now)" "$manifest" "$start" "$rc" "$TRAINING_MANIFEST_TIMEOUT_S")"
     progress_mark "$manifest" failed "rc=$rc(timeout)"
     overall_rc=1
+    failed_n=$((failed_n + 1))
     # Single-manifest OOM streak (BL-20260717-TRAINER-SINGLE-MANIFEST-OOM): count
     # this OOM/timeout. On crossing the quarantine threshold, escalate LOUDLY —
     # the trainer can't commit a backlog item itself (it resets --hard each
@@ -536,13 +572,39 @@ print(json.dumps({
 ' "$(iso_now)" "$manifest" "$start" "$rc" "$err_tail")"
     progress_mark "$manifest" failed "rc=$rc"
     overall_rc=1
+    failed_n=$((failed_n + 1))
     rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
     continue
   fi
   rm -f "/tmp/train_$$.out" "/tmp/train_$$.err"
 done
 
-emit "$(printf '{"ts":"%s","status":"cycle_end","overall_rc":%d}' "$(iso_now)" "$overall_rc")"
+# cycle_end disambiguation (P1.5): `outcome` says what actually happened —
+# rc alone cannot (0 covers trained / already-complete / all-skipped alike).
+if [ "$trained_n" -gt 0 ]; then
+  cycle_outcome="trained"
+elif [ "${#TO_RUN_LIST[@]}" -eq 0 ]; then
+  cycle_outcome="already_complete"
+else
+  cycle_outcome="nothing_trained"
+fi
+emit "$(printf '{"ts":"%s","status":"cycle_end","overall_rc":%d,"trained":%d,"skipped":%d,"failed":%d,"already_done":%d,"outcome":"%s"}' \
+  "$(iso_now)" "$overall_rc" "$trained_n" "$skipped_n" "$failed_n" "$resumed_count" "$cycle_outcome")"
+
+# --- Staleness escalation (P1.3, best-effort) -------------------------------
+# Report every roster manifest with no registered run in
+# TRAINING_STALENESS_ALERT_DAYS — the adder-up over the cycle's four
+# independent skip paths, so "skipped every cycle for months" surfaces as its
+# own event instead of hiding inside a green stream. <=0 disables.
+TRAINING_STALENESS_ALERT_DAYS="${TRAINING_STALENESS_ALERT_DAYS:-7}"
+if [ "${TRAINING_STALENESS_ALERT_DAYS%%.*}" -gt 0 ] 2>/dev/null \
+    && [ -f scripts/ops/manifest_training_staleness.py ]; then
+  while IFS= read -r stale_line; do
+    [ -n "$stale_line" ] && emit "$stale_line"
+  done < <(python scripts/ops/manifest_training_staleness.py \
+      "$REGISTRY_ROOT" "$TRAINING_STALENESS_ALERT_DAYS" \
+      "${TRAINING_MANIFEST_LIST[@]}" 2>/dev/null || true)
+fi
 
 python - "$PROGRESS_FILE" <<'PY' 2>&1 || true
 import json, sys

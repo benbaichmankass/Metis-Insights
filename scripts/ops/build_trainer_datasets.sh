@@ -161,20 +161,41 @@ build_family() {
   local rc=$?
   set -e
   if [ "$rc" -eq 0 ]; then
-    local rows="?"
-    rows="$(python3 -c "
-import glob, json, sys
-files = glob.glob(sys.argv[1])
-if files:
-    print(json.load(open(files[0])).get('row_count', '?'))
-else:
-    print('?')
-" "${DATASETS_ROOT}/${family}"/*/*/*/metadata.json 2>/dev/null || echo '?')"
+    # Read the row_count from the dir the build ITSELF says it wrote:
+    # `ml build-dataset` prints "wrote dataset under <version-dir>"
+    # (DatasetPaths.root) on success. The previous code globbed
+    # "<family>/*/*/*/metadata.json" and read the FIRST bash-expanded match —
+    # alphabetical order, so for trade_outcomes that was the empty May-22
+    # MES/all/v001 dir, not the all/all/v002 the build had just written.
+    # Result: "ok, row_count 0" logged over a 255KB build, which read as
+    # family starvation for two months
+    # (BL-20260731-AUDIT-0731-NEW-FINDINGS item (7), P1.3 reconcile).
     emit "$(python3 -c "
-import json, sys
-ts, fam, rows = sys.argv[1:]
-print(json.dumps({'ts': ts, 'status': 'ok', 'family': fam, 'row_count': rows}))" \
-      "$(iso_now)" "$family" "$rows")"
+import json, os, re, sys
+ts, fam, out_path = sys.argv[1:]
+# provenance: written_dir — the path printed by the build's own
+# 'wrote dataset under …' line, not a directory-listing pick.
+written_dir = None
+try:
+    with open(out_path, encoding='utf-8', errors='replace') as fh:
+        for line in fh:
+            m = re.match(r'wrote dataset under (.+)$', line.strip())
+            if m:
+                written_dir = m.group(1)
+except OSError:
+    pass
+row = {'ts': ts, 'status': 'ok', 'family': fam, 'row_count': None}
+if written_dir:
+    row['dataset_dir'] = written_dir
+    try:
+        with open(os.path.join(written_dir, 'metadata.json'), encoding='utf-8') as fh:
+            row['row_count'] = json.load(fh).get('row_count')
+    except (OSError, ValueError):
+        pass
+if row['row_count'] is None:
+    row['row_count_note'] = 'count UNKNOWN (not zero) — build output named no readable dataset dir'
+print(json.dumps(row))" \
+      "$(iso_now)" "$family" "/tmp/bld_${family}_$$.out")"
   else
     local err
     err="$(tail -n 3 "/tmp/bld_${family}_$$.err" 2>/dev/null | tr '\n' ' ' | head -c 400)"
