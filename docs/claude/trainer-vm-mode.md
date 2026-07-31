@@ -313,6 +313,26 @@ cmd: |
 The command is sent via SSH stdin — it is never interpolated in the
 shell invocation, so it is safe to include paths, flags, and pipes.
 
+**Where the block ENDS** (all three terminators, so you can put prose in
+the same issue without it running):
+
+1. a closing markdown fence, when the `cmd:` is inside a ``` block —
+   either layout works, `cmd:` written inside an already-open fence, or
+   `cmd:` followed by its own ```` ```bash ```` block;
+2. the next unindented top-level `word:` key (e.g. `reason:`);
+3. end of body.
+
+Terminator (1) is why you may write explanation *after* the fenced block.
+Before it existed the extractor ran past the fence and handed the trailing
+prose to bash — issue #8157 executed its own summary paragraph, ending the
+relay output with `Expected: command not found`
+(`BL-20260731-TRAINERDIAG-TRAILING-PROSE`). Harmless there, but prose
+carries backticks (command substitution), parentheses (the standard
+attribution footer is a bash syntax error), and redirects, so treat a body
+that reads as documentation as something that must never execute as code.
+Contract covered by `tests/test_trainer_diag_cmd_extraction.py`, which runs
+the real awk program out of the workflow rather than a copy of it.
+
 ### 9.b What Claude may pull without asking
 
 Everything. There are no restricted paths on the trainer VM. Claude
