@@ -8627,6 +8627,6 @@
       "note_dedupe": "Filed from the 2026-07-31 full-system-audit session because the audit doc cites this id and the id must resolve on main (check_backlog_refs). PR #8163 branch has a sibling copy."
     }
   ],
-  "updated_at": "2026-07-31T14:35:00+00:00",
+  "updated_at": "2026-07-31",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
