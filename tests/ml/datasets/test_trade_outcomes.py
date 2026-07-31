@@ -174,3 +174,105 @@ def test_registry_includes_family():
 
     assert "trade_outcomes" in list_families()
     assert isinstance(get_builder("trade_outcomes"), TradeOutcomesBuilder)
+
+
+class TestProvenanceExclusion:
+    """`exclude_fabricated_pnl` on the family `trade-outcome-lgbm-v1` uses.
+
+    The filter was originally built only into `setup_labels`, while the one
+    feature-LEARNING trade-outcome manifest trains on THIS family — so option A
+    ("retrain excluding fabricated labels") would have retrained on the
+    fabricated labels anyway. That gap is what these tests pin.
+
+    `won` IS `pnl > 0`, so a fabricated pnl does not make a noisy label, it
+    makes a WRONG one.
+    """
+
+    def _n(self, **kw):
+        return json.dumps(kw)
+
+    def test_fabricated_live_row_is_dropped(self, tmp_path: Path):
+        db = _make_db(tmp_path, [
+            _row(pnl=1.0, notes=self._n(exit_price_source="bybit_closed_pnl")),
+            _row(pnl=2.0, notes=self._n(exit_price_source="local_markprice")),
+        ])
+        out = list(TradeOutcomesBuilder().iter_rows(
+            db_path=db, exclude_fabricated_pnl=True))
+        assert len(out) == 1
+        assert out[0]["pnl"] == 1.0
+
+    def test_unverified_is_dropped_too(self, tmp_path: Path):
+        """No provenance recorded is NOT evidence of measurement."""
+        db = _make_db(tmp_path, [_row(pnl=3.0, notes=None)])
+        assert list(TradeOutcomesBuilder().iter_rows(
+            db_path=db, exclude_fabricated_pnl=True)) == []
+
+    def test_estimated_survives(self, tmp_path: Path):
+        """A close anchored to its own bar is a defensible label."""
+        db = _make_db(tmp_path, [
+            _row(pnl=4.0, notes=self._n(exit_price_source="candle_at_close")),
+        ])
+        out = list(TradeOutcomesBuilder().iter_rows(
+            db_path=db, exclude_fabricated_pnl=True))
+        assert len(out) == 1
+
+    def test_backtest_rows_survive_a_NON_JSON_notes_blob(self, tmp_path: Path):
+        """THE regression: run_tag is a bare string, so json.loads fails on it.
+
+        Without the carve-out every simulated row is dropped while the log
+        blames "fabrication" — a wrong result with a confident wrong reason.
+        """
+        db = _make_db(tmp_path, [
+            _row(pnl=1.0, is_backtest=1, notes="sweep-run-2026-07-01"),
+            _row(pnl=2.0, is_backtest=1, notes="sweep-run-2026-07-01"),
+        ])
+        out = list(TradeOutcomesBuilder().iter_rows(
+            db_path=db, exclude_fabricated_pnl=True, include_backtest=True))
+        assert len(out) == 2, "simulated rows must not be dropped as fabricated"
+        assert all(r["source"] == "backtest" for r in out)
+
+    def test_the_filter_is_off_by_default(self, tmp_path: Path):
+        db = _make_db(tmp_path, [
+            _row(pnl=1.0, notes=self._n(exit_price_source="local_markprice")),
+        ])
+        assert len(list(TradeOutcomesBuilder().iter_rows(db_path=db))) == 1
+
+    def test_notes_never_reaches_the_emitted_row(self, tmp_path: Path):
+        """`notes` is read to JUDGE provenance, then dropped.
+
+        Emitting it would put a blob carrying `exit_price_source` into the
+        feature space — this module's leakage rule, applied to provenance.
+        """
+        db = _make_db(tmp_path, [
+            _row(pnl=1.0, notes=self._n(exit_price_source="bybit_closed_pnl")),
+        ])
+        emitted = list(TradeOutcomesBuilder().iter_rows(
+            db_path=db, exclude_fabricated_pnl=True))
+        assert emitted, "fixture should survive the filter"
+        assert all("notes" not in r for r in emitted)
+        assert "notes" not in TradeOutcomesBuilder.schema
+
+
+def test_default_path_does_not_require_a_notes_column(tmp_path: Path):
+    """Regression: `notes` must only be SELECTed when the filter is on.
+
+    Selecting it unconditionally raised `no such column: t.notes` for every
+    caller that never asked for the filter — a new failure mode bolted onto the
+    default path by a feature nobody had enabled.
+    """
+    db = tmp_path / "j.db"
+    c = sqlite3.connect(str(db))
+    c.execute(
+        "CREATE TABLE trades (id INTEGER PRIMARY KEY, timestamp TEXT,"
+        " symbol TEXT, direction TEXT, strategy_name TEXT, setup_type TEXT,"
+        " killzone TEXT, bias TEXT, pnl REAL, pnl_percent REAL,"
+        " account_id TEXT, created_at TEXT, status TEXT, is_backtest INT)"
+    )
+    c.execute(
+        "INSERT INTO trades VALUES (1,'t','BTCUSDT','long','vwap','FVG',"
+        "'NY','BULL',5.0,1.0,'bybit_1','2026-07-01T00:00:00Z','closed',0)"
+    )
+    c.commit()
+    c.close()
+    out = list(TradeOutcomesBuilder().iter_rows(db_path=db))
+    assert len(out) == 1 and out[0]["won"] is True

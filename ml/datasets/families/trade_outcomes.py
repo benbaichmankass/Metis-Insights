@@ -24,6 +24,7 @@ Builder is read-only against the live DB (SQLite `mode=ro` URI).
 """
 from __future__ import annotations
 
+import logging
 import sqlite3
 from pathlib import Path
 from typing import Any, ClassVar, Iterator, Mapping
@@ -32,6 +33,21 @@ from src.runtime.local_pnl import canon_direction
 
 from ..builder import DatasetBuilder
 from ..metadata import LeakageStatus
+
+logger = logging.getLogger(__name__)
+
+
+def _pnl_is_trustworthy(notes_raw: Any) -> bool:
+    """True when this row's ``pnl`` rests on a MEASURED or ESTIMATED exit.
+
+    Thin delegate to :func:`src.runtime.provenance.pnl_is_trustworthy` — the
+    ONE vocabulary, shared with the ``setup_labels`` family. Do not re-derive
+    the source list here; two copies of a provenance rule is exactly the drift
+    that module exists to prevent.
+    """
+    from src.runtime.provenance import pnl_is_trustworthy  # noqa: PLC0415
+
+    return pnl_is_trustworthy(notes_raw)
 
 _RAW_COLUMNS = (
     "id",
@@ -147,6 +163,7 @@ class TradeOutcomesBuilder(DatasetBuilder):
         symbol: str | None = None,
         include_backtest: bool = False,
         include_snapshots: bool = False,
+        exclude_fabricated_pnl: bool = False,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         if not db_path.is_file():
@@ -167,9 +184,24 @@ class TradeOutcomesBuilder(DatasetBuilder):
             # from the realised pnl.
             join_snapshots = include_snapshots and _snapshot_table_present(conn)
 
+            # `notes` rides the SELECT but is deliberately NOT in _RAW_COLUMNS
+            # / `schema`: it is read to JUDGE the row's pnl provenance and then
+            # dropped. Emitting it would put a free-text blob carrying
+            # `exit_price_source` into the feature space — the leakage rule at
+            # the top of this module, applied to provenance.
+            #
+            # Selected ONLY when the filter is on. Adding it unconditionally
+            # made the DEFAULT path raise `no such column: t.notes` against any
+            # schema without it — a new failure mode for callers that never
+            # asked for the filter. With the filter ON the column is genuinely
+            # required, and erroring is correct there: a missing `notes` must
+            # not silently read as "every row is trustworthy" (fail-open is the
+            # exact default that let fabrication into the labels).
             trade_select = (
                 ", ".join(f"t.{c}" for c in _RAW_COLUMNS) + ", t.is_backtest"
             )
+            if exclude_fabricated_pnl:
+                trade_select += ", t.notes"
             if join_snapshots:
                 snap_select = ", ".join(
                     f"snap.{c}" for c in _SNAPSHOT_DB_COLUMNS
@@ -199,12 +231,40 @@ class TradeOutcomesBuilder(DatasetBuilder):
                 sql += " AND t.symbol = ?"
                 params.append(symbol)
             sql += " ORDER BY t.id ASC"
+            emitted = 0
+            excluded_fabricated = 0
+            excluded_by_month: dict[str, int] = {}
             for row in conn.execute(sql, params):
                 pnl = row["pnl"]
                 if pnl is None:
                     # CLOSED but no pnl is a malformed row; skip rather
                     # than emit an unlabelled label.
                     continue
+                # `won` IS `pnl > 0`, so a fabricated pnl is not a noisy label —
+                # it is a WRONG one, and a wrong label is worse than a missing
+                # row. Opt-in because it changes the POPULATION, not just the
+                # filtering (see the WARNING below).
+                #
+                # BACKTEST ROWS ARE EXEMPT, on purpose. `backtest_recorder`
+                # writes `notes` as a plain run-tag STRING, not JSON, so the
+                # decode fails and every simulated row would be dropped — while
+                # the log blamed "fabrication". Broker provenance is also simply
+                # not the right question for a deterministic replay against real
+                # candles: whether a sim matches reality is a real question, but
+                # it belongs to backtest validation, not here.
+                _is_backtest = bool(row["is_backtest"])
+                if (
+                    exclude_fabricated_pnl
+                    and not _is_backtest
+                    and not _pnl_is_trustworthy(row["notes"])
+                ):
+                    excluded_fabricated += 1
+                    ym = str(
+                        row["created_at"] or row["timestamp"] or ""
+                    )[:7] or "unknown"
+                    excluded_by_month[ym] = excluded_by_month.get(ym, 0) + 1
+                    continue
+                emitted += 1
                 payload: dict[str, Any] = {}
                 for col in _RAW_COLUMNS:
                     value = row[col]
@@ -247,5 +307,24 @@ class TradeOutcomesBuilder(DatasetBuilder):
                     payload["daily_drawdown_pct_at_signal"] = None
                     payload["open_trades_count_at_signal"] = None
                 yield payload
+            if exclude_fabricated_pnl:
+                total = emitted + excluded_fabricated
+                pct = (excluded_fabricated / total * 100.0) if total else 0.0
+                logger.warning(
+                    "trade_outcomes: POPULATION CHANGED — excluded %d of %d "
+                    "LIVE rows (%.1f%%) whose pnl was not measured/estimated; "
+                    "%d emitted. Per-month excluded: %s. Fabrication is a "
+                    "REGRESSION WITH A START DATE, not drift, so the exclusion "
+                    "is NOT spread evenly across time — it removes far more of "
+                    "the recent months, shifting the training population "
+                    "toward older ones. Read that distribution before "
+                    "comparing any metric to a prior run. Backtest rows "
+                    "(is_backtest=1) are NOT filtered — a simulated exit is "
+                    "deterministic, so broker provenance does not apply; pass "
+                    "include_backtest=True to widen the population rather than "
+                    "living with the live-only count.",
+                    excluded_fabricated, total, pct, emitted,
+                    dict(sorted(excluded_by_month.items())),
+                )
         finally:
             conn.close()
