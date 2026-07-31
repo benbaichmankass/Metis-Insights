@@ -30,8 +30,10 @@
 #   REGISTRY_ROOT         — defaults to "$REPO_ROOT/ml/registry-store"
 #   TRAINING_MANIFESTS    — defaults to every yaml under ml/configs/
 #   TRAINING_LOG_PATH     — defaults to "$REPO_ROOT/runtime_logs/training_cycle.jsonl"
-#                           One JSON line per manifest:
-#                           {ts, manifest, model_id, exit_code, metrics_path}
+#                           One JSON line per manifest — manifest_ok rows carry
+#                           {ts, manifest, started, model_id, registered,
+#                           experiment_dir}; manifest_failed rows carry
+#                           {ts, manifest, started, exit_code, stderr_tail}.
 #   TRAINING_CYCLE_FORCE_RESTART — set truthy to ignore today's checkpoint
 #                           file and start the cycle clean (see below).
 #

@@ -8655,6 +8655,27 @@
         "BL-20260731-AUDIT-0731-NEW-FINDINGS"
       ],
       "updates": []
+    },
+    {
+      "id": "BL-20260731-TRAINERDIAG-DOUBLE-EXECUTION",
+      "opened_at": "2026-07-31T15:45:00+00:00",
+      "opened_by": "claude (audit P1 session, doc-freshness close-out)",
+      "source": "trainer-vm-diag #8188 (the P1.4 GC --apply): the posted output shows scanned=114 / candidates=0 / mode=APPLIED while df dropped 86%->78% in the same run — i.e. the cmd block executed TWICE (first pass deleted the 14 reviewed candidates, the posted second pass scanned the post-deletion tree, 128-14=114). Reconciliation note on the issue.",
+      "title": "[infra] trainer-vm-diag relay executed a cmd block twice (retry) — harmless for the idempotent GC, a hazard for any non-idempotent relay cmd",
+      "description": "Evidence is one observed instance (issue #8188); the mechanism is unconfirmed — likely a workflow/step retry re-running the SSH command after the first execution's result failed to post. Follow-up for a review session: (1) check the run's job/attempt history (actions run 30643599945) to confirm the retry mechanism; (2) if confirmed, either make the relay execution at-most-once (e.g. a per-issue nonce/marker file on the VM checked before executing) or document the at-least-once semantics prominently in docs/claude/diag-relay.md + the trainer-vm-diag workflow header so future sessions write idempotent cmd blocks (the GC survived precisely because it re-scans before deleting). Do NOT treat 'output shows nothing changed' as 'nothing changed' on this relay until this is settled — verify end-state (df/ls), not the run's narration.",
+      "tier": 1,
+      "severity": "medium",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "trigger_condition": null,
+      "resolution_criteria": "Retry mechanism confirmed from the Actions run history AND either at-most-once execution shipped or the at-least-once contract documented in docs/claude/diag-relay.md + the workflow file.",
+      "refs": [
+        ".github/workflows/trainer-vm-diag.yml",
+        "docs/claude/diag-relay.md",
+        "scripts/ops/trainer_dataset_gc.py"
+      ],
+      "updates": []
     }
   ],
   "updated_at": "2026-07-31",
