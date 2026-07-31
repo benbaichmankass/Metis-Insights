@@ -172,11 +172,24 @@ jobs:
               found && /^[A-Za-z0-9_-]+:/{
                 exit
               }
-              # Strip markdown code-fence lines (``` or ```lang) so a fenced
-              # cmd body does not leak the fence into bash — an un-stripped
-              # ```bash line runs as the command ``` (error) and any backticks
-              # in the body get command-substituted (BL-20260720-TRAINERDIAG-FENCE).
-              found && /^[[:space:]]*```/{
+              # Track fence state across the WHOLE body, so a `cmd:` written
+              # inside an already-open fence is handled the same as one that
+              # opens its own.
+              /^[[:space:]]*```/{
+                fence = 1 - fence
+                # Strip the fence line itself so a fenced cmd body does not
+                # leak it into bash — an un-stripped ```bash line runs as the
+                # command ``` (error) and any backticks in the body get
+                # command-substituted (BL-20260720-TRAINERDIAG-FENCE).
+                #
+                # A CLOSING fence (1 -> 0) while inside the cmd block ENDS it.
+                # Without this the extractor ran off the end of the block and
+                # fed the trailing prose to bash: issue #8157 executed its own
+                # "Expected from the dry run..." paragraph, producing
+                # `Expected: command not found` after the real work. Harmless
+                # there, but a body that reads as documentation must never
+                # execute as code (BL-20260731-TRAINERDIAG-TRAILING-PROSE).
+                if (found && fence == 0) exit
                 next
               }
               found { print }
