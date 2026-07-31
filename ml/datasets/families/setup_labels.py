@@ -210,7 +210,29 @@ class SetupLabelsBuilder(DatasetBuilder):
                 pnl_percent_raw = row["pnl_percent"]
                 if pnl is None:
                     continue
-                if exclude_fabricated_pnl and not _pnl_is_trustworthy(row["notes"]):
+                # BACKTEST ROWS ARE NEVER SUBJECT TO THIS FILTER.
+                # The filter asks "is this pnl backed by BROKER evidence?" — a
+                # question that is meaningless for a simulated row. A backtest
+                # exit is `SimTrade.exit`, deterministic output of a replay
+                # against real candles: reproducible by construction, and the
+                # opposite of a mark substituted at an arbitrary later time.
+                #
+                # This is not a nicety. `backtest_recorder` writes `notes` as a
+                # plain run-tag STRING, not JSON, so `_pnl_is_trustworthy` would
+                # fail to parse it and return False for EVERY backtest row —
+                # silently deleting the whole simulated population while the
+                # exclusion log blamed "fabrication". A wrong result with a
+                # confident wrong explanation is the exact failure mode this
+                # workstream exists to end.
+                #
+                # Whether a sim matches reality is a REAL question — it just
+                # belongs to backtest validation, not to broker provenance.
+                _is_backtest = bool(row["is_backtest"])
+                if (
+                    exclude_fabricated_pnl
+                    and not _is_backtest
+                    and not _pnl_is_trustworthy(row["notes"])
+                ):
                     excluded_fabricated += 1
                     ym = str(row["created_at"] or row["timestamp"] or "")[:7] or "unknown"
                     excluded_by_month[ym] = excluded_by_month.get(ym, 0) + 1
@@ -249,11 +271,15 @@ class SetupLabelsBuilder(DatasetBuilder):
                 total = emitted + excluded_fabricated
                 pct = (excluded_fabricated / total * 100.0) if total else 0.0
                 logger.warning(
-                    "setup_labels: POPULATION CHANGED — excluded %d of %d rows "
+                    "setup_labels: POPULATION CHANGED — excluded %d of %d LIVE rows "
                     "(%.1f%%) whose pnl was not measured/estimated; %d emitted. "
                     "Per-month excluded: %s. This shifts the training population "
                     "toward months with better provenance coverage; read the "
-                    "distribution before comparing metrics to a prior run.",
+                    "distribution before comparing metrics to a prior run. "
+                    "Backtest rows (is_backtest=1) are NOT filtered — a "
+                    "simulated exit is deterministic, so broker provenance does "
+                    "not apply; pass include_backtest=True to widen the "
+                    "population rather than living with the live-only count.",
                     excluded_fabricated, total, pct, emitted,
                     dict(sorted(excluded_by_month.items())),
                 )
