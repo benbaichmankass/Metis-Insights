@@ -8383,8 +8383,24 @@
         "trainer-diag #8137",
         "PR #8118"
       ]
+    },
+    {
+      "id": "BL-20260731-KILLZONE-BIAS-NEVER-PERSISTED",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "opened_at": "2026-07-31T06:40:00+00:00",
+      "opened_by": "claude (provenance session)",
+      "title": "[ml][data] killzone/bias are 100% NaN in trade_outcomes — quarantined the only learning trade-outcome model",
+      "description": "dataset_audit flagged `trade-outcome-lgbm-v1` with nan_fraction 1.0000 on BOTH `killzone` and `bias`, setting quarantine=true. The trainer then logged manifest_audit_skipped_enforced every cycle, so the ONLY feature-learning trade-outcome model (the rest are constant baselines) has not trained at all. The label itself is healthy — `won` 251 True / 581 False, 2 classes, unflagged — so this was a DEAD FEATURE quarantine, not a degenerate label.\n\nThe signal builders DO emit these: strategy_signal_builders.py:331, advisory_sizing.py:78 and vwap.py:872 all set `killzone` in the signal meta. So the values exist at signal time and are lost somewhere between meta and the trades column. That is the INVERSE of the defect this session root-caused: instead of written-and-never-read, this is read-and-never-written — a feature consumed by a model that nothing populates.\n\nImmediate unblock: both columns removed from the manifest's feature_columns and categorical_columns. They carried zero information, so the model loses nothing and can finally train. That is a WORKAROUND, not the fix.",
+      "resolution_criteria": "Trace meta['killzone']/['bias'] from the signal builder to the trades row and find where it is dropped (likely the INSERT in execute._log_trade_to_journal not carrying the meta keys). Fix the writer. Then re-add both to the manifest ONLY after dataset_audit shows a non-degenerate nan_fraction — re-adding them while still dead just re-quarantines the manifest. Historical rows stay NaN either way; the feature only becomes useful going forward.",
+      "refs": [
+        "ml/configs/trade-outcome-lgbm-v1.yaml",
+        "runtime_logs/trainer/dataset_audit.jsonl",
+        "diag #8142"
+      ]
     }
   ],
-  "updated_at": "2026-07-31T06:25:00+00:00",
+  "updated_at": "2026-07-30T22:35:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

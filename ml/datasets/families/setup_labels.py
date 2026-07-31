@@ -24,6 +24,8 @@ is the trainer's responsibility (same rule as `trade_outcomes`).
 """
 from __future__ import annotations
 
+import json
+import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -33,6 +35,8 @@ from src.runtime.local_pnl import canon_direction
 
 from ..builder import DatasetBuilder
 from ..metadata import LeakageStatus
+
+logger = logging.getLogger(__name__)
 
 _RAW_COLUMNS = (
     "id",
@@ -60,6 +64,35 @@ _NULLABLE_TEXT = {
     "account_id",
     "created_at",
 }
+
+
+def _pnl_is_trustworthy(notes_raw: Any) -> bool:
+    """True when this row's ``pnl`` rests on a MEASURED or ESTIMATED exit.
+
+    Delegates to :mod:`src.runtime.provenance` — the ONE vocabulary. Do not
+    re-derive the source list here; that is how the two halves drift apart.
+
+    UNVERIFIED is excluded along with FABRICATED: a row with no provenance
+    recorded is not evidence of measurement, and for a *training label* the
+    burden of proof belongs on the data. Fail-CLOSED — an unparseable notes
+    blob is treated as untrustworthy rather than waved through, because the
+    permissive default is exactly what let fabrication into the labels.
+    """
+    from src.runtime.provenance import (  # noqa: PLC0415
+        MEASURED, ESTIMATED, classify_pnl,
+    )
+
+    try:
+        notes = json.loads(notes_raw) if isinstance(notes_raw, str) else notes_raw
+        if not isinstance(notes, dict):
+            return False
+        # classify_pnl returns (bucket, why) — unpack it. Comparing the TUPLE
+        # against bare strings silently returns False for EVERY row, which would
+        # have excluded the entire training set rather than a quarter of it.
+        bucket, _why = classify_pnl(notes)
+        return bucket in (MEASURED, ESTIMATED)
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def _clip(value: float, cap: float) -> float:
@@ -127,6 +160,7 @@ class SetupLabelsBuilder(DatasetBuilder):
         strategy_name: str | None = None,
         symbol: str | None = None,
         include_backtest: bool = False,
+        exclude_fabricated_pnl: bool = False,
         **_: Any,
     ) -> Iterator[Mapping[str, Any]]:
         if risk_pct <= 0:
@@ -140,7 +174,10 @@ class SetupLabelsBuilder(DatasetBuilder):
         conn = sqlite3.connect(uri, uri=True)
         try:
             conn.row_factory = sqlite3.Row
-            select_cols = ", ".join(_RAW_COLUMNS) + ", is_backtest"
+            # `notes` carries the provenance keys. Selected for FILTERING only —
+            # it is never added to _RAW_COLUMNS and so never reaches the feature
+            # matrix (leakage discipline S-AI-WS5-C is unchanged).
+            select_cols = ", ".join(_RAW_COLUMNS) + ", is_backtest, notes"
             sql = (
                 f"SELECT {select_cols} FROM trades "
                 "WHERE status = 'closed' "
@@ -157,11 +194,50 @@ class SetupLabelsBuilder(DatasetBuilder):
                 sql += " AND symbol = ?"
                 params.append(symbol)
             sql += " ORDER BY id ASC"
+            # Provenance gate (operator-chosen 2026-07-30, option A).
+            # `won` below is `pnl > 0`, and 206 of 829 live closed rows had that
+            # pnl decided by a mark-substituted price — 71 of them labelled WON.
+            # A phantom win teaches a losing setup pays, so those rows are worse
+            # than absent. Excluding them is a POPULATION CHANGE and is counted +
+            # logged, never silent: dropping a quarter of the labels unannounced
+            # is the same class of defect this whole workstream exists to stop.
+            # (BL-20260730-ML-LABELS-IGNORE-PNL-PROVENANCE.)
+            excluded_fabricated = 0
+            excluded_by_month: dict[str, int] = {}
+            emitted = 0
             for row in conn.execute(sql, params):
                 pnl = row["pnl"]
                 pnl_percent_raw = row["pnl_percent"]
                 if pnl is None:
                     continue
+                # BACKTEST ROWS ARE NEVER SUBJECT TO THIS FILTER.
+                # The filter asks "is this pnl backed by BROKER evidence?" — a
+                # question that is meaningless for a simulated row. A backtest
+                # exit is `SimTrade.exit`, deterministic output of a replay
+                # against real candles: reproducible by construction, and the
+                # opposite of a mark substituted at an arbitrary later time.
+                #
+                # This is not a nicety. `backtest_recorder` writes `notes` as a
+                # plain run-tag STRING, not JSON, so `_pnl_is_trustworthy` would
+                # fail to parse it and return False for EVERY backtest row —
+                # silently deleting the whole simulated population while the
+                # exclusion log blamed "fabrication". A wrong result with a
+                # confident wrong explanation is the exact failure mode this
+                # workstream exists to end.
+                #
+                # Whether a sim matches reality is a REAL question — it just
+                # belongs to backtest validation, not to broker provenance.
+                _is_backtest = bool(row["is_backtest"])
+                if (
+                    exclude_fabricated_pnl
+                    and not _is_backtest
+                    and not _pnl_is_trustworthy(row["notes"])
+                ):
+                    excluded_fabricated += 1
+                    ym = str(row["created_at"] or row["timestamp"] or "")[:7] or "unknown"
+                    excluded_by_month[ym] = excluded_by_month.get(ym, 0) + 1
+                    continue
+                emitted += 1
                 pnl_percent = (
                     float(pnl_percent_raw) if pnl_percent_raw is not None else 0.0
                 )
@@ -191,5 +267,21 @@ class SetupLabelsBuilder(DatasetBuilder):
                 payload["dayofweek"] = int(dow)
                 payload["source"] = "backtest" if row["is_backtest"] else "live"
                 yield payload
+            if exclude_fabricated_pnl:
+                total = emitted + excluded_fabricated
+                pct = (excluded_fabricated / total * 100.0) if total else 0.0
+                logger.warning(
+                    "setup_labels: POPULATION CHANGED — excluded %d of %d LIVE rows "
+                    "(%.1f%%) whose pnl was not measured/estimated; %d emitted. "
+                    "Per-month excluded: %s. This shifts the training population "
+                    "toward months with better provenance coverage; read the "
+                    "distribution before comparing metrics to a prior run. "
+                    "Backtest rows (is_backtest=1) are NOT filtered — a "
+                    "simulated exit is deterministic, so broker provenance does "
+                    "not apply; pass include_backtest=True to widen the "
+                    "population rather than living with the live-only count.",
+                    excluded_fabricated, total, pct, emitted,
+                    dict(sorted(excluded_by_month.items())),
+                )
         finally:
             conn.close()

@@ -283,3 +283,65 @@ class TestV2FeatureExpansion:
 
     def test_builder_version_is_v2(self):
         assert SetupLabelsBuilder.builder_version == "v2"
+
+
+class TestProvenanceExclusion:
+    """`exclude_fabricated_pnl` — and the backtest carve-out.
+
+    The filter asks "is this pnl backed by BROKER evidence?". That question is
+    meaningless for a simulated row, and `backtest_recorder` writes `notes` as a
+    plain run-tag STRING (not JSON), so without the carve-out the parse fails and
+    EVERY backtest row is dropped — silently deleting the whole simulated
+    population while the exclusion log blames "fabrication".
+    """
+
+    def _db(self, tmp_path, rows):
+        import sqlite3
+        p = tmp_path / "j.db"
+        c = sqlite3.connect(str(p))
+        c.execute(
+            "CREATE TABLE trades (id INTEGER PRIMARY KEY, timestamp TEXT,"
+            " symbol TEXT, direction TEXT, strategy_name TEXT, setup_type TEXT,"
+            " killzone TEXT, bias TEXT, pnl REAL, pnl_percent REAL,"
+            " account_id TEXT, created_at TEXT, status TEXT, is_backtest INT,"
+            " notes TEXT)"
+        )
+        for i, (pnl, notes, bt) in enumerate(rows, start=1):
+            c.execute(
+                "INSERT INTO trades VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (i, "2026-07-01T00:00:00Z", "BTCUSDT", "long", "vwap", "sweep",
+                 "ny", "bull", pnl, 1.0, "bybit_1", "2026-07-01T00:00:00Z",
+                 "closed", bt, notes),
+            )
+        c.commit()
+        c.close()
+        return p
+
+    def _n(self, **kw):
+        import json
+        return json.dumps(kw)
+
+    def test_fabricated_live_row_is_dropped(self, tmp_path):
+        db = self._db(tmp_path, [
+            (1.0, self._n(exit_price_source="bybit_closed_pnl"), 0),
+            (2.0, self._n(exit_price_source="local_markprice"), 0),
+        ])
+        out = list(SetupLabelsBuilder().iter_rows(
+            db_path=db, exclude_fabricated_pnl=True))
+        assert len(out) == 1
+        assert out[0]["pnl"] == 1.0
+
+    def test_backtest_rows_survive_a_NON_JSON_notes_blob(self, tmp_path):
+        """THE regression. run_tag is a bare string; json.loads fails on it."""
+        db = self._db(tmp_path, [
+            (1.0, "sweep-run-2026-07-01", 1),
+            (2.0, "sweep-run-2026-07-01", 1),
+        ])
+        out = list(SetupLabelsBuilder().iter_rows(
+            db_path=db, exclude_fabricated_pnl=True, include_backtest=True))
+        assert len(out) == 2, "simulated rows must not be dropped as fabricated"
+        assert all(r["source"] == "backtest" for r in out)
+
+    def test_the_filter_is_off_by_default(self, tmp_path):
+        db = self._db(tmp_path, [(1.0, self._n(exit_price_source="local_markprice"), 0)])
+        assert len(list(SetupLabelsBuilder().iter_rows(db_path=db))) == 1
