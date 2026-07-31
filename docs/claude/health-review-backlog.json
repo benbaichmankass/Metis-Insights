@@ -8351,8 +8351,29 @@
         "scripts/ml/_verify_score_semantics.py"
       ],
       "updates": []
+    },
+    {
+      "id": "BL-20260730-TREND-THRESHOLD-INERT",
+      "opened_at": "2026-07-30T23:15:00+00:00",
+      "opened_by": "claude (diagnostic-output-defect-class session)",
+      "source": "Found while building the vol_threshold backfill — I had to establish which parameters actually determine a label before I could claim to recover one. That check caught a mislabel in my OWN merged comment from PR #8116 the same day.",
+      "title": "[ml] market_features `trend_threshold` is INERT — it affects no emitted column, yet it is a required kwarg and I documented it as label-defining",
+      "description": "`_label_regime` accepts `trend_threshold` and then ignores it: its own docstring says \"kept in the signature for backward compatibility but is no longer used\", because the 3-class -> 2-class collapse (S-ML-REGIME-CLASSIFIER-FIX, 2026-05-20) removed the 'trend' class. The trend-axis label that DOES exist (`trend_regime_label`) keys off `trend_chop_max`/`trend_trend_min` via the Kaufman efficiency ratio, not this parameter. So `trend_threshold` determines nothing.\n\nTWO CONSEQUENCES.\n(a) DOC DEFECT, already fixed in the PR that files this: PR #8116's comment said 'these two DEFINE regime_label' of BOTH thresholds. True of vol_threshold, false of trend_threshold — a mislabel introduced in the PR about mislabels, which is the sharpest possible argument for 'verify, don't assert'. Both the module docstring and the inline comment now state the inertness plainly.\n(b) OPEN QUESTION for the operator: should an inert parameter stay REQUIRED? It is currently required, and I kept it that way deliberately — every production caller already passes it, and a required kwarg always lands in metadata.json::build_params, so the dir records what the caller believed it was building with. The counter-argument is real though: requiring a parameter that does nothing invites exactly the wrong inference (a reader diffing two dirs will read a trend_threshold difference as a label difference when it cannot be). Options: (1) leave required + documented inert (status quo); (2) drop it from the signature — callers passing it are absorbed by **_ and it still reaches build_params, so no caller breaks; (3) remove it from every caller too, losing the record of intent. I lean (2): it stops the wrong inference at the source while keeping the recorded value. NOT doing it unasked — it touches the dataset builder's public signature.",
+      "tier": 1,
+      "severity": "low",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "trigger_condition": "n/a",
+      "resolution_criteria": "Operator picks an option; no reader can infer a label difference from a trend_threshold difference.",
+      "refs": [
+        "ml/datasets/families/market_features.py",
+        "ml/labeling/trend_regime.py",
+        "scripts/ml/backfill_dataset_vol_threshold.py"
+      ],
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-30T22:35:00+00:00",
+  "updated_at": "2026-07-30T23:15:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
