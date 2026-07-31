@@ -86,6 +86,7 @@ __all__ = [
     "PROVENANCE_KEYS", "MEASURED_SOURCES", "ESTIMATED_SOURCES",
     "FABRICATED_SOURCES",
     "classify", "classify_row", "classify_pnl", "is_measured",
+    "pnl_is_trustworthy",
     "split_counts", "coverage",
     "require_measured", "ProvenanceError",
 ]
@@ -390,6 +391,36 @@ def classify_pnl(row: Any) -> Tuple[str, str]:
 def is_measured(row: Any, key: str = "exit_price_source") -> bool:
     """True only for :data:`MEASURED`. ``UNVERIFIED`` is False — by design."""
     return classify_row(row, key)[0] == MEASURED
+
+
+def pnl_is_trustworthy(notes: Any) -> bool:
+    """True when a row's ``pnl`` rests on a MEASURED or ESTIMATED exit.
+
+    Takes the raw ``trades.notes`` value (JSON string / mapping / None) rather
+    than a row, because the dataset builders hold the notes blob directly and
+    :func:`classify_pnl` needs a decoded mapping — handed a raw JSON *string*
+    it reads ``row['pnl_source']`` off a ``str``, catches the ``TypeError``,
+    and returns :data:`UNVERIFIED` for every row. That failure is silent and
+    total, so the decode belongs here, once, and not in each caller.
+
+    **This lives here, not in a dataset family, on purpose.** Two builders
+    (``setup_labels``, ``trade_outcomes``) need the same predicate; a second
+    copy is precisely how the two halves drift apart, which is the defect class
+    this whole module exists to close.
+
+    **Fail-CLOSED.** An unparseable or absent notes blob is untrustworthy, not
+    waved through, and :data:`UNVERIFIED` is excluded alongside
+    :data:`FABRICATED`: *no provenance recorded is not evidence of
+    measurement*. For a training **label** the burden of proof belongs on the
+    data — a permissive default is exactly what let fabrication into the
+    labels in the first place.
+
+    Note this is a **label**-grade predicate, deliberately stricter than
+    :func:`is_measured`: it admits ESTIMATED (a candle anchored to the close is
+    a defensible outcome) while refusing anything with no anchor at all.
+    """
+    bucket, _why = classify_pnl(_decode_notes(notes))
+    return bucket in (MEASURED, ESTIMATED)
 
 
 def split_counts(
