@@ -1,0 +1,247 @@
+#!/usr/bin/env python3
+"""Re-derive fabricated exit prices from the broker fills we already stored.
+
+WHY THIS IS NOT "RELABEL ONLY" (operator-challenged 2026-07-31)
+---------------------------------------------------------------
+The standing "historical pass is RELABEL ONLY, never re-price" rule exists
+because **IBKR's** execution history is short-lived — `reqExecutions` serves
+roughly the current trading day, so for IB the evidence is genuinely gone and
+any reconstruction would be invention.
+
+**Bybit's evidence is not gone.** It is sitting in `exchange_fills.sqlite`,
+pulled daily the whole time. Applying the rule there was over-generalisation of
+a venue-specific constraint — the same mistake as `if is_demo: return None`,
+which generalised "this ENDPOINT is unreliable on demo" into "there is no broker
+truth for demo".
+
+THE REGRESSION THIS REPAIRS, WITH ITS START DATE
+------------------------------------------------
+Fabrication is not drift. Measured per account-month on the live journal:
+
+    bybit_1   May 0/47 (0.0%)  ->  Jun 28/124 (22.6%)  ->  Jul 126/155 (81.3%)
+
+Same account, same code path. The exit-source mix shows the mechanism: May is
+`bybit_closed_pnl` x187, July is `local_markprice` x161. The broker-truth path
+stopped being taken at the June boundary — when `BL-20260608-DEMOPNL` added the
+demo dead-end. Every demo close after 2026-06-08 fell through to mark
+substitution, so the damage COMPOUNDS with every trade. Waiting makes it worse.
+
+TWO TIERS, AND THEY ARE NOT THE SAME THING
+-------------------------------------------
+**Tier 1 — own fills (MEASURED).** The account's own close-side fills, matched
+on account+symbol+side+window via the same `exit_from_fills` the live path uses.
+Stamped :data:`~src.runtime.fills_pnl.FILL_EXIT_SOURCE`.
+
+**Tier 2 — MIRROR account (ESTIMATED, never MEASURED).** Operator observation,
+2026-07-31: `bybit_portfolio` mirrors `bybit_2` and `alpaca_portfolio` mirrors
+`alpaca_live` — same setups, so a paper trade's exit should land near its live
+sibling's fill. That is TRUE and USEFUL and it is still an **inference about a
+different account's execution**, not a measurement of this one. The operator
+said so themselves: *"it didn't happen exactly because bybit_2 might not have
+enough capacity."*
+
+So the mirror price is ESTIMATED — the same bucket as a candle close, and for
+the same reason: a defensible anchor, not a fill of THIS order. It is stamped
+:data:`MIRROR_EXIT_SOURCE` so it is queryable and reversible, and **qty is never
+copied** (capacity differs, which is exactly why the mirror is not a fill).
+Collapsing it into MEASURED would re-import fabrication wearing a better label,
+which is the failure this whole workstream exists to end.
+
+SAFETY
+------
+* ``--dry-run`` is the DEFAULT. Writing requires ``--apply``.
+* Only rows whose pnl is currently FABRICATED or UNVERIFIED are touched. A
+  measured row is never overwritten — this can only improve provenance.
+* Every write records ``notes.backfill`` with the prior value, the new source
+  and the run id, so the pass is auditable and reversible.
+* Refusals are inherited from ``exit_from_fills`` (qty tolerance, unusable
+  rows). A row that cannot be resolved is LEFT ALONE, never guessed.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sqlite3
+import sys
+from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from src.runtime.fills_pnl import FILL_EXIT_SOURCE, exit_from_fills  # noqa: E402
+from src.runtime.provenance import (  # noqa: E402
+    ESTIMATED, MEASURED, classify_pnl,
+)
+
+#: ``exit_price_source`` for a price taken from the MIRROR account's fill.
+#: ESTIMATED — a sibling account's execution, not this order's.
+MIRROR_EXIT_SOURCE = "mirror_account_fill"
+
+#: paper book -> the live book it mirrors (CLAUDE.md S-PAPER-PORTFOLIO).
+MIRRORS = {"bybit_portfolio": "bybit_2", "alpaca_portfolio": "alpaca_live"}
+
+#: How close in time a mirror fill must be to count as the same setup.
+MIRROR_WINDOW_MS = 15 * 60 * 1000
+
+
+def _ms(value: Any) -> Optional[int]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text)
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return int(dt.timestamp() * 1000)
+
+
+def _notes(raw: Any) -> dict:
+    try:
+        out = json.loads(raw) if isinstance(raw, str) else raw
+        return out if isinstance(out, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _needs_repair(notes: dict) -> bool:
+    """Only FABRICATED / UNVERIFIED rows are candidates. Never downgrade."""
+    bucket, _why = classify_pnl(notes)
+    return bucket not in (MEASURED, ESTIMATED)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--db", required=True, help="trade_journal.db (live VM)")
+    ap.add_argument("--fills", required=True, help="exchange_fills.sqlite")
+    ap.add_argument("--apply", action="store_true",
+                    help="WRITE. Omit for the default dry run.")
+    ap.add_argument("--allow-mirror", action="store_true",
+                    help="also use the mirror account's fill as an ESTIMATED "
+                         "price when the account's own fills are missing")
+    ap.add_argument("--run-id", default=None)
+    args = ap.parse_args()
+
+    run_id = args.run_id or datetime.now(timezone.utc).strftime("bf-%Y%m%dT%H%M%SZ")
+    fills_path = Path(args.fills)
+    if not fills_path.is_file():
+        print(f"FATAL: fills store not found at {fills_path}", file=sys.stderr)
+        return 2
+
+    def fills_conn():
+        return sqlite3.connect(f"file:{fills_path}?mode=ro", uri=True)
+
+    conn = sqlite3.connect(args.db)
+    conn.row_factory = sqlite3.Row
+    rows = list(conn.execute(
+        "SELECT id, account_id, symbol, direction, position_size, entry_price,"
+        "       created_at, closed_at, timestamp, pnl, notes "
+        "  FROM trades "
+        " WHERE status='closed' AND pnl IS NOT NULL AND is_backtest=0 "
+        " ORDER BY id ASC"
+    ))
+
+    stat = Counter()
+    plan: list[tuple] = []
+
+    for r in rows:
+        notes = _notes(r["notes"])
+        if not _needs_repair(notes):
+            stat["skip_already_ok"] += 1
+            continue
+        opened = _ms(r["created_at"]) or _ms(r["timestamp"])
+        closed = _ms(r["closed_at"])
+        if opened is None:
+            stat["skip_no_open_time"] += 1
+            continue
+
+        qty = r["position_size"]
+        acct = r["account_id"]
+
+        rec = exit_from_fills(
+            account_id=acct, symbol=r["symbol"], direction=r["direction"],
+            opened_at_ms=opened, closed_at_ms=closed, qty=qty,
+            conn_factory=fills_conn,
+        )
+        source = FILL_EXIT_SOURCE
+
+        if rec is None and args.allow_mirror and acct in MIRRORS:
+            # The mirror's fill is an ESTIMATE of where this order would have
+            # gone — same setup, different book. qty is deliberately NOT passed:
+            # capacity differs between the live and paper books, and demanding a
+            # qty match would reject the very rows this tier exists to rescue.
+            rec = exit_from_fills(
+                account_id=MIRRORS[acct], symbol=r["symbol"],
+                direction=r["direction"],
+                opened_at_ms=opened - MIRROR_WINDOW_MS,
+                closed_at_ms=(closed + MIRROR_WINDOW_MS) if closed else None,
+                qty=None,
+                conn_factory=fills_conn,
+            )
+            source = MIRROR_EXIT_SOURCE
+            if rec is not None:
+                stat["via_mirror"] += 1
+
+        if rec is None:
+            stat["unresolved_left_alone"] += 1
+            continue
+
+        exit_price = rec.get("avg_exit_price")
+        if not exit_price or float(exit_price) <= 0:
+            stat["unresolved_left_alone"] += 1
+            continue
+
+        if source == FILL_EXIT_SOURCE:
+            stat["via_own_fills"] += 1
+        plan.append((r["id"], float(exit_price), source,
+                     notes.get("exit_price_source"), rec.get("fees") or 0.0))
+
+    print(f"run_id={run_id}  mode={'APPLY' if args.apply else 'DRY-RUN'}")
+    print(f"scanned                : {len(rows)}")
+    print(f"already measured/est   : {stat['skip_already_ok']}")
+    print(f"RESOLVABLE (own fills) : {stat['via_own_fills']}  -> MEASURED")
+    print(f"RESOLVABLE (mirror)    : {stat['via_mirror']}  -> ESTIMATED"
+          f"{'' if args.allow_mirror else '  (--allow-mirror off)'}")
+    print(f"unresolved, left alone : {stat['unresolved_left_alone']}")
+    print(f"no open time           : {stat['skip_no_open_time']}")
+    print(f"TOTAL TO WRITE         : {len(plan)}")
+
+    if not args.apply:
+        print("\nDRY RUN — nothing written. Re-run with --apply to commit.")
+        return 0
+
+    written = 0
+    for trade_id, price, source, prior, fees in plan:
+        cur = conn.execute("SELECT notes FROM trades WHERE id=?", (trade_id,))
+        row = cur.fetchone()
+        n = _notes(row["notes"] if row else None)
+        n["exit_price_source"] = source
+        if fees:
+            n["close_fees_usd"] = round(float(fees), 6)
+        # Auditable + reversible: what it was, what replaced it, which run.
+        n["backfill"] = {
+            "run_id": run_id, "prior_exit_price_source": prior,
+            "new_exit_price_source": source,
+            "at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        }
+        conn.execute(
+            "UPDATE trades SET exit_price=?, notes=? WHERE id=?",
+            (price, json.dumps(n)[:2000], trade_id),
+        )
+        written += 1
+    conn.commit()
+    print(f"\nWROTE {written} rows. pnl is NOT recomputed here — the monitor's "
+          f"local-PnL sweep re-derives it from the corrected exit price on its "
+          f"next tick, through the same path a live close uses.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
