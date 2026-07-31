@@ -121,6 +121,7 @@ live) so the live-holdout feature space stays identical across train + eval.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import sqlite3
 import statistics
@@ -140,6 +141,8 @@ from ..volatility_estimators import (
     rogers_satchell_var,
     yang_zhang_var,
 )
+
+logger = logging.getLogger(__name__)
 
 _FAMILY = "setup_candidates"
 
@@ -200,6 +203,7 @@ def _load_market_raw_rows(market_raw_path: Path) -> list[dict[str, Any]]:
 
 def _load_live_trades(
     db_path: Path | str, symbol: str, *, include_paper: bool = False,
+    exclude_untrusted_pnl: bool = True,
 ) -> list[dict[str, Any]]:
     """REAL closed (non-backtest) trades for one symbol, tagged by funding class.
 
@@ -249,6 +253,24 @@ def _load_live_trades(
         risk_cols = [c for c in ("entry_price", "stop_loss", "position_size")
                      if c in have]
         select_cols = ["timestamp", "direction", "pnl", "pnl_percent", *risk_cols]
+        # P0.1 (2026-07-31 audit): this loader feeds the M23 real-money
+        # holdout / EV gate, whose target derives from `pnl` — a fabricated
+        # pnl is a WRONG holdout outcome. Judge each row's provenance via
+        # `trades.notes` when the column exists. A journal WITHOUT the
+        # column (old fixtures / a migration-behind copy) cannot be judged:
+        # the filter is skipped WITH a warning rather than dropping every
+        # row — the production journal always carries `notes`, so the
+        # unjudgeable path only arises on legacy/test DBs.
+        judge_provenance = exclude_untrusted_pnl and "notes" in have
+        if exclude_untrusted_pnl and not judge_provenance:
+            logger.warning(
+                "setup_candidates._load_live_trades: provenance filter "
+                "SKIPPED — journal at %s has no `notes` column, so pnl "
+                "provenance cannot be judged; returning the unfiltered "
+                "population.", path,
+            )
+        if judge_provenance:
+            select_cols.append("notes")
         # account_class-authoritative real filter (mirrors build_research_panel.py):
         # a row is real only if account_class isn't 'paper' AND is_demo is 0.
         # Guarded on column presence so an old-schema journal (no account_class)
@@ -297,8 +319,14 @@ def _load_live_trades(
     finally:
         conn.close()
     out: list[dict[str, Any]] = []
+    excluded_untrusted = {"real": 0, "paper": 0}
+    if judge_provenance:
+        from src.runtime.provenance import pnl_is_trustworthy  # noqa: PLC0415
     for group, is_paper in ((db_rows, False), (paper_rows, True)):
         for r in group:
+            if judge_provenance and not pnl_is_trustworthy(r["notes"]):
+                excluded_untrusted["paper" if is_paper else "real"] += 1
+                continue
             side = str(r["direction"] or "").lower()
             direction = -1 if side in ("sell", "short", "-1") else 1
             keys = r.keys()
@@ -314,6 +342,18 @@ def _load_live_trades(
                 ),
                 "is_paper": is_paper,
             })
+    total_excluded = sum(excluded_untrusted.values())
+    if total_excluded:
+        total = len(out) + total_excluded
+        logger.warning(
+            "setup_candidates._load_live_trades(%s): POPULATION CHANGED — "
+            "excluded %d of %d rows (real=%d, paper=%d) whose pnl provenance "
+            "is not measured/estimated (provenance.pnl_is_trustworthy over "
+            "trades.notes); %d kept. The M23 live holdout / EV gate now "
+            "evaluates the same trusted population the trainer labels on.",
+            symbol, total_excluded, total,
+            excluded_untrusted["real"], excluded_untrusted["paper"], len(out),
+        )
     return out
 
 

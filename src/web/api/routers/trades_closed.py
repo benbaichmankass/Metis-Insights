@@ -16,7 +16,8 @@ fallback path goes silent automatically — no dashboard change needed.
 Wire-shape (camelCase per the dashboard ``ClosedTrade`` interface):
 
     { id, account, symbol, side, pattern, qty, entryPrice, exitPrice,
-      realizedPnl, realizedPnlPct, openedAt, closedAt, closeReason }
+      realizedPnl, realizedPnlPct, openedAt, closedAt, closeReason,
+      pnlProvenance }
 
 See ``docs/api-tier-policy.md`` Tier 1.
 """
@@ -42,6 +43,7 @@ from src.web.api._closed_at import (
     closed_at_norm_sql,
     normalize_closed_at_value,
 )
+from src.runtime.provenance import classify_pnl
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +173,16 @@ def _row_to_wire(row: sqlite3.Row) -> Dict[str, Any]:
         # trade", indistinguishable from a real flat. Now they render as
         # ``realizedPnl: null`` and the consumer shows an em-dash.
         "realizedPnl": round(float(raw_pnl), 4) if raw_pnl is not None else None,
+        # ``pnlProvenance`` — is realizedPnl a MEASUREMENT or a manufacture?
+        # Lower-cased bucket from provenance.classify_pnl (worst-recognised
+        # across pnl_source + exit_price_source in the notes JSON):
+        # "measured" | "estimated" | "fabricated" | "unverified". Null when
+        # realizedPnl is null (there is no number to grade). Consumers render
+        # fabricated/unverified rows with a caveat, never silently alike —
+        # the per-row sibling of /performance's pnlCoverage (P0.3, 2026-07-31).
+        "pnlProvenance": (
+            classify_pnl(row)[0].lower() if raw_pnl is not None else None
+        ),
         "realizedPnlPct": (
             round(float(row["pnl_percent"]), 6)
             if row["pnl_percent"] is not None else None

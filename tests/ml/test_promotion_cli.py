@@ -35,9 +35,14 @@ def _seed_db(path: Path):
         "updated_at TEXT)"
     )
     now = datetime.now(timezone.utc)
+    # Measured provenance so the row survives the default-on untrusted-pnl
+    # filter (P0.1, 2026-07-31 audit) — NULL notes correctly reads UNVERIFIED.
     conn.execute(
-        "INSERT INTO trades VALUES (1,'BTCUSDT',12.0,0.5,'closed',?,NULL,0,0)",
-        ((now - timedelta(hours=3)).isoformat(),),
+        "INSERT INTO trades VALUES (1,'BTCUSDT',12.0,0.5,'closed',?,?,0,0)",
+        (
+            (now - timedelta(hours=3)).isoformat(),
+            '{"exit_price_source": "recorded_exit_price"}',
+        ),
     )
     conn.execute("INSERT INTO order_packages VALUES (10,1,?)", (now.isoformat(),))
     conn.commit()

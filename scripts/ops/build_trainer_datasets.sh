@@ -50,7 +50,10 @@
 #   BUILD_LOG_PATH     — defaults to $REPO_ROOT/runtime_logs/trainer/dataset_builds.jsonl
 #   DATASET_FABRICATED_LABEL_FILTER_DISABLED
 #                      — kill-switch for the training-label provenance gate on
-#                        trade_outcomes + setup_labels. DEFAULT OFF, i.e. the
+#                        trade_outcomes + setup_labels + conviction_meta
+#                        (conviction_meta added P0.1, 2026-07-31 audit —
+#                        its `won`/`r_multiple` derive from the same journal
+#                        pnl). DEFAULT OFF, i.e. the
 #                        filter is ON: rows whose `pnl` rests on a mark
 #                        substituted at an arbitrary later time are dropped,
 #                        because `won` IS `pnl > 0` and such a row carries a
@@ -208,7 +211,8 @@ build_family trade_outcomes \
 build_family conviction_meta \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "trade_journal.db" --overwrite \
-  "db_path=${DB_PATH}"
+  "db_path=${DB_PATH}" \
+  "exclude_fabricated_pnl=${EXCLUDE_FABRICATED}"
 
 build_family execution_quality \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \

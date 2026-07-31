@@ -45,6 +45,7 @@ Metrics per model (all pure-stdlib, no numpy/scipy):
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -52,6 +53,8 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping
 
 from ..shadow.inspector import ShadowRecord, iter_records
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -87,8 +90,21 @@ def load_closed_trades(
     *,
     limit: int | None = None,
     include_demo: bool = False,
+    exclude_untrusted_pnl: bool = True,
 ) -> list[dict[str, Any]]:
     """Load closed, non-backtest trades with their open/close windows.
+
+    ``exclude_untrusted_pnl`` (default **True** — P0.1 of the 2026-07-31
+    full-system audit): drop rows whose ``pnl`` provenance is not
+    MEASURED/ESTIMATED per :func:`src.runtime.provenance.pnl_is_trustworthy`
+    over ``trades.notes``. This is the read-side twin of the
+    ``trade_outcomes``/``setup_labels`` label filter: ``win = pnl > 0`` feeds
+    the ``live_agreement`` promotion gate, so a fabricated pnl is a WRONG
+    gate input, not a noisy one — without this, a model could be *trained*
+    on the filtered population and *promoted* on the unfiltered one
+    (``BL-20260730-ML-LABELS-IGNORE-PNL-PROVENANCE``). Excluded counts are
+    logged at WARNING so the population change is stated, never silent.
+    Pass ``False`` to reproduce the legacy unfiltered read.
 
     Mirrors ``trades_closed._query_closed_trades`` /
     ``trade_scores._load_trade_windows`` (same COALESCE close-time
@@ -126,9 +142,21 @@ def load_closed_trades(
     finally:
         conn.close()
     out: list[dict[str, Any]] = []
+    excluded_untrusted = 0
+    if exclude_untrusted_pnl:
+        # Lazy import, same as the dataset families — provenance is
+        # stdlib-only but the lazy form keeps trainer-side import paths inert.
+        from src.runtime.provenance import pnl_is_trustworthy  # noqa: PLC0415
     for r in rows:
         opened_at = _parse_iso(r["opened_at"])
         if opened_at is None:
+            continue
+        if (
+            exclude_untrusted_pnl
+            and r["pnl"] is not None
+            and not pnl_is_trustworthy(r["notes"])
+        ):
+            excluded_untrusted += 1
             continue
         closed_at = _parse_iso(r["op_updated_at"] or _decode_notes_closed_at(r["notes"]))
         if closed_at is None:
@@ -141,6 +169,16 @@ def load_closed_trades(
             "opened_at": opened_at,
             "closed_at": closed_at,
         })
+    if excluded_untrusted:
+        total = len(out) + excluded_untrusted
+        logger.warning(
+            "attribution.load_closed_trades: POPULATION CHANGED — excluded "
+            "%d of %d closed rows whose pnl provenance is not "
+            "measured/estimated (provenance.pnl_is_trustworthy over "
+            "trades.notes); %d kept. The live_agreement gate now evaluates "
+            "the same trusted population the trainer labels on.",
+            excluded_untrusted, total, len(out),
+        )
     return out
 
 

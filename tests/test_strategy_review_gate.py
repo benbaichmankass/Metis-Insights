@@ -335,8 +335,8 @@ def populated_db(tmp_path: Path) -> Path:
             # Insert trade first; trade_id wires back into order_packages.linked_trade_id.
             trade_id = conn.execute(
                 "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
-                "position_size, status, pnl, is_backtest, strategy_name, account_id) "
-                "VALUES (?, 'BTCUSDT', 'long', 60000.0, 0.001, ?, ?, 0, ?, 'bybit_2')",
+                "position_size, status, pnl, is_backtest, strategy_name, account_id, notes) "
+                "VALUES (?, 'BTCUSDT', 'long', 60000.0, 0.001, ?, ?, 0, ?, 'bybit_2', '{\"exit_price_source\": \"recorded_exit_price\"}')",
                 (now, "closed_tp" if closed else "open", pnl, strategy),
             ).lastrowid
             conn.execute(
@@ -567,8 +567,8 @@ class TestOrphanedPackagesAreNotClosedTrades:
             for i, (pnl, status) in enumerate([(50.0, "closed_tp"), (-30.0, "closed_sl")]):
                 trade_id = conn.execute(
                     "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
-                    "position_size, status, pnl, is_backtest, strategy_name, account_id) "
-                    "VALUES (?, 'BTCUSDT', 'long', 60000.0, 0.001, ?, ?, 0, 'demo_strategy', 'bybit_2')",
+                    "position_size, status, pnl, is_backtest, strategy_name, account_id, notes) "
+                    "VALUES (?, 'BTCUSDT', 'long', 60000.0, 0.001, ?, ?, 0, 'demo_strategy', 'bybit_2', '{\"exit_price_source\": \"recorded_exit_price\"}')",
                     (now, status, pnl),
                 ).lastrowid
                 conn.execute(
@@ -691,8 +691,8 @@ class TestRegimeStampFromPkgMeta:
             ]):
                 trade_id = conn.execute(
                     "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
-                    "position_size, status, pnl, is_backtest, strategy_name, account_id) "
-                    "VALUES (?, 'BTCUSDT', 'long', 60000.0, 0.001, 'closed_tp', ?, 0, 'regime_test', 'bybit_2')",
+                    "position_size, status, pnl, is_backtest, strategy_name, account_id, notes) "
+                    "VALUES (?, 'BTCUSDT', 'long', 60000.0, 0.001, 'closed_tp', ?, 0, 'regime_test', 'bybit_2', '{\"exit_price_source\": \"recorded_exit_price\"}')",
                     (now, 10.0 if i == 0 else -5.0),
                 ).lastrowid
                 # The strategy's signal builder writes regime + vol_regime
@@ -775,8 +775,8 @@ class TestRegimeStampFromPkgMeta:
         try:
             trade_id = conn.execute(
                 "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
-                "position_size, status, pnl, is_backtest, strategy_name, account_id) "
-                "VALUES (?, 'BTCUSDT', 'long', 60000.0, 0.001, 'closed_tp', 5.0, 0, 'legacy_pkg', 'bybit_2')",
+                "position_size, status, pnl, is_backtest, strategy_name, account_id, notes) "
+                "VALUES (?, 'BTCUSDT', 'long', 60000.0, 0.001, 'closed_tp', 5.0, 0, 'legacy_pkg', 'bybit_2', '{\"exit_price_source\": \"recorded_exit_price\"}')",
                 (now,),
             ).lastrowid
             # Legacy meta JSON: no regime/vol_regime fields.
@@ -887,9 +887,9 @@ class TestDirectionAwarePolicyLookup:
             for i in range(3):
                 trade_id = conn.execute(
                     "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
-                    "position_size, status, pnl, is_backtest, strategy_name, account_id) "
+                    "position_size, status, pnl, is_backtest, strategy_name, account_id, notes) "
                     "VALUES (?, 'BTCUSDT', 'long', 60000.0, 0.001, 'closed_tp', -1.0, 0, "
-                    "'htf_pullback_trend_2h', 'bybit_2')",
+                    "'htf_pullback_trend_2h', 'bybit_2', '{\"exit_price_source\": \"recorded_exit_price\"}')",
                     (now,),
                 ).lastrowid
                 meta_json = json.dumps({
@@ -942,9 +942,9 @@ class TestDirectionAwarePolicyLookup:
             for i, direction in enumerate(["long", "short", "long"]):
                 trade_id = conn.execute(
                     "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
-                    "position_size, status, pnl, is_backtest, strategy_name, account_id) "
+                    "position_size, status, pnl, is_backtest, strategy_name, account_id, notes) "
                     "VALUES (?, 'BTCUSDT', ?, 60000.0, 0.001, 'closed_tp', -1.0, 0, "
-                    "'mixed_strat', 'bybit_2')",
+                    "'mixed_strat', 'bybit_2', '{\"exit_price_source\": \"recorded_exit_price\"}')",
                     (now, direction),
                 ).lastrowid
                 meta_json = json.dumps({
