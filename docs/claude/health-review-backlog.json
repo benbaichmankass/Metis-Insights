@@ -6971,10 +6971,15 @@
       "tier": 1,
       "trigger_condition": "An authored cell has no recorded re-audit date, or its last re-audit is older than its declared cadence.",
       "resolution_criteria": "A committed authored-cell register exists covering every cell in regime_policy.yaml with authoring evidence + fidelity + due-date + last verdict, and a review cadence owns re-measuring it.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": [],
-      "resolved_at": null,
+      "updates": [
+        {
+          "at": "2026-07-31T13:05:00+00:00",
+          "note": "RESOLVED (P0.4, full-system-audit-2026-07-31). The standing register exists at docs/audits/authored-cell-reaudit-register.md — one row per authored cell in config/regime_policy.yaml (keyed off the CELLS, never coverage_debt) with authoring evidence + fidelity-at-authoring + defect-class exposure (C1 venue-fee / C2 self-erasing-queue / C3 feed-sensitivity / C4 fabricated-PnL) + last verdict + next due-date. The cadence owner is /system-review: a new MANDATORY weekly review_coverage.authored_cells block fails the run when a cell lacks a row, is past due, or a due re-audit is neither dispatched nor blocker-cited. Roll-up at creation: 16 live-affecting cells, 4 re-audited (gld survives; htf trending re-authored), 12 blocked on the three named blockers (each has its own backlog row: 2D-VOL-CELLS-UNAUDITABLE, SQUEEZE-NO-HARNESS, DONCHIAN-APPROX-ONLY). The one open shipped-cell re-grade — the gld_pullback_1h C3 second-feed re-tag — stays tracked in the feed-instability row, not here."
+        }
+      ],
+      "resolved_at": "2026-07-31T13:05:00+00:00",
       "severity": "medium-high"
     },
     {
