@@ -8399,8 +8399,71 @@
         "runtime_logs/trainer/dataset_audit.jsonl",
         "diag #8142"
       ]
+    },
+    {
+      "id": "BL-20260730-TREND-THRESHOLD-INERT",
+      "opened_at": "2026-07-30T23:15:00+00:00",
+      "opened_by": "claude (diagnostic-output-defect-class session)",
+      "source": "Found while building the vol_threshold backfill — I had to establish which parameters actually determine a label before I could claim to recover one. That check caught a mislabel in my OWN merged comment from PR #8116 the same day.",
+      "title": "[ml] market_features `trend_threshold` is INERT — it affects no emitted column, yet it is a required kwarg and I documented it as label-defining",
+      "description": "`_label_regime` accepts `trend_threshold` and then ignores it: its own docstring says \"kept in the signature for backward compatibility but is no longer used\", because the 3-class -> 2-class collapse (S-ML-REGIME-CLASSIFIER-FIX, 2026-05-20) removed the 'trend' class. The trend-axis label that DOES exist (`trend_regime_label`) keys off `trend_chop_max`/`trend_trend_min` via the Kaufman efficiency ratio, not this parameter. So `trend_threshold` determines nothing.\n\nTWO CONSEQUENCES.\n(a) DOC DEFECT, already fixed in the PR that files this: PR #8116's comment said 'these two DEFINE regime_label' of BOTH thresholds. True of vol_threshold, false of trend_threshold — a mislabel introduced in the PR about mislabels, which is the sharpest possible argument for 'verify, don't assert'. Both the module docstring and the inline comment now state the inertness plainly.\n(b) OPEN QUESTION for the operator: should an inert parameter stay REQUIRED? It is currently required, and I kept it that way deliberately — every production caller already passes it, and a required kwarg always lands in metadata.json::build_params, so the dir records what the caller believed it was building with. The counter-argument is real though: requiring a parameter that does nothing invites exactly the wrong inference (a reader diffing two dirs will read a trend_threshold difference as a label difference when it cannot be). Options: (1) leave required + documented inert (status quo); (2) drop it from the signature — callers passing it are absorbed by **_ and it still reaches build_params, so no caller breaks; (3) remove it from every caller too, losing the record of intent. I lean (2): it stops the wrong inference at the source while keeping the recorded value. NOT doing it unasked — it touches the dataset builder's public signature.",
+      "tier": 1,
+      "severity": "low",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "trigger_condition": "n/a",
+      "resolution_criteria": "Operator picks an option; no reader can infer a label difference from a trend_threshold difference.",
+      "refs": [
+        "ml/datasets/families/market_features.py",
+        "ml/labeling/trend_regime.py",
+        "scripts/ml/backfill_dataset_vol_threshold.py"
+      ],
+      "updates": []
+    },
+    {
+      "id": "BL-20260731-BYBIT1-PHANTOM-OPEN-ROWS",
+      "opened_at": "2026-07-31T06:40:00+00:00",
+      "opened_by": "claude (diagnostic-output-defect-class session)",
+      "source": "Surfaced by the bybit-bracket-audit run #8132 and confirmed against broker truth via /api/diag/exchange_positions (#8140). Both read the SAME minute.",
+      "title": "[data-integrity] bybit_1 journal reports ~50x the exchange position on SOLUSDT (2836.1 vs 55.4) — phantom open rows with DEAD protective legs",
+      "description": "MEASURED, both sides of the comparison, same minute:\n  exchange (/api/diag/exchange_positions, bybit_1): SOLUSDT Buy 55.4 · BTCUSDT Buy 0.01 · BNBUSDT Sell 9.72 · ADAUSDT Buy 130562.0 · ETHUSDT Sell 109.92\n  journal open rows (bybit_bracket_audit #8132):\n    SOLUSDT qty_sum=2836.1 across #4213 pairs_sol_eth_a 55.4 (leg ALIVE), #4220 ict_scalp_sol_15m 1844.6 (leg DEAD), #4243 ict_scalp_sol_5m 936.1 (leg DEAD)\n    BTCUSDT qty_sum=1.553 across #4112 pairs_bnb_btc_b 0.01 (ALIVE) and #4179 ict_scalp_5m 1.543 (leg DEAD)\n    BNBUSDT qty_sum=13.43 across 5 rows vs position 9.72, three with NO tracked leg\n\nUnder one-way netting the exchange position should equal the sum of same-direction open rows. It does not: ~2780 SOL and ~1.54 BTC of journal-open quantity has no exchange backing, and in every divergent case the row's tracked SL leg is DEAD. The shape is consistent with rows that never filled, or that closed at the broker without the journal being updated — this item does NOT assert which, because nothing measured so far distinguishes them.\n\nSCOPE: bybit_1 is account_class=paper, so there is no real-money exposure. bybit_2 (real_money) was clean in the same audit — 100.0% coverage, both legs ALIVE, journal matching the exchange exactly. That contrast is the reason to treat this as a data bug rather than a venue problem.\n\nWHY IT MATTERS ANYWAY: a phantom open row is invisible to the naked-position sweeps (the exchange position IS covered, so coverage reads fine), it inflates open-exposure analytics, and if such a row is ever closed by a reconciler it books a fabricated PnL — which lands in the ML labels, the exact exposure BL-20260730-ML-LABELS-IGNORE-PNL-PROVENANCE tracks. This is the `journal_qty_divergent` signal that order_monitor._check_broker_naked_bybit_positions already emits DETECT-ONLY; this item records concrete instances against it.\n\nNOT FIXED HERE, deliberately. Reconciling a phantom row means deciding whether to close it and with what exit price — a money-DB writeback (Tier-2) whose wrong answer manufactures exactly the fabricated PnL described above. The right next step is to establish WHY the rows diverged (never-filled vs closed-unrecorded) before choosing a remediation, not to null them out.",
+      "tier": 2,
+      "severity": "medium",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "trigger_condition": "n/a",
+      "resolution_criteria": "Each divergent row is classified (never-filled vs closed-unrecorded) and resolved by a path that does not invent an exit price; exchange and journal agree on bybit_1.",
+      "refs": [
+        "scripts/ops/bybit_bracket_audit.py",
+        "src/units/accounts/order_monitor.py",
+        "src/web/api/routers/diag.py"
+      ],
+      "updates": []
+    },
+    {
+      "id": "BL-20260731-IB-BREAKER-TRANSITORY-CONFIRMED",
+      "opened_at": "2026-07-31T06:40:00+00:00",
+      "opened_by": "claude (diagnostic-output-defect-class session)",
+      "source": "Classified via /api/diag/ib_state (#8140) after seeing 'circuit breaker OPEN' in the pull-and-deploy log (#8131).",
+      "title": "[infra][no-action] the IB 'circuit breaker OPEN' log line was the TRANSITORY backoff, not a wedge — measured, and closed as such",
+      "description": "Filed as a RESOLVED no-action item so the next session that sees this log line does not re-derive it, and so the negative result is on record rather than lost.\n\nThe pull-and-deploy log showed repeated `IBClient: circuit breaker OPEN for 10.0.0.251:4002 ... gateway was unresponsive, retrying in 90s`. That line alone does not distinguish the normal backoff from a real wedge — which is precisely why the /api/diag/ib_state surface exists (see its entry in CLAUDE.md's Diagnostic-API table). Read rather than guessed, all three clients (498 exec, 497 exec, 9784 readonly) came back:\n  state=connected · connected=true · account_data_ready=true · breaker_open=FALSE · breaker_seconds_remaining=0.0 · consecutive_failures=0 · likely_wedged=FALSE\n  last_ok_age_seconds 1.2 / 29.0 / 59.8\nThe failures in `last_fail_reason` (connect_failed: TimeoutError at 06:11, liveness_probe_timeout at 06:05) are HISTORICAL and recovered — the retry-tolerant probe and the breaker cooldown did their job.\n\nCONCLUSION: transitory, auto-recovered, no action. Recorded because 'I saw a scary log line and it turned out to be fine' is a result worth keeping — the alternative is every future session paying the same triage cost, which is how an alarm becomes background noise.",
+      "tier": 1,
+      "severity": "low",
+      "status": "resolved",
+      "snoozed_until": null,
+      "resolved_at": "2026-07-31T06:40:00+00:00",
+      "trigger_condition": "n/a",
+      "resolution_criteria": "n/a — classified as transitory by measurement.",
+      "refs": [
+        "src/units/accounts/ib_client.py",
+        "src/web/api/routers/diag.py",
+        "docs/runbooks/ib-integration.md"
+      ],
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-30T22:35:00+00:00",
+  "updated_at": "2026-07-31T06:57:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

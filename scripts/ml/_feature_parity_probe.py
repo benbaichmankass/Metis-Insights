@@ -240,7 +240,17 @@ def _training_rows(
     return path, _load_jsonl(Path(path)), warn
 
 
-def _shadow_rows(symbol: str, model_id: str) -> (Optional[str], List[Dict[str, Any]]):
+def _shadow_rows(model_id: str) -> (Optional[str], List[Dict[str, Any]]):
+    """Shadow-log rows for ONE model id.
+
+    `symbol` was a parameter here and was never read — the filter is `model_id`
+    alone. That is correct (model ids are symbol-scoped: `btc-regime-15m-...`
+    only ever scores BTC) but the dead parameter was actively misleading: a
+    caller passing `--symbol ETHUSDT --model-id btc-regime-15m-...` would get
+    BTC rows while believing they had filtered to ETH. Removed rather than
+    silently ignored — an argument that looks like a filter and is not is the
+    same defect class this probe was corrected for (D/inert-parameter, 2026-07-31).
+    """
     for c in ("runtime_logs/shadow_predictions.jsonl",
               "runtime_logs/trainer_mirror/shadow_predictions.jsonl",
               "runtime_logs/trainer_mirror/live/shadow_predictions.jsonl"):
@@ -300,7 +310,7 @@ def main() -> int:
         print(f"    regime_label: n={len(lbls)} volatile={vol} "
               f"({round(100.0*vol/max(1,len(lbls)),2)}%)")
 
-    sl_path, sh_rows = _shadow_rows(a.symbol, a.model_id)
+    sl_path, sh_rows = _shadow_rows(a.model_id)
     print(f"\n-- LIVE shadow-log rows --\n  path={sl_path}  rows={len(sh_rows)}")
     if not sh_rows:
         print("  (no live rows for this model — RG4 unscoreable until it soaks)")
