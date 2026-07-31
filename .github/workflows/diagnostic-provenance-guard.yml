@@ -30,6 +30,9 @@ on:
   # Dormant until the native merge queue is enabled (BL-20260726); a required
   # check MUST run on the merge_group ref or the queue stalls.
   merge_group:
+    # NOTE (P2.1, 2026-07-31 audit): on merge_group events github.base_ref is
+    # EMPTY — every base_ref expression in this file falls back to 'main'
+    # (the only branch the queue serves; pull_request trigger is main-scoped).
   pull_request:
     branches: [main]
 
@@ -50,14 +53,14 @@ jobs:
         # Full fetch + three-dot: see the note in dry-run-guard.yml — a
         # `--depth=1` clone shallows origin/main and breaks the merge-base.
         run: |
-          git fetch origin "${{ github.base_ref }}"
-          git diff "origin/${{ github.base_ref }}"...HEAD > /tmp/pr.diff
+          git fetch origin "${{ github.base_ref || 'main' }}"
+          git diff "origin/${{ github.base_ref || 'main' }}"...HEAD > /tmp/pr.diff
           wc -l /tmp/pr.diff
 
       - name: Determine relevance
         id: changed
         run: |
-          FILES=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD)
+          FILES=$(git diff --name-only "origin/${{ github.base_ref || 'main' }}"...HEAD)
           if echo "$FILES" | grep -Eq '^scripts/.*\.py$'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else

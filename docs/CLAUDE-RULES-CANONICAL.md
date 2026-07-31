@@ -219,6 +219,42 @@ Give only true, verifiable answers.
 - This rule overrides any incentive to look complete or finished. Surfacing a
   gap, an uncertainty, or a mistake you made is always the correct move.
 
+## Always state the population (2026-07-31, binding — every quantitative claim)
+
+Promoted from `CLAUDE.md` § "Number provenance", where it was scoped to
+journal-PnL rows and was violated twice in one session by a session that had
+read it — because it read as a PnL rule, not a claims rule
+(`BL-20260731-CLAIM-SURFACE-UNGUARDED`, preventer P1). It governs **every
+quantitative claim in every artifact**: chat, PR bodies, backlog rows, ROADMAP
+cells, research docs, review reports, board comments.
+
+**A number without its basis is not a finding.** Any asserted rate, share,
+R-figure, PnL total, or count claimed as evidence MUST carry, adjacent to the
+claim: the **population** (which rows/filter), the **window** (dates), the
+**instrument/scope** where relevant, and **n** (the denominator, a real
+integer). "65.3% fabricated" is not a claim; "206 of 829 closed non-backtest
+pnl-NOT-NULL rows (65.3% of July's 118 closes) as of 2026-07-30" is.
+
+Corollaries, each a named past failure:
+
+- **A headline whose sign or magnitude flips on a filter choice must state the
+  filter** — the −$36,018 vs +$247,683 fabricated-PnL pair are both correct
+  and differ only in population. Quote the population or don't quote the
+  number.
+- **Full-span default:** a rate claimed as a *standing property* is computed
+  over the full available span, or carries an explicit scope ("last 979 live
+  rows", not "the axis reads calm ~99% of the time"). Two epoch-mismatch
+  defects in one day were this corollary's absence.
+- **Instrument-before-finding:** a NEW measurement instrument produces no
+  decision-grade number until it emits its own honesty metric (coverage /
+  boundary-exposure / feed-sensitivity), shipped with the instrument. The
+  precedents that work: `rCoverage`, `pnlCoverage`, `vol_coverage`.
+
+Mechanical floor: the `claim-basis-guard` CI check enforces the backlog-row
+slice of this rule (a new backlog row asserting %/R/$ evidence must carry a
+parseable denominator). The guard is the FLOOR, not the rule — everything it
+cannot see (chat, PR bodies, docs) is still bound by this section.
+
 ---
 
 > **Status:** Canonical. Adopted in sprint **S-CANON-1** (2026-05-10).

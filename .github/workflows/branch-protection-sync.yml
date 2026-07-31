@@ -44,14 +44,19 @@ jobs:
         env:
           TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
         run: |
-          # Skip-don't-fail when the secret isn't set yet. This keeps
-          # the workflow green on main until the operator does the
-          # one-time setup (see workflow header comment). Secrets are
-          # not available in `if:` expressions for security reasons,
-          # so we gate the actual API call on a step output instead.
+          # FAIL RED when the secret is missing (P2.3, 2026-07-31 audit).
+          # The skip-don't-fail bootstrap behaviour was right while
+          # protection wasn't set up yet; protection has been LIVE and
+          # load-bearing since 2026-07-30 (bp-report #8177: 11 contexts,
+          # enforce_admins) — from here on, a silently-dropped/rotated-out
+          # PAT would let the protection spec drift while this workflow
+          # stayed green, which is exactly the fail-open the audit flagged.
+          # Secrets are not available in `if:` expressions, so the gate
+          # rides a step output.
           if [ -z "$TOKEN" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::BRANCH_PROTECTION_TOKEN secret is not set yet — skipping sync. See .github/workflows/branch-protection-sync.yml header comment for one-time setup."
+            echo "::error::BRANCH_PROTECTION_TOKEN secret is MISSING — branch protection can no longer be synced and will drift from this file. Re-create the fine-grained PAT (Administration: write, this repo only) and set the secret; see the workflow header. Failing RED (protection is live and load-bearing since 2026-07-30; silent skip was only correct during bootstrap)."
+            exit 1
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
             echo "::notice::BRANCH_PROTECTION_TOKEN is set; proceeding to sync."
@@ -97,7 +102,18 @@ jobs:
           # job unless it returns exit 1. A guard whose failure path is never
           # exercised is exactly the "green that checked nothing" this defect
           # class is about.
-          REQUIRED_CONTEXTS='["pytest-collect","pytest-run","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver","provenance-consumer-guard","diagnostic-provenance-guard"]'
+          # layer-guard / json-extract-guard / soak-doctrine-guard /
+          # artifact-validity-guard promoted to REQUIRED on 2026-07-31 (P2.1 of
+          # the full-system-audit plan): all four run on every PR (no `paths:`
+          # filter, so no permanently-pending trap), all four carry the
+          # merge_group trigger, and all four were green on the audit-era PRs
+          # (#8163/#8185) — green on merge, not waivered green. artifact-validity
+          # is the direct preventer for the vacuous-artifact class
+          # (BL-20260730-M1-PRICE-JOIN-DEAD); advisory-only reproduces the
+          # walk-past failure mode it exists to stop. NOTE its context is
+          # "artifact-validity-guard" — the job id was renamed from the
+          # ambiguous "guard" in the same PR that promoted it.
+          REQUIRED_CONTEXTS='["pytest-collect","pytest-run","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver","provenance-consumer-guard","diagnostic-provenance-guard","layer-guard","json-extract-guard","soak-doctrine-guard","artifact-validity-guard"]'
 
           # Use the CURRENT canonical repo path from the Actions context, NOT a
           # hardcoded owner/repo. The 2026-07-23 rename (ict-trading-bot ->

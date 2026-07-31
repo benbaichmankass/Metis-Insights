@@ -288,3 +288,40 @@ render-level checks, prop journal deep-audit.
   #8173/#8174/#8175/#8176, PR #8163, `src/web/api/routers/diag.py` (allowlist region),
   `scripts/ops/status_check.sh` (header).
 - Agents A–E: appended on completion.
+
+## Post-execution plan revision (2026-07-31 evening, operator-approved "get going autonomously")
+
+P0 + P1 are DONE (ledger rows S-AUDIT-P0-CLOSEOUT / S-AUDIT-P1-TRAINER-HONESTY).
+The remaining work was re-cut by what execution taught us, ordered by "what
+could quietly mislead a money decision":
+
+- **W0 — verify the bleeding stopped** (in flight): nightly-cycle check of the
+  P1 changes (morning check armed); provenance mix of closes since the
+  2026-07-30 exit-anchor deploy — FIRST READ (trainer-diag #8190): of 6 closes
+  since 07-30, 2 measured / 2 estimated (candle_at_close — the anchor firing) /
+  **2 still fabricated (local_markprice)** — pre-restart-tail vs regression
+  under investigation (`BL-20260731-EXITANCHOR-POST-DEPLOY-FABRICATION-CHECK`);
+  live-VM sha + consumer render checks pending relay results.
+- **W1 — real-money truth reconciliation** (promoted from P3.3; data gathering
+  in flight via #8196/#8197): one pass settling the Bybit bracket contradiction
+  triangle + SOL journal-vs-exchange divergence + ib_paper MGC lots; Tier-2
+  remediations proposed to the operator, never auto-applied.
+- **W2 — enforcement coherence** (THIS revision's execution): P2.1 merge_group
+  empty-base_ref fixed in **15** workflows (the audit's count of 8 was the
+  guard-type subset) + layer/json-extract/soak-doctrine/artifact-validity
+  promoted to required (artifact-validity job id de-ambiguated from `guard`);
+  P2.2 macro-producer-liveness vacuity output wired to alert + final-fail;
+  P2.3 branch-protection-sync fails red on a missing PAT; P2.4
+  `ict-ib-executions-pull` allowlisted + the `diag-unit-allowlist` guard
+  (deploy units ↔ diag allowlist, exempt-with-reason); P2.5 "Always state the
+  population" promoted to a top-level binding canonical rule + the
+  `claim-basis-guard` mechanical floor (advisory → promote after soak).
+- **W3 — ML follow-through** (next session): staleness-list triage
+  (keep-or-retire the never-trained manifests; review_journal 0-row source
+  contract), the Bybit fills pagination experiment →
+  `BL-20260731-FILLS-STORE-PREDATES-THE-FABRICATION` Tier-2 decision, the
+  OVERDUE fc-pcv frozen-dataset swap (~07-28) + SOL advisory-head restoration
+  re-gate, and the three tool gaps blocking 12/16 authored-cell re-audits.
+- **W4 — hygiene** (next session): backlog consolidation sprint (P3.1), doc
+  reconciliation headlined by the never-audited deployed Svelte SPA (P3.2),
+  bybit_2 smoke NoneType + 0-qty intents (P3.4).

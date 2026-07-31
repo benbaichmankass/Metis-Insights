@@ -1,0 +1,57 @@
+name: claim-basis-guard
+
+# A NEW backlog row asserting quantitative evidence (%, R-figure, $-total)
+# must carry a parseable denominator/basis in the same row. Mechanical floor
+# of docs/CLAUDE-RULES-CANONICAL.md § "Always state the population" —
+# P2.5 of the 2026-07-31 full-system-audit plan
+# (BL-20260731-CLAIM-SURFACE-UNGUARDED, preventer P2).
+# Diff-scoped: pre-existing rows are grandfathered; only rows whose id is new
+# vs the base are held to it. Advisory for now — promote via
+# branch-protection-sync.yml after a soak with ~0 false positives.
+
+on:
+  merge_group:
+    # NOTE: on merge_group events github.base_ref is EMPTY — the expression
+    # below falls back to 'main' (the only branch the queue serves).
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claim-basis-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  claim-basis-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: New backlog claim rows carry a basis
+        run: |
+          git fetch origin "${{ github.base_ref || 'main' }}" --quiet
+          python3 scripts/check_claim_basis.py --base "origin/${{ github.base_ref || 'main' }}"
+
+      - name: Self-test the failure path
+        # Feed the guard a fabricated basis-less claim row and require red.
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+          sys.path.insert(0, "scripts")
+          from check_claim_basis import check_new_rows
+          head = json.dumps({"items": [{"id": "BL-SELFTEST",
+                                        "title": "selftest",
+                                        "description": "the head is 97% calm, promote it"}]})
+          fails = check_new_rows("{}", head, "selftest.json")
+          if len(fails) != 1:
+              print("::error::guard did NOT flag a basis-less claim row — failure path broken")
+              raise SystemExit(1)
+          print("failure path verified: basis-less claim row correctly flagged")
+          EOF

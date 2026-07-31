@@ -600,7 +600,10 @@ not exist. Every contributing component was individually correct, which is why
 line-by-line audits kept returning clean: the defect lives at the seams. Full account:
 `docs/sprint-logs/S-PROVENANCE-EXITLEAK-ROOTCAUSE-2026-07-30.md`.
 
-**ALWAYS STATE THE POPULATION.** Measured against the live journal on 2026-07-30
+**ALWAYS STATE THE POPULATION.** *(Promoted 2026-07-31 to a TOP-LEVEL binding
+rule covering every quantitative claim in any artifact —
+`docs/CLAUDE-RULES-CANONICAL.md` § "Always state the population"; what follows
+here is the PnL-provenance instance that motivated it.)* Measured against the live journal on 2026-07-30
 (`scripts/ops/provenance_exposure_audit.py`, trainer-diag #8073) the headline figure moves
 by more than its own SIGN depending on which rows you count:
 
