@@ -503,6 +503,7 @@ jobs:
           } >>"$GITHUB_ENV"
           echo "ENV_SERVICE=${service}" >>"$GITHUB_ENV"
           echo "ACTION_APPLY=${apply:-}" >>"$GITHUB_ENV"
+          echo "ACTION_ALLOW_MIRROR=${allow_mirror:-}" >>"$GITHUB_ENV"
           echo "ACTION_IDS=${ids:-}" >>"$GITHUB_ENV"
           echo "ACTION_EQUAL_ONLY=${equal_only:-}" >>"$GITHUB_ENV"
           echo "ACTION_EXIT_PRICE=${exit_price:-}" >>"$GITHUB_ENV"
@@ -858,6 +859,7 @@ jobs:
             backfill-trade-costs)               SCRIPT="backfill_trade_cost_estimates_action.sh" ;;
             backfill-broker-order-id)           SCRIPT="backfill_broker_order_id_action.sh" ;;
             backfill-broker-truth-costs)        SCRIPT="backfill_broker_truth_costs_action.sh" ;;
+            backfill-fabricated-exits)          SCRIPT="backfill_fabricated_exits_action.sh" ;;
             migrate-closed-at-iso)              SCRIPT="migrate_closed_at_to_iso_action.sh" ;;
             pull-exchange-fills)                SCRIPT="pull_exchange_fills_action.sh" ;;
             pull-exchange-funding)              SCRIPT="pull_exchange_funding_action.sh" ;;
@@ -1079,6 +1081,13 @@ jobs:
           fi
           if [ "${ACTION}" = "repair-netted-rows" ]; then
             REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
+          fi
+          # backfill-fabricated-exits: dry-run unless apply:1. allow_mirror is a
+          # SEPARATE opt-in because the MEASURED (own fills) and ESTIMATED
+          # (mirror account) tiers are different claims and must be committable
+          # apart — one is this order's fill, the other is a sibling account's.
+          if [ "${ACTION}" = "backfill-fabricated-exits" ]; then
+            REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_ALLOW_MIRROR=$(printf '%q' "${ACTION_ALLOW_MIRROR:-}") ${REMOTE_CMD}"
           fi
           # validate-partial-tpsl needs no extra params — the target account
           # (bybit_1 demo) is hard-locked inside the helper.
