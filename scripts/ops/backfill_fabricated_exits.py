@@ -8,11 +8,35 @@ because **IBKR's** execution history is short-lived — `reqExecutions` serves
 roughly the current trading day, so for IB the evidence is genuinely gone and
 any reconstruction would be invention.
 
-**Bybit's evidence is not gone.** It is sitting in `exchange_fills.sqlite`,
-pulled daily the whole time. Applying the rule there was over-generalisation of
-a venue-specific constraint — the same mistake as `if is_demo: return None`,
-which generalised "this ENDPOINT is unreliable on demo" into "there is no broker
-truth for demo".
+**Bybit's evidence is not gone — for RECENT rows.** It is sitting in
+`exchange_fills.sqlite`. Applying the IB rule blanket-wide was an
+over-generalisation of a venue-specific constraint — the same mistake as
+`if is_demo: return None`, which generalised "this ENDPOINT is unreliable on
+demo" into "there is no broker truth for demo".
+
+.. warning::
+
+   **MEASURED 2026-07-31 (dry run #8161): this recovers 13 of 327 fabricated
+   rows via own fills — 4.0%.** The paragraph above was written before that
+   measurement and overstated the case; it is corrected here rather than left
+   to read as a promise the tool does not keep.
+
+   The store did NOT accrue "the whole time". It held **zero** fills until
+   2026-07-13 (`BL-20260713-EXCHANGE-FILLS-STORE-EMPTY` — the puller existed
+   but had no timer), and `pull_exchange_fills_action.sh` pulls only a
+   **7-day** window per run, so it accrues strictly FORWARD from that date.
+   Measured contents: 305 fills, 12 symbols, 2026-07-06..07-30.
+
+   Fabrication starts **2026-06-08**. The ~5 intervening weeks have no local
+   fills, so for those rows the evidence really is gone — the same
+   venue-retention constraint as IB, over a different window. The exclusion
+   filter, not this backfill, is the remedy for them.
+
+   Before concluding they are permanently unrecoverable, note
+   ``exchange_fills_puller`` calls ``fetch_my_trades(sym, since_ms, 200, {})``
+   with **limit 200 and no pagination**, so a naively widened ``--days`` would
+   truncate silently. Full record + the experiment to run:
+   ``BL-20260731-FILLS-STORE-PREDATES-THE-FABRICATION``.
 
 THE REGRESSION THIS REPAIRS, WITH ITS START DATE
 ------------------------------------------------
