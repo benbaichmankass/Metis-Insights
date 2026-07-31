@@ -48,6 +48,17 @@
 #                        daily ES=F).
 #   MARKET_END         — defaults to today (UTC)
 #   BUILD_LOG_PATH     — defaults to $REPO_ROOT/runtime_logs/trainer/dataset_builds.jsonl
+#   DATASET_FABRICATED_LABEL_FILTER_DISABLED
+#                      — kill-switch for the training-label provenance gate on
+#                        trade_outcomes + setup_labels. DEFAULT OFF, i.e. the
+#                        filter is ON: rows whose `pnl` rests on a mark
+#                        substituted at an arbitrary later time are dropped,
+#                        because `won` IS `pnl > 0` and such a row carries a
+#                        WRONG label, not a noisy one. Set to 1/true to revert
+#                        without a redeploy. Shrinks the corpus (833 -> 506 on
+#                        the 2026-07-31 journal) and skews it toward older
+#                        months — the builders log the per-month distribution
+#                        at WARNING on every build.
 #
 # Exit codes:
 #   0   all required families built (0-row families are not errors)
@@ -60,6 +71,26 @@ VENV_DIR="${VENV_DIR:-$REPO_ROOT/.venv}"
 DATA_DIR="${DATA_DIR:-$REPO_ROOT/data}"
 DATASETS_ROOT="${DATASETS_ROOT:-$REPO_ROOT/datasets-out}"
 DATASET_VERSION="${DATASET_VERSION:-v002}"
+# Provenance gate on TRAINING LABELS (operator option A, 2026-07-30).
+# `won` IS `pnl > 0`, so a pnl decided by a mark substituted at an arbitrary
+# later time does not make a NOISY label — it makes a WRONG one, and a wrong
+# label is worse than an absent row. Measured on the live journal 2026-07-31
+# (833 closed live rows): 506 keep / 327 drop (39.3%), the drop concentrated in
+# recent months because fabrication is a REGRESSION WITH A START DATE, not
+# drift (BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ).
+#
+# DEFAULT ON, with a kill-switch — the same shape as REGIME_ROUTER_DISABLED.
+# Training on labels known to be wrong is the defect; excluding them is the
+# fix, so it must not sit behind a default-off flag that a redeploy could drop.
+# Set DATASET_FABRICATED_LABEL_FILTER_DISABLED=1 to revert without a redeploy.
+#
+# NOTE this SHRINKS the corpus and SHIFTS it toward older months. The builders
+# log the exact per-month distribution at WARNING on every build — read it
+# before comparing any metric to a prior run.
+case "${DATASET_FABRICATED_LABEL_FILTER_DISABLED:-}" in
+  1|true|TRUE|yes) EXCLUDE_FABRICATED="false" ;;
+  *)               EXCLUDE_FABRICATED="true"  ;;
+esac
 # Rolling 5-years-ago window for the BTCUSDT (Bybit) market-data builds so
 # the regime classifiers always train on ≥5y of recent history. The daily
 # cron re-derives this each run; `date -d '5 years ago'` is GNU coreutils
@@ -166,7 +197,8 @@ build_family backtest_results \
 build_family trade_outcomes \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "trade_journal.db" --overwrite \
-  "db_path=${DB_PATH}" "include_snapshots=true"
+  "db_path=${DB_PATH}" "include_snapshots=true" \
+  "exclude_fabricated_pnl=${EXCLUDE_FABRICATED}"
 
 # conviction_meta — v2 conviction meta-model training rows (one per closed/
 # filled/non-backtest order package joined to its trade). Journal-backed; same
@@ -196,7 +228,8 @@ fi
 build_family setup_labels \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "trade_journal.db" --overwrite \
-  "db_path=${DB_PATH}" "risk_pct=1.0" "r_cap=3.0"
+  "db_path=${DB_PATH}" "risk_pct=1.0" "r_cap=3.0" \
+  "exclude_fabricated_pnl=${EXCLUDE_FABRICATED}"
 
 if [ -f "$AUDIT_PATH" ]; then
   build_family setup_labels_audit \

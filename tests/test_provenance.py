@@ -310,3 +310,51 @@ def test_classify_pnl_reproduces_the_live_2026_07_30_distribution():
     assert counts[P.FABRICATED] == 206
     assert counts[P.UNVERIFIED] == 119
     assert P.coverage(counts) == 0.608
+
+
+class TestPnlIsTrustworthy:
+    """`pnl_is_trustworthy` — the label-grade predicate both builders share.
+
+    Hoisted here from `setup_labels` once `trade_outcomes` needed it too: two
+    copies of a provenance rule is the drift this module exists to prevent.
+    """
+
+    def test_takes_a_raw_json_STRING_not_just_a_dict(self):
+        """The whole reason it exists.
+
+        `classify_pnl` handed a raw JSON string reads `row['pnl_source']` off a
+        `str`, catches the TypeError, and returns UNVERIFIED for EVERY row —
+        silent and total. The decode belongs in one place.
+        """
+        from src.runtime.provenance import pnl_is_trustworthy
+
+        assert pnl_is_trustworthy('{"exit_price_source": "bybit_closed_pnl"}')
+        assert not pnl_is_trustworthy('{"exit_price_source": "local_markprice"}')
+
+    def test_accepts_a_mapping_too(self):
+        from src.runtime.provenance import pnl_is_trustworthy
+
+        assert pnl_is_trustworthy({"exit_price_source": "bybit_closed_pnl"})
+
+    def test_estimated_is_admitted_measured_only_would_be_too_strict(self):
+        from src.runtime.provenance import pnl_is_trustworthy
+
+        assert pnl_is_trustworthy({"exit_price_source": "candle_at_close"})
+
+    def test_fails_CLOSED_on_junk_none_and_non_json(self):
+        """Burden of proof is on the data for a training label."""
+        from src.runtime.provenance import pnl_is_trustworthy
+
+        for blob in (None, "", "sweep-run-2026-07-01", "[1,2,3]", 42, {}):
+            assert not pnl_is_trustworthy(blob), blob
+
+    def test_local_compute_alone_defers_to_the_exit_price(self):
+        """`local_compute` describes the arithmetic, not the evidence."""
+        from src.runtime.provenance import pnl_is_trustworthy
+
+        assert not pnl_is_trustworthy(
+            {"pnl_source": "local_compute",
+             "exit_price_source": "local_markprice"})
+        assert pnl_is_trustworthy(
+            {"pnl_source": "local_compute",
+             "exit_price_source": "bybit_closed_pnl"})

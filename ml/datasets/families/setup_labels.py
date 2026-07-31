@@ -24,7 +24,6 @@ is the trainer's responsibility (same rule as `trade_outcomes`).
 """
 from __future__ import annotations
 
-import json
 import logging
 import sqlite3
 from datetime import datetime
@@ -69,30 +68,15 @@ _NULLABLE_TEXT = {
 def _pnl_is_trustworthy(notes_raw: Any) -> bool:
     """True when this row's ``pnl`` rests on a MEASURED or ESTIMATED exit.
 
-    Delegates to :mod:`src.runtime.provenance` — the ONE vocabulary. Do not
-    re-derive the source list here; that is how the two halves drift apart.
-
-    UNVERIFIED is excluded along with FABRICATED: a row with no provenance
-    recorded is not evidence of measurement, and for a *training label* the
-    burden of proof belongs on the data. Fail-CLOSED — an unparseable notes
-    blob is treated as untrustworthy rather than waved through, because the
-    permissive default is exactly what let fabrication into the labels.
+    Thin delegate to :func:`src.runtime.provenance.pnl_is_trustworthy` — the
+    ONE vocabulary. The body was hoisted there once ``trade_outcomes`` needed
+    the same predicate: two copies of a provenance rule is the drift this
+    module exists to prevent. Kept as a named local so this family's own tests
+    and call sites read against the family.
     """
-    from src.runtime.provenance import (  # noqa: PLC0415
-        MEASURED, ESTIMATED, classify_pnl,
-    )
+    from src.runtime.provenance import pnl_is_trustworthy  # noqa: PLC0415
 
-    try:
-        notes = json.loads(notes_raw) if isinstance(notes_raw, str) else notes_raw
-        if not isinstance(notes, dict):
-            return False
-        # classify_pnl returns (bucket, why) — unpack it. Comparing the TUPLE
-        # against bare strings silently returns False for EVERY row, which would
-        # have excluded the entire training set rather than a quarter of it.
-        bucket, _why = classify_pnl(notes)
-        return bucket in (MEASURED, ESTIMATED)
-    except Exception:  # noqa: BLE001
-        return False
+    return pnl_is_trustworthy(notes_raw)
 
 
 def _clip(value: float, cap: float) -> float:
@@ -177,7 +161,14 @@ class SetupLabelsBuilder(DatasetBuilder):
             # `notes` carries the provenance keys. Selected for FILTERING only —
             # it is never added to _RAW_COLUMNS and so never reaches the feature
             # matrix (leakage discipline S-AI-WS5-C is unchanged).
-            select_cols = ", ".join(_RAW_COLUMNS) + ", is_backtest, notes"
+            #
+            # Gated on the flag so the DEFAULT path cannot raise `no such
+            # column: notes` on a schema without it — the same latent
+            # regression found in `trade_outcomes`, fixed here for symmetry
+            # rather than left to bite whichever caller hits it first.
+            select_cols = ", ".join(_RAW_COLUMNS) + ", is_backtest"
+            if exclude_fabricated_pnl:
+                select_cols += ", notes"
             sql = (
                 f"SELECT {select_cols} FROM trades "
                 "WHERE status = 'closed' "

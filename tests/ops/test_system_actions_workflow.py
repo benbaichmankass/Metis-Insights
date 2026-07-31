@@ -103,6 +103,11 @@ EXPECTED_ACTIONS = {
     # Slice B / B2 — FIFO-attribute broker-truth round-trip fees (join by
     # broker_order_id + fills store) onto cleanly-attributable closed trades.
     "backfill-broker-truth-costs": "backfill_broker_truth_costs_action.sh",
+    # 2026-07-31 — re-derive FABRICATED exit prices from the broker fills
+    # already on disk in exchange_fills.sqlite
+    # (BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ). Dry-run by default;
+    # apply:1 makes it a Tier-2 money-DB write.
+    "backfill-fabricated-exits": "backfill_fabricated_exits_action.sh",
     # 2026-06-22 — normalise existing epoch-ms trades.closed_at rows to ISO
     # (BL-20260620-RECONCILER-CLOSEDAT-MS); distinct from backfill-closed-at
     # (which fills NULLs). Wraps migrate_closed_at_to_iso.py.
@@ -260,6 +265,7 @@ TIER_2_ACTIONS = {
     "backfill-trade-costs",
     "backfill-broker-order-id",
     "backfill-broker-truth-costs",
+    "backfill-fabricated-exits",
     "migrate-closed-at-iso",
     "pull-exchange-fills",
     "pull-exchange-funding",
@@ -561,4 +567,40 @@ def test_workflow_invokes_notify_step() -> None:
     assert "continue-on-error: true" in notify_block, (
         "Notify step must `continue-on-error: true` so a notify failure "
         "doesn't flip an otherwise-successful action."
+    )
+
+
+def test_no_action_exists_in_the_workflow_that_is_absent_from_EXPECTED_ACTIONS() -> None:
+    """The REVERSE direction — and the gap that let a half-registration ship.
+
+    Every other guard in this file iterates ``EXPECTED_ACTIONS``, so they check
+    that each action *this test file knows about* is wired everywhere. None of
+    them can see an action added to the WORKFLOW but never added here: it is
+    absent from the dict, so every loop simply skips it and the whole suite
+    passes on a broken registration.
+
+    That is exactly what happened with ``backfill-fabricated-exits`` (PR #8149,
+    2026-07-31): added to the SCRIPT-name case, absent from the tier
+    alternation, the choice options, ``notify_run.sh`` and the docs. It went
+    green, then died at dispatch with ``Permission denied (publickey)`` because
+    the Validate step hit ``*) exit 2`` before the SSH key was installed.
+
+    Note the sting: ``test_validate_step_classifies_every_action_into_a_tier``
+    was written for this precise incident (``backfill-account-class``,
+    2026-06-15) and could not catch the recurrence, because it too loops over
+    ``EXPECTED_ACTIONS``. A registry-keyed guard cannot police entries missing
+    from the registry — only the reverse check can, which is why it exists.
+    """
+    text = WORKFLOW.read_text()
+    in_workflow = set(re.findall(r'^\s*([a-z0-9][a-z0-9-]*)\)\s*SCRIPT="',
+                                 text, re.MULTILINE))
+    assert in_workflow, "found no `<action>) SCRIPT=\"…\"` mappings — did the dispatch shape change?"
+    unknown = in_workflow - set(EXPECTED_ACTIONS)
+    assert not unknown, (
+        f"Action(s) {sorted(unknown)} are mapped to a wrapper script in "
+        f"system-actions.yml but are MISSING from EXPECTED_ACTIONS. Every "
+        f"other guard here loops over that dict, so they are invisible to all "
+        f"of them — the action will pass CI and then abort at dispatch before "
+        f"the SSH key step. Add them to EXPECTED_ACTIONS (and TIER_2_ACTIONS "
+        f"if mutating)."
     )

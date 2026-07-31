@@ -8462,8 +8462,52 @@
         "docs/runbooks/ib-integration.md"
       ],
       "updates": []
+    },
+    {
+      "id": "BL-20260731-SYSTEM-ACTION-HALF-REGISTERED",
+      "status": "resolved",
+      "tier": 1,
+      "severity": "medium",
+      "opened_at": "2026-07-31T07:15:00+00:00",
+      "opened_by": "claude (provenance session)",
+      "title": "[ci][ops] registry-keyed guards cannot police an action MISSING from the registry — a half-registered system-action passes CI (fixed + guarded)",
+      "description": "CORRECTION to my own first draft of this item, which claimed 'nothing cross-checks the three lists against each other'. That was WRONG and I had not read the tests before writing it. `tests/ops/test_system_actions_workflow.py` cross-checks thoroughly — choice options, SCRIPT dispatch, tier alternation, notify_run.sh, the docs table and wrapper existence.\n\nTHE REAL DEFECT is narrower and more interesting: every one of those guards iterates `EXPECTED_ACTIONS`. An action added to the WORKFLOW but never added to that dict is absent from every loop, so the entire suite passes on a broken registration. A registry-keyed guard cannot police an entry missing from the registry.\n\nPR #8149 added `backfill-fabricated-exits` to the SCRIPT-name case only. CI was green; the dispatch then died with `Permission denied (publickey)` because the Validate step hit `*) exit 2` before the SSH-key step.\n\nTHE STING: `test_validate_step_classifies_every_action_into_a_tier` was written for this precise incident (`backfill-account-class`, 2026-06-15) and its docstring even describes the confusing `Permission denied (publickey)` symptom — and it could not catch the recurrence, because it too loops over `EXPECTED_ACTIONS`.\n\nFIXED in #8152: the action is registered in all six places, and a REVERSE-direction guard now asserts every `<action>) SCRIPT=\"…\"` mapping in the workflow appears in `EXPECTED_ACTIONS`. Verified by reproduction — removing the entry makes the new guard fail with exactly the #8149 shape, and restoring it goes green (324 tests).\n\nSTILL OPEN, filed separately below as the diagnostic half: the failure comment posted back to the issue lists 'Common causes: VM_SSH_KEY secret unset/corrupted; SSH host unreachable; wrapper script returned nonzero' — none of which was tested or true. The real cause reaches the run log via ::error:: but never the comment, so the operator-facing message points AWAY from the fault. A `pull-and-deploy` had succeeded minutes earlier on the same secret, which is what disproved the suggested causes.",
+      "refs": [
+        ".github/workflows/system-actions.yml",
+        "scripts/ops/backfill_fabricated_exits_action.sh"
+      ],
+      "resolved_at": "2026-07-31T07:30:00+00:00",
+      "resolution": "Fixed + guarded in #8152 (reverse-direction check, reproduction-verified). The unprovenanced failure comment remains open as BL-20260731-SYSTEM-ACTION-FAILURE-COMMENT-UNPROVENANCED."
+    },
+    {
+      "id": "BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "opened_at": "2026-07-31T07:15:00+00:00",
+      "opened_by": "claude (provenance session)",
+      "title": "[ml][data] backtest augmentation is fully built and has NEVER been fed — zero is_backtest=1 rows in trades",
+      "description": "Measured on the live journal 2026-07-31 (trainer-diag #8155): of 833 closed rows with non-null pnl, `is_backtest=0` for 833 and there are ZERO `is_backtest=1` rows — none, in any month.\n\nThe augmentation path is fully built and unused: `trade_outcomes` takes `include_backtest`, emits a `source` ('live'|'backtest') column for exactly this purpose, and `ml/experiments/splitters.py::split_live_holdout` exists to train on simulated rows while holding out real ones. The family docstring states the intent — 'manufactures more labeled training data than the ~80 real trades collapse the decision models against (gap G4)'. Nothing ever writes the rows: the backtest harness records to the `backtest_results` TABLE, not to `trades.is_backtest=1`.\n\nCONSEQUENCE: the decision-model corpus is capped at live trades only (833, and 506 after the provenance filter), and every 'not enough data to train' conclusion in this repo has been reached WITHOUT the augmentation that was built to solve it. Operator raised this directly 2026-07-31: 'there is lots of infrastructure to backtest and backfill rows of data so that we can train things not on live data only.' They are right; the infrastructure exists and is not connected.\n\nNOTE the trap for whoever picks this up: switching a manifest to `split_live_holdout` BEFORE the rows exist RAISES ('no synthetic (train) rows') rather than degrading — it would convert a quarantine-skip into a hard failure. Write the rows first, then switch the split.\n\nSame defect class as the two other findings this session: infrastructure READ but never WRITTEN (cf. BL-20260731-KILLZONE-BIAS-NEVER-PERSISTED), the mirror of provenance WRITTEN but never READ.",
+      "refs": [
+        "ml/datasets/families/trade_outcomes.py",
+        "ml/experiments/splitters.py",
+        "scripts/ops/build_trainer_datasets.sh"
+      ]
+    },
+    {
+      "id": "BL-20260731-SYSTEM-ACTION-FAILURE-COMMENT-UNPROVENANCED",
+      "status": "open",
+      "tier": 1,
+      "severity": "low",
+      "opened_at": "2026-07-31T07:30:00+00:00",
+      "opened_by": "claude (provenance session)",
+      "title": "[ops][diagnostics] system-action failure comment names causes no code path tested",
+      "description": "Split out of BL-20260731-SYSTEM-ACTION-HALF-REGISTERED (whose code half is fixed).\n\nOn any failure, system-actions.yml posts a STATIC cause list: 'VM_SSH_KEY secret unset/corrupted; SSH host unreachable; wrapper script returned nonzero'. It is printed regardless of which step failed, and nothing in the comment reveals that it is a guess.\n\nObserved 2026-07-31: an allowlist miss (Validate step, `*) exit 2`) produced that comment verbatim. All three suggested causes were false — a `pull-and-deploy` had succeeded minutes earlier on the same secret. The true cause was printed via ::error:: in the run log but never surfaced to the reader.\n\nThis is diagnostic-provenance sub-class A (a failure message naming a cause no code path tested), and CLAUDE.md's prescribed fix applies directly: branch on the actual failure STAGE rather than rewording the label. The workflow already knows the stage — EXIT_CODE is empty for a pre-flight abort vs set for a wrapper failure — so the comment can state which stage failed instead of listing causes it never checked.",
+      "refs": [
+        ".github/workflows/system-actions.yml"
+      ]
     }
   ],
-  "updated_at": "2026-07-31T06:57:00+00:00",
+  "updated_at": "2026-07-31T07:30:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
