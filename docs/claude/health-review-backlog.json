@@ -8698,9 +8698,9 @@
       "description": "The exit-anchor fix (Tier-2, 2026-07-30) is supposed to make local_markprice writes on confirmed closes impossible. Two candle_at_close rows prove the new path IS live. The two local_markprice rows either (a) closed BEFORE the trader restart picked up the fix on 07-30 (benign tail — close the row), or (b) closed AFTER it (a real escape path around exit_anchor — reopen the P0 and trace the writer). Follow-ups in flight: trainer-diag #8194 (row ids/accounts/close timestamps for the newest 12 closed rows) + vm-diag #8195 (trader restart time on 07-30 from journalctl + running sha). Do NOT declare the fabrication ended until (a) is confirmed; do NOT alarm until (b) is.",
       "tier": 1,
       "severity": "high",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-07-31T20:45:00+00:00",
       "trigger_condition": null,
       "resolution_criteria": "The 2 local_markprice rows' close timestamps placed against the 07-30 restart: pre-restart -> close as benign tail with the timestamps quoted; post-restart -> escalate to a P0 writer-path trace and this row tracks it.",
       "refs": [
@@ -8708,7 +8708,13 @@
         "src/runtime/order_monitor.py",
         "BL-20260731-AUDIT-0731-NEW-FINDINGS"
       ],
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-07-31",
+          "by": "claude (audit session, W0 verification)",
+          "note": "RESOLVED as BENIGN TAIL, timestamps quoted per the resolution criteria: the exit-anchor code merged to main at 2026-07-30T21:33:50Z (#8069 'Provenance: IB broker truth, close-time anchoring...'); the newest local_markprice row is trade 4218, closed 2026-07-30T07:40:36Z — 13h53m BEFORE the fix existed on main (the other since-07-30 fabricated bucket row is also pre-merge; newest-12 dump trainer-diag #8194). First candle_at_close rows: trades 4253 (2026-07-31T00:58:50Z) and 4256 (2026-07-31T03:01:54Z) — the anchor demonstrably firing within hours of deploy. ZERO fabricated closes post-deploy (0 of the 3 closes after 21:33Z; population: closed non-backtest pnl-NOT-NULL, synced copy 2026-07-31T09:35Z). Live VM confirmed on current main (sha 2b5e6b77, vm-diag #8195). The fabrication is ended at the source as designed; the historical 206 fabricated rows remain quarantined by the P0.1 read-side filter."
+        }
+      ]
     }
   ],
   "updated_at": "2026-07-31",
