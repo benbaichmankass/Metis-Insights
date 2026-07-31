@@ -59,7 +59,22 @@ import pandas as pd
 # from the trend engine, the ADX + regime primitives from regime_matrix.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from backtest_trend import _load, _resample  # type: ignore  # noqa: E402
-from regime_matrix import _adx, _regime, regime_distribution  # type: ignore  # noqa: E402
+from regime_matrix import (  # type: ignore  # noqa: E402
+    _CHOP_MAX,
+    _TREND_MIN,
+    _adx,
+    _regime,
+    regime_distribution,
+)
+
+# The hard regime cutoffs the whole grade is bucketed on. A trade whose entry
+# ADX sits near one of these is a coin-flip between two buckets under any
+# equally-valid alternative candle feed — see boundary_exposure() below.
+_REGIME_BOUNDARIES = (_CHOP_MAX, _TREND_MIN)
+
+# Provisional flag threshold, NOT a validated gate (see the docstring of
+# boundary_exposure). Stated in the output so a reader can re-judge it.
+_FRAGILE_EXPOSURE_PCT = 25.0
 
 
 def load_vol_labels(path: str) -> List[tuple]:
@@ -190,6 +205,167 @@ def tag_emitted_by_cell(trades: List[Dict[str, Any]], adx: pd.Series,
     return by
 
 
+def _structural_floor_pct(regime: str, band: float) -> float | None:
+    """Share of a regime's ADX WIDTH that is within ``band`` of a cutoff.
+
+    The denominator that stops a tautology reading as an alarm. ``transitional``
+    spans exactly [20, 25) — 5 ADX wide — so every point in it is within 2.5 of a
+    boundary and the bucket is 100% "near" for any ``band >= 2.5``, regardless of
+    the data. ``chop`` is [0, 20) with only ONE interior edge, so its floor is
+    ``band/20``. ``trending`` is unbounded above, so no width-based floor exists
+    and this returns ``None`` rather than inventing one.
+    """
+    width = _TREND_MIN - _CHOP_MAX
+    if regime == "transitional":
+        return round(min(100.0, 100.0 * min(2.0 * band, width) / width), 1)
+    if regime == "chop":
+        return round(min(100.0, 100.0 * band / _CHOP_MAX), 1)
+    return None  # trending is unbounded; unknown has no ADX at all
+
+
+def boundary_exposure(trades: List[Dict[str, Any]], adx: pd.Series, df: pd.DataFrame,
+                      band: float = 2.0) -> Dict[str, Any]:
+    """How much of this grade's net-R is decided by a coin-flip at a cutoff.
+
+    THE DEFECT THIS MEASURES (BL-20260731-REGIME-ATTRIBUTION-FEED-SENSITIVE).
+    ``_regime`` is a HARD cutoff (chop <20, transitional 20-25, trending >=25)
+    applied to a noisy rolling indicator, and per-trade R is heavy-tailed. So a
+    trade whose entry ADX sits at 24.9 vs 25.1 lands in a different bucket, and
+    a handful of large winners near a boundary carry tens of R across it on
+    sub-1% input differences.
+
+    Measured live: the SAME 357 trades re-tagged against a second, equally-valid
+    BTCUSDT 1h feed moved one bucket by **24.92R — ~31% of the strategy's
+    lifetime net-R** — while the two feeds agreed on trade outcomes to 1.05R
+    across 331 shared trades and on regime base rates to 0.5pp. The instrument
+    moved; the market did not.
+
+    This is the SINGLE-FEED proxy for that, and it is the primary metric
+    precisely because it needs no second feed: it measures the mechanism
+    directly rather than one sampled consequence of it. ``feed_sensitivity``
+    below is the confirmatory two-feed version when a second feed is available.
+
+    ``exposure_pct`` is share of ``sum |net_r|`` sitting within ``band`` ADX of
+    a cutoff — an absolute-value share deliberately, because a +8R and a −8R
+    trade near a boundary are BOTH one relabel away from moving, and netting
+    them first would hide exactly that.
+
+    ``fragile`` is a flag, not a verdict: the threshold is provisional
+    (``_FRAGILE_EXPOSURE_PCT``), anchored on a single measured incident, and is
+    reported alongside the raw numbers so a reader can re-judge it rather than
+    quote it. It is deliberately NOT used to suppress or alter any number.
+    """
+    ts = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    rows: List[Dict[str, Any]] = []
+    for t in trades:
+        et = pd.to_datetime(t.get("entry_time"), utc=True, errors="coerce")
+        if et is pd.NaT:
+            continue
+        idx = ts.searchsorted(et, side="right") - 1
+        a = float(adx.iloc[idx]) if 0 <= idx < len(adx) else float("nan")
+        if a != a:  # NaN — no bar to judge, counted but never called "safe"
+            rows.append({"adx": None, "dist": None, "near": False, "unknown": True,
+                         "net_r": float(t.get("net_r", 0.0)), "regime": "unknown"})
+            continue
+        dist = min(abs(a - b) for b in _REGIME_BOUNDARIES)
+        rows.append({"adx": round(a, 4), "dist": round(dist, 4), "near": dist <= band,
+                     "unknown": False, "net_r": float(t.get("net_r", 0.0)),
+                     "regime": _regime(a)})
+
+    total_abs = sum(abs(r["net_r"]) for r in rows)
+    near = [r for r in rows if r["near"]]
+    near_abs = sum(abs(r["net_r"]) for r in near)
+    by_regime: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        slot = by_regime.setdefault(r["regime"], {"trades": 0, "near": 0,
+                                                  "abs_net_r": 0.0, "near_abs_net_r": 0.0})
+        slot["trades"] += 1
+        slot["abs_net_r"] = round(slot["abs_net_r"] + abs(r["net_r"]), 4)
+        if r["near"]:
+            slot["near"] += 1
+            slot["near_abs_net_r"] = round(slot["near_abs_net_r"] + abs(r["net_r"]), 4)
+    for reg, slot in by_regime.items():
+        slot["exposure_pct"] = (round(100 * slot["near_abs_net_r"] / slot["abs_net_r"], 1)
+                                if slot["abs_net_r"] else 0.0)
+        # STRUCTURAL FLOOR — without this, `transitional` reads ~100% exposed on
+        # every run and the number looks like an alarm when it is a tautology:
+        # the transitional band is only (25-20)=5 ADX wide, so the furthest any
+        # point in it can sit from a cutoff is 2.5. At band >= 2.5 the bucket is
+        # 100% "near" BY CONSTRUCTION, at band 2.0 it is 80% of the band's width.
+        # Reporting exposure without its floor is the unprovenanced-diagnostic
+        # class: a real number under a label that implies something it does not.
+        slot["structural_floor_pct"] = _structural_floor_pct(reg, band)
+        floor = slot["structural_floor_pct"]
+        slot["exposure_above_floor_pct"] = (round(slot["exposure_pct"] - floor, 1)
+                                            if floor is not None else None)
+
+    exposure_pct = round(100 * near_abs / total_abs, 1) if total_abs else 0.0
+    # The single most consequential relabel: one trade able to move a bucket by
+    # this much on its own. A small exposure_pct with a huge max is still fragile.
+    largest = max((abs(r["net_r"]) for r in near), default=0.0)
+    return {
+        "band_adx": band,
+        "boundaries": list(_REGIME_BOUNDARIES),
+        "trades": len(rows),
+        "trades_near_boundary": len(near),
+        "abs_net_r_total": round(total_abs, 4),
+        "abs_net_r_near_boundary": round(near_abs, 4),
+        "exposure_pct": exposure_pct,
+        "largest_single_near_boundary_abs_r": round(largest, 4),
+        "by_regime": by_regime,
+        "fragile": exposure_pct >= _FRAGILE_EXPOSURE_PCT,
+        "fragile_threshold_pct": _FRAGILE_EXPOSURE_PCT,
+        "fragile_threshold_basis": "provisional heuristic, one measured incident — not a validated gate",
+    }
+
+
+def feed_sensitivity(trades: List[Dict[str, Any]], baseline: Dict[str, Dict[str, Any]],
+                     adx_b: pd.Series, df_b: pd.DataFrame) -> Dict[str, Any]:
+    """Re-tag the SAME trades against a second feed's ADX and report the delta.
+
+    The confirmatory half of ``boundary_exposure``. Holding the trade set fixed
+    is the whole point: any difference here is attributable to LABELLING alone,
+    never to the two feeds generating different trades. That separation is what
+    turned "two runs disagree" into "the labelling moved 79.9% of the swing".
+
+    A ``sign_flip`` is the finding that matters most — a bucket that reads
+    positive on one feed and negative on another cannot source a Tier-3 cell
+    proposal in either direction, whatever its n.
+    """
+    rebucket: Dict[str, Dict[str, Any]] = {}
+    for t in annotate_trades_with_regime(trades, adx_b, df_b):
+        slot = rebucket.setdefault(str(t.get("regime")), {"trades": 0, "net_r": 0.0})
+        slot["trades"] += 1
+        slot["net_r"] = round(slot["net_r"] + float(t.get("net_r", 0.0)), 4)
+
+    deltas: Dict[str, Dict[str, Any]] = {}
+    flips: List[str] = []
+    for reg in sorted(set(baseline) | set(rebucket)):
+        if reg.startswith("_"):
+            continue
+        a_r = float(baseline.get(reg, {}).get("net_r", 0.0))
+        b_r = float(rebucket.get(reg, {}).get("net_r", 0.0))
+        flip = (a_r > 0 > b_r) or (b_r > 0 > a_r)
+        if flip:
+            flips.append(reg)
+        deltas[reg] = {
+            "net_r_feed_a": round(a_r, 4), "net_r_feed_b": round(b_r, 4),
+            "delta_r": round(b_r - a_r, 4),
+            "n_feed_a": int(baseline.get(reg, {}).get("trades", 0)),
+            "n_feed_b": int(rebucket.get(reg, {}).get("trades", 0)),
+            "sign_flip": flip,
+        }
+    worst = max((abs(d["delta_r"]) for d in deltas.values()), default=0.0)
+    return {
+        "by_regime": deltas,
+        "max_abs_delta_r": round(worst, 4),
+        "sign_flips": flips,
+        "any_sign_flip": bool(flips),
+        "note": ("same trade set on both feeds — every delta here is LABELLING, "
+                 "not trade generation"),
+    }
+
+
 def vol_coverage(by_cell: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     """How much of the graded population actually carries a vol label.
 
@@ -277,6 +453,15 @@ def main(argv: List[str]) -> int:
     p.add_argument("--only-vol", default=None, choices=["calm", "volatile", "unknown"],
                    help="when set with --emit-tagged, write ONLY trades in this vol "
                         "state (combine with --only-regime to isolate ONE live cell)")
+    p.add_argument("--boundary-band", type=float, default=2.0,
+                   help="ADX distance from a regime cutoff (20/25) within which a trade "
+                        "is one relabel away from moving bucket (default 2.0)")
+    p.add_argument("--sensitivity-data", default=None,
+                   help="a SECOND candle feed for the same symbol/timeframe — re-tags the "
+                        "SAME trades against its ADX and reports the per-bucket delta, "
+                        "isolating LABELLING from trade generation")
+    p.add_argument("--sensitivity-resample", default=None,
+                   help="resample for --sensitivity-data (defaults to --resample)")
     a = p.parse_args(argv)
 
     df = _load(a.data)
@@ -313,13 +498,35 @@ def main(argv: List[str]) -> int:
     by_cell = tag_emitted_by_cell(trades, adx, df, vol_labels) if vol_labels else None
     coverage = vol_coverage(by_cell) if by_cell else None
 
+    # Always computed — this grade's own honesty metric, the sibling of
+    # vol_coverage. It costs one pass over the trades and needs no extra input,
+    # so there is no run for which it is unavailable.
+    boundary = boundary_exposure(trades, adx, df, band=a.boundary_band)
+
+    sensitivity = None
+    if a.sensitivity_data:
+        df_b = _load(a.sensitivity_data)
+        rs_b = a.sensitivity_resample or a.resample
+        if rs_b:
+            df_b = _resample(df_b, rs_b)
+        adx_b = _adx(df_b, a.adx_period)
+        sensitivity = feed_sensitivity(trades, by, adx_b, df_b)
+        sensitivity["feed_a"] = a.data
+        sensitivity["feed_b"] = a.sensitivity_data
+
     if a.json:
         out = {"label": a.label, "resample": a.resample,
                "bars": int(len(df)), "regime_base_rate_pct": dist["pct"],
                "by_regime": by, "totals": totals,
                # Declared on EVERY run so a 1-D grade can never be mistaken for
                # one that covered the vol axis.
-               "vol_axis": "present" if by_cell else "absent"}
+               "vol_axis": "present" if by_cell else "absent",
+               "boundary_exposure": boundary,
+               # Declared on EVERY run for the same reason vol_axis is: a grade
+               # with no second feed must not read as one that was cross-checked.
+               "feed_sensitivity_checked": bool(sensitivity)}
+        if sensitivity:
+            out["feed_sensitivity"] = sensitivity
         if by_cell:
             out["by_cell"] = by_cell
             out["vol_coverage"] = coverage
@@ -369,6 +576,55 @@ def main(argv: List[str]) -> int:
               "trend_vol cell in config/regime_policy.yaml, the numbers above POOL "
               "vol states the live gate already refuses — do NOT propose a cell "
               "change from them (BL-20260730-2D-VOL-CELLS-UNAUDITABLE).")
+
+    print(f"--- BOUNDARY EXPOSURE (how much of this grade is a coin-flip at ADX "
+          f"{'/'.join(str(b) for b in _REGIME_BOUNDARIES)}) ---")
+    print(f"  band: +/-{boundary['band_adx']} ADX   "
+          f"{boundary['trades_near_boundary']}/{boundary['trades']} trades near a cutoff")
+    print(f"  |net_R| within band: {boundary['abs_net_r_near_boundary']} of "
+          f"{boundary['abs_net_r_total']}  = {boundary['exposure_pct']}%")
+    print(f"  largest single near-boundary |R|: "
+          f"{boundary['largest_single_near_boundary_abs_r']}  "
+          f"(one relabel can move a bucket by this much on its own)")
+    for reg in ("trending", "transitional", "chop", "unknown"):
+        s = boundary["by_regime"].get(reg)
+        if not s:
+            continue
+        floor = s.get("structural_floor_pct")
+        tail = (f"  (structural floor {floor}% — this band's width alone; "
+                f"excess {s.get('exposure_above_floor_pct')}pp)"
+                if floor is not None else "  (no width-based floor — unbounded above)")
+        print(f"    {reg:13} {s['near']:4}/{s['trades']:<4} trades near   "
+              f"{s['near_abs_net_r']:>9} / {s['abs_net_r']:<9} |R|  = {s['exposure_pct']}%{tail}")
+    if boundary["fragile"]:
+        print(f"  ⚠️  FRAGILE (>= {boundary['fragile_threshold_pct']}%) — a different but "
+              f"equally-valid candle feed could move these buckets materially. Do NOT "
+              f"source a Tier-3 cell proposal from this grade without a second-feed "
+              f"cross-check (--sensitivity-data).")
+    print(f"  threshold basis: {boundary['fragile_threshold_basis']}")
+
+    if sensitivity:
+        print("--- FEED SENSITIVITY (same trades, second feed's ADX — labelling only) ---")
+        print(f"  feed A: {sensitivity['feed_a']}")
+        print(f"  feed B: {sensitivity['feed_b']}")
+        print(f"  {'regime':13} {'net_r A':>10} {'net_r B':>10} {'delta':>10}  {'n A/B':>9}")
+        for reg in ("trending", "transitional", "chop", "unknown"):
+            d = sensitivity["by_regime"].get(reg)
+            if not d:
+                continue
+            flag = "  <-- SIGN FLIP" if d["sign_flip"] else ""
+            print(f"  {reg:13} {d['net_r_feed_a']:10} {d['net_r_feed_b']:10} "
+                  f"{d['delta_r']:10}  {str(d['n_feed_a']) + '/' + str(d['n_feed_b']):>9}{flag}")
+        print(f"  max |delta|: {sensitivity['max_abs_delta_r']}R")
+        if sensitivity["any_sign_flip"]:
+            print(f"  ⚠️  SIGN FLIP in {', '.join(sensitivity['sign_flips'])} — that bucket "
+                  f"cannot source a Tier-3 cell proposal in EITHER direction, at any n.")
+    else:
+        print("--- feed sensitivity: NOT CHECKED (no --sensitivity-data) ---")
+        print("  Boundary exposure above is the single-feed proxy for the same defect. "
+              "A second feed is the direct test (BL-20260731-REGIME-ATTRIBUTION-FEED-SENSITIVE): "
+              "identical trades re-tagged on another BTCUSDT 1h feed moved one bucket "
+              "24.92R, ~31% of lifetime net-R.")
     return 0
 
 
