@@ -1,0 +1,50 @@
+name: diag-unit-allowlist-guard
+
+# Every deploy/*.timer + deploy/*.service must be queryable via
+# /api/diag/services (_CANONICAL_UNITS in src/web/api/routers/diag.py) or
+# explicitly exempted with a reason in scripts/check_diag_unit_allowlist.py.
+# Third recurrence of the installed-but-invisible-unit class (2026-07-31
+# audit P2.4); see the guard script's docstring for the incident lineage.
+#
+# Tree-scoped (no base diff), so the merge_group empty-base_ref trap the
+# diff-scoped guards had does not apply here. Advisory for now — promote to
+# required via branch-protection-sync.yml once it has soaked green.
+
+on:
+  merge_group:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diag-unit-allowlist-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diag-unit-allowlist-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy units vs diag allowlist
+        run: python3 scripts/check_diag_unit_allowlist.py
+
+      - name: Self-test the failure path
+        # A guard whose failure path is never exercised is a green that
+        # checked nothing (the new-table-wiring-guard lesson). Drop an
+        # unlisted unit into deploy/ and require exit 1.
+        run: |
+          touch deploy/ict-selftest-unlisted.timer
+          if python3 scripts/check_diag_unit_allowlist.py; then
+            echo "::error::guard did NOT fail on an unlisted deploy unit — the failure path is broken"
+            exit 1
+          fi
+          rm deploy/ict-selftest-unlisted.timer
+          echo "failure path verified: unlisted unit correctly failed the guard"

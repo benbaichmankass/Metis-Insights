@@ -28,6 +28,11 @@ name: artifact-validity-guard
 # Tier-1 CI guard: read-only, no VM, no order path.
 
 on:
+  # merge_group added 2026-07-31 (P2.1): this check is REQUIRED, and required
+  # checks must run on the merge_group ref or the queue stalls. This workflow
+  # scans the working tree (not a base diff), so the empty-github.base_ref
+  # trap the other guards had does not apply here.
+  merge_group:
   pull_request:
   push:
     branches: [main]
@@ -41,7 +46,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  guard:
+  # Job id renamed guard -> artifact-validity-guard (2026-07-31, P2.1): the
+  # job id IS the required-status-check context name, and a context literally
+  # named "guard" is one future copy-pasted job away from being ambiguous.
+  artifact-validity-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:

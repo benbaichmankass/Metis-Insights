@@ -8586,12 +8586,12 @@
       "title": "[meta][STRUCTURAL] every CI guard in this repo checks CODE SHAPE — nothing checks the CLAIMS that Tier-3 decisions are actually made from. 5 claim-defects in one session, each filed as a harmless one-off",
       "description": "THE OPERATOR'S POINT, restated so it is not softened: filing each of these as its own row is what lets the pattern survive. Individually every one reads as 'caught and fixed, no harm done'. Collectively they are a single recurring defect with no preventer, and the next session repeats it from a clean context. This row exists so the CLASS is the tracked object.\n\nWHAT HAPPENED (one session, 2026-07-30/31, all self-caught, none by a repo mechanism):\n  1. Epoch-mismatched comparison stated as a finding — 9.1% offline vs 1% live over DISJOINT windows (withdrawn #8102).\n  2. Same error again, different dressing — 'the ML vol axis reads calm ~99% of the time' generalised from ~979 live rows; the full 175,272-row replay says 8.92%, ranging 0.44%-30.42% monthly (corrected #8118).\n  3. A decision-grade finding published off an unvalidated instrument — trend_donchian transitional/calm at +32.66R against an ACTIVE REAL-MONEY gate cell (#8118), destroyed by my own follow-up 15 minutes later (#8119) and root-caused as an ADX labelling artifact (#8144).\n  4. A diagnostic printing max(proba) under the label P(volatile) — INVERTED, so a 97%-CALM head read as saturated volatile; nearly escalated as a false P1 against the live BTC vol gate (#8091).\n  5. A public failure diagnosis naming a cause no code path had tested — a diag relay blaming 'VM down' for a request that never reached the VM (#8097).\n  (+ a 6th caught pre-merge during #8147: a boundary metric that would have reported `transitional` 100% fragile on EVERY run — a tautology of the band's 5-ADX width, i.e. a permanent false alarm.)\n\nTHE STRUCTURAL OBSERVATION — this is the actionable part.\nThis repo has an unusually strong guard family: canonical-db-resolver, env-gate-guard, silent-empty-guard, provenance-consumer-guard, diagnostic-provenance-guard, new-table-wiring-guard, writer-conformance-guard, strategy-coverage-guard, qty-legalization-guard, layer-guard. EVERY ONE OF THEM CHECKS CODE SHAPE.\nA wrong NUMBER in a backlog row, a PR body, a ROADMAP cell, or a research doc passes all of them. And those numbers are precisely what Tier-3 cell/promotion/risk decisions get made from. **The code surface is heavily guarded; the evidence surface is unguarded.** Every defect above lived on the evidence surface, which is why zero of them were caught by CI and all of them were caught by a bar the session happened to set for itself. A bar that depends on the session setting it is not a control.\n\nA DOC-PLACEMENT DEFECT MADE IT WORSE, and it is cheap to fix. CLAUDE.md ALREADY carries the exact rule that would have stopped defects 1 and 2: 'ALWAYS STATE THE POPULATION ... A headline whose sign flips on a filter choice is exactly the kind of number this module exists to stop trusting — including when it is ours.' It is well written and it was violated twice in one session by a session that had read it — because it lives UNDER the 'Number provenance' heading, scoped to PnL rows in the journal, so it does not read as governing research claims. The rule is right; its scope is wrong.\n\nPROPOSED PREVENTERS (a review session should pick, refine, and land — none applied here):\n  P1 (Tier-1, cheap, highest value): PROMOTE 'always state the population' out of the provenance section into a top-level canonical rule covering EVERY quantitative claim in any artifact — chat, PR body, backlog row, ROADMAP cell, research doc. Required basis: population + window + instrument + n. Mirrors the existing instruction-hierarchy mirroring already enforced by canonical-doc-coherence.\n  P2 (Tier-1, mechanical): a `claim-basis-guard` in the existing guard family — a backlog row or research doc asserting a % or R figure must carry an explicit basis block. Same shape as check_backlog_refs. NOTE the lesson from new-table-wiring-guard recorded in CLAUDE.md: a presence-only marker is cheaper to LIE to than to satisfy, so the basis must be verified (n parses as an integer, window parses as a date range), not merely present.\n  P3 (Tier-1, process): INSTRUMENT-BEFORE-FINDING — a new measurement instrument may not produce a decision-grade number until it emits its own honesty metric, shipped in the SAME PR. Precedent already exists and works: rCoverage, vol_coverage, and now boundary_exposure/feed_sensitivity (#8147). Defect 3 is exactly what happens without it.\n  P4 (Tier-1, process): FULL-SPAN DEFAULT — a rate claimed as a standing property must be computed over the full available span or carry an explicit scope. Direct preventer for defects 1 and 2, which are the same error twice.\n\nWHAT NOT TO DO WITH THIS ROW: do not close it by fixing the five instances — they are already fixed and closing on that basis is the exact failure mode the operator called out. It closes when a PREVENTER exists.",
       "severity": "critical",
-      "status": "open",
+      "status": "resolved",
       "area": "process",
       "trigger_condition": "n/a — a standing gap in the control surface, not an incident",
       "resolution_criteria": "At least P1 (rule promotion) AND one mechanical or process preventer are landed and in force. Explicitly NOT resolvable by fixing the individual instances.",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-07-31T18:20:00+00:00",
       "refs": [
         "CLAUDE.md",
         "docs/CLAUDE-RULES-CANONICAL.md",
@@ -8603,6 +8603,13 @@
         "BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT",
         "BL-20260730-DONCHIAN-TRANSITIONAL-CALM-CONTRADICTED",
         "BL-20260731-REGIME-ATTRIBUTION-FEED-SENSITIVE"
+      ],
+      "updates": [
+        {
+          "at": "2026-07-31",
+          "by": "claude (audit session, W2/P2.5)",
+          "note": "RESOLVED per its own criteria (P1 + one mechanical preventer landed): P1 — 'Always state the population' promoted to a TOP-LEVEL binding rule in docs/CLAUDE-RULES-CANONICAL.md (new section after Honesty; CLAUDE.md provenance paragraph now points at it), covering every quantitative claim in every artifact, with the full-span and instrument-before-finding corollaries. P2 — claim-basis-guard (scripts/check_claim_basis.py + workflow): a NEW backlog row asserting %/R/$ evidence must carry a parseable denominator (n of M / n=N / count-noun / date-window); diff-scoped, failure path self-tested, first run caught a real basis-less row (BL-20260731-TRAINERDIAG-DOUBLE-EXECUTION, fixed). Guard is ADVISORY pending a ~0-false-positive soak, then promote via branch-protection-sync (the audit row tracks that tail). P3/P4 (instrument-before-finding as process, full-span default) are folded into the rule text as binding corollaries."
+        }
       ]
     },
     {
@@ -8619,6 +8626,11 @@
           "at": "2026-07-31",
           "by": "claude (audit lead session, P1 execution)",
           "note": "Items (7)+(9) RESOLVED by S-AUDIT-P1-TRAINER-HONESTY-2026-07-31: (7) was a build-log reporting defect, not starvation — build_family read row_count from the alphabetically-first glob match (the empty May-22 MES/all/v001 dir) instead of the dir the build wrote; trade_outcomes/execution_quality all/all/v002 rebuild daily with data (255KB/841KB on 2026-07-31). Fixed to read the build's own 'wrote dataset under' dir; genuinely-empty manifests now surface per-cycle via manifest_training_staleness.py (manifest_untrained_stale events). (9) cycle_end now carries trained/skipped/failed/already_done + outcome (trained|nothing_trained|already_complete); rc semantics unchanged for systemd. Bonus fix: ml train prints indent=2 multi-line JSON, the grep-'^{' extraction lost model_id on EVERY manifest_ok and the real reason on every rc-78 skip — shared scripts/ops/_last_json_object.py recovers it. Also P1.1 (vt004-pcv manifest retired — superseded by the pin triple; guard was correct), P1.2 verified already applied (34/38 recorded + 4 bracket-annotated, v520=0.005), P1.4 tool shipped (trainer_dataset_gc.py). See the sprint log."
+        },
+        {
+          "at": "2026-07-31",
+          "by": "claude (audit session, W2 execution)",
+          "note": "Items (1)-(4) + (12-adjacent) RESOLVED by the P2 enforcement-coherence PR: (1) ict-ib-executions-pull added to _CANONICAL_UNITS + NEW diag-unit-allowlist guard (scripts/check_diag_unit_allowlist.py — every deploy/ unit allowlisted or exempted-with-reason, 43 units scanned, stale-exemption + empty-scan failure modes covered, self-tested failure path); (2) macro-producer-liveness vacuity output WIRED (vacuous flag -> own Telegram alert + final-fail; was computed and read by nothing); (3) branch-protection-sync now FAILS RED on missing BRANCH_PROTECTION_TOKEN (protection live since 07-30, silent skip was bootstrap-only); (4) merge_group empty-base_ref fixed in 15 workflows (audit counted 8 guard-type; full affected set was 15) + layer-guard/json-extract-guard/soak-doctrine-guard/artifact-validity-guard promoted to REQUIRED (artifact-validity job id renamed from ambiguous 'guard'). Remaining in this row: (5)-(11) tails, P3 hygiene tier."
         }
       ]
     },
@@ -8660,7 +8672,7 @@
       "id": "BL-20260731-TRAINERDIAG-DOUBLE-EXECUTION",
       "opened_at": "2026-07-31T15:45:00+00:00",
       "opened_by": "claude (audit P1 session, doc-freshness close-out)",
-      "source": "trainer-vm-diag #8188 (the P1.4 GC --apply): the posted output shows scanned=114 / candidates=0 / mode=APPLIED while df dropped 86%->78% in the same run — i.e. the cmd block executed TWICE (first pass deleted the 14 reviewed candidates, the posted second pass scanned the post-deletion tree, 128-14=114). Reconciliation note on the issue.",
+      "source": "trainer-vm-diag #8188 (the P1.4 GC --apply): the posted output shows scanned=114 / candidates=0 / mode=APPLIED while df dropped 86%->78% (used 39 of 45 GB -> 35 of 45 GB on the trainer root) in the same run — i.e. the cmd block executed TWICE (first pass deleted the 14 reviewed candidates, the posted second pass scanned the post-deletion tree, 128-14=114). Reconciliation note on the issue.",
       "title": "[infra] trainer-vm-diag relay executed a cmd block twice (retry) — harmless for the idempotent GC, a hazard for any non-idempotent relay cmd",
       "description": "Evidence is one observed instance (issue #8188); the mechanism is unconfirmed — likely a workflow/step retry re-running the SSH command after the first execution's result failed to post. Follow-up for a review session: (1) check the run's job/attempt history (actions run 30643599945) to confirm the retry mechanism; (2) if confirmed, either make the relay execution at-most-once (e.g. a per-issue nonce/marker file on the VM checked before executing) or document the at-least-once semantics prominently in docs/claude/diag-relay.md + the trainer-vm-diag workflow header so future sessions write idempotent cmd blocks (the GC survived precisely because it re-scans before deleting). Do NOT treat 'output shows nothing changed' as 'nothing changed' on this relay until this is settled — verify end-state (df/ls), not the run's narration.",
       "tier": 1,
@@ -8674,6 +8686,27 @@
         ".github/workflows/trainer-vm-diag.yml",
         "docs/claude/diag-relay.md",
         "scripts/ops/trainer_dataset_gc.py"
+      ],
+      "updates": []
+    },
+    {
+      "id": "BL-20260731-EXITANCHOR-POST-DEPLOY-FABRICATION-CHECK",
+      "opened_at": "2026-07-31T18:20:00+00:00",
+      "opened_by": "claude (audit session, W0 verification)",
+      "source": "trainer-diag #8190: of the 6 closes since 2026-07-30 (population: closed, non-backtest, pnl NOT NULL; synced journal copy as of 2026-07-31T09:35Z), 2 are measured, 2 estimated (candle_at_close — the anchor working), and 2 of 6 still FABRICATED (exit_price_source=local_markprice).",
+      "title": "[verify][P0-check] 2 of 6 closes since 2026-07-30 still fabricated (local_markprice) — regression of the exit-anchor fix, OR pre-restart tail rows; row timestamps vs the 07-30 trader restart decide which",
+      "description": "The exit-anchor fix (Tier-2, 2026-07-30) is supposed to make local_markprice writes on confirmed closes impossible. Two candle_at_close rows prove the new path IS live. The two local_markprice rows either (a) closed BEFORE the trader restart picked up the fix on 07-30 (benign tail — close the row), or (b) closed AFTER it (a real escape path around exit_anchor — reopen the P0 and trace the writer). Follow-ups in flight: trainer-diag #8194 (row ids/accounts/close timestamps for the newest 12 closed rows) + vm-diag #8195 (trader restart time on 07-30 from journalctl + running sha). Do NOT declare the fabrication ended until (a) is confirmed; do NOT alarm until (b) is.",
+      "tier": 1,
+      "severity": "high",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "trigger_condition": null,
+      "resolution_criteria": "The 2 local_markprice rows' close timestamps placed against the 07-30 restart: pre-restart -> close as benign tail with the timestamps quoted; post-restart -> escalate to a P0 writer-path trace and this row tracks it.",
+      "refs": [
+        "src/runtime/exit_anchor.py",
+        "src/runtime/order_monitor.py",
+        "BL-20260731-AUDIT-0731-NEW-FINDINGS"
       ],
       "updates": []
     }

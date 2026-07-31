@@ -17,6 +17,9 @@ on:
   # Dormant until the native merge queue is enabled (BL-20260726 merge-queue enablement);
   # required checks MUST run on the merge_group ref or the queue stalls.
   merge_group:
+    # NOTE (P2.1, 2026-07-31 audit): on merge_group events github.base_ref is
+    # EMPTY — every base_ref expression in this file falls back to 'main'
+    # (the only branch the queue serves; pull_request trigger is main-scoped).
   pull_request:
     branches: [main]
     paths:
@@ -39,8 +42,8 @@ jobs:
 
       - name: Compute diff against base
         run: |
-          git fetch origin "${{ github.base_ref }}"
-          git diff "origin/${{ github.base_ref }}"...HEAD > /tmp/pr.diff
+          git fetch origin "${{ github.base_ref || 'main' }}"
+          git diff "origin/${{ github.base_ref || 'main' }}"...HEAD > /tmp/pr.diff
           wc -l /tmp/pr.diff
 
       - name: Scan for re-introduced per-strategy risk

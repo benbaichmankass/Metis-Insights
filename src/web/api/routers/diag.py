@@ -190,6 +190,16 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     "ict-exchange-funding-pull.timer",
     "ict-mes-ibkr-pull.service",
     "ict-mes-ibkr-pull.timer",
+    # 2026-07-31 (full-system audit P2.4) — the HOURLY IBKR executions pull
+    # (feeds exchange_fills_ib.closed_pnl_from_fills, the IB broker-truth PnL
+    # reader shipped 2026-07-30). Landed AFTER the 07-26 sweep above and was
+    # immediately invisible to /api/diag/services — the THIRD recurrence of
+    # the installed-but-unqueryable class, which is why this entry ships
+    # together with scripts/check_diag_unit_allowlist.py: from now on a
+    # deploy/ unit missing from this tuple (and not explicitly exempted
+    # there with a reason) fails CI instead of waiting for the next audit.
+    "ict-ib-executions-pull.service",
+    "ict-ib-executions-pull.timer",
 )
 
 _ADVISORY_LOG = runtime_logs_dir() / "advisory_decisions.jsonl"

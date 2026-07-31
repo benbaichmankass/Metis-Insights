@@ -88,7 +88,23 @@ jobs:
           set -uo pipefail
           python3 scripts/ops/check_artifact_validity.py --allow-missing \
             | tee /tmp/validity.txt
-          echo "rc=$?" >> "$GITHUB_OUTPUT"
+          rc=$?
+          echo "rc=${rc}" >> "$GITHUB_OUTPUT"
+          # P2.2 (2026-07-31 audit): this output was ORPHANED — computed,
+          # logged, and read by nothing, so a vacuity finding could never
+          # alert or redden the run (the exact walk-past failure the check
+          # exists to stop). `vacuous` + a summary now feed the alert and
+          # final-fail steps below, symmetric with steps.check's `stale`.
+          if [ "${rc}" -ne 0 ]; then
+            echo "vacuous=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "vacuous=false" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo "summary<<__V__"
+            tail -n 5 /tmp/validity.txt 2>/dev/null || echo "validity output unavailable"
+            echo "__V__"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Run producer liveness check
         # continue-on-error so we can branch on the verdict (alert + fail
@@ -125,6 +141,23 @@ jobs:
             echo "__S__"
           } >> "$GITHUB_OUTPUT"
           if [ "${rc}" -ne 0 ]; then echo "stale=true" >> "$GITHUB_OUTPUT"; else echo "stale=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Telegram alert (only when vacuous)
+        # P2.2: the vacuity half now has its own loud channel, mirroring the
+        # stale alert below. Distinct message — a FRESH-but-empty artifact is
+        # a different failure from a stopped producer.
+        if: steps.validity.outputs.vacuous == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          VACUITY_SUMMARY: ${{ steps.validity.outputs.summary }}
+        run: |
+          set +e
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PYTHONPATH=. python scripts/notify_session.py alert \
+            --summary "🚨 Macro artifact VACUOUS (fresh but measuring nothing) — ${VACUITY_SUMMARY}" \
+            --link "${RUN_URL}" \
+            || echo "::warning::telegram notify failed (non-fatal)"
 
       - name: Telegram alert (only when stale)
         if: steps.check.outputs.stale == 'true'
@@ -242,13 +275,19 @@ jobs:
               state: 'closed', state_reason: stale ? 'not_planned' : 'completed',
             });
 
-      - name: Fail the run if any producer is stale
+      - name: Fail the run if any producer is stale OR any artifact is vacuous
         # Deferred to the end so the alert + issue steps always run first. This
         # keeps the scheduled run RED in the Actions UI (belt-and-suspenders with
         # the loud Telegram/issue alert) — a red-but-ignored check alone would be
         # the very normalization the directive warns against, which is why the
-        # loud channels above carry the real signal.
-        if: steps.check.outputs.stale == 'true'
+        # loud channels above carry the real signal. Vacuity added 2026-07-31
+        # (P2.2): before this, a vacuity finding was computed and read by nothing.
+        if: steps.check.outputs.stale == 'true' || steps.validity.outputs.vacuous == 'true'
         run: |
-          echo "::error::A scheduled macro producer ledger is stale — see the alert above."
+          if [ "${{ steps.check.outputs.stale }}" = "true" ]; then
+            echo "::error::A scheduled macro producer ledger is stale — see the alert above."
+          fi
+          if [ "${{ steps.validity.outputs.vacuous }}" = "true" ]; then
+            echo "::error::A macro research artifact is VACUOUS (fresh but computed from zero inputs) — see the validity output above."
+          fi
           exit 1
