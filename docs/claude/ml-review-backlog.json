@@ -2721,7 +2721,7 @@
     {
       "id": "MB-20260801-MES-BASELINE-MANIFESTS-NEVER-TRAINED",
       "title": "3 MES baseline manifests have ZERO registered runs ever — decide: build their datasets, or retire the manifests",
-      "status": "awaiting-data",
+      "status": "awaiting-decision",
       "tier": 1,
       "opened_at": "2026-08-01",
       "opened_by": "claude (audit session, W0 morning cycle check — routed from the first training_staleness_summary)",
@@ -2743,6 +2743,11 @@
           "at": "2026-08-01T13:40:00+00:00",
           "by": "claude (operator-decision follow-up, session full-system-review-zajauh)",
           "note": "OPERATOR DECIDED: BUILD (chat 2026-08-01). All 3 dataset families built MES-scoped on the trainer (issue #8256): datasets-out/{execution_quality,setup_labels,trade_outcomes}/MES/all/v001 — exactly the family/symbol_scope/version the manifests pin. Verify the 08-02 00:55Z nightly cycle trains mes-execution-quality-baseline-v0 / mes-setup-quality / mes-trade-outcome-winrate-baseline-v0 (staleness summary should drop never_trained 3 -> 0); resolve this row on that evidence."
+        },
+        {
+          "at": "2026-08-01T14:30:00+00:00",
+          "by": "claude (operator-decision follow-up, session full-system-review-zajauh)",
+          "note": "BUILD EXECUTED, ROOT CAUSE REFRAMED. Operator chose 'build'; all 3 dataset families built MES-scoped (#8256) and an immediate verification train dispatched (#8259). Result: every build 'succeeds' but writes 0 rows -> `ml train` skips {reason: empty_dataset} -> still 0 registered runs. Root cause chased to ground (#8260/#8262/#8263): the trainer's full journal pull (698MB, fresh) contains ZERO trades with symbol LIKE '%MES%' in ANY status, and the live audit shows mes_trend_long_1d evaluating healthily every tick on fresh data (close 7519.25 inside Donchian channel [7323.25, 7632.0], regime trending ADX 25.2, 'no breakout - non-actionable') - i.e. MES has NEVER opened a trade in ~65 days because the long-only 1d Donchian-24 breakout never triggered. The datasets are HONESTLY empty: these 3 manifests are trade-derived (trade_outcomes/setup_labels/execution_quality) and cannot train until MES accrues closed trades. The dataset dirs have been empty since May 22; the nightly built an empty setup_labels v002 today - so 'build' was never the missing step. DECISION REFRAMED for the operator: (a) keep manifests + teach the staleness sweep an 'awaiting_source_trades' state (source-empty != build-missing) so the alarm stops firing nightly on an honest wait - Tier-1 trainer change; or (b) retire the 3 manifests and recreate when MES has traded (they are trivial per-strategy baselines). Either kills the alarm-fatigue; leaving as-is re-alarms nightly on a condition nobody can act on."
         }
       ]
     }
