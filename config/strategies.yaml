@@ -1820,7 +1820,12 @@ strategies:
     atr_stop_mult: 2.5
     trail_mult: 4.0
     tp_r: 50.0
-    min_confidence: 0.0
+    # 0.0 -> 0.3 (2026-08-01, PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE): 2
+    # consecutive reviews of should_skip-grade entries (conf 0.04-0.15), 5
+    # graded entries all losses. The builder was emitting entries its own
+    # confidence said to skip; floor them at 0.3 (enforced in
+    # trend_donchian.py::_build_signal min_confidence refusal).
+    min_confidence: 0.3
     shadow_model_ids: []
 
   spy_pullback_1h:
