@@ -9069,9 +9069,9 @@
       "description": "Today the coupling cost ~85 min of trader downtime (population: the single 2026-08-01 incident) with zero pages. The Prime Directive says the trader runs 24/7 and transient issues route through per-trade refusal, not process death; but validate_startup treats TELEGRAM_BOT_TOKEN like an exchange credential and refuses to boot without it. Options for operator decision: (a) keep hard-require (alerting is safety-critical; running unalerted is worse than not running); (b) degrade to a LOUD startup warning + run, with the account-reachability/notification machinery flagging the dead channel; (c) hard-require at first boot but tolerate at restart when positions are open (the state where downtime hurts most). Interim mitigations already shipped: set-env refuses empty values, sync is the canonical propagation path, token shape is validated secret-free. Route to /system-review or a Tier-3 chat decision.",
       "tier": 3,
       "severity": "medium",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-08-01T21:25:00+00:00",
       "trigger_condition": null,
       "resolution_criteria": "Operator decision recorded on (a)/(b)/(c); if (b) or (c), the validate_startup change ships operator-approved with tests; if (a), this row closes with the rationale documented in the validation docstring.",
       "refs": [
@@ -9089,6 +9089,11 @@
           "at": "2026-08-01T08:40:00+00:00",
           "by": "claude (/system-review weekly, session full-system-review-zajauh)",
           "note": "Weekly /system-review: trader recovered 07:33Z and is ticking on 4c9decf6; the remaining crashloops are ict-telegram-bot (counter 700, malformed token — see BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE update) and ict-claude-bridge. Money loop healthy; alerting still dark pending operator token re-paste."
+        },
+        {
+          "at": "2026-08-01T21:25:00+00:00",
+          "by": "claude (roadmap-backlog session, close-out)",
+          "note": "RESOLVED. The option-(b) decouple (PR #8268, commit e01f9e9) MERGED to main 19:22Z (squash) and is DEPLOYED to the live VM — /api/diag/version at 21:24Z reports the web-api on git_sha 44d379cd, which is downstream of #8268, so ict-git-sync has landed the new validation.py on disk. validate_startup runs at TRADER boot, so the trader picks it up on its next restart from the on-disk code (independent of the web-api's own restart); any future boot therefore uses the degrade-not-crash path. Basis for closing: (1) operator decision recorded (option b); (2) shipped + unit-tested (17/17, incl. missing/malformed→non-fatal + degraded-alerting-flagged + exchange-creds-stay-fatal); (3) code merged AND on the VM. The guard is behaviorally INERT while Telegram creds are valid (current state), so there is no live behavior to observe short of a missing/malformed-cred boot — which we will NOT deliberately reproduce in production (that is the exact money-loop outage this fix exists to prevent). Resolution_criteria (b) met: 'the validate_startup change ships operator-approved with tests' + deployed. If a future rotation ever leaves a cred missing, the trader will WARN + keep trading and surface the degradation on the /api/bot/notifications operator_warning banner instead of crashlooping."
         }
       ]
     },
