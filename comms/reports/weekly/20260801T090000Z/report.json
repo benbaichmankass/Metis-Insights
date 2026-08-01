@@ -302,14 +302,14 @@
  },
  "consolidated": {
   "roll_up_grade": "investigate",
-  "headline": "Recovery week under load: a huge shipped burst (provenance overhaul, W1 journal cleanup, guard hardening, trainer honesty) VERIFIED WORKING with live evidence - but the token-rotation fallout took the trader down 2h today and the Telegram alerting layer is STILL dark on a malformed re-pasted token (operator re-paste needed). Real money -$6.99 on the week (measured, broker-reconciled); paper lost ~$4.2k on measured venues; prop flat.",
+  "headline": "Recovery week under load: a huge shipped burst (provenance overhaul, W1 journal cleanup, guard hardening, trainer honesty) VERIFIED WORKING with live evidence - but the token-rotation fallout took the trader down 2h today and the Telegram alerting layer is STILL dark on a malformed re-pasted token (operator re-paste needed). [RESOLVED 08:37Z, post-evidence: the parallel audit session completed the rotation while this report was assembling - both bots ACTIVE, queued pings delivered, old tokens 401 (PR #8246). No operator action needed.] Real money -$6.99 on the week (measured, broker-reconciled); paper lost ~$4.2k on measured venues; prop flat.",
   "operator_priorities": [
    {
     "rank": 1,
     "title": "Re-paste BOTH full Telegram tokens ('<botid>:<secret>') into Actions secrets, re-sync + restart",
     "source_review": "health",
     "tier": 2,
-    "detail": "TELEGRAM_BOT_TOKEN on the VM is malformed (secret half only, no bot-id prefix) - ict-telegram-bot at restart 700, claude-bridge down, liveness-watchdog pages 404. ALL Telegram alerting is dark until this lands; the trader itself is fine.",
+    "detail": "TELEGRAM_BOT_TOKEN on the VM is malformed (secret half only, no bot-id prefix) - ict-telegram-bot at restart 700, claude-bridge down, liveness-watchdog pages 404. ALL Telegram alerting is dark until this lands; the trader itself is fine. [RESOLVED 08:37Z, post-evidence: the parallel audit session completed the rotation while this report was assembling - both bots ACTIVE, queued pings delivered, old tokens 401 (PR #8246). No operator action needed.]",
     "operator_action_required": true
    },
    {
@@ -603,7 +603,7 @@
     "evidence": "api_ok=true on /accounts/balances for all probeable accounts + successful live exchange_positions reads (#8236/#8237); no latched down_accounts; IB gateway connected with breaker closed."
    },
    "flags_raised": [
-    "ALERTING DARK (standalone high-priority): both Telegram channels + liveness-watchdog pages dead on a malformed re-pasted TELEGRAM_BOT_TOKEN (no bot-id prefix). Trader healthy; operator re-paste required. This flag fires its own high-priority ping.",
+    "ALERTING DARK (standalone high-priority): both Telegram channels + liveness-watchdog pages dead on a malformed re-pasted TELEGRAM_BOT_TOKEN (no bot-id prefix). Trader healthy; operator re-paste required. This flag fires its own high-priority ping. [RESOLVED 08:37Z, post-evidence: the parallel audit session completed the rotation while this report was assembling - both bots ACTIVE, queued pings delivered, old tokens 401 (PR #8246). No operator action needed.]",
     "Trader was DOWN 05:29-07:33Z today (round-1 rotation synced an empty secret) - recovered; positions were bracket-protected broker-side throughout.",
     "fc-pcv v2 advisory swap gate met but unactioned 4 days past due, and its evidence path (readiness packet) is itself broken (OOM) - escalated.",
     "slv_trend_1h|paper degenerate-confidence entries recurred (reviews_open=2) - escalated with an exact Tier-3 proposal (confidence floor ~0.3).",

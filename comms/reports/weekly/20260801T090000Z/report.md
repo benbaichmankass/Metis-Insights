@@ -4,7 +4,7 @@
 - Window: 2026-07-25T08:30:00+00:00 → 2026-08-01T08:45:00+00:00
 - Roll-up grade: investigate
 
-Recovery week under load: a huge shipped burst (provenance overhaul, W1 journal cleanup, guard hardening, trainer honesty) VERIFIED WORKING with live evidence - but the token-rotation fallout took the trader down 2h today and the Telegram alerting layer is STILL dark on a malformed re-pasted token (operator re-paste needed). Real money -$6.99 on the week (measured, broker-reconciled); paper lost ~$4.2k on measured venues; prop flat.
+Recovery week under load: a huge shipped burst (provenance overhaul, W1 journal cleanup, guard hardening, trainer honesty) VERIFIED WORKING with live evidence - but the token-rotation fallout took the trader down 2h today and the Telegram alerting layer is STILL dark on a malformed re-pasted token (operator re-paste needed). [RESOLVED 08:37Z, post-evidence: the parallel audit session completed the rotation while this report was assembling - both bots ACTIVE, queued pings delivered, old tokens 401 (PR #8246). No operator action needed.] Real money -$6.99 on the week (measured, broker-reconciled); paper lost ~$4.2k on measured venues; prop flat.
 
 ## P&L by class
 - **real**: window $-6.99 (prior $-9.77, up)
@@ -12,7 +12,7 @@ Recovery week under load: a huge shipped burst (provenance overhaul, W1 journal 
 - **prop**: window $-18.06 (prior $-182.84, up)
 
 ## Operator priorities
-1. Re-paste BOTH full Telegram tokens ('<botid>:<secret>') into Actions secrets, re-sync + restart — TELEGRAM_BOT_TOKEN on the VM is malformed (secret half only, no bot-id prefix) - ict-telegram-bot at restart 700, claude-bridge down, liveness-watchdog pages 404. ALL Telegram alerting is dark until this lands; the trader itself is fine.
+1. Re-paste BOTH full Telegram tokens ('<botid>:<secret>') into Actions secrets, re-sync + restart — TELEGRAM_BOT_TOKEN on the VM is malformed (secret half only, no bot-id prefix) - ict-telegram-bot at restart 700, claude-bridge down, liveness-watchdog pages 404. ALL Telegram alerting is dark until this lands; the trader itself is fine. [RESOLVED 08:37Z, post-evidence: the parallel audit session completed the rotation while this report was assembling - both bots ACTIVE, queued pings delivered, old tokens 401 (PR #8246). No operator action needed.]
 2. fc-pcv v2 advisory swap is 4 days overdue and its gate evidence is blocked - unblock readiness, then decide — BTC+SOL 15m fc-pcv-v2 soaks met volume (758/723 scores in 7d). Readiness packets 0-byte on the trainer (OOM, MB-20260719) and relay drift reads time out. Fix or hand-run the packet, then Tier-3 swap + restore the SOL advisory head.
 3. slv_trend_1h: approve a min-confidence floor (~0.3) or regime gate — Second consecutive review with should_skip-grade entries (conf 0.04-0.15), 5 graded entries all losses (paper-only today). Exact change proposed in PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE.
 4. Decide backfill-fabricated-exits --apply (Tier-2, dry-run validated, recovers ~4%) — The apply was never run (operator go not given). Decide run-or-close so the item stops carrying; the read-side filter already quarantines the 206 fabricated rows either way.
@@ -35,7 +35,7 @@ Recovery week under load: a huge shipped burst (provenance overhaul, W1 journal 
   - `trend_donchian` [real_money]: round-trip 100.0%, giveback 39.40R, hold 14.20/12.00h → degraded
   - 🔴 `trend_donchian|real_money`: Single-trade 39R giveback (MFE +34.5R -> SL -4.8R over 14h) (open 1 review(s), PB-20260730-SCALP-CAPTURE-STANDING-WATCH)
   - 🔴 `slv_trend_1h|paper`: Entry-side degeneracy: should_skip confidence 0.04-0.15, 5 graded entries all losses (open 2 review(s), PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE) ⚠️ ESCALATE
-- 🚩 ALERTING DARK (standalone high-priority): both Telegram channels + liveness-watchdog pages dead on a malformed re-pasted TELEGRAM_BOT_TOKEN (no bot-id prefix). Trader healthy; operator re-paste required. This flag fires its own high-priority ping.
+- 🚩 ALERTING DARK (standalone high-priority): both Telegram channels + liveness-watchdog pages dead on a malformed re-pasted TELEGRAM_BOT_TOKEN (no bot-id prefix). Trader healthy; operator re-paste required. This flag fires its own high-priority ping. [RESOLVED 08:37Z, post-evidence: the parallel audit session completed the rotation while this report was assembling - both bots ACTIVE, queued pings delivered, old tokens 401 (PR #8246). No operator action needed.]
 - 🚩 Trader was DOWN 05:29-07:33Z today (round-1 rotation synced an empty secret) - recovered; positions were bracket-protected broker-side throughout.
 - 🚩 fc-pcv v2 advisory swap gate met but unactioned 4 days past due, and its evidence path (readiness packet) is itself broken (OOM) - escalated.
 - 🚩 slv_trend_1h|paper degenerate-confidence entries recurred (reviews_open=2) - escalated with an exact Tier-3 proposal (confidence floor ~0.3).
