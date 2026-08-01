@@ -170,6 +170,7 @@ verify-the-source-before-you-build.
 | Significance + robustness of sweep survivors | `scripts/research/ws_a_s3_significance.py` |
 | Fee/commission headroom | `scripts/research/ws_a_s3b_fee_breakeven.py` |
 | **Per-account** routing compatibility (mandatory before live routing) | `scripts/prop/account_compat_matrix.py` |
+| Would the R4 research→results gate PASS/BLOCK/ABSTAIN a live leg on **measured** (not fabricated) PnL? (observe-only, P0) | `scripts/research/research_results_gate_report.py` (logic: `src/runtime/research_results_gate.py`) |
 
 ## 10. Sweep orchestrators
 
