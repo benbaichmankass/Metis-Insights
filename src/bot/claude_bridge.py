@@ -376,6 +376,16 @@ def main() -> None:
         level=os.environ.get("LOG_LEVEL", "INFO"),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
+    # This process was the one bot entrypoint WITHOUT the redaction wiring —
+    # its httpx INFO lines ("POST https://api.telegram.org/bot<TOKEN>/getUpdates")
+    # landed in journald, got captured into the committed health snapshot, and
+    # sat on the public repo for months: the proven leak vector behind
+    # BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE. Must run after basicConfig
+    # (the filter attaches to the root handler).
+    from src.utils.log_redact import install_redacting_filter, suppress_httpx_logging
+
+    install_redacting_filter()
+    suppress_httpx_logging()
     app = (
         Application.builder()
         .token(TELEGRAM_TOKEN)

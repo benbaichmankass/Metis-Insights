@@ -117,6 +117,61 @@ class TestRedactingFilter:
 # ---------------------------------------------------------------------------
 
 class TestInstallRedactingFilter:
+    def test_child_logger_propagation_is_redacted(self):
+        # THE regression (BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE): records
+        # from a CHILD logger (httpx, telegram.*) propagate up to the root
+        # handler WITHOUT consulting ancestor LOGGER filters — only handler
+        # filters run. The old logger-only install therefore never redacted
+        # the exact records that carry token URLs. Build an isolated
+        # root-like logger with a real handler, install on it, then log via
+        # a child that propagates into it.
+        root_like = logging.getLogger("redact_root_like")
+        root_like.setLevel(logging.INFO)
+        captured: list[str] = []
+
+        class _Capture(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                captured.append(record.getMessage())
+
+        handler = _Capture()
+        root_like.addHandler(handler)
+        try:
+            install_redacting_filter(root_like)
+            child = logging.getLogger("redact_root_like.httpx_sim")
+            child.info("POST %s", f"https://api.telegram.org/bot{FAKE_TOKEN}/getUpdates")  # fake
+            assert captured, "Expected the child record to reach the handler"
+            for msg in captured:
+                assert FAKE_TOKEN not in msg, f"Token leaked via child-logger propagation: {msg!r}"
+        finally:
+            root_like.removeHandler(handler)
+
+    def test_numeric_printf_args_pass_through_untouched(self):
+        # THE 68-test regression from the handler attachment: the filter used
+        # to coerce every arg to str, breaking "%d" formatting on any record
+        # it touched. Numeric args must keep their type.
+        root_like = logging.getLogger("redact_numeric_args")
+        root_like.setLevel(logging.INFO)
+        captured: list[str] = []
+
+        class _Capture(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                captured.append(record.getMessage())
+
+        handler = _Capture()
+        root_like.addHandler(handler)
+        try:
+            install_redacting_filter(root_like)
+            root_like.info("retry %d of %d after %.1fs", 2, 5, 1.5)
+            assert captured == ["retry 2 of 5 after 1.5s"]
+        finally:
+            root_like.removeHandler(handler)
+
+    def test_bare_token_glued_to_letters_is_redacted(self):
+        # Same \b-before-digits blindspot as the scanner: "bot<TOKEN>" outside
+        # a full URL context must still be caught by the bare-token pattern.
+        out = _redact(f"retrying bot{FAKE_TOKEN} after backoff")  # fake
+        assert FAKE_TOKEN not in out
+
     def test_filter_fires_before_handler(self, caplog):
         # Install the filter directly on the test logger so it fires before
         # caplog's handler captures the record (filters on a Logger run inside
