@@ -136,6 +136,11 @@ def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, 
         # distinguishable from a window in which nothing was measured. That
         # exact distinction is what `coverage()` exists to preserve.
         "pnlCoverage": None,
+        # Measured-PnL sum — 0.0 here (an empty/errored window measured nothing,
+        # so its measured sum is genuinely 0), while pnlCoverage stays null to
+        # keep "no rows" distinguishable from "rows, none measured". The R4 gate
+        # keys its abstain on pnlCoverage, never on this sum alone.
+        "totalPnlMeasured": 0.0,
         "pnlMeasuredCount": 0,
         "pnlEstimatedCount": 0,
         "pnlFabricatedCount": 0,
@@ -279,6 +284,7 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     gross_profit = 0.0   # sum of winning-trade pnl (for profit factor)
     gross_loss = 0.0     # abs sum of losing-trade pnl
     total_pnl = 0.0
+    total_pnl_measured = 0.0   # sum of pnl over MEASURED+ESTIMATED rows only
     total_r = 0.0          # sum of per-trade R over R-measurable trades only
     r_count = 0            # # trades with a computable R (entry+stop+size known)
     pnl_prov: Dict[str, int] = {}   # pnl-provenance split (measured/…/unverified)
@@ -317,12 +323,21 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         # (206 of 829 closed rows of `local_markprice` money). See src/runtime/provenance.
         pnl_bucket = classify_pnl(r)[0]
         pnl_prov[pnl_bucket] = pnl_prov.get(pnl_bucket, 0) + 1
+        # Measured-PnL SUM (the value the R4 promotion gate reads instead of the
+        # raw totalPnl — a leg is only judged on money that was actually
+        # measured, never manufactured). MEASURED (broker fill / recorded exit)
+        # AND ESTIMATED (a defensible close-anchored reconstruction) count; a
+        # FABRICATED mark or an UNVERIFIED row is excluded — the same
+        # {measured, estimated} subset `pnlProvenance` surfaces per-row.
+        pnl_is_measured = pnl_bucket in (MEASURED, ESTIMATED)
+        if pnl_is_measured:
+            total_pnl_measured += pnl
 
         name = r["strategy_name"] or "(unknown)"
         bucket = per.setdefault(
             name,
-            {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "r": 0.0, "rc": 0.0,
-             "pnl_measured": 0.0},
+            {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0,
+             "r": 0.0, "rc": 0.0, "pnl_measured": 0.0},
         )
         bucket["trades"] += 1
         if pnl > 0:
@@ -330,6 +345,8 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         bucket["pnl"] += pnl
         if pnl_bucket == MEASURED:
             bucket["pnl_measured"] += 1
+        if pnl_is_measured:
+            bucket["pnl_measured_sum"] += pnl
         if rr is not None:
             bucket["r"] += rr
             bucket["rc"] += 1
@@ -375,6 +392,11 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             "wins": int(b["wins"]),
             "winRate": round(b["wins"] / b["trades"] * 100.0, 1) if b["trades"] else 0.0,
             "totalPnl": round(b["pnl"], 4),
+            # Measured-PnL sum for this strategy — pnl over MEASURED+ESTIMATED
+            # rows only. The R4 promotion gate reads THIS, not totalPnl: a leg is
+            # judged on measured money, never manufactured. Pair with pnlCoverage
+            # below — a low-coverage strategy's measured sum is a thin sample.
+            "totalPnlMeasured": round(b["pnl_measured_sum"], 4),
             "expectancy": round(b["pnl"] / b["trades"], 4) if b["trades"] else 0.0,
             # R-normalised (cross-instrument-comparable). None when no trade in
             # the bucket had a measurable risk; rTradeCount says how many did.
@@ -465,6 +487,12 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         # with the fabricated share running 0.0% (May) -> 30.5% (Jun) -> 64.9%
         # (Jul) while every consumer treated measured and manufactured alike.
         "pnlCoverage": coverage({**pnl_prov, "total": total}),
+        # Measured-PnL SUM (MEASURED+ESTIMATED rows only) — the honest headline
+        # the R4 research→results promotion gate reads INSTEAD of totalPnl. Never
+        # gate on totalPnl: it sums fabricated marks too. Read this beside
+        # pnlCoverage — below the coverage floor the measured sum is too thin a
+        # sample to gate on and the gate ABSTAINS (R4 design §3). Added 2026-08-01.
+        "totalPnlMeasured": round(total_pnl_measured, 4),
         "pnlMeasuredCount": int(pnl_prov.get(MEASURED, 0)),
         "pnlEstimatedCount": int(pnl_prov.get(ESTIMATED, 0)),
         "pnlFabricatedCount": int(pnl_prov.get(FABRICATED, 0)),
