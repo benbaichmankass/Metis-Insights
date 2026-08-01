@@ -2224,8 +2224,15 @@
       "detail": "Population: paper (alpaca_paper/alpaca_portfolio) closed rows across the last 2 review windows; 5 graded entries all should_skip-class, all losses. Strategy is paper-only today so no money at risk, but the signal builder is emitting entries its own confidence says to skip. Proposed exact change (Tier-3, operator-gated): min_confidence floor ~0.3 on slv_trend_1h in config/strategies.yaml, or fold into the PERF-20260601-010 degenerate-confidence workstream. Escalated in the 2026-08-01 weekly report per the reviews_open>=2 rule.",
       "severity": "medium",
       "tier": 3,
-      "status": "open",
-      "reviews_open": 2
+      "status": "awaiting-decision",
+      "reviews_open": 2,
+      "updates": [
+        {
+          "at": "2026-08-01T12:40:00+00:00",
+          "by": "claude (operator-decision follow-up, session full-system-review-zajauh)",
+          "note": "Operator asked for a recommendation (chat 2026-08-01): regime gate is NOT production-ready for SLV (no SLV advisory regime head in the registry; no authored SLV trend_vol cells in config/regime_policy.yaml; ml_vol_regime_for_symbol would resolve unknown->frozen and the hard gate would drop nothing) - building one is a multi-week soak path. The min_confidence floor IS production-wired (trend_donchian.py min_confidence refusal; slv_trend_1h already carries the field at 0.0). RECOMMENDED + PREPARED: min_confidence 0.0 -> 0.3 on slv_trend_1h, draft PR opened (Tier-3 - merge on operator approval)."
+        }
+      ]
     }
   ],
   "updated_at": "2026-07-30T13:00:00+00:00"
