@@ -8000,10 +8000,16 @@
       "tier": 1,
       "trigger_condition": "Any consumer or audit that enumerates the econ event-study scorecard family by glob.",
       "resolution_criteria": "Either every kind's scorecard is suffix-named (no bare default written), or the bare name's meaning is documented at the producer and every consumer; and the family's expected kind-count is asserted rather than assumed.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": [],
-      "resolved_at": null,
+      "updates": [
+        {
+          "at": "2026-08-01T23:40:00+00:00",
+          "by": "claude (roadmap-backlog session, backlog drain)",
+          "note": "RESOLVED — both halves of resolution_criteria met. (a, at the source) `econ_event_study.py`'s `--json` default is now per-kind suffixed via `default_scorecard_path(kind)` -> a default invocation can NEVER write the ambiguous bare `econ_event_study_scorecard.json` again (the implicit-primary that re-forms the trap). The workflow still writes the bare natgas name via an explicit --json for landed-artifact/registry back-compat, and that name is now DOCUMENTED as the eia_natgas_storage kind at the producer + in the registry note. (count) The artifact-validity registry (`scripts/ops/check_artifact_validity.py::CHECKS`) now registers ALL FIVE kinds by path (natgas-bare + crude-alias + initial_jobless_claims + continuing_jobless_claims + cpi_yoy) — so the ROSTER is asserted: a dropped kind is a MISSING finding, not a silently-shorter glob. Pinned by `test_check_artifact_validity.py::test_the_full_econ_event_study_family_is_registered` + `test_m1_econ_event_study.py::test_default_scorecard_path_is_always_kind_suffixed`. BONUS hygiene (see-something-say-something): the two `KNOWN_VACUOUS` grandfather entries for the natgas + crude scorecards were REMOVED — the price join was fixed 2026-07-30 and both now read price_bars>0 (natgas 5428/789, crude 5427/2211, verified against committed artifacts), so per each entry's own contract ('fix landed -> remove the entry') they were dead debt. `check_artifact_validity --no-heuristic` clean (8 registered, 0 vacuous)."
+        }
+      ],
+      "resolved_at": "2026-08-01T23:40:00+00:00",
       "severity": "low",
       "refs": [
         "BL-20260730-REGIME-CELL-UNAUDITABLE",

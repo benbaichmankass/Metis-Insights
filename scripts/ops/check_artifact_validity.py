@@ -70,14 +70,37 @@ HEURISTIC_INPUT_KEYS = (
 # `floor` is the MINIMUM for the artifact to have measured anything at all — not a
 # statistical-power bar (that is the artifact's own min_honest_n), just "> nothing".
 CHECKS: dict[str, dict[str, Any]] = {
+    # --- econ event-study scorecard FAMILY (all 5 kinds registered, so the ROSTER
+    # is asserted, not its existence — BL-20260730-ECON-SCORECARD-NAMING-TRAP). The
+    # `eia_natgas_storage` kind lands under the BARE `econ_event_study_scorecard.json`
+    # (legacy back-compat name; the producer default is now per-kind suffixed so no NEW
+    # bare file is ever written). Registering all 5 by path is the fix: a family glob
+    # `econ_event_study_*_scorecard.json` misses the bare natgas file and enumerates
+    # 4-of-5 looking complete — this registry is the roster that catches a dropped kind.
     "comms/macro/econ_event_study_scorecard.json": {
         "inputs": [("meta.price_bars", 1), ("meta.releases", 1)],
-        "note": "BL-20260730-M1-PRICE-JOIN-DEAD — this artifact published a verdict "
-                "from price_bars:0 for its entire life.",
+        "note": "eia_natgas_storage kind (BARE legacy filename — the naming-trap row "
+                "BL-20260730-ECON-SCORECARD-NAMING-TRAP). Price join fixed 2026-07-30 "
+                "(was price_bars:0 its whole life, BL-20260730-M1-PRICE-JOIN-DEAD); now "
+                "non-vacuous.",
     },
     "comms/macro/econ_event_study_crude_scorecard.json": {
         "inputs": [("meta.price_bars", 1), ("meta.releases", 1)],
-        "note": "Sibling of the natgas scorecard; same zero-bar history.",
+        "note": "eia_crude_stocks kind (short-alias filename). Sibling of the natgas "
+                "scorecard; price join fixed on the same run.",
+    },
+    "comms/macro/econ_event_study_initial_jobless_claims_scorecard.json": {
+        "inputs": [("meta.price_bars", 1), ("meta.releases", 1)],
+        "note": "initial_jobless_claims kind — the 3 non-energy kinds complete the "
+                "family roster (BL-20260730-ECON-SCORECARD-NAMING-TRAP: assert the COUNT).",
+    },
+    "comms/macro/econ_event_study_continuing_jobless_claims_scorecard.json": {
+        "inputs": [("meta.price_bars", 1), ("meta.releases", 1)],
+        "note": "continuing_jobless_claims kind — completes the event-study family roster.",
+    },
+    "comms/macro/econ_event_study_cpi_yoy_scorecard.json": {
+        "inputs": [("meta.price_bars", 1), ("meta.releases", 1)],
+        "note": "cpi_yoy kind — completes the event-study family roster.",
     },
     "comms/macro/horizon_ic_scorecard.json": {
         "inputs": [("meta.snapshot_records", 1), ("meta.rebalances", 1),
@@ -114,18 +137,11 @@ CHECKS: dict[str, dict[str, Any]] = {
 #   * entries are still REPORTED on every run (as KNOWN), never suppressed from view.
 # An entry without an id, or past `until`, is a hard failure.
 KNOWN_VACUOUS: dict[str, dict[str, str]] = {
-    "comms/macro/econ_event_study_scorecard.json": {
-        "backlog": "BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER",
-        "until": "2026-08-15",
-        "why": "price_bars:0 from the dead price join. T2 fixed the join (yfinance + "
-               "the =F Stooq form); this artifact clears on the next econ-event-study "
-               "run, which is also the run that CONFIRMS the unverified ticker form.",
-    },
-    "comms/macro/econ_event_study_crude_scorecard.json": {
-        "backlog": "BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER",
-        "until": "2026-08-15",
-        "why": "Sibling of the natgas scorecard; clears on the same run.",
-    },
+    # REMOVED 2026-08-01 (the entry's own contract — "the fix landed → remove the entry"):
+    # the two econ_event_study natgas + crude scorecards CLEARED. The price join was fixed
+    # 2026-07-30 and both now read price_bars > 0 (natgas 5428/releases 789, crude
+    # 5427/2211), verified against the committed artifacts. They are now regular registered
+    # CHECKS above (non-vacuous), so grandfathering them would be dead debt.
     "comms/macro/econ_calendar_captures/US-20260729T073711Z.fmp.json": {
         "backlog": "BL-20260730-PRODUCER-VACUITY-GUARD",
         "until": "2026-08-15",

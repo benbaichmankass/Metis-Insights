@@ -140,6 +140,21 @@ class TestRegistry:
         assert "comms/macro/econ_event_study_scorecard.json" in cav.CHECKS
         assert "comms/macro/econ_event_study_crude_scorecard.json" in cav.CHECKS
 
+    def test_the_full_econ_event_study_family_is_registered(self):
+        """BL-20260730-ECON-SCORECARD-NAMING-TRAP: register the WHOLE roster, so the
+        count is asserted not assumed. The bare natgas filename is a family-glob
+        blind spot; all 5 kinds must be in CHECKS so a dropped one is a MISSING finding,
+        not a silently-shorter glob."""
+        family = {
+            "comms/macro/econ_event_study_scorecard.json",  # eia_natgas_storage (bare)
+            "comms/macro/econ_event_study_crude_scorecard.json",  # eia_crude_stocks
+            "comms/macro/econ_event_study_initial_jobless_claims_scorecard.json",
+            "comms/macro/econ_event_study_continuing_jobless_claims_scorecard.json",
+            "comms/macro/econ_event_study_cpi_yoy_scorecard.json",
+        }
+        missing = family - set(cav.CHECKS)
+        assert not missing, f"econ event-study family roster incomplete in CHECKS: {missing}"
+
     def test_every_registered_entry_declares_a_check(self):
         for rel, spec in cav.CHECKS.items():
             assert spec.get("inputs") or spec.get("jsonl_min_rows"), \

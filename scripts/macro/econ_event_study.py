@@ -47,7 +47,21 @@ from horizon_ic_scan import ic_t_stat  # noqa: E402  (rank-correlation t, shared
 from thesis_backtest_run import load_close_panels  # noqa: E402  (per-symbol CSV reader, shared)
 
 DEFAULT_HORIZONS = [1, 3, 5, 10, 21]  # trading days: next-day → ~1 month
+# Legacy BARE default (kept only for the `--json` help string + back-compat awareness).
+# The default OUT path is now per-kind suffixed — see `default_scorecard_path`. A bare
+# `econ_event_study_scorecard.json` is the eia_natgas_storage kind's legacy landed name
+# (the workflow still writes it via an explicit --json for registry back-compat), but a
+# default invocation NEVER writes the bare name again: an unsuffixed default is an
+# implicit-primary that lets `econ_event_study_*_scorecard.json` enumerate 4-of-5 and
+# read complete (BL-20260730-ECON-SCORECARD-NAMING-TRAP).
 DEFAULT_SCORECARD_PATH = os.path.join("comms", "macro", "econ_event_study_scorecard.json")
+
+
+def default_scorecard_path(kind: str) -> str:
+    """Per-kind scorecard path — ALWAYS suffixed with the kind, so a default
+    invocation can never write the ambiguous bare `econ_event_study_scorecard.json`
+    (the naming trap: a kind-less filename that a family glob misses)."""
+    return os.path.join("comms", "macro", f"econ_event_study_{kind}_scorecard.json")
 
 # Event kind → the daily-close price series whose forward return the surprise is
 # hypothesised to move. Front-month futures (yfinance `=F` tickers); NOT hardcoded
@@ -436,7 +450,9 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--t-flag", type=float, default=2.0, help="|IC_t| threshold to flag a horizon (default 2.0)")
     ap.add_argument("--min-honest-n", type=int, default=MIN_HONEST_N,
                     help=f"max_n must EXCEED this for a non-provisional verdict (default {MIN_HONEST_N})")
-    ap.add_argument("--json", default=DEFAULT_SCORECARD_PATH, help=f"scorecard JSON out (default {DEFAULT_SCORECARD_PATH})")
+    ap.add_argument("--json", default=None,
+                    help="scorecard JSON out (default: comms/macro/econ_event_study_<kind>_scorecard.json "
+                         "— ALWAYS per-kind suffixed; never the bare econ_event_study_scorecard.json)")
     ap.add_argument("--generated-at", default=None)
     ap.add_argument("--dry-run", action="store_true", help="compute + print; write nothing")
     ap.add_argument("--allow-empty-panel", action="store_true",
@@ -476,10 +492,12 @@ def main(argv: Optional[list] = None) -> int:
 
     if not args.dry_run:
         out = {"rows": rows, "summary": summary, "meta": meta}
-        p = Path(args.json)
+        # Default OUT is per-kind suffixed — never the bare name (naming trap).
+        out_path = args.json or default_scorecard_path(args.kind)
+        p = Path(out_path)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(out, indent=2, default=str), encoding="utf-8")
-        print(f"\nwrote {args.json}")
+        print(f"\nwrote {out_path}")
 
     # VACUITY GUARD (BL-20260730-M1-PRICE-JOIN-DEAD). A study asked to measure a
     # kind and handed ZERO price bars has not produced a thin result — it has
