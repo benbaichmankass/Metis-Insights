@@ -35,16 +35,37 @@ def _redact(text: str) -> str:
     return text
 
 
+def _redact_preserving_type(value):
+    """Redact a msg/arg value WITHOUT changing its type unless it leaks.
+
+    Coercing every arg to str (the old behaviour) breaks numeric printf
+    formatting ("%d format: a real number is required, not str") on every
+    record the filter touches — latent while the filter was logger-only and
+    effectively never ran, fatal once attached to the root handlers. A
+    non-str value is stringified only when its str() actually contains a
+    token (numbers never do), so %d/%f args pass through untouched.
+    """
+    if isinstance(value, str):
+        return _redact(value)
+    text = str(value)
+    redacted = _redact(text)
+    return redacted if redacted != text else value
+
+
 class RedactingFilter(logging.Filter):
     """Logging filter that redacts Telegram bot tokens from every log record."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        record.msg = _redact(str(record.msg))
+        record.msg = _redact_preserving_type(record.msg)
         if record.args:
             if isinstance(record.args, dict):
-                record.args = {k: _redact(str(v)) for k, v in record.args.items()}
+                record.args = {
+                    k: _redact_preserving_type(v) for k, v in record.args.items()
+                }
             else:
-                record.args = tuple(_redact(str(a)) for a in record.args)
+                record.args = tuple(
+                    _redact_preserving_type(a) for a in record.args
+                )
         return True
 
 

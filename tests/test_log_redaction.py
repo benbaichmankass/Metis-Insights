@@ -145,6 +145,27 @@ class TestInstallRedactingFilter:
         finally:
             root_like.removeHandler(handler)
 
+    def test_numeric_printf_args_pass_through_untouched(self):
+        # THE 68-test regression from the handler attachment: the filter used
+        # to coerce every arg to str, breaking "%d" formatting on any record
+        # it touched. Numeric args must keep their type.
+        root_like = logging.getLogger("redact_numeric_args")
+        root_like.setLevel(logging.INFO)
+        captured: list[str] = []
+
+        class _Capture(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                captured.append(record.getMessage())
+
+        handler = _Capture()
+        root_like.addHandler(handler)
+        try:
+            install_redacting_filter(root_like)
+            root_like.info("retry %d of %d after %.1fs", 2, 5, 1.5)
+            assert captured == ["retry 2 of 5 after 1.5s"]
+        finally:
+            root_like.removeHandler(handler)
+
     def test_bare_token_glued_to_letters_is_redacted(self):
         # Same \b-before-digits blindspot as the scanner: "bot<TOKEN>" outside
         # a full URL context must still be caught by the bare-token pattern.
