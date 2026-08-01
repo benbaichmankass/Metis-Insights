@@ -27,6 +27,19 @@ RR=$(PYTHONPATH=. "$PY" -c "from ml.shadow import factory; print(factory._resolv
 DB=data/trade_journal.db; [ -f "$DB" ] || DB=trade_journal.db
 SL=runtime_logs/shadow_predictions.jsonl
 DS=datasets-out
+# Refresh the label feedstock + shadow log from the live VM BEFORE gating.
+# The live_parity gate counts rows scored since the CURRENT artifact's
+# training run, and the nightly retrain (~01:00Z) resets that window — so a
+# gate-check against a stale trainer-side shadow log (synced ~05:00Z daily)
+# can never accumulate the 20-row parity bar and reads a permanent
+# insufficient_data (observed 2026-08-01: counts frozen at 13-14 across a 7h
+# gap until a manual sync unblocked them, MB-20260721-FCPCV-V2-SOAK).
+# Best-effort: a sync failure falls through to whatever log is present.
+if [ -x scripts/ops/sync_trainer_data.sh ] || [ -f scripts/ops/sync_trainer_data.sh ]; then
+  bash scripts/ops/sync_trainer_data.sh >/dev/null 2>&1 \
+    || echo "WARN: sync_trainer_data.sh failed — gating against the existing (possibly stale) shadow log"
+fi
+
 echo "== gate-check fleet :: registry=$RR db=$DB shadow_log=$SL datasets=$DS =="
 
 DEFAULT_MODELS="btc-regime-5m-lgbm-yz-v1 btc-regime-5m-lgbm-v2 btc-regime-15m-lgbm-yz-v1 btc-regime-15m-lgbm-v2 btc-regime-5m-baseline-v1 btc-regime-15m-baseline-v1"
