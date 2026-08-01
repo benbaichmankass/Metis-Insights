@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from scripts.macro.econ_event_study import (
+    default_scorecard_path,
     effective_n,
     event_study,
     load_resolved_events,
@@ -12,6 +13,15 @@ from scripts.macro.econ_event_study import (
     release_spacing_td,
     summarize,
 )
+
+
+def test_default_scorecard_path_is_always_kind_suffixed():
+    # No bare `econ_event_study_scorecard.json` from a default invocation — the naming
+    # trap (a kind-less filename a family glob misses) is closed at the source.
+    p = default_scorecard_path("eia_natgas_storage")
+    assert p == "comms/macro/econ_event_study_eia_natgas_storage_scorecard.json"
+    assert not p.endswith("econ_event_study_scorecard.json")
+    assert default_scorecard_path("cpi_yoy").endswith("econ_event_study_cpi_yoy_scorecard.json")
 
 # A tiny ascending daily-close panel: a clean +1%/day ramp so a forward return at
 # horizon H over a base at index i is deterministic ((1.01**H) - 1).
