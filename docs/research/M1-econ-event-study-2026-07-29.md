@@ -52,6 +52,44 @@ storage surprise IC by horizon with `verdict: insufficient_history`. That is the
 present, and the sample is honestly too thin to conclude. This is the artifact M2
 will re-read once history accrues.
 
+## Update 2026-08-01 — powered result (supersedes the n≈6 note above)
+
+The **R2 EIA-bulk backfill** (keyless `api.eia.gov/bulk`; crude `PET.WCESTUS1.W`,
+gas `NG.NW2_EPG0_SWO_R48_BCF.W`) replaced the shallow free-feed window with the full
+weekly history, so the study crossed `--min-honest-n` and the verdict graduated on
+its own — no code change, exactly as designed. Scorecard from
+`econ-event-study-now` (issue #8280, run against
+`comms/macro/econ_calendar_snapshots_backfill.jsonl`):
+
+| kind | symbol | releases (n) | strongest IC | horizon | t | verdict |
+|---|---|--:|--:|--:|--:|---|
+| `eia_natgas_storage` | NG=F | 789 | **−0.1058** | **21d** | **−2.98** | `surprise_predicts_forward_return` (flagged) |
+| `eia_crude_stocks` | CL=F | 2211 | +0.0216 | 5d | 0.72 | `no_edge_at_tested_horizons` |
+
+The **natgas 21d IC is negative** — consistent with the pre-stated hypothesis (a
+bigger-than-consensus storage BUILD is bearish → negative IC). Crude shows no edge
+at any tested horizon.
+
+**This is a candidate, NOT a confirmed tradable edge — three honest caveats
+(state the population):**
+
+1. **Multiple comparisons.** 5 horizons × 2 series = **10 IC tests** at a |t|≥2.0
+   flag. Under the null ~0.5 spurious flags are expected, so a *single* flagged
+   horizon is suggestive, not decisive.
+2. **Overlapping-window autocorrelation inflates the t.** The flagged horizon is the
+   **longest** tested (21 trading days) while natgas storage releases **weekly** —
+   ~4–5 releases sit inside each 21-day forward window, so the forward returns are
+   heavily overlapping and the effective independent-sample count is far below 789.
+   A Newey–West / non-overlapping-horizon treatment would shrink |t| materially.
+3. **Longest-horizon-only.** The signal appears only at 21d, not at 1/3/5/10d — the
+   shape most vulnerable to (1)+(2), and the least useful for a short-hold sleeve.
+
+**Disposition:** worth a proper **M2 event-response follow-up** — non-overlapping
+horizons, HAC (Newey–West) t-stats, an OOS split, pre-registered thresholds — before
+any position rule. Turning it into sizing/direction is **M2+/Tier-3**; nothing here
+trades. It also **validates R2 end-to-end**: the EIA wiring now feeds a real, powered
+study (the crude n jumped from ~6 to 2211).
+
 ## Operating model
 
 `.github/workflows/econ-event-study.yml` runs **weekly** (Sun 23:10 UTC) +
