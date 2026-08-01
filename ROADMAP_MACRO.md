@@ -209,6 +209,8 @@ lazily via the redirect.
 ---
 
 ## Change log
+- **2026-08-01** — **M1 event study gains an overlap correction; the model-side natgas "flag" does NOT survive it (reinforces the 07-30 HONEST-NEGATIVE).**
+  `econ_event_study.py` now computes an **overlap-corrected t** (`effective_n` → `n_eff = n / max(1, horizon/release_spacing_td)`, `ic_t_eff = ic_t_stat(ic, n_eff)`) and the **verdict trusts the corrected t** — a new `flagged_overlap_uncorrected_only` state fires when a horizon is significant only on the autocorrelation-inflated raw t. Motivation: the 08-01 `econ-event-study-now` run against the **model-expectation backfill** (`econ_calendar_snapshots_backfill.jsonl`, natgas 789 rows) flagged natgas 21d (IC −0.106, raw t=−2.98), which *looked* to contradict the 07-30 real-survey null. It doesn't: the 21td window overlaps ~4× the weekly release spacing → `n_eff ≈ 188`, corrected `ic_t_eff ≈ −1.45` (|t|<2), so the flag evaporates. Both the weaker model expectation (M3: worse than survey) and the honest t agree with the survey-consensus null — **no established energy-surprise edge; do not re-litigate without a new hypothesis.** The correction now guards every future kind. Observe-only, Tier-1; tests in `test_m1_econ_event_study.py`. Doc: [`M1-econ-event-study-2026-07-29.md`](docs/research/M1-econ-event-study-2026-07-29.md) § "Update 2026-08-01 (later)".
 - **2026-07-29 (cont.)** — **M1 price-JOIN + surprise→forward-return event study built.**
   The other half of M1's clean-joined-dataset gate: `scripts/macro/econ_event_study.py` joins the
   PIT resolved releases (`comms/macro/econ_calendar_snapshots.jsonl`) to a daily-close price panel

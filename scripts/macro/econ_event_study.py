@@ -169,6 +169,51 @@ def make_forward_return(panel: list[tuple[str, float]]) -> Callable[[str, int], 
     return forward_return
 
 
+def _panel_position(panel_dates: list[str], date_iso: str) -> int:
+    """Trading-day index of the rightmost bar with date <= *date_iso* (−1 if the
+    release precedes the panel). Same base-bar rule as ``make_forward_return``."""
+    return bisect.bisect_right(panel_dates, _norm_date(date_iso)) - 1
+
+
+def _median(xs: list[float]) -> Optional[float]:
+    s = sorted(xs)
+    n = len(s)
+    if n == 0:
+        return None
+    return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2.0
+
+
+def release_spacing_td(events: list[dict], panel: list[tuple[str, float]]) -> Optional[float]:
+    """Median **trading-day** gap between consecutive resolved releases (mapped to
+    their base bar in the price panel). This is the sampling interval `s` the
+    forward-window overlap is measured against — horizon-independent, so it's
+    computed once. `None` when fewer than two releases fall inside the panel."""
+    dates = [d for d, _ in panel]
+    pos = [p for p in (_panel_position(dates, e["date"]) for e in events) if p >= 0]
+    pos.sort()
+    gaps = [b - a for a, b in zip(pos, pos[1:])]
+    return _median([float(g) for g in gaps]) if gaps else None
+
+
+def effective_n(n: int, horizon: int, spacing_td: Optional[float]) -> tuple[float, Optional[float]]:
+    """Overlap-corrected effective sample size for an `n`-release IC measured over
+    a `horizon`-trading-day forward window sampled every `spacing_td` trading days.
+
+    When the forward window is LONGER than the release spacing the windows overlap,
+    so consecutive forward returns are autocorrelated and the raw t (which assumes
+    `n` independent draws) is OPTIMISTIC. The standard rule-of-thumb deflation is
+    `n_eff = n / overlap_factor`, `overlap_factor = max(1, horizon / spacing)` —
+    roughly the number of overlapping windows per independent block. Returns
+    `(overlap_factor, n_eff)`; `n_eff` is `None` when the spacing is unknown (then
+    the caller keeps the raw t and says so). NOT a rigorous Newey–West HAC on the
+    rank statistic — an effective-sample rule-of-thumb, the honest sibling of the
+    raw t (a full HAC is a documented further refinement)."""
+    if spacing_td is None or spacing_td <= 0 or not n:
+        return 1.0, None
+    overlap_factor = max(1.0, float(horizon) / float(spacing_td))
+    return overlap_factor, float(n) / overlap_factor
+
+
 def _rank(values: list[float]) -> list[float]:
     """Fractional (tie-averaged) ranks — the Spearman building block."""
     order = sorted(range(len(values)), key=lambda i: values[i])
@@ -225,6 +270,7 @@ def event_study(
     report n, Spearman IC + its rule-of-thumb t, Pearson, sign-hit-rate, and the
     mean forward return. Right-censored releases drop out of that horizon's n."""
     fwd = make_forward_return(panel)
+    spacing_td = release_spacing_td(events, panel)
     rows: list[dict] = []
     for h in horizons:
         xs: list[float] = []
@@ -238,11 +284,21 @@ def event_study(
             ys.append(float(r))
         n = len(xs)
         ic = _spearman(xs, ys)
+        # Overlap correction: the raw ic_t assumes n independent draws, but a
+        # forward window LONGER than the release spacing overlaps → autocorrelated
+        # returns → optimistic t. ic_t_eff deflates n by the overlap factor (the
+        # honest t, a rule-of-thumb; see effective_n). None-spacing → no correction.
+        overlap_factor, n_eff = effective_n(n, h, spacing_td)
+        ic_t_eff = ic_t_stat(ic, n_eff) if n_eff is not None else None
         rows.append({
             "horizon_days": h,
             "n": n,
             "ic": _r(ic),
             "ic_t": (lambda t: None if t is None else round(t, 3))(ic_t_stat(ic, n)),
+            # Overlap-corrected (honest) t + the effective sample it's computed on.
+            "overlap_factor": _r(overlap_factor),
+            "n_eff": _r(n_eff),
+            "ic_t_eff": (lambda t: None if t is None else round(t, 3))(ic_t_eff),
             "pearson": _r(_pearson(xs, ys)),
             "sign_hit_rate": _r(_sign_hit_rate(xs, ys)),
             "mean_fwd_return": _r(sum(ys) / n) if n else None,
@@ -267,29 +323,49 @@ def _r(v: object) -> Optional[float]:
     return None if v is None else round(float(v), 6)
 
 
+def _honest_t(r: dict) -> Optional[float]:
+    """The overlap-corrected t when present, else the raw t (back-compat for
+    callers/rows that predate the correction). This is the t the VERDICT trusts —
+    an overlapping window's raw t is only a lead."""
+    te = r.get("ic_t_eff")
+    return te if te is not None else r.get("ic_t")
+
+
 def summarize(rows: list[dict], *, t_flag: float = 2.0, min_honest_n: int = MIN_HONEST_N) -> dict:
-    """Honest verdict. A horizon is *flagged* when |IC_t| >= t_flag, but the
-    top-line verdict caps at ``insufficient_history`` while the max n across
-    horizons is <= ``min_honest_n`` — at a handful of releases an IC is a lead to
-    re-test as history accrues, not a result."""
+    """Honest verdict. A horizon is *flagged* when its OVERLAP-CORRECTED |IC_t_eff|
+    >= t_flag (the raw |IC_t| is kept for reference but is optimistic when forward
+    windows overlap — see effective_n). The top-line verdict caps at
+    ``insufficient_history`` while the max n across horizons is <= ``min_honest_n``.
+
+    Added 2026-08-01: the flag now trusts the overlap-corrected t, so a signal that
+    is significant ONLY on the autocorrelation-inflated raw t (the natgas-21d shape:
+    weekly releases, 21-td forward window overlapping ~4×) reports the distinct
+    ``flagged_overlap_uncorrected_only`` verdict instead of a false
+    ``surprise_predicts_forward_return``."""
     scored = [r for r in rows if r["n"] and r["ic"] is not None]
     max_n = max((r["n"] for r in rows), default=0)
-    flagged = [r for r in scored if r["ic_t"] is not None and abs(r["ic_t"]) >= t_flag]
+    flagged_raw = [r for r in scored if r["ic_t"] is not None and abs(r["ic_t"]) >= t_flag]
+    flagged_honest = [r for r in scored if _honest_t(r) is not None and abs(_honest_t(r)) >= t_flag]
     strongest = max(scored, key=lambda r: abs(r["ic"]), default=None)
     enough = max_n > min_honest_n
     return {
         "max_n": max_n,
         "min_honest_n": min_honest_n,
         "sufficient_history": enough,
-        "any_flagged_horizon": bool(flagged),
+        # Optimistic (raw-t) flag kept for reference; the corrected flag is the one
+        # the verdict trusts.
+        "any_flagged_horizon": bool(flagged_raw),
+        "any_flagged_horizon_overlap_corrected": bool(flagged_honest),
         "strongest_ic_horizon_days": strongest["horizon_days"] if strongest else None,
         "strongest_ic": strongest["ic"] if strongest else None,
         "strongest_ic_t": strongest["ic_t"] if strongest else None,
+        "strongest_ic_t_eff": strongest.get("ic_t_eff") if strongest else None,
         "t_flag": t_flag,
         "verdict": (
             "no_data" if not scored
             else "insufficient_history" if not enough
-            else "surprise_predicts_forward_return" if flagged
+            else "surprise_predicts_forward_return" if flagged_honest
+            else "flagged_overlap_uncorrected_only" if flagged_raw
             else "no_edge_at_tested_horizons"
         ),
     }
@@ -302,21 +378,25 @@ def render(rows: list[dict], summary: dict, *, meta: dict) -> str:
         f"kind={meta['kind']}  symbol={meta['symbol']}  value={meta['value_key']}  "
         f"releases={meta['releases']}  price_bars={meta['price_bars']}",
         "",
-        f"{'H(td)':>6} {'n':>5} {'IC':>9} {'IC_t':>8} {'pearson':>9} "
-        f"{'sign_hit':>9} {'mean_fwd':>10}",
+        f"{'H(td)':>6} {'n':>5} {'IC':>9} {'IC_t':>8} {'ovlp':>6} {'n_eff':>7} "
+        f"{'IC_t_eff':>9} {'pearson':>9} {'sign_hit':>9} {'mean_fwd':>10}",
     ]
     for r in rows:
         lines.append(
             f"{r['horizon_days']:>6} {r['n']:>5} {_f(r['ic']):>9} {_f(r['ic_t']):>8} "
+            f"{_f(r.get('overlap_factor')):>6} {_f(r.get('n_eff')):>7} {_f(r.get('ic_t_eff')):>9} "
             f"{_f(r['pearson']):>9} {_f(r['sign_hit_rate']):>9} {_f(r['mean_fwd_return']):>10}"
         )
     lines += [
         "",
         f"verdict: {summary['verdict']}  (max_n={summary['max_n']}  "
         f"strongest_IC={_f(summary['strongest_ic'])} @ {summary['strongest_ic_horizon_days']}td, "
-        f"t={_f(summary['strongest_ic_t'])})",
+        f"raw_t={_f(summary['strongest_ic_t'])}  overlap_corrected_t={_f(summary.get('strongest_ic_t_eff'))})",
         "note: IC = Spearman(surprise, forward return). For an inventory BUILD print a "
         "bigger-than-consensus surprise is bearish, so the hypothesis is a NEGATIVE IC.",
+        "note: IC_t is OPTIMISTIC when the forward window overlaps the release spacing "
+        "(ovlp>1); IC_t_eff deflates n by the overlap factor and is the t the verdict trusts. "
+        "flagged_overlap_uncorrected_only = significant on the raw t only, not after overlap correction.",
         "note: verdict caps at insufficient_history until enough releases accrue "
         f"(max_n must exceed {summary['min_honest_n']}); free feeds start with a small PIT window.",
     ]
@@ -385,6 +465,9 @@ def main(argv: Optional[list] = None) -> int:
         "releases": len(events),
         "releases_with_value": sum(1 for e in events if e.get(args.value_key) is not None),
         "price_bars": len(panel),
+        # Median trading-day gap between releases — the sampling interval the
+        # forward-window overlap correction is measured against (see effective_n).
+        "release_spacing_td": _r(release_spacing_td(events, panel)),
         "horizons": horizons,
         "snapshots_path": args.snapshots,
         "generated_at": args.generated_at,

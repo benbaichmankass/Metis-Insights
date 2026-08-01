@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 
 from scripts.macro.econ_event_study import (
+    effective_n,
     event_study,
     load_resolved_events,
     make_forward_return,
+    release_spacing_td,
     summarize,
 )
 
@@ -122,3 +124,65 @@ def test_summarize_no_edge_when_flat():
 
 def test_load_resolved_events_missing_file_is_empty():
     assert load_resolved_events("/no/such/snapshots.jsonl", "eia_natgas_storage") == []
+
+
+# --------------------------------------------------- overlap correction (2026-08-01)
+# The natgas 21d finding (IC −0.106, raw t=−2.98, n=789) is on WEEKLY releases against
+# a 21-trading-day forward window that overlaps ~4×, so the raw t is autocorrelation-
+# inflated. These pin the effective-sample deflation that turns that into an honest
+# verdict.
+
+def test_release_spacing_td_is_the_median_trading_day_gap():
+    # 5 daily bars; releases on bars 0, 2, 4 → gaps of 2 trading days each → median 2.
+    panel = [(f"2026-06-{d:02d}", 100.0 + d) for d in range(1, 6)]
+    events = [{"date": "2026-06-01"}, {"date": "2026-06-03"}, {"date": "2026-06-05"}]
+    assert release_spacing_td(events, panel) == 2.0
+
+
+def test_effective_n_deflates_only_when_window_overlaps_spacing():
+    # horizon <= spacing → no overlap → n_eff == n, factor 1.
+    assert effective_n(100, 5, 5.0) == (1.0, 100.0)
+    assert effective_n(100, 3, 5.0) == (1.0, 100.0)
+    # horizon 4x the spacing → factor 4 → n_eff = n/4.
+    f, ne = effective_n(800, 20, 5.0)
+    assert f == 4.0 and ne == 200.0
+    # unknown spacing → no correction (None n_eff), factor 1.
+    assert effective_n(100, 20, None) == (1.0, None)
+
+
+def test_event_study_reports_overlap_corrected_t_smaller_than_raw():
+    # A 40-bar ramp; releases every 2 bars (spacing 2td) measured over a 6td window
+    # that overlaps ~3× — enough events that the deflated n_eff stays >= 3.
+    panel = [(d, 100.0 * (1.005 ** i)) for i, d in enumerate(
+        f"2026-{m:02d}-{day:02d}" for m in (6, 7) for day in range(1, 21))]
+    events = [{"date": panel[b][0], "surprise": float(b)} for b in range(0, 32, 2)]  # 16 releases
+    rows = event_study(events, panel, horizons=[6], value_key="surprise")
+    r = rows[0]
+    assert r["overlap_factor"] > 1.0          # 6td window vs 2td spacing → overlaps
+    assert r["n_eff"] < r["n"]                # effective sample deflated
+    assert r["ic_t_eff"] is not None          # still enough effective sample for a t
+    # honest t is strictly smaller in magnitude than the optimistic raw t
+    assert abs(r["ic_t_eff"]) < abs(r["ic_t"])
+
+
+def test_summarize_downgrades_a_flag_that_survives_only_on_the_raw_t():
+    # The natgas shape: raw t flags (|2.98| >= 2) but the overlap-corrected t does not.
+    rows = [{"horizon_days": 21, "n": 789, "ic": -0.106, "ic_t": -2.98, "ic_t_eff": -1.45}]
+    s = summarize(rows, min_honest_n=12)
+    assert s["verdict"] == "flagged_overlap_uncorrected_only"
+    assert s["any_flagged_horizon"] is True                       # raw still flags
+    assert s["any_flagged_horizon_overlap_corrected"] is False    # honest does not
+
+
+def test_summarize_reports_edge_when_corrected_t_survives():
+    rows = [{"horizon_days": 5, "n": 200, "ic": -0.3, "ic_t": -4.4, "ic_t_eff": -3.1}]
+    s = summarize(rows, min_honest_n=12)
+    assert s["verdict"] == "surprise_predicts_forward_return"
+    assert s["any_flagged_horizon_overlap_corrected"] is True
+
+
+def test_summarize_backcompat_falls_back_to_raw_t_when_no_corrected_t():
+    # Rows without ic_t_eff (older callers) still work: verdict uses the raw t.
+    rows = [{"horizon_days": 5, "n": 40, "ic": -0.45, "ic_t": -3.1}]
+    s = summarize(rows, min_honest_n=12)
+    assert s["verdict"] == "surprise_predicts_forward_return"
