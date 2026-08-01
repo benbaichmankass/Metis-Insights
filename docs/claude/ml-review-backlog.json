@@ -2475,6 +2475,11 @@
           "at": "2026-07-26T09:12:06+00:00",
           "by": "claude (backlog-drain-tier1 session 2026-07-26, operator follow-up)",
           "note": "DURABILITY CHECK FAILED THEN FIXED 2026-07-26. This item's trigger explicitly asks to 'verify the nightly is actually keeping the forecast side-stream + v002 15m fc_* fresh'. It was NOT: the fc_* block on btc-regime-15m-lgbm-fc-pcv-v2's v002 15m shard read 100% zero in today's dataset_audit, even though the forecast side-stream (forecasts/BTCUSDT/15m/v002) was freshly rebuilt at 05:09. Root cause: build_funding_oi (enabled by ICT_BUILD_FUNDING_OI=1) rebuilt the 15m v002 market_features shard WITHOUT forecast_path at 05:20 — minutes AFTER build_bybit_15m_fc joined the forecast at 05:14 — zeroing fc_*. So the v2 head has been SOAKING ON ZERO fc_* features since ICT_BUILD_FUNDING_OI was turned on. FIX shipped (scripts/ops/build_trainer_datasets.sh: funding rebuild scoped to 1h, MB-20260726-FC-CLOBBER). The next nightly after the trainer pulls main will rebuild 15m v002 WITH the forecast join intact and fc_* will populate. IMPORTANT for the ~2026-07-28 gate decision: the v2 soak accrued so far is on dead fc_* — effectively a base-feature clone of the control — so the fc-vs-base comparison is INVALID until v2 re-soaks on real fc_* post-fix. The 7d soak clock should restart from the first post-fix nightly, not 2026-07-21. Kept open."
+        },
+        {
+          "at": "2026-08-01T08:40:00+00:00",
+          "by": "claude (/system-review weekly, session full-system-review-zajauh)",
+          "note": "Weekly /system-review: soak volume is THERE — btc-regime-15m-lgbm-fc-pcv-v2 758 scores and sol-regime-15m-lgbm-fc-pcv-v2 723 scores in the 7d window alone (shadow_stats #8237/#8240), both still stage=shadow while the FROZEN v1 siblings remain advisory (registry: advisory=2). The ~2026-07-28 swap-due date is now 4 days past. Blocker chain: the readiness/gate evidence path is itself blocked by MB-20260719-PROMOREADY-OOSEDGE-OOM (0-byte packets), and relay shadow/drift reads timed out (#8242). ESCALATED to operator_priorities in RPT-20260801 weekly: fix or hand-run the readiness packet for the two v2 heads, then Tier-3 swap decision."
         }
       ]
     },
@@ -2717,6 +2722,13 @@
         "ml/configs/mes-execution-quality.yaml",
         "ml/configs/mes-setup-quality.yaml",
         "ml/configs/mes-trade-outcome-winrate.yaml"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-01T08:40:00+00:00",
+          "by": "claude (/system-review weekly, session full-system-review-zajauh)",
+          "note": "Weekly /system-review: confirmed live in both 08-01 cycles — training_staleness_summary {scanned:89, stale:3, never_trained:3}; the 3 are mes-execution-quality / mes-setup-quality / mes-trade-outcome-winrate baselines, 64.6d old, skipped every cycle since landing (the new P1 escalation is doing its job). Recommendation for next /ml-review: RETIRE the three manifests unless someone commits to building their datasets — 64 days of silent skip is evidence nobody needs them; retiring also de-noises the staleness summary."
+        }
       ]
     }
   ],

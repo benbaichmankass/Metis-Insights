@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260801-090000-weekly",
+      "window": "weekly",
+      "generated_at": "2026-08-01T09:00:00+00:00",
+      "window_start": "2026-07-25T08:30:00+00:00",
+      "window_end": "2026-08-01T08:45:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "Recovery week under load: a huge shipped burst (provenance overhaul, W1 journal cleanup, guard hardening, trainer honesty) VERIFIED WORKING with live evidence - but the token-rotation fallout took the trader down 2h today and the Telegram alerting layer is STILL dark on a malformed re-pasted token (operator re-paste needed). Real money -$6.99 on the week (measured, broker-reconciled); paper lost ~$4.2k on measured venues; prop flat.",
+      "html_path": "comms/reports/weekly/20260801T090000Z/report.html",
+      "json_path": "comms/reports/weekly/20260801T090000Z/report.json",
+      "md_path": "comms/reports/weekly/20260801T090000Z/report.md"
+    },
+    {
       "id": "RPT-20260730-045200-since-last",
       "window": "since-last",
       "generated_at": "2026-07-30T04:52:00+00:00",

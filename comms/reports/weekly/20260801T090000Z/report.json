@@ -1,0 +1,1029 @@
+{
+ "report_id": "RPT-20260801-090000-weekly",
+ "reviewed_at": "2026-08-01T09:00:00+00:00",
+ "reviewer": "claude",
+ "window": "weekly",
+ "window_start": "2026-07-25T08:30:00+00:00",
+ "window_end": "2026-08-01T08:45:00+00:00",
+ "prior_report_id": "RPT-20260730-045200-since-last",
+ "overall_assessment": "investigate",
+ "health": {
+  "request_id": "system-review-weekly-20260801",
+  "reviewed_at": "2026-08-01T09:00:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-07-25T08:30:00+00:00",
+  "window_end": "2026-08-01T08:45:00+00:00",
+  "overall_assessment": "investigate",
+  "findings": {
+   "heartbeat": {
+    "status": "ok",
+    "note": "Fresh at review time (60s cadence). NOTE: trader was DOWN 05:29-07:33Z today - round-1 token rotation synced an empty secret and startup validation refused to boot; recovered on 4c9decf6, positions bracket-protected broker-side throughout."
+   },
+   "ticks": {
+    "status": "ok",
+    "note": "Ticking - last tick 2026-08-01T08:27:34Z, uptime since 07:33Z."
+   },
+   "signals": {
+    "status": "ok",
+    "note": "Signal flow live across the fleet; one transient ict_scalp_mgc_15m no-candle error 2 min after restart (IB warm-up) - MGC candles fetch cleanly now."
+   },
+   "orders": {
+    "status": "ok",
+    "note": "Signal->order plumbing normal; window rejections are expected flip-suppression/sizing noops, no plumbing failures."
+   },
+   "trades": {
+    "status": "ok",
+    "note": "Order->trade plumbing normal. W1 P2 phantom-row cleanup (applied 07:44Z today) LIVE-VERIFIED: journal net == exchange on every symbol (MGC phantom gone, MHG -25=-25); sole residual is the known BNB pairs-sleeve surplus row."
+   },
+   "monitoring": {
+    "status": "watch",
+    "note": "Stuck-package sweep force-closed 3 packages 2 min after the W1 P2 DB cleanup - most likely cleanup fallout; filed BL-20260801-STUCK-PACKAGE-SWEEP-AFTER-W1P2 to verify no organic recurrence."
+   },
+   "sizing": {
+    "status": "ok",
+    "note": "No sizing/leverage anomaly in the window's real-money rows (qty 0.004-0.01 BTC, 15.8-207 XRP, 0.07-0.09 ETH)."
+   },
+   "api_errors": {
+    "status": "watch",
+    "note": "Diag-relay timeouts on /trades/closed at limit=300 and /shadow/drift (smaller reads fine) - BL-20260801-TRADESCLOSED-RELAY-LIMIT300-TIMEOUT (low)."
+   },
+   "state_consistency": {
+    "status": "ok",
+    "note": "YAML modes vs runtime consistent; all 7 probeable live accounts reachable (api_ok + live exchange reads); IB gateway connected, breaker closed; no orphan_unreconciled banner."
+   },
+   "alerting": {
+    "status": "concern",
+    "note": "ALL Telegram alerting DARK: rotated TELEGRAM_BOT_TOKEN on the VM is malformed (secret half without the bot-id prefix; the #8228 shape guard refuses to boot, secret-free, as designed). ict-telegram-bot restart counter 700; claude-bridge down; liveness-watchdog pages 404. Operator re-paste of BOTH full tokens required."
+   },
+   "security": {
+    "status": "watch",
+    "note": "Token-compromise contained: both leaked tokens revoked (401), leak channel closed runtime+scan side, no abuse observed. Residual risk is availability, not integrity; rotation #3 pending operator."
+   },
+   "provenance": {
+    "status": "ok",
+    "note": "Exit-anchor fix HOLDING: only fabricated close in the 7d real window predates the 07-30 deploy; real pnlCoverage 90% measured; pnlProvenance live on API + both apps."
+   }
+  },
+  "security_check": "Active incident, contained: BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE. Both leaked tokens revoked (getMe 401 verified by the audit session; watchdog 404s confirm). No trade-instruction abuse observed via the hijacked bot; no other credential-abuse signals in the window. Residual risk is availability (alerting dark), not integrity. Leak channel (httpx INFO token URLs) closed runtime-side (#8217) + scan-side (#8206).",
+  "soak_decisions_due": [
+   "fc-pcv v2 advisory swap (BTC+SOL 15m regime heads) - soak volume met, due since ~07-28, routed to /ml-review + operator (see ml sub-review).",
+   "M27 ict_scalp altcoin paper legs (SOL/AVAX/XRP) - soak continuing, not yet due (SRQ-20260728-M27-WINNERS-SHIP)."
+  ],
+  "new_work_compliance": "All 56 bot-repo commits in the window (07-30 to 08-01 burst) verified: 15 required CI contexts live on branch protection (branch-protection-sync REQUIRED_CONTEXTS), merge_group fixed across 15 guard workflows, 2 new advisory guards running, trainer-diag prose-execution fix confirmed in workflow awk + tests, provenance guards required and non-vacuous.",
+  "anomalies": [
+   "ict-liveness-watchdog unit fails (exit 2) on Telegram POST failure although the heartbeat check succeeded - alert-channel coupling filed as BL-20260801-LIVENESS-WATCHDOG-FAILS-ON-TELEGRAM-404 (Tier-1 fix candidate).",
+   "/api/bot/trades/closed at limit=300 and /api/bot/shadow/drift time out through the diag relay while smaller reads succeed - filed BL-20260801-TRADESCLOSED-RELAY-LIMIT300-TIMEOUT (low)."
+  ],
+  "backlog_drain": "DRAINED 29 items this run on cited commit/file evidence (the 07-30/31 provenance+audit program's fixes had landed without the rows being closed) - full ids in review_coverage.backlog_drive.health.drained. Remaining open set: 51, fully classified: 37 actionable (each with a concrete next step recorded in the triage), 6 soaking (named triggers), 5 Tier-3-awaiting-operator, 2 needing live data, 1 downgraded-blocker kept open with note (2D-VOL-CELLS - offline-measurable now, walk-forward vol axis still missing).",
+  "backlog_coverage": {
+   "open_at_start": 80,
+   "triaged": 80,
+   "count_untriaged": 0
+  },
+  "sprint_doc_review": "Sprint logs present for every major workstream this week (S-AUDIT-P0/P1, S-OFFLINE-VOL-AXIS, S-BYBIT-COVERAGE-DEPLOY-VERIFY, provenance root-cause). CLAUDE.md TPSL premise correction landed. No canonical-doc contradiction found by this review.",
+  "recommended_action": "Operator: re-paste FULL '<botid>:<secret>' values into Actions secrets TELEGRAM_BOT_TOKEN + TELEGRAM_CLAUDE_BOT_TOKEN, re-run set-env sync + restart ict-telegram-bot / ict-claude-bridge, verify getMe 200. Everything else on the health side is healthy or tracked.",
+  "operator_attention_required": true,
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)"
+  },
+  "findings_narrative": [
+   "P0 (recovered mid-window, 2026-08-01): the round-1 Telegram token rotation synced an EMPTY secret to the VM and restarted the trader; ict-trader-live crashlooped 05:29Z-07:33Z on startup validation. RECOVERED: active on current main (4c9decf6), uptime since ~07:33Z, last tick 08:27:34Z, heartbeat fresh (vm-diag #8236, journalctl #8240).",
+   "STILL BROKEN at review time: the ALERTING layer. ict-telegram-bot crashloops (restart counter 700) because the rotated TELEGRAM_BOT_TOKEN on the VM is MALFORMED - no ':' separator, i.e. the secret half was pasted without the numeric bot-id prefix (the #8228 assert_telegram_token_shape guard is refusing to boot secret-free, exactly as designed). ict-claude-bridge likewise 'activating'. ict-liveness-watchdog runs read the heartbeat fine but exit failed on 'Telegram POST failed: HTTP 404' (old token correctly revoked). Net: NO Telegram page can go out - CRITICAL alerts, the claude channel, and the prop nag are all dark until the operator re-pastes both FULL tokens.",
+   "Token-leak security response verified working: assert_telegram_token_shape fails secret-free (journal shows no token echo), log_redact RedactingFilter + httpx suppression wired in claude_bridge (static), secret-scan blind spot closed, both leaked tokens now 401 (revoked).",
+   "W1 P2 journal-vs-exchange remediation VERIFIED on the live journal (applied 07:44Z, #8232): positions/net now reconciles to the broker exactly on every symbol - bybit_1 ETH 3.16=3.16, ADA/SOL/BTC exact, ib_paper MGC 99-lot phantom GONE, MHG -25=-25, bybit_2 both rows exact (vm-diag #8237/#8245 vs exchange_positions). Sole residual: BNB pairs-sleeve journal 13.43 vs exchange 9.72 - already root-caused as BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED (open).",
+   "Exit-anchor/provenance fix HOLDING: the only fabricated-provenance close in the 7d real-money window (trade 4154) closed 07-29, pre-deploy; every close after the 07-30 deploy carries measured provenance; real-money 7d pnlCoverage 90% measured (9/10). pnlProvenance live on /api/bot/trades/closed (P0.3) and unrealizedPnlProvenance on /positions.",
+   "All declared-live broker accounts reachable (bybit_1/bybit_2/bybit_portfolio/ib_paper/alpaca_paper/alpaca_portfolio/alpaca_options_paper api_ok=true + live exchange position reads); IB gateway connected, breaker closed, cold-flow probe retries absorbed (ib_state #8236). No orphan_unreconciled banner.",
+   "Transient (resolved in-window): ict_scalp_mgc_15m 'no candle data' RuntimeError at 07:35Z, 2 min after trader restart while IB warmed - MGC 15m candles fetch cleanly now (#8240). Stuck-package sweep force-closed 3 packages at 07:46Z, 2 min after the W1 P2 DB cleanup - filed BL-20260801-STUCK-PACKAGE-SWEEP-AFTER-W1P2 to verify no organic recurrence.",
+   "ict-git-sync, db-integrity, insights generators, hourly/health snapshots, exchange-fills + funding pulls, MES/IB executions pulls: timers all active; ict-ib-executions-pull hourly timer confirmed active with IB fills present in the exchange-fills store through 07-31 (refutes the static install-gap suspicion)."
+  ]
+ },
+ "performance": {
+  "request_id": "system-review-weekly-20260801",
+  "reviewed_at": "2026-08-01T09:00:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-07-25T08:30:00+00:00",
+  "window_end": "2026-08-01T08:45:00+00:00",
+  "overall_assessment": "caution",
+  "strategy_performance": [
+   {
+    "name": "ict_scalp_5m (real, bybit_2)",
+    "trades": 3,
+    "win_rate": 66.7,
+    "pnl": 6.43,
+    "note": "Both winners ran to TP with healthy capture (+13.9R of 14.4R MFE; +24.3R of 26.6R). The one loser was a clean fast stop. Best real-money strategy of the window."
+   },
+   {
+    "name": "eth_pullback_2h (real)",
+    "trades": 2,
+    "win_rate": 0.0,
+    "pnl": -7.58,
+    "note": "Two SL exits in ETH chop; largest real drag of the window."
+   },
+   {
+    "name": "xrp_pullback_2h (real)",
+    "trades": 2,
+    "win_rate": 0.0,
+    "pnl": -2.95,
+    "note": "One row (4154) is the window's only fabricated-provenance PnL (pre-anchor-fix close)."
+   },
+   {
+    "name": "trend_donchian (real)",
+    "trades": 1,
+    "win_rate": 0.0,
+    "pnl": -1.04,
+    "note": "Reached +34.5R MFE then closed -4.8R at the stop over a 14h hold - the week's one real round-tripper; dollars tiny but the giveback pattern is logged in execution_capture."
+   },
+   {
+    "name": "trend_donchian_xrp_4h (real)",
+    "trades": 2,
+    "win_rate": 0.0,
+    "pnl": -1.85,
+    "note": "One exit was a live stale_stop fire (-0.11R after +1.53R MFE) - the M20 stale-stop lever is demonstrably active in production."
+   },
+   {
+    "name": "slv_trend_1h (paper)",
+    "trades": 2,
+    "win_rate": 0.0,
+    "pnl": -75.9,
+    "note": "D-grade should_skip entry at confidence 0.04 - SECOND consecutive review with degenerate-confidence entries. Escalated; Tier-3 confidence floor proposed (PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE)."
+   }
+  ],
+  "trade_decision_grades": "22 fresh grades appended this run via grade-closed-trades (#8239): 1 A, 12 B, 8 C, 1 D; every closed package in the window now carries a grade (grading-freshness guard satisfied; newest reviewed_at 2026-08-01T08:29:01Z).",
+  "insights_review": "Insights generators' timers active; cache-only read path unchanged this week. No insights-vs-data contradiction found in the window's sampled claims.",
+  "proposed_tweaks": [
+   {
+    "tier": 3,
+    "proposal": "slv_trend_1h: min_confidence floor ~0.3 (or regime gate) before any real-money routing - 5 graded should_skip entries across 2 review windows, all losses (PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE).",
+    "operator_action_required": true
+   }
+  ],
+  "backlog_drain": "All 5 status=open items + 48 kept_open items re-validated against this window's data; 1 new row filed (slv floor). No item silently dropped; deferrals are soak/awaiting-data/Tier-3 with named triggers (see consolidated.review_coverage.backlog_drive.performance).",
+  "paper_book_tracker": "Paper journal dollars are NOT quotable this window: 44/69 closed paper rows carry legacy fabricated provenance (pnlCoverage 23%). Broker-measured paper venues: MGC scalps -$2,867.60 (85 IB fills), SLV -$803.92, TLT -$559.57 (FIFO exchange-truth) - the paper book lost measurably this week even as several crypto scalp legs printed large positive R. htf_pullback_trend_2h remains demoted-to-paper (watch).",
+  "real_money_allocation_benchmark": "Deferred (recurring SRQ-20260715 row) - n=10 real trades this window is far below decision grade.",
+  "anomalies": [
+   "R-vs-dollars sign divergence: real-money window reads +27.4R but -$6.99 measured dollars (fees + tiny per-trade risk sizing on scalps inflate R). Dollars are the scoreboard; R quoted as diagnostic only.",
+   "pairs_sol_eth_a graded C premature_exit: winner cut at +0.04R by an intent_reduce micro-cross - watch whether the pairs sleeve's exit logic systematically clips winners."
+  ],
+  "recommended_action": "Hold all real-money routing as-is; land the slv_trend_1h floor decision; continue M27 paper soaks toward their gate.",
+  "operator_attention_required": true,
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)"
+  }
+ },
+ "ml": {
+  "request_id": "system-review-weekly-20260801",
+  "reviewed_at": "2026-08-01T09:00:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-07-25T08:30:00+00:00",
+  "window_end": "2026-08-01T08:45:00+00:00",
+  "overall_assessment": "caution",
+  "trainer_findings": [
+   "Nightly cycles ran every day of the window; the 2026-08-01 cycle: trained 75, failed 0, skipped 14 (incl. exactly 2 enforced dataset-audit skips: setup-candidates-metalabel-xsym-yz-v1, setup-quality-lgbm-v2 - genuine flagged datasets, way down from the ~8-manifest alarm-fatigue era), outcome 'trained' (trainer-diag #8238).",
+   "P1 trainer-honesty changes VERIFIED LIVE independently of the shipping session: cycle_end carries {trained/skipped/failed/already_done/outcome}; manifest_ok rows carry populated model_id + registered + experiment_dir; the 05:13Z re-invocation honestly self-reported 'already_complete'; training_staleness_summary emits {scanned:89, stale:3, never_trained:3}.",
+   "trade-outcome-lgbm-v1 unquarantine holding - trained again 08-01 01:16Z.",
+   "No manifest_quarantine_tripped / manifest_quarantined events in the window's cycle tail.",
+   "Trainer VM healthy: current main (4c9decf6), disk 79% (post-GC), load idle, timer armed for 08-02 00:55Z. Registry: 93 models - 2 advisory, 28 shadow, 62 candidate, 1 research_only."
+  ],
+  "model_status": [
+   {
+    "model_id": "btc-regime-15m-lgbm-fc-pcv-v1",
+    "stage": "advisory",
+    "last_training": {
+     "headline_metric": "trained nightly (08-01 cycle ok)",
+     "trend_vs_prior_run": "stable"
+    },
+    "live_shadow": {
+     "drift": "relay read timed out - via readiness path"
+    },
+    "note": "753 scores/7d; FROZEN-dataset head; swap candidate to v2 (overdue)."
+   },
+   {
+    "model_id": "mes-regime-5m-lgbm-v2",
+    "stage": "advisory",
+    "last_training": {
+     "headline_metric": "trained nightly",
+     "trend_vs_prior_run": "stable"
+    },
+    "live_shadow": {
+     "drift": "-"
+    },
+    "note": "1274 scores/7d, scoring live."
+   },
+   {
+    "model_id": "btc-regime-15m-lgbm-fc-pcv-v2",
+    "stage": "shadow",
+    "last_training": {
+     "headline_metric": "trained nightly on fresh v002 data",
+     "trend_vs_prior_run": "stable"
+    },
+    "live_shadow": {
+     "drift": "unavailable via relay (timeout)"
+    },
+    "note": "758 scores/7d - soak volume met, advisory-swap decision 4 days OVERDUE (escalated)."
+   },
+   {
+    "model_id": "sol-regime-15m-lgbm-fc-pcv-v2",
+    "stage": "shadow",
+    "last_training": {
+     "headline_metric": "trained nightly on fresh v002 data",
+     "trend_vs_prior_run": "stable"
+    },
+    "live_shadow": {
+     "drift": "unavailable via relay (timeout)"
+    },
+    "note": "723 scores/7d - same overdue swap; also gates restoring the SOL advisory head."
+   },
+   {
+    "model_id": "trade-outcome-lgbm-v1",
+    "stage": "shadow",
+    "last_training": {
+     "headline_metric": "manifest_ok 08-01 01:16Z",
+     "trend_vs_prior_run": "recovered (unquarantined)"
+    },
+    "live_shadow": {
+     "drift": "-"
+    },
+    "note": "Unquarantine holding; label-provenance gate active."
+   },
+   {
+    "model_id": "execution-quality-baseline-v0",
+    "stage": "shadow",
+    "last_training": {
+     "headline_metric": "-",
+     "trend_vs_prior_run": "-"
+    },
+    "live_shadow": {
+     "drift": "score constant (min==max -0.2017)"
+    },
+    "note": "Degenerate soak - known class, backlog-tracked."
+   },
+   {
+    "model_id": "mes-execution-quality/setup-quality/trade-outcome-winrate baselines",
+    "stage": "never trained",
+    "last_training": {
+     "headline_metric": "0 registered runs in 64.6d",
+     "trend_vs_prior_run": "-"
+    },
+    "live_shadow": {
+     "drift": "-"
+    },
+    "note": "Flagged nightly by the new staleness escalation - retire-vs-build decision routed."
+   }
+  ],
+  "promotion_recommendations": [
+   {
+    "direction": "promote (swap)",
+    "model_id": "btc-regime-15m-lgbm-fc-pcv-v2 + sol-regime-15m-lgbm-fc-pcv-v2",
+    "current_stage": "shadow",
+    "proposed_stage": "advisory",
+    "evidence": "Soak volume met (758+723 scores in 7d; soaking since 07-21; swap due ~07-28, now 4 days overdue). GATE EVIDENCE BLOCKED: readiness packets 0-byte on the trainer (OOM, MB-20260719-PROMOREADY-OOSEDGE-OOM) and relay drift reads time out. Unblock the packet, then Tier-3 operator decision; also restores the SOL advisory head."
+   },
+   {
+    "direction": "hold (parked)",
+    "model_id": "mes-regime-15m-lgbm-v2",
+    "current_stage": "shadow",
+    "proposed_stage": "advisory (parked)",
+    "evidence": "Reads ready:true but not operator-pre-approved (MB-20260721-MES-15M-HEAD-PARKED) - unchanged."
+   }
+  ],
+  "experiments_proposed": [
+   "Decide retire-vs-build for the 3 never-trained MES baseline manifests (mes-execution-quality / mes-setup-quality / mes-trade-outcome-winrate, 64.6d old, skipped every cycle) - retiring de-noises the new staleness summary (MB-20260801-MES-BASELINE-MANIFESTS-NEVER-TRAINED, updated this run)."
+  ],
+  "backlog_drain": "All 4 status=open + 31 kept_open ml items re-validated; 2 rows updated with this run's evidence (FCPCV-V2-SOAK overdue escalation; MES-BASELINE recommendation). Deferrals are data/soak/Tier-3-gated with named triggers.",
+  "anomalies": [
+   "shadow/drift endpoint times out through the diag relay (3 attempts incl. narrow windows) while shadow/stats works - drift evidence for the fc-pcv gate must come from the trainer-side readiness path until profiled (folded into BL-20260801-TRADESCLOSED-RELAY-LIMIT300-TIMEOUT class)."
+  ],
+  "recommended_action": "Unblock the promotion-readiness packet (MB-20260719-PROMOREADY-OOSEDGE-OOM) and run it for the two fc-pcv v2 heads; bring the swap decision to the operator; decide the MES-baseline retire-vs-build.",
+  "operator_attention_required": true,
+  "claude_channel_ping": {
+   "delivered_via": "suppressed (system-report)"
+  },
+  "model_status_narrative": "Advisory: btc-regime-15m-lgbm-fc-pcv-v1 (753 scores/7d) + mes-regime-5m-lgbm-v2 (1274/7d) both scoring live. Shadow fleet scoring continuously through 08:25Z today (regime bar scoring healthy across BTC/ETH/SOL/MES heads). Degenerate constant-score baselines persist (execution-quality-baseline-v0 min==max -0.2017; setup-quality-audit-baseline-v0) - known class, backlog-tracked. SOL advisory head still NOT restored (sol-fc-pcv-v2 at shadow)."
+ },
+ "consolidated": {
+  "roll_up_grade": "investigate",
+  "headline": "Recovery week under load: a huge shipped burst (provenance overhaul, W1 journal cleanup, guard hardening, trainer honesty) VERIFIED WORKING with live evidence - but the token-rotation fallout took the trader down 2h today and the Telegram alerting layer is STILL dark on a malformed re-pasted token (operator re-paste needed). Real money -$6.99 on the week (measured, broker-reconciled); paper lost ~$4.2k on measured venues; prop flat.",
+  "operator_priorities": [
+   {
+    "rank": 1,
+    "title": "Re-paste BOTH full Telegram tokens ('<botid>:<secret>') into Actions secrets, re-sync + restart",
+    "source_review": "health",
+    "tier": 2,
+    "detail": "TELEGRAM_BOT_TOKEN on the VM is malformed (secret half only, no bot-id prefix) - ict-telegram-bot at restart 700, claude-bridge down, liveness-watchdog pages 404. ALL Telegram alerting is dark until this lands; the trader itself is fine.",
+    "operator_action_required": true
+   },
+   {
+    "rank": 2,
+    "title": "fc-pcv v2 advisory swap is 4 days overdue and its gate evidence is blocked - unblock readiness, then decide",
+    "source_review": "ml",
+    "tier": 3,
+    "detail": "BTC+SOL 15m fc-pcv-v2 soaks met volume (758/723 scores in 7d). Readiness packets 0-byte on the trainer (OOM, MB-20260719) and relay drift reads time out. Fix or hand-run the packet, then Tier-3 swap + restore the SOL advisory head.",
+    "operator_action_required": true
+   },
+   {
+    "rank": 3,
+    "title": "slv_trend_1h: approve a min-confidence floor (~0.3) or regime gate",
+    "source_review": "performance",
+    "tier": 3,
+    "detail": "Second consecutive review with should_skip-grade entries (conf 0.04-0.15), 5 graded entries all losses (paper-only today). Exact change proposed in PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE.",
+    "operator_action_required": true
+   },
+   {
+    "rank": 4,
+    "title": "Decide backfill-fabricated-exits --apply (Tier-2, dry-run validated, recovers ~4%)",
+    "source_review": "cross",
+    "tier": 2,
+    "detail": "The apply was never run (operator go not given). Decide run-or-close so the item stops carrying; the read-side filter already quarantines the 206 fabricated rows either way.",
+    "operator_action_required": true
+   },
+   {
+    "rank": 5,
+    "title": "Retire (or commit to building) the 3 never-trained MES baseline manifests",
+    "source_review": "ml",
+    "tier": 1,
+    "detail": "64.6 days of every-cycle skips; the new staleness escalation will flag them nightly until dispositioned.",
+    "operator_action_required": false
+   }
+  ],
+  "cross_review_notes": [
+   "PAST-WEEK VERIFICATION (this review's emphasis - all evidence-based, no assumptions): (1) provenance/exit-anchor: HOLDING - zero fabricated closes post-07-30-deploy; pnlProvenance live on API + both apps; real 7d coverage 90% measured. (2) W1 journal cleanup (#8232, applied 07:44Z today): journal-vs-exchange now reconciles EXACTLY on every symbol (MGC phantom gone, MHG -25=-25, ETH/XRP/BTC/ADA/SOL to the decimal); sole residual = known BNB pairs row (open root-cause item). (3) W2 guards: 15 required contexts confirmed in branch-protection-sync; new guards running non-vacuous; latest main pushes green. (4) P1 trainer honesty: verified live in TWO cycles (honest counters, populated model_id, staleness summary firing). (5) Security response: malformed-token guard (#8228) fired secret-free in production journals - working as designed; redaction wiring + secret-scan fix static-verified; leaked tokens 401. (6) trainer-diag prose-execution fix in the workflow awk + tests. (7) Dashboard/Android provenance surfacing merged; Android side merged-but-unreleased (no release cut since 07-31); live Streamlit render check not yet re-run this session. (8) Macro PIT producers alive (M1 econ-calendar + M28 valuation snapshot chores committed through 08-01; liveness guard now fail-red). (9) ict-ib-executions-pull hourly timer ACTIVE with IB fills in the store (refutes the install-gap suspicion).",
+   "Single-channel alerting fragility: the liveness watchdog, CRITICAL pages, claude channel, and the prop status nag all ride Telegram - one bad token rotation silenced all four at once, twice in one day. The watchdog unit also FAILS itself when only the alert POST fails (BL-20260801-LIVENESS-WATCHDOG-FAILS-ON-TELEGRAM-404). Consider a secondary channel (FCM push already exists for trade events) for CRITICAL-class pages.",
+   "R vs dollars: the real-money week reads +27.4R yet -$6.99 in reconciled dollars - fee drag plus tiny scalp risk denominators. Dollars are the scoreboard; the R figure is quoted only as a shape diagnostic.",
+   "Paper-vs-real translation gap: measured paper venues (IB MGC scalps, alpaca SLV/TLT) lost ~$4.2k while real money was near-flat; the crypto paper journal's own dollar total (-$17.3k) is 77% fabricated-legacy rows and not quotable. The provenance split now makes this distinction mechanical instead of narrative.",
+   "Prop: flat since the 07-28 ETH close (-$18.06); outbound prop strategies at execution:shadow emitting shadow tickets only; account-status snapshot 12 days stale with a thin recorded DD cushion ($125.61 to the floor at the 07-20 snapshot) - the nag path is the dead Telegram channel, so freshness resumes when the token lands."
+  ],
+  "tier3_proposals_pending": [
+   {
+    "source_review": "ml",
+    "summary": "fc-pcv v2 advisory swap (BTC + SOL 15m regime heads) once gate evidence is produced - overdue since ~07-28."
+   },
+   {
+    "source_review": "performance",
+    "summary": "slv_trend_1h min-confidence floor ~0.3 (or regime gate) - PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE."
+   },
+   {
+    "source_review": "ml",
+    "summary": "SOL trend_vol cell authoring - standing follow-up, unblocked once the SOL advisory head is restored."
+   },
+   {
+    "source_review": "performance",
+    "summary": "M27 ict_scalp altcoin real-money graduation - soak-gated, not yet due (SRQ-20260728-M27-WINNERS-SHIP)."
+   },
+   {
+    "source_review": "cross",
+    "summary": "trend_donchian cosmetic-short cell cleanup (authored-cell register note)."
+   }
+  ],
+  "monitoring": [
+   {
+    "item_id": "BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE",
+    "domain": "health",
+    "category": "awaiting-decision",
+    "detail": "Token rotation round 3 - operator re-paste of both full tokens",
+    "since": "2026-08-01",
+    "next_check": "getMe 200 + services stable after set-env"
+   },
+   {
+    "item_id": "MB-20260721-FCPCV-V2-SOAK",
+    "domain": "ml",
+    "category": "awaiting-decision",
+    "detail": "Swap gate evidence blocked by readiness OOM",
+    "since": "2026-07-28",
+    "next_check": "readiness packet produced for the two v2 heads"
+   },
+   {
+    "item_id": "BL-20260801-STUCK-PACKAGE-SWEEP-AFTER-W1P2",
+    "domain": "health",
+    "category": "verify",
+    "detail": "3 packages force-closed right after the W1 P2 cleanup - expected one-off",
+    "since": "2026-08-01",
+    "next_check": "no organic sweep firing by next review"
+   },
+   {
+    "item_id": "MB-20260705-FC-SLTP-GEOMETRY",
+    "domain": "ml",
+    "category": "awaiting-data",
+    "detail": "fc-geometry soak n insufficient",
+    "since": "2026-07-12",
+    "next_check": "re-check ~2026-08-25"
+   },
+   {
+    "item_id": "PB-20260617-002",
+    "domain": "performance",
+    "category": "awaiting-data",
+    "detail": "Exit-ladder soak structurally zero-differing (only turtle_soup declares tp2, and it is shadow)",
+    "since": "2026-07-12",
+    "next_check": "first live laddered strategy"
+   },
+   {
+    "item_id": "PB-20260630-002",
+    "domain": "performance",
+    "category": "soaking",
+    "detail": "TQQQ/QLD leveraged-Nasdaq paper soak",
+    "since": "2026-06-30",
+    "next_check": "clean track record + account_compat_matrix before alpaca_live"
+   },
+   {
+    "item_id": "SRQ-20260728-M27-WINNERS-SHIP",
+    "domain": "performance",
+    "category": "soaking",
+    "detail": "M27 SOL/XRP/AVAX/ETH scalp paper legs toward real-money gate",
+    "since": "2026-07-21",
+    "next_check": "soak window closes + M7 gate"
+   },
+   {
+    "item_id": "prop-status-staleness",
+    "domain": "health",
+    "category": "awaiting-data",
+    "detail": "breakout_1 account-status snapshot 12d stale (prop flat, no live risk); nag channel dead with Telegram",
+    "since": "2026-07-20",
+    "next_check": "first status report-back after token restore"
+   }
+  ],
+  "review_coverage": {
+   "strategy_promotion": {
+    "ready_to_promote": [],
+    "demote_or_kill": [],
+    "summary": "Real-money book: all HOLD (n=10 window trades is below any gate; no KILL/DEMOTE candidate emerged - eth_pullback_2h real drag is 2 trades, watch only). Paper/promotion pipeline: M27 scalp legs (SOL/AVAX/XRP/ETH) soaking toward their Tier-3 gate, not yet due; slv_trend_1h must clear the degenerate-confidence floor before ANY promotion talk (2nd-review escalation); htf_pullback_trend_2h stays demoted-to-paper (PRB-20260716 watch); SPLG/IAUM alpaca_live promotion still soak-gated (PB-20260707). The one promotion decision DUE is the fc-pcv v2 advisory swap (see ml) - overdue, evidence-blocked, escalated. Per-strategy M7 review packets not regenerated this window (generate-strategy-review-packets action available; n has barely moved since last packets)."
+   },
+   "ml_training_health": {
+    "cycles_since_last_review": "7/7 nightly; 08-01: trained 75 / failed 0 / 2 named enforced audit-skips; resume invocation honestly reported already_complete",
+    "dataset_builds_ok": "yes - real row_counts + dataset_dir post-P1 fix; no quarantine-tripped events in window",
+    "summary": "Cycles ran nightly all window; 08-01 cycle trained 75 / failed 0 / 2 enforced audit-skips (named, genuine); dataset builds OK with real row_counts (post-P1 fix); no manifest_quarantine_tripped events in the window tail; trade-outcome-lgbm-v1 unquarantined and training; staleness escalation live (3 never-trained MES baselines routed to a retire-vs-build decision); trainer disk 79%, timer armed."
+   },
+   "soak_status": [
+    {
+     "soak": "btc-regime-15m-lgbm-fc-pcv-v2 (shadow)",
+     "state": "GATE DUE - overdue",
+     "detail": "758 scores/7d since 07-21; advisory-swap decision due ~07-28, 4 days past; gate evidence blocked by readiness OOM - escalated."
+    },
+    {
+     "soak": "sol-regime-15m-lgbm-fc-pcv-v2 (shadow)",
+     "state": "GATE DUE - overdue",
+     "detail": "723 scores/7d; same swap decision; also gates restoring the SOL advisory head."
+    },
+    {
+     "soak": "conviction-meta-v1",
+     "state": "accruing",
+     "detail": "1368 scores/7d; A/B AUC read queued (MB-20260727-CONVICTION-AB-AUC)."
+    },
+    {
+     "soak": "regime bar-scoring fleet (BTC/ETH/SOL/MES heads)",
+     "state": "accruing",
+     "detail": "Continuous scoring through 08:25Z today across 5m/15m/1h heads."
+    },
+    {
+     "soak": "M27 ict_scalp altcoin paper legs (SOL/AVAX/XRP)",
+     "state": "accruing",
+     "detail": "Toward the Tier-3 real-money gate (SRQ-20260728) - not yet due."
+    },
+    {
+     "soak": "execution-quality-baseline-v0 + setup-quality-audit-baseline-v0",
+     "state": "degenerate (known)",
+     "detail": "Constant scores (min==max) - known class, backlog-tracked."
+    },
+    {
+     "soak": "exit-ladder soak",
+     "state": "structural zero",
+     "detail": "differing=0 by construction (only turtle_soup declares tp2 and it is shadow) - PB-20260617-002."
+    },
+    {
+     "soak": "fc-geometry soak",
+     "state": "awaiting n",
+     "detail": "Insufficient paired rows; re-check ~2026-08-25 (MB-20260705-FC-SLTP-GEOMETRY)."
+    },
+    {
+     "soak": "pairs sleeve (SOL/ETH 1h)",
+     "state": "active",
+     "detail": "Live legs open on bybit_1; watch winner-clipping via intent_reduce (graded C premature_exit this window)."
+    },
+    {
+     "soak": "prop shadow tickets (trend_donchian eth/sol prop)",
+     "state": "accruing",
+     "detail": "Shadow-only emissions; reconcile clean (51/27/0 unacted)."
+    }
+   ],
+   "authored_cells": "Register (docs/audits/authored-cell-reaudit-register.md) checked against config/regime_policy.yaml this run: every authored cell has a row (7 1-D strategies + 3 2-D strategies; no cell added since the register's 07-31 creation - policy unchanged in the window); no live-affecting cell past its Next due (gld + htf re-audited 07-30, next due 2026-10-28; donchian/squeeze/ict_scalp cells formally BLOCKED behind 3 named blocker backlog rows - no vol-split harness, no squeeze mapping, approximate-only levers); the one outstanding shipped-cell re-grade is the gld C3 second-feed re-tag (open feed-sensitivity row). No re-audit fell due in this window; nothing dispatched.",
+   "execution_capture": {
+    "dollars_reconciled": true,
+    "method": "m20_exit_analysis --since-days 7 on the trainer (trainer-diag #8238) + FIFO exchange-fills (/api/bot/pnl/exchange?days=7) + broker-truth ledger; real/paper never blended.",
+    "per_strategy": [
+     {
+      "strategy": "ict_scalp_5m",
+      "book": "real_money",
+      "n_closed": 3,
+      "roundtrippers_pct": 0.0,
+      "mean_giveback_r": 1.6,
+      "hold_h_actual": 12.0,
+      "hold_h_expected": 2.0,
+      "state": "ok",
+      "note": "Winners captured 94%/91% of MFE and ended at TP; July's shared-bracket roundtrip class absent."
+     },
+     {
+      "strategy": "xrp_pullback_2h",
+      "book": "real_money",
+      "n_closed": 2,
+      "roundtrippers_pct": 0.0,
+      "mean_giveback_r": 0.07,
+      "hold_h_actual": 9.0,
+      "hold_h_expected": 6.0,
+      "state": "ok"
+     },
+     {
+      "strategy": "eth_pullback_2h",
+      "book": "real_money",
+      "n_closed": 2,
+      "roundtrippers_pct": 0.0,
+      "mean_giveback_r": 0.52,
+      "hold_h_actual": 9.0,
+      "hold_h_expected": 6.0,
+      "state": "ok"
+     },
+     {
+      "strategy": "trend_donchian",
+      "book": "real_money",
+      "n_closed": 1,
+      "roundtrippers_pct": 100.0,
+      "mean_giveback_r": 39.4,
+      "hold_h_actual": 14.2,
+      "hold_h_expected": 12.0,
+      "state": "degraded",
+      "note": "Trade 4032: +34.5R MFE -> -4.8R at SL (dollars -$1.04, 0.01 BTC). n=1; trail lever is the harness-unmodelled class (BL-20260730-DONCHIAN-APPROX-ONLY)."
+     },
+     {
+      "strategy": "trend_donchian_xrp_4h",
+      "book": "real_money",
+      "n_closed": 2,
+      "roundtrippers_pct": 50.0,
+      "mean_giveback_r": 0.9,
+      "hold_h_actual": 30.0,
+      "hold_h_expected": 24.0,
+      "state": "ok",
+      "note": "stale_stop lever fired live, cutting a stagnant winner at -0.11R after +1.53R MFE - intended behavior."
+     }
+    ],
+    "anomalies": [
+     {
+      "strategy": "trend_donchian|real_money",
+      "symptom": "Single-trade 39R giveback (MFE +34.5R -> SL -4.8R over 14h)",
+      "first_seen": "2026-08-01",
+      "reviews_open": 1,
+      "backlog_id": "PB-20260730-SCALP-CAPTURE-STANDING-WATCH",
+      "detail": "Dollar-immaterial ($1), n=1 - logged for aging; escalates if it recurs."
+     },
+     {
+      "strategy": "slv_trend_1h|paper",
+      "symptom": "Entry-side degeneracy: should_skip confidence 0.04-0.15, 5 graded entries all losses",
+      "first_seen": "2026-07-30",
+      "reviews_open": 2,
+      "backlog_id": "PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE",
+      "detail": "ESCALATED per the reviews_open>=2 rule - flags_raised + operator priority rank 3."
+     }
+    ],
+    "prior_report_carryforward": "Prior report (RPT-20260730-045200) carried an EMPTY execution_capture block (pre-mandate), so ages are seeded from its flags_raised text: slv_trend_1h was flagged there -> reviews_open=2 here.",
+    "summary": "Real-money capture healthy this window (scalp TPs capturing 90%+ of MFE; stale_stop lever verified firing live); one dollar-immaterial donchian round-tripper logged for aging. Paper capture measured on broker-truth venues only (journal dollars provenance-contaminated)."
+   },
+   "account_reachability": {
+    "up": [
+     "bybit_1",
+     "bybit_2",
+     "bybit_portfolio",
+     "ib_paper",
+     "alpaca_paper",
+     "alpaca_portfolio",
+     "alpaca_options_paper"
+    ],
+    "down": [],
+    "excluded_not_probeable": {
+     "breakout_1": "API-less prop (manual bridge)",
+     "ib_live": "declared dry/shelved",
+     "oanda_practice": "declared dry/shelved",
+     "alpaca_live": "mode live=false this window (zero balance, dry)"
+    },
+    "evidence": "api_ok=true on /accounts/balances for all probeable accounts + successful live exchange_positions reads (#8236/#8237); no latched down_accounts; IB gateway connected with breaker closed."
+   },
+   "flags_raised": [
+    "ALERTING DARK (standalone high-priority): both Telegram channels + liveness-watchdog pages dead on a malformed re-pasted TELEGRAM_BOT_TOKEN (no bot-id prefix). Trader healthy; operator re-paste required. This flag fires its own high-priority ping.",
+    "Trader was DOWN 05:29-07:33Z today (round-1 rotation synced an empty secret) - recovered; positions were bracket-protected broker-side throughout.",
+    "fc-pcv v2 advisory swap gate met but unactioned 4 days past due, and its evidence path (readiness packet) is itself broken (OOM) - escalated.",
+    "slv_trend_1h|paper degenerate-confidence entries recurred (reviews_open=2) - escalated with an exact Tier-3 proposal (confidence floor ~0.3).",
+    "Paper journal dollar PnL not quotable this window (44/69 rows legacy-fabricated); measured paper venues lost ~$4.2k led by MGC scalps -$2,868.",
+    "prop breakout_1 status snapshot 12d stale with $125.61 recorded DD-floor cushion (prop flat, so no live risk; freshness blocked on the dead Telegram nag channel)."
+   ],
+   "backlog_drive": {
+    "health": {
+     "open_at_start": 80,
+     "triaged": 80,
+     "count_untriaged": 0,
+     "drained": [
+      "BL-20260706-GPU-BURST-LEDGER-PUSH-RACE",
+      "BL-20260723-WORKFLOW-COMMIT-TO-PROTECTED-MAIN",
+      "BL-20260730-PRODUCER-VACUITY-GUARD",
+      "BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER",
+      "BL-20260730-REGIME-CELL-UNAUDITABLE",
+      "BL-20260730-SQZ-WIRING-UNVERIFIED-E2E",
+      "BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE",
+      "BL-20260730-CAPABILITY-INDEX-NEEDS-FIDELITY-LIMITS",
+      "BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-TPSL-PREMISE",
+      "BL-20260730-CLOSED-TRADE-NULL-EXITPRICE-PNL",
+      "BL-20260730-BRACKET-AUDIT-ROLLUP-MISLEADING",
+      "BL-20260730-DIAG-RELAY-BODY-PARSE-FOOTGUN",
+      "BL-20260730-DEVNULL-DEPLOY-REDIRECT-FRAGILITY",
+      "BL-20260730-DEMO-MARKPRICE-FABRICATES-PAPER-PNL",
+      "BL-20260730-MONITOR-MISS-ANALYSIS-VACUOUS-ON-DEMO",
+      "BL-20260730-PROVENANCE-RECORDED-THEN-IGNORED",
+      "BL-20260730-WRITE-ONLY-SIGNAL-SWEEP",
+      "BL-20260730-JSON-EXTRACT-GUARD-PROMOTE",
+      "BL-20260730-ML-LABELS-IGNORE-PNL-PROVENANCE",
+      "BL-20260730-PR-CI-NOT-ATTACHING",
+      "BL-20260730-NEW-TABLE-GUARD-MATCHES-PROSE",
+      "BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ",
+      "BL-20260730-M20-EXIT-PROBE-BUCKETS-MAXPROBA",
+      "BL-20260730-TRAINER-DIAG-FAILURE-COMMENT-MISLEADING",
+      "BL-20260730-DATASET-DIRS-MISSING-VOL-THRESHOLD",
+      "BL-20260731-KILLZONE-BIAS-NEVER-PERSISTED",
+      "BL-20260730-TREND-THRESHOLD-INERT",
+      "BL-20260731-BYBIT1-PHANTOM-OPEN-ROWS",
+      "BL-20260731-FILLS-STORE-PREDATES-THE-FABRICATION"
+     ],
+     "filed": [
+      "BL-20260801-LIVENESS-WATCHDOG-FAILS-ON-TELEGRAM-404",
+      "BL-20260801-STUCK-PACKAGE-SWEEP-AFTER-W1P2",
+      "BL-20260801-TRADESCLOSED-RELAY-LIMIT300-TIMEOUT"
+     ],
+     "updated": [
+      "BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE",
+      "BL-20260801-TELEGRAM-CRED-CRASHLOOPS-MONEY-LOOP",
+      "BL-20260730-2D-VOL-CELLS-UNAUDITABLE"
+     ],
+     "deferred": "51 remain open, 100% classified: 37 actionable (concrete next steps recorded - top of list for the next health-review/work sessions: ruff 0.16 adoption, exit-ladder vacuity declaration, SPLG zero-trades diagnosis, destructive-git-sync guard, walk-forward vol-axis port, trainer stray-journal rm, netting partial-close root-cause code fix, liveness-watchdog alert-coupling fix); 6 soaking with named triggers (e.g. eth15m stale first-fire, squeeze 2900d matrix return, post-anchor hold re-analysis); 5 Tier-3-awaiting-operator (token rotation #3, telegram-boot-requirement design, IB Flex secrets, M3 gate wording, regime-selectivity skill); 2 stale-unclear needing one live read each (trainer db-pull cadence; the 3 swept packages' lineage). No item skipped."
+    },
+    "performance": {
+     "open_at_start": 5,
+     "triaged": 5,
+     "count_untriaged": 0,
+     "drained": [],
+     "filed": [
+      "PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE"
+     ],
+     "updated": [],
+     "deferred": "SRQ-20260728-M27-WINNERS-SHIP (soak-gated Tier-3), PB-20260728-ICTSCALP-GOLD-GATE-CONFIG (Tier-3 awaiting operator), PB-20260729-ALLOCATOR-VENUE-FEE (actionable Tier-1 code fix - flagged for a follow-up session; out of this report session's no-src-writes scope), PB-20260730-SCALP-CAPTURE-STANDING-WATCH (served by this run's execution_capture measurement - standing), plus 48 kept_open items re-validated (soak/awaiting-data/Tier-3 with triggers)."
+    },
+    "ml": {
+     "open_at_start": 4,
+     "triaged": 4,
+     "count_untriaged": 0,
+     "drained": [],
+     "filed": [],
+     "updated": [
+      "MB-20260721-FCPCV-V2-SOAK",
+      "MB-20260801-MES-BASELINE-MANIFESTS-NEVER-TRAINED"
+     ],
+     "deferred": "MB-20260719-PROMOREADY-OOSEDGE-OOM (actionable - escalated as the rank-2 priority's blocker), MB-20260727-CONVICTION-AB-AUC (trainer job queued behind the readiness fix), MB-20260728-ICTSCALP-EXIT-LEVERS (trainer sweep pending), MB-20260801-MES-BASELINE (decision routed); 31 kept_open items re-validated with named triggers."
+    }
+   }
+  },
+  "backlog_summary": {
+   "health": {
+    "total": 371,
+    "open": 51,
+    "resolved": 320,
+    "drained": 91
+   },
+   "performance": {
+    "total": 87,
+    "open": 6,
+    "resolved": 81,
+    "drained": 5
+   },
+   "ml": {
+    "total": 98,
+    "open": 4,
+    "resolved": 94,
+    "drained": 5
+   },
+   "_note": "Computed by scripts/reports/backlog_counts.py --since 2026-07-25T08:30:00Z AFTER this run's filings (4 new rows) and drain (29 health resolves). 'open' counts status=open only; ~85 kept_open soak/deferral rows are additional and were re-validated this run (see backlog_drive)."
+  },
+  "pnl_by_class": {
+   "real": {
+    "window_pnl": -6.99,
+    "prior_window_pnl": -9.77,
+    "trend": "up",
+    "trades": 10,
+    "wins": 2,
+    "win_rate": 20.0,
+    "expectancy": -0.7,
+    "profit_factor": 0.5988,
+    "max_drawdown": -12.0676,
+    "per_strategy": [
+     {
+      "name": "ict_scalp_5m",
+      "trades": 3,
+      "win_rate": 66.7,
+      "pnl": 6.43
+     },
+     {
+      "name": "trend_donchian",
+      "trades": 1,
+      "win_rate": 0.0,
+      "pnl": -1.04
+     },
+     {
+      "name": "trend_donchian_xrp_4h",
+      "trades": 2,
+      "win_rate": 0.0,
+      "pnl": -1.85
+     },
+     {
+      "name": "xrp_pullback_2h",
+      "trades": 2,
+      "win_rate": 0.0,
+      "pnl": -2.95
+     },
+     {
+      "name": "eth_pullback_2h",
+      "trades": 2,
+      "win_rate": 0.0,
+      "pnl": -7.58
+     }
+    ],
+    "per_asset_class": {
+     "crypto": -6.99
+    },
+    "reconciliation": "Journal -6.9869 == Bybit FIFO exchange-fills real legs -6.99 (BTC +5.45, ETH -5.23, XRP -7.22, fees netted). bybit_2 lifetime wallet-truth remains -262.52 (broker-truth ledger, as-of 07-13). 9/10 rows measured provenance; the 1 fabricated row (4154, -0.38) predates the exit-anchor deploy.",
+    "equity_curve": [
+     {
+      "t": "2026-07-25T16:51:31+00:00",
+      "cum": -2.57
+     },
+     {
+      "t": "2026-07-26T22:00:01+00:00",
+      "cum": -7.81
+     },
+     {
+      "t": "2026-07-27T22:58:12+00:00",
+      "cum": -3.5
+     },
+     {
+      "t": "2026-07-29T14:31:43+00:00",
+      "cum": -12.07
+     },
+     {
+      "t": "2026-07-31T13:59:00+00:00",
+      "cum": -6.99
+     }
+    ]
+   },
+   "paper": {
+    "window_pnl": null,
+    "prior_window_pnl": null,
+    "trend": "down",
+    "trades": 69,
+    "wins": 22,
+    "win_rate": 31.9,
+    "expectancy": null,
+    "profit_factor": null,
+    "max_drawdown": null,
+    "note": "Paper journal dollars deliberately NOT quoted: pnlCoverage 23% (44/69 rows legacy-fabricated, 6 unverified). Broker-MEASURED paper venues this window: IB MGC scalps -$2,867.60 (85 fills), alpaca SLV -$803.92, TLT -$559.57 (FIFO exchange-truth) = ~-$4.2k measured paper loss; crypto paper legs printed large positive R (ict_scalp_sol_5m 4/5 wins) but their journal dollars are provenance-contaminated. Population stated per the binding rule.",
+    "per_strategy": [
+     {
+      "name": "ict_scalp_sol_5m",
+      "trades": 5,
+      "win_rate": 80.0,
+      "pnl": null
+     },
+     {
+      "name": "ict_scalp_mgc_15m (IB, measured)",
+      "trades": 2,
+      "win_rate": 0.0,
+      "pnl": -2867.6
+     },
+     {
+      "name": "slv_trend_1h (alpaca, measured)",
+      "trades": 2,
+      "win_rate": 0.0,
+      "pnl": -75.9
+     }
+    ]
+   },
+   "prop": {
+    "window_pnl": -18.06,
+    "prior_window_pnl": -182.84,
+    "trend": "up",
+    "trades": 1,
+    "wins": 0,
+    "win_rate": 0.0,
+    "note": "One close in window: ETH long 2.0 closed 07-28 at -18.06 gross (-19.56 net of commission), operator-reported. Prop flat since; outbound prop strategies at execution:shadow (shadow tickets only, no emissions); reconcile clean (51 tickets / 27 fills / 0 unacted). Prior-window figure = the 07-17/07-20 closes (-85.90 + -96.94). Account snapshot 12d stale: balance 4825.61, $125.61 above the 4700 DD floor as of 07-20."
+   }
+  },
+  "trade_dossiers": [
+   {
+    "trade_id": 4258,
+    "notable": true,
+    "account_class": "real_money",
+    "account": "bybit_2 (real)",
+    "symbol": "BTCUSDT",
+    "direction": "short",
+    "strategy": "ict_scalp_5m",
+    "pnl": 5.08,
+    "claude_grade": {
+     "grade": "A"
+    },
+    "meta": {
+     "why_notable": "Biggest real win + only A grade",
+     "entry": 64557.0,
+     "exit": 63212.1,
+     "exit_reason": "tp",
+     "r": 13.64,
+     "provenance": "measured",
+     "note": "12h hold, captured 13.6R of 14.4R MFE - the post-bracket-fix capture behavior working."
+    },
+    "model_scores": {}
+   },
+   {
+    "trade_id": 4180,
+    "notable": true,
+    "account_class": "real_money",
+    "account": "bybit_2 (real)",
+    "symbol": "BTCUSDT",
+    "direction": "long",
+    "strategy": "ict_scalp_5m",
+    "pnl": -4.0,
+    "claude_grade": {
+     "grade": "B"
+    },
+    "meta": {
+     "why_notable": "Biggest real loss",
+     "entry": 64600.9,
+     "exit": 64100.0,
+     "exit_reason": "reconciler",
+     "r": -1.17,
+     "provenance": "measured",
+     "note": "Fast 30-min stop; the matched-pair trade from the provenance root-cause is now cleanly measured."
+    },
+    "model_scores": {}
+   },
+   {
+    "trade_id": 4032,
+    "notable": true,
+    "account_class": "real_money",
+    "account": "bybit_2 (real)",
+    "symbol": "BTCUSDT",
+    "direction": "long",
+    "strategy": "trend_donchian",
+    "pnl": -1.04,
+    "claude_grade": {
+     "grade": "B"
+    },
+    "meta": {
+     "why_notable": "The week's one real round-tripper",
+     "entry": 65051.3,
+     "exit": 64980.0,
+     "exit_reason": "sl",
+     "r": -4.83,
+     "provenance": "measured",
+     "note": "+34.5R MFE given back to the stop over 14h - logged in execution_capture (n=1, dollar-immaterial)."
+    },
+    "model_scores": {}
+   },
+   {
+    "trade_id": 4154,
+    "notable": true,
+    "account_class": "real_money",
+    "account": "bybit_2 (real)",
+    "symbol": "XRPUSDT",
+    "direction": "short",
+    "strategy": "xrp_pullback_2h",
+    "pnl": -0.38,
+    "claude_grade": {
+     "grade": null
+    },
+    "meta": {
+     "why_notable": "Only fabricated-provenance row in the window",
+     "entry": 1.0609,
+     "exit": 1.085,
+     "exit_reason": "reconciler",
+     "r": null,
+     "provenance": "fabricated",
+     "note": "Closed 07-29, BEFORE the 07-30 exit-anchor deploy - the evidence the fix boundary is where it should be."
+    },
+    "model_scores": {}
+   },
+   {
+    "trade_id": 4247,
+    "notable": true,
+    "account_class": "paper",
+    "account": "alpaca_paper",
+    "symbol": "SLV",
+    "direction": "long",
+    "strategy": "slv_trend_1h",
+    "pnl": -75.9,
+    "claude_grade": {
+     "grade": "D"
+    },
+    "meta": {
+     "why_notable": "Worst grade (D) - the escalated slv_trend_1h pattern",
+     "entry": 53.55,
+     "exit": null,
+     "exit_reason": "sl_cross",
+     "r": null,
+     "provenance": "measured",
+     "note": "Entered at confidence 0.04 (should_skip). Second review in a row with this pattern."
+    },
+    "model_scores": {}
+   },
+   {
+    "trade_id": "prop-fill-27",
+    "notable": true,
+    "account_class": "prop",
+    "account": "breakout_1 (prop)",
+    "symbol": "ETHUSDT",
+    "direction": "long",
+    "strategy": "manual bridge (trend_donchian_eth ticket)",
+    "pnl": -18.06,
+    "claude_grade": {
+     "grade": null
+    },
+    "meta": {
+     "why_notable": "Prop close of the window",
+     "entry": 1884.03,
+     "exit": 1875.0,
+     "exit_reason": "operator-reported close",
+     "r": null,
+     "provenance": "operator-reported",
+     "note": "Net -19.56 with commission; prop flat since."
+    },
+    "model_scores": {}
+   }
+  ],
+  "dossier_coverage": {
+   "full_dossiers": 6,
+   "summarized_trades": 16,
+   "rule": "weekly window - notable outliers only; the other 16 closed trades are summarized in pnl_by_class.per_strategy; all 22 closed packages carry fresh Claude grades"
+  },
+  "market_context": [
+   {
+    "symbol": "BTCUSDT",
+    "open": 64142.4,
+    "close": 63101.8,
+    "high": 65748.2,
+    "low": 62446.9,
+    "pct_change": -2.0,
+    "note": "Down-drifting chop, 62.4k-65.7k range; the 07-31 dip to 62.4k tripped the week's scalp TPs short."
+   },
+   {
+    "symbol": "ETHUSDT",
+    "open": 1861.45,
+    "close": 1868.65,
+    "high": 1981.8,
+    "low": 1848.35,
+    "pct_change": 0.3,
+    "note": "Flat chop 1850-1980; pullback longs stopped in the middle of it."
+   },
+   {
+    "symbol": "SOLUSDT",
+    "open": 73.94,
+    "close": 73.05,
+    "high": 77.5,
+    "low": 72.33,
+    "pct_change": -2.0,
+    "note": "Lower-high drift; scalp shorts worked."
+   },
+   {
+    "symbol": "XRPUSDT",
+    "open": 1.0917,
+    "close": 1.0628,
+    "high": 1.1165,
+    "low": 1.0448,
+    "pct_change": -3.2,
+    "note": "Weakest of the majors; shorts held by real+paper books are green."
+   },
+   {
+    "symbol": "MGC",
+    "open": 4116.6,
+    "close": 4076.6,
+    "high": 4148.2,
+    "low": 4022.3,
+    "pct_change": -0.7,
+    "note": "Whippy gold range - where the ib_paper 15m scalps bled (-$2.9k paper)."
+   },
+   {
+    "symbol": "MES",
+    "open": 7489.0,
+    "close": 7519.25,
+    "high": 7541.0,
+    "low": 7323.25,
+    "pct_change": 0.4,
+    "note": "Mild up week with one sharp 07-29 flush to 7323."
+   }
+  ],
+  "past_week_verification": "Full matrix in session record: 56 bot + 3 dashboard + 3 android commits grouped into 14 themes; every theme static-verified in-repo and the load-bearing ones live-verified (see cross_review_notes[0]). Residual unverified tails: Android provenance UI merged-but-unreleased; live Streamlit visual render not re-checked this session; trainer-diag double-execution observation still open (write relay cmd blocks idempotent)."
+ },
+ "artifacts": {
+  "json_path": "comms/reports/weekly/20260801T090000Z/report.json",
+  "html_path": "comms/reports/weekly/20260801T090000Z/report.html",
+  "md_path": "comms/reports/weekly/20260801T090000Z/report.md",
+  "github_link": "https://github.com/benbaichmankass/ict-trading-bot/blob/main/comms/reports/weekly/20260801T090000Z/report.html",
+  "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260801-090000-weekly"
+ }
+}
