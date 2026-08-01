@@ -20,7 +20,7 @@ BASE_ENV = {
     "EXCHANGE":            "bybit",
     "BYBIT_API_KEY":       "test-key",
     "BYBIT_API_SECRET":    "test-secret",
-    "TELEGRAM_BOT_TOKEN": "tok",
+    "TELEGRAM_BOT_TOKEN": "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi",  # fake, shape-valid
     "TELEGRAM_CHAT_ID":   "123",
     "MODE":               "BACKTEST",
     "SYMBOL":             "BTCUSDT",

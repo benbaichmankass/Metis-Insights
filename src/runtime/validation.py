@@ -45,6 +45,22 @@ def validate_startup() -> None:
     for key in _missing(["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]):
         errors.append(f"Missing required Telegram credential: {key}")
 
+    # Shape check, value NEVER echoed — one owner of the rule:
+    # log_redact.assert_telegram_token_shape. A present-but-malformed token
+    # (the 2026-08-01 rotation pasted only the secret half, without the
+    # numeric bot-id prefix) passes the presence check, then
+    # python-telegram-bot's InvalidToken exception prints the FULL value
+    # into the crash traceback → journald → (historically) committed
+    # health snapshots. Failing fast here keeps the value out of any log.
+    _tok = _env("TELEGRAM_BOT_TOKEN")
+    if _tok:
+        from src.utils.log_redact import assert_telegram_token_shape
+
+        try:
+            assert_telegram_token_shape(_tok, "TELEGRAM_BOT_TOKEN")
+        except RuntimeError as exc:
+            errors.append(str(exc))
+
     # ---- Trading mode — REMOVED (operator directive 2026-05-03).
     # The MODE env var is no longer required. Per-account
     # ``mode: live | dry_run`` in ``config/accounts.yaml`` is the only

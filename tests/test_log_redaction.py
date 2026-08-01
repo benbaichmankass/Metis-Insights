@@ -4,9 +4,12 @@ from __future__ import annotations
 import logging
 
 
+import pytest
+
 from src.utils.log_redact import (
     RedactingFilter,
     _redact,
+    assert_telegram_token_shape,
     install_redacting_filter,
     suppress_httpx_logging,
 )
@@ -201,3 +204,34 @@ class TestSuppressHttpxLogging:
         import logging as _logging
         suppress_httpx_logging()
         assert _logging.getLogger("httpcore").level == _logging.WARNING
+
+
+# ---------------------------------------------------------------------------
+# assert_telegram_token_shape — secret-free fail-fast on malformed tokens
+# ---------------------------------------------------------------------------
+
+class TestAssertTelegramTokenShape:
+    def test_well_formed_token_passes(self):
+        assert_telegram_token_shape(FAKE_TOKEN, "TELEGRAM_BOT_TOKEN")  # fake
+
+    def test_secret_half_without_prefix_raises_without_echoing(self):
+        # THE 2026-08-01 half-paste: only the part after ':' in the secret
+        # slot. PTB would echo the full value in its InvalidToken traceback;
+        # this must raise a message that describes the defect and NEVER
+        # contains the value.
+        half = FAKE_TOKEN.split(":", 1)[1]  # fake
+        with pytest.raises(RuntimeError) as exc:
+            assert_telegram_token_shape(half, "TELEGRAM_BOT_TOKEN")
+        msg = str(exc.value)
+        assert half not in msg
+        assert "bot-id prefix" in msg
+
+    def test_other_malformed_shape_raises_without_echoing(self):
+        bad = "abc:" + "x" * 40
+        with pytest.raises(RuntimeError) as exc:
+            assert_telegram_token_shape(bad, "TELEGRAM_CLAUDE_BOT_TOKEN")
+        assert bad not in str(exc.value)
+
+    def test_empty_value_raises(self):
+        with pytest.raises(RuntimeError):
+            assert_telegram_token_shape("", "TELEGRAM_BOT_TOKEN")

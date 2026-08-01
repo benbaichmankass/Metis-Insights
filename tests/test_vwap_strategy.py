@@ -1025,7 +1025,7 @@ class TestLiveSafetyGate:
             "EXCHANGE": "bybit",
             "BYBIT_API_KEY": "fake_key",
             "BYBIT_API_SECRET": "fake_secret",
-            "TELEGRAM_BOT_TOKEN": "fake_token",
+            "TELEGRAM_BOT_TOKEN": "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi",  # fake, shape-valid
             "TELEGRAM_CHAT_ID": "123",
             "SYMBOL": "BTCUSDT",
             "TIMEFRAME": "5m",
