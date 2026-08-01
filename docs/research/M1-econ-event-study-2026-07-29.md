@@ -90,6 +90,47 @@ any position rule. Turning it into sizing/direction is **M2+/Tier-3**; nothing h
 trades. It also **validates R2 end-to-end**: the EIA wiring now feeds a real, powered
 study (the crude n jumped from ~6 to 2211).
 
+## Update 2026-08-01 (later) — overlap correction lands; natgas flag does NOT survive it
+
+Caveat #2 above is no longer just a footnote — `econ_event_study.py` now computes an
+**overlap-corrected t** (`effective_n` → `n_eff = n / max(1, horizon/release_spacing_td)`,
+`ic_t_eff = ic_t_stat(ic, n_eff)`) and the **verdict trusts the corrected t, not the raw
+one**. This is the honest sibling of the raw rank-correlation t — an effective-sample
+rule-of-thumb, explicitly *not* a rigorous Newey–West HAC on the rank statistic (a full
+HAC remains the M2 refinement).
+
+For natgas the release spacing is ~5 trading days (weekly) and the flagged horizon is
+21 td, so `overlap_factor ≈ 21/5 ≈ 4.2` → `n_eff ≈ 789/4.2 ≈ 188` and the corrected
+`ic_t_eff ≈ −1.45` (analytic estimate; the next runner recompute reports the exact
+trading-day spacing). **|−1.45| < 2.0, so the flag does NOT survive overlap correction.**
+The verdict for the natgas 21d shape therefore moves from `surprise_predicts_forward_return`
+to the new **`flagged_overlap_uncorrected_only`** state: significant on the
+autocorrelation-inflated raw t only. Combined with caveat #1 (this was 1 flag out of 10
+tests), the honest read is: **natgas storage surprise → forward return is NOT an
+established edge** — the 08-01 "powered result" was an artifact of overlapping
+21-day windows on weekly releases, exactly the failure the caveat named.
+
+**This RECONCILES an apparent contradiction.** The 08-01 flag came from the study run
+against the **model-expectation backfill** (`econ_calendar_snapshots_backfill.jsonl` —
+the FRED-backfilled seasonal-AR expectation, a *worse* predictor than survey per M3,
+`BL-20260730-M3-GATE-TESTS-TRACKING-NOT-USEFULNESS`). But the earlier **2026-07-30 run
+against the real survey consensus** (2015→2026, natgas 553 releases) already read
+`no_edge_at_tested_horizons` with the strongest IC on the **wrong sign**
+(`docs/sprint-logs/S-M1-SURVEY-CONSENSUS-NULL-20260730.md`; the M1 roadmap row's
+"CONCLUDED — HONEST NEGATIVE"). The two runs looked like they disagreed (model-side
+flagged vs survey-side null); the overlap correction shows they don't — the model-side
+flag never cleared the overlap bar. **Do not re-litigate without a new hypothesis**
+(different horizons, conditioning, or a non-surprise formulation), per that conclusion.
+
+What this changes: the M2 event-response backtest is **no longer motivated by a live
+lead** — it would be building on a corrected-away signal. The correction is the more
+valuable deliverable than the signal was. `crude` was already `no_edge`; nothing else
+flagged. The overlap correction now guards **every** future kind the study runs, so the
+next weekly run can't re-publish an overlap-inflated flag. (Shipped with tests:
+`test_m1_econ_event_study.py::test_summarize_downgrades_a_flag_that_survives_only_on_the_raw_t`
+et al.; the committed scorecards regenerate with the `overlap_factor`/`n_eff`/`ic_t_eff`
+fields on the next `econ-event-study` run.)
+
 ## Operating model
 
 `.github/workflows/econ-event-study.yml` runs **weekly** (Sun 23:10 UTC) +
