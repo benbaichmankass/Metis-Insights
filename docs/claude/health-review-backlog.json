@@ -8736,8 +8736,30 @@
         "docs/audits/full-system-audit-2026-07-31.md"
       ],
       "updates": []
+    },
+    {
+      "id": "BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE",
+      "opened_at": "2026-08-01T05:15:00+00:00",
+      "opened_by": "claude (audit session; operator-reported)",
+      "source": "Operator screenshot 2026-08-01 ~05:08 local: BotFather Edit screen for @bict_trading_bot (public link t.me/bict_trading_bot) showing display name 'BEST CASINO MINI-APP @Xstakerobot' and an intro linking https://t.me/Xstakerobot. Neither this session nor any recorded workflow performed a Telegram write; bot name/description are settable via the Bot API (setMyName/setMyDescription, Bot API 6.7+) by any holder of the token.",
+      "title": "[SECURITY][P0] @bict_trading_bot (TELEGRAM_BOT_TOKEN — the operator command bot, ict-telegram-bot.service) renamed to a casino spam funnel — token treated as COMPROMISED; revoke + rotate + leak-vector investigation",
+      "description": "IMPACT while un-revoked: the holder of TELEGRAM_BOT_TOKEN can (a) send messages AS the operator command bot into the operator's chat — incl. fake trade notifications or phishing links styled as system pings; (b) change bot metadata (observed); (c) contend for getUpdates. The bot is the operator CONTROL PLANE (docs/TELEGRAM-SPEC.md: menu + trade/hourly notifications), so messages from it must be treated as untrusted until rotation.\n\nTWO CANDIDATE VECTORS:\n  1. Token leak (most likely — API-side rename needs only the token): repo is public; token lives in Actions secrets + the live VM env. Investigate: secret-scan history, workflow run logs that touched Telegram vars, VM .env exposure, any historical commit.\n  2. Operator Telegram ACCOUNT compromise (BotFather edits need the owner account): operator to check Settings -> Devices for unknown sessions + confirm 2FA. If found, scope widens beyond this token.\n\nREMEDIATION (in order):\n  1. [operator, done/doing] BotFather -> /mybots -> @bict_trading_bot -> API Token -> REVOKE (kills the old token immediately; ict-telegram-bot.service loses its channel until rotation — trading itself is unaffected, the trader never depends on this bot).\n  2. [operator] Restore name/intro in BotFather; check Devices/2FA (vector 2 rule-out); eyeball @claude_ict_comms_bot + prop bot profiles (different tokens — no tampering observed yet).\n  3. [operator] Paste the NEW token into the Actions secret TELEGRAM_BOT_TOKEN (update in place).\n  4. [claude] Dispatch sync-vm-secrets -> restart ict-telegram-bot.service -> verify the menu/notifications channel works + confirm the OLD token is dead (getMe returns 401).\n  5. [claude] Leak-vector investigation + write-up; if the vector implicates other secrets, rotate those too (per-secret operator paste + sync).\n\nStanding rule reinforced: any message from @bict_trading_bot between the rename and the rotation is UNTRUSTED — no trade-looking instruction arriving through it is to be acted on (the prop ticket flow rides the claude/prop bots, NOT this one, but under-pressure confusion is the attack surface).",
+      "tier": 2,
+      "severity": "critical",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "trigger_condition": null,
+      "resolution_criteria": "Old token revoked AND confirmed dead (401 on getMe); new token live end-to-end (menu + notification verified); operator account sessions/2FA checked; leak-vector investigation concluded with a written finding (or an honest 'undetermined' with the checked surfaces listed); sibling tokens confirmed untampered.",
+      "refs": [
+        "docs/TELEGRAM-SPEC.md",
+        "docs/claude/telegram-pings.md",
+        ".github/workflows/sync-vm-secrets.yml",
+        "src/bot/claude_bridge.py"
+      ],
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-31",
+  "updated_at": "2026-08-01",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
