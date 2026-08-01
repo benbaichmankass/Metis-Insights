@@ -382,10 +382,17 @@ def main() -> None:
     # sat on the public repo for months: the proven leak vector behind
     # BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE. Must run after basicConfig
     # (the filter attaches to the root handler).
-    from src.utils.log_redact import install_redacting_filter, suppress_httpx_logging
+    from src.utils.log_redact import (
+        assert_telegram_token_shape,
+        install_redacting_filter,
+        suppress_httpx_logging,
+    )
 
     install_redacting_filter()
     suppress_httpx_logging()
+    # Fail secret-free on a malformed token BEFORE PTB can echo it in an
+    # InvalidToken traceback (the 2026-08-01 half-paste class).
+    assert_telegram_token_shape(TELEGRAM_TOKEN, "TELEGRAM_CLAUDE_BOT_TOKEN")
     app = (
         Application.builder()
         .token(TELEGRAM_TOKEN)

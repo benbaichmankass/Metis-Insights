@@ -91,6 +91,30 @@ def install_redacting_filter(logger: logging.Logger | None = None) -> None:
         handler.addFilter(redactor)
 
 
+def assert_telegram_token_shape(value: str, key: str) -> None:
+    """Raise RuntimeError (value NEVER echoed) if *value* is not id:secret shaped.
+
+    A present-but-malformed token (2026-08-01: the rotation pasted only the
+    secret half, without the numeric bot-id prefix) sails past presence
+    checks and then python-telegram-bot's InvalidToken exception prints the
+    FULL value into the crash traceback — which lands in journald and,
+    historically, in committed health snapshots. Fail fast with a
+    descriptive, secret-free message instead of handing PTB a value it
+    will echo.
+    """
+    if re.fullmatch(r"\d{8,12}:[A-Za-z0-9_-]{30,}", value or ""):
+        return
+    hint = (
+        "no ':' separator — looks like the secret half was pasted without "
+        "the numeric bot-id prefix"
+        if ":" not in (value or "")
+        else "does not match the <bot_id>:<secret> shape"
+    )
+    raise RuntimeError(
+        f"{key} is present but MALFORMED ({hint}); value deliberately not shown"
+    )
+
+
 def suppress_httpx_logging() -> None:
     """
     Set httpx and httpcore to WARNING so request URLs are never emitted at INFO.

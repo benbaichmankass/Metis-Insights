@@ -86,6 +86,7 @@ logging.basicConfig(
 # Match the trader process: redact the bot token from logs and silence
 # httpx's per-request URL logging so the token never lands in journalctl.
 from src.utils.log_redact import (  # noqa: E402
+    assert_telegram_token_shape,
     install_redacting_filter,
     suppress_httpx_logging,
 )
@@ -574,6 +575,10 @@ async def _do_close_all(query) -> None:
 def main():
     if not TELEGRAM_BOT_TOKEN:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is not set in environment")
+    # Shape check BEFORE handing the value to PTB — its InvalidToken
+    # exception echoes the full token into the crash traceback (journald →
+    # historically committed health snapshots). Secret-free failure instead.
+    assert_telegram_token_shape(TELEGRAM_BOT_TOKEN, "TELEGRAM_BOT_TOKEN")
 
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
