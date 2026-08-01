@@ -2702,7 +2702,23 @@
       "description": "RESOLUTION (already shipped, recorded here so the id resolves): (1) ml/experiments/runner.py::_verify_declared_build_params — a manifest declaring dataset.build_params that disagree with the resolved dir's recorded metadata build_params now FAILS LOUD (ManifestDatasetMismatchError) instead of training mislabeled; warns when the dir predates recorded build_params. (2) The matched-sibling pin triple (vt003/vt004/vt005-pin on genuinely-labeled v513/v514/v515, one common data window) replaced the mislabeled probe as the operating-curve decider. (3) 2026-07-31 (audit P1.1): the superseded vt004-pcv manifest was retired — the guard had been correctly failing it every cycle against v004's measured vol_threshold=0.003 metadata, reddening the nightly cycle. See docs/sprint-logs/S-AUDIT-P1-TRAINER-HONESTY-2026-07-31.md.",
       "snoozed_until": null,
       "updates": []
+    },
+    {
+      "id": "MB-20260801-MES-BASELINE-MANIFESTS-NEVER-TRAINED",
+      "title": "3 MES baseline manifests have ZERO registered runs ever — decide: build their datasets, or retire the manifests",
+      "status": "open",
+      "tier": 1,
+      "opened_at": "2026-08-01",
+      "opened_by": "claude (audit session, W0 morning cycle check — routed from the first training_staleness_summary)",
+      "source": "First run of the P1 staleness reporter (scripts/ops/manifest_training_staleness.py), trainer cycle of 2026-08-01T05:13Z (trainer-diag #8213): scanned 89 manifests, 3 stale, all 3 never_trained, 0 unresolvable, threshold 7d. The three: ml/configs/mes-execution-quality.yaml (mes-execution-quality-baseline-v0), ml/configs/mes-setup-quality.yaml (mes-setup-quality-baseline-v0), ml/configs/mes-trade-outcome-winrate.yaml (mes-trade-outcome-winrate-baseline-v0) — each with 0 registered runs and last_trained_at null (population: 89 scanned manifests / 93 registry files).",
+      "description": "These are the only manifests the staleness sweep flags: committed but never once trained (no dataset resolves for them in the nightly cycle — they are silently skipped every night, the exact silent-skip class P1 instrumented). /ml-review to decide per manifest: (a) the MES execution/setup/outcome-quality experiments are still wanted -> build their dataset families and let the cycle train them; or (b) they are dead experiments -> git rm the manifests so the fleet count is honest. Leaving them as-is re-alarms every cycle by design (the alarm is the feature).",
+      "refs": [
+        "scripts/ops/manifest_training_staleness.py",
+        "ml/configs/mes-execution-quality.yaml",
+        "ml/configs/mes-setup-quality.yaml",
+        "ml/configs/mes-trade-outcome-winrate.yaml"
+      ]
     }
   ],
-  "updated_at": "2026-07-31"
+  "updated_at": "2026-08-01"
 }
