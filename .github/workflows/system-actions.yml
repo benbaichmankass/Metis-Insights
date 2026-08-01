@@ -813,6 +813,13 @@ jobs:
           # in the (public) issue body or run log. Add more here as new
           # secret-backed keys are needed.
           SECRET_TELEGRAM_CLAUDE_BOT_TOKEN: ${{ secrets.TELEGRAM_CLAUDE_BOT_TOKEN }}
+          # TELEGRAM_BOT_TOKEN (the operator command bot) was MISSING from
+          # this list until 2026-08-01: set-env for it resolved empty and
+          # blanked the key on the VM — the trigger of the trader crashloop
+          # during the token-rotation incident (BL-20260801-TELEGRAM-BOT-
+          # TOKEN-COMPROMISE). The empty-value guard below now also fails
+          # any future unmapped key loudly instead of writing it.
+          SECRET_TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           # NEWS_API_KEY backs the M9 news layer (set-env env_key=NEWS_API_KEY,
           # env_value blank). Lets Claude propagate the operator-provided NewsAPI
           # key to the VM .env via set-env without it ever reaching the issue
@@ -1113,6 +1120,19 @@ jobs:
             if [ -z "${env_value}" ]; then
               secret_var="SECRET_${ENV_KEY}"
               env_value="${!secret_var:-}"
+            fi
+            # NEVER write an empty value + restart. On 2026-08-01 a set-env
+            # for TELEGRAM_BOT_TOKEN — a key with NO SECRET_<KEY> mapping in
+            # this workflow — resolved to empty, silently blanked the key in
+            # the VM .env, and the restart put ict-trader-live into a
+            # startup-validation crashloop for over an hour (with both
+            # Telegram alert bots down on the same empty values, so no page
+            # went out). An empty resolution means the mapping is missing or
+            # the Actions secret slot is empty — either way the run must
+            # FAIL LOUDLY here, before touching the VM.
+            if [ -z "${env_value}" ]; then
+              echo "::error::set-env(${ENV_KEY}): resolved value is EMPTY — no env_value given and SECRET_${ENV_KEY} is unset/empty (missing mapping in this workflow, or the Actions secret slot has no value). Refusing to blank a key and restart a service. Add the SECRET_${ENV_KEY} mapping / fill the secret, or pass env_value explicitly."
+              exit 1
             fi
             REMOTE_CMD="ENV_KEY=$(printf '%q' "${ENV_KEY}") ENV_VALUE=$(printf '%q' "${env_value}") ENV_SERVICE=$(printf '%q' "${ENV_SERVICE}") ${REMOTE_CMD}"
           fi
