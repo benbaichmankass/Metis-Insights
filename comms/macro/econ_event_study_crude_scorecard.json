@@ -2,58 +2,58 @@
   "rows": [
     {
       "horizon_days": 1,
-      "n": 575,
-      "ic": 0.037535,
-      "ic_t": 0.899,
-      "pearson": 0.045732,
-      "sign_hit_rate": 0.519298,
-      "mean_fwd_return": 0.001676
+      "n": 1126,
+      "ic": 0.019485,
+      "ic_t": 0.653,
+      "pearson": 0.06855,
+      "sign_hit_rate": 0.509821,
+      "mean_fwd_return": 0.001175
     },
     {
       "horizon_days": 3,
-      "n": 574,
-      "ic": 0.023854,
-      "ic_t": 0.571,
-      "pearson": -0.044583,
-      "sign_hit_rate": 0.498258,
-      "mean_fwd_return": -0.002371
+      "n": 1125,
+      "ic": 0.007858,
+      "ic_t": 0.263,
+      "pearson": -0.089457,
+      "sign_hit_rate": 0.500444,
+      "mean_fwd_return": -0.000853
     },
     {
       "horizon_days": 5,
-      "n": 574,
-      "ic": 0.015149,
-      "ic_t": 0.362,
-      "pearson": 0.00444,
-      "sign_hit_rate": 0.513937,
-      "mean_fwd_return": 0.003158
+      "n": 1125,
+      "ic": 0.021558,
+      "ic_t": 0.723,
+      "pearson": 0.030083,
+      "sign_hit_rate": 0.503111,
+      "mean_fwd_return": 0.00254
     },
     {
       "horizon_days": 10,
-      "n": 573,
-      "ic": -8.3e-05,
-      "ic_t": -0.002,
-      "pearson": -0.032762,
-      "sign_hit_rate": 0.495637,
-      "mean_fwd_return": 0.006447
+      "n": 1124,
+      "ic": 0.014717,
+      "ic_t": 0.493,
+      "pearson": 0.043377,
+      "sign_hit_rate": 0.520036,
+      "mean_fwd_return": 0.004718
     },
     {
       "horizon_days": 21,
-      "n": 570,
-      "ic": -0.012053,
-      "ic_t": -0.287,
-      "pearson": -0.026989,
-      "sign_hit_rate": 0.501754,
-      "mean_fwd_return": 0.012955
+      "n": 1122,
+      "ic": 0.011806,
+      "ic_t": 0.395,
+      "pearson": 0.068459,
+      "sign_hit_rate": 0.515152,
+      "mean_fwd_return": 0.010058
     }
   ],
   "summary": {
-    "max_n": 575,
+    "max_n": 1126,
     "min_honest_n": 12,
     "sufficient_history": true,
     "any_flagged_horizon": false,
-    "strongest_ic_horizon_days": 1,
-    "strongest_ic": 0.037535,
-    "strongest_ic_t": 0.899,
+    "strongest_ic_horizon_days": 5,
+    "strongest_ic": 0.021558,
+    "strongest_ic_t": 0.723,
     "t_flag": 2.0,
     "verdict": "no_edge_at_tested_horizons"
   },
@@ -61,9 +61,9 @@
     "kind": "eia_crude_stocks",
     "symbol": "CL=F",
     "value_key": "surprise",
-    "releases": 575,
-    "releases_with_value": 575,
-    "price_bars": 2910,
+    "releases": 2211,
+    "releases_with_value": 2211,
+    "price_bars": 5427,
     "horizons": [
       1,
       3,
@@ -71,7 +71,7 @@
       10,
       21
     ],
-    "snapshots_path": "comms/macro/econ_calendar_snapshots_survey_backfill.jsonl",
+    "snapshots_path": "comms/macro/econ_calendar_snapshots_backfill.jsonl",
     "generated_at": null
   }
 }
