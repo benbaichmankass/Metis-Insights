@@ -148,10 +148,9 @@ building**.
 - **MES manifests:** the nightly cycle trains the mes-regime-5m/15m variants fine; **mes-setup-quality / mes-trade-outcome build 0-row datasets** because **MES has never traded in ~65d** (`mes_trend_long_1d`'s 1d Donchian-24 breakout never triggered) — honest empties, `MB-20260801-MES-BASELINE-MANIFESTS-NEVER-TRAINED` (§G2). mes-regime-1d-lgbm-v2 audit-quarantined (dead feature).
 - **Trainer honesty [verified-live]:** `trade_outcomes` builds **511 rows/day**, `cycle_end` now carries honest `trained/skipped/failed/outcome`, `manifest_ok` carries real `model_id`. The "dead since May" claim was a build-log lie — do not cite it.
 
-### 7. Flagged contradictions (surface, recommend — do not silently flip)
-- **M21 ROADMAP.md cell** says `🟡 IN PROGRESS` but verified reality is **Dormant** since 2026-07-14. Recommend a Tier-1 cell correction to `Dormant / paused` (mirrors the 07-28 reconcile's disposition).
-- **M20 ROADMAP.md cell** says `🔄 IN PROGRESS` while a "Next" plan called it "essentially COMPLETE"; reality = near-complete, **done-condition not literally met** (`exit_ladder` un-built fleet-wide). Recommend annotating the cell with the precise remaining done-condition rather than flipping to done.
-- Both are already documented in the 07-28 reconcile; this session **surfaces** them for the ROADMAP.md owner to correct, consistent with prior practice (no silent flip).
+### 7. Flagged contradictions — APPLIED in this PR (M21) + a parser bug found
+- **M21 ROADMAP.md cell — CORRECTED in this PR.** It read `🟡 IN PROGRESS` while verified reality is **Dormant since 2026-07-14** (E-3 closed honest-negative, coverage frozen). Fixed the leading glyph/label to `📋 DORMANT (paused …)`, body preserved. **This also fixed a latent parser bug:** `🟡` is **not** in the roadmap router's `_STATUS_EMOJI` map (`src/web/api/routers/roadmap.py`), so the glyph scan fell through to the keyword scan, which matched "E-3 **CLOSED**" / "E-1 … **DONE**" in the cell body and **mis-bucketed M21 as `done`** on `/api/bot/roadmap`. Leading with the mapped `📋` glyph now correctly buckets it `planned`/pending. Other cells lead with unmapped `🟡`/`🟢` glyphs and may mis-bucket the same way — logged as a follow-up (§ Risks).
+- **M20 ROADMAP.md cell — NO edit needed (already reconciled).** Its table status is correctly `🔄 IN PROGRESS` (maps to `in_progress`), and the only overstatement ("essentially COMPLETE", in the "Next" plan Item 1) is **already explicitly corrected** by the 07-28 reconcile ("*Item 1 below overstates M20 as 'essentially COMPLETE' — treat it as 'near-complete, exit_ladder lever + head rounds remain'*"). Manufacturing another edit would be redundant noise — the record is already accurate.
 
 ## Validation Performed
 Live re-verification via diag-relay issue #8266 (15:46Z) across 15 endpoints (see
@@ -162,9 +161,11 @@ to `054c34b6` (current main); (b) IB gateway recovered from a 14:32Z probe blip;
 tagged verified-live or repo-record above.
 
 ## Documentation Updated
-This log. ROADMAP.md M20/M21 cell corrections are **recommended** to its owner
-(§7), not applied here (Tier-1 status-record edit deferred to avoid a concurrent
-edit race with the active `full-system-review-zajauh` session).
+This log **and `ROADMAP.md`** — the **M21 status cell was CORRECTED** in this PR
+(`🟡 IN PROGRESS` → `📋 DORMANT`, body preserved), which also fixed a latent
+`/api/bot/roadmap` parser mis-bucket (§7 + §R6). **M20 needed no edit** (already
+reconciled — §7). No other ROADMAP.md rows touched (avoids a concurrent-edit race
+with the active `full-system-review-zajauh` session).
 
 ## Contradictions or Drift Found
 See §7 (M20/M21 roadmap cells) and §5 (the `exit-capture-deepdive` wrong-premise
@@ -214,6 +215,15 @@ listed so they are NOT redone.
   as the real-money 20-leg cap. Tier-2. First action: run `cancel-stale-tpsl-legs`
   (dry-run first) on bybit_1 XRP; confirm the `over_covered` detector clears. Done:
   covered_qty ≈ position size.
+- **R6 · Roadmap-parser unmapped-glyph mis-bucket (found this session, Tier-1).**
+  `src/web/api/routers/roadmap.py::_normalize_status` maps only
+  `✅🔄🔜📋⚠️⛔`; a cell leading with an **unmapped** glyph (`🟡`/`🟢`) falls through
+  to a keyword scan that matches any "DONE/COMPLETE/CLOSED" in the cell **body** —
+  so M21 (fixed here) was mis-reported as `done`, and any other unmapped-glyph cell
+  (e.g. M29 leads `🟢 P0 SCOPE LOCKED`) can mis-bucket too. First action: either add
+  `🟡`→pending / `🟢`→in_progress to `_STATUS_EMOJI`, or sweep the ~2 offending cells
+  to a mapped glyph; add a CI check that every milestone cell leads with a mapped
+  glyph. Done: `/api/bot/roadmap` `summary` counts match the human table for every row.
 
 ### B. GATED ON A NAMED PRECONDITION
 
@@ -241,10 +251,26 @@ listed so they are NOT redone.
 - **T2 · `BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED` (Tier-2).** Root cause
   of the bybit_1 journal↔exchange size divergence; remediation operator-gated. (W1
   phantom-row cleanup for bybit_1 + ib_paper is partly in flight by the active session.)
-- **T3 · Refresh the broker-truth ledger.** The authoritative bybit_2 wallet-truth is
-  `as_of 2026-07-13` (~3 weeks stale). Needs an operator Bybit UM export →
-  `scripts/ops/reconcile_netting_pnl.py --emit-ledger`. Until refreshed, the "real
-  money" authoritative figure drifts from reality.
+- **T3 · Refresh the broker-truth ledger** (the one genuine operator hand-off —
+  only a human can pull the exchange export). The authoritative bybit_2 wallet-truth
+  in `comms/broker_truth_ledger.json` is `as_of 2026-07-13` (~3 weeks stale
+  [verified-live #8266]); until refreshed, the "real money" authoritative figure
+  drifts from reality (the journal per-row pnl under-records — this ledger is the
+  only trustworthy lifetime real-money number). Concrete steps:
+  1. **Operator (manual):** in the Bybit UM (Unified Trading) account, export the
+     **wallet-change / transaction CSV** for `bybit_2` covering **both sub-accounts
+     (MAIN + SUB)** over the window `2026-07-13 → today` (the existing ledger's
+     `note` records the MAIN −1.52 / SUB −261.01 split and the 2026-05-10
+     sub-account switch — same export shape, just the newer window).
+  2. **Claude (reviewed run):** feed that export to
+     `scripts/ops/reconcile_netting_pnl.py --emit-ledger` (stitches wallet-truth =
+     UM-change − transfers across the two sub-accounts) → writes/updates
+     `comms/broker_truth_ledger.json` in a normal Tier-1 PR. **NOT a money-DB
+     rewrite** — per-row journal `pnl` stays unmodified.
+  3. **Verify:** `/api/bot/pnl/broker-truth` `as_of` advances past 2026-07-13 and
+     the dashboard/Android "🏦 Broker-truth realized (lifetime)" line updates.
+  Runbook precedent: the original ledger was produced this same way (a reviewed
+  `--emit-ledger` run from an operator Bybit UM export, per `BL-20260713-BYBIT2-PNL-UNDERRECORD`).
 
 ### Already done today (do NOT redo) — from `full-system-review-zajauh`
 - **[DONE 08-01]** `backfill-fabricated-exits apply` (#8253) — 14 rows MEASURED.
@@ -255,8 +281,11 @@ listed so they are NOT redone.
 - **[DONE 08-01]** Weekly `RPT-20260801` merged; 29 health backlog rows drained.
 
 ## Deferred Items
-ROADMAP.md M20/M21 cell corrections (§7) — deferred to the ROADMAP.md owner to avoid
-a concurrent backlog/status-file edit race; recommended, not applied.
+- The **broker-truth ledger refresh** (§C-T3) — the one genuine operator hand-off
+  (needs a human Bybit UM export before the reviewed `--emit-ledger` run).
+- **R6 (roadmap-parser unmapped-glyph fix)** — filed as a ready-now Tier-1 item;
+  not done here to keep this PR docs-only (an edit to `src/web/api/routers/roadmap.py`
+  is code, out of this session's scope).
 
 ## Next Recommended Sprint
 Pick from §A first (R2 macro-M1 fix and R4 cost-gate are the two highest-leverage
