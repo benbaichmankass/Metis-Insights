@@ -9076,9 +9076,15 @@
       "resolution_criteria": "Operator decision recorded on (a)/(b)/(c); if (b) or (c), the validate_startup change ships operator-approved with tests; if (a), this row closes with the rationale documented in the validation docstring.",
       "refs": [
         "src/runtime/validation.py",
-        "BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE"
+        "BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/8268"
       ],
       "updates": [
+        {
+          "at": "2026-08-01T18:45:00+00:00",
+          "by": "claude (roadmap-backlog session, T1)",
+          "note": "OPERATOR DECISION: option (b) APPROVED in chat 2026-08-01. IMPLEMENTED (Tier-3, operator-approved) on branch claude/2026-08-01-roadmap-backlog-ydfv6r (PR #8268), commit e01f9e9: validate_startup no longer appends the Telegram presence check to the fatal `errors` list — a missing/malformed TELEGRAM_BOT_TOKEN/CHAT_ID now routes through the new `_warn_degraded_alerting` (loud WARNING + best-effort WARN outcome to outcomes.jsonl, so the dead channel surfaces on the /api/bot/notifications operator_warning banner — a channel independent of Telegram). Never raises (lazy guarded outcomes import). Asymmetry preserved: exchange creds / symbol / risk stay FATAL. Tests: the two always-required tests inverted to non-fatal + 3 new (malformed-non-fatal, degraded-alerting-flagged, exchange-creds-stay-fatal); 17/17 pass; ruff clean. PENDING: merge of #8268 + a restart-bot-service redeploy (validate_startup runs at boot, so the new behaviour takes effect on the next restart) — keep open until deployed + live-verified, then close per resolution_criteria."
+        },
         {
           "at": "2026-08-01T08:40:00+00:00",
           "by": "claude (/system-review weekly, session full-system-review-zajauh)",

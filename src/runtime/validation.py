@@ -29,9 +29,9 @@ def _missing(keys: list) -> list:
 def _warn_degraded_alerting(reason: str) -> None:
     """Loudly flag that Telegram alerting is degraded — WITHOUT halting the trader.
 
-    Operator decision 2026-08-01 (Tier-3, BL-20260801-TELEGRAM-CRED-CRASHLOOPS-
-    MONEY-LOOP, option (b)): a notification-credential defect must degrade ALERTING,
-    never halt the MONEY LOOP. Logs a WARNING and best-effort persists a WARN
+    Operator decision 2026-08-01, Tier-3 option (b) — row
+    BL-20260801-TELEGRAM-CRED-CRASHLOOPS-MONEY-LOOP: a notification-credential defect
+    must degrade ALERTING, never halt the MONEY LOOP. Logs a WARNING and best-effort persists a WARN
     outcome so the condition surfaces on the ``/api/bot/notifications``
     ``operator_warning`` banner — a channel independent of Telegram itself, so
     "alerting is down" is still visible even when Telegram is the dead channel.
@@ -82,9 +82,9 @@ def validate_startup() -> None:
                 errors.append(f"Missing required Bybit credential: {key}")
 
     # ---- Telegram — alerting credential, DECOUPLED from trader liveness -----
-    # Operator decision 2026-08-01 (Tier-3, BL-20260801-TELEGRAM-CRED-CRASHLOOPS-
-    # MONEY-LOOP, option (b) approved): a missing/malformed Telegram credential is a
-    # LOUD NON-FATAL warning, NOT a startup error. The trader runs 24/7 (Prime
+    # Operator decision 2026-08-01, Tier-3 option (b) approved — row
+    # BL-20260801-TELEGRAM-CRED-CRASHLOOPS-MONEY-LOOP: a missing/malformed Telegram
+    # credential is a LOUD NON-FATAL warning, NOT a startup error. The trader runs 24/7 (Prime
     # Directive); a NOTIFICATION-channel defect must degrade ALERTING, never halt the
     # MONEY LOOP. The prior hard-require crashlooped ict-trader-live for ~85 min on
     # 2026-08-01 (restart counter 389) after a rotation pasted only the secret half of
