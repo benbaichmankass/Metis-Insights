@@ -2396,6 +2396,11 @@
           "by": "system-review-followup-2026-07-27 (readiness verify)",
           "action": "kept_open",
           "note": "MEMORY FIX SHIPPED (#7722): compute_oos_edge now projects the dataset load to only the trainer/evaluator-referenced columns via _load_jsonl(keep=), cutting a single head's rows-list footprint. ON-viability first measure (transient systemd-run scope, MemoryMax=4500M, PROMOREADY_OOS_EDGE=on) was INCONCLUSIVE — the pipe masked systemd-run's real exit and captured no /usr/bin/time -v RSS line, so it's unknown whether the ON sweep completed under the cap or OOM'd early. Re-measuring cleanly (explicit scope exit + time -v RSS + dmesg OOM check). Default stays OFF until a definitive under-cap result; then flip ON + resolve. oos_edge evidence remains available per-head via `gate-check`."
+        },
+        {
+          "at": "2026-08-01T13:40:00+00:00",
+          "by": "claude (operator-decision follow-up, session full-system-review-zajauh)",
+          "note": "Interim workaround EXERCISED successfully in production (2026-08-01, #8254/#8257): per-model gate_check_candidates.sh over 2 heads WITH --datasets-root ran to completion on the 6GB box with no thrash (per-model process isolation = one model's working set at a time). The structural fix (subprocess isolation inside the readiness sweep + MemoryMax on ict-promotion-readiness.service) remains open."
         }
       ]
     },
@@ -2480,6 +2485,11 @@
           "at": "2026-08-01T08:40:00+00:00",
           "by": "claude (/system-review weekly, session full-system-review-zajauh)",
           "note": "Weekly /system-review: soak volume is THERE — btc-regime-15m-lgbm-fc-pcv-v2 758 scores and sol-regime-15m-lgbm-fc-pcv-v2 723 scores in the 7d window alone (shadow_stats #8237/#8240), both still stage=shadow while the FROZEN v1 siblings remain advisory (registry: advisory=2). The ~2026-07-28 swap-due date is now 4 days past. Blocker chain: the readiness/gate evidence path is itself blocked by MB-20260719-PROMOREADY-OOSEDGE-OOM (0-byte packets), and relay shadow/drift reads timed out (#8242). ESCALATED to operator_priorities in RPT-20260801 weekly: fix or hand-run the readiness packet for the two v2 heads, then Tier-3 swap decision."
+        },
+        {
+          "at": "2026-08-01T13:40:00+00:00",
+          "by": "claude (operator-decision follow-up, session full-system-review-zajauh)",
+          "note": "GATE EVIDENCE OBTAINED (operator-approved hand-run, trainer issues #8254/#8257 — per-model gate_check_candidates.sh, the MB-20260719 OOM-safe shape; ran clean on the 6GB box). SOL v2: ready:false on live_parity ONLY (insufficient_data — 13/20 live rows since today's 01:14Z retrain; accrues at bar cadence) — drift clean KS 0.1175, oos_edge +0.239, non_degenerate 0.383, every other required gate PASS. BTC v2: ready:false, blocking live_parity (14/20, same accrual wait) AND a GENUINE drift_clean FAIL — KS 0.2543 > 0.2 (PSI 0.1905 ok) — the same gate that demoted sol-v1 on 07-26; note the artifact retrained 00:47Z today so the KS may partly reflect the artifact swap in the window-over-window comparison. PLAN: re-run gate-check this evening (~20:30Z) once live_parity rows accrue; if SOL goes ready -> present the SOL swap for Tier-3 approval (restores the SOL advisory head); BTC swap HELD on the red drift gate — re-check drift after 2-3 days of post-retrain scores per drift-remediation (current advisory btc fc-pcv-v1 stays in place, no gap)."
         }
       ]
     },
@@ -2711,7 +2721,7 @@
     {
       "id": "MB-20260801-MES-BASELINE-MANIFESTS-NEVER-TRAINED",
       "title": "3 MES baseline manifests have ZERO registered runs ever — decide: build their datasets, or retire the manifests",
-      "status": "open",
+      "status": "awaiting-data",
       "tier": 1,
       "opened_at": "2026-08-01",
       "opened_by": "claude (audit session, W0 morning cycle check — routed from the first training_staleness_summary)",
@@ -2728,6 +2738,11 @@
           "at": "2026-08-01T08:40:00+00:00",
           "by": "claude (/system-review weekly, session full-system-review-zajauh)",
           "note": "Weekly /system-review: confirmed live in both 08-01 cycles — training_staleness_summary {scanned:89, stale:3, never_trained:3}; the 3 are mes-execution-quality / mes-setup-quality / mes-trade-outcome-winrate baselines, 64.6d old, skipped every cycle since landing (the new P1 escalation is doing its job). Recommendation for next /ml-review: RETIRE the three manifests unless someone commits to building their datasets — 64 days of silent skip is evidence nobody needs them; retiring also de-noises the staleness summary."
+        },
+        {
+          "at": "2026-08-01T13:40:00+00:00",
+          "by": "claude (operator-decision follow-up, session full-system-review-zajauh)",
+          "note": "OPERATOR DECIDED: BUILD (chat 2026-08-01). All 3 dataset families built MES-scoped on the trainer (issue #8256): datasets-out/{execution_quality,setup_labels,trade_outcomes}/MES/all/v001 — exactly the family/symbol_scope/version the manifests pin. Verify the 08-02 00:55Z nightly cycle trains mes-execution-quality-baseline-v0 / mes-setup-quality / mes-trade-outcome-winrate-baseline-v0 (staleness summary should drop never_trained 3 -> 0); resolve this row on that evidence."
         }
       ]
     }
