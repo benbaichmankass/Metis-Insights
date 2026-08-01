@@ -221,6 +221,11 @@ EXPECTED_ACTIONS = {
     # misattribution rows (BL-20260720-ICTSCALP-PASTSTOP-EXITS). DRY-RUN by
     # default; apply gated; signature-verified so it is idempotent.
     "repair-netted-rows": "repair_netted_rows_action.sh",
+    # 2026-08-01 — W1 reconciliation (BL-20260731-W1-JOURNAL-EXCHANGE-
+    # DIVERGENCE-MAP): closes the 4 bybit_1 netting phantom-open ict_scalp
+    # rows whose exchange share was flattened by position-level exits.
+    # DRY-RUN by default; apply gated; signature-pinned so it is idempotent.
+    "reconcile-netting-phantom-rows": "reconcile_netting_phantom_rows_action.sh",
     # 2026-07-20 — venue validation for BYBIT_TPSL_MODE=partial (qty-scoped
     # brackets, Fix 2 of BL-20260720-ICTSCALP-PASTSTOP-EXITS). Demo-locked
     # to bybit_1; places + cleans up two tiny netted orders.
@@ -294,6 +299,7 @@ TIER_2_ACTIONS = {
     "reset-daily-risk-state",
     "repair-malformed-notes",
     "repair-netted-rows",
+    "reconcile-netting-phantom-rows",
     "validate-partial-tpsl",
     "validate-bybit-naked-rearm",
     "cancel-stale-tpsl-legs",
