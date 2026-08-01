@@ -2,68 +2,68 @@
   "rows": [
     {
       "horizon_days": 1,
-      "n": 553,
-      "ic": -0.040975,
-      "ic_t": -0.963,
-      "pearson": -0.015844,
-      "sign_hit_rate": 0.512334,
-      "mean_fwd_return": 0.000456
+      "n": 789,
+      "ic": 0.016007,
+      "ic_t": 0.449,
+      "pearson": 0.027257,
+      "sign_hit_rate": 0.527529,
+      "mean_fwd_return": -0.000169
     },
     {
       "horizon_days": 3,
-      "n": 553,
-      "ic": 0.002949,
-      "ic_t": 0.069,
-      "pearson": 0.041988,
-      "sign_hit_rate": 0.506616,
-      "mean_fwd_return": 0.002743
+      "n": 788,
+      "ic": 0.004858,
+      "ic_t": 0.136,
+      "pearson": 0.066316,
+      "sign_hit_rate": 0.474555,
+      "mean_fwd_return": 0.002927
     },
     {
       "horizon_days": 5,
-      "n": 553,
-      "ic": 0.061617,
-      "ic_t": 1.449,
-      "pearson": 0.10503,
-      "sign_hit_rate": 0.529301,
-      "mean_fwd_return": 0.002831
+      "n": 788,
+      "ic": -0.007778,
+      "ic_t": -0.218,
+      "pearson": 0.032764,
+      "sign_hit_rate": 0.472681,
+      "mean_fwd_return": 0.002282
     },
     {
       "horizon_days": 10,
-      "n": 552,
-      "ic": 0.001376,
-      "ic_t": 0.032,
-      "pearson": 0.021072,
-      "sign_hit_rate": 0.500945,
-      "mean_fwd_return": 0.00789
+      "n": 787,
+      "ic": -0.030456,
+      "ic_t": -0.854,
+      "pearson": 0.01071,
+      "sign_hit_rate": 0.479034,
+      "mean_fwd_return": 0.00494
     },
     {
       "horizon_days": 21,
-      "n": 549,
-      "ic": -0.025992,
-      "ic_t": -0.608,
-      "pearson": -0.016732,
-      "sign_hit_rate": 0.496198,
-      "mean_fwd_return": 0.014307
+      "n": 784,
+      "ic": -0.105818,
+      "ic_t": -2.976,
+      "pearson": -0.077404,
+      "sign_hit_rate": 0.440613,
+      "mean_fwd_return": 0.008931
     }
   ],
   "summary": {
-    "max_n": 553,
+    "max_n": 789,
     "min_honest_n": 12,
     "sufficient_history": true,
-    "any_flagged_horizon": false,
-    "strongest_ic_horizon_days": 5,
-    "strongest_ic": 0.061617,
-    "strongest_ic_t": 1.449,
+    "any_flagged_horizon": true,
+    "strongest_ic_horizon_days": 21,
+    "strongest_ic": -0.105818,
+    "strongest_ic_t": -2.976,
     "t_flag": 2.0,
-    "verdict": "no_edge_at_tested_horizons"
+    "verdict": "surprise_predicts_forward_return"
   },
   "meta": {
     "kind": "eia_natgas_storage",
     "symbol": "NG=F",
     "value_key": "surprise",
-    "releases": 553,
-    "releases_with_value": 553,
-    "price_bars": 2911,
+    "releases": 789,
+    "releases_with_value": 789,
+    "price_bars": 5428,
     "horizons": [
       1,
       3,
@@ -71,7 +71,7 @@
       10,
       21
     ],
-    "snapshots_path": "comms/macro/econ_calendar_snapshots_survey_backfill.jsonl",
+    "snapshots_path": "comms/macro/econ_calendar_snapshots_backfill.jsonl",
     "generated_at": null
   }
 }
