@@ -816,9 +816,10 @@ jobs:
           # TELEGRAM_BOT_TOKEN (the operator command bot) was MISSING from
           # this list until 2026-08-01: set-env for it resolved empty and
           # blanked the key on the VM — the trigger of the trader crashloop
-          # during the token-rotation incident (BL-20260801-TELEGRAM-BOT-
-          # TOKEN-COMPROMISE). The empty-value guard below now also fails
-          # any future unmapped key loudly instead of writing it.
+          # during the token-rotation incident
+          # (BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE). The empty-value
+          # guard below now also fails any future unmapped key loudly
+          # instead of writing it.
           SECRET_TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           # NEWS_API_KEY backs the M9 news layer (set-env env_key=NEWS_API_KEY,
           # env_value blank). Lets Claude propagate the operator-provided NewsAPI
