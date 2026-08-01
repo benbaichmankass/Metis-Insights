@@ -48,10 +48,16 @@ def validate_startup() -> None:
     # Shape check, value NEVER echoed — one owner of the rule:
     # log_redact.assert_telegram_token_shape. A present-but-malformed token
     # (the 2026-08-01 rotation pasted only the secret half, without the
-    # numeric bot-id prefix) passes the presence check, then
-    # python-telegram-bot's InvalidToken exception prints the FULL value
-    # into the crash traceback → journald → (historically) committed
-    # health snapshots. Failing fast here keeps the value out of any log.
+    # numeric bot-id prefix) passes the presence check; in the BOT processes
+    # python-telegram-bot's InvalidToken exception then prints the FULL
+    # value into the crash traceback, so THEY hard-fail on shape (see
+    # telegram_query_bot / claude_bridge). The TRADER never hands the token
+    # to PTB — alerts just fail per-call — so here a malformed token is a
+    # LOUD WARNING, deliberately NOT fatal: making it fatal would let a
+    # notification-credential paste error crashloop the money loop, the
+    # exact coupling that cost ~85 min of trader downtime on 2026-08-01
+    # (BL-20260801-TELEGRAM-CRED-CRASHLOOPS-MONEY-LOOP tracks whether even
+    # the presence hard-require above should stay).
     _tok = _env("TELEGRAM_BOT_TOKEN")
     if _tok:
         from src.utils.log_redact import assert_telegram_token_shape
@@ -59,7 +65,13 @@ def validate_startup() -> None:
         try:
             assert_telegram_token_shape(_tok, "TELEGRAM_BOT_TOKEN")
         except RuntimeError as exc:
-            errors.append(str(exc))
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "STARTUP WARNING (non-fatal): %s — Telegram alerts will fail "
+                "until the full <bot_id>:<secret> value is synced; trading "
+                "continues.", exc,
+            )
 
     # ---- Trading mode — REMOVED (operator directive 2026-05-03).
     # The MODE env var is no longer required. Per-account
