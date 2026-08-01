@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.utils.paths import repo_root
 from scripts.check_roadmap_status_glyphs import _CANONICAL_GLYPHS, offending_rows
+from src.utils.paths import repo_root
 
 
 def test_glyph_set_matches_router_status_emoji() -> None:

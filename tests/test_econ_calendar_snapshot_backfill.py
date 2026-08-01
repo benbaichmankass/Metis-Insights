@@ -28,6 +28,8 @@ backfill = pytest.importorskip("econ_calendar_snapshot_backfill")
 study = pytest.importorskip("econ_event_study")
 
 SPEC = {"fred_series": "WNGSTUS", "cadence": "weekly", "symbol": "NG=F"}
+EIA_SPEC = {"source": "eia_bulk", "eia_series": "PET.WCESTUS1.W",
+            "cadence": "weekly", "symbol": "CL=F"}
 
 
 def _weekly_history(n=200, level=2000.0, amp=800.0):
@@ -95,6 +97,48 @@ class TestProvenance:
         assert r["source"] == "fred:WNGSTUS"
 
 
+class TestEiaSource:
+    """The two energy kinds fetch from keyless EIA bulk, not FRED —
+    BL-20260730-EIA-SERIES-IDS-NOT-FRED (FRED carries no weekly crude stocks / gas storage)."""
+
+    def test_series_id_and_source_resolve_from_eia_keys(self):
+        assert backfill.source_of(EIA_SPEC) == "eia_bulk"
+        assert backfill.series_id_of(EIA_SPEC) == "PET.WCESTUS1.W"
+
+    def test_rows_stamp_eia_provenance_not_fred(self):
+        r = backfill.rows_for_kind("eia_crude_stocks", EIA_SPEC, _weekly_history())[-1]
+        assert r["source"] == "eia_bulk:PET.WCESTUS1.W"
+        assert r["pit_basis"] == backfill.PIT_BASIS_EIA_CURRENT
+        assert "eia.gov" in r["source_url"]
+
+    def test_fetch_routes_eia_bulk_to_the_eia_adapter(self):
+        # An injected urlopen returning a synthetic PET.zip proves the source routes
+        # eia_bulk to the EIA adapter (and never to FRED).
+        import io
+        import json
+        import zipfile
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("PET.txt", json.dumps(
+                {"series_id": "PET.WCESTUS1.W",
+                 "data": [["20260724", 404508], ["20260717", 411710]]}))
+        blob = buf.getvalue()
+
+        class _Resp:
+            def read(self):
+                return blob
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        hist = backfill._fetch_history_for_spec(
+            EIA_SPEC, urlopen=lambda u, timeout=None: _Resp())
+        assert hist == [("2026-07-17", 411710.0), ("2026-07-24", 404508.0)]
+
+
 class TestSchemaContract:
     """The study's own loader must parse these rows — else the two drift silently."""
 
@@ -133,7 +177,9 @@ class TestConfig:
             os.path.join(REPO, "config", "macro_econ_series.yaml"))
         assert series
         for kind, spec in series.items():
-            assert spec.get("fred_series"), f"{kind}: missing fred_series"
+            # Source-aware: fred kinds carry `fred_series`, eia_bulk kinds `eia_series`.
+            assert backfill.series_id_of(spec), f"{kind}: missing series id (fred_series/eia_series)"
+            assert backfill.source_of(spec) in {"fred", "eia_bulk"}, f"{kind}: bad source"
             assert spec.get("cadence") in {"weekly", "monthly", "quarterly"}, kind
             assert spec.get("symbol"), f"{kind}: missing symbol"
 
@@ -341,7 +387,7 @@ class TestIdProbe:
 
     def test_a_kind_with_no_series_declared_is_reported(self):
         r = self._probe({"k": {}})["k"]
-        assert "no fred_series" in r["error"]
+        assert "no series id" in r["error"]
 
     def test_probe_never_raises_on_a_broken_opener(self):
         def boom(req, timeout=None):

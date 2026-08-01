@@ -67,14 +67,12 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
 import yaml  # noqa: E402
-
 from econ_expectation import (  # noqa: E402
     DEFAULT_HARMONICS,
     DEFAULT_MIN_TRAIN,
@@ -86,6 +84,20 @@ from econ_expectation import (  # noqa: E402
 DEFAULT_CONFIG = os.path.join("config", "macro_econ_series.yaml")
 DEFAULT_OUT = os.path.join("comms", "macro", "econ_calendar_snapshots_backfill.jsonl")
 PIT_BASIS_FRED_CURRENT = "fred_current_vintage"
+PIT_BASIS_EIA_CURRENT = "eia_current_vintage"
+
+
+def source_of(spec: dict) -> str:
+    """`source:` for a kind — defaults to ``fred`` so the FRED kinds need no edit.
+
+    The two ENERGY kinds carry ``source: eia_bulk`` because FRED does not serve
+    weekly crude-oil stocks / gas storage (BL-20260730-EIA-SERIES-IDS-NOT-FRED)."""
+    return str(spec.get("source") or "fred").strip().lower()
+
+
+def series_id_of(spec: dict) -> str | None:
+    """The source-appropriate series id: ``eia_series`` for eia_bulk, else ``fred_series``."""
+    return spec.get("eia_series") if source_of(spec) == "eia_bulk" else spec.get("fred_series")
 
 
 def load_series_config(path: str) -> dict:
@@ -107,13 +119,32 @@ def _fetch_history(series_id: str, *, urlopen=None, timeout: float = 25.0):
     return got.get(series_id) or []
 
 
+def _fetch_history_eia(series_id: str, *, urlopen=None, timeout: float = 90.0):
+    """Full dated history for one EIA bulk series (keyless). The bulk zips are large
+    (PET ~55 MB), so the default timeout is wider than FRED's."""
+    from src.units.strategies.macro_thesis.eia_adapter import (
+        fetch_eia_series_history_dated,
+    )
+
+    got = fetch_eia_series_history_dated([series_id], urlopen=urlopen, timeout=timeout)
+    return got.get(series_id) or []
+
+
+def _fetch_history_for_spec(spec: dict, *, urlopen=None):
+    """Dated history for a kind, routed to the FRED or EIA-bulk adapter by ``source:``."""
+    sid = series_id_of(spec)
+    if source_of(spec) == "eia_bulk":
+        return _fetch_history_eia(sid, urlopen=urlopen)
+    return _fetch_history(sid, urlopen=urlopen)
+
+
 PIT_BASIS_MODELED_LAG = "modeled_lag"
 # Mirrors fred_adapter._FRED_CSV_URL. Used ONLY by the id probe, for the HTTP status the
 # adapter deliberately swallows; the production path always goes through the adapter.
 _FRED_PROBE_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={}"
 
 
-def apply_transform(history: list, transform: Optional[str], *, period: int) -> list:
+def apply_transform(history: list, transform: str | None, *, period: int) -> list:
     """Convert FRED's native units into the RELEASE convention the survey feed uses.
 
     Applied to the (date, value) history BEFORE any expectation is fitted, so the model
@@ -171,7 +202,7 @@ def rows_for_kind(
     *,
     harmonics: int = DEFAULT_HARMONICS,
     min_train: int = DEFAULT_MIN_TRAIN,
-    generated_at: Optional[str] = None,
+    generated_at: str | None = None,
 ) -> list[dict]:
     """PIT snapshot rows for one event kind from its dated FRED history.
 
@@ -180,6 +211,14 @@ def rows_for_kind(
     head yields no rows rather than a fabricated expectation.
     """
     period = period_for_cadence(spec.get("cadence") or "weekly")
+    src = source_of(spec)
+    sid = series_id_of(spec)
+    if src == "eia_bulk":
+        pit_basis = PIT_BASIS_EIA_CURRENT
+        source_url = "https://www.eia.gov/opendata/bulk/"
+    else:
+        pit_basis = PIT_BASIS_FRED_CURRENT
+        source_url = "https://fred.stlouisfed.org"
     # UNITS BEFORE EXPECTATION -- see apply_transform's docstring for why the order
     # is load-bearing rather than cosmetic.
     history = apply_transform(history, spec.get("transform"), period=period)
@@ -232,9 +271,9 @@ def rows_for_kind(
             "backfilled": True,
             "expectation_source": f"model:{SPEC_VERSION}",
             "expectation_period": period,
-            "pit_basis": PIT_BASIS_FRED_CURRENT,
-            "source": f"fred:{spec.get('fred_series')}",
-            "source_url": "https://fred.stlouisfed.org",
+            "pit_basis": pit_basis,
+            "source": f"{src}:{sid}",
+            "source_url": source_url,
             "symbol": spec.get("symbol"),
             "release_date_basis": PIT_BASIS_MODELED_LAG,
             "release_lag_days": lag_days,
@@ -269,11 +308,27 @@ def probe_series(series_cfg: dict, *, urlopen=None) -> list[dict]:
     """
     out = []
     for kind, spec in (series_cfg or {}).items():
-        sid = spec.get("fred_series")
+        src = source_of(spec)
+        sid = series_id_of(spec)
         row = {"kind": kind, "fred_series": sid, "resolved": False, "observations": 0,
                "first": None, "last": None, "http_status": None, "error": None}
         if not sid:
-            row["error"] = "no fred_series declared"
+            row["error"] = "no series id declared"
+            out.append(row)
+            continue
+        # EIA-bulk kinds resolve via the keyless EIA bulk adapter, not FRED. There is no
+        # per-series HTTP status to report (the whole dataset zip is one request); a
+        # non-empty history is the resolution signal.
+        if src == "eia_bulk":
+            try:
+                hist = _fetch_history_eia(sid, urlopen=urlopen)
+            except Exception as exc:  # noqa: BLE001
+                hist, row["error"] = [], f"{type(exc).__name__}: {exc}"
+            if hist:
+                row.update(resolved=True, observations=len(hist),
+                           first=hist[0][0], last=hist[-1][0])
+            elif row["error"] is None:
+                row["error"] = "EIA bulk returned EMPTY (wrong series id / dataset?)"
             out.append(row)
             continue
         # STATUS-AWARE on purpose. The shared adapter logs-and-returns-empty on an HTTP
@@ -311,7 +366,7 @@ def render_probe(rows: list[dict]) -> str:
     for r in rows:
         span = f"{r['first']}..{r['last']}" if r["resolved"] else "-"
         status = "OK" if r["resolved"] else f"FAIL {r['error']}"
-        lines.append(f"{r['kind']:29s} {str(r['fred_series']):13s} "
+        lines.append(f"{r['kind']:29s} {r['fred_series']!s:13s} "
                      f"{r['observations']:>6d}  {span:22s}  {status}")
     # Configured and candidate ids are counted SEPARATELY: a resolving candidate must not
     # inflate the configured tally into looking healthier than it is, and a failing candidate
@@ -331,7 +386,7 @@ def render_probe(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def main(argv: Optional[list] = None) -> int:
+def main(argv: list | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="Backfill PIT economic-release snapshots from FRED history (observe-only)")
     ap.add_argument("--config", default=DEFAULT_CONFIG)
@@ -382,21 +437,23 @@ def main(argv: Optional[list] = None) -> int:
     failures: list[str] = []
     for kind in wanted:
         spec = series[kind] or {}
-        sid = spec.get("fred_series")
+        src = source_of(spec)
+        sid = series_id_of(spec)
         if not sid:
-            failures.append(f"{kind}: no `fred_series` declared")
+            id_key = "eia_series" if src == "eia_bulk" else "fred_series"
+            failures.append(f"{kind}: no `{id_key}` declared")
             continue
         try:
-            history = _fetch_history(sid)
+            history = _fetch_history_for_spec(spec)
         except Exception as exc:  # noqa: BLE001
             failures.append(f"{kind} ({sid}): fetch raised {type(exc).__name__}: {exc}")
             continue
         if not history:
-            # LOUD, not skipped — see the module docstring. An unverified series id
-            # is the likeliest cause; fix it in the config, not in code.
+            # LOUD, not skipped — see the module docstring. A wrong series id / wrong
+            # source is the likeliest cause; fix it in the config, not in code.
             failures.append(
-                f"{kind} ({sid}): FRED returned NO history — verify the series id in "
-                f"{args.config} (ids are declared from the catalogue, not sandbox-verified)"
+                f"{kind} ({sid}, source={src}): returned NO history — verify the series "
+                f"id + source in {args.config}"
             )
             continue
         rows = rows_for_kind(kind, spec, history, harmonics=args.harmonics,
@@ -419,8 +476,9 @@ def main(argv: Optional[list] = None) -> int:
               "failure mode this refuses to produce.", file=sys.stderr)
         return 1
 
+    bases = sorted({r["pit_basis"] for r in all_rows})
     print(f"\ntotal rows: {len(all_rows)}  (expectation={SPEC_VERSION}, "
-          f"pit_basis={PIT_BASIS_FRED_CURRENT})")
+          f"pit_basis={','.join(bases) or PIT_BASIS_FRED_CURRENT})")
     if args.dry_run:
         print("dry-run — nothing written")
         return 0
