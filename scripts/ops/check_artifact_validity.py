@@ -79,9 +79,10 @@ CHECKS: dict[str, dict[str, Any]] = {
     # 4-of-5 looking complete — this registry is the roster that catches a dropped kind.
     "comms/macro/econ_event_study_scorecard.json": {
         "inputs": [("meta.price_bars", 1), ("meta.releases", 1)],
-        "note": "eia_natgas_storage kind (BARE legacy filename — BL-20260730-ECON-SCORECARD-"
-                "NAMING-TRAP). Price join fixed 2026-07-30 (was price_bars:0 its whole life, "
-                "BL-20260730-M1-PRICE-JOIN-DEAD); now non-vacuous.",
+        "note": "eia_natgas_storage kind (BARE legacy filename — the naming-trap row "
+                "BL-20260730-ECON-SCORECARD-NAMING-TRAP). Price join fixed 2026-07-30 "
+                "(was price_bars:0 its whole life, BL-20260730-M1-PRICE-JOIN-DEAD); now "
+                "non-vacuous.",
     },
     "comms/macro/econ_event_study_crude_scorecard.json": {
         "inputs": [("meta.price_bars", 1), ("meta.releases", 1)],
