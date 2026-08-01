@@ -2214,6 +2214,18 @@
       "description": "NOT a re-verify-the-flip item (that premise is disproven). The durable hook: the /system-review execution_capture metric (added PR #7973 -- m20_exit_analysis roundtrippers_pct / mean_giveback_r / hold_h_actual-vs-expected per live strategy, aged across reviews) is now the STANDING measurement for whether bybit ict_scalp capture actually improves as the concurrent session's real fixes (#8000 Bybit broker-naked sweep; the leg-desync + over-accum remediation) land and soak. Each /system-review: confirm post-fix bybit scalp hold-times trend toward minutes and roundtrippers/giveback drop vs the ~9h-avg / 80%-reconciler_filled pre-fix baseline (docs/research/exit-capture-deepdive-2026-07-30.md, read through its top correction banner). If they do NOT improve after the #8000-family soaks, the root cause is still unaddressed -- escalate. Baseline reference for the compare: pre-2026-07-30 bybit ict_scalp -- avg hold 9.05h / median 2.53h, 47/59 reconciler_filled.",
       "status": "open",
       "tier": "observe (standing review-metric watch; the real fix is the concurrent session's Tier-2 #8000-family, not this item)"
+    },
+    {
+      "id": "PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE",
+      "opened_at": "2026-08-01T08:40:00+00:00",
+      "opened_by": "claude (/system-review weekly, session full-system-review-zajauh)",
+      "source": "2nd consecutive review: RPT-20260730-045200 flagged slv_trend_1h emitting degenerate low-confidence should-skip entries (0.06/0.15 conf, 0/4 win, -$629 paper, 2x D-grade); this weekly's grading (#8239) added another D at confidence 0.04 (pkg-95331aecaa864931, trade 4247, sl_cross -1.04R paper).",
+      "title": "[strategy] slv_trend_1h keeps entering at near-zero confidence (0.04-0.15) — needs a confidence floor or regime gate before any real-money routing (Tier-3)",
+      "detail": "Population: paper (alpaca_paper/alpaca_portfolio) closed rows across the last 2 review windows; 5 graded entries all should_skip-class, all losses. Strategy is paper-only today so no money at risk, but the signal builder is emitting entries its own confidence says to skip. Proposed exact change (Tier-3, operator-gated): min_confidence floor ~0.3 on slv_trend_1h in config/strategies.yaml, or fold into the PERF-20260601-010 degenerate-confidence workstream. Escalated in the 2026-08-01 weekly report per the reviews_open>=2 rule.",
+      "severity": "medium",
+      "tier": 3,
+      "status": "open",
+      "reviews_open": 2
     }
   ],
   "updated_at": "2026-07-30T13:00:00+00:00"

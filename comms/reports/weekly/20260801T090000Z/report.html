@@ -1,0 +1,210 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — weekly</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — weekly</h1>
+<p class="meta">Generated 2026-08-01T09:00:00+00:00 · window 2026-07-25T08:30:00+00:00 → 2026-08-01T08:45:00+00:00</p>
+<p><span class="grade">Roll-up: 🔴 investigate</span></p>
+<p>Recovery week under load: a huge shipped burst (provenance overhaul, W1 journal cleanup, guard hardening, trainer honesty) VERIFIED WORKING with live evidence - but the token-rotation fallout took the trader down 2h today and the Telegram alerting layer is STILL dark on a malformed re-pasted token (operator re-paste needed). [RESOLVED 08:37Z, post-evidence: the parallel audit session completed the rotation while this report was assembling - both bots ACTIVE, queued pings delivered, old tokens 401 (PR #8246). No operator action needed.] Real money -$6.99 on the week (measured, broker-reconciled); paper lost ~$4.2k on measured venues; prop flat.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Re-paste BOTH full Telegram tokens (&#x27;&lt;botid&gt;:&lt;secret&gt;&#x27;) into Actions secrets, re-sync + restart</b> <span class="pill">health · T2</span> ⚠️ operator<br><span class='muted'>TELEGRAM_BOT_TOKEN on the VM is malformed (secret half only, no bot-id prefix) - ict-telegram-bot at restart 700, claude-bridge down, liveness-watchdog pages 404. ALL Telegram alerting is dark until this lands; the trader itself is fine. [RESOLVED 08:37Z, post-evidence: the parallel audit session completed the rotation while this report was assembling - both bots ACTIVE, queued pings delivered, old tokens 401 (PR #8246). No operator action needed.]</span></li>
+<li><b>fc-pcv v2 advisory swap is 4 days overdue and its gate evidence is blocked - unblock readiness, then decide</b> <span class="pill">ml · T3</span> ⚠️ operator<br><span class='muted'>BTC+SOL 15m fc-pcv-v2 soaks met volume (758/723 scores in 7d). Readiness packets 0-byte on the trainer (OOM, MB-20260719) and relay drift reads time out. Fix or hand-run the packet, then Tier-3 swap + restore the SOL advisory head.</span></li>
+<li><b>slv_trend_1h: approve a min-confidence floor (~0.3) or regime gate</b> <span class="pill">performance · T3</span> ⚠️ operator<br><span class='muted'>Second consecutive review with should_skip-grade entries (conf 0.04-0.15), 5 graded entries all losses (paper-only today). Exact change proposed in PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE.</span></li>
+<li><b>Decide backfill-fabricated-exits --apply (Tier-2, dry-run validated, recovers ~4%)</b> <span class="pill">cross · T2</span> ⚠️ operator<br><span class='muted'>The apply was never run (operator go not given). Decide run-or-close so the item stops carrying; the read-side filter already quarantines the 206 fabricated rows either way.</span></li>
+<li><b>Retire (or commit to building) the 3 never-trained MES baseline manifests</b> <span class="pill">ml · T1</span><br><span class='muted'>64.6 days of every-cycle skips; the new staleness escalation will flag them nightly until dispositioned.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">51 open / 371 total · 91 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">6 open / 87 total · 5 drained</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">4 open / 98 total · 5 drained</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>ml</span> fc-pcv v2 advisory swap (BTC + SOL 15m regime heads) once gate evidence is produced - overdue since ~07-28.</li>
+<li><span class='pill'>performance</span> slv_trend_1h min-confidence floor ~0.3 (or regime gate) - PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE.</li>
+<li><span class='pill'>ml</span> SOL trend_vol cell authoring - standing follow-up, unblocked once the SOL advisory head is restored.</li>
+<li><span class='pill'>performance</span> M27 ict_scalp altcoin real-money graduation - soak-gated, not yet due (SRQ-20260728-M27-WINNERS-SHIP).</li>
+<li><span class='pill'>cross</span> trend_donchian cosmetic-short cell cleanup (authored-cell register note).</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>PAST-WEEK VERIFICATION (this review&#x27;s emphasis - all evidence-based, no assumptions): (1) provenance/exit-anchor: HOLDING - zero fabricated closes post-07-30-deploy; pnlProvenance live on API + both apps; real 7d coverage 90% measured. (2) W1 journal cleanup (#8232, applied 07:44Z today): journal-vs-exchange now reconciles EXACTLY on every symbol (MGC phantom gone, MHG -25=-25, ETH/XRP/BTC/ADA/SOL to the decimal); sole residual = known BNB pairs row (open root-cause item). (3) W2 guards: 15 required contexts confirmed in branch-protection-sync; new guards running non-vacuous; latest main pushes green. (4) P1 trainer honesty: verified live in TWO cycles (honest counters, populated model_id, staleness summary firing). (5) Security response: malformed-token guard (#8228) fired secret-free in production journals - working as designed; redaction wiring + secret-scan fix static-verified; leaked tokens 401. (6) trainer-diag prose-execution fix in the workflow awk + tests. (7) Dashboard/Android provenance surfacing merged; Android side merged-but-unreleased (no release cut since 07-31); live Streamlit render check not yet re-run this session. (8) Macro PIT producers alive (M1 econ-calendar + M28 valuation snapshot chores committed through 08-01; liveness guard now fail-red). (9) ict-ib-executions-pull hourly timer ACTIVE with IB fills in the store (refutes the install-gap suspicion).</li>
+<li>Single-channel alerting fragility: the liveness watchdog, CRITICAL pages, claude channel, and the prop status nag all ride Telegram - one bad token rotation silenced all four at once, twice in one day. The watchdog unit also FAILS itself when only the alert POST fails (BL-20260801-LIVENESS-WATCHDOG-FAILS-ON-TELEGRAM-404). Consider a secondary channel (FCM push already exists for trade events) for CRITICAL-class pages.</li>
+<li>R vs dollars: the real-money week reads +27.4R yet -$6.99 in reconciled dollars - fee drag plus tiny scalp risk denominators. Dollars are the scoreboard; the R figure is quoted only as a shape diagnostic.</li>
+<li>Paper-vs-real translation gap: measured paper venues (IB MGC scalps, alpaca SLV/TLT) lost ~$4.2k while real money was near-flat; the crypto paper journal&#x27;s own dollar total (-$17.3k) is 77% fabricated-legacy rows and not quotable. The provenance split now makes this distinction mechanical instead of narrative.</li>
+<li>Prop: flat since the 07-28 ETH close (-$18.06); outbound prop strategies at execution:shadow emitting shadow tickets only; account-status snapshot 12 days stale with a thin recorded DD cushion ($125.61 to the floor at the 07-20 snapshot) - the nag path is the dead Telegram channel, so freshness resumes when the token lands.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🔴 investigate</span></h2>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>heartbeat</td><td class="sev-ok">🟢 ok</td><td>Fresh at review time (60s cadence). NOTE: trader was DOWN 05:29-07:33Z today - round-1 token rotation synced an empty secret and startup validation refused to boot; recovered on 4c9decf6, positions bracket-protected broker-side throughout.</td></tr>
+<tr><td>ticks</td><td class="sev-ok">🟢 ok</td><td>Ticking - last tick 2026-08-01T08:27:34Z, uptime since 07:33Z.</td></tr>
+<tr><td>signals</td><td class="sev-ok">🟢 ok</td><td>Signal flow live across the fleet; one transient ict_scalp_mgc_15m no-candle error 2 min after restart (IB warm-up) - MGC candles fetch cleanly now.</td></tr>
+<tr><td>orders</td><td class="sev-ok">🟢 ok</td><td>Signal-&gt;order plumbing normal; window rejections are expected flip-suppression/sizing noops, no plumbing failures.</td></tr>
+<tr><td>trades</td><td class="sev-ok">🟢 ok</td><td>Order-&gt;trade plumbing normal. W1 P2 phantom-row cleanup (applied 07:44Z today) LIVE-VERIFIED: journal net == exchange on every symbol (MGC phantom gone, MHG -25=-25); sole residual is the known BNB pairs-sleeve surplus row.</td></tr>
+<tr><td>monitoring</td><td class="sev-watch">🟡 watch</td><td>Stuck-package sweep force-closed 3 packages 2 min after the W1 P2 DB cleanup - most likely cleanup fallout; filed BL-20260801-STUCK-PACKAGE-SWEEP-AFTER-W1P2 to verify no organic recurrence.</td></tr>
+<tr><td>sizing</td><td class="sev-ok">🟢 ok</td><td>No sizing/leverage anomaly in the window&#x27;s real-money rows (qty 0.004-0.01 BTC, 15.8-207 XRP, 0.07-0.09 ETH).</td></tr>
+<tr><td>api_errors</td><td class="sev-watch">🟡 watch</td><td>Diag-relay timeouts on /trades/closed at limit=300 and /shadow/drift (smaller reads fine) - BL-20260801-TRADESCLOSED-RELAY-LIMIT300-TIMEOUT (low).</td></tr>
+<tr><td>state_consistency</td><td class="sev-ok">🟢 ok</td><td>YAML modes vs runtime consistent; all 7 probeable live accounts reachable (api_ok + live exchange reads); IB gateway connected, breaker closed; no orphan_unreconciled banner.</td></tr>
+<tr><td>alerting</td><td class="sev-concern">🔴 concern</td><td>ALL Telegram alerting DARK: rotated TELEGRAM_BOT_TOKEN on the VM is malformed (secret half without the bot-id prefix; the #8228 shape guard refuses to boot, secret-free, as designed). ict-telegram-bot restart counter 700; claude-bridge down; liveness-watchdog pages 404. Operator re-paste of BOTH full tokens required.</td></tr>
+<tr><td>security</td><td class="sev-watch">🟡 watch</td><td>Token-compromise contained: both leaked tokens revoked (401), leak channel closed runtime+scan side, no abuse observed. Residual risk is availability, not integrity; rotation #3 pending operator.</td></tr>
+<tr><td>provenance</td><td class="sev-ok">🟢 ok</td><td>Exit-anchor fix HOLDING: only fabricated close in the 7d real window predates the 07-30 deploy; real pnlCoverage 90% measured; pnlProvenance live on API + both apps.</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-6.99</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v neg">$-9.77 ↑</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">10</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">20.0%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">$-0.70</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">0.60</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-12.07</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">2</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>ict_scalp_5m</td><td>3</td><td>66.7%</td><td class="pos">+$6.43</td></tr>
+<tr><td>trend_donchian</td><td>1</td><td>0.0%</td><td class="neg">$-1.04</td></tr>
+<tr><td>trend_donchian_xrp_4h</td><td>2</td><td>0.0%</td><td class="neg">$-1.85</td></tr>
+<tr><td>xrp_pullback_2h</td><td>2</td><td>0.0%</td><td class="neg">$-2.95</td></tr>
+<tr><td>eth_pullback_2h</td><td>2</td><td>0.0%</td><td class="neg">$-7.58</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↓</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">69</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">31.9%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">22</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>ict_scalp_sol_5m</td><td>5</td><td>80.0%</td><td class="">—</td></tr>
+<tr><td>ict_scalp_mgc_15m (IB, measured)</td><td>2</td><td>0.0%</td><td class="neg">$-2,867.60</td></tr>
+<tr><td>slv_trend_1h (alpaca, measured)</td><td>2</td><td>0.0%</td><td class="neg">$-75.90</td></tr>
+</table></div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v neg">$-18.06</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v neg">$-182.84 ↑</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">—</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">6 full dossiers, 16 summarized (weekly window - notable outliers only; the other 16 closed trades are summarized in pnl_by_class.per_strategy; all 22 closed packages carry fresh Claude grades).</p>
+<details><summary><span class="pill real">real_money</span> BTCUSDT short · ict_scalp_5m · <span class="pos">+$5.08</span> · grade A</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4258</div><div class="k">account</div><div>bybit_2 (real)</div><div class="k">opened</div><div>—</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>—</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> BTCUSDT long · ict_scalp_5m · <span class="neg">$-4.00</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4180</div><div class="k">account</div><div>bybit_2 (real)</div><div class="k">opened</div><div>—</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>—</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> BTCUSDT long · trend_donchian · <span class="neg">$-1.04</span> · grade B</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4032</div><div class="k">account</div><div>bybit_2 (real)</div><div class="k">opened</div><div>—</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>—</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill real">real_money</span> XRPUSDT short · xrp_pullback_2h · <span class="neg">$-0.38</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4154</div><div class="k">account</div><div>bybit_2 (real)</div><div class="k">opened</div><div>—</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>—</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill paper">paper</span> SLV long · slv_trend_1h · <span class="neg">$-75.90</span> · grade D</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>4247</div><div class="k">account</div><div>alpaca_paper</div><div class="k">opened</div><div>—</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>—</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<details><summary><span class="pill prop">prop</span> ETHUSDT long · manual bridge (trend_donchian_eth ticket) · <span class="neg">$-18.06</span> · grade —</summary><div class="body"><div class="kv"><div class="k">trade_id</div><div>prop-fill-27</div><div class="k">account</div><div>breakout_1 (prop)</div><div class="k">opened</div><div>—</div><div class="k">closed</div><div>—</div><div class="k">hold (s)</div><div>—</div><div class="k">entry</div><div>—</div><div class="k">exit</div><div>—</div><div class="k">stop</div><div>—</div><div class="k">target</div><div>—</div><div class="k">qty</div><div>—</div><div class="k">pnl %</div><div>—</div><div class="k">close reason</div><div>—</div><div class="k">setup</div><div>—</div><div class="k">killzone</div><div>—</div><div class="k">bias</div><div>—</div><div class="k">entry quality</div><div>—</div><div class="k">exit quality</div><div>—</div><div class="k">risk mgmt</div><div>—</div><div class="k">model scores</div><div>—</div><div class="k">signal logic</div><div>—</div><div class="k">grade rationale</div><div>—</div></div></div></details>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>64142.4</td><td>63101.8</td><td>65748.2</td><td>62446.9</td><td class="neg">-2.0%</td><td>Down-drifting chop, 62.4k-65.7k range; the 07-31 dip to 62.4k tripped the week&#x27;s scalp TPs short.</td></tr>
+<tr><td>ETHUSDT</td><td>1861.45</td><td>1868.65</td><td>1981.8</td><td>1848.35</td><td class="pos">0.3%</td><td>Flat chop 1850-1980; pullback longs stopped in the middle of it.</td></tr>
+<tr><td>SOLUSDT</td><td>73.94</td><td>73.05</td><td>77.5</td><td>72.33</td><td class="neg">-2.0%</td><td>Lower-high drift; scalp shorts worked.</td></tr>
+<tr><td>XRPUSDT</td><td>1.0917</td><td>1.0628</td><td>1.1165</td><td>1.0448</td><td class="neg">-3.2%</td><td>Weakest of the majors; shorts held by real+paper books are green.</td></tr>
+<tr><td>MGC</td><td>4116.6</td><td>4076.6</td><td>4148.2</td><td>4022.3</td><td class="neg">-0.7%</td><td>Whippy gold range - where the ib_paper 15m scalps bled (-$2.9k paper).</td></tr>
+<tr><td>MES</td><td>7489.0</td><td>7519.25</td><td>7541.0</td><td>7323.25</td><td class="pos">0.4%</td><td>Mild up week with one sharp 07-29 flush to 7323.</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟡 caution</span></h2>
+<div class="tablewrap"><table><tr><th>Model</th><th>Stage</th><th>Last metric</th><th>Trend</th><th>Shadow/drift</th><th>Note</th></tr>
+<tr><td>btc-regime-15m-lgbm-fc-pcv-v1</td><td>advisory</td><td>trained nightly (08-01 cycle ok)</td><td>stable</td><td>relay read timed out - via readiness path</td><td>753 scores/7d; FROZEN-dataset head; swap candidate to v2 (overdue).</td></tr>
+<tr><td>mes-regime-5m-lgbm-v2</td><td>advisory</td><td>trained nightly</td><td>stable</td><td>-</td><td>1274 scores/7d, scoring live.</td></tr>
+<tr><td>btc-regime-15m-lgbm-fc-pcv-v2</td><td>shadow</td><td>trained nightly on fresh v002 data</td><td>stable</td><td>unavailable via relay (timeout)</td><td>758 scores/7d - soak volume met, advisory-swap decision 4 days OVERDUE (escalated).</td></tr>
+<tr><td>sol-regime-15m-lgbm-fc-pcv-v2</td><td>shadow</td><td>trained nightly on fresh v002 data</td><td>stable</td><td>unavailable via relay (timeout)</td><td>723 scores/7d - same overdue swap; also gates restoring the SOL advisory head.</td></tr>
+<tr><td>trade-outcome-lgbm-v1</td><td>shadow</td><td>manifest_ok 08-01 01:16Z</td><td>recovered (unquarantined)</td><td>-</td><td>Unquarantine holding; label-provenance gate active.</td></tr>
+<tr><td>execution-quality-baseline-v0</td><td>shadow</td><td>-</td><td>-</td><td>score constant (min==max -0.2017)</td><td>Degenerate soak - known class, backlog-tracked.</td></tr>
+<tr><td>mes-execution-quality/setup-quality/trade-outcome-winrate baselines</td><td>never trained</td><td>0 registered runs in 64.6d</td><td>-</td><td>-</td><td>Flagged nightly by the new staleness escalation - retire-vs-build decision routed.</td></tr>
+</table></div>
+<h3>Promotion / demotion recommendations (Tier-3)</h3><ul class='pri'>
+<li>promote (swap) <b>btc-regime-15m-lgbm-fc-pcv-v2 + sol-regime-15m-lgbm-fc-pcv-v2</b> shadow→advisory: Soak volume met (758+723 scores in 7d; soaking since 07-21; swap due ~07-28, now 4 days overdue). GATE EVIDENCE BLOCKED: readiness packets 0-byte on the trainer (OOM, MB-20260719-PROMOREADY-OOSEDGE-OOM) and relay drift reads time out. Unblock the packet, then Tier-3 operator decision; also restores the SOL advisory head.</li>
+<li>hold (parked) <b>mes-regime-15m-lgbm-v2</b> shadow→advisory (parked): Reads ready:true but not operator-pre-approved (MB-20260721-MES-15M-HEAD-PARKED) - unchanged.</li>
+</ul>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li class='muted'>Real-money book: all HOLD (n=10 window trades is below any gate; no KILL/DEMOTE candidate emerged - eth_pullback_2h real drag is 2 trades, watch only). Paper/promotion pipeline: M27 scalp legs (SOL/AVAX/XRP/ETH) soaking toward their Tier-3 gate, not yet due; slv_trend_1h must clear the degenerate-confidence floor before ANY promotion talk (2nd-review escalation); htf_pullback_trend_2h stays demoted-to-paper (PRB-20260716 watch); SPLG/IAUM alpaca_live promotion still soak-gated (PB-20260707). The one promotion decision DUE is the fc-pcv v2 advisory swap (see ml) - overdue, evidence-blocked, escalated. Per-strategy M7 review packets not regenerated this window (generate-strategy-review-packets action available; n has barely moved since last packets).</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">7/7 nightly; 08-01: trained 75 / failed 0 / 2 named enforced audit-skips; resume invocation honestly reported already_complete</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">yes - real row_counts + dataset_dir post-P1 fix; no quarantine-tripped events in window</div></div>
+</div>
+<p class='muted'>Cycles ran nightly all window; 08-01 cycle trained 75 / failed 0 / 2 enforced audit-skips (named, genuine); dataset builds OK with real row_counts (post-P1 fix); no manifest_quarantine_tripped events in the window tail; trade-outcome-lgbm-v1 unquarantined and training; staleness escalation live (3 never-trained MES baselines routed to a retire-vs-build decision); trainer disk 79%, timer armed.</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>btc-regime-15m-lgbm-fc-pcv-v2 (shadow)</td><td>GATE DUE - overdue</td><td>758 scores/7d since 07-21; advisory-swap decision due ~07-28, 4 days past; gate evidence blocked by readiness OOM - escalated.</td></tr>
+<tr><td>sol-regime-15m-lgbm-fc-pcv-v2 (shadow)</td><td>GATE DUE - overdue</td><td>723 scores/7d; same swap decision; also gates restoring the SOL advisory head.</td></tr>
+<tr><td>conviction-meta-v1</td><td>accruing</td><td>1368 scores/7d; A/B AUC read queued (MB-20260727-CONVICTION-AB-AUC).</td></tr>
+<tr><td>regime bar-scoring fleet (BTC/ETH/SOL/MES heads)</td><td>accruing</td><td>Continuous scoring through 08:25Z today across 5m/15m/1h heads.</td></tr>
+<tr><td>M27 ict_scalp altcoin paper legs (SOL/AVAX/XRP)</td><td>accruing</td><td>Toward the Tier-3 real-money gate (SRQ-20260728) - not yet due.</td></tr>
+<tr><td>execution-quality-baseline-v0 + setup-quality-audit-baseline-v0</td><td>degenerate (known)</td><td>Constant scores (min==max) - known class, backlog-tracked.</td></tr>
+<tr><td>exit-ladder soak</td><td>structural zero</td><td>differing=0 by construction (only turtle_soup declares tp2 and it is shadow) - PB-20260617-002.</td></tr>
+<tr><td>fc-geometry soak</td><td>awaiting n</td><td>Insufficient paired rows; re-check ~2026-08-25 (MB-20260705-FC-SLTP-GEOMETRY).</td></tr>
+<tr><td>pairs sleeve (SOL/ETH 1h)</td><td>active</td><td>Live legs open on bybit_1; watch winner-clipping via intent_reduce (graded C premature_exit this window).</td></tr>
+<tr><td>prop shadow tickets (trend_donchian eth/sol prop)</td><td>accruing</td><td>Shadow-only emissions; reconcile clean (51/27/0 unacted).</td></tr>
+</table></div>
+<h3>Execution capture <span class='muted'>— did the edge reach the account?</span></h3>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Book</th><th>n</th><th>Round-trip %</th><th>Giveback R</th><th>Hold h (act/exp)</th><th>State</th></tr>
+<tr><td>ict_scalp_5m</td><td>real_money</td><td>3</td><td>0.0%</td><td>1.60</td><td>12.00 / 2.00</td><td>🟢 ok</td></tr>
+<tr><td>xrp_pullback_2h</td><td>real_money</td><td>2</td><td>0.0%</td><td>0.07</td><td>9.00 / 6.00</td><td>🟢 ok</td></tr>
+<tr><td>eth_pullback_2h</td><td>real_money</td><td>2</td><td>0.0%</td><td>0.52</td><td>9.00 / 6.00</td><td>🟢 ok</td></tr>
+<tr><td>trend_donchian</td><td>real_money</td><td>1</td><td>100.0%</td><td>39.40</td><td>14.20 / 12.00</td><td>🟡 degraded</td></tr>
+<tr><td>trend_donchian_xrp_4h</td><td>real_money</td><td>2</td><td>50.0%</td><td>0.90</td><td>30.00 / 24.00</td><td>🟢 ok</td></tr>
+</table></div>
+<p class='pri'>🔴 <b>trend_donchian|real_money</b>: Single-trade 39R giveback (MFE +34.5R -&gt; SL -4.8R over 14h) <span class='muted'>(open 1 review(s), since 2026-08-01, PB-20260730-SCALP-CAPTURE-STANDING-WATCH)</span></p>
+<p class='pri'>🔴 <b>slv_trend_1h|paper</b>: Entry-side degeneracy: should_skip confidence 0.04-0.15, 5 graded entries all losses <span class='muted'>(open 2 review(s), since 2026-07-30, PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE) ⚠️ ESCALATE</span></p>
+<p class='muted'>Real-money capture healthy this window (scalp TPs capturing 90%+ of MFE; stale_stop lever verified firing live); one dollar-immaterial donchian round-tripper logged for aging. Paper capture measured on broker-truth venues only (journal dollars provenance-contaminated). · dollars reconciled: True</p>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 ALERTING DARK (standalone high-priority): both Telegram channels + liveness-watchdog pages dead on a malformed re-pasted TELEGRAM_BOT_TOKEN (no bot-id prefix). Trader healthy; operator re-paste required. This flag fires its own high-priority ping. [RESOLVED 08:37Z, post-evidence: the parallel audit session completed the rotation while this report was assembling - both bots ACTIVE, queued pings delivered, old tokens 401 (PR #8246). No operator action needed.]</li><li>🚩 Trader was DOWN 05:29-07:33Z today (round-1 rotation synced an empty secret) - recovered; positions were bracket-protected broker-side throughout.</li><li>🚩 fc-pcv v2 advisory swap gate met but unactioned 4 days past due, and its evidence path (readiness packet) is itself broken (OOM) - escalated.</li><li>🚩 slv_trend_1h|paper degenerate-confidence entries recurred (reviews_open=2) - escalated with an exact Tier-3 proposal (confidence floor ~0.3).</li><li>🚩 Paper journal dollar PnL not quotable this window (44/69 rows legacy-fabricated); measured paper venues lost ~$4.2k led by MGC scalps -$2,868.</li><li>🚩 prop breakout_1 status snapshot 12d stale with $125.61 recorded DD-floor cushion (prop flat, so no live risk; freshness blocked on the dead Telegram nag channel).</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE</code></td><td>health</td><td>🗳️ awaiting-decision</td><td>Token rotation round 3 - operator re-paste of both full tokens</td><td>getMe 200 + services stable after set-env</td></tr>
+<tr><td><code>MB-20260721-FCPCV-V2-SOAK</code></td><td>ml</td><td>🗳️ awaiting-decision</td><td>Swap gate evidence blocked by readiness OOM</td><td>readiness packet produced for the two v2 heads</td></tr>
+<tr><td><code>BL-20260801-STUCK-PACKAGE-SWEEP-AFTER-W1P2</code></td><td>health</td><td>🔁 verify</td><td>3 packages force-closed right after the W1 P2 cleanup - expected one-off</td><td>no organic sweep firing by next review</td></tr>
+<tr><td><code>MB-20260705-FC-SLTP-GEOMETRY</code></td><td>ml</td><td>🧱 awaiting-data</td><td>fc-geometry soak n insufficient</td><td>re-check ~2026-08-25</td></tr>
+<tr><td><code>PB-20260617-002</code></td><td>performance</td><td>🧱 awaiting-data</td><td>Exit-ladder soak structurally zero-differing (only turtle_soup declares tp2, and it is shadow)</td><td>first live laddered strategy</td></tr>
+<tr><td><code>PB-20260630-002</code></td><td>performance</td><td>⏳ soaking</td><td>TQQQ/QLD leveraged-Nasdaq paper soak</td><td>clean track record + account_compat_matrix before alpaca_live</td></tr>
+<tr><td><code>SRQ-20260728-M27-WINNERS-SHIP</code></td><td>performance</td><td>⏳ soaking</td><td>M27 SOL/XRP/AVAX/ETH scalp paper legs toward real-money gate</td><td>soak window closes + M7 gate</td></tr>
+<tr><td><code>prop-status-staleness</code></td><td>health</td><td>🧱 awaiting-data</td><td>breakout_1 account-status snapshot 12d stale (prop flat, no live risk); nag channel dead with Telegram</td><td>first status report-back after token restore</td></tr>
+</table></div>
+<footer>report_id RPT-20260801-090000-weekly · reviewer claude · prior RPT-20260730-045200-since-last · ICT Trading Bot system-report</footer></div></body></html>
