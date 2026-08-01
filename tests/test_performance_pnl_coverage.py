@@ -180,6 +180,62 @@ def test_coverage_fields_present_on_every_aggregate(tmp_path):
     """Guards against a future refactor dropping the split from one code path
     (the way `exit_price_source` was recorded but never surfaced)."""
     agg = _agg(tmp_path, [("vwap", "BTCUSDT", 1.0, "bybit_closed_pnl")])
-    for key in ("pnlCoverage", "pnlMeasuredCount", "pnlEstimatedCount",
-                "pnlFabricatedCount", "pnlUnverifiedCount"):
+    for key in ("pnlCoverage", "totalPnlMeasured", "pnlMeasuredCount",
+                "pnlEstimatedCount", "pnlFabricatedCount", "pnlUnverifiedCount"):
         assert key in agg, f"{key} missing from the aggregate envelope"
+
+
+# ------------------------------------------ totalPnlMeasured (R4 gate input)
+# The R4 research→results promotion gate reads totalPnlMeasured, NOT totalPnl:
+# a leg is judged on money that was actually measured. The SUM is over
+# {MEASURED, ESTIMATED} rows (a close-anchored reconstruction is a defensible
+# value); FABRICATED marks and UNVERIFIED rows are excluded. Note the DELIBERATE
+# asymmetry with pnlCoverage, which counts only MEASURED (an estimate is not a
+# fill) — the coverage FLOOR decides whether the sum is trustworthy, the sum is
+# taken over the wider measured-or-estimated subset. R4 design 2026-08-01 §3.
+
+def test_total_pnl_measured_sums_measured_and_estimated_only(tmp_path):
+    """+10 measured + (-2500 fabricated) + 3 estimated + 1 unverified → the
+    measured sum is 10 + 3 = 13, NOT the -2486 raw total. The fabricated -2500
+    and the unverified +1 are excluded."""
+    agg = _agg(tmp_path, [
+        ("vwap", "BTCUSDT", 10.0, "bybit_closed_pnl"),   # measured
+        ("vwap", "BTCUSDT", -2500.0, "local_markprice"),  # fabricated (excluded)
+        ("vwap", "BTCUSDT", 3.0, "candle_at_close"),      # estimated (included)
+        ("vwap", "BTCUSDT", 1.0, None),                   # unverified (excluded)
+    ])
+    assert agg["totalPnl"] == pytest.approx(-2486.0)
+    assert agg["totalPnlMeasured"] == pytest.approx(13.0)
+
+
+def test_total_pnl_measured_zero_when_all_fabricated(tmp_path):
+    """THE R4 point: the fabricated paper book reads a huge totalPnl but its
+    measured sum is exactly 0 — the gate sees nothing to trust."""
+    agg = _agg(tmp_path, [
+        ("ict_scalp", "MES", 120_000.0, "local_markprice"),
+        ("ict_scalp", "MES", 127_683.78, "local_markprice"),
+    ])
+    assert agg["totalPnl"] == pytest.approx(247_683.78)
+    assert agg["totalPnlMeasured"] == 0.0
+
+
+def test_total_pnl_measured_per_strategy(tmp_path):
+    """Per-strategy measured sum is where the gate reads a single leg."""
+    agg = _agg(tmp_path, [
+        ("clean", "BTCUSDT", 5.0, "bybit_closed_pnl"),
+        ("clean", "BTCUSDT", 6.0, "bybit_closed_pnl"),
+        ("dirty", "MES", 9000.0, "local_markprice"),
+        ("dirty", "MES", 8000.0, "local_markprice"),
+    ])
+    by_name = {s["name"]: s for s in agg["perStrategy"]}
+    assert by_name["clean"]["totalPnlMeasured"] == pytest.approx(11.0)
+    assert by_name["clean"]["totalPnl"] == pytest.approx(11.0)
+    assert by_name["dirty"]["totalPnlMeasured"] == 0.0
+    assert by_name["dirty"]["totalPnl"] == pytest.approx(17000.0)
+
+
+def test_total_pnl_measured_present_and_zero_on_empty(tmp_path):
+    """Empty/errored windows carry the field as 0.0 (measured nothing) so a
+    consumer never has to guess whether it's missing."""
+    assert _agg(tmp_path, [])["totalPnlMeasured"] == 0.0
+    assert _empty("7d", None, error=True)["totalPnlMeasured"] == 0.0
