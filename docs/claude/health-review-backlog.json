@@ -8757,7 +8757,13 @@
         ".github/workflows/sync-vm-secrets.yml",
         "src/bot/claude_bridge.py"
       ],
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-01",
+          "by": "claude (audit session, leak-vector investigation)",
+          "note": "LEAK VECTOR FOUND AND CLOSED. (1) Vector: committed httpx logs — artifacts/health/health_snapshot.txt captured raw log lines containing 'POST https://api.telegram.org/bot<TOKEN>/getUpdates' with the FULL token in the URL. Census over the entire git history (git grep across all commits): 2 real tokens exposed (bot-ids 8712349762 + 8714773434 — the two rotated bots) + 1 test fixture; earliest exposure commit 2026-03-30T17:39Z; the repo has been PUBLIC since 2026-07-07 — so ~4 months in history, ~3.5 weeks world-readable. One token was STILL IN THE CURRENT TREE at HEAD. (2) Why the REQUIRED secret-scan check missed it for 4 months: scripts/secret_scan.py's telegram pattern began with \\b, and there is no word boundary between 'bot' and the first digit — the pattern was structurally incapable of matching a token in its single most common leaked form (URL-embedded). The same \\b mistake was independently reproduced during this investigation's first redaction attempt, confirming the mechanism. (3) Fixes shipped: token occurrences in the tree REDACTED (10 replaced, 0 residual, fixed scanner runs clean); scanner pattern corrected to (?<!\\d)\\d{8,12}:... with a war-story comment; tests/test_secret_scan_patterns.py added — the URL-embedded case verified to FAIL against the pre-fix pattern. (4) History-purge decision: NOT rewriting public git history (filter-repo would break every commit SHA referenced across issues/docs/deploys) — both leaked tokens are revoked+rotated, so history now contains only dead credentials; acceptable residual, recorded here. (5) Remaining for resolution: sync #8205 -> service restarts -> old-token-dead + new-token-live verification; operator Devices/2FA check (vector-2 rule-out is now largely moot given the token vector is proven, but cheap)."
+        }
+      ]
     }
   ],
   "updated_at": "2026-08-01",

@@ -36,52 +36,52 @@ no monitor events in last 1440m
 === API ===
 2026-05-12 08:23:54,543 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:23:59 UTC)" (scheduled at 2026-05-12 08:23:54.536929+00:00)
 2026-05-12 08:23:54,543 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:23:59 UTC)" executed successfully
-2026-05-12 08:23:58,492 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8714773434:AAGdu-2mqfGNmIjkGHsUUC4UdbcYoJDmOkI/getUpdates "HTTP/1.1 200 OK"
+2026-05-12 08:23:58,492 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot<TELEGRAM_TOKEN_REDACTED>/getUpdates "HTTP/1.1 200 OK"
 2026-05-12 08:23:59,538 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:04 UTC)" (scheduled at 2026-05-12 08:23:59.536929+00:00)
 2026-05-12 08:23:59,539 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:04 UTC)" executed successfully
 2026-05-12 08:24:04,542 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:09 UTC)" (scheduled at 2026-05-12 08:24:04.536929+00:00)
 2026-05-12 08:24:04,542 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:09 UTC)" executed successfully
-2026-05-12 08:24:08,528 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8714773434:AAGdu-2mqfGNmIjkGHsUUC4UdbcYoJDmOkI/getUpdates "HTTP/1.1 200 OK"
+2026-05-12 08:24:08,528 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot<TELEGRAM_TOKEN_REDACTED>/getUpdates "HTTP/1.1 200 OK"
 2026-05-12 08:24:09,539 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:14 UTC)" (scheduled at 2026-05-12 08:24:09.536929+00:00)
 2026-05-12 08:24:09,540 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:14 UTC)" executed successfully
 2026-05-12 08:24:14,542 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:19 UTC)" (scheduled at 2026-05-12 08:24:14.536929+00:00)
 2026-05-12 08:24:14,542 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:19 UTC)" executed successfully
-2026-05-12 08:24:18,563 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8714773434:AAGdu-2mqfGNmIjkGHsUUC4UdbcYoJDmOkI/getUpdates "HTTP/1.1 200 OK"
+2026-05-12 08:24:18,563 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot<TELEGRAM_TOKEN_REDACTED>/getUpdates "HTTP/1.1 200 OK"
 2026-05-12 08:24:19,537 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:24 UTC)" (scheduled at 2026-05-12 08:24:19.536929+00:00)
 2026-05-12 08:24:19,538 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:24 UTC)" executed successfully
 2026-05-12 08:24:24,542 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:29 UTC)" (scheduled at 2026-05-12 08:24:24.536929+00:00)
 2026-05-12 08:24:24,542 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:29 UTC)" executed successfully
-2026-05-12 08:24:28,591 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8714773434:AAGdu-2mqfGNmIjkGHsUUC4UdbcYoJDmOkI/getUpdates "HTTP/1.1 200 OK"
+2026-05-12 08:24:28,591 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot<TELEGRAM_TOKEN_REDACTED>/getUpdates "HTTP/1.1 200 OK"
 2026-05-12 08:24:29,539 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:34 UTC)" (scheduled at 2026-05-12 08:24:29.536929+00:00)
 2026-05-12 08:24:29,539 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:34 UTC)" executed successfully
 2026-05-12 08:24:34,542 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:39 UTC)" (scheduled at 2026-05-12 08:24:34.536929+00:00)
 2026-05-12 08:24:34,542 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:39 UTC)" executed successfully
-2026-05-12 08:24:38,618 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8714773434:AAGdu-2mqfGNmIjkGHsUUC4UdbcYoJDmOkI/getUpdates "HTTP/1.1 200 OK"
+2026-05-12 08:24:38,618 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot<TELEGRAM_TOKEN_REDACTED>/getUpdates "HTTP/1.1 200 OK"
 2026-05-12 08:24:39,538 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:44 UTC)" (scheduled at 2026-05-12 08:24:39.536929+00:00)
 2026-05-12 08:24:39,539 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:44 UTC)" executed successfully
 2026-05-12 08:24:44,542 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:49 UTC)" (scheduled at 2026-05-12 08:24:44.536929+00:00)
 2026-05-12 08:24:44,542 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:49 UTC)" executed successfully
-2026-05-12 08:24:48,651 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8714773434:AAGdu-2mqfGNmIjkGHsUUC4UdbcYoJDmOkI/getUpdates "HTTP/1.1 200 OK"
+2026-05-12 08:24:48,651 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot<TELEGRAM_TOKEN_REDACTED>/getUpdates "HTTP/1.1 200 OK"
 2026-05-12 08:24:49,539 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:54 UTC)" (scheduled at 2026-05-12 08:24:49.536929+00:00)
 2026-05-12 08:24:49,539 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:54 UTC)" executed successfully
 2026-05-12 08:24:54,539 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:59 UTC)" (scheduled at 2026-05-12 08:24:54.536929+00:00)
 2026-05-12 08:24:54,539 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:24:59 UTC)" executed successfully
-2026-05-12 08:24:58,678 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8714773434:AAGdu-2mqfGNmIjkGHsUUC4UdbcYoJDmOkI/getUpdates "HTTP/1.1 200 OK"
+2026-05-12 08:24:58,678 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot<TELEGRAM_TOKEN_REDACTED>/getUpdates "HTTP/1.1 200 OK"
 2026-05-12 08:24:59,539 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:04 UTC)" (scheduled at 2026-05-12 08:24:59.536929+00:00)
 2026-05-12 08:24:59,539 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:04 UTC)" executed successfully
 2026-05-12 08:25:04,538 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:09 UTC)" (scheduled at 2026-05-12 08:25:04.536929+00:00)
 2026-05-12 08:25:04,539 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:09 UTC)" executed successfully
-2026-05-12 08:25:08,707 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8714773434:AAGdu-2mqfGNmIjkGHsUUC4UdbcYoJDmOkI/getUpdates "HTTP/1.1 200 OK"
+2026-05-12 08:25:08,707 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot<TELEGRAM_TOKEN_REDACTED>/getUpdates "HTTP/1.1 200 OK"
 2026-05-12 08:25:09,539 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:14 UTC)" (scheduled at 2026-05-12 08:25:09.536929+00:00)
 2026-05-12 08:25:09,539 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:14 UTC)" executed successfully
 2026-05-12 08:25:14,542 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:19 UTC)" (scheduled at 2026-05-12 08:25:14.536929+00:00)
 2026-05-12 08:25:14,542 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:19 UTC)" executed successfully
-2026-05-12 08:25:18,736 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8714773434:AAGdu-2mqfGNmIjkGHsUUC4UdbcYoJDmOkI/getUpdates "HTTP/1.1 200 OK"
+2026-05-12 08:25:18,736 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot<TELEGRAM_TOKEN_REDACTED>/getUpdates "HTTP/1.1 200 OK"
 2026-05-12 08:25:19,538 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:24 UTC)" (scheduled at 2026-05-12 08:25:19.536929+00:00)
 2026-05-12 08:25:19,539 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:24 UTC)" executed successfully
 2026-05-12 08:25:24,542 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:29 UTC)" (scheduled at 2026-05-12 08:25:24.536929+00:00)
 2026-05-12 08:25:24,542 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:29 UTC)" executed successfully
-2026-05-12 08:25:28,821 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot8714773434:AAGdu-2mqfGNmIjkGHsUUC4UdbcYoJDmOkI/getUpdates "HTTP/1.1 200 OK"
+2026-05-12 08:25:28,821 [INFO] httpx: HTTP Request: POST https://api.telegram.org/bot<TELEGRAM_TOKEN_REDACTED>/getUpdates "HTTP/1.1 200 OK"
 2026-05-12 08:25:29,538 [INFO] apscheduler.executors.default: Running job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:34 UTC)" (scheduled at 2026-05-12 08:25:29.536929+00:00)
 2026-05-12 08:25:29,539 [INFO] apscheduler.executors.default: Job "drain_pending_claude_pings (trigger: interval[0:00:05], next run at: 2026-05-12 08:25:34 UTC)" executed successfully
 === ERRORS ===

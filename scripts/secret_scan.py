@@ -9,7 +9,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 PATTERNS = [
-    ("telegram_bot_token", re.compile(r"\b\d{8,12}:[A-Za-z0-9_-]{30,}\b")),
+    # (?<!\d) instead of a leading \b: a token embedded in the Telegram API
+    # URL ("api.telegram.org/bot<TOKEN>/getUpdates") has a LETTER before the
+    # first digit, and \b between two word characters ('t' -> '8') does not
+    # match — so the previous pattern was structurally blind to tokens in
+    # their single most common leaked form. That exact blindness let two real
+    # bot tokens sit in committed health-snapshot httpx logs, on a PUBLIC
+    # repo, past this REQUIRED check, from 2026-03-30 until the 2026-08-01
+    # @bict_trading_bot compromise (BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE).
+    ("telegram_bot_token", re.compile(r"(?<!\d)\d{8,12}:[A-Za-z0-9_-]{30,}\b")),
     ("api_secret_assignment", re.compile(r"(?i)\b(api_secret|secret_key|bybit_secret|binance_secret)\b\s*=\s*['\"][^'\"]{12,}['\"]")),
     ("api_key_assignment", re.compile(r"(?i)\b(api_key|bybit_key|binance_key)\b\s*=\s*['\"][A-Za-z0-9_-]{12,}['\"]")),
 ]
