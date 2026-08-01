@@ -7360,15 +7360,25 @@
       "title": "[macro/M1] the two ENERGY event kinds use EIA series codes in a FRED-series config — 404, and they are the M1 targets",
       "description": "CATEGORY ERROR, not a typo. WCESTUS1 and WNGSTUS are EIA's own dnav series codes (eia.gov/dnav/pet/hist/LeafHandler.ashx?s=WCESTUS1), not FRED series ids, so fredgraph.csv correctly 404s them. I authored them into config/macro_econ_series.yaml from EIA's catalogue while the fetcher is a FRED fetcher. THE FIX IS A SOURCE DECISION, NOT AN ID GUESS -- two possibilities needing different work: (1) FRED republishes these EIA series under different ids => a config edit; (2) FRED does not carry them keyless at all => needs EIA's own feed (ir.eia.gov weekly text/CSV is keyless; EIA API v2 needs a KEY, which is an operator hand-off). I CANNOT DETERMINE WHICH FROM THE SANDBOX: fred.stlouisfed.org is firewalled here (confirmed twice -- WebFetch 403, direct fetch fails) while the same call works on a GitHub runner. Guessing candidate ids into config would reproduce precisely the bug being fixed (an unverified id that looks authoritative), so it is deliberately NOT done. PROPOSED NEXT STEP: add a `--probe-ids` DIAGNOSTIC mode to econ_calendar_snapshot_backfill.py that tests candidate ids on the runner and REPORTS which resolve, writing no output ever -- so the runner does the verification instead of the sandbox guessing. It must stay a diagnostic: a try-candidates-until-one-resolves FALLBACK inside the producer would silently backfill from whatever id happened to work, which is the same class as the original bug. IMPACT: these two kinds ARE the ROADMAP_MACRO M1/M2 energy-event targets, so M1 stays blocked on this even though the machinery now works -- the 3 verified kinds (jobless claims x2, CPI) unblock the study END-TO-END but are not the energy sleeve. Do not report M1 as unblocked on the strength of the 3 working kinds. || PROBE BUILT 2026-07-30 (`--probe-ids`): reports which configured ids resolve, writes nothing, and DISTINGUISHES the two cases that need different config actions -- HTTP 404 (wrong id / wrong source) vs HTTP 200 with empty history (right id, data question). The shared adapter logs-and-returns-empty on an HTTP error, collapsing both into one message, so the probe reads the status itself; the production path still goes through the adapter untouched. Deliberately NOT a fallback -- it never tries candidate ids and adopts whichever resolves, which would backfill from whatever happened to work (same defect class one level down); a test guards that by inspecting the code with the docstring stripped AND behaviourally. Run it on a runner to decide FRED-republished vs EIA keyless feed vs keyed API. || UPDATE 2026-07-30: the --probe-ids diagnostic proposed above was built and RUN, and it settled the first half: the ids as configured are dead (HTTP 404, measured on a runner that can reach FRED, not inferred). The second half needs candidate ids TESTED, which --probe-ids could not do because it probes only what is already configured -- meaning the sole way to test a candidate was to COMMIT it, i.e. the bug itself. So --probe-extra <csv> now probes CANDIDATE ids alongside the configured ones under a `candidate:` prefix, reports them separately, never auto-adopts one, and deliberately does NOT let a failing candidate fail the run nor a resolving candidate mask a broken configured id. NEXT STEP is now cheap: dispatch econ-calendar-backfill with `mode: probe` + `probe_extra: <candidates>` and read which resolve; a resolving id STILL has to be checked for units/frequency/vintage before it is committed. SCOPE CORRECTION: this is a COVERAGE gap on the two ENERGY kinds, not the M1 gate blocker it was called when the probe was dispatched -- the full-scale event study and the M3 verdict both ran on the three resolving kinds.",
       "severity": "high",
-      "status": "open",
+      "status": "resolved",
       "area": "macro",
+      "resolved_at": "2026-08-01T18:30:00+00:00",
+      "resolved_by": "claude (roadmap-backlog session, R2)",
       "refs": [
         ".github/workflows/econ-calendar-backfill.yml",
         "BL-20260730-BUILT-BUT-UNVERIFIED-ON-RUNNER",
         "BL-20260730-M1-PRICE-JOIN-DEAD",
         "ROADMAP_MACRO.md",
         "config/macro_econ_series.yaml",
-        "scripts/macro/econ_calendar_snapshot_backfill.py"
+        "scripts/macro/econ_calendar_snapshot_backfill.py",
+        "src/units/strategies/macro_thesis/eia_adapter.py"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-01T18:30:00+00:00",
+          "by": "claude (roadmap-backlog session, R2)",
+          "note": "RESOLVED via SOURCE change, not an id guess. This environment CAN reach FRED (agent proxy, unlike the planning sandbox), so the open question was settled directly: FRED does NOT carry weekly crude-oil stocks or gas working-storage under ANY id — WCESTUS1/WNGSTUS 404, FRED's entire 92-series weekly-EIA catalogue is prices with zero inventory/storage series, and ~11 candidate ids all 404. Possibility (1) 'FRED under a different id' is RULED OUT; the fix is possibility (2), EIA's own keyless feed. Built src/units/strategies/macro_thesis/eia_adapter.py (keyless EIA bulk manifest api.eia.gov/bulk/{PET,NG}.zip -> NDJSON; stdlib-only, off-VM-guarded; the v2 REST API needs a key, the bulk manifest does not). config/macro_econ_series.yaml: the two energy kinds get source: eia_bulk + the verified ids PET.WCESTUS1.W (crude ex-SPR) / NG.NW2_EPG0_SWO_R48_BCF.W (Lower-48 working gas). Backfill script is now source-aware (fetch routing + eia_bulk provenance). Verified live: 5/5 configured ids resolve (crude 2287 obs 1982..2026-07-24; gas 865 obs), dry-run reconstructs 3000 energy rows. Shipped in the roadmap-backlog PR; the on-main producer re-run to WRITE the JSONL is the post-merge step (the workflow checks out main)."
+        }
       ]
     },
     {
@@ -7564,7 +7574,16 @@
         "BL-20260729-BYBIT-NAKED-POSITION-BLINDSPOT",
         "https://github.com/benbaichmankass/Metis-Insights/pull/8000",
         "https://github.com/benbaichmankass/Metis-Insights/issues/8009",
-        "https://github.com/benbaichmankass/Metis-Insights/issues/8016"
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8016",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8269",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8270"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-01T18:30:00+00:00",
+          "by": "claude (roadmap-backlog session, R5)",
+          "note": "ACUTE STATE CLEARED, item kept open on the structural half. cancel-stale-tpsl-legs dry-run (#8269) aborted: bybit_1 XRPUSDT is now FLAT (size=0), so the action is out of scope (it collapses legs on a LIVE position) and the position-scoped over_covered detector no longer fires. Read-only bybit-bracket-audit (#8270) confirms XRPUSDT FLAT with ZERO stranded resting conditional legs and a clean roll-up (0 naked, 0 over-covered) — the over-accumulated legs were cancelled by Bybit when the position flattened. So resolution_criteria (a) 'coverage back within epsilon' is met NOW, but the STRUCTURAL half ('a fix keeps it there for untracked/pre-#7321 rows on the next live position') is not verified, and add-only drift can recur on the next bybit_1 XRP position from an untracked row. No apply was needed. Left open for the review skills to decide (a)-with-structural-fix vs (b) record add-only paper-account drift as acceptable with the real-money guard named (bybit_2 audited clean; the structural leg-id fix #7321 covers post-fix trades)."
+        }
       ]
     },
     {
@@ -9057,9 +9076,15 @@
       "resolution_criteria": "Operator decision recorded on (a)/(b)/(c); if (b) or (c), the validate_startup change ships operator-approved with tests; if (a), this row closes with the rationale documented in the validation docstring.",
       "refs": [
         "src/runtime/validation.py",
-        "BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE"
+        "BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE",
+        "https://github.com/benbaichmankass/Metis-Insights/pull/8268"
       ],
       "updates": [
+        {
+          "at": "2026-08-01T18:45:00+00:00",
+          "by": "claude (roadmap-backlog session, T1)",
+          "note": "OPERATOR DECISION: option (b) APPROVED in chat 2026-08-01. IMPLEMENTED (Tier-3, operator-approved) on branch claude/2026-08-01-roadmap-backlog-ydfv6r (PR #8268), commit e01f9e9: validate_startup no longer appends the Telegram presence check to the fatal `errors` list — a missing/malformed TELEGRAM_BOT_TOKEN/CHAT_ID now routes through the new `_warn_degraded_alerting` (loud WARNING + best-effort WARN outcome to outcomes.jsonl, so the dead channel surfaces on the /api/bot/notifications operator_warning banner — a channel independent of Telegram). Never raises (lazy guarded outcomes import). Asymmetry preserved: exchange creds / symbol / risk stay FATAL. Tests: the two always-required tests inverted to non-fatal + 3 new (malformed-non-fatal, degraded-alerting-flagged, exchange-creds-stay-fatal); 17/17 pass; ruff clean. PENDING: merge of #8268 + a restart-bot-service redeploy (validate_startup runs at boot, so the new behaviour takes effect on the next restart) — keep open until deployed + live-verified, then close per resolution_criteria."
+        },
         {
           "at": "2026-08-01T08:40:00+00:00",
           "by": "claude (/system-review weekly, session full-system-review-zajauh)",

@@ -3,6 +3,13 @@ src/runtime/validation.py
 
 Startup validation for the ICT trading bot.
 Exchange-aware: only the keys for the configured exchange are required.
+
+**Telegram is DECOUPLED from trader liveness (Tier-3, operator-approved 2026-08-01,
+BL-20260801-TELEGRAM-CRED-CRASHLOOPS-MONEY-LOOP option (b)).** A missing/malformed
+Telegram credential is a LOUD NON-FATAL warning (see ``_warn_degraded_alerting``),
+never a startup error — a notification-channel defect must degrade ALERTING, not
+halt the MONEY LOOP. Only the credentials required to trade CORRECTLY (exchange
+keys, symbol/timeframe, risk) are fatal.
 """
 from __future__ import annotations
 
@@ -17,6 +24,39 @@ def _env(key: str) -> str:
 def _missing(keys: list) -> list:
     """Return subset of keys that are absent/empty in the environment."""
     return [k for k in keys if not _env(k)]
+
+
+def _warn_degraded_alerting(reason: str) -> None:
+    """Loudly flag that Telegram alerting is degraded — WITHOUT halting the trader.
+
+    Operator decision 2026-08-01, Tier-3 option (b) — row
+    BL-20260801-TELEGRAM-CRED-CRASHLOOPS-MONEY-LOOP: a notification-credential defect
+    must degrade ALERTING, never halt the MONEY LOOP. Logs a WARNING and best-effort persists a WARN
+    outcome so the condition surfaces on the ``/api/bot/notifications``
+    ``operator_warning`` banner — a channel independent of Telegram itself, so
+    "alerting is down" is still visible even when Telegram is the dead channel.
+
+    Never raises: a failure in the reporter must NOT reintroduce the very
+    boot-crash coupling this exists to remove (the outcomes import is lazy +
+    guarded so a stripped-down env can't turn a WARNING into a crash).
+    """
+    import logging
+
+    logging.getLogger(__name__).warning(
+        "STARTUP WARNING (non-fatal): %s — trading continues; Telegram alerting "
+        "is DEGRADED until the credential is synced.", reason,
+    )
+    try:
+        from src.runtime.outcomes import Level, report
+
+        report(
+            "startup_validation",
+            "telegram_alerting_degraded",
+            level=Level.WARN,
+            reason=reason,
+        )
+    except Exception:  # noqa: BLE001 — the degradation reporter must never crash boot
+        pass
 
 
 def validate_startup() -> None:
@@ -41,9 +81,23 @@ def validate_startup() -> None:
             for key in _missing(["BYBIT_API_KEY", "BYBIT_API_SECRET"]):
                 errors.append(f"Missing required Bybit credential: {key}")
 
-    # ---- Telegram (always required, regardless of exchange) ----------------
-    for key in _missing(["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]):
-        errors.append(f"Missing required Telegram credential: {key}")
+    # ---- Telegram — alerting credential, DECOUPLED from trader liveness -----
+    # Operator decision 2026-08-01, Tier-3 option (b) approved — row
+    # BL-20260801-TELEGRAM-CRED-CRASHLOOPS-MONEY-LOOP: a missing/malformed Telegram
+    # credential is a LOUD NON-FATAL warning, NOT a startup error. The trader runs 24/7 (Prime
+    # Directive); a NOTIFICATION-channel defect must degrade ALERTING, never halt the
+    # MONEY LOOP. The prior hard-require crashlooped ict-trader-live for ~85 min on
+    # 2026-08-01 (restart counter 389) after a rotation pasted only the secret half of
+    # the token — while simultaneously killing the very alert channel that would have
+    # paged the operator about it. `_warn_degraded_alerting` surfaces the degradation
+    # on the /api/bot/notifications operator_warning banner (independent of Telegram).
+    # ASYMMETRY (deliberate): exchange creds / symbol / risk STAY fatal below — those
+    # are required to trade CORRECTLY; Telegram is required only to be TOLD about it.
+    _missing_tg = _missing(["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"])
+    if _missing_tg:
+        _warn_degraded_alerting(
+            f"missing Telegram credential(s): {', '.join(_missing_tg)}"
+        )
 
     # Shape check, value NEVER echoed — one owner of the rule:
     # log_redact.assert_telegram_token_shape. A present-but-malformed token
@@ -52,12 +106,8 @@ def validate_startup() -> None:
     # python-telegram-bot's InvalidToken exception then prints the FULL
     # value into the crash traceback, so THEY hard-fail on shape (see
     # telegram_query_bot / claude_bridge). The TRADER never hands the token
-    # to PTB — alerts just fail per-call — so here a malformed token is a
-    # LOUD WARNING, deliberately NOT fatal: making it fatal would let a
-    # notification-credential paste error crashloop the money loop, the
-    # exact coupling that cost ~85 min of trader downtime on 2026-08-01
-    # (BL-20260801-TELEGRAM-CRED-CRASHLOOPS-MONEY-LOOP tracks whether even
-    # the presence hard-require above should stay).
+    # to PTB — alerts just fail per-call — so here a malformed token is the
+    # SAME loud-but-non-fatal degradation as a missing one (option (b) above).
     _tok = _env("TELEGRAM_BOT_TOKEN")
     if _tok:
         from src.utils.log_redact import assert_telegram_token_shape
@@ -65,12 +115,9 @@ def validate_startup() -> None:
         try:
             assert_telegram_token_shape(_tok, "TELEGRAM_BOT_TOKEN")
         except RuntimeError as exc:
-            import logging
-
-            logging.getLogger(__name__).warning(
-                "STARTUP WARNING (non-fatal): %s — Telegram alerts will fail "
-                "until the full <bot_id>:<secret> value is synced; trading "
-                "continues.", exc,
+            _warn_degraded_alerting(
+                f"{exc} — Telegram alerts will fail until the full "
+                "<bot_id>:<secret> value is synced"
             )
 
     # ---- Trading mode — REMOVED (operator directive 2026-05-03).

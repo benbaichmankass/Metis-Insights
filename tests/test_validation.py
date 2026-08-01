@@ -99,17 +99,44 @@ def test_bybit_requires_api_secret():
 
 
 # ---------------------------------------------------------------------------
-# Telegram always required
+# Telegram DECOUPLED from trader liveness — Tier-3 operator-approved 2026-08-01
+# (BL-20260801-TELEGRAM-CRED-CRASHLOOPS-MONEY-LOOP option (b)): a missing/malformed
+# Telegram credential is a LOUD NON-FATAL warning, never a startup error. The prior
+# hard-require crashlooped the money loop for ~85 min while killing its own alarm.
 # ---------------------------------------------------------------------------
 
-def test_telegram_token_always_required():
-    with pytest.raises(EnvironmentError, match="TELEGRAM_BOT_TOKEN"):
-        run(remove=["TELEGRAM_BOT_TOKEN"])
+def test_telegram_token_missing_is_non_fatal():
+    """Missing TELEGRAM_BOT_TOKEN must NOT halt the trader (option b)."""
+    run(remove=["TELEGRAM_BOT_TOKEN"])  # must not raise
 
 
-def test_telegram_chat_id_always_required():
-    with pytest.raises(EnvironmentError, match="TELEGRAM_CHAT_ID"):
-        run(remove=["TELEGRAM_CHAT_ID"])
+def test_telegram_chat_id_missing_is_non_fatal():
+    """Missing TELEGRAM_CHAT_ID must NOT halt the trader (option b)."""
+    run(remove=["TELEGRAM_CHAT_ID"])  # must not raise
+
+
+def test_malformed_telegram_token_is_non_fatal():
+    """A shape-invalid token (only the secret half pasted) must NOT halt the trader."""
+    run(overrides={"TELEGRAM_BOT_TOKEN": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmno"})
+
+
+def test_missing_telegram_flags_degraded_alerting(monkeypatch):
+    """The degradation is surfaced (logged + WARN outcome for the app banner),
+    not swallowed — the safety half of option (b)."""
+    import src.runtime.validation as val
+
+    calls = []
+    monkeypatch.setattr(val, "_warn_degraded_alerting", lambda reason: calls.append(reason))
+    run(remove=["TELEGRAM_BOT_TOKEN"])
+    assert calls, "a missing Telegram credential must flag degraded alerting"
+    assert "TELEGRAM_BOT_TOKEN" in calls[0]
+
+
+def test_exchange_creds_stay_fatal_even_without_telegram():
+    """The asymmetry: exchange creds are still required to trade CORRECTLY, so a
+    missing one stays fatal even though Telegram no longer is."""
+    with pytest.raises(EnvironmentError, match="BYBIT_API_KEY"):
+        run(remove=["BYBIT_API_KEY", "TELEGRAM_BOT_TOKEN"])
 
 
 # ---------------------------------------------------------------------------

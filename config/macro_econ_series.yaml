@@ -1,4 +1,11 @@
-# ROADMAP_MACRO M1 — event kind → FRED series map for the PIT release backfill.
+# ROADMAP_MACRO M1 — event kind → data-source series map for the PIT release backfill.
+#
+# Per-series `source: fred` (default, keyless fredgraph.csv) OR `source: eia_bulk`
+# (keyless EIA bulk manifest, api.eia.gov/bulk/{DATASET}.zip). The two ENERGY kinds
+# use eia_bulk because FRED does NOT carry weekly crude-oil stocks / natural-gas
+# working storage under ANY id (verified 2026-08-01 from a FRED-reachable host:
+# WCESTUS1/WNGSTUS 404 on FRED, FRED's entire 92-series weekly-EIA catalogue is
+# prices with zero inventory/storage series). BL-20260730-EIA-SERIES-IDS-NOT-FRED.
 #
 # Read by `scripts/macro/econ_calendar_snapshot_backfill.py`, the missing backfill
 # sibling of the forward-only `econ_calendar_produce.py`. Its job: reconstruct
@@ -11,12 +18,13 @@
 # `kind` MUST match the kind the live producer emits, so backfilled rows and
 # forward rows land in one comparable series (the study filters on `kind`).
 #
-# ⚠️ SERIES IDS ARE UNVERIFIED FROM THE SANDBOX. FRED egress is firewalled here
-# (confirmed 2026-07-30: fredgraph.csv returns empty for DFII10/ICSA), so these
-# ids are declared from FRED's published catalogue and MUST be confirmed on the
-# first runner execution. The backfill FAILS LOUDLY per series on an empty fetch
+# SERIES IDS: the three FRED kinds (ICSA/CCSA/CPIAUCSL) were verified-on-runner
+# (issue #8004 → #8005, 6966 rows). The two energy kinds now use `source: eia_bulk`
+# and were verified 2026-08-01 against the live keyless EIA bulk manifest
+# (PET.WCESTUS1.W latest 2026-07-24 = 404508 kbbl; NG.NW2_EPG0_SWO_R48_BCF.W latest
+# 2026-07-24 = 3084 Bcf). The backfill FAILS LOUDLY per series on an empty fetch
 # (it does not silently skip) — that is deliberate: a silent skip is exactly the
-# Class-B "green but vacuous" failure T2 just removed from the event study.
+# Class-B "green but vacuous" failure T2 removed from the event study.
 # Correcting an id is a config edit, never a code change.
 #
 # `cadence` picks the seasonal period in OBSERVATIONS for the expectation model
@@ -59,10 +67,14 @@ schema_version: 1
 series:
   # --- Energy (the canonical M1 test cases) ---
   eia_natgas_storage:
-    fred_series: WNGSTUS          # Weekly working gas in underground storage, US
+    source: eia_bulk
+    # Weekly Lower 48 States working gas in underground storage; keyless EIA bulk NG.zip.
+    # (WNGSTUS was an EIA dnav code pointed at FRED — 404, BL-20260730-EIA-SERIES-IDS-NOT-FRED.)
+    eia_series: NG.NW2_EPG0_SWO_R48_BCF.W
     cadence: weekly
     symbol: "NG=F"
-    # Week-ending Friday; EIA publishes the following Thursday.
+    # Reference week ends Friday; EIA Weekly Natural Gas Storage Report publishes the
+    # following Thursday (~+6d).
     release_lag_days: 6
     transform: identity
     units: Bcf
@@ -70,10 +82,14 @@ series:
       The ROADMAP_MACRO M1 canonical case. Storage is strongly weather-seasonal,
       so lag_seasonal + Fourier carries most of the anticipated component.
   eia_crude_stocks:
-    fred_series: WCESTUS1         # Weekly ending stocks of crude oil, US
+    source: eia_bulk
+    # U.S. Ending Stocks excluding SPR of Crude Oil, Weekly; keyless EIA bulk PET.zip.
+    # The EIA code WCESTUS1 was RIGHT — it just isn't a FRED id (it 404'd fredgraph.csv).
+    eia_series: PET.WCESTUS1.W
     cadence: weekly
     symbol: "CL=F"
-    # Week-ending Friday; EIA Weekly Petroleum Status Report the following Wednesday.
+    # Reference week ends Friday; EIA Weekly Petroleum Status Report publishes the
+    # following Wednesday (~+5d).
     release_lag_days: 5
     transform: identity
     units: thousand barrels
