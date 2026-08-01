@@ -8735,7 +8735,13 @@
         "BL-20260731-AUDIT-0731-NEW-FINDINGS",
         "docs/audits/full-system-audit-2026-07-31.md"
       ],
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-01",
+          "by": "claude (audit session, W1 execution — operator-approved)",
+          "note": "Proposals executed: (1) same-moment recheck DONE (#8218 exchange + #8227 targets, both 2026-08-01, seconds apart) — bybit_2 real money clean; bybit_portfolio BTC under-count resolved (new trade 4303 = exchange 2.544 exactly); ib_paper MGC self-resolved via position-snapshot reconciler (closed exchange_flat_reconciled, pnl NULL); alpaca deltas were intraday churn. The divergence resolved EXACTLY: all pairs-sleeve rows match the exchange to the last decimal, phantoms are the 4 ict_scalp rows (4179 BTC 1.543, 4255 ETH 106.76, 4220+4243 SOL 1844.6+936.1). (2) Cleanup batch SHIPPED as the reconcile-netting-phantom-rows Tier-2 action (dry-run default, signature-pinned, pnl UNMEASURED; validated on a throwaway DB) — dispatch pending merge + VM sync. BNB pairs surplus (13.43 vs 9.72) deliberately excluded — pairs sleeve owns those rows. (3) Root-cause row OPENED: BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED. (4) bybit_2 orphan set untouched as directed."
+        }
+      ]
     },
     {
       "id": "BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE",
@@ -8797,6 +8803,28 @@
       "refs": [
         "src/runtime/validation.py",
         "BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE"
+      ],
+      "updates": []
+    },
+    {
+      "id": "BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED",
+      "opened_at": "2026-08-01T07:15:00+00:00",
+      "opened_by": "claude (audit session, W1 proposal 3 — root-cause item)",
+      "source": "W1 reconciliation (BL-20260731-W1-JOURNAL-EXCHANGE-DIVERGENCE-MAP): same-moment check 2026-08-01T06:40Z (vm-diag #8218 vs trainer-diag #8227). bybit_1 held 4 ict_scalp open rows (35-155x symbol inflation) whose exchange share had been flattened by position-level exits without the journal rows ever being reduced — cleaned by the reconcile-netting-phantom-rows batch. The BNBUSDT case shows the class also operates WITHIN the pairs sleeve: 5 pairs_bnb_btc_a rows sum 13.43 vs exchange 9.72 (surplus 3.71 across 5 rows, unattributable to any single row). The live journal_qty_divergent detector (order_monitor, 2026-07-30) fires on exactly this per tick.",
+      "title": "[root-cause] One-way-netting partial closes never reduce constituent journal rows — order-monitor close attribution under netting",
+      "description": "MECHANISM to investigate in src/runtime/order_monitor.py + execute.py close paths: under Bybit one-way netting, a position-level exit (bracket fire, reduce, manual close) shrinks the ONE netted exchange position, but the monitor's close detection closes at most the row whose own bracket/leg fired — sibling rows keep their full position_size and stay open until an eventual snapshot reconcile (or forever). Consequences measured: bybit_1 open-size inflation up to 155x (BTC 1.553 journal vs 0.01 exchange pre-cleanup); netting-guard suppression of re-entries for strategies with phantom opens; ML/paper analytics polluted. FIX DIRECTION (needs design, Tier-2/3): when the netted exchange size drops below the sum of open journal rows for (account,symbol,direction), the monitor should attribute the reduction — options: (a) reduce/close rows oldest-first (FIFO) with pnl UNMEASURED unless a matching broker close record exists; (b) close the specific row whose tracked sl/tp leg id fired (leg-id tracking exists since BYBIT_TPSL_MODE=partial) and treat residual shrink as FIFO; (c) periodic same-moment auto-reconcile job doing what the W1 manual batch did. Must respect the provenance contract (never price a close from a mark) and the pairs sleeve's isolated state (BNB surplus lives in pairs rows — coordinate with pairs_executor state, do not close its rows behind its back). Wire the journal_qty_divergent detector firings to this row.",
+      "tier": 2,
+      "severity": "high",
+      "status": "open",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "trigger_condition": null,
+      "resolution_criteria": "Mechanism confirmed in code with the specific close path named; fix designed + operator-approved; after deploy, journal_qty_divergent stays silent for 7 consecutive days on all bybit accounts (population: every (account,symbol,direction) group the detector scans per tick).",
+      "refs": [
+        "src/runtime/order_monitor.py",
+        "src/units/accounts/execute.py",
+        "BL-20260731-W1-JOURNAL-EXCHANGE-DIVERGENCE-MAP",
+        "scripts/ops/reconcile_netting_phantom_rows.py"
       ],
       "updates": []
     }
