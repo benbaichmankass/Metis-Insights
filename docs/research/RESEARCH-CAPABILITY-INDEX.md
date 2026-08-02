@@ -54,6 +54,7 @@ routing layer, not a replacement for reading it.
 | Does that replay actually reproduce the LIVE label? | `scripts/research/ml_vol_label_replay.py verify` |
 | The same, driven per-strategy off live config, with a fidelity label? | `scripts/research/regime_debt_matrix.py` |
 | Is ONE (regime, direction) cell **temporally stable** (the #7915 gate)? | `scripts/research/regime_cell_walkforward.py` |
+| Is a cell's verdict **robust to the ADX attribution cut-points** (live 20/25) or does it flip? (R2 — the two un-swept global constants every cell keys on) | `scripts/research/regime_adx_cutpoint_sweep.py` |
 | Regime × strategy matrix (routing groundwork)? | `scripts/research/regime_matrix.py` |
 | Conditional discovery **within** a regime cell over a panel? | `scripts/research/analyze_panel_by_cell.py` |
 

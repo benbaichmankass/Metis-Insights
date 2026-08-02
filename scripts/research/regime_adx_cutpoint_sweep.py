@@ -43,7 +43,7 @@ import os
 import subprocess
 import sys
 import tempfile
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -162,7 +162,7 @@ def run_sweep(strategy: str, regime: str, chop_grid: List[float],
     jout = os.path.join(workdir, f"{strategy}__bt.json")
     try:
         rdm._fetch_csv(feed, days, csv)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001  # allow-silent: surfaced in out["error"], returned to caller — not an empty result
         out["error"] = f"fetch failed: {type(e).__name__}: {e}"
         return out
     argv, faithful, omitted = rdm.build_harness_cmd(strategy, cfg, harness, csv,
@@ -208,11 +208,13 @@ def _summarize(cells: List[dict], regime: str) -> dict:
     """
     graded = [c for c in cells if "short_stable_drag" in c]
     if not graded:
-        return {"gradeable_cut_points": 0, "note": "no cut-point pair produced a gradeable cell"}
+        return {"regime": regime, "gradeable_cut_points": 0,
+                "note": "no cut-point pair produced a gradeable cell"}
     short_drag = sum(1 for c in graded if c.get("short_stable_drag"))
     long_drag = sum(1 for c in graded if c.get("long_stable_drag"))
     live = next((c for c in graded if c.get("is_live_cutpoint")), None)
     return {
+        "regime": regime,
         "gradeable_cut_points": len(graded),
         "short_stable_drag_count": short_drag,
         "long_stable_drag_count": long_drag,
