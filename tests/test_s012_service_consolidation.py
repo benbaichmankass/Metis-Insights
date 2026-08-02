@@ -113,6 +113,14 @@ EXPECTED_SERVICES = {
     # ~500 commits stale with a dead forecast producer before this). TRAINER-VM
     # only (role-gated by install_systemd_units.sh); never on the live trader.
     "ict-trainer-git-sync.service",
+    # 2026-08-02 (R4 P1): observe-only research→results gate reporter. Timer-fired
+    # oneshot (ict-research-results-gate.timer, daily) that runs
+    # scripts/research/research_results_gate_report.py over the live journal and
+    # writes the per-leg measured-net (totalPnlMeasured / pnlCoverage) verdict to
+    # runtime_logs — the R4 evidence trail (design §6 P1). Enforces nothing; the
+    # gate flip is Tier-3. Live-trader-box only via install_systemd_units.sh
+    # auto-enable; ships the data-dir drop-in (DATA_DIR-aware journal read + write).
+    "ict-research-results-gate.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to
