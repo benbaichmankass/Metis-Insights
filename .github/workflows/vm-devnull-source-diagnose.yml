@@ -478,6 +478,7 @@ jobs:
               # issue fchmodat(AT_FDCWD,"/dev/null",mode) — exactly the fanotify-observed comm=chmod suspect.
               # Consequence for the decisive-negative read: a confirmed strip with NO captured line now means
               # "not a path-chmod syscall" INCLUDING the (unlikely) fd-based-fchmod case, still a useful result.
+            } | sudo tee "$BT" >/dev/null
             echo; echo "----- generated $BT -----"; sudo cat "$BT"
             if ! grep -q 'tracepoint:' "$BT"; then
               echo "ERROR: bpftrace lists no chmod-family syscall tracepoints — cannot arm. Diagnostics:"
