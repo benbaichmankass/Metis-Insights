@@ -459,7 +459,12 @@ jobs:
             BT=/usr/local/bin/devnull_chmod_trace.bt
             {
               echo '// devnull_chmod_trace.bt — BL-20260629: name the process that chmods /dev/null (by path).'
-              echo 'BEGIN { printf("devnull_chmod_trace armed %s\n", strftime("%Y-%m-%dT%H:%M:%SZ", nsecs)); }'
+              # NO BEGIN block (round 9b-fix6, live-confirmed #8390): bpftrace implements BEGIN/END as a uprobe
+              # on a symbol (BEGIN_trigger) inside its OWN binary, and Ubuntu's packaged bpftrace is stripped,
+              # so that symbol can't be resolved ("Could not resolve symbol: /proc/self/exe:BEGIN_trigger") and
+              # the whole program fails to attach at runtime. BEGIN was only a cosmetic startup line — the two
+              # tracepoint probes attach without it, and bpftrace's own "Attaching N probes..." startup line
+              # (in the log) + a running unit are the attach confirmation instead.
               # path-based chmod syscalls: filter to the exact target string.
               # ROOT CAUSE (round 9b-fix5, live-confirmed #8386): on bpftrace 0.14.0 the tracepoint `args`
               # builtin is a POINTER, so fields MUST be read with `args->field` (arrow), NOT `args.field`
@@ -504,7 +509,7 @@ jobs:
             sleep 3
             echo; echo "===== tracer unit status ====="
             sudo systemctl --no-pager --full status ict-devnull-bpftrace.service 2>&1 | head -18
-            echo; echo "===== tracer log (an 'armed' line proves the kprobe attached) ====="
+            echo; echo "===== tracer log (an 'Attaching N probes...' line with NO trailing ERROR proves it attached; a running unit confirms) ====="
             sudo tail -8 /var/log/ict-devnull-bpftrace.log 2>/dev/null || echo "(no log yet — bpftrace may still be compiling the probe)"
             echo; echo "ARMED. Re-run mode: bpftrace-read after the next deploy strip (guard journal shows a 0666 restore ⇒ a strip happened)."
 
