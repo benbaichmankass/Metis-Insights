@@ -448,14 +448,21 @@ jobs:
             #   filter by the path STRING "/dev/null" and read comm/pid/uid IN the acting task at syscall entry
             #   — zero pid-reuse ambiguity (the exact gap the fanotify soak left). Each tracepoint is included
             #   only if the kernel exposes it, so a missing one can never break the compile.
-            TEV=/sys/kernel/debug/tracing/events/syscalls
+            # ROUND 9b-fix2 (2026-08-02): enumerate available tracepoints via `bpftrace -l` (run under sudo)
+            #   NOT by stat-ing /sys/kernel/debug/tracing — debugfs is drwx------ root, so an unprivileged
+            #   `[ -d ]` always false-negatives (round-9b arm hit "no tracepoints exposed" for exactly this).
+            #   bpftrace -l is mount-path- and privilege-agnostic: if it lists a probe, attach works. It also
+            #   naturally omits the legacy `chmod` syscall, which does NOT exist on arm64 (only fchmodat/
+            #   fchmodat2/fchmod) — emitting it unconditionally would error the whole program.
+            AVAIL=$(sudo bpftrace -l 'tracepoint:syscalls:sys_enter_*chmod*' 2>/dev/null || true)
+            echo; echo "----- chmod-family tracepoints bpftrace can see -----"; echo "${AVAIL:-(none)}"
             BT=/usr/local/bin/devnull_chmod_trace.bt
             {
               echo '// devnull_chmod_trace.bt — BL-20260629: name the process that chmods /dev/null (by path).'
               echo 'BEGIN { printf("devnull_chmod_trace armed %s\n", strftime("%Y-%m-%dT%H:%M:%SZ", nsecs)); }'
               # path-based chmod syscalls: filter to the exact target string. args.mode is the umode_t set.
               for tp in chmod fchmodat fchmodat2; do
-                if [ -d "$TEV/sys_enter_$tp" ]; then
+                if printf '%s\n' "$AVAIL" | grep -qx "tracepoint:syscalls:sys_enter_$tp"; then
                   echo "// sys_enter_$tp(..., filename, mode) — coreutils chmod/install/os.chmod path here"
                   echo "tracepoint:syscalls:sys_enter_$tp /str(args.filename) == \"/dev/null\"/ {"
                   echo "  printf(\"%s $tp /dev/null mode=%o comm=%s pid=%d uid=%d\\n\", strftime(\"%H:%M:%S\", nsecs), args.mode & 0777, comm, pid, uid);"
@@ -464,7 +471,7 @@ jobs:
               done
               # fd-based fchmod carries no path — capture only the strip-candidate modes (0644/0444) so a
               # fchmod("/dev/null"-via-fd) mutator still surfaces; bounded noise, read from the log.
-              if [ -d "$TEV/sys_enter_fchmod" ]; then
+              if printf '%s\n' "$AVAIL" | grep -qx "tracepoint:syscalls:sys_enter_fchmod"; then
                 echo '// sys_enter_fchmod(fd, mode) — no path arg; log strip-candidate modes only'
                 echo 'tracepoint:syscalls:sys_enter_fchmod /(args.mode & 0777) == 0644 || (args.mode & 0777) == 0444/ {'
                 echo '  printf("%s fchmod fd=%d mode=%o comm=%s pid=%d uid=%d (fd-based — confirm target)\n", strftime("%H:%M:%S", nsecs), args.fd, args.mode & 0777, comm, pid, uid);'
@@ -472,7 +479,12 @@ jobs:
               fi
             } | sudo tee "$BT" >/dev/null
             echo; echo "----- generated $BT -----"; sudo cat "$BT"
-            if ! grep -q 'tracepoint:' "$BT"; then echo "ERROR: no chmod-family syscall tracepoints exposed — cannot arm"; echo "(done)"; exit 0; fi
+            if ! grep -q 'tracepoint:' "$BT"; then
+              echo "ERROR: bpftrace lists no chmod-family syscall tracepoints — cannot arm. Diagnostics:"
+              echo "--- tracefs/debugfs mounts ---"; grep -E 'tracefs|debugfs' /proc/mounts || echo "(neither tracefs nor debugfs mounted — tracepoints unusable; would need a kprobe fallback)"
+              echo "--- bpftrace -l for chmod/fchmod (raw) ---"; sudo bpftrace -l 'tracepoint:syscalls:sys_enter_fchmod*' 2>&1 | head -8 || true
+              echo "(done)"; exit 0
+            fi
             sudo systemctl reset-failed ict-devnull-bpftrace.service 2>/dev/null || true
             sudo systemctl stop ict-devnull-bpftrace.service 2>/dev/null || true
             sudo systemd-run --unit=ict-devnull-bpftrace --collect \
