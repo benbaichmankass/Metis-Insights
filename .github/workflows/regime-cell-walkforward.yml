@@ -138,11 +138,19 @@ jobs:
                    f"{p.get('short_r')} ({p.get('short_n')}) | {p.get('net_r')} |")
           L += ["",
                 "## Cell verdict (OOS-stability gate)",
-                f"- **regime trades:** {cv.get('regime_trades')} · folds: {cv.get('of_folds')}",
-                f"- **short side:** negative in {cv.get('short_folds_negative')}/{cv.get('of_folds')} folds · "
-                f"pooled short-R = {cv.get('pooled_short_r')}",
-                f"- **long side:** negative in {cv.get('long_folds_negative')}/{cv.get('of_folds')} folds · "
-                f"pooled long-R = {cv.get('pooled_long_r')}",
+                f"- **cell:** `{cv.get('cell')}` · **regime trades:** {cv.get('regime_trades')} · "
+                f"fold panel: {cv.get('fold_panel')} (verdict is fold-count invariant — "
+                "BL-20260730-WF-FOLDCOUNT-VERDICT-FLIP)",
+                "- **short side** (negative folds per panel fold-count): "
+                + " · ".join(f"{d['of_folds']}→{d['short_folds_negative']}/{d['of_folds']}"
+                             for d in (cv.get('per_fold_count') or {}).values())
+                + f" · pooled short-R = {cv.get('pooled_short_r')}"
+                + (" · ⚠️ **fold-sensitive**" if cv.get('short_fold_sensitive') else ""),
+                "- **long side** (negative folds per panel fold-count): "
+                + " · ".join(f"{d['of_folds']}→{d['long_folds_negative']}/{d['of_folds']}"
+                             for d in (cv.get('per_fold_count') or {}).values())
+                + f" · pooled long-R = {cv.get('pooled_long_r')}"
+                + (" · ⚠️ **fold-sensitive**" if cv.get('long_fold_sensitive') else ""),
                 "",
                 f"- **`short_stable_drag`: {cv.get('short_stable_drag')}** — a short-side OFF cell is "
                 "justified ONLY when this is true (short < 0 in a strict majority of folds AND pooled short-R < 0).",
