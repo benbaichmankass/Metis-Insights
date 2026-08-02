@@ -16,7 +16,16 @@ The one **live, shipped** GLD Tier-3 cell (`config/regime_policy.yaml`:
 `trending.gld_pullback_1h { long: on, short: off }`) was authored 2026-07-29 (#7923)
 from a walk-forward run under the **~25× venue-fee over-charge** (7.5 bps roundtrip on a
 commission-free Alpaca ETF). The corrected-cost **matrix** re-audit (A1, #7962) already
-re-confirmed it full-sample; this closes the **OOS-persistence** half at corrected fees.
+re-confirmed it full-sample.
+
+> **Novelty note (honest reconciliation).** A corrected-cost GLD walk-forward was in fact
+> **already run 2026-08-01** (#8272, recorded on `PB-20260730-REGIME-EVIDENCE-VENUE-FEE-REGRADE`),
+> returning the identical pooled short −12.8889R@36 / long +37.0874R@54. This session's #8410
+> run **reproduced it bit-for-bit** — an independent determinism confirmation, not a new
+> measurement (the WORK-PLAN listed 1.7 without reconciling against #8272). The genuinely
+> new Wave-1 work is **1.4** (the ETF fee-A/B *residual*, below), **1.3** (the R2 cut-point
+> sweep tool + result, §1.3), and the A1 runner scope. #8410 is retained here because the
+> exact reproduction is itself worth recording.
 
 `faithful` row, GLD 1h pullback, 730d (window 2023-10-06..2026-07-24), 4 folds:
 
