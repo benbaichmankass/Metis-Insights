@@ -79,15 +79,18 @@ jobs:
             --json /tmp/backfill_summary.json
 
       - name: Fetch historical candles (Yahoo)
-        continue-on-error: true
         env:
           ICT_OFFVM_BUILD_HOST: "1"
         run: |
           set -uo pipefail
+          # fetch_macro_candles exits non-zero ONLY on TOTAL failure (0 usable symbols);
+          # a partial fetch (>=1 usable) exits 0. No continue-on-error / no `|| echo`
+          # swallow here, so a total fetch failure FAILS the step instead of letting the
+          # P4 gate grade an empty candle dir and emit a false "n=0"
+          # (BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0). Partial coverage still proceeds.
           python scripts/macro/fetch_macro_candles.py \
             --out-dir data/macro_candles \
-            --start "${{ github.event.inputs.start_date || '2005-01-01' }}" || \
-            echo "::warning::candle fetch degraded — P4 will report the honest n=0 for uncovered symbols"  # allow-degraded: BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0 until:2026-11-01
+            --start "${{ github.event.inputs.start_date || '2005-01-01' }}"
 
       - name: Run the M28 P4 value-thesis gate
         id: gate

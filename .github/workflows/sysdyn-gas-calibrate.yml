@@ -95,16 +95,19 @@ jobs:
             echo "::warning::P1c dual calibration degraded (missing EIA_API_KEY or thin data) — the price-only scorecard still lands"
 
       - name: Fetch UNG proxy candles (Yahoo/Stooq) for the mispricing PnL grade
-        continue-on-error: true
         env:
           ICT_OFFVM_BUILD_HOST: "1"
         run: |
           set -uo pipefail
+          # fetch_macro_candles exits non-zero ONLY on TOTAL failure (0 usable symbols);
+          # for the single UNG symbol here that means "UNG unavailable". No continue-on-error
+          # / no `|| echo` swallow, so a failed fetch FAILS the step instead of letting the
+          # mispricing S3 PnL grade run over an empty candle dir and emit a false
+          # "insufficient_data" (BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0).
           python scripts/macro/fetch_macro_candles.py \
             --out-dir data/macro_candles \
             --symbols UNG \
-            --start "2010-01-01" || \
-            echo "::warning::UNG candle fetch degraded — the mispricing S3 PnL grade will report the honest insufficient_data"  # allow-degraded: BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0 until:2026-11-01
+            --start "2010-01-01"
 
       - name: M28 Phase B — grade the sysdyn MISPRICING construction (S2 signal + S3 PnL)
         id: mispricing
