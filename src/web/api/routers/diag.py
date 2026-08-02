@@ -200,6 +200,16 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # there with a reason) fails CI instead of waiting for the next audit.
     "ict-ib-executions-pull.service",
     "ict-ib-executions-pull.timer",
+    # 2026-08-02 (R4 P1) — the daily research→results gate reporter. A oneshot
+    # + its driving timer that write the observe-only per-leg measured-net
+    # (totalPnlMeasured / pnlCoverage) verdict report under runtime_logs. It is
+    # the SOLE writer of runtime_logs/research_results_gate/report-*.json (the
+    # R4 evidence trail, design §6 P1) and enforces nothing. Queryable so a
+    # session can confirm the reporter is firing on cadence and tail its
+    # journal — same rationale as the snapshot / pull pairs above, and it ships
+    # with the deploy/ units so check_diag_unit_allowlist.py stays green.
+    "ict-research-results-gate.service",
+    "ict-research-results-gate.timer",
 )
 
 _ADVISORY_LOG = runtime_logs_dir() / "advisory_decisions.jsonl"
