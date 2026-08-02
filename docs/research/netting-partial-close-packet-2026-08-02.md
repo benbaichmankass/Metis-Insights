@@ -161,15 +161,30 @@ It honours every constraint above:
   `exit_reason='netting_partial_reconciled'`, **pnl/exit_price left NULL
   (UNMEASURED)** — never mark-priced. Dry-run default; `--apply` writes.
 
-**REMAINING (next step, operator-gated Tier-2 live run):**
-1. VM wrapper / system-action that reads the **live same-moment exchange snapshot**
-   (from `/api/diag/exchange_positions` — per-account `{symbol, side, size}`, +
-   the resting SL/TP legs for the (b) layer), transforms it to the engine's
-   `account/symbol/direction → size` input, and runs the engine (dry-run → `--apply`).
-   Mirror the `reconcile-netting-phantom-rows` system-action shape.
-2. Live **dry-run** first (quantify current phantoms — the state drifts ~1 day
-   since the 08-01 cleanup), operator OK, then `--apply`.
-3. (Optional) a periodic timer wrapping the on-demand action, once the on-demand
+**VM WRAPPER + SYSTEM-ACTION BUILT (2026-08-02, this session).** The
+`reconcile-netting-rows` Tier-2 system-action ships the live-read half:
+- `scripts/ops/netting_reconcile_snapshot.py` — reads the OPEN non-pairs journal
+  groups + the LIVE per-account exchange positions (`account_open_positions` — the
+  same primitive `/api/diag/exchange_positions` uses) + the Bybit resting
+  protective-leg ids, and writes the engine's same-moment input JSON
+  (`{account/symbol/direction → {size, resting_legs}}`). The transform
+  (`build_snapshot`) is pure + unit-tested (`tests/ops/test_netting_reconcile_snapshot.py`):
+  journal direction `long`/`short` ↔ Bybit side `Buy`/`Sell`, read-OK-but-flat →
+  size 0, could-not-read → OMIT (engine fail-safe skips), verbatim-direction key.
+- `scripts/ops/reconcile_netting_rows_action.sh` — the wrapper (mirrors the
+  `reconcile-netting-phantom-rows` shape: `_lib.sh` / `runtime_db_path` /
+  `load_runtime_secrets` for the Bybit read); builds the snapshot then runs the
+  engine dry-run (default) or `--apply`.
+- Allowlisted `reconcile-netting-rows` in `.github/workflows/system-actions.yml`
+  (Tier-2), `notify_run.sh`, `docs/claude/system-actions.md`, and the coherence
+  guard `tests/ops/test_system_actions_workflow.py`.
+
+**REMAINING (operator-gated Tier-2 live run):**
+1. Live **dry-run** first (quantify current phantoms — the state drifts ~1 day
+   since the 08-01 cleanup), operator OK, then `--apply`. Dispatch: open a
+   `system-action`-labelled issue with `action: reconcile-netting-rows` +
+   `reason:` (dry-run); add `apply: true` for the write after the OK.
+2. (Optional) a periodic timer wrapping the on-demand action, once the on-demand
    dry-run/apply is proven.
-4. Wire the `journal_qty_divergent` detector's firings to this row; resolution
+3. Wire the `journal_qty_divergent` detector's firings to this row; resolution
    criterion: detector silent 7 consecutive days on all bybit accounts.
