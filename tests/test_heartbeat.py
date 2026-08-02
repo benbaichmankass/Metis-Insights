@@ -267,7 +267,12 @@ def test_main_writes_state_after_alert(tmp_path, watchdog_module):
     assert saved["last_alert_age_s"] is not None
 
 
-def test_main_returns_2_when_telegram_fails(tmp_path, watchdog_module):
+def test_main_alert_failure_does_not_fail_the_check(tmp_path, watchdog_module):
+    """A failed Telegram POST is a WARN, not a non-zero exit — the dead-man
+    switch's health is decoupled from the messaging channel
+    (BL-20260801-LIVENESS-WATCHDOG-FAILS-ON-TELEGRAM-404). The check still
+    returns 0, persists the streak, and leaves last_status UNSET so the next
+    run re-attempts delivery."""
     hb = tmp_path / "heartbeat.txt"
     hb.write_text("stale")
     import os as _os
@@ -280,8 +285,42 @@ def test_main_returns_2_when_telegram_fails(tmp_path, watchdog_module):
         "--interval", "900",
         "--grace", "2",
     ])
-    assert rc == 2
-    assert not state.exists()  # no state written on send failure
+    assert rc == 0  # alert-delivery failure no longer fails the check run
+    saved = json.loads(state.read_text())  # state IS persisted now
+    # dedup state deliberately left unset so the alert is re-attempted next run
+    assert saved.get("last_status") != "stale"
+    assert saved.get("stale_streak") == 1  # streak counter persisted
+
+
+def test_main_alert_failure_still_runs_autoheal(tmp_path, watchdog_module):
+    """The critical fix: a genuinely-stale trader must still be autoheal-
+    restarted even when the alert POST fails (the old `return 2` skipped it)."""
+    hb = tmp_path / "heartbeat.txt"
+    hb.write_text("stale")
+    import os as _os
+    _os.utime(str(hb), (time.time() - 3600, time.time() - 3600))
+    state = tmp_path / "state.json"
+    # Pre-seed the streak just below threshold so this run (stale_streak→3)
+    # is autoheal-eligible. NB: no last_status="stale" — that would make
+    # evaluate() return "ok" (dedup) and route autoheal through the ok-branch
+    # instead of the alert path this test exercises.
+    state.write_text(json.dumps({"stale_streak": 2}))
+    calls = []
+    watchdog_module.send_alert = lambda _msg: False  # messaging channel down
+    watchdog_module.try_autoheal_restart = lambda unit: (
+        calls.append(unit) or {"ran": True, "returncode": 0}
+    )
+    watchdog_module._seconds_since_unit_active = lambda unit: 10_000.0
+    rc = watchdog_module.main([
+        "--heartbeat", str(hb),
+        "--state", str(state),
+        "--interval", "900",
+        "--grace", "2",
+        "--auto-restart-after", "3",
+        "--restart-startup-grace-seconds", "0",
+    ])
+    assert rc == 0
+    assert calls == ["ict-trader-live.service"]  # autoheal fired despite alert failure
 
 
 # ---------------------------------------------------------------------------

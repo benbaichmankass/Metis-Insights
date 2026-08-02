@@ -8526,18 +8526,8 @@
       "opened_at": "2026-07-30T21:30:00+00:00",
       "opened_by": "claude (diagnostic-output-defect-class session, diagnostic-output-defects-wtsxg2)",
       "trigger_condition": "n/a",
-      "status": "open",
-      "snoozed_until": null,
-      "resolved_at": null,
-      "updates": [],
-      "id": "BL-20260730-ML-CLI-HELP-TAKES-TRAINER-HEAVY-LOCK",
-      "source": "Operator-reported (item 5 of the 2026-07-30 defect-class brief), unfiled until now. Verified against the code this session.",
-      "title": "[ml][tooling] `python -m ml <heavy-cmd> --help` acquires the trainer heavy-job lock before arg parsing — printing help queues behind a training run",
-      "description": "VERIFIED: ml/cli.py::main resolves `cmd = argv[0]` and, at L1100, `if cmd in _HEAVY_COMMANDS: _heavy_lock = _acquire_heavy_lock(...)` — BEFORE the `build-dataset`/`validate-dataset` dispatch (L1102-1105) and before `_build_parser().parse_args()` (L1108-1109). `--help` is just another argv element at that point.\n\nSo `python -m ml build-dataset --help` takes the shared flock on a 1-core trainer VM with a FIFO queue: it blocks behind any running training cycle, and while held it blocks the next real job. The lock is bound for the whole process lifetime by design (correct for a real run), so a help invocation holds it until argparse exits. On a clean-timeout it raises SystemExit(75) — a documentation lookup failing with a queue-timeout exit code.\n\nThis is adjacent to the diagnostic-provenance class rather than an instance of it (nothing is mislabelled), but it shares the root: the tool's OBSERVABLE behaviour disagrees with what the invocation says it is doing. It is filed here because it was surfaced by the same sweep and would otherwise be lost.\n\nFIX (Tier-1, trainer-autonomous, NOT applied here to keep this PR to one class): hoist a pure-help/version short-circuit above the lock — if any of {-h, --help, --version} appears in argv, dispatch to the parser and return without ever calling _acquire_heavy_lock. Guard it with a test asserting `main(['build-dataset','--help'])` never touches the lock. Deliberately left unmerged here because ml/cli.py is the trainer's real entry point and it deserves its own change + test rather than riding a tooling-guard PR.",
-      "tier": 1,
-      "severity": "low",
-      "resolution_criteria": "`--help`/`-h`/`--version` on any heavy command returns without acquiring the flock; pinned by a test.",
       "status": "resolved",
+      "snoozed_until": null,
       "resolved_at": "2026-08-02T03:20:00+00:00",
       "updates": [
         {
@@ -8546,6 +8536,13 @@
           "note": "RESOLVED. ml/cli.py::main now computes `_wants_help = any(a in ('-h','--help','--version') for a in argv)` and only acquires the heavy flock when `cmd in _HEAVY_COMMANDS and not _wants_help` — so a help/version lookup short-circuits the lock and argparse (or the datasets sub-parser) prints + exits below without ever queueing behind a running training cycle. Every REAL invocation is byte-for-byte unchanged (a genuine `build-dataset`/`train` still takes the lock), so the runtime blast radius is nil. Pinned by tests/test_ml_cli_help_lock.py (6 tests: --help/-h/--version skip the lock, help-anywhere-in-argv, a real run STILL takes it, a non-heavy command unaffected). Coordination: ml/cli.py is the trainer's shared entry point (normally the /system-review session's space) — taken here because main had zero commits for ~2h (that session appears wrapped) and the change touches only the --help/--version path; heads-up posted on board #6927."
         }
       ],
+      "id": "BL-20260730-ML-CLI-HELP-TAKES-TRAINER-HEAVY-LOCK",
+      "source": "Operator-reported (item 5 of the 2026-07-30 defect-class brief), unfiled until now. Verified against the code this session.",
+      "title": "[ml][tooling] `python -m ml <heavy-cmd> --help` acquires the trainer heavy-job lock before arg parsing — printing help queues behind a training run",
+      "description": "VERIFIED: ml/cli.py::main resolves `cmd = argv[0]` and, at L1100, `if cmd in _HEAVY_COMMANDS: _heavy_lock = _acquire_heavy_lock(...)` — BEFORE the `build-dataset`/`validate-dataset` dispatch (L1102-1105) and before `_build_parser().parse_args()` (L1108-1109). `--help` is just another argv element at that point.\n\nSo `python -m ml build-dataset --help` takes the shared flock on a 1-core trainer VM with a FIFO queue: it blocks behind any running training cycle, and while held it blocks the next real job. The lock is bound for the whole process lifetime by design (correct for a real run), so a help invocation holds it until argparse exits. On a clean-timeout it raises SystemExit(75) — a documentation lookup failing with a queue-timeout exit code.\n\nThis is adjacent to the diagnostic-provenance class rather than an instance of it (nothing is mislabelled), but it shares the root: the tool's OBSERVABLE behaviour disagrees with what the invocation says it is doing. It is filed here because it was surfaced by the same sweep and would otherwise be lost.\n\nFIX (Tier-1, trainer-autonomous, NOT applied here to keep this PR to one class): hoist a pure-help/version short-circuit above the lock — if any of {-h, --help, --version} appears in argv, dispatch to the parser and return without ever calling _acquire_heavy_lock. Guard it with a test asserting `main(['build-dataset','--help'])` never touches the lock. Deliberately left unmerged here because ml/cli.py is the trainer's real entry point and it deserves its own change + test rather than riding a tooling-guard PR.",
+      "tier": 1,
+      "severity": "low",
+      "resolution_criteria": "`--help`/`-h`/`--version` on any heavy command returns without acquiring the flock; pinned by a test.",
       "refs": [
         "ml/cli.py",
         "docs/claude/trainer-resource-protocol.md"
@@ -9155,7 +9152,9 @@
       "detail": "The heartbeat check itself succeeds; the process exits non-zero only because the (revoked-token) Telegram notification POST 404s. Risk: the unit reads 'failed' in service checks and it is unclear whether an autoheal restart later in the flow would still have run after the alert exception. Tier-1 fix candidate: treat alert-delivery failure as WARN (log + continue, exit 0) so the dead-man switch's own health is decoupled from the messaging channel. Self-heals for the current incident once the operator lands the correct token, but the coupling remains.",
       "severity": "medium",
       "tier": 1,
-      "status": "open"
+      "status": "resolved",
+      "resolved_at": "2026-08-02T04:30:00+00:00",
+      "resolution": "Fixed in scripts/check_heartbeat.py: a failed Telegram alert POST no longer `return 2`s before autoheal. The old early-return meant a genuinely-stale trader got NO autoheal restart whenever the messaging channel was down (revoked-token 404). Now alert-delivery failure is a WARN (stderr + journal) and the run STILL executes _maybe_autoheal + persists the streak counter, then returns 0 — the dead-man switch's health is decoupled from the messaging channel. Alert-dedup state (last_status) is deliberately left unset on a send failure so the next per-minute run re-attempts delivery once Telegram recovers. Exit code 2 retired (docstring updated). Tests: test_main_alert_failure_does_not_fail_the_check (rc=0 + state persisted + last_status unset) + test_main_alert_failure_still_runs_autoheal (autoheal fires despite the alert POST failing); replaced test_main_returns_2_when_telegram_fails. 36/36 pass, ruff 0.15.8 clean."
     },
     {
       "id": "BL-20260801-STUCK-PACKAGE-SWEEP-AFTER-W1P2",

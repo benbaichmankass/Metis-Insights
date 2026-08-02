@@ -24,9 +24,15 @@ beyond ``src.runtime.notify`` (also stdlib-only). This means the
 watchdog keeps working even if the bot's own venv is wedged.
 
 Exit codes:
-  0 — heartbeat is fresh (no action), or alert sent successfully.
+  0 — the CHECK ran to completion: heartbeat fresh (no action), alert sent,
+      OR alert-delivery failed but the check + autoheal + state-persist still
+      ran (a failed Telegram POST is logged as a WARN and does NOT fail the
+      run — the dead-man switch's health is decoupled from the messaging
+      channel; BL-20260801-LIVENESS-WATCHDOG-FAILS-ON-TELEGRAM-404).
   1 — could not stat heartbeat / state files.
-  2 — alert needed but Telegram POST failed.
+  (Exit 2 — "alert needed but Telegram POST failed" — was RETIRED 2026-08-02:
+   it fired before autoheal, skipping the trader restart whenever Telegram was
+   down. Alert-delivery failure is now a WARN, not a non-zero exit.)
 
 CLI:
   python scripts/check_heartbeat.py
@@ -592,7 +598,27 @@ def main(argv: Optional[list] = None) -> int:
 
     sent = send_alert(msg)
     if not sent:
-        return 2
+        # Alert-delivery failure must NOT crash the dead-man switch or skip
+        # autoheal — the messaging channel is decoupled from the CHECK's own
+        # health (BL-20260801-LIVENESS-WATCHDOG-FAILS-ON-TELEGRAM-404). The old
+        # `return 2` here fired BEFORE `_maybe_autoheal`, so a genuinely-stale
+        # trader got NO restart whenever Telegram was down (e.g. a revoked
+        # token 404) — the exact case the watchdog exists to cover. Now: WARN,
+        # still run autoheal (the trader may really be down), persist the streak
+        # counter, and DELIBERATELY leave the alert-dedup state (last_status)
+        # UNSET so the next per-minute run re-attempts delivery once the channel
+        # recovers (rather than silently swallowing the missed alert).
+        print(
+            "WARNING: alert delivery failed; the heartbeat check itself "
+            "succeeded — continuing (autoheal + state persist still run, "
+            "alert will be re-attempted next check).",
+            file=sys.stderr,
+        )
+        _maybe_autoheal(
+            args=args, state=state, stale_streak=stale_streak, age_s=age_s,
+        )
+        save_state(args.state, state)
+        return 0
 
     if action in {"stale", "missing"}:
         state["last_status"] = "stale"
