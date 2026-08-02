@@ -65,11 +65,11 @@ def test_parse_iso_rejects_garbage():
 
 
 # ---------------------------------------------------------------------------
-# newest_observed_at — max across rows, unsorted-safe
+# scan_ledger — max across rows (unsorted-safe) + newest-batch input counts
 # ---------------------------------------------------------------------------
 
 
-def test_newest_scans_for_max_not_last_line(tmp_path):
+def test_scan_finds_max_not_last_line(tmp_path):
     # Out-of-order rows: the freshest is in the MIDDLE, not the last line.
     p = _write_ledger(
         tmp_path,
@@ -80,24 +80,49 @@ def test_newest_scans_for_max_not_last_line(tmp_path):
             "2026-07-22T00:00:00Z",
         ],
     )
-    newest, rows = liveness.newest_observed_at(p)
+    newest, rows, batch_rows, batch_inputs = liveness.scan_ledger(p, "value")
     assert rows == 3
     assert newest == datetime(2026, 7, 26, 9, 28, 15, tzinfo=timezone.utc)
+    # Each stamp is unique here → the newest batch is one row, load-bearing.
+    assert batch_rows == 1
+    assert batch_inputs == 1
 
 
-def test_newest_ignores_unparseable_rows_but_counts_them(tmp_path):
+def test_scan_ignores_unparseable_rows_but_counts_them(tmp_path):
     p = tmp_path / "l.jsonl"
     p.write_text(
         "not json\n"
-        + json.dumps({"observed_at": "2026-07-25T00:00:00Z"})
+        + json.dumps({"observed_at": "2026-07-25T00:00:00Z", "value": 1.0})
         + "\n"
         + json.dumps({"no_stamp": True})
         + "\n",
         encoding="utf-8",
     )
-    newest, rows = liveness.newest_observed_at(p)
+    newest, rows, batch_rows, batch_inputs = liveness.scan_ledger(p, "value")
     assert rows == 3  # all non-blank lines counted
     assert newest == datetime(2026, 7, 25, 0, 0, 0, tzinfo=timezone.utc)
+    assert batch_rows == 1
+    assert batch_inputs == 1
+
+
+def test_scan_counts_loadbearing_within_newest_batch(tmp_path):
+    # Two rows share the newest stamp; one has a null value → 2 rows, 1 input.
+    p = tmp_path / "l.jsonl"
+    p.write_text(
+        json.dumps({"observed_at": "2026-07-27T00:00:00Z", "value": 1.0})
+        + "\n"
+        + json.dumps({"observed_at": "2026-07-27T00:00:00Z", "value": None})
+        + "\n"
+        + json.dumps({"observed_at": "2026-07-20T00:00:00Z", "value": 1.0})
+        + "\n",
+        encoding="utf-8",
+    )
+    newest, rows, batch_rows, batch_inputs = liveness.scan_ledger(p, "value")
+    assert batch_rows == 2
+    assert batch_inputs == 1  # the null-value row is not load-bearing
+    # value_key=None counts every newest-batch row regardless of any field.
+    _, _, batch_rows2, batch_inputs2 = liveness.scan_ledger(p, None)
+    assert batch_rows2 == 2 and batch_inputs2 == 2
 
 
 # ---------------------------------------------------------------------------
@@ -150,6 +175,82 @@ def test_boundary_exactly_at_threshold_is_fresh(tmp_path):
     p = _write_ledger(tmp_path, "l.jsonl", ["2026-07-25T12:00:00Z"])  # 48h old
     r = liveness.check_ledger(p, 48.0, now=_NOW, allow_missing=False)
     assert r["status"] == "fresh"
+
+
+# ---------------------------------------------------------------------------
+# check_ledger — VACUITY of the latest batch (T3, the freshness-can't-see class)
+# ---------------------------------------------------------------------------
+
+
+def test_fresh_but_vacuous_latest_batch_is_flagged(tmp_path):
+    # The producer fired recently (fresh) but every row in the newest batch has a
+    # null load-bearing value → the run measured nothing. This is the
+    # price_bars:0 / all-null-FRED class that freshness alone cannot see.
+    p = tmp_path / "l.jsonl"
+    p.write_text(
+        json.dumps({"observed_at": "2026-07-27T00:00:00Z", "value": None})
+        + "\n"
+        + json.dumps({"observed_at": "2026-07-27T00:00:00Z", "value": None})
+        + "\n"
+        # an OLDER batch that DID measure something — must not rescue the verdict.
+        + json.dumps({"observed_at": "2026-07-20T00:00:00Z", "value": 1.0})
+        + "\n",
+        encoding="utf-8",
+    )
+    r = liveness.check_ledger(
+        p, 48.0, now=_NOW, allow_missing=False, value_key="value", min_inputs=1
+    )
+    assert r["status"] == "vacuous"
+    assert r["newest_batch_rows"] == 2
+    assert r["newest_batch_inputs"] == 0
+    assert liveness._is_bad(r["status"])
+
+
+def test_fresh_with_loadbearing_batch_is_fresh(tmp_path):
+    p = tmp_path / "l.jsonl"
+    p.write_text(
+        json.dumps({"observed_at": "2026-07-27T00:00:00Z", "value": 1.0})
+        + "\n"
+        + json.dumps({"observed_at": "2026-07-27T00:00:00Z", "value": None})
+        + "\n",
+        encoding="utf-8",
+    )
+    r = liveness.check_ledger(
+        p, 48.0, now=_NOW, allow_missing=False, value_key="value", min_inputs=1
+    )
+    assert r["status"] == "fresh"  # 1 of 2 load-bearing clears the floor of 1
+    assert r["newest_batch_inputs"] == 1
+
+
+def test_stale_takes_precedence_over_vacuity(tmp_path):
+    # A stale ledger whose newest (old) batch is also vacuous reports STALE — the
+    # dead cron is the headline; the old batch's emptiness is moot.
+    p = tmp_path / "l.jsonl"
+    p.write_text(
+        json.dumps({"observed_at": "2020-01-01T00:00:00Z", "value": None}) + "\n",
+        encoding="utf-8",
+    )
+    r = liveness.check_ledger(
+        p, 48.0, now=_NOW, allow_missing=False, value_key="value", min_inputs=1
+    )
+    assert r["status"] == "stale"
+
+
+# ---------------------------------------------------------------------------
+# PRODUCERS registry — "register EVERY scheduled producer", not one ledger
+# ---------------------------------------------------------------------------
+
+
+def test_registry_covers_every_scheduled_producer():
+    paths = {p["path"] for p in liveness.PRODUCERS}
+    # Both cron-scheduled append-only macro producers must be registered; the
+    # calendar producer was the concrete gap this extension closed.
+    assert "comms/macro/valuation_snapshots.jsonl" in paths
+    assert "comms/macro/econ_calendar_snapshots.jsonl" in paths
+    # Every entry declares the fields check_ledger reads.
+    for p in liveness.PRODUCERS:
+        assert p["path"] and p["max_age_hours"] > 0
+        assert "value_key" in p and p.get("min_inputs", 1) >= 1
 
 
 # ---------------------------------------------------------------------------
