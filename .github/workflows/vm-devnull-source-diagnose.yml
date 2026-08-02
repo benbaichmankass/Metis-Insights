@@ -432,7 +432,7 @@ jobs:
             echo; echo "===== bpftrace-arm: install bpftrace + start the /dev/null chmod tracer ====="
             if ! command -v bpftrace >/dev/null 2>&1; then
               echo "installing bpftrace..."
-              sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y bpftrace && echo "bpftrace: installed" || { echo "bpftrace: INSTALL FAILED"; echo "(done)"; exit 0; }
+              sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=l apt-get install -y bpftrace && echo "bpftrace: installed" || { echo "bpftrace: INSTALL FAILED"; echo "(done)"; exit 0; }
             else
               echo "bpftrace already present: $(bpftrace --version 2>&1 | head -1)"
             fi
@@ -449,7 +449,7 @@ jobs:
                 echo 'kprobe:security_path_chmod {'
                 echo '  $rdev = ((struct path *)arg0)->dentry->d_inode->i_rdev;'
                 echo '  if (($rdev >> 20) == 1 && ($rdev & 0xfffff) == 3) {'
-                echo '    printf("%s security_path_chmod /dev/null mode=%o comm=%s pid=%d uid=%d ppid=%d pcomm=%s\n", strftime("%H:%M:%S", nsecs), arg1 & 0777, comm, pid, uid, curtask->real_parent->tgid, curtask->real_parent->comm);'
+                echo '    printf("%s security_path_chmod /dev/null mode=%o comm=%s pid=%d uid=%d\n", strftime("%H:%M:%S", nsecs), arg1 & 0777, comm, pid, uid);'
                 echo '    printf("  kstack:%s\n", kstack);'
                 echo '  }'
                 echo '}'
@@ -460,7 +460,7 @@ jobs:
                 echo '  $rdev = ((struct dentry *)arg1)->d_inode->i_rdev;'
                 echo '  $attr = (struct iattr *)arg2;'
                 echo '  if (($rdev >> 20) == 1 && ($rdev & 0xfffff) == 3 && ($attr->ia_valid & 1)) {'
-                echo '    printf("%s notify_change /dev/null new_mode=%o comm=%s pid=%d uid=%d ppid=%d pcomm=%s\n", strftime("%H:%M:%S", nsecs), $attr->ia_mode & 0777, comm, pid, uid, curtask->real_parent->tgid, curtask->real_parent->comm);'
+                echo '    printf("%s notify_change /dev/null new_mode=%o comm=%s pid=%d uid=%d\n", strftime("%H:%M:%S", nsecs), $attr->ia_mode & 0777, comm, pid, uid);'
                 echo '  }'
                 echo '}'
               fi
