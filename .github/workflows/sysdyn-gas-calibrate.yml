@@ -104,7 +104,7 @@ jobs:
             --out-dir data/macro_candles \
             --symbols UNG \
             --start "2010-01-01" || \
-            echo "::warning::UNG candle fetch degraded — the mispricing S3 PnL grade will report the honest insufficient_data"  # allow-degraded: BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0
+            echo "::warning::UNG candle fetch degraded — the mispricing S3 PnL grade will report the honest insufficient_data"  # allow-degraded: BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0 until:2026-11-01
 
       - name: M28 Phase B — grade the sysdyn MISPRICING construction (S2 signal + S3 PnL)
         id: mispricing

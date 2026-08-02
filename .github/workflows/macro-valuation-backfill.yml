@@ -87,7 +87,7 @@ jobs:
           python scripts/macro/fetch_macro_candles.py \
             --out-dir data/macro_candles \
             --start "${{ github.event.inputs.start_date || '2005-01-01' }}" || \
-            echo "::warning::candle fetch degraded — P4 will report the honest n=0 for uncovered symbols"  # allow-degraded: BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0
+            echo "::warning::candle fetch degraded — P4 will report the honest n=0 for uncovered symbols"  # allow-degraded: BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0 until:2026-11-01
 
       - name: Run the M28 P4 value-thesis gate
         id: gate

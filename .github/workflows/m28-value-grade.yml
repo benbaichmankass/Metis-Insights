@@ -95,7 +95,7 @@ jobs:
           # sweep's universe is the full 5 (SPY/TLT/IEF/GLD/SLV), so fetch the complete set
           # explicitly (idempotent per-symbol <SYMBOL>.csv writes, augments what's there).
           python scripts/macro/fetch_macro_candles.py \
-            --out-dir /tmp/m28-value-candles --symbols SPY,TLT,IEF,GLD,SLV || true  # allow-degraded: BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0
+            --out-dir /tmp/m28-value-candles --symbols SPY,TLT,IEF,GLD,SLV || true  # allow-degraded: BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0 until:2026-11-01
           python scripts/macro/value_construction_sweep.py \
             --out-dir /tmp/m28-constructions \
             --candles-dir /tmp/m28-value-candles \
