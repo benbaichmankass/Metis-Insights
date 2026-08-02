@@ -372,6 +372,11 @@ jobs:
                 description: 'Triggers regime-cell-walkforward workflow — walk-forward the OOS stability of ONE (regime, direction) debt-matrix cell on a free GH runner (the gate a losing cell must pass before a Tier-3 OFF-cell draft). rec #5 follow-up.',
               },
               {
+                name: 'regime-adx-cutpoint-sweep-request',
+                color: '0075ca',
+                description: 'Triggers regime-adx-cutpoint-sweep workflow — sweep the ADX regime-attribution cut-points (live 20/25) for ONE strategy on a free GH runner, grading whether a cell verdict is robust to the un-swept constants or flips. RESEARCH-PROGRAM R2.',
+              },
+              {
                 name: 'set-diag-token',
                 color: 'b60205',
                 description: 'Triggers set-diag-token workflow — push the DIAG_READ_TOKEN repo secret onto the live VM + restart web-api.',

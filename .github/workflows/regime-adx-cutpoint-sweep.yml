@@ -1,0 +1,197 @@
+name: regime-adx-cutpoint-sweep
+
+# Sweeps the ADX regime-ATTRIBUTION cut-points (live CHOP_MAX_ADX=20 /
+# TREND_MIN_ADX=25) for ONE strategy on a free GitHub-hosted runner
+# (RESEARCH-PROGRAM R2). The two constants have never been swept, yet every
+# config/regime_policy.yaml cell keys on them; this grades whether a live OFF
+# cell's verdict is robust to the cut-point choice or flips under an equally
+# defensible alternative — the same fold-split discipline that caught the June
+# ADX overfit, applied to the attribution axis. Engine:
+# scripts/research/regime_adx_cutpoint_sweep.py (fetch -> harness --emit-trades
+# -> per-(chop_max,trend_min) re-bucket -> FOLD_PANEL verdict via
+# regime_cell_walkforward.cell_verdict). The sandbox firewalls Yahoo, so
+# equity/ETF/futures strategies only run here.
+#
+# Triggers:
+#   1. workflow_dispatch — inputs: strategy (required), regime, chop_grid,
+#      trend_grid, days
+#   2. issues.opened with label `regime-adx-cutpoint-sweep-request`
+#      (owner-guarded); issue-body lines `strategy: <name>` (required),
+#      `regime: trending`, `chop_grid: 15,18,20,22`, `trend_grid: 25,28,30,32`,
+#      `days: 730`
+#
+# Safety: READS the repo + fetches PUBLIC candles + runs the read-only sweep +
+# comments the verdict. It does NOT push, deploy, or touch config/ — it authors
+# no cell (a surviving/flipping cell is a separate Tier-3 draft for the operator).
+
+on:
+  workflow_dispatch:
+    inputs:
+      strategy:
+        description: "Strategy name (e.g. gld_pullback_1h)"
+        required: true
+      regime:
+        description: "Regime cell to grade (trending|transitional|chop)"
+        default: "trending"
+      chop_grid:
+        description: "CSV of candidate CHOP_MAX_ADX values (live = 20)"
+        default: "15,18,20,22"
+      trend_grid:
+        description: "CSV of candidate TREND_MIN_ADX values (live = 25)"
+        default: "25,28,30,32"
+      days:
+        description: "Trailing days of candles"
+        default: "730"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: regime-adx-cutpoint-sweep-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'regime-adx-cutpoint-sweep-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse issue body
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          strat=$(printf '%s' "$ISSUE_BODY" | grep -iE '^strategy:' | head -1 | cut -d: -f2- | xargs || true)
+          regime=$(printf '%s' "$ISSUE_BODY" | grep -iE '^regime:' | head -1 | cut -d: -f2- | xargs || true)
+          chop=$(printf '%s' "$ISSUE_BODY" | grep -iE '^chop_grid:' | head -1 | cut -d: -f2- | xargs || true)
+          trend=$(printf '%s' "$ISSUE_BODY" | grep -iE '^trend_grid:' | head -1 | cut -d: -f2- | xargs || true)
+          days=$(printf '%s' "$ISSUE_BODY" | grep -iE '^days:' | head -1 | cut -d: -f2- | xargs || true)
+          echo "RACS_STRAT=${strat}" >> "$GITHUB_ENV"
+          echo "RACS_REGIME=${regime:-trending}" >> "$GITHUB_ENV"
+          echo "RACS_CHOP=${chop:-15,18,20,22}" >> "$GITHUB_ENV"
+          echo "RACS_TREND=${trend:-25,28,30,32}" >> "$GITHUB_ENV"
+          echo "RACS_DAYS=${days:-730}" >> "$GITHUB_ENV"
+
+      - name: Set params from dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "RACS_STRAT=${{ github.event.inputs.strategy }}" >> "$GITHUB_ENV"
+          echo "RACS_REGIME=${{ github.event.inputs.regime || 'trending' }}" >> "$GITHUB_ENV"
+          echo "RACS_CHOP=${{ github.event.inputs.chop_grid || '15,18,20,22' }}" >> "$GITHUB_ENV"
+          echo "RACS_TREND=${{ github.event.inputs.trend_grid || '25,28,30,32' }}" >> "$GITHUB_ENV"
+          echo "RACS_DAYS=${{ github.event.inputs.days || '730' }}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install --quiet pyyaml pandas numpy yfinance
+
+      - name: Guard — strategy required
+        run: |
+          if [ -z "${RACS_STRAT}" ]; then
+            echo "No strategy provided (issue body needs a 'strategy: <name>' line)."; exit 1
+          fi
+          echo "strategy=${RACS_STRAT} regime=${RACS_REGIME} chop=${RACS_CHOP} trend=${RACS_TREND} days=${RACS_DAYS}"
+
+      - name: Run the ADX cut-point sweep
+        run: |
+          set +e
+          mkdir -p artifacts/racs
+          python scripts/research/regime_adx_cutpoint_sweep.py \
+            --strategy "${RACS_STRAT}" --regime "${RACS_REGIME}" \
+            --chop-grid "${RACS_CHOP}" --trend-grid "${RACS_TREND}" \
+            --days "${RACS_DAYS}" --workdir artifacts/racs/work --json \
+            > artifacts/racs/result.json 2> artifacts/racs/run.log
+          echo "rc=$?"; tail -20 artifacts/racs/run.log || true
+          echo "result bytes: $(wc -c < artifacts/racs/result.json)"
+
+      - name: Render summary
+        run: |
+          python - <<'PYEOF' | tee artifacts/racs/SUMMARY.md
+          import json
+          try:
+              r = json.load(open("artifacts/racs/result.json"))
+          except Exception as e:
+              print(f"# regime-adx-cutpoint-sweep\n\n_(no result — {e}; read run.log in the artifact)_"); raise SystemExit(0)
+          L = ["# regime-adx-cutpoint-sweep (RESEARCH-PROGRAM R2)", ""]
+          if r.get("error"):
+              print("\n".join(L + [f"**`{r.get('strategy')}` [{r.get('regime')}]** — ERROR: {r['error'][:300]}"]))
+              raise SystemExit(0)
+          s = r.get("sensitivity", {})
+          L += [f"**`{r['strategy']}`** — {r['symbol']} {r['timeframe']} · {r['harness']} · "
+                f"fidelity **{r.get('fidelity')}** · {r.get('emitted_trades')} emitted trades "
+                f"({r.get('days')}d).",
+                f"Grading the **{r['regime']}** cell at each `(chop_max, trend_min)` in "
+                f"chop∈{r['chop_grid']} × trend∈{r['trend_grid']} (live = 20/25). "
+                "The cut-points gate regime ATTRIBUTION (the bucket a taken trade is counted in), "
+                "NOT entry — the same trade set is re-bucketed at each pair.", ""]
+          if r.get("omitted_levers"):
+              L += [f"_omitted levers (approximate): {', '.join(r['omitted_levers'])}_", ""]
+          L += ["| chop_max | trend_min | regime n | short_stable_drag | long_stable_drag | pooled short-R | pooled long-R | live? |",
+                "|--:|--:|--:|:--:|:--:|--:|--:|:--:|"]
+          for c in r.get("cells", []):
+              if "short_stable_drag" not in c:
+                  L.append(f"| {c.get('chop_max')} | {c.get('trend_min')} | {c.get('regime_trades', 0)} "
+                           f"| — | — | — | — | {'✅' if c.get('is_live_cutpoint') else ''} |")
+                  continue
+              L.append(f"| {c['chop_max']} | {c['trend_min']} | {c.get('regime_trades')} "
+                       f"| {c.get('short_stable_drag')} | {c.get('long_stable_drag')} "
+                       f"| {c.get('pooled_short_r')} | {c.get('pooled_long_r')} "
+                       f"| {'✅' if c.get('is_live_cutpoint') else ''} |")
+          L += ["",
+                "## Sensitivity — does the verdict flip across the grid?",
+                f"- gradeable cut-point pairs: **{s.get('gradeable_cut_points')}**",
+                f"- `short_stable_drag`: {s.get('short_stable_drag_count')} of "
+                f"{s.get('gradeable_cut_points')} pairs → **short verdict robust: "
+                f"{s.get('short_verdict_robust')}**",
+                f"- `long_stable_drag`: {s.get('long_stable_drag_count')} of "
+                f"{s.get('gradeable_cut_points')} pairs → **long verdict robust: "
+                f"{s.get('long_verdict_robust')}**",
+                f"- **at the LIVE 20/25:** short_stable_drag=`{s.get('live_cutpoint_short_stable_drag')}`, "
+                f"long_stable_drag=`{s.get('live_cutpoint_long_stable_drag')}`",
+                "",
+                "A verdict robust across the whole grid is not fragile to the un-swept constants; "
+                "a flip means the live cell rests on the specific 20/25 choice and the cut-point is "
+                "load-bearing for that family. **No cell is authored/changed by this run** — a Tier-3 "
+                "cut-point retune is a separate operator-gated draft."]
+          print("\n".join(L))
+          PYEOF
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: regime-adx-cutpoint-sweep-${{ github.run_id }}
+          path: |
+            artifacts/racs/result.json
+            artifacts/racs/SUMMARY.md
+            artifacts/racs/run.log
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Comment summary on issue
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '_(summary not produced)_';
+            try { body = fs.readFileSync('artifacts/racs/SUMMARY.md', 'utf8'); } catch (e) {}
+            const footer = '\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 60000) + footer,
+            });
