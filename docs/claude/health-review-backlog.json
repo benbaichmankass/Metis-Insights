@@ -8880,6 +8880,13 @@
         "ml/datasets/families/trade_outcomes.py",
         "ml/experiments/splitters.py",
         "scripts/ops/build_trainer_datasets.sh"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-02T11:25:00+00:00",
+          "by": "claude (research-backlog session c30uj9)",
+          "note": "SHARPENED, still open. The MES augmentation run (#8318, 2026-08-01/02) exercised the full chain end-to-end (config-exact 10y ES_F backtest to 26 rows to include_backtest builds to 2 shadow baselines), but per docs/sprint-logs/S-WEEKLY-REVIEW-EXEC-2026-08-01.md the rows were written to a schema-bootstrapped standing sidecar db (backtest_trades_mes.db, merged at nightly build time via #8326), NOT to trades.is_backtest=1 in the live journal. So this item's core observation — zero is_backtest=1 rows in the live `trades` table, pooled/crypto decision models unfed — is LIKELY still true, but needs a fresh live is_backtest count to confirm (not asserting it without the read). The generic pipeline is proven; the gap is that only MES has been pointed at it and via a sidecar, not the pooled models. Cross-ref ml MB-20260530-001 (verified-state update 2026-08-02) + docs/research/WORK-PLAN-2026-08-02.md W1.2/W2.1. Kept open."
+        }
       ]
     },
     {
