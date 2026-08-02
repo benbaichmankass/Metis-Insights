@@ -20,21 +20,42 @@ set -euo pipefail
 REPO_DIR="/home/ubuntu/ict-trading-bot"
 
 # ---------------------------------------------------------------------------
-# Self-heal a non-writable /dev/null BEFORE anything redirects to it.
+# Self-heal a non-writable /dev/null. Self-contained mirror of
+# scripts/ops/_lib.sh::heal_devnull — this is the VM deploy/recovery path (also
+# run directly by ict-git-sync.timer), so it must NOT depend on _lib.sh.
 #
-# An OS-level host agent on this OCI VM (suspected oracle-cloud-agent
-# oci-wlp / workload-protection FIM) intermittently chmods /dev/null to
-# 0444. That makes every `>/dev/null` EACCES for this NON-root deploy user,
-# so the very next line — the `sudo -n systemctl ... >/dev/null 2>&1` probe —
-# fails and `set -e` aborts the whole deploy. On 2026-06-15 that wedged
-# auto-deploy for ~16h (a merged monitor fix never reached the trader).
-# `[ -w ]` is reliable here because this runs as `ubuntu` (non-root), so it
-# correctly sees the stripped write bit. Best-effort: if sudo can't chmod,
-# the standalone ict-devnull-guard.timer heals it within <=60 s anyway.
-if [ ! -w /dev/null ]; then
-    echo ">>> /dev/null not writable (perms stripped to 0444 by a host agent) — restoring 0666"
-    sudo -n chmod 0666 /dev/null || echo ">>> WARNING: could not chmod /dev/null (ict-devnull-guard.timer will heal it)"
-fi
+# An OS-level host agent on this OCI VM (suspected oracle-cloud-agent oci-wlp /
+# workload-protection FIM) intermittently clobbers /dev/null: variant (a) strips
+# the char-device mode to 0444, variant (b) replaces it with a root-owned
+# regular file. Either way every `>/dev/null` EACCESes for this non-root user
+# and bash aborts the redirected command. Crucially the strip can land MID-RUN
+# (healthy at entry, clobbered partway through), which the old entry-only
+# `[ -w ]` repair could NOT catch: the 2026-08-02 pull-and-deploy log had
+# /dev/null healthy at start (this block printed nothing) then EACCESing from
+# install_systemd_units.sh onward, leaving the deploy marker unwritten +
+# enumeration degraded to the 3-unit fallback (BL-20260730-DEVNULL-DEPLOY-REDIRECT-FRAGILITY recurrence).
+# So heal_devnull() is a re-callable function invoked before each load-bearing
+# redirect section below, not just at entry. Best-effort (never aborts the
+# deploy): chmod fixes (a), rm+mknod fixes (b); the 60s ict-devnull-guard.timer
+# is the periodic belt. The probe's stderr goes to a temp file, never /dev/null.
+# ---------------------------------------------------------------------------
+heal_devnull() {
+    local _probe="${TMPDIR:-/tmp}/.devnull_probe.$$"
+    if ( : >/dev/null ) 2>"${_probe}"; then rm -f "${_probe}" 2>&- || true; return 0; fi
+    echo ">>> /dev/null not writable (clobbered by a host agent) — self-healing"
+    sudo -n chmod 0666 /dev/null 2>"${_probe}" || true
+    if ! ( : >/dev/null ) 2>"${_probe}"; then
+        sudo -n sh -c 'rm -f /dev/null && mknod -m 666 /dev/null c 1 3' 2>"${_probe}" || true
+    fi
+    if ! ( : >/dev/null ) 2>"${_probe}"; then
+        echo ">>> WARNING: /dev/null STILL not writable after self-heal (ict-devnull-guard.timer heals within 60s)"
+        rm -f "${_probe}" 2>&- || true
+        return 1
+    fi
+    echo ">>> /dev/null self-healed; continuing."
+    rm -f "${_probe}" 2>&- || true
+}
+heal_devnull || true
 
 # ---------------------------------------------------------------------------
 # Detect sudo capability once at startup and build a reusable helper array.
@@ -305,6 +326,7 @@ if [ "${DEPLOY_FORCE_RESTART:-0}" != "1" ]; then
             # The running processes' RUNTIME code already matches POST (only
             # non-loaded files differ), so record it as deployed — otherwise
             # this skip would re-fire every 5-min tick while the marker lags HEAD.
+            heal_devnull || true  # same marker-write 2>/dev/null bug on the docs-only skip path
             printf '%s\n' "${POST_SYNC_HEAD}" > "${DEPLOYED_SHA_FILE}" 2>/dev/null || true
             echo "===== DEPLOY COMPLETE (no runtime change; restart skipped): $(date) ====="
             exit 0
@@ -324,6 +346,7 @@ echo ">>> Code changed (${PRE_SYNC_HEAD:0:7} -> ${POST_SYNC_HEAD:0:7}). Installi
 # /system; only copies + reloads on diff) and never restarts anything —
 # the existing flow below handles restarts for long-running units.
 # ---------------------------------------------------------------------------
+heal_devnull || true  # install_systemd_units.sh is where the mid-run strip first bit (2026-08-02)
 echo ">>> Refreshing systemd units from deploy/..."
 if bash "${REPO_DIR}/scripts/install_systemd_units.sh"; then
     echo ">>> Systemd units in sync."
@@ -331,6 +354,7 @@ else
     echo ">>> WARNING: install_systemd_units.sh exited nonzero — see journal."
 fi
 
+heal_devnull || true  # re-heal before the unit enumeration (its 2>/dev/null degraded to the 3-unit fallback on 2026-08-02)
 if "${SYSTEMCTL[@]}" list-units 'claude-vm-runner@*.service' --state=active --no-legend 2>/dev/null | grep -q .; then
     echo ">>> A claude-vm-runner unit is active — deferring service restart to the next sync tick to avoid killing an in-flight /vm invocation."
     echo "===== DEPLOY COMPLETE (restart deferred): $(date) ====="
@@ -463,6 +487,7 @@ fi
 # false-failure even though the deploy + restarts had succeeded. is-active
 # is instant and bounded. (oneshot/timer units legitimately read "inactive"
 # after a clean run — that's not a failure.)
+heal_devnull || true  # re-heal before the is-active status dump (2>/dev/null)
 echo ">>> Service status (is-active; oneshot/timer units show inactive after a clean run):"
 for unit in "${RESTARTED_UNITS[@]}"; do
     printf '>>>   %-48s %s\n' "${unit}" "$("${SYSTEMCTL[@]}" is-active "${unit}" 2>/dev/null || true)"
@@ -502,6 +527,9 @@ else
     ASSERT_OK=0
     for attempt in 1 2 3 4 5 6; do
         sleep 5
+        # A mid-loop /dev/null strip would EACCES the curl/python 2>/dev/null
+        # below → all 6 attempts "fail" → a false `exit 4`. Re-heal each pass.
+        heal_devnull || true
         VERSION_JSON="$(curl -fsS --max-time 5 \
             -H "Authorization: Bearer ${DIAG_TOKEN}" \
             "http://${WEB_API_HOST}:${WEB_API_PORT}/api/diag/version" 2>/dev/null || true)"
@@ -532,6 +560,7 @@ fi
 # above). Written only after a successful restart (and version assertion when
 # it ran) — a hard assertion failure exit 4's above and leaves the marker stale
 # so the next tick retries the restart.
+heal_devnull || true  # the marker write's own 2>/dev/null EACCESed on 2026-08-02 → "could not write deploy marker" → redeploy drift (BL-20260714)
 if printf '%s\n' "${POST_SYNC_HEAD}" > "${DEPLOYED_SHA_FILE}" 2>/dev/null; then
     echo ">>> Recorded deploy marker: ${POST_SYNC_HEAD:0:7}"
 else
