@@ -26,6 +26,7 @@ import argparse
 import json
 import sqlite3
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Allow ``python3 scripts/ops/migrate_closed_at_to_iso.py`` from the repo root.
@@ -40,7 +41,25 @@ def _is_ms(value) -> bool:
     return s.isdigit() and len(s) >= 12
 
 
-def migrate(db_path: Path, apply: bool) -> int:
+def _space_sep_to_iso(value):
+    """Convert a space-separated SQLite ``CURRENT_TIMESTAMP``
+    (``'YYYY-MM-DD HH:MM:SS'``) to an ISO-8601 UTC string. Returns ``None`` for
+    anything NOT in that shape (already ISO 'T', epoch-ms, empty) so the caller
+    leaves it untouched — the pass is idempotent."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s or "T" in s or " " not in s:
+        return None
+    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            return datetime.strptime(s, fmt).replace(tzinfo=timezone.utc).isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def migrate(db_path: Path, apply: bool, include_created_at: bool = False) -> int:
     if not db_path.exists():
         print(f"DB not found: {db_path}", file=sys.stderr)
         return 2
@@ -87,6 +106,27 @@ def migrate(db_path: Path, apply: bool) -> int:
         if len(updates) > 20:
             print(f"  … and {len(updates) - 20} more")
 
+        # created_at space-separated → ISO pass (opt-in; separate filter from
+        # closed_at — created_at is never NULL, and 100% of live rows are the
+        # space-separated CURRENT_TIMESTAMP form, BL-20260730). The read-side
+        # guard (A) already wraps every consumer in datetime(), so this is
+        # belt-and-suspenders uniformity, not a correctness prerequisite.
+        ca_updates = []
+        if include_created_at:
+            ca_rows = conn.execute(
+                "SELECT id, created_at FROM trades "
+                "WHERE created_at LIKE '% %' AND created_at NOT LIKE '%T%'"
+            ).fetchall()
+            for r in ca_rows:
+                iso = _space_sep_to_iso(r["created_at"])
+                if iso and iso != str(r["created_at"]):
+                    ca_updates.append((r["id"], iso))
+            print(f"created_at space-sep→ISO: {len(ca_updates)}")
+            for tid, nca in ca_updates[:10]:
+                print(f"  trade {tid}: created_at → {nca}")
+            if len(ca_updates) > 10:
+                print(f"  … and {len(ca_updates) - 10} more")
+
         if not apply:
             print("\nDRY-RUN — no changes written. Re-run with --apply to commit.")
             return 0
@@ -100,8 +140,13 @@ def migrate(db_path: Path, apply: bool) -> int:
                 conn.execute("UPDATE trades SET closed_at=? WHERE id=?", (nca, tid))
             elif nnotes is not None:
                 conn.execute("UPDATE trades SET notes=? WHERE id=?", (nnotes, tid))
+        for tid, nca in ca_updates:
+            conn.execute("UPDATE trades SET created_at=? WHERE id=?", (nca, tid))
         conn.commit()
-        print(f"\nAPPLIED — updated {len(updates)} row(s).")
+        print(
+            f"\nAPPLIED — updated {len(updates)} closed_at + "
+            f"{len(ca_updates)} created_at row(s)."
+        )
         return 0
     finally:
         conn.close()
@@ -111,9 +156,15 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--db", default=None, help="trade_journal.db path (default: canonical resolver)")
     ap.add_argument("--apply", action="store_true", help="write changes (default: dry-run)")
+    ap.add_argument(
+        "--include-created-at",
+        action="store_true",
+        help="ALSO normalise space-separated created_at → ISO (100%% of live rows; "
+        "belt-and-suspenders — consumers are already datetime()-wrapped by the read guard)",
+    )
     args = ap.parse_args()
     db_path = Path(args.db) if args.db else Path(trade_journal_db_path())
-    return migrate(db_path, args.apply)
+    return migrate(db_path, args.apply, include_created_at=args.include_created_at)
 
 
 if __name__ == "__main__":

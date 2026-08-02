@@ -208,7 +208,7 @@ def summary_data() -> dict[str, Any]:
             SELECT order_package_id, strategy_name, symbol, direction,
                    confidence, status, close_reason, created_at, updated_at
             FROM order_packages
-            WHERE created_at >= ?
+            WHERE datetime(created_at) >= datetime(?)
             ORDER BY datetime(created_at) DESC
             LIMIT ?
             """,
@@ -230,7 +230,7 @@ def summary_data() -> dict[str, Any]:
         )
         total_packages_24h = _safe_query(
             conn,
-            "SELECT COUNT(*) AS n FROM order_packages WHERE created_at >= ?",
+            "SELECT COUNT(*) AS n FROM order_packages WHERE datetime(created_at) >= datetime(?)",
             (start.isoformat(),),
         )
     finally:
@@ -349,7 +349,7 @@ def strategy_data(name: str, days: int = 7) -> dict[str, Any]:
                    order_package_id
             FROM trades
             WHERE strategy_name = ?
-              AND created_at >= ?
+              AND datetime(created_at) >= datetime(?)
               AND (is_backtest = 0 OR is_backtest IS NULL)
               AND (is_demo = 0 OR is_demo IS NULL)
             ORDER BY datetime(created_at) DESC
@@ -364,7 +364,7 @@ def strategy_data(name: str, days: int = 7) -> dict[str, Any]:
                    status, close_reason, created_at, updated_at
             FROM order_packages
             WHERE strategy_name = ?
-              AND created_at >= ?
+              AND datetime(created_at) >= datetime(?)
             ORDER BY datetime(created_at) DESC
             LIMIT ?
             """,
@@ -380,7 +380,7 @@ def strategy_data(name: str, days: int = 7) -> dict[str, Any]:
                    SUM(pnl) AS total_pnl
             FROM trades
             WHERE strategy_name = ?
-              AND created_at >= ?
+              AND datetime(created_at) >= datetime(?)
               AND (is_backtest = 0 OR is_backtest IS NULL)
               AND (is_demo = 0 OR is_demo IS NULL)
             """,

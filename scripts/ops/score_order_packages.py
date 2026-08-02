@@ -299,7 +299,7 @@ def _iter_delta_records(con: sqlite3.Connection, *, skip_ids: set,
     if closed_only:
         where.append("op.status = 'closed'")
     if since:
-        where.append("op.created_at >= ?")
+        where.append("datetime(op.created_at) >= datetime(?)")
         params.append(since)
     clause = f"WHERE {' AND '.join(where)}" if where else ""
     rows = con.execute(

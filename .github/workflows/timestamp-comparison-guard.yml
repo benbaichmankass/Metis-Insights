@@ -1,0 +1,72 @@
+name: timestamp-comparison-guard
+
+# Fails the PR check when a RAW string comparison of trades.created_at /
+# trades.closed_at is introduced — the column encodings differ (space-separated
+# CURRENT_TIMESTAMP vs ISO T+offset vs raw epoch-ms), so `created_at >= '..T..'`
+# silently drops rows because ' ' (0x20) sorts below 'T' (0x54).
+# BL-20260730-TRADES-TIMESTAMP-FORMAT-MIXED. Same shape as canonical-db-resolver
+# / env-gate-guard / silent-empty-guard / diagnostic-provenance-guard.
+#
+# The tree is clean at landing, so this runs the WHOLE-TREE audit (`--all`) —
+# nothing to grandfather. A PR fails only if IT adds a raw comparison. Wrap both
+# sides in datetime(...) (or closed_at_norm_sql for the epoch-ms column) or, for
+# a proven-safe site, append `# ts-compare-ok: <reason>`.
+#
+# Actions-minutes discipline (MB-20260706-CI-MINUTES): the whole-tree scan is a
+# fast text walk (no build, no VM), so the job carries no `paths:` filter (a
+# required check must never be left pending) and runs unconditionally.
+
+on:
+  # Dormant until the native merge queue is enabled (BL-20260726); a required
+  # check MUST run on the merge_group ref or the queue stalls.
+  merge_group:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  timestamp-comparison-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # SELF-TEST FIRST — prove the guard can still FAIL before trusting a green
+      # from it. A guard whose failure path is never exercised is the "green
+      # that checked nothing" this defect class is about.
+      - name: Self-test — the guard must fail on a known-bad comparison
+        run: |
+          set -euo pipefail
+          cat > /tmp/ts_bad.diff <<'DIFF'
+          +++ b/scripts/ml/_ts_selftest.py
+          @@ -0,0 +1,1 @@
+          +    q = "SELECT * FROM trades WHERE created_at >= ?"
+          DIFF
+          set +e
+          python3 scripts/check_timestamp_comparisons.py /tmp/ts_bad.diff
+          rc=$?
+          set -e
+          if [ "$rc" -ne 1 ]; then
+            echo "::error::SELF-TEST FAILED — guard returned $rc on a known-bad \
+            comparison (expected 1). Its failure path is broken; a green means \
+            nothing. Fix the guard before trusting this check."
+            exit 1
+          fi
+          echo "self-test OK — guard fails closed (exit 1 on known-bad input)."
+
+      - name: Whole-tree audit — no raw created_at/closed_at comparison
+        run: |
+          set +e
+          python3 scripts/check_timestamp_comparisons.py --all
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::timestamp-comparison guard tripped — a raw string \
+            comparison of created_at/closed_at was introduced. See the job \
+            output for the exact line and the fix."
+            exit 1
+          fi

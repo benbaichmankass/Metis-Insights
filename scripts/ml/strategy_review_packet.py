@@ -344,8 +344,8 @@ def pull_decisions(
             FROM order_packages AS op
             LEFT JOIN trades AS t ON t.id = op.linked_trade_id
             WHERE op.strategy_name = ?
-              AND op.created_at >= ?
-              AND op.created_at <  ?
+              AND datetime(op.created_at) >= datetime(?)
+              AND datetime(op.created_at) <  datetime(?)
             ORDER BY datetime(op.created_at) ASC
             """,
             (strategy, window_start.isoformat(), window_end.isoformat()),

@@ -87,3 +87,51 @@ def test_migration_dry_run_then_apply_idempotent():
     )
     conn.close()
     db.unlink()
+
+
+def test_space_sep_to_iso_helper():
+    mod = _load_migration_module()
+    assert mod._space_sep_to_iso("2026-08-02 04:29:01") == "2026-08-02T04:29:01+00:00"
+    assert mod._space_sep_to_iso("2026-08-02 04:29:01.123456") == "2026-08-02T04:29:01.123456+00:00"
+    # already ISO 'T', epoch-ms, and empty are left for the caller to skip
+    assert mod._space_sep_to_iso("2026-08-02T04:29:01+00:00") is None
+    assert mod._space_sep_to_iso("1782128223798") is None
+    assert mod._space_sep_to_iso(None) is None
+    assert mod._space_sep_to_iso("") is None
+
+
+def test_created_at_pass_opt_in_and_idempotent():
+    mod = _load_migration_module()
+    db = Path(tempfile.mktemp(suffix=".db"))
+    conn = sqlite3.connect(str(db))
+    conn.execute("CREATE TABLE trades(id INTEGER PRIMARY KEY, created_at TEXT, closed_at TEXT, notes TEXT)")
+    conn.executemany(
+        "INSERT INTO trades(id, created_at, closed_at, notes) VALUES(?,?,?,?)",
+        [
+            (1, "2026-08-02 04:29:01", None, None),                 # space-sep → migrated
+            (2, "2026-08-02T05:00:00+00:00", None, None),           # already ISO → untouched
+        ],
+    )
+    conn.commit()
+    conn.close()
+
+    # created_at is NOT touched unless the flag is set
+    assert mod.migrate(db, apply=True) == 0
+    conn = sqlite3.connect(str(db))
+    assert conn.execute("SELECT created_at FROM trades WHERE id=1").fetchone()[0] == "2026-08-02 04:29:01"
+    conn.close()
+
+    # with the flag, the space-sep row is normalised, the ISO row is left alone
+    assert mod.migrate(db, apply=True, include_created_at=True) == 0
+    conn = sqlite3.connect(str(db))
+    rows = {r[0]: r[1] for r in conn.execute("SELECT id, created_at FROM trades")}
+    assert rows[1] == "2026-08-02T04:29:01+00:00"
+    assert rows[2] == "2026-08-02T05:00:00+00:00"
+    conn.close()
+
+    # idempotent
+    assert mod.migrate(db, apply=True, include_created_at=True) == 0
+    conn = sqlite3.connect(str(db))
+    assert conn.execute("SELECT created_at FROM trades WHERE id=1").fetchone()[0] == "2026-08-02T04:29:01+00:00"
+    conn.close()
+    db.unlink()
