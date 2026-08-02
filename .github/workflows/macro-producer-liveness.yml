@@ -3,24 +3,33 @@ name: macro-producer-liveness
 # Workplan §0.WS-5 — the dead-man switch for the scheduled macro PRODUCERS.
 #
 # THE FAILURE CLASS THIS EXISTS TO KILL ("silently-skipped scheduled job"):
-#   A cron-scheduled producer (today: macro-valuation-snapshot.yml, daily 07:30
-#   UTC → comms/macro/valuation_snapshots.jsonl) can quietly stop firing —
-#   GitHub auto-disables a schedule after 60 days of repo inactivity, a renamed
-#   secret breaks the commit-to-main hop, a bad merge removes the cron — and
-#   NOTHING notices, because the append-only ledger still exists and still reads
-#   cleanly. The P4 value-thesis gate downstream just keeps replaying a log that
-#   stopped growing. This is exactly the stale-feed-everyone-walks-past incident
-#   the "if you see something, say something" directive (CLAUDE.md) is about.
+#   A cron-scheduled producer (the registered scheduled macro producers:
+#   macro-valuation-snapshot.yml → comms/macro/valuation_snapshots.jsonl, daily
+#   07:30 UTC; and econ-calendar-produce.yml → comms/macro/econ_calendar_snapshots.jsonl,
+#   daily ~22:30 UTC) can quietly stop firing — GitHub auto-disables a schedule
+#   after 60 days of repo inactivity, a renamed secret breaks the commit-to-main
+#   hop, a bad merge removes the cron — and NOTHING notices, because the
+#   append-only ledger still exists and still reads cleanly. The P4 value-thesis
+#   gate downstream just keeps replaying a log that stopped growing. This is
+#   exactly the stale-feed-everyone-walks-past incident the "if you see something,
+#   say something" directive (CLAUDE.md) is about.
 #
 # WHAT IT DOES:
 #   Runs scripts/macro/check_producer_liveness.py (stdlib-only, read-only) on a
-#   daily cadence. The script reports STALE when a producer's freshest
-#   observed_at is older than its threshold (48h = 2 missed daily runs). On
-#   staleness it (1) Telegrams the loud operator channel and (2) opens/updates a
-#   GitHub issue labelled `macro-producer-stale`, AND the job fails (red in the
-#   Actions UI). When everything is fresh it is SILENT — no ping, no issue (the
-#   notification-streamlining posture: alert on the exception, not the norm) — and
-#   auto-resolves any previously-opened stale issue.
+#   daily cadence. The script asserts TWO things per registered producer:
+#     * STALE   — the freshest observed_at is older than its threshold
+#                 (48h = 2 missed daily runs), i.e. the cron stopped firing; AND
+#     * VACUOUS — (T3, 2026-08-02) the ledger is fresh but the NEWEST batch (rows
+#                 sharing the max observed_at) carries no load-bearing input, i.e.
+#                 the producer fired and appended but measured nothing (the
+#                 all-null-FRED / price_bars:0 class freshness alone cannot see).
+#   On either verdict it (1) Telegrams the loud operator channel and (2)
+#   opens/updates a GitHub issue labelled `macro-producer-stale`, AND the job
+#   fails (red in the Actions UI) — the exit-code contract is unchanged, so both
+#   verdicts flow through the same alert path. When everything is fresh AND
+#   non-vacuous it is SILENT — no ping, no issue (the notification-streamlining
+#   posture: alert on the exception, not the norm) — and auto-resolves any
+#   previously-opened stale issue.
 #
 # WHY OFF-VM / TIER-1:
 #   Pure read of committed ledgers on a GitHub-hosted runner. No SSH, no VM

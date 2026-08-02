@@ -1,69 +1,79 @@
-# Merge queue — enablement + operation (BL-20260726-MERGE-QUEUE-ENABLEMENT)
+# Merge queue — UNAVAILABLE on this repo (user-owned); use the manual claim protocol
 
-**Why:** the honour-system merge-claim protocol (post a `🔒 MERGE SLOT CLAIM`
-on #6927 → sync to `main` → merge → `🔓 RELEASE`) keeps getting skipped under
-load — sessions merge stale branches and hit the `behind`/`dirty` retest churn
-(BL-20260720-MERGE-PROTOCOL-LAPSE, and again 2026-07-26). GitHub's **native
-merge queue** removes the human-discipline dependency: it auto-syncs each PR to
-the queue head, runs the required checks on that merged result, and merges in
-order — no manual "sync-immediately-before", no two sessions racing.
+> **Status (2026-08-02): the GitHub native merge queue CANNOT be enabled on this
+> repository, and BL-20260726-MERGE-QUEUE-ENABLEMENT's premise is therefore
+> invalid.** `benbaichmankass/Metis-Insights` is a **user-owned** repo (owner is
+> a personal account, not an organization), and GitHub's merge queue is an
+> **organization-only** feature — there is **no "Require merge queue" checkbox**
+> under Settings → Branches → branch-protection for a user-owned repo (operator
+> confirmed 2026-08-02; consistent with GitHub's documented availability: merge
+> queue ships only for repositories owned by an organization on Team/Enterprise).
+> So the enablement steps that used to be here **do not exist to perform**, and
+> the dormant `merge_group:` triggers on ~30 workflows **will never fire**. The
+> serializer remains the **manual honour-system claim protocol** below.
 
-## Prerequisite (SHIPPED in this PR) — `merge_group` triggers
+## Why the merge queue was pursued (kept as record)
 
-A merge queue forms a temporary `merge_group` ref and waits for the branch's
-**required status checks** to report on it. **If a required check's workflow
-does not trigger on `merge_group`, it never reports and the queue stalls —
-blocking every merge.** Before this PR, **zero** workflows triggered on
-`merge_group`.
+The honour-system merge-claim protocol (post a `🔒 MERGE SLOT CLAIM` on #6927 →
+sync to `main` → merge → `🔓 RELEASE`) keeps getting skipped under load —
+sessions merge stale branches and hit the `behind`/`dirty` retest churn
+(BL-20260720-MERGE-PROTOCOL-LAPSE, again 2026-07-26). GitHub's native merge
+queue would have removed the human-discipline dependency: it auto-syncs each PR
+to the queue head, runs the required checks on that merged result, and merges in
+order. #7666 (BL-20260726-MERGE-QUEUE-ENABLEMENT) shipped the **prerequisite** —
+a dormant `merge_group:` trigger on all required-check workflows — on the
+assumption the operator could then flip on "Require merge queue." **That
+assumption was wrong for a user-owned repo** (see the status note above), so the
+prerequisite is inert and the queue is not an available path here.
 
-This PR adds a **dormant** `merge_group:` trigger to all 23 PR-check workflows
-(pytest-run, pytest-collect, ruff-lint, secret-scan, repo-inventory + every
-guard). Dormant = no `merge_group` events fire until you enable the queue, so
-current PR merging is byte-for-byte unaffected. Each addition is a plain
-`merge_group:` key alongside the existing `pull_request:`/`push:` triggers.
+The dormant `merge_group:` triggers are **harmless to leave in place** (they fire
+only on a `merge_group` event, which never occurs without the queue) and are
+**not worth a sweep to remove** — a churny ~30-workflow PR for zero behavioural
+change. Leave them; this note is the durable record of why they're dormant.
 
-## Operator enable steps (Settings → Branches)
+## What to do instead — the manual claim protocol (the sole serializer)
 
-Do this **after** this PR merges to `main`:
+This is the binding serializer. Full contract: the `session-coordination`
+skill (`.claude/skills/session-coordination/SKILL.md`) §2 and
+`docs/claude/coordination-board.md`.
 
-1. **Settings → Branches → Branch protection rule for `main` → edit.**
-2. Tick **"Require merge queue"**.
-3. Set the merge method to **Squash** (matches the repo convention).
-4. Under **"Build concurrency"** leave the defaults (1–5) unless you want batching.
-5. Confirm **"Require status checks to pass"** lists the same required checks as
-   today — the queue reuses that list. (Do **not** add a required check that
-   lacks a `merge_group` trigger — it would deadlock the queue.)
-6. Save.
+1. **Read the board (#6927)** — `issue_read method=get_comments`. See what other
+   live sessions are touching and whether the merge slot is claimed.
+2. **`🔒 MERGE SLOT — CLAIM`** on #6927 naming your PR before you merge.
+3. **Sync-immediately-before-merge.** Because "Require branches to be up to date"
+   is ON for `main` (see the rebase-race note below), the branch must be current
+   with `origin/main` at the moment of merge or GitHub 405s (`behind`) / re-runs
+   all checks. Update the branch (`update_pull_request_branch`, or a local rebase
+   + force-push) **just before** merging, once you hold the slot.
+4. **Merge on green** — `merge_pull_request` (squash) once required checks pass on
+   the synced head.
+5. **`🔓 MERGE SLOT — RELEASE`** + `✅ DONE` on #6927 so the next session proceeds.
+6. **One PR = one concern.** The 2026-07-26 lapse was compounded by piling
+   unrelated housekeeping onto one PR, making `health-review-backlog.json` a
+   conflict magnet that re-triggered CI. Keep PRs single-concern.
 
-## Validate BEFORE relying on it (fail-safe first merge)
+## The rebase-race (persists until the operator changes one setting or moves the repo)
 
-The first queued merge is a **validation** — if a guard misbehaves on the
-`merge_group` ref, the queue simply doesn't merge that PR (fail-safe), it does
-not corrupt `main`:
+With the queue unavailable, concurrent sessions still hit the **rebase-race**:
+`main` advances under an open PR while its checks run, the PR goes `behind`, and
+its checks must re-run against the new merge head before it can merge — repeated
+if several sessions land PRs in a burst. This is intrinsic to
+`main`'s branch protection having **"Require branches to be up to date before
+merging"** ticked, combined with no queue to auto-serialize.
 
-1. Open a trivial no-op PR (e.g. a one-line docs/comment change).
-2. Click **Merge when ready** (adds it to the queue).
-3. Watch the queue run the required checks on the `merge_group` ref. All green
-   → it merges automatically. If a specific guard errors on `merge_group`
-   (e.g. a diff-based guard that assumed PR context), note which one and fix
-   that workflow (usually: make it tolerate the `merge_group` ref, or drop it
-   from the required-checks set if it's not truly required). Repeat until green.
-4. Once a validation PR merges cleanly, the queue is trustworthy for real PRs.
+**It persists until ONE of:**
 
-## How sessions merge once the queue is on
+- The operator **unticks "Require branches to be up to date before merging"** on
+  `main`'s branch-protection rule (checks then still run per-PR, but a PR need
+  not be re-synced to the current `main` tip to merge — removing the re-run
+  churn; the trade-off is a PR can merge against a slightly older base, which the
+  required checks still gate). This is the low-cost mitigation available today on
+  a user-owned repo.
+- The repo is **moved into a GitHub organization**, which unlocks the native
+  merge queue (then the enablement flow — flip "Require merge queue," run a
+  validation PR — becomes performable, and the dormant `merge_group:` triggers
+  activate).
 
-- **Add the PR to the queue** (GitHub "Merge when ready", or
-  `enable_pr_auto_merge`). GitHub auto-syncs it to the queue head, runs checks,
-  merges in order. **No manual `git fetch && merge origin/main` immediately
-  before merging, no `behind`/`dirty` churn.**
-- The `docs/claude/session-board.json` `merge_slot` + the `🔒 CLAIM`/`🔓 RELEASE`
-  comments become **belt-and-suspenders** for the rare non-queued path (an admin
-  bypass merge, a hotfix). The board (#6927) stays **primary for work
-  coordination** — `▶️ START` / `✅ DONE` / `❓ QUESTION` / `active_sessions`
-  registration — which the queue does not replace.
-
-## Rollback
-
-Untick "Require merge queue" in branch protection. The dormant `merge_group:`
-triggers are then simply never fired again (harmless to leave in place). The
-honour-system claim protocol resumes as the sole serializer.
+Until then: **claim the slot, sync-immediately-before, merge-on-green, release —
+and expect to rebase onto `origin/main` + force-push (or `update_pull_request_branch`)
+if a PR goes `behind` while it waited.**
