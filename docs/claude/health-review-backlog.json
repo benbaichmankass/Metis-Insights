@@ -8537,6 +8537,15 @@
       "tier": 1,
       "severity": "low",
       "resolution_criteria": "`--help`/`-h`/`--version` on any heavy command returns without acquiring the flock; pinned by a test.",
+      "status": "resolved",
+      "resolved_at": "2026-08-02T03:20:00+00:00",
+      "updates": [
+        {
+          "at": "2026-08-02T03:20:00+00:00",
+          "by": "claude (roadmap-backlog session, backlog drain)",
+          "note": "RESOLVED. ml/cli.py::main now computes `_wants_help = any(a in ('-h','--help','--version') for a in argv)` and only acquires the heavy flock when `cmd in _HEAVY_COMMANDS and not _wants_help` — so a help/version lookup short-circuits the lock and argparse (or the datasets sub-parser) prints + exits below without ever queueing behind a running training cycle. Every REAL invocation is byte-for-byte unchanged (a genuine `build-dataset`/`train` still takes the lock), so the runtime blast radius is nil. Pinned by tests/test_ml_cli_help_lock.py (6 tests: --help/-h/--version skip the lock, help-anywhere-in-argv, a real run STILL takes it, a non-heavy command unaffected). Coordination: ml/cli.py is the trainer's shared entry point (normally the /system-review session's space) — taken here because main had zero commits for ~2h (that session appears wrapped) and the change touches only the --help/--version path; heads-up posted on board #6927."
+        }
+      ],
       "refs": [
         "ml/cli.py",
         "docs/claude/trainer-resource-protocol.md"
