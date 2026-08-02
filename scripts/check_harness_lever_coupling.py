@@ -39,6 +39,7 @@ Exit 0 = every classified strategy's keys are accounted for; 1 = a coupling gap.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 import sys
 from pathlib import Path
@@ -47,8 +48,6 @@ from typing import Dict, List, Set, Tuple
 REPO = str(Path(__file__).resolve().parents[1])
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
-
-import importlib.util
 
 _RDM_PATH = os.path.join(REPO, "scripts", "research", "regime_debt_matrix.py")
 _spec = importlib.util.spec_from_file_location("regime_debt_matrix", _RDM_PATH)
