@@ -42,6 +42,35 @@ fi
 
 cd "$REPO_DIR"
 
+# ---------------------------------------------------------------------------
+# Self-heal a non-writable /dev/null. Self-contained mirror of
+# scripts/ops/_lib.sh::heal_devnull — this script is invoked by the VM deploy
+# path (deploy_pull_restart.sh) AND standalone, so it must not depend on _lib.sh.
+# The OCI host-agent /dev/null strip lands MID-RUN: on 2026-08-02 it first bit
+# THIS script's timer-enable loop (`is-enabled/is-active >/dev/null 2>&1`),
+# spamming `line …: /dev/null: Permission denied` ~15× and defeating the
+# idempotency check so every timer got a redundant (harmless) re-`enable --now`
+# (BL-20260730-DEVNULL-DEPLOY-REDIRECT-FRAGILITY recurrence). Called at entry and per enable-loop
+# iteration; cheap when healthy (one probe), self-heals variant-(a) mode-strip
+# via `sudo chmod`, variant-(b) regular-file clobber via rm+mknod. Never fatal.
+# ---------------------------------------------------------------------------
+heal_devnull() {
+    local _probe="${TMPDIR:-/tmp}/.devnull_probe.$$"
+    if ( : >/dev/null ) 2>"${_probe}"; then rm -f "${_probe}" 2>&- || true; return 0; fi
+    echo ">>> install_systemd_units: /dev/null not writable (host-agent clobber) — self-healing"
+    "${SUDO[@]}" chmod 0666 /dev/null 2>"${_probe}" || true
+    if ! ( : >/dev/null ) 2>"${_probe}"; then
+        "${SUDO[@]}" sh -c 'rm -f /dev/null && mknod -m 666 /dev/null c 1 3' 2>"${_probe}" || true
+    fi
+    if ! ( : >/dev/null ) 2>"${_probe}"; then
+        echo ">>> install_systemd_units: WARNING /dev/null STILL not writable after self-heal (ict-devnull-guard.timer heals within 60s)"
+        rm -f "${_probe}" 2>&- || true
+        return 1
+    fi
+    rm -f "${_probe}" 2>&- || true
+}
+heal_devnull || true
+
 changed=0
 
 # ---------------------------------------------------------------------------
@@ -427,6 +456,7 @@ for timer_path in deploy/*.timer; do
             continue
         fi
     fi
+    heal_devnull || true  # re-heal per iteration — the mid-run strip first bit HERE (2026-08-02)
     if "${SUDO[@]}" systemctl is-enabled "$timer_name" >/dev/null 2>&1 \
         && "${SUDO[@]}" systemctl is-active "$timer_name" >/dev/null 2>&1; then
         continue
@@ -448,6 +478,7 @@ shopt -u nullglob
 # active) and tolerant of a failed start (e.g. token not yet synced) so a deploy
 # never hard-fails on it.
 if [ "$_VM_ROLE" != "gateway" ] && [ -f deploy/ict-claude-bridge.service ]; then
+    heal_devnull || true  # re-heal before the claude-bridge is-enabled check (same 2>/dev/null)
     if "${SUDO[@]}" systemctl is-enabled ict-claude-bridge.service >/dev/null 2>&1 \
         && "${SUDO[@]}" systemctl is-active ict-claude-bridge.service >/dev/null 2>&1; then
         :  # already enabled + running — nothing to do

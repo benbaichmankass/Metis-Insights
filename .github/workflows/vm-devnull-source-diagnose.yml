@@ -36,10 +36,25 @@ name: vm-devnull-source-diagnose
 #               recreating the node with a rule-default mode, which wouldn't show
 #               as a userspace chmod syscall at all). No mutation, no rule
 #               installed — pure observation for the duration of one job run.
+#   fanotify-arm  Tier-2. ROUND 8 (2026-08-02): after oci-wlp was EXONERATED (disabled+
+#               exited, no reboot, clobber still recurs) and every b64 chmod syscall rule
+#               stayed silent across 7 rounds, install + start a read-only fanotify
+#               FAN_ATTRIB watcher on /dev/null as a resource-capped transient systemd
+#               unit. fanotify fires at the VFS notify_change layer that EVERY mode change
+#               funnels through (incl. a compat/b32 chmod a b64 audit rule can't see) and
+#               reports the culprit's TGID — the one net not yet tried. Names pid/comm/exe.
+#   fanotify-read READ-ONLY. Dump the watcher status + captured attribute-change events +
+#               the guard restores in the same window (correlate a 0666 restore ⇒ a strip).
+#   fanotify-disarm Tier-2. Stop + remove the watcher (log kept). Run once the culprit is named.
 #
-# Blast radius: `inspect`/`read-audit`/`udev-watch` touch nothing. `arm-audit`
-# installs the auditd package (a standard, lightweight daemon) + one narrow
-# watch rule on a single inode — no trade path, no other unit. Fixed-form
+# Blast radius: `inspect`/`read-audit`/`udev-watch`/`fanotify-read` touch nothing.
+# `arm-audit` installs the auditd package (a standard, lightweight daemon) + one
+# narrow watch rule on a single inode. `fanotify-arm` (round 8, 2026-08-02) installs
+# one read-only Python watcher (scripts/ops/devnull_attrib_watch.py) + runs it as a
+# resource-capped TRANSIENT systemd unit (CPUQuota 5%, MemoryMax 64M, Nice 19) that
+# blocks on fanotify FAN_ATTRIB for /dev/null and logs the acting pid/comm/exe on any
+# mode change — no /dev/null mutation, no trade path, no other unit; `fanotify-disarm`
+# stops + removes it. All Tier-2 arm/disarm actions are operator-approved. Fixed-form
 # remote script.
 #
 # Trigger: workflow_dispatch (mode input), or an issue labeled
@@ -52,7 +67,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'inspect | arm-audit | read-audit | udev-watch'
+        description: 'inspect | arm-audit | read-audit | udev-watch | fanotify-arm | fanotify-read | fanotify-disarm'
         required: false
         default: 'inspect'
   issues:
@@ -80,6 +95,9 @@ jobs:
       VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
       VM_SSH_USER: ${{ vars.VM_SSH_USER || 'ubuntu' }}
     steps:
+      - name: Checkout (needed to copy the fanotify watcher script)
+        uses: actions/checkout@v4
+
       - name: Dedup — bail if a bot comment already exists
         if: github.event_name == 'issues'
         id: dedup
@@ -110,8 +128,8 @@ jobs:
             [ -n "${PARSED}" ] && MODE="${PARSED}"
           fi
           case "${MODE}" in
-            inspect|arm-audit|read-audit|udev-watch) : ;;
-            *) echo "::error::unknown mode '${MODE}' (want inspect|arm-audit|read-audit|udev-watch)"; exit 1 ;;
+            inspect|arm-audit|read-audit|udev-watch|fanotify-arm|fanotify-read|fanotify-disarm) : ;;
+            *) echo "::error::unknown mode '${MODE}' (want inspect|arm-audit|read-audit|udev-watch|fanotify-arm|fanotify-read|fanotify-disarm)"; exit 1 ;;
           esac
           echo "mode=${MODE}" >> "$GITHUB_OUTPUT"
           echo "Resolved mode: ${MODE}"
@@ -128,14 +146,24 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -t rsa,ecdsa,ed25519 "${VM_SSH_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
+      - name: Copy fanotify watcher to VM (fanotify-arm only)
+        if: steps.dedup.outputs.skip != 'true' && steps.mode.outputs.mode == 'fanotify-arm'
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 scripts/ops/devnull_attrib_watch.py \
+              "${VM_SSH_USER}@${VM_SSH_HOST}:/tmp/devnull_attrib_watch.py"
+          echo "copied watcher to /tmp/devnull_attrib_watch.py on the VM"
+
       - name: Diagnose on the VM
         if: steps.dedup.outputs.skip != 'true'
         env:
           MODE: ${{ steps.mode.outputs.mode }}
         run: |
           set -euo pipefail
-          # MODE is validated against a fixed allowlist above (inspect|arm-audit|read-audit|udev-watch),
-          # so interpolating it into the remote command is injection-free (not from the issue body).
+          # MODE is validated against a fixed allowlist above (inspect|arm-audit|read-audit|udev-watch|
+          # fanotify-arm|fanotify-read|fanotify-disarm), so interpolating it into the remote command is
+          # injection-free (not from the issue body).
           ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=20 "${VM_SSH_USER}@${VM_SSH_HOST}" "MODE='${MODE}' bash -s" > out.txt 2>&1 <<'REMOTE' || true
           set +e
@@ -166,6 +194,34 @@ jobs:
             [ -f /etc/audit/rules.d/devnull.rules ] && { echo "--- /etc/audit/rules.d/devnull.rules ---"; sudo cat /etc/audit/rules.d/devnull.rules; }
             echo; echo "===== ict-devnull-guard recent journal (correlate its 0666 restores) ====="
             sudo journalctl -u ict-devnull-guard.service --no-pager -n 20 2>/dev/null || echo "(no guard journal)"
+            # ROUND 8 (2026-08-02, BL re-opened): the 2026-07-28 "culprit = oci-wlp" was
+            # circumstantial + the console-disable regressed (clobber recurred on the
+            # 2026-08-02 deploy). Capture the DECISIVE state the earlier inspect missed:
+            # is a workload-protection/FIM plugin actually enabled+running NOW, did the
+            # box reboot (a reboot re-enables a console-disabled plugin), and what is the
+            # snap confinement (a strict snap can't chmod the HOST /dev/null; classic can).
+            echo; echo "===== uptime / last boot (a reboot re-enables a console-disabled OCA plugin) ====="
+            uptime -p 2>/dev/null; echo "boot: $(uptime -s 2>/dev/null)"; who -b 2>/dev/null || true
+            echo; echo "===== OCA desired plugin state (agent.yml) ====="
+            sudo cat /etc/oracle-cloud-agent/agent.yml 2>/dev/null || echo "(agent.yml unreadable)"
+            echo; echo "===== OCA installed/enabled plugin dirs ====="
+            echo "--- /etc/oracle-cloud-agent/plugins ---"; sudo ls -la /etc/oracle-cloud-agent/plugins 2>/dev/null
+            echo "--- /var/lib/oracle-cloud-agent/plugins ---"; sudo ls -la /var/lib/oracle-cloud-agent/plugins 2>/dev/null
+            echo "--- /var/log/oracle-cloud-agent/plugins (which plugins have logged) ---"; sudo ls -la /var/log/oracle-cloud-agent/plugins 2>/dev/null
+            echo; echo "===== RUNNING processes that could remediate a device node (wlp/fim/workload/falcon/scan/osquery) ====="
+            ps -eo pid,ppid,user,comm,args 2>/dev/null | grep -iE 'wlp|hostfim|fim|workload|falcon|osquery|hostscan|clamav|scan|remediat' | grep -v grep || echo "(no FIM/scan/workload-protection process running)"
+            echo; echo "===== snap confinement (classic ⇒ sees HOST /dev/null; strict ⇒ private /dev) ====="
+            snap list oracle-cloud-agent 2>/dev/null || echo "(snap list failed)"
+            snap connections oracle-cloud-agent 2>/dev/null | grep -iE 'system-files|mount-control|hardware-observe|kernel-module|system-backup|classic' || echo "(no broad interfaces / not classic)"
+            grep -E '^confinement:' /snap/oracle-cloud-agent/current/meta/snap.yaml 2>/dev/null || sudo grep -E '^confinement:' /var/lib/snapd/snaps/*oracle-cloud-agent*/meta/snap.yaml 2>/dev/null || echo "(confinement unknown)"
+            echo; echo "===== OCA agent.log: oci-wlp / workload-protection / plugin start-stop references ====="
+            sudo zgrep -hiE 'oci-wlp|workload.?protection|hostfim|Cloud Guard' /var/log/oracle-cloud-agent/agent*.log* 2>/dev/null | tail -25 || echo "(no oci-wlp / workload-protection references in agent logs)"
+            echo; echo "===== OCA agent.log: plugin lifecycle / remediation lines (any time) ====="
+            sudo grep -hiE 'plugin|remediat|enable|disable|start|stop' /var/log/oracle-cloud-agent/agent.log 2>/dev/null | grep -iE 'wlp|workload|fim|remediat|enabl|disabl|starting plugin|stopping plugin' | tail -30 || echo "(no plugin-lifecycle/remediation lines in agent.log)"
+            echo; echo "===== other schedulers that touch /dev or run hardening (cron/timers/tmpfiles) ====="
+            sudo ls -la /etc/cron.d /etc/cron.daily /etc/cron.hourly 2>/dev/null | grep -iE 'dev|perm|hard|cis|scan|oci' || echo "(no suspicious cron entries)"
+            systemctl list-timers --all --no-pager 2>/dev/null | grep -iE 'oci|oracle|cloud|scan|fim|tmpfiles|hard' || echo "(no suspicious timers)"
+            grep -rIiE '/dev/null|/dev ' /usr/lib/tmpfiles.d /etc/tmpfiles.d 2>/dev/null | grep -v '^#' | head -10 || echo "(no tmpfiles.d entries touching /dev)"
 
           elif [ "${MODE}" = "arm-audit" ]; then
             echo; echo "===== ensure auditd installed ====="
@@ -309,6 +365,60 @@ jobs:
             echo "If a MODE CHANGE line has NO matching UDEV/KERNEL event within a second or two of"
             echo "its timestamp, the strip is not udev-driven either — narrows further to a direct"
             echo "syscall this box's audit transport still isn't recording, or process-context denial."
+
+          elif [ "${MODE}" = "fanotify-arm" ]; then
+            # ROUND 8 (2026-08-02, BL-20260629 reopened after oci-wlp EXONERATED): every b64
+            # chmod-family SYSCALL rule captured nothing across 7 rounds, and the previously-blamed
+            # FIM plugin is disabled+exited. fanotify FAN_ATTRIB fires at the VFS notify_change layer
+            # — the funnel EVERY mode change passes through, incl. a compat/b32 chmod a b64 audit rule
+            # can't see — and reports the culprit's TGID. Install the (scp'd) watcher + run it as a
+            # bounded, resource-capped TRANSIENT systemd unit (no repo unit file, no reboot survival —
+            # this is a temporary diagnostic soak, disarmed once it names the culprit). Tier-2:
+            # installs one script + runs one read-only observing process; NO trade path, NO mutation
+            # of /dev/null, NO other unit.
+            echo; echo "===== fanotify-arm: install + start the /dev/null attribute watcher ====="
+            [ -f /tmp/devnull_attrib_watch.py ] || { echo "ERROR: /tmp/devnull_attrib_watch.py not present (scp step failed)"; echo "(done)"; exit 0; }
+            sudo install -m 0755 /tmp/devnull_attrib_watch.py /usr/local/bin/devnull_attrib_watch.py && rm -f /tmp/devnull_attrib_watch.py
+            echo "installed /usr/local/bin/devnull_attrib_watch.py:"; sudo ls -l /usr/local/bin/devnull_attrib_watch.py
+            # Idempotent: stop any prior instance first so a re-arm never stacks two watchers.
+            sudo systemctl reset-failed ict-devnull-attrib-watch.service 2>/dev/null || true
+            sudo systemctl stop ict-devnull-attrib-watch.service 2>/dev/null || true
+            PY="$(command -v python3 || echo /usr/bin/python3)"
+            sudo systemd-run --unit=ict-devnull-attrib-watch --collect \
+              --property=Description='ICT round-8 /dev/null fanotify attribute watcher (BL-20260629, diagnostic soak)' \
+              --property=Restart=on-failure --property=RestartSec=5 \
+              --property=Nice=19 --property=CPUQuota=5% --property=MemoryMax=64M \
+              --setenv=DEVNULL_ATTRIB_LOG=/var/log/ict-devnull-attrib.jsonl \
+              "${PY}" /usr/local/bin/devnull_attrib_watch.py
+            sleep 2
+            echo; echo "===== watcher unit status ====="
+            sudo systemctl --no-pager --full status ict-devnull-attrib-watch.service 2>&1 | head -20
+            echo; echo "===== watcher log (startup line proves fanotify armed) ====="
+            sudo tail -5 /var/log/ict-devnull-attrib.jsonl 2>/dev/null || echo "(no log yet)"
+            echo; echo "ARMED. It blocks on fanotify (~0 CPU) until /dev/null's mode changes, then logs the acting pid+comm+exe."
+            echo "Re-run mode: fanotify-read after the next clobber (guard journal shows a 0666 restore ⇒ a strip happened)."
+            echo "Disarm with mode: fanotify-disarm once the culprit is named."
+
+          elif [ "${MODE}" = "fanotify-read" ]; then
+            echo; echo "===== fanotify-read: watcher status + captured attribute-change events ====="
+            sudo systemctl --no-pager --full status ict-devnull-attrib-watch.service 2>&1 | head -15
+            echo; echo "===== /var/log/ict-devnull-attrib.jsonl (all captured events) ====="
+            sudo cat /var/log/ict-devnull-attrib.jsonl 2>/dev/null || echo "(no watcher log — is it armed? run fanotify-arm)"
+            echo; echo "===== ict-devnull-guard restores in the same window (correlate: a 0666 restore ⇒ a strip preceded it) ====="
+            sudo journalctl -u ict-devnull-guard.service --no-pager -n 15 2>/dev/null || echo "(no guard journal)"
+            echo; echo "===== CULPRIT HINT ====="
+            echo "An 'attrib_change' whose devnull_after.mode is NOT 0o666 (e.g. 0o644/0o444) is the STRIP — its"
+            echo "proc.comm/exe/pid/parent_comm NAMES the mutator. A 0o666 event is the guard's own restore (noise)."
+            echo "If the guard journal shows a restore but the watcher logged NO strip event, the change bypasses the"
+            echo "VFS notify path entirely ⇒ kernel-internal/devtmpfs mechanism, not a userspace process."
+
+          elif [ "${MODE}" = "fanotify-disarm" ]; then
+            echo; echo "===== fanotify-disarm: stop + remove the watcher (log kept for the record) ====="
+            sudo systemctl stop ict-devnull-attrib-watch.service 2>/dev/null && echo "stopped ict-devnull-attrib-watch.service" || echo "(unit not running)"
+            sudo systemctl reset-failed ict-devnull-attrib-watch.service 2>/dev/null || true
+            sudo rm -f /usr/local/bin/devnull_attrib_watch.py && echo "removed /usr/local/bin/devnull_attrib_watch.py"
+            echo "watcher log at /var/log/ict-devnull-attrib.jsonl is left in place (read it with fanotify-read first if needed)."
+            echo; echo "final /dev/null state:"; stat -c 'mode=%a inode=%i' /dev/null
           fi
           echo "(done)"
           REMOTE

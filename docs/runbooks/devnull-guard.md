@@ -26,11 +26,13 @@ Root processes are unaffected (root bypasses mode bits); only non-root users
 (the trader + the deploy script, both `ubuntu`) hit EACCES.
 
 Nothing in this repo chmods `/dev/null` (verified by grep). The culprit is an
-**OS-level host agent** on the OCI image — suspected the
-`oracle-cloud-agent` **`oci-wlp`** (workload-protection / file-integrity)
-plugin "remediating" world-writable files, incorrectly including `/dev/null`.
-It is **not** a boot/cloud-init issue (it recurs with no reboot) and it is
-**not** a device-node recreation (the inode is unchanged — only the mode flips).
+**OS-level host agent** on the OCI image, but **it is not yet attributed** — the
+long-standing `oracle-cloud-agent` **`oci-wlp`** guess was *disproven* on
+2026-08-02 (see "Culprit NOT attributed" below: oci-wlp is disabled+exited, no
+reboot, yet the clobber recurs). It is **not** a boot/cloud-init issue (it
+recurs with no reboot) and it is **not** a device-node recreation (the inode is
+unchanged — only the mode flips). The mode-strip is invisible to every b64 chmod
+syscall class auditd has watched across 7 forensic rounds.
 
 ## The fix (this repo)
 
@@ -87,38 +89,55 @@ the writer on the VM: `sudo auditctl -w /dev/null -p a -k devnull` then
 `sudo ausearch -k devnull` after it next flips. (Requires root shell access —
 not available through the restricted live-VM relays.)
 
-## Culprit confirmed — `oci-wlp` Cloud Guard Workload Protection (2026-07-28)
+## Culprit NOT attributed — `oci-wlp` was EXONERATED (2026-08-02)
 
-The long-standing "suspected `oracle-cloud-agent` oci-wlp" guess is now
-**positively attributed** (inspect run of `vm-devnull-source-diagnose`,
-issue #7831):
+**History + correction.** On 2026-07-28 `oci-wlp` "Cloud Guard Workload
+Protection" was *circumstantially* named the culprit (inspect issue #7831), the
+operator disabled it in the OCI Console, and an 8.75h clean soak was read as a
+confirmed source-kill (`BL-20260629` marked resolved). **That attribution was
+wrong.** The clobber recurred on the 2026-08-02 deploy (#8330/#8339), and a
+round-8 deep inspect (`vm-devnull-source-diagnose` enhanced form, PR #8348;
+issues #8346/#8349) proved `oci-wlp` is not the cause:
 
-- `oci-wlp` is present + running on `ict-bot-arm` and its Oracle-published
-  name is literally **"Cloud Guard Workload Protection"**
-  (`/var/log/oracle-cloud-agent/agent.log`:
-  `instance.go:136: publicName Cloud Guard Workload Protection for plugin oci-wlp`).
-- This explains why the 2026-07-14 syscall forensics (rounds 5-7 of the
-  diagnose workflow) found the mode-strip **invisible to every audited syscall
-  class** (chmod/fchmod/fchmodat/fchmodat2/setxattr/mount) and to udev: a
-  Cloud-Guard workload-protection / FIM agent remediates outside the standard
-  host chmod syscall path the box's auditd observes.
-- **Cross-confirmation that /dev/null really is being clobbered (not a false
-  read):** Oracle's own `unified-monitoring-agent` is *itself a victim* —
-  `plugins/unifiedmonitoring/unifiedmonitoring.log` logs
-  `service_unix.go:204: ... open /dev/null: permission denied` on 2026-07-23,
-  -25, -26, and -28, i.e. a *second, independent* Oracle process hitting the
-  exact same EACCES our scripts hit. So the FIM plugin is clobbering a file
-  its own sibling plugin then can't open.
+- **`oci-wlp` is disabled and exited, continuously.** Every 10-min OCA health
+  check (`/var/log/oracle-cloud-agent/agent.log`) reports
+  `policy.go:100: Plugin [oci-wlp] has [Disable] desired state`,
+  `currentState:[exited]`, `No process found for oci-wlp`. The OCI-Console
+  disable from 2026-07-28 **held and propagated** — the control-plane policy
+  overrides the shipped `agent.yml` `oci-wlp.disabled: false` default (that flag
+  is a **red herring**; the live desired-state is `Disable`).
+- **No FIM / scan / workload-protection process is running at all** (`ps`). The
+  only *running* OCA plugins are `gomon` (metrics) + `unifiedmonitoring`
+  (Fluentd) — and `unifiedmonitoring` is itself a **victim** of the clobber
+  (`open /dev/null: permission denied`), so it cannot be the mutator.
+- **No reboot** (uptime ~3w, boot 2026-07-10) — so it is not a reboot
+  re-enabling a console-disabled plugin.
+- Snap confinement is `classic` (a plugin *could* chmod the host `/dev/null`) —
+  but the only plausible one (`oci-wlp`) is off.
 
-### The durable source-kill (operator / OCI console)
+So `oci-wlp` has been off continuously with no reboot, yet the clobber returned.
+The 8.75h "clean soak" was coincidence (the clobber is intermittent, ~1–2×/day).
+After **7 prior syscall-audit rounds** (chmod/fchmod/fchmodat/fchmodat2/setxattr/
+mount all silent) + udev + this deep inspect, the true `/dev/null` mutator
+**remains unattributed**, and no FIM process is even running to blame. The
+mode-strip is an in-place chmod (inode + mtime unmoved), invisible to every b64
+syscall class audited so far.
 
-Disable the **Cloud Guard Workload Protection (`oci-wlp`)** plugin for the
-`ict-bot-arm` instance: OCI Console → the instance → **Oracle Cloud Agent**
-tab → toggle **Cloud Guard Workload Protection** *off*. It is a security/FIM
-agent that is not load-bearing for a single-tenant trading VM, and it is the
-remaining unexplained `/dev/null` mutator. This is a genuine operator/console
-action (the agent-plugin toggle is an instance-management control, not a repo
-or SSH action). The `ict-devnull-guard.timer` + the per-consumer `heal_devnull`
-self-heals (deploy path, operator-action wrappers, and — as of 2026-07-28 —
-`pull_mes_ibkr_history.sh`) keep every consumer resilient regardless, so this
-source-kill is a "stop the recurrence at its origin" cleanup, not an outage fix.
+### Durable mitigation (source-kill blocked on attribution)
+
+Because the mutator cannot be named, there is no targeted source-kill to apply
+(disabling `oci-wlp` was tried and did nothing; disabling the whole
+`oracle-cloud-agent` would lose OCI metrics on an *unproven* attribution — not
+justified). The accepted **permanent mitigation** is therefore the existing
+defense-in-depth, which fully contains the symptom:
+
+- **`ict-devnull-guard.timer`** re-asserts `/dev/null` = `1:3` mode `0666` on a
+  short cadence (belt).
+- **Per-consumer `heal_devnull`** re-heals in-flight before every load-bearing
+  redirect (deploy path, operator-action wrappers, MES pull) — so nothing breaks
+  even mid-clobber (suspenders).
+
+Optional, if a definitive attribution is wanted: a **fanotify `FAN_ATTRIB`**
+watcher soak names the pid/comm/exe on the next attribute change regardless of
+syscall path (the one net not yet tried) — a Tier-2 observing process on the
+live VM, multi-hour soak. Tracked in `BL-20260629-DEVNULL-OCI-SOURCE-KILL`.

@@ -18,7 +18,20 @@
 # Tier-1 read path — opens the journal read-only via the reporter; no order
 # path, no mutation, no notification.
 set -uo pipefail
-cd "$(dirname "$0")/../.." 2>/dev/null || true
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_NAME="run_research_results_gate"
+# shellcheck source=scripts/ops/_lib.sh
+source "${SCRIPT_DIR}/_lib.sh"
+# Heal a mid-run-clobbered /dev/null BEFORE any redirect. The reporter's
+# `>/dev/null` (and the `2>/dev/null` on the lines just below) EACCES on a
+# stripped /dev/null and false-fail this oneshot — the
+# ict-research-results-gate.service journal caught exactly that on 2026-08-02,
+# during the pull-and-deploy /dev/null-clobber window (BL-20260730-DEVNULL-DEPLOY-REDIRECT-FRAGILITY
+# recurrence). heal_devnull is cheap when healthy and self-heals the variant-(a)
+# mode-strip via `sudo -n chmod`. Never fatal here (`|| true`): if it can't heal,
+# the reporter fails as it does today and the 60s ict-devnull-guard.timer is the belt.
+heal_devnull || true
+cd "${SCRIPT_DIR}/../.." 2>/dev/null || true
 PY=python3; for c in .venv/bin/python venv/bin/python; do [ -x "$c" ] && PY="$c" && break; done
 export PYTHONPATH="${PYTHONPATH:-.}"
 
@@ -29,6 +42,7 @@ mkdir -p "$OUT_DIR"
 
 rc=0
 for w in 7d 30d; do
+  heal_devnull || true  # re-heal per iteration — the strip can land mid-run
   if ! "$PY" -m scripts.research.research_results_gate_report \
         --window "$w" --out "$OUT_DIR/report-${w}.json" --json >/dev/null; then
     echo "run_research_results_gate: reporter failed for window ${w}" >&2

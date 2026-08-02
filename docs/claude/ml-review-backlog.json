@@ -1398,7 +1398,7 @@
       "resolution_criteria": "A retrained ETH regime head (target: eth-regime-5m/15m-lgbm-v1) clears RG4 live robustly (>=0.55 across thresholds, not knife-edge) after its shadow soak, the gated ETH A/B is re-confirmed with that head, and advisory promotion is proposed (Tier-3). Root-cause + replacement-head halves DONE 2026-06-28.",
       "status": "kept_open",
       "snoozed_until": null,
-      "updated_at": "2026-06-28T04:40:00+00:00",
+      "updated_at": "2026-08-02T07:35:00+00:00",
       "update_20260628": "RETRAIN SESSION (trainer-diag #4869-#4893, branch claude/eth-regime-retrain-skew-mnske0, PR #4868). ROOT CAUSE of the 'NO_EDGE live': both ETH 1h heads emit a near-constant high P(volatile) on live rows (v1 mean 0.776/min 0.508; xasset 0.758/0.500) -> no discrimination. v1: live rolling_log_return_vol +51% vs the 5yr train mean -> 73% of live rows in top vol_b2; xasset: xa_breadth_up all-zeros in TRAINING (dead cross_asset side-stream) but ~0.45 live (see BL-20260628-XA-TRAINING-ZERO). PARTIAL CORRECTION: RG4 defaults vol_threshold=0.003 but the Bybit build labels at 0.005; at matched 0.005 v1 RG4 = 0.58 BUT it's a KNIFE-EDGE (0.46/0.51/0.58/0.48/0.47 across 0.003-0.007 on 111 rows) -> NOT robust; v1 1h stays weak/borderline live, xasset stays NO_EDGE (0.46-0.51 all thresholds). So the original 'needs a better head' stands; only the 0.46 severity was a harness artifact (see MB-20260628-RG4-THRESH). FIX SHIPPED: trained eth-regime-{5m,15m}-lgbm-v1 (mirror the strong BTC 5m/15m heads; the 1h regime family is the weak timeframe). Built ETH 5m/15m market_features (525864/175272 rows) + added them to the daily build. RG3: 5m 0.770 / 15m 0.788 TRUSTWORTHY (recent-fold 0.738/0.751). Both register at shadow -> SOAKING; RG4 future-dated (new heads have 0 live rows). NEXT (post-soak): RG4 the 5m/15m heads at matched 0.005; if robust >=0.55, re-run the ETH A/B + cell-selection WF with the passing head and propose advisory promotion (Tier-3).",
       "updates": [
         {
@@ -1411,6 +1411,18 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-02T07:35:00+00:00",
+          "by": "claude (research-driver / metis-insights-backlog-cont nuqiwl)",
+          "action": "kept_open",
+          "note": "CLASS-WEIGHT RECALIBRATION shipped (PR #8345). New root-cause LAYER complementary to the 2026-06-28 feature-skew finding, not a replacement: eth-regime-15m-lgbm-v1 ports BTC's class_weight volatile:28 verbatim, which is ~1/base-rate for BTC's 4.46% 15m volatile rate — but ETH's realized rate at the frozen vol_threshold=0.005 is 9.22% (~2x BTC's; measured on the exact training dataset, trainer-diag #8341). So 28x over-weighted the minority class ~2.6x -> the booster over-commits to volatile, which COMPOUNDS the live feature-distribution shift already noted (live rolling_log_return_vol +51% vs train). In-session --no-register A/B on ETH v002 (trainer-diag #8342): f1_volatile 0.278@28x -> 0.313@15x -> 0.331@11x -> 0.338@8x, monotonic, as precision_volatile rebalances 0.171->0.252 (recall 0.754->0.517). Recalibrated to 11x (=1/0.0922, fleet-consistent inverse-base-rate recipe; keeps better volatile recall than 8x, which matters for a protective gate). CAVEAT (honest): this is the OFFLINE holdout calibration fix — it is the necessary precondition for a fair RG4 re-read, NOT a proven live-NO_EDGE resolution; the feature-skew half (live vol >> 5yr train mean) may remain and only a fresh RG4 soak under 11x settles it. NEXT (unchanged, post-soak): RG4 the recalibrated head at matched vol_threshold=0.005; if robustly >=0.55, re-run the ETH A/B + cell-selection WF and propose advisory promotion (Tier-3). Item retargeted from 'needs retrain' to 'recalibrated -> awaiting fresh RG4 soak'. Findings: docs/research/eth-regime-classweight-recalibration-2026-08-02.md."
+        },
+        {
+          "at": "2026-08-02T07:35:00+00:00",
+          "by": "claude (research-driver / metis-insights-backlog-cont nuqiwl)",
+          "action": "kept_open",
+          "note": "CLASS-WEIGHT RECALIBRATION shipped (PR #8345). New root-cause LAYER complementary to the 2026-06-28 feature-skew finding, not a replacement: eth-regime-15m-lgbm-v1 ports BTC's class_weight volatile:28 verbatim, which is ~1/base-rate for BTC's 4.46% 15m volatile rate — but ETH's realized rate at the frozen vol_threshold=0.005 is 9.22% (~2x BTC's; measured on the exact training dataset, trainer-diag #8341). So 28x over-weighted the minority class ~2.6x -> the booster over-commits to volatile, which COMPOUNDS the live feature-distribution shift already noted (live rolling_log_return_vol +51% vs train). In-session --no-register A/B on ETH v002 (trainer-diag #8342): f1_volatile 0.278@28x -> 0.313@15x -> 0.331@11x -> 0.338@8x, monotonic, as precision_volatile rebalances 0.171->0.252 (recall 0.754->0.517). Recalibrated to 11x (=1/0.0922, fleet-consistent inverse-base-rate recipe; keeps better volatile recall than 8x, which matters for a protective gate). CAVEAT (honest): this is the OFFLINE holdout calibration fix — it is the necessary precondition for a fair RG4 re-read, NOT a proven live-NO_EDGE resolution; the feature-skew half (live vol >> 5yr train mean) may remain and only a fresh RG4 soak under 11x settles it. NEXT (unchanged, post-soak): RG4 the recalibrated head at matched vol_threshold=0.005; if robustly >=0.55, re-run the ETH A/B + cell-selection WF and propose advisory promotion (Tier-3). Item retargeted from 'needs retrain' to 'recalibrated -> awaiting fresh RG4 soak'. Findings: docs/research/eth-regime-classweight-recalibration-2026-08-02.md."
         }
       ]
     },
@@ -2755,7 +2767,7 @@
     {
       "id": "MB-20260801-MES-BASELINE-MANIFESTS-NEVER-TRAINED",
       "title": "3 MES baseline manifests have ZERO registered runs ever — decide: build their datasets, or retire the manifests",
-      "status": "awaiting-decision",
+      "status": "awaiting-data",
       "tier": 1,
       "opened_at": "2026-08-01",
       "opened_by": "claude (audit session, W0 morning cycle check — routed from the first training_staleness_summary)",
@@ -2787,9 +2799,14 @@
           "at": "2026-08-02T04:40:00+00:00",
           "by": "claude (operator-directed backtest backfill, session full-system-review-zajauh)",
           "note": "TRAINED VIA BACKTEST BACKFILL (operator-directed: use the S-MLOPT-S7 pipeline instead of waiting for live MES trades). Chain (#8316/#8318): backtest_trend.py config-exact to mes_trend_long_1d (donchian 30, atr 14/2.5, trail 3.0, long-only) over data/ES_F_1d.csv (2514 daily bars 2016-2026, ES=F as the standard MES index proxy) -> 26 trades (wr 65.4%, net +24.9R, positive 9 of 11 years - incidentally fresh validation of the strategy itself, and confirms why live MES never fired: ~2.6 entries/yr) -> record_harness_trades into a schema-bootstrapped TEMP db (is_backtest=1, never the journal) -> trade_outcomes v001 + setup_labels v002 rebuilt with include_backtest=true (26 rows each) -> BOTH TRAINED + REGISTERED: mes-trade-outcome-winrate-baseline-v0 (f1 0.75, n_eval 5) and mes-setup-quality-baseline-v0 (mae 1.12, n_eval 5), both at shadow. DISCLOSED + CORRECTED: the first pass (#8316) accidentally ran on 5m bars (bad file pick) producing 552 wrong-timeframe trades; temp db was rebuilt from scratch and both models retrained on the corrected 1d data - the 5m-artifact run remains in run history only. REMAINING: (1) mes-execution-quality-baseline-v0 is the sole never-trained manifest left - entry_slippage_bps is a LIVE-execution measurement a backtest cannot produce; decide retire vs awaiting_source_trades alarm state for that ONE. (2) The nightly cycle rebuilds these datasets journal-only (no include_backtest) and will overwrite them empty; the REGISTERED runs persist and never_trained stays satisfied, but a refresh requires re-running this backfill - consider pinning the backtest-augmented build into the cycle if these baselines earn keep."
+        },
+        {
+          "at": "2026-08-02T05:00:00+00:00",
+          "by": "claude (operator decisions, session full-system-review-zajauh)",
+          "note": "OPERATOR DECISIONS EXECUTED (chat 2026-08-02): (1) mes-execution-quality KEPT, waiting for live MES fills - not retired. The staleness sweep gained an operator-accepted-wait state: a never-trained manifest whose notes carry 'training-wait: awaiting_source_trades - <reason>' now reports the non-alarming manifest_awaiting_source status (+ awaiting_source summary counter) instead of the nightly manifest_untrained_stale alarm; the marker is in the manifest's notes (the manifest loader is a strict dataclass - a new top-level key would break ml.manifest.from_dict). A trained-then-stale model still alarms; removing the marker restores the alarm. (2) Backtest-augmented MES builds PINNED into the nightly: build_trainer_datasets.sh now merges live MES journal rows (zero today; future fills join automatically) + the standing datasets-out/backtest_trades_mes.db into a scratch db and rebuilds the MES-scoped trade_outcomes + setup_labels with include_backtest=true each cycle - so the datasets stop being clobbered empty by the journal-only builds. Missing backtest db -> explicit skipped row pointing at the backfill runbook, never silent. VERIFY on the 2026-08-03 00:55Z cycle: MES-scoped builds report row_count 26, staleness summary reads never_trained 0 / awaiting_source 1. (3) BTC v2 drift re-check moved UP to Sunday 2026-08-03 ~18:00Z (operator: crypto is 24/7 - the Monday date was my conflation with the SLV market-hours wait); wake armed."
         }
       ]
     }
   ],
-  "updated_at": "2026-08-02"
+  "updated_at": "2026-08-02T07:35:00+00:00"
 }
