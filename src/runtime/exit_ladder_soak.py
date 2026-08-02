@@ -188,6 +188,7 @@ def read_soak_records(
 
     by_venue: Dict[str, int] = {}
     differing = 0
+    laddered_rows = 0  # rows whose ExitPlan carries >=1 partial-TP rung
     total = 0
     records: List[Dict[str, Any]] = []
     for line in reversed(lines):
@@ -211,6 +212,9 @@ def read_soak_records(
         by_venue[str(rec.get("venue", ""))] = by_venue.get(str(rec.get("venue", "")), 0) + 1
         if diff:
             differing += 1
+        ladder = rec.get("ladder")
+        if isinstance(ladder, dict) and (ladder.get("n_rungs") or 0) > 0:
+            laddered_rows += 1
         if len(records) < limit:
             records.append(rec)
 
@@ -219,10 +223,53 @@ def read_soak_records(
         "log_path": str(path),
         "count": len(records),
         "records": records,
-        "summary": {
-            "total_scanned": total,
-            "by_venue": by_venue,
-            "differing": differing,
-            "differing_pct": round(100.0 * differing / total, 1) if total else 0.0,
-        },
+        "summary": _summarize(total, by_venue, differing, laddered_rows),
     }
+
+
+# What makes a soak row "differ" — surfaced in the summary so a reader can never
+# mistake a legitimate zero for an unrun comparison (BL-20260730-EXIT-LADDER-SOAK-VACUITY).
+DIFFER_BASIS = (
+    "a row differs when its materialized ExitPlan has >=1 partial-TP rung "
+    "(n_rungs>0) or a trailing final; the legacy derivation yields a rung only "
+    "from a distinct meta.tp2 price the strategy emitted at signal time"
+)
+
+
+def _summarize(
+    total: int, by_venue: Dict[str, int], differing: int, laddered_rows: int
+) -> Dict[str, Any]:
+    """Self-describing soak summary.
+
+    Beyond the raw ``differing``/``differing_pct``, this states WHY the number is
+    what it is, so a ``differing: 0`` reading is legible as a **measured** zero
+    rather than a broken/unrun comparison — the exact ambiguity that let the
+    exit-ladder soak sit at "135 rows / 0 differing" un-triaged
+    (BL-20260730-EXIT-LADDER-SOAK-VACUITY). Data-driven (counts the rows), so it
+    never goes stale against a strategy roster change: the day a live strategy
+    emits a multi-rung exit, ``laddered_rows`` and ``differing`` rise on their own.
+    """
+    summary: Dict[str, Any] = {
+        "total_scanned": total,
+        "by_venue": by_venue,
+        "differing": differing,
+        "differing_pct": round(100.0 * differing / total, 1) if total else 0.0,
+        "laddered_rows": laddered_rows,
+        "single_rung_rows": max(total - laddered_rows, 0),
+        "differ_basis": DIFFER_BASIS,
+    }
+    if total == 0:
+        summary["differing_reason"] = "no rows scanned yet"
+    elif differing == 0:
+        summary["differing_reason"] = (
+            f"structural zero: all {total} scanned row(s) materialized to a "
+            "single-rung ExitPlan (no strategy in this soak declared a partial-TP "
+            "ladder via a distinct meta.tp2). This is a MEASURED zero, not an unrun "
+            "comparison — the moment a live strategy emits a multi-rung exit it "
+            "surfaces here as a non-zero laddered_rows/differing."
+        )
+    else:
+        summary["differing_reason"] = (
+            f"{differing} of {total} row(s) carry a materially different laddered exit"
+        )
+    return summary

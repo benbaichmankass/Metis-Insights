@@ -6840,10 +6840,17 @@
       "tier": 1,
       "trigger_condition": "A soak artifact reports rows>0 with a differing/positive count of exactly 0 and no declared structural reason.",
       "resolution_criteria": "The exit-ladder soak's 0-differing reading is confirmed structural (and states so in the artifact) or fixed; the other four soak logs are swept for the same shape.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": [],
-      "resolved_at": null,
+      "resolved_at": "2026-08-02T11:00:00+00:00",
+      "resolution_note": "RESOLVED 2026-08-02 (T5, session metis-insights-research-backlog-0tq6uz). CONFIRMED STRUCTURAL by code proof, not just the memo: in src/runtime/exit_ladder_soak.py the soak ALWAYS derives its ladder via build_exit_plan_from_legacy(cfg=None), so differs_from_single_target reduces to `n_rungs>0` (the legacy builder never emits a trailing final, so the `or final_trailing` arm is dead), and a rung is produced ONLY from a distinct `meta.tp2` price. The ONLY writer of meta['tp2'] in the whole tree is src/units/strategies/turtle_soup.py:316, and turtle_soup is execution:shadow (config/strategies.yaml:52 — net-negative money-loser, operator-demoted 2026-07-07), so it emits no live/api orders. Therefore every live-order row materializes to a single-rung plan and 0-differing is a MEASURED zero, not a broken comparison. FIX: read_soak_records() now returns a self-describing summary (differ_basis + laddered_rows + single_rung_rows + a declared differing_reason that reads 'structural zero: all N rows single-rung ... MEASURED zero, not an unrun comparison' when differing==0) — data-driven so it can never go stale: the day a live strategy emits a multi-rung exit, laddered_rows/differing rise on their own. SWEEP of the other four soaks (per the resolution criteria): fc_geometry_soak already carries an honest coverage denominator (fc_coverage_pct over fc_present) — no ambiguous zero; pairs_soak is self-describing via its by_event distribution; allocator_soak carries total_scanned as the denominator and its `disagree` is a direct two-pick comparison (low silent-no-op risk); exit_lever_soak is a write-only annotate log with NO aggregate metric to mislabel (tailed raw via /api/diag/log_file). So exit-ladder was the only soak with the genuinely ambiguous headline, and it is now fixed. VM corroboration (diag relay #8357, /api/diag/log_file?name=exit_ladder_soak): the 75 most-recent records (api 70 / prop 6, across ~20 LIVE strategies — eth_pullback_2h, pairs_sol_eth_*, trend_donchian, ict_scalp_*, tlt/spy/gld/qqq/slv/uso, htf_pullback_trend_2h, …) ALL carry n_rungs=0 and differs_from_single_target=false, and turtle_soup (the only meta.tp2 emitter) is ABSENT — exactly as the code proof predicts (it's shadow). Full soak file is 226 KB (grown past the original 135 rows); the differ semantics are unchanged. So the '0 differing' is a MEASURED structural zero, confirmed against live VM data. Follow-up note: the soak is a VM-side runtime_logs file (not comms/**), so check_artifact_validity.py (which scans comms/**) cannot reach it — the in-artifact self-describing summary IS the declared-input assertion the item asked for.",
+      "updates": [
+        {
+          "at": "2026-08-02T11:00:00+00:00",
+          "by": "claude (session metis-insights-research-backlog-0tq6uz)",
+          "note": "Confirmed structural via code proof (only meta.tp2 writer is turtle_soup, which is shadow), made the summary self-describing (differ_basis/differing_reason/laddered_rows), and swept the other four soaks (fc-geometry/pairs/allocator/exit-lever — none has the same ambiguous zero). 19 exit-ladder tests pass, soak-doctrine-guard + ruff clean."
+        }
+      ],
       "severity": "medium"
     },
     {

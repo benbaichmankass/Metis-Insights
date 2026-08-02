@@ -189,6 +189,36 @@ def test_read_newest_first_with_summary(tmp_path, monkeypatch):
     assert out["summary"]["differing_pct"] == 75.0
 
 
+def test_summary_is_self_describing(tmp_path, monkeypatch):
+    # BL-20260730-EXIT-LADDER-SOAK-VACUITY: the summary must state WHY the number
+    # is what it is, so a reader can distinguish a measured value from a broken one.
+    _seed(tmp_path, monkeypatch)
+    s = exit_ladder_soak.read_soak_records()["summary"]
+    assert s["laddered_rows"] == 3           # the 3 tp2 rows carry a rung
+    assert s["single_rung_rows"] == 1        # the vwap parity row
+    assert "meta.tp2" in s["differ_basis"]   # what "differ" means is stated
+    assert "3 of 4" in s["differing_reason"]
+
+
+def test_summary_structural_zero_is_declared_not_ambiguous(tmp_path, monkeypatch):
+    # All rows single-rung (the live-VM "135 rows / 0 differing" shape): the zero
+    # must read as a MEASURED zero with a declared reason, never a bare 0.
+    monkeypatch.setattr(
+        "src.utils.paths.runtime_logs_dir", lambda: tmp_path, raising=True
+    )
+    for _ in range(5):
+        record_exit_ladder_soak(
+            venue="api", strategy="vwap", symbol="BTCUSDT", direction="long",
+            entry=100, sl=90, tp=110, qty=1.0, account_id="bybit_1",
+        )
+    s = exit_ladder_soak.read_soak_records()["summary"]
+    assert s["total_scanned"] == 5
+    assert s["differing"] == 0 and s["laddered_rows"] == 0
+    assert s["single_rung_rows"] == 5
+    assert "structural zero" in s["differing_reason"]
+    assert "MEASURED zero" in s["differing_reason"]
+
+
 def test_read_venue_filter(tmp_path, monkeypatch):
     _seed(tmp_path, monkeypatch)
     out = exit_ladder_soak.read_soak_records(venue="api")
