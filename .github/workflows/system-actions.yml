@@ -1413,13 +1413,30 @@ jobs:
                 truncationNote +
                 `\n\`\`\`\n${tail}\n\`\`\``;
             } else {
+              // Branch on the actual failure STAGE, not a static cause list
+              // (BL-20260731-SYSTEM-ACTION-FAILURE-COMMENT-UNPROVENANCED, diagnostic-
+              // provenance sub-class A). `exec` publishes exit_code ONLY when it ran, so an
+              // EMPTY exitCode means a setup/validation step aborted BEFORE the wrapper —
+              // the SSH/VM/credential causes were never reached, so listing them is a guess
+              // that has been observed dead wrong (a 2026-07-31 allowlist miss printed all
+              // three, minutes after a successful deploy on the same secret).
+              const preExec = exitCode === '';
+              const stageNote = preExec
+                ? `**Stage — FAILED BEFORE the VM action ran.** A setup/validation step ` +
+                  `aborted (e.g. an unknown action, a missing/invalid required input, or an ` +
+                  `allowlist miss); the wrapper never executed over SSH, so this is **not** an ` +
+                  `SSH / VM / credential problem. The failing step and its \`::error::\` ` +
+                  `message are on the run page.`
+                : `**Stage — the wrapper RAN and returned exit ${exitCode}.** Now the VM-side ` +
+                  `causes are in scope: the VM script returned nonzero, the SSH host was ` +
+                  `unreachable, or a credential (VM_SSH_KEY) issue — see \`action-output.txt\`.`;
               body =
                 `❌ **system-action \`${process.env.ACTION || '(unresolved)'}\` failed.**\n` +
                 `Run: ${runUrl}\n` +
-                `Wrapper exit code: ${exitCode || '(set up failed before exec)'}\n` +
+                `Wrapper exit code: ${exitCode || '(no exec — aborted before the wrapper)'}\n` +
                 `Reason: ${process.env.REASON || '(none)'}\n\n` +
-                `Common causes: VM_SSH_KEY secret unset/corrupted; SSH host unreachable; ` +
-                `wrapper script returned nonzero. The run page has the full audit bundle ` +
+                `${stageNote}\n` +
+                `The run page has the full audit bundle ` +
                 `(audit-bundle.json + pre/post-state.json + action-output.txt).\n` +
                 `\n\`\`\`\n${tail}\n\`\`\``;
             }
