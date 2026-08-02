@@ -4711,7 +4711,7 @@
     {
       "id": "BL-20260629-DEVNULL-OCI-SOURCE-KILL",
       "title": "[infra root-source] stop the OCI host agent clobbering /dev/null on the live VM (the recurring source behind the guard + self-heals)",
-      "status": "resolved",
+      "status": "open",
       "opened_at": "2026-06-29T16:15:00+00:00",
       "opened_by": "claude (devnull incident follow-up 2026-06-29)",
       "snoozed_until": null,
@@ -4788,16 +4788,22 @@
           "by": "claude (/system-review soak-confirm check-in)",
           "action": "resolved",
           "note": "RESOLVED — source-kill confirmed by an ~8.75h soak. Operator disabled the 'Cloud Guard Workload Protection' (oci-wlp) plugin in the OCI Console ~2026-07-28T10:00Z (the positively-identified clobber culprit). Soak re-inspect at 18:46Z (inspect run #7852): /dev/null stayed a pristine char device (crw-rw-rw- 0666, inode unchanged since 07-26 12:11) for the WHOLE window, and ZERO new `open /dev/null: permission denied` since the disable — the last EACCES anywhere (unifiedmonitoring.log) is 06:20Z, which predates the disable. Over a window spanning the historical ~1-2x/day clobber cadence, that is a clean run => the recurring /dev/null perms-strip is stopped at its source. Note: the agent still ENUMERATES oci-wlp in its hourly plugin inventory (agent.log 17:07Z) — the binary is installed but inert; the observable remediation has ceased. Defense-in-depth stays in place regardless (ict-devnull-guard.timer + per-consumer heal_devnull on deploy/operator-actions/MES-pull), so a future recurrence self-heals + would re-open this via routine review. This closes the whole /dev/null-clobber cluster at its origin: MES pull, prop-report, deploy, restart-misreport."
+        },
+        {
+          "at": "2026-08-02T08:20:00+00:00",
+          "by": "claude (devnull-source-kill session, round-8 deep inspect)",
+          "action": "reopened_false_attribution",
+          "note": "REOPENED — the 2026-07-28 'culprit = oci-wlp / resolved' was a FALSE ATTRIBUTION. Task re-opened it because the clobber RECURRED on the 2026-08-02 deploy (#8330/#8339, '/dev/null: Permission denied' mid-run; sibling 170lwv healed it consumer-side). Round-8 deep inspect (vm-devnull-source-diagnose enhanced form, PR #8348; issues #8346/#8349) proves oci-wlp is NOT the cause: (1) the OCI-Console disable from 07-28 HELD and propagated — every 10-min OCA health check (07:47/07:57/08:07/08:17Z, agent.log) reports `Plugin [oci-wlp] has [Disable] desired state`, `currentState:[exited]`, `No process found for oci-wlp` (the control-plane policy overrides the shipped `agent.yml disabled:false` default via policy.go:100); (2) `ps` shows NO FIM/scan/workload-protection process running at all; the ONLY running OCA plugins are `gomon` (metrics) + `unifiedmonitoring` (Fluentd) — and unifiedmonitoring is itself a VICTIM of the clobber (can't be the mutator); (3) NO reboot (uptime 3w1d, boot 2026-07-10 10:57Z) — so it's not a reboot re-enabling a console-disabled plugin; (4) snap confinement is `classic` (plugins CAN chmod the host /dev/null), but the only one that could (oci-wlp) is off. So oci-wlp has been off continuously with no reboot, yet the clobber came back — it is EXONERATED. The clean 8.75h soak on 07-28 was coincidence (clobber is ~1-2x/day). /dev/null was 666-healthy at inspect (inode 674, mtime Jul 26 12:11 UNMOVED = in-place chmod, no node recreation since the last vm-fix-devnull). NET: after 7 prior syscall-audit rounds (chmod/fchmod/fchmodat/fchmodat2/setxattr/mount all silent) + udev + this deep inspect, the true mutator REMAINS UNATTRIBUTED, and no FIM process is even running to blame. Consumer side is fully hardened (guard 60s + per-consumer heal_devnull), so nothing breaks; the strip is brief + self-heals. FORWARD PATH (operator decision pending): (A) accept guard+heal as the documented PERMANENT mitigation + tighten ict-devnull-guard.timer 60s->~20s to shrink the exposure window (Tier-2) [recommended — a true source-kill is blocked on an unattributable culprit]; OR (B) authorize a definitive fanotify FAN_ATTRIB attribution watcher soak (names the pid/comm/exe on the next attribute change regardless of syscall path — the one net not yet tried; Tier-2 to run on the live VM, multi-hour soak). agent.yml `oci-wlp.disabled:false` is the shipped default and is a RED HERRING — the live desired-state is control-plane `Disable`."
         }
       ],
-      "updated_at": "2026-07-26T12:20:00Z",
+      "updated_at": "2026-08-02T08:20:00+00:00",
       "consolidates": [
         "BL-20260629-DEVNULL-CLOBBERED-LIVE-VM",
         "BL-20260713-DEVNULL-RESTART-MISREPORT",
         "BL-20260716-DEVNULL-DEPLOY-PERM",
         "BL-20260706-PROP-REPORT-DEVNULL-NOISE"
       ],
-      "resolved_at": "2026-07-28T18:50:00+00:00"
+      "resolved_at": null
     },
     {
       "id": "BL-20260629-INTENT-REDUCE-CHURN-VERIFY",
@@ -9197,6 +9203,6 @@
       "status": "open"
     }
   ],
-  "updated_at": "2026-08-01",
+  "updated_at": "2026-08-02T08:20:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
