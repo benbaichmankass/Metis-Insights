@@ -1096,8 +1096,15 @@ def main(argv: list[str] | None = None) -> int:
     # already holds it; fail-open on infra errors; SystemExit(75) on a clean
     # queue-timeout. `_heavy_lock` is bound for the whole process lifetime so the
     # flock is held until the run ends. See docs/claude/trainer-resource-protocol.md.
+    # A pure help/version lookup must NOT queue behind (or block) a real training run:
+    # `--help`/`-h`/`--version` on a heavy command is a documentation read, not a job, so
+    # it short-circuits the flock. Ref: BL-20260730-ML-CLI-HELP-TAKES-TRAINER-HEAVY-LOCK.
+    # argparse (or the datasets sub-parser) prints help + exits below without the lock
+    # ever being taken — the old order queued a `--help` behind the running cycle and
+    # could even fail the doc lookup with SystemExit(75) on a clean queue-timeout.
+    _wants_help = any(a in ("-h", "--help", "--version") for a in argv)
     _heavy_lock = None
-    if cmd in _HEAVY_COMMANDS:
+    if cmd in _HEAVY_COMMANDS and not _wants_help:
         _heavy_lock = _acquire_heavy_lock(f"ml:{cmd}")
     if cmd == "build-dataset":
         return datasets_main(["build", *argv[1:]])
