@@ -7303,12 +7303,22 @@
       "title": "[research-tooling] no guard couples live strategy keys to the harness lever maps",
       "description": "Proposed: a CI guard that collects every key appearing on any enabled strategy in config/strategies.yaml and asserts each is classified in exactly one of (a) a PLAIN set (non-behavioural / modelled by default), (b) a LEVER_FLAG map (forwarded), (c) _UNREPLAYABLE, or (d) an explicit UNMODELLED declaration with a reason. An unclassified key fails the build with the strategy and key named, which converts a silent measurement error into a build error at the moment the capability is added. This is the same fail-closed shape as artifact-validity-guard and the shallow-clone guard. Worth doing because the failure is invisible by construction: the matrix still produces a plausible row, and only the fidelity label (approximate) hints that something was dropped -- and `approximate` is common enough to be background noise.",
       "severity": "medium",
-      "status": "open",
+      "status": "resolved",
+      "resolved_at": "2026-08-02",
       "area": "research-tooling",
       "refs": [
         "scripts/research/regime_debt_matrix.py",
         "config/strategies.yaml",
-        "BL-20260730-SIDE-FILTER-NOT-FORWARDED"
+        "BL-20260730-SIDE-FILTER-NOT-FORWARDED",
+        "scripts/check_harness_lever_coupling.py",
+        ".github/workflows/harness-lever-coupling-guard.yml"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-02",
+          "by": "claude (netting-live-p5jugn, Wave 0.2)",
+          "note": "SHIPPED (#8404): scripts/check_harness_lever_coupling.py + harness-lever-coupling-guard.yml. Fail-closed like env-gate-guard — every key on an ENABLED, harness-classified strategy MUST be in exactly one of PLAIN | LEVER_FLAG | _UNREPLAYABLE | UNMODELLED. The PLAIN/LEVER_FLAG/_UNREPLAYABLE maps are imported from regime_debt_matrix (one source of truth, module untouched); the guard adds the explicit per-family UNMODELLED registry (the previously-implicit omitted-lever branch). Whole-state check on every PR + a self-test proving detection still fails on an injected gap. Live config passes (42 enabled classified strategies). An unclassified key now fails the build naming the strategy+key. Sibling BL-20260730-CAPABILITY-INDEX-NEEDS-FIDELITY-LIMITS can reuse this UNMODELLED registry for its per-tool 'cannot model' column."
+        }
       ]
     },
     {
