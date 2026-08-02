@@ -9276,13 +9276,21 @@
         "src/runtime/order_monitor.py",
         "src/units/accounts/execute.py",
         "BL-20260731-W1-JOURNAL-EXCHANGE-DIVERGENCE-MAP",
-        "scripts/ops/reconcile_netting_phantom_rows.py"
+        "scripts/ops/reconcile_netting_phantom_rows.py",
+        "scripts/ops/reconcile_netting_rows.py",
+        "scripts/ops/netting_reconcile_snapshot.py",
+        "scripts/ops/reconcile_netting_rows_action.sh"
       ],
       "updates": [
         {
           "at": "2026-08-02",
           "by": "claude (WORK-PLAN-2026-08-02 cont)",
           "note": "Mechanism CONFIRMED in code: order_monitor._close_trade_from_order_status closes only the fired row; _cascade_close_netted_siblings closes siblings ONLY when Bybit reports the netted position FLAT (its docstring: 'the ONE reliable moment we know every share closed') — so a PARTIAL shrink leaves siblings phantom-open. journal_qty_divergent already DETECTS every instance per tick but remediates nothing. One-look decision packet written: docs/research/netting-partial-close-packet-2026-08-02.md (options a=FIFO-in-monitor / b=leg-id+FIFO-in-monitor / c=periodic same-moment sidecar reconcile, pairs-excluded, PnL UNMEASURED). Recommendation (c)+(b)-precision — lowest blast radius; real-money bybit_2 is clean, so this is a data-integrity fix. AWAITING operator pick before implementing (Tier-2 order-path)."
+        },
+        {
+          "at": "2026-08-02",
+          "by": "claude (netting-live-p5jugn)",
+          "note": "OPERATOR PICKED (c)+(b). SHIPPED: engine scripts/ops/reconcile_netting_rows.py (#8401, pure planner + 7 tests, inert) + the live-run half — scripts/ops/netting_reconcile_snapshot.py (reads open non-pairs journal groups + live exchange positions via account_open_positions + Bybit resting protective-leg ids -> engine input JSON) and the reconcile-netting-rows Tier-2 system-action (#8403, dry-run default; --apply superseded + UNMEASURED; pairs excluded; unreadable account skipped; never > surplus). WIRED: this row is now the remediation home for the live journal_qty_divergent detector — its firings on the bybit books are exactly the class this action reduces. RESOLUTION SIGNAL (unchanged): journal_qty_divergent silent 7 consecutive days on all bybit accounts after the reconcile is applied and the monitor-tick attribution gap is either accepted (sidecar papers over it) or closed. NEXT: live dry-run (system-action #8407) to quantify current phantoms -> operator OK -> --apply."
         }
       ]
     },
