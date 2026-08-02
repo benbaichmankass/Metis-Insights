@@ -321,7 +321,7 @@ def _regime_tag(csv: str, emit: str, resample: str, label: str) -> dict:
     return json.loads(out.stdout.decode())
 
 
-def _fee_ab_diff(arms: dict, fee_arms: list) -> dict:
+def _fee_ab_diff(arms: dict) -> dict:
     """Per-(regime, side) net-R delta of each higher-fee arm vs the lowest-fee arm.
 
     The trade SET is identical across arms (fees do not feed back into signal
@@ -411,7 +411,7 @@ def run_one(name: str, cfg: dict, workdir: str, days: int,
                     f"{type(e).__name__}: {e}")
         row["fee_ab"] = {"fee_arms": [str(f) for f in fee_arms],
                          "arms": arms,
-                         "diff": _fee_ab_diff(arms, fee_arms)}
+                         "diff": _fee_ab_diff(arms)}
         return row
 
     try:

@@ -126,7 +126,7 @@ class TestFeeAB:
             "7.5": {"by_regime": {"trending": {"net_r": 8.5, "long_r": 5.1,
                                                "short_r": 3.4, "long_n": 12, "short_n": 8}}},
         }
-        diff = regime_debt_matrix._fee_ab_diff(arms, [0.0, 7.5])
+        diff = regime_debt_matrix._fee_ab_diff(arms)
         cell = diff["by_regime"]["trending"]
         # fee makes each cell WORSE → negative delta; magnitude = the phantom drag
         assert cell["d_net_r__0_to_7.5"] == -1.5
@@ -136,7 +136,7 @@ class TestFeeAB:
 
     def test_diff_needs_two_arms(self):
         arms = {"0": {"by_regime": {"chop": {"net_r": 1.0}}}}
-        assert "note" in regime_debt_matrix._fee_ab_diff(arms, [0.0])
+        assert "note" in regime_debt_matrix._fee_ab_diff(arms)
 
     def test_diff_tolerates_a_missing_cell_side(self):
         """A None net_r (a failed/absent side) must not crash the diff."""
@@ -144,6 +144,6 @@ class TestFeeAB:
             "0": {"by_regime": {"chop": {"net_r": None, "long_r": 2.0}}},
             "7.5": {"by_regime": {"chop": {"net_r": 1.0, "long_r": None}}},
         }
-        cell = regime_debt_matrix._fee_ab_diff(arms, [0.0, 7.5])["by_regime"]["chop"]
+        cell = regime_debt_matrix._fee_ab_diff(arms)["by_regime"]["chop"]
         assert cell["d_net_r__0_to_7.5"] is None
         assert cell["d_long_r__0_to_7.5"] is None
