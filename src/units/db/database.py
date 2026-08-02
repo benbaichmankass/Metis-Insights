@@ -709,11 +709,17 @@ class Database:
         Returns:
             int: ID of inserted trade
         """
-        # Ensure every row carries an account identifier. Callers that have an
-        # account dict should pass account_id explicitly; legacy/backtest callers
-        # that don't will be attributed to the 'live' legacy account.
-        if "account_id" not in trade_data:
-            trade_data = {**trade_data, "account_id": "live"}
+        # Work on a copy so we never mutate the caller's dict. Ensure every row
+        # carries an account identifier (legacy/backtest callers that omit it are
+        # attributed to the 'live' legacy account — an explicit account_id wins).
+        # Also stamp created_at explicitly: the column DEFAULTs to SQLite
+        # CURRENT_TIMESTAMP (space-separated, no offset) when omitted, which breaks
+        # raw string comparisons against ISO 'T' literals — ' ' (0x20) sorts below
+        # 'T' (0x54), silently dropping the row. Writing an ISO-8601 UTC stamp keeps
+        # the column uniform. Ref: BL-20260730-TRADES-TIMESTAMP-FORMAT-MIXED.
+        # A caller that passes created_at (reconciler/backfill) wins via setdefault.
+        trade_data = {"account_id": "live", **trade_data}
+        trade_data.setdefault("created_at", datetime.now(timezone.utc).isoformat())
 
         conn = self.connect()
         cursor = conn.cursor()
