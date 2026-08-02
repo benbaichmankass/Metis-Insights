@@ -461,7 +461,13 @@ jobs:
               echo '// devnull_chmod_trace.bt — BL-20260629: name the process that chmods /dev/null (by path).'
               echo 'BEGIN { printf("devnull_chmod_trace armed %s\n", strftime("%Y-%m-%dT%H:%M:%SZ", nsecs)); }'
               # path-based chmod syscalls: filter to the exact target string. args.mode is the umode_t set.
-              for tp in chmod fchmodat fchmodat2; do
+              # fchmodat2 is DROPPED (round 9b-fix4, live-confirmed #8384): it is a kernel-6.6 (2023) syscall
+              # that bpftrace 0.14.0 (2021) predates, so it resolves its tracepoint args as a raw pointer
+              # (str(args.filename)/args.mode fail — same shape as the dropped fd-based fchmod). fchmodat is
+              # the one that matters: coreutils chmod/install/os.chmod("/dev/null") all issue the classic
+              # fchmodat syscall, not fchmodat2. `chmod` stays in the list for x86 portability (bpftrace -l
+              # filters it out on arm64 where the syscall doesn't exist; where it does, its args resolve fine).
+              for tp in chmod fchmodat; do
                 if printf '%s\n' "$AVAIL" | grep -qx "tracepoint:syscalls:sys_enter_$tp"; then
                   echo "// sys_enter_$tp(..., filename, mode) — coreutils chmod/install/os.chmod path here"
                   echo "tracepoint:syscalls:sys_enter_$tp /str(args.filename) == \"/dev/null\"/ {"
@@ -512,7 +518,7 @@ jobs:
             echo "mutator, mode = what it set. A path line with mode=644/444 is the STRIP; mode=666 is the"
             echo "guard/heal restore. DECISIVE NEGATIVE: if the guard journal shows a 0666 restore (⇒ a strip"
             echo "happened) but this log has NO matching path line in that window, the strip did NOT come from a"
-            echo "userspace fchmodat/fchmodat2 on the path '/dev/null' — pointing at a kernel-internal or"
+            echo "userspace fchmodat on the path '/dev/null' — pointing at a kernel-internal or"
             echo "fd-based mechanism (an fd-based fchmod probe is not armed; see the arm-block note) rather than"
             echo "any path-chmod process."
 
