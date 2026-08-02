@@ -209,6 +209,29 @@ if [ -f "${_DBINTEGRITY_DROPIN_SRC}" ]; then
     fi
 fi
 
+# Why ict-research-results-gate needs the data-dir drop-in:
+#   scripts/ops/run_research_results_gate.sh → research_results_gate_report.py
+#   resolves the canonical journal via trade_journal_db_path() AND writes its
+#   report under runtime_logs_dir() — both DATA_DIR-aware (src.utils.paths).
+#   The live trader / ict-web-api run with DATA_DIR=/data/bot-data via their own
+#   drop-ins. Without this drop-in the oneshot inherits no DATA_DIR (stripped
+#   from .env by fix_data_dir.sh), reads the empty/stale <repo>/trade_journal.db
+#   and writes the report to <repo>/runtime_logs — a DIFFERENT DB than the live
+#   trader writes and a DIFFERENT dir than any reader/mirror expects. Same
+#   writer/reader path-split rationale as the ict-hourly-snapshot /
+#   ict-db-integrity cases above (R4 P1, observe-only reporter).
+_R4GATE_DROPIN_SRC="${_DATADIR_DROPIN_SRC}"
+_R4GATE_DROPIN_DST="${SYSTEMD_DIR}/ict-research-results-gate.service.d/data-dir.conf"
+if [ -f "${_R4GATE_DROPIN_SRC}" ]; then
+    if [ ! -e "${_R4GATE_DROPIN_DST}" ] || ! cmp -s "${_R4GATE_DROPIN_SRC}" "${_R4GATE_DROPIN_DST}"; then
+        echo ">>> install_systemd_units: dropin data-dir.conf → ${_R4GATE_DROPIN_DST}"
+        "${SUDO[@]}" mkdir -p "$(dirname "${_R4GATE_DROPIN_DST}")"
+        "${SUDO[@]}" cp "${_R4GATE_DROPIN_SRC}" "${_R4GATE_DROPIN_DST}"
+        "${SUDO[@]}" chmod 0644 "${_R4GATE_DROPIN_DST}"
+        changed=1
+    fi
+fi
+
 # Why ict-claude-bridge needs the data-dir drop-in:
 #   The bridge is the SOLE drainer of the Claude update channel — it reads
 #   $DATA_DIR/runtime_logs/pending_claude_pings (via runtime_logs_dir()).

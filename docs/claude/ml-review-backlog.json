@@ -1531,6 +1531,12 @@
           "by": "roadmap-backlog-session-2026-08-01 (G1 gate-check, trainer-diag #8279/#8283)",
           "action": "kept_open",
           "note": "G1 fc-pcv v2 gate-check run (scripts/ml/gate_check_candidates.sh, heavy oos_edge purged-WF-CV; both artifacts RETRAINED today so their live_parity counters reset to this morning). RESULT: NEITHER v2 is gate-ready (ready:false) -> NO promotion proposed; Tier-3 decision deferred to operator. sol-regime-15m-lgbm-fc-pcv-v2 (retrained 01:14Z): blocking=[live_parity] ONLY -- oos_edge +0.239 macro_f1 PASS, drift_clean KS 0.157/PSI 0.050 CLEAN (v1 was demoted on exactly this gate 07-26), non_degenerate 0.383, live_regime_discrimination AUC 0.617, labels_accruing 0.88; live_parity insufficient_data (13 rows since retrain, need >=20, accrues at 15m-bar cadence ~hours). => essentially gate-passing pending parity accrual; RE-GATE-CHECK later today once >=20 parity rows, and if ready:true propose the SOL advisory-head restore (v1 slot, demoted 07-26) to the operator. btc-regime-15m-lgbm-fc-pcv-v2 (retrained 00:47Z): blocking=[live_parity, drift_clean] -- oos_edge +0.278 PASS but drift_clean KS 0.2113 > 0.20 FAIL (marginal, the same KS>0.2 class that demoted SOL v1) + live_parity insufficient (14 rows). BTC already serves a working advisory head (btc-regime-15m-lgbm-fc-pcv-v1, live since 07-20) so there is NO gap -- the v2 swap is a refresh, not urgent; let it soak, re-check drift after more data before any proposal. Neither promotion executed (Tier-3, operator-gated)."
+        },
+        {
+          "at": "2026-08-02T05:00:00+00:00",
+          "by": "claude (metis-insights-backlog-cont, trainer-diag #8320/#8325)",
+          "action": "kept_open",
+          "note": "SOL trend_vol cell RE-VALIDATION under the restored advisory head sol-regime-15m-lgbm-fc-pcv-v2 (cell-selection walk-forward; findings docs/research/A-vol-gating-SOL-revalidation-fcpcv-v2-2026-08-02.md). Head scores offline cleanly (probe #8317: scored=47 fell_back=0). RESULT: net PASS 2/3, maxDD PASS 3/3 -- a MATERIAL improvement over the 07-06 clean fail (was 1/3 net, 1/3 DD) with TWO STABLE cells re-discovered EVERY fold (sol_pullback_2h|trending|calm|long ; trend_donchian_sol|transitional|calm|long). BUT still MISSES the strict every-fold BTC go-live bar: fold-3 (2025-07..2026-06) net FAIL ev-ml -$82 vs near-flat ungated +$8 (a ~$90 giveback in a flat year) while cutting maxDD 459->353. NO cell authored: (1) 2/3 is not a clean pass and authoring a trend_vol OFF cell is Tier-3 live routing (SOL now resolves the ML vol label per-symbol off the advisory head, so cells WOULD enforce under REGIME_ML_VERDICT_MODE=use); (2) the ~$90 fold-3 giveback is a thin margin, and the SOL WF's vol labels (backtest-harness feature path) are NOT parity-verified against SOL live serving -- the analogous BTC offline-vs-serve gap (BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP) RESOLVED 2026-07-30 as an epoch-mismatch artifact (no real serve gap over a covering build), so the SOL residual risk is likely small but unverified, and a thin-margin verdict is not decision-grade until it is. The two exact candidate cells are recorded in the findings doc for a future operator decision. HOLD; re-visit when the fold-3 window extends with more data OR the offline-vs-serve gap closes."
         }
       ],
       "reframed_2026_07_26": "REFRAMED 2026-07-26 (WS-2, de-soak workplan). The 'wait for >=300-500 live shadow rows / real volatile episodes before RG4' criterion is SUPERSEDED per docs/CLAUDE-RULES-CANONICAL.md 'Promotion evidence - offline edge, live mechanics'. Readiness is NOT gated on live accrual: the head's EDGE is proven OFFLINE (oos_edge purged WF-CV; powered RG4 via replay_pregate_fleet over the dataset's own labeled history is advisory, not a blocking wait), and the LIVE gates are the serving-mechanics pair (live_parity + labels_accruing) + rolling drift_clean, which mature in hours. The fixed shadow_soak calendar gate is now advisory (WS-1, #7674). Action when picked up: run rg4_targeted over history + confirm live_parity/labels/drift clean, then the per-cell A/B -> walk-forward -> Tier-3 cell-author + operator promote. Do not defer on 'not enough live rows yet'."
@@ -2506,6 +2512,12 @@
           "at": "2026-08-02T04:15:00+00:00",
           "by": "claude (Tier-3 execution, session full-system-review-zajauh)",
           "note": "SOL SWAP EXECUTED + VERIFIED (operator approved in chat on the ready:true packet). sol-regime-15m-lgbm-fc-pcv-v2 promoted shadow->advisory at 2026-08-02T04:10:36Z (trainer #8306/#8307; first attempt used wrong CLI syntax - promote-stage takes --new-stage/--by/--reason flags, not a positional stage). Registry verified: target_deployment_stage=advisory, stage_history row carries the operator attribution + gate evidence; advisory count 2->3; trainer mirror re-published to the live VM 04:10:40Z. The SOL advisory head is RESTORED (v1 stays demoted). Reminder: zero live-order impact until SOL trend_vol cells are authored - that Tier-3 follow-up is now UNBLOCKED again. REMAINING on this row: BTC v2 drift_clean re-check ~08-03/08-04 (KS hovering 0.21-0.25 vs the 0.2 bar; all other gates pass)."
+        },
+        {
+          "at": "2026-08-02T04:35:00+00:00",
+          "by": "claude (metis-insights-backlog-cont, trainer-diag #8315)",
+          "action": "kept_open",
+          "note": "BTC v2 drift RE-PULL (gate-check btc-regime-15m-lgbm-fc-pcv-v2 --target-stage advisory, trainer-diag #8315): ready=false. drift_clean KS=0.2012 (threshold <=0.20) STILL FAIL but IMPROVED and now MARGINAL (KS trend 07-30 0.229 -> 08-01 runs 0.2543/0.2096/0.2290 -> 08-02 0.2012, misses the 0.2 bar by 0.0012); PSI=0.1538 CLEAN. live_parity=insufficient_data (0 rows scored since the current artifact retrained 2026-08-02T01:44:31Z; needs >=20, accrues at 15m-bar cadence). All other required gates PASS (labels_accruing 0.99, sample_sufficiency n=87636, cross_run_stability std 0.0066, RG4 live-discrimination AUC 0.602). VERDICT: continued HOLD, no promotion proposed (Tier-3). BTC already serves a working advisory head (fc-pcv-v1, live since 07-20) so there is no gap and the v2 swap is a non-urgent refresh. Re-check drift + parity after the fresh artifact accrues ~1-2 more days (~08-03/08-04); if KS drops under 0.20 AND >=20 clean post-retrain parity rows land, present the Tier-3 v2->advisory swap to the operator."
         }
       ]
     },
@@ -2773,5 +2785,5 @@
       ]
     }
   ],
-  "updated_at": "2026-08-01"
+  "updated_at": "2026-08-02"
 }

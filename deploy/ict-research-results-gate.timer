@@ -1,0 +1,23 @@
+# ============================================
+# ICT R4 RESEARCH→RESULTS GATE REPORTER TIMER — R4 P1
+# Triggers ict-research-results-gate.service once a day. The gate reads a
+# 7d/30d closed-trade window, so a daily cadence is ample for the observe-only
+# evidence trail (cheap read-only journal query).
+# Save to: /etc/systemd/system/ict-research-results-gate.timer
+# ============================================
+
+[Unit]
+Description=Trigger ict-research-results-gate daily
+Requires=ict-research-results-gate.service
+
+[Timer]
+# Once a day, a few minutes past the top of the hour, with a spread so it does
+# not pile onto the other daily oneshots. Persistent replays a missed fire
+# after a reboot.
+OnCalendar=*-*-* 07:12:00
+RandomizedDelaySec=300
+Persistent=true
+Unit=ict-research-results-gate.service
+
+[Install]
+WantedBy=timers.target
