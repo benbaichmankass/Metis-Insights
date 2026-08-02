@@ -422,13 +422,15 @@ jobs:
 
           elif [ "${MODE}" = "bpftrace-arm" ]; then
             # ROUND 9 (2026-08-02, operator-approved): the fanotify soak proved the strip is a userspace
-            # chmod-to-0644 correlated with deploys, but pid-reuse during the deploy's own rapid chmod
-            # burst made the fanotify pid untrustworthy for naming the EXACT actor. bpftrace captures the
-            # culprit SYNCHRONOUSLY in kernel context at the chmod call — zero pid-reuse ambiguity — and,
-            # because it hooks the VFS funnel every chmod variant (incl. compat/b32) passes through, it also
-            # explains why 7 b64-syscall audit rounds were blind. Read-only trace; Tier-2 (bpftrace install
-            # + one transient kprobe unit). Filters to /dev/null by rdev (major 1, minor 3) so it survives a
-            # guard node-recreate (inode-independent). Prints comm/pid/uid/parent + kstack + the mode set.
+            # chmod-to-0644 correlated with deploys, but pid-reuse during the deploy's own rapid chmod burst
+            # made the fanotify pid untrustworthy for naming the EXACT actor. bpftrace reads comm/pid/uid
+            # SYNCHRONOUSLY in the acting task at syscall entry — zero pid-reuse ambiguity (the exact gap
+            # fanotify left). Round 9b uses SYSCALL TRACEPOINTS (chmod/fchmodat/fchmodat2 filtered to the
+            # path "/dev/null") not kprobes: bpftrace 0.14.0 on this VM cannot resolve the kernel struct
+            # casts a notify_change/security_path_chmod kprobe needs, but tracepoint args are typed by the
+            # kernel's own format and compile cleanly. Read-only trace; Tier-2 (bpftrace install + one
+            # transient tracepoint unit). Decisive both ways: a captured path line names the mutator; a
+            # confirmed strip with NO captured line proves it is not a path-chmod syscall (kernel-internal).
             echo; echo "===== bpftrace-arm: install bpftrace + start the /dev/null chmod tracer ====="
             if ! command -v bpftrace >/dev/null 2>&1; then
               echo "installing bpftrace..."
@@ -436,37 +438,41 @@ jobs:
             else
               echo "bpftrace already present: $(bpftrace --version 2>&1 | head -1)"
             fi
-            [ -r /sys/kernel/btf/vmlinux ] && echo "BTF: present (/sys/kernel/btf/vmlinux)" || echo "BTF: ABSENT — struct field reads may fail"
+            [ -r /sys/kernel/btf/vmlinux ] && echo "BTF: present (/sys/kernel/btf/vmlinux)" || echo "BTF: ABSENT"
             echo "kernel: $(uname -r)"
-            # Build the .bt from whichever hook symbols this kernel exports (security_path_chmod needs
-            # CONFIG_SECURITY_PATH; notify_change is always exported). At least one must be present.
+            # ROUND 9b (2026-08-02): the kprobe form (round 9a) FAILED to compile on this VM's bpftrace 0.14.0
+            #   — "Unknown struct/union: 'struct dentry'/'struct iattr'" (0.14's BTF struct-cast resolution is
+            #   incomplete). Switch to SYSCALL TRACEPOINTS: their args are typed by the kernel's own tracepoint
+            #   format, so NO struct casts / BTF resolution are needed and it compiles on 0.14. Coreutils
+            #   chmod / install / GNU / python os.chmod all issue fchmodat(AT_FDCWD,"/dev/null",mode), so we
+            #   filter by the path STRING "/dev/null" and read comm/pid/uid IN the acting task at syscall entry
+            #   — zero pid-reuse ambiguity (the exact gap the fanotify soak left). Each tracepoint is included
+            #   only if the kernel exposes it, so a missing one can never break the compile.
+            TEV=/sys/kernel/debug/tracing/events/syscalls
             BT=/usr/local/bin/devnull_chmod_trace.bt
             {
-              echo '// devnull_chmod_trace.bt — BL-20260629: name the process that chmods /dev/null (rdev major 1 minor 3).'
+              echo '// devnull_chmod_trace.bt — BL-20260629: name the process that chmods /dev/null (by path).'
               echo 'BEGIN { printf("devnull_chmod_trace armed %s\n", strftime("%Y-%m-%dT%H:%M:%SZ", nsecs)); }'
-              if grep -qw security_path_chmod /proc/kallsyms; then
-                echo '// security_path_chmod(const struct path *path, umode_t mode) — path=arg0, mode=arg1 (stable)'
-                echo 'kprobe:security_path_chmod {'
-                echo '  $rdev = ((struct path *)arg0)->dentry->d_inode->i_rdev;'
-                echo '  if (($rdev >> 20) == 1 && ($rdev & 0xfffff) == 3) {'
-                echo '    printf("%s security_path_chmod /dev/null mode=%o comm=%s pid=%d uid=%d\n", strftime("%H:%M:%S", nsecs), arg1 & 0777, comm, pid, uid);'
-                echo '    printf("  kstack:%s\n", kstack);'
-                echo '  }'
-                echo '}'
-              fi
-              if grep -qw notify_change /proc/kallsyms; then
-                echo '// notify_change(mnt_idmap*, dentry*, iattr*, inode**) on kernel >=6.3 — dentry=arg1, attr=arg2'
-                echo 'kprobe:notify_change {'
-                echo '  $rdev = ((struct dentry *)arg1)->d_inode->i_rdev;'
-                echo '  $attr = (struct iattr *)arg2;'
-                echo '  if (($rdev >> 20) == 1 && ($rdev & 0xfffff) == 3 && ($attr->ia_valid & 1)) {'
-                echo '    printf("%s notify_change /dev/null new_mode=%o comm=%s pid=%d uid=%d\n", strftime("%H:%M:%S", nsecs), $attr->ia_mode & 0777, comm, pid, uid);'
-                echo '  }'
+              # path-based chmod syscalls: filter to the exact target string. args.mode is the umode_t set.
+              for tp in chmod fchmodat fchmodat2; do
+                if [ -d "$TEV/sys_enter_$tp" ]; then
+                  echo "// sys_enter_$tp(..., filename, mode) — coreutils chmod/install/os.chmod path here"
+                  echo "tracepoint:syscalls:sys_enter_$tp /str(args.filename) == \"/dev/null\"/ {"
+                  echo "  printf(\"%s $tp /dev/null mode=%o comm=%s pid=%d uid=%d\\n\", strftime(\"%H:%M:%S\", nsecs), args.mode & 0777, comm, pid, uid);"
+                  echo '}'
+                fi
+              done
+              # fd-based fchmod carries no path — capture only the strip-candidate modes (0644/0444) so a
+              # fchmod("/dev/null"-via-fd) mutator still surfaces; bounded noise, read from the log.
+              if [ -d "$TEV/sys_enter_fchmod" ]; then
+                echo '// sys_enter_fchmod(fd, mode) — no path arg; log strip-candidate modes only'
+                echo 'tracepoint:syscalls:sys_enter_fchmod /(args.mode & 0777) == 0644 || (args.mode & 0777) == 0444/ {'
+                echo '  printf("%s fchmod fd=%d mode=%o comm=%s pid=%d uid=%d (fd-based — confirm target)\n", strftime("%H:%M:%S", nsecs), args.fd, args.mode & 0777, comm, pid, uid);'
                 echo '}'
               fi
             } | sudo tee "$BT" >/dev/null
             echo; echo "----- generated $BT -----"; sudo cat "$BT"
-            if ! grep -q 'kprobe:' "$BT"; then echo "ERROR: neither security_path_chmod nor notify_change in kallsyms — cannot arm"; echo "(done)"; exit 0; fi
+            if ! grep -q 'tracepoint:' "$BT"; then echo "ERROR: no chmod-family syscall tracepoints exposed — cannot arm"; echo "(done)"; exit 0; fi
             sudo systemctl reset-failed ict-devnull-bpftrace.service 2>/dev/null || true
             sudo systemctl stop ict-devnull-bpftrace.service 2>/dev/null || true
             sudo systemd-run --unit=ict-devnull-bpftrace --collect \
@@ -489,9 +495,12 @@ jobs:
             echo; echo "===== ict-devnull-guard restores in the same window (correlate a 0666 restore ⇒ a strip preceded it) ====="
             sudo journalctl -u ict-devnull-guard.service --no-pager -n 12 2>/dev/null || echo "(no guard journal)"
             echo; echo "===== CULPRIT HINT ====="
-            echo "Each line is captured IN the kernel chmod call (no pid-reuse): comm/pid/uid = the exact mutator,"
-            echo "pcomm/ppid = its parent, mode = what it set. A line with mode=644/444 is the STRIP; mode=666 is the"
-            echo "guard/heal restore. The kstack names the syscall entry (chmod/fchmodat/compat) or an in-kernel caller."
+            echo "Each line is captured IN the kernel at syscall entry (no pid-reuse): comm/pid/uid = the exact"
+            echo "mutator, mode = what it set. A path line with mode=644/444 is the STRIP; mode=666 is the"
+            echo "guard/heal restore. DECISIVE NEGATIVE: if the guard journal shows a 0666 restore (⇒ a strip"
+            echo "happened) but this log has NO matching path line in that window, the strip did NOT come from a"
+            echo "userspace chmod/fchmodat/fchmodat2 on the path '/dev/null' — pointing at a kernel-internal or"
+            echo "fd-based mechanism (check the fchmod lines) rather than any path-chmod process."
 
           elif [ "${MODE}" = "bpftrace-disarm" ]; then
             echo; echo "===== bpftrace-disarm: stop the tracer (bpftrace pkg + log kept) ====="
