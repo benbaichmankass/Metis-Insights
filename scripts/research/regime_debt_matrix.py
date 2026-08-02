@@ -230,16 +230,27 @@ def roundtrip_fee_bps(symbol: str) -> float:
 
 
 def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: str,
-                      emit: str, jout: str) -> tuple[list[str], bool, list[str]]:
-    """Return (argv, faithful, omitted_levers)."""
+                      emit: str, jout: str,
+                      fee_override: Optional[float] = None
+                      ) -> tuple[list[str], bool, list[str]]:
+    """Return (argv, faithful, omitted_levers).
+
+    ``fee_override`` (bps) forces the round-trip fee for the fixed-window fee
+    A/B (BL-20260730-FEE-AB-FIXED-WINDOW) — pass e.g. 0.0 and 7.5 across two arms
+    over the SAME fetched candle CSV so the per-cell delta isolates the fee
+    effect from the window slide that confounds two-run comparisons. ``None``
+    (the default) keeps the venue-appropriate resolved fee — every existing
+    caller is byte-for-byte unchanged.
+    """
     py = sys.executable
     symbol = cfg["symbols"][0]
+    fee = roundtrip_fee_bps(symbol) if fee_override is None else float(fee_override)
     common = ["--data", csv, "--symbol", symbol, "--resample", resample,
               "--atr-period", str(cfg.get("atr_period", 14)),
               "--atr-stop-mult", str(cfg.get("atr_stop_mult", 2.5)),
               "--trail-mult", str(cfg.get("trail_mult", 5.0)),
               "--min-confidence", str(cfg.get("min_confidence", 0.0)),
-              "--fee-bps-roundtrip", str(roundtrip_fee_bps(symbol)),
+              "--fee-bps-roundtrip", str(fee),
               "--emit-trades", emit, "--json", jout]
     # ADX gating is supported by the trend + pullback harnesses but NOT by
     # scripts/backtest_squeeze.py (it has no --adx-* flags). Kept OUT of `common`
@@ -300,7 +311,53 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
     return argv, faithful, omitted
 
 
-def run_one(name: str, cfg: dict, workdir: str, days: int) -> dict:
+def _regime_tag(csv: str, emit: str, resample: str, label: str) -> dict:
+    """Run regime_tag_emitted over an emitted-trades file → its matrix dict."""
+    out = subprocess.run(
+        [sys.executable, os.path.join(REPO, "scripts/research/regime_tag_emitted.py"),
+         "--trades", emit, "--data", csv, "--resample", resample,
+         "--label", label, "--json"],
+        check=True, cwd=REPO, capture_output=True)
+    return json.loads(out.stdout.decode())
+
+
+def _fee_ab_diff(arms: dict) -> dict:
+    """Per-(regime, side) net-R delta of each higher-fee arm vs the lowest-fee arm.
+
+    The trade SET is identical across arms (fees do not feed back into signal
+    generation), so `diff = high_fee − low_fee` is a CLEAN per-cell fee
+    attribution — negative = the phantom drag the fee imposes on that cell. This
+    is what BL-20260730-FEE-AB-FIXED-WINDOW asked for: a measured number, not the
+    window-slide-confounded inference the two-run comparison could only offer.
+    """
+    def _f(x):
+        try:
+            return float(x)
+        except (TypeError, ValueError):
+            return None
+    keys = sorted(arms, key=lambda k: float(k))
+    if len(keys) < 2:
+        return {"note": "need >=2 arms to diff"}
+    base = keys[0]
+    base_m = (arms.get(base) or {}).get("by_regime", {}) or {}
+    out: dict = {"base_fee_bps": base, "by_regime": {}}
+    for hi in keys[1:]:
+        hi_m = (arms.get(hi) or {}).get("by_regime", {}) or {}
+        for reg in sorted(set(base_m) | set(hi_m)):
+            b, h = base_m.get(reg, {}), hi_m.get(reg, {})
+            cell = out["by_regime"].setdefault(reg, {})
+            for side in ("net_r", "long_r", "short_r"):
+                bv, hv = _f(b.get(side)), _f(h.get(side))
+                cell[f"d_{side}__{base}_to_{hi}"] = (
+                    round(hv - bv, 4) if (bv is not None and hv is not None) else None)
+            # carry the n so a reader can weight the delta (small-n = drift-prone)
+            cell["long_n"] = h.get("long_n", b.get("long_n"))
+            cell["short_n"] = h.get("short_n", b.get("short_n"))
+    return out
+
+
+def run_one(name: str, cfg: dict, workdir: str, days: int,
+            fee_arms: Optional[list] = None) -> dict:
     harness = classify(cfg)
     sym = (cfg.get("symbols") or [None])[0]
     tf = cfg.get("timeframe")
@@ -330,6 +387,33 @@ def run_one(name: str, cfg: dict, workdir: str, days: int) -> dict:
     # whether a verdict was produced under the venue-blind 7.5-bps default
     # (BL-20260730-RESEARCH-VENUE-FEE). 0.0 = commission-free venue.
     row["fee_bps_roundtrip"] = roundtrip_fee_bps(cfg["symbols"][0])
+
+    # FIXED-WINDOW FEE A/B (BL-20260730-FEE-AB-FIXED-WINDOW): grade the SAME
+    # fetched candle window at each fee arm and diff per cell. `emit`/`jout` above
+    # are the single-arm paths; each arm gets its own so they never clobber.
+    if fee_arms:
+        arms: dict = {}
+        for fee in fee_arms:
+            emit_a = os.path.join(workdir, f"{name}__fee{fee}__trades.jsonl")
+            jout_a = os.path.join(workdir, f"{name}__fee{fee}__bt.json")
+            argv_a, _, _ = build_harness_cmd(
+                name, cfg, harness, csv, feed["resample"], emit_a, jout_a,
+                fee_override=fee)
+            try:
+                subprocess.run(argv_a, check=True, cwd=REPO,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                arms[str(fee)] = _regime_tag(csv, emit_a, feed["resample"], name)
+            except subprocess.CalledProcessError as e:
+                row.setdefault("arm_errors", {})[str(fee)] = (
+                    f"harness failed: {(e.stderr or b'').decode()[-200:]}")
+            except Exception as e:  # noqa: BLE001
+                row.setdefault("arm_errors", {})[str(fee)] = (
+                    f"{type(e).__name__}: {e}")
+        row["fee_ab"] = {"fee_arms": [str(f) for f in fee_arms],
+                         "arms": arms,
+                         "diff": _fee_ab_diff(arms)}
+        return row
+
     try:
         subprocess.run(argv, check=True, cwd=REPO,
                        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -337,12 +421,7 @@ def run_one(name: str, cfg: dict, workdir: str, days: int) -> dict:
         row["error"] = f"harness failed: {(e.stderr or b'').decode()[-300:]}"
         return row
     try:
-        out = subprocess.run(
-            [sys.executable, os.path.join(REPO, "scripts/research/regime_tag_emitted.py"),
-             "--trades", emit, "--data", csv, "--resample", feed["resample"],
-             "--label", name, "--json"],
-            check=True, cwd=REPO, capture_output=True)
-        row["matrix"] = json.loads(out.stdout.decode())
+        row["matrix"] = _regime_tag(csv, emit, feed["resample"], name)
     except Exception as e:  # noqa: BLE001
         row["error"] = f"regime-tag failed: {type(e).__name__}: {e}"
     return row
@@ -385,8 +464,25 @@ def main() -> int:
     ap.add_argument("--crypto-only", action="store_true", help="skip Yahoo feeds (sandbox-testable)")
     ap.add_argument("--workdir", default="/tmp/regime_debt_matrix")
     ap.add_argument("--days", type=int, default=730)
+    ap.add_argument("--fee-ab", default=None,
+                    help="CSV of round-trip fee bps arms for a fixed-window fee "
+                         "A/B (e.g. '0,7.5'); grades the SAME candle window at "
+                         "each fee so per-cell deltas isolate the fee effect from "
+                         "window drift (BL-20260730-FEE-AB-FIXED-WINDOW). Default: "
+                         "single venue-resolved-fee run.")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
+    fee_arms: Optional[list] = None
+    if args.fee_ab:
+        try:
+            fee_arms = [float(x) for x in str(args.fee_ab).split(",") if x.strip() != ""]
+        except ValueError:
+            print(f"[fee-ab] bad --fee-ab value {args.fee_ab!r}; expected CSV of "
+                  "numbers e.g. '0,7.5'", file=sys.stderr)
+            return 2
+        if len(fee_arms) < 2:
+            print("[fee-ab] need >=2 fee arms to diff (e.g. '0,7.5')", file=sys.stderr)
+            return 2
     os.makedirs(args.workdir, exist_ok=True)
     roster = load_roster()
     names = args.only or sorted(roster)
@@ -403,7 +499,7 @@ def main() -> int:
         if args.crypto_only and not (sym or "").upper().endswith("USDT"):
             results.append({"strategy": n, "symbol": sym, "skipped": "non-crypto (crypto-only)"})
             continue
-        results.append(run_one(n, cfg, args.workdir, args.days))
+        results.append(run_one(n, cfg, args.workdir, args.days, fee_arms=fee_arms))
 
     # COVERAGE DECLARATION (BL-20260730-REGIME-CELL-UNAUDITABLE, and the binding
     # "Green is not evidence" rule §3). This run's roster is a WORK QUEUE — the
@@ -434,8 +530,22 @@ def main() -> int:
         coverage = {"error": f"could not compute coverage: {type(exc).__name__}: {exc}"}
 
     payload = {"count": len(results), "coverage": coverage, "results": results}
+    if fee_arms is not None:
+        payload["fee_ab_arms"] = [str(f) for f in fee_arms]
     if args.json:
         print(json.dumps(payload))
+    elif fee_arms is not None:
+        # A/B print: the per-cell fee delta (isolated), not the absolute matrix.
+        for r in results:
+            print(f"{r['strategy']:26s} {r.get('fidelity','-'):11s} "
+                  f"{r.get('error') or r.get('skipped') or ''}")
+            diff = (r.get("fee_ab") or {}).get("diff", {})
+            for reg, cell in (diff.get("by_regime") or {}).items():
+                deltas = " ".join(f"{k}={v}" for k, v in cell.items()
+                                  if k.startswith("d_") and v is not None)
+                print(f"    {reg:13s} {deltas}  (long_n{cell.get('long_n')} short_n{cell.get('short_n')})")
+            if r.get("arm_errors"):
+                print(f"    arm_errors: {r['arm_errors']}")
     else:
         for r in results:
             m = (r.get("matrix") or {}).get("by_regime", {})
