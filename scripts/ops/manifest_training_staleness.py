@@ -44,6 +44,17 @@ import re
 import sys
 
 _MODEL_ID_RE = re.compile(r"^model_id:\s*[\"']?([A-Za-z0-9._-]+)", re.MULTILINE)
+# Operator-accepted "cannot train yet — source data does not exist" waiver.
+# Declared INSIDE the manifest's free-text notes: block (the manifest loader
+# is a strict dataclass, so a new top-level key would break ml.manifest) as a
+# line `training-wait: awaiting_source_trades — <reason>`. A never-trained
+# manifest carrying the marker reports the distinct, non-alarming
+# `manifest_awaiting_source` status instead of `manifest_untrained_stale`
+# (an accepted wait nagging nightly is the alarm-fatigue class,
+# MB-20260719-DATASET-AUDIT-NOISE). A model that HAS trained and then goes
+# stale still alarms normally — the waiver only covers the never-trained
+# branch, and only while the marker stays in the manifest.
+_AWAITING_SOURCE_RE = re.compile(r"^\s*training-wait:\s*awaiting_source_trades\b(.*)$", re.MULTILINE)
 
 
 def _iso_now() -> str:
@@ -83,7 +94,7 @@ def main(argv: list[str]) -> int:
     if len(argv) < 4:
         print(json.dumps({
             "ts": _iso_now(), "status": "training_staleness_summary",
-            "scanned": 0, "stale": 0, "never_trained": 0, "unresolvable": 0,
+            "scanned": 0, "stale": 0, "never_trained": 0, "unresolvable": 0, "awaiting_source": 0,
             "registry_files": 0, "threshold_days": None,
             "detail": "called with too few arguments — scanned NOTHING "
                       "(an absent report, not a clean one)",
@@ -98,12 +109,14 @@ def main(argv: list[str]) -> int:
     now = dt.datetime.now(dt.timezone.utc)
     registry_files = len(glob.glob(os.path.join(registry_root, "*.json")))
 
-    stale = never_trained = unresolvable = 0
+    stale = never_trained = unresolvable = awaiting_source = 0
     for manifest in manifests:
         try:
             with open(manifest, encoding="utf-8") as fh:
-                match = _MODEL_ID_RE.search(fh.read())
+                _mf_text = fh.read()
+            match = _MODEL_ID_RE.search(_mf_text)
         except OSError:
+            _mf_text = ""
             match = None
         if match is None:
             unresolvable += 1
@@ -127,6 +140,20 @@ def main(argv: list[str]) -> int:
             except OSError:
                 mf_age_days = threshold_days + 1.0  # unreadable → report it
             if mf_age_days <= threshold_days:
+                continue
+            wait_m = _AWAITING_SOURCE_RE.search(_mf_text)
+            if wait_m:
+                awaiting_source += 1
+                print(json.dumps({
+                    "ts": _iso_now(), "status": "manifest_awaiting_source",
+                    "manifest": manifest, "model_id": model_id,
+                    "threshold_days": threshold_days,
+                    "detail": (
+                        "never trained, by accepted design — manifest carries "
+                        "the awaiting_source_trades waiver"
+                        + (" —" + wait_m.group(1) if wait_m.group(1).strip() else "")
+                    ),
+                }))
                 continue
             never_trained += 1
             stale += 1
@@ -163,6 +190,7 @@ def main(argv: list[str]) -> int:
         "ts": _iso_now(), "status": "training_staleness_summary",
         "scanned": len(manifests), "stale": stale,
         "never_trained": never_trained, "unresolvable": unresolvable,
+        "awaiting_source": awaiting_source,
         "registry_files": registry_files, "threshold_days": threshold_days,
     }))
     return 0
@@ -176,7 +204,7 @@ if __name__ == "__main__":
     except Exception as exc:  # noqa: BLE001 — fail-open: report, never break the cycle
         print(json.dumps({
             "ts": _iso_now(), "status": "training_staleness_summary",
-            "scanned": 0, "stale": 0, "never_trained": 0, "unresolvable": 0,
+            "scanned": 0, "stale": 0, "never_trained": 0, "unresolvable": 0, "awaiting_source": 0,
             "registry_files": 0, "threshold_days": None,
             "detail": f"staleness reporter crashed ({type(exc).__name__}: {exc}) "
                       f"— scanned NOTHING this cycle",

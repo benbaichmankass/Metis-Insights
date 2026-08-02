@@ -41,3 +41,14 @@ notes: |
   over closed MES trades. Time-aware holdout (latest 20 % by
   trade_created_at). Registers at `shadow`. Leakage discipline: only
   signal-time metadata may be used as features.
+
+  training-wait: awaiting_source_trades — entry_slippage_bps is a LIVE
+  execution measurement a backtest cannot produce (a harness models
+  slippage, it does not measure it), and MES has zero live fills:
+  mes_trend_long_1d enters ~2.6x/yr (10y config-exact backtest,
+  MB-20260801-MES-BASELINE-MANIFESTS-NEVER-TRAINED). Operator-accepted
+  wait 2026-08-02 — keep the manifest; it trains automatically once live
+  MES fills accrue. The sibling MES baselines (trade_outcomes /
+  setup_labels) train from backtest-augmented builds instead; this family
+  deliberately cannot. Remove this marker to restore the never-trained
+  staleness alarm.
