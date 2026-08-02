@@ -33,6 +33,9 @@ on:
       days:
         description: "Trailing days of candles"
         default: "730"
+      fee_ab:
+        description: "CSV of fee-bps arms for a fixed-window fee A/B (e.g. '0,7.5'); blank = single venue-resolved-fee run"
+        default: ""
   issues:
     types: [opened]
 
@@ -64,14 +67,17 @@ jobs:
         run: |
           only=$(printf '%s' "$ISSUE_BODY" | grep -iE '^only:' | head -1 | cut -d: -f2- | xargs || true)
           days=$(printf '%s' "$ISSUE_BODY" | grep -iE '^days:' | head -1 | cut -d: -f2- | xargs || true)
+          fee_ab=$(printf '%s' "$ISSUE_BODY" | grep -iE '^fee_ab:' | head -1 | cut -d: -f2- | xargs || true)
           echo "RDM_ONLY=${only}" >> "$GITHUB_ENV"
           echo "RDM_DAYS=${days:-730}" >> "$GITHUB_ENV"
+          echo "RDM_FEE_AB=${fee_ab}" >> "$GITHUB_ENV"
 
       - name: Set params from dispatch inputs
         if: github.event_name == 'workflow_dispatch'
         run: |
           echo "RDM_ONLY=${{ github.event.inputs.only }}" >> "$GITHUB_ENV"
           echo "RDM_DAYS=${{ github.event.inputs.days || '730' }}" >> "$GITHUB_ENV"
+          echo "RDM_FEE_AB=${{ github.event.inputs.fee_ab }}" >> "$GITHUB_ENV"
 
       - uses: actions/setup-python@v5
         with:
@@ -88,9 +94,13 @@ jobs:
           if [ -n "${RDM_ONLY}" ]; then
             ONLY_ARG="--only $(printf '%s' "${RDM_ONLY}" | tr ',' ' ')"
           fi
-          echo "days=${RDM_DAYS} only='${RDM_ONLY}'"
+          FEE_AB_ARG=""
+          if [ -n "${RDM_FEE_AB}" ]; then
+            FEE_AB_ARG="--fee-ab ${RDM_FEE_AB}"
+          fi
+          echo "days=${RDM_DAYS} only='${RDM_ONLY}' fee_ab='${RDM_FEE_AB}'"
           python scripts/research/regime_debt_matrix.py \
-            --json --days "${RDM_DAYS}" --workdir artifacts/rdm/work ${ONLY_ARG} \
+            --json --days "${RDM_DAYS}" --workdir artifacts/rdm/work ${ONLY_ARG} ${FEE_AB_ARG} \
             > artifacts/rdm/results.json 2> artifacts/rdm/run.log
           echo "rc=$?"; tail -20 artifacts/rdm/run.log || true
           echo "results bytes: $(wc -c < artifacts/rdm/results.json)"
@@ -104,6 +114,43 @@ jobs:
           except Exception as e:
               print(f"# regime-debt-matrix\n\n_(no results — {e}; read run.log in the artifact)_"); raise SystemExit(0)
           rows = d.get("results", [])
+          # FIXED-WINDOW FEE A/B rows carry `fee_ab` (a per-cell diff), not `matrix` —
+          # render the isolated fee deltas so an A/B run does not read as an empty
+          # "0 faithful" matrix (the unasserted-denominator trap). The absolute-matrix
+          # render below stays for the default (single-fee) run.
+          ab_arms = d.get("fee_ab_arms")
+          if ab_arms:
+              L = ["# regime-debt-matrix — fixed-window fee A/B",
+                   "",
+                   f"- fee arms (bps): {', '.join(ab_arms)} · rows: {len(rows)}",
+                   "- **Same candle window graded at each arm** → per-cell delta isolates the "
+                   "fee effect from the window slide that confounds a two-run comparison "
+                   "(BL-20260730-FEE-AB-FIXED-WINDOW). Negative delta = the fee's phantom drag on that cell.",
+                   "- **No cell is authored by this run** — any live-routing gate is a separate Tier-3 draft PR.",
+                   ""]
+              for r in sorted(rows, key=lambda x: x.get("strategy", "")):
+                  diff = (r.get("fee_ab") or {}).get("diff", {})
+                  by = diff.get("by_regime") or {}
+                  L.append(f"### `{r.get('strategy')}` — {r.get('symbol')} {r.get('timeframe')} "
+                           f"({r.get('harness')}, {(r.get('feed') or {}).get('source')})")
+                  if r.get("arm_errors"):
+                      L.append(f"  _arm_errors: {r['arm_errors']}_")
+                  if not by:
+                      L.append("  _(no gradeable cells)_"); L.append(""); continue
+                  cols = sorted({k for c in by.values() for k in c if k.startswith("d_")})
+                  L.append("| regime | " + " | ".join(cols) + " | long_n | short_n |")
+                  L.append("|---|" + "--:|" * (len(cols) + 2))
+                  for reg in ("trending", "transitional", "chop"):
+                      c = by.get(reg)
+                      if not c: continue
+                      L.append("| " + reg + " | "
+                               + " | ".join(str(c.get(k)) for k in cols)
+                               + f" | {c.get('long_n')} | {c.get('short_n')} |")
+                  L.append("")
+              errs = [r for r in rows if r.get("arm_errors")]
+              if errs:
+                  L.append(f"_({len(errs)} row(s) had a failed arm — see arm_errors above)_")
+              print("\n".join(L)); raise SystemExit(0)
           faithful = [r for r in rows if r.get("fidelity") == "faithful" and r.get("matrix")]
           approx = [r for r in rows if r.get("fidelity") == "approximate" and r.get("matrix")]
           errs = [r for r in rows if r.get("error")]

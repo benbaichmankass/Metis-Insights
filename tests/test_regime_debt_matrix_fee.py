@@ -90,3 +90,60 @@ class TestHarnessArgv:
             "/tmp/d.csv", "1h", "/tmp/e.jsonl", "/tmp/o.json",
         )
         assert argv.count("--fee-bps-roundtrip") == 1
+
+
+class TestFeeAB:
+    """Fixed-window fee A/B (BL-20260730-FEE-AB-FIXED-WINDOW): a fee override lets
+    both arms grade the SAME candle window, and the per-cell diff isolates the fee
+    effect from the window slide that confounds a two-run comparison."""
+
+    def test_fee_override_forces_the_arm_fee(self):
+        """A commission-free symbol must still carry the OVERRIDDEN fee — the A/B's
+        high arm charges 7.5 on GLD even though its venue resolves to 0."""
+        cfg = {"symbols": ["GLD"], "donchian": 20}
+        argv, _f, _o = regime_debt_matrix.build_harness_cmd(
+            "gld_probe", cfg, "trend",
+            "/tmp/d.csv", "1h", "/tmp/e.jsonl", "/tmp/o.json",
+            fee_override=7.5,
+        )
+        assert float(argv[argv.index("--fee-bps-roundtrip") + 1]) == 7.5
+
+    def test_fee_override_none_keeps_the_venue_resolved_fee(self):
+        """The default (no override) is byte-for-byte the venue-resolved fee, so
+        every existing single-arm caller is unchanged."""
+        cfg = {"symbols": ["GLD"], "donchian": 20}
+        argv, _f, _o = regime_debt_matrix.build_harness_cmd(
+            "gld_probe", cfg, "trend",
+            "/tmp/d.csv", "1h", "/tmp/e.jsonl", "/tmp/o.json",
+            fee_override=None,
+        )
+        assert float(argv[argv.index("--fee-bps-roundtrip") + 1]) == 0.0
+
+    def test_diff_is_high_minus_low_per_cell(self):
+        arms = {
+            "0": {"by_regime": {"trending": {"net_r": 10.0, "long_r": 6.0,
+                                             "short_r": 4.0, "long_n": 12, "short_n": 8}}},
+            "7.5": {"by_regime": {"trending": {"net_r": 8.5, "long_r": 5.1,
+                                               "short_r": 3.4, "long_n": 12, "short_n": 8}}},
+        }
+        diff = regime_debt_matrix._fee_ab_diff(arms, [0.0, 7.5])
+        cell = diff["by_regime"]["trending"]
+        # fee makes each cell WORSE → negative delta; magnitude = the phantom drag
+        assert cell["d_net_r__0_to_7.5"] == -1.5
+        assert cell["d_long_r__0_to_7.5"] == -0.9
+        assert cell["d_short_r__0_to_7.5"] == -0.6
+        assert cell["long_n"] == 12 and cell["short_n"] == 8
+
+    def test_diff_needs_two_arms(self):
+        arms = {"0": {"by_regime": {"chop": {"net_r": 1.0}}}}
+        assert "note" in regime_debt_matrix._fee_ab_diff(arms, [0.0])
+
+    def test_diff_tolerates_a_missing_cell_side(self):
+        """A None net_r (a failed/absent side) must not crash the diff."""
+        arms = {
+            "0": {"by_regime": {"chop": {"net_r": None, "long_r": 2.0}}},
+            "7.5": {"by_regime": {"chop": {"net_r": 1.0, "long_r": None}}},
+        }
+        cell = regime_debt_matrix._fee_ab_diff(arms, [0.0, 7.5])["by_regime"]["chop"]
+        assert cell["d_net_r__0_to_7.5"] is None
+        assert cell["d_long_r__0_to_7.5"] is None
