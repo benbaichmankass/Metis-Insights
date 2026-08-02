@@ -100,15 +100,17 @@ contract + generation discipline. This skill adds the two missing halves:
 
 ## 2. The merge protocol — a PER-MERGE precondition (BEFORE every `merge_pull_request`)
 
-> **When the GitHub native merge queue is ENABLED (see
+> **The GitHub native merge queue is UNAVAILABLE on this repo, so the manual
+> protocol below is the SOLE serializer** (see
 > [`docs/runbooks/merge-queue.md`](../../../docs/runbooks/merge-queue.md),
-> BL-20260726), it is the PRIMARY serializer** — add the PR to the queue
-> ("Merge when ready" / `enable_pr_auto_merge`) and GitHub auto-syncs it to the
-> queue head, runs the required checks on the merged result, and merges in order.
-> No manual `git fetch && merge origin/main` immediately before merging, no
-> `behind`/`dirty` racing. The manual `🔒 CLAIM` / sync / `🔓 RELEASE` steps below
-> then remain **belt-and-suspenders** for the rare non-queued path (an admin
-> bypass merge, a hotfix outside the queue). The board (#6927) is unchanged and
+> BL-20260726, resolved 2026-08-02): the native queue is an **organization-only**
+> GitHub feature and `benbaichmankass/Metis-Insights` is **user-owned** — there is
+> no "Require merge queue" checkbox to enable, and the dormant `merge_group:`
+> triggers on the workflows never fire. So there is **no** auto-sync-and-serialize
+> path; the `🔒 CLAIM` / sync-immediately-before / `🔓 RELEASE` steps below are the
+> real serializer, not belt-and-suspenders. Expect the rebase-race (a PR goes
+> `behind` while its checks run) until the operator either unticks "Require branches
+> up to date" on `main` or moves the repo into an org. The board (#6927) is unchanged and
 > still MANDATORY for **work coordination** — `▶️ START` / `✅ DONE` / questions /
 > `active_sessions` registration — which the queue does not do. Until the queue
 > is enabled on this repo, the manual protocol below is the sole serializer and

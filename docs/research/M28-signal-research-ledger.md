@@ -777,10 +777,21 @@ full table + scorecard: [`M28-D4-D5-value-construction-sweep-2026-08-02.md`](M28
   longer hands even more of the same drift to the all-long baseline. Calibration is best at
   180d (+0.0638) but the edge is worst there.
 
-**Verdict: NULL under BOTH arbiters.** The value-input construction space (D1 transform / D2
-conditioning / D3 cross-section / D4 composite / D5 horizon) is now exhausted, all
-sub-threshold on `edge_vs_baseline`. The `change` cell's positive calibration is a **banked
-lead** (a conditioning input to another signal, never a standalone cheap-long/rich-short book —
-it cannot out-earn simply being long these ETFs), not a deployable strategy. **The C4
-conditioned-lifecycle gate is NOT re-run** — its precondition (a construction clearing the P4
-gate) is unmet. This confirms entry 13's contingent "value exhausted" verdict as final.
+**Verdict: NULL for the STANDALONE-long-biased-book expression, under both arbiters — NOT
+"value is dead."** (Scope correction, operator directive 2026-08-02: "dead / exhausted" is the
+wrong terminology.) What is closed is precisely: the trailing-percentile construction family
+(D1–D5) on the free daily value inputs, expressed as a standalone conviction-weighted
+cheap-long/rich-short book, graded against naive all-long — that configuration does not clear
+`edge_vs_baseline > 0` net-of-cost. That, and only that, is answered.
+
+What is NOT closed (the continue-building work): the `change`/composite cells **calibrate
+positively** (+0.055 / +0.064) — a validated-but-weak signal, the vix_term-M5 shape. The
+expressions suited to a weak signal are **untested**: (a) the value read as a **conditioning /
+overlay input** to another signal (`c_reg` role), not standalone; (b) a **market-neutral /
+vol-targeted** book judged against a **fairer benchmark than all-long** (all-long is a
+near-unbeatable control for a long-short value read in a bull market); (c) **richer inputs**.
+So the sleeve is a *lead not yet proven under a suitable expression*, not a dead thesis, and
+M28 (a methodology program) continues. **The C4 gate is NOT re-run** — its precondition (a
+construction clearing the P4 *standalone* gate) is unmet, and C4 grades the same standalone
+expression, so it can't clear until a different expression does. Entry 13's "value exhausted"
+wording is likewise over-strong and should be read with this same scope correction.
