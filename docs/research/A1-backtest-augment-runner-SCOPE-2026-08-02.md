@@ -38,26 +38,47 @@ Two halves:
    accumulates all strategies (multiple `--trades-jsonl` or repeated invocations against the
    same `--db`).
 
-## Strategy list — the crypto pooled book (verify against live config at build time)
+## Strategy list — VERIFIED against the live pooled manifest (2026-08-02 correction)
 
-The pooled families train on the crypto book, so the target set is the **crypto**
-`coverage_debt` + live crypto strategies, NOT the ETF/equity legs. From
-`config/regime_coverage_exemptions.yaml::coverage_debt` (34 strategies), the crypto subset:
+> **CORRECTION (2026-08-02).** The first draft of this section GUESSED the roster as the
+> crypto `coverage_debt` pullback/donchian strategies. That was WRONG — verified against the
+> actual pooled manifest. Field beats comment: the manifest is the truth. The correct roster
+> is below.
+
+The live pooled decision-model manifest is
+**`ml/configs/setup-candidates-metalabel-p2pool-v1.yaml`** (M23 P2, `setup_candidates`
+family, `symbol_scope: all`, `split_strategy: live_holdout`). Its build command encodes the
+augmentation roster explicitly:
 
 ```
-eth_pullback_2h, eth_pullback_prop_2h, sol_pullback_2h, ada_pullback_2h,
-avax_pullback_2h, xrp_pullback_2h,
-trend_donchian_eth, trend_donchian_eth_4h, trend_donchian_sol, trend_donchian_sol_4h,
-trend_donchian_ada_4h, trend_donchian_avax_4h, trend_donchian_xrp_4h
+python -m ml.datasets build setup_candidates --output-dir datasets-out \
+  --version v020 --source market_raw --symbol-scope all --timeframe all --overwrite -- \
+  "market_raw_paths=<BTC 1h>,<ETH 1h>,<SOL 1h>"  backtest_trades_db=<tmp.db>  live_trades_db=<journal>
 ```
 
-**Build-time verification (mandatory):** confirm this list against the strategies that
-actually feed the pooled `setup_candidates`/`trade_outcomes` datasets — read
-`ml/datasets/families/setup_candidates.py` + the live `trade-outcome-lgbm-v1.yaml` /
-`setup-candidates-metalabel-*` configs for the symbol/strategy scope. Do NOT augment a
-strategy the pooled model never reads (wasted rows) and do NOT miss one it does (biased
-holdout). `btc_*` is already covered by the MES/BTC single-symbol path (#8318) — this runner
-is the *pooled remainder*, so include BTC only if the pooled config reads it.
+So the roster the pooled model actually reads is the **3-strategy harness roster replayed
+per symbol**, NOT the coverage_debt pullbacks:
+
+| harness strategy | timeframe | symbols (per manifest) |
+|---|---|---|
+| `trend_donchian` | 1h | BTCUSDT, ETHUSDT, SOLUSDT |
+| `squeeze_breakout_4h` | 4h | BTCUSDT, ETHUSDT, SOLUSDT |
+| `htf_pullback_trend_2h` | 2h | BTCUSDT, ETHUSDT, SOLUSDT |
+
+- TRAIN side = those `(strategy, symbol)` harness backtests → `is_backtest=1` rows in the
+  `backtest_trades_db` (the artifact this runner produces). EVAL side = each pooled symbol's
+  **real** closed trades appended from `live_trades_db` (the live-holdout — done trainer-side,
+  W2.1, NOT this runner). `symbol` rides as a categorical feature (the S-MLOPT-S8 xsym lesson).
+- The BTC-only sibling is `setup-candidates-metalabel-backtest-c2-v1.yaml`
+  (`--symbol-scope BTCUSDT`, same 3-strategy roster); #8318 exercised the BTC/MES single-symbol
+  path. This runner's job is the **pooled ETH+SOL extension** — the original n≈78 wall.
+
+**Build-time re-verify (still mandatory):** before building, re-read the pinned pooled
+manifest(s) for the exact `market_raw_paths` symbols + the harness roster (a manifest bump
+could add a symbol/strategy). Do NOT augment a `(strategy, symbol)` the pooled model never
+reads (wasted rows) and do NOT miss one it does (biased holdout). The runner produces ONE
+combined `backtest_trades.db` (multiple `record_harness_trades --symbol` invocations
+accumulate into the same `--db`).
 
 ## Artifact contract (the W1.2 → W2.1 handoff)
 
