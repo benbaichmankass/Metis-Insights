@@ -7429,12 +7429,20 @@
       "title": "[process] cited-but-unfiled backlog ids read as tracked while being tracked by nobody — needs a CI check",
       "description": "All four are now filed and the name mismatch reconciled to one canonical id. But the CLASS needs a mechanical guard, because this is the operator's 2026-07-30 directive almost verbatim: 'make sure the tasks don't fall between the cracks so that we think they're done, and then it turns out in two weeks that something has been failing because we incorrectly thought that we finished building something that we hadn't.' A doc or code comment saying 'tracked by BL-X' where BL-X does not exist is WORSE than no reference: it reads as tracked, so nobody re-checks it. The flagship case proves the severity -- BL-20260730-M1-PRICE-JOIN-DEAD is the canonical example in the binding 'Green is not evidence' rule and is cited from four workflows, and it resolved to nothing. PROPOSED FIX: a CI check (sibling of check_research_index.py, same shape) that greps every BL-*/MB-* id referenced in docs/ scripts/ .github/ config/ and fails when one is absent from the backlog files -- treating a dangling tracking reference exactly like an unindexed research script. Cheap, mechanical, and it closes a class rather than four instances.",
       "severity": "medium",
-      "status": "open",
+      "status": "resolved",
       "area": "process",
       "refs": [
         "docs/claude/health-review-backlog.json",
         "scripts/ops/check_research_index.py",
         "docs/CLAUDE-RULES-CANONICAL.md"
+      ],
+      "resolved_at": "2026-08-02T14:50:00+00:00",
+      "updates": [
+        {
+          "at": "2026-08-02",
+          "by": "claude (WORK-PLAN-2026-08-02 cont)",
+          "note": "RESOLVED — the mechanical guard this asks for ALREADY EXISTS and is live: scripts/ops/check_backlog_refs.py (run by the artifact-validity-guard workflow) fails a PR that introduces a tracking id resolving to no filed backlog row. Live-verified 2026-08-02: it caught a comment in PR #8397 that split the full id 'BL-20260730-TRADES-TIMESTAMP-FORMAT-MIXED' across two lines, leaving a truncated prefix that resolved to nothing and blocked the merge until fixed. No new guard needed; this item was open because the existing coverage wasn't cross-referenced here."
+        }
       ]
     },
     {
@@ -7611,6 +7619,13 @@
         "scripts/research/m20_exit_analysis.py",
         "src/runtime/order_monitor.py",
         "docs/claude/system-actions.md"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-02",
+          "by": "claude (WORK-PLAN-2026-08-02 cont)",
+          "note": "A+B SHIPPED — PR #8397 (merged 2026-08-02). A: scripts/check_timestamp_comparisons.py CI guard (whole-tree, fails-closed) + fixed 8 raw comparisons (2 FROM-trades sites in insights/data_sources.py were the live bug dropping every trades row). B: insert_trade now stamps ISO created_at (stops new space-sep rows); migrate_closed_at_to_iso gained an opt-in --include-created-at pass. Live census (trainer-diag #8398): created_at 4319/4319 space-separated, closed_at ISO except 1 epoch-ms straggler, is_backtest=0 on all rows. RESIDUAL: dispatch migrate-closed-at-iso (dry-run→apply) for the 1 epoch-ms closed_at row (Tier-2, operator pre-approved); the --include-created-at full sweep is available for a separate go. Consider closing once the migration runs."
+        }
       ]
     },
     {
@@ -8058,6 +8073,13 @@
         "scripts/ops/git_history_check.py",
         ".claude/skills/git-actions/SKILL.md",
         "BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-02",
+          "by": "claude (WORK-PLAN-2026-08-02 cont)",
+          "note": "PARTIAL — shipped scripts/ops/git_sync_preflight.sh: run it before 'git reset --hard <ref>' / 'git checkout -B <branch> <ref>'; it refuses (exit 2) when HEAD carries commits absent from <ref>, listing exactly what a hard reset would discard, with a --allow-discard escape for the intentional read-only-mirror syncs (deploy_pull_restart.sh, trainer_git_sync.sh). This is a WRAPPER, not a CI check — CI cannot intercept a local reset — so it is opt-in by construction; enforcing its use is a discipline/doc matter, tracked as the residual of this item. Verified against a live case (a branch carrying 2 unmerged commits correctly refused)."
+        }
       ]
     },
     {
@@ -8918,6 +8940,11 @@
           "at": "2026-08-02T11:25:00+00:00",
           "by": "claude (research-backlog session c30uj9)",
           "note": "SHARPENED, still open. The MES augmentation run (#8318, 2026-08-01/02) exercised the full chain end-to-end (config-exact 10y ES_F backtest to 26 rows to include_backtest builds to 2 shadow baselines), but per docs/sprint-logs/S-WEEKLY-REVIEW-EXEC-2026-08-01.md the rows were written to a schema-bootstrapped standing sidecar db (backtest_trades_mes.db, merged at nightly build time via #8326), NOT to trades.is_backtest=1 in the live journal. So this item's core observation — zero is_backtest=1 rows in the live `trades` table, pooled/crypto decision models unfed — is LIKELY still true, but needs a fresh live is_backtest count to confirm (not asserting it without the read). The generic pipeline is proven; the gap is that only MES has been pointed at it and via a sidecar, not the pooled models. Cross-ref ml MB-20260530-001 (verified-state update 2026-08-02) + docs/research/WORK-PLAN-2026-08-02.md W1.2/W2.1. Kept open."
+        },
+        {
+          "at": "2026-08-02",
+          "by": "claude (WORK-PLAN-2026-08-02 cont)",
+          "note": "CONFIRMED with a hard count — trainer-diag census #8398 (2026-08-02): is_backtest=0 on ALL 4319 live journal rows (0 rows with is_backtest=1). So the MES backtest augmentation rows (#8318, 26 trades) went to the standing sidecar backtest_trades_mes.db, NOT trades.is_backtest=1 in the live journal, exactly as this item observed. The A1 pooled/crypto extension (W1.2/W2.1) remains the open work."
         }
       ]
     },
@@ -9251,7 +9278,13 @@
         "BL-20260731-W1-JOURNAL-EXCHANGE-DIVERGENCE-MAP",
         "scripts/ops/reconcile_netting_phantom_rows.py"
       ],
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-02",
+          "by": "claude (WORK-PLAN-2026-08-02 cont)",
+          "note": "Mechanism CONFIRMED in code: order_monitor._close_trade_from_order_status closes only the fired row; _cascade_close_netted_siblings closes siblings ONLY when Bybit reports the netted position FLAT (its docstring: 'the ONE reliable moment we know every share closed') — so a PARTIAL shrink leaves siblings phantom-open. journal_qty_divergent already DETECTS every instance per tick but remediates nothing. One-look decision packet written: docs/research/netting-partial-close-packet-2026-08-02.md (options a=FIFO-in-monitor / b=leg-id+FIFO-in-monitor / c=periodic same-moment sidecar reconcile, pairs-excluded, PnL UNMEASURED). Recommendation (c)+(b)-precision — lowest blast radius; real-money bybit_2 is clean, so this is a data-integrity fix. AWAITING operator pick before implementing (Tier-2 order-path)."
+        }
+      ]
     },
     {
       "id": "BL-20260801-LIVENESS-WATCHDOG-FAILS-ON-TELEGRAM-404",
