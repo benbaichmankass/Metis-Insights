@@ -47,11 +47,15 @@ jobs:
         id: changed
         run: |
           FILES=$(git diff --name-only "origin/${{ github.base_ref || 'main' }}"...HEAD)
-          if echo "$FILES" | grep -Eq '\.py$'; then
+          # .py → the Python broad-except class; .yml/.yaml/.sh → the T4 shell
+          # producer-degradation class (a `scripts/macro|research/<producer>.py … || echo`
+          # can land in a workflow/shell-only PR with no .py change, so scanning must
+          # not short-circuit on those — that would skip the exact class T4 added).
+          if echo "$FILES" | grep -Eq '\.py$|\.ya?ml$|\.sh$'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No .py changes — skipping the scan (short-circuit, MB-20260706-CI-MINUTES)."
+            echo "::notice::No .py/.yml/.sh changes — skipping the scan (short-circuit, MB-20260706-CI-MINUTES)."
           fi
 
       - name: Scan for new broad except handlers in protected paths

@@ -249,3 +249,92 @@ class _StringIOLike:
 
     def read(self) -> str:
         return self._text
+
+
+# ---------------------------------------------------------------------------
+# T4 (RESEARCH-PROGRAM-2026-07-30) — research/producer scope + shell mask rule
+# ---------------------------------------------------------------------------
+
+
+def test_flags_broad_except_in_scripts_macro() -> None:
+    """Path-scope extension: a new broad except in scripts/macro/ is a producer-side
+    silent-empty risk and must be flagged."""
+    diff = _diff(
+        "scripts/macro/econ_event_study.py",
+        "+    try:\n"
+        "+        bars = fetch_candles(sym)\n"
+        "+    except Exception:\n"
+        "+        bars = []\n",
+    )
+    findings = guard.scan_diff(diff)
+    assert findings, "broad except in scripts/macro/ should flag"
+    assert "scripts/macro/econ_event_study.py" in findings[0]
+
+
+def test_flags_broad_except_in_scripts_research() -> None:
+    diff = _diff(
+        "scripts/research/regime_debt_matrix.py",
+        "+    try:\n"
+        "+        rows = load_panel()\n"
+        "+    except Exception:\n"
+        "+        rows = []\n",
+    )
+    assert guard.scan_diff(diff), "broad except in scripts/research/ should flag"
+
+
+def test_flags_masked_producer_failure_in_workflow() -> None:
+    """The motivating incident: a load-bearing producer degraded to a warning via `|| echo`
+    (econ-event-study.yml, the 2026-07-30 macro-vacuity bug). The guard must catch its own
+    incident or it is decoration."""
+    diff = _diff(
+        ".github/workflows/econ-event-study.yml",
+        '+          python scripts/macro/econ_event_study.py --window all '
+        '|| echo "::warning::macro-candle fetch degraded"\n',
+    )
+    findings = guard.scan_diff(diff)
+    assert findings, "masked producer failure in a workflow should flag"
+    assert "masked producer failure" in findings[0]
+
+
+def test_flags_masked_producer_true_in_shell() -> None:
+    diff = _diff(
+        "scripts/ops/run_something.sh",
+        "+python3 scripts/research/build_exit_panel.py || true\n",
+    )
+    assert guard.scan_diff(diff), "producer `|| true` in a .sh file should flag"
+
+
+def test_flags_masked_producer_module_form() -> None:
+    diff = _diff(
+        ".github/workflows/macro-thing.yml",
+        "+          python -m macro.produce || :\n",
+    )
+    assert guard.scan_diff(diff), "`python -m macro … || :` should flag"
+
+
+def test_shell_mask_respects_allow_silent() -> None:
+    """A deliberately-non-fatal producer step (e.g. a monitor) justifies itself inline."""
+    diff = _diff(
+        ".github/workflows/macro-producer-liveness.yml",
+        "+          python3 scripts/macro/check_producer_liveness.py --json "
+        "> /tmp/x.json || true  # allow-silent: liveness monitor, non-zero is non-fatal\n",
+    )
+    assert guard.scan_diff(diff) == []
+
+
+def test_does_not_flag_producer_without_mask() -> None:
+    """A producer invocation whose failure is NOT masked is fine (the step fails loud)."""
+    diff = _diff(
+        ".github/workflows/econ-event-study.yml",
+        "+          python scripts/macro/econ_event_study.py --window all\n",
+    )
+    assert guard.scan_diff(diff) == []
+
+
+def test_does_not_flag_generic_mask_without_producer() -> None:
+    """A generic `|| true` on a non-producer command must NOT trip the shell rule."""
+    diff = _diff(
+        ".github/workflows/econ-event-study.yml",
+        "+          mkdir -p /tmp/out || true\n",
+    )
+    assert guard.scan_diff(diff) == []
