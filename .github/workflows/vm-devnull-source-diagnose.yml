@@ -469,15 +469,15 @@ jobs:
                   echo '}'
                 fi
               done
-              # fd-based fchmod carries no path — capture only the strip-candidate modes (0644/0444) so a
-              # fchmod("/dev/null"-via-fd) mutator still surfaces; bounded noise, read from the log.
-              if printf '%s\n' "$AVAIL" | grep -qx "tracepoint:syscalls:sys_enter_fchmod"; then
-                echo '// sys_enter_fchmod(fd, mode) — no path arg; log strip-candidate modes only'
-                echo 'tracepoint:syscalls:sys_enter_fchmod /(args.mode & 0777) == 0644 || (args.mode & 0777) == 0444/ {'
-                echo '  printf("%s fchmod fd=%d mode=%o comm=%s pid=%d uid=%d (fd-based — confirm target)\n", strftime("%H:%M:%S", nsecs), args.fd, args.mode & 0777, comm, pid, uid);'
-                echo '}'
-              fi
-            } | sudo tee "$BT" >/dev/null
+              # NOTE: an fd-based sys_enter_fchmod probe was DROPPED (round 9b-fix3, 2026-08-02). bpftrace
+              # 0.14.0 resolves sys_enter_fchmod's args as a raw pointer (not the struct the path tracepoints
+              # give), so `args.fd`/`args.mode` fail to compile ("access field on ... * — use '->'") and take
+              # the whole program down with them (live-confirmed, issue #8379). It was only a marginal net
+              # (fd-based, could not even confirm the target was /dev/null). The path-based fchmodat/fchmodat2
+              # probes above ARE the attribution net: coreutils chmod / install / os.chmod("/dev/null") all
+              # issue fchmodat(AT_FDCWD,"/dev/null",mode) — exactly the fanotify-observed comm=chmod suspect.
+              # Consequence for the decisive-negative read: a confirmed strip with NO captured line now means
+              # "not a path-chmod syscall" INCLUDING the (unlikely) fd-based-fchmod case, still a useful result.
             echo; echo "----- generated $BT -----"; sudo cat "$BT"
             if ! grep -q 'tracepoint:' "$BT"; then
               echo "ERROR: bpftrace lists no chmod-family syscall tracepoints — cannot arm. Diagnostics:"
@@ -511,8 +511,9 @@ jobs:
             echo "mutator, mode = what it set. A path line with mode=644/444 is the STRIP; mode=666 is the"
             echo "guard/heal restore. DECISIVE NEGATIVE: if the guard journal shows a 0666 restore (⇒ a strip"
             echo "happened) but this log has NO matching path line in that window, the strip did NOT come from a"
-            echo "userspace chmod/fchmodat/fchmodat2 on the path '/dev/null' — pointing at a kernel-internal or"
-            echo "fd-based mechanism (check the fchmod lines) rather than any path-chmod process."
+            echo "userspace fchmodat/fchmodat2 on the path '/dev/null' — pointing at a kernel-internal or"
+            echo "fd-based mechanism (an fd-based fchmod probe is not armed; see the arm-block note) rather than"
+            echo "any path-chmod process."
 
           elif [ "${MODE}" = "bpftrace-disarm" ]; then
             echo; echo "===== bpftrace-disarm: stop the tracer (bpftrace pkg + log kept) ====="
