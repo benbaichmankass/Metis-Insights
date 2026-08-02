@@ -1,0 +1,38 @@
+{
+  "rows": [
+    {"construction": "level_x_turning", "n": 574, "win_rate": 0.5052264808362369, "mean_net_return": 0.0010915518042533077, "calibration_rank": 0.004928153619293395, "baseline_mean_net": 0.0028021434479591732, "edge_vs_baseline": -0.0017105916437058655},
+    {"construction": "change", "n": 837, "win_rate": 0.5161290322580645, "mean_net_return": 0.0027553799385545124, "calibration_rank": 0.02123017096622135, "baseline_mean_net": 0.005841044618201266, "edge_vs_baseline": -0.003085664679646754},
+    {"construction": "detrend", "n": 918, "win_rate": 0.5087145969498911, "mean_net_return": 0.0028842566467277755, "calibration_rank": 0.009142059115429339, "baseline_mean_net": 0.006218882461376817, "edge_vs_baseline": -0.0033346258146490417},
+    {"construction": "composite_eq(D4)", "n": 674, "win_rate": 0.5222551928783383, "mean_net_return": 0.0015254853579428223, "calibration_rank": 0.0546847998676563, "baseline_mean_net": 0.004915710074875425, "edge_vs_baseline": -0.0033902247169326025},
+    {"construction": "change_x_calm_vol(D2reg)", "n": 413, "win_rate": 0.5036319612590799, "mean_net_return": 0.000979667610096554, "calibration_rank": 0.012647730223594875, "baseline_mean_net": 0.0052710830188358836, "edge_vs_baseline": -0.0042914154087393295},
+    {"construction": "baseline(committed)", "n": 1104, "win_rate": 0.49728260869565216, "mean_net_return": 0.0018178233792566373, "calibration_rank": -0.003985646818207517, "baseline_mean_net": 0.006509327380733438, "edge_vs_baseline": -0.004691504001476801},
+    {"construction": "composite_ic(D4)", "n": 686, "win_rate": 0.521865889212828, "mean_net_return": 0.0005963020282870514, "calibration_rank": 0.00897353423416255, "baseline_mean_net": 0.005583747904336554, "edge_vs_baseline": -0.004987445876049502},
+    {"construction": "change_x_uptrend(D2reg)", "n": 481, "win_rate": 0.4968814968814969, "mean_net_return": -4.5208061341407395e-05, "calibration_rank": 0.05257836085525468, "baseline_mean_net": 0.005632984561253921, "edge_vs_baseline": -0.005678192622595328},
+    {"construction": "xsec", "n": 776, "win_rate": 0.49355670103092786, "mean_net_return": -0.00015842777323608683, "calibration_rank": -0.03429700671155177, "baseline_mean_net": 0.005812107507618065, "edge_vs_baseline": -0.005970535280854152},
+    {"construction": "accel", "n": 804, "win_rate": 0.5062189054726368, "mean_net_return": -8.586168400718001e-05, "calibration_rank": 0.010814818197817867, "baseline_mean_net": 0.006549663626688053, "edge_vs_baseline": -0.006635525310695233},
+    {"construction": "level", "n": 1028, "win_rate": 0.4805447470817121, "mean_net_return": -0.00033619092168123686, "calibration_rank": -0.018405776170647786, "baseline_mean_net": 0.006429004443854066, "edge_vs_baseline": -0.0067651953655353024},
+    {"construction": "level_x_price_turning", "n": 610, "win_rate": 0.46229508196721314, "mean_net_return": -0.0006755779961525911, "calibration_rank": -0.02789113315335031, "baseline_mean_net": 0.009030485982418473, "edge_vs_baseline": -0.009706063978571064}
+  ],
+  "horizon_sweep": [
+    {"construction": "change@7d", "n": 837, "win_rate": 0.4826762246117085, "mean_net_return": -6.663767695485231e-05, "calibration_rank": -0.03283633817737452, "baseline_mean_net": 0.002465911792896276, "edge_vs_baseline": -0.0025325494698511283},
+    {"construction": "change@14d", "n": 837, "win_rate": 0.5005973715651135, "mean_net_return": 0.0009560991916139966, "calibration_rank": 0.00038326326884993803, "baseline_mean_net": 0.0034075737019047814, "edge_vs_baseline": -0.002451474510290785},
+    {"construction": "change@30d", "n": 837, "win_rate": 0.5161290322580645, "mean_net_return": 0.0027553799385545124, "calibration_rank": 0.02123017096622135, "baseline_mean_net": 0.005841044618201266, "edge_vs_baseline": -0.003085664679646754},
+    {"construction": "change@60d", "n": 837, "win_rate": 0.5149342891278376, "mean_net_return": 0.0031624403609171207, "calibration_rank": -0.01153839268277249, "baseline_mean_net": 0.01329642606316795, "edge_vs_baseline": -0.010133985702250829},
+    {"construction": "change@90d", "n": 837, "win_rate": 0.5256869772998806, "mean_net_return": 0.00414551262414139, "calibration_rank": 0.01094571669286743, "baseline_mean_net": 0.018743999486524564, "edge_vs_baseline": -0.014598486862383174},
+    {"construction": "change@180d", "n": 837, "win_rate": 0.5173237753882916, "mean_net_return": 0.004393499066803763, "calibration_rank": 0.06381420794114052, "baseline_mean_net": 0.03839201945350884, "edge_vs_baseline": -0.033998520386705075}
+  ],
+  "meta": {
+    "backfill": "comms/macro/valuation_snapshots_backfill.jsonl",
+    "candles_dir": "/tmp/macro_candles (ephemeral off-VM fetch: SPY/TLT/GLD/SLV/IEF, 5096-5428 daily closes)",
+    "lookback": 156,
+    "min_history": 52,
+    "rebalance_every": 30,
+    "horizon_days": 30.0,
+    "fee_frac": 0.001,
+    "ic_weights": {"change": 0.02123017096622135, "detrend": 0.009142059115429339},
+    "symbols_with_candles": ["GLD", "IEF", "SLV", "SPY", "TLT"],
+    "generated_by": "scripts/macro/value_construction_sweep.py (M28 D4/D5, trainer-VM relay 2026-08-02)",
+    "verdict": "clean NULL — no construction clears edge_vs_baseline>0 net-of-cost OOS; C4 gate not re-run",
+    "gate": "CLEARS iff edge_vs_baseline > 0 net-of-cost AND calibration_rank > 0, OOS; baseline to beat -0.0047"
+  }
+}

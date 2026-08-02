@@ -756,3 +756,31 @@ recommended Tier-1 pivot is **higher-frequency microstructure off the existing f
 new cost, a genuine information-content step-up), with a paid/alternative dataset as the
 operator-gated alternative. This is the deliverable: not a strategy, but a *rigorously
 established boundary* of where free-macro signal isn't, and a reasoned next direction.
+
+---
+
+## Entry 14 — value D4 composite + D5 horizon sweep (2026-08-02) — the last iteration, NULL
+
+Closes the "one iteration remains" clause of entry 13. Ran `value_construction_sweep.py`
+through the **P4 net-of-cost lifecycle gate** (trainer relay 2026-08-02, ~21yr ETF closes;
+full table + scorecard: [`M28-D4-D5-value-construction-sweep-2026-08-02.md`](M28-D4-D5-value-construction-sweep-2026-08-02.md),
+`comms/macro/value_construction_scorecard.json`):
+
+- **D4 composite** — `composite_eq` (equal-weight `change ⊕ detrend`) `edge_vs_baseline`
+  **−0.0034** (calib **+0.0547**, the best calibration in the sweep); `composite_ic`
+  (IC-weighted) **−0.0050**. Both beat the S1-former baseline (−0.0047) on calibration but
+  **lose to naive all-long net-of-cost**.
+- **D2 regime-conditioning of `change`** — `change_x_calm_vol` −0.0043, `change_x_uptrend`
+  −0.0057 (calib +0.0526). Conditioning does not rescue the edge.
+- **D5 horizon sweep on `change`** (7/14/30/60/90/180d) — every horizon `edge_vs_baseline < 0`,
+  and it **worsens monotonically past 30d** (−0.0025 → −0.0340) because holding the conviction
+  longer hands even more of the same drift to the all-long baseline. Calibration is best at
+  180d (+0.0638) but the edge is worst there.
+
+**Verdict: NULL under BOTH arbiters.** The value-input construction space (D1 transform / D2
+conditioning / D3 cross-section / D4 composite / D5 horizon) is now exhausted, all
+sub-threshold on `edge_vs_baseline`. The `change` cell's positive calibration is a **banked
+lead** (a conditioning input to another signal, never a standalone cheap-long/rich-short book —
+it cannot out-earn simply being long these ETFs), not a deployable strategy. **The C4
+conditioned-lifecycle gate is NOT re-run** — its precondition (a construction clearing the P4
+gate) is unmet. This confirms entry 13's contingent "value exhausted" verdict as final.
