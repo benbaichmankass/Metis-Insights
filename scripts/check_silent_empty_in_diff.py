@@ -65,6 +65,14 @@ from typing import Iterable, List, Tuple
 _PROTECTED_PREFIXES: Tuple[str, ...] = (
     "src/web/api/",
     "src/units/db/",
+    # T4 (RESEARCH-PROGRAM-2026-07-30): the research/producer layer. The 2026-07-30
+    # macro-vacuity incident (a verdict computed from `price_bars: 0`) lived in
+    # scripts/macro/, which the guard did not cover. This is the PRODUCER side of the
+    # bug class (a broad except that returns []); the OUTPUT side (a verdict read off
+    # an empty input) is diagnostic-provenance-guard's sub-class C. Neither covers the
+    # other — see CLAUDE.md § "Diagnostic provenance".
+    "scripts/macro/",
+    "scripts/research/",
 )
 _PROTECTED_FILES: Tuple[str, ...] = (
     "src/web/runtime_status.py",
@@ -120,6 +128,26 @@ _PATTERNS: List[Tuple[re.Pattern, str]] = [
 # Inline override marker. Anywhere on the same line is enough.
 _ALLOW_RE = re.compile(r"#\s*allow-silent:", re.IGNORECASE)
 
+# --- Shell/YAML producer-degradation rule (T4, RESEARCH-PROGRAM-2026-07-30) ---
+# The 2026-07-30 macro-vacuity incident was NOT a swallowed Python exception; it was a
+# shell step degrading a LOAD-BEARING producer to a warning:
+#   `python scripts/macro/econ_event_study.py … || echo "::warning::macro-candle fetch degraded"`
+# The producer failed, the `|| echo` masked the non-zero exit, the study graded n=0, and every
+# downstream verdict was vacuous while every liveness signal stayed green. This rule flags a
+# research/macro PRODUCER invocation whose failure is masked by `|| echo` / `|| true` / `|| :`
+# on the same line, in any workflow (.yml/.yaml) or shell (.sh) file. Legitimately-non-fatal
+# uses (a monitor whose non-zero exit shouldn't fail the step — e.g. check_producer_liveness)
+# must justify themselves with an inline `# allow-silent: <reason>`, exactly like the Python
+# broad-except half. Diff-scoped, so existing lines never trip — only NEW masks must justify.
+_SHELL_FILE_RE = re.compile(r"\.(ya?ml|sh)$")
+# A producer invocation: a scripts/{macro,research}/*.py call, or `python -m {macro,research}`.
+_SHELL_PRODUCER_RE = re.compile(
+    r"scripts/(?:macro|research)/[A-Za-z0-9_./-]+\.py"
+    r"|python[0-9.]*\s+-m\s+(?:macro|research)\b"
+)
+# The failure-masking tail: `|| echo …` / `|| true` / `|| :` (a no-op success on failure).
+_SHELL_MASK_RE = re.compile(r"\|\|\s*(?:echo\b|true\b|:\s*(?:#|$))")
+
 
 def _path_is_protected(path: str) -> bool:
     if path in _PROTECTED_FILES:
@@ -167,11 +195,23 @@ def scan_diff(diff_text: str) -> List[str]:
     """Return human-readable findings (empty list ⇒ clean)."""
     findings: List[str] = []
     for path, lineno, content in _iter_added_lines(diff_text):
-        if not _path_is_protected(path):
-            continue
         if _IGNORE_PATH_RE.search(path):
             continue
         if _ALLOW_RE.search(content):
+            continue
+        # Shell/YAML producer-degradation rule (T4). A masked producer failure is the
+        # macro-vacuity class; it lives in workflow/shell files, not the protected python
+        # paths, so it is checked independently of `_path_is_protected`.
+        if _SHELL_FILE_RE.search(path):
+            if _SHELL_PRODUCER_RE.search(content) and _SHELL_MASK_RE.search(content):
+                findings.append(
+                    f"{path}:{lineno} — masked producer failure "
+                    f"(`|| echo`/`|| true`/`|| :` swallows a scripts/macro|research producer's "
+                    f"non-zero exit → vacuous verdict): {content.strip()[:120]}"
+                )
+            continue
+        # Python broad-except rule (S-067), scoped to the protected read-path files.
+        if not _path_is_protected(path):
             continue
         for pattern, label in _PATTERNS:
             if pattern.search(content):
@@ -192,10 +232,14 @@ def main(argv: List[str]) -> int:
         print("silent_empty_in_diff: clean (no offending changes)")
         return 0
     msg_lines = [
-        "🚨 SILENT-EMPTY GUARD: a PR adds a broad except handler in a protected read-path file.",
-        "Per docs/audits/silent-empty-2026-05-10.md, the protected paths require either",
-        "  (a) a narrow exception type with a logged stack trace + re-raise / 503, or",
-        "  (b) an inline `# allow-silent: <reason>` justification.",
+        "🚨 SILENT-EMPTY GUARD: a PR adds a silent-empty risk in a protected path.",
+        "Two classes (docs/audits/silent-empty-2026-05-10.md + RESEARCH-PROGRAM-2026-07-30 T4):",
+        ("  • a broad except in a protected read-path/producer file "
+         "(src/web/api, src/units/db, scripts/macro, scripts/research, …), or"),
+        ("  • a masked producer failure in a workflow/shell file "
+         "(`scripts/macro|research/<producer>.py … || echo/true/:`)."),
+        "Fix with either (a) a narrow exception type + logged stack trace + re-raise / non-zero exit,",
+        "or (b) an inline `# allow-silent: <reason>` justification on the offending line.",
         "",
         "Findings:",
         "",
