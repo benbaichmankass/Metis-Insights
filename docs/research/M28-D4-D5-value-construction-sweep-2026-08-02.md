@@ -73,18 +73,48 @@ Gate: a construction CLEARS iff `edge_vs_baseline > 0` net-of-cost **AND**
   (−0.0025 → −0.0340). The value read's conviction orders returns weakly, but it cannot
   out-earn simply being long these assets.
 
-## Disposition
+## Disposition — what this bounds, and what it does NOT
 
-- **Park the M28 value sleeve as a deployable standalone.** Both the unconditioned
-  level (P4, 2026-07-27) and now the full D1–D4 + D2-conditioned + D5-horizon sweep are
-  clean NULLs on `edge_vs_baseline`. This is the exit criterion the methodology names —
-  *a construction clears the gate OOS **or** the space is exhausted*; the value-input
-  construction space is exhausted at this gate.
-- **The positive calibration is banked as a lead, not shipped.** `change`/composite
-  calibrate positively; if the value read is ever used it belongs as a *conditioning
-  input to another signal* (the c_reg/conviction-contribution role), never as its own
-  cheap-long/rich-short book — exactly because it can't beat all-long alone.
-- **C4 gate NOT re-run** (precondition unmet). Reproducible in minutes via relay #8360's
-  one command; scorecard committed at `comms/macro/value_construction_scorecard.json`.
+**Read the scope precisely. This is a bounded negative on ONE expression, not a dead
+thesis** — "value is dead / exhausted" overstates it (operator correction, 2026-08-02).
+What is actually established:
+
+- **One construction family** (trailing-percentile transforms — level/change/detrend/accel
+  + composites + regime-conditioning + horizon variants, D1–D5),
+- on **one input set** (the free daily FRED-derived value drivers — ERP, real yield, GSR,
+  term slope, credit spread),
+- expressed as a **standalone conviction-weighted cheap-long / rich-short book** across 5
+  liquid ETFs,
+- graded against **naive all-long over a 21-yr ETF bull market** (a near-unbeatable bar),
+
+…does not clear `edge_vs_baseline > 0` net-of-cost. That specific configuration is
+answered — negative. **Nothing beyond it is.**
+
+What the result does **not** establish (why the sleeve is *not proven yet*, not dead):
+
+- **The value read carries no information — FALSE.** It **calibrates positively**
+  (`composite_eq` +0.055, `change@180d` +0.064): conviction weakly but genuinely orders
+  returns. That is a real, if weak, signal — the vix_term-M5 shape ("validated lead, not
+  deployable standalone").
+- **The right expressions for a weak signal are UNTESTED**, and are the continue-building
+  work: (a) the value read as a **conditioning / overlay input to another signal** (the
+  `c_reg` / conviction-contribution role) rather than a standalone book; (b) a
+  **market-neutral / vol-targeted** expression judged against a **fairer benchmark than
+  all-long** (risk-parity / vol-target — all-long is nearly impossible to beat in a bull
+  run and is the wrong control for a long-short value read); (c) **richer inputs** (a
+  higher-information-content series or a shorter bar). None of these has been graded.
+- **The M28 program is NOT over.** M28 is a signal-research *methodology* program (operator
+  reframe 2026-07-23) — construct → grade → learn → iterate. A NULL on one input class ×
+  one expression is a data point that *narrows* the search, not a terminus.
+
+So: **the value/macro sleeve is a validated-but-weak lead that has not yet been proven
+under an expression suited to a weak signal. Continue building it out along (a)/(b)/(c)
+above.** The one thing that IS closed is the *standalone-long-biased-book-vs-all-long*
+expression — don't re-run that; run a different expression.
+
+- **C4 gate NOT re-run** (precondition — a construction clearing the P4 standalone gate —
+  unmet; that gate grades the same standalone expression, so it can't clear until a
+  different expression does). Reproducible in minutes via relay #8360's one command;
+  scorecard committed at `comms/macro/value_construction_scorecard.json`.
 
 Recorded in the M28 research ledger ([`M28-signal-research-ledger.md`](M28-signal-research-ledger.md)).
