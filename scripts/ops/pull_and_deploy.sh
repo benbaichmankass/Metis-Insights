@@ -85,6 +85,12 @@ if ! bash "${DEPLOY_SCRIPT}"; then
     exit "${rc}"
 fi
 
+# Re-heal /dev/null before the post-deploy reads: the OCI host-agent strip can
+# land DURING the deploy_pull_restart.sh run just above (healthy at our entry,
+# clobbered partway through — the 2026-08-02 pull-and-deploy log had `git
+# rev-parse … 2>/dev/null` and `is-active … 2>/dev/null` here all EACCESing,
+# yielding "Post-deploy HEAD: unknown"; BL-20260730-DEVNULL-DEPLOY-REDIRECT-FRAGILITY recurrence).
+heal_devnull || true
 POST_HEAD="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 
 # Verify post-state. Allow up to 60 s for systemd to settle (deploy
@@ -92,6 +98,7 @@ POST_HEAD="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 deadline=$(( $(date +%s) + 60 ))
 POST_UNIT_STATE="unknown"
 while [ "$(date +%s)" -lt "${deadline}" ]; do
+    heal_devnull || true  # re-heal — the strip can recur inside this 60s poll
     POST_UNIT_STATE="$("${SYSTEMCTL[@]}" is-active "${UNIT}" 2>/dev/null || echo "unknown")"
     if [ "${POST_UNIT_STATE}" = "active" ]; then
         break
