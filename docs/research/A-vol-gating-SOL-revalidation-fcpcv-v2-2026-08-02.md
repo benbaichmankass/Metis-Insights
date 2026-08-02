@@ -82,11 +82,17 @@ in 07-06, now confined to one fold instead of two.
    authoring a `trend_vol` OFF cell is **Tier-3** (live BTC-style order routing —
    SOL now resolves the ML vol label per-symbol off the advisory head, so these
    cells WOULD enforce live under `REGIME_ML_VERDICT_MODE=use`).
-2. **Fidelity caveat — not decision-grade at this margin.** The offline replay's
-   `P(volatile)` differs from the served value (~88% label agreement, median
-   |ΔP| 0.043, max 0.412 — `BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP`). A fold
-   that fails by $90 in a near-flat year can flip on a handful of near-threshold
-   bars, so the fold-3 miss is **not** decision-grade on its own.
+2. **The margin is thin and the offline vol-labels are not parity-verified for SOL.**
+   The fold-3 miss is a ~$90 net giveback in a near-flat year — small enough to flip
+   on a handful of near-threshold bars. The SOL WF's vol labels come from the
+   backtest harness's own feature path, which has **not** been parity-checked against
+   SOL live serving. (The analogous BTC offline-vs-serve `P(volatile)` concern —
+   `BL-20260730-OFFLINE-VS-SERVE-PVOLATILE-GAP` — was investigated and **RESOLVED
+   2026-07-30 as an epoch-mismatch measurement artifact**: the original ~88% figure
+   compared a replay dataset (v520, ending 2026-06-30) against a disjoint live window;
+   re-run over a covering build there was **no serve-path gap**. So the residual
+   fidelity risk here is likely small — but it is unverified for SOL specifically, and
+   a thin-margin verdict should not be treated as decision-grade until it is.)
 
 ## The exact cells, if the operator elects to author them (Tier-3, NOT merged here)
 
@@ -113,9 +119,9 @@ resolve the SOL 15m advisory head's per-SYMBOL label (per `intents._decision_vol
 ## Recommendation
 
 **Hold — do not author.** The retrained head moved SOL from a clean fail to a
-near-miss, but it does not clear the strict every-fold bar, and the one miss is
-inside the offline-vs-serve fidelity band. Re-visit when (a) the fold-3 window
-extends with more live data, or (b) the offline-vs-serve `P(volatile)` gap is
-closed so a marginal verdict becomes decision-grade. The two candidate cells are
-recorded above for a future operator decision. This keeps SOL routing unchanged
-(permissive), which is the correct default for an unproven cell.
+near-miss, but it does not clear the strict every-fold bar (net 2/3). Re-visit
+when (a) the fold-3 window extends with more live data and the every-fold bar is
+met, or (b) a SOL offline-vs-serve vol-label parity check confirms the WF labels
+match live serving, so a thin-margin verdict becomes decision-grade. The two
+candidate cells are recorded above for a future operator decision. This keeps SOL
+routing unchanged (permissive), which is the correct default for an unproven cell.
