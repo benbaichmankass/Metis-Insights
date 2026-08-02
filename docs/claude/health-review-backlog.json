@@ -7029,10 +7029,17 @@
       "tier": 1,
       "trigger_condition": "A macro gate reports n=0 / insufficient_data and nobody checks whether its inputs were fetched at all.",
       "resolution_criteria": "Each of the four either fails on a degraded fetch, or its downstream gate distinguishes unfetched from no-signal and is registered in check_artifact_validity; the allow-degraded annotations are then removed.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": [],
-      "resolved_at": null,
+      "updates": [
+        {
+          "at": "2026-08-02T06:15:00+00:00",
+          "by": "claude (metis-insights-backlog-cont)",
+          "action": "resolved",
+          "note": "RESOLVED via the FIRST arm of the resolution criteria ('each of the four fails on a degraded fetch'). ROOT: fetch_macro_candles.py::main already returns exit 1 ONLY on TOTAL failure (0 symbols with >=30 closes) and exit 0 on partial/full — the four workflows just SWALLOWED that signal (continue-on-error + `|| echo`/`|| true`), so a totally-failed fetch proceeded to a grader that emitted a false n=0. FIX: removed continue-on-error + the `|| echo` swallow on the three backfill fetch steps (macro-valuation-backfill / cot-positioning-backfill / sysdyn-gas-calibrate), so a total fetch failure now FAILS the step instead of grading an empty candle dir; m28-value-grade's mid-block `|| true` (its run block has no set -e) replaced with an explicit `if ! fetch; then error + exit 1; fi` guard. Partial coverage (>=1 usable symbol, fetcher exit 0) still proceeds — the acceptable 'honest n=0 for the uncovered symbols' case. All four allow-degraded annotations removed. This distinguishes 'no candles fetched' (now a hard failure) from 'candles fetched, no signal' (a genuine n=0), which was the defect; no grader / check_artifact_validity.CHECKS edits needed (the second arm) since the first arm suffices. RESIDUAL not covered: per-symbol partial-fetch attribution (one symbol's fetch broken reading n=0 while its siblings grade) — the total-failure case, the one that produced a fully-false clean grade, is fixed."
+        }
+      ],
+      "resolved_at": "2026-08-02T06:15:00+00:00",
       "severity": "medium"
     },
     {
