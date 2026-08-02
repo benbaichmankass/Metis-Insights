@@ -266,6 +266,78 @@ else
   emit "$(printf '{"ts":"%s","status":"skipped","family":"setup_labels_audit","detail":"signal_audit.jsonl absent — no signals fired yet"}' "$(iso_now)")"
 fi
 
+# ---- MES baselines: backtest-augmented builds (operator-directed 2026-08-02) --
+# mes_trend_long_1d fires ~2.6x/yr (10y config-exact backtest, 26 trades), so
+# its journal-backed baselines (mes-trade-outcome-winrate / mes-setup-quality)
+# would wait years for live labels. Per S-MLOPT-S7 they train on backtest
+# trades instead: the standing ${DATASETS_ROOT}/backtest_trades_mes.db carries
+# the config-exact harness trades as is_backtest=1 rows (recorded by
+# scripts/ml/record_harness_trades.py; regenerate via the runbook on
+# MB-20260801-MES-BASELINE-MANIFESTS-NEVER-TRAINED). This block merges those
+# with any LIVE MES journal rows (zero today; future fills join automatically)
+# into a scratch db and rebuilds the MES-scoped families with
+# include_backtest=true — otherwise the plain journal-only builds above leave
+# the MES-scoped dataset dirs empty and the manifests skip empty_dataset.
+# Backtest rows never touch the journal; the scratch db is deleted after.
+MES_BT_DB="${DATASETS_ROOT}/backtest_trades_mes.db"
+if [ -f "$MES_BT_DB" ]; then
+  MES_MERGED="/tmp/mes_baseline_merged_$$.db"
+  set +e
+  python3 - "$DB_PATH" "$MES_BT_DB" "$MES_MERGED" <<'PYMERGE'
+import sqlite3, sys
+journal, bt_db, merged = sys.argv[1:]
+src = sqlite3.connect(f"file:{journal}?mode=ro", uri=True)
+ddl = src.execute(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='trades'"
+).fetchone()[0]
+dst = sqlite3.connect(merged)
+dst.execute(ddl)
+cols = [r[1] for r in dst.execute("PRAGMA table_info(trades)")]
+col_csv = ", ".join(cols)
+# Live MES rows (currently zero; future fills ride along automatically).
+rows = src.execute(
+    f"SELECT {col_csv} FROM trades WHERE symbol = 'MES'"
+).fetchall()
+dst.executemany(
+    f"INSERT INTO trades ({col_csv}) VALUES ({', '.join('?' * len(cols))})",
+    rows,
+)
+# Backtest rows from the standing recorder db (schema may trail the journal's;
+# copy the intersection of columns).
+bt = sqlite3.connect(f"file:{bt_db}?mode=ro", uri=True)
+bt_cols = [r[1] for r in bt.execute("PRAGMA table_info(trades)") if r[1] in cols]
+bt_csv = ", ".join(bt_cols)
+bt_rows = bt.execute(f"SELECT {bt_csv} FROM trades WHERE is_backtest = 1").fetchall()
+dst.executemany(
+    f"INSERT INTO trades ({bt_csv}) VALUES ({', '.join('?' * len(bt_cols))})",
+    bt_rows,
+)
+dst.commit()
+print(f"mes merged db: live={len(rows)} backtest={len(bt_rows)}")
+PYMERGE
+  merge_rc=$?
+  set -e
+  if [ "$merge_rc" -eq 0 ]; then
+    build_family trade_outcomes \
+      --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+      --source "trade_journal.db" --symbol-scope MES --overwrite \
+      "db_path=${MES_MERGED}" "symbol=MES" "include_backtest=true" \
+      "exclude_fabricated_pnl=${EXCLUDE_FABRICATED}"
+    build_family setup_labels \
+      --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
+      --source "trade_journal.db" --symbol-scope MES --overwrite \
+      "db_path=${MES_MERGED}" "symbol=MES" "include_backtest=true" \
+      "risk_pct=1.0" "r_cap=3.0" \
+      "exclude_fabricated_pnl=${EXCLUDE_FABRICATED}"
+  else
+    emit "$(printf '{"ts":"%s","status":"failed","family":"mes_baseline_merge","detail":"live+backtest merge db build failed (rc=%s) — MES-scoped trade_outcomes/setup_labels not rebuilt this cycle"}' "$(iso_now)" "$merge_rc")"
+    overall_rc=1
+  fi
+  rm -f "$MES_MERGED"
+else
+  emit "$(printf '{"ts":"%s","status":"skipped","family":"mes_baseline_backtest_augmented","detail":"%s absent — run the MB-20260801 backfill runbook to (re)create it"}' "$(iso_now)" "$MES_BT_DB")"
+fi
+
 # ---- review_journal (comms/ in the repo) --------------------------------
 # Produces 0 rows until the operator answers health-review prompts.
 build_family review_journal \
