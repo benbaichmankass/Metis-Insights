@@ -226,6 +226,15 @@ EXPECTED_ACTIONS = {
     # rows whose exchange share was flattened by position-level exits.
     # DRY-RUN by default; apply gated; signature-pinned so it is idempotent.
     "reconcile-netting-phantom-rows": "reconcile_netting_phantom_rows_action.sh",
+    # 2026-08-02 — GENERAL same-moment netting partial-close reconcile
+    # (BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED, option (c)+(b)):
+    # the generalization of reconcile-netting-phantom-rows from a signature-
+    # pinned one-shot to a cadence-safe on-demand job. Reads a LIVE same-moment
+    # exchange snapshot (netting_reconcile_snapshot.py) + closes the surplus
+    # open rows so each netted group's journal sum matches the broker
+    # (reconcile_netting_rows.py). pnl left UNMEASURED; pairs excluded;
+    # unreadable accounts skipped. DRY-RUN by default; apply gated; idempotent.
+    "reconcile-netting-rows": "reconcile_netting_rows_action.sh",
     # 2026-07-20 — venue validation for BYBIT_TPSL_MODE=partial (qty-scoped
     # brackets, Fix 2 of BL-20260720-ICTSCALP-PASTSTOP-EXITS). Demo-locked
     # to bybit_1; places + cleans up two tiny netted orders.
@@ -300,6 +309,7 @@ TIER_2_ACTIONS = {
     "repair-malformed-notes",
     "repair-netted-rows",
     "reconcile-netting-phantom-rows",
+    "reconcile-netting-rows",
     "validate-partial-tpsl",
     "validate-bybit-naked-rearm",
     "cancel-stale-tpsl-legs",
