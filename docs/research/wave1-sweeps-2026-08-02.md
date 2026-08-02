@@ -100,6 +100,28 @@ re-read) is now evidenced end-to-end. **No `config/regime_policy.yaml` edit is p
 
 ---
 
+## 1.3 — R2 ADX cut-point sweep on `gld_pullback_1h` trending (#8413)
+
+First dispatch of the R2 tool (shipped #8412). Grades the trending cell at each
+`(chop_max, trend_min)` in chop∈{15,18,20,22} × trend∈{25,28,30,32} (live = 20/25),
+re-bucketing the **same** 123 emitted trades at each pair (attribution axis, not entry):
+
+- **`short_stable_drag: TRUE` at 16 of 16 gradeable cut-point pairs → short verdict ROBUST.**
+- `long_stable_drag: False` at 0 of 16 → long verdict robust too.
+- At the live 20/25: pooled short −13.88R@91-regime-trades, long +37.18R — matches the A1
+  matrix exactly (same bucketing).
+
+Across the grid the pooled short-R stays −13.7..−17.5 and the verdict never flips. **The
+confirmed `trending.gld_pullback_1h { short: off }` cell is NOT fragile to the two un-swept
+global ADX constants** — it rests on real regime structure, not the specific 20/25 choice.
+This is the R2 payoff for GLD: no cut-point retune is warranted for this family (a flip
+would have flagged the cell as resting on the attribution threshold). Widening `trend_min`
+(28→32) narrows the trending bucket (91→60 trades) but the short drag only deepens — further
+evidence the gate is picking up a genuine trending-regime short weakness. **No cell
+changed.** (R2's per-family cut-point question stands open for the *other* live-celled
+families — `htf_pullback_trend_2h`, `ict_scalp_5m`, the crypto donchians — each a cheap
+follow-up dispatch of the same tool.)
+
 ## 3. Prepared Tier-3 packet — GLD-1h Track B routing (DRAFT, do NOT enact)
 
 Pinged to the operator; not enacted. Two independent decisions, kept separate:
@@ -121,5 +143,5 @@ Pinged to the operator; not enacted. Two independent decisions, kept separate:
 | # | Item | Owner |
 |---|---|---|
 | 1 | `account_compat_matrix` for `gld_pullback_1h` (Track B routing gate) — free runner | this session / next |
-| 2 | R2 ADX cut-point sweep on `gld_pullback_1h` trending — is the confirmed cell robust to the 20/25 attribution constants? | PR #8412 tool, dispatch after merge |
+| 2 | ✅ **DONE** — R2 ADX cut-point sweep on `gld_pullback_1h` trending (#8413): verdict robust 16/16, cell not fragile to 20/25 (§1.3). Run the same tool on the other live-celled families (`htf_pullback_trend_2h`, `ict_scalp_5m`, crypto donchians) | free runner |
 | 3 | `splg_trend_long_1d` all-zeros vacuity — diagnose feed/params | open (corrected-cost §3e) |
