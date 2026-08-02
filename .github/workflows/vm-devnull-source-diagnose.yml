@@ -67,7 +67,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'inspect | arm-audit | read-audit | udev-watch | fanotify-arm | fanotify-read | fanotify-disarm'
+        description: 'inspect | arm-audit | read-audit | udev-watch | fanotify-arm | fanotify-read | fanotify-disarm | bpftrace-arm | bpftrace-read | bpftrace-disarm'
         required: false
         default: 'inspect'
   issues:
@@ -128,8 +128,8 @@ jobs:
             [ -n "${PARSED}" ] && MODE="${PARSED}"
           fi
           case "${MODE}" in
-            inspect|arm-audit|read-audit|udev-watch|fanotify-arm|fanotify-read|fanotify-disarm) : ;;
-            *) echo "::error::unknown mode '${MODE}' (want inspect|arm-audit|read-audit|udev-watch|fanotify-arm|fanotify-read|fanotify-disarm)"; exit 1 ;;
+            inspect|arm-audit|read-audit|udev-watch|fanotify-arm|fanotify-read|fanotify-disarm|bpftrace-arm|bpftrace-read|bpftrace-disarm) : ;;
+            *) echo "::error::unknown mode '${MODE}' (want inspect|arm-audit|read-audit|udev-watch|fanotify-arm|fanotify-read|fanotify-disarm|bpftrace-arm|bpftrace-read|bpftrace-disarm)"; exit 1 ;;
           esac
           echo "mode=${MODE}" >> "$GITHUB_OUTPUT"
           echo "Resolved mode: ${MODE}"
@@ -162,7 +162,7 @@ jobs:
         run: |
           set -euo pipefail
           # MODE is validated against a fixed allowlist above (inspect|arm-audit|read-audit|udev-watch|
-          # fanotify-arm|fanotify-read|fanotify-disarm), so interpolating it into the remote command is
+          # fanotify-arm|fanotify-read|fanotify-disarm|bpftrace-arm|bpftrace-read|bpftrace-disarm), so interpolating it into the remote command is
           # injection-free (not from the issue body).
           ssh -i ~/.ssh/id_rsa -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=20 "${VM_SSH_USER}@${VM_SSH_HOST}" "MODE='${MODE}' bash -s" > out.txt 2>&1 <<'REMOTE' || true
@@ -418,6 +418,87 @@ jobs:
             sudo systemctl reset-failed ict-devnull-attrib-watch.service 2>/dev/null || true
             sudo rm -f /usr/local/bin/devnull_attrib_watch.py && echo "removed /usr/local/bin/devnull_attrib_watch.py"
             echo "watcher log at /var/log/ict-devnull-attrib.jsonl is left in place (read it with fanotify-read first if needed)."
+            echo; echo "final /dev/null state:"; stat -c 'mode=%a inode=%i' /dev/null
+
+          elif [ "${MODE}" = "bpftrace-arm" ]; then
+            # ROUND 9 (2026-08-02, operator-approved): the fanotify soak proved the strip is a userspace
+            # chmod-to-0644 correlated with deploys, but pid-reuse during the deploy's own rapid chmod
+            # burst made the fanotify pid untrustworthy for naming the EXACT actor. bpftrace captures the
+            # culprit SYNCHRONOUSLY in kernel context at the chmod call — zero pid-reuse ambiguity — and,
+            # because it hooks the VFS funnel every chmod variant (incl. compat/b32) passes through, it also
+            # explains why 7 b64-syscall audit rounds were blind. Read-only trace; Tier-2 (bpftrace install
+            # + one transient kprobe unit). Filters to /dev/null by rdev (major 1, minor 3) so it survives a
+            # guard node-recreate (inode-independent). Prints comm/pid/uid/parent + kstack + the mode set.
+            echo; echo "===== bpftrace-arm: install bpftrace + start the /dev/null chmod tracer ====="
+            if ! command -v bpftrace >/dev/null 2>&1; then
+              echo "installing bpftrace..."
+              sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y bpftrace && echo "bpftrace: installed" || { echo "bpftrace: INSTALL FAILED"; echo "(done)"; exit 0; }
+            else
+              echo "bpftrace already present: $(bpftrace --version 2>&1 | head -1)"
+            fi
+            [ -r /sys/kernel/btf/vmlinux ] && echo "BTF: present (/sys/kernel/btf/vmlinux)" || echo "BTF: ABSENT — struct field reads may fail"
+            echo "kernel: $(uname -r)"
+            # Build the .bt from whichever hook symbols this kernel exports (security_path_chmod needs
+            # CONFIG_SECURITY_PATH; notify_change is always exported). At least one must be present.
+            BT=/usr/local/bin/devnull_chmod_trace.bt
+            {
+              echo '// devnull_chmod_trace.bt — BL-20260629: name the process that chmods /dev/null (rdev major 1 minor 3).'
+              echo 'BEGIN { printf("devnull_chmod_trace armed %s\n", strftime("%Y-%m-%dT%H:%M:%SZ", nsecs)); }'
+              if grep -qw security_path_chmod /proc/kallsyms; then
+                echo '// security_path_chmod(const struct path *path, umode_t mode) — path=arg0, mode=arg1 (stable)'
+                echo 'kprobe:security_path_chmod {'
+                echo '  $rdev = ((struct path *)arg0)->dentry->d_inode->i_rdev;'
+                echo '  if (($rdev >> 20) == 1 && ($rdev & 0xfffff) == 3) {'
+                echo '    printf("%s security_path_chmod /dev/null mode=%o comm=%s pid=%d uid=%d ppid=%d pcomm=%s\n", strftime("%H:%M:%S", nsecs), arg1 & 0777, comm, pid, uid, curtask->real_parent->tgid, curtask->real_parent->comm);'
+                echo '    printf("  kstack:%s\n", kstack);'
+                echo '  }'
+                echo '}'
+              fi
+              if grep -qw notify_change /proc/kallsyms; then
+                echo '// notify_change(mnt_idmap*, dentry*, iattr*, inode**) on kernel >=6.3 — dentry=arg1, attr=arg2'
+                echo 'kprobe:notify_change {'
+                echo '  $rdev = ((struct dentry *)arg1)->d_inode->i_rdev;'
+                echo '  $attr = (struct iattr *)arg2;'
+                echo '  if (($rdev >> 20) == 1 && ($rdev & 0xfffff) == 3 && ($attr->ia_valid & 1)) {'
+                echo '    printf("%s notify_change /dev/null new_mode=%o comm=%s pid=%d uid=%d ppid=%d pcomm=%s\n", strftime("%H:%M:%S", nsecs), $attr->ia_mode & 0777, comm, pid, uid, curtask->real_parent->tgid, curtask->real_parent->comm);'
+                echo '  }'
+                echo '}'
+              fi
+            } | sudo tee "$BT" >/dev/null
+            echo; echo "----- generated $BT -----"; sudo cat "$BT"
+            if ! grep -q 'kprobe:' "$BT"; then echo "ERROR: neither security_path_chmod nor notify_change in kallsyms — cannot arm"; echo "(done)"; exit 0; fi
+            sudo systemctl reset-failed ict-devnull-bpftrace.service 2>/dev/null || true
+            sudo systemctl stop ict-devnull-bpftrace.service 2>/dev/null || true
+            sudo systemd-run --unit=ict-devnull-bpftrace --collect \
+              --property=Description='ICT round-9 /dev/null chmod bpftrace tracer (BL-20260629, diagnostic soak)' \
+              --property=Restart=on-failure --property=RestartSec=10 \
+              --property=Nice=19 --property=MemoryMax=256M \
+              /bin/sh -c "exec bpftrace ${BT} >> /var/log/ict-devnull-bpftrace.log 2>&1"
+            sleep 3
+            echo; echo "===== tracer unit status ====="
+            sudo systemctl --no-pager --full status ict-devnull-bpftrace.service 2>&1 | head -18
+            echo; echo "===== tracer log (an 'armed' line proves the kprobe attached) ====="
+            sudo tail -8 /var/log/ict-devnull-bpftrace.log 2>/dev/null || echo "(no log yet — bpftrace may still be compiling the probe)"
+            echo; echo "ARMED. Re-run mode: bpftrace-read after the next deploy strip (guard journal shows a 0666 restore ⇒ a strip happened)."
+
+          elif [ "${MODE}" = "bpftrace-read" ]; then
+            echo; echo "===== bpftrace-read: tracer status + captured /dev/null chmod events ====="
+            sudo systemctl --no-pager --full status ict-devnull-bpftrace.service 2>&1 | head -12
+            echo; echo "===== /var/log/ict-devnull-bpftrace.log (every chmod that hit /dev/null, kernel-context) ====="
+            sudo cat /var/log/ict-devnull-bpftrace.log 2>/dev/null || echo "(no tracer log — is it armed? run bpftrace-arm)"
+            echo; echo "===== ict-devnull-guard restores in the same window (correlate a 0666 restore ⇒ a strip preceded it) ====="
+            sudo journalctl -u ict-devnull-guard.service --no-pager -n 12 2>/dev/null || echo "(no guard journal)"
+            echo; echo "===== CULPRIT HINT ====="
+            echo "Each line is captured IN the kernel chmod call (no pid-reuse): comm/pid/uid = the exact mutator,"
+            echo "pcomm/ppid = its parent, mode = what it set. A line with mode=644/444 is the STRIP; mode=666 is the"
+            echo "guard/heal restore. The kstack names the syscall entry (chmod/fchmodat/compat) or an in-kernel caller."
+
+          elif [ "${MODE}" = "bpftrace-disarm" ]; then
+            echo; echo "===== bpftrace-disarm: stop the tracer (bpftrace pkg + log kept) ====="
+            sudo systemctl stop ict-devnull-bpftrace.service 2>/dev/null && echo "stopped ict-devnull-bpftrace.service" || echo "(unit not running)"
+            sudo systemctl reset-failed ict-devnull-bpftrace.service 2>/dev/null || true
+            sudo rm -f /usr/local/bin/devnull_chmod_trace.bt && echo "removed /usr/local/bin/devnull_chmod_trace.bt"
+            echo "tracer log at /var/log/ict-devnull-bpftrace.log left in place; bpftrace package left installed (harmless)."
             echo; echo "final /dev/null state:"; stat -c 'mode=%a inode=%i' /dev/null
           fi
           echo "(done)"
