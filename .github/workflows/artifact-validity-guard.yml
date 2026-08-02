@@ -88,8 +88,9 @@ jobs:
           # A guard that only catches the single-line form would be decorative on
           # exactly the instances that exist. So: join continuations first, then match.
           #
-          # An intentional exception carries `# allow-degraded: <reason>` anywhere in
-          # the joined command — the explicit-override shape silent-empty-guard uses.
+          # An intentional exception carries `# allow-degraded: <BL-id> until:<date> <reason>`
+          # anywhere in the joined command — the explicit-override shape silent-empty-guard
+          # uses, now owner+expiry-ENFORCED by step 2b (check_allow_degraded.py).
           python3 - <<'PY'
           import pathlib, re, sys
 
@@ -136,10 +137,21 @@ jobs:
               print('')
               print('Fix: let the step fail (set -e) and assert the fetched inputs are '
                     'non-empty before using them. If a degraded fetch is genuinely '
-                    "acceptable, annotate the command with '# allow-degraded: <reason>'.")
+                    "acceptable, annotate the command with "
+                    "'# allow-degraded: <BL-id> until:<YYYY-MM-DD> <reason>' (owner + expiry "
+                    'ENFORCED by check_allow_degraded.py).')
               sys.exit(1)
           print('OK — no load-bearing producer/fetch step swallows its failure.')
           PY
+
+      # --- 2b. every allow-degraded escape hatch must be owned + time-boxed ------
+      # The producer-swallow check above ALLOWS an `allow-degraded: <...>` override; this
+      # enforces the override carries a resolvable backlog id + an unexpired `until:`,
+      # mirroring KNOWN_VACUOUS in check_artifact_validity.py — so the escape hatch can
+      # never become the permanent silence list it was meant to replace
+      # (BL-20260730-ALLOW-DEGRADED-NEEDS-EXPIRY).
+      - name: Assert every allow-degraded override is owned + unexpired
+        run: python3 scripts/ops/check_allow_degraded.py
 
       # --- 3. the research capability index must stay complete ----------------
       # A session cannot route to a tool it cannot find. On 2026-07-30, 47 of 51

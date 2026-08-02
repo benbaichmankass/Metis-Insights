@@ -7045,10 +7045,16 @@
       "tier": 1,
       "trigger_condition": "An `# allow-degraded:` annotation exists with no backlog row or no expiry.",
       "resolution_criteria": "The guard validates every allow-degraded annotation for a resolvable backlog id + an unexpired `until:`, and fails otherwise.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "updates": [],
-      "resolved_at": null,
+      "updates": [
+        {
+          "at": "2026-08-01T23:55:00+00:00",
+          "by": "claude (roadmap-backlog session, backlog drain)",
+          "note": "RESOLVED. New guard `scripts/ops/check_allow_degraded.py` (stdlib, reuses check_backlog_refs.filed_ids) scans .github/scripts/src/config for the COMMENT-form `# allow-degraded: <payload>` and fails unless the payload carries (a) a backlog id resolving to a filed review-backlog row AND (b) an `until:YYYY-MM-DD`, failing once that date passes — mirroring known_vacuous_problems() exactly. Wired into CI as step 2b of artifact-validity-guard.yml (beside the producer-swallow check that ALLOWS the override). The four existing annotations (all BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0, in macro-valuation-backfill / cot-positioning-backfill / sysdyn-gas-calibrate / m28-value-grade) were given `until:2026-11-01` (a ~90-day re-review horizon for that still-open medium item — the candle-fetch degradation is a standing acceptable-degradation, not near-term debt, so a longer window than KNOWN_VACUOUS's ~2wk). Detection is precise not presence-only (the new-table-wiring-guard lesson): a payload containing `<` is a syntax placeholder (skipped), and the guard's own definition file is the one self-exclusion — no file allow-list, so it can't be cheaply lied to. 10 tests (well-formed / missing-id / unresolvable-id / missing-until / expired / boundary / placeholder-skip / non-comment-form-ignored); `check_allow_degraded.py` green on the live repo (4 valid); the artifact-validity-guard doc-text updated to the `<BL-id> until:<date>` contract."
+        }
+      ],
+      "resolved_at": "2026-08-01T23:55:00+00:00",
       "severity": "medium"
     },
     {
