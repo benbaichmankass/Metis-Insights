@@ -2501,6 +2501,11 @@
           "at": "2026-08-01T21:05:00+00:00",
           "by": "claude (operator-decision follow-up, session full-system-review-zajauh)",
           "note": "20:30Z GATE RE-RUN COMPLETE (fresh shadow log via sync_trainer_data.sh, trainer issues #8293/#8294). SOL v2: READY - ready:true, blocking:[], live_parity 50 sampled/0 mismatched, drift clean KS 0.1353/PSI 0.0391, oos_edge +0.239 - Tier-3 advisory-swap packet presented to the operator (swap sol-regime-15m-lgbm-fc-pcv-v2 shadow->advisory, restoring the SOL advisory head; NOTE zero live-order impact until SOL trend_vol cells are authored - the standing Tier-3 follow-up). BTC v2: ready:false, blocking drift_clean ONLY (KS 0.2290 > 0.2; live_parity now passes 50/0) - HELD per drift-remediation, re-check ~08-03/08-04 (KS trend across today's runs: 0.2543 -> 0.2096 -> 0.2290, hovering just above the 0.2 bar). STRUCTURAL LESSON (fixed): the 13:31Z/20:30Z runs' frozen live_parity counts (13-14 rows) were the trainer's STALE shadow-log copy (synced ~05:00Z daily) - the nightly retrain resets the parity window at ~01:00Z, so an un-synced gate-check can never accumulate 20 post-retrain rows; gate_check_candidates.sh now pre-syncs (same PR)."
+        },
+        {
+          "at": "2026-08-02T04:15:00+00:00",
+          "by": "claude (Tier-3 execution, session full-system-review-zajauh)",
+          "note": "SOL SWAP EXECUTED + VERIFIED (operator approved in chat on the ready:true packet). sol-regime-15m-lgbm-fc-pcv-v2 promoted shadow->advisory at 2026-08-02T04:10:36Z (trainer #8306/#8307; first attempt used wrong CLI syntax - promote-stage takes --new-stage/--by/--reason flags, not a positional stage). Registry verified: target_deployment_stage=advisory, stage_history row carries the operator attribution + gate evidence; advisory count 2->3; trainer mirror re-published to the live VM 04:10:40Z. The SOL advisory head is RESTORED (v1 stays demoted). Reminder: zero live-order impact until SOL trend_vol cells are authored - that Tier-3 follow-up is now UNBLOCKED again. REMAINING on this row: BTC v2 drift_clean re-check ~08-03/08-04 (KS hovering 0.21-0.25 vs the 0.2 bar; all other gates pass)."
         }
       ]
     },
