@@ -134,14 +134,42 @@ consecutive days on all bybit accounts).
 the leg-fire row + FIFO residual), which is the larger, higher-risk change and
 should carry its own walk-forward/soak before touching `bybit_2`'s path.
 
-## One-look decision
+## One-look decision — CHOSEN: (c)+(b) (operator, 2026-08-02)
 
 - [ ] **(a)** FIFO in the monitor tick
 - [ ] **(b)** leg-id + FIFO in the monitor tick (fixes the gap at the moment)
 - [x] **(c) + (b) precision layer** — periodic same-moment sidecar reconcile,
-      pairs-excluded, UNMEASURED, leg-id-attributed where possible **(recommended)**
+      pairs-excluded, UNMEASURED, leg-id-attributed where possible **← CHOSEN**
 - [ ] Do nothing beyond the detector (accept the paper-book phantoms)
 
-Implementation on pick begins with a **fresh same-moment read** (the state
-drifts ~1 day since 08-01); I'll quantify current phantoms first, then ship the
-chosen mechanism as a Tier-2 PR + validate on a throwaway DB before any live run.
+## Implementation status (2026-08-02)
+
+**Engine BUILT + TESTED** — `scripts/ops/reconcile_netting_rows.py` (pure planner
+`reconcile_plan()` + CLI), generalizing the signature-pinned one-shot into a
+same-moment reconcile driven by an **injected exchange snapshot** (so the logic is
+unit-tested with no broker; `tests/ops/test_reconcile_netting_rows.py`, 7 cases).
+It honours every constraint above:
+- pairs rows (`strategy LIKE 'pairs\_%'`) excluded;
+- a group whose exchange size is unreadable (`null`/absent) is **skipped** (never
+  close on an unconfirmed read);
+- surplus closed **oldest-first, never more than the surplus** (a straddling row is
+  kept — a still-live share is never closed);
+- **(b) precision**: when the snapshot carries the group's resting protective-leg
+  ids, a surplus row whose tracked `sl_order_id`/`tp_order_id` is ABSENT (fired) is
+  closed before the oldest-first fallback;
+- closes are `status='closed'`, `reconcile_status='superseded'`,
+  `exit_reason='netting_partial_reconciled'`, **pnl/exit_price left NULL
+  (UNMEASURED)** — never mark-priced. Dry-run default; `--apply` writes.
+
+**REMAINING (next step, operator-gated Tier-2 live run):**
+1. VM wrapper / system-action that reads the **live same-moment exchange snapshot**
+   (from `/api/diag/exchange_positions` — per-account `{symbol, side, size}`, +
+   the resting SL/TP legs for the (b) layer), transforms it to the engine's
+   `account/symbol/direction → size` input, and runs the engine (dry-run → `--apply`).
+   Mirror the `reconcile-netting-phantom-rows` system-action shape.
+2. Live **dry-run** first (quantify current phantoms — the state drifts ~1 day
+   since the 08-01 cleanup), operator OK, then `--apply`.
+3. (Optional) a periodic timer wrapping the on-demand action, once the on-demand
+   dry-run/apply is proven.
+4. Wire the `journal_qty_divergent` detector's firings to this row; resolution
+   criterion: detector silent 7 consecutive days on all bybit accounts.
