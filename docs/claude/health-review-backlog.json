@@ -8807,9 +8807,15 @@
     },
     {
       "id": "BL-20260731-SYSTEM-ACTION-FAILURE-COMMENT-UNPROVENANCED",
-      "status": "open",
-      "tier": 1,
-      "severity": "low",
+      "status": "resolved",
+      "resolved_at": "2026-08-02T00:45:00+00:00",
+      "updates": [
+        {
+          "at": "2026-08-02T00:45:00+00:00",
+          "by": "claude (roadmap-backlog session, backlog drain)",
+          "note": "RESOLVED. system-actions.yml's 'Reply to issue with outcome' step no longer prints the static 'Common causes: VM_SSH_KEY unset; SSH unreachable; wrapper nonzero' list on every failure. It now branches on the actual failure STAGE via `exitCode === ''` (the `exec` step publishes exit_code ONLY when it ran): a PRE-EXEC abort (validation/allowlist/missing-input) states 'FAILED BEFORE the VM action ran — NOT an SSH/VM/credential problem; the failing step + its ::error:: are on the run page', while a wrapper failure (exit set) states 'the wrapper RAN and returned exit N' and only THEN scopes in the VM-side causes. Exactly the diagnostic-provenance sub-class A fix CLAUDE.md prescribes (branch on the stage, don't reword the label). Verified: YAML parses + the embedded github-script JS passes `node --check`. The 2026-07-31 allowlist-miss case (which printed all 3 false causes minutes after a successful deploy) now reports the honest pre-exec stage."
+        }
+      ],
       "opened_at": "2026-07-31T07:30:00+00:00",
       "opened_by": "claude (provenance session)",
       "title": "[ops][diagnostics] system-action failure comment names causes no code path tested",
