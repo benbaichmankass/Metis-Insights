@@ -2506,6 +2506,12 @@
           "at": "2026-08-02T04:15:00+00:00",
           "by": "claude (Tier-3 execution, session full-system-review-zajauh)",
           "note": "SOL SWAP EXECUTED + VERIFIED (operator approved in chat on the ready:true packet). sol-regime-15m-lgbm-fc-pcv-v2 promoted shadow->advisory at 2026-08-02T04:10:36Z (trainer #8306/#8307; first attempt used wrong CLI syntax - promote-stage takes --new-stage/--by/--reason flags, not a positional stage). Registry verified: target_deployment_stage=advisory, stage_history row carries the operator attribution + gate evidence; advisory count 2->3; trainer mirror re-published to the live VM 04:10:40Z. The SOL advisory head is RESTORED (v1 stays demoted). Reminder: zero live-order impact until SOL trend_vol cells are authored - that Tier-3 follow-up is now UNBLOCKED again. REMAINING on this row: BTC v2 drift_clean re-check ~08-03/08-04 (KS hovering 0.21-0.25 vs the 0.2 bar; all other gates pass)."
+        },
+        {
+          "at": "2026-08-02T04:35:00+00:00",
+          "by": "claude (metis-insights-backlog-cont, trainer-diag #8315)",
+          "action": "kept_open",
+          "note": "BTC v2 drift RE-PULL (gate-check btc-regime-15m-lgbm-fc-pcv-v2 --target-stage advisory, trainer-diag #8315): ready=false. drift_clean KS=0.2012 (threshold <=0.20) STILL FAIL but IMPROVED and now MARGINAL (KS trend 07-30 0.229 -> 08-01 runs 0.2543/0.2096/0.2290 -> 08-02 0.2012, misses the 0.2 bar by 0.0012); PSI=0.1538 CLEAN. live_parity=insufficient_data (0 rows scored since the current artifact retrained 2026-08-02T01:44:31Z; needs >=20, accrues at 15m-bar cadence). All other required gates PASS (labels_accruing 0.99, sample_sufficiency n=87636, cross_run_stability std 0.0066, RG4 live-discrimination AUC 0.602). VERDICT: continued HOLD, no promotion proposed (Tier-3). BTC already serves a working advisory head (fc-pcv-v1, live since 07-20) so there is no gap and the v2 swap is a non-urgent refresh. Re-check drift + parity after the fresh artifact accrues ~1-2 more days (~08-03/08-04); if KS drops under 0.20 AND >=20 clean post-retrain parity rows land, present the Tier-3 v2->advisory swap to the operator."
         }
       ]
     },
@@ -2768,5 +2774,5 @@
       ]
     }
   ],
-  "updated_at": "2026-08-01"
+  "updated_at": "2026-08-02"
 }
