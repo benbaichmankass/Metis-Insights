@@ -41,10 +41,15 @@ The evidence that the fee effect nonetheless dominates at usable n:
 - The **one** cell that moved the wrong way has **n=10**, where a single swapped
   trade is worth ~±1R — i.e. drift noise of the same order as the whole delta.
 
-**The clean experiment has not been run:** one matrix pass, same window, two fee
-settings. That is cheap (a second `--fee-bps-roundtrip` arm) and is the only way to
-attribute the delta rather than infer it. **Filed as a follow-up — do not treat the
-per-cell deltas below as measured fee amounts.**
+**RESOLVED 2026-08-02 — the clean experiment was run** (one matrix pass, same window,
+two `--fee-bps-roundtrip` arms 0 vs 7.5): [`regime-debt-matrix-fee-ab-2026-08-02.md`](regime-debt-matrix-fee-ab-2026-08-02.md)
+(issue #8329, tooling PR #8327). It confirms the inference here: **every one of 20
+gradeable cells shows a negative net-R delta** (a fee can only reduce R — the confounded
+comparison could not guarantee that), the commission-free equity/ETF sleeve lands
+**0.044–0.090 R/trade** squarely in the predicted 0.04–0.12 band, and the wrong-signed
+`slv_trend_1h` chop-short row below is confirmed **window drift** (over the identical
+window it is a clean −1.28R cell). The per-cell deltas below may now be read as measured
+fee amounts (`BL-20260730-FEE-AB-FIXED-WINDOW` resolved).
 
 ## 2. The diff — corrected vs over-charged (matrix cells, identical n)
 
