@@ -469,6 +469,30 @@ result. **The vix_term investigation is now complete end-to-end** (S2 edge → S
 the same landing as `hy_oas_pct`, reached with more rigor. The free-macro program's honest final tally:
 **zero deployable standalone edges** across every free input class.
 
+### M31 Track A-S5 follow-up (2026-08-02, macro-program M5): re-run REINFORCES the verdict + exposes a rolling-window reproducibility gap
+
+Macro-program item **M5** (RESEARCH-PROGRAM-2026-07-30) asked to "re-examine `vix_term`
+with corrected costs" on the premise it was ETF-expressed and carried the T1 phantom-fee
+over-charge. **That premise is a misconception:** A-S5 expresses `vix_term` as an **index
+future** and already charges a realistic ~1.5 bp round-trip — it was never ETF-expressed and
+never mis-costed, so there was no fee to correct.
+
+Re-running it today (`docs/research/M5-vix-term-corrected-cost-reexamination-2026-08-02.md`)
+did surface something worth recording. The SP500/DJIA **21d FULL Sharpe swung from the
+table above (0.18 / 0.05) to 0.64 / 0.62 at IDENTICAL n=118**, while NASDAQ100 is
+**byte-identical** across both runs. Cause, verified against the raw FRED spans: FRED's
+`SP500` and `DJIA` daily series are **rolling ~10-year windows** (both n=2514,
+2016-08-01→2026-07-31) that slid forward since #7577; NASDAQ100 has fixed deep history
+(1986→, bound by VXVCLS's 2007 start) so it never rolls. A standalone edge whose headline
+Sharpe **triples from a few-month window slide with no change in n** is, by definition,
+window-fragile — which is exactly "validated lead, not deployable standalone." NDX is the
+control isolating the mechanism. Verdict unchanged and reinforced.
+
+Reproducibility fix shipped: `vix_term_backtest.py` now emits each leg's `data_span`, so two
+runs' differing windows are visible instead of silent. Residual filed:
+`BL-20260802-VIXTERM-ROLLING-WINDOW-SPAN` (low) — a fully comparable SP500/DJIA magnitude
+read needs a pinned start or a non-rolling S&P source; not required to trust the verdict.
+
 ## M33 — calendar-seasonality family (a NEW free family beyond the macro inputs, 2026-07-25)
 
 After the free *macro* input classes were exhausted (COT · crypto · value · implied-vol ·
