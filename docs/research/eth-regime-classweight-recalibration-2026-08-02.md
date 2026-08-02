@@ -63,12 +63,47 @@ _(trainer-vm-diag #8342 — `ml train --no-register` on the identical ETH v002
 dataset, `class_weight(volatile)` swept, per-class metrics from the manifest's
 own `time_aware_holdout` evaluator.)_
 
-<!-- A/B RESULT TABLE — pending #8342 -->
+| `volatile` weight | f1_volatile | precision_volatile | recall_volatile | macro_f1 | weighted_f1 |
+|---:|---:|---:|---:|---:|---:|
+| **28** (current) | 0.2784 | **0.1707** | 0.7539 | 0.5426 | 0.7655 |
+| 15 | 0.3126 | 0.2051 | 0.6567 | 0.5889 | 0.8221 |
+| **11** (≈ 1/base-rate) | **0.3312** | 0.2288 | 0.5993 | 0.6106 | 0.8465 |
+| 8 | 0.3384 | 0.2515 | 0.5170 | 0.6244 | 0.8658 |
 
-## Disposition
+**The over-commitment reverses exactly as the base-rate diagnosis predicts.** The
+28× head has precision_volatile **0.171** at recall **0.754** — it predicts
+`volatile` on ~4.4× more bars than are truly volatile (0.754/0.171 ≈ base-rate
+inflation), the near-constant-output failure mode. Lowering the weight toward
+ETH's own inverse base rate rebalances precision↑/recall↓ and lifts f1_volatile,
+macro_f1, and weighted_f1 **monotonically**. The 28× recipe is confirmed the
+worst of the four arms on every aggregate metric.
 
-<!-- pending A/B: recalibrate-in-place (if ~11× lifts f1_volatile / un-saturates)
-     vs feature-inadequacy route (if no weight helps) -->
+## Disposition — recalibrate in place to **11×**
+
+Editing `eth-regime-15m-lgbm-v1.yaml` `class_weight volatile: 28.0 → 11.0` in
+place (the model_id and everything else unchanged). Rationale for **11×** over
+the marginally-higher-f1 8× arm:
+
+1. **Principled + fleet-consistent:** 11× ≈ `1 / 0.0922`, the same
+   inverse-base-rate recipe BTC's head uses (28× ≈ `1 / 0.036`). ETH now gets
+   the recipe applied to *ETH's* data instead of BTC's.
+2. **f1 is at its plateau:** 0.3312 (11×) vs 0.3384 (8×) is a ~2% difference,
+   inside noise; the curve has flattened by 11×.
+3. **Recall matters for a gate:** the vol-gate fires when `P(volatile) > 0.5`
+   for an OFF-cell — under-firing (missing a volatile episode, letting a
+   money-losing cell trade) is the costlier error, so the higher recall_volatile
+   at 11× (0.599 vs 8×'s 0.517) is the safer operating point.
+
+**This is the calibration fix, not a proven live-NO_EDGE resolution.** The A/B is
+**offline holdout**; the live RG4 0.46 is a live-row skew read. Recalibration is
+the *necessary precondition* for a fair RG4 re-read (a miscalibrated weight makes
+the live read meaningless), and the mechanism it corrects — output saturation —
+is the same mechanism behind a near-constant-output live NO_EDGE. But whether the
+recalibrated head clears **RG4 ≥ 0.55** can only be measured after it soaks under
+the corrected weight. The nightly cycle retrains `eth-regime-15m-lgbm-v1` at 11×;
+its fresh RG4 read is the post-soak Tier-3 promotion gate (MB-20260627-003 stays
+open, retargeted from "needs retrain" to "recalibrated → awaiting fresh RG4
+soak"). No promotion is enacted here.
 
 ## Method notes
 
