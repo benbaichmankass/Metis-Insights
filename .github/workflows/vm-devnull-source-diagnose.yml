@@ -473,7 +473,7 @@ jobs:
                 if printf '%s\n' "$AVAIL" | grep -qx "tracepoint:syscalls:sys_enter_$tp"; then
                   echo "// sys_enter_$tp(..., filename, mode) — coreutils chmod/install/os.chmod path here"
                   echo "tracepoint:syscalls:sys_enter_$tp /str(args->filename) == \"/dev/null\"/ {"
-                  echo "  printf(\"%s $tp /dev/null mode=%o comm=%s pid=%d uid=%d\\n\", strftime(\"%H:%M:%S\", nsecs), args->mode & 0777, comm, pid, uid);"
+                  echo "  printf(\"%s $tp /dev/null mode(dec)=%d comm=%s pid=%d uid=%d\\n\", strftime(\"%H:%M:%S\", nsecs), args->mode & 0777, comm, pid, uid);"
                   echo '}'
                 fi
               done
@@ -517,8 +517,9 @@ jobs:
             sudo journalctl -u ict-devnull-guard.service --no-pager -n 12 2>/dev/null || echo "(no guard journal)"
             echo; echo "===== CULPRIT HINT ====="
             echo "Each line is captured IN the kernel at syscall entry (no pid-reuse): comm/pid/uid = the exact"
-            echo "mutator, mode = what it set. A path line with mode=644/444 is the STRIP; mode=666 is the"
-            echo "guard/heal restore. DECISIVE NEGATIVE: if the guard journal shows a 0666 restore (⇒ a strip"
+            echo "mutator, mode = what it set (DECIMAL — 420=0644 & 292=0444 are STRIPs; 438=0666 is the"
+            echo "guard/heal restore). A path line at 420/292 names the culprit. DECISIVE NEGATIVE: if the"
+            echo "guard journal shows a 0666 restore (⇒ a strip"
             echo "happened) but this log has NO matching path line in that window, the strip did NOT come from a"
             echo "userspace fchmodat/fchmodat2 on the path '/dev/null' — pointing at a kernel-internal or"
             echo "fd-based mechanism (an fd-based fchmod probe is not armed; see the arm-block note) rather than"
