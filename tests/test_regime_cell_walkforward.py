@@ -5,11 +5,16 @@ Offline + deterministic: no harness run, no network, no DB.
      ADX regime at its entry bar (a synthetic adx Series is passed in directly, so
      the ADX math itself is not under test here — the entry-bar lookup + labelling
      is).
-  2. ``regime_cell_walkforward.cell_verdict`` reduces a walk-forward result to the
-     per-side OOS-stability verdict — the short-drag gate a Tier-3 OFF-cell draft
-     must pass. Fed a hand-built walk-forward dict, so the verdict math is exact.
+  2. ``regime_cell_walkforward.cell_verdict`` reduces a FIXED-fold-panel walk-forward
+     to the per-side OOS-stability verdict — the short-drag gate a Tier-3 OFF-cell
+     draft must pass. The verdict is fold-count invariant
+     (BL-20260730-WF-FOLDCOUNT-VERDICT-FLIP): fed a per-fold-count panel of
+     hand-built walk-forward dicts, so the verdict math is exact.
   3. The two compose through ``direction_walkforward.analyze`` on a synthetic
      regime-filtered trades file — the real driver path minus the fetch/harness.
+  4. The 2-D (trend, vol) cell axis (BL-20260730-WALKFORWARD-NO-VOL-AXIS) refuses
+     to grade without vol labels rather than silently fall back to the 1-D
+     population.
 
 scripts/research is not a package, so modules load via importlib.
 """
@@ -48,6 +53,18 @@ def _df(n: int):
                          "close": 1.0, "volume": 1.0})
 
 
+def _wf(short_rs, long_rs, pooled_short, pooled_long):
+    """Build a single-fold-count walk-forward dict from per-fold short/long net-R."""
+    by_fold = [
+        {"long_n": 5, "long_r": lr, "short_n": 5, "short_r": sr}
+        for sr, lr in zip(short_rs, long_rs)
+    ]
+    return {
+        "folds": len(short_rs), "total_trades": 10 * len(short_rs),
+        "by_fold": by_fold, "pooled": {"short_r": pooled_short, "long_r": pooled_long},
+    }
+
+
 def test_annotate_labels_by_entry_bar_regime():
     # bars 0-1 chop (adx 10), bars 2-4 trending (adx 30)  [thresholds: <20 chop, >=25 trending]
     df = _df(5)
@@ -78,40 +95,55 @@ def test_only_regime_filter():
 
 
 def test_cell_verdict_short_stable_drag_true():
-    # short < 0 in every fold AND pooled short < 0  ->  the OFF-cell gate PASSES
-    wf = {
-        "folds": 3, "total_trades": 60,
-        "by_fold": [
-            {"long_n": 5, "long_r": 2.0, "short_n": 5, "short_r": -3.0},
-            {"long_n": 5, "long_r": 1.0, "short_n": 5, "short_r": -4.0},
-            {"long_n": 5, "long_r": 3.0, "short_n": 5, "short_r": -2.0},
-        ],
-        "pooled": {"long_r": 6.0, "short_r": -9.0},
+    # short < 0 in every fold under EVERY panel fold count AND pooled short < 0
+    #   -> the OFF-cell gate PASSES, and is not fold-sensitive.
+    panel = {
+        3: _wf([-3.0, -4.0, -2.0], [2.0, 1.0, 3.0], -9.0, 6.0),
+        4: _wf([-3.0, -4.0, -2.0, -1.0], [2.0, 1.0, 3.0, 0.5], -10.0, 6.5),
+        5: _wf([-3.0, -4.0, -2.0, -1.0, -2.0], [2.0, 1.0, 3.0, 0.5, 1.0], -12.0, 7.5),
     }
-    cv = rcwf.cell_verdict(wf, "trending")
-    assert cv["short_folds_negative"] == 3
+    cv = rcwf.cell_verdict(panel, "trending")
     assert cv["short_stable_drag"] is True
+    assert cv["short_fold_sensitive"] is False
     assert cv["long_stable_drag"] is False  # long is positive throughout
+    assert cv["fold_panel"] == [3, 4, 5]
 
 
 def test_cell_verdict_short_positive_does_not_pass():
     # short > 0 in a majority of folds  ->  NOT a durable drag (regime-of-sample)
-    wf = {
-        "folds": 3, "total_trades": 74,
-        "by_fold": [
-            {"long_n": 12, "long_r": 7.9, "short_n": 13, "short_r": -2.6},
-            {"long_n": 12, "long_r": -5.4, "short_n": 13, "short_r": 5.5},
-            {"long_n": 12, "long_r": -5.7, "short_n": 12, "short_r": 10.8},
-        ],
-        "pooled": {"long_r": -3.2, "short_r": 13.7},
+    panel = {
+        3: _wf([-2.6, 5.5, 10.8], [7.9, -5.4, -5.7], 13.7, -3.2),
+        4: _wf([-2.6, 5.5, 10.8, 4.0], [7.9, -5.4, -5.7, 1.0], 17.7, -2.2),
+        5: _wf([-2.6, 5.5, 10.8, 4.0, 3.0], [7.9, -5.4, -5.7, 1.0, 0.5], 20.7, -1.7),
     }
-    cv = rcwf.cell_verdict(wf, "trending")
-    assert cv["short_folds_negative"] == 1
+    cv = rcwf.cell_verdict(panel, "trending")
     assert cv["short_stable_drag"] is False
 
 
+def test_cell_verdict_fold_count_invariant_regression():
+    """BL-20260730-WF-FOLDCOUNT-VERDICT-FLIP: the old strict-majority-of-folds test
+    (`neg > folds/2`) FLIPPED the verdict on the fold count at identical pooled
+    net-R — a 4-fold 2/4 read FALSE while a 3-fold 2/3 read TRUE. Now the verdict is
+    computed over the FIXED panel and disagreement across fold counts CANNOT produce
+    a PASS; it is instead flagged as fold-sensitive."""
+    # pooled short < 0 in all, but the per-fold-count majority disagrees:
+    #   k=3: 2/3 negative -> majority True ; k=4: 2/4 -> majority False ; k=5: 3/5 -> True
+    panel = {
+        3: _wf([-3.0, -3.0, 2.5], [1.0, 1.0, 1.0], -3.5, 3.0),
+        4: _wf([-3.0, -3.0, 2.5, 2.5], [1.0, 1.0, 1.0, 1.0], -1.0, 4.0),
+        5: _wf([-3.0, -3.0, -3.0, 2.5, 2.5], [1.0, 1.0, 1.0, 1.0, 1.0], -4.0, 5.0),
+    }
+    cv = rcwf.cell_verdict(panel, "trending")
+    # The flip scenario must NOT pass, and must be flagged as fold-sensitive.
+    assert cv["short_stable_drag"] is False
+    assert cv["short_fold_sensitive"] is True
+    # The verdict is a pure function of the fixed panel — reordering the caller's
+    # display folds cannot change it (there is no --folds input to cell_verdict).
+    assert cv == rcwf.cell_verdict(dict(sorted(panel.items(), reverse=True)), "trending")
+
+
 def test_compose_through_direction_walkforward(tmp_path):
-    # synthetic trending-only trades file: short negative in 3/3 folds, pooled < 0
+    # synthetic trending-only trades file: short negative in every fold, pooled < 0
     p = tmp_path / "trending.jsonl"
     rows = []
     base = pd.Timestamp("2025-01-01", tz="UTC")
@@ -121,8 +153,27 @@ def test_compose_through_direction_walkforward(tmp_path):
         rows.append({"entry_time": (base + pd.Timedelta(hours=i)).isoformat(),
                      "direction": "long", "net_r": 0.5, "regime": "trending"})
     p.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
-    wf = dwf.analyze([str(p)], 3, "synthetic:trending")
-    cv = rcwf.cell_verdict(wf, "trending")
+    panel = {k: dwf.analyze([str(p)], k, "synthetic:trending") for k in rcwf.FOLD_PANEL}
+    cv = rcwf.cell_verdict(panel, "trending")
     assert cv["regime_trades"] == 60
     assert cv["short_stable_drag"] is True
     assert cv["long_stable_drag"] is False
+
+
+def test_run_cell_2d_cell_requires_vol_labels(monkeypatch):
+    """A 2-D (trend, vol) cell must refuse to grade without vol labels rather than
+    silently fall back to the 1-D trend population (BL-20260730-WALKFORWARD-NO-VOL-AXIS)."""
+    monkeypatch.setattr(rcwf.rdm, "load_roster",
+                        lambda: {"x_pullback_1h": {"symbols": ["BTCUSDT"], "timeframe": "1h"}})
+    out = rcwf.run_cell("x_pullback_1h", "trending", 4, "/tmp/rcwf_test", 730,
+                        vol="volatile", vol_labels=None)
+    assert "error" in out and "vol-labels" in out["error"]
+    assert out.get("cell") == "trending/volatile"
+
+
+def test_main_vol_without_labels_exits_2(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv",
+                        ["prog", "--strategy", "x", "--regime", "trending", "--vol", "volatile"])
+    rc = rcwf.main()
+    assert rc == 2
+    assert "requires --vol-labels" in capsys.readouterr().err

@@ -8430,12 +8430,19 @@
       "title": "[research][tooling] regime_cell_walkforward.py is 1-D only — the pre-registered *_stable_drag gate CANNOT be run on any of the six authored 2-D trend_vol cells",
       "description": "scripts/research/regime_tag_emitted.py gained a --vol-labels axis (PR #8056) so 2-D cells could be graded. That axis was NOT propagated to scripts/research/regime_cell_walkforward.py, whose CLI is --strategy/--regime/--folds/--days/--workdir/--json: it folds on the 1-D trend regime only.\n\nWHY THIS MATTERS MORE THAN A MISSING FLAG: the repo's own rule is that a cell-level Tier-3 proposal must clear the #7915 *_stable_drag walk-forward before it is made, because pooled net-R produced the htf_pullback_trend_2h fold-3 artifact. The live router gates on 2-D (trend, vol) cells. So the gate that is REQUIRED before proposing a change to a 2-D cell cannot be run on a 2-D cell. Every one of the six authored trend_vol cells is currently un-gateable by its own required gate. That is a silent blocker: nothing errors, the 1-D tool runs happily and returns a confident-looking verdict for a DIFFERENT population than the one under review — which is worse than an outright failure, because the output looks like the answer.\n\nCONCRETE BLOCK RIGHT NOW: BL-20260730-DONCHIAN-TRANSITIONAL-CALM-CONTRADICTED found an active real-money gate cell whose offline grade contradicts its authoring comment in sign, and it cannot be driven to a proposal because of this gap. A 1-D proxy was run (#8117) and is sound ONLY as a refutation instrument — an unstable 1-D result kills the 2-D claim, a stable one does not establish it.\n\nFIX SHAPE (not applied here): thread --vol-labels + a --vol filter through the driver the same way regime_tag_emitted.py --only-vol already does, so the fold population is the actual cell. NOT DONE IN THIS SESSION because scripts/research/ was ceded to a concurrent session under the coordination board; this session ran the tool without modifying it.",
       "severity": "high",
-      "status": "open",
+      "status": "resolved",
       "area": "research",
       "trigger_condition": "n/a — blocks the required gate for all six authored 2-D cells",
       "resolution_criteria": "regime_cell_walkforward.py can fold a (trend, vol) cell and the six authored trend_vol cells become gate-testable.",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-08-02T14:05:00+00:00",
+      "updates": [
+        {
+          "at": "2026-08-02T14:05:00+00:00",
+          "by": "claude (research-backlog session c30uj9)",
+          "note": "RESOLVED by PR #8395 (WORK-PLAN-2026-08-02 W1.1). regime_cell_walkforward.py now accepts --vol {calm,volatile} + --vol-labels PATH and threads --only-vol/--vol-labels into the regime_tag_emitted subprocess, so it folds the actual (trend, vol) population; requesting --vol without --vol-labels HARD-ERRORS rather than silently grading the 1-D trend population (never the frozen vol_detector shortcut). The six authored trend_vol cells are now gate-testable offline. FOLLOW-UP (not this item): the runner workflow regime-cell-walkforward.yml does not yet GENERATE/pass a vol-labels artifact (needs an ml_vol_label_replay run, trainer-side) — the offline driver accepts the path; tracked as the 2-D runner-wiring follow-up in docs/research/WORK-PLAN-2026-08-02.md."
+        }
+      ],
       "refs": [
         "scripts/research/regime_cell_walkforward.py",
         "scripts/research/regime_tag_emitted.py",
@@ -8452,12 +8459,19 @@
       "title": "[research][tooling] regime_cell_walkforward's *_stable_drag verdict FLIPS on fold count at an identical pooled net-R — 4 folds says FALSE, 3 folds says TRUE",
       "description": "Same strategy, same regime, same 2000-day window, same pooled result (-1.25R over n=94). Only --folds changed:\n  --folds 4 -> [-2.7163, +1.0116, +2.5854, -2.1307]  2/4 negative  long_stable_drag = FALSE\n  --folds 3 -> [+2.7118, -3.4177, -0.5441]           2/3 negative  long_stable_drag = TRUE\n\nThe verdict is a 'strict majority of folds negative' test, so with an even fold count 2/4 is not a majority while with an odd count 2/3 is. That makes PASS/FAIL a function of an argument the caller picks, at identical underlying evidence. --folds defaults to 4 and no caller is required to state it.\n\nWHY IT MATTERS: this driver IS the repo's gate for promoting a cell observation into a Tier-3 draft (#7915). A gate that can be flipped by an unstated, defaulted knob is not yet a gate — and the failure is silent, since both runs exit 0 and emit a confident verdict field. Same class as BL-20260730-WALKFORWARD-NO-VOL-AXIS: confident output, unstated population/parameterisation.\n\nSUGGESTED SHAPE (not applied — scripts/research/ is ceded to a concurrent session this session): either require an odd fold count, or report the verdict across a fold sweep and demand agreement, or state the fold count in the verdict field so a reader cannot quote it context-free.",
       "severity": "high",
-      "status": "open",
+      "status": "resolved",
       "area": "research",
       "trigger_condition": "n/a — a standing property of the gate driver",
       "resolution_criteria": "The *_stable_drag verdict is either fold-count invariant or reports its sensitivity.",
       "snoozed_until": null,
-      "resolved_at": null,
+      "resolved_at": "2026-08-02T14:05:00+00:00",
+      "updates": [
+        {
+          "at": "2026-08-02T14:05:00+00:00",
+          "by": "claude (research-backlog session c30uj9)",
+          "note": "RESOLVED by PR #8395 (WORK-PLAN-2026-08-02 W1.1). cell_verdict no longer keys on the caller's --folds: it evaluates a FIXED internal panel FOLD_PANEL=(3,4,5) and requires pooled<0 AND strict majority-negative under EVERY panel member, so the verdict is fold-count invariant (satisfies the 'fold-count invariant' branch of the criterion). It ALSO reports *_fold_sensitive when the per-fold-count majority reads disagree (the 'reports its sensitivity' branch). --folds now controls only the human-readable by_fold breakdown. Regression test added (tests/test_regime_cell_walkforward.py::test_cell_verdict_fold_count_invariant_regression) reproducing the exact 2/3·2/4·3/5 flip scenario — it now fails-closed and is flagged fold-sensitive. 42 tests pass. The identical bug in direction_walkforward.analyze's verdict (its standalone 1-D gate) is NOT fixed here — logged as a follow-up in the sprint log."
+        }
+      ],
       "refs": [
         "scripts/research/regime_cell_walkforward.py",
         "scripts/research/direction_walkforward.py",
@@ -9273,6 +9287,28 @@
       "severity": "low",
       "tier": 1,
       "status": "open"
+    },
+    {
+      "id": "BL-20260802-DIRWF-FOLDCOUNT-VERDICT-FLIP",
+      "opened_at": "2026-08-02T14:10:00+00:00",
+      "opened_by": "claude (research-backlog session c30uj9)",
+      "source": "Noticed while fixing the sibling bug in regime_cell_walkforward.cell_verdict (PR #8395, BL-20260730-WF-FOLDCOUNT-VERDICT-FLIP). direction_walkforward.analyze has the IDENTICAL untreated defect.",
+      "title": "[research][tooling] direction_walkforward.analyze's stable_drag/stable_edge verdict flips on fold count (same bug class as the now-fixed regime-cell verdict)",
+      "description": "scripts/research/direction_walkforward.py:107-108 computes `stable_drag = long_neg > folds/2 and pooled.long_r<0` and `stable_edge = short_pos > folds/2 and pooled.short_r>0`. Same defect as the regime-cell cell_verdict just fixed: at identical pooled net-R the verdict flips on the caller's --folds (even 2/4 fails the strict-majority test while odd 2/3 passes). This is the STANDALONE 1-D direction gate consumed by m21_entry_sweep / m20_exit_sweep / the rec#5 direction walk-forwards — not the regime-cell path #8395 fixed. FIX: mirror the #8395 approach — evaluate over a fixed internal fold panel (e.g. (3,4,5)) requiring agreement, and/or report fold-sensitivity, so the verdict is fold-count invariant. Low blast radius (research tooling + its callers/tests).",
+      "severity": "medium",
+      "status": "open",
+      "area": "research",
+      "tier": 1,
+      "trigger_condition": "n/a — a standing property of the direction-walkforward gate driver; any session grading a direction cell via m20/m21/rec5",
+      "resolution_criteria": "direction_walkforward.analyze's stable_drag/stable_edge verdict is fold-count invariant (or reports its sensitivity), mirroring the regime-cell fix; callers/tests updated.",
+      "snoozed_until": null,
+      "resolved_at": null,
+      "refs": [
+        "scripts/research/direction_walkforward.py",
+        "scripts/research/regime_cell_walkforward.py",
+        "BL-20260730-WF-FOLDCOUNT-VERDICT-FLIP",
+        "PR #8395"
+      ]
     }
   ],
   "updated_at": "2026-08-02T10:35:00+00:00",
