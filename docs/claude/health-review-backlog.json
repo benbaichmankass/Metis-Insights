@@ -6878,10 +6878,31 @@
           "at": "2026-07-30T07:00:00+00:00",
           "by": "claude",
           "note": "S1 (corrected re-grade) RAN — findings in docs/research/regime-debt-matrix-corrected-cost-2026-07-30.md. It is NOT complete: gld_pullback_1h unmeasured (blocked on #7958), spy_pullback_1h needs a faithful re-run before it is even a walk-forward candidate, and the deltas are inferred not attributed (BL-20260730-FEE-AB-FIXED-WINDOW). New rows filed: BL-20260730-FEE-AB-FIXED-WINDOW, BL-20260730-SPLG-ZERO-TRADES. S2/S3/S4, M3-M5, A1-A5, R1-R5, T3-T5 all still NOT started or NOT finished."
+        },
+        {
+          "at": "2026-08-02T09:00:00+00:00",
+          "by": "claude (research-backlog session, metis-insights-research-backlog-r6za4z)",
+          "note": "MACRO TRACK M RECONCILED — the register was written 2026-07-30 06:00Z, BEFORE M3/M4/M5 landed later that day, so its 'M3-M5 not started' line is STALE. Actual state: M1 (econ_calendar_snapshot_backfill) + M2 (PIT expectation model) + M3 (econ_expectation_validate: pooled model_tracks_survey @ n=1263, per-kind caveats — continuing_jobless_claims misses the tracking bar, initial_jobless_claims worse-than-naive; committed comms/macro/econ_expectation_validation.json) + M4 (event study 2015->2026, STRONG NULL: natgas/crude/cpi all no_edge_at_tested_horizons, energy kinds wrong-signed) all SHIPPED in sprint S-M1-SURVEY-CONSENSUS-NULL-20260730 (#8003/#8027/#8043/#8050). M5 CLOSED THIS SESSION as honest-negative (docs/research/M5-vix-term-corrected-cost-reexamination-2026-08-02.md): the 'ETF-expressed, T1 fee fix applies' premise was a misconception — A-S5 is index-future-expressed at ~1.5bp and was never mis-costed; re-running REINFORCES 'validated lead, not deployable standalone' and exposed a rolling-window reproducibility gap (SP500/DJIA 21d Sharpe swung 0.18->0.64 at identical n=118 from FRED's rolling-10y window sliding; NDX byte-identical) — fixed by emitting data_span, residual BL-20260802-VIXTERM-ROLLING-WINDOW-SPAN. STILL OPEN in this register: T3/T4/T5, S2/S3/S4, A1-A5, R1-R5. Not closing the register — Track M is now fully accounted (M1-M5 done)."
         }
       ],
       "resolved_at": null,
       "severity": "medium"
+    },
+    {
+      "id": "BL-20260802-VIXTERM-ROLLING-WINDOW-SPAN",
+      "opened_at": "2026-08-02T09:00:00+00:00",
+      "opened_by": "claude (research-backlog session, metis-insights-research-backlog-r6za4z)",
+      "source": "Found running macro-program M5 (docs/research/M5-vix-term-corrected-cost-reexamination-2026-08-02.md). scripts/macro/vix_term_backtest.py's SP500/DJIA legs read FRED's `SP500`/`DJIA` daily series, which are ROLLING ~10-year windows (both n=2514, span 2016-08-01->2026-07-31); NASDAQ100 has fixed deep history (1986->). So the SP500/DJIA size read grades a DIFFERENT decade on different run dates at ~identical n — the 21d FULL Sharpe swung 0.18->0.64 (SP500) / 0.05->0.62 (DJIA) at identical n=118 vs the #7577 record, purely from the window slide; NDX byte-identical (the control).",
+      "title": "[research][reproducibility] vix_term_backtest SP500/DJIA Sharpe is a function of run-date because FRED's series are rolling 10y windows",
+      "description": "The A-S5 timing backtest's SP500/DJIA magnitudes (Sharpe/CAGR/maxDD) are not reproducible across dates because the underlying FRED convenience series drop their oldest data as time advances. This does NOT change the VERDICT — NDX's fixed-window null already settles 'validated lead, not deployable standalone', and a Sharpe that triples from a few-month slide at constant n is itself proof of window-fragility — but it makes the SP500/DJIA numbers non-comparable across runs. Mitigation SHIPPED this session: vix_term_backtest.py now emits each leg's `data_span` (start/end/n_aligned) in JSON + a text line, so a reader sees the window instead of it being silent. Full fix (LOW priority, not required to trust the verdict): pin an explicit start date or swap SP500/DJIA to a non-rolling S&P/Dow source (e.g. ^GSPC via Stooq/yfinance) so magnitudes are comparable across dates.",
+      "tier": 1,
+      "trigger_condition": "Any comparison of vix_term_backtest SP500/DJIA Sharpe/CAGR across two run dates, or any deployment decision resting on those absolute magnitudes.",
+      "resolution_criteria": "vix_term_backtest.py's SP500/DJIA legs read a non-rolling source or a pinned window, so the size read is reproducible across dates; OR the item is closed as won't-fix because the span disclosure is deemed sufficient and no consumer depends on the absolute magnitudes.",
+      "status": "open",
+      "snoozed_until": null,
+      "updates": [],
+      "resolved_at": null,
+      "severity": "low"
     },
     {
       "id": "BL-20260730-REGIME-CELL-UNAUDITABLE",

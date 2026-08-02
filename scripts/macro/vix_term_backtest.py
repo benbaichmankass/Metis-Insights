@@ -159,6 +159,14 @@ def _grade_one(name, tgt_sid, dated, horizons, *, cost_frac, lo_q, hi_q, oos_fra
     extra_vals = [emap.get(d) for d in dates]
     feat_vals = build_feature_series("term_ratio", vol_vals, tgt_vals, extra_vals=extra_vals)
     positions = _positions(feat_vals, lo_q=lo_q, hi_q=hi_q)
+    # Disclose the graded window. FRED's SP500/DJIA daily series are ROLLING ~10-year
+    # windows (they drop the oldest data as time advances), while NASDAQ100/VIX go back
+    # decades — so re-running this on different days grades SP500/DJIA over a SLID window
+    # at ~identical n, and a Sharpe read that is not pinned to a span is not reproducible
+    # (2026-08-02: SP500/DJIA 21d full-Sharpe swung 0.18/0.05 → 0.64/0.62 vs #7577 at
+    # identical n=118 purely from the roll; NDX byte-identical). Emitting the span makes
+    # that visible instead of absorbed. BL-20260802-VIXTERM-ROLLING-WINDOW-SPAN.
+    data_span = {"start": dates[0], "end": dates[-1], "n_aligned": len(dates)} if dates else None
     rows = []
     for h in horizons:
         pr = _period_returns(positions, tgt_vals, h, cost_frac=cost_frac)
@@ -173,7 +181,7 @@ def _grade_one(name, tgt_sid, dated, horizons, *, cost_frac, lo_q, hi_q, oos_fra
         and (r["full"]["sharpe"] or 0) > 0
         for r in rows
     )
-    return {"name": name, "target_sid": tgt_sid,
+    return {"name": name, "target_sid": tgt_sid, "data_span": data_span,
             "verdict": "positive_oos_edge" if deployable else "no_deployable_edge",
             "rows": rows}
 
@@ -203,6 +211,10 @@ def _print(out) -> None:
           f"oos_frac={out['oos_frac']}  horizons={out['horizons']}")
     for r in out["targets"]:
         print(f"\n  {r['name']} ({r['target_sid']}): verdict={r['verdict']}")
+        sp = r.get("data_span")
+        if sp:
+            print(f"      window {sp['start']} → {sp['end']} (n_aligned={sp['n_aligned']}) "
+                  f"— pin this when comparing runs (FRED SP500/DJIA are rolling ~10y)")
         if r.get("reason"):
             print(f"      {r['reason']}")
         for row in r.get("rows", []):
