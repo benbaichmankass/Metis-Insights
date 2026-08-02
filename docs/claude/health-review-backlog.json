@@ -6920,11 +6920,12 @@
       "tier": 1,
       "trigger_condition": "Anyone quoting a corrected-cost delta as a measured fee effect, or re-reading the equity/ETF sleeve off the uncontrolled comparison.",
       "resolution_criteria": "A fixed-window two-arm fee A/B is run and its per-cell deltas recorded; the findings doc's §1 caveat is replaced with measured attribution.",
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [],
-      "resolved_at": null,
-      "severity": "medium"
+      "resolved_at": "2026-08-02T05:55:00+00:00",
+      "severity": "medium",
+      "resolution": "Fixed-window fee A/B run 2026-08-02 (regime_debt_matrix --fee-ab 0,7.5, issue #8329, tooling PR #8327). Grades the SAME 730d candle window at both fee arms so the per-cell delta isolates the fee effect from the rolling-window slide. RESULT: all 20 gradeable cells show a NEGATIVE net-R delta (a fee can only reduce R — the confounded two-run comparison could not guarantee this and had one wrong-signed cell). The commission-free equity/ETF sleeve (gld/slv) lands 0.044-0.090 R/trade, squarely in the predicted 0.04-0.12 band; BTC cells run lower (~0.03-0.06, ATR scaling). The 2026-07-30 doc's wrong-signed slv_trend_1h chop-short row is confirmed WINDOW DRIFT (clean -1.28R over the identical window). Findings: docs/research/regime-debt-matrix-fee-ab-2026-08-02.md; the corrected-cost doc's §1 caveat is replaced with the measured attribution. No cell authored/revoked (Tier-3)."
     },
     {
       "id": "BL-20260730-SPLG-ZERO-TRADES",
