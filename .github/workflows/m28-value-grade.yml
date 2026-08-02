@@ -94,8 +94,15 @@ jobs:
           # The D3 grade above only fetches the 3 distinct drivers (SPY/TLT/SLV); the P4
           # sweep's universe is the full 5 (SPY/TLT/IEF/GLD/SLV), so fetch the complete set
           # explicitly (idempotent per-symbol <SYMBOL>.csv writes, augments what's there).
-          python scripts/macro/fetch_macro_candles.py \
-            --out-dir /tmp/m28-value-candles --symbols SPY,TLT,IEF,GLD,SLV || true  # allow-degraded: BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0 until:2026-11-01
+          # fetch_macro_candles exits non-zero ONLY on TOTAL failure (0 usable symbols); the
+          # block runs without `set -e`, so guard explicitly — a total fetch failure must
+          # FAIL rather than let value_construction_sweep grade an empty dir and emit a false
+          # "n=0" (BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0). Partial coverage still proceeds.
+          if ! python scripts/macro/fetch_macro_candles.py \
+            --out-dir /tmp/m28-value-candles --symbols SPY,TLT,IEF,GLD,SLV; then
+            echo "::error::P4 candle fetch produced 0 usable symbols — refusing to grade (would emit a false n=0). BL-20260730-CANDLE-FETCH-DEGRADES-TO-N0"
+            exit 1
+          fi
           python scripts/macro/value_construction_sweep.py \
             --out-dir /tmp/m28-constructions \
             --candles-dir /tmp/m28-value-candles \
