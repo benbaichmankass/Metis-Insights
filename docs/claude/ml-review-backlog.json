@@ -486,6 +486,12 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-02T11:20:00+00:00",
+          "by": "claude (research-backlog session c30uj9, verify-before-redo pass)",
+          "action": "kept_open",
+          "note": "VERIFIED STATE + doc-contradiction flag (see-something-say-something). The pipeline this item asks for is BUILT (S-MLOPT-S7): setup_labels.py + trade_outcomes.py both carry a 'source' field + 'include_backtest' builder flag (default off, live-only); ml/datasets/backtest_recorder.py (write_backtest_trades, is_backtest=1 only) + scripts/ml/record_harness_trades.py (harness JSONL to SimTrade to recorder) + ml/experiments/splitters.py live_holdout (live_flag_column=source) exist with tests. It was RUN end-to-end for MES ONLY (#8318, 2026-08-01/02): a config-exact 10y ES_F backtest gave 26 is_backtest=1 rows, include_backtest builds, then mes-setup-quality-baseline-v0 + mes-trade-outcome-winrate-baseline-v0 registered at shadow, nightly-pinned (#8326). CONTRADICTION: docs/sprint-logs/S-MLOPT-S7.md line 13 claims the sprint 'Closes MB-20260530-001', but this item is correctly still kept_open and the resolution_criterion is UNMET: MES has ZERO live closed trades, so there is no real-trade holdout to evaluate against, and the two MES models ARE the per-group-mean baselines, not a model beating them. REMAINING (the item's actual scope, the n~78 pooled wall): extend the backtest-to-training-row emission to the POOLED / live-crypto decision models. The main (non-MES-scoped) build_family trade_outcomes / setup_labels do NOT pass include_backtest yet, so they stay live-only. ROUTING NOTE: A1's CPU half (config-exact crypto backtests to is_backtest=1 rows) has NO free-runner workflow (the MES run went via the trainer relay); correct routing needs a new research-backtest-augment workflow. Tracked in docs/research/WORK-PLAN-2026-08-02.md (W1.2/W2.1) + health BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED. Kept_open until the pooled models are augmented AND beat the live-only baseline on a real-trade holdout."
         }
       ]
     },
