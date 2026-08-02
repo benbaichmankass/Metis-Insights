@@ -9,9 +9,11 @@
 # (one score/15min vs one/hour) and a sharper vol structure, giving RG4 a real
 # discriminating sample.
 #
-# Identical to btc-regime-15m-lgbm-v2 EXCEPT the symbol (ETHUSDT). Registers at
-# `shadow`; advisory promotion is operator-gated (Tier-3) and gated on a
-# post-soak RG4 >= 0.55.
+# Was identical to btc-regime-15m-lgbm-v2 except the symbol (ETHUSDT); as of
+# 2026-08-02 it ALSO carries a symbol-calibrated volatile class weight (11x vs
+# BTC's 28x — see the class_weight comment below). Registers at `shadow`;
+# advisory promotion is operator-gated (Tier-3) and gated on a post-soak
+# RG4 >= 0.55.
 
 manifest_version: v1
 model_id: eth-regime-15m-lgbm-v1
@@ -40,12 +42,19 @@ trainer_config:
   sample_weight:
     half_life_days: 60
     time_column: ts
-  # Mirror btc-regime-15m-lgbm-v2: ~28x inverse-base-rate weight (BTC 15m
-  # volatile base rate ~3.6%). First knob to sweep if ETH's realized 15m base
-  # rate differs materially.
+  # Recalibrated to ETH's OWN inverse base rate (2026-08-02, MB-20260627-003).
+  # The ported btc-regime-15m-lgbm-v2 28x is ~1/base-rate for BTC's 4.46% 15m
+  # volatile rate, but ETH's realized 15m volatile rate at the frozen
+  # vol_threshold=0.005 is 9.22% (~2x BTC's; measured on this exact dataset,
+  # trainer-diag #8341), so 28x over-weighted the minority class ~2.6x and the
+  # booster over-committed to `volatile` -> near-constant output -> the observed
+  # live NO_EDGE (RG4 0.46). 11x = 1/0.0922. The in-session --no-register A/B
+  # (#8342) confirms f1_volatile lifts 0.278@28x -> 0.331@11x as precision
+  # rebalances (0.171 -> 0.229) — evidence in
+  # docs/research/eth-regime-classweight-recalibration-2026-08-02.md.
   class_weight:
     range: 1.0
-    volatile: 28.0
+    volatile: 11.0
   lgbm_params:
     learning_rate: 0.05
     num_leaves: 31
@@ -66,8 +75,10 @@ evaluator_config:
   holdout_fraction: 0.2
 target_deployment_stage: shadow
 notes: |
-  Multi-symbol-A RG4 retrain (MB-20260627-003). Identical to
-  btc-regime-15m-lgbm-v2 except symbol=ETHUSDT. RG3 is the in-session gate;
-  RG4 (live-row skew) scores only after a live shadow soak, so promotion is
-  gated on a post-soak RG4 >= 0.55 + operator approval. Leakage gate forbids
-  forward_log_return / forward_log_return_vol / regime_label.
+  Multi-symbol-A RG4 retrain (MB-20260627-003), class-weight-recalibrated
+  2026-08-02: volatile weight 28x -> 11x to match ETH's own 9.22% 15m volatile
+  base rate (the ported BTC 28x over-weighted it ~2.6x -> near-constant output
+  -> live NO_EDGE RG4 0.46). RG3 is the in-session gate; RG4 (live-row skew)
+  scores only after a fresh live shadow soak under the corrected weight, so
+  promotion stays gated on a post-soak RG4 >= 0.55 + operator approval. Leakage
+  gate forbids forward_log_return / forward_log_return_vol / regime_label.

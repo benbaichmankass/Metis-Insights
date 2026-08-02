@@ -1398,7 +1398,7 @@
       "resolution_criteria": "A retrained ETH regime head (target: eth-regime-5m/15m-lgbm-v1) clears RG4 live robustly (>=0.55 across thresholds, not knife-edge) after its shadow soak, the gated ETH A/B is re-confirmed with that head, and advisory promotion is proposed (Tier-3). Root-cause + replacement-head halves DONE 2026-06-28.",
       "status": "kept_open",
       "snoozed_until": null,
-      "updated_at": "2026-06-28T04:40:00+00:00",
+      "updated_at": "2026-08-02T07:35:00+00:00",
       "update_20260628": "RETRAIN SESSION (trainer-diag #4869-#4893, branch claude/eth-regime-retrain-skew-mnske0, PR #4868). ROOT CAUSE of the 'NO_EDGE live': both ETH 1h heads emit a near-constant high P(volatile) on live rows (v1 mean 0.776/min 0.508; xasset 0.758/0.500) -> no discrimination. v1: live rolling_log_return_vol +51% vs the 5yr train mean -> 73% of live rows in top vol_b2; xasset: xa_breadth_up all-zeros in TRAINING (dead cross_asset side-stream) but ~0.45 live (see BL-20260628-XA-TRAINING-ZERO). PARTIAL CORRECTION: RG4 defaults vol_threshold=0.003 but the Bybit build labels at 0.005; at matched 0.005 v1 RG4 = 0.58 BUT it's a KNIFE-EDGE (0.46/0.51/0.58/0.48/0.47 across 0.003-0.007 on 111 rows) -> NOT robust; v1 1h stays weak/borderline live, xasset stays NO_EDGE (0.46-0.51 all thresholds). So the original 'needs a better head' stands; only the 0.46 severity was a harness artifact (see MB-20260628-RG4-THRESH). FIX SHIPPED: trained eth-regime-{5m,15m}-lgbm-v1 (mirror the strong BTC 5m/15m heads; the 1h regime family is the weak timeframe). Built ETH 5m/15m market_features (525864/175272 rows) + added them to the daily build. RG3: 5m 0.770 / 15m 0.788 TRUSTWORTHY (recent-fold 0.738/0.751). Both register at shadow -> SOAKING; RG4 future-dated (new heads have 0 live rows). NEXT (post-soak): RG4 the 5m/15m heads at matched 0.005; if robust >=0.55, re-run the ETH A/B + cell-selection WF with the passing head and propose advisory promotion (Tier-3).",
       "updates": [
         {
@@ -1411,6 +1411,18 @@
           "by": "system-review-weekly-2026-07-26",
           "action": "kept_open",
           "note": "Re-validated 07-26 against fresh full-system pull (services up, accounts reachable, DB intact, soaks accruing); Tier-3 — awaiting operator decision/approval. No state change this window."
+        },
+        {
+          "at": "2026-08-02T07:35:00+00:00",
+          "by": "claude (research-driver / metis-insights-backlog-cont nuqiwl)",
+          "action": "kept_open",
+          "note": "CLASS-WEIGHT RECALIBRATION shipped (PR #8345). New root-cause LAYER complementary to the 2026-06-28 feature-skew finding, not a replacement: eth-regime-15m-lgbm-v1 ports BTC's class_weight volatile:28 verbatim, which is ~1/base-rate for BTC's 4.46% 15m volatile rate — but ETH's realized rate at the frozen vol_threshold=0.005 is 9.22% (~2x BTC's; measured on the exact training dataset, trainer-diag #8341). So 28x over-weighted the minority class ~2.6x -> the booster over-commits to volatile, which COMPOUNDS the live feature-distribution shift already noted (live rolling_log_return_vol +51% vs train). In-session --no-register A/B on ETH v002 (trainer-diag #8342): f1_volatile 0.278@28x -> 0.313@15x -> 0.331@11x -> 0.338@8x, monotonic, as precision_volatile rebalances 0.171->0.252 (recall 0.754->0.517). Recalibrated to 11x (=1/0.0922, fleet-consistent inverse-base-rate recipe; keeps better volatile recall than 8x, which matters for a protective gate). CAVEAT (honest): this is the OFFLINE holdout calibration fix — it is the necessary precondition for a fair RG4 re-read, NOT a proven live-NO_EDGE resolution; the feature-skew half (live vol >> 5yr train mean) may remain and only a fresh RG4 soak under 11x settles it. NEXT (unchanged, post-soak): RG4 the recalibrated head at matched vol_threshold=0.005; if robustly >=0.55, re-run the ETH A/B + cell-selection WF and propose advisory promotion (Tier-3). Item retargeted from 'needs retrain' to 'recalibrated -> awaiting fresh RG4 soak'. Findings: docs/research/eth-regime-classweight-recalibration-2026-08-02.md."
+        },
+        {
+          "at": "2026-08-02T07:35:00+00:00",
+          "by": "claude (research-driver / metis-insights-backlog-cont nuqiwl)",
+          "action": "kept_open",
+          "note": "CLASS-WEIGHT RECALIBRATION shipped (PR #8345). New root-cause LAYER complementary to the 2026-06-28 feature-skew finding, not a replacement: eth-regime-15m-lgbm-v1 ports BTC's class_weight volatile:28 verbatim, which is ~1/base-rate for BTC's 4.46% 15m volatile rate — but ETH's realized rate at the frozen vol_threshold=0.005 is 9.22% (~2x BTC's; measured on the exact training dataset, trainer-diag #8341). So 28x over-weighted the minority class ~2.6x -> the booster over-commits to volatile, which COMPOUNDS the live feature-distribution shift already noted (live rolling_log_return_vol +51% vs train). In-session --no-register A/B on ETH v002 (trainer-diag #8342): f1_volatile 0.278@28x -> 0.313@15x -> 0.331@11x -> 0.338@8x, monotonic, as precision_volatile rebalances 0.171->0.252 (recall 0.754->0.517). Recalibrated to 11x (=1/0.0922, fleet-consistent inverse-base-rate recipe; keeps better volatile recall than 8x, which matters for a protective gate). CAVEAT (honest): this is the OFFLINE holdout calibration fix — it is the necessary precondition for a fair RG4 re-read, NOT a proven live-NO_EDGE resolution; the feature-skew half (live vol >> 5yr train mean) may remain and only a fresh RG4 soak under 11x settles it. NEXT (unchanged, post-soak): RG4 the recalibrated head at matched vol_threshold=0.005; if robustly >=0.55, re-run the ETH A/B + cell-selection WF and propose advisory promotion (Tier-3). Item retargeted from 'needs retrain' to 'recalibrated -> awaiting fresh RG4 soak'. Findings: docs/research/eth-regime-classweight-recalibration-2026-08-02.md."
         }
       ]
     },
@@ -2790,5 +2802,5 @@
       ]
     }
   ],
-  "updated_at": "2026-08-02"
+  "updated_at": "2026-08-02T07:35:00+00:00"
 }
