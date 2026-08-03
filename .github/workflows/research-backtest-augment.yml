@@ -89,7 +89,12 @@ jobs:
           python-version: "3.11"
 
       - name: Install deps
-        run: pip install --quiet pyyaml pandas numpy
+        # `requests` is required by scripts/ops/fetch_backtest_candles.py (the
+        # binance_vision crypto fetch). A1 is crypto-only so it drops yfinance —
+        # which is what transitively supplied `requests` in the sibling
+        # regime-debt-matrix / adx-cutpoint workflows — so name it explicitly here
+        # (else every fetch fails `import requests`, all legs 0 rows).
+        run: pip install --quiet pyyaml pandas numpy requests
 
       - name: Run the augment runner
         run: |
