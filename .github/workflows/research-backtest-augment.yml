@@ -1,0 +1,141 @@
+name: research-backtest-augment
+
+# A1 research-backtest-augment runner (WORK-PLAN-2026-08-02 W1.2) on a free
+# GitHub-hosted runner. Runs the pinned pooled harness roster (trend_donchian@1h,
+# squeeze_breakout_4h@4h, htf_pullback_trend_2h@2h) per symbol (BTCUSDT/ETHUSDT/
+# SOLUSDT), --emit-trades, and records the trades as `is_backtest=1` rows into ONE
+# backtest_trades.db artifact — the W1.2 → W2.1 handoff. Crypto (`*USDT`) rides
+# Binance-vision (keyless; the US runner's Bybit geoblock doesn't matter).
+# Engine: scripts/ml/backtest_augment_runner.py (composition of
+# scripts/research/regime_debt_matrix.emit_trades_for + record_harness_trades).
+# Scope: docs/research/A1-backtest-augment-runner-SCOPE-2026-08-02.md.
+#
+# Triggers:
+#   1. workflow_dispatch — inputs: only (CSV of strategy names, blank=roster),
+#      symbols (CSV, blank=BTCUSDT,ETHUSDT,SOLUSDT), days, run_tag
+#   2. issues.opened with label `research-backtest-augment-request` (owner-guarded);
+#      optional issue-body lines `only: a,b`, `symbols: BTCUSDT,ETHUSDT`,
+#      `days: 730`, `run_tag: a1-crypto-<date>`
+#
+# Safety: READS the repo + fetches PUBLIC candles (Binance-vision) + runs the
+# read-only backtest harnesses + records ONLY `is_backtest=1` rows into a TEMP
+# artifact DB (NEVER the production money DB) + uploads it. It does NOT push,
+# deploy, touch config/, or write any live DB — it authors no cell. The trainer-
+# side W2.1 (dataset build + live-holdout eval) is the FIFO-lane follow-on.
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "CSV of harness strategy names (blank = pooled roster)"
+        default: ""
+      symbols:
+        description: "CSV of symbols to replay each strategy on (blank = BTCUSDT,ETHUSDT,SOLUSDT)"
+        default: ""
+      days:
+        description: "Trailing days of candles"
+        default: "730"
+      run_tag:
+        description: "notes tag on every recorded row (blank = a1-crypto-<UTC-date>)"
+        default: ""
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: research-backtest-augment-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  augment:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'research-backtest-augment-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse issue body
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          only=$(printf '%s' "$ISSUE_BODY" | grep -iE '^only:' | head -1 | cut -d: -f2- | xargs || true)
+          symbols=$(printf '%s' "$ISSUE_BODY" | grep -iE '^symbols:' | head -1 | cut -d: -f2- | xargs || true)
+          days=$(printf '%s' "$ISSUE_BODY" | grep -iE '^days:' | head -1 | cut -d: -f2- | xargs || true)
+          run_tag=$(printf '%s' "$ISSUE_BODY" | grep -iE '^run_tag:' | head -1 | cut -d: -f2- | xargs || true)
+          echo "A1_ONLY=${only}" >> "$GITHUB_ENV"
+          echo "A1_SYMBOLS=${symbols}" >> "$GITHUB_ENV"
+          echo "A1_DAYS=${days:-730}" >> "$GITHUB_ENV"
+          echo "A1_RUN_TAG=${run_tag}" >> "$GITHUB_ENV"
+
+      - name: Set params from dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "A1_ONLY=${{ github.event.inputs.only }}" >> "$GITHUB_ENV"
+          echo "A1_SYMBOLS=${{ github.event.inputs.symbols }}" >> "$GITHUB_ENV"
+          echo "A1_DAYS=${{ github.event.inputs.days || '730' }}" >> "$GITHUB_ENV"
+          echo "A1_RUN_TAG=${{ github.event.inputs.run_tag }}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install --quiet pyyaml pandas numpy
+
+      - name: Run the augment runner
+        run: |
+          set +e
+          mkdir -p artifacts/a1
+          ONLY_ARG=""
+          if [ -n "${A1_ONLY}" ]; then ONLY_ARG="--only ${A1_ONLY}"; fi
+          SYM_ARG=""
+          if [ -n "${A1_SYMBOLS}" ]; then SYM_ARG="--symbols ${A1_SYMBOLS}"; fi
+          TAG_ARG=""
+          if [ -n "${A1_RUN_TAG}" ]; then TAG_ARG="--run-tag ${A1_RUN_TAG}"; fi
+          echo "days=${A1_DAYS} only='${A1_ONLY}' symbols='${A1_SYMBOLS}' run_tag='${A1_RUN_TAG}'"
+          python scripts/ml/backtest_augment_runner.py \
+            --db artifacts/a1/backtest_trades.db \
+            --workdir artifacts/a1/work \
+            --out-dir artifacts/a1 \
+            --days "${A1_DAYS}" ${ONLY_ARG} ${SYM_ARG} ${TAG_ARG} \
+            > artifacts/a1/run.stdout 2> artifacts/a1/run.log
+          echo "rc=$?"; tail -25 artifacts/a1/run.log || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-backtest-augment-${{ github.run_id }}
+          path: |
+            artifacts/a1/backtest_trades.db
+            artifacts/a1/backtest_augment_result.json
+            artifacts/a1/SUMMARY.md
+            artifacts/a1/run.log
+            artifacts/a1/work/*__trades.jsonl
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Comment summary on issue
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '_(summary not produced — read run.log in the artifact)_';
+            try { body = fs.readFileSync('artifacts/a1/SUMMARY.md', 'utf8'); } catch (e) {}
+            body += `\n\n_Artifact: \`backtest_trades.db\` (+ per-strategy JSONLs) uploaded to run ${context.runId} — the W2.1 trainer step pulls it._`;
+            const footer = '\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 60000) + footer,
+            });
