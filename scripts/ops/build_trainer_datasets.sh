@@ -657,9 +657,23 @@ build_mes_features_tf() {  # <tf> <raw_dir> — 2-pass median-calibrated feature
 }
 
 build_mes_setup_labels() {
-  # Symbol-scoped MES setup_labels so mes-setup-quality finds a (currently
-  # empty — no closed MES trades) v002 dataset and SKIPS cleanly
-  # (empty_dataset) instead of FileNotFound-failing.
+  # Legacy fallback: a plain-journal MES setup_labels build so
+  # mes-setup-quality finds a dataset and SKIPS cleanly (empty_dataset)
+  # instead of FileNotFound-failing when no MES data exists at all.
+  #
+  # Since the backtest-augmented MES-baselines block (earlier in this script,
+  # operator-directed 2026-08-02) this helper must NOT run unconditionally:
+  # it executes LATER in the same run and its plain-journal build (0 live MES
+  # rows) was OVERWRITING the augmented 26-row build from minutes earlier —
+  # live-observed on the 2026-08-03 cycle (augmented build 05:01:00Z, this
+  # helper's 0-row rebuild 05:12:56Z → mes-setup-quality skipped
+  # empty_dataset). Skip whenever a non-empty MES setup_labels dataset is
+  # already present; only build the plain fallback when none exists.
+  local existing="${DATASETS_ROOT}/setup_labels/MES/all/${DATASET_VERSION}/data.jsonl"
+  if [ -s "$existing" ]; then
+    emit "$(printf '{"ts":"%s","status":"skipped","family":"setup_labels","symbol":"MES","detail":"non-empty MES setup_labels dataset already present (backtest-augmented build) — plain-journal fallback rebuild suppressed so it cannot clobber it"}' "$(iso_now)")"
+    return 0
+  fi
   mes_build setup_labels \
     --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
     --source "trade_journal.db" --symbol-scope MES --overwrite \
