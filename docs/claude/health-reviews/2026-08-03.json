@@ -1,0 +1,73 @@
+{
+  "reviewer": "claude",
+  "reviewed_at": "2026-08-03T08:35:00+00:00",
+  "review_window": "since last review (~2026-07-30/31 audit + system-review #7940) → 2026-08-03T08:35Z",
+  "overall_assessment": "healthy",
+  "operator_attention_required": false,
+  "findings": {
+    "service": "ok",
+    "trader_liveness": "ok",
+    "orders": "ok",
+    "trades": "ok",
+    "monitoring": "ok",
+    "strategy_silence": "ok",
+    "state_consistency": "ok",
+    "alert_delivery": "ok",
+    "db_integrity": "ok",
+    "data_validity": "watch",
+    "db_write_path_integrity": "ok",
+    "broker_reachability": "ok",
+    "trainer_service": "ok",
+    "health_snapshot": "ok",
+    "security": "watch",
+    "api_errors": "ok"
+  },
+  "findings_detail": {
+    "trader_liveness": "heartbeat age 22s label=running, last tick 08:05:41Z, git_sha ab0456ed = origin/main HEAD (in sync); vm_health cpu=0.0 mem=12.1% disk=38.7%. Trader restarted 06:47Z (clean).",
+    "health_snapshot": "cron snapshot 7/7 checks ok, action_required=false (service/git_drift/git_fetch/tick/accounts_api/db/disk all ok); cross-checked against live status — consistent.",
+    "broker_reachability": "ALL 7 declared-live broker-API accounts reachable (bybit_1/2/portfolio, ib_paper, alpaca_paper/portfolio/options_paper). health accounts_api=ok. Shelved/dry skipped: ib_live, oanda_practice, alpaca_live. Manual bridge: breakout_1.",
+    "monitoring": "IB 3 MES clients connected, no breaker open, no wedge; transitory liveness_probe_timeout ~1h ago (07:07-07:13Z) self-recovered by 08:06 — the IBKR reset-window pattern.",
+    "db_integrity": "trade_journal.db 717MB inode 3634988, all 16 tables present, 0 per-table errors, SELECT 1 ok. trades=4333 order_packages=3482 signals=1.34M. No trader/web-api inode mismatch. integrity_check not run (relay can't PRAGMA).",
+    "data_validity": "watch — bybit_1 (DEMO/paper) journal-vs-exchange divergence persists (exchange ADA 258303 etc.) — tracked class (BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING, BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED). Reconciler-closed paper rows with null pnl (netting partial-close class). NO real-money integrity issue; bybit_2 real-money open rows match broker.",
+    "trainer_service": "ict-trainer.timer enabled+active (service is timer-fired oneshot: disabled/inactive is correct), ExecMainStatus=0, NRestarts=0; publish + readiness timers active; trainer_status.json fresh (22s). Trainer disk 79%. Stray 8.5MB journal copy at repo root still present (BL-20260730-TRAINER-JOURNAL-COPY-STALE).",
+    "security": "watch — window contained ONE credential-compromise incident (BL-20260801 @bict_trading_bot Telegram bot-token compromise), fully RESOLVED 08-01 (4-round revoke/rotate, leak vector closed #8206/#8217/#8228, scanner \\b blindspot fixed, all 3 dead tokens confirmed 401). Current sweep CLEAN: collaborators = benbaichmankass only (owner/admin), 0 external actors (all issues/PRs owner-authored), no unexplained workflow/secret/collaborator change, external-comment-alert active. Residual: dead-token URLs in journald/git history (revoked, ages out — deliberate no-purge)."
+  },
+  "security_check": {
+    "status": "watch",
+    "sources_checked": ["repo collaborators", "recent issues/PRs authorship", "workflow-file edits in window", "known incident register", "live notifications banner"],
+    "signals": [
+      {"kind": "credential_compromise", "ref": "BL-20260801-TELEGRAM-BOT-TOKEN-COMPROMISE", "state": "resolved", "note": "Telegram operator-bot token compromised 08-01, contained + rotated + leak vector closed same day; verified 401 dead."}
+    ],
+    "note": "No NEW breach since the window start. Collaborators=owner-only (benbaichmankass, admin); 0 non-owner actors; no unattributed workflow/secret/collaborator/force-push. The one incident this window is closed. Grade watch (a real compromise occurred + was remediated), operator_attention NOT required (all rotations done + verified)."
+  },
+  "new_work_compliance": {
+    "prs_audited": 52,
+    "commits_audited": 52,
+    "findings": [],
+    "note": "52 PRs/commits merged 2026-07-31→now, ALL tier-appropriate. NO config/strategies.yaml, config/accounts.yaml, config/risk_caps.yaml, config/regime_policy.yaml, src/runtime/orders.py, or src/runtime/risk_counters.py content change landed in the window (a local shallow-clone diff falsely attributed 5 Tier-3 files to boundary commit #8327; the authoritative GitHub PR API confirms #8327 touched only the research workflow + regime_debt_matrix.py + a test). Window work = Tier-1 research/regime/macro tooling, CI guards (harness-lever-coupling, timestamp-comparison, silent-empty, diagnostic-provenance), vm-devnull-diagnose bpftrace iterations, docs/backlog; plus a Tier-2 cluster (netting reconcile engine #8401 + reconcile-netting-rows system-action #8403 (apply is operator-gated), /dev/null heal deploy #8338, the 08-01 security rotation — operator-driven). No Prime-Directive default-off *_ENABLED gate introduced. No unapproved Tier-3."
+  },
+  "orphan_ingest": {
+    "new_real_money_orphans": 0,
+    "note": "notifications banner orphan_unreconciled count=0 (the real-money orphan signal). orphan_events.jsonl tail = old paper/demo entries (alpaca_options_paper + bybit_1, Jun 27-30), no new real-money orphan since the window. No unreconciled real-money orphan persisting."
+  },
+  "soak_decisions_due": [
+    {"what": "SOL sol-regime-15m-lgbm-fc-pcv-v2 (advisory) + BTC btc-regime-15m-lgbm-fc-pcv-v2 drift-hold", "gate_met": "SOL v2 promoted 08-02; BTC v2 HELD on drift_clean fail (KS ~0.21-0.25) — re-check ~08-03/08-04", "owner_skill": "/ml-review", "sla_state": "on-cadence (ml-review)"},
+    {"what": "htf_pullback_trend_2h trending SHORT possible over-gate (R2 short-R +6.88 yet live short:off)", "gate_met": "flagged BL-20260803-HTF2H-TRENDING-SHORT-OVERGATE — walk-forward re-audit due", "owner_skill": "/performance-review + regime-selectivity", "sla_state": "new (08-03)"},
+    {"what": "gld_pullback_1h routed on alpaca_portfolio but FAILS that account survival gate (0.871<0.90)", "gate_met": "flagged BL-20260803-GLD-ALPACA-PORTFOLIO-SURVIVAL-SKIP — Tier-3 operator decision due", "owner_skill": "operator (Tier-3)", "sla_state": "new (08-03)"}
+  ],
+  "backlog_coverage": {
+    "open_at_start": 97,
+    "triaged": 97,
+    "resolved": 5,
+    "fixed_now": 0,
+    "closed_stale": 0,
+    "kept_open": 92,
+    "count_untriaged": 0
+  },
+  "anomalies": [
+    "Trainer stray 8.5MB trade_journal.db copy at repo root (Aug 2) — harmless, Tier-1 cleanup (BL-20260730-TRAINER-JOURNAL-COPY-STALE).",
+    "Trainer disk 79% (36G/45G) — watch.",
+    "ict-mes-ibkr-pull last-run status not pulled this batch — fold into next review (BL-20260727)."
+  ],
+  "recommended_action": "No operator action required. System healthy. Route the 3 soak_decisions_due to /ml-review + /performance-review + the operator Tier-3 (GLD routing). Continue monitoring the tracked bybit_1 paper-divergence + netting classes."
+}
