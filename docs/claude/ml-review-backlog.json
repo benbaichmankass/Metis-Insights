@@ -2542,6 +2542,11 @@
           "by": "claude (metis-insights-backlog-cont, trainer-diag #8315)",
           "action": "kept_open",
           "note": "BTC v2 drift RE-PULL (gate-check btc-regime-15m-lgbm-fc-pcv-v2 --target-stage advisory, trainer-diag #8315): ready=false. drift_clean KS=0.2012 (threshold <=0.20) STILL FAIL but IMPROVED and now MARGINAL (KS trend 07-30 0.229 -> 08-01 runs 0.2543/0.2096/0.2290 -> 08-02 0.2012, misses the 0.2 bar by 0.0012); PSI=0.1538 CLEAN. live_parity=insufficient_data (0 rows scored since the current artifact retrained 2026-08-02T01:44:31Z; needs >=20, accrues at 15m-bar cadence). All other required gates PASS (labels_accruing 0.99, sample_sufficiency n=87636, cross_run_stability std 0.0066, RG4 live-discrimination AUC 0.602). VERDICT: continued HOLD, no promotion proposed (Tier-3). BTC already serves a working advisory head (fc-pcv-v1, live since 07-20) so there is no gap and the v2 swap is a non-urgent refresh. Re-check drift + parity after the fresh artifact accrues ~1-2 more days (~08-03/08-04); if KS drops under 0.20 AND >=20 clean post-retrain parity rows land, present the Tier-3 v2->advisory swap to the operator."
+        },
+        {
+          "at": "2026-08-03T18:25:00+00:00",
+          "by": "claude (Sunday-wake drift re-check, session full-system-review-zajauh)",
+          "note": "BTC v2 GATE-READY (Sunday 18:00Z re-check per the operator's 'crypto is 24/7' directive; trainer-diag #8433/#8435/#8436, gate_check_candidates.sh with the #8297 pre-sync). ready:true, blocking:[] — drift_clean CLEARS at last: KS=0.1269 (<=0.2; trend 0.2543 -> 0.2096 -> 0.2290 -> 0.2012 -> 0.1269) with PSI=0.2093 (<=0.25, nearer its bar than SOL's 0.0391 — worth watching post-swap). live_parity 50/50 sampled rows match within 1e-06 over 1374 rows (the #8297 pre-sync fix working); oos_edge +0.2786 macro_f1 over 5 purged WF-CV folds (0.60607 vs baseline 0.32746); shadow_soak 13.5d; cross_run_stability std 0.0053; labels_accruing 0.95 (1301/1374); RG4 live regime-discrimination AUC 0.743. Honest caveats (non-blocking gates): beats_baseline brier_lift is NEGATIVE (-0.413) and live_agreement rank-AUC 0.125 on only 6 live closed trades scored — both informational at this n, same shape the SOL packet carried. Tier-3 SWAP PACKET PRESENTED to the operator: promote btc-regime-15m-lgbm-fc-pcv-v2 shadow->advisory, demote btc-regime-15m-lgbm-fc-pcv-v1 advisory->shadow — this one IS live-order-affecting (BTC trend_vol cells are authored and enforce; the advisory head resolution is per-symbol). Awaiting operator approval; execute via promote-stage --new-stage flags + republish mirror, per the SOL-swap runbook. If approved and executed, this row can RESOLVE (both v2 siblings swapped in; nightly freshness verified separately)."
         }
       ]
     },
@@ -2819,5 +2824,5 @@
       ]
     }
   ],
-  "updated_at": "2026-08-03T18:20:00+00:00"
+  "updated_at": "2026-08-03T18:25:00+00:00"
 }
