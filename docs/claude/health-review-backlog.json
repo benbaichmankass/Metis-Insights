@@ -9360,8 +9360,18 @@
         "BL-20260730-WF-FOLDCOUNT-VERDICT-FLIP",
         "PR #8395"
       ]
+    },
+    {
+      "id": "BL-20260803-ICTSCALP-NO-HARNESS-R2-UNAUDITABLE",
+      "opened_at": "2026-08-03T00:00:00+00:00",
+      "opened_by": "claude (wave-1-followthrough session eekdvg)",
+      "source": "Found while dispatching the R2 ADX cut-point sweeps on the live-celled families (WORK-PLAN-2026-08-02 follow-up #2). ict_scalp_5m was one of the three named R2 targets but cannot run.",
+      "title": "[research][tooling] ict_scalp_5m's live trend_vol cells are UNAUDITABLE by the R2 / regime-debt tooling (no harness in classify(), same class as the fixed squeeze gap)",
+      "description": "scripts/research/regime_debt_matrix.classify() (reused by regime_adx_cutpoint_sweep.py:149 and regime_cell_walkforward.py) recognises only donchian/pullback/squeeze param shapes. ict_scalp_5m (config/strategies.yaml) carries none of those (sweep_lookback_bars / displacement_atr_mult / fvg params), so classify() returns None and the R2 cut-point sweep errors 'unclassifiable' before emitting a single trade. ict_scalp_5m has LIVE, operator-approved trend_vol OFF cells (config/regime_policy.yaml trend_vol section: trending.ict_scalp_5m {long:off,short:off} + chop.ict_scalp_5m {long:off,short:off}, Phase-4 gate 2026-07-20, docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md) — so those live cells cannot be re-audited (cut-point robustness OR walk-forward stability) at all. Exactly the same class as BL-20260730-SQUEEZE-NO-HARNESS (squeeze_breakout_4h was unclassifiable until wired into classify() + build_harness_cmd). FIX: wire scripts/backtest_ict_scalp.py (the existing standalone ict-scalp harness) into regime_debt_matrix.classify() (add an 'ict_scalp' branch keyed on e.g. sweep_lookback_bars/displacement_atr_mult) + build_harness_cmd() (map the ict_scalp levers to --flags, or degrade to approximate + name the omitted levers), then the R2 sweep on ict_scalp_5m runs. Until then the two ict_scalp_5m live cells rest on their original Phase-4 evidence with no independent cut-point / walk-forward re-audit. Impact: research-tooling coverage gap on a LIVE-celled strategy, not a runtime bug. Tier-1 to fix.",
+      "severity": "low",
+      "status": "open"
     }
   ],
-  "updated_at": "2026-08-02T10:35:00+00:00",
+  "updated_at": "2026-08-03T00:00:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

@@ -377,6 +377,16 @@ jobs:
                 description: 'Triggers regime-adx-cutpoint-sweep workflow — sweep the ADX regime-attribution cut-points (live 20/25) for ONE strategy on a free GH runner, grading whether a cell verdict is robust to the un-swept constants or flips. RESEARCH-PROGRAM R2.',
               },
               {
+                name: 'research-backtest-augment-request',
+                color: '0075ca',
+                description: 'Triggers research-backtest-augment workflow — run the pooled harness roster (trend_donchian@1h/squeeze_breakout_4h@4h/htf_pullback_trend_2h@2h × BTC/ETH/SOL) --emit-trades and record is_backtest=1 rows into one backtest_trades.db artifact for A1 (W1.2). Free GH runner.',
+              },
+              {
+                name: 'gld-compat-matrix-request',
+                color: '0075ca',
+                description: 'Triggers gld-compat-matrix workflow — score gld_pullback_1h @ GLD (corrected 0-bps fee) against every account ruleset on a free GH runner; the alpaca_portfolio ROUTE verdict is the M36 Track B routing evidence gate.',
+              },
+              {
                 name: 'set-diag-token',
                 color: 'b60205',
                 description: 'Triggers set-diag-token workflow — push the DIAG_READ_TOKEN repo secret onto the live VM + restart web-api.',

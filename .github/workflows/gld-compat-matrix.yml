@@ -1,0 +1,235 @@
+name: gld-compat-matrix
+
+# GLD Track B (M36) per-account compatibility gate on a free GitHub-hosted
+# runner (operator-approved 2026-08-02). Emits the config-exact gld_pullback_1h
+# harness trades on GLD (Yahoo candles; the sandbox firewalls Yahoo so this only
+# runs here) at the CORRECTED commission-free fee (0 bps), then scores that
+# ledger against EVERY account's ruleset via scripts/prop/account_compat_matrix.py
+# --ledger. The ROUTE verdict for `alpaca_portfolio` (the paper-money portfolio
+# mirror) is the evidence gate for routing gld_pullback_1h deeper into the
+# portfolio. gld_pullback_1h is NOT in the BTC-system ROSTER, so the compat
+# matrix's --ledger path (not --strategy) is the correct entrypoint — the emit
+# JSONL round-trips exactly through src.prop.montecarlo.ledger_to_r_sequence.
+#
+# Emit reuses scripts/research/regime_debt_matrix.emit_trades_for (the same
+# config-exact harness path the debt matrix + walk-forward use), fee forced to 0.
+#
+# Triggers:
+#   1. workflow_dispatch — inputs: strategy (default gld_pullback_1h), symbol
+#      (default GLD), fee_bps (default 0), days (default 730)
+#   2. issues.opened with label `gld-compat-matrix-request` (owner-guarded);
+#      optional issue-body lines `strategy:`, `symbol:`, `fee_bps:`, `days:`
+#
+# Safety: READS the repo + fetches PUBLIC candles + runs the read-only harness +
+# the read-only compat matrix + comments/uploads the verdict. It does NOT push,
+# deploy, or touch config/accounts.yaml — routing gld_pullback_1h onto an account
+# is a Tier-3 config edit the operator approves separately (this only produces the
+# evidence).
+
+on:
+  workflow_dispatch:
+    inputs:
+      strategy:
+        description: "Harness strategy name"
+        default: "gld_pullback_1h"
+      symbol:
+        description: "Instrument symbol"
+        default: "GLD"
+      fee_bps:
+        description: "Round-trip fee (bps) — GLD is commission-free on Alpaca, so 0"
+        default: "0"
+      days:
+        description: "Trailing days of candles"
+        default: "730"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: gld-compat-matrix-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  compat:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'gld-compat-matrix-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse issue body
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          strat=$(printf '%s' "$ISSUE_BODY" | grep -iE '^strategy:' | head -1 | cut -d: -f2- | xargs || true)
+          symbol=$(printf '%s' "$ISSUE_BODY" | grep -iE '^symbol:' | head -1 | cut -d: -f2- | xargs || true)
+          fee_bps=$(printf '%s' "$ISSUE_BODY" | grep -iE '^fee_bps:' | head -1 | cut -d: -f2- | xargs || true)
+          days=$(printf '%s' "$ISSUE_BODY" | grep -iE '^days:' | head -1 | cut -d: -f2- | xargs || true)
+          echo "GC_STRAT=${strat:-gld_pullback_1h}" >> "$GITHUB_ENV"
+          echo "GC_SYMBOL=${symbol:-GLD}" >> "$GITHUB_ENV"
+          echo "GC_FEE=${fee_bps:-0}" >> "$GITHUB_ENV"
+          echo "GC_DAYS=${days:-730}" >> "$GITHUB_ENV"
+
+      - name: Set params from dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "GC_STRAT=${{ github.event.inputs.strategy || 'gld_pullback_1h' }}" >> "$GITHUB_ENV"
+          echo "GC_SYMBOL=${{ github.event.inputs.symbol || 'GLD' }}" >> "$GITHUB_ENV"
+          echo "GC_FEE=${{ github.event.inputs.fee_bps || '0' }}" >> "$GITHUB_ENV"
+          echo "GC_DAYS=${{ github.event.inputs.days || '730' }}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install --quiet pyyaml pandas numpy yfinance
+
+      - name: Emit the config-exact harness trades (fee forced to GC_FEE)
+        env:
+          GC_STRAT: ${{ env.GC_STRAT }}
+          GC_SYMBOL: ${{ env.GC_SYMBOL }}
+          GC_FEE: ${{ env.GC_FEE }}
+          GC_DAYS: ${{ env.GC_DAYS }}
+        run: |
+          set +e
+          mkdir -p artifacts/gld/work
+          python - <<'PYEOF' > artifacts/gld/emit.json 2> artifacts/gld/emit.log
+          import json, os
+          from scripts.research.regime_debt_matrix import emit_trades_for, resolve_strategy
+          name = os.environ["GC_STRAT"]; sym = os.environ["GC_SYMBOL"]
+          fee = float(os.environ["GC_FEE"]); days = int(os.environ["GC_DAYS"])
+          cfg = resolve_strategy(name)
+          if cfg is None:
+              print(json.dumps({"error": f"{name} not declared in strategies.yaml"})); raise SystemExit(0)
+          row = emit_trades_for(name, cfg, "artifacts/gld/work", days,
+                                symbol_override=sym, fee_override=fee)
+          print(json.dumps(row, default=str))
+          PYEOF
+          echo "emit rc=$?"; cat artifacts/gld/emit.json; tail -20 artifacts/gld/emit.log || true
+
+      - name: Score the ledger against every account's ruleset
+        run: |
+          set +e
+          EMIT=$(python -c "import json; print(json.load(open('artifacts/gld/emit.json')).get('emit_path') or '')")
+          if [ -z "${EMIT}" ] || [ ! -s "${EMIT}" ]; then
+            echo "no emit ledger produced — the emit step failed (see emit.log)"; exit 0
+          fi
+          echo "ledger: ${EMIT}"
+          python scripts/prop/account_compat_matrix.py \
+            --ledger "${EMIT}" --symbol "${GC_SYMBOL}" --fee-bps-roundtrip "${GC_FEE}" \
+            --out-dir artifacts/gld \
+            > artifacts/gld/compat.stdout 2> artifacts/gld/compat.log
+          echo "compat rc=$?"; tail -20 artifacts/gld/compat.log || true
+
+      - name: Render summary
+        run: |
+          python - <<'PYEOF' | tee artifacts/gld/SUMMARY.md
+          import glob, json, os
+          # emit provenance
+          try:
+              emit = json.load(open("artifacts/gld/emit.json"))
+          except Exception as e:
+              emit = {"error": f"emit.json unreadable: {e}"}
+          L = ["# GLD Track B — per-account compat gate", ""]
+          if emit.get("error") or not emit.get("emit_path"):
+              L += [f"**EMIT FAILED:** {emit.get('error') or 'no ledger produced'} — read emit.log in the artifact.",
+                    "", "_No compat verdict: the harness emitted no ledger to score._"]
+              print("\n".join(L)); raise SystemExit(0)
+          L += [f"`{emit.get('strategy')}` · {emit.get('symbol')} {emit.get('timeframe')} · "
+                f"{emit.get('harness')} harness · feed {(emit.get('feed') or {}).get('source')} · "
+                f"fidelity **{emit.get('fidelity')}** · fee **{emit.get('fee_bps_roundtrip')} bps** · "
+                f"**{emit.get('n_emitted')}** emitted trades", ""]
+          if emit.get("omitted_levers"):
+              L += [f"_omitted levers (approximate): {', '.join(emit['omitted_levers'])}_", ""]
+          # compat matrix
+          cand = sorted(glob.glob("artifacts/gld/compat_*.json"))
+          if not cand:
+              L += ["**COMPAT DID NOT RUN** — read compat.log in the artifact.",
+                    ""]
+              print("\n".join(L)); raise SystemExit(0)
+          m = json.load(open(cand[-1]))
+          rows = m.get("rows", [])
+          L += [f"_Scored {m.get('n_ledger_trades')} ledger trades against {len(rows)} accounts "
+                f"({m.get('symbol')} · {m.get('asset_class')}; standard gate: survival ≥ "
+                f"{m.get('min_survival')}, P(breach) ≤ {m.get('max_p_breach')})_", "",
+                "| account | kind | class | verdict | metric | value | extra |",
+                "|---|---|---|---|---|---|---|"]
+          def _fmt(r):
+              v = r.get("value")
+              if v is None:
+                  val = "—"
+              elif r.get("metric") == "ev_net_usd":
+                  val = f"${v:,.0f}"
+              else:
+                  val = f"{v*100:.1f}%"
+              extra = (f"P(net>0)={r.get('p_profitable')}" if r.get("kind") == "prop"
+                       else f"P(breach)={r.get('p_breach')}, surv={r.get('survival')}")
+              return val, extra
+          for r in sorted(rows, key=lambda x: (x.get("account") != "alpaca_portfolio", x.get("account"))):
+              val, extra = _fmt(r)
+              star = " ⭐" if r.get("account") == "alpaca_portfolio" else ""
+              L.append(f"| `{r.get('account')}`{star} | {r.get('kind')} | {r.get('class')} | "
+                       f"**{r.get('verdict')}** | {r.get('metric')} | {val} | {extra} |")
+          ap = next((r for r in rows if r.get("account") == "alpaca_portfolio"), None)
+          L += [""]
+          if ap is None:
+              L += ["⚠️ **`alpaca_portfolio` not in the account set** — cannot grade the Track-B gate."]
+          elif ap.get("verdict") == "ROUTE":
+              L += ["## ⭐ `alpaca_portfolio`: **ROUTE** — the Track-B routing is confirmed sound.",
+                    "",
+                    "`gld_pullback_1h` is ALREADY in `alpaca_portfolio`'s roster (config/accounts.yaml, "
+                    "since the 2026-07-16 S-PAPER-PORTFOLIO creation — it mirrors alpaca_live). This "
+                    "corrected-cost compat gate **confirms** that existing paper-money routing under the "
+                    "account's own ruleset. No config edit needed (the roster already carries it, with the "
+                    "confirmed `trending.gld_pullback_1h {short: off}` cell applying globally)."]
+          else:
+              L += [f"## ⭐ `alpaca_portfolio`: **{ap.get('verdict')}** (does NOT route) — FLAG.",
+                    "",
+                    "`gld_pullback_1h` is ALREADY in `alpaca_portfolio`'s roster yet FAILS its own ruleset "
+                    "gate at corrected cost — a paper book trading a strategy its ruleset rejects. This is a "
+                    "genuine flag for the operator (Tier-3): consider whether to keep the routing."]
+          L += ["", "**No config edit is made by this run.** Routing/de-routing gld_pullback_1h on an "
+                "account is a Tier-3 config/accounts.yaml decision the operator owns."]
+          print("\n".join(L))
+          PYEOF
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gld-compat-matrix-${{ github.run_id }}
+          path: |
+            artifacts/gld/SUMMARY.md
+            artifacts/gld/emit.json
+            artifacts/gld/emit.log
+            artifacts/gld/compat_*.json
+            artifacts/gld/compat_*.md
+            artifacts/gld/compat.log
+            artifacts/gld/work/*__trades.jsonl
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Comment summary on issue
+        if: github.event_name == 'issues' && success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '_(summary not produced — read the logs in the artifact)_';
+            try { body = fs.readFileSync('artifacts/gld/SUMMARY.md', 'utf8'); } catch (e) {}
+            const footer = '\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 60000) + footer,
+            });

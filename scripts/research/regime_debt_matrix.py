@@ -356,6 +356,85 @@ def _fee_ab_diff(arms: dict) -> dict:
     return out
 
 
+def emit_trades_for(name: str, cfg: dict, workdir: str, days: int, *,
+                    symbol_override: Optional[str] = None,
+                    fee_override: Optional[float] = None) -> dict:
+    """Fetch the feed + run the config-exact harness ``--emit-trades`` for ONE
+    ``(strategy, symbol)`` → a per-trade JSONL, and RETURN where it landed.
+
+    The shared emit primitive behind the A1 backtest-augment runner
+    (``scripts/ml/backtest_augment_runner.py``) and the GLD Track-B compat gate
+    (``gld-compat-matrix.yml``). It is the fetch → ``build_harness_cmd`` →
+    subprocess half of :func:`run_one`, WITHOUT the ``_regime_tag`` matrix step:
+    both consumers want the RAW emitted trades (``{strategy, entry_time,
+    direction, gross_r, net_r, confidence}``), not the per-regime bucketing.
+    ``run_one`` is left byte-for-byte unchanged (it fetches independently), so no
+    existing matrix caller is touched — the small duplicate fetch is deliberate.
+
+    ``symbol_override`` runs the SAME strategy config on a DIFFERENT symbol — the
+    A1 per-symbol replay: ``trend_donchian``@1h on BTC/ETH/SOL from one config.
+    The timeframe stays the config's own (``trend_donchian`` stays 1h on every
+    symbol), which is exactly the pooled manifest's roster.
+
+    ``fee_override`` (bps) forces the harness round-trip fee (GLD Track B passes
+    ``0.0`` for the commission-free ETF); ``None`` keeps the venue-resolved fee
+    (crypto → its real Binance/Bybit fee, per the corrected-cost contract).
+
+    Returns a dict: ``{strategy, symbol, timeframe, harness, feed, fidelity,
+    omitted_levers, fee_bps_roundtrip, emit_path, n_emitted}`` and, on any
+    failure, ``error`` (with ``emit_path=None``). Failures are NAMED in the row,
+    never swallowed — the caller decides whether a partial roster is fatal.
+    """
+    eff = {**cfg, "symbols": [symbol_override]} if symbol_override else dict(cfg)
+    harness = classify(eff)
+    sym = (eff.get("symbols") or [None])[0]
+    tf = eff.get("timeframe")
+    row: dict = {"strategy": name, "symbol": sym, "timeframe": tf,
+                 "harness": harness, "emit_path": None, "n_emitted": 0}
+    if harness is None or not sym or not tf:
+        row["error"] = ("unclassifiable (no donchian/pullback/squeeze params "
+                        "or no symbol/timeframe)")
+        return row
+    feed = resolve_feed(sym, tf)
+    row["feed"] = feed
+    # Namespace the workfiles by (strategy, symbol) so a per-symbol replay of the
+    # SAME strategy never clobbers a sibling symbol's fetch/emit.
+    label = f"{name}__{sym}"
+    csv = os.path.join(workdir, f"{label}__data.csv")
+    emit = os.path.join(workdir, f"{label}__trades.jsonl")
+    jout = os.path.join(workdir, f"{label}__bt.json")
+    try:
+        _fetch_csv(feed, days, csv)
+    except Exception as e:  # noqa: BLE001  # allow-silent: fetch NAMED in row["error"] + returned, never swallowed (as run_one)
+        row["error"] = f"fetch failed: {type(e).__name__}: {e}"
+        return row
+    argv, faithful, omitted = build_harness_cmd(
+        name, eff, harness, csv, feed["resample"], emit, jout,
+        fee_override=fee_override)
+    unreplayable = sorted(k for k in eff if k in _UNREPLAYABLE)
+    if unreplayable:
+        faithful = False
+        omitted = sorted(set(omitted) | set(unreplayable))
+    row["fidelity"] = "faithful" if faithful else "approximate"
+    row["omitted_levers"] = omitted
+    row["fee_bps_roundtrip"] = (roundtrip_fee_bps(sym) if fee_override is None
+                                else float(fee_override))
+    try:
+        subprocess.run(argv, check=True, cwd=REPO,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError as e:
+        row["error"] = f"harness failed: {(e.stderr or b'').decode()[-300:]}"
+        return row
+    try:
+        with open(emit) as fh:
+            row["n_emitted"] = sum(1 for ln in fh if ln.strip())
+    except OSError as e:  # noqa: BLE001 — emit-read failure is NAMED, not swallowed
+        row["error"] = f"emit unreadable: {type(e).__name__}: {e}"
+        return row
+    row["emit_path"] = emit
+    return row
+
+
 def run_one(name: str, cfg: dict, workdir: str, days: int,
             fee_arms: Optional[list] = None) -> dict:
     harness = classify(cfg)

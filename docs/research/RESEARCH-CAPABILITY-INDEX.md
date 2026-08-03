@@ -132,6 +132,8 @@ uniqueness-weighted**. That is stricter than the plain harnesses in §1.
 | Analyze a panel (standing discovery toolkit) | `scripts/research/analyze_research_panel.py` |
 | Sweep panels per strategy / asset class | `scripts/research/sweep_research_panels.py` |
 | Runner (off-VM) | `.github/workflows/research-panel-build.yml` |
+| **Augment the pooled decision models** — config-exact harness backtests → `is_backtest=1` rows in one `backtest_trades.db` (A1 W1.2; roster verified vs `setup-candidates-metalabel-p2pool-v1.yaml`) | `scripts/ml/backtest_augment_runner.py` (runner: `.github/workflows/research-backtest-augment.yml`) |
+| Emit ONE config-exact harness `(strategy, symbol)` as a per-trade JSONL (the shared fetch→`--emit-trades` primitive behind the augment runner + the GLD compat gate) | `scripts/research/regime_debt_matrix.py::emit_trades_for` |
 
 ## 6. Portfolio / allocation / conflict
 
