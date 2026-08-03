@@ -9370,8 +9370,28 @@
       "description": "scripts/research/regime_debt_matrix.classify() (reused by regime_adx_cutpoint_sweep.py:149 and regime_cell_walkforward.py) recognises only donchian/pullback/squeeze param shapes. ict_scalp_5m (config/strategies.yaml) carries none of those (sweep_lookback_bars / displacement_atr_mult / fvg params), so classify() returns None and the R2 cut-point sweep errors 'unclassifiable' before emitting a single trade. ict_scalp_5m has LIVE, operator-approved trend_vol OFF cells (config/regime_policy.yaml trend_vol section: trending.ict_scalp_5m {long:off,short:off} + chop.ict_scalp_5m {long:off,short:off}, Phase-4 gate 2026-07-20, docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md) — so those live cells cannot be re-audited (cut-point robustness OR walk-forward stability) at all. Exactly the same class as BL-20260730-SQUEEZE-NO-HARNESS (squeeze_breakout_4h was unclassifiable until wired into classify() + build_harness_cmd). FIX: wire scripts/backtest_ict_scalp.py (the existing standalone ict-scalp harness) into regime_debt_matrix.classify() (add an 'ict_scalp' branch keyed on e.g. sweep_lookback_bars/displacement_atr_mult) + build_harness_cmd() (map the ict_scalp levers to --flags, or degrade to approximate + name the omitted levers), then the R2 sweep on ict_scalp_5m runs. Until then the two ict_scalp_5m live cells rest on their original Phase-4 evidence with no independent cut-point / walk-forward re-audit. Impact: research-tooling coverage gap on a LIVE-celled strategy, not a runtime bug. Tier-1 to fix.",
       "severity": "low",
       "status": "open"
+    },
+    {
+      "id": "BL-20260803-HTF2H-TRENDING-SHORT-OVERGATE",
+      "opened_at": "2026-08-03T06:50:00+00:00",
+      "opened_by": "claude (wave-1-followthrough session eekdvg)",
+      "source": "R2 ADX cut-point sweep #8422 (regime_adx_cutpoint_sweep on htf_pullback_trend_2h trending). Found while consuming the Wave-1 R2 dispatches.",
+      "title": "[research][regime-cell] htf_pullback_trend_2h trending SHORT may be over-gated — faithful R2 measures short-R +6.88 (positive) yet the live cell has short: off",
+      "description": "config/regime_policy.yaml trending: htf_pullback_trend_2h { long: off, short: off }. R2 #8422 (BTCUSDT 2h, pullback harness, FAITHFUL fidelity, 159 trades, 730d) measures the trending bucket at live 20/25 as short-R = +6.8847 (POSITIVE) and long-R = -4.2441 with long_stable_drag=False — so under regime-selectivity Rules 1-2 NEITHER side is a justified stable-drag OFF cell, yet the live cell gates BOTH. Gating short removes a +6.88R positive contribution. The live cell comment justifies only the LONG re-measurement ('was long:on ... re-measured -6.85R'); the SHORT off has no drag justification in this faithful read. Both R2 verdicts are cut-point-robust (0/16 flips), so this is not a cut-point fragility. ACTION (Tier-3, do NOT enact on this evidence): run regime_cell_walkforward.py on the ACTUAL enforced cell for htf_pullback_trend_2h (confirm 1-D trend vs 2-D trend_vol population; use --vol-labels if 2-D) to test whether the trending short off passes *_stable_drag under FOLD_PANEL=(3,4,5); if it does NOT (short is not a stable drag OOS), prepare a Tier-3 draft to un-gate the trending short. Retiring a cell is operator-gated. Evidence: docs/research/wave1-followthrough-2026-08-03.md §1a.",
+      "severity": "medium",
+      "status": "open"
+    },
+    {
+      "id": "BL-20260803-GLD-ALPACA-PORTFOLIO-SURVIVAL-SKIP",
+      "opened_at": "2026-08-03T06:50:00+00:00",
+      "opened_by": "claude (wave-1-followthrough session eekdvg)",
+      "source": "GLD Track-B compat gate #8425 (account_compat_matrix --ledger, corrected 0-bps). Operator pre-approved routing gld onto alpaca_portfolio gated on this evidence.",
+      "title": "[routing][Tier-3] gld_pullback_1h is routed on alpaca_portfolio but FAILS that account's survival/breach gate at corrected cost (survival 0.871<0.90, P(breach) 0.132>0.10)",
+      "description": "gld_pullback_1h is already in alpaca_portfolio's roster (config/accounts.yaml:787, since 2026-07-16 S-PAPER-PORTFOLIO). The corrected-cost (0-bps) per-account compat gate (#8425, faithful, 123 trades) scores alpaca_portfolio as SKIP: end_return_mean +32.7% but survival 0.871 (< 0.90 floor) AND P(breach) 0.132 (> 0.10 cap). The strategy is +EV (higher return than the ROUTE accounts) — the failure is driven by alpaca_portfolio's 2% risk_pct against its 5% max_dd/daily caps (too much drawdown at that sizing); the ROUTE accounts (alpaca_paper/bybit_1/etc.) sit at lower per-trade risk and pass (survival 0.922). This is a paper book carrying a strategy its own ruleset would reject. OPERATOR DECISION (Tier-3, no config edit made): (a) KEEP — paper money, +EV, survival not ruin; (b) REDUCE the gld leg's risk on alpaca_portfolio (lower risk_pct / per-strategy override — the ROUTE accounts pass at lower risk); or (c) DE-ROUTE (drop gld_pullback_1h from alpaca_portfolio's roster). The confirmed trending gld_pullback_1h {short: off} cell is independent (applies globally). Evidence: docs/research/wave1-followthrough-2026-08-03.md §2.",
+      "severity": "medium",
+      "status": "open"
     }
   ],
-  "updated_at": "2026-08-03T00:00:00+00:00",
+  "updated_at": "2026-08-03T06:50:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
