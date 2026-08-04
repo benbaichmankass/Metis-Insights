@@ -38,6 +38,7 @@ routing layer, not a replacement for reading it.
 | ict_scalp? | `scripts/backtest_ict_scalp.py` — ⚠️ **gross only, no fee model** (`BL-20260610-M15-1`) |
 | vwap? | `src/backtest/run_backtest_vwap.py` |
 | The whole multi-strategy system on one clock? | `scripts/backtest_system.py` |
+| Does our backtest actually reproduce the LIVE trade distribution (is a leg's backtest TRUSTWORTHY)? | `scripts/research/backtest_fidelity_calibrate.py` — the backtest↔live agreement gate (win-rate + KS on realized-R over measured-provenance live trades), verdict `calibrated`/`drifts`/`insufficient-live`; the earned-trust linchpin of the Faithful-Backtest Platform (`docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md`) |
 | Time-series momentum / MA-cross (new-idea harness)? | `scripts/research/research_momentum.py` |
 | A roll-adjusted continuous futures series to test on? | `scripts/research/build_continuous_contract.py` |
 | Convert raw `market_raw` jsonl candles to harness CSV? | `scripts/research/market_raw_to_csv.py` |

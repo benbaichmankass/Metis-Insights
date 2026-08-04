@@ -54,7 +54,6 @@ def _ks_2samp(a: Sequence[float], b: Sequence[float]) -> float | None:
     if not a or not b:
         return None
     grid = sorted(set(a) | set(b))
-    na, nb = len(a), len(b)
 
     def cdf(xs: list[float], v: float) -> float:
         # fraction of xs ≤ v
@@ -138,7 +137,7 @@ def _live_realized_r(live_db: str, strategy: str, symbol: str) -> list[float]:
     try:
         from src.runtime import provenance  # trust filter
         trust = provenance.pnl_is_trustworthy
-    except Exception:
+    except Exception:  # allow-silent: provenance import is optional here — absent ⇒ unfiltered live sample; research calibrator, not a live read-path
         trust = None
     con = sqlite3.connect(f"file:{live_db}?mode=ro", uri=True)
     con.row_factory = sqlite3.Row
@@ -153,7 +152,7 @@ def _live_realized_r(live_db: str, strategy: str, symbol: str) -> list[float]:
             try:
                 if not trust(dict(r)):
                     continue
-            except Exception:
+            except Exception:  # allow-silent: fail-open on an un-scoreable row (keep it) — research calibrator, not a live read-path
                 pass
         # R proxy: sign of pnl (win/loss) — a full stop-distance R is a P1 upgrade.
         out.append(1.0 if (r["pnl"] or 0) > 0 else -1.0)
