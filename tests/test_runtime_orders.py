@@ -141,6 +141,23 @@ def test_live_submission_returns_failed_exchange_on_client_error():
     assert "exchange unavailable" in result["reason"]
 
 
+def test_none_client_refuses_cleanly_not_failed_exchange():
+    """A None client (the dry-run / credential-less smoke path) must REFUSE
+    cleanly — NOT crash on ``None.place_order`` and get mislabeled
+    ``failed_exchange`` (an ERROR-level exchange-rejection outcome for a call
+    that never reached any exchange). This was the recurring, misleading
+    real-money ``bybit_2`` smoke alarm. ``refused`` is INFO-level; the smoke
+    harness already treats any non-submitted status as a valid outcome."""
+    result = safe_place_order(
+        {"symbol": "BTCUSDT", "side": "buy", "qty": 0.001},
+        make_settings(DRY_RUN="true"),
+        None,
+    )
+    assert result["status"] == "refused"
+    assert "no exchange client" in result["reason"]
+    assert "NoneType" not in result["reason"]
+
+
 def test_invalid_qty_returns_failed_validation():
     client = DummyClient()
     settings = make_settings(DRY_RUN="true")
