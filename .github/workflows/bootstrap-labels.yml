@@ -382,6 +382,11 @@ jobs:
                 description: 'Triggers research-backtest-augment workflow — run the pooled harness roster (trend_donchian@1h/squeeze_breakout_4h@4h/htf_pullback_trend_2h@2h × BTC/ETH/SOL) --emit-trades and record is_backtest=1 rows into one backtest_trades.db artifact for A1 (W1.2). Free GH runner.',
               },
               {
+                name: 'c1-conviction-ab-request',
+                color: '0075ca',
+                description: 'Triggers c1-conviction-ab workflow — full-feed budget-matched conviction-sizing A/B (baseline --risk-pct 2.0 vs --conviction-sizing, net-of-cost) on Binance-vision crypto candles, per symbol. W1.1/C1 deployable evidence. Free GH runner.',
+              },
+              {
                 name: 'gld-compat-matrix-request',
                 color: '0075ca',
                 description: 'Triggers gld-compat-matrix workflow — score gld_pullback_1h @ GLD (corrected 0-bps fee) against every account ruleset on a free GH runner; the alpaca_portfolio ROUTE verdict is the M36 Track B routing evidence gate.',

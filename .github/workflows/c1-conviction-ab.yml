@@ -1,0 +1,180 @@
+name: c1-conviction-ab
+
+# W1.1 / C1 deployable evidence — the full-feed, budget-matched, net-of-cost
+# conviction-sizing A/B (ROADMAP-REVIEW-WORKPLAN §6 / docs/research/
+# C1-conviction-sizing-evidence-2026-08-04.md § Next). Runs the SAME harness the
+# local n=7 probe used, but on the FULL crypto feed and on a free GH runner (the
+# feed "bridge": fetch_backtest_candles.py → CSV → backtest_system --data, keeping
+# the heavy compute off the 1-OCPU trainer).
+#
+# Method (the two findings the local probe locked in):
+#   - The harness --conviction-sizing flag SWAPS the risk budget (0.3% flat →
+#     2%×conviction), so a valid A/B must BUDGET-MATCH: the baseline runs at
+#     --risk-pct 2.0 so only the conviction SHAPE differs.
+#   - Both arms are net-of-cost (the execution-realism cost model is now uniform).
+#
+# Triggers:
+#   1. workflow_dispatch — inputs: symbols (CSV), days
+#   2. issues.opened with label `c1-conviction-ab-request` (owner-guarded)
+#
+# Safety: READ-only research — fetches PUBLIC candles (Binance-vision), runs the
+# read-only backtest harness, posts a comparison comment. No push, no deploy, no
+# DB/config/order-path write.
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: "CSV of crypto symbols (blank = BTCUSDT,ETHUSDT,SOLUSDT)"
+        default: ""
+      days:
+        description: "Trailing days of 5m candles"
+        default: "730"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: c1-conviction-ab-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  ab:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'c1-conviction-ab-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse issue body
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          symbols=$(printf '%s' "$ISSUE_BODY" | grep -iE '^symbols:' | head -1 | cut -d: -f2- | xargs || true)
+          days=$(printf '%s' "$ISSUE_BODY" | grep -iE '^days:' | head -1 | cut -d: -f2- | xargs || true)
+          echo "AB_SYMBOLS=${symbols:-BTCUSDT,ETHUSDT,SOLUSDT}" >> "$GITHUB_ENV"
+          echo "AB_DAYS=${days:-730}" >> "$GITHUB_ENV"
+
+      - name: Set params from dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "AB_SYMBOLS=${{ github.event.inputs.symbols || 'BTCUSDT,ETHUSDT,SOLUSDT' }}" >> "$GITHUB_ENV"
+          echo "AB_DAYS=${{ github.event.inputs.days || '730' }}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        # `requests` for fetch_backtest_candles.py (Binance-vision fetch — Bybit
+        # geoblocks the US runner, so force the vision archive fallback).
+        run: pip install --quiet pyyaml pandas numpy requests
+
+      - name: Run the budget-matched net-of-cost A/B
+        run: |
+          set +e
+          mkdir -p artifacts/c1
+          : "${AB_SYMBOLS:=BTCUSDT,ETHUSDT,SOLUSDT}"
+          : "${AB_DAYS:=730}"
+          echo "symbols=${AB_SYMBOLS} days=${AB_DAYS}"
+          IFS=',' read -ra SYMS <<< "${AB_SYMBOLS}"
+          for SYM in "${SYMS[@]}"; do
+            SYM=$(echo "$SYM" | xargs)
+            [ -z "$SYM" ] && continue
+            CSV="artifacts/c1/${SYM}_5m.csv"
+            echo "=== fetch ${SYM} 5m ${AB_DAYS}d (Binance-vision) ==="
+            python scripts/ops/fetch_backtest_candles.py \
+              --symbol "$SYM" --interval 5 --days "${AB_DAYS}" \
+              --source binance_vision --output "$CSV" \
+              2> "artifacts/c1/${SYM}_fetch.log" || { echo "fetch failed for $SYM"; tail -5 "artifacts/c1/${SYM}_fetch.log"; continue; }
+            [ -s "$CSV" ] || { echo "empty feed for $SYM"; continue; }
+            echo "  rows=$(wc -l < "$CSV")"
+            echo "=== ${SYM}: baseline flat 2.0% (budget-matched) ==="
+            python scripts/backtest_system.py --data "$CSV" --symbol "$SYM" \
+              --refresh-signals --risk-pct 2.0 \
+              --json "artifacts/c1/${SYM}_base.json" > /dev/null 2>&1
+            echo "=== ${SYM}: conviction ×2.0% reductive ==="
+            python scripts/backtest_system.py --data "$CSV" --symbol "$SYM" \
+              --refresh-signals --conviction-sizing \
+              --json "artifacts/c1/${SYM}_conv.json" > /dev/null 2>&1
+          done
+
+      - name: Summarize
+        run: |
+          python - <<'PY' > artifacts/c1/SUMMARY.md
+          import json, os, glob
+          rows = []
+          syms = sorted({os.path.basename(p).split('_base.json')[0]
+                         for p in glob.glob('artifacts/c1/*_base.json')})
+          def load(p):
+              try:
+                  return json.load(open(p))
+              except Exception:
+                  return None
+          out = ["## C1 conviction-sizing A/B — full-feed, budget-matched, net-of-cost",
+                 "",
+                 "Baseline = flat **2.0%** risk (matches the conviction 2% budget so only the",
+                 "conviction SHAPE differs); conviction = **reductive ×2.0%**. Both net-of-cost.",
+                 "",
+                 "| symbol | arm | trades | net $ | maxDD $ | ret/DD | net (fee-only) $ |",
+                 "|---|---|---|---|---|---|---|"]
+          for s in syms:
+              b = load(f'artifacts/c1/{s}_base.json')
+              c = load(f'artifacts/c1/{s}_conv.json')
+              for label, d in (("flat 2.0% (baseline)", b), ("conviction reductive", c)):
+                  if not d:
+                      out.append(f"| {s} | {label} | — | (no result) | | | |")
+                      continue
+                  out.append(f"| {s} | {label} | {d.get('total_trades')} | "
+                             f"{d.get('net_pnl')} | {d.get('max_drawdown_usd')} | "
+                             f"{d.get('return_dd_ratio')} | {d.get('net_pnl_fee_only')} |")
+              if b and c:
+                  dd = (c.get('max_drawdown_usd') or 0) - (b.get('max_drawdown_usd') or 0)
+                  dn = (c.get('net_pnl') or 0) - (b.get('net_pnl') or 0)
+                  out.append(f"| **{s}** | **Δ conviction−baseline** | | **{round(dn,2)}** | "
+                             f"**{round(dd,2)}** | | |")
+          out += ["", "**Read:** reductive conviction sizing shrinks low-conviction size — expect "
+                  "maxDD ≤ baseline (the shape doing its job); net Δ is the deployable question. "
+                  "A negative maxDD Δ with a non-worse net is the C1 win condition.",
+                  "", "_Record into docs/research/C1-conviction-sizing-evidence-2026-08-04.md._"]
+          print("\n".join(out))
+          PY
+          echo "----- SUMMARY -----"; cat artifacts/c1/SUMMARY.md
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: c1-conviction-ab-${{ github.run_id }}
+          path: |
+            artifacts/c1/SUMMARY.md
+            artifacts/c1/*_base.json
+            artifacts/c1/*_conv.json
+            artifacts/c1/*_fetch.log
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Comment summary on issue
+        if: github.event_name == 'issues' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '_(summary not produced — read run.log in the artifact)_';
+            try { body = fs.readFileSync('artifacts/c1/SUMMARY.md', 'utf8'); } catch (e) {}
+            body += `\n\n_Artifact + per-symbol JSON uploaded to run ${context.runId}._`;
+            const footer = '\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.slice(0, 60000) + footer,
+            });
