@@ -82,8 +82,27 @@ Authored [`docs/research/ROADMAP-REVIEW-WORKPLAN-2026-08-04.md`](../research/ROA
 
 6. **The convergence spine (C1–C6)** and a **4-wave prioritized workplan** (W0
    ready-now → W4 master model), each item with Tier/first-action/done-condition.
-   Highest-leverage first move: **C1 — flip reductive conviction sizing on demo
-   (zero new code, no money risk).**
+
+7. **Operator directive mid-session (2026-08-04) — the #1 priority correction.** The
+   operator flagged that framing the label wall as "still unsolved" is itself the
+   **recurring breach**: the augmentation infra has been built repeatedly, yet each
+   new session re-cites it as the blocker. Verified against the code + backlog: the
+   infra IS fully built (`conviction_meta.include_backtest`/`union`,
+   `setup_candidates` `event_source` taxonomy incl. `backtest`+`live_paper`,
+   `record_harness_trades`, `split_live_holdout`, the walk-forward family, 6 macro
+   backfills) — **but `trades.is_backtest=1` count is ZERO in every month**
+   (`BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED`): the harness writes the
+   `backtest_results` table not `trades.is_backtest=1`, and the pooled builds never
+   pass `include_backtest`. It was scoped (`WORK-PLAN-2026-08-02.md §A1`, roster
+   corrected #8417, "Build = fresh session") and **the fresh session never ran.**
+   Reframed **Keystone B** from "break the wall (research)" to a new **§2b — the #1
+   priority**: EXECUTE the built path (P0.1 feed the rows / P0.2 wire the builds) +
+   PROVE-IN-USE (P0.3 source_breakdown) + ENFORCE (P0.4 `training-population-guard` +
+   extend `claim-basis-guard`) + CANONIZE (P0.5). Promoted to **W0.0**, ahead of all
+   other wave items. This is the durable never-again mechanism: a live-only decision
+   head or an un-sourced "blocked on labels" claim goes RED in CI. Highest-leverage
+   first move within the master model itself remains **C1** (reductive conviction
+   sizing on demo), but **P0 runs first.**
 
 ## Validation Performed
 Cross-checked every disproven/proven/needs-more claim against the quoted verdicts
@@ -115,10 +134,16 @@ wrong-premise caveat by not depending on either.
   pullback vol-split evidence.
 
 ## Next Recommended Sprint
-Execute **W0.1 (ML roster cleanup)** and **W0.2 (read the conviction_arbitration +
-conviction_sizing soaks)** — both Tier-1, both prerequisites that de-risk the
-Wave-1 master-model moves. Then **W1.1 (reductive conviction sizing on demo)** —
-the first real, no-money-risk step of the master model.
+**W0.0 (§2b / P0) — connect + use + canonize the label-augmentation infra — is the
+operator-designated #1 priority and the immediate next action.** It is execution +
+enforcement, not research: build the `research-backtest-augment` free-runner
+workflow, run the config-exact pooled backtests so `trades.is_backtest=1` goes
+0→thousands, wire the pooled builds to pass `include_backtest`, ship
+`training-population-guard`, and close `MB-20260530-001` +
+`BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED` with measured proof. Executes the
+already-scoped `WORK-PLAN-2026-08-02.md §A1` (do NOT re-scope). Then W0.1 (ML
+cleanup), W0.2 (read the convergence soaks), W1.1 (reductive conviction sizing on
+demo).
 
 ## Wrap-Up Check
 - [x] Current state grounded in the live-verified 08-01 baseline (no re-pull needed for a plan).

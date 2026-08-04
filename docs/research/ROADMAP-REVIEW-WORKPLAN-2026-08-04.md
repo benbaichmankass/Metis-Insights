@@ -121,22 +121,67 @@ input that unblocks **five** stalled things at once:
 5. Wired as the `c_reg` lens, it makes the **same regime head feed both the gate
    and the conviction blend** — one model supporting two stages. [code, §(C) convergence agent]
 
-### Keystone B — the real-live-label wall
-Every *learned* decision head (conviction-meta, trade-outcome, setup-quality,
-M23, the exit head) died on the **same** wall: ~78–400 real labels. The fix is
-**shared infrastructure**, built once, feeding every head — not re-hit per
-project:
-- the now-honest `provenance.py`-graded closed trades (`totalPnlMeasured`,
-  `pnlProvenance`);
-- the **L3 paper-book eval population** (`event_source='live_paper'`, breaks the
-  ~376-row wall — M30);
-- **per-trade backtest augmentation** (`MB-20260530-001`, open since **May**).
+### Keystone B — the label wall is ALREADY SOLVED IN CODE; the defect is that it is not CONNECTED, IN-USE, or CANONIZED (operator's #1 priority — see §2b)
+**Do not restate this as an open research question — that restatement is itself the
+recurring failure.** The augmentation infrastructure is fully built and has been
+built repeatedly:
+- `ml/datasets/families/conviction_meta.py` takes `include_backtest` / `mode ∈
+  {live,backtest,union}`; `setup_candidates.py` carries the full `event_source`
+  taxonomy (`synthetic | signal_log | backtest | live | live_paper`) with a
+  `_load_backtest_trades` reader + the **L3 paper-book** (`live_paper`) population;
+  `trade_outcomes.py` emits a `source` column for exactly this; `ml/experiments/splitters.py::split_live_holdout` exists.
+- Six macro **backfill** siblings + `record_harness_trades` (per-trade backtest
+  rows) + a whole **walk-forward** family (`regime_cell_walkforward`,
+  `rank_walkforward`, `direction_walkforward`, `walkforward_cell_selection`,
+  purged WF-CV in the gates) all exist and run.
+
+**The actual defect (measured, `BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED`):**
+of 833 closed journal rows, **`is_backtest=1` count = ZERO, in every month.** The
+harness writes the `backtest_results` *table*, never `trades.is_backtest=1`; and
+the pooled `trade_outcomes`/`setup_labels` daily builds **do not pass
+`include_backtest`.** So the augmentation the families were built to consume has
+**never been fed one row**, and every "not enough data to train" conclusion in
+this repo was reached *without the augmentation built to solve it.* It was scoped
+(`WORK-PLAN-2026-08-02.md §A1`, roster corrected #8417) and marked "Build = fresh
+session" — the fresh session never ran. This is a **standing governance defect and
+a recurring breach of contract**, not a research frontier. **See §2b.**
 
 Everything below is a tributary of this spine: **strategy** work produces the
 cleaner labeled decisions Keystone B feeds on and the confidence Keystone A
 blends; **macro** becomes the `c_macro` conditioning lens into Keystone A rather
 than a standalone book; **ML** cleanup clears the noise so A and the OFF-cell
 wiring can land.
+
+---
+
+## 2b. THE #1 PRIORITY — connect, use, and canonize the label-augmentation infra (P0)
+
+> **Operator directive (2026-08-04, binding):** the label wall has "already been
+> solved many times," yet successive sessions keep citing it as the blocker. That
+> is a **recurring breach of contract**, not a research gap. This work item is
+> **priority #1, ahead of everything else in this plan.** Its done-condition is not
+> "the wall is broken" (it is, in code) — it is **"the augmentation path is
+> connected, verifiably in use by every decision head, and CANONIZED + ENFORCED so
+> no future session can re-cite the wall as unsolved."**
+
+This is an **execution + governance** task, mostly Tier-1, with one substantive
+retrain. It does **not** re-scope — it executes the already-scoped
+`WORK-PLAN-2026-08-02.md §A1` and adds the enforcement layer that was missing.
+
+| Step | What | Tier | Done-condition |
+|---|---|---|---|
+| **P0.1 · Feed the rows (the CPU half, WP §1.2)** | Config-exact backtests of the **live pooled** strategies (`trend_donchian`@1h / `squeeze_breakout_4h`@4h / `htf_pullback_trend_2h`@2h × BTC/ETH/SOL) → emit `is_backtest=1` per-trade rows via `record_harness_trades`. Build the missing **`research-backtest-augment` free-runner workflow** (the routing gap — the MES run went via the trainer relay ad hoc). | T1 | `trades.is_backtest=1` count goes from **0 → thousands**; reproducible via a committed workflow, not a one-off relay command |
+| **P0.2 · Wire the builds (the trainer half, WP §2.1)** | Make `build_trainer_datasets.sh` pass `include_backtest`/`union` for the pooled `trade_outcomes` / `setup_labels` / `conviction_meta` families **by default** (not opt-in); also feed the `live_paper` L3 paper-book population. Retrain; evaluate on a `split_live_holdout` real-trade holdout. | T1 | the pooled decision heads train on the augmented corpus; each reports it beat (or didn't) the live-only baseline on the holdout |
+| **P0.3 · Prove it in use (make "blocked on labels" a checkable claim)** | Surface `train_population_n` + a **`source_breakdown`** (live / backtest / live_paper counts) on every decision-head registry row + the `/ml-review` output. | T1 | every decision head's training n is a visible, dated number — never again an unstated reflex |
+| **P0.4 · ENFORCE (the never-again mechanism)** | A CI guard — **`training-population-guard`** (same family as `provenance-consumer-guard` / `claim-basis-guard` / `silent-empty-guard`): a decision-head manifest whose family supports augmentation but trains **live-only** FAILS unless carrying an `augmentation_exempt: <reason>` (e.g. `execution_quality`, which backtests can't model). Extend `claim-basis-guard` so **no artifact may state "insufficient data / blocked on labels" without citing the augmented n + source_breakdown**. | T1 | the breach is structurally impossible to repeat silently — a live-only decision head or an un-sourced label-wall claim goes RED in CI |
+| **P0.5 · CANONIZE + close the stale framing** | A canonical doc section (`ARCHITECTURE-CANONICAL.md` or a dedicated `docs/ml/label-augmentation-CANONICAL.md`): *"The label wall is SOLVED. The augmentation path is X. Every decision head trains through it. No session may re-cite the wall without the guard-checked n."* Rewrite/close `MB-20260530-001` + `BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED` to **resolved-verified**, with the before/after `is_backtest` count as proof. | T1 | the "still blocked on labels" claim has a single canonical rebuttal; the two backlog rows are closed with measured proof, not "handed off" |
+
+**Why this is #1 and not just another wave item:** every learned decision head in
+this system (conviction-meta, trade-outcome, setup-quality, M23, the exit head)
+and therefore **Keystone A itself** is gated on this. Solving it once, *for real
+and enforced*, unblocks the entire master-model program — and ends a failure mode
+that has cost the operator repeated re-litigation. **This item is the immediate
+next action; it is ready to execute now (no gate, no research).**
 
 ---
 
@@ -240,7 +285,7 @@ wall.** Ranked:
 | **ML1 — the EV/P_win head (Keystone A)** | The master-model core: conviction-sizing, **M18 allocator selection**, M23, conviction arbitration, `c_reg` | honest-provenance closed trades + L3 paper-book (`live_paper`) + per-trade backtest rows + M24 net-R label | net-of-cost purged WF-CV, `oos_edge` on measured-provenance population only; allocator P2 behind a Tier-3 flip |
 | **ML2 — author the missing regime OFF-cells** | Makes gate-ready heads (MES 15m, BTC 1h) actually *bite* — zero new training, pure wiring | `regime_cell_walkforward.py` + regime-debt matrix | WF proves a money-losing cell that **generalizes** (no-cosmetic-cell) |
 | **ML3 — graduate the M20 exit head to advisory** | A **second** order-influencing surface (proactive profit-banking, operator-requested) | live closed paths + `--emit-trades` volume + exit-ladder/fc-geometry soaks | truncation-replay vs shipped hard levers, then candidate→shadow→advisory + Tier-3 |
-| **ML4 — break the label wall as shared infra (Keystone B)** | The precondition under ML1 + the whole learned-decision family | L3 paper-book population + per-trade backtest augmentation (`MB-20260530-001`) | BH-FDR + positive OOS discrimination under purged WF-CV |
+| **ML4 — connect+use+canonize the label-augmentation infra → see §2b (P0), the #1 priority** | The precondition under ML1 + the whole learned-decision family. **NOTE: already built, never fed — this is execution+enforcement, not research (§2b).** | the built `include_backtest`/`union` path + `record_harness_trades` + `live_paper` L3 population | P0.1–P0.5: `is_backtest` 0→thousands, pooled builds wired, `training-population-guard` green, backlog rows closed with proof |
 | **ML5 — conviction fusion (v1→v2 learned)** | The "master trader" endpoint: regime + P_win + exit heads → one score | the advisory class-prob vector + ML1 + ML3 as lens inputs | per-lens soak gate; **reductive-only** (symmetric already failed 4.5× maxDD) |
 
 **Sequence:** 5.1 cleanup (now, parallel) → ML2 (days, wiring) → ML4 (label infra)
@@ -283,6 +328,14 @@ Each item: **objective · Tier · first action · done-condition.** Ordered
 ready-now → gated. Cross-refs to §3–§6.
 
 ### Wave 0 — Ready now, no gate, high leverage (do these first)
+- **W0.0 · ★ #1 PRIORITY — connect + use + canonize the label-augmentation infra
+  (§2b, all of P0.1–P0.5).** T1. **This runs ahead of everything else.** First
+  action: build the `research-backtest-augment` free-runner workflow + run the
+  config-exact pooled backtests so `trades.is_backtest=1` goes from 0 → thousands
+  (P0.1); then wire the pooled builds (P0.2), surface the source breakdown (P0.3),
+  ship `training-population-guard` (P0.4), and canonize + close the two stale
+  backlog rows with measured proof (P0.5). Done: the label wall is provably
+  connected, in-use, guarded, and canonized — permanently retired as a blocker.
 - **W0.1 · ML roster cleanup (§5.1).** T1. Move the ~35 dead/disproven manifests
   to `ml/configs/retired/` with a README rationale each. Done: daily cycle trains
   only wired-or-promising heads; trainer OOM pressure relieved; `~89→~25–30`.
@@ -314,9 +367,10 @@ ready-now → gated. Cross-refs to §3–§6.
   producer. Done: the upfront framework exists; no macro test runs without it.
 
 ### Wave 2 — The keystone head + widening the ML surface
-- **W2.1 · ML4 — label-wall infrastructure (§5.2, Keystone B).** T1. Wire the L3
-  paper-book population + per-trade backtest augmentation as one shared labeled
-  corpus. Done: the decision-head training population is no longer ~78–400 rows.
+- **W2.1 · (MOVED to W0.0 / §2b — the #1 priority).** The label-augmentation infra
+  is already built; connecting + canonizing + enforcing it is P0, executed in
+  Wave 0, not deferred here. This slot is intentionally left as a pointer so no
+  reader re-files it as pending Wave-2 research.
 - **W2.2 · ML1 — the net-of-cost EV/P_win head (§5.2, Keystone A).** T1 to build /
   T3 to influence. Train on the W2.1 corpus; gate on `oos_edge` over the
   measured-provenance population. Done: a P_win head that clears the net-of-cost
@@ -376,10 +430,14 @@ verdict in the record:
 |---|---|---|---|
 | **Strategies** | New standalone MR/fade strategies | Structural hybrids that harden the 2 survivors (S1 FVG-confirm, S2 vol-gate pullbacks) | Better confidence + more honest labels |
 | **Macro** | Firing single-signal percentile tests | Research-design framework (MA1) + PnL harness (MA2) → macro as a **conditioning lens** | Becomes the `c_macro` lens (C5) |
-| **ML** | Training 61 heads that do nothing | Cleanup → wire OFF-cells → the net-of-cost **EV/P_win head** | The keystone head under the whole master model |
+| **ML** | Training 61 heads that do nothing; **re-citing the "label wall" as unsolved** | **#1: connect+use+canonize the label-augmentation infra (§2b/P0)** → cleanup → wire OFF-cells → the net-of-cost **EV/P_win head** | P0 unblocks every learned head; the EV head is the keystone under the whole master model |
 | **Master model** | Computing conviction and throwing it away | C1 (reductive sizing on demo) → C2/C3/C4/C5 → C6 learned fusion | *Is* the spine |
 
-**First three actions, concretely:** W0.1 (ML cleanup), W0.2 (read the two
-convergence soaks), W1.1 (flip reductive conviction sizing on demo). The first two
-are Tier-1 and can start cold; W1.1 is the first real step of the master model and
-carries no money risk.
+**The #1 action, above all others:** **W0.0 / §2b — connect, use, and canonize the
+label-augmentation infra.** It is already built and has never been fed a row; the
+task is execution + a `training-population-guard` so the "blocked on labels" excuse
+is structurally retired for good. Ready to execute now, no gate.
+
+**Then, concretely:** W0.1 (ML cleanup), W0.2 (read the two convergence soaks),
+W1.1 (flip reductive conviction sizing on demo — the first no-money-risk step of
+the master model). All Tier-1 / demo; can start cold.
