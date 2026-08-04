@@ -74,6 +74,7 @@ _SCRIPT_DIR = str(Path(__file__).resolve().parent)
 sys.path[:] = [p for p in sys.path if os.path.abspath(p) != _SCRIPT_DIR]
 sys.path.insert(0, str(_REPO_ROOT))
 
+from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
 from src.runtime.intents import StrategyIntent, aggregate_intents  # noqa: E402
 
 # --- Optional evidence-layer deps (regime/vol stamping, conviction sizing) ---
@@ -95,6 +96,16 @@ except Exception:  # noqa: BLE001
     _compute_conviction = None
 
 FEE_BPS_ROUNDTRIP = 7.5
+# Execution-realism cost (P1 § 3.B). This harness ALREADY charged a round-trip fee
+# (`fee_rate·(entry+exit)·qty` in `_close`), so the fee convention is kept exactly —
+# byte-identical PnL. Slippage + perp-only funding are ADDED through the ONE shared
+# USD model (execution_costs.roundtrip_cost_usd, fee_bps_roundtrip=0.0), so they can
+# never diverge from the R-space harnesses' cost. Both default 0.0 → an in-process
+# caller (the trainer's signal-cache driver, sweeps) is byte-identical; only the CLI
+# main() applies the mandatory venue-aware policy (funding perp-only).
+SLIPPAGE_BPS_ROUNDTRIP = 0.0
+FUNDING_BPS_PER_WINDOW = 0.0
+FUNDING_WINDOW_HOURS = execution_costs.FUNDING_WINDOW_HOURS
 # Per-trade risk budget a conviction=1.0 trade reaches (mirrors
 # src.runtime.conviction_sizing.PER_TRADE_RISK_BUDGET = 2%). Used by the
 # --conviction-sizing A/B so the conviction-scaled size matches the live
@@ -572,6 +583,11 @@ class _ClosedTrade:
     sl: Optional[float] = None   # entry-time stop (for R-normalized excursions)
     meta: dict = field(default_factory=dict)
     confidence: Optional[float] = None
+    # Execution-realism cost split (P1 § 3.B) — additive, default 0.0 so a legacy
+    # run (no CLI cost flags) records them as 0 and PnL is byte-identical. `pnl`
+    # already has fee+slippage+funding deducted; these are the split for reporting.
+    slippage: float = 0.0
+    funding: float = 0.0
 
 
 def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
@@ -810,12 +826,28 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
     def _close(p: _Position, price: float, ts_i, reason: str, idx_i: int):
         nonlocal balance
         gross = (price - p.entry) * p.qty if p.side == "long" else (p.entry - price) * p.qty
+        # Fee convention UNCHANGED (byte-identical): bps on both legs' notional.
         fee = fee_rate * (p.entry + price) * p.qty
-        pnl = gross - fee
+        # Execution-realism ADD-ON (P1 § 3.B): slippage + perp-only funding from the
+        # ONE shared USD model (fee_bps_roundtrip=0.0 → fee is NOT double-counted).
+        # Funding counts the 8h perp windows the hold crossed (entry_ts → ts_i). Both
+        # default 0.0 → this is a no-op and PnL is byte-identical to the legacy run.
+        extra = execution_costs.roundtrip_cost_usd(
+            entry_price=p.entry, qty=p.qty,
+            entry_time=p.entry_ts, exit_time=ts_i,
+            fee_bps_roundtrip=0.0,
+            slippage_bps_roundtrip=SLIPPAGE_BPS_ROUNDTRIP,
+            funding_bps_per_window=FUNDING_BPS_PER_WINDOW,
+            funding_window_hours=FUNDING_WINDOW_HOURS,
+        )
+        slippage = extra["slippage_usd"] or 0.0
+        funding = extra["funding_usd"] or 0.0
+        pnl = gross - fee - slippage - funding
         balance += pnl
         closed.append(_ClosedTrade(
             owner=p.owner, side=p.side, entry_ts=p.entry_ts, exit_ts=ts_i,
             entry=p.entry, exit=price, qty=p.qty, pnl=pnl, fee=fee,
+            slippage=slippage, funding=funding,
             reason=reason, bars_held=idx_i - p.entry_idx,
             regime=p.regime, vol_regime=p.vol_regime,
             entry_idx=p.entry_idx, exit_idx=idx_i, sl=p.entry_sl, meta=p.meta,
@@ -1158,12 +1190,25 @@ def _summarize(closed: List[_ClosedTrade], equity_curve, *, base_balance, util_b
         c["trades"] += 1
         c["pnl"] = round(c["pnl"] + t.pnl, 2)
         c["wins"] += 1 if t.pnl > 0 else 0
+    # Execution-realism cost totals (P1 § 3.B). `net_pnl` (= final − base) already
+    # nets fee+slippage+funding; `net_pnl_fee_only` adds slippage+funding back so a
+    # reader sees the with/without delta without a re-run.
+    total_fee = round(sum(t.fee for t in closed), 2)
+    total_slippage = round(sum(getattr(t, "slippage", 0.0) for t in closed), 2)
+    total_funding = round(sum(getattr(t, "funding", 0.0) for t in closed), 2)
     return {
         "kind": "system_backtest", "symbol": symbol, "roster": roster,
         "params": params, "data_start": data_start, "data_end": data_end,
         "run_date": str(date.today()), "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
+        # Cost config in effect for this run (funding is perp-only → 0 for a non-perp).
+        "slippage_bps_roundtrip": SLIPPAGE_BPS_ROUNDTRIP,
+        "funding_bps_per_window": FUNDING_BPS_PER_WINDOW,
+        "total_fee_usd": total_fee,
+        "total_slippage_usd": total_slippage,
+        "total_funding_usd": total_funding,
         "initial_balance": base_balance, "final_balance": round(final, 2),
         "net_pnl": round(final - base_balance, 2),
+        "net_pnl_fee_only": round(final - base_balance + total_slippage + total_funding, 2),
         "return_pct": round(100 * (final - base_balance) / base_balance, 2) if base_balance else 0.0,
         "max_drawdown_usd": round(mdd, 2),
         "max_drawdown_pct": round(100 * mdd / peak, 2) if peak else 0.0,
@@ -1184,6 +1229,10 @@ def _fmt(s: Dict[str, Any]) -> str:
          f"bal {s['initial_balance']:.0f} -> {s['final_balance']:.0f}",
          f"  net=${s['net_pnl']:.0f} ({s['return_pct']}%)  maxDD=${s['max_drawdown_usd']:.0f} "
          f"({s['max_drawdown_pct']}%)  ret/DD={s['return_dd_ratio']}",
+         f"  cost: fee=${s.get('total_fee_usd', 0):.0f} slip=${s.get('total_slippage_usd', 0):.0f}"
+         f"({s.get('slippage_bps_roundtrip')}bps) fund=${s.get('total_funding_usd', 0):.0f}"
+         f"({s.get('funding_bps_per_window')}bps/8h) → net above vs "
+         f"FEE-ONLY net=${s.get('net_pnl_fee_only', s['net_pnl']):.0f}",
          f"  trades={s['total_trades']} WR={s['win_rate_pct']}%  "
          f"capital_util={s['capital_utilization_pct']}%  exits={s['by_exit_reason']}",
          "  per-strategy attribution (net $ | trades | wins):"]
@@ -1238,8 +1287,10 @@ def _fmt(s: Dict[str, Any]) -> str:
 
 
 def main(argv: List[str]) -> int:
-    global FEE_BPS_ROUNDTRIP
-    p = argparse.ArgumentParser(description="System/portfolio backtest — all strategies, shared account.")
+    global FEE_BPS_ROUNDTRIP, SLIPPAGE_BPS_ROUNDTRIP, FUNDING_BPS_PER_WINDOW, FUNDING_WINDOW_HOURS
+    p = argparse.ArgumentParser(
+        description="System/portfolio backtest — all strategies, shared account "
+                    "(net-of-cost: fee+slippage+funding).")
     p.add_argument("--data", default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"),
                    help="5m OHLCV CSV/parquet (resampled per strategy TF internally).")
     p.add_argument("--symbol", default="BTCUSDT",
@@ -1268,6 +1319,21 @@ def main(argv: List[str]) -> int:
                         "net (model current one-way-mode pyramiding+SL/TP "
                         "overwrite). See BL-20260608-DEMOPNL.")
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP)
+    p.add_argument("--slippage-bps-roundtrip", type=float, default=None,
+                   help="Execution-realism (P1 § 3.B): round-trip slippage in bps of "
+                        "notional (half-spread + impact). DEFAULT (unset) = the "
+                        "venue-aware default (execution_costs.slippage_bps_roundtrip_for, "
+                        "~5 bps). Pass 0 for the fee-only comparison arm. ADDED on top of "
+                        "the existing fee (the fee formula is unchanged).")
+    p.add_argument("--funding-bps-per-window", type=float, default=None,
+                   help="Execution-realism (P1 § 3.B): perp funding magnitude in bps of "
+                        "notional per 8h window; the hold is charged for every window it "
+                        "crosses. DEFAULT (unset) = the VENUE-AWARE default "
+                        "(execution_costs.funding_bps_per_window_for): ~1 bps/8h for a "
+                        "crypto PERP, 0 for futures/equity/fx (no perp funding). Pass 0 "
+                        "for the fee-only arm.")
+    p.add_argument("--funding-window-hours", type=float, default=FUNDING_WINDOW_HOURS,
+                   help="Perp funding window length in hours (default 8.0).")
     p.add_argument("--override", action="append", default=[], metavar="STRAT.key=val",
                    help="Per-strategy param override, e.g. fade_breakout_4h.timeout_bars=0. Repeatable.")
     p.add_argument("--refresh-signals", action="store_true", help="Ignore the signal cache.")
@@ -1317,6 +1383,17 @@ def main(argv: List[str]) -> int:
     p.add_argument("--json", dest="json_out", default=None)
     args = p.parse_args(argv[1:])
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
+    # Mandatory venue-aware cost policy (operator directive 2026-08-04): a faithful
+    # backtest is net-of-real-cost by default. Unset flags resolve to the venue-aware
+    # defaults (funding is perp-only → 0 for a non-perp, never a fabricated cost); an
+    # explicit value (incl. 0 for the fee-only comparison arm) always wins.
+    SLIPPAGE_BPS_ROUNDTRIP = (
+        execution_costs.slippage_bps_roundtrip_for(args.symbol)
+        if args.slippage_bps_roundtrip is None else args.slippage_bps_roundtrip)
+    FUNDING_BPS_PER_WINDOW = (
+        execution_costs.funding_bps_per_window_for(args.symbol)
+        if args.funding_bps_per_window is None else args.funding_bps_per_window)
+    FUNDING_WINDOW_HOURS = args.funding_window_hours
 
     overrides: Dict[str, dict] = {}
     for ov in args.override:
