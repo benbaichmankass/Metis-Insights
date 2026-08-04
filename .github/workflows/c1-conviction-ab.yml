@@ -28,8 +28,8 @@ on:
         description: "CSV of crypto symbols (blank = BTCUSDT,ETHUSDT,SOLUSDT)"
         default: ""
       days:
-        description: "Trailing days of 5m candles"
-        default: "730"
+        description: "Trailing days of 5m candles (365 fits the 90-min cap for 3 symbols; 730 needs one symbol per dispatch)"
+        default: "365"
   issues:
     types: [opened]
 
@@ -50,7 +50,12 @@ jobs:
         github.event.issue.user.login == 'github-actions[bot]') &&
        contains(github.event.issue.labels.*.name, 'c1-conviction-ab-request'))
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Sizing (measured on run 30918075523, cancelled at 60m): the FETCH is cheap
+    # (~30s / 210k 5m bars via Binance-vision), but each backtest_system pass over
+    # 730d of 5m bars is ~25m, so 3 symbols × 2 arms ≈ 150m — it never fit 60m.
+    # 365d halves each backtest to ~12.5m → 6 × 12.5 ≈ 75m, which fits the 90m cap
+    # with margin. Passing days=730 needs ONE symbol per dispatch (≈51m) instead.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -62,13 +67,13 @@ jobs:
           symbols=$(printf '%s' "$ISSUE_BODY" | grep -iE '^symbols:' | head -1 | cut -d: -f2- | xargs || true)
           days=$(printf '%s' "$ISSUE_BODY" | grep -iE '^days:' | head -1 | cut -d: -f2- | xargs || true)
           echo "AB_SYMBOLS=${symbols:-BTCUSDT,ETHUSDT,SOLUSDT}" >> "$GITHUB_ENV"
-          echo "AB_DAYS=${days:-730}" >> "$GITHUB_ENV"
+          echo "AB_DAYS=${days:-365}" >> "$GITHUB_ENV"
 
       - name: Set params from dispatch inputs
         if: github.event_name == 'workflow_dispatch'
         run: |
           echo "AB_SYMBOLS=${{ github.event.inputs.symbols || 'BTCUSDT,ETHUSDT,SOLUSDT' }}" >> "$GITHUB_ENV"
-          echo "AB_DAYS=${{ github.event.inputs.days || '730' }}" >> "$GITHUB_ENV"
+          echo "AB_DAYS=${{ github.event.inputs.days || '365' }}" >> "$GITHUB_ENV"
 
       - uses: actions/setup-python@v5
         with:
@@ -84,7 +89,7 @@ jobs:
           set +e
           mkdir -p artifacts/c1
           : "${AB_SYMBOLS:=BTCUSDT,ETHUSDT,SOLUSDT}"
-          : "${AB_DAYS:=730}"
+          : "${AB_DAYS:=365}"
           echo "symbols=${AB_SYMBOLS} days=${AB_DAYS}"
           IFS=',' read -ra SYMS <<< "${AB_SYMBOLS}"
           for SYM in "${SYMS[@]}"; do
