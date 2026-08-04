@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -109,8 +110,11 @@ def agreement(
             verdict = "drifts"
             bits = []
             if not wr_ok:
-                bits.append(f"win-rate gap {wr_diff:.3f} > {max_winrate_diff}")
-            if not ks_ok:
+                if wr_diff is None:
+                    bits.append("win-rate unavailable (empty backtest sample)")
+                else:
+                    bits.append(f"win-rate gap {wr_diff:.3f} > {max_winrate_diff}")
+            if not ks_ok and ks is not None:
                 bits.append(f"KS(R) {ks:.3f} > {max_ks}")
             reason = "backtest drifts from live (" + "; ".join(bits) + ") — backtest is a lead, not a result"
 
@@ -129,11 +133,67 @@ def agreement(
     }
 
 
+# ---- stratification (regime/small-sample separation) ------------------------
+
+def _year_of(ts: Any) -> str | None:
+    """UTC year bucket from an entry timestamp (epoch-ms/epoch-s/ISO). None if
+    un-parseable — the row then only counts toward the un-stratified overall."""
+    if ts is None:
+        return None
+    s = str(ts).strip()
+    if not s:
+        return None
+    try:  # epoch (s or ms)
+        v = float(s)
+        if v > 1e12:  # epoch-ms
+            v /= 1000.0
+        from datetime import datetime, timezone
+        return str(datetime.fromtimestamp(v, tz=timezone.utc).year)
+    except ValueError:
+        pass
+    m = re.match(r"(\d{4})-\d{2}", s)  # ISO
+    return m.group(1) if m else None
+
+
+def stratified_agreement(
+    live_rows: Sequence[dict[str, Any]],
+    backtest_rows: Sequence[dict[str, Any]],
+    *,
+    key: str,
+    **thresholds: Any,
+) -> dict[str, Any]:
+    """Pure: agreement() overall PLUS one agreement() per stratum, grouped by
+    `key` ∈ {direction, year}. Separates a UNIFORM cost-model gap (drift roughly
+    equal across strata) from a CONCENTRATED regime/small-sample bias (drift in one
+    stratum, others fine) — the § 5a caveat, operationalized. Strata below the
+    live-n floor are reported honestly as `insufficient-live`, never hidden."""
+    def _bucket(row: dict[str, Any]) -> str | None:
+        if key == "direction":
+            d = str(row.get("direction") or "").lower()
+            return d if d in ("long", "short") else None
+        if key == "year":
+            return _year_of(row.get("ts"))
+        return None
+
+    overall = agreement([r["r"] for r in live_rows],
+                        [r["r"] for r in backtest_rows], **thresholds)
+    strata_keys = sorted({_bucket(r) for r in list(live_rows) + list(backtest_rows)}
+                         - {None})
+    strata: dict[str, Any] = {}
+    for sk in strata_keys:
+        lr = [r["r"] for r in live_rows if _bucket(r) == sk]
+        br = [r["r"] for r in backtest_rows if _bucket(r) == sk]
+        strata[sk] = agreement(lr, br, **thresholds)
+    return {"key": key, "overall": overall, "strata": strata}
+
+
 # ---- DB readers (read-only) -------------------------------------------------
 
-def _live_realized_r(live_db: str, strategy: str, symbol: str) -> list[float]:
-    """Measured-provenance-only live realized-R (falls back to PnL sign as the R
-    proxy when a stop-distance R is unavailable). Excludes fabricated/paper pnl."""
+def _live_rows(live_db: str, strategy: str, symbol: str) -> list[dict[str, Any]]:
+    """Measured-provenance-only live rows: {r (PnL-sign proxy), direction, ts, won}.
+    Excludes fabricated/paper pnl (the strict provenance filter — the scarce but
+    TRUSTED calibration set). R is the win/loss sign proxy; a full stop-distance R
+    needs the per-trade risk and is the documented next upgrade."""
     try:
         from src.runtime import provenance  # trust filter
         trust = provenance.pnl_is_trustworthy
@@ -142,11 +202,12 @@ def _live_realized_r(live_db: str, strategy: str, symbol: str) -> list[float]:
     con = sqlite3.connect(f"file:{live_db}?mode=ro", uri=True)
     con.row_factory = sqlite3.Row
     rows = con.execute(
-        "SELECT pnl, notes FROM trades WHERE status='closed' AND COALESCE(is_backtest,0)=0 "
-        "AND strategy_name=? AND symbol=? AND pnl IS NOT NULL",
+        "SELECT pnl, notes, direction, timestamp FROM trades WHERE status='closed' "
+        "AND COALESCE(is_backtest,0)=0 AND strategy_name=? AND symbol=? "
+        "AND pnl IS NOT NULL",
         (strategy, symbol),
     ).fetchall()
-    out: list[float] = []
+    out: list[dict[str, Any]] = []
     for r in rows:
         if trust is not None:
             try:
@@ -154,38 +215,109 @@ def _live_realized_r(live_db: str, strategy: str, symbol: str) -> list[float]:
                     continue
             except Exception:  # allow-silent: fail-open on an un-scoreable row (keep it) — research calibrator, not a live read-path
                 pass
-        # R proxy: sign of pnl (win/loss) — a full stop-distance R is a P1 upgrade.
-        out.append(1.0 if (r["pnl"] or 0) > 0 else -1.0)
+        pnl = r["pnl"] or 0
+        out.append({"r": 1.0 if pnl > 0 else -1.0,
+                    "direction": r["direction"], "ts": r["timestamp"],
+                    "won": pnl > 0})
     con.close()
     return out
 
 
-def _backtest_realized_r(bt_db: str, strategy: str, symbol: str) -> list[float]:
+def _backtest_rows(bt_db: str, strategy: str, symbol: str) -> list[dict[str, Any]]:
     con = sqlite3.connect(f"file:{bt_db}?mode=ro", uri=True)
     con.row_factory = sqlite3.Row
     rows = con.execute(
-        "SELECT pnl FROM trades WHERE COALESCE(is_backtest,0)=1 AND strategy_name=? AND symbol=? "
+        "SELECT pnl, direction, entry_ts, timestamp FROM trades "
+        "WHERE COALESCE(is_backtest,0)=1 AND strategy_name=? AND symbol=? "
         "AND pnl IS NOT NULL",
         (strategy, symbol),
     ).fetchall()
     con.close()
     # backtest rows store the R-multiple as `pnl` (record_harness_trades maps net_r→pnl).
-    return [float(r["pnl"]) for r in rows if r["pnl"] is not None]
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        if r["pnl"] is None:
+            continue
+        ts = None
+        for col in ("entry_ts", "timestamp"):
+            try:
+                ts = r[col]
+            except (IndexError, KeyError):
+                ts = None
+            if ts:
+                break
+        out.append({"r": float(r["pnl"]), "direction": r["direction"], "ts": ts,
+                    "won": float(r["pnl"]) > 0})
+    return out
+
+
+def _live_realized_r(live_db: str, strategy: str, symbol: str) -> list[float]:
+    return [r["r"] for r in _live_rows(live_db, strategy, symbol)]
+
+
+def _backtest_realized_r(bt_db: str, strategy: str, symbol: str) -> list[float]:
+    return [r["r"] for r in _backtest_rows(bt_db, strategy, symbol)]
+
+
+def _legs_in(db: str, is_backtest: int) -> set[tuple[str, str]]:
+    """Distinct (strategy_name, symbol) with resolved pnl in one DB. A DB error
+    RAISES (never a silent empty set) — an empty trust map from a swallowed read
+    error would read as a clean 'no overlapping legs', the false-negative the
+    silent-empty guard exists to stop."""
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        rows = con.execute(
+            "SELECT DISTINCT strategy_name, symbol FROM trades "
+            "WHERE COALESCE(is_backtest,0)=? AND strategy_name IS NOT NULL "
+            "AND symbol IS NOT NULL AND pnl IS NOT NULL",
+            (is_backtest,),
+        ).fetchall()
+    finally:
+        con.close()
+    return {(r[0], r[1]) for r in rows}
+
+
+def _calibrate_leg(live_db: str, bt_db: str, strategy: str, symbol: str,
+                   *, stratify: str = "none") -> dict[str, Any]:
+    live = _live_rows(live_db, strategy, symbol)
+    bt = _backtest_rows(bt_db, strategy, symbol)
+    result = agreement([r["r"] for r in live], [r["r"] for r in bt])
+    result.update({"strategy": strategy, "symbol": symbol})
+    if stratify and stratify != "none":
+        result["stratified"] = stratified_agreement(live, bt, key=stratify)
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--backtest-db", required=True)
     p.add_argument("--live-db", required=True)
-    p.add_argument("--strategy", required=True)
-    p.add_argument("--symbol", required=True)
+    p.add_argument("--strategy", default=None, help="single-leg mode (with --symbol)")
+    p.add_argument("--symbol", default=None)
+    p.add_argument("--stratify", choices=["none", "direction", "year"], default="none",
+                   help="also compute per-stratum agreement to separate a uniform "
+                        "cost-model gap from a concentrated regime/small-sample bias.")
+    p.add_argument("--trust-map", action="store_true",
+                   help="run every (strategy,symbol) leg present in BOTH DBs and emit "
+                        "a table — the full trust map (§ 5a).")
     p.add_argument("--out", default=None)
     a = p.parse_args(argv)
 
-    live = _live_realized_r(a.live_db, a.strategy, a.symbol)
-    bt = _backtest_realized_r(a.backtest_db, a.strategy, a.symbol)
-    result = agreement(live, bt)
-    result.update({"strategy": a.strategy, "symbol": a.symbol})
+    if a.trust_map:
+        legs = sorted(_legs_in(a.live_db, 0) & _legs_in(a.backtest_db, 1))
+        rows = [_calibrate_leg(a.live_db, a.backtest_db, s, sym, stratify=a.stratify)
+                for (s, sym) in legs]
+        result: dict[str, Any] = {"trust_map": rows, "n_legs": len(rows),
+                                  "verdict_counts": {}}
+        for r in rows:
+            v = r["verdict"]
+            result["verdict_counts"][v] = result["verdict_counts"].get(v, 0) + 1
+    else:
+        if not a.strategy or not a.symbol:
+            p.error("single-leg mode needs --strategy and --symbol (or use --trust-map)")
+        result = _calibrate_leg(a.live_db, a.backtest_db, a.strategy, a.symbol,
+                                stratify=a.stratify)
+
     out = json.dumps(result, indent=2)
     print(out)
     if a.out:

@@ -4,18 +4,16 @@
 
 One row per journal-decision family that pools the live-label corpus. `state`: **augmented** = its `build_trainer_datasets.sh` build passes `include_backtest` (verified in the shell); **exempt** = backtests genuinely can't feed it (reasoned); **debt** = grandfathered live-only, owed augmentation (paid down by P0.2 → ceiling drops).
 
-**Population:** 0 augmented · 0 exempt · **3 in debt** (ceiling 3). The debt count must trend to 0 — every debt family still trains on the ~78-label live-only wall.
+**Population:** 2 augmented · 0 exempt · **1 in debt** (ceiling 1). The debt count must trend to 0 — every debt family still trains on the ~78-label live-only wall.
 
 | family | state |
 |---|---|
-| `trade_outcomes` | 🟠 debt (live-only) |
-| `setup_labels` | 🟠 debt (live-only) |
+| `trade_outcomes` | ✅ augmented |
+| `setup_labels` | ✅ augmented |
 | `conviction_meta` | 🟠 debt (live-only) |
 
 ## Augmentation debt (owed backtest/paper feed)
 
 | family | tracking_id | reason |
 |---|---|---|
-| `conviction_meta` | MB-20260530-001 | The v2 conviction meta-model corpus — journal-only today (n≈78 wall). Its family already has the `mode: {live,backtest,union}` switch; P0.2 passes union once the backtest db lands, then this moves to `augmented`, ceiling → 0, and the "blocked on labels" excuse is retired. |
-| `setup_labels` | BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED | Same as trade_outcomes — journal-only nightly build; the include_backtest path exists on the family and is unfed. P0.2 wires it; ceiling → 1. |
-| `trade_outcomes` | BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED | Built live-only in build_trainer_datasets.sh (--source trade_journal.db, no include_backtest). The augment engine (research-backtest-augment.yml → scripts/ml/backtest_augment_runner.py) produces the is_backtest=1 rows; P0.2 merges the standing backtest_trades.db and passes include_backtest, then this moves to `augmented` and the ceiling drops to 2. |
+| `conviction_meta` | MB-20260530-001 | The v2 conviction meta-model corpus — journal-only today (n≈78 wall). Unlike trade_outcomes/setup_labels (which read is_backtest=1 rows from a db_path), the conviction_meta family's backtest source is M30 backtest **panels** via its `source_mode: {live,backtest,union}` switch + `backtest_panels=`, NOT the backtest_trades.db is_backtest rows — so it genuinely cannot be fed from the pooled-augment merge. Wiring it needs the M30 panels produced in the nightly build (a distinct follow-up, tracked here); until then it stays honest debt rather than a false-certify (marking it augmented with no real feed is exactly the breach this guard exists to prevent). When the panels are wired (source_mode=union + backtest_panels on this family's own build_family block, broadening augmentation_marker to accept the union token), it moves to `augmented` and the ceiling drops to 0. |

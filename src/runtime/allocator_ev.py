@@ -37,10 +37,12 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# Round-trip transaction cost in basis points. Mirrors the backtest's
-# ``FEE_BPS_ROUNDTRIP`` (``scripts/backtest_system.py``) as the fixed first-pass
-# cost model; M18 P0a replaces it with logged per-trade fees per cell.
-DEFAULT_FEE_BPS_ROUNDTRIP = 7.5
+# Round-trip transaction cost in basis points. The single owner is now the shared
+# execution-realism cost model (``src.runtime.execution_costs``); re-exported here
+# so every existing ``from allocator_ev import DEFAULT_FEE_BPS_ROUNDTRIP`` caller is
+# unchanged (P1 consolidation, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B). The EV
+# scorer's ``funding_R`` input is the R-space analogue of that model's funding term.
+from src.runtime.execution_costs import DEFAULT_FEE_BPS_ROUNDTRIP  # noqa: F401,E402
 
 # Score returned for an un-scorable candidate — ranks strictly below any real
 # EV (real EV_R is bounded well above this) without raising.

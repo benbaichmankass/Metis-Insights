@@ -37,7 +37,15 @@ decision_families:
 # debt_ceiling ratchets DOWN only. Each pooled family that P0.2 wires to pass
 # `include_backtest` moves out of debt and lowers this by one — the forcing
 # function that drives the corpus off the ~78-row wall for good.
-debt_ceiling: 3
+#
+# 2026-08-04 P0.2 (operator-approved, "keep the heads maximally trained"): the two
+# families that read is_backtest=1 rows from a db_path — trade_outcomes + setup_labels
+# — are now WIRED (build_trainer_datasets.sh pooled-augment merge + include_backtest;
+# see the training-population-matrix). They moved debt → augmented and the ceiling
+# dropped 3 → 1. conviction_meta remains the single debt entry (its augmentation is a
+# DIFFERENT mechanism — M30 backtest_panels via source_mode=union, not the is_backtest
+# DB path — so it genuinely cannot be fed from backtest_trades.db; see its reason).
+debt_ceiling: 1
 
 # Families genuinely NOT augmentable from backtests (reasoned, permanent).
 augmentation_exempt:
@@ -48,47 +56,39 @@ augmentation_exempt:
       synthetic backtest fills would POISON it (the one explicit carve-out in
       MB-20260530-001's feasibility note). Live-only is correct here.
 
-# Grandfathered LIVE-ONLY decision families owed augmentation. Seeded 2026-08-04
-# at the current true state: all three pooled families train live-only today.
+# Grandfathered LIVE-ONLY decision families owed augmentation.
 #
-# MEASURED VERDICT 2026-08-04 (docs/research/S-P0-LABEL-AUGMENT-2026-08-04.md,
-# trainer #8460) — the debt below is now a DELIBERATE, EVIDENCE-BACKED DEFERRAL,
-# NOT neglect. The augmentation RAN (0 → 5,094 backtest train rows, ~19× the
-# ~78-row wall) and was measured on a real live holdout WITH the paper-book eval
-# population: the augmented pooled meta-label learns a REAL edge (26%→57% win-rate
-# on its selected slice, net-R positive) but only at 4–6% coverage — BELOW the
-# usable-volume floor, so it is not a deployable trade filter yet. The binding
-# constraint is the TRUSTED EVAL BOOK (324 real trades; the honest-provenance guard
-# correctly excludes fabricated paper pnl), which backtests CANNOT grow. So the
-# next lever is growing the real/paper eval book (M30/L3), not more train
-# augmentation — and wiring the nightly production build is deliberately deferred
-# pending that (or an explicit operator choice to keep the heads maximally trained).
-# The breach ("blocked on labels, never fed") is CLOSED; this guard makes it
-# un-repeatable.
+# 2026-08-04 P0.2 (operator-approved — "keep the heads maximally trained"):
+# trade_outcomes + setup_labels are now WIRED (build_trainer_datasets.sh pooled-
+# augment merge feeds the standing backtest_trades.db is_backtest=1 rows via
+# include_backtest on each family's own build_family block) → they moved out of debt
+# to `augmented` and the ceiling dropped 3 → 1. The evidence context (measured
+# 2026-08-04, docs/research/S-P0-LABEL-AUGMENT-2026-08-04.md, trainer #8460): the
+# augmentation lifts train rows ~19× off the ~78-row wall and the augmented pooled
+# meta-label learns a REAL edge (26%→57% WR on its selected slice) though at low
+# coverage — so the heads are maximally trained while the SEPARATE binding
+# constraint, the trusted EVAL book (which backtests cannot grow), is worked via
+# M30/L3. The breach ("blocked on labels, never fed") is CLOSED and un-repeatable.
+#
+# conviction_meta remains the single debt entry because its augmentation is a
+# DIFFERENT mechanism than the is_backtest DB path — see its reason.
 augmentation_debt:
-  trade_outcomes:
-    tracking_id: BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED
-    added: '2026-08-04'
-    reason: >-
-      Built live-only in build_trainer_datasets.sh (--source trade_journal.db,
-      no include_backtest). The augment engine (research-backtest-augment.yml →
-      scripts/ml/backtest_augment_runner.py) produces the is_backtest=1 rows;
-      P0.2 merges the standing backtest_trades.db and passes include_backtest,
-      then this moves to `augmented` and the ceiling drops to 2.
-  setup_labels:
-    tracking_id: BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED
-    added: '2026-08-04'
-    reason: >-
-      Same as trade_outcomes — journal-only nightly build; the include_backtest
-      path exists on the family and is unfed. P0.2 wires it; ceiling → 1.
   conviction_meta:
     tracking_id: MB-20260530-001
     added: '2026-08-04'
     reason: >-
-      The v2 conviction meta-model corpus — journal-only today (n≈78 wall). Its
-      family already has the `mode: {live,backtest,union}` switch; P0.2 passes
-      union once the backtest db lands, then this moves to `augmented`, ceiling
-      → 0, and the "blocked on labels" excuse is retired.
+      The v2 conviction meta-model corpus — journal-only today (n≈78 wall). Unlike
+      trade_outcomes/setup_labels (which read is_backtest=1 rows from a db_path),
+      the conviction_meta family's backtest source is M30 backtest **panels** via
+      its `source_mode: {live,backtest,union}` switch + `backtest_panels=`, NOT the
+      backtest_trades.db is_backtest rows — so it genuinely cannot be fed from the
+      pooled-augment merge. Wiring it needs the M30 panels produced in the nightly
+      build (a distinct follow-up, tracked here); until then it stays honest debt
+      rather than a false-certify (marking it augmented with no real feed is exactly
+      the breach this guard exists to prevent). When the panels are wired
+      (source_mode=union + backtest_panels on this family's own build_family block,
+      broadening augmentation_marker to accept the union token), it moves to
+      `augmented` and the ceiling drops to 0.
 
 # Related but NOT nightly-build-owned (tracked elsewhere, not enforced here):
 #   setup_candidates (M23 metalabel) — research-path family with the full
