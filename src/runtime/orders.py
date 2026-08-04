@@ -91,6 +91,28 @@ def safe_place_order(order: Dict[str, Any], settings: Any, client: Any) -> dict[
             "order": order,
         }
 
+    # A None client cannot submit anything — this is the dry-run / credential-less
+    # smoke path (``scripts/smoke_test_trade.py`` passes ``client=None`` on
+    # purpose to exercise this validation path). Refuse cleanly HERE rather than
+    # letting ``client.place_order(**order)`` below raise
+    # ``AttributeError: 'NoneType' object has no attribute 'place_order'`` — that
+    # exception was caught and mislabeled ``failed_exchange`` (an ERROR-level
+    # "the exchange rejected it" outcome for a call that never reached any
+    # exchange), which produced a recurring, misleading real-money ``bybit_2``
+    # smoke alarm (diagnostic-provenance: the message named a cause no code path
+    # tested). Nothing is sent to any exchange, so this is INFO-level ``refused``,
+    # not an error. A real (non-None) client is untouched — no live-order path
+    # behaviour changes.
+    if client is None:
+        return {
+            "status": "refused",
+            "reason": (
+                "no exchange client provided — order not submitted "
+                "(dry-run / credential-less path); nothing was sent to any exchange"
+            ),
+            "order": order,
+        }
+
     symbol = str(order.get("symbol", "")).strip().upper()
     side = str(order.get("side", "")).strip().lower()
     qty_raw = order.get("qty", 0)
