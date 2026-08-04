@@ -245,6 +245,30 @@ def safe_place_order(order: Dict[str, Any], settings: Any, client: Any) -> dict[
     # ``safe_place_order`` is a payload-validation + halt-flag + risk-cap
     # rail, NOT a mode gate. Callers that need the dry-run behaviour
     # route through ``execute_pkg`` which respects the per-account mode.
+    #
+    # A None client cannot submit anything — this is the dry-run / credential-less
+    # smoke path (``scripts/smoke_test_trade.py`` passes ``client=None`` on
+    # purpose). The guard sits HERE, AFTER every validation / halt-flag / risk-cap
+    # gate above (so those still run and return their own specific refusals with
+    # client=None), and immediately before submission. It refuses cleanly instead
+    # of letting ``client.place_order(**order)`` below raise
+    # ``AttributeError: 'NoneType' object has no attribute 'place_order'`` — that
+    # exception was caught and mislabeled ``failed_exchange`` (an ERROR-level
+    # "the exchange rejected it" outcome for a call that never reached any
+    # exchange), the recurring, misleading real-money ``bybit_2`` smoke alarm
+    # (diagnostic-provenance: a message naming a cause no code path tested).
+    # Nothing is sent to any exchange, so this is INFO-level ``refused``. A real
+    # (non-None) client is untouched — no live-order path behaviour changes.
+    if client is None:
+        return {
+            "status": "refused",
+            "reason": (
+                "no exchange client provided — order not submitted "
+                "(dry-run / credential-less path); nothing was sent to any exchange"
+            ),
+            "order": order,
+        }
+
     logger.info("Submitting order via injected client: %s", order)
     try:
         result = client.place_order(**order)
