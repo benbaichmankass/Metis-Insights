@@ -173,11 +173,20 @@ instead of blanket-distrusting everything.**
    set for evaluation — we depend on it only to *calibrate* the sim (§2.4), then let
    the faithful sim carry the volume.
 
-**Immediate P1 target (now quantified):** `htf_pullback_trend_2h` is the sharpest
-lever — its backtest is +0.57R too optimistic vs live. Make its harness run the real
-exit path (exit heads + trail-decay, currently omitted) and the real cost model, then
-re-run this calibrator; the KS should fall toward the gate. That is a same-day
-measurable win, repeated per leg.
+**Immediate P1 target (now PINPOINTED, 2026-08-04):** `htf_pullback_trend_2h` is
++0.57R too optimistic vs live. Crucially, the harness self-labels this leg
+**`faithful`** (it models every declared *strategy* lever) — yet it drifts. So
+**`faithful` ≠ `calibrated`**: the gap is **execution realism**, not omitted levers.
+The harness (and even the live cost *estimate*) model **fees only**
+(`net_r = r_multiple − fee_bps`); neither models **funding** (crypto perps pay
+funding every ~8h; a 2h-hold strategy crosses several windows) nor **slippage /
+real-fill** cost — which the *real* live PnL (exchange-fills / broker-truth) ate.
+That is the research→results-gap mechanism, mechanically identified.
+**P1 = build the execution-realism component (§3.B): add funding + slippage to the
+one shared cost model, re-run the calibrator, and watch KS fall toward the gate.**
+Caveat respected: live n=30 is small — P1 must also **stratify by regime / expand the
+trusted-live set** to separate "cost-model gap" from "small-sample/regime bias"
+before declaring the leg `calibrated`. Same-day measurable, repeated per leg.
 
 ## 6. Why this is not another partial fix
 The partial fix would be "wire the nightly build and wait for more trades." This
