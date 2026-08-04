@@ -89,19 +89,23 @@ class TestStratifiedAgreement:
 
 
 def _seed(db, rows, is_backtest):
+    # Mirror the REAL recorder schema (ml.datasets.backtest_recorder): the harness
+    # ENTRY time lands in `timestamp`; there is NO separate entry_ts column. A test
+    # schema with a phantom entry_ts is what hid the trust-map `no such column`
+    # crash — the reader must run against the real column set.
     con = sqlite3.connect(db)
     con.execute(
         "CREATE TABLE IF NOT EXISTS trades (id INTEGER PRIMARY KEY, strategy_name TEXT,"
         " symbol TEXT, direction TEXT, status TEXT, pnl REAL, is_backtest INT,"
-        " notes TEXT, timestamp TEXT, entry_ts TEXT)"
+        " notes TEXT, timestamp TEXT)"
     )
     for r in rows:
         con.execute(
             "INSERT INTO trades (strategy_name,symbol,direction,status,pnl,is_backtest,"
-            "notes,timestamp,entry_ts) VALUES (?,?,?,?,?,?,?,?,?)",
+            "notes,timestamp) VALUES (?,?,?,?,?,?,?,?)",
             (r["strategy_name"], r["symbol"], r.get("direction", "long"),
              r.get("status", "closed"), r["pnl"], is_backtest, r.get("notes"),
-             r.get("timestamp", "2026-01-01T00:00:00Z"), r.get("entry_ts")),
+             r.get("timestamp", r.get("entry_ts", "2026-01-01T00:00:00Z"))),
         )
     con.commit()
     con.close()

@@ -226,29 +226,18 @@ def _live_rows(live_db: str, strategy: str, symbol: str) -> list[dict[str, Any]]
 def _backtest_rows(bt_db: str, strategy: str, symbol: str) -> list[dict[str, Any]]:
     con = sqlite3.connect(f"file:{bt_db}?mode=ro", uri=True)
     con.row_factory = sqlite3.Row
+    # The recorder (ml.datasets.backtest_recorder) stores the harness ENTRY time in
+    # `timestamp` (not a separate entry_ts column) and the R-multiple in `pnl`.
     rows = con.execute(
-        "SELECT pnl, direction, entry_ts, timestamp FROM trades "
+        "SELECT pnl, direction, timestamp FROM trades "
         "WHERE COALESCE(is_backtest,0)=1 AND strategy_name=? AND symbol=? "
         "AND pnl IS NOT NULL",
         (strategy, symbol),
     ).fetchall()
     con.close()
-    # backtest rows store the R-multiple as `pnl` (record_harness_trades maps net_r→pnl).
-    out: list[dict[str, Any]] = []
-    for r in rows:
-        if r["pnl"] is None:
-            continue
-        ts = None
-        for col in ("entry_ts", "timestamp"):
-            try:
-                ts = r[col]
-            except (IndexError, KeyError):
-                ts = None
-            if ts:
-                break
-        out.append({"r": float(r["pnl"]), "direction": r["direction"], "ts": ts,
-                    "won": float(r["pnl"]) > 0})
-    return out
+    return [{"r": float(r["pnl"]), "direction": r["direction"],
+             "ts": r["timestamp"], "won": float(r["pnl"]) > 0}
+            for r in rows if r["pnl"] is not None]
 
 
 def _live_realized_r(live_db: str, strategy: str, symbol: str) -> list[float]:
