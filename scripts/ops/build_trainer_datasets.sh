@@ -212,17 +212,68 @@ print(json.dumps({'ts': ts, 'status': 'failed', 'family': fam, 'exit_code': int(
 emit "$(printf '{"ts":"%s","status":"build_start","datasets_root":"%s","version":"%s"}' \
   "$(iso_now)" "$DATASETS_ROOT" "$DATASET_VERSION")"
 
+# ---- pooled label-augmentation: journal + standing backtest_trades.db -----
+# P0.2 (BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED, operator-approved 2026-08-04
+# to keep the pooled decision heads maximally trained). The augment engine
+# (research-backtest-augment.yml → scripts/ml/backtest_augment_runner.py) produces
+# the standing ${DATASETS_ROOT}/backtest_trades.db of is_backtest=1 harness rows.
+# The pooled trade_outcomes/setup_labels families read is_backtest=1 rows from
+# their OWN db_path (include_backtest=true), so we build a merged db = a FULL COPY
+# of the journal (all tables → account_context_snapshots + order_packages joins
+# stay intact) with the backtest rows inserted, and point the two pooled builds at
+# it. Fail-safe: an absent augment db OR a failed merge falls back to the journal
+# (journal-only build, still succeeds) — the wiring is present regardless (that is
+# what the training-population-guard certifies). Backtest rows never touch the
+# journal; the scratch db is deleted after the pooled builds.
+POOL_BT_DB="${DATASETS_ROOT}/backtest_trades.db"
+AUGMENT_DB_PATH="${DB_PATH}"
+POOL_MERGED=""
+if [ -f "$POOL_BT_DB" ] && [ -f "$DB_PATH" ]; then
+  POOL_MERGED="/tmp/pooled_augment_merged_$$.db"
+  set +e
+  cp "$DB_PATH" "$POOL_MERGED" && python3 - "$POOL_MERGED" "$POOL_BT_DB" <<'PYAUG'
+import sqlite3, sys
+merged, bt_db = sys.argv[1:]
+dst = sqlite3.connect(merged)
+cols = [r[1] for r in dst.execute("PRAGMA table_info(trades)")]
+bt = sqlite3.connect(f"file:{bt_db}?mode=ro", uri=True)
+# Copy the intersection of columns (the recorder db schema may trail the journal's).
+bt_cols = [r[1] for r in bt.execute("PRAGMA table_info(trades)") if r[1] in cols]
+csv = ", ".join(bt_cols)
+rows = bt.execute(f"SELECT {csv} FROM trades WHERE is_backtest = 1").fetchall()
+dst.executemany(
+    f"INSERT INTO trades ({csv}) VALUES ({', '.join('?' * len(bt_cols))})", rows)
+dst.commit()
+print(f"pooled augment db: backtest_rows_added={len(rows)}")
+PYAUG
+  aug_rc=$?
+  set -e
+  if [ "$aug_rc" -eq 0 ]; then
+    AUGMENT_DB_PATH="$POOL_MERGED"
+    emit "$(printf '{"ts":"%s","status":"ok","family":"pooled_augment_merge","detail":"journal + backtest_trades.db merged for include_backtest pooled builds"}' "$(iso_now)")"
+  else
+    emit "$(printf '{"ts":"%s","status":"failed","family":"pooled_augment_merge","detail":"merge failed (rc=%s) — pooled builds fall back to journal-only this cycle"}' "$(iso_now)" "$aug_rc")"
+    rm -f "$POOL_MERGED"; POOL_MERGED=""
+  fi
+else
+  emit "$(printf '{"ts":"%s","status":"skipped","family":"pooled_augment_merge","detail":"%s absent — pooled builds journal-only (run research-backtest-augment to create it)"}' "$(iso_now)" "$POOL_BT_DB")"
+fi
+
 # ---- journal-backed families --------------------------------------------
 build_family backtest_results \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "trade_journal.db" --overwrite \
   "db_path=${DB_PATH}"
 
+# trade_outcomes — pooled decision head, AUGMENTED: include_backtest reads the
+# is_backtest=1 harness rows merged into AUGMENT_DB_PATH (P0.2). include_backtest
+# must sit literally on THIS build_family block for the training-population-guard
+# to certify it (foreign markers elsewhere never certify).
 build_family trade_outcomes \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "trade_journal.db" --overwrite \
-  "db_path=${DB_PATH}" "include_snapshots=true" \
-  "exclude_fabricated_pnl=${EXCLUDE_FABRICATED}"
+  "db_path=${AUGMENT_DB_PATH}" "include_snapshots=true" \
+  "exclude_fabricated_pnl=${EXCLUDE_FABRICATED}" "include_backtest=true"
 
 # conviction_meta — v2 conviction meta-model training rows (one per closed/
 # filled/non-backtest order package joined to its trade). Journal-backed; same
@@ -250,11 +301,16 @@ else
   emit "$(printf '{"ts":"%s","status":"skipped","family":"account_context","detail":"config/accounts.yaml not found"}' "$(iso_now)")"
 fi
 
+# setup_labels — pooled decision head, AUGMENTED (P0.2). include_backtest reads
+# the merged is_backtest=1 harness rows; the marker sits literally on this block.
 build_family setup_labels \
   --output-dir "$DATASETS_ROOT" --version "$DATASET_VERSION" \
   --source "trade_journal.db" --overwrite \
-  "db_path=${DB_PATH}" "risk_pct=1.0" "r_cap=3.0" \
-  "exclude_fabricated_pnl=${EXCLUDE_FABRICATED}"
+  "db_path=${AUGMENT_DB_PATH}" "risk_pct=1.0" "r_cap=3.0" \
+  "exclude_fabricated_pnl=${EXCLUDE_FABRICATED}" "include_backtest=true"
+
+# Pooled augment scratch db consumed — drop it (backtest rows never persist here).
+[ -n "$POOL_MERGED" ] && rm -f "$POOL_MERGED"
 
 if [ -f "$AUDIT_PATH" ]; then
   build_family setup_labels_audit \

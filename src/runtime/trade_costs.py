@@ -34,7 +34,10 @@ from __future__ import annotations
 import math
 from typing import Any, Optional
 
-from src.runtime.allocator_ev import DEFAULT_FEE_BPS_ROUNDTRIP
+# Single owner of the round-trip fee constant: the shared execution-realism cost
+# model. Re-exported so `from src.runtime.trade_costs import DEFAULT_FEE_BPS_ROUNDTRIP`
+# (the "one owner" contract in test_regime_debt_matrix_fee) keeps resolving here.
+from src.runtime.execution_costs import DEFAULT_FEE_BPS_ROUNDTRIP  # noqa: F401
 
 
 def _f(x: Any) -> Optional[float]:

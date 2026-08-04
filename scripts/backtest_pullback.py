@@ -37,7 +37,17 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-FEE_BPS_ROUNDTRIP = 7.5
+from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
+
+# Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B). Fee is
+# the legacy term; SLIPPAGE + FUNDING default to 0.0 so a run that sets neither is
+# BYTE-IDENTICAL to the fee-only harness (every existing sweep/test unchanged). The
+# calibration run turns them on to measure how much of the +0.57R backtest-vs-live
+# gap is execution realism vs regime / small-sample bias.
+FEE_BPS_ROUNDTRIP = execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP
+SLIPPAGE_BPS_ROUNDTRIP = 0.0
+FUNDING_BPS_PER_WINDOW = 0.0
+FUNDING_WINDOW_HOURS = execution_costs.FUNDING_WINDOW_HOURS
 
 
 @dataclass
@@ -467,12 +477,20 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         Path(emit_path).parent.mkdir(parents=True, exist_ok=True)
         with open(emit_path, "w", encoding="utf-8") as fh:
             for t in trades:
-                fr = _fee_r(t)
+                cb = _cost_breakdown(t)
+                fr = cb["total_cost_r"]
                 fh.write(json.dumps({
                     "strategy": "htf_pullback_trend_2h", "symbol": symbol,
                     "entry_time": str(t.entry_time),
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - fr, 4),
+                    # Execution-realism cost breakdown (additive; consumers .get()).
+                    # net_r is now net-of-fee+slippage+funding (§ 3.B); the components
+                    # let the calibrator attribute the backtest↔live gap.
+                    "cost_fee_r": round(cb["fee_r"], 5),
+                    "cost_slippage_r": round(cb["slippage_r"], 5),
+                    "cost_funding_r": round(cb["funding_r"], 5),
+                    "funding_windows": round(cb["funding_windows"], 3),
                     "confidence": t.confidence,
                     # M20 E0 exit-head dataset fields (additive — existing
                     # consumers .get() what they need): trade geometry so the
@@ -519,10 +537,28 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params)
 
 
-def _fee_r(t: Trade) -> float:
+def _cost_breakdown(t: Trade) -> Dict[str, float]:
+    """Per-trade round-trip cost in R via the ONE shared execution-realism model
+    (fee + slippage + funding). Funding counts the 8h perp windows the hold crossed
+    (t.entry_time → t.exit_time). Slippage/funding are 0.0 by default → fee-only,
+    byte-identical to the legacy term."""
     if not t.exit_price or t.risk <= 0:
-        return 0.0
-    return (FEE_BPS_ROUNDTRIP / 10_000.0) * ((t.entry + t.exit_price) / 2.0) / t.risk
+        return {"fee_r": 0.0, "slippage_r": 0.0, "funding_r": 0.0,
+                "total_cost_r": 0.0, "funding_windows": 0.0}
+    return execution_costs.roundtrip_cost_r(
+        entry=t.entry, exit_price=t.exit_price, risk=t.risk,
+        entry_time=t.entry_time, exit_time=t.exit_time,
+        fee_bps_roundtrip=FEE_BPS_ROUNDTRIP,
+        slippage_bps_roundtrip=SLIPPAGE_BPS_ROUNDTRIP,
+        funding_bps_per_window=FUNDING_BPS_PER_WINDOW,
+        funding_window_hours=FUNDING_WINDOW_HOURS,
+    )
+
+
+def _fee_r(t: Trade) -> float:
+    """Total round-trip cost in R (fee + slippage + funding). Name kept for the
+    existing call sites; with slippage/funding at 0.0 it equals the legacy fee."""
+    return _cost_breakdown(t)["total_cost_r"]
 
 
 def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
@@ -531,6 +567,9 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
     base: Dict[str, Any] = {
         "strategy": "htf_pullback_trend_2h", "symbol": symbol, "timeframe": timeframe,
         "params": params, "total_trades": n, "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
+        # Execution-realism cost config in effect for this run (P1 § 3.B).
+        "slippage_bps_roundtrip": SLIPPAGE_BPS_ROUNDTRIP,
+        "funding_bps_per_window": FUNDING_BPS_PER_WINDOW,
         "data_start": str(df["timestamp"].iloc[0]) if len(df) else None,
         "data_end": str(df["timestamp"].iloc[-1]) if len(df) else None,
         "run_date": str(date.today())}
@@ -540,7 +579,11 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
                      "by_outcome": {}, "by_year": {}})
         return base
     rs = [t.r_multiple for t in trades]
-    net = [t.r_multiple - _fee_r(t) for t in trades]
+    costs = [_cost_breakdown(t) for t in trades]
+    net = [t.r_multiple - c["total_cost_r"] for t, c in zip(trades, costs)]
+    mean_cost_r = {k: round(sum(c[k] for c in costs) / n, 5)
+                   for k in ("fee_r", "slippage_r", "funding_r",
+                             "total_cost_r", "funding_windows")}
     wins = [r for r in rs if r > 0]
     longs = [t for t in trades if t.direction == "long"]
     shorts = [t for t in trades if t.direction == "short"]
@@ -568,6 +611,7 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
         "trades_long": len(longs), "trades_short": len(shorts),
         "avg_win_r": round(sum(wins) / len(wins), 4) if wins else 0.0,
         "max_mfe_r": round(max(t.mfe_r for t in trades), 3),
+        "mean_cost_r": mean_cost_r,
         "max_drawdown_r": round(mdd, 4), "by_outcome": by, "by_year": by_year})
     return base
 
@@ -587,8 +631,8 @@ def _fmt(s: Dict[str, Any]) -> str:
 
 
 def main(argv: List[str]) -> int:
-    global FEE_BPS_ROUNDTRIP
-    p = argparse.ArgumentParser(description="HTF pullback trend-continuation backtest (net-of-fee).")
+    global FEE_BPS_ROUNDTRIP, SLIPPAGE_BPS_ROUNDTRIP, FUNDING_BPS_PER_WINDOW, FUNDING_WINDOW_HOURS
+    p = argparse.ArgumentParser(description="HTF pullback trend-continuation backtest (net-of-cost: fee+slippage+funding).")
     p.add_argument("--data", default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"))
     p.add_argument("--timeframe", default="2h")
     p.add_argument("--symbol", default="BTCUSDT")
@@ -609,6 +653,21 @@ def main(argv: List[str]) -> int:
     p.add_argument("--timeout-bars", type=int, default=200)
     p.add_argument("--cooldown-bars", type=int, default=1)
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP)
+    p.add_argument("--slippage-bps-roundtrip", type=float, default=SLIPPAGE_BPS_ROUNDTRIP,
+                   help="Execution-realism (P1 § 3.B): round-trip slippage in bps of "
+                        "notional (half-spread + impact, summed over both sides). "
+                        "0.0 (default) = byte-identical fee-only harness. A liquid "
+                        "crypto-perp estimate is ~5 (execution_costs.DEFAULT_SLIPPAGE_"
+                        "BPS_ROUNDTRIP).")
+    p.add_argument("--funding-bps-per-window", type=float, default=FUNDING_BPS_PER_WINDOW,
+                   help="Execution-realism (P1 § 3.B): perp funding magnitude in bps "
+                        "of notional per 8h window; the hold is charged for every "
+                        "window it crosses (a multi-bar 2h-strategy hold spans "
+                        "several). 0.0 (default) = off. BTC's long-run avg |funding| "
+                        "is ~1 bps/8h. Directionless drag at P1 (a signed funding "
+                        "feed is the P2 upgrade).")
+    p.add_argument("--funding-window-hours", type=float, default=FUNDING_WINDOW_HOURS,
+                   help="Perp funding window length in hours (default 8.0).")
     p.add_argument("--min-confidence", type=float, default=0.0,
                    help="Skip entries whose live-parity confidence (trend-depth/ATR) is below this.")
     p.add_argument("--adx-min", type=float, default=None,
@@ -685,6 +744,9 @@ def main(argv: List[str]) -> int:
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for regime tagging.")
     args = p.parse_args(argv[1:])
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
+    SLIPPAGE_BPS_ROUNDTRIP = args.slippage_bps_roundtrip
+    FUNDING_BPS_PER_WINDOW = args.funding_bps_per_window
+    FUNDING_WINDOW_HOURS = args.funding_window_hours
     try:
         df = _load_candles(args.data)
         if args.resample:
