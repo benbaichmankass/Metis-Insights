@@ -47,13 +47,26 @@ low-conviction size). Net is *worse* here, but on a 7-trade all-losing week that
 noise, not signal: when every trade loses, "size down the weak ones" only reshuffles
 which loss is largest. **No net/expectancy claim is defensible at n=7.**
 
-## Next (to complete C1) — two remaining halves
+## Full-feed A/B — the feed bridge is BUILT (2026-08-04)
 
-1. **Real evidence (Tier-1, trainer VM):** run the **budget-matched** A/B on the
-   full multi-year feed via the trainer relay — baseline `--risk-pct 2.0` vs
-   `--conviction-sizing`, net-of-cost, with the per-regime + per-symbol split. Grade
-   on ret/DD + net-of-cost expectancy over a population that clears the usable floor.
-   Only then is the conviction *shape* proven (or not).
+The blocker was a feed-format gap, not a soak: `backtest_system --data` reads CSV,
+but the trainer's real crypto feed is `market_raw` jsonl (only a 7-day sample is
+CSV). Rather than teach the harness to read jsonl, the bridge reuses the existing
+`scripts/ops/fetch_backtest_candles.py` (Binance-vision, keyless) to produce the
+full-history CSV the harness already reads — on a **free GH runner** (heavy compute
+off the 1-OCPU trainer). Shipped as **`.github/workflows/c1-conviction-ab.yml`**
+(trigger: label `c1-conviction-ab-request` or `workflow_dispatch`): per symbol it
+fetches 5m candles → runs the **budget-matched** baseline (`--risk-pct 2.0`) vs
+`--conviction-sizing`, both net-of-cost, and posts the net-$/maxDD/ret-DD comparison.
+Re-runnable any time. **The measured full-feed result is recorded here once the first
+run lands** (§ below, to be filled by that run).
+
+## Next (to complete C1) — the remaining half
+
+1. **~~Real evidence~~ — feed bridge BUILT (above); run it** (`c1-conviction-ab`
+   workflow) and record the per-symbol budget-matched net-of-cost verdict here.
+   Grade on ret/DD + net-of-cost expectancy. Only then is the conviction *shape*
+   proven (or not) on a population that clears the usable floor.
 2. **The flip (Tier-3, operator-gated — the "advises size on demo" done-condition):**
 
    ```
