@@ -78,9 +78,27 @@ finishing the current small thing before closing out.
 ## Step 2 — Close the current unit with no loose ends
 
 1. **Finish or checkpoint** the in-flight unit: commit, push, open the PR (a
-   draft with a clear description is a valid checkpoint — a stray local
-   branch with uncommitted changes is not).
+   draft with a clear description is a valid checkpoint **only for work
+   nothing downstream depends on yet** — the moment the handoff points a next
+   or parallel session at it, the bar rises to green-and-landing per the
+   first "No loose ends" bullet below; a stray local branch with uncommitted
+   changes is never a checkpoint).
 2. **No loose ends** — verify, don't assume:
+   - **CI is green and the PR is landed or landing — BEFORE you write the
+     handoff prompt, not after.** If any downstream session (the next serial
+     session, or a concurrent one you're about to hand a kickoff prompt) will
+     build on this branch, the PR must be CI-**green** and either **merged**
+     or set to **auto-merge on green** (`enable_pr_auto_merge`, having
+     confirmed the checks are green/passing) before the prompt goes out.
+     Driving CI green + landing the PR is part of closing THIS unit — never a
+     "follow-up" deferred past the handoff. **This is a binding gate
+     (operator-directed 2026-08-04):** a kickoff prompt was delivered with
+     the PR still draft + CI in flight, and then multiple operator turns were
+     spent chasing it green *after* the operator had already moved on to
+     stand up the next session — the foundation must be ready before anyone
+     is told to stand on it. If a genuinely-blocking check can't be made
+     green in-session (real failure outside scope, flaky infra), say so
+     explicitly in the handoff and do NOT imply the branch is a ready base.
    - `git status` clean, or every remaining diff explained in the handoff.
    - Every branch you pushed has an open PR (Multi-session coordination's
      "one PR = one concern" still applies — don't leave an orphan branch).
@@ -119,6 +137,12 @@ continuation of the same thread rather than a parallel independent unit:
 > **Next**: \<the specific next work item + where it was sourced from — an
 > explicit operator ask, the ROADMAP "Next" queue, a review-backlog item id,
 > or `research-driver` Step 1's ranking>.
+> **Base state**: \<the exact foundation the next session builds on — e.g.
+> "PR #NNNN merged to main at SHA, start fresh from origin/main" or "PR #NNNN
+> auto-merging on green, rebase onto main once it lands"> — so the next
+> session never inherits an un-landed or red branch and has to reconstruct
+> where the ground actually is (this is the Step 2 green-and-landing gate,
+> restated as an explicit line the reader can act on).
 > **Outstanding**: \<any parked Tier-3 item awaiting approval; any open
 > question the operator hasn't answered yet> — never silently drop these.
 > Start with the normal session-start read (root `CLAUDE.md` →
