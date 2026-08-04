@@ -1,0 +1,84 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Full-system audit report</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>Full-system audit report</h1>
+<p class="meta">Generated 2026-08-04T05:20:00+00:00 · window 2026-07-31 → 2026-08-04T05:20:00+00:00</p>
+<p><span class="grade">Roll-up: 🟢 ok</span></p>
+<p>Full-system audit (all 3 repos + both VMs + canonical store, 5 workstreams, building on the 07-31 pass). VERDICT: markedly healthy. Every 07-31 W2 enforcement fix VERIFIED landed (required CI contexts 9-&gt;15, branch-protection-sync fails-red on missing PAT, macro-producer-liveness vacuity wired, diag-unit-allowlist guard live and passing 45/45 units). The two highest-risk 07-31 items are RESOLVED in code: the promotion gate now filters untrusted PnL (exclude_untrusted_pnl default-on), and the &#x27;outcome families dead 10 weeks&#x27; was a diagnostic-lie (build-log read the wrong glob; #8185) - live-verified: trade_outcomes rebuilt TODAY 05:00. Env-gates clean, zero Prime-Directive/Tier-3 violations, zero open PRs. Live VM healthy on main, IB connected, all timers firing; trainer disk 79% (improved). Open: consumer provenance-headline residual (calendar/equity/asset carry no fabricated-PnL caveat), dashboard CLAUDE.md omitted the deployed Svelte SPA (FIXED this session), webapp &#x27;Paper&#x27; view blends soak accounts (mislabeled commit e823647), required-list doc drift (FIXED this session), bybit_2 real-money smoke NoneType still recurring (alarm-fatigue candidate, no live-trade impact), 35 stale research-dispatch issues.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Consumer provenance-headline residual: fabricated PnL folded with no caveat on calendar/equity/asset surfaces</b> <span class="pill">audit-WS-C · T1</span><br><span class='muted'>Provenance surfacing landed in all 3 clients for /trades/closed + exec-summary coverage, but NO client reads /performance totalPnlMeasured, and the P&amp;L calendar, equity curve, and per-asset/symbol bars carry NO fabricated-PnL caveat (only the exec-summary band + Trades list do). Surface totalPnlMeasured as the headline or extend the caveat to those surfaces. Bot-side field exists; both consumers need the change.</span></li>
+<li><b>webapp &#x27;Paper&#x27; view blends soak accounts (S-PAPER-PORTFOLIO violation)</b> <span class="pill">audit-WS-C · T1</span><br><span class='muted'>The Svelte SPA &#x27;Paper&#x27; funding view includes data-only soak accounts; Android + Streamlit correctly scope &#x27;Paper&#x27; to paper_role: portfolio. Root cause: commit e823647 subject &#x27;webapp: Paper = live-portfolio mirror&#x27; only changed streamlit_app.py + CLAUDE.md (verified --stat) - the webapp never got the fix (paper_role/paperPortfolio absent in webapp/src). Needs the wiring + render-verify.</span></li>
+<li><b>bybit_2 (REAL MONEY) smoke place_order NoneType still recurring - alarm-fatigue candidate</b> <span class="pill">audit-WS-A · T2</span> ⚠️ operator<br><span class='muted'>Recurring ~every 5-6h failed_exchange &#x27;NoneType&#x27;.place_order on a real-money account, walked past across reviews (health-review-backlog:6835). Root-caused as a harness/smoke client-resolution defect with NO live-trade impact (the trader trades bybit_2 fine), but the recurring real-money alarm is exactly the normalization the operator&#x27;s &#x27;if you see something&#x27; rule targets. Fix the smoke client resolution or explicitly silence it with rationale.</span></li>
+<li><b>Housekeeping: close #8208 (rotation already applied) + triage 35 stale research-dispatch issues</b> <span class="pill">audit-WS-E · T1</span><br><span class='muted'>#8208 (Tier-2 token-rotation system-action) is open with no completion comment, but the rotation WAS applied (08-01 weekly report: both bots active, old tokens 401; ict-claude-bridge live) - so it is a stale-open issue to close, not an unapplied action. Separately, 35 open issues (~34 research/system-action dispatch relays, oldest #7769 from 07-27) are accumulating on the tracker - a close-out sweep is warranted.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">97 open / 97 total · 29 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">52 open / 52 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">39 open / 39 total</div></div>
+</div>
+<h2>System &amp; technical health <span class="grade">🟢 ok</span></h2>
+<div class="tablewrap"><table><tr><th>Service</th><th>State</th><th>Since</th></tr>
+<tr><td>ict-trader-live.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-web-api.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-telegram-bot.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-claude-bridge.service</td><td>active/running</td><td>—</td></tr>
+</table></div>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>Phase 0 - canonical rules coherence</td><td class="sev-ok">🟢 ok</td><td>check_canonical_doc_coherence.py all 4 checks PASS; rules corpus current (absorbed the 07-30/07-31 provenance + population + green-is-not-evidence rules). Clone arrived SHALLOW (50 commits) - unshallowed before any history claim.</td></tr>
+<tr><td>07-31 W2 CI-enforcement fixes</td><td class="sev-ok">🟢 ok</td><td>VERIFIED LANDED: required contexts 9-&gt;15 (2 provenance guards + layer/json-extract/soak-doctrine/artifact-validity); branch-protection-sync fails RED on missing PAT; macro-producer-liveness vacuity -&gt; exit 1 + alert; merge_group empty-base_ref fixed comprehensively; diag-unit-allowlist guard live (45 units, 0 failures).</td></tr>
+<tr><td>Promotion gate PnL trust (highest 07-31 risk)</td><td class="sev-ok">🟢 ok</td><td>RESOLVED: ml/promotion/attribution.py::load_closed_trades now exclude_untrusted_pnl=True default, drops non-MEASURED/ESTIMATED via provenance.pnl_is_trustworthy. Was CRITICAL &#x27;trained clean, promoted on 65%-fabricated&#x27;.</td></tr>
+<tr><td>Outcome-label dataset families</td><td class="sev-ok">🟢 ok</td><td>The 07-31 &#x27;dead 10 weeks&#x27; was a DIAGNOSTIC LIE (build-log read row_count from the wrong glob; #8185 fixed). Live-verified: datasets-out/trade_outcomes/all/all/v002/data.jsonl rebuilt 2026-08-04 05:00 (275KB). My own first dir-mtime probe reproduced the same artifact and was withdrawn.</td></tr>
+<tr><td>Env-gates / Prime Directive</td><td class="sev-ok">🟢 ok</td><td>CLEAN - no required-capability-behind-default-off *_ENABLED remains; every dangerous gate is comment-only, 0 runtime reads. env-gate-guard REQUIRED. Zero Tier-3 violations.</td></tr>
+<tr><td>Live VM</td><td class="sev-ok">🟢 ok</td><td>On main (0ed8a5a6), heartbeat running, ict-trader-live/web-api/telegram/claude-bridge all active, all timers active, no failed unit. bybit_2 real-money live. IB 3 MES clients connected.</td></tr>
+<tr><td>Trainer VM</td><td class="sev-ok">🟢 ok</td><td>On main, disk 79% (improved from 86% on 07-31), 7 timers firing incl. nightly trainer + promotion-readiness + drift-retrain.</td></tr>
+<tr><td>Consumer provenance surfacing</td><td class="sev-watch">🟡 watch</td><td>Landed in all 3 clients for /trades/closed pnlProvenance + exec-summary coverage. RESIDUAL: no client reads totalPnlMeasured; the P&amp;L calendar, equity curve, per-asset/symbol bars carry NO fabricated-PnL caveat.</td></tr>
+<tr><td>Dashboard CLAUDE.md / Svelte SPA</td><td class="sev-ok">🟢 ok</td><td>Was HIGH doc-drift (omitted the deployed webapp/ Svelte SPA, wrongly claimed Streamlit is the Telegram deep-link target + &#x27;single app&#x27;). FIXED this session: two-frontends note + corrected deep-link target + line count 6500-&gt;9462 + webapp/ in the tree.</td></tr>
+<tr><td>webapp &#x27;Paper&#x27; funding scope</td><td class="sev-watch">🟡 watch</td><td>MED: SPA &#x27;Paper&#x27; view blends soak accounts (S-PAPER-PORTFOLIO violation). Root cause: commit e823647 subject claims a webapp fix but only touched streamlit_app.py + CLAUDE.md. Android + Streamlit scope correctly. Needs the paper_role/paperPortfolio wiring + render-verify.</td></tr>
+<tr><td>Guard/doc drift (github-actions-workflows.md)</td><td class="sev-ok">🟢 ok</td><td>Was MED: published a stale 9-entry required list vs the live 15. FIXED this session (synced + pointed at the workflow as source of truth).</td></tr>
+<tr><td>Trainer unit liveness coverage (B-1)</td><td class="sev-watch">🟡 watch</td><td>LOW: deploy/trainer/* units (drift-retrain, promotion-readiness, orderflow-capture) covered by no inventory/liveness guard (guard globs top-level deploy/* only). A trainer-side liveness inventory is the durable fix. -&gt; health backlog.</td></tr>
+<tr><td>diag-unit-allowlist-guard promotion (B-2)</td><td class="sev-watch">🟡 watch</td><td>LOW: genuinely block-worthy + passing but still ADVISORY. Promotion candidate. -&gt; health backlog.</td></tr>
+<tr><td>bybit_2 smoke place_order NoneType</td><td class="sev-concern">🔴 concern</td><td>STILL-OPEN (health-review-backlog:6835): recurring ~5-6h failed_exchange NoneType on a REAL-MONEY account, walked past across reviews. Harness/smoke client-resolution defect only, NO live-trade impact - but the recurring real-money alarm is an alarm-fatigue candidate per the operator&#x27;s rule. Fix or explicitly silence.</td></tr>
+<tr><td>Stale dispatch issues + #8208</td><td class="sev-watch">🟡 watch</td><td>35 open issues, ~34 research/system-action dispatch relays (oldest #7769 07-27). #8208 (Tier-2 token rotation) open with no completion comment - but the rotation WAS applied (08-01 weekly report: bots active, old tokens 401) so #8208 is a stale-open issue to close, not an unapplied action.</td></tr>
+</table></div>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>bybit_2-smoke-nonetype</code></td><td>health</td><td>• recurring-alarm</td><td>Real-money bybit_2 smoke place_order NoneType recurring ~5-6h; harness defect, no live-trade impact. Fix or silence with rationale.</td><td>next health-review</td></tr>
+<tr><td><code>consumer-provenance-headline-residual</code></td><td>consumer</td><td>• awaiting-work</td><td>calendar/equity/asset surfaces fold fabricated PnL with no caveat; no client reads totalPnlMeasured.</td><td>next consumer session</td></tr>
+<tr><td><code>webapp-paper-soak-blend</code></td><td>consumer</td><td>• awaiting-work</td><td>Svelte SPA &#x27;Paper&#x27; view blends soak accounts (commit e823647 skipped the webapp). Needs paper_role wiring + render-verify.</td><td>next consumer session</td></tr>
+<tr><td><code>trainer-unit-liveness-guard</code></td><td>health</td><td>• coverage-gap</td><td>deploy/trainer/* units have no inventory/liveness guard (B-1). diag-unit-allowlist-guard still advisory (B-2).</td><td>next health-review</td></tr>
+</table></div>
+<footer>report_id AUDIT-20260804 · reviewer claude (full-system-audit) · prior AUDIT-20260731 · ICT Trading Bot full-system-audit</footer></div></body></html>
