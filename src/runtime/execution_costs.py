@@ -65,6 +65,60 @@ DEFAULT_FUNDING_BPS_PER_WINDOW: float = 1.0
 FUNDING_WINDOW_HOURS: float = 8.0
 
 
+# ---- venue-aware cost resolution (mandatory-cost policy) ---------------------
+# A faithful backtest is net-of-real-cost, but the cost must be VENUE-CORRECT:
+# perp funding applies ONLY to crypto perpetual swaps, NOT to dated futures
+# (MES/MGC/MHG), equities/ETFs (SPY/GLD), or fx (EURUSD). Charging funding on a
+# non-perp fabricates a cost — the same false-drag class as the equity fee bug
+# (BL-20260730-RESEARCH-VENUE-FEE). The fee term is already venue-aware via
+# ``profile_loader.roundtrip_fee_bps_for``; these mirror it for funding/slippage.
+
+# Crypto PERPETUAL-swap categories in config/instruments.yaml (funding applies).
+# Dated `futures` (MES/MGC/MHG), `spot` equities/ETFs, and fx never pay perp funding.
+_PERP_CATEGORIES = {"linear", "inverse"}
+_PERP_CATEGORY_CACHE: dict[str, str] | None = None
+
+
+def is_perp(symbol: Any) -> bool:
+    """True iff ``symbol`` is a crypto PERPETUAL swap (funding applies). Resolved
+    authoritatively from ``config/instruments.yaml`` (``category ∈ {linear,
+    inverse}``, mirroring ``profile_loader.roundtrip_fee_bps_for``); falls back to
+    the ``*USDT`` heuristic only when the symbol is absent from instruments.yaml.
+    Non-perps (futures/spot/equity/fx) → False → zero funding. Memoized process-wide
+    (reset ``_PERP_CATEGORY_CACHE`` in tests to force a reload)."""
+    global _PERP_CATEGORY_CACHE
+    s = str(symbol or "").strip()
+    if not s:
+        return False
+    if _PERP_CATEGORY_CACHE is None:
+        try:
+            from src.core.profile_loader import load_instrument_profiles
+            profiles = load_instrument_profiles()
+            _PERP_CATEGORY_CACHE = {
+                sym: str(getattr(p, "category", "") or "").lower()
+                for sym, p in (profiles or {}).items()
+            }
+        except Exception:  # allow-silent: best-effort; the *USDT heuristic below is the fallback — research cost model, not a live read-path
+            _PERP_CATEGORY_CACHE = {}
+    cat = _PERP_CATEGORY_CACHE.get(s)
+    if cat is not None:
+        return cat in _PERP_CATEGORIES  # authoritative — instruments.yaml wins
+    return s.upper().endswith("USDT")  # unknown symbol: crypto perps end in USDT
+
+
+def funding_bps_per_window_for(symbol: Any) -> float:
+    """Venue-aware perp funding: the default per-8h magnitude for a crypto perp,
+    ``0.0`` for every non-perp (futures/equity/fx never pay perp funding)."""
+    return DEFAULT_FUNDING_BPS_PER_WINDOW if is_perp(symbol) else 0.0
+
+
+def slippage_bps_roundtrip_for(symbol: Any) -> float:  # noqa: ARG001
+    """Round-trip slippage default. Uniform across venues for now (spread + impact
+    exists everywhere); a per-venue magnitude is a documented refinement. Takes the
+    symbol so the signature is stable when that lands."""
+    return DEFAULT_SLIPPAGE_BPS_ROUNDTRIP
+
+
 def _f(x: Any) -> Optional[float]:
     try:
         v = float(x)
