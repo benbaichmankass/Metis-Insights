@@ -481,3 +481,32 @@ is structurally retired for good. Ready to execute now, no gate.
 **Then, concretely:** W0.1 (ML cleanup), W0.2 (read the two convergence soaks),
 W1.1 (flip reductive conviction sizing on demo — the first no-money-risk step of
 the master model). All Tier-1 / demo; can start cold.
+
+---
+
+## 10. Addendum (2026-08-04) — the Faithful-Backtest Platform is the ENABLER for this whole plan
+
+Mid-session the operator (correctly) escalated the deeper root cause: waiting on
+live-data accrual to make confident decisions is not a pipeline. That produced a
+second design of record —
+[`FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md`](FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md)
+(Phase 0 shipped: `scripts/research/backtest_fidelity_calibrate.py`, the
+backtest↔live agreement gate). **This does not replace the plan above — it is the
+instrument that makes every wave of it executable at speed.** Each track here needs
+*trustworthy, fast* evaluation:
+- **Strategies (§3, S1–S6)** — each hybrid is graded on the calibrated harness
+  instead of waiting for live proof.
+- **Macro (§4, MA2/MA3)** — the conviction-PnL harness *is* a tenant of the same
+  execution-realism cost model the platform builds.
+- **ML (§5, ML1/ML3)** — the EV/P_win + exit heads are evaluated on calibrated OOS
+  backtest evidence, not just the scarce live book (the P0 eval-book wall — §2b —
+  dissolves once a leg is `calibrated`).
+- **The spine (§6, C1–C6)** — every Tier-3 flip (conviction sizing, arbitration,
+  allocator) is A/B-gated through the calibrated platform.
+
+**Continuation map (any track picks up cleanly):** the platform (P1 = execution-
+realism cost model → re-calibrate → all-legs trust map) is the **immediate
+frontier**; once the calibration loop is trusted, the waves above resume and run
+*through* it. All tracks remain committed and ready as written — this addendum only
+records that they now share one trusted evaluation instrument. Nothing in §§3–9 is
+superseded.
