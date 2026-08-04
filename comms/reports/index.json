@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "AUDIT-20260804",
+      "window": "audit",
+      "generated_at": "2026-08-04T05:20:00+00:00",
+      "window_start": "2026-07-31",
+      "window_end": "2026-08-04T05:20:00+00:00",
+      "roll_up_grade": "ok",
+      "headline": "Full-system audit (all 3 repos + both VMs + canonical store, 5 workstreams, building on the 07-31 pass). VERDICT: markedly healthy. Every 07-31 W2 enforcement fix VERIFIED landed (required CI contexts 9->15, branch-protection-sync fails-red on missing PAT, macro-producer-liveness vacuity wired, diag-unit-allowlist guard live and passing 45/45 units). The two highest-risk 07-31 items are RESOLVED in code: the promotion gate now filters untrusted PnL (exclude_untrusted_pnl default-on), and the 'outcome families dead 10 weeks' was a diagnostic-lie (build-log read the wrong glob; #8185) - live-verified: trade_outcomes rebuilt TODAY 05:00. Env-gates clean, zero Prime-Directive/Tier-3 violations, zero open PRs. Live VM healthy on main, IB connected, all timers firing; trainer disk 79% (improved). Open: consumer provenance-headline residual (calendar/equity/asset carry no fabricated-PnL caveat), dashboard CLAUDE.md omitted the deployed Svelte SPA (FIXED this session), webapp 'Paper' view blends soak accounts (mislabeled commit e823647), required-list doc drift (FIXED this session), bybit_2 real-money smoke NoneType still recurring (alarm-fatigue candidate, no live-trade impact), 35 stale research-dispatch issues.",
+      "html_path": "comms/reports/audit/20260804T052000Z/report.html",
+      "json_path": "comms/reports/audit/20260804T052000Z/report.json",
+      "md_path": "comms/reports/audit/20260804T052000Z/report.md"
+    },
+    {
       "id": "RPT-20260801-090000-weekly",
       "window": "weekly",
       "generated_at": "2026-08-01T09:00:00+00:00",

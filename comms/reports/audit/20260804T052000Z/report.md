@@ -1,0 +1,22 @@
+# Full-system audit report
+
+- Generated: 2026-08-04T05:20:00+00:00
+- Window: 2026-07-31 → 2026-08-04T05:20:00+00:00
+- Roll-up grade: ok
+
+Full-system audit (all 3 repos + both VMs + canonical store, 5 workstreams, building on the 07-31 pass). VERDICT: markedly healthy. Every 07-31 W2 enforcement fix VERIFIED landed (required CI contexts 9->15, branch-protection-sync fails-red on missing PAT, macro-producer-liveness vacuity wired, diag-unit-allowlist guard live and passing 45/45 units). The two highest-risk 07-31 items are RESOLVED in code: the promotion gate now filters untrusted PnL (exclude_untrusted_pnl default-on), and the 'outcome families dead 10 weeks' was a diagnostic-lie (build-log read the wrong glob; #8185) - live-verified: trade_outcomes rebuilt TODAY 05:00. Env-gates clean, zero Prime-Directive/Tier-3 violations, zero open PRs. Live VM healthy on main, IB connected, all timers firing; trainer disk 79% (improved). Open: consumer provenance-headline residual (calendar/equity/asset carry no fabricated-PnL caveat), dashboard CLAUDE.md omitted the deployed Svelte SPA (FIXED this session), webapp 'Paper' view blends soak accounts (mislabeled commit e823647), required-list doc drift (FIXED this session), bybit_2 real-money smoke NoneType still recurring (alarm-fatigue candidate, no live-trade impact), 35 stale research-dispatch issues.
+
+
+## Operator priorities
+-. Consumer provenance-headline residual: fabricated PnL folded with no caveat on calendar/equity/asset surfaces — Provenance surfacing landed in all 3 clients for /trades/closed + exec-summary coverage, but NO client reads /performance totalPnlMeasured, and the P&L calendar, equity curve, and per-asset/symbol bars carry NO fabricated-PnL caveat (only the exec-summary band + Trades list do). Surface totalPnlMeasured as the headline or extend the caveat to those surfaces. Bot-side field exists; both consumers need the change.
+-. webapp 'Paper' view blends soak accounts (S-PAPER-PORTFOLIO violation) — The Svelte SPA 'Paper' funding view includes data-only soak accounts; Android + Streamlit correctly scope 'Paper' to paper_role: portfolio. Root cause: commit e823647 subject 'webapp: Paper = live-portfolio mirror' only changed streamlit_app.py + CLAUDE.md (verified --stat) - the webapp never got the fix (paper_role/paperPortfolio absent in webapp/src). Needs the wiring + render-verify.
+-. bybit_2 (REAL MONEY) smoke place_order NoneType still recurring - alarm-fatigue candidate — Recurring ~every 5-6h failed_exchange 'NoneType'.place_order on a real-money account, walked past across reviews (health-review-backlog:6835). Root-caused as a harness/smoke client-resolution defect with NO live-trade impact (the trader trades bybit_2 fine), but the recurring real-money alarm is exactly the normalization the operator's 'if you see something' rule targets. Fix the smoke client resolution or explicitly silence it with rationale.
+-. Housekeeping: close #8208 (rotation already applied) + triage 35 stale research-dispatch issues — #8208 (Tier-2 token-rotation system-action) is open with no completion comment, but the rotation WAS applied (08-01 weekly report: both bots active, old tokens 401; ict-claude-bridge live) - so it is a stale-open issue to close, not an unapplied action. Separately, 35 open issues (~34 research/system-action dispatch relays, oldest #7769 from 07-27) are accumulating on the tracker - a close-out sweep is warranted.
+
+## Monitoring (soaking / awaiting decision)
+- `bybit_2-smoke-nonetype` [health · recurring-alarm] Real-money bybit_2 smoke place_order NoneType recurring ~5-6h; harness defect, no live-trade impact. Fix or silence with rationale. (next: next health-review)
+- `consumer-provenance-headline-residual` [consumer · awaiting-work] calendar/equity/asset surfaces fold fabricated PnL with no caveat; no client reads totalPnlMeasured. (next: next consumer session)
+- `webapp-paper-soak-blend` [consumer · awaiting-work] Svelte SPA 'Paper' view blends soak accounts (commit e823647 skipped the webapp). Needs paper_role wiring + render-verify. (next: next consumer session)
+- `trainer-unit-liveness-guard` [health · coverage-gap] deploy/trainer/* units have no inventory/liveness guard (B-1). diag-unit-allowlist-guard still advisory (B-2). (next: next health-review)
+
+_report_id AUDIT-20260804_

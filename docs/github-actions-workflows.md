@@ -185,7 +185,9 @@ they self-fire. Touching a guard's own logic is **Tier 3**.
 | `repo-inventory.yml` | PR, push `main` | Uploads `scripts/repo_inventory.py` output as build artifact. Advisory only. | No |
 
 `REQUIRED_CONTEXTS` in `branch-protection-sync.yml` is the authoritative
-list of blocking checks. Currently (2026-05-22): `["pytest-collect","pytest-run","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver"]`.
+list of blocking checks — **read it there, this copy is a convenience mirror.**
+As of 2026-08-04 the 15 required contexts are: `["pytest-collect","pytest-run","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver","provenance-consumer-guard","diagnostic-provenance-guard","layer-guard","json-extract-guard","soak-doctrine-guard","artifact-validity-guard"]`
+(the 2 provenance guards were promoted 2026-07-30; layer/json-extract/soak-doctrine/artifact-validity 2026-07-31).
 
 ---
 
