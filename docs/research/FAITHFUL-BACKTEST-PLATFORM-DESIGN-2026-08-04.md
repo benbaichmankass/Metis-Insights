@@ -275,9 +275,20 @@ is a genuine fidelity improvement (backtests are now net-of-funding+slippage by
 construction and the live sizer can consult the same model), but on the pinpointed leg
 it is **not** the lever that flips `drifts → calibrated`. The honest next step is P1.x
 (real live-R + wider trusted-live set) and P2 (unified engine), not more cost tuning.
-The cost defaults (slippage 5bps rt, funding 1bps/8h) stay **opt-in** in the harness
-pending that widening — turning them on by default is a Tier-3 evaluation-semantics
-change better made once the live-R axis makes the verdict trustworthy.
+
+**Mandatory venue-aware cost (operator directive 2026-08-04 — supersedes the earlier
+"opt-in" disposition).** There is no reason to run a *faithful* backtest fee-only, so
+the cost is on **by default**: the pullback harness's `main()` applies the venue-aware
+defaults (slippage ~5bps rt; funding **perp-only** — `funding_bps_per_window_for` is
+1bps/8h for a crypto perp and **0 for futures/equity/fx**, so MES/GLD/EURUSD are never
+charged a fabricated funding cost — the false-drag class the venue-fee resolver already
+avoids). Every run emits **both** arms (`net_r` net-of-full-cost + `net_r_fee_only`) so
+the with/without comparison is always visible. The pure `run_backtest` engine stays
+byte-identical (its cost knobs default 0.0) so the lever unit tests are unaffected;
+`--slippage-bps-roundtrip 0 --funding-bps-per-window 0` reproduces the fee-only arm.
+**Pullback-first** — the other standalone harnesses (`trend`/`squeeze`/`fade`/
+`ict_scalp`/`system`) roll onto the shared model next (a focused follow-up PR), after
+which the whole roster is net-of-real-cost by construction.
 
 ## 6. Why this is not another partial fix
 The partial fix would be "wire the nightly build and wait for more trades." This

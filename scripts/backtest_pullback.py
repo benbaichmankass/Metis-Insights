@@ -39,11 +39,15 @@ if str(_REPO_ROOT) not in sys.path:
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
 
-# Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B). Fee is
-# the legacy term; SLIPPAGE + FUNDING default to 0.0 so a run that sets neither is
-# BYTE-IDENTICAL to the fee-only harness (every existing sweep/test unchanged). The
-# calibration run turns them on to measure how much of the +0.57R backtest-vs-live
-# gap is execution realism vs regime / small-sample bias.
+# Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B).
+# MANDATORY venue-aware cost is applied by main() (the CLI / production path): unset
+# --slippage/--funding flags resolve to the venue-aware defaults (funding is perp-only
+# → 0 for MES/GLD/EURUSD), so a real backtest is net-of-real-cost by default; every run
+# also emits the fee-only arm for the with/without comparison. These MODULE GLOBALS
+# default to 0.0 only so a DIRECT run_backtest() caller (the lever unit tests) stays
+# byte-identical to the fee-only engine — main() overwrites them with the venue-aware
+# policy. (Operator directive 2026-08-04: there is no reason to run a faithful backtest
+# fee-only; pullback-first, the other harnesses roll onto this next.)
 FEE_BPS_ROUNDTRIP = execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP
 SLIPPAGE_BPS_ROUNDTRIP = 0.0
 FUNDING_BPS_PER_WINDOW = 0.0
@@ -484,9 +488,11 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                     "entry_time": str(t.entry_time),
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - fr, 4),
-                    # Execution-realism cost breakdown (additive; consumers .get()).
-                    # net_r is now net-of-fee+slippage+funding (§ 3.B); the components
-                    # let the calibrator attribute the backtest↔live gap.
+                    # BOTH arms always emitted (operator directive 2026-08-04): net_r
+                    # is net-of-full-cost (fee+slippage+funding, § 3.B); net_r_fee_only
+                    # is the fees-only number for the with/without comparison on every
+                    # run. The breakdown lets the calibrator attribute the gap.
+                    "net_r_fee_only": round(t.r_multiple - cb["fee_r"], 4),
                     "cost_fee_r": round(cb["fee_r"], 5),
                     "cost_slippage_r": round(cb["slippage_r"], 5),
                     "cost_funding_r": round(cb["funding_r"], 5),
@@ -581,6 +587,8 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
     rs = [t.r_multiple for t in trades]
     costs = [_cost_breakdown(t) for t in trades]
     net = [t.r_multiple - c["total_cost_r"] for t, c in zip(trades, costs)]
+    # Fee-only arm — always computed so every run carries the with/without comparison.
+    net_fee_only = [t.r_multiple - c["fee_r"] for t, c in zip(trades, costs)]
     mean_cost_r = {k: round(sum(c[k] for c in costs) / n, 5)
                    for k in ("fee_r", "slippage_r", "funding_r",
                              "total_cost_r", "funding_windows")}
@@ -608,6 +616,10 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
         "net_total_r_long": round(sum(t.r_multiple - _fee_r(t) for t in longs), 4),
         "net_total_r_short": round(sum(t.r_multiple - _fee_r(t) for t in shorts), 4),
         "net_expectancy_r": round(sum(net) / n, 4),
+        # Fee-only comparison arm (always present): the number BEFORE slippage+funding,
+        # so a reader sees the execution-realism delta on every run without a re-run.
+        "net_total_r_fee_only": round(sum(net_fee_only), 4),
+        "net_expectancy_r_fee_only": round(sum(net_fee_only) / n, 4),
         "trades_long": len(longs), "trades_short": len(shorts),
         "avg_win_r": round(sum(wins) / len(wins), 4) if wins else 0.0,
         "max_mfe_r": round(max(t.mfe_r for t in trades), 3),
@@ -624,6 +636,10 @@ def _fmt(s: Dict[str, Any]) -> str:
             f"  win_rate={s['win_rate_pct']}%  net_r={s['net_total_r']} "
             f"(exp {s['net_expectancy_r']}, L/S {s['trades_long']}/{s['trades_short']}, "
             f"netL/S {s.get('net_total_r_long')}/{s.get('net_total_r_short')})",
+            f"  cost: slip={s.get('slippage_bps_roundtrip')}bps fund="
+            f"{s.get('funding_bps_per_window')}bps/8h → net-of-full-cost above vs "
+            f"FEE-ONLY net_r={s.get('net_total_r_fee_only')} "
+            f"(exp {s.get('net_expectancy_r_fee_only')}); mean_cost_r={s.get('mean_cost_r')}",
             f"  avg_win_r={s.get('avg_win_r')} max_mfe_r={s.get('max_mfe_r')} "
             f"maxdd_r={s['max_drawdown_r']} by={s['by_outcome']}",
             f"  by_year={s.get('by_year')}"]
@@ -653,19 +669,21 @@ def main(argv: List[str]) -> int:
     p.add_argument("--timeout-bars", type=int, default=200)
     p.add_argument("--cooldown-bars", type=int, default=1)
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP)
-    p.add_argument("--slippage-bps-roundtrip", type=float, default=SLIPPAGE_BPS_ROUNDTRIP,
+    p.add_argument("--slippage-bps-roundtrip", type=float, default=None,
                    help="Execution-realism (P1 § 3.B): round-trip slippage in bps of "
                         "notional (half-spread + impact, summed over both sides). "
-                        "0.0 (default) = byte-identical fee-only harness. A liquid "
-                        "crypto-perp estimate is ~5 (execution_costs.DEFAULT_SLIPPAGE_"
-                        "BPS_ROUNDTRIP).")
-    p.add_argument("--funding-bps-per-window", type=float, default=FUNDING_BPS_PER_WINDOW,
+                        "DEFAULT (unset) = the venue-aware default "
+                        "(execution_costs.slippage_bps_roundtrip_for, ~5 bps). Pass "
+                        "0 for the fee-only comparison arm.")
+    p.add_argument("--funding-bps-per-window", type=float, default=None,
                    help="Execution-realism (P1 § 3.B): perp funding magnitude in bps "
                         "of notional per 8h window; the hold is charged for every "
                         "window it crosses (a multi-bar 2h-strategy hold spans "
-                        "several). 0.0 (default) = off. BTC's long-run avg |funding| "
-                        "is ~1 bps/8h. Directionless drag at P1 (a signed funding "
-                        "feed is the P2 upgrade).")
+                        "several). DEFAULT (unset) = the VENUE-AWARE default "
+                        "(execution_costs.funding_bps_per_window_for): ~1 bps/8h for a "
+                        "crypto PERP, 0 for futures/equity/fx (they pay no perp "
+                        "funding). Pass 0 for the fee-only arm. Directionless drag at "
+                        "P1 (a signed funding feed is the P2 upgrade).")
     p.add_argument("--funding-window-hours", type=float, default=FUNDING_WINDOW_HOURS,
                    help="Perp funding window length in hours (default 8.0).")
     p.add_argument("--min-confidence", type=float, default=0.0,
@@ -744,8 +762,16 @@ def main(argv: List[str]) -> int:
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for regime tagging.")
     args = p.parse_args(argv[1:])
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
-    SLIPPAGE_BPS_ROUNDTRIP = args.slippage_bps_roundtrip
-    FUNDING_BPS_PER_WINDOW = args.funding_bps_per_window
+    # Mandatory venue-aware cost policy (operator directive 2026-08-04): a faithful
+    # backtest is net-of-real-cost by default. Unset flags resolve to the venue-aware
+    # defaults (funding is perp-only → 0 for MES/GLD/EURUSD, never a fabricated cost);
+    # an explicit value (incl. 0 for the fee-only comparison arm) always wins.
+    SLIPPAGE_BPS_ROUNDTRIP = (
+        execution_costs.slippage_bps_roundtrip_for(args.symbol)
+        if args.slippage_bps_roundtrip is None else args.slippage_bps_roundtrip)
+    FUNDING_BPS_PER_WINDOW = (
+        execution_costs.funding_bps_per_window_for(args.symbol)
+        if args.funding_bps_per_window is None else args.funding_bps_per_window)
     FUNDING_WINDOW_HOURS = args.funding_window_hours
     try:
         df = _load_candles(args.data)

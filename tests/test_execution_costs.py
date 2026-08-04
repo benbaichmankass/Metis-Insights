@@ -15,6 +15,38 @@ from datetime import datetime, timezone
 from src.runtime import execution_costs as ec
 
 
+class TestVenueAwareCost:
+    """Mandatory-cost policy (operator directive 2026-08-04): funding is PERP-ONLY.
+    A flat funding default on a future/equity/fx would fabricate a cost — the
+    false-drag class the venue-aware fee resolver already avoids."""
+
+    def _reset(self):
+        ec._PERP_CATEGORY_CACHE = None  # force a reload of the real instruments.yaml
+
+    def test_crypto_perps_pay_funding(self):
+        self._reset()
+        for sym in ("BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"):
+            assert ec.is_perp(sym) is True, sym
+            assert ec.funding_bps_per_window_for(sym) == ec.DEFAULT_FUNDING_BPS_PER_WINDOW
+
+    def test_non_perps_pay_no_funding(self):
+        self._reset()
+        # futures (IB) + equities/ETFs (alpaca spot) + fx — none pay perp funding
+        for sym in ("MES", "MGC", "MHG", "SPY", "GLD", "TLT", "EURUSD"):
+            assert ec.is_perp(sym) is False, sym
+            assert ec.funding_bps_per_window_for(sym) == 0.0, sym
+
+    def test_unknown_symbol_uses_usdt_heuristic(self):
+        self._reset()
+        assert ec.is_perp("FOOUSDT") is True      # unknown but *USDT → perp
+        assert ec.is_perp("NOT_A_SYMBOL") is False
+        assert ec.is_perp("") is False
+
+    def test_slippage_default_is_uniform_nonzero(self):
+        for sym in ("BTCUSDT", "MES", "GLD", "EURUSD"):
+            assert ec.slippage_bps_roundtrip_for(sym) == ec.DEFAULT_SLIPPAGE_BPS_ROUNDTRIP
+
+
 class TestFeeConstantSingleOwner:
     def test_reexports_agree(self):
         from src.runtime.allocator_ev import DEFAULT_FEE_BPS_ROUNDTRIP as a
