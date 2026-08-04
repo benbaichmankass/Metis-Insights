@@ -180,8 +180,34 @@ retrain. It does **not** re-scope — it executes the already-scoped
 this system (conviction-meta, trade-outcome, setup-quality, M23, the exit head)
 and therefore **Keystone A itself** is gated on this. Solving it once, *for real
 and enforced*, unblocks the entire master-model program — and ends a failure mode
-that has cost the operator repeated re-litigation. **This item is the immediate
-next action; it is ready to execute now (no gate, no research).**
+that has cost the operator repeated re-litigation.
+
+### Execution status (2026-08-04 — started this session)
+- **P0.1 — STARTED.** The `research-backtest-augment` workflow (the never-run A1
+  engine — it *and* `scripts/ml/backtest_augment_runner.py` already existed) was
+  **dispatched** via labelled issue #8454 (pooled roster `trend_donchian`@1h /
+  `squeeze_breakout_4h`@4h / `htf_pullback_trend_2h`@2h × BTC/ETH/SOL, 3y). It
+  produces the first `backtest_trades.db` (`is_backtest=1` rows) as an artifact.
+  **Follow-on:** land that db as a standing committed db (mirroring
+  `backtest_trades_mes.db`).
+- **P0.4 — BUILT + tested (this PR).** `training-population-guard` shipped:
+  `scripts/check_training_population.py` + `config/training_population.yaml`
+  (registry seeding the 3 pooled families as ratcheting debt, ceiling 3) +
+  `.github/workflows/training-population-guard.yml` + `docs/training-population-matrix.md`
+  + `tests/test_training_population_guard.py` (7 assertions). It fails CI if a
+  decision family trains live-only unclassified, **and forces the pay-down** — the
+  moment P0.2 wires a family, the ratchet reds CI until the debt entry is dropped
+  and the ceiling lowered. Verified: a foreign (MES-block) `include_backtest`
+  cannot falsely certify a live-only pooled family.
+- **P0.2 — NEXT (needs P0.1's db).** Wire `build_trainer_datasets.sh` to pass
+  `include_backtest`/`union` for `trade_outcomes`/`setup_labels`/`conviction_meta`
+  once the standing crypto `backtest_trades.db` lands; each wiring drops the guard
+  ceiling by 1. **P0.3** (source_breakdown on each head) + **P0.5** (canonize +
+  close `MB-20260530-001` / `BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED` with the
+  before/after `is_backtest` count) follow.
+
+**This item is the immediate next action and it is now IN MOTION (no gate, no
+research).**
 
 ---
 

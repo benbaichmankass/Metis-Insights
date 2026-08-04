@@ -1,0 +1,84 @@
+# Training-population registry + label-augmentation debt register
+#
+# Enforced by scripts/check_training_population.py (training-population-guard CI).
+#
+# WHY THIS EXISTS — the recurring breach it kills.
+# The per-trade backtest-augmentation infra is fully built (ml.datasets.
+# backtest_recorder + scripts/ml/record_harness_trades.py + the
+# `include_backtest`/`union` mode on the decision families + the
+# research-backtest-augment workflow) — and yet `trades.is_backtest=1` count was
+# ZERO in every month, because the pooled decision-family builds in
+# scripts/ops/build_trainer_datasets.sh never passed the augmentation. Every
+# "not enough data to train / blocked on labels" conclusion in this repo was
+# reached WITHOUT the augmentation built to solve it, and successive sessions
+# kept re-deriving the wall as if unsolved. This guard makes that structurally
+# impossible: a journal-decision family that trains LIVE-ONLY must be an explicit
+# reasoned `augmentation_exempt` or a ratcheting `augmentation_debt` entry — a NEW
+# one cannot be added silently, and the debt only ratchets toward zero.
+#
+# tracking: BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED · MB-20260530-001
+
+schema_version: 1
+
+# The `include_backtest`/augmentation token the guard looks for in
+# build_trainer_datasets.sh to certify a family is ACTUALLY wired (not just
+# declared). Kept here so the wiring and the marker can't silently drift.
+augmentation_marker: "include_backtest"
+
+# Journal-backed DECISION families the nightly trainer build produces that pool
+# the ~78-label live corpus and SUPPORT backtest/paper augmentation. Each MUST be
+# `augmented` (wired), `augmentation_exempt` (reasoned), or `augmentation_debt`
+# (grandfathered, ratcheting). An unclassified decision family is a violation.
+decision_families:
+  - trade_outcomes
+  - setup_labels
+  - conviction_meta
+
+# debt_ceiling ratchets DOWN only. Each pooled family that P0.2 wires to pass
+# `include_backtest` moves out of debt and lowers this by one — the forcing
+# function that drives the corpus off the ~78-row wall for good.
+debt_ceiling: 3
+
+# Families genuinely NOT augmentable from backtests (reasoned, permanent).
+augmentation_exempt:
+  execution_quality:
+    tracking_id: MB-20260530-001
+    reason: >-
+      Learns real slippage / fill quality, which backtests do not model —
+      synthetic backtest fills would POISON it (the one explicit carve-out in
+      MB-20260530-001's feasibility note). Live-only is correct here.
+
+# Grandfathered LIVE-ONLY decision families owed augmentation. Seeded 2026-08-04
+# at the current true state: all three pooled families train live-only today.
+# P0.2 (build_trainer_datasets.sh wiring, once the research-backtest-augment db
+# lands) moves each to `augmented` and lowers debt_ceiling. Target: 0.
+augmentation_debt:
+  trade_outcomes:
+    tracking_id: BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED
+    added: '2026-08-04'
+    reason: >-
+      Built live-only in build_trainer_datasets.sh (--source trade_journal.db,
+      no include_backtest). The augment engine (research-backtest-augment.yml →
+      scripts/ml/backtest_augment_runner.py) produces the is_backtest=1 rows;
+      P0.2 merges the standing backtest_trades.db and passes include_backtest,
+      then this moves to `augmented` and the ceiling drops to 2.
+  setup_labels:
+    tracking_id: BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED
+    added: '2026-08-04'
+    reason: >-
+      Same as trade_outcomes — journal-only nightly build; the include_backtest
+      path exists on the family and is unfed. P0.2 wires it; ceiling → 1.
+  conviction_meta:
+    tracking_id: MB-20260530-001
+    added: '2026-08-04'
+    reason: >-
+      The v2 conviction meta-model corpus — journal-only today (n≈78 wall). Its
+      family already has the `mode: {live,backtest,union}` switch; P0.2 passes
+      union once the backtest db lands, then this moves to `augmented`, ceiling
+      → 0, and the "blocked on labels" excuse is retired.
+
+# Related but NOT nightly-build-owned (tracked elsewhere, not enforced here):
+#   setup_candidates (M23 metalabel) — research-path family with the full
+#   event_source taxonomy (backtest/live_paper); its augmentation is tracked
+#   under MB-20260717-M23-META-LABEL, driven by the same research-backtest-augment
+#   output. Add it to decision_families when it joins the nightly build.
