@@ -256,7 +256,21 @@ PYAUG
     rm -f "$POOL_MERGED"; POOL_MERGED=""
   fi
 else
-  emit "$(printf '{"ts":"%s","status":"skipped","family":"pooled_augment_merge","detail":"%s absent — pooled builds journal-only (run research-backtest-augment to create it)"}' "$(iso_now)" "$POOL_BT_DB")"
+  # LOUD, not a silent skip (BL-20260731 durability): an absent augment db means the
+  # include_backtest pooled builds silently regress to journal-only (the ~78-row
+  # wall) — exactly the breach the training-population-guard exists to prevent. The
+  # research-backtest-augment workflow now runs weekly + SSH-lands this db, so an
+  # absent db here is an anomaly worth flagging (status:warning, not skipped).
+  emit "$(printf '{"ts":"%s","status":"warning","family":"pooled_augment_merge","detail":"%s ABSENT — pooled builds fell back to journal-only (augmentation INERT). The weekly research-backtest-augment workflow should land it; re-run that workflow if this persists."}' "$(iso_now)" "$POOL_BT_DB")"
+fi
+# Staleness flag: the db is present but older than the ~weekly refresh cadence ⇒
+# the augmentation is running on a stale corpus. Warn (still merges — stale beats
+# absent), so a review notices the refresh has lapsed. Best-effort mtime read.
+if [ -f "$POOL_BT_DB" ]; then
+  _bt_age_days=$(( ( $(date +%s) - $(date -r "$POOL_BT_DB" +%s 2>/dev/null || echo 0) ) / 86400 ))
+  if [ "${_bt_age_days}" -gt 10 ] 2>/dev/null; then
+    emit "$(printf '{"ts":"%s","status":"warning","family":"pooled_augment_merge","detail":"backtest_trades.db is %s days old (> 10) — weekly research-backtest-augment refresh may have lapsed; augmentation corpus is stale."}' "$(iso_now)" "${_bt_age_days}")"
+  fi
 fi
 
 # ---- journal-backed families --------------------------------------------

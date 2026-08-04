@@ -40,6 +40,13 @@ on:
         default: ""
   issues:
     types: [opened]
+  # DURABILITY (BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED follow-up, 2026-08-04):
+  # weekly refresh so the standing backtest_trades.db the trainer nightly build
+  # merges (build_trainer_datasets.sh, include_backtest) is never a one-shot that
+  # silently goes stale/absent → journal-only. Runs on the FREE runner (the 1-OCPU
+  # trainer never does this heavy backtest) and SSH-lands the db onto the trainer.
+  schedule:
+    - cron: "0 6 * * 1"   # Mondays 06:00 UTC
 
 permissions:
   contents: read
@@ -53,6 +60,7 @@ jobs:
   augment:
     if: |
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
       (github.event_name == 'issues' &&
        (github.event.issue.user.login == github.repository_owner ||
         github.event.issue.user.login == 'github-actions[bot]') &&
@@ -84,6 +92,16 @@ jobs:
           echo "A1_DAYS=${{ github.event.inputs.days || '730' }}" >> "$GITHUB_ENV"
           echo "A1_RUN_TAG=${{ github.event.inputs.run_tag }}" >> "$GITHUB_ENV"
 
+      - name: Set params for the weekly schedule
+        # Scheduled refresh: pooled roster + all three crypto symbols + 730d (the
+        # runner's own defaults), so the standing backtest_trades.db stays fresh.
+        if: github.event_name == 'schedule'
+        run: |
+          echo "A1_ONLY=" >> "$GITHUB_ENV"
+          echo "A1_SYMBOLS=" >> "$GITHUB_ENV"
+          echo "A1_DAYS=730" >> "$GITHUB_ENV"
+          echo "A1_RUN_TAG=a1-crypto-weekly" >> "$GITHUB_ENV"
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -114,6 +132,46 @@ jobs:
             --days "${A1_DAYS}" ${ONLY_ARG} ${SYM_ARG} ${TAG_ARG} \
             > artifacts/a1/run.stdout 2> artifacts/a1/run.log
           echo "rc=$?"; tail -25 artifacts/a1/run.log || true
+
+      - name: Land backtest_trades.db onto the trainer (durability)
+        # The trainer nightly build (scripts/ops/build_trainer_datasets.sh) merges
+        # ${DATASETS_ROOT}/backtest_trades.db for the include_backtest pooled builds
+        # ONLY `if [ -f ]`. Uploading the db as an artifact alone left it a one-shot
+        # that silently went stale/absent → journal-only. This lands the freshly-
+        # regenerated db onto the trainer atomically each run so the merge stays
+        # live. Heavy compute stays on THIS free runner; the trainer only receives
+        # the file. Best-effort: an unset key / SSH failure warns, never fails the
+        # run (the artifact is still uploaded next). BL-20260731 durability follow-up.
+        if: always()
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+        run: |
+          DB="artifacts/a1/backtest_trades.db"
+          if [ ! -s "$DB" ]; then
+            echo "::warning::backtest_trades.db absent/empty — nothing to land on the trainer this run."
+            exit 0
+          fi
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::warning::VM_SSH_KEY unset — cannot land backtest_trades.db on the trainer (db still uploaded as artifact)."
+            exit 0
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key && chmod 600 ~/.ssh/trainer_key
+          ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          DEST="/home/ubuntu/ict-trading-bot/datasets-out"
+          # Atomic: scp to a temp path, then mv into place on the trainer so the
+          # nightly build never reads a half-copied db.
+          if scp -i ~/.ssh/trainer_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=25 \
+               "$DB" "${TRAINER_USER}@${TRAINER_IP}:${DEST}/backtest_trades.db.tmp" && \
+             ssh -i ~/.ssh/trainer_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=25 \
+               "${TRAINER_USER}@${TRAINER_IP}" \
+               "mkdir -p ${DEST} && mv -f ${DEST}/backtest_trades.db.tmp ${DEST}/backtest_trades.db && ls -la ${DEST}/backtest_trades.db"; then
+            echo "Landed backtest_trades.db on the trainer (${TRAINER_IP}:${DEST})."
+          else
+            echo "::warning::failed to land backtest_trades.db on the trainer (SSH/scp error) — db still uploaded as artifact; the trainer keeps its previous copy."
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
