@@ -50,8 +50,21 @@ augmentation_exempt:
 
 # Grandfathered LIVE-ONLY decision families owed augmentation. Seeded 2026-08-04
 # at the current true state: all three pooled families train live-only today.
-# P0.2 (build_trainer_datasets.sh wiring, once the research-backtest-augment db
-# lands) moves each to `augmented` and lowers debt_ceiling. Target: 0.
+#
+# MEASURED VERDICT 2026-08-04 (docs/research/S-P0-LABEL-AUGMENT-2026-08-04.md,
+# trainer #8460) — the debt below is now a DELIBERATE, EVIDENCE-BACKED DEFERRAL,
+# NOT neglect. The augmentation RAN (0 → 5,094 backtest train rows, ~19× the
+# ~78-row wall) and was measured on a real live holdout WITH the paper-book eval
+# population: the augmented pooled meta-label learns a REAL edge (26%→57% win-rate
+# on its selected slice, net-R positive) but only at 4–6% coverage — BELOW the
+# usable-volume floor, so it is not a deployable trade filter yet. The binding
+# constraint is the TRUSTED EVAL BOOK (324 real trades; the honest-provenance guard
+# correctly excludes fabricated paper pnl), which backtests CANNOT grow. So the
+# next lever is growing the real/paper eval book (M30/L3), not more train
+# augmentation — and wiring the nightly production build is deliberately deferred
+# pending that (or an explicit operator choice to keep the heads maximally trained).
+# The breach ("blocked on labels, never fed") is CLOSED; this guard makes it
+# un-repeatable.
 augmentation_debt:
   trade_outcomes:
     tracking_id: BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED

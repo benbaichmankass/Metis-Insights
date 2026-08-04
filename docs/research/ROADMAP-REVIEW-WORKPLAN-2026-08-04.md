@@ -199,15 +199,29 @@ that has cost the operator repeated re-litigation.
   moment P0.2 wires a family, the ratchet reds CI until the debt entry is dropped
   and the ceiling lowered. Verified: a foreign (MES-block) `include_backtest`
   cannot falsely certify a live-only pooled family.
-- **P0.2 — NEXT (needs P0.1's db).** Wire `build_trainer_datasets.sh` to pass
-  `include_backtest`/`union` for `trade_outcomes`/`setup_labels`/`conviction_meta`
-  once the standing crypto `backtest_trades.db` lands; each wiring drops the guard
-  ceiling by 1. **P0.3** (source_breakdown on each head) + **P0.5** (canonize +
-  close `MB-20260530-001` / `BL-20260731-BACKTEST-AUGMENTATION-NEVER-FED` with the
-  before/after `is_backtest` count) follow.
+- **P0.2 — RAN + MEASURED (trainer #8460, `INCLUDE_PAPER=true`).** Full record:
+  [`docs/research/S-P0-LABEL-AUGMENT-2026-08-04.md`](S-P0-LABEL-AUGMENT-2026-08-04.md).
+  Verdict: the augmented pooled head trained on **5,635 rows** (5,094 backtest / 324
+  real / 217 paper — the ~19× expansion, real) and **learns a real edge** (26%→57%
+  win-rate on its selected slice, net-R positive) **but below the usable-volume
+  floor** (4–6% coverage). **The binding constraint is the TRUSTED EVAL BOOK** (324
+  real trades; the honest-provenance guard correctly excludes fabricated paper pnl),
+  which backtests cannot grow. **The breach is CLOSED** (built → ran → measured →
+  guarded); the guard debt is now a **measured, evidence-backed deferral**, not neglect.
+- **P0.2 wiring — deliberately deferred (not owed-and-forgotten).** Wiring the
+  nightly production augmentation is deferred because the head is sub-volume/not-
+  deployable and the lever is elsewhere; it stays a ready operator-choice (keep the
+  heads maximally trained) recorded in `config/training_population.yaml`. **P0.3/P0.5**
+  fold into the findings note + the annotated backlog rows.
 
-**This item is the immediate next action and it is now IN MOTION (no gate, no
-research).**
+### FRONTIER REDIRECT (the real next lever)
+The measured verdict moves the next Wave from "more train augmentation" to
+**growing the trusted real/paper EVAL book** (M30/L3) — real trades accruing +
+trustworthy-pnl paper — so the sub-volume edge can cross the deployable floor. More
+backtests cannot move this. This is the corrected Keystone-B follow-through.
+
+**This item went from a recurring breach → built + ran + measured + permanently
+guarded in one session.**
 
 ---
 
