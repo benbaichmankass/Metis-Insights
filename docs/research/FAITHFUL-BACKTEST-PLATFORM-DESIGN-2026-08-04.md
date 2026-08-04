@@ -143,6 +143,42 @@ we can already trust* — it is the linchpin (it operationalizes §2.4).
    becomes P0-calibratable.
 3. Then P1 (close the exit-head omission) is the highest-leverage fidelity fix.
 
+## 5a. FIRST CALIBRATION RUN (2026-08-04, trainer #8461) — the thesis, measured
+
+The calibrator ran against real data on its first day. For the **first time ever**
+we have a *measured* backtest↔live agreement number — and it confirms the diagnosis:
+**our current backtests do NOT reproduce live, and now we can prove it with a number
+instead of blanket-distrusting everything.**
+
+| leg (BTC) | live n (measured-prov) | backtest n | live WR | backtest WR | KS(R) | live mean-R | backtest mean-R | verdict |
+|---|--:|--:|--:|--:|--:|--:|--:|---|
+| `htf_pullback_trend_2h` | 30 | 238 | 0.233 | 0.357 | **0.395** | **−0.53** | **+0.04** | **drifts** |
+| `trend_donchian` | 24 | 204 | 0.500 | 0.328 | 0.466 | 0.00 | +0.08 | insufficient-live |
+| `squeeze_breakout_4h` | 3 | 52 | 0.000 | 0.404 | 0.789 | −1.00 | +0.49 | insufficient-live |
+
+**What this proves, today:**
+1. **The research→results gap is now MEASURED, not anecdotal.** `htf_pullback_trend_2h`
+   is the first leg over the live-n floor: its backtest says **+0.04R (≈break-even)**
+   while live is **−0.53R (losing)** — KS 0.395 > 0.30 → `drifts`. That single number
+   is why "green in backtest, red live" kept happening. The calibrator catches it in
+   seconds.
+2. **We were right to distrust these backtests — but distrust is now a dial, not a
+   wall.** The verdict tells us *which* legs to trust and *how far off* the rest are,
+   so P1 (close the exit-head + cost omissions) has a **measurable target**: drive the
+   KS down and watch legs flip `drifts → calibrated`. That is the fast feedback loop
+   the pipeline was missing.
+3. **The trusted live calibration set is scarce** (BTC trend = 24 measured-provenance
+   trades, not the 299 raw — the provenance filter is strict, correctly). This is
+   *why* the sim must be made faithful: we cannot afford to depend on the scarce live
+   set for evaluation — we depend on it only to *calibrate* the sim (§2.4), then let
+   the faithful sim carry the volume.
+
+**Immediate P1 target (now quantified):** `htf_pullback_trend_2h` is the sharpest
+lever — its backtest is +0.57R too optimistic vs live. Make its harness run the real
+exit path (exit heads + trail-decay, currently omitted) and the real cost model, then
+re-run this calibrator; the KS should fall toward the gate. That is a same-day
+measurable win, repeated per leg.
+
 ## 6. Why this is not another partial fix
 The partial fix would be "wire the nightly build and wait for more trades." This
 plan **removes the dependency on reality's clock**: it builds the instrument that
