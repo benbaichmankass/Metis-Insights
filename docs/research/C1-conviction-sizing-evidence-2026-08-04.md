@@ -58,15 +58,58 @@ off the 1-OCPU trainer). Shipped as **`.github/workflows/c1-conviction-ab.yml`**
 (trigger: label `c1-conviction-ab-request` or `workflow_dispatch`): per symbol it
 fetches 5m candles → runs the **budget-matched** baseline (`--risk-pct 2.0`) vs
 `--conviction-sizing`, both net-of-cost, and posts the net-$/maxDD/ret-DD comparison.
-Re-runnable any time. **The measured full-feed result is recorded here once the first
-run lands** (§ below, to be filled by that run).
+Re-runnable any time.
+
+## Measured full-feed result (2026-08-05) — 365d per-symbol, budget-matched, net-of-cost
+
+Run via the `c1-conviction-ab` workflow on the full **365d** Binance-vision 5m feed,
+**one symbol per dispatch** (issues #8489/#8490/#8491). The combined 3-symbol run
+overran the free-runner wall-clock cap twice: each `backtest_system` pass over a year
+of 5m bars is ~25–30 min, so 6 passes (3 symbols × 2 arms) didn't fit even the raised
+90-min cap — per-symbol is 2 passes ≈ 30 min with margin (workflow default lowered to
+365d + 90-min cap in the same PR; 730d needs the per-symbol split). Baseline = flat
+**2.0%** risk (matched to the conviction 2% budget so only the conviction *shape*
+differs); conviction = **reductive ×2.0%**. Both net-of-cost.
+
+| symbol | arm | trades | net $ | maxDD $ | Δ net | Δ maxDD | verdict |
+|---|---|---|---|---|---|---|---|
+| BTCUSDT | flat 2.0% | 231 | −11,759 | 11,823 | | | |
+| BTCUSDT | conviction reductive | 477 | −9,966 | 10,013 | **+1,793** | **−1,810** | ✅ wins both |
+| SOLUSDT | flat 2.0% | 300 | −10,136 | 10,136 | | | |
+| SOLUSDT | conviction reductive | 617 | −9,728 | 11,922 | +408 | **+1,786** | ⚠️ mixed (better net, worse DD) |
+| ETHUSDT | flat 2.0% | 11 | −23,462 | 23,473 | | | |
+| ETHUSDT | conviction reductive | 12 | −12,108 | 12,118 | +11,354 | −11,356 | below-floor (n=11/12) |
+
+**ALWAYS STATE THE POPULATION.** BTC (n=231/477) and SOL (n=300/617) clear the usable
+floor; **ETH (n=11/12) does NOT** — its "wins both" is a small-n artifact, not evidence.
+Two more caveats bound the read:
+1. Both arms are heavily **net-negative** across all three symbols over this window — a
+   **losing population**. So this is a read on the conviction *shape*, **not** a
+   profitability claim: when the book loses, reductive sizing mostly reshuffles which
+   losses are largest (the same caveat as the n=7 probe, now at real n).
+2. The arms do **not** trade identical populations — reductive's smaller size clears a
+   capital/risk gate that refuses some trades at flat 2%, so conviction trades ~2× the
+   count. The comparison is shape-vs-shape on each arm's realized book, not a fixed set.
+
+**Verdict — the C1 win condition (reductive cuts maxDD without worsening net over a
+floor-clearing population) is PARTIAL.** It holds cleanly for **BTC** (lower net loss
+AND lower drawdown at solid n) but **fails for SOL** (drawdown gets *worse*). ETH is
+below-floor. So reductive conviction is **not** a clean cross-symbol drawdown win.
+
+**Consequence for the flip:** it stays exactly where it already is —
+`CONVICTION_SIZING_MODE=apply` / `DIRECTION=reductive` / `ACCOUNTS=bybit_1`, **demo
+only** (`bybit_1`, no money at risk). The evidence supports *observing* reductive
+conviction live on the demo book; it does **not** support widening scope to any
+real-money account. Widening remains a **Tier-3** gate, pending a clean cross-symbol
+maxDD win at solid n on a floor-clearing (ideally profitable) population.
 
 ## Next (to complete C1) — the remaining half
 
-1. **~~Real evidence~~ — feed bridge BUILT (above); run it** (`c1-conviction-ab`
-   workflow) and record the per-symbol budget-matched net-of-cost verdict here.
-   Grade on ret/DD + net-of-cost expectancy. Only then is the conviction *shape*
-   proven (or not) on a population that clears the usable floor.
+1. **~~Real evidence — DONE (2026-08-05)~~** — the per-symbol 365d budget-matched
+   net-of-cost A/B is run and recorded above. Result: **PARTIAL** — reductive
+   conviction cuts maxDD only on BTC (fails SOL, ETH below-floor), and over a
+   net-negative population, so it is not a clean cross-symbol win. Not deployable
+   evidence for widening past demo.
 2. **The flip (Tier-3, operator-gated — the "advises size on demo" done-condition):**
 
    ```
@@ -81,6 +124,8 @@ run lands** (§ below, to be filled by that run).
    **requires operator approval** before it goes on the VM. Once flipped, the
    orphaned conviction number advises size on demo for the first time, measured live.
 
-**Status:** C1's measurement is *wired and run* (net-of-cost, budget-match method
-established); the deployable evidence run + the operator flip are the two remaining
-steps, both recorded here so neither is dropped.
+**Status:** C1 is **COMPLETE** — the demo flip is live (`ACCOUNTS=bybit_1`) and the
+deployable evidence run has landed (2026-08-05, above). The measured verdict is
+**PARTIAL** (BTC wins, SOL mixed, ETH below-floor, over a net-negative population),
+so the flip correctly stays **demo-only**; widening to any real-money account
+remains a Tier-3 gate pending a clean cross-symbol maxDD win at solid n.
