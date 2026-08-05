@@ -9,7 +9,6 @@ from __future__ import annotations
 from tests.ml._manifest_paths import manifest_path
 
 import base64
-from pathlib import Path
 
 import yaml
 

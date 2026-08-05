@@ -8,7 +8,6 @@ from __future__ import annotations
 from tests.ml._manifest_paths import manifest_path
 
 import importlib
-from pathlib import Path
 
 from ml.evaluators.reconstruction import ReconstructionEvaluator
 from ml.manifest import TrainingManifest
