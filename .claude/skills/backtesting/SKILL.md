@@ -247,6 +247,51 @@ publish `SUMMARY.md` + `all_metrics.json` into
 the operator's real sweeps** — `backtest_results` (the table above) only
 ever holds on-demand `/test` runs.
 
+## Heavy backtests on a free GH runner — scope them, and know when they're done (2026-08-05)
+
+From a web/PM session, route CPU-heavy backtests to a **free GitHub runner**, not
+the 1-OCPU trainer (resource contract: `docs/claude/vm-resource-management.md`).
+The pattern is an issue-labelled workflow that fetches candles → runs the harness →
+posts a result comment: e.g. `c1-conviction-ab` (conviction A/B) and
+`research-backtest-augment` (label-augmentation). Dispatch = open the labelled issue
+(`git-actions` skill).
+
+Two lessons the C1 A/B paid for in wasted runs — follow them:
+
+**1. Scope the run to the runner's wall-clock cap. Measure the pass-time; don't
+guess.** A `backtest_system` pass is roughly linear in bars: over ~210k 5m bars
+(**730d**) it is **~25 min**; over ~105k (**365d**) **~13–18 min**. A job dies at its
+`timeout-minutes`. So `N_symbols × N_arms × pass_time` must fit the cap **with
+margin** — a 3-symbol × 2-arm year-of-5m A/B needs ~2.5 h and will never fit a
+60–90-min cap. When it doesn't fit, **split one symbol per dispatch** (2 passes
+≈ 30 min, huge margin) — those run in parallel on separate runners and each posts its
+own result — or shorten the window. Estimating from a measured single-pass time and
+dividing the work up front beats two guessed re-runs that each burn the full cap
+timing out (exactly what happened 2026-08-05: 730d and 365d-×3 both timed out before
+the per-symbol split landed the numbers).
+
+**2. Know when it finished — and reliably. The wake mechanism matters more than the
+run.** In this remote environment:
+
+| signal | wakes this session? | use it for |
+|---|---|---|
+| **PR activity** (`subscribe_pr_activity`) | **Yes — reliable.** CI-fail + merge webhooks are delivered as `<github-webhook-activity>` turns. | Anything you must not miss — route the deliverable through a PR and watch it. |
+| **Issue-triggered workflow result** (the SUMMARY.md issue comment) | **No.** The comment posts, but nothing pings Claude. | Fine for a result you'll actively go read; NOT for fire-and-forget. |
+| **`ScheduleWakeup` / `send_later` self check-in** | **Unreliable.** A long idle stretch reclaims the ephemeral container and the self-wake never lands. | Short waits only; never the sole mechanism for a long research run. |
+
+So: don't lean on a self-timer to collect a long (≥ tens-of-minutes) research run — it
+routinely won't fire. Prefer the **PR/webhook** path when you need a dependable "it's
+done", keep self-check-ins short and expect to re-arm them, and don't conclude a run
+succeeded until you've actually read its result comment.
+
+**Make a timed-out / errored run LOUD, not a soft null.** A workflow whose result step
+falls back to a bland "(summary not produced)" on a *cancelled* run reads like a clean
+negative — the unasserted-denominator trap (`silent-empty` / diagnostic-provenance
+class). A research workflow must post a clearly-marked **❌ RUN DID NOT COMPLETE
+(timed out / errored) — re-dispatch smaller** so the next reader knows a **re-run** is
+needed, not that the answer is null. Assert the result artifact exists before believing
+"no result = negative result".
+
 ## Output locations — at a glance
 
 | Output | Where |
