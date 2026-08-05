@@ -217,11 +217,30 @@ def upsert_funding(
 # ---------------------------------------------------------------------------
 
 
+def _account_filter(account_id: Optional[str]) -> tuple[str, tuple[Any, ...]]:
+    """SQL fragment + bound params scoping an aggregate to one account.
+
+    Returns ``("", ())`` when *account_id* is falsy, so every caller that
+    omits it keeps byte-identical behaviour. The value is ALWAYS bound, never
+    interpolated. Backed by the ``(account_id, exec_time)`` index declared in
+    the schema, so the scoped read is not a table scan.
+
+    Why this exists: the pooled cross-account aggregate mixes real-money
+    crypto fills with paper equity fills, so its headline realized figure is
+    not attributable to any one book and must not be quoted as one
+    (WORKPLAN-2026-08-05 P0.2a).
+    """
+    if not account_id:
+        return "", ()
+    return " AND account_id = ?", (account_id,)
+
+
 def aggregate_by_symbol(
     days: int,
     path: Optional[Path] = None,
     *,
     now: Optional[datetime] = None,
+    account_id: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Per-symbol fee + gross-volume aggregate over the last *days*.
 
@@ -237,6 +256,7 @@ def aggregate_by_symbol(
     if not p.exists():
         return []
     cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=days)).isoformat()
+    _acct_sql, _acct_params = _account_filter(account_id)
     conn = sqlite3.connect(str(p))
     conn.row_factory = sqlite3.Row
     try:
@@ -251,10 +271,11 @@ def aggregate_by_symbol(
                    MAX(exec_time)                              AS last_exec_time
             FROM exchange_fills
             WHERE datetime(exec_time) >= datetime(?)
+            """ + _acct_sql + """
             GROUP BY symbol
             ORDER BY symbol
             """,
-            (cutoff,),
+            (cutoff, *_acct_params),
         )
         rows = [dict(r) for r in cur.fetchall()]
     finally:
@@ -267,6 +288,7 @@ def aggregate_summary(
     path: Optional[Path] = None,
     *,
     now: Optional[datetime] = None,
+    account_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Cross-symbol summary over the last *days*."""
     if days <= 0:
@@ -277,6 +299,7 @@ def aggregate_summary(
         return {"fill_count": 0, "total_fees": 0.0, "symbol_count": 0,
                 "window_days": days}
     cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=days)).isoformat()
+    _acct_sql, _acct_params = _account_filter(account_id)
     conn = sqlite3.connect(str(p))
     try:
         row = conn.execute(
@@ -286,8 +309,9 @@ def aggregate_summary(
                    COUNT(DISTINCT symbol)
             FROM exchange_fills
             WHERE datetime(exec_time) >= datetime(?)
+            """ + _acct_sql + """
             """,
-            (cutoff,),
+            (cutoff, *_acct_params),
         ).fetchone()
     finally:
         conn.close()
@@ -381,6 +405,7 @@ def fifo_pnl_by_symbol(
     path: Optional[Path] = None,
     *,
     now: Optional[datetime] = None,
+    account_id: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Per-symbol realised + unrealised P&L over the last *days*.
 
@@ -395,6 +420,7 @@ def fifo_pnl_by_symbol(
     if not p.exists():
         return []
     cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=days)).isoformat()
+    _acct_sql, _acct_params = _account_filter(account_id)
     conn = sqlite3.connect(str(p))
     try:
         cur = conn.execute(
@@ -402,9 +428,10 @@ def fifo_pnl_by_symbol(
             SELECT symbol, side, price, qty, fee
             FROM exchange_fills
             WHERE datetime(exec_time) >= datetime(?)
+            """ + _acct_sql + """
             ORDER BY symbol, datetime(exec_time), exec_id
             """,
-            (cutoff,),
+            (cutoff, *_acct_params),
         )
         rows = cur.fetchall()
     finally:
@@ -462,6 +489,7 @@ def fifo_pnl_by_strategy(
     path: Optional[Path] = None,
     *,
     now: Optional[datetime] = None,
+    account_id: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Per-strategy gross / fees / net / fee-%-of-gross over the last *days*.
 
@@ -491,6 +519,7 @@ def fifo_pnl_by_strategy(
     if not p.exists():
         return []
     cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=days)).isoformat()
+    _acct_sql, _acct_params = _account_filter(account_id)
     conn = sqlite3.connect(str(p))
     try:
         cur = conn.execute(
@@ -498,9 +527,10 @@ def fifo_pnl_by_strategy(
             SELECT order_id, side, price, qty, fee
             FROM exchange_fills
             WHERE datetime(exec_time) >= datetime(?)
+            """ + _acct_sql + """
             ORDER BY datetime(exec_time), exec_id
             """,
-            (cutoff,),
+            (cutoff, *_acct_params),
         )
         rows = cur.fetchall()
     finally:
