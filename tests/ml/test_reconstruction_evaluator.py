@@ -5,13 +5,15 @@ model_state, and the manifest test only parses + resolves qualnames.
 """
 from __future__ import annotations
 
+from tests.ml._manifest_paths import manifest_path
+
 import importlib
 from pathlib import Path
 
 from ml.evaluators.reconstruction import ReconstructionEvaluator
 from ml.manifest import TrainingManifest
 
-_MANIFEST = Path("ml/configs/corpus-ssl-encoder-mae-v1.yaml")
+_MANIFEST = manifest_path("corpus-ssl-encoder-mae-v1")
 
 
 # --- the evaluator ---------------------------------------------------------- #
