@@ -36,7 +36,10 @@
 #
 # Optional issue-body knobs (all plumbed through system-actions.yml):
 #   apply:        true            -> WRITE (Tier-2). Default/absent -> dry run.
-#   account_id:   bybit_1         -> restrict to one account (review scope)
+#   account:      bybit_1         -> restrict to one account (review scope)
+#                                   NOTE the key is `account:`. `account_id:` is NOT parsed
+#                                   (system-actions.yml matches ^account:) and is silently
+#                                   ignored -> the run widens to ALL accounts.
 set -euo pipefail
 
 SCRIPT_NAME="mark_netted_duplicate_pnl"
