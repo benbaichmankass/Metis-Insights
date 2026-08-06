@@ -3,6 +3,51 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260806-DUPLICATE-PNL-NETTED-SIBLING-ROWS",
+      "opened_at": "2026-08-06T14:30:00+00:00",
+      "opened_by": "claude (roadmap-workplan-update session lw6qf0)",
+      "source": "Surfaced by the P1.x real-R calibrator (PR #8527) — NOT by any dedicated audit, which is the point: the R axis normalises pnl by each trade's own risk, and that immediately made an impossible row visible that raw-USD aggregates had absorbed silently for months.",
+      "title": "The SAME realized pnl is stamped on N netted sibling journal rows at FULL magnitude (htf_pullback_trend_2h/BTCUSDT: -2970.99 on 3 rows whose qty differs 60x)",
+      "tier": 2,
+      "status": "open",
+      "snoozed_until": null,
+      "severity": "high",
+      "what_to_check": "MEASURED (trainer-diag #8529, live journal, population = closed + non-backtest + pnl NOT NULL + measured-provenance, strategy htf_pullback_trend_2h symbol BTCUSDT, n=30 of 55 scanned). live mean R = -3.414 vs median -0.185; EXCLUDING the 3 worst rows the mean is +0.002. One row dominates: trade 2343, bybit_1, pnl -2970.99 on qty 0.012 BTC with a 3.72% stop distance => R = -99.5. A -2970.99 loss on 0.012 BTC implies a ~$247,000 price move, so that pnl is definitively not that row's own. The stop-distance denominator is NOT the cause: stop_dist_pct across the leg is min 1.10 / p25 1.87 / median 2.05 / max 5.41 percent, all sane for BTC. The signature is duplication: pnl -2970.99 appears on ids 2343/2447/2438 (qty 0.012 / 0.717 / 0.728) and +659.30 on 2584/2616 (qty 1.037 / 0.471) — identical to the cent across 60x different sizes. That is one netted close's realized pnl written to every sibling row at full magnitude instead of split pro-rata. STRONGLY INDICATED, NOT YET PROVEN: the confirming census (duplicate-pnl clusters per account + whether provenance already flags them) is trainer-diag #8531; #8530 was mangled by the relay and is void.",
+      "how": "Read #8531 block D FIRST — if these rows classify MEASURED then provenance.pnl_is_trustworthy has a hole and duplicated pnl is entering every downstream R metric, the calibration set, and the promotion gates that read totalPnlMeasured. Block C sizes the blast radius per account (bybit_1 is paper; check whether bybit_2 real-money rows are in clusters too). Then find the writer: this is the PnL-side sibling of the QTY-side netting defect fixed in PR #8527 (BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED) — under one-way netting the broker returns ONE closed-pnl record for the whole netted position and the monitor's four broker-close persist sites appear to stamp it whole onto each row rather than prorating. Note CLAUDE.md already documents that any *_prorated source is FABRICATED because the split is an assumption; a full-magnitude copy is strictly worse than a prorated one and is not currently marked at all.",
+      "disposition_when_verified": "If confirmed: (a) mark these rows so provenance excludes them from measured aggregates, (b) fix the writer to prorate-and-label or to refuse rather than duplicate, (c) re-run the P1.x trust map — the htf_pullback_trend_2h/BTC verdict is currently unusable in either direction. Do NOT quote that leg's live mean-R until this is resolved.",
+      "updates": []
+    },
+    {
+      "id": "BL-20260806-CALIBRATOR-GATE-HAD-NO-MAGNITUDE-AXIS",
+      "opened_at": "2026-08-06T14:30:00+00:00",
+      "opened_by": "claude (roadmap-workplan-update session lw6qf0)",
+      "source": "Found while reading the first real-R trust map (PR #8527). Fixed in the same session; logged so the reasoning survives.",
+      "title": "FIXED — backtest_fidelity_calibrate could declare `calibrated` with a 92x mean-R gap (win-rate + KS both passed)",
+      "tier": 1,
+      "status": "resolved",
+      "snoozed_until": null,
+      "severity": "medium",
+      "what_to_check": "htf_pullback_trend_2h/BTCUSDT cleared the win-rate gap (0.123 vs 0.15) AND KS(R) (0.213 vs 0.30) and was returned as `calibrated` while its live mean-R was -3.41 against a backtest -0.037. Neither axis can see that: win-rate measures how OFTEN a leg wins, KS is a max-CDF-gap statistic insensitive to tail magnitude, and nothing measured how MUCH. KS only counts the CDF fraction a row occupies, so one extreme row in 30 moves KS by ~1/30 while moving the mean by 3.3 — the exact geometry that let it through.",
+      "how": "Added a third gate axis `mean_r_gap` (MAX_MEAN_R_GAP = 0.50) plus a reported-not-gated `live_mean_r_outlier_share` that names one-row domination in the verdict reason, so a magnitude failure is legible instead of sending the reader to dump rows by hand (which is how this was found). NOTE the metric's ceiling is exactly 0.5 — deviations above and below a mean sum to the same total, so a lone value on its side contributes exactly half and can never exceed it; OUTLIER_DOMINANCE_FLAG must therefore stay BELOW 0.5 or the flag is unreachable and silently dead. Pinned by test_outlier_share_CEILING_is_one_half.",
+      "disposition_when_verified": "Resolved in-session. The re-run trust map must be read on the 3-axis gate; every pre-2026-08-06 verdict predates both the real-R axis and this one.",
+      "updates": []
+    },
+    {
+      "id": "BL-20260806-TRAINER-RELAY-MANGLES-ANGLE-BRACKETS",
+      "opened_at": "2026-08-06T14:30:00+00:00",
+      "opened_by": "claude (roadmap-workplan-update session lw6qf0)",
+      "source": "trainer-vm-diag issue #8530 — a cmd block containing Python f-string alignment specs came back as a SyntaxError on the VM.",
+      "title": "trainer-vm-diag relay HTML-escapes < and > inside a cmd block and collapses newlines to U+00B7",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "severity": "low",
+      "what_to_check": "Reproduced 2026-08-06 in #8530: a script using f-string alignment specs such as {x:>12.2f} / {y:<18} was delivered to the VM with < and > turned into &lt;/&gt; AND every newline in the affected region replaced by the middle-dot U+00B7, producing `SyntaxError: invalid character '·' (U+00B7)`. The relay reported the failure honestly (the traceback came back), so this is a usability bug, not a silent-corruption bug — but the failure mode is confusing because the script is valid Python as authored.",
+      "how": "Workaround in use: avoid < and > entirely in relay cmd blocks (#8531 uses BETWEEN instead of comparison operators and drops all alignment specs). Real fix is in the relay's body extraction — it should treat the fenced block as opaque text rather than HTML.",
+      "disposition_when_verified": "Fix the extraction in .github/workflows/trainer-vm-diag.yml, or document the constraint in docs/claude/trainer-vm-mode.md section 9 so future sessions do not lose a round trip to it.",
+      "updates": []
+    },
+    {
       "id": "BL-20260729-ICTSCALP-ETH15M-STALE-FIRSTFIRE",
       "opened_at": "2026-07-29T12:40:00+00:00",
       "opened_by": "claude (ict_scalp_eth_15m stale-stop ship session — wrap handoff)",
@@ -9991,6 +10036,6 @@
       "updates": []
     }
   ],
-  "updated_at": "2026-08-06T13:12:00+00:00",
+  "updated_at": "2026-08-06T14:30:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
