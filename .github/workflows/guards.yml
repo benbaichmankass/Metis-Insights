@@ -1,0 +1,146 @@
+name: Guards
+
+# ONE job for every fast static guard in the repo.
+#
+# BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES. Each guard used to be its own
+# workflow, so one PR asked GitHub for ~29 separate hosted runners. That is free
+# when the runner pool is healthy and catastrophic when it is not: during the
+# 2026-08-06 Actions incident, 28 of 29 jobs sat `queued` with no runner for over
+# an hour, and because almost none of those workflows declared a `concurrency:`
+# group, every re-run STACKED instead of superseding the last — 75 queued runs
+# from ~3 attempts at the same PR. The PR read red for reasons unrelated to its
+# diff, and "CI failed" was indistinguishable from "CI never ran".
+#
+# This is a PACKAGING change and nothing else. Every guard runs the same command
+# against the same relevance condition with the same assertions; the registry
+# lives in `scripts/ci/run_guards.py` and the failure-path self-tests (which used
+# to be inline heredocs in five of the retired YAML files) in
+# `scripts/ci/guard_selftests.py`. Nothing was softened, skipped or downgraded to
+# advisory in the move.
+#
+# WHAT STAYED SEPARATE, and why:
+#   * pytest-collect / pytest-run — the test suite is a different kind of check
+#     and long enough that folding it in would serialise everything behind it.
+#   * repo-inventory — explicitly advisory ("not gating PR merge") and uploads an
+#     artifact; folding it into a REQUIRED job would silently start gating on it.
+#
+# REQUIRED-CHECK CONTRACT: the job id below (`guards`) is the required status
+# check. It replaces the 13 individual guard contexts that used to be required;
+# `branch-protection-sync.yml` is updated in the same commit, because a required
+# context that no longer exists leaves every PR hanging forever.
+#
+# The trigger deliberately carries NO `paths:` filter — a required check must
+# never be left permanently "pending" on a non-matching PR
+# (MB-20260706-CI-MINUTES). Relevance is decided inside the job, per guard,
+# where it can be reported instead of being invisible.
+
+on:
+  # Dormant until the native merge queue is enabled (BL-20260726); a required
+  # check MUST run on the merge_group ref or the queue stalls.
+  merge_group:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# THE STACKING FIX. Without this, a re-run of a PR whose jobs are still queued
+# leaves the old batch queued too, and both compete for the same scarce runners.
+# Superseding is always what we want here: only the newest commit's verdict is
+# meaningful. Never group `push`/`merge_group` by ref alone without the event —
+# cancelling a main-branch run would lose the post-merge signal.
+concurrency:
+  group: guards-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install guard dependencies
+        # One install for all guards instead of ~10 separate ones. ruff and
+        # import-linter come from requirements-dev.txt (pinned there for a
+        # reason — see its header on the ruff 0.16 default-ruleset expansion).
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install "pyyaml>=6.0" pytest
+
+      - name: Fetch the base ref
+        # `git fetch --depth=1` would SHALLOW origin/main back to its tip,
+        # overriding the full history `fetch-depth: 0` just gave us, and the
+        # three-dot diff would then fail with "no merge base".
+        run: git fetch origin "${{ github.base_ref || 'main' }}"
+
+      - name: Compute the PR diff
+        run: |
+          git diff "origin/${{ github.base_ref || 'main' }}"...HEAD > /tmp/pr.diff
+          wc -l /tmp/pr.diff
+
+      - name: Run guards
+        id: guards
+        env:
+          GUARDS_BASE_REF: ${{ github.base_ref || 'main' }}
+          GUARDS_PR_DIFF: /tmp/pr.diff
+          GUARDS_NOTIFY_FILE: /tmp/guards-notify.txt
+        run: |
+          set +e
+          # On push / workflow_dispatch there is no PR diff to scope relevance
+          # by, so run EVERYTHING — stricter than the retired per-workflow
+          # push behaviour, never weaker.
+          EXTRA=""
+          case "${{ github.event_name }}" in
+            push|workflow_dispatch) EXTRA="--all" ;;
+          esac
+          python3 scripts/ci/run_guards.py $EXTRA
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: Notify operator on a tripped guard
+        # Six guards used to Telegram the operator on a hit, one message each.
+        # Same trigger, same audience — now one message naming all of them.
+        if: steps.guards.outputs.exit != '0' && github.event_name == 'pull_request'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ ! -s /tmp/guards-notify.txt ]; then
+            echo "::notice::no notify-class guard tripped; skipping ping."
+            exit 0
+          fi
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "::warning::Telegram secrets not configured; skipping ping."
+            exit 0
+          fi
+          TRIPPED=$(tr '\n' ' ' < /tmp/guards-notify.txt)
+          MESSAGE="🚨 guards tripped on PR #${{ github.event.pull_request.number }}
+          ${{ github.event.pull_request.html_url }}
+          Tripped: ${TRIPPED}
+          Review before merging — see the job output for the exact line and fix."
+          curl -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "text=${MESSAGE}" >/dev/null
+
+      - name: Fail the check on any guard failure
+        if: steps.guards.outputs.exit != '0'
+        run: |
+          echo "::error::one or more guards failed — every failing guard is named \
+          in the 'Run guards' step summary above."
+          exit 1

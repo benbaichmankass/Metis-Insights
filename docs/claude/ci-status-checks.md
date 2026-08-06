@@ -21,27 +21,72 @@ single command you can re-run locally.
 
 ## Workflows at a glance
 
+> **CONSOLIDATED 2026-08-06** (`BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES`).
+> The 30 fast static guards that each used to be their own workflow now run in
+> **one** job. See § "The consolidated `guards` job" below before adding a guard.
+
 | Workflow | File | Trigger | Gate | Local equivalent |
 |---|---|---|---|---|
+| `guards` | `.github/workflows/guards.yml` | `pull_request` / `push` to `main`, `merge_group`, `workflow_dispatch` | **blocking** | `python3 scripts/ci/run_guards.py --all` |
 | `pytest-collect` | `.github/workflows/pytest-collect.yml` | `pull_request` to `main`, `push` to `main` | **blocking** (since S-045) | `PYTHONPATH=. pytest --collect-only -q tests/ --ignore=tests/test_main_loop.py` |
 | `pytest-run` | `.github/workflows/pytest-run.yml` | `pull_request` to `main`, `push` to `main` | **blocking** (since 2026-05-22) | `PYTHONPATH=. pytest -q tests/ --ignore=tests/test_main_loop.py` |
-| `secret-scan` | `.github/workflows/secret-scan.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `python scripts/secret_scan.py` |
-| `ruff-lint` | `.github/workflows/ruff-lint.yml` | `pull_request` to `main`, `push` to `main` | **blocking** | `ruff check .` |
 | `repo-inventory` | `.github/workflows/repo-inventory.yml` | `pull_request` to `main`, `push` to `main` | advisory | `python scripts/repo_inventory.py` |
-| `dry-run-guard` | `.github/workflows/dry-run-guard.yml` | `pull_request` to `main` | **blocking** | `python scripts/check_dry_run_in_diff.py /tmp/pr.diff` |
 | `hf-cron` | `.github/workflows/hf-cron.yml` | `schedule` (HF dataset publish) | n/a | not PR-gating |
 | `training-run` | `.github/workflows/training-run.yml` | `workflow_dispatch` | n/a | not PR-gating |
 
-**Required status checks on `main`** (2026-05-22): `pytest-collect`,
-`pytest-run`, `secret-scan`, `ruff-lint`, `dry-run-guard`,
+**Required status checks on `main`** (2026-08-06): `pytest-collect`,
+`pytest-run`, `guards`. The 13 individual guard contexts that were required
+before that date (`secret-scan`, `ruff-lint`, `dry-run-guard`,
 `env-gate-guard`, `silent-empty-guard`, `canonical-config-loaders`,
-`canonical-db-resolver`. **`enforce_admins` is now `true`** — admin /
-admin-scoped-API merges no longer bypass these checks (without it the
-required list was cosmetic, since every merge in this repo is an admin
-merge). `pytest-run` was promoted from advisory to required on
-2026-05-22 (#1721) once its baseline went green on `main`.
-`repo-inventory` and `arch-doc-guard` stay advisory by design. Branch
-protection wiring is in § "Branch protection wiring" below.
+`canonical-db-resolver`, `provenance-consumer-guard`,
+`diagnostic-provenance-guard`, `layer-guard`, `json-extract-guard`,
+`soak-doctrine-guard`, `artifact-validity-guard`) all still run — inside
+`guards`. **`enforce_admins` is `true`** — admin / admin-scoped-API merges do
+not bypass these checks (without it the required list would be cosmetic, since
+every merge in this repo is an admin merge). `repo-inventory` stays advisory by
+design. Branch protection wiring is in § "Branch protection wiring" below.
+
+### The consolidated `guards` job
+
+**Why.** Each guard being its own workflow meant one PR asked GitHub for ~29
+separate hosted runners. That is free when the runner pool is healthy and
+catastrophic when it is not: during the 2026-08-06 Actions incident 28 of 29
+jobs sat `queued` with no runner for over an hour, and because almost none of
+those workflows declared a `concurrency:` group, each re-run **stacked** rather
+than superseding — 75 queued runs from ~3 attempts at one PR. The PR read red
+for reasons unrelated to its diff, and "CI failed" was indistinguishable from
+"CI never ran".
+
+**What it is.** A packaging change, and only that. Every guard runs the same
+command, against the same relevance condition, with the same assertions.
+
+- Registry: **`scripts/ci/run_guards.py`** — one entry per guard, with its
+  relevance predicate (`when`) and its steps.
+- Failure-path self-tests: **`scripts/ci/guard_selftests.py`** — the five that
+  used to be inline heredocs in workflow YAML, lifted verbatim in behaviour and
+  now runnable on their own.
+- `guards.yml` declares `concurrency: … cancel-in-progress: true`, so a re-run
+  supersedes the previous attempt instead of queueing behind it. **This is the
+  half that actually fixes the stacking** — keep it on any future CI job.
+
+**Running it locally:**
+
+```bash
+python3 scripts/ci/run_guards.py --list          # the registry
+python3 scripts/ci/run_guards.py --all           # every guard, ignore relevance
+python3 scripts/ci/run_guards.py --only ruff-lint --only secret-scan
+python3 scripts/ci/guard_selftests.py --all      # just the failure paths
+```
+
+Diff-scoped guards read `/tmp/pr.diff`; produce it with
+`git diff origin/main...HEAD > /tmp/pr.diff` (override with `--pr-diff`).
+
+**Adding a guard:** append an entry to `GUARDS` in `run_guards.py` — do **not**
+create a new workflow file. `tests/ci/test_run_guards.py` asserts that no guard
+is ever silently dropped from the registry and that branch protection still
+requires `guards`. A guard that needs to ping the operator on a hit sets
+`notify: True`; `guards.yml` sends one Telegram message naming everything that
+tripped (previously one message per guard).
 
 > **Status-context naming (post 2026-05-10 audit):** the GitHub
 > status-context name comes from the workflow's **job ID**, not the
