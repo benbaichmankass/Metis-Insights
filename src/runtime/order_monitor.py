@@ -6511,6 +6511,26 @@ def _bybit_sl_leg_qty(leg: dict):
     return None
 
 
+def _norm_position_side(raw) -> str:
+    """Normalise a direction to ``"long"`` / ``"short"`` (``""`` if unknown).
+
+    Bybit's position rows say ``Buy``/``Sell`` (and ``None``/``""`` when flat)
+    while ``trades.direction`` says ``buy``/``sell`` or ``long``/``short``
+    depending on the writer. Both sides of the divergence comparison must be on
+    one vocabulary or a genuine opposite-side phantom reads as a different
+    symbol and is silently skipped.
+
+    Unknown input returns ``""`` — the caller treats that as *ungradeable* and
+    declines to judge, never as a match.
+    """
+    s = str(raw or "").strip().lower()
+    if s in ("buy", "long"):
+        return "long"
+    if s in ("sell", "short"):
+        return "short"
+    return ""
+
+
 def _bybit_position_protection(client, category: str, symbol: str):
     """Read a Bybit symbol's live protection COVERAGE, mode-agnostically.
 
@@ -6518,7 +6538,14 @@ def _bybit_position_protection(client, category: str, symbol: str):
     an unconfirmed read — the fail-safe the Alpaca/IB sweeps also honour), else
     a dict::
 
-        {"size", "covered_qty", "source", "sl_leg_ids", "unknown_qty_sl_legs"}
+        {"size", "side", "covered_qty", "source", "sl_leg_ids",
+         "unknown_qty_sl_legs"}
+
+    ``side`` is the netted position's direction normalised to ``"long"`` /
+    ``"short"`` (``""`` when flat). Under one-way netting a symbol holds ONE
+    position with ONE side, so any open journal row on the OPPOSITE side is a
+    phantom by construction — the caller's divergence check needs the side to
+    see that, and keying journal qty by symbol alone hides it.
 
     **Why this measures QUANTITY, not a boolean** (the 2026-07-30 finding).
     This function used to return ``(size, protected)`` with
@@ -6548,7 +6575,7 @@ def _bybit_position_protection(client, category: str, symbol: str):
                      symbol, exc)
         return None
     _flat = {
-        "size": 0.0, "covered_qty": 0.0, "source": "flat",
+        "size": 0.0, "side": "", "covered_qty": 0.0, "source": "flat",
         "sl_leg_ids": set(), "unknown_qty_sl_legs": 0,
     }
     if not rows:
@@ -6560,12 +6587,13 @@ def _bybit_position_protection(client, category: str, symbol: str):
         return None
     if size <= 0:
         return _flat
+    side = _norm_position_side(pos.get("side"))
     # (a) Full-mode position-level stop lives on the position row itself and
     #     genuinely covers the WHOLE net position.
     pos_sl = str(pos.get("stopLoss") or "").strip()
     if pos_sl and pos_sl not in ("0", "0.0", "0.00"):
         return {
-            "size": size, "covered_qty": size,
+            "size": size, "side": side, "covered_qty": size,
             "source": "full_position_stop",
             "sl_leg_ids": set(), "unknown_qty_sl_legs": 0,
         }
@@ -6595,7 +6623,8 @@ def _bybit_position_protection(client, category: str, symbol: str):
             continue
         covered += q
     return {
-        "size": size, "covered_qty": covered, "source": "partial_sl_legs",
+        "size": size, "side": side, "covered_qty": covered,
+        "source": "partial_sl_legs",
         "sl_leg_ids": leg_ids, "unknown_qty_sl_legs": unknown,
     }
 
@@ -6725,10 +6754,25 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
     # many journal rows but one exchange position.
     protection_cache: Dict[tuple, object] = {}
     # Symbol-level anomaly checks run ONCE per (account, symbol), not per row.
+    # Two INDEPENDENT guard sets — the divergence check and the leg-accumulation
+    # check fire at different points in the loop (divergence runs even when the
+    # exchange is flat; accumulation needs a live position), so sharing one set
+    # would let whichever runs first suppress the other.
     anomaly_checked: set = set()
-    # Sum of open journal qty per (account, symbol) — compared against the
-    # netted exchange size to surface phantom open rows.
+    overcover_checked: set = set()
+    # Sum of open journal qty per (account, symbol, DIRECTION) — compared
+    # against the netted exchange position to surface phantom open rows.
+    #
+    # Keyed by direction since 2026-08-06. It was keyed by (account, symbol)
+    # alone, which pools the two sides: under one-way netting only ONE side can
+    # be live, so an open row on the opposite side is a phantom by
+    # construction — yet pooling let it CANCEL OUT against a genuine excess on
+    # the live side and read clean. That is the phantom case itself.
     journal_qty_by_key: Dict[tuple, float] = {}
+    # (No separate symbol set is needed: the sweep loop below iterates the open
+    # JOURNAL rows, so a symbol whose exchange position is flat is still
+    # visited — it just has no protection work to do. That is exactly why the
+    # divergence check can now grade it.)
     for row in rows:
         _aid = str(row["account_id"] or "")
         _sym = str(row["symbol"] or "").upper()
@@ -6738,8 +6782,9 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
             _q = abs(float(row["position_size"]))
         except (TypeError, ValueError):
             continue
-        journal_qty_by_key[(_aid, _sym)] = (
-            journal_qty_by_key.get((_aid, _sym), 0.0) + _q
+        _dir = _norm_position_side(row["direction"])
+        journal_qty_by_key[(_aid, _sym, _dir)] = (
+            journal_qty_by_key.get((_aid, _sym, _dir), 0.0) + _q
         )
     for row in rows:
         account_id = str(row["account_id"] or "")
@@ -6775,23 +6820,77 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                 continue  # read failure — never re-arm on an unconfirmed read
             size = float(state["size"])
             covered = float(state["covered_qty"])
-            if size <= 0:
-                continue  # flat
-            eps = size * _BYBIT_COVERAGE_EPS_FRAC
+            exch_side = str(state.get("side") or "")
 
-            # ---- symbol-level ANOMALY detection (once per symbol, no action) --
-            # Both of these were found live by the bybit-bracket-audit on
-            # 2026-07-30 and were invisible to every existing check. They are
-            # DETECT-ONLY here: remediation is a separate, reviewed change —
-            # the point is that they stop being silent.
+            # ---- JOURNAL/BROKER qty divergence (detect-only) -----------------
+            # Runs BEFORE the flat-skip below. Until 2026-08-06 this check sat
+            # AFTER `if size <= 0: continue`, so the case it exists to catch —
+            # exchange FLAT while journal rows are still open, i.e. MAXIMAL
+            # divergence, the W1 155x finding — returned clean because the
+            # symbol was skipped before anything was compared. An empty result
+            # read as a clean negative (CLAUDE.md, diagnostic provenance
+            # sub-class C). Detect-only: no remediation here, by design —
+            # attribution is the Tier-2 netting fix
+            # (BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED,
+            # docs/netting-partial-close-attribution-DESIGN.md).
             if cache_key not in anomaly_checked:
                 anomaly_checked.add(cache_key)
-                # (a) Leg OVER-accumulation. Resting SL legs summing to well
-                #     over the position size means legs have piled up (the
-                #     BL-20260721 20-leg-cap failure mode). Live example:
-                #     bybit_1 XRPUSDT, position 32557.2, legs 144789.3 (444.7%)
-                #     — if the first leg trips it OVER-closes, and the rest are
-                #     stranded.
+                _j_long = journal_qty_by_key.get((*cache_key, "long"), 0.0)
+                _j_short = journal_qty_by_key.get((*cache_key, "short"), 0.0)
+                # Qty the exchange actually backs, per side. A flat position
+                # backs nothing on EITHER side; a live one backs only its own.
+                _live = {"long": 0.0, "short": 0.0}
+                if size > 0 and exch_side in _live:
+                    _live[exch_side] = size
+                for _side, _j in (("long", _j_long), ("short", _j_short)):
+                    if _j <= 0:
+                        continue
+                    _backed = _live[_side]
+                    if _j <= _backed * (1.0 + _BYBIT_QTY_DIVERGENCE_FRAC):
+                        continue
+                    summary["journal_qty_divergent"] += 1
+                    logger.error(
+                        "_check_broker_naked_bybit_positions: JOURNAL/BROKER QTY "
+                        "DIVERGENCE %s/%s %s — open journal rows sum to %s but the "
+                        "exchange backs %s on that side (position: size=%s "
+                        "side=%s; excess %s). At least one open row is a phantom; "
+                        "analytics and risk sizing both read the journal.",
+                        account_id, symbol, _side, _j, _backed,
+                        size, exch_side or "flat", _j - _backed,
+                    )
+                if size > 0 and not exch_side:
+                    # Side unreadable ⇒ we cannot say which journal rows the
+                    # position backs. Say so rather than grade it against a
+                    # guess (the coverage-ungradeable posture, below).
+                    logger.warning(
+                        "_check_broker_naked_bybit_positions: %s/%s exchange "
+                        "position side unreadable (size=%s) — journal/broker qty "
+                        "divergence not graded this tick.",
+                        account_id, symbol, size,
+                    )
+
+            if size <= 0:
+                continue  # flat — nothing to protect (divergence graded above)
+            eps = size * _BYBIT_COVERAGE_EPS_FRAC
+
+            # ---- leg OVER-accumulation (once per symbol, no action) ----------
+            # Found live by the bybit-bracket-audit on 2026-07-30 and invisible
+            # to every existing check. DETECT-ONLY here: remediation is a
+            # separate, reviewed change (cancel-stale-tpsl-legs) — the point is
+            # that it stops being silent.
+            #
+            # NOTE the guard set is `overcover_checked`, NOT `anomaly_checked`.
+            # The divergence check above already added cache_key to the latter,
+            # so sharing one set would make this block unreachable and silently
+            # retire a live detector — the same never-looked failure the
+            # divergence hoist exists to fix, one level over.
+            if cache_key not in overcover_checked:
+                overcover_checked.add(cache_key)
+                # Resting SL legs summing to well over the position size means
+                # legs have piled up (the BL-20260721 20-leg-cap failure mode).
+                # Live example: bybit_1 XRPUSDT, position 32557.2, legs
+                # 144789.3 (444.7%) — if the first leg trips it OVER-closes,
+                # and the rest are stranded.
                 if (
                     state["source"] == "partial_sl_legs"
                     and covered > size * _BYBIT_OVERCOVER_FACTOR
@@ -6806,24 +6905,6 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                         account_id, symbol, size, covered,
                         (100.0 * covered / size) if size else 0.0,
                         len(state["sl_leg_ids"]),
-                    )
-                # (b) Journal qty vs BROKER qty divergence. The journal rows for
-                #     this (account, symbol) should sum to the netted exchange
-                #     position. When the journal claims MORE than the broker
-                #     holds, some open row is a phantom. Live examples:
-                #     bybit_1 BNBUSDT journal 13.43 vs exchange 9.72; BTCUSDT
-                #     journal 1.553 vs exchange 0.01 (the 1.543 ict_scalp_5m row
-                #     also had a DEAD tracked leg).
-                j_qty = journal_qty_by_key.get(cache_key, 0.0)
-                if j_qty > size * (1.0 + _BYBIT_QTY_DIVERGENCE_FRAC):
-                    summary["journal_qty_divergent"] += 1
-                    logger.error(
-                        "_check_broker_naked_bybit_positions: JOURNAL/BROKER QTY "
-                        "DIVERGENCE %s/%s — open journal rows sum to %s but the "
-                        "exchange position is %s (excess %s). At least one open "
-                        "row is a phantom; analytics and risk sizing both read "
-                        "the journal.",
-                        account_id, symbol, j_qty, size, j_qty - size,
                     )
             # An SL leg whose qty we could not parse makes coverage ungradeable.
             # Do NOT re-arm on a guess (a Full-mode re-arm would stamp ONE
