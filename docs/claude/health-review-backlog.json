@@ -9932,8 +9932,30 @@
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
         }
       ]
+    },
+    {
+      "id": "BL-20260806-ARBITRATION-SOAK-QTY-ALL-ZERO",
+      "opened_at": "2026-08-06T09:10:00+00:00",
+      "opened_by": "claude (roadmap-workplan-update session lw6qf0)",
+      "source": "W0.2 soak read, live-VM diag relay #8511 (/api/diag/log_file?name=conviction_arbitration&lines=12). Written up in docs/research/W0.2-soak-read-2026-08-06.md sec 3.",
+      "title": "[soak][Tier-1] conviction_arbitration soak records target_qty 0.0 on EVERY row - the sizing half of the soak has produced no usable data",
+      "description": "Every row in the 2026-08-06 tail (12/12, spanning 2026-07-31 to 2026-08-05) has actual_target_qty=0.0, conviction_winner_target_qty=0.0 AND conviction_weighted_target_qty=0.0. The soak exists to compare a conviction-weighted target size against the actually-routed size; with all three identically zero that comparison is vacuous. The only live signal in the log is the boolean agrees_with_actual (5 true / 7 false in the tail). Whatever P4/P5 graduation was meant to read 'conviction-weighted target qty vs actual' has no data behind it and has not had since at least 2026-07-31. Log is otherwise healthy and accruing (145 KB, newest row 2026-08-05T17:40). Diagnose whether target_qty is simply unset at log time (the row is written pre-execution, before sizing resolves) or genuinely zero. If it is a log-ordering problem the fix is to log the size after it resolves; if the field can never be populated at that call site, remove it rather than leave a field that reads as a measured zero. Observe-only surface - no order-path impact, so Tier-1 throughout.",
+      "severity": "medium",
+      "status": "open",
+      "updates": []
+    },
+    {
+      "id": "BL-20260806-ALLOCATOR-REGRET-VARIANT-PAIR-ARTIFACT",
+      "opened_at": "2026-08-06T09:10:00+00:00",
+      "opened_by": "claude (roadmap-workplan-update session lw6qf0)",
+      "source": "W0.2 soak read, live-VM diag relay #8511 (/api/diag/log_file?name=allocator_soak&lines=8). Written up in docs/research/W0.2-soak-read-2026-08-06.md sec 4.",
+      "title": "[soak][Tier-1] allocator_soak regret is dominated by real-vs-prop VARIANT pairs, so mean_regret / disagree_pct do not measure strategy selection",
+      "description": "In the 2026-08-06 tail every row is n_candidates=2, and 7 of 8 pairs are a strategy against its own prop variant (trend_donchian_eth vs trend_donchian_eth_prop x5, trend_donchian_sol vs _prop, eth_pullback_2h vs eth_pullback_prop_2h); only one pair is a genuine competition (ict_scalp_xrp_5m vs _15m). The variants differ ONLY in TP - same symbol, same side, near-identical entry/SL/confidence - so the prop variant's tighter TP mechanically scores lower under ev_net_r and agree:false fires every time. Example 2026-08-01T18:26: identical short, entry 1854.04 vs 1854.05, confidence 0.6125 vs 0.6106, scores 7.806 vs 3.172, logged as regret 4.634. A prop ticket and a real order are not substitutes competing for the same capital, so that 4.634 is a config fact, not EV left on the table. Consequence: the summary fields the /api/bot/allocator/soak envelope exposes (disagree_pct, mean_regret) overstate genuine allocator disagreement and must not be quoted without excluding variant pairs. NOTE this does NOT reverse the M18 backtest conclusion in docs/research/M18-allocator-backtest-findings-2026-06-29.md (EV selection does not beat dumb priority, ranker OOS AUC ~0.51) - it makes the soak's apparent disagreement look better than the real one, so it strengthens the case for keeping P2/P3 parked. Decision needed, not just a filter: should variant pairs be logged at all, or excluded at write time in allocator_soak.py? Also observed: head_p_win is null on every candidate, confirming the parked P_win input.",
+      "severity": "medium",
+      "status": "open",
+      "updates": []
     }
   ],
-  "updated_at": "2026-08-03T08:30:00+00:00",
+  "updated_at": "2026-08-06T09:10:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
