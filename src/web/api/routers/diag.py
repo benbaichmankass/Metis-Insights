@@ -224,6 +224,9 @@ _FC_GEOMETRY_SOAK_LOG = runtime_logs_dir() / "fc_geometry_soak.jsonl"
 _EXIT_LEVER_SOAK_LOG = runtime_logs_dir() / "exit_lever_soak.jsonl"
 _ALLOCATOR_SOAK_LOG = runtime_logs_dir() / "allocator_soak.jsonl"
 _PAIRS_SOAK_LOG = runtime_logs_dir() / "pairs_soak.jsonl"
+_NETTING_ATTRIBUTION_SOAK_LOG = (
+    runtime_logs_dir() / "netting_attribution_soak.jsonl"
+)
 _ORPHAN_EVENTS_LOG = runtime_logs_dir() / "orphan_events.jsonl"
 
 _LOG_FILES: dict[str, Path] = {
@@ -303,6 +306,15 @@ _LOG_FILES: dict[str, Path] = {
     # M22 D2 market-neutral pairs sleeve soak — per-pair spread/z decision +
     # placement/close outcome (also surfaced publicly at /api/bot/pairs/soak).
     "pairs_soak": _PAIRS_SOAK_LOG,
+    # Netting partial-close ATTRIBUTION soak (BL-20260801). One line per journal
+    # row the reconciler would reduce/close to account for a netted partial
+    # close, with the SELECTION basis (`leg_gone` / `fifo`) and the PRICE
+    # provenance (`anchor_status`) kept as separate fields — they answer
+    # different questions and conflating them is how an inferred close starts
+    # reading as a measured one. Written in BOTH modes, so at the default
+    # `annotate` this is the exact row list to review before flipping
+    # NETTING_ATTRIBUTION_MODE=apply. Absent until the first confirmed divergence.
+    "netting_attribution_soak": _NETTING_ATTRIBUTION_SOAK_LOG,
     # Broker-account-down + trainer-down latch state (BL-20260707-DIAG-
     # ALLOWLIST-REACHABILITY-LOG): the health-review skill reads these to see
     # which accounts / whether the trainer are currently latched down —

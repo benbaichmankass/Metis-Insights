@@ -6680,6 +6680,467 @@ def _bybit_top_up_partial_sl(acc: dict, symbol: str, row, uncovered_qty, sl) -> 
         return False
 
 
+
+# ---------------------------------------------------------------------------
+# Netting partial-close ATTRIBUTION
+# (BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED;
+#  design: docs/netting-partial-close-attribution-DESIGN.md)
+# ---------------------------------------------------------------------------
+
+#: Observation state for the 2-observation confirm, keyed
+#: ``(account, symbol, direction)`` → ``(first_seen_monotonic, excess_qty,
+#: first_seen_iso)``. The ISO stamp is kept because it — not "now" — is what
+#: the exit anchor is taken at.
+#: In-process: a restart re-arms from scratch, which is fail-SAFE here (the
+#: worst case is a delayed attribution, never an early close).
+_NETTING_DIVERGENCE_SEEN: Dict[tuple, tuple] = {}
+
+
+def _netting_attribution_mode() -> str:
+    """``annotate`` (default) or ``apply``.
+
+    A ``*_MODE`` var, not a default-off ``*_ENABLED`` gate — the same shape
+    ``NEWS_INFLUENCE_MODE`` / ``CONVICTION_SIZING_MODE`` use for a NEW apply
+    path, and the shape ``env-gate-guard`` accepts. It is NOT hiding a required
+    capability: at ``annotate`` the reconciler still does all the work and
+    records the exact rows it WOULD reduce, it just does not write the money DB.
+    That staging is operator decision 4 (design packet §5) — prove the row list
+    on ``bybit_1`` before touching ``bybit_2`` real money.
+    """
+    raw = str(os.environ.get("NETTING_ATTRIBUTION_MODE", "") or "").strip().lower()
+    return "apply" if raw == "apply" else "annotate"
+
+
+def _netting_attribution_accounts() -> set:
+    """Optional account allowlist (CSV). Empty = every Bybit account."""
+    raw = str(os.environ.get("NETTING_ATTRIBUTION_ACCOUNTS", "") or "")
+    return {p.strip() for p in raw.split(",") if p.strip()}
+
+
+def _netting_rows_to_attribute(rows, excess, live_leg_ids):
+    """Pick which open journal rows account for *excess* qty of over-claim.
+
+    Returns ``[(row, qty_to_remove, basis)]`` where ``basis`` is the honest
+    label for HOW the row was selected:
+
+    * ``"leg_gone"`` — the row's tracked Bybit SL leg is no longer resting, so
+      its own protection fired or was cancelled. This is **evidence, not
+      proof**: leg absence cannot distinguish "fired" from "cancelled", so it
+      still yields an ESTIMATED close, never MEASURED. It is preferred over
+      FIFO because it names a specific trade rather than assuming an order.
+    * ``"fifo"`` — no tracked leg to go on, so oldest-first. A defensible
+      convention, and labelled as one.
+
+    Option (b) with (a) as the declared fallback (design packet §3). (b) alone
+    under-covers by construction — 16/19 open Bybit rows carry a tracked leg
+    (measured 2026-08-06), and one W1 receipt had a DEAD tracked id — so FIFO
+    is not an alternative to it, it is its remainder.
+
+    **A row whose tracked leg is still RESTING is picked last**, after the
+    untracked ones. A live protective leg is positive evidence that the
+    exchange still holds that row's qty, so attributing a close to it while an
+    untracked row is available would be choosing the *less* likely candidate.
+    Plain oldest-first over the whole set gets this wrong whenever the oldest
+    row happens to be a tracked-and-still-protected one.
+    """
+    picked = []
+    remaining = float(excess)
+    eps = 1e-9
+
+    def _take(row, basis):
+        nonlocal remaining
+        if remaining <= eps:
+            return
+        try:
+            qty = abs(float(row["position_size"]))
+        except (TypeError, ValueError):
+            return
+        if qty <= 0:
+            return
+        take = min(qty, remaining)
+        picked.append((row, take, basis))
+        remaining -= take
+
+    # (b) rows whose tracked leg is gone, oldest-first among themselves.
+    leg_gone = [
+        r for r in rows
+        if str(r["sl_order_id"] or "") and str(r["sl_order_id"]) not in live_leg_ids
+    ]
+    for row in sorted(leg_gone, key=lambda r: str(r["created_at"] or "")):
+        _take(row, "leg_gone")
+
+    # (a) FIFO the residual — UNTRACKED rows first, then rows whose leg is
+    #     still resting (see the docstring: a live leg is evidence AGAINST
+    #     that row having closed, so it is the last candidate, not a
+    #     position-in-line determined by age alone).
+    already = {id(r) for r, _, _ in picked}
+    rest = [r for r in rows if id(r) not in already]
+    rest.sort(key=lambda r: (
+        1 if str(r["sl_order_id"] or "") in live_leg_ids else 0,
+        str(r["created_at"] or ""),
+    ))
+    for row in rest:
+        _take(row, "fifo")
+
+    return picked
+
+
+def _reconcile_netting_partial_closes(db) -> Dict[str, int]:
+    """Attribute a netted partial close to the journal rows it actually reduced.
+
+    THE DEFECT (BL-20260801). Under Bybit one-way netting a symbol is ONE
+    exchange position holding N journal rows. A position-level exit shrinks that
+    single position, but close detection is per-ORDER —
+    :func:`_reconcile_open_trades` reconciles each row against *its own* Bybit
+    order — so a sibling row whose order filled long ago has no order event to
+    observe and keeps its full ``position_size`` indefinitely. Measured
+    2026-08-06: ``bybit_1`` SOLUSDT journal 2075.2 vs exchange 4.6 (**451x**),
+    and every non-Bybit venue is exactly clean because they do not net.
+
+    PROVENANCE (operator directive 2026-08-06). Prefer an ESTIMATE with a stated
+    anchor over declaring nothing — but an estimate REQUIRES an anchor, or it is
+    FABRICATED, which is the class that produced the phantom -$6,358 leak. So
+    the ladder is:
+
+    * anchored bar at the divergence's FIRST OBSERVATION → ESTIMATED
+      (``exit_anchor.ANCHOR_SOURCE``). Going forward that observation is within
+      one monitor tick of the real close, which is what makes it defensible.
+    * venue asked and has no bar → ``UNMEASURED_MARKER``. Declared, not guessed.
+    * budget spent / transient read failure → **retry**, declare nothing.
+
+    ``first observed`` is deliberately NOT "now": anchoring a row that may have
+    closed days ago to the current bar is precisely the sweep-time-mark
+    fabrication that :func:`_sweep_local_pnl_for_unpriced` was fixed to stop.
+    For the pre-existing backlog the first observation is only an UPPER BOUND on
+    the close, and the row records that (``netting_anchor_basis``) so nobody
+    later mistakes it for a measurement.
+
+    MODE. ``annotate`` (default) does every step and writes the decision to
+    ``runtime_logs/netting_attribution_soak.jsonl`` WITHOUT touching the money
+    DB; ``apply`` also closes the rows. Staged per operator decision 4.
+
+    Fail-safe throughout: an unreadable exchange position is SKIPPED (never
+    attribute on an unconfirmed read); pairs-sleeve rows are excluded (that
+    executor owns its own state); the 2-observation confirm reuses
+    ``RECONCILER_CLOSE_CONFIRM_SECONDS``. Never raises.
+    """
+    summary: Dict[str, int] = {
+        "checked": 0, "divergent": 0, "pending_confirm": 0, "rows_selected": 0,
+        "closed": 0, "annotated": 0, "declared_unmeasured": 0,
+        "deferred_anchor": 0, "skipped_unreadable": 0, "skipped_pairs": 0,
+        "errors": 0,
+    }
+    mode = _netting_attribution_mode()
+    allow = _netting_attribution_accounts()
+
+    try:
+        from src.bot import data_loaders
+        from src.units.accounts.clients import bybit_client_for
+        from src.units.accounts.execute import _bybit_category
+        from src.runtime.exit_anchor import ANCHOR_SOURCE, AnchorBudget, bar_close_at
+        from src.runtime.provenance import UNMEASURED_MARKER
+
+        accounts = data_loaders.list_accounts() or []
+        bybit_ids = {
+            str(a.get("account_id")) for a in accounts
+            if str(a.get("exchange", "")).lower() == "bybit"
+        }
+        if allow:
+            bybit_ids &= allow
+        if not bybit_ids:
+            return summary
+        acc_by_id = {str(a.get("account_id")): a for a in accounts}
+
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            rows = conn.execute(
+                "SELECT id, account_id, symbol, direction, position_size, "
+                "       entry_price, created_at, setup_type, strategy, "
+                "       sl_order_id, notes "
+                "  FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0"
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_reconcile_netting_partial_closes: read failed: %s", exc)
+        summary["errors"] += 1
+        return summary
+
+    # Group the open rows by (account, symbol, direction), excluding the pairs
+    # sleeve — `pairs_executor` is an ISOLATED 2-leg order path with its own
+    # state, and closing its rows behind its back would desync it (design
+    # packet §4 constraint 2).
+    by_key: Dict[tuple, list] = {}
+    for row in rows:
+        aid = str(row["account_id"] or "")
+        if aid not in bybit_ids:
+            continue
+        if str(row["setup_type"] or "").startswith("pairs") or str(
+            row["strategy"] or ""
+        ).startswith("pairs"):
+            summary["skipped_pairs"] += 1
+            continue
+        sym = str(row["symbol"] or "").upper()
+        direction = _norm_position_side(row["direction"])
+        if not sym or not direction:
+            continue
+        by_key.setdefault((aid, sym, direction), []).append(row)
+
+    now_mono = time.monotonic()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    confirm_s = _close_confirm_seconds()
+    anchor_budget = AnchorBudget(_exit_anchor_fetches_per_tick())
+    clients: Dict[str, object] = {}
+    protection: Dict[tuple, object] = {}
+
+    for (aid, sym, direction), key_rows in sorted(by_key.items()):
+        summary["checked"] += 1
+        try:
+            if (aid, sym) in _TICK_ACTIVE_CLOSE_SYMBOLS:
+                continue  # an active close is in flight — let it settle
+            cache_key = (aid, sym)
+            if cache_key not in protection:
+                acc = acc_by_id.get(aid)
+                if acc is None:
+                    continue
+                if aid not in clients:
+                    clients[aid] = bybit_client_for(acc)
+                client = clients[aid]
+                if client is None:
+                    continue
+                protection[cache_key] = _bybit_position_protection(
+                    client, _bybit_category(acc), sym,
+                )
+            state = protection[cache_key]
+            if state is None:
+                # Could-not-read. NEVER attribute on an unconfirmed read — the
+                # same fail-safe the three naked sweeps honour.
+                summary["skipped_unreadable"] += 1
+                continue
+
+            size = float(state["size"])
+            exch_side = str(state.get("side") or "")
+            if size > 0 and not exch_side:
+                # Live position with an unreadable side: we cannot say which
+                # rows it backs, so we may not grade them.
+                summary["skipped_unreadable"] += 1
+                continue
+            backed = size if (size > 0 and exch_side == direction) else 0.0
+
+            journal_qty = 0.0
+            for r in key_rows:
+                try:
+                    journal_qty += abs(float(r["position_size"]))
+                except (TypeError, ValueError):
+                    continue
+            excess = journal_qty - backed
+            if excess <= max(backed, journal_qty) * _BYBIT_QTY_DIVERGENCE_FRAC:
+                _NETTING_DIVERGENCE_SEEN.pop((aid, sym, direction), None)
+                continue
+            summary["divergent"] += 1
+
+            # 2-observation confirm. One reading of a smaller position is not
+            # proof — a just-placed order can read absent while pending fill
+            # (the Alpaca RECONCILER_SNAPSHOT_MIN_FILL_AGE_S incident shape).
+            seen = _NETTING_DIVERGENCE_SEEN.get((aid, sym, direction))
+            if seen is None:
+                _NETTING_DIVERGENCE_SEEN[(aid, sym, direction)] = (
+                    now_mono, excess, now_iso,
+                )
+                summary["pending_confirm"] += 1
+                continue
+            first_mono, _first_excess, first_seen_iso = seen
+            if (now_mono - float(first_mono)) < max(confirm_s, 0.0):
+                summary["pending_confirm"] += 1
+                continue
+            picked = _netting_rows_to_attribute(
+                key_rows, excess, set(state.get("sl_leg_ids") or ()),
+            )
+            summary["rows_selected"] += len(picked)
+
+            anchored, anchor_status = bar_close_at(
+                sym, first_seen_iso, budget=anchor_budget,
+            )
+            if anchor_status == "deferred":
+                # We did NOT look. Retry next tick; declare nothing.
+                summary["deferred_anchor"] += 1
+                continue
+
+            for row, take, basis in picked:
+                _netting_soak_row(
+                    account_id=aid, symbol=sym, direction=direction,
+                    row=row, take=take, basis=basis, mode=mode,
+                    journal_qty=journal_qty, exchange_qty=backed,
+                    anchor_status=anchor_status, anchor_price=anchored,
+                    anchored_at=first_seen_iso,
+                )
+                summary["annotated"] += 1
+                if mode != "apply":
+                    continue
+                closed_ok = _netting_apply_close(
+                    db, row=row, take=take, basis=basis,
+                    anchor_price=anchored, anchor_status=anchor_status,
+                    anchored_at=first_seen_iso,
+                    anchor_source=ANCHOR_SOURCE,
+                    unmeasured_marker=UNMEASURED_MARKER,
+                )
+                if closed_ok == "closed":
+                    summary["closed"] += 1
+                elif closed_ok == "unmeasured":
+                    summary["declared_unmeasured"] += 1
+                else:
+                    summary["errors"] += 1
+        except Exception as exc:  # noqa: BLE001 — one bad key never aborts the sweep
+            logger.warning(
+                "_reconcile_netting_partial_closes: %s/%s/%s raised: %s",
+                aid, sym, direction, exc,
+            )
+            summary["errors"] += 1
+
+    return summary
+
+
+def _netting_soak_row(
+    *, account_id, symbol, direction, row, take, basis, mode,
+    journal_qty, exchange_qty, anchor_status, anchor_price, anchored_at,
+) -> None:
+    """Append one attribution DECISION to the observe-only soak log.
+
+    Written in BOTH modes, so ``annotate`` produces the exact row list the
+    operator reviews before the ``apply`` flip, and ``apply`` leaves the same
+    audit trail next to the money-DB write. Best-effort — the soak never blocks
+    the reconciler.
+    """
+    try:
+        from src.utils.paths import runtime_logs_dir
+
+        rec = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "mode": mode,
+            "account_id": account_id,
+            "symbol": symbol,
+            "direction": direction,
+            "trade_id": row["id"],
+            "strategy": row["strategy"],
+            "row_qty": _safe_float(row["position_size"]),
+            "attributed_qty": round(float(take), 10),
+            # HOW this row was selected — never conflated with how its price
+            # was derived. `leg_gone` is evidence (a tracked SL leg is no
+            # longer resting), not proof that it fired.
+            "attribution_basis": basis,
+            "journal_qty": round(float(journal_qty), 10),
+            "exchange_qty": round(float(exchange_qty), 10),
+            "excess_qty": round(float(journal_qty) - float(exchange_qty), 10),
+            # The anchor's own status is the provenance, verbatim from
+            # exit_anchor — `anchored` → ESTIMATED, `no_anchor` → declared
+            # unmeasured. Never collapsed into a single boolean.
+            "anchor_status": anchor_status,
+            "anchor_price": anchor_price,
+            "anchored_at": anchored_at,
+            "anchor_basis": "divergence_first_observed",
+        }
+        path = runtime_logs_dir() / "netting_attribution_soak.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec) + "\n")
+    except Exception as exc:  # noqa: BLE001  # allow-silent: observe-only soak row; losing one line must never block the attribution reconciler or the monitor tick. Logged.
+        logger.debug("_netting_soak_row: write failed: %s", exc)
+
+
+def _netting_apply_close(
+    db, *, row, take, basis, anchor_price, anchor_status, anchored_at,
+    anchor_source, unmeasured_marker,
+) -> str:
+    """Close (or partially reduce) one row. Returns ``closed``/``unmeasured``/``error``.
+
+    Provenance is the whole point of this function, so it is explicit:
+
+    * ``anchor_status == "anchored"`` → price the close from the anchored bar
+      and stamp ``exit_price_source = ANCHOR_SOURCE`` (**ESTIMATED**). Per the
+      operator directive 2026-08-06, an estimate with a stated anchor beats
+      declaring nothing — provided the anchor is real.
+    * ``anchor_status == "no_anchor"`` → the venue was asked and has no bar.
+      Close carrying ``UNMEASURED_MARKER`` rather than substituting a price.
+      That is not a lesser effort, it is the only honest terminal state; an
+      anchorless "estimate" would be FABRICATED, the exact class behind the
+      phantom -$6,358 leak.
+
+    ``netting_attribution_basis`` records that the row was selected by
+    attribution rather than observed closing, so no later consumer mistakes an
+    inferred close for a broker-confirmed one.
+    """
+    try:
+        # Same module the sibling `_sweep_local_pnl_for_unpriced` uses. THREE
+        # `contract_value_usd_for` definitions exist in the tree
+        # (local_pnl / accounts.risk / profile_loader) — pricing a close with a
+        # different multiplier than the sweep would silently disagree with it.
+        from src.runtime.local_pnl import (
+            compute_pnl_percent, compute_realized_pnl, contract_value_usd_for,
+        )
+
+        notes = _decode_notes(row["notes"])
+        qty = abs(_safe_float(row["position_size"]) or 0.0)
+        entry = _safe_float(row["entry_price"])
+        partial = float(take) < qty - 1e-9
+
+        notes["netting_attribution_basis"] = basis
+        notes["netting_attributed_qty"] = round(float(take), 10)
+        notes["netting_anchor_basis"] = "divergence_first_observed"
+        notes["netting_anchored_at"] = anchored_at
+
+        if partial:
+            # The exchange only gave back PART of this row. Reduce it and leave
+            # it open — inventing a close for the remainder would be a second
+            # fabrication on top of the first.
+            updates = {
+                "position_size": round(qty - float(take), 10),
+                "notes": dump_capped(notes, 500),
+            }
+            db.update_trade(int(row["id"]), updates)
+            return "closed"
+
+        updates: Dict[str, Any] = {
+            "status": "closed",
+            "close_reason": "netting_attributed",
+            "closed_at": anchored_at,
+            "notes": None,  # replaced below once provenance is decided
+        }
+        if anchor_status == "anchored" and anchor_price and anchor_price > 0:
+            cvu = contract_value_usd_for(str(row["symbol"] or ""))
+            pnl = compute_realized_pnl(
+                entry_price=entry, exit_price=float(anchor_price),
+                qty=qty, direction=row["direction"], contract_value_usd=cvu,
+            )
+            notes["pnl_source"] = "local_compute"
+            notes["exit_price_source"] = anchor_source
+            notes["contract_value_usd"] = cvu
+            notes.pop("unmeasured_reason", None)
+            updates["exit_price"] = float(anchor_price)
+            if pnl is not None:
+                updates["pnl"] = pnl
+                pct = compute_pnl_percent(
+                    pnl=pnl, entry_price=entry, qty=qty, contract_value_usd=cvu,
+                )
+                if pct is not None:
+                    updates["pnl_percent"] = pct
+            updates["notes"] = dump_capped(notes, 500)
+            db.update_trade(int(row["id"]), updates)
+            return "closed"
+
+        # no_anchor — declare, never substitute.
+        notes["pnl_source"] = unmeasured_marker
+        notes["unmeasured_reason"] = "netting_attribution_no_anchor"
+        updates["notes"] = dump_capped(notes, 500)
+        db.update_trade(int(row["id"]), updates)
+        return "unmeasured"
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_netting_apply_close: trade %s failed: %s", row["id"], exc,
+        )
+        return "error"
+
+
 def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
     """Re-arm protection on Bybit positions that are NAKED at the broker.
 
@@ -8266,6 +8727,26 @@ def run_monitor_tick(
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "run_monitor_tick: broker-naked Bybit sweep raised: %s", exc
+        )
+
+    # Netting partial-close ATTRIBUTION (BL-20260801). Under one-way netting a
+    # position-level exit shrinks ONE exchange position holding N journal rows,
+    # and per-order close detection reduces at most one of them — so siblings
+    # stay open forever (measured 451x inflation on bybit_1 SOLUSDT 2026-08-06).
+    # Runs right after the sweep above so it reuses the same freshly-read
+    # exchange truth. Default mode is `annotate`: it does all the work and
+    # records the rows it WOULD reduce, without touching the money DB.
+    try:
+        netting_summary = _reconcile_netting_partial_closes(db)
+        if (
+            netting_summary.get("divergent")
+            or netting_summary.get("closed")
+            or netting_summary.get("errors")
+        ):
+            summaries["__netting_attribution__"] = netting_summary
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "run_monitor_tick: netting attribution reconciler raised: %s", exc
         )
 
     # S-067 follow-up #3: closed → exchange-flat invariant check.
