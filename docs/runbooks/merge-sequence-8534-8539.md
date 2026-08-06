@@ -27,6 +27,30 @@ Delete this file once both PRs are merged.
 
 ## Live status log (newest first — append, don't rewrite)
 
+- **22:25Z — ✅ STEP 1 DONE: #8534 MERGED** (squash → `cac7037`). 28 checks passed
+  in CI; `claim-basis-guard` had been reaped by the outage (run `failure`, job
+  `cancelled`, **logs 404** — it never executed), so it was verified **locally**
+  against the exact head 9c6fde0 with the same `--base origin/main`:
+  `3 backlog file(s) scanned, 0 basis-less new claim row(s)`, exit 0. The two
+  guards that had never run against the new marker script were given real log
+  reads: `dry-run-guard` → `clean` on the 923-line diff;
+  `diagnostic-provenance-guard` → self-test fired **and** scan `OK`.
+  **Steps 2–3 done too:** `origin/main` merged into the branch (one conflict in
+  `health-review-backlog.json`, resolved by taking main's copy + re-appending
+  `BL-20260806-ISSUE-TRIGGER-FANOUT-77PCT-OF-ALL-RUNS`; 383 items, valid JSON),
+  local verification now **30 PASS / 0 FAIL** (the pre-merge failure was exactly
+  the dangling backlog ref #8534 resolved) and **367 tests pass**. Pushed 229c6b0.
+  **STILL BLOCKED at step 3:** push webhooks remain throttled — the branch shows
+  `total_count: 0` after the push, and the #8534 **merge push to `main` also
+  created no run** (no `branch-protection-sync` run at 22:17Z). #8539 cannot get
+  check runs until webhook delivery recovers; another push will be needed then.
+  **DO NOT run step 4 yet** — dispatching the protection swap opens a window that
+  blocks every other open PR, and it must not be opened while #8539 is unable to
+  go green.
+  **De-risked:** the 19:37Z `workflow_dispatch` of `branch-protection-sync` on
+  `main` **completed successfully**, so step 4's mechanism is proven working
+  (PAT present, protection applied), not merely API-accepted.
+
 - **20:48Z** — #8534 still **4 of 29** (unchanged since 20:01Z; ~47 min with zero
   progress, so the earlier "accelerating" read was wrong — treat the drain as
   erratic, not trending). Branch still `total_count: 0`.
