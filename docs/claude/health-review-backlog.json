@@ -10034,8 +10034,19 @@
       "severity": "medium",
       "status": "open",
       "updates": []
+    },
+    {
+      "id": "BL-20260806-ISSUE-TRIGGER-FANOUT-77PCT-OF-ALL-RUNS",
+      "opened_at": "2026-08-06T18:45:00+00:00",
+      "opened_by": "claude (metis-insights-workplan-cont fczb1e)",
+      "source": "Measured live during the 2026-08-06 Actions incident via mcp__github__actions_list. Sibling finding to BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES (the PR-side fan-out, fixed in PR #8539).",
+      "title": "[ci][Tier-1] 85 of 100 workflows carry an `issues:` trigger, so ONE issue creates up to 85 workflow runs — 275,328 runs (77% of all Actions runs this repo has ever produced) are issue-triggered, and ~29 of every 30 are immediately skipped",
+      "description": "ALWAYS STATE THE POPULATION. Measured 2026-08-06 18:45Z against the live Actions API:\n  * `event=issues` runs, all time: 275,328 of ~357,254 total completed runs = 77.1%.\n  * Issue #8538 (one trainer-vm-diag relay request, opened 18:14:59Z) created 30 runs on the first API page ALONE, all within the same minute: 29 `skipped` + 1 real. 85 workflow files carry an `issues:` trigger, so the true per-issue figure is up to 85.\n\nMECHANISM. GitHub cannot filter an `issues` trigger by LABEL — the label test has to happen in a job-level `if:`. So the repo's entire issue-driven control plane (every diag relay, every system-action, every recover/provision workflow) creates a run for EVERY issue and then skips all but the one whose label matched. The pattern is correct; its cost is that the run count is multiplied by the number of relays, and that number has grown to 85.\n\nWHAT THIS DOES AND DOES NOT EXPLAIN. A `skipped` run consumes no runner, so this is NOT demonstrated to be the cause of the 2026-08-06 queue stall — the proximate cause of that was GitHub's own incident (status page 15:22Z onward; `POST /actions/runs/{id}/cancel` returning 502; runner allocation degraded but not dead — the 16:26Z batch took up to 70 min to complete and the last success landed 17:40:02Z). Billing was RULED OUT as a cause: the repo is public, so hosted minutes are free and unlimited. What this finding IS: the dominant source of this repo's Actions volume, a standing throttling-exposure risk, and noise that makes the run list unreadable during exactly the incident you most need to read it.\n\nPROPOSED FIX (needs design + operator review — deliberately NOT attempted during the outage, because a change to the entire ops control plane cannot be verified while CI is down): one `issue-router.yml` on `issues.opened` that reads the label and dispatches the matching relay via `workflow_dispatch`, with each relay's `issues:` trigger removed and its issue number passed as an input (relays comment back on the originating issue, so that context must be threaded). Collapses up to 85 runs per issue to 2. Same shape as the guards consolidation in PR #8539. Risk to weigh: it puts every relay behind one router, so the router becomes a single point of failure for the whole control plane — it needs its own failure-path self-test, and a documented manual `workflow_dispatch` fallback per relay.",
+      "severity": "medium",
+      "status": "open",
+      "updates": []
     }
   ],
-  "updated_at": "2026-08-06T14:30:00+00:00",
+  "updated_at": "2026-08-06T18:45:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
