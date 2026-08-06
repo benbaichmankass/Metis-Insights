@@ -8100,6 +8100,11 @@
           "date": "2026-08-06T09:20:00+00:00",
           "by": "claude (roadmap-workplan-update session lw6qf0)",
           "note": "Cross-linked to the netting design packet (docs/netting-partial-close-attribution-DESIGN.md sec 1): this is the PROTECTION side of the same partial-close event that BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED is the JOURNAL side of. One partial close strands a leg AND orphans a row simultaneously, so the two items worsen together and should be sequenced together. Not remediated here."
+        },
+        {
+          "date": "2026-08-06T11:50:00+00:00",
+          "by": "claude (roadmap-workplan-update session lw6qf0)",
+          "note": "NEW GAP FOUND. Operator-approved dry-run of cancel-stale-tpsl-legs on bybit_1/XRPUSDT (#8518) returned action:abort_flat — 'live XRPUSDT position on bybit_1 is flat (size=0) - out of scope for this script; nothing to protect', and /api/diag/exchange_positions (#8517) confirms bybit_1 now holds ADA/BTC/ETH/BNB/SOL and NO XRP. So the position that was 830%->336% over-covered on 2026-07-30 has since closed. The remediation script is scoped to protecting a LIVE position, which means any SL/TP legs left resting after the position closed fall outside every existing cleanup path — neither the per-tick broker-naked sweep (skips flat) nor this action (aborts on flat) can reach them. Whether legs actually remain on the flat symbol is UNVERIFIED here: the abort happened before any leg read, so this is a scope gap in the tooling, not a confirmed stranded-leg count. Next step is a plain read of resting StopOrders on the flat symbol before deciding whether the script needs a flat-symbol cleanup mode."
         }
       ]
     },
@@ -9811,6 +9816,11 @@
           "date": "2026-08-06T09:20:00+00:00",
           "by": "claude (roadmap-workplan-update session lw6qf0)",
           "note": "DESIGN PACKET WRITTEN: docs/netting-partial-close-attribution-DESIGN.md. Mechanism confirmed in code — _reconcile_open_trades (order_monitor.py:3597) reconciles each DB-open row against ITS OWN Bybit order via account_order_status, so a position-level exit that shrinks the netted position maps to no sibling row's order and closes at most one row. Three fix options costed against the provenance + pairs-isolation + runtime-bounds constraints; recommendation is (b) leg-id attribution with (a) FIFO as declared fallback, plus (c) periodic same-moment reconcile as backstop. Four operator decisions isolated in the packet sec 5. NOTE the honest trade surfaced: fixing size divergence LOWERS measured-pnl coverage, because rows with no broker close record must close UNMEASURED rather than priced from a mark — that will move the R4 gate's totalPnlMeasured and the operator should agree to it up front. Three cheap pre-implementation measurements still owed (sec 6): sl_order_id coverage among open rows, a fresh same-moment divergence census, and the pairs-owned row exclusion list. Still open — this is design only, the fix is Tier-2 and unapproved."
+        },
+        {
+          "date": "2026-08-06T11:50:00+00:00",
+          "by": "claude (roadmap-workplan-update session lw6qf0)",
+          "note": "MEASURED same-moment 2026-08-06T11:40Z (relays #8516 journal / #8517 exchange), 33 open non-backtest rows. FOUR divergent (account,symbol,direction) keys, ALL bybit: bybit_1 SOLUSDT journal 2075.2 vs exchange 4.6 (451x, 4 rows) — WORSE than the 155x BTC case W1 measured 08-01, and a DIFFERENT symbol, so the condition is confirmed self-worsening not a single persisting instance; bybit_1 BNBUSDT 13.43 vs 5.49 (5 rows, the same BNB divergence W1 saw on 08-01, still unresolved); bybit_2 ETHUSDT 0.06 vs 0.04 (REAL MONEY — it was clean at the 2026-07-30 audit and is NOT clean now, so this can no longer be described as paper-only); bybit_portfolio ETHUSDT 27.42 vs 21.05. Every non-Bybit key is EXACTLY clean (12/12 across alpaca_paper, alpaca_portfolio, ib_paper) — those venues do not net, so the partial-close mechanism cannot fire there; a general journal-writing bug would have smeared across them, so this confirms the diagnosis. sl_order_id coverage among open bybit rows is 16/19 = 84.2%, so fix option (b) leg-id attribution is worth building with (a) FIFO covering the untracked 3. No pairs-owned rows open, so constraint 2 has an empty exclusion list today. Design packet sec 6 updated with the full census. Detector blind-spot fix (packet sec 2) shipped separately the same day."
         }
       ]
     },
@@ -9966,6 +9976,6 @@
       "updates": []
     }
   ],
-  "updated_at": "2026-08-06T09:20:00+00:00",
+  "updated_at": "2026-08-06T11:50:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

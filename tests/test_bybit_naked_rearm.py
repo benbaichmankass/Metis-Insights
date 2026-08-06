@@ -398,3 +398,114 @@ def test_sweep_tops_up_a_real_partial_gap(tmp_path, monkeypatch):
     assert calls["symbol"] == "BNBUSDT"
     # The Full-mode whole-position re-arm must NOT also fire.
     assert summary["rearmed"] == 0 and client.stops_set == []
+
+
+# ------------------------------------------------- journal/broker divergence
+# 2026-08-06 (netting P0, decision #1). The `journal_qty_divergent` detector
+# shipped in PR #8000 sat AFTER the loop's `if size <= 0: continue`, and
+# `_bybit_position_protection` returns size 0.0 when Bybit reports no position
+# — so the MAXIMAL-divergence case (exchange flat, journal rows still open;
+# the W1 155x finding) was skipped before anything was compared and reported
+# clean. It reported clean because it never looked: CLAUDE.md diagnostic
+# provenance, sub-class C. It was also keyed (account, symbol) with no
+# direction, so an opposite-side phantom could cancel out against a genuine
+# same-side excess.
+def test_norm_position_side():
+    assert om._norm_position_side("Buy") == "long"
+    assert om._norm_position_side("long") == "long"
+    assert om._norm_position_side("Sell") == "short"
+    assert om._norm_position_side("SHORT") == "short"
+    # Unknown/flat is ungradeable — never silently a match.
+    assert om._norm_position_side(None) == ""
+    assert om._norm_position_side("") == ""
+    assert om._norm_position_side("None") == ""
+
+
+def test_divergence_fires_when_exchange_is_FLAT(tmp_path, monkeypatch):
+    """The regression: journal open, exchange flat → every row is a phantom.
+
+    This is the case the detector exists to catch and the one it used to miss.
+    """
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="bybit_2", symbol="BTCUSDT", direction="long",
+            position_size=1.553, stop_loss=90000.0, take_profit_1=99000.0,
+            created_at="2026-01-01T00:00:00+00:00", status="open")
+    client = _FakeBybit(positions={})           # exchange holds NOTHING
+    _patch_accounts(monkeypatch, client)
+
+    summary = om._check_broker_naked_bybit_positions(db)
+    assert summary["journal_qty_divergent"] == 1
+    # Flat means nothing to protect — it must not try to re-arm on air.
+    assert summary["rearmed"] == 0 and client.stops_set == []
+
+
+def test_divergence_fires_on_OPPOSITE_side_rows(tmp_path, monkeypatch):
+    """A short row against a live LONG position is a phantom by construction.
+
+    Sized so the OLD symbol-pooled key reads exactly CLEAN: journal long 60 +
+    short 40 = 100 = the netted size, so the pooled sum matches and no
+    divergence is reported — while the 40 short is a phantom (one-way netting
+    means only one side can be live) and the long side is 40 SHORT of the
+    position it supposedly backs. Two errors cancelling is precisely what
+    keying by symbol alone hides, so this test discriminates the direction fix
+    rather than merely exercising it.
+    """
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="bybit_2", symbol="XRPUSDT", direction="long",
+            position_size=60.0, stop_loss=1.0, take_profit_1=1.2,
+            created_at="2026-01-01T00:00:00+00:00", status="open")
+    _insert(db, id=2, account_id="bybit_2", symbol="XRPUSDT", direction="short",
+            position_size=40.0, stop_loss=1.2, take_profit_1=1.0,
+            created_at="2026-01-01T00:00:00+00:00", status="open")
+    # Exchange: long 100. Pooled journal = 100 → old code sees no divergence.
+    client = _FakeBybit(
+        positions={"XRPUSDT": {"size": "100", "side": "Buy",
+                               "stopLoss": "1.0"}})
+    _patch_accounts(monkeypatch, client)
+
+    summary = om._check_broker_naked_bybit_positions(db)
+    assert summary["journal_qty_divergent"] == 1
+
+
+def test_no_divergence_when_journal_matches_broker(tmp_path, monkeypatch):
+    """The negative control — a correct book must stay quiet."""
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="bybit_2", symbol="XRPUSDT", direction="long",
+            position_size=60.0, stop_loss=1.0, take_profit_1=1.2,
+            created_at="2026-01-01T00:00:00+00:00", status="open")
+    _insert(db, id=2, account_id="bybit_2", symbol="XRPUSDT", direction="long",
+            position_size=40.0, stop_loss=1.0, take_profit_1=1.2,
+            created_at="2026-01-01T00:00:00+00:00", status="open")
+    client = _FakeBybit(
+        positions={"XRPUSDT": {"size": "100", "side": "Buy",
+                               "stopLoss": "1.0"}})
+    _patch_accounts(monkeypatch, client)
+
+    summary = om._check_broker_naked_bybit_positions(db)
+    assert summary["journal_qty_divergent"] == 0
+
+
+def test_overcover_detector_still_fires_alongside_divergence(tmp_path, monkeypatch):
+    """Guard-set separation: hoisting divergence must not retire this detector.
+
+    The divergence check adds the symbol to `anomaly_checked`; if the leg
+    check shared that set it would become unreachable — silently retiring a
+    live detector, the same never-looked failure one level up.
+    """
+    db = _FakeDB(tmp_path / "j.db")
+    # Journal 200 vs exchange 100 → divergence AND over-accumulated legs.
+    _insert(db, id=1, account_id="bybit_2", symbol="XRPUSDT", direction="long",
+            position_size=200.0, stop_loss=1.0, take_profit_1=1.2,
+            created_at="2026-01-01T00:00:00+00:00", status="open")
+    client = _FakeBybit(
+        positions={"XRPUSDT": {"size": "100", "side": "Buy", "stopLoss": ""}},
+        stop_legs={"XRPUSDT": [
+            {"stopOrderType": "StopLoss", "orderId": "a", "qty": "300"},
+            {"stopOrderType": "StopLoss", "orderId": "b", "qty": "300"},
+        ]},
+    )
+    _patch_accounts(monkeypatch, client)
+
+    summary = om._check_broker_naked_bybit_positions(db)
+    assert summary["journal_qty_divergent"] == 1
+    assert summary["over_covered"] == 1
