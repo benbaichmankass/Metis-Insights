@@ -27,6 +27,32 @@ Delete this file once both PRs are merged.
 
 ## Live status log (newest first — append, don't rewrite)
 
+- **22:40Z — no workaround exists; #8539 must wait for webhooks. Stop looking.**
+  GitHub 22:18Z: *"success rates for new workflow runs have increased to 97% …
+  However, webhook triggers remain throttled."* Jobs execute fine once created;
+  **creation** is the throttled half. Three pushes (229c6b0, 5697e62, and an
+  explicit empty commit 30b5556) each produced **zero** runs, and the repo-wide
+  queue is nearly empty (24 items, most stale from May) — so this is not backlog.
+  **The `workflow_dispatch` escape hatch does NOT work here, for two independent
+  reasons — do not burn time re-deriving them:**
+  1. `guards.yml` is **new in this PR**, so it is not on the default branch, and
+     GitHub returns **404** on `POST /actions/workflows/guards.yml/dispatches`
+     for any ref. A workflow must exist on the default branch to be dispatchable.
+     This makes a CI-consolidation PR *uniquely* webhook-dependent: the very job
+     it introduces cannot be summoned any other way.
+  2. `pytest-collect` (a required context) has **no `workflow_dispatch` trigger
+     at all**, so even for workflows that do exist on `main`, the required set
+     cannot be fully satisfied by dispatch.
+  Consequence: nothing is lost by waiting — the branch is pushed and locally
+  verified (30 PASS / 0 FAIL, 367 tests). Do **not** contort the repo (e.g.
+  adding `workflow_dispatch` to `pytest-collect` just to force a merge tonight);
+  a required gate satisfied by an unusual path is exactly what this PR exists to
+  stop being possible.
+  *Worth considering later, on its own merits and not under time pressure:*
+  giving every required-check workflow a `workflow_dispatch` trigger so a future
+  webhook outage is recoverable. That is a real hardening item, not a hack —
+  file it rather than doing it mid-incident.
+
 - **22:25Z — ✅ STEP 1 DONE: #8534 MERGED** (squash → `cac7037`). 28 checks passed
   in CI; `claim-basis-guard` had been reaped by the outage (run `failure`, job
   `cancelled`, **logs 404** — it never executed), so it was verified **locally**
