@@ -46,6 +46,38 @@ sys.path.insert(0, str(REPO))
 MIN_LIVE_N = 30            # below this the live sample is too thin to calibrate
 MAX_WINRATE_DIFF = 0.15    # |backtest win-rate − live win-rate| must be ≤ this
 MAX_KS = 0.30              # KS(realized-R) must be ≤ this (distribution agreement)
+MAX_MEAN_R_GAP = 0.50      # |backtest mean-R − live mean-R| must be ≤ this
+
+#: A leg whose mean is this concentrated in ONE row is reported as
+#: outlier-dominated. Not a gate — a legibility flag, so a magnitude failure is
+#: never mysterious (see `agreement`).
+#:
+#: **0.50 is the mathematical CEILING of the metric, not a midpoint** — the
+#: deviations above and below a mean sum to the same total, so a lone value on
+#: its side of the mean contributes exactly half and can never contribute more.
+#: The threshold therefore has to sit BELOW 0.5 to be reachable; 0.40 means "one
+#: row is most of the deviation on its side". Do not "fix" this to 0.8 — that
+#: would make the flag unreachable and silently retire it.
+OUTLIER_DOMINANCE_FLAG = 0.40
+
+
+def _mean_outlier_share(xs: Sequence[float]) -> float | None:
+    """Share of the total absolute deviation-from-mean contributed by the single
+    most extreme value, in ``[0, 0.5]``. ``None`` for n < 3.
+
+    Answers "is this mean a property of the distribution, or of one row?" —
+    the question that made the 2026-08-06 `calibrated`-with-a-92x-mean-gap
+    verdict unreadable until someone dumped the rows by hand.
+    """
+    vals = [x for x in xs if x is not None and not math.isnan(x)]
+    if len(vals) < 3:
+        return None
+    mu = sum(vals) / len(vals)
+    devs = sorted((abs(x - mu) for x in vals), reverse=True)
+    total = sum(devs)
+    if total <= 0:
+        return 0.0
+    return devs[0] / total
 
 
 def _ks_2samp(a: Sequence[float], b: Sequence[float]) -> float | None:
@@ -84,6 +116,7 @@ def agreement(
     min_live_n: int = MIN_LIVE_N,
     max_winrate_diff: float = MAX_WINRATE_DIFF,
     max_ks: float = MAX_KS,
+    max_mean_r_gap: float = MAX_MEAN_R_GAP,
 ) -> dict[str, Any]:
     """Pure: score backtest↔live agreement from two realized-R samples.
 
@@ -93,13 +126,33 @@ def agreement(
     so the caller owns that (see ``_live_rows``' ``r_basis``). Scoring a ±1
     sign-proxy live sample against a continuous backtest R forces
     ``KS ≥ 1 − max(win_rate)`` no matter how faithful the backtest is; the
-    resulting ``drifts`` is an artifact of the axis, not a finding."""
+    resulting ``drifts`` is an artifact of the axis, not a finding.
+
+    THREE axes, and the third exists because two were not enough (2026-08-06).
+    ``htf_pullback_trend_2h``/BTCUSDT cleared BOTH the win-rate gap (0.123) and
+    KS(R) (0.213) and was declared ``calibrated`` while its live mean-R was
+    **−3.41 against a backtest −0.04** — a ~92× magnitude gap. Neither existing
+    axis can see that: win-rate measures how OFTEN, KS is a max-CDF-gap that is
+    insensitive to tail magnitude, and *nothing* measured how MUCH. A backtest
+    that reproduces the shape and frequency of a book while missing its loss
+    magnitude by two orders of magnitude is not trustworthy OOS evidence, so
+    ``mean_r_gap`` is now a gate condition.
+
+    ``live_mean_r_outlier_share`` is reported but deliberately **not** gated: it
+    says whether a mean is a property of the distribution or of one row (that
+    leg's mean was one row at −99.5R; excluding the worst three it was +0.002).
+    Gating on it would silently forgive a poisoned sample; reporting it makes a
+    magnitude failure legible instead of mysterious.
+    """
     n_live, n_bt = len(list(live_r)), len(list(backtest_r))
     wr_live, wr_bt = _win_rate(live_r), _win_rate(backtest_r)
     wr_diff = None if (wr_live is None or wr_bt is None) else abs(wr_bt - wr_live)
     ks = _ks_2samp(live_r, backtest_r)
     mean_live = (sum(live_r) / n_live) if n_live else None
     mean_bt = (sum(backtest_r) / n_bt) if n_bt else None
+    mean_gap = (None if (mean_live is None or mean_bt is None)
+                else abs(mean_bt - mean_live))
+    outlier_share = _mean_outlier_share(live_r)
 
     if n_live < min_live_n:
         verdict = "insufficient-live"
@@ -107,7 +160,8 @@ def agreement(
     else:
         wr_ok = wr_diff is not None and wr_diff <= max_winrate_diff
         ks_ok = ks is None or ks <= max_ks
-        if wr_ok and ks_ok:
+        mean_ok = mean_gap is not None and mean_gap <= max_mean_r_gap
+        if wr_ok and ks_ok and mean_ok:
             verdict = "calibrated"
             reason = "backtest reproduces the live distribution within tolerance — TRUSTED OOS evidence"
         else:
@@ -120,6 +174,20 @@ def agreement(
                     bits.append(f"win-rate gap {wr_diff:.3f} > {max_winrate_diff}")
             if not ks_ok and ks is not None:
                 bits.append(f"KS(R) {ks:.3f} > {max_ks}")
+            if not mean_ok:
+                if mean_gap is None:
+                    bits.append("mean-R unavailable (empty sample)")
+                else:
+                    bit = f"mean-R gap {mean_gap:.3f} > {max_mean_r_gap}"
+                    # Name the outlier domination in the reason itself. A bare
+                    # magnitude failure sends the reader to dump rows by hand;
+                    # this says up front whether to suspect the book or one row.
+                    if (outlier_share is not None
+                            and outlier_share >= OUTLIER_DOMINANCE_FLAG):
+                        bit += (f" — but {outlier_share:.0%} of the live mean's"
+                                " deviation is ONE row, so suspect a poisoned"
+                                " row before a real magnitude drift")
+                    bits.append(bit)
             reason = "backtest drifts from live (" + "; ".join(bits) + ") — backtest is a lead, not a result"
 
     return {
@@ -133,7 +201,10 @@ def agreement(
         "ks_realized_r": ks,
         "live_mean_r": mean_live,
         "backtest_mean_r": mean_bt,
-        "thresholds": {"min_live_n": min_live_n, "max_winrate_diff": max_winrate_diff, "max_ks": max_ks},
+        "mean_r_gap": mean_gap,
+        "live_mean_r_outlier_share": outlier_share,
+        "thresholds": {"min_live_n": min_live_n, "max_winrate_diff": max_winrate_diff,
+                       "max_ks": max_ks, "max_mean_r_gap": max_mean_r_gap},
     }
 
 

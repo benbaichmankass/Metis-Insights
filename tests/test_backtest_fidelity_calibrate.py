@@ -38,6 +38,63 @@ class TestAgreementGate:
         assert r["n_live"] == 40
         assert r["verdict"] == "calibrated"
 
+    def test_drifts_on_MAGNITUDE_when_winrate_and_ks_both_pass(self):
+        """The 2026-08-06 hole, pinned. htf_pullback_trend_2h/BTC cleared the
+        win-rate gap (0.123) AND KS(R) (0.213) and read `calibrated` while its
+        live mean-R was -3.41 vs a backtest -0.04. Shape and frequency can both
+        agree while magnitude is off by two orders — if this ever passes again,
+        the third axis regressed."""
+        # KS only counts the CDF FRACTION a row occupies, so one extreme row in
+        # 30 moves KS by ~1/30 while moving the mean by 3.3 — the exact geometry
+        # that let the real leg through. Both prior axes pass; magnitude fails.
+        live = [0.0] * 29 + [-99.5]
+        bt = [0.0] * 100
+        r = cal.agreement(live, bt)
+        assert r["win_rate_diff"] == 0.0                  # frequency: identical
+        assert r["ks_realized_r"] <= cal.MAX_KS           # shape: PASSES
+        assert r["mean_r_gap"] > cal.MAX_MEAN_R_GAP       # magnitude: fails
+        assert r["verdict"] == "drifts"
+        assert "mean-R gap" in r["reason"]
+
+    def test_mean_r_gap_is_reported_and_thresholded(self):
+        r = cal.agreement([1.0] * 40, [1.0] * 40)
+        assert r["mean_r_gap"] == 0.0
+        assert r["thresholds"]["max_mean_r_gap"] == cal.MAX_MEAN_R_GAP
+
+    def test_outlier_dominated_mean_says_so_in_the_reason(self):
+        """A magnitude failure driven by ONE row must say so — otherwise the
+        reader re-derives it by dumping rows, which is what happened."""
+        live = [-99.5] + [0.0] * 39               # one poisoned row
+        bt = [0.0] * 40
+        r = cal.agreement(live, bt)
+        assert r["verdict"] == "drifts"
+        assert r["live_mean_r_outlier_share"] >= cal.OUTLIER_DOMINANCE_FLAG
+        assert "ONE row" in r["reason"]
+
+    def test_outlier_share_is_NOT_a_gate(self):
+        """Reported, never gated. Forgiving a magnitude failure because it is
+        concentrated would silently wave through a poisoned sample."""
+        live = [-99.5] + [0.0] * 39
+        r = cal.agreement(live, [0.0] * 40)
+        assert r["verdict"] == "drifts"   # still fails despite the flag
+
+    def test_outlier_share_none_below_three_samples(self):
+        assert cal._mean_outlier_share([1.0, 2.0]) is None
+        assert cal._mean_outlier_share([]) is None
+
+    def test_outlier_share_zero_when_all_identical(self):
+        assert cal._mean_outlier_share([2.0, 2.0, 2.0]) == 0.0
+
+    def test_outlier_share_CEILING_is_one_half(self):
+        """Deviations above and below a mean sum to the same total, so a lone
+        value on its side contributes exactly half and can NEVER exceed it.
+        This is why OUTLIER_DOMINANCE_FLAG must sit below 0.5 — a threshold at
+        or above it would be unreachable, i.e. a silently dead flag."""
+        for n in (3, 10, 40, 200):
+            share = cal._mean_outlier_share([-99.5] + [0.0] * (n - 1))
+            assert share == pytest.approx(0.5), f"n={n}"
+        assert cal.OUTLIER_DOMINANCE_FLAG < 0.5
+
     def test_drifts_on_winrate_gap(self):
         live = [-1.0] * 40                        # 0% WR
         bt = [1.0] * 40                           # 100% WR
