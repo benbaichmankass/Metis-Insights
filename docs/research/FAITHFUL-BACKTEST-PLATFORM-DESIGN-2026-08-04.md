@@ -248,6 +248,27 @@ average, exactly the § 5a intuition that a multi-bar hold pays funding several 
    NOT a bigger cost model. This is the "separate cost-model gap from small-sample/
    regime bias before declaring calibrated" caveat, now discharged with evidence.
 
+   > **P1.x SHIPPED 2026-08-06 (axis half).** `backtest_fidelity_calibrate` now
+   > computes a **real stop-distance live-R** — `pnl / (|entry−stop| · |qty| ·
+   > contract_value_usd)` via the canonical
+   > `src.web.api._clean_trades.r_multiple` — and it is the **default** axis
+   > (`--r-basis stop_distance`). The ±1 proxy survives only as an explicit
+   > `--r-basis sign_proxy` opt-in for reproducing the numbers in this section.
+   > A row whose risk is not derivable is **excluded from the R sample, never
+   > back-filled with the proxy** — a mixed axis under a `stop_distance` label
+   > would rebuild the artifact invisibly. The exclusion is reported as
+   > `live_r.r_coverage` (the `rCoverage` discipline), and a leg where trusted
+   > rows exist but none is R-measurable now returns an explicit *"unmeasurable,
+   > not untraded"* reason instead of the bare `live n=0 < floor` that an empty
+   > sample would otherwise produce.
+   >
+   > **Every KS(R) figure in the table below is on the RETIRED `sign_proxy`
+   > axis** and is kept as the record of the artifact — do NOT compare a
+   > post-2026-08-06 KS against it. The trust map must be **re-run on the real-R
+   > axis** (trainer, both DBs) before any leg's verdict is quoted again; that
+   > re-run, plus the trusted-live-set widening (which is accrual, not code), is
+   > the remaining P1.x work.
+
 **The full trust map (fee-only baseline, every leg with both backtest AND live rows;
 `--trust-map --stratify direction`, trainer #8464):**
 
