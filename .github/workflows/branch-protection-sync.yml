@@ -113,7 +113,25 @@ jobs:
           # walk-past failure mode it exists to stop. NOTE its context is
           # "artifact-validity-guard" — the job id was renamed from the
           # ambiguous "guard" in the same PR that promoted it.
-          REQUIRED_CONTEXTS='["pytest-collect","pytest-run","secret-scan","ruff-lint","dry-run-guard","env-gate-guard","silent-empty-guard","canonical-config-loaders","canonical-db-resolver","provenance-consumer-guard","diagnostic-provenance-guard","layer-guard","json-extract-guard","soak-doctrine-guard","artifact-validity-guard"]'
+          # 2026-08-06 — CI FAN-OUT CONSOLIDATION (BL-20260806-CI-FANOUT-AMPLIFIES-
+          # ACTIONS-OUTAGES). The 13 individual guard contexts that used to be
+          # required are now ONE context, `guards`, because all 30 fast static
+          # guards run in one job (.github/workflows/guards.yml, registry in
+          # scripts/ci/run_guards.py). The retired contexts were:
+          #   secret-scan · ruff-lint · dry-run-guard · env-gate-guard ·
+          #   silent-empty-guard · canonical-config-loaders · canonical-db-resolver ·
+          #   provenance-consumer-guard · diagnostic-provenance-guard · layer-guard ·
+          #   json-extract-guard · soak-doctrine-guard · artifact-validity-guard
+          # Each still runs, with the same command and the same relevance
+          # condition — only the packaging changed. This list MUST be updated in
+          # the SAME commit that deletes those workflows: a required context whose
+          # workflow no longer exists is never reported, so every PR would hang
+          # "Expected — Waiting for status to be reported" forever with no way to
+          # merge. That failure mode is why this edit is not a follow-up.
+          # pytest-collect / pytest-run stay separate contexts (the test suite is a
+          # different kind of check, and long enough that folding it in would
+          # serialise every guard behind it).
+          REQUIRED_CONTEXTS='["pytest-collect","pytest-run","guards"]'
 
           # Use the CURRENT canonical repo path from the Actions context, NOT a
           # hardcoded owner/repo. The 2026-07-23 rename (ict-trading-bot ->
