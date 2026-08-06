@@ -4432,6 +4432,67 @@ def _broker_pnl_note_key(rec: Optional[Dict[str, Any]]) -> str:
     return "bybit_closed_pnl" if src.startswith("bybit") else src
 
 
+#: How much bigger a closed-pnl record's qty must be than a row's own qty before
+#: the record is treated as covering a NETTED position rather than that row
+#: alone. 5% absorbs venue rounding without letting a genuinely larger flatten
+#: through.
+NETTED_PRORATE_QTY_RATIO = 1.05
+
+
+def _prorate_netted_broker_pnl(
+    rec_pnl: Any,
+    rec_qty: Any,
+    row_qty: Any,
+    *,
+    always: bool = False,
+) -> tuple[Optional[float], bool]:
+    """Split a netted closed-pnl record down to one row's qty share.
+
+    Returns ``(pnl, prorated)``. ``pnl`` is ``None`` when nothing is bookable;
+    ``prorated`` says whether the split actually happened, so the caller stamps
+    the provenance it owns (the three call sites label differently on purpose —
+    see below — and this helper deliberately does not choose for them).
+
+    **Why this is one function.** Under one-way netting the broker returns ONE
+    closed-pnl record for the whole netted position, and booking its full value
+    onto each journal row that shared that position fabricates: the same figure
+    lands on N rows whose quantities differ by orders of magnitude. Measured on
+    the live journal 2026-08-06 — ``pnl = -2970.99`` on three
+    htf_pullback_trend_2h/BTCUSDT rows of qty 0.012 / 0.717 / 0.728, the first
+    implying a ~$247,000 BTC move. It surfaced only because the P1.x real-R axis
+    normalises pnl by each row's own risk and turned it into a −99.5R outlier;
+    raw-USD aggregates had absorbed it silently for months.
+
+    The guard already existed at TWO of the three sites that persist a broker
+    close (BL-20260720-ICTSCALP-PASTSTOP-EXITS for the reconciler, and the
+    netted-cascade path) and was **missing from the third**,
+    :func:`_recover_close_from_broker_pnl`, which stamps
+    ``exit_price_source`` = the broker source and therefore classified the
+    fabricated value as MEASURED. Three hand-rolled copies is how the fourth
+    site diverges, which is the same "one module owns this" lesson
+    ``src/runtime/provenance.py`` was created for.
+
+    ``always=True`` is the CASCADE semantics: those rows are siblings of a
+    known netted flatten by construction, so the record covers them all and the
+    ratio test would wrongly skip a sibling whose qty happens to match the
+    record. Default (``always=False``) is the reconciler semantics: prorate only
+    when the record is materially bigger than this row
+    (``rec_qty > row_qty * NETTED_PRORATE_QTY_RATIO``), so a normal 1:1 close
+    keeps the broker's exact figure rather than being re-derived through a
+    division that can only lose precision.
+    """
+    pnl = _safe_float(rec_pnl)
+    if pnl is None:
+        return None, False
+    rq = _safe_float(rec_qty) or 0.0
+    wq = _safe_float(row_qty) or 0.0
+    if rq <= 0 or wq <= 0:
+        return float(pnl), False
+    if always or rq > wq * NETTED_PRORATE_QTY_RATIO:
+        return float(pnl) * (wq / rq), True
+    return float(pnl), False
+
+
 def _recover_close_from_broker_pnl(
     db,
     trade_row: Any,
@@ -4533,20 +4594,39 @@ def _recover_close_from_broker_pnl(
         "exit_reason_source":
             ("price_vs_pkg_bracket" if resolved_reason else "unresolved"),
     })
+    entry = _safe_float(trade_row["entry_price"])
+    qty = _safe_float(trade_row["position_size"])
+    # Netted-position proration (BL-20260806-DUPLICATE-PNL-NETTED-SIBLING-ROWS).
+    # This path lacked the guard its two sibling persist sites already had, so a
+    # record that flattened a BIGGER netted position was booked WHOLE onto this
+    # row — and stamped with the broker source above, which classifies MEASURED.
+    # A fabricated figure wearing a measured label is strictly worse than a
+    # missing one: every consumer folds it into an aggregate unchallenged.
+    pnl_to_book, prorated = _prorate_netted_broker_pnl(
+        closed_pnl, rec.get("qty"), qty,
+    )
+    if prorated:
+        notes["pnl_source"] = "netted_prorated"
+        notes["bybit_closed_pnl_record_total"] = closed_pnl
+        # Downgrade the exit-price stamp too. The exit PRICE is still the
+        # broker's, but `_prorated` is what provenance.classify_pnl reads to
+        # bucket the row FABRICATED — the split is an assumption about
+        # attribution however measured the underlying record was, and leaving
+        # the bare broker source here would keep calling it MEASURED.
+        notes["exit_price_source"] = f"{_broker_pnl_source(rec)}_prorated"
     updates: Dict[str, Any] = {
         "status": "closed",
         "exit_reason": final_exit_reason,
         "exit_price": float(avg_exit_price),
-        "pnl": round(float(closed_pnl), 4),
         "closed_at": closed_at,
-        "notes": dump_capped(notes, 500),
     }
-    entry = _safe_float(trade_row["entry_price"])
-    qty = _safe_float(trade_row["position_size"])
-    if entry and qty and entry * qty > 0:
-        updates["pnl_percent"] = round(
-            float(closed_pnl) / (entry * qty) * 100, 4
-        )
+    if pnl_to_book is not None:
+        updates["pnl"] = round(pnl_to_book, 4)
+        if entry and qty and entry * qty > 0:
+            updates["pnl_percent"] = round(
+                pnl_to_book / (entry * qty) * 100, 4
+            )
+    updates["notes"] = dump_capped(notes, 500)
     return updates
 
 
@@ -5466,7 +5546,15 @@ def _cascade_close_netted_siblings(
                 notes["pnl_source"] = "deferred_intent_reduce"
             elif rec_pnl is not None and rec_qty > 0 and sib_qty > 0:
                 try:
-                    prorated = float(rec_pnl) * (sib_qty / rec_qty)
+                    # always=True: these rows are siblings of a KNOWN netted
+                    # flatten by construction, so the record covers them all —
+                    # the ratio test would wrongly skip a sibling whose qty
+                    # happens to match the record's.
+                    prorated, _ = _prorate_netted_broker_pnl(
+                        rec_pnl, rec_qty, sib_qty, always=True,
+                    )
+                    if prorated is None:
+                        raise ValueError("unbookable rec_pnl")
                     updates["pnl"] = round(prorated, 4)
                     notes["pnl_source"] = "netted_prorated_cascade"
                     notes["bybit_closed_pnl_record_total"] = rec_pnl
@@ -5673,19 +5761,23 @@ def _close_trade_from_order_status(
         _closed_pnl_val = closed_pnl_rec.get("closed_pnl")
         if _closed_pnl_val is not None and not is_reduce_leg:
             try:
-                _pnl_to_book = float(_closed_pnl_val)
                 # Netted-position proration guard
                 # (BL-20260720-ICTSCALP-PASTSTOP-EXITS): when the matched
                 # closed-pnl record flattened a BIGGER netted position than
                 # this row's share (record qty > row qty), booking the full
                 # record pnl onto this one row fabricates — the record's
                 # economics belong to every journal trade that shared the
-                # position. Prorate by this row's qty share and stamp the
-                # source; the raw record total stays in notes for posterity.
+                # position. The arithmetic now lives in one helper shared with
+                # the cascade and watchdog-recovery paths; the third of those
+                # was missing it entirely
+                # (BL-20260806-DUPLICATE-PNL-NETTED-SIBLING-ROWS).
                 _qty = _safe_float(row.get("position_size")) or 0.0
-                _rec_qty = _safe_float(closed_pnl_rec.get("qty")) or 0.0
-                if _rec_qty > 0 and _qty > 0 and _rec_qty > _qty * 1.05:
-                    _pnl_to_book = _pnl_to_book * (_qty / _rec_qty)
+                _pnl_to_book, _prorated = _prorate_netted_broker_pnl(
+                    _closed_pnl_val, closed_pnl_rec.get("qty"), _qty,
+                )
+                if _pnl_to_book is None:
+                    raise ValueError("unbookable closed_pnl")
+                if _prorated:
                     notes["pnl_source"] = "netted_prorated"
                     notes["bybit_closed_pnl_record_total"] = _closed_pnl_val
                     updates["notes"] = dump_capped(notes, 500)
