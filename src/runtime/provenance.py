@@ -215,6 +215,17 @@ FABRICATED_SOURCES = frozenset({
     # A netted record's economics split across rows by qty share — a modelling
     # assumption about attribution, not an observed per-row fill.
     "netted_prorated",
+    # The UN-split case, and strictly worse than `netted_prorated`: one netted
+    # broker record's FULL magnitude written onto N sibling journal rows, so the
+    # same figure lands on rows whose quantities differ by orders of magnitude
+    # (measured 2026-08-06: pnl -2970.99 on rows of qty 0.012 / 0.717 / 0.728,
+    # the first implying a ~$247,000 BTC move). Deliberately NOT spelled with the
+    # `_prorated` suffix — nothing was prorated, and calling it that would claim
+    # an attribution assumption the writer never made. Applied retroactively by
+    # scripts/ops/mark_netted_duplicate_pnl.py; the forward-side writer fix is
+    # order_monitor._prorate_netted_broker_pnl.
+    # BL-20260806-DUPLICATE-PNL-NETTED-SIBLING-ROWS.
+    "netted_duplicate_unattributed",
     # Dashboard-side mark estimate for prop (no broker feed exists at all).
     "prop_estimate",
 })
