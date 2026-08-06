@@ -25,6 +25,30 @@ Delete this file once both PRs are merged.
 
 ---
 
+## Live status log (newest first — append, don't rewrite)
+
+- **20:48Z** — #8534 still **4 of 29** (unchanged since 20:01Z; ~47 min with zero
+  progress, so the earlier "accelerating" read was wrong — treat the drain as
+  erratic, not trending). Branch still `total_count: 0`.
+  **GitHub's 20:34Z update names the mechanism:** *"Webhook triggers are currently
+  throttled to help with recovery and we are processing approximately 15% of
+  webhooks."* So the missing runs for the #8539 pushes were **dropped, not
+  delayed** — which is exactly why step 2's push is mandatory and why waiting
+  will never produce them. Also: runners are described as "stuck retrying
+  unavailable jobs", which fits the queued-but-never-started shape.
+- **20:05Z** — 4 of 29 green (timestamp-comparison 17:40Z, qty-legalization
+  19:18Z, soak-doctrine 19:56Z, harness-lever-coupling 20:01Z).
+- **17:35Z** — `pull_request` run-creation stops repo-wide (last such run
+  17:34:55Z).
+- **15:22Z** — GitHub Actions incident opens.
+
+**Cheap recovery test, no push needed:** `list_workflow_runs` filtered to branch
+`claude/metis-insights-workplan-cont-fczb1e`. `total_count > 0` ⇒ webhook
+delivery is back. Do **not** infer recovery from #8534's queue draining — those
+are different subsystems and they diverged all evening.
+
+---
+
 ## Step 1 — merge #8534 (must be first)
 
 It carries `scripts/ops/mark_netted_duplicate_pnl.py` (which #8539's system-action
