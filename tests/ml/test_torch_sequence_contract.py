@@ -6,8 +6,9 @@ If a torch/onnxruntime import ever leaks to module top-level, collection here fa
 """
 from __future__ import annotations
 
+from tests.ml._manifest_paths import manifest_path
+
 import base64
-from pathlib import Path
 
 import yaml
 
@@ -46,7 +47,7 @@ def test_predictor_constructs_and_degrades_without_onnxruntime():
 
 
 def test_manifest_matches_family_and_trainer_contract():
-    manifest = yaml.safe_load(Path("ml/configs/btc-regime-15m-tcn-v1.yaml").read_text())
+    manifest = yaml.safe_load(manifest_path("btc-regime-15m-tcn-v1").read_text())
     assert manifest["trainer"] == "ml.trainers.torch_sequence.TorchSequenceTrainer"
     assert manifest["dataset"]["family"] == "market_sequences"
     # feature_columns MUST match the family's windowed default (order-sensitive

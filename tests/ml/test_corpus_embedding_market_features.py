@@ -7,6 +7,8 @@ market_features integration builds a synthetic `corpus_emb_*` side-stream direct
 """
 from __future__ import annotations
 
+from tests.ml._manifest_paths import manifest_path
+
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -148,10 +150,7 @@ class TestManifestParses:
         from ml.experiments.runner import _resolve_callable
         from ml.manifest import TrainingManifest
 
-        path = (
-            Path(__file__).resolve().parents[2]
-            / "ml" / "configs" / "btc-regime-15m-lgbm-corpusemb-pcv-v1.yaml"
-        )
+        path = manifest_path("btc-regime-15m-lgbm-corpusemb-pcv-v1")
         m = TrainingManifest.from_yaml(path)
         assert m.model_id == "btc-regime-15m-lgbm-corpusemb-pcv-v1"
         assert m.dataset.family == "market_features"

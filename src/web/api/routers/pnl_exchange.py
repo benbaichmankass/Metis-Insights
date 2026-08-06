@@ -51,7 +51,7 @@ the puller has never run yet).
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, Query
 
@@ -72,11 +72,24 @@ MAX_DAYS = 90
 @router.get("/pnl/exchange")
 def get_exchange_pnl(
     days: int = Query(DEFAULT_DAYS, ge=1, le=MAX_DAYS),
+    account_id: Optional[str] = Query(
+        None,
+        description=(
+            "Scope every aggregate to one account (e.g. 'bybit_2'). Omitted = "
+            "ALL accounts pooled, which mixes real-money and paper books — that "
+            "pooled figure is not attributable to any one book and must not be "
+            "quoted as a real-money result."
+        ),
+    ),
 ) -> dict[str, Any]:
-    """Per-symbol fee + flow aggregates plus FIFO realised/unrealised P&L."""
-    summary = aggregate_summary(days)
-    by_symbol = aggregate_by_symbol(days)
-    fifo = fifo_pnl_by_symbol(days)
+    """Per-symbol fee + flow aggregates plus FIFO realised/unrealised P&L.
+
+    ALWAYS STATE THE POPULATION: the response echoes ``account_id`` (null when
+    pooled) so a consumer can never render the number without its scope.
+    """
+    summary = aggregate_summary(days, account_id=account_id)
+    by_symbol = aggregate_by_symbol(days, account_id=account_id)
+    fifo = fifo_pnl_by_symbol(days, account_id=account_id)
 
     # Merge FIFO fields into each by_symbol row (additive — existing
     # callers see the same Phase-1 keys).
@@ -90,5 +103,7 @@ def get_exchange_pnl(
 
     summary["total_realized_pnl"] = sum(r["realized_pnl"] for r in fifo)
     summary["total_unrealized_pnl"] = sum(r["unrealized_pnl"] for r in fifo)
+    # The scope travels with the number (null = all accounts pooled).
+    summary["account_id"] = account_id
 
     return {"summary": summary, "by_symbol": by_symbol}
