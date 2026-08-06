@@ -117,7 +117,13 @@ def main(argv: list[str] | None = None) -> int:
     cost_on_dicts = [{"r": float(r["net_r"]), "direction": r.get("direction"),
                       "ts": r.get("entry_time")} for r in rows]
 
-    live_rows = cal._live_rows(a.live_db, a.strategy, a.symbol)
+    # The cost A/B compares two CONTINUOUS backtest-R arms against the live
+    # sample, so it needs the real stop-distance R (the calibrator default) —
+    # a ±1 proxy would swamp both arms with the same point-mass KS and make the
+    # arms indistinguishable, which is the § 5b artifact this A/B is measuring
+    # against. `live_r_diag` is carried into the output so the run declares its
+    # axis + coverage rather than reporting a bare KS.
+    live_rows, live_r_diag = cal._live_rows(a.live_db, a.strategy, a.symbol)
     live_r = [r["r"] for r in live_rows]
 
     fee_arm = _arm(live_r, fee_only_r)
@@ -134,6 +140,7 @@ def main(argv: list[str] | None = None) -> int:
         "cost_config": {"slippage_bps_roundtrip": a.slippage_bps_roundtrip,
                         "funding_bps_per_window": a.funding_bps_per_window},
         "n_live_measured_prov": len(live_r),
+        "live_r": live_r_diag,
         "live_win_rate": (sum(1 for x in live_r if x > 0) / len(live_r)) if live_r else None,
         "n_backtest": len(rows),
         "mean_cost_r": mean_cost,

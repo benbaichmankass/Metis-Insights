@@ -87,9 +87,13 @@ def agreement(
 ) -> dict[str, Any]:
     """Pure: score backtest↔live agreement from two realized-R samples.
 
-    Returns the metrics + a verdict ∈ {calibrated, drifts, insufficient-live}. The R
-    values are per-trade realized R (or a PnL-sign proxy when R is unknown — win-rate
-    still works; KS is reported None and the verdict then rests on win-rate alone)."""
+    Returns the metrics + a verdict ∈ {calibrated, drifts, insufficient-live}.
+
+    Both samples must be on the SAME axis — this function cannot tell them apart,
+    so the caller owns that (see ``_live_rows``' ``r_basis``). Scoring a ±1
+    sign-proxy live sample against a continuous backtest R forces
+    ``KS ≥ 1 − max(win_rate)`` no matter how faithful the backtest is; the
+    resulting ``drifts`` is an artifact of the axis, not a finding."""
     n_live, n_bt = len(list(live_r)), len(list(backtest_r))
     wr_live, wr_bt = _win_rate(live_r), _win_rate(backtest_r)
     wr_diff = None if (wr_live is None or wr_bt is None) else abs(wr_bt - wr_live)
@@ -189,25 +193,77 @@ def stratified_agreement(
 
 # ---- DB readers (read-only) -------------------------------------------------
 
-def _live_rows(live_db: str, strategy: str, symbol: str) -> list[dict[str, Any]]:
-    """Measured-provenance-only live rows: {r (PnL-sign proxy), direction, ts, won}.
-    Excludes fabricated/paper pnl (the strict provenance filter — the scarce but
-    TRUSTED calibration set). R is the win/loss sign proxy; a full stop-distance R
-    needs the per-trade risk and is the documented next upgrade."""
+#: The two live-R axes. ``stop_distance`` is the real R (``pnl / risk_usd``);
+#: ``sign_proxy`` is the ±1 win/loss proxy the P0 calibrator shipped with. They are
+#: NOT interchangeable and a run must never mix them — see ``_live_rows``.
+R_BASES = ("stop_distance", "sign_proxy")
+DEFAULT_R_BASIS = "stop_distance"
+
+
+def _live_rows(
+    live_db: str, strategy: str, symbol: str, *, r_basis: str = DEFAULT_R_BASIS,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Measured-provenance-only live rows + the coverage diagnostic that says
+    WHICH R axis was computed and over how much of the sample.
+
+    Returns ``(rows, diag)`` where each row is ``{r, direction, ts, won}`` and
+    ``diag`` carries ``r_basis`` / ``rows_scanned`` / ``rows_trusted`` /
+    ``rows_r_measured`` / ``r_coverage``.
+
+    **Two axes, never blended (P1.x).**
+
+    - ``stop_distance`` (default) — the real R multiple, ``pnl / risk_usd`` with
+      ``risk_usd = |entry − stop| · |qty| · contract_value_usd``, via the canonical
+      :func:`src.web.api._clean_trades.r_multiple`. That helper is imported, not
+      re-derived: a second copy of the risk formula is exactly how the live and
+      API R axes would drift apart.
+    - ``sign_proxy`` — the legacy ±1 win/loss stand-in. It is kept ONLY as an
+      explicit opt-in for reproducing the P0 numbers, because a ±1 point-mass
+      against a continuous backtest R makes ``KS(R) ≥ 1 − max(win_rate)`` **by
+      construction, regardless of cost** — the artifact that drove every
+      ``drifts`` verdict in § 5b of the design doc.
+
+    A row whose risk is not derivable (no stop, flat stop, missing size) yields
+    ``None`` from ``r_multiple`` and is **excluded from the R sample, never
+    back-filled with the sign proxy**. Silently substituting the proxy for the
+    unmeasurable rows would rebuild the very artifact this change removes, in a
+    sample that *claims* to be stop-distance R — the labelled-quantity-is-not-
+    what-was-computed defect (``diagnostic-provenance-guard`` sub-class A). The
+    exclusion is reported as ``r_coverage`` instead, mirroring ``/performance``'s
+    ``rCoverage`` discipline: transparency, never a raw-pnl fallback.
+    """
+    if r_basis not in R_BASES:
+        raise ValueError(f"r_basis must be one of {R_BASES}, got {r_basis!r}")
     try:
         from src.runtime import provenance  # trust filter
         trust = provenance.pnl_is_trustworthy
     except Exception:  # allow-silent: provenance import is optional here — absent ⇒ unfiltered live sample; research calibrator, not a live read-path
         trust = None
+    from src.runtime.local_pnl import contract_value_usd_for
+    from src.web.api._clean_trades import r_multiple
+
     con = sqlite3.connect(f"file:{live_db}?mode=ro", uri=True)
     con.row_factory = sqlite3.Row
+    # The R inputs are OPTIONAL columns: select them only when the schema has
+    # them, so a minimal/legacy trades table degrades to r_coverage 0.0 (the
+    # honest "no row was R-measurable") instead of raising `no such column`,
+    # which the caller would surface as an empty — and so falsely clean — leg.
+    avail = {row[1] for row in con.execute("PRAGMA table_info(trades)")}
+    r_cols = [c for c in ("entry_price", "stop_loss", "position_size") if c in avail]
+    extra = "".join(f", {c}" for c in r_cols)
     rows = con.execute(
-        "SELECT pnl, notes, direction, timestamp FROM trades WHERE status='closed' "
+        f"SELECT pnl, notes, direction, timestamp{extra} FROM trades "
+        "WHERE status='closed' "
         "AND COALESCE(is_backtest,0)=0 AND strategy_name=? AND symbol=? "
         "AND pnl IS NOT NULL",
         (strategy, symbol),
     ).fetchall()
+    con.close()
+
+    cvu = contract_value_usd_for(symbol)
     out: list[dict[str, Any]] = []
+    scanned = len(rows)
+    trusted = 0
     for r in rows:
         if trust is not None:
             try:
@@ -215,12 +271,33 @@ def _live_rows(live_db: str, strategy: str, symbol: str) -> list[dict[str, Any]]
                     continue
             except Exception:  # allow-silent: fail-open on an un-scoreable row (keep it) — research calibrator, not a live read-path
                 pass
+        trusted += 1
         pnl = r["pnl"] or 0
-        out.append({"r": 1.0 if pnl > 0 else -1.0,
-                    "direction": r["direction"], "ts": r["timestamp"],
+        if r_basis == "sign_proxy":
+            rv: float | None = 1.0 if pnl > 0 else -1.0
+        else:
+            rv = r_multiple(
+                pnl,
+                r["entry_price"] if "entry_price" in r.keys() else None,
+                r["stop_loss"] if "stop_loss" in r.keys() else None,
+                r["position_size"] if "position_size" in r.keys() else None,
+                cvu,
+            )
+        if rv is None:
+            continue  # not R-measurable — counted in r_coverage, never proxied
+        out.append({"r": rv, "direction": r["direction"], "ts": r["timestamp"],
                     "won": pnl > 0})
-    con.close()
-    return out
+    diag = {
+        "r_basis": r_basis,
+        "rows_scanned": scanned,
+        "rows_trusted": trusted,
+        "rows_r_measured": len(out),
+        # None (not 0.0) when nothing was trusted, so "no trusted live trade"
+        # stays distinguishable from "trusted trades exist but none carried a
+        # usable stop" — two very different findings that a bare 0.0 conflates.
+        "r_coverage": (round(len(out) / trusted, 4) if trusted else None),
+    }
+    return out, diag
 
 
 def _backtest_rows(bt_db: str, strategy: str, symbol: str) -> list[dict[str, Any]]:
@@ -240,8 +317,9 @@ def _backtest_rows(bt_db: str, strategy: str, symbol: str) -> list[dict[str, Any
             for r in rows if r["pnl"] is not None]
 
 
-def _live_realized_r(live_db: str, strategy: str, symbol: str) -> list[float]:
-    return [r["r"] for r in _live_rows(live_db, strategy, symbol)]
+def _live_realized_r(live_db: str, strategy: str, symbol: str,
+                     *, r_basis: str = DEFAULT_R_BASIS) -> list[float]:
+    return [r["r"] for r in _live_rows(live_db, strategy, symbol, r_basis=r_basis)[0]]
 
 
 def _backtest_realized_r(bt_db: str, strategy: str, symbol: str) -> list[float]:
@@ -267,11 +345,29 @@ def _legs_in(db: str, is_backtest: int) -> set[tuple[str, str]]:
 
 
 def _calibrate_leg(live_db: str, bt_db: str, strategy: str, symbol: str,
-                   *, stratify: str = "none") -> dict[str, Any]:
-    live = _live_rows(live_db, strategy, symbol)
+                   *, stratify: str = "none",
+                   r_basis: str = DEFAULT_R_BASIS) -> dict[str, Any]:
+    live, live_diag = _live_rows(live_db, strategy, symbol, r_basis=r_basis)
     bt = _backtest_rows(bt_db, strategy, symbol)
     result = agreement([r["r"] for r in live], [r["r"] for r in bt])
     result.update({"strategy": strategy, "symbol": symbol})
+    # The output declares WHICH axis produced the numbers above it. A KS(R) with
+    # no r_basis beside it is unreadable — the sign-proxy KS and the real-R KS
+    # are different quantities under one label, which is the whole reason § 5b's
+    # `drifts` verdicts were misread as a cost finding.
+    result["live_r"] = live_diag
+    # A leg where trusted rows EXIST but none carried a usable stop is not the
+    # same finding as a leg with no live trades, and `agreement` cannot tell them
+    # apart (both arrive as an empty sample → "live n=0 < floor"). Say so, so an
+    # unmeasurable leg is never read as an untraded one.
+    if (r_basis == "stop_distance" and live_diag["rows_trusted"] > 0
+            and live_diag["rows_r_measured"] == 0):
+        result["verdict"] = "insufficient-live"
+        result["reason"] = (
+            f"{live_diag['rows_trusted']} trusted live trade(s) exist but NONE was "
+            "R-measurable (no stop / flat stop / missing size) — the leg is "
+            "unmeasurable on the stop-distance axis, not untraded"
+        )
     if stratify and stratify != "none":
         result["stratified"] = stratified_agreement(live, bt, key=stratify)
     return result
@@ -286,6 +382,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--stratify", choices=["none", "direction", "year"], default="none",
                    help="also compute per-stratum agreement to separate a uniform "
                         "cost-model gap from a concentrated regime/small-sample bias.")
+    p.add_argument("--r-basis", choices=list(R_BASES), default=DEFAULT_R_BASIS,
+                   help="live-R axis. 'stop_distance' (default) is the real R "
+                        "(pnl / |entry-stop|·qty·contract_value); 'sign_proxy' is the "
+                        "legacy ±1 win/loss stand-in, kept only to reproduce the P0 "
+                        "numbers — its KS(R) is an artifact of the ±1 point-mass, not "
+                        "a fidelity signal.")
     p.add_argument("--trust-map", action="store_true",
                    help="run every (strategy,symbol) leg present in BOTH DBs and emit "
                         "a table — the full trust map (§ 5a).")
@@ -294,10 +396,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if a.trust_map:
         legs = sorted(_legs_in(a.live_db, 0) & _legs_in(a.backtest_db, 1))
-        rows = [_calibrate_leg(a.live_db, a.backtest_db, s, sym, stratify=a.stratify)
+        rows = [_calibrate_leg(a.live_db, a.backtest_db, s, sym, stratify=a.stratify,
+                               r_basis=a.r_basis)
                 for (s, sym) in legs]
         result: dict[str, Any] = {"trust_map": rows, "n_legs": len(rows),
-                                  "verdict_counts": {}}
+                                  "r_basis": a.r_basis, "verdict_counts": {}}
         for r in rows:
             v = r["verdict"]
             result["verdict_counts"][v] = result["verdict_counts"].get(v, 0) + 1
@@ -305,7 +408,7 @@ def main(argv: list[str] | None = None) -> int:
         if not a.strategy or not a.symbol:
             p.error("single-leg mode needs --strategy and --symbol (or use --trust-map)")
         result = _calibrate_leg(a.live_db, a.backtest_db, a.strategy, a.symbol,
-                                stratify=a.stratify)
+                                stratify=a.stratify, r_basis=a.r_basis)
 
     out = json.dumps(result, indent=2)
     print(out)
