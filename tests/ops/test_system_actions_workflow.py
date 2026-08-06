@@ -235,6 +235,14 @@ EXPECTED_ACTIONS = {
     # (reconcile_netting_rows.py). pnl left UNMEASURED; pairs excluded;
     # unreadable accounts skipped. DRY-RUN by default; apply gated; idempotent.
     "reconcile-netting-rows": "reconcile_netting_rows_action.sh",
+    # 2026-08-06 — BL-20260806-DUPLICATE-PNL-NETTED-SIBLING-ROWS. Marks rows
+    # carrying a DUPLICATED netted broker pnl as FABRICATED
+    # (exit_price_source='netted_duplicate_unattributed'), preserving the
+    # original under pre_remediation_exit_price_source. Never rewrites pnl —
+    # there is no defensible per-row value; the magnitude belongs to the netted
+    # POSITION. Biased toward under-marking (qty-spread + $1.00 floor).
+    # DRY-RUN by default (opens the DB mode=ro), apply gated, idempotent.
+    "mark-netted-duplicate-pnl": "mark_netted_duplicate_pnl_action.sh",
     # 2026-07-20 — venue validation for BYBIT_TPSL_MODE=partial (qty-scoped
     # brackets, Fix 2 of BL-20260720-ICTSCALP-PASTSTOP-EXITS). Demo-locked
     # to bybit_1; places + cleans up two tiny netted orders.
@@ -310,6 +318,7 @@ TIER_2_ACTIONS = {
     "repair-netted-rows",
     "reconcile-netting-phantom-rows",
     "reconcile-netting-rows",
+    "mark-netted-duplicate-pnl",
     "validate-partial-tpsl",
     "validate-bybit-naked-rearm",
     "cancel-stale-tpsl-legs",
