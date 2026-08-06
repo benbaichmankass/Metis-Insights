@@ -53,15 +53,21 @@
       "opened_at": "2026-08-06T14:30:00+00:00",
       "opened_by": "claude (roadmap-workplan-update session lw6qf0)",
       "source": "trainer-vm-diag issue #8530 — a cmd block containing Python f-string alignment specs came back as a SyntaxError on the VM.",
-      "title": "trainer-vm-diag relay HTML-escapes < and > inside a cmd block and collapses newlines to U+00B7",
+      "title": "trainer-vm-diag relay corrupts cmd blocks: HTML-escapes < and >, collapses newlines to U+00B7, AND truncates mid-heredoc",
       "tier": 1,
       "status": "open",
       "snoozed_until": null,
-      "severity": "low",
+      "severity": "medium",
       "what_to_check": "Reproduced 2026-08-06 in #8530: a script using f-string alignment specs such as {x:>12.2f} / {y:<18} was delivered to the VM with < and > turned into &lt;/&gt; AND every newline in the affected region replaced by the middle-dot U+00B7, producing `SyntaxError: invalid character '·' (U+00B7)`. The relay reported the failure honestly (the traceback came back), so this is a usability bug, not a silent-corruption bug — but the failure mode is confusing because the script is valid Python as authored.",
       "how": "Workaround in use: avoid < and > entirely in relay cmd blocks (#8531 uses BETWEEN instead of comparison operators and drops all alignment specs). Real fix is in the relay's body extraction — it should treat the fenced block as opaque text rather than HTML.",
       "disposition_when_verified": "Fix the extraction in .github/workflows/trainer-vm-diag.yml, or document the constraint in docs/claude/trainer-vm-mode.md section 9 so future sessions do not lose a round trip to it.",
-      "updates": []
+      "updates": [
+        {
+          "date": "2026-08-06T15:35:00+00:00",
+          "by": "claude (roadmap-workplan-update session lw6qf0)",
+          "note": "SECOND, DISTINCT FAILURE MODE — raising severity low->medium because the relay is the ONLY channel to the trainer VM and it has now eaten three round trips in one session. (i) #8530: a script using f-string alignment specs {x:>12.2f} / {y:<18} arrived with < and > HTML-escaped AND every newline in the affected region replaced by U+00B7 -> SyntaxError. (ii) #8536: a longer script with THREE `python3 - <<'PY' ... PY` heredoc blocks arrived TRUNCATED at ~7 lines — bash reported `here-document at line 5 delimited by end-of-file (wanted 'PY')`. The delivered Command preview confirms it stopped right after `sys.path.insert(0, \".\")`, i.e. the body was cut before the first PY terminator. Single-heredoc scripts of similar length (#8531, #8533, #8535) delivered fine, so the trigger is plausibly multiple heredocs or a length/marker interaction in the extractor, NOT length alone — that is a hypothesis, not established. WORKAROUND now in use: relay scripts are plain shell only (no heredoc, no Python, no angle brackets); see #8537. Both failures are LOUD (the VM's own error came back), so this is a usability/throughput bug, not silent corruption — but at three lost round trips it is materially slowing trainer work. FIX: make the extractor treat the fenced block as opaque text rather than HTML, and preserve it verbatim; then document the contract in docs/claude/trainer-vm-mode.md section 9 so future sessions do not rediscover it one failure at a time."
+        }
+      ]
     },
     {
       "id": "BL-20260729-ICTSCALP-ETH15M-STALE-FIRSTFIRE",
