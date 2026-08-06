@@ -113,8 +113,11 @@ jobs:
           # walk-past failure mode it exists to stop. NOTE its context is
           # "artifact-validity-guard" — the job id was renamed from the
           # ambiguous "guard" in the same PR that promoted it.
-          # 2026-08-06 — CI FAN-OUT CONSOLIDATION (BL-20260806-CI-FANOUT-AMPLIFIES-
-          # ACTIONS-OUTAGES). The 13 individual guard contexts that used to be
+          # 2026-08-06 — CI fan-out consolidation.
+          # BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES (kept on ONE line: a
+          # tracking id wrapped across two comment lines resolves to nothing and
+          # check_backlog_refs.py correctly calls it a dangling reference).
+          # The 13 individual guard contexts that used to be
           # required are now ONE context, `guards`, because all 30 fast static
           # guards run in one job (.github/workflows/guards.yml, registry in
           # scripts/ci/run_guards.py). The retired contexts were:
