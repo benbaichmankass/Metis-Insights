@@ -8095,6 +8095,11 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated: bybit_1 (demo/paper) still shows large journal/exchange divergence (exchange ADA 258303, BNB/SOL/ETH/BTC positions). Over-accum/divergence class persists; detect-only signals in place, remediation Tier-2. No real-money exposure (bybit_1 is demo). Keep open."
+        },
+        {
+          "date": "2026-08-06T09:20:00+00:00",
+          "by": "claude (roadmap-workplan-update session lw6qf0)",
+          "note": "Cross-linked to the netting design packet (docs/netting-partial-close-attribution-DESIGN.md sec 1): this is the PROTECTION side of the same partial-close event that BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED is the JOURNAL side of. One partial close strands a leg AND orphans a row simultaneously, so the two items worsen together and should be sequenced together. Not remediated here."
         }
       ]
     },
@@ -9801,6 +9806,11 @@
           "date": "2026-08-03T08:30:00+00:00",
           "by": "claude (/health-review 2026-08-03)",
           "note": "Re-validated by /health-review 2026-08-03. No live-health regression tied to this item this window (trader healthy, 7/7 checks ok, all 7 live broker accounts reachable, notifications banner clean, DB 717MB/no errors). Condition unchanged; remains blocked on its declared tier/owner — no in-session Tier-1 fix available. Kept open."
+        },
+        {
+          "date": "2026-08-06T09:20:00+00:00",
+          "by": "claude (roadmap-workplan-update session lw6qf0)",
+          "note": "DESIGN PACKET WRITTEN: docs/netting-partial-close-attribution-DESIGN.md. Mechanism confirmed in code — _reconcile_open_trades (order_monitor.py:3597) reconciles each DB-open row against ITS OWN Bybit order via account_order_status, so a position-level exit that shrinks the netted position maps to no sibling row's order and closes at most one row. Three fix options costed against the provenance + pairs-isolation + runtime-bounds constraints; recommendation is (b) leg-id attribution with (a) FIFO as declared fallback, plus (c) periodic same-moment reconcile as backstop. Four operator decisions isolated in the packet sec 5. NOTE the honest trade surfaced: fixing size divergence LOWERS measured-pnl coverage, because rows with no broker close record must close UNMEASURED rather than priced from a mark — that will move the R4 gate's totalPnlMeasured and the operator should agree to it up front. Three cheap pre-implementation measurements still owed (sec 6): sl_order_id coverage among open rows, a fresh same-moment divergence census, and the pairs-owned row exclusion list. Still open — this is design only, the fix is Tier-2 and unapproved."
         }
       ]
     },
@@ -9956,6 +9966,6 @@
       "updates": []
     }
   ],
-  "updated_at": "2026-08-06T09:10:00+00:00",
+  "updated_at": "2026-08-06T09:20:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
