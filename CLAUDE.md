@@ -1024,9 +1024,17 @@ should not re-derive this — if the contract changes, edit here.
 **MCP tools available** — `mcp__github__*` (subset: issue
 read/write, PR read/write/merge, file read/create/update, branch
 create, secret scanning, **but no `create_label`, no artifact download;
-**`run_workflow` 403s** (verified 2026-06-11) while `actions_list` /
-`get_job_logs` DO work — run-log read is available since the 2026-06
-MCP update**), Google Drive (file search
+`actions_list` / `get_job_logs` DO work — run-log read is available
+since the 2026-06 MCP update. **`run_workflow` NOW WORKS** —
+re-verified 2026-08-06 19:45Z (`actions_run_trigger method=run_workflow`
+on `branch-protection-sync.yml` ref `main` → HTTP 204, run queued). It
+403'd when checked 2026-06-11; the 2026-08 MCP added it. This is
+load-bearing: `workflow_dispatch` is how a session updates branch
+protection on a ref other than `main`, which is the only way to land a
+change that alters the required-check set without deadlocking every open
+PR. `cancel_workflow_run` was observed returning **502** during the
+2026-08-06 Actions incident — that was the incident, not a permission
+boundary; re-test before concluding it is unavailable**), Google Drive (file search
 + read), Hugging Face (hub search, doc fetch), Bigdata.com (market
 data), Gmail (read-only labels).
 
