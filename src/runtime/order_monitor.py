@@ -6856,7 +6856,7 @@ def _reconcile_netting_partial_closes(db) -> Dict[str, int]:
             conn.row_factory = __import__("sqlite3").Row
             rows = conn.execute(
                 "SELECT id, account_id, symbol, direction, position_size, "
-                "       entry_price, created_at, setup_type, strategy, "
+                "       entry_price, created_at, setup_type, strategy_name, "
                 "       sl_order_id, notes "
                 "  FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0"
             ).fetchall()
@@ -6877,7 +6877,7 @@ def _reconcile_netting_partial_closes(db) -> Dict[str, int]:
         if aid not in bybit_ids:
             continue
         if str(row["setup_type"] or "").startswith("pairs") or str(
-            row["strategy"] or ""
+            row["strategy_name"] or ""
         ).startswith("pairs"):
             summary["skipped_pairs"] += 1
             continue
@@ -7022,7 +7022,7 @@ def _netting_soak_row(
             "symbol": symbol,
             "direction": direction,
             "trade_id": row["id"],
-            "strategy": row["strategy"],
+            "strategy": row["strategy_name"],
             "row_qty": _safe_float(row["position_size"]),
             "attributed_qty": round(float(take), 10),
             # HOW this row was selected — never conflated with how its price

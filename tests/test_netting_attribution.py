@@ -33,7 +33,7 @@ class _Row(dict):
 def _row(tid, qty, created, sl_order_id=None):
     return _Row(
         id=tid, position_size=qty, created_at=created, sl_order_id=sl_order_id,
-        symbol="XRPUSDT", direction="long", strategy="s", entry_price=1.0,
+        symbol="XRPUSDT", direction="long", strategy_name="s", entry_price=1.0,
         notes=None,
     )
 
@@ -178,20 +178,16 @@ def test_partial_take_reduces_and_leaves_the_row_OPEN():
 class _SweepDB:
     def __init__(self, path):
         self.path = str(path)
-        conn = sqlite3.connect(self.path)
-        conn.executescript(
-            """
-            CREATE TABLE trades (
-                id INTEGER PRIMARY KEY, account_id TEXT, symbol TEXT,
-                direction TEXT, position_size REAL, entry_price REAL,
-                created_at TEXT, setup_type TEXT, strategy TEXT,
-                sl_order_id TEXT, notes TEXT, status TEXT,
-                is_backtest INTEGER DEFAULT 0
-            );
-            """
-        )
-        conn.commit()
-        conn.close()
+        # Build the REAL schema, never a hand-written stand-in. A fixture that
+        # invents its own column names cannot catch a column-name bug in the
+        # code under test — this file originally declared `strategy` where the
+        # journal has `strategy_name`, so 13 green tests sat on top of a SELECT
+        # that raises on every live tick. CI caught it; the fixture had not.
+        # (Same class as the phantom `entry_ts` that hid the trust-map crash,
+        # noted in tests/test_backtest_fidelity_calibrate.py::_seed.)
+        from src.units.db.database import Database
+
+        Database(self.path)
         self.updates = []
 
     def connect(self):
@@ -204,10 +200,15 @@ class _SweepDB:
 def _seed(db, **kw):
     conn = sqlite3.connect(db.path)
     conn.execute(
+        # `timestamp` is NOT NULL in the real schema — default it to created_at
+        # rather than dropping the constraint, so the fixture keeps matching
+        # production. The reconciler never reads it.
         "INSERT INTO trades (id,account_id,symbol,direction,position_size,"
-        "entry_price,created_at,setup_type,strategy,sl_order_id,status,is_backtest) "
+        "entry_price,created_at,timestamp,setup_type,strategy_name,sl_order_id,"
+        "status,is_backtest) "
         "VALUES (:id,:account_id,:symbol,:direction,:position_size,:entry_price,"
-        ":created_at,:setup_type,:strategy,:sl_order_id,'open',0)", kw,
+        ":created_at,:created_at,:setup_type,:strategy_name,:sl_order_id,'open',0)",
+        kw,
     )
     conn.commit()
     conn.close()
@@ -228,7 +229,7 @@ def _base_row(**over):
     row = dict(
         id=1, account_id="bybit_1", symbol="XRPUSDT", direction="long",
         position_size=100.0, entry_price=1.0, created_at="2026-01-01",
-        setup_type="normal", strategy="ict_scalp", sl_order_id=None,
+        setup_type="normal", strategy_name="ict_scalp", sl_order_id=None,
     )
     row.update(over)
     return row
@@ -247,7 +248,7 @@ def test_unreadable_exchange_read_is_SKIPPED_never_attributed(tmp_path, monkeypa
 def test_pairs_rows_are_EXCLUDED(tmp_path, monkeypatch):
     """The pairs sleeve owns its own state — never close its rows behind it."""
     db = _SweepDB(tmp_path / "j.db")
-    _seed(db, **_base_row(strategy="pairs_sol_btc", setup_type="pairs"))
+    _seed(db, **_base_row(strategy_name="pairs_sol_btc", setup_type="pairs"))
     _patch(monkeypatch, {"size": 0.0, "side": "", "covered_qty": 0.0,
                          "source": "flat", "sl_leg_ids": set(),
                          "unknown_qty_sl_legs": 0})
