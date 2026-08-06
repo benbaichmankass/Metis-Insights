@@ -3,6 +3,21 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES",
+      "opened_at": "2026-08-06T17:10:00+00:00",
+      "opened_by": "claude (roadmap-workplan-update session lw6qf0)",
+      "source": "Investigated after a GitHub Actions action-resolution outage (2026-08-06 ~15:39-17:09+ UTC) failed 11 and cancelled 8 of 29 checks on PR #8534, twice, blocking an operator-approved merge for over 90 minutes.",
+      "title": "CI fans out to 29 concurrent jobs per push — turns any partial GitHub Actions degradation into a guaranteed-red PR, and starves our own runner concurrency",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "severity": "medium",
+      "what_to_check": "MEASURED on PR #8534 / commit 426f017 at 17:09Z: 37 check-run records, 29 DISTINCT checks — 3 success, 11 failure, 8 cancelled, 15 STILL QUEUED 42 minutes after trigger. The repo has 129 workflow files, 46 with a pull_request/push trigger, and 91 separate `uses: actions/checkout@v4` declarations. Each guard is its OWN workflow with ONE job, so each is an independent 'Prepare all required actions' -> 'Getting action download info' call AND an independent `fetch-depth: 0` full-history checkout of a large repo. TWO DISTINCT HARMS. (1) MULTIPLICATIVE FAILURE EXPOSURE: a PR is green only if ALL N jobs resolve their actions, so P(green) = (1-p)^N. At N=29 and a per-job resolution failure rate p, P(green) is 55.7% at p=2%, 22.6% at p=5%, 4.7% at p=10%, 0.2% at p=20%. Consolidated to N=4 the same p values give 92.2% / 81.5% / 65.6% / 41.0%. So during even a MILD upstream degradation the current layout essentially cannot produce a green PR, while a consolidated one usually can. (2) RUNNER STARVATION, which is ours alone and independent of the outage: 29 simultaneous job requests exceed the concurrency the plan allocates, so jobs queue — measured soak-doctrine-guard 16:26:24->17:08:14 (41.8 min) and strategy-coverage-guard 16:26:24->17:03:13 (36.8 min). Worse, the queue time appears to count against each job's own `timeout-minutes: 10`: FOUR jobs cancelled at EXACTLY 10.0 min (silent-empty 10.6, layer 10.0, artifact-validity 10.0, secret-scan 10.0) without ever running. NOTE the concurrency-cap number itself is a HYPOTHESIS — I did not query the plan's documented limit; what is MEASURED is the 36-42 minute queueing, which demonstrates starvation whatever the exact cap is.",
+      "how": "Consolidate the per-guard workflows into ONE aggregate job: a single checkout + a single setup-python + pip install of the union of guard deps, then run every scripts/check_*.py sequentially, collecting failures and exiting non-zero once at the end (so one guard failing still reports the others). Of the 33 PR-triggered workflows, 8 are checkout-only and 25 pull a toolchain — but a single job pays that toolchain cost ONCE instead of 25 times. WALL-CLOCK COST IS ~ZERO: individual guards complete in 6-60s and are dominated by their own checkout, so one aggregate job lands around 2-4 min, while pytest-run (~7.5 min measured) remains the critical path either way. SECONDARY WIN: 29 full-history checkouts per push collapse to ~4, which is a direct Actions-minutes saving against the already-tracked MB-20260706-CI-MINUTES concern. OPERATOR-GATED DEPENDENCY: consolidation CHANGES THE REQUIRED STATUS-CHECK NAMES, so branch protection must be updated in the same change or PRs will hang forever waiting on required checks that no longer exist — that settings edit is the operator's, and it must land BEFORE or WITH the merge, not after. Keep pytest-run, pytest-collect and secret-scan as their own jobs (genuinely different toolchains/permissions).",
+      "disposition_when_verified": "Ship the aggregate guard job + the branch-protection update together, then confirm on the next PR that the check count drops from 29 to ~4 and that a subsequent Actions degradation no longer reds the PR. Do NOT weaken any guard's assertions as part of the consolidation — this is purely a packaging change; a guard that stops failing on a real hit has been broken, not consolidated.",
+      "updates": []
+    },
+    {
       "id": "BL-20260806-DUPLICATE-PNL-NETTED-SIBLING-ROWS",
       "opened_at": "2026-08-06T14:30:00+00:00",
       "opened_by": "claude (roadmap-workplan-update session lw6qf0)",
@@ -10063,6 +10078,6 @@
       "updates": []
     }
   ],
-  "updated_at": "2026-08-06T14:30:00+00:00",
+  "updated_at": "2026-08-06T17:10:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
