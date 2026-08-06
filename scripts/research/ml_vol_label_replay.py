@@ -777,17 +777,32 @@ def run_verify(*, labels_path: Path, audit_path: Path) -> Dict[str, Any]:
     agree = 0
     disagreements: List[Dict[str, Any]] = []
     no_live_label = 0
+    no_ts = 0
     no_bar = 0
     p_deltas: List[float] = []
 
     for rec in iter_dataset_rows(audit_path):
         total += 1
+        # ``logged_at_utc`` is the canonical audit-row stamp written by the
+        # runtime (signal_audit / *_soak writers; the diag router indexes on
+        # it). Omitting it here meant EVERY live row failed the `not ts` test
+        # below and was counted as "no ML label" — see the counter note.
         ts = (rec.get("ts") or rec.get("timestamp")
-              or rec.get("predicted_at_utc") or rec.get("logged_at"))
+              or rec.get("predicted_at_utc") or rec.get("logged_at_utc")
+              or rec.get("logged_at"))
         live = rec.get("vol_regime_ml")
         if live is None and str(rec.get("vol_label_source") or "") == "ml":
             live = rec.get("vol_regime")
-        if not ts or live not in (VOL_CALM, VOL_VOLATILE):
+        # Count the two exclusions SEPARATELY. Folding them together produced a
+        # diagnostic that named one cause and measured two: with the timestamp
+        # key unmatched, 13,461 rows — 7,718 of which carried a perfectly good
+        # ML label — all reported as `audit_rows_without_ml_label`, which reads
+        # as "the ML vol axis is not live" when the real fault was in the
+        # reader. An unparseable row must say WHICH thing it was missing.
+        if not ts:
+            no_ts += 1
+            continue
+        if live not in (VOL_CALM, VOL_VOLATILE):
             no_live_label += 1
             continue
         bar = _bar_key(str(ts), keys)
@@ -853,6 +868,11 @@ def run_verify(*, labels_path: Path, audit_path: Path) -> Dict[str, Any]:
         "audit_path": str(audit_path),
         "audit_rows": total,
         "audit_rows_without_ml_label": no_live_label,
+        # Reported separately so an empty comparison names its own cause: a
+        # reader can tell "the rows carry no ML label" (a real finding about
+        # the gate) from "this reader did not recognise the timestamp key" (a
+        # bug in here). Those warrant opposite responses.
+        "audit_rows_without_timestamp": no_ts,
         "audit_rows_without_matching_bar": no_bar,
         "comparable": comparable,
         "agree": agree,
@@ -997,7 +1017,8 @@ def main(argv: List[str]) -> int:
         print(json.dumps(res, indent=2))
     else:
         print(f"audit rows        {res['audit_rows']} "
-              f"(no ML label: {res['audit_rows_without_ml_label']}, "
+              f"(no ts: {res['audit_rows_without_timestamp']}, "
+              f"no ML label: {res['audit_rows_without_ml_label']}, "
               f"no matching bar: {res['audit_rows_without_matching_bar']})")
         print(f"comparable        {res['comparable']}")
         print(f"agreement         {res['agree']}/{res['comparable']} "

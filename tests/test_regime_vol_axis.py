@@ -530,3 +530,61 @@ def test_malformed_labels_line_raises_rather_than_silently_dropping(tmp_path):
                  encoding="utf-8")
     with pytest.raises(ValueError, match="not valid JSON"):
         list(replay.iter_dataset_rows(p))
+
+
+def test_verify_reads_logged_at_utc_the_canonical_audit_stamp(tmp_path):
+    """A live audit row stamps ``logged_at_utc`` — verify must recognise it.
+
+    Regression for the 2026-08-06 ML2 re-audit: ``run_verify`` accepted
+    ``ts``/``timestamp``/``predicted_at_utc``/``logged_at`` but NOT
+    ``logged_at_utc``, which is the key the runtime actually writes (the diag
+    router indexes on it). Every live row therefore failed the timestamp test
+    and was tallied under ``audit_rows_without_ml_label``, so a real corpus of
+    13,461 rows — 7,718 carrying a genuine ML-sourced label — reported as
+    ``comparable: 0`` / ``no_overlap_nothing_verified``.
+
+    That reads as "the ML vol axis is not live", a conclusion about the trading
+    system, when the fault was entirely in this reader.
+    """
+    labels = tmp_path / "labels.jsonl"
+    labels.write_text(
+        '{"ts": "2026-01-01T00:00:00Z", "vol_regime": "calm", "p_volatile": 0.1}\n',
+        encoding="utf-8",
+    )
+    audit = tmp_path / "audit.jsonl"
+    audit.write_text(
+        '{"logged_at_utc": "2026-01-01T00:00:00Z", "vol_regime": "calm",'
+        ' "vol_regime_ml": "calm", "vol_label_source": "ml", "p_volatile": 0.1}\n',
+        encoding="utf-8",
+    )
+    res = replay.run_verify(labels_path=labels, audit_path=audit)
+    assert res["comparable"] == 1, "logged_at_utc row must be comparable"
+    assert res["verdict"] == "verified"
+    assert res["audit_rows_without_ml_label"] == 0
+
+
+def test_verify_separates_missing_timestamp_from_missing_ml_label(tmp_path):
+    """The two exclusions have opposite meanings, so they get their own counters.
+
+    'No ML label' is a finding about the gate; 'no timestamp' is a defect in
+    this reader or a malformed row. Folding them into one counter is the
+    unprovenanced-diagnostic class (CLAUDE.md § "Diagnostic provenance"):
+    the label named one cause while the number measured two.
+    """
+    labels = tmp_path / "labels.jsonl"
+    labels.write_text(
+        '{"ts": "2026-01-01T00:00:00Z", "vol_regime": "calm"}\n', encoding="utf-8"
+    )
+    audit = tmp_path / "audit.jsonl"
+    audit.write_text(
+        # has an ML label, but no timestamp of any recognised name
+        '{"vol_regime_ml": "calm", "vol_label_source": "ml"}\n'
+        # has a timestamp, but genuinely carries no ML label
+        '{"logged_at_utc": "2026-01-01T00:00:00Z", "vol_regime_frozen": "calm"}\n',
+        encoding="utf-8",
+    )
+    res = replay.run_verify(labels_path=labels, audit_path=audit)
+    assert res["audit_rows_without_timestamp"] == 1
+    assert res["audit_rows_without_ml_label"] == 1
+    assert res["comparable"] == 0
+    assert res["verdict"] == "no_overlap_nothing_verified"
