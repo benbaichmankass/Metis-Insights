@@ -2116,6 +2116,11 @@
           "by": "claude (Track-1 continuation session)",
           "action": "corrected",
           "note": "Field-checked against M27 findings + live config. Corrected the shippability premise: XAUUSD venue-blocked, GLD ict_scalp nonexistent, alt legs already-on-paper + soak-gated for real money."
+        },
+        {
+          "at": "2026-08-07T14:55:00+00:00",
+          "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
+          "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
         }
       ]
     },
@@ -2148,7 +2153,13 @@
       "resolution_criteria": "A Tier-3 decision: EITHER (a) wire ict_scalp-gold to ib_paper at execution:live using the UNGATED (or conf070_fixed) config — NOT the fitted confidence gate — as a mechanics-only paper soak with tempered expectations (+0.09 exp-R, fold-1-type drawdowns expected), per the new-strategy skill (account_compat_matrix + descriptions + regime coverage); OR (b) explicitly hold. Either disposition closes this. Do NOT ship the fitted-conf-gate config.",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-07T14:55:00+00:00",
+          "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
+          "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        }
+      ]
     },
     {
       "id": "PB-20260729-CRYPTO-PULLBACK-2H-LONG-DRAG",
@@ -2181,7 +2192,13 @@
       "status": "open",
       "trigger_condition": "Before the M18 allocator graduates past observe-only (P2+ selection/sizing), OR any allocator-EV backtest that includes equity candidates.",
       "resolution_criteria": "candidate_ev_score's fee_R uses the venue-aware per-symbol roundtrip bps (equities → ~0), verified by a test that an equity candidate's EV cost term is ~0 while a crypto candidate's is unchanged.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-07T14:55:00+00:00",
+          "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
+          "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        }
+      ]
     },
     {
       "id": "PB-20260730-REGIME-EVIDENCE-VENUE-FEE-REGRADE",
@@ -2228,7 +2245,14 @@
       "title": "[exit][capture] Standing watch: track scalp hold-time / roundtrippers / giveback via the new execution_capture review metric as #8000 + follow-ups soak",
       "description": "NOT a re-verify-the-flip item (that premise is disproven). The durable hook: the /system-review execution_capture metric (added PR #7973 -- m20_exit_analysis roundtrippers_pct / mean_giveback_r / hold_h_actual-vs-expected per live strategy, aged across reviews) is now the STANDING measurement for whether bybit ict_scalp capture actually improves as the concurrent session's real fixes (#8000 Bybit broker-naked sweep; the leg-desync + over-accum remediation) land and soak. Each /system-review: confirm post-fix bybit scalp hold-times trend toward minutes and roundtrippers/giveback drop vs the ~9h-avg / 80%-reconciler_filled pre-fix baseline (docs/research/exit-capture-deepdive-2026-07-30.md, read through its top correction banner). If they do NOT improve after the #8000-family soaks, the root cause is still unaddressed -- escalate. Baseline reference for the compare: pre-2026-07-30 bybit ict_scalp -- avg hold 9.05h / median 2.53h, 47/59 reconciler_filled.",
       "status": "open",
-      "tier": "observe (standing review-metric watch; the real fix is the concurrent session's Tier-2 #8000-family, not this item)"
+      "tier": "observe (standing review-metric watch; the real fix is the concurrent session's Tier-2 #8000-family, not this item)",
+      "updates": [
+        {
+          "at": "2026-08-07T14:55:00+00:00",
+          "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
+          "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        }
+      ]
     },
     {
       "id": "PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE",
@@ -2248,7 +2272,21 @@
           "note": "Operator asked for a recommendation (chat 2026-08-01): regime gate is NOT production-ready for SLV (no SLV advisory regime head in the registry; no authored SLV trend_vol cells in config/regime_policy.yaml; ml_vol_regime_for_symbol would resolve unknown->frozen and the hard gate would drop nothing) - building one is a multi-week soak path. The min_confidence floor IS production-wired (trend_donchian.py min_confidence refusal; slv_trend_1h already carries the field at 0.0). RECOMMENDED + PREPARED: min_confidence 0.0 -> 0.3 on slv_trend_1h, draft PR opened (Tier-3 - merge on operator approval)."
         }
       ]
+    },
+    {
+      "id": "PB-20260807-ICTSCALP-STOP-DID-NOT-CONTAIN-8R",
+      "opened_at": "2026-08-07T14:55:00+00:00",
+      "opened_by": "claude (/system-review since-last, session full-system-review-ma0ava)",
+      "source": "/system-review 2026-08-07: m20_exit_analysis per-trade dump (trainer-diag #8592) + /api/bot/trades/closed + grade-closed-trades output (#8589). POPULATION: n=10 ict_scalp closes in the window 2026-08-04 to 2026-08-07, all paper, from a total of 15 paper closes the harness returned. The -8.41R figure is ONE trade (4413) of those 10; the family-level statistic over the same n=10 is mean giveback 1.92R and 7 of 10 closed by reconciler rather than by stop or target. 4 of the 15 harness rows carry a clamped hold_h and are excluded from hold conclusions (BL-20260807-M20EXIT-HOLD-CLAMP-UNMARKED).",
+      "title": "[exit][capture] a 5-minute scalp realized -8.41R against a ~1R designed stop and was closed by the reconciler, not by its stop",
+      "tier": "Tier-2 to fix (order-monitor / bracket path); Tier-1 to measure",
+      "status": "open",
+      "severity": "high",
+      "detail": "Trade 4413, ict_scalp_avax_5m, AVAXUSDT long, bybit_1 (PAPER — no money at risk, which is the only reason this is not a P0).\n  opened 2026-08-05T08:03:54Z, entry 6.692, sl 6.6592 (a 0.53% / ~1R stop), tp 6.7487\n  closed 2026-08-06T10:17:17Z — hold 15.8h on a FIVE-MINUTE strategy\n  realized -$4,254.24 = -8.41R. MFE +0.73R, MAE -5.0R.\n  closeReason 'reconciler' / exit_reason 'reconciler_filled' — NOT sl_cross.\n  Graded B (entry=optimal, conf 0.83): the DECISION was fine. The execution gave away 8.4x the intended risk.\n\nThe stop did not contain the loss and did not close the trade; the reconciler noticed the position was gone. Realized -8.41R is also worse than the measured MAE of -5.0R, which implies the fill landed beyond anything the candle window saw.\n\nTHIS IS NOT ISOLATED — it is the tail of a pattern this review measured across the window. All 10 ict_scalp closes: holds 0.8/1.0/1.5/1.8/1.8/3.2/3.5/5.0/15.8h (+1 clamped at 24.0, see BL-20260807-M20EXIT-HOLD-CLAMP-UNMARKED) against a 5m/15m expected hold of minutes; mean giveback (MFE - realized R) 1.92R; 7 of 10 closed by `reconciler_filled` or `exchange_flat_reconciled` rather than by a stop or target.\n\nMECHANISM (hypothesis, NOT verified — and the honest state is that the mechanism is exactly what is still unknown): bybit_1 runs BYBIT_TPSL_MODE=partial, where qty-scoped SL/TP legs are ADD-only and can desync from a netted one-way position. The same account currently shows journal-vs-exchange qty divergence of 451x on SOLUSDT and 2.45x on BNBUSDT. A qty-scoped stop attached for a qty the position no longer holds would not protect the row. That connects this to BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED and BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING, but I have not proven the link.\n\nAGE: first flagged as a capture concern 2026-07-30 (PB-20260730-SCALP-CAPTURE-STANDING-WATCH, BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED). This is the second consecutive review with it open, which per the /system-review execution-capture rule (reviews_open >= 2) makes it a mandatory standalone escalation rather than a watch item. Escalated to operator_priorities in RPT-20260807-145500-since-last.",
+      "recommendation": "Verify per-trade stop coverage on bybit_1 by reading resting SL legs against each open journal row (the _bybit_position_protection covered_qty path), and confirm whether trade 4413 had a resting stop for its own qty at any point. Until then, treat ict_scalp paper R-statistics as execution-contaminated: the entry edge and the realized edge are measuring different things.",
+      "resolution_criteria": "An ict_scalp leg's realized loss is bounded by its designed stop, and its closes are attributed to sl/tp rather than to the reconciler.",
+      "updates": []
     }
   ],
-  "updated_at": "2026-07-30T13:00:00+00:00"
+  "updated_at": "2026-08-07T14:55:00+00:00"
 }

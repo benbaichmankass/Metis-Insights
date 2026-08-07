@@ -1,0 +1,56 @@
+# System report — since-last
+
+- Generated: 2026-08-07T14:55:00+00:00
+- Window: 2026-08-04T05:20:00+00:00 → 2026-08-07T14:36:00+00:00
+- Roll-up grade: investigate
+
+Real money is dormant - zero real-money closes in the window, bybit_2 at $278.53, lifetime wallet-truth -$262.52. All 37 closes were paper, down -$42,139.71 (win rate 24.0%, profit factor 0.128), 89% of it two ib_paper futures trades. The review's central finding is EXECUTION, not decisions: an ict_scalp leg realized -8.41R against a ~1R stop and was closed by the reconciler, and 7 of 10 scalp closes never touched a stop or target. Second consecutive review with this open. Also found: ib_paper uPnL contradicts exchange truth ~2,900x, the heartbeat reports 'paused' while ticking, and the news layer feeds 19 of 24 traded symbols macro-only headlines while its veto is armed.
+
+## P&L by class
+- **real**: window +$0.00 (prior —, flat)
+- **paper**: window $-42,139.71 (prior —, down)
+- **prop**: window +$0.00 (prior +$0.00, flat)
+
+## Operator priorities
+1. ict_scalp stops are not containing losses - a 5m leg lost 8.41R against a 1R stop, reconciler-closed — Trade 4413 (paper, bybit_1): -$4,254.24 = -8.41R, held 15.8h on a 5-minute strategy, closed by the reconciler not the stop. 7 of 10 ict_scalp closes were reconciler/exchange-flat closed. Second review with this open (first flagged 2026-07-30). Paper-only today, but this leg family is the M27 real-money graduation candidate.
+2. ib_paper unrealized PnL contradicts exchange truth by ~2,900x on the app's headline number — MGC reports +$110,040 on /api/bot/positions vs +$37.80 on /api/bot/pnl/exchange; MES +$10,481 vs $0.00. Same hour, balance delta_1h -$16,923.86. Likely the markprice_local fallback pricing a netted size off one journal row's entry. Paper-only, but the same path serves every non-Bybit account.
+3. News veto is armed while 19 of 24 traded symbols read macro-only feeds — symbol_groups covers 5 traded bases. XRP/ADA/SOL/AVAX never fetch the crypto feeds; USO never fetches energy. Nothing is vetoing today (adjustments 0.004-0.008), so this is latent. Fix is a YAML edit but it changes what a live trade-blocking gate sees - proposed, not enacted.
+4. Confirm whether the empty device_tokens table is by design — 0 registered devices means every FCM push - including the loud broker-down and trainer-down WARNING pushes - reaches nobody. Telegram is unaffected. One question: is the Android app intentionally unpaired, or were registrations lost?
+5. Trainer fleet is coasting - 0 models trained last cycle, 21 manifests with empty datasets — 299 manifest_ok but 76 untrained_stale and 21 dataset_empty over 4 days, last cycle already_complete/trained:0. No failures - it just is not advancing. Plus: 2026-08-07 pooled builds trained un-augmented (fix deployed cf10172, unproven until the 08-08T00:10Z cycle).
+
+## Review coverage
+- Strategy promotion: NOTHING is ready to promote. No M7 review packet was regenerated in this window, so per-strategy KILL/HOLD/TUNE badges are not freshly computed - I am not going to imply a gate read I did not run. What IS established: the M27 real-money graduation candidates (SOL/XRP/AVAX/ETH scalp legs) are the same family carrying this review's execution defect, which argues against graduation. All six authored trend_vol cells grade 0-of-6 justified under the new sample floor (concurrent session). Zero real-money trades closed this window, so no live-performance evidence accrued toward any gate.
+- ML training health: Cycles ARE running - 8 cycle_start/cycle_end pairs since window start, dataset_builds_24h ok 94 / failed 2, manifests_24h ok 68 / failed 0, ZERO quarantine events and ZERO failed cycle events. But the fleet is coasting: 0 models trained in the last cycle, 76 manifest_untrained_stale and 21 manifest_dataset_empty. Registry 95 models (advisory 3, shadow 29, candidate 62, research_only 1) - unchanged in composition this window. Trainer journal mirror repaired and verified (quick_check ok).
+- Soak `exit-ladder (ExitPlan laddered vs single target)`: accruing — 401 rows scanned (api 368 / prop 33), differing 0. This is a MEASURED structural zero, honestly labelled by the endpoint itself: no live strategy declares a partial-TP ladder via a distinct meta.tp2, so every row materializes to a single rung. Not a stall - there is simply nothing multi-rung to compare yet.
+- Soak `allocator (capital-allocator would-pick vs routed)`: stalled — 165 scanned, disagree 51.5%, mean_regret 0.485 - but CONFIRMED this run as a variant-pair artifact: the disagreements are trend_donchian_eth vs trend_donchian_eth_prop, the same strategy in two variants. The soak is accruing rows but not producing usable selection evidence. Counted as stalled on that basis.
+- Soak `pairs sleeve (M22 D2)`: stalled — 2,232 evaluations but 850 (38.1%) skip_state_unreadable and 10 of 38 attempted opens failed. Plus 7 legs open and unclosed, oldest 22 days. A soak that cannot read state on 38% of bars is not soaking the thing it was built to soak.
+- Soak `conviction arbitration`: stalled — Carried from BL-20260806-ARBITRATION-SOAK-QTY-ALL-ZERO (target_qty 0.0 on every row). NOT re-measured this run - I did not tail conviction_arbitration, so this state is inherited, not observed today. Flagged as owed next review rather than asserted.
+- Soak `fc-geometry (M19 D1)`: accruing — Not queried this run - unavailable, no observation to report. Recorded so its absence is visible rather than silently omitted.
+- Soak `shadow models (29 at shadow stage)`: accruing — 29 shadow-stage models in the registry, unchanged in count this window. No promotion gate was newly met and none was actioned. The BTC vol-gate live-parity blocker was closed by the concurrent session (parity measured 92.18% / 96.40% / 100% per pinned window).
+- Execution capture: MEASURED via scripts/research/m20_exit_analysis.py --since-days 4 on the trainer (15 paper closes). Capture is BAD on the ict_scalp family: mean giveback 1.92R and 7 of 10 closes never touched a stop or target. DOLLARS RECONCILED: real money is DOWN and dormant - 0 closes this window, -$0.99 over 7d (journal) against -$1.04 exchange-fills truth, and -$262.52 lifetime broker wallet-truth for bybit_2. Paper is DOWN -$42,139.71. CAVEAT: 4 of the 15 rows carry a clamped hold_h of exactly 24.0 and mfe 0.0 and are excluded from the hold conclusions. (dollars reconciled: True)
+  - `ict_scalp_avax_5m` [paper]: round-trip 0.0%, giveback 9.14R, hold 15.80/0.25h → anomaly
+  - `ict_scalp_xrp_15m` [paper]: round-trip 0.0%, giveback 1.47R, hold 3.00/0.50h → degraded
+  - `ict_scalp_eth_15m` [paper]: round-trip 0.0%, giveback 0.47R, hold 3.35/0.50h → degraded
+  - `ict_scalp_5m` [paper]: round-trip 0.0%, giveback 1.06R, hold 1.70/0.25h → degraded
+  - `ict_scalp_xrp_5m` [paper]: round-trip 0.0%, giveback 2.08R, hold 0.80/0.25h → degraded
+  - `ict_scalp_mgc_15m` [paper]: round-trip 0.0%, giveback 0.88R, hold —/0.50h → degraded
+  - 🔴 `ict_scalp`: (family: the 5m + 15m legs) Holds run 3-16h against a minutes-scale expectation, mean giveback 1.92R across 10 closes, and 7 of 10 closes are reconciler_filled / exchange_flat_reconciled rather than sl/tp. Worst case trade 4413: -8.41R against a ~1R designed stop, realized loss WORSE than the measured MAE, meaning the stop neither contained nor closed the position. (open 2 review(s), PB-20260807-ICTSCALP-STOP-DID-NOT-CONTAIN-8R) ⚠️ ESCALATE
+- 🚩 EXECUTION-CAPTURE ANOMALY OPEN ACROSS 2 REVIEWS (mandatory escalation): the ict_scalp family gives back a mean 1.92R and closes 7 of 10 trades by reconciler rather than by stop or target. Trade 4413 realized -8.41R against a ~1R stop. First flagged 2026-07-30. Paper-only today - but this is the exact leg family queued for M27 real-money graduation.
+- 🚩 TWO ENDPOINTS DISAGREE BY ~2,900x ON THE SAME POSITION: ib_paper MGC uPnL reads +$110,040 on /api/bot/positions and +$37.80 on /api/bot/pnl/exchange, while ib_paper's balance fell $16,923.86 in the same hour. At least one of the three is wrong and the app renders the largest one.
+- 🚩 A LIVE TRADE-BLOCKING GATE IS READING THE WRONG INPUT FOR 79% OF SYMBOLS: NEWS_VETO_ENABLED is armed and 19 of 24 traded bases resolve to macro-only feeds. Nothing is vetoing today, so this is latent rather than active - stated that way deliberately.
+- 🚩 LIVENESS REPORTS A FALSE 'PAUSED' DURING NORMAL OPERATION: the heartbeat starves during a ~4-minute tick. An alarm that cries wolf in the normal case is the alarm-fatigue failure mode this repo names as itself a P1.
+- 🚩 ALL MOBILE PUSH IS INERT: device_tokens is empty, so the loud broker-down and trainer-down WARNING pushes reach nobody. Telegram still works, so this is a degraded channel and not a blackout.
+- 🚩 ML FLEET IS COASTING, NOT BROKEN: 0 models trained last cycle, 76 manifest_untrained_stale, 21 manifest_dataset_empty, but zero failures and zero quarantine events. Flagged because 'nothing is failing' and 'nothing is progressing' look identical on a green dashboard.
+- 🚩 TODAY'S POOLED DATASET BUILDS TRAINED UN-AUGMENTED (2026-08-07 05:01Z augment-merge failure). Fix is deployed but unproven. Any ML result read off today's pooled builds is on the un-augmented population.
+
+## Monitoring (soaking / awaiting decision)
+- `BL-20260807-POOLED-AUGMENT-MERGE-SILENT-FALLBACK` [ml · verify] pk-collision fix deployed on the trainer (cf10172) but no post-fix pooled build has run yet. (next: next trainer cycle 2026-08-08T00:10Z)
+- `BL-20260807-TRAINER-JOURNAL-PULL-TORN-RSYNC` [health · verify] Mirror repaired and verified at rest, but the fix itself had two defects carried in the concurrent session's PR #8584. (next: #8584 merged + a pull records method=snapshot)
+- `BL-20260806-ARBITRATION-SOAK-QTY-ALL-ZERO` [health · awaiting-data] target_qty 0.0 on every conviction_arbitration row. NOT re-measured this run - I did not tail that log and will not imply otherwise. (next: tail conviction_arbitration next review)
+- `BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT` [health · awaiting-data] The three volatile-keyed cells are dormant in the current calm stretch, not structurally dead. (next: next sustained volatile regime)
+- `SRQ-20260728-M27-WINNERS-SHIP` [performance · awaiting-decision] Real-money graduation of the scalp legs is soak-gated, and this window's execution finding is a live argument against it. (next: operator go + stop-containment resolved)
+- `BL-20260803-GLD-ALPACA-PORTFOLIO-SURVIVAL-SKIP` [health · awaiting-decision] Tier-3 routing change; confirmed still live this run on both alpaca books (paper, so no money at risk). (next: operator go)
+- `MB-20260728-ICTSCALP-EXIT-LEVERS` [ml · soaking] Remaining ict_scalp exit-lever sweeps; MGC swept honest_negative 2026-07-28. (next: remaining legs swept)
+- `BL-20260730-SPLG-ZERO-TRADES` [health · verify] splg_trend_long_1d still loaded, still zero trades, still no open position - one more window of confirming silence. (next: first SPLG signal, or a decision to kill)
+
+_report_id RPT-20260807-145500-since-last_

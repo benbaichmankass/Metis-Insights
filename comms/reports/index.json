@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260807-145500-since-last",
+      "window": "since-last",
+      "generated_at": "2026-08-07T14:55:00+00:00",
+      "window_start": "2026-08-04T05:20:00+00:00",
+      "window_end": "2026-08-07T14:36:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "Real money is dormant - zero real-money closes in the window, bybit_2 at $278.53, lifetime wallet-truth -$262.52. All 37 closes were paper, down -$42,139.71 (win rate 24.0%, profit factor 0.128), 89% of it two ib_paper futures trades. The review's central finding is EXECUTION, not decisions: an ict_scalp leg realized -8.41R against a ~1R stop and was closed by the reconciler, and 7 of 10 scalp closes never touched a stop or target. Second consecutive review with this open. Also found: ib_paper uPnL contradicts exchange truth ~2,900x, the heartbeat reports 'paused' while ticking, and the news layer feeds 19 of 24 traded symbols macro-only headlines while its veto is armed.",
+      "html_path": "comms/reports/since-last/20260807T145500Z/report.html",
+      "json_path": "comms/reports/since-last/20260807T145500Z/report.json",
+      "md_path": "comms/reports/since-last/20260807T145500Z/report.md"
+    },
+    {
       "id": "AUDIT-20260804",
       "window": "audit",
       "generated_at": "2026-08-04T05:20:00+00:00",
