@@ -588,3 +588,74 @@ def test_verify_separates_missing_timestamp_from_missing_ml_label(tmp_path):
     assert res["audit_rows_without_ml_label"] == 1
     assert res["comparable"] == 0
     assert res["verdict"] == "no_overlap_nothing_verified"
+
+
+def test_verify_drops_rows_past_the_labels_end_instead_of_clamping(tmp_path):
+    """An audit row after the last label bar is NOT comparable.
+
+    `_bar_key` is an unbounded as-of lookup, so before this guard every row
+    past the labels' end silently matched that last bar and was counted
+    comparable. Measured against the live corpus on 2026-08-07: 204 of 208
+    ML-labelled rows sat after a labels file ending 2026-06-30 — some five
+    weeks stale, all matched to the same bar — and the tool reported
+    `comparable: 208`, `agreement_pct: 95.67` and
+    `audit_rows_without_matching_bar: 0`. The denominator asserted a clean
+    match that never happened (CLAUDE.md § "Diagnostic provenance", sub-class
+    C: unasserted denominator).
+    """
+    labels = tmp_path / "labels.jsonl"
+    labels.write_text(
+        '{"ts": "2026-01-01T00:00:00Z", "vol_regime": "calm", "p_volatile": 0.1}\n'
+        '{"ts": "2026-01-01T00:15:00Z", "vol_regime": "calm", "p_volatile": 0.1}\n'
+        '{"ts": "2026-01-01T00:30:00Z", "vol_regime": "calm", "p_volatile": 0.1}\n',
+        encoding="utf-8",
+    )
+    audit = tmp_path / "audit.jsonl"
+    audit.write_text(
+        # in range -> comparable
+        '{"logged_at_utc": "2026-01-01T00:20:00+00:00", "vol_regime_ml": "calm"}\n'
+        # five weeks past the last bar -> must NOT clamp onto 00:30
+        '{"logged_at_utc": "2026-02-05T12:00:00+00:00", "vol_regime_ml": "volatile"}\n'
+        '{"logged_at_utc": "2026-02-06T12:00:00+00:00", "vol_regime_ml": "volatile"}\n',
+        encoding="utf-8",
+    )
+    res = replay.run_verify(labels_path=labels, audit_path=audit)
+
+    assert res["ml_labelled_rows"] == 3
+    assert res["comparable"] == 1, "only the in-range row is comparable"
+    assert res["audit_rows_after_labels_end"] == 2
+    # The honest denominator must be reported, not left for the reader to derive.
+    assert res["overlap_pct"] == pytest.approx(33.33, abs=0.01)
+    # And agreement is over the 1 real row, not an inflated 3.
+    assert res["agree"] == 1
+    assert res["agreement_pct"] == 100.0
+    assert "after the labels end" in res["coverage_note"]
+
+
+def test_verify_bounds_staleness_by_the_labels_own_bar_spacing(tmp_path):
+    """The bound is derived from the labels, not hardcoded.
+
+    A fixed 15m window would mis-bound a 1h or 4h label set — the same
+    implicit-input-selection class (sub-class B) the bound exists to fix.
+    """
+    labels = tmp_path / "labels.jsonl"
+    labels.write_text(
+        '{"ts": "2026-01-01T00:00:00Z", "vol_regime": "calm"}\n'
+        '{"ts": "2026-01-01T04:00:00Z", "vol_regime": "calm"}\n'
+        '{"ts": "2026-01-01T08:00:00Z", "vol_regime": "calm"}\n',
+        encoding="utf-8",
+    )
+    audit = tmp_path / "audit.jsonl"
+    audit.write_text(
+        # 3h after the 04:00 bar — fine for a 4h label set, would be dropped
+        # by a hardcoded 15m window
+        '{"logged_at_utc": "2026-01-01T07:00:00+00:00", "vol_regime_ml": "calm"}\n',
+        encoding="utf-8",
+    )
+    res = replay.run_verify(labels_path=labels, audit_path=audit)
+
+    assert res["label_bar_seconds"] == 14400.0
+    assert res["max_staleness_seconds"] == 28800.0
+    assert res["comparable"] == 1
+    assert res["audit_rows_after_labels_end"] == 0
+    assert res["audit_rows_stale_match"] == 0
