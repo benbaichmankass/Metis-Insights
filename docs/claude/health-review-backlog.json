@@ -10087,8 +10087,65 @@
       "severity": "medium",
       "status": "open",
       "updates": []
+    },
+    {
+      "id": "BL-20260807-TRAINER-AUDIT-LOG-IS-HARNESS-OUTPUT-UNMARKED",
+      "opened_at": "2026-08-07T00:35:00+00:00",
+      "opened_by": "claude (metis-insights-workplan-cont fczb1e)",
+      "severity": "medium",
+      "status": "open",
+      "source": "Found during the ML2 2-D regime-cell re-audit, trainer-vm-diag #8548 / #8554 / #8555. Sibling of BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA and the same family as the CLAUDE.md 'Diagnostic provenance' class.",
+      "title": "[ml][observability][Tier-1] The trainer's `runtime_logs/signal_audit.jsonl` is BACKTEST-HARNESS output at the same path the live trader uses, with nothing marking it as such — a live-parity check run there silently measures the wrong population",
+      "description": "ALWAYS STATE THE POPULATION. Measured 2026-08-07 00:31Z over all 13,461 `regime_hard_gate` rows in the trainer's runtime_logs/signal_audit.jsonl:\n  * median inter-row gap 0.066s; 12,317 of 13,460 gaps (91.5%) are under ONE SECOND. The live trader emits one tick per TICK_INTERVAL_SECONDS and cannot produce that.\n  * max gap 1,061,066s (~12.3 days) = the idle stretch between separate research runs.\n  * symbols SOLUSDT 4,850 / ETHUSDT 4,743 / BTCUSDT 3,868; strategies include `trend_donchian_eth`, `trend_donchian_sol`, `eth_pullback_2h`, `trend_donchian_eth_4h` -- research variants, not the live roster.\n  * span 2026-06-27 -> 2026-08-02T04:50:22, which is exactly the file's mtime (stale 4+ days).\nCONTRAST, same window: 81 complete live `regime_hard_gate` rows via /api/diag/audit_query (#8550) are 100% BTCUSDT, dominated by `htf_pullback_trend_2h`.\n\nWHY IT IS A HAZARD, not just a stale file. `scripts/research/ml_vol_label_replay.py verify` exists specifically to stop a vol-label replay being graded against the wrong population, and its documented input is 'JSONL of regime_ml_vol_shadow / regime_hard_gate rows'. On the trainer the nearest such file IS this one, and nothing in it, its path, or its rows says 'harness'. A session that points verify at it gets a confident agreement percentage computed against replay output.\n\nThis was NOT hypothetical: verify was returning `no_overlap_nothing_verified` only because of an unrelated reader bug (it never read `logged_at_utc`, fixed in PR #8551). Landing that fix ALONE would have made verify start comparing -- turning a loud, honest failure into a plausible wrong answer. Two independent defects were masking each other.",
+      "recommendation": "Make the population self-describing rather than relying on a reader to infer it:\n  1. Have the backtest harness write its audit rows to a DISTINCT path (e.g. runtime_logs/backtest/signal_audit.jsonl) or stamp every harness-emitted row with an explicit `source: backtest` / run-id field. A row that cannot say where it came from is the same class as an un-provenanced pnl.\n  2. Have `verify` REFUSE (or loudly warn) when the audit corpus looks non-live -- a sub-second median inter-row gap is a cheap, decisive tell -- rather than comparing whatever it is handed.\n  3. Point live-parity checks at the `signals` dual-write table (the source /api/diag/audit_query reads), which is unambiguously live, instead of at a JSONL whose provenance depends on which box it sits on.",
+      "evidence": [
+        "trainer-vm-diag #8555 (full distribution + gap cadence over all 13,461 rows)",
+        "trainer-vm-diag #8554 (overlap-window rows are SOLUSDT/sol_pullback_2h)",
+        "vm-diag #8550 (live rows, same window, 100% BTCUSDT)",
+        "PR #8551 (the logged_at_utc reader bug that was masking this)"
+      ]
+    },
+    {
+      "id": "BL-20260807-ML2-DATASET-STALE-BLOCKS-VOLGATE-PARITY",
+      "opened_at": "2026-08-07T01:20:00+00:00",
+      "opened_by": "claude (metis-insights-workplan-cont fczb1e)",
+      "severity": "medium",
+      "status": "open",
+      "source": "ML2 2-D regime-cell re-audit, trainer-vm-diag #8558/#8561. Surfaced by the verify staleness fix in PR #8553 (ecc414e).",
+      "title": "[ml][Tier-1] BTCUSDT 15m market_features v520 ends 2026-06-30 — the ML vol-gate's live parity is UNMEASURABLE (4-row overlap), not merely unverified",
+      "description": "POPULATION: data/trade_journal.db::signals on the trainer, 3,900 regime_hard_gate rows (100% BTCUSDT, 2026-06-08 -> 2026-08-06); 208 carry vol_regime_ml (100% of rows since 2026-07-01; the 3,692 without are pre-go-live June).\n\nThe labels file replayed from datasets-out/market_features/BTCUSDT/15m/v520 spans 2021-07-01 -> 2026-06-30T22:30:00Z (175,272 rows). The ML vol axis went live 2026-06-29. So ML-labelled audit rows INSIDE the labels range = 4; AFTER = 204.\n\nConsequence: ml_vol_label_replay verify cannot establish live parity at all right now. Before ecc414e it appeared to (comparable 208, agreement_pct 95.67) only because it clamped the 204 out-of-range rows onto the final bar. With the bound in place it correctly reports a 4-row overlap.\n\nFIX: rebuild market_features BTCUSDT 15m through the current date, re-replay (ml_vol_label_replay replay --vol-bucket live), re-run verify with --min-overlap. Note the replay must use the head that was ADVISORY during the audit window: btc-regime-15m-lgbm-fc-pcv-v2 only became advisory 2026-08-04, so rows from 06-29..08-04 were produced by -v1. A v2 replay compared against v1-era live rows is a cross-model comparison and must be labelled as such.\n\nBLOCKS: any claim of live parity for the BTC vol gate, and by extension any cell verdict presented as live-confirmed rather than backtest-only."
+    },
+    {
+      "id": "BL-20260807-ICT-SCALP-5M-CELLS-HAVE-NO-EVIDENCE-PATH",
+      "opened_at": "2026-08-07T01:20:00+00:00",
+      "opened_by": "claude (metis-insights-workplan-cont fczb1e)",
+      "severity": "medium",
+      "status": "open",
+      "source": "ML2 2-D regime-cell re-audit, trainer-vm-diag #8562. See docs/research/ML2-trend-vol-cell-walkforward-2026-08-07.md.",
+      "title": "[ml][Tier-1] Two of the six authored trend_vol OFF-cells (ict_scalp_5m) are UNGRADABLE by regime_cell_walkforward — neither justified nor refuted",
+      "description": "regime_cell_walkforward.py returns `ERROR: unclassifiable (no donchian/pullback/squeeze params or no symbol/timeframe)` for ict_scalp_5m, so both of its authored cells -- trending/volatile {long: off, short: off} and chop/volatile {long: off, short: off} -- have NO walk-forward evidence path.\n\nThis matters because docs/strategy-review-gate.md and the regime-selectivity skill both make walk-forward the gate a losing cell must survive before it can be an OFF-cell. These two cells rest solely on the 2026-07-20 Phase-4 packet (docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md) and cannot currently be re-checked by the tool the gate doc points at.\n\nThis is NOT a claim the cells are wrong -- it is a claim they are unfalsifiable with current tooling, which is its own risk (the cosmetic-cell anti-pattern, BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS, is exactly what walk-forward exists to catch).\n\nFIX: either teach the harness to classify ict_scalp_5m (it is a 5m scalp, not donchian/pullback/squeeze), or record explicitly in config/regime_policy.yaml that these two cells are packet-based and walk-forward-exempt, with the reason."
+    },
+    {
+      "id": "BL-20260807-REQUIRED-CHECKS-LACK-WORKFLOW-DISPATCH",
+      "opened_at": "2026-08-07T01:20:00+00:00",
+      "opened_by": "claude (metis-insights-workplan-cont fczb1e)",
+      "severity": "low",
+      "status": "open",
+      "source": "Surfaced by the 2026-08-06 GitHub Actions webhook-throttle incident, which left PRs unmergeable for ~6h with no recovery path.",
+      "title": "[ci][Tier-1] Every required-check workflow should carry a workflow_dispatch trigger so a webhook outage is recoverable",
+      "description": "During the 2026-08-06 Actions incident, push webhooks were throttled to ~15% and several pushes to claude/** produced ZERO workflow runs. There was no way to satisfy the required-check set manually:\n  * guards.yml was new in the PR and not yet on the default branch, so run_workflow returns 404 for any ref (a workflow must be on the default branch to be dispatchable);\n  * pytest-collect has no workflow_dispatch trigger at all.\n\nSo a green-able PR sat unmergeable with no operator-free recovery. Adding `workflow_dispatch:` to each required-check workflow costs nothing and converts a hard block into a manual re-trigger.\n\nNote this composes with the now-verified `run_workflow` MCP capability (re-verified 2026-08-06, HTTP 204) -- the tool exists, the triggers do not."
+    },
+    {
+      "id": "BL-20260807-TRUSTMAP-ALL-LEGS-INSUFFICIENT-LIVE",
+      "opened_at": "2026-08-07T02:00:00+00:00",
+      "opened_by": "claude (metis-insights-workplan-cont fczb1e)",
+      "severity": "medium",
+      "status": "open",
+      "source": "P1.x trust-map re-run on cleaned rows, trainer-vm-diag #8567/#8568. Follow-up to the item-1 netted-duplicate marking (#8543/#8545).",
+      "title": "[research][Tier-1] Post-cleaning, EVERY trust-map leg is insufficient-live (trusted n = 18 / 1 / 21 vs min_live_n 30) — no leg can validate backtest fidelity today",
+      "description": "POPULATION: backtest_fidelity_calibrate.py --backtest-db datasets-out/backtest_trades.db --live-db data/trade_journal.db --trust-map, r_basis=stop_distance, run 2026-08-07 01:57Z AFTER the netted-duplicate marking landed.\n\n| leg | scanned | trusted | r_measured | r_coverage | verdict |\n|---|---|---|---|---|---|\n| htf_pullback_trend_2h BTCUSDT | 55 | 18 | 18 | 1.0 | insufficient-live |\n| squeeze_breakout_4h BTCUSDT | 5 | 1 | 1 | 1.0 | insufficient-live |\n| trend_donchian BTCUSDT | 28 | 21 | 21 | 1.0 | insufficient-live |\n\nverdict_counts = {'insufficient-live': 3}; min_live_n = 30.\n\nThis is the CORRECT behaviour, not a regression: the live population is filtered through provenance.pnl_is_trustworthy and netted_duplicate_unattributed is FABRICATED, so the 29 rows marked in item 1 now drop out as intended. htf_pullback_trend_2h loses 37 of 55 rows (67%) to that filter.\n\nTWO things follow:\n1. The htf_pullback_trend_2h/BTCUSDT live mean-R verdict remains UNUSABLE -- now for a understood reason (thin trusted sample) rather than an unknown one. The per-leg live_mean_r values the tool prints (0.0254 / -1.1222 / 0.1621) must NOT be quoted as verdicts; every leg is insufficient-live.\n2. r_coverage is 1.0 on all three legs, so the blocker is SAMPLE SIZE, not missing stop data. That distinction matters: no amount of better stop recording fixes this; only more trusted live trades (or a defensible lower min_live_n, which is a threshold change and needs its own justification) will.\n\nNOT a proposal to lower min_live_n. Recording that the gate is currently unsatisfiable on every BTC leg."
     }
   ],
-  "updated_at": "2026-08-06T22:20:00+00:00",
+  "updated_at": "2026-08-07T00:35:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

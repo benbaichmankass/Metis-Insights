@@ -309,3 +309,49 @@ def test_regime_router_on_enforces_trend_vol_cell_on_stamped_label(
     assert os.environ.get("REGIME_ML_VERDICT_MODE") is None
     assert im._decision_vol_regime.__name__ == "_decision_vol_regime"
     assert im._emit_ml_vol_shadow_rows.__name__ == "_emit_ml_vol_shadow_rows"
+
+
+def test_backtest_stamped_decision_hook_matches_live_arity():
+    """The harness's `_decision_vol_regime` stand-in must return the same width.
+
+    The gate loop unpacks a fixed-width tuple, and it is fail-permissive — so a
+    stale arity in the monkey-patched hook does NOT surface as a loud error. It
+    is swallowed and the `--regime-router on` arm silently stops gating, making
+    every A/B arm come back identical to ungated. That exact failure happened on
+    2026-07-06 (BL-20260706-VOLGATE-REPLAY) for a different reason; this pins the
+    contract so widening the live return can never reintroduce it quietly.
+
+    Regression for the 2026-08-06 `p_volatile` widening (4-tuple -> 5-tuple).
+    """
+    import inspect
+
+    import src.runtime.intents as im
+
+    src = inspect.getsource(im._decision_vol_regime)
+    live_widths = {
+        len(line.split("return", 1)[1].split(","))
+        for line in src.splitlines()
+        if line.strip().startswith("return ")
+    }
+    assert len(live_widths) == 1, (
+        f"_decision_vol_regime returns inconsistent tuple widths {live_widths} — "
+        "every branch must agree or the gate loop unpack breaks on one path"
+    )
+    (live_width,) = live_widths
+
+    import scripts.backtest_system as bs
+
+    hook_src = inspect.getsource(bs._run_one) if hasattr(bs, "_run_one") else ""
+    if "_stamped_decision" not in hook_src:
+        hook_src = inspect.getsource(bs)
+    stamped = [
+        line for line in hook_src.splitlines()
+        if line.strip().startswith("return ") and "backtest-stamped" in line
+    ]
+    assert stamped, "could not locate the _stamped_decision return line"
+    hook_width = len(stamped[0].split("return", 1)[1].split(","))
+    assert hook_width == live_width, (
+        f"_stamped_decision returns {hook_width} values but _decision_vol_regime "
+        f"returns {live_width} — the gate loop unpack would fail and be silently "
+        "swallowed, disabling gating in the --regime-router on arm"
+    )

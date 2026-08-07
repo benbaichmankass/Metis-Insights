@@ -187,11 +187,20 @@ def cell_verdict(panel: dict[int, dict], regime: str, vol: str | None = None) ->
         }
     pooled_short_neg = (p.get("short_r") or 0) < 0
     pooled_long_neg = (p.get("long_r") or 0) < 0
+    # Per-direction trade counts. Without these a verdict over ZERO trades in a
+    # direction is indistinguishable from a measured False: trending/volatile
+    # trend_donchian (2026-08-07) had 9 long trades and 0 short, and reported
+    # `short_stable_drag=False` with nothing marking the population as empty.
+    ref_by_fold = ref.get("by_fold", [])
+    long_trades = sum(int(s.get("long_n") or 0) for s in ref_by_fold)
+    short_trades = sum(int(s.get("short_n") or 0) for s in ref_by_fold)
     return {
         "target_regime": regime,
         "target_vol": vol,
         "cell": f"{regime}/{vol}" if vol else regime,
         "regime_trades": ref.get("total_trades", 0),
+        "long_trades": long_trades,
+        "short_trades": short_trades,
         "fold_panel": list(ks),
         "per_fold_count": per_fold_count,
         "pooled_short_r": p.get("short_r"),
@@ -245,12 +254,29 @@ def main() -> int:
               f"short_r={s['short_r']}(n{s['short_n']}) net={s['net_r']}")
     cv = res.get("cell_verdict", {})
     panel = cv.get("per_fold_count", {})
-    maj = " ".join(f"k{k}:{v['short_folds_negative']}/{k}" for k, v in panel.items())
     print(f"  CELL VERDICT [{cv.get('cell')}]: n={cv.get('regime_trades')} "
-          f"panel={cv.get('fold_panel')} short_maj[{maj}] "
-          f"pooled_short_r={cv.get('pooled_short_r')} · "
-          f"short_stable_drag={cv.get('short_stable_drag')} "
-          f"(fold_sensitive={cv.get('short_fold_sensitive')})")
+          f"panel={cv.get('fold_panel')}")
+    # BOTH directions are printed. This block used to emit only the SHORT
+    # verdict under a heading that says "CELL VERDICT", while
+    # `long_stable_drag` was computed two lines earlier and dropped at the
+    # output layer — the same shape as the `p_volatile` drop in #8553.
+    # Four of the six authored `trend_vol` cells are `long: off`
+    # (config/regime_policy.yaml), so for those the printed verdict graded a
+    # direction the cell does not gate. Observed 2026-08-07 on
+    # trending/volatile trend_donchian: all 9 trades LONG, zero short, and the
+    # line still read `pooled_short_r=0 · short_stable_drag=False` — a
+    # determinate verdict over an empty population (CLAUDE.md § "Diagnostic
+    # provenance", sub-class A: the label does not describe what was computed).
+    for side in ("long", "short"):
+        maj = " ".join(
+            f"k{k}:{v[f'{side}_folds_negative']}/{k}" for k, v in panel.items()
+        )
+        n_side = cv.get(f"{side}_trades")
+        empty = " [NO TRADES — verdict is vacuous]" if n_side == 0 else ""
+        print(f"    {side:<5} n={n_side} {side}_maj[{maj}] "
+              f"pooled_{side}_r={cv.get(f'pooled_{side}_r')} · "
+              f"{side}_stable_drag={cv.get(f'{side}_stable_drag')} "
+              f"(fold_sensitive={cv.get(f'{side}_fold_sensitive')}){empty}")
     return 0
 
 

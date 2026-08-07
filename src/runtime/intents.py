@@ -905,11 +905,22 @@ def _decision_vol_regime(intent: Any, mode: str) -> tuple:
     raises, so the decision path can't be stranded by the ML lookup.
 
     Returns ``(effective_vol_regime, frozen_vol_regime, ml_vol_regime_or_None,
-    ml_source_or_None)`` so the caller can audit which label drove the gate.
+    ml_source_or_None, p_volatile_or_None)`` so the caller can audit which label
+    drove the gate **and the probability it was thresholded from**.
+
+    ``p_volatile`` is the head's ``predict_proba(row)["volatile"]`` — the number
+    ``ML_VOL_VERDICT_THRESHOLD`` is compared against. It was previously computed
+    by ``ml_vol_regime_for_symbol`` and then dropped here, so no audit row
+    carried it (0 of 13,461 rows on 2026-08-06) and the label-parity check in
+    ``scripts/research/ml_vol_label_replay.py verify`` could only compare the
+    thresholded LABEL. Label agreement hides a feature-row mismatch that happens
+    to land on the same side of the threshold; the probability delta is what
+    catches it. CLAUDE.md § "Diagnostic provenance" is explicit that a
+    diagnostic about this gate must report ``predict_proba(row)["volatile"]``.
     """
     frozen = getattr(intent, "vol_regime", None)
     if mode != "use":
-        return frozen, frozen, None, None
+        return frozen, frozen, None, None, None
     try:
         # Resolve by SYMBOL (not the strategy's timeframe): the validated A/B
         # applied the single 15m advisory head's vol label to every BTC cell —
@@ -920,11 +931,12 @@ def _decision_vol_regime(intent: Any, mode: str) -> tuple:
         verdict = ml_vol_regime_for_symbol(intent.symbol)
         ml = verdict.get("vol_regime")
         source = verdict.get("source")
+        p_vol = verdict.get("p_volatile")
         if ml in ("calm", "volatile"):
-            return ml, frozen, ml, source  # ML label drives the decision
-        return frozen, frozen, ml, source  # ML unknown → keep frozen (permissive)
+            return ml, frozen, ml, source, p_vol  # ML label drives the decision
+        return frozen, frozen, ml, source, p_vol  # ML unknown → keep frozen
     except Exception:  # noqa: BLE001 — fail-permissive: keep the frozen label
-        return frozen, frozen, None, None
+        return frozen, frozen, None, None, None
 
 
 def _shadow_regime_gate(candidates: tuple) -> None:
@@ -963,7 +975,7 @@ def _shadow_regime_gate(candidates: tuple) -> None:
         return
     mode = _regime_ml_verdict_mode()
     for intent in candidates:
-        eff_vol, frozen_vol, ml_vol, ml_src = _decision_vol_regime(intent, mode)
+        eff_vol, frozen_vol, ml_vol, ml_src, ml_p_vol = _decision_vol_regime(intent, mode)
         try:
             verdict = would_gate(
                 strategy=intent.strategy,
@@ -997,6 +1009,12 @@ def _shadow_regime_gate(candidates: tuple) -> None:
                 "vol_regime": eff_vol,
                 "vol_regime_frozen": frozen_vol,
                 "vol_regime_ml": ml_vol,
+                # The probability the label was thresholded from —
+                # predict_proba(row)["volatile"], NOT max(proba). Lets
+                # `ml_vol_label_replay verify` compare the PROBABILITY,
+                # which catches a feature-row mismatch that lands on the
+                # same side of the threshold as the replay.
+                "p_volatile": ml_p_vol,
                 "vol_label_source": "ml" if (mode == "use" and ml_vol in ("calm", "volatile")) else "frozen",
                 "vol_gated": vol_gated,
                 "vol_cell": verdict.get("vol_cell"),
@@ -1099,7 +1117,7 @@ def _hard_regime_gate(candidates: tuple) -> tuple:
     kept: list = []
     mode = _regime_ml_verdict_mode()
     for intent in candidates:
-        eff_vol, frozen_vol, ml_vol, ml_src = _decision_vol_regime(intent, mode)
+        eff_vol, frozen_vol, ml_vol, ml_src, ml_p_vol = _decision_vol_regime(intent, mode)
         try:
             verdict = would_gate(
                 strategy=intent.strategy,
@@ -1146,6 +1164,12 @@ def _hard_regime_gate(candidates: tuple) -> tuple:
                 "vol_regime": eff_vol,
                 "vol_regime_frozen": frozen_vol,
                 "vol_regime_ml": ml_vol,
+                # The probability the label was thresholded from —
+                # predict_proba(row)["volatile"], NOT max(proba). Lets
+                # `ml_vol_label_replay verify` compare the PROBABILITY,
+                # which catches a feature-row mismatch that lands on the
+                # same side of the threshold as the replay.
+                "p_volatile": ml_p_vol,
                 "vol_label_source": "ml" if vol_is_ml else "frozen",
                 "vol_gated": vol_gated,
                 # ``vol_enforced``: the vol axis actually drove this drop (only

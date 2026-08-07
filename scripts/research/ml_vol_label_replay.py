@@ -747,14 +747,67 @@ def load_labels(path: Path) -> Dict[str, Dict[str, Any]]:
 
 
 def _bar_key(ts: str, labels_sorted: Sequence[str]) -> Optional[str]:
-    """Return the label bar at/just-before ``ts`` (as-of, never a future bar)."""
+    """Return the label bar at/just-before ``ts`` (as-of, never a future bar).
+
+    This is an UNBOUNDED as-of lookup: it happily returns a bar from weeks
+    before ``ts``. Callers MUST bound the gap themselves — see
+    ``_STALENESS_RATIONALE`` in :func:`run_verify`.
+    """
     import bisect
 
     idx = bisect.bisect_right(labels_sorted, ts) - 1
     return labels_sorted[idx] if idx >= 0 else None
 
 
-def run_verify(*, labels_path: Path, audit_path: Path) -> Dict[str, Any]:
+def _parse_ts(value: Any) -> Optional[datetime]:
+    """Parse an ISO-8601 stamp (``Z`` / ``+00:00`` / naive) to aware UTC."""
+    s = str(value or "").strip()
+    if not s:
+        return None
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+_DEFAULT_BAR_SECONDS = 900.0  # 15m — the canonical regime-head bar
+
+
+def _infer_bar_seconds(keys: Sequence[str]) -> Optional[float]:
+    """Median spacing between consecutive label bars, in seconds.
+
+    The staleness bound is derived from the labels themselves rather than
+    hardcoded: a fixed 15m would silently mis-bound a 1h or 4h label set,
+    which is the same implicit-input-selection class the bound exists to fix.
+    """
+    deltas: List[float] = []
+    prev: Optional[datetime] = None
+    for key in keys:
+        dt = _parse_ts(key)
+        if dt is None:
+            continue
+        if prev is not None:
+            gap = (dt - prev).total_seconds()
+            if gap > 0:
+                deltas.append(gap)
+        prev = dt
+    if not deltas:
+        return None
+    deltas.sort()
+    return deltas[len(deltas) // 2]
+
+
+def run_verify(
+    *,
+    labels_path: Path,
+    audit_path: Path,
+    max_staleness_s: Optional[float] = None,
+) -> Dict[str, Any]:
     """Compare replayed labels against the LIVE gate's own recorded label.
 
     ``audit_path`` is a JSONL of ``regime_ml_vol_shadow`` / ``regime_hard_gate``
@@ -772,6 +825,33 @@ def run_verify(*, labels_path: Path, audit_path: Path) -> Dict[str, Any]:
         raise RuntimeError(f"{labels_path} carried 0 labels — nothing to verify")
     keys = sorted(labels)
 
+    # _STALENESS_RATIONALE: `_bar_key` is an unbounded as-of lookup, so an
+    # audit row past the labels' last bar silently matched THAT bar and was
+    # counted comparable. Measured 2026-08-07 against the live corpus: 204 of
+    # 208 ML-labelled rows sat after a labels file that ended 2026-06-30, some
+    # by five weeks, every one of them matched to the same 2026-06-30T22:30Z
+    # bar with an identical replayed p_volatile — reported as `comparable: 208`
+    # / `agreement_pct: 95.67` / `audit_rows_without_matching_bar: 0`. The
+    # denominator asserted a clean match that never happened, which is the
+    # `CLAUDE.md` § "Diagnostic provenance" sub-class C failure. A match is now
+    # only counted when the bar is CONTEMPORANEOUS with the row.
+    bar_seconds = _infer_bar_seconds(keys)
+    if max_staleness_s is not None:
+        staleness_basis = "explicit_flag"
+    elif bar_seconds:
+        max_staleness_s = bar_seconds * 2.0
+        staleness_basis = "inferred_2x_median_bar_spacing"
+    else:
+        # A one-bar labels file has no spacing to infer from. Neither silent
+        # option is acceptable: leaving it unbounded restores the clamping bug,
+        # and dropping everything discards legitimate as-of matches. Fall back
+        # to the repo's canonical 15m regime bar and SAY SO in the output —
+        # a stated default is a derivation the reader can check, an unstated
+        # one is the sub-class B substitution this bound exists to prevent.
+        max_staleness_s = _DEFAULT_BAR_SECONDS * 2.0
+        staleness_basis = "default_15m_bar_no_inferable_spacing"
+    labels_end = _parse_ts(keys[-1])
+
     total = 0
     comparable = 0
     agree = 0
@@ -779,6 +859,10 @@ def run_verify(*, labels_path: Path, audit_path: Path) -> Dict[str, Any]:
     no_live_label = 0
     no_ts = 0
     no_bar = 0
+    after_labels_end = 0
+    stale_match = 0
+    unparsable_ts = 0
+    ml_labelled = 0
     p_deltas: List[float] = []
 
     for rec in iter_dataset_rows(audit_path):
@@ -805,9 +889,32 @@ def run_verify(*, labels_path: Path, audit_path: Path) -> Dict[str, Any]:
         if live not in (VOL_CALM, VOL_VOLATILE):
             no_live_label += 1
             continue
+        ml_labelled += 1
         bar = _bar_key(str(ts), keys)
         if bar is None:
             no_bar += 1
+            continue
+        # Bound the as-of match — see _STALENESS_RATIONALE above. Rows outside
+        # the window are split by CAUSE: past the labels' end (the labels need
+        # rebuilding) vs a hole mid-range (a gap in the dataset). Those warrant
+        # different responses, so they are never folded into one number.
+        audit_dt = _parse_ts(ts)
+        bar_dt = _parse_ts(bar)
+        if audit_dt is None or bar_dt is None:
+            unparsable_ts += 1
+            continue
+        # Past the labels' last bar is checked FIRST and independently of the
+        # inferred interval: a degenerate labels file (one row, no inferable
+        # spacing) would otherwise fall back to the unbounded lookup this
+        # bound exists to remove.
+        if labels_end is not None and audit_dt > labels_end:
+            over_end = (audit_dt - labels_end).total_seconds()
+            if max_staleness_s is None or over_end > max_staleness_s:
+                after_labels_end += 1
+                continue
+        if (max_staleness_s is not None
+                and (audit_dt - bar_dt).total_seconds() > max_staleness_s):
+            stale_match += 1
             continue
         mine = labels[bar].get("vol_regime")
         if mine not in (VOL_CALM, VOL_VOLATILE):
@@ -874,10 +981,34 @@ def run_verify(*, labels_path: Path, audit_path: Path) -> Dict[str, Any]:
         # bug in here). Those warrant opposite responses.
         "audit_rows_without_timestamp": no_ts,
         "audit_rows_without_matching_bar": no_bar,
+        # The staleness split. `agreement_pct` is only as good as the share of
+        # ML-labelled rows that actually reached `comparable`, so that share is
+        # reported next to it rather than left for the reader to derive.
+        "label_window_start": keys[0],
+        "label_window_end": keys[-1],
+        "label_bar_seconds": bar_seconds,
+        "max_staleness_seconds": max_staleness_s,
+        "staleness_basis": staleness_basis,
+        "audit_rows_after_labels_end": after_labels_end,
+        "audit_rows_stale_match": stale_match,
+        "audit_rows_unparsable_timestamp": unparsable_ts,
+        "ml_labelled_rows": ml_labelled,
+        "overlap_pct": (
+            round(100.0 * comparable / ml_labelled, 2) if ml_labelled else None
+        ),
         "comparable": comparable,
         "agree": agree,
         "agreement_pct": (
             round(100.0 * agree / comparable, 2) if comparable else None
+        ),
+        "coverage_note": (
+            f"agreement_pct is over {comparable} of {ml_labelled} ML-labelled "
+            f"rows; {after_labels_end} fell after the labels end "
+            f"({keys[-1]}) and {stale_match} matched only a stale bar. "
+            "Rebuild the labels to cover the audit window before reading "
+            "agreement as live parity."
+            if (after_labels_end or stale_match)
+            else f"all {ml_labelled} ML-labelled rows matched a contemporaneous bar"
         ),
         "disagreement_sample": disagreements,
         # An empty comparison is NOT a pass. Say so in the artifact.
@@ -933,6 +1064,14 @@ def main(argv: List[str]) -> int:
     v.add_argument("--json", action="store_true")
     v.add_argument("--min-agreement", type=float, default=None,
                    help="exit 1 when agreement%% falls below this (CI/gate use)")
+    v.add_argument("--max-staleness-seconds", type=float, default=None,
+                   help="max age of the as-of label bar relative to the audit "
+                        "row before the row is dropped as out-of-range "
+                        "(default: 2x the labels' own median bar spacing)")
+    v.add_argument("--min-overlap", type=float, default=None,
+                   help="exit 1 when the share of ML-labelled rows that "
+                        "matched a contemporaneous bar falls below this "
+                        "(guards against reading agreement%% off a thin overlap)")
 
     a = p.parse_args(argv)
 
@@ -1012,7 +1151,11 @@ def main(argv: List[str]) -> int:
             return 2
         return 0
 
-    res = run_verify(labels_path=Path(a.labels), audit_path=Path(a.audit))
+    res = run_verify(
+        labels_path=Path(a.labels),
+        audit_path=Path(a.audit),
+        max_staleness_s=a.max_staleness_seconds,
+    )
     if a.json:
         print(json.dumps(res, indent=2))
     else:
@@ -1020,9 +1163,20 @@ def main(argv: List[str]) -> int:
               f"(no ts: {res['audit_rows_without_timestamp']}, "
               f"no ML label: {res['audit_rows_without_ml_label']}, "
               f"no matching bar: {res['audit_rows_without_matching_bar']})")
+        print(f"labels window     {res['label_window_start']} -> "
+              f"{res['label_window_end']} "
+              f"(bar={res['label_bar_seconds']}s, "
+              f"max staleness={res['max_staleness_seconds']}s)")
+        print(f"dropped stale     after labels end: "
+              f"{res['audit_rows_after_labels_end']}, "
+              f"stale mid-range: {res['audit_rows_stale_match']}, "
+              f"unparsable ts: {res['audit_rows_unparsable_timestamp']}")
+        print(f"overlap           {res['comparable']}/{res['ml_labelled_rows']} "
+              f"ML-labelled rows = {res['overlap_pct']}%")
         print(f"comparable        {res['comparable']}")
         print(f"agreement         {res['agree']}/{res['comparable']} "
               f"= {res['agreement_pct']}%")
+        print(f"coverage          {res['coverage_note']}")
         pd_ = res["p_volatile_delta"]
         print(f"|dP(volatile)|    n={pd_.get('n')} median={pd_.get('median')} "
               f"p90={pd_.get('p90')} max={pd_.get('max')}")
@@ -1034,6 +1188,13 @@ def main(argv: List[str]) -> int:
         print("ERROR: nothing was compared — this is NOT a pass. Widen the audit "
               "window or check the labels cover the audit period.", file=sys.stderr)
         return 2
+    # Check overlap BEFORE agreement: a high agreement_pct over a thin overlap
+    # is the exact reading this guard exists to stop, so the thin overlap must
+    # be the reported cause rather than being masked by a passing agreement.
+    if a.min_overlap is not None and (res["overlap_pct"] or 0.0) < a.min_overlap:
+        print(f"ERROR: overlap {res['overlap_pct']}% < required "
+              f"{a.min_overlap}% — {res['coverage_note']}", file=sys.stderr)
+        return 1
     if a.min_agreement is not None and (res["agreement_pct"] or 0.0) < a.min_agreement:
         print(f"ERROR: agreement {res['agreement_pct']}% < required "
               f"{a.min_agreement}%", file=sys.stderr)

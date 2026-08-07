@@ -732,8 +732,16 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
             import src.runtime.intents as _im
 
             def _stamped_decision(intent, mode):  # noqa: ANN001 — mirror live signature
+                # MUST match _decision_vol_regime's arity exactly. The call
+                # sites unpack a fixed-width tuple inside the gate loop, and
+                # that loop is fail-permissive — so a stale arity here does not
+                # raise loudly, it gets swallowed and the run SILENTLY STOPS
+                # GATING. That is the identical failure mode this block was
+                # written to fix on 2026-07-06. `p_volatile` is None because a
+                # stamped replay has a label but no probability behind it —
+                # None is the honest value, never a fabricated 0.0 or 0.5.
                 v = getattr(intent, "vol_regime", None)
-                return v, v, v, "backtest-stamped"
+                return v, v, v, "backtest-stamped", None
 
             _prev_gate_hooks["decision"] = _im._decision_vol_regime
             _prev_gate_hooks["shadow_rows"] = _im._emit_ml_vol_shadow_rows
