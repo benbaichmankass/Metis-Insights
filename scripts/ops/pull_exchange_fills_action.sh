@@ -13,6 +13,16 @@
 # rollout (rec #7 broker-truth cost coverage, 2026-07-29) so bybit_1 +
 # bybit_portfolio accrue exchange-truth fees too, not just bybit_2.
 #
+# 2026-08-07 (BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED): that multi-account
+# rollout ENUMERATED bybit_1 / bybit_portfolio but could not reach them —
+# both are `demo: true`, Bybit serves demo from api-demo.bybit.com, and the
+# puller built a mainnet-only ccxt client, so every request came back
+# retCode 10003 "API key is invalid" while the summary printed `ran=3/3` and
+# the unit exited 0. Demo routing now goes through the one shared builder
+# (src/runtime/bybit_ccxt.py) and a fully-failed account returns exit 1.
+# A NON-ZERO exit from this action is now meaningful — read the per-account
+# `ok=/failed=/skipped=` summary line, not just the exit status.
+#
 # Read-only on the exchange side (fetch_my_trades). Idempotent — the
 # store's primary key is exec_id, so overlapping windows are safe.
 # Touches NO service, NO trade_journal.db table.
