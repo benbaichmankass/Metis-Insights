@@ -73,21 +73,62 @@ flagged because someone will otherwise read the two side by side and treat the
 mismatch as either a confirmation or a refutation. It is neither until the
 populations are reconciled.
 
-## Parity: unverified, and honestly unmeasurable today
+## Parity: MEASURED 2026-08-07 (was reported unmeasurable — that was wrong)
 
-The labels file ends **2026-06-30T22:30:00Z** (dataset v520). The ML vol axis
-went live **2026-06-29**. Overlap with the live audit corpus is **4 rows**.
+The earlier claim that parity was "honestly unmeasurable today" rested on a
+4-row overlap. **That overlap was an artifact of replaying over the wrong
+dataset**, not a data limit — see the correction above. Re-run over `v002`,
+pinned per-window to the head that was ACTUALLY advisory in each sub-window,
+audit corpus scoped to **BTCUSDT** (trainer-diag #8582 / #8583):
 
-`verify` previously reported `comparable: 208 / agreement_pct: 95.67` over that
-window because it clamped 204 out-of-range rows onto the final bar; fixed in
-`ecc414e` (PR #8553). Establishing real parity needs a dataset rebuilt through
-August, re-replayed, then re-verified. Until then these cells are graded on
-backtest evidence whose live fidelity is unconfirmed.
+| window | advisory head | ml-labelled | comparable | overlap | agreement | verdict |
+|---|---|--:|--:|--:|--:|---|
+| 2026-06-29 → 07-20 | `btc-regime-15m-lgbm-v2` | 294 | 294 | 100% | 92.18% | disagreements_found |
+| 2026-07-20 → 08-04 | `btc-regime-15m-lgbm-fc-pcv-v1` | 278 | 278 | 100% | 96.40% | disagreements_found |
+| 2026-08-04 → now | `btc-regime-15m-lgbm-fc-pcv-v2` | 34 | 20 | 58.8% | **100%** | **verified** |
+
+**Scope the corpus by SYMBOL or the number is wrong.** The first run pooled all
+gate rows: BTCUSDT 628 · SOLUSDT 40 · MES 15. A SOL/MES row's `vol_regime_ml`
+comes from that symbol's own advisory head, so comparing it against BTC labels
+is guaranteed mismatch. Scoping to BTCUSDT moved w3 from 93.02% /
+`disagreements_found` to **100% / `verified`** — every one of its three
+"disagreements" was an MES row. A false NEGATIVE from an unstated population.
+
+### What is and is not established
+
+- **The head driving the live gate today reproduces offline** — 20/20, and its
+  probability delta is tight (p90 0.086, max 0.095).
+- **That verification is THIN: n=20 comparable, overlap 58.8%.** 14 of 34 rows
+  fall after the labels end (2026-08-06T22:30Z) because the dataset is the
+  previous nightly build. This sits below the `MIN_DIRECTION_TRADES=10`-class
+  bar the same session imposed on cell verdicts, and the same scepticism
+  applies to it. A same-day rebuild closes the gap.
+- **Label agreement flatters the historical windows.** w1/w2 agree 92–96% on
+  the LABEL while `|Δ P(volatile)|` reaches **0.626 / 0.776** at the max
+  (p90 0.171 / 0.207). The tool says it directly: *"a large delta with matching
+  LABELS is still a parity finding — the labels agree by luck of the
+  threshold."* Agreement near a 0.5 cut is not evidence the feature row
+  reproduces.
+- **w2 is CONFOUNDED and must not be read as a serve-path measurement.**
+  `fc-pcv-v1` declares dataset **v520**; it was replayed over **v002**. That is
+  an off-manifest replay, and it shows: `vol_bucket` recomputed from the head's
+  frozen edges differed from the stored column on **3,661 rows (2.089%)**,
+  versus 1 row for `lgbm-v2` and **0** for `fc-pcv-v2` (both of which declare
+  v002). w2's delta measures dataset mismatch as well as serve-path drift.
+
+**Parity over the BACKTEST window remains unestablished.** The gate has only
+been live since 2026-06-29, so parity can only ever be measured over those ~6
+weeks; the cell verdicts are graded over 2024-08 → 2026-08. Parity here
+licenses the LABEL PIPELINE, not the whole grading window.
 
 ## Recommended next steps (all Tier-3 to enact)
 
-1. Rebuild `market_features` BTCUSDT 15m through the current date; re-replay;
-   re-run `verify` (now with `--min-overlap`) to establish parity properly.
+1. ~~Rebuild `market_features` BTCUSDT 15m through the current date~~ **DONE
+   2026-08-07 — and no rebuild was needed.** `v002` was already fresh through
+   2026-08-06; the replay had been pointed at `-v1`'s deliberately-frozen
+   `v520`. Parity measured (above). Remaining: a same-day dataset build would
+   lift w3's 58.8% overlap, and the `fc-pcv-v1` window should be re-replayed
+   over its OWN declared `v520` to de-confound it.
 2. Re-examine `squeeze_breakout_4h` trending/calm — the direction inversion is
    the highest-value item here and does not depend on parity.
 3. Give `ict_scalp_5m` an evidence path, or record explicitly that its two
