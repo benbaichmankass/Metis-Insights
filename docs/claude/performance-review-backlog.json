@@ -2277,7 +2277,7 @@
       "id": "PB-20260807-ICTSCALP-STOP-DID-NOT-CONTAIN-8R",
       "opened_at": "2026-08-07T14:55:00+00:00",
       "opened_by": "claude (/system-review since-last, session full-system-review-ma0ava)",
-      "source": "/system-review 2026-08-07: m20_exit_analysis per-trade dump (trainer-diag #8592) + /api/bot/trades/closed + grade-closed-trades output (#8589).",
+      "source": "/system-review 2026-08-07: m20_exit_analysis per-trade dump (trainer-diag #8592) + /api/bot/trades/closed + grade-closed-trades output (#8589). POPULATION: n=10 ict_scalp closes in the window 2026-08-04 to 2026-08-07, all paper, from a total of 15 paper closes the harness returned. The -8.41R figure is ONE trade (4413) of those 10; the family-level statistic over the same n=10 is mean giveback 1.92R and 7 of 10 closed by reconciler rather than by stop or target. 4 of the 15 harness rows carry a clamped hold_h and are excluded from hold conclusions (BL-20260807-M20EXIT-HOLD-CLAMP-UNMARKED).",
       "title": "[exit][capture] a 5-minute scalp realized -8.41R against a ~1R designed stop and was closed by the reconciler, not by its stop",
       "tier": "Tier-2 to fix (order-monitor / bracket path); Tier-1 to measure",
       "status": "open",
