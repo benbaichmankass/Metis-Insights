@@ -100,24 +100,127 @@ SSH_OPTS="-i ${VM_SSH_KEY} -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o B
 overall_rc=0
 
 # --- trade_journal.db (required) -----------------------------------------
-emit "$(printf '{"ts":"%s","status":"pulling","artifact":"trade_journal.db","src":"%s@%s:%s"}' \
-  "$(iso_now)" "$VM_SSH_USER" "$LIVE_VM_IP" "$LIVE_VM_DB_PATH")"
-set +e
-rsync -az --checksum -e "ssh ${SSH_OPTS}" \
-  "${VM_SSH_USER}@${LIVE_VM_IP}:${LIVE_VM_DB_PATH}" \
-  "${DATA_DIR}/trade_journal.db"
-rc=$?
-set -e
-if [ "$rc" -eq 0 ] && [ -f "${DATA_DIR}/trade_journal.db" ]; then
-  db_size="$(stat -c%s "${DATA_DIR}/trade_journal.db" 2>/dev/null || echo 0)"
+#
+# BL-20260807-TRAINER-JOURNAL-PULL-TORN-RSYNC. This used to be a bare
+# `rsync` of the LIVE, WAL-mode trade_journal.db straight over the mirror,
+# while the trader was actively writing to it. rsync is not atomic and SQLite
+# does not tolerate a torn page image, so the copy was a race: on 2026-08-07
+# 05:00 a 28s transfer over 750MB lost it and the mirror landed malformed
+# (`PRAGMA quick_check` fails; COUNT(*) still worked on every table while
+# `MAX(indexed_col)` did not — a corrupt index, localized, which is why it went
+# unnoticed). The mechanism was unchanged since the script was written, so every
+# earlier pull was luck rather than correctness, and the success line reported a
+# SIZE match — which is not integrity ("Green is not evidence", obligation 1).
+#
+# Three changes, in order of importance:
+#   1. PROMOTE-ON-VERIFY. The download lands on a TEMP path and is only moved
+#      over the live mirror after `PRAGMA quick_check` passes. A bad pull can no
+#      longer destroy the last good mirror — previously it overwrote it.
+#   2. CONSISTENT SNAPSHOT. Prefer `VACUUM INTO` on the live VM, which takes a
+#      read transaction and writes a coherent copy, so there is nothing to tear.
+#      Falls back to the direct rsync when the remote has no usable sqlite3.
+#   3. BOUNDED RETRY + LOUD FAILURE. A verify miss retries; exhausting the
+#      retries is a hard failure with a distinct status, never a silent proceed.
+#
+# The live DB is only ever READ here. The snapshot is written to the live VM's
+# /tmp and removed in the same ssh invocation.
+JOURNAL_DEST="${DATA_DIR}/trade_journal.db"
+JOURNAL_TMP="${DATA_DIR}/.trade_journal.db.incoming"
+JOURNAL_PULL_ATTEMPTS="${JOURNAL_PULL_ATTEMPTS:-3}"
+
+# Verify a candidate SQLite file. Fails on a malformed image OR on a
+# structurally-plausible file that cannot answer a real query — asserting the
+# input rather than the transfer's exit code.
+journal_verify() {
+  python3 - "$1" <<'PYVERIFY'
+import sqlite3, sys
+path = sys.argv[1]
+try:
+    con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    res = con.execute("PRAGMA quick_check(20)").fetchall()
+    ok = bool(res) and str(res[0][0]).lower() == "ok"
+    if not ok:
+        print("quick_check: %s" % (res[:3],), file=sys.stderr)
+        sys.exit(1)
+    # quick_check can pass while an index the consumers actually use is bad, so
+    # exercise one: MAX() over an indexed column is the exact query that
+    # surfaced the 2026-08-07 corruption after COUNT(*) had reported fine.
+    con.execute("SELECT COUNT(*) FROM trades").fetchone()
+    con.execute("SELECT MAX(logged_at_utc) FROM signals").fetchone()
+except Exception as exc:
+    print("%s: %s" % (type(exc).__name__, exc), file=sys.stderr)
+    sys.exit(1)
+PYVERIFY
+}
+
+rc=1
+journal_method="none"
+for attempt in $(seq 1 "$JOURNAL_PULL_ATTEMPTS"); do
+  emit "$(printf '{"ts":"%s","status":"pulling","artifact":"trade_journal.db","src":"%s@%s:%s","attempt":%d}' \
+    "$(iso_now)" "$VM_SSH_USER" "$LIVE_VM_IP" "$LIVE_VM_DB_PATH" "$attempt")"
+  rm -f "$JOURNAL_TMP"
+  remote_snap="/tmp/tj_snap_$$_${attempt}.db"
+  set +e
+  # 1. consistent snapshot on the live VM (read-only wrt the money DB)
+  ssh ${SSH_OPTS} "${VM_SSH_USER}@${LIVE_VM_IP}" \
+    "command -v sqlite3 >/dev/null 2>&1 && rm -f '${remote_snap}' && sqlite3 '${LIVE_VM_DB_PATH}' \"VACUUM INTO '${remote_snap}'\"" \
+    2>/dev/null
+  snap_rc=$?
+  if [ "$snap_rc" -eq 0 ]; then
+    journal_method="vacuum_into_snapshot"
+    rsync -az --checksum -e "ssh ${SSH_OPTS}" \
+      "${VM_SSH_USER}@${LIVE_VM_IP}:${remote_snap}" "$JOURNAL_TMP"
+    rc=$?
+    ssh ${SSH_OPTS} "${VM_SSH_USER}@${LIVE_VM_IP}" "rm -f '${remote_snap}'" 2>/dev/null
+  else
+    # No usable sqlite3 on the remote — degrade to the direct copy, but keep
+    # promote-on-verify so a torn read still cannot land.
+    journal_method="direct_rsync_fallback"
+    rsync -az --checksum -e "ssh ${SSH_OPTS}" \
+      "${VM_SSH_USER}@${LIVE_VM_IP}:${LIVE_VM_DB_PATH}" "$JOURNAL_TMP"
+    rc=$?
+  fi
+  set -e
+  if [ "$rc" -ne 0 ] || [ ! -f "$JOURNAL_TMP" ]; then
+    emit "$(printf '{"ts":"%s","status":"retrying","artifact":"trade_journal.db","reason":"transfer_failed","method":"%s","exit_code":%d,"attempt":%d}' \
+      "$(iso_now)" "$journal_method" "$rc" "$attempt")"
+    continue
+  fi
+  set +e
+  verify_err="$(journal_verify "$JOURNAL_TMP" 2>&1 >/dev/null)"
+  verify_rc=$?
+  set -e
+  if [ "$verify_rc" -eq 0 ]; then
+    # Promote. The snapshot is self-contained, so any sidecars belonging to the
+    # PREVIOUS mirror must go with it or SQLite will read them against a body
+    # they do not describe.
+    rm -f "${JOURNAL_DEST}-wal" "${JOURNAL_DEST}-shm"
+    mv -f "$JOURNAL_TMP" "$JOURNAL_DEST"
+    break
+  fi
+  rc=1
+  emit "$(python3 -c "
+import json, sys
+print(json.dumps({'ts': sys.argv[1], 'status': 'retrying', 'artifact': 'trade_journal.db',
+  'reason': 'integrity_check_failed', 'method': sys.argv[2],
+  'attempt': int(sys.argv[3]), 'detail': sys.argv[4][:300]}))" \
+    "$(iso_now)" "$journal_method" "$attempt" "$verify_err")"
+  rm -f "$JOURNAL_TMP"
+done
+
+if [ "$rc" -eq 0 ] && [ -f "$JOURNAL_DEST" ]; then
+  db_size="$(stat -c%s "$JOURNAL_DEST" 2>/dev/null || echo 0)"
   emit "$(python3 -c "
 import json, sys
 print(json.dumps({'ts': sys.argv[1], 'status': 'ok', 'artifact': 'trade_journal.db',
-  'size_bytes': int(sys.argv[2])}))" \
-    "$(iso_now)" "$db_size")"
+  'size_bytes': int(sys.argv[2]), 'method': sys.argv[3], 'integrity_verified': True}))" \
+    "$(iso_now)" "$db_size" "$journal_method")"
 else
-  emit "$(printf '{"ts":"%s","status":"failed","artifact":"trade_journal.db","exit_code":%d}' \
-    "$(iso_now)" "$rc")"
+  # Hard failure. The PREVIOUS mirror (if any) is untouched and still usable —
+  # stale beats malformed — but the cycle must not pretend the pull succeeded.
+  emit "$(printf '{"ts":"%s","status":"failed","artifact":"trade_journal.db","reason":"no_verified_copy_after_%d_attempts","method":"%s","mirror_left_unmodified":true}' \
+    "$(iso_now)" "$JOURNAL_PULL_ATTEMPTS" "$journal_method")"
+  rm -f "$JOURNAL_TMP"
   overall_rc=1
 fi
 
