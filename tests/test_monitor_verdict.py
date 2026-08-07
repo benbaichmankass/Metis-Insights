@@ -181,3 +181,9 @@ def test_roster_monitor_emits_no_key_the_interpreter_ignores(module):
         f"{module}.monitor() emits verdict-shaped key(s) {sorted(unhandled)} "
         f"that interpret_verdict does not handle — it would be silently "
         f"dropped by every caller")
+
+
+def test_order_monitor_reexports_the_shared_tolerance():
+    """Two copies of the tolerance is how the two paths drift apart."""
+    from src.runtime import order_monitor
+    assert order_monitor._MEANINGFUL_MODIFY_REL_TOL is MEANINGFUL_MODIFY_REL_TOL
