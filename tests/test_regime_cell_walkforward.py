@@ -177,3 +177,103 @@ def test_main_vol_without_labels_exits_2(monkeypatch, capsys):
     rc = rcwf.main()
     assert rc == 2
     assert "requires --vol-labels" in capsys.readouterr().err
+
+
+# --- MIN_DIRECTION_TRADES: the sample floor on the Tier-3 evidence gate ------
+# Measured 2026-08-07: `*_stable_drag` had no sample floor, so the PASS/FAIL at
+# the n where the six authored `trend_vol` cells live (9, 9, 30, 43) was driven
+# by how many folds the trades happened to spread across rather than by the
+# strength of the evidence. See regime_cell_walkforward.MIN_DIRECTION_TRADES.
+
+
+def _wf_n(long_rs, short_rs, long_ns, short_ns, pooled_long, pooled_short):
+    """Walk-forward dict with EXPLICIT per-fold trade counts (the floor's input)."""
+    by_fold = [
+        {"long_n": ln, "long_r": lr, "short_n": sn, "short_r": sr}
+        for lr, sr, ln, sn in zip(long_rs, short_rs, long_ns, short_ns)
+    ]
+    return {"by_fold": by_fold, "total_trades": sum(long_ns) + sum(short_ns),
+            "pooled": {"long_r": pooled_long, "short_r": pooled_short,
+                       "long_n": sum(long_ns), "short_n": sum(short_ns)}}
+
+
+def test_three_losing_trades_no_longer_pass_the_gate():
+    """THE REGRESSION. Three losing long trades, one per fold, satisfied
+    'pooled < 0 AND strict majority-negative under every panel member' and
+    reported `long_stable_drag=True, long_fold_sensitive=False` — a Tier-3 PASS
+    over three trades, indistinguishable in the output from one over 300."""
+    panel = {
+        3: _wf_n([-0.5, -0.5, -0.5], [0, 0, 0], [1, 1, 1], [0, 0, 0], -1.5, 0.0),
+        4: _wf_n([-0.5, -0.5, -0.5, 0], [0] * 4, [1, 1, 1, 0], [0] * 4, -1.5, 0.0),
+        5: _wf_n([-0.5, -0.5, 0, -0.5, 0], [0] * 5, [1, 1, 0, 1, 0], [0] * 5, -1.5, 0.0),
+    }
+    cv = rcwf.cell_verdict(panel, "trending", "calm")
+    assert cv["long_trades"] == 3
+    # The raw majority arithmetic is unchanged — it still reads "majority negative".
+    assert all(v["long_majority_negative"] for v in cv["per_fold_count"].values())
+    # ...but the verdict no longer launders that into a PASS.
+    assert cv["long_stable_drag"] is False
+    assert cv["long_insufficient_n"] is True
+    assert cv["long_verdict"] == "insufficient_n"
+    assert cv["min_direction_trades"] == rcwf.MIN_DIRECTION_TRADES
+
+
+def test_insufficient_n_is_distinguishable_from_a_measured_negative():
+    """`*_stable_drag is False` must never again conflate 'measured, no drag'
+    with 'not enough data to say'. Only `*_verdict` separates them."""
+    thin = {k: _wf_n([-0.5] * k, [0] * k, [1] * k, [0] * k, -0.5 * k, 0.0)
+            for k in (3, 4, 5)}
+    # 15+ long trades, genuinely NOT a drag (pooled positive).
+    thick = {k: _wf_n([2.0] * k, [0] * k, [5] * k, [0] * k, 2.0 * k, 0.0)
+             for k in (3, 4, 5)}
+    thin_cv, thick_cv = rcwf.cell_verdict(thin, "trending"), rcwf.cell_verdict(thick, "trending")
+    assert thin_cv["long_stable_drag"] is thick_cv["long_stable_drag"] is False
+    assert thin_cv["long_verdict"] == "insufficient_n"
+    assert thick_cv["long_verdict"] == "no_stable_drag"
+    assert thick_cv["long_insufficient_n"] is False
+
+
+def test_zero_trades_still_reports_no_trades_not_insufficient_n():
+    """A direction the cell does not trade at all keeps its own distinct state."""
+    panel = {k: _wf_n([0] * k, [-3.0] * k, [0] * k, [5] * k, 0.0, -3.0 * k)
+             for k in (3, 4, 5)}
+    cv = rcwf.cell_verdict(panel, "trending")
+    assert cv["long_trades"] == 0 and cv["long_verdict"] == "no_trades"
+    assert cv["short_verdict"] == "stable_drag"  # 15 shorts, all folds negative
+
+
+def test_populated_folds_are_reported():
+    """The majority denominator is the fold COUNT; empty folds dilute it. That is
+    the intended conservative reading, but it is only legible if the gap shows."""
+    panel = {k: _wf_n([-40.0, -40.0] + [0] * (k - 2), [0] * k,
+                      [1, 1] + [0] * (k - 2), [0] * k, -80.0, 0.0)
+             for k in (3, 4, 5)}
+    cv = rcwf.cell_verdict(panel, "trending")
+    assert cv["per_fold_count"][5]["long_populated_folds"] == 2
+    assert cv["per_fold_count"][5]["of_folds"] == 5
+    # -80R over 2 trades: fails on BOTH the dilution and the sample floor.
+    assert cv["long_verdict"] == "insufficient_n"
+
+
+def test_min_direction_trades_matches_evidence_policy():
+    """Pin the floor to the policy that AUTHORED the cells.
+
+    `scripts/ml/walkforward_cell_selection.py::MIN_TRADES` is the meaningful-sample
+    threshold the OFF-cells were authored under. Grading a cell on a smaller sample
+    than authoring it required is not a re-audit. That module calls parse_args() at
+    import time, so the literal is read out of the source with `ast` rather than
+    imported — a drift pin, not a runtime dependency.
+    """
+    import ast
+
+    src = os.path.join(os.path.dirname(_HERE), "scripts", "ml",
+                       "walkforward_cell_selection.py")
+    tree = ast.parse(open(src, encoding="utf-8").read())
+    found = [n.value.value for n in ast.walk(tree)
+             if isinstance(n, ast.Assign)
+             and any(getattr(t, "id", None) == "MIN_TRADES" for t in n.targets)
+             and isinstance(n.value, ast.Constant)]
+    assert found, "MIN_TRADES literal not found in walkforward_cell_selection.py"
+    assert rcwf.MIN_DIRECTION_TRADES == found[0], (
+        f"the walk-forward gate's floor ({rcwf.MIN_DIRECTION_TRADES}) drifted from "
+        f"the evidence policy that authored the cells ({found[0]})")

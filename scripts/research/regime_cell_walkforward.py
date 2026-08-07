@@ -71,6 +71,34 @@ REPO = rdm.REPO
 # stable drag must hold under both parities.
 FOLD_PANEL = (3, 4, 5)
 
+# Minimum trades IN THE GRADED DIRECTION for a verdict to be decision-grade.
+#
+# NOT an invented threshold. It is the SAME meaningful-sample floor as the
+# evidence policy that AUTHORED these cells in the first place —
+# `scripts/ml/walkforward_cell_selection.py::MIN_TRADES = 10` ("OFF-cells =
+# meaningful-sample (>= MIN_TRADES) net-negative cells"). Grading a cell on a
+# smaller sample than the policy required to author it is not a re-audit.
+# (That module parse_args() at import time, so it cannot be imported here; the
+# two constants are pinned together by `test_min_direction_trades_matches_
+# evidence_policy`, which reads the literal out of the sibling via `ast`.)
+#
+# WHY THIS EXISTS (measured 2026-08-07). `*_stable_drag` had no sample floor at
+# all, and `regime-selectivity` Rule 2 makes it THE gate a Tier-3 OFF-cell must
+# clear. Because folds are equal-COUNT by trade order (direction_walkforward.
+# analyze), three losing trades spread one-per-fold satisfy "pooled < 0 AND
+# strict majority-negative under every panel member" and report
+# `long_stable_drag=True, long_fold_sensitive=False` — indistinguishable in the
+# output from a verdict over 300 trades. Conversely two trades pooling -80R
+# report False, because the majority denominator is the fold COUNT and empty
+# folds dilute it. So at the n where the six authored `trend_vol` cells actually
+# live (9, 9, 30, 43) the PASS/FAIL was driven by how many folds the trades
+# happened to spread across, not by the strength of the evidence.
+#
+# A re-partition of 9 trades into 3/4/5 contiguous slices is not out-of-sample
+# validation — it is the same 9 trades counted three ways.
+# `CLAUDE.md` § "Diagnostic provenance", sub-class C (unasserted denominator).
+MIN_DIRECTION_TRADES = 10
+
 
 def run_cell(strategy: str, regime: str, folds: int, workdir: str, days: int,
              vol: str | None = None, vol_labels: str | None = None) -> dict:
@@ -182,6 +210,16 @@ def cell_verdict(panel: dict[int, dict], regime: str, vol: str | None = None) ->
             "short_folds_negative": short_neg,
             "long_folds_negative": long_neg,
             "of_folds": k,
+            # How many folds could contribute AT ALL. The majority test above
+            # divides by the fold COUNT, not by this — so when a direction's
+            # trades occupy fewer than ceil(k/2)+1 folds it cannot pass at that
+            # k no matter how negative it is (2 trades pooling -80R read False
+            # at k=4 and k=5). That is the intended conservative reading — a
+            # drag concentrated in one slice of the timeline has not been shown
+            # to PERSIST — but it is only legible if the denominator gap is
+            # visible, so it is reported rather than left implicit.
+            "short_populated_folds": sum(1 for s in by_fold if s.get("short_n")),
+            "long_populated_folds": sum(1 for s in by_fold if s.get("long_n")),
             "short_majority_negative": short_maj[k],
             "long_majority_negative": long_maj[k],
         }
@@ -194,6 +232,27 @@ def cell_verdict(panel: dict[int, dict], regime: str, vol: str | None = None) ->
     ref_by_fold = ref.get("by_fold", [])
     long_trades = sum(int(s.get("long_n") or 0) for s in ref_by_fold)
     short_trades = sum(int(s.get("short_n") or 0) for s in ref_by_fold)
+    # A verdict below the evidence policy's own meaningful-sample floor is not a
+    # weak finding, it is NO finding — the same distinction the tool already
+    # draws for a zero-trade direction, extended to the range where the fold
+    # arithmetic is driven by trade spacing rather than by evidence. Kept as an
+    # explicit tri-state so a caller can never again read "not enough data" as a
+    # measured negative: `*_stable_drag` False now means EITHER, and only
+    # `*_verdict` separates them.
+    long_insufficient = long_trades < MIN_DIRECTION_TRADES
+    short_insufficient = short_trades < MIN_DIRECTION_TRADES
+    long_drag = (pooled_long_neg and all(long_maj.values()) and bool(ks)
+                 and not long_insufficient)
+    short_drag = (pooled_short_neg and all(short_maj.values()) and bool(ks)
+                  and not short_insufficient)
+
+    def _verdict(insufficient: bool, drag: bool, n: int) -> str:
+        if n == 0:
+            return "no_trades"
+        if insufficient:
+            return "insufficient_n"
+        return "stable_drag" if drag else "no_stable_drag"
+
     return {
         "target_regime": regime,
         "target_vol": vol,
@@ -205,9 +264,20 @@ def cell_verdict(panel: dict[int, dict], regime: str, vol: str | None = None) ->
         "per_fold_count": per_fold_count,
         "pooled_short_r": p.get("short_r"),
         "pooled_long_r": p.get("long_r"),
-        # pooled<0 AND strict majority-negative under EVERY panel fold count.
-        "short_stable_drag": pooled_short_neg and all(short_maj.values()) and bool(ks),
-        "long_stable_drag": pooled_long_neg and all(long_maj.values()) and bool(ks),
+        # The floor this verdict was graded against, stated in the output so the
+        # basis travels with the number instead of living only in the source
+        # (CLAUDE-RULES-CANONICAL § "Always state the population").
+        "min_direction_trades": MIN_DIRECTION_TRADES,
+        "long_insufficient_n": long_insufficient,
+        "short_insufficient_n": short_insufficient,
+        # Tri-state: no_trades | insufficient_n | no_stable_drag | stable_drag.
+        # Read THIS, not the boolean, when deciding anything.
+        "long_verdict": _verdict(long_insufficient, long_drag, long_trades),
+        "short_verdict": _verdict(short_insufficient, short_drag, short_trades),
+        # pooled<0 AND strict majority-negative under EVERY panel fold count AND
+        # the direction clears MIN_DIRECTION_TRADES.
+        "short_stable_drag": short_drag,
+        "long_stable_drag": long_drag,
         # True when the per-fold-count majority reads are not unanimous (the exact
         # instability the fold-count-flip bug hid) — a transparency flag, not a gate.
         "short_fold_sensitive": len(set(short_maj.values())) > 1,
@@ -269,14 +339,26 @@ def main() -> int:
     # provenance", sub-class A: the label does not describe what was computed).
     for side in ("long", "short"):
         maj = " ".join(
-            f"k{k}:{v[f'{side}_folds_negative']}/{k}" for k, v in panel.items()
+            f"k{k}:{v[f'{side}_folds_negative']}/{k}(pop{v[f'{side}_populated_folds']})"
+            for k, v in panel.items()
         )
         n_side = cv.get(f"{side}_trades")
-        empty = " [NO TRADES — verdict is vacuous]" if n_side == 0 else ""
+        verdict = cv.get(f"{side}_verdict")
+        # The qualifier must sit ON the verdict line. A floor reported only in
+        # the JSON is a floor the reader of the human output never applies —
+        # which is how n=9 cells were read as justified/refuted for a day.
+        if verdict == "no_trades":
+            note = "  [NO TRADES — verdict is vacuous]"
+        elif verdict == "insufficient_n":
+            note = (f"  [INSUFFICIENT n — {n_side} < {cv.get('min_direction_trades')} "
+                    f"(the evidence policy's own floor); NOT a finding either way]")
+        else:
+            note = ""
         print(f"    {side:<5} n={n_side} {side}_maj[{maj}] "
               f"pooled_{side}_r={cv.get(f'pooled_{side}_r')} · "
-              f"{side}_stable_drag={cv.get(f'{side}_stable_drag')} "
-              f"(fold_sensitive={cv.get(f'{side}_fold_sensitive')}){empty}")
+              f"{side}_verdict={verdict} "
+              f"(stable_drag={cv.get(f'{side}_stable_drag')}, "
+              f"fold_sensitive={cv.get(f'{side}_fold_sensitive')}){note}")
     return 0
 
 
