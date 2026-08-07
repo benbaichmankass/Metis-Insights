@@ -41,10 +41,11 @@ inflating the count:
 * the ``elif`` chain applied ``sl`` OR ``tp``; live applies both independently.
   **0 of 9** monitors emit both in one verdict today.
 * live drops a modify whose new value differs from the current one by less than
-  ``MEANINGFUL_MODIFY_REL_TOL`` (BL-20260722-XRP-SLSPAM); the harness ratcheted
-  on float noise. Real trail steps are ATR-scaled and clear the tolerance by a
-  wide margin, so this changes little — but "little" is not "nothing", and the
-  point of a shared interpreter is that nobody has to re-derive which.
+  ``MEANINGFUL_MODIFY_REL_TOL`` (the XRP SL-spam incident — see the tolerance's
+  comment in ``order_monitor.py``); the harness ratcheted on float noise. Real
+  trail steps are ATR-scaled and clear the tolerance by a wide margin, so this
+  changes little — but "little" is not "nothing", and the point of a shared
+  interpreter is that nobody has to re-derive which.
 
 The semantics below are extracted VERBATIM from
 ``order_monitor._apply_update`` as it stood at extraction time; the module adds
@@ -56,7 +57,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 #: Relative tolerance below which an sl/tp change is float noise, not a real
-#: move. BL-20260722-XRP-SLSPAM: a monitor recomputing a trail off a forming
+#: move. The XRP SL-spam incident (2026-07-22): a monitor recomputing a trail off a forming
 #: candle returns a "new" stop every tick, which fired an exchange amend + a
 #: "TRADE UPDATED" ping essentially every tick for 5 days on a trail the
 #: operator correctly perceived as static. Deliberately loose (0.05%) — real
