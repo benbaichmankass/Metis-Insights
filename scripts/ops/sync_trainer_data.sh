@@ -128,6 +128,15 @@ JOURNAL_DEST="${DATA_DIR}/trade_journal.db"
 JOURNAL_TMP="${DATA_DIR}/.trade_journal.db.incoming"
 JOURNAL_PULL_ATTEMPTS="${JOURNAL_PULL_ATTEMPTS:-3}"
 
+# Opening a WAL-mode DB creates `-wal`/`-shm` beside it, so VERIFYING the temp
+# leaves `.trade_journal.db.incoming-wal`/`-shm` behind after the body is moved
+# away. Observed on the trainer 2026-08-07, first run after the fix landed.
+#
+# Not cosmetic: a stale `.incoming-shm` sitting next to a FUTURE `.incoming`
+# body is the mismatched-sidecar hazard this whole function exists to prevent,
+# just moved to the temp path. Always clear all three together.
+journal_tmp_clear() { rm -f "$JOURNAL_TMP" "${JOURNAL_TMP}-wal" "${JOURNAL_TMP}-shm"; }
+
 # Verify a candidate SQLite file. Fails on a malformed image OR on a
 # structurally-plausible file that cannot answer a real query — asserting the
 # input rather than the transfer's exit code.
@@ -158,28 +167,44 @@ journal_method="none"
 for attempt in $(seq 1 "$JOURNAL_PULL_ATTEMPTS"); do
   emit "$(printf '{"ts":"%s","status":"pulling","artifact":"trade_journal.db","src":"%s@%s:%s","attempt":%d}' \
     "$(iso_now)" "$VM_SSH_USER" "$LIVE_VM_IP" "$LIVE_VM_DB_PATH" "$attempt")"
-  rm -f "$JOURNAL_TMP"
+  journal_tmp_clear
   remote_snap="/tmp/tj_snap_$$_${attempt}.db"
   set +e
-  # 1. consistent snapshot on the live VM (read-only wrt the money DB)
+  # 1. consistent snapshot on the live VM (read-only wrt the money DB).
+  #
+  # Uses PYTHON's sqlite3 online-backup API, not the `sqlite3` CLI: measured
+  # 2026-08-07, the live VM has NO sqlite3 command-line tool, so the original
+  # CLI-based `VACUUM INTO` probe failed every time and the pull silently
+  # degraded to the direct-rsync fallback. The protection was shipped inert —
+  # the pull log said `method:direct_rsync_fallback` and nothing read it. python3
+  # is guaranteed present (the trader runs on it).
+  #
+  # `Connection.backup()` is the purpose-built online-backup API: it is designed
+  # to copy a database that a concurrent writer is using, and `pages=-1` copies
+  # in ONE step holding a read lock, so there is no restart loop under a busy
+  # writer. The source is opened `mode=ro` — the money DB is never opened
+  # writable by this script.
   ssh ${SSH_OPTS} "${VM_SSH_USER}@${LIVE_VM_IP}" \
-    "command -v sqlite3 >/dev/null 2>&1 && rm -f '${remote_snap}' && sqlite3 '${LIVE_VM_DB_PATH}' \"VACUUM INTO '${remote_snap}'\"" \
+    "rm -f '${remote_snap}' && python3 -c \"import sqlite3; src=sqlite3.connect('file:${LIVE_VM_DB_PATH}?mode=ro',uri=True); dst=sqlite3.connect('${remote_snap}'); src.backup(dst, pages=-1); dst.close(); src.close()\"" \
     2>/dev/null
   snap_rc=$?
   if [ "$snap_rc" -eq 0 ]; then
-    journal_method="vacuum_into_snapshot"
+    journal_method="python_backup_snapshot"
     rsync -az --checksum -e "ssh ${SSH_OPTS}" \
       "${VM_SSH_USER}@${LIVE_VM_IP}:${remote_snap}" "$JOURNAL_TMP"
     rc=$?
-    ssh ${SSH_OPTS} "${VM_SSH_USER}@${LIVE_VM_IP}" "rm -f '${remote_snap}'" 2>/dev/null
   else
-    # No usable sqlite3 on the remote — degrade to the direct copy, but keep
+    # Snapshot unavailable — degrade to the direct copy, but keep
     # promote-on-verify so a torn read still cannot land.
     journal_method="direct_rsync_fallback"
     rsync -az --checksum -e "ssh ${SSH_OPTS}" \
       "${VM_SSH_USER}@${LIVE_VM_IP}:${LIVE_VM_DB_PATH}" "$JOURNAL_TMP"
     rc=$?
   fi
+  # Always attempt remote cleanup, including on a FAILED snapshot — a partial
+  # snapshot file left in the live VM's /tmp is the failure mode that would
+  # accumulate on the money box across retries.
+  ssh ${SSH_OPTS} "${VM_SSH_USER}@${LIVE_VM_IP}" "rm -f '${remote_snap}'" 2>/dev/null
   set -e
   if [ "$rc" -ne 0 ] || [ ! -f "$JOURNAL_TMP" ]; then
     emit "$(printf '{"ts":"%s","status":"retrying","artifact":"trade_journal.db","reason":"transfer_failed","method":"%s","exit_code":%d,"attempt":%d}' \
@@ -196,6 +221,8 @@ for attempt in $(seq 1 "$JOURNAL_PULL_ATTEMPTS"); do
     # they do not describe.
     rm -f "${JOURNAL_DEST}-wal" "${JOURNAL_DEST}-shm"
     mv -f "$JOURNAL_TMP" "$JOURNAL_DEST"
+    # the body moved; its OWN sidecars must not outlive it
+    rm -f "${JOURNAL_TMP}-wal" "${JOURNAL_TMP}-shm"
     break
   fi
   rc=1
@@ -205,7 +232,7 @@ print(json.dumps({'ts': sys.argv[1], 'status': 'retrying', 'artifact': 'trade_jo
   'reason': 'integrity_check_failed', 'method': sys.argv[2],
   'attempt': int(sys.argv[3]), 'detail': sys.argv[4][:300]}))" \
     "$(iso_now)" "$journal_method" "$attempt" "$verify_err")"
-  rm -f "$JOURNAL_TMP"
+  journal_tmp_clear
 done
 
 if [ "$rc" -eq 0 ] && [ -f "$JOURNAL_DEST" ]; then
@@ -220,7 +247,7 @@ else
   # stale beats malformed — but the cycle must not pretend the pull succeeded.
   emit "$(printf '{"ts":"%s","status":"failed","artifact":"trade_journal.db","reason":"no_verified_copy_after_%d_attempts","method":"%s","mirror_left_unmodified":true}' \
     "$(iso_now)" "$JOURNAL_PULL_ATTEMPTS" "$journal_method")"
-  rm -f "$JOURNAL_TMP"
+  journal_tmp_clear
   overall_rc=1
 fi
 
