@@ -76,6 +76,12 @@ sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
 from src.runtime.intents import StrategyIntent, aggregate_intents  # noqa: E402
+# P2 · unified engine: the ONE verdict interpreter, shared with the live
+# order monitor so the harness cannot re-derive (and silently narrow) what a
+# strategy's monitor() verdict means.
+from src.runtime.monitor_verdict import (  # noqa: E402
+    KIND_MODIFY, KIND_PARTIAL_CLOSE, interpret_verdict,
+)
 
 # --- Optional evidence-layer deps (regime/vol stamping, conviction sizing) ---
 # Guarded so a partial environment (e.g. no ML predictor stack) NEVER breaks
@@ -829,19 +835,33 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
     closed: List[_ClosedTrade] = []
     equity_curve = []
     util_bars = 0                       # bars with capital deployed
+    # A monitor() that raises is a BROKEN exit path, not a quiet one. Counted
+    # per owner (with one example message) and surfaced in the run summary so a
+    # run can never report a clean exit profile over a monitor that never ran.
+    monitor_errors: Dict[str, int] = {}
+    monitor_error_examples: Dict[str, str] = {}
     fee_rate = FEE_BPS_ROUNDTRIP / 10_000.0
 
-    def _close(p: _Position, price: float, ts_i, reason: str, idx_i: int):
+    def _close(p: _Position, price: float, ts_i, reason: str, idx_i: int,
+               qty: Optional[float] = None):
+        """Book a closed trade for ``qty`` of ``p`` (default: the whole position).
+
+        ``qty`` exists for the partial-close path (P2) — a monitor verdict
+        carrying ``close_qty_pct < 1`` books the scaled-out portion here and
+        leaves the runner open. It does NOT mutate ``p``; the caller owns the
+        remaining-qty bookkeeping, so a full close stays byte-identical.
+        """
         nonlocal balance
-        gross = (price - p.entry) * p.qty if p.side == "long" else (p.entry - price) * p.qty
+        q = p.qty if qty is None else float(qty)
+        gross = (price - p.entry) * q if p.side == "long" else (p.entry - price) * q
         # Fee convention UNCHANGED (byte-identical): bps on both legs' notional.
-        fee = fee_rate * (p.entry + price) * p.qty
+        fee = fee_rate * (p.entry + price) * q
         # Execution-realism ADD-ON (P1 § 3.B): slippage + perp-only funding from the
         # ONE shared USD model (fee_bps_roundtrip=0.0 → fee is NOT double-counted).
         # Funding counts the 8h perp windows the hold crossed (entry_ts → ts_i). Both
         # default 0.0 → this is a no-op and PnL is byte-identical to the legacy run.
         extra = execution_costs.roundtrip_cost_usd(
-            entry_price=p.entry, qty=p.qty,
+            entry_price=p.entry, qty=q,
             entry_time=p.entry_ts, exit_time=ts_i,
             fee_bps_roundtrip=0.0,
             slippage_bps_roundtrip=SLIPPAGE_BPS_ROUNDTRIP,
@@ -854,7 +874,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         balance += pnl
         closed.append(_ClosedTrade(
             owner=p.owner, side=p.side, entry_ts=p.entry_ts, exit_ts=ts_i,
-            entry=p.entry, exit=price, qty=p.qty, pnl=pnl, fee=fee,
+            entry=p.entry, exit=price, qty=q, pnl=pnl, fee=fee,
             slippage=slippage, funding=funding,
             reason=reason, bars_held=idx_i - p.entry_idx,
             regime=p.regime, vol_regime=p.vol_regime,
@@ -904,17 +924,58 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                                 "created_at": str(pos.entry_ts)}
                     try:
                         verdict = mon(cfgs.get(pos.owner, {}), win, open_pkg)
-                    except Exception:  # noqa: BLE001
+                    except Exception as exc:  # noqa: BLE001
+                        # A crashing monitor is NOT "the monitor declined to
+                        # act" — swallowing it silently made a broken exit path
+                        # indistinguishable from a quiet one (silent-empty
+                        # class). Count it so the run summary can report it.
                         verdict = None
-                    if isinstance(verdict, dict):
-                        if verdict.get("action") == "close":
-                            _close(pos, c[i], ts.iloc[i],
-                                   verdict.get("reason", "monitor_close"), i)
+                        monitor_errors[pos.owner] = (
+                            monitor_errors.get(pos.owner, 0) + 1)
+                        if pos.owner not in monitor_error_examples:
+                            monitor_error_examples[pos.owner] = (
+                                f"{type(exc).__name__}: {exc}")
+                    # ONE interpreter, shared with the live order monitor
+                    # (src/runtime/monitor_verdict.py). The harness owns only
+                    # the EFFECTUATION below; it no longer re-derives what a
+                    # verdict means — that re-derivation silently dropped
+                    # exit_price, close_qty_pct and next_tp. See the module
+                    # docstring for the measured population.
+                    decision = interpret_verdict(
+                        verdict, current_sl=pos.sl, current_tp=pos.tp)
+                    if decision.is_close:
+                        # Live fills AT the verdict's exit_price when there is
+                        # no exchange fill to read; only fall back to the bar
+                        # close when the verdict named no price.
+                        px = decision.exit_price
+                        if px is None:
+                            px = c[i]
+                        _close(pos, float(px), ts.iloc[i],
+                               decision.reason or "monitor_close", i)
+                        pos = None
+                    elif decision.kind == KIND_PARTIAL_CLOSE:
+                        px = decision.exit_price
+                        if px is None:
+                            px = c[i]
+                        part = pos.qty * float(decision.close_qty_pct or 0.0)
+                        if part > 0:
+                            _close(pos, float(px), ts.iloc[i],
+                                   decision.reason or "monitor_close", i,
+                                   qty=part)
+                            pos.qty -= part
+                            pos.notional = pos.entry * pos.qty
+                        # turtle_soup rolls TP1 -> TP2 alongside the scale-out;
+                        # without this the runner would exit at the target it
+                        # just took profit at.
+                        if decision.next_tp is not None:
+                            pos.tp = float(decision.next_tp)
+                        if pos.qty <= 0:
                             pos = None
-                        elif "sl" in verdict:
-                            pos.sl = float(verdict["sl"])
-                        elif "tp" in verdict:
-                            pos.tp = float(verdict["tp"])
+                    elif decision.kind == KIND_MODIFY:
+                        if decision.sl is not None:
+                            pos.sl = decision.sl
+                        if decision.tp is not None:
+                            pos.tp = decision.tp
 
         if pos is not None:
             util_bars += 1
@@ -1098,6 +1159,15 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                                  "overrides": overrides},
                          data_start=str(ts.iloc[0]) if n else None,
                          data_end=str(ts.iloc[-1]) if n else None)
+    # P2 · exit-path fidelity. `monitor_errors` is the honest denominator for
+    # the exit profile: a nonzero count means some bars produced NO verdict
+    # because the monitor raised, so `by_exit_reason` under-reports
+    # monitor-driven exits by an unknown amount. Absent/zero is the clean read.
+    summary["monitor_errors"] = {
+        "total": sum(monitor_errors.values()),
+        "by_owner": dict(monitor_errors),
+        "examples": dict(monitor_error_examples),
+    }
     # Evidence-layer report block: knobs used + fallback counts so a reader
     # knows exactly what the run measured (esp. ml-vol availability offline).
     summary["evidence"] = {
@@ -1244,6 +1314,13 @@ def _fmt(s: Dict[str, Any]) -> str:
          f"  trades={s['total_trades']} WR={s['win_rate_pct']}%  "
          f"capital_util={s['capital_utilization_pct']}%  exits={s['by_exit_reason']}",
          "  per-strategy attribution (net $ | trades | wins):"]
+    # Loud, not a footnote: a raising monitor means the exit profile above was
+    # measured over bars where the exit path did not run.
+    _me = s.get("monitor_errors") or {}
+    if _me.get("total"):
+        L.insert(len(L) - 1,
+                 f"  !! monitor() raised on {_me['total']} bar(s) — exits under-counted: "
+                 f"{_me.get('by_owner')} e.g. {list(_me.get('examples', {}).values())[:1]}")
     for name, a in sorted(s["per_strategy_attribution"].items(), key=lambda kv: -kv[1]["pnl"]):
         L.append(f"    {name:22} ${a['pnl']:>9.0f}  {a['trades']:>4}t  {a['wins']:>4}w")
     # 2-D cell attribution (strategy|trend|vol|side → net $) — only when stamped.

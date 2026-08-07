@@ -86,12 +86,19 @@ executed as described, and the reason in each case is the deliverable.
 6. **Quantified the operator's output-layer hypothesis**:
    `check_diagnostic_provenance.py --all` = **52 findings**, guard diff-scoped,
    never drained.
-7. **Fixed the trainer journal pull** (Tier-2). Promote-on-verify (a bad pull can
+7. **Established vol-gate live parity** — the item ML2 was blocked on. See the
+   gaps section for the measured numbers and the three caveats.
+8. **Found two defects in my OWN merged fix** by verifying it in production:
+   the `VACUUM INTO` snapshot path was shipped INERT (the live VM has no
+   `sqlite3` CLI, so it degraded to direct-rsync every time), and verifying the
+   temp leaked `.incoming-wal`/`-shm` sidecars. Both fixed on a follow-up
+   branch; the first is the reason the pull log states its `method` at all.
+9. **Fixed the trainer journal pull** (Tier-2). Promote-on-verify (a bad pull can
    no longer destroy the last good mirror — previously it overwrote it),
    `VACUUM INTO` consistent snapshot with a direct-rsync fallback, bounded retry,
    and a hard failure carrying `mirror_left_unmodified:true`. Live-box headroom
    checked BEFORE choosing the snapshot path (disk 40.1%, cpu 10%, mem 12.6%).
-8. **Fixed the pooled augment merge** (Tier-2). Root cause was copying the
+10. **Fixed the pooled augment merge** (Tier-2). Root cause was copying the
    `trades.id` PRIMARY KEY across two independently-numbered databases —
    collision was guaranteed, not unlucky. Also refuses a zero-row (vacuous)
    merge, reports the count read back from the DESTINATION, and carries
@@ -128,6 +135,22 @@ executed as described, and the reason in each case is the deliverable.
 
 ### Gaps not yet verified
 
+- **PARITY IS NOW MEASURED** (trainer-diag #8582/#8583), which closes the item
+  the whole chain was blocking. Per-window, BTCUSDT-scoped: w1 `lgbm-v2`
+  92.18% (294 comparable), w2 `fc-pcv-v1` 96.40% (278), w3 `fc-pcv-v2`
+  **100% / verified** (20 comparable, 58.8% overlap). Three caveats stated
+  rather than buried: (a) w3's verification is THIN (n=20) and I hold it to the
+  same scepticism as the cell floor I shipped this session; (b) w1/w2 label
+  agreement flatters — `|Δ P(volatile)|` maxes at 0.626/0.776, so labels agree
+  by luck of the threshold on a tail; (c) **w2 is confounded** — `fc-pcv-v1`
+  declares `v520` and was replayed over `v002` (off-manifest; `vol_bucket`
+  differed on 2.089% of rows vs 0% for the on-manifest heads).
+- **My first parity run had a population defect of my own making.** The audit
+  corpus was not scoped by symbol, so SOLUSDT (40) and MES (15) rows were
+  compared against a BTC head. Scoping to BTCUSDT flipped w3 from 93.02% /
+  `disagreements_found` to 100% / `verified` — a **false negative** produced by
+  an unstated population, in the same session that filed unstated-population
+  defects against other tooling.
 - **The two ops fixes are NOT yet verified on the trainer.** They are proven on
   reproductions of the real failures, but the trainer still runs the old code
   until this merges and `ict-trainer-git-sync` lands it. Post-merge

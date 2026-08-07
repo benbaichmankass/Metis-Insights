@@ -61,6 +61,10 @@ logger = logging.getLogger(__name__)
 from src.utils.paths import repo_root as _repo_root_fn  # noqa: E402
 from src.utils.json_notes import dump_capped  # noqa: E402
 from src.utils.closed_at import normalize_closed_at_value  # noqa: E402
+from src.runtime.monitor_verdict import (  # noqa: E402
+    KIND_MODIFY, KIND_PARTIAL_CLOSE, MEANINGFUL_MODIFY_REL_TOL,
+    interpret_verdict,
+)
 _REPO_ROOT = Path(_repo_root_fn())
 
 # BL-20260722-XRP-SLSPAM: minimum relative change (0.05% of the current sl/tp)
@@ -68,7 +72,12 @@ _REPO_ROOT = Path(_repo_root_fn())
 # the gate in the "Modification — sl / tp" section below. Loose on purpose:
 # real ATR-scaled trail steps are far larger than this; it exists only to
 # absorb float/live-candle noise on ticks where price hasn't genuinely moved.
-_MEANINGFUL_MODIFY_REL_TOL = 0.0005
+#
+# Now DEFINED in src/runtime/monitor_verdict.py and re-exported here under its
+# original private name: the backtest harness applies the same gate, and two
+# copies of a tolerance is how the two paths drift. See that module for the P2
+# rationale (it is the shared interpreter of a monitor() verdict).
+_MEANINGFUL_MODIFY_REL_TOL = MEANINGFUL_MODIFY_REL_TOL
 
 
 @dataclass
@@ -689,37 +698,35 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
     rest of the tick.
     """
     pkg_id = open_pkg.get("order_package_id")
-    action = (verdict or {}).get("action")
-    if action == "close":
-        raw_pct = (verdict or {}).get("close_qty_pct")
-        if raw_pct is not None:
-            try:
-                close_qty_pct = float(raw_pct)
-            except (TypeError, ValueError):
-                logger.warning(
-                    "order_monitor: invalid close_qty_pct=%r for pkg=%s — skipping",
-                    raw_pct, pkg_id,
-                )
-                summary.no_change_count += 1
-                return
-            if close_qty_pct <= 0.0 or close_qty_pct > 1.0:
-                logger.warning(
-                    "order_monitor: close_qty_pct=%.4f out of range (0, 1] "
-                    "for pkg=%s — skipping",
-                    close_qty_pct, pkg_id,
-                )
-                summary.no_change_count += 1
-                return
-            if close_qty_pct < 1.0:
-                # Partial-close path was originally DB-only. The
-                # 2026-05-15 exchange-first refactor (FU-20260515-002)
-                # reordered it to dispatch to the exchange before any
-                # DB write, mirroring the full-close branch fixed in
-                # PR #1190.
-                _apply_partial_close(db, open_pkg, verdict, summary)
-                return
-            # close_qty_pct == 1.0 falls through to full-close below.
-        reason = str((verdict or {}).get("reason") or "monitor_close")
+    # What the verdict MEANS is decided by the one shared interpreter
+    # (src/runtime/monitor_verdict.py); this function owns only the
+    # effectuation (exchange + DB). The backtest harness calls the same
+    # interpreter with an in-memory effectuator, which is what makes exit-path
+    # fidelity structural instead of two hand-maintained copies.
+    decision = interpret_verdict(verdict,
+                                 current_sl=open_pkg.get("sl"),
+                                 current_tp=open_pkg.get("tp"))
+    if decision.rejection is not None:
+        # `no_meaningful_change` is the expected steady state of a trail
+        # recomputing off a forming candle — noisy to warn on every tick.
+        # Every other rejection is a verdict the strategy MEANT to act on.
+        if decision.rejection != "no_meaningful_change":
+            logger.warning(
+                "order_monitor: verdict not actionable (%s): %r for pkg %s",
+                decision.rejection, verdict, pkg_id,
+            )
+        summary.no_change_count += 1
+        return
+    if decision.kind == KIND_PARTIAL_CLOSE:
+        # Partial-close path was originally DB-only. The 2026-05-15
+        # exchange-first refactor (FU-20260515-002) reordered it to dispatch
+        # to the exchange before any DB write, mirroring the full-close branch
+        # fixed in PR #1190.
+        _apply_partial_close(db, open_pkg, verdict, summary)
+        return
+    if decision.is_close:
+        # NB `close_qty_pct == 1.0` resolves to a FULL close, as before.
+        reason = decision.reason or "monitor_close"
 
         # 2026-05-15: exchange-first close ordering. Pre-this-PR the
         # DB rows were flipped to ``status='closed'`` and a fabricated
@@ -1029,46 +1036,24 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         summary.closed_count += 1
         return
 
-    # Modification — sl / tp (other keys are silently ignored).
+    # Modification — sl / tp (other keys are silently ignored). Both are
+    # applied INDEPENDENTLY; a verdict carrying both moves both.
+    #
+    # The interpreter has already applied BL-20260722-XRP-SLSPAM's
+    # meaningful-change filter (`MEANINGFUL_MODIFY_REL_TOL`): a monitor
+    # recomputing a trail off a live/forming candle returns a "new" sl/tp that
+    # differs only by float noise on ticks where price hasn't genuinely moved —
+    # xrp_pullback_2h/trade 3577 fired an exchange amend + a "TRADE UPDATED"
+    # Telegram ping essentially every tick for 5 days off a trail the operator
+    # correctly perceived as static. A fully-filtered modify arrives here as a
+    # `no_meaningful_change` rejection and returned above, so reaching this
+    # point means at least one key genuinely moved.
+    assert decision.kind == KIND_MODIFY, decision.kind
     updates: Dict[str, Any] = {}
-    if "sl" in verdict:
-        updates["sl"] = float(verdict["sl"])
-    if "tp" in verdict:
-        updates["tp"] = float(verdict["tp"])
-    if not updates:
-        # Unknown verdict shape — log and skip.
-        logger.warning(
-            "order_monitor: unknown verdict shape %r for pkg %s",
-            verdict, pkg_id,
-        )
-        summary.no_change_count += 1
-        return
-
-    # BL-20260722-XRP-SLSPAM: drop any key whose new value isn't
-    # MEANINGFULLY different from the package's current value before
-    # doing anything else (exchange call, DB write, or notification).
-    # A strategy monitor() recomputing a trail off a live/forming candle
-    # can return a "new" sl/tp that differs from the current value only
-    # by float noise on ticks where price hasn't genuinely moved —
-    # xrp_pullback_2h/trade 3577 fired an exchange amend + a "TRADE
-    # UPDATED" Telegram ping essentially every tick for 5 days off a
-    # trail the operator correctly perceived as static. `_MEANINGFUL_REL_TOL`
-    # is deliberately loose (0.05%) — real trail steps are ATR-scaled
-    # (typically >> 0.05% of price), so this only filters genuine noise.
-    for key in ("sl", "tp"):
-        if key not in updates:
-            continue
-        try:
-            current = float(open_pkg.get(key))
-        except (TypeError, ValueError):
-            continue
-        new_value = updates[key]
-        tol = max(abs(current) * _MEANINGFUL_MODIFY_REL_TOL, 1e-8)
-        if abs(new_value - current) <= tol:
-            del updates[key]
-    if not updates:
-        summary.no_change_count += 1
-        return
+    if decision.sl is not None:
+        updates["sl"] = decision.sl
+    if decision.tp is not None:
+        updates["tp"] = decision.tp
 
     # 2026-05-18: exchange-first modify ordering. Mirrors the close-path
     # refactor from PR #1190 + the partial-close refactor from

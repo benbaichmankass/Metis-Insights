@@ -19,6 +19,7 @@ that ACTUALLY RUNS on the trainer rather than a copy that can drift from it.
 """
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import subprocess
@@ -172,3 +173,70 @@ def test_journal_verify_rejects_a_structurally_valid_but_wrong_db(tmp_path):
     r = _run(_extract("sync_trainer_data.sh", "PYVERIFY"), tmp_path,
              "verify.py", str(target))
     assert r.returncode != 0
+
+
+# --------------------------------------------------------------------------
+# 3. the pull's temp-file hygiene (found by verifying the fix in production)
+# --------------------------------------------------------------------------
+
+def _stub_pull_env(tmp_path, delivered_rows: int, ssh_exit: int = 1):
+    """Run the real sync script with stubbed ssh/rsync.
+
+    ssh_exit=1 forces the direct-rsync fallback (what the live VM actually does
+    today — it has no sqlite3 CLI, and python3 backup is exercised separately).
+    """
+    for d in ("bin", "data", "repo/.git", "logs", "src"):
+        (tmp_path / d).mkdir(parents=True, exist_ok=True)
+    for path, n in ((tmp_path / "data" / "trade_journal.db", 5),
+                    (tmp_path / "src" / "fresh.db", delivered_rows)):
+        con = sqlite3.connect(path)
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, pnl REAL)")
+        con.execute("CREATE TABLE signals (id INTEGER PRIMARY KEY, logged_at_utc TEXT)")
+        con.executemany("INSERT INTO signals (logged_at_utc) VALUES (?)",
+                        [("2026-08-07",)] * n)
+        con.executemany("INSERT INTO trades (pnl) VALUES (?)", [(1.0,)] * n)
+        con.commit()
+        con.close()
+    (tmp_path / "key").write_text("")
+    (tmp_path / "bin" / "ssh").write_text(f"#!/bin/bash\nexit {ssh_exit}\n")
+    (tmp_path / "bin" / "rsync").write_text(
+        f'#!/bin/bash\ndest="${{@: -1}}"\ncp {tmp_path}/src/fresh.db "$dest"\nexit 0\n')
+    for f in ("ssh", "rsync"):
+        os.chmod(tmp_path / "bin" / f, 0o755)
+    env = dict(os.environ)
+    env.update(PATH=f"{tmp_path}/bin:{env['PATH']}", VM_SSH_KEY=str(tmp_path / "key"),
+               DATA_DIR=str(tmp_path / "data"), REPO_ROOT=str(tmp_path / "repo"),
+               PULL_LOG_PATH=str(tmp_path / "logs" / "pull.jsonl"))
+    subprocess.run(["bash", os.path.join(_OPS, "sync_trainer_data.sh")],
+                   env=env, capture_output=True, text=True)
+    return tmp_path / "data"
+
+
+def test_pull_leaves_no_incoming_sidecars(tmp_path):
+    """Opening a WAL-mode DB to VERIFY it creates `-wal`/`-shm` beside the temp.
+    Moving only the body left `.trade_journal.db.incoming-wal`/`-shm` orphaned —
+    observed on the trainer 2026-08-07, the first run after the fix landed.
+
+    Not cosmetic: a stale `.incoming-shm` beside a FUTURE `.incoming` body is the
+    mismatched-sidecar hazard the promote-on-verify logic exists to prevent."""
+    data_dir = _stub_pull_env(tmp_path, delivered_rows=42)
+    leftovers = [p.name for p in data_dir.iterdir() if "incoming" in p.name]
+    assert leftovers == [], f"orphaned temp sidecars: {leftovers}"
+    con = sqlite3.connect(data_dir / "trade_journal.db")
+    assert con.execute("SELECT COUNT(*) FROM signals").fetchone()[0] == 42
+
+
+def test_pull_reports_the_method_it_actually_used(tmp_path):
+    """The snapshot path was shipped INERT — the live VM has no sqlite3 CLI, so
+    the probe failed every time and the pull silently used the fallback. The
+    method must be stated in the log so an inert path is visible rather than
+    assumed working."""
+    data_dir = _stub_pull_env(tmp_path, delivered_rows=7)
+    log = (data_dir.parent / "logs" / "pull.jsonl").read_text()
+    ok = [json.loads(x) for x in log.splitlines()
+          if x.strip() and json.loads(x).get("artifact") == "trade_journal.db"
+          and json.loads(x).get("status") == "ok"]
+    assert ok, "no ok row for trade_journal.db"
+    assert ok[-1]["method"] == "direct_rsync_fallback"
+    assert ok[-1]["integrity_verified"] is True
