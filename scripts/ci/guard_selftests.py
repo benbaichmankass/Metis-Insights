@@ -84,6 +84,60 @@ def selftest_claim_basis() -> None:
     print("failure path verified: basis-less claim row correctly flagged")
 
 
+def selftest_impossibility_claim() -> None:
+    """An 'X cannot be measured' claim naming nothing must be flagged, and a
+    `checked:` annotation naming a path that does NOT exist must not rescue it.
+
+    The second half is the load-bearing one: `new-table-wiring-guard` was
+    defeated because its marker was presence-only, so the cheapest way to
+    silence a real finding was to name a table that did not exist."""
+    sys.path.insert(0, str(REPO / "scripts"))
+    from check_impossibility_claims import check_lines  # noqa: E402
+
+    # the literal sentence from the 2026-08-07 incident
+    bare = "it is the one item that cannot be worked around by writing code"
+    if len(check_lines([(1, bare)], "selftest.md", context=bare)) != 1:
+        raise SystemExit(
+            "::error::guard did NOT flag a bare impossibility claim — "
+            "the failure path is broken")
+
+    lying = "this cannot be measured\nchecked: scripts/research/does_not_exist.py"
+    if len(check_lines([(1, "this cannot be measured")], "selftest.md",
+                       context=lying)) != 1:
+        raise SystemExit(
+            "::error::guard ACCEPTED a `checked:` annotation naming a "
+            "nonexistent path — presence-only marker, cheaper to lie to than "
+            "to satisfy")
+
+    honest = ("this cannot be measured\n"
+              "checked: scripts/research/backtest_fidelity_calibrate.py")
+    if check_lines([(1, "this cannot be measured")], "selftest.md",
+                   context=honest):
+        raise SystemExit(
+            "::error::guard flagged a claim that DID name a real tool — "
+            "false positive, the escape hatch is broken")
+
+    # The annotation window is per file TYPE — sparse markdown prose gets a
+    # wider reach than a row-dense backlog JSON, where a neighbouring row's
+    # annotation must NOT satisfy this row's claim.
+    claim = "this cannot be measured"
+    spread = "\n".join([claim] + ["filler"] * 9
+                       + ["checked: scripts/research/backtest_fidelity_calibrate.py"])
+    if check_lines([(1, claim)], "selftest.md", context=spread):
+        raise SystemExit(
+            "::error::guard rejected a prose annotation 10 lines from its "
+            "claim — the markdown window is too tight to annotate a normal "
+            "paragraph, which forces authors to reshape text to appease it")
+    if len(check_lines([(1, claim)], "selftest.json", context=spread)) != 1:
+        raise SystemExit(
+            "::error::guard accepted an annotation 10 lines away in a backlog "
+            "JSON — that reach spans whole rows, so one row's `checked:` can "
+            "silently satisfy another row's claim")
+
+    print("failure path verified: bare claim flagged, fake `checked:` path "
+          "rejected, real one accepted, annotation window scoped per file type")
+
+
 def selftest_diag_unit_allowlist() -> None:
     """A deploy unit missing from the diag allowlist must fail the guard."""
     probe = REPO / "deploy" / "ict-selftest-unlisted.timer"
@@ -184,6 +238,7 @@ def selftest_timestamp_comparison() -> None:
 
 SELFTESTS: Dict[str, Callable[[], None]] = {
     "claim-basis": selftest_claim_basis,
+    "impossibility-claim": selftest_impossibility_claim,
     "diag-unit-allowlist": selftest_diag_unit_allowlist,
     "diagnostic-provenance": selftest_diagnostic_provenance,
     "harness-lever-coupling": selftest_harness_lever_coupling,

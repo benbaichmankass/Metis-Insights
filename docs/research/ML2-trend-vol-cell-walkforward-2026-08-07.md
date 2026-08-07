@@ -75,6 +75,10 @@ populations are reconciled.
 
 ## Parity: MEASURED 2026-08-07 (was reported unmeasurable — that was wrong)
 
+> checked: scripts/research/backtest_fidelity_calibrate.py — its `MIN_LIVE_N=30` gate is what produced the original
+> `insufficient-live`; and `datasets-out/market_features/BTCUSDT/15m/v002`, which was
+> fresh the whole time. Both read directly, not inferred.
+
 The earlier claim that parity was "honestly unmeasurable today" rested on a
 4-row overlap. **That overlap was an artifact of replaying over the wrong
 dataset**, not a data limit — see the correction above. Re-run over `v002`,

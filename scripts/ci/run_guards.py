@@ -186,6 +186,14 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "impossibility-claim-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/check_impossibility_claims.py", "--base", "origin/{base_ref}"],
+            ["python3", "scripts/ci/guard_selftests.py", "impossibility-claim"],
+        ],
+    },
+    {
         "name": "diag-unit-allowlist-guard",
         "when": None,
         "steps": [
