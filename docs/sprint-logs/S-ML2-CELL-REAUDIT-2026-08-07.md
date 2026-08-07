@@ -75,6 +75,27 @@ proposal only.
    `docs/research/ML2-trend-vol-cell-walkforward-2026-08-07.md` (`ac1ea85`).
 6. **Filed three backlog items** and deleted the finished
    `docs/runbooks/merge-sequence-8534-8539.md`.
+7. **Re-ran the P1.x trust map on the cleaned rows** (the item-1 follow-up),
+   relays #8566-#8568. Verified first that it is not a no-op: the live
+   population is filtered through `provenance.pnl_is_trustworthy`
+   (`backtest_fidelity_calibrate.py:309-310`) and
+   `netted_duplicate_unattributed` is in the FABRICATED set
+   (`provenance.py:228`), so the 29 rows marked in item 1 now drop out.
+
+   `--backtest-db datasets-out/backtest_trades.db --live-db data/trade_journal.db
+   --trust-map`, `r_basis=stop_distance`:
+
+   | leg | scanned | trusted | r_measured | r_coverage | verdict |
+   |---|--:|--:|--:|--:|---|
+   | `htf_pullback_trend_2h` BTCUSDT | 55 | **18** | 18 | 1.0 | insufficient-live |
+   | `squeeze_breakout_4h` BTCUSDT | 5 | **1** | 1 | 1.0 | insufficient-live |
+   | `trend_donchian` BTCUSDT | 28 | **21** | 21 | 1.0 | insufficient-live |
+
+   **All three legs `insufficient-live`** against `min_live_n=30`.
+   `htf_pullback_trend_2h` loses **37 of 55 rows (67%)** to the provenance
+   filter. `r_coverage` is 1.0 on every leg, so the blocker is purely SAMPLE
+   SIZE, not missing stop data — a materially different finding from "the
+   stops aren't recorded".
 
 ## Validation Performed
 
@@ -104,6 +125,14 @@ proposal only.
   as full parity.
 - The walkforward's `fidelity=approximate` for `trend_donchian` omits five
   levers (`exit_head_*`, `trail_decay_*`). Not quantified here.
+- **The `htf_pullback_trend_2h`/BTCUSDT live mean-R verdict is STILL unusable**
+  — but the reason has changed and is now understood. Before, fabricated rows
+  contaminated it; now they are correctly excluded and only 18 trusted rows
+  survive against a `min_live_n` of 30. The trust map printed per-leg
+  `live_mean_r` figures (0.0254 / −1.1222 / 0.1621); **those must not be quoted
+  as verdicts** — every leg is `insufficient-live`, so they are numbers with no
+  gate behind them. This closes the item-1 follow-up as *run and answered*, not
+  as *resolved*.
 
 ## Documentation Updated
 

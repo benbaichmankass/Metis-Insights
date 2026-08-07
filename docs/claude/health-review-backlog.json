@@ -10134,6 +10134,16 @@
       "source": "Surfaced by the 2026-08-06 GitHub Actions webhook-throttle incident, which left PRs unmergeable for ~6h with no recovery path.",
       "title": "[ci][Tier-1] Every required-check workflow should carry a workflow_dispatch trigger so a webhook outage is recoverable",
       "description": "During the 2026-08-06 Actions incident, push webhooks were throttled to ~15% and several pushes to claude/** produced ZERO workflow runs. There was no way to satisfy the required-check set manually:\n  * guards.yml was new in the PR and not yet on the default branch, so run_workflow returns 404 for any ref (a workflow must be on the default branch to be dispatchable);\n  * pytest-collect has no workflow_dispatch trigger at all.\n\nSo a green-able PR sat unmergeable with no operator-free recovery. Adding `workflow_dispatch:` to each required-check workflow costs nothing and converts a hard block into a manual re-trigger.\n\nNote this composes with the now-verified `run_workflow` MCP capability (re-verified 2026-08-06, HTTP 204) -- the tool exists, the triggers do not."
+    },
+    {
+      "id": "BL-20260807-TRUSTMAP-ALL-LEGS-INSUFFICIENT-LIVE",
+      "opened_at": "2026-08-07T02:00:00+00:00",
+      "opened_by": "claude (metis-insights-workplan-cont fczb1e)",
+      "severity": "medium",
+      "status": "open",
+      "source": "P1.x trust-map re-run on cleaned rows, trainer-vm-diag #8567/#8568. Follow-up to the item-1 netted-duplicate marking (#8543/#8545).",
+      "title": "[research][Tier-1] Post-cleaning, EVERY trust-map leg is insufficient-live (trusted n = 18 / 1 / 21 vs min_live_n 30) — no leg can validate backtest fidelity today",
+      "description": "POPULATION: backtest_fidelity_calibrate.py --backtest-db datasets-out/backtest_trades.db --live-db data/trade_journal.db --trust-map, r_basis=stop_distance, run 2026-08-07 01:57Z AFTER the netted-duplicate marking landed.\n\n| leg | scanned | trusted | r_measured | r_coverage | verdict |\n|---|---|---|---|---|---|\n| htf_pullback_trend_2h BTCUSDT | 55 | 18 | 18 | 1.0 | insufficient-live |\n| squeeze_breakout_4h BTCUSDT | 5 | 1 | 1 | 1.0 | insufficient-live |\n| trend_donchian BTCUSDT | 28 | 21 | 21 | 1.0 | insufficient-live |\n\nverdict_counts = {'insufficient-live': 3}; min_live_n = 30.\n\nThis is the CORRECT behaviour, not a regression: the live population is filtered through provenance.pnl_is_trustworthy and netted_duplicate_unattributed is FABRICATED, so the 29 rows marked in item 1 now drop out as intended. htf_pullback_trend_2h loses 37 of 55 rows (67%) to that filter.\n\nTWO things follow:\n1. The htf_pullback_trend_2h/BTCUSDT live mean-R verdict remains UNUSABLE -- now for a understood reason (thin trusted sample) rather than an unknown one. The per-leg live_mean_r values the tool prints (0.0254 / -1.1222 / 0.1621) must NOT be quoted as verdicts; every leg is insufficient-live.\n2. r_coverage is 1.0 on all three legs, so the blocker is SAMPLE SIZE, not missing stop data. That distinction matters: no amount of better stop recording fixes this; only more trusted live trades (or a defensible lower min_live_n, which is a threshold change and needs its own justification) will.\n\nNOT a proposal to lower min_live_n. Recording that the gate is currently unsatisfiable on every BTC leg."
     }
   ],
   "updated_at": "2026-08-07T00:35:00+00:00",
