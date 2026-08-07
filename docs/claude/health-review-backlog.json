@@ -10656,6 +10656,48 @@
       "close_condition": "The relay either refuses or loudly flags a cmd: block it could not parse in full, verified by a deliberately over-long test dispatch that FAILS rather than silently running a prefix."
     },
     {
+      "id": "BL-20260807-PYTEST-APPROX-NUMPY-STUB",
+      "opened_at": "2026-08-07T16:40:00+00:00",
+      "opened_by": "claude (/system-review follow-ups, session full-system-review-ma0ava)",
+      "source": "/system-review follow-ups 2026-08-07: hit while adding tests/test_risk_gross_exposure.py. POPULATION: measured on the local suite selection `-k 'asset_class or news or risk or sizing or daily_loss'` — 81 failed / 531 passed on a clean tree, with 144 occurrences of the `is_bool` frame in one run.",
+      "title": "[test-infra] pytest.approx is unreliable suite-wide when numpy is absent — a truthy sys.modules stub makes it RAISE instead of compare",
+      "tier": 1,
+      "status": "open",
+      "severity": "medium",
+      "detail": "`pytest.approx.__eq__` branches on `np := sys.modules.get('numpy')` and then touches `np.bool_`. numpy is NOT installed in the lean test env, but something in the suite leaves a truthy stub at `sys.modules['numpy']` (tests/conftest.py::_stub_optional inserts MagicMock() for missing optional deps and the pattern propagates). `approx` then raises inside `is_bool` instead of comparing.\n\nWHY IT MATTERS MORE THAN A LINT NIT: it is a HEISENBUG. An assertion passes when its file runs alone and fails in a full run, with the CORRECT value in the traceback (observed: `val = 8000.0` on an `== approx(8_000.0)` assertion). I initially read my own 5 new failures as a real regression in the code under test; they were not. Any future session doing the same before/after diff will hit the same false signal, and the reverse is worse — a genuinely broken assertion can be dismissed as 'just the numpy thing'.\n\nBLAST RADIUS: 144 `is_bool` frames in a single selective run, so a large share of the ~81 baseline failures in that selection are this artifact rather than real defects. That means the local baseline is not a trustworthy regression reference until this is fixed.\n\nWORKAROUND USED: tests/test_risk_gross_exposure.py uses an explicit `close_to()` tolerance helper instead of approx.\n\nNOT ASSERTED: I did not confirm which module inserts the numpy stub — `grep numpy tests/conftest.py` finds nothing, so it arrives transitively. That is the first thing to establish.",
+      "what_to_check": "Run any approx-using test file alone (passes) then in a full run (raises in is_bool). Find who sets sys.modules['numpy'] — likely a transitive _stub_optional call. Fix by not stubbing numpy with a MagicMock, or by installing numpy in the test env.",
+      "resolution_criteria": "An approx-based assertion behaves identically alone and in a full run.",
+      "updates": []
+    },
+    {
+      "id": "BL-20260807-SPLG-NO-CANDLES-STRATEGY-CANNOT-EVALUATE",
+      "opened_at": "2026-08-07T16:40:00+00:00",
+      "opened_by": "claude (/system-review follow-ups, session full-system-review-ma0ava)",
+      "source": "/system-review follow-ups 2026-08-07: /api/bot/candles + /api/diag/audit_query via relay #8596, plus config reads. POPULATION: 4 same-day-added Alpaca ETFs compared head to head — SPY, SCHA, IAUM each return 60 of 60 requested 1d candles; SPLG returns 0 with error 'no_data' while its strategy sees 35. All four share a byte-identical instrument-profile shape.",
+      "title": "[data][strategy] SPLG returns ZERO candles on /api/bot/candles and 35 to the strategy — splg_trend_long_1d has never been able to evaluate",
+      "tier": 1,
+      "status": "open",
+      "severity": "medium",
+      "detail": "splg_trend_long_1d has logged the SAME blocker every ~5 minutes since it went live: \"Strategy 'splg_trend_long_1d': need at least 46 candles for the donchian(30)/atr(14) windows; got 35.\" It is correctly configured (enabled, execution: live) and correctly routed (alpaca_paper, mode: live).\n\nTWO DISTINCT DATA FAULTS, and they disagree with each other:\n  /api/bot/candles?symbol=SPLG&interval=1d&limit=60 -> candles: [], count: 0, error: 'no_data'\n  the strategy's own fetch                          -> 35 bars\nControls added the SAME day with the same profile shape (SPY, SCHA, IAUM) all return 60. So this is SPLG-specific at the data source, not a config or strategy defect.\n\nCORRECTION TO THE RECORD, because the existing row is wrong about this: BL-20260730-SPLG-ZERO-TRADES is titled 'produced ZERO trades over 730d' and was opened 2026-07-30. SPLG was added to accounts.yaml on 2026-08-02 (commit 69be0e8) — THREE DAYS LATER. The 730d figure is a BACKTEST observation; live, the strategy is ~4 trading days old. Zero fires from a daily donchian-30 breakout over 4 trading days is unremarkable. Conflating the two nearly produced a KILL recommendation in RPT-20260807-145500-since-last against a strategy that has never been given a chance to fire.",
+      "what_to_check": "Why the Alpaca data path returns 0/35 bars for SPLG specifically while SPY/SCHA/IAUM return 60. Check the data subscription/feed for SPLG and whether the two fetch paths use different endpoints or limits.",
+      "resolution_criteria": "SPLG returns a full candle history on both paths and splg_trend_long_1d evaluates (fires or declines on price, not on missing data).",
+      "updates": []
+    },
+    {
+      "id": "BL-20260807-CANNOT-EVALUATE-IS-INVISIBLE",
+      "opened_at": "2026-08-07T16:40:00+00:00",
+      "opened_by": "claude (/system-review follow-ups, session full-system-review-ma0ava)",
+      "source": "/system-review follow-ups 2026-08-07: code read of the 8 strategy modules emitting the insufficient-candles no-trade signal, plus the SPLG audit rows via relay #8596. POPULATION: 8 of the strategy modules in src/units/strategies/ emit this signal; 1 symbol (SPLG) is currently in the permanent-block state, undetected since 2026-08-02.",
+      "title": "[observability] a strategy that CANNOT evaluate is indistinguishable from one that evaluated and declined — no alert exists for permanent data starvation",
+      "tier": 1,
+      "status": "open",
+      "severity": "medium",
+      "detail": "THE GENERALIZABLE DEFECT BEHIND THE SPLG CASE, and the reason it sat unnoticed.\n\n8 strategy modules (trend_donchian, fvg_range_15m, fade_breakout_4h, turtle_soup, htf_pullback_trend_2h, ict_scalp, squeeze_breakout_4h, vwap) emit a 'need at least N candles ... got M' no-trade signal. NOTHING aggregates or alerts on it.\n\nTo every monitoring surface both states look identical — `side: none`:\n  CANNOT evaluate : \"need at least 46 candles ...; got 35\"   (permanent, structural)\n  evaluated, declined: \"no breakout on the latest bar (close=773.075 within channel [716.58, 776.81])\"  (normal, healthy)\nOnly the free-text `reason` distinguishes them, and nothing reads it.\n\nThe stuck-strategy detector (STUCK_STRATEGY_THRESHOLD_MINUTES) keys on TIME SINCE LAST SIGNAL. A data-starved strategy emits a signal every single tick, so it reads as perfectly healthy. That is why SPLG could shout its exact blocker every 5 minutes for days with nobody seeing it — and why the /system-review that DID look reached for KILL instead of the audit log.\n\nPROPOSED (not built): treat 'cannot evaluate' as its own state. Any strategy whose evaluations are 100% insufficient-data over a rolling window is data-starved, not quiet — alert on it the way a down broker account alerts. This is the same shape as the news-coverage guard: detect a whole CLASS of silent capability loss rather than the one instance that happened to be noticed.",
+      "recommendation": "A startup + periodic check that every configured strategy/symbol can actually obtain the data its parameters require (lookback vs available bars), alerting when it cannot. Proposed to the operator 2026-08-07 as a shared mechanism with the news-coverage guard.",
+      "resolution_criteria": "A strategy that cannot evaluate for lack of data raises its own alert rather than looking identical to one finding no setup.",
+      "updates": []
+    },
+    {
       "id": "BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED",
       "opened_at": "2026-08-07T18:40:00+00:00",
       "opened_by": "claude (system-review ma0ava)",
@@ -10712,6 +10754,6 @@
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-08-07T18:55:00+00:00",
+  "updated_at": "2026-08-07T19:05:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

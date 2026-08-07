@@ -441,6 +441,11 @@ instruments:
     category: spot
     base_asset: USO
     asset_class: commodity     # crude-oil-tracking ETF
+    # Coarse class is `commodity` (-> metals desk), but oil news lives on the
+    # ENERGY desk. Narrow escape hatch documented in src/core/instrument_class.py:
+    # it keeps instruments.yaml the SINGLE registry instead of reintroducing a
+    # per-symbol map in news_feeds.yaml. Consumed by news_group_for_symbol().
+    news_group: energy
     quote_currency: USD
     settlement_currency: USD
     tick_size: 0.01
