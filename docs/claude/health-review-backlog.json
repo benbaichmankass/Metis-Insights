@@ -10087,8 +10087,25 @@
       "severity": "medium",
       "status": "open",
       "updates": []
+    },
+    {
+      "id": "BL-20260807-TRAINER-AUDIT-LOG-IS-HARNESS-OUTPUT-UNMARKED",
+      "opened_at": "2026-08-07T00:35:00+00:00",
+      "opened_by": "claude (metis-insights-workplan-cont fczb1e)",
+      "severity": "medium",
+      "status": "open",
+      "source": "Found during the ML2 2-D regime-cell re-audit, trainer-vm-diag #8548 / #8554 / #8555. Sibling of BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA and the same family as the CLAUDE.md 'Diagnostic provenance' class.",
+      "title": "[ml][observability][Tier-1] The trainer's `runtime_logs/signal_audit.jsonl` is BACKTEST-HARNESS output at the same path the live trader uses, with nothing marking it as such — a live-parity check run there silently measures the wrong population",
+      "description": "ALWAYS STATE THE POPULATION. Measured 2026-08-07 00:31Z over all 13,461 `regime_hard_gate` rows in the trainer's runtime_logs/signal_audit.jsonl:\n  * median inter-row gap 0.066s; 12,317 of 13,460 gaps (91.5%) are under ONE SECOND. The live trader emits one tick per TICK_INTERVAL_SECONDS and cannot produce that.\n  * max gap 1,061,066s (~12.3 days) = the idle stretch between separate research runs.\n  * symbols SOLUSDT 4,850 / ETHUSDT 4,743 / BTCUSDT 3,868; strategies include `trend_donchian_eth`, `trend_donchian_sol`, `eth_pullback_2h`, `trend_donchian_eth_4h` -- research variants, not the live roster.\n  * span 2026-06-27 -> 2026-08-02T04:50:22, which is exactly the file's mtime (stale 4+ days).\nCONTRAST, same window: 81 complete live `regime_hard_gate` rows via /api/diag/audit_query (#8550) are 100% BTCUSDT, dominated by `htf_pullback_trend_2h`.\n\nWHY IT IS A HAZARD, not just a stale file. `scripts/research/ml_vol_label_replay.py verify` exists specifically to stop a vol-label replay being graded against the wrong population, and its documented input is 'JSONL of regime_ml_vol_shadow / regime_hard_gate rows'. On the trainer the nearest such file IS this one, and nothing in it, its path, or its rows says 'harness'. A session that points verify at it gets a confident agreement percentage computed against replay output.\n\nThis was NOT hypothetical: verify was returning `no_overlap_nothing_verified` only because of an unrelated reader bug (it never read `logged_at_utc`, fixed in PR #8551). Landing that fix ALONE would have made verify start comparing -- turning a loud, honest failure into a plausible wrong answer. Two independent defects were masking each other.",
+      "recommendation": "Make the population self-describing rather than relying on a reader to infer it:\n  1. Have the backtest harness write its audit rows to a DISTINCT path (e.g. runtime_logs/backtest/signal_audit.jsonl) or stamp every harness-emitted row with an explicit `source: backtest` / run-id field. A row that cannot say where it came from is the same class as an un-provenanced pnl.\n  2. Have `verify` REFUSE (or loudly warn) when the audit corpus looks non-live -- a sub-second median inter-row gap is a cheap, decisive tell -- rather than comparing whatever it is handed.\n  3. Point live-parity checks at the `signals` dual-write table (the source /api/diag/audit_query reads), which is unambiguously live, instead of at a JSONL whose provenance depends on which box it sits on.",
+      "evidence": [
+        "trainer-vm-diag #8555 (full distribution + gap cadence over all 13,461 rows)",
+        "trainer-vm-diag #8554 (overlap-window rows are SOLUSDT/sol_pullback_2h)",
+        "vm-diag #8550 (live rows, same window, 100% BTCUSDT)",
+        "PR #8551 (the logged_at_utc reader bug that was masking this)"
+      ]
     }
   ],
-  "updated_at": "2026-08-06T22:20:00+00:00",
+  "updated_at": "2026-08-07T00:35:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
