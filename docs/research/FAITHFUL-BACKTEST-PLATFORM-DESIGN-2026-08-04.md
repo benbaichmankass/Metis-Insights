@@ -121,7 +121,7 @@ we can already trust* — it is the linchpin (it operationalizes §2.4).
 |---|---|---|---|
 | **P0 · TODAY — the calibration gate** | `scripts/research/backtest_fidelity_calibrate.py`: for a strategy×symbol, compare the **backtest trade distribution** (from the augment engine's `is_backtest=1` rows) against the **live trade distribution** (journal, measured-provenance only) — win-rate, R-distribution (KS), hold-time, per-regime — and emit a **backtest↔live agreement score + verdict** (`calibrated` / `drifts` / `insufficient-live`). Turns the qualitative `faithful/approximate` label into a **measured number** per strategy. First target: `trend_donchian` BTC (299 live + 204 backtest). | **Tells us TODAY how much to trust each backtest** → the ones that clear the agreement gate become trusted OOS evidence *now* (dissolves the P0 eval-book wall for those legs). | **built today** |
 | **P1 · Close the top fidelity gap** | ✅ *Execution-realism component DONE + MEASURED (§ 5b, 2026-08-04):* one shared cost model (`src/runtime/execution_costs.py` — fees+slippage+funding) both the harness and live sizer consult; re-ran the calibrator → cost is real (funding-dominant) but is **not** the gap's driver (~10–12%), so the leg stays `drifts`. *Remaining P1.x:* a real stop-distance **live-R** (the KS axis is a sign-proxy artifact today) + a **wider trusted-live set**, then make the harnesses run the **actual exit path** (exit heads + trail-decay + stale levers) via `src/units/strategies`. | Backtests are net-of-real-cost by construction; the honest driver of the gap is now identified (small-sample/regime, not cost). | days |
-| **P2 · The unified engine** | Extend `backtest_system.py` to drive the real signal builders + order monitor (not `generate_signal_stream`'s re-implementation); introduce `SimBroker` (B) as the one swapped seam. Fidelity becomes structural, not per-lever bookkeeping. | Any strategy/sleeve backtests on the live code path → drift → 0. | 1–2 sessions |
+| **P2 · The unified engine** | 🟡 *IN PROGRESS — exit-verdict seam DONE (2026-08-07), see § 5c.* Extend `backtest_system.py` to drive the real signal builders + order monitor (not `generate_signal_stream`'s re-implementation); introduce `SimBroker` (B) as the one swapped seam. Fidelity becomes structural, not per-lever bookkeeping. | Any strategy/sleeve backtests on the live code path → drift → 0. | 1–2 sessions |
 | **P3 · Evaluation service + trust gate** | One `evaluate(strategy\|ml\|sleeve, window)` → purged-WF OOS + cost-net + regime-stratified + calibrated verdict; wire it into the M7/M25 promotion gates (replace "live-holdout only" with "calibrated-OOS-or-live"). | Fast, uniform, trust-graded decisions for *everything* — the actual unblock. | 1–2 sessions |
 
 **Guardrails that keep this honest (learned from the scars):**
@@ -310,6 +310,65 @@ byte-identical (its cost knobs default 0.0) so the lever unit tests are unaffect
 **Pullback-first** — the other standalone harnesses (`trend`/`squeeze`/`fade`/
 `ict_scalp`/`system`) roll onto the shared model next (a focused follow-up PR), after
 which the whole roster is net-of-real-cost by construction.
+
+## 5c. P2 · THE EXIT-VERDICT SEAM IS DONE (2026-08-07) — and what P2 still owes
+
+**A correction to how P2 was scoped.** The plan reads "drive the real signal
+builders + order monitor (not `generate_signal_stream`'s re-implementation)",
+which implies the harness never runs live exit code. Read at
+`backtest_system.py:239-327` and `:880-918`, that is **wrong on both halves**:
+`generate_signal_stream` calls the **REAL `order_package`** per bar, and the
+exit block calls the strategy's **REAL `monitor()`**. The divergence was one
+level up — in what the harness DID with the verdict those real functions
+returned.
+
+**Measured** against all 9 roster monitors, the call-site re-implementation
+dropped three signals the live path acts on:
+
+| verdict key | monitors emitting it | live | harness (before) |
+|---|---|---|---|
+| `exit_price` | **4 / 9** — incl. `trend_donchian`, the calibration target | exit fills AT it | ignored; **bar close** |
+| `close_qty_pct` < 1 | **1 / 9** (`turtle_soup`) | partial; runner stays open | closed **100 %** |
+| `next_tp` | **1 / 9** (`turtle_soup`) | rolls the package TP | ignored |
+
+So no `turtle_soup` backtest ever contained a **runner** — the part of a
+scale-out that earns the trend — and every trail-stop exit on the four
+`exit_price` strategies was booked at the wrong price. Two further divergences
+(an `elif` chain applying `sl` **or** `tp`; no meaningful-change tolerance) are
+**latent** — 0 / 9 monitors emit both keys today — and are recorded as latent
+rather than folded into the count.
+
+**The fix is the P2 seam, applied to the exit path.**
+[`src/runtime/monitor_verdict.py`](../../src/runtime/monitor_verdict.py) now owns
+what a verdict *means*; each caller owns only its own **effectuation**
+(DB + exchange live, in-memory position in the harness). Fidelity there is
+structural, not per-lever bookkeeping. Also: a `monitor()` that **raises** is
+now counted per owner and surfaced in the run summary — it was swallowed into
+`verdict = None`, so a broken exit path read as a quiet one and a run could
+report a clean exit profile over bars where the exit path never ran.
+
+Verified by reverting: all 6 harness tests **fail** against the pre-change
+effectuation, so they measure the change rather than restate it.
+
+**What P2 still owes** (this is a slice, not the phase):
+
+1. **`SimBroker` (component B)** — not started. Fills, partial fills, latency
+   and roll drag are still absent; only fees/slippage/funding are modelled
+   (§ 5b). This is the remaining "one swapped seam".
+2. **The signal-builder CONTEXT** is still parallel-implemented — the HTF-bias
+   injection, the ADX/vol regime stamping, and the account/risk state the live
+   builder sees. `order_package` itself is real; what is fed to it is not.
+3. **The runtime exit LAYER above `monitor()`** — `order_monitor.py`'s exit
+   heads, trail-decay and stale-stop levers, and the `ExitPlan` ladder — is
+   still absent from the harness. The verdict seam makes wiring it tractable;
+   it does not wire it.
+4. **Re-run the calibrator** for `trend_donchian` and `turtle_soup`. Their
+   backtest trade distributions have changed, so the § 5a/5b agreement numbers
+   are now stale for those two legs. **No claim is made here about whether the
+   gap narrowed** — that is a measurement nobody has taken yet, and it needs
+   the trainer's real candle history (the committed `data/backtest_candles.csv`
+   is ~3.5 days and produces 0 trades, which is an absent result, not a clean
+   one).
 
 ## 6. Why this is not another partial fix
 The partial fix would be "wire the nightly build and wait for more trades." This
