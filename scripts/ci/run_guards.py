@@ -251,6 +251,36 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["lint-imports", "--config", ".importlinter"]],
     },
     {
+        "name": "news-feed-coverage-guard",
+        # Runs on the two registries that decide the answer + the resolver +
+        # the guard itself. instruments.yaml is in the list because ADDING an
+        # instrument is now what grants news coverage — that is the whole point
+        # of deriving it, and it is also the moment coverage can regress.
+        "when": {
+            "globs": [
+                "config/instruments.yaml",
+                "config/news_feeds.yaml",
+                "config/accounts.yaml",
+                "config/strategies.yaml",
+                "src/core/instrument_class.py",
+                "src/news/news_feeds.py",
+                "scripts/ci/check_news_feed_coverage.py",
+            ]
+        },
+        "steps": [["python3", "scripts/ci/check_news_feed_coverage.py"]],
+        # Deliberately NOT in the notify set. `tests/ci/test_run_guards.py::
+        # test_notify_set_is_preserved` pins that set and caught this guard
+        # being added to it — correctly: "that is a behaviour change, not
+        # packaging."
+        #
+        # The six guards that DO ping (dry-run, env-gate, new-table-wiring,
+        # silent-empty, strategy-risk, writer-conformance) all police defects
+        # that could reach production silently. This one cannot: a coverage
+        # gap fails the build, so the PR is already red and unmergeable. A
+        # Telegram on top adds an alarm for something that is impossible to
+        # miss — and this repo treats a desensitised alarm as itself a P1.
+    },
+    {
         "name": "new-table-wiring-guard",
         "when": {"globs": ["**/*.py", "**/*.sql"]},
         "steps": [["python3", "scripts/check_new_table_wiring.py", "{pr_diff}"]],

@@ -1,132 +1,49 @@
-"""Asset-class resolution for the reporting layer (read-only).
+"""Asset-class resolution for the reporting layer — **re-export shim**.
 
-Maps a trade ``symbol`` to a coarse **asset class** so the dashboard / mobile
-app can show a P&L breakdown across crypto / index / commodity / equity / fx —
-the "where is performance divided" executive view.
+The implementation moved to :mod:`src.core.instrument_class` on 2026-08-07.
+It lives in the domain layer now because an instrument's class is a property of
+the INSTRUMENT, not of the reporting surface that first needed it — and because
+a second consumer (the M9 news layer, Layer 1 Signals) now resolves feed groups
+from the same table. Reaching into a *private* module of the web API package
+from a runtime signals component would have been the band-aid version.
 
-This is a **reporting-only** helper. It is imported by the web API's
-``/performance`` aggregation and NOTHING in the order path — asset class never
-influences sizing, routing, or execution (those use ``contract_value_usd`` /
-``category`` from the same config).
+This module stays so the ``/performance`` ``perAssetClass`` aggregate and the
+``assetClass`` field on ``/positions`` / ``/trades/closed`` /
+``/order-packages`` keep importing the path they always have. Nothing here has
+behaviour of its own — edit :mod:`src.core.instrument_class`.
 
-Source of truth, in order:
-  1. An explicit per-instrument ``asset_class`` override in
-     ``config/instruments.yaml`` (optional field — config-driven, so a future
-     instrument can pin its class without a code change).
-  2. A heuristic over the instrument's existing ``exchange`` / ``category`` /
-     ``base_asset`` fields (so an *untagged* new instrument still classifies
-     sensibly with no edit).
-
-Canonical class tokens: ``crypto``, ``index``, ``commodity``, ``bond``,
-``equity``, ``fx``, ``unknown``.
+⚠️ The predecessor of this module described itself as "reporting-only ...
+NOTHING in the order path". That is no longer true — see the scope note in
+:mod:`src.core.instrument_class`: ``news_group_for_symbol`` selects the RSS
+feeds the news layer reads, and the news layer can veto a signal. Asset class
+still never influences sizing or routing.
 """
 
 from __future__ import annotations
 
-import logging
-from functools import lru_cache
-from typing import Dict, Optional
+from src.core.instrument_class import (  # noqa: F401  (re-exported API)
+    BOND,
+    CLASS_ORDER,
+    COMMODITY,
+    CRYPTO,
+    EQUITY,
+    FX,
+    INDEX,
+    UNKNOWN,
+    _infer,
+    asset_class_for_symbol,
+    reset_cache,
+)
 
-logger = logging.getLogger(__name__)
-
-CRYPTO = "crypto"
-INDEX = "index"
-COMMODITY = "commodity"
-BOND = "bond"
-EQUITY = "equity"
-FX = "fx"
-UNKNOWN = "unknown"
-
-# Display order the consumers iterate (stable, business-readable).
-CLASS_ORDER = [CRYPTO, INDEX, COMMODITY, BOND, EQUITY, FX, UNKNOWN]
-
-# Heuristic roots (fallback only — the explicit override always wins). These
-# are base-asset / symbol roots, not an exhaustive registry; they exist so an
-# instrument added to instruments.yaml without an ``asset_class`` line still
-# lands in the right bucket.
-_INDEX_ROOTS = {"ES", "NQ", "YM", "RTY", "MES", "MNQ", "MYM", "M2K"}
-_COMMODITY_ROOTS = {
-    "GC", "SI", "HG", "PL", "PA", "CL", "NG", "MGC", "MHG",
-    "XAU", "XAG", "GLD", "SLV", "USO",
-}
-_BOND_ROOTS = {
-    "TLT", "IEF", "AGG", "BND", "LQD", "HYG", "SHY", "TLH", "IEI", "SHV",
-    "BNDX", "TIP",
-}
-_EQUITY_ROOTS = {"SPY", "QQQ", "IWM", "DIA", "VOO", "VTI"}
-
-
-def _infer(symbol: str, exchange: str, category: str, base_asset: str) -> str:
-    """Best-effort asset class from an instrument's structural fields."""
-    s = (symbol or "").upper()
-    b = (base_asset or "").upper()
-    e = (exchange or "").strip().lower()
-    c = (category or "").strip().lower()
-
-    # Commodity / index roots are checked first because their exchange
-    # (interactive_brokers / alpaca) is ambiguous on its own.
-    if b in _COMMODITY_ROOTS or s in _COMMODITY_ROOTS:
-        return COMMODITY
-    if b in _BOND_ROOTS or s in _BOND_ROOTS:
-        return BOND
-    if b in _INDEX_ROOTS or s in _INDEX_ROOTS:
-        return INDEX
-    if e == "bybit" or c in ("linear", "inverse"):
-        return CRYPTO
-    # Unregistered crypto perp convention (e.g. DOGEUSDT) — suffix heuristic so
-    # a not-yet-tagged symbol still buckets as crypto instead of "unknown".
-    if s.endswith(("USDT", "USDC", "USDP")):
-        return CRYPTO
-    if e == "oanda":
-        return FX
-    if e == "alpaca" or b in _EQUITY_ROOTS:
-        return EQUITY
-    return UNKNOWN
-
-
-@lru_cache(maxsize=1)
-def _table() -> Dict[str, str]:
-    """Build {symbol: asset_class} from config/instruments.yaml (cached)."""
-    table: Dict[str, str] = {}
-    try:
-        import yaml
-
-        from src.core.profile_loader import _DEFAULT_INSTRUMENTS_PATH
-
-        with open(_DEFAULT_INSTRUMENTS_PATH, "r") as fh:
-            raw = yaml.safe_load(fh) or {}
-        for symbol, data in (raw.get("instruments", {}) or {}).items():
-            data = data or {}
-            override = data.get("asset_class")
-            if override and str(override).strip():
-                table[symbol.upper()] = str(override).strip().lower()
-            else:
-                table[symbol.upper()] = _infer(
-                    symbol,
-                    data.get("exchange", ""),
-                    data.get("category", ""),
-                    data.get("base_asset", symbol),
-                )
-    except FileNotFoundError:
-        logger.debug("_asset_class: instruments.yaml not found; heuristic-only")
-    except Exception:  # noqa: BLE001  # allow-silent: reporting-only resolver — a config parse error is logged (logger.warning, exc_info) and falls back to the per-symbol heuristic; it must never break the /performance read path
-        logger.warning("_asset_class: failed to load instruments.yaml", exc_info=True)
-    return table
-
-
-def asset_class_for_symbol(symbol: Optional[str]) -> str:
-    """Return the coarse asset class for *symbol* (``unknown`` if unresolved)."""
-    if not symbol:
-        return UNKNOWN
-    s = str(symbol).strip().upper()
-    table = _table()
-    if s in table:
-        return table[s]
-    # Symbol absent from instruments.yaml — infer from the symbol root alone so
-    # a not-yet-registered instrument still buckets instead of vanishing.
-    return _infer(s, "", "", s)
-
-
-def reset_cache() -> None:
-    """Clear the cached table (tests / hot-reload)."""
-    _table.cache_clear()
+__all__ = [
+    "CRYPTO",
+    "INDEX",
+    "COMMODITY",
+    "BOND",
+    "EQUITY",
+    "FX",
+    "UNKNOWN",
+    "CLASS_ORDER",
+    "asset_class_for_symbol",
+    "reset_cache",
+]
