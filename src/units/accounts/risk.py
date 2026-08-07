@@ -297,6 +297,37 @@ class RiskManager:
         # the same 5%-of-equity figure.
         self.daily_loss_pct: float = float(config.get("daily_loss_pct", 0.0) or 0.0)
         self.risk_pct: float = float(config.get("risk_pct", 0.01))
+        # ── Per-account EXPOSURE ceiling (2026-08-07, operator-directed) ────
+        # Gross open notional, as a MULTIPLE OF EQUITY, that this account may
+        # carry. ``0`` / unset = no ceiling (behaviour byte-for-byte unchanged
+        # for every account that has not declared one).
+        #
+        # WHY THIS LIVES HERE, and why it is not the max-notional cap that the
+        # 2026-06-24 directive removed (see ``evaluate``):
+        #
+        # That directive rejected an ARBITRARY USD ceiling — "a number
+        # unrelated to the account's actual capacity" — and it was right. This
+        # is the opposite construction: a multiple of the account's own equity,
+        # the identical shape to ``max_dd_pct`` and ``daily_loss_pct`` that the
+        # same directive left standing. It passes the test that directive set.
+        #
+        # Before this existed the RiskManager owned only LOSS risk (realised
+        # daily PnL + intraday drawdown) and delegated EXPOSURE entirely to the
+        # broker's ``available_usd``. Three problems with that, all observed
+        # live on ``alpaca_paper`` (BL-20260807-ALPACA-PAPER-ZERO-BUYING-POWER-REFUSES-ALL):
+        #   1. it adopts the VENUE's risk appetite (Reg-T 2x) as ours by
+        #      default — a regulatory margin limit, never a decision we made;
+        #   2. it is a WALL, not a gradient: it permits everything until it
+        #      permits nothing. alpaca_paper walked to 2.03x ungoverned and
+        #      then refused every signal with ``sized_qty=0``;
+        #   3. it is venue-non-uniform and silently variable — Bybit passes
+        #      ``totalAvailableBalance``, Alpaca ``regt_buying_power``, and any
+        #      fetch failure falls back to a buffer off total equity. So the
+        #      effective policy differed per account AND changed when a network
+        #      call failed, while being declared nowhere.
+        self.max_gross_exposure_pct: float = float(
+            config.get("max_gross_exposure_pct", 0.0) or 0.0
+        )
         # Confidence-aware sizing (operator directive 2026-06-29). The account
         # ``risk_pct`` is the per-trade BASIS/CAP; a trade's size is scaled
         # DOWN by its order-package confidence via a pure bounded curve. This
@@ -406,6 +437,80 @@ class RiskManager:
             return float(row[0]) if row and row[0] is not None else 0.0
         except Exception:
             return None  # journal unavailable — keep in-memory value
+
+    def _open_gross_notional_from_db(self) -> Optional[float]:
+        """Sum |qty x entry_price| over this account's OPEN trades.
+
+        The exposure counterpart of ``_recompute_daily_pnl_from_db`` — the
+        RiskManager sources its own account state from the journal rather than
+        depending on a caller to hand it in. That pattern already existed for
+        daily PnL and equity; exposure follows it, so this adds no new plumbing
+        and no new caller contract.
+
+        Entry-price basis (not mark) is deliberate: it is what the account
+        COMMITTED, it is join-free, and it cannot swing the ceiling around on
+        market noise the way a live mark would. Gross (absolute) rather than
+        net: two offsetting positions still consume margin and still carry
+        execution risk on both legs.
+
+        Read-only. Returns ``None`` when the journal is unavailable — the
+        caller then leaves the ceiling unenforced rather than guessing, because
+        refusing trades on an unreadable DB would be a self-inflicted outage.
+        """
+        if not self.account_id:
+            return None
+        try:
+            import sqlite3
+            uri = "file:%s?mode=ro" % self._risk_db_path()
+            with sqlite3.connect(uri, uri=True, timeout=5) as conn:
+                row = conn.execute(
+                    "SELECT COALESCE(SUM(ABS("
+                    "  COALESCE(position_size, 0) * COALESCE(entry_price, 0)"
+                    ")), 0.0) FROM trades "
+                    "WHERE account_id=? AND status='open' "
+                    # ``is_backtest`` DEFAULTS TO 1 on this table, so omitting
+                    # this predicate would count backtest rows as live exposure
+                    # and throttle real trading on simulated positions. Same
+                    # COALESCE(...,0)=0 form the rest of the codebase uses
+                    # (positions.py, dashboard.py) so NULL reads as live.
+                    "AND COALESCE(is_backtest, 0) = 0",
+                    (self.account_id,),
+                ).fetchone()
+            return float(row[0]) if row and row[0] is not None else 0.0
+        except Exception:
+            return None  # journal unavailable — ceiling left unenforced
+
+    def gross_exposure(self) -> Optional[tuple[float, float, float]]:
+        """Return ``(open_notional, equity, exposure_multiple)`` or ``None``.
+
+        ``None`` when the ceiling is not configured, or when either input is
+        unavailable — an unmeasurable exposure is reported as unmeasurable, not
+        as zero. (A zero here would read as "flat" and silently authorise a
+        fresh position on an account that is actually at its limit.)
+        """
+        if self.max_gross_exposure_pct <= 0:
+            return None
+        equity = self.current_equity
+        if equity is None:
+            equity = self._account_equity_from_snapshot()
+        if equity is None or equity <= 0:
+            return None
+        notional = self._open_gross_notional_from_db()
+        if notional is None:
+            return None
+        return notional, float(equity), notional / float(equity)
+
+    def exposure_headroom_usd(self) -> Optional[float]:
+        """Remaining gross notional this account may still open, in USD.
+
+        ``None`` = no ceiling configured or exposure unmeasurable (caller must
+        not clamp). ``0.0`` = at or over the ceiling.
+        """
+        state = self.gross_exposure()
+        if state is None:
+            return None
+        notional, equity, _mult = state
+        return max(0.0, (self.max_gross_exposure_pct * equity) - notional)
 
     def _account_equity_from_snapshot(self) -> Optional[float]:
         """Best-effort current equity from runtime_logs/balance_snapshots.json.
@@ -570,6 +675,17 @@ class RiskManager:
         dd = self.intraday_drawdown()
         if dd is not None and dd >= self.max_dd_pct:
             return False, "INTRADAY_DRAWDOWN"
+
+        # Gross-exposure ceiling (2026-08-07). Only refuses when the account is
+        # ALREADY at/over its declared multiple — the partial case is handled
+        # in position_size(), which downsizes into the remaining headroom
+        # instead of rejecting. That split is the point: a risk policy should
+        # shape size on the way up and only refuse at the boundary, which is
+        # exactly what delegating to the broker's available-margin wall did not
+        # do. Unmeasurable exposure (gross_exposure() -> None) does NOT refuse.
+        state = self.gross_exposure()
+        if state is not None and state[2] >= self.max_gross_exposure_pct:
+            return False, "GROSS_EXPOSURE_CAP"
 
         return True, None
 
@@ -868,6 +984,33 @@ class RiskManager:
                     return 0.0
                 qty = capped
 
+        # ── Gross-exposure headroom clamp (2026-08-07) ─────────────────────
+        # The GRADIENT half of the exposure ceiling. evaluate() refuses only
+        # once the account is already at/over its multiple; here a trade that
+        # would merely CROSS it is trimmed to fit the remaining headroom.
+        #
+        # This is what the broker's available-margin ceiling could never do:
+        # that figure is a wall (everything, then nothing), so an account
+        # accumulated to the venue's regulatory limit ungoverned and then hard-
+        # refused every signal. Sizing into declared headroom governs on the
+        # way up instead.
+        #
+        # Ordered AFTER the margin cap on purpose — the broker's ceiling is a
+        # hard mechanical limit we must respect regardless, while this is our
+        # own policy layered inside it. Whichever binds tighter wins, which is
+        # the correct composition.
+        headroom = self.exposure_headroom_usd()
+        if headroom is not None and package.entry:
+            max_qty_by_exposure = headroom / package.entry
+            if qty > max_qty_by_exposure:
+                capped = _floor_to_step(max_qty_by_exposure, eff_precision)
+                if capped < eff_min_qty:
+                    # Not enough headroom for even a minimum lot. A per-trade
+                    # refusal with a logged cause — the Prime-Directive shape —
+                    # never an account-level demotion.
+                    return 0.0
+                qty = capped
+
         return qty
 
     def reset_daily(self) -> None:
@@ -882,7 +1025,25 @@ class RiskManager:
         # (so the dashboard/digest shows the real budget, not the absolute
         # fallback) — uses current_equity, falling back to daily_usd.
         eff_daily_loss = self.effective_daily_loss_usd()
+        # Exposure block. Reported whenever a ceiling is declared, INCLUDING
+        # when it is unmeasurable — a null here says "we could not measure it",
+        # which is a different and more useful statement than omitting the key
+        # (omission reads as "no ceiling") or emitting 0.0 (reads as "flat").
+        _exp = self.gross_exposure()
+        exposure = None
+        if self.max_gross_exposure_pct > 0:
+            exposure = {
+                "max_gross_exposure_pct": self.max_gross_exposure_pct,
+                "open_gross_notional": round(_exp[0], 2) if _exp else None,
+                "equity": round(_exp[1], 2) if _exp else None,
+                "exposure_multiple": round(_exp[2], 4) if _exp else None,
+                "headroom_usd": (
+                    round(self.exposure_headroom_usd(), 2) if _exp else None
+                ),
+                "measured": _exp is not None,
+            }
         return {
+            "exposure": exposure,
             "daily_pnl": round(self.daily_pnl, 2),
             "max_daily_loss_usd": round(eff_daily_loss, 2),
             "daily_loss_pct": self.daily_loss_pct,
