@@ -10104,6 +10104,36 @@
         "vm-diag #8550 (live rows, same window, 100% BTCUSDT)",
         "PR #8551 (the logged_at_utc reader bug that was masking this)"
       ]
+    },
+    {
+      "id": "BL-20260807-ML2-DATASET-STALE-BLOCKS-VOLGATE-PARITY",
+      "opened_at": "2026-08-07T01:20:00+00:00",
+      "opened_by": "claude (metis-insights-workplan-cont fczb1e)",
+      "severity": "medium",
+      "status": "open",
+      "source": "ML2 2-D regime-cell re-audit, trainer-vm-diag #8558/#8561. Surfaced by the verify staleness fix in PR #8553 (ecc414e).",
+      "title": "[ml][Tier-1] BTCUSDT 15m market_features v520 ends 2026-06-30 — the ML vol-gate's live parity is UNMEASURABLE (4-row overlap), not merely unverified",
+      "description": "POPULATION: data/trade_journal.db::signals on the trainer, 3,900 regime_hard_gate rows (100% BTCUSDT, 2026-06-08 -> 2026-08-06); 208 carry vol_regime_ml (100% of rows since 2026-07-01; the 3,692 without are pre-go-live June).\n\nThe labels file replayed from datasets-out/market_features/BTCUSDT/15m/v520 spans 2021-07-01 -> 2026-06-30T22:30:00Z (175,272 rows). The ML vol axis went live 2026-06-29. So ML-labelled audit rows INSIDE the labels range = 4; AFTER = 204.\n\nConsequence: ml_vol_label_replay verify cannot establish live parity at all right now. Before ecc414e it appeared to (comparable 208, agreement_pct 95.67) only because it clamped the 204 out-of-range rows onto the final bar. With the bound in place it correctly reports a 4-row overlap.\n\nFIX: rebuild market_features BTCUSDT 15m through the current date, re-replay (ml_vol_label_replay replay --vol-bucket live), re-run verify with --min-overlap. Note the replay must use the head that was ADVISORY during the audit window: btc-regime-15m-lgbm-fc-pcv-v2 only became advisory 2026-08-04, so rows from 06-29..08-04 were produced by -v1. A v2 replay compared against v1-era live rows is a cross-model comparison and must be labelled as such.\n\nBLOCKS: any claim of live parity for the BTC vol gate, and by extension any cell verdict presented as live-confirmed rather than backtest-only."
+    },
+    {
+      "id": "BL-20260807-ICT-SCALP-5M-CELLS-HAVE-NO-EVIDENCE-PATH",
+      "opened_at": "2026-08-07T01:20:00+00:00",
+      "opened_by": "claude (metis-insights-workplan-cont fczb1e)",
+      "severity": "medium",
+      "status": "open",
+      "source": "ML2 2-D regime-cell re-audit, trainer-vm-diag #8562. See docs/research/ML2-trend-vol-cell-walkforward-2026-08-07.md.",
+      "title": "[ml][Tier-1] Two of the six authored trend_vol OFF-cells (ict_scalp_5m) are UNGRADABLE by regime_cell_walkforward — neither justified nor refuted",
+      "description": "regime_cell_walkforward.py returns `ERROR: unclassifiable (no donchian/pullback/squeeze params or no symbol/timeframe)` for ict_scalp_5m, so both of its authored cells -- trending/volatile {long: off, short: off} and chop/volatile {long: off, short: off} -- have NO walk-forward evidence path.\n\nThis matters because docs/strategy-review-gate.md and the regime-selectivity skill both make walk-forward the gate a losing cell must survive before it can be an OFF-cell. These two cells rest solely on the 2026-07-20 Phase-4 packet (docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md) and cannot currently be re-checked by the tool the gate doc points at.\n\nThis is NOT a claim the cells are wrong -- it is a claim they are unfalsifiable with current tooling, which is its own risk (the cosmetic-cell anti-pattern, BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS, is exactly what walk-forward exists to catch).\n\nFIX: either teach the harness to classify ict_scalp_5m (it is a 5m scalp, not donchian/pullback/squeeze), or record explicitly in config/regime_policy.yaml that these two cells are packet-based and walk-forward-exempt, with the reason."
+    },
+    {
+      "id": "BL-20260807-REQUIRED-CHECKS-LACK-WORKFLOW-DISPATCH",
+      "opened_at": "2026-08-07T01:20:00+00:00",
+      "opened_by": "claude (metis-insights-workplan-cont fczb1e)",
+      "severity": "low",
+      "status": "open",
+      "source": "Surfaced by the 2026-08-06 GitHub Actions webhook-throttle incident, which left PRs unmergeable for ~6h with no recovery path.",
+      "title": "[ci][Tier-1] Every required-check workflow should carry a workflow_dispatch trigger so a webhook outage is recoverable",
+      "description": "During the 2026-08-06 Actions incident, push webhooks were throttled to ~15% and several pushes to claude/** produced ZERO workflow runs. There was no way to satisfy the required-check set manually:\n  * guards.yml was new in the PR and not yet on the default branch, so run_workflow returns 404 for any ref (a workflow must be on the default branch to be dispatchable);\n  * pytest-collect has no workflow_dispatch trigger at all.\n\nSo a green-able PR sat unmergeable with no operator-free recovery. Adding `workflow_dispatch:` to each required-check workflow costs nothing and converts a hard block into a manual re-trigger.\n\nNote this composes with the now-verified `run_workflow` MCP capability (re-verified 2026-08-06, HTTP 204) -- the tool exists, the triggers do not."
     }
   ],
   "updated_at": "2026-08-07T00:35:00+00:00",
