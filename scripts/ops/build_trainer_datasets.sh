@@ -228,6 +228,14 @@ emit "$(printf '{"ts":"%s","status":"build_start","datasets_root":"%s","version"
 POOL_BT_DB="${DATASETS_ROOT}/backtest_trades.db"
 AUGMENT_DB_PATH="${DB_PATH}"
 POOL_MERGED=""
+# Carried into the final `build_end` line. A merge failure is a DEGRADED cycle,
+# not a neutral one: the pooled builds silently train on the ~78-row journal-only
+# wall while every family still reports ok, so the one summary line a reader
+# actually looks at must say so. The existing mid-run `status:failed` emit was
+# true and went unread for exactly that reason
+# (BL-20260807-POOLED-AUGMENT-MERGE-SILENT-FALLBACK).
+AUGMENT_DEGRADED=0
+AUGMENT_DEGRADED_REASON=""
 if [ -f "$POOL_BT_DB" ] && [ -f "$DB_PATH" ]; then
   POOL_MERGED="/tmp/pooled_augment_merged_$$.db"
   set +e
@@ -235,16 +243,41 @@ if [ -f "$POOL_BT_DB" ] && [ -f "$DB_PATH" ]; then
 import sqlite3, sys
 merged, bt_db = sys.argv[1:]
 dst = sqlite3.connect(merged)
-cols = [r[1] for r in dst.execute("PRAGMA table_info(trades)")]
+dst_info = list(dst.execute("PRAGMA table_info(trades)"))
+cols = [r[1] for r in dst_info]
+# NEVER copy the destination's INTEGER PRIMARY KEY across databases.
+# `backtest_trades.db` and the journal number `trades.id` INDEPENDENTLY from 1,
+# so carrying the source id over is a guaranteed collision once the two ranges
+# overlap — which is exactly what happened on 2026-08-07:
+#   sqlite3.IntegrityError: UNIQUE constraint failed: trades.id
+# and the merge then fell back to a journal-only (un-augmented) build for the
+# whole cycle. Dropping the pk lets SQLite assign fresh rowids; nothing joins
+# these synthetic rows on id (they are is_backtest=1 label feedstock).
+# BL-20260807-POOLED-AUGMENT-MERGE-SILENT-FALLBACK.
+pk_cols = {r[1] for r in dst_info if r[5]}  # r[5] = pk position, 0 when not pk
 bt = sqlite3.connect(f"file:{bt_db}?mode=ro", uri=True)
 # Copy the intersection of columns (the recorder db schema may trail the journal's).
-bt_cols = [r[1] for r in bt.execute("PRAGMA table_info(trades)") if r[1] in cols]
+bt_cols = [r[1] for r in bt.execute("PRAGMA table_info(trades)")
+           if r[1] in cols and r[1] not in pk_cols]
+if not bt_cols:
+    raise SystemExit("pooled augment merge: no copyable columns after dropping "
+                     f"pk {sorted(pk_cols)} — schemas share nothing")
 csv = ", ".join(bt_cols)
 rows = bt.execute(f"SELECT {csv} FROM trades WHERE is_backtest = 1").fetchall()
+# A merge that inserts ZERO rows is a vacuous success: the build proceeds
+# "augmented" over an un-augmented population and every downstream number looks
+# fine. Assert the input rather than the exit code (CLAUDE-RULES-CANONICAL
+# § "Green is not evidence", obligation 1).
+if not rows:
+    raise SystemExit("pooled augment merge: backtest_trades.db has 0 rows with "
+                     "is_backtest=1 — refusing to report a vacuous merge")
 dst.executemany(
     f"INSERT INTO trades ({csv}) VALUES ({', '.join('?' * len(bt_cols))})", rows)
 dst.commit()
-print(f"pooled augment db: backtest_rows_added={len(rows)}")
+# Verify against the destination, not against our own intent.
+added = dst.execute("SELECT COUNT(*) FROM trades WHERE is_backtest = 1").fetchone()[0]
+print(f"pooled augment db: backtest_rows_added={len(rows)} "
+      f"is_backtest_rows_in_merged={added} pk_dropped={sorted(pk_cols)}")
 PYAUG
   aug_rc=$?
   set -e
@@ -253,6 +286,7 @@ PYAUG
     emit "$(printf '{"ts":"%s","status":"ok","family":"pooled_augment_merge","detail":"journal + backtest_trades.db merged for include_backtest pooled builds"}' "$(iso_now)")"
   else
     emit "$(printf '{"ts":"%s","status":"failed","family":"pooled_augment_merge","detail":"merge failed (rc=%s) — pooled builds fall back to journal-only this cycle"}' "$(iso_now)" "$aug_rc")"
+    AUGMENT_DEGRADED=1; AUGMENT_DEGRADED_REASON="merge_failed_rc_${aug_rc}"
     rm -f "$POOL_MERGED"; POOL_MERGED=""
   fi
 else
@@ -262,6 +296,7 @@ else
   # research-backtest-augment workflow now runs weekly + SSH-lands this db, so an
   # absent db here is an anomaly worth flagging (status:warning, not skipped).
   emit "$(printf '{"ts":"%s","status":"warning","family":"pooled_augment_merge","detail":"%s ABSENT — pooled builds fell back to journal-only (augmentation INERT). The weekly research-backtest-augment workflow should land it; re-run that workflow if this persists."}' "$(iso_now)" "$POOL_BT_DB")"
+  AUGMENT_DEGRADED=1; AUGMENT_DEGRADED_REASON="augment_db_absent"
 fi
 # Staleness flag: the db is present but older than the ~weekly refresh cadence ⇒
 # the augmentation is running on a stale corpus. Warn (still merges — stale beats
@@ -429,7 +464,7 @@ if ! python -c "import ccxt" 2>/dev/null; then
   set -e
   if [ "$ccxt_rc" -ne 0 ]; then
     emit "$(printf '{"ts":"%s","status":"skipped","family":"market_raw","detail":"ccxt install failed; regime-classifier baseline skipped"}' "$(iso_now)")"
-    emit "$(printf '{"ts":"%s","status":"build_end","overall_rc":%d}' "$(iso_now)" "$overall_rc")"
+    emit "$(printf '{"ts":"%s","status":"build_end","overall_rc":%d,"augmentation_degraded":%s,"augmentation_degraded_reason":"%s"}' "$(iso_now)" "$overall_rc" "$( [ "$AUGMENT_DEGRADED" -eq 1 ] && echo true || echo false )" "$AUGMENT_DEGRADED_REASON")"
     exit "$overall_rc"
   fi
 fi
@@ -1045,5 +1080,5 @@ build_xsym_setup_candidates() {
 
 build_xsym_setup_candidates
 
-emit "$(printf '{"ts":"%s","status":"build_end","overall_rc":%d}' "$(iso_now)" "$overall_rc")"
+emit "$(printf '{"ts":"%s","status":"build_end","overall_rc":%d,"augmentation_degraded":%s,"augmentation_degraded_reason":"%s"}' "$(iso_now)" "$overall_rc" "$( [ "$AUGMENT_DEGRADED" -eq 1 ] && echo true || echo false )" "$AUGMENT_DEGRADED_REASON")"
 exit "$overall_rc"
