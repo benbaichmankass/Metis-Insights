@@ -75,6 +75,17 @@ runtime — reported honestly.**
 2. Is the red evidence a clean backtest, population stated, not fabricated marks? (Rule 2)
 3. Does `regime_cell_walkforward.py` on the actual **2-D** cell (with `--vol-labels`) return
    `*_stable_drag` (not `*_fold_sensitive`) under `FOLD_PANEL=(3,4,5)`? (Rule 2)
+3a. **Read the verdict for the direction the cell ACTUALLY gates**, and check that
+   direction has trades. Look up the cell in `config/regime_policy.yaml` first —
+   four of the six authored `trend_vol` cells are `long: off`, and until
+   2026-08-07 the tool's text output printed **only** the `short_*` verdict under
+   a heading reading `CELL VERDICT`, so a `long: off` cell was silently graded on
+   the wrong direction. Measured that day on trending/volatile `trend_donchian`:
+   all 9 trades LONG, zero SHORT, and it still read `short_stable_drag=False` — a
+   determinate-looking verdict over an empty population. Both directions now
+   print, and a direction with no trades is marked
+   `[NO TRADES — verdict is vacuous]`. **A verdict over zero trades is not a
+   negative finding; it is no finding.**
 4. Does the label the cell keys on match what `ml_vol_regime_for_symbol` /
    `predict_proba["volatile"]` resolves at runtime for that symbol? (Rule 3)
 5. Only then: prepare the Tier-3 packet + `account_compat_matrix`; the operator flips.
