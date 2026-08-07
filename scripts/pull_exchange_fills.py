@@ -33,6 +33,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from src.runtime.bybit_ccxt import build_bybit_client  # noqa: E402
 from src.runtime.exchange_accounts import live_bybit_fill_accounts  # noqa: E402
 from src.runtime.exchange_fills_puller import fetch_fills_window  # noqa: E402
 from src.runtime.exchange_fills_store import upsert_fills  # noqa: E402
@@ -118,26 +119,21 @@ def _pull_one_account(
     days: int,
     symbols,
     fills_path,
+    demo: bool = False,
 ) -> int:
     """Pull one Bybit account's fills into the store; return rows inserted.
 
     Builds a fresh ccxt client per account so each authenticates with its own
-    key pair (a shared client can't switch credentials mid-loop).
-    """
-    # Local import: ccxt is heavy and the puller may run in a tight
-    # cron cycle. Importing inside the call keeps `--help` snappy.
-    import ccxt  # noqa: PLC0415
+    key pair (a shared client can't switch credentials mid-loop), via the one
+    shared demo-aware builder — a demo account MUST be dialled on
+    ``api-demo.bybit.com`` or every request is rejected ``retCode 10003``.
 
-    exchange = ccxt.bybit({
-        "apiKey": api_key,
-        "secret": api_secret,
-        "enableRateLimit": True,
-        # ccxt's Bybit V5 routing: perp fills need defaultType=swap AND an
-        # explicit category param on the call (same convention as
-        # src/exchange/bybit_connector.py — the construction-time default
-        # alone is not load-bearing on the unified account).
-        "options": {"defaultType": "swap" if category == "linear" else "spot"},
-    })
+    Raises ``FillsWindowUnavailable`` when the account could not be read at all,
+    so the caller can count it as a FAILURE rather than as an empty book.
+    """
+    exchange = build_bybit_client(
+        api_key=api_key, api_secret=api_secret, category=category, demo=demo,
+    )
 
     def _fetch_my_trades(sym, since, limit, params):
         merged = dict(params or {})
@@ -152,8 +148,8 @@ def _pull_one_account(
     )
     inserted = upsert_fills(rows, path=fills_path)
     logger.info(
-        "pull_exchange_fills: account=%s category=%s days=%d candidates=%d inserted=%d store=%s",
-        account_id, category, days, len(rows), inserted,
+        "pull_exchange_fills: account=%s category=%s demo=%s days=%d candidates=%d inserted=%d store=%s",
+        account_id, category, demo, days, len(rows), inserted,
         fills_path if fills_path is not None else "(default resolver)",
     )
     return inserted
@@ -171,7 +167,9 @@ def main(argv: list[str]) -> int:
                 "--all-bybit-accounts: no live Bybit accounts in config/accounts.yaml"
             )
             return 2
-        ran = 0
+        ok = 0
+        failed: list[str] = []
+        skipped: list[str] = []
         total_inserted = 0
         for acct in accounts:
             api_key = os.environ.get(acct.key_env)
@@ -181,24 +179,49 @@ def main(argv: list[str]) -> int:
                     "pull_exchange_fills: skip %s — %s / %s not set",
                     acct.account_id, acct.key_env, acct.secret_env,
                 )
+                skipped.append(acct.account_id)
                 continue
-            total_inserted += _pull_one_account(
-                account_id=acct.account_id,
-                api_key=api_key,
-                api_secret=api_secret,
-                category=acct.category,
-                days=args.days,
-                symbols=args.symbol,
-                fills_path=fills_path,
-            )
-            ran += 1
+            try:
+                total_inserted += _pull_one_account(
+                    account_id=acct.account_id,
+                    api_key=api_key,
+                    api_secret=api_secret,
+                    category=acct.category,
+                    days=args.days,
+                    symbols=args.symbol,
+                    fills_path=fills_path,
+                    demo=acct.demo,
+                )
+            except Exception as exc:  # noqa: BLE001
+                # One unreachable account must not abort the others (bybit_2's
+                # real-money coverage is not hostage to a demo-key problem) —
+                # but it is recorded as a FAILURE and propagates to the exit
+                # code, so the unit goes red instead of reporting success over
+                # a 100%-uncovered account.
+                logger.error(
+                    "pull_exchange_fills: account=%s FAILED (demo=%s): %s",
+                    acct.account_id, acct.demo, exc,
+                )
+                failed.append(acct.account_id)
+                continue
+            ok += 1
         logger.info(
-            "pull_exchange_fills: all-bybit-accounts done — ran=%d/%d total_inserted=%d",
-            ran, len(accounts), total_inserted,
+            "pull_exchange_fills: all-bybit-accounts done — ok=%d failed=%d%s "
+            "skipped=%d%s of %d total_inserted=%d",
+            ok,
+            len(failed), f" {failed}" if failed else "",
+            len(skipped), f" {skipped}" if skipped else "",
+            len(accounts), total_inserted,
         )
-        # A run that authenticated no account at all is a failure worth surfacing
-        # (all creds missing); one that ran ≥1 is a success even if others skipped.
-        return 0 if ran > 0 else 2
+        # Report per-account OUTCOMES, not attempts. The previous
+        # `ran=3/3 → return 0` counted an account that raised on every single
+        # request as "ran", so two 100%-failing demo accounts rendered as a
+        # green systemd unit for weeks and `/api/bot/pnl/exchange` served their
+        # absence as clean zeros (BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED).
+        # Any account that was reachable-but-broken now fails the run.
+        if failed:
+            return 1
+        return 0 if ok > 0 else 2
 
     api_key = os.environ.get(args.api_key_env)
     api_secret = os.environ.get(args.api_secret_env)
@@ -209,6 +232,14 @@ def main(argv: list[str]) -> int:
         )
         return 2
 
+    # Resolve the demo flag from accounts.yaml by id, so `--account bybit_1`
+    # reaches the demo host too. Falls back to False for an id that isn't a
+    # declared live Bybit account (the flag is a property of the ACCOUNT, never
+    # something the caller should have to remember to pass).
+    demo = next(
+        (a.demo for a in live_bybit_fill_accounts() if a.account_id == args.account),
+        False,
+    )
     _pull_one_account(
         account_id=args.account,
         api_key=api_key,
@@ -217,6 +248,7 @@ def main(argv: list[str]) -> int:
         days=args.days,
         symbols=args.symbol,
         fills_path=fills_path,
+        demo=demo,
     )
     return 0
 

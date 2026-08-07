@@ -105,3 +105,29 @@ def load_accounts_dict(
         for name, cfg in raw.items()
         if isinstance(cfg, dict)
     }
+
+
+def account_is_demo(cfg: Any) -> bool:
+    """Is this account config a **Bybit demo-trading** account?
+
+    Canonical parse of ``accounts.yaml::demo``. Lives here because the flag is a
+    property of the account, and because the repo had grown SIX independent
+    parses of it that do not agree: ``bool(cfg.get("demo"))`` (used by
+    ``src/units/accounts/__init__.py``, ``execute.py``, ``account_profile.py``)
+    reads the YAML *string* ``"false"`` as **True**, while the string-tolerant
+    form in ``src/units/accounts/clients.py`` reads it as **False**. Every
+    account in the current config uses a real boolean, so the two agree today —
+    the divergence is latent, not active, and consolidating the existing call
+    sites (several of them Layer-3 order-path files) is filed separately as
+    BL-20260807-DEMO-FLAG-SIX-PARSES rather than done here.
+
+    Adopts the string-tolerant reading, which is the one that cannot be
+    surprised by a quoted YAML value.
+    """
+    if isinstance(cfg, dict):
+        raw = cfg.get("demo", False)
+    else:
+        raw = cfg
+    if isinstance(raw, bool):
+        return raw
+    return str(raw).strip().lower() in ("true", "1", "yes")

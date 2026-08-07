@@ -22,6 +22,15 @@ from typing import Any, Iterable, Mapping, Optional
 logger = logging.getLogger(__name__)
 
 
+class FundingWindowUnavailable(RuntimeError):
+    """Every target failed — this account has ZERO funding coverage.
+
+    Sibling of ``exchange_fills_puller.FillsWindowUnavailable``; see that
+    docstring for why an empty list was the wrong answer
+    (BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED).
+    """
+
+
 def _ccxt_funding_to_row(entry: Mapping[str, Any], account_id: str) -> dict[str, Any]:
     """Map a ccxt funding-history entry to the ``exchange_funding`` schema.
 
@@ -66,10 +75,14 @@ def fetch_funding_window(
     since_ms = int(cutoff_dt.timestamp() * 1000)
     out: list[dict[str, Any]] = []
     targets: list[Optional[str]] = list(symbols) if symbols else [None]
+    failed = 0
+    last_exc: Optional[Exception] = None
     for sym in targets:
         try:
             entries = fetch_funding_history(sym, since_ms, 200, {})
         except Exception as exc:  # noqa: BLE001
+            failed += 1
+            last_exc = exc
             logger.exception(
                 "exchange_funding_puller: fetch_funding_history(%s) failed: %s",
                 sym, exc,
@@ -77,4 +90,10 @@ def fetch_funding_window(
             continue
         for e in entries or ():
             out.append(_ccxt_funding_to_row(e, account_id))
+    # Total failure is ZERO coverage, not an empty book — the funding-side
+    # sibling of FillsWindowUnavailable. Partial failure stays best-effort.
+    if failed and failed == len(targets):
+        raise FundingWindowUnavailable(
+            f"{account_id}: all {failed} target(s) failed; last error: {last_exc}"
+        ) from last_exc
     return out

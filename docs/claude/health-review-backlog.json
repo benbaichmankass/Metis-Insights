@@ -10649,8 +10649,64 @@
       "title": "trainer-vm-diag SILENTLY TRUNCATES a long `cmd:` block — the run reports success over a command that was cut",
       "detail": "OBSERVED on trainer-diag #8598. The issue body's cmd: block had 12 lines; the relay executed only the first ~8. The echoed Command in the result comment ends mid-token (`echo \"==== methods seen on the last 5 journal rows ==`) and the output stops at the sync's own last line — the two verification sections AFTER the sync (`db_pulls tail AFTER` and the per-row method summary) never ran and never appeared. THE RUN STILL REPORTED SUCCESS. WHY THIS MATTERS: this is the unasserted-denominator / diagnostic-provenance class applied to the relay itself. A truncated command whose surviving prefix happens to succeed is indistinguishable from a command that ran in full — the reader sees plausible output and a green run. I only noticed because I knew which two sections were missing; a session that did not author the command would have read the output as complete. Any past relay result may have been truncated the same way without anyone knowing. POPULATION: 1 confirmed instance. The truncation POINT has not been characterised — I do not know whether the cause is a byte/line cap in the issue-body parser, the `==` token, or the embedded multi-line `python -c` string, and I have not measured it. Step 1 is to find the boundary with a deliberate ladder of increasing cmd: lengths. CANDIDATE FIX: make the relay echo a checksum/line-count of the cmd: block it PARSED next to the block it RECEIVED, and fail loudly on a mismatch — the same shape as `method` in db_pulls.jsonl, which is what made the sibling defect above catchable at all. A relay that cannot state what it ran is a diagnostic that does not say what it computed.",
       "close_condition": "The relay either refuses or loudly flags a cmd: block it could not parse in full, verified by a deliberately over-long test dispatch that FAILS rather than silently running a prefix."
+    },
+    {
+      "id": "BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED",
+      "opened_at": "2026-08-07T18:40:00+00:00",
+      "opened_by": "claude (system-review ma0ava)",
+      "status": "open",
+      "tier": 2,
+      "severity": "high",
+      "source": "MEASURED from /api/diag/journalctl?unit=ict-exchange-fills-pull.service on 2026-08-07: the nightly run raised ccxt AuthenticationError retCode 10003 'API key is invalid.' for bybit_1 AND bybit_portfolio on every run visible in the journal (2026-08-04, 08-05, 08-06, 08-07), then logged 'ran=3/3 total_inserted=0' and exited 0 ('Deactivated successfully'). Cross-checked against /api/bot/pnl/exchange?days=14: 364 fills across 16 symbols, ZERO from bybit_1 (no AVAXUSDT, no SOLUSDT) out of a 14-day window.",
+      "title": "Bybit demo accounts (bybit_1, bybit_portfolio) had ZERO exchange-fills coverage — pullers dialled mainnet, and the run reported success",
+      "what_to_check": "config/accounts.yaml declares demo: True on bybit_1 + bybit_portfolio; Bybit serves demo trading from api-demo.bybit.com and rejects a demo key on mainnet with retCode 10003. src/units/accounts/clients.py:90 honours this (pybit HTTP(demo=True)); scripts/pull_exchange_fills.py and scripts/pull_exchange_funding.py each hand-rolled their own mainnet ccxt.bybit(...) with no demo awareness. The 2026-07-29 roster fix (src/runtime/exchange_accounts.py) ENUMERATED the two accounts but BybitFillAccount carried no demo field — being listed is not being reachable. Impact: bybit_1 is the account carrying the largest losses in the book, and /api/bot/pnl/exchange served its total absence as clean zeros, so no journal close on that account could be checked against exchange truth.",
+      "action": "FIXED on branch claude/bybit-demo-fills-ma0ava: one shared demo-aware builder (src/runtime/bybit_ccxt.py) used by both pullers; demo flag added to BybitFillAccount from the new canonical src/config/accounts_loader.py::account_is_demo. Remaining: verify on the VM via the pull-exchange-fills action that AVAX/SOL fills actually land, and confirm the VM venv's ccxt ships bybit.enable_demo_trading (verified present in 4.5.71; requirements pins only >=4.0.0, and the builder raises DemoRoutingUnsupported rather than silently using mainnet if it is absent).",
+      "resolution_criteria": "/api/bot/pnl/exchange returns a non-zero fill_count for at least one bybit_1-only symbol (AVAXUSDT or SOLUSDT), AND the ict-exchange-fills-pull unit logs ok=3 failed=0.",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260807-FILLS-PULLER-REPORTED-SUCCESS-OVER-TOTAL-FAILURE",
+      "opened_at": "2026-08-07T18:40:00+00:00",
+      "opened_by": "claude (system-review ma0ava)",
+      "status": "open",
+      "tier": 1,
+      "severity": "high",
+      "source": "Same journal evidence as BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED: 2 of 3 accounts failed 100% of their requests and the unit still logged 'ran=3/3 total_inserted=0' and exited 0 on every run 2026-08-04 through 2026-08-07.",
+      "title": "Puller counted ATTEMPTS as successes — a 100%-failing account was indistinguishable from an empty book, for weeks, with systemd green",
+      "what_to_check": "Two halves compose into the outage. PRODUCER: exchange_fills_puller.fetch_fills_window caught every per-target exception and returned [] (the silent-empty shape). CONSUMER: pull_exchange_fills.main incremented `ran` for any account with credentials, regardless of outcome, and returned `0 if ran > 0 else 2` — the unasserted-denominator shape (docs sub-class C). Neither guard covers the other, exactly as CLAUDE.md notes for silent-empty-guard vs diagnostic-provenance-guard. This is the same class as the 2026-07-30 curl-403 CI poller: a red that checked nothing, rendered as a clean negative.",
+      "action": "FIXED on the same branch: FillsWindowUnavailable / FundingWindowUnavailable raised when EVERY target failed (partial failure stays best-effort and is unchanged); the loop tracks ok/failed/skipped separately, logs the failed account ids, and returns exit 1 if any account was reachable-but-broken. Follow-up worth considering: a guard for the general shape 'loop counts attempts and returns success', since this is at least the third instance.",
+      "resolution_criteria": "An induced total failure on one account makes ict-exchange-fills-pull.service exit non-zero and appear failed in /api/diag/services.",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260807-EXIT-ANCHOR-VALIDATED-ON-DISJOINT-POPULATION",
+      "opened_at": "2026-08-07T18:40:00+00:00",
+      "opened_by": "claude (system-review ma0ava)",
+      "status": "open",
+      "tier": 1,
+      "severity": "high",
+      "source": "Read from source 2026-08-07. scripts/research/exit_reconstruction_validator.py:130 scores a row ONLY if notes.exit_price_source is in MEASURED. order_monitor._sweep_local_pnl_for_unpriced:8096 applies the anchor ONLY when exit_price is NULL/<=0, which happens only on _close_trade_from_order_status's no-broker-record branch, which sets closed_at = datetime.now() at line 5800 (documented there as reconciler DETECTION time, deliberately not the fill time).",
+      "title": "The exit-anchor estimator's 'median 1.33 bps' was measured on rows it is never applied to — the two populations are disjoint by construction",
+      "what_to_check": "Rows the validator can score have a broker fill, so closed_at came from the broker record (the true close time). Rows the sweep prices have NO broker fill, so closed_at is detection time — the anchor is the bar at whenever the reconciler happened to notice. Worked example: AVAXUSDT trades 4361 (trend_donchian_avax_4h) and 4413 (ict_scalp_avax_5m) on bybit_1 closed 1.34s apart (2026-08-06T10:17:15.670 and 10:17:17.008) carrying the IDENTICAL exit_price 6.416 despite different entries (6.788 / 6.692) and different stops (6.46475 / 6.6592). One bar close stamped on two rows. 4413 opened 2026-08-05T08:03 — the anchor sits at the far end of a >=26h window — and the resulting -8.41R (pnl -$4,254.24) is the distance from 4413's own stop to 4361's exit, not a measured fill. Note this does NOT make the estimator wrong where it was validated; it makes the quoted accuracy inapplicable where it is used. Sub-class B (implicit input selection) raised one level, at the validation rather than the diagnostic.",
+      "action": "Do not re-price history (the 2026-07-30 relabel-only operator decision stands). Options to weigh: (a) record whether closed_at is broker-sourced or detection-sourced and expose it, so a consumer can tell a close-time anchor from a detection-time one; (b) re-run the validator restricted to rows whose closed_at is detection-time to get an honest error distribution for the applied population; (c) treat a detection-time anchor as a distinct, weaker provenance than a close-time anchor rather than both being ESTIMATED. Blocked on BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED for bybit_1 — without exchange fills there is no ground truth on that account to validate against.",
+      "resolution_criteria": "An anchored row's provenance distinguishes close-time from detection-time anchoring, and the accuracy figure quoted for the estimator is computed on the population it is applied to.",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260807-DEMO-FLAG-SIX-PARSES",
+      "opened_at": "2026-08-07T18:40:00+00:00",
+      "opened_by": "claude (system-review ma0ava)",
+      "status": "open",
+      "tier": 1,
+      "severity": "low",
+      "source": "Grepped 2026-08-07: accounts.yaml::demo is parsed independently in src/units/accounts/__init__.py:142, src/units/accounts/execute.py:1670, src/core/account_profile.py:64 (all bool(cfg.get('demo'))), src/units/accounts/clients.py:90 and :898 (string-tolerant), src/prop/account_rulesets.py:124 (truthiness), and now src/config/accounts_loader.py::account_is_demo.",
+      "title": "accounts.yaml::demo has six independent parses and two of them disagree on a quoted YAML value",
+      "what_to_check": "bool(cfg.get('demo')) reads the YAML string \"false\" as True; the string-tolerant form reads it as False. Every account currently uses a real boolean, so the parses agree TODAY — the divergence is latent, not active, and this is filed so it is not discovered during an incident. Consolidating means touching Layer-3 order-path files, which is why it was not swept inside a fills-puller PR.",
+      "action": "Point the existing call sites at src/config/accounts_loader.py::account_is_demo. Consider a guard for a second parse of a canonical account field, the same shape as canonical-config-loaders.",
+      "resolution_criteria": "One parse of the demo flag repo-wide.",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-08-07T14:55:00+00:00",
+  "updated_at": "2026-08-07T18:40:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
