@@ -2437,6 +2437,11 @@
           "at": "2026-08-01T13:40:00+00:00",
           "by": "claude (operator-decision follow-up, session full-system-review-zajauh)",
           "note": "Interim workaround EXERCISED successfully in production (2026-08-01, #8254/#8257): per-model gate_check_candidates.sh over 2 heads WITH --datasets-root ran to completion on the 6GB box with no thrash (per-model process isolation = one model's working set at a time). The structural fix (subprocess isolation inside the readiness sweep + MemoryMax on ict-promotion-readiness.service) remains open."
+        },
+        {
+          "at": "2026-08-07T14:55:00+00:00",
+          "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
+          "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
         }
       ]
     },
@@ -2735,7 +2740,13 @@
       "tier": "Tier-1 (research; any eventual promotion past candidate is Tier-3/operator)",
       "status": "open",
       "snoozed_until": null,
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-07T14:55:00+00:00",
+          "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
+          "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        }
+      ]
     },
     {
       "id": "MB-20260728-ICTSCALP-EXIT-LEVERS",
@@ -2766,6 +2777,11 @@
           "at": "2026-07-29T12:40:00+00:00",
           "by": "claude (ship session)",
           "note": "SHIPPED ict_scalp_eth_15m stale12 (the sole M20-gate-clearer). PR #7863 MERGED + deployed live (trader on git_sha 91ff9a96, restart confirmed, leg loaded). Enforced in src/units/strategies/ict_scalp.py::monitor() via _stale_stop_verdict (default-OFF; undeclared legs incl. real-money ict_scalp_5m BTC return None => byte-for-byte unchanged); matches harness semantics exactly (bars_since_entry>=stale_exit_bars AND open_r<stale_exit_below_r; start_idx=signal_bar+1 reproduced via a new inert meta.entry_time stamp + strictly-after bar count). Declared stale_exit_bars:12 + stale_exit_below_r:0.0 on the ict_scalp_eth_15m YAML block (bybit_1 paper/demo -- zero real-money exposure). Coverage matrix ict_scalp_eth_15m stale_stop -> shipped; monitor<->harness bar-exact parity test added (tests/test_ict_scalp_exit_levers.py, 13 pass; 72 ict_scalp tests green). P5/P7 first-fire mechanics NOT yet observed (leg hasn't taken a post-deploy trade -- chop, ict_scalp_eth_15m_signal count=0 across ~6h) -> handed to the health-review backlog BL-20260729-ICTSCALP-ETH15M-STALE-FIRSTFIRE. Independent confidence: sibling trend_donchian_xrp_4h fired a REAL stale_stop live (same lever family, meta.entry_time + declared bars)."
+        },
+        {
+          "at": "2026-08-07T14:55:00+00:00",
+          "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
+          "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
         }
       ]
     },
@@ -2836,5 +2852,5 @@
       ]
     }
   ],
-  "updated_at": "2026-08-04T06:35:00+00:00"
+  "updated_at": "2026-08-07T14:55:00+00:00"
 }

@@ -1,0 +1,1796 @@
+{
+  "report_id": "RPT-20260807-145500-since-last",
+  "reviewed_at": "2026-08-07T14:55:00+00:00",
+  "reviewer": "claude",
+  "window": "since-last",
+  "window_start": "2026-08-04T05:20:00+00:00",
+  "window_end": "2026-08-07T14:36:00+00:00",
+  "prior_report_id": "AUDIT-20260804",
+  "overall_assessment": "investigate",
+  "health": {
+    "reviewer": "claude",
+    "reviewed_at": "2026-08-07T14:55:00+00:00",
+    "window_start": "2026-08-04T05:20:00+00:00",
+    "window_end": "2026-08-07T14:36:00+00:00",
+    "overall_assessment": "investigate",
+    "summary": "Live trader is UP and ticking (ict-trader-live + ict-web-api active, git_sha cf101726, 52 strategies loaded, VM 25% CPU / 12% mem / 40% disk) and the live money DB is healthy (16 tables, error_per_table {}). All 8 declared-live probeable accounts are reachable. But the review found a cluster of measurement and containment defects: ib_paper unrealized PnL contradicts exchange truth by ~2,900x; the heartbeat reports 'paused' while the trader ticks; 7 long-held rows were bulk-closed with no exit price or PnL; the pairs sleeve cannot read its state on 38% of bars; and the news layer's symbol->feed map covers 5 of 24 traded bases while the news VETO is armed.",
+    "findings": {
+      "ib_paper uPnL contradicts exchange truth by ~2,900x": {
+        "status": "concern",
+        "note": "[positions/provenance] MGC 105 long: /api/bot/positions uPnL +$110,040.00 (unrealizedPnlSource markprice_local) vs /api/bot/pnl/exchange unrealized_pnl +$37.80. MES 15 long: +$10,481.25 vs $0.00. Over the same hour ib_paper balance delta_1h read -$16,923.86. Probable mechanism: markprice_local prices the NETTED size against one journal row's entry. Paper-only, but the same path serves every non-Bybit account and it drives the app/widget headline uPnL. (backlog: BL-20260807-IBPAPER-UPNL-CONTRADICTS-EXCHANGE-TRUTH)"
+      },
+      "news symbol->feed map covers 5 of 24 traded bases while the veto is ar": {
+        "status": "watch",
+        "note": "[news] config/news_feeds.yaml::symbol_groups maps 7 bases, 5 of which are traded. The other 19 traded bases (incl. XRP/ADA/SOL/AVAX, all crypto) fall through to the `global` macro feeds only and can never see a symbol-specific story. Observed live: the identical MarketWatch memory-stocks headline is the #1 scored item for ADAUSDT, XRPUSDT, TLT and MGC. NEWS_VETO_ENABLED defaults true and is armed (rss active); nothing is vetoing today (adjustments 0.004-0.008, all decisions neutral) so this is latent mis-targeting, not an active loss. NOTE the macro-relevance fallback is BY DESIGN - the defect is that 19 symbols have nothing else in their feed set. (backlog: BL-20260807-NEWS-FEED-SYMBOL-COVERAGE-5-OF-24)"
+      },
+      "status reads 'paused' while the trader is actively ticking": {
+        "status": "watch",
+        "note": "[liveness] heartbeat age 226s / label 'paused' and /api/bot/stats status 'paused', while last_tick_utc was 5s before capture and uptime 3247s. The heartbeat only refreshes from the SLEEP loop, so a ~4-minute tick starves it past the 180s 'running' threshold. Two problems: a false-alarm surface on every consumer, and a possible genuine slow-tick regression the design cannot distinguish from a dead trader. (backlog: BL-20260807-HEARTBEAT-PAUSED-WHILE-TICKING)"
+      },
+      "7 long-held rows bulk-closed with exitPrice null, pnl null, closeReaso": {
+        "status": "watch",
+        "note": "[reconciler] 2026-08-05T13:36-13:51Z closed trades 3491/3934/3935/3937/3938/3984 (opened 07-15..07-24) plus 3713/3714 the prior day, all alpaca, all with no exit price and no realized PnL. That is 8 of 37 in-window closed rows (22%) contributing nothing measurable, which silently shrinks every performance denominator. pnlProvenance is correctly null (the provenance layer is NOT fabricating), so this is a close-path defect, not a provenance one. (backlog: BL-20260807-BULK-RECONCILER-CLOSE-NO-EXIT-NO-PNL)"
+      },
+      "pairs sleeve state unreadable on 38% of evaluations; 7 legs open, olde": {
+        "status": "watch",
+        "note": "[pairs] pairs_soak over 2,232 evaluations: skip_state_unreadable 850 (38.1%), open_failed 10 of 38 attempted opens (26%). Two of the three newest records (14:03-14:04Z today) are skip_state_unreadable on live-mode pairs. bybit_1 holds 7 unclosed pair legs (pairs_bnb_btc_a x5 from 07-16..07-28, pairs_sol_eth_a x2) on a 1h-bar sleeve. (backlog: BL-20260807-PAIRS-STATE-UNREADABLE-38PCT)"
+      },
+      "alpaca_paper has $85.9k balance but $0.00 available - every new signal": {
+        "status": "watch",
+        "note": "[risk/alpaca] Live banner 14:02:29Z: tlt_pullback_1h TLT sell, 3 accounts attempted, 0 placed, alpaca_paper risk_refused sized_qty=0 with balance=85949.19 available_usd=0.00. Buying power appears exhausted by a large short book (TLT 938, SLV 376, IEF 141). The refusal shape is Prime-Directive-correct (per-trade, logged, no auto-flip) - the concern is a capability stranded by state with no alert of its own. (backlog: BL-20260807-ALPACA-PAPER-ZERO-BUYING-POWER-REFUSES-ALL)"
+      },
+      "device_tokens is empty - every FCM push reaches nobody": {
+        "status": "watch",
+        "note": "[alerting] trade_journal.db::device_tokens has 0 rows, so all mobile push paths (broker-down WARNING, trainer-down WARNING, prop_fill/closed/monitor, trade events) are inert. Telegram is unaffected and ict-telegram-bot.service is active, so the loud paths still reach the operator. Cannot distinguish 'app never paired' from 'registrations lost' from here - one operator question, not an investigation. (backlog: BL-20260807-NO-REGISTERED-PUSH-DEVICES)"
+      },
+      "insights_history + insights_usage ~92k rows each, ~96% of all rows in ": {
+        "status": "watch",
+        "note": "[m13/data] 92,364 / 92,470 rows vs trades 4,509. Estimated ceiling from the 15m+60m generator cadence since 2026-05-12 is ~10k-35k. Filed low because I have not read the writer and benign explanations exist. It matters mainly because these tables dominate the 750MB money DB the trainer pulls in full every cycle. (backlog: BL-20260807-INSIGHTS-TABLES-92K-ROWS-IMPLAUSIBLE)"
+      },
+      "trainer journal mirror verified repaired; two follow-up defects still ": {
+        "status": "ok",
+        "note": "[trainer/infra] Confirmed at rest this run: quick_check ok, trades 4504, signals 1,406,974, MAX(logged_at_utc) reads 2026-08-07T13:40:06Z (the indexed read that previously failed). Found and fixed by the concurrent session metis-ml2-cell-audit-cont-6ewta2, not by this review. Their PR #8584 carries two defects in the fix itself (inert VACUUM INTO path, leaked -wal/-shm sidecars) and is still open. (backlog: BL-20260807-TRAINER-JOURNAL-PULL-TORN-RSYNC)"
+      },
+      "live money DB integrity": {
+        "status": "ok",
+        "note": "16 tables, error_per_table {} , trades 4509 / order_packages 3593 / signals 1,407,750. Healthy \u2014 verified, not assumed."
+      },
+      "broker account reachability": {
+        "status": "ok",
+        "note": "All 8 declared-live probeable accounts reachable; IB connected on all 3 client sessions, breaker closed, likely_wedged false. ib_live / oanda_practice / breakout_1 correctly excluded as shelved or API-less."
+      }
+    },
+    "services": {
+      "ict-trader-live.service": "active",
+      "ict-web-api.service": "active",
+      "ict-telegram-bot.service": "active",
+      "ict-claude-bridge.service": "active",
+      "timers_active": [
+        "ict-git-sync",
+        "ict-liveness-watchdog",
+        "ict-web-api-watchdog",
+        "ict-db-integrity",
+        "ict-insights-generator",
+        "ict-insights-generator-strategies",
+        "ict-hourly-snapshot",
+        "ict-health-snapshot",
+        "ict-devnull-guard",
+        "ict-shadow-log-rotate",
+        "ict-exchange-fills-pull",
+        "ict-exchange-funding-pull",
+        "ict-mes-ibkr-pull",
+        "ict-ib-executions-pull",
+        "ict-research-results-gate"
+      ],
+      "note": "ict-ib-gateway-watchdog.timer is inactive on the TRADER, which is correct - that watchdog runs on the dedicated gateway VM."
+    },
+    "db_integrity": {
+      "path": "/data/bot-data/trade_journal.db",
+      "size_bytes": 753463296,
+      "tables": 16,
+      "error_per_table": {},
+      "trades": 4509,
+      "order_packages": 3593,
+      "signals": 1407750,
+      "verdict": "healthy"
+    },
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "findings_detail": [
+      {
+        "id": "H1",
+        "severity": "high",
+        "area": "positions/provenance",
+        "title": "ib_paper uPnL contradicts exchange truth by ~2,900x",
+        "detail": "MGC 105 long: /api/bot/positions uPnL +$110,040.00 (unrealizedPnlSource markprice_local) vs /api/bot/pnl/exchange unrealized_pnl +$37.80. MES 15 long: +$10,481.25 vs $0.00. Over the same hour ib_paper balance delta_1h read -$16,923.86. Probable mechanism: markprice_local prices the NETTED size against one journal row's entry. Paper-only, but the same path serves every non-Bybit account and it drives the app/widget headline uPnL.",
+        "backlog_id": "BL-20260807-IBPAPER-UPNL-CONTRADICTS-EXCHANGE-TRUTH"
+      },
+      {
+        "id": "H2",
+        "severity": "medium",
+        "area": "news",
+        "title": "news symbol->feed map covers 5 of 24 traded bases while the veto is armed",
+        "detail": "config/news_feeds.yaml::symbol_groups maps 7 bases, 5 of which are traded. The other 19 traded bases (incl. XRP/ADA/SOL/AVAX, all crypto) fall through to the `global` macro feeds only and can never see a symbol-specific story. Observed live: the identical MarketWatch memory-stocks headline is the #1 scored item for ADAUSDT, XRPUSDT, TLT and MGC. NEWS_VETO_ENABLED defaults true and is armed (rss active); nothing is vetoing today (adjustments 0.004-0.008, all decisions neutral) so this is latent mis-targeting, not an active loss. NOTE the macro-relevance fallback is BY DESIGN - the defect is that 19 symbols have nothing else in their feed set.",
+        "backlog_id": "BL-20260807-NEWS-FEED-SYMBOL-COVERAGE-5-OF-24"
+      },
+      {
+        "id": "H3",
+        "severity": "medium",
+        "area": "liveness",
+        "title": "status reads 'paused' while the trader is actively ticking",
+        "detail": "heartbeat age 226s / label 'paused' and /api/bot/stats status 'paused', while last_tick_utc was 5s before capture and uptime 3247s. The heartbeat only refreshes from the SLEEP loop, so a ~4-minute tick starves it past the 180s 'running' threshold. Two problems: a false-alarm surface on every consumer, and a possible genuine slow-tick regression the design cannot distinguish from a dead trader.",
+        "backlog_id": "BL-20260807-HEARTBEAT-PAUSED-WHILE-TICKING"
+      },
+      {
+        "id": "H4",
+        "severity": "medium",
+        "area": "reconciler",
+        "title": "7 long-held rows bulk-closed with exitPrice null, pnl null, closeReason 'other'",
+        "detail": "2026-08-05T13:36-13:51Z closed trades 3491/3934/3935/3937/3938/3984 (opened 07-15..07-24) plus 3713/3714 the prior day, all alpaca, all with no exit price and no realized PnL. That is 8 of 37 in-window closed rows (22%) contributing nothing measurable, which silently shrinks every performance denominator. pnlProvenance is correctly null (the provenance layer is NOT fabricating), so this is a close-path defect, not a provenance one.",
+        "backlog_id": "BL-20260807-BULK-RECONCILER-CLOSE-NO-EXIT-NO-PNL"
+      },
+      {
+        "id": "H5",
+        "severity": "medium",
+        "area": "pairs",
+        "title": "pairs sleeve state unreadable on 38% of evaluations; 7 legs open, oldest 22 days",
+        "detail": "pairs_soak over 2,232 evaluations: skip_state_unreadable 850 (38.1%), open_failed 10 of 38 attempted opens (26%). Two of the three newest records (14:03-14:04Z today) are skip_state_unreadable on live-mode pairs. bybit_1 holds 7 unclosed pair legs (pairs_bnb_btc_a x5 from 07-16..07-28, pairs_sol_eth_a x2) on a 1h-bar sleeve.",
+        "backlog_id": "BL-20260807-PAIRS-STATE-UNREADABLE-38PCT"
+      },
+      {
+        "id": "H6",
+        "severity": "medium",
+        "area": "risk/alpaca",
+        "title": "alpaca_paper has $85.9k balance but $0.00 available - every new signal risk_refused",
+        "detail": "Live banner 14:02:29Z: tlt_pullback_1h TLT sell, 3 accounts attempted, 0 placed, alpaca_paper risk_refused sized_qty=0 with balance=85949.19 available_usd=0.00. Buying power appears exhausted by a large short book (TLT 938, SLV 376, IEF 141). The refusal shape is Prime-Directive-correct (per-trade, logged, no auto-flip) - the concern is a capability stranded by state with no alert of its own.",
+        "backlog_id": "BL-20260807-ALPACA-PAPER-ZERO-BUYING-POWER-REFUSES-ALL"
+      },
+      {
+        "id": "H7",
+        "severity": "medium",
+        "area": "alerting",
+        "title": "device_tokens is empty - every FCM push reaches nobody",
+        "detail": "trade_journal.db::device_tokens has 0 rows, so all mobile push paths (broker-down WARNING, trainer-down WARNING, prop_fill/closed/monitor, trade events) are inert. Telegram is unaffected and ict-telegram-bot.service is active, so the loud paths still reach the operator. Cannot distinguish 'app never paired' from 'registrations lost' from here - one operator question, not an investigation.",
+        "backlog_id": "BL-20260807-NO-REGISTERED-PUSH-DEVICES"
+      },
+      {
+        "id": "H8",
+        "severity": "low",
+        "area": "m13/data",
+        "title": "insights_history + insights_usage ~92k rows each, ~96% of all rows in the money DB",
+        "detail": "92,364 / 92,470 rows vs trades 4,509. Estimated ceiling from the 15m+60m generator cadence since 2026-05-12 is ~10k-35k. Filed low because I have not read the writer and benign explanations exist. It matters mainly because these tables dominate the 750MB money DB the trainer pulls in full every cycle.",
+        "backlog_id": "BL-20260807-INSIGHTS-TABLES-92K-ROWS-IMPLAUSIBLE"
+      },
+      {
+        "id": "H9",
+        "severity": "info",
+        "area": "trainer/infra",
+        "title": "trainer journal mirror verified repaired; two follow-up defects still open in PR #8584",
+        "detail": "Confirmed at rest this run: quick_check ok, trades 4504, signals 1,406,974, MAX(logged_at_utc) reads 2026-08-07T13:40:06Z (the indexed read that previously failed). Found and fixed by the concurrent session metis-ml2-cell-audit-cont-6ewta2, not by this review. Their PR #8584 carries two defects in the fix itself (inert VACUUM INTO path, leaked -wal/-shm sidecars) and is still open.",
+        "backlog_id": "BL-20260807-TRAINER-JOURNAL-PULL-TORN-RSYNC"
+      }
+    ]
+  },
+  "performance": {
+    "reviewer": "claude",
+    "reviewed_at": "2026-08-07T14:55:00+00:00",
+    "window_start": "2026-08-04T05:20:00+00:00",
+    "window_end": "2026-08-07T14:36:00+00:00",
+    "overall_assessment": "investigate",
+    "summary": "37 trades closed in the window, ALL PAPER - zero real-money closes. Grading refreshed this run via the grade-closed-trades system-action (17 new rows appended to comms/claude_strategy_scores.jsonl; B:9 C:7 D:1). Paper is down -$42,139.71 over the 25 priced rows (win rate 24.0%, profit factor 0.128), 89% of it from two ib_paper futures pullback trades. The dominant finding is EXECUTION, not decision quality: 7 of 10 ict_scalp closes were closed by the reconciler rather than by a stop or target, and trade 4413 realized -8.41R against a ~1R designed stop.",
+    "grading": {
+      "source": "grade-closed-trades system-action (issue #8589), scripts/ops/score_order_packages.py on the live VM",
+      "emitted": 17,
+      "truncated": false,
+      "grade_histogram": {
+        "B": 9,
+        "C": 7,
+        "D": 1
+      },
+      "newest_reviewed_at": "2026-08-07T14:36:06.945919+00:00",
+      "freshness_guard": "PASS - newest grade is at/after window_start"
+    },
+    "trade_decision_grades_summary": {
+      "graded_in_window": 17,
+      "A": 0,
+      "B": 9,
+      "C": 7,
+      "D": 1,
+      "F": 0,
+      "entry_quality": {
+        "optimal": 9,
+        "acceptable": 4,
+        "late": 3,
+        "should_skip": 1
+      },
+      "exit_quality": {
+        "sl_appropriate": 7,
+        "tp_appropriate": 2,
+        "premature_exit": 2,
+        "unknown": 4,
+        "other": 2
+      },
+      "note": "risk_management reads 'unknown' on ALL 17 rows - the scorer has no risk signal to grade against. Worth noting as a rubric gap rather than a clean result."
+    },
+    "findings": [
+      {
+        "id": "P1",
+        "severity": "high",
+        "area": "exit/capture",
+        "title": "a 5-minute scalp realized -8.41R against a ~1R stop and was closed by the reconciler, not its stop",
+        "detail": "Trade 4413 ict_scalp_avax_5m on bybit_1 (PAPER): entry 6.692, sl 6.6592 (~1R), held 15.8h on a 5-minute strategy, realized -$4,254.24 = -8.41R, closeReason reconciler_filled. Graded B with entry=optimal/conf 0.83 - the DECISION was fine; the execution gave away 8.4x the intended risk. Realized -8.41R is worse than the measured MAE of -5.0R, implying the fill landed beyond anything the candle window saw. Not isolated: across all 10 ict_scalp closes, mean giveback (MFE - realized R) is 1.92R and 7 of 10 were reconciler-closed.",
+        "backlog_id": "PB-20260807-ICTSCALP-STOP-DID-NOT-CONTAIN-8R"
+      },
+      {
+        "id": "P2",
+        "severity": "medium",
+        "area": "allocator",
+        "title": "allocator soak disagree_pct is a variant-pair artifact - confirmed with direct evidence",
+        "detail": "summary reports disagree 85/165 = 51.5%, mean_regret 0.485. All three most-recent records pit trend_donchian_eth against trend_donchian_eth_prop - the SAME strategy in real and prop variants, same symbol, side and entry. The headline is not an allocator-vs-aggregator disagreement rate and must not be quoted as one. Confirms BL-20260806-ALLOCATOR-REGRET-VARIANT-PAIR-ARTIFACT.",
+        "backlog_id": "BL-20260806-ALLOCATOR-REGRET-VARIANT-PAIR-ARTIFACT"
+      },
+      {
+        "id": "P3",
+        "severity": "medium",
+        "area": "pairs",
+        "title": "pairs legs carry nominal 0.5x/2.0x brackets - individually unprotected, and R is meaningless for them",
+        "detail": "pairs_bnb_btc_a BNBUSDT entry 594.5 / sl 297.25 / tp 1189.0; pairs_bnb_btc_b BTCUSDT entry ~64160 / sl 128320 / tp 32080. These are placeholders, not stops - each leg relies on the pair hedge. Consequence for reporting: every pairs grade this window reads -0.00R and pairs_sol_eth_b shows totalR 0.0433 on $163.87. Pairs R must not be aggregated with directional-strategy R.",
+        "backlog_id": "BL-20260807-PAIRS-STATE-UNREADABLE-38PCT"
+      },
+      {
+        "id": "P4",
+        "severity": "low",
+        "area": "journal",
+        "title": "intent_reduce_executed closes a row at its own open timestamp with null pnl",
+        "detail": "Trades 4368, 4370, 4418, 4491 all show closedAt == openedAt to the microsecond, realizedPnl null, closeReason 'other', exit_reason intent_reduce_executed. 4 of 37 in-window rows (11%). They inflate the closed-trade count with rows that never had an outcome.",
+        "backlog_id": null
+      }
+    ],
+    "proposed_tweaks": [
+      {
+        "tier": 3,
+        "summary": "gld_pullback_1h remains routed on alpaca_portfolio despite failing that account's survival/breach gate at corrected cost (survival 0.871 < 0.90). Verified live this run: it holds open positions on BOTH alpaca_portfolio (+$364.39) and alpaca_paper (+$65.45). Both paper, so no real-money exposure. Proposed only.",
+        "backlog_id": "BL-20260803-GLD-ALPACA-PORTFOLIO-SURVIVAL-SKIP"
+      },
+      {
+        "tier": 3,
+        "summary": "M27 real-money graduation stays blocked: only SOL/XRP/AVAX/ETH 5m+15m paper legs are candidates and all are soak-gated. This window's execution-capture finding is a direct argument AGAINST graduating any ict_scalp leg until the stop-containment question is answered.",
+        "backlog_id": "SRQ-20260728-M27-WINNERS-SHIP"
+      }
+    ],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    }
+  },
+  "ml": {
+    "reviewer": "claude",
+    "reviewed_at": "2026-08-07T14:55:00+00:00",
+    "window_start": "2026-08-04T05:20:00+00:00",
+    "window_end": "2026-08-07T14:36:00+00:00",
+    "overall_assessment": "caution",
+    "summary": "Trainer is healthy and cycling (timer active, last trigger 2026-08-07T00:34Z, next 08-08T00:10Z; 2 cycles in 24h; mirror repaired and passing quick_check). But the fleet is COASTING, not advancing: the last cycle trained 0 models with 76 already_done, and the 4-day cycle log carries 76 manifest_untrained_stale and 21 manifest_dataset_empty events against 299 manifest_ok. Registry 95 models: advisory 3, shadow 29, candidate 62, research_only 1. Zero failures and zero quarantine events - so nothing is broken, it is just not moving.",
+    "trainer": {
+      "head": "cf101726",
+      "service": "inactive/disabled (timer-driven - expected)",
+      "timer": "active",
+      "last_trigger": "2026-08-07T00:34:08Z",
+      "next_elapse": "2026-08-08T00:10:43Z",
+      "cycles_24h": 2,
+      "data_pulls_last_ok": "2026-08-07T13:40:40Z",
+      "dataset_builds_24h": {
+        "ok": 94,
+        "failed": 2,
+        "skipped": 2
+      },
+      "manifests_24h": {
+        "ok": 68,
+        "failed": 0,
+        "missing": 0,
+        "skipped": 3
+      },
+      "last_cycle": {
+        "outcome": "already_complete",
+        "trained": 0,
+        "already_done": 76,
+        "failed": 0,
+        "overall_rc": 0
+      },
+      "mirror_integrity": {
+        "quick_check": "ok",
+        "trades": 4504,
+        "order_packages": 3590,
+        "signals": 1406974,
+        "max_signal_ts": "2026-08-07T13:40:06Z"
+      }
+    },
+    "registry": {
+      "models": 95,
+      "advisory": 3,
+      "shadow": 29,
+      "candidate": 62,
+      "research_only": 1
+    },
+    "cycle_events_since_window_start": {
+      "total": 524,
+      "manifest_ok": 299,
+      "manifest_untrained_stale": 76,
+      "manifest_audit_skipped_enforced": 23,
+      "manifest_dataset_empty": 21,
+      "manifest_skipped": 21,
+      "cycle_start": 8,
+      "cycle_end": 8,
+      "cycle_already_complete": 4,
+      "failed": 0,
+      "quarantine": 0
+    },
+    "findings": [
+      {
+        "id": "M1",
+        "severity": "medium",
+        "area": "training",
+        "title": "76 manifest_untrained_stale + 21 manifest_dataset_empty; last cycle trained 0 models",
+        "detail": "Across 2026-08-04..07 the cycle log shows 299 manifest_ok but 76 manifest_untrained_stale and 21 manifest_dataset_empty, and the most recent cycle ended 'already_complete' with trained:0 / already_done:76. No failures and no quarantine, so this is not breakage - it is a fleet that is not advancing. 21 manifests with an empty dataset is the concrete actionable half.",
+        "backlog_id": null
+      },
+      {
+        "id": "M2",
+        "severity": "high",
+        "area": "data",
+        "title": "2026-08-07 pooled builds trained UN-AUGMENTED (fix deployed, not yet proven)",
+        "detail": "pooled_augment_merge failed at 05:01Z on UNIQUE constraint failed: trades.id and silently degraded to journal-only - the W0.0/P0 augmentation feed. Found by the concurrent session; fixed in cf10172, which the trainer now runs. No post-fix cycle has executed yet (next 08-08T00:10Z), so the fix is deployed but unproven. Standing caveat: do not compare 2026-08-07 pooled results against augmented runs.",
+        "backlog_id": "BL-20260807-POOLED-AUGMENT-MERGE-SILENT-FALLBACK"
+      },
+      {
+        "id": "M3",
+        "severity": "info",
+        "area": "regime",
+        "title": "authored trend_vol cells are 0-of-6 affirmatively justified after a sample floor was added",
+        "detail": "Not re-derived by this review - carried from the concurrent session metis-ml2-cell-audit-cont-6ewta2, which added MIN_DIRECTION_TRADES=10 to regime_cell_walkforward (cf10172), withdrew the squeeze_breakout_4h 'inversion', and closed the BTC vol-gate parity blocker as a false premise (the dataset was never stale). Vol-gate live parity now measured per-window at 92.18% / 96.40% / 100% label agreement. Every cell change remains Tier-3 and nothing was enacted.",
+        "backlog_id": null
+      }
+    ],
+    "promotion_recommendations": [],
+    "experiments_proposed": [],
+    "claude_channel_ping": {
+      "delivered_via": "suppressed (system-report)"
+    },
+    "model_status": [
+      {
+        "model_id": "btc-regime-15m-lgbm-fc-pcv-v2",
+        "stage": "advisory",
+        "last_training": {
+          "headline_metric": "\u2014",
+          "trend_vs_prior_run": "\u2014"
+        },
+        "live_shadow": {
+          "drift": "label parity 100% on the 08-04->now window (20 comparable, 58.8% overlap)"
+        },
+        "note": "BTC vol-gate head, swapped in 2026-08-04. Parity measured by the concurrent session, not by this review."
+      },
+      {
+        "model_id": "sol-regime-15m-lgbm-fc-pcv-v2",
+        "stage": "advisory",
+        "last_training": {
+          "headline_metric": "\u2014",
+          "trend_vs_prior_run": "\u2014"
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        },
+        "note": "Promoted 2026-08-02. Observer with no authored SOL trend_vol cell \u2014 zero live-order impact by design."
+      },
+      {
+        "model_id": "(3rd advisory head)",
+        "stage": "advisory",
+        "last_training": {
+          "headline_metric": "\u2014",
+          "trend_vs_prior_run": "\u2014"
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        },
+        "note": "Registry reports advisory 3; per-model detail was not pulled this run (registry JSONL path differs from my probe's guess). Recorded as a known gap rather than omitted."
+      },
+      {
+        "model_id": "<29 shadow-stage models>",
+        "stage": "shadow",
+        "last_training": {
+          "headline_metric": "\u2014",
+          "trend_vs_prior_run": "\u2014"
+        },
+        "live_shadow": {
+          "drift": "\u2014"
+        },
+        "note": "Count unchanged this window. No promotion gate newly met, none actioned."
+      }
+    ]
+  },
+  "consolidated": {
+    "roll_up_grade": "investigate",
+    "headline": "Real money is dormant - zero real-money closes in the window, bybit_2 at $278.53, lifetime wallet-truth -$262.52. All 37 closes were paper, down -$42,139.71 (win rate 24.0%, profit factor 0.128), 89% of it two ib_paper futures trades. The review's central finding is EXECUTION, not decisions: an ict_scalp leg realized -8.41R against a ~1R stop and was closed by the reconciler, and 7 of 10 scalp closes never touched a stop or target. Second consecutive review with this open. Also found: ib_paper uPnL contradicts exchange truth ~2,900x, the heartbeat reports 'paused' while ticking, and the news layer feeds 19 of 24 traded symbols macro-only headlines while its veto is armed.",
+    "operator_priorities": [
+      {
+        "rank": 1,
+        "title": "ict_scalp stops are not containing losses - a 5m leg lost 8.41R against a 1R stop, reconciler-closed",
+        "source_review": "performance",
+        "tier": 2,
+        "detail": "Trade 4413 (paper, bybit_1): -$4,254.24 = -8.41R, held 15.8h on a 5-minute strategy, closed by the reconciler not the stop. 7 of 10 ict_scalp closes were reconciler/exchange-flat closed. Second review with this open (first flagged 2026-07-30). Paper-only today, but this leg family is the M27 real-money graduation candidate.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 2,
+        "title": "ib_paper unrealized PnL contradicts exchange truth by ~2,900x on the app's headline number",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "MGC reports +$110,040 on /api/bot/positions vs +$37.80 on /api/bot/pnl/exchange; MES +$10,481 vs $0.00. Same hour, balance delta_1h -$16,923.86. Likely the markprice_local fallback pricing a netted size off one journal row's entry. Paper-only, but the same path serves every non-Bybit account.",
+        "operator_action_required": false
+      },
+      {
+        "rank": 3,
+        "title": "News veto is armed while 19 of 24 traded symbols read macro-only feeds",
+        "source_review": "health",
+        "tier": 3,
+        "detail": "symbol_groups covers 5 traded bases. XRP/ADA/SOL/AVAX never fetch the crypto feeds; USO never fetches energy. Nothing is vetoing today (adjustments 0.004-0.008), so this is latent. Fix is a YAML edit but it changes what a live trade-blocking gate sees - proposed, not enacted.",
+        "operator_action_required": true
+      },
+      {
+        "rank": 4,
+        "title": "Confirm whether the empty device_tokens table is by design",
+        "source_review": "health",
+        "tier": 1,
+        "detail": "0 registered devices means every FCM push - including the loud broker-down and trainer-down WARNING pushes - reaches nobody. Telegram is unaffected. One question: is the Android app intentionally unpaired, or were registrations lost?",
+        "operator_action_required": true
+      },
+      {
+        "rank": 5,
+        "title": "Trainer fleet is coasting - 0 models trained last cycle, 21 manifests with empty datasets",
+        "source_review": "ml",
+        "tier": 1,
+        "detail": "299 manifest_ok but 76 untrained_stale and 21 dataset_empty over 4 days, last cycle already_complete/trained:0. No failures - it just is not advancing. Plus: 2026-08-07 pooled builds trained un-augmented (fix deployed cf10172, unproven until the 08-08T00:10Z cycle).",
+        "operator_action_required": false
+      }
+    ],
+    "cross_review_notes": [
+      "THE TRANSLATION GAP IS INVERTED FROM THE USUAL WORRY. Real money did not lose anything this window because it did not trade - zero closes, one trade in the last 7 days (-$0.99). The paper book lost -$42,139.71. So the honest read is not 'paper is green, live is red' but 'live is not participating', and the paper mirror is telling us the strategies would have lost badly.",
+      "DECISION QUALITY AND EXECUTION QUALITY DISAGREE SHARPLY, and only measuring the first would have missed it. Grades were B:9 C:7 D:1 with entry_quality optimal on 9 of 17 - the decisions look fine. Meanwhile mean giveback across ict_scalp is 1.92R and 7 of 10 closes never touched a stop or target. This is exactly the blind spot the execution_capture mandate was added to catch.",
+      "TWO INDEPENDENT PATHS ARE BOTH MIS-PRICING NETTED POSITIONS, which raises the odds of a shared root cause. On the REALIZED side, bybit_1 journal-vs-exchange qty diverges 451x on SOLUSDT and 2.45x on BNBUSDT (BL-20260801). On the UNREALIZED side, ib_paper MGC/MES uPnL is off by 3-4 orders of magnitude. Different broker, different code path, same shape: a per-row journal quantity or entry applied to a netted exchange position.",
+      "89% OF THE PAPER LOSS IS TWO TRADES, so the aggregate flatters and damns in different directions depending on the cut. mgc_pullback_1d -$19,116 and mhg_pullback_1d -$18,343.75 (both ib_paper, both measured, both genuine multi-day futures losses) account for -$37,459.75 of -$42,139.71. Excluding ib_paper the rest of the paper book is -$4,679.96. Both figures are real; neither alone is the story.",
+      "THE 08-03 HEALTH REVIEW TRIAGED ~20 BACKLOG ITEMS WITH AN IDENTICAL BOILERPLATE NOTE ('Re-validated ... No live-health regression tied to this item this window'). That is the lazy-triage tell this skill's completion gate exists to stop, and it is worth naming because it made those rows look worked when they were only touched. This run gave every one of the 57 open items an item-specific disposition, and recorded 'no evidence this window' explicitly where that was the truth rather than dressing it as a re-validation.",
+      "A CONCURRENT SESSION (metis-ml2-cell-audit-cont-6ewta2) was live throughout this review and did the trainer/regime work. Their findings are folded in here by reference, not re-derived, and their PR #8584 is still open. The health backlog was the one shared file; I claimed it on the coordination board and got no objection."
+    ],
+    "pnl_by_class": {
+      "real": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": null,
+        "trend": "flat",
+        "trades": 0,
+        "wins": 0,
+        "win_rate": null,
+        "expectancy": null,
+        "profit_factor": null,
+        "max_drawdown": null,
+        "per_strategy": [],
+        "per_asset_class": {},
+        "equity_curve": [],
+        "note": "ZERO real-money trades closed in this window - the figure is 0.00 because nothing traded, not because it broke even. Context in DOLLARS, reconciled: /api/bot/performance?window=7d real = 1 trade, -$0.99 (pnlCoverage 1.0, measured); /api/bot/pnl/exchange 7d for the bybit real leg = -$1.04 realized; /api/bot/pnl/broker-truth lifetime for bybit_2 = -$262.52 realized (fees -$147.81, funding -$0.55), which is the authoritative wallet figure and is DOWN. Lifetime /api/bot/stats real totalPnL reads -$65.90 - that under-records versus the -$262.52 wallet truth, exactly as BL-20260713 documents. prior_window_pnl is null deliberately: the endpoints do not expose a matched 3.4-day prior window and I will not manufacture a comparison."
+      },
+      "paper": {
+        "window_pnl": -42139.71,
+        "prior_window_pnl": null,
+        "trend": "down",
+        "trades": 25,
+        "wins": 6,
+        "win_rate": 24.0,
+        "expectancy": -1685.59,
+        "profit_factor": 0.128,
+        "max_drawdown": null,
+        "per_strategy": [
+          {
+            "name": "mgc_pullback_1d",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -19116.0
+          },
+          {
+            "name": "mhg_pullback_1d",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -18343.75
+          },
+          {
+            "name": "ict_scalp_avax_5m",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -4254.24
+          },
+          {
+            "name": "trend_donchian_avax_4h",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -2574.61
+          },
+          {
+            "name": "slv_trend_1h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -1499.7
+          },
+          {
+            "name": "slv_pullback_1d",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -510.88
+          },
+          {
+            "name": "ict_scalp_5m",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -296.04
+          },
+          {
+            "name": "trend_donchian_eth",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -259.81
+          },
+          {
+            "name": "ict_scalp_eth_15m",
+            "trades": 2,
+            "win_rate": 50.0,
+            "pnl": -184.83
+          },
+          {
+            "name": "qqq_pullback_1h",
+            "trades": 2,
+            "win_rate": 0.0,
+            "pnl": -58.84
+          },
+          {
+            "name": "ict_scalp_xrp_15m",
+            "trades": 3,
+            "win_rate": 33.3,
+            "pnl": -40.46
+          },
+          {
+            "name": "pairs_sol_eth_b",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -12.48
+          },
+          {
+            "name": "pairs_sol_eth_a",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -3.6
+          },
+          {
+            "name": "pairs_bnb_btc_a",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": -2.96
+          },
+          {
+            "name": "ict_scalp_mgc_15m",
+            "trades": 1,
+            "win_rate": 0.0,
+            "pnl": 0.0
+          },
+          {
+            "name": "ada_pullback_2h",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 177.81
+          },
+          {
+            "name": "ict_scalp_xrp_5m",
+            "trades": 2,
+            "win_rate": 100.0,
+            "pnl": 269.15
+          },
+          {
+            "name": "trend_donchian_ada_4h",
+            "trades": 1,
+            "win_rate": 100.0,
+            "pnl": 4571.53
+          }
+        ],
+        "per_asset_class": {
+          "crypto": -2610.54,
+          "commodity": -39470.33,
+          "equity": -58.84
+        },
+        "equity_curve": [],
+        "note": "POPULATION STATED: 25 priced rows of 37 in-window closes (12 rows carry realizedPnl null and are excluded, not counted as zero). Provenance of the 25: measured 10, estimated 13, unverified 2, FABRICATED 0. totalPnlMeasured (measured+estimated only) = -$41,508.61, coverage 0.920. Per account: ib_paper -$37,459.75, bybit_1 -$2,340.81, alpaca_paper -$1,438.32, alpaca_portfolio -$631.10, bybit_portfolio -$269.73. PAPER-PORTFOLIO MIRROR (the honest live predictor, paper_role: portfolio): bybit_portfolio -$269.73 + alpaca_portfolio -$631.10 = -$900.83 over 4 closes. Cross-check: /api/bot/performance?window=7d demo reports -$40,970.68 over 42 trades - a wider window and a different close-time basis, so it does not equal this figure and I am not reconciling the two into one number."
+      },
+      "prop": {
+        "window_pnl": 0.0,
+        "prior_window_pnl": 0.0,
+        "trend": "flat",
+        "fills_reported": 0,
+        "tickets_emitted": 0,
+        "unacted_tickets": 0,
+        "rule_distance": {
+          "daily_loss_remaining": 144.77,
+          "static_dd_remaining": 125.61
+        },
+        "per_account": [
+          {
+            "account_id": "breakout_1",
+            "balance": 4825.61,
+            "equity": 4825.61,
+            "realized_window": 0.0
+          }
+        ],
+        "note": "No prop activity in the window: 0 fills reported (latest fill is 2026-07-28), 0 unacted tickets, and the three most recent prop order-packages are all status 'shadow' / close_reason 'prop_shadow_no_emit' - trend_donchian_eth_prop is emitting nothing. CAVEAT ON THE CUSHION FIGURES ABOVE: both are computed from an account_status snapshot reported_at 2026-07-20T08:28:32Z, EIGHTEEN DAYS STALE. They are shown because the endpoint returns them, not because they are current risk. Filed as BL-20260807-PROP-RULEDISTANCE-STALE-SNAPSHOT-UNMARKED."
+      }
+    },
+    "market_context": [
+      {
+        "symbol": "BTCUSDT",
+        "open": 63529.1,
+        "close": 65071.6,
+        "high": 65403.5,
+        "low": 63320.2,
+        "pct_change": 2.43,
+        "range_pct": 3.28,
+        "note": "Grinding higher all window, no impulse. ict_scalp_5m went long into it 3x and lost on all three \u2014 chop, not trend."
+      },
+      {
+        "symbol": "ETHUSDT",
+        "open": 1860.61,
+        "close": 1917.5,
+        "high": 1944.0,
+        "low": 1848.37,
+        "pct_change": 3.06,
+        "range_pct": 5.14,
+        "note": "Step up on 08-05 (1873->1917 in one 4h bar on 3x volume), then a tight range. trend_donchian_eth was SHORT into that step and lost $259.81."
+      },
+      {
+        "symbol": "XRPUSDT",
+        "open": 1.0761,
+        "close": 1.0293,
+        "high": 1.082,
+        "low": 1.0147,
+        "pct_change": -4.35,
+        "range_pct": 6.25,
+        "note": "Sustained sell-off, the cleanest directional move of the window. The XRP shorts were the window's best trades (+$1,153.95 on ict_scalp_xrp_15m at 9.71R)."
+      },
+      {
+        "symbol": "SOLUSDT",
+        "open": 73.56,
+        "close": 73.93,
+        "high": 74.83,
+        "low": 72.34,
+        "pct_change": 0.5,
+        "range_pct": 3.38,
+        "note": "Range-bound, no net move. Nothing to capture; the SOL legs closed flat or tiny."
+      },
+      {
+        "symbol": "ADAUSDT",
+        "open": 0.1936,
+        "close": 0.1976,
+        "high": 0.2116,
+        "low": 0.186,
+        "pct_change": 2.07,
+        "range_pct": 13.22,
+        "note": "A sharp +9% spike on 08-06 (0.1923->0.2090 on 4x volume) then a fade. trend_donchian_ada_4h was long and caught it: +$4,571.53, the window's single best trade."
+      },
+      {
+        "symbol": "AVAXUSDT",
+        "open": 6.573,
+        "close": 6.444,
+        "high": 6.988,
+        "low": 6.35,
+        "pct_change": -1.96,
+        "range_pct": 9.71,
+        "note": "THIS EXPLAINS THE WORST TRADE. A one-bar flush on 08-05 (6.685 -> 6.350 low on 299k volume, ~7x normal) took out ict_scalp_avax_5m's long at 6.692. A 1R stop sat at 6.6592, inside that bar's range \u2014 yet the trade realized -8.41R, so the move alone does not explain the loss; the stop failing to contain it does."
+      }
+    ],
+    "trade_dossiers": [
+      {
+        "trade_id": 4363,
+        "order_package_id": "pkg-384b2f9a898d41bb",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "short",
+        "strategy": "ict_scalp_eth_15m",
+        "opened_at": "2026-08-04T06:49:54+00:00",
+        "closed_at": "2026-08-04T10:11:04+00:00",
+        "hold_seconds": 12070,
+        "entry_price": 1856.33,
+        "exit_price": 1855.88,
+        "stop_loss": 1875.62128571,
+        "take_profit": 1827.39307143,
+        "qty": 1.33,
+        "pnl": 0.5985,
+        "pnl_percent": 0.0242,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "premature_exit",
+          "risk_management": "unknown",
+          "rationale": "ict_scalp_eth_15m short; conf 0.79; entry=optimal; exit=premature_exit(stale_stop,0.02R)"
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 4364,
+        "order_package_id": "pkg-5cf92614c0cc4f40",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_xrp_5m",
+        "opened_at": "2026-08-04T07:30:32+00:00",
+        "closed_at": "2026-08-04T08:21:50+00:00",
+        "hold_seconds": 3078,
+        "entry_price": 1.0741,
+        "exit_price": 1.0749,
+        "stop_loss": 1.0762119,
+        "take_profit": 1.07986071,
+        "qty": 1664.7,
+        "pnl": 1.3318,
+        "pnl_percent": 0.0745,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "premature_exit",
+          "risk_management": "unknown",
+          "rationale": "ict_scalp_xrp_5m long; conf 1.00; entry=optimal; exit=premature_exit(reconciler_filled,0.19R). MFE reached 2.46R and it closed at 0.38R \u2014 gave back 2.08R."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 4365,
+        "order_package_id": "pkg-d5fed2cd90bb4230",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BTCUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_5m",
+        "opened_at": "2026-08-04T07:35:53+00:00",
+        "closed_at": "2026-08-04T09:29:15+00:00",
+        "hold_seconds": 6802,
+        "entry_price": 63679.2,
+        "exit_price": 63568.2,
+        "stop_loss": 63497.59428571,
+        "take_profit": 64015.60857143,
+        "qty": 0.237,
+        "pnl": -26.307,
+        "pnl_percent": -0.1743,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "ict_scalp_5m long; conf 0.93; exit=sl_appropriate(reconciler_filled,-0.66R)"
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 4368,
+        "order_package_id": "pkg-e1e81862682045e3",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_sol_5m",
+        "opened_at": "2026-08-04T07:43:04+00:00",
+        "closed_at": "2026-08-04T07:43:04+00:00",
+        "hold_seconds": 0,
+        "entry_price": 73.55,
+        "exit_price": null,
+        "stop_loss": 73.19114286,
+        "take_profit": 74.08828571,
+        "qty": 41.5,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "intent_reduce_executed \u2014 closed at its own open timestamp with no PnL. Not a real outcome."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 4370,
+        "order_package_id": "pkg-63a40f4056d34072",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_xrp_15m",
+        "opened_at": "2026-08-04T08:02:00+00:00",
+        "closed_at": "2026-08-04T08:02:00+00:00",
+        "hold_seconds": 0,
+        "entry_price": 1.0798,
+        "exit_price": null,
+        "stop_loss": 1.07088,
+        "take_profit": 1.09318,
+        "qty": 134223.7,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "intent_reduce_executed \u2014 closed at its own open timestamp with no PnL."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 4389,
+        "order_package_id": "pkg-bfa582471d514d00",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "BNBUSDT",
+        "direction": "long",
+        "strategy": "pairs_bnb_btc_a",
+        "opened_at": "2026-08-04T15:05:09+00:00",
+        "closed_at": "2026-08-04T15:17:13+00:00",
+        "hold_seconds": 724,
+        "entry_price": 593.9,
+        "exit_price": 593.2,
+        "stop_loss": 297.25,
+        "take_profit": 1189.0,
+        "qty": 4.23,
+        "pnl": -2.961,
+        "pnl_percent": -0.1179,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "unknown",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "pairs leg \u2014 sl/tp are nominal 0.5x/2.0x placeholders, so R is meaningless here (-0.00R)."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 4413,
+        "order_package_id": "pkg-0d84cf92a9d44a70",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "AVAXUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_avax_5m",
+        "opened_at": "2026-08-05T08:03:54+00:00",
+        "closed_at": "2026-08-06T10:17:17+00:00",
+        "hold_seconds": 94403,
+        "entry_price": 6.692,
+        "exit_price": 6.416,
+        "stop_loss": 6.6592,
+        "take_profit": 6.7487,
+        "qty": 15413.9,
+        "pnl": -4254.2364,
+        "pnl_percent": -4.1243,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "THE WINDOW'S WORST TRADE. Graded B (entry optimal, conf 0.83) \u2014 the decision was fine. Realized -8.41R against a ~1R stop, held 15.8h on a 5-minute strategy, closed by the reconciler not the stop. Realized loss is worse than the measured MAE of -5.0R."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 4416,
+        "order_package_id": "pkg-6737d6df0d864e3a",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_xrp_15m",
+        "opened_at": "2026-08-05T12:23:06+00:00",
+        "closed_at": "2026-08-05T13:17:05+00:00",
+        "hold_seconds": 3239,
+        "entry_price": 1.0664,
+        "exit_price": 1.0621,
+        "stop_loss": 1.06079286,
+        "take_profit": 1.07706071,
+        "qty": 138946.6,
+        "pnl": -597.4704,
+        "pnl_percent": -0.4032,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.57; long into a sustained XRP sell-off. -0.80R."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 4418,
+        "order_package_id": "pkg-a0e62a2402ec4270",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "short",
+        "strategy": "ict_scalp_eth_15m",
+        "opened_at": "2026-08-05T13:04:15+00:00",
+        "closed_at": "2026-08-05T13:04:15+00:00",
+        "hold_seconds": 0,
+        "entry_price": 1875.36,
+        "exit_price": null,
+        "stop_loss": 1877.22471429,
+        "take_profit": 1872.56292857,
+        "qty": 71.75,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "late",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "conf 0.40, entry graded late; intent_reduce_executed at its own open timestamp."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 4428,
+        "order_package_id": "pkg-81ca0ec25f8b4f0c",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "SOLUSDT",
+        "direction": "short",
+        "strategy": "pairs_sol_eth_a",
+        "opened_at": "2026-08-05T14:02:19+00:00",
+        "closed_at": "2026-08-05T14:12:12+00:00",
+        "hold_seconds": 593,
+        "entry_price": 73.77,
+        "exit_price": 74.01,
+        "stop_loss": 147.66,
+        "take_profit": 36.915,
+        "qty": 15.0,
+        "pnl": -3.6,
+        "pnl_percent": -0.3253,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "unknown",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "pairs leg with placeholder brackets; -0.00R."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 4430,
+        "order_package_id": "pkg-4b600c276e3e4eb8",
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "SLV",
+        "direction": "long",
+        "strategy": "slv_trend_1h",
+        "opened_at": "2026-08-05T14:11:26+00:00",
+        "closed_at": "2026-08-06T13:13:21+00:00",
+        "hold_seconds": 82915,
+        "entry_price": 56.725,
+        "exit_price": 55.24,
+        "stop_loss": 55.31160714,
+        "take_profit": 62.340775,
+        "qty": 600.0,
+        "pnl": -891.0,
+        "pnl_percent": -2.6179,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "late",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.47, entry late; -1.05R. Closed by an actual sl_cross \u2014 the stop worked here."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 4442,
+        "order_package_id": "pkg-4bb7f11cfb0d41cd",
+        "account": "ib_paper",
+        "account_class": "paper",
+        "symbol": "MGC",
+        "direction": "short",
+        "strategy": "ict_scalp_mgc_15m",
+        "opened_at": "2026-08-05T16:12:15+00:00",
+        "closed_at": "2026-08-06T13:51:55+00:00",
+        "hold_seconds": 77980,
+        "entry_price": 4260.1,
+        "exit_price": 4300.8125,
+        "stop_loss": 4296.48285714,
+        "take_profit": 4205.52571429,
+        "qty": 49.0,
+        "pnl": 0.0,
+        "pnl_percent": 0.0,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "exchange_flat_reconciled at -1.12R but realizedPnl 0.0 \u2014 held 21.6h on a 15-minute strategy."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 4450,
+        "order_package_id": "pkg-8c486f735ed7459e",
+        "account": "alpaca_paper",
+        "account_class": "paper",
+        "symbol": "QQQ",
+        "direction": "long",
+        "strategy": "qqq_pullback_1h",
+        "opened_at": "2026-08-05T18:04:21+00:00",
+        "closed_at": "2026-08-06T13:03:27+00:00",
+        "hold_seconds": 68346,
+        "entry_price": 721.26,
+        "exit_price": 712.15,
+        "stop_loss": 712.29125,
+        "take_profit": 792.66474,
+        "qty": 4.0,
+        "pnl": -36.44,
+        "pnl_percent": -1.2631,
+        "close_reason": "sl",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.57; -1.02R on a clean sl_cross."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 4474,
+        "order_package_id": "pkg-fbdcaa59d399409d",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ETHUSDT",
+        "direction": "long",
+        "strategy": "ict_scalp_eth_15m",
+        "opened_at": "2026-08-06T13:54:29+00:00",
+        "closed_at": "2026-08-06T18:39:55+00:00",
+        "hold_seconds": 17126,
+        "entry_price": 1907.6,
+        "exit_price": 1905.12,
+        "stop_loss": 1895.609,
+        "take_profit": 1925.5865,
+        "qty": 74.77,
+        "pnl": -185.4296,
+        "pnl_percent": -0.13,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "sl_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.81; closed by the stale_stop lever at -0.21R after 4.75h."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 4482,
+        "order_package_id": "pkg-5be5cbc73e1c4b46",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "short",
+        "strategy": "ict_scalp_xrp_15m",
+        "opened_at": "2026-08-06T16:36:07+00:00",
+        "closed_at": "2026-08-07T03:32:28+00:00",
+        "hold_seconds": 39381,
+        "entry_price": 1.0436,
+        "exit_price": 1.0288,
+        "stop_loss": 1.042434,
+        "take_profit": 1.02784714,
+        "qty": 77969.9,
+        "pnl": 1153.9545,
+        "pnl_percent": 1.4182,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "B",
+          "entry_quality": "optimal",
+          "exit_quality": "tp_appropriate",
+          "risk_management": "unknown",
+          "rationale": "THE WINDOW'S BEST SCALP: +9.71R short into the XRP sell-off. Note it still took 10.9h on a 15-minute strategy and closed via the reconciler."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      },
+      {
+        "trade_id": 4489,
+        "order_package_id": "pkg-0d236f2af8134542",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "XRPUSDT",
+        "direction": "short",
+        "strategy": "ict_scalp_xrp_5m",
+        "opened_at": "2026-08-07T02:22:15+00:00",
+        "closed_at": "2026-08-07T03:32:29+00:00",
+        "hold_seconds": 4214,
+        "entry_price": 1.033,
+        "exit_price": 1.0281,
+        "stop_loss": 1.0328484,
+        "take_profit": 1.02670714,
+        "qty": 54656.3,
+        "pnl": 267.8159,
+        "pnl_percent": 0.4743,
+        "close_reason": "reconciler",
+        "claude_grade": {
+          "grade": "C",
+          "entry_quality": "acceptable",
+          "exit_quality": "tp_appropriate",
+          "risk_management": "unknown",
+          "rationale": "conf 0.64; +4.06R."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": false
+      },
+      {
+        "trade_id": 4491,
+        "order_package_id": "pkg-5618b675080f4c44",
+        "account": "bybit_1",
+        "account_class": "paper",
+        "symbol": "ADAUSDT",
+        "direction": "long",
+        "strategy": "ada_pullback_2h",
+        "opened_at": "2026-08-07T04:06:51+00:00",
+        "closed_at": "2026-08-07T04:06:51+00:00",
+        "hold_seconds": 0,
+        "entry_price": 0.1995,
+        "exit_price": null,
+        "stop_loss": 0.18753571,
+        "take_profit": 0.2192505,
+        "qty": 9428.0,
+        "pnl": null,
+        "pnl_percent": null,
+        "close_reason": "other",
+        "claude_grade": {
+          "grade": "D",
+          "entry_quality": "should_skip",
+          "exit_quality": "unknown",
+          "risk_management": "unknown",
+          "rationale": "THE ONLY D THIS WINDOW: conf 0.05 \u2014 the scorer says this should not have been taken. Then closed at its own open timestamp via intent_reduce_executed, so it never produced an outcome either way."
+        },
+        "model_scores": null,
+        "signal_logic": null,
+        "meta": {
+          "setup_type": null,
+          "killzone": null,
+          "bias": null
+        },
+        "notable": true
+      }
+    ],
+    "dossier_coverage": {
+      "window": "since-last",
+      "full_dossiers": 17,
+      "summarized_trades": 20,
+      "rule": "full-per-trade (since-last/daily)",
+      "note": "17 of 37 in-window closes carry a fresh Claude grade from this run's grade-closed-trades pass; the remaining 20 are rows the scorer skipped (12 have realizedPnl null, incl. the 8 bulk-reconciler closes and 4 intent_reduce_executed rows) and are summarized in pnl_by_class.paper.per_strategy."
+    },
+    "backlog_summary": {
+      "health": {
+        "total": 402,
+        "open": 62,
+        "resolved": 340,
+        "drained": 1
+      },
+      "performance": {
+        "total": 88,
+        "open": 6,
+        "resolved": 82,
+        "drained": 0
+      },
+      "ml": {
+        "total": 98,
+        "open": 3,
+        "resolved": 95,
+        "drained": 0
+      }
+    },
+    "tier3_proposals_pending": [
+      {
+        "source_review": "performance",
+        "tier": 3,
+        "summary": "gld_pullback_1h routing on alpaca_portfolio despite failing that account's survival gate (0.871 < 0.90). Verified still live this run (open positions on both alpaca books, both paper)."
+      },
+      {
+        "source_review": "performance",
+        "tier": 3,
+        "summary": "M27 real-money graduation of the SOL/XRP/AVAX/ETH scalp legs. This review argues AGAINST until the ict_scalp stop-containment finding is resolved."
+      },
+      {
+        "source_review": "health",
+        "tier": 3,
+        "summary": "Extend config/news_feeds.yaml symbol_groups to the 19 uncovered traded bases. A YAML edit, but it changes what the armed news veto sees, so it is proposed not enacted."
+      },
+      {
+        "source_review": "ml",
+        "tier": 3,
+        "summary": "All six authored trend_vol OFF-cells now grade 0-of-6 affirmatively justified under the new sample floor (concurrent session, cf10172). Cell retirement is the operator's call; nothing enacted."
+      },
+      {
+        "source_review": "health",
+        "tier": 2,
+        "summary": "NETTING_ATTRIBUTION_MODE remains 'annotate'. Flipping to 'apply' is Tier-2 and was NOT done here; bybit_1 SOLUSDT still diverges 451x."
+      }
+    ],
+    "monitoring": [
+      {
+        "item_id": "BL-20260807-POOLED-AUGMENT-MERGE-SILENT-FALLBACK",
+        "domain": "ml",
+        "category": "verify",
+        "detail": "pk-collision fix deployed on the trainer (cf10172) but no post-fix pooled build has run yet.",
+        "since": "2026-08-07",
+        "next_check": "next trainer cycle 2026-08-08T00:10Z"
+      },
+      {
+        "item_id": "BL-20260807-TRAINER-JOURNAL-PULL-TORN-RSYNC",
+        "domain": "health",
+        "category": "verify",
+        "detail": "Mirror repaired and verified at rest, but the fix itself had two defects carried in the concurrent session's PR #8584.",
+        "since": "2026-08-07",
+        "next_check": "#8584 merged + a pull records method=snapshot"
+      },
+      {
+        "item_id": "BL-20260806-ARBITRATION-SOAK-QTY-ALL-ZERO",
+        "domain": "health",
+        "category": "awaiting-data",
+        "detail": "target_qty 0.0 on every conviction_arbitration row. NOT re-measured this run - I did not tail that log and will not imply otherwise.",
+        "since": "2026-08-06",
+        "next_check": "tail conviction_arbitration next review"
+      },
+      {
+        "item_id": "BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT",
+        "domain": "health",
+        "category": "awaiting-data",
+        "detail": "The three volatile-keyed cells are dormant in the current calm stretch, not structurally dead.",
+        "since": "2026-07-30",
+        "next_check": "next sustained volatile regime"
+      },
+      {
+        "item_id": "SRQ-20260728-M27-WINNERS-SHIP",
+        "domain": "performance",
+        "category": "awaiting-decision",
+        "detail": "Real-money graduation of the scalp legs is soak-gated, and this window's execution finding is a live argument against it.",
+        "since": "2026-07-28",
+        "next_check": "operator go + stop-containment resolved"
+      },
+      {
+        "item_id": "BL-20260803-GLD-ALPACA-PORTFOLIO-SURVIVAL-SKIP",
+        "domain": "health",
+        "category": "awaiting-decision",
+        "detail": "Tier-3 routing change; confirmed still live this run on both alpaca books (paper, so no money at risk).",
+        "since": "2026-08-03",
+        "next_check": "operator go"
+      },
+      {
+        "item_id": "MB-20260728-ICTSCALP-EXIT-LEVERS",
+        "domain": "ml",
+        "category": "soaking",
+        "detail": "Remaining ict_scalp exit-lever sweeps; MGC swept honest_negative 2026-07-28.",
+        "since": "2026-07-28",
+        "next_check": "remaining legs swept"
+      },
+      {
+        "item_id": "BL-20260730-SPLG-ZERO-TRADES",
+        "domain": "health",
+        "category": "verify",
+        "detail": "splg_trend_long_1d still loaded, still zero trades, still no open position - one more window of confirming silence.",
+        "since": "2026-07-30",
+        "next_check": "first SPLG signal, or a decision to kill"
+      }
+    ],
+    "review_coverage": {
+      "strategy_promotion": {
+        "ready_to_promote": [],
+        "demote_or_kill": [
+          {
+            "name": "ict_scalp_avax_5m",
+            "gate": "TUNE",
+            "evidence": "Realized -8.41R against a ~1R designed stop on trade 4413, held 15.8h on a 5-minute strategy, reconciler-closed. The entry graded B/optimal, so this is an EXECUTION verdict, not a signal verdict - the right action is to fix stop containment, not to kill the strategy. Recorded here so it is not read as ready."
+          },
+          {
+            "name": "splg_trend_long_1d",
+            "gate": "KILL",
+            "evidence": "Zero trades over 730d and zero this window, still loaded among the 52 live strategies and holding no position. A strategy that never fires is dead weight in the loop. Candidate for removal, but the prior open question (broken feed vs params vs genuinely no signal) is still unanswered, so this is a candidate not a recommendation."
+          }
+        ],
+        "summary": "NOTHING is ready to promote. No M7 review packet was regenerated in this window, so per-strategy KILL/HOLD/TUNE badges are not freshly computed - I am not going to imply a gate read I did not run. What IS established: the M27 real-money graduation candidates (SOL/XRP/AVAX/ETH scalp legs) are the same family carrying this review's execution defect, which argues against graduation. All six authored trend_vol cells grade 0-of-6 justified under the new sample floor (concurrent session). Zero real-money trades closed this window, so no live-performance evidence accrued toward any gate."
+      },
+      "ml_training_health": {
+        "cycles_since_last_review": 8,
+        "dataset_builds_ok": true,
+        "failing_or_stuck": [
+          {
+            "what": "manifest_untrained_stale",
+            "count": 76,
+            "detail": "76 events over 2026-08-04..07; the most recent cycle ended already_complete with trained:0."
+          },
+          {
+            "what": "manifest_dataset_empty",
+            "count": 21,
+            "detail": "21 manifests reached training with an empty dataset."
+          },
+          {
+            "what": "pooled_augment_merge",
+            "count": 1,
+            "detail": "Failed 2026-08-07T05:01Z on UNIQUE constraint failed: trades.id, silently degrading to journal-only. Fix deployed (cf10172), unproven until the 08-08 cycle."
+          }
+        ],
+        "summary": "Cycles ARE running - 8 cycle_start/cycle_end pairs since window start, dataset_builds_24h ok 94 / failed 2, manifests_24h ok 68 / failed 0, ZERO quarantine events and ZERO failed cycle events. But the fleet is coasting: 0 models trained in the last cycle, 76 manifest_untrained_stale and 21 manifest_dataset_empty. Registry 95 models (advisory 3, shadow 29, candidate 62, research_only 1) - unchanged in composition this window. Trainer journal mirror repaired and verified (quick_check ok)."
+      },
+      "soak_status": [
+        {
+          "soak": "exit-ladder (ExitPlan laddered vs single target)",
+          "state": "accruing",
+          "detail": "401 rows scanned (api 368 / prop 33), differing 0. This is a MEASURED structural zero, honestly labelled by the endpoint itself: no live strategy declares a partial-TP ladder via a distinct meta.tp2, so every row materializes to a single rung. Not a stall - there is simply nothing multi-rung to compare yet."
+        },
+        {
+          "soak": "allocator (capital-allocator would-pick vs routed)",
+          "state": "stalled",
+          "detail": "165 scanned, disagree 51.5%, mean_regret 0.485 - but CONFIRMED this run as a variant-pair artifact: the disagreements are trend_donchian_eth vs trend_donchian_eth_prop, the same strategy in two variants. The soak is accruing rows but not producing usable selection evidence. Counted as stalled on that basis."
+        },
+        {
+          "soak": "pairs sleeve (M22 D2)",
+          "state": "stalled",
+          "detail": "2,232 evaluations but 850 (38.1%) skip_state_unreadable and 10 of 38 attempted opens failed. Plus 7 legs open and unclosed, oldest 22 days. A soak that cannot read state on 38% of bars is not soaking the thing it was built to soak."
+        },
+        {
+          "soak": "conviction arbitration",
+          "state": "stalled",
+          "detail": "Carried from BL-20260806-ARBITRATION-SOAK-QTY-ALL-ZERO (target_qty 0.0 on every row). NOT re-measured this run - I did not tail conviction_arbitration, so this state is inherited, not observed today. Flagged as owed next review rather than asserted."
+        },
+        {
+          "soak": "fc-geometry (M19 D1)",
+          "state": "accruing",
+          "detail": "Not queried this run - unavailable, no observation to report. Recorded so its absence is visible rather than silently omitted."
+        },
+        {
+          "soak": "shadow models (29 at shadow stage)",
+          "state": "accruing",
+          "detail": "29 shadow-stage models in the registry, unchanged in count this window. No promotion gate was newly met and none was actioned. The BTC vol-gate live-parity blocker was closed by the concurrent session (parity measured 92.18% / 96.40% / 100% per pinned window)."
+        }
+      ],
+      "execution_capture": {
+        "per_strategy": [
+          {
+            "strategy": "ict_scalp_avax_5m",
+            "book": "paper",
+            "n_closed": 1,
+            "roundtrippers_pct": 0.0,
+            "mean_giveback_r": 9.14,
+            "hold_h_actual": 15.8,
+            "hold_h_expected": 0.25,
+            "state": "anomaly",
+            "note": "Realized -8.41R against a ~1R stop, reconciler-closed. Giveback 9.14R. Hold is 63x the expected 5-minute-strategy hold."
+          },
+          {
+            "strategy": "ict_scalp_xrp_15m",
+            "book": "paper",
+            "n_closed": 2,
+            "roundtrippers_pct": 0.0,
+            "mean_giveback_r": 1.47,
+            "hold_h_actual": 3.0,
+            "hold_h_expected": 0.5,
+            "state": "degraded",
+            "note": "Holds 1.0h and 5.0h against a 15m-strategy expectation; both reconciler-closed."
+          },
+          {
+            "strategy": "ict_scalp_eth_15m",
+            "book": "paper",
+            "n_closed": 2,
+            "roundtrippers_pct": 0.0,
+            "mean_giveback_r": 0.47,
+            "hold_h_actual": 3.35,
+            "hold_h_expected": 0.5,
+            "state": "degraded",
+            "note": "Holds 3.5h and 3.2h; both closed by the stale_stop lever rather than a bracket. The lever IS firing on this leg."
+          },
+          {
+            "strategy": "ict_scalp_5m",
+            "book": "paper",
+            "n_closed": 3,
+            "roundtrippers_pct": 0.0,
+            "mean_giveback_r": 1.06,
+            "hold_h_actual": 1.7,
+            "hold_h_expected": 0.25,
+            "state": "degraded",
+            "note": "Holds 1.5/1.8/1.8h against a 5-minute strategy; all three reconciler-closed."
+          },
+          {
+            "strategy": "ict_scalp_xrp_5m",
+            "book": "paper",
+            "n_closed": 1,
+            "roundtrippers_pct": 0.0,
+            "mean_giveback_r": 2.08,
+            "hold_h_actual": 0.8,
+            "hold_h_expected": 0.25,
+            "state": "degraded",
+            "note": "The one trade that reached >=1R MFE (2.46R) closed at +0.38R - it kept the sign but gave back 2.08R. Not a roundtripper by the strict definition (it closed positive), and I am not going to count it as one."
+          },
+          {
+            "strategy": "trend_donchian_avax_4h",
+            "book": "paper",
+            "n_closed": 1,
+            "roundtrippers_pct": 0.0,
+            "mean_giveback_r": 1.77,
+            "hold_h_actual": 46.2,
+            "hold_h_expected": 24.0,
+            "state": "ok",
+            "note": "46h on a 4h-bar trend strategy is within a plausible multi-day hold. Not flagged."
+          },
+          {
+            "strategy": "slv_trend_1h",
+            "book": "paper",
+            "n_closed": 2,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": 1.03,
+            "hold_h_actual": null,
+            "hold_h_expected": 8.0,
+            "state": "ok",
+            "note": "hold_h UNUSABLE - the harness reported exactly 24.0 for both against real durations of 23.0h and 25.4h, with mfe exactly 0.0. Clamped, not measured. See BL-20260807-M20EXIT-HOLD-CLAMP-UNMARKED."
+          },
+          {
+            "strategy": "qqq_pullback_1h",
+            "book": "paper",
+            "n_closed": 2,
+            "roundtrippers_pct": null,
+            "mean_giveback_r": 1.14,
+            "hold_h_actual": null,
+            "hold_h_expected": 8.0,
+            "state": "ok",
+            "note": "hold_h UNUSABLE for the same clamp reason (reported 24.0 vs real 19.0h/19.6h, mfe 0.0)."
+          },
+          {
+            "strategy": "ict_scalp_mgc_15m",
+            "book": "paper",
+            "n_closed": 1,
+            "roundtrippers_pct": 0.0,
+            "mean_giveback_r": 0.88,
+            "hold_h_actual": null,
+            "hold_h_expected": 0.5,
+            "state": "degraded",
+            "note": "hold_h clamped at 24.0 vs a real 21.6h - so the exact figure is unusable, but 21.6h on a 15-minute strategy is itself the anomaly and does not depend on the clamp."
+          }
+        ],
+        "anomalies": [
+          {
+            "strategy": "ict_scalp",
+            "symptom": "(family: the 5m + 15m legs) Holds run 3-16h against a minutes-scale expectation, mean giveback 1.92R across 10 closes, and 7 of 10 closes are reconciler_filled / exchange_flat_reconciled rather than sl/tp. Worst case trade 4413: -8.41R against a ~1R designed stop, realized loss WORSE than the measured MAE, meaning the stop neither contained nor closed the position.",
+            "first_seen": "2026-07-30",
+            "reviews_open": 2,
+            "backlog_id": "PB-20260807-ICTSCALP-STOP-DID-NOT-CONTAIN-8R"
+          }
+        ],
+        "dollars_reconciled": true,
+        "summary": "MEASURED via scripts/research/m20_exit_analysis.py --since-days 4 on the trainer (15 paper closes). Capture is BAD on the ict_scalp family: mean giveback 1.92R and 7 of 10 closes never touched a stop or target. DOLLARS RECONCILED: real money is DOWN and dormant - 0 closes this window, -$0.99 over 7d (journal) against -$1.04 exchange-fills truth, and -$262.52 lifetime broker wallet-truth for bybit_2. Paper is DOWN -$42,139.71. CAVEAT: 4 of the 15 rows carry a clamped hold_h of exactly 24.0 and mfe 0.0 and are excluded from the hold conclusions."
+      },
+      "flags_raised": [
+        "EXECUTION-CAPTURE ANOMALY OPEN ACROSS 2 REVIEWS (mandatory escalation): the ict_scalp family gives back a mean 1.92R and closes 7 of 10 trades by reconciler rather than by stop or target. Trade 4413 realized -8.41R against a ~1R stop. First flagged 2026-07-30. Paper-only today - but this is the exact leg family queued for M27 real-money graduation.",
+        "TWO ENDPOINTS DISAGREE BY ~2,900x ON THE SAME POSITION: ib_paper MGC uPnL reads +$110,040 on /api/bot/positions and +$37.80 on /api/bot/pnl/exchange, while ib_paper's balance fell $16,923.86 in the same hour. At least one of the three is wrong and the app renders the largest one.",
+        "A LIVE TRADE-BLOCKING GATE IS READING THE WRONG INPUT FOR 79% OF SYMBOLS: NEWS_VETO_ENABLED is armed and 19 of 24 traded bases resolve to macro-only feeds. Nothing is vetoing today, so this is latent rather than active - stated that way deliberately.",
+        "LIVENESS REPORTS A FALSE 'PAUSED' DURING NORMAL OPERATION: the heartbeat starves during a ~4-minute tick. An alarm that cries wolf in the normal case is the alarm-fatigue failure mode this repo names as itself a P1.",
+        "ALL MOBILE PUSH IS INERT: device_tokens is empty, so the loud broker-down and trainer-down WARNING pushes reach nobody. Telegram still works, so this is a degraded channel and not a blackout.",
+        "ML FLEET IS COASTING, NOT BROKEN: 0 models trained last cycle, 76 manifest_untrained_stale, 21 manifest_dataset_empty, but zero failures and zero quarantine events. Flagged because 'nothing is failing' and 'nothing is progressing' look identical on a green dashboard.",
+        "TODAY'S POOLED DATASET BUILDS TRAINED UN-AUGMENTED (2026-08-07 05:01Z augment-merge failure). Fix is deployed but unproven. Any ML result read off today's pooled builds is on the un-augmented population."
+      ],
+      "account_reachability": {
+        "checked": [
+          "bybit_1",
+          "bybit_2",
+          "bybit_portfolio",
+          "ib_paper",
+          "alpaca_paper",
+          "alpaca_portfolio",
+          "alpaca_options_paper",
+          "oanda_practice"
+        ],
+        "down": [],
+        "summary": "ALL 8 declared-live probeable accounts are REACHABLE. Evidence: /api/diag/exchange_positions returned a non-null positions list for bybit_1 (6), bybit_2 (2), bybit_portfolio (2), ib_paper (2), alpaca_paper (7), alpaca_portfolio (>=1); /api/bot/accounts/balances shows api_ok true for all 8. IB is healthy on all three client sessions (state connected, account_data_ready true, breaker closed, consecutive_failures 0, likely_wedged false). EXPECTED-DOWN AND CORRECTLY EXCLUDED: ib_live (mode false, shelved, positions null), oanda_practice (mode false, positions null), breakout_1 (API-less prop bridge, api_ok false by design). No account_reachability latch is set. NOTE alpaca_paper is reachable but has $0.00 buying power - a separate finding, not a reachability failure."
+      },
+      "backlog_drive": {
+        "health": {
+          "open_at_start": 50,
+          "triaged": 50,
+          "count_untriaged": 0,
+          "drained": [
+            "BL-20260730-TRAINER-JOURNAL-PULL-STALE"
+          ],
+          "deferred": [
+            {
+              "id": "BL-20260807-TRAINER-JOURNAL-PULL-TORN-RSYNC",
+              "reason": "verify - fix deployed, blocked on the concurrent session's PR #8584 landing"
+            },
+            {
+              "id": "BL-20260807-POOLED-AUGMENT-MERGE-SILENT-FALLBACK",
+              "reason": "verify - blocked on the 2026-08-08T00:10Z trainer cycle"
+            },
+            {
+              "id": "BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED",
+              "reason": "Tier-2 awaiting operator - flipping NETTING_ATTRIBUTION_MODE to apply is the operator's call"
+            },
+            {
+              "id": "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
+              "reason": "Tier-2 awaiting operator; re-measured this run (XRP clean, SOL now 451x)"
+            },
+            {
+              "id": "BL-20260806-DUPLICATE-PNL-NETTED-SIBLING-ROWS",
+              "reason": "Tier-2 awaiting operator on the bybit_2 residual only; the bybit_1 half is done and verified"
+            },
+            {
+              "id": "BL-20260629-DEVNULL-OCI-SOURCE-KILL",
+              "reason": "Tier-2 awaiting operator - guard holding, root-source kill is operator-gated"
+            },
+            {
+              "id": "BL-20260803-GLD-ALPACA-PORTFOLIO-SURVIVAL-SKIP",
+              "reason": "Tier-3 awaiting operator - routing change; re-verified live this run"
+            },
+            {
+              "id": "BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT",
+              "reason": "awaiting-data - needs a volatile regime to accrue"
+            },
+            {
+              "id": "BL-20260806-ARBITRATION-SOAK-QTY-ALL-ZERO",
+              "reason": "awaiting-data - not re-measured this run, explicitly owed a log tail next review"
+            },
+            {
+              "id": "BL-20260729-IB-FLEX-FILLS",
+              "reason": "operator-deprioritized 2026-07-29, unchanged"
+            },
+            {
+              "id": "<regime-cell rows x12>",
+              "reason": "owned by the concurrent session metis-ml2-cell-audit-cont-6ewta2 this window; re-deriving in parallel would have raced their work. All Tier-3."
+            },
+            {
+              "id": "<macro rows x3>",
+              "reason": "awaiting-data - no macro producer ran this window (GPU spend 2026-08 is $0.00 / 0 runs); needs a macro-research session"
+            },
+            {
+              "id": "<research/tooling rows x9>",
+              "reason": "no evidence surfaced this window; recorded as no-change rather than a claimed re-validation"
+            },
+            {
+              "id": "<CI/infra rows x6>",
+              "reason": "unchanged this window; the guards-consolidation already merged 2026-08-06"
+            }
+          ]
+        },
+        "performance": {
+          "open_at_start": 4,
+          "triaged": 4,
+          "count_untriaged": 0,
+          "drained": [],
+          "deferred": [
+            {
+              "id": "SRQ-20260728-M27-WINNERS-SHIP",
+              "reason": "Tier-3 awaiting operator + soak-gated; this review adds an argument against"
+            },
+            {
+              "id": "PB-20260728-ICTSCALP-GOLD-GATE-CONFIG",
+              "reason": "Tier-3 awaiting operator"
+            },
+            {
+              "id": "PB-20260729-ALLOCATOR-VENUE-FEE",
+              "reason": "allocator is parked (M18 P2/P3), so no live-routing impact until it graduates"
+            },
+            {
+              "id": "PB-20260730-SCALP-CAPTURE-STANDING-WATCH",
+              "reason": "the watch FIRED this run - superseded in substance by the new PB-20260807 row carrying the measurement and the escalation"
+            }
+          ]
+        },
+        "ml": {
+          "open_at_start": 3,
+          "triaged": 3,
+          "count_untriaged": 0,
+          "drained": [],
+          "deferred": [
+            {
+              "id": "MB-20260719-PROMOREADY-OOSEDGE-OOM",
+              "reason": "needs a trainer-side fix session; the 6GB trainer OOMs on the inline sweep"
+            },
+            {
+              "id": "MB-20260727-CONVICTION-AB-AUC",
+              "reason": "awaiting-data - matched-holdout read needs accrued live rows"
+            },
+            {
+              "id": "MB-20260728-ICTSCALP-EXIT-LEVERS",
+              "reason": "soaking - remaining legs unswept; directly relevant to this review's execution finding"
+            }
+          ]
+        },
+        "summary": "ALL 57 open items across the three backlogs were triaged (count_untriaged 0 in every domain), 1 resolved, and 11 NEW findings filed from this review's own hunt. Every item got an ITEM-SPECIFIC disposition - I deliberately did not reuse the blanket 'Re-validated ... no live-health regression' note the 2026-08-03 review applied to ~20 rows, and where I had no new evidence I recorded that explicitly instead of dressing it as a re-validation. 10 items were materially advanced with fresh measurement (netting divergence re-measured, scalp holds now measurable, allocator artifact confirmed, relay base64 workaround found and verified)."
+      }
+    },
+    "services": [
+      {
+        "unit": "ict-trader-live.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "uptime 3247s at 14:35:50Z"
+      },
+      {
+        "unit": "ict-web-api.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "\u2014"
+      },
+      {
+        "unit": "ict-telegram-bot.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "\u2014"
+      },
+      {
+        "unit": "ict-claude-bridge.service",
+        "state": "active",
+        "sub_state": "running",
+        "active_enter_iso": "\u2014"
+      },
+      {
+        "unit": "ict-liveness-watchdog.timer",
+        "state": "active",
+        "sub_state": "waiting",
+        "active_enter_iso": "\u2014"
+      },
+      {
+        "unit": "ict-git-sync.timer",
+        "state": "active",
+        "sub_state": "waiting",
+        "active_enter_iso": "git_sha cf101726 (current with main)"
+      },
+      {
+        "unit": "ict-db-integrity.timer",
+        "state": "active",
+        "sub_state": "waiting",
+        "active_enter_iso": "\u2014"
+      },
+      {
+        "unit": "ict-ib-gateway-watchdog.timer",
+        "state": "inactive",
+        "sub_state": "dead",
+        "active_enter_iso": "correct \u2014 this watchdog runs on the gateway VM, not the trader"
+      },
+      {
+        "unit": "ict-trainer.service (trainer VM)",
+        "state": "inactive",
+        "sub_state": "dead",
+        "active_enter_iso": "timer-driven; last trigger 2026-08-07T00:34:08Z, next 08-08T00:10:43Z"
+      }
+    ]
+  },
+  "artifacts": {
+    "json_path": "comms/reports/since-last/20260807T145500Z/report.json",
+    "html_path": "comms/reports/since-last/20260807T145500Z/report.html",
+    "md_path": "comms/reports/since-last/20260807T145500Z/report.md",
+    "github_link": "https://github.com/benbaichmankass/Metis-Insights/blob/main/comms/reports/since-last/20260807T145500Z/report.html",
+    "dashboard_link": "https://benbaichmankass.github.io/ict-trader-dashboard/?report=RPT-20260807-145500-since-last"
+  },
+  "claude_channel_ping": {
+    "delivered_via": "send-ping (consolidated; the three sub-review pings are suppressed)"
+  }
+}
