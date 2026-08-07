@@ -16,11 +16,23 @@
 **Both briefed items turned out to rest on false premises.** Neither was
 executed as described, and the reason in each case is the deliverable.
 
+- **Extended mid-session (operator, 2026-08-07):** *"let's make those fixes and
+  check that we're actually ready for the next item"* — the Tier-2 go-ahead for
+  the two infrastructure defects surfaced below. Both are now fixed in this
+  sprint rather than left as filed proposals.
+
 ## Tier
 
-**Tier 1.** Research tooling, docs, tests, backlog. One `scripts/research/`
-file changed. No `src/`, no `config/`, no ML config, no VM mutation. Every cell
-finding remains a Tier-3 **proposal**; no cell was changed.
+**Tier 1 + Tier 2.**
+
+- **Tier 1** — research tooling, docs, tests, backlog. No `src/`, no `config/`,
+  no ML config. Every cell finding remains a Tier-3 **proposal**; no cell was
+  changed.
+- **Tier 2, operator-approved in chat** — two ops scripts the trainer runs:
+  `scripts/ops/sync_trainer_data.sh` and `scripts/ops/build_trainer_datasets.sh`.
+  Neither is on the live order path; both only ever READ the live journal. The
+  live VM is untouched by this change beyond an added read-only `VACUUM INTO`
+  snapshot in its own `/tmp`, removed in the same invocation.
 
 ## Starting Context
 
@@ -74,6 +86,16 @@ finding remains a Tier-3 **proposal**; no cell was changed.
 6. **Quantified the operator's output-layer hypothesis**:
    `check_diagnostic_provenance.py --all` = **52 findings**, guard diff-scoped,
    never drained.
+7. **Fixed the trainer journal pull** (Tier-2). Promote-on-verify (a bad pull can
+   no longer destroy the last good mirror — previously it overwrote it),
+   `VACUUM INTO` consistent snapshot with a direct-rsync fallback, bounded retry,
+   and a hard failure carrying `mirror_left_unmodified:true`. Live-box headroom
+   checked BEFORE choosing the snapshot path (disk 40.1%, cpu 10%, mem 12.6%).
+8. **Fixed the pooled augment merge** (Tier-2). Root cause was copying the
+   `trades.id` PRIMARY KEY across two independently-numbered databases —
+   collision was guaranteed, not unlucky. Also refuses a zero-row (vacuous)
+   merge, reports the count read back from the DESTINATION, and carries
+   `augmentation_degraded` into the `build_end` summary line.
 
 ## Validation Performed
 
@@ -88,9 +110,30 @@ finding remains a Tier-3 **proposal**; no cell was changed.
   `pytest-run` in flight at time of writing.
 - Live money DB independently verified healthy (`/api/diag/db_info`, #8578):
   16 tables, `error_per_table: {}`, `load_error: null`.
+- `tests/test_trainer_sync_and_augment.py`: **8 passed**. Both fixes live as
+  Python heredocs inside shell scripts, so the tests **extract and execute the
+  heredoc from the script source** — pinning the code that actually runs on the
+  trainer rather than a copy that can drift from it.
+- **The OLD merge code was confirmed to fail on the same fixture with the
+  identical live error** (`UNIQUE constraint failed: trades.id`). The regression
+  is real, not hypothetical — verifying only that the new code works would not
+  have shown that.
+- `sync_trainer_data.sh` exercised **end-to-end with stubbed ssh/rsync**, all
+  three paths: (a) torn delivery -> retries, fails loudly, and the pre-existing
+  good mirror is left **byte-identical** with no temp remaining; (b) good
+  delivery via the direct fallback -> promotes and clears stale `-wal`/`-shm`;
+  (c) the primary `VACUUM INTO` path -> reports `method:vacuum_into_snapshot`,
+  and the remote snapshot is created AND removed.
+- Combined: **21 tests pass**; `run_guards.py` **PASS 24 · FAIL 0**.
 
 ### Gaps not yet verified
 
+- **The two ops fixes are NOT yet verified on the trainer.** They are proven on
+  reproductions of the real failures, but the trainer still runs the old code
+  until this merges and `ict-trainer-git-sync` lands it. Post-merge
+  verification is owed: re-run the pull, confirm the mirror verifies clean, and
+  confirm `augmentation_degraded:false` on the next build. **Nothing is claimed
+  as working in production until that is observed** (Ship-Autonomously rule 4).
 - **Parity is still UNMEASURED.** The re-run over `v002` is blocked behind the
   corrupt trainer mirror (the live audit corpus lives there). It must be pinned
   per-window across three advisory heads.
