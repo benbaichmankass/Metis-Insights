@@ -164,7 +164,18 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  adx_period: int = 14,
                  direction_filter: str = "off",
                  stale_exit_bars: Optional[int] = None,
-                 stale_exit_below_r: float = 0.0) -> Dict[str, Any]:
+                 stale_exit_below_r: float = 0.0,
+                 trades_out: Optional[List["Trade"]] = None) -> Dict[str, Any]:
+    """Run the Donchian trend backtest and return its summary dict.
+
+    ``trades_out`` — when a list is passed, the engine's ``Trade`` objects are
+    appended to it. Purely additive: the engine, the summary and the emit file
+    are byte-identical whether or not it is supplied. It exists because the
+    offline exit-head replay (``scripts/ml/exit_head_replay.py``) needs each
+    trade's ``entry_index``/``exit_index``/``entry``/``risk`` to walk the
+    in-trade bars, and the ``--emit-trades`` JSONL is a reporting projection,
+    not the engine's full state.
+    """
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
     # Channel from the PRIOR N bars only (shift(1)) — no lookahead. Same
@@ -326,6 +337,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
             confidence=confidence))
         next_idx = exit_idx + 1 + cooldown_bars
         i = next_idx
+    if trades_out is not None:
+        trades_out.extend(trades)
     if emit_path:
         Path(emit_path).parent.mkdir(parents=True, exist_ok=True)
         with open(emit_path, "w", encoding="utf-8") as fh:

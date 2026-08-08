@@ -473,6 +473,105 @@ exit head is not reproducing live — but it should be a **stated decision rathe
 than an accident**, because it makes the earned-trust path unreachable for every
 strategy that graduates an ML exit head.
 
+## 5f. THEY ARE TWO ENGINES, NOT TWO FLAG SETS — AND LIVE MATCHES THE PIPELINE COPY (2026-08-08)
+
+§5e framed the fork as an inventory problem (30 vs 38 flags, "neither is a
+superset") and proposed converging in whichever direction a before/after showed
+was behaviour-preserving. **Measured, that framing is wrong in a way that
+reverses the proposed fix.**
+
+Instrument: [`scripts/research/trend_harness_divergence.py`](../../scripts/research/trend_harness_divergence.py)
+(committed, re-runnable, `--json`). Population below: **BTCUSDT
+2022-07-23→2022-07-27, the committed `data/backtest_candles.csv` resampled to
+5-minute bars, 1001 bars, n = 21–35 trades per configuration, every optional
+lever OFF on both sides.** Small — deliberately enough to establish the axis is
+first-order, nowhere near enough to size it. Point `--data` at real history for
+a decision-grade figure.
+
+### They disagree about which trades exist
+
+| config (levers OFF) | pipeline `cooldown=1` | pipeline `cooldown=0` | research |
+|---|--:|--:|--:|
+| donchian 20, timeout 200 | 28 trades, −11.735 net R | 29, −13.187 | **35, −13.385** |
+| donchian 30, timeout 200 | 21 trades, −8.666 net R | 22, −9.822 | **28, −12.635** |
+
+A 20–35% difference in trade *count* with identical inputs and no levers is not
+a configuration gap. The engines differ on: **the trail's ATR basis** (frozen
+entry-bar ATR vs the current bar's rolling ATR), an **opposite-signal flip
+exit** (research only), a **post-exit cooldown** (pipeline only), the **fee
+basis** (avg of entry/exit price vs entry price), warm-up length, `timeout_bars`
+semantics, and the win-rate denominator (gross vs net-of-fee). `by_outcome`
+shows it plainly: the pipeline reports `stop`/`trail_stop`/`timeout`, the
+research engine reports `trail_stop`/`flip`.
+
+Isolating the ATR basis alone — the research engine with only that one axis
+changed — moves gross R by **−34.0%** (5m, donchian 20), **−23.0%** (5m,
+donchian 30) and **+41.2%** (15m, donchian 20). Material, and **sign-unstable
+across configurations**, which is itself the reason not to guess it.
+
+### Which one is live-faithful — the fact that decides the direction
+
+`src/units/strategies/trend_donchian.py` freezes the entry ATR into
+`meta["atr"]`, and `monitor()` trails off that frozen value (the rolling
+recompute there is the legacy fallback for packages missing the key). The code
+says why, at the write site:
+
+> *"Entry-time ATR is FROZEN here and used by the monitor for the trail
+> distance, matching the backtest's fixed-ATR trail (`scripts/backtest_trend.py`
+> uses the entry bar's ATR for the whole trade). **Without this the live trail
+> would drift with a rolling ATR and diverge from what was validated.**"*
+
+For a strategy whose *only* profit exit is the trail, that is the load-bearing
+exit semantic — and on it, **live matches `scripts/backtest_trend.py`**. The
+research copy is the one that does exactly what the live code documents itself
+as guarding against.
+
+**So the convergence direction is the opposite of what §5e and the backlog row
+proposed.** Do NOT repoint `build_harness_cmd` at the research copy: that would
+make the fidelity pipeline *less* live-faithful while appearing to fix fidelity.
+Port the 15 research-only lever flags **into** `scripts/backtest_trend.py`,
+keeping its engine, and retire the research copy behind it.
+
+### The live unit is a hybrid of both — and one citation is simply wrong
+
+`trend_donchian.py` cites **both** copies as its reference, per feature:
+`scripts/backtest_trend.py` for the port, `_atr`, pending-entry and the frozen
+trail; `scripts/research/backtest_trend.py` for `skip_hours`, `vol_skip_*_pctl`
+and the giveback lever. `src/runtime/trail_decay.py` and `trail_vol.py` — modules
+behind a **live Tier-3 order-affecting lever, and `trend_donchian` declares
+`trail_decay_arm_r: 6.49` / `trail_decay_tight_mult: 2.5` today** — cite the
+research copy. So an armed live lever's threshold was tuned on a harness whose
+baseline trail distance moves with a rolling ATR while live's is frozen. Filed
+as `BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL`.
+
+Mechanically checked, the `confirm_bars` citation was flatly wrong: the live
+comment named `scripts/backtest_trend.py --confirm-bars`, and that file declares
+no such flag — it exists only in the research copy. Comment corrected here
+(behaviour untouched; field beats comment).
+
+### The `exit_head_*` blocker was misdiagnosed — it is the ARTIFACT LOCATION
+
+§5e said the trio "needs the model registry at inference". **It does not.** The
+exit head is a self-contained JSON with the booster inline (`booster_txt`),
+loaded by `exit_head_shadow._load_artifacts` from
+`runtime_logs/trainer_mirror/exit_head/`. It is not committed, so a
+GitHub-hosted runner has no copy; the trainer and live VM do. That is a *file
+distribution* problem, not a registry port — and stating it as the latter made
+the fix sound bigger than it is. (Recorded as a correction because an
+overstated impossibility closes off work, per `CLAUDE-RULES-CANONICAL` §
+"Green is not evidence" obligation 3.)
+
+**Operator decision (2026-08-08): move the leg to the trainer.** Shipped as
+[`scripts/ml/exit_head_replay.py`](../../scripts/ml/exit_head_replay.py) — runs
+the live-faithful harness, walks each trade's in-trade closed bars, builds the
+feature row with the *same* `exit_head_shadow._feature_row` the monitor calls,
+and re-resolves the trade at the first bar the head fires. The take/hold
+predicate was **extracted** to `exit_head_shadow.would_exit_for` and is imported
+by both live and replay: a second copy of that predicate would be this section's
+own defect class, one level down. Absent artifact / absent LightGBM / no
+servable head is **exit 2 with a named reason**, never a silent pass-through
+that would emit unchanged trades under an "exit-head-applied" label.
+
 ## 6. Why this is not another partial fix
 The partial fix would be "wire the nightly build and wait for more trades." This
 plan **removes the dependency on reality's clock**: it builds the instrument that

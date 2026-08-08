@@ -31,7 +31,8 @@ routing layer, not a replacement for reading it.
 
 | Question | Tool |
 |---|---|
-| How does a Donchian/trend leg perform? | `scripts/backtest_trend.py` |
+| How does a Donchian/trend leg perform? | `scripts/backtest_trend.py` — ⚠️ **there are TWO trend harnesses.** This one is the **live-faithful** copy (its trail freezes the ENTRY bar's ATR, which is what `trend_donchian.monitor()` does) and the one `regime_debt_matrix` runs. `scripts/research/backtest_trend.py` is a different ENGINE (rolling-ATR trail, flip exit, no cooldown) that carries 15 lever flags this one lacks. See design-doc §5f + `BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE` before picking one |
+| **Which of the two trend harnesses am I running, and how far apart are they?** Flag matrix + matched-config run of BOTH engines + isolation of the trail-ATR-basis axis alone | `scripts/research/trend_harness_divergence.py` |
 | A pullback leg? | `scripts/backtest_pullback.py` |
 | A TTM squeeze (BB-inside-KC) leg? | `scripts/backtest_squeeze.py` |
 | A fade/failed-breakout leg? | `scripts/backtest_fade.py` |
