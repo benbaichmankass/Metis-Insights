@@ -141,6 +141,38 @@ def _needs_repair(notes: dict) -> bool:
     return bucket not in (MEASURED, ESTIMATED)
 
 
+def _accounts_with_fills(conn_factory) -> set[str]:
+    """Accounts that have ANY row in the fills store.
+
+    Measured from the store, never inferred from an account-name list — the
+    point is to distinguish "we looked and found nothing for this trade" from
+    "this account was never reachable by a fills pull at all".
+    """
+    c = None
+    try:
+        c = conn_factory()
+        return {
+            str(r[0])
+            for r in c.execute("SELECT DISTINCT account_id FROM exchange_fills")
+            if r[0]
+        }
+    except Exception:  # noqa: BLE001
+        # Unknown is NOT the same as empty: return a sentinel-free empty set but
+        # the caller labels it explicitly rather than claiming zero coverage.
+        return set()
+    finally:
+        if c is not None:
+            c.close()
+
+
+def _unresolved_reason(account_id: str, covered: set[str]) -> str:
+    if not covered:
+        return "coverage_unknown_store_unreadable"
+    if account_id not in covered:
+        return "account_has_no_fills_stored"
+    return "no_matching_fill_in_window"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--db", required=True, help="trade_journal.db (live VM)")
@@ -171,6 +203,26 @@ def main() -> int:
         " WHERE status='closed' AND pnl IS NOT NULL AND is_backtest=0 "
         " ORDER BY id ASC"
     ))
+
+    # WHY THIS BREAKDOWN EXISTS. `unresolved, left alone: 307` is a single
+    # opaque counter over at least three different situations, and they demand
+    # opposite responses:
+    #
+    #   * the account has NO fills stored at all (ib_paper / alpaca / oanda have
+    #     no Bybit-style fills puller) — no deeper Bybit pull will ever help, and
+    #     counting these as "evidence missing" overstates what is recoverable;
+    #   * the account HAS fills but none covering this trade's window — that IS
+    #     a coverage gap a deeper or differently-timed pull might close;
+    #   * a fill was found but its price was unusable.
+    #
+    # Reporting them as one number is the unasserted-denominator shape
+    # (CLAUDE.md § "Diagnostic provenance", sub-class C): a reader takes 307 as
+    # "307 rows whose evidence is gone" when much of it was never in scope.
+    # `covered_accounts` is read from the fills store itself, so the split is
+    # measured rather than assumed from an account-name list.
+    covered = _accounts_with_fills(fills_conn)
+    unresolved_by_reason: Counter = Counter()
+    unresolved_by_account: Counter = Counter()
 
     stat = Counter()
     plan: list[tuple] = []
@@ -215,11 +267,15 @@ def main() -> int:
 
         if rec is None:
             stat["unresolved_left_alone"] += 1
+            unresolved_by_reason[_unresolved_reason(acct, covered)] += 1
+            unresolved_by_account[acct] += 1
             continue
 
         exit_price = rec.get("avg_exit_price")
         if not exit_price or float(exit_price) <= 0:
             stat["unresolved_left_alone"] += 1
+            unresolved_by_reason["fill_found_but_price_unusable"] += 1
+            unresolved_by_account[acct] += 1
             continue
 
         if source == FILL_EXIT_SOURCE:
@@ -236,6 +292,20 @@ def main() -> int:
     print(f"unresolved, left alone : {stat['unresolved_left_alone']}")
     print(f"no open time           : {stat['skip_no_open_time']}")
     print(f"TOTAL TO WRITE         : {len(plan)}")
+
+    if stat["unresolved_left_alone"]:
+        # Split the opaque total: "never reachable" and "reachable but no match"
+        # are different problems, and only the second is a coverage gap a deeper
+        # pull could close.
+        print("  unresolved BY REASON:")
+        for reason, n in unresolved_by_reason.most_common():
+            print(f"    {reason:34s} {n}")
+        print("  unresolved BY ACCOUNT:")
+        for acct_id, n in unresolved_by_account.most_common():
+            mark = "" if acct_id in covered else "   <- NO fills stored for this account"
+            print(f"    {acct_id:34s} {n}{mark}")
+        print(f"  accounts with fills stored: "
+              f"{', '.join(sorted(covered)) if covered else '(none / store unreadable)'}")
 
     if not args.apply:
         print("\nDRY RUN — nothing written. Re-run with --apply to commit.")
