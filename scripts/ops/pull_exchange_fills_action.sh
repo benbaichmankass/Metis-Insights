@@ -30,13 +30,23 @@
 # Window: ACTION_DAYS (default 7). Re-runs over-sample harmlessly — the store
 # keys on exec_id, so an overlapping window inserts nothing new.
 #
-# A DEEPER window is bounded by a hard ceiling the caller must know about:
-# src/runtime/exchange_fills_puller.py issues ONE fetch_my_trades call per
-# target with PAGE_LIMIT=200 and NO pagination. So a window holding more than
-# 200 fills returns only the newest 200, and a result of exactly 200 means
-# PAGE-CAPPED, not "that is the venue's full history". The puller logs a
-# FULL page warning when that happens — read it before drawing a conclusion
-# about Bybit's retention (BL-20260808-FILLS-WINDOW-TOO-SHORT-TO-REPAIR-HISTORY).
+# A DEEPER window is WALKED, not asked for in one call. Bybit V5 caps the
+# queryable RANGE at 7 days while retaining 2 years, so `since = now-90d` alone
+# returns the 7-day slice [now-90d, now-83d] — the window MOVES rather than
+# widens. Measured 2026-08-08: `--days 90` returned candidates=0 on all three
+# accounts while `--days 7` returned 63 / 3 / 13, and a 90-day window cannot
+# hold fewer fills than the 7 days nested inside it. exchange_fills_puller.py
+# now splits the range into <= 7-day chunks (MAX_RANGE_DAYS) and dedupes on
+# exec_id (BL-20260808-FILLS-WINDOW-TOO-SHORT-TO-REPAIR-HISTORY).
+#
+# Still bounded per chunk: ONE fetch_my_trades call at PAGE_LIMIT=200 with no
+# intra-chunk pagination, so a chunk returning exactly 200 is PAGE-CAPPED, not
+# that chunk's full history. The puller logs a FULL-page warning naming the
+# window — read it before drawing a conclusion from any count.
+#
+# COST NOTE: a deep window is ceil(days/7) requests PER TARGET. `days: 365` is
+# 53 calls per account, not 1. Keep deep pulls deliberate and one-off; the
+# nightly timer stays at the default 7.
 set -euo pipefail
 
 SCRIPT_NAME="pull_exchange_fills"

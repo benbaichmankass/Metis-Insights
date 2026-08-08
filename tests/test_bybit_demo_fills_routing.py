@@ -226,6 +226,137 @@ def test_page_limit_is_the_limit_actually_requested():
     assert seen == [PAGE_LIMIT]
 
 
+# ── a deep window must be WALKED, not asked for in one call ──────────────────
+#
+# Bybit V5 caps the queryable RANGE at 7 days but retains 2 years. A single
+# call with since = now-90d returns the 7-day slice [now-90d, now-83d] — the
+# window is MOVED, not widened. Measured 2026-08-08: `--days 90` returned 0
+# fills on all three accounts while `--days 7` returned 63 / 3 / 13.
+
+def test_deep_window_is_split_into_capped_chunks():
+    from datetime import datetime, timedelta, timezone
+
+    from src.runtime.exchange_fills_puller import MAX_RANGE_DAYS
+
+    now = datetime(2026, 8, 8, 12, 0, tzinfo=timezone.utc)
+    windows = []
+
+    def _capture(symbol, since, limit, params):
+        windows.append((since, params.get("endTime")))
+        return []
+
+    fetch_fills_window(_capture, account_id="bybit_1", days=90, now=now)
+
+    assert len(windows) == 13, "90 days needs ceil(90/7)=13 chunks, not 1"
+    cap_ms = MAX_RANGE_DAYS * 86_400_000
+    for since, end in windows:
+        assert end is not None, "endTime must be sent, not left to a venue default"
+        assert 0 < end - since <= cap_ms, "a chunk exceeded the venue's range cap"
+    # The walk must TILE: contiguous, and covering the whole requested range.
+    for (_, prev_end), (nxt_since, _) in zip(windows, windows[1:]):
+        assert nxt_since == prev_end, "chunks must be contiguous — no gap, no overlap"
+    assert windows[0][0] == int((now - timedelta(days=90)).timestamp() * 1000)
+    assert windows[-1][1] == int(now.timestamp() * 1000)
+
+
+def test_short_window_still_issues_exactly_one_call():
+    """The ordinary operational pull must not change shape."""
+    from datetime import datetime, timezone
+
+    calls = []
+    fetch_fills_window(
+        lambda s, since, limit, params: calls.append(since) or [],
+        account_id="bybit_1", days=7,
+        now=datetime(2026, 8, 8, 12, 0, tzinfo=timezone.utc),
+    )
+    assert len(calls) == 1
+
+
+def test_wider_window_can_never_return_fewer_fills():
+    """THE property whose violation exposed the bug.
+
+    A 7-day window is nested inside a 90-day one, so the wider pull cannot
+    return fewer fills. Live it returned 63 vs 0 — proof the range was never
+    honoured. This pins the invariant against a venue that only ever serves the
+    first chunk.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime(2026, 8, 8, 12, 0, tzinfo=timezone.utc)
+
+    def _venue(symbol, since, limit, params):
+        # One fill per day of real history, 60 days deep.
+        out = []
+        for d in range(60):
+            ts = int((now - timedelta(days=d)).timestamp() * 1000)
+            if since <= ts <= params["endTime"]:
+                out.append({
+                    "id": f"day-{d}", "order": "o1", "symbol": "AVAX/USDT:USDT",
+                    "side": "buy", "amount": 1.0, "price": 2.0, "timestamp": ts,
+                    "fee": {"cost": 0.0, "currency": "USDT"},
+                })
+        return out
+
+    narrow = fetch_fills_window(_venue, account_id="bybit_1", days=7, now=now)
+    wide = fetch_fills_window(_venue, account_id="bybit_1", days=90, now=now)
+    assert len(wide) >= len(narrow)
+    assert len(narrow) == 8 and len(wide) == 60, (len(narrow), len(wide))
+
+
+def test_walk_dedupes_across_chunk_boundaries():
+    """A fill on a boundary is returned by both adjacent chunks — count it once."""
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime(2026, 8, 8, 12, 0, tzinfo=timezone.utc)
+    boundary_ms = int((now - timedelta(days=7)).timestamp() * 1000)
+
+    def _venue(symbol, since, limit, params):
+        if since <= boundary_ms <= params["endTime"]:
+            return [{
+                "id": "on-the-seam", "order": "o1", "symbol": "AVAX/USDT:USDT",
+                "side": "buy", "amount": 1.0, "price": 2.0,
+                "timestamp": boundary_ms, "fee": {"cost": 0.0, "currency": "USDT"},
+            }]
+        return []
+
+    rows = fetch_fills_window(_venue, account_id="bybit_1", days=14, now=now)
+    assert [r["exec_id"] for r in rows] == ["on-the-seam"]
+
+
+def test_one_bad_chunk_does_not_lose_the_others():
+    from datetime import datetime, timezone
+
+    calls = {"n": 0}
+
+    def _flaky(symbol, since, limit, params):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise RuntimeError("synthetic chunk failure")
+        return [{
+            "id": f"c{calls['n']}", "order": "o1", "symbol": "AVAX/USDT:USDT",
+            "side": "buy", "amount": 1.0, "price": 2.0,
+            "timestamp": 1_700_000_000_000 + calls["n"],
+            "fee": {"cost": 0.0, "currency": "USDT"},
+        }]
+
+    rows = fetch_fills_window(
+        _flaky, account_id="bybit_1", days=21,
+        now=datetime(2026, 8, 8, 12, 0, tzinfo=timezone.utc),
+    )
+    assert len(rows) == 2, "a single failed chunk must not discard the good ones"
+
+
+def test_every_chunk_failing_still_raises():
+    """A deep walk that reads nothing anywhere is zero coverage, not an empty book."""
+    from datetime import datetime, timezone
+
+    with pytest.raises(FillsWindowUnavailable):
+        fetch_fills_window(
+            _auth_error, account_id="bybit_1", days=90,
+            now=datetime(2026, 8, 8, 12, 0, tzinfo=timezone.utc),
+        )
+
+
 def test_funding_total_failure_raises_too():
     with pytest.raises(FundingWindowUnavailable):
         fetch_funding_window(_auth_error, account_id="bybit_1", days=30)
