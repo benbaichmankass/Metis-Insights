@@ -205,6 +205,40 @@ def exit_head_replayable(cfg: dict) -> bool:
         return False
 
 
+def annotate_exit_head_replayability(cfg: dict, row: dict, omitted: list[str]) -> None:
+    """Record WHERE this leg's exit-head gap can be measured. Both callers use
+    this so the two cannot drift.
+
+    Sets two fields, deliberately kept separate from ``fidelity``:
+
+    * ``exit_head_replayable`` — does a servable head load HERE?
+    * ``exit_head_deferred_to_replay`` — the declared exit-head levers that
+      ``scripts/ml/exit_head_replay.py`` can resolve here. Empty where no head
+      loads, and empty when the leg declares no head at all.
+
+    **`fidelity` is deliberately NOT upgraded when a head is present**, and that
+    is the whole point of the field split. `fidelity` grades the HARNESS RUN,
+    and the harness genuinely does not apply the exit head — there is no
+    `--exit-head-*` flag; the replay is a SEPARATE pass over the emitted trades.
+    Flipping a leg to `faithful` merely because a head is loadable would claim
+    the row's numbers account for an exit head that never touched them, on the
+    field the research->results promotion gate reads. A location fact earns a
+    location field, not a quality upgrade.
+
+    This replaces an earlier attempt that made the `_UNREPLAYABLE` fold
+    conditional. That was **inert**: `build_harness_cmd` already lists every
+    cfg key with no harness flag in `omitted` (exit_head_* among them), so the
+    fold could only ever UNION keys that were present regardless — identical
+    output whether or not a head loaded. Caught by exercising both branches;
+    the passing test only ever ran the no-head one.
+    """
+    row["exit_head_replayable"] = exit_head_replayable(cfg)
+    declared = sorted(k for k in cfg if k in _UNREPLAYABLE)
+    row["exit_head_deferred_to_replay"] = (
+        [k for k in declared if k in set(omitted)] if row["exit_head_replayable"]
+        else [])
+
+
 def classify(cfg: dict) -> str | None:
     if "donchian" in cfg:
         return "trend"
@@ -476,16 +510,12 @@ def emit_trades_for(name: str, cfg: dict, workdir: str, days: int, *,
     argv, faithful, omitted = build_harness_cmd(
         name, eff, harness, csv, feed["resample"], emit, jout,
         fee_override=fee_override)
-    # exit_head_* is replayable WHERE THE PUBLISHED ARTIFACT LIVES (trainer /
-    # live VM), not everywhere — so this asks the environment rather than
-    # declaring the lever permanently unmodellable. See exit_head_replayable().
-    unreplayable = ([] if exit_head_replayable(eff)
-                    else sorted(k for k in eff if k in _UNREPLAYABLE))
-    if unreplayable:
-        faithful = False
-        omitted = sorted(set(omitted) | set(unreplayable))
     row["fidelity"] = "faithful" if faithful else "approximate"
     row["omitted_levers"] = omitted
+    # exit_head_* is replayable WHERE THE PUBLISHED ARTIFACT LIVES (trainer /
+    # live VM), not everywhere. Recorded as its own field rather than folded
+    # into fidelity — see annotate_exit_head_replayability().
+    annotate_exit_head_replayability(eff, row, omitted)
     row["fee_bps_roundtrip"] = (roundtrip_fee_bps(sym) if fee_override is None
                                 else float(fee_override))
     try:
@@ -513,8 +543,6 @@ def run_one(name: str, cfg: dict, workdir: str, days: int,
     if harness is None or not sym or not tf:
         row["error"] = "unclassifiable (no donchian/pullback/squeeze params or no symbol/timeframe)"
         return row
-    unreplayable = ([] if exit_head_replayable(cfg)
-                    else sorted(k for k in cfg if k in _UNREPLAYABLE))
     feed = resolve_feed(sym, tf)
     row["feed"] = feed
     csv = os.path.join(workdir, f"{name}__data.csv")
@@ -527,11 +555,9 @@ def run_one(name: str, cfg: dict, workdir: str, days: int,
         return row
     argv, faithful, omitted = build_harness_cmd(name, cfg, harness, csv,
                                                 feed["resample"], emit, jout)
-    if unreplayable:
-        faithful = False
-        omitted = sorted(set(omitted) | set(unreplayable))
     row["fidelity"] = "faithful" if faithful else "approximate"
     row["omitted_levers"] = omitted
+    annotate_exit_head_replayability(cfg, row, omitted)
     # Record WHICH fee graded this row, so a reader can never again have to guess
     # whether a verdict was produced under the venue-blind 7.5-bps default
     # (BL-20260730-RESEARCH-VENUE-FEE). 0.0 = commission-free venue.

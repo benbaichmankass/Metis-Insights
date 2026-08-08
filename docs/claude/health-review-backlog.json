@@ -10868,8 +10868,32 @@
         "tests/test_trend_harness_levers.py",
         "docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md 5f"
       ]
+    },
+    {
+      "id": "BL-20260808-INERT-CONDITIONAL-SHIPPED-AS-A-BEHAVIOUR-CHANGE",
+      "opened_at": "2026-08-08T19:05:00+00:00",
+      "opened_by": "claude (trend-harness convergence session 1jz2zp)",
+      "source": "Self-caught in PR #8633 by parametrizing a test over BOTH branches of a predicate it had only ever exercised one side of. Measured on the #8633 branch @b7547005.",
+      "title": "An `exit_head_replayable()` gate shipped INERT — byte-identical output on both branches — and the PR description claimed a measured behaviour change it did not produce",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "severity": "medium",
+      "what_to_check": "FIXED in #8633; filed for the CLASS, which is not covered by any existing guard. The defect: `regime_debt_matrix.build_harness_cmd` computes `omitted` as 'every cfg key not in _TREND_PLAIN and not in _TREND_LEVER_FLAG' (line ~343), so exit_head_model/threshold/action land there unconditionally and `faithful = not omitted` is already False. The change made a SECOND, caller-level `_UNREPLAYABLE` fold conditional on `exit_head_replayable()` - but that fold only ever did `omitted | unreplayable`, a UNION. A union can add, never remove. So with the probe forced True the output was IDENTICAL: faithful=False, omitted=['exit_head_action','exit_head_model','exit_head_threshold']. VERIFIED by monkeypatching the probe both ways. The PR body meanwhile stated 'the remaining exit_head_* clear wherever the artifact is present' - a claim no code path produced. WHY THE TESTS MISSED IT: the fidelity test asserted a flat `faithful is False`, which is the value BOTH branches return, so it passed while proving nothing about the branch. On a GitHub runner only the no-head branch is reachable, so the trainer branch was never executed anywhere. This is the D/inert-parameter sub-class of `diagnostic-provenance-guard` (a declared knob that changes nothing) crossed with the 'written and never read' shape `provenance-consumer-guard` catches - but neither guard fires here, because the inert thing is a CONTROL-FLOW predicate, not a printed label or a stored key.",
+      "proposed_fix": "The instance is fixed: the inert fold is deleted, replaced by `annotate_exit_head_replayability()` which records `exit_head_replayable` + `exit_head_deferred_to_replay` as EXPLICIT row fields; `fidelity` deliberately stays harness-scoped (upgrading it on a loadable head would claim the row's numbers account for an exit head that never touched them - the row's numbers come from the harness, the replay is a separate pass). The trainer workflow now reads the same predicate instead of re-deriving it from an `ls`, so the field is load-bearing rather than write-only. Tests parametrize over both branches. THE CLASS is what needs a decision: is a guard worth it for 'a new conditional whose branches produce identical output'? A cheap approximation is a review-time rule rather than a script - when a diff makes an existing unconditional path conditional, the PR must show the measured output of BOTH branches, not just assert the intent. Consider adding that to the review skill's checklist; a static guard would likely be high-false-positive (many conditionals legitimately no-op on the common path). Do NOT add a presence-only marker guard - see the new-table-wiring-guard lesson in CLAUDE.md (a guard cheaper to lie to than to satisfy is worse than none).",
+      "related": [
+        "BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE",
+        "BL-20260808-RESEARCH-TREND-ENGINE-RETIREMENT-BLOCKED-BY-TEST-COUPLING"
+      ],
+      "refs": [
+        "PR #8633",
+        "scripts/research/regime_debt_matrix.py",
+        "tests/research/test_calibrator_harness_fidelity.py",
+        ".github/workflows/research-exit-head-replay-trainer.yml",
+        "scripts/check_diagnostic_provenance.py"
+      ]
     }
   ],
-  "updated_at": "2026-08-08T18:40:00+00:00",
+  "updated_at": "2026-08-08T19:05:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

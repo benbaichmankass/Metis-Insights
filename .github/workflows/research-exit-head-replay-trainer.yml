@@ -122,6 +122,24 @@ jobs:
           ART=runtime_logs/trainer_mirror/exit_head
           echo "== artifact dir: $ART"
           ls -la "$ART" 2>/dev/null || echo "  (absent — the replay will exit 2 and say so)"
+          # Ask the SAME predicate the debt matrix records, rather than
+          # re-deriving "is a head loadable here" from an `ls`. Two independent
+          # answers to one question is how the matrix ends up claiming a
+          # replayability this workflow does not actually have (or vice versa).
+          # Reporting only — the replay's own exit 2 remains the authority.
+          python3 - <<'PYPROBE' || true
+          import os, sys
+          sys.path.insert(0, os.getcwd())
+          from scripts.research import regime_debt_matrix as rdm
+          cfg = rdm.resolve_strategy(os.environ["STRATEGY"]) or {}
+          row: dict = {}
+          rdm.annotate_exit_head_replayability(cfg, row, sorted(rdm._UNREPLAYABLE))
+          print(f"EXIT_HEAD_REPLAYABLE_HERE={row['exit_head_replayable']} "
+                f"deferred_to_replay={row['exit_head_deferred_to_replay']}")
+          if not row["exit_head_replayable"]:
+              print("  NOTE: the matrix would grade this leg's exit-head gap "
+                    "UNMEASURABLE here — expect the replay to exit 2.")
+          PYPROBE
           OUT=/tmp/exit_head_replay_${STRATEGY}.json
           EMIT=/tmp/exit_head_replay_${STRATEGY}.jsonl
           # Feed: reuse the matrix's own fetch so the candles match every other
