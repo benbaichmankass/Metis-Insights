@@ -27,7 +27,10 @@ augmented head learns a real edge but the **eval book is 324 real trades** and w
    drift from live and **omit real levers** — `trend_donchian`'s backtest is tagged
    `approximate`, omitting `exit_head_action`, `exit_head_model`,
    `exit_head_threshold`, `trail_decay_arm_r`, `trail_decay_tight_mult` (i.e. the
-   *actual live exit path*). The system backtester (`scripts/backtest_system.py`)
+   *actual live exit path*). **Superseded 2026-08-08 — the trail_decay pair is
+   now MODELLED** (all 15 research-only levers ported into
+   `scripts/backtest_trend.py`, PR #8633), so the measured omitted set is 5 → 3
+   and only the `exit_head_*` trio remains; see §5f + §5g. The system backtester (`scripts/backtest_system.py`)
    already routes through the **real `aggregate_intents`** — proof the unified
    pattern works — but re-implements account bookkeeping and signal generation.
 2. **No execution realism.** The cost model is scattered across four modules
@@ -391,7 +394,7 @@ measured against the live config today:
 
 | strategy | faithful | omitted levers |
 |---|---|---|
-| **`trend_donchian`** | **False** | `exit_head_{action,model,threshold}`, `trail_decay_{arm_r,tight_mult}` |
+| **`trend_donchian`** | **False** | `exit_head_{action,model,threshold}`, ~~`trail_decay_{arm_r,tight_mult}`~~ *(struck 2026-08-08 — now modelled, PR #8633; omitted set is 5 → 3)* |
 | `htf_pullback_trend_2h` | True | — |
 | `squeeze_breakout_4h` | True | — |
 
