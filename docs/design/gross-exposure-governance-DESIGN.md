@@ -4,7 +4,7 @@
 document's first phase beyond an observability seam; the ceiling VALUES remain
 Tier-3 and operator-owned.
 
-**Origin:** `BL-20260807-ALPACA-PAPER-ZERO-BUYING-POWER`, shipped as phase 1 in
+**Origin:** `BL-20260807-ALPACA-PAPER-ZERO-BUYING-POWER-REFUSES-ALL`, shipped as phase 1 in
 `bb5203ae` (#8600). Phase 2 — declaring values — was explicitly deferred
 ("proposed separately, not shipped here") and never happened. This document is
 that proposal, plus a structural finding that explains *why* it never happened.
