@@ -18,6 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from src.runtime.bybit_ccxt import build_bybit_client  # noqa: E402
 from src.runtime.exchange_accounts import live_bybit_fill_accounts  # noqa: E402
 from src.runtime.exchange_fills_store import upsert_funding  # noqa: E402
 from src.runtime.exchange_funding_puller import fetch_funding_window  # noqa: E402
@@ -66,22 +67,18 @@ def _pull_one_account(
     days: int,
     symbols,
     funding_path,
+    demo: bool = False,
 ) -> int:
     """Pull one Bybit account's perp funding into the store; return rows inserted.
 
     Funding applies only to USDT-margined perps, so the routing is fixed to
     swap/linear regardless of account; a fresh ccxt client per account keeps the
-    credentials isolated across the loop.
+    credentials isolated across the loop, built by the one shared demo-aware
+    builder (a demo account must be dialled on ``api-demo.bybit.com``).
     """
-    import ccxt  # noqa: PLC0415
-
-    exchange = ccxt.bybit({
-        "apiKey": api_key,
-        "secret": api_secret,
-        "enableRateLimit": True,
-        # Funding applies to USDT-margined perps → the swap/linear routing.
-        "options": {"defaultType": "swap"},
-    })
+    exchange = build_bybit_client(
+        api_key=api_key, api_secret=api_secret, category="linear", demo=demo,
+    )
 
     def _fetch_funding_history(sym, since, limit, params):
         merged = dict(params or {})
@@ -96,8 +93,8 @@ def _pull_one_account(
     )
     inserted = upsert_funding(rows, path=funding_path)
     logger.info(
-        "pull_exchange_funding: account=%s days=%d symbols=%s candidates=%d inserted=%d store=%s",
-        account_id, days,
+        "pull_exchange_funding: account=%s demo=%s days=%d symbols=%s candidates=%d inserted=%d store=%s",
+        account_id, demo, days,
         ",".join(symbols) if symbols else "(all)",
         len(rows), inserted,
         funding_path if funding_path is not None else "(default resolver)",
@@ -117,7 +114,9 @@ def main(argv: list[str]) -> int:
                 "--all-bybit-accounts: no live Bybit accounts in config/accounts.yaml"
             )
             return 2
-        ran = 0
+        ok = 0
+        failed: list[str] = []
+        skipped: list[str] = []
         total_inserted = 0
         for acct in accounts:
             api_key = os.environ.get(acct.key_env)
@@ -127,24 +126,41 @@ def main(argv: list[str]) -> int:
                     "pull_exchange_funding: skip %s — %s / %s not set",
                     acct.account_id, acct.key_env, acct.secret_env,
                 )
+                skipped.append(acct.account_id)
                 continue
             # Bybit funding is served per-contract, so pass this account's own
             # declared symbols; an account with none declared falls back to the
             # all-symbols query (which Bybit returns empty for → harmless).
-            total_inserted += _pull_one_account(
-                account_id=acct.account_id,
-                api_key=api_key,
-                api_secret=api_secret,
-                days=args.days,
-                symbols=list(acct.symbols) or None,
-                funding_path=funding_path,
-            )
-            ran += 1
+            try:
+                total_inserted += _pull_one_account(
+                    account_id=acct.account_id,
+                    api_key=api_key,
+                    api_secret=api_secret,
+                    days=args.days,
+                    symbols=list(acct.symbols) or None,
+                    funding_path=funding_path,
+                    demo=acct.demo,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "pull_exchange_funding: account=%s FAILED (demo=%s): %s",
+                    acct.account_id, acct.demo, exc,
+                )
+                failed.append(acct.account_id)
+                continue
+            ok += 1
         logger.info(
-            "pull_exchange_funding: all-bybit-accounts done — ran=%d/%d total_inserted=%d",
-            ran, len(accounts), total_inserted,
+            "pull_exchange_funding: all-bybit-accounts done — ok=%d failed=%d%s "
+            "skipped=%d%s of %d total_inserted=%d",
+            ok,
+            len(failed), f" {failed}" if failed else "",
+            len(skipped), f" {skipped}" if skipped else "",
+            len(accounts), total_inserted,
         )
-        return 0 if ran > 0 else 2
+        # Outcomes, not attempts — see the sibling note in pull_exchange_fills.py.
+        if failed:
+            return 1
+        return 0 if ok > 0 else 2
 
     api_key = os.environ.get(args.api_key_env)
     api_secret = os.environ.get(args.api_secret_env)
@@ -153,6 +169,12 @@ def main(argv: list[str]) -> int:
                      args.api_key_env, args.api_secret_env)
         return 2
 
+    # The demo flag is a property of the ACCOUNT — resolve it by id rather than
+    # making the caller remember to pass it (see the fills-puller sibling).
+    demo = next(
+        (a.demo for a in live_bybit_fill_accounts() if a.account_id == args.account),
+        False,
+    )
     _pull_one_account(
         account_id=args.account,
         api_key=api_key,
@@ -160,6 +182,7 @@ def main(argv: list[str]) -> int:
         days=args.days,
         symbols=args.symbol,
         funding_path=funding_path,
+        demo=demo,
     )
     return 0
 

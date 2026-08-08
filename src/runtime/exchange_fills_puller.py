@@ -21,6 +21,25 @@ from typing import Any, Iterable, Mapping, Optional
 logger = logging.getLogger(__name__)
 
 
+class FillsWindowUnavailable(RuntimeError):
+    """Every target in the window failed — the account has ZERO coverage.
+
+    The distinction this exception exists to make: an empty result list can
+    mean "this account had no fills" or "we could not read this account at
+    all", and those demand opposite responses. Before this existed the caller
+    could not tell them apart, so ``bybit_1`` / ``bybit_portfolio`` returned an
+    empty list on ``retCode 10003 "API key is invalid"`` every night from at
+    least 2026-08-04, the run summary printed ``ran=3/3 total_inserted=0``, and
+    systemd reported the unit **successful** — the two demo accounts were
+    silently 100% uncovered while ``/api/bot/pnl/exchange`` served their absence
+    as clean zeros (BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED).
+
+    PARTIAL failure stays best-effort and is NOT raised: one bad symbol out of
+    several is genuine partial coverage and the next run retries it. Only a
+    total wipeout — every attempted target raised — is exceptional.
+    """
+
+
 def _ccxt_trade_to_fill_row(trade: Mapping[str, Any], account_id: str) -> dict[str, Any]:
     """Map a ccxt-shaped trade dict to the ``exchange_fills`` schema.
 
@@ -87,6 +106,8 @@ def fetch_fills_window(
     since_ms = int(cutoff_dt.timestamp() * 1000)
     out: list[dict[str, Any]] = []
     targets: list[Optional[str]] = list(symbols) if symbols else [None]
+    failed = 0
+    last_exc: Optional[Exception] = None
     for sym in targets:
         try:
             trades = fetch_my_trades(sym, since_ms, 200, {})
@@ -94,6 +115,8 @@ def fetch_fills_window(
             # Read-side failure: log loudly, skip this symbol, continue.
             # The puller is best-effort; partial coverage is better
             # than no coverage. The next puller run will retry.
+            failed += 1
+            last_exc = exc
             logger.exception(
                 "exchange_fills_puller: fetch_my_trades(%s) failed: %s",
                 sym, exc,
@@ -109,4 +132,11 @@ def fetch_fills_window(
                 )
                 continue
             out.append(row)
+    # ZERO coverage is not an empty book — say so rather than returning [].
+    # `targets` is never empty (it falls back to [None]), so this fires only
+    # when every attempted read raised.
+    if failed and failed == len(targets):
+        raise FillsWindowUnavailable(
+            f"{account_id}: all {failed} target(s) failed; last error: {last_exc}"
+        ) from last_exc
     return out

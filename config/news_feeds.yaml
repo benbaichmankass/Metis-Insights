@@ -4,11 +4,25 @@
 # a pubDate usually minutes old — so it sidesteps the NewsAPI free-tier ~24h
 # delay that made the layer inert. No API key, no per-call cost.
 #
-# A traded symbol pulls the feeds of its mapped groups (see symbol_groups) plus
-# the `global` group. Articles are still scored for per-symbol relevance by the
+# A traded symbol pulls the feeds of its class-derived group(s) plus the
+# `global` group. Articles are still scored for per-symbol relevance by the
 # normalizer's keyword match, so a broad feed only contributes the items that
 # actually mention the symbol. Adding/removing a feed is a YAML edit — the RSS
 # client (src/news/news_client_rss.py) is source-agnostic.
+#
+# FEED SELECTION IS DERIVED — there is deliberately NO per-symbol list here
+# (2026-08-07, BL-20260807-NEWS-FEED-SYMBOL-COVERAGE-5-OF-24). A symbol's group
+# comes from its asset class in config/instruments.yaml via
+# src.core.instrument_class.news_group_for_symbol, mapped through
+# `asset_class_groups` below. The previous per-symbol `symbol_groups` map was a
+# SECOND registry parallel to instruments.yaml; it drifted to 5 of 24 traded
+# bases, so 19 symbols read macro-only headlines while the news veto was armed.
+#
+# So: to give a NEW symbol news coverage, do nothing. Adding it to
+# instruments.yaml (which you must do to trade it) is sufficient. Only edit
+# this file to add/remove a FEED, or to map a class to different groups.
+# The `check_news_feed_coverage` CI guard fails the build if any traded base
+# resolves to global-only, so the coverage cannot silently regress again.
 #
 # Loader: src/news/news_feeds.py (never raises — missing/bad file => no feeds).
 # Feed URLs change over time; if one 404s the client skips it (best-effort).
@@ -38,12 +52,28 @@ groups:
   metals:
     - https://www.cnbc.com/id/10000664/device/rss/rss.html         # CNBC Markets (metals coverage)
 
-# Which feed groups each symbol base draws from (in addition to `global`).
-symbol_groups:
-  BTC: [crypto]
-  ETH: [crypto]
-  MES: [equities]
-  MNQ: [equities]
-  MGC: [equities, metals]
-  MHG: [equities, metals]
-  MCL: [energy]
+# Which feed groups each ASSET CLASS draws from, in addition to `global`.
+# Keys are the class tokens from src.core.instrument_class (crypto / index /
+# commodity / bond / equity / fx), OR any value used as a per-instrument
+# `news_group` override in instruments.yaml (e.g. `energy` for USO, whose
+# coarse class is `commodity` but whose news desk is oil).
+#
+# A class with NO entry here (bond, fx) keeps the `global` macro feeds only —
+# that is the correct answer, not a gap: rates/Fed/inflation news IS the macro
+# feed for TLT/IEF, and there is no better FX-specific source in this set.
+asset_class_groups:
+  crypto:    [crypto]
+  equity:    [equities]
+  index:     [equities]
+  commodity: [metals]
+  energy:    [energy]      # per-instrument `news_group` override (USO)
+
+# Classes that are DELIBERATELY macro-only (global feeds, no class group).
+# This list is what makes "global-only" a declared decision rather than a
+# silent fallthrough — the coverage guard fails on any traded symbol that ends
+# up global-only WITHOUT its class being named here. That distinction is the
+# whole fix: the 5-of-24 gap was invisible precisely because falling through to
+# `global` looked identical to being correctly assigned to it.
+macro_only_classes:
+  - bond    # TLT / IEF — rates, Fed and inflation news IS the macro feed.
+  - fx      # no FX-specific source in this feed set today.

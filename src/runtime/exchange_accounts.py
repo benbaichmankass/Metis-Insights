@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.config.accounts_loader import load_accounts_dict
+from src.config.accounts_loader import account_is_demo, load_accounts_dict
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,15 @@ class BybitFillAccount:
     ``category`` is the Bybit V5 product category (``linear`` for USDT-margined
     perps, else ``spot``). ``symbols`` is the account's declared instrument list
     (used by the funding pull, which Bybit only serves per-contract).
+
+    ``demo`` mirrors ``accounts.yaml::demo`` — Bybit demo trading lives on a
+    SEPARATE host and a demo key is rejected by mainnet with ``retCode 10003``.
+    This field was missing until 2026-08-07, which is why the roster fix this
+    module shipped (enumerating every live Bybit account instead of hard-coding
+    ``bybit_2``) did not actually give ``bybit_1`` / ``bybit_portfolio``
+    coverage: they were enumerated, dialled on the wrong host, and failed 100%
+    of every run (BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED). Enumerating an
+    account is not the same as being able to reach it.
     """
 
     account_id: str
@@ -39,6 +48,7 @@ class BybitFillAccount:
     secret_env: str
     category: str
     symbols: tuple[str, ...]
+    demo: bool = False
 
 
 def _secret_env_for(key_env: str) -> str:
@@ -85,6 +95,7 @@ def live_bybit_fill_accounts(
                 secret_env=secret_env,
                 category=category,
                 symbols=symbols,
+                demo=account_is_demo(cfg),
             )
         )
     return out

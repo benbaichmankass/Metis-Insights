@@ -39,6 +39,17 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Manually dispatchable so a FEATURE BRANCH can always run collection —
+  # the same remedy `pytest-run.yml` and `guards.yml` already carry for
+  # BL-20260730-PR-CI-NOT-ATTACHING, which this file never received. That gap
+  # is not cosmetic: when a `pull_request` delivery drops, the two siblings can
+  # be dispatched by hand and this one CANNOT, so it stays the single required
+  # check with no way to run — and a check that silently did not run renders
+  # identically to green. Re-confirmed live on 2026-08-07: PR #8608 sat at
+  # 0 check runs across an `opened`, a `synchronize` (force-push) and a
+  # `ready_for_review`, and only the two dispatchable workflows could be
+  # recovered.
+  workflow_dispatch:
 
 permissions:
   contents: read
