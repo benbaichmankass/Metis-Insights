@@ -3,6 +3,28 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE",
+      "opened_at": "2026-08-08T09:05:00+00:00",
+      "opened_by": "claude (P2 faithful-backtest session 6ewta2)",
+      "source": "Found while scoping the P2 item 'port the calibrated harnesses onto real strategy code' (design doc 5d, PR #8605). Measured on main @ 87e6c6d.",
+      "title": "TWO divergent copies of backtest_trend.py: the fidelity/calibration pipeline runs the one WITHOUT the M20/M21 levers, while a LIVE Tier-3 lever cites the other as its reference implementation",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "severity": "high",
+      "what_to_check": "MEASURED 2026-08-08 on main @87e6c6d. Two files, same basename, same git history (#8467 rolled venue-aware cost onto BOTH, so they are maintained in parallel, not abandoned): scripts/backtest_trend.py (624 lines, 30 distinct flags) and scripts/research/backtest_trend.py (636 lines, 38 flags). NEITHER IS A SUPERSET - they forked in both directions. Diff is 1048 changed lines across only 4 hunks.\n\nONLY in scripts/research/ (15): --trail-decay-arm-r, --trail-decay-stall-bars, --trail-decay-tight-mult, --giveback-r, --giveback-min-mfe-r, --bank-at-r, --bank-frac, --confirm-bars, --skip-hours, --vol-skip-above-pctl, --vol-skip-below-pctl, --vol-pctl-window, --trail-vol-above-pctl, --trail-vol-below-pctl, --trail-vol-tight-mult.\nONLY in scripts/ (7): --adx-min, --adx-max, --adx-period, --side-filter, --cooldown-bars, --direction-filter, --confidence-sweep.\n\nWHY IT MATTERS, three ways:\n(1) scripts/research/regime_debt_matrix.py::build_harness_cmd invokes scripts/backtest_trend.py - the copy WITHOUT the M20/M21 levers. That harness produces backtest_trades.db, the ONLY input to scripts/research/backtest_fidelity_calibrate.py and therefore to the whole P0/P3 earned-trust chain.\n(2) Consequently trend_donchian measures faithful=False with omitted_levers = [exit_head_action, exit_head_model, exit_head_threshold, trail_decay_arm_r, trail_decay_tight_mult]. TWO of those five (the trail_decay pair) are NOT unimplemented - they are implemented in the sibling copy the pipeline does not run. Likewise the five entry params the harness 'has no flag for' (confirm_bars, skip_hours, vol_pctl_window, vol_skip_above_pctl, vol_skip_below_pctl) all EXIST as flags in the research copy. So the fidelity deficit is substantially a WIRING fact, not a capability gap.\n(3) src/runtime/trail_decay.py - a LIVE Tier-3 lever module - names scripts/research/backtest_trend.py as its 'Harness reference' in its module docstring, as do src/runtime/trail_vol.py and src/units/strategies/trend_donchian.py. So the evidence base for a live order-affecting lever comes from a harness the fidelity pipeline never runs, and the harness the pipeline DOES run cannot express that lever at all. The M20 sweeps (scripts/research/m20_exit_sweep.py, m20_fleet_exit_sweep.py) also target the research copy.\n\nNOT YET FIXED, deliberately. The obvious move - repoint build_harness_cmd at the research copy - is WRONG as-is: it would silently drop --adx-* (which build_harness_cmd actively forwards via adx_flags) and --side-filter (a declared _TREND_LEVER_FLAG), i.e. trade one fidelity hole for another. Convergence to ONE harness is the fix, and it CHANGES BACKTEST NUMBERS, so it must be validated against real candle history - NOT possible in a web sandbox (the committed data/backtest_candles.csv is ~3.5 days and yields 0 trades; the binance_vision fetch is network-blocked). Do this on the trainer, or on a GH runner via research-backtest-augment.yml, with a before/after metrics comparison per leg.",
+      "proposed_fix": "Converge to ONE trend harness (4 hunks). Suggested order: (a) port the 7 scripts/-only flags into scripts/research/backtest_trend.py OR the 15 research/-only flags into scripts/backtest_trend.py - whichever direction the numeric before/after shows is behaviour-preserving for the currently-invoked path; (b) delete the loser and leave a shim or hard-fail import so a third copy cannot reappear; (c) update _TREND_PLAIN/_TREND_LEVER_FLAG in regime_debt_matrix so the newly-expressible levers stop counting as omitted; (d) re-run the augment + calibrator and record whether trend_donchian's fidelity verdict moves. NOTE the exit_head_* trio is a DIFFERENT problem and does not converge away: it needs the model registry at inference, and research-backtest-augment.yml runs on ubuntu-latest (a free runner with no registry). Either run that leg on the trainer or accept that trend_donchian stays approximate - which, post-#8605, means its backtest can never be stamped `calibrated`. That is arguably CORRECT (a backtest omitting a live advisory exit head is not reproducing live), but it should be a stated decision, not an accident. Sibling check: verify whether backtest_pullback.py / backtest_squeeze.py have the same fork (src/runtime/trail_decay.py's docstring also cites scripts/backtest_pullback.py, so at minimum the naming is inconsistent).",
+      "related": [
+        "BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS"
+      ],
+      "refs": [
+        "docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md 5d/5e",
+        "PR #8605",
+        "PR #8599",
+        "PR #8467"
+      ]
+    },
+    {
       "id": "BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES",
       "opened_at": "2026-08-06T17:10:00+00:00",
       "opened_by": "claude (roadmap-workplan-update session lw6qf0)",
@@ -10786,6 +10808,6 @@
       "snoozed_until": null
     }
   ],
-  "updated_at": "2026-08-08T09:00:00+00:00",
+  "updated_at": "2026-08-08T09:05:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
