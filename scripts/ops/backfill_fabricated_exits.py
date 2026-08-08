@@ -94,7 +94,16 @@ from typing import Any, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from src.runtime.fills_pnl import FILL_EXIT_SOURCE, exit_from_fills  # noqa: E402
+from src.runtime.broker_cost_attribution import normalize_symbol  # noqa: E402
+# The window slack and timestamp format are imported, not re-derived: the probe
+# below must ask the store EXACTLY what exit_from_fills asked it, or its answer
+# describes a different query than the one that actually refused.
+from src.runtime.fills_pnl import (  # noqa: E402
+    _OPEN_SLACK_MS,
+    FILL_EXIT_SOURCE,
+    exit_from_fills,
+)
+from src.runtime.fills_pnl import _iso as _iso_ms  # noqa: E402
 from src.runtime.provenance import (  # noqa: E402
     ESTIMATED, MEASURED, classify_pnl,
 )
@@ -165,12 +174,79 @@ def _accounts_with_fills(conn_factory) -> set[str]:
             c.close()
 
 
-def _unresolved_reason(account_id: str, covered: set[str]) -> str:
+#: `exit_from_fills` maps direction through this; anything else refuses early.
+_DIRECTION_SIDE = {"long": "sell", "short": "buy"}
+
+
+def _candidate_fill_count(conn_factory, *, account_id, symbol, direction,
+                          opened_at_ms, closed_at_ms) -> Optional[int]:
+    """How many close-side fills `exit_from_fills` had to work with.
+
+    Mirrors that function's own account+side+window+normalised-symbol filter,
+    read-only, so the caller can tell "we found NOTHING" from "we found fills
+    and rejected them". Returns None if the store can't be read.
+    """
+    side = _DIRECTION_SIDE.get(str(direction or "").lower())
+    want = normalize_symbol(symbol)
+    if not side or not want:
+        return None
+    start_ms = int(opened_at_ms) - _OPEN_SLACK_MS
+    end_ms = int(closed_at_ms) if closed_at_ms else int(
+        datetime.now(timezone.utc).timestamp() * 1000)
+    if end_ms <= start_ms:
+        return 0
+    c = None
+    try:
+        c = conn_factory()
+        return sum(
+            1 for r in c.execute(
+                "SELECT symbol FROM exchange_fills "
+                " WHERE account_id = ? AND side = ? "
+                "   AND datetime(exec_time) >= datetime(?) "
+                "   AND datetime(exec_time) <= datetime(?)",
+                (str(account_id).strip(), side,
+                 _iso_ms(start_ms), _iso_ms(end_ms)),
+            )
+            if normalize_symbol(r[0]) == want
+        )
+    except Exception:  # noqa: BLE001
+        return None
+    finally:
+        if c is not None:
+            c.close()
+
+
+def _unresolved_reason(account_id: str, covered: set[str], candidates) -> str:
+    """Why THIS row did not resolve — branching on the actual refusal stage.
+
+    `exit_from_fills` returns a bare None for four different refusals, so a
+    single label over all of them names a cause no code path tested (CLAUDE.md
+    § "Diagnostic provenance", sub-class A — the failure-message variant). The
+    distinction is load-bearing here, not cosmetic:
+
+      * `no_fill_in_window` — the evidence genuinely isn't stored. A deeper or
+        differently-timed pull is the fix.
+      * `fills_present_but_qty_unreconciled` — fills WERE found and the
+        resolver **deliberately refused** them, because cumulative matched qty
+        missed the trade's qty by more than QTY_TOLERANCE. Under one-way
+        netting one exchange position backs N journal rows, so a single
+        close-side fill covers several rows' qty and this refusal is EXPECTED.
+        These rows are not repairable by pulling harder — attributing them is
+        the netting-attribution problem (`NETTING_ATTRIBUTION_MODE`), and
+        guessing a split here is the proration error the resolver's own
+        docstring exists to refuse.
+      * `direction_not_long_short` — the row's direction is outside the
+        vocabulary the resolver maps, so it never reached the store at all.
+    """
     if not covered:
         return "coverage_unknown_store_unreadable"
     if account_id not in covered:
         return "account_has_no_fills_stored"
-    return "no_matching_fill_in_window"
+    if candidates is None:
+        return "direction_or_symbol_unmappable"
+    if candidates == 0:
+        return "no_fill_in_window"
+    return "fills_present_but_qty_unreconciled"
 
 
 def main() -> int:
@@ -266,8 +342,16 @@ def main() -> int:
                 stat["via_mirror"] += 1
 
         if rec is None:
+            cands = (
+                _candidate_fill_count(
+                    fills_conn, account_id=acct, symbol=r["symbol"],
+                    direction=r["direction"], opened_at_ms=opened,
+                    closed_at_ms=closed,
+                )
+                if acct in covered else None
+            )
             stat["unresolved_left_alone"] += 1
-            unresolved_by_reason[_unresolved_reason(acct, covered)] += 1
+            unresolved_by_reason[_unresolved_reason(acct, covered, cands)] += 1
             unresolved_by_account[acct] += 1
             continue
 
