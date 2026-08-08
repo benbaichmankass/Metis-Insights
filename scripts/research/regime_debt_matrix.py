@@ -14,14 +14,40 @@ For each `coverage_debt` strategy (config/regime_coverage_exemptions.yaml) it:
 
 **Fidelity.** A strategy is `faithful` when the base harness models every lever
 its config declares. The pullback harness exposes the vol-skip / stale-exit /
-trail-vol lever flags, so those variants run faithfully. The trend harness models
-the **stale-exit** lever (`--stale-exit-bars`/`--stale-exit-below-r`, ported for
-rec #5 so the debt matrix can re-measure a Donchian variant with its declared exit
-lever ON) — so a Donchian variant carrying ONLY stale-exit runs faithfully now. A
-variant still carrying trail-decay / vol-skip / giveback levers the trend harness
-doesn't yet expose stays `approximate` (base geometry only, those levers omitted —
-labelled, never hidden). An `exit_head_model` lever is never replayable offline ->
-always `approximate`.
+trail-vol lever flags, so those variants run faithfully.
+
+**Trend harness, updated 2026-08-08 (convergence step (a) of
+`BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE`).** There used to
+be TWO `backtest_trend.py` — this matrix ran the one WITHOUT the M20/M21 levers,
+so a Donchian variant declaring trail-decay / giveback / bank / confirm-bars /
+skip-hours / vol-skip / trail-vol measured `approximate` purely because the
+harness the pipeline invokes had no flag for it. That was a WIRING fact, not a
+capability gap. All 15 levers are now ported into `scripts/backtest_trend.py`
+(the live-faithful engine — it freezes the entry bar's ATR for the trail, which
+is what `trend_donchian.monitor()` does; the sibling `scripts/research` copy
+trails off a rolling ATR and produces a different trade set), so those variants
+run **faithfully**.
+Design-doc §5f has the measurement.
+
+**`exit_head_*` is location-dependent, not permanently unmodellable** — but that
+is a fact about MEASURABILITY, not about this harness run's fidelity, and the two
+are recorded separately. The head is a self-contained artifact published to
+`runtime_logs/trainer_mirror/exit_head/`, so `exit_head_replayable()` asks whether
+a servable head is actually loadable HERE: on the trainer / live VM it is, so the
+replay (`scripts/ml/exit_head_replay.py`) can re-resolve each trade's exit; on a
+GitHub-hosted runner there is no mirror, so the gap cannot be measured at all.
+Fail-closed: any error verifying ⇒ not replayable, never a silent certification.
+
+**`fidelity` stays `approximate` either way, deliberately.** It grades the HARNESS
+RUN, and the harness has no `--exit-head-*` flag — the replay is a SEPARATE pass
+over the emitted trades. Upgrading the leg to `faithful` because a head is merely
+loadable would claim the row's numbers account for an exit head that never touched
+them, on the field the research→results promotion gate reads. So
+`annotate_exit_head_replayability()` records `exit_head_replayable` +
+`exit_head_deferred_to_replay` as their own fields instead. (An earlier revision
+folded this into `fidelity` via a conditional that turned out to be INERT — the
+union could only add keys `build_harness_cmd` had already listed;
+`BL-20260808-INERT-CONDITIONAL-SHIPPED-AS-A-BEHAVIOUR-CHANGE`.)
 
 Yahoo needs network the sandbox firewalls, so this is built to run on a free
 GitHub-hosted runner (see .github/workflows/regime-debt-matrix.yml). The crypto
@@ -87,6 +113,25 @@ _TREND_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe",
 _TREND_LEVER_FLAG = {
     "stale_exit_bars": "--stale-exit-bars", "stale_exit_below_r": "--stale-exit-below-r",
     "side_filter": "--side-filter",
+    # Ported into scripts/backtest_trend.py on 2026-08-08 (convergence step (a) of
+    # BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE). These 15
+    # levers previously lived ONLY in the scripts/research copy, so a
+    # variant declaring one measured `approximate` purely because the harness the
+    # pipeline runs had no flag for it — a WIRING fact, not a capability gap
+    # (design-doc §5f). The harness now models them, so they are faithful.
+    "bank_frac": "--bank-frac", "bank_at_r": "--bank-at-r",
+    "giveback_min_mfe_r": "--giveback-min-mfe-r", "giveback_r": "--giveback-r",
+    "trail_decay_arm_r": "--trail-decay-arm-r",
+    "trail_decay_stall_bars": "--trail-decay-stall-bars",
+    "trail_decay_tight_mult": "--trail-decay-tight-mult",
+    "confirm_bars": "--confirm-bars",
+    "skip_hours": "--skip-hours",
+    "vol_skip_above_pctl": "--vol-skip-above-pctl",
+    "vol_skip_below_pctl": "--vol-skip-below-pctl",
+    "vol_pctl_window": "--vol-pctl-window",
+    "trail_vol_above_pctl": "--trail-vol-above-pctl",
+    "trail_vol_below_pctl": "--trail-vol-below-pctl",
+    "trail_vol_tight_mult": "--trail-vol-tight-mult",
 }
 # Pullback lever config-key -> harness flag (these the pullback harness DOES model).
 _PB_LEVER_FLAG = {
@@ -138,6 +183,72 @@ _SQZ_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe", "
 _SQZ_TP_R_NONBINDING = 20.0
 # Levers no offline harness can replay.
 _UNREPLAYABLE = {"exit_head_model", "exit_head_threshold", "exit_head_action"}
+
+
+def exit_head_replayable(cfg: dict) -> bool:
+    """Can this leg's declared exit head actually be REPLAYED here?
+
+    `_UNREPLAYABLE` used to be unconditional, which made a location fact read as
+    a capability fact: the exit head is a SELF-CONTAINED artifact (booster inline)
+    published to ``runtime_logs/trainer_mirror/exit_head/``, so it is replayable
+    wherever that mirror exists — the trainer and the live VM — and not on a
+    GitHub-hosted runner, which has no copy. (Design-doc §5e recorded this as
+    "needs the model registry at inference"; that premise was wrong, and an
+    overstated impossibility closes off work.)
+
+    So this asks the environment, not the config: a leg declaring
+    ``exit_head_model`` is faithful **only where a servable head is loadable**,
+    and honestly `approximate` everywhere else. Fail-CLOSED on any error — an
+    unreadable artifact dir means we could not verify, which is not the same as
+    replayable, and must never silently certify a leg as faithful.
+    """
+    if not cfg.get("exit_head_model"):
+        return True                       # nothing declared → nothing to replay
+    tf = str(cfg.get("timeframe") or "")
+    symbols = cfg.get("symbols") or []
+    if not tf or not symbols:
+        return False
+    try:
+        sys.path.insert(0, REPO)
+        from scripts.ml.exit_head_replay import default_artifact_dir, load_heads
+        load_heads(default_artifact_dir(), tf, str(symbols[0]))
+        return True
+    except Exception:  # noqa: BLE001  # allow-silent: FAIL-CLOSED probe — the swallowed outcome is "NOT faithful", the conservative answer. This is the inverse of the silent-empty class: it cannot hide a failure as a clean result, it can only refuse to certify. Every caller labels the leg `approximate` and names the omitted levers, so the degradation is reported, never hidden.
+        return False
+
+
+def annotate_exit_head_replayability(cfg: dict, row: dict, omitted: list[str]) -> None:
+    """Record WHERE this leg's exit-head gap can be measured. Both callers use
+    this so the two cannot drift.
+
+    Sets two fields, deliberately kept separate from ``fidelity``:
+
+    * ``exit_head_replayable`` — does a servable head load HERE?
+    * ``exit_head_deferred_to_replay`` — the declared exit-head levers that
+      ``scripts/ml/exit_head_replay.py`` can resolve here. Empty where no head
+      loads, and empty when the leg declares no head at all.
+
+    **`fidelity` is deliberately NOT upgraded when a head is present**, and that
+    is the whole point of the field split. `fidelity` grades the HARNESS RUN,
+    and the harness genuinely does not apply the exit head — there is no
+    `--exit-head-*` flag; the replay is a SEPARATE pass over the emitted trades.
+    Flipping a leg to `faithful` merely because a head is loadable would claim
+    the row's numbers account for an exit head that never touched them, on the
+    field the research->results promotion gate reads. A location fact earns a
+    location field, not a quality upgrade.
+
+    This replaces an earlier attempt that made the `_UNREPLAYABLE` fold
+    conditional. That was **inert**: `build_harness_cmd` already lists every
+    cfg key with no harness flag in `omitted` (exit_head_* among them), so the
+    fold could only ever UNION keys that were present regardless — identical
+    output whether or not a head loaded. Caught by exercising both branches;
+    the passing test only ever ran the no-head one.
+    """
+    row["exit_head_replayable"] = exit_head_replayable(cfg)
+    declared = sorted(k for k in cfg if k in _UNREPLAYABLE)
+    row["exit_head_deferred_to_replay"] = (
+        [k for k in declared if k in set(omitted)] if row["exit_head_replayable"]
+        else [])
 
 
 def classify(cfg: dict) -> str | None:
@@ -411,12 +522,12 @@ def emit_trades_for(name: str, cfg: dict, workdir: str, days: int, *,
     argv, faithful, omitted = build_harness_cmd(
         name, eff, harness, csv, feed["resample"], emit, jout,
         fee_override=fee_override)
-    unreplayable = sorted(k for k in eff if k in _UNREPLAYABLE)
-    if unreplayable:
-        faithful = False
-        omitted = sorted(set(omitted) | set(unreplayable))
     row["fidelity"] = "faithful" if faithful else "approximate"
     row["omitted_levers"] = omitted
+    # exit_head_* is replayable WHERE THE PUBLISHED ARTIFACT LIVES (trainer /
+    # live VM), not everywhere. Recorded as its own field rather than folded
+    # into fidelity — see annotate_exit_head_replayability().
+    annotate_exit_head_replayability(eff, row, omitted)
     row["fee_bps_roundtrip"] = (roundtrip_fee_bps(sym) if fee_override is None
                                 else float(fee_override))
     try:
@@ -444,7 +555,6 @@ def run_one(name: str, cfg: dict, workdir: str, days: int,
     if harness is None or not sym or not tf:
         row["error"] = "unclassifiable (no donchian/pullback/squeeze params or no symbol/timeframe)"
         return row
-    unreplayable = sorted(k for k in cfg if k in _UNREPLAYABLE)
     feed = resolve_feed(sym, tf)
     row["feed"] = feed
     csv = os.path.join(workdir, f"{name}__data.csv")
@@ -457,11 +567,9 @@ def run_one(name: str, cfg: dict, workdir: str, days: int,
         return row
     argv, faithful, omitted = build_harness_cmd(name, cfg, harness, csv,
                                                 feed["resample"], emit, jout)
-    if unreplayable:
-        faithful = False
-        omitted = sorted(set(omitted) | set(unreplayable))
     row["fidelity"] = "faithful" if faithful else "approximate"
     row["omitted_levers"] = omitted
+    annotate_exit_head_replayability(cfg, row, omitted)
     # Record WHICH fee graded this row, so a reader can never again have to guess
     # whether a verdict was produced under the venue-blind 7.5-bps default
     # (BL-20260730-RESEARCH-VENUE-FEE). 0.0 = commission-free venue.

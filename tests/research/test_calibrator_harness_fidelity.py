@@ -159,12 +159,45 @@ def test_omitted_levers_are_unioned_and_sorted():
 # the live roster keeps this honest
 # --------------------------------------------------------------------------
 
-def test_trend_donchian_really_is_approximate_today():
-    """Not a synthetic scenario: the live config genuinely produces an
-    incomplete harness command for the calibration target, which is WHY the
-    consumer had to exist. If this ever flips to faithful, the exit levers got
-    modelled and the P2 remainder shrank — update the design doc rather than
-    deleting this test.
+def test_trend_donchian_trail_levers_are_modelled_now():
+    """The trail levers ARE modelled — asserted unconditionally, because this
+    is a property of the harness, not of where the test runs.
+
+    History: this assertion used to be `omitted >= {exit_head_action,
+    trail_decay_arm_r}`, and it was correct until the 15 research-only levers
+    were ported into `scripts/backtest_trend.py` (2026-08-08). `trail_decay_*`
+    is now forwarded, so the omitted set shrank 5 -> 3. The old test's own
+    docstring prescribed exactly this: "if this ever flips ... update the
+    design doc rather than deleting this test."
+
+    The direction matters. Asserting the levers are ABSENT from `omitted`
+    (rather than just loosening the old superset) is what catches a regression
+    that un-ports them — a weaker assertion would pass either way.
+    """
+    from scripts.research import regime_debt_matrix as rdm
+
+    cfg = rdm.resolve_strategy("trend_donchian")
+    if not cfg:
+        pytest.skip("trend_donchian not declared in config/strategies.yaml")
+    harness = rdm.classify(cfg)
+    _, _faithful, omitted = rdm.build_harness_cmd(
+        "trend_donchian", cfg, harness, "/tmp/x.csv", "1h",
+        "/tmp/e.jsonl", "/tmp/j.json")
+    assert not ({"trail_decay_arm_r", "trail_decay_tight_mult"} & set(omitted)), (
+        f"a trail_decay lever is omitted again: {sorted(omitted)} — "
+        "scripts/backtest_trend.py models both, so this means the flag "
+        "wiring in regime_debt_matrix._TREND_LEVER_FLAG regressed")
+
+
+def test_trend_donchian_stays_approximate_because_the_HARNESS_omits_exit_head():
+    """`fidelity` grades the HARNESS RUN, and the harness has no exit-head flag.
+
+    So `trend_donchian` is `approximate` with the three `exit_head_*` levers
+    omitted — everywhere, including the trainer. This is asserted flatly and on
+    purpose: an earlier revision of this PR tried to make the fold conditional
+    on a head being loadable, which would have upgraded the leg to `faithful`
+    on the trainer. That is an overclaim — the row's numbers come from the
+    harness, which never applied the head; the replay is a separate pass.
     """
     from scripts.research import regime_debt_matrix as rdm
 
@@ -175,7 +208,55 @@ def test_trend_donchian_really_is_approximate_today():
     _, faithful, omitted = rdm.build_harness_cmd(
         "trend_donchian", cfg, harness, "/tmp/x.csv", "1h",
         "/tmp/e.jsonl", "/tmp/j.json")
-    assert faithful is False, (
-        "trend_donchian now reports faithful — if the exit levers were modelled, "
-        "update FAITHFUL-BACKTEST-PLATFORM-DESIGN §5c's P2-remainder list")
-    assert set(omitted) >= {"exit_head_action", "trail_decay_arm_r"}
+    assert faithful is False
+    assert {"exit_head_action", "exit_head_model",
+            "exit_head_threshold"} <= set(omitted)
+
+
+@pytest.mark.parametrize("replayable", [True, False])
+def test_exit_head_replayability_is_RECORDED_and_actually_varies(replayable):
+    """Both branches, because the bug this replaces was an INERT conditional.
+
+    The previous attempt gated the `_UNREPLAYABLE` fold on `exit_head_replayable()`
+    and produced byte-identical output either way — `build_harness_cmd` already
+    lists every unflagged cfg key in `omitted`, so a union could never remove
+    one. The single-branch test passed and proved nothing.
+
+    Parametrizing over the probe is what makes "this field actually varies" an
+    assertion rather than an assumption, so a future refactor that quietly
+    re-inerts it fails here.
+    """
+    from unittest import mock
+    from scripts.research import regime_debt_matrix as rdm
+
+    cfg = rdm.resolve_strategy("trend_donchian")
+    if not cfg:
+        pytest.skip("trend_donchian not declared in config/strategies.yaml")
+    row: dict = {}
+    omitted = ["exit_head_action", "exit_head_model", "exit_head_threshold"]
+    with mock.patch.object(rdm, "exit_head_replayable", return_value=replayable):
+        rdm.annotate_exit_head_replayability(cfg, row, omitted)
+
+    assert row["exit_head_replayable"] is replayable
+    if replayable:
+        assert row["exit_head_deferred_to_replay"] == omitted, (
+            "a head loads here, so the exit-head gap is MEASURABLE by the "
+            "replay and must be named as deferred rather than silently left "
+            "looking like a permanent omission"
+        )
+    else:
+        assert row["exit_head_deferred_to_replay"] == [], (
+            "no head here, so nothing is deferred-to-replay — the levers are "
+            "genuinely unmeasured and only omitted_levers should carry them"
+        )
+
+
+def test_deferred_to_replay_is_empty_when_the_leg_declares_no_exit_head():
+    """A leg with no exit head has nothing to defer — the field must not
+    manufacture entries from a config that never asked for one."""
+    from scripts.research import regime_debt_matrix as rdm
+
+    row: dict = {}
+    rdm.annotate_exit_head_replayability({"donchian": 20}, row, [])
+    assert row["exit_head_replayable"] is True   # nothing declared → nothing to replay
+    assert row["exit_head_deferred_to_replay"] == []

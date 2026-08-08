@@ -26,7 +26,6 @@ class AccountProfile:
     # dry_run accounts suppress all exchange calls entirely.
     demo: bool = False
     base_currency: str = "USDT"
-    max_concurrent_positions: int = 1
     tags: tuple[str, ...] = field(default_factory=tuple)
 
     # ------------------------------------------------------------------
@@ -89,7 +88,6 @@ class AccountProfile:
             dry_run=dry_run,
             demo=demo,
             base_currency=data.get("base_currency", "USDT"),
-            max_concurrent_positions=int(data.get("max_concurrent_positions", 1)),
             tags=tags,
         )
 

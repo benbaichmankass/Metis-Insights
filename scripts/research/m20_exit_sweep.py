@@ -90,7 +90,7 @@ def main() -> int:
                 continue
             print(f"-- P3 trend_donchian 1h {sym} (config-exact) --")
             for tag, cell in gb_cells:
-                res = [run_cell("scripts/research/backtest_trend.py",
+                res = [run_cell("scripts/backtest_trend.py",
                                 ["--data", data, "--resample", "1h",
                                  "--symbol", sym, "--timeframe", "1h",
                                  "--donchian", "20", "--trail-mult", "5.0",
@@ -151,7 +151,7 @@ def main() -> int:
                 continue
             print(f"-- P2 trend_donchian 1h {sym} --")
             for tag, cell in don2:
-                res = [run_cell("scripts/research/backtest_trend.py",
+                res = [run_cell("scripts/backtest_trend.py",
                                 ["--data", data, "--resample", "1h",
                                  "--symbol", sym, "--timeframe", "1h",
                                  "--donchian", "20", "--trail-mult", "5.0",
@@ -202,7 +202,7 @@ def main() -> int:
             res = []
             for w in windows():
                 res.append(run_cell(
-                    "scripts/research/backtest_trend.py",
+                    "scripts/backtest_trend.py",
                     ["--data", data, "--resample", "1h", "--symbol", sym,
                      "--timeframe", "1h", "--donchian", "20",
                      "--trail-mult", "5.0", *extra, *cell, *w]))

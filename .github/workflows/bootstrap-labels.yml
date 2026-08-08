@@ -327,6 +327,11 @@ jobs:
                 description: 'Triggers trainer-vm-diag workflow — full-visibility SSH command runner on the trainer VM (autonomous Claude). QUICK read-only pulls (parallel-safe).',
               },
               {
+                name: 'exit-head-replay-request',
+                color: '5319e7',
+                description: 'Triggers research-exit-head-replay-trainer — replays the PUBLISHED exit head over backtest trades on the trainer (the only place besides the live VM that holds the artifact). Read-only, light; no heavy VM lane needed.',
+              },
+              {
                 name: 'trainer-vm-heavy-request',
                 color: 'b60205',
                 description: 'HEAVY/exclusive trainer-VM job (backtest/dataset-build/training cycle). Requires a board VM-LANE CLAIM first (FIFO, running-never-preempted) — the claude-vm-lane-guard PreToolUse hook enforces it. Prefer a free GH runner if the work needs no VM state (docs/claude/vm-resource-management.md).',
