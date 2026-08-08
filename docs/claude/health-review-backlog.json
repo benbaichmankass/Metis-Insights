@@ -10906,8 +10906,22 @@
       "action": "Teach pairs_executor to reconcile its own legs — it is the only component allowed to touch those rows, so it is the only place the fix can live. Mirror the netting reconciler's contract rather than inventing a second one: 2-observation confirm before acting, leg-id-then-FIFO selection, and the anchored/no_anchor/deferred provenance ladder (an anchorless estimate is FABRICATED). Tier-2 — it writes the money DB.\n\nDO NOT 'fix' this by removing the pairs skip from _reconcile_netting_partial_closes. The skip is load-bearing: closing a pairs leg behind the executor's back desyncs the sleeve, which is a worse failure than an overstated journal.",
       "resolution_criteria": "bybit_1/BNBUSDT journal qty matches the exchange within tolerance, and a pairs-sleeve divergence is reduced by a reconciler that owns those rows rather than being relabelled.",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260808-GROSS-EXPOSURE-CAP-INERT-AND-UNOBSERVABLE",
+      "opened_at": "2026-08-08T20:55:00+00:00",
+      "opened_by": "claude (system-review ma0ava)",
+      "status": "open",
+      "tier": 3,
+      "severity": "medium",
+      "title": "max_gross_exposure_pct is declared on ZERO of 11 accounts, and exposure cannot be OBSERVED until a ceiling is already declared — you must guess a cap to measure it",
+      "source": "READ FROM SOURCE + config 2026-08-08. src/units/accounts/risk.py: the cap is fully wired — evaluate() refuses GROSS_EXPOSURE_CAP at the boundary, position_size() clamps into exposure_headroom_usd() below it, report() surfaces it. config/accounts.yaml declares max_gross_exposure_pct on NONE of the 11 accounts, so gross_exposure() short-circuits to None and every path is inert — including real-money bybit_2. Shipped 2026-08-07, never enabled anywhere.",
+      "what_to_check": "THE CHICKEN-AND-EGG: gross_exposure() returns None unless a ceiling is configured, and report()['exposure'] is gated the same way. So the exposure MULTIPLE has never been visible on any account, and an operator cannot pick an informed cap — they would have to declare an arbitrary one first to find out what they actually run at.\n\nI ATTEMPTED the obvious fix (measure always, enforce only when declared) and REVERTED it. Recording both traps, because each is a fleet-wide trading halt and neither is visible from the diff:\n\n  TRAP 1 — evaluate(): `state[2] >= self.max_gross_exposure_pct` with the default 0.0 is true for ANY exposure INCLUDING 0.0. Ungating the measurement without guarding enforcement refuses every trade on every live account, even a flat one.\n\n  TRAP 2 — position_size(): exposure_headroom_usd() computes `max(0, pct*equity - notional)`, which at pct=0 is max(0, -notional) = 0.0. Headroom zero clamps EVERY position to nothing. I guarded trap 1 and missed this one entirely; the pre-existing tests/test_risk_gross_exposure.py caught it.\n\n  ALSO: test_unset_ceiling_is_a_noop asserts `gross_exposure() is None` when unset — 'no declared ceiling => no exposure state, no gate, no clamp' is a DELIBERATE, tested contract, not an oversight. Any change here is a design change and must argue with that test, not just edit around it.",
+      "action": "TWO SEPARABLE PIECES; do them in this order.\n\n1. OBSERVABILITY (Tier-1-ish, own PR): expose the exposure multiple WITHOUT touching evaluate() or position_size(). Safest shape is a read-only reporter that does not reuse gross_exposure()'s gated return — e.g. surface open_gross_notional/equity/multiple on an existing read surface, or add a separate always-measures accessor the enforcement path never calls. Keep the None-when-unset contract of gross_exposure() intact so both traps stay unreachable.\n\n2. THE CAP ITSELF (Tier-3, operator): after soaking (1) for long enough to see real multiples per account, pick per-account values from OBSERVED peaks with headroom, not from theory. Anchors for the conversation: the Bybit accounts declare leverage 3 and risk_pct 0.015 / max_dd_pct 0.05, so a single position cannot exceed 3x on its own and the ceiling is really about how many concurrent positions may stack. A cap that binds in normal operation is worse than none — it would silently clamp correctly-risk-sized trades, which is exactly the reasoning that removed POSITION_SIZE_CAP (operator directive 2026-06-24, see the NOTE in evaluate()).",
+      "resolution_criteria": "Per-account exposure multiples are observable without a declared ceiling, and the operator has either set caps from observed data or explicitly decided the fleet runs uncapped.",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-08-08T20:30:00+00:00",
+  "updated_at": "2026-08-08T20:55:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
