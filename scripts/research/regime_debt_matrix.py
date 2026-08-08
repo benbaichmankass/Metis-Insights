@@ -29,13 +29,25 @@ trails off a rolling ATR and produces a different trade set), so those variants
 run **faithfully**.
 Design-doc §5f has the measurement.
 
-**`exit_head_*` is location-dependent, not permanently unmodellable.** The head is
-a self-contained artifact published to `runtime_logs/trainer_mirror/exit_head/`,
-so `exit_head_replayable()` asks whether a servable head is actually loadable
-HERE: on the trainer / live VM it is → the leg is faithful and the replay
-(`scripts/ml/exit_head_replay.py`) re-resolves each trade's exit; on a
-GitHub-hosted runner there is no mirror → the leg stays honestly `approximate`.
-Fail-closed: any error verifying ⇒ not faithful, never a silent certification.
+**`exit_head_*` is location-dependent, not permanently unmodellable** — but that
+is a fact about MEASURABILITY, not about this harness run's fidelity, and the two
+are recorded separately. The head is a self-contained artifact published to
+`runtime_logs/trainer_mirror/exit_head/`, so `exit_head_replayable()` asks whether
+a servable head is actually loadable HERE: on the trainer / live VM it is, so the
+replay (`scripts/ml/exit_head_replay.py`) can re-resolve each trade's exit; on a
+GitHub-hosted runner there is no mirror, so the gap cannot be measured at all.
+Fail-closed: any error verifying ⇒ not replayable, never a silent certification.
+
+**`fidelity` stays `approximate` either way, deliberately.** It grades the HARNESS
+RUN, and the harness has no `--exit-head-*` flag — the replay is a SEPARATE pass
+over the emitted trades. Upgrading the leg to `faithful` because a head is merely
+loadable would claim the row's numbers account for an exit head that never touched
+them, on the field the research→results promotion gate reads. So
+`annotate_exit_head_replayability()` records `exit_head_replayable` +
+`exit_head_deferred_to_replay` as their own fields instead. (An earlier revision
+folded this into `fidelity` via a conditional that turned out to be INERT — the
+union could only add keys `build_harness_cmd` had already listed;
+`BL-20260808-INERT-CONDITIONAL-SHIPPED-AS-A-BEHAVIOUR-CHANGE`.)
 
 Yahoo needs network the sandbox firewalls, so this is built to run on a free
 GitHub-hosted runner (see .github/workflows/regime-debt-matrix.yml). The crypto

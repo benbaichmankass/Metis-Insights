@@ -9,9 +9,16 @@ name: research-exit-head-replay-trainer
 # `research-backtest-augment.yml` correctly does exactly that. This leg is the
 # documented exception: it needs `runtime_logs/trainer_mirror/exit_head/*.json`,
 # which is published to the trainer + live VM and is NOT committed. A runner has
-# no copy, so there the head cannot be scored at all and `trend_donchian` records
-# `fidelity: approximate` — which post-#8605 means its backtest can never be
-# stamped `calibrated`. Operator decision 2026-08-08: move the leg to the trainer.
+# no copy, so there the head cannot be scored AT ALL. Operator decision
+# 2026-08-08: move the leg to the trainer, where the gap is at least measurable.
+#
+# What this does and does NOT change: `trend_donchian` records
+# `fidelity: approximate` on the trainer TOO, because fidelity grades the harness
+# run and the harness never applies the head — this replay is a separate pass.
+# What moves is MEASURABILITY, recorded as `exit_head_replayable` /
+# `exit_head_deferred_to_replay` on the matrix row. Do not "fix" this by flipping
+# fidelity when a head loads; that overclaims on the field the research->results
+# gate reads (BL-20260808-INERT-CONDITIONAL-SHIPPED-AS-A-BEHAVIOUR-CHANGE).
 #
 # NOTE the premise correction: design-doc §5e said this "needs the model registry
 # at inference". It does not. The head is a self-contained JSON with the booster
