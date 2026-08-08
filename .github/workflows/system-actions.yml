@@ -1052,6 +1052,15 @@ jobs:
           if [ "${ACTION}" = "strategy-performance-audit" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
           fi
+          # pull-exchange-fills: `days:` selects the lookback window (default 7 in
+          # the wrapper). A DEEP window is bounded by PAGE_LIMIT=200 with no
+          # pagination in src/runtime/exchange_fills_puller.py — the puller logs a
+          # FULL-page warning when it caps, and a capped result must NOT be read
+          # as the venue's full retention
+          # (BL-20260808-FILLS-WINDOW-TOO-SHORT-TO-REPAIR-HISTORY).
+          if [ "${ACTION}" = "pull-exchange-fills" ]; then
+            REMOTE_CMD="ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
+          fi
           if [ "${ACTION}" = "monitor-miss-analysis" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
           fi

@@ -59,6 +59,7 @@ from src.runtime.exchange_fills_store import (
     aggregate_by_symbol,
     aggregate_summary,
     fifo_pnl_by_symbol,
+    list_fills,
 )
 
 logger = logging.getLogger(__name__)
@@ -107,3 +108,60 @@ def get_exchange_pnl(
     summary["account_id"] = account_id
 
     return {"summary": summary, "by_symbol": by_symbol}
+
+
+@router.get("/pnl/exchange/fills")
+def get_exchange_fills(
+    days: int = Query(DEFAULT_DAYS, ge=1, le=MAX_DAYS),
+    account_id: Optional[str] = Query(
+        None,
+        description=(
+            "Scope to one account (e.g. 'bybit_1'). Omitted = ALL accounts, "
+            "which mixes real-money and paper books."
+        ),
+    ),
+    symbol: Optional[str] = Query(
+        None,
+        description=(
+            "Exact stored symbol in VENUE form (e.g. 'AVAX/USDT:USDT', not "
+            "'AVAXUSDT'). Bound, never interpolated."
+        ),
+    ),
+    limit: int = Query(200, ge=1, le=1000),
+) -> dict[str, Any]:
+    """The individual exchange fill ROWS, newest-first — exchange truth, unaggregated.
+
+    Every sibling on this router returns a SUM. Sums are the right default and
+    the wrong tool for "WHICH trade does this discrepancy belong to": when
+    several strategies trade one symbol on one account, a per-symbol aggregate
+    cannot separate them. Measured 2026-08-07: the journal recorded -$9,669.41
+    across three AVAXUSDT/bybit_1 trades where exchange truth was -$5,403.09, a
+    $4,266.32 gap that could not be attributed from any existing surface
+    (BL-20260807-EXCHANGE-TRUTH-PER-STRATEGY-UNREACHABLE). That population was
+    SIX fills.
+
+    This returns rows and attributes NOTHING. That restraint is deliberate: a
+    broker SL/TP exit fills under an order id the bot never sees, so an
+    ``order_id -> strategy`` map covers entries only and a per-strategy
+    aggregate built on it would bucket every exit as ``unattributed`` and still
+    print a confident split. Rows are the substrate an attributor gets checked
+    AGAINST, so they come first.
+
+    ALWAYS STATE THE POPULATION: the response echoes every filter applied plus
+    ``truncated``, so a caller can tell a complete population from a capped one
+    rather than reading a short list as the whole story. Tier 1, read-only.
+    """
+    rows = list_fills(
+        days, account_id=account_id, symbol=symbol, limit=limit,
+    )
+    return {
+        "fills": rows,
+        "count": len(rows),
+        "days": days,
+        "account_id": account_id,
+        "symbol": symbol,
+        "limit": limit,
+        # A page that exactly hit the cap may be hiding older rows. Say so
+        # rather than letting the caller assume completeness.
+        "truncated": len(rows) >= limit,
+    }
