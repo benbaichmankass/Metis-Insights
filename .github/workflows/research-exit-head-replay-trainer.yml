@@ -126,6 +126,16 @@ jobs:
           set -uo pipefail
           cd /home/ubuntu/ict-trading-bot || { echo "NO_REPO"; exit 3; }
           echo "== git sha: $(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+          # Use the trainer's VENV, not system python3. First run (issue #8640)
+          # died on `ModuleNotFoundError: No module named 'pandas'` because a
+          # bare `python3` here is /usr/bin/python3, which has none of the repo's
+          # deps. The trainer convention is ${REPO}/.venv (deploy-trainer-bootstrap.yml).
+          # FAIL LOUDLY when it is missing rather than falling back to system
+          # python3 — a silent fallback is what produced the confusing failure,
+          # since the run got far enough to look like a real attempt.
+          PY=/home/ubuntu/ict-trading-bot/.venv/bin/python
+          [ -x "$PY" ] || { echo "NO_VENV: $PY missing/not executable — trainer venv not provisioned; see deploy-trainer-bootstrap.yml"; exit 5; }
+          echo "== python: $PY ($("$PY" -V 2>&1))"
           ART=runtime_logs/trainer_mirror/exit_head
           echo "== artifact dir: $ART"
           ls -la "$ART" 2>/dev/null || echo "  (absent — the replay will exit 2 and say so)"
@@ -134,7 +144,7 @@ jobs:
           # answers to one question is how the matrix ends up claiming a
           # replayability this workflow does not actually have (or vice versa).
           # Reporting only — the replay's own exit 2 remains the authority.
-          python3 - <<'PYPROBE' || true
+          "$PY" - <<'PYPROBE' || true
           import os, sys
           sys.path.insert(0, os.getcwd())
           from scripts.research import regime_debt_matrix as rdm
@@ -151,7 +161,7 @@ jobs:
           EMIT=/tmp/exit_head_replay_${STRATEGY}.jsonl
           # Feed: reuse the matrix's own fetch so the candles match every other
           # harness run rather than being a bespoke pull for this leg.
-          python3 - <<'PYFETCH'
+          "$PY" - <<'PYFETCH'
           import os, sys
           sys.path.insert(0, os.getcwd())
           from scripts.research.regime_debt_matrix import resolve_feed, _fetch_csv
@@ -171,7 +181,7 @@ jobs:
           TF=$(sed -n 2p /tmp/exit_head_replay_meta)
           RS=$(sed -n 3p /tmp/exit_head_replay_meta)
           echo "== replaying $STRATEGY $SYM $TF (resample $RS)"
-          python3 scripts/ml/exit_head_replay.py \
+          "$PY" scripts/ml/exit_head_replay.py \
             --data /tmp/exit_head_replay_data.csv --resample "$RS" \
             --symbol "$SYM" --timeframe "$TF" --strategy "$STRATEGY" \
             --emit-trades "$EMIT" --json "$OUT"
@@ -180,7 +190,7 @@ jobs:
           echo "== result json:"
           # jq keeps the per-trade detail out of the comment; the population +
           # the headline deltas are what a reader acts on.
-          python3 -c "
+          "$PY" -c "
           import json,sys
           try: d=json.load(open('$OUT'))
           except Exception as e: print('  (no json: %s)'%e); sys.exit(0)
