@@ -331,7 +331,6 @@ def test_opposite_side_rows_are_fully_attributed(tmp_path, monkeypatch):
 
 def test_full_close_writes_a_column_the_trades_table_has(tmp_path):
     import inspect
-    import sqlite3
 
     from src.units.db import database as dbmod
 
