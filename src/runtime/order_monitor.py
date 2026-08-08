@@ -7179,7 +7179,13 @@ def _netting_apply_close(
 
         updates: Dict[str, Any] = {
             "status": "closed",
-            "close_reason": "netting_attributed",
+            # `trades` has exit_reason; close_reason lives on `order_packages`.
+            # Writing the sibling table's column name made every FULL close
+            # raise "no such column: close_reason" — the partial branch below
+            # only touches position_size/notes, so it worked and hid this.
+            # Live-caught 2026-08-08 the first time apply was ever enabled;
+            # annotate never calls update_trade, so no soak could surface it.
+            "exit_reason": "netting_attributed",
             "closed_at": anchored_at,
             "notes": None,  # replaced below once provenance is decided
         }
