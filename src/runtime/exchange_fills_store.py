@@ -235,6 +235,71 @@ def _account_filter(account_id: Optional[str]) -> tuple[str, tuple[Any, ...]]:
     return " AND account_id = ?", (account_id,)
 
 
+def list_fills(
+    days: int,
+    path: Optional[Path] = None,
+    *,
+    now: Optional[datetime] = None,
+    account_id: Optional[str] = None,
+    symbol: Optional[str] = None,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """The individual fill ROWS, newest-first. No attribution, no netting.
+
+    **Why a raw-row reader exists next to the aggregates.** Every other reader
+    here returns a SUM. That is the right default, but it cannot answer "which
+    of these trades does the discrepancy belong to" when several strategies
+    trade one symbol on one account — and it is not a substrate you can
+    hand-verify an attributor against. On 2026-08-07 a measured $4,266.32 gap
+    between the journal and exchange truth across three AVAXUSDT/bybit_1 trades
+    could not be split, because the only surfaces were per-symbol aggregates
+    (BL-20260807-EXCHANGE-TRUTH-PER-STRATEGY-UNREACHABLE). That population was
+    SIX fills; the rows answer it exactly.
+
+    This deliberately does NOT attribute fills to strategies. An
+    ``order_id -> strategy`` map can only cover ENTRIES: a broker SL/TP exit
+    fills under an order id the bot never sees (see
+    ``src/runtime/broker_cost_attribution.py``), so exits must be FIFO-paired
+    against open entry lots. A per-strategy aggregate built on entry-only
+    attribution would silently bucket every exit as ``unattributed`` and report
+    a confident wrong split. Rows first; an attributor can be built and then
+    CHECKED against them.
+
+    ``limit`` is clamped to 1..1000. ``symbol`` matches the stored symbol
+    exactly (venue form, e.g. ``AVAX/USDT:USDT``) and is always bound.
+    """
+    if days <= 0:
+        return []
+    p = path or get_fills_db_path()
+    if not p.exists():
+        return []
+    lim = max(1, min(int(limit or 0), 1000))
+    cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=days)).isoformat()
+    _acct_sql, _acct_params = _account_filter(account_id)
+    _sym_sql, _sym_params = ("", ())
+    if symbol:
+        _sym_sql, _sym_params = " AND symbol = ?", (symbol,)
+    conn = sqlite3.connect(str(p))
+    conn.row_factory = sqlite3.Row
+    try:
+        cur = conn.execute(
+            """
+            SELECT exec_id, account_id, symbol, side, price, qty, fee,
+                   fee_currency, exec_time, order_id, is_maker
+            FROM exchange_fills
+            WHERE datetime(exec_time) >= datetime(?)
+            """ + _acct_sql + _sym_sql + """
+            ORDER BY datetime(exec_time) DESC, exec_id DESC
+            LIMIT ?
+            """,
+            (cutoff, *_acct_params, *_sym_params, lim),
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+    return rows
+
+
 def aggregate_by_symbol(
     days: int,
     path: Optional[Path] = None,
