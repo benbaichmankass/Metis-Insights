@@ -152,6 +152,43 @@ def _adx(df: pd.DataFrame, period: int) -> pd.Series:
     return dx.ewm(alpha=alpha, adjust=False, min_periods=period).mean()
 
 
+def _effective_trail_mult(base: float, peak_r: float, bars_since_peak: int,
+                          decay_on: bool, decay_arm_r: float,
+                          decay_stall_bars: int, decay_tight_mult: float,
+                          vol_on: bool, atr_pctl, j: int,
+                          vol_above_pctl: float, vol_below_pctl: float,
+                          vol_tight_mult: float) -> float:
+    """The chandelier trail mult in force on ONE managed bar.
+
+    Two independent tighteners, both **no-ops at their defaults** so the caller's
+    arithmetic is byte-identical to the pre-lever engine when neither is declared:
+
+    * **M20 P4.1 trail-decay** — tighten once the move shows exhaustion, either
+      R-armed (``peak_r >= decay_arm_r``) or stall-armed (``decay_stall_bars`` or
+      more bars since the last new favourable extreme). A new peak re-loosens the
+      MULT; the caller's price ratchet never loosens the STOP.
+    * **M20-X vol-conditional trail** — tighten on a bar whose trailing ATR
+      percentile sits in a gated tail. Conditional, not a ratchet; an undefined
+      percentile (window unfilled) leaves it inert.
+
+    When both fire the TIGHTEST wins, matching the research harness this was
+    ported from — the levers compose by minimum, never by sum.
+    """
+    tm = base
+    if decay_on:
+        armed = ((decay_arm_r > 0.0 and peak_r >= decay_arm_r)
+                 or (decay_stall_bars > 0 and bars_since_peak >= decay_stall_bars))
+        if armed:
+            tm = decay_tight_mult
+    if vol_on and atr_pctl is not None:
+        vp = atr_pctl.iloc[j]
+        if not pd.isna(vp):
+            if ((vol_above_pctl > 0.0 and float(vp) > vol_above_pctl)
+                    or (vol_below_pctl > 0.0 and float(vp) < vol_below_pctl)):
+                tm = min(tm, vol_tight_mult)
+    return tm
+
+
 def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  atr_stop_mult: float, trail_mult: float, timeout_bars: int,
                  cooldown_bars: int, timeframe: str, symbol: str,
@@ -165,6 +202,21 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  direction_filter: str = "off",
                  stale_exit_bars: Optional[int] = None,
                  stale_exit_below_r: float = 0.0,
+                 bank_frac: float = 0.0,
+                 bank_at_r: float = 1.0,
+                 giveback_min_mfe_r: float = 0.0,
+                 giveback_r: float = 1.0,
+                 trail_decay_arm_r: float = 0.0,
+                 trail_decay_stall_bars: int = 0,
+                 trail_decay_tight_mult: float = 0.0,
+                 confirm_bars: int = 0,
+                 skip_hours: str = "",
+                 vol_skip_above_pctl: float = 0.0,
+                 vol_skip_below_pctl: float = 0.0,
+                 vol_pctl_window: int = 200,
+                 trail_vol_above_pctl: float = 0.0,
+                 trail_vol_below_pctl: float = 0.0,
+                 trail_vol_tight_mult: float = 0.0,
                  trades_out: Optional[List["Trade"]] = None) -> Dict[str, Any]:
     """Run the Donchian trend backtest and return its summary dict.
 
@@ -175,6 +227,20 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     trade's ``entry_index``/``exit_index``/``entry``/``risk`` to walk the
     in-trade bars, and the ``--emit-trades`` JSONL is a reporting projection,
     not the engine's full state.
+
+    **The M20/M21 levers below were ported from
+    ``scripts/research/backtest_trend.py`` (2026-08-08, convergence step (a) of
+    ``BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE``).** They are
+    RE-IMPLEMENTED in THIS engine's semantics, not copied: this harness freezes
+    the ENTRY bar's ATR for the whole trade (matching what
+    ``trend_donchian.monitor()`` does live — see design-doc §5f) and runs an
+    SL-first nested inner loop with a post-exit cooldown, while the research copy
+    trails off the CURRENT bar's rolling ATR, has an opposite-signal flip exit and
+    no cooldown. Those engines disagree about which trades exist, so a
+    copy-paste of the lever bodies would have imported the other engine's exit
+    semantics along with the lever. Every lever is a **no-op at its default**,
+    which `tests/test_trend_harness_levers.py` pins by asserting the summary is
+    byte-identical to a levers-unset run.
     """
     df = df.reset_index(drop=True)
     df["atr"] = _atr(df, atr_period)
@@ -198,6 +264,24 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         dir_di_plus, dir_di_minus = _directional_indicators(df, adx_period)
     elif direction_filter == "slope":
         dir_slope = ((df["dc_hi"] + df["dc_lo"]) / 2.0).diff()
+    # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any NEW
+    # entry whose SIGNAL bar's UTC hour is in the CSV set. Exits are never touched.
+    skip_hour_set = {int(h) for h in str(skip_hours or "").split(",") if str(h).strip() != ""}
+    # M21 E-2 vol-at-entry + M20-X vol-conditional-trail levers share ONE trailing
+    # ATR-percentile series: rank of ATR[j] within the previous `vol_pctl_window`
+    # bars (causal, includes the bar itself; NaN until the window fills → never
+    # fires, fail-permissive). Only computed when a lever consults it, so the
+    # default run allocates nothing and stays byte-identical.
+    vol_trail_on = (trail_vol_tight_mult > 0.0
+                    and (trail_vol_above_pctl > 0.0 or trail_vol_below_pctl > 0.0))
+    atr_pctl = None
+    if vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0 or vol_trail_on:
+        atr_pctl = df["atr"].rolling(vol_pctl_window,
+                                     min_periods=vol_pctl_window).rank(pct=True)
+    # M20 P4.1 trail-decay is armed by R or by a stall in new favourable extremes;
+    # `tight_mult <= 0` disables the whole lever (the effective mult stays
+    # `trail_mult`, so the trail arithmetic below is unchanged).
+    trail_decay_on = trail_decay_tight_mult > 0.0
     trades: List[Trade] = []
     n = len(df)
     # Warm-up start: ensure both the channel/ATR indicators AND (when a band is
@@ -279,6 +363,63 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         if confidence < min_confidence:
             i += 1
             continue
+        # M21 E-2 time-of-day gate — reads the SIGNAL bar (the decision anchor),
+        # matching the live unit's trigger-bar semantics. Fail-permissive: an
+        # unparseable timestamp never skips.
+        if skip_hour_set:
+            try:
+                if pd.Timestamp(df["timestamp"].iloc[i]).hour in skip_hour_set:
+                    i += 1
+                    continue
+            except (TypeError, ValueError):
+                pass
+        # M21 E-2 vol-at-entry gate — same SIGNAL-bar anchor. `above` skips the hot
+        # tail, `below` the dead tail; an undefined percentile (window unfilled)
+        # never skips.
+        if atr_pctl is not None and (vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0):
+            vp = atr_pctl.iloc[i]
+            if not pd.isna(vp):
+                if vol_skip_above_pctl > 0.0 and float(vp) > vol_skip_above_pctl:
+                    i += 1
+                    continue
+                if vol_skip_below_pctl > 0.0 and float(vp) < vol_skip_below_pctl:
+                    i += 1
+                    continue
+        # M21 E-2 confirmation-bar lever (0 = off, byte-identical). The raw
+        # breakout does NOT enter at bar i: the close must HOLD beyond the SIGNAL
+        # bar's channel edge for `confirm_bars` further closed bars, then entry
+        # fires at the Nth confirming close (worse price, fewer false breakouts).
+        # A close back inside the channel, or an opposite raw breakout, cancels
+        # the setup — and the outer loop resumes from the bar AFTER the signal so
+        # a later breakout can still fire (never a silent skip of the window).
+        entry_i = i
+        if confirm_bars > 0:
+            level = hi if direction == "long" else lo
+            confirmed = True
+            for k in range(i + 1, i + confirm_bars + 1):
+                if k >= n:
+                    confirmed = False
+                    break
+                kc = float(df["close"].iloc[k])
+                held = kc > level if direction == "long" else kc < level
+                k_hi, k_lo = df["dc_hi"].iloc[k], df["dc_lo"].iloc[k]
+                opp = False
+                if not (pd.isna(k_hi) or pd.isna(k_lo)):
+                    opp = (kc < float(k_lo)) if direction == "long" else (kc > float(k_hi))
+                    if _sf == "long" and direction == "short":
+                        opp = False
+                if opp or not held:
+                    confirmed = False
+                    break
+            if not confirmed:
+                i += 1
+                continue
+            entry_i = i + confirm_bars
+            atr = float(df["atr"].iloc[entry_i])
+            if atr <= 0:
+                i += 1
+                continue
+            c = float(df["close"].iloc[entry_i])
         entry = c
         sl = entry - atr_stop_mult * atr if direction == "long" else entry + atr_stop_mult * atr
         risk = abs(entry - sl)
@@ -289,26 +430,65 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         trail = sl
         exit_price: Optional[float] = None
         exit_reason = "timeout"
-        exit_idx = min(i + timeout_bars, n - 1)
+        exit_idx = min(entry_i + timeout_bars, n - 1)
         mfe = 0.0
-        for j in range(i + 1, min(i + timeout_bars + 1, n)):
+        peak_j = entry_i          # bar of the last NEW favourable extreme
+        banked = False            # M20 partial-TP rung filled?
+        for j in range(entry_i + 1, min(entry_i + timeout_bars + 1, n)):
             bh, bl = float(df["high"].iloc[j]), float(df["low"].iloc[j])
+            # M20 partial-TP bank lever (0 = off, byte-identical): bank
+            # `bank_frac` of the position when price touches entry ± bank_at_r ×
+            # risk. Checked BEFORE the stop so a bar that trades through the rung
+            # and then stops out still credits the banked fraction at the rung —
+            # the conservative reading (the remainder takes the stop).
+            if bank_frac > 0.0 and not banked:
+                rung = (entry + bank_at_r * risk if direction == "long"
+                        else entry - bank_at_r * risk)
+                if (bh >= rung) if direction == "long" else (bl <= rung):
+                    banked = True
             if direction == "long":
                 if bl <= trail:                       # SL-first (conservative)
                     exit_price, exit_idx = trail, j
                     exit_reason = "trail_stop" if trail > sl else "stop"
                     break
+                if bh > ext:
+                    peak_j = j
                 ext = max(ext, bh)
-                trail = max(trail, ext - trail_mult * atr)
+                trail = max(trail, ext - _effective_trail_mult(
+                    trail_mult, (ext - entry) / risk, j - peak_j,
+                    trail_decay_on, trail_decay_arm_r, trail_decay_stall_bars,
+                    trail_decay_tight_mult, vol_trail_on, atr_pctl, j,
+                    trail_vol_above_pctl, trail_vol_below_pctl,
+                    trail_vol_tight_mult) * atr)
                 mfe = max(mfe, (ext - entry) / risk)
             else:
                 if bh >= trail:
                     exit_price, exit_idx = trail, j
                     exit_reason = "trail_stop" if trail < sl else "stop"
                     break
+                if bl < ext:
+                    peak_j = j
                 ext = min(ext, bl)
-                trail = min(trail, ext + trail_mult * atr)
+                trail = min(trail, ext + _effective_trail_mult(
+                    trail_mult, (entry - ext) / risk, j - peak_j,
+                    trail_decay_on, trail_decay_arm_r, trail_decay_stall_bars,
+                    trail_decay_tight_mult, vol_trail_on, atr_pctl, j,
+                    trail_vol_above_pctl, trail_vol_below_pctl,
+                    trail_vol_tight_mult) * atr)
                 mfe = max(mfe, (entry - ext) / risk)
+            # M20 giveback-stop lever (0 = off, byte-identical): once the trade has
+            # SEEN >= giveback_min_mfe_r R of open profit, exit at CLOSE when it has
+            # handed back >= giveback_r R from that peak. An R-based profit lock,
+            # distinct from the price/ATR chandelier trail; never pre-empts the
+            # intrabar stop (a stop hit breaks above).
+            if giveback_min_mfe_r > 0.0:
+                bc = float(df["close"].iloc[j])
+                r_close = ((bc - entry) / risk if direction == "long"
+                           else (entry - bc) / risk)
+                if mfe >= giveback_min_mfe_r and (mfe - r_close) >= giveback_r:
+                    exit_price, exit_idx = bc, j
+                    exit_reason = "giveback_stop"
+                    break
             # M20 stale-exit lever (faithful re-run of the debt matrix's
             # `stale_exit_bars`/`stale_exit_below_r` config — BL-20260717-REGIME
             # -COVERAGE-DEBT rec #5 follow-up). Fires at bar CLOSE only when the
@@ -317,7 +497,7 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
             # exactly: cut the trade at bar N-after-entry when its open R is
             # still below the floor. No-op (byte-identical) when the lever is
             # unset — the default the whole prior debt-matrix run used.
-            if stale_exit_bars is not None and (j - i) >= stale_exit_bars:
+            if stale_exit_bars is not None and (j - entry_i) >= stale_exit_bars:
                 bc = float(df["close"].iloc[j])
                 open_r = ((bc - entry) / risk if direction == "long"
                           else (entry - bc) / risk)
@@ -329,8 +509,13 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
             exit_price = float(df["close"].iloc[exit_idx])
         r = ((exit_price - entry) / risk if direction == "long"
              else (entry - exit_price) / risk)
+        # M20 bank lever: a filled rung realises `bank_frac` of the position at
+        # +bank_at_r; the remainder realises the exit R. No-op when bank_frac is 0.
+        if banked:
+            r = bank_frac * bank_at_r + (1.0 - bank_frac) * r
         trades.append(Trade(
-            entry_index=i, entry_time=df["timestamp"].iloc[i], direction=direction,
+            entry_index=entry_i, entry_time=df["timestamp"].iloc[entry_i],
+            direction=direction,
             entry=entry, sl=sl, risk=risk, exit_index=exit_idx,
             exit_time=df["timestamp"].iloc[exit_idx], exit_price=exit_price,
             outcome=exit_reason, r_multiple=round(r, 4), mfe_r=round(mfe, 3),
@@ -369,6 +554,31 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     if stale_exit_bars is not None:
         params["stale_exit_bars"] = stale_exit_bars
         params["stale_exit_below_r"] = stale_exit_below_r
+    # Ported M20/M21 levers echo into params ONLY when declared, so an
+    # undeclared run's summary dict is byte-identical to the pre-lever engine.
+    if bank_frac:
+        params["bank_frac"] = bank_frac
+        params["bank_at_r"] = bank_at_r
+    if giveback_min_mfe_r:
+        params["giveback_min_mfe_r"] = giveback_min_mfe_r
+        params["giveback_r"] = giveback_r
+    if trail_decay_on:
+        params["trail_decay_arm_r"] = trail_decay_arm_r
+        params["trail_decay_stall_bars"] = trail_decay_stall_bars
+        params["trail_decay_tight_mult"] = trail_decay_tight_mult
+    if confirm_bars:
+        params["confirm_bars"] = confirm_bars
+    if skip_hour_set:
+        params["skip_hours"] = skip_hours
+    if vol_skip_above_pctl or vol_skip_below_pctl:
+        params["vol_skip_above_pctl"] = vol_skip_above_pctl
+        params["vol_skip_below_pctl"] = vol_skip_below_pctl
+        params["vol_pctl_window"] = vol_pctl_window
+    if vol_trail_on:
+        params["trail_vol_above_pctl"] = trail_vol_above_pctl
+        params["trail_vol_below_pctl"] = trail_vol_below_pctl
+        params["trail_vol_tight_mult"] = trail_vol_tight_mult
+        params["vol_pctl_window"] = vol_pctl_window
     return _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params)
 
 
@@ -582,6 +792,56 @@ def main(argv: List[str]) -> int:
                         "skip a long in a DOWN regime / a short in an UP regime. "
                         "'di' = Wilder +DI/-DI sign; 'slope' = Donchian channel-midline slope sign. "
                         "See docs/research/M-regime-direction-filter-DESIGN.md.")
+    # --- M20/M21 levers ported from scripts/research/backtest_trend.py -------- #
+    # Convergence step (a) of
+    # BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE
+    # (kept on ONE line: a hyphen-wrapped tracking id silently becomes a
+    # DIFFERENT id that resolves to no filed row — check_backlog_refs caught
+    # exactly that here). Same flag names + defaults as the sibling research
+    # copy so an existing sweep command line is portable; every default is OFF.
+    p.add_argument("--bank-frac", type=float, default=0.0,
+                   help="M20 partial-TP ladder: fraction of the position banked "
+                        "at +bank-at-r R (0=off, byte-identical).")
+    p.add_argument("--bank-at-r", type=float, default=1.0,
+                   help="R-multiple of the bank rung for --bank-frac (default 1.0).")
+    p.add_argument("--giveback-min-mfe-r", type=float, default=0.0,
+                   help="M20 giveback-stop: arm once peak open profit reaches "
+                        "this many R (0=off, byte-identical).")
+    p.add_argument("--giveback-r", type=float, default=1.0,
+                   help="R handed back from the peak that triggers the exit.")
+    p.add_argument("--trail-decay-arm-r", type=float, default=0.0,
+                   help="M20 P4.1 trail-decay: tighten the trail once peak open "
+                        "profit reaches this many R (0=off for this arm).")
+    p.add_argument("--trail-decay-stall-bars", type=int, default=0,
+                   help="M20 P4.1: tighten after this many bars with no new "
+                        "favourable extreme (0=off for this arm).")
+    p.add_argument("--trail-decay-tight-mult", type=float, default=0.0,
+                   help="The tightened trail mult once armed (0 disables the "
+                        "whole decay lever, byte-identical).")
+    p.add_argument("--confirm-bars", type=int, default=0,
+                   help="M21 E-2 entry lever (0=off): require the close to hold "
+                        "beyond the signal bar's channel edge for N further "
+                        "closed bars before entering.")
+    p.add_argument("--skip-hours", default="",
+                   help="M21 E-2 time-of-day entry lever (empty=off): CSV of UTC "
+                        "hours whose SIGNAL bars never enter.")
+    p.add_argument("--vol-skip-above-pctl", type=float, default=0.0,
+                   help="M21 E-2 vol-at-entry (0=off): skip entries whose "
+                        "signal-bar ATR trailing percentile exceeds this.")
+    p.add_argument("--vol-skip-below-pctl", type=float, default=0.0,
+                   help="M21 E-2 vol-at-entry (0=off): skip entries whose "
+                        "signal-bar ATR trailing percentile is below this.")
+    p.add_argument("--vol-pctl-window", type=int, default=200,
+                   help="Trailing window (bars) for the ATR percentile rank.")
+    p.add_argument("--trail-vol-above-pctl", type=float, default=0.0,
+                   help="M20-X vol-conditional trail (0=off): tighten the trail "
+                        "on bars whose ATR trailing percentile exceeds this.")
+    p.add_argument("--trail-vol-below-pctl", type=float, default=0.0,
+                   help="M20-X vol-conditional trail (0=off): tighten the trail "
+                        "on bars whose ATR trailing percentile is below this.")
+    p.add_argument("--trail-vol-tight-mult", type=float, default=0.0,
+                   help="The tightened trail mult while the vol condition fires "
+                        "(0 disables the lever).")
     p.add_argument("--confidence-sweep", default=None, metavar="GRID",
                    help="Sweep min_confidence over GRID ('0:0.5:0.05' or '0,0.1,0.2') and tabulate.")
     p.add_argument("--json", dest="json_out", default=None)
@@ -615,7 +875,21 @@ def main(argv: List[str]) -> int:
                      adx_period=args.adx_period,
                      direction_filter=args.direction_filter,
                      stale_exit_bars=args.stale_exit_bars,
-                     stale_exit_below_r=args.stale_exit_below_r)
+                     stale_exit_below_r=args.stale_exit_below_r,
+                     bank_frac=args.bank_frac, bank_at_r=args.bank_at_r,
+                     giveback_min_mfe_r=args.giveback_min_mfe_r,
+                     giveback_r=args.giveback_r,
+                     trail_decay_arm_r=args.trail_decay_arm_r,
+                     trail_decay_stall_bars=args.trail_decay_stall_bars,
+                     trail_decay_tight_mult=args.trail_decay_tight_mult,
+                     confirm_bars=args.confirm_bars,
+                     skip_hours=args.skip_hours,
+                     vol_skip_above_pctl=args.vol_skip_above_pctl,
+                     vol_skip_below_pctl=args.vol_skip_below_pctl,
+                     vol_pctl_window=args.vol_pctl_window,
+                     trail_vol_above_pctl=args.trail_vol_above_pctl,
+                     trail_vol_below_pctl=args.trail_vol_below_pctl,
+                     trail_vol_tight_mult=args.trail_vol_tight_mult)
     if args.confidence_sweep:
         out = _confidence_sweep(df, _parse_grid(args.confidence_sweep), bt_kwargs)
         print(_fmt_sweep(out))

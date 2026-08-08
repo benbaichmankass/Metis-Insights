@@ -10842,8 +10842,58 @@
       "action": "CHEAP DECISIVE TEST, the same monotonicity check that caught the fills bug and needs no new code: dispatch pull-exchange-funding twice, once narrow and once wide, and compare candidate counts per account. A WIDER window returning FEWER rows is proof the range was silently rewritten. If it reproduces, port the MAX_RANGE_DAYS walk from exchange_fills_puller (chunk oldest-first, pass endTime explicitly, dedupe on funding_id, declare a full page) — the fix is already written and tested next door, so this is a port, not a design.\n\nIf it does NOT reproduce, record the measured window depth in this row and close it: 'checked and clean' is the useful result, and leaving the question open invites a future session to re-derive it.",
       "resolution_criteria": "Bybit's funding-history range behaviour is MEASURED for these accounts and recorded here, and either the walk is ported or the puller is documented as correct at days=30.",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260808-RESEARCH-TREND-ENGINE-RETIREMENT-BLOCKED-BY-TEST-COUPLING",
+      "opened_at": "2026-08-08T18:40:00+00:00",
+      "opened_by": "claude (trend-harness convergence session 1jz2zp)",
+      "source": "Deferred OUT of PR #8633 after CI (pytest-collect + pytest-run) caught an attempt to retire the engine in that PR. Measured on the #8633 branch @2fb2081a.",
+      "title": "scripts/research/backtest_trend.py cannot be retired yet: 8 importers, 5 of them test files whose assertions ARE the only executable record of that engine's semantics",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "severity": "medium",
+      "what_to_check": "PR #8633 converged the FLAGS (all 15 research-only levers ported into scripts/backtest_trend.py, byte-identical at default; research-only flag count 15 -> 0) but deliberately did NOT retire the losing engine. POPULATION for the consumer sweep: the whole repo, `grep -rn 'from backtest_trend import'` (NOT a path grep - see the trap below). EIGHT importers, measured: scripts/research/regime_adx_cutpoint_sweep.py (_load, _resample) | scripts/research/regime_tag_emitted.py (_load, _resample) | scripts/research/regime_matrix.py (_load, _resample, backtest) | tests/test_skip_hours_lever.py (backtest) | tests/test_confirm_bars_live_twin.py (backtest) | tests/test_confirm_bars_lever.py (backtest) | tests/test_vol_conditional_trail_lever.py (backtest as trend_backtest) | tests/test_vol_at_entry_lever.py (backtest as trend_backtest). The five TEST files are the blocker, not the three scripts: their assertions encode the research engine's OWN semantics (rolling current-bar ATR trail, opposite-signal flip exit, post-exit cooldown, its fee basis and win-rate denominator). They are currently the only executable record of what that engine does, i.e. the evidence a future session would need to re-confirm the convergence direction. Deleting the engine without migrating them destroys that record silently. THE TRAP THAT CAUSED THIS (reusable, worth more than the row): the original sweep grepped for the PATH 'scripts/research/backtest_trend' and returned CLEAN. Every real importer uses the BARE MODULE NAME resolved through sys.path, so the path grep under-reported over a population it structurally could not see - an unasserted-denominator read (CLAUDE.md 'Diagnostic provenance' sub-class C) applied to a code sweep rather than a diagnostic. When sweeping for consumers of a Python module in this repo, grep the MODULE NAME, never the path.",
+      "proposed_fix": "Sequenced, in its own PR (Tier-1 throughout - research tooling + tests only, no config/, no order path, no DB write): (1) Decide per test file whether the behaviour it pins is (a) research-engine-specific - then port the assertion onto scripts/backtest_trend.py's semantics and re-derive the expected numbers, stating the new population, or (b) genuinely engine-independent - then just repoint the import. Do NOT blanket-repoint: several of these assert the rolling-ATR trail and the flip exit, which the live-faithful engine does NOT have, so a blind repoint turns a real test into a green one that checks nothing. (2) Repoint the three scripts/research/* callers - regime_matrix.py needs `backtest` (a real engine swap, re-verify its output), while regime_adx_cutpoint_sweep.py and regime_tag_emitted.py only need `_load`/`_resample` (pure IO helpers; consider lifting those two into a shared module so the retirement stops being blocked on them at all). (3) Only then retire scripts/research/backtest_trend.py - prefer a hard-fail shim over a deletion so a missed caller gets an explanation rather than a FileNotFoundError, and a third copy cannot quietly reappear. (4) Convert scripts/research/trend_harness_divergence.py from a comparison instrument into a convergence GUARD that fails if a flag ever exists only in a non-live-faithful copy again; it must detect the shim by the absence of its engine entry point, not by parsing prose. Gate: the guard in (4) is what makes the retirement durable - landing (3) without it just re-opens the fork later.",
+      "related": [
+        "BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE",
+        "BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL"
+      ],
+      "refs": [
+        "PR #8618",
+        "PR #8633",
+        "scripts/backtest_trend.py",
+        "scripts/research/backtest_trend.py",
+        "scripts/research/trend_harness_divergence.py",
+        "tests/test_trend_harness_levers.py",
+        "docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md 5f"
+      ]
+    },
+    {
+      "id": "BL-20260808-INERT-CONDITIONAL-SHIPPED-AS-A-BEHAVIOUR-CHANGE",
+      "opened_at": "2026-08-08T19:05:00+00:00",
+      "opened_by": "claude (trend-harness convergence session 1jz2zp)",
+      "source": "Self-caught in PR #8633 by parametrizing a test over BOTH branches of a predicate it had only ever exercised one side of. Measured on the #8633 branch @b7547005.",
+      "title": "An `exit_head_replayable()` gate shipped INERT — byte-identical output on both branches — and the PR description claimed a measured behaviour change it did not produce",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "severity": "medium",
+      "what_to_check": "FIXED in #8633; filed for the CLASS, which is not covered by any existing guard. The defect: `regime_debt_matrix.build_harness_cmd` computes `omitted` as 'every cfg key not in _TREND_PLAIN and not in _TREND_LEVER_FLAG' (line ~343), so exit_head_model/threshold/action land there unconditionally and `faithful = not omitted` is already False. The change made a SECOND, caller-level `_UNREPLAYABLE` fold conditional on `exit_head_replayable()` - but that fold only ever did `omitted | unreplayable`, a UNION. A union can add, never remove. So with the probe forced True the output was IDENTICAL: faithful=False, omitted=['exit_head_action','exit_head_model','exit_head_threshold']. VERIFIED by monkeypatching the probe both ways. The PR body meanwhile stated 'the remaining exit_head_* clear wherever the artifact is present' - a claim no code path produced. WHY THE TESTS MISSED IT: the fidelity test asserted a flat `faithful is False`, which is the value BOTH branches return, so it passed while proving nothing about the branch. On a GitHub runner only the no-head branch is reachable, so the trainer branch was never executed anywhere. This is the D/inert-parameter sub-class of `diagnostic-provenance-guard` (a declared knob that changes nothing) crossed with the 'written and never read' shape `provenance-consumer-guard` catches - but neither guard fires here, because the inert thing is a CONTROL-FLOW predicate, not a printed label or a stored key.",
+      "proposed_fix": "The instance is fixed: the inert fold is deleted, replaced by `annotate_exit_head_replayability()` which records `exit_head_replayable` + `exit_head_deferred_to_replay` as EXPLICIT row fields; `fidelity` deliberately stays harness-scoped (upgrading it on a loadable head would claim the row's numbers account for an exit head that never touched them - the row's numbers come from the harness, the replay is a separate pass). The trainer workflow now reads the same predicate instead of re-deriving it from an `ls`, so the field is load-bearing rather than write-only. Tests parametrize over both branches. THE CLASS is what needs a decision: is a guard worth it for 'a new conditional whose branches produce identical output'? A cheap approximation is a review-time rule rather than a script - when a diff makes an existing unconditional path conditional, the PR must show the measured output of BOTH branches, not just assert the intent. Consider adding that to the review skill's checklist; a static guard would likely be high-false-positive (many conditionals legitimately no-op on the common path). Do NOT add a presence-only marker guard - see the new-table-wiring-guard lesson in CLAUDE.md (a guard cheaper to lie to than to satisfy is worse than none).",
+      "related": [
+        "BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE",
+        "BL-20260808-RESEARCH-TREND-ENGINE-RETIREMENT-BLOCKED-BY-TEST-COUPLING"
+      ],
+      "refs": [
+        "PR #8633",
+        "scripts/research/regime_debt_matrix.py",
+        "tests/research/test_calibrator_harness_fidelity.py",
+        ".github/workflows/research-exit-head-replay-trainer.yml",
+        "scripts/check_diagnostic_provenance.py"
+      ]
     }
   ],
-  "updated_at": "2026-08-08T16:05:00+00:00",
+  "updated_at": "2026-08-08T19:05:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

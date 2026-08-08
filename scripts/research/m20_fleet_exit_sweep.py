@@ -3,7 +3,7 @@
 CONFIG-EXACT, driven straight from config/strategies.yaml.
 
 The exit-refinement skill's P2 stage industrialized: for each strategy leg it
-resolves the leg's harness (donchian family -> scripts/research/backtest_trend.py,
+resolves the leg's harness (donchian family -> scripts/backtest_trend.py,
 pullback family -> scripts/backtest_pullback.py), its data file, and its OWN
 YAML params (donchian/atr/trail/min_conf/long_only/adx_min/pullback_frac...),
 then A/Bs the exit-lever cells (stale-stop, giveback-stop, trail +/-1) against
@@ -48,7 +48,7 @@ REPO = Path(__file__).resolve().parents[2]
 # ict_scalp gained stale/giveback lever support 2026-07-28 (M27 follow-up) — the
 # trailing levers (trail_geometry/trail_decay/vol_trail) stay n/a for a
 # fixed-bracket scalp, so cells_for only emits its stale/giveback cells here.
-DONCHIAN_HARNESS = "scripts/research/backtest_trend.py"
+DONCHIAN_HARNESS = "scripts/backtest_trend.py"
 PULLBACK_HARNESS = "scripts/backtest_pullback.py"
 SQUEEZE_HARNESS = "scripts/backtest_squeeze.py"
 FVG_HARNESS = "scripts/backtest_fvg_range.py"
