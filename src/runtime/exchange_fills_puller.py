@@ -20,6 +20,16 @@ from typing import Any, Iterable, Mapping, Optional
 
 logger = logging.getLogger(__name__)
 
+# Per-request page size. Bybit's fetch_my_trades is called ONCE per target with
+# this limit and there is NO pagination loop, so a window holding more than this
+# many fills is silently truncated to the newest PAGE_LIMIT. That is fine for the
+# 7-day operational pull (a low-volume account fits easily) and is a hard ceiling
+# on any deeper historical pull: a result of exactly PAGE_LIMIT means "capped",
+# NOT "that is all the venue has". `fetch_fills_window` logs the distinction
+# rather than leaving the caller to assume completeness
+# (BL-20260808-FILLS-WINDOW-TOO-SHORT-TO-REPAIR-HISTORY).
+PAGE_LIMIT = 200
+
 
 class FillsWindowUnavailable(RuntimeError):
     """Every target in the window failed — the account has ZERO coverage.
@@ -110,7 +120,7 @@ def fetch_fills_window(
     last_exc: Optional[Exception] = None
     for sym in targets:
         try:
-            trades = fetch_my_trades(sym, since_ms, 200, {})
+            trades = fetch_my_trades(sym, since_ms, PAGE_LIMIT, {})
         except Exception as exc:  # noqa: BLE001
             # Read-side failure: log loudly, skip this symbol, continue.
             # The puller is best-effort; partial coverage is better
@@ -122,6 +132,19 @@ def fetch_fills_window(
                 sym, exc,
             )
             continue
+        n = len(trades or ())
+        if n >= PAGE_LIMIT:
+            # DECLARE the cap. Without this a deep pull that returned a full
+            # page reads identically to one that exhausted the venue's history,
+            # and a retention measurement built on it would be wrong in the
+            # direction that looks like good news.
+            logger.warning(
+                "exchange_fills_puller: %s target=%s returned a FULL page "
+                "(%d >= limit %d) — result is PAGE-CAPPED, older fills in this "
+                "window were NOT fetched (no pagination). Do not read this as "
+                "the venue's full history.",
+                account_id, sym or "(all symbols)", n, PAGE_LIMIT,
+            )
         for t in trades or ():
             row = _ccxt_trade_to_fill_row(t, account_id)
             if not row.get("exec_id"):

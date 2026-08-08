@@ -27,8 +27,16 @@
 # store's primary key is exec_id, so overlapping windows are safe.
 # Touches NO service, NO trade_journal.db table.
 #
-# Window: 7 days (Bybit V5 execution history retention for this
-# endpoint comfortably covers it; re-runs over-sample harmlessly).
+# Window: ACTION_DAYS (default 7). Re-runs over-sample harmlessly — the store
+# keys on exec_id, so an overlapping window inserts nothing new.
+#
+# A DEEPER window is bounded by a hard ceiling the caller must know about:
+# src/runtime/exchange_fills_puller.py issues ONE fetch_my_trades call per
+# target with PAGE_LIMIT=200 and NO pagination. So a window holding more than
+# 200 fills returns only the newest 200, and a result of exactly 200 means
+# PAGE-CAPPED, not "that is the venue's full history". The puller logs a
+# FULL page warning when that happens — read it before drawing a conclusion
+# about Bybit's retention (BL-20260808-FILLS-WINDOW-TOO-SHORT-TO-REPAIR-HISTORY).
 set -euo pipefail
 
 SCRIPT_NAME="pull_exchange_fills"
@@ -43,6 +51,18 @@ load_runtime_secrets  # every account's BYBIT_API_KEY_* / _SECRET_* from .env
 # this the python child would resolve runtime_state/ repo-relative
 # (BL-20260717-FILLS-STORE-PATH-SPLIT).
 FILLS_DB="$(fills_store_path)"
+# Window override, validated as a positive integer before it reaches the CLI.
+DAYS="${ACTION_DAYS:-7}"
+case "${DAYS}" in
+    ''|*[!0-9]*)
+        log "ERROR: ACTION_DAYS='${DAYS}' is not a positive integer."
+        exit 1
+        ;;
+esac
+if [ "${DAYS}" -lt 1 ]; then
+    log "ERROR: ACTION_DAYS='${DAYS}' must be >= 1."
+    exit 1
+fi
 PY_SCRIPT="${REPO_DIR}/scripts/pull_exchange_fills.py"
 
 if [ ! -f "${PY_SCRIPT}" ]; then
@@ -53,15 +73,15 @@ if [ ! -f "${PY_SCRIPT}" ]; then
 fi
 
 echo
-echo "===== pull_exchange_fills.py --all-bybit-accounts --days 7 ====="
+echo "===== pull_exchange_fills.py --all-bybit-accounts --days ${DAYS} ====="
 echo "fills store: ${FILLS_DB}"
 python3 "${PY_SCRIPT}" \
     --all-bybit-accounts \
-    --days 7 \
+    --days "${DAYS}" \
     --fills-db "${FILLS_DB}"
 rc=$?
 
 record_audit "pull-exchange-fills" "$([ ${rc} -eq 0 ] && echo ok || echo error)" \
-    "{\"accounts\": \"all-bybit\", \"days\": 7, \"fills_db\": \"${FILLS_DB}\", \"exit\": ${rc}}" >/dev/null || true
+    "{\"accounts\": \"all-bybit\", \"days\": ${DAYS}, \"fills_db\": \"${FILLS_DB}\", \"exit\": ${rc}}" >/dev/null || true
 log "pull-exchange-fills complete (exit ${rc})."
 exit ${rc}

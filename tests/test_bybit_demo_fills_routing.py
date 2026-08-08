@@ -170,6 +170,62 @@ def test_genuinely_empty_book_is_not_an_error():
     ) == []
 
 
+# ── a capped page is not a complete history ──────────────────────────────────
+
+def _trade(i):
+    return {
+        "id": f"e{i}", "order": "o1", "symbol": "AVAX/USDT:USDT",
+        "side": "buy", "amount": 1.0, "price": 2.0,
+        "timestamp": 1_700_000_000_000 + i,
+        "fee": {"cost": 0.0, "currency": "USDT"},
+    }
+
+
+def test_full_page_is_declared_as_capped(caplog):
+    """A deep pull that fills the page must SAY it was truncated.
+
+    `fetch_fills_window` issues ONE fetch_my_trades call per target with no
+    pagination. Without this declaration a result of exactly PAGE_LIMIT reads
+    identically to one that exhausted the venue's retention — and a retention
+    measurement built on that reads wrong in the direction that looks like good
+    news (the unasserted-denominator failure mode, sub-class C).
+    """
+    from src.runtime.exchange_fills_puller import PAGE_LIMIT
+
+    page = [_trade(i) for i in range(PAGE_LIMIT)]
+    with caplog.at_level("WARNING"):
+        rows = fetch_fills_window(
+            lambda *a, **k: page, account_id="bybit_1", days=90,
+        )
+    assert len(rows) == PAGE_LIMIT
+    assert any("PAGE-CAPPED" in r.message for r in caplog.records), (
+        "a full page must be declared, not silently returned as complete"
+    )
+
+
+def test_short_page_is_not_declared_capped(caplog):
+    from src.runtime.exchange_fills_puller import PAGE_LIMIT
+
+    page = [_trade(i) for i in range(PAGE_LIMIT - 1)]
+    with caplog.at_level("WARNING"):
+        fetch_fills_window(lambda *a, **k: page, account_id="bybit_1", days=90)
+    assert not any("PAGE-CAPPED" in r.message for r in caplog.records)
+
+
+def test_page_limit_is_the_limit_actually_requested():
+    """The declared ceiling must be the one sent to the venue."""
+    from src.runtime.exchange_fills_puller import PAGE_LIMIT
+
+    seen = []
+
+    def _capture(symbol, since, limit, params):
+        seen.append(limit)
+        return []
+
+    fetch_fills_window(_capture, account_id="bybit_1", days=7)
+    assert seen == [PAGE_LIMIT]
+
+
 def test_funding_total_failure_raises_too():
     with pytest.raises(FundingWindowUnavailable):
         fetch_funding_window(_auth_error, account_id="bybit_1", days=30)
