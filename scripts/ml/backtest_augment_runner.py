@@ -132,8 +132,17 @@ def run(args: argparse.Namespace) -> int:
                     skipped += 1
                 else:
                     sim_trades.append(mapped)
+            # Persist the leg's OWN fidelity claim onto every row it writes.
+            # The runner has always KNOWN this (it prints it in the summary
+            # below) but never stored it, so `backtest_fidelity_calibrate`
+            # could not read it and would certify a leg as `calibrated`
+            # ("TRUSTED OOS evidence") on rows the producing harness itself
+            # reports faithful=False. Measured 2026-08-07: `trend_donchian` —
+            # the primary calibration target — omits five EXIT levers.
             written = write_backtest_trades(
                 db_path, sim_trades, run_tag=run_tag, risk_pct=args.risk_pct,
+                fidelity=leg.get("fidelity"),
+                omitted_levers=leg.get("omitted_levers"),
             )
             leg["recorded"] = written
             leg["skipped"] = skipped

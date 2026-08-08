@@ -362,13 +362,62 @@ effectuation, so they measure the change rather than restate it.
    heads, trail-decay and stale-stop levers, and the `ExitPlan` ladder — is
    still absent from the harness. The verdict seam makes wiring it tractable;
    it does not wire it.
-4. **Re-run the calibrator** for `trend_donchian` and `turtle_soup`. Their
-   backtest trade distributions have changed, so the § 5a/5b agreement numbers
-   are now stale for those two legs. **No claim is made here about whether the
-   gap narrowed** — that is a measurement nobody has taken yet, and it needs
-   the trainer's real candle history (the committed `data/backtest_candles.csv`
-   is ~3.5 days and produces 0 trades, which is an absent result, not a clean
-   one).
+4. ~~**Re-run the calibrator** for `trend_donchian` and `turtle_soup`. Their
+   backtest trade distributions have changed…~~ **WITHDRAWN 2026-08-07 — this
+   was wrong.** See § 5d: the calibrator's backtest population is produced by
+   `scripts/backtest_{trend,pullback,squeeze}.py`, **not** `backtest_system.py`.
+   Those harnesses were untouched by P2, so their distributions did **not**
+   change and a re-run would have measured nothing about the exit-verdict seam
+   while being reported as if it had. The real finding is § 5d.
+
+## 5d. THE TRUST GATE WAS CERTIFYING EVIDENCE ITS OWN PRODUCER DISOWNED (2026-08-07)
+
+Found while scoping § 5c item 4. **Two harness families, not one**, and the
+plan conflated them:
+
+| | produces | P2'd? | feeds |
+|---|---|---|---|
+| `backtest_system.py` | the portfolio/intent-layer runs | **yes** (§ 5c) | roster A/Bs, cell walk-forwards |
+| `scripts/backtest_{trend,pullback,squeeze}.py` | `backtest_trades.db` | **no** | **the calibrator → the P0/P3 trust gate** |
+
+Every fidelity/agreement number in § 5a/5b comes from the **second** family,
+which `backtest_trend.py` shows is a full parallel re-implementation — it
+computes the Donchian channel inline (`df["high"].rolling(donchian).max().shift(1)`),
+copies the confidence formula, and imports nothing from `src/units/strategies`.
+
+**The honesty machinery already worked. The consumer did not exist.**
+`regime_debt_matrix.build_harness_cmd` computes a fidelity verdict per leg, and
+measured against the live config today:
+
+| strategy | faithful | omitted levers |
+|---|---|---|
+| **`trend_donchian`** | **False** | `exit_head_{action,model,threshold}`, `trail_decay_{arm_r,tight_mult}` |
+| `htf_pullback_trend_2h` | True | — |
+| `squeeze_breakout_4h` | True | — |
+
+All five omissions on the **primary calibration target** are **exit** levers —
+a third candidate driver for the § 5b gap, alongside the small-sample/regime
+one, that the doc had not considered.
+
+`backtest_augment_runner` printed that label into a human summary and **never
+persisted it**, so `backtest_fidelity_calibrate` could not read it *even in
+principle* — and would return **`calibrated`**, i.e. *"TRUSTED OOS evidence
+now"*, on rows whose producing harness declares itself incomplete. Written and
+never read, sitting directly beneath the P3 gate meant to replace
+"live-holdout only": the exact class `provenance-consumer-guard` exists for.
+
+**Fixed in this change.** The label rides on the row (`notes`, JSON; a bare
+`run_tag` still means *unknown* — never coerced to faithful, the
+`UNVERIFIED != MEASURED` rule), and `agreement()` takes it as a gate input so a
+leg with an approximate producer returns a distinct **`approximate-harness`**
+verdict naming the missing levers. A `drifts` leg reports the claim too, so a
+reader never has to ask whether a drift was measured against a complete model.
+
+**Population note:** 1 of 3 calibrated legs is affected today. This does not
+retroactively invalidate the § 5a/5b `trend_donchian` numbers — those legs read
+`drifts`/`insufficient-live`, so the new gate would not have changed their
+verdict. What it removes is the *future* path where a lever change nudges the
+metrics over the line and the gate certifies on an admittedly-incomplete model.
 
 ## 6. Why this is not another partial fix
 The partial fix would be "wire the nightly build and wait for more trades." This

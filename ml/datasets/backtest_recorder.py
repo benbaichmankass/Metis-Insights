@@ -17,6 +17,7 @@ touches a DB, and it INSERTs `is_backtest = 1` rows only.
 """
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -34,11 +35,63 @@ _INSERT_COLUMNS = (
 _LONG_ALIASES = frozenset({"long", "buy", "1", "+1"})
 
 
+def encode_backtest_notes(run_tag: str, *, fidelity: str | None = None,
+                          omitted_levers: Any = None) -> str:
+    """Encode the row's `notes`, carrying the PRODUCING HARNESS's fidelity claim.
+
+    Why the label has to ride ON THE ROW: `regime_debt_matrix.build_harness_cmd`
+    already computes `faithful` + `omitted_levers` honestly per leg (measured
+    2026-08-07: `trend_donchian` is faithful=False, omitting five EXIT levers),
+    and `backtest_augment_runner` printed it into a human summary — but nothing
+    persisted it, so `backtest_fidelity_calibrate` could not read it even in
+    principle and would stamp a leg `calibrated` ("TRUSTED OOS evidence") on
+    rows whose own producer disowned them. Written-and-never-read is the exact
+    class `provenance-consumer-guard` exists for.
+
+    Back-compat is deliberate: with no fidelity the return is the bare
+    ``run_tag``, byte-identical to every pre-existing row, so no migration is
+    needed and an old row reads as `fidelity=None` — *unknown*, which
+    `parse_backtest_notes` keeps distinct from *faithful*.
+    """
+    if fidelity is None and not omitted_levers:
+        return run_tag
+    return json.dumps({
+        "run_tag": run_tag,
+        "fidelity": fidelity,
+        "omitted_levers": list(omitted_levers or []),
+    }, sort_keys=True)
+
+
+def parse_backtest_notes(notes: Any) -> dict[str, Any]:
+    """Decode `notes` written by either shape. Never raises.
+
+    Returns ``{run_tag, fidelity, omitted_levers}``. ``fidelity`` is ``None``
+    for a legacy plain-string row — *nobody recorded it*, which must not be
+    read as *the harness said it was complete*.
+    """
+    if isinstance(notes, str) and notes.startswith("{"):
+        try:
+            obj = json.loads(notes)
+        except (ValueError, TypeError):
+            obj = None
+        if isinstance(obj, dict):
+            levers = obj.get("omitted_levers")
+            return {
+                "run_tag": obj.get("run_tag"),
+                "fidelity": obj.get("fidelity"),
+                "omitted_levers": list(levers) if isinstance(levers, list) else [],
+            }
+    return {"run_tag": notes if isinstance(notes, str) else None,
+            "fidelity": None, "omitted_levers": []}
+
+
 def sim_trade_to_trade_row(
     trade: Mapping[str, Any],
     *,
     run_tag: str,
     risk_pct: float = 1.0,
+    fidelity: str | None = None,
+    omitted_levers: Any = None,
 ) -> dict[str, Any] | None:
     """Map one `SimTrade.to_dict()` to a `trades`-table row dict (`is_backtest=1`).
 
@@ -82,7 +135,8 @@ def sim_trade_to_trade_row(
         "pnl": r,                       # realized R as a pnl proxy → won = R > 0
         "pnl_percent": r * float(risk_pct),
         "status": "closed",
-        "notes": run_tag,
+        "notes": encode_backtest_notes(run_tag, fidelity=fidelity,
+                                       omitted_levers=omitted_levers),
         "is_backtest": 1,
         "strategy_name": strategy,
         "account_id": "backtest",
@@ -116,6 +170,8 @@ def write_backtest_trades(
     *,
     run_tag: str,
     risk_pct: float = 1.0,
+    fidelity: str | None = None,
+    omitted_levers: Any = None,
 ) -> int:
     """INSERT closed backtest trades as `is_backtest = 1` rows; returns the count.
 
@@ -132,7 +188,9 @@ def write_backtest_trades(
     """
     rows = [
         r for r in (
-            sim_trade_to_trade_row(t, run_tag=run_tag, risk_pct=risk_pct)
+            sim_trade_to_trade_row(t, run_tag=run_tag, risk_pct=risk_pct,
+                                   fidelity=fidelity,
+                                   omitted_levers=omitted_levers)
             for t in sim_trades
         )
         if r is not None
