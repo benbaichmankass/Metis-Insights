@@ -1,0 +1,217 @@
+name: research-exit-head-replay-trainer
+
+# Run the EXIT-HEAD REPLAY leg on the TRAINER VM — the one place (besides the
+# live VM) that holds the published exit-head artifact.
+#
+# WHY THIS IS NOT A FREE RUNNER (the routing decision, stated so it isn't
+# re-litigated). docs/claude/vm-resource-management.md says CPU-heavy work with
+# no VM-resident state belongs on a free GitHub-hosted runner, and the sibling
+# `research-backtest-augment.yml` correctly does exactly that. This leg is the
+# documented exception: it needs `runtime_logs/trainer_mirror/exit_head/*.json`,
+# which is published to the trainer + live VM and is NOT committed. A runner has
+# no copy, so there the head cannot be scored at all and `trend_donchian` records
+# `fidelity: approximate` — which post-#8605 means its backtest can never be
+# stamped `calibrated`. Operator decision 2026-08-08: move the leg to the trainer.
+#
+# NOTE the premise correction: design-doc §5e said this "needs the model registry
+# at inference". It does not. The head is a self-contained JSON with the booster
+# inline; the blocker is FILE DISTRIBUTION, not a registry port. Recorded because
+# an overstated impossibility closes off work (§5f).
+#
+# Scope: READ-ONLY on the trainer. Fetches public candles, runs the live-faithful
+# harness (scripts/backtest_trend.py), replays the published head over each
+# trade's in-trade bars, writes ONE json + one emit jsonl under /tmp. It does not
+# train, does not touch the registry, does not write any DB, does not deploy.
+# It is a light job (one symbol's backtest + a per-bar LightGBM scoring pass), so
+# it does NOT take the heavy VM lane — but it is still the scarce 1-OCPU box, so
+# keep the roster small and prefer one symbol per run.
+#
+# Triggers:
+#   1. workflow_dispatch — inputs below.
+#   2. issues.opened with label `exit-head-replay-request` (owner-guarded);
+#      optional body lines `strategy: trend_donchian`, `symbol: BTCUSDT`,
+#      `timeframe: 1h`, `days: 730`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      strategy:
+        description: "config/strategies.yaml key (must declare exit_head_model)"
+        default: "trend_donchian"
+      symbol:
+        description: "Symbol to replay (blank = the strategy's first symbol)"
+        default: ""
+      timeframe:
+        description: "Bar timeframe (blank = the strategy's own)"
+        default: ""
+      days:
+        description: "Trailing days of candles"
+        default: "365"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: exit-head-replay-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       github.event.issue.user.login == github.repository_owner &&
+       contains(github.event.issue.labels.*.name, 'exit-head-replay-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Resolve params
+        id: p
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          IN_STRATEGY: ${{ inputs.strategy }}
+          IN_SYMBOL: ${{ inputs.symbol }}
+          IN_TIMEFRAME: ${{ inputs.timeframe }}
+          IN_DAYS: ${{ inputs.days }}
+        run: |
+          set -euo pipefail
+          get() { printf '%s\n' "${ISSUE_BODY:-}" | sed -n "s/^[[:space:]]*$1:[[:space:]]*//p" | head -n1; }
+          STRATEGY="${IN_STRATEGY:-}";  [ -n "$STRATEGY" ] || STRATEGY="$(get strategy)"
+          SYMBOL="${IN_SYMBOL:-}";      [ -n "$SYMBOL" ]   || SYMBOL="$(get symbol)"
+          TIMEFRAME="${IN_TIMEFRAME:-}";[ -n "$TIMEFRAME" ]|| TIMEFRAME="$(get timeframe)"
+          DAYS="${IN_DAYS:-}";          [ -n "$DAYS" ]     || DAYS="$(get days)"
+          STRATEGY="${STRATEGY:-trend_donchian}"
+          DAYS="${DAYS:-365}"
+          # Validate rather than interpolate anything shell-unsafe onto the VM.
+          case "$STRATEGY" in *[!a-z0-9_]*) echo "::error::bad strategy"; exit 1;; esac
+          case "$SYMBOL"   in *[!A-Za-z0-9]*) echo "::error::bad symbol"; exit 1;; esac
+          case "$TIMEFRAME" in *[!a-z0-9]*) echo "::error::bad timeframe"; exit 1;; esac
+          case "$DAYS" in ''|*[!0-9]*) echo "::error::days must be an integer"; exit 1;; esac
+          { echo "strategy=$STRATEGY"; echo "symbol=$SYMBOL";
+            echo "timeframe=$TIMEFRAME"; echo "days=$DAYS"; } >> "$GITHUB_OUTPUT"
+
+      - name: Install SSH key
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VM_SSH_KEY}" ]; then
+            echo "::error::VM_SSH_KEY secret is unset."; exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key
+          chmod 600 ~/.ssh/trainer_key
+
+      - name: Build the remote script
+        env:
+          STRATEGY: ${{ steps.p.outputs.strategy }}
+          SYMBOL: ${{ steps.p.outputs.symbol }}
+          TIMEFRAME: ${{ steps.p.outputs.timeframe }}
+          DAYS: ${{ steps.p.outputs.days }}
+        run: |
+          set -euo pipefail
+          # Params are validated above and exported into the remote env rather
+          # than interpolated into the command string.
+          cat > /tmp/remote.sh <<'REMOTE'
+          set -uo pipefail
+          cd /home/ubuntu/ict-trading-bot || { echo "NO_REPO"; exit 3; }
+          echo "== git sha: $(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+          ART=runtime_logs/trainer_mirror/exit_head
+          echo "== artifact dir: $ART"
+          ls -la "$ART" 2>/dev/null || echo "  (absent — the replay will exit 2 and say so)"
+          OUT=/tmp/exit_head_replay_${STRATEGY}.json
+          EMIT=/tmp/exit_head_replay_${STRATEGY}.jsonl
+          # Feed: reuse the matrix's own fetch so the candles match every other
+          # harness run rather than being a bespoke pull for this leg.
+          python3 - <<'PYFETCH'
+          import os, sys
+          sys.path.insert(0, os.getcwd())
+          from scripts.research.regime_debt_matrix import resolve_feed, _fetch_csv
+          import yaml
+          conf = yaml.safe_load(open("config/strategies.yaml"))
+          S = conf.get("strategies", conf)
+          cfg = S[os.environ["STRATEGY"]]
+          sym = os.environ.get("SYMBOL") or (cfg.get("symbols") or [None])[0]
+          tf = os.environ.get("TIMEFRAME") or cfg.get("timeframe")
+          feed = resolve_feed(sym, tf)
+          _fetch_csv(feed, int(os.environ["DAYS"]), "/tmp/exit_head_replay_data.csv")
+          print(f"FEED_OK symbol={sym} tf={tf} resample={feed['resample']}")
+          open("/tmp/exit_head_replay_meta", "w").write(f"{sym}\n{tf}\n{feed['resample']}\n")
+          PYFETCH
+          [ -s /tmp/exit_head_replay_meta ] || { echo "FETCH_FAILED"; exit 4; }
+          SYM=$(sed -n 1p /tmp/exit_head_replay_meta)
+          TF=$(sed -n 2p /tmp/exit_head_replay_meta)
+          RS=$(sed -n 3p /tmp/exit_head_replay_meta)
+          echo "== replaying $STRATEGY $SYM $TF (resample $RS)"
+          python3 scripts/ml/exit_head_replay.py \
+            --data /tmp/exit_head_replay_data.csv --resample "$RS" \
+            --symbol "$SYM" --timeframe "$TF" --strategy "$STRATEGY" \
+            --emit-trades "$EMIT" --json "$OUT"
+          RC=$?
+          echo "== replay exit code: $RC"
+          echo "== result json:"
+          # jq keeps the per-trade detail out of the comment; the population +
+          # the headline deltas are what a reader acts on.
+          python3 -c "
+          import json,sys
+          try: d=json.load(open('$OUT'))
+          except Exception as e: print('  (no json: %s)'%e); sys.exit(0)
+          d.pop('trades_detail', None)
+          print(json.dumps(d, indent=2))
+          " 2>/dev/null || echo "  (result unreadable)"
+          exit $RC
+          REMOTE
+          echo "remote script bytes: $(wc -c < /tmp/remote.sh)"
+
+      - name: Run the replay on the trainer
+        id: run
+        env:
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+          STRATEGY: ${{ steps.p.outputs.strategy }}
+          SYMBOL: ${{ steps.p.outputs.symbol }}
+          TIMEFRAME: ${{ steps.p.outputs.timeframe }}
+          DAYS: ${{ steps.p.outputs.days }}
+        run: |
+          set -uo pipefail
+          ssh -i ~/.ssh/trainer_key \
+              -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+              -o SendEnv=STRATEGY -o SendEnv=SYMBOL -o SendEnv=TIMEFRAME -o SendEnv=DAYS \
+              "${TRAINER_USER}@${TRAINER_IP}" \
+              'STRATEGY='"$STRATEGY"' SYMBOL='"$SYMBOL"' TIMEFRAME='"$TIMEFRAME"' DAYS='"$DAYS"' bash -s' \
+              < /tmp/remote.sh > /tmp/out.txt 2>&1
+          RC=$?
+          echo "rc=$RC" >> "$GITHUB_OUTPUT"
+          tail -c 60000 /tmp/out.txt
+          # exit 2 from the replay is the HONEST "could not measure" (no servable
+          # head) — a distinct outcome from a crash, and it must not read as green.
+          if [ "$RC" = "2" ]; then
+            echo "::warning::replay reported COULD NOT MEASURE (no servable exit head). Not a pass."
+          fi
+
+      - name: Comment result on issue
+        if: always() && github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '';
+            try { body = fs.readFileSync('/tmp/out.txt', 'utf8'); } catch (e) { body = `(no output: ${e})`; }
+            if (body.length > 55000) body = body.slice(-55000);
+            const rc = '${{ steps.run.outputs.rc }}';
+            const verdict = rc === '0' ? '✅ replay ran — the head scored'
+              : rc === '2' ? '⚠️ COULD NOT MEASURE — no servable exit head on the trainer (this is not a pass)'
+              : `❌ failed (rc=${rc})`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `### exit-head replay (trainer)\n\n${verdict}\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n\`\`\`\n${body}\n\`\`\`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_`,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, state: 'closed',
+            });
