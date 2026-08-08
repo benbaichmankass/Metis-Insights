@@ -37,7 +37,7 @@ import re
 import sqlite3
 import sys
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
@@ -117,6 +117,8 @@ def agreement(
     max_winrate_diff: float = MAX_WINRATE_DIFF,
     max_ks: float = MAX_KS,
     max_mean_r_gap: float = MAX_MEAN_R_GAP,
+    harness_faithful: bool | None = None,
+    omitted_levers: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Pure: score backtest↔live agreement from two realized-R samples.
 
@@ -162,8 +164,23 @@ def agreement(
         ks_ok = ks is None or ks <= max_ks
         mean_ok = mean_gap is not None and mean_gap <= max_mean_r_gap
         if wr_ok and ks_ok and mean_ok:
-            verdict = "calibrated"
-            reason = "backtest reproduces the live distribution within tolerance — TRUSTED OOS evidence"
+            if harness_faithful is False:
+                # The producing harness DECLARED itself incomplete. Agreement on
+                # a distribution the harness admits it cannot fully model is not
+                # trust — it is a coincidence we have no basis to rely on, and
+                # certifying it would hand the P3 promotion gate evidence its own
+                # producer disowned. Distinct verdict, never `calibrated`.
+                verdict = "approximate-harness"
+                missing = ", ".join(omitted_levers or []) or "unspecified levers"
+                reason = (
+                    "metrics agree, but the harness that produced these backtest "
+                    f"rows reports faithful=False (omitted: {missing}) — agreement "
+                    "on an admittedly-incomplete model is not earned trust. Treat "
+                    "as a lead, not a result, until the levers are modelled."
+                )
+            else:
+                verdict = "calibrated"
+                reason = "backtest reproduces the live distribution within tolerance — TRUSTED OOS evidence"
         else:
             verdict = "drifts"
             bits = []
@@ -193,6 +210,12 @@ def agreement(
     return {
         "verdict": verdict,
         "reason": reason,
+        # State the producing harness's own fidelity claim on every result, not
+        # only when it bites. `None` means the rows carried no label — which is
+        # NOT the same as faithful, and is reported as its own value so a reader
+        # can tell "the harness said it was complete" from "nobody recorded it".
+        "harness_faithful": harness_faithful,
+        "omitted_levers": list(omitted_levers or []),
         "n_live": n_live,
         "n_backtest": n_bt,
         "live_win_rate": wr_live,
@@ -377,15 +400,47 @@ def _backtest_rows(bt_db: str, strategy: str, symbol: str) -> list[dict[str, Any
     # The recorder (ml.datasets.backtest_recorder) stores the harness ENTRY time in
     # `timestamp` (not a separate entry_ts column) and the R-multiple in `pnl`.
     rows = con.execute(
-        "SELECT pnl, direction, timestamp FROM trades "
+        "SELECT pnl, direction, timestamp, notes FROM trades "
         "WHERE COALESCE(is_backtest,0)=1 AND strategy_name=? AND symbol=? "
         "AND pnl IS NOT NULL",
         (strategy, symbol),
     ).fetchall()
     con.close()
     return [{"r": float(r["pnl"]), "direction": r["direction"],
-             "ts": r["timestamp"], "won": float(r["pnl"]) > 0}
+             "ts": r["timestamp"], "won": float(r["pnl"]) > 0,
+             "notes": r["notes"]}
             for r in rows if r["pnl"] is not None]
+
+
+def backtest_fidelity(rows: Sequence[Mapping[str, Any]]) -> tuple[bool | None, list[str]]:
+    """The producing harness's fidelity claim, read off the rows themselves.
+
+    Conservative by construction: if ANY row was produced by a leg that
+    declared ``faithful=False``, the whole sample is approximate — a set mixing
+    complete and incomplete rows cannot be graded as complete. Returns
+    ``(None, [])`` when no row carries a label, which is *unknown*, NOT
+    *faithful*: legacy rows predate the label and must not be silently
+    promoted to trusted (the `UNVERIFIED` ≠ `MEASURED` rule, one level up).
+    """
+    from ml.datasets.backtest_recorder import parse_backtest_notes
+
+    seen_label = False
+    approximate = False
+    levers: list[str] = []
+    for row in rows:
+        parsed = parse_backtest_notes(row.get("notes"))
+        fid = parsed.get("fidelity")
+        if fid is None:
+            continue
+        seen_label = True
+        if str(fid).lower() != "faithful":
+            approximate = True
+            for lever in parsed.get("omitted_levers") or []:
+                if lever not in levers:
+                    levers.append(lever)
+    if not seen_label:
+        return None, []
+    return (not approximate), sorted(levers)
 
 
 def _live_realized_r(live_db: str, strategy: str, symbol: str,
@@ -420,7 +475,13 @@ def _calibrate_leg(live_db: str, bt_db: str, strategy: str, symbol: str,
                    r_basis: str = DEFAULT_R_BASIS) -> dict[str, Any]:
     live, live_diag = _live_rows(live_db, strategy, symbol, r_basis=r_basis)
     bt = _backtest_rows(bt_db, strategy, symbol)
-    result = agreement([r["r"] for r in live], [r["r"] for r in bt])
+    # The producing harness's OWN fidelity claim, read off the rows. Passed
+    # INTO the pure gate so a leg whose harness declared faithful=False can
+    # never come back `calibrated` — the trust verdict and the fidelity label
+    # are decided in one place, not reconciled by a reader afterwards.
+    bt_faithful, bt_omitted = backtest_fidelity(bt)
+    result = agreement([r["r"] for r in live], [r["r"] for r in bt],
+                       harness_faithful=bt_faithful, omitted_levers=bt_omitted)
     result.update({"strategy": strategy, "symbol": symbol})
     # The output declares WHICH axis produced the numbers above it. A KS(R) with
     # no r_basis beside it is unreadable — the sign-proxy KS and the real-R KS
