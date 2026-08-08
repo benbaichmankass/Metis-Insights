@@ -419,6 +419,60 @@ retroactively invalidate the § 5a/5b `trend_donchian` numbers — those legs re
 verdict. What it removes is the *future* path where a lever change nudges the
 metrics over the line and the gate certifies on an admittedly-incomplete model.
 
+## 5e. THE FIDELITY DEFICIT IS MOSTLY A WIRING FACT — THERE ARE TWO `backtest_trend.py` (2026-08-08)
+
+Found while starting § 5d's follow-up ("port the calibrated harnesses onto real
+strategy code"). Before writing any port, the levers turned out to already exist
+— **in a second copy of the same harness that the pipeline does not run.**
+
+| | lines | flags | invoked by |
+|---|--:|--:|---|
+| `scripts/backtest_trend.py` | 624 | 30 | **`build_harness_cmd` → `backtest_trades.db` → the calibrator** |
+| `scripts/research/backtest_trend.py` | 636 | 38 | the M20 exit sweeps; cited as the **reference implementation** by `src/runtime/trail_decay.py` |
+
+Same git history (#8467 rolled venue-aware cost onto **both**, so both are
+maintained), 1048 changed lines in **4 hunks**, and **neither is a superset**:
+
+- **only `research/`** (15): `--trail-decay-{arm-r,stall-bars,tight-mult}`,
+  `--giveback-{r,min-mfe-r}`, `--bank-{at-r,frac}`, `--confirm-bars`,
+  `--skip-hours`, `--vol-skip-{above,below}-pctl`, `--vol-pctl-window`,
+  `--trail-vol-{above,below}-pctl`, `--trail-vol-tight-mult`
+- **only `scripts/`** (7): `--adx-{min,max,period}`, `--side-filter`,
+  `--cooldown-bars`, `--direction-filter`, `--confidence-sweep`
+
+**This reframes § 5d.** `trend_donchian`'s five omitted levers are not five
+unbuilt capabilities: the **`trail_decay` pair is implemented in the sibling
+copy**, and so are all five entry params § 5d listed as having "no harness flag"
+(`confirm_bars`, `skip_hours`, `vol_pctl_window`, `vol_skip_{above,below}_pctl`).
+The deficit is substantially **wiring**, not capability.
+
+**And it runs the other way too.** `src/runtime/trail_decay.py` and
+`src/runtime/trail_vol.py` — modules behind a **live Tier-3 order-affecting
+lever** — name `scripts/research/backtest_trend.py` as their harness reference.
+So the evidence base for a live lever comes from a harness the fidelity pipeline
+never runs, and the harness it *does* run cannot express that lever at all.
+
+**Not fixed here, deliberately.** The obvious move — repoint `build_harness_cmd`
+at the research copy — is wrong as-is: it would silently drop `--adx-*` (which
+`build_harness_cmd` actively forwards) and `--side-filter` (a declared
+`_TREND_LEVER_FLAG`), trading one fidelity hole for another. Convergence is the
+fix, it **changes backtest numbers**, and it cannot be validated in a web sandbox
+(the committed `data/backtest_candles.csv` is ~3.5 days → 0 trades; the
+`binance_vision` fetch is network-blocked). It needs the trainer or a GH runner
+with a per-leg before/after comparison. Filed as
+**`BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE`** with the full
+convergence plan.
+
+**The `exit_head_*` trio does NOT converge away** and is a separate decision.
+Scoring it needs the model registry at inference, and
+`research-backtest-augment.yml` runs on `ubuntu-latest` — a free runner with no
+registry. So either that leg moves to the trainer, or `trend_donchian` stays
+approximate, which post-§ 5d means **its backtest can never be stamped
+`calibrated`**. That is arguably correct — a backtest omitting a live *advisory*
+exit head is not reproducing live — but it should be a **stated decision rather
+than an accident**, because it makes the earned-trust path unreachable for every
+strategy that graduates an ML exit head.
+
 ## 6. Why this is not another partial fix
 The partial fix would be "wire the nightly build and wait for more trades." This
 plan **removes the dependency on reality's clock**: it builds the instrument that
