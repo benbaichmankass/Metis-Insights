@@ -317,3 +317,38 @@ def test_opposite_side_rows_are_fully_attributed(tmp_path, monkeypatch):
     om._reconcile_netting_partial_closes(db)
     s = om._reconcile_netting_partial_closes(db)
     assert s["divergent"] == 1 and s["rows_selected"] == 1
+
+
+# ── the full-close branch must write a column `trades` actually has ──────────
+#
+# Live-caught 2026-08-08, the first time NETTING_ATTRIBUTION_MODE=apply was
+# ever enabled: every full close raised `no such column: close_reason`.
+# close_reason is on `order_packages`; `trades` has `exit_reason`. The partial
+# branch only touches position_size/notes, so it worked and masked this, and
+# annotate mode never calls update_trade at all — so no soak could surface it.
+# This test drives a REAL sqlite trades table rather than a mock, because a
+# mocked update_trade accepts any column name and would have passed throughout.
+
+def test_full_close_writes_a_column_the_trades_table_has(tmp_path):
+    import inspect
+    import sqlite3
+
+    from src.units.db import database as dbmod
+
+    src = inspect.getsource(dbmod)
+    i = src.find("CREATE TABLE IF NOT EXISTS trades")
+    assert i != -1, "trades DDL not found — schema moved, update this test"
+    ddl = src[i:i + 3000]
+    assert "exit_reason" in ddl
+    assert "close_reason" not in ddl, (
+        "close_reason now exists on trades — this test encodes the opposite; "
+        "re-check _netting_apply_close before relaxing it"
+    )
+
+    # And the writer must use it.
+    from src.runtime import order_monitor
+    body = inspect.getsource(order_monitor._netting_apply_close)
+    assert '"exit_reason": "netting_attributed"' in body
+    assert '"close_reason"' not in body, (
+        "_netting_apply_close writes order_packages' column name onto trades"
+    )
