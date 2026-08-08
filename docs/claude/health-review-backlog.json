@@ -10806,8 +10806,22 @@
       "action": "NEXT TEST, cheap and decisive: establish the OLDEST stored fill per account and compare it against the age distribution of the unresolved rows. If the oldest fill is far younger than 180 days, the venue is not serving the depth and the 273 are permanently unrepairable from broker truth — they keep their honest FABRICATED/UNVERIFIED provenance, which is the CORRECT outcome, not a failure. GET /api/bot/pnl/exchange/fills?days=180&account_id=bybit_1&limit=1000 answers it in one read (newest-first, so the last row is the oldest; check `truncated`), but NOTE that route is under /api/bot/ and the diag relay only reaches /api/diag/*, so it needs either direct DIAG_BASE_URL egress or a per-chunk count added to the puller's log.\n\nSEPARATELY AND ALREADY ACTIONABLE: the 39 own-fills rows are MEASURED-tier and ready to apply. That is a Tier-2 money-DB write needing one operator OK; it is NOT requested by this row. The 28 qty-unreconciled rows belong to netting attribution (NETTING_ATTRIBUTION_MODE), not to this backfill — guessing a split there is the proration error exit_from_fills refuses on purpose. The 6 alpaca_options_paper rows need a puller for that venue or stay unverified permanently.",
       "resolution_criteria": "The oldest-stored-fill measurement is recorded per account, closing the question of whether the 273 are recoverable at all; and the operator has either approved or declined applying the 39 MEASURED-tier repairs.",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260808-FUNDING-PULLER-SAME-RANGE-CAP-EXPOSURE",
+      "opened_at": "2026-08-08T16:05:00+00:00",
+      "opened_by": "claude (system-review ma0ava, doc-freshness pass)",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "title": "exchange_funding_puller has the SAME single-call/no-chunking shape that made the fills puller silently return a wrong window — and it is invoked with days=30",
+      "source": "READ FROM SOURCE 2026-08-08, NOT measured — stated as an unverified structural exposure, not a confirmed defect. src/runtime/exchange_funding_puller.py::fetch_funding_window issues ONE fetch_funding_history(sym, since_ms, 200, {}) per target with no pagination and no range chunking, and scripts/pull_exchange_funding.py / the pull-exchange-funding action invoke it with days=30. That is byte-for-byte the shape fetch_fills_window had before 036f065c.",
+      "what_to_check": "The fills sibling was NOT hypothetical: Bybit caps /v5/execution/list's query RANGE at 7 days while retaining 2 years, so a --days 90 call returned the slice [now-90d, now-83d] and reported candidates=0 on all three accounts while looking successful (exit 0, ok=3 failed=0). If Bybit's funding/transaction-log endpoint carries ANY range cap below 30 days, the nightly funding pull has been returning a wrong window the whole time, and the same two properties that hid the fills bug hide this one: an out-of-range read returns [] rather than raising (so FundingWindowUnavailable never fires), and the 200-row limit has no cap declaration.\n\nI have NOT established Bybit's funding range cap. Do not record one until measured.\n\nWHY IT MATTERS: funding is a real cost component. backfill-broker-truth-costs attributes funding_paid_usd onto closed trades from this store, so a silently-short funding window under-reports cost and biases every net-R figure computed on top of it in the favourable direction.",
+      "action": "CHEAP DECISIVE TEST, the same monotonicity check that caught the fills bug and needs no new code: dispatch pull-exchange-funding twice, once narrow and once wide, and compare candidate counts per account. A WIDER window returning FEWER rows is proof the range was silently rewritten. If it reproduces, port the MAX_RANGE_DAYS walk from exchange_fills_puller (chunk oldest-first, pass endTime explicitly, dedupe on funding_id, declare a full page) — the fix is already written and tested next door, so this is a port, not a design.\n\nIf it does NOT reproduce, record the measured window depth in this row and close it: 'checked and clean' is the useful result, and leaving the question open invites a future session to re-derive it.",
+      "resolution_criteria": "Bybit's funding-history range behaviour is MEASURED for these accounts and recorded here, and either the walk is ported or the puller is documented as correct at days=30.",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-08-08T09:05:00+00:00",
+  "updated_at": "2026-08-08T16:05:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
