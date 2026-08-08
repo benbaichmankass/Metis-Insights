@@ -89,8 +89,13 @@ _DEFAULTS: Dict[str, Any] = {
     # breakout is actionable only after the close has HELD beyond the signal
     # bar's channel edge for this many further closed bars (entry then fires
     # at the latest close — worse price, fewer false breakouts). Mirrors
-    # scripts/backtest_trend.py --confirm-bars exactly; declared per leg in
-    # config/strategies.yaml (Tier-3).
+    # scripts/research/backtest_trend.py --confirm-bars exactly; declared per
+    # leg in config/strategies.yaml (Tier-3).
+    # NOTE (2026-08-08): this said scripts/backtest_trend.py, which declares no
+    # --confirm-bars flag — the lever lives only in the research copy. Comment
+    # corrected, behaviour untouched (field beats comment). The two harnesses
+    # are different ENGINES, not one with two flag sets: design-doc §5f +
+    # scripts/research/trend_harness_divergence.py.
     "confirm_bars": 0,
     # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
     # NEW entry whose TRIGGER bar's UTC hour is in this CSV set (e.g. "0").
@@ -198,7 +203,8 @@ def _confirmed_breakout(df: pd.DataFrame, dc_hi: pd.Series, dc_lo: pd.Series,
                         label: str) -> tuple:
     """Return (direction, signal_bar_depth) for a matured N-bar confirmation.
 
-    Mirrors ``scripts/backtest_trend.py``'s pending-entry semantics exactly:
+    Mirrors ``scripts/research/backtest_trend.py``'s pending-entry semantics
+    exactly (the ``--confirm-bars`` lever lives only in that copy):
     the raw breakout fired at the bar ``n`` bars back (the signal bar); every
     close since must have HELD beyond THAT bar's channel edge, with no
     opposite raw breakout in between (a suppressed side on a long_only leg

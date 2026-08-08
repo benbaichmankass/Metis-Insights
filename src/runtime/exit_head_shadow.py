@@ -99,6 +99,39 @@ def _f(v: Any) -> Optional[float]:
         return None
 
 
+def shape_params(shape: Dict[str, Any]) -> tuple:
+    """``(tau, below_r, policy)`` from an artifact's declared ``shape`` block.
+
+    Extracted so the OFFLINE replay
+    (``scripts/ml/exit_head_replay.py``) reads the thresholds from the same
+    place the live monitor does instead of re-deriving the defaults.
+    """
+    return (_f(shape.get("tau")) or 0.10,
+            _f(shape.get("below_r")) or 0.5,
+            str(shape.get("policy") or "below_half_r"))
+
+
+def would_exit_for(shape: Dict[str, Any], score: float, open_r: float) -> bool:
+    """THE exit-head decision predicate — one owner, live and offline.
+
+    ``would_exit`` semantics follow the artifact's declared shape:
+    ``below_half_r`` (the live head) fires on LOW scores against losers; the
+    ``peak_*`` shapes fire on HIGH scores (``P(peak_is_in) > tau``).
+
+    Extracted from :func:`maybe_score_exit_head` (behaviour-preserving, same
+    expression) specifically so the offline replay that re-resolves a backtest
+    trade's exit CANNOT drift from the live monitor's decision. A second copy
+    of this predicate is the defect class documented in
+    ``FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md`` §5f: two harness copies
+    that disagreed about the trail's ATR basis, one of them cited as the
+    reference implementation by a live Tier-3 lever.
+    """
+    tau, below_r, policy = shape_params(shape)
+    if policy.startswith("peak"):
+        return score > tau and (policy != "peak_winner" or open_r >= below_r)
+    return score < tau and open_r < below_r
+
+
 def _feature_row(candles_df, entry: float, risk: float, direction: str,
                  entry_idx: Optional[int]) -> Optional[Dict[str, Any]]:
     """The E0 builder's leakage-guarded in-trade feature row, computed on the
@@ -357,17 +390,8 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
                     for f in features]]
             score = float(booster.predict(vec)[0])
             shape = artifact.get("shape") or {}
-            tau = _f(shape.get("tau")) or 0.10
-            below_r = _f(shape.get("below_r")) or 0.5
-            # would_exit semantics follow the artifact's declared shape:
-            # below_half_r (the live head) fires LOW scores on losers; the
-            # peak_* shapes fire HIGH scores (P(peak_is_in) > tau).
-            policy = str(shape.get("policy") or "below_half_r")
-            if policy.startswith("peak"):
-                would_exit = score > tau and (
-                    policy != "peak_winner" or row["open_r"] >= below_r)
-            else:
-                would_exit = score < tau and row["open_r"] < below_r
+            tau, below_r, policy = shape_params(shape)
+            would_exit = would_exit_for(shape, score, row["open_r"])
 
             record = {
                 "predicted_at_utc": datetime.now(timezone.utc).isoformat(),
