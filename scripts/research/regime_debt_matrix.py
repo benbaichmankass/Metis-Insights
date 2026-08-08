@@ -24,8 +24,9 @@ skip-hours / vol-skip / trail-vol measured `approximate` purely because the
 harness the pipeline invokes had no flag for it. That was a WIRING fact, not a
 capability gap. All 15 levers are now ported into `scripts/backtest_trend.py`
 (the live-faithful engine — it freezes the entry bar's ATR for the trail, which
-is what `trend_donchian.monitor()` does; the retired copy trailed off a rolling
-ATR and produced a different trade set), so those variants run **faithfully**.
+is what `trend_donchian.monitor()` does; the sibling `scripts/research` copy
+trails off a rolling ATR and produces a different trade set), so those variants
+run **faithfully**.
 Design-doc §5f has the measurement.
 
 **`exit_head_*` is location-dependent, not permanently unmodellable.** The head is
@@ -102,7 +103,7 @@ _TREND_LEVER_FLAG = {
     "side_filter": "--side-filter",
     # Ported into scripts/backtest_trend.py on 2026-08-08 (convergence step (a) of
     # BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE). These 15
-    # levers previously lived ONLY in the retired scripts/research copy, so a
+    # levers previously lived ONLY in the scripts/research copy, so a
     # variant declaring one measured `approximate` purely because the harness the
     # pipeline runs had no flag for it — a WIRING fact, not a capability gap
     # (design-doc §5f). The harness now models them, so they are faithful.

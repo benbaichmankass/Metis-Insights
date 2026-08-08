@@ -86,28 +86,6 @@ def _load_engine(mod_name: str, rel: str):
     return mod
 
 
-def research_copy_retired() -> bool:
-    """Has the fork been converged away?
-
-    After the 2026-08-08 convergence ``scripts/research/backtest_trend.py`` is a
-    hard-fail shim, not an engine. Detected by the ABSENCE of its engine entry
-    point rather than by parsing the docstring, so a genuine re-fork (someone
-    restores a real engine there) flips this back to False and the full
-    comparison runs again — which is the regression this tool now guards.
-    """
-    mod = _load_engine("_bt_trend_research_probe", RESEARCH_REL)
-    fn = getattr(mod, "backtest", None)
-    if fn is None:
-        return True
-    try:
-        fn()
-    except RuntimeError:
-        return True          # the shim's explain-and-raise
-    except TypeError:
-        return False         # a real engine rejecting empty args
-    return False
-
-
 def declared_flags(rel: str) -> set:
     """The CLI flags a harness copy actually declares (argparse call sites)."""
     with open(os.path.join(_REPO_ROOT, rel), encoding="utf-8") as fh:
@@ -266,40 +244,8 @@ def main(argv: List[str]) -> int:
     a = p.parse_args(argv[1:])
 
     pipe = _load_engine("_bt_trend_pipeline", PIPELINE_REL)
-    pf, rf = declared_flags(PIPELINE_REL), declared_flags(RESEARCH_REL)
-
-    # CONVERGED STATE (the expected one since 2026-08-08): the research copy is a
-    # retired shim, so there is nothing to compare and this tool's job becomes a
-    # GUARD — assert one engine, and that nothing crept back into the retired path.
-    if research_copy_retired():
-        print("trend-harness convergence: CONVERGED — "
-              f"{RESEARCH_REL} is a retired shim, {PIPELINE_REL} is the single "
-              "live-faithful trend engine.")
-        print(f"  {PIPELINE_REL} declares {len(pf)} flags; the retired copy "
-              f"declares {len(rf)} (a shim declares 0).")
-        stray = sorted(rf - pf)
-        if stray:
-            print(f"  ::error::REGRESSION — {len(stray)} flag(s) exist ONLY in the "
-                  f"retired copy: {', '.join(stray)}. The fork is back; port them "
-                  f"into {PIPELINE_REL} (see design-doc §5f).", file=sys.stderr)
-            return 1
-        print("  0 flags exist only in the retired copy — no re-fork.")
-        print("  To reproduce the ORIGINAL divergence measurement, check out a "
-              "commit before the convergence and re-run this tool.")
-        if a.json_out:
-            blob = json.dumps({"converged": True, "pipeline_file": PIPELINE_REL,
-                               "pipeline_flags": len(pf),
-                               "retired_file": RESEARCH_REL,
-                               "retired_flags": len(rf),
-                               "flags_only_in_retired": stray}, indent=2)
-            if a.json_out == "-":
-                print(blob)
-            else:
-                with open(a.json_out, "w", encoding="utf-8") as fh:
-                    fh.write(blob)
-        return 0
-
     resr = _load_engine("_bt_trend_research", RESEARCH_REL)
+    pf, rf = declared_flags(PIPELINE_REL), declared_flags(RESEARCH_REL)
 
     df = load_candles(a.data, a.resample)
     results = [compare(df, donchian=d, timeout=t, atr_p=a.atr_period,

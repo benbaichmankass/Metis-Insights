@@ -797,7 +797,7 @@ def main(argv: List[str]) -> int:
     # BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE
     # (kept on ONE line: a hyphen-wrapped tracking id silently becomes a
     # DIFFERENT id that resolves to no filed row — check_backlog_refs caught
-    # exactly that here). Same flag names + defaults as the retired research
+    # exactly that here). Same flag names + defaults as the sibling research
     # copy so an existing sweep command line is portable; every default is OFF.
     p.add_argument("--bank-frac", type=float, default=0.0,
                    help="M20 partial-TP ladder: fraction of the position banked "
