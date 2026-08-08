@@ -151,3 +151,35 @@ def test_missing_artifact_dir_raises_rather_than_returning_empty():
     with pytest.raises(replay.ReplayUnavailable) as exc:
         replay.load_heads("/nonexistent/exit_head", "1h", "BTCUSDT")
     assert "trainer" in str(exc.value)
+
+
+def test_exit_head_replay_repo_root_resolves_to_the_actual_repo_root():
+    """`_REPO_ROOT` must be the repo root, not `scripts/`.
+
+    It was `dirname^2` of a file at `scripts/ml/`, which lands on `scripts/`.
+    Every consumer joins a REPO-ROOT-relative path onto it, so one wrong
+    constant broke three things at once — and none of them are reachable from
+    a unit test that only imports the module, which is why it survived to a
+    live trainer run (issue #8646):
+
+      scripts/backtest_trend.py   -> scripts/scripts/backtest_trend.py
+      config/strategies.yaml      -> scripts/config/strategies.yaml   (observed)
+      from src.utils.paths import -> `src` not importable off sys.path
+
+    Asserting on MARKER FILES rather than on a dirname count, so the test still
+    holds if the module moves: whatever `_REPO_ROOT` points at must be the
+    directory that actually contains the things the module joins onto it.
+    """
+    import os
+    from scripts.ml import exit_head_replay as ehr
+
+    root = ehr._REPO_ROOT
+    for marker in ("config/strategies.yaml", ehr.HARNESS_REL, "src/utils/paths.py"):
+        assert os.path.exists(os.path.join(root, marker)), (
+            f"_REPO_ROOT={root!r} does not contain {marker!r} — it is not the "
+            "repo root, so every repo-root-relative join in this module is wrong"
+        )
+    assert os.path.basename(root) != "scripts", (
+        "_REPO_ROOT landed on scripts/ — this is the exact off-by-one dirname "
+        "count that issue #8646 hit on the trainer"
+    )

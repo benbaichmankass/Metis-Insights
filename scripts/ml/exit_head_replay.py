@@ -65,7 +65,15 @@ import os
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# THREE dirnames, not two: this file is scripts/ml/exit_head_replay.py, so
+# dirname^2 lands on `scripts/`, not the repo root. Every consumer below joins a
+# REPO-ROOT-relative path onto it, so the off-by-one broke all three at once —
+# `scripts/scripts/backtest_trend.py` (_load_harness), `scripts/config/strategies.yaml`
+# (main, the failure observed in issue #8646), and `from src.utils.paths import`
+# in default_artifact_dir() once sys.path carried `scripts/` instead of the root.
+# Pinned by test_exit_head_replay_repo_root_resolves_to_the_actual_repo_root.
+_REPO_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
