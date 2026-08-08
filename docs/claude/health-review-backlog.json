@@ -10892,8 +10892,22 @@
         ".github/workflows/research-exit-head-replay-trainer.yml",
         "scripts/check_diagnostic_provenance.py"
       ]
+    },
+    {
+      "id": "BL-20260808-PAIRS-DIVERGENCE-UNOWNED",
+      "opened_at": "2026-08-08T20:30:00+00:00",
+      "opened_by": "claude (system-review ma0ava)",
+      "status": "open",
+      "tier": 2,
+      "severity": "medium",
+      "title": "pairs-sleeve journal/exchange divergence has NO owner — the netting reconciler refuses it by design and pairs_executor never reconciles its own legs",
+      "source": "MEASURED live 2026-08-08. bybit_1/BNBUSDT short: open journal rows sum to 13.43, the exchange backs 5.49 (2.45x, excess 7.94). _check_broker_naked_bybit_positions logged it at ERROR every ~5 minutes continuously. BNBUSDT is a pairs-sleeve leg (config/pairs.yaml: symbol_a BNBUSDT / symbol_b BTCUSDT, execution live on paper).",
+      "what_to_check": "THE ASYMMETRY: _reconcile_netting_partial_closes deliberately SKIPS pairs rows (summary['skipped_pairs']) because pairs_executor is an isolated 2-leg path holding its own state and closing its rows behind its back would desync it (design packet §4 constraint 2). The divergence sweep had NO pairs handling and printed the generic 'At least one open row is a phantom' ERROR anyway. So the alarm named a remediation that was never coming — a permanent ERROR no operator could action.\n\nThat is the alarm-fatigue P1 in CLAUDE.md § 'If you see something, say something': an alarm that fires constantly and is routinely walked past trains everyone to walk past the ones that matter. PARTIALLY FIXED in this session — the sweep now branches on ownership, emits a WARNING naming pairs_executor and stating that no attribution pass will reduce it, and both call sites share ONE _is_pairs_sleeve_row predicate so they cannot drift apart about who owns a row.\n\nWHAT IS NOT FIXED, and is why this row is open: the DIVERGENCE ITSELF. 13.43 journal vs 5.49 exchange on a live-trading sleeve means analytics and risk sizing both read a journal that overstates the position by 2.45x. Relabelling the alarm did not reduce a single row.",
+      "action": "Teach pairs_executor to reconcile its own legs — it is the only component allowed to touch those rows, so it is the only place the fix can live. Mirror the netting reconciler's contract rather than inventing a second one: 2-observation confirm before acting, leg-id-then-FIFO selection, and the anchored/no_anchor/deferred provenance ladder (an anchorless estimate is FABRICATED). Tier-2 — it writes the money DB.\n\nDO NOT 'fix' this by removing the pairs skip from _reconcile_netting_partial_closes. The skip is load-bearing: closing a pairs leg behind the executor's back desyncs the sleeve, which is a worse failure than an overstated journal.",
+      "resolution_criteria": "bybit_1/BNBUSDT journal qty matches the exchange within tolerance, and a pairs-sleeve divergence is reduced by a reconciler that owns those rows rather than being relabelled.",
+      "snoozed_until": null
     }
   ],
-  "updated_at": "2026-08-08T19:05:00+00:00",
+  "updated_at": "2026-08-08T20:30:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
