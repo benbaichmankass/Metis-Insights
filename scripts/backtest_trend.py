@@ -793,9 +793,12 @@ def main(argv: List[str]) -> int:
                         "'di' = Wilder +DI/-DI sign; 'slope' = Donchian channel-midline slope sign. "
                         "See docs/research/M-regime-direction-filter-DESIGN.md.")
     # --- M20/M21 levers ported from scripts/research/backtest_trend.py -------- #
-    # (convergence step (a), BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-
-    # EVIDENCE). Same flag names + defaults as the research copy so an existing
-    # sweep command line is portable; every default is the lever OFF.
+    # Convergence step (a) of
+    # BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE
+    # (kept on ONE line: a hyphen-wrapped tracking id silently becomes a
+    # DIFFERENT id that resolves to no filed row — check_backlog_refs caught
+    # exactly that here). Same flag names + defaults as the retired research
+    # copy so an existing sweep command line is portable; every default is OFF.
     p.add_argument("--bank-frac", type=float, default=0.0,
                    help="M20 partial-TP ladder: fraction of the position banked "
                         "at +bank-at-r R (0=off, byte-identical).")
