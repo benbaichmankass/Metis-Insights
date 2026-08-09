@@ -57,6 +57,74 @@ def _ccxt_funding_to_row(entry: Mapping[str, Any], account_id: str) -> dict[str,
     }
 
 
+# How stale the newest returned row may be, as a fraction of the requested
+# window, before the run says so. A funding payment settles every 8h on an open
+# perp, so on an account that held positions throughout, "newest row is a third
+# of the window old" is not a normal reading.
+_STALE_TAIL_FRACTION = 0.34
+
+
+def _log_returned_span(
+    rows: list[Mapping[str, Any]],
+    *,
+    account_id: str,
+    requested_days: int,
+    end_dt: datetime,
+) -> None:
+    """State the window the venue actually SERVED, beside the one we asked for.
+
+    A row count alone cannot distinguish these two situations, and they demand
+    opposite responses:
+
+      * the account genuinely had no funding recently (nothing to fix), and
+      * the venue moved our window instead of widening it, so the recent period
+        was never queried at all (a silent coverage hole).
+
+    Both render as "N rows, run OK". So this logs the observed span explicitly
+    and warns when the newest row is far short of the window end — **naming both
+    candidate causes without picking one**, because this function genuinely
+    cannot tell them apart from here (that needs to know whether positions were
+    open, which is the journal's business, not the puller's). Reporting a cause
+    no code path tested is the sub-class-A defect
+    (`docs/CLAUDE-RULES-CANONICAL.md` § diagnostic provenance); reporting an
+    unasserted denominator as a clean negative is sub-class C. This avoids both.
+    """
+    times = sorted(str(r.get("funding_time") or "") for r in rows)
+    times = [t for t in times if t]
+    if not times:
+        logger.info(
+            "exchange_funding_puller: %s requested %dd window ending %s — "
+            "0 dated rows returned (no funding, or nothing queryable; "
+            "this puller cannot distinguish those)",
+            account_id, requested_days, end_dt.isoformat(),
+        )
+        return
+    oldest, newest = times[0], times[-1]
+    logger.info(
+        "exchange_funding_puller: %s requested %dd ending %s — SERVED span %s .. %s (%d rows)",
+        account_id, requested_days, end_dt.isoformat(), oldest, newest, len(times),
+    )
+    try:
+        newest_dt = datetime.fromisoformat(newest)
+        if newest_dt.tzinfo is None:
+            newest_dt = newest_dt.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return  # unparseable timestamp — say nothing rather than guess
+    tail_days = (end_dt - newest_dt).total_seconds() / 86400.0
+    if requested_days > 0 and tail_days > requested_days * _STALE_TAIL_FRACTION:
+        logger.warning(
+            "exchange_funding_puller: %s asked for %dd but the NEWEST row is %.1fd "
+            "old — the most recent ~%.1fd of the requested window returned nothing. "
+            "Two candidate causes, NOT distinguished here: (a) the account held no "
+            "perp position across a funding settlement in that period, or (b) the "
+            "venue capped the query RANGE and moved the window to the OLD end "
+            "instead of widening it (the measured Bybit V5 behaviour on the "
+            "execution endpoint, BL-20260808-FILLS-WINDOW-TOO-SHORT-TO-REPAIR-HISTORY). "
+            "If positions were open, it is (b) and this account has a coverage hole.",
+            account_id, requested_days, tail_days, tail_days,
+        )
+
+
 def fetch_funding_window(
     fetch_funding_history,
     account_id: str,
@@ -70,8 +138,19 @@ def fetch_funding_window(
     *fetch_funding_history* matches ccxt's
     ``exchange.fetch_funding_history(symbol, since, limit, params)``. Returns rows
     ready for ``exchange_fills_store.upsert_funding``.
+
+    **Declares the window it actually GOT, not just the one it asked for.**
+    See ``_log_returned_span`` — the sibling fills puller was measured on
+    2026-08-08 returning a 7-day slice for a 90-day request because Bybit V5
+    caps the queryable RANGE while retaining 2 years, and the only reason that
+    was caught is that a count went DOWN when the window got wider. This puller
+    is called with a hardcoded 30-day window, so if the same cap applies here it
+    would return ``[now-30d, now-23d]`` — silently missing the most RECENT three
+    weeks while reporting a healthy row count. Rather than assume either way,
+    every run now states the span of what came back.
     """
-    cutoff_dt = (now or datetime.now(timezone.utc)) - timedelta(days=days)
+    end_dt = now or datetime.now(timezone.utc)
+    cutoff_dt = end_dt - timedelta(days=days)
     since_ms = int(cutoff_dt.timestamp() * 1000)
     out: list[dict[str, Any]] = []
     targets: list[Optional[str]] = list(symbols) if symbols else [None]
@@ -90,6 +169,7 @@ def fetch_funding_window(
             continue
         for e in entries or ():
             out.append(_ccxt_funding_to_row(e, account_id))
+    _log_returned_span(out, account_id=account_id, requested_days=days, end_dt=end_dt)
     # Total failure is ZERO coverage, not an empty book — the funding-side
     # sibling of FillsWindowUnavailable. Partial failure stays best-effort.
     if failed and failed == len(targets):

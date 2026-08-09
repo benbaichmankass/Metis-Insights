@@ -1052,15 +1052,25 @@ jobs:
           if [ "${ACTION}" = "strategy-performance-audit" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
           fi
-          # pull-exchange-fills: `days:` selects the lookback window (default 7 in
-          # the wrapper). A DEEP window is bounded by PAGE_LIMIT=200 with no
-          # pagination in src/runtime/exchange_fills_puller.py — the puller logs a
-          # FULL-page warning when it caps, and a capped result must NOT be read
-          # as the venue's full retention
+          # `days:` selects the lookback window for the exchange pullers
+          # (wrapper defaults: fills 7, funding 30).
+          #
+          # A DEEP window is bounded by PAGE_LIMIT=200 with no pagination in
+          # src/runtime/exchange_fills_puller.py — the puller logs a FULL-page
+          # warning when it caps, and a capped result must NOT be read as the
+          # venue's full retention
           # (BL-20260808-FILLS-WINDOW-TOO-SHORT-TO-REPAIR-HISTORY).
-          if [ "${ACTION}" = "pull-exchange-fills" ]; then
-            REMOTE_CMD="ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
-          fi
+          #
+          # A LIST, not one `if` per action, deliberately: funding needed exactly
+          # this same line and did not have it, so its window was unreachable and
+          # the one measurement that would settle
+          # BL-20260808-FUNDING-PULLER-SAME-RANGE-CAP-EXPOSURE could not be taken.
+          # The next windowed action should be a word here, not a new branch.
+          case " pull-exchange-fills pull-exchange-funding " in
+            *" ${ACTION} "*)
+              REMOTE_CMD="ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
+              ;;
+          esac
           if [ "${ACTION}" = "monitor-miss-analysis" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
           fi
