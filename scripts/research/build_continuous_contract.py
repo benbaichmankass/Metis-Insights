@@ -4,7 +4,7 @@
 Offline research tool (Tier-1, stdlib-only, no socket, no live path). Reads
 per-contract OHLCV bars and writes a single back-adjusted continuous series in
 the canonical `market_raw` 9-key shape, so the existing backtest harnesses
-(`scripts/research/backtest_trend.py`, `scripts/backtest_pullback.py`) read it
+(`scripts/backtest_trend.py`, `scripts/backtest_pullback.py`) read it
 with NO change — the roll gaps that make a spliced native-futures series lie to
 a breakout/trend backtest are removed.
 
@@ -34,7 +34,7 @@ Examples:
       --out /tmp/MGC.c_1h.jsonl
 
   # then backtest the trend cell on the CLEAN series
-  python scripts/research/backtest_trend.py --data /tmp/MGC.c_1h.jsonl \
+  python scripts/backtest_trend.py --data /tmp/MGC.c_1h.jsonl \
       --symbol MGC --timeframe 1h --donchian 20 --atr-period 14 \
       --atr-stop-mult 2.5 --trail-mult 3.0 --json -
 """

@@ -2,7 +2,7 @@
 monitors).
 
 Harness reference: the ``--trail-vol-*`` lever in
-``scripts/research/backtest_trend.py`` / ``scripts/backtest_pullback.py``
+``scripts/backtest_trend.py`` / ``scripts/backtest_pullback.py``
 (design: ``docs/research/M20X-vol-conditional-trail-DESIGN.md``) — the
 effective chandelier trail mult TIGHTENS on any managed bar whose trailing
 ATR percentile sits in a gated tail:

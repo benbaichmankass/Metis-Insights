@@ -7,6 +7,16 @@ Contract:
     ``confirm_bars=1``.
   * A sustained breakout is entered by both — the confirmed entry fires
     N bars later (worse price, same direction).
+
+MIGRATED 2026-08-09 (``BL-20260808-RESEARCH-TREND-ENGINE-RETIREMENT-BLOCKED-BY-
+TEST-COUPLING``) from the retired ``scripts/research/backtest_trend.py`` onto
+the live-faithful ``scripts/backtest_trend.py``. **Disposition: (b) repoint —
+engine-INDEPENDENT.** Every assertion is ENTRY-side (which bar the confirmed
+entry fires on, and at what price); none touches the trail ATR basis, the flip
+exit or the cooldown. Measured on both tapes before migrating: the two engines
+agree exactly on the entry bar with and without the lever (sustained tape
+``l@20:00`` → ``l@21:00``; false-breakout tape 1 trade → 0), so no expected
+number moved.
 """
 from __future__ import annotations
 
@@ -16,9 +26,7 @@ from pathlib import Path
 
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "research"))
-
-from backtest_trend import backtest  # noqa: E402
+from tests.trend_harness_engine import trend_trades  # noqa: E402
 
 
 def _df(closes):
@@ -39,11 +47,10 @@ def _tape(break_bars):
 
 def test_default_off_is_byte_identical():
     df = _tape([104.0, 104.5, 105.0, 104.0])
-    base = backtest(df, donchian=10, atr_p=5, atr_stop=2.0, trail_mult=3.0,
-                    timeout=0, long_only=False)
-    off = backtest(df, donchian=10, atr_p=5, atr_stop=2.0, trail_mult=3.0,
-                   timeout=0, long_only=False, confirm_bars=0)
+    base = trend_trades(df)
+    off = trend_trades(df, confirm_bars=0)
     assert [t.__dict__ for t in base] == [t.__dict__ for t in off]
+    assert base, "tape must produce a baseline trade (guards a vacuous [] == [])"
 
 
 def test_false_breakout_skipped_by_confirm_1():
@@ -51,20 +58,16 @@ def test_false_breakout_skipped_by_confirm_1():
     # then straight back inside and down through the stop — base enters
     # (and is stopped so the trade is recorded), confirm_1 must not.
     df = _df([100.0] * 20 + [101.5, 100.0] + [97.0] * 10 + [100.0] * 10)
-    base = backtest(df, donchian=10, atr_p=5, atr_stop=2.0, trail_mult=3.0,
-                    timeout=0, long_only=False)
-    conf = backtest(df, donchian=10, atr_p=5, atr_stop=2.0, trail_mult=3.0,
-                    timeout=0, long_only=False, confirm_bars=1)
+    base = trend_trades(df)
+    conf = trend_trades(df, confirm_bars=1)
     assert any(t.direction == "long" for t in base)
     assert not any(t.direction == "long" for t in conf)
 
 
 def test_sustained_breakout_entered_later():
     df = _tape([101.5, 102.5, 103.5, 104.5, 105.0])
-    base = backtest(df, donchian=10, atr_p=5, atr_stop=2.0, trail_mult=3.0,
-                    timeout=0, long_only=False)
-    conf = backtest(df, donchian=10, atr_p=5, atr_stop=2.0, trail_mult=3.0,
-                    timeout=0, long_only=False, confirm_bars=1)
+    base = trend_trades(df)
+    conf = trend_trades(df, confirm_bars=1)
     b = next(t for t in base if t.direction == "long")
     c = next(t for t in conf if t.direction == "long")
     # confirmed entry is one bar later -> higher entry on a rising tape

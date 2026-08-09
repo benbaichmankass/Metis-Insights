@@ -30,6 +30,49 @@ import train_exit_head as teh  # noqa: E402
 from train_exit_head import load_rows, train_model  # noqa: E402
 
 
+def training_window(rows):
+    """The DATA bound of a training row set: {train_start, train_end, coverage}.
+
+    BL-20260808-EXIT-HEAD-MANIFEST-RECORDS-NO-TRAINING-WINDOW. The exported
+    artifact used to carry only ``trained_at`` — the wall-clock moment of
+    FITTING, which is not the data bound and must never be substituted for it. A
+    head fitted on 2026-07-12 could have used six months or three years of
+    history, and nothing in the artifact said which, so a downstream replay could
+    not state its own in-sample fraction (that is exactly what happened to the
+    first measured replay, issue #8653).
+
+    The window was always derivable here: every row carries ``bar_t``, the epoch
+    seconds of its in-trade bar (written by ``build_exit_head_dataset.py``), so
+    min/max over it IS the bound.
+
+    HONEST-NULL, with its own coverage metric. Rows with no usable ``bar_t``
+    yield ``None`` rather than a manufactured date, and ``train_window_coverage``
+    reports the fraction that actually carried one — so a partially-stamped
+    dataset cannot pass as a fully-measured window (the instrument-before-finding
+    rule: a new measurement ships with the metric that says how much of it is
+    real).
+    """
+    bar_ts = []
+    for r in rows:
+        t = r.get("bar_t")
+        if t is None:
+            continue
+        try:
+            bar_ts.append(int(t))
+        except (TypeError, ValueError):
+            continue
+
+    def _iso(epoch_s):
+        return datetime.fromtimestamp(epoch_s, tz=timezone.utc).isoformat()
+
+    return {
+        "train_start": _iso(min(bar_ts)) if bar_ts else None,
+        "train_end": _iso(max(bar_ts)) if bar_ts else None,
+        "train_window_coverage": (round(len(bar_ts) / len(rows), 4)
+                                  if rows else None),
+    }
+
+
 def main(argv):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--family-dir", required=True)
@@ -65,6 +108,9 @@ def main(argv):
     model = train_model(rows)
     trades = len({r["trade_key"] for r in rows})
     symbols = sorted({r.get("symbol") for r in rows if r.get("symbol")})
+
+    window = training_window(rows)
+
     artifact = {
         "model_id": a.model_id,
         "family": fam_dir.name,
@@ -76,6 +122,12 @@ def main(argv):
         "shape": {"policy": a.policy, "tau": a.tau, "below_r": a.below_r},
         "booster_txt": model.booster_.model_to_string(),
         "trained_at": datetime.now(timezone.utc).isoformat(),
+        # The DATA bound, distinct from `trained_at` above. Null when unknowable
+        # from the rows — never inferred from the fitting time.
+        "train_start": window["train_start"],
+        "train_end": window["train_end"],
+        "train_window_coverage": window["train_window_coverage"],
+        "train_dataset": str(fam_dir / "rows.jsonl"),
         "train_rows": len(rows),
         "train_trades": trades,
         "evidence": a.evidence or "docs/research/M20-exit-refinement-2026-07-12.md § 9",

@@ -37,6 +37,9 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import candle_io  # noqa: E402  (shared OHLCV reader; see _load_candles)
+
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
@@ -75,15 +78,28 @@ class Trade:
 
 
 def _load_candles(path: str) -> pd.DataFrame:
-    if path.endswith(".parquet"):
-        df = pd.read_parquet(path)
-    else:
-        df = pd.read_csv(path)
-    cols = {c.lower(): c for c in df.columns}
-    need = ["timestamp", "open", "high", "low", "close"]
-    df = df.rename(columns={cols[c]: c for c in need if c in cols and cols[c] != c})
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
-    return df.dropna(subset=["timestamp"]).reset_index(drop=True)
+    """Read OHLCV via the shared reader (`scripts/candle_io.py`).
+
+    This used to be a private CSV/Parquet-only reader. Retiring
+    `scripts/research/backtest_trend.py` on 2026-08-09 removed the ONLY trend
+    engine that could read **JSONL**, which broke a documented end-to-end
+    workflow: `scripts/research/build_continuous_contract.py` writes the
+    canonical `market_raw` shape as JSONL and its own docstring tells you to
+    backtest that file with a trend harness. Against the old reader here that
+    is a `KeyError: 'timestamp'`.
+
+    So the reader delegates to the lifted superset rather than leaving the
+    workflow broken (`BL-20260809-TWO-CANDLE-READERS-DIVERGE-ON-JSONL`).
+    Behaviour-preserving for every input this engine already accepted, verified
+    before the change rather than assumed: 18 full-summary comparisons (2
+    committed corpora x 5min/15min/1h x 3 configs incl. the config-exact
+    `trend_donchian` block) were **identical**, and the loaded frames compared
+    equal with `DataFrame.equals`. The reader is a strict superset — it
+    additionally accepts JSONL and the IBKR pull's `ts` column, and coerces OHLC
+    to numeric (so a row with an unparseable price is dropped instead of
+    poisoning the arithmetic downstream).
+    """
+    return candle_io.load_candles(path)
 
 
 def _resample(df: pd.DataFrame, rule: str) -> pd.DataFrame:

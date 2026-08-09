@@ -1,319 +1,414 @@
 #!/usr/bin/env python3
-"""Measure the divergence between the TWO ``backtest_trend.py`` engines.
+"""Convergence GUARD: there must be exactly ONE trend-harness engine.
 
-WHY THIS EXISTS
----------------
-``BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE`` and design-doc
-§5e recorded the fork as a **flag-inventory** difference (30 vs 38 flags,
-"neither is a superset") and proposed converging by porting flags in whichever
-direction a before/after showed was behaviour-preserving.
+WHAT THIS IS NOW
+----------------
+This file used to be a *measurement instrument* — it ran BOTH ``backtest_trend.py``
+copies over identical candles and reported how far apart they were. That job is
+finished: the losing engine was retired on 2026-08-09, so there is no second
+engine left to compare against. What survives is the part that has to keep
+working forever — the check that stops the fork re-opening.
 
-That framing is incomplete, and this tool exists so the correction is
-**measured rather than argued**: the two files are not one engine with two flag
-sets, they are two ENGINES that disagree about *which trades exist*. Running
-both over identical candles with every optional lever OFF still yields
-different trade counts, because they differ on:
+**The guard fails when a file named ``backtest_trend.py`` other than the
+canonical ``scripts/backtest_trend.py`` exposes an engine entry point.** A
+retired copy is recognised by the **absence of that entry point**, read from the
+module's AST, never by reading its prose: a ``def run_backtest(...)`` node is a
+fact about the code, a docstring saying "RETIRED" is a claim, and a guard that
+trusts the claim is cheaper to lie to than to satisfy (the
+``new-table-wiring-guard`` lesson — a presence-only marker made the cheapest way
+to silence a real finding *naming a table that does not exist*).
 
-* **trail ATR basis** — ``scripts/backtest_trend.py`` freezes the ENTRY bar's
-  ATR for the whole trade; ``scripts/research/backtest_trend.py`` multiplies
-  the CURRENT bar's rolling ATR each managed bar;
-* **opposite-signal (flip) exit** — present only in the research engine;
-* **cooldown bars** after an exit — present only in the pipeline engine;
-* **fee basis** — average of entry/exit price vs entry price only;
-* warm-up length, ``timeout_bars`` semantics, and the win-rate denominator
-  (gross R > 0 vs net-of-fee R > 0).
+The read is static so the guard needs no third-party dependency and therefore
+actually runs in the dependency-free ``guards`` CI job. An import-based probe
+still runs as corroboration where the module happens to import, and a
+disagreement between the two is reported rather than silently resolved.
 
-WHICH ENGINE IS LIVE-FAITHFUL (the fact that decides the convergence direction)
-------------------------------------------------------------------------------
+When a second engine IS found, the report names the flags it declares that the
+canonical engine does not — the actionable detail, and the specific regression
+``BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE`` is about.
+
+WHY A SECOND ENGINE IS A BUG AND NOT A CONVENIENCE
+--------------------------------------------------
+The two copies were not one engine with two flag sets. Run over identical
+candles with every optional lever OFF they still disagreed about *which trades
+exist*, differing on: the **trail ATR basis** (canonical freezes the ENTRY bar's
+ATR; the retired copy multiplied the CURRENT bar's rolling ATR every managed
+bar), an **opposite-signal flip exit** (retired copy only), **post-exit cooldown
+bars** (canonical only), the **fee basis**, warm-up length, ``timeout``
+semantics, and the win-rate denominator.
+
 ``src/units/strategies/trend_donchian.py`` freezes the entry ATR into the order
-package's ``meta["atr"]`` and its ``monitor()`` trails off that frozen value —
-the rolling recompute there is a legacy fallback for packages missing the key.
-The code says so at the write site: *"matching the backtest's fixed-ATR trail
-(scripts/backtest_trend.py uses the entry bar's ATR for the whole trade).
-Without this the live trail would drift with a rolling ATR and diverge from
-what was validated."*
+package's ``meta["atr"]`` and its ``monitor()`` trails off that frozen value, so
+on the load-bearing exit semantic — the trail, this strategy's only profit exit
+— **live matches the canonical copy**. A second engine therefore does not add a
+research option; it splits fidelity from evidence, and a lever tuned on the
+wrong side of that split ends up armed on real money
+(``BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL`` is exactly that).
 
-So on the trail's ATR basis — the load-bearing exit semantic for a strategy
-whose only profit exit IS the trail — **live matches the pipeline copy**, and
-the research copy is the one that "drifts with a rolling ATR".
+THE MEASUREMENT THIS REPLACES (kept as the record)
+--------------------------------------------------
+Measured 2026-08-08 by the instrument this file used to be. POPULATION:
+``data/backtest_candles.csv``, BTCUSDT 2022-07-23 → 2022-07-27, resampled 5min
+→ 1001 bars, n = 21–35 trades per configuration, every optional lever OFF.
+Isolating the trail-ATR-basis axis **alone** moved gross R by **−34.0% / −23.0%
+/ +41.2%** across three configurations — first-order and sign-unstable. Matched
+runs: donchian 20 → ``29 trades / −13.187 net R``; donchian 30 → ``22 / −9.822``.
+Flag matrix at convergence: 43 canonical / 36 retired / 36 shared / **0
+research-only**. That ~3.5-day corpus establishes the axis is first-order and
+nothing about its magnitude; the decision-grade re-sweep is
+``BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL``.
 
-WHAT THE NUMBERS HERE ARE, AND ARE NOT
---------------------------------------
-Run against the committed ``data/backtest_candles.csv`` this covers **BTCUSDT,
-2022-07-23 → 2022-07-27 (~3.5 days), n = 6..56 trades per configuration**. That
-is enough to establish that the axis is FIRST-ORDER (tens of percent of gross
-R, and sign-unstable across configurations) and nowhere near enough to estimate
-its magnitude. Point ``--data`` at real history on a runner or the trainer for
-a decision-grade figure. Every printed block states its own n.
-
-Observe-only, Tier-1: reads candles, imports both harness engines, writes
-nothing outside its own ``--json`` output.
+Tier-1, read-only: parses source (and opportunistically imports, for
+corroboration only); writes nothing but its own ``--json``.
 
 Usage::
 
-    python scripts/research/trend_harness_divergence.py
-    python scripts/research/trend_harness_divergence.py --data /tmp/btc_1h.csv \\
-        --resample 1h --configs 20:200,30:200 --json out.json
+    python3 scripts/research/trend_harness_divergence.py            # the guard
+    python3 scripts/research/trend_harness_divergence.py --self-test
+    python3 scripts/research/trend_harness_divergence.py --json -
+
+Exit 0 = exactly one engine; 1 = a second engine (or the canonical one is
+missing/broken); 2 = the guard could not check (its own dependency failed) —
+distinct from a finding, per ``docs/CLAUDE-RULES-CANONICAL.md`` § "could not
+measure is its own outcome".
 """
 from __future__ import annotations
 
 import argparse
+import ast
 import importlib.util
 import json
 import os
 import re
 import sys
-from typing import Any, Dict, List, Optional, Tuple
-
-import pandas as pd
+import tempfile
+import textwrap
+from typing import Any, Dict, List, Optional
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-PIPELINE_REL = "scripts/backtest_trend.py"
-RESEARCH_REL = "scripts/research/backtest_trend.py"
+#: The one engine. Everything else named `backtest_trend.py` must be inert.
+CANONICAL_REL = "scripts/backtest_trend.py"
+
+#: Names that constitute "this module IS a trend backtest engine". `run_backtest`
+#: is the canonical entry point; `backtest` was the retired copy's. A module-level
+#: DEFINITION (or re-export/rebind) of either name makes a file an engine.
+ENGINE_ENTRY_POINTS = ("run_backtest", "backtest")
+
+#: Directories with no bearing on which engine the harness runs.
+_SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "build", "dist"}
 
 
-def _load_engine(mod_name: str, rel: str):
-    """Import one harness copy under a distinct module name (same basename)."""
-    spec = importlib.util.spec_from_file_location(
-        mod_name, os.path.join(_REPO_ROOT, rel))
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[mod_name] = mod
-    spec.loader.exec_module(mod)
-    return mod
+class GuardUnavailable(RuntimeError):
+    """The guard could not perform its check (exit 2, not a finding)."""
 
 
-def declared_flags(rel: str) -> set:
-    """The CLI flags a harness copy actually declares (argparse call sites)."""
-    with open(os.path.join(_REPO_ROOT, rel), encoding="utf-8") as fh:
-        src = fh.read()
-    return set(re.findall(r"add_argument\(\s*['\"](--[a-z0-9-]+)['\"]", src))
+def find_engine_files(root: str) -> List[str]:
+    """Every ``backtest_trend.py`` in the tree, repo-relative, sorted."""
+    out: List[str] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
+        if "backtest_trend.py" in filenames:
+            out.append(os.path.relpath(
+                os.path.join(dirpath, "backtest_trend.py"), root))
+    return sorted(out)
 
 
-def load_candles(path: str, resample: Optional[str]) -> pd.DataFrame:
-    df = pd.read_csv(path) if not path.endswith(".parquet") else pd.read_parquet(path)
-    cols = {c.lower(): c for c in df.columns}
-    if "timestamp" not in cols and "ts" in cols:
-        df = df.rename(columns={cols["ts"]: "timestamp"})
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
-    df = df.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
-    if resample:
-        rule = resample.strip().lower()
-        if rule.endswith("m") and not rule.endswith("min"):
-            rule = rule[:-1] + "min"
-        df = (df.set_index("timestamp")
-              .resample(rule, label="right", closed="right")
-              .agg({"open": "first", "high": "max", "low": "min", "close": "last"})
-              .dropna().reset_index())
-    return df
+def declared_flags(rel: str, root: Optional[str] = None) -> set:
+    """The CLI flags a file actually declares (argparse call sites)."""
+    with open(os.path.join(root or _REPO_ROOT, rel), encoding="utf-8") as fh:
+        return set(re.findall(r"add_argument\(\s*['\"](--[a-z0-9-]+)['\"]", fh.read()))
 
 
-def _frozen_atr_variant(resr, df: pd.DataFrame, donchian: int, atr_p: int,
-                        stop: float, trail: float, timeout: int) -> List[float]:
-    """The RESEARCH engine's exit loop with ONLY the trail ATR basis frozen.
+def engine_entry_points(rel: str, root: Optional[str] = None) -> Dict[str, Any]:
+    """Which engine entry points *rel* exposes — read STATICALLY from its AST.
 
-    Everything else — the flip exit, warm-up, entry rule — is the research
-    engine's, so the returned R-list differs from the unmodified research run
-    on exactly one axis: ``a`` is the entry bar's ATR instead of the managed
-    bar's. That isolation is the point; it is not a third engine anyone runs.
+    THE DETECTION CONTRACT. A retired copy is one that DEFINES no engine entry
+    point. We do not read the file's prose, look for a marker comment, or trust
+    a class name: a ``def run_backtest(...)`` node in the module's AST is a fact
+    about the code, a docstring saying "RETIRED" is a claim. The retired shim
+    serves its names through a module-level ``__getattr__`` and defines none, so
+    it reads as absent — which is the point.
+
+    WHY STATIC AND NOT ``getattr`` ON AN IMPORTED MODULE. The first version of
+    this guard imported each copy and probed it. That is a stricter check in a
+    full environment and USELESS in the one that matters: the ``guards`` CI job
+    installs no third-party packages, so ``scripts/backtest_trend.py`` raised
+    ``ModuleNotFoundError: No module named 'pandas'`` and the guard could not
+    confirm its own baseline. It correctly refused to pass (a "no second engine"
+    verdict computed with zero engines visible is vacuous) — but "the guard
+    cannot run in CI" is not a workable resting state, and weakening the
+    denominator assertion to make it green would have been the exact
+    green-while-measuring-nothing move this repo has a rule against.
+
+    Parsing the AST needs no dependencies, so the guard genuinely runs
+    everywhere. ``import_probe`` below still records what an import would have
+    said WHEN the module happens to be importable, purely as corroboration; a
+    disagreement between the two is itself reported rather than silently
+    preferred one way.
     """
-    atr = resr._atr(df, atr_p)
-    sig = resr._signal(df, donchian)
-    n, out, pos = len(df), [], None
-    for i in range(max(donchian, atr_p) + 1, n):
-        bar = df.iloc[i]
-        hi, lo, cl = float(bar["high"]), float(bar["low"]), float(bar["close"])
-        if pos is not None:
-            a = pos["entry_atr"]          # <-- the single isolated change
-            peak = (max(pos["peak"], hi) if pos["direction"] == "long"
-                    else min(pos["peak"], lo))
-            pos["peak"] = peak
-            if pos["direction"] == "long":
-                pos["sl"] = max(pos["sl"], peak - trail * a)
-                hit = lo <= pos["sl"]
-                r = ((pos["sl"] if hit else cl) - pos["entry"]) / pos["risk"]
-            else:
-                pos["sl"] = min(pos["sl"], peak + trail * a)
-                hit = hi >= pos["sl"]
-                r = (pos["entry"] - (pos["sl"] if hit else cl)) / pos["risk"]
-            opp = ((sig.iloc[i] == -1 and pos["direction"] == "long")
-                   or (sig.iloc[i] == 1 and pos["direction"] == "short"))
-            tmo = timeout > 0 and (i - pos["entry_i"]) >= timeout
-            if hit or opp or tmo:
-                out.append(round(r, 6))
-                pos = None
-        if pos is None:
-            s = int(sig.iloc[i])
-            if s != 0:
-                a = float(atr.iloc[i]) or 0.0
-                if a <= 0:
-                    continue
-                d = "long" if s > 0 else "short"
-                sl = cl - stop * a if d == "long" else cl + stop * a
-                risk = abs(cl - sl)
-                if risk <= 0:
-                    continue
-                pos = {"direction": d, "entry": cl, "sl": sl, "risk": risk,
-                       "peak": hi if d == "long" else lo, "entry_i": i,
-                       "entry_atr": a}
-    return out
+    root = root or _REPO_ROOT
+    path = os.path.join(root, rel)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            tree = ast.parse(fh.read(), filename=path)
+    except (OSError, SyntaxError) as exc:
+        # A file that cannot even be parsed defines nothing.
+        return {"entry_points": [], "parse_error": f"{type(exc).__name__}: {exc}",
+                "import_probe": None}
+
+    found: List[str] = []
+    for node in tree.body:                     # module level only
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.name in ENGINE_ENTRY_POINTS:
+                found.append(node.name)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            # `from backtest_trend import backtest` / `... as backtest` re-export
+            for alias in node.names:
+                bound = alias.asname or alias.name.split(".")[0]
+                if bound in ENGINE_ENTRY_POINTS:
+                    found.append(bound)
+        elif isinstance(node, ast.Assign):
+            # `backtest = _some_impl` — a rebind is still an entry point
+            for tgt in node.targets:
+                if isinstance(tgt, ast.Name) and tgt.id in ENGINE_ENTRY_POINTS:
+                    found.append(tgt.id)
+    return {"entry_points": sorted(set(found)), "parse_error": None,
+            "import_probe": _import_probe(rel, root)}
 
 
-def compare(df: pd.DataFrame, *, donchian: int, timeout: int, atr_p: int,
-            stop: float, trail: float, symbol: str, timeframe: str,
-            pipe, resr) -> Dict[str, Any]:
-    """One matched configuration through both engines, every lever OFF."""
-    pipeline = {}
-    for cooldown in (1, 0):
-        pipeline[cooldown] = pipe.run_backtest(
-            df.copy(), donchian=donchian, atr_period=atr_p, atr_stop_mult=stop,
-            trail_mult=trail, timeout_bars=timeout, cooldown_bars=cooldown,
-            timeframe=timeframe, symbol=symbol)
-    research_trades = resr.backtest(df.copy(), donchian, atr_p, stop, trail,
-                                    timeout, long_only=False, min_confidence=0.0)
-    research = resr.summarize(
-        research_trades,
-        {"symbol": symbol, "timeframe": timeframe, "donchian": donchian,
-         "atr_stop_mult": stop, "trail_mult": trail, "long_only": False}, df)
-    frozen = _frozen_atr_variant(resr, df, donchian, atr_p, stop, trail, timeout)
-    research_gross = [t.r_multiple for t in research_trades]
-    outcomes: Dict[str, int] = {}
-    for t in research_trades:
-        outcomes[t.outcome] = outcomes.get(t.outcome, 0) + 1
+def _import_probe(rel: str, root: str) -> Dict[str, Any]:
+    """Corroboration only: what ``getattr`` says WHEN the module imports.
+
+    Never load-bearing — a missing third-party dependency must not decide
+    whether a second engine exists. Reported so a mismatch with the AST read is
+    visible instead of silently resolved.
+    """
+    # Salt the module name with the root: the self-test audits several throwaway
+    # trees whose files share these paths, and a cached sys.modules entry from an
+    # earlier tree would make the probe report the PREVIOUS tree's answer.
+    mod_name = ("_trend_engine_probe_" + str(abs(hash(root))) + "_"
+                + rel.replace(os.sep, "_").replace(".", "_"))
+    try:
+        spec = importlib.util.spec_from_file_location(mod_name,
+                                                      os.path.join(root, rel))
+        if spec is None or spec.loader is None:      # pragma: no cover - defensive
+            return {"importable": False, "import_error": "no import spec",
+                    "entry_points": []}
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[mod_name] = mod
+        spec.loader.exec_module(mod)
+    except Exception as exc:  # allow-silent: the breadth IS the point — this probe is corroboration only and must never crash the guard; the reason is captured in `import_error` and printed in the report + --json, and the AST read above is what actually decides
+        return {"importable": False,
+                "import_error": f"{type(exc).__name__}: {exc}".splitlines()[0],
+                "entry_points": []}
+    found = []
+    for name in ENGINE_ENTRY_POINTS:
+        try:
+            attr = getattr(mod, name)
+        except (AttributeError, ImportError):
+            continue                                  # absent == retired
+        if callable(attr):
+            found.append(name)
+    return {"importable": True, "import_error": None, "entry_points": found}
+
+
+def audit(root: Optional[str] = None) -> Dict[str, Any]:
+    """Run the guard. Returns the report; never raises on a finding."""
+    root = root or _REPO_ROOT
+    files = find_engine_files(root)
+    if CANONICAL_REL not in files:
+        raise GuardUnavailable(
+            f"canonical engine {CANONICAL_REL} not found under {root} — the guard "
+            "cannot check convergence against a missing baseline")
+
+    canonical_flags = declared_flags(CANONICAL_REL, root)
+    canonical = engine_entry_points(CANONICAL_REL, root)
+    findings: List[Dict[str, Any]] = []
+
+    # ASSERT THE DENOMINATOR. Without this, deleting/breaking the canonical
+    # engine would leave zero engines and the guard would report a clean pass —
+    # "green while measuring nothing". The canonical copy must BE an engine.
+    if "run_backtest" not in canonical["entry_points"]:
+        findings.append({
+            "kind": "canonical_engine_missing_entry_point",
+            "file": CANONICAL_REL,
+            "detail": (f"{CANONICAL_REL} defines no `run_backtest` "
+                       f"(parse_error={canonical['parse_error']}). The guard's "
+                       "baseline is gone, so 'no second engine' would be vacuous."),
+        })
+
+    others = []
+    for rel in files:
+        if rel == CANONICAL_REL:
+            continue
+        info = engine_entry_points(rel, root)
+        flags = declared_flags(rel, root)
+        only_here = sorted(flags - canonical_flags)
+        others.append({"file": rel, "retired": not info["entry_points"],
+                       "entry_points": info["entry_points"],
+                       "parse_error": info["parse_error"],
+                       "import_probe": info["import_probe"],
+                       "declared_flags": len(flags),
+                       "flags_only_in_this_copy": only_here})
+        if info["entry_points"]:
+            findings.append({
+                "kind": "second_engine",
+                "file": rel,
+                "detail": (
+                    f"{rel} exposes engine entry point(s) "
+                    f"{info['entry_points']} — a second trend engine. The fork "
+                    "this guard exists to prevent is re-opening."
+                    + (f" It declares {len(only_here)} flag(s) the canonical "
+                       f"engine does not: {only_here}." if only_here else
+                       " It declares no flags the canonical engine lacks, but a "
+                       "second engine is a fidelity split regardless — the two "
+                       "copies disagreed about which trades exist even with "
+                       "every lever OFF.")),
+            })
+
+    # Surface any AST-vs-import disagreement instead of silently preferring one.
+    for rec in others + [{"file": CANONICAL_REL, "entry_points":
+                          canonical["entry_points"],
+                          "import_probe": canonical["import_probe"]}]:
+        probe = rec.get("import_probe") or {}
+        if probe.get("importable") and \
+                sorted(probe.get("entry_points", [])) != sorted(rec["entry_points"]):
+            findings.append({
+                "kind": "static_vs_import_disagreement",
+                "file": rec["file"],
+                "detail": (f"AST says entry points {rec['entry_points']}, importing "
+                           f"says {probe['entry_points']}. One of the two reads is "
+                           "wrong about whether this file is an engine; resolve it "
+                           "rather than picking a side."),
+            })
+
     return {
-        "config": {"donchian": donchian, "timeout_bars": timeout,
-                   "atr_period": atr_p, "atr_stop_mult": stop,
-                   "trail_mult": trail, "bars": int(len(df)),
-                   "levers": "all OFF"},
-        "pipeline_cooldown1": _slim(pipeline[1]),
-        "pipeline_cooldown0": _slim(pipeline[0]),
-        "research": _slim(research),
-        "pipeline_by_outcome": pipeline[0].get("by_outcome"),
-        "research_by_outcome": outcomes,
-        "atr_basis_isolation": {
-            "note": ("research engine, ONLY the trail ATR basis frozen to the "
-                     "entry bar (the live monitor's basis); gross R, no cost"),
-            "rolling_trades": len(research_gross),
-            "rolling_gross_r": round(sum(research_gross), 4),
-            "frozen_trades": len(frozen),
-            "frozen_gross_r": round(sum(frozen), 4),
-            "delta_gross_r": round(sum(frozen) - sum(research_gross), 4),
-            "delta_pct_of_rolling_gross_r": (
-                round((sum(frozen) - sum(research_gross))
-                      / abs(sum(research_gross)) * 100, 1)
-                if research_gross and sum(research_gross) else None),
-        },
+        "canonical": {"file": CANONICAL_REL,
+                      "entry_points": canonical["entry_points"],
+                      "declared_flags": len(canonical_flags),
+                      "import_probe": canonical["import_probe"]},
+        "population": {"files_named_backtest_trend_py": len(files),
+                       "scanned": files},
+        "other_copies": others,
+        "findings": findings,
+        "ok": not findings,
     }
 
 
-def _slim(s: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: s.get(k) for k in
-            ("total_trades", "trades_long", "trades_short", "net_total_r",
-             "net_expectancy_r", "max_drawdown_r", "win_rate_pct")}
+def _self_test() -> bool:
+    """Prove the guard is not vacuous: plant a second engine, expect a finding.
 
+    A guard nobody has watched fail is indistinguishable from a guard that
+    cannot fail. This synthesises a throwaway repo containing the canonical
+    engine plus a second copy that really does expose ``backtest``, and asserts
+    the guard flags it — and that a retired-shim copy is NOT flagged.
+    """
+    ok = True
+    with tempfile.TemporaryDirectory() as tmp:
+        os.makedirs(os.path.join(tmp, "scripts", "research"))
+        # A minimal stand-in for the canonical engine (must expose run_backtest).
+        with open(os.path.join(tmp, CANONICAL_REL), "w", encoding="utf-8") as fh:
+            fh.write("import argparse\n"
+                     "def run_backtest(df, **kw):\n    return {}\n"
+                     "def _cli():\n"
+                     "    p = argparse.ArgumentParser()\n"
+                     "    p.add_argument('--donchian')\n")
+        second = os.path.join("scripts", "research", "backtest_trend.py")
 
-def _parse_configs(spec: str) -> List[Tuple[int, int]]:
-    out = []
-    for item in spec.split(","):
-        item = item.strip()
-        if not item:
-            continue
-        d, _, t = item.partition(":")
-        out.append((int(d), int(t or 200)))
-    return out
+        # Case 1: a real second engine -> MUST be flagged.
+        with open(os.path.join(tmp, second), "w", encoding="utf-8") as fh:
+            fh.write("import argparse\n"
+                     "def backtest(df, *a, **kw):\n    return []\n"
+                     "def _cli():\n"
+                     "    p = argparse.ArgumentParser()\n"
+                     "    p.add_argument('--rolling-atr-trail')\n")
+        rep = audit(tmp)
+        hit = [f for f in rep["findings"] if f["kind"] == "second_engine"]
+        good = bool(hit) and "--rolling-atr-trail" in str(hit)
+        print(f"  self-test 1 (planted second engine is flagged, with its "
+              f"extra flag named): {'PASS' if good else 'FAIL'}")
+        ok &= good
+
+        # Case 2: a retired shim -> MUST NOT be flagged, even though its source
+        # still contains argparse flags the canonical engine lacks.
+        with open(os.path.join(tmp, second), "w", encoding="utf-8") as fh:
+            fh.write(textwrap.dedent('''\
+                """RETIRED. Historical CLI mentioned add_argument('--rolling-atr-trail')."""
+                class RetiredEngineError(ImportError):
+                    pass
+                def __getattr__(name):
+                    if name.startswith("__") and name.endswith("__"):
+                        raise AttributeError(name)
+                    raise RetiredEngineError("retired")
+                '''))
+        rep = audit(tmp)
+        good = rep["ok"] and rep["other_copies"][0]["retired"]
+        print(f"  self-test 2 (retired shim is NOT flagged, detected by absent "
+              f"entry point not by prose): {'PASS' if good else 'FAIL'}")
+        ok &= good
+
+        # Case 3: canonical engine broken -> MUST be flagged (no vacuous pass).
+        with open(os.path.join(tmp, CANONICAL_REL), "w", encoding="utf-8") as fh:
+            fh.write("# the engine went away\n")
+        rep = audit(tmp)
+        good = any(f["kind"] == "canonical_engine_missing_entry_point"
+                   for f in rep["findings"])
+        print(f"  self-test 3 (missing canonical engine is a finding, not a "
+              f"clean pass): {'PASS' if good else 'FAIL'}")
+        ok &= good
+    return ok
 
 
 def main(argv: List[str]) -> int:
     p = argparse.ArgumentParser(
-        description="Measure the two backtest_trend.py engines' divergence.")
-    p.add_argument("--data", default=os.path.join(_REPO_ROOT,
-                                                  "data/backtest_candles.csv"))
-    p.add_argument("--resample", default="5min")
-    p.add_argument("--symbol", default="BTCUSDT")
-    p.add_argument("--timeframe", default=None,
-                   help="Label only (defaults to --resample).")
-    p.add_argument("--configs", default="20:200,30:200",
-                   help="CSV of donchian:timeout_bars pairs.")
-    p.add_argument("--atr-period", type=int, default=14)
-    p.add_argument("--atr-stop-mult", type=float, default=2.5)
-    p.add_argument("--trail-mult", type=float, default=3.0)
-    p.add_argument("--json", dest="json_out", default=None)
+        description="Guard: exactly one trend-harness engine may exist.")
+    p.add_argument("--json", dest="json_out", default=None,
+                   help="Write the full report as JSON ('-' for stdout).")
+    p.add_argument("--self-test", action="store_true",
+                   help="Prove the guard catches a planted second engine.")
     a = p.parse_args(argv[1:])
 
-    pipe = _load_engine("_bt_trend_pipeline", PIPELINE_REL)
-    resr = _load_engine("_bt_trend_research", RESEARCH_REL)
-    pf, rf = declared_flags(PIPELINE_REL), declared_flags(RESEARCH_REL)
+    if a.self_test:
+        print("trend-engine-convergence-guard self-test")
+        return 0 if _self_test() else 1
 
-    df = load_candles(a.data, a.resample)
-    results = [compare(df, donchian=d, timeout=t, atr_p=a.atr_period,
-                       stop=a.atr_stop_mult, trail=a.trail_mult,
-                       symbol=a.symbol, timeframe=a.timeframe or a.resample,
-                       pipe=pipe, resr=resr)
-               for d, t in _parse_configs(a.configs)]
+    try:
+        report = audit()
+    except GuardUnavailable as exc:
+        print(f"trend-engine-convergence-guard: COULD NOT CHECK — {exc}",
+              file=sys.stderr)
+        return 2
 
-    payload = {
-        "data": a.data, "resample": a.resample, "symbol": a.symbol,
-        "bars": int(len(df)),
-        "population": {
-            "data_start": str(df["timestamp"].iloc[0]) if len(df) else None,
-            "data_end": str(df["timestamp"].iloc[-1]) if len(df) else None,
-            "configs_compared": len(results),
-        },
-        "flag_matrix": {
-            "pipeline_file": PIPELINE_REL, "pipeline_flags": len(pf),
-            "research_file": RESEARCH_REL, "research_flags": len(rf),
-            "only_pipeline": sorted(pf - rf), "only_research": sorted(rf - pf),
-            "shared": len(pf & rf),
-        },
-        "live_faithful_engine": {
-            "file": PIPELINE_REL,
-            "axis": "trail ATR basis",
-            "evidence": ("src/units/strategies/trend_donchian.py freezes the "
-                         "entry ATR into meta['atr']; monitor() trails off "
-                         "that frozen value (rolling recompute is the legacy "
-                         "fallback for packages missing the key)"),
-        },
-        "results": results,
-    }
-
-    print(f"trend-harness divergence — {a.symbol} {a.resample}, "
-          f"{len(df)} bars ({payload['population']['data_start']} -> "
-          f"{payload['population']['data_end']}), "
-          f"{len(results)} configurations compared")
-    print(f"  flags: {PIPELINE_REL} declares {len(pf)}; {RESEARCH_REL} declares "
-          f"{len(rf)}; {len(pf & rf)} shared, {len(pf - rf)} pipeline-only, "
-          f"{len(rf - pf)} research-only")
-    for r in results:
-        c = r["config"]
-        print(f"\n  donchian={c['donchian']} timeout={c['timeout_bars']} "
-              f"(levers {c['levers']}):")
-        for label, key in (("pipeline (cooldown=1)", "pipeline_cooldown1"),
-                           ("pipeline (cooldown=0)", "pipeline_cooldown0"),
-                           ("research", "research")):
-            s = r[key]
-            print(f"    {label:<22} trades={s['total_trades']:>4} "
-                  f"net_R={s['net_total_r']:>9.3f} "
-                  f"exp_R={s['net_expectancy_r']:>7.3f}")
-        iso = r["atr_basis_isolation"]
-        print(f"    ATR-basis isolation: rolling {iso['rolling_trades']} trades "
-              f"{iso['rolling_gross_r']:+.3f} gross R -> frozen "
-              f"{iso['frozen_trades']} trades {iso['frozen_gross_r']:+.3f} "
-              f"(delta {iso['delta_gross_r']:+.3f} R"
-              + (f", {iso['delta_pct_of_rolling_gross_r']:+.1f}%)"
-                 if iso["delta_pct_of_rolling_gross_r"] is not None else ")"))
+    c = report["canonical"]
+    print(f"trend-engine-convergence-guard — canonical {c['file']} "
+          f"(defines {c['entry_points']}, {c['declared_flags']} flags); "
+          f"{report['population']['files_named_backtest_trend_py']} file(s) named "
+          f"backtest_trend.py scanned")
+    for o in report["other_copies"]:
+        state = "RETIRED (no engine entry point)" if o["retired"] else \
+                f"ENGINE — exposes {o['entry_points']}"
+        print(f"  {o['file']}: {state}")
+    if report["ok"]:
+        print("OK — exactly one trend-harness engine.")
+    else:
+        print(f"\nFAIL — {len(report['findings'])} finding(s):", file=sys.stderr)
+        for f in report["findings"]:
+            print(f"  [{f['kind']}] {f['file']}\n      {f['detail']}",
+                  file=sys.stderr)
 
     if a.json_out:
-        blob = json.dumps(payload, indent=2, default=str)
+        blob = json.dumps(report, indent=2, default=str)
         if a.json_out == "-":
             print(blob)
         else:
             with open(a.json_out, "w", encoding="utf-8") as fh:
                 fh.write(blob)
             print(f"JSON -> {a.json_out}", file=sys.stderr)
-    return 0
+    return 0 if report["ok"] else 1
 
 
 if __name__ == "__main__":

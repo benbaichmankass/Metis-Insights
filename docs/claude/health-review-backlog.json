@@ -10816,7 +10816,7 @@
       "source": "Found while measuring the two backtest_trend.py engines for BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE. Measured on main @bf72205.",
       "title": "A LIVE armed Tier-3 trail lever (trend_donchian trail_decay_arm_r 6.49) was tuned on the harness whose trail uses a ROLLING ATR, while the live monitor trails off the FROZEN entry ATR",
       "tier": 3,
-      "status": "open",
+      "status": "resolved_hold",
       "snoozed_until": null,
       "severity": "high",
       "what_to_check": "config/strategies.yaml::trend_donchian declares trail_decay_arm_r: 6.49 and trail_decay_tight_mult: 2.5 TODAY (execution: live, BTCUSDT 1h) - an armed, order-affecting exit lever. src/runtime/trail_decay.py and src/runtime/trail_vol.py both name scripts/research/backtest_trend.py as their 'Harness reference'.\n\nBut that harness is NOT the live-faithful one. Measured 2026-08-08 (scripts/research/trend_harness_divergence.py; population BTCUSDT 2022-07-23->27, 1001 5m bars, n=21-35/config, levers OFF): the research engine multiplies the CURRENT bar's rolling ATR on every managed bar, while trend_donchian.order_package freezes the entry ATR into meta['atr'] and monitor() trails off that frozen value. Isolating that axis alone moves gross R by -34.0% / -23.0% / +41.2% across three configs.\n\nWHY IT MATTERS: trail_decay's whole job is to TIGHTEN trail_mult once peak open profit reaches arm_r. Both the R path that reaches 6.49 and the stop path the tightened mult then produces depend on the baseline trail's distance - which is the thing that differs. So the arm threshold and tight mult were fitted against a trail that behaves differently from the one running on real money. This is NOT an assertion that 6.49 is wrong; it is that its evidence base does not reproduce the live trail, and nothing has measured the gap.\n\nNOT a live incident: the lever is reductive (tightens a stop, never loosens it - trail_decay re-loosens the MULT on a new peak but the caller's price ratchet never loosens the STOP), so the failure mode is a suboptimal exit, not an unprotected position.",
@@ -10828,8 +10828,12 @@
         "docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md 5f",
         "src/runtime/trail_decay.py",
         "src/runtime/trail_vol.py",
-        "scripts/research/trend_harness_divergence.py"
-      ]
+        "scripts/research/trend_harness_divergence.py",
+        "docs/research/M20-trail-decay-resweep-2026-08-09.md",
+        "scripts/research/m20_trail_resweep.py"
+      ],
+      "resolution": "RESOLVED 2026-08-09 as HOLD-AT-2.5 (operator approved the retune conditional on testing it; the test withdrew it). Re-sweep on the converged engine confirmed the live cell arm6.49/tight2.5 fails the exit gate on IS maxDD (+0.4220R, 14.7968 -> 15.2188) -- reproduced on BOTH the date-restricted and full-tape-split bases (bases_agree: true), so the tuning-basis defect is real. But per-trade attribution (scripts/research/m20_trail_attribution.py; trainer-diag #8672/#8676/#8677) shows the proposed tight_mult 2.0 is NOT the fix: POPULATION 250 trades, only 17 (6.8%) arm the lever and just 3 of 75 OOS. On those 17, 2.0 is WORSE by 1.8395R -- it gains exactly +0.2R on 14 trades (the mechanical (2.5-2.0)*ATR / (2.5*ATR) when both arms stop on the same bar) and loses 4.6395R on 3 where the tighter stop fired earlier. Its apparent +0.2960R aggregate edge is a SEQUENCING artifact: the residual +2.1355R comes from 3 trades present in only one book (2 unique to live, 1 to proposed) after one shifted exit moved next_idx over a week in June 2023. Negative at every arm with a usable sample (3.0/4.0/5.0/6.49); only arm 8.0 is positive and it is TOO_THIN (n=7). Config UNCHANGED. Two bounds: the lever vs OFF is +9.53R at identical full-tape maxDD (27.3002 across all three arms), so the lever earns its place and option B (remove) is also unsupported; and nothing can fire below 6.49R peak, which 2026 has not reached (max 4.593 over 35 trades). Memo: docs/research/M20-trail-decay-resweep-2026-08-09.md (superseding section).",
+      "resolved_at": "2026-08-09"
     },
     {
       "id": "BL-20260808-FUNDING-PULLER-SAME-RANGE-CAP-EXPOSURE",
@@ -10853,7 +10857,7 @@
       "source": "Deferred OUT of PR #8633 after CI (pytest-collect + pytest-run) caught an attempt to retire the engine in that PR. Measured on the #8633 branch @2fb2081a.",
       "title": "scripts/research/backtest_trend.py cannot be retired yet: 8 importers, 5 of them test files whose assertions ARE the only executable record of that engine's semantics",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "severity": "medium",
       "what_to_check": "PR #8633 converged the FLAGS (all 15 research-only levers ported into scripts/backtest_trend.py, byte-identical at default; research-only flag count 15 -> 0) but deliberately did NOT retire the losing engine. POPULATION for the consumer sweep: the whole repo, `grep -rn 'from backtest_trend import'` (NOT a path grep - see the trap below). EIGHT importers, measured: scripts/research/regime_adx_cutpoint_sweep.py (_load, _resample) | scripts/research/regime_tag_emitted.py (_load, _resample) | scripts/research/regime_matrix.py (_load, _resample, backtest) | tests/test_skip_hours_lever.py (backtest) | tests/test_confirm_bars_live_twin.py (backtest) | tests/test_confirm_bars_lever.py (backtest) | tests/test_vol_conditional_trail_lever.py (backtest as trend_backtest) | tests/test_vol_at_entry_lever.py (backtest as trend_backtest). The five TEST files are the blocker, not the three scripts: their assertions encode the research engine's OWN semantics (rolling current-bar ATR trail, opposite-signal flip exit, post-exit cooldown, its fee basis and win-rate denominator). They are currently the only executable record of what that engine does, i.e. the evidence a future session would need to re-confirm the convergence direction. Deleting the engine without migrating them destroys that record silently. THE TRAP THAT CAUSED THIS (reusable, worth more than the row): the original sweep grepped for the PATH 'scripts/research/backtest_trend' and returned CLEAN. Every real importer uses the BARE MODULE NAME resolved through sys.path, so the path grep under-reported over a population it structurally could not see - an unasserted-denominator read (CLAUDE.md 'Diagnostic provenance' sub-class C) applied to a code sweep rather than a diagnostic. When sweeping for consumers of a Python module in this repo, grep the MODULE NAME, never the path.",
@@ -10869,8 +10873,14 @@
         "scripts/research/backtest_trend.py",
         "scripts/research/trend_harness_divergence.py",
         "tests/test_trend_harness_levers.py",
-        "docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md 5f"
-      ]
+        "docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md 5f",
+        "scripts/candle_io.py",
+        "tests/trend_harness_engine.py",
+        "scripts/ci/run_guards.py"
+      ],
+      "resolved_at": "2026-08-09T00:00:00+00:00",
+      "resolved_by": "claude (M20 trend-harness workstream ipa3ce)",
+      "resolution": "RETIRED. Sequence landed in one PR: (1) all 5 coupled test files migrated onto the live-faithful scripts/backtest_trend.py via tests/trend_harness_engine.py — 4 were engine-INDEPENDENT (entry-side assertions; both engines agreed on the entry bar, so no number moved) and 1, tests/test_vol_conditional_trail_lever.py, was genuinely engine-SPECIFIC and was PORTED with re-derived numbers (its tape's trade SET differs: research 1 trade/base vs live-faithful 2, and the gated long moves from exit 07:00 r+0.6786 to exit 08:00 r+1.6786 — population in that file's docstring). 30 tests before, 30 after. (2) _load/_resample lifted VERBATIM to scripts/candle_io.py (proved identical: 5000 rows DataFrame.equals True, 4 resample rules identical) and the two IO-only scripts repointed; regime_matrix.py took the real engine swap. (3) The engine became a hard-fail shim (module-level __getattr__ raising RetiredEngineError) rather than a deletion — importable so the guard can confirm it exposes no entry point, but any attribute access fails with the migration map. (4) trend_harness_divergence.py became the trend-engine-convergence-guard, wired into scripts/ci/run_guards.py with when:None. RE-VERIFIED regime_matrix across the swap (the operator's explicit ask): on the committed smoke corpus (BTCUSDT 1h, 84 bars, 2022-07-23 22:00Z->2022-07-27 09:00Z, dc20/atr14/stop2.5/trail5.0) it moves from 1 trade +1.5727 net R in the TRENDING bucket to 1 trade -0.2246 in TRANSITIONAL — sign flip and bucket change, 100% attributable to the engine (cooldown 0/1/3 and timeout 200/10000 all give -0.2246 on this corpus). n=1, so DIRECTION only. Consequence recorded in the module docstring: any regime-matrix number from before 2026-08-09 was produced on the engine the live strategy does not match."
     },
     {
       "id": "BL-20260808-INERT-CONDITIONAL-SHIPPED-AS-A-BEHAVIOUR-CHANGE",
@@ -10903,7 +10913,7 @@
       "source": "Found while qualifying the FIRST measured exit-head replay result (issue #8653, trainer-diag #8656). Measured on the trainer @247f025c.",
       "title": "Exit-head artifacts DON'T RECORD their training window (train_start/train_end), so a replay's in-sample fraction can't be read off the artifact — though the exporter already holds the rows needed to write it",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "severity": "medium",
       "what_to_check": "MEASURED on the trainer (#8656): exit-head-donchian-1h-v1.json carries trained_at=2026-07-12T14:44:43Z, train_rows=34338, train_trades=1662, symbols=[BTCUSDT,ETHUSDT,SOLUSDT], tf=1h, shape={policy:below_half_r,tau:0.1,below_r:0.5}, 14 features, evidence='docs/research/M20-exit-refinement-2026-07-12.md 9'. No train_start / train_end / dataset id. CORRECTED CLAIM — checked: scripts/ml/export_exit_head.py + scripts/ml/build_exit_head_dataset.py. An earlier draft of this row said the window 'cannot be computed'. That is FALSE and impossibility-claim-guard caught it, correctly: export_exit_head.py:70-82 builds the artifact dict while `rows` is in scope, and those rows come from harness emit JSONLs (build_exit_head_dataset.py --trades) which carry per-trade timestamps. So the window IS derivable AT EXPORT TIME (min/max over rows) — it is simply never written. What is genuinely true is narrower: the window is not recoverable FROM THE ARTIFACT ALONE by a downstream consumer, and `trained_at` is the wall-clock moment of fitting, not the data bound, so the two must not be used interchangeably. WHY IT MATTERS: the first measured exit-head replay (#8653) scored 2026-02-09 -> 2026-08-07 and reported delta_gross_r +10.804 on n=31 trades (30 scored, 24 re-resolved), baseline -11.826R -> replayed -1.022R. Assessing how much of that is in-sample required INFERRING from trained_at that the data ends ~2026-07-12, implying ~5 of 6 replayed months sit at-or-before fitting time and only ~26 days are forward. POPULATION: train_trades=1662 across three symbols vs 31 BTC-only trades replayed (~54x), a second reason the delta is not an edge. This is the diagnostic-provenance class one level upstream: the replay's output cannot state its own derivation (in-sample vs forward) because the artifact it consumes drops a fact its producer had in hand.",
@@ -10920,8 +10930,12 @@
         "scripts/ml/exit_head_replay.py",
         "docs/research/M20-exit-refinement-2026-07-12.md",
         "scripts/ml/export_exit_head.py",
-        "scripts/ml/build_exit_head_dataset.py"
-      ]
+        "scripts/ml/build_exit_head_dataset.py",
+        "tests/test_exit_head_training_window.py"
+      ],
+      "resolved_at": "2026-08-09T00:00:00+00:00",
+      "resolved_by": "claude (M20 trend-harness workstream ipa3ce)",
+      "resolution": "BOTH halves shipped. (1) scripts/ml/export_exit_head.py now writes train_start / train_end / train_window_coverage / train_dataset beside the existing trained_at, derived by the new pure helper training_window(rows) from each row's `bar_t` (epoch seconds of the in-trade bar, written by build_exit_head_dataset.py) — the data the exporter already held. HONEST-NULL: a row set with no usable bar_t yields None rather than a manufactured date, and train_window_coverage reports the fraction of rows that actually carried one, so a partially-stamped dataset cannot pass as a fully-measured window. (2) scripts/ml/exit_head_replay.py now emits an `in_sample_split` block via the pure helper split_in_sample(): in_sample_bars / forward_bars / in_sample_trades / forward_trades plus a FORWARD-ONLY baseline/replayed/delta gross R — and prints them next to the headline delta, not only into --json, because the delta alone is the number that gets quoted. `trained_at` is never substituted for `train_end` (a pre-fix artifact reports train_window_present:false and nulls throughout, and an unparseable train_end degrades to UNKNOWN rather than to epoch 0, which would have manufactured a fully-out-of-sample claim). A boundary row counts as IN-sample — the conservative direction, since the alternative inflates the forward population. 12 tests in tests/test_exit_head_training_window.py pin the arithmetic (not just the source text): on a fixture mirroring the #8653 shape the headline delta is +9.25 while the forward-only delta is +2.25. NOT DONE, deliberately: the replay window was not widened - a longer window makes the in-sample fraction LARGER, and the fix for evidence quality is a forward-only window (start > train_end), which belongs with the M20 re-sweep."
     },
     {
       "id": "BL-20260808-PAIRS-DIVERGENCE-UNOWNED",
@@ -10981,8 +10995,47 @@
       "action": "Either drop `bot_log` from the log_file allowlist + the CLAUDE.md diag table row, or fix the resolved path to wherever the trader actually writes it. Do not leave an advertised target that can only ever answer empty.",
       "resolution_criteria": "`bot_log` either returns real content or is removed from the allowlist and the docs.",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260809-INPROCESS-HARNESS-RUNS-FEE-ONLY-SILENTLY",
+      "opened": "2026-08-09",
+      "severity": "medium",
+      "status": "open",
+      "area": "research-tooling",
+      "title": "Any in-process caller of scripts/backtest_trend.py silently runs FEE-ONLY, not the CLI cost basis",
+      "detail": "scripts/backtest_trend.py keeps FEE_BPS_ROUNDTRIP / SLIPPAGE_BPS_ROUNDTRIP / FUNDING_BPS_PER_WINDOW / FUNDING_WINDOW_HOURS as MODULE GLOBALS, initialised to slippage=0.0 and funding=0.0. main() (line ~758 'global ...', ~867-875) resolves SYMBOL-SPECIFIC values into them via execution_costs.slippage_bps_roundtrip_for(symbol) / funding_bps_per_window_for(symbol) when the CLI flags are left at their None default. So every CLI/sweep run is fee+slippage+funding (BTCUSDT: 7.5 + 5.0 + 1.0bps/8h), while ANY caller that imports the module and calls run_backtest() directly gets fee-only -- silently, with no warning and no field in the summary that differs. MEASURED: identical 175-trade book, maxDD 13.2595 (in-process) vs 14.7968 (CLI), net_total_r 53.862 vs 42.3766. That is a >10% swing on the exact number an exit gate verdict is read off. Found because a maxDD reconciliation disagreed with the sweep it was reconciling against (trainer-diag #8676). scripts/research/m20_trail_attribution.py is FIXED (apply_cost_basis(), --cost-basis default 'cli', effective terms printed beside the population). The TRAP is not fixed: scripts/ml/exit_head_replay.py loads the same harness via _load_harness() and any future in-process research script will hit it. Candidate fixes, in order of preference: (a) have run_backtest() resolve the symbol defaults itself when the globals are at their sentinel, so the in-process and CLI paths cannot diverge; (b) return the effective cost terms in the summary dict so a mismatch is visible in every artifact; (c) a guard in the diagnostic-provenance family that flags an in-process run_backtest() call with no explicit cost-basis resolution. (a)+(b) together are the structural fix -- (c) alone only reports the divergence.",
+      "refs": [
+        "scripts/backtest_trend.py",
+        "scripts/research/m20_trail_attribution.py",
+        "scripts/ml/exit_head_replay.py",
+        "docs/research/M20-trail-decay-resweep-2026-08-09.md"
+      ]
+    },
+    {
+      "id": "BL-20260809-TWO-CANDLE-READERS-DIVERGE-ON-JSONL",
+      "opened_at": "2026-08-09T00:00:00+00:00",
+      "opened_by": "claude (M20 trend-harness workstream ipa3ce)",
+      "source": "Found while retiring scripts/research/backtest_trend.py for BL-20260808-RESEARCH-TREND-ENGINE-RETIREMENT-BLOCKED-BY-TEST-COUPLING. Measured on main @1099001.",
+      "title": "The repo has TWO OHLCV readers and they disagree on input FORMAT, not just style: scripts/backtest_trend.py::_load_candles silently cannot read the JSONL the IBKR pull writes",
+      "tier": 1,
+      "status": "resolved",
+      "snoozed_until": null,
+      "severity": "medium",
+      "what_to_check": "MEASURED 2026-08-09 on data/backtest_candles.csv (5000 rows) plus a synthetic 5-row JSONL in the IBKR pull's shape ({ts,open,high,low,close,volume}). scripts/candle_io.py::load_candles (lifted verbatim from the retired research trend engine's _load) reads CSV + Parquet + JSONL, accepts `ts` as the timestamp column, and coerces OHLC to numeric. scripts/backtest_trend.py::_load_candles reads CSV + Parquet ONLY, requires the column to be literally `timestamp`, and does not coerce OHLC. On the SAME CSV both produce identical frames (5000 rows, DataFrame.equals True; and identical resamples at 5m/5min/1h/4h). On the JSONL, candle_io returns 5 usable rows while _load_candles raises KeyError: 'timestamp'. WHY IT MATTERS: this is why the three research scripts (regime_matrix, regime_tag_emitted, regime_adx_cutpoint_sweep) were repointed at the lifted candle_io rather than at the engine's own private reader — the naive repoint would have silently dropped JSONL support that regime_matrix and regime_tag_emitted both document reading, converting a working input into a KeyError. NOT a live-path issue: neither reader is on the order path, and no current caller feeds JSONL to _load_candles. It is a latent trap for the next person who assumes 'the engine's loader' is the general one.",
+      "proposed_fix": "Decide ONE reader and make the other delegate. Preferred: scripts/backtest_trend.py::_load_candles becomes a thin call to candle_io.load_candles, which is a strict superset for every input the engine accepts today. That change is deliberately NOT bundled into the retirement PR: _load_candles feeds the fidelity pipeline (regime_debt_matrix, the calibration corpus, the M20 sweeps), and widening its NaN-drop from 'timestamp only' to 'timestamp + OHLC' could move a number on a CSV containing an unparseable price cell — a behaviour change that needs its own before/after over the real corpora, not a footnote in a retirement. Verify by running the debt matrix + one M20 sweep before/after and asserting byte-identical output.",
+      "related": [
+        "BL-20260808-RESEARCH-TREND-ENGINE-RETIREMENT-BLOCKED-BY-TEST-COUPLING"
+      ],
+      "refs": [
+        "scripts/candle_io.py",
+        "scripts/backtest_trend.py",
+        "scripts/research/regime_matrix.py"
+      ],
+      "resolved_at": "2026-08-09T00:00:00+00:00",
+      "resolved_by": "claude (M20 trend-harness workstream ipa3ce)",
+      "resolution": "RESOLVED IN THE SAME PR, and the severity was understated when filed. I opened this as a LATENT trap ('no current caller feeds JSONL to _load_candles'). The session-end doc-freshness pass found a REAL one: scripts/research/build_continuous_contract.py writes the canonical market_raw shape as JSONL and its own docstring instructs backtesting that file with a trend harness - and the retired engine was the ONLY trend engine that could read JSONL. So the retirement BROKE a documented end-to-end workflow (roll-adjusted continuous futures -> trend backtest), which is not something to leave filed. FIX: scripts/backtest_trend.py::_load_candles now delegates to candle_io.load_candles, so there is ONE reader. VERIFIED BEFORE THE CHANGE, not assumed: 18 full-summary backtest comparisons (2 committed corpora x 5min/15min/1h x 3 configs incl. the config-exact trend_donchian block) were IDENTICAL, and the loaded frames compared equal via DataFrame.equals; then confirmed end-to-end that a JSONL file now runs through the engine (exit 0, trades=1). The shared reader is a strict superset of what the engine accepted before - it adds JSONL + the IBKR `ts` column and coerces OHLC to numeric. Two stale citations in src/units/strategies/trend_donchian.py (comment-only) and the build_continuous_contract example were repointed in the same pass."
     }
   ],
-  "updated_at": "2026-08-08T21:55:00+00:00",
+  "updated_at": "2026-08-09T00:00:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

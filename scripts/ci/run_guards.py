@@ -375,6 +375,20 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # BL-20260808-RESEARCH-TREND-ENGINE-RETIREMENT-BLOCKED-BY-TEST-COUPLING.
+        # `when: None` (always) on purpose: a second engine can be re-introduced
+        # by ADDING a file, and a globs filter scoped to the paths we know about
+        # would not fire on a copy planted somewhere new — the same
+        # population-you-cannot-see blind spot that let the fork survive a
+        # consumer sweep in the first place.
+        "name": "trend-engine-convergence-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/research/trend_harness_divergence.py", "--self-test"],
+            ["python3", "scripts/research/trend_harness_divergence.py"],
+        ],
+    },
+    {
         "name": "writer-conformance-guard",
         "when": {"globs": ["**/*.py", "**/*.sql"]},
         "steps": [["python3", "scripts/check_writer_conformance.py", "{pr_diff}"]],
