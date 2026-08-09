@@ -2,171 +2,264 @@
 
 > **Purpose:** single source of truth for which `ict-web-api.service` routes
 > are unauthenticated reads (Tier 1), session-gated reads / mutations
-> (Tier 2), and operator-controls / risk surface (Tier 3 — explicit gates,
-> never auto-callable).
+> (Tier 2), token-gated diagnostics (Tier 2.5), and operator-controls / risk
+> surface (Tier 3 — explicit gates, never auto-callable).
 >
 > **Authority:** this file is the human-facing inventory. The runtime gate
 > is the actual `Depends(require_session)` (or token check) wired in each
 > router. If they disagree, fix the code OR fix this file in the same PR
 > — they must move together.
 >
-> ## ⚠️ THIS INVENTORY IS INCOMPLETE — measured 2026-08-09
+> ## ✅ Enforced by `api-tier-policy-guard`
 >
-> **54 of 90 routes defined under `src/web/api/routers/` are absent from this
-> file (60%)** — after this PR backfilled the diag family (8 rows) and its own
-> three additions.** It says "single source of truth" above; on the completeness
-> axis that is currently false, and a reader who treats an absence here as
-> "no such route" will be wrong far more often than right.
+> A route defined under `src/web/api/routers/` **must** carry a row in this
+> file. [`scripts/check_api_tier_policy.py`](../scripts/check_api_tier_policy.py)
+> checks it in CI (diff-scoped, in the `guards` job); `--all` is the standing
+> audit and `--list` prints measured coverage.
 >
-> *Basis, so the number is reproducible and its population stated: every
-> `@router.<verb>("...")` under `src/web/api/routers/` joined to its
-> `APIRouter(prefix=...)`, checked against this file's text — **crediting the
-> Tier-2.5 family row**, which names diag leaves (`audit`, `journal`, `status`,
-> …) after a sibling full path rather than spelling each out. A naive
-> exact-string match reports 76% pre-backfill; that over-counts, because it
-> credits none of the family row. The figure was corrected twice while writing
-> this banner — 77% → 69% (crediting the family row) → 60% (after this PR's own
-> backfill) — which is itself the argument for the guard below: a hand-counted
-> completeness claim is stale the moment anyone edits the file, including the
-> person writing the claim.*
+> **Coverage, computed rather than counted: 92 of 92 routes documented (100%).**
+> *Population — every `@router.<verb>("...")` under `src/web/api/routers/`
+> joined to its `APIRouter(prefix=...)`. Verified against the live FastAPI
+> route table (`app.routes`): the enumerator finds exactly those 92 with no
+> false positives, and the only live routes it does not cover are the five
+> defined outside `routers/` — `GET /api/health` (`main.py`) and FastAPI's
+> four built-in docs routes.*
 >
-> The cause is structural, not neglect: **nothing enforces it.** Sibling
-> inventories that stay correct (`canonical-doc-coherence`,
-> `provenance-consumer-guard`, `new-table-wiring-guard`) each have a CI check
-> behind them; this one never did, so every route added since S-063 could land
-> without a row here and none of them announced itself.
+> **Why the guard exists, and why the number above is machine-derived.** From
+> S-063 (2026-05-09) to 2026-08-09 this file had no CI check behind it, so
+> every route added in that window could land without a row and **none of them
+> announced itself** — the inventory reached **60% incomplete** while still
+> calling itself the single source of truth. That is structural, not neglect:
+> every sibling inventory that stays correct (`canonical-doc-coherence`,
+> `provenance-consumer-guard`, `new-table-wiring-guard`,
+> `canonical-db-resolver`) has a guard; this one did not.
 >
-> Backfilling all 69 is a scoped cleanup, not a footnote — each row is a TIER
-> JUDGEMENT about a live surface, and guessing them in bulk would be worse than
-> the gap. Tracked as `BL-20260809-API-TIER-INVENTORY-77PCT-STALE`, which also
-> proposes the durable fix: a **diff-scoped** guard (new/changed routes must
-> carry a row; the existing 69 grandfathered) — the same shape
-> `diagnostic-provenance-guard` uses, so the backlog shrinks instead of growing.
->
-> **Until that lands, treat this file as a partial sample, not an inventory.**
-> The authoritative list of what exists is `src/web/api/routers/*.py`; the
-> authoritative list of what the consumers depend on is `CLAUDE.md` §
-> "Dashboard REST API".
+> The completeness figure was miscounted **twice** while the previous warning
+> banner was being written — 77% → 69% (once the Tier-2.5 family row was
+> credited) → 60% (after that PR's own backfill). This backfill re-derived it
+> from the guard's own code path and got **92 routes, 36 documented**, where
+> the 2026-08-09 hand count recorded **90 and 36**: the same documented count,
+> two routes apart on the denominator, two hours later. That delta is not
+> worth reconciling — it is the argument. **A hand-counted completeness claim
+> is stale the moment anyone edits the file, including the person writing the
+> claim.** Do not restate the number above by hand; run `--list`.
 >
 > **Origin:** S-063 (2026-05-09). Created when `/api/pnl/history` was
-> dropped from the JWT gate so the Vercel dashboard's Performance tab
-> could consume it without a login flow (login is S-065). The tier split
-> existed implicitly before then; this file makes it explicit.
+> dropped from the JWT gate so the dashboard's Performance tab could consume
+> it without a login flow (login is S-065). The tier split existed implicitly
+> before then; this file makes it explicit.
 
 ---
 
 ## Tier 1 — public read, no session required
 
-Read-only endpoints a consumer hits directly without a JWT.
+Endpoints a consumer hits directly without a JWT. **69 of the 92 routes**;
+`_check_admin_token` / `_require_diag_token` / `require_session` appear in
+none of them.
 
-**Correction (2026-08-09):** the paragraph here used to describe the Vercel
-rewrite proxying `/api/*` to `:8001` with CORS as the gate. That stack was
+**Adding a route here is a code change reviewed in a PR.** The route must be:
+
+1. **Read-only — never mutates state, never triggers an order.** Two routes
+   are a deliberate, narrow exception (`POST /api/bot/devices/register`,
+   `POST /api/bot/learning/progress`): both are *unauthenticated client
+   self-service writes* to an observability table — no trading impact, no
+   order path, no notification, no secret in the store. They are marked in
+   the table. **A write that touches money, an order, config, or a
+   notification does not qualify** and belongs in Tier 2.
+2. Cheap — no expensive joins, no full-table scans without a window.
+3. Safe to expose to anyone who can reach the API. Treat the threat model as
+   "the dashboard URL leaked to a hostile party".
+
+**Transport note (corrected 2026-08-09):** the rationale here used to describe
+the Vercel rewrite proxying `/api/*` with CORS as the gate. That stack was
 **retired 2026-05-12** and purged from the repo (see `CLAUDE.md` § "Dashboard
 consumer"). Today's consumers are the **Streamlit** app (server-side upstream
 call, so CORS is not load-bearing for it), the **Svelte SPA** on GitHub Pages
-(browser-direct), and the **Android** app. The tier itself is unchanged — these
-are unauthenticated reads — but the transport rationale above was two-and-a-half
-months stale and would have been read as current.
+(browser-direct), and the **Android** app. The tier is unchanged — these are
+unauthenticated reads — but the transport rationale was two-and-a-half months
+stale and read as current.
 
 | Endpoint | Source | Notes |
 |---|---|---|
-| `GET /api/health` | `src/web/api/main.py` | Liveness check. Always public. |
-| `GET /api/bot/stats` | `src/web/api/routers/dashboard.py` | Aggregated bot stats — pnl24h, totalPnL, openTrades, winRate, status, datasource, vmHealth. |
-| `GET /api/bot/logs` | `src/web/api/routers/dashboard.py` | Tail of `runtime_logs/signal_audit.jsonl`, fallback `bot.log`. |
-| `GET /api/bot/positions` | `src/web/api/routers/dashboard.py` | Open positions from `trade_journal.db`. |
-| `GET /api/bot/signals` | `src/web/api/routers/dashboard.py` | Recent ICT detections from `signal_audit.jsonl`. |
-| `GET /api/pnl/history?days=N` | `src/web/api/routers/pnl_history.py` | **Added S-063 (2026-05-09).** Per-day realised P&L for the dashboard Performance tab. Returns `PnlHistoryPoint[]` (`{date, pnl, trades}`). `days` clamped to 1..90. |
-| `GET /api/bot/trades/closed?limit=N&since=ISO_TS` | `src/web/api/routers/trades_closed.py` | **Added S-557 (2026-05-09).** Closed (live, non-backtest) trades for the dashboard Journals tab. `trade_journal.db::trades WHERE status='closed'` LEFT JOIN `order_packages` for the closed-at proxy. `limit` clamped to 1..200 (default 50); `since` filters by closed-at; newest-first. |
-| `GET /api/bot/liquidity?symbol=X&limit=N&sweeps_limit=N` | `src/web/api/routers/liquidity.py` | **Added S-064 (2026-05-09).** Per-symbol liquidity zones (equal highs / lows / recent sweeps) for the dashboard Liquidity Maps tab. Reads `runtime_logs/liquidity_state.json` (written per tick by the pipeline; see S-064 prereq). `limit` / `sweeps_limit` clamped to 1..100. Empty / missing file → 200 with empty arrays. |
-| `GET /api/bot/config` | `src/web/api/routers/bot_config.py` | **Added S-064 (2026-05-09).** Read-only effective config view (accounts, strategies, risk caps, halt flag, live/dry per account) for the dashboard Settings tab. Allowlist for accounts; recursive secret-key denylist for strategy params. Never echoes `api_key_env` / `api_secret_env` field values. |
-| `GET /api/bot/backtests?limit=N&strategy=X` | `src/web/api/routers/backtests.py` | **Added M5 P4 (2026-05-10).** Recent rows from `trade_journal.db::backtest_results` (populated by the M5 `/test <strategy>` consumer) for the dashboard Backtests tab. Returns headline metrics only (id, strategy, dates, totals, winRate, profitFactor, expectancy, sharpeRatio, maxDrawdownPct, totalPnl, createdAt). `limit` clamped 1..200 (default 50); `strategy` is an optional exact-match filter against `strategy_version`; newest-first by id. Missing DB / missing table both collapse to `[]`. |
-| `GET /api/bot/exposure/soak?limit=N&account_id=X&measured_only=BOOL` | `src/web/api/routers/exposure.py` | **Added 2026-08-09 (#8684).** Newest-first tail of the gross-exposure observation soak + a per-account `max_multiple` roll-up (read it beside `measured_n`). Observe-only; connection-free. |
-| `GET /api/bot/health/latest` | `src/web/api/routers/health_snapshots.py` | **Added 2026-05-11 (#820).** Most recent `artifacts/health/latest.json`. Envelope `{present, path, snapshot}`. Drives the dashboard System Health tab's summary strip + per-check grid. |
-| `GET /api/bot/health/history?hours=N&include_payload=BOOL` | `src/web/api/routers/health_snapshots.py` | **Added 2026-05-11 (#820).** Newest-first list of `artifacts/health/health_check_<TS>.json` snapshots within the lookback window. `hours` clamped 1..336 (default 24). `include_payload=true` embeds the full JSON for each row (used by the modal "view raw" path). |
-| `GET /api/bot/health/snapshot?lines=N` | `src/web/api/routers/health_snapshots.py` | **Added 2026-05-11 (#820).** Tail of `artifacts/health/health_snapshot.txt`. `lines` clamped 1..5000 (default 200). |
-| `GET /api/bot/health/services` | `src/web/api/routers/health_snapshots.py` | **Added 2026-05-11 (#820).** `systemctl show` state for the allowlisted bot units (`ict-trader-live.service`, `ict-web-api.service`). Returns `{systemctl_available, services: [{unit, state, sub_state, active_enter_iso}, ...]}`. Unit allowlist is hardcoded — no arbitrary `systemctl` query surface (those remain in Tier 2.5 `/api/diag/services`). |
-| `GET /api/bot/trades/scores?limit=N&include_open=BOOL` | `src/web/api/routers/trade_scores.py` | **Added 2026-05-11 (#820).** Joins each trade's `openedAt → closedAt` window against `runtime_logs/shadow_predictions.jsonl` and returns per-`model_id` aggregates (count, first/last/min/max/mean). `limit` clamped 1..200 (default 50). Drives the dashboard Journals tab's "Model scores" column. Empty `scores: []` per trade when the shadow log is absent. |
-| `GET /api/bot/reports?limit=N&window=X` | `src/web/api/routers/reports.py` | **Added 2026-06-22.** Newest-first index of consolidated **system reports** (the `/system-report` master skill's output) from `comms/reports/index.json`. `limit` clamped 1..500 (default 50); `window` filters ∈ {since-last,daily,weekly,monthly}. File-backed, read-only, no secrets, no DB table. Drives the "Reports" log of links in the dashboard + Android app. |
-| `GET /api/bot/reports/{report_id}` | `src/web/api/routers/reports.py` | **Added 2026-06-22.** One report's index metadata + its rendered self-contained `report.html` body. 404 on unknown id; artifact paths validated under `comms/reports/` (no path traversal). |
-| `GET /` | UI surface | Login redirect target. |
-| `GET /login` | UI surface | Login page. |
-| `GET /static/*` | `app.mount("/static", ...)` | Static assets. |
-
-**Adding a route here is a code change reviewed in a PR.** The route
-must be:
-
-1. Read-only — never mutates state, never triggers an order.
-2. Cheap — no expensive joins, no full-table scans without a window.
-3. Safe to expose to anyone who can hit the dashboard's CORS origin
-   (which today is just `DASHBOARD_ORIGIN`, but treat the threat
-   model as "the dashboard URL leaked to a hostile party").
+| `GET /api/health` | `src/web/api/main.py` | Liveness check. Always public. Defined outside `routers/`, so outside the guard's population. |
+| `GET /api/bot/accounts/balances` | `routers/accounts.py` | Latest per-account balance snapshot from `trade_journal.db::balance_snapshots` (JSON file fallback; `source` records which served). **Read-only and connection-free — never opens an exchange socket.** |
+| `GET /api/bot/allocator/soak` | `routers/allocator.py` | M18 P0c capital-allocator shadow-soak tail: would-pick vs actually-routed + regret, on ≥2-candidate ticks. Observe-only; nothing reads it back. |
+| `GET /api/bot/backtests` | `routers/backtests.py` | **Added M5 P4 (2026-05-10).** Rows from `trade_journal.db::backtest_results` (the on-demand `/test <strategy>` consumer). Headline metrics only; `limit` clamped 1..200; missing DB / table both collapse to `[]`. |
+| `GET /api/bot/backtests/sweeps` | `routers/backtests.py` | Strategy-improvement / validation sweeps mirrored from the trainer VM (`runtime_logs/trainer_mirror/backtests/`). File-backed; newest-first by date. |
+| `GET /api/bot/candles` | `routers/candles.py` | OHLCV from the same exchange the strategies trade the symbol on (Bybit / IBKR), via the signal builders' own fetcher. **The one Tier-1 route that reaches an external venue** — bounded by a short in-process cache and a shared single-worker executor that serialises IB access. Best-effort: empty `candles` + `error` on any failure. |
+| `GET /api/bot/config` | `routers/bot_config.py` | **Added S-064 (2026-05-09).** Effective config view (accounts, strategies, risk caps, halt flag, live/dry per account). Allowlist for accounts; recursive secret-key denylist for strategy params. **Never echoes `api_key_env` / `api_secret_env` values** — the redaction is what keeps this Tier 1. |
+| `GET /api/bot/db/tables` | `routers/db_explorer.py` | Federated read-only schema overview across `trade_journal.db` + the `trainer_store.db` sidecar; each table tagged with its owning `db`. Neither DB holds a secret. |
+| `GET /api/bot/db/table/{table}` | `routers/db_explorer.py` | One paginated page of a table. **SELECT-only** on a read-only (`mode=ro`) connection; table/column identifiers validated against the live schema (no identifier injection), filter values bound; `limit` 1..500; 404 on unknown table. |
+| `GET /api/bot/devices/event-kinds` | `routers/devices.py` | The canonical push event-kind taxonomy (`src.runtime.mobile_push.event_kinds`), so the Android Notifications screen needn't mirror the list. Static data, no device rows, **ungated** — unlike its siblings in the Tier-2 token table below. |
+| `POST /api/bot/devices/register` | `routers/devices.py` | ⚠️ **WRITE — Tier-1 carve-out (1) above.** Upsert a device by its FCM token; idempotent on token. **No gate** (`_check_admin_token` is not called here): a device must be able to enrol itself before it holds any credential. The raw token is never echoed back — only `token_suffix` (last 8 chars). Unknown subscription kinds → 400. |
+| `GET /api/bot/exit-ladder/soak` | `routers/exit_ladder.py` | ExitPlan laddered-vs-single-target shadow soak (dynamic-take-profit P3). Observe-only — nothing reads it back to drive an exit. |
+| `GET /api/bot/exposure/soak` | `routers/exposure.py` | **Added 2026-08-09 (#8684).** Gross-exposure observation soak + a per-account `max_multiple` roll-up (read it beside `measured_n`). Observe-only; connection-free. |
+| `GET /api/bot/fc-geometry/soak` | `routers/fc_geometry.py` | M19 D1 fc-geometry soak: placed SL/TP beside the decision-time quantile-forecast snapshot. Observe-only. |
+| `GET /api/bot/gpu/spend` | `routers/gpu_spend.py` | M19 spot-GPU burst spend vs the $10/month cap, from the committed `comms/gpu_spend_ledger.json`. Best-effort: missing/garbled ledger → zeroed envelope, never a 5xx. |
+| `GET /api/bot/health/latest` | `routers/health_snapshots.py` | **Added 2026-05-11 (#820).** Most recent `artifacts/health/latest.json`, as `{present, path, snapshot}`. |
+| `GET /api/bot/health/history` | `routers/health_snapshots.py` | **Added 2026-05-11 (#820).** Newest-first snapshots within the window; `hours` clamped 1..336 (default 24); `include_payload=true` embeds each full JSON. |
+| `GET /api/bot/health/snapshot` | `routers/health_snapshots.py` | **Added 2026-05-11 (#820).** Tail of `artifacts/health/health_snapshot.txt`; `lines` clamped 1..5000 (default 200). |
+| `GET /api/bot/health/services` | `routers/health_snapshots.py` | **Added 2026-05-11 (#820).** `systemctl show` state for the allowlisted bot units. **The unit allowlist is hardcoded** — no arbitrary `systemctl` query surface (that stays behind Tier 2.5 `/api/diag/services`), which is the whole reason this one is Tier 1. |
+| `GET /api/bot/insights/summary` | `routers/insights.py` | M13 AI-analyst narrative. **Cache-only read path — the router never calls Anthropic and never imports the SDK**; it serves whatever the generator timer last wrote. Cache miss → 200 placeholder envelope. No API key is reachable from this route. |
+| `GET /api/bot/insights/recent` | `routers/insights.py` | Same cache-only contract; echoes the requested `limit` back as `requested_limit` so a consumer can compare it against what the cache reflects. |
+| `GET /api/bot/insights/strategy/{name}` | `routers/insights.py` | Same cache-only contract. `name` is validated against `[a-z0-9_]+` before the lookup, keeping the read inside the insights dir (400 otherwise). |
+| `GET /api/bot/insights/health` | `routers/insights.py` | Same cache-only contract. |
+| `GET /api/bot/insights/history` | `routers/insights.py` | Newest-first rows from `trade_journal.db::insights_history`; `table_present:false` when the generator has not written yet. |
+| `GET /api/bot/insights/usage` | `routers/insights.py` | Calendar-month LLM spend + per-endpoint split from `trade_journal.db::insights_usage`. Spend figures only — no key, no prompt content. |
+| `GET /api/bot/learning/curriculum` | `routers/learning.py` | The committed `comms/learning/curriculum.json`. Best-effort: `present:false` on a missing/garbled file (consumers fall back to a bundled copy). |
+| `GET /api/bot/learning/courses` | `routers/learning.py` | Index of the interactive audio+quiz courses. |
+| `GET /api/bot/learning/courses/{course_id}` | `routers/learning.py` | One course. `course_id` validated `[a-z0-9][a-z0-9_-]*` and resolved strictly under `comms/learning/courses/` — **no path traversal** (400). |
+| `GET /api/bot/learning/progress` | `routers/learning.py` | Per-resource learning progress from `trade_journal.db::learning_progress`. Degraded envelope (never a 5xx) on a DB error. |
+| `POST /api/bot/learning/progress` | `routers/learning.py` | ⚠️ **WRITE — Tier-1 carve-out (1) above.** Upsert one resource's progress. **Deliberately unauthenticated** so both the dashboard and the Android app can record progress without holding `DASHBOARD_API_TOKEN` (the same shape as `POST /devices/register`). Operator observability only: no trading impact, no order path, no notification, no secret in the store. 400 on a bad status / missing id. |
+| `GET /api/bot/liquidity` | `routers/liquidity.py` | **Added S-064 (2026-05-09).** Per-symbol liquidity zones from `runtime_logs/liquidity_state.json`; `limit` / `sweeps_limit` clamped 1..100; missing file → 200 with empty arrays. |
+| `GET /api/bot/logs` | `routers/dashboard.py` | Merged tail of the pipeline audit log + `outcomes.jsonl`. `limit` 1..1000 (default 100); `since` / `level` optional. **Operator-facing log text — the one Tier-1 route where a future log line could leak something; keep secrets out of the logs, not out of this route.** |
+| `GET /api/bot/ml/status` | `routers/training_center.py` | Trainer mirror status. File-backed read of `runtime_logs/trainer_mirror/`; no trainer-VM contact. |
+| `GET /api/bot/ml/cycle` | `routers/training_center.py` | Trainer cycle events, same mirror. |
+| `GET /api/bot/ml/sessions` | `routers/training_center.py` | Per-manifest training sessions, same mirror. |
+| `GET /api/bot/ml/registry` | `routers/training_center.py` | The model registry (stage ladder `candidate → shadow → advisory`). **Read-only — promotion is Tier-3 and never happens over HTTP.** |
+| `GET /api/bot/ml/builds` | `routers/training_center.py` | Dataset-build health, same mirror. |
+| `GET /api/bot/ml/db_pulls` | `routers/training_center.py` | Live→trainer DB sync history, same mirror. |
+| `GET /api/bot/ml/runs/{model_id}/{run_id}` | `routers/training_center.py` | Per-run metrics. Both ids are path-validated before the artifact read. |
+| `GET /api/bot/news/recent` | `routers/news.py` | M9 news-layer shadow-soak tail (per-signal decision / adjustment / veto + the top source articles read). `present:false` until the layer is active. |
+| `GET /api/bot/notifications` | `routers/notifications.py` | The can't-miss banner feed both apps render on Overview (trainer down, account down, operator warnings, unreconciled orphans, trades opened). **Connection-free and best-effort** — any source failure omits that banner kind rather than 5xx-ing. |
+| `GET /api/bot/order-packages` | `routers/order_packages.py` | Decision-level view (one row per order package) + the per-model ML scores and Claude grade recorded at signal time. Backtest + paper rows filtered by default. |
+| `GET /api/bot/pairs/soak` | `routers/pairs.py` | M22 D2 market-neutral pairs-sleeve soak (per-bar spread/z decision + placement/close outcome, incl. the `half_open` leg state). Observe-only. |
+| `GET /api/bot/performance` | `routers/performance.py` | Windowed aggregate trade analytics computed **in SQL over the full window (uncapped)** — the replacement for consumer-side rollups over the 200-row `/trades/closed` cap. Windowed by design, so it satisfies rule 2 above. Zeroed envelope (HTTP 200 + `error`) on unknown window / DB error. |
+| `GET /api/bot/pnl/exchange` | `routers/pnl_exchange.py` | Exchange-truth P&L attribution (FIFO lot pairing) from `runtime_state/exchange_fills.sqlite`. `days` 1..90 (default 7). |
+| `GET /api/bot/pnl/exchange/fills` | `routers/pnl_exchange.py` | The individual exchange fill **rows**, newest-first. `symbol` is the exact stored venue form and is **bound, never interpolated**; `limit` 1..1000; `truncated` declares a page that hit the cap so a short list is never mistaken for a complete population. |
+| `GET /api/bot/pnl/broker-truth` | `routers/pnl_broker_truth.py` | Authoritative per-account lifetime realized PnL from the committed `comms/broker_truth_ledger.json`. **Not a money-DB rewrite** — records account-level truth beside the journal's figure. Best-effort: missing ledger → `present:false`. |
+| `GET /api/bot/positions` | `routers/dashboard.py` | Open positions from `trade_journal.db`. Paper rows excluded by default (`include_paper=true` adds them). |
+| `GET /api/bot/positions/net` | `routers/attribution.py` | Signed net qty per symbol across live accounts (S11/M11). Best-effort: a missing/corrupt DB returns an empty list, never a 5xx. |
+| `GET /api/bot/prop/fills` | `routers/prop.py` | Inbound prop fill/close reports, newest-first. **Read half of the prop bridge — the write half is Tier 2 (below).** |
+| `GET /api/bot/prop/tickets` | `routers/prop.py` | Outbound prop tickets the bot emitted, newest-first. |
+| `GET /api/bot/prop/status` | `routers/prop.py` | Latest account-status snapshot + computed rule-distance (daily-loss limit, static-DD floor) from the account's prop ruleset. Nulls anything not derivable from the snapshot. |
+| `GET /api/bot/prop/reconcile` | `routers/prop.py` | Un-acted tickets (emitted, past `valid_until`, no fill reported back) — the P3 drift alert. |
+| `GET /api/bot/reports` | `routers/reports.py` | **Added 2026-06-22.** Newest-first index of consolidated system reports from `comms/reports/index.json`. `limit` clamped 1..500; `window` filters. File-backed, no DB table. |
+| `GET /api/bot/reports/{report_id}` | `routers/reports.py` | **Added 2026-06-22.** One report's metadata + its rendered self-contained `report.html`. 404 on unknown id; artifact paths validated under `comms/reports/` — **no path traversal**. |
+| `GET /api/bot/roadmap` | `routers/roadmap.py` | The parsed product roadmap (milestone table + sprint-log index). Best-effort: a missing/garbled `ROADMAP.md` degrades to an empty envelope. Short in-process cache keyed on file mtimes. |
+| `GET /api/bot/roadmap/sprint/{sprint_id}` | `routers/roadmap.py` | One sprint log parsed into sections. `sprint_id` validated `[A-Za-z0-9._-]+` and resolved strictly under `docs/sprint-logs/` — **no traversal** (400); `present:false` on unknown id. |
+| `GET /api/bot/shadow/predictions` | `routers/shadow.py` | Tail of `runtime_logs/shadow_predictions.jsonl` (S-AI-WS8-PART-2), newest-first. |
+| `GET /api/bot/shadow/stats` | `routers/shadow.py` | Per-`(model_id, stage)` aggregates over the same log. Mirrored at Tier 2.5 as `/api/diag/shadow_stats` because the diag relay can only reach `/api/diag/*`. |
+| `GET /api/bot/shadow/drift` | `routers/shadow.py` | Window-over-window score-distribution drift (KS + PSI) over the same log (S-AI-WS8-PART-3). |
+| `GET /api/bot/signals` | `routers/dashboard.py` | Recent ICT detections from `signal_audit.jsonl`, each with the drawable zones the strategy already logged. |
+| `GET /api/bot/stats` | `routers/dashboard.py` | Aggregated bot stats — pnl24h, totalPnL, openTrades, winRate, status, datasource, vmHealth. Real-money only; paper rides an additive sub-block. |
+| `GET /api/bot/strategies` | `routers/strategies.py` | Per-strategy config, live-runtime status, per-account routing, lifetime stats, descriptions, changelog. Config values only — **secrets are not in this surface** (`accounts.yaml` credentials are env-var *names*). |
+| `GET /api/bot/strategies/{name}/review` | `routers/strategy_review.py` | Newest M7 strategy-review packet incl. its action badge (`KILL`/`DEMOTE_SHADOW`/`TUNE`/`HOLD`/`PROMOTE`). **Read-only: a Tier-3 action is *read* here, never enacted.** Name validated `[a-z0-9_]+`. |
+| `GET /api/bot/strategies/{name}/tune` | `routers/strategy_tune.py` | Newest M8 parameter-sweep results. Each carries an **advisory** Tier-3 value proposal; **the harness never writes config and neither does this route.** |
+| `GET /api/bot/strategy/attribution` | `routers/attribution.py` | Per-strategy lifetime closed-trade stats + live open count (S11/M11). Real-money only (excludes paper AND prop, per the "real and paper never blended" contract). |
+| `GET /api/bot/trades/closed` | `routers/trades_closed.py` | **Added S-557 (2026-05-09).** Closed non-backtest trades, newest-first; `limit` clamped 1..200 (default 50). Each row carries `pnlProvenance` so a consumer can caveat a fabricated/unverified figure. Paper excluded by default. |
+| `GET /api/bot/trades/scores` | `routers/trade_scores.py` | **Added 2026-05-11 (#820).** Per-trade shadow-prediction score aggregates, joining each trade's open→close window against the shadow log. `limit` clamped 1..200. |
+| `GET /api/pnl/history` | `routers/pnl_history.py` | **Added S-063 (2026-05-09) — the route this file was created for.** Per-day realised P&L; `days` clamped 1..90; `account_id` scopes to one account. Paper excluded. Distinct from the session-gated `GET /api/pnl` below. |
+| `WS /ws/market` | `routers/market_ws.py` | **WebSocket** (P2b) — pushes live candle + open-position/uPnL snapshots on a ~2s server loop so the Android app streams instead of polling. **Read-only, no order path**; reuses the `/candles` fetcher and `/positions` reader. IB-pacing-aware cadence (crypto ~2s, IBKR futures ~8s). **Access tier is 1; its *deploy* was Tier-2** (a new live service surface) — those are different questions and the deploy tier is not an access gate. |
+| `GET /` · `GET /login` · `GET /static/*` | UI surfaces / `app.mount` | Login redirect target, login page, static assets. Outside `routers/`, so outside the guard's population. |
 
 ---
 
 ## Tier 2 — session-gated reads + mutations
 
-JWT-gated via `require_session` (HS256, 1h TTL, allowlisted email).
-The dashboard does not consume any of these today; once login lands
-in S-065 the relevant ones will move there. The `/api/auth/login`
-endpoint mints the token (it's in `PUBLIC_ROUTES` because you need
-it to get a token in the first place).
+### 2a — JWT (`require_session`)
+
+HS256, 1h TTL, allowlisted email. Neither the Streamlit dashboard nor the
+Android app calls these today — both consume only no-session routes — so the
+gate is currently invisible to every live consumer. `POST /api/auth/login`
+mints the token and is itself in `PUBLIC_ROUTES` because you need it to get a
+token in the first place.
 
 | Endpoint | Source | Notes |
 |---|---|---|
-| `POST /api/auth/login` | `src/web/api/routers/auth.py` | Mints a JWT for the allowlisted email. Public so an unauthed caller can authenticate. |
-| `GET /api/status` | `src/web/api/routers/status.py` | Detailed runtime status. |
-| `GET /api/pnl` | `src/web/api/routers/pnl.py` | Per-account P&L (realized + unrealized). |
+| `POST /api/auth/login` | `routers/auth.py` | Mints a JWT for the allowlisted email. Public so an unauthed caller can authenticate. 500 with a generic `auth_unavailable` body — **no secret-name leak** — when the auth env vars are unset. |
+| `GET /api/status` | `routers/status.py` | Detailed runtime status. `Depends(require_session)`, verified in the handler signature. |
+| `GET /api/pnl` | `routers/pnl.py` | Per-account P&L (realized + unrealized). `Depends(require_session)`. |
 
-The `PUBLIC_ROUTES` set in `src/web/api/auth.py` enumerates the routes
-that opt out of `require_session`. Adding a route there is a code change
-reviewed in a PR.
+The `PUBLIC_ROUTES` set in `src/web/api/auth.py` enumerates the routes that opt
+out of `require_session`. Adding a route there is a code change reviewed in a PR.
+
+### 2b — `DASHBOARD_API_TOKEN` bearer (writes + client management)
+
+**This is not the Tier-2 JWT and not the Tier-2.5 diag token — it is a third
+bearer**, and the distinction is load-bearing because the two gates below
+**fail in opposite directions when the env var is unset**. Recorded here rather
+than folded into Tier 1 or 2.5, because "which token, and what happens when it
+is missing" is exactly what a tier inventory is for.
+
+| Endpoint | Source | Gate when `DASHBOARD_API_TOKEN` is **unset** | Notes |
+|---|---|---|---|
+| `POST /api/bot/prop/report` | `routers/prop.py` | **503 — fail-CLOSED** | Ingests an inbound prop fill/close or account-status report-back. **A genuine Tier-2 mutation: DB write + operator notification.** `_require_write_token` refuses with 503 when the token is unset rather than accepting anonymous writes, so a dropped `.env` value (e.g. a VM migration) can never reopen an anonymous write hole (BL-20260705-DASHBOARD-API-TOKEN-UNSET). Missing / wrong-scheme / wrong bearer → 401. |
+| `GET /api/bot/devices` | `routers/devices.py` | **serves — fail-OPEN** | Registered devices; raw FCM tokens never exposed (only `token_suffix`). `_check_admin_token` returns silently when the token is unset, so in a deployment without it this read behaves as Tier 1. 401 on present-but-wrong bearer. |
+| `DELETE /api/bot/devices/{id}` | `routers/devices.py` | **serves — fail-OPEN** | Revokes a device (lost phone). A **mutation** behind the permissive `_check_admin_token`, so with the token unset it is an unauthenticated delete. Blast radius is one push-token row — no money, no order path — which is why it has not been hardened to the prop route's fail-closed shape. 404 on unknown id. |
+| `PATCH /api/bot/devices/{id}/subscriptions` | `routers/devices.py` | **serves — fail-OPEN** | Replaces a device's per-kind push subscription prefs. Same permissive gate and same one-row blast radius as the DELETE. Unknown kinds → 400; 404 on unknown id. |
+
+> **Known divergence, recorded rather than silently reconciled:** `CLAUDE.md`
+> § "Dashboard REST API" labels the three `devices` rows **Tier 1**, on the
+> strength of the permissive default. Both descriptions are of the same code —
+> that table documents the *contract a consumer sees*, this one documents the
+> *gate mechanism*. The runtime gate is authoritative for tiering, so they are
+> listed here. Whether the fail-open default is right for the DELETE/PATCH is
+> a live question, not a settled one; it is not changed in this PR because
+> tightening a gate is a runtime change (Tier 2), not a docs backfill.
 
 ---
 
 ## Tier 2.5 — token-gated diagnostics
 
-The `/api/diag/*` surface is read-only but uses a **separate** bearer
-token (`DIAG_READ_TOKEN`) instead of the dashboard's JWT. This is a
-PM-side / operator-script surface, not a dashboard surface — see
+The `/api/diag/*` surface is read-only but uses a **separate** bearer token
+(`DIAG_READ_TOKEN`) instead of the dashboard's JWT. This is a PM-side /
+operator-script surface, not a dashboard surface — see
 `docs/claude/vm-operator-mode.md` § 9 and `docs/claude/diag-relay.md`.
 
-If `DIAG_READ_TOKEN` is unset on the VM, every `/api/diag/*` route
-returns 503 (closed by default). Bad/missing bearer → 401.
+If `DIAG_READ_TOKEN` is unset on the VM, every `/api/diag/*` route returns 503
+(**closed by default**). Bad/missing bearer → 401. Verified 2026-08-09: all 16
+routes on this router call `_require_diag_token` — no exceptions.
+
+> **Family-row convention.** The first two rows name diag leaves (`audit`,
+> `journal`, …) after a sibling full path rather than spelling each out.
+> `api-tier-policy-guard` resolves a bare leaf against the last full path in
+> the same row, so this shorthand counts as documentation. A checker that
+> matched exact strings would credit none of it and report a gap the file does
+> not have — which is precisely what the 2026-08-09 naive count did (76%
+> missing against a true 69%).
 
 | Endpoint family | Source | Notes |
 |---|---|---|
-| `GET /api/diag/snapshot`, `audit`, `journal`, `status`, `services`, `journalctl`, `log_file` | `src/web/api/routers/diag.py` | Token-gated SELECT-only or shell-safe diagnostic reads. |
-| `GET /api/diag/audit_query`, `db_info`, `version`, `shadow_stats`, `ib_state`, `exchange_positions`, `broker_account_status` | `src/web/api/routers/diag.py` | **Backfilled 2026-08-09.** Added piecemeal between 2026-05 and 2026-07 and never rowed here — part of the completeness gap noted at the top. Same token gate, same read-only contract. |
-| `GET /api/diag/exposure` | `src/web/api/routers/diag.py` | **Added 2026-08-09 (#8678).** Per-account gross exposure, served as the identical `RiskManager.report()["exposure"]` the enforcing side reports through — deliberately not a reconstruction. Connection-free; never consults policy to compute. |
-| `GET /api/diag/tick_cost` | `src/web/api/routers/diag.py` | **Added 2026-08-09 (#8688).** Per-tick wall-clock cost of the trader's hook chain (`max_ms` beside `ticks_measured`). Pure file read. Measurement only — enforces no budget. |
+| `GET /api/diag/snapshot`, `audit`, `journal`, `status`, `services`, `journalctl`, `log_file` | `routers/diag.py` | Token-gated SELECT-only or shell-safe diagnostic reads. |
+| `GET /api/diag/audit_query`, `db_info`, `version`, `shadow_stats`, `ib_state`, `exchange_positions`, `broker_account_status` | `routers/diag.py` | **Backfilled 2026-08-09.** Added piecemeal between 2026-05 and 2026-07 and never rowed here — part of the completeness gap this file's guard now prevents. Same token gate, same read-only contract. |
+| `GET /api/diag/exposure` | `routers/diag.py` | **Added 2026-08-09 (#8678).** Per-account gross exposure, served as the identical `RiskManager.report()["exposure"]` the enforcing side reports through — deliberately not a reconstruction. Connection-free; never consults policy to compute. |
+| `GET /api/diag/tick_cost` | `routers/diag.py` | **Added 2026-08-09 (#8688).** Per-tick wall-clock cost of the trader's hook chain (`max_ms` beside `ticks_measured`). Pure file read. Measurement only — enforces no budget. |
 
 ---
 
 ## Tier 3 — operator controls / risk surface (NOT YET BUILT)
 
-Reserved for the eventual halt / live-dry / restart / order-cancel
-controls. These will require:
+Reserved for the eventual halt / live-dry / restart / order-cancel controls.
+These will require:
 
 - A real session (Tier 2 JWT) AND
-- An explicit per-action confirmation gate (`?confirm=YES` or a
-  short-lived signed action token), AND
+- An explicit per-action confirmation gate (`?confirm=YES` or a short-lived
+  signed action token), AND
 - An audit log entry per call with the caller's email + IP.
 
-S-065 will land the first Tier-3 endpoint (halt). Until then, all
-mutating operator actions go through the `system-actions.yml`
-GitHub workflow (Tier-2 ack via "Run workflow" click; allowlist of
-four actions).
+**No route on the API is Tier 3 today** — verified 2026-08-09 across all 92
+routes. S-065 will land the first one (halt). Until then, every mutating
+operator action goes through the `system-actions.yml` GitHub workflow, whose
+allowlist is the real Tier-3 surface.
+
+Note that several Tier-1 routes *read* Tier-3 material — `/strategies/{name}/review`
+serves a `KILL`/`PROMOTE` badge, `/strategies/{name}/tune` serves an advisory
+parameter proposal, `/ml/registry` serves the promotion ladder. **Reading a
+Tier-3 decision is Tier 1; enacting one is not on this API at all.**
 
 ---
 
 ## Cross-references
 
-- `src/web/api/auth.py` — `PUBLIC_ROUTES` constant + `require_session`
-  dependency.
-- `CLAUDE.md` — top-level architecture diagram (lists the Tier-1
-  endpoints under "Dashboard REST API").
+- [`scripts/check_api_tier_policy.py`](../scripts/check_api_tier_policy.py) —
+  the guard that keeps this file complete. `--list` for coverage, `--all` for
+  the standing audit.
+- `src/web/api/auth.py` — `PUBLIC_ROUTES` constant + `require_session` dependency.
+- `CLAUDE.md` § "Dashboard REST API" — the **contract** (shapes, nullability,
+  data sources). This file is the **tier** inventory; that one is the payload
+  inventory. Where they overlap, neither is a substitute for reading the gate.
 - `docs/claude/vm-operator-mode.md` § 9 — diag-token contract.
-- `docs/claude/system-actions.md` — Tier-2 GitHub-workflow allowlist
-  for the four mutating ops actions.
-- `docs/sprints/sprint-063-prompt.md` — context for the S-063 auth
-  decision (option (a)).
+- `docs/claude/system-actions.md` — the GitHub-workflow allowlist for mutating
+  ops actions.
+- `docs/sprints/sprint-063-prompt.md` — context for the S-063 auth decision.

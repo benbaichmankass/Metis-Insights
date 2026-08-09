@@ -94,6 +94,38 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/check_account_class.py", "--list"]],
     },
     {
+        "name": "api-tier-policy-guard",
+        # The self-test runs on EVERY invocation of this guard — including when
+        # the scan is not diff-relevant — because a guard whose failure path is
+        # never exercised is indistinguishable from one that always passes.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/guard_selftests.py", "api-tier-policy"],
+            # Diff-scoped: names the specific route a PR added without a row,
+            # which is the actionable message. Scoped to router changes.
+            {
+                "argv": ["python3", "scripts/check_api_tier_policy.py", "{pr_diff}"],
+                "when": {"globs": ["src/web/api/routers/**"]},
+            },
+            # The completeness backstop, deliberately UNGATED. Two reasons:
+            #   1. A diff-scoped check cannot see a row being DELETED from the
+            #      inventory — the drift that produced the 60%-incomplete state
+            #      in the first place was routes arriving, but a row leaving is
+            #      the same hole in the other direction.
+            #   2. A per-STEP `when` is evaluated against `changed`, which is
+            #      EMPTY under `--all` (push / workflow_dispatch) — so a
+            #      `when`-gated step is silently SKIPPED on exactly the events
+            #      guards.yml intends to run everything. Leaving this ungated
+            #      is what makes the push-time audit real rather than nominal.
+            #      (Filed as BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH — several
+            #      sibling guards have the same shape and are not fixed here.)
+            # Costs ~0.15s: an AST pass over ~40 router files plus one regex
+            # pass over the doc. Cheap enough that gating it would be the more
+            # expensive decision.
+            ["python3", "scripts/check_api_tier_policy.py", "--all"],
+        ],
+    },
+    {
         "name": "arch-doc-guard",
         "when": {
             "globs": [
