@@ -10969,6 +10969,49 @@
       "design_doc": "docs/design/gross-exposure-governance-DESIGN.md"
     },
     {
+      "id": "BL-20260809-EXPOSURE-SOAK-NOT-YET-TAKEN",
+      "opened_at": "2026-08-09T14:55:00+00:00",
+      "opened_by": "claude (system-review ma0ava)",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "source": "MEASURED via /api/diag/exposure on 2026-08-09T14:45:32Z (diag #8680), the route added in PR #8678, against git_sha e6be9a8d. POPULATION: all 11 declared accounts, one point-in-time read. Multiples: alpaca_paper 2.0238 | alpaca_portfolio 2.0126 | bybit_portfolio 1.0575 | bybit_2 (REAL MONEY) 0.9939 | ib_paper 0.4395 | bybit_1 0.2540 | oanda_practice, alpaca_options_paper, alpaca_live 0.0 | ib_live + breakout_1 UNMEASURED (equity_unavailable — both shelved/API-less, so unmeasured is the CORRECT state here, not a gap).",
+      "title": "Gross-exposure ceiling values: the measurement is finally readable, but ONE weekend snapshot is not the observation soak the design requires",
+      "what_to_check": "THE VALUES CANNOT BE CHOSEN FROM THIS READ, and the design already says so: gross-exposure-governance-DESIGN.md section 7 explicitly lists 'any value shipped without section 4's observation soak behind it' as NOT proposed. What exists today is one sample, not a distribution.\n\nWHY THE SNAPSHOT IS PARTICULARLY WEAK: it was taken on a SUNDAY. US equities and CME futures were closed, so the Alpaca and IB numbers are a held-over Friday book with no intraday variation in them. bybit (crypto, 24/7) is the only leg whose reading reflects an active market.\n\nA NEAR-MISS WORTH RECORDING, because the next session will be tempted the same way: alpaca_paper/portfolio/live show no new opens since Friday 15:32Z and ib_paper none since Friday 14:02Z, while bybit_1 traded Sunday 01:14Z. That pattern looks exactly like the originating incident (BL-20260807-ALPACA-PAPER-ZERO-BUYING-POWER-REFUSES-ALL: 'walked to 2.03x ungoverned and then refused every signal with sized_qty=0'). It is NOT. It is the weekend. Venue-closed silence and refusal silence are indistinguishable in the trades table; only the calendar separates them.\n\nSECOND NEAR-MISS: /api/diag/broker_account_status came back fully clean (ACTIVE, trading_blocked false) for both Alpaca accounts. That does NOT clear the brick — it reports AUTHORIZATION (permitted to trade), while the incident is CAPACITY (available_usd 0.00, no room to trade). Do not read one as the other.",
+      "action": "TAKE THE SOAK, then propose. Sample /api/diag/exposure across a full TRADING week (Mon-Fri, several reads per session incl. US open and close) and record the distribution per account — max, not just mean, since the ceiling has to clear the peak of normal operation. The route is connection-free and token-gated, so sampling costs nothing on the money box.\n\nTHE ONE ANALYTIC RESULT THAT DOES NOT NEED THE SOAK, and it is the interesting one: section 6 requires the ceiling to sit BELOW the venue limit AND ABOVE normal operation. For Alpaca those two constraints are INVERTED in this read — measured 2.0238x against a 2.00x Reg-T limit. If a weekday soak reproduces >2.00x as normal operation, then NO ceiling value satisfies section 6 for those accounts, and a ceiling is the wrong instrument: it would mask a sizing problem rather than govern one. Establish whether >2.00x is genuinely normal BEFORE proposing any Alpaca value.\n\nbybit_2 is the only funded real-money account (equity $278.17, multiple 0.9939) and is the one that most warrants a considered ceiling; its per-account value should not be inherited from a fleet default derived mostly from paper books.",
+      "resolution_criteria": "A weekday exposure distribution exists per account; the question 'is >2.00x normal for Alpaca' is answered from measurement; and the operator has either approved a proposed fleet default + per-account overrides or explicitly declined.",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260809-DIAG-BOTLOG-TARGET-ABSENT",
+      "opened_at": "2026-08-09T14:55:00+00:00",
+      "opened_by": "claude (system-review ma0ava)",
+      "status": "open",
+      "tier": 1,
+      "severity": "low",
+      "source": "MEASURED via /api/diag/log_file?name=bot_log&lines=120 on 2026-08-09T14:49:48Z (diag #8681): returns {present: false, lines: [], path: /home/ubuntu/ict-trading-bot/bot.log}. The file does not exist on the live VM.",
+      "title": "/api/diag/log_file advertises a `bot_log` target that does not exist on disk",
+      "what_to_check": "The diag surface offers `bot_log` in its documented name allowlist, but the resolved path is absent on the live VM, so the target always returns empty. The envelope is honest (present:false, not a silent []), which is why this is LOW and not a correctness bug — a caller can tell the difference between 'no file' and 'no lines'.\n\nThe risk is narrower: a session reaching for `bot_log` as a fallback (the audit log is the primary source, bot.log is documented as its fallback in CLAUDE.md) burns a relay round-trip to learn nothing, and could read the empty result as 'nothing was logged' if it does not check `present`. Confirm whether the trader still writes bot.log at all — if logging moved wholly to journald + the audit JSONL, the target is vestigial.",
+      "action": "Either drop `bot_log` from the log_file allowlist + the CLAUDE.md diag table row, or fix the resolved path to wherever the trader actually writes it. Do not leave an advertised target that can only ever answer empty.",
+      "resolution_criteria": "`bot_log` either returns real content or is removed from the allowlist and the docs.",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260809-INPROCESS-HARNESS-RUNS-FEE-ONLY-SILENTLY",
+      "opened": "2026-08-09",
+      "severity": "medium",
+      "status": "open",
+      "area": "research-tooling",
+      "title": "Any in-process caller of scripts/backtest_trend.py silently runs FEE-ONLY, not the CLI cost basis",
+      "detail": "scripts/backtest_trend.py keeps FEE_BPS_ROUNDTRIP / SLIPPAGE_BPS_ROUNDTRIP / FUNDING_BPS_PER_WINDOW / FUNDING_WINDOW_HOURS as MODULE GLOBALS, initialised to slippage=0.0 and funding=0.0. main() (line ~758 'global ...', ~867-875) resolves SYMBOL-SPECIFIC values into them via execution_costs.slippage_bps_roundtrip_for(symbol) / funding_bps_per_window_for(symbol) when the CLI flags are left at their None default. So every CLI/sweep run is fee+slippage+funding (BTCUSDT: 7.5 + 5.0 + 1.0bps/8h), while ANY caller that imports the module and calls run_backtest() directly gets fee-only -- silently, with no warning and no field in the summary that differs. MEASURED: identical 175-trade book, maxDD 13.2595 (in-process) vs 14.7968 (CLI), net_total_r 53.862 vs 42.3766. That is a >10% swing on the exact number an exit gate verdict is read off. Found because a maxDD reconciliation disagreed with the sweep it was reconciling against (trainer-diag #8676). scripts/research/m20_trail_attribution.py is FIXED (apply_cost_basis(), --cost-basis default 'cli', effective terms printed beside the population). The TRAP is not fixed: scripts/ml/exit_head_replay.py loads the same harness via _load_harness() and any future in-process research script will hit it. Candidate fixes, in order of preference: (a) have run_backtest() resolve the symbol defaults itself when the globals are at their sentinel, so the in-process and CLI paths cannot diverge; (b) return the effective cost terms in the summary dict so a mismatch is visible in every artifact; (c) a guard in the diagnostic-provenance family that flags an in-process run_backtest() call with no explicit cost-basis resolution. (a)+(b) together are the structural fix -- (c) alone only reports the divergence.",
+      "refs": [
+        "scripts/backtest_trend.py",
+        "scripts/research/m20_trail_attribution.py",
+        "scripts/ml/exit_head_replay.py",
+        "docs/research/M20-trail-decay-resweep-2026-08-09.md"
+      ]
+    },
+    {
       "id": "BL-20260809-TWO-CANDLE-READERS-DIVERGE-ON-JSONL",
       "opened_at": "2026-08-09T00:00:00+00:00",
       "opened_by": "claude (M20 trend-harness workstream ipa3ce)",
@@ -10991,21 +11034,6 @@
       "resolved_at": "2026-08-09T00:00:00+00:00",
       "resolved_by": "claude (M20 trend-harness workstream ipa3ce)",
       "resolution": "RESOLVED IN THE SAME PR, and the severity was understated when filed. I opened this as a LATENT trap ('no current caller feeds JSONL to _load_candles'). The session-end doc-freshness pass found a REAL one: scripts/research/build_continuous_contract.py writes the canonical market_raw shape as JSONL and its own docstring instructs backtesting that file with a trend harness - and the retired engine was the ONLY trend engine that could read JSONL. So the retirement BROKE a documented end-to-end workflow (roll-adjusted continuous futures -> trend backtest), which is not something to leave filed. FIX: scripts/backtest_trend.py::_load_candles now delegates to candle_io.load_candles, so there is ONE reader. VERIFIED BEFORE THE CHANGE, not assumed: 18 full-summary backtest comparisons (2 committed corpora x 5min/15min/1h x 3 configs incl. the config-exact trend_donchian block) were IDENTICAL, and the loaded frames compared equal via DataFrame.equals; then confirmed end-to-end that a JSONL file now runs through the engine (exit 0, trades=1). The shared reader is a strict superset of what the engine accepted before - it adds JSONL + the IBKR `ts` column and coerces OHLC to numeric. Two stale citations in src/units/strategies/trend_donchian.py (comment-only) and the build_continuous_contract example were repointed in the same pass."
-    },
-    {
-      "id": "BL-20260809-INPROCESS-HARNESS-RUNS-FEE-ONLY-SILENTLY",
-      "opened": "2026-08-09",
-      "severity": "medium",
-      "status": "open",
-      "area": "research-tooling",
-      "title": "Any in-process caller of scripts/backtest_trend.py silently runs FEE-ONLY, not the CLI cost basis",
-      "detail": "scripts/backtest_trend.py keeps FEE_BPS_ROUNDTRIP / SLIPPAGE_BPS_ROUNDTRIP / FUNDING_BPS_PER_WINDOW / FUNDING_WINDOW_HOURS as MODULE GLOBALS, initialised to slippage=0.0 and funding=0.0. main() (line ~758 'global ...', ~867-875) resolves SYMBOL-SPECIFIC values into them via execution_costs.slippage_bps_roundtrip_for(symbol) / funding_bps_per_window_for(symbol) when the CLI flags are left at their None default. So every CLI/sweep run is fee+slippage+funding (BTCUSDT: 7.5 + 5.0 + 1.0bps/8h), while ANY caller that imports the module and calls run_backtest() directly gets fee-only -- silently, with no warning and no field in the summary that differs. MEASURED: identical 175-trade book, maxDD 13.2595 (in-process) vs 14.7968 (CLI), net_total_r 53.862 vs 42.3766. That is a >10% swing on the exact number an exit gate verdict is read off. Found because a maxDD reconciliation disagreed with the sweep it was reconciling against (trainer-diag #8676). scripts/research/m20_trail_attribution.py is FIXED (apply_cost_basis(), --cost-basis default 'cli', effective terms printed beside the population). The TRAP is not fixed: scripts/ml/exit_head_replay.py loads the same harness via _load_harness() and any future in-process research script will hit it. Candidate fixes, in order of preference: (a) have run_backtest() resolve the symbol defaults itself when the globals are at their sentinel, so the in-process and CLI paths cannot diverge; (b) return the effective cost terms in the summary dict so a mismatch is visible in every artifact; (c) a guard in the diagnostic-provenance family that flags an in-process run_backtest() call with no explicit cost-basis resolution. (a)+(b) together are the structural fix -- (c) alone only reports the divergence.",
-      "refs": [
-        "scripts/backtest_trend.py",
-        "scripts/research/m20_trail_attribution.py",
-        "scripts/ml/exit_head_replay.py",
-        "docs/research/M20-trail-decay-resweep-2026-08-09.md"
-      ]
     }
   ],
   "updated_at": "2026-08-09T00:00:00+00:00",
