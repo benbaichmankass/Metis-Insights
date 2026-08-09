@@ -11,12 +11,17 @@ working forever — the check that stops the fork re-opening.
 
 **The guard fails when a file named ``backtest_trend.py`` other than the
 canonical ``scripts/backtest_trend.py`` exposes an engine entry point.** A
-retired copy is recognised by the **absence of that entry point**, never by
-reading its prose: a docstring saying "RETIRED" is a claim, an importable
-``backtest`` callable is a fact, and a guard that trusts the claim is cheaper to
-lie to than to satisfy (the ``new-table-wiring-guard`` lesson — a presence-only
-marker made the cheapest way to silence a real finding *naming a table that does
-not exist*).
+retired copy is recognised by the **absence of that entry point**, read from the
+module's AST, never by reading its prose: a ``def run_backtest(...)`` node is a
+fact about the code, a docstring saying "RETIRED" is a claim, and a guard that
+trusts the claim is cheaper to lie to than to satisfy (the
+``new-table-wiring-guard`` lesson — a presence-only marker made the cheapest way
+to silence a real finding *naming a table that does not exist*).
+
+The read is static so the guard needs no third-party dependency and therefore
+actually runs in the dependency-free ``guards`` CI job. An import-based probe
+still runs as corroboration where the module happens to import, and a
+disagreement between the two is reported rather than silently resolved.
 
 When a second engine IS found, the report names the flags it declares that the
 canonical engine does not — the actionable detail, and the specific regression
@@ -53,8 +58,8 @@ research-only**. That ~3.5-day corpus establishes the axis is first-order and
 nothing about its magnitude; the decision-grade re-sweep is
 ``BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL``.
 
-Tier-1, read-only: imports modules and reads source; writes nothing but its own
-``--json``.
+Tier-1, read-only: parses source (and opportunistically imports, for
+corroboration only); writes nothing but its own ``--json``.
 
 Usage::
 
@@ -70,6 +75,7 @@ measure is its own outcome".
 from __future__ import annotations
 
 import argparse
+import ast
 import importlib.util
 import json
 import os
@@ -88,8 +94,8 @@ if _REPO_ROOT not in sys.path:
 CANONICAL_REL = "scripts/backtest_trend.py"
 
 #: Names that constitute "this module IS a trend backtest engine". `run_backtest`
-#: is the canonical entry point; `backtest` was the retired copy's. Either one
-#: being importable and callable makes a file an engine.
+#: is the canonical entry point; `backtest` was the retired copy's. A module-level
+#: DEFINITION (or re-export/rebind) of either name makes a file an engine.
 ENGINE_ENTRY_POINTS = ("run_backtest", "backtest")
 
 #: Directories with no bearing on which engine the harness runs.
@@ -118,31 +124,84 @@ def declared_flags(rel: str, root: Optional[str] = None) -> set:
 
 
 def engine_entry_points(rel: str, root: Optional[str] = None) -> Dict[str, Any]:
-    """Which engine entry points *rel* actually exposes, by importing it.
+    """Which engine entry points *rel* exposes — read STATICALLY from its AST.
 
-    THE DETECTION CONTRACT. A retired copy is one from which no engine entry
-    point can be obtained. We do not read the file's prose, look for a marker
-    comment, or trust a class name — we ask Python for the attribute and record
-    what happens. The retired shim raises ``RetiredEngineError`` (an
-    ``ImportError``) from a module-level ``__getattr__``, and a plain deletion
-    would fail the import outright; both are "absent", which is the point.
+    THE DETECTION CONTRACT. A retired copy is one that DEFINES no engine entry
+    point. We do not read the file's prose, look for a marker comment, or trust
+    a class name: a ``def run_backtest(...)`` node in the module's AST is a fact
+    about the code, a docstring saying "RETIRED" is a claim. The retired shim
+    serves its names through a module-level ``__getattr__`` and defines none, so
+    it reads as absent — which is the point.
+
+    WHY STATIC AND NOT ``getattr`` ON AN IMPORTED MODULE. The first version of
+    this guard imported each copy and probed it. That is a stricter check in a
+    full environment and USELESS in the one that matters: the ``guards`` CI job
+    installs no third-party packages, so ``scripts/backtest_trend.py`` raised
+    ``ModuleNotFoundError: No module named 'pandas'`` and the guard could not
+    confirm its own baseline. It correctly refused to pass (a "no second engine"
+    verdict computed with zero engines visible is vacuous) — but "the guard
+    cannot run in CI" is not a workable resting state, and weakening the
+    denominator assertion to make it green would have been the exact
+    green-while-measuring-nothing move this repo has a rule against.
+
+    Parsing the AST needs no dependencies, so the guard genuinely runs
+    everywhere. ``import_probe`` below still records what an import would have
+    said WHEN the module happens to be importable, purely as corroboration; a
+    disagreement between the two is itself reported rather than silently
+    preferred one way.
     """
     root = root or _REPO_ROOT
+    path = os.path.join(root, rel)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            tree = ast.parse(fh.read(), filename=path)
+    except (OSError, SyntaxError) as exc:
+        # A file that cannot even be parsed defines nothing.
+        return {"entry_points": [], "parse_error": f"{type(exc).__name__}: {exc}",
+                "import_probe": None}
+
+    found: List[str] = []
+    for node in tree.body:                     # module level only
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.name in ENGINE_ENTRY_POINTS:
+                found.append(node.name)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            # `from backtest_trend import backtest` / `... as backtest` re-export
+            for alias in node.names:
+                bound = alias.asname or alias.name.split(".")[0]
+                if bound in ENGINE_ENTRY_POINTS:
+                    found.append(bound)
+        elif isinstance(node, ast.Assign):
+            # `backtest = _some_impl` — a rebind is still an entry point
+            for tgt in node.targets:
+                if isinstance(tgt, ast.Name) and tgt.id in ENGINE_ENTRY_POINTS:
+                    found.append(tgt.id)
+    return {"entry_points": sorted(set(found)), "parse_error": None,
+            "import_probe": _import_probe(rel, root)}
+
+
+def _import_probe(rel: str, root: str) -> Dict[str, Any]:
+    """Corroboration only: what ``getattr`` says WHEN the module imports.
+
+    Never load-bearing — a missing third-party dependency must not decide
+    whether a second engine exists. Reported so a mismatch with the AST read is
+    visible instead of silently resolved.
+    """
     # Salt the module name with the root: the self-test audits several throwaway
     # trees whose files share these paths, and a cached sys.modules entry from an
     # earlier tree would make the probe report the PREVIOUS tree's answer.
     mod_name = ("_trend_engine_probe_" + str(abs(hash(root))) + "_"
                 + rel.replace(os.sep, "_").replace(".", "_"))
-    path = os.path.join(root, rel)
     try:
-        spec = importlib.util.spec_from_file_location(mod_name, path)
+        spec = importlib.util.spec_from_file_location(mod_name,
+                                                      os.path.join(root, rel))
         if spec is None or spec.loader is None:      # pragma: no cover - defensive
             return {"importable": False, "import_error": "no import spec",
                     "entry_points": []}
         mod = importlib.util.module_from_spec(spec)
         sys.modules[mod_name] = mod
         spec.loader.exec_module(mod)
-    except Exception as exc:  # allow-silent: the breadth IS the check — a copy that cannot import, for ANY reason, is a fortiori not an engine; nothing is swallowed (the error is captured in `import_error` and printed in the report + --json), and narrowing the type would let an unanticipated import failure crash the guard instead of answering its question
+    except Exception as exc:  # allow-silent: the breadth IS the point — this probe is corroboration only and must never crash the guard; the reason is captured in `import_error` and printed in the report + --json, and the AST read above is what actually decides
         return {"importable": False,
                 "import_error": f"{type(exc).__name__}: {exc}".splitlines()[0],
                 "entry_points": []}
@@ -177,9 +236,8 @@ def audit(root: Optional[str] = None) -> Dict[str, Any]:
         findings.append({
             "kind": "canonical_engine_missing_entry_point",
             "file": CANONICAL_REL,
-            "detail": (f"{CANONICAL_REL} exposes no callable `run_backtest` "
-                       f"(importable={canonical['importable']}, "
-                       f"import_error={canonical['import_error']}). The guard's "
+            "detail": (f"{CANONICAL_REL} defines no `run_backtest` "
+                       f"(parse_error={canonical['parse_error']}). The guard's "
                        "baseline is gone, so 'no second engine' would be vacuous."),
         })
 
@@ -192,8 +250,8 @@ def audit(root: Optional[str] = None) -> Dict[str, Any]:
         only_here = sorted(flags - canonical_flags)
         others.append({"file": rel, "retired": not info["entry_points"],
                        "entry_points": info["entry_points"],
-                       "importable": info["importable"],
-                       "import_error": info["import_error"],
+                       "parse_error": info["parse_error"],
+                       "import_probe": info["import_probe"],
                        "declared_flags": len(flags),
                        "flags_only_in_this_copy": only_here})
         if info["entry_points"]:
@@ -212,10 +270,27 @@ def audit(root: Optional[str] = None) -> Dict[str, Any]:
                        "every lever OFF.")),
             })
 
+    # Surface any AST-vs-import disagreement instead of silently preferring one.
+    for rec in others + [{"file": CANONICAL_REL, "entry_points":
+                          canonical["entry_points"],
+                          "import_probe": canonical["import_probe"]}]:
+        probe = rec.get("import_probe") or {}
+        if probe.get("importable") and \
+                sorted(probe.get("entry_points", [])) != sorted(rec["entry_points"]):
+            findings.append({
+                "kind": "static_vs_import_disagreement",
+                "file": rec["file"],
+                "detail": (f"AST says entry points {rec['entry_points']}, importing "
+                           f"says {probe['entry_points']}. One of the two reads is "
+                           "wrong about whether this file is an engine; resolve it "
+                           "rather than picking a side."),
+            })
+
     return {
         "canonical": {"file": CANONICAL_REL,
                       "entry_points": canonical["entry_points"],
-                      "declared_flags": len(canonical_flags)},
+                      "declared_flags": len(canonical_flags),
+                      "import_probe": canonical["import_probe"]},
         "population": {"files_named_backtest_trend_py": len(files),
                        "scanned": files},
         "other_copies": others,
@@ -310,7 +385,7 @@ def main(argv: List[str]) -> int:
 
     c = report["canonical"]
     print(f"trend-engine-convergence-guard — canonical {c['file']} "
-          f"(entry points {c['entry_points']}, {c['declared_flags']} flags); "
+          f"(defines {c['entry_points']}, {c['declared_flags']} flags); "
           f"{report['population']['files_named_backtest_trend_py']} file(s) named "
           f"backtest_trend.py scanned")
     for o in report["other_copies"]:

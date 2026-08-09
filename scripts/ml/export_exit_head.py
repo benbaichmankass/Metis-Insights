@@ -65,6 +65,38 @@ def main(argv):
     model = train_model(rows)
     trades = len({r["trade_key"] for r in rows})
     symbols = sorted({r.get("symbol") for r in rows if r.get("symbol")})
+
+    # --- TRAINING WINDOW (BL-20260808-EXIT-HEAD-MANIFEST-RECORDS-NO-TRAINING-WINDOW)
+    # `trained_at` below is the wall-clock moment of FITTING, not the data bound,
+    # and the two are not interchangeable: a head fitted on 2026-07-12 could have
+    # used six months or three years of history. Without the bound, a downstream
+    # consumer cannot tell how much of a replay window is in-sample — which is
+    # exactly what happened to the first measured replay (#8653): its
+    # delta_gross_r +10.804 had to be qualified by INFERRING the data end from
+    # `trained_at`. That inference was right, but it was an inference.
+    #
+    # The window was always derivable HERE and simply never written: `rows` is in
+    # scope and each row carries `bar_t` (epoch seconds of the in-trade bar,
+    # written by build_exit_head_dataset.py). min/max over it IS the bound.
+    #
+    # Honest-null + its own coverage metric, per the "instrument-before-finding"
+    # rule: a row set with no usable `bar_t` yields None rather than a
+    # manufactured date, and `train_window_coverage` reports the fraction of rows
+    # that actually carried one, so a partially-stamped dataset cannot pass as a
+    # fully-measured window.
+    bar_ts = []
+    for r in rows:
+        t = r.get("bar_t")
+        if t is None:
+            continue
+        try:
+            bar_ts.append(int(t))
+        except (TypeError, ValueError):
+            continue
+
+    def _iso(epoch_s: int) -> str:
+        return datetime.fromtimestamp(epoch_s, tz=timezone.utc).isoformat()
+
     artifact = {
         "model_id": a.model_id,
         "family": fam_dir.name,
@@ -76,6 +108,13 @@ def main(argv):
         "shape": {"policy": a.policy, "tau": a.tau, "below_r": a.below_r},
         "booster_txt": model.booster_.model_to_string(),
         "trained_at": datetime.now(timezone.utc).isoformat(),
+        # The DATA bound, distinct from `trained_at` above. Null when unknowable
+        # from the rows — never inferred from the fitting time.
+        "train_start": _iso(min(bar_ts)) if bar_ts else None,
+        "train_end": _iso(max(bar_ts)) if bar_ts else None,
+        "train_window_coverage": (round(len(bar_ts) / len(rows), 4)
+                                  if rows else None),
+        "train_dataset": str(fam_dir / "rows.jsonl"),
         "train_rows": len(rows),
         "train_trades": trades,
         "evidence": a.evidence or "docs/research/M20-exit-refinement-2026-07-12.md § 9",
