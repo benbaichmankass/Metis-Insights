@@ -89,13 +89,15 @@ _DEFAULTS: Dict[str, Any] = {
     # breakout is actionable only after the close has HELD beyond the signal
     # bar's channel edge for this many further closed bars (entry then fires
     # at the latest close — worse price, fewer false breakouts). Mirrors
-    # scripts/research/backtest_trend.py --confirm-bars exactly; declared per
-    # leg in config/strategies.yaml (Tier-3).
-    # NOTE (2026-08-08): this said scripts/backtest_trend.py, which declares no
-    # --confirm-bars flag — the lever lives only in the research copy. Comment
-    # corrected, behaviour untouched (field beats comment). The two harnesses
-    # are different ENGINES, not one with two flag sets: design-doc §5f +
-    # scripts/research/trend_harness_divergence.py.
+    # scripts/backtest_trend.py --confirm-bars exactly; declared per leg in
+    # config/strategies.yaml (Tier-3).
+    # NOTE (2026-08-09): this pointed at scripts/research/backtest_trend.py as
+    # the lever's only home. True when written on 2026-08-08; false since
+    # PR #8633 ported all 15 research-only levers into scripts/backtest_trend.py
+    # (verified: it declares --confirm-bars), and the research copy is a retired
+    # hard-fail shim as of 2026-08-09. Comment corrected, behaviour untouched
+    # (field beats comment). There is now exactly ONE trend engine, enforced by
+    # the trend-engine-convergence-guard.
     "confirm_bars": 0,
     # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
     # NEW entry whose TRIGGER bar's UTC hour is in this CSV set (e.g. "0").

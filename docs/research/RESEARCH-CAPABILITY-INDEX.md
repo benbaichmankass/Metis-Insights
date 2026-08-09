@@ -31,8 +31,9 @@ routing layer, not a replacement for reading it.
 
 | Question | Tool |
 |---|---|
-| How does a Donchian/trend leg perform? | `scripts/backtest_trend.py` — ⚠️ **there are TWO trend harnesses.** This one is the **live-faithful** copy (its trail freezes the ENTRY bar's ATR, which is what `trend_donchian.monitor()` does) and the one `regime_debt_matrix` runs. `scripts/research/backtest_trend.py` is a different ENGINE (rolling-ATR trail, flip exit, no cooldown) that carries 15 lever flags this one lacks. See design-doc §5f + `BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE` before picking one |
-| **Which of the two trend harnesses am I running, and how far apart are they?** Flag matrix + matched-config run of BOTH engines + isolation of the trail-ATR-basis axis alone | `scripts/research/trend_harness_divergence.py` |
+| How does a Donchian/trend leg perform? | `scripts/backtest_trend.py` — the **one** trend engine (43 flags; its trail freezes the ENTRY bar's ATR, which is what `trend_donchian.monitor()` does) and the one `regime_debt_matrix` runs. There used to be a second, non-live-faithful copy at `scripts/research/backtest_trend.py`; its 15 lever flags were ported here (PR #8633) and it was **retired to a hard-fail shim 2026-08-09**. History: design-doc §5f + `BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE` |
+| **Is a second trend engine creeping back in?** Convergence guard — fails when any other `backtest_trend.py` exposes an engine entry point, and names the flags it declares that the canonical engine does not. Carries the retired fork's measured divergence as the record | `scripts/research/trend_harness_divergence.py` (CI: `trend-engine-convergence-guard`) |
+| Load OHLCV (CSV / Parquet / **JSONL**, `ts`→`timestamp`) for a research script | `scripts/candle_io.py` — `load_candles` / `resample_ohlcv`, lifted verbatim from the retired engine. NOT the same as `scripts/backtest_trend.py::_load_candles`, which is CSV/Parquet-only (`BL-20260809-TWO-CANDLE-READERS-DIVERGE-ON-JSONL`) |
 | A pullback leg? | `scripts/backtest_pullback.py` |
 | A TTM squeeze (BB-inside-KC) leg? | `scripts/backtest_squeeze.py` |
 | A fade/failed-breakout leg? | `scripts/backtest_fade.py` |

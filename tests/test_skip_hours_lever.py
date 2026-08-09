@@ -8,6 +8,17 @@ Contract (both harnesses):
     moves/skips entries, it never rewrites history around them.
   * Hours not in the set are untouched; exits are never touched (an
     open trade rides through skipped hours unchanged).
+
+MIGRATED 2026-08-09 (``BL-20260808-RESEARCH-TREND-ENGINE-RETIREMENT-BLOCKED-BY-
+TEST-COUPLING``) from the retired ``scripts/research/backtest_trend.py`` onto
+the live-faithful ``scripts/backtest_trend.py``. **Disposition: (b) repoint —
+engine-INDEPENDENT.** Every assertion here is ENTRY-side (which bars enter, and
+that non-matching hours change nothing); none reads the trail's ATR basis, the
+flip exit or the cooldown, which are the three axes the two engines disagree on.
+Measured on this tape before migrating: both engines enter the same bar
+(``l@20:00``) with the same R, so no expected number moved. The exit-side
+assertions live in ``test_vol_conditional_trail_lever.py``, which needed a real
+re-derivation instead.
 """
 from __future__ import annotations
 
@@ -18,10 +29,10 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "research"))
 
-from backtest_trend import backtest  # noqa: E402
 from backtest_pullback import run_backtest  # noqa: E402
+
+from tests.trend_harness_engine import trend_trades  # noqa: E402
 
 
 # ---------------------------------------------------------------- donchian --
@@ -37,8 +48,7 @@ def _df(closes):
 
 
 def _trend(df, **kw):
-    return backtest(df, donchian=10, atr_p=5, atr_stop=2.0, trail_mult=3.0,
-                    timeout=0, long_only=False, **kw)
+    return trend_trades(df, **kw)
 
 
 def _breakout_tape():
@@ -61,6 +71,13 @@ def test_trend_signal_hour_skipped():
     hr = pd.Timestamp(base[0].entry_time).hour
     skipped = _trend(df, skip_hours=str(hr))
     assert all(pd.Timestamp(t.entry_time).hour != hr for t in skipped)
+    # Non-vacuity: the `all(...)` above is trivially true on an empty list, so
+    # it alone cannot distinguish "the lever suppressed the entry" from "the
+    # tape stopped producing trades for an unrelated reason". Measured on this
+    # tape (live-faithful engine, 2026-08-09): base enters exactly one trade at
+    # hour 20, and skipping hour 20 leaves none.
+    assert len(base) == 1 and hr == 20
+    assert skipped == []
 
 
 def test_trend_non_matching_hour_unchanged():

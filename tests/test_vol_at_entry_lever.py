@@ -8,6 +8,17 @@ Contract (mirrors tests/test_skip_hours_lever.py):
   * The percentile is TRAILING (causal): NaN until ``vol_pctl_window``
     bars exist → never skip (fail-permissive).
   * Exits are never touched — the levers gate NEW entries only.
+
+MIGRATED 2026-08-09 (``BL-20260808-RESEARCH-TREND-ENGINE-RETIREMENT-BLOCKED-BY-
+TEST-COUPLING``) from the retired ``scripts/research/backtest_trend.py`` onto
+the live-faithful ``scripts/backtest_trend.py``. **Disposition: (b) repoint —
+engine-INDEPENDENT.** The trend assertions here compare ENTRY-time lists and
+trade COUNTS; the levers gate entries only, and the file says so in its own
+contract. Measured before migrating: on the spike tape both engines enter the
+same bar (``l@09:00``) and both skip it under ``vol_skip_above_pctl=0.9``. The
+engines DO differ on the exit (the research copy trail-stops, this one rides to
+the timeout) — which is exactly why no assertion here reads ``exit_time`` or
+``r_multiple``.
 """
 from __future__ import annotations
 
@@ -19,10 +30,10 @@ import pandas as pd
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
-sys.path.insert(0, str(REPO / "scripts" / "research"))
 
-from backtest_trend import backtest as trend_backtest  # noqa: E402
 from backtest_pullback import run_backtest as pullback_backtest  # noqa: E402
+
+from tests.trend_harness_engine import trend_trades as trend_backtest  # noqa: E402
 
 
 def _df(rows):
@@ -47,8 +58,10 @@ def _trend_tape(n_flat=30, spike=False):
     return _df(rows)
 
 
-TREND_KW = dict(donchian=10, atr_p=5, atr_stop=2.0, trail_mult=3.0,
-                timeout=5, long_only=False)
+# donchian / atr_period / atr_stop_mult / trail_mult / cooldown come from
+# tests.trend_harness_engine.TAPE_DEFAULTS; only the timeout differs here (the
+# tape's coda is designed to resolve the trade on a timeout exit).
+TREND_KW = dict(timeout_bars=5)
 
 
 def test_trend_default_off_byte_identical():
@@ -56,6 +69,7 @@ def test_trend_default_off_byte_identical():
     base = trend_backtest(df, **TREND_KW)
     off = trend_backtest(df, **TREND_KW,
                          vol_skip_above_pctl=0.0, vol_skip_below_pctl=0.0)
+    assert base, "tape must produce a baseline trade (guards a vacuous [] == [])"
     assert [t.entry_time for t in base] == [t.entry_time for t in off]
 
 
@@ -75,6 +89,7 @@ def test_trend_dead_tail_skips():
     base = trend_backtest(df, **TREND_KW, vol_pctl_window=20)
     lo = trend_backtest(df, **TREND_KW, vol_skip_below_pctl=0.1,
                         vol_pctl_window=20)
+    assert base, "tape must produce a baseline trade (guards a vacuous [] == [])"
     assert [t.entry_time for t in base] == [t.entry_time for t in lo]
 
 
@@ -83,6 +98,7 @@ def test_trend_window_unfilled_never_skips():
     base = trend_backtest(df, **TREND_KW)
     gated = trend_backtest(df, **TREND_KW, vol_skip_above_pctl=0.9,
                            vol_pctl_window=500)   # window never fills
+    assert base, "tape must produce a baseline trade (guards a vacuous [] == [])"
     assert [t.entry_time for t in base] == [t.entry_time for t in gated]
 
 
