@@ -1,8 +1,13 @@
 # Gross-exposure governance — what we are actually trying to accomplish
 
-**Status:** design investigation, 2026-08-08. No code change proposed in this
-document's first phase beyond an observability seam; the ceiling VALUES remain
-Tier-3 and operator-owned.
+**Status:** § 4 (the observe / policy / verdict split) **SHIPPED** 2026-08-09 —
+`src/units/accounts/exposure.py`, behaviour-preserving for enforcement, with the
+measurement now surfaced on `report()` regardless of policy. § 5 (**choosing the
+values**) remains open and **Tier-3, operator-owned**.
+
+Sequencing note: § 4 had to land first and alone. It is what makes the exposure
+multiple *visible* without declaring a ceiling — which is the input § 5 needs and
+the reason § 5 stalled for a year (see § 3).
 
 **Origin:** `BL-20260807-ALPACA-PAPER-ZERO-BUYING-POWER-REFUSES-ALL`, shipped as phase 1 in
 `bb5203ae` (#8600). Phase 2 — declaring values — was explicitly deferred
