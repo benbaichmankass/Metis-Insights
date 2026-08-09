@@ -6862,6 +6862,24 @@ def _netting_rows_to_attribute(rows, excess, live_leg_ids):
     return picked
 
 
+def _is_pairs_sleeve_row(row) -> bool:
+    """Is this open journal row owned by the isolated pairs executor?
+
+    ONE definition, used by BOTH the netting reconciler (which refuses to
+    attribute these — `pairs_executor` holds its own state) and the divergence
+    sweep (which must say so rather than printing a generic "phantom row"
+    ERROR no reconciler will ever act on). Two copies of this predicate could
+    drift into disagreeing about who owns a row, which is precisely the seam
+    the alarm came from.
+    """
+    try:
+        setup = str(row["setup_type"] or "")
+        strat = str(row["strategy_name"] or "")
+    except (KeyError, IndexError, TypeError):
+        return False
+    return setup.startswith("pairs") or strat.startswith("pairs")
+
+
 def _reconcile_netting_partial_closes(db) -> Dict[str, int]:
     """Attribute a netted partial close to the journal rows it actually reduced.
 
@@ -6953,9 +6971,7 @@ def _reconcile_netting_partial_closes(db) -> Dict[str, int]:
         aid = str(row["account_id"] or "")
         if aid not in bybit_ids:
             continue
-        if str(row["setup_type"] or "").startswith("pairs") or str(
-            row["strategy_name"] or ""
-        ).startswith("pairs"):
+        if _is_pairs_sleeve_row(row):
             summary["skipped_pairs"] += 1
             continue
         sym = str(row["symbol"] or "").upper()
@@ -7261,6 +7277,7 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
         # resting legs summing far over the position (accumulation), and open
         # journal qty exceeding the netted exchange size (phantom rows).
         "over_covered": 0, "journal_qty_divergent": 0,
+        "journal_qty_divergent_pairs": 0,
     }
     try:
         from src.bot import data_loaders
@@ -7313,6 +7330,7 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
     # construction — yet pooling let it CANCEL OUT against a genuine excess on
     # the live side and read clean. That is the phantom case itself.
     journal_qty_by_key: Dict[tuple, float] = {}
+    pairs_qty_by_key: Dict[tuple, float] = {}
     # (No separate symbol set is needed: the sweep loop below iterates the open
     # JOURNAL rows, so a symbol whose exchange position is flat is still
     # visited — it just has no protection work to do. That is exactly why the
@@ -7330,6 +7348,20 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
         journal_qty_by_key[(_aid, _sym, _dir)] = (
             journal_qty_by_key.get((_aid, _sym, _dir), 0.0) + _q
         )
+        # How much of this key is owned by the PAIRS SLEEVE. The netting
+        # reconciler deliberately refuses pairs rows (`skipped_pairs`) because
+        # `pairs_executor` is an isolated 2-leg path holding its own state — so
+        # a divergence made of pairs rows has NO reconciler that will ever
+        # attribute it. Detecting it and printing the generic message anyway
+        # produced a permanent ERROR every ~5 min that nobody could act on
+        # (bybit_1/BNBUSDT, live-confirmed 2026-08-08), and an alarm that is
+        # routinely walked past is itself the P1 (CLAUDE.md § "If you see
+        # something, say something"). Same predicate as the reconciler's, so
+        # the two cannot disagree about what "a pairs row" is.
+        if _is_pairs_sleeve_row(row):
+            pairs_qty_by_key[(_aid, _sym, _dir)] = (
+                pairs_qty_by_key.get((_aid, _sym, _dir), 0.0) + _q
+            )
     for row in rows:
         account_id = str(row["account_id"] or "")
         if account_id not in bybit_ids:
@@ -7393,14 +7425,40 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                     if _j <= _backed * (1.0 + _BYBIT_QTY_DIVERGENCE_FRAC):
                         continue
                     summary["journal_qty_divergent"] += 1
+                    _pairs_q = pairs_qty_by_key.get((*cache_key, _side), 0.0)
+                    if _pairs_q >= _j - 1e-9:
+                        # ENTIRELY pairs-sleeve. The netting reconciler refuses
+                        # these by design, so the generic message below would
+                        # name a remediation that will never come — a permanent
+                        # ERROR no operator can action, which is how alarm
+                        # fatigue starts. Say who owns it instead, and keep it
+                        # at WARNING: the divergence is real, but "nobody is
+                        # coming" is a different fact from "a reconciler will
+                        # fix this next tick".
+                        summary["journal_qty_divergent_pairs"] += 1
+                        logger.warning(
+                            "_check_broker_naked_bybit_positions: PAIRS-SLEEVE "
+                            "QTY DIVERGENCE %s/%s %s — journal %s vs exchange "
+                            "%s (excess %s). These rows belong to "
+                            "pairs_executor, which owns its own state, so the "
+                            "netting reconciler SKIPS them (skipped_pairs) and "
+                            "no attribution pass will ever reduce them. Not "
+                            "actionable here by design — fixing it means "
+                            "teaching pairs_executor to reconcile its own legs "
+                            "(BL-20260808-PAIRS-DIVERGENCE-UNOWNED).",
+                            account_id, symbol, _side, _j, _backed, _j - _backed,
+                        )
+                        continue
                     logger.error(
                         "_check_broker_naked_bybit_positions: JOURNAL/BROKER QTY "
                         "DIVERGENCE %s/%s %s — open journal rows sum to %s but the "
                         "exchange backs %s on that side (position: size=%s "
-                        "side=%s; excess %s). At least one open row is a phantom; "
+                        "side=%s; excess %s%s). At least one open row is a phantom; "
                         "analytics and risk sizing both read the journal.",
                         account_id, symbol, _side, _j, _backed,
                         size, exch_side or "flat", _j - _backed,
+                        f"; {_pairs_q} of the journal qty is pairs-sleeve-owned "
+                        f"and unattributable" if _pairs_q > 0 else "",
                     )
                 if size > 0 and not exch_side:
                     # Side unreadable ⇒ we cannot say which journal rows the
