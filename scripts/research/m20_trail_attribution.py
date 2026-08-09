@@ -100,6 +100,43 @@ def load_harness():
     return mod
 
 
+def apply_cost_basis(harness, symbol: str, basis: str) -> Dict[str, Any]:
+    """Put the harness on the SAME cost basis the CLI uses, or say so.
+
+    This is a live trap, and it cost this tool a wrong number once already.
+    ``scripts/backtest_trend.py`` keeps its cost terms in MODULE GLOBALS and
+    ``main()`` resolves symbol-specific slippage/funding into them
+    (``execution_costs.slippage_bps_roundtrip_for(symbol)`` etc.) when the flags
+    are left at their ``None`` default. The module's own initial values are
+    ``0.0``. So a caller that imports the harness and calls ``run_backtest()``
+    directly — as this tool does, and as any in-process research script would —
+    silently runs **fee-only**, while every CLI/sweep run is **fee + slippage +
+    funding**.
+
+    Same engine, same trades, different money. It showed up here as a maxDD of
+    13.2595 against the CLI's 14.7968 on an identical 175-trade book, which
+    reads as a reconciliation failure and is really a basis mismatch.
+
+    ``cli`` reproduces the CLI resolution; ``fee_only`` keeps the import-time
+    zeros. Either way the effective terms are returned and reported, because a
+    cost basis that is not stated is one the next reader will assume.
+    """
+    ec = harness.execution_costs
+    if basis == "cli":
+        harness.SLIPPAGE_BPS_ROUNDTRIP = ec.slippage_bps_roundtrip_for(symbol)
+        harness.FUNDING_BPS_PER_WINDOW = ec.funding_bps_per_window_for(symbol)
+    elif basis == "fee_only":
+        harness.SLIPPAGE_BPS_ROUNDTRIP = 0.0
+        harness.FUNDING_BPS_PER_WINDOW = 0.0
+    else:
+        raise SystemExit(f"unknown --cost-basis: {basis}")
+    return {"basis": basis,
+            "fee_bps_roundtrip": harness.FEE_BPS_ROUNDTRIP,
+            "slippage_bps_roundtrip": harness.SLIPPAGE_BPS_ROUNDTRIP,
+            "funding_bps_per_window": harness.FUNDING_BPS_PER_WINDOW,
+            "funding_window_hours": harness.FUNDING_WINDOW_HOURS}
+
+
 def run_arm(harness, a, tight_mult: float) -> Tuple[Dict[str, Any], List[Any]]:
     """Run one arm config-exact, returning (summary, trades).
 
@@ -363,6 +400,9 @@ def parse_args(argv=None):
     p.add_argument("--split", default="2025-07-01")
     p.add_argument("--start", default=None,
                    help="start bound for the restricted-basis IS run (default: tape start)")
+    p.add_argument("--cost-basis", choices=("cli", "fee_only"), default="cli",
+                   help="cli = symbol-resolved slippage+funding as main() sets them "
+                        "(the basis every sweep used); fee_only = the import-time zeros")
     p.add_argument("--dd-reconcile", action="store_true",
                    help="reconcile the two maxDD bases the gate verdict rests on")
     p.add_argument("--min-differing", type=int, default=10,
@@ -374,6 +414,7 @@ def parse_args(argv=None):
 def main(argv=None) -> int:
     a = parse_args(argv)
     harness = load_harness()
+    cost = apply_cost_basis(harness, a.symbol, a.cost_basis)
 
     off_s, off_t = run_arm(harness, a, 0.0)
     live_s, live_t = run_arm(harness, a, a.live_tight)
@@ -390,6 +431,7 @@ def main(argv=None) -> int:
             "data": a.data, "resample": a.resample, "symbol": a.symbol,
             "split": a.split, "arm_r": a.arm_r,
             "live_tight_mult": a.live_tight, "proposed_tight_mult": a.proposed_tight,
+            "cost_basis": cost,
             "config": {"donchian": a.donchian, "atr_period": a.atr_period,
                        "atr_stop_mult": a.atr_stop_mult, "trail_mult": a.trail_mult,
                        "min_confidence": a.min_confidence, "long_only": a.long_only},
@@ -408,6 +450,9 @@ def main(argv=None) -> int:
 
     print(f"POPULATION: {a.symbol} {a.resample} split={a.split} "
           f"arm_r={a.arm_r} tight {a.live_tight} -> {a.proposed_tight}")
+    print(f"  COST BASIS: {cost['basis']} fee={cost['fee_bps_roundtrip']}bps "
+          f"slip={cost['slippage_bps_roundtrip']}bps "
+          f"funding={cost['funding_bps_per_window']}bps/{cost['funding_window_hours']}h")
     print(f"  OFF            : {out['summaries']['OFF']}")
     print(f"  tight={a.live_tight} (live)    : {out['summaries']['live_tight']}")
     print(f"  tight={a.proposed_tight} (proposed): {out['summaries']['proposed_tight']}")
