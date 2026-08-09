@@ -93,6 +93,45 @@ def _load_harness():
     return mod
 
 
+def _apply_venue_cost_policy(harness, symbol: str) -> Dict[str, Any]:
+    """Put the harness on the venue cost policy, so the emitted ``net_r`` is what
+    it says it is.
+
+    ``scripts/backtest_trend.py`` keeps its cost terms in module globals that
+    default to ``slippage=0.0 / funding=0.0``, and only ``main()`` (the CLI path)
+    resolves the venue-aware values into them. That default is **deliberate and
+    load-bearing** — PR #8468 chose it so in-process callers (the confidence
+    sweep, the ML recorder, the M30 panel bridge) stay byte-identical — and is
+    not changed here.
+
+    But this module imports the harness and calls ``run_backtest`` directly, so
+    it inherited the fee-only basis while writing a field named ``net_r`` under a
+    comment promising *fee + slippage + funding*. Every CLI harness fills that
+    same JSONL schema with net-of-FULL-cost, and the recorder that ingests it
+    labels ``won = net_r > 0`` — so a leg on a cheaper basis flips the label on
+    any trade whose true net is marginally negative. The module docstring calls
+    this emit a **faithful** leg; a leg costed differently from its siblings is
+    the one thing it must not be.
+
+    Trades are unaffected: the engine's entry/exit loop reads no cost term (costs
+    are applied post-hoc in ``_summarize``/``_cost_breakdown``), so this changes
+    ``net_r`` and nothing about which trades exist or where they exit. The
+    replay's own headline delta is computed from gross ``r_multiple`` and is
+    likewise unchanged.
+
+    Returns the effective terms so the caller can state the basis rather than
+    leave the reader to assume it.
+    """
+    from src.runtime import execution_costs
+    slip, fund = execution_costs.resolve_cost_policy(symbol)
+    harness.SLIPPAGE_BPS_ROUNDTRIP = slip
+    harness.FUNDING_BPS_PER_WINDOW = fund
+    return {"fee_bps_roundtrip": harness.FEE_BPS_ROUNDTRIP,
+            "slippage_bps_roundtrip": slip,
+            "funding_bps_per_window": fund,
+            "funding_window_hours": harness.FUNDING_WINDOW_HOURS}
+
+
 def default_artifact_dir() -> str:
     from src.utils.paths import runtime_logs_dir
     return str(runtime_logs_dir() / "trainer_mirror" / "exit_head")
@@ -312,6 +351,7 @@ def main(argv: List[str]) -> int:
         return 2
 
     harness = _load_harness()
+    cost_basis = _apply_venue_cost_policy(harness, a.symbol)
     df = _load_candles(a.data, a.resample)
     trades: List[Any] = []
     baseline = harness.run_backtest(
@@ -381,7 +421,12 @@ def main(argv: List[str]) -> int:
         "baseline_gross_r": round(base_r, 4),
         "replayed_gross_r": round(new_r, 4),
         "delta_gross_r": round(new_r - base_r, 4),
+        # Net-of-FULL-cost since 2026-08-09 (see _apply_venue_cost_policy); it
+        # was fee-only before, because the harness globals default to 0 and only
+        # the CLI resolved them. `cost_basis` is emitted beside it so the number
+        # is never read without its basis.
         "baseline_summary_net_total_r": baseline.get("net_total_r"),
+        "cost_basis": cost_basis,
         "trades_detail": records,
     }
     print(f"exit-head replay — {a.strategy} {a.symbol} {a.timeframe} "
@@ -389,6 +434,10 @@ def main(argv: List[str]) -> int:
     print(f"  population: {len(df)} bars, {len(records)} trades, "
           f"{payload['population']['trades_scored']} scored, "
           f"{len(fired)} re-resolved by the head")
+    print(f"  cost basis: fee={cost_basis['fee_bps_roundtrip']}bps "
+          f"slip={cost_basis['slippage_bps_roundtrip']}bps "
+          f"funding={cost_basis['funding_bps_per_window']}bps/"
+          f"{cost_basis['funding_window_hours']}h (venue policy)")
     print(f"  gross R: baseline {base_r:+.3f} -> replayed {new_r:+.3f} "
           f"(delta {new_r - base_r:+.3f})")
     # State the in-sample split next to the delta, never only in the JSON — the
@@ -428,7 +477,14 @@ def main(argv: List[str]) -> int:
                     "direction": t.direction, "gross_r": r["replayed_r"],
                     # _fee_r is the harness's TOTAL round-trip cost in R
                     # (fee+slippage+funding); the legacy name is kept there.
+                    # The venue policy is applied in main() via
+                    # _apply_venue_cost_policy, so this is net-of-FULL-cost and
+                    # comparable with every CLI harness's emit — it was fee-only
+                    # until 2026-08-09 because the harness globals default to 0.
                     "net_r": round(r["replayed_r"] - harness._fee_r(t), 4),
+                    # State the basis in the row: a consumer that mixes legs can
+                    # check it instead of assuming they share a cost model.
+                    "cost_basis": cost_basis,
                     "confidence": t.confidence,
                     "exit_head_applied": True,
                     "exit_head_fired": r["exit_head_fired"],
