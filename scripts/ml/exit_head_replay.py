@@ -209,6 +209,78 @@ def _load_candles(path: str, resample: Optional[str]):
     return df
 
 
+def split_in_sample(artifact: Dict[str, Any], *, bar_times, entry_times,
+                    baseline_rs, replayed_rs) -> Dict[str, Any]:
+    """Split a replay into its IN-SAMPLE and FORWARD halves, off the artifact.
+
+    BL-20260808-EXIT-HEAD-MANIFEST-RECORDS-NO-TRAINING-WINDOW. A replay delta is
+    worthless as evidence without knowing how much of the scored window the head
+    was FITTED on. The first measured replay (#8653) reported delta_gross_r
+    +10.804 over 2026-02-09 -> 2026-08-07 against a head whose data ended
+    ~2026-07-12 — roughly 5 of 6 months in-sample — and that had to be
+    reconstructed by hand from ``trained_at``.
+
+    So the split ships as FIELDS, not as a caveat a reader has to remember. Same
+    shape ``/performance`` uses for ``rCoverage``: report the honest
+    sub-population beside the headline, and make "we don't know" an EXPLICIT
+    state rather than a silent fallback to the headline.
+
+    ``train_end`` is the DATA bound. ``trained_at`` is the wall-clock moment of
+    fitting and is deliberately NOT substituted for it — conflating the two is
+    the defect. A pre-fix artifact carries no ``train_end``, so every derived
+    field is ``None`` and ``train_window_present`` is ``False``.
+
+    A trade is FORWARD when its entry is strictly after ``train_end``; a bar is
+    forward on the same rule. Boundary rows count as in-sample, which is the
+    conservative direction (it can only make the forward sub-population smaller
+    and therefore the evidence claim weaker, never inflated).
+
+    NOTE the trap this must not invite: do NOT widen the replay window to "get
+    more data" — a longer window makes the in-sample fraction LARGER. The fix for
+    evidence quality is a forward-only window (start > train_end).
+    """
+    import pandas as pd
+
+    raw = artifact.get("train_end")
+    train_end = pd.to_datetime(raw, utc=True, errors="coerce") if raw else None
+    if train_end is not None and pd.isna(train_end):
+        train_end = None
+
+    out: Dict[str, Any] = {
+        "train_window_present": train_end is not None,
+        "train_start": artifact.get("train_start"),
+        "train_end": raw,
+        "train_window_coverage": artifact.get("train_window_coverage"),
+        "train_trades": artifact.get("train_trades"),
+        "in_sample_bars": None, "forward_bars": None,
+        "in_sample_trades": None, "forward_trades": None,
+        "forward_baseline_gross_r": None, "forward_replayed_gross_r": None,
+        "forward_delta_gross_r": None,
+    }
+    if train_end is None:
+        return out
+
+    bars = pd.to_datetime(pd.Series(list(bar_times)), utc=True, errors="coerce")
+    out["in_sample_bars"] = int((bars <= train_end).sum())
+    out["forward_bars"] = int((bars > train_end).sum())
+
+    fwd_base = fwd_new = 0.0
+    fwd_n = 0
+    for et, b_r, n_r in zip(entry_times, baseline_rs, replayed_rs):
+        ts = pd.to_datetime(et, utc=True, errors="coerce")
+        if pd.isna(ts) or ts <= train_end:
+            continue
+        fwd_n += 1
+        fwd_base += b_r
+        fwd_new += n_r
+    out["forward_trades"] = fwd_n
+    out["in_sample_trades"] = len(list(entry_times)) - fwd_n
+    out["forward_baseline_gross_r"] = round(fwd_base, 4)
+    out["forward_replayed_gross_r"] = round(fwd_new, 4)
+    out["forward_delta_gross_r"] = round(fwd_new - fwd_base, 4)
+    return out
+
+
 def main(argv: List[str]) -> int:
     p = argparse.ArgumentParser(
         description="Replay the live exit head over trend-harness backtest trades.")
@@ -266,6 +338,32 @@ def main(argv: List[str]) -> int:
     fired = [r for r in records if r["exit_head_fired"]]
     base_r = sum(r["baseline_r"] for r in records)
     new_r = sum(r["replayed_r"] for r in records)
+
+    # --- IN-SAMPLE SPLIT (BL-20260808-EXIT-HEAD-MANIFEST-RECORDS-NO-TRAINING-WINDOW)
+    # The delta below is worthless as evidence without knowing how much of the
+    # scored window the head was FITTED on. The first measured replay (#8653)
+    # reported delta_gross_r +10.804 over 2026-02-09 -> 2026-08-07 against a head
+    # whose data ended ~2026-07-12 — roughly 5 of 6 months in-sample — and that
+    # had to be reconstructed by hand from `trained_at`, which is the wall-clock
+    # moment of fitting, not the data bound.
+    #
+    # So the split ships as FIELDS, not as a caveat a reader has to remember.
+    # Same shape /performance uses for rCoverage: report the honest sub-population
+    # beside the headline, and make "we don't know" an explicit state rather than
+    # a silent fallback to the headline. A pre-fix artifact carries no
+    # `train_end`, so every field here is None and `train_window_present` is
+    # False — never inferred from `trained_at`.
+    #
+    # NOTE the direction of the trap: do NOT widen the replay window to "get more
+    # data". A longer window makes the in-sample fraction LARGER. The fix for
+    # evidence quality is a forward-only window (start > train_end).
+    in_sample = split_in_sample(
+        artifact,
+        bar_times=list(df["timestamp"]),
+        entry_times=[t.entry_time for t in trades],
+        baseline_rs=[r["baseline_r"] for r in records],
+        replayed_rs=[r["replayed_r"] for r in records])
+
     payload = {
         "strategy": a.strategy, "symbol": a.symbol, "timeframe": a.timeframe,
         "model_id": artifact.get("model_id"), "stage": artifact.get("stage"),
@@ -279,6 +377,7 @@ def main(argv: List[str]) -> int:
             "trades_scored": sum(1 for r in records if r["bars_scored"] > 0),
             "trades_exit_head_fired": len(fired),
         },
+        "in_sample_split": in_sample,
         "baseline_gross_r": round(base_r, 4),
         "replayed_gross_r": round(new_r, 4),
         "delta_gross_r": round(new_r - base_r, 4),
@@ -292,6 +391,34 @@ def main(argv: List[str]) -> int:
           f"{len(fired)} re-resolved by the head")
     print(f"  gross R: baseline {base_r:+.3f} -> replayed {new_r:+.3f} "
           f"(delta {new_r - base_r:+.3f})")
+    # State the in-sample split next to the delta, never only in the JSON — the
+    # delta ALONE is the number that gets quoted, so the qualifier has to travel
+    # with it. `train_end` is the DATA bound off the artifact; `trained_at` (the
+    # fitting moment) is deliberately not used as a substitute.
+    if in_sample["train_window_present"]:
+        print(f"  training window: {in_sample['train_start']} -> "
+              f"{in_sample['train_end']} "
+              f"(coverage {in_sample['train_window_coverage']}, "
+              f"{in_sample['train_trades']} train trades)")
+        print(f"  in-sample / forward: bars {in_sample['in_sample_bars']}/"
+              f"{in_sample['forward_bars']}, trades "
+              f"{in_sample['in_sample_trades']}/{in_sample['forward_trades']}")
+        if in_sample["forward_trades"]:
+            print(f"  FORWARD-ONLY gross R: baseline "
+                  f"{in_sample['forward_baseline_gross_r']:+.3f} -> replayed "
+                  f"{in_sample['forward_replayed_gross_r']:+.3f} "
+                  f"(delta {in_sample['forward_delta_gross_r']:+.3f}) "
+                  f"on n={in_sample['forward_trades']} — THIS is the "
+                  f"out-of-sample figure; the headline delta above is not")
+        else:
+            print("  FORWARD-ONLY gross R: n/a — 0 trades entered after "
+                  "train_end, so the headline delta is ENTIRELY in-sample")
+    else:
+        print("  in-sample split: UNKNOWN — this artifact records no `train_end` "
+              "(pre-BL-20260808 export). The headline delta cannot be qualified; "
+              "re-export the head with scripts/ml/export_exit_head.py to get it. "
+              "`trained_at` is the fitting moment, NOT the data bound, and is "
+              "deliberately not substituted here.")
 
     if a.emit_trades:
         with open(a.emit_trades, "w", encoding="utf-8") as fh:

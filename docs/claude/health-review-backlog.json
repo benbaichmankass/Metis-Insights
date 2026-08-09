@@ -10906,7 +10906,7 @@
       "source": "Found while qualifying the FIRST measured exit-head replay result (issue #8653, trainer-diag #8656). Measured on the trainer @247f025c.",
       "title": "Exit-head artifacts DON'T RECORD their training window (train_start/train_end), so a replay's in-sample fraction can't be read off the artifact — though the exporter already holds the rows needed to write it",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "severity": "medium",
       "what_to_check": "MEASURED on the trainer (#8656): exit-head-donchian-1h-v1.json carries trained_at=2026-07-12T14:44:43Z, train_rows=34338, train_trades=1662, symbols=[BTCUSDT,ETHUSDT,SOLUSDT], tf=1h, shape={policy:below_half_r,tau:0.1,below_r:0.5}, 14 features, evidence='docs/research/M20-exit-refinement-2026-07-12.md 9'. No train_start / train_end / dataset id. CORRECTED CLAIM — checked: scripts/ml/export_exit_head.py + scripts/ml/build_exit_head_dataset.py. An earlier draft of this row said the window 'cannot be computed'. That is FALSE and impossibility-claim-guard caught it, correctly: export_exit_head.py:70-82 builds the artifact dict while `rows` is in scope, and those rows come from harness emit JSONLs (build_exit_head_dataset.py --trades) which carry per-trade timestamps. So the window IS derivable AT EXPORT TIME (min/max over rows) — it is simply never written. What is genuinely true is narrower: the window is not recoverable FROM THE ARTIFACT ALONE by a downstream consumer, and `trained_at` is the wall-clock moment of fitting, not the data bound, so the two must not be used interchangeably. WHY IT MATTERS: the first measured exit-head replay (#8653) scored 2026-02-09 -> 2026-08-07 and reported delta_gross_r +10.804 on n=31 trades (30 scored, 24 re-resolved), baseline -11.826R -> replayed -1.022R. Assessing how much of that is in-sample required INFERRING from trained_at that the data ends ~2026-07-12, implying ~5 of 6 replayed months sit at-or-before fitting time and only ~26 days are forward. POPULATION: train_trades=1662 across three symbols vs 31 BTC-only trades replayed (~54x), a second reason the delta is not an edge. This is the diagnostic-provenance class one level upstream: the replay's output cannot state its own derivation (in-sample vs forward) because the artifact it consumes drops a fact its producer had in hand.",
@@ -10923,8 +10923,12 @@
         "scripts/ml/exit_head_replay.py",
         "docs/research/M20-exit-refinement-2026-07-12.md",
         "scripts/ml/export_exit_head.py",
-        "scripts/ml/build_exit_head_dataset.py"
-      ]
+        "scripts/ml/build_exit_head_dataset.py",
+        "tests/test_exit_head_training_window.py"
+      ],
+      "resolved_at": "2026-08-09T00:00:00+00:00",
+      "resolved_by": "claude (M20 trend-harness workstream ipa3ce)",
+      "resolution": "BOTH halves shipped. (1) scripts/ml/export_exit_head.py now writes train_start / train_end / train_window_coverage / train_dataset beside the existing trained_at, derived by the new pure helper training_window(rows) from each row's `bar_t` (epoch seconds of the in-trade bar, written by build_exit_head_dataset.py) — the data the exporter already held. HONEST-NULL: a row set with no usable bar_t yields None rather than a manufactured date, and train_window_coverage reports the fraction of rows that actually carried one, so a partially-stamped dataset cannot pass as a fully-measured window. (2) scripts/ml/exit_head_replay.py now emits an `in_sample_split` block via the pure helper split_in_sample(): in_sample_bars / forward_bars / in_sample_trades / forward_trades plus a FORWARD-ONLY baseline/replayed/delta gross R — and prints them next to the headline delta, not only into --json, because the delta alone is the number that gets quoted. `trained_at` is never substituted for `train_end` (a pre-fix artifact reports train_window_present:false and nulls throughout, and an unparseable train_end degrades to UNKNOWN rather than to epoch 0, which would have manufactured a fully-out-of-sample claim). A boundary row counts as IN-sample — the conservative direction, since the alternative inflates the forward population. 12 tests in tests/test_exit_head_training_window.py pin the arithmetic (not just the source text): on a fixture mirroring the #8653 shape the headline delta is +9.25 while the forward-only delta is +2.25. NOT DONE, deliberately: the replay window was not widened - a longer window makes the in-sample fraction LARGER, and the fix for evidence quality is a forward-only window (start > train_end), which belongs with the M20 re-sweep."
     },
     {
       "id": "BL-20260809-TWO-CANDLE-READERS-DIVERGE-ON-JSONL",
