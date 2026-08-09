@@ -400,3 +400,164 @@ def test_run_pairs_tick_shadow_places_nothing(tmp_path, monkeypatch):
     assert len(captured) == 1
     assert captured[0]["event"] == "shadow_open"       # computed, not placed
     assert captured[0]["pair"] == "SOLUSDT/BTCUSDT"
+
+
+# ── the third leg-state: half-open ──────────────────────────────────────────
+# `_close_pair` is best-effort PER LEG and deliberately leaves a leg that failed
+# to flatten open. The predicate the tick used asked only "are BOTH legs open?",
+# so leg-A-closed / leg-B-stranded answered False — indistinguishable from a pair
+# that was never opened. The tick then saw no position and was free to open a
+# fresh pair, stacking a second journal row on the stranded leg's symbol over one
+# netted exchange position. Nothing else owns the cleanup: the netting reconciler
+# skips pairs rows by design, precisely because this executor is supposed to own
+# its own legs (BL-20260808-PAIRS-DIVERGENCE-UNOWNED).
+
+def _leg_state_pair():
+    return {"name": "pairs_sol_btc", "symbol_a": "SOLUSDT", "symbol_b": "BTCUSDT"}
+
+
+def _patch_leg_openness(monkeypatch, open_symbols):
+    import src.runtime.positions as _pos
+    monkeypatch.setattr(
+        _pos, "has_open_trade_for_strategy",
+        lambda account_id, symbol, strategy, **k: symbol in open_symbols)
+
+
+def test_leg_state_names_all_three_cases(monkeypatch):
+    pair = _leg_state_pair()
+    _patch_leg_openness(monkeypatch, {"SOLUSDT", "BTCUSDT"})
+    assert px._pair_leg_state(pair, "bybit_1", None) == "open"
+    _patch_leg_openness(monkeypatch, set())
+    assert px._pair_leg_state(pair, "bybit_1", None) == "flat"
+    # The case that had no name and was being read as "flat".
+    _patch_leg_openness(monkeypatch, {"SOLUSDT"})
+    assert px._pair_leg_state(pair, "bybit_1", None) == "half_open"
+    _patch_leg_openness(monkeypatch, {"BTCUSDT"})
+    assert px._pair_leg_state(pair, "bybit_1", None) == "half_open"
+
+
+def test_half_open_is_not_reported_as_the_pair_being_on(monkeypatch):
+    """`_pair_is_open` keeps its meaning — which is exactly why it must not be
+    the thing that DECIDES. It answers False for half-open, same as for flat."""
+    _patch_leg_openness(monkeypatch, {"SOLUSDT"})
+    assert px._pair_is_open(_leg_state_pair(), "bybit_1", None) is False
+
+
+def test_half_open_pair_cleans_up_and_places_NOTHING(tmp_path, monkeypatch):
+    """The regression this exists to prevent.
+
+    One leg stranded open. The tick must NOT read that as flat and open a fresh
+    pair on top of it; it must flatten the stranded leg and emit a `half_open`
+    soak row instead.
+    """
+    ca, cb = _extended_spread()   # a spread wide enough to WANT to open
+    captured = []
+    monkeypatch.setattr(px, "_load_pairs_config", lambda path=None: {
+        "account_id": "bybit_1", "pairs_risk_fraction": 1.0,
+        "pairs": [{"name": "pairs_sol_btc", "symbol_a": "SOLUSDT",
+                   "symbol_b": "BTCUSDT", "execution": "live",
+                   "timeframe": "1h", "hedge_beta": "one"}],
+    })
+    monkeypatch.setattr(
+        px, "_fetch_leg",
+        lambda sym, tf, lim, s: (list(ca) if sym == "SOLUSDT" else list(cb), "T1"))
+    monkeypatch.setattr(px, "_save_decision_bars", lambda state: None)
+    monkeypatch.setattr(px, "_load_decision_bars", lambda: {})
+    # Exactly one leg open => half_open.
+    _patch_leg_openness(monkeypatch, {"SOLUSDT"})
+    import src.units.accounts.clients as _clients
+    monkeypatch.setattr(_clients, "bybit_client_for", lambda acct: object())
+    import src.units.accounts.execute as _exec
+    monkeypatch.setattr(_exec, "_fetch_balance", lambda *a, **k: 100000.0)
+    monkeypatch.setattr(
+        _exec, "execute_pkg",
+        lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError("must NOT open a new pair over a stranded leg")))
+    import src.config.accounts_loader as _al
+    monkeypatch.setattr(
+        _al, "load_accounts_dict",
+        lambda *a, **k: {"bybit_1": {"exchange": "bybit", "account_class": "paper",
+                                     "risk": {"risk_pct": 0.015}}})
+    import src.utils.paths as _paths
+    monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
+    import src.runtime.pairs_soak as _soak
+    monkeypatch.setattr(_soak, "record_pairs_soak", lambda rec: captured.append(rec) or True)
+    closes = []
+    monkeypatch.setattr(
+        px, "_close_pair",
+        lambda *a, **k: closes.append(a[3]) or {"closed": True, "outcome": a[3]})
+    alerts = []
+    monkeypatch.setattr(px, "_alert_half_open_pair",
+                        lambda *a, **k: alerts.append((a, k)))
+
+    px.run_pairs_tick({})
+
+    assert len(captured) == 1
+    assert captured[0]["event"] == "half_open"
+    assert captured[0]["stranded_legs"] == ["SOLUSDT"]
+    assert captured[0]["cleanup_confirmed"] is True
+    assert closes == ["half_open_cleanup"], "the stranded leg must be flattened"
+    assert alerts, "a naked leg in a market-neutral sleeve must be alerted"
+
+
+def test_half_open_in_shadow_mode_alerts_but_places_no_order(tmp_path, monkeypatch):
+    """A `shadow` pair has no order authority, so it must not try to close —
+    but it must still say the state exists rather than silently re-deciding."""
+    ca, cb = _extended_spread()
+    captured = []
+    monkeypatch.setattr(px, "_load_pairs_config", lambda path=None: {
+        "account_id": "bybit_1", "pairs_risk_fraction": 1.0,
+        "pairs": [{"name": "pairs_sol_btc", "symbol_a": "SOLUSDT",
+                   "symbol_b": "BTCUSDT", "execution": "shadow",
+                   "timeframe": "1h", "hedge_beta": "one"}],
+    })
+    monkeypatch.setattr(
+        px, "_fetch_leg",
+        lambda sym, tf, lim, s: (list(ca) if sym == "SOLUSDT" else list(cb), "T1"))
+    monkeypatch.setattr(px, "_save_decision_bars", lambda state: None)
+    monkeypatch.setattr(px, "_load_decision_bars", lambda: {})
+    _patch_leg_openness(monkeypatch, {"BTCUSDT"})
+    import src.config.accounts_loader as _al
+    monkeypatch.setattr(
+        _al, "load_accounts_dict",
+        lambda *a, **k: {"bybit_1": {"exchange": "bybit", "account_class": "paper",
+                                     "risk": {"risk_pct": 0.015}}})
+    import src.utils.paths as _paths
+    monkeypatch.setattr(_paths, "trade_journal_db_path", lambda: str(tmp_path / "j.db"))
+    import src.runtime.pairs_soak as _soak
+    monkeypatch.setattr(_soak, "record_pairs_soak", lambda rec: captured.append(rec) or True)
+    monkeypatch.setattr(
+        px, "_close_pair",
+        lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError("shadow must not place a closing order")))
+    alerts = []
+    monkeypatch.setattr(px, "_alert_half_open_pair",
+                        lambda *a, **k: alerts.append((a, k)))
+
+    px.run_pairs_tick({})
+
+    assert captured and captured[0]["event"] == "half_open"
+    assert captured[0]["cleanup_confirmed"] is False
+    assert captured[0]["stranded_legs"] == ["BTCUSDT"]
+    assert alerts
+
+
+def test_half_open_alert_never_raises(monkeypatch):
+    import src.runtime.outcomes as _out
+    monkeypatch.setattr(
+        _out, "report", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    px._alert_half_open_pair("A/B", "bybit_1", stranded=["A"], cleaned=False)
+
+
+def test_half_open_alert_severity_reflects_whether_it_is_still_naked(monkeypatch):
+    """CRITICAL while the leg stands, WARN once flattened — the exposure is the
+    thing being graded, not the event."""
+    import src.runtime.outcomes as _out
+    calls = []
+    monkeypatch.setattr(_out, "report",
+                        lambda *a, **k: calls.append((a, k.get("level"))))
+    px._alert_half_open_pair("A/B", "bybit_1", stranded=["A"], cleaned=True)
+    px._alert_half_open_pair("A/B", "bybit_1", stranded=["A"], cleaned=False)
+    assert calls[0][0][1] == "cleaned"
+    assert calls[1][0][1] == "unresolved"
+    assert calls[0][1] != calls[1][1], "an un-flattened naked leg is more severe"

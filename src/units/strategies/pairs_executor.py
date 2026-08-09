@@ -199,13 +199,79 @@ def _leg_strats(pair: Dict[str, Any]) -> tuple:
     return (f"{name}_a", f"{name}_b")
 
 
-def _pair_is_open(pair: Dict[str, Any], account_id: str, db_path: Optional[str]) -> bool:
-    """True when BOTH legs of the pair currently hold an open trade (the pair is
-    on). Uses the journal open-truth (has_open_trade_for_strategy)."""
+def _pair_leg_state(pair: Dict[str, Any], account_id: str,
+                    db_path: Optional[str]) -> str:
+    """``open`` (both legs) / ``flat`` (neither) / ``half_open`` (exactly one).
+
+    THREE states, because the third one is real and was being read as ``flat``.
+
+    ``_close_pair`` is best-effort PER LEG and deliberately leaves a leg that
+    failed to flatten open ("the monitor/backstop retries"). The predicate that
+    replaced this one asked only *are BOTH legs open?* — so a pair with leg A
+    closed and leg B stranded answered **False**, i.e. indistinguishable from a
+    pair that was never opened. The tick then:
+
+      * built ``open_state = None``, so the decision saw no position,
+      * and was free to emit a fresh ``open`` and place BOTH legs again —
+
+    stacking a second journal row on the stranded leg's symbol while the venue,
+    under one-way netting, still holds ONE position. That is the divergence
+    shape, and nothing else owns the cleanup: the netting-attribution reconciler
+    skips pairs rows by design (``_is_pairs_sleeve_row`` -> ``skipped_pairs``),
+    precisely because this executor is supposed to own its own legs
+    (``BL-20260808-PAIRS-DIVERGENCE-UNOWNED``).
+
+    A half-open pair is also not merely a bookkeeping wart: a lone leg is a
+    NAKED DIRECTIONAL position in a sleeve whose entire premise is market
+    neutrality — the same exposure ``_legs_below_min_qty`` refuses to create at
+    open time, arrived at from the other end.
+    """
     from src.runtime.positions import has_open_trade_for_strategy
     strat_a, strat_b = _leg_strats(pair)
-    return (has_open_trade_for_strategy(account_id, str(pair["symbol_a"]), strat_a, db_path=db_path)
-            and has_open_trade_for_strategy(account_id, str(pair["symbol_b"]), strat_b, db_path=db_path))
+    a = has_open_trade_for_strategy(
+        account_id, str(pair["symbol_a"]), strat_a, db_path=db_path)
+    b = has_open_trade_for_strategy(
+        account_id, str(pair["symbol_b"]), strat_b, db_path=db_path)
+    if a and b:
+        return "open"
+    if a or b:
+        return "half_open"
+    return "flat"
+
+
+def _pair_is_open(pair: Dict[str, Any], account_id: str, db_path: Optional[str]) -> bool:
+    """True when BOTH legs of the pair currently hold an open trade (the pair is
+    on). Uses the journal open-truth (has_open_trade_for_strategy).
+
+    Retained for the concurrency helpers, which genuinely want "is this pair
+    ON". Anything DECIDING what to do must use ``_pair_leg_state`` instead —
+    this boolean cannot express the half-open case and reports it as False.
+    """
+    return _pair_leg_state(pair, account_id, db_path) == "open"
+
+
+def _alert_half_open_pair(pair_label: str, account_id: str, *,
+                          stranded: Sequence[str], cleaned: bool) -> None:
+    """Surface a half-open pair loudly. The close-side sibling of
+    ``_alert_partial_placement``: a lone leg is un-hedged directional exposure
+    in a market-neutral sleeve. WARN when this tick flattened it, CRITICAL when
+    it is still standing. Never raises."""
+    try:
+        from src.runtime.outcomes import Level, report
+        if cleaned:
+            report("pairs_half_open", "cleaned", level=Level.WARN,
+                   reason=(f"pairs {pair_label}: one leg was stranded open on {account_id} "
+                           f"({', '.join(stranded)}) after a partial close; flattened this tick"),
+                   pair=pair_label, account_id=account_id, stranded_legs=list(stranded))
+        else:
+            report("pairs_half_open", "unresolved", level=Level.CRITICAL,
+                   reason=(f"pairs {pair_label}: one leg is stranded OPEN on {account_id} "
+                           f"({', '.join(stranded)}) — un-hedged directional exposure in a "
+                           f"market-neutral sleeve, and the cleanup close did not confirm. "
+                           f"The pair is BLOCKED from re-opening until it is flat"),
+                   pair=pair_label, account_id=account_id, stranded_legs=list(stranded))
+    except Exception as exc:  # noqa: BLE001 — an alert must never break the tick
+        logger.error("pairs: half-open alert failed for %s: %s", pair_label, exc)
 
 
 def _held_leg_symbols(pairs: Sequence[Dict[str, Any]], account_id: str,
@@ -651,7 +717,45 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
             decision_bars[name] = bar_key
             decision_bars_dirty = True
 
-            is_open = _pair_is_open(pair, account_id, db_path)
+            leg_state = _pair_leg_state(pair, account_id, db_path)
+            if leg_state == "half_open":
+                # NOT flat. Exactly one leg is open — a naked directional
+                # position in a market-neutral sleeve, and re-opening here would
+                # stack a second journal row on the stranded leg's symbol over a
+                # single netted exchange position (the divergence shape,
+                # BL-20260808-PAIRS-DIVERGENCE-UNOWNED). Flatten it, say so, and
+                # place NOTHING this bar.
+                strat_a, strat_b = _leg_strats(pair)
+                from src.runtime.positions import has_open_trade_for_strategy
+                stranded = [
+                    sym for sym, strat in (
+                        (str(pair["symbol_a"]), strat_a),
+                        (str(pair["symbol_b"]), strat_b),
+                    )
+                    if has_open_trade_for_strategy(
+                        account_id, sym, strat, db_path=db_path)
+                ]
+                cleaned = False
+                if execution == "live":
+                    # _close_pair skips a leg with no open row, so on a
+                    # half-open pair it closes exactly the stranded one.
+                    cleaned = bool(_close_pair(
+                        _client_for(account_id), acct_cfg, pair,
+                        "half_open_cleanup", closes_a[-1], closes_b[-1],
+                    ).get("closed"))
+                _alert_half_open_pair(
+                    _pair_label(str(pair["symbol_a"]), str(pair["symbol_b"])),
+                    account_id, stranded=stranded, cleaned=cleaned)
+                rec = build_pairs_soak_record(
+                    event="half_open", pair=_pair_label(
+                        str(pair["symbol_a"]), str(pair["symbol_b"])),
+                    symbol_a=str(pair["symbol_a"]), symbol_b=str(pair["symbol_b"]),
+                    account_id=account_id, execution_mode=execution,
+                    stranded_legs=stranded, cleanup_confirmed=cleaned)
+                record_pairs_soak(rec)
+                continue
+
+            is_open = leg_state == "open"
             open_state = _reconstruct_open_state(pair, account_id, db_path) if is_open else None
             if is_open and open_state is None:
                 # Legs are open but the durable bookkeeping is unreadable — do
