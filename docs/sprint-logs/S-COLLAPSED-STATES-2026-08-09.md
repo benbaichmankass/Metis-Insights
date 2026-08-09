@@ -170,6 +170,63 @@ green unit. AFTER (08-08 on): demo-host routing appears, candidates 0 → 61 and
 0 → 13, summary becomes `ok=3 failed=0 skipped=0`. Both halves confirmed. This
 had previously only been *reasoned about*.
 
+## Part 2 — the reviewer-side instances (same day, after the operator asked to finish here)
+
+The three fixes above were defects in the CODE. What followed were two of the
+same defect in MY OWN REVIEW, which is why they are recorded at equal weight.
+
+**#8678 — `#8665` shipped with no reader.** `report()["exposure"]` reached
+`TradingAccount.status()` via `**risk_report`, and the sole consumer (the
+Telegram `/accounts_status` renderer) had zero references to the key. The number
+the PR existed to reveal was unreadable by anyone. I had verified no consumer
+would **break** on the new key — `status()` splats the dict without branching —
+and never verified one would **display** it. Different questions; only the
+second was the point. Fixed with the renderer line + `/api/diag/exposure`, which
+serves the identical `report()["exposure"]` rather than a reconstruction (a
+second definition of "exposure" would be free to drift from the enforcing one).
+
+**#8683 — I called the 2.03× brick live, on a Sunday.** Alpaca and IB showed no
+opens since Friday while bybit traded Sunday 01:14Z. That is exactly the shape
+of the originating incident, and `alpaca_paper` read 2.0238× against a 2.00×
+Reg-T limit at the time. It was the weekend. **Venue-closed silence and refusal
+silence are indistinguishable in the trades table; only the calendar separates
+them.** I had also read a clean `broker_account_status` (`trading_blocked:false`)
+as reassurance — it reports AUTHORIZATION (permitted to trade) while the
+incident is CAPACITY (`available_usd 0.00`, no room to trade).
+
+**#8684 — the observation soak**, so the ceiling question stops depending on a
+single read. Samples every account every `EXPOSURE_SOAK_SECONDS` (default 900s)
+from the trader tick; `summary.by_account[*].max_multiple` is the load-bearing
+statistic (§ 6 needs the ceiling above normal operation, and a ceiling clearing
+the mean but not the peak clamps correctly-sized trades at the peak). Three
+lessons are built in rather than left to discipline: unmeasured never becomes
+`0.0`; every row stamps `venue_session_us_equity` so quiet-because-shut is
+distinguishable from quiet-because-refusing; and the reader ships in the same PR
+as the writer.
+
+### Measured, 2026-08-09T14:45Z (diag #8680) — ONE Sunday read, not a distribution
+
+| account | class | multiple |
+|---|---|---:|
+| `alpaca_paper` | paper | 2.0238 |
+| `alpaca_portfolio` | paper | 2.0126 |
+| `bybit_portfolio` | paper | 1.0575 |
+| **`bybit_2`** | **real money** | **0.9939** |
+| `ib_paper` | paper | 0.4395 |
+| `bybit_1` | paper | 0.2540 |
+| `oanda_practice` · `alpaca_options_paper` · `alpaca_live` | — | 0.0 |
+| `ib_live` · `breakout_1` | — | **unmeasured** (`equity_unavailable`) |
+
+The two unmeasured accounts are the CORRECT state — both shelved/API-less — and
+the three-state design earns its keep by refusing to report them as flat.
+
+**The one analytic result that survives without the soak:** § 6 requires the
+ceiling BELOW the venue limit and ABOVE normal operation. For Alpaca those are
+INVERTED in this read (2.0238× measured vs a 2.00× Reg-T limit). If a weekday
+soak reproduces that, **no value satisfies § 6 for those accounts** and a ceiling
+is the wrong instrument — it would mask a sizing problem rather than govern one.
+That must be answered from measurement before any Alpaca value is proposed.
+
 ## Next Recommended Sprint
 - Suggested next sprint: read the observed exposure multiples off `report()`
   and bring the operator a **specific** proposed fleet-default
@@ -177,6 +234,11 @@ had previously only been *reasoned about*.
   widening once its soak has rows.
 - Why next: both are now blocked only on data that this sprint made available,
   which is the definition of ready.
+- **UPDATE (end of session):** the soak (#8684) now accumulates what this
+  prerequisite was really asking for. Re-read it after a full TRADING week —
+  `/api/bot/exposure/soak` `summary.by_account[*].max_multiple` beside
+  `measured_n`, and `summary.venue_sessions` to confirm the window actually
+  contains `rth` rows. A soak that is mostly `closed` has observed nothing.
 - Required verification before starting: ~~confirm the deploy landed~~ **DONE
   2026-08-09T12:21Z (diag #8674)** — `/api/diag/version` reports
   `git_sha: 49f4442f`, which is `main` including all three Tier-2 merges;
