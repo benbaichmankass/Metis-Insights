@@ -11071,6 +11071,34 @@
         "src/runtime/exit_anchor.py",
         "docs/CLAUDE-RULES-CANONICAL.md"
       ]
+    },
+    {
+      "id": "BL-20260809-THIRD-CASE-AND-UNTESTED-BRANCH-RULES",
+      "opened_at": "2026-08-09T23:20:00+00:00",
+      "opened_by": "claude (system-review ma0ava)",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "source": "DERIVED from six instances measured and fixed in one session (2026-08-09): PRs #8665, #8666, #8667 (defects in code), #8678, #8683 (the same defect in this session's own REVIEW), plus #8688. Each is a merged PR with the failing-test evidence recorded in its body and in docs/sprint-logs/S-COLLAPSED-STATES-2026-08-09.md.",
+      "title": "Promote two rules to canonical: the THIRD-CASE rule, and 'a green suite over an untested branch is not evidence'",
+      "what_to_check": "RULE 1 — THE THIRD CASE. When adding a boolean or a scoping flag to a DECISION path, check whether it can express the third state. Six instances in one day, and in the worst of them the boolean was INDIVIDUALLY CORRECT:\\n\\n  * `_pair_is_open()` genuinely answers 'is this pair on'. It simply could not carry 'exactly one leg open', so a half-closed pair read as FLAT and the executor opened a second pair on top of a stranded leg (#8667).\\n  * `gross_exposure()` returned None for BOTH 'no ceiling declared' and 'no data', so the ceiling's own measurement was gated on the ceiling already existing — unpickable for a year (#8665).\\n  * `NETTING_ATTRIBUTION_ACCOUNTS` intersected the account set at the top of the pass, collapsing 'not staged for writes' into 'not observed', which made real-money bybit_2 invisible to the soak whose whole purpose was to justify including it (#8666).\\n\\nThe recurring shape: a control or predicate that quietly switches OFF the observation that would justify using it. The repo already had the remedy written down — `src/runtime/exit_anchor.py`'s three-way `anchored`/`deferred`/`no_anchor`, whose docstring states outright that collapsing any two reintroduces a defect — but it was never generalised past that one module.\\n\\nRULE 2 — AN UNTESTED BRANCH IS NOT COVERED BY A GREEN SUITE. #8666's intersection survived its original review because there was NO allowlist test at all; the suite was green over a branch nobody had ever asserted. Every behavioural test written this session was therefore verified to FAIL against the restored old behaviour before being accepted, which caught two real bugs mid-development (an empty-dict payload rendering a confident 'not measured (unknown)', and a truthiness guard admitting partial dicts).\\n\\nBOTH RULES ALSO APPLY TO THE REVIEWER, which is the part most worth writing down: I verified that no consumer would BREAK on #8665's new key and never that any consumer would DISPLAY it (#8678), and I read a weekend of venue-closed silence as a live brick because quiet-because-shut and quiet-because-refusing are indistinguishable in the trades table (#8683).",
+      "action": "PROPOSE to docs/CLAUDE-RULES-CANONICAL.md, alongside the existing 'Always state the population' and 'Green is not evidence' entries — those are the same family and these two extend it from QUANTITIES to STATE MACHINES and to TEST COVERAGE. Operator approves the promotion; do not self-promote a canonical rule.\\n\\nA guard is NOT proposed for rule 1: 'can this boolean express the third case' is a design judgement, and a presence-only marker would be cheaper to lie to than to satisfy (the new-table-wiring-guard lesson). Rule 2 is partially mechanisable — a coverage delta on changed branches — but that is a separate, evidenced proposal, not a bolt-on here.",
+      "resolution_criteria": "Both rules are either merged into docs/CLAUDE-RULES-CANONICAL.md with the incident citations, or explicitly declined with a reason recorded here.",
+      "snoozed_until": null
+    },
+    {
+      "id": "BL-20260809-API-TIER-INVENTORY-77PCT-STALE",
+      "opened_at": "2026-08-09T23:20:00+00:00",
+      "opened_by": "claude (system-review ma0ava)",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "source": "MEASURED 2026-08-09 by joining every `@router.<verb>(\"...\")` under src/web/api/routers/ to its `APIRouter(prefix=...)` and checking each against docs/api-tier-policy.md, CREDITING the Tier-2.5 family row (which names diag leaves after a sibling full path). Pre-backfill: 62 of 90 absent (69%). A naive exact-string match reports 76% and over-counts. After this session backfilled the diag family + its own three routes: 54 of 90 (60%).",
+      "title": "docs/api-tier-policy.md calls itself the single source of truth for route tiers and is 60% incomplete, with no CI guard behind it",
+      "what_to_check": "The file's own header says 'single source of truth for which routes are Tier 1 / 2 / 2.5 / 3', and CLAUDE.md points at it for 'the complete tier inventory'. On the completeness axis that is false: 54 of 90 live routes have no row.\\n\\nThe cause is structural, not neglect. Every sibling inventory that STAYS correct has a CI check behind it — canonical-doc-coherence, provenance-consumer-guard, new-table-wiring-guard, canonical-db-resolver. This one never did, so every route added since S-063 (2026-05-09) could land without a row and none announced itself.\\n\\nAlso corrected in the same pass: the Tier-1 preamble described the VERCEL REWRITE proxying /api/* with CORS as the gate. That stack was retired 2026-05-12 and purged from the repo; today's consumers are Streamlit (server-side), the Svelte SPA (browser-direct), and Android. The TIER was right; the transport rationale was two-and-a-half months stale and read as current.\\n\\nWORTH NOTING FOR WHOEVER BACKFILLS: the completeness figure was miscounted twice while writing the warning banner (77% -> 69% once the family row was credited -> 60% after this PR's own backfill). A hand-counted completeness claim is stale the moment anyone edits the file, INCLUDING the person writing the claim. That is the argument for the guard rather than for a periodic manual audit.",
+      "action": "Ship a DIFF-SCOPED guard: a new or changed route under src/web/api/routers/ must carry a row in docs/api-tier-policy.md; the existing 54 are grandfathered. Same shape as diagnostic-provenance-guard, so the backlog shrinks instead of growing and no PR is blocked on a pre-existing gap.\\n\\nThen backfill the 54 as a scoped cleanup. Do NOT bulk-generate the rows: each is a TIER JUDGEMENT about a live surface, and a confidently-wrong tier is worse than a missing one. Until then the banner at the top of the file tells readers to treat it as a partial sample.",
+      "resolution_criteria": "The guard is merged and green, and the 54 pre-existing routes are either rowed or explicitly listed as out of scope with a reason.",
+      "snoozed_until": null
     }
   ],
   "updated_at": "2026-08-09T00:00:00+00:00",
