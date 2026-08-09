@@ -11037,6 +11037,21 @@
       "resolved_at": "2026-08-09T00:00:00+00:00",
       "resolved_by": "claude (M20 trend-harness workstream ipa3ce)",
       "resolution": "RESOLVED IN THE SAME PR, and the severity was understated when filed. I opened this as a LATENT trap ('no current caller feeds JSONL to _load_candles'). The session-end doc-freshness pass found a REAL one: scripts/research/build_continuous_contract.py writes the canonical market_raw shape as JSONL and its own docstring instructs backtesting that file with a trend harness - and the retired engine was the ONLY trend engine that could read JSONL. So the retirement BROKE a documented end-to-end workflow (roll-adjusted continuous futures -> trend backtest), which is not something to leave filed. FIX: scripts/backtest_trend.py::_load_candles now delegates to candle_io.load_candles, so there is ONE reader. VERIFIED BEFORE THE CHANGE, not assumed: 18 full-summary backtest comparisons (2 committed corpora x 5min/15min/1h x 3 configs incl. the config-exact trend_donchian block) were IDENTICAL, and the loaded frames compared equal via DataFrame.equals; then confirmed end-to-end that a JSONL file now runs through the engine (exit 0, trades=1). The shared reader is a strict superset of what the engine accepted before - it adds JSONL + the IBKR `ts` column and coerces OHLC to numeric. Two stale citations in src/units/strategies/trend_donchian.py (comment-only) and the build_continuous_contract example were repointed in the same pass."
+    },
+    {
+      "id": "BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS",
+      "opened": "2026-08-09",
+      "severity": "medium",
+      "status": "open",
+      "area": "m20-exit-refinement",
+      "title": "exit-refinement coverage matrix: MULTI-LEG rows carry ONE status, so a row can be 'shipped' while most of its legs failed",
+      "detail": "docs/research/exit-refinement-coverage.json is M20's done-condition roll-up: one row per 'strategy leg', one status per lever column. But several rows are not one leg -- they bundle a whole family under a single status field, and the status then describes only the leg that PASSED while the ref text carries the rest. Found by a screen for fail-words appearing under a non-negative status: 11 hits, and 10 are this shape (the 11th, trend_donchian BTC trail_decay, was a genuine stale status and is fixed as `shipped_gate_failed`). Concrete examples, all currently `shipped`: (a) row 'sol_pullback_2h / xrp_pullback_2h / ...' trail_decay -- ref says sol PASS wf 5/6 while 'xrp 3/6, ada 3/6, avax 2/6, eth_prop 2/6 all fail', so 4 of 5 legs are honest negatives counted under a shipped cell; (b) row 'MES/MGC/MHG' trail_geometry -- 'MES trail3 4/6 + MHG trail3 5/6 PASS ... MGC fails'; (c) row 'equities 1h fleet' trail_geometry -- 'TLT-1h trail3 PASS; gld/spy/qqq/slv fail'. WHY IT MATTERS: the roll-up is the milestone's done-condition and is quoted as a completion percentage (currently 141/184 cells resolved). A bundled row inflates 'shipped' and hides per-leg negatives, so the number overstates coverage by an amount nobody can compute without re-reading every ref string. It is the same class as the defect just fixed -- a status field that does not describe what the evidence says -- one level up: here the field cannot be correct for all its legs, whatever value it holds. NOT fixed in this PR because it is a schema/normalisation change (explode bundled rows to one row per leg, or add a per-leg sub-status), touches many rows, and the ref text preserves the underlying evidence so nothing is LOST today -- only mis-aggregated.",
+      "suggested_fix": "Explode every bundled row into one row per (strategy, symbol, tf) so the status field has exactly one leg to describe, then re-derive the roll-up. Cheap validation: a guard asserting each row's `strategy` field names exactly one strategy (no '/' and no 'fleet'), which is a one-line structural check that cannot be satisfied by editing prose.",
+      "refs": [
+        "docs/research/exit-refinement-coverage.json",
+        ".claude/skills/exit-refinement/SKILL.md",
+        "ROADMAP.md"
+      ]
     }
   ],
   "updated_at": "2026-08-09T00:00:00+00:00",
