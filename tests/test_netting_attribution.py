@@ -404,3 +404,112 @@ def test_wholly_pairs_divergence_is_warning_not_error():
     branch = src[i:i + 900]
     assert "logger.warning" in src[max(0, i - 300):i + 100]
     assert "At least one open row is a phantom" not in branch
+
+
+# ── the allowlist scopes the WRITE, never the measurement ────────────────────
+# Until 2026-08-09 `NETTING_ATTRIBUTION_ACCOUNTS` intersected the account set at
+# the top of the pass (`bybit_ids &= allow`). Operator decision 4 asked to stage
+# the WRITE on bybit_1 before real-money bybit_2 — correct — but scoping the
+# whole pass also switched off OBSERVATION of every other account. So while the
+# allowlist was set, bybit_2 was not merely un-written, it was invisible: no
+# divergence check, no soak row, nothing to review before widening the allowlist
+# to it. It had been measured non-clean on 2026-08-06.
+#
+# There was no test on the allowlist at all, which is why that went unnoticed.
+
+def test_may_write_requires_apply_mode_and_membership():
+    """The one place the allowlist is consulted. Both conditions, or no write."""
+    # No allowlist => every account may be written, but only under apply.
+    assert om._netting_may_write("bybit_2", "apply", set()) is True
+    assert om._netting_may_write("bybit_2", "annotate", set()) is False
+    # Allowlist set => membership decides, and apply is still required.
+    assert om._netting_may_write("bybit_1", "apply", {"bybit_1"}) is True
+    assert om._netting_may_write("bybit_2", "apply", {"bybit_1"}) is False
+    assert om._netting_may_write("bybit_1", "annotate", {"bybit_1"}) is False
+
+
+def test_a_non_allowlisted_account_is_still_OBSERVED(tmp_path, monkeypatch):
+    """The regression this exists to prevent.
+
+    bybit_2 is not on the allowlist, so nothing may be written for it — but its
+    divergence must still be detected and annotated, because that soak row is
+    the entire evidence base for deciding whether to widen the allowlist. An
+    account you cannot see is an account you can never safely promote.
+    """
+    om._NETTING_DIVERGENCE_SEEN.clear()
+    monkeypatch.setenv("NETTING_ATTRIBUTION_MODE", "apply")
+    monkeypatch.setenv("NETTING_ATTRIBUTION_ACCOUNTS", "bybit_1")
+    monkeypatch.setenv("RECONCILER_CLOSE_CONFIRM_SECONDS", "0")
+    db = _SweepDB(tmp_path / "j.db")
+    _seed(db, **_base_row(id=7, account_id="bybit_2"))
+    monkeypatch.setattr(
+        "src.bot.data_loaders.list_accounts",
+        lambda: [{"account_id": "bybit_2", "exchange": "bybit",
+                  "market_type": "linear"}])
+    monkeypatch.setattr(
+        "src.units.accounts.clients.bybit_client_for", lambda acc: object())
+    monkeypatch.setattr(
+        om, "_bybit_position_protection",
+        lambda *a, **k: {"size": 0.0, "side": "", "covered_qty": 0.0,
+                         "source": "flat", "sl_leg_ids": set(),
+                         "unknown_qty_sl_legs": 0})
+    captured = []
+    monkeypatch.setattr(om, "_netting_soak_row", lambda **kw: captured.append(kw))
+    monkeypatch.setattr(
+        "src.runtime.exit_anchor.bar_close_at", lambda *a, **k: (1.10, "anchored"))
+
+    om._reconcile_netting_partial_closes(db)
+    s = om._reconcile_netting_partial_closes(db)
+
+    assert s["checked"] == 1, "bybit_2 must be reached by the pass at all"
+    assert s["annotated"] == 1, "and its divergence recorded"
+    assert db.updates == [], "but the money DB must NOT be written"
+    # And the suppression is COUNTED, so 'held back by the allowlist' stays
+    # distinguishable from 'there was nothing to do'.
+    assert s["apply_suppressed_by_allowlist"] == 1
+    assert captured, "a soak row is the evidence; it must exist"
+
+
+def test_the_soak_row_records_the_EFFECTIVE_mode_not_the_global_one(
+    tmp_path, monkeypatch
+):
+    """An audit trail must not describe an action the code did not take.
+
+    Under a global `apply`, a non-allowlisted account's rows are annotated only.
+    Stamping the global `mode: apply` on them would claim a money-DB write that
+    never happened — the sub-class-A diagnostic-provenance defect, in the one
+    log an operator reads to decide whether applying is safe.
+
+    The three fields together say: what happened (annotate), what was asked for
+    (apply), and why they differ (not_allowlisted).
+    """
+    om._NETTING_DIVERGENCE_SEEN.clear()
+    monkeypatch.setenv("NETTING_ATTRIBUTION_MODE", "apply")
+    monkeypatch.setenv("NETTING_ATTRIBUTION_ACCOUNTS", "bybit_1")
+    monkeypatch.setenv("RECONCILER_CLOSE_CONFIRM_SECONDS", "0")
+    db = _SweepDB(tmp_path / "j.db")
+    _seed(db, **_base_row(id=8, account_id="bybit_2"))
+    monkeypatch.setattr(
+        "src.bot.data_loaders.list_accounts",
+        lambda: [{"account_id": "bybit_2", "exchange": "bybit",
+                  "market_type": "linear"}])
+    monkeypatch.setattr(
+        "src.units.accounts.clients.bybit_client_for", lambda acc: object())
+    monkeypatch.setattr(
+        om, "_bybit_position_protection",
+        lambda *a, **k: {"size": 0.0, "side": "", "covered_qty": 0.0,
+                         "source": "flat", "sl_leg_ids": set(),
+                         "unknown_qty_sl_legs": 0})
+    captured = []
+    monkeypatch.setattr(om, "_netting_soak_row", lambda **kw: captured.append(kw))
+    monkeypatch.setattr(
+        "src.runtime.exit_anchor.bar_close_at", lambda *a, **k: (1.10, "anchored"))
+
+    om._reconcile_netting_partial_closes(db)
+    om._reconcile_netting_partial_closes(db)
+
+    assert len(captured) == 1
+    row = captured[0]
+    assert row["mode"] == "annotate", "what actually happened to this row"
+    assert row["global_mode"] == "apply", "what was asked for"
+    assert row["apply_scope"] == "not_allowlisted", "why they differ"
