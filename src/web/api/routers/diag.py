@@ -1377,3 +1377,95 @@ def get_broker_account_status(
         "requested_account_id": account_id,
         "accounts": out,
     }
+
+
+@router.get("/exposure")
+def get_exposure(
+    request: Request,
+    account_id: str | None = None,
+) -> dict[str, Any]:
+    """Per-account **gross exposure** — the measurement, served from a path
+    enforcement never reads.
+
+    Added 2026-08-09. PR #8665 made ``RiskManager.report()["exposure"]`` emit
+    ALWAYS (rather than only once a ceiling was declared) so that an operator
+    choosing ``max_gross_exposure_pct`` could see the number FIRST. It shipped
+    without a read surface: the block reached ``TradingAccount.status()`` via
+    ``**risk_report`` and the sole consumer — the Telegram ``/accounts_status``
+    renderer — never referenced the key. Written and never read, which is worse
+    than absent, because a reviewer sees the field and assumes something acts on
+    it (the shape ``provenance-consumer-guard`` exists to catch). This route is
+    the missing half.
+
+    Serves the **identical** ``report()["exposure"]`` dict from the real
+    ``TradingAccount`` objects — deliberately NOT a reconstruction from balances
+    + open rows. A parallel computation would be a second definition of
+    "exposure" free to drift from the enforcing one, and would be reported under
+    a label describing the code path it is NOT (sub-class B of the
+    diagnostic-provenance rule).
+
+    Three states, never collapsed — mirroring
+    ``src/units/accounts/exposure.py``:
+
+      * ``policy_declared: false`` — no ceiling declared. There may still be a
+        measurement; that is the useful case and the reason this exists.
+      * ``measured: false`` — we could not look. ``unmeasured_reason`` names the
+        missing input. **Not** the same as flat.
+      * ``exposure_multiple: 0.0`` — we looked; the account is flat.
+
+    **Connection-free**: ``observe_exposure()`` reads equity from the balance
+    snapshot and notional from the journal, so this opens no broker socket and
+    places no order. Cannot refuse a trade — it never consults policy to
+    compute, only to report what was declared. Tier 1, token-gated.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.accounts import load_accounts
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_exposure: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "accounts_unavailable", "detail": str(exc)},
+        ) from exc
+
+    try:
+        accounts = load_accounts() or []
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_exposure: load_accounts failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "load_accounts_failed", "detail": str(exc)},
+        ) from exc
+
+    out: list[dict[str, Any]] = []
+    for acct in accounts:
+        aid = getattr(acct, "name", None) or getattr(acct, "account_id", "?")
+        if account_id and aid != account_id:
+            continue
+        row: dict[str, Any] = {
+            "account_id": aid,
+            "exchange": getattr(acct, "exchange", None),
+            "account_class": getattr(acct, "account_class", None),
+            "exposure": None,
+            "error": None,
+        }
+        try:
+            rm = getattr(acct, "risk_manager", None)
+            if rm is None:
+                row["error"] = "no_risk_manager"
+            else:
+                # The SAME call the enforcing side reports through. If this ever
+                # needs to become something else, the fix is in report(), not a
+                # second copy here.
+                row["exposure"] = rm.report().get("exposure")
+        except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row; one account must not fail the call
+            row["error"] = f"{type(exc).__name__}: {exc}"
+            logger.warning("get_exposure: %s raised %s", aid, exc)
+        out.append(row)
+
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "requested_account_id": account_id,
+        "count": len(out),
+        "accounts": out,
+    }
