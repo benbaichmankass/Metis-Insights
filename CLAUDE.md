@@ -4,6 +4,29 @@
 > access to everything you need to operate this system. The operator grants
 > permission by tier; they do not do the work for you. Read this section before acting.
 
+## 🔍 RULE ONE — Always verify (operator directive 2026-08-09 — binding on EVERY session)
+
+**Before you assert anything, check it. Every time.** Every other rule in this
+file is a special case of this one, which is why it sits first. Full text +
+worked examples: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
+§ "RULE ONE — Always verify".
+
+The short form, because the failures never come from skipping a *hard* check —
+they come from a one-liner that looked conclusive:
+
+- **A search returning nothing is not proof of absence.** Show the probe can
+  find a positive before trusting that it is quiet; a negative needs a
+  denominator.
+- **Read the field, not the prose about it.** Config/DB/code are the truth;
+  comments, refs and docs are claims about it. When they disagree the field
+  wins (*field beats comment*) and the prose gets fixed.
+- **Cross-check with arithmetic**, not a careful re-read — counts and sums catch
+  what proofreading misses.
+- **Verify your own output too**, hardest when it confirms what you expected.
+- **"It was already like that" / "the doc says so" / "a previous session checked
+  it" are not verification.** If you did not check it this session, say so
+  plainly rather than assert it.
+
 ## ⚠️ If you see something, say something (operator directive 2026-07-19 — binding on EVERY session)
 
 **Don't leave bugs lying around. Either fix them, or log them correctly so they

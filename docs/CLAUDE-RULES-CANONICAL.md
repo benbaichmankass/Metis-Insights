@@ -78,6 +78,53 @@ access while the `trainer-vm-diag.yml` relay was already sitting in
 you didn't read a piece of state, or a relay failed, say exactly that
 instead of inferring what it "probably" shows.
 
+## RULE ONE — Always verify (operator directive 2026-08-09, binding)
+
+**Before you assert anything, check it. Every time. This is the first rule
+because every other failure in this document is a special case of skipping it.**
+
+Four rules below already say "verify" for a specific situation — *Green is not
+evidence* (a passing run), *Promotion evidence* (a model), *Premise verification
+before filing / before operationalizing an audit finding*. They kept being
+written one incident at a time because the duty was never stated generally.
+It is stated here once; those four remain as the worked examples and are **not**
+duplicated into this section.
+
+**The rule applies hardest to the checks that feel too small to bother with.**
+Not one of the recurring incidents came from skipping a hard verification — they
+came from a one-line read that looked conclusive:
+
+| shape | real instance |
+|---|---|
+| a search returning nothing, read as proof of absence | `grep 'baseline\['` missed `baseline.get(` ⇒ a field was reported unread while it was being emitted (2026-08-09) |
+| a truncated read, treated as the whole record | a 900-char regex window missed `enabled:`/`execution:` ⇒ two legs were reported live when one is `enabled: false` and the other `execution: shadow` (2026-08-09) |
+| a pattern that screens for the defect it is *aware* of | a bundled-row scan keyed on `/` and `fleet` missed `{eth,sol,xrp}` brace notation ⇒ 6 of 7 (2026-08-09) |
+| a prefix match assumed unique | `startswith("xauusd_trend_1h")` also hit the bundled row ⇒ duplicated rows, caught only because a count disagreed by 2 (2026-08-09) |
+
+**In practice this means:**
+
+1. **State the basis with the claim.** A number without its population, cost
+   basis, or window is not yet a claim — see *Always state the population*.
+2. **A negative result needs a denominator.** "Nothing found" is only evidence
+   if you can say what was searched and show the search can find a positive.
+   Prove the probe works before trusting that it is quiet.
+3. **Read the field, not the prose about the field.** Config, DB rows and code
+   are the truth; comments, refs and docs are claims about it (*Field beats
+   comment*). When they disagree, the field wins and the prose gets fixed.
+4. **An arithmetic cross-check beats a careful re-read.** Row counts, sums and
+   sign checks catch what proofreading does not — the duplicated-row bug above
+   was invisible to inspection and obvious to `23 − 6 + 29 ≠ 48`.
+5. **Verify your own output too**, especially when it confirms what you already
+   believed. Several of the instances above are one session's tooling deceiving
+   that same session.
+
+**"It was already like that", "the doc says so", and "the last session verified
+it" are not verification.** If you did not check it in this session, say that
+plainly instead of asserting it — an honest *"I have not verified this"* costs a
+sentence; a confident wrong answer on a live trading system costs money.
+
+Mirrored at the top of the root `CLAUDE.md`.
+
 ## If you see something, say something (operator directive 2026-07-19, binding)
 
 **Don't leave bugs lying around: fix them, or log them correctly so a review
