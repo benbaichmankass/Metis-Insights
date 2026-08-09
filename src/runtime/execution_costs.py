@@ -42,7 +42,7 @@ from __future__ import annotations
 
 import math
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 # ---- the single-owner cost constants ----------------------------------------
 
@@ -117,6 +117,43 @@ def slippage_bps_roundtrip_for(symbol: Any) -> float:  # noqa: ARG001
     exists everywhere); a per-venue magnitude is a documented refinement. Takes the
     symbol so the signature is stable when that lands."""
     return DEFAULT_SLIPPAGE_BPS_ROUNDTRIP
+
+
+def resolve_cost_policy(
+    symbol: Any,
+    *,
+    slippage_bps_roundtrip: Optional[float] = None,
+    funding_bps_per_window: Optional[float] = None,
+) -> Tuple[float, float]:
+    """The ONE definition of *"unset ⇒ venue default, explicit wins"*.
+
+    Every harness `main()` open-codes this same two-line resolution, and a
+    research script that wants the CLI's cost basis has to reproduce it from
+    memory. Three copies existed when this was added (`backtest_trend.main`,
+    `m20_trail_attribution.apply_cost_basis`, and the one about to be written in
+    `exit_head_replay`) — a policy with three definitions is a policy that will
+    drift, and the cost basis is exactly the kind of thing that drifts silently
+    because every arm still produces a plausible number.
+
+    **`None` means "nobody chose", not "zero".** That distinction is the whole
+    point: an explicit ``0.0`` is the fee-only comparison arm and must survive,
+    while ``None`` resolves to the venue-aware policy. Collapsing the two is the
+    two-states-in-one-value defect this repo keeps finding elsewhere.
+
+    Note what this is NOT: it does not change any harness's *default*. The
+    in-process ``0.0`` module globals in ``scripts/backtest_trend.py`` are
+    deliberate and load-bearing — PR #8468 keeps the confidence sweep, the ML
+    recorder and the M30 panel bridge byte-identical by never touching them from
+    ``run_backtest``. This function only gives a caller that WANTS the venue
+    policy one supported way to ask for it.
+
+    Returns ``(slippage_bps_roundtrip, funding_bps_per_window)``.
+    """
+    slip = (slippage_bps_roundtrip_for(symbol)
+            if slippage_bps_roundtrip is None else float(slippage_bps_roundtrip))
+    fund = (funding_bps_per_window_for(symbol)
+            if funding_bps_per_window is None else float(funding_bps_per_window))
+    return slip, fund
 
 
 def _f(x: Any) -> Optional[float]:

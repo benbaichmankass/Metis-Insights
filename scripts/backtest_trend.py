@@ -868,10 +868,10 @@ def main(argv: List[str]) -> int:
     # Mandatory venue-aware cost policy: unset flags resolve to the venue-aware
     # defaults (funding is perp-only → 0 for non-perps); an explicit value
     # (incl. 0 for the fee-only comparison arm) always wins.
-    SLIPPAGE_BPS_ROUNDTRIP = (execution_costs.slippage_bps_roundtrip_for(args.symbol)
-                              if args.slippage_bps_roundtrip is None else args.slippage_bps_roundtrip)
-    FUNDING_BPS_PER_WINDOW = (execution_costs.funding_bps_per_window_for(args.symbol)
-                              if args.funding_bps_per_window is None else args.funding_bps_per_window)
+    SLIPPAGE_BPS_ROUNDTRIP, FUNDING_BPS_PER_WINDOW = execution_costs.resolve_cost_policy(
+        args.symbol,
+        slippage_bps_roundtrip=args.slippage_bps_roundtrip,
+        funding_bps_per_window=args.funding_bps_per_window)
     FUNDING_WINDOW_HOURS = args.funding_window_hours
     try:
         df = _load_candles(args.data)
