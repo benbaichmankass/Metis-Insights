@@ -256,6 +256,89 @@ def verdict(res: Dict[str, Any], arm_r: float,
     return {"state": state, "n_armed": armed, "n_differing": diff, "why": why}
 
 
+def max_drawdown_r(harness, trades: List[Any]) -> float:
+    """Trade-sequential peak-to-trough on the cumulative NET-R curve.
+
+    Mirrors ``scripts/backtest_trend.py``'s ``max_drawdown_r`` exactly and
+    reuses the engine's OWN ``_fee_r``, so a cost-model change cannot make this
+    silently disagree with the summary it is being reconciled against.
+    """
+    cum = peak = mdd = 0.0
+    for t in trades:
+        cum += t.r_multiple - harness._fee_r(t)
+        peak = max(peak, cum)
+        mdd = max(mdd, peak - cum)
+    return round(mdd, 4)
+
+
+def reconcile_drawdown(harness, a) -> Dict[str, Any]:
+    """Why does the same window report two different maxDDs?
+
+    The re-sweep judged the gate on a **date-restricted** run (``--start``/
+    ``--end`` handed to the harness, so the IS book is its own backtest). This
+    tool judged it on the **full tape**, labelling each trade IS/OOS by
+    ``entry_time`` after the fact. Those are different populations and there is
+    no reason for them to agree:
+
+    * a restricted run re-warms the indicators inside the window, so its first
+      trades differ;
+    * a restricted run's drawdown starts from a fresh zero, so a drawdown that
+      straddles the split is charged wholly to one side rather than split;
+    * the full-tape book carries positions and cooldown state across the split.
+
+    Reporting both, per arm, turns "the live cell fails on drawdown" from a
+    claim into a measurement with a stated basis — which is the whole point,
+    since the gate verdict rests entirely on that one number.
+    """
+    out: Dict[str, Any] = {"basis": {}, "arms": {}}
+    out["basis"] = {
+        "restricted": f"harness --start {a.start or 'None'} --end {a.split}",
+        "full_tape_split": f"full run, trades with entry_time < {a.split}",
+    }
+    for label, tight in (("OFF", 0.0), ("live_tight", a.live_tight),
+                         ("proposed_tight", a.proposed_tight)):
+        # (a) the re-sweep's basis: a restricted backtest
+        df = harness._load_candles(a.data)
+        if a.resample:
+            df = harness._resample(df, a.resample)
+        df_is = harness._date_filter(df, a.start, a.split)
+        trades_r: List[Any] = []
+        kwargs = dict(symbol=a.symbol, timeframe=a.timeframe, donchian=a.donchian,
+                      atr_period=a.atr_period, atr_stop_mult=a.atr_stop_mult,
+                      trail_mult=a.trail_mult, timeout_bars=a.timeout_bars,
+                      cooldown_bars=a.cooldown_bars,
+                      min_confidence=a.min_confidence, long_only=a.long_only,
+                      trades_out=trades_r)
+        if tight > 0.0:
+            kwargs["trail_decay_arm_r"] = a.arm_r
+            kwargs["trail_decay_tight_mult"] = tight
+        s_restricted = harness.run_backtest(df_is, **kwargs)
+
+        # (b) this tool's basis: full tape, sliced after the fact
+        _, trades_full = run_arm(harness, a, tight)
+        is_slice = [t for t in trades_full if str(t.entry_time) < a.split]
+
+        out["arms"][label] = {
+            "restricted_trades": s_restricted.get("total_trades"),
+            "restricted_net_r": s_restricted.get("net_total_r"),
+            "restricted_maxdd_r": s_restricted.get("max_drawdown_r"),
+            "full_split_trades": len(is_slice),
+            "full_split_net_r": round(
+                sum(t.r_multiple - harness._fee_r(t) for t in is_slice), 4),
+            "full_split_maxdd_r": max_drawdown_r(harness, is_slice),
+        }
+    base = out["arms"]["OFF"]
+    for label in ("live_tight", "proposed_tight"):
+        arm = out["arms"][label]
+        arm["d_restricted_maxdd_r"] = round(
+            arm["restricted_maxdd_r"] - base["restricted_maxdd_r"], 4)
+        arm["d_full_split_maxdd_r"] = round(
+            arm["full_split_maxdd_r"] - base["full_split_maxdd_r"], 4)
+        arm["bases_agree"] = (
+            (arm["d_restricted_maxdd_r"] > 0) == (arm["d_full_split_maxdd_r"] > 0))
+    return out
+
+
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -278,6 +361,10 @@ def parse_args(argv=None):
     p.add_argument("--live-tight", type=float, default=LIVE_TIGHT_MULT)
     p.add_argument("--proposed-tight", type=float, default=PROPOSED_TIGHT_MULT)
     p.add_argument("--split", default="2025-07-01")
+    p.add_argument("--start", default=None,
+                   help="start bound for the restricted-basis IS run (default: tape start)")
+    p.add_argument("--dd-reconcile", action="store_true",
+                   help="reconcile the two maxDD bases the gate verdict rests on")
     p.add_argument("--min-differing", type=int, default=10,
                    help="below this many differing trades the result is TOO_THIN")
     p.add_argument("--json", dest="json_out", default=None)
@@ -332,6 +419,23 @@ def main(argv=None) -> int:
     print(f"  unique_to_live={len(res['unique_to_live'])} "
           f"unique_to_proposed={len(res['unique_to_proposed'])}")
     print(f"VERDICT: {v['state']} — {v['why']}")
+
+    if a.dd_reconcile:
+        rec = reconcile_drawdown(harness, a)
+        out["drawdown_reconciliation"] = rec
+        print("\nMAXDD RECONCILIATION — the gate verdict rests on this number")
+        print(f"  restricted basis     : {rec['basis']['restricted']}")
+        print(f"  full-tape-split basis: {rec['basis']['full_tape_split']}")
+        for label, arm in rec["arms"].items():
+            print(f"  [{label}] restricted: n={arm['restricted_trades']} "
+                  f"netR={arm['restricted_net_r']} maxDD={arm['restricted_maxdd_r']}"
+                  f"   | full-split: n={arm['full_split_trades']} "
+                  f"netR={arm['full_split_net_r']} maxDD={arm['full_split_maxdd_r']}")
+        for label in ("live_tight", "proposed_tight"):
+            arm = rec["arms"][label]
+            print(f"  [{label}] d_maxDD vs OFF: restricted={arm['d_restricted_maxdd_r']:+} "
+                  f"full_split={arm['d_full_split_maxdd_r']:+} "
+                  f"bases_agree={arm['bases_agree']}")
 
     if a.json_out:
         with open(a.json_out, "w", encoding="utf-8") as fh:
