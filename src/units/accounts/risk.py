@@ -59,6 +59,7 @@ import math
 from datetime import datetime, timezone
 from typing import Any, Optional
 from src.core.coordinator import OrderPackage
+from src.units.accounts import exposure as _exposure
 
 
 _DEFAULT_MIN_QTY = 0.001    # BTC minimum lot size (exchange lot floor)
@@ -480,37 +481,82 @@ class RiskManager:
         except Exception:
             return None  # journal unavailable — ceiling left unenforced
 
-    def gross_exposure(self) -> Optional[tuple[float, float, float]]:
-        """Return ``(open_notional, equity, exposure_multiple)`` or ``None``.
+    # ── exposure: observation / policy / verdict ─────────────────────────────
+    # Three separate concerns, deliberately. The rationale and the two measured
+    # halt vectors this split makes unreachable are in
+    # src/units/accounts/exposure.py and docs/design/gross-exposure-governance-DESIGN.md.
 
-        ``None`` when the ceiling is not configured, or when either input is
-        unavailable — an unmeasurable exposure is reported as unmeasurable, not
-        as zero. (A zero here would read as "flat" and silently authorise a
-        fresh position on an account that is actually at its limit.)
+    def observe_exposure(self) -> _exposure.ExposureObservation:
+        """What this account's gross exposure IS. **Never consults policy.**
+
+        Because it cannot read the ceiling, it has no path to a refusal and is
+        safe to call from anywhere — a report, a diag route, a dashboard panel.
+        That is the whole point: an operator choosing a ceiling has to be able
+        to see the number FIRST, and the previous design gated the measurement
+        on the ceiling already being declared (so the only way to learn the
+        value was to guess one).
+
+        Returns an ``unmeasurable`` observation, carrying which input was
+        missing, rather than a zero — "we could not look" and "the account is
+        flat" are different statements and must not share a representation.
         """
-        if self.max_gross_exposure_pct <= 0:
-            return None
         equity = self.current_equity
         if equity is None:
             equity = self._account_equity_from_snapshot()
-        if equity is None or equity <= 0:
-            return None
+        if equity is None or float(equity) <= 0:
+            return _exposure.unmeasurable(_exposure.REASON_NO_EQUITY)
         notional = self._open_gross_notional_from_db()
         if notional is None:
+            return _exposure.unmeasurable(_exposure.REASON_NO_NOTIONAL)
+        return _exposure.measured(notional, float(equity))
+
+    def exposure_policy(self) -> Optional[float]:
+        """The declared ceiling, or ``None`` when none is declared.
+
+        A pure config read. ``None`` — not ``0.0`` — is the representation of
+        "no policy", so a caller can never accidentally compare against or
+        divide into an undeclared ceiling.
+        """
+        return (
+            self.max_gross_exposure_pct
+            if self.max_gross_exposure_pct > 0
+            else None
+        )
+
+    def exposure_verdict(self) -> _exposure.ExposureVerdict:
+        """This account's live exposure decision: ALLOW / REFUSE / CLAMP."""
+        return _exposure.exposure_verdict(
+            self.observe_exposure(), self.exposure_policy()
+        )
+
+    def gross_exposure(self) -> Optional[tuple[float, float, float]]:
+        """``(open_notional, equity, exposure_multiple)`` or ``None``.
+
+        Back-compat accessor kept at its original contract: ``None`` when no
+        ceiling is declared OR when exposure is unmeasurable. Callers that want
+        the measurement independent of policy should use ``observe_exposure()``
+        — this one deliberately still couples the two so existing consumers see
+        no behaviour change.
+        """
+        if self.exposure_policy() is None:
             return None
-        return notional, float(equity), notional / float(equity)
+        obs = self.observe_exposure()
+        if not obs.measured:
+            return None
+        return float(obs.notional), float(obs.equity), float(obs.multiple)
 
     def exposure_headroom_usd(self) -> Optional[float]:
         """Remaining gross notional this account may still open, in USD.
 
         ``None`` = no ceiling configured or exposure unmeasurable (caller must
-        not clamp). ``0.0`` = at or over the ceiling.
+        not clamp). ``0.0`` = measured, at or over the ceiling, none left. The
+        null and the zero are different instructions to the caller and are not
+        interchangeable.
         """
-        state = self.gross_exposure()
-        if state is None:
+        verdict = self.exposure_verdict()
+        if verdict.action == _exposure.ALLOW:
             return None
-        notional, equity, _mult = state
-        return max(0.0, (self.max_gross_exposure_pct * equity) - notional)
+        return verdict.headroom_usd
 
     def _account_equity_from_snapshot(self) -> Optional[float]:
         """Best-effort current equity from runtime_logs/balance_snapshots.json.
@@ -682,9 +728,10 @@ class RiskManager:
         # instead of rejecting. That split is the point: a risk policy should
         # shape size on the way up and only refuse at the boundary, which is
         # exactly what delegating to the broker's available-margin wall did not
-        # do. Unmeasurable exposure (gross_exposure() -> None) does NOT refuse.
-        state = self.gross_exposure()
-        if state is not None and state[2] >= self.max_gross_exposure_pct:
+        # do. An undeclared ceiling and an unmeasurable exposure both resolve to
+        # ALLOW inside exposure_verdict(), before any comparison runs — so
+        # neither can refuse here even by accident.
+        if self.exposure_verdict().action == _exposure.REFUSE:
             return False, "GROSS_EXPOSURE_CAP"
 
         return True, None
@@ -1025,23 +1072,40 @@ class RiskManager:
         # (so the dashboard/digest shows the real budget, not the absolute
         # fallback) — uses current_equity, falling back to daily_usd.
         eff_daily_loss = self.effective_daily_loss_usd()
-        # Exposure block. Reported whenever a ceiling is declared, INCLUDING
-        # when it is unmeasurable — a null here says "we could not measure it",
-        # which is a different and more useful statement than omitting the key
-        # (omission reads as "no ceiling") or emitting 0.0 (reads as "flat").
-        _exp = self.gross_exposure()
-        exposure = None
-        if self.max_gross_exposure_pct > 0:
-            exposure = {
-                "max_gross_exposure_pct": self.max_gross_exposure_pct,
-                "open_gross_notional": round(_exp[0], 2) if _exp else None,
-                "equity": round(_exp[1], 2) if _exp else None,
-                "exposure_multiple": round(_exp[2], 4) if _exp else None,
-                "headroom_usd": (
-                    round(self.exposure_headroom_usd(), 2) if _exp else None
-                ),
-                "measured": _exp is not None,
-            }
+        # Exposure block. Emitted ALWAYS — including with no ceiling declared,
+        # which is the change that unblocks choosing one. The measurement comes
+        # from observe_exposure(), a path enforcement never reads, so surfacing
+        # it here carries no trading risk (that separation is the point of
+        # src/units/accounts/exposure.py; see its module docstring).
+        #
+        # Three distinct states, three distinct renderings — never collapsed:
+        #   policy_declared False -> we have no ceiling (but may still have a
+        #                            measurement, which is the useful case)
+        #   measured        False -> we could not look; `unmeasured_reason`
+        #                            says which input was missing
+        #   multiple         0.0  -> we looked, the account is flat
+        _obs = self.observe_exposure()
+        _policy = self.exposure_policy()
+        exposure = {
+            "policy_declared": _policy is not None,
+            # Key name retained for back-compat with existing consumers; null
+            # (not 0.0) when undeclared, so it never reads as a ceiling of zero.
+            "max_gross_exposure_pct": _policy,
+            "open_gross_notional": (
+                round(_obs.notional, 2) if _obs.measured else None
+            ),
+            "equity": round(_obs.equity, 2) if _obs.measured else None,
+            "exposure_multiple": (
+                round(_obs.multiple, 4) if _obs.measured else None
+            ),
+            "headroom_usd": (
+                round(self.exposure_headroom_usd(), 2)
+                if self.exposure_headroom_usd() is not None
+                else None
+            ),
+            "measured": _obs.measured,
+            "unmeasured_reason": None if _obs.measured else _obs.reason,
+        }
         return {
             "exposure": exposure,
             "daily_pnl": round(self.daily_pnl, 2),
