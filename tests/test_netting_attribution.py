@@ -351,3 +351,56 @@ def test_full_close_writes_a_column_the_trades_table_has(tmp_path):
     assert '"close_reason"' not in body, (
         "_netting_apply_close writes order_packages' column name onto trades"
     )
+
+
+# ── a divergence nobody can fix must not print as one that will be fixed ─────
+#
+# bybit_1/BNBUSDT fired JOURNAL/BROKER QTY DIVERGENCE at ERROR every ~5 minutes
+# indefinitely (live-confirmed 2026-08-08). BNBUSDT is a pairs-sleeve leg, the
+# netting reconciler refuses pairs rows by design (`skipped_pairs`), so no
+# attribution pass will ever reduce them. An ERROR nobody can action is how
+# alarm fatigue starts, and CLAUDE.md makes the desensitised alarm its own P1.
+
+def test_one_shared_predicate_decides_who_owns_a_pairs_row():
+    """The reconciler's skip and the sweep's label must never disagree."""
+    import inspect
+
+    from src.runtime import order_monitor
+
+    recon = inspect.getsource(order_monitor._reconcile_netting_partial_closes)
+    assert "_is_pairs_sleeve_row(row)" in recon, (
+        "the reconciler must use the shared predicate, not an inline copy"
+    )
+    sweep = inspect.getsource(
+        order_monitor._check_broker_naked_bybit_positions
+    )
+    assert "_is_pairs_sleeve_row(row)" in sweep
+
+
+def test_pairs_predicate_matches_setup_type_or_strategy_name():
+    from src.runtime.order_monitor import _is_pairs_sleeve_row
+
+    assert _is_pairs_sleeve_row({"setup_type": "pairs_open", "strategy_name": ""})
+    assert _is_pairs_sleeve_row({"setup_type": "", "strategy_name": "pairs_sol_btc"})
+    assert not _is_pairs_sleeve_row(
+        {"setup_type": "ict_scalp", "strategy_name": "ict_scalp_avax_5m"}
+    )
+    # A row missing the keys entirely must not raise — the sweep runs per tick.
+    assert not _is_pairs_sleeve_row({})
+
+
+def test_wholly_pairs_divergence_is_warning_not_error():
+    """It names the owner and says no reconciler is coming."""
+    import inspect
+
+    from src.runtime import order_monitor
+
+    src = inspect.getsource(order_monitor._check_broker_naked_bybit_positions)
+    assert "PAIRS-SLEEVE" in src
+    assert "pairs_executor" in src
+    # The un-actionable case must NOT claim a phantom row that something
+    # will reconcile — that is the sentence operators learned to ignore.
+    i = src.find("PAIRS-SLEEVE")
+    branch = src[i:i + 900]
+    assert "logger.warning" in src[max(0, i - 300):i + 100]
+    assert "At least one open row is a phantom" not in branch
