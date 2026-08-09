@@ -227,6 +227,45 @@ soak reproduces that, **no value satisfies § 6 for those accounts** and a ceili
 is the wrong instrument — it would mask a sizing problem rather than govern one.
 That must be answered from measurement before any Alpaca value is proposed.
 
+## Part 3 — the flag I raised, then closed (#8688)
+
+While merging the exposure soak I noticed that `src/main.py`'s tick had become a
+chain of **twelve** best-effort hooks — order monitor, pairs executor, macro
+thesis, five prop prompts, two reachability alerts, the IB-state dump, and the
+soak I had just added. Each is individually cadence-gated, exception-swallowing,
+documented as cheap. **Nothing measured the sum.**
+
+That is the shape of BOTH June 2026 wedges (`MB-20260609-001` steady-state,
+`BL-20260609-001` cold-start): each new component was cheap in isolation, and
+the defence each time bounded the NEW component rather than the total — so the
+total grew un-observed, and the next hook added would be individually cheap too.
+
+I first logged it to the coordination board as a flag I could not close, being
+careful to say I had **no measurement and was not claiming a problem**. The
+operator's direction was to resolve it before wrapping rather than hand it off,
+which was the right call: an un-measurable concern handed to a fresh session is
+just a rumour.
+
+**#8688 (`0044bdbd`)** closes it by MEASURING, not bounding.
+`begin_tick`/`end_tick` bracket the chain, a fixed-size accumulator carries
+last/max/mean, and `/api/diag/tick_cost` serves it. Two properties are carried
+over from #8684 for identical reasons: the max updates EVERY tick while the file
+persists on a cadence (so a spike between writes is never lost), and an untimed
+tick reports `None` rather than `0.0`.
+
+**It deliberately enforces no budget, and a test asserts none exists.** Setting a
+cap with no distribution behind it is precisely the exposure-ceiling mistake
+this sprint spent the day on — § 6: a ceiling below normal operation silently
+throttles correct work, and you cannot know where normal operation sits until
+you have measured it. If a budget is ever warranted it is a separate change with
+this measurement behind it.
+
+Scoped to the AGGREGATE (two touch points) rather than wrapping all twelve
+hooks: the measured gap was "nothing watches the total", and twelve mechanical
+edits to the live trader's main loop at the tail of a long session is a risk the
+marginal attribution detail did not justify. Per-hook attribution is the
+follow-up, and will be better targeted once a distribution exists.
+
 ## Next Recommended Sprint
 - Suggested next sprint: read the observed exposure multiples off `report()`
   and bring the operator a **specific** proposed fleet-default
