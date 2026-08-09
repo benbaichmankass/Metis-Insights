@@ -299,6 +299,14 @@ def main() -> int:
     covered = _accounts_with_fills(fills_conn)
     unresolved_by_reason: Counter = Counter()
     unresolved_by_account: Counter = Counter()
+    # Per (account, symbol) for the NO-FILL case specifically. Tests whether the
+    # unresolvable rows cluster on the symbols with known journal/exchange
+    # netting divergence (bybit_1/BNBUSDT, bybit_2+bybit_portfolio/ETHUSDT,
+    # historically bybit_1/SOLUSDT). If they do, some of these "trades" may be
+    # phantom netting rows that never had a fill of their own — which would make
+    # the fabricated-exit backlog and the netting divergence ONE root cause
+    # rather than two. Scattered across many symbols instead falsifies that.
+    no_fill_by_account_symbol: Counter = Counter()
 
     stat = Counter()
     plan: list[tuple] = []
@@ -351,8 +359,13 @@ def main() -> int:
                 if acct in covered else None
             )
             stat["unresolved_left_alone"] += 1
-            unresolved_by_reason[_unresolved_reason(acct, covered, cands)] += 1
+            _reason = _unresolved_reason(acct, covered, cands)
+            unresolved_by_reason[_reason] += 1
             unresolved_by_account[acct] += 1
+            if _reason == "no_fill_in_window":
+                no_fill_by_account_symbol[
+                    (acct, str(r["symbol"] or "?").upper())
+                ] += 1
             continue
 
         exit_price = rec.get("avg_exit_price")
@@ -390,6 +403,11 @@ def main() -> int:
             print(f"    {acct_id:34s} {n}{mark}")
         print(f"  accounts with fills stored: "
               f"{', '.join(sorted(covered)) if covered else '(none / store unreadable)'}")
+        if no_fill_by_account_symbol:
+            print("  no_fill_in_window BY (account, symbol) — top 15:")
+            for (a, sym), n in no_fill_by_account_symbol.most_common(15):
+                print(f"    {a + '/' + sym:38s} {n}")
+            print(f"    ...{len(no_fill_by_account_symbol)} distinct (account, symbol) pair(s)")
 
     if not args.apply:
         print("\nDRY RUN — nothing written. Re-run with --apply to commit.")
