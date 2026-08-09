@@ -177,9 +177,16 @@ had previously only been *reasoned about*.
   widening once its soak has rows.
 - Why next: both are now blocked only on data that this sprint made available,
   which is the definition of ready.
-- Required verification before starting: confirm the exposure block is
-  populating on the live VM post-deploy (`ict-git-sync` picks up `544ae8e8`),
-  and that `bybit_2` soak rows are actually appearing.
+- Required verification before starting: ~~confirm the deploy landed~~ **DONE
+  2026-08-09T12:21Z (diag #8674)** — `/api/diag/version` reports
+  `git_sha: 49f4442f`, which is `main` including all three Tier-2 merges;
+  `ict-trader-live.service` and `ict-web-api.service` both `active`. The one
+  `inactive` timer, `ict-ib-gateway-watchdog.timer`, is CORRECT on the trader —
+  it is auto-enabled only where `/etc/ict-vm-role == gateway`. **Still to
+  confirm before the next sprint:** that `bybit_2` netting soak rows are
+  actually appearing (the #8666 change is deployed, but rows accrue only when a
+  divergence is observed), and that the exposure block populates on a real
+  account rather than only in tests.
 
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries.
