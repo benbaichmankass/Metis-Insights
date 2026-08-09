@@ -136,13 +136,144 @@ per window, and an exact identity check against the OFF arm, which reports every
 
 ---
 
-## PROPOSAL (Tier-3 — operator decision, not merged)
+## SUPERSEDING EVIDENCE (2026-08-09, same day) — the retune was tested and FAILED
 
-**Recommended: option A.** It is the minimal change, it is strictly dominant over
-the status quo on every axis measured, and it removes the specific defect the
-backlog row is about (a value fitted on the wrong trail).
+> **This section overrides the proposal below it.** The operator approved option A
+> **conditional on testing it first**. It was tested. **The recommendation is now
+> option C — hold at 2.5, no config change.** Options A/B are preserved verbatim
+> beneath as the record of what was proposed and why, because the reasoning that
+> produced them is the thing that turned out to be insufficient, not wrong.
 
-### Option A — retune `tight_mult` 2.5 → 2.0 (recommended)
+The sweep above ranks cells by aggregate deltas. It never reports **how many
+trades the ranking rests on** — and `+7.1999R` built from four trades and from
+sixty are the same number and completely different evidence.
+
+Instrument: [`scripts/research/m20_trail_attribution.py`](../../scripts/research/m20_trail_attribution.py).
+Trainer-diag **#8672** (first run), **#8676** (maxDD reconciliation), **#8677**
+(re-run on the corrected cost basis).
+
+### 1 — the denominator: 17 of 250 trades, and 3 of 75 out of sample
+
+*Same population as above; `arm_r` 6.49, CLI cost basis (fee 7.5bps + slippage
+5.0bps + funding 1.0bps/8h).*
+
+| window | trades | armed (`mfe_r ≥ 6.49`) | differing | Δ net R |
+|---|--:|--:|--:|--:|
+| ALL | 250 | **17** (6.8%) | 17 | **−1.8395** |
+| IS | 175 | 14 | 14 | **−2.4395** |
+| OOS | 75 | **3** (4.0%) | 3 | +0.6000 |
+
+### 2 — where the lever acts, 2.0 is WORSE
+
+| | count | total |
+|---|--:|--:|
+| gains | 14 × **+0.2R** | +2.8000 |
+| losses | 3 (−1.7176, −2.4505, −0.4714) | −4.6395 |
+| **net on trades touched** | 17 | **−1.8395** |
+
+It wins small and often, loses big and rarely — the wrong shape for a
+trend-following exit, whose profit comes from the few trades that run.
+
+The uniform `+0.2R` is an **internal consistency check**, not a coincidence:
+when both arms stop on the same bar, the tighter trail sits `(2.5−2.0)×ATR`
+closer and risk is `atr_stop_mult×ATR = 2.5×ATR`, so the gain is exactly
+`0.5/2.5 = 0.2R`. The instrument reproduces the arithmetic the engine must
+produce. The three losses are the bars where the tighter stop fired *earlier*
+and cut a run.
+
+### 3 — the aggregate edge is a SEQUENCING artifact, not better exits
+
+On the CLI basis the headline says 2.0 beats 2.5 by **+0.2960R** net
+(39.4485 vs 39.1525). But the lever's own contribution is **−1.8395R**. The
+residual **+2.1355R** comes from three trades that exist in only one book —
+`unique_to_live` 2023-06-21 16:00 and 2023-06-23 15:00; `unique_to_proposed`
+2023-06-21 01:00. Shifting one exit moved `next_idx = exit_index + 1 +
+cooldown_bars`, so the two configs took **different subsequent trades** over one
+week in June 2023.
+
+An aggregate that is dominated by which trades a config happened to take next is
+not an edge. This is precisely why the arms are joined on `entry_time` rather
+than zipped positionally — a positional compare would have folded that +2.14R
+into the per-trade deltas and reported 2.0 as a clean winner.
+
+### 4 — not a knife-edge; negative at every arm with a real sample
+
+| `arm_r` | armed | Δ net R on trades touched |
+|--:|--:|--:|
+| 3.0 | 54 | **−1.3089** |
+| 4.0 | 38 | **−4.1322** |
+| 5.0 | 26 | **−6.1243** |
+| 6.49 (live) | 17 | **−1.8395** |
+| 8.0 | 7 | +1.4000 — `TOO_THIN`, below the 10-trade bar |
+
+There is no arm setting at which tightening to 2.0 is justified on the trades it
+changes.
+
+### 5 — the maxDD basis, reconciled (the gate verdict rests on it)
+
+The "+0.4220 IS maxDD" finding above was measured on a **date-restricted** run;
+a first attribution pass measured the full tape and saw an identical maxDD across
+all three arms, which read as a contradiction. Two separate things were going on:
+
+- **The restriction hypothesis was WRONG.** Date-restricted and
+  full-tape-split-by-`entry_time` agree *exactly* — OFF 14.7968, live 15.2188,
+  proposed 14.7968 on both (`bases_agree: true`).
+- **The real cause was COST BASIS**, and it was a defect in the attribution tool.
+  `scripts/backtest_trend.py` holds its cost terms in **module globals** and
+  `main()` resolves symbol-specific slippage/funding into them when the CLI flags
+  are left at their `None` default; the module's own initial values are `0.0`. So
+  a caller that imports the harness and calls `run_backtest()` directly runs
+  **fee-only**, while every CLI/sweep run is fee+slippage+funding. Same engine,
+  same 175-trade book, maxDD 13.2595 vs 14.7968.
+
+Corrected, the reconciliation **reproduces the sweep exactly**:
+
+| arm | IS maxDD | Δ vs OFF |
+|---|--:|--:|
+| OFF | 14.7968 | — |
+| tight **2.5** (live) | 15.2188 | **+0.4220** |
+| tight **2.0** (proposed) | 14.7968 | +0.0000 |
+
+So the gate failure is **real and robust to cost basis** (fee-only gives
++0.3474 — same sign, same conclusion). And the per-trade deltas are
+**identical on both bases** (−1.8395 either way), since a shared trade's gross R
+does not move with the cost model. Both facts measured, neither assumed.
+
+The generalised trap is filed as
+`BL-20260809-INPROCESS-HARNESS-RUNS-FEE-ONLY-SILENTLY` — this tool is fixed
+(`--cost-basis`, default `cli`, effective terms printed beside the population),
+the trap is not.
+
+### Verdict
+
+**Option C — hold at `trail_decay_tight_mult: 2.5`. No config change.**
+
+The live cell does fail its gate on drawdown (+0.4220R IS), and that finding
+stands. But the proposed replacement is **not better**: it is worse on the 17
+trades it touches, at every arm with a usable sample, and its aggregate
+advantage is a one-week sequencing accident. Swapping a value that fails a gate
+for one that fails on the merits is not an improvement, it is churn on a live
+strategy.
+
+Two bounds that keep this in proportion, and that argue against option B as
+well: the lever versus OFF is **+9.53R** (live) / **+9.83R** (proposed) at
+identical full-tape maxDD (27.3002 across all three arms), so the lever itself
+is earning its place — it is only the 2.5→2.0 *move* that is unsupported. And
+**nothing can change until a trade reaches 6.49R peak**, which has not happened
+in 2026 (max 4.593 over 35 trades).
+
+`BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL` closes as
+`resolved_hold` — the tuning-basis defect is now *measured* rather than
+suspected, and the measurement says the current value is the better of the two.
+
+---
+
+## PROPOSAL (Tier-3 — superseded by the section above; kept as the record)
+
+**~~Recommended: option A.~~** — see the superseding evidence. Option A was
+approved conditionally, tested, and withdrawn; the recommendation is option C.
+
+### Option A — retune `tight_mult` 2.5 → 2.0 (~~recommended~~ WITHDRAWN)
 
 ```diff
 --- a/config/strategies.yaml
@@ -177,11 +308,16 @@ gate, the whole family is worth ~2R of OOS improvement on a book that stays
 negative, and the lever is inert on 2026 data. The cost of B is giving up the
 +7.2R IS / +2.6R OOS net_R that option A retains.
 
-### Option C — hold (no change)
+### Option C — hold (no change) — **THIS IS WHAT WAS CHOSEN**
 
-**Not recommended.** It is the only option that leaves a value in place which is
+~~**Not recommended.** It is the only option that leaves a value in place which is
 now *measured* to fail its own gate on the engine the live monitor matches, and
-which is strictly dominated by a neighbouring value.
+which is strictly dominated by a neighbouring value.~~
+
+**The "strictly dominated" claim was the error.** Dominance was read off
+aggregate net_R and maxDD; per-trade attribution showed the dominance is a
+sequencing artifact and that 2.0 is *worse* where the lever acts. See the
+superseding section at the top.
 
 ### If A or B is approved
 

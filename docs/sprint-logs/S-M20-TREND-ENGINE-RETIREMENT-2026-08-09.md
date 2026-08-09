@@ -92,6 +92,28 @@ Stated limits, because they bound what the proposal can claim: **2 of 15** cells
 
 The coverage matrix row was also corrected: it read `trail_decay: honest_negative` while the lever has been **live since #6273**.
 
+### Item C2 — the retune was approved *conditionally*, tested, and WITHDRAWN
+
+The operator approved option A **"conditional on testing it before we fully implement"**. That condition could not be discharged by the sweep that produced the proposal, for two independent reasons — and both turned out to matter.
+
+**A live soak cannot test this lever.** The arm is 6.49R and 2026's max peak-R is 4.593, so `exit_lever_soak` would accrue **zero rows** and read *clean* while having tested nothing — the unasserted-denominator failure (CLAUDE.md § diagnostic provenance, sub-class C) in its most seductive form. The test had to be backtest-side. Recorded here because the next session tempted to "just soak it" on a conditional lever should check the arm is reachable first.
+
+**The sweep reports an aggregate, never its denominator.** New instrument `scripts/research/m20_trail_attribution.py` (indexed; trainer-diag **#8672** / **#8676** / **#8677**) supplies it. Arms are joined on `entry_time`, never zipped positionally — changing an exit moves `next_idx`, so the two configs can take structurally different subsequent trades, and a positional compare would credit the lever with an unrelated trade's delta. That distinction is not academic; it is what the result turned on.
+
+| finding | measurement |
+|---|---|
+| denominator | **17 of 250** trades arm (6.8%); **3 of 75** OOS |
+| where the lever acts | 2.0 is **worse by 1.8395R** — gains exactly +0.2R on 14 trades, loses 4.6395R on 3 |
+| the `+0.2R` | mechanical: `(2.5−2.0)×ATR ÷ (2.5×ATR) = 0.2R` when both arms stop on the same bar — an internal consistency check that the instrument reproduces the engine's arithmetic |
+| the apparent edge | 2.0's `+0.2960R` aggregate is a **sequencing artifact**: `−1.8395` from the lever, `+2.1355` from 3 trades present in only one book after one shifted exit moved `next_idx` over a week in June 2023 |
+| arm sensitivity | **negative at every arm with a usable sample** (3.0 / 4.0 / 5.0 / 6.49); only 8.0 positive, and `TOO_THIN` at n=7 |
+
+**Verdict: hold at 2.5. No config change.** The gate failure is real — and reconciling it exposed a second defect (below) — but the proposed replacement is worse on the merits, so swapping one is churn on a live strategy, not an improvement. `BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL` closes as **`resolved_hold`**.
+
+Option B (remove the lever) is also unsupported: vs OFF the lever is **+9.53R** at *identical* full-tape maxDD (27.3002 across all three arms). It earns its place; only the 2.5→2.0 move doesn't.
+
+**The maxDD reconciliation found a bug in my own tooling.** The `+0.4220` gate number came from a date-restricted run; the first attribution pass measured the full tape and disagreed. My hypothesis — restriction vs post-hoc splitting — was **wrong**: those two agree to four decimals (`bases_agree: true`). The real cause was **cost basis**. `scripts/backtest_trend.py` holds its cost terms in module globals initialised to `slippage=0.0 / funding=0.0`, and `main()` resolves symbol-specific values into them only on the CLI path — so **any in-process `run_backtest()` caller silently runs fee-only**. Same 175-trade book, maxDD 13.2595 vs 14.7968: a >10% swing on the exact number the gate verdict is read off. Corrected, the reconciliation reproduces the sweep **exactly** (+0.4220 on both bases), and the per-trade deltas are **identical across bases** (−1.8395), since a shared trade's gross R doesn't move with the cost model — measured, not assumed. Filed as `BL-20260809-INPROCESS-HARNESS-RUNS-FEE-ONLY-SILENTLY`: this tool is fixed (`--cost-basis`, default `cli`, terms printed beside the population), the trap is not — `scripts/ml/exit_head_replay.py` loads the same harness the same way.
+
 ## Validation Performed
 - Tests run: 30 lever tests before → 30 after (no test lost); 12 new training-window tests; 257 tests across `tests/research/` + every suite touching the changed modules. CI `pytest-run` on the PR head.
 - Dry-runs or staging checks: per-file two-engine comparison BEFORE migrating each test; negative control on the ported exit-side assertions; `candle_io` equivalence proof; `regime_matrix` before/after decomposition; guard self-test 3/3 **including under a simulated dependency-free environment** (pandas/numpy/lightgbm/yaml blocked via a `meta_path` hook), which is the environment the `guards` CI job actually has.
