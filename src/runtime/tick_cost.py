@@ -1,0 +1,186 @@
+"""Per-tick wall-clock cost of the trader loop — MEASURED, not bounded.
+
+``src/main.py``'s tick is a chain of best-effort hooks: the order monitor, the
+pairs executor, the macro-thesis tick, five prop prompts, two reachability
+alerts, the IB-state dump, and the exposure soak. **Each is individually
+correct** — internally cadence-gated, exception-swallowing, documented as cheap.
+Nothing measured the SUM.
+
+That gap matters because both June 2026 wedges were *"a per-tick cost that was
+fine in isolation"*: the steady-state regime-scoring fetch (`MB-20260609-001`)
+and the cold-start burst that pegged the 2-core box and froze the heartbeat
+(`BL-20260609-001`). The defence each time was a bound on the NEW component,
+never on the total — so the total has grown un-observed ever since, and the next
+hook added will be individually cheap too.
+
+**This module deliberately does NOT enforce a budget.** Setting a cap without a
+distribution behind it is exactly the mistake
+`gross-exposure-governance-DESIGN.md` § 6-7 records for the exposure ceiling: a
+ceiling below normal operation silently throttles correct work, and you cannot
+know where normal operation sits until you have measured it. Measure first. A
+`TICK_COST_*` budget, if one is ever warranted, is a separate change with this
+soak behind it.
+
+**Cost of the measurement itself:** two `time.monotonic()` calls per tick and an
+atomic write of a fixed-size payload on a cadence (`TICK_COST_WRITE_SECONDS`,
+default 300s). The in-memory max is updated EVERY tick regardless of the write
+cadence, so a quiet cadence never loses the peak — the same reasoning as
+`exposure_soak`, where the max is the load-bearing statistic and must survive
+the sampling gap.
+"""
+from __future__ import annotations
+
+import json
+import os
+import time
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
+STATE_FILE_NAME = "tick_cost.json"
+
+_WRITE_CADENCE_ENV = "TICK_COST_WRITE_SECONDS"
+_DEFAULT_WRITE_CADENCE_S = 300.0
+
+# Process-lifetime accumulators. Deliberately fixed-size: this must not grow
+# with uptime on a 2-core box whose memory pressure is already load-bearing.
+_ticks: int = 0
+_last_ms: Optional[float] = None
+_max_ms: Optional[float] = None
+_max_at_utc: Optional[str] = None
+_sum_ms: float = 0.0
+_started_utc: Optional[str] = None
+_last_write_ts: Optional[float] = None
+_tick_start: Optional[float] = None
+
+
+def write_cadence_seconds() -> float:
+    """Resolve the persist cadence. Unparseable → default, never 'off'.
+
+    A typo must not silently switch the measurement off — the same fail-ON
+    reasoning as ``exposure_soak.cadence_seconds``.
+    """
+    try:
+        return float(os.environ.get(_WRITE_CADENCE_ENV, _DEFAULT_WRITE_CADENCE_S))
+    except (TypeError, ValueError):
+        return _DEFAULT_WRITE_CADENCE_S
+
+
+def begin_tick() -> None:
+    """Mark the start of the tick's hook chain. Never raises."""
+    global _tick_start, _started_utc
+    try:
+        _tick_start = time.monotonic()
+        if _started_utc is None:
+            _started_utc = datetime.now(timezone.utc).isoformat()
+    except Exception:  # noqa: BLE001
+        _tick_start = None
+
+
+def end_tick() -> Optional[float]:
+    """Close the tick, fold it into the accumulators, persist on cadence.
+
+    Returns the tick's duration in ms (None if the start marker was missing —
+    which is reported honestly rather than as a zero, since "we did not time
+    this tick" and "this tick took no time" are different statements).
+    """
+    global _ticks, _last_ms, _max_ms, _max_at_utc, _sum_ms, _tick_start, _last_write_ts
+    try:
+        if _tick_start is None:
+            return None
+        elapsed_ms = (time.monotonic() - _tick_start) * 1000.0
+        _tick_start = None
+        _ticks += 1
+        _last_ms = elapsed_ms
+        _sum_ms += elapsed_ms
+        if _max_ms is None or elapsed_ms > _max_ms:
+            _max_ms = elapsed_ms
+            _max_at_utc = datetime.now(timezone.utc).isoformat()
+
+        now = time.monotonic()
+        cadence = write_cadence_seconds()
+        if cadence > 0 and (_last_write_ts is None or (now - _last_write_ts) >= cadence):
+            _last_write_ts = now
+            write_state_file()
+        return elapsed_ms
+    except Exception:  # noqa: BLE001 — measurement must never break the tick
+        _tick_start = None
+        return None
+
+
+def snapshot() -> Dict[str, Any]:
+    """Fixed-size view of the accumulators. Pure; never raises."""
+    mean = (_sum_ms / _ticks) if _ticks else None
+    return {
+        "ticks_measured": _ticks,
+        "last_ms": round(_last_ms, 1) if _last_ms is not None else None,
+        # The load-bearing statistic. A mean that looks fine while the peak
+        # freezes the heartbeat is precisely the 2026-06-09 shape, so the max
+        # ships beside the mean AND beside ticks_measured — a max over 3 ticks
+        # and a max over 3000 are different claims.
+        "max_ms": round(_max_ms, 1) if _max_ms is not None else None,
+        "max_at_utc": _max_at_utc,
+        "mean_ms": round(mean, 1) if mean is not None else None,
+        "process_started_utc": _started_utc,
+    }
+
+
+def state_file_path():
+    from src.utils.paths import runtime_logs_dir
+    return runtime_logs_dir() / STATE_FILE_NAME
+
+
+def write_state_file(path: Optional[Any] = None) -> bool:
+    """Atomic write of the fixed-size snapshot. Best-effort; never raises.
+
+    Same cross-process shape as ``ib_state.json``: the TRADER measures, the
+    separate web-api process serves it at ``/api/diag/tick_cost``.
+    """
+    try:
+        target = path if path is not None else state_file_path()
+        payload = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            **snapshot(),
+        }
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = f"{target}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh)
+        os.replace(tmp, target)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def read_state() -> Dict[str, Any]:
+    """Reader envelope for the diag route. ``present:false`` when unwritten."""
+    path = state_file_path()
+    out: Dict[str, Any] = {"present": False, "path": str(path),
+                           "generated_at": None, "age_seconds": None}
+    if not path.exists():
+        return out
+    try:
+        with path.open(encoding="utf-8") as fh:
+            payload = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        out["error"] = f"{type(exc).__name__}: {exc}"
+        return out
+    out["present"] = True
+    out.update(payload)
+    try:
+        gen = payload.get("generated_at")
+        if gen:
+            dt = datetime.fromisoformat(str(gen))
+            out["age_seconds"] = round(
+                (datetime.now(timezone.utc) - dt).total_seconds(), 1
+            )
+    except (TypeError, ValueError):
+        out["age_seconds"] = None
+    return out
+
+
+def _reset_for_tests() -> None:
+    """Test-only accumulator reset."""
+    global _ticks, _last_ms, _max_ms, _max_at_utc, _sum_ms
+    global _started_utc, _last_write_ts, _tick_start
+    _ticks, _last_ms, _max_ms, _max_at_utc = 0, None, None, None
+    _sum_ms, _started_utc, _last_write_ts, _tick_start = 0.0, None, None, None
