@@ -784,6 +784,25 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 logger.debug("write_ib_state_file tick hook skipped", exc_info=True)
 
+            # Gross-exposure observation soak. The ceiling VALUES are Tier-3 and
+            # cannot be chosen without a distribution of normal operation per
+            # account (gross-exposure-governance-DESIGN.md § 6 needs the ceiling
+            # ABOVE normal operation and BELOW the venue limit; § 7 forbids
+            # shipping a value with no soak behind it). #8665 made the
+            # measurement emittable and #8678 made it readable — neither
+            # ACCUMULATES it, so the first read available was a single Sunday
+            # snapshot of a held book. This samples it on a cadence
+            # (EXPOSURE_SOAK_SECONDS, default 15 min; <= 0 pauses) and stamps
+            # the US-equity session phase per row, so a later reader can tell a
+            # quiet account that is VENUE-SHUT from one that is REFUSING —
+            # indistinguishable from the trades table alone. Observe-only,
+            # connection-free, internally cadence-gated, never raises.
+            try:
+                from src.runtime.exposure_soak import emit_exposure_soak
+                emit_exposure_soak()
+            except Exception:  # noqa: BLE001
+                logger.debug("exposure_soak tick hook skipped", exc_info=True)
+
             # PR5: heartbeat is the single source of truth for "trader is
             # alive". Writes after a successful tick, not before — so a
             # tick that crashes mid-run doesn't refresh the heartbeat and

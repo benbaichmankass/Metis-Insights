@@ -28,6 +28,7 @@ from src.web.api.routers import learning as learning_router
 from src.web.api.routers import exit_ladder as exit_ladder_router
 from src.web.api.routers import fc_geometry as fc_geometry_router
 from src.web.api.routers import allocator as allocator_router
+from src.web.api.routers import exposure as exposure_router
 from src.web.api.routers import pairs as pairs_router
 from src.web.api.routers import liquidity as liquidity_router
 from src.web.api.routers import market_ws as market_ws_router
@@ -107,6 +108,7 @@ app.include_router(notifications_router.router)
 app.include_router(exit_ladder_router.router)
 app.include_router(fc_geometry_router.router)
 app.include_router(allocator_router.router)
+app.include_router(exposure_router.router)
 app.include_router(pairs_router.router)
 app.include_router(prop_router.router)
 app.include_router(reports_router.router)
