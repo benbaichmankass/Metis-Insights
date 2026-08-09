@@ -219,6 +219,8 @@ def format_account_status_block(status: Dict[str, Any]) -> str:
             f" | Active days: {days}/{min_days}\n"
         )
 
+    exposure_line = _format_exposure_line(status.get("exposure"))
+
     return (
         f"{halted_icon} <b>{_h(status['name'])}</b> "
         f"(<code>{_h(status.get('exchange', '?'))}</code> / "
@@ -229,7 +231,68 @@ def format_account_status_block(status: Dict[str, Any]) -> str:
         f"{prop_lines}"
         f"{api_line}\n"
         f"  💵 Daily PnL: ${pnl:+.2f} / limit ${limit:.0f}\n"
+        f"{exposure_line}"
         f"  📦 Open: {open_pos}"
+    )
+
+
+def _format_exposure_line(exposure: Optional[Dict[str, Any]]) -> str:
+    """Render the gross-exposure block as ONE operator line.
+
+    ``RiskManager.report()`` has emitted this since PR #8665, whose stated
+    purpose was that an operator choosing ``max_gross_exposure_pct`` must be
+    able to SEE the current multiple first — the old design gated the
+    measurement on the ceiling already being declared, so the only way to learn
+    the value was to guess one. That PR shipped without this line, so the block
+    arrived here inside ``**risk_report`` and was silently dropped: written and
+    never read, which is worse than absent because the field's presence implies
+    something acts on it.
+
+    The three states get three renderings and are never collapsed, because the
+    distinctions are the entire point (see ``src/units/accounts/exposure.py``):
+
+    - **unmeasured** — we could not look; name the missing input. Rendering
+      this as ``0.00x`` would assert the account is FLAT, which is the opposite
+      instruction to the reader, and flat-vs-unknown is exactly the confusion
+      the pure module was built to make impossible.
+    - **no ceiling declared** — show the multiple with an explicit "no ceiling",
+      never a fabricated ``/ 0.0x`` that reads as a ceiling of zero.
+    - **ceiling declared** — show ``multiple / ceiling`` plus headroom.
+
+    Returns ``""`` (line omitted entirely) when the key is absent, so an older
+    payload — or ``PropRiskManager``, which overrides ``report()`` — renders
+    exactly as it did before.
+    """
+    # Require the payload to actually carry the contract key. An empty or
+    # malformed dict is ABSENT information, not a measurement that failed —
+    # rendering it as "not measured (unknown)" would state a confident negative
+    # about exposure on the strength of a dict that said nothing at all, which
+    # is the unasserted-denominator shape (an empty result read as a clean
+    # answer) applied to the operator's status page.
+    if not isinstance(exposure, dict) or "measured" not in exposure:
+        return ""
+
+    if not exposure.get("measured"):
+        reason = exposure.get("unmeasured_reason") or "unknown"
+        return f"  📊 Exposure: <i>not measured</i> ({_h(reason)})\n"
+
+    multiple = exposure.get("exposure_multiple")
+    if multiple is None:
+        return "  📊 Exposure: <i>not measured</i>\n"
+
+    ceiling = exposure.get("max_gross_exposure_pct")
+    if not exposure.get("policy_declared") or ceiling is None:
+        # No ceiling is a legitimate, deliberate state — not a misconfiguration
+        # to nag about. Say so plainly and show the number, which is the input
+        # needed to choose one.
+        return f"  📊 Exposure: {float(multiple):.2f}x <i>(no ceiling set)</i>\n"
+
+    headroom = exposure.get("headroom_usd")
+    head_txt = f" | headroom ${float(headroom):,.0f}" if headroom is not None else ""
+    icon = "⚠️" if float(multiple) >= float(ceiling) else "📊"
+    return (
+        f"  {icon} Exposure: {float(multiple):.2f}x / {float(ceiling):.2f}x"
+        f"{head_txt}\n"
     )
 
 
