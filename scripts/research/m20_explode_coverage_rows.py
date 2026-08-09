@@ -134,7 +134,8 @@ for r in d["rows"]:
     if strat == STANDALONE_STALE:
         continue                                   # merged into the exploded leg below
     if strat not in BUNDLES:
-        new_rows.append(r); continue
+        new_rows.append(r)
+        continue
     seen_bundles.add(strat)
     legs, mapping = BUNDLES[strat]
     for name, sym, tf, ex in legs:
