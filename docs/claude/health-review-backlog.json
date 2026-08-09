@@ -11042,7 +11042,7 @@
       "id": "BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS",
       "opened": "2026-08-09",
       "severity": "medium",
-      "status": "open",
+      "status": "resolved",
       "area": "m20-exit-refinement",
       "title": "exit-refinement coverage matrix: MULTI-LEG rows carry ONE status, so a row can be 'shipped' while most of its legs failed",
       "detail": "docs/research/exit-refinement-coverage.json is M20's done-condition roll-up: one row per 'strategy leg', one status per lever column. But several rows are not one leg -- they bundle a whole family under a single status field, and the status then describes only the leg that PASSED while the ref text carries the rest. Found by a screen for fail-words appearing under a non-negative status: 11 hits, and 10 are this shape (the 11th, trend_donchian BTC trail_decay, was a genuine stale status and is fixed as `shipped_gate_failed`). Concrete examples, all currently `shipped`: (a) row 'sol_pullback_2h / xrp_pullback_2h / ...' trail_decay -- ref says sol PASS wf 5/6 while 'xrp 3/6, ada 3/6, avax 2/6, eth_prop 2/6 all fail', so 4 of 5 legs are honest negatives counted under a shipped cell; (b) row 'MES/MGC/MHG' trail_geometry -- 'MES trail3 4/6 + MHG trail3 5/6 PASS ... MGC fails'; (c) row 'equities 1h fleet' trail_geometry -- 'TLT-1h trail3 PASS; gld/spy/qqq/slv fail'. WHY IT MATTERS: the roll-up is the milestone's done-condition and is quoted as a completion percentage (currently 141/184 cells resolved). A bundled row inflates 'shipped' and hides per-leg negatives, so the number overstates coverage by an amount nobody can compute without re-reading every ref string. It is the same class as the defect just fixed -- a status field that does not describe what the evidence says -- one level up: here the field cannot be correct for all its legs, whatever value it holds. NOT fixed in this PR because it is a schema/normalisation change (explode bundled rows to one row per leg, or add a per-leg sub-status), touches many rows, and the ref text preserves the underlying evidence so nothing is LOST today -- only mis-aggregated.",
@@ -11051,6 +11051,25 @@
         "docs/research/exit-refinement-coverage.json",
         ".claude/skills/exit-refinement/SKILL.md",
         "ROADMAP.md"
+      ],
+      "resolved_at": "2026-08-09",
+      "resolution": "RESOLVED 2026-08-09. 6 of the 7 multi-leg rows exploded to one row per leg (23 -> 50 rows, 184 -> 400 cells); each exploded row carries `exploded_from`. Per-leg statuses assigned ONLY from each ref's explicit wording; a ref silent on a leg, or naming a run that ERRORED / TIMED OUT, becomes `pending` -- an un-run cell is not a negative however plausible its neighbours (trend_donchian_ada_4h / _avax_4h trail_decay were recorded as negatives 'consistent with the family's fails', which is an inference; both are now pending). The `shadow fleet` row is deliberately NOT exploded: its label does not enumerate its legs and it is execution:shadow, outside the live-leg done-condition. MEASURED CORRECTION TO THIS ROW'S OWN CLAIM: it said the roll-up 'overstates coverage'. That is true of `shipped` (9.2% -> 6.0% of cells) but FALSE of resolved overall, which went UP (76.6% -> 79.5%) because most bundled cells were legitimately honest_negative for every leg. The honest live-leg figure is 304/376 = 80.9% over 47 live legs. Also fixed: a DUPLICATE leg -- xauusd_trend_1h existed as both a standalone row (execution:live, trail_geometry:blocked 'candle coverage task #27') and inside the xauusd/mgc bundle (disabled/shadow, trail_geometry:shipped). Settled from config, not by preferring a row: enabled:false => disabled, and trail_mult:4.0 IS declared with the M20 sweep cited inline => shipped. Merged per-cell, keeping the standalone's vol_trail (#6507) and exit_head_ml `blocked` verdicts which the bundle lacked."
+    },
+    {
+      "id": "BL-20260809-COLLAPSED-STATES-NO-CANONICAL-HOME",
+      "opened": "2026-08-09",
+      "severity": "medium",
+      "status": "open",
+      "area": "canonical-docs",
+      "title": "The collapsed-states defect class has no canonical home despite 5+ instances in 2 days across 2 sessions",
+      "detail": "Recurring class: TWO distinct states share one value, and the missing state is the dangerous one. Verified 2026-08-09 that it is described in a sprint log and two design docs but appears NOWHERE in docs/CLAUDE-RULES-CANONICAL.md, docs/ARCHITECTURE-CANONICAL.md or CLAUDE.md (grepped). Instances, two concurrent sessions, two days: (1) gross-exposure ceiling -- 'no policy' = 'no data' (#8665); (2) netting allowlist -- 'not staged' = 'not observed' (#8666); (3) pairs executor -- 'half_open' = 'flat' (#8667); (4) harness cost basis -- None ('unresolved') = 0.0 ('explicitly fee-only') (#8685); (5) exit-refinement coverage -- 'shipped' conflated live-ness with validated-ness, needing a new `shipped_gate_failed` status (#8687). The counter-example already in the codebase is src/runtime/exit_anchor.py, whose anchored/deferred/no_anchor contract states outright that collapsing any two reintroduces a defect -- the pattern is known and correctly applied in ONE place while being rediscovered incident-by-incident everywhere else. That is the same shape that motivated RULE ONE (four scoped verify rules, no general one): a class with no canonical name gets re-derived instead of checked for.",
+      "suggested_fix": "A short canonical section naming the class, cross-referencing the instances rather than restating them (the RULE ONE shape), with the design test: for any field encoding a condition, ask whether 'we did not look' and 'we looked and found nothing' are distinguishable -- if not, that is the bug. NOT actioned in-session: this session had already restructured the canonical docs once at operator direction, and deciding the doc's shape twice on its own judgment is a step past its remit. Operator call.",
+      "refs": [
+        "docs/sprint-logs/S-COLLAPSED-STATES-2026-08-09.md",
+        "docs/design/gross-exposure-governance-DESIGN.md",
+        "docs/netting-partial-close-attribution-DESIGN.md",
+        "src/runtime/exit_anchor.py",
+        "docs/CLAUDE-RULES-CANONICAL.md"
       ]
     }
   ],
