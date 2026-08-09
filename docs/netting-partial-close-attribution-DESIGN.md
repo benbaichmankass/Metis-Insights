@@ -151,7 +151,27 @@ without it there is no trustworthy signal to tell whether any of (a)/(b)/(c) wor
 | 1 | Ship §2 (detector blind spot) now as its own Tier-1 PR? | **yes** — it is a prerequisite for verifying anything else |
 | 2 | Which attribution option — (a), (b)+(a), or (b)+(a)+(c)? | **(b)+(a)**, with (c) queued |
 | 3 | Accept that fixing size divergence **lowers** measured-P&L coverage? | must be explicit; it is the honest outcome, and it will move the R4 gate's `totalPnlMeasured` |
-| 4 | Scope the first ship to `bybit_1` (paper) before `bybit_2` (real money)? | **yes by magnitude — but see §6(b): `bybit_2` is NO LONGER clean.** It was clean at the 2026-07-30 audit and is divergent as of 2026-08-06 (ETHUSDT 0.06 journal vs 0.04 exchange). Staging on `bybit_1` first is still right; describing this as paper-only is not. |
+| 4 | Scope the first ship to `bybit_1` (paper) before `bybit_2` (real money)? | **yes by magnitude — but see §6(b): `bybit_2` is NO LONGER clean.** It was clean at the 2026-07-30 audit and is divergent as of 2026-08-06 (ETHUSDT 0.06 journal vs 0.04 exchange). Staging on `bybit_1` first is still right; describing this as paper-only is not. **Stage the WRITE, never the measurement — see the note below.** |
+
+> **Implementation note on decision 4 (added 2026-08-09, PR #8666).** The
+> decision above is correct and unchanged. Its *first implementation* was not:
+> `NETTING_ATTRIBUTION_ACCOUNTS` intersected the account set at the top of the
+> reconciler pass (`bybit_ids &= allow`), which staged the **observation** along
+> with the write. While the allowlist was set, `bybit_2` was not merely
+> un-written — it was **invisible**: no divergence check, no soak row, nothing
+> accruing to review before widening the allowlist to it. So the account this
+> staging exists to build toward was precisely the one that stopped being
+> measured, and the soak whose whole purpose is to justify the widening could
+> never contain the evidence for it.
+>
+> The allowlist now scopes the write and nothing else, via the single predicate
+> `order_monitor._netting_may_write(account_id, mode, allow)`. **Anyone
+> re-reading decision 4 and reaching for an account filter: filter at the WRITE
+> site, not at the top of the pass.** A staging control that disables
+> measurement of the thing you are staging toward is self-defeating — the same
+> conflation of "no policy here" with "no data here" that
+> [`gross-exposure-governance-DESIGN.md`](design/gross-exposure-governance-DESIGN.md)
+> § 3 records for the exposure ceiling.
 
 ## 6. Pre-implementation measurements — TAKEN 2026-08-06
 
