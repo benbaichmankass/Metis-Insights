@@ -635,6 +635,20 @@ def main() -> None:
         # below still records the "ok"/"error" outcome.
         write_heartbeat(status="tick_start", tick=tick_count)
         try:
+            # Per-tick cost measurement (2026-08-09). The hook chain below is a
+            # dozen individually-bounded best-effort calls and NOTHING measured
+            # the sum — the shape of both June 2026 wedges, where each new
+            # component was cheap in isolation and the total was never watched.
+            # Measure only: no budget is enforced here, because a cap with no
+            # distribution behind it is the exposure-ceiling mistake (a ceiling
+            # below normal operation silently throttles correct work). Two
+            # monotonic() calls per tick; persisted on a cadence.
+            try:
+                from src.runtime.tick_cost import begin_tick as _tick_cost_begin
+                _tick_cost_begin()
+            except Exception:  # noqa: BLE001
+                pass
+
             run_one_tick(settings, exchange_client, telegram_client)
 
             # CLAUDE.md § Architecture rules § 2 + § 3 +
@@ -802,6 +816,15 @@ def main() -> None:
                 emit_exposure_soak()
             except Exception:  # noqa: BLE001
                 logger.debug("exposure_soak tick hook skipped", exc_info=True)
+
+            # Close the per-tick cost measurement BEFORE the heartbeat write,
+            # so the recorded duration covers the whole hook chain and nothing
+            # else. Best-effort; a failure here leaves the tick untouched.
+            try:
+                from src.runtime.tick_cost import end_tick as _tick_cost_end
+                _tick_cost_end()
+            except Exception:  # noqa: BLE001
+                pass
 
             # PR5: heartbeat is the single source of truth for "trader is
             # alive". Writes after a successful tick, not before — so a

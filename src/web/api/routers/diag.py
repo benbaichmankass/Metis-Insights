@@ -1472,3 +1472,34 @@ def get_exposure(
         "count": len(out),
         "accounts": out,
     }
+
+
+@router.get("/tick_cost")
+def get_tick_cost(request: Request) -> dict[str, Any]:
+    """Per-tick wall-clock cost of the trader's hook chain (2026-08-09).
+
+    ``src/main.py``'s tick runs a dozen best-effort hooks — order monitor,
+    pairs executor, macro thesis, five prop prompts, two reachability alerts,
+    the IB-state dump, the exposure soak. Each is individually bounded and
+    documented as cheap; **nothing measured the SUM**, which is the shape of
+    both June 2026 wedges (each new component cheap in isolation, the total
+    never watched).
+
+    Read ``max_ms`` beside ``ticks_measured``: the max is the statistic that
+    matters (a mean that looks fine while the peak freezes the heartbeat is
+    exactly the 2026-06-09 incident), and a max over 3 ticks is not the claim a
+    max over 3000 is. ``max_at_utc`` dates the peak. Counters are per-PROCESS,
+    so a restart resets them — ``process_started_utc`` says from when.
+
+    **Measurement only — no budget is enforced.** A cap with no distribution
+    behind it is the exposure-ceiling mistake (`gross-exposure-governance-DESIGN.md`
+    § 6): a ceiling below normal operation silently throttles correct work.
+
+    ``present:false`` until the trader has written the file (persisted on the
+    ``TICK_COST_WRITE_SECONDS`` cadence, default 300s). A large ``age_seconds``
+    while the trader is otherwise ticking means the writer is not running.
+    Pure file read — no socket, no order path. Tier 1.
+    """
+    _require_diag_token(request)
+    from src.runtime.tick_cost import read_state
+    return read_state()
