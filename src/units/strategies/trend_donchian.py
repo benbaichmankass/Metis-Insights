@@ -205,8 +205,9 @@ def _confirmed_breakout(df: pd.DataFrame, dc_hi: pd.Series, dc_lo: pd.Series,
                         label: str) -> tuple:
     """Return (direction, signal_bar_depth) for a matured N-bar confirmation.
 
-    Mirrors ``scripts/research/backtest_trend.py``'s pending-entry semantics
-    exactly (the ``--confirm-bars`` lever lives only in that copy):
+    Mirrors ``scripts/backtest_trend.py``'s pending-entry semantics exactly
+    (that engine declares ``--confirm-bars``; the research copy that once held
+    the lever was retired 2026-08-09):
     the raw breakout fired at the bar ``n`` bars back (the signal bar); every
     close since must have HELD beyond THAT bar's channel edge, with no
     opposite raw breakout in between (a suppressed side on a long_only leg
@@ -691,8 +692,8 @@ def _giveback_verdict(
     ``giveback_min_mfe_r`` R of open profit (peak basis, since entry) and
     has given back at least ``giveback_r`` R from that peak at bar close.
     An R-based profit lock, distinct from the price/ATR chandelier trail —
-    the harness reference is ``scripts/research/backtest_trend.py``'s
-    ``gb`` lever (identical peak_r/r_close math).
+    the harness reference is ``scripts/backtest_trend.py``'s giveback lever
+    (identical peak_r/r_close math; the research copy was retired 2026-08-09).
 
     Declared (BOTH ``giveback_min_mfe_r`` AND ``giveback_r`` positive in
     meta/cfg) ⇒ may return a real ``{"action": "close", "reason":

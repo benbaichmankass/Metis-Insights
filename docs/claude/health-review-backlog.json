@@ -10940,9 +10940,9 @@
       "source": "Found while retiring scripts/research/backtest_trend.py for BL-20260808-RESEARCH-TREND-ENGINE-RETIREMENT-BLOCKED-BY-TEST-COUPLING. Measured on main @1099001.",
       "title": "The repo has TWO OHLCV readers and they disagree on input FORMAT, not just style: scripts/backtest_trend.py::_load_candles silently cannot read the JSONL the IBKR pull writes",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
-      "severity": "low",
+      "severity": "medium",
       "what_to_check": "MEASURED 2026-08-09 on data/backtest_candles.csv (5000 rows) plus a synthetic 5-row JSONL in the IBKR pull's shape ({ts,open,high,low,close,volume}). scripts/candle_io.py::load_candles (lifted verbatim from the retired research trend engine's _load) reads CSV + Parquet + JSONL, accepts `ts` as the timestamp column, and coerces OHLC to numeric. scripts/backtest_trend.py::_load_candles reads CSV + Parquet ONLY, requires the column to be literally `timestamp`, and does not coerce OHLC. On the SAME CSV both produce identical frames (5000 rows, DataFrame.equals True; and identical resamples at 5m/5min/1h/4h). On the JSONL, candle_io returns 5 usable rows while _load_candles raises KeyError: 'timestamp'. WHY IT MATTERS: this is why the three research scripts (regime_matrix, regime_tag_emitted, regime_adx_cutpoint_sweep) were repointed at the lifted candle_io rather than at the engine's own private reader — the naive repoint would have silently dropped JSONL support that regime_matrix and regime_tag_emitted both document reading, converting a working input into a KeyError. NOT a live-path issue: neither reader is on the order path, and no current caller feeds JSONL to _load_candles. It is a latent trap for the next person who assumes 'the engine's loader' is the general one.",
       "proposed_fix": "Decide ONE reader and make the other delegate. Preferred: scripts/backtest_trend.py::_load_candles becomes a thin call to candle_io.load_candles, which is a strict superset for every input the engine accepts today. That change is deliberately NOT bundled into the retirement PR: _load_candles feeds the fidelity pipeline (regime_debt_matrix, the calibration corpus, the M20 sweeps), and widening its NaN-drop from 'timestamp only' to 'timestamp + OHLC' could move a number on a CSV containing an unparseable price cell — a behaviour change that needs its own before/after over the real corpora, not a footnote in a retirement. Verify by running the debt matrix + one M20 sweep before/after and asserting byte-identical output.",
       "related": [
@@ -10952,7 +10952,10 @@
         "scripts/candle_io.py",
         "scripts/backtest_trend.py",
         "scripts/research/regime_matrix.py"
-      ]
+      ],
+      "resolved_at": "2026-08-09T00:00:00+00:00",
+      "resolved_by": "claude (M20 trend-harness workstream ipa3ce)",
+      "resolution": "RESOLVED IN THE SAME PR, and the severity was understated when filed. I opened this as a LATENT trap ('no current caller feeds JSONL to _load_candles'). The session-end doc-freshness pass found a REAL one: scripts/research/build_continuous_contract.py writes the canonical market_raw shape as JSONL and its own docstring instructs backtesting that file with a trend harness - and the retired engine was the ONLY trend engine that could read JSONL. So the retirement BROKE a documented end-to-end workflow (roll-adjusted continuous futures -> trend backtest), which is not something to leave filed. FIX: scripts/backtest_trend.py::_load_candles now delegates to candle_io.load_candles, so there is ONE reader. VERIFIED BEFORE THE CHANGE, not assumed: 18 full-summary backtest comparisons (2 committed corpora x 5min/15min/1h x 3 configs incl. the config-exact trend_donchian block) were IDENTICAL, and the loaded frames compared equal via DataFrame.equals; then confirmed end-to-end that a JSONL file now runs through the engine (exit 0, trades=1). The shared reader is a strict superset of what the engine accepted before - it adds JSONL + the IBKR `ts` column and coerces OHLC to numeric. Two stale citations in src/units/strategies/trend_donchian.py (comment-only) and the build_continuous_contract example were repointed in the same pass."
     }
   ],
   "updated_at": "2026-08-09T00:00:00+00:00",

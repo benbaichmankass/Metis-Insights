@@ -16,18 +16,22 @@ die with the engine.
 unchanged by the move. That is deliberate: a retirement PR must not also be a
 silent behaviour change to the callers it rescues.
 
-NOT the same as ``scripts/backtest_trend.py::_load_candles``
-------------------------------------------------------------
-The live-faithful engine has its own private ``_load_candles``, and it is a
-**strictly narrower** reader — it handles CSV/Parquet only, does not accept the
-``ts`` column name, and does not coerce the OHLC columns to numeric. Repointing
-these three scripts at *that* function instead would have silently dropped
-JSONL support (the IBKR pull writes JSONL rows of
-``{ts,open,high,low,close,volume}``, and `regime_matrix` / `regime_tag_emitted`
-both document reading it), turning a working input format into a
-``KeyError: 'timestamp'``. Converging the two readers is a separate, real piece
-of work with its own risk to the fidelity pipeline's inputs; it is NOT folded
-into the retirement. Tracked as
+THE ENGINE USES THIS TOO
+------------------------
+``scripts/backtest_trend.py::_load_candles`` delegates here. It used to be a
+private CSV/Parquet-only reader, and retiring the research engine removed the
+only trend harness that could read **JSONL** — which broke
+``build_continuous_contract.py``'s documented workflow (it writes the canonical
+``market_raw`` shape as JSONL and tells you to backtest that file). So there is
+now ONE reader, not two that disagree about input format.
+
+The delegation was verified before it was made, not assumed: 18 full-summary
+backtest comparisons (2 committed corpora x 5min/15min/1h x 3 configs, incl. the
+config-exact ``trend_donchian`` block) came out **identical**, and the loaded
+frames compared equal with ``DataFrame.equals``. This reader is a strict
+superset of what the engine previously accepted — it additionally handles JSONL
+and the IBKR pull's ``ts`` column, and coerces OHLC to numeric so a row with an
+unparseable price is dropped rather than poisoning the arithmetic downstream.
 ``BL-20260809-TWO-CANDLE-READERS-DIVERGE-ON-JSONL``.
 
 Research only (Tier-1); no live-path touch.
