@@ -10814,7 +10814,7 @@
       "source": "Found while measuring the two backtest_trend.py engines for BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE. Measured on main @bf72205.",
       "title": "A LIVE armed Tier-3 trail lever (trend_donchian trail_decay_arm_r 6.49) was tuned on the harness whose trail uses a ROLLING ATR, while the live monitor trails off the FROZEN entry ATR",
       "tier": 3,
-      "status": "open",
+      "status": "kept_open",
       "snoozed_until": null,
       "severity": "high",
       "what_to_check": "config/strategies.yaml::trend_donchian declares trail_decay_arm_r: 6.49 and trail_decay_tight_mult: 2.5 TODAY (execution: live, BTCUSDT 1h) - an armed, order-affecting exit lever. src/runtime/trail_decay.py and src/runtime/trail_vol.py both name scripts/research/backtest_trend.py as their 'Harness reference'.\n\nBut that harness is NOT the live-faithful one. Measured 2026-08-08 (scripts/research/trend_harness_divergence.py; population BTCUSDT 2022-07-23->27, 1001 5m bars, n=21-35/config, levers OFF): the research engine multiplies the CURRENT bar's rolling ATR on every managed bar, while trend_donchian.order_package freezes the entry ATR into meta['atr'] and monitor() trails off that frozen value. Isolating that axis alone moves gross R by -34.0% / -23.0% / +41.2% across three configs.\n\nWHY IT MATTERS: trail_decay's whole job is to TIGHTEN trail_mult once peak open profit reaches arm_r. Both the R path that reaches 6.49 and the stop path the tightened mult then produces depend on the baseline trail's distance - which is the thing that differs. So the arm threshold and tight mult were fitted against a trail that behaves differently from the one running on real money. This is NOT an assertion that 6.49 is wrong; it is that its evidence base does not reproduce the live trail, and nothing has measured the gap.\n\nNOT a live incident: the lever is reductive (tightens a stop, never loosens it - trail_decay re-loosens the MULT on a new peak but the caller's price ratchet never loosens the STOP), so the failure mode is a suboptimal exit, not an unprotected position.",
@@ -10826,8 +10826,11 @@
         "docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md 5f",
         "src/runtime/trail_decay.py",
         "src/runtime/trail_vol.py",
-        "scripts/research/trend_harness_divergence.py"
-      ]
+        "scripts/research/trend_harness_divergence.py",
+        "docs/research/M20-trail-decay-resweep-2026-08-09.md",
+        "scripts/research/m20_trail_resweep.py"
+      ],
+      "resolution": "EVIDENCE COMPLETE, DECISION OPEN (Tier-3, operator). The re-sweep the row asked for has been run on the converged engine and the answer is that the live values do NOT hold. Memo: docs/research/M20-trail-decay-resweep-2026-08-09.md. POPULATION: BTCUSDT 15m->1h, 2023-01-01 -> 2026-07-22, 250 baseline trades (175 IS / 75 OOS, split 2025-07-01), config-exact (donchian 20 / atr_period 14 / atr_stop_mult 2.5 / trail_mult 5.0 / min_confidence 0.7 / long_only), 15 cells x 7 windows, trainer-diag #8662 + #8664. (1) The live cell arm6.49/tight2.5 FAILS the exit-refinement gate - net_R improves in both windows but IS maxDD WORSENS by +0.4220R. (2) The P4.4 justification does not reproduce: it shipped on 'improves both axes', and on the live-faithful engine the drawdown sign FLIPS (the baselines differ too - IS net_R 42.38 not 51.8, OOS -12.51 not -24.5). (3) arm6.49/tight2.0 strictly dominates the live cell on every measured axis and is the recommended Tier-3 diff. (4) The lever is provably INERT in 2026-to-date - max peak-R 4.593 across 35 trades never reaches the 6.49 arm. HONEST LIMITS: 2 of 15 cells clear a non-worsening maxDD reading and ZERO clear a strict beats-both-axes reading, so selection risk is real at 15 comparisons; and the leg is OOS-negative either way, so this is a tuning-basis correction and NOT a profitability fix. Row stays OPEN because the config change is Tier-3 and unmerged; it closes when the operator picks option A (retune to 2.0), B (remove the lever) or C (hold). Also corrected in the same PR: the exit-refinement coverage matrix had this leg's trail_decay as 'honest_negative' while the lever has been LIVE since #6273."
     },
     {
       "id": "BL-20260808-FUNDING-PULLER-SAME-RANGE-CAP-EXPOSURE",
