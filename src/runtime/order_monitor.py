@@ -6789,9 +6789,39 @@ def _netting_attribution_mode() -> str:
 
 
 def _netting_attribution_accounts() -> set:
-    """Optional account allowlist (CSV). Empty = every Bybit account."""
+    """Optional allowlist (CSV) of accounts that may be **written**. Empty = all.
+
+    Scopes the WRITE, never the measurement. Every Bybit account is observed and
+    annotated to the soak log regardless; only an allowlisted one can have
+    ``apply`` actually touch the money DB.
+
+    That split is the entire point and it was wrong until 2026-08-09, when the
+    allowlist intersected the account set at the top of the pass
+    (``bybit_ids &= allow``). Operator decision 4 asked to stage the WRITE on
+    ``bybit_1`` before ``bybit_2`` — a correct instruction — but scoping the
+    whole pass also switched off *observation* of every other account. So while
+    the allowlist was set, real-money ``bybit_2`` was not merely un-written, it
+    was **invisible**: no divergence check, no soak row, nothing to review before
+    widening the allowlist to it. It had been measured non-clean on 2026-08-06.
+
+    A staging control that silently disables measurement of the thing you are
+    staging toward is self-defeating, and this is the same defect the
+    gross-exposure ceiling had (``docs/design/gross-exposure-governance-DESIGN.md``
+    § 3): *conflating "no policy here" with "no data here."*
+    """
     raw = str(os.environ.get("NETTING_ATTRIBUTION_ACCOUNTS", "") or "")
     return {p.strip() for p in raw.split(",") if p.strip()}
+
+
+def _netting_may_write(account_id: str, mode: str, allow: set) -> bool:
+    """May the reconciler write the money DB for this account?
+
+    The ONLY place the allowlist is consulted. Both conditions must hold: the
+    global mode is ``apply`` AND (no allowlist is set, or this account is on it).
+    """
+    if mode != "apply":
+        return False
+    return (not allow) or (account_id in allow)
 
 
 def _netting_rows_to_attribute(rows, excess, live_leg_ids):
@@ -6922,6 +6952,7 @@ def _reconcile_netting_partial_closes(db) -> Dict[str, int]:
     summary: Dict[str, int] = {
         "checked": 0, "divergent": 0, "pending_confirm": 0, "rows_selected": 0,
         "closed": 0, "annotated": 0, "declared_unmeasured": 0,
+        "apply_suppressed_by_allowlist": 0,
         "deferred_anchor": 0, "skipped_unreadable": 0, "skipped_pairs": 0,
         "errors": 0,
     }
@@ -6940,8 +6971,10 @@ def _reconcile_netting_partial_closes(db) -> Dict[str, int]:
             str(a.get("account_id")) for a in accounts
             if str(a.get("exchange", "")).lower() == "bybit"
         }
-        if allow:
-            bybit_ids &= allow
+        # NOTE: `allow` is deliberately NOT intersected here. It scopes the
+        # WRITE (see _netting_may_write), not the pass — observing every Bybit
+        # account is what makes widening the allowlist an evidence-based
+        # decision rather than a blind one.
         if not bybit_ids:
             return summary
         acc_by_id = {str(a.get("account_id")): a for a in accounts}
@@ -7060,16 +7093,35 @@ def _reconcile_netting_partial_closes(db) -> Dict[str, int]:
                 summary["deferred_anchor"] += 1
                 continue
 
+            # The EFFECTIVE mode for this account, which is what the soak row
+            # must record. Stamping the global `mode` would put "apply" on rows
+            # of a non-allowlisted account where nothing was applied — an audit
+            # trail that describes an action the code did not take, which is the
+            # sub-class-A diagnostic-provenance defect and exactly the kind of
+            # confident-wrong record this soak exists to be trusted as.
+            may_write = _netting_may_write(aid, mode, allow)
+            eff_mode = "apply" if may_write else "annotate"
+            apply_scope = (
+                "no_allowlist" if not allow
+                else ("allowlisted" if aid in allow else "not_allowlisted")
+            )
+
             for row, take, basis in picked:
                 _netting_soak_row(
                     account_id=aid, symbol=sym, direction=direction,
-                    row=row, take=take, basis=basis, mode=mode,
+                    row=row, take=take, basis=basis, mode=eff_mode,
                     journal_qty=journal_qty, exchange_qty=backed,
                     anchor_status=anchor_status, anchor_price=anchored,
                     anchored_at=first_seen_iso,
+                    global_mode=mode, apply_scope=apply_scope,
                 )
                 summary["annotated"] += 1
-                if mode != "apply":
+                if not may_write:
+                    if mode == "apply":
+                        # Visible, not silent: under a global `apply` this row
+                        # was held back purely by the allowlist. Counting it
+                        # keeps "staged" distinguishable from "nothing to do".
+                        summary["apply_suppressed_by_allowlist"] += 1
                     continue
                 closed_ok = _netting_apply_close(
                     db, row=row, take=take, basis=basis,
@@ -7097,6 +7149,7 @@ def _reconcile_netting_partial_closes(db) -> Dict[str, int]:
 def _netting_soak_row(
     *, account_id, symbol, direction, row, take, basis, mode,
     journal_qty, exchange_qty, anchor_status, anchor_price, anchored_at,
+    global_mode=None, apply_scope=None,
 ) -> None:
     """Append one attribution DECISION to the observe-only soak log.
 
@@ -7104,13 +7157,27 @@ def _netting_soak_row(
     operator reviews before the ``apply`` flip, and ``apply`` leaves the same
     audit trail next to the money-DB write. Best-effort — the soak never blocks
     the reconciler.
+
+    ``mode`` is the **effective** mode for THIS account — what actually happened
+    to this row. ``global_mode`` + ``apply_scope`` record why it was effective:
+    a row reading ``mode: annotate, global_mode: apply,
+    apply_scope: not_allowlisted`` says "this WOULD have been written; only the
+    allowlist held it back", which is precisely the evidence an operator needs
+    to decide whether to widen the allowlist. Collapsing the two into one field
+    would make a staged account indistinguishable from a globally-annotating
+    one, and would stamp ``apply`` on rows nothing was applied to.
     """
     try:
         from src.utils.paths import runtime_logs_dir
 
         rec = {
             "ts": datetime.now(timezone.utc).isoformat(),
+            # Effective (what happened to this row) vs global (what was asked
+            # for) vs why they differ. Three fields because they are three
+            # facts; see the docstring.
             "mode": mode,
+            "global_mode": global_mode if global_mode is not None else mode,
+            "apply_scope": apply_scope,
             "account_id": account_id,
             "symbol": symbol,
             "direction": direction,
