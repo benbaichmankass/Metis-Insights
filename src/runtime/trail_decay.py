@@ -2,7 +2,7 @@
 trend/pullback family monitors).
 
 Harness reference: the ``--trail-decay-*`` lever in
-``scripts/research/backtest_trend.py`` / ``scripts/backtest_pullback.py``
+``scripts/backtest_trend.py`` / ``scripts/backtest_pullback.py``
 (design: ``docs/research/M20-momentum-exhaustion-DESIGN.md`` § P4.1) — the
 effective chandelier trail mult TIGHTENS once the move shows exhaustion:
 

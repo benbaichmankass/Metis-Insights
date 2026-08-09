@@ -11,21 +11,31 @@ Contract (mirrors the harness lever, tests/test_confirm_bars_lever.py):
   * A close back inside the signal bar's channel edge cancels.
   * Harness parity: on the same synthetic tape, the live twin fires on
     exactly the bar the harness enters.
+
+MIGRATED 2026-08-09 (``BL-20260808-RESEARCH-TREND-ENGINE-RETIREMENT-BLOCKED-BY-
+TEST-COUPLING``) from the retired ``scripts/research/backtest_trend.py`` onto
+the live-faithful ``scripts/backtest_trend.py``. **Disposition: (b) repoint —
+and the repoint STRENGTHENS the test.** ``test_harness_parity_entry_bar`` is a
+live-vs-harness parity assertion, so it is only meaningful against the harness
+the live unit actually mirrors: ``trend_donchian.order_package`` freezes the
+entry bar's ATR into ``meta["atr"]`` and ``monitor()`` trails off that frozen
+value, which is ``scripts/backtest_trend.py``'s semantics and NOT the research
+copy's rolling-ATR trail. Pointing it at the research engine made it assert
+parity against an engine the live unit does not match. The assertions
+themselves are entry-side (entry bar + entry price) and both engines agreed on
+this tape, so no expected number moved — what changed is that the test now
+means what its name says.
 """
 from __future__ import annotations
 
-import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from src.units.strategies import trend_donchian as td
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "research"))
-
-from backtest_trend import backtest  # noqa: E402
+from tests.trend_harness_engine import trend_trades  # noqa: E402
 
 
 def _df(closes):
@@ -78,8 +88,7 @@ def test_harness_parity_entry_bar():
     # and non-actionable at bar 20.
     closes = [100.0] * 20 + [101.5, 102.5, 103.5, 104.5] + [97.0] * 10
     full = _df(closes)
-    trades = backtest(full, donchian=10, atr_p=5, atr_stop=2.0, trail_mult=3.0,
-                      timeout=0, long_only=False, confirm_bars=1)
+    trades = trend_trades(full, confirm_bars=1)
     t = next(tr for tr in trades if tr.direction == "long")
     harness_entry_ts = pd.Timestamp(t.entry_time)
 

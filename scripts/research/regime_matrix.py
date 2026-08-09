@@ -16,6 +16,37 @@ v1 drives the Donchian-trend family via the committed backtest_trend.py engine
 ``tag_trades_by_regime`` helper is engine-agnostic so the fade / squeeze / fvg
 harnesses can be wired in next (each just supplies its Trade list + the OHLCV
 frame). Research only (Tier-1); reads OHLCV CSV / Parquet / JSONL.
+
+ENGINE SWAP 2026-08-09 — PRIOR OUTPUTS OF THIS TOOL ARE NOT COMPARABLE
+----------------------------------------------------------------------
+This ran on ``scripts/research/backtest_trend.py`` until that engine was retired
+(``BL-20260808-RESEARCH-TREND-ENGINE-RETIREMENT-BLOCKED-BY-TEST-COUPLING``). It
+now runs the **live-faithful** ``scripts/backtest_trend.py`` — frozen entry-bar
+ATR, SL-first nested loop, post-exit cooldown, no opposite-signal flip exit —
+i.e. the semantics ``trend_donchian.monitor()`` actually has.
+
+**The output moved, and the move is the point.** Re-verified on the committed
+smoke corpus (``data/backtest_candles.csv``, BTCUSDT resampled 1h → 84 bars,
+2022-07-23 22:00Z → 2022-07-27 09:00Z; donchian 20 / atr_period 14 /
+atr_stop_mult 2.5 / trail_mult 5.0, ``min_confidence`` 0.0, both directions):
+
+======================================  ======  ========  ===============
+run                                     trades     net_R   entry regime
+======================================  ======  ========  ===============
+BEFORE — retired research engine             1   +1.5727   trending
+AFTER  — live-faithful engine                1   −0.2246   transitional
+======================================  ======  ========  ===============
+
+The sign flips **and** the trade lands in a different regime bucket. The two new
+knobs are NOT responsible: ``cooldown_bars`` ∈ {0,1,3} and ``timeout_bars`` ∈
+{200, 10000} all give −0.2246 on this corpus (with one trade there is nothing to
+re-enter after and no timeout to bind), so the entire delta is the engine.
+
+**n = 1.** That is a smoke corpus, not evidence — it establishes that the tool
+runs and that the axis is first-order, nothing about magnitude. The operational
+consequence is the one that matters: any regime-matrix number recorded before
+2026-08-09 was produced on the engine the live strategy does NOT match, and must
+be re-run before it is leaned on.
 """
 from __future__ import annotations
 import argparse
@@ -26,9 +57,16 @@ from typing import Any, Dict, List
 import numpy as np
 import pandas as pd
 
-# Reuse the committed trend engine (same dir) regardless of cwd.
+# Reuse the committed trend engine regardless of cwd. `scripts/` MUST precede
+# `scripts/research/` on sys.path: `backtest_trend` is the LIVE-FAITHFUL engine
+# at scripts/backtest_trend.py (frozen entry-bar ATR, SL-first nested loop,
+# post-exit cooldown, no flip exit — the semantics trend_donchian.monitor()
+# actually has). The research copy of that basename is a retired hard-fail shim.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from backtest_trend import _load, _resample, backtest  # type: ignore  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from backtest_trend import run_backtest  # type: ignore  # noqa: E402
+from candle_io import load_candles as _load  # type: ignore  # noqa: E402
+from candle_io import resample_ohlcv as _resample  # type: ignore  # noqa: E402
 
 FEE_BPS_ROUNDTRIP = 7.5
 
@@ -134,6 +172,15 @@ def main(argv: List[str]) -> int:
     p.add_argument("--min-confidence", type=float, default=0.0,
                    help="breakout-depth/ATR gate, mirrors the live unit (0.30 live)")
     p.add_argument("--long-only", action="store_true")
+    # Engine-swap (2026-08-09): these two were implicit before. The retired
+    # research engine read `timeout=0` as "no timeout" and had no cooldown at
+    # all; the live-faithful engine has both, so they are now explicit and
+    # default to the same values scripts/backtest_trend.py's own CLI uses —
+    # i.e. this tool now measures the configuration every other trend result in
+    # the repo was produced with.
+    p.add_argument("--timeout-bars", type=int, default=200)
+    p.add_argument("--cooldown-bars", type=int, default=1)
+    p.add_argument("--symbol", default="BTCUSDT")
     a = p.parse_args(argv)
 
     df = _load(a.data)
@@ -141,8 +188,13 @@ def main(argv: List[str]) -> int:
         df = _resample(df, a.resample)
     adx = _adx(df, a.adx_period)
 
-    trades = backtest(df, a.donchian, a.atr_period, a.atr_stop_mult,
-                      a.trail_mult, 0, a.long_only, a.min_confidence)
+    trades: List[Any] = []
+    run_backtest(df, donchian=a.donchian, atr_period=a.atr_period,
+                 atr_stop_mult=a.atr_stop_mult, trail_mult=a.trail_mult,
+                 timeout_bars=a.timeout_bars, cooldown_bars=a.cooldown_bars,
+                 timeframe=a.resample or "1h", symbol=a.symbol,
+                 long_only=a.long_only, min_confidence=a.min_confidence,
+                 trades_out=trades)
     by = tag_trades_by_regime(trades, adx, df)
     dist = regime_distribution(adx)
 

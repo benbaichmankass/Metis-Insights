@@ -50,7 +50,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import direction_walkforward as dwf  # type: ignore  # noqa: E402
 import regime_cell_walkforward as rcwf  # type: ignore  # noqa: E402
 import regime_debt_matrix as rdm  # type: ignore  # noqa: E402
-from backtest_trend import _load, _resample  # type: ignore  # noqa: E402
+# `_load`/`_resample` were pure IO helpers on the retired research trend
+# engine; they now live in scripts/candle_io.py (lifted verbatim, so this
+# script's behaviour is unchanged). See
+# BL-20260808-RESEARCH-TREND-ENGINE-RETIREMENT-BLOCKED-BY-TEST-COUPLING.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from candle_io import load_candles as _load  # type: ignore  # noqa: E402
+from candle_io import resample_ohlcv as _resample  # type: ignore  # noqa: E402
 from regime_matrix import _adx  # type: ignore  # noqa: E402
 
 import pandas as pd  # noqa: E402

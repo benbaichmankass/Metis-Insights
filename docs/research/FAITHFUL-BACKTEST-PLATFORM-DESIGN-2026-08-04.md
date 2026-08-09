@@ -483,8 +483,13 @@ superset") and proposed converging in whichever direction a before/after showed
 was behaviour-preserving. **Measured, that framing is wrong in a way that
 reverses the proposed fix.**
 
-Instrument: [`scripts/research/trend_harness_divergence.py`](../../scripts/research/trend_harness_divergence.py)
-(committed, re-runnable, `--json`). Population below: **BTCUSDT
+Instrument: [`scripts/research/trend_harness_divergence.py`](../../scripts/research/trend_harness_divergence.py).
+**Superseded 2026-08-09:** the losing engine was retired to a hard-fail shim, so
+there is no second engine left to run — that file is now the
+`trend-engine-convergence-guard` (it fails if any other `backtest_trend.py` ever
+exposes an engine entry point) and carries the measurement below as its record.
+The figures in this section stand as measured; they are no longer re-runnable
+as a two-engine comparison. Population below: **BTCUSDT
 2022-07-23→2022-07-27, the committed `data/backtest_candles.csv` resampled to
 5-minute bars, 1001 bars, n = 21–35 trades per configuration, every optional
 lever OFF on both sides.** Small — deliberately enough to establish the axis is

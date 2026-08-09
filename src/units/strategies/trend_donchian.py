@@ -89,13 +89,15 @@ _DEFAULTS: Dict[str, Any] = {
     # breakout is actionable only after the close has HELD beyond the signal
     # bar's channel edge for this many further closed bars (entry then fires
     # at the latest close — worse price, fewer false breakouts). Mirrors
-    # scripts/research/backtest_trend.py --confirm-bars exactly; declared per
-    # leg in config/strategies.yaml (Tier-3).
-    # NOTE (2026-08-08): this said scripts/backtest_trend.py, which declares no
-    # --confirm-bars flag — the lever lives only in the research copy. Comment
-    # corrected, behaviour untouched (field beats comment). The two harnesses
-    # are different ENGINES, not one with two flag sets: design-doc §5f +
-    # scripts/research/trend_harness_divergence.py.
+    # scripts/backtest_trend.py --confirm-bars exactly; declared per leg in
+    # config/strategies.yaml (Tier-3).
+    # NOTE (2026-08-09): this pointed at scripts/research/backtest_trend.py as
+    # the lever's only home. True when written on 2026-08-08; false since
+    # PR #8633 ported all 15 research-only levers into scripts/backtest_trend.py
+    # (verified: it declares --confirm-bars), and the research copy is a retired
+    # hard-fail shim as of 2026-08-09. Comment corrected, behaviour untouched
+    # (field beats comment). There is now exactly ONE trend engine, enforced by
+    # the trend-engine-convergence-guard.
     "confirm_bars": 0,
     # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
     # NEW entry whose TRIGGER bar's UTC hour is in this CSV set (e.g. "0").
@@ -203,8 +205,9 @@ def _confirmed_breakout(df: pd.DataFrame, dc_hi: pd.Series, dc_lo: pd.Series,
                         label: str) -> tuple:
     """Return (direction, signal_bar_depth) for a matured N-bar confirmation.
 
-    Mirrors ``scripts/research/backtest_trend.py``'s pending-entry semantics
-    exactly (the ``--confirm-bars`` lever lives only in that copy):
+    Mirrors ``scripts/backtest_trend.py``'s pending-entry semantics exactly
+    (that engine declares ``--confirm-bars``; the research copy that once held
+    the lever was retired 2026-08-09):
     the raw breakout fired at the bar ``n`` bars back (the signal bar); every
     close since must have HELD beyond THAT bar's channel edge, with no
     opposite raw breakout in between (a suppressed side on a long_only leg
@@ -689,8 +692,8 @@ def _giveback_verdict(
     ``giveback_min_mfe_r`` R of open profit (peak basis, since entry) and
     has given back at least ``giveback_r`` R from that peak at bar close.
     An R-based profit lock, distinct from the price/ATR chandelier trail —
-    the harness reference is ``scripts/research/backtest_trend.py``'s
-    ``gb`` lever (identical peak_r/r_close math).
+    the harness reference is ``scripts/backtest_trend.py``'s giveback lever
+    (identical peak_r/r_close math; the research copy was retired 2026-08-09).
 
     Declared (BOTH ``giveback_min_mfe_r`` AND ``giveback_r`` positive in
     meta/cfg) ⇒ may return a real ``{"action": "close", "reason":
