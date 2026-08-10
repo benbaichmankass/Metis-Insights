@@ -190,15 +190,44 @@ def test_both_harnesses_expose_the_same_lever(name):
 @pytest.mark.parametrize("name", HARNESSES)
 def test_tp_is_checked_after_the_stop_in_source(name):
     """Structural check on the ORDER of the two intrabar branches. A behavioural
-    test can pass on data that never spans both levels; this cannot."""
+    test can pass on data that never spans both levels; this cannot.
+
+    The detector anchors on the two COMPARISONS, not on local variable names or
+    on one exit keyword: per direction it locates the stop test (`<= trail` long
+    / `>= trail` short) and that direction's TP test (`>= tp_price` long /
+    `<= tp_price` short) and requires the stop to come FIRST, with a `break` or
+    `return` between them so the stop branch actually exits rather than falling
+    through. An earlier version pinned the literals `bl <= trail` and `break`;
+    both are incidental spellings, and it went red on a rename (`bl`->`lo`) plus
+    a closure refactor (`break`->`return`) that preserved SL-first exactly.
+
+    It anchors on BOTH sites rather than scanning a fixed window forward from
+    the stop, because a forward window is escapable in the exact direction that
+    matters: hoisting the TP test ABOVE the stop moves it out of the window, and
+    the guard then reports clean on the inversion it exists to catch. Verified
+    by planting that inversion -- the window form passed, this form fails.
+
+    Each site must appear EXACTLY ONCE. Locating without asserting the count is
+    the unasserted-denominator trap: a rename that deleted a site would yield no
+    match and the check would pass vacuously.
+    """
+    import re
     src = (REPO / "scripts" / f"{name}.py").read_text()
-    for branch in ("bl <= trail", "bh >= trail"):
-        i_stop = src.find(branch)
-        assert i_stop != -1, f"{name}: stop branch {branch!r} not found"
-        window = src[i_stop:i_stop + 700]
-        i_tp = window.find("take_profit")
-        assert i_tp != -1, f"{name}: no take_profit exit near the {branch!r} stop"
-        i_break = window.find("break")
-        assert i_break < i_tp, (
-            f"{name}: TP is checked BEFORE the stop breaks on {branch!r} -- "
+    directions = (("long", r"<=\s*trail\b", r">=\s*tp_price\b"),
+                  ("short", r">=\s*trail\b", r"<=\s*tp_price\b"))
+    for label, stop_pat, tp_pat in directions:
+        sites = {}
+        for kind, pattern in (("stop", stop_pat), ("tp", tp_pat)):
+            hits = list(re.finditer(pattern, src))
+            assert len(hits) == 1, (
+                f"{name}: expected exactly 1 {label} {kind} test ({pattern!r}), "
+                f"found {len(hits)} -- the detector no longer knows which site "
+                "carries the SL-first convention")
+            sites[kind] = hits[0].start()
+        assert sites["stop"] < sites["tp"], (
+            f"{name}: the {label} TP is tested BEFORE the {label} stop -- "
             "SL-first is broken and losers become winners")
+        between = src[sites["stop"]:sites["tp"]]
+        assert re.search(r"\b(?:break|return)\b", between), (
+            f"{name}: the {label} stop branch does not exit before the TP test "
+            "-- a bar through both levels would fall through to the TP")
