@@ -22,7 +22,7 @@ Read from the code this session, not from memory or from a prior doc.
 | | Fact | Evidence |
 |---|---|---|
 | Cadence | Once per pipeline cycle, **sequentially after** signal generation | `src/main.py` — `with _tick_hook("run_one_tick"): run_one_tick(...)` then `with _tick_hook("order_monitor"): run_monitor_tick(...)`. No thread, no separate schedule. |
-| Measured cycle | **308.9 s** (4016.6 s / 13 cycles) = ~253.6 s of tick work + a 60 s sleep | `/api/diag/tick_cost` first real reading, 2026-08-10: `mean_ms` 253 600, `max_ms` 295 600, `ticks_measured` 13 |
+| Measured cycle | **~166 s** = **106.0 s** of tick work + a 60 s sleep | `/api/diag/tick_cost`, 2026-08-10 POST-FIX. **Superseded reading:** this doc was first written against 253.6 s mean / 295.6 s max over 13 ticks, before a concurrent `/system-review` session memoized the per-strategy connector and cached candles in `src/runtime/market_data.py` (251.1 s → 106.0 s warm, 58% off). The 60 s interval is confirmed by their arithmetic: tick1 ended 07:18:01Z, tick3 07:23:33Z → 332 s = 212.0 s ticking + 2×60.0 s sleep. |
 | Price the levers read | `float(candles_df["close"].iloc[-1])` — the **last row's close** | `src/units/strategies/trend_donchian.py::monitor` and siblings |
 | Frame the monitor fetches | `limit=200` candles **at the strategy's own timeframe** (`meta.timeframe`, falling back to the YAML `timeframe`) | `src/main.py::_build_monitor_ohlcv_fetcher` |
 | Who covers SL/TP between evaluations | The **broker bracket**, not the bot | Exchange-side SL/TP placed at entry; the monitor's `sl_cross` branch is documented as belt-and-braces |
@@ -44,16 +44,24 @@ ratchet, and the exit head it is covered by nothing** — those are bot-side onl
 So the honest statement of the gap is narrower and sharper than the directive's
 framing, and it is worth having stated correctly before building:
 
-> Bot-side exit levers are evaluated roughly every 5 minutes, on the forming
-> bar's close. Nothing evaluates them between those samples. The broker covers
-> SL/TP touches; it covers nothing else.
+> Bot-side exit levers are evaluated roughly every **2.8 minutes** (was ~5 min
+> before the 2026-08-10 market-data fix), on the forming bar's close. Nothing
+> evaluates them between those samples. The broker covers SL/TP touches; it
+> covers nothing else.
 
 ### 1.2 The 60 s target is not reachable by config
 
 `TICK_INTERVAL_SECONDS` is already `60` and is **the small term** — 60 s of sleep
-against 253.6 s of work. Because the monitor runs after signal generation in the
+against 106.0 s of work. Because the monitor runs after signal generation in the
 same sequential loop, its cadence is floored by whatever signal generation
-costs. Setting the interval to 1 would change the cycle from ~309 s to ~254 s.
+costs. Setting the interval to 1 would change the cycle from ~166 s to ~106 s.
+
+**The 2026-08-10 market-data fix does not close this.** It removed ~145 s (58%),
+which is a large win and still leaves the monitor at ~2.8 min against a 60 s
+target. The reviewing session's own note is the relevant one: the residual is
+~50 candle FETCHES per tick and the `(symbol, timeframe)` cache only dedupes
+55→48, so **caching is close to exhausted as a lever** and the tick still
+overruns its own 60 s interval by 1.8×.
 
 **Therefore the 60 s ask requires decoupling the monitor from signal generation.
 There is no configuration that reaches it.** That is the design problem.
@@ -66,7 +74,7 @@ There is no configuration that reaches it.** That is the design problem.
 tested, **awaiting the Tier-2 OK to deploy**) answers the one question that
 selects the design:
 
-- If **signal generation dominates** the 253.6 s, the monitor is cheap and
+- If **signal generation dominates** the remaining 106.0 s, the monitor is cheap and
   decoupling it is a small, contained change.
 - If the **monitor itself** is a large share, decoupling it does not make it run
   every 60 s — it makes it run continuously, which is a different and worse
@@ -85,7 +93,7 @@ answer is surprising.
 |---|---|---|
 | **A** | A second loop **inside the trader process** (thread) on its own 60 s schedule | The heartbeat is on the main thread deliberately — a pipeline hang stops it, which is how liveness reflects pipeline health. A monitor thread must not become a way for the process to look alive while the pipeline is wedged. Concurrent broker reads collide: `BL-20260706-IBACCTUPDATES-COLLISION` is exactly a second IB client touching the same account. |
 | **B** | A **separate systemd service** | Same broker-collision surface, plus two processes writing the money DB. The netting/reconciler paths assume one writer. |
-| **C** | Shrink the tick until the whole cycle is < 60 s | Not available today (253.6 s of work, mostly unattributed) and it fixes the cadence for *everything*, which is more change than the ask. |
+| **C** | Shrink the tick until the whole cycle is < 60 s | The 2026-08-10 market-data fix took this route and got 251.1 s → 106.0 s; the reviewing session reports the `(symbol, timeframe)` cache now dedupes only 55→48 fetches, so the cheap headroom is spent. Getting from 106 s to < 60 s is a second, harder round, and it fixes the cadence for *everything* — more change than the ask. |
 
 **A is the likely answer and B is the likely trap**, but neither is chosen here.
 Whichever wins, three constraints hold:
@@ -113,7 +121,7 @@ The backtest and live already disagree about exit-evaluation granularity, **in
 both directions**:
 
 - The harnesses evaluate the levers **once per leg bar**, at that bar's close.
-- Live evaluates them **~12 times per bar** on a 1h leg (every ~5 min), but on
+- Live evaluates them **~21 times per bar** on a 1h leg (every ~2.8 min), but on
   the forming bar's close rather than its extremes.
 
 So neither is a model of the other, and the question "does more frequent

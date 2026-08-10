@@ -441,7 +441,17 @@ def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
             return None
         mfes.sort()
         return round(mfes[int(0.8 * (len(mfes) - 1))], 2)
-    except Exception as exc:  # noqa: BLE001 — advisory cell, never blocks the sweep
+    except (OSError, json.JSONDecodeError, ValueError, TypeError,
+            subprocess.TimeoutExpired) as exc:
+        # NARROW deliberately (silent-empty-guard, 2026-08-10). The broad
+        # `except Exception` this replaces would have reported a CODE defect —
+        # say an AttributeError from a refactor of `exit_capture.mfe_r_of` —
+        # as "p80 unavailable", i.e. as a data condition. That is the same
+        # mislabelling this function's own docstring was written to fix: an
+        # inert arm that returns a legitimate-looking abstention is worse than
+        # one that errors, because the caller records the abstention as a
+        # measurement. These five are the failures the I/O and parsing can
+        # actually produce; anything else propagates and stops the sweep.
         print(f"    p80: unavailable ({type(exc).__name__}: {exc})")
         return None
 
