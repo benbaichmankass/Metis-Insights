@@ -88,6 +88,22 @@ CONTRACTS: List[Dict[str, object]] = [
         ),
     },
     {
+        "name": "pairs_executor.open_state_read",
+        "producer": "src/units/strategies/pairs_executor.py",
+        "consumer_token": r"\bstate_read\b|\b_open_pkg_meta\b|\b_reconstruct_open_state\b",
+        "states": ["found", "absent", "error"],
+        "why": (
+            "found = the spread bookkeeping is there and usable; absent = we "
+            "looked and open legs carry no package (an anomaly); error = we "
+            "COULD NOT LOOK. Collapsing absent+error into a bare None is what "
+            "disabled the sleeve's entire close path: the read failed on every "
+            "open pair (a query against columns that do not exist), the caller "
+            "skipped, and 29 pairs were opened with ZERO ever closed while "
+            "max_hold_bars went unevaluated (BL-20260810-PAIRS-MAX-HOLD-BARS-"
+            "NOT-ENFORCED)."
+        ),
+    },
+    {
         "name": "netting_attribution.anchor_status",
         "producer": "src/runtime/order_monitor.py",
         "consumer_token": r"\banchor_status\b|\bnetting_anchor_basis\b",
