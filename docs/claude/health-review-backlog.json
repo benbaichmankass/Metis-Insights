@@ -12295,6 +12295,217 @@
         "BL-20260705-IBPAPER-POSITIONS-NULL-WEEKEND",
         "BL-20260807-BACKLOG-REFS-GUARD-BLOCKS-HISTORICAL-CITATIONS"
       ]
+    },
+    {
+      "id": "BL-20260810-DIAG-RELAY-DOC-SAYS-TITLE-BODY-IS-AUTHORITATIVE",
+      "opened_at": "2026-08-10T02:30:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "resolved",
+      "tier": 1,
+      "severity": "medium",
+      "area": "diag-relay",
+      "title": "docs/claude/diag-relay.md told every session the diag path is the TITLE and the body is ignored; the workflow parses the BODY first and the title is only an empty-body fallback",
+      "source": "MEASURED 2026-08-10 02:23Z. Issue #8716 was opened exactly as the doc's 'Common mistakes' section #1 prescribes -- path in the title, prose in the body -- and was REJECTED before any VM contact.\n\nAuthority is .github/workflows/vm-diag-snapshot.yml step 'Resolve and validate diag path(s)' (resolve_multi): it reads ISSUE_BODY first (JSON array, fenced JSON array, or one path per line), and only `if not candidates` does it fall back to title_path. A prose body therefore becomes the candidate list and fails PATH_RE, and one bad path sys.exit(1)s the WHOLE batch.\n\nThe doc has been wrong since the multi-path batching change, and the section it is wrong in is the one headed 'read before first use'.",
+      "what_to_check": "Whether any other doc or skill still teaches the title-carries-the-path form (grep '[diag-request]' across docs/ and .claude/skills/).",
+      "action": "FIXED in this PR: 'Common mistakes' #1 rewritten to the measured contract (body = path list, one per line, no prose; title = display-only fallback; MAX_PATHS 15; one bad path fails the batch; the /api/bot/ read-only allowlist named). The retraction is kept inline rather than silently overwritten, since sessions acted on the old text.",
+      "resolution_criteria": "Doc matches resolve_multi's actual precedence, verified by reading the workflow rather than by one successful request.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/claude/diag-relay.md",
+        ".github/workflows/vm-diag-snapshot.yml",
+        "#8716",
+        "#8719"
+      ]
+    },
+    {
+      "id": "BL-20260810-DIAG-BASE-URL-POINTS-AT-TERMINATED-MICRO",
+      "opened_at": "2026-08-10T02:30:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "open",
+      "tier": 1,
+      "severity": "low-medium",
+      "area": "diag-relay",
+      "title": "the session environment's DIAG_BASE_URL is http://158.178.210.252:8001 -- the x86 micro TERMINATED 2026-06-16, not the live Ampere trader",
+      "source": "MEASURED 2026-08-10 02:22Z in this session: `echo $DIAG_BASE_URL` -> http://158.178.210.252:8001. Per CLAUDE.md the live trader has been 141.145.193.91 since the 2026-06-14 Ampere cutover, and the micro was terminated 2026-06-16 by OCID.\n\nCurrently INERT, and the reason it is inert is the second half of the finding: at this session's Trusted network level BOTH addresses time out (12s, curl exit 28), so Transport A is unavailable whichever host it names and every read falls through to the issue relay. That is why the stale value survived unnoticed.\n\nThe risk is a session at Full network access: diag_fetch.sh would resolve a dead host and return exit 3, which the doc defines as 'direct path unavailable' -- indistinguishable from 'web-api down'. A wrong-host misconfiguration would read as a VM outage.",
+      "what_to_check": "Where DIAG_BASE_URL is set for cloud sessions (Claude Code environment config -- it is in no committed file). Whether diag_fetch.sh should assert the host against the canonical IP and fail LOUD on a mismatch instead of reusing the same exit 3 it uses for 'not configured'.",
+      "action": "Operator: point the environment variable at http://141.145.193.91:8001. Separately, consider making diag_fetch.sh distinguish unconfigured / unreachable / wrong-host rather than collapsing all three into exit 3 (docs/CLAUDE-RULES-CANONICAL.md 'Collapsed states').",
+      "resolution_criteria": "DIAG_BASE_URL names the live trader, verified by a session that can actually reach it.",
+      "snoozed_until": null,
+      "refs": [
+        "scripts/ops/diag_fetch.sh",
+        "docs/claude/diag-relay.md",
+        "docs/ARCHITECTURE-CANONICAL.md"
+      ]
+    },
+    {
+      "id": "BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL",
+      "opened_at": "2026-08-10T02:45:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "open",
+      "tier": 1,
+      "severity": "high",
+      "area": "m20-exit-refinement",
+      "title": "M20's gate optimises net_R and maxDD only -- the TWO metrics that measure the operator's actual complaint (MFE capture ratio, capital efficiency) are both computed in-repo and read by ZERO gates",
+      "source": "MEASURED 2026-08-10. Coverage matrix census: 400 cells (50 legs x 8 levers) -> 266 honest_negative (66.5%), 63 pending, 24 shipped (6.0%), 5 passed_unshipped.\n\nOperator 2026-08-10: 'the amount of times that a trade has gotten within literally several cents of its take profit and then it drops and turns into a loss ... we're working on this so hard and we're getting absolutely nowhere.'\n\nThe standard metric for that phenomenon is MFE CAPTURE RATIO (exit profit / maximum favorable excursion). It is already computed here -- src/research/excursions.py, build_backtest_panel.py, build_exit_panel.py, analyze_research_panel.py -- and grep finds NO gate, sweep verdict, or matrix cell that reads it. It is not one of the 8 lever_columns. Same for net_r_per_capital_day (BL-20260810 sibling): declared as the gate's tiebreak in the exit-refinement skill since inception, first computed 2026-08-10.\n\nSo every one of the 266 honest_negative verdicts was rendered by an objective function that is INDIFFERENT to both 'how much of the move did we keep' and 'how long did the capital sit'. A lever that improves either while costing a little net_R is not merely unreported -- Path A's `beats()` requires net_R >= base, so it short-circuits to is_oos_fail BEFORE the walk-forward runs.\n\nThis is the THIRD instance of the written-but-never-read class in this repo, after exit_price_source (12 writers / 1 unrelated reader -> the phantom -$6,358 leak) and net_r_per_capital_day. The pattern is the finding.",
+      "what_to_check": "Quantify the prize before designing a lever: over the fleet's backtest panel, the share of LOSING trades whose mfe_r reached >= 80/90/95% of the leg's tp_r, and the fleet capture_ratio distribution against the external <30% 'severe edge leakage' / >75% 'excellent' reference points. That number sizes the opportunity and says which legs to work first. Do NOT design from the anecdote alone.",
+      "action": "Add capture_ratio to the reported axes beside net_r_per_capital_day (same report-not-grade discipline, thresholds operator-set). Then re-evaluate the 266 honest_negatives -- they are not wrong, they are answers to a different question.",
+      "resolution_criteria": "A gate or verdict surface reads capture_ratio, and the fleet re-evaluation under the widened objective is recorded in the coverage matrix.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/research/exit-refinement-coverage.json",
+        "src/research/excursions.py",
+        "scripts/research/m20_fleet_exit_sweep.py",
+        ".claude/skills/exit-refinement/SKILL.md"
+      ]
+    },
+    {
+      "id": "BL-20260810-EXIT-LEVER-SPACE-UNDER-ENUMERATED",
+      "opened_at": "2026-08-10T02:45:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "open",
+      "tier": 1,
+      "severity": "high",
+      "area": "m20-exit-refinement",
+      "title": "the coverage matrix's 8 lever columns are not the lever space: 21 exit-relevant harness flags exist, 3 have no column at all, and the operator's near-TP-reversal case has NO lever anywhere",
+      "source": "MEASURED 2026-08-10 by enumerating add_argument() across the 6 backtest harnesses: 21 exit-relevant flags vs 8 matrix lever_columns.\n\nFlags with NO matrix column:\n  --timeout-bars   present in ALL SIX harnesses. A hard max-hold, distinct from stale_stop (which is conditional on R). This is the crudest form of the exact 'capital sits in dead trades' complaint and it has never been swept.\n  --sim-breakeven  ict_scalp only. A breakeven stop is the most direct protection against the give-it-all-back case, and it is neither a column nor ported to the other five harnesses.\n  --tp-r / --exit-style / --atr-stop-buffer / --pierce-min  fade + fvg_range only.\n\nMISSING ENTIRELY -- no harness has it: a lever parameterized on PROXIMITY TO TARGET. Every giveback lever is in absolute R (--giveback-r, --giveback-min-mfe-r), so on a 1.5R bracket a trade that reaches 1.45R and reverses only triggers after surrendering the configured absolute R. 'Arm breakeven / tighten at X% of the distance to TP' cannot currently be expressed, let alone tested. That is precisely the operator's case.",
+      "what_to_check": "Whether --timeout-bars and --sim-breakeven were deliberately excluded from the matrix or simply never added. check_harness_lever_coupling.py's UNMODELLED sets list timeout_bars as unmodelled-by-family, which is about REPLAY parity, not about the matrix's column set -- the two gaps are being conflated.",
+      "action": "Enumerate the lever space exhaustively BEFORE the next sweep (operator directive 2026-08-10: 'deep research all the levers and then actually test them, not just one or two'). Add the missing columns; port --sim-breakeven and a new proximity-to-target lever across harnesses; then sweep the full grid rather than one lever at a time.",
+      "resolution_criteria": "Every exit-relevant harness flag maps to a matrix column or a recorded n/a with a reason, and the proximity-to-target lever exists and has been swept.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/research/exit-refinement-coverage.json",
+        "scripts/check_harness_lever_coupling.py",
+        "scripts/backtest_ict_scalp.py",
+        "scripts/backtest_pullback.py"
+      ]
+    },
+    {
+      "id": "BL-20260810-COVERAGE-MATRIX-LEG-IDS-DO-NOT-JOIN-TO-CONFIG",
+      "opened_at": "2026-08-10T02:55:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "open",
+      "tier": 1,
+      "severity": "high",
+      "area": "m20-exit-refinement",
+      "title": "10 of 52 live harness-classified legs have NO matrix row that joins by name: 8 equities legs are named *_trend_1d in the matrix vs *_trend_long_1d in config, and 3 more are still inside an un-exploded bundled row",
+      "source": "MEASURED 2026-08-10 by set-differencing config/strategies.yaml (legs whose m20_fleet_exit_sweep.classify() resolves a family) against docs/research/exit-refinement-coverage.json row ids.\n\nconfig harness-classified: 52. matrix rows: 50. The counts nearly agree, which is what hid this -- the SETS do not.\n\nIN CONFIG, NOT IN MATRIX (10): iwm_trend_long_1d, qld_trend_long_1d, qqq_trend_long_1d, scha_trend_long_1d, splg_trend_long_1d, spy_trend_long_1d, tqqq_trend_long_1d, trend_donchian_1h, trend_donchian_eth_prop, trend_donchian_sol_prop.\n\nIN MATRIX, NOT IN CONFIG (8 + 1 bundle): iwm_trend_1d, qld_trend_1d, qqq_trend_1d, scha_trend_1d, splg_trend_1d, spy_trend_1d, tqqq_trend_1d, and the literal row 'shadow fleet (turtle_soup, fade_breakout_4h, vwap, ict_scalp_5m, trend_donchian_1h, mgc_trend_1h, *_prop)'.\n\nTWO DISTINCT DEFECTS.\n(1) NAME DRIFT: the 7 equities legs are the same strategies under a matrix id missing the `_long` infix. A human reading the matrix sees them covered; any automated join on strategy name sees ZERO rows and would report them uncovered -- or, worse, a writer could append a SECOND row under the config name and the matrix would then carry two rows for one leg with independent statuses.\n(2) A SURVIVING BUNDLED ROW: trend_donchian_1h + both *_prop legs are inside one multi-leg row. That is exactly the shape BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS exploded on 2026-08-09 -- the explosion was INCOMPLETE, and this row is the residue. One status across seven named legs cannot be read per-leg.",
+      "what_to_check": "Which name is canonical for the equities legs -- config is the field and the matrix is the claim, so config wins (`field beats comment`) unless the verdicts were measured under the other id. Check the referenced sweep outputs before renaming, so a rename does not silently re-point a verdict to a leg it was not measured on.",
+      "action": "Rename the 7+1 matrix ids to their config ids and explode the surviving bundled row per BL-20260809's rule (per-leg status from the ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict). Then add a CI guard asserting the matrix id set equals the config harness-classified set -- the matrix calls itself M20's done-condition, and a done-condition that does not join to the thing it measures cannot be checked.",
+      "resolution_criteria": "Set-difference between config harness-classified legs and matrix row ids is empty in both directions, enforced by a guard rather than by inspection.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/research/exit-refinement-coverage.json",
+        "config/strategies.yaml",
+        "scripts/research/m20_fleet_exit_sweep.py",
+        "BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS"
+      ]
+    },
+    {
+      "id": "BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP",
+      "opened_at": "2026-08-10T03:15:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "open",
+      "tier": 1,
+      "severity": "critical",
+      "area": "m20-exit-refinement",
+      "title": "the trail families place a REAL ~1.3-5R take-profit live and the harness models it at 50R -- 30 legs' exit verdicts were measured against an exit geometry production does not run",
+      "source": "MEASURED 2026-08-10 by reading the live signal builders against the harnesses.\n\nLIVE: trend_donchian.py, htf_pullback_trend_2h.py and fade_breakout_4h.py each\ndefine _TP_SENTINEL_CAP_PCT = 0.099 and place\n    tp = min(entry * 1.099, entry + tp_r * risk)\nThe 50R 'sentinel' is CLAMPED to 9.9% from entry because Bybit rejects a TP\nfurther than ~10% (ErrCode 10001, hit on every trend_donchian short at BTC ~75k\non 2026-05-27, PR #2141). So the live order carries a real, resting,\nexchange-side take-profit.\n\nBACKTEST: neither scripts/backtest_trend.py nor scripts/backtest_pullback.py\ncontains the cap, tp_r, or any tp assignment. backtest_pullback.py line 10 states\nthe premise outright: 'the tp_r (~50R) sentinel is parked far from price'. The\nharness therefore simulates a trade whose ONLY profit-exit is the Chandelier\ntrail.\n\nHOW REACHABLE THE LIVE TP ACTUALLY IS. TP distance in R = 0.099 /\n(atr_stop_mult * ATR%). At atr_stop_mult 2.5 (every 2h crypto pullback leg):\n  ATR% 0.5% -> 7.9R   1% -> 4.0R   2% -> 2.0R   3% -> 1.3R\nA 2h crypto leg running 2-3% ATR has its live take-profit at 1.3-2.0R. That is\nan ordinary, frequently-touched target -- not a sentinel.\n\nCONSEQUENCE 1 (operator-reported, now explained): the operator reports live\ntrades repeatedly running to within a hair of take-profit and then reversing into\na loss. On these legs that is mechanically expected, and the 2026-08-10 capture\ncensus could not see it -- the census measured the harness, where the TP is at\n50R and never binds, so it reported near-miss as inapplicable on 40 of 43 legs.\nThe census is not evidence against the observation; it is blind to it.\n\nCONSEQUENCE 2 (the larger one): every exit-lever verdict for these 30 legs --\ntrail_geometry, stale_stop, giveback_stop, trail_decay, vol_trail -- was measured\non a book with no take-profit, against a live book that has one at ~1.3-5R. A\ntrail lever tuned where the trail is the sole exit is not the same lever where a\nhard TP truncates the right tail first. This is a live/backtest PARITY break in\nthe exit geometry itself, and it sits underneath M20's 266 honest_negatives.",
+      "what_to_check": "The ATR% figures above are illustrative ranges, NOT measured -- compute the\nreal per-leg distribution of 0.099/(atr_stop_mult*ATR%) from each leg's own\nframe before quoting an R number for that leg. Also confirm per venue: the\n9.9% clamp is a Bybit constraint, so an Alpaca/IBKR leg may place the\nuncapped 50R TP and genuinely never bind -- in which case the parity break\nis crypto-only and the equities legs are fine. Do not assume it is uniform.",
+      "action": "Teach the harnesses the live TP: add the same cap to backtest_trend.py /\nbacktest_pullback.py / backtest_fade.py behind an explicit flag so the A/B\n(capped vs uncapped) is itself measurable, then RE-RUN the census and re-open the\naffected exit-lever cells. Until that lands, treat trail-family exit verdicts as\nmeasured-on-the-wrong-geometry rather than as settled negatives.",
+      "resolution_criteria": "The harness reproduces the live TP placement for every leg that has one,\ndemonstrated by a parity check on real closed trades, and the affected\ncoverage-matrix cells are re-measured or explicitly re-opened.",
+      "snoozed_until": null,
+      "refs": [
+        "src/units/strategies/trend_donchian.py",
+        "src/units/strategies/htf_pullback_trend_2h.py",
+        "src/units/strategies/fade_breakout_4h.py",
+        "scripts/backtest_trend.py",
+        "scripts/backtest_pullback.py",
+        "docs/research/exit-refinement-coverage.json",
+        "BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL"
+      ]
+    },
+    {
+      "id": "BL-20260810-P80-PERCENTILE-ARM-INERT-FOR-ICT-SCALP",
+      "opened_at": "2026-08-10T04:25:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "fixed_in_pr_8721",
+      "tier": 1,
+      "severity": "high",
+      "area": "m20-exit-refinement",
+      "title": "winner_mfe_p80 read mfe_r top-level only, so the M20 P4.4 percentile arm returned its 'fewer than 30 winners' abstention for every ict_scalp leg -- including one with 1,102 trades",
+      "source": "MEASURED 2026-08-10 from the census run 3 scalp shard, which printed\n  ict_scalp_5m      meas=0/697\n  ict_scalp_sol_5m  meas=0/915\n  ict_scalp_xrp_5m  meas=0/748\n  ict_scalp_avax_5m meas=0/1102\n  ict_scalp_xrp_15m meas=0/361\n-- 3,823 trades, ZERO capture readings.\n\nCAUSE: two harness emit shapes. backtest_trend / backtest_pullback /\nbacktest_squeeze put mfe_r at the TOP LEVEL of the --emit-trades row;\nbacktest_ict_scalp nests it under `meta` beside mae_r / bars_held /\ncapital_bars (backtest_ict_scalp.py sets meta['mfe_r'], and the emit writer\nserialises `\"meta\": t.meta`). Every consumer that re-derived the read did\nthe top-level lookup.\n\nTHE PART THAT REACHES BEYOND THE CENSUS: winner_mfe_p80 is the M20 P4.4\npercentile arm -- it bakes the trail-percentile cell from the IS-window\nwinner-MFE distribution. Its contract says it returns None 'when < 30\nwinners'. Reading top-level it collected zero MFEs for every ict_scalp leg\nand returned None, so the sweep recorded a legitimate-looking THIN-SAMPLE\nabstention for legs with hundreds of winners. An inert arm that reports a\nplausible reason to abstain is worse than one that errors, because the\ncaller books the abstention as data. This is the unasserted-denominator\nclass (CLAUDE.md, diagnostic provenance sub-class C) and a collapsed state\n(the two causes of None were indistinguishable).\n\nVerified end-to-end on real harness output before and after the fix:\nbacktest_ict_scalp.py --data data/backtest_candles.csv --emit-trades ->\n4 rows, top-level mfe_r 0/4, meta.mfe_r 4/4; old reader 0 measured,\nnew reader 4 measured, and near-miss became computable\n(target_r_reached_n=1, i.e. the scalp tp_at_r target IS operative -- unlike\nthe pullback tp_r: 50.0 sentinel).",
+      "fix": "PR #8721. (1) ONE accessor, exit_capture.mfe_r_of(row): top-level then\nmeta, non-dict meta safe; exit_capture.summarize uses it, so every capture\nconsumer is corrected at once. (2) winner_mfe_p80 reads through it and\ncounts winners_seen SEPARATELY from readable MFEs, so 'winners exist and\nnone carried a readable mfe_r' prints 'arm UNAVAILABLE (shape mismatch),\nnot thin sample' and can never masquerade as a thin sample; its bare\nexcept now names the exception instead of swallowing it. (3) The census\nflags any leg that traded with zero capture coverage on its own stdout\nline, in a hoisted end-of-run list, in capture_census.json\n(legs_zero_capture_coverage) and as a SUMMARY.md warning -- because run 3\nprinted meas=0/1102 as one column among five and it read as ordinary\noutput. (4) Regression tests: nested-shape rows must summarise non-zero\nend-to-end, and a structural test pins that winner_mfe_p80 uses the\naccessor and keeps the two None causes distinguishable.",
+      "follow_up": "Any M20 P4.4 trail-percentile cell recorded for an ict_scalp leg was baked\nwith the arm inert and should be re-derived, not trusted. Scope not yet\nmeasured: check docs/research/exit-refinement-coverage.json for scalp legs\ncarrying a percentile-arm verdict."
+    },
+    {
+      "id": "BL-20260810-TICK-TAKES-253S-MONITOR-CADENCE-5MIN",
+      "opened_at": "2026-08-10T05:05:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "open",
+      "tier": 2,
+      "severity": "high",
+      "area": "runtime-tick",
+      "title": "the trader tick takes 253s mean / 296s max, so every open live trade is evaluated once per ~5 MINUTES, not per TICK_INTERVAL_SECONDS=60",
+      "source": "MEASURED 2026-08-10 05:53Z, the FIRST real reading of /api/diag/tick_cost (added 2026-08-09, one day earlier, explicitly because 'each hook is\nindividually bounded and documented as cheap; nothing measured the SUM').\n\n  ticks_measured      13\n  mean_ms        253583.9   (4.2 min of WORK per tick)\n  max_ms         295641.5   (4.9 min)\n  process_started 2026-08-10T03:44:37Z -> generated 04:51:34Z\n\nArithmetic reconciles: 4016.6s / 13 ticks = 308.9s per cycle, and\n253.6s work + 60s sleep = 313.6s. Cross-checked against /api/diag/status:\nlast_tick_utc 04:50:02Z vs captured_at 04:53:03Z = 181s since the last\ntick, consistent with a ~5-min cycle.\n\nCONSEQUENCE: run_monitor_tick is called once per tick and is NOT gated by\nstrategy timeframe, so it is the tick cadence that bounds how often an\nopen live trade is re-evaluated. That is ~5 minutes, not 60s. Every\ndiscretionary exit -- the break-even ratchet (monitor_breakeven_sl),\ntrail updates, the M20 stale/giveback levers -- inherits that latency.\nThe broker-side SL/TP bracket is unaffected (it rests at the exchange and\nfires in real time), so this bounds DISCRETIONARY exits only.\n\nNOTE THE TRAP: TICK_INTERVAL_SECONDS is already 60 and lowering it changes\nNOTHING -- the sleep is the small term. The cadence is dominated by the\ntick's own work.\n\nSmall denominator stated honestly: 13 ticks, one process, counters reset on\nrestart. The wall-clock cross-check agrees, but a longer sample should\nconfirm before any capacity conclusion.",
+      "why_it_matters": "This is the shape of BOTH June 2026 wedges (MB-20260609-001 steady-state,\nBL-20260609-001 cold-start): components individually cheap, the total never\nwatched, growing un-observed. tick_cost was built to catch exactly this and\nits first reading is 253s. Nothing alerts on it -- the endpoint is\nMEASUREMENT ONLY by design (a cap with no distribution behind it is the\nexposure-ceiling mistake), so a human has to look, and until now nobody had.",
+      "next_step": "1. Get the PER-HOOK split. tick_cost measures the SUM only, so the 253s\n   cannot currently be attributed -- designing a fix against a guess is the\n   thing to avoid. Instrument per-hook timing before proposing anything.\n2. Then decide between making the tick cheaper vs DECOUPLING position\n   monitoring from the signal tick (a cheap loop touching only open\n   positions: one journal read + one price read per open symbol). The\n   operator asked 2026-08-10 for <=60s evaluation of every live trade;\n   decoupling is the only route that gets there, since the 253s is\n   signal-generation work across 52 strategies plus IB-paced fetches.\n3. SEPARATELY and independently: the monitor already HAS intrabar data and\n   discards it. monitor_breakeven_sl reads candles_df['close'].iloc[-1],\n   but the fetched frame's last row is the FORMING bar (CCXT fetch_ohlcv,\n   no trimming in fetch_candles or bybit_connector.get_ohlcv), so its\n   high/low already carry the running intrabar extreme. Reading the extreme\n   instead of the close arms the ratchet on a TOUCH and needs no cadence\n   change at all. Tier-3 (order-path behaviour); backtest first."
+    },
+    {
+      "id": "BL-20260810-ICTSCALP-HARNESS-HAS-NO-WINDOW",
+      "opened": "2026-08-10",
+      "severity": "P2",
+      "status": "resolved",
+      "title": "scripts/backtest_ict_scalp.py had no --start/--end, so no ict_scalp verdict was ever IS/OOS split",
+      "detail": "The fleet sweep passes --start/--end to every cell because the IS/OOS split is the gate's first stage; this harness rejected both with an argparse usage error, failing all seven scalp legs of the 2026-08-10 dispatch in under three minutes. Implication beyond the dispatch: every ict_scalp verdict on record is full-history, with no window split and therefore no walk-forward (the walk-forward only runs on cells that already cleared both windows). The capture census had passed on the same legs minutes earlier because a census windows nothing. RESOLVED: _date_filter added (tz-robust; a missing timestamp column with a window requested RAISES rather than returning full history under an IS/OOS label; a zero-bar window exits non-zero), main()'s parser extracted to build_parser(), and a test now checks the sweep's own scalp argv against that parser in-process.",
+      "evidence": "PR #8721; run 31359385806 (7/7 harness_error); verified partition on data/backtest_candles.csv: full 4 trades/-0.6535R = IS 1/-0.1210 + OOS 3/-0.5325"
+    },
+    {
+      "id": "BL-20260810-SENTINEL-INTENT-NOT-COMPARED-TO-MATRIX",
+      "opened": "2026-08-10",
+      "severity": "P3",
+      "status": "resolved",
+      "title": "A push-fired sweep sentinel described a scalp run and dispatched the donchian default",
+      "detail": "A push carries no workflow_dispatch inputs, so inputs.legs was empty and the plan job fell through to the ten-leg census DEFAULT while the sentinel file's prose described a scalp-family run in four paragraphs. Nothing in the pipeline compares a sentinel's stated intent to the matrix it produces, so it was caught by cancelling the run, not by the run complaining; the cancelled jobs posted 'no SUMMARY' comments under leg names the sentinel never mentioned. Unprovenanced diagnostic output, sub-class B (implicit input selection). RESOLVED: the sentinel's `legs:` line is read by the plan job and is authoritative for the run it fires; precedence (dispatch input > sentinel > census default) is logged, not inferred.",
+      "evidence": "PR #8721; run 31359310342 (cancelled)"
+    },
+    {
+      "id": "BL-20260810-INTRABAR-LEVER-EVAL-LOOKAHEAD-TRAP",
+      "opened": "2026-08-10",
+      "severity": "P2",
+      "status": "open",
+      "title": "A naive intrabar exit-evaluation arm would peek at the future and manufacture an improvement",
+      "detail": "scripts/backtest_trend.py::run_backtest advances ext/mfe/trail from the WHOLE leg bar's extreme and THEN evaluates the giveback/stale levers at that bar's close. Sound while the lever is evaluated once per bar. The moment a lever is evaluated at a SUB-BAR close inside that bar, the comparison is against a peak that may be set later in the same bar - the rule appears to exit at the top with uncanny timing, the arm beats baseline, and the result is an artifact. Contract for the build: ext/mfe/trail advance on the SUB-BAR clock; bar-counted params (stale_exit_bars, trail_decay_stall_bars, peak_j) stay on the LEG-BAR clock or every threshold is silently redefined; and run THREE arms (baseline / levers-fine-with-SL-first-at-leg-grain / everything-fine) because a finer grain also converts some SL-first bars into target-first, which would credit the lever for the convention. Applies to the operator's 2026-08-10 intrabar-monitor directive.",
+      "evidence": "docs/live-exit-monitor-cadence-DESIGN.md sec 4.1; scripts/backtest_trend.py:480-560"
+    },
+    {
+      "id": "BL-20260810-SWEEP-BASE-NOT-CONFIG-EXACT-TRAILVOL",
+      "opened": "2026-08-10",
+      "severity": "P2",
+      "status": "resolved",
+      "area": "research/backtest",
+      "summary": "m20_fleet_exit_sweep's `config-exact` base omitted the trail-VOL lever. `base_args::declared_levers()` threaded stale/giveback/trail-DECAY but not `trail_vol_{above,below}_pctl`/`trail_vol_tight_mult`, while both harnesses carried the flags. Exactly two census legs declare an ARMED vol-trail lever - trend_donchian_eth (below 0.1/tight 2.5) and qqq_pullback_1h (above 0.8/tight 2.5) - so their sweep deltas were measured against a baseline missing a lever that is armed in live. Both A/B arms omitted it, so each delta is internally consistent; what is unverified is its transport to the live book, since exit levers interact. Consequence: 2 of the 3 live-leg Path A winners in the 2026-08-10 promotion packet are HELD pending a re-run on the corrected base.",
+      "evidence": "Found while reading config/strategies.yaml to write the Tier-3 packet - the same read also corrected two FALSE 'inert lever' findings I had published (trend_donchian_eth's vol-trail and avax_pullback_2h's decay lever are both armed). Easy to miss because `vol_pctl_window` WAS threaded - it belongs to the entry vol-skip gate, not the trail.",
+      "fix": "declared_levers() now threads the three trail_vol_* keys. tests/test_m20_fleet_capital_report.py asserts per-leg completeness against config/strategies.yaml, plus a companion test that fails on any new lever-shaped YAML key with no harness-flag mapping. Positive control run: reverting the fix reproduces exactly the two legs and four keys.",
+      "refs": [
+        "docs/research/M20-exit-lever-promotion-packet-2026-08-10.md",
+        "scripts/research/m20_fleet_exit_sweep.py",
+        "tests/test_m20_fleet_capital_report.py"
+      ]
+    },
+    {
+      "id": "BL-20260810-SCRIPTS-ML-SHADOWS-REPO-ML",
+      "opened": "2026-08-10",
+      "severity": "P2",
+      "status": "resolved",
+      "area": "tooling/ci",
+      "summary": "scripts/ml/ is a REGULAR package and shadows the repo's top-level ml/ whenever scripts/ precedes the repo root on sys.path - which is the default, since Python puts a script's own directory at sys.path[0]. backtest_ict_scalp.py / backtest_pullback.py used insert-if-absent, so under PYTHONPATH=<repo root> (how pytest-run.yml runs the suite) the insert was skipped and the harness died on `No module named 'ml.predictors'` before argparse ran.",
+      "evidence": "Reddened pytest-run on PR #8721. Matters beyond CI: the fleet sweep reports a harness that cannot start as `harness_error` on every cell, which in a summary table is indistinguishable from 'the harness ran and found nothing'.",
+      "fix": "Both harnesses now REPOSITION the repo root ahead of scripts/ rather than inserting if absent. tests/test_ict_scalp_exit_levers.py starts each harness under PYTHONPATH=<repo root>. Measured after the fix: 0 of 333 scripts under scripts/ fail with the shadowing signature; probe validated against a positive (restoring the old ordering makes it fire).",
+      "refs": [
+        "scripts/backtest_ict_scalp.py",
+        "scripts/backtest_pullback.py",
+        "tests/test_ict_scalp_exit_levers.py"
+      ]
     }
   ],
   "updated_at": "2026-08-10T01:20:00+00:00",

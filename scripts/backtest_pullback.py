@@ -34,10 +34,17 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-if str(Path(__file__).resolve().parent) not in sys.path:
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+# Repo root must PRECEDE scripts/ — see the same block in backtest_ict_scalp.py.
+# `scripts/ml/` is a regular package that shadows the repo's top-level `ml/`.
+# This harness does not currently import anything that reaches `ml.*`, so the
+# ordering is latent here rather than fatal; it is fixed in both files because
+# the next import added to either one decides which.
+if str(_REPO_ROOT) in sys.path:
+    sys.path.remove(str(_REPO_ROOT))
+sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
@@ -167,6 +174,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  flip_exit_bars: Optional[int] = None,
                  bank_frac: float = 0.0,
                  bank_at_r: float = 1.0,
+                 tp_cap_pct: float = 0.0,
+                 tp_r: float = 50.0,
                  giveback_min_mfe_r: float = 0.0,
                  giveback_r: float = 1.0,
                  trail_decay_arm_r: float = 0.0,
@@ -229,6 +238,12 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         dir_slope = df["mid"].diff()
 
     trades: List[Trade] = []
+
+    # Per-entry live-TP distance in R -- answers whether the 9.9% clamp
+
+    # actually BINDS on this leg, from the leg's own frame. Empty when off.
+
+    _tp_r_effective: List[float] = []
     n = len(df)
     # Warm-up start: ensure the trend/pullback/ATR indicators AND (when a band
     # is set) the ADX are defined. ADX needs ~2×period bars to converge.
@@ -363,6 +378,21 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         if risk <= 0:
             i += 1
             continue
+        # LIVE-PARITY TAKE-PROFIT. Tracking id on its own line, never wrapped:
+        # BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP
+        # htf_pullback_trend_2h.py places tp = min(entry*(1+0.099), entry +
+        # tp_r*risk) -- the 50R sentinel clamped to 9.9% because Bybit rejects a
+        # TP beyond ~10%. This harness had NO take-profit exit path, and its own
+        # line 10 stated the premise: "the tp_r (~50R) sentinel is parked far
+        # from price". DEFAULT OFF so prior verdicts stay reproducible and
+        # capped-vs-uncapped is an explicit A/B. Mirrors backtest_trend.py.
+        tp_price: Optional[float] = None
+        if tp_cap_pct > 0.0:
+            if direction == "long":
+                tp_price = min(entry * (1.0 + tp_cap_pct), entry + tp_r * risk)
+            else:
+                tp_price = max(entry * (1.0 - tp_cap_pct), entry - tp_r * risk)
+            _tp_r_effective.append(abs(tp_price - entry) / risk)
         ext = entry
         ext_j = i
         trail = sl
@@ -435,6 +465,10 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                     exit_price, exit_idx = trail, j
                     exit_reason = "trail_stop" if trail > sl else "stop"
                     break
+                if tp_price is not None and bh >= tp_price:
+                    exit_price, exit_idx = tp_price, j
+                    exit_reason = "take_profit"
+                    break
                 if bh > ext:
                     ext, ext_j = bh, j
                 trail = max(trail, ext - _vol_tm(_eff_tm(ext, ext_j, j), j) * atr)
@@ -443,6 +477,10 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                 if bh >= trail:
                     exit_price, exit_idx = trail, j
                     exit_reason = "trail_stop" if trail < sl else "stop"
+                    break
+                if tp_price is not None and bl <= tp_price:
+                    exit_price, exit_idx = tp_price, j
+                    exit_reason = "take_profit"
                     break
                 if bl < ext:
                     ext, ext_j = bl, j
@@ -543,7 +581,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         params["adx_period"] = adx_period
     if direction_filter != "off":
         params["direction_filter"] = direction_filter
-    return _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params)
+    return _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params,
+                      tp_r_effective=_tp_r_effective)
 
 
 def _cost_breakdown(t: Trade) -> Dict[str, float]:
@@ -571,6 +610,7 @@ def _fee_r(t: Trade) -> float:
 
 
 def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
+               tp_r_effective: Optional[List[float]] = None,
                symbol: str, params: Dict[str, Any]) -> Dict[str, Any]:
     n = len(trades)
     base: Dict[str, Any] = {
@@ -582,6 +622,14 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
         "data_start": str(df["timestamp"].iloc[0]) if len(df) else None,
         "data_end": str(df["timestamp"].iloc[-1]) if len(df) else None,
         "run_date": str(date.today())}
+    # Live-TP reach: MEASURED per entry, so "does the 9.9% clamp bind on this
+    # leg" comes from the leg's own frame, not an assumed ATR%. None (never 0)
+    # when the lever is off -- unmeasured and zero-distance are opposite.
+    _tpe = sorted(tp_r_effective or [])
+    base["tp_r_effective_n"] = len(_tpe)
+    base["tp_r_effective_median"] = (round(_tpe[len(_tpe) // 2], 3) if _tpe else None)
+    base["tp_r_effective_min"] = (round(_tpe[0], 3) if _tpe else None)
+    base["tp_r_effective_max"] = (round(_tpe[-1], 3) if _tpe else None)
     if n == 0:
         base.update({"win_rate_pct": 0.0, "net_total_r": 0.0, "net_expectancy_r": 0.0,
                      "trades_long": 0, "trades_short": 0, "max_drawdown_r": 0.0,
@@ -740,6 +788,15 @@ def main(argv: List[str]) -> int:
                         "banked at +bank_at_r R (0=off, legacy behaviour).")
     p.add_argument("--bank-at-r", type=float, default=1.0,
                    help="R-multiple of the bank rung for --bank-frac (default 1.0).")
+    p.add_argument("--tp-cap-pct", type=float, default=0.0,
+                   help="LIVE-PARITY take-profit: place tp at "
+                        "min(entry*(1+pct), entry + tp_r*risk) and EXIT there. "
+                        "Production uses 0.099 (the Bybit ~10%% TP-distance "
+                        "clamp on the 50R sentinel). 0 = off, byte-identical to "
+                        "every verdict measured before 2026-08-10.")
+    p.add_argument("--tp-r", type=float, default=50.0,
+                   help="The leg's declared tp_r sentinel (default 50R). Only "
+                        "consulted when --tp-cap-pct > 0; the cap normally binds.")
     p.add_argument("--giveback-min-mfe-r", type=float, default=0.0,
                    help="M20 giveback-stop lever: arm once peak open profit reaches "
                         "this many R (0=off, legacy behaviour).")
@@ -829,6 +886,7 @@ def main(argv: List[str]) -> int:
                        flip_exit_bars=args.flip_exit_bars,
                        bank_frac=args.bank_frac,
                        bank_at_r=args.bank_at_r,
+                       tp_cap_pct=args.tp_cap_pct, tp_r=args.tp_r,
                        giveback_min_mfe_r=args.giveback_min_mfe_r,
                        giveback_r=args.giveback_r,
                        trail_decay_arm_r=args.trail_decay_arm_r,

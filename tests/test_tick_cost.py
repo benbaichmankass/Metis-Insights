@@ -185,3 +185,117 @@ def test_this_module_enforces_no_budget(monkeypatch):
     assert not any(
         n in dir(tc) for n in ("enforce_budget", "budget_exceeded", "refuse_tick")
     )
+
+
+# ----------------------------------------- per-hook split (2026-08-10)
+def _tick_hook_from_main():
+    """Load the REAL src/main.py::_tick_hook without importing src.main's deps
+    (ccxt/dotenv are not present in every test env). Testing a copy would test
+    nothing — the point is that the LIVE wrapper is inert on failure."""
+    import ast
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[1] / "src" / "main.py").read_text()
+    fn = next(n for n in ast.parse(src).body
+              if isinstance(n, ast.FunctionDef) and n.name == "_tick_hook")
+    ns: dict = {}
+    exec(compile(ast.Module(body=[fn], type_ignores=[]), "<extract>", "exec"), ns)
+    return ns["_tick_hook"]
+
+
+def test_per_hook_split_reports_its_own_attribution_coverage():
+    """A split that reports only the hooks it instrumented invites the reader to
+    conclude those hooks ARE the cost; they are a lower bound on it.
+
+    Motivating measurement (2026-08-10): /api/diag/tick_cost read 253s mean with
+    NO attribution, which is why the tick's 5-minute cadence could not be acted
+    on. `attributed_pct` is the rCoverage/pnlCoverage discipline applied here —
+    never a bare figure over an unstated denominator.
+    """
+    import time
+    from src.runtime import tick_cost as tc
+    tc._reset_for_tests()
+    for _ in range(3):
+        tc.begin_tick()
+        with tc.hook("instrumented"):
+            time.sleep(0.02)
+        time.sleep(0.02)          # deliberately UNinstrumented
+        tc.end_tick()
+    s = tc.snapshot()
+    assert s["ticks_measured"] == 3
+    assert s["hooks"]["instrumented"]["n"] == 3
+    # roughly half the tick is unattributed, and the envelope SAYS so
+    assert 20.0 < s["attributed_pct"] < 80.0, s["attributed_pct"]
+    assert s["hooks_attributed_mean_ms"] < s["mean_ms"]
+
+
+def test_a_hook_that_raises_is_still_timed():
+    """A hook that burns 40s and then throws is precisely the one worth seeing;
+    it must not vanish from the split."""
+    from src.runtime import tick_cost as tc
+    tc._reset_for_tests()
+    tc.begin_tick()
+    try:
+        with tc.hook("boom"):
+            raise RuntimeError("x")
+    except RuntimeError:
+        pass
+    tc.end_tick()
+    assert tc.snapshot()["hooks"]["boom"]["n"] == 1
+
+
+def test_hook_names_are_bounded_and_overflow_is_declared():
+    """The module's contract is a FIXED-SIZE payload on a 2-core box. A caller
+    generating names dynamically (per-symbol, per-account) must be refused —
+    and the refusal COUNTED, so a truncated split cannot read as a whole one."""
+    from src.runtime import tick_cost as tc
+    tc._reset_for_tests()
+    for i in range(tc._MAX_HOOK_NAMES + 4):
+        tc.record_hook(f"dyn_{i}", 1.0)
+    s = tc.snapshot()
+    assert len(s["hooks"]) == tc._MAX_HOOK_NAMES
+    assert s["hook_names_refused"] == 4
+
+
+def test_attribution_is_none_not_zero_before_any_tick():
+    """'We have not measured a tick yet' is not '0% of the tick is attributed'."""
+    from src.runtime import tick_cost as tc
+    tc._reset_for_tests()
+    s = tc.snapshot()
+    assert s["attributed_pct"] is None
+    assert s["hooks_attributed_mean_ms"] is None
+
+
+def test_main_tick_hook_is_inert_when_the_measurement_module_is_unimportable():
+    """This wraps the LIVE trading loop. An instrumentation import error must
+    never stop a tick from running — and must never swallow the body's own
+    exception, since each hook keeps its existing handler."""
+    import sys
+    _tick_hook = _tick_hook_from_main()
+
+    ran = []
+    with _tick_hook("ok"):
+        ran.append("body")
+    assert ran == ["body"]
+
+    # the body's exception propagates (the caller handles it, not us)
+    import pytest as _pytest
+    with _pytest.raises(ValueError):
+        with _tick_hook("raises"):
+            raise ValueError("must propagate")
+
+    real = sys.modules.pop("src.runtime.tick_cost", None)
+
+    class _Boom:
+        def __getattr__(self, k):
+            raise ImportError("simulated")
+
+    sys.modules["src.runtime.tick_cost"] = _Boom()
+    try:
+        with _tick_hook("fallback"):
+            ran.append("still ran")
+    finally:
+        if real is not None:
+            sys.modules["src.runtime.tick_cost"] = real
+        else:
+            sys.modules.pop("src.runtime.tick_cost", None)
+    assert ran == ["body", "still ran"]

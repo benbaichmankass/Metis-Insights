@@ -45,15 +45,45 @@ format below**, wait, read the result comment.
 
 ## ⚠️ Common mistakes (read before first use)
 
-**1. The issue TITLE is the diag path. The body is ignored.**
-The workflow reads the title, strips the `[diag-request]` prefix, and
-passes the remainder directly to `curl .../api/diag/<path>`. It
-validates against `^[A-Za-z0-9/?&=_.:%-]+$` — spaces, commas, and any
-character *outside* that set in the title cause an immediate validation
-error. Note the set **permits** `:` (and `.`, `%`, `=`, `&`), so an ISO
-timestamp in a query value (e.g. `journalctl?...&since=2026-05-10T21:13:00Z`,
-or `shadow_stats?since=2026-05-28T00:00:00Z`) is a valid path. The body
-content is never read.
+**1. A NON-EMPTY BODY IS THE PATH LIST. The title is only the fallback.**
+*(Corrected 2026-08-10 — this section previously read "The issue TITLE is
+the diag path. The body is ignored," which has been false since the
+multi-path batching change and cost a live session a rejected request.
+`resolve_multi` in `vm-diag-snapshot.yml` is authoritative: it parses the
+body FIRST — JSON array, fenced JSON array, or one path per line — and
+falls back to the title **only when the body is empty or yields no
+candidates**. Field beats comment.)*
+
+So:
+
+- **Put one `/api/diag/...` (or allowlisted `/api/bot/...`) path per line in
+  the BODY, and no prose.** A sentence like *"path is in the title"* is
+  itself parsed as a candidate path and fails validation, aborting the whole
+  request before any VM contact — the failure comment says
+  `MALFORMED REQUEST, not a VM outage`, and it means exactly that: the run
+  tells you **nothing** about the VM's health.
+- The title is display-only in that case. Give it a human label; it is still
+  read (with the `[diag-request]` prefix stripped) when the body is empty.
+- Up to `MAX_PATHS` = **15** paths per issue, fetched over ONE ssh session —
+  batch your reads rather than opening an issue each (every issue is a
+  separately-billed Actions job).
+- Each path validates against `^[A-Za-z0-9/?&=_.:%-]+$`. The set **permits**
+  `:` (and `.`, `%`, `=`, `&`), so an ISO timestamp in a query value (e.g.
+  `journalctl?...&since=2026-05-10T21:13:00Z`) is valid. **One bad path fails
+  the whole batch** (`sys.exit(1)`), so keep prose out entirely.
+- `/api/bot/...` paths are allowed only from the relay's **read-only
+  allowlist** in the same step (it mirrors the `workflow_dispatch` allowlist —
+  keep the two in sync). It covers the soak surfaces (`pairs/soak`,
+  `allocator/soak`, `exit-ladder/soak`, `fc-geometry/soak`), `performance`,
+  `positions`, `trades/closed`, the `ml/*` family, and more; anything else is
+  rejected by name rather than silently proxied.
+
+A working body:
+
+```
+/api/diag/version
+/api/bot/pairs/soak?limit=3
+```
 
 **2. `cmd:` in the body is for `trainer-vm-diag`, NOT this workflow.**
 `trainer-vm-diag` runs arbitrary bash on the trainer VM and reads the

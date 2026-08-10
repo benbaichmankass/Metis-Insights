@@ -40,6 +40,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
+import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
 
 # Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B).
 # main() (the CLI path) resolves unset --slippage/--funding flags to the
@@ -118,6 +119,8 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                  emit_path: Optional[str] = None,
                  min_confidence: float = 0.0,
                  stale_exit_bars: int = 0, stale_exit_below_r: float = 0.0,
+                 tp_cap_pct: float = 0.0,
+                 tp_r: float = 50.0,
                  giveback_min_mfe_r: float = 0.0,
                  giveback_r: float = 1.0) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
@@ -135,6 +138,8 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
     df["_sqz_now"] = sqz_on
     df["_basis"] = basis
     trades: List[Trade] = []
+    # Per-entry live-TP distance in R; empty when the lever is off.
+    _tp_r_effective: List[float] = []
     n = len(df)
     i = bb_period + atr_period + 1
     next_idx = i
@@ -167,6 +172,20 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
         if risk <= 0:
             i += 1
             continue
+        # LIVE-PARITY TAKE-PROFIT. Tracking id on its own line, never wrapped:
+        # BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP
+        # squeeze_breakout_4h.py carries _TP_SENTINEL_CAP_PCT = 0.099 like
+        # trend_donchian and htf_pullback, so production places a real resting
+        # TP ~9.9% from entry -- while this harness had NO take-profit exit at
+        # all (its outcomes were stop / trail_stop / stale_stop / giveback_stop
+        # / timeout). DEFAULT OFF so prior verdicts stay reproducible.
+        tp_price: Optional[float] = None
+        if tp_cap_pct > 0.0:
+            if direction == "long":
+                tp_price = min(entry * (1.0 + tp_cap_pct), entry + tp_r * risk)
+            else:
+                tp_price = max(entry * (1.0 - tp_cap_pct), entry - tp_r * risk)
+            _tp_r_effective.append(abs(tp_price - entry) / risk)
         ext = entry
         trail = sl
         exit_price: Optional[float] = None
@@ -180,6 +199,10 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                     exit_price, exit_idx = trail, j
                     exit_reason = "trail_stop" if trail > sl else "stop"
                     break
+                if tp_price is not None and bh >= tp_price:
+                    exit_price, exit_idx = tp_price, j
+                    exit_reason = "take_profit"
+                    break
                 ext = max(ext, bh)
                 trail = max(trail, ext - trail_mult * atr)
                 mfe = max(mfe, (ext - entry) / risk)
@@ -187,6 +210,10 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                 if bh >= trail:
                     exit_price, exit_idx = trail, j
                     exit_reason = "trail_stop" if trail < sl else "stop"
+                    break
+                if tp_price is not None and bl <= tp_price:
+                    exit_price, exit_idx = tp_price, j
+                    exit_reason = "take_profit"
                     break
                 ext = min(ext, bl)
                 trail = min(trail, ext + trail_mult * atr)
@@ -226,6 +253,12 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                     "strategy": "squeeze_breakout", "entry_time": str(t.entry_time),
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - cb["total_cost_r"], 4),
+                    # MFE is the denominator of the capture ratio; the Trade has
+                    # carried it all along and the emit payload simply never
+                    # included it, so every donchian/squeeze leg read as
+                    # capture-unmeasurable in the 2026-08-10 census
+                    # (BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL).
+                    "mfe_r": t.mfe_r,
                     # net_r is net-of-full-cost (fee+slippage+funding); net_r_fee_only
                     # is the fees-only arm for the with/without comparison.
                     "net_r_fee_only": round(t.r_multiple - cb["fee_r"], 4),
@@ -286,7 +319,8 @@ def _summarize(trades, df, *, timeframe, symbol, params):
     if n == 0:
         base.update({"win_rate_pct": 0.0, "net_total_r": 0.0, "net_expectancy_r": 0.0,
                      "trades_long": 0, "trades_short": 0, "max_drawdown_r": 0.0,
-                     "by_outcome": {}, "by_year": {}})
+                     "by_outcome": {}, "by_year": {},
+                     **capital_efficiency.empty()})
         return base
     rs = [t.r_multiple for t in trades]
     costs = [_cost_breakdown(t) for t in trades]
@@ -332,6 +366,32 @@ def _summarize(trades, df, *, timeframe, symbol, params):
         "trades_long": len(longs), "trades_short": len(shorts),
         "max_drawdown_r": round(mdd, 4), "by_outcome": by, "by_year": by_year,
         "consistency": consistency})
+
+    # Capital efficiency — the axis the operator raised to a PRINCIPLE on
+    # 2026-08-10 ("not just a gate for testing"), and which this harness could
+    # not report at all. Measured the same day: the M20 sweep returned
+    # `net_r_per_capital_day: null` for 14 of 14 cells on EVERY donchian leg
+    # while the pullback legs measured 14/14 — because backtest_pullback.py
+    # imports capital_efficiency and this file did not. That blinded the axis
+    # precisely where the giveback census says the money is (the 1h Bybit trend
+    # legs carry ~1,400R of the fleet's 2,443R; trend_donchian_1h alone is
+    # 316R). Same shape as the mfe_r gap: a metric computed in one harness,
+    # absent in its sibling, degrading to a null that reads as "measured, no
+    # effect".
+    #
+    # DEFINITION is single-homed in scripts/capital_efficiency.py; this harness
+    # owns only the extraction. capital_bars == position_bars HONESTLY here:
+    # every lever this harness is swept for closes the WHOLE position, so no
+    # capital is released early and the two coincide by definition. Wire a
+    # rung-bar (as backtest_ict_scalp.py does) before reading this column for
+    # any partial-exit cell.
+    _pos_bars = float(sum(max(0, int(t.exit_index) - int(t.entry_index))
+                          for t in trades))
+    base.update(capital_efficiency.summarize(
+        bar_minutes=capital_efficiency.bar_minutes_from_frame(df),
+        position_bars=_pos_bars, capital_bars=_pos_bars,
+        net_total_r=base.get("net_total_r"), n_trades=n))
+
     return base
 
 
@@ -437,6 +497,13 @@ def main(argv):
     p.add_argument("--stale-exit-bars", type=int, default=0,
                    help="M20 stale-stop: close at bar close after N bars if still below --stale-exit-below-r (0=off).")
     p.add_argument("--stale-exit-below-r", type=float, default=0.0)
+    p.add_argument("--tp-cap-pct", type=float, default=0.0,
+                   help="LIVE-PARITY take-profit: min(entry*(1+pct), entry + "
+                        "tp_r*risk), exit there. Production uses 0.099 (Bybit's "
+                        "~10%% TP-distance clamp). 0 = off, byte-identical.")
+    p.add_argument("--tp-r", type=float, default=50.0,
+                   help="Declared tp_r sentinel; only consulted when "
+                        "--tp-cap-pct > 0, and the cap normally binds.")
     p.add_argument("--giveback-min-mfe-r", type=float, default=0.0,
                    help="M20 giveback-stop: arm once peak open profit reaches this many R (0=off).")
     p.add_argument("--giveback-r", type=float, default=1.0,
@@ -467,6 +534,7 @@ def main(argv):
                      cooldown_bars=a.cooldown_bars, timeframe=a.timeframe,
                      symbol=a.symbol, stale_exit_bars=a.stale_exit_bars,
                      stale_exit_below_r=a.stale_exit_below_r,
+                     tp_cap_pct=a.tp_cap_pct, tp_r=a.tp_r,
                      giveback_min_mfe_r=a.giveback_min_mfe_r,
                      giveback_r=a.giveback_r)
     if a.confidence_sweep:

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-08-10T17:17:53.305105+00:00",
+  "timestamp": "2026-08-10T17:17:26.458254+00:00",
   "status": "concern",
   "summary": "2/7 checks ok; not-ok: service, git_drift, git_fetch, tick, accounts_api",
   "action_required": true,
@@ -20,14 +20,14 @@
         "head": "0293e24",
         "upstream": "c5d9492",
         "behind": 0,
-        "age_hours": 8.372032158055555
+        "age_hours": 8.364574715277778
       }
     },
     "git_fetch": {
       "status": "warn",
-      "detail": "last fetch was 20.6m ago (> 15.0m threshold)",
+      "detail": "last fetch was 20.2m ago (> 15.0m threshold)",
       "ctx": {
-        "age_minutes": 20.623575456937154
+        "age_minutes": 20.17612895568212
       }
     },
     "tick": {
@@ -70,8 +70,8 @@
       "status": "ok",
       "detail": "11.7% free (29.6 GB) on /",
       "ctx": {
-        "free_pct": 11.738501710618202,
-        "free_gb": 29.577770233154297,
+        "free_pct": 11.738486571265227,
+        "free_gb": 29.57773208618164,
         "path": "/"
       }
     }
