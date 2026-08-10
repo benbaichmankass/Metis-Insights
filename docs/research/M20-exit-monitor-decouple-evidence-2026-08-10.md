@@ -100,7 +100,52 @@ inside.
 
 ---
 
-## 4. What is NOT claimed here
+## 4. Where to look first — a STRUCTURAL finding, not a timing
+
+The split is not live yet (Tier-2, § 3), so nothing below is a measurement. But the
+source already narrows where to point it, and this is a checkable prediction rather
+than a guess — **it is falsifiable the moment the split deploys.**
+
+**10 of the 14 phases can reach a broker.** Four are DB-only
+(`reconcile_options_expiry_and_assignment`, `sweep_unlinked_packages`,
+`sweep_stuck_linked_packages`, `check_naked_positions`) and should come back cheap;
+if any of those is expensive, the cost is not what this section predicts and the
+hypothesis is wrong.
+
+**The specific prediction: `account_open_positions` is called from THREE separate
+phases per tick, and it is not memoized.**
+
+| phase | call site |
+|---|---|
+| `reconcile_open_trades` | `order_monitor.py:3752` |
+| `reconcile_orphan_exchange_positions` | `order_monitor.py:2562` |
+| `watchdog_stuck_strategies` | `order_monitor.py:4801` |
+
+Checked in `src/units/accounts/clients.py::account_open_positions` (353 lines, no
+decorator, no cache) — the only caching anywhere near it is a **local**
+`positions_cache[aid]` inside `_watchdog_stuck_strategies`, which dedupes within that
+one phase and cannot help the other two. So for each live account the broker's
+open-positions endpoint is hit up to **three times per tick** where once would do,
+and with ~8 live accounts across Bybit / IBKR / Alpaca that is on the order of ~24
+round-trips per tick against ~8 needed.
+
+**If that is where the time is, the remedy is a shape this repo already shipped
+today**: the per-tick connector memo behind `CANDLE_CACHE_TTL_FRACTION`
+(`BL-20260810-TICK-CHAIN-260S-PER-TICK`) — one read per account per tick, handed to
+each phase. It changes no semantics, because all three phases already treat the
+result as a point-in-time snapshot.
+
+**Two reasons not to just do it now.** First, it is a guess until the split says so:
+a memo that saves nothing is complexity added to the live order path for nothing.
+Second — and this is the one that would bite — the three phases have **different
+fail-safety contracts** around a `None` read (*"we could not look"*, never *"flat"*),
+and a shared memo must not let one phase's failed read become another phase's
+confirmed-flat. That is the collapsed-state defect in a place where it closes real
+positions. Measure first, then design the memo around that contract explicitly.
+
+---
+
+## 5. What is NOT claimed here
 
 - **Not** that 104 s is the steady state. 18 ticks, one process, one 49-minute window.
   The honest statement is "on the sample available, the tick costs ~104 s and the ask
