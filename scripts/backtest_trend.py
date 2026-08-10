@@ -301,6 +301,10 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     # `trail_mult`, so the trail arithmetic below is unchanged).
     trail_decay_on = trail_decay_tight_mult > 0.0
     trades: List[Trade] = []
+    # Per-entry live-TP distance in R. Answers 'does the 9.9% clamp actually
+    # BIND on this leg' from the leg's own frame, instead of from an assumed
+    # ATR%. Empty when --tp-cap-pct is off.
+    _tp_r_effective: List[float] = []
     n = len(df)
     # Warm-up start: ensure both the channel/ATR indicators AND (when a band is
     # set) the ADX are defined. ADX needs ~2×period bars to converge from NaN.
@@ -444,8 +448,9 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         if risk <= 0:
             i += 1
             continue
-        # LIVE-PARITY TAKE-PROFIT (BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE
-        # -CAPPED-TP). Production places `tp = min(entry*(1+0.099), entry +
+        # LIVE-PARITY TAKE-PROFIT. Tracking id on its own line, never wrapped:
+        # BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP
+        # Production places `tp = min(entry*(1+0.099), entry +
         # tp_r*risk)` — the 50R "sentinel" clamped to 9.9% because Bybit rejects
         # a TP beyond ~10%. At atr_stop_mult 2.5 and 2-3% ATR that lands at
         # 1.3-2.0R: an ordinary, frequently-touched target. This harness had NO
@@ -461,7 +466,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                 tp_price = max(entry * (1.0 - tp_cap_pct), entry - tp_r * risk)
         # Distance of the live TP in R — the measurement that says whether the
         # clamp binds on THIS leg's own frame instead of an assumed ATR%.
-        tp_r_effective = (abs(tp_price - entry) / risk) if tp_price else None
+        if tp_price is not None:
+            _tp_r_effective.append(abs(tp_price - entry) / risk)
         ext = entry
         trail = sl
         exit_price: Optional[float] = None
@@ -632,7 +638,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         params["trail_vol_below_pctl"] = trail_vol_below_pctl
         params["trail_vol_tight_mult"] = trail_vol_tight_mult
         params["vol_pctl_window"] = vol_pctl_window
-    return _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params)
+    return _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params,
+                      tp_r_effective=_tp_r_effective)
 
 
 def _fee_only_r(t: Trade) -> float:
@@ -668,6 +675,7 @@ def _fee_r(t: Trade) -> float:
 
 
 def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
+               tp_r_effective: Optional[List[float]] = None,
                symbol: str, params: Dict[str, Any]) -> Dict[str, Any]:
     n = len(trades)
     base: Dict[str, Any] = {
@@ -679,6 +687,15 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
         "data_start": str(df["timestamp"].iloc[0]) if len(df) else None,
         "data_end": str(df["timestamp"].iloc[-1]) if len(df) else None,
         "run_date": str(date.today())}
+    # Live-TP reach: MEASURED per entry, so "does the 9.9% clamp bind on this
+    # leg" is answered from the leg's own frame rather than an assumed ATR%.
+    # None (never 0) when the lever is off -- an un-measured reach and a
+    # zero-distance TP are opposite statements.
+    _tpe = sorted(tp_r_effective or [])
+    base["tp_r_effective_n"] = len(_tpe)
+    base["tp_r_effective_median"] = (round(_tpe[len(_tpe) // 2], 3) if _tpe else None)
+    base["tp_r_effective_min"] = (round(_tpe[0], 3) if _tpe else None)
+    base["tp_r_effective_max"] = (round(_tpe[-1], 3) if _tpe else None)
     if n == 0:
         base.update({"win_rate_pct": 0.0, "net_total_r": 0.0, "net_expectancy_r": 0.0,
                      "trades_long": 0, "trades_short": 0, "max_drawdown_r": 0.0,
