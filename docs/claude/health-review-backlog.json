@@ -22,7 +22,18 @@
         "PR #8605",
         "PR #8599",
         "PR #8467"
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES",
@@ -42,8 +53,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked this run. Still live: my own 7 relay/action issues this session each spawned their own billed Actions run, which is the cost shape this row describes. No change landed this window beyond the 30-guards-into-one-`guards`-job consolidation already merged 2026-08-06 (#8539). Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260806-DUPLICATE-PNL-NETTED-SIBLING-ROWS",
@@ -83,8 +103,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked the post-state this run. The 2026-08-06 Tier-2 marking (29 rows / $24,270.53 on bybit_1 stamped netted_duplicate_unattributed, pnl deliberately unchanged) is done and was verified at the time. This window's own /api/bot/performance pnl-provenance split shows the machinery reading sensibly: 7d paper pnlCoverage 0.357 with pnlMeasuredCount 15 / pnlEstimatedCount 24 / pnlFabricatedCount 0 / pnlUnverifiedCount 3 — notably ZERO fabricated. The residual bybit_2 sub-case this row flags (4 rows / $5.02 that collide only at ROUND(pnl,2) and are rounding collisions, not netted duplicates) is deliberately NOT marked. Kept open on that residual only."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260806-CALIBRATOR-GATE-HAD-NO-MAGNITUDE-AXIS",
@@ -124,8 +153,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "REPRODUCED THIS RUN, AND A WORKING MITIGATION FOUND. My first trainer-vm-diag cmd (#8591) was truncated exactly as this row describes — it died at `python3 - <<'PY'` with `bash: warning: here-document at line 10 delimited by end-of-file (wanted PY)`, losing every section after the heredoc. WORKAROUND THAT WORKS, verified on #8592: base64-encode the Python payload locally and send `echo <b64> | base64 -d | python3` — no heredoc, no < or > characters, no column-0 Python keyword in the shell text. That round-tripped a 2.5KB multi-section script intact. Recommend documenting this as the standard pattern for any non-trivial trainer cmd until the relay's extraction is fixed. Kept open (the relay defect itself is unfixed)."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260729-ICTSCALP-ETH15M-STALE-FIRSTFIRE",
@@ -155,8 +193,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "PARTIAL EVIDENCE THIS RUN. Two ict_scalp_eth_15m closes in-window carry exit_reason `stale_stop` — trade 4363 (opened 2026-08-04T06:49, hold 3.2h, +0.02R, graded B / premature_exit) and trade 4474 (opened 2026-08-06T13:54, hold 4.75h, -0.21R, graded B). So the P5 lever IS firing on this leg. What this run did NOT do is the P7 first-fire parity check the row actually asks for (comparing the live monitor's stale-stop decision against the harness counterfactual) — that needs the exit-refinement pipeline, not a review. Kept open with the firing evidence recorded."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260724-TRAINER-GIT-DIVERGED",
@@ -5124,9 +5171,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked: ict-devnull-guard.timer is active on the live VM (/api/diag/services, 14:36Z) and no /dev/null clobber surfaced this window. The guard is holding; the root-source kill remains the operator-gated half. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
       ],
-      "updated_at": "2026-08-02T12:43:00+00:00",
+      "updated_at": "2026-08-10T05:05:00+00:00",
       "consolidates": [
         "BL-20260629-DEVNULL-CLOBBERED-LIVE-VM",
         "BL-20260713-DEVNULL-RESTART-MISREPORT",
@@ -7259,10 +7314,19 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Unchanged and correctly parked — operator deprioritized this 2026-07-29 and nothing this window changes that calculus. Noting one datum in its favour for whenever it IS revisited: this run found ib_paper's unrealized PnL badly wrong on /api/bot/positions (see the new row BL-20260807-IBPAPER-UPNL-CONTRADICTS-EXCHANGE-TRUTH), and IB broker-truth fills are exactly what would let that be cross-checked automatically. Kept open, still deprioritized."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
       ],
       "resolved_at": null,
-      "severity": "low"
+      "severity": "low",
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-PRODUCER-VACUITY-GUARD",
@@ -7370,10 +7434,19 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Checked for movement this window: no run of this row's tooling occurred between 2026-08-04T05:20Z and 2026-08-07T14:36Z. Recording absence of progress rather than a re-measurement — this row needs dedicated research time, not a review pass. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
       ],
       "resolved_at": null,
-      "severity": "medium"
+      "severity": "medium",
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260802-VIXTERM-ROLLING-WINDOW-SPAN",
@@ -7397,10 +7470,19 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Checked for movement this window: no run of this row's tooling occurred between 2026-08-04T05:20Z and 2026-08-07T14:36Z. Recording absence of progress rather than a re-measurement — this row needs dedicated research time, not a review pass. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
       ],
       "resolved_at": null,
-      "severity": "low"
+      "severity": "low",
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-REGIME-CELL-UNAUDITABLE",
@@ -7474,10 +7556,19 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked this run: splg_trend_long_1d is still in the live loaded-strategy list (/api/diag/status, 52 strategies) and still produced ZERO closed trades in this window — consistent with the 730d zero this row records. SPLG also holds no open position (36 open positions pulled, none SPLG). So the row stands, with one more window of confirming silence. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
       ],
       "resolved_at": null,
-      "severity": "medium"
+      "severity": "medium",
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-2D-VOL-CELLS-UNAUDITABLE",
@@ -7526,6 +7617,14 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked this run against live state, and deliberately NOT re-derived: the concurrent session `metis-ml2-cell-audit-cont-6ewta2` owns the regime-cell line right now and landed material corrections today (walk-forward sample floor MIN_DIRECTION_TRADES=10 in cf10172; the 'squeeze_breakout_4h inversion' WITHDRAWN; authored cells now 0-of-6 affirmatively justified, not 1-of-6; and the BTC vol-gate live-parity blocker closed as a false premise). Re-running this row's analysis in parallel would have raced their work. Live-side status confirmed unchanged this window: the regime router is baseline-on, no cell was edited (config/regime_policy.yaml untouched), and every cell change remains Tier-3. Kept open pending their PR #8584 and the operator's Tier-3 call."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
       ],
       "resolved_at": null,
@@ -7543,7 +7642,8 @@
         "src/runtime/regime/vol_detector.py"
       ],
       "escalated_at": "2026-07-30T14:05:00+00:00",
-      "scoped_at": "2026-07-30T14:25:00+00:00"
+      "scoped_at": "2026-07-30T14:25:00+00:00",
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-AUTHORED-CELL-REAUDIT-REGISTER",
@@ -7655,10 +7755,19 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked this run against live state, and deliberately NOT re-derived: the concurrent session `metis-ml2-cell-audit-cont-6ewta2` owns the regime-cell line right now and landed material corrections today (walk-forward sample floor MIN_DIRECTION_TRADES=10 in cf10172; the 'squeeze_breakout_4h inversion' WITHDRAWN; authored cells now 0-of-6 affirmatively justified, not 1-of-6; and the BTC vol-gate live-parity blocker closed as a false premise). Re-running this row's analysis in parallel would have raced their work. Live-side status confirmed unchanged this window: the regime router is baseline-on, no cell was edited (config/regime_policy.yaml untouched), and every cell change remains Tier-3. Kept open pending their PR #8584 and the operator's Tier-3 call."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
       ],
       "resolved_at": null,
-      "severity": "medium"
+      "severity": "medium",
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS",
@@ -7682,10 +7791,19 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked this run against live state, and deliberately NOT re-derived: the concurrent session `metis-ml2-cell-audit-cont-6ewta2` owns the regime-cell line right now and landed material corrections today (walk-forward sample floor MIN_DIRECTION_TRADES=10 in cf10172; the 'squeeze_breakout_4h inversion' WITHDRAWN; authored cells now 0-of-6 affirmatively justified, not 1-of-6; and the BTC vol-gate live-parity blocker closed as a false premise). Re-running this row's analysis in parallel would have raced their work. Live-side status confirmed unchanged this window: the regime router is baseline-on, no cell was edited (config/regime_policy.yaml untouched), and every cell change remains Tier-3. Kept open pending their PR #8584 and the operator's Tier-3 call."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
       ],
       "resolved_at": null,
-      "severity": "low-medium"
+      "severity": "low-medium",
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-SQZ-TPR-EMPIRICAL-CHECK",
@@ -7713,8 +7831,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked this run against live state, and deliberately NOT re-derived: the concurrent session `metis-ml2-cell-audit-cont-6ewta2` owns the regime-cell line right now and landed material corrections today (walk-forward sample floor MIN_DIRECTION_TRADES=10 in cf10172; the 'squeeze_breakout_4h inversion' WITHDRAWN; authored cells now 0-of-6 affirmatively justified, not 1-of-6; and the BTC vol-gate live-parity blocker closed as a false premise). Re-running this row's analysis in parallel would have raced their work. Live-side status confirmed unchanged this window: the regime router is baseline-on, no cell was edited (config/regime_policy.yaml untouched), and every cell change remains Tier-3. Kept open pending their PR #8584 and the operator's Tier-3 call."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-SQZ-WIRING-UNVERIFIED-E2E",
@@ -7796,8 +7923,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked this run against live state, and deliberately NOT re-derived: the concurrent session `metis-ml2-cell-audit-cont-6ewta2` owns the regime-cell line right now and landed material corrections today (walk-forward sample floor MIN_DIRECTION_TRADES=10 in cf10172; the 'squeeze_breakout_4h inversion' WITHDRAWN; authored cells now 0-of-6 affirmatively justified, not 1-of-6; and the BTC vol-gate live-parity blocker closed as a false premise). Re-running this row's analysis in parallel would have raced their work. Live-side status confirmed unchanged this window: the regime router is baseline-on, no cell was edited (config/regime_policy.yaml untouched), and every cell change remains Tier-3. Kept open pending their PR #8584 and the operator's Tier-3 call."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-SIDE-FILTER-NOT-FORWARDED",
@@ -7985,8 +8121,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Checked for movement this window: no run of this row's tooling occurred between 2026-08-04T05:20Z and 2026-08-07T14:36Z. Recording absence of progress rather than a re-measurement — this row needs dedicated research time, not a review pass. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS",
@@ -8073,8 +8218,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked this run against live state, and deliberately NOT re-derived: the concurrent session `metis-ml2-cell-audit-cont-6ewta2` owns the regime-cell line right now and landed material corrections today (walk-forward sample floor MIN_DIRECTION_TRADES=10 in cf10172; the 'squeeze_breakout_4h inversion' WITHDRAWN; authored cells now 0-of-6 affirmatively justified, not 1-of-6; and the BTC vol-gate live-parity blocker closed as a false premise). Re-running this row's analysis in parallel would have raced their work. Live-side status confirmed unchanged this window: the regime router is baseline-on, no cell was edited (config/regime_policy.yaml untouched), and every cell change remains Tier-3. Kept open pending their PR #8584 and the operator's Tier-3 call."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-DONCHIAN-EXIT-PANEL-BUILT-NOT-REGIME-SPLIT",
@@ -8104,8 +8258,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Checked for movement this window: no run of this row's tooling occurred between 2026-08-04T05:20Z and 2026-08-07T14:36Z. Recording absence of progress rather than a re-measurement — this row needs dedicated research time, not a review pass. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-BACKFILL-DATE-IS-REFERENCE-PERIOD-NOT-RELEASE",
@@ -8169,8 +8332,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Checked for movement this window: no macro/event-study producer ran between 2026-08-04T05:20Z and 2026-08-07T14:36Z (no new comms/macro artifacts, and GPU spend for 2026-08 is $0.00 across 0 runs, so no burst compute was spent on the macro line either). This row is therefore unchanged rather than re-validated — I am recording the absence of progress, not a re-measurement. Kept open; it needs a scheduled macro-research session, not a review."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-TPSL-PREMISE",
@@ -8315,8 +8487,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "MEASURED THIS RUN — the divergence MOVED SYMBOL, it did not clear. bybit_1 XRPUSDT journal qty 183,436.9 vs exchange 183,436.9 = 1.00x (CLEAN today, so the XRP-specific acute state stays cleared). But on the SAME account: SOLUSDT journal legs 2009.8+45.8+5.7+13.9 = 2075.2 vs exchange 4.6 = 451x; BNBUSDT journal 4.91+1.86+2.95+2.70+1.01 = 13.43 vs exchange 5.49 = 2.45x. Sources: /api/bot/positions?include_paper=true + /api/diag/exchange_positions, both captured 2026-08-07T14:36Z. Reading this item as 'XRP-only' would miss that the structural half is now worst on SOL. Kept open on the structural half, as before."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-BRACKET-AUDIT-ROLLUP-MISLEADING",
@@ -8460,8 +8641,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Checked for movement this window: no macro/event-study producer ran between 2026-08-04T05:20Z and 2026-08-07T14:36Z (no new comms/macro artifacts, and GPU spend for 2026-08 is $0.00 across 0 runs, so no burst compute was spent on the macro line either). This row is therefore unchanged rather than re-validated — I am recording the absence of progress, not a re-measurement. Kept open; it needs a scheduled macro-research session, not a review."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-M3-VALIDATOR-READ-ONE-SURVEY-SOURCE",
@@ -8529,8 +8719,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Checked for movement this window: no macro/event-study producer ran between 2026-08-04T05:20Z and 2026-08-07T14:36Z (no new comms/macro artifacts, and GPU spend for 2026-08 is $0.00 across 0 runs, so no burst compute was spent on the macro line either). This row is therefore unchanged rather than re-validated — I am recording the absence of progress, not a re-measurement. Kept open; it needs a scheduled macro-research session, not a review."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-DEMO-MARKPRICE-FABRICATES-PAPER-PNL",
@@ -8595,8 +8794,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "NO LONGER UNMEASURABLE — this run measured it. scripts/research/m20_exit_analysis.py --since-days 4 on the trainer (trainer-diag #8592) returned per-trade hold/MFE/MAE for 15 paper closes. ict_scalp holds: 0.8h, 1.0h, 1.5h, 1.8h, 1.8h, 3.2h, 3.5h, 5.0h, 15.8h against a 5m/15m expected hold of minutes. Worst case trade 4413 ict_scalp_avax_5m: opened 2026-08-05T08:03, hold 15.8h, realized -8.41R against a ~1R designed stop, closeReason `reconciler_filled` (NOT sl_cross) — i.e. the protective leg did not close it. Mean giveback (MFE - realized R) across the 10 ict_scalp rows = 1.92R. Item upgraded from 'unmeasurable' to measured; the open question is now MECHANISM (why the bracket does not fire), not measurement. Escalated to operator_priorities in this review's report."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-IN-A-SECOND-WAY",
@@ -8619,8 +8827,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked and REAFFIRMED as still-wrong-and-still-uncorrected. CLAUDE.md records that the 2026-07-30 05:37Z BYBIT_TPSL_MODE flip was a no-op re-assertion (partial was already live from ~07-21, evidenced by 75/211 pre-flip opens carrying a non-NULL sl_order_id, a column written only on the partial branch), so the deepdive doc's premise is false. Nothing this window corrected the doc. Materially: this run's execution-capture finding (trade 4413, -8.41R against a ~1R stop, closed by the reconciler not the stop) means the doc's WRONG mechanism is actively misleading anyone investigating scalp exits right now. Raising practical urgency; kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-PROVENANCE-RECORDED-THEN-IGNORED",
@@ -8741,8 +8958,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Not re-checked this run — my trainer probe read data/trade_journal.db (the real store) but did not stat the stray repo-root copy, so I have no 2026-08-07 observation of it. Recording that honestly rather than carrying forward the 08-03 finding as if fresh. Kept open, owed a one-line `ls -la` next trainer relay call."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-PR-CI-NOT-ATTACHING",
@@ -8768,6 +8994,14 @@
           "at": "2026-08-01T09:05:00+00:00",
           "by": "claude (/system-review weekly, session full-system-review-zajauh)",
           "note": "RESOLVED by weekly /system-review evidence pass: Scope-corrected same day (subsequent PRs ran 15-19 green checks); W2 #8198 fixed merge_group across 15 workflows + fail-red branch-protection sync."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
       ],
       "correction_2026_07_30_2205Z": "I WAS WRONG about the 'second confirmed drop'. Retracting it rather than leaving a false data point in a row whose whole value is its evidence.\n\nThe two pushes I recorded as dropped deliveries (7b814d64, bc70ef48) were NOT drops. PR #8111 was in `mergeable_state: dirty` — a merge conflict against main. `pull_request`-triggered workflows run against the MERGE REF (refs/pull/N/merge), and a conflicted PR cannot produce one, so no check CAN attach. The absence was correct behaviour, not a delivery failure. Proof it was never an outage: other branches got runs throughout the same window (21:53, 21:56, 21:59).\n\nTwo lessons, both about my own method:\n1. I diagnosed 'CI is not delivering' from the ABSENCE of runs without first checking the PR's own mergeable_state — the same shape as the get_status artifact that inflated my original P1: reading a zero and concluding a cause instead of asking what else produces a zero.\n2. Checking whether the symptom was repo-wide is what unstuck it. A branch-specific symptom with a healthy repo means look at the branch, not the platform.\n\nSo the standing evidence remains ONE unexplained drop (19a5d883), not two. Severity lowered back to medium. The workflow_dispatch mitigation is still worth having — a feature branch genuinely had no way to run the suite when pull_request did not fire — but it is now a defence against a single observed event, and the honest headline is 'one drop in ~10 pushes', not 'CI is unreliable'.",
@@ -8777,7 +9011,8 @@
       "reopened_by": "claude (system-review ma0ava)",
       "recurrence_2026_08_07": "RECURRED. MEASURED: PR #8608 sat at total_count=0 check runs across FOUR distinct pull_request event types on TWO shas — opened, synchronize (force-push ecea6665), ready_for_review, and reopened (close+reopen on 4febab0f). Repo-wide, the last pull_request-triggered run of any required workflow (pytest-collect/pytest-run/guards) was 2026-08-07T18:14:27Z; at 18:51Z nothing further had fired, i.e. ~37 minutes of dropped deliveries. \n\nNEW AND USEFUL, which the 2026-07-30 session could not establish because run_workflow was 403 for the MCP at the time: workflow_dispatch on the BRANCH REF is a working recovery — guards.yml and pytest-run.yml were dispatched and their check runs ATTACHED to the PR head sha correctly (ids 92966429842 / 92966451853). So a stranded PR is recoverable for any required workflow that carries workflow_dispatch. \n\nTHE GAP THAT REMAINS: pytest-collect.yml did NOT carry workflow_dispatch, so it was the one required context with no recovery route — and workflow_dispatch is only honoured for a workflow already carrying it on the DEFAULT branch, so adding it on a feature branch does not unblock that same branch. PR #8608 adds it, which helps the NEXT stranded PR, not itself. \n\nONE DIFFERENCE FROM 2026-07-30 worth recording: branch protection IS enforcing now — PR #8600 read mergeable_state 'blocked' until its checks went green and merged only after. The original report's #8053 'merged with zero checks' symptom did NOT reproduce today, so the protection-not-enforcing half appears genuinely fixed; the delivery half is not.",
       "action": "Short term: dispatch the required workflows on the branch ref when a PR shows total_count=0 — do NOT interpret zero checks as green, and do not merge on it. Medium term: (a) ensure EVERY required context carries workflow_dispatch on main (pytest-collect was the gap; fixed in #8608), (b) consider a scheduled watchdog that flags an open PR sitting at zero checks past N minutes, since zero renders identically to green in both the UI and the MCP payload. Root cause is GitHub-side delivery and is not fixable from this repo; the repo-side fix is making the condition detectable and recoverable.",
-      "resolution_criteria": "pull_request-triggered runs resume for new PRs, AND every context in branch-protection-sync.yml's REQUIRED_CONTEXTS carries workflow_dispatch on main so any future recurrence is recoverable."
+      "resolution_criteria": "pull_request-triggered runs resume for new PRs, AND every context in branch-protection-sync.yml's REQUIRED_CONTEXTS carries workflow_dispatch on main so any future recurrence is recoverable.",
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-DESTRUCTIVE-GIT-SYNC-NO-GUARD",
@@ -8808,8 +9043,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked: scripts/ops/git_sync_preflight.sh exists (the partial fix from 08-02) but is still advisory — nothing enforces it. Relevant this window: the concurrent session reported getting a branch-restart wrong once and self-correcting, which is another near-miss in the same family. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-TRAINER-DISK-95PCT",
@@ -9007,8 +9251,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked this run against live state, and deliberately NOT re-derived: the concurrent session `metis-ml2-cell-audit-cont-6ewta2` owns the regime-cell line right now and landed material corrections today (walk-forward sample floor MIN_DIRECTION_TRADES=10 in cf10172; the 'squeeze_breakout_4h inversion' WITHDRAWN; authored cells now 0-of-6 affirmatively justified, not 1-of-6; and the BTC vol-gate live-parity blocker closed as a false premise). Re-running this row's analysis in parallel would have raced their work. Live-side status confirmed unchanged this window: the regime router is baseline-on, no cell was edited (config/regime_policy.yaml untouched), and every cell change remains Tier-3. Kept open pending their PR #8584 and the operator's Tier-3 call."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260730-DIAG-RELAY-FAILURE-COMMENT-MISLEADING",
@@ -9292,6 +9545,14 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked, and this run added TWO fresh instances to the class rather than finding it quiet. (1) scripts/research/m20_exit_analysis.py reports hold_h exactly 24.0 with mfe exactly 0.0 for four trades (4430, 4431, 4450, 4451) whose true holds were 21-23h — a candle-window truncation presented as a measurement, sub-class C (unasserted denominator). Filed as BL-20260807-M20EXIT-HOLD-CLAMP-UNMARKED. (2) /api/bot/prop/status renders a live-looking rule_distance cushion computed from an account_status snapshot 18 days stale (reported_at 2026-07-20T08:28Z), with no staleness marker on the computed block — sub-class B. Filed as BL-20260807-PROP-RULEDISTANCE-STALE-SNAPSHOT-UNMARKED. Kept open; the class is not converging."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "One concrete instance of this class was FOUND AND FIXED this run (commit c80a318): the vm-diag-snapshot failure comment computed the real rejection reason, printed it to the run log, discarded it, and then asserted a single invented cause ('the path is read from the BODY, the title is display-only') for a step with three distinct rejection paths. It told this session to reformat a body that was already correct, when the actual fault was an allowlist miss. Reason is now carried to the comment and all three causes named. The parent CLASS item stays open — the standing audit (BL-20260807-DIAGPROV-STANDING-AUDIT-NEVER-DRAINED, 52 findings) is still undrained.",
+          "next_check": "drain the 52-finding standing audit",
+          "evidence_based": true
         }
       ],
       "id": "BL-20260730-DIAGNOSTIC-PROVENANCE-CLASS",
@@ -9307,7 +9568,8 @@
         "tests/test_diagnostic_provenance_guard.py",
         "scripts/ml/_regime_score_semantics.py",
         "docs/CLAUDE-RULES-CANONICAL.md"
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "opened_at": "2026-07-30T21:30:00+00:00",
@@ -9439,6 +9701,14 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Checked for movement this window: no run of this row's tooling occurred between 2026-08-04T05:20Z and 2026-08-07T14:36Z. Recording absence of progress rather than a re-measurement — this row needs dedicated research time, not a review pass. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
       ],
       "id": "BL-20260730-BINARY-EVALUATOR-ACCEPTS-MULTICLASS-HEAD",
@@ -9452,7 +9722,8 @@
         "ml/evaluators/classification.py",
         "ml/evaluators/classification_auc.py",
         "ml/evaluators/multiclass_classification.py"
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "opened_at": "2026-07-30T21:30:00+00:00",
@@ -9570,8 +9841,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked this run against live state, and deliberately NOT re-derived: the concurrent session `metis-ml2-cell-audit-cont-6ewta2` owns the regime-cell line right now and landed material corrections today (walk-forward sample floor MIN_DIRECTION_TRADES=10 in cf10172; the 'squeeze_breakout_4h inversion' WITHDRAWN; authored cells now 0-of-6 affirmatively justified, not 1-of-6; and the BTC vol-gate live-parity blocker closed as a false premise). Re-running this row's analysis in parallel would have raced their work. Live-side status confirmed unchanged this window: the regime router is baseline-on, no cell was edited (config/regime_policy.yaml untouched), and every cell change remains Tier-3. Kept open pending their PR #8584 and the operator's Tier-3 call."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260731-KILLZONE-BIAS-NEVER-PERSISTED",
@@ -9828,8 +10108,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked as a program row. No P0-P3 item from the 07-31 audit plan was closed in this window by this review; the concurrent session advanced the ML2/regime sub-line separately (cf10172, PR #8584). Recording no-change on the program row itself. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260731-FILLS-STORE-PREDATES-THE-FABRICATION",
@@ -9903,8 +10192,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked: my two trainer-vm-diag issues this run (#8591, #8592) each executed exactly ONCE — no duplicate run observed. That is one clean observation, not a refutation of an intermittent retry bug. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260731-EXITANCHOR-POST-DEPLOY-FABRICATION-CHECK",
@@ -10118,8 +10416,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "QUANTIFIED THIS RUN against live state (2026-08-07T14:36Z), same population as the 08-06 measurement: bybit_1 SOLUSDT journal 2075.2 vs exchange 4.6 (451x — matches the figure in CLAUDE.md), BNBUSDT 13.43 vs 5.49 (2.45x), XRPUSDT 183,436.9 vs 183,436.9 (1.00x). So the defect is live and unchanged, and NETTING_ATTRIBUTION_MODE is still `annotate` (no money-DB write). Tier-2 to flip to `apply`; NOT flipped by this review. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "MATERIAL NEW FINDING — the remediation is shipped but INERT. netting_attribution_soak rows on 2026-08-10 read `\"global_mode\": \"apply\"` with `\"mode\": \"annotate\"` and `\"apply_scope\": \"not_allowlisted\"` on EVERY row sampled, for BOTH bybit_1 and real-money bybit_2. So NETTING_ATTRIBUTION_MODE was flipped to apply but NETTING_ATTRIBUTION_ACCOUNTS does not include the accounts being observed — nothing is being written to the money DB and divergence keeps accruing. Concrete magnitude in the same log: trade 4529 ict_scalp_sol_15m journal_qty 26.7 vs exchange_qty 3.1 (excess 23.6, basis leg_gone); trade 4134 eth_pullback_2h journal 0.06 vs exchange 0.04. The good news is the new mode/global_mode/apply_scope triple is doing its job — a held-back row is legible as held-back rather than reading as applied.",
+          "next_check": "Tier-2 operator decision: add bybit_1 (then bybit_2) to NETTING_ATTRIBUTION_ACCOUNTS, or set global back to annotate so the declared mode matches reality",
+          "evidence_based": true
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260801-LIVENESS-WATCHDOG-FAILS-ON-TELEGRAM-404",
@@ -10154,8 +10461,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked: no stuck-package sweep fired in this window and order_packages is 3593 rows against 4509 trades, consistent with normal accrual. The 08-01 sweep still reads as cleanup fallout rather than a live cascade. Kept open pending one more quiet window before closing."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260801-TRADESCLOSED-RELAY-LIMIT300-TIMEOUT",
@@ -10177,8 +10493,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "BOUND NARROWED THIS RUN. This row records limit=300 fetch_failed while limit<=100 succeeds. Measured today: /api/bot/trades/closed?since=2026-08-04T05:20:00Z&include_paper=true&limit=200 SUCCEEDED through the relay, returning all 37 in-window rows as well-formed JSON (#8586). So the failure threshold is above 200, not between 100 and 200 — though note my request was also `since`-bounded, which caps the row count independently of `limit`, so this narrows rather than settles it. A clean test needs limit=300 with no `since`. Kept open, severity unchanged (low)."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260802-DIRWF-FOLDCOUNT-VERDICT-FLIP",
@@ -10211,8 +10536,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked and MATERIALLY ADVANCED by another session, not by me: cf10172 added MIN_DIRECTION_TRADES=10 as a sample floor to the regime-cell walk-forward gate, which is the same defect class this row records for direction_walkforward.analyze (verdict flipping on fold count at small n). Worth confirming whether that floor covers direction_walkforward.analyze too or only regime_cell_walkforward — I did not verify which, so I am not closing it. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260803-ICTSCALP-NO-HARNESS-R2-UNAUDITABLE",
@@ -10233,8 +10567,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked this run against live state, and deliberately NOT re-derived: the concurrent session `metis-ml2-cell-audit-cont-6ewta2` owns the regime-cell line right now and landed material corrections today (walk-forward sample floor MIN_DIRECTION_TRADES=10 in cf10172; the 'squeeze_breakout_4h inversion' WITHDRAWN; authored cells now 0-of-6 affirmatively justified, not 1-of-6; and the BTC vol-gate live-parity blocker closed as a false premise). Re-running this row's analysis in parallel would have raced their work. Live-side status confirmed unchanged this window: the regime router is baseline-on, no cell was edited (config/regime_policy.yaml untouched), and every cell change remains Tier-3. Kept open pending their PR #8584 and the operator's Tier-3 call."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260803-HTF2H-TRENDING-SHORT-OVERGATE",
@@ -10282,8 +10625,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked live routing this run (field, not comment): gld_pullback_1h holds OPEN positions on BOTH alpaca_portfolio (39 shares, uPnL +$364.39) and alpaca_paper (7 shares, +$65.45) as of 2026-08-07T14:36Z — so the routing this row flags is still live and still un-gated. Both accounts are paper, so there is no real-money exposure. Tier-3 (routing change) — proposed only, not enacted. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260806-ARBITRATION-SOAK-QTY-ALL-ZERO",
@@ -10299,8 +10651,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Not re-measured this run — I pulled allocator_soak and pairs_soak but not conviction_arbitration (the /api/diag/log_file?name=conviction_arbitration tail), so I have no new evidence on the target_qty=0.0 claim and will not imply otherwise. Kept open, untouched, and explicitly owed a tail read next review."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260806-ALLOCATOR-REGRET-VARIANT-PAIR-ARTIFACT",
@@ -10316,8 +10677,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "CONFIRMED THIS RUN with direct evidence. /api/bot/allocator/soak summary: total_scanned 165, disagree 85, disagree_pct 51.5, mean_regret 0.485. ALL THREE most-recent records (2026-08-05T16:31, 2026-08-05T17:40, 2026-08-07T12:09) are the same pair: candidate A `trend_donchian_eth` vs candidate B `trend_donchian_eth_prop` — the SAME strategy in its real and prop variants, same symbol, same side, same entry. So `disagree_pct` is measuring real-vs-prop variant selection, not strategy selection, exactly as this row claims. The 51.5% headline should not be quoted as an allocator-vs-aggregator disagreement rate. Kept open; the fix is to exclude same-base-strategy variant pairs from the soak's disagree/regret denominator."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260806-ISSUE-TRIGGER-FANOUT-77PCT-OF-ALL-RUNS",
@@ -10333,8 +10703,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Re-checked this run. Still live: my own 7 relay/action issues this session each spawned their own billed Actions run, which is the cost shape this row describes. No change landed this window beyond the 30-guards-into-one-`guards`-job consolidation already merged 2026-08-06 (#8539). Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-TRAINER-AUDIT-LOG-IS-HARNESS-OUTPUT-UNMARKED",
@@ -10357,8 +10736,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-ML2-DATASET-STALE-BLOCKS-VOLGATE-PARITY",
@@ -10386,8 +10774,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-REQUIRED-CHECKS-LACK-WORKFLOW-DISPATCH",
@@ -10403,8 +10800,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-TRUSTMAP-ALL-LEGS-INSUFFICIENT-LIVE",
@@ -10420,8 +10826,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-TRAINER-JOURNAL-PULL-TORN-RSYNC",
@@ -10478,8 +10893,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-TRAINERDIAG-COLUMN0-PYTHON-KEYWORD-TRUNCATES-CMD",
@@ -10495,8 +10919,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "REPRODUCED THIS RUN (#8591) — same family, same session. Confirms this is not a one-off: a heredoc-delivered Python block truncated at the heredoc opener. See the sibling row BL-20260806-TRAINER-RELAY-MANGLES-ANGLE-BRACKETS for the base64 mitigation verified on #8592, which sidesteps ALL THREE known extraction traps at once (angle brackets, newline collapse, column-0 keyword) because the payload never appears as shell-parsed text. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-IBPAPER-UPNL-CONTRADICTS-EXCHANGE-TRUTH",
@@ -10510,7 +10943,17 @@
       "detail": "Two ib_paper rows report an unrealizedPnl that no other endpoint supports, both with unrealizedPnlSource='markprice_local' (the server-side mark-to-market fallback, since IBKR is not in BROKER_PNL_READER_EXCHANGES for the unrealized path).\n\n  MGC  105 contracts long : /positions uPnL = +$110,040.00 | /pnl/exchange unrealized_pnl = +$37.80 (open_qty 105, last 4276.5) | exchange avg entry 4276.236 => true uPnL ~ +$28. Ratio ~2,900x.\n  MES   15 contracts long : /positions uPnL = +$10,481.25  | /pnl/exchange unrealized_pnl =  $0.00 (open_qty 15, last 7630.75) | exchange avg entry 7630.872 => true uPnL ~ -$9.\n\nPROBABLE MECHANISM (stated as hypothesis, not verified): markprice_local prices the NETTED position size against the single journal row's entry price. ib_paper MGC accumulated 105 contracts over 94 fills; any one journal row's entry is meaningless against that netted size, so qty(netted) x (mark - entry(one row)) x multiplier(10) produces a number with no referent. This is the unrealized-side sibling of BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED, on IB rather than Bybit.\n\nWHY IT MATTERS: this number is rendered as a headline uPnL on the dashboard Overview and the Android app and the Glance widget. It inflates paper open-PnL by ~$120k. It is paper-only today (ib_paper), so no money is at risk — but the same markprice_local path serves every non-Bybit account, and it is the exact 'a metric that cannot be right' shape.\n\nCROSS-CHECK THAT ARGUES THE POSITION IS FINE AND ONLY THE NUMBER IS WRONG: ib_paper balance delta_1h reads -$16,923.86 over the same hour the position supposedly gained $110k. Those cannot both be true.",
       "what_to_check": "Read src/web/api/routers/dashboard.py's unrealized fallback and confirm which entry price it uses for a netted multi-row position. Compare against src/runtime/provenance.py's classify: a markprice_local value computed off a mismatched entry is FABRICATED, not ESTIMATED, and should be declared UNMEASURED rather than rendered.",
       "resolution_criteria": "/api/bot/positions ib_paper uPnL agrees with /api/bot/pnl/exchange unrealized_pnl within a plausible tolerance, OR the value is declared unavailable ('—') rather than fabricated.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-NEWS-FEED-SYMBOL-COVERAGE-5-OF-24",
@@ -10524,7 +10967,17 @@
       "detail": "config/news_feeds.yaml::symbol_groups maps 7 bases (BTC, ETH, MCL, MES, MGC, MHG, MNQ). The bot trades 24 bases. Intersection is 5 (BTC, ETH, MES, MGC, MHG) — MCL and MNQ are mapped but not traded. The 19 unmapped bases fall through feeds_for_tags to the `global` group only: ADA, AVAX, GDX, GLD, IAUM, IEF, IWM, QLD, QQQ, SCHA, SLV, SOL, SPLG, SPY, TLT, TQQQ, USO, XAU, XRP. Coverage 5/24 = 20.8%.\n\nCONSEQUENCES:\n  - XRP/ADA/SOL/AVAX are crypto but never fetch the `crypto` group (CoinDesk/Cointelegraph/Decrypt). They cannot see a symbol-specific crypto story at all.\n  - uso_trend_1h trades oil and never fetches the `energy` group (oilprice.com), which exists and is unused by any traded symbol.\n  - SLV/GLD/GDX/IAUM never fetch `metals`; SPY/QQQ/IWM/TLT never fetch `equities`.\n\nOBSERVED IN THE LIVE LOG (2026-08-07T14:0x): the identical MarketWatch headline 'How S&P 500 options action may help explain the rising volatility in memory stocks' is the #1 scored item for ADAUSDT (0.0240), XRPUSDT (0.0277), TLT (0.0292) and MGC (0.0293), and XRP's #2/#3 items are two Social Security stories at score 0.0.\n\nIMPORTANT CORRECTION TO AN EASY MISREAD, so the next session does not overstate this: the macro fallback is BY DESIGN. news_normalizer._relevance_breakdown deliberately gives a macro article a partial relevance weight for a symbol whose own keywords do not match, so that Fed/inflation stories register. The defect is NOT that macro articles score — it is that 19 symbols have NOTHING ELSE in their feed set, so macro is all they ever see. Also note the audit row records a per-symbol `query` string (e.g. 'XRP OR Ripple') that under NEWS_SOURCE=rss selects nothing: fetch_news_rss takes symbol_tags and resolves FEEDS, never a query. That is a provenance defect in the log independent of the coverage gap.\n\nBLAST RADIUS: NEWS_VETO_ENABLED defaults true and is armed whenever the source is active (it is: rss). A veto blocks the signal for EVERY account including real money at sentiment < -0.6 AND impact > 0.7. Nothing is vetoing today (observed adjustments 0.004-0.008, decisions all `neutral`), so this is a latent mis-targeting rather than an active loss — but the gate is live and its input is wrong for 79% of traded symbols.",
       "recommendation": "Tier-1 YAML: extend symbol_groups to the 19 uncovered bases (crypto: ADA/AVAX/SOL/XRP; metals: GLD/GDX/IAUM/SLV/XAU; equities: SPY/QQQ/IWM/TQQQ/QLD/SPLG/SCHA/TLT/IEF; energy: USO). Separately, stop recording a `query` on rss-sourced audit rows, or record the resolved feed set instead. PROPOSED ONLY — not enacted by this review, because it changes what a live trade-blocking gate sees.",
       "resolution_criteria": "symbol_groups covers every traded base, and an rss-sourced news_decisions row names the feeds actually read rather than an unused query.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-PAIRS-STATE-UNREADABLE-38PCT",
@@ -10538,7 +10991,17 @@
       "detail": "pairs_soak summary over 2,232 scanned evaluations: skip_state_unreadable 850 (38.1%), skip_flat 1,133, skip_concurrency 202, open 28, shadow_open 9, open_failed 10. Two of the three most-recent records (2026-08-07T14:03-14:04) are skip_state_unreadable on live-mode pairs (SOLUSDT/ETHUSDT, BNBUSDT/BTCUSDT), so it is current, not historical.\n\nA sleeve that cannot read its own state on 38% of bars is not evaluating the strategy it was configured to evaluate, and open_failed 10 of 38 attempted opens (26%) is a second failure surface.\n\nCORROBORATING STATE: bybit_1 currently holds 7 open pair legs the sleeve has not closed — pairs_bnb_btc_a BNBUSDT short x5 opened 2026-07-16, 07-17, 07-20, 07-23, 07-28 (uPnL -$289 combined) and pairs_sol_eth_a SOLUSDT long x2 opened 07-29 and 08-01. The oldest is 22 days old on a 1h-bar sleeve.\n\nSEPARATE OBSERVATION worth recording here because it changes how pairs numbers should be read: pairs legs are placed with nominal 0.5x/2.0x-of-entry brackets (e.g. pairs_bnb_btc_a BNBUSDT entry 594.5, sl 297.25, tp 1189.0; pairs_bnb_btc_b BTCUSDT entry ~64160, sl 128320, tp 32080). Those are not real stops — each leg is individually unprotected and relies on the pair hedge. It also makes R meaningless for pairs rows: this window's pairs grades all read -0.00R, and /performance shows pairs_sol_eth_b totalR 0.0433 on $163.87. Do not aggregate pairs R with directional-strategy R.",
       "what_to_check": "Tail /api/diag/log_file?name=pairs_soak and find what raises skip_state_unreadable in src/units/strategies/pairs_executor.py — whether it is a missing state file, an unreadable journal query, or an exchange read failure.",
       "resolution_criteria": "skip_state_unreadable falls to a small residual, and no pair leg outlives its intended holding period without a close or an explicit alert.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-HEARTBEAT-PAUSED-WHILE-TICKING",
@@ -10552,7 +11015,17 @@
       "detail": "At capture time /api/diag/status reported heartbeat.age_seconds 226.18 and heartbeat.label 'paused', and /api/bot/stats reported status 'paused' — while status.last_tick_utc was 2026-08-07T14:35:45Z, five seconds before the 14:35:50Z capture. The trader was demonstrably running (bot_uptime_s 3247, ict-trader-live.service active, a trade opened within the prior 30m per /api/bot/notifications).\n\nMECHANISM (hypothesis, consistent with the documented design): CLAUDE.md states the heartbeat is refreshed every HEARTBEAT_INTERVAL_SECONDS (default 60) from inside src/main.py's SLEEP loop, so it fires between ticks. It therefore does NOT fire DURING a tick. A 226s heartbeat age with a fresh last_tick implies a single tick ran ~226s — nearly 4 minutes — against a 60s heartbeat cadence and the <180s 'running' threshold. With 52 loaded strategies that is plausible.\n\nTWO DISTINCT PROBLEMS, worth separating:\n  (1) FALSE ALARM SURFACE. Every consumer that reads `status` (dashboard, Android, Glance widget, and the operator's own eye) is told the trader is paused when it is not. A liveness signal that cries wolf during normal operation is the alarm-fatigue failure mode CLAUDE.md names as itself a P1.\n  (2) POSSIBLE REAL SIGNAL. A ~4-minute tick may be a genuine slow-tick regression worth measuring on its own, and the current design cannot distinguish 'slow tick' from 'dead trader' — which is precisely what the liveness watchdog exists to decide (it autoheals after 8 minutes of stall).\n\nNOT ASSERTED: I did not measure tick duration directly, so (2) is inferred from the heartbeat gap, not observed. The external ict-liveness-watchdog.timer is active and did not fire, consistent with the trader being alive.",
       "what_to_check": "Measure real tick duration from runtime_logs (successive last_tick_utc deltas) over a few hours. If ticks routinely exceed HEARTBEAT_INTERVAL_SECONDS, either refresh the heartbeat from inside the tick as well as the sleep, or derive the label from max(heartbeat_age, tick_age) so a fresh tick counts as liveness.",
       "resolution_criteria": "A running trader never reports 'paused'.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-BULK-RECONCILER-CLOSE-NO-EXIT-NO-PNL",
@@ -10566,7 +11039,17 @@
       "detail": "Between 2026-08-05T13:36:20Z and 13:51:43Z, seven trades opened 12-21 days earlier were closed with NO exit price, NO realized PnL and closeReason 'other':\n  3491 IAUM alpaca_paper      opened 2026-07-15T15:13 closed 08-05T13:36:20\n  3938 GDX  alpaca_portfolio   opened 2026-07-24T13:33 closed 08-05T13:36:20\n  3937 GDX  alpaca_paper       opened 2026-07-24T13:33 closed 08-05T13:41:14\n  3934 GLD  alpaca_paper       opened 2026-07-24T13:33 closed 08-05T13:46:35\n  3935 GLD  alpaca_portfolio   opened 2026-07-24T13:33 closed 08-05T13:51:43\n  3984 GLD  alpaca_portfolio   opened 2026-07-24T17:17 closed 08-05T13:51:43\nplus 3713/3714 QQQ (alpaca_paper/portfolio, opened 2026-07-20T13:59) closed 08-04T13:51:35-36 in the same shape.\n\nAll are alpaca accounts; all closed in a tight cluster; all have pnlProvenance null (which is the honest UNVERIFIED outcome, so the provenance layer is behaving correctly here — it is not fabricating a number).\n\nWHY IT MATTERS: these rows leave the open-position set but contribute nothing measurable. In a 37-row window they are 8 rows (22%) of trades with no outcome, which silently shrinks every denominator the performance aggregates rest on — /performance 7d paper reports pnlCoverage 0.357, and rows like these are part of why. A position held 21 days and closed with no exit price is either a real close whose price was lost, or a bookkeeping close of something that was never open.\n\nNOT ASSERTED: I have not determined which reconciler path did this. Candidates are the P3b position-snapshot reconciler (RECONCILER_SNAPSHOT_MIN_FILL_AGE_S guards the fresh-fill case, not the stale case) and a manual/cleanup sweep.",
       "what_to_check": "journalctl ict-trader-live.service around 2026-08-05T13:30-13:55Z, and grep runtime_logs/outcomes.jsonl for these trade ids.",
       "resolution_criteria": "The close path is identified, and either the exit price is recoverable or the rows are explicitly marked as unmeasured rather than silently closed.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "RECURRED during this window, same signature. /api/bot/trades/closed shows trades 3520 and 3588 (bybit_1, BNBUSDT, pairs_bnb_btc_a, opened 2026-07-16/17) both closed 2026-08-10T04:12:44 with exitPrice null, realizedPnl null, pnlProvenance null, closeReason 'reconciler'. So the pairs max-hold fix that landed 2026-08-10 is flushing the long-held legs, but it closes them UNMEASURED rather than anchored. The rows leave the open book and enter the closed book carrying no PnL at all.",
+          "next_check": "route these closes through exit_anchor.bar_close_at so they land anchored/deferred/no_anchor instead of silently null",
+          "evidence_based": true
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-M20EXIT-HOLD-CLAMP-UNMARKED",
@@ -10580,7 +11063,17 @@
       "detail": "Four of the 15 per-trade rows returned by the S3 compact dump read hold_h exactly 24.0 AND mfe exactly 0.0 AND mae in the -1.2..-1.4 range:\n  4430 slv_trend_1h    opened 2026-08-05T14:11 -> real close 2026-08-06T13:13 = 23.0h (reported 24.0)\n  4431 slv_trend_1h    opened 2026-08-05T14:11 -> real close 2026-08-06T15:34 = 25.4h (reported 24.0)\n  4450 qqq_pullback_1h opened 2026-08-05T18:04 -> real close 2026-08-06T13:03 = 19.0h (reported 24.0)\n  4451 qqq_pullback_1h opened 2026-08-05T18:04 -> real close 2026-08-06T13:40 = 19.6h (reported 24.0)\nA fifth, 4442 ict_scalp_mgc_15m, reports 24.0 against a real 21.6h.\n\nAn exact-24.0 hold on five rows with three different true durations is a CLAMP, and mfe exactly 0.0 on four long positions is the signature of an empty/short candle slice rather than a genuine absence of favourable excursion. Neither is marked in the output.\n\nThis is CLAUDE.md's UNPROVENANCED DIAGNOSTIC OUTPUT sub-class C (unasserted denominator): a truncated result reads as a clean measurement. It matters more than usual because m20_exit_analysis is the instrument /system-review's mandatory execution_capture block depends on — a capped hold_h systematically UNDER-states exactly the hold-time overrun the block exists to detect.\n\nHONEST SCOPE: the ict_scalp rows this review actually escalated (0.8-15.8h, and trade 4413 at 15.8h/-8.41R) are all BELOW the clamp, so this defect does not undermine that finding. It does mean the four clamped rows must not be quoted, and it caps what the tool can see at 24h.",
       "what_to_check": "Read the candle-window bound in scripts/research/m20_exit_analysis.py; emit an explicit `hold_truncated: true` / `mfe_window_incomplete: true` per row rather than a clamped number, per the diagnostic-provenance-guard contract.",
       "resolution_criteria": "No row reports a clamped hold or a window-limited MFE without a flag marking it as such.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-PROP-RULEDISTANCE-STALE-SNAPSHOT-UNMARKED",
@@ -10593,7 +11086,17 @@
       "severity": "low",
       "detail": "/api/bot/prop/status returns a fully-populated rule_distance block — distance_to_daily_loss_usd 144.77, distance_to_dd_floor_usd 125.61, day_pnl 0.0 — computed from a prop_account_status snapshot whose reported_at is 2026-07-20T08:28:32Z, eighteen days before the read. The block does carry as_of, but the dashboard Prop panel's loud st.error/st.warning cushion alarms are driven by these numbers, and a $125.61 distance-to-floor presented without a staleness treatment reads as current risk.\n\nMitigating facts, so this is rated low rather than high: there are no open prop positions right now (prop/reconcile unacted_count 0), the recent prop order-packages are all status 'shadow' / close_reason 'prop_shadow_no_emit' so the sleeve is emitting nothing, and PROP_STATUS_REQUEST_MAX_AGE_HOURS (default 24) only requests a refresh WHILE a prop position is open — so the staleness is expected behaviour, not a broken nag.\n\nThe defect is presentational: a derived risk figure should carry its input's age, or decline to compute. Sub-class B (implicit input selection) of the diagnostic-provenance class.",
       "resolution_criteria": "rule_distance either carries an explicit staleness flag consumers render, or returns null when its snapshot is older than the freshness threshold.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "WORSENED. /api/bot/prop/status 2026-08-10 returns rule_distance with distance_to_daily_loss_usd 144.77 and distance_to_dd_floor_usd 125.61 computed from a prop_account_status snapshot whose reported_at is 2026-07-20T08:28Z — now 21 DAYS stale (was 18 when filed). The envelope carries as_of but the cushion figures render with no staleness marker, so a 21-day-old balance presents as a live rule cushion on an account whose killer limit is a $145 daily loss. Same diagnostic-provenance class as the relay message fixed this run.",
+          "next_check": "surface age_seconds beside rule_distance and refuse to render a cushion past a freshness bound",
+          "evidence_based": true
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-ALPACA-PAPER-ZERO-BUYING-POWER-REFUSES-ALL",
@@ -10607,7 +11110,17 @@
       "detail": "Live banner at 2026-08-07T14:02:29Z: 'Strategy: tlt_pullback_1h | Symbol: TLT | Side: sell - Accounts attempted: 3 | Trades placed: 0 - alpaca_paper: risk_refused: sized_qty=0 with balance=85949.19 available_usd=0.00 total_account_usd=n/a direction=short market_type=spo...'\n\nThe account reports balance $85,908.90 and api_ok true, but available_usd 0.00, so RiskManager.position_size returns 0 and the refusal is correct behaviour given the input. The question is why available is zero: alpaca_paper holds 7 open positions including large shorts (TLT short 938, SLV short 376, IEF short 141) alongside longs (IWM 124, QQQ 18, SPY 11, GLD 7). Buying power looks exhausted by the short book.\n\nWHY THIS IS A FINDING RATHER THAN NORMAL: the refusal is a per-trade rejection with a logged cause, which is the Prime-Directive-correct shape — the account is NOT demoted and nothing auto-flipped. But if available_usd stays pinned at zero, alpaca_paper is silently non-participating in every new signal while still reading 'live', and the soak data it exists to generate stops accruing. That is a capability stranded by state rather than by a flag, and it will not show up as an outage anywhere.\n\nNOT ASSERTED: I have not confirmed how long available_usd has been zero, nor whether alpaca_portfolio (balance $98,739.90, 6 open positions) is in the same state — the banner names only alpaca_paper of the 3 accounts attempted.",
       "what_to_check": "/api/diag/broker_account_status?account_id=alpaca_paper for the trade-enabled flags, and track available_usd over a few hourly balance snapshots to see whether it recovers as positions close.",
       "resolution_criteria": "Either alpaca_paper regains non-zero buying power and places trades again, or the persistent-zero condition raises its own operator alert instead of only appearing as per-signal refusals.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-INSIGHTS-TABLES-92K-ROWS-IMPLAUSIBLE",
@@ -10621,7 +11134,17 @@
       "detail": "db_info reports insights_history 92,364 and insights_usage 92,470 rows, against trades 4,509 and order_packages 3,593.\n\nBACK-OF-ENVELOPE (stated as an estimate, and the reason this is filed as low rather than high — I have not read the writer): the M13 generators run at 15-minute (fast tier, 3 endpoints) and 60-minute (slow tier, per-strategy) cadence. Since the dashboard consumer was adopted 2026-05-12 (~87 days) that is roughly 8,350 fast-tier and 2,090 slow-tier invocations. Even at one row per endpoint per invocation the expected order of magnitude is ~10k-35k, not ~92k. The two tables also track each other to within 106 rows, which suggests a shared writer rather than two independent ones.\n\nPossible benign explanations I have NOT ruled out: a longer history than I assumed, more endpoints per invocation than I counted, or a retry that legitimately writes per attempt. Possible defect: a duplicate write per invocation, or no retention policy on an append-only observability table that will keep growing inside the money DB.\n\nWHY IT IS WORTH A ROW AT ALL: these two tables are ~96% of all rows in trade_journal.db by count and live in the SAME file as the money data, which the trainer pulls in full over the network every cycle (750 MB, and the pull mechanism was just found to be a torn hot-DB copy). Unbounded observability growth in the money DB is a cost even if every row is legitimate.",
       "what_to_check": "SELECT COUNT(*), MIN(ts), MAX(ts), endpoint FROM insights_usage GROUP BY endpoint — confirm rows-per-invocation and whether any retention exists.",
       "resolution_criteria": "Row count is explained against cadence, and a retention or archival policy exists if the tables are unbounded.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "WORSENING, measured. 2026-08-07: insights_history 92,364 / insights_usage 92,470. 2026-08-10 (/api/diag/db_info): 95,345 / 95,451. That is +2,981 / +2,981 in ~3 days = ~1,000 rows/day/table, against a generator cadence of 15min (fast) + 60min (slow) = ~120 writes/day expected. So the observed rate is ~8x the cadence ceiling and the two tables track each other exactly. Severity raised low -> medium: this is now a measured contradiction with a known denominator, not a suspicion.",
+          "next_check": "re-derive the writer's per-invocation row count; the 1:1 history/usage lockstep suggests one write per row rather than one per run",
+          "evidence_based": true
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-NO-REGISTERED-PUSH-DEVICES",
@@ -10634,7 +11157,17 @@
       "severity": "medium",
       "detail": "trade_journal.db::device_tokens has 0 rows. Every mobile push path is therefore inert: the typed WARNING pushes from the latched broker-account-down alert and the trainer-down alert, prop_fill/prop_closed/prop_monitor, and every trade-event notification the Android app subscribes to.\n\nThis does not mean alerting is dead — Telegram is a separate channel and ict-telegram-bot.service is active, and the /api/bot/notifications banner feed is independent of FCM. So the loud paths still have a route to the operator. But the mobile half of the two-channel design is silently unwired, and the code will keep 'successfully' emitting to an empty device list without erroring.\n\nCANNOT DISTINGUISH FROM HERE, and I am not going to guess: this is either (a) expected because the operator has not installed/paired the Android app, or (b) a regression where registrations were lost (learning_progress is also 0 rows, and backtest_results is 0, so an empty table on this VM is not by itself proof of loss). Worth one operator question rather than an investigation.",
       "resolution_criteria": "Either a device is registered and a test push is confirmed delivered, or the operator confirms mobile push is intentionally unused and the row is closed as by-design.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "ESCALATED. Re-measured 2026-08-10 via /api/diag/db_info: device_tokens row_count is STILL 0. Every FCM push the system emits — incl. the loud WARNING channel used by the account-down and trainer-down latched alerts — reaches nobody, and has for the whole window. This is not 'an alert is noisy', it is the alert channel being structurally dark while the code paths report success. Blocker: registering a device is an operator/phone action (open the Android app once); nothing on the repo side can create a token.",
+          "next_check": "operator: open the Android app once so it registers an FCM token",
+          "evidence_based": true
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-ACCRUAL-PHANTOM-GATE-P2-IS-THE-PATH",
@@ -10645,7 +11178,18 @@
       "title": "The 'P1.4b live accrual is the binding constraint' re-read is a PHANTOM GATE; P2/P3 is the actual path",
       "detail": "checked: scripts/research/backtest_fidelity_calibrate.py . The 2026-08-07 re-read (WORKPLAN-2026-08-05 sec 6) concluded accrual 'cannot be worked around by writing code'. Wrong, and unchecked. Evidence already in-repo: (a) backtest_fidelity_calibrate.py's docstring says it exists BECAUSE 'only trust real live trades caps every decision at reality's clock', then gates on MIN_LIVE_N=30 — the instrument built to escape the ceiling reproduces it; (b) the platform design's own P2 row: 'Fidelity becomes STRUCTURAL ... drift -> 0', effort 1-2 sessions, needing zero live trades; (c) its P3 row names the unblock as 'replace live-holdout only with calibrated-OOS-or-live ... the actual unblock'; (d) the drift cause is STRUCTURAL: read at backtest_system.py:239-327 the harness calls the REAL order_package for entries (faithful), but PARALLEL-IMPLEMENTS the signal-builder context (htf injection, warm=260, regime stamping) and OMITS the exit path entirely (grep for exit_head/trail_decay/stale_stop/ExitPlan/order_monitor returns nothing) — which is why the walk-forward reports fidelity=approximate with 5 omitted levers. No quantity of live trades closes a structural absence. NOTE: the first filing of this row said the harness 're-implements strategy logic', which is FALSE (it calls the real order_package); that claim was made from a doc phrase + grep without reading the function — the same failure mode this row documents. Also missed: htf_pullback_trend_2h loses 37/55 rows (67%) to the PROVENANCE filter, not to trade shortage — recovering provenance on historical rows widens the trusted set offline. Violates CLAUDE-RULES-CANONICAL 'Green is not evidence' obligation 3 (impossibility claims need more scepticism + must name the tool checked) and 'Research: backtest history first' (phantom-gate classification test never applied). Propagated unchecked through 3 restatements incl. operator-facing status. Population: 3 legs scanned, trusted 18/1/21 vs min_live_n=30, r_coverage 1.0, as of 2026-08-07.",
       "next_step": "Re-sequence to P2 (unified engine / SimBroker seam) then P3 (evaluate() + calibrated-OOS-or-live gate). Do NOT plan around accrual. Secondary: quantify how many trusted-live rows a historical provenance recovery would return.",
-      "checked": "scripts/research/backtest_fidelity_calibrate.py, docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md, scripts/backtest_system.py"
+      "checked": "scripts/research/backtest_fidelity_calibrate.py, docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md, scripts/backtest_system.py",
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-IMPOSSIBILITY-CLAIM-CORPUS-GRANDFATHERED",
@@ -10655,7 +11199,18 @@
       "opened": "2026-08-07",
       "title": "35 pre-existing impossibility / blocked-on-accrual claims name no tool (impossibility-claim-guard --all)",
       "detail": "checked: scripts/check_impossibility_claims.py . The new impossibility-claim-guard is DIFF-SCOPED in CI (same grandfathering as diagnostic-provenance-guard), so the pre-existing corpus does not fail a build. `python3 scripts/check_impossibility_claims.py --all` measures it: 214 files scanned, 35 unsubstantiated claims. Each is a sentence asserting something cannot be measured/replayed/worked-around, or that work is blocked pending accrual, with no `checked: <path>` naming what was actually consulted. That is exactly the shape that produced BL-20260807-ACCRUAL-PHANTOM-GATE-P2-IS-THE-PATH, where the claim was restated three times and re-derived zero times. Two of the 35 are REFUTING blocks (a doc demolishing such a claim) which the guard flags separately and which still owe an evidence pointer. POPULATION NOTE: 35 is the count over docs/research/*.md plus the three review backlogs — the guard's declared scope — not over the whole repo. Drain a few per review session: for each, either grep scripts/research/ + docs/research/RESEARCH-CAPABILITY-INDEX.md and add the `checked:` pointer, or delete the claim if it no longer holds.",
-      "close_condition": "`python3 scripts/check_impossibility_claims.py --all` returns 0 findings, OR the residue is reviewed and each survivor carries a verified `checked:` path."
+      "close_condition": "`python3 scripts/check_impossibility_claims.py --all` returns 0 findings, OR the residue is reviewed and each survivor carries a verified `checked:` path.",
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-BACKLOG-REFS-GUARD-BLOCKS-HISTORICAL-CITATIONS",
@@ -10665,7 +11220,18 @@
       "opened": "2026-08-07",
       "title": "artifact-validity-guard cannot distinguish a FORWARD 'tracked by BL-X' claim from a BACKWARD citation of a CLOSED incident",
       "detail": "MEASURED 2026-08-07 while adding src/runtime/monitor_verdict.py. check_backlog_refs.py resolves an id ONLY against open rows in docs/claude/*backlog*.json. When a row is resolved its id is deleted, so every historical citation of it becomes un-resolvable. The repo cites closed incidents this way extensively — the XRP SL-spam id alone appears in src/runtime/order_monitor.py, src/units/db/database.py and 2 test files, all of them documenting WHY a piece of code exists. Those are grandfathered only because the guard is diff-scoped. CONSEQUENCE: a new file documenting the same scar is blocked from naming it, so the cheapest way to pass is to DELETE the provenance link — the guard pushes authors in the opposite direction from the rule it serves. That is what happened here: the citation in monitor_verdict.py was reduced to prose + a pointer to order_monitor.py. POPULATION: 1 blocked change observed; the count of already-committed src/ citations to resolved ids has NOT been measured (the diff scope hides it) — measuring it is step 1. Candidate fixes: (a) a resolved-ids ledger the guard also reads, so closing a row records the id instead of erasing it; (b) distinguish the assertion by phrasing (a bare id is a citation; 'tracked by <id>'/'see <id>' is a tracking claim) — note (b) alone is weak, a typo'd id would read as a citation and pass. Do NOT fix by accepting any id that appears in 2+ files: that makes a propagated typo self-validating, the presence-only lie new-table-wiring-guard was defeated by.",
-      "close_condition": "A new file can cite a resolved incident id without the guard failing, AND a genuinely dangling forward reference still fails. Both directions covered by a guard selftest."
+      "close_condition": "A new file can cite a resolved incident id without the guard failing, AND a genuinely dangling forward reference still fails. Both directions covered by a guard selftest.",
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-TRAINER-DIAG-RELAY-SILENT-CMD-TRUNCATION",
@@ -10675,7 +11241,18 @@
       "opened": "2026-08-07",
       "title": "trainer-vm-diag SILENTLY TRUNCATES a long `cmd:` block — the run reports success over a command that was cut",
       "detail": "OBSERVED on trainer-diag #8598. The issue body's cmd: block had 12 lines; the relay executed only the first ~8. The echoed Command in the result comment ends mid-token (`echo \"==== methods seen on the last 5 journal rows ==`) and the output stops at the sync's own last line — the two verification sections AFTER the sync (`db_pulls tail AFTER` and the per-row method summary) never ran and never appeared. THE RUN STILL REPORTED SUCCESS. WHY THIS MATTERS: this is the unasserted-denominator / diagnostic-provenance class applied to the relay itself. A truncated command whose surviving prefix happens to succeed is indistinguishable from a command that ran in full — the reader sees plausible output and a green run. I only noticed because I knew which two sections were missing; a session that did not author the command would have read the output as complete. Any past relay result may have been truncated the same way without anyone knowing. POPULATION: 1 confirmed instance. The truncation POINT has not been characterised — I do not know whether the cause is a byte/line cap in the issue-body parser, the `==` token, or the embedded multi-line `python -c` string, and I have not measured it. Step 1 is to find the boundary with a deliberate ladder of increasing cmd: lengths. CANDIDATE FIX: make the relay echo a checksum/line-count of the cmd: block it PARSED next to the block it RECEIVED, and fail loudly on a mismatch — the same shape as `method` in db_pulls.jsonl, which is what made the sibling defect above catchable at all. A relay that cannot state what it ran is a diagnostic that does not say what it computed.",
-      "close_condition": "The relay either refuses or loudly flags a cmd: block it could not parse in full, verified by a deliberately over-long test dispatch that FAILS rather than silently running a prefix."
+      "close_condition": "The relay either refuses or loudly flags a cmd: block it could not parse in full, verified by a deliberately over-long test dispatch that FAILS rather than silently running a prefix.",
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "REPRODUCED LIVE this run, which upgrades this from 'observed once' to 'deterministic'. trainer-diag issue #8728 echoed the command back cut mid-token at `python3 -c \"import jso` and the run still reported SUCCESS; the three tails after the cut point returned empty and the registry line printed 0. A reviewer reading only the output would have concluded the trainer mirror was empty. The ML lifecycle had to be sourced from the live VM's /api/bot/ml/status instead (which was fine: 2 cycles/24h, 68 manifests trained, 0 failed).",
+          "next_check": "the relay must fail loudly on a truncated cmd — compare the received byte length against the issue body and abort rather than executing a prefix",
+          "evidence_based": true
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-PYTEST-APPROX-NUMPY-STUB",
@@ -10689,7 +11266,17 @@
       "detail": "`pytest.approx.__eq__` branches on `np := sys.modules.get('numpy')` and then touches `np.bool_`. numpy is NOT installed in the lean test env, but something in the suite leaves a truthy stub at `sys.modules['numpy']` (tests/conftest.py::_stub_optional inserts MagicMock() for missing optional deps and the pattern propagates). `approx` then raises inside `is_bool` instead of comparing.\n\nWHY IT MATTERS MORE THAN A LINT NIT: it is a HEISENBUG. An assertion passes when its file runs alone and fails in a full run, with the CORRECT value in the traceback (observed: `val = 8000.0` on an `== approx(8_000.0)` assertion). I initially read my own 5 new failures as a real regression in the code under test; they were not. Any future session doing the same before/after diff will hit the same false signal, and the reverse is worse — a genuinely broken assertion can be dismissed as 'just the numpy thing'.\n\nBLAST RADIUS: 144 `is_bool` frames in a single selective run, so a large share of the ~81 baseline failures in that selection are this artifact rather than real defects. That means the local baseline is not a trustworthy regression reference until this is fixed.\n\nWORKAROUND USED: tests/test_risk_gross_exposure.py uses an explicit `close_to()` tolerance helper instead of approx.\n\nNOT ASSERTED: I did not confirm which module inserts the numpy stub — `grep numpy tests/conftest.py` finds nothing, so it arrives transitively. That is the first thing to establish.",
       "what_to_check": "Run any approx-using test file alone (passes) then in a full run (raises in is_bool). Find who sets sys.modules['numpy'] — likely a transitive _stub_optional call. Fix by not stubbing numpy with a MagicMock, or by installing numpy in the test env.",
       "resolution_criteria": "An approx-based assertion behaves identically alone and in a full run.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-SPLG-NO-CANDLES-STRATEGY-CANNOT-EVALUATE",
@@ -10703,7 +11290,17 @@
       "detail": "splg_trend_long_1d has logged the SAME blocker every ~5 minutes since it went live: \"Strategy 'splg_trend_long_1d': need at least 46 candles for the donchian(30)/atr(14) windows; got 35.\" It is correctly configured (enabled, execution: live) and correctly routed (alpaca_paper, mode: live).\n\nTWO DISTINCT DATA FAULTS, and they disagree with each other:\n  /api/bot/candles?symbol=SPLG&interval=1d&limit=60 -> candles: [], count: 0, error: 'no_data'\n  the strategy's own fetch                          -> 35 bars\nControls added the SAME day with the same profile shape (SPY, SCHA, IAUM) all return 60. So this is SPLG-specific at the data source, not a config or strategy defect.\n\nCORRECTION TO THE RECORD, because the existing row is wrong about this: BL-20260730-SPLG-ZERO-TRADES is titled 'produced ZERO trades over 730d' and was opened 2026-07-30. SPLG was added to accounts.yaml on 2026-08-02 (commit 69be0e8) — THREE DAYS LATER. The 730d figure is a BACKTEST observation; live, the strategy is ~4 trading days old. Zero fires from a daily donchian-30 breakout over 4 trading days is unremarkable. Conflating the two nearly produced a KILL recommendation in RPT-20260807-145500-since-last against a strategy that has never been given a chance to fire.",
       "what_to_check": "Why the Alpaca data path returns 0/35 bars for SPLG specifically while SPY/SCHA/IAUM return 60. Check the data subscription/feed for SPLG and whether the two fetch paths use different endpoints or limits.",
       "resolution_criteria": "SPLG returns a full candle history on both paths and splg_trend_long_1d evaluates (fires or declines on price, not on missing data).",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-CANNOT-EVALUATE-IS-INVISIBLE",
@@ -10717,7 +11314,17 @@
       "detail": "THE GENERALIZABLE DEFECT BEHIND THE SPLG CASE, and the reason it sat unnoticed.\n\n8 strategy modules (trend_donchian, fvg_range_15m, fade_breakout_4h, turtle_soup, htf_pullback_trend_2h, ict_scalp, squeeze_breakout_4h, vwap) emit a 'need at least N candles ... got M' no-trade signal. NOTHING aggregates or alerts on it.\n\nTo every monitoring surface both states look identical — `side: none`:\n  CANNOT evaluate : \"need at least 46 candles ...; got 35\"   (permanent, structural)\n  evaluated, declined: \"no breakout on the latest bar (close=773.075 within channel [716.58, 776.81])\"  (normal, healthy)\nOnly the free-text `reason` distinguishes them, and nothing reads it.\n\nThe stuck-strategy detector (STUCK_STRATEGY_THRESHOLD_MINUTES) keys on TIME SINCE LAST SIGNAL. A data-starved strategy emits a signal every single tick, so it reads as perfectly healthy. That is why SPLG could shout its exact blocker every 5 minutes for days with nobody seeing it — and why the /system-review that DID look reached for KILL instead of the audit log.\n\nPROPOSED (not built): treat 'cannot evaluate' as its own state. Any strategy whose evaluations are 100% insufficient-data over a rolling window is data-starved, not quiet — alert on it the way a down broker account alerts. This is the same shape as the news-coverage guard: detect a whole CLASS of silent capability loss rather than the one instance that happened to be noticed.",
       "recommendation": "A startup + periodic check that every configured strategy/symbol can actually obtain the data its parameters require (lookback vs available bars), alerting when it cannot. Proposed to the operator 2026-08-07 as a shared mechanism with the news-coverage guard.",
       "resolution_criteria": "A strategy that cannot evaluate for lack of data raises its own alert rather than looking identical to one finding no setup.",
-      "updates": []
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED",
@@ -10749,7 +11356,18 @@
       "what_to_check": "Two halves compose into the outage. PRODUCER: exchange_fills_puller.fetch_fills_window caught every per-target exception and returned [] (the silent-empty shape). CONSUMER: pull_exchange_fills.main incremented `ran` for any account with credentials, regardless of outcome, and returned `0 if ran > 0 else 2` — the unasserted-denominator shape (docs sub-class C). Neither guard covers the other, exactly as CLAUDE.md notes for silent-empty-guard vs diagnostic-provenance-guard. This is the same class as the 2026-07-30 curl-403 CI poller: a red that checked nothing, rendered as a clean negative.",
       "action": "FIXED on the same branch: FillsWindowUnavailable / FundingWindowUnavailable raised when EVERY target failed (partial failure stays best-effort and is unchanged); the loop tracks ok/failed/skipped separately, logs the failed account ids, and returns exit 1 if any account was reachable-but-broken. Follow-up worth considering: a guard for the general shape 'loop counts attempts and returns success', since this is at least the third instance.",
       "resolution_criteria": "An induced total failure on one account makes ict-exchange-fills-pull.service exit non-zero and appear failed in /api/diag/services.",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-EXIT-ANCHOR-VALIDATED-ON-DISJOINT-POPULATION",
@@ -10764,7 +11382,18 @@
       "action": "Do not re-price history (the 2026-07-30 relabel-only operator decision stands). Options to weigh: (a) record whether closed_at is broker-sourced or detection-sourced and expose it, so a consumer can tell a close-time anchor from a detection-time one; (b) re-run the validator restricted to rows whose closed_at is detection-time to get an honest error distribution for the applied population; (c) treat a detection-time anchor as a distinct, weaker provenance than a close-time anchor rather than both being ESTIMATED. Blocked on BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED for bybit_1 — without exchange fills there is no ground truth on that account to validate against.",
       "resolution_criteria": "An anchored row's provenance distinguishes close-time from detection-time anchoring, and the accuracy figure quoted for the estimator is computed on the population it is applied to.",
       "snoozed_until": null,
-      "measured_2026_08_07": "FIRST MEASUREMENT ON THE APPLIED POPULATION, now possible because bybit_1 exchange truth exists. POPULATION (stated explicitly): the 3 AVAXUSDT/bybit_1 trades whose fills fall in the 7-day window — 4314 (trend_donchian_avax_4h, closed 08-02), 4361 (trend_donchian_avax_4h, closed 08-06), 4413 (ict_scalp_avax_5m, closed 08-06). The window contains EXACTLY 6 AVAX fills (3 entries + 3 exits) and first_exec_time 2026-08-01T18:33:23.795Z matches trade 4314's created_at 18:33:24 to the second, so the 6 fills are those 3 trades and nothing else; open_qty_signed is 0 (flat). \n\nJOURNAL sum of the 3 rows: -2840.5578 + -2574.612 + -4254.2364 = -$9,669.41. EXCHANGE realized over the same 6 fills (FIFO-matched, net of $233.91 fees): -$5,403.09. The journal OVERSTATES the loss by $4,266.32 — 79% more than broker truth. \n\nMECHANISM CONFIRMED IN THE TIMESTAMPS: the last real AVAX fill is 2026-08-06T10:00:58.915Z, but the journal closed 4361 at 10:17:15.670 and 4413 at 10:17:17.008 — ~16 minutes AFTER the position was already flat — and stamped BOTH with the same bar close of 6.416 despite different entries (6.788 / 6.692) and different stops (6.46475 / 6.6592). So the detection lag here is ~16 MINUTES, not the >=26h the trade's open-to-close span suggested; the anchor is far closer than feared and STILL produced a $4,266 error, because a bar the market has already moved through is not a fill. \n\nCONSEQUENCE for BL-20260720-ICTSCALP-PASTSTOP-EXITS / the ict_scalp review: trade 4413's -8.41R is substantially an EXIT-PRICE RECONSTRUCTION ARTIFACT, not evidence that a 0.49% stop let price run 8x past it. NOT YET ESTABLISHED: the per-trade split of the $4,266 — /api/bot/pnl/exchange serves by_symbol aggregates only, and although the store implements fifo_pnl_by_strategy, NO HTTP route exposes it (filters are days + account_id, and all three trades are bybit_1). So no corrected R is asserted for 4413 specifically."
+      "measured_2026_08_07": "FIRST MEASUREMENT ON THE APPLIED POPULATION, now possible because bybit_1 exchange truth exists. POPULATION (stated explicitly): the 3 AVAXUSDT/bybit_1 trades whose fills fall in the 7-day window — 4314 (trend_donchian_avax_4h, closed 08-02), 4361 (trend_donchian_avax_4h, closed 08-06), 4413 (ict_scalp_avax_5m, closed 08-06). The window contains EXACTLY 6 AVAX fills (3 entries + 3 exits) and first_exec_time 2026-08-01T18:33:23.795Z matches trade 4314's created_at 18:33:24 to the second, so the 6 fills are those 3 trades and nothing else; open_qty_signed is 0 (flat). \n\nJOURNAL sum of the 3 rows: -2840.5578 + -2574.612 + -4254.2364 = -$9,669.41. EXCHANGE realized over the same 6 fills (FIFO-matched, net of $233.91 fees): -$5,403.09. The journal OVERSTATES the loss by $4,266.32 — 79% more than broker truth. \n\nMECHANISM CONFIRMED IN THE TIMESTAMPS: the last real AVAX fill is 2026-08-06T10:00:58.915Z, but the journal closed 4361 at 10:17:15.670 and 4413 at 10:17:17.008 — ~16 minutes AFTER the position was already flat — and stamped BOTH with the same bar close of 6.416 despite different entries (6.788 / 6.692) and different stops (6.46475 / 6.6592). So the detection lag here is ~16 MINUTES, not the >=26h the trade's open-to-close span suggested; the anchor is far closer than feared and STILL produced a $4,266 error, because a bar the market has already moved through is not a fill. \n\nCONSEQUENCE for BL-20260720-ICTSCALP-PASTSTOP-EXITS / the ict_scalp review: trade 4413's -8.41R is substantially an EXIT-PRICE RECONSTRUCTION ARTIFACT, not evidence that a 0.49% stop let price run 8x past it. NOT YET ESTABLISHED: the per-trade split of the $4,266 — /api/bot/pnl/exchange serves by_symbol aggregates only, and although the store implements fifo_pnl_by_strategy, NO HTTP route exposes it (filters are days + account_id, and all three trades are bybit_1). So no corrected R is asserted for 4413 specifically.",
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-DEMO-FLAG-SIX-PARSES",
@@ -10778,7 +11407,18 @@
       "what_to_check": "bool(cfg.get('demo')) reads the YAML string \"false\" as True; the string-tolerant form reads it as False. Every account currently uses a real boolean, so the parses agree TODAY — the divergence is latent, not active, and this is filed so it is not discovered during an incident. Consolidating means touching Layer-3 order-path files, which is why it was not swept inside a fills-puller PR.",
       "action": "Point the existing call sites at src/config/accounts_loader.py::account_is_demo. Consider a guard for a second parse of a canonical account field, the same shape as canonical-config-loaders.",
       "resolution_criteria": "One parse of the demo flag repo-wide.",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260807-EXCHANGE-TRUTH-PER-STRATEGY-UNREACHABLE",
@@ -10792,7 +11432,18 @@
       "what_to_check": "src/runtime/exchange_fills_store.py implements fifo_pnl_by_strategy (tested in tests/test_exchange_fills_store.py), but its only consumer is scripts/strategy_gate.py. GET /api/bot/pnl/exchange exposes by_symbol aggregates with filters days + account_id only. When several strategies trade the same symbol on the same account — the normal case on bybit_1 — the symbol aggregate cannot separate them, so exchange truth cannot be compared against a per-strategy or per-trade journal figure from the read surface.",
       "action": "PARTIALLY ADDRESSED 2026-08-08: added GET /api/bot/pnl/exchange/fills (src.runtime.exchange_fills_store::list_fills) — the raw fill ROWS, filtered by days/account/symbol, with `truncated` declaring a capped page. That is what makes a small population (the 6 AVAX fills) exactly attributable by hand. \n\nDELIBERATELY NOT DONE: the per-STRATEGY aggregate. fifo_pnl_by_strategy wants an `order_id -> strategy` map, and src/runtime/broker_cost_attribution.py:13 records why that cannot work alone — a broker SL/TP exit fills under an order id the bot never sees, so the map covers ENTRIES only and every exit would bucket to `unattributed`, leaving FIFO with buys and no sells. strategy_gate.py:32-35 already documents the same gap ('until the P3b resolver lands the caller passes {} and these gates read insufficient_data'). The correct attributor attributes FILLS to TRADES via entry-exact + exit-FIFO (the shape attribute_roundtrip_fees already implements for fees) and then groups trades by strategy — NOT an order_id map. Build it against the new rows so it can be checked, rather than shipping a plausible split.",
       "resolution_criteria": "A journal-vs-exchange discrepancy on a symbol traded by multiple strategies can be attributed per strategy without adding new code.",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260808-FILLS-WINDOW-TOO-SHORT-TO-REPAIR-HISTORY",
@@ -10904,7 +11555,18 @@
         "tests/research/test_calibrator_harness_fidelity.py",
         ".github/workflows/research-exit-head-replay-trainer.yml",
         "scripts/check_diagnostic_provenance.py"
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260808-EXIT-HEAD-MANIFEST-RECORDS-NO-TRAINING-WINDOW",
@@ -10980,7 +11642,18 @@
       "what_to_check": "THE VALUES CANNOT BE CHOSEN FROM THIS READ, and the design already says so: gross-exposure-governance-DESIGN.md section 7 explicitly lists 'any value shipped without section 4's observation soak behind it' as NOT proposed. What exists today is one sample, not a distribution.\n\nWHY THE SNAPSHOT IS PARTICULARLY WEAK: it was taken on a SUNDAY. US equities and CME futures were closed, so the Alpaca and IB numbers are a held-over Friday book with no intraday variation in them. bybit (crypto, 24/7) is the only leg whose reading reflects an active market.\n\nA NEAR-MISS WORTH RECORDING, because the next session will be tempted the same way: alpaca_paper/portfolio/live show no new opens since Friday 15:32Z and ib_paper none since Friday 14:02Z, while bybit_1 traded Sunday 01:14Z. That pattern looks exactly like the originating incident (BL-20260807-ALPACA-PAPER-ZERO-BUYING-POWER-REFUSES-ALL: 'walked to 2.03x ungoverned and then refused every signal with sized_qty=0'). It is NOT. It is the weekend. Venue-closed silence and refusal silence are indistinguishable in the trades table; only the calendar separates them.\n\nSECOND NEAR-MISS: /api/diag/broker_account_status came back fully clean (ACTIVE, trading_blocked false) for both Alpaca accounts. That does NOT clear the brick — it reports AUTHORIZATION (permitted to trade), while the incident is CAPACITY (available_usd 0.00, no room to trade). Do not read one as the other.",
       "action": "TAKE THE SOAK, then propose. Sample /api/diag/exposure across a full TRADING week (Mon-Fri, several reads per session incl. US open and close) and record the distribution per account — max, not just mean, since the ceiling has to clear the peak of normal operation. The route is connection-free and token-gated, so sampling costs nothing on the money box.\n\nTHE ONE ANALYTIC RESULT THAT DOES NOT NEED THE SOAK, and it is the interesting one: section 6 requires the ceiling to sit BELOW the venue limit AND ABOVE normal operation. For Alpaca those two constraints are INVERTED in this read — measured 2.0238x against a 2.00x Reg-T limit. If a weekday soak reproduces >2.00x as normal operation, then NO ceiling value satisfies section 6 for those accounts, and a ceiling is the wrong instrument: it would mask a sizing problem rather than govern one. Establish whether >2.00x is genuinely normal BEFORE proposing any Alpaca value.\n\nbybit_2 is the only funded real-money account (equity $278.17, multiple 0.9939) and is the one that most warrants a considered ceiling; its per-account value should not be inherited from a fleet default derived mostly from paper books.",
       "resolution_criteria": "A weekday exposure distribution exists per account; the question 'is >2.00x normal for Alpaca' is answered from measurement; and the operator has either approved a proposed fleet default + per-account overrides or explicitly declined.",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "MATERIALLY ADVANCED — the soak is now accruing on weekdays (exposure_soak.jsonl 148,739 bytes, multi-day). First readings pulled 2026-08-10: bybit_2 (REAL MONEY) exposure_multiple 0.9888 on $279.61 equity / $276.47 gross notional; bybit_portfolio 1.0513 (ABOVE 1x); bybit_1 0.5516; ib_paper 0.4442; alpaca_live / oanda_practice 0.0; breakout_1 and ib_live measured:false with unmeasured_reason equity_unavailable (correctly NOT reported as flat). Every account reads policy_declared:false — no ceiling is declared anywhere. Note real money sitting at ~1.0x gross with no declared ceiling. Still open because the load-bearing statistic is max_multiple over a full observation window and I could not read summary.by_account: `exposure/soak` was missing from the relay allowlist (fixed this run, commit c80a318) so I had to read the raw log tail instead, which gives no denominator.",
+          "next_check": "re-pull /api/bot/exposure/soak summary once c80a318 merges; the ceiling VALUE remains Tier-3 and needs max_multiple beside measured_n",
+          "evidence_based": true
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260809-DIAG-BOTLOG-TARGET-ABSENT",
@@ -10994,7 +11667,18 @@
       "what_to_check": "The diag surface offers `bot_log` in its documented name allowlist, but the resolved path is absent on the live VM, so the target always returns empty. The envelope is honest (present:false, not a silent []), which is why this is LOW and not a correctness bug — a caller can tell the difference between 'no file' and 'no lines'.\n\nThe risk is narrower: a session reaching for `bot_log` as a fallback (the audit log is the primary source, bot.log is documented as its fallback in CLAUDE.md) burns a relay round-trip to learn nothing, and could read the empty result as 'nothing was logged' if it does not check `present`. Confirm whether the trader still writes bot.log at all — if logging moved wholly to journald + the audit JSONL, the target is vestigial.",
       "action": "Either drop `bot_log` from the log_file allowlist + the CLAUDE.md diag table row, or fix the resolved path to wherever the trader actually writes it. Do not leave an advertised target that can only ever answer empty.",
       "resolution_criteria": "`bot_log` either returns real content or is removed from the allowlist and the docs.",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260809-INPROCESS-HARNESS-RUNS-FEE-ONLY-SILENTLY",
@@ -11091,7 +11775,18 @@
       "what_to_check": "RULE 1 — THE THIRD CASE. When adding a boolean or a scoping flag to a DECISION path, check whether it can express the third state. Six instances in one day, and in the worst of them the boolean was INDIVIDUALLY CORRECT:\\n\\n  * `_pair_is_open()` genuinely answers 'is this pair on'. It simply could not carry 'exactly one leg open', so a half-closed pair read as FLAT and the executor opened a second pair on top of a stranded leg (#8667).\\n  * `gross_exposure()` returned None for BOTH 'no ceiling declared' and 'no data', so the ceiling's own measurement was gated on the ceiling already existing — unpickable for a year (#8665).\\n  * `NETTING_ATTRIBUTION_ACCOUNTS` intersected the account set at the top of the pass, collapsing 'not staged for writes' into 'not observed', which made real-money bybit_2 invisible to the soak whose whole purpose was to justify including it (#8666).\\n\\nThe recurring shape: a control or predicate that quietly switches OFF the observation that would justify using it. The repo already had the remedy written down — `src/runtime/exit_anchor.py`'s three-way `anchored`/`deferred`/`no_anchor`, whose docstring states outright that collapsing any two reintroduces a defect — but it was never generalised past that one module.\\n\\nRULE 2 — AN UNTESTED BRANCH IS NOT COVERED BY A GREEN SUITE. #8666's intersection survived its original review because there was NO allowlist test at all; the suite was green over a branch nobody had ever asserted. Every behavioural test written this session was therefore verified to FAIL against the restored old behaviour before being accepted, which caught two real bugs mid-development (an empty-dict payload rendering a confident 'not measured (unknown)', and a truthiness guard admitting partial dicts).\\n\\nBOTH RULES ALSO APPLY TO THE REVIEWER, which is the part most worth writing down: I verified that no consumer would BREAK on #8665's new key and never that any consumer would DISPLAY it (#8678), and I read a weekend of venue-closed silence as a live brick because quiet-because-shut and quiet-because-refusing are indistinguishable in the trades table (#8683).",
       "action": "PROPOSE to docs/CLAUDE-RULES-CANONICAL.md, alongside the existing 'Always state the population' and 'Green is not evidence' entries — those are the same family and these two extend it from QUANTITIES to STATE MACHINES and to TEST COVERAGE. Operator approves the promotion; do not self-promote a canonical rule.\\n\\nA guard is NOT proposed for rule 1: 'can this boolean express the third case' is a design judgement, and a presence-only marker would be cheaper to lie to than to satisfy (the new-table-wiring-guard lesson). Rule 2 is partially mechanisable — a coverage delta on changed branches — but that is a separate, evidenced proposal, not a bolt-on here.",
       "resolution_criteria": "Both rules are either merged into docs/CLAUDE-RULES-CANONICAL.md with the incident citations, or explicitly declined with a reason recorded here.",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260809-API-TIER-INVENTORY-77PCT-STALE",
@@ -11135,7 +11830,18 @@
         "docs/research/exit-refinement-coverage.json",
         "scripts/research/m27/ict_scalp_exit_sweep.py",
         ".github/workflows/research-symbol-p0-build.yml"
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260809-SCALP-HARNESS-LOADS-BTC-YAML-FOR-EVERY-LEG",
@@ -11155,7 +11861,18 @@
         "scripts/backtest_ict_scalp.py",
         "scripts/research/m27/ict_scalp_exit_sweep.py",
         "CLAUDE.md#diagnostic-provenance"
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260810-ROLLUP-DENOMINATOR-UNASSERTED",
@@ -11178,7 +11895,18 @@
         "scripts/ci/guard_selftests.py",
         "docs/CLAUDE-RULES-CANONICAL.md",
         "docs/sprint-logs/S-M20-COVERAGE-AND-VERIFY-2026-08-09.md"
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH",
@@ -11225,7 +11953,18 @@
         ".github/workflows/pytest-collect.yml",
         ".github/workflows/repo-inventory.yml",
         ".github/workflows/guards.yml"
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260810-BANKING-GATE-CANNOT-PASS",
@@ -11249,7 +11988,18 @@
         "scripts/research/m27/ict_scalp_exit_sweep.py",
         "src/prop/montecarlo.py",
         "https://github.com/benbaichmankass/Metis-Insights/actions/runs/31344328313"
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260810-SWEEP-VERDICTS-DO-NOT-RECORD-THEIR-DATASET",
@@ -11269,7 +12019,18 @@
         "docs/research/exit-refinement-coverage.json",
         ".github/workflows/ict-scalp-exit-sweep.yml",
         "docs/CLAUDE-RULES-CANONICAL.md#always-state-the-population"
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260810-ICTSCALP-AVAX-QTY-EXCEEDS-VENUE-MAX",
@@ -11291,7 +12052,18 @@
         "config/strategies.yaml",
         "scripts/check_qty_legalization_guard.py",
         "docs/claude/health-review-backlog.json#BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR"
-      ]
+      ],
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "BL-20260810-NO-STALL-EXIT-CAPITAL-SITS-IN-DEAD-TRADES",
@@ -11359,6 +12131,73 @@
         "docs/claude/session-board.json",
         "docs/claude/coordination-board.md",
         ".claude/skills/session-coordination/SKILL.md"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
+    },
+    {
+      "id": "BL-20260810-TICK-CHAIN-260S-PER-TICK",
+      "opened_at": "2026-08-10T05:10:00+00:00",
+      "opened_by": "claude (system-review 2026-08-10)",
+      "status": "open",
+      "severity": "high",
+      "tier": 2,
+      "title": "The trader's per-tick hook chain is taking 251s mean / 296s max — the tick-cost instrument's FIRST reading, and it is 1-2 orders of magnitude over what every component claims to cost",
+      "source": "/api/diag/tick_cost, pulled 2026-08-10T04:39Z during /system-review.",
+      "what_to_check": "MEASURED, not inferred. /api/diag/tick_cost at 2026-08-10T04:35Z: ticks_measured 10, last_ms 260292.3, max_ms 295641.5 (max_at_utc 2026-08-10T04:24:53Z), mean_ms 251147.4, process_started_utc 2026-08-10T03:44:37Z. So a single pass through src/main.py's hook chain is taking FOUR TO FIVE MINUTES, and it is not a one-off spike: mean 251s against max 296s means essentially EVERY tick is this slow (low variance, high floor), across all 10 ticks since process start.\n\nWHY THIS MATTERS, and why it is the exact thing the instrument was built for. tick_cost shipped 2026-08-09 (one day before this reading) precisely because 'each hook is individually bounded and documented as cheap; nothing measured the SUM' — the shape of BOTH June 2026 wedges (MB-20260609-001 steady-state, BL-20260609-001 cold-start). This is its first real reading and it immediately shows the sum is nothing like the parts. A dozen best-effort hooks each documented as cheap do not add to 251 seconds.\n\nSTATED POPULATION: 10 ticks, one process (started 03:44:37Z), single sample at 04:35Z. Counters are per-PROCESS and reset on restart, so this is ~51 minutes of one process's life, NOT a long-run distribution. That is a real limit on the claim — but it bounds the finding in the SAFE direction: the mean is already 251s over every tick observed.\n\nWHY IT IS NOT CURRENTLY A WEDGE, and why that is not reassurance: TICK_INTERVAL_SECONDS is 15 min, so a 5-min tick still fits inside the interval and the heartbeat (written every 60s from inside the sleep loop, so it fires between ticks) still reads 'running' — status at the same moment showed heartbeat age 158s, label running, last_tick 04:39:06Z. The system therefore looks healthy on every liveness surface while burning a third of every interval. Headroom to the wedge is ~3.0x on the max, and the trend is unobserved because nothing has ever plotted this before.",
+      "why_critical": "This is the precise failure MODE of the 2026-06-09/06-10 cascade — a tick that grows un-observed until it exceeds the interval, at which point the heartbeat starves and the liveness watchdog restarts a trader that is not actually dead. It also very likely explains the open BL-20260807-HEARTBEAT-PAUSED-WHILE-TICKING ('status reads paused while the trader is actively ticking — heartbeat starves during a long tick'), which was filed 3 days before the instrument existed to measure the cause. Those two items should be read together.",
+      "next_action": "Attribute the 251s. tick_cost measures only the SUM by design, so the next step is a per-hook breakdown — the chain is order_monitor + pairs_executor + macro thesis + five prop prompts + two reachability alerts + IB-state dump + exposure soak. Prime suspects are the hooks that do network I/O per tick: the Bybit broker-naked sweep (_check_broker_naked_bybit_positions, every tick, unconditional, one exchange read per account) and _reconcile_open_trades. NOTE the instrument deliberately enforces no budget — do not 'fix' this by adding a cap; a cap over an unattributed 251s would just hide it.",
+      "related": [
+        "BL-20260807-HEARTBEAT-PAUSED-WHILE-TICKING",
+        "MB-20260609-001",
+        "BL-20260609-001"
+      ],
+      "resolution_criteria": "A per-hook cost attribution exists and the dominant term is either justified or reduced; tick max_ms tracked across reviews rather than sampled once."
+    },
+    {
+      "id": "BL-20260810-MGC-15M-NO-CANDLE-DATA",
+      "opened_at": "2026-08-10T05:10:00+00:00",
+      "opened_by": "claude (system-review 2026-08-10)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "title": "ict_scalp_mgc_15m raises 'no candle data for MGC 15m' every evaluation — the strategy cannot evaluate and it is surfacing only as a generic operator_warning banner",
+      "source": "/api/bot/notifications, pulled 2026-08-10T04:39Z.",
+      "what_to_check": "Live banner at severity 'alert', kind operator_warning, since 2026-08-10T03:56:28Z: 'RuntimeError: ict_scalp_mgc_15m: no candle data for symbol=MGC timeframe=15m.' detail 'strategy_builder * exception'. MGC is an IBKR-fed symbol and IB was healthy at the same moment (/api/diag/ib_state: all four clients state=connected, account_data_ready=true, breaker_open=false, consecutive_failures=0), so this is NOT a gateway wedge — the 15m bar request specifically returns nothing while the account connection is fine. ib_paper holds a live MGC position (105 contracts, entry 4276.236) at the same time, so the symbol is tradeable but not evaluable at 15m.",
+      "why_critical": "This is a direct instance of the open BL-20260807-CANNOT-EVALUATE-IS-INVISIBLE class: a strategy that CANNOT evaluate is indistinguishable from one that evaluated and declined. Here it happens to raise, so it surfaces — but as an untyped operator_warning that reads like any other exception, with no 'this strategy has been unable to evaluate for N hours' aggregate anywhere. ict_scalp_mgc_15m also carries SHIPPED M27 verdicts whose dataset is already known missing (BL-20260809-XAU-PROXY-DATASET-GONE-VERDICTS-UNREPRODUCIBLE), so this leg is now both unevaluable live and unreproducible offline.",
+      "next_action": "Determine whether MGC 15m is a contract/bar-size request the IB feed will not serve (vs a transient). If it is structural, the leg is dead and should be declared so rather than raising every tick — a per-tick RuntimeError is also a contributor to the tick-cost item above.",
+      "related": [
+        "BL-20260807-CANNOT-EVALUATE-IS-INVISIBLE",
+        "BL-20260809-XAU-PROXY-DATASET-GONE-VERDICTS-UNREPRODUCIBLE",
+        "BL-20260810-TICK-CHAIN-260S-PER-TICK"
+      ],
+      "resolution_criteria": "MGC 15m either serves candles or the leg is explicitly declared unevaluable; either way the condition is visible as a state, not an exception string."
+    },
+    {
+      "id": "BL-20260810-RELAY-ALLOWLIST-OMITS-NEW-READ-SURFACES",
+      "opened_at": "2026-08-10T05:10:00+00:00",
+      "opened_by": "claude (system-review 2026-08-10)",
+      "status": "resolved",
+      "resolved_at": "2026-08-10T05:10:00+00:00",
+      "resolved_by": "claude (system-review 2026-08-10)",
+      "severity": "medium",
+      "tier": 1,
+      "title": "Two Tier-1 read surfaces (exposure/soak, pnl/exchange/fills) shipped unreachable by the relay — and the relay's rejection message invented a cause",
+      "source": "Hit directly while pulling state for /system-review 2026-08-10; both fixed in commit c80a318.",
+      "what_to_check": "(1) ALLOWLIST GAP: /api/bot/exposure/soak and /api/bot/pnl/exchange/fills are documented Tier-1 GETs but were absent from BOTH allowlists in .github/workflows/vm-diag-snapshot.yml. A relay-only (Trusted-network) session — which is the ONLY session type that runs these reviews — therefore could not read them at all. exposure/soak was blocking BL-20260809-EXPOSURE-SOAK-NOT-YET-TAKEN, whose entire ask is the observation window that endpoint serves. Aggravating: one bad path fails the WHOLE batch, so the miss took out a 15-path request.\n(2) INVENTED CAUSE: resolve_one raises three distinct rejections (allowlist miss / illegal characters / empty path) and prints the real one to the run log, but the issue comment DISCARDED it and asserted one unrelated cause — 'the path is read from the issue BODY, the title is display-only' — sending the caller to fix a body that was already correct. UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A.",
+      "resolution": "c80a318. Both paths added to the shell case and BOT_ALLOWLIST_EXACT, with a comment stating that adding a /api/bot/* read surface without adding it here ships it unreachable. The rejection reason is now carried to the issue comment via $GITHUB_ENV and read through process.env (not ${{ }} interpolation, so caller-supplied text cannot break out of the script literal); the comment names all three causes and states that an allowlist miss is a gap in the relay rather than a mistake in the request.",
+      "related": [
+        "BL-20260809-EXPOSURE-SOAK-NOT-YET-TAKEN",
+        "BL-20260730-DIAGNOSTIC-PROVENANCE-CLASS"
       ]
     }
   ],

@@ -2158,8 +2158,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "PB-20260729-CRYPTO-PULLBACK-2H-LONG-DRAG",
@@ -2197,8 +2206,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "PB-20260730-REGIME-EVIDENCE-VENUE-FEE-REGRADE",
@@ -2251,8 +2269,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "MEASURED this run via m20_exit_analysis on the trainer. Hold times on the sub-hour scalp legs are STILL an order of magnitude over expected: trade 4369 ict_scalp_sol_5m held 102.8h and 4371 ict_scalp_sol_15m held 100.2h (a 5m and a 15m leg holding four days); 4413 ict_scalp_avax_5m held 26.2h for -8.41R. Against that, the 4-day window looks clean (6 trades, roundtrippers_pct 0.0, mean_hold_h 4.6) — but n=6 and ALL PAPER, so the clean read is over a population too thin to clear the anomaly. This is the standing-watch item doing its job; the anomaly is carried forward, not closed.",
+          "next_check": "keep measuring each review; the anomaly closes only when a full window of scalp legs holds within its timeframe",
+          "evidence_based": true
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE",
@@ -2285,8 +2312,18 @@
       "detail": "*** READ THIS FIRST — 2026-08-08 CORRECTION (session system-review-ma0ava). ***\nThe headline claim below is substantially WRONG and must not drive a Tier-2 order-monitor/bracket fix as written.\n\nMEASURED against Bybit exchange truth, which did not exist when this row was filed (bybit_1 is a demo account and the fills puller had never successfully reached it — BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED, fixed and live-verified 2026-08-07).\n\nPOPULATION: the 3 AVAXUSDT/bybit_1 trades whose fills fall in the 7-day window — 4314, 4361, 4413. The window holds EXACTLY 6 AVAX fills (3 entries + 3 exits), first_exec_time 18:33:23.795Z matches 4314's created_at to the second, and open_qty_signed is 0. The population is closed.\n  journal sum of the 3 rows      -$9,669.41\n  exchange FIFO, net of $233.91  -$5,403.09\n  journal OVERSTATES by          -$4,266.32  (79%)\n\nMECHANISM, confirmed in the timestamps: the last real AVAX fill is 10:00:58.915Z, but the journal closed 4361 at 10:17:15.670 and 4413 at 10:17:17.008 — ~16 minutes AFTER the position was already flat — and stamped BOTH with the same bar close 6.416 despite different entries (6.788 / 6.692) and different stops (6.46475 / 6.6592). That is a detection-time bar anchor, not a fill. So 4413's -$4,254.24 / -8.41R is substantially a reconstruction artifact, and the 'the stop let price run 8x past it' reading is not supported.\n\nNOT ESTABLISHED, and deliberately not asserted: the per-trade split of the $4,266 across 4314/4361/4413. No corrected R is claimed for 4413 specifically. Also unknown whether 4413 was among the 39 rows repaired to MEASURED by the 2026-08-08 backfill-fabricated-exits apply (issue #8628) or among the 28 left as fills_present_but_qty_unreconciled — netted siblings sharing one exchange position are exactly the shape that lands in the latter. CHECK: read trade 4413's notes.backfill and exit_price_source before quoting any R for it.\n\nWHAT SURVIVES THE CORRECTION, and is still worth working:\n  * the ~16-minute detection lag is real and independently confirmed;\n  * 7 of 10 closes by reconciler rather than by stop or target is a per-CLOSE-PATH count, unaffected by exit-price provenance, and remains the strongest signal here;\n  * the hold-time distribution (0.8h..15.8h on a 5m strategy) is timestamp-derived and also unaffected.\n  * the giveback figure (mean 1.92R) is NOT safe — it is computed from realized R, which is exactly the quantity shown to be manufactured. Re-derive it over MEASURED-provenance rows only before quoting it again.\n\nThe qty-scoped-stop-desync hypothesis below is now COMPETING with a simpler measured explanation rather than being the leading one. It is not disproven — the netting divergence is separately real (BL-20260801) — but this trade is no longer evidence for it.\n\n--- ORIGINAL ROW AS FILED 2026-08-07, retained as the record ---\n\nTrade 4413, ict_scalp_avax_5m, AVAXUSDT long, bybit_1 (PAPER — no money at risk, which is the only reason this is not a P0).\n  opened 2026-08-05T08:03:54Z, entry 6.692, sl 6.6592 (a 0.53% / ~1R stop), tp 6.7487\n  closed 2026-08-06T10:17:17Z — hold 15.8h on a FIVE-MINUTE strategy\n  realized -$4,254.24 = -8.41R. MFE +0.73R, MAE -5.0R.\n  closeReason 'reconciler' / exit_reason 'reconciler_filled' — NOT sl_cross.\n  Graded B (entry=optimal, conf 0.83): the DECISION was fine. The execution gave away 8.4x the intended risk.\n\nThe stop did not contain the loss and did not close the trade; the reconciler noticed the position was gone. Realized -8.41R is also worse than the measured MAE of -5.0R, which implies the fill landed beyond anything the candle window saw.\n\nTHIS IS NOT ISOLATED — it is the tail of a pattern this review measured across the window. All 10 ict_scalp closes: holds 0.8/1.0/1.5/1.8/1.8/3.2/3.5/5.0/15.8h (+1 clamped at 24.0, see BL-20260807-M20EXIT-HOLD-CLAMP-UNMARKED) against a 5m/15m expected hold of minutes; mean giveback (MFE - realized R) 1.92R; 7 of 10 closed by `reconciler_filled` or `exchange_flat_reconciled` rather than by a stop or target.\n\nMECHANISM (hypothesis, NOT verified — and the honest state is that the mechanism is exactly what is still unknown): bybit_1 runs BYBIT_TPSL_MODE=partial, where qty-scoped SL/TP legs are ADD-only and can desync from a netted one-way position. The same account currently shows journal-vs-exchange qty divergence of 451x on SOLUSDT and 2.45x on BNBUSDT. A qty-scoped stop attached for a qty the position no longer holds would not protect the row. That connects this to BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED and BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING, but I have not proven the link.\n\nAGE: first flagged as a capture concern 2026-07-30 (PB-20260730-SCALP-CAPTURE-STANDING-WATCH, BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED). This is the second consecutive review with it open, which per the /system-review execution-capture rule (reviews_open >= 2) makes it a mandatory standalone escalation rather than a watch item. Escalated to operator_priorities in RPT-20260807-145500-since-last.",
       "recommendation": "Verify per-trade stop coverage on bybit_1 by reading resting SL legs against each open journal row (the _bybit_position_protection covered_qty path), and confirm whether trade 4413 had a resting stop for its own qty at any point. Until then, treat ict_scalp paper R-statistics as execution-contaminated: the entry edge and the realized edge are measuring different things.",
       "resolution_criteria": "ict_scalp capture statistics are re-derived over measured-provenance rows with the population and pnlCoverage stated, and either a real capture defect survives that restatement — in which case it gets its own row with the measured figure — or the concern is closed as an artifact of the exit-anchor era.",
-      "updates": [],
-      "action": "SUPERSEDED as originally scoped. Do NOT open a Tier-2 bracket-path fix on the strength of the -8.41R figure.\n\n1. Re-derive the ict_scalp capture statistics (giveback, realized R) over MEASURED/ESTIMATED-provenance rows ONLY — /api/bot/performance now exposes totalPnlMeasured + pnlCoverage per strategy for exactly this, and /api/bot/trades/closed carries per-row pnlProvenance. A capture claim computed over fabricated exits measures the reconstruction, not the strategy.\n2. The close-PATH finding (7 of 10 by reconciler) is provenance-independent and IS worth chasing on its own terms — that is the surviving lead.\n3. Only after (1) yields a measured giveback should any Tier-3 stop-geometry or Tier-2 bracket change be proposed."
+      "updates": [
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
+        }
+      ],
+      "action": "SUPERSEDED as originally scoped. Do NOT open a Tier-2 bracket-path fix on the strength of the -8.41R figure.\n\n1. Re-derive the ict_scalp capture statistics (giveback, realized R) over MEASURED/ESTIMATED-provenance rows ONLY — /api/bot/performance now exposes totalPnlMeasured + pnlCoverage per strategy for exactly this, and /api/bot/trades/closed carries per-row pnlProvenance. A capture claim computed over fabricated exits measures the reconstruction, not the strategy.\n2. The close-PATH finding (7 of 10 by reconciler) is provenance-independent and IS worth chasing on its own terms — that is the surviving lead.\n3. Only after (1) yields a measured giveback should any Tier-3 stop-geometry or Tier-2 bracket change be proposed.",
+      "updated_at": "2026-08-10T05:05:00+00:00"
     }
   ],
   "updated_at": "2026-08-07T14:55:00+00:00"
