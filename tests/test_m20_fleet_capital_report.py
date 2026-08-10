@@ -174,3 +174,48 @@ def test_winner_mfe_p80_distinguishes_shape_mismatch_from_thin_sample():
         "winner_mfe_p80 still does a raw top-level mfe_r read"
     assert "winners_seen" in code, \
         "winner_mfe_p80 cannot tell 'no winners' from 'no readable MFE'"
+
+
+# ------------- every swept harness must be able to REPORT the capital axis
+def test_every_swept_harness_emits_the_capital_keys():
+    """The axis the operator raised to a PRINCIPLE on 2026-08-10 has to exist in
+    every harness the fleet sweep drives, or it is silently blind on a family.
+
+    Measured that day: the sweep returned `net_r_per_capital_day: null` for 14
+    of 14 cells on EVERY donchian leg while the pullback legs measured 14/14.
+    Not a property of those books — backtest_pullback.py imports
+    capital_efficiency and backtest_trend.py / backtest_squeeze.py did not. It
+    blinded the axis precisely where the giveback census says the money is (the
+    1h Bybit trend legs carry ~1,400R of the fleet's 2,443R).
+
+    Same shape as the mfe_r gap two hours earlier, which is why this is a test
+    over ALL harnesses rather than a fix to two files: a metric present in one
+    harness and absent in its sibling degrades to a null that reads as
+    "measured, no effect".
+    """
+    import importlib.util
+    import pandas as pd
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "scripts"))
+    import capital_efficiency as ce
+
+    required = set(ce.empty())
+    empty_df = pd.DataFrame({"timestamp": pd.to_datetime([]), "open": [], "high": [],
+                             "low": [], "close": [], "volume": []})
+    # The harnesses scripts/research/m20_fleet_exit_sweep.py::HARNESS routes to.
+    for name in ("backtest_trend", "backtest_pullback", "backtest_squeeze"):
+        spec = importlib.util.spec_from_file_location(name, REPO / "scripts" / f"{name}.py")
+        mod = importlib.util.module_from_spec(spec)
+        _sys.modules[name] = mod
+        spec.loader.exec_module(mod)
+        s = mod._summarize([], empty_df, timeframe="1h", symbol="X", params={})
+        missing = sorted(required - set(s))
+        assert not missing, (
+            f"{name} cannot report the capital axis (missing {missing}) — the "
+            "fleet sweep will emit null for every cell on this family and it "
+            "will read as 'measured, no effect'")
+        # ...and an unmeasured rate is None, never a fabricated zero.
+        assert s["net_r_per_capital_day"] is None, (
+            f"{name} reports a zero-trade capital rate as "
+            f"{s['net_r_per_capital_day']!r} — 'we could not measure' and 'the "
+            "rate was zero' are opposite statements")

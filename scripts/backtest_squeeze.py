@@ -40,6 +40,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
+import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
 
 # Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B).
 # main() (the CLI path) resolves unset --slippage/--funding flags to the
@@ -318,7 +319,8 @@ def _summarize(trades, df, *, timeframe, symbol, params):
     if n == 0:
         base.update({"win_rate_pct": 0.0, "net_total_r": 0.0, "net_expectancy_r": 0.0,
                      "trades_long": 0, "trades_short": 0, "max_drawdown_r": 0.0,
-                     "by_outcome": {}, "by_year": {}})
+                     "by_outcome": {}, "by_year": {},
+                     **capital_efficiency.empty()})
         return base
     rs = [t.r_multiple for t in trades]
     costs = [_cost_breakdown(t) for t in trades]
@@ -364,6 +366,32 @@ def _summarize(trades, df, *, timeframe, symbol, params):
         "trades_long": len(longs), "trades_short": len(shorts),
         "max_drawdown_r": round(mdd, 4), "by_outcome": by, "by_year": by_year,
         "consistency": consistency})
+
+    # Capital efficiency — the axis the operator raised to a PRINCIPLE on
+    # 2026-08-10 ("not just a gate for testing"), and which this harness could
+    # not report at all. Measured the same day: the M20 sweep returned
+    # `net_r_per_capital_day: null` for 14 of 14 cells on EVERY donchian leg
+    # while the pullback legs measured 14/14 — because backtest_pullback.py
+    # imports capital_efficiency and this file did not. That blinded the axis
+    # precisely where the giveback census says the money is (the 1h Bybit trend
+    # legs carry ~1,400R of the fleet's 2,443R; trend_donchian_1h alone is
+    # 316R). Same shape as the mfe_r gap: a metric computed in one harness,
+    # absent in its sibling, degrading to a null that reads as "measured, no
+    # effect".
+    #
+    # DEFINITION is single-homed in scripts/capital_efficiency.py; this harness
+    # owns only the extraction. capital_bars == position_bars HONESTLY here:
+    # every lever this harness is swept for closes the WHOLE position, so no
+    # capital is released early and the two coincide by definition. Wire a
+    # rung-bar (as backtest_ict_scalp.py does) before reading this column for
+    # any partial-exit cell.
+    _pos_bars = float(sum(max(0, int(t.exit_index) - int(t.entry_index))
+                          for t in trades))
+    base.update(capital_efficiency.summarize(
+        bar_minutes=capital_efficiency.bar_minutes_from_frame(df),
+        position_bars=_pos_bars, capital_bars=_pos_bars,
+        net_total_r=base.get("net_total_r"), n_trades=n))
+
     return base
 
 
