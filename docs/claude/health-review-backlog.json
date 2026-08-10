@@ -11378,8 +11378,50 @@
         "docs/claude/diag-relay.md",
         "docs/ARCHITECTURE-CANONICAL.md"
       ]
+    },
+    {
+      "id": "BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL",
+      "opened_at": "2026-08-10T02:45:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "open",
+      "tier": 1,
+      "severity": "high",
+      "area": "m20-exit-refinement",
+      "title": "M20's gate optimises net_R and maxDD only -- the TWO metrics that measure the operator's actual complaint (MFE capture ratio, capital efficiency) are both computed in-repo and read by ZERO gates",
+      "source": "MEASURED 2026-08-10. Coverage matrix census: 400 cells (50 legs x 8 levers) -> 266 honest_negative (66.5%), 63 pending, 24 shipped (6.0%), 5 passed_unshipped.\n\nOperator 2026-08-10: 'the amount of times that a trade has gotten within literally several cents of its take profit and then it drops and turns into a loss ... we're working on this so hard and we're getting absolutely nowhere.'\n\nThe standard metric for that phenomenon is MFE CAPTURE RATIO (exit profit / maximum favorable excursion). It is already computed here -- src/research/excursions.py, build_backtest_panel.py, build_exit_panel.py, analyze_research_panel.py -- and grep finds NO gate, sweep verdict, or matrix cell that reads it. It is not one of the 8 lever_columns. Same for net_r_per_capital_day (BL-20260810 sibling): declared as the gate's tiebreak in the exit-refinement skill since inception, first computed 2026-08-10.\n\nSo every one of the 266 honest_negative verdicts was rendered by an objective function that is INDIFFERENT to both 'how much of the move did we keep' and 'how long did the capital sit'. A lever that improves either while costing a little net_R is not merely unreported -- Path A's `beats()` requires net_R >= base, so it short-circuits to is_oos_fail BEFORE the walk-forward runs.\n\nThis is the THIRD instance of the written-but-never-read class in this repo, after exit_price_source (12 writers / 1 unrelated reader -> the phantom -$6,358 leak) and net_r_per_capital_day. The pattern is the finding.",
+      "what_to_check": "Quantify the prize before designing a lever: over the fleet's backtest panel, the share of LOSING trades whose mfe_r reached >= 80/90/95% of the leg's tp_r, and the fleet capture_ratio distribution against the external <30% 'severe edge leakage' / >75% 'excellent' reference points. That number sizes the opportunity and says which legs to work first. Do NOT design from the anecdote alone.",
+      "action": "Add capture_ratio to the reported axes beside net_r_per_capital_day (same report-not-grade discipline, thresholds operator-set). Then re-evaluate the 266 honest_negatives -- they are not wrong, they are answers to a different question.",
+      "resolution_criteria": "A gate or verdict surface reads capture_ratio, and the fleet re-evaluation under the widened objective is recorded in the coverage matrix.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/research/exit-refinement-coverage.json",
+        "src/research/excursions.py",
+        "scripts/research/m20_fleet_exit_sweep.py",
+        ".claude/skills/exit-refinement/SKILL.md"
+      ]
+    },
+    {
+      "id": "BL-20260810-EXIT-LEVER-SPACE-UNDER-ENUMERATED",
+      "opened_at": "2026-08-10T02:45:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "open",
+      "tier": 1,
+      "severity": "high",
+      "area": "m20-exit-refinement",
+      "title": "the coverage matrix's 8 lever columns are not the lever space: 21 exit-relevant harness flags exist, 3 have no column at all, and the operator's near-TP-reversal case has NO lever anywhere",
+      "source": "MEASURED 2026-08-10 by enumerating add_argument() across the 6 backtest harnesses: 21 exit-relevant flags vs 8 matrix lever_columns.\n\nFlags with NO matrix column:\n  --timeout-bars   present in ALL SIX harnesses. A hard max-hold, distinct from stale_stop (which is conditional on R). This is the crudest form of the exact 'capital sits in dead trades' complaint and it has never been swept.\n  --sim-breakeven  ict_scalp only. A breakeven stop is the most direct protection against the give-it-all-back case, and it is neither a column nor ported to the other five harnesses.\n  --tp-r / --exit-style / --atr-stop-buffer / --pierce-min  fade + fvg_range only.\n\nMISSING ENTIRELY -- no harness has it: a lever parameterized on PROXIMITY TO TARGET. Every giveback lever is in absolute R (--giveback-r, --giveback-min-mfe-r), so on a 1.5R bracket a trade that reaches 1.45R and reverses only triggers after surrendering the configured absolute R. 'Arm breakeven / tighten at X% of the distance to TP' cannot currently be expressed, let alone tested. That is precisely the operator's case.",
+      "what_to_check": "Whether --timeout-bars and --sim-breakeven were deliberately excluded from the matrix or simply never added. check_harness_lever_coupling.py's UNMODELLED sets list timeout_bars as unmodelled-by-family, which is about REPLAY parity, not about the matrix's column set -- the two gaps are being conflated.",
+      "action": "Enumerate the lever space exhaustively BEFORE the next sweep (operator directive 2026-08-10: 'deep research all the levers and then actually test them, not just one or two'). Add the missing columns; port --sim-breakeven and a new proximity-to-target lever across harnesses; then sweep the full grid rather than one lever at a time.",
+      "resolution_criteria": "Every exit-relevant harness flag maps to a matrix column or a recorded n/a with a reason, and the proximity-to-target lever exists and has been swept.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/research/exit-refinement-coverage.json",
+        "scripts/check_harness_lever_coupling.py",
+        "scripts/backtest_ict_scalp.py",
+        "scripts/backtest_pullback.py"
+      ]
     }
   ],
-  "updated_at": "2026-08-10T02:32:00+00:00",
+  "updated_at": "2026-08-10T02:45:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
