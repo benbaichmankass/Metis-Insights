@@ -96,6 +96,18 @@ PROXY_DATA = {"MGC": "GC_F", "XAUUSD": "GC_F", "MES": "ES_F", "MHG": "HG_F"}
 DATA_GRAIN = ["5m", "15m", "1h", "1d"]
 TF_MINUTES = {"5m": 5, "15m": 15, "1h": 60, "2h": 120, "4h": 240, "1d": 1440}
 
+# Per-harness-run subprocess cap. 1800s, matching run_census, NOT the 900s this
+# used to carry: the 2026-08-10 census measured a single full-history
+# ict_scalp_5m run at 955s, so an IS-window scalp run sat right on the old cap.
+# A cell that times out reads `verdict: error` — honest, but it is a
+# measurement we failed to take, and taking it is cheap on a free runner.
+# Overridable with --cell-timeout.
+CELL_TIMEOUT_S: float = 1800.0
+
+# Memo for run_cell, keyed on the full invocation. See run_cell's docstring for
+# why this is load-bearing rather than cosmetic.
+_CELL_CACHE: dict[tuple, dict] = {}
+
 FOLDS = [("2021", "2021-01-01", "2022-01-01"), ("2022", "2022-01-01", "2023-01-01"),
          ("2023", "2023-01-01", "2024-01-01"), ("2024", "2024-01-01", "2025-01-01"),
          ("2025", "2025-01-01", "2026-01-01"), ("2026", "2026-01-01", None)]
@@ -439,6 +451,26 @@ def run_census(harness: str, args: list[str], target_r: float | None,
 
 
 def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
+    """One harness run, memoized on its full invocation.
+
+    The memo is not a micro-optimization; it removes an O(candidates) blow-up
+    that the scalp family is the first leg to actually hit. The walk-forward
+    re-runs the leg's BASE for every fold of every candidate, and those base
+    fold runs are byte-identical across candidates — so a leg with five
+    candidates paid for the same six base folds five times. Measured cost of
+    that redundancy on an ict_scalp 5m leg (2026-08-10 census timings: ~16 min
+    per full-history run): up to eight extra full-history-equivalents, i.e.
+    more than two hours per leg of recomputing a known answer.
+
+    Correctness rests on the runs being deterministic in their inputs, which
+    they are — same harness, same argv, same window, same frame. A shallow copy
+    is handed out so a caller that annotates a result cannot poison the entry
+    for the next reader.
+    """
+    key = (harness, tuple(args), start, end)
+    hit = _CELL_CACHE.get(key)
+    if hit is not None:
+        return dict(hit)
     tmp = "/tmp/m20_fleet_cell.json"
     cmd = [sys.executable, str(REPO / harness), *args, "--json", tmp]
     if start:
@@ -446,15 +478,21 @@ def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
     if end:
         cmd += ["--end", end]
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+        p = subprocess.run(cmd, capture_output=True, text=True,
+                           timeout=CELL_TIMEOUT_S)
     except subprocess.TimeoutExpired:
-        return {"error": "timeout"}
+        # Deliberately NOT cached: a timeout is "we did not finish looking",
+        # not a measured result, and caching it would make one slow run
+        # permanent for the rest of the process.
+        return {"error": f"timeout after {CELL_TIMEOUT_S:.0f}s"}
     if p.returncode != 0:
         return {"error": (p.stderr or p.stdout)[-250:]}
     try:
-        return json.loads(Path(tmp).read_text())
+        out = json.loads(Path(tmp).read_text())
     except (OSError, json.JSONDecodeError) as exc:
         return {"error": f"json: {exc}"}
+    _CELL_CACHE[key] = out
+    return dict(out)
 
 
 def beats(cell: dict, base: dict) -> bool:
@@ -557,6 +595,7 @@ def capital_delta(cell: dict, base: dict) -> dict:
 
 
 def main(argv: list[str]) -> int:
+    global CELL_TIMEOUT_S
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--data-dir", default=str(REPO / "data"))
     ap.add_argument("--split", default="2025-07-01")
@@ -589,10 +628,18 @@ def main(argv: list[str]) -> int:
                          "for fixed-target legs). Applies no lever and grades nothing "
                          "-- it sizes the prize and orders the legs before any lever "
                          "is designed.")
+    ap.add_argument("--cell-timeout", type=float, default=CELL_TIMEOUT_S,
+                    help="Per-harness-run subprocess cap in seconds (default "
+                         "1800). A run that exceeds it is recorded as "
+                         "verdict:error -- a measurement not taken, never a "
+                         "measured negative. Raise it for the 5m scalp legs, "
+                         "whose full-history run was measured at ~955s.")
     ap.add_argument("--p80-only", action="store_true",
                     help="P4.4 re-run: evaluate ONLY the dynamic p80 decay cell "
                          "per leg (fixed cells already verdicted)")
     a = ap.parse_args(argv[1:])
+    if a.cell_timeout and a.cell_timeout > 0:
+        CELL_TIMEOUT_S = float(a.cell_timeout)
 
     strategies = (yaml.safe_load((REPO / "config" / "strategies.yaml")
                                  .read_text()) or {}).get("strategies") or {}

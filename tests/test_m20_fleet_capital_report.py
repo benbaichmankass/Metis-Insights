@@ -219,3 +219,87 @@ def test_every_swept_harness_emits_the_capital_keys():
             f"{name} reports a zero-trade capital rate as "
             f"{s['net_r_per_capital_day']!r} — 'we could not measure' and 'the "
             "rate was zero' are opposite statements")
+
+
+def _sweep_module():
+    """Load the sweep driver by path (scripts/research is not a package)."""
+    import importlib.util
+    import sys as _sys
+    spec = importlib.util.spec_from_file_location(
+        "m20_fleet_exit_sweep", REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py")
+    mod = importlib.util.module_from_spec(spec)
+    _sys.modules["m20_fleet_exit_sweep"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_run_cell_memo_collapses_the_repeated_walkforward_base(monkeypatch):
+    """The same invocation must be executed ONCE per process.
+
+    Not a micro-optimization. The walk-forward re-runs each leg's base for
+    every fold of every candidate, and those runs are byte-identical across
+    candidates — so a five-candidate leg paid for the same six base folds five
+    times. On an ict_scalp 5m leg (census-measured at ~955s per full-history
+    run) that redundancy is hours, and it is what pushed the family past the
+    job timeout.
+    """
+    mod = _sweep_module()
+    mod._CELL_CACHE.clear()
+    calls = []
+
+    class _P:
+        returncode = 0
+        stdout = stderr = ""
+
+    def fake_run(cmd, **kw):
+        calls.append(tuple(cmd))
+        import json as _json
+        import pathlib as _pl
+        _pl.Path("/tmp/m20_fleet_cell.json").write_text(_json.dumps({"net_total_r": 1.0}))
+        return _P()
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    args = ["--data", "x.csv"]
+    for _ in range(5):
+        assert mod.run_cell("scripts/backtest_trend.py", args,
+                            start="2021-01-01", end="2022-01-01")["net_total_r"] == 1.0
+    assert len(calls) == 1, f"memo did not hold — ran {len(calls)} times"
+    # A different window is a different measurement and must NOT be served
+    # from the cache.
+    mod.run_cell("scripts/backtest_trend.py", args, start="2022-01-01", end="2023-01-01")
+    assert len(calls) == 2
+
+
+def test_run_cell_does_not_cache_a_timeout(monkeypatch):
+    """A timeout is 'we did not finish looking', not a measured result.
+
+    Caching it would make one slow run permanent for the rest of the process
+    and turn a transient into a fleet of confident `verdict: error` rows.
+    """
+    mod = _sweep_module()
+    mod._CELL_CACHE.clear()
+    calls = []
+
+    def boom(cmd, **kw):
+        calls.append(1)
+        raise mod.subprocess.TimeoutExpired(cmd, kw.get("timeout"))
+
+    monkeypatch.setattr(mod.subprocess, "run", boom)
+    for _ in range(3):
+        out = mod.run_cell("scripts/backtest_trend.py", ["--data", "x.csv"])
+        assert "timeout" in out["error"]
+    assert len(calls) == 3, "a timeout was cached as though it were an answer"
+
+
+def test_cell_timeout_default_clears_the_measured_scalp_runtime():
+    """The 900s cap this used to carry sat under a measured scalp run.
+
+    2026-08-10 census: one full-history ict_scalp_5m run took 955s. An IS-window
+    run of the same leg is most of that, so the old cap would have converted a
+    real measurement into `verdict: error` on the largest scalp leg.
+    """
+    mod = _sweep_module()
+    assert mod.CELL_TIMEOUT_S >= 1800, (
+        f"cell timeout {mod.CELL_TIMEOUT_S}s is at or under the measured "
+        "955s full-history scalp run — the sweep would time out the leg it "
+        "was dispatched to measure")

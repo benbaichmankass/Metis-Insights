@@ -88,6 +88,23 @@ jobs:
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json, os, sys, yaml
+          # DATASET VINTAGE IS LOAD-BEARING (BL-20260809, and the note atop
+          # m20-capture-census.yml): /home/ubuntu/m27_data is NOT the trainer's
+          # ~/ict-trading-bot/data -- different start dates, different md5.
+          # Every ict_scalp verdict was measured on m27_data; every
+          # trend/pullback/squeeze/fvg verdict on data/. This job resolves the
+          # source PER LEG so a mixed dispatch cannot silently sweep one family
+          # against the other family's frames, and the leg's row carries which.
+          #
+          # The family split is imported from the sweep script rather than
+          # restated here. A second copy of `classify` would be free to drift
+          # from the one that actually picks the harness, and the failure it
+          # would produce -- a scalp leg fetched from data/ -- looks like a
+          # clean `data_missing`, not like a bug.
+          sys.path.insert(0, "scripts/research")
+          from m20_fleet_exit_sweep import classify
+          SRC = {"scalp": "/home/ubuntu/m27_data"}
+          DEFAULT_SRC = "/home/ubuntu/ict-trading-bot/data"
           # MEASURED default: the ten legs carrying the most R at the giveback
           # ladder's 1R rung, from the 2026-08-10 census at live-parity geometry
           # (docs/research/M20-exit-capture-census-2026-08-10.md). Ordered by
@@ -119,15 +136,36 @@ jobs:
               print(f"::error::legs not declared in config/strategies.yaml: {unknown}",
                     file=sys.stderr)
               raise SystemExit(1)
-          print(f"sweeping {len(sel)} leg(s): {sel} "
+          # A leg the sweep cannot classify has no harness and no data source.
+          # Failing here beats fetching the default vintage and reporting the
+          # resulting empty run as a swept leg.
+          unclassified = [s for s in sel if classify(s) is None]
+          if unclassified:
+              print(f"::error::legs with no family/harness: {unclassified}",
+                    file=sys.stderr)
+              raise SystemExit(1)
+          out = [{"leg": s, "family": classify(s),
+                  "src": SRC.get(classify(s), DEFAULT_SRC)} for s in sel]
+          for row in out:
+              print(f"  {row['leg']:26s} family={row['family']:9s} src={row['src']}",
+                    file=sys.stderr)
+          print(f"sweeping {len(out)} leg(s) "
                 f"({'explicit' if want else 'census default'})", file=sys.stderr)
-          print("legs=" + json.dumps(sel))
+          print("legs=" + json.dumps(out))
           PY
 
   sweep:
     needs: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    # 330 min, not 150. Measured, not padded: the 2026-08-10 census timed one
+    # full-history ict_scalp_5m run at 955s, and a sweep of that leg is base
+    # IS+OOS (1 full history) + 5 cells x 2 windows (5) + a 2-full-history
+    # walk-forward per candidate. Five candidates puts the worst case near
+    # 4.5h. The hourly/daily donchian and pullback legs finish in minutes and
+    # are unaffected by a ceiling they never approach; a job that dies at 150
+    # having produced nothing is the outcome worth avoiding, and the runner is
+    # free either way.
+    timeout-minutes: 330
     strategy:
       fail-fast: false
       max-parallel: 10
@@ -143,11 +181,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Fetch frames from the trainer (scp)
+      - name: Fetch this leg's frames from the trainer (scp)
         env:
           VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
           TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
           TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+          SRC: ${{ matrix.leg.src }}
+          FAMILY: ${{ matrix.leg.family }}
         run: |
           set -e
           if [ -z "${VM_SSH_KEY}" ]; then echo "::error::VM_SSH_KEY unset"; exit 1; fi
@@ -156,13 +196,14 @@ jobs:
           chmod 600 ~/.ssh/trainer_key
           ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
           mkdir -p sweep_data
-          # Every defaulted leg is donchian/pullback, whose prior verdicts were
-          # all measured on the trainer's data/ vintage (NOT m27_data — see the
-          # dataset-vintage note atop m20-capture-census.yml). A scalp leg passed
-          # explicitly would need the other source; it is not in scope here.
+          # SRC is resolved per-leg by the plan job from the leg's FAMILY, not
+          # hardcoded here: scalp legs need /home/ubuntu/m27_data, everything
+          # else the trainer's data/. Sweeping a scalp leg against data/ would
+          # not error — it would quietly measure a different population.
+          echo "family=${FAMILY} src=${SRC}"
           scp -i ~/.ssh/trainer_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
               -o ConnectTimeout=25 \
-              "${TRAINER_USER}@${TRAINER_IP}:/home/ubuntu/ict-trading-bot/data/*.csv" \
+              "${TRAINER_USER}@${TRAINER_IP}:${SRC}/*.csv" \
               sweep_data/ || true
           n=$(ls sweep_data/*.csv 2>/dev/null | wc -l)
           echo "frames fetched: ${n}"
@@ -175,7 +216,7 @@ jobs:
 
       - name: Sweep this leg
         env:
-          LEG: ${{ matrix.leg }}
+          LEG: ${{ matrix.leg.leg }}
           TP_CAP_PCT: ${{ inputs.tp_cap_pct || '0.099' }}
           LEVERS: ${{ inputs.levers }}
           SPLIT: ${{ inputs.split || '2025-07-01' }}
@@ -192,15 +233,15 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: exit-lever-sweep-${{ matrix.leg }}
-          path: out/${{ matrix.leg }}
+          name: exit-lever-sweep-${{ matrix.leg.leg }}
+          path: out/${{ matrix.leg.leg }}
           if-no-files-found: warn
 
       - name: Post the sweep back onto the PR
         if: always()
         uses: actions/github-script@v7
         env:
-          LEG: ${{ matrix.leg }}
+          LEG: ${{ matrix.leg.leg }}
           TP_CAP_PCT: ${{ inputs.tp_cap_pct || '0.099' }}
           SPLIT: ${{ inputs.split || '2025-07-01' }}
         with:
