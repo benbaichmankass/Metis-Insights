@@ -1196,6 +1196,15 @@ strategies:
     trail_mult: 3.5          # swap-robust (vs live 5.0) — shorter holds, less swap drag.
     tp_r: 6.0               # real 6R take-profit cap (vs live 50.0 sentinel).
     min_confidence: 0.60
+    stale_exit_bars: 12          # M20 exit-lever sweep 2026-08-10 (Tier-3, operator-approved):
+    stale_exit_below_r: 0.0      # stale12_lt0R (IS +1.26R / OOS +5.43R, maxDD -4.18 / -4.88)
+    trail_decay_stall_bars: 10   # + decay_stall10_t1.8 (IS +1.37R / OOS +7.28R, maxDD -3.89 / -7.15).
+    trail_decay_tight_mult: 1.8  # Both cleared Path A on both windows + the yearly folds. This leg is
+                                 # `execution: shadow`, so these change NO money today — they are the
+                                 # validated geometry the leg carries INTO its own promotion review.
+                                 # The tight mult is 1.8 not 2.5 because this leg's base trail is 3.5
+                                 # (swap-robust), not 5.0 — the cell is leg-scaled, not copied.
+                                 # ROLLBACK: delete these four lines.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -2152,6 +2161,17 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.5
     trail_mult: 5.0
+    trail_decay_stall_bars: 10   # M20 exit-lever sweep 2026-08-10 (Tier-3, operator-approved):
+    trail_decay_tight_mult: 2.5  # decay_stall10_t2.5 — the ONLY live-leg Path A survivor of the
+                                 # re-run on the corrected config-exact base. IS +24.01R / OOS +5.12R,
+                                 # maxDD -3.72 / -1.27, cap/day +0.053; >=2/3 yearly folds 2021-2026.
+                                 # This leg declares trail_mult and nothing else, so its sweep base was
+                                 # genuinely config-exact (the two trend_donchian_eth winners were NOT —
+                                 # that leg's armed vol-trail lever was missing from the base, and both
+                                 # died on re-measurement). Packet:
+                                 # docs/research/M20-exit-lever-promotion-packet-2026-08-10.md
+                                 # ROLLBACK: delete these two lines — an absent key restores the prior
+                                 # geometry exactly (the lever is undeclared-by-default).
     tp_r: 50.0               # trail-managed exits; TP effectively disabled
     min_confidence: 0.0
     adx_min: 25             # ADX>=25 regime gate (Tier-3, operator-approved 2026-06-18): pullback wants an established trend. OOP holdout PASSED (BNB reject->paper_ready, LINK +53%, ETH->live_ready). PAPER soak. ROLLBACK: remove this line.
@@ -2320,6 +2340,14 @@ strategies:
     trail_mult: 5.0
     trail_decay_arm_r: 4.86   # M20 P4.4 p80 cell (p80 arm, wf 4/6; sweep 2026-07-13)
     trail_decay_tight_mult: 2.5
+    trail_decay_stall_bars: 6    # M20 exit-lever sweep 2026-08-10 (Tier-3, operator-approved):
+                                 # decay_stall6_t2.5 (IS +5.36R / OOS +4.78R, maxDD -3.99 / -2.02,
+                                 # cap/day +0.031; >=2/3 yearly folds). NOTE this ADDS a second arming
+                                 # condition to an ALREADY-ARMED lever — trail_decay_arm_r 4.86 above is
+                                 # live, so this is not switching on a dead lever. The sweep base
+                                 # threaded arm_r + tight_mult, so the delta is measured against the real
+                                 # book. `execution: shadow` — no money impact until this leg is promoted.
+                                 # ROLLBACK: delete this line (restores arm-only decay).
     tp_r: 50.0
     min_confidence: 0.0
     vol_skip_below_pctl: 0.1   # M21 E-2 round 4 vol_lo10 (wf 4/6, 2026-07-14) — skip entries whose trigger-bar ATR sits in the dead-vol bottom decile (trailing 200-bar pctl); IS net_R 34.9 -> 36.2 (dd equal), OOS 15.0 -> 16.4 (dd 10.3 -> 9.6); measured config-exact on top of the P4.4 trail-decay declare. Rollback = delete this line.
