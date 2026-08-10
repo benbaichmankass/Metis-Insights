@@ -287,3 +287,50 @@ def test_r_weighted_capture_is_portfolio_level_not_a_trade_mean():
 def test_r_weighted_is_none_not_zero_when_no_excursion_was_offered():
     s = ec.summarize([_t(-1.0, 0.0), _t(-1.0, None)], target_r=None)
     assert s["capture_r_weighted"] is None
+
+
+# ------------------- the spanning-bar artifact: which "R left" is a prize?
+def test_near_miss_r_to_target_is_bounded_where_r_left_is_not():
+    """Measured 2026-08-10: ict_scalp_avax_5m reported 182.34R of "R left" over
+    FOUR near-misses (45.6R each) and ict_scalp_5m 51.8R over six, against
+    2.4-3.9R per trade on every other leg.
+
+    Not a property of those books. The harnesses check the stop BEFORE the
+    target within a bar (pessimistic ordering) while `best` is updated from
+    bar_high at the top of the same iteration, so ONE bar spanning from below
+    the stop to far above the target books a -1R loss AND records an unbounded
+    MFE. Summing mfe-net over those describes bar geometry, not exits.
+
+    `near_miss_r_to_target` bounds it at the trade's own declared target, which
+    is the most any exit change could have banked.
+    """
+    tr = 1.5
+    trades = [
+        _t(-1.0, 1.45),    # ordinary near-miss: reached 96.7% of target
+        _t(-1.0, 45.0),    # SPANNING BAR: stop and a 45R high in one candle
+    ]
+    s = ec.summarize(trades, target_r=tr)
+    assert s["near_miss_measured_n"] == 2
+    # the unbounded figure is dominated by the artifact...
+    assert s["near_miss_r_left_on_table"] == round((1.45 + 1.0) + (45.0 + 1.0), 3)
+    assert s["near_miss_r_left_on_table"] > 48
+    # ...the bounded one is not: each trade could have banked at most tr - net_r
+    assert s["near_miss_r_to_target"] == round((1.5 + 1.0) * 2, 3)   # 5.0
+    assert s["near_miss_r_to_target"] < s["near_miss_r_left_on_table"]
+
+
+def test_ladder_ships_a_median_beside_its_sum_so_skew_is_visible():
+    """A 4-trade sum of 182R with a median of 3R is a different claim from four
+    trades that each gave back 45R, and the sum alone cannot tell them apart."""
+    skewed = [_t(-1.0, 2.0)] * 3 + [_t(-1.0, 45.0)]
+    rung = next(r for r in ec.summarize(skewed, target_r=None)["giveback_ladder"]
+                if r["mfe_ge_r"] == 2.0)
+    assert rung["lost_n"] == 4
+    assert rung["r_left"] == round(3 * 3.0 + 46.0, 3)   # 55.0, artifact-dominated
+    assert rung["r_left_median"] == 3.0                 # the typical trade
+    assert rung["r_left"] / rung["lost_n"] > 4 * rung["r_left_median"] / 4
+
+
+def test_r_to_target_is_none_for_a_trail_leg_like_every_near_miss_key():
+    s = ec.summarize([_t(-1.0, 1.4)], target_r=None)
+    assert s["near_miss_r_to_target"] is None

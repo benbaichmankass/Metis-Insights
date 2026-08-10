@@ -686,9 +686,19 @@ def main(argv: list[str]) -> int:
                  "full of small pokes that fail, so a bad `cap <30%` can be that "
                  "structure rather than leakage. The full ladder "
                  "(0.5/1/1.5/2R) is in capture_census.json.", "",
+                 "",
+                 "`R->tgt` is the BOUNDED near-miss prize (`target_r - net_r`): what "
+                 "the near-miss losers would have banked by reaching their OWN "
+                 "declared target. Read it INSTEAD of `R left`, which sums an "
+                 "unbounded intrabar peak and is skewed by the harnesses' "
+                 "stop-before-target intrabar convention — one bar spanning from "
+                 "below the stop to far above the target books a -1R loss AND "
+                 "records a huge MFE (measured: `ict_scalp_avax_5m` 182.34R over "
+                 "FOUR trades). `gb R med` is the same guard on the ladder.", "",
                  "| leg | kind | n | cap med | cap w-med | cap Rwt | cap <30% "
-                 "| gb>=1R | gb R left | nm@90% | nm pop | tgt hit | R left |",
-                 "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|"]
+                 "| gb>=1R | gb R left | gb R med | nm@90% | nm pop | tgt hit "
+                 "| R left | R->tgt |",
+                 "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|"]
         for leg, v in sorted(census.items(),
                              key=lambda kv: -(kv[1].get("near_miss_90_pct") or -1)):
             if "error" in v:

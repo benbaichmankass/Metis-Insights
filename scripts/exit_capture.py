@@ -61,7 +61,8 @@ KEYS = ("n_trades", "n_winners", "n_losers",
         "near_miss_not_applicable", "target_r_reached_n",
         "mfe_floor_r", "capture_lowmfe_n", "capture_mean_robust",
         "capture_winners_median", "capture_winners_n",
-        "capture_r_weighted", "giveback_ladder")
+        "capture_r_weighted", "giveback_ladder",
+        "near_miss_r_to_target")
 
 # The giveback ladder's rungs, in R of maximum favourable excursion. A LADDER
 # and not a threshold: the operator sets a cut-off from the measured shape, the
@@ -220,12 +221,21 @@ def summarize(trades: Iterable[Dict[str, Any]], *,
     for rung in GIVEBACK_RUNGS:
         reached = [(nv, mv) for nv, mv in pairs if mv >= rung]
         lost = [(nv, mv) for nv, mv in reached if nv < 0]
+        # `r_left` sums an UNBOUNDED per-trade excursion and is therefore
+        # skewed by the same spanning-bar artifact documented at
+        # `near_miss_r_to_target` below: one bar that trades through the stop
+        # AND far beyond books a full loss with a huge MFE. The MEDIAN ships
+        # beside the sum so the skew is visible without opening the artifact —
+        # a 4-trade sum of 182R with a median of 3R is a different claim from
+        # four trades that each gave back 45R.
+        per = sorted(mv - nv for nv, mv in lost)
         ladder.append({
             "mfe_ge_r": rung,
             "mfe_ge_n": len(reached),
             "lost_n": len(lost),
             "lost_pct": _pct(len(lost), len(reached)),
-            "r_left": round(sum(mv - nv for nv, mv in lost), 3) if lost else 0.0,
+            "r_left": round(sum(per), 3) if per else 0.0,
+            "r_left_median": _quantile(per, 0.5),
         })
     out["giveback_ladder"] = ladder
 
@@ -251,6 +261,7 @@ def summarize(trades: Iterable[Dict[str, Any]], *,
         out.update({"near_miss_measured_n": None, "near_miss_80_pct": None,
                     "near_miss_90_pct": None, "near_miss_95_pct": None,
                     "near_miss_r_left_on_table": None,
+                    "near_miss_r_to_target": None,
                     "near_miss_not_applicable": reason})
         return out
 
@@ -299,8 +310,30 @@ def summarize(trades: Iterable[Dict[str, Any]], *,
     for band, key in ((0.80, "near_miss_80_pct"), (0.90, "near_miss_90_pct"),
                       (0.95, "near_miss_95_pct")):
         out[key] = _pct(sum(1 for _, mv in pop if mv >= band * tr), len(pop))
-    left = [mv - nv for nv, mv in pop if mv >= 0.90 * tr]
-    out["near_miss_r_left_on_table"] = round(sum(left), 3) if pop else None
+    # TWO "R left" FIGURES, AND ONLY ONE OF THEM IS A PRIZE.
+    #
+    # `near_miss_r_left_on_table` is `mfe_r - net_r`: the full swing from an
+    # UNBOUNDED intrabar peak to the close. It is contaminated by the harness's
+    # own conservative convention and must never be quoted as recoverable.
+    # Measured 2026-08-10: `ict_scalp_avax_5m` reported 182.34R over FOUR
+    # near-misses — 45.6R each — and `ict_scalp_5m` 51.8R over six, against
+    # 2.4-3.9R per trade on every other leg. The cause is structural, not a
+    # property of those books: the harnesses check the stop BEFORE the target
+    # within a bar ("pessimistic ordering: if both touched in one bar, count SL
+    # first"), while `best` is updated from `bar_high` at the TOP of the same
+    # iteration. So ONE bar spanning from below the stop to far above the target
+    # books a -1R loss AND records an unbounded MFE. A sum over those is a
+    # statement about bar geometry, not about exits.
+    #
+    # `near_miss_r_to_target` is the bounded, plan-relative figure: `tr - net_r`,
+    # what the trade would have returned by reaching ITS OWN DECLARED TARGET —
+    # which is the most any exit change could have banked, since the plan was to
+    # leave at the target. This is the one to read as a prize.
+    band = [(nv, mv) for nv, mv in pop if mv >= 0.90 * tr]
+    out["near_miss_r_left_on_table"] = (
+        round(sum(mv - nv for nv, mv in band), 3) if pop else None)
+    out["near_miss_r_to_target"] = (
+        round(sum(tr - nv for nv, _ in band), 3) if pop else None)
     return out
 
 
