@@ -25,6 +25,27 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # workflow_dispatch (2026-08-10, BL-20260807-REQUIRED-CHECKS-LACK-WORKFLOW-DISPATCH).
+  # The three REQUIRED checks (pytest-collect, pytest-run, guards) already carry
+  # one — verified against branch-protection-sync.yml REQUIRED_CONTEXTS. This one
+  # is advisory, so a dropped webhook cannot block a merge; it gets a dispatch
+  # purely so its full-tree drift scan is re-runnable on demand.
+  workflow_dispatch:
+
+# Concurrency (2026-08-10, BL-20260810-REQUIRED-WORKFLOWS-NO-CONCURRENCY-GROUP).
+# Without a group, a re-queue (a second push to the same PR, or the
+# `opened`+`synchronize` double-fire) STACKS a second full run instead of
+# superseding the first — for repo-inventory that is a wasted ~full-tree scan against the
+# 2,000-minute free-tier cap this repo already hit once (MB-20260706-CI-MINUTES).
+# Observed live on PR #8733: a second commit queued a second full suite while
+# the first was still running.
+#
+# `github.event_name` is IN THE GROUP KEY deliberately: a `merge_group` run must
+# NEVER be cancelled by a `pull_request` run on the same ref, or the merge queue
+# stalls on a required check that reports `cancelled`. Same shape as guards.yml.
+concurrency:
+  group: repo-inventory-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

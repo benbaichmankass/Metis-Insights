@@ -10799,7 +10799,7 @@
       "opened_at": "2026-08-07T01:20:00+00:00",
       "opened_by": "claude (metis-insights-workplan-cont fczb1e)",
       "severity": "low",
-      "status": "open",
+      "status": "resolved",
       "source": "Surfaced by the 2026-08-06 GitHub Actions webhook-throttle incident, which left PRs unmergeable for ~6h with no recovery path.",
       "title": "[ci][Tier-1] Every required-check workflow should carry a workflow_dispatch trigger so a webhook outage is recoverable",
       "description": "During the 2026-08-06 Actions incident, push webhooks were throttled to ~15% and several pushes to claude/** produced ZERO workflow runs. There was no way to satisfy the required-check set manually:\n  * guards.yml was new in the PR and not yet on the default branch, so run_workflow returns 404 for any ref (a workflow must be on the default branch to be dispatchable);\n  * pytest-collect has no workflow_dispatch trigger at all.\n\nSo a green-able PR sat unmergeable with no operator-free recovery. Adding `workflow_dispatch:` to each required-check workflow costs nothing and converts a hard block into a manual re-trigger.\n\nNote this composes with the now-verified `run_workflow` MCP capability (re-verified 2026-08-06, HTTP 204) -- the tool exists, the triggers do not.",
@@ -10818,7 +10818,10 @@
           "evidence_based": false
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-08-10T05:05:00+00:00",
+      "resolved_at": "2026-08-10T05:25:00+00:00",
+      "resolved_by": "claude (system-review 2026-08-10, operator challenge pass)",
+      "resolution": "ALREADY SATISFIED — verified by measurement, not assumed. branch-protection-sync.yml declares REQUIRED_CONTEXTS='[\"pytest-collect\",\"pytest-run\",\"guards\"]', and parsing each workflow's `on:` block shows ALL THREE already carry workflow_dispatch. The stated risk (a dropped webhook leaves a required check unattachable with no operator-reachable re-fire) does not exist. I nearly patched this blindly; only an assertion that the trigger was absent caught it. repo-inventory was the sole workflow missing one — it is ADVISORY, not required, so it could never block a merge; a dispatch was added anyway (2026-08-10) so its full-tree drift scan is re-runnable on demand."
     },
     {
       "id": "BL-20260807-TRUSTMAP-ALL-LEGS-INSUFFICIENT-LIVE",
@@ -11948,7 +11951,7 @@
       "source": "MEASURED on PR #8698. `.github/workflows/guards.yml` declares `concurrency: group: guards-... cancel-in-progress: true`. `pytest-run.yml`, `pytest-collect.yml` and `repo-inventory.yml` declare NO `concurrency:` block at all (verified by grep over each file). Consequence observed directly: marking #8698 ready-for-review re-queued the required checks, and because pytest-run has no group the second run did NOT supersede the first — BOTH ran a full suite to completion on the SAME head 6ded70b: job 93325586744 (00:41:59 -> 00:50:50, 8m51s, success) and job 93325625028 (00:42:19 -> ~00:51:35, ~9m16s, success). guards.yml's own run on that head was correctly CANCELLED by its group (job 93325586606), which is the control showing the fix works.",
       "title": "pytest-run / pytest-collect / repo-inventory declare no `concurrency:` group, so a re-queue stacks a second full ~9-minute suite instead of superseding the first",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "severity": "low",
       "what_to_check": "This is the same stacking mode BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES identified ('because almost none of those workflows declared a concurrency: group, every re-run STACKED instead of superseding the last -- 75 queued runs from ~3 attempts at the same PR'). That PR added the group to guards.yml, which was the workflow it consolidated; the three OTHER required/always-on workflows were not touched and still have no group. So the root cause is only partly fixed, and the part that is fixed is the CHEAP job (guards, ~45s) while the three unfixed ones include the EXPENSIVE one (pytest-run, ~9 min).\n\nTWO COSTS. (1) Runner minutes: every re-queue on a busy PR burns a duplicate ~9-minute suite. (2) Legibility: two runs share one required-check NAME, so 'is pytest-run green?' has two answers at once and branch protection's view is not obvious from the check list.\n\nNOT urgent and NOT a correctness risk -- both duplicate runs passed, and branch protection still gates on the required context. This is waste plus ambiguity, not a hole.",
@@ -11972,7 +11975,10 @@
           "evidence_based": false
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-08-10T05:05:00+00:00",
+      "resolved_at": "2026-08-10T05:28:00+00:00",
+      "resolved_by": "claude (system-review 2026-08-10, operator challenge pass)",
+      "resolution": "FIXED 2026-08-10. Added the guards.yml-shaped concurrency group to pytest-run.yml, pytest-collect.yml and repo-inventory.yml:\n  group: <name>-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}\n  cancel-in-progress: true\ngithub.event_name stays IN the key deliberately, per the filed fix: a merge_group run must never be cancelled by a pull_request run on the same ref, or the queue stalls on a required check reporting `cancelled`.\n\nConfirmed live on PR #8733 rather than argued: a second commit (bc2876e -> 1b0fb95) queued a SECOND full pytest-run while the first was still in progress — exactly the stacking this item describes, observed while the item sat open."
     },
     {
       "id": "BL-20260810-BANKING-GATE-CANNOT-PASS",
@@ -12208,6 +12214,24 @@
         "BL-20260809-EXPOSURE-SOAK-NOT-YET-TAKEN",
         "BL-20260730-DIAGNOSTIC-PROVENANCE-CLASS"
       ]
+    },
+    {
+      "id": "BL-20260810-SHADOW-STATS-FIRSTSEEN-IS-LOG-ROTATION-NOT-SOAK-START",
+      "opened_at": "2026-08-10T05:25:00+00:00",
+      "opened_by": "claude (system-review 2026-08-10, operator challenge pass)",
+      "status": "open",
+      "severity": "high",
+      "tier": 1,
+      "title": "/api/bot/shadow/stats first_seen is the LOG-ROTATION boundary, not the model's soak start — so soak duration, the shadow->advisory promotion denominator, is unreadable from the promotion surface",
+      "source": "Found while trying to answer 'does any shadow model meet its promotion gate' during /system-review 2026-08-10.",
+      "what_to_check": "MEASURED. /api/bot/shadow/stats returns 19 model records. EVERY ONE has first_seen inside a TWO-MINUTE band: 2026-08-05T23:35 to 2026-08-05T23:37 — models promoted to shadow on wildly different dates (the fc-pcv-v1/v2 pair alone spans 2026-07-20 to 2026-08-04 per CLAUDE.md) all report the same soak start. 19 independent soaks do not begin in the same two minutes.\n\nARITHMETIC CROSS-CHECK — this is what turns suspicion into a finding; a careful re-read would not have caught it. If first_seen were a rotation boundary, each model's count should equal its OWN bar cadence times ONE COMMON window. Against 2026-08-05T23:36 -> 2026-08-10T05:15 (~4.24 days):\n  5m heads (btc/sol/eth-regime-5m-*): count 1149-1160; predicted 4.24 x 288 = 1221 (ratio ~0.95).\n  15m heads (btc-regime-15m-*, eth-15m): count 410-411; predicted 4.24 x 96 = 407 (ratio ~1.01).\n  MES 5m heads: 588 — lower, consistent with a futures session calendar vs 24/7 crypto.\n  per-signal heads (conviction-meta, setup-quality-*, execution-quality-*): all EXACTLY 436, one shared signal population.\nCounts track BAR CADENCE x A SHARED WINDOW almost exactly. That is rotation, not 19 coincident promotions.\n\nMECHANISM: ict-shadow-log-rotate.timer is active on the live VM (confirmed in /api/diag/services). ml.shadow.inspector.aggregate derives first_seen as the min timestamp of SURVIVING rows in runtime_logs/shadow_predictions.jsonl, so rotation silently resets it for every model at once.",
+      "why_critical": "This is the denominator of the promotion gate. shadow->advisory is THE operator-approved live-trading switch, and 'days in shadow' + 'prediction volume' are how a review decides a soak has accrued enough. Read off this endpoint EVERY model looks like it started 4 days ago with ~1,000 predictions — a model soaking since July is indistinguishable from one wired up last Wednesday. The failure runs in the DANGEROUS direction: long soaks look short, so a promotion that is DUE reads as not-yet-ready and is deferred indefinitely — the 'gate met but unactioned' condition /system-review is explicitly required to surface. And if rotation ran mid-review, a brand-new model's window would look complete.\n\nTextbook UNPROVENANCED DIAGNOSTIC OUTPUT sub-class B (implicit input selection): the field is LABELLED as the model's first sighting and is actually 'the oldest row surviving the last rotation', with nothing in the envelope disclosing the substitution.",
+      "next_action": "Do NOT fix by lengthening retention — that only moves the boundary. The envelope must state its own population: (1) return the log's retention/coverage window (oldest retained row + rotation cadence) as an EXPLICIT envelope field so first_seen is read against a stated denominator; (2) source true soak start from the model REGISTRY stage-transition record, which is durable and rotation-independent, not from the prediction log; (3) register the three-state distinction — 'soaked since X' / 'log only retains from X' / 'not soaking' — so a truncated window can never read as a short soak. Candidate for collapsed-state-guard's CONTRACTS table.",
+      "related": [
+        "BL-20260730-DIAGNOSTIC-PROVENANCE-CLASS",
+        "BL-20260719-PROMOREADY-OOSEDGE-OOM"
+      ],
+      "resolution_criteria": "A reviewer can read a model's true shadow-soak duration without silent truncation by log rotation, and the endpoint states its retention window."
     }
   ],
   "updated_at": "2026-08-10T01:20:00+00:00",
