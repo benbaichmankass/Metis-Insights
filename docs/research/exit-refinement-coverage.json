@@ -1,6 +1,6 @@
 {
   "_doc": "M20 exit-refinement coverage matrix — one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) — never inferred. ROWS ARE ONE LEG EACH as of 2026-08-09 (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS): bundled rows carried ONE status for a whole family, so the status described only the leg that passed and the roll-up over-counted `shipped`. Exploded rows carry `exploded_from`. The `shadow fleet` row is deliberately NOT exploded — its label does not enumerate its legs and it is execution:shadow, outside the live-leg done-condition. DO NOT ADD A NEW BUNDLED ROW.",
-  "updated_at": "2026-08-09T00:00:00+00:00",
+  "updated_at": "2026-08-09T23:59:00+00:00",
   "lever_columns": [
     "trail_geometry",
     "stale_stop",
@@ -632,6 +632,10 @@
       "regime_flip_exit": {
         "status": "honest_negative",
         "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail — eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "blocked:no_harness_levers",
+        "ref": "Column was ABSENT from this row entirely until 2026-08-09, so the matrix roll-up divided by 376 declared live cells when only 374 existed — a missing cell read as a cell needing no verdict. Verified by AST over the harness CLI: scripts/backtest_squeeze.py has --trail-mult but NO --trail-vol-above-pctl, so vol_trail is unreachable here (same shape as the ict_scalp exit_ladder block this PR closed)."
       }
     },
     {
@@ -665,6 +669,10 @@
       "regime_flip_exit": {
         "status": "honest_negative",
         "ref": "HONEST NEGATIVE fleet-wide: wherever the flip actually fires (pullback chop-OFF, 72-89% of trades) it guts the trend tail — eth_pullback_2h +67.7R->-11.8R, tlt_pullback_1h +77.1->-26.6, gld_pullback_1h +115.5->+29.0; wf 0-2/6 typical. The 'PASS' rows are degenerate ties (long-only donchian legs where no 1-D cell is ever OFF for longs -> flip never fires -> flip==actual) or improvements on money-LOSING shadow legs (eth_prop -85.8->-66.4). The frozen ADX label reads 'chop' constantly inside live trends; the peak-is-in head (AUC~0.71, in shadow) addresses the same question far better. Frozen-label variant CLOSED; an ML-label variant would need per-symbol advisory heads (BTC-only today) and is not queued. P4.5 frozen-label regime-flip replay (2026-07-13, m20_flip_replay_sweep, trainer relay #6276; runtime_logs/m20_flip_replay/2026-07-13). Exit at the first bar whose ADX-14 label maps to an OFF policy cell for (family, direction)."
+      },
+      "vol_trail": {
+        "status": "n/a",
+        "ref": "Column was ABSENT from this row entirely until 2026-08-09 (see the squeeze_breakout_4h note — the roll-up's denominator counted cells that did not exist). Verified by AST over the harness CLI: scripts/backtest_fvg_range.py has NO --trail-mult at all — this leg exits on exit_style/tp_r, not a trailing stop, so a vol-conditional TRAIL is structurally inapplicable, not merely un-built."
       }
     },
     {
@@ -1657,8 +1665,8 @@
         "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). giveback honest_negative (gb@MFE1R OOS -1.69R)."
       },
       "exit_ladder": {
-        "status": "blocked:no_harness_levers",
-        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
+        "status": "pending",
+        "ref": "Harness gap CLOSED 2026-08-09: scripts/backtest_ict_scalp.py gained the M20 partial-TP ladder lever (bank_frac/bank_at_r), ported from backtest_trend.py/backtest_pullback.py with identical rung-before-stop semantics. Config-exact sweep dispatched (IS/OOS 2025-07-01 + yearly walk-forward); rungs are fractions of the leg's own tp_at_r=1.5 because a rung >= tp_at_r is a provable no-op on a fixed-bracket strategy (memo section 10.2). Verdict pending the run — NOT pre-written from the fleet-wide banking prior (memo section 10.1)."
       },
       "exit_head_ml": {
         "status": "pending",
@@ -1695,8 +1703,8 @@
         "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). giveback honest_negative."
       },
       "exit_ladder": {
-        "status": "blocked:no_harness_levers",
-        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
+        "status": "pending",
+        "ref": "Harness gap CLOSED 2026-08-09: scripts/backtest_ict_scalp.py gained the M20 partial-TP ladder lever (bank_frac/bank_at_r), ported from backtest_trend.py/backtest_pullback.py with identical rung-before-stop semantics. Config-exact sweep dispatched (IS/OOS 2025-07-01 + yearly walk-forward); rungs are fractions of the leg's own tp_at_r=1.5 because a rung >= tp_at_r is a provable no-op on a fixed-bracket strategy (memo section 10.2). Verdict pending the run — NOT pre-written from the fleet-wide banking prior (memo section 10.1). CAVEAT: this leg declares off_cells (regime gating) that the harness cannot reproduce, so the swept population is a SUPERSET of what trades live; the ladder A/B remains valid as a delta but the population is not the live one."
       },
       "exit_head_ml": {
         "status": "pending",
@@ -1733,8 +1741,8 @@
         "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). giveback honest_negative."
       },
       "exit_ladder": {
-        "status": "blocked:no_harness_levers",
-        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
+        "status": "pending",
+        "ref": "Harness gap CLOSED 2026-08-09: scripts/backtest_ict_scalp.py gained the M20 partial-TP ladder lever (bank_frac/bank_at_r), ported from backtest_trend.py/backtest_pullback.py with identical rung-before-stop semantics. Config-exact sweep dispatched (IS/OOS 2025-07-01 + yearly walk-forward); rungs are fractions of the leg's own tp_at_r=1.5 because a rung >= tp_at_r is a provable no-op on a fixed-bracket strategy (memo section 10.2). Verdict pending the run — NOT pre-written from the fleet-wide banking prior (memo section 10.1)."
       },
       "exit_head_ml": {
         "status": "pending",
@@ -1771,8 +1779,8 @@
         "ref": "M27 config-exact IS/OOS lever sweep (2026-07-28, scripts/research/m27/ict_scalp_exit_sweep.py on the Dukascopy XAU 15m proxy, 178,953 bars, split 2025-07-01; harness levers added same day). Baseline +51.18R/229 trades (IS) - +12.39R/56 (OOS). gb@MFE1R -1.04R IS / +0.00R OOS (maxDD slightly worse); gb@MFE2R a near-no-op (TP sits at 1.5R so MFE rarely reaches 2R before the fixed TP fires). Neither beats baseline net_R+maxDD. Fails the gate."
       },
       "exit_ladder": {
-        "status": "blocked:no_harness_levers",
-        "ref": "No partial-TP ladder lever in the ict_scalp harness (NOT built/swept in the 2026-07-28 round, which covered stale+giveback only) and fleet-wide 'banking parked' (memo section 5). Distinct from stale_stop/giveback_stop, which were built + swept honest_negative 2026-07-28. Would need a ladder lever build before a verdict."
+        "status": "blocked:data_missing",
+        "ref": "blocked on DATA, not on the harness (the lever now exists). Probed the trainer 2026-08-09 (issue #8696): no MGC_* or XAUUSD_* file remains, only GC_F_1d/GC_F_1h. The 2026-07-28 M27 round measured this leg on data/XAUUSD_15m_deep.csv, which is NO LONGER PRESENT — so this leg's existing stale_stop/giveback_stop verdicts are also not currently reproducible. Regenerable on a free GH runner via research-symbol-p0-build.yml (Dukascopy XAU)."
       },
       "exit_head_ml": {
         "status": "blocked:native-history-thin",
@@ -1809,8 +1817,8 @@
         "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). giveback cells honest_negative (see stale_stop ref)."
       },
       "exit_ladder": {
-        "status": "blocked:no_harness_levers",
-        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
+        "status": "pending",
+        "ref": "Harness gap CLOSED 2026-08-09: scripts/backtest_ict_scalp.py gained the M20 partial-TP ladder lever (bank_frac/bank_at_r), ported from backtest_trend.py/backtest_pullback.py with identical rung-before-stop semantics. Config-exact sweep dispatched (IS/OOS 2025-07-01 + yearly walk-forward); rungs are fractions of the leg's own tp_at_r=1.5 because a rung >= tp_at_r is a provable no-op on a fixed-bracket strategy (memo section 10.2). Verdict pending the run — NOT pre-written from the fleet-wide banking prior (memo section 10.1)."
       },
       "exit_head_ml": {
         "status": "pending",
@@ -1847,8 +1855,8 @@
         "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). giveback honest_negative."
       },
       "exit_ladder": {
-        "status": "blocked:no_harness_levers",
-        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
+        "status": "pending",
+        "ref": "Harness gap CLOSED 2026-08-09: scripts/backtest_ict_scalp.py gained the M20 partial-TP ladder lever (bank_frac/bank_at_r), ported from backtest_trend.py/backtest_pullback.py with identical rung-before-stop semantics. Config-exact sweep dispatched (IS/OOS 2025-07-01 + yearly walk-forward); rungs are fractions of the leg's own tp_at_r=1.5 because a rung >= tp_at_r is a provable no-op on a fixed-bracket strategy (memo section 10.2). Verdict pending the run — NOT pre-written from the fleet-wide banking prior (memo section 10.1)."
       },
       "exit_head_ml": {
         "status": "pending",
@@ -1885,8 +1893,8 @@
         "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). giveback honest_negative."
       },
       "exit_ladder": {
-        "status": "blocked:no_harness_levers",
-        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
+        "status": "pending",
+        "ref": "Harness gap CLOSED 2026-08-09: scripts/backtest_ict_scalp.py gained the M20 partial-TP ladder lever (bank_frac/bank_at_r), ported from backtest_trend.py/backtest_pullback.py with identical rung-before-stop semantics. Config-exact sweep dispatched (IS/OOS 2025-07-01 + yearly walk-forward); rungs are fractions of the leg's own tp_at_r=1.5 because a rung >= tp_at_r is a provable no-op on a fixed-bracket strategy (memo section 10.2). Verdict pending the run — NOT pre-written from the fleet-wide banking prior (memo section 10.1)."
       },
       "exit_head_ml": {
         "status": "pending",
@@ -1923,8 +1931,8 @@
         "ref": "M27 crypto exit-lever sweep (2026-07-28, GitHub Actions run 30384837775, scripts/research/m27/ict_scalp_exit_sweep.py on config-exact m27_data, split 2025-07-01, 4-core runners). ETH-15m giveback cells honest_negative (gb@MFE1R OOS -1.93R; gb@MFE2R no-op)."
       },
       "exit_ladder": {
-        "status": "blocked:no_harness_levers",
-        "ref": "No partial-TP ladder lever in the ict_scalp harness (not built 2026-07-28, which covered stale+giveback); fleet-wide 'banking parked'."
+        "status": "pending",
+        "ref": "Harness gap CLOSED 2026-08-09: scripts/backtest_ict_scalp.py gained the M20 partial-TP ladder lever (bank_frac/bank_at_r), ported from backtest_trend.py/backtest_pullback.py with identical rung-before-stop semantics. Config-exact sweep dispatched (IS/OOS 2025-07-01 + yearly walk-forward); rungs are fractions of the leg's own tp_at_r=1.5 because a rung >= tp_at_r is a provable no-op on a fixed-bracket strategy (memo section 10.2). Verdict pending the run — NOT pre-written from the fleet-wide banking prior (memo section 10.1). This is the ONLY one of the eight legs declaring its own exit lever (stale_exit_bars 12), so its ladder cells are measured ON TOP of that shipped baseline."
       },
       "exit_head_ml": {
         "status": "pending",
