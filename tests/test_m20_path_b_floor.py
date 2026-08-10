@@ -99,6 +99,34 @@ def test_many_cells_on_few_legs_is_insufficient_not_a_finding():
         "the message must name the actionable scarcity, not just 'too small'")
 
 
+def test_the_rate_carries_its_own_trade_count():
+    """A rate over 4 trades is not the claim a rate over 800 is.
+
+    `base_rate` is net_R/maxDD over the leg's base book, and that book can be
+    hundreds of trades or a handful — the 2026-08-10 fleet sweep returned Path A
+    PASSes on out-of-sample windows of 3, 4 and 5 trades. Quoting "the lowest
+    rate is 1.08" without the n behind it is an unstated denominator one level
+    below the one this file already guards.
+
+    Reported, never filtered: dropping thin legs would silently redefine the
+    population, and WHICH legs are thin is itself part of the answer.
+    """
+    rows = [_cell(f"lo{i}", 0.4, 1, base_trades_IS=400, base_trades_OOS=90)
+            for i in range(6)]
+    rows += [_cell(f"hi{i}", 2.5, 5, base_trades_IS=57, base_trades_OOS=3)
+             for i in range(6)]
+    res = floor.analyse(rows, "base_rate_IS")
+    per_leg = res["per_leg"]
+    assert len(per_leg) == 12
+    assert all("base_trades_IS" in v and "base_trades_OOS" in v
+               for v in per_leg.values()), "a rate is reported without its n"
+    assert res["axis_distribution"]["base_trades_IS_min"] == 57
+    # A leg whose count is absent is COUNTED as absent, not silently treated as
+    # large — "we do not know the n" is not "the n is fine".
+    res2 = floor.analyse(rows + [_cell("nc", 1.5, 5)], "base_rate_IS")
+    assert res2["axis_distribution"]["legs_missing_trade_count"] == 1
+
+
 def test_leg_counts_ride_in_every_grid_row():
     """A cell count without its leg count restates the clustering problem."""
     res = floor.analyse(_separating(), "base_rate_IS")

@@ -579,6 +579,15 @@ def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
     return dict(out)
 
 
+# What counts as an out-of-sample window too thin for its verdict to be
+# comparable to a full one. REPORTING ONLY — nothing gates on it. Set at 20
+# because the 2026-08-10 fleet sweep produced Path A PASSes on OOS windows of
+# 3, 4 and 5 trades, and the daily legs cluster there while the hourly ones sit
+# in the hundreds; 20 separates those two populations without pretending to be
+# a statistical threshold. It is a LABEL, not a gate.
+_THIN_OOS_TRADES = 20
+
+
 def beats(cell: dict, base: dict) -> bool:
     """net_R AND maxDD both no worse (strict net_R improvement OR dd improvement).
 
@@ -1297,8 +1306,33 @@ def main(argv: list[str]) -> int:
             continue
         passes = [e["cell"] for es in v["levers"].values() for e in es
                   if e.get("verdict") == "PASS"]
+        # THE VERDICT'S OWN DENOMINATOR, on the same line as the verdict.
+        #
+        # `beats()` compares net_R and maxDD and requires NO minimum trade
+        # count, so a PASS over a 3-trade out-of-sample window prints
+        # identically to a PASS over 400. Measured 2026-08-10 on the fleet
+        # sweep: `spy_trend_long_1d` returned FOUR PASSes on an OOS window of
+        # THREE trades (one cell on +0.08R in-sample), `qqq_trend_long_1d` two
+        # on four, `scha_trend_long_1d` three on five — while `mgc_trend_1h`
+        # returned one on 97, which is a different kind of claim entirely.
+        # A reader scanning this list for promotion candidates cannot tell them
+        # apart, which is the unasserted-denominator failure applied to the
+        # gate's own output.
+        #
+        # This REPORTS the counts; it does not change the gate. Adding a
+        # minimum-n to `beats()` would change what gets promoted and is the
+        # operator's call, not a reporting fix's.
+        bb = v.get("base_book") or {}
+        n_is = (bb.get("IS") or {}).get("total_trades")
+        n_oos = (bb.get("OOS") or {}).get("total_trades")
+        n_note = f" · base n IS={n_is} OOS={n_oos}"
+        thin = (isinstance(n_oos, (int, float)) and n_oos < _THIN_OOS_TRADES)
         lines.append(f"- **{leg}**{' [PROXY]' if v['proxy'] else ''}: "
-                     + (f"PASS {passes}" if passes else "all honest negatives"))
+                     + (f"PASS {passes}" if passes else "all honest negatives")
+                     + n_note
+                     + (f" ⚠️ **THIN OOS** (<{_THIN_OOS_TRADES} trades — a verdict "
+                        "here is not comparable to one on a full window)"
+                        if thin else ""))
     for s in skipped:
         lines.append(f"- **{s['leg']}**: SKIPPED — {s['reason']}")
 

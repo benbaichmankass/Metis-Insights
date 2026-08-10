@@ -170,6 +170,30 @@ def analyse(rows: list[dict], axis: str) -> dict:
         "overall_wf_pass_rate": round(
             sum(1 for _, v in usable if v) / len(usable), 4),
     }
+    # THE RATE'S OWN DENOMINATOR. A base rate is net_R/maxDD over the leg's base
+    # book, and that book can be 800 trades or 4. Quoting "the lowest rate is
+    # 1.08" without saying how many trades produced it is an unstated
+    # denominator one level below the one this file already guards — measured
+    # here after `splg_trend_long_1d` came back with an OOS base of FOUR trades.
+    # Reported, never filtered: dropping thin legs would silently redefine the
+    # population, and which legs are thin is itself part of the answer.
+    per_leg: dict = {}
+    for r, _ in usable:
+        leg = r.get("leg")
+        if leg not in per_leg:
+            per_leg[leg] = {"rate": r.get(axis),
+                            "base_trades_IS": r.get("base_trades_IS"),
+                            "base_trades_OOS": r.get("base_trades_OOS"),
+                            "cells_analysed": 0}
+        per_leg[leg]["cells_analysed"] += 1
+    out["per_leg"] = dict(sorted(
+        per_leg.items(), key=lambda kv: -(kv[1]["rate"] or 0)))
+    trade_counts = [v["base_trades_IS"] for v in per_leg.values()
+                    if isinstance(v["base_trades_IS"], (int, float))]
+    out["axis_distribution"]["base_trades_IS_min"] = (
+        min(trade_counts) if trade_counts else None)
+    out["axis_distribution"]["legs_missing_trade_count"] = (
+        len(per_leg) - len(trade_counts))
     # The grid is the OBSERVED values, not an invented ladder — a floor can only
     # be set where the data actually changes which cells are admitted.
     thin_on_legs = 0
