@@ -23,7 +23,12 @@ This skill exists because (a) sessions repeatedly act/commit before reading the
 canonical rules or knowing what tools they actually have, and (b) two sessions
 merging at the same time keep forcing each other "behind" `main` → branch
 protection require-up-to-date → a full re-run of CI on every PR (observed twice
-on 2026-06-28). It is **binding**: a session that skips it is the failure mode.
+on 2026-06-28, and again across four cycles on 2026-08-09/10). **That specific
+re-run churn is GONE as of 2026-08-10** — `require-up-to-date` was unticked
+(`strict: false`, operator-directed), so being `behind` no longer blocks a merge.
+The rest of this skill stands: two sessions merging at once still collide on
+shared files, still duplicate work, and still need the claim. It is **binding**:
+a session that skips it is the failure mode.
 
 This skill owns **two** coordination surfaces, and both are mandatory:
 
@@ -35,8 +40,12 @@ This skill owns **two** coordination surfaces, and both are mandatory:
   protocol: **`docs/claude/coordination-board.md`**.
 - **The merge queue — `docs/claude/session-board.json`.** Honour-system
   last-writer-wins, not a hard lock; the hard safety net is GitHub
-  branch-protection (require-up-to-date). Its job is to **mirror** session intent
-  durably (the `active_sessions` array).
+  branch-protection **required status checks** (`require-up-to-date` is off since
+  2026-08-10). Its job is to **mirror** session intent durably (the
+  `active_sessions` array). ⚠️ `merge_slot` is *structurally* unwritable for a
+  claim on the PR that carries it — see
+  `BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE`; the authoritative claim
+  is the #6927 comment.
 
 **One source of truth for the merge claim: the live board (#6927), not the JSON.**
 The 2026-07-20 lapse (BL-20260720-MERGE-PROTOCOL-LAPSE — 3 claim-less merges raced
@@ -109,8 +118,10 @@ contract + generation discipline. This skill adds the two missing halves:
 > triggers on the workflows never fire. So there is **no** auto-sync-and-serialize
 > path; the `🔒 CLAIM` / sync-immediately-before / `🔓 RELEASE` steps below are the
 > real serializer, not belt-and-suspenders. Expect the rebase-race (a PR goes
-> `behind` while its checks run) until the operator either unticks "Require branches
-> up to date" on `main` or moves the repo into an org. The board (#6927) is unchanged and
+> `behind` while its checks run) — **resolved 2026-08-10**: "Require branches
+> up to date" is now unticked on `main`, so a `behind` PR merges on green. Moving
+> the repo into an org (for the native queue) remains the only route to real
+> serialization. The board (#6927) is unchanged and
 > still MANDATORY for **work coordination** — `▶️ START` / `✅ DONE` / questions /
 > `active_sessions` registration — which the queue does not do. Until the queue
 > is enabled on this repo, the manual protocol below is the sole serializer and
@@ -134,9 +145,11 @@ first. Run all of these in order — this is the part that stops the retest chur
    mirror it into `session-board.json::merge_slot` (`{held_by, branch, pr,
    claimed_at}`) as the durable record. If a live session already holds the claim,
    do not merge — wait or coordinate.
-3. **Sync to `main` LAST, right before merging** — `git fetch origin main &&
-   git merge origin/main` (or rebase) so your branch is up-to-date at merge time,
-   not minutes before. Push; let CI go green on the synced head.
+3. **Sync only when you need `main`'s content.** Since 2026-08-10 a `behind`
+   branch merges fine, so a reflexive re-sync just buys another full CI cycle.
+   Sync when your change depends on something newly on `main`, or when GitHub
+   returns `405 merge conflicts` (a real textual conflict — still yours to
+   resolve). Otherwise let CI go green on the head you have.
 4. **Merge on green.** Confirm all required checks pass on the *synced* head SHA
    (a Monitor poll on `commits/<sha>/check-runs` is the clean wait), then
    `merge_pull_request`. Squash unless the history matters.

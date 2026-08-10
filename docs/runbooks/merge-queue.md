@@ -40,11 +40,12 @@ skill (`.claude/skills/session-coordination/SKILL.md`) §2 and
 1. **Read the board (#6927)** — `issue_read method=get_comments`. See what other
    live sessions are touching and whether the merge slot is claimed.
 2. **`🔒 MERGE SLOT — CLAIM`** on #6927 naming your PR before you merge.
-3. **Sync-immediately-before-merge.** Because "Require branches to be up to date"
-   is ON for `main` (see the rebase-race note below), the branch must be current
-   with `origin/main` at the moment of merge or GitHub 405s (`behind`) / re-runs
-   all checks. Update the branch (`update_pull_request_branch`, or a local rebase
-   + force-push) **just before** merging, once you hold the slot.
+3. **Sync only if you need `main`'s content.** ~~Because "Require branches to be
+   up to date" is ON~~ — **that setting was unticked 2026-08-10** (`strict: false`),
+   so a branch that is `behind` **merges fine** and a defensive re-sync only buys
+   another full CI cycle. Sync when your change actually depends on something new
+   on `main`, or when git reports a real textual conflict (a `405 merge conflicts`
+   is that, and is still yours to resolve).
 4. **Merge on green** — `merge_pull_request` (squash) once required checks pass on
    the synced head.
 5. **`🔓 MERGE SLOT — RELEASE`** + `✅ DONE` on #6927 so the next session proceeds.
@@ -52,18 +53,29 @@ skill (`.claude/skills/session-coordination/SKILL.md`) §2 and
    unrelated housekeeping onto one PR, making `health-review-backlog.json` a
    conflict magnet that re-triggered CI. Keep PRs single-concern.
 
-## The rebase-race (persists until the operator changes one setting or moves the repo)
+## The rebase-race — RESOLVED 2026-08-10 (kept as the record of why)
 
-With the queue unavailable, concurrent sessions still hit the **rebase-race**:
-`main` advances under an open PR while its checks run, the PR goes `behind`, and
-its checks must re-run against the new merge head before it can merge — repeated
-if several sessions land PRs in a burst. This is intrinsic to
-`main`'s branch protection having **"Require branches to be up to date before
-merging"** ticked, combined with no queue to auto-serialize.
+**Past tense throughout — this described the state BEFORE 2026-08-10.** With the
+queue unavailable, concurrent sessions **used to** hit the **rebase-race**: `main`
+advanced under an open PR while its checks ran, the PR went `behind`, and its
+checks **had to** re-run against the new merge head before it could merge —
+repeated if several sessions landed PRs in a burst. That was intrinsic to `main`'s
+branch protection having **"Require branches to be up to date before merging"**
+ticked, combined with no queue to auto-serialize.
 
-**It persists until ONE of:**
+Worst measured case (PR #8698, 2026-08-09/10): **four** CI cycles for one PR,
+~9 minutes each, because `main` moved twice while it waited. With sessions
+merging faster than one CI cycle a branch could never be simultaneously green
+**and** up-to-date — a livelock, not impatience.
 
-- The operator **unticks "Require branches to be up to date before merging"** on
+**RESOLVED by the first option below, taken 2026-08-10.** The section is kept
+because the second option is still open and the reasoning still applies if the
+setting is ever restored.
+
+**It persisted until ONE of:**
+
+- ✅ **DONE 2026-08-10 (operator-directed).** The operator **unticked "Require
+  branches to be up to date before merging"** on
   `main`'s branch-protection rule (checks then still run per-PR, but a PR need
   not be re-synced to the current `main` tip to merge — removing the re-run
   churn; the trade-off is a PR can merge against a slightly older base, which the
@@ -74,6 +86,12 @@ merging"** ticked, combined with no queue to auto-serialize.
   validation PR — becomes performable, and the dormant `merge_group:` triggers
   activate).
 
-Until then: **claim the slot, sync-immediately-before, merge-on-green, release —
-and expect to rebase onto `origin/main` + force-push (or `update_pull_request_branch`)
-if a PR goes `behind` while it waited.**
+Today: **claim the slot, merge-on-green, release.** A PR that goes `behind`
+while it waited **no longer needs a re-sync** — required checks still gate it,
+they simply no longer have to have run against `main`'s exact tip.
+
+**How to tell it is still off** (do not infer it): `branch-protection-sync.yml`
+echoes `strict=` in its run notice and **fails the run** if the live protection
+does not match what that file declares. A green sync run on a push to `main` is
+therefore positive evidence; before 2026-08-10 the notice printed only
+`contexts` and the setting could not be confirmed from CI at all.

@@ -88,9 +88,38 @@ So the skip is correct and stays. The real defect was that it was **indistinguis
 
 **The transferable bit:** both A and B are the same shape as the sprint that opened this file — *a claim asserted rather than verified*. In B the claim was mine, in my own backlog item, written the same day.
 
+## Addendum 2 — the merge itself became the next finding (PRs #8711, #8715)
+
+Recorded because this log's "Work Completed" stopped at the guard, and three further changes shipped after it merged.
+
+### C. The merge-friction livelock, and the operator correction that caused the real fix
+
+Landing #8698 cost **four** CI cycles. `main` moved twice under it — #8709 seconds before the merge-slot claim, #8710 during the re-run — and each re-sync started a fresh ~9-minute `pytest-run` that the next merge invalidated. With sessions merging faster than one CI cycle, a branch can never be simultaneously **green** and **up-to-date**.
+
+I first reported this as *"the merge-slot protocol structurally cannot serialize."* **The operator pushed back and was right.** `session-board.json`'s schema is explicit — *"At most ONE session holds this at a time. Mirror the claim here before merge, clear after."* — and the VM-lane section spells out the wait discipline (*"Lane held → post `🕓 QUEUED · behind <holder>`, wait. … Newest never wins."*). The contract **does** define waiting. I had generalised from step 1's open-PR sanity check to the whole mechanism, which conveniently blamed the design for my own gap: **I held the live slot for 30 minutes and never wrote the `merge_slot` mirror**, so the durable record read `held_by: null` throughout. That is a fresh instance of `BL-20260720-MERGE-PROTOCOL-LAPSE`, whose own text is *"sessions treated this JSON as the claim, it went untouched under load."*
+
+Timestamps split the blame and that matters: **#8709 merged 00:46:45, seconds *before* my claim** (not a violation — I held nothing yet); **#8710 merged after it**. I had presented both as evidence the design was broken.
+
+**Shipped (#8711, operator-directed):** `strict: false` on `main` — unticks *"Require branches to be up to date before merging."* Required checks still gate (`REQUIRED_CONTEXTS` untouched, `enforce_admins` still true); only the up-to-date coupling is gone. Accepted exposure is a **semantic** conflict — clean textually, green alone, broken together — mitigated by `guards` + `pytest-run` also running on every push to `main`.
+
+### D. Two measured claims of mine that were false
+
+**"A 34-minute `pytest-run`" and "the runner pool is contended."** Both wrong, both repeated to the operator. Measured, every run took ~9 minutes: **8m51s / ~9m16s / 8m42s / 8m57s**. The "34 minutes" was **`get_check_runs` serving stale data** — reporting `in_progress` ~30 minutes after the run object was `completed / success`. I read a lagging API as a slow runner and inferred a cause I never checked. Corollary: `get_status` returns `state: pending, total_count: 0` here because everything is a Check Run and the *legacy status* API is empty — that means **no data**, not "pending". **Probe `get_job_logs`: a 404 means genuinely still running.**
+
+**The stacking finding survived** and is filed with real numbers as `BL-20260810-REQUIRED-WORKFLOWS-NO-CONCURRENCY-GROUP`: `pytest-run` / `pytest-collect` / `repo-inventory` declare no `concurrency:` group while `guards.yml` does, so a re-queue stacks a second full suite. #8711 demonstrated it on itself — un-drafting re-queued a second ~9-min `pytest-run` on an unchanged head, while `guards` on that same head was correctly cancelled by its group (the control).
+
+### E. A green sync that never said what it set (#8715)
+
+#8711 flipped `strict` true → false and `branch-protection-sync.yml` went green printing **only** `Required contexts now: [...]`. The change was correct and **unverifiable from CI**: no MCP tool reads branch protection and `api.github.com` is unreachable from a sandbox session, so the only evidence was *"the PUT returned 200"* plus inference. That is the `diagnostic-provenance` class in the workflow that owns branch protection.
+
+#8715 echoes `strict` + `enforce_admins` + `contexts` **and asserts the response matches what the file declares**, failing the run otherwise — because HTTP 200 means *GitHub accepted the request*, not *the field is now what you asked for*. Verified both directions against synthetic responses. Its first real run is also the confirmation owed for #8711.
+
 ## Deferred Items
 - Deferred item 1: hardening `DELETE`/`PATCH /api/bot/devices` to the prop route's fail-closed shape (Tier 2 — a runtime change).
 - Deferred item 2: the 52 pre-existing `diagnostic-provenance --all` findings remain grandfathered. Not touched here; they are why that guard cannot run whole-tree on push.
+- Deferred item 3: the **fix** for `BL-20260810-REQUIRED-WORKFLOWS-NO-CONCURRENCY-GROUP` (adding groups to three workflows). The finding shipped; the fix did not. It carries one unverified caution — `cancel-in-progress` on a **required** check leaves that context non-successful until the superseding run lands.
+- Deferred item 4: the `merge_slot` mirror is **structurally unwritable for a claim on the PR that carries it** — writing it costs a full CI restart and reaches nobody until merge, by which point the claim is over. Filed as `BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE`; the remedy is a store not gated on merging, not "remember harder".
+- Deferred item 5: **`strict: false` is inferred, not observed**, until #8715's notice prints it or a behind-`main` PR merges without re-sync.
 
 ## Next Recommended Sprint
 - Suggested next sprint: none required by this work. The guard is self-maintaining.

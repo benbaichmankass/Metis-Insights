@@ -11226,8 +11226,31 @@
         ".github/workflows/repo-inventory.yml",
         ".github/workflows/guards.yml"
       ]
+    },
+    {
+      "id": "BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE",
+      "opened_at": "2026-08-10T02:10:00+00:00",
+      "opened_by": "claude (api-tier-policy-guard-npihz7)",
+      "source": "Third recurrence of the same behaviour, observed first-hand this session. docs/claude/session-board.json's schema says of merge_slot: 'At most ONE session holds this at a time. Mirror the claim here before merge, clear after.' I held the authoritative live slot on PR #8698 from 00:47Z to 01:17Z and never wrote the mirror; it read held_by:null the entire time. On the NEXT merge (#8711) I did not write it either — that time deliberately, and the reason is the finding.",
+      "title": "The merge_slot durable mirror is structurally unwritable for a claim on the PR that carries it, so 'remember to mirror it' cannot be the fix",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "severity": "low",
+      "what_to_check": "merge_slot lives in a COMMITTED file. For the common case — a session claiming the slot in order to merge a PR — writing the mirror means committing to that PR's branch, which (a) restarts the full CI cycle (~9 min here) and (b) still reaches no other session until the PR merges, at which point the claim is already over. So at the exact moment the mirror would be useful it cannot be written usefully.\n\nThat is why BL-20260720-MERGE-PROTOCOL-LAPSE ('sessions treated this JSON as the claim, it went untouched under load') and BL-20260726-MERGE-PROTOCOL-LAPSE-RECURRENCE both closed as resolved and the behaviour recurred anyway. Both remedies were exhortations. The schema itself already concedes the live board comment on #6927 is authoritative and the JSON is a 'best-effort DURABLE MIRROR' — but the mirror's ONE job (surviving a session that dies mid-merge, where the comment stays up and nobody knows the holder is gone) is exactly the case the current placement cannot serve.\n\nNOT urgent: the authoritative live claim works when sessions read it, and branch protection is the real safety net. This is about the durable half being unreachable, not about merges being unsafe.",
+      "proposed_fix": "Pick one deliberately; do NOT re-file an exhortation:\n(a) Move the durable slot OFF the merge-gated path — e.g. a dedicated pinned GitHub issue whose body is the slot state, or a label on the PR. Both are writable instantly by any session and readable by all, which is the property the JSON lacks.\n(b) Accept the board comment as the ONLY claim and DELETE merge_slot from the schema, so nothing implies a durable record exists. A field everyone is told to write and nobody can usefully write is worse than no field.\n(c) Keep it, but scope it explicitly to non-PR claims (VM lane, live-VM actions) where the writer is not the thing being merged.\nWhichever is chosen, close the two prior lapse items by pointing at it rather than leaving them 'resolved' against a behaviour that keeps happening.",
+      "related": [
+        "BL-20260720-MERGE-PROTOCOL-LAPSE",
+        "BL-20260726-MERGE-PROTOCOL-LAPSE-RECURRENCE",
+        "BL-20260726-MERGE-QUEUE-ENABLEMENT"
+      ],
+      "refs": [
+        "docs/claude/session-board.json",
+        "docs/claude/coordination-board.md",
+        ".claude/skills/session-coordination/SKILL.md"
+      ]
     }
   ],
-  "updated_at": "2026-08-10T01:20:00+00:00",
+  "updated_at": "2026-08-10T02:10:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
