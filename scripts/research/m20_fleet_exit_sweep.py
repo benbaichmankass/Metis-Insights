@@ -262,8 +262,18 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
         opt("--min-confidence", "min_confidence")
         declared_levers()
     else:
-        opt("--trend-lookback", "trend_len")
-        opt("--pullback-lookback", "pullback_len")
+        # `trend_len` / `pullback_len` were keys NO strategy has ever declared
+        # (the YAML says `trend_lookback` / `pullback_lookback`), so `opt` read
+        # None, passed no flag, and backtest_pullback fell back to its OWN
+        # defaults — 40 / 10 / 0.5. That is silently correct only for a leg that
+        # happens to declare those exact values, and 11 of 19 pullback legs do
+        # not: spy/qqq/tlt/gld `_1h` are 60/12, the `_1d` metals 15, several use
+        # `pullback_frac: 0.618`, `ief_pullback_1d` a 30 trend window.
+        # Unlike the trail-vol gap this is ENTRY geometry — it changes which
+        # trades exist at all, not just how they exit. Found 2026-08-10 while
+        # reading the YAML blocks for the promotion diff.
+        opt("--trend-lookback", "trend_lookback")
+        opt("--pullback-lookback", "pullback_lookback")
         opt("--pullback-frac", "pullback_frac")
         opt("--atr-period", "atr_period")
         opt("--atr-stop-mult", "atr_stop_mult")

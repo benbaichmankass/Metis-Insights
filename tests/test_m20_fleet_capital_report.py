@@ -661,3 +661,44 @@ def test_no_exit_lever_key_in_yaml_is_unmapped():
         "exit-lever-shaped YAML key(s) with no harness flag mapping — thread them "
         "through base_args::declared_levers or add them to _NOT_A_LEVER with a "
         f"reason: {sorted(unmapped)}")
+
+
+def test_every_cfg_key_base_args_reads_is_declared_by_some_strategy():
+    """A `cfg` key no strategy declares is DEAD, and dead reads fail silently.
+
+    `opt(flag, key)` passes nothing when `cfg.get(key)` is None, so a
+    misspelled key does not raise — it drops the flag and the harness quietly
+    substitutes its OWN default. That is invisible in the output, which is what
+    makes it worse than a crash.
+
+    Two real instances found on 2026-08-10, both by reading the YAML rather
+    than the code:
+      * `trail_vol_*` — a REAL key that was simply never threaded.
+      * `trend_len` / `pullback_len` — keys that do not exist anywhere; the YAML
+        says `trend_lookback` / `pullback_lookback`. The sweep had been reading
+        the wrong names and inheriting backtest_pullback's 40/10/0.5 defaults,
+        which diverge from what 11 of 19 pullback legs actually declare. That
+        one is ENTRY geometry: it changes which trades exist, not just exits.
+
+    This asserts the weaker but fully general property — every key read must be
+    declared by at least one strategy. It cannot catch a key that is threaded
+    to the wrong FLAG, but it catches every key that is simply not real.
+    """
+    import re
+    import yaml
+    src = (REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py").read_text()
+    start = src.index("def base_args")
+    body = src[start:src.index("\ndef ", start + 10)]
+    keys = set(re.findall(r'opt\(\s*"[^"]+"\s*,\s*"([^"]+)"\s*\)', body))
+    assert len(keys) > 15, f"the opt() scrape found only {len(keys)} keys — regex drifted"
+
+    cfg = yaml.safe_load((REPO / "config" / "strategies.yaml").read_text())
+    declared = set()
+    for block in (cfg.get("strategies", cfg)).values():
+        if isinstance(block, dict):
+            declared |= set(block)
+
+    dead = sorted(keys - declared)
+    assert not dead, (
+        "base_args reads cfg key(s) that NO strategy declares — each silently "
+        "drops its flag and lets the harness default stand in: " + str(dead))

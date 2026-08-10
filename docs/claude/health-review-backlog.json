@@ -12490,7 +12490,8 @@
         "docs/research/M20-exit-lever-promotion-packet-2026-08-10.md",
         "scripts/research/m20_fleet_exit_sweep.py",
         "tests/test_m20_fleet_capital_report.py"
-      ]
+      ],
+      "outcome_measured": "RE-RUN COMPLETE (GH run 31414856214, both legs). The defect was OUTCOME-CHANGING, not cosmetic. On trend_donchian_eth BOTH Path A winners died: decay_stall10_t2.5 went PASS (dNetR IS +7.49, dMaxDD -7.77) -> is_oos_fail (dNetR IS -1.00, dMaxDD +5.96) - the IS SIGN FLIPPED; stale12_lt0R went PASS -> wf_fail (still clears both windows, now fails the yearly folds). The Tier-3 promotion packet drops from 3 live-leg winners to 1. Self-verifying: the two cells that merely RE-DECLARE each leg's existing lever (trend_donchian_eth vt_cold10_t2.5, qqq_pullback_1h vt_hot80_t2.5) now correctly read tie_no_improvement with 0.0 on every axis - under the broken base they read as improvements. Two independent legs, same signature."
     },
     {
       "id": "BL-20260810-SCRIPTS-ML-SHADOWS-REPO-ML",
@@ -12505,6 +12506,21 @@
         "scripts/backtest_ict_scalp.py",
         "scripts/backtest_pullback.py",
         "tests/test_ict_scalp_exit_levers.py"
+      ]
+    },
+    {
+      "id": "BL-20260810-SWEEP-READS-NONEXISTENT-ENTRY-KEYS",
+      "opened": "2026-08-10",
+      "severity": "P2",
+      "status": "resolved",
+      "area": "research/backtest",
+      "summary": "m20_fleet_exit_sweep::base_args read cfg keys `trend_len` and `pullback_len` that NO strategy has ever declared - the YAML says `trend_lookback` / `pullback_lookback`. `opt()` passes nothing when the key is absent, so the flags were dropped and backtest_pullback substituted its OWN defaults (40 / 10 / 0.5). Unlike the trail-vol gap this is ENTRY geometry: it changes which trades exist at all, not just how they exit.",
+      "evidence": "Measured across all 19 pullback legs in config/strategies.yaml: 11 legs diverge from the harness defaults, 23 individual key divergences. spy/qqq/tlt/gld `_1h` declare trend_lookback 60 + pullback_lookback 12; the `_1d` metals declare pullback_lookback 15; several declare pullback_frac 0.618; ief_pullback_1d declares trend_lookback 30. Those legs' sweep results were produced on entry geometry the live leg does not use. Legs that MATCH the defaults are unaffected - incl. eth_pullback_2h and avax_pullback_2h (both 40/10/0.5), the two pullback legs in the 2026-08-10 promotion, so that promotion is NOT affected.",
+      "fix": "Key names corrected. New general test test_every_cfg_key_base_args_reads_is_declared_by_some_strategy asserts every cfg key base_args reads is declared by at least one strategy - a key no leg declares is dead, and a dead read fails SILENTLY rather than raising. It cannot catch a key threaded to the wrong flag, but it catches every key that is not real. Positive control: restoring `trend_len` reproduces the failure naming that key.",
+      "followup": "Any pullback-leg sweep verdict recorded BEFORE 2026-08-10 for one of the 11 diverging legs should be re-measured before it is cited; the affected 2026-08-10 packet entries are spy_pullback_1h and qqq_pullback_1h, both of which were REJECTIONS, so nothing was promoted on them.",
+      "refs": [
+        "scripts/research/m20_fleet_exit_sweep.py",
+        "tests/test_m20_fleet_capital_report.py"
       ]
     }
   ],
