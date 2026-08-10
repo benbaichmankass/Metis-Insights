@@ -626,7 +626,7 @@ def drawdown_exchange_rate(cell: dict, base: dict) -> dict:
       * ``base_no_drawdown`` (D_b <= 0) — nothing to scale the allowance from.
       * ``unreadable`` — a missing field is not a failed comparison.
     """
-    out: Dict[str, Any] = {
+    out: dict = {
         "passes": None, "reason": None,
         "base_net_r": None, "base_max_dd": None,
         "cell_net_r": None, "cell_max_dd": None,
