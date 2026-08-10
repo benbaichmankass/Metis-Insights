@@ -635,3 +635,54 @@ def test_no_action_exists_in_the_workflow_that_is_absent_from_EXPECTED_ACTIONS()
         f"the SSH key step. Add them to EXPECTED_ACTIONS (and TIER_2_ACTIONS "
         f"if mutating)."
     )
+
+
+def test_every_action_requiring_env_key_also_forwards_it_to_the_vm():
+    """An action VALIDATED as needing ``env_key`` must also FORWARD it.
+
+    The two live in different steps: the Validate step rejects a blank
+    ``env_key``, and a much later step prepends ``ENV_KEY=…`` onto ``REMOTE_CMD``
+    inside a per-action ``if``. Passing the first proves nothing about the
+    second, and the failure between them is silent in the worst way — the
+    wrapper RUNS on the VM, sees an unset variable, and exits on its own
+    "requires env_key" error, which reads as a caller mistake rather than a
+    workflow wiring gap.
+
+    That is exactly what `get-env` hit on its first real dispatch (issue #8753,
+    2026-08-10): allowlisted, tier-classified, script-mapped, registered in
+    EXPECTED_ACTIONS and notify_run.sh — and the parameter still never crossed
+    the SSH boundary, because the forwarding branch was written for `set-env`
+    only. Every existing guard here checks that an action is DECLARED; this one
+    checks that its inputs actually ARRIVE.
+    """
+    text = WORKFLOW.read_text()
+
+    # Actions the Validate step demands an env_key from.
+    validated = set()
+    for m in re.finditer(r'\[\s*"\$\{ACTION\}"\s*=\s*"([a-z0-9-]+)"\s*\]', text):
+        action = m.group(1)
+        window = text[m.end():m.end() + 600]
+        if "requires 'env_key'" in window or 'requires ${ACTION} env_key' in window:
+            validated.add(action)
+    assert validated, (
+        "found no action validating 'env_key' — did the Validate step change? "
+        "A guard that silently matches nothing is worse than no guard."
+    )
+
+    # Actions that actually prepend ENV_KEY onto the remote command.
+    forwards = set()
+    for m in re.finditer(r'\[\s*"\$\{ACTION\}"\s*=\s*"([a-z0-9-]+)"\s*\]', text):
+        action = m.group(1)
+        window = text[m.end():m.end() + 2500]
+        if 'REMOTE_CMD="ENV_KEY=' in window:
+            forwards.add(action)
+
+    missing = validated - forwards
+    assert not missing, (
+        f"Action(s) {sorted(missing)} require 'env_key' at validation but never "
+        f"forward ENV_KEY to the VM in any `REMOTE_CMD=\"ENV_KEY=…\"` branch. "
+        f"The dispatch will succeed, the wrapper will run on the VM with the "
+        f"variable UNSET, and it will fail with its own 'requires env_key' "
+        f"message — which looks like a bad request rather than a missing wire. "
+        f"Add a forwarding branch for it (see the get-env / set-env blocks)."
+    )
