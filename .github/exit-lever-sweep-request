@@ -1,35 +1,37 @@
 # Sentinel — touching this file fires m20-exit-lever-sweep from the branch.
 # The `legs:` line below is READ BY THE PLAN JOB, not decoration.
 #
-# 2026-08-10 (6th dispatch) — THE OTHER 33 LEGS. Testing ONE falsifiable claim.
+# 2026-08-10 (7th dispatch) — THE 8 ict_scalp LEGS. The last unmeasured part of
+# the fleet, and the part where the live capped TP bites hardest.
 #
-# THE CLAIM, from the first 10 legs (corpus committed, analysis run):
-#   Zero of the 7 gradeable legs have a base net_R-per-drawdown rate below 1.0
-#   (min 1.08). The other 3 have an unprofitable IS base and are already refused
-#   by `drawdown_exchange_rate`'s `base_unprofitable` guard — ungradeable is not
-#   a pass. So the "Path A is permissive on a weak book" case can only arise on a
-#   book that is PROFITABLE BUT EARNS LITTLE PER UNIT OF DRAWDOWN, and no leg in
-#   the measured fleet is there. The 0.40 rate that motivated a floor came from a
-#   pre-correction base and does not reproduce.
+# WHY THEY GOT THEIR OWN DISPATCH. The census timed one full-history scalp run at
+# 955s, and a sweep is base x 2 windows + cells x 2 windows + a walk-forward per
+# candidate. Folding them into the 33-leg run would have held 33 finished legs
+# behind a 4.5h worst case for 8. They are cheap in wall-clock terms only because
+# every leg is its own matrix job (max-parallel 10, 330-min job cap, 1800s per
+# cell), so a leg that overruns costs that leg and nothing else.
 #
-# WHAT THIS RUN DECIDES: whether that holds over the WHOLE fleet or only over the
-# census top-10. If some leg here is profitable with a rate below ~1.0, the floor
-# is a real gap and this run finds the instance that sizes it. If none is, the
-# floor is UNNECESSARY rather than underdetermined — a stronger and cheaper
-# answer than any number, and one no amount of arguing could have produced.
+# WHAT THIS RUN IS FOR — and what it is NOT for.
 #
-# It also takes the floor analysis's own denominator from 6 distinct legs toward
-# ~40, which is the only thing that makes a floor testable at all (the predictor
-# is a property of the LEG, so LEGS are the sample size, not cells).
+# NOT for finding a Path B floor. That question is CLOSED as of the 43-leg corpus
+# (docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md): both candidate
+# predictors returned `no_separation`, and at every floor the arm a floor would
+# reject generalised BETTER than the arm it would admit. More legs cannot revive a
+# predictor that points the wrong way; they would only re-run a settled test.
 #
-# SCOPE: the 33 remaining classifiable+enabled non-scalp legs. The 8 ict_scalp
-# legs are DELIBERATELY EXCLUDED — the census timed one full-history scalp run at
-# 955s and a sweep of one is base + cells x 2 windows + a 2-full-history
-# walk-forward per candidate, so they belong in their own dispatch rather than
-# holding this one behind a 4.5h worst case. `trend_donchian_1h` and
-# `xauusd_trend_1h` are excluded as `enabled: false`.
+# It is for the ONE question the scalps are uniquely placed to answer: these legs
+# have the tightest frames in the fleet, so `tp = min(entry*(1+cap), entry +
+# tp_r*risk)` should bind on them far more often than on the 1d/1h legs measured
+# so far (whose live-TP-reach medians came back at 2-12R — i.e. the 9.9% clamp is
+# nowhere near). If the clamp is ordinary on a 5m scalp frame, that is a live
+# geometry finding about production orders, not a backtest artifact, and
+# BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP is the item it closes.
 #
-# Geometry, gate, split and base are UNCHANGED. Nothing here re-opens a verdict,
-# and nothing from this run ships without the operator's Tier-3 call.
-legs: iwm_trend_long_1d,mes_trend_long_1d,mgc_trend_1h,qld_trend_long_1d,qqq_trend_long_1d,scha_trend_long_1d,slv_trend_1h,splg_trend_long_1d,spy_trend_long_1d,tqqq_trend_long_1d,trend_donchian_ada_4h,trend_donchian_avax_4h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_sol_prop,trend_donchian_xrp_4h,uso_trend_1h,ada_pullback_2h,eth_pullback_prop_2h,gdx_pullback_1d,gld_pullback_1d,gld_pullback_1h,iaum_pullback_1d,ief_pullback_1d,mgc_pullback_1d,mhg_pullback_1d,slv_pullback_1d,sol_pullback_2h,tlt_pullback_1d,tlt_pullback_1h,xrp_pullback_2h,squeeze_breakout_4h,fvg_range_15m
-dispatch: 2026-08-10 fleet-wide base-rate distribution — does a profitable sub-1.0 leg exist?
+# The `Live TP reach` table is therefore the PRIMARY output of this run. The
+# lever verdicts are secondary and, given the fleet result above, are expected to
+# be honest negatives.
+#
+# SCOPE: all 8 enabled ict_scalp legs. `ict_scalp_sol_15m bank0.5@1R` (TASK 3)
+# is deliberately NOT bundled here — it is a BUILD, not a cell, and rushing it
+# into a sweep dispatch is how it would get done badly.
+legs: ict_scalp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_mgc_15m,ict_scalp_sol_15m,ict_scalp_sol_5m,ict_scalp_xrp_15m,ict_scalp_xrp_5m
