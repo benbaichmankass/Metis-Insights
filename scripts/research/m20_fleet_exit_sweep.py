@@ -316,13 +316,67 @@ def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
 
 
 def beats(cell: dict, base: dict) -> bool:
-    """net_R AND maxDD both no worse (strict net_R improvement OR dd improvement)."""
+    """net_R AND maxDD both no worse (strict net_R improvement OR dd improvement).
+
+    This is **Path A** of the exit-refinement gate, and it is deliberately
+    unchanged here. Note what it implies for a capital-releasing lever: a cell
+    that frees capital while giving up a little net_R fails `cn >= bn` and
+    short-circuits to `is_oos_fail` BEFORE any walk-forward runs. That is the
+    documented reason every pullback `stale_stop` cell in the coverage matrix
+    reads `honest_negative` off the 2026-07-12 fleet sweep — the gate could not
+    see the axis. Path B (§ P2 of the exit-refinement skill) exists for exactly
+    that population; its two thresholds are UNSET pending the distribution this
+    sweep now reports, so nothing here grades against them.
+    """
     try:
         cn, bn = float(cell["net_total_r"]), float(base["net_total_r"])
         cd, bd = float(cell["max_drawdown_r"]), float(base["max_drawdown_r"])
     except (KeyError, TypeError, ValueError):
         return False
     return cn >= bn and cd <= bd and (cn > bn or cd < bd)
+
+
+def capital_delta(cell: dict, base: dict) -> dict:
+    """Cell-vs-base capital-efficiency comparison — **REPORTED, never graded.**
+
+    Path B's two thresholds (how much `net_r_per_capital_day` must improve, and
+    how much net_R may fall) are deliberately unset: the operator sets them from
+    a measured distribution, not from a number a session invented. So this
+    returns the raw pair plus their deltas and says nothing about pass/fail.
+
+    Every value is `None`, never `0.0`, when the underlying rate was
+    unmeasurable — `capital_efficiency.days_from_bars` already refuses to
+    fabricate a hold, and collapsing "we could not measure the rate" into "the
+    rate was zero" here would re-introduce exactly what that refusal prevents
+    (docs/CLAUDE-RULES-CANONICAL.md § "Collapsed states"). A consumer must be
+    able to tell an unmeasured cell from a flat one before ranking on it.
+    """
+    def _f(d: dict, k: str):
+        v = d.get(k)
+        try:
+            return float(v) if v is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    out = {}
+    for key in ("net_r_per_capital_day", "net_r_per_position_day",
+                "mean_bars_held", "capital_days"):
+        c, b = _f(cell, key), _f(base, key)
+        out[f"cell_{key}"] = c
+        out[f"base_{key}"] = b
+        out[f"d_{key}"] = (round(c - b, 4) if c is not None and b is not None
+                           else None)
+    cn, bn = _f(cell, "net_total_r"), _f(base, "net_total_r")
+    out["d_net_total_r"] = (round(cn - bn, 4)
+                            if cn is not None and bn is not None else None)
+    # Path B's net_R floor is expressed as a FRACTION of base net_R, so carry
+    # the ratio too — but only when base net_R is non-zero AND positive. A
+    # negative or zero base makes "fell no more than X%" meaningless rather
+    # than merely large, so it is None, not a misleading number.
+    out["net_r_retained_frac"] = (round(cn / bn, 4)
+                                  if cn is not None and bn is not None and bn > 0
+                                  else None)
+    return out
 
 
 def main(argv: list[str]) -> int:
@@ -433,6 +487,12 @@ def main(argv: list[str]) -> int:
                 continue
             candidate = beats(c_is, base_is) and beats(c_oos, base_oos)
             entry = {"cell": tag, "is_oos_pass": candidate}
+            # Capital efficiency is recorded for EVERY cell, including the ones
+            # Path A rejects — those are precisely the Path B population, and a
+            # verdict file that carried the axis only for Path-A survivors would
+            # be unable to answer the question it was added for.
+            entry["capital"] = {"IS": capital_delta(c_is, base_is),
+                                "OOS": capital_delta(c_oos, base_oos)}
             if candidate:
                 wins = usable = 0
                 for fname, fs, fe in FOLDS:
@@ -474,7 +534,52 @@ def main(argv: list[str]) -> int:
                      + (f"PASS {passes}" if passes else "all honest negatives"))
     for s in skipped:
         lines.append(f"- **{s['leg']}**: SKIPPED — {s['reason']}")
+
+    # ---- Capital-efficiency distribution (Path B input, REPORTED not graded) --
+    # One row per leg x cell on the OOS window. The operator sets Path B's two
+    # thresholds off this; the sweep asserts nothing about them.
+    dist = []
+    for leg, v in verdicts.items():
+        for lever, entries in (v.get("levers") or {}).items():
+            for e in entries:
+                cap = (e.get("capital") or {}).get("OOS") or {}
+                dist.append({
+                    "leg": leg, "lever": lever, "cell": e["cell"],
+                    "path_a": e.get("verdict"),
+                    "d_net_r_per_capital_day": cap.get("d_net_r_per_capital_day"),
+                    "cell_net_r_per_capital_day": cap.get("cell_net_r_per_capital_day"),
+                    "base_net_r_per_capital_day": cap.get("base_net_r_per_capital_day"),
+                    "d_net_total_r": cap.get("d_net_total_r"),
+                    "net_r_retained_frac": cap.get("net_r_retained_frac"),
+                    "d_mean_bars_held": cap.get("d_mean_bars_held"),
+                })
+    measured = [d for d in dist if d["d_net_r_per_capital_day"] is not None]
+    (run_dir / "capital_distribution.json").write_text(json.dumps({
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "window": "OOS", "split": a.split,
+        # ALWAYS STATE THE POPULATION — a distribution quoted without its
+        # denominator is the failure this repo has a standing rule against.
+        "cells_total": len(dist), "cells_measured": len(measured),
+        "cells_unmeasured": len(dist) - len(measured),
+        "note": ("Path B thresholds are UNSET by design; these rows are the "
+                 "evidence for setting them. `null` means the rate was not "
+                 "measurable, NOT zero."),
+        "rows": sorted(measured,
+                       key=lambda d: -(d["d_net_r_per_capital_day"] or 0))
+                + [d for d in dist if d["d_net_r_per_capital_day"] is None],
+    }, indent=1))
+    lines += ["", "## Capital efficiency (OOS, Path B input — reported, not graded)",
+              "", f"Measured on **{len(measured)} of {len(dist)}** cells "
+              f"({len(dist) - len(measured)} unmeasurable → `null`, not 0).", "",
+              "| leg | cell | PathA | Δ net_r/capital_day | Δ net_R | net_R retained |",
+              "|---|---|---|--:|--:|--:|"]
+    for d in sorted(measured, key=lambda d: -(d["d_net_r_per_capital_day"] or 0))[:25]:
+        lines.append(
+            f"| {d['leg']} | {d['cell']} | {d['path_a']} | "
+            f"{d['d_net_r_per_capital_day']} | {d['d_net_total_r']} | "
+            f"{d['net_r_retained_frac']} |")
     (run_dir / "SUMMARY.md").write_text("\n".join(lines) + "\n")
+    print(f"capital: {len(measured)}/{len(dist)} cells measured")
     print("done ->", run_dir)
     return 0
 

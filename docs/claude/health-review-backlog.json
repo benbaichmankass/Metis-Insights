@@ -11337,8 +11337,49 @@
         "https://github.com/benbaichmankass/Metis-Insights/issues/8713",
         "https://github.com/benbaichmankass/Metis-Insights/issues/8714"
       ]
+    },
+    {
+      "id": "BL-20260810-DIAG-RELAY-DOC-SAYS-TITLE-BODY-IS-AUTHORITATIVE",
+      "opened_at": "2026-08-10T02:30:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "resolved",
+      "tier": 1,
+      "severity": "medium",
+      "area": "diag-relay",
+      "title": "docs/claude/diag-relay.md told every session the diag path is the TITLE and the body is ignored; the workflow parses the BODY first and the title is only an empty-body fallback",
+      "source": "MEASURED 2026-08-10 02:23Z. Issue #8716 was opened exactly as the doc's 'Common mistakes' section #1 prescribes -- path in the title, prose in the body -- and was REJECTED before any VM contact.\n\nAuthority is .github/workflows/vm-diag-snapshot.yml step 'Resolve and validate diag path(s)' (resolve_multi): it reads ISSUE_BODY first (JSON array, fenced JSON array, or one path per line), and only `if not candidates` does it fall back to title_path. A prose body therefore becomes the candidate list and fails PATH_RE, and one bad path sys.exit(1)s the WHOLE batch.\n\nThe doc has been wrong since the multi-path batching change, and the section it is wrong in is the one headed 'read before first use'.",
+      "what_to_check": "Whether any other doc or skill still teaches the title-carries-the-path form (grep '[diag-request]' across docs/ and .claude/skills/).",
+      "action": "FIXED in this PR: 'Common mistakes' #1 rewritten to the measured contract (body = path list, one per line, no prose; title = display-only fallback; MAX_PATHS 15; one bad path fails the batch; the /api/bot/ read-only allowlist named). The retraction is kept inline rather than silently overwritten, since sessions acted on the old text.",
+      "resolution_criteria": "Doc matches resolve_multi's actual precedence, verified by reading the workflow rather than by one successful request.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/claude/diag-relay.md",
+        ".github/workflows/vm-diag-snapshot.yml",
+        "#8716",
+        "#8719"
+      ]
+    },
+    {
+      "id": "BL-20260810-DIAG-BASE-URL-POINTS-AT-TERMINATED-MICRO",
+      "opened_at": "2026-08-10T02:30:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "open",
+      "tier": 1,
+      "severity": "low-medium",
+      "area": "diag-relay",
+      "title": "the session environment's DIAG_BASE_URL is http://158.178.210.252:8001 -- the x86 micro TERMINATED 2026-06-16, not the live Ampere trader",
+      "source": "MEASURED 2026-08-10 02:22Z in this session: `echo $DIAG_BASE_URL` -> http://158.178.210.252:8001. Per CLAUDE.md the live trader has been 141.145.193.91 since the 2026-06-14 Ampere cutover, and the micro was terminated 2026-06-16 by OCID.\n\nCurrently INERT, and the reason it is inert is the second half of the finding: at this session's Trusted network level BOTH addresses time out (12s, curl exit 28), so Transport A is unavailable whichever host it names and every read falls through to the issue relay. That is why the stale value survived unnoticed.\n\nThe risk is a session at Full network access: diag_fetch.sh would resolve a dead host and return exit 3, which the doc defines as 'direct path unavailable' -- indistinguishable from 'web-api down'. A wrong-host misconfiguration would read as a VM outage.",
+      "what_to_check": "Where DIAG_BASE_URL is set for cloud sessions (Claude Code environment config -- it is in no committed file). Whether diag_fetch.sh should assert the host against the canonical IP and fail LOUD on a mismatch instead of reusing the same exit 3 it uses for 'not configured'.",
+      "action": "Operator: point the environment variable at http://141.145.193.91:8001. Separately, consider making diag_fetch.sh distinguish unconfigured / unreachable / wrong-host rather than collapsing all three into exit 3 (docs/CLAUDE-RULES-CANONICAL.md 'Collapsed states').",
+      "resolution_criteria": "DIAG_BASE_URL names the live trader, verified by a session that can actually reach it.",
+      "snoozed_until": null,
+      "refs": [
+        "scripts/ops/diag_fetch.sh",
+        "docs/claude/diag-relay.md",
+        "docs/ARCHITECTURE-CANONICAL.md"
+      ]
     }
   ],
-  "updated_at": "2026-08-10T01:20:00+00:00",
+  "updated_at": "2026-08-10T02:32:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
