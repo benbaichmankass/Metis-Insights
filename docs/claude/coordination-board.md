@@ -163,9 +163,18 @@ So the claim is now hard-enforced by a **`PreToolUse` guard** in
   `/tmp/.claude-merge-claim-<session_id>-<pr>` exists and is **fresh (< 20 min)**.
 - The deny message is the runbook: (1) list OPEN PRs (real-time truth — is
   another session mid-merge?); (2) post a `🔒 MERGE SLOT CLAIM` on #6927 naming
-  the PR; (3) sync THIS branch to `origin/main` immediately before merging and
-  let CI go green on the synced head; (4) `touch` the marker and RETRY the call;
-  (5) post `🔓 MERGE SLOT RELEASE` on #6927 after it merges.
+  the PR; (3) sync THIS branch to `origin/main` **only if you need to** — your
+  change depends on something newly on `main`, or GitHub returns `405 merge
+  conflicts` (a real textual conflict, still yours to resolve); (4) `touch` the
+  marker and RETRY the call; (5) post `🔓 MERGE SLOT RELEASE` on #6927 after it
+  merges.
+  <br>Step 3 read *"sync IMMEDIATELY before merging"* until 2026-08-10, when
+  **require-up-to-date was unticked** (`branch-protection-sync.yml::STRICT=false`).
+  `behind` no longer blocks a merge, so a reflexive re-sync buys another full CI
+  cycle and serializes nothing. `merge-queue.md` and the `session-coordination`
+  skill were corrected the same day; this file and the hook's own deny message
+  were **missed in that sweep** and said the opposite for an hour — which is why
+  the phrasing is now pinned by `canonical-doc-coherence`'s declared-values check.
 - The marker is a **speed-bump, not the claim** — setting it without posting the
   board comment defeats the purpose and is a coordination failure. The board
   comment is the claim other sessions actually see; the marker just proves this

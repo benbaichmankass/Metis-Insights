@@ -222,6 +222,30 @@ def check_hierarchy_mirror() -> list[str]:
 #  * It reads REPO state. Anything whose truth lives on the VM is out of scope
 #    by rule 1 above.
 
+def _historical_near(context: str, line: str, m: "re.Match", radius: int = 300) -> bool:
+    """Is there a historical/corrected marker NEAR this match?
+
+    Suppression has to be local. Testing `_HISTORICAL` against the whole joined
+    context works for prose, where a line is a sentence or two, and **fails
+    completely on a long single line** — `.claude/settings.json` is minified
+    JSON whose merge-guard hook is one ~2 KB line, so the window is the entire
+    hook and is guaranteed to contain some word like "was" or "correct". Result:
+    the stale `sync IMMEDIATELY before merging` in the deny message matched a
+    pattern, sat in a scanned file, and was silently suppressed anyway.
+
+    Measured, not assumed: with whole-context suppression the planted stale line
+    in `settings.json` produced PASS; with this window it produces the finding.
+
+    Falling back to the whole context when the line cannot be located keeps this
+    strictly no-stricter than before for every file that already passed.
+    """
+    at = context.find(line)
+    if at < 0:
+        return bool(_HISTORICAL.search(context))
+    pos = at + m.start()
+    return bool(_HISTORICAL.search(context[max(0, pos - radius): pos + radius]))
+
+
 _HISTORICAL = re.compile(
     r"remov|retir|supersed|histor|no longer|was |used to|until |previously|"
     r"correct|~~|deprecat|before 20|off since|unticked|past tense|RESOLVED",
@@ -239,6 +263,17 @@ VALUE_CONTRACTS = [
                 re.compile(r"safety net is .{0,40}branch.protection \(require-up-to-date\)", re.I),
                 re.compile(r'"?Require branches to be up to date[^\n]{0,60}\b(is ON|ticked|enabled)', re.I),
                 re.compile(r"sync to `?main`? LAST, right before merging", re.I),
+                # Added after the phrasing below survived the 2026-08-10 sweep in
+                # BOTH `coordination-board.md` and the merge-guard's own deny
+                # message in `.claude/settings.json` — the single highest-leverage
+                # instruction surface here, since a session reads it at the exact
+                # moment it is about to merge. This check SCANNED
+                # coordination-board.md and passed, because the pattern list said
+                # "LAST, right before merging" and the file said "IMMEDIATELY
+                # before merging". Exactly the known-stale-phrasings-not-meaning
+                # limit declared above, hit within minutes of declaring it.
+                re.compile(r"sync THIS branch to `?origin/main`?\s+IMMEDIATELY", re.I),
+                re.compile(r"sync .{0,30}\bbranch\b.{0,40}\bimmediately before merging", re.I),
             ],
             "false": [],
         },
@@ -279,6 +314,14 @@ _VALUE_DOC_EXTRAS = [
     "docs/runbooks/merge-queue.md",
     "docs/claude/coordination-board.md",
     "docs/claude/session-board.json",
+    # The hook deny/nudge messages. Not prose about the rules — the text a
+    # session is handed AT the moment it acts, which outranks any doc it might
+    # not open. It carried the stale "sync IMMEDIATELY before merging" for an
+    # hour after the flag was unticked, and nothing scanned it: `_active_files`
+    # reads `.claude/**/SKILL.md` and `.claude/commands/*.md`, never
+    # `settings.json`. An instruction surface that no guard reads is the same
+    # blind spot one layer down.
+    ".claude/settings.json",
 ]
 
 
@@ -311,7 +354,8 @@ def check_declared_values() -> list[str]:
         for claimed, patterns in wrong:
             for rel, i, line, context in _iter_windows(files):
                 for pat in patterns:
-                    if pat.search(line) and not _HISTORICAL.search(context):
+                    m2 = pat.search(line)
+                    if m2 and not _historical_near(context, line, m2):
                         fails.append(
                             f"{rel}:{i}: says '{c['id']}' is {claimed!r}, but "
                             f"{c['source']} sets it to {actual!r} -> {line.strip()[:110]}"

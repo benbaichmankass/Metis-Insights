@@ -238,7 +238,27 @@ def selftest_canonical_doc_values() -> None:
             "historically-marked statement. A guard that fires on its own retraction "
             "notes trains contributors to ignore it."
         )
-    print("self-test OK — declared-values drift is caught, corrected prose is not.")
+    # Suppression must be LOCAL to the match. On a long single line — minified
+    # JSON like `.claude/settings.json`, whose merge-guard hook is one ~2 KB
+    # line — a whole-line historical test is guaranteed to find some "was" or
+    # "correct" and suppress everything. That is not hypothetical: the stale
+    # `sync IMMEDIATELY before merging` in the deny message matched a pattern,
+    # sat in a scanned file, and passed anyway until `_historical_near` landed.
+    far = ("# selftest\n"
+           "The hard safety net is GitHub branch-protection (require-up-to-date). "
+           + "Filler about unrelated matters. " * 30
+           + "Separately and long ago, the old trainer ladder was removed.\n")
+    with _planted(planted, far):
+        rc_far = _rc(["python3", "scripts/ci/check_canonical_doc_coherence.py"])
+    if rc_far == 0:
+        raise SystemExit(
+            "::error::SELF-TEST FAILED — a stale claim went unreported because a "
+            "historical marker 900 characters away on the SAME line suppressed it. "
+            "Suppression must be local to the match, or one minified file silences "
+            "the whole check."
+        )
+    print("self-test OK — declared-values drift is caught (incl. on a long single "
+          "line), corrected prose is not.")
 
 
 def selftest_api_tier_policy() -> None:
