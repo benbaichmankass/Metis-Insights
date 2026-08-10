@@ -57,7 +57,12 @@ def _load(name):
 
 bt = _load("backtest_trend") if HAVE_PANDAS else None
 bp = _load("backtest_pullback") if HAVE_PANDAS else None
+# Harnesses where the live cap ADDS a take-profit exit that did not exist.
+# Their intrabar shape is identical, so both structural checks apply.
 HARNESSES = ("backtest_trend", "backtest_pullback", "backtest_squeeze")
+# backtest_fade already HAD a target; the cap is a CEILING on it, so it shares
+# the lever contract but not the stop-then-TP branch shape.
+LEVER_HARNESSES = HARNESSES + ("backtest_fade",)
 
 
 def _frame(bars):
@@ -163,7 +168,7 @@ def test_enabling_the_cap_changes_the_book():
 # ------------------------------------------------ the port must not diverge
 # Both read SOURCE, so they run everywhere -- including a sandbox without
 # pandas, where the behavioural tests above cannot.
-@pytest.mark.parametrize("name", HARNESSES)
+@pytest.mark.parametrize("name", LEVER_HARNESSES)
 def test_both_harnesses_expose_the_same_lever(name):
     """One live TP geometry, two harnesses. If the port drifts, a cross-family
     capped-vs-uncapped A/B silently compares two different exits -- the same
