@@ -114,6 +114,109 @@ Timestamps split the blame and that matters: **#8709 merged 00:46:45, seconds *b
 
 #8715 echoes `strict` + `enforce_admins` + `contexts` **and asserts the response matches what the file declares**, failing the run otherwise — because HTTP 200 means *GitHub accepted the request*, not *the field is now what you asked for*. Verified both directions against synthetic responses. Its first real run is also the confirmation owed for #8711.
 
+## Addendum 3 — the doc-vs-config guard, and the same defect recurring inside its own fix (#8722, 2026-08-10 03:44Z)
+
+### F. A guard that passed 4/4 while five docs stated a value its source contradicts
+
+`canonical-doc-coherence` printed **"all checks passed"** over a corpus in which five
+canonical surfaces asserted require-up-to-date was the merge safety net, hours after
+`STRICT` was set to `false`. Every check it ran was a grep for a known-bad **phrase**.
+**None compared a claim in prose against the file that sets the value**, so a doc could
+be confidently, verifiably wrong about a live gate and the guard stayed green.
+
+Added `declared values match their source` — a value-extractor per contract over the
+authoritative file, plus the stale phrasings that actually shipped, searched only when
+the live value contradicts them. Three contracts, all from observed drift:
+
+| contract | source | drift caught |
+|---|---|---|
+| branch-protection require-up-to-date | `branch-protection-sync.yml::STRICT=` | prose calling it the merge safety net while it is `false` |
+| prop write gate | `routers/prop.py::_require_write_token` | **fail-CLOSED** (503 when the token is unset) described as permissive |
+| devices admin-token gate | `routers/devices.py::_check_admin_token` | **permissive** when unset — the opposite shape, documented adjacent |
+
+An extractor that stops matching is a **hard failure, not a skip**: rename `STRICT=` and
+the check exits 1 saying it is silently disabled. Relevance globs now follow the
+**sources** (the workflow + the two routers), because a PR that changes a gate and not
+its prose is precisely the PR that needs this check and was the one being skipped.
+
+### G. The sweep in #8715 missed two surfaces — the two that matter most
+
+`.claude/settings.json`'s merge-guard **deny message** and `docs/claude/coordination-board.md`
+(which transcribes it) still said *"sync THIS branch to origin/main IMMEDIATELY before
+merging."* That is not prose about the rules; it is the text a session is handed **at the
+instant it merges**, so it outranks any doc it might not open. Meanwhile `merge-queue.md`
+and `session-coordination/SKILL.md` — corrected in #8715 — said the opposite.
+
+Not hypothetical: concurrent session `m20-exit-continue-g1qv46` followed it, hit a
+`git rebase origin/main` conflict on `health-review-backlog.json`, and a `;`-chained
+script carried on and committed conflict markers locally while printing `PUSHED` on a
+push the remote had refused. The hook was actively instructing the behaviour.
+
+### H. And the new check missed the same two files, three times in sequence
+
+Each failure was **a scan that ran and reported clean** — never one that failed to run.
+
+1. **The pattern list did not cover the wording that shipped.** `coordination-board.md`
+   was already in the scanned set. The check read it and passed, because the pattern said
+   `"LAST, right before merging"` and the file said `"IMMEDIATELY before merging"`. That
+   is the *known-stale-phrasings-not-meaning* limit its own docstring declares, hit within
+   minutes of declaring it.
+2. **`.claude/settings.json` was scanned by nothing.** `_active_files()` reads
+   `.claude/**/SKILL.md` and `.claude/commands/*.md`; `settings.json` is neither. The hook
+   messages had no guard over them at all.
+3. **Adding it to the scan list was not enough — the finding was suppressed anyway.**
+   `settings.json` is minified: the merge-guard hook is one ~2 KB line, so the ±2-line
+   historical-marker context window was the *entire hook* and was guaranteed to contain
+   some "was" or "correct". The stale sentence matched a pattern, sat in a scanned file,
+   and passed. **I added the file, observed green, and would have reported that as
+   verified.** A guard reporting on a file it was reading and silently ignoring is the
+   same shape as the defect it exists to catch. Fixed with `_historical_near` (±300 chars
+   around the match), falling back to whole-context when the line cannot be located, so it
+   is no stricter than before for every file that already passed.
+
+**Verified by planting, not inspection:** all three sync phrasings fire; the planted stale
+deny message in the real `settings.json` produces the finding where the identical plant
+produced PASS before the fix; a historically-marked retraction stays quiet; a marker ~900
+characters away **on the same line** now fires — pinned as a third self-test assertion so
+the suppression window cannot silently widen back.
+
+### I. Two defects found while verifying the above
+
+- **The api-tier live-route probe skipped on `except Exception`.** Importing the app pulls
+  in `jwt` → `cryptography`, whose Rust bindings raise pyo3's `PanicException`, a
+  **`BaseException`** subclass. So a broken *environment* surfaced as a failing *test* —
+  the inversion that probe's denominator floor exists to prevent, one layer up. Widened to
+  `BaseException` with interrupts re-raised.
+- **`_planted` removed its file but not the directories it created.** Invisible until a
+  planter targeted a *new* directory; the new one plants under `.claude/skills/` and left
+  an empty `_selftest_*` directory inside the skills tree on **every run**. Git does not
+  track empty directories, so `git status` stayed clean while it accumulated. Fixed in
+  `_planted`, so every future planter is covered.
+
+### Deferred item 5 is now RESOLVED
+
+*"`strict: false` is inferred, not observed"* — **observed twice.** #8712 merged from
+`bd75dfe` onto a `main` already at `f0c909c` with no re-sync, and #8722 merged from
+`1bb42b1` onto `300d4d6`. A merge of #8715 was separately blocked by a **genuine textual
+conflict**, not by `behind`, which is the distinction worth keeping.
+
+### The through-line
+
+#8715's sweep missed two files. #8722's check then missed the same two files for three
+different reasons in sequence. Every one was a scan that ran and printed clean.
+**A green from a guard means nothing until you have watched it go red on the real input** —
+which is why every claim in this addendum was verified by planting the failure rather than
+by reading the code.
+
+### Merge protocol (recorded because it went right)
+
+Slot was held by `m20-exit-continue-g1qv46`, who was legitimately unable to merge #8721
+(a running census shard whose branch a merge would delete) and had converted that into
+holding the token. Raised as a `❓ QUESTION` on #6927 — merging #8722 touches their branch
+in no way — rather than waiting indefinitely or jumping the queue. They released within
+minutes with an accurate diagnosis of their own: *"I converted 'I can't merge yet' into
+'nobody can merge.'"* The slot is a **merge** token, not a lock on a long-running job.
+
 ## Deferred Items
 - Deferred item 1: hardening `DELETE`/`PATCH /api/bot/devices` to the prop route's fail-closed shape (Tier 2 — a runtime change).
 - Deferred item 2: the 52 pre-existing `diagnostic-provenance --all` findings remain grandfathered. Not touched here; they are why that guard cannot run whole-tree on push.
