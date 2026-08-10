@@ -1,0 +1,245 @@
+name: m20-exit-lever-sweep
+
+# M20 exit-lever sweep — the DESIGN pass the capture census (2026-08-10) sized.
+#
+# The census is the reason this workflow exists and the reason its defaults look
+# the way they do. Two things it established, both of which change how a sweep
+# must be run:
+#
+#  1. TARGETED, NOT FLEET-WIDE. 2,443R of giveback sits at the 1R rung across 44
+#     trail legs, and it is CONCENTRATED: the ten legs defaulted below carry
+#     ~1,400R of it. `trend_donchian_1h` alone is 316R at a 40.1% lose-after-+1R
+#     rate with NEGATIVE R-weighted capture. Sweeping all 44 at once buys ~40%
+#     more coverage for ~4x the wall-clock and dilutes the read.
+#
+#  2. LIVE-PARITY GEOMETRY IS THE DEFAULT HERE (tp_cap_pct 0.099), which is the
+#     opposite of the census default and deliberate.
+#     BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP: production places
+#     tp = min(entry*1.099, entry + tp_r*risk) with NO venue branch in any of the
+#     four units, and the harnesses modelled no TP at all. A lever tuned against
+#     a book that cannot take profit is tuned against a book production does not
+#     run — `tqqq_trend_long_1d` goes 32 -> 75 trades and median capture +0.40 ->
+#     +1.05 once the real geometry is modelled. Every pre-2026-08-10 verdict was
+#     measured on the wrong exit; this workflow does not repeat that.
+#     Pass tp_cap_pct=0 only to reproduce a historical verdict.
+#
+# WHAT IT DOES NOT DO: grade anything Path B. `net_r_per_capital_day` is REPORTED
+# for every cell (including Path-A rejects — those ARE the Path B population), and
+# the two Path B thresholds stay deliberately UNSET until the operator sets them
+# from the measured distribution. Same discipline as scripts/capital_efficiency.py.
+#
+# FREE RUNNERS, NOT THE TRAINER (docs/claude/vm-resource-management.md): one job
+# per leg, $0, and the 1-core trainer stays free for ML work.
+
+on:
+  workflow_dispatch:
+    inputs:
+      legs:
+        description: "CSV of leg names to sweep. Empty = the census-identified top-10 by R-left-at-1R."
+        required: false
+        default: ''
+      tp_cap_pct:
+        description: "TP geometry. 0.099 = LIVE PARITY (default, what production places). 0 = the legacy no-TP geometry every pre-2026-08-10 verdict used."
+        required: false
+        default: '0.099'
+      levers:
+        description: "CSV of matrix lever columns to sweep (stale_stop,giveback_stop,trail_geometry,trail_decay,vol_trail). Empty = all."
+        required: false
+        default: ''
+      split:
+        description: "IS/OOS split date. A cell is a candidate only if it beats base on BOTH sides."
+        required: false
+        default: '2025-07-01'
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  # Same shape as m20-capture-census's plan job, and for the same reason: a
+  # static matrix cannot be filtered by an input, and an input that is declared
+  # but never read is worse than no input (it reports a full result under a
+  # narrowed label). An unknown leg name FAILS rather than silently sweeping the
+  # default set.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      legs: ${{ steps.build.outputs.legs }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pyyaml
+      - id: build
+        env:
+          LEGS: ${{ inputs.legs }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, sys, yaml
+          # MEASURED default: the ten legs carrying the most R at the giveback
+          # ladder's 1R rung, from the 2026-08-10 census at live-parity geometry
+          # (docs/research/M20-exit-capture-census-2026-08-10.md). Ordered by
+          # R-left so a partial run still covers the biggest pools first.
+          #   trend_donchian_1h       316.5R  150/374 (40.1%)  Rwt -0.0150
+          #   trend_donchian_eth      189.9R  106/273 (38.8%)
+          #   trend_donchian          154.1R   73/181 (40.3%)
+          #   trend_donchian_eth_prop 152.2R  103/357 (28.9%)
+          #   htf_pullback_trend_2h   111.1R   66/207 (31.9%)
+          #   spy_pullback_1h         106.5R   50/137 (36.5%)   <- alpaca, tests
+          #   eth_pullback_2h         101.4R   49/136 (36.0%)      cross-venue
+          #   qqq_pullback_1h          94.3R   45/144 (31.2%)   <- alpaca
+          #   avax_pullback_2h         88.4R   43/126 (34.1%)
+          #   trend_donchian_sol       81.8R   47/127 (37.0%)
+          DEFAULT = [
+              "trend_donchian_1h", "trend_donchian_eth", "trend_donchian",
+              "trend_donchian_eth_prop", "htf_pullback_trend_2h",
+              "spy_pullback_1h", "eth_pullback_2h", "qqq_pullback_1h",
+              "avax_pullback_2h", "trend_donchian_sol",
+          ]
+          cfg = yaml.safe_load(open("config/strategies.yaml"))
+          declared = set(cfg.get("strategies", cfg))
+          want = [s.strip() for s in os.environ.get("LEGS", "").split(",") if s.strip()]
+          sel = want or DEFAULT
+          # Validate against config, not against the default list — a leg renamed
+          # in config must fail loudly here rather than sweep nothing downstream.
+          unknown = [s for s in sel if s not in declared]
+          if unknown:
+              print(f"::error::legs not declared in config/strategies.yaml: {unknown}",
+                    file=sys.stderr)
+              raise SystemExit(1)
+          print(f"sweeping {len(sel)} leg(s): {sel} "
+                f"({'explicit' if want else 'census default'})", file=sys.stderr)
+          print("legs=" + json.dumps(sel))
+          PY
+
+  sweep:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        leg: ${{ fromJSON(needs.plan.outputs.legs) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Fetch frames from the trainer (scp)
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+        run: |
+          set -e
+          if [ -z "${VM_SSH_KEY}" ]; then echo "::error::VM_SSH_KEY unset"; exit 1; fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key
+          chmod 600 ~/.ssh/trainer_key
+          ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          mkdir -p sweep_data
+          # Every defaulted leg is donchian/pullback, whose prior verdicts were
+          # all measured on the trainer's data/ vintage (NOT m27_data — see the
+          # dataset-vintage note atop m20-capture-census.yml). A scalp leg passed
+          # explicitly would need the other source; it is not in scope here.
+          scp -i ~/.ssh/trainer_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=25 \
+              "${TRAINER_USER}@${TRAINER_IP}:/home/ubuntu/ict-trading-bot/data/*.csv" \
+              sweep_data/ || true
+          n=$(ls sweep_data/*.csv 2>/dev/null | wc -l)
+          echo "frames fetched: ${n}"
+          # A silent-empty here would make the leg read data_missing and the sweep
+          # would report "no cells evaluated" as though that were a verdict.
+          if [ "${n}" -eq 0 ]; then
+            echo "::error::no frames fetched — the sweep would be a false negative"
+            exit 1
+          fi
+
+      - name: Sweep this leg
+        env:
+          LEG: ${{ matrix.leg }}
+          TP_CAP_PCT: ${{ inputs.tp_cap_pct || '0.099' }}
+          LEVERS: ${{ inputs.levers }}
+          SPLIT: ${{ inputs.split || '2025-07-01' }}
+        run: |
+          set -o pipefail
+          python3 scripts/research/m20_fleet_exit_sweep.py \
+            --data-dir sweep_data \
+            --only "${LEG}" \
+            --split "${SPLIT}" \
+            --tp-cap-pct "${TP_CAP_PCT}" \
+            ${LEVERS:+--levers "${LEVERS}"} \
+            --out "out/${LEG}" 2>&1 | tee sweep.out
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: exit-lever-sweep-${{ matrix.leg }}
+          path: out/${{ matrix.leg }}
+          if-no-files-found: warn
+
+      - name: Post the sweep back onto the PR
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          LEG: ${{ matrix.leg }}
+          TP_CAP_PCT: ${{ inputs.tp_cap_pct || '0.099' }}
+          SPLIT: ${{ inputs.split || '2025-07-01' }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const leg = process.env.LEG;
+            const dir = `out/${leg}`;
+            // Branch on the actual STAGE, never a single confident label — the
+            // census's first version posted "this is a FAILED run" over five
+            // runs that had all succeeded (diagnostic-provenance sub-class A).
+            let body = '', stage = 'unknown', summaryPath = null;
+            try {
+              const dated = fs.readdirSync(dir)
+                .map(d => path.join(dir, d))
+                .filter(p => fs.existsSync(path.join(p, 'SUMMARY.md')))
+                .sort();
+              if (dated.length) summaryPath = path.join(dated[dated.length - 1], 'SUMMARY.md');
+              else if (fs.existsSync(path.join(dir, 'SUMMARY.md')))
+                summaryPath = path.join(dir, 'SUMMARY.md');
+              stage = summaryPath ? 'ok' : 'ran_no_summary';
+            } catch (e) { stage = 'no_output_dir'; }
+            if (stage === 'ok') {
+              body = fs.readFileSync(summaryPath, 'utf8');
+            } else {
+              let tail = '';
+              try { tail = fs.readFileSync('sweep.out', 'utf8').slice(-3000); }
+              catch (e2) { tail = '(no sweep output captured)'; }
+              const why = stage === 'no_output_dir'
+                ? `no \`${dir}\` directory — the sweep did not get far enough to create one`
+                : `\`${dir}\` exists but contains no SUMMARY.md — the sweep ran and did not write one`;
+              body = `**No SUMMARY to post** (${why}). Sweep stdout below; read it before calling this a failed measurement.\n\n\`\`\`\n${tail}\n\`\`\``;
+            }
+            const {data: prs} = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner, repo: context.repo.repo, commit_sha: context.sha,
+            });
+            const pr = prs.find(p => p.state === 'open') || prs[0];
+            if (!pr) {
+              core.setFailed(`no PR found for ${context.sha} — sweep for ${leg} computed but has nowhere to go`);
+              return;
+            }
+            const cap = process.env.TP_CAP_PCT;
+            const geom = (cap && cap !== '0')
+              ? `**LIVE-PARITY (capped TP ${cap})** — what production actually places`
+              : `legacy (no TP) — the geometry every pre-2026-08-10 verdict used, NOT what production runs`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: pr.number,
+              body: `### Exit-lever sweep — \`${leg}\`\n\nGeometry: ${geom}. IS/OOS split \`${process.env.SPLIT}\`. `
+                  + `\`net_r_per_capital_day\` is REPORTED for every cell, including Path-A rejects — Path B's thresholds stay unset.\n\n`
+                  + `${body}\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_`,
+            });

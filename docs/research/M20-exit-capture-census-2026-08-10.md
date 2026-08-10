@@ -162,12 +162,15 @@ share: **every one of them fails toward a number that looks like a finding.**
    `near_miss_90_pct: 0.0` for `eth_pullback_2h`, the very leg the operator cited. Now
    derived from the population: if no trade ever entered even the widest band, the target
    is not operative → `None` plus a stated reason, never `0.0`.
-3. **24 of 52 legs were structurally unmeasurable**, then a fifth family after that:
-   `backtest_trend` / `backtest_squeeze` computed `mfe_r` and never emitted it, and
-   `backtest_ict_scalp` nests it under `meta` while readers looked top-level — the scalp
-   census measured **0 of 3,823 trades**. Now one accessor (`exit_capture.mfe_r_of`), and a
-   leg that traded with zero capture coverage is flagged on its own line rather than
-   appearing as a row of `None`s.
+3. **24 of 52 legs reported zero capture coverage**, then a fifth family after that
+   (`checked: scripts/backtest_trend.py`, `scripts/backtest_squeeze.py`,
+   `scripts/backtest_ict_scalp.py`): the first two computed `mfe_r` and never put it in
+   the `--emit-trades` payload; the third nests it under `meta` while readers looked
+   top-level, so the scalp census measured **0 of 3,823 trades**. Verified end-to-end on
+   real harness output rather than inferred — 4 emitted rows, top-level `mfe_r` 0/4,
+   `meta.mfe_r` 4/4, old reader 0 measured, new reader 4. Now one accessor
+   (`exit_capture.mfe_r_of`), and a leg that traded with zero capture coverage is flagged
+   on its own line rather than appearing as a row of `None`s.
 4. **The M20 P4.4 percentile arm was inert for the whole `ict_scalp` family.**
    `winner_mfe_p80` read `mfe_r` top-level, collected zero, and returned `None` — which its
    contract defines as *"fewer than 30 winners"*. It booked a plausible thin-sample
