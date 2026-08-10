@@ -1181,6 +1181,18 @@ jobs:
             fi
             REMOTE_CMD="ENV_KEY=$(printf '%q' "${ENV_KEY}") ENV_VALUE=$(printf '%q' "${env_value}") ENV_SERVICE=$(printf '%q' "${ENV_SERVICE}") ${REMOTE_CMD}"
           fi
+          if [ "${ACTION}" = "get-env" ]; then
+            # The READ half. Forwards ENV_KEY + ENV_SERVICE and deliberately
+            # NOT ENV_VALUE — get-env has no value to set, and passing one
+            # would be meaningless at best. The per-key allowlist lives in
+            # scripts/ops/get_env.py; this only carries the request across.
+            #
+            # Kept as its own branch rather than folded into set-env's:
+            # set-env's branch also resolves SECRET_<KEY> and REFUSES an empty
+            # value, which is correct for a write and wrong for a read (a read
+            # of an unset key is a legitimate answer, not a failure).
+            REMOTE_CMD="ENV_KEY=$(printf '%q' "${ENV_KEY}") ENV_SERVICE=$(printf '%q' "${ENV_SERVICE}") ${REMOTE_CMD}"
+          fi
           if [ "${ACTION}" = "scrub-env-noncompliant" ]; then
             # The wrapper restarts ENV_SERVICE (defaults to
             # ict-trader-live.service inside the script). Forward an
