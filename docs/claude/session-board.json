@@ -12,21 +12,15 @@
   },
   "active_sessions": [
     {
-      "session_id": "session_01X9HcdqY1K9k9nGjfGCFKAc",
-      "branch": "claude/m28-value-thesis-sweep-evapa5",
-      "intent": "M28 value-construction D4 composite + D5 horizon sweep + D2 regime-conditioning (continuation of ledger entry 13). Tier-1 observe-only research tooling + docs. NOTE: this session's GitHub integration cannot post issue comments (403 not-accessible-by-integration), so the live #6927 START/CLAIM comments could not be posted — coordinating via this durable record + the real-time open-PR list instead.",
-      "started_at": "2026-07-27",
-      "updated_at": "2026-07-27"
-    },
-    {
-      "session_id": "session_015foGxJvVbJoRWVBWaHdpYb",
-      "branch": "claude/offline-vol-axis-regime-5u1p7k",
-      "intent": "Offline ML vol axis (path A of BL-20260730-2D-VOL-CELLS-UNAUDITABLE) — replay the ADVISORY regime head per bar into calm/volatile labels + add the 2-D (trend, vol) split to regime_tag_emitted, so the six live trend_vol cells become measurable. Tier-1 research tooling only; touches NO config/regime_policy.yaml, no live path, proposes no cell change. PR #8056 (draft). Also merged #8051 under the merge protocol.",
-      "started_at": "2026-07-30",
-      "updated_at": "2026-07-30"
+      "session_id": "api-tier-policy-guard-npihz7",
+      "branch": "claude/api-tier-policy-guard-npihz7",
+      "intent": "Shipped api-tier-policy-guard + backfilled docs/api-tier-policy.md to 92/92 (PR #8698, merged bd75dfe). Now filing BL-20260810-REQUIRED-WORKFLOWS-NO-CONCURRENCY-GROUP. Registering LATE and saying so: I held the live merge slot 00:47-01:17Z on #8698 and never mirrored it into merge_slot, which read held_by:null the whole time — a fresh instance of BL-20260720-MERGE-PROTOCOL-LAPSE ('sessions treated this JSON as the claim, it went untouched under load'). Tier-1 docs/CI only.",
+      "started_at": "2026-08-09",
+      "updated_at": "2026-08-10"
     }
   ],
   "_pruned_2026-07-09": "Pruned the 2026-07-05 M19-next-direction entry (session_01FKvQBjFg7oUQrBsrWCH3KL) — >24h stale, no matching open PR/branch — and the stale 2026-06-28 M17 S-AUDIT-B/C unregistered note (that audit is closed). Full-system-audit 2026-07-09 is a fresh pass.",
   "_pruned_2026-07-15": "Pruned two >24h-stale full-system-audit-2026-07-09 entries (session_013YMtQmKVzkDCPECSU4tbwD, session_01886WsrJNuwMJqnMQmxDgCn) — no matching open PR/branch after 6 days. Registered health-review session.",
-  "_pruned_2026-07-21": "Pruned all 6 entries dated 2026-07-13→2026-07-19 (exit-refinement-sprint-l74k6o, system-health-review-f4i2v1, scalping-chop-strategies-b9n05u, paper-portfolio-accounts-31p76k, ml-vol-regime-probe-21az61-f0au4r, system-health-review-rk852g) — all >24h stale (2-8 days), confirmed via `git ls-remote --heads` that none of the six branches exist remotely anymore (all merged-and-deleted or abandoned). No entry registered for the M27 Batch-4/session-close-out work — this session communicated via the live #6927 board comments (claim/release) rather than this JSON's active_sessions list."
+  "_pruned_2026-07-21": "Pruned all 6 entries dated 2026-07-13→2026-07-19 (exit-refinement-sprint-l74k6o, system-health-review-f4i2v1, scalping-chop-strategies-b9n05u, paper-portfolio-accounts-31p76k, ml-vol-regime-probe-21az61-f0au4r, system-health-review-rk852g) — all >24h stale (2-8 days), confirmed via `git ls-remote --heads` that none of the six branches exist remotely anymore (all merged-and-deleted or abandoned). No entry registered for the M27 Batch-4/session-close-out work — this session communicated via the live #6927 board comments (claim/release) rather than this JSON's active_sessions list.",
+  "_pruned_2026-08-10": "Pruned 2 active_sessions entries from 2026-07-27/2026-07-30 (m28-value-thesis-sweep-evapa5, offline-vol-axis-regime-5u1p7k) — >24h stale per the schema's own pruning rule."
 }

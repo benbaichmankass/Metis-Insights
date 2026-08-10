@@ -191,16 +191,54 @@ jobs:
           # false (or toggle Settings → Branches) and push to main.
           ENFORCE_ADMINS=true
 
+          # STRICT = GitHub's "Require branches to be up to date before
+          # merging". Set to FALSE on 2026-08-10 (operator-directed).
+          #
+          # WHAT IT DOES NOT CHANGE: required checks still gate every merge.
+          # REQUIRED_CONTEXTS above is untouched and ENFORCE_ADMINS stays true,
+          # so `pytest-collect` / `pytest-run` / `guards` must still be GREEN on
+          # the PR head. `strict` only governs whether that head must also
+          # contain the current tip of `main`.
+          #
+          # WHY. With strict=true, any merge to `main` invalidates every other
+          # open PR's up-to-date status, so each one must re-sync and re-run CI.
+          # `pytest-run` is ~9 minutes. Measured on PR #8698 (2026-08-09/10):
+          # the branch was re-synced THREE times — #8709 landed seconds before
+          # the merge-slot claim, #8710 landed during the re-run — and each
+          # re-sync started a fresh ~9-minute clock that the next merge could
+          # invalidate. With N sessions merging faster than one CI cycle, a
+          # branch can never be simultaneously green AND up-to-date. That is a
+          # livelock, and no amount of claim-protocol discipline fixes it: the
+          # honour-system merge slot (docs/claude/coordination-board.md) is
+          # advisory, and the native merge queue — which WOULD auto-sync and
+          # serialize — is organization-only and unavailable on this user-owned
+          # repo (docs/runbooks/merge-queue.md).
+          #
+          # WHAT WE GIVE UP, stated plainly: a PR can now merge having been
+          # tested against a base that is one or more commits stale. The risk is
+          # a SEMANTIC conflict — two PRs that merge cleanly at the text level
+          # and are each green alone, but break together. Git still refuses a
+          # TEXTUAL conflict, so this is only about behaviour, not content.
+          # Accepted because this repo's merge traffic is overwhelmingly docs,
+          # CI and research tooling; the live order path is Tier-3 and gated on
+          # explicit operator approval, not on this flag.
+          #
+          # IF A SEMANTIC BREAK EVER LANDS: `guards` + `pytest-run` run on every
+          # push to `main` too, so it surfaces on the post-merge run rather than
+          # being silently absorbed. Revert by flipping this back to true.
+          STRICT=false
+
           BODY=$(jq -n \
             --argjson contexts "$REQUIRED_CONTEXTS" \
             --argjson enforce_admins "$ENFORCE_ADMINS" \
+            --argjson strict "$STRICT" \
             --argjson review "$REVIEW_ENFORCE" \
             --argjson restrictions "$RESTRICTIONS" \
             --argjson linear "$LINEAR_HISTORY" \
             --argjson force "$ALLOW_FORCE" \
             --argjson delete "$ALLOW_DELETE" \
             '{
-              required_status_checks: { strict: true, contexts: $contexts },
+              required_status_checks: { strict: $strict, contexts: $contexts },
               enforce_admins: $enforce_admins,
               required_pull_request_reviews: $review,
               restrictions: $restrictions,
