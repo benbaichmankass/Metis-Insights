@@ -11240,6 +11240,14 @@
           "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
           "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
           "evidence_based": false
+        },
+        {
+          "at": "2026-08-10T05:52:00+00:00",
+          "by": "claude (system-review 2026-08-10)",
+          "disposition": "kept_open",
+          "evidence_based": true,
+          "note": "SECOND CONCRETE INSTANCE, hit live this session. Citing BL-20260706-IBACCTUPDATES-COLLISION from a src/ code comment (explaining why IB is excluded from the new connector cache) failed the guard, because that closed, CLAUDE.md-documented incident had never been filed as a row. Resolved for THIS id by backfilling the row — which also un-dangled two pre-existing prose citations. But the CLASS stands: any backward citation of a historical incident that predates the backlog, or that was only ever written up in CLAUDE.md, still trips the guard. Note the failure mode is at least a SAFE one — it forces the corpus to become complete rather than letting a dangling reference through, so this is a friction problem, not a correctness hole.",
+          "next_check": "Decide between (a) backfilling rows for historical ids as they are cited (what happened here — cheap, improves the corpus) vs (b) teaching the guard a backward-citation form. Do NOT add a blanket suppression."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -12242,6 +12250,26 @@
         "MB-20260719-PROMOREADY-OOSEDGE-OOM"
       ],
       "resolution_criteria": "A reviewer can read a model's true shadow-soak duration without silent truncation by log rotation, and the endpoint states its retention window."
+    },
+    {
+      "id": "BL-20260706-IBACCTUPDATES-COLLISION",
+      "opened_at": "2026-07-06T00:00:00+00:00",
+      "opened_by": "claude (IB warm-up session, 2026-07-06)",
+      "status": "resolved",
+      "resolved_at": "2026-07-06T00:00:00+00:00",
+      "resolved_by": "claude (same-day follow-up)",
+      "severity": "medium",
+      "tier": 1,
+      "title": "IB account warm-up subscribed reqAccountUpdates on the READONLY diag/reconciler client too — a documented IB multi-client subscription collision",
+      "source": "BACKFILLED 2026-08-10 from CLAUDE.md's account (see the IB_ACCOUNT_WARMUP_TIMEOUT_S env-var row, which documents this incident and its fix in full). Filed retroactively from that DOCUMENTATION, not from a fresh investigation this session — the provenance matters and is stated here rather than implied.",
+      "what_to_check": "The BL-20260706-IBWARMUP fix made IBClient.connect() explicitly (re-)subscribe to reqAccountSummary AND reqAccountUpdates so balance()/positions() had real data before connect() declared success. reqAccountUpdates is a persistent PER-ACCOUNT subscription: the trader's own execution connection already holds it for every account it trades, so a SECOND concurrent client subscribing to the same account is a documented IB-API multi-client collision — the Gateway does not reliably deliver a fresh accountDownloadEnd to the second subscriber.\n\nLive-verified 2026-07-06: the readonly diag read client's warm-up timed out twice (8s + 8s retry) while the trader's own connection stayed healthy throughout (still evaluating mgc_trend_1h on fresh prices).",
+      "resolution": "A readonly client's warm-up never subscribes to reqAccountUpdates at all, and IBClient.positions() routes readonly reads through reqPositions() — a stateless one-shot request IBKR documents as safe for any number of concurrent clients against the same account. Cost: no unrealizedPNL on that path, so unrealised_pnl is None — the honest 'not measured' value the rest of the stack already handles. The trader's own non-readonly connection is untouched (still portfolio()/reqAccountUpdates, unchanged behaviour).",
+      "why_filed_now": "The incident was real, closed, and documented, but had NO backlog row — so every citation of it resolved to nothing. artifact-validity-guard correctly flagged a reference to it from src/runtime/market_data.py (the connector-cache comment explaining WHY IB is excluded from that cache). Two already-resolved rows (BL-20260705-IBPAPER-POSITIONS-NULL-WEEKEND, BL-20260707-IBWARMUP-RECURRENCE) also cite it in prose and were likewise dangling. Filing the row fixes all three at once. Deliberately NOT suppressed: the guard has no suppression mechanism by design ('suppress it, which is worse than not having it') and its own error message names filing the row as the fix.",
+      "related": [
+        "BL-20260707-IBWARMUP-RECURRENCE",
+        "BL-20260705-IBPAPER-POSITIONS-NULL-WEEKEND",
+        "BL-20260807-BACKLOG-REFS-GUARD-BLOCKS-HISTORICAL-CITATIONS"
+      ]
     }
   ],
   "updated_at": "2026-08-10T01:20:00+00:00",
