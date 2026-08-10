@@ -568,8 +568,9 @@ def main(argv: list[str]) -> int:
                  f"errored **{len(census) - len(ok)}**. "
                  f"Capture measurable on **{len(cap_legs)}**; near-miss applicable "
                  f"to **{len(nm_legs)}** (fixed-target legs only).", "",
-                 "| leg | kind | n | capture mean | capture <30% | nm@90% | R left |",
-                 "|---|---|--:|--:|--:|--:|--:|"]
+                 "| leg | kind | n | cap med | cap robust | cap <30% "
+                 "| nm@90% | nm pop | tgt hit | R left |",
+                 "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|"]
         for leg, v in sorted(census.items(),
                              key=lambda kv: -(kv[1].get("near_miss_90_pct") or -1)):
             if "error" in v:
@@ -578,9 +579,15 @@ def main(argv: list[str]) -> int:
             kind = v['exit_kind']
             if v.get('exit_kind_reason'):
                 kind += f" ({v['exit_kind_reason']}, declared {v.get('target_r_declared')}R)"
+            # nm@90% ALWAYS ships beside its denominator. "0.0" over three
+            # losers is not the claim "0.0" over three hundred is, and the
+            # first table printed the rate alone.
             lines.append(f"| {leg} | {kind} | {v['n_trades']} | "
-                         f"{v['capture_mean']} | {v['capture_lt_30_pct']} | "
-                         f"{v['near_miss_90_pct']} | {v['near_miss_r_left_on_table']} |")
+                         f"{v['capture_median']} | {v['capture_mean_robust']} | "
+                         f"{v['capture_lt_30_pct']} | "
+                         f"{v['near_miss_90_pct']} | {v['near_miss_measured_n']} | "
+                         f"{v.get('target_r_reached_n')} | "
+                         f"{v['near_miss_r_left_on_table']} |")
         (run_dir / "SUMMARY.md").write_text("\n".join(lines) + "\n")
         print("census ->", run_dir)
         return 0
