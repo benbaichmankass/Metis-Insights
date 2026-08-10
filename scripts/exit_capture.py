@@ -75,6 +75,36 @@ def _num(v: Any) -> Optional[float]:
     return None if f != f else f  # NaN -> None
 
 
+def mfe_r_of(row: Dict[str, Any]) -> Optional[float]:
+    """Read a harness emitted-trade row's MFE in R, whichever shape it uses.
+
+    ONE accessor, because two harness shapes exist and every consumer that
+    re-derived the read got the same one wrong. `backtest_trend` /
+    `backtest_pullback` / `backtest_squeeze` put `mfe_r` at the TOP LEVEL;
+    `backtest_ict_scalp` nests it under `meta` beside `mae_r` / `bars_held` /
+    `capital_bars`. Neither is wrong — but a consumer that reads only the top
+    level sees `None` for every scalp trade and cannot tell that apart from a
+    trade that never went favourable.
+
+    Measured 2026-08-10: the census reported `meas=0/1102` for
+    `ict_scalp_avax_5m` and 0-of-N for all five scalp legs it reached — 3,823
+    trades, zero capture readings — and `winner_mfe_p80` (the M20 P4.4
+    percentile arm) returned `None` for every ict_scalp leg, which ITS contract
+    defines as "fewer than 30 winners". A leg with 1,102 trades reporting
+    "not enough winners" is the unasserted-denominator class
+    (`docs/CLAUDE-RULES-CANONICAL.md`); the arm was inert and said nothing.
+
+    Returns None only when the row genuinely carries no MFE reading. Callers
+    that need to distinguish "absent" from "present but non-positive" should
+    check the returned value, not re-implement the lookup.
+    """
+    v = _num(row.get("mfe_r"))
+    if v is not None:
+        return v
+    meta = row.get("meta")
+    return _num(meta.get("mfe_r")) if isinstance(meta, dict) else None
+
+
 def capture_ratio(net_r: Any, mfe_r: Any) -> Optional[float]:
     """realized R / peak R — the fraction of the excursion actually kept.
 
@@ -121,7 +151,7 @@ def summarize(trades: Iterable[Dict[str, Any]], *,
     """
     rows = list(trades)
     nets = [_num(t.get("net_r")) for t in rows]
-    mfes = [_num(t.get("mfe_r")) for t in rows]
+    mfes = [mfe_r_of(t) for t in rows]   # shape-agnostic; see mfe_r_of
     n = len(rows)
     winners = sum(1 for v in nets if v is not None and v > 0)
     losers = sum(1 for v in nets if v is not None and v < 0)

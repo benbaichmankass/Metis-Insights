@@ -51,37 +51,73 @@ permissions:
   pull-requests: write
 
 jobs:
-  census:
+  # The shard table lives HERE, in one place, and the `families` input actually
+  # filters it. It previously did not: `families` was declared on the dispatch
+  # form and referenced nowhere, so a run asking for `scalp` silently censused
+  # all eleven shards and reported a full result under a narrowed label. That is
+  # the declared-but-never-read shape `provenance-consumer-guard` exists for,
+  # and the reason this is a plan job rather than a static matrix: a static
+  # matrix cannot be filtered by an input, so the honest choices were to wire it
+  # or to delete the control. An UNKNOWN family name FAILS the run — silently
+  # censusing everything because a name was misspelled is the same lie in a
+  # different costume.
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
-    strategy:
-      fail-fast: false
-      max-parallel: 11
-      matrix:
-        shard:
+    outputs:
+      shards: ${{ steps.build.outputs.shards }}
+    steps:
+      - id: build
+        env:
+          FAMILIES: ${{ inputs.families || '' }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, sys
           # `src` names the trainer dir this family's prior verdicts used.
           #
           # SCALP IS SHARDED PER-LEG, the others per-family. Measured 2026-08-10:
           # donchian did 23 legs in 51s and pullback 19 in 39s, while the single
-          # scalp shard was still running at 48 MINUTES. Its frames are the
+          # scalp shard ran 68 MINUTES without finishing. Its frames are the
           # m27_data 5m/15m series (~370k rows vs the hourly/daily frames the
           # other families use) and its per-bar work is heavier (FVG + sweep
           # lookbacks). The arithmetic says one job cannot be trusted to finish:
           # run_census allows 1800s PER LEG, so 8 legs is up to 240 min against
           # a 150 min job timeout -- a job that dies having produced nothing.
           # One leg per job caps the worst case at 30 min, well inside the
-          # timeout, and the 8 run in parallel for the same $0.
-          - { family: scalp, src: /home/ubuntu/m27_data, only: ict_scalp_5m }
-          - { family: scalp, src: /home/ubuntu/m27_data, only: ict_scalp_sol_5m }
-          - { family: scalp, src: /home/ubuntu/m27_data, only: ict_scalp_xrp_5m }
-          - { family: scalp, src: /home/ubuntu/m27_data, only: ict_scalp_avax_5m }
-          - { family: scalp, src: /home/ubuntu/m27_data, only: ict_scalp_eth_15m }
-          - { family: scalp, src: /home/ubuntu/m27_data, only: ict_scalp_sol_15m }
-          - { family: scalp, src: /home/ubuntu/m27_data, only: ict_scalp_xrp_15m }
-          - { family: pullback, src: /home/ubuntu/ict-trading-bot/data }
-          - { family: donchian, src: /home/ubuntu/ict-trading-bot/data }
-          - { family: squeeze,  src: /home/ubuntu/ict-trading-bot/data }
-          - { family: fvg,      src: /home/ubuntu/ict-trading-bot/data }
+          # timeout, and the 7 run in parallel for the same $0.
+          # ict_scalp_mgc_15m is deliberately absent (blocked:data_missing).
+          SCALP = "/home/ubuntu/m27_data"
+          DATA = "/home/ubuntu/ict-trading-bot/data"
+          SHARDS = [
+              {"family": "scalp", "src": SCALP, "only": leg} for leg in (
+                  "ict_scalp_5m", "ict_scalp_sol_5m", "ict_scalp_xrp_5m",
+                  "ict_scalp_avax_5m", "ict_scalp_eth_15m", "ict_scalp_sol_15m",
+                  "ict_scalp_xrp_15m",
+              )
+          ] + [
+              {"family": f, "src": DATA, "only": ""}
+              for f in ("pullback", "donchian", "squeeze", "fvg")
+          ]
+          known = {s["family"] for s in SHARDS}
+          want = {f.strip() for f in os.environ.get("FAMILIES", "").split(",") if f.strip()}
+          unknown = sorted(want - known)
+          if unknown:
+              print(f"::error::unknown families {unknown}; known={sorted(known)}", file=sys.stderr)
+              raise SystemExit(1)
+          sel = [s for s in SHARDS if not want or s["family"] in want]
+          print(f"selected {len(sel)} of {len(SHARDS)} shards "
+                f"(families={sorted(want) or 'ALL'})", file=sys.stderr)
+          print("shards=" + json.dumps(sel))
+          PY
+
+  census:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      max-parallel: 11
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     steps:
       - uses: actions/checkout@v4
 

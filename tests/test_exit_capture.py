@@ -180,6 +180,35 @@ def test_disabled_tp_sentinel_does_not_print_a_reassuring_zero():
     assert s["capture_median"] is not None
 
 
+# ------------------------------------------- two harness shapes, one accessor
+def test_mfe_is_read_from_the_nested_scalp_shape():
+    """`backtest_ict_scalp` nests mfe_r under `meta`; trend/pullback/squeeze put
+    it at the top level. Measured 2026-08-10: the census read only the top level
+    and reported `meas=0/1102` for ict_scalp_avax_5m — 3,823 scalp trades, zero
+    capture readings — while `winner_mfe_p80` returned its "fewer than 30
+    winners" answer for the same legs."""
+    assert ec.mfe_r_of({"net_r": -1.0, "meta": {"mfe_r": 1.4}}) == 1.4
+    assert ec.mfe_r_of({"net_r": -1.0, "mfe_r": 1.4}) == 1.4
+    # top level wins when both are present, and a non-dict meta never raises
+    assert ec.mfe_r_of({"mfe_r": 2.0, "meta": {"mfe_r": 9.9}}) == 2.0
+    assert ec.mfe_r_of({"net_r": 1.0}) is None
+    assert ec.mfe_r_of({"net_r": 1.0, "meta": None}) is None
+    assert ec.mfe_r_of({"net_r": 1.0, "meta": "not-a-dict"}) is None
+
+
+def test_summarize_measures_a_nested_shape_book_end_to_end():
+    """The regression proper: an all-nested book must not summarise to zero
+    coverage. This is the assertion whose absence let the defect survive two
+    census runs."""
+    nested = [{"net_r": -1.0, "meta": {"mfe_r": 1.4}},
+              {"net_r": 1.2, "meta": {"mfe_r": 1.5}}]
+    s = ec.summarize(nested, target_r=1.5)
+    assert s["capture_measured_n"] == 2, \
+        "a scalp-shaped book measured zero trades — the 2026-08-10 defect"
+    assert s["capture_median"] is not None
+    assert s["near_miss_90_pct"] == 100.0     # the one loser peaked at 1.4/1.5
+
+
 def test_an_operative_target_still_reports_near_miss():
     """The guard must not suppress a real 1.5R bracket the book actually reaches."""
     s = ec.summarize([_t(-1.0, 1.45), _t(1.5, 1.6)], target_r=1.5)

@@ -146,3 +146,31 @@ def test_module_encodes_no_path_b_threshold():
                        and not isinstance(c.value, bool)
                        for c in node.comparators), \
             f"capital_delta compares a metric to a literal (a threshold?): {rendered}"
+
+
+# --------------------------------- the percentile arm must not fake abstention
+def test_winner_mfe_p80_distinguishes_shape_mismatch_from_thin_sample():
+    """`winner_mfe_p80` returns None for two very different reasons, and its
+    docstring contract declares only one of them ("< 30 winners").
+
+    Measured 2026-08-10: it read `row["mfe_r"]` top-level, so for every
+    `ict_scalp` leg -- whose harness nests mfe_r under `meta` -- it collected
+    zero MFEs and returned the not-enough-winners answer for a leg with 1,102
+    trades. An inert arm that reports a legitimate-looking abstention is worse
+    than one that errors, because the caller records the abstention as data.
+
+    Structural, because the function shells out to a real harness: it must read
+    through the ONE accessor, and it must branch on winners-seen so the two
+    causes stay distinguishable.
+    """
+    import ast
+    src = (REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py").read_text()
+    fn = next(n for n in ast.walk(ast.parse(src))
+              if isinstance(n, ast.FunctionDef) and n.name == "winner_mfe_p80")
+    code = ast.unparse(fn)
+    assert "mfe_r_of" in code, \
+        "winner_mfe_p80 re-derives the MFE read instead of using the one accessor"
+    assert "t['mfe_r']" not in code and 't["mfe_r"]' not in code, \
+        "winner_mfe_p80 still does a raw top-level mfe_r read"
+    assert "winners_seen" in code, \
+        "winner_mfe_p80 cannot tell 'no winners' from 'no readable MFE'"

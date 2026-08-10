@@ -295,25 +295,53 @@ def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
     """P80 of the WINNER-trade MFE distribution over the IS window only
     (M20 P4.4 — the percentile arm is baked from train-window trades so the
     OOS verdict never sees test data; the by_year folds inside IS carry the
-    one-scalar caveat, recorded in the cell tag). None when < 30 winners."""
+    one-scalar caveat, recorded in the cell tag). None when < 30 winners.
+
+    MFE IS READ VIA `exit_capture.mfe_r_of`, NOT `row["mfe_r"]`. This function
+    used to do the top-level read, so for every `ict_scalp` leg — whose harness
+    nests `mfe_r` under `meta` — it collected zero MFEs and returned `None`,
+    which its own contract above declares to mean "fewer than 30 winners".
+    Measured 2026-08-10: `ict_scalp_avax_5m` has 1,102 trades and the arm
+    reported the not-enough-winners answer. An inert percentile arm that says
+    "insufficient data" is worse than one that errors, because the caller
+    records a legitimate-looking abstention. `winners_seen` is now counted
+    SEPARATELY from `mfes` so the two causes stay distinguishable in the log.
+    """
     tmp = "/tmp/m20_p80_emit.jsonl"
+    Path(tmp).unlink(missing_ok=True)
     cmd = [sys.executable, str(REPO / harness), *base,
            "--emit-trades", tmp, "--json", "/tmp/m20_p80_metrics.json",
            "--end", split]
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
         if p.returncode != 0:
+            print(f"    p80: harness rc={p.returncode} — no percentile arm")
             return None
-        mfes = []
+        mfes, winners_seen = [], 0
         for line in Path(tmp).read_text().splitlines():
+            if not line.strip():
+                continue
             t = json.loads(line)
-            if float(t.get("net_r") or 0) > 0 and t.get("mfe_r") is not None:
-                mfes.append(float(t["mfe_r"]))
+            if float(t.get("net_r") or 0) <= 0:
+                continue
+            winners_seen += 1
+            m = exit_capture.mfe_r_of(t)
+            if m is not None:
+                mfes.append(m)
+        if winners_seen and not mfes:
+            # The distinguishing branch: winners EXIST and none carried a
+            # readable MFE. That is a harness/reader shape mismatch, not a
+            # thin sample, and it must never masquerade as one.
+            print(f"    p80: {winners_seen} winners, 0 readable mfe_r — "
+                  "arm UNAVAILABLE (shape mismatch), not 'thin sample'")
+            return None
         if len(mfes) < 30:
+            print(f"    p80: {len(mfes)} winner MFEs (< 30) — thin sample")
             return None
         mfes.sort()
         return round(mfes[int(0.8 * (len(mfes) - 1))], 2)
-    except Exception:  # noqa: BLE001 — advisory cell, never blocks the sweep
+    except Exception as exc:  # noqa: BLE001 — advisory cell, never blocks the sweep
+        print(f"    p80: unavailable ({type(exc).__name__}: {exc})")
         return None
 
 
@@ -572,7 +600,25 @@ def main(argv: list[str]) -> int:
                   f"meas={row.get('capture_measured_n')}/{row.get('n_trades')}"
                   f"{' ERR ' + str(row['error'])[:60] if 'error' in row else ''}",
                   flush=True)
+            # A LEG THAT TRADED AND MEASURED NOTHING IS A DEFECT, NOT A RESULT.
+            # Run 3 printed `meas=0/1102` for ict_scalp_avax_5m in a row of
+            # Nones and it read as ordinary output; the cause was that the
+            # scalp harness nests mfe_r under `meta` while the reader looked
+            # top-level. Zero capture over a thousand trades is never a
+            # property of the book — it is always a reader defect — so it gets
+            # its own line rather than one column among five.
+            if "error" not in row and row.get("n_trades") and not row.get("capture_measured_n"):
+                print(f"    !! ZERO CAPTURE COVERAGE over {row['n_trades']} trades "
+                      f"— mfe_r unreadable for this harness, NOT a finding about "
+                      f"the leg. Do not read any None above as a measurement.",
+                      flush=True)
         ok = {k: v for k, v in census.items() if "error" not in v}
+        # The same fact, hoisted so it cannot be missed in a long log.
+        zero_cov = sorted(k for k, v in ok.items()
+                          if v.get("n_trades") and not v.get("capture_measured_n"))
+        if zero_cov:
+            print(f"\n!! {len(zero_cov)} leg(s) traded with ZERO capture coverage: "
+                  f"{', '.join(zero_cov)}", flush=True)
         # ALWAYS STATE THE POPULATION. Two denominators, and they differ: every
         # leg can be capture-measured, only fixed-target legs can be near-missed.
         cap_legs = [v for v in ok.values() if v.get("capture_mean") is not None]
@@ -583,6 +629,9 @@ def main(argv: list[str]) -> int:
             "legs_errored": len(census) - len(ok),
             "legs_capture_measured": len(cap_legs),
             "legs_near_miss_applicable": len(nm_legs),
+            # Named in the artifact too, so a consumer reading the JSON without
+            # the log still sees which legs' Nones are unreadable-vs-measured.
+            "legs_zero_capture_coverage": zero_cov,
             "note": ("Measure-first pass; no lever applied, nothing graded. "
                      "near_miss_* is null for trail-exit legs because they have "
                      "no target to nearly reach -- null means N/A, not 0%."),
@@ -595,7 +644,14 @@ def main(argv: list[str]) -> int:
                  f"Legs planned **{len(plan)}**, measured **{len(ok)}**, "
                  f"errored **{len(census) - len(ok)}**. "
                  f"Capture measurable on **{len(cap_legs)}**; near-miss applicable "
-                 f"to **{len(nm_legs)}** (fixed-target legs only).", "",
+                 f"to **{len(nm_legs)}** (fixed-target legs only).", ""]
+        if zero_cov:
+            lines += [f"> ⚠️ **{len(zero_cov)} leg(s) traded with ZERO capture "
+                      f"coverage** — `{', '.join(zero_cov)}`. Their blank cells "
+                      "below mean *mfe_r was unreadable*, **not** that the leg "
+                      "keeps none of its move. Do not read them as measurements.",
+                      ""]
+        lines += [
                  "| leg | kind | n | cap med | cap robust | cap <30% "
                  "| nm@90% | nm pop | tgt hit | R left |",
                  "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|"]
