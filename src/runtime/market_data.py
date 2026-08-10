@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
+import time
 from typing import Any, Dict, Optional
 
 import pandas as pd
@@ -38,13 +40,90 @@ logger = logging.getLogger(__name__)
 _OHLCV_COLUMNS = ("timestamp", "open", "high", "low", "close", "volume")
 
 
+_CLIENT_CACHE: Dict[Any, Any] = {}
+_CLIENT_CACHE_LOCK = threading.Lock()
+
+
+def _client_cache_key(settings: Dict[str, Any]) -> Optional[tuple]:
+    """Identity of the connector a given ``settings`` would build.
+
+    Returns ``None`` for any exchange whose client is NOT safe to share, in
+    which case the caller builds a fresh one exactly as before.
+
+    **IB is deliberately excluded.** An ``IBMarketData`` holds a live socket on
+    a specific clientId; handing one instance to concurrent callers is the
+    documented multi-client collision that BL-20260706-IBACCTUPDATES-COLLISION
+    is about. IB already has its own connection reuse + circuit breaker in
+    ``IBClient``; this cache must not second-guess it.
+    """
+    name = str(
+        settings.get("EXCHANGE", settings.get("exchange", "bybit"))
+    ).strip().lower()
+    if name == "bybit":
+        testnet_raw = str(os.environ.get("BYBIT_TESTNET", "true")).strip().lower()
+        return (
+            "bybit",
+            testnet_raw not in {"false", "0", "no"},
+            settings.get("BYBIT_API_KEY"),
+            settings.get("BYBIT_API_SECRET"),
+        )
+    if name == "alpaca":
+        return (
+            "alpaca",
+            settings.get("ALPACA_API_KEY_ID"),
+            settings.get("ALPACA_API_SECRET_KEY"),
+        )
+    if name == "oanda":
+        return ("oanda", settings.get("OANDA_API_TOKEN"))
+    return None
+
+
 def _build_exchange_client(settings: Dict[str, Any]):
     """Return a connector instance for the configured exchange.
 
     Logic preserved verbatim from the legacy
-    ``pipeline._build_killzone_exchange`` so the runtime behaviour is
-    bit-for-bit identical post-PR.
+    ``pipeline._build_killzone_exchange``, with ONE addition (2026-08-10):
+    the constructed client is MEMOIZED per credential identity.
+
+    **Why (BL-20260810-TICK-CHAIN-260S-PER-TICK).** Every strategy builder
+    called this, so a 52-strategy tick built 52 ccxt clients. ccxt loads the
+    exchange's full market catalogue LAZILY on the first ``fetch_ohlcv`` of
+    each instance, so each fresh client paid a full instrument-list download
+    before its ~200ms kline call. Measured from journalctl: ~3.2s per builder,
+    ~166s of a 251s tick. Reusing the client makes ``load_markets()`` happen
+    once per process instead of once per strategy per tick.
+
+    This changes NO data semantics — the same symbol/timeframe/limit request
+    returns the same bytes; we simply stop re-downloading the catalogue that
+    describes them. It is not a cache of market data (see ``fetch_candles``
+    for that, which is separately bounded and separately disable-able).
     """
+    key = _client_cache_key(settings)
+    if key is not None:
+        with _CLIENT_CACHE_LOCK:
+            cached = _CLIENT_CACHE.get(key)
+        if cached is not None:
+            return cached
+
+    client = _build_exchange_client_uncached(settings)
+
+    # Only cache a client that constructed cleanly. A failed build raises
+    # before reaching here, so a broken client is never memoized.
+    if key is not None and client is not None:
+        with _CLIENT_CACHE_LOCK:
+            _CLIENT_CACHE.setdefault(key, client)
+            return _CLIENT_CACHE[key]
+    return client
+
+
+def reset_exchange_client_cache() -> None:
+    """Drop every memoized connector. For tests and for a forced reconnect."""
+    with _CLIENT_CACHE_LOCK:
+        _CLIENT_CACHE.clear()
+
+
+def _build_exchange_client_uncached(settings: Dict[str, Any]):
+    """The original construction path, unchanged."""
     exchange_name = str(
         settings.get("EXCHANGE", settings.get("exchange", "bybit"))
     ).strip().lower()
@@ -195,6 +274,95 @@ def connector_for_symbol(symbol: str, settings: Optional[Dict[str, Any]] = None)
     return _build_exchange_client(settings)
 
 
+_CANDLE_CACHE: Dict[Any, tuple] = {}
+_CANDLE_CACHE_LOCK = threading.Lock()
+
+# Seconds in each timeframe, used to bound the cache TTL by the bar's own
+# period. Unknown timeframes get no cache at all (fail-safe: serve fresh).
+_TF_SECONDS = {
+    "1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800,
+    "1h": 3600, "2h": 7200, "4h": 14400, "6h": 21600, "12h": 43200,
+    "1d": 86400, "1w": 604800,
+}
+
+
+def _candle_cache_ttl(timeframe: str) -> float:
+    """TTL for a cached frame — a FRACTION of the bar's own period.
+
+    A cached frame's only staleness risk is its LAST (still-forming) bar, so
+    the tolerable age scales with the bar. ``CANDLE_CACHE_TTL_FRACTION``
+    (default 0.10) is deliberately a *_FRACTION cadence knob, not a default-off
+    ``*_ENABLED`` gate (Prime Directive: no required capability behind an
+    enable flag), and an unparseable value falls back to the default rather
+    than disabling — a typo must not silently switch caching off OR on.
+
+    Set the fraction to 0 to serve every request fresh (the rollback path,
+    one env flip + restart, no redeploy).
+    """
+    base = _TF_SECONDS.get(str(timeframe).strip().lower())
+    if not base:
+        return 0.0
+    try:
+        frac = float(os.environ.get("CANDLE_CACHE_TTL_FRACTION", "0.10"))
+    except (TypeError, ValueError):
+        frac = 0.10
+    if frac <= 0:
+        return 0.0
+    # Cap so a 1d bar cannot serve an hours-old frame: at most 60s of staleness.
+    return min(base * frac, 60.0)
+
+
+def _candle_cache_key(client: Any, symbol: str, timeframe: str,
+                      limit: int, since: Optional[int]) -> Optional[tuple]:
+    """Cache identity. ``since`` requests are NEVER cached.
+
+    A ``since=`` read is a historical-range reconstruction (the M30 exit
+    panel); it is rare, large, and its correctness matters more than its
+    speed, so it always goes to the venue.
+    """
+    if since is not None:
+        return None
+    if _candle_cache_ttl(timeframe) <= 0:
+        return None
+    # Key on the CLIENT INSTANCE, not the symbol alone: two connectors may be
+    # different venues (or testnet vs mainnet) serving the same symbol string,
+    # and their candles are not interchangeable.
+    return (id(client), str(symbol), str(timeframe), int(limit))
+
+
+def _candle_cache_get(key: Optional[tuple]):
+    if key is None:
+        return None
+    with _CANDLE_CACHE_LOCK:
+        hit = _CANDLE_CACHE.get(key)
+    if not hit:
+        return None
+    stored_at, df, ttl = hit
+    if (time.monotonic() - stored_at) > ttl:
+        return None
+    return df
+
+
+def _candle_cache_put(key: Optional[tuple], df) -> None:
+    if key is None or df is None:
+        return
+    ttl = _candle_cache_ttl(key[2])
+    if ttl <= 0:
+        return
+    with _CANDLE_CACHE_LOCK:
+        # Bound the map so a long-lived process can't accumulate entries for
+        # every (symbol, timeframe, limit) ever requested.
+        if len(_CANDLE_CACHE) > 512:
+            _CANDLE_CACHE.clear()
+        _CANDLE_CACHE[key] = (time.monotonic(), df.copy(), ttl)
+
+
+def reset_candle_cache() -> None:
+    """Drop every cached frame. For tests and for a forced refresh."""
+    with _CANDLE_CACHE_LOCK:
+        _CANDLE_CACHE.clear()
+
+
 def fetch_candles(
     symbol: str,
     timeframe: str,
@@ -254,6 +422,13 @@ def fetch_candles(
             logger.warning("fetch_candles: connector init failed (%s)", exc)
             return None
 
+    cache_key = _candle_cache_key(exchange_client, symbol, timeframe, limit, since)
+    cached = _candle_cache_get(cache_key)
+    if cached is not None:
+        # .copy() is load-bearing: a builder that mutates the frame (adds an
+        # indicator column) must not corrupt the copy the next builder sees.
+        return cached.copy()
+
     try:
         if since is not None:
             candles_raw = exchange_client.get_ohlcv(
@@ -292,4 +467,5 @@ def fetch_candles(
         if col in candles_df.columns:
             candles_df[col] = pd.to_numeric(candles_df[col], errors="coerce")
 
-    return candles_df
+    _candle_cache_put(cache_key, candles_df)
+    return candles_df.copy()
