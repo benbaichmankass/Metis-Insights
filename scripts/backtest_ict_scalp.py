@@ -38,8 +38,11 @@ import pandas as pd
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
+import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
 from src.units.strategies.ict_scalp import order_package  # noqa: E402
 from src.units.strategies import load_strategy_config  # noqa: E402
 
@@ -616,15 +619,10 @@ def _summarize(
     # Bar length is MEASURED from the frame's own timestamps (median spacing),
     # not assumed from the timeframe label — a mislabelled or resampled frame
     # would otherwise silently scale every number here.
-    bar_minutes = None
-    if "timestamp" in df.columns and len(df) > 2:
-        try:
-            deltas = pd.to_datetime(df["timestamp"]).diff().dropna()
-            if len(deltas):
-                med = deltas.median().total_seconds() / 60.0
-                bar_minutes = float(med) if med > 0 else None
-        except Exception:  # noqa: BLE001 — advisory metric, never blocks a run
-            bar_minutes = None
+    # DEFINITION lives in scripts/capital_efficiency.py — the one home, so a
+    # cross-harness comparison means something. This harness owns only the
+    # EXTRACTION (its Trade carries a meta dict; backtest_pullback's does not).
+    bar_minutes = capital_efficiency.bar_minutes_from_frame(df)
     position_bars = sum(float(t.meta.get("bars_held") or 0) for t in trades)
     # capital_bars is SIZE-WEIGHTED: banking releases bank_frac of the
     # position at the rung, so that fraction stops consuming capital there.
@@ -632,21 +630,6 @@ def _summarize(
     capital_bars = sum(float(t.meta.get("capital_bars",
                                         t.meta.get("bars_held") or 0))
                        for t in trades)
-
-    def _days(bars: float):
-        # None, never 0.0, when bar length is unknown — "we could not measure
-        # the hold" and "the hold was zero" are opposite statements.
-        if bar_minutes is None or bars <= 0:
-            return None
-        return bars * bar_minutes / 1440.0
-
-    position_days = _days(position_bars)
-    capital_days = _days(capital_bars)
-
-    def _per_day(total_r, days):
-        if days is None or days <= 0:
-            return None
-        return round(total_r / days, 4)
 
     banked_n = sum(1 for t in trades if t.meta.get("banked"))
     lever_cfg = {
@@ -672,12 +655,7 @@ def _summarize(
             "max_drawdown_r": 0.0,
             "sharpe_r": 0.0,
             "by_outcome": {},
-            "bar_minutes": None,
-            "position_days": None,
-            "capital_days": None,
-            "mean_bars_held": None,
-            "net_r_per_position_day": None,
-            "net_r_per_capital_day": None,
+            **capital_efficiency.empty(),
             **cost_cfg,
             **lever_cfg,
             "data_start": str(df["timestamp"].iloc[0]) if "timestamp" in df.columns and len(df) else None,
@@ -737,12 +715,10 @@ def _summarize(
         # Capital efficiency — read BESIDE net_R, not instead of it. A lever
         # that lifts net_r_per_capital_day while costing net_R is buying
         # throughput; one that lifts neither is just smaller.
-        "bar_minutes": bar_minutes,
-        "position_days": (round(position_days, 3) if position_days is not None else None),
-        "capital_days": (round(capital_days, 3) if capital_days is not None else None),
-        "mean_bars_held": (round(position_bars / n, 2) if n else None),
-        "net_r_per_position_day": _per_day(sum(net), position_days),
-        "net_r_per_capital_day": _per_day(sum(net), capital_days),
+        **capital_efficiency.summarize(
+            bar_minutes=bar_minutes, position_bars=position_bars,
+            capital_bars=capital_bars, net_total_r=sum(net),
+            n_trades=n),
         **cost_cfg,
         **lever_cfg,
         "data_start": str(df["timestamp"].iloc[0]) if "timestamp" in df.columns else None,
