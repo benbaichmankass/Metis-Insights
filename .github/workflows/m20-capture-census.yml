@@ -1,0 +1,161 @@
+name: m20-capture-census
+
+# M20 exit-capture CENSUS — the measure-first pass the operator directed on
+# 2026-08-10 ("measure first, go ahead").
+#
+# WHAT IT IS NOT: a sweep. It applies NO lever and grades NOTHING. It runs each
+# live leg's CONFIG-EXACT base and reports, per leg, the MFE-capture
+# distribution plus the near-miss-to-target rate. The point is to size the prize
+# and order the legs BEFORE a lever is designed — the alternative being to
+# design from one remembered trade.
+#
+# WHY IT EXISTS AT ALL: capture_ratio has been computed in this repo since
+# src/research/excursions.py landed and is read by ZERO gates
+# (BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL). M20's gate optimises
+# net_R and maxDD, both indifferent to handing a winner back, which is how 266
+# of 400 coverage cells came to be graded honest_negative against an objective
+# function that could not see the complaint.
+#
+# FREE RUNNERS, NOT THE TRAINER (docs/claude/vm-resource-management.md): six
+# parallel 4-core public-repo runners, $0, and the 1-core trainer stays free for
+# ML work. Each shard scp's only the frames its family needs.
+#
+# DATASET VINTAGE IS LOAD-BEARING (BL-20260809, and the note atop
+# ict-scalp-exit-sweep.yml): /home/ubuntu/m27_data is NOT the trainer's
+# ~/ict-trading-bot/data — different start dates, different md5. Every M27
+# ict_scalp verdict was measured on m27_data; the trend/pullback/squeeze fleet
+# verdicts were measured on data/. Each shard therefore pulls the source ITS
+# family's existing rows used, and the census records which, so a later
+# comparison is never silently across two populations.
+
+on:
+  workflow_dispatch:
+    inputs:
+      families:
+        description: "CSV of families to census (scalp,pullback,donchian,squeeze,fvg). Empty = all."
+        required: false
+        default: ''
+  push:
+    branches:
+      - 'claude/m20-exit-refinement-continue-g1qv46'
+    paths:
+      - '.github/capture-census-request'
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        shard:
+          # `src` names the trainer dir this family's prior verdicts used.
+          - { family: scalp,    src: /home/ubuntu/m27_data }
+          - { family: pullback, src: /home/ubuntu/ict-trading-bot/data }
+          - { family: donchian, src: /home/ubuntu/ict-trading-bot/data }
+          - { family: squeeze,  src: /home/ubuntu/ict-trading-bot/data }
+          - { family: fvg,      src: /home/ubuntu/ict-trading-bot/data }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Fetch this family's frames from the trainer (scp)
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+          SRC: ${{ matrix.shard.src }}
+        run: |
+          set -e
+          if [ -z "${VM_SSH_KEY}" ]; then echo "::error::VM_SSH_KEY unset"; exit 1; fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key
+          chmod 600 ~/.ssh/trainer_key
+          ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          mkdir -p census_data
+          # Pull the CSVs wholesale for this family's source. Cheap relative to
+          # the backtests, and it avoids a per-symbol resolution here that would
+          # be a SECOND copy of the resolver already in m20_fleet_exit_sweep.py.
+          scp -i ~/.ssh/trainer_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=25 \
+              "${TRAINER_USER}@${TRAINER_IP}:${SRC}/*.csv" census_data/ || true
+          n=$(ls census_data/*.csv 2>/dev/null | wc -l)
+          echo "frames fetched: ${n} from ${SRC}"
+          # A silent-empty here would make every leg read data_missing and the
+          # census would report "0 legs measured" as though that were a finding.
+          if [ "${n}" -eq 0 ]; then
+            echo "::error::no frames fetched from ${SRC} — census would be a false negative"
+            exit 1
+          fi
+
+      - name: Run the capture census for this family
+        env:
+          FAMILY: ${{ matrix.shard.family }}
+          SRC: ${{ matrix.shard.src }}
+        run: |
+          set -o pipefail
+          # --census applies no lever; --only is resolved from the family by the
+          # driver's own classify(), so the leg list is never hardcoded here.
+          python3 scripts/research/m20_fleet_exit_sweep.py \
+            --census \
+            --data-dir census_data \
+            --family "${FAMILY}" \
+            --out "out/${FAMILY}" 2>&1 | tee census.out
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capture-census-${{ matrix.shard.family }}
+          path: out/${{ matrix.shard.family }}
+          if-no-files-found: warn
+
+      - name: Post the census back onto the PR
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          FAMILY: ${{ matrix.shard.family }}
+          SRC: ${{ matrix.shard.src }}
+        with:
+          script: |
+            const fs = require('fs');
+            const family = process.env.FAMILY;
+            let body = '';
+            try {
+              body = fs.readFileSync(`out/${family}/SUMMARY.md`, 'utf8');
+            } catch (e) {
+              let tail = '';
+              try { tail = fs.readFileSync('census.out', 'utf8').slice(-3000); }
+              catch (e2) { tail = '(no census output — job failed before the census step)'; }
+              body = `**census did not produce a SUMMARY** — this is a FAILED run, not an empty result.\n\n\`\`\`\n${tail}\n\`\`\``;
+            }
+            // Resolve the PR from the COMMIT. `pulls.list({head})` silently
+            // returned [] on 2026-08-10 and seven jobs went green having posted
+            // nothing — the exact failure this comment exists to not repeat.
+            const {data: prs} = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner, repo: context.repo.repo,
+              commit_sha: context.sha,
+            });
+            const pr = prs.find(p => p.state === 'open') || prs[0];
+            if (!pr) {
+              core.setFailed(`no PR found for ${context.sha} — census for ${family} computed but has nowhere to go`);
+              return;
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: pr.number,
+              body: `### Exit-capture census — \`${family}\`\n\nDataset: \`${process.env.SRC}\` (the vintage this family's existing verdicts used).\n\n${body}\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_`,
+            });

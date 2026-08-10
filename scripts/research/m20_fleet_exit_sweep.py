@@ -42,6 +42,8 @@ from pathlib import Path
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "scripts"))
+import exit_capture  # noqa: E402  (the ONE exit-capture definition)
 
 # families with harness exit-lever support; everything else is reported
 # no_harness_levers (vwap/turtle_soup/fade — pending harness levers).
@@ -296,6 +298,60 @@ def winner_mfe_p80(harness: str, base: list[str], split: str) -> float | None:
         return None
 
 
+def leg_target_r(cfg: dict) -> float | None:
+    """The leg's FIXED R target, or None for a trail-exit leg.
+
+    `ict_scalp` declares `tp_at_r`; `fade`/`fvg_range` declare `tp_r`. A
+    donchian/pullback/squeeze leg exits on its trail and has **no** target — it
+    cannot "nearly reach" one, so this returns None and every near-miss figure
+    downstream is None rather than a reassuring 0%.
+    """
+    for key in ("tp_at_r", "tp_r"):
+        try:
+            v = float(cfg.get(key))
+        except (TypeError, ValueError):
+            continue
+        if v > 0:
+            return v
+    return None
+
+
+def run_census(harness: str, args: list[str], target_r: float | None,
+               start=None, end=None) -> dict:
+    """Config-exact base run with --emit-trades, summarised by exit_capture.
+
+    Measures the CURRENT live exit geometry — no lever applied. This is the
+    "how bad is it, and where" pass that has to precede designing a lever, so
+    the design is driven by a distribution instead of by one remembered trade.
+    """
+    tmp_json, tmp_trades = "/tmp/m20_census.json", "/tmp/m20_census_trades.jsonl"
+    Path(tmp_trades).unlink(missing_ok=True)
+    cmd = [sys.executable, str(REPO / harness), *args,
+           "--json", tmp_json, "--emit-trades", tmp_trades]
+    if start:
+        cmd += ["--start", start]
+    if end:
+        cmd += ["--end", end]
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+    except subprocess.TimeoutExpired:
+        return {"error": "timeout"}
+    if p.returncode != 0:
+        return {"error": (p.stderr or p.stdout)[-250:]}
+    rows = []
+    try:
+        for line in Path(tmp_trades).read_text().splitlines():
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    except (OSError, json.JSONDecodeError) as exc:
+        # Distinguish "the harness produced no trades" from "we could not read
+        # what it produced" — collapsing them would report a silent empty as a
+        # measured zero.
+        return {"error": f"emit_read: {exc}"}
+    return exit_capture.summarize(rows, target_r=target_r)
+
+
 def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
     tmp = "/tmp/m20_fleet_cell.json"
     cmd = [sys.executable, str(REPO / harness), *args, "--json", tmp]
@@ -386,11 +442,23 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--out", default=str(REPO / "runtime_logs" / "m20_fleet"))
     ap.add_argument("--only", default=None,
                     help="CSV of leg names to restrict to (debug)")
+    ap.add_argument("--family", default=None,
+                    help="CSV of families to restrict to (scalp,pullback,donchian,"
+                         "squeeze,fvg). Lets a runner shard by family without "
+                         "hardcoding a leg list that would drift from "
+                         "config/strategies.yaml.")
     ap.add_argument("--levers", default=None,
                     help="CSV of matrix levers to restrict cells to (e.g. "
                          "trail_decay) — skips already-verdicted cells on a re-run")
     ap.add_argument("--list", action="store_true",
                     help="print the run plan (leg -> harness/data/cells) and exit")
+    ap.add_argument("--census", action="store_true",
+                    help="MEASURE-FIRST pass (operator-directed 2026-08-10): run "
+                         "each leg's config-exact base ONLY and report the exit-capture "
+                         "census (MFE capture distribution + near-miss-to-target rate "
+                         "for fixed-target legs). Applies no lever and grades nothing "
+                         "-- it sizes the prize and orders the legs before any lever "
+                         "is designed.")
     ap.add_argument("--p80-only", action="store_true",
                     help="P4.4 re-run: evaluate ONLY the dynamic p80 decay cell "
                          "per leg (fixed cells already verdicted)")
@@ -399,6 +467,7 @@ def main(argv: list[str]) -> int:
     strategies = (yaml.safe_load((REPO / "config" / "strategies.yaml")
                                  .read_text()) or {}).get("strategies") or {}
     only = set(a.only.split(",")) if a.only else None
+    fams = set(a.family.split(",")) if a.family else None
     levers = set(a.levers.split(",")) if a.levers else None
     data_dir = Path(a.data_dir)
     run_dir = Path(a.out) / datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -407,6 +476,12 @@ def main(argv: list[str]) -> int:
         if not isinstance(cfg, dict) or (only and name not in only):
             continue
         fam = classify(name)
+        # Shard filter FIRST: a leg belonging to another family is out of
+        # scope, not "skipped". Recording it as a skip would make every
+        # shard report the same unrelated legs and inflate the skip count
+        # N-fold when the shards are read together.
+        if fams and fam not in fams:
+            continue
         if fam is None:
             skipped.append({"leg": name, "reason": "no_harness_levers"})
             continue
@@ -435,6 +510,59 @@ def main(argv: list[str]) -> int:
         return 0
 
     run_dir.mkdir(parents=True, exist_ok=True)
+
+    if a.census:
+        census: dict = {}
+        for p in plan:
+            cfg = strategies.get(p["leg"]) or {}
+            tr = leg_target_r(cfg)
+            row = run_census(p["harness"], p["base"], tr, end=None)
+            row.update({"family": p["family"], "symbol": p["symbol"],
+                        "tf": p["tf"], "proxy": p["proxy"],
+                        "exit_kind": "fixed_target" if tr else "trail"})
+            census[p["leg"]] = row
+            print(f"  {p['leg']:28s} cap_mean={row.get('capture_mean')} "
+                  f"nm90={row.get('near_miss_90_pct')} n={row.get('n_trades')}"
+                  f"{' ERR ' + str(row['error'])[:60] if 'error' in row else ''}",
+                  flush=True)
+        ok = {k: v for k, v in census.items() if "error" not in v}
+        # ALWAYS STATE THE POPULATION. Two denominators, and they differ: every
+        # leg can be capture-measured, only fixed-target legs can be near-missed.
+        cap_legs = [v for v in ok.values() if v.get("capture_mean") is not None]
+        nm_legs = [v for v in ok.values() if v.get("near_miss_90_pct") is not None]
+        (run_dir / "capture_census.json").write_text(json.dumps({
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "legs_planned": len(plan), "legs_measured": len(ok),
+            "legs_errored": len(census) - len(ok),
+            "legs_capture_measured": len(cap_legs),
+            "legs_near_miss_applicable": len(nm_legs),
+            "note": ("Measure-first pass; no lever applied, nothing graded. "
+                     "near_miss_* is null for trail-exit legs because they have "
+                     "no target to nearly reach -- null means N/A, not 0%."),
+            "total_r_left_on_table_90pct_band": round(sum(
+                v["near_miss_r_left_on_table"] for v in nm_legs
+                if v.get("near_miss_r_left_on_table") is not None), 2) or None,
+            "legs": census,
+        }, indent=1))
+        lines = ["# M20 exit-capture census (measure-first, nothing graded)", "",
+                 f"Legs planned **{len(plan)}**, measured **{len(ok)}**, "
+                 f"errored **{len(census) - len(ok)}**. "
+                 f"Capture measurable on **{len(cap_legs)}**; near-miss applicable "
+                 f"to **{len(nm_legs)}** (fixed-target legs only).", "",
+                 "| leg | kind | n | capture mean | capture <30% | nm@90% | R left |",
+                 "|---|---|--:|--:|--:|--:|--:|"]
+        for leg, v in sorted(census.items(),
+                             key=lambda kv: -(kv[1].get("near_miss_90_pct") or -1)):
+            if "error" in v:
+                lines.append(f"| {leg} | — | — | ERROR | {str(v['error'])[:40]} | — | — |")
+                continue
+            lines.append(f"| {leg} | {v['exit_kind']} | {v['n_trades']} | "
+                         f"{v['capture_mean']} | {v['capture_lt_30_pct']} | "
+                         f"{v['near_miss_90_pct']} | {v['near_miss_r_left_on_table']} |")
+        (run_dir / "SUMMARY.md").write_text("\n".join(lines) + "\n")
+        print("census ->", run_dir)
+        return 0
+
     results = (run_dir / "results.jsonl").open("a", encoding="utf-8")
 
     def log_result(row: dict) -> None:

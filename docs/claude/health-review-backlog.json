@@ -11420,8 +11420,29 @@
         "scripts/backtest_ict_scalp.py",
         "scripts/backtest_pullback.py"
       ]
+    },
+    {
+      "id": "BL-20260810-COVERAGE-MATRIX-LEG-IDS-DO-NOT-JOIN-TO-CONFIG",
+      "opened_at": "2026-08-10T02:55:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "open",
+      "tier": 1,
+      "severity": "high",
+      "area": "m20-exit-refinement",
+      "title": "10 of 52 live harness-classified legs have NO matrix row that joins by name: 8 equities legs are named *_trend_1d in the matrix vs *_trend_long_1d in config, and 3 more are still inside an un-exploded bundled row",
+      "source": "MEASURED 2026-08-10 by set-differencing config/strategies.yaml (legs whose m20_fleet_exit_sweep.classify() resolves a family) against docs/research/exit-refinement-coverage.json row ids.\n\nconfig harness-classified: 52. matrix rows: 50. The counts nearly agree, which is what hid this -- the SETS do not.\n\nIN CONFIG, NOT IN MATRIX (10): iwm_trend_long_1d, qld_trend_long_1d, qqq_trend_long_1d, scha_trend_long_1d, splg_trend_long_1d, spy_trend_long_1d, tqqq_trend_long_1d, trend_donchian_1h, trend_donchian_eth_prop, trend_donchian_sol_prop.\n\nIN MATRIX, NOT IN CONFIG (8 + 1 bundle): iwm_trend_1d, qld_trend_1d, qqq_trend_1d, scha_trend_1d, splg_trend_1d, spy_trend_1d, tqqq_trend_1d, and the literal row 'shadow fleet (turtle_soup, fade_breakout_4h, vwap, ict_scalp_5m, trend_donchian_1h, mgc_trend_1h, *_prop)'.\n\nTWO DISTINCT DEFECTS.\n(1) NAME DRIFT: the 7 equities legs are the same strategies under a matrix id missing the `_long` infix. A human reading the matrix sees them covered; any automated join on strategy name sees ZERO rows and would report them uncovered -- or, worse, a writer could append a SECOND row under the config name and the matrix would then carry two rows for one leg with independent statuses.\n(2) A SURVIVING BUNDLED ROW: trend_donchian_1h + both *_prop legs are inside one multi-leg row. That is exactly the shape BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS exploded on 2026-08-09 -- the explosion was INCOMPLETE, and this row is the residue. One status across seven named legs cannot be read per-leg.",
+      "what_to_check": "Which name is canonical for the equities legs -- config is the field and the matrix is the claim, so config wins (`field beats comment`) unless the verdicts were measured under the other id. Check the referenced sweep outputs before renaming, so a rename does not silently re-point a verdict to a leg it was not measured on.",
+      "action": "Rename the 7+1 matrix ids to their config ids and explode the surviving bundled row per BL-20260809's rule (per-leg status from the ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict). Then add a CI guard asserting the matrix id set equals the config harness-classified set -- the matrix calls itself M20's done-condition, and a done-condition that does not join to the thing it measures cannot be checked.",
+      "resolution_criteria": "Set-difference between config harness-classified legs and matrix row ids is empty in both directions, enforced by a guard rather than by inspection.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/research/exit-refinement-coverage.json",
+        "config/strategies.yaml",
+        "scripts/research/m20_fleet_exit_sweep.py",
+        "BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS"
+      ]
     }
   ],
-  "updated_at": "2026-08-10T02:45:00+00:00",
+  "updated_at": "2026-08-10T02:55:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
