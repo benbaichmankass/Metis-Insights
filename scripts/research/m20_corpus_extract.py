@@ -178,6 +178,13 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                        "cell": e.get("cell"), "verdict": e.get("verdict"),
                        "is_oos_pass": e.get("is_oos_pass"),
                        "path_b_candidate": bool(e.get("path_b_candidate")),
+                       # THREE-STATE, and NOT `bool(...)`: True / False / None
+                       # ("no window was gradeable") are three different findings
+                       # and `bool()` would silently turn the third into the
+                       # second. Absent on rows written before the sweep emitted
+                       # it — which reads as None, correctly, since those rows
+                       # genuinely carry no verdict on the rate gate.
+                       "path_b_rate_ok": e.get("path_b_rate_ok"),
                        # `wf_ran` is the honest flag: a cell that never reached a
                        # walk-forward is not a cell that failed one.
                        "wf_ran": wf is not None,

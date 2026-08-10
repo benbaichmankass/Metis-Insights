@@ -1260,6 +1260,27 @@ def main(argv: list[str]) -> int:
                 entry["verdict"] = ("path_b_wf_pass" if wf["usable"] >= 4
                                     and wf["wins"] * 3 >= wf["usable"] * 2
                                     else "path_b_wf_fail")
+                # THE VERDICT NAME DOES NOT MEAN THE RATE GATE PASSED, and at
+                # fleet scale 6 of 18 `path_b_wf_pass` rows failed it (2026-08-10,
+                # 43-leg corpus) — including `tlt_pullback_1h trail4`, whose OOS
+                # base is UNGRADEABLE and whose grant is the largest in the fleet
+                # at 170% of the base book's whole drawdown. The docstring above
+                # disclaims it, the per-row `rate ok` column reports it, and a
+                # reader scanning a table of `path_b_wf_pass` rows still would not
+                # guess that a third of them fail the gate the prose describes.
+                # That is a label not describing what was computed.
+                #
+                # THREE-STATE, never collapsed to a boolean: `False` (a gradeable
+                # window said no) and `None` (no window could be graded at all)
+                # are opposite findings, and folding "we could not look" into
+                # either "ok" or "failed" is the exact defect
+                # `collapsed-state-guard` exists for. Carried on the entry so the
+                # corpus and every downstream table can key on it.
+                _r = [entry["dd_exchange_rate"][w]["passes"] for w in ("IS", "OOS")]
+                _graded = [v for v in _r if v is not None]
+                entry["path_b_rate_ok"] = (
+                    None if not _graded else all(_graded))
+                entry["path_b_rate_windows_graded"] = len(_graded)
             else:
                 entry["verdict"] = "is_oos_fail"
             leg_v["levers"].setdefault(lever, []).append(entry)
@@ -1282,6 +1303,21 @@ def main(argv: list[str]) -> int:
                                      if e.get("path_b_candidate")),
             "path_b_wf_pass": sum(1 for e in _all_entries
                                   if e.get("verdict") == "path_b_wf_pass"),
+            # The same count split by the gate the name does NOT test, so the
+            # roll-up cannot present 18 Path B passes when 12 of them are what a
+            # reader means by that. `rate_ungradeable` is its own bucket.
+            "path_b_wf_pass_rate_ok": sum(
+                1 for e in _all_entries
+                if e.get("verdict") == "path_b_wf_pass"
+                and e.get("path_b_rate_ok") is True),
+            "path_b_wf_pass_rate_failed": sum(
+                1 for e in _all_entries
+                if e.get("verdict") == "path_b_wf_pass"
+                and e.get("path_b_rate_ok") is False),
+            "path_b_wf_pass_rate_ungradeable": sum(
+                1 for e in _all_entries
+                if e.get("verdict") == "path_b_wf_pass"
+                and e.get("path_b_rate_ok") is None),
         }
         verdicts[leg] = leg_v
 
@@ -1504,9 +1540,27 @@ def main(argv: list[str]) -> int:
                   "BOTH windows** means the cell buys drawdown at least as cheaply as the "
                   "strategy already does. `ungradeable` is NOT a pass — a base book that "
                   "loses money has no exchange rate to preserve.", "",
+                  # THE VERDICT NAME IS NOT THE GATE. Measured over the 43-leg
+                  # corpus, 6 of 18 `path_b_wf_pass` rows FAIL this table's `rate
+                  # ok` column -- the verdict says only that the net_R gain held
+                  # up across folds. Stated here because this is the table a
+                  # reader scans when deciding, and the two were previously only
+                  # reconcilable by reading both columns and knowing they meant
+                  # different things.
+                  "**`path_b_wf_pass` does NOT mean `rate ok`** -- that verdict "
+                  "says only that the net_R gain held across folds. Read the "
+                  "`rate ok` column, and read `grant%` beside it.", "",
+                  # `grant%` = dN/N_b as a PERCENTAGE OF THE BASE BOOK'S WHOLE
+                  # DRAWDOWN, which is what `allowed` literally is. It was
+                  # derivable from the existing columns and nobody derived it,
+                  # so a cell being granted 170% of the base book's entire
+                  # drawdown (tlt_pullback_1h trail4) read as an ordinary row.
+                  "`grant%` is `allowed` as a share of the base book's ENTIRE "
+                  "drawdown. Above 100% the allowance has stopped being a share "
+                  "of the risk budget and become an expansion of it.", "",
                   "| leg | cell | win | base netR | base maxDD | d netR | asked d maxDD "
-                  "| allowed d maxDD | headroom | rate ok |",
-                  "|---|---|---|--:|--:|--:|--:|--:|--:|:-:|"]
+                  "| allowed d maxDD | grant% | headroom | rate ok |",
+                  "|---|---|---|--:|--:|--:|--:|--:|--:|--:|:-:|"]
         for _leg, _e in pb:
             for _w in ("IS", "OOS"):
                 _r = _e["dd_exchange_rate"][_w]
@@ -1514,13 +1568,17 @@ def main(argv: list[str]) -> int:
                     lines.append(
                         f"| {_leg} | {_e['cell']} | {_w} | {_r.get('base_net_r')} "
                         f"| {_r.get('base_max_dd')} | {_r.get('d_net_r')} "
-                        f"| {_r.get('d_max_dd')} | - | - | "
+                        f"| {_r.get('d_max_dd')} | - | - | - | "
                         f"ungradeable: {_r['reason']} |")
                     continue
+                # `base_net_r > 0` is guaranteed here -- a non-positive base
+                # returned `base_unprofitable` above and took the branch that
+                # continues, so this division cannot be by zero or invert sign.
+                _grant = round(100.0 * _r['d_net_r'] / _r['base_net_r'])
                 lines.append(
                     f"| {_leg} | {_e['cell']} | {_w} | {_r['base_net_r']} "
                     f"| {_r['base_max_dd']} | {_r['d_net_r']} | {_r['d_max_dd']} "
-                    f"| {_r['allowed_d_max_dd']} | {_r['headroom']} "
+                    f"| {_r['allowed_d_max_dd']} | {_grant}% | {_r['headroom']} "
                     f"| {'Y' if _r['passes'] else 'N'} |")
     (run_dir / "SUMMARY.md").write_text("\n".join(lines) + "\n")
     print(f"capital: {len(measured)}/{len(dist)} cells measured")

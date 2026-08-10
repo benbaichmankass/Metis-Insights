@@ -153,9 +153,17 @@ visibly diverge:
 
 Nobody reading a table of `path_b_wf_pass` rows would guess a third of them fail the
 gate the surrounding prose describes. That is a label not describing what was
-computed — the same class the repo's `diagnostic-provenance-guard` exists for. **Fix
-(Tier-1, mine to do): fold `rate_ok` into the verdict** so a row that fails it cannot
-wear the same name.
+computed — the same class the repo's `diagnostic-provenance-guard` exists for.
+
+**FIXED in this PR** (Tier-1): the sweep now carries `path_b_rate_ok` on every Path B
+entry as a **three-state** value — `True` / `False` (a window was graded and said no)
+/ `None` (no window was gradeable at all) — splits the roll-up count three ways
+(`path_b_wf_pass_rate_{ok,failed,ungradeable}`), states the divergence in the report
+header, and adds a **`grant%`** column (`allowed` as a share of the base book's entire
+drawdown), which is the number § 3 turns on and which was derivable from the existing
+columns but never derived. `False` and `None` are deliberately not merged, and the
+extractor passes the value through rather than `bool()`-ing it — a row written before
+the field existed reads as `None`, never as passing.
 
 **Path A has no minimum trade count, and it shows.** 9 of the 21 Path A PASSes sit on
 an OOS base under 20 trades:
@@ -215,8 +223,7 @@ is how a fleet acquires levers that backtest well and do nothing.
 
 ## 7. What I would do next, in order
 
-1. **Fold `rate_ok` into the sweep verdict** (§ 4, Tier-1) so a row failing the
-   drawdown-rate gate cannot be reported as a Path B pass.
+1. ~~Fold `rate_ok` into the sweep verdict~~ — **done in this PR** (§ 4).
 2. **Sweep the 8 `ict_scalp` legs** on their own dispatch — the only part of the
    fleet still unmeasured, and the one where the capped-TP geometry bites hardest.
 3. **Decide the `dN/N_b ≤ 1.0` bound** (§ 3, Tier-3, your call).

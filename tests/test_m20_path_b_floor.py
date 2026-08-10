@@ -505,3 +505,61 @@ def test_an_unknown_direction_raises_rather_than_defaulting():
     except ValueError:
         return
     raise AssertionError("an unknown direction was accepted")
+
+
+# ------------------------------- 7. the verdict name vs the gate it doesn't test
+#
+# Measured on the 43-leg corpus: 6 of 18 `path_b_wf_pass` rows FAIL the
+# drawdown-rate gate, and one (`tlt_pullback_1h trail4`) has an UNGRADEABLE OOS
+# base while carrying the largest grant in the fleet. The verdict name says only
+# "the net_R gain held across folds" -- so the gate's own answer has to travel
+# with the row, in three states.
+
+
+def _doc_with_rate_ok(value):
+    doc = _verdicts_doc()
+    cell = doc["verdicts"]["good_leg"]["levers"]["vol_trail"][0]
+    if value is not ...:
+        cell["path_b_rate_ok"] = value
+    return doc
+
+
+def test_path_b_rate_ok_keeps_all_three_states_through_the_extractor():
+    """`False` and `None` are opposite findings; `bool()` would merge them.
+
+    None = no window could be graded at all (an unprofitable base on both). False
+    = a window WAS graded and said no. Collapsing the first into the second reads
+    as "we checked and it failed"; collapsing it into True is worse.
+    """
+    for value in (True, False, None):
+        cell = next(r for r in extract.rows_from_verdicts(
+            _doc_with_rate_ok(value), "r") if r["kind"] == "cell")
+        assert cell["path_b_rate_ok"] is value, (
+            f"rate_ok {value!r} did not survive extraction as itself")
+
+
+def test_a_row_predating_the_rate_ok_field_reads_as_ungraded_not_as_passing():
+    """An OLD corpus row carries no verdict on the gate — and must not imply one.
+
+    The permissive failure would be absent -> True, which would let every row
+    written before the field existed read as "the rate gate passed".
+    """
+    cell = next(r for r in extract.rows_from_verdicts(_doc_with_rate_ok(...), "r")
+                if r["kind"] == "cell")
+    assert cell["path_b_rate_ok"] is None
+
+
+def test_the_sweep_derives_rate_ok_from_the_gradeable_windows_only():
+    """One gradeable window that passes is `True`; zero gradeable is `None`.
+
+    Mirrors the sweep's own expression against the same `dd_exchange_rate` shape,
+    so a change to that shape breaks here rather than silently in a report.
+    """
+    def derive(is_p, oos_p):
+        graded = [v for v in (is_p, oos_p) if v is not None]
+        return None if not graded else all(graded)
+
+    assert derive(True, True) is True
+    assert derive(True, None) is True      # tlt_pullback_1h trail4's shape
+    assert derive(False, True) is False    # slv_pullback_1d stale8_lt0R's shape
+    assert derive(None, None) is None      # nothing was graded -- not a pass
