@@ -11206,6 +11206,28 @@
       "resolution_note": "RESOLVED — but NOT by the fix this item proposed, and the correction is the point. The item offered (a) 'under force_all, treat a per-step `when` as satisfied — one line, and it makes the comment true'. MEASURED before implementing: BOTH step-gated commands in the registry (the only two — `api-tier-policy-guard` and `diagnostic-provenance-guard`) consume `{pr_diff}`, and on push that file is EMPTY. Forcing them to run makes `check_diagnostic_provenance.py` print 'OK - every scanned diagnostic states what it computed' and exit 0 having scanned NOTHING. Option (a) would have made the comment true and the CHECK false — manufacturing exactly the green-that-checked-nothing this repo treats as worse than a red. Substituting the whole-tree equivalent is not a drop-in either: `check_diagnostic_provenance.py --all` exits 1 on 52 pre-existing grandfathered sites (that is WHY it is diff-scoped), so wiring it to push would redden `main` on every merge. SO THE SKIP IS CORRECT AND STAYS. What was actually wrong was that it was INDISTINGUISHABLE from an ordinary not-relevant skip — the reader could not tell 'we asked about this diff and it did not apply' from 'there was no diff to ask about'. SHIPPED: (1) `run_guard()` takes `no_diff_scope`/`unscoped` and names the real reason on the skip line; (2) the run summary prints a 'NOT SCANNED on this event (N)' block listing those steps and stating that a guard needing real push coverage must carry an UNGATED whole-tree step; (3) `guards.yml`'s 'stricter ... never weaker' comment — the actual defect, since it was the claim that made the gap invisible — is corrected in place; (4) `tests/test_run_guards_step_scoping.py` pins the distinction, AND asserts the premise the decision rests on (every step-gated command consumes `{pr_diff}`; the population is exactly those two guards) so a future step that scans the whole tree fails the test rather than silently inheriting reasoning that no longer applies to it. NOTE the affected population was 2, not the 'several' this item guessed at — the guess is corrected here rather than left standing."
     },
     {
+      "id": "BL-20260810-REQUIRED-WORKFLOWS-NO-CONCURRENCY-GROUP",
+      "opened_at": "2026-08-10T01:25:00+00:00",
+      "opened_by": "claude (api-tier-policy-guard-npihz7)",
+      "source": "MEASURED on PR #8698. `.github/workflows/guards.yml` declares `concurrency: group: guards-... cancel-in-progress: true`. `pytest-run.yml`, `pytest-collect.yml` and `repo-inventory.yml` declare NO `concurrency:` block at all (verified by grep over each file). Consequence observed directly: marking #8698 ready-for-review re-queued the required checks, and because pytest-run has no group the second run did NOT supersede the first — BOTH ran a full suite to completion on the SAME head 6ded70b: job 93325586744 (00:41:59 -> 00:50:50, 8m51s, success) and job 93325625028 (00:42:19 -> ~00:51:35, ~9m16s, success). guards.yml's own run on that head was correctly CANCELLED by its group (job 93325586606), which is the control showing the fix works.",
+      "title": "pytest-run / pytest-collect / repo-inventory declare no `concurrency:` group, so a re-queue stacks a second full ~9-minute suite instead of superseding the first",
+      "tier": 1,
+      "status": "open",
+      "snoozed_until": null,
+      "severity": "low",
+      "what_to_check": "This is the same stacking mode BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES identified ('because almost none of those workflows declared a concurrency: group, every re-run STACKED instead of superseding the last -- 75 queued runs from ~3 attempts at the same PR'). That PR added the group to guards.yml, which was the workflow it consolidated; the three OTHER required/always-on workflows were not touched and still have no group. So the root cause is only partly fixed, and the part that is fixed is the CHEAP job (guards, ~45s) while the three unfixed ones include the EXPENSIVE one (pytest-run, ~9 min).\n\nTWO COSTS. (1) Runner minutes: every re-queue on a busy PR burns a duplicate ~9-minute suite. (2) Legibility: two runs share one required-check NAME, so 'is pytest-run green?' has two answers at once and branch protection's view is not obvious from the check list.\n\nNOT urgent and NOT a correctness risk -- both duplicate runs passed, and branch protection still gates on the required context. This is waste plus ambiguity, not a hole.",
+      "proposed_fix": "Add the same group guards.yml already uses to pytest-run.yml, pytest-collect.yml and repo-inventory.yml:\n  concurrency:\n    group: <name>-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}\n    cancel-in-progress: true\nKeep the event_name in the key for the reason guards.yml documents: grouping push/merge_group by ref alone would cancel a main-branch run and lose the post-merge signal.\n\nCAUTION worth stating: cancel-in-progress on a REQUIRED check means a cancelled run leaves that context non-successful until the superseding run finishes. That is correct (only the newest head's verdict is meaningful) and is already how guards.yml behaves, but verify on one PR before assuming it composes with 'require branches up to date'.",
+      "related": [
+        "BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES"
+      ],
+      "refs": [
+        ".github/workflows/pytest-run.yml",
+        ".github/workflows/pytest-collect.yml",
+        ".github/workflows/repo-inventory.yml",
+        ".github/workflows/guards.yml"
+      ]
+    },
+    {
       "id": "BL-20260810-BANKING-GATE-CANNOT-PASS",
       "opened_at": "2026-08-10T00:25:00+00:00",
       "opened_by": "claude (m20-ladder session, operator-requested re-evaluation)",
