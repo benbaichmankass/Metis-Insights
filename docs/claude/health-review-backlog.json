@@ -10675,6 +10675,14 @@
           "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
           "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
           "evidence_based": false
+        },
+        {
+          "at": "2026-08-10T09:50:00+00:00",
+          "by": "claude (system-review 2026-08-10, soak audit)",
+          "disposition": "kept_open_confirmed",
+          "evidence_based": true,
+          "note": "CONFIRMED STILL BROKEN, measured 2026-08-10. Three most recent conviction_arbitration rows (2026-08-09T22:49Z, 2026-08-10T00:15Z, 2026-08-10T04:05Z) ALL carry actual_target_qty 0.0, conviction_winner_target_qty 0.0, conviction_weighted_target_qty 0.0, and every per_intent entry target_qty 0.0. The DIRECTION half works (resolution/winner/confidence/agrees_with_actual are populated and plausible); the SIZING half has produced no usable data at all. Also note the newest row is ~5.5h old — this soak logs only on multi-intent ticks, so it accrues slowly even when healthy.",
+          "next_check": "Trace why target_qty reaches the arbitration logger as 0.0 — the sibling conviction_sizing log DOES carry real quantities (risk_based_qty 3.684, final_qty 1.151), so the value exists upstream and is being lost at this writer."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -10701,6 +10709,14 @@
           "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
           "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
           "evidence_based": false
+        },
+        {
+          "at": "2026-08-10T09:50:00+00:00",
+          "by": "claude (system-review 2026-08-10, soak audit)",
+          "disposition": "kept_open_and_stalled",
+          "evidence_based": true,
+          "note": "CONFIRMED contaminated AND effectively STALLED. Two reads 5.5h apart are byte-identical: total_scanned 173, disagree 90, disagree_pct 52.0, mean_regret 0.618801 at BOTH 04:2xZ and 09:46Z, with the newest record still timestamped 2026-08-10T04:05:11Z. Not one new row in 5.5h.\n\nMechanism: the soak only logs a tick with >=2 actionable candidates, which is rare. Compounding it, the sampled tick's two candidates are eth_pullback_2h vs eth_pullback_prop_2h — the SAME setup on real vs prop, i.e. the variant-pair artifact this item is about. So the headline 52% / 0.619 is both contaminated AND computed over a population that is barely growing.",
+          "next_check": "Decide whether this soak can ever reach a useful n at its current trigger condition; if not, either widen the trigger or retire it rather than leaving a stalled soak that looks active."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -11005,7 +11021,7 @@
       "source": "/system-review 2026-08-07: /api/bot/pairs/soak?limit=3 summary + /api/bot/positions?include_paper=true, 14:36Z. POPULATION: 850 of 2232 lifetime pairs-sleeve evaluations are skip_state_unreadable (38.1%), and 10 of 38 attempted opens failed (26.3%). Corroborated by 7 rows: 7 open pair legs on bybit_1 at the same capture, opened between 2026-07-16 and 2026-08-01.",
       "title": "[pairs] pairs sleeve cannot read its state on 38% of evaluations, and has 7 open legs it is not closing (oldest 22 days)",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "severity": "medium",
       "detail": "pairs_soak summary over 2,232 scanned evaluations: skip_state_unreadable 850 (38.1%), skip_flat 1,133, skip_concurrency 202, open 28, shadow_open 9, open_failed 10. Two of the three most-recent records (2026-08-07T14:03-14:04) are skip_state_unreadable on live-mode pairs (SOLUSDT/ETHUSDT, BNBUSDT/BTCUSDT), so it is current, not historical.\n\nA sleeve that cannot read its own state on 38% of bars is not evaluating the strategy it was configured to evaluate, and open_failed 10 of 38 attempted opens (26%) is a second failure surface.\n\nCORROBORATING STATE: bybit_1 currently holds 7 open pair legs the sleeve has not closed — pairs_bnb_btc_a BNBUSDT short x5 opened 2026-07-16, 07-17, 07-20, 07-23, 07-28 (uPnL -$289 combined) and pairs_sol_eth_a SOLUSDT long x2 opened 07-29 and 08-01. The oldest is 22 days old on a 1h-bar sleeve.\n\nSEPARATE OBSERVATION worth recording here because it changes how pairs numbers should be read: pairs legs are placed with nominal 0.5x/2.0x-of-entry brackets (e.g. pairs_bnb_btc_a BNBUSDT entry 594.5, sl 297.25, tp 1189.0; pairs_bnb_btc_b BTCUSDT entry ~64160, sl 128320, tp 32080). Those are not real stops — each leg is individually unprotected and relies on the pair hedge. It also makes R meaningless for pairs rows: this window's pairs grades all read -0.00R, and /performance shows pairs_sol_eth_b totalR 0.0433 on $163.87. Do not aggregate pairs R with directional-strategy R.",
       "what_to_check": "Tail /api/diag/log_file?name=pairs_soak and find what raises skip_state_unreadable in src/units/strategies/pairs_executor.py — whether it is a missing state file, an unreadable journal query, or an exchange read failure.",
@@ -11020,7 +11036,10 @@
           "evidence_based": false
         }
       ],
-      "updated_at": "2026-08-10T05:05:00+00:00"
+      "updated_at": "2026-08-10T05:05:00+00:00",
+      "resolved_at": "2026-08-10T09:50:00+00:00",
+      "resolved_by": "claude (system-review 2026-08-10, soak audit)",
+      "resolution": "FIX VERIFIED by a frozen counter, which is the measurement the earlier read could not make.\n\n07:28Z: total_scanned 2483, skip_state_unreadable 959.\n09:46Z: total_scanned 2506, skip_state_unreadable 959.\n\nTotal grew by 23 rows over ~2.3h and skip_state_unreadable did NOT move — ZERO new unreadable rows since the fix. The 959 is entirely pre-fix backlog, which is exactly why the CUMULATIVE 38.6% rate could not grade the fix and a delta could. Other events also advanced normally in the window (open 29->31, shadow_open 11->13, skip_flat 1242->1259), so the sleeve is live and evaluating — this is not a frozen log.\n\nNOTE for whoever reads the cumulative rate next: it will keep showing ~38% forever because the historical rows never age out. Grade this on the DELTA, not the ratio."
     },
     {
       "id": "BL-20260807-HEARTBEAT-PAUSED-WHILE-TICKING",
@@ -11678,6 +11697,14 @@
           "note": "MATERIALLY ADVANCED — the soak is now accruing on weekdays (exposure_soak.jsonl 148,739 bytes, multi-day). First readings pulled 2026-08-10: bybit_2 (REAL MONEY) exposure_multiple 0.9888 on $279.61 equity / $276.47 gross notional; bybit_portfolio 1.0513 (ABOVE 1x); bybit_1 0.5516; ib_paper 0.4442; alpaca_live / oanda_practice 0.0; breakout_1 and ib_live measured:false with unmeasured_reason equity_unavailable (correctly NOT reported as flat). Every account reads policy_declared:false — no ceiling is declared anywhere. Note real money sitting at ~1.0x gross with no declared ceiling. Still open because the load-bearing statistic is max_multiple over a full observation window and I could not read summary.by_account: `exposure/soak` was missing from the relay allowlist (fixed this run, commit c80a318) so I had to read the raw log tail instead, which gives no denominator.",
           "next_check": "re-pull /api/bot/exposure/soak summary once c80a318 merges; the ceiling VALUE remains Tier-3 and needs max_multiple beside measured_n",
           "evidence_based": true
+        },
+        {
+          "at": "2026-08-10T09:50:00+00:00",
+          "by": "claude (system-review 2026-08-10, soak audit)",
+          "disposition": "kept_open_readable_but_wrong_population",
+          "evidence_based": true,
+          "note": "NOW READABLE via /api/bot/exposure/soak (the relay allowlist fix landed and works). 638 rows, 58 per account across 11 accounts. max_multiple by account: alpaca_paper 2.0258, alpaca_portfolio 2.0156, bybit_1 1.6225, bybit_portfolio 1.0607, bybit_2 (REAL MONEY) 0.9966, ib_paper 0.4477; alpaca_live / oanda_practice / alpaca_options_paper 0.0. ib_live and breakout_1 are measured_n 0 / unmeasured_n 58 — correctly NULL rather than a fabricated 0.0.\n\nBUT THE CEILING STILL CANNOT BE SET, and the envelope says why: venue_sessions is {closed: 561, extended: 77} and **rth: ZERO**. Not one row has been logged during a regular US equity session. The design's own rule (gross-exposure-governance-DESIGN.md) is that a soak which is mostly closed has not observed normal operation — so the two accounts carrying the HIGHEST multiples (both Alpaca, both >2.0x) have been observed only while their venue was shut or thin. Setting a ceiling on this population is precisely the error the design warns against.\n\nWorth noting separately: alpaca_paper and alpaca_portfolio sit above 2.0x gross with policy_declared false.",
+          "next_check": "Re-read once venue_sessions shows a material 'rth' count. Judge max_multiple per account against the RTH subset, not the all-hours one."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -12295,6 +12322,23 @@
         "BL-20260705-IBPAPER-POSITIONS-NULL-WEEKEND",
         "BL-20260807-BACKLOG-REFS-GUARD-BLOCKS-HISTORICAL-CITATIONS"
       ]
+    },
+    {
+      "id": "BL-20260810-CONVICTION-SIZING-APPLY-LIVE-VS-DOC",
+      "opened_at": "2026-08-10T09:50:00+00:00",
+      "opened_by": "claude (system-review 2026-08-10, soak audit)",
+      "status": "open",
+      "severity": "high",
+      "tier": 3,
+      "title": "CONVICTION_SIZING_MODE appears to be `apply` on the live VM and is actively CUTTING live order size — CLAUDE.md says it stays at off/annotate because the backtest A/B failed",
+      "source": "Found in the routine soak audit at the end of /system-review 2026-08-10 (diag issue #8743, log_file conviction_sizing).",
+      "what_to_check": "MEASURED, from the live conviction_sizing log at 2026-08-10T04:04:47Z:\n  {\"kind\": \"apply\", \"mode\": \"apply\", \"direction\": \"reductive\", \"applied\": true, \"strategy\": \"htf_pullback_trend_2h\", \"symbol\": \"BTCUSDT\", \"account\": \"bybit_1\", \"conviction\": 0.3488, \"risk_based_qty\": 3.684, \"final_qty\": 1.151}\n\nSo conviction sizing is not annotating — it is APPLYING, and it reduced that order from 3.684 to 1.151, a ~69% size cut, with applied:true. The adjacent rows are the flagless would_be_size annotator (action='would_be_size'), which is the expected observe-only shape; the row above is a different `kind` entirely.\n\nTHE CONTRADICTION: CLAUDE.md's env table for CONVICTION_SIZING_MODE states, verbatim, 'The backtest A/B FAILED the gate for symmetric c_strat-only sizing (4.5x worse maxDD) -> stays at off/annotate. Tier-3; apply is operator-gated + backtest-gated.' The FIELD says apply; the DOC says off/annotate.\n\nWHAT I AM **NOT** CLAIMING: that this is unauthorised. The documented A/B failure was specifically for SYMMETRIC c_strat-only sizing, and the live row is direction='reductive' — a different configuration that may well have been approved separately, with CLAUDE.md simply never updated. I could not determine which from a read-only session, and guessing either way would be worse than saying so.",
+      "why_critical": "This is a Tier-3 order-path setting (it changes the quantity actually sent to a venue) where the canonical doc and the running system disagree. Under 'field beats comment' the field wins and the DOC gets fixed — but that rule assumes the field's state was intended. A Tier-3 size multiplier is exactly the case where 'it was already like that' is not an acceptable disposition, because the same reasoning would have silently accepted the MULTI_SYMBOL_ENABLED and netting-guard regressions.\n\nScope matters and is unresolved: the sampled row is bybit_1 (paper), but CONVICTION_SIZING_ACCOUNTS is an allowlist whose live value I did not read, so I cannot say whether real-money bybit_2 is in scope.",
+      "next_action": "OPERATOR DECISION, two questions, in order: (1) Was reductive `apply` deliberately enabled? If yes, CLAUDE.md's env table is stale and should record the approval + the evidence that cleared the gate. If no, this is an unauthorised Tier-3 order-path change and the rollback is CONVICTION_SIZING_MODE=annotate via set-env. (2) Either way, read the live CONVICTION_SIZING_ACCOUNTS to establish whether real money is in scope.",
+      "related": [
+        "BL-20260806-ARBITRATION-SOAK-QTY-ALL-ZERO"
+      ],
+      "resolution_criteria": "CLAUDE.md and the live env agree, with the approval (or the rollback) recorded."
     }
   ],
   "updated_at": "2026-08-10T01:20:00+00:00",
