@@ -91,6 +91,80 @@ def test_reinforcement_decision_unchanged_maxqty_still_wins(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# The PRODUCTION path is unsized — qty is NULL + declared, never a measured 0.0
+# (BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES)
+# ---------------------------------------------------------------------------
+
+
+def test_unsized_intents_report_null_qty_not_zero(monkeypatch):
+    """target_qty=0.0 is the 'RiskManager sizes per account' sentinel — the
+    live value for EVERY directional intent. Writing it out as a literal 0.0
+    claims a measured zero target, which is the opposite statement."""
+    recs = _capture(monkeypatch)
+    out = aggregate_intents(
+        [_intent("vwap", "long", target_qty=0.0, confidence=0.10),
+         _intent("turtle_soup", "long", target_qty=0.0, confidence=0.90)],
+        symbol="BTCUSDT",
+    )
+    assert out.side == "long"
+    _sym, rec = recs[0]
+    assert rec["qty_measured"] is False
+    assert "not_sized_at_intent_layer" in rec["qty_unmeasured_reason"]
+    assert rec["conviction_winner_target_qty"] is None
+    assert rec["conviction_weighted_target_qty"] is None
+    assert all(row["target_qty"] is None for row in rec["per_intent"])
+
+
+def test_unsized_conflict_record_declares_unmeasured(monkeypatch):
+    recs = _capture(monkeypatch)
+    aggregate_intents(
+        [_intent("vwap", "long", target_qty=0.0, priority=100, confidence=0.10),
+         _intent("turtle_soup", "short", target_qty=0.0, priority=1,
+                 confidence=0.90)],
+        symbol="BTCUSDT",
+    )
+    _sym, rec = recs[0]
+    assert rec["resolution"] == "priority_conflict"
+    assert rec["qty_measured"] is False
+    assert "not_sized_at_intent_layer" in rec["qty_unmeasured_reason"]
+    assert all(row["target_qty"] is None for row in rec["per_intent"])
+
+
+def test_sized_intents_still_report_the_qty_and_no_reason(monkeypatch):
+    """A caller that genuinely pre-sizes (tests / the backtest harness) must
+    still get real numbers — the null is 'unsized', not 'never reported'."""
+    recs = _capture(monkeypatch)
+    aggregate_intents(
+        [_intent("vwap", "long", target_qty=0.05, confidence=0.10),
+         _intent("turtle_soup", "long", target_qty=0.01, confidence=0.90)],
+        symbol="BTCUSDT",
+    )
+    _sym, rec = recs[0]
+    assert rec["qty_measured"] is True
+    assert "qty_unmeasured_reason" not in rec
+    assert rec["conviction_winner_target_qty"] == 0.01   # highest confidence
+    assert sorted(row["target_qty"] for row in rec["per_intent"]) == [0.01, 0.05]
+
+
+def test_unsized_winner_selection_is_byte_for_byte_unchanged(monkeypatch):
+    """The null-qty change must not move the would-be conviction winner: the
+    ordering key still coerces an unsized intent to 0.0 (``_sort_qty``)."""
+    recs = _capture(monkeypatch)
+    # Equal confidence on both, so the qty key is the discriminator that
+    # ordering falls through — with every qty unsized the tiebreaker below it
+    # (timestamp) decides, exactly as it did when 0.0 was used directly.
+    aggregate_intents(
+        [_intent("vwap", "long", target_qty=0.0, confidence=0.5,
+                 timestamp=2000.0),
+         _intent("turtle_soup", "long", target_qty=0.0, confidence=0.5,
+                 timestamp=1000.0)],
+        symbol="BTCUSDT",
+    )
+    _sym, rec = recs[0]
+    assert rec["conviction_winner"] == "vwap"  # later timestamp wins the max()
+
+
+# ---------------------------------------------------------------------------
 # Nothing to arbitrate → no record
 # ---------------------------------------------------------------------------
 

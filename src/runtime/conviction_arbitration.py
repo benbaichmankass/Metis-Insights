@@ -2,9 +2,9 @@
 risk redesign (design § 3.4).
 
 **Advisory / observe-only — no gate.** When `aggregate_intents` resolves a
-symbol's competing strategy intents — a same-direction *reinforcement* (today:
-`max(target_qty)` wins) or a long-vs-short *conflict* (today: highest
-`effective_priority()` wins) — this computes what **conviction-based**
+symbol's competing strategy intents — a same-direction *reinforcement* or a
+long-vs-short *conflict* (today: highest `effective_priority()` wins, then
+earliest timestamp, then strategy name) — this computes what **conviction-based**
 arbitration *would* have decided (higher-conviction intent wins the conflict;
 conviction-weighted reinforcement target instead of plain max-qty) and logs the
 comparison to a soak log. It **never changes the aggregator's decision** — it is
@@ -45,6 +45,63 @@ def _confidence(intent: Any) -> float:
         return float(getattr(intent, "confidence", 0.0) or 0.0)
     except (TypeError, ValueError):
         return 0.0
+
+
+# Why the qty half of this record is null in production
+# (BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES).
+#
+# ``StrategyIntent.target_qty`` is 0.0 for EVERY directional intent on the live
+# path: ``intent_multiplexer.build_multiplexed_signal`` passes
+# ``target_qty_hint=0.0`` unconditionally, and StrategyIntent's own validator
+# documents 0.0-on-a-directional-side as the deliberate sentinel for "the
+# per-account ``RiskManager.position_size`` decides the qty". The intent layer
+# never sizes.
+#
+# This module used to write that sentinel out as a literal ``0.0``, so every
+# qty field in the soak read as a measured zero quantity. It is not zero — it
+# is NOT MEASURED HERE, and the two are opposite claims. A reader (or a future
+# aggregate) cannot tell "the aggregator chose a zero target" from "this layer
+# does not know the target", which is the fabricated-zero defect the exposure
+# soak already avoids by emitting ``measured: false`` + a null multiple rather
+# than ``0.0``.
+#
+# So: the qty fields are NULL with an explicit reason, and the record states
+# whether any qty was measurable at all. The real per-account quantities live in
+# the sibling ``conviction_sizing`` soak, which runs downstream of
+# ``position_size`` and does carry them.
+_QTY_UNMEASURED_REASON = (
+    "not_sized_at_intent_layer: StrategyIntent.target_qty is the "
+    "'RiskManager decides per-account' sentinel (always 0.0 here); real "
+    "quantities are in the conviction_sizing soak, downstream of position_size"
+)
+
+
+def _reported_target_qty(intent: Any) -> float | None:
+    """The intent's target qty for REPORTING, or ``None`` when unsized.
+
+    Returns ``None`` for the sentinel rather than 0.0 — see the note above.
+    A genuinely non-zero target (a caller that really did pre-size) is reported
+    as itself, so this stays correct if the intent layer ever gains sizing.
+    """
+    try:
+        raw = getattr(intent, "target_qty", None)
+        if raw is None:
+            return None
+        val = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return val if val > 0.0 else None
+
+
+def _sort_qty(intent: Any) -> float:
+    """Qty coerced to a float for ORDERING only.
+
+    Deliberately distinct from ``_reported_target_qty``: an unsized intent must
+    sort as it always has (0.0) so this change cannot alter which strategy the
+    annotator names as the would-be conviction winner. Never reported.
+    """
+    val = _reported_target_qty(intent)
+    return 0.0 if val is None else val
 
 
 def _conflict_conviction_winner(intents: Sequence[Any]) -> Any:
@@ -90,10 +147,16 @@ def compute_conviction_arbitration(
             "confidence": _confidence(i),
             "priority": int(i.effective_priority())
             if hasattr(i, "effective_priority") else None,
-            "target_qty": float(getattr(i, "target_qty", 0.0) or 0.0),
+            "target_qty": _reported_target_qty(i),
         }
         for i in intents
     ]
+    # Whether ANY intent on this tick carried a real (non-sentinel) qty. Read the
+    # qty fields only under this flag — they are null, not zero, when it is false.
+    qty_measured = any(row["target_qty"] is not None for row in per_intent)
+    qty_block: dict = {"qty_measured": qty_measured}
+    if not qty_measured:
+        qty_block["qty_unmeasured_reason"] = _QTY_UNMEASURED_REASON
 
     if resolution == "priority_conflict":
         conv_winner = _conflict_conviction_winner(intents)
@@ -106,36 +169,46 @@ def compute_conviction_arbitration(
             "conviction_winner_side": str(getattr(conv_winner, "side", "") or ""),
             "conviction_winner_confidence": _confidence(conv_winner),
             "agrees_with_actual": agrees,
+            **qty_block,
             "per_intent": per_intent,
         }
 
-    # same_direction reinforcement — today max(target_qty) picks the kept target.
+    # same_direction reinforcement — the aggregator's kept target is nominally
+    # max(target_qty), but every live target_qty is the unsized sentinel, so that
+    # key is inert and the real pick falls through to
+    # effective_priority/timestamp/name.
+    # See BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES.
     # Conviction would (a) pick by confidence, and (b) offer a conviction-weighted
     # blended target as the "weight by conviction instead of max" alternative.
+    # `_sort_qty` (not `_reported_target_qty`) is used inside the ordering key so
+    # the would-be winner this annotator names is byte-for-byte what it always was.
     conv_winner = max(
         intents,
         key=lambda i: (
             _confidence(i),
-            float(getattr(i, "target_qty", 0.0) or 0.0),
+            _sort_qty(i),
             getattr(i, "timestamp", 0.0),
         ),
     )
     conv_winner_strategy = str(getattr(conv_winner, "strategy", "") or "")
     conf_sum = sum(_confidence(i) for i in intents)
-    weighted_target = (
-        sum(_confidence(i) * float(getattr(i, "target_qty", 0.0) or 0.0)
-            for i in intents) / conf_sum
-        if conf_sum > 0 else None
-    )
+    # Null, not 0.0, when nothing was sized — a conviction-weighted mean of
+    # sentinels is not a target of zero, it is no target at all.
+    weighted_target = None
+    if qty_measured and conf_sum > 0:
+        weighted_target = sum(
+            _confidence(i) * (_reported_target_qty(i) or 0.0) for i in intents
+        ) / conf_sum
     return {
         "resolution": resolution,
         "actual_winner": actual_winner_strategy,
         "actual_target_qty": actual_target_qty,
         "conviction_winner": conv_winner_strategy,
         "conviction_winner_confidence": _confidence(conv_winner),
-        "conviction_winner_target_qty": float(getattr(conv_winner, "target_qty", 0.0) or 0.0),
+        "conviction_winner_target_qty": _reported_target_qty(conv_winner),
         "conviction_weighted_target_qty": weighted_target,
         "agrees_with_actual": conv_winner_strategy == actual_winner_strategy,
+        **qty_block,
         "per_intent": per_intent,
     }
 
