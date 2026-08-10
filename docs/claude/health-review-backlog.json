@@ -10683,6 +10683,14 @@
           "evidence_based": true,
           "note": "CONFIRMED STILL BROKEN, measured 2026-08-10. Three most recent conviction_arbitration rows (2026-08-09T22:49Z, 2026-08-10T00:15Z, 2026-08-10T04:05Z) ALL carry actual_target_qty 0.0, conviction_winner_target_qty 0.0, conviction_weighted_target_qty 0.0, and every per_intent entry target_qty 0.0. The DIRECTION half works (resolution/winner/confidence/agrees_with_actual are populated and plausible); the SIZING half has produced no usable data at all. Also note the newest row is ~5.5h old — this soak logs only on multi-intent ticks, so it accrues slowly even when healthy.",
           "next_check": "Trace why target_qty reaches the arbitration logger as 0.0 — the sibling conviction_sizing log DOES carry real quantities (risk_based_qty 3.684, final_qty 1.151), so the value exists upstream and is being lost at this writer."
+        },
+        {
+          "at": "2026-08-10T10:05:00+00:00",
+          "by": "claude (system-review 2026-08-10, soak root-cause dig)",
+          "disposition": "root_caused_premise_corrected",
+          "evidence_based": true,
+          "note": "ROOT-CAUSED, and this item's stated cause is WRONG. It reads 'the sizing half of the soak has produced no usable data', which is true, and implies a writer defect, which is not. StrategyIntent.target_qty is HARDCODED 0.0 for every directional intent in production (intent_multiplexer.py:794, `target_qty_hint=0.0`) — a documented sentinel meaning 'RiskManager decides per-account'. The soak is reading a field that does not carry a quantity at that stage. Fixing the writer would find nothing. Full trace + the second, larger consequence in BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES.",
+          "next_check": "Superseded by the new item — the only way to get usable sizing data is to measure downstream of RiskManager.position_size."
         }
       ],
       "updated_at": "2026-08-10T05:05:00+00:00"
@@ -12328,9 +12336,9 @@
       "opened_at": "2026-08-10T09:50:00+00:00",
       "opened_by": "claude (system-review 2026-08-10, soak audit)",
       "status": "open",
-      "severity": "high",
-      "tier": 3,
-      "title": "CONVICTION_SIZING_MODE appears to be `apply` on the live VM and is actively CUTTING live order size — CLAUDE.md says it stays at off/annotate because the backtest A/B failed",
+      "severity": "low",
+      "tier": 1,
+      "title": "CLAUDE.md's CONVICTION_SIZING_MODE row is STALE — it says off/annotate while ROADMAP.md records the operator-approved 2026-08-05 apply/reductive/bybit_1 flip. Config is correct; the doc is not.",
       "source": "Found in the routine soak audit at the end of /system-review 2026-08-10 (diag issue #8743, log_file conviction_sizing).",
       "what_to_check": "MEASURED, from the live conviction_sizing log at 2026-08-10T04:04:47Z:\n  {\"kind\": \"apply\", \"mode\": \"apply\", \"direction\": \"reductive\", \"applied\": true, \"strategy\": \"htf_pullback_trend_2h\", \"symbol\": \"BTCUSDT\", \"account\": \"bybit_1\", \"conviction\": 0.3488, \"risk_based_qty\": 3.684, \"final_qty\": 1.151}\n\nSo conviction sizing is not annotating — it is APPLYING, and it reduced that order from 3.684 to 1.151, a ~69% size cut, with applied:true. The adjacent rows are the flagless would_be_size annotator (action='would_be_size'), which is the expected observe-only shape; the row above is a different `kind` entirely.\n\nTHE CONTRADICTION: CLAUDE.md's env table for CONVICTION_SIZING_MODE states, verbatim, 'The backtest A/B FAILED the gate for symmetric c_strat-only sizing (4.5x worse maxDD) -> stays at off/annotate. Tier-3; apply is operator-gated + backtest-gated.' The FIELD says apply; the DOC says off/annotate.\n\nWHAT I AM **NOT** CLAIMING: that this is unauthorised. The documented A/B failure was specifically for SYMMETRIC c_strat-only sizing, and the live row is direction='reductive' — a different configuration that may well have been approved separately, with CLAUDE.md simply never updated. I could not determine which from a read-only session, and guessing either way would be worse than saying so.",
       "why_critical": "This is a Tier-3 order-path setting (it changes the quantity actually sent to a venue) where the canonical doc and the running system disagree. Under 'field beats comment' the field wins and the DOC gets fixed — but that rule assumes the field's state was intended. A Tier-3 size multiplier is exactly the case where 'it was already like that' is not an acceptable disposition, because the same reasoning would have silently accepted the MULTI_SYMBOL_ENABLED and netting-guard regressions.\n\nScope matters and is unresolved: the sampled row is bybit_1 (paper), but CONVICTION_SIZING_ACCOUNTS is an allowlist whose live value I did not read, so I cannot say whether real-money bybit_2 is in scope.",
@@ -12338,7 +12346,35 @@
       "related": [
         "BL-20260806-ARBITRATION-SOAK-QTY-ALL-ZERO"
       ],
-      "resolution_criteria": "CLAUDE.md and the live env agree, with the approval (or the rollback) recorded."
+      "resolution_criteria": "CLAUDE.md and the live env agree, with the approval (or the rollback) recorded.",
+      "updates": [
+        {
+          "at": "2026-08-10T10:05:00+00:00",
+          "by": "claude (system-review 2026-08-10, soak root-cause dig)",
+          "disposition": "rescoped_config_is_correct",
+          "evidence_based": true,
+          "note": "RESOLVED THE QUESTION, and my original framing was half wrong — worth recording which half.\n\nROADMAP.md (instruction-hierarchy priority 3) M16 states verbatim: the reductive apply path is LIVE ON THE DEMO ACCOUNT, `CONVICTION_SIZING_MODE=apply` / `DIRECTION=reductive` / `ACCOUNTS=bybit_1`, **operator-approved 2026-08-05**, with symmetric staying off because it failed the A/B. So the live config is AUTHORISED and correctly scoped, and the observed bybit_1 row is exactly the intended behaviour.\n\nCLAUDE.md (priority 6) still says it 'stays at off/annotate'. Higher doc wins: CLAUDE.md is stale and gets fixed. Severity high -> low, tier 3 -> 1. What I got right was that a contradiction existed on a Tier-3 order-path setting; what I got wrong was implying the FIELD might be the unauthorised side. I hedged rather than asserted, which is the only reason this did not become a false alarm.\n\nROADMAP also records the gate for widening: the C1 A/B was PARTIAL (reductive cuts maxDD on BTC by $1,810 but WORSENS SOL by $1,786, over a net-negative population), so demo-only is a deliberate stance, not an oversight.",
+          "next_check": "Update the CLAUDE.md env row to match ROADMAP. SEPARATELY worth verifying the live CONVICTION_SIZING_ACCOUNTS really is `bybit_1` and has not drifted to empty (empty = ALL accounts, incl. real-money bybit_2) — the sampled rows were all bybit_1 but n=3 is not proof."
+        }
+      ]
+    },
+    {
+      "id": "BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES",
+      "opened_at": "2026-08-10T10:05:00+00:00",
+      "opened_by": "claude (system-review 2026-08-10, soak root-cause dig)",
+      "status": "open",
+      "severity": "high",
+      "tier": 3,
+      "title": "StrategyIntent.target_qty is ALWAYS 0.0 in production — which makes the documented 'max target_qty wins' reinforcement rule INERT, and makes the conviction-arbitration soak's sizing half structurally unmeasurable where it sits",
+      "source": "Root-caused while investigating BL-20260806-ARBITRATION-SOAK-QTY-ALL-ZERO during /system-review 2026-08-10.",
+      "what_to_check": "TRACED IN CODE, not inferred from the log. The single production entry point `intent_multiplexer.build_multiplexed_signal` calls `_collect_intents(..., target_qty_hint=0.0)` — the value is HARDCODED 0.0 (intent_multiplexer.py:794) under a comment that says so explicitly: 'target_qty=0 — ... the actual per-account qty is settled by RiskManager.position_size. The intent layer never decides qty.' `intent_from_signal` then stores `target_qty=float(target_qty or 0.0)`, and StrategyIntent's own validator documents 0.0 on a directional side as the deliberate sentinel for 'the per-account RiskManager decides the qty — THIS IS THE PRODUCTION PATH'.\n\nSo target_qty is 0.0 for every directional intent in production, by design. Two consequences follow, and they are very different in severity.\n\nCONSEQUENCE 1 (the reason the soak is empty, benign): `conviction_arbitration` logs `getattr(i, 'target_qty', 0.0)` from these intents, so every qty field it writes is 0.0. This is NOT a value being lost at the writer, which is what BL-20260806 assumed and what I repeated this morning — the soak is simply reading a field that is a SENTINEL at that point in the pipeline. No amount of fixing the writer helps.\n\nCONSEQUENCE 2 (the real finding): `aggregate_intents` resolves same-direction reinforcement with\n  winner = max(same_side, key=lambda i: (i.target_qty, i.effective_priority(), -i.timestamp, <name>))\nIts docstring says '**Same-direction reinforcement: max target_qty wins.**' Because the first sort key is a CONSTANT 0.0 across every candidate, it contributes nothing and the winner is decided ENTIRELY by the tiebreakers — priority, then timestamp, then name. Likewise `target_qty = max(i.target_qty for i in winning_side_intents)` (line 1368) is always 0.0.\n\nThe documented selection rule has therefore never fired. That is the INERT-CONDITIONAL class (BL-20260808-INERT-CONDITIONAL-SHIPPED-AS-A-BEHAVIOUR-CHANGE): a branch whose output is identical on both sides, described in prose as if it discriminates.",
+      "why_critical": "The routing behaviour may well be FINE — priority-then-timestamp-then-name is deterministic and defensible. The defect is that anyone reasoning about 'which strategy wins when two agree' from the docstring, the design doc, or the audit trail will reach a confidently wrong answer, and any future work that tries to tune reinforcement by influencing target_qty will have no effect and no error.\n\nIt also invalidates the premise of BL-20260806-ARBITRATION-SOAK-QTY-ALL-ZERO, which is filed as 'the sizing half of the soak has produced no usable data' — true, but the stated cause (a writer bug) is wrong, and chasing the writer would have burned a session finding nothing.",
+      "next_action": "TWO SEPARATE DECISIONS, deliberately not bundled:\n(A) TIER-1, safe now: fix the prose. The `aggregate_intents` docstring and any design doc claiming 'max target_qty wins' must say what actually decides — effective_priority, then timestamp, then name — and note that target_qty is a sentinel at this layer.\n(B) TIER-3, operator-gated, DO NOT enact: decide whether reinforcement SHOULD size-discriminate. Either (i) accept priority-ordering as the real rule and delete the dead sort key, or (ii) move the arbitration measurement DOWNSTREAM of RiskManager.position_size where a real per-account qty exists, which is also the only place the conviction soak's sizing half can ever be measured. (ii) changes what the soak measures, not what the router does, so it is the cheaper path to usable data.",
+      "related": [
+        "BL-20260806-ARBITRATION-SOAK-QTY-ALL-ZERO",
+        "BL-20260808-INERT-CONDITIONAL-SHIPPED-AS-A-BEHAVIOUR-CHANGE"
+      ],
+      "resolution_criteria": "The documented reinforcement rule matches what the code actually discriminates on, and the conviction-arbitration soak either measures a real qty or stops claiming to."
     }
   ],
   "updated_at": "2026-08-10T01:20:00+00:00",
