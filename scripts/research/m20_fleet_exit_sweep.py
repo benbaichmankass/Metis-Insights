@@ -969,16 +969,23 @@ def main(argv: list[str]) -> int:
               "only out-of-sample — the latter are NOT Path B candidates, they are "
               "the small-window artifact the walk-forward exists to catch. "
               "`why` names the binding constraint that failed Path A.", "",
-              "| leg | cell | PathA | why (IS / OOS) | Δ cap/day | Δ netR OOS | Δ netR IS | Δ maxDD OOS | both↑ |",
-              "|---|---|---|---|--:|--:|--:|--:|:-:|"]
+              "| leg | cell | PathA | why (IS / OOS) | Δ cap/day | Δ netR IS | Δ netR OOS "
+              "| Δ maxDD IS | Δ maxDD OOS | both↑ |",
+              "|---|---|---|---|--:|--:|--:|--:|--:|:-:|"]
     for d in sorted(measured,
                     key=lambda d: (not d.get("net_r_up_both_windows"),
                                    -(d["d_net_r_per_capital_day"] or 0)))[:30]:
         why = f"{d.get('is_fail_reason') or 'ok'} / {d.get('oos_fail_reason') or 'ok'}"
         lines.append(
             f"| {d['leg']} | {d['cell']} | {d['path_a']} | {why} | "
-            f"{d['d_net_r_per_capital_day']} | {d['d_net_total_r']} | "
-            f"{d.get('is_d_net_r')} | {d.get('oos_d_max_dd')} | "
+            f"{d['d_net_r_per_capital_day']} | "
+            f"{d.get('is_d_net_r')} | {d['d_net_total_r']} | "
+            # Δ maxDD IS is the number a Path B decision turns on: measured
+            # 2026-08-10, EVERY true Path B cell (both windows' net_R up, capital
+            # up) was blocked by `maxdd_worse` and NONE by `net_r_worse`. The
+            # threshold the operator has to set is therefore a DRAWDOWN
+            # tolerance, and printing only the OOS side left it unsizeable.
+            f"{d.get('is_d_max_dd')} | {d.get('oos_d_max_dd')} | "
             f"{'Y' if d.get('net_r_up_both_windows') else '·'} |")
     (run_dir / "SUMMARY.md").write_text("\n".join(lines) + "\n")
     print(f"capital: {len(measured)}/{len(dist)} cells measured")

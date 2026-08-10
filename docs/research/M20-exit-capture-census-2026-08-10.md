@@ -214,3 +214,118 @@ recorded before 2026-08-10 was measured against an exit geometry production does
 
 Nothing here grades a leg or ships a lever. Thresholds are the operator's to set from
 these distributions — the same discipline `capital_efficiency` follows.
+
+---
+
+# Part 2 — the lever sweep (live-parity geometry, 2026-08-10)
+
+Ten legs, chosen by the census above (the ~1,400R of the fleet's 2,443R that sits
+on the biggest pools), swept at **`tp_cap_pct=0.099`** — the first M20 sweep run
+against the exit production actually places.
+
+## Path B's trade-off axis is DRAWDOWN, not net_R
+
+This is the headline, and it contradicts Path B's own specification.
+
+Path B was written as *"capital efficiency improves AND maxDD not worse AND net_R
+falls no more than a floor."* Its second threshold presumes a population that
+gives up net_R to free capital. **That population does not exist in this
+evidence.** Every cell that improves net_R on both windows and improves capital
+efficiency was blocked by **`maxdd_worse`**; not one was blocked by
+`net_r_worse`.
+
+So the number to set is a **drawdown tolerance**. The net_R floor is answering a
+question the data never asks.
+
+## The both-window split was load-bearing
+
+The first report carried an OOS-ONLY capital table plus the collapsed label
+`is_oos_fail`, and it produced **18 apparent Path B candidates**. With the IS side
+visible, most were the small-window artifact — and one was actively dangerous:
+
+| leg · cell | Δ netR **OOS** | Δ netR **IS** |
+|---|--:|--:|
+| `spy_pullback_1h · stale12_lt0R` | **+5.03** | **−18.48** |
+| `spy_pullback_1h · stale8_lt0R` | +0.54 | **−32.49** |
+
+`stale12` ranked third in the OOS-only distribution. A threshold set on that view
+would have admitted a −18.5R cell. The artifact runs both directions:
+`trend_donchian_1h · decay_stall10` reads IS **+38.33** / OOS **−5.78** — a
+textbook overfit that the OOS-only table would have hidden the other way.
+
+## Results — all 10 legs
+
+**17 cells improve net_R on BOTH windows.** By verdict:
+
+| verdict | n | notable |
+|---|--:|---|
+| **Path A PASS** | 7 | `trend_donchian_eth · decay_stall10` (Δcap +0.130, IS +7.5, OOS +10.0) · `trend_donchian_eth_prop · decay_stall10` (+0.097) · `eth_pullback_2h · decay_stall10` (IS +24.0) · `trend_donchian_1h · vt_hot90` (IS +11.9, OOS +15.5, maxDD OOS **−14.5**) · `trend_donchian_eth · stale12` · `trend_donchian_eth_prop · stale12` · `avax_pullback_2h · decay_stall6` |
+| **wf_fail** — passed both windows, did NOT generalise | 5 | `htf · decay_stall10` (IS +15.5) · `spy · vt_hot80` (IS +12.3) · `htf · gb1R_afterMFE2R` · `eth · decay_stall6` · `avax · decay_arm1.5R_stall6` |
+| **true Path B** — both windows up, blocked on maxDD | 5 | `spy · vt_hot90` · `qqq · decay_stall6` · `qqq · vt_hot80` · `sol · trail6` · `eth_pullback · vt_cold10` |
+
+**`decay_stall10` is the most reproducible cell in the fleet — a Path-A PASS on
+THREE independent legs** (`trend_donchian_eth`, `trend_donchian_eth_prop`,
+`eth_pullback_2h`), plus a both-window `wf_fail` on a fourth (`htf`). Of the 7
+Path-A PASSes: `decay_stall*` 4 · `stale12` 2 · `vt_hot90` 1.
+
+**And even the near-flat rule is leg-dependent.** `stale12_lt0R` PASSES on both
+ETH donchian legs, yet it is the **worst** cell on `trend_donchian` (−0.291
+capital, IS −20.7R) and IS −18.5R on `spy_pullback_1h`. No lever in this grid is
+fleet-wide correct — which is the empirical case for per-leg (and per-regime)
+selection rather than a single default.
+
+**The flat rule is confirmed dead.** `stale8_lt0R` is the single worst cell on
+both `trend_donchian` (−0.383 capital, IS −27.98R) and `trend_donchian_1h`
+(−0.106, IS −14.12R), and −32.49R IS on `spy_pullback_1h`. The operator predicted
+this from `xrp_pullback_2h` sitting 139 bars to +3.94R; the sweep measures it.
+
+## Regime-conditional exits: promising, and NOT universal
+
+Operator directive 2026-08-10: regime classification is used at the strategy
+level and could also select the exit mechanism at the sub-strategy level. The
+evidence is genuinely two-sided and should stay that way:
+
+- **For:** `vt_*` (already round 1 of regime-conditional exits —
+  `docs/research/M20X-vol-conditional-trail-DESIGN.md`) supplies 5 of 14
+  both-window cells including the single best cell in the fleet.
+- **Against a fleet-wide default:** `trend_donchian` has **zero** both-window
+  cells of 14, and on `trend_donchian_sol` the two `vt_*` cells are the **worst
+  in the book** (−0.147, −0.179 capital).
+
+Which is itself the argument for **per-leg regime selection** rather than one
+lever fleet-wide — the winning mechanism differs by leg (`vt_hot90` on BTC 1h,
+`decay_stall*` on the ETH legs). Round 2 is selecting the MECHANISM by regime,
+where round 1 only gates ONE lever on/off by regime. It inherits round 1's
+documented precedence constraint (*"tightest fired mult wins"*), so a selection
+policy needs an explicit precedence rule rather than two levers silently
+composing. Binding: `.claude/skills/regime-selectivity` (no-cosmetic-cell,
+walk-forward-before-Tier-3, axis-fidelity).
+
+## The live TP reach, measured — and my estimate was right for ONE sub-family only
+
+`BL-20260810-...-LIVE-CAPPED-TP` was filed quoting an illustrative **1.3–2.0R**.
+Measured per leg on its own frame:
+
+| leg | IS median | IS min–max |
+|---|--:|---|
+| `avax_pullback_2h` | **1.68R** | 0.34 – 6.88 |
+| `eth_pullback_2h` | **2.29R** | 0.33 – 12.30 |
+| `trend_donchian_sol` | 3.09R | 0.80 – 8.83 |
+| `htf_pullback_trend_2h` | 3.36R | 0.78 – 13.48 |
+| `trend_donchian_eth_prop` | 4.01R | 0.83 – 6.00 |
+| `trend_donchian_1h` | 5.28R | 0.97 – 36.91 |
+| `trend_donchian` | 5.71R | 1.58 – 36.44 |
+| `qqq_pullback_1h` | 7.08R | 0.99 – 24.17 |
+| `spy_pullback_1h` | **9.20R** | 1.15 – 28.83 |
+
+The estimate was accurate for the **2h crypto pullbacks** (1.7–2.3R) and 3–5×
+low everywhere else. The structural fact is the spread: a fixed 9.9% converts to
+an R-target spanning **0.33R to 36.9R**, tightest exactly where volatility is
+highest — the trades with the most room to run get the shortest leash. That is a
+systematic bias, and a better reason to care than "the target is often hit".
+
+## Not yet done
+
+- No cell is shipped. Path A survivors are candidates for a Tier-3 proposal;
+  Path B needs the operator's drawdown tolerance, which the `Δ maxDD IS` column
+  now exists to inform.
