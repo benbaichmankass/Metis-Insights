@@ -18,4 +18,4 @@
 # family" while the run swept the ten-leg donchian/pullback default.
 # ict_scalp_mgc_15m is deliberately absent — blocked:data_missing.
 legs: ict_scalp_5m,ict_scalp_sol_5m,ict_scalp_xrp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_sol_15m,ict_scalp_xrp_15m
-dispatch: 2026-08-10 scalp family, live-parity geometry
+dispatch: 2026-08-10 scalp family, live-parity geometry (retry after the --start/--end fix)
