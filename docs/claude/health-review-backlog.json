@@ -11520,6 +11520,15 @@
       "title": "A naive intrabar exit-evaluation arm would peek at the future and manufacture an improvement",
       "detail": "scripts/backtest_trend.py::run_backtest advances ext/mfe/trail from the WHOLE leg bar's extreme and THEN evaluates the giveback/stale levers at that bar's close. Sound while the lever is evaluated once per bar. The moment a lever is evaluated at a SUB-BAR close inside that bar, the comparison is against a peak that may be set later in the same bar - the rule appears to exit at the top with uncanny timing, the arm beats baseline, and the result is an artifact. Contract for the build: ext/mfe/trail advance on the SUB-BAR clock; bar-counted params (stale_exit_bars, trail_decay_stall_bars, peak_j) stay on the LEG-BAR clock or every threshold is silently redefined; and run THREE arms (baseline / levers-fine-with-SL-first-at-leg-grain / everything-fine) because a finer grain also converts some SL-first bars into target-first, which would credit the lever for the convention. Applies to the operator's 2026-08-10 intrabar-monitor directive.",
       "evidence": "docs/live-exit-monitor-cadence-DESIGN.md sec 4.1; scripts/backtest_trend.py:480-560"
+    },
+    {
+      "id": "BL-20260706-IBACCTUPDATES-COLLISION",
+      "opened": "2026-07-06",
+      "severity": "P2",
+      "status": "resolved",
+      "title": "A second concurrent IB client subscribing reqAccountUpdates for the same account collides",
+      "detail": "Filed retroactively 2026-08-10: the id was referenced in CLAUDE.md as a documented incident and used as a design constraint, but no backlog row existed, so the reference resolved to nothing (caught by artifact-validity-guard). The incident, per CLAUDE.md's IB_ACCOUNT_WARMUP_TIMEOUT_S entry: IBClient.connect()'s account warm-up originally (re-)subscribed reqAccountUpdates for EVERY client, including the readonly diagnostic/reconciler read client. reqAccountUpdates is a persistent PER-ACCOUNT subscription the trader's own execution connection already holds, and IBKR does not reliably deliver a fresh accountDownloadEnd to a second subscriber. Live-verified 2026-07-06: the diag read client's warm-up timed out twice (8s + 8s retry) while the trader's connection stayed healthy throughout. RESOLVED same day: a readonly client's warm-up never subscribes to reqAccountUpdates, and IBClient.positions() routes readonly reads through the stateless reqPositions() (cost: no unrealizedPNL on that path, so unrealised_pnl is None - the honest 'not measured' value). The trader's own non-readonly connection is untouched. STILL LOAD-BEARING as a constraint: any new loop that reads broker state on its own cadence (e.g. the decoupled 60s exit monitor, docs/live-exit-monitor-cadence-DESIGN.md sec 3) must not open a second client per account.",
+      "evidence": "CLAUDE.md § Environment Variables, IB_ACCOUNT_WARMUP_TIMEOUT_S; src/units/accounts/ib_client.py::_warm_account_data, IBClient.positions"
     }
   ],
   "updated_at": "2026-08-10T03:20:00+00:00",
