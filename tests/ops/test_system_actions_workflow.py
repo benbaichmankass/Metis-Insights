@@ -147,6 +147,12 @@ EXPECTED_ACTIONS = {
     # (never writes comms/claude_strategy_scores.jsonl on the VM).
     "grade-closed-trades": "grade_closed_trades_action.sh",
     "set-env": "set_env.sh",              # Tier 2: .env upsert + service restart
+    # 2026-08-10 (BL-20260810-CONVICTION-SIZING-APPLY-LIVE-VS-DOC) — the READ
+    # half of set-env. Tier 1: reports /proc/<MainPID>/environ + the unit's
+    # declared EnvironmentFiles for an allowlisted key, flagging a mismatch as a
+    # pending restart. No write, no restart, no socket; secret-NAMED keys are
+    # fingerprinted, never printed (this action's stdout lands on a public issue).
+    "get-env": "get_env_action.sh",
     # 2026-05-27 — strips systemd-EnvironmentFile-noncompliant lines from .env
     # (the orphan FCM-JSON-blob case that bled a PEM private key into the
     # journalctl tail on issue #2157). Tier 2: .env mutation + service restart.
