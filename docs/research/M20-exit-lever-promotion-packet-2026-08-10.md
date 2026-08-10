@@ -11,51 +11,74 @@ could never take profit (`BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP
 
 ---
 
-## 1. Path A survivors — 7 cells across 5 legs
+## 1. Path A survivors — 5 cells across 4 legs (was 7 across 5; rows 1-2 retracted)
 
 Path A = beats base on net_R **and** maxDD on **both** windows, then ≥ 2/3 of
 usable yearly folds. Every row below also improves capital efficiency.
 
+**Rows 1–2 are struck through: they did not survive re-measurement** against a
+corrected baseline (§ 2 and the box below). Their original numbers are left
+visible rather than deleted, so the size of the error is on the record.
+
 | # | leg | exec | cell | Δ netR IS | Δ netR OOS | Δ maxDD IS | Δ maxDD OOS | Δ cap/day |
 |--:|---|---|---|--:|--:|--:|--:|--:|
-| 1 | `trend_donchian_eth` | **live** | `decay_stall10_t2.5` | +7.49 | +9.99 | −7.77 | −5.59 | **+0.130** |
-| 2 | `trend_donchian_eth` | **live** | `stale12_lt0R` | +5.60 | +4.02 | −5.92 | −1.15 | +0.013 |
+| ~~1~~ | ~~`trend_donchian_eth`~~ | live | ~~`decay_stall10_t2.5`~~ **RETRACTED** | +7.49 | +9.99 | −7.77 | −5.59 | **+0.130** |
+| ~~2~~ | ~~`trend_donchian_eth`~~ | live | ~~`stale12_lt0R`~~ **RETRACTED** | +5.60 | +4.02 | −5.92 | −1.15 | +0.013 |
 | 3 | `eth_pullback_2h` | **live** | `decay_stall10_t2.5` | **+24.01** | +5.12 | −3.72 | −1.27 | +0.053 |
 | 4 | `trend_donchian_1h` | shadow | `vt_hot90_t2.5` | +11.92 | +15.53 | −8.15 | −14.54 | +0.056 |
 | 5 | `trend_donchian_eth_prop` | shadow | `decay_stall10_t1.8` | +1.37 | +7.28 | −3.89 | −7.15 | +0.097 |
 | 6 | `trend_donchian_eth_prop` | shadow | `stale12_lt0R` | +1.26 | +5.43 | −4.18 | −4.88 | +0.071 |
 | 7 | `avax_pullback_2h` | shadow | `decay_stall6_t2.5` | +5.36 | +4.78 | −3.99 | −2.02 | +0.031 |
 
-**Only 3 of the 7 touch a live-executing leg** (`config/strategies.yaml::execution`).
-Rows 4–7 land on `execution: shadow` legs and change nothing about money until
-those legs are separately promoted — worth stating plainly so the packet is not
-read as a 7-cell money change.
+**Only ONE surviving cell touches a live-executing leg** — row 3
+(`config/strategies.yaml::execution`). Rows 4–7 land on `execution: shadow`
+legs and change nothing about money until those legs are separately promoted.
+Rows 1–2 were the other two live-leg cells and are retracted below. So the
+money-affecting content of this packet is a single two-key addition to one leg.
 
-> ### ⚠️ SHIP ONE, HOLD TWO (revised 2026-08-10 after § 2's correction)
+> ### ⛔ ROWS 1–2 ARE DEAD — the re-run settled it (2026-08-10, run `31414856214`)
 >
-> Rows **1 and 2** are on `trend_donchian_eth`, one of the two legs whose
-> baseline omitted an **armed** vol-trail lever (§ 2). Their Δs describe a book
-> that is not the one we would deploy onto, so they are **held pending a re-run
-> on the corrected base** — not withdrawn, un-evidenced.
+> Rows 1–2 are on `trend_donchian_eth`, one of the two legs whose baseline
+> omitted an **armed** vol-trail lever (§ 2). Re-measured against the corrected
+> base, **neither survives**:
 >
-> That leaves exactly **one live-leg row shippable on this packet's evidence**:
-> row 3, `eth_pullback_2h decay_stall10_t2.5`, whose leg declares `trail_mult`
-> and nothing else, so its base was genuinely config-exact.
+> | cell | on the BROKEN base | on the CORRECTED base |
+> |---|---|---|
+> | `decay_stall10_t2.5` | **PASS** · ΔnetR **+7.49** IS / +9.99 OOS · ΔmaxDD −7.77 / −5.59 | **`is_oos_fail`** · ΔnetR **−1.00** IS / +16.06 OOS · ΔmaxDD **+5.96** / −4.63 |
+> | `stale12_lt0R` | **PASS** · ΔnetR +5.60 / +4.02 · ΔmaxDD −5.92 / −1.15 | **`wf_fail`** — still clears both windows on both axes (+5.96 / +3.40, −0.40 / −3.32) and now **fails the yearly folds** |
 >
-> The operator's approval was given against the pre-correction packet. Shipping
-> rows 1–2 under it would be trading on their approval of a claim I have since
-> found to be qualified.
+> `decay_stall10_t2.5` does not merely weaken: its in-sample sign **flips**, and
+> its in-sample drawdown goes from 7.77R better than base to 5.96R worse. Had
+> this shipped on the pre-correction evidence, we would have deployed a lever
+> that is IS-negative on the real book.
+>
+> **The correction is self-verifying.** Two cells that previously read as
+> improvements now correctly read `tie_no_improvement` with 0.0 on every axis:
+> `trend_donchian_eth vt_cold10_t2.5` and `qqq_pullback_1h vt_hot80_t2.5` —
+> each is the cell that *re-declares the lever the leg already carries*. Under
+> the broken base they looked like additions because the base lacked what the
+> leg actually has. Two independent legs, same signature.
+>
+> **That leaves exactly one live-leg row standing:** row 3,
+> `eth_pullback_2h decay_stall10_t2.5`, whose leg declares `trail_mult` and
+> nothing else, so its base was genuinely config-exact.
+>
+> The operator's approval was given against the pre-correction packet. It now
+> covers one row, not three.
 
-### `decay_stall10` generalises across three independent legs
+### `decay_stall10` generalises across TWO legs, not three (revised)
 
-`trend_donchian_eth` · `trend_donchian_eth_prop` (as `_t1.8`, the same lever with
-the leg-scaled tight mult) · `eth_pullback_2h`. That is the only cell in the
-sweep to pass on three legs, across two families.
+Originally reported as three — `trend_donchian_eth` · `trend_donchian_eth_prop`
+(as `_t1.8`, the same lever with the leg-scaled tight mult) · `eth_pullback_2h`.
+**`trend_donchian_eth` is out** on the corrected base (see the box above), so the
+claim is two legs across two families. `trend_donchian_eth_prop` and
+`eth_pullback_2h` declare no vol-trail lever, so their measurements stand.
 
-It is still **not fleet-wide**: on `trend_donchian_1h` and `avax_pullback_2h`
-it is IS-only (the overfit shape), and on `trend_donchian` and
-`trend_donchian_sol` it improves neither window. Per-leg declaration is the
-correct vehicle, not a family default.
+It is still **not fleet-wide**, and the retraction sharpens rather than weakens
+that point: on `trend_donchian_1h` and `avax_pullback_2h` it is IS-only (the
+overfit shape), and on `trend_donchian` and `trend_donchian_sol` it improves
+neither window. Per-leg declaration is the correct vehicle, not a family
+default.
 
 ---
 
@@ -68,7 +91,7 @@ existing declarations were already in the baseline and the deltas above are real
 
 | leg | current | change |
 |---|---|---|
-| `trend_donchian_eth` | `stale_exit_bars: 8`, `stale_exit_below_r: 0.0`, `trail_vol_below_pctl: 0.1`, `trail_vol_tight_mult: 2.5`, `vol_pctl_window: 200`, `trail_mult: 5.0` | **`stale_exit_bars: 8 → 12`** (a change, not an add — `stale8_lt0R` measured `tie_no_improvement` here precisely because 8 is already the base) · **add** `trail_decay_stall_bars: 10` + `trail_decay_tight_mult: 2.5` |
+| `trend_donchian_eth` | `stale_exit_bars: 8`, `stale_exit_below_r: 0.0`, `trail_vol_below_pctl: 0.1`, `trail_vol_tight_mult: 2.5`, `vol_pctl_window: 200`, `trail_mult: 5.0` | **NO CHANGE — both cells retracted** on the corrected base (see § 1). Left in the table because the *reasoning* still holds for a future re-attempt: `stale8_lt0R` reads `tie_no_improvement` because 8 is already the base, so any stale cell here must move the number. |
 | `eth_pullback_2h` | `trail_mult: 5.0` (no exit levers declared) | **add** `trail_decay_stall_bars: 10` + `trail_decay_tight_mult: 2.5` |
 | `trend_donchian_1h` | `trail_mult: 5.0` | **add** `trail_vol_above_pctl: 0.9` + `trail_vol_tight_mult: 2.5` (+ `vol_pctl_window: 200`) |
 | `trend_donchian_eth_prop` | `trail_mult: 3.5` | **add** `stale_exit_bars: 12` + `stale_exit_below_r: 0.0` + `trail_decay_stall_bars: 10` + `trail_decay_tight_mult: 1.8` |

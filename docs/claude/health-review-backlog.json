@@ -12490,7 +12490,8 @@
         "docs/research/M20-exit-lever-promotion-packet-2026-08-10.md",
         "scripts/research/m20_fleet_exit_sweep.py",
         "tests/test_m20_fleet_capital_report.py"
-      ]
+      ],
+      "outcome_measured": "RE-RUN COMPLETE (GH run 31414856214, both legs). The defect was OUTCOME-CHANGING, not cosmetic. On trend_donchian_eth BOTH Path A winners died: decay_stall10_t2.5 went PASS (dNetR IS +7.49, dMaxDD -7.77) -> is_oos_fail (dNetR IS -1.00, dMaxDD +5.96) - the IS SIGN FLIPPED; stale12_lt0R went PASS -> wf_fail (still clears both windows, now fails the yearly folds). The Tier-3 promotion packet drops from 3 live-leg winners to 1. Self-verifying: the two cells that merely RE-DECLARE each leg's existing lever (trend_donchian_eth vt_cold10_t2.5, qqq_pullback_1h vt_hot80_t2.5) now correctly read tie_no_improvement with 0.0 on every axis - under the broken base they read as improvements. Two independent legs, same signature."
     },
     {
       "id": "BL-20260810-SCRIPTS-ML-SHADOWS-REPO-ML",
