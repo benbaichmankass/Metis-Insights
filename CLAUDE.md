@@ -721,6 +721,31 @@ family as `canonical-db-resolver` / `env-gate-guard` / `silent-empty-guard` /
 `provenance-consumer-guard`. Diff-scoped in CI (pre-existing sites are
 grandfathered); `--all` is the standing audit.
 
+### Collapsed states — can this field say "we did not look"? (2026-08-09)
+
+The third member of this family, one level up again: number provenance asks
+whether a **stored value** is measured; diagnostic provenance asks whether an
+**output** states its derivation; this asks whether a **field can express the
+state that matters**.
+
+**The rule is canonical in
+[`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) §
+"Collapsed states"** — read it there, it is not restated here. The short form:
+when a field encodes a condition, ask whether *"we did not look"* and *"we
+looked and found nothing"* are distinguishable; if not, that is the bug. Five
+instances in two days across two concurrent sessions (#8665 exposure ceiling ·
+#8666 netting allowlist · #8667 pairs `half_open` · #8685 cost basis · #8687
+coverage `shipped`), while the remedy sat correctly implemented in exactly one
+module — [`src/runtime/exit_anchor.py`](src/runtime/exit_anchor.py)'s
+`anchored`/`deferred`/`no_anchor`.
+
+**Enforced by `collapsed-state-guard`**
+([`scripts/ci/check_collapsed_states.py`](scripts/ci/check_collapsed_states.py)):
+per declared contract, the producer must emit every state, every state must be
+branched on by a real consumer, and no consumer may see only one. Its override
+is **verified, not presence-only**, and registering a contract in its
+`CONTRACTS` table is how a new three-state field becomes enforced.
+
 Note the split with **`silent-empty-guard`**: that guard catches the *producer*
 (a broad `except` returning `[]`); sub-class **C** catches the *consumer*
 (reading `[]` as a clean, labelled answer). Neither covers the other.

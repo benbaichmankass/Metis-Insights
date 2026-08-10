@@ -11059,7 +11059,7 @@
       "id": "BL-20260809-COLLAPSED-STATES-NO-CANONICAL-HOME",
       "opened": "2026-08-09",
       "severity": "medium",
-      "status": "open",
+      "status": "resolved",
       "area": "canonical-docs",
       "title": "The collapsed-states defect class has no canonical home despite 5+ instances in 2 days across 2 sessions",
       "detail": "Recurring class: TWO distinct states share one value, and the missing state is the dangerous one. Verified 2026-08-09 that it is described in a sprint log and two design docs but appears NOWHERE in docs/CLAUDE-RULES-CANONICAL.md, docs/ARCHITECTURE-CANONICAL.md or CLAUDE.md (grepped). Instances, two concurrent sessions, two days: (1) gross-exposure ceiling -- 'no policy' = 'no data' (#8665); (2) netting allowlist -- 'not staged' = 'not observed' (#8666); (3) pairs executor -- 'half_open' = 'flat' (#8667); (4) harness cost basis -- None ('unresolved') = 0.0 ('explicitly fee-only') (#8685); (5) exit-refinement coverage -- 'shipped' conflated live-ness with validated-ness, needing a new `shipped_gate_failed` status (#8687). The counter-example already in the codebase is src/runtime/exit_anchor.py, whose anchored/deferred/no_anchor contract states outright that collapsing any two reintroduces a defect -- the pattern is known and correctly applied in ONE place while being rediscovered incident-by-incident everywhere else. That is the same shape that motivated RULE ONE (four scoped verify rules, no general one): a class with no canonical name gets re-derived instead of checked for.",
@@ -11070,6 +11070,13 @@
         "docs/netting-partial-close-attribution-DESIGN.md",
         "src/runtime/exit_anchor.py",
         "docs/CLAUDE-RULES-CANONICAL.md"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-09T00:00:00+00:00",
+          "by": "claude (m20-ladder session)",
+          "note": "RESOLVED — operator approved promotion WITH a CI guard. docs/CLAUDE-RULES-CANONICAL.md now carries § 'Collapsed states — can this field say \"we did not look\"?', naming the class, cross-referencing the five instances rather than restating them (the RULE ONE shape), and citing src/runtime/exit_anchor.py as the worked example. Mirrored in CLAUDE.md beside the number-provenance and diagnostic-provenance sections (the same guard family). Enforced by the NEW collapsed-state-guard (scripts/ci/check_collapsed_states.py, registered in scripts/ci/run_guards.py): per declared contract the producer must emit every state, every state must be branched on by a real consumer, and no consumer may see only one; the override is verified rather than presence-only. Three contracts registered (exit_anchor.bar_close_at, pairs_executor.leg_state, netting_attribution.anchor_status) — clean, and negative-control tested (an injected undeclared state makes it fail). NOT folded in: the sibling BL-20260809-THIRD-CASE-AND-UNTESTED-BRANCH-RULES also proposes 'a green suite over an untested branch is not evidence' — that is a testing rule, still open, still the operator's call; the new section says so explicitly rather than absorbing it silently."
+        }
       ]
     },
     {
