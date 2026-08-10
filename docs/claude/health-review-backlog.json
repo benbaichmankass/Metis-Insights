@@ -11204,6 +11204,48 @@
       ],
       "resolved_at": "2026-08-10T01:10:00+00:00",
       "resolution_note": "RESOLVED — but NOT by the fix this item proposed, and the correction is the point. The item offered (a) 'under force_all, treat a per-step `when` as satisfied — one line, and it makes the comment true'. MEASURED before implementing: BOTH step-gated commands in the registry (the only two — `api-tier-policy-guard` and `diagnostic-provenance-guard`) consume `{pr_diff}`, and on push that file is EMPTY. Forcing them to run makes `check_diagnostic_provenance.py` print 'OK - every scanned diagnostic states what it computed' and exit 0 having scanned NOTHING. Option (a) would have made the comment true and the CHECK false — manufacturing exactly the green-that-checked-nothing this repo treats as worse than a red. Substituting the whole-tree equivalent is not a drop-in either: `check_diagnostic_provenance.py --all` exits 1 on 52 pre-existing grandfathered sites (that is WHY it is diff-scoped), so wiring it to push would redden `main` on every merge. SO THE SKIP IS CORRECT AND STAYS. What was actually wrong was that it was INDISTINGUISHABLE from an ordinary not-relevant skip — the reader could not tell 'we asked about this diff and it did not apply' from 'there was no diff to ask about'. SHIPPED: (1) `run_guard()` takes `no_diff_scope`/`unscoped` and names the real reason on the skip line; (2) the run summary prints a 'NOT SCANNED on this event (N)' block listing those steps and stating that a guard needing real push coverage must carry an UNGATED whole-tree step; (3) `guards.yml`'s 'stricter ... never weaker' comment — the actual defect, since it was the claim that made the gap invisible — is corrected in place; (4) `tests/test_run_guards_step_scoping.py` pins the distinction, AND asserts the premise the decision rests on (every step-gated command consumes `{pr_diff}`; the population is exactly those two guards) so a future step that scans the whole tree fails the test rather than silently inheriting reasoning that no longer applies to it. NOTE the affected population was 2, not the 'several' this item guessed at — the guess is corrected here rather than left standing."
+    },
+    {
+      "id": "BL-20260810-BANKING-GATE-CANNOT-PASS",
+      "opened_at": "2026-08-10T00:25:00+00:00",
+      "opened_by": "claude (m20-ladder session, operator-requested re-evaluation)",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "area": "research-method",
+      "title": "The M20 lever gate requires net_R to not fall, so NO partial-TP banking cell can ever pass it — '20 of 20 failed' is one structural fact, not 20 negatives",
+      "source": "READ FROM THE CODE 2026-08-10: m27/ict_scalp_exit_sweep.py::beats requires cell.total_r > base.total_r AND cell.max_dd_r < base.max_dd_r; m20_fleet_exit_sweep.py::beats requires cn >= bn AND cd <= bd. Banking truncates the winner distribution at the rung, so it NECESSARILY lowers net_R and lowers maxDD. net_R >= base is false by construction.",
+      "what_to_check": "Consequence: P(a banking cell passes) = 0 a priori. The memo section 6.2 headline — 'banking reduced net_R in every one of the 20 banking cells' — is TRUE but is one property of the gate observed 20 times, not 20 independent negatives, and 'it failed the gate' carries no information ABOUT BANKING because nothing of that shape can pass.\n\nIt is the sibling of the collapsed-states class made canonical the same day: there two STATES shared one value; here two very different CELLS share one verdict. A cell surrendering 1R to remove 5R of drawdown and one surrendering 1R to remove 0.2R are both stamped honest_negative.\n\nNOT a call to relax the gate — relaxing a gate to admit a lever is how a cosmetic lever ships (BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS).",
+      "action": "(a) Read every banking verdict beside scripts/research/m20_banking_risk_adjusted.py (MAR + drawdown-removed-per-net_R-surrendered) so the negative is honest rather than tautological. (b) OPERATOR QUESTION: is a net_R-first gate the right SHIPPING criterion for a lever whose declared purpose is drawdown reduction? (c) Execute PB-20260712-PROP-BANKING-EV — under a prop ruleset a daily-loss or static-DD breach is TERMINAL, so drawdown is a survival constraint net_R does not price; run_ev_montecarlo exists for exactly this and has sat unused a month.",
+      "resolution_criteria": "Either the gate gains an explicit risk-adjusted arm for drawdown-purposed levers (operator-approved), or the memo records that a net_R-first gate is deliberate and banking is closed on SURVIVAL-weighted evidence from the prop EV run rather than on a criterion it cannot satisfy.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/research/M20-exit-refinement-2026-07-12.md#11",
+        "scripts/research/m20_banking_risk_adjusted.py",
+        "scripts/research/m27/ict_scalp_exit_sweep.py",
+        "scripts/research/m20_fleet_exit_sweep.py",
+        "src/prop/montecarlo.py"
+      ]
+    },
+    {
+      "id": "BL-20260810-SWEEP-VERDICTS-DO-NOT-RECORD-THEIR-DATASET",
+      "opened_at": "2026-08-10T00:26:00+00:00",
+      "opened_by": "claude (m20-ladder session)",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "area": "research-method",
+      "title": "Exit-lever verdicts in the coverage matrix do not state WHICH dataset produced them — and two different datasets are in active use",
+      "source": "MEASURED 2026-08-09/10 on the trainer. /home/ubuntu/m27_data/ETHUSDT_15m.csv = 124,497 rows from 2023-01-01. /home/ubuntu/ict-trading-bot/data/ETHUSDT_15m.csv = 184,443 rows from 2021-03-15. Different md5. Both are 'the ETH 15m data'. ict-scalp-exit-sweep.yml scp's from m27_data; a hand-run on the trainer defaults to data/.",
+      "what_to_check": "I nearly wrote ladder verdicts measured on data/ into the SAME matrix rows whose stale_stop/giveback_stop cells were measured on m27_data. The rows would have silently mixed two populations, and the coverage matrix is the artifact M20's done-condition is read from.\n\nIt also changes the GATE: the yearly walk-forward folds run 2021-2026, so on m27_data (starts 2023) folds 2021/2022 are unusable -> usable=4, need=ceil(2*4/3)=3. On data/ all six are usable -> need=4. The same cell can pass on one and fail on the other with identical trade logic.\n\nThis is 'always state the population' applied to a research artifact: a verdict without its dataset is not comparable to the cell beside it.",
+      "action": "Add the dataset identity (path + row count + first/last timestamp, ideally md5) to what a sweep writes into verdicts.json AND to the matrix cell ref, so a cell carries its own population. The sweep already records `data`; the matrix ref does not. Backfill the existing M27 cells with 'measured on m27_data (2023+)'.",
+      "resolution_criteria": "Every exit-lever cell in exit-refinement-coverage.json names the dataset its verdict was measured on, and a reader can tell whether two cells in one row are comparable.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/research/exit-refinement-coverage.json",
+        ".github/workflows/ict-scalp-exit-sweep.yml",
+        "docs/CLAUDE-RULES-CANONICAL.md#always-state-the-population"
+      ]
     }
   ],
   "updated_at": "2026-08-10T01:20:00+00:00",

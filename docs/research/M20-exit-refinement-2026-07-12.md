@@ -555,3 +555,92 @@ split 2025-07-01 + yearly walk-forward, `need = ceil(2·usable/3)` → 4/6 when
 all folds are usable. Verdicts are recorded in the coverage matrix in the same
 PR as the run that produced them, per the exit-refinement skill; they are NOT
 pre-written here from the prior.)*
+
+## 11. Re-evaluating the banking mechanism (2026-08-10, operator-requested)
+
+Operator: *"we can reevaluate the banking mechanism, in any case I think that
+would be worthwhile."* This section is that re-evaluation. Its conclusion is not
+"banking works after all" — it is that **the fleet-wide result recorded in § 6.2
+carries far less information than it appears to**, and the reason is a property
+of the gate rather than of banking.
+
+### 11.1 The gate cannot be passed by anything shaped like banking
+
+Both lever gates require a cell to beat baseline on net_R **and** maxDD:
+
+| harness | predicate |
+|---|---|
+| `m27/ict_scalp_exit_sweep.py::beats` | `cell.total_r > base.total_r` **and** `cell.max_dd_r < base.max_dd_r` |
+| `m20_fleet_exit_sweep.py::beats` | `cn >= bn` **and** `cd <= bd` **and** (`cn > bn` or `cd < bd`) |
+
+Partial-TP banking's entire mechanism is to **truncate the winner distribution
+at the rung**: a fraction of the position is realised at `+bank_at_r` instead of
+riding to the exit. Where the exit R exceeds the rung — which is what a winner
+is — that fraction gives up return. So banking **necessarily** lowers net_R and
+lowers maxDD. `net_R >= base` is therefore false **by construction**, and:
+
+> **No banking cell can ever be a candidate under either gate, regardless of how
+> good the risk-adjusted trade is. P(pass) = 0, a priori.**
+
+That reframes § 6.2's headline. "Banking reduced net_R in every one of the 20
+banking cells" is true, and the cells did lose net_R — but it is **one
+structural property observed twenty times, not twenty independent negatives**,
+and "it failed the gate" carries no information *about banking* because nothing
+of that shape can pass. The § 6.2 prose already half-saw this ("the classic
+tail-for-smoothness trade") and then recorded the outcome as though the gate had
+adjudicated it.
+
+This is the *sibling* of the collapsed-states class made canonical the same day:
+there, two states shared one value; here, **two very different cells share one
+verdict**. A cell that surrenders 1R of return to remove 5R of drawdown and a
+cell that surrenders 1R to remove 0.2R are both stamped `honest_negative`.
+
+### 11.2 What the gate discards, and the tool that reads it
+
+`scripts/research/m20_banking_risk_adjusted.py` reads a sweep's existing
+`verdicts.json` and reports the quantities the primary gate throws away —
+**MAR** (`net_R / maxDD`), and the trade ratio **DD/R** (drawdown removed per
+unit of net_R surrendered). Worked example from its self-test:
+
+| cell | ΔnetR | ΔmaxDD | MAR base → cell | DD/R | gate |
+|---|--:|--:|--:|--:|---|
+| `bank0.5@1R` | −5.00 | **−11.00** | 2.00 → **3.89** | **2.50** | `honest_negative` |
+| `bank0.25@0.5R` | −0.50 | −0.20 | 2.00 → 1.99 | 0.50 | `honest_negative` |
+
+Same verdict, opposite objects. **It changes no gate and ships nothing** — the
+net_R+maxDD gate stays the shipping criterion, because relaxing a gate to admit
+a lever is precisely how a cosmetic lever gets shipped
+(`BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS`). What it makes possible is an
+*honest* negative — "banking cost net_R and bought too little drawdown to be
+worth it here" — instead of a tautological one.
+
+### 11.3 Where banking could genuinely be right (and is still unmeasured)
+
+1. **Prop rulesets — the strongest case, logged 2026-07-12 and never run.**
+   `PB-20260712-PROP-BANKING-EV` records exactly this: under a prop ruleset a
+   breach of the daily-loss limit or the static-DD floor is **terminal**, so
+   drawdown is not a preference, it is a survival constraint that net_R does not
+   price. `src/prop/montecarlo.py::run_ev_montecarlo` + `config/prop_rulesets/
+   breakout.yaml` exist for cost-aware EV **+ survival**. This is the one venue
+   where the tail-for-smoothness trade is plausibly *correct*, and it has sat
+   unexecuted for a month.
+2. **Capital efficiency.** The exit-refinement skill already names *net_R per
+   position-day* as the gate's tiebreak. Banking frees capital earlier; the
+   sweeps have never reported it.
+3. **Conditional banking.** The unconditional lever is crude. The E1.5 result in
+   § 9 is the precedent: an unconditional policy FAILED and a *conditional* shape
+   (`below_half_r @ τ=0.10`) passed on donchian-1h. Banking only when the tail is
+   unlikely is the same move, and untested.
+
+### 11.4 What this does and does not license
+
+- It does **not** license shipping a banking cell. Nothing here changes a gate.
+- It does **not** overturn § 6.2's measurements — those numbers stand.
+- It **does** mean the ict_scalp ladder round (§ 10) must be read with the
+  risk-adjusted tool beside the gate verdict, or it will reproduce the same
+  uninformative negative on seven more legs.
+- The open operator question is narrow: **is a net_R-first gate the right
+  shipping criterion for a lever whose declared purpose is drawdown
+  reduction — and specifically, should the prop sleeve be gated on
+  survival-weighted EV instead?** Filed as
+  `BL-20260810-BANKING-GATE-CANNOT-PASS`.

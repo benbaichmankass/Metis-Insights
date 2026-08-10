@@ -52,7 +52,8 @@ jobs:
       # (only ict_scalp_eth_15m declares any: stale_exit_bars 12). Without it
       # that one leg would be swept against a baseline it does not run live.
       # The 8th leg, ict_scalp_mgc_15m, is deliberately absent: no MGC/XAUUSD
-      # 15m data exists (blocked:data_missing, BL-20260809-XAU-PROXY-DATASET-GONE).
+      # 15m data exists (blocked:data_missing,
+      # BL-20260809-XAU-PROXY-DATASET-GONE-VERDICTS-UNREPRODUCIBLE).
       matrix:
         leg:
           - { name: ict_scalp_eth_15m, sym: ETHUSDT,  tf: 15m }
