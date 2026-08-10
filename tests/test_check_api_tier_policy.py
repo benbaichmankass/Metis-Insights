@@ -145,8 +145,17 @@ class TestEnumeration:
         pytest.importorskip("fastapi")
         try:
             from src.web.api.main import app
-        except Exception as exc:  # pragma: no cover - env-dependent
-            pytest.skip(f"app not importable here: {exc}")
+        # BaseException, not Exception, and that width is deliberate: the app
+        # pulls in `jwt` -> `cryptography`, whose Rust bindings raise pyo3's
+        # `PanicException` (a BaseException subclass) when the wheel's
+        # `_cffi_backend` is missing. An `except Exception` skip does not catch
+        # it, so a broken *environment* surfaced as a failing *test* — the exact
+        # inversion this test's denominator floor exists to prevent, one layer
+        # up. Interrupts are re-raised so the widening cannot swallow a Ctrl-C.
+        except (KeyboardInterrupt, SystemExit):  # pragma: no cover
+            raise
+        except BaseException as exc:  # pragma: no cover - env-dependent
+            pytest.skip(f"app not importable here: {type(exc).__name__}: {exc}")
 
         live = _live_routes(app)
 

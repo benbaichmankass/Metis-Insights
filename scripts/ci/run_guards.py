@@ -209,8 +209,22 @@ GUARDS: List[Dict[str, Any]] = [
     },
     {
         "name": "canonical-doc-coherence",
-        "when": {"globs": ["CLAUDE.md", "docs/**", ".claude/**", "scripts/ci/check_canonical_doc_coherence.py"]},
-        "steps": [["python3", "scripts/ci/check_canonical_doc_coherence.py"]],
+        # The `declared values` check reads .github/workflows/ + src/web/api/
+        # sources, so a change THERE can falsify a doc without touching one —
+        # which is exactly how the 2026-08-10 drift happened (a workflow value
+        # flipped; five docs became wrong; no doc was edited). Relevance must
+        # follow the SOURCES, not just the docs.
+        "when": {"globs": ["CLAUDE.md", "docs/**", ".claude/**",
+                           ".github/workflows/branch-protection-sync.yml",
+                           "src/web/api/routers/prop.py",
+                           "src/web/api/routers/devices.py",
+                           "scripts/ci/check_canonical_doc_coherence.py"]},
+        "steps": [
+            # Runs on EVERY invocation: this guard is otherwise only ever seen
+            # passing, and a doc-drift check that cannot fail IS the drift.
+            ["python3", "scripts/ci/guard_selftests.py", "canonical-doc-values"],
+            ["python3", "scripts/ci/check_canonical_doc_coherence.py"],
+        ],
     },
     {
         "name": "claim-basis-guard",
