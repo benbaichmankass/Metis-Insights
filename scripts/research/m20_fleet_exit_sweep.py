@@ -139,7 +139,7 @@ def resolve_data(symbol: str, tf: str, data_dir: Path) -> tuple[str | None, bool
     return None, proxy, None
 
 
-def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,
+def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  # inert: `name` — the leg id, kept because FIVE external callers pass it positionally (m20_flip_replay_sweep, m21_entry_head_round, m20_exit_head_round, m21_entry_sweep, and this module); every arg is built from `cfg`, so dropping it would be a cross-script signature break for no behavioural gain. It affects NOTHING here — do not add a doc claiming otherwise.
               tp_cap_pct: float = 0.0) -> list[str]:
     tf = str(cfg.get("timeframe") or "1h")
     sym = (cfg.get("symbols") or ["?"])[0]
