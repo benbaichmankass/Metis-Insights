@@ -189,12 +189,66 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  trail_vol_above_pctl: float = 0.0,
                  trail_vol_below_pctl: float = 0.0,
                  trail_vol_tight_mult: float = 0.0,
-                 side_filter: str = "both") -> Dict[str, Any]:
+                 side_filter: str = "both",
+                 subbar_df: Optional[pd.DataFrame] = None,
+                 exit_grain: str = "leg") -> Dict[str, Any]:
     # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
     # NEW entry whose TRIGGER bar's UTC hour is in the CSV set. Exits are
     # never touched — an open trade rides through skipped hours unchanged.
     skip_hour_set = {int(h) for h in str(skip_hours).split(",") if str(h).strip() != ""}
     df = df.reset_index(drop=True)
+    # ── Intrabar exit-evaluation grain (three arms; `leg` = byte-identical) ──
+    # docs/live-exit-monitor-cadence-DESIGN.md § 4.1. Live evaluates bot-side
+    # exit levers ~21x per 1h bar; the harness evaluates them ONCE, at the
+    # bar's close. Neither models the other, so "does more frequent evaluation
+    # help?" has never been asked of the data. Three arms, because a finer
+    # grain moves TWO variables at once and a single-arm comparison could not
+    # separate them after the fact:
+    #   leg    (A) everything on the leg-bar grain — what ships today.
+    #   levers (B) levers on the sub-bar grain, SL/TP still resolved at
+    #              leg-bar grain with the SL-first convention. Isolates the
+    #              CADENCE question, which is the operator's actual ask.
+    #              A LOWER BOUND: a lever may not pre-empt a stop that hit
+    #              anywhere in the same leg bar, so a trade the lever would
+    #              have saved earlier in the bar still scores as a stop.
+    #   full   (C) SL/TP resolved per sub-bar too. Measures how much of the
+    #              baseline is the SL-FIRST ARTIFACT — a bar trading through
+    #              both stop and target scores as a stop today, and at a finer
+    #              grain some of those become target-first. C will look better
+    #              than A partly for a reason unrelated to exit logic, which is
+    #              why reporting C without B would credit the lever for the
+    #              convention.
+    # THE LOOKAHEAD TRAP this avoids: `ext`/`mfe`/`trail` advance on the
+    # SUB-BAR clock, in lockstep with the sub-bar closes the levers read. The
+    # obvious implementation extends them to the WHOLE leg bar's extreme first,
+    # which would let a giveback rule checked at 14:05 compare against a peak
+    # set at 14:47 — an exit at the top with uncanny timing, and an artifact.
+    # Bar-COUNTED params (`stale_exit_bars`, `trail_decay_stall_bars`, `peak_j`)
+    # stay on the LEG-BAR clock: converting them to sub-bars would silently
+    # redefine every threshold and the cell would no longer be config-exact.
+    exit_grain = str(exit_grain or "leg").lower()
+    if exit_grain not in ("leg", "levers", "full"):
+        raise ValueError(f"unknown --exit-grain {exit_grain!r} "
+                         "(expected leg|levers|full)")
+    _sub_slices: Optional[List[tuple]] = None
+    _sub_rows: Optional[List[tuple]] = None
+    _sub_coverage: Optional[float] = None
+    _sub_reason: Optional[str] = None
+    if exit_grain != "leg":
+        if subbar_df is None:
+            raise ValueError("--exit-grain levers|full requires --subbar-data")
+        import subbar_align  # noqa: E402 — sibling script, scripts/ on sys.path
+        _al = subbar_align.align(list(df["timestamp"]),
+                                 list(subbar_df["timestamp"]))
+        _sub_reason = _al.get("reason")
+        if _sub_reason:
+            raise ValueError(f"sub-bar alignment refused: {_sub_reason}")
+        _sub_slices = _al["slices"]
+        _sub_coverage = _al["coverage"]
+        sd = subbar_df.reset_index(drop=True)
+        _sub_rows = list(zip((float(x) for x in sd["high"]),
+                             (float(x) for x in sd["low"]),
+                             (float(x) for x in sd["close"])))
     df["atr"] = _atr(df, atr_period)
     # M21 E-2 vol-at-entry lever (both 0 = off, byte-identical): skip any NEW
     # entry whose TRIGGER bar's ATR sits at an extreme TRAILING percentile
@@ -238,6 +292,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         dir_slope = df["mid"].diff()
 
     trades: List[Trade] = []
+    subbar_missing_bars = 0
 
     # Per-entry live-TP distance in R -- answers whether the 9.9% clamp
 
@@ -437,6 +492,58 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                      or (trail_vol_below_pctl > 0.0
                          and float(vp) < trail_vol_below_pctl))
             return min(base_tm, trail_vol_tight_mult) if fired else base_tm
+        # The three grain arms share ONE definition of the stop/target
+        # test, the ratchet and the levers — written once as closures so an
+        # arm cannot drift from the baseline by an editing accident. Each
+        # returns an (price, reason) exit or None.
+        def _stop_or_target(h: float, lo: float):
+            if direction == "long":
+                if lo <= trail:                   # SL-first (conservative)
+                    return trail, ("trail_stop" if trail > sl else "stop")
+                if tp_price is not None and h >= tp_price:
+                    return tp_price, "take_profit"
+            else:
+                if h >= trail:
+                    return trail, ("trail_stop" if trail < sl else "stop")
+                if tp_price is not None and lo <= tp_price:
+                    return tp_price, "take_profit"
+            return None
+
+        def _ratchet(h: float, lo: float) -> None:
+            # Advances ext/mfe/trail over ONE window — a leg bar in arm A,
+            # a sub-bar in B/C. `ext_j` stays a LEG-bar index so the
+            # stall-armed decay keeps counting in the strategy's own bars.
+            nonlocal ext, ext_j, trail, mfe
+            if direction == "long":
+                if h > ext:
+                    ext, ext_j = h, j
+                trail = max(trail, ext - _vol_tm(_eff_tm(ext, ext_j, j), j) * atr)
+                mfe = max(mfe, (ext - entry) / risk)
+            else:
+                if lo < ext:
+                    ext, ext_j = lo, j
+                trail = min(trail, ext + _vol_tm(_eff_tm(ext, ext_j, j), j) * atr)
+                mfe = max(mfe, (entry - ext) / risk)
+
+        def _levers(px: float):
+            # Lever exits read a CLOSE — the leg bar's in arm A, the
+            # sub-bar's in B/C — and fire only when the stop did not hit
+            # first, so stop-first stays intact at whichever grain the arm
+            # resolves the stop.
+            o_r = ((px - entry) / risk if direction == "long"
+                   else (entry - px) / risk)
+            if giveback_min_mfe_r > 0.0:
+                # M20 giveback-stop: once peak open profit >= min_mfe R,
+                # exit when >= giveback_r R has been surrendered.
+                if mfe >= giveback_min_mfe_r and (mfe - o_r) >= giveback_r:
+                    return px, "giveback_stop"
+            if flip_exit_bars is not None and flip_streak >= flip_exit_bars:
+                return px, "trend_flip"
+            if (stale_exit_bars is not None and (j - i) >= stale_exit_bars
+                    and o_r < stale_exit_below_r):
+                return px, "stale_stop"
+            return None
+
         for j in range(i + 1, min(i + timeout_bars + 1, n)):
             bh, bl = float(df["high"].iloc[j]), float(df["low"].iloc[j])
             # M20 partial-TP bank lever (0=off, byte-identical): bank
@@ -452,57 +559,48 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             # be pre-empted (stop-first stays conservative because the levers
             # only ever fire at the close of a bar the stop did NOT hit).
             bc = float(df["close"].iloc[j])
-            open_r = ((bc - entry) / risk if direction == "long"
-                      else (entry - bc) / risk)
             if flip_exit_bars is not None:
                 bar_mid = df["mid"].iloc[j]
                 if not pd.isna(bar_mid):
                     against = (bc < float(bar_mid)) if direction == "long" \
                         else (bc > float(bar_mid))
                     flip_streak = flip_streak + 1 if against else 0
-            if direction == "long":
-                if bl <= trail:                       # SL-first (conservative)
-                    exit_price, exit_idx = trail, j
-                    exit_reason = "trail_stop" if trail > sl else "stop"
-                    break
-                if tp_price is not None and bh >= tp_price:
-                    exit_price, exit_idx = tp_price, j
-                    exit_reason = "take_profit"
-                    break
-                if bh > ext:
-                    ext, ext_j = bh, j
-                trail = max(trail, ext - _vol_tm(_eff_tm(ext, ext_j, j), j) * atr)
-                mfe = max(mfe, (ext - entry) / risk)
+            sub = None
+            if _sub_slices is not None:
+                s0, s1 = _sub_slices[j]
+                if s1 > s0:
+                    sub = _sub_rows[s0:s1]
+                else:
+                    subbar_missing_bars += 1
+            hit = None
+            if exit_grain == "full" and sub:
+                # Arm C — stop/target AND levers resolved per sub-bar.
+                for sh, sl_px, sc in sub:
+                    hit = _stop_or_target(sh, sl_px)
+                    if hit:
+                        break
+                    _ratchet(sh, sl_px)
+                    hit = _levers(sc)
+                    if hit:
+                        break
             else:
-                if bh >= trail:
-                    exit_price, exit_idx = trail, j
-                    exit_reason = "trail_stop" if trail < sl else "stop"
-                    break
-                if tp_price is not None and bl <= tp_price:
-                    exit_price, exit_idx = tp_price, j
-                    exit_reason = "take_profit"
-                    break
-                if bl < ext:
-                    ext, ext_j = bl, j
-                trail = min(trail, ext + _vol_tm(_eff_tm(ext, ext_j, j), j) * atr)
-                mfe = max(mfe, (entry - ext) / risk)
-            # Lever exits fire at bar close, only when the stop did not hit
-            # this bar (a stop hit breaks above) — stop-first stays intact.
-            if giveback_min_mfe_r > 0.0:
-                # M20 giveback-stop: once peak open profit >= min_mfe R, exit
-                # when >= giveback_r R has been surrendered from the peak.
-                if mfe >= giveback_min_mfe_r and (mfe - open_r) >= giveback_r:
-                    exit_price, exit_idx = bc, j
-                    exit_reason = "giveback_stop"
-                    break
-            if flip_exit_bars is not None and flip_streak >= flip_exit_bars:
-                exit_price, exit_idx = bc, j
-                exit_reason = "trend_flip"
-                break
-            if (stale_exit_bars is not None and (j - i) >= stale_exit_bars
-                    and open_r < stale_exit_below_r):
-                exit_price, exit_idx = bc, j
-                exit_reason = "stale_stop"
+                # Arms A and B share the leg-bar stop/target test. In B that
+                # is deliberate: it is what makes B a measure of CADENCE
+                # rather than of the SL-first convention.
+                hit = _stop_or_target(bh, bl)
+                if hit is None:
+                    if exit_grain == "levers" and sub:
+                        for sh, sl_px, sc in sub:
+                            _ratchet(sh, sl_px)
+                            hit = _levers(sc)
+                            if hit:
+                                break
+                    else:
+                        _ratchet(bh, bl)
+                        hit = _levers(bc)
+            if hit:
+                exit_price, exit_reason = hit[0], hit[1]
+                exit_idx = j
                 break
         if exit_price is None:
             exit_price = float(df["close"].iloc[exit_idx])
@@ -581,8 +679,21 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         params["adx_period"] = adx_period
     if direction_filter != "off":
         params["direction_filter"] = direction_filter
-    return _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params,
+    summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params,
                       tp_r_effective=_tp_r_effective)
+    # The exit grain the numbers above were produced at, plus how much of the
+    # leg-bar population the finer frame ACTUALLY covered. A verdict over an
+    # unstated denominator is the failure this reports around: an arm that
+    # silently fell back to bar-close evaluation on the leg bars the finer
+    # frame does not describe would dilute the A/B by an unstated amount and
+    # still print as "the intrabar result". `subbar_missing_bars` is None (not
+    # 0) on arm A — nothing was looked for, which is not the same claim as
+    # nothing was missing.
+    summary["exit_grain"] = exit_grain
+    summary["subbar_coverage"] = _sub_coverage
+    summary["subbar_missing_bars"] = (subbar_missing_bars
+                                      if exit_grain != "leg" else None)
+    return summary
 
 
 def _cost_breakdown(t: Trade) -> Dict[str, float]:
@@ -836,6 +947,18 @@ def main(argv: List[str]) -> int:
     p.add_argument("--trail-vol-tight-mult", type=float, default=0.0,
                    help="The tightened trail mult while the vol condition fires "
                         "(0 disables the lever).")
+    p.add_argument("--subbar-data",
+                   help="Finer OHLCV frame for the intrabar exit-evaluation arms "
+                        "(docs/live-exit-monitor-cadence-DESIGN.md § 4). Entries stay "
+                        "on the leg timeframe; only exits are re-graded.")
+    p.add_argument("--exit-grain", choices=["leg", "levers", "full"], default="leg",
+                   help="leg (A, DEFAULT, byte-identical): everything on the leg-bar "
+                        "grain. levers (B): exit levers evaluated at every sub-bar "
+                        "close, SL/TP still resolved at leg-bar grain SL-first — "
+                        "isolates the CADENCE question and is a LOWER BOUND. "
+                        "full (C): SL/TP resolved per sub-bar too, which also "
+                        "removes the SL-first artifact — report C only beside B, "
+                        "or the convention gets credited to the lever.")
     p.add_argument("--side-filter", choices=["long", "short", "both"], default="both",
                    help="Config-exact directional gate matching the live builder's "
                         "side_filter: skip shorts (long) / skip longs (short) / no gate "
@@ -863,6 +986,25 @@ def main(argv: List[str]) -> int:
         df = _date_filter(df, args.start, args.end)
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: load failed: {exc}", file=sys.stderr)
+        return 1
+    subbar_df = None
+    if args.subbar_data:
+        try:
+            subbar_df = _load_candles(args.subbar_data)
+            # The sub-bar frame is windowed to the SAME span as the leg frame.
+            # Skipping this would let the finer frame reach outside the window
+            # the run is labelled with — the sub-bars would simply never be
+            # indexed, but a coverage figure computed over a wider frame would
+            # then describe a population the run never graded.
+            subbar_df = _date_filter(subbar_df, args.start, args.end)
+        except Exception as exc:  # noqa: BLE001
+            print(f"ERROR: sub-bar load failed: {exc}", file=sys.stderr)
+            return 1
+    if args.exit_grain != "leg" and subbar_df is None:
+        # A missing frame must NOT degrade to the baseline wearing arm B's
+        # label — that would report the leg-grain result as the intrabar one.
+        print("ERROR: --exit-grain levers|full requires --subbar-data",
+              file=sys.stderr)
         return 1
     out = run_backtest(df,
                        trend_lookback=args.trend_lookback,
@@ -900,7 +1042,9 @@ def main(argv: List[str]) -> int:
                        trail_vol_above_pctl=args.trail_vol_above_pctl,
                        trail_vol_below_pctl=args.trail_vol_below_pctl,
                        trail_vol_tight_mult=args.trail_vol_tight_mult,
-                       side_filter=args.side_filter)
+                       side_filter=args.side_filter,
+                       subbar_df=subbar_df,
+                       exit_grain=args.exit_grain)
     print(_fmt(out))
     if args.json_out:
         payload = json.dumps(out, indent=2, default=str)
