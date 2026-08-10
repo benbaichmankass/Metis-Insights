@@ -26,6 +26,12 @@ def test_builder_rejects_empty():
                                          symbol_b="Y", account_id="a") is None
 
 
+# collapsed-state: skip_flat — this file tests the soak-log TRANSPORT (builder
+# shape, JSONL roundtrip, absent-file envelope), so the event name is an
+# arbitrary sample rather than a semantic branch. The leg-state semantics,
+# including `half_open` (the state whose absence let the executor open a pair
+# on top of a stranded leg, BL-20260808-PAIRS-DIVERGENCE-UNOWNED), are asserted
+# in tests/test_pairs_executor.py.
 def test_write_then_read_roundtrip(tmp_path, monkeypatch):
     log = tmp_path / "pairs_soak.jsonl"
     monkeypatch.setattr(psoak, "soak_log_path", lambda: log)

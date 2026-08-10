@@ -439,3 +439,119 @@ stays Tier-3 behind the shadow track record.
 - fc resolver + trainer-checkout fix + top-givebacks: issue #6159.
 - Sweep attempts: #6160 (path bug), #6161 (relay-preempted), #6162 (detached
   launch), **#6163 (full 35-line IS/OOS table — the § 4 source)**.
+
+## 10. `exit_ladder` on the ict_scalp fleet (2026-08-09) — closing a HARNESS gap, not a verdict gap
+
+All eight live `ict_scalp` legs read `blocked:no_harness_levers` in the
+coverage matrix for the `exit_ladder` column. That was accurate:
+`scripts/backtest_ict_scalp.py` had no `bank_frac`/`bank_at_r` at all — the
+2026-07-28 round (#7848) built stale-stop + giveback-stop on this harness and
+stopped there. **The block was a missing lever, not a measured negative**, and
+a `blocked` cell on a live leg is an open item in M20's done-condition.
+
+### 10.1 The prior, stated up front — and why it does NOT settle this
+
+**On record (§ 6.2, and ROADMAP): partial-TP banking reduced net_R in every
+one of the 20 banking cells swept across the donchian and pullback families**,
+while lowering maxDD and raising win rate — the classic tail-for-smoothness
+trade. A negative here is therefore the EXPECTED result, is recorded as
+`honest_negative`, and **is not to be re-litigated**.
+
+But the stated *mechanism* is specific, and it is worth being precise about
+whether it transfers, because a prior accepted for the wrong reason is not a
+prior — it is a guess that happens to agree:
+
+> "for trend-following strategies whose edge IS the fat right tail, banking
+> early gives the edge away"
+
+**That reasoning does not apply to `ict_scalp`.** Every live leg is a FIXED
+bracket at `tp_at_r: 1.5` (verified against `config/strategies.yaml`,
+2026-08-09, all eight legs). There is no fat right tail to give away — the
+take-profit caps the upside at 1.5R by construction. So the fleet-wide result
+does not transfer by its own logic, and this round is a real test rather than
+a formality.
+
+A *different* mechanism, specific to this family, pushes the same direction and
+is the one to read the result against: `--sim-breakeven` is part of the
+config-exact base (it mirrors the live `monitor_breakeven_sl` rule), so once a
+bar closes ≥ 1R the stop is already at entry + `be_offset_bps` (15 bps on all
+eight legs). A trade that reaches 1R is therefore **already** protected. That
+predicts:
+
+- banking at **1.0R** buys smoothness the breakeven stop already provides,
+  while capping the 1.0R → 1.5R run — expected neutral-to-negative;
+- banking at **0.5R** (below the BE arm) is the only rung where a real effect
+  is available at all.
+
+If the result is negative, the honest reading is "the BE stop already occupies
+this lever's job on this family", not a re-derivation of the trend-follower
+argument.
+
+### 10.2 The trap this round had to avoid: half the standard grid measures nothing
+
+The fleet grid (`m20_fleet_exit_sweep` / `m20_exit_sweep --phase2`) sweeps
+`bank_at_r ∈ (1.0, 1.5)`. On a `tp_at_r = 1.5` leg, **a rung at or above the
+take-profit is a provable no-op**: the TP check returns on the same bar and the
+blend `f·tp + (1−f)·tp` returns `tp` exactly. Run as-is, half of every leg's
+cells would have measured NOTHING and reported a confident "no effect" —
+precisely the unasserted-denominator shape RULE ONE names.
+
+Two things prevent it structurally rather than by remembering:
+
+1. The sweep derives its rungs as **fractions of the leg's own `tp_at_r`**
+   (`_RUNG_FRACS_OF_TP = (1/3, 2/3)` → 0.5R / 1.0R here) and refuses to emit a
+   cell at or above it.
+2. The harness summary echoes `banked_trades` / `banked_pct` — the **rung-fill
+   denominator**. A cell whose rung almost never fills is INERT, which is a
+   different finding from a lever that filled often and lost money, and the two
+   must not read alike. Read every verdict below beside its `banked_pct`.
+
+Proven in `tests/test_ict_scalp_exit_levers.py::test_rung_at_or_above_tp_is_a_provable_noop`.
+
+### 10.3 Config-exactness: one leg differs, and it is not the obvious one
+
+Verified by diffing all eight leg blocks in `config/strategies.yaml` rather
+than trusting the "every ict_scalp leg is a config-exact copy" comment in the
+M27 sweep: the **detection geometry is identical across all eight**, and
+exactly four keys differ — `off_cells` + `vol_spec` (`ict_scalp_xrp_5m` only),
+and `stale_exit_bars: 12` + `stale_exit_below_r: 0.0` (`ict_scalp_eth_15m`
+only).
+
+So `ict_scalp_eth_15m` ships an exit lever the other seven do not, and its
+ladder cells must be measured **on top of** it. The sweep now passes a leg's
+declared levers into its base (`declared_lever_flags`); without that, that one
+leg would have been swept against a baseline it does not run live.
+
+**Known caveat, recorded rather than papered over:** `ict_scalp_xrp_5m`
+declares `off_cells` (regime gating) which the harness cannot reproduce — it
+can stamp regime (`--stamp-regime`) but not gate on it. Its swept population is
+therefore a SUPERSET of what trades live. The ladder A/B is still valid as a
+*delta* (both arms see the same population), but the XRP-5m verdict's
+population is not the live one, and the matrix ref says so.
+
+### 10.4 Data reachability — 7 of 8 legs, and the 8th is a reproducibility problem
+
+Probed the trainer directly (issue #8696) rather than assuming:
+
+| leg | data | status |
+|---|---|---|
+| `ict_scalp_5m` (BTC 5m) | `backtest_BTCUSDT_5m.csv` (647k bars, 2020-03→2026-05) | ✅ |
+| `ict_scalp_sol_5m` / `_xrp_5m` / `_avax_5m` | `{SOL,XRP,AVAX}USDT_5m.csv` (491k / 536k / 500k) | ✅ |
+| `ict_scalp_eth_15m` / `_sol_15m` / `_xrp_15m` | `{ETH,SOL,XRP}USDT_15m.csv` (184k / 164k / 179k) | ✅ |
+| `ict_scalp_mgc_15m` | **none** — no `MGC_*`, no `XAUUSD_*`; only `GC_F_1d` / `GC_F_1h` | ❌ |
+
+⚠️ **The MGC leg is a live reproducibility gap, not just a skip.** The
+2026-07-28 M27 round measured that leg on `data/XAUUSD_15m_deep.csv` (the
+powered Dukascopy spot-XAU proxy). **That file is no longer on the trainer**, so
+the leg's EXISTING `stale_stop` / `giveback_stop` verdicts currently cannot be
+reproduced. It is regenerable on a free GitHub runner via
+`research-symbol-p0-build.yml` (Dukascopy fetch, off the scarce trainer VM);
+tracked rather than silently dropped.
+
+### 10.5 Verdicts
+
+*(Sweep dispatched 2026-08-09 on the trainer — config-exact per leg, IS/OOS
+split 2025-07-01 + yearly walk-forward, `need = ceil(2·usable/3)` → 4/6 when
+all folds are usable. Verdicts are recorded in the coverage matrix in the same
+PR as the run that produced them, per the exit-refinement skill; they are NOT
+pre-written here from the prior.)*

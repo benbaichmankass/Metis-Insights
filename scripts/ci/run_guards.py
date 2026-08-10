@@ -306,6 +306,11 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/ci/check_prop_identity_single_home.py"]],
     },
     {
+        "name": "collapsed-state-guard",
+        "when": {"regex": r"\.py$"},
+        "steps": [["python3", "scripts/ci/check_collapsed_states.py", "--verbose"]],
+    },
+    {
         "name": "provenance-consumer-guard",
         "when": {"regex": r"\.py$"},
         "steps": [["python3", "scripts/check_provenance_consumers.py", "--verbose"]],

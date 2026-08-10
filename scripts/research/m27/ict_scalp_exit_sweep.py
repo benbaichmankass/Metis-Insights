@@ -51,12 +51,63 @@ CELLS = [
      ["--giveback-min-mfe-r", "2.0", "--giveback-r", "1.0"]),
 ]
 
+# M20 `exit_ladder` (partial-TP bank) cells — added 2026-08-09, once
+# backtest_ict_scalp.py gained bank_frac/bank_at_r. The eight live ict_scalp
+# legs read `blocked:no_harness_levers` for this column until then.
+#
+# The rungs are CONFIG-RELATIVE, as FRACTIONS of the leg's own tp_at_r, and
+# this is load-bearing rather than tidiness: ict_scalp is a FIXED-bracket
+# strategy, so a rung at or above tp_at_r coincides with the take-profit and
+# the blend `f*tp + (1-f)*tp` returns tp exactly — a provable no-op. The
+# fleet-wide default grid (m20_fleet_exit_sweep / m20_exit_sweep) uses
+# bank_at_r in (1.0, 1.5); on a tp_at_r=1.5 leg HALF those cells would measure
+# nothing and still report a confident "no effect". Fractions cannot drift
+# into that. Proven in tests/test_ict_scalp_exit_levers.py::
+# test_rung_at_or_above_tp_is_a_provable_noop.
+_RUNG_FRACS_OF_TP = (1.0 / 3.0, 2.0 / 3.0)
+_BANK_FRACS = (0.25, 0.5)
+
+
+def ladder_cells(tp_at_r: float) -> list:
+    """(tag, matrix_lever, extra_args) for the partial-TP ladder grid."""
+    out = []
+    for frac in _BANK_FRACS:
+        for rf in _RUNG_FRACS_OF_TP:
+            rung = round(tp_at_r * rf, 3)
+            if rung <= 0 or rung >= tp_at_r:      # never emit a no-op cell
+                continue
+            out.append((f"bank{frac:g}@{rung:g}R", "exit_ladder",
+                        ["--bank-frac", str(frac), "--bank-at-r", str(rung)]))
+    return out
+
+
+def declared_lever_flags(leg_cfg: dict) -> list:
+    """The leg's OWN shipped exit levers — part of its config-exact BASE.
+
+    A new lever cell is measured ON TOP of what the leg already ships (the
+    fleet sweep's `declared_levers` rule). Verified 2026-08-09 against
+    config/strategies.yaml: of the eight ict_scalp legs only
+    `ict_scalp_eth_15m` declares any (stale_exit_bars 12, stale_exit_below_r
+    0.0), so omitting this would silently sweep that ONE leg against a
+    baseline it does not actually run live.
+    """
+    flags = []
+    for flag, key in (("--stale-exit-bars", "stale_exit_bars"),
+                      ("--stale-exit-below-r", "stale_exit_below_r"),
+                      ("--giveback-min-mfe-r", "giveback_min_mfe_r"),
+                      ("--giveback-r", "giveback_r")):
+        v = leg_cfg.get(key)
+        if v is not None:
+            flags.extend([flag, str(v)])
+    return flags
+
 # Config-exact base flags (M27 run_symbol_p0.py invocation, minus the
 # regime-attribution flags which do not touch the exit path). SYMBOL/TIMEFRAME
 # are filled per-leg by main(); every ict_scalp leg is a config-exact copy so the
 # harness self-loads the shared ict_scalp_5m detection params for all of them.
-def base_flags(symbol: str, timeframe: str) -> list[str]:
-    return ["--symbol", symbol, "--timeframe", timeframe, "--sim-breakeven"]
+def base_flags(symbol: str, timeframe: str, declared: list | None = None) -> list:
+    return (["--symbol", symbol, "--timeframe", timeframe, "--sim-breakeven"]
+            + list(declared or []))
 
 
 # module-level, set in main() so run_cell stays a pure (data, extra)->metrics call
@@ -165,14 +216,56 @@ def main(argv: list[str]) -> int:
                     help="Leg timeframe label (default 15m).")
     ap.add_argument("--split", default="2025-07-01",
                     help="IS/OOS boundary (UTC date; IS < split <= OOS).")
+    ap.add_argument("--leg", default=None,
+                    help="Strategy leg name in config/strategies.yaml (e.g. "
+                         "ict_scalp_eth_15m). Resolves symbol, timeframe, "
+                         "tp_at_r and the leg's DECLARED exit levers, so the "
+                         "base is config-exact. Overrides --symbol/--timeframe.")
+    ap.add_argument("--cells", default=None,
+                    help="CSV of matrix levers to restrict cells to (e.g. "
+                         "exit_ladder) — skips already-verdicted columns.")
     ap.add_argument("--walkforward", action="store_true",
                     help="After IS/OOS, run the yearly walk-forward confirmation "
                          "(M20 gate) on any cell that passed the IS/OOS pre-filter.")
     ap.add_argument("--out", required=True, help="Output dir for slices + JSON.")
     args = ap.parse_args(argv[1:])
 
+    symbol, timeframe, declared, tp_at_r, leg_name = (
+        args.symbol, args.timeframe, [], 1.5, None)
+    if args.leg:
+        import yaml
+        legs = (yaml.safe_load((_REPO / "config" / "strategies.yaml").read_text())
+                or {}).get("strategies") or {}
+        cfg = legs.get(args.leg)
+        if not isinstance(cfg, dict):
+            print(f"ERROR: leg {args.leg!r} not in config/strategies.yaml",
+                  file=sys.stderr)
+            return 2
+        leg_name = args.leg
+        symbol = (cfg.get("symbols") or [args.symbol])[0]
+        timeframe = str(cfg.get("timeframe") or args.timeframe)
+        declared = declared_lever_flags(cfg)
+        # tp_at_r drives the ladder rungs; the harness default is the fallback.
+        tp_at_r = float(cfg.get("tp_at_r") or 1.5)
+
     global BASE_FLAGS
-    BASE_FLAGS = base_flags(args.symbol, args.timeframe)
+    BASE_FLAGS = base_flags(symbol, timeframe, declared)
+
+    # Cells = the stale/giveback grid + the config-relative ladder grid,
+    # optionally filtered to one matrix lever.
+    cells = list(CELLS) + ladder_cells(tp_at_r)
+    if args.cells:
+        want = {c.strip() for c in args.cells.split(",") if c.strip()}
+        cells = [c for c in cells if c[1] in want]
+    if not cells:
+        print(f"ERROR: no cells selected (--cells {args.cells!r}); "
+              f"available levers: "
+              f"{sorted({c[1] for c in list(CELLS) + ladder_cells(tp_at_r)})}",
+              file=sys.stderr)
+        return 2
+    print(f"leg={leg_name or '(explicit)'} symbol={symbol} tf={timeframe} "
+          f"tp_at_r={tp_at_r} declared_base={declared or 'none'}", flush=True)
+    print(f"cells ({len(cells)}): {[c[0] for c in cells]}", flush=True)
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -196,7 +289,7 @@ def main(argv: list[str]) -> int:
     jobs = []  # (result_key, window, extra, out_json)
     for w, csv in windows.items():
         jobs.append((("base", w), csv, [], out / f"base_{w}.json"))
-    for tag, lever, extra in CELLS:
+    for tag, lever, extra in cells:
         for w, csv in windows.items():
             jobs.append(((tag, w), csv, extra, out / f"{tag}_{w}.json"))
 
@@ -213,9 +306,10 @@ def main(argv: list[str]) -> int:
               f"total_R={base[w]['total_r']} maxDD={base[w]['max_dd_r']} "
               f"exp_R={base[w]['expectancy_r']}", flush=True)
 
-    results = {"data": args.data, "split": args.split,
-               "baseline": base, "cells": {}}
-    for tag, lever, extra in CELLS:
+    results = {"data": args.data, "split": args.split, "leg": leg_name,
+               "symbol": symbol, "timeframe": timeframe, "tp_at_r": tp_at_r,
+               "declared_base": declared, "baseline": base, "cells": {}}
+    for tag, lever, extra in cells:
         cell = {"IS": computed[(tag, "IS")], "OOS": computed[(tag, "OOS")]}
         is_beat = beats(cell["IS"], base["IS"])
         oos_beat = beats(cell["OOS"], base["OOS"])
