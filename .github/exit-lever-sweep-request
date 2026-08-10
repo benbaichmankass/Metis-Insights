@@ -1,27 +1,29 @@
 # Sentinel — touching this file fires m20-exit-lever-sweep from the branch.
 # The `legs:` line below is READ BY THE PLAN JOB, not decoration.
 #
-# 2026-08-10 (2nd dispatch) — DONCHIAN + PULLBACK, the census top-10.
+# 2026-08-10 (3rd dispatch) — THE TWO LEGS WHOSE BASE WAS NOT CONFIG-EXACT.
 #
-# WHY RE-RUN a set already swept: the sweep now emits three things this set has
-# no record of, and all three are inputs to decisions the operator has just
-# approved.
+# `base_args::declared_levers()` threaded the stale, giveback and trail-DECAY
+# levers and OMITTED the trail-VOL one, while both harnesses had carried
+# `--trail-vol-*` all along. Exactly two census legs declare an ARMED vol-trail
+# lever, so exactly two legs were measured against a baseline missing a lever
+# that is armed in live:
 #
-#  1. THE PATH B WALK-FORWARD. A Path B candidate used to short-circuit to
-#     `is_oos_fail` BEFORE any walk-forward ran, so the five Path B candidates
-#     from this set carry ZERO generalisation evidence — and they are exactly
-#     the population a drawdown tolerance would promote from.
-#  2. THE DERIVED DRAWDOWN TOLERANCE (operator directive: evidence, not a
-#     guess). Per leg, from that leg's own net_R-per-drawdown rate.
-#  3. THE SELECTION DENOMINATOR per leg, so a per-leg winner is never reported
-#     without the number of cells it beat (~440 comparisons fleet-wide).
+#   trend_donchian_eth   below_pctl 0.1 / tight 2.5   (cold tail)
+#   qqq_pullback_1h      above_pctl 0.8 / tight 2.5   (hot tail)
 #
-# It also fixes the reporting defects found since: the four net_R shapes
-# (both / IS-only overfit / OOS-only artifact / neither) are no longer collapsed
-# under one mislabelled bucket, and the "d netR OOS" column is now gate-sourced.
+# Both A/B arms omitted it, so each prior delta is internally consistent; what
+# is unverified is its TRANSPORT to the live book, since exit levers interact —
+# a cold-vol-tightened trail changes which trades a decay or stale rule ever
+# sees. This run measures the same cells against the book we would deploy onto.
 #
-# The 7 Path A PASSes in this set are the Tier-3 promotion the operator approved;
-# this run regenerates them WITH their denominators so the packet cites evidence
-# rather than reconstructing it from comment history.
-legs: trend_donchian_1h,trend_donchian_eth,trend_donchian,trend_donchian_eth_prop,htf_pullback_trend_2h,spy_pullback_1h,eth_pullback_2h,qqq_pullback_1h,avax_pullback_2h,trend_donchian_sol
-dispatch: 2026-08-10 donchian+pullback re-run — Path B walk-forward + derived dd tolerance + selection denominators
+# WHAT IT DECIDES. Rows 1-2 of the Tier-3 promotion packet — `decay_stall10_t2.5`
+# and `stale12_lt0R` on trend_donchian_eth, two of the three live-leg winners —
+# are HELD on this run. If they still clear Path A on the corrected base they
+# ship; if they do not, the packet loses two rows and says so.
+#
+# qqq_pullback_1h carries no held row (its two Path B candidates already failed
+# the folds) — it is here because it is the other affected leg and a rejection
+# measured on a wrong base is no more trustworthy than an acceptance.
+legs: trend_donchian_eth,qqq_pullback_1h
+dispatch: 2026-08-10 re-run on the corrected config-exact base (trail-vol threaded)
