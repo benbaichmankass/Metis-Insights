@@ -1,10 +1,20 @@
-# Touch this file to fire .github/workflows/m20-exit-lever-sweep.yml from the
-# feature branch. A workflow_dispatch-only workflow is not resolvable by
-# filename until it lands on the default branch (the API 404s), and the sweep
-# is meant to INFORM the merge rather than wait on it.
+# Sentinel — touching this file fires m20-exit-lever-sweep from the branch.
 #
-# On a push fired this way the workflow takes its input defaults:
-#   legs=<census top-10 by R-left-at-1R>  tp_cap_pct=0.099 (LIVE PARITY)
-#   levers=<all>  split=2025-07-01
-# Use the Actions UI / a dispatch call to vary any of those.
-run: 2026-08-10 — first sweep at live-parity geometry, census-targeted legs.
+# 2026-08-10 — SCALP FAMILY, all 7 legs.
+#
+# WHAT THIS RUN IS FOR: the be_touch_arm cell. The census bounded the near-TP
+# reversal prize at 24 of 2,385 scalp losers (1.01%), ceiling 60.0R = 3.70% of
+# gross, and the 4-trade smoke A/B showed the lever is LIVE (one timeout became
+# a be_stop) and settled nothing — it came out 0.022R WORSE, because arming on
+# a touch also scratches trades that dip and recover. That cost is the open
+# question and only a real-data run over both windows answers it.
+#
+# The three stale/giveback scalp cells ride along: they have never been swept
+# at live-parity TP geometry (tp_cap_pct 0.099), and every scalp verdict on
+# record predates BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP.
+#
+# Legs (m27_data vintage, per the family-aware plan job):
+#   ict_scalp_5m, ict_scalp_sol_5m, ict_scalp_xrp_5m, ict_scalp_avax_5m,
+#   ict_scalp_eth_15m, ict_scalp_sol_15m, ict_scalp_xrp_15m
+# ict_scalp_mgc_15m is deliberately absent — blocked:data_missing.
+dispatch: 2026-08-10 scalp family, live-parity geometry
