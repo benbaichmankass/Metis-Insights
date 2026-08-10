@@ -263,6 +263,49 @@ jobs:
             exit 1
           fi
 
-          FINAL=$(jq -c '.required_status_checks.contexts' "$curl_put")
-          echo "::notice::Branch protection updated. Required contexts now: ${FINAL}"
+          # REPORT AND VERIFY THE POST-STATE, not just "the PUT returned 200".
+          #
+          # This block used to echo `contexts` alone. That under-reported what
+          # the workflow changes: `strict` is set from this file too, so a run
+          # could flip require-up-to-date and its own success notice would say
+          # nothing about it. Exactly that happened on 2026-08-10 — `strict` was
+          # changed true -> false, the notice printed only the contexts, and the
+          # post-state could not be confirmed from CI at all (no MCP tool reads
+          # branch protection, and api.github.com is unreachable from a sandbox
+          # session). The change was correct; it was simply unverifiable. A
+          # diagnostic that states only part of what it did is the class
+          # `diagnostic-provenance-guard` exists for, occurring in the workflow
+          # that owns branch protection.
+          #
+          # So: echo BOTH, then ASSERT the response matches what was requested.
+          # A 200 means "GitHub accepted the request", NOT "the field is now
+          # what you asked for" — those differ if the API ever coerces a value
+          # or silently ignores an unknown one. Comparing the echoed-back
+          # settings to the intended ones is the only thing that makes a green
+          # run here mean the protection is actually as declared.
+          FINAL_CONTEXTS=$(jq -c '.required_status_checks.contexts' "$curl_put")
+          FINAL_STRICT=$(jq -c '.required_status_checks.strict' "$curl_put")
+          FINAL_ADMINS=$(jq -c '.enforce_admins.enabled' "$curl_put")
+          echo "::notice::Branch protection updated. strict=${FINAL_STRICT} \
+          enforce_admins=${FINAL_ADMINS} contexts=${FINAL_CONTEXTS}"
+
+          DRIFT=""
+          [ "$FINAL_STRICT" = "$STRICT" ] || \
+            DRIFT="${DRIFT} strict(requested=${STRICT} got=${FINAL_STRICT})"
+          [ "$FINAL_ADMINS" = "$ENFORCE_ADMINS" ] || \
+            DRIFT="${DRIFT} enforce_admins(requested=${ENFORCE_ADMINS} got=${FINAL_ADMINS})"
+          # jq -c normalises both sides, so this compares content, not spacing.
+          WANT_CONTEXTS=$(printf '%s' "$REQUIRED_CONTEXTS" | jq -c '.')
+          [ "$FINAL_CONTEXTS" = "$WANT_CONTEXTS" ] || \
+            DRIFT="${DRIFT} contexts(requested=${WANT_CONTEXTS} got=${FINAL_CONTEXTS})"
+
           rm -f "$curl_put"
+
+          if [ -n "$DRIFT" ]; then
+            echo "::error::Branch protection did NOT match what this file "\
+          "declares, despite HTTP 200 — the PUT was accepted but the "\
+          "post-state differs:${DRIFT}. main's protection is now in an "\
+          "unintended state; fix it before merging anything else."
+            exit 1
+          fi
+          echo "::notice::Post-state verified — protection matches this file."

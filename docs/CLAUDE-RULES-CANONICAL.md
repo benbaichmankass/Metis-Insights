@@ -1142,11 +1142,14 @@ hook surfaces both at session init. Read them before acting.
    (b) post a `🔒 MERGE SLOT CLAIM` comment on the board — **that board comment
    is the authoritative live claim** (it reaches other sessions instantly);
    mirror it into `session-board.json::merge_slot` as the durable record;
-   (c) sync your branch to `main` **last** — `git fetch origin main` +
-   merge/rebase immediately before merging so it is not behind; (d) let CI go
-   green on the *synced* head; (e) merge; (f) post `🔓 MERGE SLOT RELEASE` +
-   clear `merge_slot`. This stops two sessions racing a merge and forcing each
-   other "behind" `main` → the branch-protection require-up-to-date re-run churn
+   (c) sync your branch to `main` **only if you need `main`'s content** — since
+   2026-08-10 `require-up-to-date` is OFF, so being `behind` no longer blocks a
+   merge and a defensive re-sync just buys another ~9-minute CI cycle; sync when
+   your change depends on something newly on `main`, or when git reports a real
+   textual conflict; (d) let CI go green on whatever head you merge; (e) merge;
+   (f) post `🔓 MERGE SLOT RELEASE` + clear `merge_slot`. This stops two sessions
+   racing a merge and forcing each other "behind" `main` → the (now-removed)
+   require-up-to-date re-run churn
    (observed twice on 2026-06-28; and the 2026-07-20 lapse where 3 claim-less
    merges raced `behind` in one day because the claim was treated as a
    session-start ritual and skipped under load — BL-20260720-MERGE-PROTOCOL-LAPSE).
@@ -1191,9 +1194,23 @@ gate (operator decision, 2026-06-28). The 2026-07-27 merge-guard is a
 **client-side `PreToolUse` speed-bump** on the merge tools — it does not gate CI
 or branch-protection, it just forces the session to run the claim+sync protocol
 before the merge tool fires (operator-directed after the claim-less-auto-merge
-lapse). The hard safety net remains GitHub branch-protection (require-up-to-date);
-the board coordinates intent + the one merge slot, and the guard makes the
-per-merge claim a physical precondition rather than an honour-system step.
+lapse). The hard safety net is GitHub branch-protection — **required status
+checks** (`pytest-collect` / `pytest-run` / `guards`) with `enforce_admins`, so
+no merge lands red; the board coordinates intent + the one merge slot, and the
+guard makes the per-merge claim a physical precondition rather than an
+honour-system step.
+
+**Correction 2026-08-10:** this previously read *"the hard safety net remains
+GitHub branch-protection (require-up-to-date)"*. **`require-up-to-date` is now
+OFF** (`strict: false`, operator-directed — `.github/workflows/branch-protection-sync.yml`).
+It was removed because it did not serialize anything; it only forced a PR that
+had gone `behind` to re-run ~9 minutes of CI, so with sessions merging faster
+than one CI cycle a branch could never be simultaneously green AND up-to-date.
+**Required checks still gate every merge** — that is the safety net, and it is
+unchanged. What is gone is the coupling to `main`'s tip. The accepted exposure
+is a *semantic* conflict (two PRs clean textually, green alone, broken
+together); `guards` + `pytest-run` also run on every push to `main`, so such a
+break surfaces post-merge rather than silently.
 
 ## Session-length discipline & handoff (2026-07-23, binding)
 

@@ -1,0 +1,188 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>System report — since-last</title><style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:#0e1117;color:#e6e6e6}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:1.6em 0 .4em;padding-bottom:.25em;border-bottom:1px solid #2a2f3a}
+h3{font-size:1rem;margin:1.1em 0 .3em;color:#cdd3df}
+.meta{color:#9aa4b2;font-size:.86rem}
+.grade{display:inline-block;padding:.15em .55em;border-radius:999px;background:#1b2230;font-weight:600}
+.cards{display:grid;grid-template-columns:1fr;gap:10px;margin:.6em 0}
+.card{background:#161b24;border:1px solid #232a36;border-radius:10px;padding:12px}
+.card .k{color:#9aa4b2;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+.card .v{font-size:1.25rem;font-weight:700;margin-top:.15em}
+.pos{color:#4ec07a}.neg{color:#e2607a}
+.pill{display:inline-block;font-size:.74rem;padding:.1em .5em;border-radius:6px;background:#222a38;margin-right:.3em}
+.pill.real{background:#1d3b2a;color:#7ee0a4}
+.pill.paper{background:#2b2f1d;color:#d6dd7e}
+.pill.prop{background:#2a213b;color:#c39ee0}
+ul.pri{margin:.4em 0;padding-left:1.1em}
+ul.pri li{margin:.25em 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin:.4em 0}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #232a36;white-space:nowrap}
+th{color:#9aa4b2;font-weight:600}
+details{background:#13171f;border:1px solid #232a36;border-radius:8px;margin:.4em 0;padding:.2em .6em}
+details summary{cursor:pointer;padding:.45em 0;font-weight:600}
+details .body{padding:.3em 0 .7em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.86rem;margin:.3em 0}
+.kv .k{color:#9aa4b2}
+.muted{color:#9aa4b2}
+.sev-concern{color:#e2607a}.sev-watch{color:#d6dd7e}.sev-ok{color:#4ec07a}
+.section-empty{color:#6b7480;font-style:italic;font-size:.88rem}
+footer{margin-top:2em;padding-top:1em;border-top:1px solid #2a2f3a;color:#6b7480;font-size:.8rem}
+@media(min-width:680px){.cards{grid-template-columns:repeat(4,1fr)}.wrap{padding:28px}}
+</style></head><body><div class="wrap"><h1>System report — since-last</h1>
+<p class="meta">Generated 2026-08-10T05:15:00+00:00 · window 2026-08-07T14:55:00+00:00 → 2026-08-10T05:15:00+00:00</p>
+<p><span class="grade">Roll-up: 🔴 investigate</span></p>
+<p>Real money closed no trades this window and sits -$25.16 over 30d on 29 trades (PF 0.58); paper carries all the activity and is bleeding (-$38.9k/7d, PF 0.26). Two high-severity findings dominate: the new tick-cost instrument&#x27;s first reading shows a 251s mean tick, now attributed to a serial per-strategy market-data fetch, and the netting-attribution remediation is shipped but inert (apply globally, allowlisted nowhere) while journal-vs-exchange divergence accrues. ML lifecycle is healthy.</p>
+<h2>Actions &amp; backlog</h2>
+<h3>Operator priorities</h3><ul class='pri'>
+<li><b>Tier-2: collapse the per-strategy market-data fetch in the tick loop (251s mean tick)</b> <span class="pill">health · T2</span> ⚠️ operator<br><span class='muted'>52 strategies x ~3.2s serial fetches. Fix is a per-tick (symbol,timeframe) candle cache, mirroring the grouping regime_bar_scoring already does. Touches the live hot loop, so needs your OK. Do NOT add a tick budget instead.</span></li>
+<li><b>Tier-2: netting attribution is &#x27;apply&#x27; globally but allowlisted for no account — decide which</b> <span class="pill">health · T2</span> ⚠️ operator<br><span class='muted'>Every soak row reads apply_scope=not_allowlisted incl. real-money bybit_2. Either add bybit_1 (then bybit_2) to NETTING_ATTRIBUTION_ACCOUNTS, or set global back to annotate so the declared mode matches reality.</span></li>
+<li><b>Open the Android app once — the push channel is dark (device_tokens = 0)</b> <span class="pill">health · T1</span> ⚠️ operator<br><span class='muted'>Every FCM push reaches nobody, including the latched account-down/trainer-down WARNING alerts. Nothing repo-side can create a token; this needs the phone.</span></li>
+<li><b>Real-money bybit_2 is running ~0.99x gross exposure with no declared ceiling</b> <span class="pill">cross · T3</span> ⚠️ operator<br><span class='muted'>First real exposure-soak readings: bybit_2 0.9888x, bybit_portfolio 1.0513x, all accounts policy_declared:false. The ceiling VALUE stays Tier-3 and still needs max_multiple over a full window before it can be set.</span></li>
+<li><b>Decide the prop account&#x27;s status — the rule cushion is rendered from a 21-day-old snapshot</b> <span class="pill">health · T1</span> ⚠️ operator<br><span class='muted'>prop/status reports $144.77 daily-loss and $125.61 DD-floor cushion from a balance last reported 2026-07-20. 0 unacted tickets, so the bridge is idle rather than broken.</span></li>
+</ul>
+<div class="cards">
+<div class="card"><div class="k">health backlog</div><div class="v ">89 open / 445 total · 10 drained</div></div>
+<div class="card"><div class="k">performance backlog</div><div class="v ">6 open / 88 total</div></div>
+<div class="card"><div class="k">ml backlog</div><div class="v ">3 open / 98 total</div></div>
+</div>
+<h3>Tier-3 proposals awaiting approval</h3><ul class='pri'>
+<li><span class='pill'>—</span> —</li>
+<li><span class='pill'>—</span> —</li>
+</ul>
+<h3>Cross-review notes</h3><ul class='pri'>
+<li>TRANSLATION GAP, inverted from the usual direction: the paper mirror is far RED (-$38.9k/7d, PF 0.26) while real money is nearly flat (-$25.16/30d) — but only because real money barely traded (0 closes in the window, 29 in 30d). The paper book is not predicting a loss the live book is dodging; the live book simply is not taking the trades. Do not read real-money flatness as an edge.</li>
+<li>PROVENANCE: the paper 30d figure carries 51 fabricated + 15 unverified rows of 207 (pnlCoverage 0.517), so -$91,918 is not a measured number; totalPnlMeasured is -$59,049. Real money 30d is far cleaner at pnlCoverage 0.931 (2 fabricated of 29).</li>
+<li>POPULATION WARNING on exchange truth: /api/bot/pnl/exchange is NOT account-filtered. Its 3d +$2,732.76 and 7d -$7,374.75 are dominated by bybit_1/bybit_portfolio (paper); real-money bybit_2 holds only $279.61 equity. Neither figure is a real-money P&amp;L and must not be quoted as one.</li>
+<li>The tick-cost finding and the open heartbeat item are the same bug seen from two ends: BL-20260807-HEARTBEAT-PAUSED-WHILE-TICKING (&#x27;heartbeat starves during a long tick&#x27;) was filed 3 days before tick_cost existed to measure the cause. Read them together.</li>
+<li>The allocator soak&#x27;s 52% disagree / 0.618 mean regret is confirmed to be the variant-pair artifact (BL-20260806): the sampled tick&#x27;s two candidates are eth_pullback_2h vs eth_pullback_prop_2h — the same setup on real vs prop. The headline regret is not a real allocator disagreement.</li>
+<li>Two relay defects blocked or misdirected this very review (allowlist gap hid exposure/soak; the failure comment named the wrong cause; the trainer relay silently truncated a command and reported success). Review tooling that fails quietly is itself a P1 — all three are now either fixed or filed.</li>
+</ul>
+<h2>System &amp; technical health <span class="grade">🔴 investigate</span></h2>
+<div class="tablewrap"><table><tr><th>Service</th><th>State</th><th>Since</th></tr>
+<tr><td>ict-trader-live.service</td><td>active/running</td><td>2026-08-10T03:44:37Z</td></tr>
+<tr><td>ict-web-api.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-telegram-bot.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-claude-bridge.service</td><td>active/running</td><td>—</td></tr>
+<tr><td>ict-trainer.timer (trainer VM)</td><td>active/waiting</td><td>2026-07-17T04:16:36Z</td></tr>
+</table></div>
+<div class="tablewrap"><table><tr><th>Check</th><th>Status</th><th>Note</th></tr>
+<tr><td>heartbeat</td><td class="sev-watch">🟡 watch</td><td>Label &#x27;running&#x27; (age 158s) — but see ticks: the heartbeat only reads healthy because it fires from inside the sleep loop between ticks.</td></tr>
+<tr><td>ticks</td><td class="sev-concern">🔴 concern</td><td>251s mean / 296s max per tick (tick_cost, 10 ticks). Attributed to 52 serial per-strategy market-data fetches. ~3.0x headroom to the 15-min interval. BL-20260810-TICK-CHAIN-260S-PER-TICK.</td></tr>
+<tr><td>signals</td><td class="sev-ok">🟢 ok</td><td>1,449,096 rows; builders evaluating and returning non-actionable cleanly across sampled ticks.</td></tr>
+<tr><td>orders</td><td class="sev-ok">🟢 ok</td><td>3,620 order packages; signal-&gt;order plumbing intact. One stuck-package sweep fired (1 package) — second-line self-heal, worth a look.</td></tr>
+<tr><td>trades</td><td class="sev-concern">🔴 concern</td><td>Bulk reconciler closes recurred 2026-08-10T04:12 with exitPrice/realizedPnl/pnlProvenance all null (trades 3520, 3588). BL-20260807-BULK-RECONCILER-CLOSE-NO-EXIT-NO-PNL.</td></tr>
+<tr><td>monitoring</td><td class="sev-concern">🔴 concern</td><td>Netting attribution runs but is INERT: global_mode=apply, apply_scope=not_allowlisted on every row incl. real-money bybit_2. Divergence accruing (trade 4529: journal 26.7 vs exchange 3.1).</td></tr>
+<tr><td>sizing</td><td class="sev-watch">🟡 watch</td><td>Real-money bybit_2 at 0.9888x gross exposure; bybit_portfolio 1.0513x. No account declares max_gross_exposure_pct (policy_declared:false everywhere).</td></tr>
+<tr><td>api_errors</td><td class="sev-watch">🟡 watch</td><td>ict_scalp_mgc_15m raises &#x27;no candle data for MGC 15m&#x27; each evaluation while IB is healthy and ib_paper holds 105 MGC contracts.</td></tr>
+<tr><td>state_consistency</td><td class="sev-ok">🟢 ok</td><td>runtime_status git_sha f91e32b6 matches /api/diag/version and the trainer head. 52 strategies loaded; account live-flags consistent with accounts.yaml.</td></tr>
+<tr><td>alert_delivery</td><td class="sev-concern">🔴 concern</td><td>device_tokens = 0. Every FCM push reaches nobody, including the latched account-down/trainer-down WARNING alerts. Telegram path unaffected.</td></tr>
+<tr><td>db_integrity</td><td class="sev-watch">🟡 watch</td><td>775 MB journal, all tables readable, no per-table errors. insights_history/insights_usage growing ~1,000 rows/day/table against a ~120/day cadence ceiling.</td></tr>
+<tr><td>account_reachability</td><td class="sev-ok">🟢 ok</td><td>All declared-live probeable accounts reachable; zero latched-down. breakout_1 (API-less prop) and shelved ib_live/oanda_practice excluded by contract.</td></tr>
+<tr><td>review_tooling</td><td class="sev-concern">🔴 concern</td><td>Three quiet failures this session: relay allowlist gap hid exposure/soak, the relay&#x27;s rejection comment named an invented cause (both FIXED, c80a318), and trainer-vm-diag silently truncated a command while reporting success (filed).</td></tr>
+</table></div>
+<h2>Trading activity &amp; performance</h2>
+<p class="muted">Real, paper and prop are reported separately and never blended.</p>
+<h3><span class="pill real">REAL MONEY</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 →</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">0</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">—</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">—</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">0</div></div>
+</div>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr>
+<tr><td>eth_pullback_2h</td><td>7</td><td>14.3%</td><td class="neg">$-14.30</td></tr>
+<tr><td>ada_pullback_2h</td><td>3</td><td>0.0%</td><td class="neg">$-12.05</td></tr>
+<tr><td>xrp_pullback_2h</td><td>5</td><td>20.0%</td><td class="neg">$-9.37</td></tr>
+<tr><td>trend_donchian_xrp_4h</td><td>3</td><td>0.0%</td><td class="neg">$-1.85</td></tr>
+<tr><td>ict_scalp_5m</td><td>4</td><td>50.0%</td><td class="pos">+$3.17</td></tr>
+<tr><td>trend_donchian_eth_4h</td><td>2</td><td>50.0%</td><td class="pos">+$8.97</td></tr>
+</table></div>
+<h3><span class="pill paper">PAPER</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$885.49</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v ">— ↑</div></div>
+<div class="card"><div class="k">Trades</div><div class="v ">8</div></div>
+<div class="card"><div class="k">Win rate</div><div class="v ">37.5%</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Expectancy</div><div class="v ">+$110.69</div></div>
+<div class="card"><div class="k">Profit factor</div><div class="v ">4.49</div></div>
+<div class="card"><div class="k">Max drawdown</div><div class="v ">$-253.58</div></div>
+<div class="card"><div class="k">Wins</div><div class="v ">3</div></div>
+</div>
+<h3><span class="pill prop">PROP</span></h3>
+<div class="cards">
+<div class="card"><div class="k">Window P&amp;L</div><div class="v pos">+$0.00</div></div>
+<div class="card"><div class="k">Prior window</div><div class="v pos">+$0.00 →</div></div>
+<div class="card"><div class="k">Fills reported</div><div class="v ">27</div></div>
+<div class="card"><div class="k">Un-acted tickets</div><div class="v ">0</div></div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Daily-loss cushion</div><div class="v ">+$144.77</div></div>
+<div class="card"><div class="k">Static-DD cushion</div><div class="v ">+$125.61</div></div>
+<div class="card"><div class="k">Tickets emitted</div><div class="v ">52</div></div>
+</div>
+<h3>Per-trade decision dossiers</h3>
+<p class="muted">— full dossiers, — summarized (—).</p>
+<p class="section-empty">No trades in this window.</p>
+<h2>Market context</h2>
+<div class="tablewrap"><table><tr><th>Symbol</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>% chg</th><th>Note</th></tr>
+<tr><td>BTCUSDT</td><td>—</td><td>64130.0</td><td>—</td><td>—</td><td class="">—</td><td>Chop — donchian channel [76.12,77.83] on SOL and no breakout on any 4h leg; no strategy emitted an intent across sampled ticks.</td></tr>
+<tr><td>ETHUSDT</td><td>—</td><td>1936.0</td><td>—</td><td>—</td><td class="">—</td><td>Range-bound; every eth_pullback builder returned &#x27;no trend-pullback-confirmation setup&#x27;.</td></tr>
+<tr><td>SOLUSDT</td><td>—</td><td>76.84</td><td>—</td><td>—</td><td class="">—</td><td>Inside channel [76.12,77.83]; no breakout, no liquidity sweep in last 12 bars.</td></tr>
+<tr><td>XRPUSDT</td><td>—</td><td>1.0368</td><td>—</td><td>—</td><td class="">—</td><td>Most active symbol by fills (6 fills/3d, largest gross notional); carries the open real-money short.</td></tr>
+<tr><td>AVAXUSDT</td><td>—</td><td>6.431</td><td>—</td><td>—</td><td class="">—</td><td>Flat to close; position fully closed (open_qty_signed 0).</td></tr>
+</table></div>
+<h2>ML / models <span class="grade">🟢 healthy</span></h2>
+<p class="section-empty">No model status in this report.</p>
+<h2>Review coverage</h2>
+<h3>Strategy promotion / demotion</h3><ul class='pri'>
+<li>WATCH (not yet DEMOTE) <b>eth_pullback_2h</b> — 30d real money: 7 trades, 14.3% win rate, -$14.30 — the single largest real-money loser. Below the n the M7 matrix needs for a demote verdict, so flagged not proposed.</li>
+<li>WATCH (not yet DEMOTE) <b>ada_pullback_2h</b> — 30d real money: 3 trades, 0% win rate, -$12.05. n far too thin for a verdict.</li>
+<li>WATCH (not yet DEMOTE) <b>xrp_pullback_2h</b> — 30d real money: 5 trades, 20% win rate, -$9.37. Together these three are essentially the whole 30d real-money loss.</li>
+<li class='muted'>No promotion or demotion is actionable, and the reason is a COVERAGE problem rather than a stance: real money closed ZERO trades in the window and only 29 in 30d, so no live leg accrued gate evidence. The only net-positive real legs are ict_scalp_5m (4 trades, 50%, +$3.17) and trend_donchian_eth_4h (2, 50%, +$8.97) — both also under-powered. NO strategy meets a promote gate; no strategy has enough n to justify a KILL/DEMOTE.</li></ul>
+<h3>ML training health</h3><div class='cards'>
+<div class="card"><div class="k">Cycles since last</div><div class="v ">2</div></div>
+<div class="card"><div class="k">Dataset builds OK</div><div class="v ">108</div></div>
+</div>
+<p class='muted'>HEALTHY — the strongest domain this window. Last cycle outcome &#x27;trained&#x27;, overall_rc 0. Manifests 68 ok / 0 failed / 3 skipped; dataset builds 108 ok / 0 failed / 2 skipped. Registry 95 models (3 advisory, 29 shadow, 62 candidate, 1 research_only). ZERO manifest_quarantine_tripped/quarantined events. Trainer VM up 25 days, load 0.02, head_sha f91e32b6 = current main. One watch item: trainer disk 83% (8G free). NOTE the lifecycle was sourced from the live VM&#x27;s /api/bot/ml/status, because the trainer-vm-diag relay silently truncated the command and reported success (BL-20260807, reproduced this run).</p>
+<div class="tablewrap"><table><tr><th>Soak</th><th>State</th><th>Detail</th></tr>
+<tr><td>pairs</td><td>progressing (first close ever)</td><td>2,483 scanned. The 2026-08-10 fix produced the sleeve&#x27;s FIRST close (by_event.close 1) and 2 half_open rows with cleanup_confirmed. BUT skip_state_unreadable is still 959/2483 = 38.6% CUMULATIVE — the log spans pre-fix rows, so this rate cannot grade the fix. Needs a post-fix-only window.</td></tr>
+<tr><td>netting-attribution</td><td>🔴 INERT — not progressing toward its purpose</td><td>global_mode=apply but apply_scope=not_allowlisted on every row, both bybit_1 and real-money bybit_2. Nothing is written to the money DB; divergence accrues (trade 4529 ict_scalp_sol_15m: journal 26.7 vs exchange 3.1, basis leg_gone).</td></tr>
+<tr><td>allocator</td><td>accruing but headline contaminated</td><td>173 scanned, disagree 52.0%, mean_regret 0.619 — CONFIRMED the real-vs-prop variant-pair artifact (BL-20260806): the sampled tick&#x27;s two candidates are eth_pullback_2h vs eth_pullback_prop_2h, the same setup on two books.</td></tr>
+<tr><td>exit-ladder</td><td>measured structural zero</td><td>411 scanned (api 378 / prop 33), differing 0.0%, laddered_rows 0. Honestly declared as a structural zero — no live strategy emits a multi-rung exit — rather than an unrun comparison. Exemplary provenance.</td></tr>
+<tr><td>exposure</td><td>now accruing (first weekday readings)</td><td>bybit_2 (real money) 0.9888x, bybit_portfolio 1.0513x, bybit_1 0.5516x, ib_paper 0.4442x. breakout_1/ib_live correctly measured:false (equity_unavailable), NOT reported as flat. Every account policy_declared:false — no ceiling anywhere. max_multiple over a full window still needed before a ceiling VALUE can be set.</td></tr>
+<tr><td>fc-geometry / news</td><td>accruing</td><td>No anomaly surfaced this window.</td></tr>
+</table></div>
+<h3>Execution capture <span class='muted'>— did the edge reach the account?</span></h3>
+<div class="tablewrap"><table><tr><th>Strategy</th><th>Book</th><th>n</th><th>Round-trip %</th><th>Giveback R</th><th>Hold h (act/exp)</th><th>State</th></tr>
+<tr><td>ALL strategies (4d window)</td><td>paper</td><td>6</td><td>0.0%</td><td>6.09</td><td>4.60 / 1.00</td><td>🟡 degraded</td></tr>
+<tr><td>ict_scalp_sol_5m</td><td>paper</td><td>1</td><td>—</td><td>—</td><td>102.80 / 0.50</td><td>🔴 anomaly</td></tr>
+<tr><td>ict_scalp_sol_15m</td><td>paper</td><td>1</td><td>—</td><td>—</td><td>100.20 / 1.50</td><td>🔴 anomaly</td></tr>
+<tr><td>ict_scalp_avax_5m</td><td>paper</td><td>1</td><td>—</td><td>—</td><td>26.20 / 0.50</td><td>🔴 anomaly</td></tr>
+<tr><td>real-money legs</td><td>real_money</td><td>0</td><td>—</td><td>—</td><td>— / —</td><td>🟡 degraded</td></tr>
+</table></div>
+<p class='pri'>🔴 <b>ict_scalp_* (sub-hour legs)</b>: Holding 26-103 hours against a 5m/15m timeframe — one to two orders of magnitude over expected — and exiting via reconciler_filled / intent_reduce, NEVER via tp or sl. The per-trade bracket is not what ends these trades. <span class='muted'>(open 3 review(s), since 2026-07-30, PB-20260730-SCALP-CAPTURE-STANDING-WATCH) ⚠️ ESCALATE</span></p>
+<p class='muted'>Measured via m20_exit_analysis (4d + 14d) on the trainer. THE POPULATION IS THE HEADLINE: the 4d window holds 6 closes, ALL PAPER, zero real-money — so its clean 0.0% roundtripper rate is over a sample far too thin to clear the standing anomaly, and mean_giveback 6.09R against mean_r 8.997 says most value reached was still handed back. The 14d window still shows 5m/15m legs holding 100h+. Dollars reconciled against /api/bot/pnl/exchange and /api/bot/pnl/broker-truth, with the population stated: the exchange-fills store is NOT account-filtered, so its 3d +$2,732.76 / 7d -$7,374.75 are dominated by paper bybit_1/bybit_portfolio and are NOT real-money P&amp;L. Real money over 30d is -$25.16 at pnlCoverage 0.931. · dollars reconciled: True</p>
+<h3>Flags raised</h3>
+<ul class='pri'><li>🚩 HIGH: trader tick chain at 251s mean / 296s max — 1-2 orders of magnitude over what its components claim, attributed to 52 serial per-strategy market-data fetches. Same failure mode as the June 2026 wedges.</li><li>🚩 HIGH: netting-attribution remediation is INERT — global mode &#x27;apply&#x27;, allowlisted for no account, including real-money bybit_2. Divergence keeps accruing (trade 4529: journal 26.7 vs exchange 3.1).</li><li>🚩 HIGH: the FCM push channel is structurally dark (device_tokens = 0) — every latched alert reaches nobody.</li><li>🚩 HIGH (AGED — open 3 consecutive reviews, since 2026-07-30): ict_scalp_* (sub-hour legs) still holding 26-103 hours against a 5m/15m timeframe and exiting via reconciler/intent_reduce, NEVER via tp or sl. Tracked by PB-20260730-SCALP-CAPTURE-STANDING-WATCH. Escalated per the anti-normalization rule — an execution defect surviving two reviews is by definition being walked past.</li><li>🚩 MEDIUM: real-money bybit_2 observed at 0.9888x gross exposure with no ceiling declared on any account.</li><li>🚩 MEDIUM: prop rule-distance cushion rendered from a 21-day-stale snapshot with no staleness marker.</li><li>🚩 MEDIUM: ict_scalp_mgc_15m cannot evaluate (no MGC 15m candles) while holding a live 105-contract position.</li><li>🚩 MEDIUM: review tooling failed quietly three ways this session (relay allowlist gap, invented rejection cause, trainer relay silent truncation) — two fixed, one filed.</li></ul>
+<h2>Monitoring <span class='muted'>— soaking / awaiting decision</span></h2>
+<div class="tablewrap"><table><tr><th>Item</th><th>Domain</th><th>State</th><th>What it’s waiting on</th><th>Next check</th></tr>
+<tr><td><code>BL-20260809-EXPOSURE-SOAK-NOT-YET-TAKEN</code></td><td>health</td><td>⏳ soaking</td><td>Exposure soak now accruing on weekdays; first readings taken. Needs summary.by_account max_multiple over a full window.</td><td>once c80a318 merges, pull /api/bot/exposure/soak summary</td></tr>
+<tr><td><code>BL-20260807-PAIRS-STATE-UNREADABLE-38PCT</code></td><td>health</td><td>🔁 verify</td><td>Fix landed 2026-08-10 and produced the sleeve&#x27;s FIRST-EVER close (by_event.close 1 of 2,483 scanned). But skip_state_unreadable is still 959/2483 = 38.6% CUMULATIVE — the log spans pre-fix rows, so the cumulative rate cannot grade the fix.</td><td>post-fix-only window: skip_state_unreadable rate over rows logged after 2026-08-10, and close count continuing to rise</td></tr>
+<tr><td><code>PB-20260730-SCALP-CAPTURE-STANDING-WATCH</code></td><td>performance</td><td>🧱 awaiting-data</td><td>4d window is clean (roundtrippers 0.0%) but n=6 and all paper; 14d still shows 5m/15m legs holding 100h+.</td><td>a window with &gt;=20 scalp closes</td></tr>
+<tr><td><code>MB-20260727-CONVICTION-AB-AUC</code></td><td>ml</td><td>🧱 awaiting-data</td><td>Matched-holdout AUC read on identical live rows.</td><td>sufficient matched live rows</td></tr>
+</table></div>
+<footer>report_id RPT-20260810-051500-since-last · reviewer claude · prior RPT-20260807-145500-since-last · ICT Trading Bot system-report</footer></div></body></html>

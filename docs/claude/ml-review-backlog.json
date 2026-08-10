@@ -2395,7 +2395,7 @@
       "status": "open",
       "tier": "T1",
       "trigger_condition": "Next ml-review / trainer-unit hardening pass; before the registry grows further.",
-      "updated_at": "2026-07-19T16:40:00+00:00",
+      "updated_at": "2026-08-10T05:05:00+00:00",
       "evidence_log": [
         {
           "at": "2026-07-19T16:40:00+00:00",
@@ -2442,6 +2442,14 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
       ]
     },
@@ -2745,8 +2753,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "MB-20260728-ICTSCALP-EXIT-LEVERS",
@@ -2782,8 +2799,17 @@
           "at": "2026-08-07T14:55:00+00:00",
           "by": "claude (/system-review since-last, session full-system-review-ma0ava)",
           "note": "Triaged by /system-review 2026-08-07 against live state captured 14:36Z (services, diag status, exchange positions, 37 in-window closed trades, 36 open positions, trainer cycle log, the four soak surfaces). No evidence bearing on this row surfaced in this window and no fix landed for it. Recording no-change explicitly rather than asserting a re-validation I did not perform. Kept open."
+        },
+        {
+          "at": "2026-08-10T05:05:00+00:00",
+          "by": "system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z)",
+          "disposition": "kept_open",
+          "note": "Triaged in the system-review 2026-08-10 (RPT since-last, window from 2026-08-07T14:55Z) full-backlog pass. This run produced NO new evidence bearing on this item — the state I pulled (live diag: services/heartbeat/tick_cost/db_info/positions/balances/exchange_positions/notifications; performance 24h+7d; exchange-truth PnL; the pairs/allocator/exit-ladder/fc-geometry/netting/exposure soaks; ML lifecycle via /api/bot/ml/status; m20_exit_analysis on the trainer) does not touch it. Carried forward unchanged rather than restated as re-validated — recording a re-check I did not perform would be the exact dishonesty the review rules forbid.",
+          "next_check": "needs a targeted evidence pull or research run of its own; not resolvable from a review-window state pull",
+          "evidence_based": false
         }
-      ]
+      ],
+      "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
       "id": "MB-20260716-BUILDPARAMS-IGNORED",
