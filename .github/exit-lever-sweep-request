@@ -1,29 +1,53 @@
 # Sentinel — touching this file fires m20-exit-lever-sweep from the branch.
 # The `legs:` line below is READ BY THE PLAN JOB, not decoration.
 #
-# 2026-08-10 (3rd dispatch) — THE TWO LEGS WHOSE BASE WAS NOT CONFIG-EXACT.
+# 2026-08-10 (4th dispatch) — THE PATH B FLOOR POPULATION.
 #
-# `base_args::declared_levers()` threaded the stale, giveback and trail-DECAY
-# levers and OMITTED the trail-VOL one, while both harnesses had carried
-# `--trail-vol-*` all along. Exactly two census legs declare an ARMED vol-trail
-# lever, so exactly two legs were measured against a baseline missing a lever
-# that is armed in live:
+# WHAT THIS RUN IS FOR, and why it is the full census default rather than a
+# targeted pair. The operator's standing ask is a Path B drawdown-tolerance
+# floor derived from capital-utilisation + PnL data instead of picked. The
+# predictor a floor would sit on is the base book's net_R-per-drawdown RATE —
+# and that rate is a property of the LEG, not the cell: every cell swept on a
+# leg shares its single value.
 #
-#   trend_donchian_eth   below_pctl 0.1 / tight 2.5   (cold tail)
-#   qqq_pullback_1h      above_pctl 0.8 / tight 2.5   (hot tail)
+# So the population that matters is DISTINCT LEGS, not rows. Ten legs x ~10
+# cells is ~100 rows over TEN predictor values, and the cells within a leg are
+# re-measurements of one book under different levers — they share its trades,
+# its regime and its drawdown. `m20_path_b_floor.py` therefore refuses to test
+# a floor that does not separate at least 4 distinct legs per side, however
+# many cells it has, because a test assuming independence would inflate the
+# effective n by the cells-per-leg ratio and hand back a significant-looking p
+# for what is really a ten-point comparison. That failure would be worse than
+# guessing the floor: it would arrive dressed as significance.
 #
-# Both A/B arms omitted it, so each prior delta is internally consistent; what
-# is unverified is its TRANSPORT to the live book, since exit levers interact —
-# a cold-vol-tightened trail changes which trades a decay or stale rule ever
-# sees. This run measures the same cells against the book we would deploy onto.
+# Sweeping two legs would therefore produce `insufficient_population` by
+# construction. The census default is the widest leg set already justified by
+# measurement (the ten carrying the most R at the giveback ladder's 1R rung),
+# so it is the population, not a convenience.
 #
-# WHAT IT DECIDES. Rows 1-2 of the Tier-3 promotion packet — `decay_stall10_t2.5`
-# and `stale12_lt0R` on trend_donchian_eth, two of the three live-leg winners —
-# are HELD on this run. If they still clear Path A on the corrected base they
-# ship; if they do not, the packet loses two rows and says so.
+# WHAT IS NEW ON THIS RUN, and why the numbers are not comparable to the 3rd
+# dispatch's on one axis:
 #
-# qqq_pullback_1h carries no held row (its two Path B candidates already failed
-# the folds) — it is here because it is the other affected leg and a rejection
-# measured on a wrong base is no more trustworthy than an acceptance.
-legs: trend_donchian_eth,qqq_pullback_1h
-dispatch: 2026-08-10 re-run on the corrected config-exact base (trail-vol threaded)
+#   1. `verdicts.json` now carries `base_book` per window for EVERY leg — the
+#      rate above. It was previously computed only inside a Path B candidate's
+#      entry, i.e. only for cells that had ALREADY passed the Path B predicate,
+#      which conditions the corpus on the outcome (an inefficient book is
+#      exactly the one most likely to admit a candidate). This run is the first
+#      whose rows carry the axis for legs that produced no candidate at all.
+#
+#   2. A new `corpus` job merges the run into
+#      `docs/research/m20-sweep-corpus.jsonl` and commits it. Before this the
+#      evidence went to an Actions artifact no session can download, so every
+#      sweep restarted the population from zero.
+#
+# The cells and the gate are UNCHANGED from the 3rd dispatch — same
+# config-exact base (trail-vol threaded), same live-parity geometry
+# (tp_cap_pct 0.099), same IS/OOS split. Nothing here re-opens a verdict; it
+# records the axis those verdicts were already being judged against.
+#
+# NOT A PROMOTION RUN. No cell from this sweep ships without the operator's
+# Tier-3 call, and the floor itself is a recommendation to be made in the
+# morning — with `insufficient_population` a fully acceptable answer if that is
+# what the data says.
+legs: trend_donchian_1h,trend_donchian_eth,trend_donchian,trend_donchian_eth_prop,htf_pullback_trend_2h,spy_pullback_1h,eth_pullback_2h,qqq_pullback_1h,avax_pullback_2h,trend_donchian_sol
+dispatch: 2026-08-10 Path B floor population — 10 census legs, base_book recorded for every leg, corpus committed
