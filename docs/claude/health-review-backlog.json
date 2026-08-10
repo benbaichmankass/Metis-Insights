@@ -11246,6 +11246,28 @@
         ".github/workflows/ict-scalp-exit-sweep.yml",
         "docs/CLAUDE-RULES-CANONICAL.md#always-state-the-population"
       ]
+    },
+    {
+      "id": "BL-20260810-ICTSCALP-AVAX-QTY-EXCEEDS-VENUE-MAX",
+      "opened_at": "2026-08-10T00:40:00+00:00",
+      "opened_by": "claude (m20-ladder session, spotted in a diag pull for an unrelated task)",
+      "status": "open",
+      "tier": 2,
+      "severity": "high",
+      "area": "order-path",
+      "title": "ict_scalp_avax_5m places NOTHING on bybit_1 — every order is EXCHANGE_REJECTED for exceeding Bybit's AVAXUSDT max_qty",
+      "source": "MEASURED via /api/diag/journal?table=trades 2026-08-10T00:39Z. Trades 4532, 4526, 4524, 4522, 4521 (and the row after) are all status='exchange_rejected', strategy ict_scalp_avax_5m, account bybit_1, identical cause: 'The number of contracts exceeds maximum limit allowed: too large, order_qty:2655280000000 > max_qty:2200000000000 (ErrCode: 10001)'. Sizes 26,552-33,220 AVAX.",
+      "what_to_check": "POPULATION, stated honestly: 5 rejections were visible in the newest ~12 journal rows the diag response returned BEFORE it truncated (the response hit its comment budget at ~18KB of 577KB). I have NOT counted the full rate or the denominator. What IS established: they span 2026-08-09T01:04Z -> 2026-08-10T00:11Z, i.e. AT LEAST ~23 hours, and every AVAX row I saw in that window is a rejection — I saw no successful ict_scalp_avax_5m open on bybit_1 at all.\n\nThis is the STRANDED-CAPABILITY shape the Prime Directive exists for, reached by a different route than an env gate: the strategy is enabled: true / execution: live in config/strategies.yaml and reads as healthy on every status surface, while placing nothing. It is not refusing per-trade for a risk reason (which would be correct and logged as such) — the order reaches Bybit and is bounced.\n\nThe sizing is producing a qty above the VENUE's per-order maximum for AVAXUSDT. RiskManager already legalises qty against min_qty / qty_step / whole-unit rules (see BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR and the qty-legalization-guard seam) — a per-instrument MAX appears to have no equivalent, so nothing clamps or splits the order before submission.",
+      "action": "(1) Confirm the rate + denominator over the full journal (this session only saw a truncated head). (2) Decide the correct behaviour and put it in the ONE legalisation seam rather than a second bespoke check: clamp to the venue max, split across orders, or refuse with an honest journalled cause. A silent repeat-reject is the worst of the three because it looks like a live strategy. (3) Check whether other high-notional alt legs (XRP at 208k units, SOL) sit near their own venue caps — AVAX may be first, not alone.",
+      "resolution_criteria": "ict_scalp_avax_5m either places orders on bybit_1 or refuses them with a journalled, operator-visible cause; no strategy sits enabled+live while every order it emits is bounced by the venue.",
+      "snoozed_until": null,
+      "refs": [
+        "src/units/accounts/risk.py",
+        "src/units/accounts/execute.py",
+        "config/strategies.yaml",
+        "scripts/check_qty_legalization_guard.py",
+        "docs/claude/health-review-backlog.json#BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR"
+      ]
     }
   ],
   "updated_at": "2026-08-10T01:20:00+00:00",
