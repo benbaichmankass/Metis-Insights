@@ -11441,8 +11441,32 @@
         "scripts/research/m20_fleet_exit_sweep.py",
         "BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS"
       ]
+    },
+    {
+      "id": "BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP",
+      "opened_at": "2026-08-10T03:15:00+00:00",
+      "opened_by": "claude (m20-exit-continue-g1qv46)",
+      "status": "open",
+      "tier": 1,
+      "severity": "critical",
+      "area": "m20-exit-refinement",
+      "title": "the trail families place a REAL ~1.3-5R take-profit live and the harness models it at 50R -- 30 legs' exit verdicts were measured against an exit geometry production does not run",
+      "source": "MEASURED 2026-08-10 by reading the live signal builders against the harnesses.\n\nLIVE: trend_donchian.py, htf_pullback_trend_2h.py and fade_breakout_4h.py each\ndefine _TP_SENTINEL_CAP_PCT = 0.099 and place\n    tp = min(entry * 1.099, entry + tp_r * risk)\nThe 50R 'sentinel' is CLAMPED to 9.9% from entry because Bybit rejects a TP\nfurther than ~10% (ErrCode 10001, hit on every trend_donchian short at BTC ~75k\non 2026-05-27, PR #2141). So the live order carries a real, resting,\nexchange-side take-profit.\n\nBACKTEST: neither scripts/backtest_trend.py nor scripts/backtest_pullback.py\ncontains the cap, tp_r, or any tp assignment. backtest_pullback.py line 10 states\nthe premise outright: 'the tp_r (~50R) sentinel is parked far from price'. The\nharness therefore simulates a trade whose ONLY profit-exit is the Chandelier\ntrail.\n\nHOW REACHABLE THE LIVE TP ACTUALLY IS. TP distance in R = 0.099 /\n(atr_stop_mult * ATR%). At atr_stop_mult 2.5 (every 2h crypto pullback leg):\n  ATR% 0.5% -> 7.9R   1% -> 4.0R   2% -> 2.0R   3% -> 1.3R\nA 2h crypto leg running 2-3% ATR has its live take-profit at 1.3-2.0R. That is\nan ordinary, frequently-touched target -- not a sentinel.\n\nCONSEQUENCE 1 (operator-reported, now explained): the operator reports live\ntrades repeatedly running to within a hair of take-profit and then reversing into\na loss. On these legs that is mechanically expected, and the 2026-08-10 capture\ncensus could not see it -- the census measured the harness, where the TP is at\n50R and never binds, so it reported near-miss as inapplicable on 40 of 43 legs.\nThe census is not evidence against the observation; it is blind to it.\n\nCONSEQUENCE 2 (the larger one): every exit-lever verdict for these 30 legs --\ntrail_geometry, stale_stop, giveback_stop, trail_decay, vol_trail -- was measured\non a book with no take-profit, against a live book that has one at ~1.3-5R. A\ntrail lever tuned where the trail is the sole exit is not the same lever where a\nhard TP truncates the right tail first. This is a live/backtest PARITY break in\nthe exit geometry itself, and it sits underneath M20's 266 honest_negatives.",
+      "what_to_check": "The ATR% figures above are illustrative ranges, NOT measured -- compute the\nreal per-leg distribution of 0.099/(atr_stop_mult*ATR%) from each leg's own\nframe before quoting an R number for that leg. Also confirm per venue: the\n9.9% clamp is a Bybit constraint, so an Alpaca/IBKR leg may place the\nuncapped 50R TP and genuinely never bind -- in which case the parity break\nis crypto-only and the equities legs are fine. Do not assume it is uniform.",
+      "action": "Teach the harnesses the live TP: add the same cap to backtest_trend.py /\nbacktest_pullback.py / backtest_fade.py behind an explicit flag so the A/B\n(capped vs uncapped) is itself measurable, then RE-RUN the census and re-open the\naffected exit-lever cells. Until that lands, treat trail-family exit verdicts as\nmeasured-on-the-wrong-geometry rather than as settled negatives.",
+      "resolution_criteria": "The harness reproduces the live TP placement for every leg that has one,\ndemonstrated by a parity check on real closed trades, and the affected\ncoverage-matrix cells are re-measured or explicitly re-opened.",
+      "snoozed_until": null,
+      "refs": [
+        "src/units/strategies/trend_donchian.py",
+        "src/units/strategies/htf_pullback_trend_2h.py",
+        "src/units/strategies/fade_breakout_4h.py",
+        "scripts/backtest_trend.py",
+        "scripts/backtest_pullback.py",
+        "docs/research/exit-refinement-coverage.json",
+        "BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL"
+      ]
     }
   ],
-  "updated_at": "2026-08-10T02:55:00+00:00",
+  "updated_at": "2026-08-10T03:15:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
