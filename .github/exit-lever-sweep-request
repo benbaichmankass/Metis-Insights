@@ -1,21 +1,27 @@
 # Sentinel — touching this file fires m20-exit-lever-sweep from the branch.
+# The `legs:` line below is READ BY THE PLAN JOB, not decoration.
 #
-# 2026-08-10 — SCALP FAMILY, all 7 legs.
+# 2026-08-10 (2nd dispatch) — DONCHIAN + PULLBACK, the census top-10.
 #
-# WHAT THIS RUN IS FOR: the be_touch_arm cell. The census bounded the near-TP
-# reversal prize at 24 of 2,385 scalp losers (1.01%), ceiling 60.0R = 3.70% of
-# gross, and the 4-trade smoke A/B showed the lever is LIVE (one timeout became
-# a be_stop) and settled nothing — it came out 0.022R WORSE, because arming on
-# a touch also scratches trades that dip and recover. That cost is the open
-# question and only a real-data run over both windows answers it.
+# WHY RE-RUN a set already swept: the sweep now emits three things this set has
+# no record of, and all three are inputs to decisions the operator has just
+# approved.
 #
-# The three stale/giveback scalp cells ride along: they have never been swept
-# at live-parity TP geometry (tp_cap_pct 0.099), and every scalp verdict on
-# record predates BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP.
+#  1. THE PATH B WALK-FORWARD. A Path B candidate used to short-circuit to
+#     `is_oos_fail` BEFORE any walk-forward ran, so the five Path B candidates
+#     from this set carry ZERO generalisation evidence — and they are exactly
+#     the population a drawdown tolerance would promote from.
+#  2. THE DERIVED DRAWDOWN TOLERANCE (operator directive: evidence, not a
+#     guess). Per leg, from that leg's own net_R-per-drawdown rate.
+#  3. THE SELECTION DENOMINATOR per leg, so a per-leg winner is never reported
+#     without the number of cells it beat (~440 comparisons fleet-wide).
 #
-# The `legs:` line below is READ BY THE PLAN JOB, not decoration. A push
-# carries no dispatch inputs, so without it this file's prose would say "scalp
-# family" while the run swept the ten-leg donchian/pullback default.
-# ict_scalp_mgc_15m is deliberately absent — blocked:data_missing.
-legs: ict_scalp_5m,ict_scalp_sol_5m,ict_scalp_xrp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_sol_15m,ict_scalp_xrp_15m
-dispatch: 2026-08-10 scalp family, live-parity geometry (retry after the --start/--end fix)
+# It also fixes the reporting defects found since: the four net_R shapes
+# (both / IS-only overfit / OOS-only artifact / neither) are no longer collapsed
+# under one mislabelled bucket, and the "d netR OOS" column is now gate-sourced.
+#
+# The 7 Path A PASSes in this set are the Tier-3 promotion the operator approved;
+# this run regenerates them WITH their denominators so the packet cites evidence
+# rather than reconstructing it from comment history.
+legs: trend_donchian_1h,trend_donchian_eth,trend_donchian,trend_donchian_eth_prop,htf_pullback_trend_2h,spy_pullback_1h,eth_pullback_2h,qqq_pullback_1h,avax_pullback_2h,trend_donchian_sol
+dispatch: 2026-08-10 donchian+pullback re-run — Path B walk-forward + derived dd tolerance + selection denominators
