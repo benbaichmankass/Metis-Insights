@@ -129,6 +129,57 @@ this session's own, all dated.
 - M20 remaining: `exit_head_ml` (equities/native-futures/`ict_scalp`) and
   `exit_ladder` (8 `ict_scalp` legs, `blocked:no_harness_levers`).
 
+## CORRECTION — this log shipped a defect it recorded as validated
+
+**Written after the fact. The "Validation Performed" section above is true but
+insufficient, and a future session should read it as a caution, not a model.**
+
+The explosion published **"304/376 = 80.9% across 47 live legs."** Two of those
+cells **did not exist**: `squeeze_breakout_4h` and `fvg_range_15m` were missing
+the `vol_trail` column outright — not `pending`, absent. The roll-up did
+`r.get(col)` per row × column and counted the `None` from a **missing key** as
+if it were a status. Counted 400 cells; 398 existed.
+
+**Caught by another session**, not by me or by CI — corrected to **308/376 =
+81.9%** on a complete denominator, with both gaps filled by AST-checking the
+harness CLIs (`squeeze` has `--trail-mult` but no `--trail-vol-above-pctl` →
+`blocked:no_harness_levers`; `fvg` has no `--trail-mult` at all → `n/a`).
+
+Three things make this the sharpest item in this log:
+
+1. It is **the collapsed-states class** — "missing" indistinguishable from
+   "needs no verdict" — in the artifact that measures M20's own done-condition.
+   This session filed the backlog row naming that class, in the same PR.
+2. It breaks **RULE ONE #2** (*a negative result needs a denominator*), which
+   this same session had written and merged hours earlier.
+3. **The roll-up's own output printed the evidence.** The status table listed
+   `None 3`, then `None 2`. Those were the missing cells, on screen, in the
+   author's own output. Not a check skipped — a signal displayed and read past.
+
+Enforcement gap filed: `BL-20260810-ROLLUP-DENOMINATOR-UNASSERTED`. The
+`collapsed-state-guard` added the same day polices declared three-state
+contracts **in code**; this is a data artifact with a missing field and an
+aggregate that buckets the absence — same class, different substrate, outside
+its scope.
+
+**A second correction, also from another session.** This session's handoff
+prompt told the next one to *"budget for honest negatives"* on the `ict_scalp`
+ladder sweep, citing the fleet-wide banking prior. They refused to pre-write
+verdicts from it, correctly: the prior's stated mechanism is *"strategies whose
+edge IS the fat right tail"*, and `ict_scalp` has none — every leg is a fixed
+`tp_at_r 1.5` bracket. **A prior accepted for the wrong reason is not a prior.**
+Passing it forward unchecked would have biased their sweep toward the answer
+this session expected.
+
+**And the handoff named a branch with an open, unmerged PR** — the one carrying
+the defect above. `session-handoff` § "No loose ends" already forbids that
+(binding, operator-directed 2026-08-04: *the foundation must be ready before
+anyone is told to stand on it*). Auto-merge was armed, so the letter was met;
+the branch was still not a sound base, which is what the rule is for. The
+successor joined that branch **deliberately and correctly** — a fresh branch off
+`main` could not have fixed an in-flight defect, because `main` did not yet have
+the change.
+
 ## The reusable lesson: my own verification was the thing that failed
 
 Four times, and never on a hard check — always a one-liner that looked
