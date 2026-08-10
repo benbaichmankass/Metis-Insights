@@ -11097,7 +11097,7 @@
       "source": "Observed while registering `api-tier-policy-guard`, then VERIFIED by running `python3 scripts/ci/run_guards.py --only api-tier-policy-guard --all`, which printed `(skipped: step not relevant to this diff)` for the `when`-gated step while the ungated step ran. Mechanism, in scripts/ci/run_guards.py::main: `changed = [] if args.all else changed_files(...)`. `--all` sets force_all, which bypasses relevance for the GUARD, but the per-STEP check in run_guard() calls `is_relevant(step['when'], changed)` against that same EMPTY `changed` list — so a per-step `when` with globs can never match under `--all`.",
       "title": "Per-step `when` clauses are silently SKIPPED on push/workflow_dispatch, so guards.yml's 'on push, run EVERYTHING' is nominal rather than real for step-gated guards",
       "tier": 1,
-      "status": "open",
+      "status": "resolved",
       "snoozed_until": null,
       "severity": "low",
       "what_to_check": "guards.yml says in a comment that push/workflow_dispatch runs `--all` because there is no PR diff to scope by, and that this is 'stricter than the retired per-workflow push behaviour, never weaker'. For guards whose SCAN lives in a `when`-gated step that is exactly inverted: the guard is selected, its ungated steps run, and its scan is skipped. AFFECTED (grep for a step dict carrying 'when'): `diagnostic-provenance-guard` — its scan step is `{'argv': [...check_diagnostic_provenance.py, '{pr_diff}'], 'when': {'regex': '^scripts/.*\\\\.py$'}}`, so on a push to main only its self-test runs and the scan does not. Others should be enumerated rather than assumed — I only confirmed the mechanism and the one instance I was sitting next to. NOT a live-trading issue and NOT urgent: the diff-scoped PR path is the one that actually gates merges, and it works. The cost is that the push-time 'run everything' is weaker than the comment claims, which is the sort of thing that reads as coverage when it is not — the same green-that-checked-nothing shape the repo already tracks.",
@@ -11107,10 +11107,15 @@
       ],
       "refs": [
         "scripts/ci/run_guards.py",
-        ".github/workflows/guards.yml"
-      ]
+        ".github/workflows/guards.yml",
+        "scripts/ci/run_guards.py",
+        ".github/workflows/guards.yml",
+        "tests/test_run_guards_step_scoping.py"
+      ],
+      "resolved_at": "2026-08-10T01:10:00+00:00",
+      "resolution_note": "RESOLVED — but NOT by the fix this item proposed, and the correction is the point. The item offered (a) 'under force_all, treat a per-step `when` as satisfied — one line, and it makes the comment true'. MEASURED before implementing: BOTH step-gated commands in the registry (the only two — `api-tier-policy-guard` and `diagnostic-provenance-guard`) consume `{pr_diff}`, and on push that file is EMPTY. Forcing them to run makes `check_diagnostic_provenance.py` print 'OK - every scanned diagnostic states what it computed' and exit 0 having scanned NOTHING. Option (a) would have made the comment true and the CHECK false — manufacturing exactly the green-that-checked-nothing this repo treats as worse than a red. Substituting the whole-tree equivalent is not a drop-in either: `check_diagnostic_provenance.py --all` exits 1 on 52 pre-existing grandfathered sites (that is WHY it is diff-scoped), so wiring it to push would redden `main` on every merge. SO THE SKIP IS CORRECT AND STAYS. What was actually wrong was that it was INDISTINGUISHABLE from an ordinary not-relevant skip — the reader could not tell 'we asked about this diff and it did not apply' from 'there was no diff to ask about'. SHIPPED: (1) `run_guard()` takes `no_diff_scope`/`unscoped` and names the real reason on the skip line; (2) the run summary prints a 'NOT SCANNED on this event (N)' block listing those steps and stating that a guard needing real push coverage must carry an UNGATED whole-tree step; (3) `guards.yml`'s 'stricter ... never weaker' comment — the actual defect, since it was the claim that made the gap invisible — is corrected in place; (4) `tests/test_run_guards_step_scoping.py` pins the distinction, AND asserts the premise the decision rests on (every step-gated command consumes `{pr_diff}`; the population is exactly those two guards) so a future step that scans the whole tree fails the test rather than silently inheriting reasoning that no longer applies to it. NOTE the affected population was 2, not the 'several' this item guessed at — the guess is corrected here rather than left standing."
     }
   ],
-  "updated_at": "2026-08-09T23:55:00+00:00",
+  "updated_at": "2026-08-10T01:10:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

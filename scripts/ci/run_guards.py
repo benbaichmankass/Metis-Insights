@@ -114,11 +114,14 @@ GUARDS: List[Dict[str, Any]] = [
             #      the same hole in the other direction.
             #   2. A per-STEP `when` is evaluated against `changed`, which is
             #      EMPTY under `--all` (push / workflow_dispatch) — so a
-            #      `when`-gated step is silently SKIPPED on exactly the events
+            #      `when`-gated step never runs on exactly the events
             #      guards.yml intends to run everything. Leaving this ungated
-            #      is what makes the push-time audit real rather than nominal.
-            #      (Filed as BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH — several
-            #      sibling guards have the same shape and are not fixed here.)
+            #      is what makes the push-time audit real rather than nominal,
+            #      and it is the pattern BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH
+            #      settled on: the skip itself is CORRECT (a diff-consuming step
+            #      given an empty diff would report a green that scanned
+            #      nothing), so a guard wanting push coverage carries a
+            #      whole-tree step instead of relying on the gated one.
             # Costs ~0.15s: an AST pass over ~40 router files plus one regex
             # pass over the doc. Cheap enough that gating it would be the more
             # expensive decision.
@@ -503,8 +506,21 @@ def _git_is_clean(path: str) -> bool:
     return rc == 0
 
 
-def run_guard(guard: Dict[str, Any], ctx: Dict[str, str], changed: Sequence[str]) -> Optional[str]:
-    """Run one guard. Returns None on pass, or a failure reason string."""
+def run_guard(
+    guard: Dict[str, Any],
+    ctx: Dict[str, str],
+    changed: Sequence[str],
+    no_diff_scope: bool = False,
+    unscoped: Optional[List[str]] = None,
+) -> Optional[str]:
+    """Run one guard. Returns None on pass, or a failure reason string.
+
+    ``no_diff_scope`` says there is no PR diff to scope relevance by (push /
+    workflow_dispatch / --all). ``unscoped`` collects the steps skipped for
+    that reason so the summary can report them instead of burying them.
+    """
+    if unscoped is None:
+        unscoped = []
     for step in guard["steps"]:
         if isinstance(step, list):
             step = {"argv": step}
@@ -513,8 +529,39 @@ def run_guard(guard: Dict[str, Any], ctx: Dict[str, str], changed: Sequence[str]
             continue
         # A per-STEP relevance clause: used where a guard must always exercise
         # its self-test but only scan on a relevant diff.
+        #
+        # BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH. `changed` is EMPTY under
+        # --all (push / workflow_dispatch), so a globs/regex `when` can never
+        # match there and the step is always skipped. That surprised a reader
+        # of guards.yml, which claims push runs everything "never weaker".
+        #
+        # MEASURED before changing anything, and the measurement killed the
+        # obvious fix. Both steps carrying a `when` today consume `{pr_diff}`,
+        # and on push that file is EMPTY: forcing them to run makes
+        # `check_diagnostic_provenance.py` print "OK — every scanned diagnostic
+        # states what it computed" and exit 0 having scanned nothing. Making
+        # the comment true would have made the CHECK false — a green that
+        # checked nothing, which is the one outcome this repo treats as worse
+        # than a red. Substituting the whole-tree `--all` equivalent is no
+        # better: it exits 1 on 52 pre-existing grandfathered sites, so it
+        # would redden `main` on every push.
+        #
+        # So the SKIP IS CORRECT and stays. What was wrong is that it was
+        # indistinguishable from an ordinary not-relevant skip. It now names
+        # the real reason, and the run summary counts these separately, so
+        # nobody has to re-derive this. A guard that wants genuine push-time
+        # coverage carries an UNGATED whole-tree step — see
+        # `api-tier-policy-guard`, whose `--all` step is deliberately unguarded.
         if "when" in step and not is_relevant(step["when"], changed):
-            print(f"    (skipped: step not relevant to this diff) {' '.join(step['argv'])}", flush=True)
+            if no_diff_scope:
+                reason = ("skipped: no PR diff to scope by on this event — this "
+                          "step consumes {pr_diff}, which is EMPTY here, so "
+                          "running it would report a green that scanned nothing "
+                          "(BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH)")
+                unscoped.append(f"{guard['name']}: {' '.join(step['argv'])}")
+            else:
+                reason = "skipped: step not relevant to this diff"
+            print(f"    ({reason}) {' '.join(step['argv'])}", flush=True)
             continue
         argv = _subst(step["argv"], ctx)
         rc = _run(argv)
@@ -603,6 +650,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     skipped: List[str] = []
     passed: List[str] = []
     notify: List[str] = []
+    # Steps skipped because this event carries no PR diff to scope by. Counted
+    # separately from ordinary not-relevant skips so push-time coverage is
+    # legible instead of assumed (BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH).
+    unscoped: List[str] = []
+    no_diff_scope = args.all or args.event_name not in ("pull_request", "merge_group")
 
     for guard in selected:
         name = guard["name"]
@@ -612,7 +664,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             continue
         print(f"\n--- {name}", flush=True)
         t0 = time.time()
-        reason = run_guard(guard, ctx, changed)
+        reason = run_guard(guard, ctx, changed, no_diff_scope, unscoped)
         dt = time.time() - t0
         if reason is None:
             passed.append(name)
@@ -627,6 +679,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     print(f"PASS {len(passed)} · FAIL {len(failures)} · SKIP {len(skipped)}")
     if skipped:
         print("skipped (not relevant): " + ", ".join(skipped))
+    if unscoped:
+        # Never let this read as coverage. On push the diff is empty, so these
+        # steps CANNOT scan anything; running them would print a green that
+        # checked nothing, and their whole-tree equivalents are not
+        # drop-in (diagnostic-provenance --all exits 1 on 52 grandfathered
+        # sites). Stated plainly so the next reader does not re-derive it.
+        print(f"\nNOT SCANNED on this event ({len(unscoped)}) — no PR diff to "
+              f"scope by; these steps consume {{pr_diff}}, which is empty here:")
+        for item in unscoped:
+            print(f"  - {item}")
+        print("  A guard needing real push-time coverage must carry an UNGATED "
+              "whole-tree step (see api-tier-policy-guard).")
     print("=" * 72)
 
     if args.notify_file and notify:

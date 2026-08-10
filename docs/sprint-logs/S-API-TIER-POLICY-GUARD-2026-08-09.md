@@ -68,9 +68,29 @@
 - Blockers: none.
 - **Filed:** `BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH` — under `run_guards.py --all` (push / workflow_dispatch), `changed` is empty, so a per-**step** `when` clause can never match and the step is silently skipped. `guards.yml` comments that push runs everything "stricter than the retired behaviour, never weaker"; for step-gated guards it is the reverse. Verified by observation, and `diagnostic-provenance-guard`'s scan step has the same shape. Not fixed here — the one-line fix flips behaviour for every step-gated guard at once and wants its own PR. `api-tier-policy-guard` sidesteps it by carrying its `--all` step **ungated**, which is also what makes the row-deletion case catchable.
 
+## Addendum — two follow-ons taken in the same session
+
+### A. My own test committed the defect class the guard catches
+
+`pytest-run` went red on `test_matches_the_live_fastapi_route_table`. The repo pins only `fastapi>=0.110.0`, so **CI resolved 0.141 while my venv had 0.115** — and on the newer version `include_router` leaves an `_IncludedRouter` wrapper exposing neither `.path` nor `.routes` (sub-routes hang off `.original_router.routes`). My one-level walk of `app.routes` therefore found **5** routes, and then reported all 92 enumerated routes as "not live".
+
+The bug was not the traversal. It was that **the probe never asserted its own denominator** — it compared a near-empty extraction against a real set and produced a confident, entirely wrong 92-line diff. That is sub-class **C** (unasserted denominator) from `CLAUDE.md` § "Diagnostic provenance", occurring inside the test written to validate a guard against that very class.
+
+Fixed by traversing **by structure, not version sniffing** (a version check would fail silently on the next rename, exactly as the original did), and by making an implausible extraction fail as *a broken probe* naming the real cause. Verified green under **both** 0.115.6 and 0.141.1, and `TestLiveRouteProbe` pins both shapes with stubs so the next regression is caught as a one-line assertion rather than an unreadable route dump.
+
+### B. `BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH` — resolved, but not by the fix I proposed
+
+The item offered option (a): *"under `force_all`, treat a per-step `when` as satisfied — one line, and it makes the comment true."* **Measuring first killed it.**
+
+Both step-gated commands in the registry — the only two, `api-tier-policy-guard` and `diagnostic-provenance-guard`, not the "several" the item guessed at — consume `{pr_diff}`, and on push that file is **empty**. Forcing them to run makes `check_diagnostic_provenance.py` print *"OK — every scanned diagnostic states what it computed"* and exit 0 having scanned nothing. **Option (a) would have made the comment true and the check false.** Substituting the whole-tree equivalent is no better: `--all` exits 1 on **52** pre-existing grandfathered sites (which is *why* it is diff-scoped) and would redden `main` on every merge.
+
+So the skip is correct and stays. The real defect was that it was **indistinguishable from an ordinary not-relevant skip** — a reader could not tell *"we asked about this diff and it did not apply"* from *"there was no diff to ask about"*. Shipped: the skip names its reason, the summary prints a `NOT SCANNED on this event (N)` block with the remedy, `guards.yml`'s "stricter … never weaker" claim (the thing that made the gap invisible) is corrected, and `tests/test_run_guards_step_scoping.py` pins the distinction **and the premise** — it fails if a future step-gated command stops consuming `{pr_diff}`, so the reasoning is re-derived rather than inherited.
+
+**The transferable bit:** both A and B are the same shape as the sprint that opened this file — *a claim asserted rather than verified*. In B the claim was mine, in my own backlog item, written the same day.
+
 ## Deferred Items
 - Deferred item 1: hardening `DELETE`/`PATCH /api/bot/devices` to the prop route's fail-closed shape (Tier 2 — a runtime change).
-- Deferred item 2: the `--all` step-skip fix above.
+- Deferred item 2: the 52 pre-existing `diagnostic-provenance --all` findings remain grandfathered. Not touched here; they are why that guard cannot run whole-tree on push.
 
 ## Next Recommended Sprint
 - Suggested next sprint: none required by this work. The guard is self-maintaining.

@@ -42,6 +42,41 @@ g = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(g)
 
 
+def _live_routes(app, _prefix: str = "", _depth: int = 0) -> set:
+    """Every mounted `"VERB /path"`, across FastAPI's changing route shapes.
+
+    Two structures in the wild, and the repo pins only `fastapi>=0.110.0`, so
+    CI resolves whatever is current while a local venv may be older:
+
+    * **flattened** (<= ~0.115) — `app.routes` holds `APIRoute` objects with
+      `.path` already prefixed.
+    * **wrapped** (>= ~0.14x) — `include_router` leaves an `_IncludedRouter`
+      exposing neither `.path` nor `.routes`; the sub-routes hang off
+      `.original_router.routes` (already prefixed by the router's own
+      `prefix=`), with any include-time prefix on `.include_context.prefix`.
+
+    Both are handled by structure, not by version sniffing — a version check
+    would need updating on the next rename, and would fail closed-but-silent
+    the same way the original walk did.
+    """
+    out: set = set()
+    if _depth > 5:  # pragma: no cover - a cycle would be a FastAPI bug
+        return out
+    for route in getattr(app, "routes", []) or []:
+        path = getattr(route, "path", None)
+        if path is not None:
+            for method in (getattr(route, "methods", None) or {"WEBSOCKET"}):
+                if method in ("HEAD", "OPTIONS"):
+                    continue
+                out.add(f"{method} {g.normalise_path(_prefix + path)}")
+            continue
+        inner = getattr(route, "original_router", None) or route
+        extra = getattr(getattr(route, "include_context", None), "prefix", "") or ""
+        if inner is not route or getattr(inner, "routes", None):
+            out |= _live_routes(inner, _prefix + extra, _depth + 1)
+    return out
+
+
 ROUTER_SRC = (
     'from fastapi import APIRouter\n'
     'router = APIRouter(prefix="/api/bot/thing", tags=["t"])\n'
@@ -92,21 +127,40 @@ class TestEnumeration:
         Skipped where FastAPI is not importable (the guard is stdlib-only by
         design so CI can run it anywhere); where it IS importable this is the
         check that the AST walk has neither missed nor invented a route.
+
+        THE PROBE ASSERTS ITS OWN DENOMINATOR, and that is not decoration.
+        The first version of this test walked `app.routes` one level deep. On
+        FastAPI <= ~0.115 that is the flattened route table; on newer versions
+        included routers are wrapped in `_IncludedRouter` objects that expose
+        no `.path`, so the walk silently found **5** routes — the handful
+        declared directly on the app — and then reported all 92 enumerated
+        routes as "not live". A near-empty probe compared against a real set
+        produces a confident, entirely wrong diff. That is the same
+        unasserted-denominator class the guard next door exists to catch,
+        occurring in the test written to validate it.
+
+        So: an implausible extraction fails as *a broken probe*, naming the
+        real cause, instead of as 92 phantom mismatches.
         """
         pytest.importorskip("fastapi")
         try:
             from src.web.api.main import app
         except Exception as exc:  # pragma: no cover - env-dependent
             pytest.skip(f"app not importable here: {exc}")
-        live = set()
-        for r in app.routes:
-            path = getattr(r, "path", None)
-            if path is None:
-                continue
-            for method in (getattr(r, "methods", None) or {"WEBSOCKET"}):
-                if method in ("HEAD", "OPTIONS"):
-                    continue
-                live.add(f"{method} {g.normalise_path(path)}")
+
+        live = _live_routes(app)
+
+        # A denominator that cannot be right means the PROBE is broken, not
+        # the enumerator. Router modules are the floor: each contributes at
+        # least one route, and the app mounts every one of them.
+        floor = len(g._router_files())
+        assert len(live) >= floor, (
+            f"the probe extracted only {len(live)} route(s) from app.routes, but "
+            f"{floor} router modules are mounted — FastAPI's route structure has "
+            f"changed again and _live_routes() no longer traverses it. Fix the "
+            f"probe; do NOT read the route diff below as a real finding."
+        )
+
         mine = {r.key for r in g.enumerate_routes()}
         # Everything the enumerator reports must really be mounted.
         assert not (mine - live), f"enumerated but not live: {sorted(mine - live)}"
@@ -114,6 +168,60 @@ class TestEnumeration:
         outside = {"GET /api/health", "GET /docs", "GET /docs/oauth2-redirect",
                    "GET /openapi.json", "GET /redoc"}
         assert (live - mine) <= outside, f"missed live routes: {sorted(live - mine - outside)}"
+
+
+class TestLiveRouteProbe:
+    """The probe that validates the enumerator must itself be validated.
+
+    It silently returned 5 routes on a FastAPI version bump and turned that
+    into a 92-route phantom diff. These stubs pin both shapes without needing
+    FastAPI installed, so a future traversal regression is caught here rather
+    than as an unreadable route dump in CI.
+    """
+
+    class _Route:
+        def __init__(self, path, methods=None):
+            self.path, self.methods = path, methods or {"GET"}
+
+    class _App:
+        def __init__(self, routes):
+            self.routes = routes
+
+    class _Wrapped:
+        """An `_IncludedRouter` stand-in: no `.path`, no `.routes`."""
+
+        def __init__(self, inner, prefix=""):
+            self.original_router = inner
+            self.include_context = type("Ctx", (), {"prefix": prefix})()
+
+    def test_flattened_shape(self):
+        app = self._App([self._Route("/api/bot/stats")])
+        assert _live_routes(app) == {"GET /api/bot/stats"}
+
+    def test_wrapped_shape_is_traversed(self):
+        inner = self._App([self._Route("/api/bot/stats")])
+        app = self._App([self._Wrapped(inner)])
+        assert _live_routes(app) == {"GET /api/bot/stats"}
+
+    def test_include_time_prefix_is_applied(self):
+        inner = self._App([self._Route("/stats")])
+        app = self._App([self._Wrapped(inner, prefix="/api/bot")])
+        assert _live_routes(app) == {"GET /api/bot/stats"}
+
+    def test_websocket_route_without_methods_is_kept(self):
+        app = self._App([self._Route("/ws/market", methods=None)])
+        # A websocket route carries no `.methods`; defaulting it away would
+        # drop the one non-GET surface from the population.
+        assert _live_routes(app) == {"GET /ws/market"} or _live_routes(app) == {
+            "WEBSOCKET /ws/market"
+        }
+
+    def test_an_untraversable_shape_yields_nothing_rather_than_a_partial_set(self):
+        # The failure mode that mattered: an unrecognised container must not
+        # contribute a plausible-looking subset. Empty is what trips the
+        # denominator assertion in the live test above.
+        opaque = type("Opaque", (), {})()
+        assert _live_routes(self._App([opaque])) == set()
 
 
 class TestNormalisation:
