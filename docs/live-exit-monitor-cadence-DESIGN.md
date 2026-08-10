@@ -140,6 +140,50 @@ Two properties make this the right experiment rather than a plausible one:
 data side is largely in place. The harness change is to carry two frames rather
 than one.
 
+### 4.1 THE LOOKAHEAD TRAP — read this before implementing
+
+Found while reading `scripts/backtest_trend.py::run_backtest` (2026-08-10). The
+obvious implementation is wrong in a way that **manufactures an improvement**,
+which makes it worse than not doing it.
+
+The exit loop today does, per leg bar `j`, in this order:
+
+1. resolve SL/TP against the bar's `high`/`low`;
+2. extend `ext` to the bar's extreme and update `mfe` and the chandelier `trail`;
+3. evaluate the giveback and stale levers against **that bar's close**.
+
+Step 2 uses the WHOLE BAR's extreme. That is sound when the lever is evaluated
+once, at the close, because by then the whole bar has happened. It becomes
+**lookahead the moment a lever is evaluated at a sub-bar close inside that
+bar**: a giveback rule checked at 14:05 would be comparing against a peak set at
+14:47. The rule would appear to exit at the top with uncanny timing, the arm
+would beat baseline, and the result would be an artifact.
+
+So the implementation contract is:
+
+- **`ext` / `mfe` / `trail` must advance on the SUB-BAR clock**, in lockstep with
+  the sub-bar closes the levers read. A peak may only inform a decision taken
+  after it.
+- **Bar-counted parameters stay on the LEG-BAR clock.** `stale_exit_bars`,
+  `trail_decay_stall_bars` and `peak_j` are expressed in the strategy's own
+  bars; converting them to sub-bars silently redefines every threshold and the
+  cell would no longer be the config-exact one. Price evolves finely; the
+  strategy's clock does not.
+- **Run three arms, not two**, because a finer grain moves two variables at once:
+  - **A** baseline — everything on the leg-bar grain (what ships today).
+  - **B** levers on the sub-bar grain, **SL/TP still resolved at leg-bar grain
+    with the SL-first convention**. This isolates the cadence question, which is
+    the operator's actual ask.
+  - **C** everything on the sub-bar grain, including SL/TP ordering. This
+    measures how much of the baseline is the **SL-first artifact** — today a bar
+    trading through both stop and target is scored as a stop, and at a finer
+    grain some of those become target-first. C will look better than A partly
+    for a reason that has nothing to do with exit logic, so reporting C without
+    B would credit the lever for the convention.
+
+A single-arm "intrabar vs baseline" comparison conflates all three effects and
+would be unfalsifiable after the fact. Report all three, or report none.
+
 **Nothing about the live cadence should ship before this returns a verdict.**
 Building a 60 s monitor to apply a rule that a 5 m evaluation makes worse would
 be a faster way to lose money, and the directive's own words — *"build this out
