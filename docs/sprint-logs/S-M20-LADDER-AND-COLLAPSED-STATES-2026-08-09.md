@@ -2,7 +2,9 @@
 
 ## Date Range
 - Start: 2026-08-09
-- End: 2026-08-09 (sweep still running detached at session end — see Deferred)
+- End: 2026-08-10 (see the 2026-08-10 addendum: ladder verdicts landed, and
+  a first-principles claim this log's § 10/§ 11 work had asserted was retracted
+  on measurement)
 
 ## Objective
 Continue the M20 exit-refinement workstream: give the eight live `ict_scalp`
@@ -117,20 +119,24 @@ commits are kept), I continued on the existing branch. Verified before acting.
   rule and the operator's call. The section says so explicitly.
 
 ## Deferred Items
-- **`exit_ladder` verdicts for the 7 data-reachable legs.** The sweep is
-  running **detached** on the trainer and did not finish in-session — each leg
-  is ~10 harness runs for IS/OOS plus up to 30 more for the walk-forward,
-  4-concurrent on **one** core, over 164k–647k-bar frames. Re-sequenced
-  cheapest-first (15m before 5m) so partial completion yields usable verdicts;
-  `run_cell` caches per (cell, window), so the reorder cost nothing.
-  **No verdict was pre-written from the prior.**
+- ~~**`exit_ladder` verdicts for the 7 data-reachable legs.**~~ **DONE
+  2026-08-10** — see the addendum below. (The original entry said the sweep was
+  "running detached on the trainer"; that run was **killed and re-routed**, so
+  the text is corrected rather than left to read as the record.)
 - **`exit_head_ml`** (operator scoped: equities E0→E1 + `ict_scalp` datasets).
-  **Queued, not started** — the trainer is single-core and the VM lane is held
-  by the ladder sweep; FIFO says running is never preempted. Driver exists
-  (`m20_exit_head_round.py`); exact command posted on board #6927. Consider
-  routing the equities round to a **free GH runner** (the `*_1d` frames are
-  ~100–200 KB; the crypto ladder sweep legitimately needed the VM because
-  re-fetching would change the data vintage every prior verdict used).
+  **Queued, not started.** The VM-lane contention noted here is **gone** — the
+  ladder sweep was re-routed off the trainer entirely (addendum), so nothing
+  holds the lane. Driver exists (`m20_exit_head_round.py`); exact command
+  posted on board #6927. Route the equities round to a **free GH runner** on
+  the pattern the ladder sweep just proved: the `*_1d` frames are ~100–200 KB,
+  and scp-ing the pinned frame from the trainer keeps the data vintage
+  identical to every prior verdict in the row (the failure mode that made the
+  first ladder attempt unusable).
+  **57 of the 376 live cells remain `pending`** — by lever: `exit_head_ml` 31,
+  `vol_trail` 10, `giveback_stop` 7, `trail_decay` 6, `exit_ladder` 2
+  (`squeeze_breakout_4h`, `fvg_range_15m` — neither is an `ict_scalp` leg),
+  `trail_geometry` 1. `exit_head_ml` is now the single largest open block in
+  M20's done-condition by a factor of three.
 
 ## Next Recommended Sprint
 Collect the ladder verdicts and record them in the matrix + memo § 10.5 in the
@@ -150,3 +156,72 @@ same PR, then run the equities exit-head round.
 - [x] Remaining unknowns stated: **the ladder verdicts themselves are not yet
       known.** The expected result is negative, and that expectation is
       recorded as a prior with its mechanism examined — not as a result.
+
+---
+
+## Addendum — 2026-08-10: the ladder verdicts, and a retraction
+
+### What ran
+Re-routed off the trainer (1 OCPU, ~12–20 h serial) onto **7 parallel free GH
+runners** — `ict-scalp-exit-sweep.yml`, run **31344328313**, 7/7 jobs
+`success`, ~38 min wall clock, $0. Data is `m27_data/<SYM>_<TF>.csv` scp'd from
+the trainer: the SAME population every other M27 verdict in these rows used. An
+earlier trainer attempt had silently picked up `data/` (2021+) instead, which
+would have made these verdicts incomparable with their own row.
+
+### Result — population: 7 of 8 legs, 4 cells each, 28 cells
+**26 `honest_negative`; 2 cells on `ict_scalp_sol_15m` cleared the gate** (IS
+and OOS beat on net_R AND maxDD) and then survived the yearly walk-forward 3/4
+usable folds. Coverage matrix live-cell processing **312 → 319 of 376** —
+delta exactly 7, cross-checked by arithmetic against `git show HEAD:` rather
+than by re-reading the file.
+
+The two SOL cells are a **Tier-3 PROPOSAL**, not a ship. Nothing in this PR
+touches `config/strategies.yaml`.
+
+### The correction — I was wrong, and my own run proved it
+Hours before the results returned, memo § 11.1 argued from first principles
+that banking **necessarily** lowers net_R and lowers maxDD, so no banking cell
+could ever pass: *"P(pass) = 0, a priori."* Measured over the 28 cells:
+
+| claim | measured |
+|---|--:|
+| necessarily lowers net_R | net_R **rose** in 6/28 IS, 8/28 OOS |
+| lowers maxDD | maxDD **rose** (worse) in 7/28 IS, **14/28** OOS |
+| P(pass) = 0 | **2/28 passed**, incl. walk-forward |
+
+The argument followed only the **winner** side of the distribution. On a fixed
+1.5R bracket with a 1.0R rung, banking also turns a loser that first printed
++1R from −1R into −0.5R — so it can *earn* net_R. And maxDD is a property of
+the equity **path**: capping the biggest winners removes the recoveries that
+used to end drawdowns, so drawdown deepened on 12 of the 16 5m OOS cells.
+
+This is the RULE ONE failure mode named in the rule itself — *"verify your own
+output too, hardest when it confirms what you expected."* The claim felt like a
+derivation, so it was written into a canonical memo as a structural fact and
+never queued for measurement. § 10.1 had **already** noted the fat-tail premise
+does not transfer to a capped-upside strategy; § 11.1 asserted the general form
+anyway, one section later.
+
+Corrected in place, not deleted (the claim was acted on, so it needs a findable
+home): memo § 11.1 carries a strike-through + retraction banner, § 10.6 is the
+measurement, `m20_banking_risk_adjusted.py`'s docstring is rewritten, and
+`BL-20260810-BANKING-GATE-CANNOT-PASS` is rescoped under its original id. The
+§ 6.2 **measurements** were never in doubt and stand — what fell is the claim
+that they *had* to come out that way.
+
+Net effect on the finding: banking on this fleet is a **stronger** negative than
+"the gate couldn't adjudicate it." On three of the four 5m legs it lost on
+**both** axes out-of-sample.
+
+### Also fixed this pass
+- `artifact-validity-guard` caught `m20_banking_risk_adjusted.py` missing from
+  `RESEARCH-CAPABILITY-INDEX.md` — a tool a session cannot find. Indexed.
+- The verdict-posting step had logged `core.warning` and exited 0 when it could
+  not resolve the PR, so all 7 jobs went green having delivered nothing. It now
+  resolves the PR from `context.sha` and `core.setFailed`s. Verdicts for this
+  run were recovered from the job logs.
+
+### Guards
+33 PASS / 1 FAIL — the failure is `layer-guard`, exit **127**: `lint-imports`
+is not installed in this sandbox (`which` confirms). Not a finding; CI has it.

@@ -357,3 +357,52 @@ def test_rung_at_or_above_tp_is_a_provable_noop():
     r_exit = (res["exit_price"] - 100) / 2.0
     assert r_exit == pytest.approx(1.5)
     assert 0.5 * 1.5 + 0.5 * r_exit == pytest.approx(r_exit)  # identical
+
+
+# ---------------------------------------------------------------------------
+# CAPITAL EFFICIENCY (operator directive 2026-08-10): "we need to look at
+# efficiency of capital utilization as well as max R — the most recent example
+# being the open trades bybit_2 is currently holding through a long chop period
+# with no upside to show for it."
+#
+# The exit-refinement skill has ALWAYS declared "capital-efficiency tiebreak:
+# net_R per position-day" as part of the lever gate. No harness ever computed
+# it, so the gate's own declared tiebreak was never measurable.
+# ---------------------------------------------------------------------------
+
+def test_banked_index_reports_the_rung_bar_not_just_the_fact():
+    """`banked` alone cannot express HOW LONG capital was committed."""
+    rows = [(100, 100.5, 99.5, 100), (100, 102.2, 99.6, 100.2)] + \
+           [(100, 100.4, 99.6, 100.0)] * 20
+    res = _simulate_exit(_frame(rows), start_idx=0, direction="long",
+                         sl=98, tp=103, timeout_bars=30, entry=100,
+                         bank_frac=0.5, bank_at_r=1.0)
+    assert res["banked"] is True
+    assert res["banked_index"] == 1, "rung printed on bar 1"
+    assert res["exit_index"] == 21, "then chopped to timeout"
+
+
+def test_banked_index_is_none_when_the_rung_never_filled():
+    """None, never 0 — bar 0 is a real bar, so a fabricated 0 would read as
+    'banked immediately' on a trade that never banked at all."""
+    rows = [(100, 100.5, 99.5, 100), (100, 101.0, 97.0, 97.5)]
+    res = _simulate_exit(_frame(rows), start_idx=0, direction="long",
+                         sl=98, tp=110, timeout_bars=10, entry=100,
+                         bank_frac=0.5, bank_at_r=1.0)
+    assert res["banked"] is False
+    assert res["banked_index"] is None
+
+
+def test_capital_weighted_hold_is_shorter_than_the_full_hold():
+    """THE OPERATOR'S CASE: a trade that reaches 1R then chops to a flat
+    timeout. Banking releases half the position at the rung, so half the
+    capital stops sitting in the chop. net_R barely moves; capital-time
+    nearly halves — and a net_R-only gate cannot see the difference.
+    """
+    banked_index, exit_index, bank_frac = 1, 21, 0.5
+    full = exit_index
+    capital_weighted = bank_frac * banked_index + (1 - bank_frac) * exit_index
+    assert capital_weighted == pytest.approx(11.0)
+    assert capital_weighted < full
+    # Just over half the capital-time of holding the whole position throughout.
+    assert capital_weighted / full == pytest.approx(0.5238, abs=1e-3)

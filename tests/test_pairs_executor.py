@@ -181,32 +181,137 @@ def test_decision_bars_roundtrip(tmp_path, monkeypatch):
     assert px._load_decision_bars() == {"pairs_sol_btc": "111|222"}
 
 
-def test_reconstruct_open_state_from_pkg_meta(tmp_path, monkeypatch):
+def _real_order_packages_ddl() -> str:
+    """The PRODUCTION `order_packages` DDL, lifted from the module that owns it.
+
+    Deliberately NOT hand-written. The previous version of these tests declared
+    its own table as ``(id INTEGER PRIMARY KEY, strategy_name, account_id, meta)``
+    — a schema production does not have — so the tests passed against a
+    fictional table while the real query raised ``no such column: account_id``
+    on every live tick for 2,471 decisions
+    (BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED). A green suite over a
+    fabricated schema is the canonical "green is not evidence" shape; reading
+    the DDL from source is what makes these tests able to fail.
+    """
+    src = Path(__file__).resolve().parents[1] / "src/units/db/database.py"
+    text = src.read_text(encoding="utf-8")
+    i = text.index("CREATE TABLE IF NOT EXISTS order_packages")
+    return text[i:text.index("''')", i)]
+
+
+def _seed_pkg(db, strategy, meta_json, created_at="2026-07-16T00:00:00+00:00"):
     import sqlite3 as _sq
-    from datetime import datetime, timedelta, timezone
-    db = tmp_path / "j.db"
     conn = _sq.connect(db)
-    conn.execute("CREATE TABLE order_packages (id INTEGER PRIMARY KEY, "
-                 "strategy_name TEXT, account_id TEXT, meta TEXT)")
-    opened = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
-    import json as _j
-    meta = _j.dumps({"pair_direction": "long_spread", "entry_spread": 0.5,
-                     "stop_spread": 0.3, "opened_at_utc": opened, "bar_seconds": 3600})
-    conn.execute("INSERT INTO order_packages (strategy_name, account_id, meta) VALUES (?,?,?)",
-                 ("pairs_sol_btc_a", "bybit_1", meta))
+    conn.execute(_real_order_packages_ddl())
+    conn.execute(
+        "INSERT INTO order_packages (order_package_id, strategy_name, symbol, "
+        "direction, entry, sl, tp, created_at, updated_at, status, meta) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (f"op-{strategy}", strategy, "SOLUSDT", "buy", 1.0, 0.9, 1.2,
+         created_at, created_at, "open", meta_json))
     conn.commit()
     conn.close()
+
+
+def test_real_order_packages_schema_has_no_account_id_or_id():
+    """Pins the fact the production bug turned on. If a migration ever adds
+    either column, this fails and the query in `_open_pkg_meta` can be
+    revisited deliberately rather than by assumption."""
+    import sqlite3 as _sq
+    conn = _sq.connect(":memory:")
+    conn.execute(_real_order_packages_ddl())
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(order_packages)")}
+    assert "strategy_name" in cols and "meta" in cols       # positive control
+    assert "account_id" not in cols
+    assert "id" not in cols
+
+
+def test_reconstruct_open_state_from_pkg_meta(tmp_path):
+    from datetime import datetime, timedelta, timezone
+    import json as _j
+    db = tmp_path / "j.db"
+    opened = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
+    _seed_pkg(db, "pairs_sol_btc_a", _j.dumps(
+        {"pair_direction": "long_spread", "entry_spread": 0.5,
+         "stop_spread": 0.3, "opened_at_utc": opened, "bar_seconds": 3600}))
     pair = {"name": "pairs_sol_btc", "symbol_a": "SOLUSDT", "symbol_b": "BTCUSDT"}
-    st = px._reconstruct_open_state(pair, "bybit_1", str(db))
+    status, st = px._reconstruct_open_state(pair, "bybit_1", str(db))
+    assert status == "found"
     assert st is not None
     assert st.direction == "long_spread"
     assert st.entry_spread == 0.5 and st.stop_spread == 0.3
     assert st.bars_held == 3                          # ~3h at 1h bars
 
 
-def test_reconstruct_open_state_absent_meta_is_none(tmp_path):
-    assert px._reconstruct_open_state(
-        {"name": "pairs_x", "symbol_a": "A", "symbol_b": "B"}, "acct", str(tmp_path / "no.db")) is None
+def test_reconstruct_open_state_three_states_are_distinguishable(tmp_path):
+    """`error` (we could not look) and `absent` (we looked; nothing there) must
+    never collapse — that collapse is what disabled the sleeve's close path."""
+    import json as _j
+    pair = {"name": "pairs_x", "symbol_a": "A", "symbol_b": "B"}
+
+    # (1) ERROR — the DB file does not exist. We could not look.
+    assert px._reconstruct_open_state(pair, "acct", str(tmp_path / "no.db")) == ("error", None)
+
+    # (2) ABSENT — a real, readable table with no package for this strategy.
+    db = tmp_path / "empty.db"
+    _seed_pkg(db, "some_other_strategy", _j.dumps({"pair_direction": "long_spread"}))
+    assert px._reconstruct_open_state(pair, "acct", str(db)) == ("absent", None)
+
+    # (3) ERROR — the package exists but its bookkeeping is malformed. We
+    #     looked and cannot use what we found; that is not "absent".
+    db2 = tmp_path / "bad.db"
+    _seed_pkg(db2, "pairs_x_a", _j.dumps({"pair_direction": "long_spread"}))  # missing spreads
+    assert px._reconstruct_open_state(pair, "acct", str(db2)) == ("error", None)
+
+
+def test_open_pkg_meta_query_runs_against_the_real_schema(tmp_path):
+    """THE REGRESSION TEST. The old query named two columns that do not exist,
+    the broad `except` swallowed the OperationalError at DEBUG, and every open
+    pair read as unreadable — 29 opens, 0 closes. Any re-introduction of an
+    `account_id` / `id` predicate makes this return ("error", ...) again."""
+    import json as _j
+    db = tmp_path / "j.db"
+    _seed_pkg(db, "pairs_bnb_btc_a", _j.dumps({"pair_direction": "short_spread"}))
+    status, meta = px._open_pkg_meta("pairs_bnb_btc_a", "bybit_1", str(db))
+    assert status == "found", f"query failed against the real schema: {status}"
+    assert meta["pair_direction"] == "short_spread"
+
+
+def test_open_pkg_meta_picks_the_newest_package(tmp_path):
+    """`ORDER BY id` was replaced with created_at/rowid; prove the ordering is
+    still newest-first, or a stale spread would be reconstructed."""
+    import json as _j
+    db = tmp_path / "j.db"
+    _seed_pkg(db, "pairs_bnb_btc_a", _j.dumps({"pair_direction": "old"}),
+              created_at="2026-07-01T00:00:00+00:00")
+    import sqlite3 as _sq
+    conn = _sq.connect(db)
+    conn.execute(
+        "INSERT INTO order_packages (order_package_id, strategy_name, symbol, "
+        "direction, entry, sl, tp, created_at, updated_at, status, meta) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        ("op-new", "pairs_bnb_btc_a", "SOLUSDT", "buy", 1.0, 0.9, 1.2,
+         "2026-08-01T00:00:00+00:00", "2026-08-01T00:00:00+00:00", "open",
+         _j.dumps({"pair_direction": "new"})))
+    conn.commit()
+    conn.close()
+    status, meta = px._open_pkg_meta("pairs_bnb_btc_a", "bybit_1", str(db))
+    assert status == "found" and meta["pair_direction"] == "new"
+
+
+def test_state_unreadable_alert_is_rate_limited(monkeypatch):
+    """The condition can fire every tick. An alert that fires every tick is the
+    desensitized-alarm P1, so it must be deduped per (pair, reason)."""
+    sent = []
+    import src.runtime.outcomes as _out
+    monkeypatch.setattr(_out, "report", lambda *a, **k: sent.append((a, k)))
+    px._state_alert_last.clear()
+    for _ in range(5):
+        px._alert_state_unreadable("A/B", "acct", state_read="error")
+    assert len(sent) == 1, f"expected 1 alert, got {len(sent)}"
+    # A DIFFERENT fault on the same pair is a different alarm, not a duplicate.
+    px._alert_state_unreadable("A/B", "acct", state_read="absent")
+    assert len(sent) == 2
 
 
 def test_unwind_legs_reports_naked_on_failed_close(monkeypatch):

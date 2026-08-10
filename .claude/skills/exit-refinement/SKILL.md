@@ -45,10 +45,45 @@ sweeping.
 
 **P2 — hard-lever sweep (IS/OOS, config-exact).**
 `scripts/research/m20_exit_sweep.py` + the harness levers (stale-stop,
-giveback-stop, trail multiples, ladder variants), net of fees. **Gate: a
-lever ships only if it beats baseline on net_R AND maxDD in BOTH IS and
-OOS** (capital-efficiency tiebreak: net_R per position-day). One lever per
-cell; combos only after singles pass (M20 finding: combos were worse).
+giveback-stop, trail multiples, ladder variants), net of fees.
+
+**Gate (operator directive 2026-08-10 — capital efficiency is a SHIPPING
+criterion, no longer a tiebreak).** A cell qualifies by EITHER path, and
+whichever path it took it must then pass the SAME yearly walk-forward:
+
+- **Path A — return.** Beats baseline on **net_R AND maxDD**, in BOTH IS and
+  OOS. Unchanged; this is the historical gate.
+- **Path B — capital efficiency.** Improves **`net_r_per_capital_day`** in BOTH
+  IS and OOS, AND maxDD does not worsen, AND net_R falls by no more than the
+  declared floor. Exists because a trade reaching TP after 149 bars and one
+  reaching it in 10 are **not the same object**, and Path A scores them
+  identically — measured live 2026-08-10, where 24 of 25 open positions had no
+  stall exit at all and a real-money `eth_pullback_2h` sat 149 bars at −0.33R
+  (`BL-20260810-NO-STALL-EXIT-CAPITAL-SITS-IN-DEAD-TRADES`).
+
+The metric is single-homed in **`scripts/capital_efficiency.py`** — never
+re-derived per harness, or a cross-harness comparison means nothing.
+`net_r_per_capital_day` is SIZE-WEIGHTED (a partial-TP release is credited its
+shorter hold); a harness that does not track the release bar must report
+`capital_bars == position_bars` and say so, never fabricate a weighting.
+
+⚠️ **Path B's two thresholds ("improves materially", "the net_R floor") are
+NOT yet set, and MUST NOT be invented.** No sweep has yet reported the
+`net_r_per_capital_day` distribution, and a threshold with no distribution
+behind it is the exposure-ceiling mistake
+(`gross-exposure-governance-DESIGN.md` § 6–7: a ceiling below normal operation
+silently throttles correct work). The first pullback-family stale/giveback
+sweep REPORTS the distribution; the operator sets the two values from it, and
+until then Path B **surfaces candidates for review rather than shipping them**.
+
+**Path B is a second door, never a lower bar.** It does not relax Path A, and
+it does not skip the walk-forward — relaxing a gate to admit a lever is exactly
+how a cosmetic lever ships (`BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS`). A
+cell that improves capital efficiency by shrinking the book into
+insignificance is a Path-B *failure*, which is what the net_R floor is for.
+
+One lever per cell; combos only after singles pass (M20 finding: combos were
+worse).
 
 **P3 — ML exit head (optional, when hard levers leave money on the
 table).** The E0–E3 program (`M20-exit-head-PROGRAM.md`): E0 per-bar
