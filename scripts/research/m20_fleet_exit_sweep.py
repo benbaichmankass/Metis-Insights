@@ -1276,9 +1276,20 @@ def main(argv: list[str]) -> int:
         }
         verdicts[leg] = leg_v
 
+    # `tp_cap_pct` is part of the MEASUREMENT IDENTITY, not a run detail.
+    #
+    # The same (leg, cell, split) measured at the legacy no-TP geometry and at
+    # live parity are two different numbers about two different books
+    # (BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP: the harnesses
+    # modelled no take-profit at all while production places a 9.9%-clamped one,
+    # and `tqqq_trend_long_1d` went 32 -> 75 trades once the real geometry was
+    # used). A verdicts file that records `split` but not the geometry lets a
+    # downstream corpus mix the two vintages under one label — the same defect
+    # one level up from where it was originally found.
     (run_dir / "verdicts.json").write_text(json.dumps(
         {"generated_at": datetime.now(timezone.utc).isoformat(),
-         "split": a.split, "skipped": skipped, "verdicts": verdicts}, indent=1))
+         "split": a.split, "tp_cap_pct": a.tp_cap_pct,
+         "skipped": skipped, "verdicts": verdicts}, indent=1))
     lines = ["# M20 fleet exit-lever sweep", ""]
     for leg, v in verdicts.items():
         if "levers" not in v:

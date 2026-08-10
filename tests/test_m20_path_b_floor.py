@@ -238,6 +238,7 @@ def test_the_population_block_reconciles_by_arithmetic():
 
 def _verdicts_doc():
     return {"generated_at": "2026-08-10T22:00:00+00:00", "split": "2025-07-01",
+            "tp_cap_pct": 0.099,
             "skipped": [{"leg": "skipped_leg", "reason": "data_missing"}],
             "verdicts": {
                 "broken_leg": {"status": "harness_error", "error": "boom"},
@@ -294,6 +295,74 @@ def test_extractor_marks_a_run_that_predates_the_base_book():
                 if r["kind"] == "cell")
     assert cell["base_book_present"] is False
     assert cell["base_rate_ungradeable_why_IS"] == "no_base_book_in_run"
+
+
+def test_a_re_sweep_supersedes_by_measurement_not_by_run(tmp_path):
+    """Re-measuring the same cell must REPLACE, not append.
+
+    This is the defect that would corrupt the floor analysis invisibly. Keying
+    the merge on the run id is the obvious choice: re-sweeping the same legs
+    mints a NEW run id, both copies survive, and the population doubles without
+    gaining one bit of information. Tonight's 4th and 5th dispatches are the
+    worked case — byte-identical numbers, two run ids. Nothing about the corpus
+    LOOKS wrong afterwards; only the count is, and the count is exactly what a
+    floor's significance rests on.
+    """
+    corpus = tmp_path / "c.jsonl"
+    first, second = tmp_path / "a", tmp_path / "b"
+    for d, stamp in ((first, "2026-08-10T22:10:00+00:00"),
+                     (second, "2026-08-10T22:40:00+00:00")):
+        run = d / "leg" / "2026-08-10"
+        run.mkdir(parents=True)
+        doc = _verdicts_doc()
+        doc["generated_at"] = stamp          # a genuinely different RUN...
+        (run / "verdicts.json").write_text(json.dumps(doc))  # ...same MEASUREMENT
+
+    assert extract.main(["x", "--in", str(first), "--corpus", str(corpus)]) == 0
+    n_first = len([ln for ln in corpus.read_text().splitlines() if ln.strip()])
+    assert extract.main(["x", "--in", str(second), "--corpus", str(corpus)]) == 0
+    n_second = len([ln for ln in corpus.read_text().splitlines() if ln.strip()])
+
+    assert n_second == n_first, (
+        f"a re-sweep of the same legs grew the corpus {n_first} -> {n_second}; "
+        "the same measurement is now counted twice and any downstream "
+        "denominator is inflated")
+    rows = [json.loads(ln) for ln in corpus.read_text().splitlines() if ln.strip()]
+    assert all(r["sweep_generated_at"] == "2026-08-10T22:40:00+00:00" for r in rows), (
+        "the NEWER measurement must win")
+
+
+def test_the_same_cell_at_two_geometries_is_two_measurements(tmp_path):
+    """Live-parity and legacy no-TP are different books, not a re-measurement.
+
+    Collapsing them would re-commit BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP
+    one level up — a corpus silently mixing a book that cannot take profit with
+    one that does.
+    """
+    corpus = tmp_path / "c.jsonl"
+    for i, cap in enumerate((0.099, 0.0)):
+        run = tmp_path / f"g{i}" / "leg" / "2026-08-10"
+        run.mkdir(parents=True)
+        doc = _verdicts_doc()
+        doc["tp_cap_pct"] = cap
+        doc["generated_at"] = f"2026-08-10T2{i}:00:00+00:00"
+        (run / "verdicts.json").write_text(json.dumps(doc))
+        assert extract.main(["x", "--in", str(tmp_path / f"g{i}"),
+                             "--corpus", str(corpus)]) == 0
+    rows = [json.loads(ln) for ln in corpus.read_text().splitlines() if ln.strip()]
+    caps = {r.get("tp_cap_pct") for r in rows if r["kind"] == "cell"}
+    assert caps == {0.099, 0.0}, (
+        f"both geometries must survive as separate measurements, got {caps}")
+
+
+def test_a_run_predating_the_geometry_field_keys_distinctly(tmp_path):
+    """`tp_cap_pct: null` is "we do not know which book", not the current one."""
+    doc = _verdicts_doc()
+    doc.pop("tp_cap_pct", None)
+    row = next(r for r in extract.rows_from_verdicts(doc, "old") if r["kind"] == "cell")
+    assert row["tp_cap_pct"] is None
+    modern = dict(row, tp_cap_pct=0.099)
+    assert extract.measurement_key(row) != extract.measurement_key(modern)
 
 
 def test_reextracting_a_run_supersedes_it_rather_than_duplicating(tmp_path):

@@ -26,16 +26,32 @@ TWO PROPERTIES IT EXISTS TO PRESERVE, both about the denominator:
      are `None`, never `0`, when no walk-forward ran. Those are opposite
      statements about generalisation.
 
-MERGE SEMANTICS. Rows are keyed `(run_id, leg, cell)`. Re-extracting the same run
-replaces its rows rather than appending duplicates, so a re-run after a fix does
-not leave the pre-fix rows in the population — which matters here specifically,
-because the 2026-08-10 config-exactness defect made a whole vintage of rows
-measure a base book the config does not describe
+MERGE SEMANTICS — keyed on the MEASUREMENT, not on the run.
+
+A row's identity is `(leg, cell, split, tp_cap_pct)`: what was measured, over
+which windows, against which exit geometry. The newest `sweep_generated_at`
+wins. Keying on the run id instead — the obvious choice, and the one this file
+shipped with first — is wrong in a way that corrupts the analysis silently:
+re-sweeping the same legs produces a NEW run id, so both copies survive and the
+population doubles without gaining one bit of information. Tonight's 4th and 5th
+dispatches are the worked example — byte-identical numbers on every leg, two run
+ids. A floor analysis reading that corpus would see 22 cells over 9 legs instead
+of 11 and report a denominator twice its real size.
+
+`tp_cap_pct` is IN the key, not metadata. The same `(leg, cell, split)` measured
+at the legacy no-TP geometry and at live parity are two different numbers about
+two different books (`BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`),
+and collapsing them would re-commit that defect one level up. A run predating
+the field records `tp_cap_pct: null`, which keys DISTINCTLY from any known
+geometry — "we do not know which book this measured" is its own bucket, never
+silently merged into the current one.
+
+Every row still carries `sweep_generated_at` and `run_id`, so a vintage can be
+excluded explicitly rather than by hoping it was overwritten — which is what the
+2026-08-10 config-exactness defect needed
 (`BL-20260810-SWEEP-BASE-NOT-CONFIG-EXACT-TRAILVOL` — kept on one line: a
 backlog id hyphen-broken across a wrap resolves to nothing and reads as tracked
 while being tracked by nobody, which `artifact-validity-guard` fails on).
-Each row carries `sweep_generated_at` so a vintage can
-be excluded explicitly rather than by hoping it was overwritten.
 
 Usage:
     python3 scripts/research/m20_corpus_extract.py \
@@ -71,18 +87,34 @@ def _win(block: dict | None, window: str) -> dict:
     return got if isinstance(got, dict) else {}
 
 
+def measurement_key(row: dict) -> tuple:
+    """WHAT this row measured — the merge identity. Never includes the run.
+
+    `tp_cap_pct` is part of it: the same cell at the legacy no-TP geometry and at
+    live parity are two different measurements. `None` (a run predating the
+    field) keys distinctly from every known geometry rather than merging into
+    one — an unknown book is its own state, not the current book.
+    """
+    return (row.get("kind"), row.get("leg"), row.get("cell"),
+            row.get("split"), row.get("tp_cap_pct"))
+
+
 def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
     """One row per (leg, cell), plus one per leg that produced no cells."""
     out: list[dict] = []
     gen = doc.get("generated_at")
     split = doc.get("split")
+    # A run predating the field records None — NOT a default of the current
+    # geometry, which would silently relabel a legacy no-TP measurement as
+    # live-parity and merge two different books under one key.
+    tp_cap = doc.get("tp_cap_pct")
     verdicts = doc.get("verdicts") or {}
 
     # Legs the planner skipped never reach `verdicts` at all. They are part of
     # the fleet denominator, so they are rows too.
     for s in doc.get("skipped") or []:
         out.append({"kind": "leg_status", "run_id": run_id,
-                    "sweep_generated_at": gen, "split": split,
+                    "sweep_generated_at": gen, "split": split, "tp_cap_pct": tp_cap,
                     "leg": s.get("leg"), "cell": None,
                     "leg_status": "skipped", "leg_status_why": s.get("reason")})
 
@@ -92,7 +124,7 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
         if "levers" not in v:
             out.append({"kind": "leg_status", "run_id": run_id,
                         "sweep_generated_at": gen, "split": split,
-                        "leg": leg, "cell": None,
+                        "tp_cap_pct": tp_cap, "leg": leg, "cell": None,
                         "leg_status": v.get("status") or "no_levers",
                         "leg_status_why": v.get("error")})
             continue
@@ -106,7 +138,7 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
         base_present = bool(base)
         leg_common = {
             "run_id": run_id, "sweep_generated_at": gen, "split": split,
-            "leg": leg, "proxy": v.get("proxy"),
+            "tp_cap_pct": tp_cap, "leg": leg, "proxy": v.get("proxy"),
             "base_book_present": base_present,
             "cells_tried": sel.get("cells_tried"),
             "cells_withheld_inert": sel.get("cells_withheld_inert"),
@@ -228,6 +260,7 @@ def main(argv: list[str]) -> int:
     corpus = Path(a.corpus)
     kept: list[dict] = []
     superseded = malformed = 0
+    fresh_keys = {measurement_key(r) for r in fresh}
     if corpus.exists():
         for line in corpus.read_text().splitlines():
             line = line.strip()
@@ -240,13 +273,26 @@ def main(argv: list[str]) -> int:
                 # to a parse error would shrink its own denominator invisibly.
                 malformed += 1
                 continue
-            # Replace, never duplicate: a re-extraction of a run supersedes it.
-            if r.get("run_id") in runs:
+            # Supersede by MEASUREMENT, not by run: re-sweeping the same leg
+            # re-measures the same cell, and keeping both would double the
+            # population without adding information.
+            if measurement_key(r) in fresh_keys:
                 superseded += 1
                 continue
             kept.append(r)
 
     merged = kept + fresh
+    # The invariant the merge exists to hold. Asserting it here means a future
+    # edit to the key cannot silently reintroduce duplicates — the failure mode
+    # is invisible in the corpus itself (rows look fine; only the COUNT is wrong).
+    keys = [measurement_key(r) for r in merged]
+    if len(keys) != len(set(keys)):
+        from collections import Counter
+        dupes = [k for k, n in Counter(keys).items() if n > 1]
+        print(f"error: merge produced {len(keys) - len(set(keys))} duplicate "
+              f"measurement key(s), e.g. {dupes[:3]}. The corpus would "
+              "over-count its own population.", file=sys.stderr)
+        return 1
     cells = sum(1 for r in merged if r.get("kind") == "cell")
     statuses = sum(1 for r in merged if r.get("kind") == "leg_status")
     rated = sum(1 for r in merged

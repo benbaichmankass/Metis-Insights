@@ -1,66 +1,35 @@
 # Sentinel — touching this file fires m20-exit-lever-sweep from the branch.
 # The `legs:` line below is READ BY THE PLAN JOB, not decoration.
 #
-# 2026-08-10 (5th dispatch) — RE-FIRE: the 4th run's corpus job committed NOTHING.
+# 2026-08-10 (6th dispatch) — THE OTHER 33 LEGS. Testing ONE falsifiable claim.
 #
-# The 4th dispatch swept all ten legs successfully (run 31437165771: 12 jobs,
-# 0 failed, all 10 artifacts uploaded, all 10 SUMMARYs posted) and the corpus
-# job went GREEN having committed nothing. `git diff --quiet -- <path>` compares
-# the worktree to the INDEX and is silent about a file git does not track, so on
-# the run that CREATES the corpus it read "unchanged" and exited 0 under a
-# message asserting there was nothing to commit — an empty result read as a
-# clean negative, in the very job added to stop discarding this evidence.
-# Fixed by staging first and diffing `--cached`, plus a hard failure if the
-# extractor reports success while the file is absent. This run re-fires the
-# identical sweep so the corpus lands.
+# THE CLAIM, from the first 10 legs (corpus committed, analysis run):
+#   Zero of the 7 gradeable legs have a base net_R-per-drawdown rate below 1.0
+#   (min 1.08). The other 3 have an unprofitable IS base and are already refused
+#   by `drawdown_exchange_rate`'s `base_unprofitable` guard — ungradeable is not
+#   a pass. So the "Path A is permissive on a weak book" case can only arise on a
+#   book that is PROFITABLE BUT EARNS LITTLE PER UNIT OF DRAWDOWN, and no leg in
+#   the measured fleet is there. The 0.40 rate that motivated a floor came from a
+#   pre-correction base and does not reproduce.
 #
-# 2026-08-10 (4th dispatch) — THE PATH B FLOOR POPULATION.
+# WHAT THIS RUN DECIDES: whether that holds over the WHOLE fleet or only over the
+# census top-10. If some leg here is profitable with a rate below ~1.0, the floor
+# is a real gap and this run finds the instance that sizes it. If none is, the
+# floor is UNNECESSARY rather than underdetermined — a stronger and cheaper
+# answer than any number, and one no amount of arguing could have produced.
 #
-# WHAT THIS RUN IS FOR, and why it is the full census default rather than a
-# targeted pair. The operator's standing ask is a Path B drawdown-tolerance
-# floor derived from capital-utilisation + PnL data instead of picked. The
-# predictor a floor would sit on is the base book's net_R-per-drawdown RATE —
-# and that rate is a property of the LEG, not the cell: every cell swept on a
-# leg shares its single value.
+# It also takes the floor analysis's own denominator from 6 distinct legs toward
+# ~40, which is the only thing that makes a floor testable at all (the predictor
+# is a property of the LEG, so LEGS are the sample size, not cells).
 #
-# So the population that matters is DISTINCT LEGS, not rows. Ten legs x ~10
-# cells is ~100 rows over TEN predictor values, and the cells within a leg are
-# re-measurements of one book under different levers — they share its trades,
-# its regime and its drawdown. `m20_path_b_floor.py` therefore refuses to test
-# a floor that does not separate at least 4 distinct legs per side, however
-# many cells it has, because a test assuming independence would inflate the
-# effective n by the cells-per-leg ratio and hand back a significant-looking p
-# for what is really a ten-point comparison. That failure would be worse than
-# guessing the floor: it would arrive dressed as significance.
+# SCOPE: the 33 remaining classifiable+enabled non-scalp legs. The 8 ict_scalp
+# legs are DELIBERATELY EXCLUDED — the census timed one full-history scalp run at
+# 955s and a sweep of one is base + cells x 2 windows + a 2-full-history
+# walk-forward per candidate, so they belong in their own dispatch rather than
+# holding this one behind a 4.5h worst case. `trend_donchian_1h` and
+# `xauusd_trend_1h` are excluded as `enabled: false`.
 #
-# Sweeping two legs would therefore produce `insufficient_population` by
-# construction. The census default is the widest leg set already justified by
-# measurement (the ten carrying the most R at the giveback ladder's 1R rung),
-# so it is the population, not a convenience.
-#
-# WHAT IS NEW ON THIS RUN, and why the numbers are not comparable to the 3rd
-# dispatch's on one axis:
-#
-#   1. `verdicts.json` now carries `base_book` per window for EVERY leg — the
-#      rate above. It was previously computed only inside a Path B candidate's
-#      entry, i.e. only for cells that had ALREADY passed the Path B predicate,
-#      which conditions the corpus on the outcome (an inefficient book is
-#      exactly the one most likely to admit a candidate). This run is the first
-#      whose rows carry the axis for legs that produced no candidate at all.
-#
-#   2. A new `corpus` job merges the run into
-#      `docs/research/m20-sweep-corpus.jsonl` and commits it. Before this the
-#      evidence went to an Actions artifact no session can download, so every
-#      sweep restarted the population from zero.
-#
-# The cells and the gate are UNCHANGED from the 3rd dispatch — same
-# config-exact base (trail-vol threaded), same live-parity geometry
-# (tp_cap_pct 0.099), same IS/OOS split. Nothing here re-opens a verdict; it
-# records the axis those verdicts were already being judged against.
-#
-# NOT A PROMOTION RUN. No cell from this sweep ships without the operator's
-# Tier-3 call, and the floor itself is a recommendation to be made in the
-# morning — with `insufficient_population` a fully acceptable answer if that is
-# what the data says.
-legs: trend_donchian_1h,trend_donchian_eth,trend_donchian,trend_donchian_eth_prop,htf_pullback_trend_2h,spy_pullback_1h,eth_pullback_2h,qqq_pullback_1h,avax_pullback_2h,trend_donchian_sol
-dispatch: 2026-08-10 Path B floor population — 10 census legs, base_book recorded for every leg, corpus committed
+# Geometry, gate, split and base are UNCHANGED. Nothing here re-opens a verdict,
+# and nothing from this run ships without the operator's Tier-3 call.
+legs: iwm_trend_long_1d,mes_trend_long_1d,mgc_trend_1h,qld_trend_long_1d,qqq_trend_long_1d,scha_trend_long_1d,slv_trend_1h,splg_trend_long_1d,spy_trend_long_1d,tqqq_trend_long_1d,trend_donchian_ada_4h,trend_donchian_avax_4h,trend_donchian_eth_4h,trend_donchian_sol_4h,trend_donchian_sol_prop,trend_donchian_xrp_4h,uso_trend_1h,ada_pullback_2h,eth_pullback_prop_2h,gdx_pullback_1d,gld_pullback_1d,gld_pullback_1h,iaum_pullback_1d,ief_pullback_1d,mgc_pullback_1d,mhg_pullback_1d,slv_pullback_1d,sol_pullback_2h,tlt_pullback_1d,tlt_pullback_1h,xrp_pullback_2h,squeeze_breakout_4h,fvg_range_15m
+dispatch: 2026-08-10 fleet-wide base-rate distribution — does a profitable sub-1.0 leg exist?

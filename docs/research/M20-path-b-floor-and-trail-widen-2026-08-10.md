@@ -10,42 +10,72 @@ database decisions and not arbitrary guesses."*
 
 ---
 
-## 1. The headline: do not set a Path B floor yet, and here is the number that says so
+## 1. The headline: **the case the floor was meant to fix does not occur in the measured fleet**
 
-**The floor cannot be derived from the current corpus, and the blocker is not sample
-size in the usual sense — it is that the predictor is the wrong shape for the data we
-have.**
+This is now measured, not predicted — the corpus committed (`140 rows`,
+`docs/research/m20-sweep-corpus.jsonl`) and the analysis ran against it.
 
-A Path B floor would sit on the base book's **net_R-per-drawdown rate**. That rate is a
-property of the **LEG**, not the cell: every cell swept on `eth_pullback_2h` carries that
-leg's single value. Tonight's sweep produced roughly **11 walk-forwarded cells across 9
-legs** — which is ~11 rows over **nine distinct predictor values**, and the cells within a
-leg are re-measurements of one book under different levers, sharing its trades, its regime
-and its drawdown.
+### 1a. The formal verdict is `insufficient_population`
 
-Feeding those rows to a test that assumes independence inflates the effective sample by
-the cells-per-leg ratio and returns a confident-looking p for what is really a nine-point
-comparison. **That failure would be worse than guessing the floor, because it would arrive
-dressed as significance.** `scripts/research/m20_path_b_floor.py` therefore refuses a floor
-that does not separate ≥ 4 distinct legs per side and reports `insufficient_population` —
-*we did not look*, explicitly distinguished from `no_separation` (*we looked and found
-nothing*).
+```
+corpus rows: 140 (140 cells + 0 leg-status)
+cells with no walk-forward: 129   (no generalisation evidence — excluded, NOT failures)
+walk-forwarded: 11, of which missing base_rate_IS: 3
+ANALYSED: 8 cells across 6 legs
+base_rate_IS: min 1.08 · median 3.46 · max 6.95 · overall WF pass rate 38%
+```
 
-**What would change the answer:** the census default sweeps **10 of the 44 trail legs**.
-Sweeping the remaining ~34 is free (GitHub runners, ~5 min wall-clock, $0) and would take
-the leg count from 9 to ~40 — enough for a floor to be testable at all. That is the
-recommendation: **widen the population before setting the number, not the number before
-the population.**
+Eight cells over **six** distinct predictor values. The predictor is a property of the
+**LEG**, not the cell, so those 8 rows are a six-point comparison — and a test assuming
+independence would inflate the effective n by the cells-per-leg ratio and return a
+confident-looking p for it. `m20_path_b_floor.py` refuses and says
+`insufficient_population` — *we did not look* — explicitly distinct from `no_separation`.
 
-**Corollary worth stating plainly:** the case that motivated the floor has weakened. The
-motivating example was `eth_pullback_2h vt_cold10_t2.5` clearing with **+43.59R of
-headroom** on a book earning 6.62R against a 16.41R drawdown (rate **0.40**) — "almost
-anything clears a book that inefficient." On tonight's corrected, config-exact base that
-leg's IS book reads **30.63R against 12.69R (rate 2.42)**. The permissive case may largely
-be an artifact of the base defect that was fixed today rather than a standing property of
-the criterion. **I have not isolated that** — the intervening change to that leg was the
-Tier-3 decay declaration, and I did not run the counterfactual — so treat it as a
-hypothesis with a clear test, not a finding.
+### 1b. But the per-leg distribution answers the real question anyway
+
+The floor exists to stop the criterion being permissive on a weak book. Here is every
+swept leg's IS base:
+
+| leg | net_R | maxDD | rate | |
+|---|--:|--:|--:|---|
+| `spy_pullback_1h` | 66.63 | 9.58 | **6.95** | |
+| `qqq_pullback_1h` | 70.94 | 15.43 | **4.60** | |
+| `trend_donchian_sol` | 39.85 | 11.53 | **3.46** | |
+| `trend_donchian` | 46.17 | 17.88 | **2.58** | |
+| `eth_pullback_2h` | 30.63 | 12.69 | **2.41** | |
+| `avax_pullback_2h` | 16.86 | 8.78 | **1.92** | |
+| `htf_pullback_trend_2h` | 23.47 | 21.70 | **1.08** | ← lowest |
+| `trend_donchian_1h` | −34.19 | 61.14 | — | `base_unprofitable` |
+| `trend_donchian_eth` | −1.06 | 26.37 | — | `base_unprofitable` |
+| `trend_donchian_eth_prop` | −24.37 | 50.69 | — | `base_unprofitable` |
+
+**Zero of the 7 gradeable legs sit below rate 1.0.** The lowest is **1.08** — 2.7× the
+**0.40** that motivated the floor.
+
+**And the weak-book case is already guarded on the other side.** Verified against the
+producer (`drawdown_exchange_rate`), not from memory: a base book that loses money returns
+`passes: None` / `reason: base_unprofitable` — **ungradeable is not a pass**. That covers
+**3 of the 10 legs**.
+
+So the permissive case can only arise in the narrow band between those two: a book that is
+*profitable but earns little per unit of drawdown*. The 0.40 example sat exactly there, and
+**on the corrected config-exact base no leg in the measured fleet does.**
+
+### 1c. What I am and am not claiming
+
+- **Claimed:** across 10 swept legs, 0 of 7 gradeable rates fall below 1.0, and the other 3
+  are refused by an existing guard. On this population the criterion's known asymmetry is
+  **not reachable**, so a floor would currently constrain nothing.
+- **Not claimed:** that it can never be reached. **10 of 44 trail legs** are measured. A
+  low-rate profitable leg could sit in the other 34.
+- **Not isolated:** `eth_pullback_2h` moved 0.40 → 2.41 between sweeps, and *two* things
+  changed — the config-exactness fix and the Tier-3 decay declaration. I did not run the
+  counterfactual. The fleet-wide observation above does not depend on resolving it.
+
+**Recommendation: do not set a floor. Sweep the remaining 34 legs first** (free, ~5 min,
+$0) — if no profitable leg below ~1.0 exists across the full fleet, the floor is
+unnecessary rather than merely underdetermined, and that is a stronger and cheaper answer
+than a number.
 
 ---
 
