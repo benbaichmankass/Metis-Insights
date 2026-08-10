@@ -230,8 +230,30 @@ is how a fleet acquires levers that backtest well and do nothing.
 ## 7. What I would do next, in order
 
 1. ~~Fold `rate_ok` into the sweep verdict~~ — **done in this PR** (§ 4).
-2. **Sweep the 8 `ict_scalp` legs** on their own dispatch — the only part of the
-   fleet still unmeasured, and the one where the capped-TP geometry bites hardest.
+2. ~~Sweep the 8 `ict_scalp` legs — the one where the capped-TP geometry bites
+   hardest~~ — **dispatched, and the second half of that sentence is WRONG.**
+
+   The scalp family has **no capped TP to bite**: `_TP_SENTINEL_CAP_PCT` lives in
+   exactly four units (donchian, pullback, squeeze, fade) and
+   `src/units/strategies/ict_scalp.py` contains **zero** occurrences of it —
+   which is why `scalp` is deliberately absent from the sweep's
+   `LIVE_TP_CAPPED_FAMILIES`. I wrote the dispatch premise ("the `Live TP reach`
+   table is the PRIMARY output — does the 9.9% clamp bind on tight frames?") from
+   how the pullback/trend legs behave, without reading the scalp unit. **That
+   run cannot answer the question `.github/exit-lever-sweep-request` says it is
+   for**, and the sentinel still says it — it is left uncorrected on purpose,
+   because touching that file RE-FIRES the sweep.
+
+   The run is still worth its cost: 8 legs of lever verdicts and base books
+   extend the corpus, and `ict_scalp_xrp_15m` (IS n=227 / OOS n=134) and
+   `ict_scalp_sol_15m` (280 / 142) are among the thickest denominators in the
+   fleet — the opposite of the 3-trade equity windows in § 4.
+
+   The same gap produced a live reporting defect, now fixed: the PR-comment
+   banner read the RUN-LEVEL `--tp-cap-pct` flag and printed *"LIVE-PARITY
+   (capped TP 0.099)"* on all 9 un-capped legs (8 scalp + `fvg_range_15m`),
+   asserting a geometry the code never applied — on the one line whose entire job
+   is to say which geometry produced the numbers below it.
 3. **Decide the `dN/N_b ≤ 1.0` bound** (§ 3, Tier-3, your call).
 4. **Leave `beats()` alone** until the minimum-n question in § 4 is decided
    deliberately rather than as a side effect of a floor discussion.
