@@ -140,6 +140,10 @@ def _simulate_exit(
     cur_sl = sl
     be_armed = False
     banked = False            # M20 partial-TP rung filled?
+    banked_index = None        # ...and on WHICH bar, so capital freed at the
+                               # rung can be credited its shorter hold. A
+                               # boolean cannot express "how long was the
+                               # capital actually committed".
     for j in range(start_idx, last + 1):
         bar_low = float(df["low"].iloc[j])
         bar_high = float(df["high"].iloc[j])
@@ -170,23 +174,28 @@ def _simulate_exit(
                     else entry - bank_at_r * risk_1r)
             if (bar_high >= rung) if direction == "long" else (bar_low <= rung):
                 banked = True
+                banked_index = j
         if direction == "long":
             # Pessimistic ordering: if both touched in one bar, count SL first.
             if bar_low <= cur_sl:
                 return {"outcome": "be_stop" if be_armed else "sl_hit",
                         "exit_index": j, "exit_price": cur_sl,
-                        "mfe_price": best, "mae_price": worst, "banked": banked}
+                        "mfe_price": best, "mae_price": worst, "banked": banked,
+                        "banked_index": banked_index}
             if bar_high >= tp:
                 return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp,
-                        "mfe_price": best, "mae_price": worst, "banked": banked}
+                        "mfe_price": best, "mae_price": worst, "banked": banked,
+                        "banked_index": banked_index}
         else:
             if bar_high >= cur_sl:
                 return {"outcome": "be_stop" if be_armed else "sl_hit",
                         "exit_index": j, "exit_price": cur_sl,
-                        "mfe_price": best, "mae_price": worst, "banked": banked}
+                        "mfe_price": best, "mae_price": worst, "banked": banked,
+                        "banked_index": banked_index}
             if bar_low <= tp:
                 return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp,
-                        "mfe_price": best, "mae_price": worst, "banked": banked}
+                        "mfe_price": best, "mae_price": worst, "banked": banked,
+                        "banked_index": banked_index}
         # M20 exit levers (giveback / stale) — fire at bar CLOSE, and only when
         # neither the stop NOR the TP hit this bar (the SL/TP checks above return
         # first, so stop-first ordering is preserved exactly). Mirrors the
@@ -205,14 +214,16 @@ def _simulate_exit(
                     and (mfe_r - open_r) >= giveback_r):
                 return {"outcome": "giveback_stop", "exit_index": j,
                         "exit_price": lever_close,
-                        "mfe_price": best, "mae_price": worst, "banked": banked}
+                        "mfe_price": best, "mae_price": worst, "banked": banked,
+                        "banked_index": banked_index}
             # stale-stop: cut a trade held >= N bars that is still below
             # stale_exit_below_r of open profit (default 0.0 = only cut losers).
             if (stale_exit_bars is not None and (j - start_idx) >= stale_exit_bars
                     and open_r < stale_exit_below_r):
                 return {"outcome": "stale_stop", "exit_index": j,
                         "exit_price": lever_close,
-                        "mfe_price": best, "mae_price": worst, "banked": banked}
+                        "mfe_price": best, "mae_price": worst, "banked": banked,
+                        "banked_index": banked_index}
         if (be_offset_bps is not None and not be_armed
                 and entry is not None and risk_1r and risk_1r > 0):
             close_j = float(df["close"].iloc[j])
@@ -230,6 +241,7 @@ def _simulate_exit(
         "mfe_price": best,
         "mae_price": worst,
         "banked": banked,
+        "banked_index": banked_index,
     }
 
 
@@ -452,7 +464,23 @@ def run_backtest(
             sign = 1.0 if direction == "long" else -1.0
             meta["mfe_r"] = round(sign * (float(mfe_price) - entry) / risk, 4)
             meta["mae_r"] = round(sign * (float(mae_price) - entry) / risk, 4)
-        meta["bars_held"] = int(result["exit_index"]) - i
+        bars_held = int(result["exit_index"]) - i
+        meta["bars_held"] = bars_held
+        # CAPITAL-WEIGHTED hold — the axis a net_R-only gate cannot see.
+        # Banking does not close the trade; it releases `bank_frac` of the
+        # position at the rung while the remainder rides to the exit. So the
+        # capital actually committed is the size-weighted average of the two
+        # holds, NOT the full-position hold. Measuring banking on unweighted
+        # bars_held would score it identically to doing nothing, which is
+        # exactly the blind spot the operator flagged (capital sitting in a
+        # chop with nothing to show for it).
+        bi = result.get("banked_index")
+        if banked and bi is not None:
+            cap_bars = (bank_frac * (int(bi) - i)
+                        + (1.0 - bank_frac) * bars_held)
+        else:
+            cap_bars = float(bars_held)
+        meta["capital_bars"] = round(cap_bars, 3)
         if bank_frac > 0.0:
             # Rung-fill rate is the denominator a ladder verdict is read over:
             # a cell where almost nothing banks is inert, not a fair negative.
@@ -576,6 +604,50 @@ def _summarize(
     # `banked_trades` is the rung-fill DENOMINATOR — a cell whose rung almost
     # never fills is INERT, which is a different finding from a lever that
     # filled often and lost money, and the two must not read alike.
+    # ---- CAPITAL EFFICIENCY (operator directive 2026-08-10) ----------------
+    # The exit-refinement skill has ALWAYS declared "capital-efficiency
+    # tiebreak: net_R per position-day" as part of the lever gate — and no
+    # harness ever computed it, so the gate's own declared tiebreak has never
+    # been measurable. A net_R-only view cannot distinguish a book that earns
+    # 10R in a week from one that earns 10R while sitting in a chop for a
+    # month, which is precisely the live complaint (bybit_2 holding through a
+    # long chop with nothing to show for it).
+    #
+    # Bar length is MEASURED from the frame's own timestamps (median spacing),
+    # not assumed from the timeframe label — a mislabelled or resampled frame
+    # would otherwise silently scale every number here.
+    bar_minutes = None
+    if "timestamp" in df.columns and len(df) > 2:
+        try:
+            deltas = pd.to_datetime(df["timestamp"]).diff().dropna()
+            if len(deltas):
+                med = deltas.median().total_seconds() / 60.0
+                bar_minutes = float(med) if med > 0 else None
+        except Exception:  # noqa: BLE001 — advisory metric, never blocks a run
+            bar_minutes = None
+    position_bars = sum(float(t.meta.get("bars_held") or 0) for t in trades)
+    # capital_bars is SIZE-WEIGHTED: banking releases bank_frac of the
+    # position at the rung, so that fraction stops consuming capital there.
+    # Falls back to bars_held for any trade without the field (lever off).
+    capital_bars = sum(float(t.meta.get("capital_bars",
+                                        t.meta.get("bars_held") or 0))
+                       for t in trades)
+
+    def _days(bars: float):
+        # None, never 0.0, when bar length is unknown — "we could not measure
+        # the hold" and "the hold was zero" are opposite statements.
+        if bar_minutes is None or bars <= 0:
+            return None
+        return bars * bar_minutes / 1440.0
+
+    position_days = _days(position_bars)
+    capital_days = _days(capital_bars)
+
+    def _per_day(total_r, days):
+        if days is None or days <= 0:
+            return None
+        return round(total_r / days, 4)
+
     banked_n = sum(1 for t in trades if t.meta.get("banked"))
     lever_cfg = {
         "bank_frac": bank_frac,
@@ -600,6 +672,12 @@ def _summarize(
             "max_drawdown_r": 0.0,
             "sharpe_r": 0.0,
             "by_outcome": {},
+            "bar_minutes": None,
+            "position_days": None,
+            "capital_days": None,
+            "mean_bars_held": None,
+            "net_r_per_position_day": None,
+            "net_r_per_capital_day": None,
             **cost_cfg,
             **lever_cfg,
             "data_start": str(df["timestamp"].iloc[0]) if "timestamp" in df.columns and len(df) else None,
@@ -656,6 +734,15 @@ def _summarize(
         "avg_win_r": round(sum(wins) / len(wins), 4) if wins else 0.0,
         "avg_loss_r": round(sum(losses) / len(losses), 4) if losses else 0.0,
         "by_outcome": by_outcome,
+        # Capital efficiency — read BESIDE net_R, not instead of it. A lever
+        # that lifts net_r_per_capital_day while costing net_R is buying
+        # throughput; one that lifts neither is just smaller.
+        "bar_minutes": bar_minutes,
+        "position_days": (round(position_days, 3) if position_days is not None else None),
+        "capital_days": (round(capital_days, 3) if capital_days is not None else None),
+        "mean_bars_held": (round(position_bars / n, 2) if n else None),
+        "net_r_per_position_day": _per_day(sum(net), position_days),
+        "net_r_per_capital_day": _per_day(sum(net), capital_days),
         **cost_cfg,
         **lever_cfg,
         "data_start": str(df["timestamp"].iloc[0]) if "timestamp" in df.columns else None,

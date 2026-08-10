@@ -644,3 +644,86 @@ worth it here" — instead of a tautological one.
   reduction — and specifically, should the prop sleeve be gated on
   survival-weighted EV instead?** Filed as
   `BL-20260810-BANKING-GATE-CANNOT-PASS`.
+
+## 12. Capital efficiency is the missing axis (operator directive 2026-08-10)
+
+Operator, on whether a net_R-first gate is the right shipping criterion:
+
+> *"it sounds like the answer is no — we need to be looking at efficiency of
+> capital utilization as well as max R — the most recent example being the open
+> trades that bybit_2 is currently holding through a long chop period with no
+> upside to show for it."*
+
+### 12.1 The criterion already existed and was never implemented
+
+`.claude/skills/exit-refinement/SKILL.md` § P2 has always read:
+
+> "**Gate: a lever ships only if it beats baseline on net_R AND maxDD in BOTH IS
+> and OOS** (capital-efficiency tiebreak: net_R per position-day)."
+
+**No harness has ever computed net_R per position-day.** `bars_held` was written
+into per-trade `meta` and never aggregated into any summary; no sweep verdict,
+no matrix cell, no gate check has ever referenced hold time. So this is not a
+new criterion being introduced — it is the **unimplemented half of the existing
+one**, and its absence is why § 11's finding could stand for a month: a
+net_R-only view cannot distinguish a book earning 10R in a week from one earning
+10R while sitting in a chop for a month.
+
+### 12.2 For banking specifically, the measure must be CAPITAL-WEIGHTED
+
+Banking does not close a trade — it releases `bank_frac` of the position at the
+rung while the remainder rides to the exit. Measuring it on unweighted
+`bars_held` would score banking **identically to doing nothing**, which is
+precisely the blind spot. The harness therefore records `capital_bars` per
+trade, size-weighted:
+
+```
+capital_bars = bank_frac · (rung_bar − entry_bar) + (1 − bank_frac) · (exit_bar − entry_bar)
+```
+
+which requires the **bar the rung filled** (`banked_index`), not just the
+boolean. `banked_index` is `None` — never `0` — when the rung never filled, since
+bar 0 is a real bar and a fabricated zero would read as "banked immediately".
+
+**Worked, on the operator's exact shape** (unit-tested): entry at 100, stop 98
+(risk 2), TP 103 (= 1.5R). The rung at 1.0R prints on **bar 1**; the trade then
+chops for 20 bars and **times out flat**.
+
+| | full-position hold | capital-weighted hold |
+|---|--:|--:|
+| bars | 21 | **11.0** |
+| share of capital-time | 100% | **52%** |
+
+Banking released half the capital at bar 1 instead of holding it through 20 bars
+of chop for nothing. **net_R moves barely at all. Capital-time nearly halves.**
+Under the current gate these two runs are indistinguishable; under a capital-day
+view they are not remotely the same trade.
+
+### 12.3 What now ships in the summary
+
+`_summarize` emits, beside (never instead of) net_R and maxDD:
+
+- `bar_minutes` — **measured** from the frame's own timestamps (median spacing),
+  not assumed from the timeframe label, so a mislabelled or resampled frame
+  cannot silently rescale every number here.
+- `position_days` / `capital_days` — `None`, never `0.0`, when bar length is
+  unknown: *"we could not measure the hold"* and *"the hold was zero"* are
+  opposite statements (§ "Collapsed states").
+- `mean_bars_held`
+- `net_r_per_position_day` — the skill's declared tiebreak, finally computable.
+- `net_r_per_capital_day` — the banking-aware version.
+
+### 12.4 How to read a lever now
+
+Three numbers, not one: **net_R** (does it earn), **maxDD** (does it hurt),
+**net_R per capital-day** (does the capital earn its keep while committed). A
+lever that lifts the third while costing the first is buying *throughput* — and
+throughput is what an account holding a chop with no upside is short of. That is
+a different object from a lever that is simply smaller, and § 11's
+`m20_banking_risk_adjusted.py` plus these fields are what make the two
+distinguishable at all.
+
+**Still not a gate change.** Nothing here relaxes the shipping criterion; it
+makes the criterion the skill already declares actually measurable, so the
+operator's decision in `BL-20260810-BANKING-GATE-CANNOT-PASS` can be taken on
+evidence rather than on an axis nobody computed.
