@@ -132,15 +132,42 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const path = require('path');
             const family = process.env.FAMILY;
-            let body = '';
+            // The driver writes to out/<family>/<UTC-date>/SUMMARY.md, not
+            // out/<family>/SUMMARY.md. The first version of this step read the
+            // undated path, found nothing, and posted "census did not produce a
+            // SUMMARY — this is a FAILED run" over FIVE runs that had all
+            // SUCCEEDED (each log ends `census -> out/<family>/2026-08-10`).
+            // That is sub-class A of the diagnostic-provenance rule in CLAUDE.md:
+            // a failure message naming a cause no code path tested. Fixed by
+            // branching on the actual STAGE — did the dir exist, did the file
+            // exist, or did the census never run — not by rewording the label.
+            let body = '', stage = 'unknown';
+            const famDir = `out/${family}`;
+            let summaryPath = null;
             try {
-              body = fs.readFileSync(`out/${family}/SUMMARY.md`, 'utf8');
+              const dated = fs.readdirSync(famDir)
+                .map(d => path.join(famDir, d))
+                .filter(p => fs.existsSync(path.join(p, 'SUMMARY.md')))
+                .sort();
+              if (dated.length) summaryPath = path.join(dated[dated.length - 1], 'SUMMARY.md');
+              else if (fs.existsSync(path.join(famDir, 'SUMMARY.md')))
+                summaryPath = path.join(famDir, 'SUMMARY.md');
+              stage = summaryPath ? 'ok' : 'ran_no_summary';
             } catch (e) {
+              stage = 'no_output_dir';
+            }
+            if (stage === 'ok') {
+              body = fs.readFileSync(summaryPath, 'utf8');
+            } else {
               let tail = '';
               try { tail = fs.readFileSync('census.out', 'utf8').slice(-3000); }
-              catch (e2) { tail = '(no census output — job failed before the census step)'; }
-              body = `**census did not produce a SUMMARY** — this is a FAILED run, not an empty result.\n\n\`\`\`\n${tail}\n\`\`\``;
+              catch (e2) { tail = '(no census output captured)'; }
+              const why = stage === 'no_output_dir'
+                ? `no \`${famDir}\` directory — the census step did not get far enough to create one`
+                : `\`${famDir}\` exists but contains no SUMMARY.md — the census ran and did not write one`;
+              body = `**No SUMMARY to post** (${why}). Census stdout below; read it before calling this a failed measurement.\n\n\`\`\`\n${tail}\n\`\`\``;
             }
             // Resolve the PR from the COMMIT. `pulls.list({head})` silently
             // returned [] on 2026-08-10 and seven jobs went green having posted

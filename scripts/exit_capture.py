@@ -57,7 +57,13 @@ KEYS = ("n_trades", "n_winners", "n_losers",
         "capture_p25", "capture_lt_30_pct", "capture_gt_75_pct",
         "target_r", "near_miss_measured_n",
         "near_miss_80_pct", "near_miss_90_pct", "near_miss_95_pct",
-        "near_miss_r_left_on_table", "mfe_r_measured_n")
+        "near_miss_r_left_on_table", "mfe_r_measured_n",
+        "mfe_floor_r", "capture_lowmfe_n", "capture_mean_robust")
+
+# Below this MFE the capture RATIO is denominator-noise, not a capture reading.
+# This is a REPORTING floor for a statistic, NOT a gate threshold — it changes
+# which mean is trustworthy, never whether a leg passes anything.
+DEFAULT_MFE_FLOOR_R = 0.1
 
 
 def _num(v: Any) -> Optional[float]:
@@ -99,7 +105,8 @@ def _quantile(sorted_vals: List[float], q: float) -> Optional[float]:
 
 
 def summarize(trades: Iterable[Dict[str, Any]], *,
-              target_r: Optional[float] = None) -> Dict[str, Any]:
+              target_r: Optional[float] = None,
+              mfe_floor_r: float = DEFAULT_MFE_FLOOR_R) -> Dict[str, Any]:
     """The exit-capture block for one leg.
 
     `trades` are emitted-trade rows (the harnesses' ``--emit-trades`` JSONL):
@@ -121,6 +128,19 @@ def summarize(trades: Iterable[Dict[str, Any]], *,
     caps = [c for c in (capture_ratio(a, b) for a, b in zip(nets, mfes))
             if c is not None]
     caps_sorted = sorted(caps)
+    # A RATIO EXPLODES ON A SMALL DENOMINATOR, and the mean is where it shows.
+    # Measured 2026-08-10: `fvg_range_15m` reported capture_mean = -14.13 and
+    # `gld_pullback_1h` -12.85. Neither means "we gave back 1300% of the move" —
+    # a loser that peaked at mfe_r 0.05 and closed at -1R contributes -20 all by
+    # itself, so a handful of never-really-went-favourable trades set the mean.
+    # The MEDIAN and the <30%/>75% buckets are robust to that; the raw mean is
+    # not, and is kept only because dropping a number that was already reported
+    # would hide the artifact rather than explain it. `capture_mean_robust`
+    # restricts to trades whose MFE cleared `mfe_floor_r` — a REPORTING floor on
+    # a statistic, never a gate, and `capture_lowmfe_n` always ships beside it so
+    # the excluded population is stated rather than silently dropped.
+    robust = [c for c, m in zip((capture_ratio(a, b) for a, b in zip(nets, mfes)), mfes)
+              if c is not None and m is not None and m >= mfe_floor_r]
     out: Dict[str, Any] = {
         "n_trades": n,
         "n_winners": winners,
@@ -133,6 +153,10 @@ def summarize(trades: Iterable[Dict[str, Any]], *,
         "capture_lt_30_pct": _pct(sum(1 for c in caps if c < 0.30), len(caps)),
         "capture_gt_75_pct": _pct(sum(1 for c in caps if c > 0.75), len(caps)),
         "target_r": target_r,
+        "mfe_floor_r": mfe_floor_r,
+        "capture_lowmfe_n": len(caps) - len(robust),
+        "capture_mean_robust": (round(sum(robust) / len(robust), 4)
+                                if robust else None),
     }
 
     tr = _num(target_r)

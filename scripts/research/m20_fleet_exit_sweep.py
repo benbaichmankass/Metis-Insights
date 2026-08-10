@@ -521,8 +521,16 @@ def main(argv: list[str]) -> int:
                         "tf": p["tf"], "proxy": p["proxy"],
                         "exit_kind": "fixed_target" if tr else "trail"})
             census[p["leg"]] = row
-            print(f"  {p['leg']:28s} cap_mean={row.get('capture_mean')} "
-                  f"nm90={row.get('near_miss_90_pct')} n={row.get('n_trades')}"
+            # Print the ROBUST statistics. The first run printed capture_mean
+            # alone, which is the one figure a small MFE denominator blows up
+            # (fvg_range_15m read -14.13), so the stdout line — the only part
+            # visible without downloading the artifact — was the least
+            # trustworthy number in the block.
+            print(f"  {p['leg']:28s} med={row.get('capture_median')} "
+                  f"robust={row.get('capture_mean_robust')} "
+                  f"<30%={row.get('capture_lt_30_pct')} "
+                  f"nm90={row.get('near_miss_90_pct')} "
+                  f"meas={row.get('capture_measured_n')}/{row.get('n_trades')}"
                   f"{' ERR ' + str(row['error'])[:60] if 'error' in row else ''}",
                   flush=True)
         ok = {k: v for k, v in census.items() if "error" not in v}

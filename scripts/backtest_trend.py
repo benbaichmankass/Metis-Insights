@@ -549,6 +549,12 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                     "strategy": "trend_donchian", "entry_time": str(t.entry_time),
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - cb["total_cost_r"], 4),
+                    # MFE is the denominator of the capture ratio; the Trade has
+                    # carried it all along and the emit payload simply never
+                    # included it, so every donchian/squeeze leg read as
+                    # capture-unmeasurable in the 2026-08-10 census
+                    # (BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL).
+                    "mfe_r": t.mfe_r,
                     # net_r is net-of-full-cost (fee+slippage+funding); net_r_fee_only
                     # is the fees-only arm for the with/without comparison.
                     "net_r_fee_only": round(t.r_multiple - cb["fee_r"], 4),

@@ -124,3 +124,38 @@ def test_module_encodes_no_capture_threshold():
         for banned in ("PASS", "verdict", "is_pass", "gate"):
             assert banned.lower() not in code.lower(), \
                 f"{fn.name} must report, not grade: found {banned!r}"
+
+
+# ------------------------------------------------- denominator-noise regression
+def test_capture_mean_is_denominator_noise_and_the_robust_mean_is_not():
+    """The 2026-08-10 census shipped `capture_mean` as its only stdout figure and
+    reported -14.13 for fvg_range_15m and -5.05 for htf_pullback_trend_2h. Those
+    are not captures; they are a ratio exploding on a near-zero MFE.
+
+    A book whose real capture is 0.8 reproduces the artifact exactly when three
+    of ten trades peaked at 0.05R: each contributes -20 to the mean. The median
+    and the robust mean both read the truth, and the excluded count is stated.
+    """
+    trades = [_t(-1.0, 0.05)] * 3 + [_t(1.2, 1.5)] * 7
+    s = ec.summarize(trades, target_r=1.5)
+
+    assert s["capture_mean"] < -5            # the artifact, reproduced
+    assert s["capture_median"] == 0.8        # robust to it
+    assert s["capture_mean_robust"] == 0.8   # robust to it
+    assert s["capture_lowmfe_n"] == 3        # and the exclusion is STATED
+    assert s["capture_measured_n"] == 10     # over an unchanged denominator
+
+
+def test_robust_mean_is_none_not_zero_when_every_trade_is_below_the_floor():
+    """No trade cleared the MFE floor: the robust mean is undefined, and 0.0
+    would read as 'we captured nothing' rather than 'we could not measure'."""
+    s = ec.summarize([_t(-1.0, 0.01), _t(-1.0, 0.02)], target_r=1.5)
+    assert s["capture_mean_robust"] is None
+    assert s["capture_lowmfe_n"] == 2
+    assert s["capture_measured_n"] == 2      # they ARE measured, just not robustly
+
+
+def test_mfe_floor_is_reported_so_the_robust_mean_is_interpretable():
+    """A statistic computed against a floor must say which floor."""
+    assert ec.summarize([], target_r=1.0)["mfe_floor_r"] == ec.DEFAULT_MFE_FLOOR_R
+    assert ec.summarize([], target_r=1.0, mfe_floor_r=0.25)["mfe_floor_r"] == 0.25
