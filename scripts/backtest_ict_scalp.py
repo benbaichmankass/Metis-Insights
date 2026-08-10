@@ -114,6 +114,7 @@ def _simulate_exit(
     stale_exit_bars: Optional[int] = None,
     stale_exit_below_r: float = 0.0,
     giveback_min_mfe_r: float = 0.0,
+    be_arm_on_touch: bool = False,
     giveback_r: float = 1.0,
     bank_frac: float = 0.0,
     bank_at_r: float = 1.0,
@@ -229,11 +230,34 @@ def _simulate_exit(
                         "banked_index": banked_index}
         if (be_offset_bps is not None and not be_armed
                 and entry is not None and risk_1r and risk_1r > 0):
-            close_j = float(df["close"].iloc[j])
-            if direction == "long" and close_j >= entry + risk_1r:
+            # ARMING BASIS — close vs TOUCH (BL-20260810 intrabar-monitor work).
+            #
+            # The live monitor reads `candles_df["close"].iloc[-1]`, so the
+            # ratchet arms on a bar CLOSE >= 1R. But MFE is the intrabar HIGH,
+            # and the 2026-08-10 census found 24 scalp trades (1.01% of 2,385
+            # losers) that reached >= 90% of a 1.5R target and still closed at
+            # -1R: price touched near-target, closed back below 1R, and the
+            # ratchet never armed. `--be-arm-on-touch` models arming on the
+            # intrabar EXTREME instead.
+            #
+            # CONSERVATIVE BY CONSTRUCTION, and the understatement is
+            # deliberate: this block runs AFTER the SL/TP checks have already
+            # returned for bar j, so (a) a bar that trades through the stop
+            # takes the stop and never arms — SL-first is preserved exactly —
+            # and (b) the armed stop only protects from bar j+1 onward, whereas
+            # a real intrabar monitor could arm mid-bar. So a positive result
+            # here is a FLOOR on the live benefit, not a ceiling. Modelling
+            # mid-bar arming would need sub-bar data this harness does not have,
+            # and inventing it would be the fabrication class the provenance
+            # rules exist to stop.
+            if be_arm_on_touch:
+                trigger = bar_high if direction == "long" else bar_low
+            else:
+                trigger = float(df["close"].iloc[j])
+            if direction == "long" and trigger >= entry + risk_1r:
                 cur_sl = entry * (1 + be_offset_bps / 10000.0)
                 be_armed = True
-            elif direction == "short" and close_j <= entry - risk_1r:
+            elif direction == "short" and trigger <= entry - risk_1r:
                 cur_sl = entry * (1 - be_offset_bps / 10000.0)
                 be_armed = True
     # Timeout: close at the last bar's close.
@@ -343,6 +367,7 @@ def run_backtest(
     vol_spec: Optional[Dict[str, Any]] = None,
     stamp_regime: bool = False,
     sim_breakeven: bool = False,
+    be_arm_on_touch: bool = False,
     stale_exit_bars: Optional[int] = None,
     stale_exit_below_r: float = 0.0,
     giveback_min_mfe_r: float = 0.0,
@@ -423,6 +448,7 @@ def run_backtest(
             tp=tp,
             timeout_bars=timeout_bars,
             entry=entry,
+            be_arm_on_touch=be_arm_on_touch,
             be_offset_bps=(
                 float(cfg.get("be_offset_bps", 0.0) or 0.0)
                 if sim_breakeven else None
@@ -886,6 +912,13 @@ def main(argv: List[str]) -> int:
                         "model_id}) extracted from the registry head serving the live vol stamp. "
                         "Without it --stamp-regime leaves vol_regime=unknown (never recomputed "
                         "from backtest data — that would not be parity).")
+    p.add_argument("--be-arm-on-touch", action="store_true",
+                   help="Arm the break-even ratchet on an intrabar TOUCH of 1R "
+                        "(bar high/low) instead of a bar CLOSE >= 1R. Models the "
+                        "intrabar monitor; only meaningful with --sim-breakeven. "
+                        "Conservative: the armed stop protects from the NEXT bar, "
+                        "and SL-first ordering is preserved, so a positive result "
+                        "is a FLOOR on the live benefit (BL-20260810).")
     p.add_argument("--sim-breakeven", action="store_true",
                    help="Simulate the LIVE monitor's break-even trail (monitor_breakeven_sl: once a "
                         "bar closes >= 1R in favour, SL moves to entry +/- be_offset_bps from YAML). "
@@ -953,6 +986,7 @@ def main(argv: List[str]) -> int:
         vol_spec=vol_spec,
         stamp_regime=bool(args.stamp_regime),
         sim_breakeven=bool(args.sim_breakeven),
+        be_arm_on_touch=bool(args.be_arm_on_touch),
         stale_exit_bars=(int(args.stale_exit_bars)
                          if args.stale_exit_bars is not None else None),
         stale_exit_below_r=float(args.stale_exit_below_r),

@@ -270,6 +270,24 @@ def cells_for(cfg: dict, fam: str | None = None) -> list[tuple[str, str, list[st
         ("gb1R_afterMFE2R", "giveback_stop",
          ["--giveback-min-mfe-r", "2.0", "--giveback-r", "1.0"]),
     ]
+    # INTRABAR BREAK-EVEN ARMING — scalp only, because it is the only family
+    # whose live monitor ratchets to break-even at all (monitor_breakeven_sl;
+    # the trail families have no such ratchet to re-base).
+    #
+    # A CELL, not a base variant, deliberately: routing it through the normal
+    # grid gives it the full gate — config-exact base A/B, IS/OOS, and the
+    # yearly walk-forward — instead of a bespoke two-arm comparison that would
+    # skip generalisation. The 2026-08-10 sweep is a standing reminder of why
+    # that matters: five cells passed BOTH windows and still failed the
+    # walk-forward.
+    #
+    # The prize is bounded and small (24 near-miss trades across all 7 scalp
+    # legs, ceiling 60R = 3.70% of gross from clean target hits), and the COST
+    # is the open question — arming on a touch also scratches trades that dip
+    # and recover. On a 4-trade smoke sample it converted one timeout to a
+    # be_stop for -0.022R, which proves the lever is live and settles nothing.
+    if fam == "scalp":
+        out.append(("be_touch_arm", "stale_stop", ["--be-arm-on-touch"]))
     tm = cfg.get("trail_mult")
     if tm is not None:
         t = float(tm)
