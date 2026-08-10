@@ -517,9 +517,20 @@ def main(argv: list[str]) -> int:
             cfg = strategies.get(p["leg"]) or {}
             tr = leg_target_r(cfg)
             row = run_census(p["harness"], p["base"], tr, end=None)
+            # exit_kind describes what the census ACTUALLY treated the leg as,
+            # not what the YAML declares. A leg carrying the `tp_r: 50.0`
+            # disabled-TP sentinel declares a target and has none in practice;
+            # labelling it `fixed_target` while every near-miss column reads
+            # None invites the reader to think the None is a bug. Third instance
+            # this session of a label not describing the computation behind it.
+            declared = tr is not None
+            na = row.get("near_miss_not_applicable")
             row.update({"family": p["family"], "symbol": p["symbol"],
                         "tf": p["tf"], "proxy": p["proxy"],
-                        "exit_kind": "fixed_target" if tr else "trail"})
+                        "target_r_declared": tr,
+                        "exit_kind": ("trail" if not declared
+                                      else "target_inert" if na else "fixed_target"),
+                        "exit_kind_reason": na})
             census[p["leg"]] = row
             # Print the ROBUST statistics. The first run printed capture_mean
             # alone, which is the one figure a small MFE denominator blows up
@@ -564,7 +575,10 @@ def main(argv: list[str]) -> int:
             if "error" in v:
                 lines.append(f"| {leg} | — | — | ERROR | {str(v['error'])[:40]} | — | — |")
                 continue
-            lines.append(f"| {leg} | {v['exit_kind']} | {v['n_trades']} | "
+            kind = v['exit_kind']
+            if v.get('exit_kind_reason'):
+                kind += f" ({v['exit_kind_reason']}, declared {v.get('target_r_declared')}R)"
+            lines.append(f"| {leg} | {kind} | {v['n_trades']} | "
                          f"{v['capture_mean']} | {v['capture_lt_30_pct']} | "
                          f"{v['near_miss_90_pct']} | {v['near_miss_r_left_on_table']} |")
         (run_dir / "SUMMARY.md").write_text("\n".join(lines) + "\n")
