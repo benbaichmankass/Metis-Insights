@@ -254,3 +254,106 @@ def test_order_package_stamps_entry_time():
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
+
+
+# ---------------------------------------------------------------------------
+# M20 partial-TP ladder lever (bank_frac / bank_at_r), ported from
+# backtest_trend.py / backtest_pullback.py 2026-08-09 so the eight live
+# ict_scalp legs can be swept for `exit_ladder` (they read
+# blocked:no_harness_levers until this landed).
+# ---------------------------------------------------------------------------
+
+import ast  # noqa: E402
+
+
+def test_every_return_path_reports_banked():
+    """Structural guard: `banked` on EVERY `_simulate_exit` return dict.
+
+    run_backtest reads `result["banked"]` strictly. A return path that forgot
+    the key would raise there rather than silently read as "never banked" —
+    but a caller could regress to `.get("banked", False)`, so the honest
+    denominator is asserted at the source. Counted, not eyeballed: the
+    duplicated-row class of bug is invisible to a re-read and obvious to a
+    count that disagrees.
+    """
+    src = (REPO_ROOT / "scripts" / "backtest_ict_scalp.py").read_text()
+    fn = next(n for n in ast.walk(ast.parse(src))
+              if isinstance(n, ast.FunctionDef) and n.name == "_simulate_exit")
+    rets = [n for n in ast.walk(fn)
+            if isinstance(n, ast.Return) and isinstance(n.value, ast.Dict)]
+    with_banked = [r for r in rets
+                   if any(isinstance(k, ast.Constant) and k.value == "banked"
+                          for k in r.value.keys)]
+    assert len(rets) >= 7, f"expected >=7 return sites, found {len(rets)}"
+    assert len(rets) == len(with_banked), (
+        f"{len(rets) - len(with_banked)} return path(s) omit 'banked'")
+
+
+# Long, entry=100, sl=98 (risk=2). Bar 1 prints a high of 102 (= +1R) and then
+# trades down to the stop. Rung-before-stop means the fraction banks at +1R and
+# only the remainder takes the −1R.
+_BANK_THEN_STOP_LONG = [(100, 100.5, 99.5, 100), (100, 102.0, 97.0, 97.5)]
+
+
+def test_bank_off_is_byte_identical():
+    """bank_frac=0 must leave the result identical to not passing the lever."""
+    rows = _BANK_THEN_STOP_LONG
+    base = _simulate_exit(_frame(rows), start_idx=0, direction="long",
+                          sl=98, tp=110, timeout_bars=10, entry=100)
+    off = _simulate_exit(_frame(rows), start_idx=0, direction="long",
+                         sl=98, tp=110, timeout_bars=10, entry=100,
+                         bank_frac=0.0, bank_at_r=1.0)
+    assert base == off
+    assert off["banked"] is False
+
+
+def test_bank_fires_before_stop_long():
+    """A bar that trades through the rung AND the stop banks the fraction."""
+    res = _simulate_exit(_frame(_BANK_THEN_STOP_LONG), start_idx=0,
+                         direction="long", sl=98, tp=110, timeout_bars=10,
+                         entry=100, bank_frac=0.5, bank_at_r=1.0)
+    assert res["outcome"] == "sl_hit"
+    assert res["banked"] is True
+    # run_backtest's blend: 0.5 * (+1R) + 0.5 * (−1R) == 0.0R, vs −1R unbanked.
+    r_exit = (res["exit_price"] - 100) / 2.0
+    assert r_exit == pytest.approx(-1.0)
+    assert 0.5 * 1.0 + 0.5 * r_exit == pytest.approx(0.0)
+
+
+def test_bank_fires_short():
+    """Short mirror: rung at entry − bank_at_r × risk, touched by the bar low."""
+    rows = [(100, 100.5, 99.5, 100), (100, 103.0, 98.0, 102.5)]
+    res = _simulate_exit(_frame(rows), start_idx=0, direction="short",
+                         sl=102, tp=90, timeout_bars=10, entry=100,
+                         bank_frac=0.25, bank_at_r=1.0)
+    assert res["banked"] is True
+
+
+def test_rung_not_reached_does_not_bank():
+    """Never touching the rung leaves banked False (an INERT cell, not a loss)."""
+    rows = [(100, 100.5, 99.5, 100), (100, 101.0, 97.0, 97.5)]
+    res = _simulate_exit(_frame(rows), start_idx=0, direction="long",
+                         sl=98, tp=110, timeout_bars=10, entry=100,
+                         bank_frac=0.5, bank_at_r=1.0)
+    assert res["outcome"] == "sl_hit"
+    assert res["banked"] is False
+
+
+def test_rung_at_or_above_tp_is_a_provable_noop():
+    """The ict_scalp-specific trap: every live leg has a FIXED tp_at_r=1.5.
+
+    A rung at bank_at_r >= tp_at_r coincides with the TP, so the blend
+    `frac*tp + (1-frac)*tp` returns tp exactly — the lever measures nothing.
+    A sweep grid that used the fleet default bank_at_r=1.5 would report a
+    confident, meaningless "no effect" for half its cells.
+    """
+    # entry=100, sl=98 (risk=2) => tp_at_r 1.5 puts TP at 103.
+    rows = [(100, 100.5, 99.5, 100), (100, 103.5, 99.8, 103.2)]
+    res = _simulate_exit(_frame(rows), start_idx=0, direction="long",
+                         sl=98, tp=103, timeout_bars=10, entry=100,
+                         bank_frac=0.5, bank_at_r=1.5)
+    assert res["outcome"] == "tp_hit"
+    assert res["banked"] is True
+    r_exit = (res["exit_price"] - 100) / 2.0
+    assert r_exit == pytest.approx(1.5)
+    assert 0.5 * 1.5 + 0.5 * r_exit == pytest.approx(r_exit)  # identical

@@ -266,6 +266,78 @@ Give only true, verifiable answers.
 - This rule overrides any incentive to look complete or finished. Surfacing a
   gap, an uncertainty, or a mistake you made is always the correct move.
 
+## Collapsed states — can this field say "we did not look"? (2026-08-09, binding)
+
+**When a field encodes a condition, ask whether *"we did not look"* and *"we
+looked and found nothing"* are distinguishable. If they are not, that is the
+bug.** Two distinct states sharing one value, where the missing one is the
+dangerous one.
+
+Promoted on operator direction from `BL-20260809-COLLAPSED-STATES-NO-CANONICAL-HOME`
+after **five instances in two days across two concurrent sessions** — the same
+shape that motivated RULE ONE (four scoped verify rules and no general one):
+*a class with no canonical name gets re-derived instead of checked for.*
+
+| instance | the two states that shared one value | PR |
+|---|---|---|
+| gross-exposure ceiling | "no policy declared" == "no data" — the ceiling's own measurement was gated on the ceiling already existing | #8665 |
+| netting allowlist | "not staged for writes" == "not observed" — staging on `bybit_1` also made real-money `bybit_2` invisible to the soak whose purpose was to justify including it | #8666 |
+| pairs executor | "exactly one leg open" == "flat" — so the executor opened a fresh pair on top of a stranded un-hedged leg | #8667 |
+| harness cost basis | `None` "unresolved" == `0.0` "explicitly fee-only" | #8685 |
+| exit-refinement coverage | "live" == "validated" — needing a distinct `shipped_gate_failed` status | #8687 |
+
+**The remedy was already in the codebase, in exactly one place.**
+[`src/runtime/exit_anchor.py`](../src/runtime/exit_anchor.py) states its
+three-way contract outright — `anchored` (we priced it from the bar at
+`closed_at`) · `deferred` (we did **not** look, so retry) · `no_anchor` (the
+venue was asked and has nothing, so declare the gap) — and says that collapsing
+any two reintroduces a defect. That is the pattern; this section generalises it
+so it stops being rediscovered incident-by-incident.
+
+**In practice:**
+
+1. **A boolean on a decision path is the smell.** Ask whether it can express
+   the third state. In the worst instance the boolean was *individually
+   correct*: `_pair_is_open()` genuinely answers "is this pair on" — it simply
+   could not carry "exactly one leg open".
+2. **Never fabricate the reassuring value.** An unmeasured quantity is `null`,
+   never `0.0`: *"we could not look"* and *"the account is flat"* are opposite
+   statements, and a fabricated zero drags an aggregate to a value never
+   observed.
+3. **A control must not switch off the observation that would justify it.**
+   The recurring shape across #8665/#8666 is a scoping flag that quietly
+   disabled the measurement it was staging toward. Scope the **write**, never
+   the **measurement**.
+4. **A state nothing branches on is already collapsed.** Producing `deferred`
+   with no consumer reading it means every caller is treating it as one of the
+   other two — the same insight as `provenance-consumer-guard` (a signal
+   written and never read is worse than a missing one).
+5. **This applies to the reviewer too**, which is the part most worth writing
+   down: one session verified that no consumer would *break* on a new key and
+   never that any consumer would *display* it (#8678), and read a weekend of
+   venue-closed silence as a live brick because quiet-because-shut and
+   quiet-because-refusing are indistinguishable in the trades table (#8683).
+
+**Enforced by `collapsed-state-guard`**
+([`scripts/ci/check_collapsed_states.py`](../scripts/ci/check_collapsed_states.py)) —
+the same family as `canonical-db-resolver` / `env-gate-guard` /
+`silent-empty-guard` / `provenance-consumer-guard` /
+`diagnostic-provenance-guard`. Per declared contract it checks that the
+producer emits every state, that every state is branched on by at least one
+real consumer, and that no consumer sees only one state. **The override is
+verified, not presence-only** — `# collapsed-state: <state> — <why>` must name
+a genuinely declared state, and the annotation is excluded from its own
+evidence (the `new-table-wiring-guard` lesson: a guard cheaper to lie to than
+to satisfy is worse than no guard). Registering a new three-state contract in
+its `CONTRACTS` table is how it becomes enforced.
+
+> **Still open, deliberately not folded in here:** the sibling proposal
+> `BL-20260809-THIRD-CASE-AND-UNTESTED-BRANCH-RULES` also asks to promote
+> *"a green suite over an untested branch is not evidence"* — #8666's
+> intersection survived review because there was **no** allowlist test at all.
+> That is a testing rule, not a state-modelling one, and it remains the
+> operator's call; it is not silently absorbed by this section.
+
 ## Always state the population (2026-07-31, binding — every quantitative claim)
 
 Promoted from `CLAUDE.md` § "Number provenance", where it was scoped to

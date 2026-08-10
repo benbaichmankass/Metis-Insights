@@ -112,15 +112,23 @@ def _simulate_exit(
     stale_exit_below_r: float = 0.0,
     giveback_min_mfe_r: float = 0.0,
     giveback_r: float = 1.0,
+    bank_frac: float = 0.0,
+    bank_at_r: float = 1.0,
 ) -> Dict[str, Any]:
     """Walk forward from start_idx checking SL/TP hits against bar
     extremes. Assumes intra-bar SL/TP fills are at the level (no slippage).
-    Returns dict with outcome, exit_index, exit_price, and (when ``entry``
-    is given) the max-favorable / max-adverse excursion prices seen up to
-    and including the exit bar (``mfe_price`` / ``mae_price``) for R:R
-    leak diagnosis. MFE/MAE on the exit bar itself uses the full bar range,
-    which slightly overstates excursion past the exit level — acceptable
-    for distribution-level diagnosis.
+    Returns dict with outcome, exit_index, exit_price, ``banked`` (did the
+    M20 partial-TP rung fill?), and (when ``entry`` is given) the
+    max-favorable / max-adverse excursion prices seen up to and including
+    the exit bar (``mfe_price`` / ``mae_price``) for R:R leak diagnosis.
+    MFE/MAE on the exit bar itself uses the full bar range, which slightly
+    overstates excursion past the exit level — acceptable for
+    distribution-level diagnosis.
+
+    ``banked`` is reported on EVERY return path (asserted structurally by
+    tests/test_ict_scalp_exit_levers.py) so the caller can read it strictly
+    (``result["banked"]``) rather than via a ``.get`` default that would
+    silently mis-report a missed path as "never banked".
     """
     last = min(len(df) - 1, start_idx + timeout_bars)
     best = worst = entry
@@ -131,6 +139,7 @@ def _simulate_exit(
     risk_1r = abs(entry - sl) if entry is not None else None
     cur_sl = sl
     be_armed = False
+    banked = False            # M20 partial-TP rung filled?
     for j in range(start_idx, last + 1):
         bar_low = float(df["low"].iloc[j])
         bar_high = float(df["high"].iloc[j])
@@ -141,23 +150,43 @@ def _simulate_exit(
             else:
                 best = min(best, bar_low)
                 worst = max(worst, bar_high)
+        # M20 partial-TP bank lever (0 = off, byte-identical): bank
+        # `bank_frac` of the position when price touches entry ± bank_at_r ×
+        # risk. Checked BEFORE the stop so a bar that trades through the rung
+        # and then stops out still credits the banked fraction at the rung —
+        # the conservative reading (the remainder takes the stop). Identical
+        # semantics + ordering to backtest_trend.py / backtest_pullback.py,
+        # so a ladder verdict compares across harnesses.
+        #
+        # NOTE for this harness specifically: ict_scalp is a FIXED-bracket
+        # strategy (tp_at_r, 1.5R on every live leg as of 2026-08-09), unlike
+        # the trailing trend/pullback families. A rung at bank_at_r >= tp_at_r
+        # is a provable no-op — the TP check below returns on the same bar and
+        # `bank_frac * tp_at_r + (1 - bank_frac) * tp_at_r == tp_at_r` — so a
+        # sweep grid MUST place its rungs strictly below the leg's own tp_at_r
+        # or it measures nothing. See scripts/research/m27/ict_scalp_exit_sweep.py.
+        if bank_frac > 0.0 and not banked and entry is not None and risk_1r:
+            rung = (entry + bank_at_r * risk_1r if direction == "long"
+                    else entry - bank_at_r * risk_1r)
+            if (bar_high >= rung) if direction == "long" else (bar_low <= rung):
+                banked = True
         if direction == "long":
             # Pessimistic ordering: if both touched in one bar, count SL first.
             if bar_low <= cur_sl:
                 return {"outcome": "be_stop" if be_armed else "sl_hit",
                         "exit_index": j, "exit_price": cur_sl,
-                        "mfe_price": best, "mae_price": worst}
+                        "mfe_price": best, "mae_price": worst, "banked": banked}
             if bar_high >= tp:
                 return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp,
-                        "mfe_price": best, "mae_price": worst}
+                        "mfe_price": best, "mae_price": worst, "banked": banked}
         else:
             if bar_high >= cur_sl:
                 return {"outcome": "be_stop" if be_armed else "sl_hit",
                         "exit_index": j, "exit_price": cur_sl,
-                        "mfe_price": best, "mae_price": worst}
+                        "mfe_price": best, "mae_price": worst, "banked": banked}
             if bar_low <= tp:
                 return {"outcome": "tp_hit", "exit_index": j, "exit_price": tp,
-                        "mfe_price": best, "mae_price": worst}
+                        "mfe_price": best, "mae_price": worst, "banked": banked}
         # M20 exit levers (giveback / stale) — fire at bar CLOSE, and only when
         # neither the stop NOR the TP hit this bar (the SL/TP checks above return
         # first, so stop-first ordering is preserved exactly). Mirrors the
@@ -176,14 +205,14 @@ def _simulate_exit(
                     and (mfe_r - open_r) >= giveback_r):
                 return {"outcome": "giveback_stop", "exit_index": j,
                         "exit_price": lever_close,
-                        "mfe_price": best, "mae_price": worst}
+                        "mfe_price": best, "mae_price": worst, "banked": banked}
             # stale-stop: cut a trade held >= N bars that is still below
             # stale_exit_below_r of open profit (default 0.0 = only cut losers).
             if (stale_exit_bars is not None and (j - start_idx) >= stale_exit_bars
                     and open_r < stale_exit_below_r):
                 return {"outcome": "stale_stop", "exit_index": j,
                         "exit_price": lever_close,
-                        "mfe_price": best, "mae_price": worst}
+                        "mfe_price": best, "mae_price": worst, "banked": banked}
         if (be_offset_bps is not None and not be_armed
                 and entry is not None and risk_1r and risk_1r > 0):
             close_j = float(df["close"].iloc[j])
@@ -200,6 +229,7 @@ def _simulate_exit(
         "exit_price": float(df["close"].iloc[last]),
         "mfe_price": best,
         "mae_price": worst,
+        "banked": banked,
     }
 
 
@@ -302,6 +332,8 @@ def run_backtest(
     stale_exit_below_r: float = 0.0,
     giveback_min_mfe_r: float = 0.0,
     giveback_r: float = 1.0,
+    bank_frac: float = 0.0,
+    bank_at_r: float = 1.0,
 ) -> Dict[str, Any]:
     cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
     htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
@@ -384,12 +416,24 @@ def run_backtest(
             stale_exit_below_r=stale_exit_below_r,
             giveback_min_mfe_r=giveback_min_mfe_r,
             giveback_r=giveback_r,
+            bank_frac=bank_frac,
+            bank_at_r=bank_at_r,
         )
         exit_price = float(result["exit_price"])
         if direction == "long":
             r = (exit_price - entry) / risk
         else:
             r = (entry - exit_price) / risk
+        # M20 bank lever: a filled rung realises `bank_frac` of the position at
+        # +bank_at_r; the remainder realises the exit R. No-op when bank_frac is
+        # 0 (`banked` can only be True when bank_frac > 0). Read STRICTLY — a
+        # missing key must raise, not silently read as "never banked".
+        banked = bool(result["banked"])
+        if banked:
+            r = bank_frac * bank_at_r + (1.0 - bank_frac) * r
+        # Fee note: banking splits ONE exit into two partial exits whose sizes
+        # sum to the original position, so round-trip notional — and therefore
+        # the bps cost model in _cost_breakdown — is unchanged to first order.
         ts = df["timestamp"].iloc[i] if "timestamp" in df.columns else i
         exit_ts = (
             df["timestamp"].iloc[result["exit_index"]] if "timestamp" in df.columns else result["exit_index"]
@@ -409,6 +453,10 @@ def run_backtest(
             meta["mfe_r"] = round(sign * (float(mfe_price) - entry) / risk, 4)
             meta["mae_r"] = round(sign * (float(mae_price) - entry) / risk, 4)
         meta["bars_held"] = int(result["exit_index"]) - i
+        if bank_frac > 0.0:
+            # Rung-fill rate is the denominator a ladder verdict is read over:
+            # a cell where almost nothing banks is inert, not a fair negative.
+            meta["banked"] = banked
         meta["exit_time"] = str(exit_ts)
         meta["exit_price"] = exit_price
         meta["tp"] = tp
@@ -465,7 +513,8 @@ def run_backtest(
                     # volume (component_edge_report.py --backtest-log).
                     "meta": t.meta}, default=str) + "\n")
 
-    summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol)
+    summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol,
+                         bank_frac=bank_frac, bank_at_r=bank_at_r)
     if _collect_trades:
         # (confidence, r_multiple) per trade — lets the sweep filter by
         # threshold without re-walking the (expensive) 5m frame N times.
@@ -510,6 +559,8 @@ def _summarize(
     *,
     timeframe: str,
     symbol: str,
+    bank_frac: float = 0.0,
+    bank_at_r: float = 1.0,
 ) -> Dict[str, Any]:
     n = len(trades)
     # Execution-realism cost config in effect for this run (P1 § 3.B) — echoed on
@@ -518,6 +569,20 @@ def _summarize(
         "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
         "slippage_bps_roundtrip": SLIPPAGE_BPS_ROUNDTRIP,
         "funding_bps_per_window": FUNDING_BPS_PER_WINDOW,
+    }
+    # M20 partial-TP ladder settings in effect, echoed on every summary for the
+    # same reason cost_cfg is: a sweep cell's JSON must state WHICH lever
+    # produced its r_multiple, never leave the reader to infer it from a tag.
+    # `banked_trades` is the rung-fill DENOMINATOR — a cell whose rung almost
+    # never fills is INERT, which is a different finding from a lever that
+    # filled often and lost money, and the two must not read alike.
+    banked_n = sum(1 for t in trades if t.meta.get("banked"))
+    lever_cfg = {
+        "bank_frac": bank_frac,
+        "bank_at_r": bank_at_r,
+        "banked_trades": banked_n,
+        "banked_pct": (round(100.0 * banked_n / len(trades), 2)
+                       if trades else 0.0),
     }
     if n == 0:
         return {
@@ -536,6 +601,7 @@ def _summarize(
             "sharpe_r": 0.0,
             "by_outcome": {},
             **cost_cfg,
+            **lever_cfg,
             "data_start": str(df["timestamp"].iloc[0]) if "timestamp" in df.columns and len(df) else None,
             "data_end": str(df["timestamp"].iloc[-1]) if "timestamp" in df.columns and len(df) else None,
             "bars": int(len(df)),
@@ -591,6 +657,7 @@ def _summarize(
         "avg_loss_r": round(sum(losses) / len(losses), 4) if losses else 0.0,
         "by_outcome": by_outcome,
         **cost_cfg,
+        **lever_cfg,
         "data_start": str(df["timestamp"].iloc[0]) if "timestamp" in df.columns else None,
         "data_end": str(df["timestamp"].iloc[-1]) if "timestamp" in df.columns else None,
         "bars": int(len(df)),
@@ -771,6 +838,15 @@ def main(argv: List[str]) -> int:
     p.add_argument("--giveback-min-mfe-r", type=float, default=0.0, metavar="R",
                    help="M20 giveback-stop lever: arm once peak open profit reaches "
                         "this many R (0.0=off).")
+    p.add_argument("--bank-frac", type=float, default=0.0, metavar="F",
+                   help="M20 partial-TP ladder lever: fraction of the position "
+                        "banked at +--bank-at-r R (0=off, legacy behaviour). "
+                        "Mirrors backtest_trend.py / backtest_pullback.py.")
+    p.add_argument("--bank-at-r", type=float, default=1.0, metavar="R",
+                   help="Rung for --bank-frac, in R (default 1.0). MUST be "
+                        "strictly below the leg's tp_at_r (1.5R on every live "
+                        "ict_scalp leg) — at or above it the rung coincides "
+                        "with the fixed TP and the lever is a provable no-op.")
     p.add_argument("--giveback-r", type=float, default=1.0, metavar="R",
                    help="Once armed, exit when >= this many R has been surrendered "
                         "from the peak (default 1.0).")
@@ -819,6 +895,8 @@ def main(argv: List[str]) -> int:
         stale_exit_below_r=float(args.stale_exit_below_r),
         giveback_min_mfe_r=float(args.giveback_min_mfe_r),
         giveback_r=float(args.giveback_r),
+        bank_frac=float(args.bank_frac),
+        bank_at_r=float(args.bank_at_r),
     )
 
     try:

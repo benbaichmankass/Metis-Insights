@@ -11042,7 +11042,7 @@
       "id": "BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS",
       "opened": "2026-08-09",
       "severity": "medium",
-      "status": "open",
+      "status": "resolved",
       "area": "m20-exit-refinement",
       "title": "exit-refinement coverage matrix: MULTI-LEG rows carry ONE status, so a row can be 'shipped' while most of its legs failed",
       "detail": "docs/research/exit-refinement-coverage.json is M20's done-condition roll-up: one row per 'strategy leg', one status per lever column. But several rows are not one leg -- they bundle a whole family under a single status field, and the status then describes only the leg that PASSED while the ref text carries the rest. Found by a screen for fail-words appearing under a non-negative status: 11 hits, and 10 are this shape (the 11th, trend_donchian BTC trail_decay, was a genuine stale status and is fixed as `shipped_gate_failed`). Concrete examples, all currently `shipped`: (a) row 'sol_pullback_2h / xrp_pullback_2h / ...' trail_decay -- ref says sol PASS wf 5/6 while 'xrp 3/6, ada 3/6, avax 2/6, eth_prop 2/6 all fail', so 4 of 5 legs are honest negatives counted under a shipped cell; (b) row 'MES/MGC/MHG' trail_geometry -- 'MES trail3 4/6 + MHG trail3 5/6 PASS ... MGC fails'; (c) row 'equities 1h fleet' trail_geometry -- 'TLT-1h trail3 PASS; gld/spy/qqq/slv fail'. WHY IT MATTERS: the roll-up is the milestone's done-condition and is quoted as a completion percentage (currently 141/184 cells resolved). A bundled row inflates 'shipped' and hides per-leg negatives, so the number overstates coverage by an amount nobody can compute without re-reading every ref string. It is the same class as the defect just fixed -- a status field that does not describe what the evidence says -- one level up: here the field cannot be correct for all its legs, whatever value it holds. NOT fixed in this PR because it is a schema/normalisation change (explode bundled rows to one row per leg, or add a per-leg sub-status), touches many rows, and the ref text preserves the underlying evidence so nothing is LOST today -- only mis-aggregated.",
@@ -11051,6 +11051,32 @@
         "docs/research/exit-refinement-coverage.json",
         ".claude/skills/exit-refinement/SKILL.md",
         "ROADMAP.md"
+      ],
+      "resolved_at": "2026-08-09",
+      "resolution": "RESOLVED 2026-08-09. 6 of the 7 multi-leg rows exploded to one row per leg (23 -> 50 rows, 184 -> 400 cells); each exploded row carries `exploded_from`. Per-leg statuses assigned ONLY from each ref's explicit wording; a ref silent on a leg, or naming a run that ERRORED / TIMED OUT, becomes `pending` -- an un-run cell is not a negative however plausible its neighbours (trend_donchian_ada_4h / _avax_4h trail_decay were recorded as negatives 'consistent with the family's fails', which is an inference; both are now pending). The `shadow fleet` row is deliberately NOT exploded: its label does not enumerate its legs and it is execution:shadow, outside the live-leg done-condition. MEASURED CORRECTION TO THIS ROW'S OWN CLAIM: it said the roll-up 'overstates coverage'. That is true of `shipped` (9.2% -> 6.0% of cells) but FALSE of resolved overall, which went UP (76.6% -> 79.5%) because most bundled cells were legitimately honest_negative for every leg. The honest live-leg figure is 304/376 = 80.9% over 47 live legs. Also fixed: a DUPLICATE leg -- xauusd_trend_1h existed as both a standalone row (execution:live, trail_geometry:blocked 'candle coverage task #27') and inside the xauusd/mgc bundle (disabled/shadow, trail_geometry:shipped). Settled from config, not by preferring a row: enabled:false => disabled, and trail_mult:4.0 IS declared with the M20 sweep cited inline => shipped. Merged per-cell, keeping the standalone's vol_trail (#6507) and exit_head_ml `blocked` verdicts which the bundle lacked."
+    },
+    {
+      "id": "BL-20260809-COLLAPSED-STATES-NO-CANONICAL-HOME",
+      "opened": "2026-08-09",
+      "severity": "medium",
+      "status": "resolved",
+      "area": "canonical-docs",
+      "title": "The collapsed-states defect class has no canonical home despite 5+ instances in 2 days across 2 sessions",
+      "detail": "Recurring class: TWO distinct states share one value, and the missing state is the dangerous one. Verified 2026-08-09 that it is described in a sprint log and two design docs but appears NOWHERE in docs/CLAUDE-RULES-CANONICAL.md, docs/ARCHITECTURE-CANONICAL.md or CLAUDE.md (grepped). Instances, two concurrent sessions, two days: (1) gross-exposure ceiling -- 'no policy' = 'no data' (#8665); (2) netting allowlist -- 'not staged' = 'not observed' (#8666); (3) pairs executor -- 'half_open' = 'flat' (#8667); (4) harness cost basis -- None ('unresolved') = 0.0 ('explicitly fee-only') (#8685); (5) exit-refinement coverage -- 'shipped' conflated live-ness with validated-ness, needing a new `shipped_gate_failed` status (#8687). The counter-example already in the codebase is src/runtime/exit_anchor.py, whose anchored/deferred/no_anchor contract states outright that collapsing any two reintroduces a defect -- the pattern is known and correctly applied in ONE place while being rediscovered incident-by-incident everywhere else. That is the same shape that motivated RULE ONE (four scoped verify rules, no general one): a class with no canonical name gets re-derived instead of checked for.",
+      "suggested_fix": "A short canonical section naming the class, cross-referencing the instances rather than restating them (the RULE ONE shape), with the design test: for any field encoding a condition, ask whether 'we did not look' and 'we looked and found nothing' are distinguishable -- if not, that is the bug. NOT actioned in-session: this session had already restructured the canonical docs once at operator direction, and deciding the doc's shape twice on its own judgment is a step past its remit. Operator call.",
+      "refs": [
+        "docs/sprint-logs/S-COLLAPSED-STATES-2026-08-09.md",
+        "docs/design/gross-exposure-governance-DESIGN.md",
+        "docs/netting-partial-close-attribution-DESIGN.md",
+        "src/runtime/exit_anchor.py",
+        "docs/CLAUDE-RULES-CANONICAL.md"
+      ],
+      "updates": [
+        {
+          "at": "2026-08-09T00:00:00+00:00",
+          "by": "claude (m20-ladder session)",
+          "note": "RESOLVED — operator approved promotion WITH a CI guard. docs/CLAUDE-RULES-CANONICAL.md now carries § 'Collapsed states — can this field say \"we did not look\"?', naming the class, cross-referencing the five instances rather than restating them (the RULE ONE shape), and citing src/runtime/exit_anchor.py as the worked example. Mirrored in CLAUDE.md beside the number-provenance and diagnostic-provenance sections (the same guard family). Enforced by the NEW collapsed-state-guard (scripts/ci/check_collapsed_states.py, registered in scripts/ci/run_guards.py): per declared contract the producer must emit every state, every state must be branched on by a real consumer, and no consumer may see only one; the override is verified rather than presence-only. Three contracts registered (exit_anchor.bar_close_at, pairs_executor.leg_state, netting_attribution.anchor_status) — clean, and negative-control tested (an injected undeclared state makes it fail). NOT folded in: the sibling BL-20260809-THIRD-CASE-AND-UNTESTED-BRANCH-RULES also proposes 'a green suite over an untested branch is not evidence' — that is a testing rule, still open, still the operator's call; the new section says so explicitly rather than absorbing it silently."
+        }
       ]
     },
     {
@@ -11091,6 +11117,47 @@
       ]
     },
     {
+      "id": "BL-20260809-XAU-PROXY-DATASET-GONE-VERDICTS-UNREPRODUCIBLE",
+      "opened_at": "2026-08-09T23:50:00+00:00",
+      "opened_by": "claude (m20-ladder session)",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "area": "research-data",
+      "title": "data/XAUUSD_15m_deep.csv is gone from the trainer — ict_scalp_mgc_15m's SHIPPED M27 verdicts cannot be reproduced",
+      "source": "MEASURED 2026-08-09 via trainer-vm-diag #8696 with a positive control (the probe listed 67 files in data/ and matched every other leg's CSV, so the absence is real and not a broken probe). Probed for MGC_*, XAUUSD_*: NONE. Only GC_F_1d.csv and GC_F_1h.csv remain. The 2026-07-28 M27 round (scripts/research/m27/ict_scalp_exit_sweep.py, default --data data/XAUUSD_15m_deep.csv) measured that leg's stale_stop + giveback_stop verdicts on the powered Dukascopy spot-XAU 15m proxy.",
+      "what_to_check": "This is a REPRODUCIBILITY gap, not just a missing input for new work. Two coverage-matrix cells on a LIVE leg (ict_scalp_mgc_15m stale_stop, giveback_stop) currently assert honest_negative on evidence nobody can re-derive. The matrix's own contract is 'statuses only from verified evidence — never inferred'; evidence whose input no longer exists is a weaker claim than the cell reads. Its exit_ladder cell is recorded blocked:data_missing for the same reason.",
+      "action": "Regenerate on a FREE GitHub runner, not the trainer — .github/workflows/research-symbol-p0-build.yml exists for exactly this (Dukascopy fetch + ict_scalp validation, instrument INSTRUMENT_FX_METALS_XAU_USD), and its own header says it was built because the deep XAU fetch kept dying at the trainer relay's 10-min job cap. Then re-run the stale/giveback cells to confirm the existing verdicts still reproduce, and run the new exit_ladder cells.",
+      "resolution_criteria": "The XAU 15m deep proxy is regenerated and its provenance recorded, ict_scalp_mgc_15m's stale_stop/giveback_stop verdicts are confirmed to reproduce (or corrected if they do not), and its exit_ladder cell carries a real verdict instead of blocked:data_missing.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/research/M20-exit-refinement-2026-07-12.md#10.4",
+        "docs/research/exit-refinement-coverage.json",
+        "scripts/research/m27/ict_scalp_exit_sweep.py",
+        ".github/workflows/research-symbol-p0-build.yml"
+      ]
+    },
+    {
+      "id": "BL-20260809-SCALP-HARNESS-LOADS-BTC-YAML-FOR-EVERY-LEG",
+      "opened_at": "2026-08-09T23:52:00+00:00",
+      "opened_by": "claude (m20-ladder session)",
+      "status": "open",
+      "tier": 1,
+      "severity": "low",
+      "area": "research-tooling",
+      "title": "backtest_ict_scalp._load_yaml_params() ALWAYS loads the ict_scalp_5m block — safe today only because the 8 legs happen to be identical",
+      "source": "scripts/backtest_ict_scalp.py::_load_yaml_params hardcodes load_strategy_config().get('ict_scalp_5m'). Every sweep of every ict_scalp leg (m27 sweep, m20_fleet_exit_sweep scalp branch, M27 run_symbol_p0) therefore runs BTC's detection params regardless of --symbol/--timeframe.",
+      "what_to_check": "VERIFIED SAFE AS OF 2026-08-09 — I diffed all eight leg blocks in config/strategies.yaml rather than trusting the 'every ict_scalp leg is a config-exact copy' comment: detection geometry is byte-identical across all eight, and exactly four keys differ (off_cells + vol_spec on xrp_5m; stale_exit_bars + stale_exit_below_r on eth_15m), none of which _load_yaml_params feeds. So today the substitution is a no-op.\n\nThe RISK is that this safety is a coincidence of config, not a property of the code, and nothing detects the day it stops holding. If any leg's detection params are ever tuned independently, every sweep of that leg silently measures BTC's strategy under that leg's name and reports a confident, wrong verdict into the coverage matrix — with no error and no diagnostic naming the substitution. That is textbook UNPROVENANCED DIAGNOSTIC OUTPUT sub-class B (implicit input selection), which diagnostic-provenance-guard exists to catch.",
+      "action": "Either (a) resolve params from the leg actually being swept (the harness already takes --symbol/--timeframe, and the m27 sweep now takes --leg, so the leg name is available), or (b) keep the shared load but ASSERT at startup that the requested leg's detection params equal ict_scalp_5m's and fail loudly with the diff when they do not. (b) is cheaper and turns a silent wrong answer into a stop.",
+      "resolution_criteria": "A sweep of an ict_scalp leg whose detection params diverge from ict_scalp_5m either uses that leg's own params or refuses to run — never silently substitutes BTC's.",
+      "snoozed_until": null,
+      "refs": [
+        "scripts/backtest_ict_scalp.py",
+        "scripts/research/m27/ict_scalp_exit_sweep.py",
+        "CLAUDE.md#diagnostic-provenance"
+      ]
+    },
+    {
       "id": "BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH",
       "opened_at": "2026-08-09T23:55:00+00:00",
       "opened_by": "claude (api-tier-policy-guard-npihz7)",
@@ -11116,6 +11183,6 @@
       "resolution_note": "RESOLVED — but NOT by the fix this item proposed, and the correction is the point. The item offered (a) 'under force_all, treat a per-step `when` as satisfied — one line, and it makes the comment true'. MEASURED before implementing: BOTH step-gated commands in the registry (the only two — `api-tier-policy-guard` and `diagnostic-provenance-guard`) consume `{pr_diff}`, and on push that file is EMPTY. Forcing them to run makes `check_diagnostic_provenance.py` print 'OK - every scanned diagnostic states what it computed' and exit 0 having scanned NOTHING. Option (a) would have made the comment true and the CHECK false — manufacturing exactly the green-that-checked-nothing this repo treats as worse than a red. Substituting the whole-tree equivalent is not a drop-in either: `check_diagnostic_provenance.py --all` exits 1 on 52 pre-existing grandfathered sites (that is WHY it is diff-scoped), so wiring it to push would redden `main` on every merge. SO THE SKIP IS CORRECT AND STAYS. What was actually wrong was that it was INDISTINGUISHABLE from an ordinary not-relevant skip — the reader could not tell 'we asked about this diff and it did not apply' from 'there was no diff to ask about'. SHIPPED: (1) `run_guard()` takes `no_diff_scope`/`unscoped` and names the real reason on the skip line; (2) the run summary prints a 'NOT SCANNED on this event (N)' block listing those steps and stating that a guard needing real push coverage must carry an UNGATED whole-tree step; (3) `guards.yml`'s 'stricter ... never weaker' comment — the actual defect, since it was the claim that made the gap invisible — is corrected in place; (4) `tests/test_run_guards_step_scoping.py` pins the distinction, AND asserts the premise the decision rests on (every step-gated command consumes `{pr_diff}`; the population is exactly those two guards) so a future step that scans the whole tree fails the test rather than silently inheriting reasoning that no longer applies to it. NOTE the affected population was 2, not the 'several' this item guessed at — the guess is corrected here rather than left standing."
     }
   ],
-  "updated_at": "2026-08-10T01:10:00+00:00",
+  "updated_at": "2026-08-10T01:30:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
