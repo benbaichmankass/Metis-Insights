@@ -11228,6 +11228,117 @@
       ]
     },
     {
+      "id": "BL-20260810-BANKING-GATE-CANNOT-PASS",
+      "opened_at": "2026-08-10T00:25:00+00:00",
+      "opened_by": "claude (m20-ladder session, operator-requested re-evaluation)",
+      "status": "open",
+      "tier": 1,
+      "severity": "low",
+      "area": "research-method",
+      "title": "RETRACTED PREMISE (measured false 2026-08-10): banking CAN pass the M20 gate. Residual open question is narrow — should the PROP sleeve be gated on survival-weighted EV instead of net_R?",
+      "source": "FILED 2026-08-10 on an a-priori argument: that banking necessarily lowers net_R and lowers maxDD, so no banking cell could ever satisfy beats() (net_R AND maxDD must improve) — 'P(pass) = 0 a priori'.\n\nREFUTED THE SAME DAY by the ict_scalp exit_ladder round (GH Actions run 31344328313, 7 legs x 4 cells = 28 cells, memo section 10.5/10.6):\n  * net_R ROSE in 6/28 IS and 8/28 OOS cells. On a fixed 1.5R bracket with a 1.0R rung, banking turns a loser that first printed +1R from -1R into 0.25*(+1)+0.75*(-1) = -0.5R. The argument followed only the WINNER side of the distribution.\n  * maxDD ROSE (got WORSE) in 14/28 OOS cells — 12 of the 16 5m cells. Drawdown is a property of the equity PATH; capping the biggest winners removes the recoveries that used to END drawdowns.\n  * 2/28 cells (ict_scalp_sol_15m bank0.25@1R, bank0.5@1R) passed the gate outright AND survived the yearly walk-forward 3/4. Counterexample.\n\nThis row is kept, not deleted: the wrong claim was written into the memo and into scripts/research/m20_banking_risk_adjusted.py and acted on, so the correction needs a findable home. Both artifacts are now corrected (memo section 11.1 carries a retraction banner; the section 6.2 MEASUREMENTS were never in doubt and stand).",
+      "what_to_check": "The generalisable lesson, which is NOT about banking: an a-priori argument that a measurement 'must' come out a certain way is a hypothesis, and this one was written into a canonical memo as a structural fact hours before the run that refuted it. RULE ONE covers this explicitly ('verify your own output too, hardest when it confirms what you expected') — the failure was that the claim FELT like a derivation, so it was never queued for measurement.\n\nWhat survives and is still open: under a PROP ruleset a daily-loss or static-DD breach is TERMINAL, so drawdown there is a survival constraint net_R genuinely does not price. That is a real gate question and is independent of the retracted argument.",
+      "action": "(a) DONE 2026-08-10: memo section 11.1 retracted in place with the measurement (section 10.6); m20_banking_risk_adjusted.py docstring corrected; coverage matrix records the 7 measured legs.\n(b) OPERATOR QUESTION, still open and now the ONLY one: should the prop sleeve be gated on survival-weighted EV rather than net_R? Execute PB-20260712-PROP-BANKING-EV (src/prop/montecarlo.py::run_ev_montecarlo + config/prop_rulesets/breakout.yaml already exist; unused for a month).\n(c) SEPARATE Tier-3 decision, do not conflate with (b): the two ict_scalp_sol_15m walk-forward survivors are a PROPOSAL awaiting explicit operator approval. Nothing has been merged into config/strategies.yaml.",
+      "resolution_criteria": "Closed when the operator has ruled on (b) — either the prop sleeve gains a survival-weighted arm, or the memo records that a net_R-first gate is deliberate there too, decided on the prop EV run's evidence. (a) is done; (c) is tracked as its own Tier-3 proposal, not as this row.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/research/M20-exit-refinement-2026-07-12.md#106",
+        "docs/research/M20-exit-refinement-2026-07-12.md#111",
+        "docs/research/exit-refinement-coverage.json",
+        "scripts/research/m20_banking_risk_adjusted.py",
+        "scripts/research/m27/ict_scalp_exit_sweep.py",
+        "src/prop/montecarlo.py",
+        "https://github.com/benbaichmankass/Metis-Insights/actions/runs/31344328313"
+      ]
+    },
+    {
+      "id": "BL-20260810-SWEEP-VERDICTS-DO-NOT-RECORD-THEIR-DATASET",
+      "opened_at": "2026-08-10T00:26:00+00:00",
+      "opened_by": "claude (m20-ladder session)",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "area": "research-method",
+      "title": "Exit-lever verdicts in the coverage matrix do not state WHICH dataset produced them — and two different datasets are in active use",
+      "source": "MEASURED 2026-08-09/10 on the trainer. /home/ubuntu/m27_data/ETHUSDT_15m.csv = 124,497 rows from 2023-01-01. /home/ubuntu/ict-trading-bot/data/ETHUSDT_15m.csv = 184,443 rows from 2021-03-15. Different md5. Both are 'the ETH 15m data'. ict-scalp-exit-sweep.yml scp's from m27_data; a hand-run on the trainer defaults to data/.",
+      "what_to_check": "I nearly wrote ladder verdicts measured on data/ into the SAME matrix rows whose stale_stop/giveback_stop cells were measured on m27_data. The rows would have silently mixed two populations, and the coverage matrix is the artifact M20's done-condition is read from.\n\nIt also changes the GATE: the yearly walk-forward folds run 2021-2026, so on m27_data (starts 2023) folds 2021/2022 are unusable -> usable=4, need=ceil(2*4/3)=3. On data/ all six are usable -> need=4. The same cell can pass on one and fail on the other with identical trade logic.\n\nThis is 'always state the population' applied to a research artifact: a verdict without its dataset is not comparable to the cell beside it.",
+      "action": "Add the dataset identity (path + row count + first/last timestamp, ideally md5) to what a sweep writes into verdicts.json AND to the matrix cell ref, so a cell carries its own population. The sweep already records `data`; the matrix ref does not. Backfill the existing M27 cells with 'measured on m27_data (2023+)'.",
+      "resolution_criteria": "Every exit-lever cell in exit-refinement-coverage.json names the dataset its verdict was measured on, and a reader can tell whether two cells in one row are comparable.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/research/exit-refinement-coverage.json",
+        ".github/workflows/ict-scalp-exit-sweep.yml",
+        "docs/CLAUDE-RULES-CANONICAL.md#always-state-the-population"
+      ]
+    },
+    {
+      "id": "BL-20260810-ICTSCALP-AVAX-QTY-EXCEEDS-VENUE-MAX",
+      "opened_at": "2026-08-10T00:40:00+00:00",
+      "opened_by": "claude (m20-ladder session, spotted in a diag pull for an unrelated task)",
+      "status": "open",
+      "tier": 2,
+      "severity": "high",
+      "area": "order-path",
+      "title": "ict_scalp_avax_5m places NOTHING on bybit_1 — every order is EXCHANGE_REJECTED for exceeding Bybit's AVAXUSDT max_qty",
+      "source": "MEASURED via /api/diag/journal?table=trades 2026-08-10T00:39Z. Trades 4532, 4526, 4524, 4522, 4521 (and the row after) are all status='exchange_rejected', strategy ict_scalp_avax_5m, account bybit_1, identical cause: 'The number of contracts exceeds maximum limit allowed: too large, order_qty:2655280000000 > max_qty:2200000000000 (ErrCode: 10001)'. Sizes 26,552-33,220 AVAX.",
+      "what_to_check": "POPULATION, stated honestly: 5 rejections were visible in the newest ~12 journal rows the diag response returned BEFORE it truncated (the response hit its comment budget at ~18KB of 577KB). I have NOT counted the full rate or the denominator. What IS established: they span 2026-08-09T01:04Z -> 2026-08-10T00:11Z, i.e. AT LEAST ~23 hours, and every AVAX row I saw in that window is a rejection — I saw no successful ict_scalp_avax_5m open on bybit_1 at all.\n\nThis is the STRANDED-CAPABILITY shape the Prime Directive exists for, reached by a different route than an env gate: the strategy is enabled: true / execution: live in config/strategies.yaml and reads as healthy on every status surface, while placing nothing. It is not refusing per-trade for a risk reason (which would be correct and logged as such) — the order reaches Bybit and is bounced.\n\nThe sizing is producing a qty above the VENUE's per-order maximum for AVAXUSDT. RiskManager already legalises qty against min_qty / qty_step / whole-unit rules (see BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR and the qty-legalization-guard seam) — a per-instrument MAX appears to have no equivalent, so nothing clamps or splits the order before submission.",
+      "action": "(1) Confirm the rate + denominator over the full journal (this session only saw a truncated head). (2) Decide the correct behaviour and put it in the ONE legalisation seam rather than a second bespoke check: clamp to the venue max, split across orders, or refuse with an honest journalled cause. A silent repeat-reject is the worst of the three because it looks like a live strategy. (3) Check whether other high-notional alt legs (XRP at 208k units, SOL) sit near their own venue caps — AVAX may be first, not alone.",
+      "resolution_criteria": "ict_scalp_avax_5m either places orders on bybit_1 or refuses them with a journalled, operator-visible cause; no strategy sits enabled+live while every order it emits is bounced by the venue.",
+      "snoozed_until": null,
+      "refs": [
+        "src/units/accounts/risk.py",
+        "src/units/accounts/execute.py",
+        "config/strategies.yaml",
+        "scripts/check_qty_legalization_guard.py",
+        "docs/claude/health-review-backlog.json#BL-20260628-CRYPTO-INSTRUMENT-MIN-FLOOR"
+      ]
+    },
+    {
+      "id": "BL-20260810-NO-STALL-EXIT-CAPITAL-SITS-IN-DEAD-TRADES",
+      "opened_at": "2026-08-10T01:45:00+00:00",
+      "opened_by": "claude (m20-ladder session, operator directive)",
+      "status": "in_progress",
+      "tier": 3,
+      "severity": "high",
+      "area": "strategy-exits",
+      "title": "24 of 25 live positions have NO time/stall exit lever: nothing in the system can decide a trade has peaked or stopped being worth holding",
+      "source": "OPERATOR DIRECTIVE 2026-08-10: 'we have a 12 day eth trade that's going nowhere and no mechanism that knows how to decide when the trade has peaked, or that it's clearly not worth holding anymore ... we could be missing winning trades on other strategies because we're just sitting on a trade that goes nowhere.'\n\nMEASURED live 2026-08-10 01:40Z (relay #8713), population = ALL 32 open positions across every account; 25 have a timeframe resolvable from config/strategies.yaml (the other 7 are pairs-sleeve legs, see the sibling row). Hold time normalised to each strategy's OWN bars, which is the honest unit: 12 days on a 1d strategy is 12 bars, on a 2h strategy it is 149.\n\n  * eth_pullback_2h / bybit_2 (REAL MONEY): 12.4 days = 149 bars on a 2h strategy, -0.33R. Its paper mirror bybit_portfolio: -$327.80 (-0.24R). This is the operator's example, confirmed.\n  * 5 of 25 positions are held past 100 of their own bars, and ALL 5 have NO time/stall lever declared.\n  * ict_scalp_mgc_15m / ib_paper: 289 bars on a 15m SCALP (3.0 days).\n  * Exactly ONE of the 25 (uso_trend_1h) declares any time/stall lever (giveback_r + giveback_min_mfe_r). 24 of 25 declare NONE — their only exit machinery is a chandelier trail frozen at the entry bar's ATR, plus the 50R sentinel TP. Neither can end a trade for being OLD or STALLED.\n\nThis is the SAME defect the M20 memo section 2 already quantified over 90d (mean MFE +1.92R vs realised -0.16R; giveback 2.08R; 26% of real-money trades touched >= +1R and still closed negative) and named 'the chop-hold problem'. What is new is that it is measurable in the LIVE book right now, and that the CONFIG shows why: the lever does not exist on 24 of 25 legs.",
+      "what_to_check": "THE NAIVE FIX IS WRONG AND THE DATA SAYS SO. xrp_pullback_2h is 139 bars old on the same timeframe as the ETH trade and is +3.94R (+$2,523 on the portfolio mirror). A flat bar-count timeout would have killed it. tlt_pullback_1d is 11.5 days / 12 bars at +12.00R. So the lever MUST be conditional — old AND not working — never a flat max age. That is exactly the shape the M20 harnesses already implement as stale_exit_bars + stale_exit_below_r (exit at N bars only if open R is below a floor) and giveback_r/giveback_min_mfe_r (exit after MFE >= X gives back Y).\n\nTHE MEASUREMENT AXIS ALREADY EXISTS AND NO GATE READS IT. scripts/backtest_ict_scalp.py::_summarize now emits net_r_per_position_day and net_r_per_capital_day (added 2026-08-10, the exit-refinement skill's declared-but-never-implemented tiebreak). The shipping gate is still net_R + maxDD only, so a trade that eventually reaches TP after 149 bars scores identically to one that reached it in 10. The operator's point is precisely that these are not the same trade: the capital was unavailable to every other strategy for 12 days. Opportunity cost is not priced anywhere in the gate.\n\nNOT A NEW LEVER — a DEPLOYMENT gap. stale_exit_bars/giveback are implemented in every research harness and shipped live on exactly TWO legs (ict_scalp_eth_15m stale_exit_bars 12; uso_trend_1h giveback). mgc_pullback_1d/mhg_pullback_1d carry timeout_bars 200. The M20 memo section 4 swept stale-stop fleet-wide and passed it only on trend_donchian_sol + trend_donchian_eth; the pullback family FAILED that gate — but it failed a net_R-first gate, which is the criterion the operator is now questioning.",
+      "action": "OPERATOR APPROVED 2026-08-10: capital efficiency is now a SHIPPING criterion, not a tiebreak. Landed in .claude/skills/exit-refinement/SKILL.md P2 as a SECOND QUALIFYING PATH (Path B: net_r_per_capital_day improves in both IS and OOS AND maxDD does not worsen AND net_R falls no more than a declared floor), which must still pass the SAME yearly walk-forward. Path A (net_R AND maxDD) is unchanged. A second door, never a lower bar.\n\nSTILL OPEN, and deliberately NOT invented:\n  (a) Path B's two thresholds ('improves materially', the net_R floor) are UNSET. No sweep has reported the net_r_per_capital_day distribution yet, and a threshold with no distribution behind it is the exposure-ceiling mistake. Until the operator sets them from data, Path B SURFACES candidates for review rather than shipping them.\n  (b) RUN THE SWEEP: the pullback family across stale_exit_bars / stale_exit_below_r / giveback_r cells, config-exact, IS/OOS split 2025-07-01 + yearly walk-forward, with net_r_per_capital_day reported beside net_R and maxDD. The harness is READY — backtest_pullback.py already had every lever and now emits the capital block via scripts/capital_efficiency.py. Route to free GH runners (the ict-scalp-exit-sweep.yml pattern), not the 1-core trainer.\n  (c) Any resulting per-leg value is a Tier-3 config change and should ride the exit_lever_soak ANNOTATE trail first.",
+      "resolution_criteria": "Closed when either (i) the pullback family has per-leg stale/giveback values shipped on operator-approved evidence that reads capital efficiency, or (ii) the memo records, on a capital-efficiency-aware sweep, that holding through chop is genuinely the better policy for these legs. 'It failed the net_R gate' is NOT sufficient to close this row - that is the criterion under question.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/research/M20-exit-refinement-2026-07-12.md#2",
+        "docs/research/M20-exit-refinement-2026-07-12.md#12",
+        "config/strategies.yaml",
+        "scripts/backtest_ict_scalp.py",
+        "runtime_logs/exit_lever_soak.jsonl",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8713"
+      ]
+    },
+    {
+      "id": "BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED",
+      "opened_at": "2026-08-10T01:50:00+00:00",
+      "opened_by": "claude (m20-ladder session)",
+      "status": "in_progress",
+      "tier": 2,
+      "severity": "critical",
+      "area": "pairs-sleeve",
+      "title": "pairs sleeve has opened 29 pairs and CLOSED ZERO: 38.8% of every decision is skip_state_unreadable, so max_hold_bars 20 has never once been evaluated on an open pair",
+      "source": "MEASURED live 2026-08-10 01:40Z (relay #8713) against config/pairs.yaml read the same session.\n\nconfig/pairs.yaml::pairs_bnb_btc declares timeframe 1h, max_hold_bars: 20 (= 20 hours), execution: live, account bybit_1.\n\nLive open BNBUSDT legs on bybit_1, all strategy pairs_bnb_btc_a, all sell, all at -0.06R:\n  24.8 days = ~595 bars  -$33.38\n  23.8 days = ~571 bars  -$89.24\n  20.3 days = ~487 bars  -$97.50\n  17.7 days = ~425 bars  -$61.48\n  12.5 days = ~300 bars  -$162.28\nplus one pairs_bnb_btc_b BTCUSDT leg at 5.4 days (-$20.44).\n\nThat is 15x to 30x over the pair's OWN declared limit, and -$443.88 of unrealised loss sitting in a sleeve whose entire thesis is mean reversion within 20 bars.\n\nTWO things are wrong and they may share a cause. (1) The time exit is not firing. (2) There are FIVE journal rows on one netted BNBUSDT position for a pair that should hold ONE.\n\nNOT YET CONFIRMED - the mechanism is a hypothesis, relay #8714 was opened to check it against runtime_logs/pairs_soak.jsonl and is not back yet. The hypothesis: _reconstruct_open_state() returns None when the durable order_packages.meta bookkeeping cannot be read, and the caller then SKIPS the pair for that tick (soak event skip_state_unreadable). A skip is correct for a transient read failure and is NOT correct 595 bars later - nothing escalates, so max_hold_bars is never evaluated at all. That is the collapsed-state class this repo made canonical on 2026-08-09: 'we could not read the state' is being handled as 'do nothing', indefinitely and silently.\n\nMECHANISM CONFIRMED 2026-08-10 (relay #8714, /api/bot/pairs/soak). Population: ALL 2,471 soak rows ever written. by_event sums to exactly 2471, so the breakdown is EXHAUSTIVE, not a truncated tail — checked by arithmetic before drawing the conclusion:\n    skip_flat              1237\n    skip_state_unreadable   958   (38.8% of every decision)\n    skip_concurrency         228\n    open                     29\n    open_failed              10\n    shadow_open               9\n                          -----\n                           2471\n\n**29 opens. ZERO closes.** `close`, `hold`, `half_open`, `shadow_close` and `skip_size` have NEVER been emitted, not once in 2,471 decisions. The executor has never reached its own close branch, which is why legs sit at 300-595 bars against a declared 20-bar limit: whenever a pair IS open, _reconstruct_open_state() fails, the tick skips, and max_hold_bars is never evaluated at all. The limit is not being violated — it is never being READ.\n\nThis is the collapsed-state class made canonical 2026-08-09, in its purest form: 'we could not read the state' is handled as 'do nothing', indefinitely, with no ceiling and no escalation. It is ALSO the alarm-fatigue P1 from CLAUDE.md — the signal fired 958 times into a soak log and nothing ever acted on it, which is exactly the failure mode that rule exists to kill. The half_open cleanup shipped 2026-08-09 cannot be helping here: half_open has never been emitted either.",
+      "what_to_check": "Read runtime_logs/pairs_soak.jsonl (relay #8714 or /api/bot/pairs/soak?pair=BNBUSDT/BTCUSDT) and count events by kind. A long run of skip_state_unreadable confirms the hypothesis; a run of hold means the state IS readable and the max-hold predicate itself is wrong. The two need different fixes, so do not conflate them.\n\nThe 5-rows-on-one-netted-position half is the documented pairs divergence shape (BL-20260808-PAIRS-DIVERGENCE-UNOWNED, half_open cleanup added 2026-08-09) plus netting row divergence (BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED). Check whether the half_open fix is actually running on this pair before assuming it covers this.\n\nBlast radius today is bounded: bybit_1 is the demo/paper account, so no real money. It is filed HIGH anyway because the same executor is what a real-money pairs sleeve would run, and because a declared limit that silently does not apply is worse than no limit - it reads as governed.",
+      "action": "ROOT CAUSE FOUND AND FIXED IN CODE 2026-08-10 (PR #8712). Proven, not inferred: building the table from the REAL DDL in src/units/db/database.py and running _open_pkg_meta's exact query raises 'OperationalError: no such column: account_id'. `order_packages` has NEITHER `account_id` NOR `id` (PK is the TEXT order_package_id, which is not a rowid alias), so the query named TWO nonexistent columns and could never have returned a row.\n\nFix, three parts:\n  1. The query drops the impossible predicates and orders by created_at/rowid. account_id is deliberately NOT re-added as SQL — the sleeve is single-account by config and leg strategy names are unique per pair, and the docstring says so, so nobody restores it on the assumption the column exists.\n  2. The read is now THREE-STATE (found/absent/error) and registered with collapsed-state-guard as pairs_executor.open_state_read. Collapsing 'we could not look' into 'nothing there' is what hid this.\n  3. A persistent unreadable state ALERTS (pairs_state_unreadable, CRITICAL) instead of skipping silently, rate-limited once per hour per (pair, reason) — the condition fires every tick and a per-tick alarm is itself the desensitized-alarm P1.\n\nWHY IT SURVIVED TESTING: the existing tests declared their OWN order_packages as (id INTEGER PRIMARY KEY, strategy_name, account_id, meta) — a schema production does not have — so they were green against a fictional table. They now lift the DDL from the module that owns it, plus a test pinning that account_id/id do NOT exist. Negative-controlled: reverting the query makes 4 tests fail with the production error.\n\nREMAINING (not done here):\n  (a) DEPLOY + verify on the live VM: the proof this is fixed is a NON-ZERO `close` count in /api/bot/pairs/soak. Until then it is fixed in code only.\n  (b) The 6 stranded legs (-$443.88 unrealised, bybit_1/paper) still need flattening — Tier-2, operator OK, and only AFTER (a) or they re-accumulate.",
+      "resolution_criteria": "Closed when the LIVE pairs soak shows a non-zero `close` count and skip_state_unreadable is no longer dominant. Code-fixed + tests green is NOT closure — that is exactly the 'green is not evidence' shape this bug already exhibited once.",
+      "snoozed_until": null,
+      "refs": [
+        "config/pairs.yaml",
+        "src/units/strategies/pairs_executor.py",
+        "runtime_logs/pairs_soak.jsonl",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8713",
+        "https://github.com/benbaichmankass/Metis-Insights/issues/8714"
+      ]
+    },
+    {
       "id": "BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE",
       "opened_at": "2026-08-10T02:10:00+00:00",
       "opened_by": "claude (api-tier-policy-guard-npihz7)",
@@ -11251,6 +11362,6 @@
       ]
     }
   ],
-  "updated_at": "2026-08-10T02:10:00+00:00",
+  "updated_at": "2026-08-10T01:20:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

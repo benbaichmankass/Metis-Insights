@@ -274,6 +274,57 @@ def _alert_half_open_pair(pair_label: str, account_id: str, *,
         logger.error("pairs: half-open alert failed for %s: %s", pair_label, exc)
 
 
+_STATE_ALERT_COOLDOWN_S = 3600.0
+_state_alert_last: Dict[str, float] = {}
+
+
+def _alert_state_unreadable(pair_label: str, account_id: str, *,
+                            state_read: str) -> None:
+    """Surface a pair whose open-state could not be used.
+
+    **Why this exists.** Skipping the tick is the correct action — the sleeve
+    must never blind-open or blind-close — but doing it SILENTLY is how
+    BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED survived 2,471 decisions: the
+    condition was recorded 958 times into a soak log nobody read, while every
+    close-side rule the sleeve owns went unevaluated and its legs aged to 595
+    bars against a declared 20-bar limit.
+
+    **Why it is rate-limited.** This branch can fire on every tick of a
+    long-lived pair. An alert that fires every tick is the desensitized alarm
+    CLAUDE.md names as a P1 in its own right, so it is emitted at most once per
+    ``_STATE_ALERT_COOLDOWN_S`` per (pair, reason). The cooldown is in-process:
+    a restart re-alerts once, which is the fail-safe direction.
+
+    ``state_read`` is carried through, not collapsed — ``error`` (we could not
+    look) and ``absent`` (we looked; open legs carry no package) are different
+    faults with different fixes.
+    """
+    try:
+        import time as _t
+        key = f"{pair_label}|{state_read}"
+        now = _t.monotonic()
+        last = _state_alert_last.get(key)
+        if last is not None and (now - last) < _STATE_ALERT_COOLDOWN_S:
+            return
+        _state_alert_last[key] = now
+        from src.runtime.outcomes import Level, report
+        if state_read == "absent":
+            reason = (f"pairs {pair_label}: both legs read OPEN on {account_id} but no "
+                      f"order package carries the spread bookkeeping. The pair cannot be "
+                      f"evaluated for exit_z / stop_z / max_hold_bars and will be skipped "
+                      f"every tick until this is resolved")
+        else:
+            reason = (f"pairs {pair_label}: the open-state read FAILED on {account_id} — "
+                      f"the spread bookkeeping could not be read at all. Every close-side "
+                      f"rule (max_hold_bars, exit_z, stop_z) is evaluated off this state, "
+                      f"so while it persists the pair CANNOT be closed by the executor")
+        report("pairs_state_unreadable", state_read, level=Level.CRITICAL,
+               reason=reason, pair=pair_label, account_id=account_id,
+               state_read=state_read)
+    except Exception as exc:  # noqa: BLE001 — an alert must never break the tick
+        logger.error("pairs: state-unreadable alert failed for %s: %s", pair_label, exc)
+
+
 def _held_leg_symbols(pairs: Sequence[Dict[str, Any]], account_id: str,
                       db_path: Optional[str], *, exclude_name: str) -> set:
     """Set of leg-symbols currently held by OTHER open pairs (the disjoint-legs
@@ -304,37 +355,81 @@ def _count_correlated_open(pair: Dict[str, Any], pairs: Sequence[Dict[str, Any]]
     return n
 
 
-def _open_pkg_meta(strategy: str, account_id: str, db_path: str) -> Optional[Dict[str, Any]]:
-    """Read the newest order_packages.meta for a leg strategy (the durable spread
-    bookkeeping stamped at open). Read-only; None on any failure."""
+def _open_pkg_meta(strategy: str, account_id: str,
+                   db_path: str) -> tuple:
+    """Read the newest ``order_packages.meta`` for a leg strategy (the durable
+    spread bookkeeping stamped at open).
+
+    Returns a THREE-STATE ``(status, meta)`` — never a bare ``None``:
+
+      * ``("found", {...})``  — the package is there and parsed.
+      * ``("absent", None)``  — we looked and there is no such package. For a
+        pair whose legs read OPEN this is a genuine anomaly (a leg trade with
+        no order package), NOT a read failure.
+      * ``("error", None)``   — **we could not look.** A missing DB file, a bad
+        schema, unparseable JSON.
+
+    Collapsing those last two is what hid
+    BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED
+    for 2,471 decisions: this function used to return ``None`` for
+    both, the caller skipped the tick either way, and the *reason* it could
+    never read an open pair was a query against **two columns that do not
+    exist**. `order_packages` has no `account_id` and no `id` (its PK is the
+    TEXT `order_package_id`, which is not a rowid alias), so the SELECT raised
+    `OperationalError: no such column: account_id`, the broad `except` swallowed
+    it at DEBUG, and every open pair read as "unreadable" forever. 29 pairs were
+    opened and **zero** were ever closed by the executor.
+
+    **`account_id` is deliberately NOT a SQL predicate** — the column does not
+    exist, and it must not be re-added on the assumption that it does. The
+    sleeve is single-account by construction (`config/pairs.yaml::account_id` is
+    one top-level scalar) and leg strategy names (`pairs_bnb_btc_a`) are unique
+    per pair, so `strategy_name` already scopes this correctly. The parameter is
+    kept for the caller's signature and for the log line; a genuinely
+    multi-account sleeve must add the column and join deliberately, not by
+    re-introducing this predicate.
+
+    Read-only. Never raises.
+    """
     try:
         if not os.path.exists(db_path):
-            return None
+            return ("error", None)
         with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as conn:
             row = conn.execute(
                 "SELECT meta FROM order_packages WHERE strategy_name = ? "
-                "AND account_id = ? ORDER BY id DESC LIMIT 1",
-                (strategy, account_id),
+                "ORDER BY datetime(created_at) DESC, rowid DESC LIMIT 1",
+                (strategy,),
             ).fetchone()
         if not row or not row[0]:
-            return None
+            return ("absent", None)
         meta = json.loads(row[0])
-        return meta if isinstance(meta, dict) else None
+        return ("found", meta) if isinstance(meta, dict) else ("error", None)
     except Exception as exc:  # noqa: BLE001
-        logger.debug("pairs: _open_pkg_meta read failed (%s): %s", strategy, exc)
-        return None
+        # ERROR, not "absent" — and loud. A read failure here silently disables
+        # the sleeve's entire close path (max_hold_bars, exit_z, stop_z are all
+        # evaluated off this state), so it must never sit at DEBUG again.
+        logger.error("pairs: _open_pkg_meta read FAILED for %s (account=%s): %s",
+                     strategy, account_id, exc)
+        return ("error", None)
 
 
 def _reconstruct_open_state(pair: Dict[str, Any], account_id: str,
-                            db_path: str) -> Optional[pe.OpenPair]:
-    """Rebuild the pair's OpenPair (direction / entry_spread / stop_spread /
-    bars_held) from the journal-durable order_packages.meta stamped at open.
-    Returns None when the bookkeeping can't be read (caller then skips the pair
-    this tick — the per-leg backstop SL/TP still protects; never blind-closes)."""
+                            db_path: str) -> tuple:
+    """Rebuild the pair's ``OpenPair`` (direction / entry_spread / stop_spread /
+    bars_held) from the journal-durable ``order_packages.meta`` stamped at open.
+
+    Returns the same THREE-STATE ``(status, open_pair)`` as ``_open_pkg_meta``:
+    ``("found", OpenPair)`` · ``("absent", None)`` (legs open, no package —
+    an anomaly) · ``("error", None)`` (**we could not look**). The caller must
+    branch on the status: on anything but ``found`` it skips the pair this tick
+    (the per-leg backstop SL/TP still protects; never blind-opens or
+    blind-closes) — but an ``error`` is ALERTED, because a persistent one
+    disables the sleeve's whole close path.
+    """
     strat_a, _ = _leg_strats(pair)
-    meta = _open_pkg_meta(strat_a, account_id, db_path)
-    if not meta:
-        return None
+    status, meta = _open_pkg_meta(strat_a, account_id, db_path)
+    if status != "found" or not meta:
+        return (status, None)
     try:
         pd = str(meta["pair_direction"])
         entry_spread = float(meta["entry_spread"])
@@ -346,12 +441,15 @@ def _reconstruct_open_state(pair: Dict[str, Any], account_id: str,
             opened_dt = opened_dt.replace(tzinfo=timezone.utc)
         held_s = (datetime.now(timezone.utc) - opened_dt).total_seconds()
         bars_held = max(0, int(held_s // max(1, bar_seconds)))
-        return pe.OpenPair(direction=pd, entry_spread=entry_spread,
-                           stop_spread=stop_spread, bars_held=bars_held)
+        return ("found", pe.OpenPair(direction=pd, entry_spread=entry_spread,
+                                     stop_spread=stop_spread, bars_held=bars_held))
     except Exception as exc:  # noqa: BLE001
-        logger.debug("pairs: open-state reconstruct failed (%s): %s",
+        # The package EXISTS but its bookkeeping is malformed/incomplete — we
+        # looked and could not use what we found. That is an error, not
+        # "absent", and it is logged loudly for the same reason as above.
+        logger.error("pairs: open-state reconstruct FAILED for %s: %s",
                      pair.get("name"), exc)
-        return None
+        return ("error", None)
 
 
 def _fetch_leg(symbol: str, timeframe: str, limit: int,
@@ -756,15 +854,33 @@ def run_pairs_tick(settings: Optional[Dict[str, Any]] = None) -> None:
                 continue
 
             is_open = leg_state == "open"
-            open_state = _reconstruct_open_state(pair, account_id, db_path) if is_open else None
+            open_state = None
+            state_read = "found"
+            if is_open:
+                state_read, open_state = _reconstruct_open_state(
+                    pair, account_id, db_path)
             if is_open and open_state is None:
-                # Legs are open but the durable bookkeeping is unreadable — do
+                # Legs are open but the durable bookkeeping is unusable — do
                 # NOT blind-open or blind-close; the per-leg backstop protects.
+                #
+                # `state_read` distinguishes the two reasons, which the soak
+                # previously collapsed into one event: "error" = we could not
+                # look; "absent" = we looked and there is no package for open
+                # legs (itself an anomaly). Skipping is right for both; staying
+                # QUIET about it is not. This branch ran 958 times (38.8% of
+                # every decision ever logged) while the sleeve opened 29 pairs
+                # and closed ZERO, because every close-side rule
+                # (max_hold_bars, exit_z, stop_z) is evaluated off this state.
+                # BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED.
+                _alert_state_unreadable(
+                    _pair_label(str(pair["symbol_a"]), str(pair["symbol_b"])),
+                    account_id, state_read=state_read)
                 rec = build_pairs_soak_record(
                     event="skip_state_unreadable", pair=_pair_label(
                         str(pair["symbol_a"]), str(pair["symbol_b"])),
                     symbol_a=str(pair["symbol_a"]), symbol_b=str(pair["symbol_b"]),
-                    account_id=account_id, execution_mode=execution)
+                    account_id=account_id, execution_mode=execution,
+                    state_read=state_read)
                 record_pairs_soak(rec)
                 continue
 

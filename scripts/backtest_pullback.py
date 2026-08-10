@@ -36,8 +36,11 @@ import pandas as pd
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
+import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
 
 # Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B).
 # MANDATORY venue-aware cost is applied by main() (the CLI / production path): unset
@@ -582,7 +585,8 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
     if n == 0:
         base.update({"win_rate_pct": 0.0, "net_total_r": 0.0, "net_expectancy_r": 0.0,
                      "trades_long": 0, "trades_short": 0, "max_drawdown_r": 0.0,
-                     "by_outcome": {}, "by_year": {}})
+                     "by_outcome": {}, "by_year": {},
+                     **capital_efficiency.empty()})
         return base
     rs = [t.r_multiple for t in trades]
     costs = [_cost_breakdown(t) for t in trades]
@@ -625,6 +629,28 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str,
         "max_mfe_r": round(max(t.mfe_r for t in trades), 3),
         "mean_cost_r": mean_cost_r,
         "max_drawdown_r": round(mdd, 4), "by_outcome": by, "by_year": by_year})
+    # Capital efficiency — the exit-refinement gate's declared-but-never-built
+    # tiebreak (operator directive 2026-08-10: a trade that reaches TP after 149
+    # bars is not the same object as one that got there in 10). DEFINITION is
+    # single-homed in scripts/capital_efficiency.py; this harness owns only the
+    # extraction. Its Trade has no meta dict, so hold comes from the indices.
+    #
+    # capital_bars == position_bars here, HONESTLY: the levers this harness is
+    # swept for (stale_exit_bars / giveback_r / timeout_bars) close the WHOLE
+    # position, so no capital is released early and the two coincide by
+    # definition. Its --bank-frac lever DOES release early, but this harness
+    # records only the `banked` boolean and not the rung BAR, so a
+    # capital-weighted hold is not derivable — reporting one would be a
+    # fabricated number. Banking cells read here are therefore UNDER-credited
+    # on capital efficiency; wire banked_index (as backtest_ict_scalp.py does)
+    # before reading this column for a ladder cell.
+    _pos_bars = float(sum(max(0, int(t.exit_index) - int(t.entry_index))
+                          for t in trades))
+    base.update(capital_efficiency.summarize(
+        bar_minutes=capital_efficiency.bar_minutes_from_frame(df),
+        position_bars=_pos_bars, capital_bars=_pos_bars,
+        net_total_r=base.get("net_total_r"), n_trades=n))
+
     return base
 
 

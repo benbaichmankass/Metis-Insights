@@ -7,18 +7,32 @@ name: ict-scalp-exit-sweep
 # /home/ubuntu/m27_data, runs the config-exact IS/OOS lever sweep, and posts the
 # verdict back as a comment on PR #7849.
 #
-# Trigger: a push to this branch that touches `.github/exit-sweep-request` (the
-# push runs the workflow version ON the branch, with same-repo secrets — the
+# Trigger: a push to a listed branch that touches `.github/exit-sweep-request`
+# (the push runs the workflow version ON the branch, with same-repo secrets — the
 # issue-label path can't be used because issue-triggered workflows load only from
 # the default branch). Re-trigger by committing a new value to that sentinel.
+#
+# DATASET (load-bearing, verified 2026-08-09): the scp source /home/ubuntu/m27_data
+# is NOT the same data as the trainer's ~/ict-trading-bot/data. m27_data starts
+# 2023-01-01 (ETHUSDT_15m = 124,497 rows); data/ starts 2021-03 (184,443 rows),
+# different md5. Every M27 exit-lever verdict in the coverage matrix was measured
+# on m27_data, so a new lever cell MUST use it too or the matrix row silently
+# mixes two populations — and the yearly walk-forward differs as well (folds
+# 2021/2022 are empty on m27_data, so `usable` is 4 and `need` is 3, not 4/6).
 
 on:
   push:
     branches:
       - 'claude/wire-ict-scalp-mgc-15m-j8i7i4'
+      - 'claude/m20-trend-harness-workstream-ipa3ce'
     paths:
       - '.github/exit-sweep-request'
   workflow_dispatch:
+    inputs:
+      cells:
+        description: "Matrix lever to sweep (e.g. exit_ladder). Empty = all cells."
+        required: false
+        default: 'exit_ladder'
 
 permissions:
   contents: read
@@ -32,12 +46,23 @@ jobs:
     strategy:
       fail-fast: false
       max-parallel: 7
-      # Narrowed to the ETH-15m candidate leg for the walk-forward confirmation
-      # phase (the other 6 crypto legs are already honest_negative at IS/OOS).
-      # Restore the full 7-leg list to re-run the whole family.
+      # All 7 data-reachable live crypto ict_scalp legs, one runner each.
+      # `name` is the config/strategies.yaml leg id — passed as --leg so the
+      # sweep resolves that leg's OWN declared exit levers into the base
+      # (only ict_scalp_eth_15m declares any: stale_exit_bars 12). Without it
+      # that one leg would be swept against a baseline it does not run live.
+      # The 8th leg, ict_scalp_mgc_15m, is deliberately absent: no MGC/XAUUSD
+      # 15m data exists (blocked:data_missing,
+      # BL-20260809-XAU-PROXY-DATASET-GONE-VERDICTS-UNREPRODUCIBLE).
       matrix:
         leg:
-          - { sym: ETHUSDT,  tf: 15m }
+          - { name: ict_scalp_eth_15m, sym: ETHUSDT,  tf: 15m }
+          - { name: ict_scalp_sol_15m, sym: SOLUSDT,  tf: 15m }
+          - { name: ict_scalp_xrp_15m, sym: XRPUSDT,  tf: 15m }
+          - { name: ict_scalp_5m,      sym: BTCUSDT,  tf: 5m  }
+          - { name: ict_scalp_sol_5m,  sym: SOLUSDT,  tf: 5m  }
+          - { name: ict_scalp_xrp_5m,  sym: XRPUSDT,  tf: 5m  }
+          - { name: ict_scalp_avax_5m, sym: AVAXUSDT, tf: 5m  }
     steps:
       - uses: actions/checkout@v4
 
@@ -73,13 +98,16 @@ jobs:
 
       - name: Run config-exact exit-lever sweep
         env:
+          LEG: ${{ matrix.leg.name }}
           SYM: ${{ matrix.leg.sym }}
           TF: ${{ matrix.leg.tf }}
+          CELLS: ${{ inputs.cells || 'exit_ladder' }}
         run: |
           set -o pipefail
           python3 scripts/research/m27/ict_scalp_exit_sweep.py \
+            --leg "${LEG}" \
             --data "data/${SYM}_${TF}.csv" \
-            --symbol "${SYM}" --timeframe "${TF}" \
+            ${CELLS:+--cells "${CELLS}"} \
             --split 2025-07-01 --walkforward \
             --out "out/${SYM}_${TF}" 2>&1 | tee sweep.out
           echo "---VERDICTS_JSON---"
@@ -89,6 +117,7 @@ jobs:
         if: always()
         uses: actions/github-script@v7
         env:
+          LEG: ${{ matrix.leg.name }}
           SYM: ${{ matrix.leg.sym }}
           TF: ${{ matrix.leg.tf }}
         with:
@@ -98,14 +127,37 @@ jobs:
             try { out = fs.readFileSync('sweep.out', 'utf8'); }
             catch (e) { out = '(no sweep output — job failed before/at the sweep step; see run logs)'; }
             const sym = process.env.SYM, tf = process.env.TF;
-            const branch = 'claude/wire-ict-scalp-mgc-15m-j8i7i4';
-            const prs = await github.rest.pulls.list({
-              owner: context.repo.owner, repo: context.repo.repo,
-              head: `${context.repo.owner}:${branch}`, state: 'open',
-            });
-            const num = prs.data[0] && prs.data[0].number;
+            const leg = process.env.LEG || `${sym}_${tf}`;
+            // The branch that triggered this run — never a hardcoded one, or a
+            // re-use posts its verdicts onto an unrelated PR.
+            const branch = context.ref.replace('refs/heads/', '');
+            // Resolve the PR from the COMMIT, not from a head-filter query.
+            // The `pulls.list({head: 'owner:branch'})` form silently returned
+            // an empty list for this branch on 2026-08-10 — all 7 legs computed
+            // their verdicts and then dropped them on the floor, each logging a
+            // warning and exiting 0. listPullRequestsAssociatedWithCommit is the
+            // direct question ("which PR contains this sha?") and needs no
+            // guess about the head-ref string format.
+            let num = null;
+            try {
+              const byCommit = await github.rest.repos
+                .listPullRequestsAssociatedWithCommit({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  commit_sha: context.sha,
+                });
+              const open = byCommit.data.filter(p => p.state === 'open');
+              num = open[0] && open[0].number;
+            } catch (e) { core.warning(`commit->PR lookup failed: ${e.message}`); }
+            if (!num) {   // fall back to the head-filter form
+              const prs = await github.rest.pulls.list({
+                owner: context.repo.owner, repo: context.repo.repo,
+                head: `${context.repo.owner}:${branch}`, state: 'open',
+              });
+              num = prs.data[0] && prs.data[0].number;
+            }
             const body = [
-              `**exit-sweep verdict — \`${sym} ${tf}\`** (run ${context.runId})`,
+              `**exit-sweep verdict — \`${leg}\` (${sym} ${tf})** (run ${context.runId})`,
+              `Dataset: \`m27_data/${sym}_${tf}.csv\` — the SAME population every other M27 exit-lever verdict in this row was measured on.`,
               '',
               '```',
               out.slice(-3500),
@@ -120,5 +172,13 @@ jobs:
                 issue_number: num, body,
               });
             } else {
-              core.warning('No open PR found for branch; verdict not posted.');
+              // FAIL, do not warn. A sweep that computed a verdict and could
+              // not deliver it is a lost result, and a green job that produced
+              // nothing is exactly the "green is not evidence" shape — on
+              // 2026-08-10 all 7 legs did this and the run still read as a
+              // clean success.
+              core.setFailed(
+                `Verdict for ${leg} could NOT be posted: no open PR found for ` +
+                `commit ${context.sha} or branch ${branch}. The result is in ` +
+                `this job's log and must be collected manually.`);
             }
