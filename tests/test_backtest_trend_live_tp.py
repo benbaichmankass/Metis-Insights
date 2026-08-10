@@ -74,6 +74,14 @@ def _outcomes(res):
     return (res.get("by_outcome") or {})
 
 
+# run_backtest has six REQUIRED keyword-only strategy params. Omitting them
+# raised TypeError before any assertion ran — the first version of these tests
+# could never have passed, and calling that "CI-verified" was wrong.
+TREND_CFG = dict(donchian=20, atr_period=14, atr_stop_mult=2.0, trail_mult=4.0,
+                 timeout_bars=200, cooldown_bars=0,
+                 timeframe="1h", symbol="BTCUSDT")
+
+
 def test_tp_price_is_the_clamp_not_the_50R_sentinel():
     """min(entry*1.099, entry + 50*risk): with any sane risk the CAP binds.
     If tp_r bound instead, the TP would sit ~50R away and never fire — which is
@@ -89,7 +97,7 @@ def test_tp_price_is_the_clamp_not_the_50R_sentinel():
 def test_default_off_emits_no_take_profit_outcome():
     """The 266 already-graded cells must stay reproducible."""
     bars = [(100, 101, 99, 100)] * 30 + [(100, 140, 99, 139)] * 10 + [(139, 140, 100, 101)] * 30
-    res = bt.run_backtest(_frame(bars), symbol="BTCUSDT", timeframe="1h")
+    res = bt.run_backtest(_frame(bars), **TREND_CFG)
     assert "take_profit" not in _outcomes(res), \
         "a TP outcome appeared with the lever off — prior verdicts are no longer reproducible"
 
@@ -104,8 +112,7 @@ def test_stop_wins_when_one_bar_trades_through_both():
             + [(100, 103, 99.5, 102)] * 3          # breakout / entry region
             + [(102, 130, 80, 85)]                  # spans TP (~112) AND the stop
             + [(85, 86, 84, 85)] * 10)
-    res = bt.run_backtest(_frame(bars), symbol="BTCUSDT", timeframe="1h",
-                          tp_cap_pct=0.099)
+    res = bt.run_backtest(_frame(bars), **TREND_CFG, tp_cap_pct=0.099)
     out = _outcomes(res)
     if res.get("total_trades"):
         assert out.get("take_profit", 0) == 0, (
@@ -115,23 +122,42 @@ def test_stop_wins_when_one_bar_trades_through_both():
 
 @needs_pandas
 def test_enabling_the_cap_changes_the_book():
-    """The whole premise: with a reachable TP the results must differ from the
-    no-TP baseline. If they were identical the flag would be inert and the
-    parity break unaddressed."""
-    bars = ([(100, 101, 99, 100)] * 30
-            + [(100, 103, 99.5, 102)] * 3
-            + [(102, 106, 101, 105)] * 3
-            + [(105, 112, 104, 111)] * 3            # reaches ~+10% => the cap
-            + [(111, 112, 95, 96)] * 5              # ...then hands it all back
-            + [(96, 97, 95, 96)] * 10)
-    base = bt.run_backtest(_frame(bars), symbol="BTCUSDT", timeframe="1h")
-    capped = bt.run_backtest(_frame(bars), symbol="BTCUSDT", timeframe="1h",
-                             tp_cap_pct=0.099)
-    if base.get("total_trades") and capped.get("total_trades"):
-        assert (capped.get("net_total_r") != base.get("net_total_r")
-                or "take_profit" in _outcomes(capped)), (
-            "enabling the live TP changed nothing — the flag is inert, so the "
-            "capped-vs-uncapped A/B would be meaningless")
+    """The whole premise: with a reachable TP the book must differ from the
+    no-TP baseline. An inert flag would make the capped-vs-uncapped A/B
+    meaningless.
+
+    The bar sequence is load-bearing and was found by RUNNING, not reasoning.
+    Two earlier attempts failed for reasons worth recording: the first peaked at
+    112 against a TP of ~112.1 (a hair short), and the second put the run-up
+    BEFORE the donchian breakout confirmed, so entry landed on the last rising
+    bar with mfe_r 0.0 and stopped out immediately. The climb has to happen
+    AFTER entry.
+    """
+    bars = [(100, 100.6, 99.4, 100)] * 30 + [(100, 102, 99.8, 101.8)]
+    px = 101.8
+    for _ in range(14):                       # sustained climb past +9.9%
+        nxt = px * 1.025
+        bars.append((px, nxt, px * 0.998, nxt))
+        px = nxt
+    bars += [(px, px, px * 0.80, px * 0.82)] * 3      # then hand it back
+    bars += [(px * 0.82, px * 0.82, px * 0.80, px * 0.82)] * 8
+
+    base = bt.run_backtest(_frame(bars), **TREND_CFG)
+    capped = bt.run_backtest(_frame(bars), **TREND_CFG, tp_cap_pct=0.099)
+
+    # The uncapped book cannot take profit at all...
+    assert "take_profit" not in _outcomes(base)
+    # ...the capped one does, and the result differs.
+    assert "take_profit" in _outcomes(capped), (
+        f"the live TP never fired: {_outcomes(capped)}")
+    assert capped.get("net_total_r") != base.get("net_total_r"), (
+        "enabling the live TP changed nothing — the flag is inert")
+    # And the measurement lands in the range quoted to the operator, MEASURED
+    # rather than assumed from an ATR% guess.
+    assert capped.get("tp_r_effective_median") is not None
+    assert base.get("tp_r_effective_median") is None, (
+        "reach must be None when the lever is off — unmeasured and "
+        "zero-distance are opposite statements")
 
 
 # ------------------------------------------------ the port must not diverge
