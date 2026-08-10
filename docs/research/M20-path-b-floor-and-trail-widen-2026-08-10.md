@@ -142,10 +142,20 @@ that backtest well and do nothing.
    landed *and* the sweep base is config-exact. The same signature appears independently on
    `trend_donchian_eth` (`stale8_lt0R`, `vt_cold10_t2.5`) and `trend_donchian_eth_prop`
    (`stale12_lt0R`, `decay_stall10_t1.8`).
-3. **`exit_lever_soak` annotate rows for that leg stop** after the deploy — *pending*: the
-   annotate rows are absent from the 21:08Z cycle but present at 18:45Z, which is
-   consistent with the declaration landing AND with the position simply having closed.
-   Diag request **#8758** resolves that ambiguity. **Not claimed as verified until it does.**
+3. **`exit_lever_soak` annotate rows for that leg stopped — while the position is still
+   OPEN.** ✅ **VERIFIED** (diag #8758). This was the check I refused to claim earlier,
+   because absence of annotate rows is consistent with *two* opposite causes: the lever
+   declaration landing, or the position simply having closed. The diag resolves it:
+
+   - `eth_pullback_2h` **is still open** — trades `4134` (`bybit_2`, **real money**,
+     ETHUSDT sell, opened 07-28) and `4135` (`bybit_portfolio`, paper).
+   - The `exit_lever_soak` tail at 21:39Z and 22:06Z carries annotate rows for
+     `trend_donchian_ada_4h`, `tlt_pullback_1d`, `spy_pullback_1h`, `qqq_pullback_1h` and
+     `ada_pullback_2h` — **and none for `eth_pullback_2h`.**
+
+   Position open + annotate stopped is only consistent with the declaration having landed:
+   the annotate soak writes "the lever would have exited here" rows **pre-YAML-declare**,
+   so a leg that now declares the lever correctly drops out. All three checks pass.
 
 ---
 
