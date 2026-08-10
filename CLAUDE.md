@@ -1265,8 +1265,11 @@ below are the contract.
   `claude/**` branch that touches `.github/pr-automerge-request` it
   finds-or-opens the branch's PR to `main` (title = head-commit subject)
   and enables native auto-merge (squash) — GitHub still merges only on
-  green required checks + up-to-date branch (branch-protection is the
-  safety net; CI is never bypassed), with a bounded poll-then-merge
+  green required checks (branch-protection is the safety net; CI is never
+  bypassed). The branch no longer needs to be up to date with `main`:
+  `require-up-to-date` was unticked 2026-08-10 (`strict: false`) because it
+  forced a ~9-minute CI re-run on every PR that went `behind` without
+  serializing anything. With a bounded poll-then-merge
   fallback if the repo disallows auto-merge. Generalized 2026-07-27 from
   the one-off `m28-value-grade-push`/`m28-merge-push` workflows. **Only
   needed when the MCP is 403** — the normal path is `merge_pull_request` /
