@@ -92,6 +92,16 @@ sum unwatched.
    work — which the current instrumentation cannot answer, because `order_monitor` is
    one wrap.
 
+**The instrumentation's own cost, measured rather than asserted.** The split adds 14
+context-manager entries per tick to the live monitor, and *"it is only a timer"* is a
+claim, not a number — the same claim every individually-cheap hook in both June wedges
+came with. Benchmarked (7 runs × 1000 ticks, median): **25.6 µs per tick for all 14
+phases**, 1.83 µs each — **0.000053%** of the measured 48.7 s, and ~39,000 ticks
+before it costs one second in total. Measured in the x86 sandbox, not on the aarch64
+VM, so treat it as an order of magnitude rather than the figure; even at 10× slower it
+is 0.0005%. There is no performance argument against merging this, and now there is a
+number behind saying so.
+
 **Sequencing recommendation:** (4) before (1). If the monitor is 48.7 s because of
 broker reads that can be batched or cached, the decouple lands on a much safer footing —
 and if it is irreducible, that is exactly the number the budget in (2) has to be set
