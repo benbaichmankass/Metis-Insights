@@ -2,198 +2,226 @@
 
 **Session** `session_011iUN3roukhbRWwuioX8pRD` · **2026-08-10 overnight** · Tier-1 throughout
 (no `config/` change; the one Tier-3 change of the day — `eth_pullback_2h` — merged
-earlier with operator approval and is verified live in § 4).
+earlier with operator approval and is verified live in § 5).
 
 **Operator directive this answers** (2026-08-10): *"let's try and use any optimization
 of the capital utilization and PnL to decide what the correct number is there …
 database decisions and not arbitrary guesses."*
 
+**Population for everything below:** the committed corpus
+`docs/research/m20-sweep-corpus.jsonl` — **575 cells across 43 legs**, live-parity
+geometry (capped TP 0.099), IS/OOS split `2025-07-01`. Every claim in this document
+is reproducible from that file. The 8 `ict_scalp` legs are **not** in it (they need
+their own dispatch — one full-history scalp run was timed at 955s).
+
 ---
 
-## 1. The headline: **the case the floor was meant to fix does not occur in the measured fleet**
+## 1. The recommendation, in one line
 
-This is now measured, not predicted — the corpus committed (`140 rows`,
-`docs/research/m20-sweep-corpus.jsonl`) and the analysis ran against it.
+**Do not set a base-rate floor.** It was measured over the fleet and it is
+**unsupported** — and, more pointedly, the data leans the *opposite* way to the
+premise. What the sweep did surface is a different and real exposure, quantified in
+§ 3, whose remedy is a **structural bound**, not a fitted number.
 
-### 1a. The formal verdict is `insufficient_population`
+Two things I claimed this morning from the 10-leg census are **false at fleet
+scale**, and both were falsified by the tests I set up to check them:
+
+| my claim (10 legs) | fleet result (43 legs) |
+|---|---|
+| "zero gradeable legs sit below rate 1.0 — the permissive case does not occur" | **6 of 36 do.** Lowest is `gdx_pullback_1d` at **0.454** — essentially the 0.40 that motivated the floor |
+| "the trail-widen is a real IS effect (7 of 8, p=0.035)" | **25 of 42, p=0.14.** Not significant. The 7/8 was the census top-10 |
+
+Reporting these plainly is the point of having run the test. The 10-leg answer was
+not a lie, it was an **unstated denominator** — and the fix was more legs, which is
+exactly what the run bought.
+
+---
+
+## 2. The floor: measured, and unsupported
+
+### 2a. The case the floor exists for DOES occur
+
+Six legs have a **profitable** base book that earns less than 1R per unit of
+drawdown — precisely the band where the derived criterion (`allowed = D_b × dN/N_b`)
+gets permissive:
+
+| leg | base net_R (IS) | base maxDD (IS) | rate | n IS | n OOS |
+|---|--:|--:|--:|--:|--:|
+| `gdx_pullback_1d` | 5.18 | 11.41 | **0.454** | 83 | 7 |
+| `mhg_pullback_1d` | 5.66 | 9.68 | **0.585** | 71 | 7 |
+| `tlt_pullback_1h` | 20.90 | 27.78 | **0.752** | 468 | 56 |
+| `eth_pullback_prop_2h` | 13.90 | 15.35 | **0.905** | 274 | 67 |
+| `scha_trend_long_1d` | 5.57 | 5.78 | **0.964** | 63 | 5 |
+| `trend_donchian_ada_4h` | 15.63 | 16.03 | **0.975** | 176 | 43 |
+
+The remaining 7 of 43 legs have an unprofitable IS base and are refused outright by
+`drawdown_exchange_rate` (`base_unprofitable` — **ungradeable is not a pass**), so
+the gradeable denominator is 36.
+
+### 2b. …but the rate does not predict whether a gain generalises
+
+`scripts/research/m20_path_b_floor.py` against the fleet corpus:
 
 ```
-corpus rows: 140 (140 cells + 0 leg-status)
-cells with no walk-forward: 129   (no generalisation evidence — excluded, NOT failures)
-walk-forwarded: 11, of which missing base_rate_IS: 3
-ANALYSED: 8 cells across 6 legs
-base_rate_IS: min 1.08 · median 3.46 · max 6.95 · overall WF pass rate 38%
+analysed: 52 walk-forwarded cells across 22 legs   (515 never reached a
+  walk-forward — no evidence about generalisation, excluded, NOT failures)
+base_rate_IS: min 0.585 · median 2.41 · max 9.21 · overall WF pass rate 67%
+15 floors tried · Bonferroni bar 0.00333 · best p = 0.608
+VERDICT: no_separation
 ```
 
-Eight cells over **six** distinct predictor values. The predictor is a property of the
-**LEG**, not the cell, so those 8 rows are a six-point comparison — and a test assuming
-independence would inflate the effective n by the cells-per-leg ratio and return a
-confident-looking p for it. `m20_path_b_floor.py` refuses and says
-`insufficient_population` — *we did not look* — explicitly distinct from `no_separation`.
+**WE LOOKED AND FOUND NOTHING** — distinct from `insufficient_population`, which is
+what the 10-leg corpus returned. And read the grid's direction, not just its
+p-values: at **every one of the 15 floors**, the arm the floor would REJECT
+generalises *better* than the arm it would admit (63% vs 89% at 0.975; 43% vs 76% at
+4.76). A floor set anywhere on this evidence would remove the better-generalising
+cells.
 
-### 1b. But the per-leg distribution answers the real question anyway
+### 2c. The second candidate — a `dN/N_b` cap — is also unsupported *as a predictor*
 
-The floor exists to stop the criterion being permissive on a weak book. Here is every
-swept leg's IS base:
+The floor is aimed at `base_rate`; the mechanism is the ratio. `allowed = D_b ×
+(dN/N_b)` grants a cell that **fraction of the base book's entire drawdown**, so the
+permissive case is not "the book is inefficient", it is "the cell's gain is large
+relative to the book's". The two come apart cleanly in the data, and unlike the rate
+the ratio varies **per cell**, so it is far better conditioned (52 distinct values vs
+22).
 
-| leg | net_R | maxDD | rate | |
-|---|--:|--:|--:|---|
-| `spy_pullback_1h` | 66.63 | 9.58 | **6.95** | |
-| `qqq_pullback_1h` | 70.94 | 15.43 | **4.60** | |
-| `trend_donchian_sol` | 39.85 | 11.53 | **3.46** | |
-| `trend_donchian` | 46.17 | 17.88 | **2.58** | |
-| `eth_pullback_2h` | 30.63 | 12.69 | **2.41** | |
-| `avax_pullback_2h` | 16.86 | 8.78 | **1.92** | |
-| `htf_pullback_trend_2h` | 23.47 | 21.70 | **1.08** | ← lowest |
-| `trend_donchian_1h` | −34.19 | 61.14 | — | `base_unprofitable` |
-| `trend_donchian_eth` | −1.06 | 26.37 | — | `base_unprofitable` |
-| `trend_donchian_eth_prop` | −24.37 | 50.69 | — | `base_unprofitable` |
+I added it as a derived axis and tested it with the arms inverted (a cap keeps the
+low side):
 
-**Zero of the 7 gradeable legs sit below rate 1.0.** The lowest is **1.08** — 2.7× the
-**0.40** that motivated the floor.
+```
+dn_over_nb_IS: min 0.003 · median 0.246 · max 1.697
+42 caps tried · Bonferroni bar 0.00119 · best p = 0.421
+VERDICT: no_separation
+```
 
-**And the weak-book case is already guarded on the other side.** Verified against the
-producer (`drawdown_exchange_rate`), not from memory: a base book that loses money returns
-`passes: None` / `reason: base_unprofitable` — **ungradeable is not a pass**. That covers
-**3 of the 10 legs**.
-
-So the permissive case can only arise in the narrow band between those two: a book that is
-*profitable but earns little per unit of drawdown*. The 0.40 example sat exactly there, and
-**on the corrected config-exact base no leg in the measured fleet does.**
-
-### 1c. What I am and am not claiming
-
-- **Claimed:** across 10 swept legs, 0 of 7 gradeable rates fall below 1.0, and the other 3
-  are refused by an existing guard. On this population the criterion's known asymmetry is
-  **not reachable**, so a floor would currently constrain nothing.
-- **Not claimed:** that it can never be reached. **10 of 44 trail legs** are measured. A
-  low-rate profitable leg could sit in the other 34.
-- **Not isolated:** `eth_pullback_2h` moved 0.40 → 2.41 between sweeps, and *two* things
-  changed — the config-exactness fix and the Tier-3 decay declaration. I did not run the
-  counterfactual. The fleet-wide observation above does not depend on resolving it.
-
-**Recommendation: do not set a floor. Sweep the remaining 34 legs first** (free, ~5 min,
-$0) — if no profitable leg below ~1.0 exists across the full fleet, the floor is
-unnecessary rather than merely underdetermined, and that is a stronger and cheaper answer
-than a number.
+So **neither** candidate predicts generalisation. Any floor or cap chosen to improve
+the walk-forward hit-rate would be the arbitrary guess the directive forbids.
 
 ---
 
-## 2. The more actionable finding: the fleet-wide trail-widen is an IN-SAMPLE effect
+## 3. The exposure that IS real — and it is a risk question, not a data one
 
-Three legs produced a `trail6` Path B candidate (`trail_mult` 5.0 → 6.0), which reads like
-a robust cross-leg signal. **It is not, and the arithmetic says so.**
+The grant is not a hypothesis about generalisation; it is an **amount of drawdown**.
+Measured over the 18 `path_b_wf_pass` rows — the exact population a Path B threshold
+would promote from:
 
-Eight of the ten swept legs had a wider trail tested (two use a different base trail, so
-their widen-cell is not `trail6`):
+| leg · cell | rate | dN/N_b | **granted, as % of the base book's whole drawdown** |
+|---|--:|--:|--:|
+| `tlt_pullback_1h · trail4` | 0.752 | 1.697 | **170%** |
+| `eth_pullback_prop_2h · decay_stall10_t1.8` | 0.905 | 1.085 | **108%** |
+| `scha_trend_long_1d · decay_stall6_t2` | 0.964 | 0.974 | 97% |
+| `mhg_pullback_1d · stale8_lt0R` | 0.585 | 0.834 | 83% |
+| …13 more | | | 45% down to 2% |
 
-| leg | verdict | ΔnetR IS | ΔnetR OOS | ΔmaxDD IS | ΔmaxDD OOS |
-|---|---|--:|--:|--:|--:|
-| `trend_donchian_sol` | `path_b_wf_pass` | +11.95 | **+4.16** | +0.26 | −2.33 |
-| `eth_pullback_2h` | `path_b_wf_pass` | +5.39 | **+2.36** | −0.93 | +0.15 |
-| `qqq_pullback_1h` | `path_b_wf_pass` | +4.97 | **+3.82** | +1.63 | −1.91 |
-| `trend_donchian_eth` | `is_oos_fail` | +16.99 | −0.71 | −0.29 | −2.31 |
-| `trend_donchian` | `is_oos_fail` | +9.72 | −1.93 | −0.54 | +1.70 |
-| `trend_donchian_1h` | `is_oos_fail` | +5.40 | −1.15 | −4.81 | +3.65 |
-| `spy_pullback_1h` | `is_oos_fail` | +1.35 | −2.63 | +3.59 | +0.74 |
-| `avax_pullback_2h` | `is_oos_fail` | −0.85 | +0.58 | +0.03 | 0.00 |
+**Four of eighteen are granted more than half the base book's entire drawdown, and
+one is granted 1.7× of it.** At that point the allowance has stopped being a *share*
+of the book's risk budget and become an *expansion* of it.
 
-- **IS: 7 of 8 positive.** Under a null of "the sign is a coin flip", P(≥7 of 8) = **0.035**.
-  A real in-sample effect — the trail genuinely is too tight across the fleet *in-sample*.
-- **OOS: 4 of 8 positive.** P(≥4 of 8) = **0.637**. **Exactly chance.**
+**This does not need a statistical separation to justify acting on, and it must not
+pretend to have one.** It is a risk-appetite statement. What the data supplies is the
+distribution to choose against — which is the same discipline
+`gross-exposure-governance-DESIGN.md` § 6/§ 7 imposes on the exposure ceiling: never
+ship a value with no measurement behind it, and put the bound above normal operation
+and below the thing you actually fear.
 
-That is the textbook overfit signature at the fleet level. The three `path_b_wf_pass`
-candidates are the legs where an in-sample effect and a coin flip happened to align, and
-"the same cell won on three independent legs" is the wrong reading — **eight legs were
-tested and the OOS sign is noise, so three alignments is what chance produces.**
+**If you want one bound tonight, the non-arbitrary value is `dN/N_b ≤ 1.0`.** It is
+structural rather than fitted — it is the exact point where a cell stops asking for a
+fraction of the base drawdown and starts asking for more than all of it — and it is
+the only value in the range with a justification that isn't "it looked about right".
+It binds **1 of 18** measured rows (`tlt_pullback_1h trail4`), so it costs almost
+nothing today and bounds the tail. Anything tighter (0.5, 0.3) has **no** evidence
+behind it — § 2c measured exactly that and found none.
 
-**Recommendation: do not promote any `trail6` cell on the cross-leg pattern.** If one is
-promoted it must be on its own leg's walk-forward standing alone, with the 4-of-8 OOS
-denominator stated. My own view is that none of the three clears that bar tonight.
-
----
-
-## 3. What is genuinely shippable from this sweep: nothing
-
-- **Path A PASS: 1** — `trend_donchian_1h vt_hot90_t2.5`, and it is **not shippable**: that
-  leg reads `enabled: false` / `execution: shadow` (retired). Its numbers are strong (ΔnetR
-  IS +11.92 / OOS +15.53, ΔmaxDD IS −8.15 / OOS −14.54 — both axes, both windows). Recorded
-  so it is the first thing re-measured if the leg is ever revived; **flagged loudly because
-  reading the PASS off the sweep table and proposing it is the obvious mistake.**
-- **Path B candidates: 4**, all discussed in § 2. None recommended.
-- **Everything else: honest negatives.**
-
-A sweep whose output is "nothing ships" is a successful sweep. The alternative — promoting
-the `trail6` trio on a pattern that is 4-of-8 coin flips — is how a fleet acquires levers
-that backtest well and do nothing.
+Tier-3, your call. My recommendation: **set 1.0, and only 1.0.**
 
 ---
 
-## 4. Verification: the Tier-3 change from earlier today is live, self-verifyingly
+## 4. Two defects in the sweep's own reporting, found by reading the fleet output
+
+**`path_b_wf_pass` does not mean the drawdown-rate gate passed — and 6 of 18 rows
+don't pass it.** The verdict name says only "the net_R gain generalised across
+folds"; the code comment disclaims the rest explicitly. But at fleet scale the two
+visibly diverge:
+
+- `slv_pullback_1d stale8_lt0R`, `slv_trend_1h decay_stall10_t2`,
+  `qqq_pullback_1h trail6`, `uso_trend_1h vt_cold10_t2` — **negative IS headroom**
+  (rate gate FAILS in-sample), verdict still `path_b_wf_pass`.
+- `ada_pullback_2h vt_hot80_t2.5` — negative OOS headroom, same verdict.
+- `tlt_pullback_1h trail4` — OOS base is **unprofitable**, so its OOS rate is
+  **ungradeable**, and it is nonetheless the largest grant in the fleet (170%).
+
+Nobody reading a table of `path_b_wf_pass` rows would guess a third of them fail the
+gate the surrounding prose describes. That is a label not describing what was
+computed — the same class the repo's `diagnostic-provenance-guard` exists for. **Fix
+(Tier-1, mine to do): fold `rate_ok` into the verdict** so a row that fails it cannot
+wear the same name.
+
+**Path A has no minimum trade count, and it shows.** 9 of the 21 Path A PASSes sit on
+an OOS base under 20 trades:
+
+| leg | OOS base n | PASSes |
+|---|--:|--:|
+| `spy_trend_long_1d` | **3** | 4 |
+| `qqq_trend_long_1d` | **4** | 2 |
+| `scha_trend_long_1d` | **5** | 3 |
+| `mgc_trend_1h` | 97 | 1 |
+| `trend_donchian_1h` | 168 | 1 |
+
+Four PASSes on a three-trade out-of-sample window is not evidence of anything.
+Reported, not changed — `beats()` governs promotion and is Tier-3-adjacent, and this
+is a decision about promotion standards rather than a bug.
+
+---
+
+## 5. Nothing from this sweep is recommended for promotion
+
+- **Path A PASS: 21 rows / 9 legs** — but see § 4: nearly half sit on a
+  single-digit OOS base. The one on a real denominator (`trend_donchian_1h
+  vt_hot90_t2.5`, OOS n=168) is on a leg that reads `enabled: false` /
+  `execution: shadow` — **retired, not shippable.** Flagged loudly because reading
+  that PASS off the table and proposing it is the obvious mistake.
+- **`path_b_wf_pass`: 18 rows** — no Path B threshold is set, and § 2 says none
+  should be fitted. Six of them fail the rate gate anyway (§ 4).
+- **The trail-widen**: at n=42 the IS effect is **25/42, p=0.14** (not significant)
+  and OOS is **16/42, p=0.96** (leaning negative). The three `trail6` candidates that
+  looked like a cross-leg signal at n=8 are what chance produces. **Leave them.**
+
+A sweep whose output is "nothing ships" is a successful sweep. The alternative —
+promoting a trio on a pattern that dissolves the moment its denominator is stated —
+is how a fleet acquires levers that backtest well and do nothing.
+
+---
+
+## 6. Verification: the Tier-3 change from earlier today is live
 
 `eth_pullback_2h` gained `trail_decay_stall_bars: 10` + `trail_decay_tight_mult: 2.5`
-(merged `712274c`, operator-approved). Three independent confirmations:
+(merged `712274c`, operator-approved). Three independent confirmations, all passed:
 
-1. **`/api/diag/version` → `git_sha: 712274ca`** — the deploy rolled forward to the merge
-   commit.
+1. **`/api/diag/version` → `git_sha: 712274ca`** — the deploy rolled forward.
 2. **The sweep's own base moved.** `eth_pullback_2h decay_stall10_t2.5` now reads
-   `tie_no_improvement` with **0.0 on every axis** — a cell that merely re-declares a lever
-   the leg already carries scoring as exactly nothing is the signature that the deploy
-   landed *and* the sweep base is config-exact. The same signature appears independently on
-   `trend_donchian_eth` (`stale8_lt0R`, `vt_cold10_t2.5`) and `trend_donchian_eth_prop`
-   (`stale12_lt0R`, `decay_stall10_t1.8`).
-3. **`exit_lever_soak` annotate rows for that leg stopped — while the position is still
-   OPEN.** ✅ **VERIFIED** (diag #8758). This was the check I refused to claim earlier,
-   because absence of annotate rows is consistent with *two* opposite causes: the lever
-   declaration landing, or the position simply having closed. The diag resolves it:
-
-   - `eth_pullback_2h` **is still open** — trades `4134` (`bybit_2`, **real money**,
-     ETHUSDT sell, opened 07-28) and `4135` (`bybit_portfolio`, paper).
-   - The `exit_lever_soak` tail at 21:39Z and 22:06Z carries annotate rows for
-     `trend_donchian_ada_4h`, `tlt_pullback_1d`, `spy_pullback_1h`, `qqq_pullback_1h` and
-     `ada_pullback_2h` — **and none for `eth_pullback_2h`.**
-
-   Position open + annotate stopped is only consistent with the declaration having landed:
-   the annotate soak writes "the lever would have exited here" rows **pre-YAML-declare**,
-   so a leg that now declares the lever correctly drops out. All three checks pass.
+   `tie_no_improvement` with **0.0 on every axis** — a cell that re-declares a lever
+   the leg already carries scoring as exactly nothing is the signature that the
+   deploy landed *and* the sweep base is config-exact. The same signature appears
+   independently on `trend_donchian_eth` and `trend_donchian_eth_prop`.
+3. **`exit_lever_soak` annotate rows for that leg stopped — while the position is
+   still OPEN** (diag #8758). This was the check I refused to claim earlier, because
+   absent annotate rows are consistent with two opposite causes. The diag resolves
+   it: trades `4134` (`bybit_2`, **real money**) and `4135` (paper) are still open,
+   and the 21:39Z/22:06Z soak tail carries rows for five other legs and **none** for
+   `eth_pullback_2h`. Open + stopped is only consistent with the declaration landing.
 
 ---
 
-## 5. Two defects found and fixed tonight, both in my own work
+## 7. What I would do next, in order
 
-**A green CI job that preserved nothing.** The corpus job added to stop discarding sweep
-evidence ran on all 10 legs — 12 jobs, 0 failed, 10 artifacts, 10 SUMMARYs — and committed
-**nothing**, printing *"corpus unchanged — nothing to commit."* `git diff --quiet -- <path>`
-compares the worktree to the **index** and is silent about an untracked file, so on the run
-that *creates* the corpus it reads "unchanged" and exits 0. Reproduced in a scratch repo
-before changing anything. Fixed by staging first and diffing `--cached`, plus a hard failure
-when the extractor reports success while the file is absent. This is the unasserted-
-denominator shape inside the job written to prevent exactly that.
-
-**A structural guard that could not fail.** `test_tp_is_checked_after_the_stop_in_source`
-protects the SL-first intrabar convention (a bar through both levels takes the STOP — invert
-it and losers become winners). It scanned a fixed window **forward** from the stop test,
-which is escapable in the one direction that matters: hoisting the TP test *above* the stop
-moves it out of the window. Verified by planting the inversion — **the old form passed.** Now
-anchors on both comparisons and requires each to appear exactly once.
-
-**And a measurement bug in the floor analysis itself:** rounding p to 5 decimal places made
-distinct p-values collide at exactly `0.0`, manufacturing ties and moving the reported floor
-from **2.0 to 0.41** — a wrong recommendation out of a formatting choice.
-
----
-
-## 6. What I would do next, in order
-
-1. **Sweep the remaining ~34 trail legs** (free, ~5 min, $0). This is the only thing that
-   makes the Path B floor answerable, and it also gives the § 2 IS/OOS split a real
-   denominator instead of 8.
-2. **Re-run the floor analysis on that corpus** and report whichever of the three verdicts
-   the data gives — `insufficient_population` remains an acceptable outcome.
-3. **Isolate the § 1 corollary**: was `eth_pullback_2h`'s base-rate move from 0.40 to 2.42
-   caused by the decay declaration, or by the config-exactness fix? One counterfactual run
-   answers it, and the answer decides whether a floor is needed at all.
-4. **Leave the `trail6` trio alone** unless one of them clears on its own leg's evidence.
+1. **Fold `rate_ok` into the sweep verdict** (§ 4, Tier-1) so a row failing the
+   drawdown-rate gate cannot be reported as a Path B pass.
+2. **Sweep the 8 `ict_scalp` legs** on their own dispatch — the only part of the
+   fleet still unmeasured, and the one where the capped-TP geometry bites hardest.
+3. **Decide the `dN/N_b ≤ 1.0` bound** (§ 3, Tier-3, your call).
+4. **Leave `beats()` alone** until the minimum-n question in § 4 is decided
+   deliberately rather than as a side effect of a floor discussion.
 
 ---
 

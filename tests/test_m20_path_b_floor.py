@@ -416,3 +416,92 @@ def test_an_empty_extraction_fails_rather_than_reporting_success(tmp_path):
     (tmp_path / "empty").mkdir()
     assert extract.main(["x", "--in", str(tmp_path / "empty"),
                          "--corpus", str(tmp_path / "c.jsonl")]) == 1
+
+
+# ------------------------------------------- 6. the SECOND candidate remedy
+#
+# `dn_over_nb` is a DERIVED, PER-CELL axis tested with the arms INVERTED (a cap
+# keeps the low side). Both of those are places a correct number can be reported
+# under a wrong label, so they are pinned rather than assumed.
+
+
+def _ratio_cell(leg, nb, dn, wins, usable=6):
+    return {"kind": "cell", "leg": leg, "cell": f"{leg}_{dn}", "base_net_r_IS": nb,
+            "d_net_r_IS": dn, "wf_ran": True, "wf_wins": wins, "wf_usable": usable}
+
+
+def test_the_derived_ratio_refuses_an_unprofitable_base():
+    """A negative denominator inverts the ratio; None is the honest value.
+
+    `drawdown_exchange_rate` already refuses that book (`base_unprofitable`), so
+    a number here would grade a book the criterion never grades — and it would
+    sort into the LOW (admitted) end of a cap, the permissive direction.
+    """
+    assert floor.axis_value(_ratio_cell("x", -5.0, 2.0, 5), "dn_over_nb_IS") is None
+    assert floor.axis_value(_ratio_cell("x", 0.0, 2.0, 5), "dn_over_nb_IS") is None
+    assert floor.axis_value(_ratio_cell("x", 10.0, 2.0, 5), "dn_over_nb_IS") == 0.2
+
+
+def test_a_cap_keeps_the_LOW_side_and_a_floor_keeps_the_HIGH_side():
+    """The arms are assigned by the policy, not by the axis name.
+
+    Same corpus, both directions. Low-ratio cells generalise here, so the CAP
+    must find separation and the FLOOR must not — if the arms were assigned the
+    same way for both, this test could not tell them apart.
+    """
+    rows = ([_ratio_cell(f"lo{i}", 100.0, 5.0 + i, 5) for i in range(12)]
+            + [_ratio_cell(f"hi{i}", 10.0, 9.0 + i, 1) for i in range(12)])
+    cap = floor.analyse(rows, "dn_over_nb_IS", "cap")
+    assert cap["verdict"] == "separation", cap["verdict_why"]
+    best = cap["best_floor_by_p"]
+    # The kept arm is the low-ratio one, and it is the arm that generalises.
+    assert best["admitted_rate"] > best["rejected_rate"]
+    flo = floor.analyse(rows, "dn_over_nb_IS", "floor")
+    assert flo["verdict"] == "no_separation", flo["verdict_why"]
+
+
+def test_a_cap_verdict_never_prints_a_floor_comparison():
+    """The regression: a real cap run printed `>= 0.5128` under 'a floor'.
+
+    Every number in that output was correct and the label described a different
+    policy — `diagnostic-provenance-guard` sub-class A, in this file's own
+    diagnostic. Pinned on BOTH verdict branches, because the failing one is the
+    branch the fleet corpus actually lands on.
+    """
+    sep = ([_ratio_cell(f"lo{i}", 100.0, 5.0 + i, 5) for i in range(12)]
+           + [_ratio_cell(f"hi{i}", 10.0, 9.0 + i, 1) for i in range(12)])
+    # Same ratios, outcomes unrelated to them -> no separation.
+    null = ([_ratio_cell(f"lo{i}", 100.0, 5.0 + i, 5 if i % 2 else 1)
+             for i in range(12)]
+            + [_ratio_cell(f"hi{i}", 10.0, 9.0 + i, 5 if i % 2 else 1)
+               for i in range(12)])
+    for rows in (sep, null):
+        res = floor.analyse(rows, "dn_over_nb_IS", "cap")
+        text = res["verdict_why"] + floor.render(res)
+        assert ">=" not in text, f"cap output states a floor comparison: {text}"
+        assert "<=" in text
+        assert "floor" not in text.replace("best_floor_by_p", ""), text
+        assert res["direction"] == "cap"
+
+
+def test_a_derived_axis_reports_a_span_not_one_cell_as_the_legs_value():
+    """A per-CELL axis has no single per-leg value; `rate` must not invent one."""
+    rows = [_ratio_cell("one", 100.0, dn, 5) for dn in (5.0, 50.0, 90.0)]
+    rows += [_ratio_cell(f"f{i}", 100.0, 20.0, 1) for i in range(9)]
+    res = floor.analyse(rows, "dn_over_nb_IS", "cap")
+    leg = res["per_leg"]["one"]
+    assert leg["rate"] is None, "a per-cell axis reported as a per-leg rate"
+    assert (leg["axis_min"], leg["axis_max"]) == (0.05, 0.9)
+    assert res["population"]["axis_is_derived"] is True
+    # The stored per-leg axis still fills `rate` — the distinction is the point.
+    stored = floor.analyse(_separating(), "base_rate_IS", "floor")
+    assert all(v["rate"] is not None for v in stored["per_leg"].values())
+
+
+def test_an_unknown_direction_raises_rather_than_defaulting():
+    """Silently defaulting would run the opposite hypothesis under the ask."""
+    try:
+        floor.analyse(_separating(), "base_rate_IS", "cieling")
+    except ValueError:
+        return
+    raise AssertionError("an unknown direction was accepted")

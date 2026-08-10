@@ -81,6 +81,64 @@ MIN_ARM = 5
 MIN_LEGS_PER_ARM = 4
 ALPHA = 0.05  # STATED CONVENTION. The only chosen number in this file.
 
+# ---------------------------------------------------------------- derived axes
+#
+# THE FLOOR IS AIMED AT `base_rate`; THE MECHANISM IS `dN / N_b`.
+#
+# `allowed = D_b x (dN / N_b)`. Read it as a fraction: the cell is granted that
+# FRACTION of the base book's entire drawdown. So the permissive case is not
+# "the rate is low" — it is "the cell's net_R gain is large relative to the base
+# book's net_R", which grants a proportional share of D_b however efficient that
+# book is. Both are free parameters; only this one names the thing going wrong.
+#
+# Measured on the fleet (2026-08-10), the two come apart cleanly:
+#
+#     case                                     rate   dN/N_b   allowed vs D_b
+#     tlt_pullback_1h    trail4       (IS)     0.75     1.70            170%
+#     eth_pullback_prop_2h decay_stall10_t1.8  0.91     1.08            108%
+#     scha_trend_long_1d decay_stall6_t2       0.96     0.97             97%
+#     eth_pullback_2h    trail6                2.41     0.18             18%
+#     trend_donchian_sol trail6                3.46     0.30             30%
+#
+# A rate floor would reject rows 1-3 AND row 4-5's neighbours on a leg property;
+# a ratio cap rejects exactly the rows that ask for most of the book's drawdown.
+#
+# IT IS ALSO A BETTER-CONDITIONED PREDICTOR. `base_rate` is a property of the
+# LEG, so cells within a leg are re-measurements of one number and MIN_LEGS_PER_ARM
+# binds hard. `dN / N_b` varies per CELL (the numerator is the cell's own gain),
+# so the corpus carries far more distinct values. The clustering is REDUCED, NOT
+# REMOVED — the denominator is still per-leg — so MIN_LEGS_PER_ARM still applies
+# and this file does not pretend the rows became independent.
+#
+# `None`, never a number, when the base book is unprofitable: a negative
+# denominator inverts the ratio's meaning, and `drawdown_exchange_rate` already
+# refuses that book outright (`base_unprofitable`). Substituting a value would
+# fabricate a comparison on a book the criterion never grades.
+def _dn_over_nb(row: dict, win: str):
+    nb, dn = row.get(f"base_net_r_{win}"), row.get(f"d_net_r_{win}")
+    if not isinstance(nb, (int, float)) or not isinstance(dn, (int, float)):
+        return None
+    if nb <= 0:
+        return None
+    return round(dn / nb, 4)
+
+
+DERIVED_AXES = {
+    "dn_over_nb_IS": lambda r: _dn_over_nb(r, "IS"),
+    "dn_over_nb_OOS": lambda r: _dn_over_nb(r, "OOS"),
+}
+
+
+def axis_value(row: dict, axis: str):
+    """The predictor's value for a row — stored column or derived, never both.
+
+    A derived axis is computed here rather than written into the corpus so the
+    corpus stays a record of what the sweep MEASURED; a ratio of two measured
+    columns is an analysis choice and belongs with the analysis.
+    """
+    fn = DERIVED_AXES.get(axis)
+    return fn(row) if fn else row.get(axis)
+
 
 def wf_pass(row: dict) -> bool | None:
     """The sweep's fold verdict for a row. None when no walk-forward ran.
@@ -133,7 +191,22 @@ def load(corpus: Path) -> list[dict]:
     return rows
 
 
-def analyse(rows: list[dict], axis: str) -> dict:
+def analyse(rows: list[dict], axis: str, direction: str = "floor") -> dict:
+    """Test whether `axis` separates generalising cells from non-generalising ones.
+
+    `direction` is which side of a threshold a POLICY would keep:
+      * ``floor`` — admit `axis >= t` (a base-rate floor: reject weak books).
+      * ``cap``   — admit `axis <= t` (a `dN/N_b` cap: reject cells that ask for
+        most of the base book's drawdown).
+
+    The two are not interchangeable relabellings. Fisher is one-sided in the
+    direction of "the admitted arm generalises better", so the arms must be
+    assigned by the policy being tested; running a cap through the floor code
+    would test the opposite hypothesis and report it under the cap's name — the
+    semantic-substitution defect (`diagnostic-provenance-guard` sub-class A).
+    """
+    if direction not in ("floor", "cap"):
+        raise ValueError(f"direction must be 'floor' or 'cap', got {direction!r}")
     cells = [r for r in rows if r.get("kind") == "cell"]
     graded = [(r, wf_pass(r)) for r in cells]
     # ALWAYS STATE THE POPULATION. Every exclusion below is counted, so the
@@ -145,30 +218,37 @@ def analyse(rows: list[dict], axis: str) -> dict:
         "cells_no_walkforward": sum(1 for _, v in graded if v is None),
         "cells_walkforwarded": sum(1 for _, v in graded if v is not None),
     }
-    usable = [(r, v) for r, v in graded
-              if v is not None and r.get(axis) is not None]
+    # The axis value is resolved ONCE per row and carried alongside it, so the
+    # population count, the grid and the per-leg block can never disagree about
+    # what a row's predictor was (a derived axis recomputed at three call sites
+    # is three chances to drift).
+    usable = [(r, v, axis_value(r, axis)) for r, v in graded if v is not None]
+    usable = [t for t in usable if t[2] is not None]
     pop["cells_missing_axis"] = pop["cells_walkforwarded"] - len(usable)
     pop["analysed"] = len(usable)
     pop["axis"] = axis
-    pop["legs_represented"] = len({r.get("leg") for r, _ in usable})
+    pop["axis_is_derived"] = axis in DERIVED_AXES
+    pop["direction"] = direction
+    pop["legs_represented"] = len({r.get("leg") for r, _, _ in usable})
 
     out: dict = {"population": pop, "alpha_is_a_convention": ALPHA,
                  "min_arm": MIN_ARM, "grid": [], "verdict": None,
-                 "verdict_why": None, "recommended_floor": None}
+                 "verdict_why": None, "recommended_floor": None,
+                 "direction": direction}
     if not usable:
         out["verdict"] = "insufficient_population"
         out["verdict_why"] = (
-            "no walk-forwarded cell carries the axis — nothing was compared. "
-            "This is 'we did not look', not 'the rate does not predict'.")
+            f"no walk-forwarded cell carries `{axis}` — nothing was compared. "
+            "This is 'we did not look', not 'the predictor does not predict'.")
         return out
 
-    vals = sorted({round(r[axis], 4) for r, _ in usable})
+    vals = sorted({round(x, 4) for _, _, x in usable})
     out["axis_distribution"] = {
         "n": len(usable), "min": vals[0], "max": vals[-1],
         "median": vals[len(vals) // 2],
         "n_distinct": len(vals),
         "overall_wf_pass_rate": round(
-            sum(1 for _, v in usable if v) / len(usable), 4),
+            sum(1 for _, v, _ in usable if v) / len(usable), 4),
     }
     # THE RATE'S OWN DENOMINATOR. A base rate is net_R/maxDD over the leg's base
     # book, and that book can be 800 trades or 4. Quoting "the lowest rate is
@@ -177,17 +257,27 @@ def analyse(rows: list[dict], axis: str) -> dict:
     # here after `splg_trend_long_1d` came back with an OOS base of FOUR trades.
     # Reported, never filtered: dropping thin legs would silently redefine the
     # population, and which legs are thin is itself part of the answer.
+    #
+    # A DERIVED PER-CELL AXIS HAS NO SINGLE PER-LEG VALUE. `base_rate_IS` is one
+    # number per leg, so `rate` is exactly it; `dn_over_nb_IS` varies cell to
+    # cell, and reporting the first cell's value under the same key would be a
+    # per-cell quantity wearing a per-leg label. So the SPAN ships beside it and
+    # `rate` is None for a derived axis rather than a silently-picked member.
     per_leg: dict = {}
-    for r, _ in usable:
+    for r, _, x in usable:
         leg = r.get("leg")
         if leg not in per_leg:
-            per_leg[leg] = {"rate": r.get(axis),
+            per_leg[leg] = {"rate": None if pop["axis_is_derived"] else x,
+                            "axis_min": x, "axis_max": x,
                             "base_trades_IS": r.get("base_trades_IS"),
                             "base_trades_OOS": r.get("base_trades_OOS"),
                             "cells_analysed": 0}
-        per_leg[leg]["cells_analysed"] += 1
+        e = per_leg[leg]
+        e["axis_min"] = min(e["axis_min"], x)
+        e["axis_max"] = max(e["axis_max"], x)
+        e["cells_analysed"] += 1
     out["per_leg"] = dict(sorted(
-        per_leg.items(), key=lambda kv: -(kv[1]["rate"] or 0)))
+        per_leg.items(), key=lambda kv: -(kv[1]["axis_max"] or 0)))
     trade_counts = [v["base_trades_IS"] for v in per_leg.values()
                     if isinstance(v["base_trades_IS"], (int, float))]
     out["axis_distribution"]["base_trades_IS_min"] = (
@@ -198,21 +288,27 @@ def analyse(rows: list[dict], axis: str) -> dict:
     # be set where the data actually changes which cells are admitted.
     thin_on_legs = 0
     for f in vals:
-        adm = [(r, v) for r, v in usable if r[axis] >= f]
-        rej = [(r, v) for r, v in usable if r[axis] < f]
+        # `admitted` is always the arm the POLICY KEEPS, so Fisher's one-sided
+        # direction means the same thing under both settings.
+        if direction == "floor":
+            adm = [t for t in usable if t[2] >= f]
+            rej = [t for t in usable if t[2] < f]
+        else:
+            adm = [t for t in usable if t[2] <= f]
+            rej = [t for t in usable if t[2] > f]
         if len(adm) < MIN_ARM or len(rej) < MIN_ARM:
             continue
-        legs_adm = len({r.get("leg") for r, _ in adm})
-        legs_rej = len({r.get("leg") for r, _ in rej})
+        legs_adm = len({r.get("leg") for r, _, _ in adm})
+        legs_rej = len({r.get("leg") for r, _, _ in rej})
         if legs_adm < MIN_LEGS_PER_ARM or legs_rej < MIN_LEGS_PER_ARM:
             # Counted, not silently skipped: "many cells but few legs" is a
             # specific, actionable state (sweep MORE LEGS, not more cells) and
             # it must not read as "no floor was testable".
             thin_on_legs += 1
             continue
-        a = sum(1 for _, v in adm if v)
+        a = sum(1 for _, v, _ in adm if v)
         b = len(adm) - a
-        c = sum(1 for _, v in rej if v)
+        c = sum(1 for _, v, _ in rej if v)
         d = len(rej) - c
         out["grid"].append({
             "floor": f, "admitted_n": len(adm), "admitted_wf_pass": a,
@@ -233,7 +329,7 @@ def analyse(rows: list[dict], axis: str) -> dict:
         if thin_on_legs:
             out["verdict"] = "insufficient_population"
             out["verdict_why"] = (
-                f"{thin_on_legs} floor(s) had enough CELLS but fewer than "
+                f"{thin_on_legs} threshold(s) had enough CELLS but fewer than "
                 f"{MIN_LEGS_PER_ARM} distinct LEGS on one side. The predictor is a "
                 "property of the leg — every cell on a leg shares its base rate — "
                 "so cells within a leg are re-measurements of one book, not "
@@ -245,13 +341,21 @@ def analyse(rows: list[dict], axis: str) -> dict:
         else:
             out["verdict"] = "insufficient_population"
             out["verdict_why"] = (
-                f"no floor splits the {len(usable)} analysed cells into two arms of "
+                f"no threshold splits the {len(usable)} analysed cells into two arms of "
                 f">= {MIN_ARM}. The corpus is too small or too concentrated to test a "
-                "floor at all — WE DID NOT LOOK. Widen the sweep before reading "
+                "threshold at all — WE DID NOT LOOK. Widen the sweep before reading "
                 "anything into the absence of a floor.")
         return out
 
-    adjusted = ALPHA / k  # Bonferroni over the floors actually tried.
+    # DIRECTION-AWARE VOCABULARY. The first cap run printed its best threshold
+    # as ">= 0.5128" under the heading "a floor is unsupported" — the comparison
+    # INVERTED and the policy misnamed, while every number was correct. That is
+    # `diagnostic-provenance-guard` sub-class A in this file's own output, found
+    # by reading the run rather than the code, so the words are derived from
+    # `direction` here instead of being written twice.
+    word = "floor" if direction == "floor" else "cap"
+    op = ">=" if direction == "floor" else "<="
+    adjusted = ALPHA / k  # Bonferroni over the thresholds actually tried.
     out["bonferroni_threshold"] = round(adjusted, 6)
     best_p = min(g["p_one_sided"] for g in out["grid"])
     tied = [g for g in out["grid"] if g["p_one_sided"] == best_p]
@@ -267,24 +371,25 @@ def analyse(rows: list[dict], axis: str) -> dict:
         out["verdict"] = "separation"
         out["recommended_floor"] = best["floor"]
         span = ("" if len(tied) == 1 else
-                f" NOTE: {len(tied)} floors tie at this p "
+                f" NOTE: {len(tied)} {word}s tie at this p "
                 f"({out['tied_floors'][0]}..{out['tied_floors'][-1]}) — the data "
                 "does not distinguish them; the lowest is reported and the "
                 "operator picks within the tie.")
         out["verdict_why"] = (
-            f"base rate >= {best['floor']} generalises at "
+            f"{pop['axis']} {op} {best['floor']} generalises at "
             f"{best['admitted_rate']:.0%} ({best['admitted_wf_pass']}/"
             f"{best['admitted_n']}) vs {best['rejected_rate']:.0%} "
             f"({best['rejected_wf_pass']}/{best['rejected_n']}) below it; "
             f"p={best['p_one_sided']} clears the Bonferroni bar {adjusted:.5f} "
-            f"over {k} floors tried.{span}")
+            f"over {k} {word}s tried.{span}")
     else:
         out["verdict"] = "no_separation"
         out["verdict_why"] = (
-            f"{k} floors tested over {len(usable)} cells; the best "
-            f"(>= {best['floor']}, p={best['p_one_sided']}) does not clear the "
+            f"{k} {word}s tested over {len(usable)} cells; the best "
+            f"({op} {best['floor']}, p={best['p_one_sided']}) does not clear the "
             f"Bonferroni bar {adjusted:.5f}. WE LOOKED AND FOUND NOTHING: on this "
-            "evidence a floor is unsupported, and adding one would re-introduce "
+            f"evidence a {word} on {pop['axis']} is unsupported, and adding one "
+            "would re-introduce "
             "the free parameter the derived criterion removed. Document the "
             "asymmetry instead.")
     return out
@@ -292,7 +397,11 @@ def analyse(rows: list[dict], axis: str) -> dict:
 
 def render(res: dict) -> str:
     p = res["population"]
-    L = ["# Path B — is a base-rate floor supported by the data?", "",
+    # The heading names the ACTUAL hypothesis tested, not the file's original
+    # one: a cap run printed under "is a base-rate floor supported" would be a
+    # label that does not describe what was computed.
+    kind = ("floor" if res.get("direction", "floor") == "floor" else "cap")
+    L = [f"# Path B — is a `{p['axis']}` {kind} supported by the data?", "",
          f"**Verdict: `{res['verdict']}`** — {res['verdict_why']}", "",
          "## Population (every exclusion counted)", "",
          f"- corpus rows: **{p['corpus_rows']}** "
@@ -308,10 +417,10 @@ def render(res: dict) -> str:
               f"median {d['median']} · max {d['max']} · {d['n_distinct']} distinct "
               f"· overall walk-forward pass rate **{d['overall_wf_pass_rate']:.0%}**"]
     if res.get("grid"):
-        L += ["", f"## Floors tried: {res['floors_tried']} "
+        L += ["", f"## Thresholds tried: {res['floors_tried']} "
               f"(alpha {res['alpha_is_a_convention']} is a STATED CONVENTION; "
               f"Bonferroni bar {res['bonferroni_threshold']})", "",
-              "| floor | admitted n | admitted WF pass | rejected n | "
+              f"| {kind} | admitted n | admitted WF pass | rejected n | "
               "rejected WF pass | p (1-sided) |", "|--:|--:|--:|--:|--:|--:|"]
         for g in res["grid"]:
             L.append(f"| {g['floor']} | {g['admitted_n']} | "
@@ -329,7 +438,13 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--axis", default="base_rate_IS",
                     help="Predictor to test (default base_rate_IS, the Path A "
                          "exchange-rate denominator). d_cap_day_OOS tests the "
-                         "OTHER unset Path B threshold.")
+                         "OTHER unset Path B threshold. dn_over_nb_IS is "
+                         "DERIVED (d_net_r/base_net_r) — the fraction of the "
+                         "base book's drawdown the criterion grants.")
+    ap.add_argument("--direction", default="floor", choices=("floor", "cap"),
+                    help="Which side a policy would KEEP: floor admits "
+                         ">= t (base-rate floor), cap admits <= t (dN/N_b cap). "
+                         "Not a relabelling — it assigns the arms Fisher tests.")
     ap.add_argument("--json", dest="json_out", help="Also write the full result JSON here.")
     a = ap.parse_args(argv[1:])
 
@@ -338,7 +453,7 @@ def main(argv: list[str]) -> int:
         print(f"error: no corpus at {corpus}. Run m20_corpus_extract.py first — "
               "an absent corpus is not an empty one.", file=sys.stderr)
         return 1
-    res = analyse(load(corpus), a.axis)
+    res = analyse(load(corpus), a.axis, a.direction)
     print(render(res))
     if a.json_out:
         Path(a.json_out).write_text(json.dumps(res, indent=1))
