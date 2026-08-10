@@ -426,3 +426,88 @@ def test_inert_reason_is_none_when_the_rung_is_reachable():
     # — guessing there would delete a reachable cell.
     for cfg in ({}, {"tp_at_r": None}, {"tp_at_r": "x"}, {"tp_at_r": 0}):
         assert mod.inert_giveback_reason(cfg, 2.0) is None
+
+
+def _fake_runs(mod, per_window):
+    """Patch run_cell so walkforward() sees a scripted fold sequence.
+
+    Keyed on (start, end) and whether the argv carries the cell flag, so the
+    base and lever arms of each fold can be scripted independently.
+    """
+    def fake(harness, args, start=None, end=None):
+        is_cell = "--CELL" in args
+        return per_window[(start, "cell" if is_cell else "base")]
+    mod.run_cell = fake
+
+
+def test_path_b_walkforward_does_not_gate_on_the_axis_path_b_trades():
+    """A drawdown-trading cell fails Path A's fold test BY CONSTRUCTION.
+
+    Path A demands net_R no worse AND maxDD no worse in each fold. A Path B
+    candidate is, by definition, buying net_R with drawdown — so under Path A's
+    rule it scores 0/N in every fold and the walk-forward answers a question the
+    cell never claimed to pass. That 0/N would read as a measured negative.
+    """
+    mod = _sweep_module()
+    # Every fold: net_R better by 1.0, drawdown worse by 0.5.
+    script = {}
+    for _name, fs, _fe in mod.FOLDS:
+        script[(fs, "base")] = {"net_total_r": 10.0, "max_drawdown_r": -5.0}
+        script[(fs, "cell")] = {"net_total_r": 11.0, "max_drawdown_r": -4.5}
+    _fake_runs(mod, script)
+
+    strict = mod.walkforward("h", ["--base"], ["--base", "--CELL"],
+                             lambda row: None, "leg", "cell", require_dd=True)
+    lenient = mod.walkforward("h", ["--base"], ["--base", "--CELL"],
+                              lambda row: None, "leg", "cell", require_dd=False)
+    assert strict["wins"] == 0 and strict["usable"] == len(mod.FOLDS)
+    assert lenient["wins"] == len(mod.FOLDS)
+    # And the cost is RECORDED per fold, not gated away — that distribution is
+    # what an operator sets a drawdown tolerance against.
+    assert all(f["d_max_dd"] == 0.5 for f in lenient["folds"])
+    assert all(f["d_net_r"] == 1.0 for f in lenient["folds"])
+
+
+def test_walkforward_separates_unusable_folds_from_lost_ones():
+    """An errored fold is not a lost fold — it lowers the denominator.
+
+    Folding them together would let a cell that could only be measured twice
+    report the same '2/2' as one measured across six.
+    """
+    mod = _sweep_module()
+    script = {}
+    for i, (_n, fs, _fe) in enumerate(mod.FOLDS):
+        if i < 2:
+            script[(fs, "base")] = {"error": "no data"}
+            script[(fs, "cell")] = {"error": "no data"}
+        else:
+            script[(fs, "base")] = {"net_total_r": 1.0, "max_drawdown_r": -1.0}
+            script[(fs, "cell")] = {"net_total_r": 2.0, "max_drawdown_r": -2.0}
+    _fake_runs(mod, script)
+    wf = mod.walkforward("h", ["--base"], ["--base", "--CELL"],
+                         lambda row: None, "leg", "cell", require_dd=True)
+    assert wf["usable"] == len(mod.FOLDS) - 2
+    assert wf["wins"] == wf["usable"]
+    assert wf["summary"] == f"{wf['wins']}/{wf['usable']}"
+    unusable = [f for f in wf["folds"] if not f["usable"]]
+    assert len(unusable) == 2 and all("why" in f for f in unusable)
+
+
+def test_path_b_predicate_needs_both_windows_and_capital_up():
+    """The real numbers, so the predicate is pinned to measurement not intent."""
+    mod = _sweep_module()
+    # ict_scalp_sol_5m be_touch_arm — the first true Path B candidate in the
+    # scalp family: IS +10.7225 (drawdown BETTER), OOS +1.3233 (drawdown worse).
+    assert mod.is_path_b_candidate(
+        {"d_net_r": 10.7225}, {"d_net_r": 1.3233},
+        {"d_net_r_per_capital_day": 0.0828}) is True
+    # ict_scalp_xrp_5m stale8 — IS -13.2485 / OOS +9.056, the best OOS cell in
+    # the sweep and a 22R swing between adjacent periods. NOT a trade-off.
+    assert mod.is_path_b_candidate(
+        {"d_net_r": -13.2485}, {"d_net_r": 9.056},
+        {"d_net_r_per_capital_day": 0.0397}) is False
+    # Capital efficiency down, or unmeasured, is not "up".
+    for cap in ({"d_net_r_per_capital_day": -0.5},
+                {"d_net_r_per_capital_day": None}, {}):
+        assert mod.is_path_b_candidate(
+            {"d_net_r": 1.0}, {"d_net_r": 1.0}, cap) is False

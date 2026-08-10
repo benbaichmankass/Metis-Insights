@@ -566,6 +566,69 @@ def beats(cell: dict, base: dict) -> bool:
     return cn >= bn and cd <= bd and (cn > bn or cd < bd)
 
 
+def is_path_b_candidate(g_is: dict, g_oos: dict, cap_oos: dict) -> bool:
+    """net_R up on BOTH windows and capital/day up, but Path A said no.
+
+    The population Path B exists for: a cell that makes more R per unit of
+    capital-time and pays for it in drawdown. Deliberately does NOT look at
+    drawdown — that is the axis the operator's (still unset) tolerance governs,
+    and gating on it here would make Path B unreachable by construction.
+
+    Requires BOTH windows positive on net_R. A cell positive only
+    out-of-sample is the small-window artifact, not a trade-off: measured
+    2026-08-10 on ict_scalp_xrp_5m, `stale8_lt0R` read IS -13.25R / OOS +9.06R
+    — the best OOS cell in the sweep and a 22R swing between adjacent periods.
+    """
+    def _up(v):
+        return v is not None and v > 0
+    return (_up(g_is.get("d_net_r")) and _up(g_oos.get("d_net_r"))
+            and _up(cap_oos.get("d_net_r_per_capital_day")))
+
+
+def walkforward(harness: str, base_args_: list, cell_args: list,
+                log, leg: str, tag: str, *, require_dd: bool) -> dict:
+    """Yearly folds. Returns {wins, usable, folds:[...], summary}.
+
+    ``require_dd`` is the whole reason this is a function rather than the
+    inline loop it replaces. Path A's walk-forward demands net_R no worse AND
+    maxDD no worse per fold. Applying that to a Path B candidate would reject
+    it in every fold BY CONSTRUCTION — trading drawdown for net_R is what makes
+    it Path B — so the walk-forward would answer a question the cell never
+    claimed to pass, and the ~2/3 tally would be a fabricated negative.
+
+    For Path B the fold test is the cell's OWN claim (net_R no worse), and the
+    drawdown delta is RECORDED per fold rather than gated. That way the
+    operator sets a tolerance against a measured distribution of the cost,
+    which is the same discipline `capital_efficiency` and the exposure ceiling
+    already follow: measure the axis first, threshold it second.
+    """
+    wins = usable = 0
+    folds = []
+    for fname, fs, fe in FOLDS:
+        fb = run_cell(harness, base_args_, start=fs, end=fe)
+        fc = run_cell(harness, cell_args, start=fs, end=fe)
+        log({"leg": leg, "cell": f"{tag}@wf{fname}", "window": "fold",
+             "base": fb, "lever": fc})
+        if "error" in fb or "error" in fc:
+            folds.append({"fold": fname, "usable": False,
+                          "why": fb.get("error") or fc.get("error")})
+            continue
+        usable += 1
+        try:
+            d_net = float(fc["net_total_r"]) - float(fb["net_total_r"])
+            d_dd = float(fc["max_drawdown_r"]) - float(fb["max_drawdown_r"])
+        except (KeyError, TypeError, ValueError):
+            folds.append({"fold": fname, "usable": True, "ok": False,
+                          "why": "unreadable"})
+            continue
+        ok = d_net >= 0 and (d_dd <= 0 or not require_dd)
+        wins += 1 if ok else 0
+        folds.append({"fold": fname, "usable": True, "ok": ok,
+                      "d_net_r": round(d_net, 4), "d_max_dd": round(d_dd, 4)})
+    return {"wins": wins, "usable": usable, "folds": folds,
+            "summary": f"{wins}/{usable}"}
+
+
 def beats_detail(cell: dict, base: dict) -> dict:
     """WHY a cell passed or failed `beats`, per window — the half the report was
     missing (2026-08-10).
@@ -971,30 +1034,65 @@ def main(argv: list[str]) -> int:
             entry["capital"] = {"IS": capital_delta(c_is, base_is),
                                 "OOS": capital_delta(c_oos, base_oos)}
             if candidate:
-                wins = usable = 0
-                for fname, fs, fe in FOLDS:
-                    fb = run_cell(p["harness"], p["base"], start=fs, end=fe)
-                    fc = run_cell(p["harness"], args, start=fs, end=fe)
-                    log_result({"leg": leg, "cell": f"{tag}@wf{fname}",
-                                "window": "fold", "base": fb, "lever": fc})
-                    if "error" in fb or "error" in fc:
-                        continue
-                    usable += 1
-                    try:
-                        ok = (float(fc["net_total_r"]) >= float(fb["net_total_r"])
-                              and float(fc["max_drawdown_r"]) <= float(fb["max_drawdown_r"]))
-                    except (KeyError, TypeError, ValueError):
-                        ok = False
-                    wins += 1 if ok else 0
-                entry["walkforward"] = f"{wins}/{usable}"
-                entry["verdict"] = ("PASS" if usable >= 4 and wins * 3 >= usable * 2
+                wf = walkforward(p["harness"], p["base"], args, log_result,
+                                 leg, tag, require_dd=True)
+                entry["walkforward"] = wf["summary"]
+                entry["walkforward_folds"] = wf["folds"]
+                entry["verdict"] = ("PASS" if wf["usable"] >= 4
+                                    and wf["wins"] * 3 >= wf["usable"] * 2
                                     else "wf_fail")
+            elif is_path_b_candidate(entry["gate"]["IS"], entry["gate"]["OOS"],
+                                     entry["capital"]["OOS"]):
+                # THE GATE GAP (found 2026-08-10): a Path B candidate
+                # short-circuited to `is_oos_fail` BEFORE any walk-forward ran,
+                # so every Path B candidate on record — five donchian cells plus
+                # ict_scalp_sol_5m's be_touch_arm — had ZERO generalisation
+                # evidence. The walk-forward is the only guard against per-leg
+                # selection noise (44 legs x ~10 cells is ~440 comparisons), and
+                # it never ran on precisely the population a Path B threshold
+                # would promote from.
+                #
+                # The fold test is the cell's OWN claim (net_R no worse), NOT
+                # Path A's net_R-and-drawdown pair, which a drawdown-trading
+                # cell fails by construction. Per-fold drawdown deltas are
+                # RECORDED so the operator sets a tolerance against a measured
+                # cost distribution instead of a remembered one.
+                #
+                # `path_b_wf_pass` IS NOT A PROMOTION. Both Path B thresholds
+                # remain unset; this says only "the net_R gain generalises
+                # across folds", which is the prerequisite for the question, not
+                # the answer to it.
+                wf = walkforward(p["harness"], p["base"], args, log_result,
+                                 leg, tag, require_dd=False)
+                entry["walkforward"] = wf["summary"]
+                entry["walkforward_folds"] = wf["folds"]
+                entry["path_b_candidate"] = True
+                entry["verdict"] = ("path_b_wf_pass" if wf["usable"] >= 4
+                                    and wf["wins"] * 3 >= wf["usable"] * 2
+                                    else "path_b_wf_fail")
             else:
                 entry["verdict"] = "is_oos_fail"
             leg_v["levers"].setdefault(lever, []).append(entry)
             print(f"   {tag:20s} -> {entry['verdict']}"
                   f"{' wf=' + entry.get('walkforward', '') if 'walkforward' in entry else ''}",
                   flush=True)
+        # THE SELECTION DENOMINATOR. Per-leg promotion means picking the best
+        # cell for THIS leg, and 44 legs x ~10 cells is ~440 comparisons — some
+        # will look like winners by chance. A winner reported without the number
+        # of cells it beat is a winner over an unstated denominator, the same
+        # defect `rCoverage`/`pnlCoverage` exist to prevent one level down.
+        # Recorded per leg so a later promotion packet cannot omit it.
+        _all_entries = [e for es in leg_v["levers"].values() for e in es]
+        leg_v["selection"] = {
+            "cells_tried": len(_all_entries),
+            "cells_withheld_inert": len(leg_v["inert_cells"]),
+            "path_a_pass": sum(1 for e in _all_entries
+                               if e.get("verdict") == "PASS"),
+            "path_b_candidates": sum(1 for e in _all_entries
+                                     if e.get("path_b_candidate")),
+            "path_b_wf_pass": sum(1 for e in _all_entries
+                                  if e.get("verdict") == "path_b_wf_pass"),
+        }
         verdicts[leg] = leg_v
 
     (run_dir / "verdicts.json").write_text(json.dumps(
