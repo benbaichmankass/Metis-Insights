@@ -2,6 +2,18 @@
   "schema_version": 1,
   "reports": [
     {
+      "id": "RPT-20260810-051500-since-last",
+      "window": "since-last",
+      "generated_at": "2026-08-10T05:15:00+00:00",
+      "window_start": "2026-08-07T14:55:00+00:00",
+      "window_end": "2026-08-10T05:15:00+00:00",
+      "roll_up_grade": "investigate",
+      "headline": "Real money closed no trades this window and sits -$25.16 over 30d on 29 trades (PF 0.58); paper carries all the activity and is bleeding (-$38.9k/7d, PF 0.26). Two high-severity findings dominate: the new tick-cost instrument's first reading shows a 251s mean tick, now attributed to a serial per-strategy market-data fetch, and the netting-attribution remediation is shipped but inert (apply globally, allowlisted nowhere) while journal-vs-exchange divergence accrues. ML lifecycle is healthy.",
+      "html_path": "comms/reports/since-last/20260810T051500Z/report.html",
+      "json_path": "comms/reports/since-last/20260810T051500Z/report.json",
+      "md_path": "comms/reports/since-last/20260810T051500Z/report.md"
+    },
+    {
       "id": "RPT-20260807-145500-since-last",
       "window": "since-last",
       "generated_at": "2026-08-07T14:55:00+00:00",
