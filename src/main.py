@@ -281,6 +281,25 @@ def _symbols_for_account(account, strategies_cfg: dict) -> list:
     return symbols
 
 
+def _tick_hook(name: str):
+    """Per-hook timing wrapper for the trader tick, with a NO-OP fallback.
+
+    Returns ``tick_cost.hook(name)``, or ``contextlib.nullcontext()`` if the
+    measurement module cannot be imported. The fallback is the whole point: this
+    wraps the live trading loop, and an instrumentation import error must never
+    be able to stop a tick from running. It does NOT swallow the wrapped body's
+    exceptions — each hook keeps its own existing handler, and the duration is
+    recorded either way, so a hook that burns time and then throws still appears
+    in the split instead of vanishing from it.
+    """
+    try:
+        from src.runtime.tick_cost import hook
+        return hook(name)
+    except Exception:  # noqa: BLE001
+        import contextlib
+        return contextlib.nullcontext()
+
+
 def _build_monitor_ohlcv_fetcher(settings: dict):
     """Build the ``(symbol, timeframe) -> DataFrame | None`` fetcher
     that ``run_monitor_tick`` needs to feed strategy ``monitor()``
@@ -649,7 +668,25 @@ def main() -> None:
             except Exception:  # noqa: BLE001
                 pass
 
-            run_one_tick(settings, exchange_client, telegram_client)
+            # PER-HOOK SPLIT — deliberately COARSE, two wraps only.
+            # /api/diag/tick_cost measured the SUM at 253s mean / 296s max on
+            # 2026-08-10 (13 ticks), which puts every open live trade's
+            # re-evaluation on a ~5-minute cadence rather than the
+            # TICK_INTERVAL_SECONDS=60 the sleep implies. The sum cannot say
+            # WHERE the time goes, and the operator's <=60s requirement needs
+            # that before anything is redesigned.
+            #
+            # Two buckets answer the first-order question and the third comes
+            # free: `attributed_pct` covers signal-generation + the monitor, so
+            # 100 - attributed is EVERY OTHER HOOK COMBINED (pairs · macro ·
+            # five prop prompts · two reachability alerts · IB-state · exposure
+            # soak). If signal generation dominates, the decoupling design
+            # follows immediately and the other twelve blocks never need
+            # touching; if it does not, THAT is the surprise worth finding
+            # before instrumenting further. Measure coarsely, refine on
+            # evidence — the same order as the census.
+            with _tick_hook("run_one_tick"):
+                run_one_tick(settings, exchange_client, telegram_client)
 
             # CLAUDE.md § Architecture rules § 2 + § 3 +
             # architecture-audit-2026-05-02 P1-4: after generating
@@ -657,13 +694,14 @@ def main() -> None:
             # open order package. The loop calls each strategy's
             # monitor() hook with fresh candles and applies non-None
             # verdicts to the DB unit. Best-effort; never raises.
-            try:
-                from src.runtime.order_monitor import run_monitor_tick
-                run_monitor_tick(
-                    ohlcv_fetcher=_build_monitor_ohlcv_fetcher(settings),
-                )
-            except Exception:  # noqa: BLE001
-                logger.exception("order_monitor tick failed")
+            with _tick_hook("order_monitor"):
+                try:
+                    from src.runtime.order_monitor import run_monitor_tick
+                    run_monitor_tick(
+                        ohlcv_fetcher=_build_monitor_ohlcv_fetcher(settings),
+                    )
+                except Exception:  # noqa: BLE001
+                    logger.exception("order_monitor tick failed")
 
             # Market-neutral pairs sleeve (M22 D2): an ISOLATED 2-leg executor
             # that does NOT fit the single-symbol intent model, so it runs as

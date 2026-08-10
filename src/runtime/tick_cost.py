@@ -30,16 +30,24 @@ the sampling gap.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterator, Optional
 
 STATE_FILE_NAME = "tick_cost.json"
 
 _WRITE_CADENCE_ENV = "TICK_COST_WRITE_SECONDS"
 _DEFAULT_WRITE_CADENCE_S = 300.0
+
+# Distinct hook names the per-hook accumulator will track. The chain is a fixed
+# static list, so this is a BACKSTOP against a caller generating names
+# dynamically (a per-symbol or per-account label would grow the payload with the
+# book, and the module's whole contract is a fixed-size write on a 2-core box).
+# Overflow is RECORDED, never silently dropped — see `_hook_overflow`.
+_MAX_HOOK_NAMES = 32
 
 # Process-lifetime accumulators. Deliberately fixed-size: this must not grow
 # with uptime on a 2-core box whose memory pressure is already load-bearing.
@@ -51,6 +59,12 @@ _sum_ms: float = 0.0
 _started_utc: Optional[str] = None
 _last_write_ts: Optional[float] = None
 _tick_start: Optional[float] = None
+
+# Per-hook accumulators: {name: {"n", "sum_ms", "max_ms", "max_at_utc"}}.
+# Bounded by _MAX_HOOK_NAMES; `_hook_overflow` counts names refused so the
+# payload can never quietly become a partial view presented as a whole one.
+_hooks: Dict[str, Dict[str, Any]] = {}
+_hook_overflow: int = 0
 
 
 def write_cadence_seconds() -> float:
@@ -107,10 +121,94 @@ def end_tick() -> Optional[float]:
         return None
 
 
+def record_hook(name: str, elapsed_ms: float) -> None:
+    """Fold one hook's duration into the per-hook accumulators. Never raises."""
+    global _hook_overflow
+    try:
+        slot = _hooks.get(name)
+        if slot is None:
+            if len(_hooks) >= _MAX_HOOK_NAMES:
+                _hook_overflow += 1
+                return
+            slot = {"n": 0, "sum_ms": 0.0, "max_ms": None, "max_at_utc": None}
+            _hooks[name] = slot
+        slot["n"] += 1
+        slot["sum_ms"] += elapsed_ms
+        if slot["max_ms"] is None or elapsed_ms > slot["max_ms"]:
+            slot["max_ms"] = elapsed_ms
+            slot["max_at_utc"] = datetime.now(timezone.utc).isoformat()
+    except Exception:  # noqa: BLE001 — measurement must never break the tick
+        return
+
+
+@contextlib.contextmanager
+def hook(name: str) -> Iterator[None]:
+    """Time one hook of the chain.
+
+    Wraps a hook that is ALREADY exception-swallowing at its own call site, so
+    this deliberately does NOT catch: re-raising preserves the caller's existing
+    error handling exactly. The duration is recorded either way (``finally``), so
+    a hook that raises still shows up in the split rather than vanishing from it
+    — a hook that costs 40s and then throws is precisely the one worth seeing.
+    """
+    t0 = time.monotonic()
+    try:
+        yield
+    finally:
+        try:
+            record_hook(name, (time.monotonic() - t0) * 1000.0)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _hook_view() -> Dict[str, Any]:
+    """Per-hook block + the ATTRIBUTION COVERAGE, which is the load-bearing part.
+
+    A split that reports only the hooks it instrumented invites the reader to
+    conclude those hooks ARE the cost. They are a lower bound on it. So the block
+    always ships `attributed_mean_ms` against the tick's own `mean_ms` and the
+    resulting `attributed_pct` — if that reads 6%, the 253s lives somewhere this
+    instrumentation does not look, and saying so is the finding.
+
+    This is the same discipline as `rCoverage` / `pnlCoverage`: report how much
+    of the population the number covers, never a bare figure over an unstated
+    denominator.
+    """
+    out: Dict[str, Any] = {}
+    for name, s in _hooks.items():
+        n = s["n"] or 0
+        out[name] = {
+            "n": n,
+            "mean_ms": round(s["sum_ms"] / n, 1) if n else None,
+            "max_ms": round(s["max_ms"], 1) if s["max_ms"] is not None else None,
+            "max_at_utc": s["max_at_utc"],
+            # Share of this PROCESS's total measured tick time. Answers "what
+            # should I fix first?" directly, which the per-hook mean does not
+            # when hooks fire on different cadences.
+            "pct_of_total": (round(100.0 * s["sum_ms"] / _sum_ms, 1)
+                             if _sum_ms > 0 else None),
+        }
+    return out
+
+
 def snapshot() -> Dict[str, Any]:
     """Fixed-size view of the accumulators. Pure; never raises."""
     mean = (_sum_ms / _ticks) if _ticks else None
+    # Sum of per-hook time attributed to THIS process's ticks, expressed per
+    # tick so it is directly comparable to `mean_ms`.
+    hook_sum_ms = sum(s["sum_ms"] for s in _hooks.values())
+    attributed_mean = (hook_sum_ms / _ticks) if _ticks else None
     return {
+        "hooks": _hook_view(),
+        "hooks_attributed_mean_ms": (round(attributed_mean, 1)
+                                     if attributed_mean is not None else None),
+        # None (not 0) when there is nothing to divide by: "we have not measured
+        # a tick yet" is not "0% of the tick is attributed".
+        "attributed_pct": (round(100.0 * hook_sum_ms / _sum_ms, 1)
+                           if _sum_ms > 0 else None),
+        # Non-zero means a caller generated hook names dynamically and the split
+        # is PARTIAL. Shipped always so a truncated view cannot read as complete.
+        "hook_names_refused": _hook_overflow,
         "ticks_measured": _ticks,
         "last_ms": round(_last_ms, 1) if _last_ms is not None else None,
         # The load-bearing statistic. A mean that looks fine while the peak
@@ -181,6 +279,8 @@ def read_state() -> Dict[str, Any]:
 def _reset_for_tests() -> None:
     """Test-only accumulator reset."""
     global _ticks, _last_ms, _max_ms, _max_at_utc, _sum_ms
-    global _started_utc, _last_write_ts, _tick_start
+    global _started_utc, _last_write_ts, _tick_start, _hook_overflow
     _ticks, _last_ms, _max_ms, _max_at_utc = 0, None, None, None
     _sum_ms, _started_utc, _last_write_ts, _tick_start = 0.0, None, None, None
+    _hooks.clear()
+    _hook_overflow = 0
