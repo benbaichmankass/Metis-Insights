@@ -99,8 +99,8 @@ CONTRACTS: List[Dict[str, object]] = [
             "disabled the sleeve's entire close path: the read failed on every "
             "open pair (a query against columns that do not exist), the caller "
             "skipped, and 29 pairs were opened with ZERO ever closed while "
-            "max_hold_bars went unevaluated (BL-20260810-PAIRS-MAX-HOLD-BARS-"
-            "NOT-ENFORCED)."
+            "max_hold_bars went unevaluated. See "
+            "BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED."
         ),
     },
     {

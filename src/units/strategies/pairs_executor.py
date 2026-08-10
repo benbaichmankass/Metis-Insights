@@ -369,8 +369,9 @@ def _open_pkg_meta(strategy: str, account_id: str,
       * ``("error", None)``   — **we could not look.** A missing DB file, a bad
         schema, unparseable JSON.
 
-    Collapsing those last two is what hid BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-
-    ENFORCED for 2,471 decisions: this function used to return ``None`` for
+    Collapsing those last two is what hid
+    BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED
+    for 2,471 decisions: this function used to return ``None`` for
     both, the caller skipped the tick either way, and the *reason* it could
     never read an open pair was a query against **two columns that do not
     exist**. `order_packages` has no `account_id` and no `id` (its PK is the
