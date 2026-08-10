@@ -224,3 +224,66 @@ def test_trail_leg_reason_is_distinct_from_disabled_target_reason():
         == "no_declared_target"
     assert ec.summarize([_t(1.0, 2.0)], target_r=99.0)["near_miss_not_applicable"] \
         == "target_never_approached_by_any_trade"
+
+
+# ----------------------------- the giveback ladder: the target-free complaint
+def test_giveback_ladder_separates_structural_pokes_from_real_giveback():
+    """The discrimination the all-trade capture median CANNOT make, and the
+    reason every capture figure so far has needed a verbal caveat.
+
+    A breakout book is structurally full of small pokes that fail. Measured
+    2026-08-10, squeeze_breakout_4h read capture median -0.39 / 72.45% under
+    30% capture -- which looks alarming and may be nothing but that structure.
+    The operator's actual complaint is narrower: trades that went MEANINGFULLY
+    favourable and still closed red.
+
+    Both books below have ~70/30 and ~60/40 win splits and negative-ish means.
+    Only the second one is the complaint, and only the ladder says so.
+    """
+    pokes = [_t(-1.0, 0.3)] * 70 + [_t(2.0, 2.4)] * 30      # fails small
+    giveback = [_t(-1.0, 2.2)] * 40 + [_t(2.0, 2.4)] * 60   # fails BIG
+
+    sp = ec.summarize(pokes, target_r=None)
+    sg = ec.summarize(giveback, target_r=None)
+
+    # The headline bucket is WORSE for the innocent book -- the trap.
+    assert sp["capture_lt_30_pct"] > sg["capture_lt_30_pct"]
+
+    def at(s, rung):
+        return next(r for r in s["giveback_ladder"] if r["mfe_ge_r"] == rung)
+
+    # ...and the ladder inverts that, correctly.
+    assert at(sp, 2.0)["lost_n"] == 0, "poke book flagged as giving winners back"
+    assert at(sg, 2.0)["lost_n"] == 40
+    assert at(sg, 2.0)["lost_pct"] == 40.0
+    # The prize, in R, on the axis the gate already speaks: 40 * (2.2 - -1.0)
+    assert at(sg, 2.0)["r_left"] == 128.0
+    assert at(sp, 2.0)["r_left"] == 0.0
+
+
+def test_ladder_rung_always_ships_its_denominator():
+    """A rung no trade ever reached must report 0 reached, not a rate over
+    nothing -- an unasserted denominator is how `0.0% lost` reads as good news
+    for a rung the book never tested."""
+    s = ec.summarize([_t(1.0, 0.4), _t(-1.0, 0.2)], target_r=None)
+    high = next(r for r in s["giveback_ladder"] if r["mfe_ge_r"] == 2.0)
+    assert high["mfe_ge_n"] == 0
+    assert high["lost_pct"] is None, "a rate over an empty denominator must be None"
+    low = next(r for r in s["giveback_ladder"] if r["mfe_ge_r"] == 0.5)
+    assert low["mfe_ge_n"] == 0      # neither trade reached even 0.5R
+
+
+def test_r_weighted_capture_is_portfolio_level_not_a_trade_mean():
+    """A per-trade mean weights a 0.2R scratch like a 6R runner. R-weighted
+    does not, so it is the figure that tracks money."""
+    book = [_t(0.1, 0.2)] * 9 + [_t(1.0, 6.0)]     # nine scratches, one runner
+    s = ec.summarize(book, target_r=None)
+    assert s["capture_median"] == 0.5               # the scratches dominate
+    # (9*0.1 + 1.0) / (9*0.2 + 6.0) = 1.9 / 7.8
+    assert s["capture_r_weighted"] == round(1.9 / 7.8, 4)
+    assert s["capture_r_weighted"] < s["capture_median"]
+
+
+def test_r_weighted_is_none_not_zero_when_no_excursion_was_offered():
+    s = ec.summarize([_t(-1.0, 0.0), _t(-1.0, None)], target_r=None)
+    assert s["capture_r_weighted"] is None

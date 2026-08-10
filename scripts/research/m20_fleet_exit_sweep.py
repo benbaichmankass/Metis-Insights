@@ -66,9 +66,30 @@ FAMILY_HARNESS = {"donchian": DONCHIAN_HARNESS, "pullback": PULLBACK_HARNESS,
 # real tp_at_r bracket rather than a sentinel. Applying the cap to a family
 # whose live unit has none would MANUFACTURE a parity break instead of
 # reproducing one -- so this list is a measurement, not a convenience.
-# NOTE the clamp is a BYBIT constraint. An Alpaca/IBKR leg in one of these
-# families may never bind it; --tp-cap-pct is therefore an upper bound on the
-# affected population until the per-venue split is measured.
+# THE CLAMP IS APPLIED VENUE-BLIND — measured 2026-08-10, and it corrects the
+# opposite assumption this comment used to carry. The constant's own docstring
+# says "Bybit (and most exchanges) reject TP further than ~10%", which reads as
+# a Bybit-specific constraint, so the natural inference is that an Alpaca/IBKR
+# leg never binds it and the parity break is crypto-only. The CODE says
+# otherwise: all four units compute
+#     tp = min(entry * (1 + _TP_SENTINEL_CAP_PCT), entry + tp_r * risk)
+# with NO exchange/account branch anywhere (trend_donchian.py:388,
+# htf_pullback_trend_2h.py:322, squeeze_breakout_4h.py:176,
+# fade_breakout_4h.py:264). Field beats comment: every leg in these families
+# places the capped TP whatever the broker, so --tp-cap-pct is live parity for
+# the equities and futures legs too, not an upper bound. The break is WIDER
+# than the Bybit-only reading, not narrower.
+#
+# `fade` IS UNREACHABLE FROM classify() AND THAT IS CORRECT, not coverage.
+# Measured 2026-08-10 against config/strategies.yaml: 52 of 55 declared
+# strategies classify (donchian 23 · pullback 19 · scalp 8 · fvg 1 ·
+# squeeze 1); the three that do not — fade_breakout_4h, turtle_soup, vwap —
+# are ALL `execution: shadow`, so the census covers every live-executing leg.
+# fade_breakout_4h carries _TP_SENTINEL_CAP_PCT in its unit file but places no
+# live order, so the parity break reaches money through THREE families, not
+# four. The entry stays because backtest_fade.py implements the lever and the
+# day fade is promoted this becomes live rather than something to remember;
+# it must not be read as "fade is being measured today".
 LIVE_TP_CAPPED_FAMILIES = {"donchian", "pullback", "fade", "squeeze"}
 
 PROXY_DATA = {"MGC": "GC_F", "XAUUSD": "GC_F", "MES": "ES_F", "MHG": "HG_F"}
@@ -593,9 +614,13 @@ def main(argv: list[str]) -> int:
             # (fvg_range_15m read -14.13), so the stdout line — the only part
             # visible without downloading the artifact — was the least
             # trustworthy number in the block.
+            _gb = next((r for r in (row.get("giveback_ladder") or [])
+                        if r["mfe_ge_r"] == 1.0), None)
             print(f"  {p['leg']:28s} med={row.get('capture_median')} "
-                  f"robust={row.get('capture_mean_robust')} "
+                  f"wmed={row.get('capture_winners_median')} "
+                  f"Rwt={row.get('capture_r_weighted')} "
                   f"<30%={row.get('capture_lt_30_pct')} "
+                  f"gb1R={(str(_gb['lost_n']) + '/' + str(_gb['mfe_ge_n'])) if _gb else '-'} "
                   f"nm90={row.get('near_miss_90_pct')} "
                   f"meas={row.get('capture_measured_n')}/{row.get('n_trades')}"
                   f"{' ERR ' + str(row['error'])[:60] if 'error' in row else ''}",
@@ -652,9 +677,18 @@ def main(argv: list[str]) -> int:
                       "keeps none of its move. Do not read them as measurements.",
                       ""]
         lines += [
-                 "| leg | kind | n | cap med | cap robust | cap <30% "
-                 "| nm@90% | nm pop | tgt hit | R left |",
-                 "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|"]
+                 "",
+                 "`gb>=1R` is the GIVEBACK ladder at the 1R rung: "
+                 "`lost/reached` — of the trades that ran at least +1R in open "
+                 "profit, how many still closed RED, and the R that cost. This "
+                 "is the operator's complaint stated for a leg with no target, "
+                 "and it is the column to read: a breakout book is structurally "
+                 "full of small pokes that fail, so a bad `cap <30%` can be that "
+                 "structure rather than leakage. The full ladder "
+                 "(0.5/1/1.5/2R) is in capture_census.json.", "",
+                 "| leg | kind | n | cap med | cap w-med | cap Rwt | cap <30% "
+                 "| gb>=1R | gb R left | nm@90% | nm pop | tgt hit | R left |",
+                 "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|"]
         for leg, v in sorted(census.items(),
                              key=lambda kv: -(kv[1].get("near_miss_90_pct") or -1)):
             if "error" in v:
@@ -666,9 +700,19 @@ def main(argv: list[str]) -> int:
             # nm@90% ALWAYS ships beside its denominator. "0.0" over three
             # losers is not the claim "0.0" over three hundred is, and the
             # first table printed the rate alone.
+            # The 1R rung, ALWAYS as lost/reached — a bare percentage over an
+            # unstated denominator is the class this census keeps tripping over.
+            gb = next((r for r in (v.get("giveback_ladder") or [])
+                       if r["mfe_ge_r"] == 1.0), None)
+            gb_cell = (f"{gb['lost_n']}/{gb['mfe_ge_n']}"
+                       + (f" ({gb['lost_pct']}%)" if gb["lost_pct"] is not None else "")
+                       ) if gb else "—"
             lines.append(f"| {leg} | {kind} | {v['n_trades']} | "
-                         f"{v['capture_median']} | {v['capture_mean_robust']} | "
+                         f"{v['capture_median']} | "
+                         f"{v.get('capture_winners_median')} | "
+                         f"{v.get('capture_r_weighted')} | "
                          f"{v['capture_lt_30_pct']} | "
+                         f"{gb_cell} | {gb['r_left'] if gb else '—'} | "
                          f"{v['near_miss_90_pct']} | {v['near_miss_measured_n']} | "
                          f"{v.get('target_r_reached_n')} | "
                          f"{v['near_miss_r_left_on_table']} |")

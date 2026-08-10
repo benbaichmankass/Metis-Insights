@@ -59,7 +59,14 @@ KEYS = ("n_trades", "n_winners", "n_losers",
         "near_miss_80_pct", "near_miss_90_pct", "near_miss_95_pct",
         "near_miss_r_left_on_table", "mfe_r_measured_n",
         "near_miss_not_applicable", "target_r_reached_n",
-        "mfe_floor_r", "capture_lowmfe_n", "capture_mean_robust")
+        "mfe_floor_r", "capture_lowmfe_n", "capture_mean_robust",
+        "capture_winners_median", "capture_winners_n",
+        "capture_r_weighted", "giveback_ladder")
+
+# The giveback ladder's rungs, in R of maximum favourable excursion. A LADDER
+# and not a threshold: the operator sets a cut-off from the measured shape, the
+# same discipline `capital_efficiency` follows for net_r_per_capital_day.
+GIVEBACK_RUNGS = (0.5, 1.0, 1.5, 2.0)
 
 # Below this MFE the capture RATIO is denominator-noise, not a capture reading.
 # This is a REPORTING floor for a statistic, NOT a gate threshold — it changes
@@ -190,6 +197,56 @@ def summarize(trades: Iterable[Dict[str, Any]], *,
                                 if robust else None),
     }
 
+    # ---- the operator's complaint, stated for a leg with NO target ----------
+    # "A trade got within cents of its take profit and then turned into a loss"
+    # is only expressible as `near_miss` when a target exists, and 43 of the 52
+    # live legs are trail-exit legs that have none. The target-free form of the
+    # same question is: OF THE TRADES THAT WENT MEANINGFULLY FAVOURABLE, HOW
+    # MANY STILL CLOSED RED, AND HOW MUCH R DID THAT COST?
+    #
+    # This is deliberately a LADDER of MFE rungs rather than one threshold: a
+    # book where 60% of the trades that reached +2R still lost is a different
+    # animal from one where that only happens at +0.5R, and picking a single
+    # rung here would bake a judgement the operator has not made. Same
+    # discipline as `capital_efficiency` — report the distribution, let the
+    # threshold be set from it.
+    #
+    # Why this is more trustworthy than the capture mean: it is a COUNT over a
+    # stated denominator, so it cannot explode on a small denominator the way a
+    # ratio does, and each rung ships `mfe_ge_n` beside `lost_n`.
+    pairs = [(nv, mv) for nv, mv in zip(nets, mfes)
+             if nv is not None and mv is not None]
+    ladder = []
+    for rung in GIVEBACK_RUNGS:
+        reached = [(nv, mv) for nv, mv in pairs if mv >= rung]
+        lost = [(nv, mv) for nv, mv in reached if nv < 0]
+        ladder.append({
+            "mfe_ge_r": rung,
+            "mfe_ge_n": len(reached),
+            "lost_n": len(lost),
+            "lost_pct": _pct(len(lost), len(reached)),
+            "r_left": round(sum(mv - nv for nv, mv in lost), 3) if lost else 0.0,
+        })
+    out["giveback_ladder"] = ladder
+
+    # Winners-only capture answers "when we DO win, how much of the move do we
+    # keep?" — free of the structural drag a breakout book carries from small
+    # pokes that fail, which is what makes the all-trades median hard to read.
+    wcaps = [c for c, nv in zip((capture_ratio(a, b) for a, b in zip(nets, mfes)), nets)
+             if c is not None and nv is not None and nv > 0]
+    out["capture_winners_n"] = len(wcaps)
+    out["capture_winners_median"] = _quantile(sorted(wcaps), 0.5)
+
+    # R-weighted capture is the PORTFOLIO-level figure: of all the favourable
+    # excursion the book was offered, what fraction did it actually bank? A
+    # per-trade mean weights a 0.2R scratch the same as a 6R runner; this does
+    # not, so it is the one that tracks money. None when no excursion was
+    # offered at all — 0.0 would claim the book banked nothing.
+    tot_mfe = sum(mv for _, mv in pairs if mv > 0)
+    out["capture_r_weighted"] = (
+        round(sum(nv for nv, mv in pairs if mv > 0) / tot_mfe, 4)
+        if tot_mfe > 0 else None)
+
     def _no_near_miss(reason: str) -> Dict[str, Any]:
         out.update({"near_miss_measured_n": None, "near_miss_80_pct": None,
                     "near_miss_90_pct": None, "near_miss_95_pct": None,
@@ -252,5 +309,6 @@ def empty() -> Dict[str, Any]:
     out: Dict[str, Any] = {k: None for k in KEYS}
     out.update({"n_trades": 0, "n_winners": 0, "n_losers": 0,
                 "capture_measured_n": 0, "mfe_r_measured_n": 0,
-                "target_r_reached_n": 0})
+                "target_r_reached_n": 0, "capture_winners_n": 0,
+                "giveback_ladder": []})
     return out
