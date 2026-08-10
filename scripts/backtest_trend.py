@@ -220,6 +220,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  stale_exit_below_r: float = 0.0,
                  bank_frac: float = 0.0,
                  bank_at_r: float = 1.0,
+                 tp_cap_pct: float = 0.0,
+                 tp_r: float = 50.0,
                  giveback_min_mfe_r: float = 0.0,
                  giveback_r: float = 1.0,
                  trail_decay_arm_r: float = 0.0,
@@ -442,6 +444,24 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         if risk <= 0:
             i += 1
             continue
+        # LIVE-PARITY TAKE-PROFIT (BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE
+        # -CAPPED-TP). Production places `tp = min(entry*(1+0.099), entry +
+        # tp_r*risk)` — the 50R "sentinel" clamped to 9.9% because Bybit rejects
+        # a TP beyond ~10%. At atr_stop_mult 2.5 and 2-3% ATR that lands at
+        # 1.3-2.0R: an ordinary, frequently-touched target. This harness had NO
+        # take-profit exit path at all, so every trail-family verdict was
+        # measured on a book that cannot take profit.
+        # DEFAULT OFF (tp_cap_pct <= 0) so prior verdicts stay reproducible and
+        # capped-vs-uncapped is an explicit A/B rather than a silent re-basing.
+        tp_price: Optional[float] = None
+        if tp_cap_pct > 0.0:
+            if direction == "long":
+                tp_price = min(entry * (1.0 + tp_cap_pct), entry + tp_r * risk)
+            else:
+                tp_price = max(entry * (1.0 - tp_cap_pct), entry - tp_r * risk)
+        # Distance of the live TP in R — the measurement that says whether the
+        # clamp binds on THIS leg's own frame instead of an assumed ATR%.
+        tp_r_effective = (abs(tp_price - entry) / risk) if tp_price else None
         ext = entry
         trail = sl
         exit_price: Optional[float] = None
@@ -467,6 +487,13 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                     exit_price, exit_idx = trail, j
                     exit_reason = "trail_stop" if trail > sl else "stop"
                     break
+                if tp_price is not None and bh >= tp_price:
+                    # Checked AFTER the stop so the conservative SL-first
+                    # intrabar convention is unchanged: a bar that trades
+                    # through both still takes the stop.
+                    exit_price, exit_idx = tp_price, j
+                    exit_reason = "take_profit"
+                    break
                 if bh > ext:
                     peak_j = j
                 ext = max(ext, bh)
@@ -481,6 +508,10 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                 if bh >= trail:
                     exit_price, exit_idx = trail, j
                     exit_reason = "trail_stop" if trail < sl else "stop"
+                    break
+                if tp_price is not None and bl <= tp_price:
+                    exit_price, exit_idx = tp_price, j
+                    exit_reason = "take_profit"
                     break
                 if bl < ext:
                     peak_j = j
@@ -826,6 +857,18 @@ def main(argv: List[str]) -> int:
                         "at +bank-at-r R (0=off, byte-identical).")
     p.add_argument("--bank-at-r", type=float, default=1.0,
                    help="R-multiple of the bank rung for --bank-frac (default 1.0).")
+    p.add_argument("--tp-cap-pct", type=float, default=0.0,
+                   help="LIVE-PARITY take-profit: place tp at "
+                        "min(entry*(1+pct), entry + tp_r*risk) and EXIT there. "
+                        "Production uses 0.099 (the Bybit ~10%% TP-distance "
+                        "clamp on the 50R sentinel). 0 = off, byte-identical to "
+                        "every verdict measured before 2026-08-10 -- so "
+                        "capped-vs-uncapped is an explicit A/B, never a silent "
+                        "re-basing of the fleet's history.")
+    p.add_argument("--tp-r", type=float, default=50.0,
+                   help="The leg's declared tp_r sentinel (default 50R). Only "
+                        "consulted when --tp-cap-pct > 0; the cap is what "
+                        "normally binds.")
     p.add_argument("--giveback-min-mfe-r", type=float, default=0.0,
                    help="M20 giveback-stop: arm once peak open profit reaches "
                         "this many R (0=off, byte-identical).")
@@ -899,6 +942,7 @@ def main(argv: List[str]) -> int:
                      stale_exit_bars=args.stale_exit_bars,
                      stale_exit_below_r=args.stale_exit_below_r,
                      bank_frac=args.bank_frac, bank_at_r=args.bank_at_r,
+                     tp_cap_pct=args.tp_cap_pct, tp_r=args.tp_r,
                      giveback_min_mfe_r=args.giveback_min_mfe_r,
                      giveback_r=args.giveback_r,
                      trail_decay_arm_r=args.trail_decay_arm_r,
