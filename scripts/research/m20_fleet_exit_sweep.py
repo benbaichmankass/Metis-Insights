@@ -59,6 +59,18 @@ FAMILY_HARNESS = {"donchian": DONCHIAN_HARNESS, "pullback": PULLBACK_HARNESS,
                   "squeeze": SQUEEZE_HARNESS, "fvg": FVG_HARNESS,
                   "scalp": SCALP_HARNESS}
 
+# Families whose LIVE unit clamps the TP to _TP_SENTINEL_CAP_PCT (0.099).
+# MEASURED 2026-08-10 by grepping src/units/strategies/ for the constant:
+# trend_donchian.py, htf_pullback_trend_2h.py, fade_breakout_4h.py and
+# squeeze_breakout_4h.py carry it; fvg_range does NOT, and ict_scalp uses a
+# real tp_at_r bracket rather than a sentinel. Applying the cap to a family
+# whose live unit has none would MANUFACTURE a parity break instead of
+# reproducing one -- so this list is a measurement, not a convenience.
+# NOTE the clamp is a BYBIT constraint. An Alpaca/IBKR leg in one of these
+# families may never bind it; --tp-cap-pct is therefore an upper bound on the
+# affected population until the per-venue split is measured.
+LIVE_TP_CAPPED_FAMILIES = {"donchian", "pullback", "fade", "squeeze"}
+
 PROXY_DATA = {"MGC": "GC_F", "XAUUSD": "GC_F", "MES": "ES_F", "MHG": "HG_F"}
 DATA_GRAIN = ["5m", "15m", "1h", "1d"]
 TF_MINUTES = {"5m": 5, "15m": 15, "1h": 60, "2h": 120, "4h": 240, "1d": 1440}
@@ -127,7 +139,8 @@ def resolve_data(symbol: str, tf: str, data_dir: Path) -> tuple[str | None, bool
     return None, proxy, None
 
 
-def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None) -> list[str]:
+def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,
+              tp_cap_pct: float = 0.0) -> list[str]:
     tf = str(cfg.get("timeframe") or "1h")
     sym = (cfg.get("symbols") or ["?"])[0]
     a = ["--data", data, "--symbol", sym, "--timeframe", tf]
@@ -217,6 +230,12 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None) -
         opt("--vol-skip-below-pctl", "vol_skip_below_pctl")
         opt("--vol-pctl-window", "vol_pctl_window")
         declared_levers()
+    # Live-parity TP: only for families whose live unit actually clamps.
+    if tp_cap_pct > 0.0 and fam in LIVE_TP_CAPPED_FAMILIES:
+        a += ["--tp-cap-pct", str(tp_cap_pct)]
+        tpr = cfg.get("tp_r")
+        if tpr is not None:
+            a += ["--tp-r", str(tpr)]
     return a
 
 
@@ -452,6 +471,15 @@ def main(argv: list[str]) -> int:
                          "trail_decay) — skips already-verdicted cells on a re-run")
     ap.add_argument("--list", action="store_true",
                     help="print the run plan (leg -> harness/data/cells) and exit")
+    ap.add_argument("--tp-cap-pct", type=float, default=0.0,
+                    help="Run with the LIVE-PARITY take-profit "
+                         "(production: 0.099 -- the Bybit ~10%% TP-distance "
+                         "clamp on the 50R sentinel). Applied ONLY to families "
+                         "whose live unit carries the clamp "
+                         "(LIVE_TP_CAPPED_FAMILIES); applying it elsewhere "
+                         "would manufacture a parity break rather than "
+                         "reproduce one. 0 = off, the geometry every verdict "
+                         "before 2026-08-10 was measured on.")
     ap.add_argument("--census", action="store_true",
                     help="MEASURE-FIRST pass (operator-directed 2026-08-10): run "
                          "each leg's config-exact base ONLY and report the exit-capture "
@@ -495,7 +523,7 @@ def main(argv: list[str]) -> int:
         plan.append({"leg": name, "family": fam, "symbol": sym, "tf": tf,
                      "harness": harness, "data": data, "proxy": proxy,
                      "resample": resample,
-                     "base": base_args(name, cfg, fam, data, resample),
+                     "base": base_args(name, cfg, fam, data, resample, a.tp_cap_pct),
                      "cells": [c for c in cells_for(cfg, fam)
                                if not levers or c[1] in levers]})
 
