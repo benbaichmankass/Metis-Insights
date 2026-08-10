@@ -548,23 +548,132 @@ reproduced. It is regenerable on a free GitHub runner via
 `research-symbol-p0-build.yml` (Dukascopy fetch, off the scarce trainer VM);
 tracked rather than silently dropped.
 
-### 10.5 Verdicts
+### 10.5 Verdicts — MEASURED 2026-08-10
 
-*(Sweep dispatched 2026-08-09 on the trainer — config-exact per leg, IS/OOS
-split 2025-07-01 + yearly walk-forward, `need = ceil(2·usable/3)` → 4/6 when
-all folds are usable. Verdicts are recorded in the coverage matrix in the same
-PR as the run that produced them, per the exit-refinement skill; they are NOT
-pre-written here from the prior.)*
+**Population: 7 of the 8 live `ict_scalp` legs; 4 ladder cells each = 28 cells.**
+The 8th (`ict_scalp_mgc_15m`) is `blocked:data_missing`, not measured — its XAU
+proxy frame is gone from the trainer (§ 10.4). Config-exact per leg, IS/OOS
+split `2025-07-01`, yearly walk-forward on anything that clears the pre-filter.
+Run: GitHub Actions `ict-scalp-exit-sweep.yml` **run 31344328313**, 7 parallel
+runners, all 7 jobs `success`; data `m27_data/<SYM>_<TF>.csv` scp'd from the
+trainer — the same population every other M27 verdict in these rows used.
+
+Deltas are cell − baseline. **ΔR > 0 is better; ΔDD > 0 is WORSE** (drawdown grew).
+
+| leg | base IS n / netR / maxDD | base OOS n / netR / maxDD | cell | IS ΔR | IS ΔDD | OOS ΔR | OOS ΔDD | verdict |
+|---|---|---|---|--:|--:|--:|--:|---|
+| `ict_scalp_eth_15m` ¹ | 257 / 44.36 / 8.19 | 130 / 15.73 / 11.69 | b0.25@0.5R | −4.90 | −0.60 | −1.11 | −1.29 | honest_negative |
+| | | | b0.25@1R | −1.65 | −0.01 | **+0.02** | −0.18 | honest_negative |
+| | | | b0.5@0.5R | −9.81 | −1.14 | −2.23 | −2.58 | honest_negative |
+| | | | b0.5@1R | −3.29 | −0.02 | **+0.03** | −0.36 | honest_negative |
+| `ict_scalp_xrp_15m` | 227 / 20.87 / 10.75 | 134 / 15.71 / 9.26 | b0.25@0.5R | −1.16 | −0.35 | −1.18 | +0.22 | honest_negative |
+| | | | b0.25@1R | −0.91 | −0.08 | **+0.97** | −0.41 | honest_negative |
+| | | | b0.5@0.5R | −2.31 | −0.30 | −2.36 | +0.43 | honest_negative |
+| | | | b0.5@1R | −1.82 | +0.24 | **+1.95** | −0.83 | honest_negative |
+| **`ict_scalp_sol_15m`** | 280 / 23.65 / 17.82 | 142 / 20.46 / 9.23 | b0.25@0.5R | −1.37 | −1.34 | −0.27 | −2.32 | honest_negative |
+| | | | **b0.25@1R** | **+2.44** | **−1.76** | **+0.17** | **−0.94** | **CANDIDATE → WF 3/4 PASS** |
+| | | | b0.5@0.5R | −2.75 | −2.43 | −0.53 | −3.72 | honest_negative |
+| | | | **b0.5@1R** | **+4.88** | **−2.19** | **+0.34** | **−1.29** | **CANDIDATE → WF 3/4 PASS** |
+| `ict_scalp_5m` (BTC) | 499 / 88.70 / 50.02 | 198 / 40.18 / 15.63 | b0.25@0.5R | −7.21 | +7.01 | −4.50 | +3.48 | honest_negative |
+| | | | b0.25@1R | +1.72 | −1.64 | −3.16 | +2.41 | honest_negative |
+| | | | b0.5@0.5R | −14.42 | +14.02 | −9.00 | +7.13 | honest_negative |
+| | | | b0.5@1R | +3.44 | −3.29 | −6.33 | +4.83 | honest_negative |
+| `ict_scalp_sol_5m` | 629 / 81.33 / 97.75 | 286 / 51.27 / 17.12 | b0.25@0.5R | −2.18 | −2.91 | −6.68 | +1.55 | honest_negative |
+| | | | b0.25@1R | +1.30 | −2.63 | −0.79 | +0.21 | honest_negative |
+| | | | b0.5@0.5R | −4.37 | −5.29 | −13.36 | +3.23 | honest_negative |
+| | | | b0.5@1R | +2.60 | −5.25 | −1.58 | +0.49 | honest_negative |
+| `ict_scalp_xrp_5m` | 487 / 106.01 / 12.34 | 261 / 24.10 / 38.23 | b0.25@0.5R | −10.33 | −0.45 | −1.48 | −2.00 | honest_negative |
+| | | | b0.25@1R | −2.40 | −0.87 | **+0.05** | −1.50 | honest_negative |
+| | | | b0.5@0.5R | −20.67 | −0.54 | −2.97 | −3.55 | honest_negative |
+| | | | b0.5@1R | −4.80 | −1.75 | **+0.10** | −3.00 | honest_negative |
+| `ict_scalp_avax_5m` | 744 / 147.04 / 80.59 | 358 / 43.14 / 31.42 | b0.25@0.5R | −12.09 | +4.15 | −4.30 | +2.96 | honest_negative |
+| | | | b0.25@1R | −3.73 | +0.89 | −2.23 | +0.84 | honest_negative |
+| | | | b0.5@0.5R | −24.18 | +8.70 | −8.61 | +6.20 | honest_negative |
+| | | | b0.5@1R | −7.46 | +1.77 | −4.47 | +1.92 | honest_negative |
+
+¹ the only leg declaring its own exit lever (`stale_exit_bars: 12`), so its
+ladder cells are measured **on top of** that shipped baseline — `declared_base`
+echoed in the run log confirms the harness actually ran it.
+
+**Result: 26 of 28 cells `honest_negative`; 2 cells on `ict_scalp_sol_15m`
+cleared the full gate** — IS and OOS beat on net_R **and** maxDD, then survived
+the yearly walk-forward at 3/4 usable folds (need 3; 2021/2022 skipped for
+insufficient trades, 2023/2024/2025 all PASS). Matrix: six legs
+`honest_negative`, `ict_scalp_sol_15m` **`passed_unshipped`**.
+
+**The two SOL cells are a Tier-3 PROPOSAL, not a ship.** A strategy-parameter
+change requires explicit operator approval before merge; nothing in this PR
+touches `config/strategies.yaml`. `bank0.5@1R` is the stronger of the two on
+every axis measured (IS +4.88R / −2.19 maxDD; OOS +0.34R / −1.29 maxDD).
+
+Two cautions to carry into that decision, both visible in the table:
+
+- **The OOS edge is thin in absolute terms** (+0.17R and +0.34R over 142
+  trades) even though the IS edge is not. The walk-forward is what makes this
+  more than noise, and it is 3 folds — the minimum the gate accepts.
+- **`ict_scalp_sol_5m`, the same symbol one timeframe down, is a clean
+  negative on all four cells.** Whatever makes banking work on SOL is not a
+  property of SOL alone.
+
+### 10.6 This round disproved § 11.1's "structural" claim — including my own
+
+§ 11.1 (written hours earlier, before these numbers existed) argued that
+banking **necessarily** lowers net_R and lowers maxDD, so no banking cell could
+*ever* pass the gate: *"P(pass) = 0, a priori."* **Both halves are false, and
+this round is the disproof.** Counted over the 28 cells:
+
+| claim in § 11.1 | measured |
+|---|--:|
+| banking necessarily **lowers net_R** | net_R **rose** in **6/28** IS cells and **8/28** OOS cells |
+| banking **lowers maxDD** | maxDD **rose** (got worse) in **7/28** IS and **14/28** OOS cells |
+| **P(a banking cell passes) = 0** | **2/28 passed**, including the yearly walk-forward |
+
+The error was reasoning from the winner side of the distribution only. Banking
+does truncate winners — but on a **fixed 1.5R bracket** with the rung at 1.0R,
+it also converts a trade that touches +1R and then reverses into the stop from
+a full −1R into `0.25·(+1) + 0.75·(−1) = −0.5R`. Where that second population
+is large, banking *earns* net_R. § 10.1 had already noticed the fat-tail
+premise does not transfer to a capped-upside strategy and then § 11.1 asserted
+the general form anyway.
+
+The drawdown half fails for a related reason: **maxDD is a property of the
+equity PATH, not of individual trade sizes.** Capping the biggest winners
+removes the recoveries that used to end drawdowns early, so peak-to-trough can
+*deepen* even as each loss shrinks. On the 5m legs it did: **12 of 16 OOS 5m
+cells made drawdown worse** — all 4 cells on BTC, all 4 on SOL-5m, all 4 on
+AVAX; XRP-5m was the lone exception (4/4 improved).
+
+So the honest summary of banking on this fleet is **stronger, not weaker**,
+than "the gate couldn't adjudicate it": on three of the four 5m legs banking
+lost on **both** axes out-of-sample, which is not a tail-for-smoothness trade
+at all — it is simply worse. And on one 15m leg it won on both axes and
+generalised. Neither statement was reachable from the a-priori argument.
 
 ## 11. Re-evaluating the banking mechanism (2026-08-10, operator-requested)
 
 Operator: *"we can reevaluate the banking mechanism, in any case I think that
-would be worthwhile."* This section is that re-evaluation. Its conclusion is not
-"banking works after all" — it is that **the fleet-wide result recorded in § 6.2
-carries far less information than it appears to**, and the reason is a property
-of the gate rather than of banking.
+would be worthwhile."* This section is that re-evaluation.
 
-### 11.1 The gate cannot be passed by anything shaped like banking
+**It was written before the ict_scalp ladder round returned, and its central
+argument did not survive contact with the numbers** — see § 10.6 and the
+retraction banner on § 11.1. The re-evaluation was worth doing and reached the
+right *conclusion for the wrong reason*: the fleet-wide § 6.2 prior does not
+settle banking, but because those 20 cells were measured on **trend-following
+legs whose edge is the fat right tail**, not because the gate is unpassable.
+Run the lever on a capped-upside strategy and it passes on one leg out of seven.
+
+> ⚠️ **§ 11.1 as originally written is WRONG, and § 10.6 is the measurement
+> that refutes it.** It claimed banking could never pass the gate "by
+> construction"; the very next run produced two cells that passed it, plus 14
+> OOS cells where banking made drawdown *worse* — the opposite of the assumed
+> mechanism. The section is kept below with the false claim struck through,
+> because deleting it would hide that the a-priori argument was made and acted
+> on. **§ 11.2–11.4 survive the correction** — they are about how to *read* a
+> banking cell, and that need is unchanged (arguably sharper: a cell can now
+> lose on both axes, and the gate reports that identically to a genuine
+> tail-for-smoothness trade).
+
+### 11.1 ~~The gate cannot be passed by anything shaped like banking~~ — RETRACTED 2026-08-10
 
 Both lever gates require a cell to beat baseline on net_R **and** maxDD:
 
@@ -573,22 +682,36 @@ Both lever gates require a cell to beat baseline on net_R **and** maxDD:
 | `m27/ict_scalp_exit_sweep.py::beats` | `cell.total_r > base.total_r` **and** `cell.max_dd_r < base.max_dd_r` |
 | `m20_fleet_exit_sweep.py::beats` | `cn >= bn` **and** `cd <= bd` **and** (`cn > bn` or `cd < bd`) |
 
-Partial-TP banking's entire mechanism is to **truncate the winner distribution
+~~Partial-TP banking's entire mechanism is to **truncate the winner distribution
 at the rung**: a fraction of the position is realised at `+bank_at_r` instead of
 riding to the exit. Where the exit R exceeds the rung — which is what a winner
 is — that fraction gives up return. So banking **necessarily** lowers net_R and
-lowers maxDD. `net_R >= base` is therefore false **by construction**, and:
+lowers maxDD. `net_R >= base` is therefore false **by construction**, and:~~
 
-> **No banking cell can ever be a candidate under either gate, regardless of how
-> good the risk-adjusted trade is. P(pass) = 0, a priori.**
+> ~~**No banking cell can ever be a candidate under either gate, regardless of
+> how good the risk-adjusted trade is. P(pass) = 0, a priori.**~~
 
-That reframes § 6.2's headline. "Banking reduced net_R in every one of the 20
-banking cells" is true, and the cells did lose net_R — but it is **one
-structural property observed twenty times, not twenty independent negatives**,
-and "it failed the gate" carries no information *about banking* because nothing
-of that shape can pass. The § 6.2 prose already half-saw this ("the classic
-tail-for-smoothness trade") and then recorded the outcome as though the gate had
-adjudicated it.
+**Why it is wrong (measured, § 10.6).** The argument follows the winner side of
+the distribution and stops there. It ignores the trades that touch the rung and
+then *fail*: on a fixed 1.5R bracket with a 1.0R rung, banking turns a −1R loser
+that first printed +1R into `0.25·(+1) + 0.75·(−1) = −0.5R`. Where that
+population is large, banking **adds** net_R — measured in 6/28 IS and 8/28 OOS
+cells. And maxDD is a property of the equity **path**: capping the biggest
+winners removes the recoveries that used to end drawdowns, so drawdown got
+**worse** in 14/28 OOS cells. Two cells cleared the gate outright and survived
+the yearly walk-forward, so `P(pass) = 0` is refuted by counterexample.
+
+**What survives.** § 6.2's *measurements* stand — those 20 donchian/pullback
+cells did lose net_R. What does not survive is the claim that they had to. The
+20 are 20 measurements on trend-following legs whose edge genuinely is the fat
+right tail (§ 10.1 said as much), **not** one structural property of the gate;
+so the fleet-wide prior does not transfer to a capped-upside strategy, which is
+exactly what the ict_scalp round then showed.
+
+The reading problem § 11.2 addresses is unaffected and is now sharper: with
+drawdown able to move either way, `honest_negative` covers *three* different
+objects — a cell that traded return for smoothness, a cell that lost on both
+axes, and a cell whose rung barely filled. The gate reports them identically.
 
 This is the *sibling* of the collapsed-states class made canonical the same day:
 there, two states shared one value; here, **two very different cells share one
@@ -614,7 +737,16 @@ a lever is precisely how a cosmetic lever gets shipped
 *honest* negative — "banking cost net_R and bought too little drawdown to be
 worth it here" — instead of a tautological one.
 
-### 11.3 Where banking could genuinely be right (and is still unmeasured)
+### 11.3 Where banking could genuinely be right
+
+**Item 0, now MEASURED and no longer a hypothesis: a capped-upside strategy.**
+§ 10.6 is the answer to "where could this work" that this section was groping
+for — a fixed 1.5R bracket has no fat tail to surrender, so the § 6.2 mechanism
+does not bite, and `ict_scalp_sol_15m` cleared the gate on both axes in IS and
+OOS and then survived the walk-forward. That is one leg of seven, so it is a
+*specific* finding, not a fleet claim — six other capped-upside legs said no,
+including the same symbol one timeframe down. The three items below remain
+unmeasured.
 
 1. **Prop rulesets — the strongest case, logged 2026-07-12 and never run.**
    `PB-20260712-PROP-BANKING-EV` records exactly this: under a prop ruleset a
@@ -634,16 +766,22 @@ worth it here" — instead of a tautological one.
 
 ### 11.4 What this does and does not license
 
-- It does **not** license shipping a banking cell. Nothing here changes a gate.
-- It does **not** overturn § 6.2's measurements — those numbers stand.
-- It **does** mean the ict_scalp ladder round (§ 10) must be read with the
-  risk-adjusted tool beside the gate verdict, or it will reproduce the same
-  uninformative negative on seven more legs.
-- The open operator question is narrow: **is a net_R-first gate the right
-  shipping criterion for a lever whose declared purpose is drawdown
-  reduction — and specifically, should the prop sleeve be gated on
-  survival-weighted EV instead?** Filed as
-  `BL-20260810-BANKING-GATE-CANNOT-PASS`.
+- It does **not** license shipping a banking cell. Nothing here changes a gate,
+  and the two `ict_scalp_sol_15m` survivors are a **Tier-3 proposal** awaiting
+  explicit operator approval — passing a gate is what makes a cell *proposable*,
+  not what ships it.
+- It does **not** overturn § 6.2's measurements — those numbers stand. What it
+  overturned is § 11.1's claim about *why* they came out that way.
+- It **does** mean every banking cell should be read with the risk-adjusted tool
+  beside the gate verdict — now for a sharper reason than when this was written:
+  `honest_negative` covers a smoothness trade, a both-axes loss, and an inert
+  rung, and § 10.6 found all three shapes in one round.
+- The open operator question **narrowed**. "Can a banking cell ever pass?" is
+  answered: yes. What remains is the prop half — **should the prop sleeve be
+  gated on survival-weighted EV rather than net_R**, given that a daily-loss or
+  static-DD breach there is terminal? Retitled and rescoped in
+  `BL-20260810-BANKING-GATE-CANNOT-PASS` (the id is kept so the history of the
+  wrong claim stays findable).
 
 ## 12. Capital efficiency is the missing axis (operator directive 2026-08-10)
 

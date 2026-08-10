@@ -8,18 +8,26 @@ beats`) requires a cell to beat baseline on net_R **AND** maxDD:
     m27:   cell.total_r      >  base.total_r      and cell.max_dd_r <  base.max_dd_r
     fleet: cell.net_total_r  >= base.net_total_r  and cell.max_drawdown_r <= ...
 
-Partial-TP banking's entire MECHANISM is to trade tail for smoothness: it
-truncates the winner distribution at the rung, so it **necessarily** lowers
-net_R and lowers maxDD. Under either gate `net_R >= base` is therefore false by
-construction, and **no banking cell can ever be a candidate — regardless of how
-good the risk-adjusted trade is.**
+CORRECTED 2026-08-10 — this file originally claimed banking "necessarily"
+lowers net_R and lowers maxDD, so that no banking cell could ever pass either
+gate. **Both halves were measured false the same day** (memo § 10.6, GH Actions
+run 31344328313, 28 ict_scalp ladder cells):
 
-That reframes the fleet-wide result recorded in
-`docs/research/M20-exit-refinement-2026-07-12.md` § 6.2 ("banking reduced net_R
-in every one of the 20 banking cells"): those are not 20 independent negatives.
-They are ONE structural property of the gate, observed 20 times. The finding is
-real and the cells did lose net_R — but "it failed the gate" carries no
-information about banking specifically, because nothing of that shape can pass.
+  * net_R ROSE in 6/28 in-sample and 8/28 out-of-sample cells. On a fixed 1.5R
+    bracket with a 1.0R rung, banking converts a loser that first printed +1R
+    from -1R into 0.25*(+1) + 0.75*(-1) = -0.5R. The original argument followed
+    only the winner side of the distribution.
+  * maxDD ROSE (got WORSE) in 14/28 OOS cells. Drawdown is a property of the
+    equity PATH: capping the biggest winners removes the recoveries that used
+    to end drawdowns, so peak-to-trough can deepen even as each loss shrinks.
+  * 2/28 cells passed the gate outright AND survived the yearly walk-forward,
+    which refutes "P(pass) = 0" by counterexample.
+
+The fleet-wide result in `docs/research/M20-exit-refinement-2026-07-12.md`
+§ 6.2 ("banking reduced net_R in every one of the 20 banking cells") stands as
+a MEASUREMENT. What does not stand is that it had to come out that way: those
+20 cells are trend-following legs whose edge genuinely IS the fat right tail,
+so the prior is real but does not transfer to a capped-upside strategy.
 
 WHAT THIS DOES. Reads the verdicts.json a sweep already wrote and reports, per
 cell, the quantities the primary gate discards:
@@ -37,9 +45,14 @@ cell, the quantities the primary gate discards:
 This CHANGES NO GATE and ships nothing. It is a reading tool: the primary
 net_R+maxDD gate stays the shipping criterion until an operator decides
 otherwise, because relaxing a gate to admit a lever is exactly how a cosmetic
-lever gets shipped. What this makes possible is an HONEST negative — "banking
-lost net_R and bought too little drawdown to be worth it here" — instead of a
-tautological one.
+lever gets shipped.
+
+The reason to read a cell this way is now STRONGER than the (wrong) original
+one. `honest_negative` covers at least three different objects — a cell that
+traded return for smoothness, a cell that lost on BOTH axes (measured: three
+of the four ict_scalp 5m legs, every OOS cell), and a cell whose rung barely
+filled and which is therefore INERT. The gate reports all three identically.
+`dd_per_r` separates the first two; `banked_pct` catches the third.
 
 Usage:
     python3 scripts/research/m20_banking_risk_adjusted.py <verdicts.json> [...]

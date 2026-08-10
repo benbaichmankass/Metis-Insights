@@ -11211,20 +11211,22 @@
       "opened_by": "claude (m20-ladder session, operator-requested re-evaluation)",
       "status": "open",
       "tier": 1,
-      "severity": "medium",
+      "severity": "low",
       "area": "research-method",
-      "title": "The M20 lever gate requires net_R to not fall, so NO partial-TP banking cell can ever pass it — '20 of 20 failed' is one structural fact, not 20 negatives",
-      "source": "READ FROM THE CODE 2026-08-10: m27/ict_scalp_exit_sweep.py::beats requires cell.total_r > base.total_r AND cell.max_dd_r < base.max_dd_r; m20_fleet_exit_sweep.py::beats requires cn >= bn AND cd <= bd. Banking truncates the winner distribution at the rung, so it NECESSARILY lowers net_R and lowers maxDD. net_R >= base is false by construction.",
-      "what_to_check": "Consequence: P(a banking cell passes) = 0 a priori. The memo section 6.2 headline — 'banking reduced net_R in every one of the 20 banking cells' — is TRUE but is one property of the gate observed 20 times, not 20 independent negatives, and 'it failed the gate' carries no information ABOUT BANKING because nothing of that shape can pass.\n\nIt is the sibling of the collapsed-states class made canonical the same day: there two STATES shared one value; here two very different CELLS share one verdict. A cell surrendering 1R to remove 5R of drawdown and one surrendering 1R to remove 0.2R are both stamped honest_negative.\n\nNOT a call to relax the gate — relaxing a gate to admit a lever is how a cosmetic lever ships (BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS).",
-      "action": "(a) Read every banking verdict beside scripts/research/m20_banking_risk_adjusted.py (MAR + drawdown-removed-per-net_R-surrendered) so the negative is honest rather than tautological. (b) OPERATOR QUESTION: is a net_R-first gate the right SHIPPING criterion for a lever whose declared purpose is drawdown reduction? (c) Execute PB-20260712-PROP-BANKING-EV — under a prop ruleset a daily-loss or static-DD breach is TERMINAL, so drawdown is a survival constraint net_R does not price; run_ev_montecarlo exists for exactly this and has sat unused a month.",
-      "resolution_criteria": "Either the gate gains an explicit risk-adjusted arm for drawdown-purposed levers (operator-approved), or the memo records that a net_R-first gate is deliberate and banking is closed on SURVIVAL-weighted evidence from the prop EV run rather than on a criterion it cannot satisfy.",
+      "title": "RETRACTED PREMISE (measured false 2026-08-10): banking CAN pass the M20 gate. Residual open question is narrow — should the PROP sleeve be gated on survival-weighted EV instead of net_R?",
+      "source": "FILED 2026-08-10 on an a-priori argument: that banking necessarily lowers net_R and lowers maxDD, so no banking cell could ever satisfy beats() (net_R AND maxDD must improve) — 'P(pass) = 0 a priori'.\n\nREFUTED THE SAME DAY by the ict_scalp exit_ladder round (GH Actions run 31344328313, 7 legs x 4 cells = 28 cells, memo section 10.5/10.6):\n  * net_R ROSE in 6/28 IS and 8/28 OOS cells. On a fixed 1.5R bracket with a 1.0R rung, banking turns a loser that first printed +1R from -1R into 0.25*(+1)+0.75*(-1) = -0.5R. The argument followed only the WINNER side of the distribution.\n  * maxDD ROSE (got WORSE) in 14/28 OOS cells — 12 of the 16 5m cells. Drawdown is a property of the equity PATH; capping the biggest winners removes the recoveries that used to END drawdowns.\n  * 2/28 cells (ict_scalp_sol_15m bank0.25@1R, bank0.5@1R) passed the gate outright AND survived the yearly walk-forward 3/4. Counterexample.\n\nThis row is kept, not deleted: the wrong claim was written into the memo and into scripts/research/m20_banking_risk_adjusted.py and acted on, so the correction needs a findable home. Both artifacts are now corrected (memo section 11.1 carries a retraction banner; the section 6.2 MEASUREMENTS were never in doubt and stand).",
+      "what_to_check": "The generalisable lesson, which is NOT about banking: an a-priori argument that a measurement 'must' come out a certain way is a hypothesis, and this one was written into a canonical memo as a structural fact hours before the run that refuted it. RULE ONE covers this explicitly ('verify your own output too, hardest when it confirms what you expected') — the failure was that the claim FELT like a derivation, so it was never queued for measurement.\n\nWhat survives and is still open: under a PROP ruleset a daily-loss or static-DD breach is TERMINAL, so drawdown there is a survival constraint net_R genuinely does not price. That is a real gate question and is independent of the retracted argument.",
+      "action": "(a) DONE 2026-08-10: memo section 11.1 retracted in place with the measurement (section 10.6); m20_banking_risk_adjusted.py docstring corrected; coverage matrix records the 7 measured legs.\n(b) OPERATOR QUESTION, still open and now the ONLY one: should the prop sleeve be gated on survival-weighted EV rather than net_R? Execute PB-20260712-PROP-BANKING-EV (src/prop/montecarlo.py::run_ev_montecarlo + config/prop_rulesets/breakout.yaml already exist; unused for a month).\n(c) SEPARATE Tier-3 decision, do not conflate with (b): the two ict_scalp_sol_15m walk-forward survivors are a PROPOSAL awaiting explicit operator approval. Nothing has been merged into config/strategies.yaml.",
+      "resolution_criteria": "Closed when the operator has ruled on (b) — either the prop sleeve gains a survival-weighted arm, or the memo records that a net_R-first gate is deliberate there too, decided on the prop EV run's evidence. (a) is done; (c) is tracked as its own Tier-3 proposal, not as this row.",
       "snoozed_until": null,
       "refs": [
-        "docs/research/M20-exit-refinement-2026-07-12.md#11",
+        "docs/research/M20-exit-refinement-2026-07-12.md#106",
+        "docs/research/M20-exit-refinement-2026-07-12.md#111",
+        "docs/research/exit-refinement-coverage.json",
         "scripts/research/m20_banking_risk_adjusted.py",
         "scripts/research/m27/ict_scalp_exit_sweep.py",
-        "scripts/research/m20_fleet_exit_sweep.py",
-        "src/prop/montecarlo.py"
+        "src/prop/montecarlo.py",
+        "https://github.com/benbaichmankass/Metis-Insights/actions/runs/31344328313"
       ]
     },
     {
