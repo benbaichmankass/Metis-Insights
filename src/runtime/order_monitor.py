@@ -8586,6 +8586,44 @@ def _close_options_row(db, row: Dict[str, Any], life) -> None:
     })
 
 
+def _phase(name: str):
+    """Time ONE monitor phase into the per-tick cost record. NO-OP fallback.
+
+    WHY THIS EXISTS. `/api/diag/tick_cost` measured the live trader at 104s mean
+    / 125s max per tick against the operator's 60s exit-evaluation ask, split
+    51.7% signal generation and **46.8% this function** (48.7s mean / 52.8s max,
+    2026-08-10, 18 ticks). That split is what says decoupling the monitor onto
+    its own loop would clear 60s -- by SEVEN SECONDS, because the monitor's own
+    runtime becomes the cadence floor. Necessary and barely sufficient.
+
+    With `order_monitor` measured as ONE wrap, nothing can say WHICH of the
+    fourteen phases below spends the 48.7s, so nobody can tell whether that cost
+    is reducible (batchable broker round-trips) or irreducible (real work) --
+    and that is the difference between a decouple with headroom and one that
+    silently stops meeting the ask the next time a position is added. Halving
+    this function buys more margin than the decouple does and needs no new loop.
+
+    MEASUREMENT ONLY. No phase is skipped, reordered, or budgeted -- a monitor
+    that skips a position to stay inside a budget is a monitor that stopped
+    monitoring, which is strictly worse than a slow one. Each phase keeps its own
+    `try/except`; this wrapper records in `finally` and never swallows, so a
+    phase that burns time and then throws still appears in the split rather than
+    vanishing from it (the shape that would hide the expensive failure).
+
+    Names are prefixed `monitor.` so they cannot collide with `src/main.py`'s
+    top-level hooks, and `tick_cost` bounds the name table at `_MAX_HOOK_NAMES`
+    with refusals COUNTED (`hook_names_refused`), so a truncated split can never
+    read as a complete one.
+    """
+    try:
+        from src.runtime.tick_cost import hook
+        return hook(f"monitor.{name}")
+    except Exception:  # noqa: BLE001
+        # An instrumentation import error must never stop the live monitor.
+        import contextlib
+        return contextlib.nullcontext()
+
+
 def run_monitor_tick(
     *,
     db_path: Optional[str] = None,
@@ -8637,124 +8675,126 @@ def run_monitor_tick(
     # strategy_cfg (tests) still wins.
     cfg_map = strategy_cfg if strategy_cfg is not None else _load_live_strategy_cfgs()
 
-    for strategy_name in _load_strategies(strategies):
-        summary = _StrategyTickSummary()
-        try:
-            open_rows = db.get_order_packages_by_strategy(
-                strategy_name, status="open",
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "order_monitor: get_order_packages_by_strategy(%s) failed: %s",
-                strategy_name, exc,
-            )
-            summary.error_count += 1
-            summary.errors.append(f"db-read failed: {exc}")
-            summaries[strategy_name] = summary.to_dict()
-            continue
-
-        summary.open_count = len(open_rows)
-        cfg = cfg_map.get(strategy_name, {})
-        for row in open_rows:
-            # Decode the JSON meta blob into a dict so the strategy's
-            # monitor sees a normalised package shape.
-            normalised = dict(row)
-            meta_raw = normalised.get("meta")
-            if isinstance(meta_raw, str) and meta_raw:
-                try:
-                    normalised["meta"] = json.loads(meta_raw)
-                except Exception:  # noqa: BLE001
-                    normalised["meta"] = {}
-
-            candles = None
-            candle_count: Optional[int] = None
-            tf_used = (normalised.get("meta") or {}).get("timeframe")
-            if ohlcv_fetcher is not None:
-                try:
-                    # Pass strategy_name so the fetcher can fall back to
-                    # the per-strategy timeframe from strategies.yaml
-                    # when ``meta.timeframe`` is missing — needed for
-                    # legacy package rows written before the meta key
-                    # was added (2026-05-09). Without the fallback those
-                    # rows never receive candles and monitor() can't
-                    # emit a close verdict.
-                    candles = ohlcv_fetcher(
-                        normalised.get("symbol"),
-                        tf_used,
-                        strategy_name,
-                    )
-                    if candles is not None and hasattr(candles, "__len__"):
-                        candle_count = len(candles)
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning(
-                        "order_monitor: ohlcv_fetcher failed for %s: %s",
-                        normalised.get("symbol"), exc,
-                    )
-                    candles = None
-
-            # Per-pkg dispatch trace. Operators investigating "the monitor
-            # doesn't seem to be doing anything" need to see (a) that the
-            # loop reached this package, (b) whether candles arrived, and
-            # (c) the verdict shape. INFO so it shows in the systemd log
-            # without DEBUG; bounded by (open_packages × strategies)
-            # per tick which is small in practice.
-            pkg_id_log = normalised.get("order_package_id")
-            symbol_log = normalised.get("symbol")
-            if candles is None:
-                logger.info(
-                    "order_monitor: %s pkg=%s symbol=%s tf=%s candles=None "
-                    "(monitor will short-circuit)",
-                    strategy_name, pkg_id_log, symbol_log, tf_used,
+    with _phase("strategy_monitor_loop"):
+        for strategy_name in _load_strategies(strategies):
+            summary = _StrategyTickSummary()
+            try:
+                open_rows = db.get_order_packages_by_strategy(
+                    strategy_name, status="open",
                 )
-            verdict, monitor_status = _call_strategy_monitor(
-                strategy_name, cfg, candles, normalised,
-            )
-            # Exit-coverage Phase 3: the dynamic exit is "blind" this tick when
-            # candles were unavailable (couldn't evaluate) OR monitor() couldn't
-            # run (module unresolvable / no monitor() / it raised). A healthy
-            # ran-no-action tick (status="ok", verdict None) is NOT blind.
-            _track_monitor_blindness(
-                pkg_id=pkg_id_log, strategy=strategy_name, symbol=symbol_log,
-                blind=(candles is None or monitor_status != "ok"),
-                reason=("candles_unavailable" if candles is None
-                        else monitor_status),
-            )
-            if verdict is None:
-                summary.no_change_count += 1
-                if candles is not None:
-                    logger.info(
-                        "order_monitor: %s pkg=%s symbol=%s candles=%s "
-                        "verdict=None (no action)",
-                        strategy_name, pkg_id_log, symbol_log, candle_count,
-                    )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "order_monitor: get_order_packages_by_strategy(%s) failed: %s",
+                    strategy_name, exc,
+                )
+                summary.error_count += 1
+                summary.errors.append(f"db-read failed: {exc}")
+                summaries[strategy_name] = summary.to_dict()
                 continue
 
-            logger.info(
-                "order_monitor: %s pkg=%s symbol=%s candles=%s verdict=%s",
-                strategy_name, pkg_id_log, symbol_log, candle_count, verdict,
-            )
-            _apply_update(db, normalised, verdict, summary)
+            summary.open_count = len(open_rows)
+            cfg = cfg_map.get(strategy_name, {})
+            for row in open_rows:
+                # Decode the JSON meta blob into a dict so the strategy's
+                # monitor sees a normalised package shape.
+                normalised = dict(row)
+                meta_raw = normalised.get("meta")
+                if isinstance(meta_raw, str) and meta_raw:
+                    try:
+                        normalised["meta"] = json.loads(meta_raw)
+                    except Exception:  # noqa: BLE001
+                        normalised["meta"] = {}
 
-        summaries[strategy_name] = summary.to_dict()
-        # Per-strategy summary: log on every tick that had at least one
-        # open package, even when nothing changed. Pre-this-PR the log
-        # only fired when updated/closed > 0, which made a passive
-        # monitor (no verdict-firing condition met) indistinguishable
-        # from a broken / un-invoked monitor in the journal.
-        if summary.open_count > 0:
-            logger.info(
-                "order_monitor: %s — open=%d updated=%d closed=%d "
-                "no_change=%d errors=%d",
-                strategy_name, summary.open_count,
-                summary.updated_count, summary.closed_count,
-                summary.no_change_count, summary.error_count,
-            )
+                candles = None
+                candle_count: Optional[int] = None
+                tf_used = (normalised.get("meta") or {}).get("timeframe")
+                if ohlcv_fetcher is not None:
+                    try:
+                        # Pass strategy_name so the fetcher can fall back to
+                        # the per-strategy timeframe from strategies.yaml
+                        # when ``meta.timeframe`` is missing — needed for
+                        # legacy package rows written before the meta key
+                        # was added (2026-05-09). Without the fallback those
+                        # rows never receive candles and monitor() can't
+                        # emit a close verdict.
+                        candles = ohlcv_fetcher(
+                            normalised.get("symbol"),
+                            tf_used,
+                            strategy_name,
+                        )
+                        if candles is not None and hasattr(candles, "__len__"):
+                            candle_count = len(candles)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "order_monitor: ohlcv_fetcher failed for %s: %s",
+                            normalised.get("symbol"), exc,
+                        )
+                        candles = None
+
+                # Per-pkg dispatch trace. Operators investigating "the monitor
+                # doesn't seem to be doing anything" need to see (a) that the
+                # loop reached this package, (b) whether candles arrived, and
+                # (c) the verdict shape. INFO so it shows in the systemd log
+                # without DEBUG; bounded by (open_packages × strategies)
+                # per tick which is small in practice.
+                pkg_id_log = normalised.get("order_package_id")
+                symbol_log = normalised.get("symbol")
+                if candles is None:
+                    logger.info(
+                        "order_monitor: %s pkg=%s symbol=%s tf=%s candles=None "
+                        "(monitor will short-circuit)",
+                        strategy_name, pkg_id_log, symbol_log, tf_used,
+                    )
+                verdict, monitor_status = _call_strategy_monitor(
+                    strategy_name, cfg, candles, normalised,
+                )
+                # Exit-coverage Phase 3: the dynamic exit is "blind" this tick when
+                # candles were unavailable (couldn't evaluate) OR monitor() couldn't
+                # run (module unresolvable / no monitor() / it raised). A healthy
+                # ran-no-action tick (status="ok", verdict None) is NOT blind.
+                _track_monitor_blindness(
+                    pkg_id=pkg_id_log, strategy=strategy_name, symbol=symbol_log,
+                    blind=(candles is None or monitor_status != "ok"),
+                    reason=("candles_unavailable" if candles is None
+                            else monitor_status),
+                )
+                if verdict is None:
+                    summary.no_change_count += 1
+                    if candles is not None:
+                        logger.info(
+                            "order_monitor: %s pkg=%s symbol=%s candles=%s "
+                            "verdict=None (no action)",
+                            strategy_name, pkg_id_log, symbol_log, candle_count,
+                        )
+                    continue
+
+                logger.info(
+                    "order_monitor: %s pkg=%s symbol=%s candles=%s verdict=%s",
+                    strategy_name, pkg_id_log, symbol_log, candle_count, verdict,
+                )
+                _apply_update(db, normalised, verdict, summary)
+
+            summaries[strategy_name] = summary.to_dict()
+            # Per-strategy summary: log on every tick that had at least one
+            # open package, even when nothing changed. Pre-this-PR the log
+            # only fired when updated/closed > 0, which made a passive
+            # monitor (no verdict-firing condition met) indistinguishable
+            # from a broken / un-invoked monitor in the journal.
+            if summary.open_count > 0:
+                logger.info(
+                    "order_monitor: %s — open=%d updated=%d closed=%d "
+                    "no_change=%d errors=%d",
+                    strategy_name, summary.open_count,
+                    summary.updated_count, summary.closed_count,
+                    summary.no_change_count, summary.error_count,
+                )
 
     # BUG-042: write-back reconciler. Runs unconditionally every tick
     # (the MONITOR_RECONCILE_ENABLED gate was removed 2026-06-15,
     # BL-20260615-MGCNAKED — self-heal is baseline correctness).
     try:
-        recon = _reconcile_open_trades(db)
+        with _phase("reconcile_open_trades"):
+            recon = _reconcile_open_trades(db)
         if recon.get("orphaned") or recon.get("errors"):
             summaries["__reconciler__"] = recon
     except Exception as exc:  # noqa: BLE001
@@ -8769,7 +8809,8 @@ def run_monitor_tick(
     # mutations from forward-orphan closures don't
     # produce spurious reverse-orphan adoptions on the same tick.
     try:
-        reverse_recon = _reconcile_orphan_exchange_positions(db)
+        with _phase("reconcile_orphan_exchange_positions"):
+            reverse_recon = _reconcile_orphan_exchange_positions(db)
         if (
             reverse_recon.get("orphans_found")
             or reverse_recon.get("closed_disappeared")
@@ -8790,7 +8831,8 @@ def run_monitor_tick(
     # net number. Runs after both reconcilers so any newly-closed row
     # gets its first lookup attempt on the same tick it was closed.
     try:
-        pending_pnl = _sweep_pending_pnl_from_bybit(db)
+        with _phase("sweep_pending_pnl_from_bybit"):
+            pending_pnl = _sweep_pending_pnl_from_bybit(db)
         if (
             pending_pnl.get("filled")
             or pending_pnl.get("errors")
@@ -8811,7 +8853,8 @@ def run_monitor_tick(
     # Broker-reader rows are deferred until past the broker recovery window so
     # fee-accurate truth is never pre-empted.
     try:
-        local_pnl = _sweep_local_pnl_for_unpriced(db)
+        with _phase("sweep_local_pnl_for_unpriced"):
+            local_pnl = _sweep_local_pnl_for_unpriced(db)
         if local_pnl.get("filled") or local_pnl.get("errors"):
             summaries["__local_pnl_sweep__"] = local_pnl
     except Exception as exc:  # noqa: BLE001
@@ -8825,7 +8868,8 @@ def run_monitor_tick(
     # deployment without one. Runs after the PnL sweeps (which now defer options rows
     # to it) so a row it closes this tick isn't first mis-priced by the equity sweep.
     try:
-        options_recon = _reconcile_options_expiry_and_assignment(db)
+        with _phase("reconcile_options_expiry_and_assignment"):
+            options_recon = _reconcile_options_expiry_and_assignment(db)
         if options_recon.get("closed") or options_recon.get("errors") or options_recon.get("ambiguous"):
             summaries["__options_lifecycle__"] = options_recon
     except Exception as exc:  # noqa: BLE001
@@ -8836,7 +8880,8 @@ def run_monitor_tick(
     # BUG-049: sweep order_packages that are status='open' but have no
     # linked_trade_id (never executed). Runs unconditionally.
     try:
-        _sweep_unlinked_packages(db)
+        with _phase("sweep_unlinked_packages"):
+            _sweep_unlinked_packages(db)
     except Exception as exc:  # noqa: BLE001
         logger.warning("run_monitor_tick: unlinked-pkg sweep raised: %s", exc)
 
@@ -8847,7 +8892,8 @@ def run_monitor_tick(
     # stuck and silently block every future signal for the strategy.
     # Runs unconditionally.
     try:
-        _sweep_stuck_linked_packages(db)
+        with _phase("sweep_stuck_linked_packages"):
+            _sweep_stuck_linked_packages(db)
     except Exception as exc:  # noqa: BLE001
         logger.warning("run_monitor_tick: stuck-linked-pkg sweep raised: %s", exc)
 
@@ -8858,7 +8904,8 @@ def run_monitor_tick(
     # the trade row + emits a high-priority operator alert.
     # Runs unconditionally.
     try:
-        watchdog_summary = _watchdog_stuck_strategies(db)
+        with _phase("watchdog_stuck_strategies"):
+            watchdog_summary = _watchdog_stuck_strategies(db)
         if (
             watchdog_summary.get("alerted")
             or watchdog_summary.get("errors")
@@ -8878,7 +8925,8 @@ def run_monitor_tick(
     # SL/TP. New orders are blocked at execute_pkg before reaching the
     # exchange; this sweep catches any pre-fix rows that slipped through.
     try:
-        naked_summary = _check_naked_positions(db)
+        with _phase("check_naked_positions"):
+            naked_summary = _check_naked_positions(db)
         if naked_summary.get("naked") or naked_summary.get("errors"):
             summaries["__naked_positions__"] = naked_summary
     except Exception as exc:  # noqa: BLE001
@@ -8889,7 +8937,8 @@ def run_monitor_tick(
     # cancelled at the RTH close, so it is broker-naked yet invisible to the
     # DB-driven check above. This re-arms a GTC OCO for any such position.
     try:
-        broker_naked_summary = _check_broker_naked_equity_positions(db)
+        with _phase("check_broker_naked_equity_positions"):
+            broker_naked_summary = _check_broker_naked_equity_positions(db)
         if broker_naked_summary.get("broker_naked") or broker_naked_summary.get(
             "errors"
         ):
@@ -8908,7 +8957,8 @@ def run_monitor_tick(
     # (IB_BROKER_NAKED_CHECK_SECONDS, default 300s) so the account-wide IB order
     # read is never a per-tick cost (BL-20260609 pacing class).
     try:
-        ib_naked_summary = _check_broker_naked_ib_positions(db)
+        with _phase("check_broker_naked_ib_positions"):
+            ib_naked_summary = _check_broker_naked_ib_positions(db)
         if ib_naked_summary.get("broker_naked") or ib_naked_summary.get("errors"):
             summaries["__broker_naked_ib__"] = ib_naked_summary
     except Exception as exc:  # noqa: BLE001
@@ -8927,7 +8977,8 @@ def run_monitor_tick(
     # does. The real-money bybit_2 XRPUSDT no-bracket incident (2026-07-29)
     # disproved the earlier "Bybit atomic at entry, can't go naked" assumption.
     try:
-        bybit_naked_summary = _check_broker_naked_bybit_positions(db)
+        with _phase("check_broker_naked_bybit_positions"):
+            bybit_naked_summary = _check_broker_naked_bybit_positions(db)
         if bybit_naked_summary.get("broker_naked") or bybit_naked_summary.get(
             "errors"
         ):
@@ -8945,7 +8996,8 @@ def run_monitor_tick(
     # exchange truth. Default mode is `annotate`: it does all the work and
     # records the rows it WOULD reduce, without touching the money DB.
     try:
-        netting_summary = _reconcile_netting_partial_closes(db)
+        with _phase("reconcile_netting_partial_closes"):
+            netting_summary = _reconcile_netting_partial_closes(db)
         if (
             netting_summary.get("divergent")
             or netting_summary.get("closed")
