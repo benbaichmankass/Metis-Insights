@@ -12229,7 +12229,7 @@
       "next_action": "Do NOT fix by lengthening retention — that only moves the boundary. The envelope must state its own population: (1) return the log's retention/coverage window (oldest retained row + rotation cadence) as an EXPLICIT envelope field so first_seen is read against a stated denominator; (2) source true soak start from the model REGISTRY stage-transition record, which is durable and rotation-independent, not from the prediction log; (3) register the three-state distinction — 'soaked since X' / 'log only retains from X' / 'not soaking' — so a truncated window can never read as a short soak. Candidate for collapsed-state-guard's CONTRACTS table.",
       "related": [
         "BL-20260730-DIAGNOSTIC-PROVENANCE-CLASS",
-        "BL-20260719-PROMOREADY-OOSEDGE-OOM"
+        "MB-20260719-PROMOREADY-OOSEDGE-OOM"
       ],
       "resolution_criteria": "A reviewer can read a model's true shadow-soak duration without silent truncation by log rotation, and the endpoint states its retention window."
     }
