@@ -31,8 +31,11 @@ from fastapi import APIRouter, HTTPException, Query
 from ml.shadow.drift import compute_drift
 from ml.shadow.inspector import (
     aggregate,
+    coverage,
     filter_records,
     iter_records,
+    mean_cadence_seconds,
+    soak_start_basis,
 )
 
 from src.utils.paths import runtime_logs_dir
@@ -191,11 +194,29 @@ def stats(
     stage: str | None = Query(default=None),
     since: str | None = Query(default=None),
 ) -> dict[str, Any]:
-    """Return per-``(model_id, stage)`` aggregate stats."""
+    """Return per-``(model_id, stage)`` aggregate stats.
+
+    **Read ``first_seen`` under ``soak_start_basis``, never alone**
+    (BL-20260810-SHADOW-STATS-FIRSTSEEN-IS-LOG-ROTATION-NOT-SOAK-START). The
+    prediction log is rotated, so for any model already running when the last
+    rotation fired, ``first_seen`` is the ROTATION BOUNDARY — a lower bound on
+    the soak, not its start. Since ``first_seen`` is the denominator of the
+    shadow->advisory promotion gate, and the error makes long soaks look short,
+    a promotion that is DUE would read as not-yet-ready.
+
+    The envelope therefore also states the retained window it was measured
+    against (``log_coverage``), and each row carries ``soak_start_basis`` ∈
+    ``observed`` / ``log_censored`` / ``unknown``.
+    """
     log = _log_path()
     since_dt = _parse_since(since)
+    # ONE pass, materialised: the censoring test needs the log's own oldest
+    # edge, which a model-filtered stream cannot provide (every model would
+    # then appear to start at its own first row — precisely the defect).
+    all_records = list(iter_records(log))
+    cov = coverage(all_records)
     records = filter_records(
-        iter_records(log),
+        iter(all_records),
         model_id=model_id,
         stage=stage,
         since=since_dt,
@@ -210,8 +231,24 @@ def stats(
             "score_max": s.score_max if s.count else None,
             "first_seen": s.first_seen.isoformat() if s.first_seen else None,
             "last_seen": s.last_seen.isoformat() if s.last_seen else None,
+            # Whether `first_seen` is this model's real start or the log's edge.
+            "soak_start_basis": soak_start_basis(s, cov),
+            "cadence_seconds_est": mean_cadence_seconds(s),
             "row_keys_seen": sorted(s.row_keys_seen),
         }
         for s in aggregate(records)
     ]
-    return _envelope(log, rows)
+    envelope = _envelope(log, rows)
+    envelope["log_coverage"] = {
+        "oldest_retained": cov.oldest.isoformat() if cov.oldest else None,
+        "newest_retained": cov.newest.isoformat() if cov.newest else None,
+        "total_records": cov.total_records,
+        "note": (
+            "The retained window, NOT the models' soak history — the log is "
+            "rotated (ict-shadow-log-rotate.timer). A row whose "
+            "soak_start_basis is 'log_censored' was already running before "
+            "oldest_retained, so its first_seen is a LOWER BOUND. True soak "
+            "start lives in the model registry's stage-transition record."
+        ),
+    }
+    return envelope

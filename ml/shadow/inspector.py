@@ -265,6 +265,114 @@ def aggregate(
     )
 
 
+# --- Soak-window censoring ------------------------------------------------
+#
+# `first_seen` is the oldest SURVIVING row for a model, and the log is rotated
+# (`ict-shadow-log-rotate.timer`). So for any model already active when the last
+# rotation ran, `first_seen` is the ROTATION BOUNDARY, not the model's soak
+# start — measured 2026-08-10, all 19 live models reported a `first_seen` inside
+# the same two-minute band despite promotions spanning weeks
+# (BL-20260810-SHADOW-STATS-FIRSTSEEN-IS-LOG-ROTATION-NOT-SOAK-START).
+#
+# That matters because `first_seen` is the DENOMINATOR of the shadow->advisory
+# promotion gate ("days in shadow"), and the error runs in the dangerous
+# direction: a long soak looks short, so a promotion that is DUE reads as
+# not-yet-ready and is deferred. It is unprovenanced-diagnostic sub-class B —
+# an implicit input (the retained window) substituted for the declared one (the
+# model's first sighting), with nothing in the envelope disclosing it.
+#
+# The fix does NOT lengthen retention (that only moves the boundary). It makes
+# the record state whether its own start was OBSERVED or CENSORED, which is
+# answerable from the log alone: a model whose first row sits at the log's
+# oldest edge was almost certainly already running before it; a model whose
+# first row is many cadences later genuinely started inside the window.
+
+#: A model's first row is treated as censored when it lands within this many of
+#: its own estimated cadences of the log's oldest retained row. >1 absorbs
+#: jitter (a 5m head does not write exactly on the boundary); well under the
+#: many-cadences gap a genuinely-later start produces.
+_CENSOR_CADENCE_TOLERANCE = 1.5
+
+SOAK_START_OBSERVED = "observed"
+SOAK_START_LOG_CENSORED = "log_censored"
+SOAK_START_UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True)
+class LogCoverage:
+    """What window the retained log actually covers — the denominator every
+    `first_seen` must be read against."""
+
+    oldest: datetime | None
+    newest: datetime | None
+    total_records: int
+
+    @property
+    def present(self) -> bool:
+        return self.total_records > 0
+
+
+def coverage(records: Iterable[ShadowRecord]) -> LogCoverage:
+    """The retained window across ALL records, unfiltered.
+
+    Deliberately computed over the whole log, not a model-filtered slice: the
+    question "was this model's start truncated by rotation?" is only answerable
+    against the log's own edge, and a filtered slice would make every model
+    look like it started at its own first row (which is the bug).
+    """
+    oldest: datetime | None = None
+    newest: datetime | None = None
+    total = 0
+    for r in records:
+        total += 1
+        if oldest is None or r.predicted_at_utc < oldest:
+            oldest = r.predicted_at_utc
+        if newest is None or r.predicted_at_utc > newest:
+            newest = r.predicted_at_utc
+    return LogCoverage(oldest=oldest, newest=newest, total_records=total)
+
+
+def mean_cadence_seconds(stats: ModelStats) -> float | None:
+    """Rough per-model write cadence, from its own span and count.
+
+    A mean, not a median — O(1) and adequate here, because a shadow head writes
+    on a fixed bar cadence. ``None`` when a single observation makes a gap
+    undefined (one row cannot establish a spacing).
+    """
+    if stats.count < 2 or stats.first_seen is None or stats.last_seen is None:
+        return None
+    span = (stats.last_seen - stats.first_seen).total_seconds()
+    if span <= 0:
+        return None
+    return span / (stats.count - 1)
+
+
+def soak_start_basis(stats: ModelStats, cov: LogCoverage) -> str:
+    """Is this model's ``first_seen`` its real soak start, or the log's edge?
+
+    Three states, never collapsed:
+      * ``observed``     — first row is well inside the retained window, so the
+                           log captured this model's actual first sighting.
+      * ``log_censored`` — first row sits at the log's oldest edge; rotation
+                           truncated it, so ``first_seen`` is a LOWER BOUND on
+                           the soak, not its start. Not the same as a short soak.
+      * ``unknown``      — nothing to measure (no rows, or a single row whose
+                           cadence is undefined so the test cannot be applied).
+    """
+    if stats.count == 0 or stats.first_seen is None or cov.oldest is None:
+        return SOAK_START_UNKNOWN
+    cadence = mean_cadence_seconds(stats)
+    if cadence is None:
+        # One row. We cannot tell an edge-hugging survivor from a fresh start,
+        # and guessing either way would be the collapse this function exists to
+        # prevent.
+        return SOAK_START_UNKNOWN
+    lead_in = (stats.first_seen - cov.oldest).total_seconds()
+    if lead_in <= _CENSOR_CADENCE_TOLERANCE * cadence:
+        return SOAK_START_LOG_CENSORED
+    return SOAK_START_OBSERVED
+
+
 def format_inspect_table(
     records: Iterable[ShadowRecord],
     *,
