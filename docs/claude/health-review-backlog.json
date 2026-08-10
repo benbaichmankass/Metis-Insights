@@ -12476,6 +12476,36 @@
       "title": "A naive intrabar exit-evaluation arm would peek at the future and manufacture an improvement",
       "detail": "scripts/backtest_trend.py::run_backtest advances ext/mfe/trail from the WHOLE leg bar's extreme and THEN evaluates the giveback/stale levers at that bar's close. Sound while the lever is evaluated once per bar. The moment a lever is evaluated at a SUB-BAR close inside that bar, the comparison is against a peak that may be set later in the same bar - the rule appears to exit at the top with uncanny timing, the arm beats baseline, and the result is an artifact. Contract for the build: ext/mfe/trail advance on the SUB-BAR clock; bar-counted params (stale_exit_bars, trail_decay_stall_bars, peak_j) stay on the LEG-BAR clock or every threshold is silently redefined; and run THREE arms (baseline / levers-fine-with-SL-first-at-leg-grain / everything-fine) because a finer grain also converts some SL-first bars into target-first, which would credit the lever for the convention. Applies to the operator's 2026-08-10 intrabar-monitor directive.",
       "evidence": "docs/live-exit-monitor-cadence-DESIGN.md sec 4.1; scripts/backtest_trend.py:480-560"
+    },
+    {
+      "id": "BL-20260810-SWEEP-BASE-NOT-CONFIG-EXACT-TRAILVOL",
+      "opened": "2026-08-10",
+      "severity": "P2",
+      "status": "resolved",
+      "area": "research/backtest",
+      "summary": "m20_fleet_exit_sweep's `config-exact` base omitted the trail-VOL lever. `base_args::declared_levers()` threaded stale/giveback/trail-DECAY but not `trail_vol_{above,below}_pctl`/`trail_vol_tight_mult`, while both harnesses carried the flags. Exactly two census legs declare an ARMED vol-trail lever - trend_donchian_eth (below 0.1/tight 2.5) and qqq_pullback_1h (above 0.8/tight 2.5) - so their sweep deltas were measured against a baseline missing a lever that is armed in live. Both A/B arms omitted it, so each delta is internally consistent; what is unverified is its transport to the live book, since exit levers interact. Consequence: 2 of the 3 live-leg Path A winners in the 2026-08-10 promotion packet are HELD pending a re-run on the corrected base.",
+      "evidence": "Found while reading config/strategies.yaml to write the Tier-3 packet - the same read also corrected two FALSE 'inert lever' findings I had published (trend_donchian_eth's vol-trail and avax_pullback_2h's decay lever are both armed). Easy to miss because `vol_pctl_window` WAS threaded - it belongs to the entry vol-skip gate, not the trail.",
+      "fix": "declared_levers() now threads the three trail_vol_* keys. tests/test_m20_fleet_capital_report.py asserts per-leg completeness against config/strategies.yaml, plus a companion test that fails on any new lever-shaped YAML key with no harness-flag mapping. Positive control run: reverting the fix reproduces exactly the two legs and four keys.",
+      "refs": [
+        "docs/research/M20-exit-lever-promotion-packet-2026-08-10.md",
+        "scripts/research/m20_fleet_exit_sweep.py",
+        "tests/test_m20_fleet_capital_report.py"
+      ]
+    },
+    {
+      "id": "BL-20260810-SCRIPTS-ML-SHADOWS-REPO-ML",
+      "opened": "2026-08-10",
+      "severity": "P2",
+      "status": "resolved",
+      "area": "tooling/ci",
+      "summary": "scripts/ml/ is a REGULAR package and shadows the repo's top-level ml/ whenever scripts/ precedes the repo root on sys.path - which is the default, since Python puts a script's own directory at sys.path[0]. backtest_ict_scalp.py / backtest_pullback.py used insert-if-absent, so under PYTHONPATH=<repo root> (how pytest-run.yml runs the suite) the insert was skipped and the harness died on `No module named 'ml.predictors'` before argparse ran.",
+      "evidence": "Reddened pytest-run on PR #8721. Matters beyond CI: the fleet sweep reports a harness that cannot start as `harness_error` on every cell, which in a summary table is indistinguishable from 'the harness ran and found nothing'.",
+      "fix": "Both harnesses now REPOSITION the repo root ahead of scripts/ rather than inserting if absent. tests/test_ict_scalp_exit_levers.py starts each harness under PYTHONPATH=<repo root>. Measured after the fix: 0 of 333 scripts under scripts/ fail with the shadowing signature; probe validated against a positive (restoring the old ordering makes it fire).",
+      "refs": [
+        "scripts/backtest_ict_scalp.py",
+        "scripts/backtest_pullback.py",
+        "tests/test_ict_scalp_exit_levers.py"
+      ]
     }
   ],
   "updated_at": "2026-08-10T01:20:00+00:00",

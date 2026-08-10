@@ -571,3 +571,93 @@ def test_ungradeable_is_never_a_pass():
         assert r["passes"] is None, reason
         assert r["reason"] == reason
         assert r["allowed_d_max_dd"] is None
+
+
+# --------------------------------------------------------------------------
+# `base_args` calls itself the CONFIG-EXACT base. That claim is load-bearing —
+# every Δ in a promotion packet is measured against it — and it was FALSE for
+# two census legs until 2026-08-10: `declared_levers()` threaded the stale,
+# giveback and trail-DECAY levers but not the trail-VOL one, so
+# `trend_donchian_eth` (below 0.1 / tight 2.5) and `qqq_pullback_1h`
+# (above 0.8 / tight 2.5) were measured against a baseline missing a lever that
+# is armed in live. Both harnesses had carried the flags all along.
+#
+# The completeness half is the point: a NEW exit-lever key added to
+# config/strategies.yaml must fail here until it is threaded, rather than
+# silently widening the gap between "the base" and "the config".
+# --------------------------------------------------------------------------
+
+_LEVER_KEY_TO_FLAG = {
+    "stale_exit_bars": "--stale-exit-bars",
+    "stale_exit_below_r": "--stale-exit-below-r",
+    "giveback_min_mfe_r": "--giveback-min-mfe-r",
+    "giveback_r": "--giveback-r",
+    "trail_decay_arm_r": "--trail-decay-arm-r",
+    "trail_decay_stall_bars": "--trail-decay-stall-bars",
+    "trail_decay_tight_mult": "--trail-decay-tight-mult",
+    "trail_vol_above_pctl": "--trail-vol-above-pctl",
+    "trail_vol_below_pctl": "--trail-vol-below-pctl",
+    "trail_vol_tight_mult": "--trail-vol-tight-mult",
+}
+
+# Exit-lever-shaped YAML keys that are deliberately NOT harness flags, each with
+# the reason. Anything else matching the prefixes below is an unthreaded lever.
+_NOT_A_LEVER = {
+    # The ENTRY vol-skip gate + its window — threaded separately in the donchian
+    # branch as --vol-skip-*/--vol-pctl-window, not part of declared_levers().
+    "vol_skip_above_pctl", "vol_skip_below_pctl", "vol_pctl_window",
+    # The base chandelier mult the levers TIGHTEN FROM, threaded per family.
+    "trail_mult",
+}
+
+
+def _lever_shaped(key: str) -> bool:
+    return key.startswith(("stale_exit_", "giveback_", "trail_decay_", "trail_vol_"))
+
+
+def _declaring_legs():
+    """(leg, cfg, family) for every donchian/pullback leg declaring a lever."""
+    import yaml
+    cfg = yaml.safe_load((REPO / "config" / "strategies.yaml").read_text())
+    strats = cfg.get("strategies", cfg)
+    out = []
+    for name, block in strats.items():
+        if not isinstance(block, dict):
+            continue
+        fam = "donchian" if "donchian" in name else (
+            "pullback" if "pullback" in name else None)
+        if fam is None:
+            continue
+        if any(_lever_shaped(k) for k in block):
+            out.append((name, block, fam))
+    return out
+
+
+def test_every_declared_exit_lever_reaches_the_config_exact_base():
+    legs = _declaring_legs()
+    # A probe that finds nothing proves nothing — this fixture must be non-empty
+    # or the assertion below is vacuous.
+    assert legs, "no donchian/pullback leg declares an exit lever — fixture is dead"
+    missing = []
+    for name, block, fam in legs:
+        argv = _mod.base_args(name, block, fam, "/tmp/x.csv", None)
+        for key, flag in _LEVER_KEY_TO_FLAG.items():
+            if block.get(key) is None:
+                continue
+            if flag not in argv:
+                missing.append(f"{name}: {key}={block[key]} not threaded ({flag})")
+    assert not missing, (
+        "the base is NOT config-exact for:\n  " + "\n  ".join(missing))
+
+
+def test_no_exit_lever_key_in_yaml_is_unmapped():
+    """A new lever key must be threaded, not silently dropped."""
+    unmapped = set()
+    for name, block, _fam in _declaring_legs():
+        for key in block:
+            if _lever_shaped(key) and key not in _LEVER_KEY_TO_FLAG and key not in _NOT_A_LEVER:
+                unmapped.add(f"{key} (on {name})")
+    assert not unmapped, (
+        "exit-lever-shaped YAML key(s) with no harness flag mapping — thread them "
+        "through base_args::declared_levers or add them to _NOT_A_LEVER with a "
+        f"reason: {sorted(unmapped)}")

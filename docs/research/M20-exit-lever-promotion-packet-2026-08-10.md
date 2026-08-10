@@ -31,6 +31,21 @@ Rows 4–7 land on `execution: shadow` legs and change nothing about money until
 those legs are separately promoted — worth stating plainly so the packet is not
 read as a 7-cell money change.
 
+> ### ⚠️ SHIP ONE, HOLD TWO (revised 2026-08-10 after § 2's correction)
+>
+> Rows **1 and 2** are on `trend_donchian_eth`, one of the two legs whose
+> baseline omitted an **armed** vol-trail lever (§ 2). Their Δs describe a book
+> that is not the one we would deploy onto, so they are **held pending a re-run
+> on the corrected base** — not withdrawn, un-evidenced.
+>
+> That leaves exactly **one live-leg row shippable on this packet's evidence**:
+> row 3, `eth_pullback_2h decay_stall10_t2.5`, whose leg declares `trail_mult`
+> and nothing else, so its base was genuinely config-exact.
+>
+> The operator's approval was given against the pre-correction packet. Shipping
+> rows 1–2 under it would be trading on their approval of a claim I have since
+> found to be qualified.
+
 ### `decay_stall10` generalises across three independent legs
 
 `trend_donchian_eth` · `trend_donchian_eth_prop` (as `_t1.8`, the same lever with
@@ -53,27 +68,53 @@ existing declarations were already in the baseline and the deltas above are real
 
 | leg | current | change |
 |---|---|---|
-| `trend_donchian_eth` | `stale_exit_bars: 8`, `stale_exit_below_r: 0.0`, `trail_vol_tight_mult: 2.5`, `vol_pctl_window: 200`, `trail_mult: 5.0` | **`stale_exit_bars: 8 → 12`** (a change, not an add — `stale8_lt0R` measured `tie_no_improvement` here precisely because 8 is already the base) · **add** `trail_decay_stall_bars: 10` + `trail_decay_tight_mult: 2.5` |
+| `trend_donchian_eth` | `stale_exit_bars: 8`, `stale_exit_below_r: 0.0`, `trail_vol_below_pctl: 0.1`, `trail_vol_tight_mult: 2.5`, `vol_pctl_window: 200`, `trail_mult: 5.0` | **`stale_exit_bars: 8 → 12`** (a change, not an add — `stale8_lt0R` measured `tie_no_improvement` here precisely because 8 is already the base) · **add** `trail_decay_stall_bars: 10` + `trail_decay_tight_mult: 2.5` |
 | `eth_pullback_2h` | `trail_mult: 5.0` (no exit levers declared) | **add** `trail_decay_stall_bars: 10` + `trail_decay_tight_mult: 2.5` |
 | `trend_donchian_1h` | `trail_mult: 5.0` | **add** `trail_vol_above_pctl: 0.9` + `trail_vol_tight_mult: 2.5` (+ `vol_pctl_window: 200`) |
 | `trend_donchian_eth_prop` | `trail_mult: 3.5` | **add** `stale_exit_bars: 12` + `stale_exit_below_r: 0.0` + `trail_decay_stall_bars: 10` + `trail_decay_tight_mult: 1.8` |
-| `avax_pullback_2h` | `trail_decay_tight_mult: 2.5` (**inert** — no `stall_bars`/`arm_r`) | **add** `trail_decay_stall_bars: 6` (one key completes it) |
+| `avax_pullback_2h` | `trail_decay_tight_mult: 2.5` + `trail_decay_arm_r: 4.86` (**armed**, R-armed) | **add** `trail_decay_stall_bars: 6` — a SECOND arming condition on a live lever. The base threaded `arm_r` + `tight_mult`, so this Δ is validly measured. |
 
-### Two half-declared levers found while writing this
+### CORRECTION (2026-08-10, same day) — the "two inert levers" finding was WRONG
 
-Both are currently **inert**, which is a finding in its own right — a leg that
-looks configured and behaves as if it were not:
+An earlier revision of this packet reported that `trend_donchian_eth` and
+`avax_pullback_2h` each carried a half-declared, never-firing exit lever. **Both
+claims were false — I read the YAML blocks incompletely.** Read from the field:
 
-- `trend_donchian_eth` carries `trail_vol_tight_mult: 2.5` + `vol_pctl_window: 200`
-  with **no** `trail_vol_above_pctl`/`below_pctl`. `src/runtime/trail_vol.py`
-  requires `tight_mult > 0` AND (`above > 0` OR `below > 0`), so the vol-trail
-  lever never fires on that leg.
-- `avax_pullback_2h` carries `trail_decay_tight_mult: 2.5` with no
-  `trail_decay_stall_bars` / `trail_decay_arm_r`, so its decay lever never arms.
+- `trend_donchian_eth` carries `trail_vol_below_pctl: 0.1` alongside
+  `trail_vol_tight_mult: 2.5`. `src/runtime/trail_vol.py` requires
+  `tight_mult > 0 AND (above > 0 OR below > 0)` — `below = 0.1` satisfies it, so
+  the **cold-tail vol-trail lever is ARMED** on that leg.
+- `avax_pullback_2h` carries `trail_decay_arm_r: 4.86` alongside
+  `trail_decay_tight_mult: 2.5`. `src/runtime/trail_decay.py` requires
+  `tight > 0 AND (arm_r > 0 OR stall > 0)` — so its **decay lever is ARMED**
+  (R-armed at 4.86R). Adding `trail_decay_stall_bars: 6` adds a SECOND arming
+  condition to a live lever; it does not switch on a dead one.
 
-Neither is a bug in the sweep — the config-exact base correctly modelled them as
-inert. They are logged so a future reader does not mistake the declaration for
-behaviour.
+### The real finding the correction exposed: the base was NOT config-exact
+
+`m20_fleet_exit_sweep.py::base_args::declared_levers()` threaded the stale,
+giveback and trail-**decay** levers into the baseline and **omitted the
+trail-VOL one** — while both harnesses had carried `--trail-vol-*` all along.
+Exactly two census legs declare an armed vol-trail lever, and both were
+therefore measured against a baseline missing a lever that is armed in live:
+
+| leg | declared in YAML | in the sweep's base? |
+|---|---|---|
+| `trend_donchian_eth` | `below_pctl 0.1` / `tight 2.5` | **no** |
+| `qqq_pullback_1h` | `above_pctl 0.8` / `tight 2.5` | **no** |
+
+It was easy to miss because a `vol_*` key *was* threaded — `vol_pctl_window`,
+which belongs to the **entry** vol-skip gate, not to the trail.
+
+**What this does and does not invalidate.** Both arms of each A/B omitted the
+lever, so each Δ is internally consistent; what is unverified is its
+**transport to the live book**. Exit levers interact — a cold-vol-tightened
+trail changes which trades a decay or stale rule ever sees — so a Δ measured on
+a book without that tightening is not a measurement of the book we would deploy
+onto. Fixed in `declared_levers()`, with
+`tests/test_m20_fleet_capital_report.py::test_every_declared_exit_lever_reaches_the_config_exact_base`
+asserting per-leg completeness (and a companion test failing on any new
+lever-shaped YAML key that is not threaded).
 
 ### Live wiring verified, not assumed
 

@@ -195,6 +195,20 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
         opt("--trail-decay-arm-r", "trail_decay_arm_r")
         opt("--trail-decay-stall-bars", "trail_decay_stall_bars")
         opt("--trail-decay-tight-mult", "trail_decay_tight_mult")
+        # The VOL-trail lever is a declared exit lever too, and omitting it made
+        # this base NOT config-exact on the two census legs that declare one —
+        # `trend_donchian_eth` (cold tail, below 0.1 / tight 2.5) and
+        # `qqq_pullback_1h` (hot tail, above 0.8 / tight 2.5). Both harnesses
+        # have carried the flags all along; only this list was short. Found
+        # 2026-08-10 while reading the YAML to write the Tier-3 promotion packet,
+        # i.e. AFTER a run whose deltas for those legs were measured against a
+        # baseline missing a lever that is armed in live.
+        # `vol_pctl_window` above is the ENTRY vol-skip gate's window and is
+        # already threaded — which is precisely why the gap was easy to miss:
+        # a `vol_*` key was present, just not the trail one.
+        opt("--trail-vol-above-pctl", "trail_vol_above_pctl")
+        opt("--trail-vol-below-pctl", "trail_vol_below_pctl")
+        opt("--trail-vol-tight-mult", "trail_vol_tight_mult")
     if fam == "donchian":
         opt("--donchian", "donchian")
         opt("--atr-period", "atr_period")
