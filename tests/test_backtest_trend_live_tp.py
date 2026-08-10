@@ -31,15 +31,33 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("pandas", reason="backtest_trend requires pandas; CI provides it")
-import pandas as pd  # noqa: E402
-
 REPO = Path(__file__).resolve().parents[1]
-_spec = importlib.util.spec_from_file_location(
-    "backtest_trend", REPO / "scripts" / "backtest_trend.py")
-bt = importlib.util.module_from_spec(_spec)
-sys.modules["backtest_trend"] = bt
-_spec.loader.exec_module(bt)
+
+# The behavioural tests need pandas (the harnesses do). The STRUCTURAL ones --
+# signature defaults and SL-first ordering -- read source and must NOT be
+# skipped with them: they check the property whose failure is most expensive
+# (a TP checked before the stop turns losers into winners), so deferring them
+# to CI would leave the riskiest claim unverified locally.
+try:
+    import pandas as pd  # noqa: F401
+    HAVE_PANDAS = True
+except ImportError:
+    HAVE_PANDAS = False
+
+needs_pandas = pytest.mark.skipif(not HAVE_PANDAS, reason="harness requires pandas; CI provides it")
+
+
+def _load(name):
+    spec = importlib.util.spec_from_file_location(name, REPO / "scripts" / f"{name}.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+bt = _load("backtest_trend") if HAVE_PANDAS else None
+bp = _load("backtest_pullback") if HAVE_PANDAS else None
+HARNESSES = ("backtest_trend", "backtest_pullback")
 
 
 def _frame(bars):
@@ -67,6 +85,7 @@ def test_tp_price_is_the_clamp_not_the_50R_sentinel():
     assert (capped - entry) / risk == pytest.approx(9.9)
 
 
+@needs_pandas
 def test_default_off_emits_no_take_profit_outcome():
     """The 266 already-graded cells must stay reproducible."""
     bars = [(100, 101, 99, 100)] * 30 + [(100, 140, 99, 139)] * 10 + [(139, 140, 100, 101)] * 30
@@ -75,6 +94,7 @@ def test_default_off_emits_no_take_profit_outcome():
         "a TP outcome appeared with the lever off — prior verdicts are no longer reproducible"
 
 
+@needs_pandas
 def test_stop_wins_when_one_bar_trades_through_both():
     """SL-first is the harness's conservative convention. A bar spanning both
     levels must take the STOP; checking TP first would mint fake winners."""
@@ -93,6 +113,7 @@ def test_stop_wins_when_one_bar_trades_through_both():
             f"SL-first was broken. outcomes={out}")
 
 
+@needs_pandas
 def test_enabling_the_cap_changes_the_book():
     """The whole premise: with a reachable TP the results must differ from the
     no-TP baseline. If they were identical the flag would be inert and the
@@ -111,3 +132,42 @@ def test_enabling_the_cap_changes_the_book():
                 or "take_profit" in _outcomes(capped)), (
             "enabling the live TP changed nothing — the flag is inert, so the "
             "capped-vs-uncapped A/B would be meaningless")
+
+
+# ------------------------------------------------ the port must not diverge
+# Both read SOURCE, so they run everywhere -- including a sandbox without
+# pandas, where the behavioural tests above cannot.
+@pytest.mark.parametrize("name", HARNESSES)
+def test_both_harnesses_expose_the_same_lever(name):
+    """One live TP geometry, two harnesses. If the port drifts, a cross-family
+    capped-vs-uncapped A/B silently compares two different exits -- the same
+    class of defect the trend-engine convergence guard exists for."""
+    import ast
+    tree = ast.parse((REPO / "scripts" / f"{name}.py").read_text())
+    fn = next(n for n in ast.walk(tree)
+              if isinstance(n, ast.FunctionDef) and n.name == "run_backtest")
+    kwonly = {a.arg: d for a, d in zip(fn.args.kwonlyargs, fn.args.kw_defaults)}
+    plain = {a.arg for a in fn.args.args}
+    assert "tp_cap_pct" in kwonly or "tp_cap_pct" in plain, f"{name} lacks the lever"
+    assert "tp_r" in kwonly or "tp_r" in plain, f"{name} lacks tp_r"
+    d = kwonly.get("tp_cap_pct")
+    assert d is not None and getattr(d, "value", None) == 0.0, (
+        f"{name} does not default the live TP OFF -- enabling it by default "
+        "silently re-bases all 266 previously-graded coverage cells")
+
+
+@pytest.mark.parametrize("name", HARNESSES)
+def test_tp_is_checked_after_the_stop_in_source(name):
+    """Structural check on the ORDER of the two intrabar branches. A behavioural
+    test can pass on data that never spans both levels; this cannot."""
+    src = (REPO / "scripts" / f"{name}.py").read_text()
+    for branch in ("bl <= trail", "bh >= trail"):
+        i_stop = src.find(branch)
+        assert i_stop != -1, f"{name}: stop branch {branch!r} not found"
+        window = src[i_stop:i_stop + 700]
+        i_tp = window.find("take_profit")
+        assert i_tp != -1, f"{name}: no take_profit exit near the {branch!r} stop"
+        i_break = window.find("break")
+        assert i_break < i_tp, (
+            f"{name}: TP is checked BEFORE the stop breaks on {branch!r} -- "
+            "SL-first is broken and losers become winners")
