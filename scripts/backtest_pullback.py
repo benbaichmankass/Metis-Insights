@@ -34,10 +34,17 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-if str(Path(__file__).resolve().parent) not in sys.path:
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+# Repo root must PRECEDE scripts/ — see the same block in backtest_ict_scalp.py.
+# `scripts/ml/` is a regular package that shadows the repo's top-level `ml/`.
+# This harness does not currently import anything that reaches `ml.*`, so the
+# ordering is latent here rather than fatal; it is fixed in both files because
+# the next import added to either one decides which.
+if str(_REPO_ROOT) in sys.path:
+    sys.path.remove(str(_REPO_ROOT))
+sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)

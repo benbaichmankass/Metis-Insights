@@ -568,3 +568,30 @@ def test_build_parser_still_rejects_an_unknown_flag():
     """
     with pytest.raises(SystemExit):
         bts.build_parser().parse_args(["--a-flag-that-does-not-exist", "1"])
+
+
+@pytest.mark.parametrize("script", ["backtest_ict_scalp.py", "backtest_pullback.py"])
+def test_harness_starts_with_the_repo_root_on_pythonpath(script):
+    """The harness must import when PYTHONPATH already contains the repo root.
+
+    This is the CAUSE behind the two subprocess tests above, and it is a
+    harness defect rather than a test-environment quirk. `scripts/ml/` is a
+    REGULAR package (it has `__init__.py`) and Python puts a script's own
+    directory at sys.path[0], so `scripts/` shadows the repo's top-level `ml/`
+    unless the root is deliberately placed in front. The old bootstrap only
+    inserted the root *if absent* — so with `PYTHONPATH=<repo root>` (exactly
+    how `pytest-run.yml` runs the suite) the insert was skipped, `scripts/` won,
+    and `src/runtime/shadow_adapter.py`'s `from ml.predictors.shadow import ...`
+    raised `No module named 'ml.predictors'` before argparse ever ran.
+
+    The fleet sweep reports that as `harness_error` on every cell, which is
+    indistinguishable from "the harness ran and found nothing" in a summary
+    table — so the failure had to become an assertion, not a fixed test env.
+    """
+    import os
+    import subprocess
+    env = dict(os.environ, PYTHONPATH=str(REPO_ROOT))
+    p = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / script), "--help"],
+        capture_output=True, text=True, env=env, cwd=str(REPO_ROOT))
+    assert p.returncode == 0, f"{script} failed to start: {p.stderr[-1500:]}"

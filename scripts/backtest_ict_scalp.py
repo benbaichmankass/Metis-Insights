@@ -36,10 +36,23 @@ import pandas as pd
 
 # Ensure src/ is importable when invoked as a script.
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-if str(Path(__file__).resolve().parent) not in sys.path:
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+# The repo root must PRECEDE this script's own directory, not merely be present.
+# `scripts/ml/` is a REGULAR package (it has an `__init__.py`) and it SHADOWS the
+# repo's top-level `ml/` whenever `scripts/` comes first — which it does by
+# default, since Python puts the script's own directory at sys.path[0].
+# An insert-if-absent guard is not enough: run with `PYTHONPATH=<repo root>`
+# (how CI runs the suite) the root is ALREADY on the path, the insert is skipped,
+# `scripts/` stays in front, and `src/runtime/shadow_adapter.py`'s
+# `from ml.predictors.shadow import ShadowPredictor` dies with
+# "No module named 'ml.predictors'" — the harness fails to start at all, which
+# the fleet sweep reports as `harness_error` for every cell.
+# So REPOSITION rather than insert.
+if str(_REPO_ROOT) in sys.path:
+    sys.path.remove(str(_REPO_ROOT))
+sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
