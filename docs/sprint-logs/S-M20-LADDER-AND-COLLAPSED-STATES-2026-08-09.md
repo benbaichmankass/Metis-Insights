@@ -57,7 +57,8 @@ commits are kept), I continued on the existing branch. Verified before acting.
    `collapsed-state-guard` registered in `scripts/ci/run_guards.py`.
 4. **Matrix corrected** — 8 `exit_ladder` cells off the now-false
    `blocked:no_harness_levers`; two **absent** `vol_trail` cells filled.
-5. Memo § 10; two backlog rows filed; `BL-20260809-COLLAPSED-STATES` closed.
+5. Memo § 10; two backlog rows filed;
+   `BL-20260809-COLLAPSED-STATES-NO-CANONICAL-HOME` closed.
 
 ## Validation Performed
 - **27 tests pass** (19 in the lever suite, **6 new**), incl. an AST test that
