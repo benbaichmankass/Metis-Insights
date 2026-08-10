@@ -460,6 +460,41 @@ def beats(cell: dict, base: dict) -> bool:
     return cn >= bn and cd <= bd and (cn > bn or cd < bd)
 
 
+def beats_detail(cell: dict, base: dict) -> dict:
+    """WHY a cell passed or failed `beats`, per window — the half the report was
+    missing (2026-08-10).
+
+    `beats` is a bool over TWO windows and TWO axes, and the sweep recorded only
+    the collapsed label `is_oos_fail` plus an OOS-ONLY capital table. Measured
+    that day, that combination was unreadable: 18 cells showed a POSITIVE OOS
+    capital delta AND a positive OOS net_R while carrying `is_oos_fail`, and
+    nothing in the artifact could say whether they died on IS net_R, IS maxDD, or
+    OOS maxDD. "Improved out-of-sample, failed in-sample" and "improved both,
+    worsened drawdown" are opposite findings — the first is the classic
+    small-window artifact, the second is a real trade-off — and a Path B
+    threshold set without separating them would be set on half the evidence.
+
+    Returns the per-window deltas plus a `reason` naming the binding constraint
+    (`None` when the window passes). Reports; grades nothing.
+    """
+    try:
+        cn, bn = float(cell["net_total_r"]), float(base["net_total_r"])
+        cd, bd = float(cell["max_drawdown_r"]), float(base["max_drawdown_r"])
+    except (KeyError, TypeError, ValueError):
+        # Unreadable is NOT "failed on net_R" — say which.
+        return {"passed": False, "reason": "unreadable",
+                "d_net_r": None, "d_max_dd": None}
+    reasons = []
+    if cn < bn:
+        reasons.append("net_r_worse")
+    if cd > bd:
+        reasons.append("maxdd_worse")
+    if not reasons and cn == bn and cd == bd:
+        reasons.append("tie_no_improvement")
+    return {"passed": not reasons, "reason": "+".join(reasons) or None,
+            "d_net_r": round(cn - bn, 4), "d_max_dd": round(cd - bd, 4)}
+
+
 def capital_delta(cell: dict, base: dict) -> dict:
     """Cell-vs-base capital-efficiency comparison — **REPORTED, never graded.**
 
@@ -796,6 +831,11 @@ def main(argv: list[str]) -> int:
                 continue
             candidate = beats(c_is, base_is) and beats(c_oos, base_oos)
             entry = {"cell": tag, "is_oos_pass": candidate}
+            # Record WHICH window bound, and on WHICH axis. `is_oos_fail` alone
+            # cannot distinguish "helps only in the recent regime" from "helps
+            # both but costs drawdown"; see beats_detail.
+            entry["gate"] = {"IS": beats_detail(c_is, base_is),
+                             "OOS": beats_detail(c_oos, base_oos)}
             # Capital efficiency is recorded for EVERY cell, including the ones
             # Path A rejects — those are precisely the Path B population, and a
             # verdict file that carried the axis only for Path-A survivors would
@@ -874,9 +914,25 @@ def main(argv: list[str]) -> int:
         for lever, entries in (v.get("levers") or {}).items():
             for e in entries:
                 cap = (e.get("capital") or {}).get("OOS") or {}
+                gate = e.get("gate") or {}
+                g_is, g_oos = gate.get("IS") or {}, gate.get("OOS") or {}
                 dist.append({
                     "leg": leg, "lever": lever, "cell": e["cell"],
                     "path_a": e.get("verdict"),
+                    # BOTH windows, and the binding constraint. Without these a
+                    # positive OOS row carrying `is_oos_fail` is unreadable.
+                    "is_d_net_r": g_is.get("d_net_r"),
+                    "is_d_max_dd": g_is.get("d_max_dd"),
+                    "is_fail_reason": g_is.get("reason"),
+                    "oos_d_max_dd": g_oos.get("d_max_dd"),
+                    "oos_fail_reason": g_oos.get("reason"),
+                    # The split Path B turns on: a cell positive on BOTH windows'
+                    # net_R is a different animal from one positive only on OOS.
+                    "net_r_up_both_windows": (
+                        g_is.get("d_net_r") is not None
+                        and g_is["d_net_r"] > 0
+                        and g_oos.get("d_net_r") is not None
+                        and g_oos["d_net_r"] > 0),
                     "d_net_r_per_capital_day": cap.get("d_net_r_per_capital_day"),
                     "cell_net_r_per_capital_day": cap.get("cell_net_r_per_capital_day"),
                     "base_net_r_per_capital_day": cap.get("base_net_r_per_capital_day"),
@@ -899,16 +955,31 @@ def main(argv: list[str]) -> int:
                        key=lambda d: -(d["d_net_r_per_capital_day"] or 0))
                 + [d for d in dist if d["d_net_r_per_capital_day"] is None],
     }, indent=1))
-    lines += ["", "## Capital efficiency (OOS, Path B input — reported, not graded)",
+    # BOTH-WINDOW split. A cell positive on OOS alone is the classic
+    # small-window artifact; one positive on IS AND OOS is a real candidate.
+    # Collapsing them (which the OOS-only table did) makes a Path B threshold
+    # unsettable — 2026-08-10, 18 cells read positive-but-failing with no way to
+    # tell which kind they were.
+    both = [d for d in measured if d.get("net_r_up_both_windows")]
+    oos_only = [d for d in measured if not d.get("net_r_up_both_windows")]
+    lines += ["", "## Capital efficiency (Path B input — reported, not graded)",
               "", f"Measured on **{len(measured)} of {len(dist)}** cells "
-              f"({len(dist) - len(measured)} unmeasurable → `null`, not 0).", "",
-              "| leg | cell | PathA | Δ net_r/capital_day | Δ net_R | net_R retained |",
-              "|---|---|---|--:|--:|--:|"]
-    for d in sorted(measured, key=lambda d: -(d["d_net_r_per_capital_day"] or 0))[:25]:
+              f"({len(dist) - len(measured)} unmeasurable → `null`, not 0). "
+              f"**{len(both)}** improve net_R on BOTH windows; **{len(oos_only)}** "
+              "only out-of-sample — the latter are NOT Path B candidates, they are "
+              "the small-window artifact the walk-forward exists to catch. "
+              "`why` names the binding constraint that failed Path A.", "",
+              "| leg | cell | PathA | why (IS / OOS) | Δ cap/day | Δ netR OOS | Δ netR IS | Δ maxDD OOS | both↑ |",
+              "|---|---|---|---|--:|--:|--:|--:|:-:|"]
+    for d in sorted(measured,
+                    key=lambda d: (not d.get("net_r_up_both_windows"),
+                                   -(d["d_net_r_per_capital_day"] or 0)))[:30]:
+        why = f"{d.get('is_fail_reason') or 'ok'} / {d.get('oos_fail_reason') or 'ok'}"
         lines.append(
-            f"| {d['leg']} | {d['cell']} | {d['path_a']} | "
+            f"| {d['leg']} | {d['cell']} | {d['path_a']} | {why} | "
             f"{d['d_net_r_per_capital_day']} | {d['d_net_total_r']} | "
-            f"{d['net_r_retained_frac']} |")
+            f"{d.get('is_d_net_r')} | {d.get('oos_d_max_dd')} | "
+            f"{'Y' if d.get('net_r_up_both_windows') else '·'} |")
     (run_dir / "SUMMARY.md").write_text("\n".join(lines) + "\n")
     print(f"capital: {len(measured)}/{len(dist)} cells measured")
     print("done ->", run_dir)
