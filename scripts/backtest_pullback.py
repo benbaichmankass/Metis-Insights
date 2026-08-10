@@ -496,20 +496,20 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         # test, the ratchet and the levers — written once as closures so an
         # arm cannot drift from the baseline by an editing accident. Each
         # returns an (price, reason) exit or None.
-        def _stop_or_target(h: float, l: float):
+        def _stop_or_target(h: float, lo: float):
             if direction == "long":
-                if l <= trail:                    # SL-first (conservative)
+                if lo <= trail:                   # SL-first (conservative)
                     return trail, ("trail_stop" if trail > sl else "stop")
                 if tp_price is not None and h >= tp_price:
                     return tp_price, "take_profit"
             else:
                 if h >= trail:
                     return trail, ("trail_stop" if trail < sl else "stop")
-                if tp_price is not None and l <= tp_price:
+                if tp_price is not None and lo <= tp_price:
                     return tp_price, "take_profit"
             return None
 
-        def _ratchet(h: float, l: float) -> None:
+        def _ratchet(h: float, lo: float) -> None:
             # Advances ext/mfe/trail over ONE window — a leg bar in arm A,
             # a sub-bar in B/C. `ext_j` stays a LEG-bar index so the
             # stall-armed decay keeps counting in the strategy's own bars.
@@ -520,8 +520,8 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                 trail = max(trail, ext - _vol_tm(_eff_tm(ext, ext_j, j), j) * atr)
                 mfe = max(mfe, (ext - entry) / risk)
             else:
-                if l < ext:
-                    ext, ext_j = l, j
+                if lo < ext:
+                    ext, ext_j = lo, j
                 trail = min(trail, ext + _vol_tm(_eff_tm(ext, ext_j, j), j) * atr)
                 mfe = max(mfe, (entry - ext) / risk)
 
@@ -559,8 +559,6 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             # be pre-empted (stop-first stays conservative because the levers
             # only ever fire at the close of a bar the stop did NOT hit).
             bc = float(df["close"].iloc[j])
-            open_r = ((bc - entry) / risk if direction == "long"
-                      else (entry - bc) / risk)
             if flip_exit_bars is not None:
                 bar_mid = df["mid"].iloc[j]
                 if not pd.isna(bar_mid):

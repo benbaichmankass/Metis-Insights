@@ -238,3 +238,30 @@ def test_a_frame_that_is_not_finer_is_refused():
 def test_unknown_grain_is_rejected():
     with pytest.raises(ValueError, match="unknown --exit-grain"):
         bp.run_backtest(_frame(_entering()), **BASE, exit_grain="intrabar")
+
+
+def test_short_trades_run_through_every_arm():
+    """The short branch must execute — it is a separate code path.
+
+    Every other test in this file takes a LONG. The first version of the
+    ratchet renamed its parameter on the long branch only, leaving `l`
+    undefined on the short branch: a short trade in arm B or C would have
+    raised NameError at runtime, and no test here would have noticed.
+    `ruff` caught it as F821, which is luck, not coverage. This is the
+    coverage.
+    """
+    # Mirror of `_entering()`: a DOWNtrend, a shallow bounce, then a down bar.
+    rows = ([_bar(200 - 5 * i) for i in range(12)]
+            + [_bar(149), _bar(151), _bar(150)]
+            + [_bar(150 - 3 * i) for i in range(1, 21)])
+    leg = _frame(rows)
+    sub = _subbars(leg, per=4)
+    outs = {}
+    for grain in ("leg", "levers", "full"):
+        kw = {} if grain == "leg" else {"subbar_df": sub}
+        outs[grain] = bp.run_backtest(leg.copy(), **BASE, stale_exit_bars=6,
+                                      exit_grain=grain, **kw)
+    assert outs["leg"]["trades_short"] >= 1, (
+        "fixture takes no SHORT trade — the short path is still unexercised")
+    for grain in ("levers", "full"):
+        assert outs[grain]["total_trades"] >= 1
