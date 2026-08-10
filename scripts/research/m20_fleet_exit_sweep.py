@@ -749,6 +749,20 @@ def main(argv: list[str]) -> int:
                              "error": base_is.get("error") or base_oos.get("error")}
             continue
         leg_v = {"proxy": p["proxy"], "levers": {}}
+        # HOW FAR AWAY IS THE LIVE TP, IN R? Measured from THIS leg's own frame,
+        # not assumed. `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`
+        # was reported to the operator with an ILLUSTRATIVE "1.3-2.0R" derived
+        # from atr_stop_mult 2.5 at 2-3% ATR — a range that had never been
+        # measured and would harden into fact if left unstated. The harnesses
+        # emit tp_r_effective_{n,median,min,max} whenever the cap is active, and
+        # run_cell already returns the whole summary, so the number is free; it
+        # was simply never surfaced anywhere a reader could see it. `None` here
+        # means the cap was OFF for this run (legacy geometry), which is a
+        # different statement from "the TP is far away".
+        leg_v["live_tp_reach_r"] = {
+            w: {k: d.get(f"tp_r_effective_{k}") for k in ("n", "median", "min", "max")}
+            for w, d in (("IS", base_is), ("OOS", base_oos))
+        }
         # M20 P4.4 — dynamic MFE-percentile decay cell: arm at the leg's own
         # P80 winner-MFE (IS window only) instead of a fixed R. Only where the
         # family has the decay lever and the fixed decay cells are in scope.
@@ -829,6 +843,28 @@ def main(argv: list[str]) -> int:
                      + (f"PASS {passes}" if passes else "all honest negatives"))
     for s in skipped:
         lines.append(f"- **{s['leg']}**: SKIPPED — {s['reason']}")
+
+    # ---- How far away IS the live TP, per leg, measured ----------------------
+    reach = [(leg, v["live_tp_reach_r"]) for leg, v in verdicts.items()
+             if (v.get("live_tp_reach_r") or {}).get("IS", {}).get("n")]
+    if reach:
+        lines += ["", "## Live TP reach (measured per leg, not assumed)", "",
+                  "`tp = min(entry*(1+cap), entry + tp_r*risk)` in units of R — how "
+                  "ordinary a target the 9.9% clamp actually is on THIS leg's frame. "
+                  "The 1.3-2.0R figure quoted when "
+                  "`BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP` was filed "
+                  "was an illustrative ATR-derived range, never a measurement; these "
+                  "are measurements. Empty when the cap is off (legacy geometry) — "
+                  "which is not the same statement as 'the TP is far away'.", "",
+                  "| leg | IS n | IS median | IS min–max | OOS n | OOS median | OOS min–max |",
+                  "|---|--:|--:|--:|--:|--:|--:|"]
+        for leg, r in reach:
+            i, o = r["IS"], r["OOS"]
+            def _rng(d):
+                return (f"{d['min']}–{d['max']}"
+                        if d.get("min") is not None else "—")
+            lines.append(f"| {leg} | {i['n']} | {i['median']} | {_rng(i)} | "
+                         f"{o['n']} | {o['median']} | {_rng(o)} |")
 
     # ---- Capital-efficiency distribution (Path B input, REPORTED not graded) --
     # One row per leg x cell on the OOS window. The operator sets Path B's two
