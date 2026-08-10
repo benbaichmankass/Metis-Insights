@@ -208,12 +208,13 @@ jobs:
                   upstream_prefix="/api/"
                   path="$botpath"
                   ;;
-                performance|stats|positions|positions/net|signals|strategies|strategies/*/review|strategies/*/tune|strategy/attribution|backtests|backtests/sweeps|order-packages|trades/closed|trades/scores|candles|accounts/balances|liquidity|config|insights/summary|insights/recent|insights/health|insights/usage|insights/history|insights/strategy/*|health/latest|health/history|health/services|health/snapshot|shadow/stats|shadow/drift|shadow/predictions|exit-ladder/soak|allocator/soak|fc-geometry/soak|pairs/soak|ml/status|ml/cycle|ml/sessions|ml/registry|ml/builds|ml/db_pulls|ml/runs/*|news/recent|pnl/exchange|pnl/broker-truth|gpu/spend|roadmap|roadmap/sprint/*|reports|reports/*|notifications|prop/fills|prop/tickets|prop/status|prop/reconcile|db/tables|db/table/*)
+                performance|stats|positions|positions/net|signals|strategies|strategies/*/review|strategies/*/tune|strategy/attribution|backtests|backtests/sweeps|order-packages|trades/closed|trades/scores|candles|accounts/balances|liquidity|config|insights/summary|insights/recent|insights/health|insights/usage|insights/history|insights/strategy/*|health/latest|health/history|health/services|health/snapshot|shadow/stats|shadow/drift|shadow/predictions|exit-ladder/soak|allocator/soak|fc-geometry/soak|pairs/soak|exposure/soak|ml/status|ml/cycle|ml/sessions|ml/registry|ml/builds|ml/db_pulls|ml/runs/*|news/recent|pnl/exchange|pnl/exchange/fills|pnl/broker-truth|gpu/spend|roadmap|roadmap/sprint/*|reports|reports/*|notifications|prop/fills|prop/tickets|prop/status|prop/reconcile|db/tables|db/table/*)
                   upstream_prefix="/api/bot/"
                   path="$botpath"
                   ;;
                 *)
                   echo "::error::/api/bot/ path not in the relay read-only allowlist: $botbase"
+                  echo "diag_reject_reason=/api/bot/ path not in the relay read-only allowlist: $botbase" >>"$GITHUB_ENV"
                   exit 1
                   ;;
               esac
@@ -229,6 +230,7 @@ jobs:
           # commands into the ssh + curl invocation below.
           if ! printf '%s' "$path" | grep -qE '^[A-Za-z0-9/?&=_.:%-]+$'; then
             echo "::error::Rejected diag_path (illegal characters): $DIAG_PATH"
+            echo "diag_reject_reason=illegal characters in resolved path: $path" >>"$GITHUB_ENV"
             exit 1
           fi
           echo "diag_path_safe=$path" >>"$GITHUB_ENV"
@@ -350,6 +352,16 @@ jobs:
               "health/snapshot",
               "shadow/stats", "shadow/drift", "shadow/predictions",
               "exit-ladder/soak", "allocator/soak", "fc-geometry/soak", "pairs/soak",
+              # exposure/soak + pnl/exchange/fills (2026-08-10): both shipped as
+              # Tier-1 read surfaces and were never added here, so the ONLY
+              # session type that reviews them (a relay-only Trusted-network
+              # session) could not reach them. exposure/soak blocked
+              # BL-20260809-EXPOSURE-SOAK-NOT-YET-TAKEN — the item asks for the
+              # observation window the endpoint exists to serve. Adding a
+              # /api/bot/* read surface WITHOUT adding it here ships it
+              # unreachable; treat this list as part of the endpoint's
+              # definition of done.
+              "exposure/soak", "pnl/exchange/fills",
               # ML lifecycle (BL-20260708-RELAY-ALLOWLIST-ML) — the /ml-review's
               # registry/cycle/dataset-build/db-pull mandate. These read the
               # trainer-store sidecar mirrored onto the LIVE VM, so they stay
@@ -459,6 +471,20 @@ jobs:
                   prefix, p = resolve_one(c)
               except ValueError as e:
                   print(f"::error::Rejected diag path {c!r}: {e}", file=sys.stderr)
+                  # Carry the ACTUAL reason to the issue comment. Without this
+                  # the comment invented a single cause ("your body format is
+                  # wrong") for a step with several distinct rejection paths —
+                  # allowlist miss, illegal characters, empty path — so a
+                  # caller whose body format was fine was told to fix the one
+                  # thing that was not broken. That is the UNPROVENANCED
+                  # DIAGNOSTIC OUTPUT class (sub-class A, a failure message
+                  # naming a cause no code path tested) that
+                  # diagnostic-provenance-guard exists to catch.
+                  reason = f"{e}  (offending entry: {c!r})"
+                  env_path = os.environ.get("GITHUB_ENV")
+                  if env_path:
+                      with open(env_path, "a") as envf:
+                          envf.write(f"diag_reject_reason={reason}\n")
                   sys.exit(1)
               resolved.append((c, prefix, p))
 
@@ -651,6 +677,12 @@ jobs:
       - name: Reply to issue with failure note
         if: github.event_name == 'issues' && failure() && steps.dedup.outputs.skip != 'true'
         uses: actions/github-script@v7
+        env:
+          # Set by whichever resolve step rejected the request. Read via
+          # process.env (NOT ${{ }} interpolation) so an arbitrary rejection
+          # string — which embeds caller-supplied text — can never break out
+          # of the script literal.
+          DIAG_REJECT_REASON: ${{ env.diag_reject_reason }}
         with:
           script: |
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
@@ -661,7 +693,7 @@ jobs:
               body: (
                 '${{ steps.resolve.outcome }}' === 'failure' || '${{ steps.resolve_multi.outcome }}' === 'failure'
               )
-                ? `❌ **vm-diag-snapshot run failed — MALFORMED REQUEST, not a VM outage.**\nRun: ${runUrl}\n\nThe diag path failed validation before any VM contact was attempted, so this says **nothing** about the live VM's health.\n\n**The path is read from the issue BODY** (the title is display-only). Put ONE \`/api/diag/...\` path per line in the body and **no prose** — a sentence like "path is in the title" is itself parsed as a path and rejected. Example body:\n\n\`\`\`\n/api/diag/audit_query?event=regime_hard_gate&limit=500\n\`\`\`\n\nSee the exact rejection in the run log's "Resolve and validate diag path" step.`
+                ? `❌ **vm-diag-snapshot run failed — REQUEST REJECTED AT VALIDATION, not a VM outage.**\nRun: ${runUrl}\n\nThe request failed validation before any VM contact was attempted, so this says **nothing** about the live VM's health.\n\n**Exact rejection reason:**\n\n\`\`\`\n${process.env.DIAG_REJECT_REASON || '(not captured — see the run log\'s "Resolve and validate diag path" step)'}\n\`\`\`\n\nThe three distinct causes, so you fix the one you actually hit:\n\n1. **\`not in the relay read-only allowlist\`** — the \`/api/bot/*\` endpoint exists but was never added to this workflow's allowlist. That is a **gap in the relay, not a mistake in your request**: add the path to BOTH allowlists in \`vm-diag-snapshot.yml\` (the shell \`case\` and \`BOT_ALLOWLIST_EXACT\`). One bad path fails the WHOLE batch, so drop it and re-request the rest meanwhile.\n2. **\`illegal characters\`** — the resolved path must match \`^[A-Za-z0-9/?&=_.:%-]+$\`. Spaces, commas and prose are rejected; \`:\` (ISO timestamps) and \`%\` are allowed.\n3. **\`empty path\`** — a blank or prose-only body line.\n\n**Where the path is read from:** a body that parses to a non-empty list (JSON array, or one path per line) wins and is used as a batch; an empty/unparsable body falls back to the single path in the title.`
                 : `❌ **vm-diag-snapshot run failed.**\nRun: ${runUrl}\n\nThe request parsed fine, so this is an infrastructure failure. Common causes: VM_SSH_KEY/DIAG_READ_TOKEN secret unset, malformed key, VM web-api down, token mismatch with /etc/ict-trader/web-api.env.`
             });
             await github.rest.issues.update({

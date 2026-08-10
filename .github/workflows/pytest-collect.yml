@@ -51,6 +51,21 @@ on:
   # recovered.
   workflow_dispatch:
 
+# Concurrency (2026-08-10, BL-20260810-REQUIRED-WORKFLOWS-NO-CONCURRENCY-GROUP).
+# Without a group, a re-queue (a second push to the same PR, or the
+# `opened`+`synchronize` double-fire) STACKS a second full run instead of
+# superseding the first — for pytest-collect that is a wasted ~full dependency install against the
+# 2,000-minute free-tier cap this repo already hit once (MB-20260706-CI-MINUTES).
+# Observed live on PR #8733: a second commit queued a second full suite while
+# the first was still running.
+#
+# `github.event_name` is IN THE GROUP KEY deliberately: a `merge_group` run must
+# NEVER be cancelled by a `pull_request` run on the same ref, or the merge queue
+# stalls on a required check that reports `cancelled`. Same shape as guards.yml.
+concurrency:
+  group: pytest-collect-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

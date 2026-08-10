@@ -240,3 +240,80 @@ class TestPipelineShim:
         with patch.object(market_data, "_build_exchange_client",
                           return_value=sentinel):
             assert pipeline._build_killzone_exchange({}) is sentinel
+
+
+class TestExchangeClientCache:
+    """The connector memo added 2026-08-10 (BL-20260810-TICK-CHAIN-260S-PER-TICK).
+
+    It exists because every strategy builder constructed a fresh ccxt client and
+    paid a full market-catalogue download (~3.2s x ~52 builders of a 251s tick).
+    These tests pin the two properties that make it safe to share one.
+    """
+
+    def _fresh(self):
+        from src.runtime import market_data
+        try:
+            import src.exchange.bybit_connector  # noqa: F401
+        except ImportError as exc:  # sandbox without ccxt — same guard as above
+            pytest.skip(f"bybit_connector import failed in sandbox: {exc}")
+        market_data.reset_exchange_client_cache()
+        return market_data
+
+    def test_same_credentials_reuse_one_client(self, monkeypatch):
+        market_data = self._fresh()
+
+        class _FakeBybit:
+            def __init__(self, **kw):
+                pass
+
+        monkeypatch.setattr(
+            "src.exchange.bybit_connector.BybitConnector", _FakeBybit
+        )
+        first = market_data._build_exchange_client({})
+        second = market_data._build_exchange_client({})
+        assert first is second, "connector memo must return the same instance"
+
+    def test_swapping_the_connector_class_misses_the_cache(self, monkeypatch):
+        """REGRESSION (CI, 2026-08-10): a warmed cache made monkeypatch inert.
+
+        ``test_default_is_bybit`` passed in isolation and FAILED in the full
+        suite, because an earlier test had already cached a real
+        ``BybitConnector`` — so the patched class was never constructed and the
+        caller silently received the pre-patch object. The cache key now
+        includes the identity of the class that would actually be built, so a
+        swap misses and rebuilds.
+        """
+        market_data = self._fresh()
+
+        class _FakeA:
+            def __init__(self, **kw):
+                pass
+
+        class _FakeB:
+            def __init__(self, **kw):
+                pass
+
+        monkeypatch.setattr("src.exchange.bybit_connector.BybitConnector", _FakeA)
+        first = market_data._build_exchange_client({})
+        assert isinstance(first, _FakeA)
+
+        monkeypatch.setattr("src.exchange.bybit_connector.BybitConnector", _FakeB)
+        second = market_data._build_exchange_client({})
+        assert isinstance(second, _FakeB), (
+            "a swapped connector class must MISS the cache, not return a stale client"
+        )
+
+    def test_ib_is_never_memoized(self, monkeypatch):
+        """IB holds a live socket on a specific clientId — sharing one instance
+        is the BL-20260706-IBACCTUPDATES-COLLISION multi-client hazard."""
+        market_data = self._fresh()
+        built = []
+
+        def _fake_ib(settings):
+            built.append(1)
+            return object()
+
+        monkeypatch.setattr(market_data, "_build_ib_market_data", _fake_ib)
+        market_data._build_exchange_client({"EXCHANGE": "interactive_brokers"})
+        market_data._build_exchange_client({"EXCHANGE": "interactive_brokers"})
+        assert len(built) == 2, "IB must be rebuilt every time, never cached"
