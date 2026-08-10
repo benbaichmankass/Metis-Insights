@@ -1114,6 +1114,54 @@ def main(argv: list[str]) -> int:
             w: {k: d.get(f"tp_r_effective_{k}") for k in ("n", "median", "min", "max")}
             for w, d in (("IS", base_is), ("OOS", base_oos))
         }
+        # THE BASE BOOK, PER WINDOW — recorded for EVERY leg, unconditionally.
+        #
+        # `drawdown_exchange_rate` already computes `base_net_r`/`base_max_dd`,
+        # but only inside a Path B candidate's entry — so the one axis a Path B
+        # FLOOR would be defined on (`net_R per unit of drawdown`, the rate the
+        # allowance is scaled from) was recorded ONLY for cells that had already
+        # passed the Path B predicate. Deriving a floor from that corpus would
+        # condition on the outcome: the legs whose rate is low enough to be the
+        # problem are exactly the ones most likely to admit a candidate, so they
+        # are over-represented, and the legs that produced no candidate at all
+        # contribute nothing — the denominator is missing by construction.
+        #
+        # The operator's ask (2026-08-10) is a floor derived from capital-
+        # utilisation + PnL data rather than picked. That requires the rate for
+        # the WHOLE population, which is what this block records. It is free:
+        # `run_cell` already returned the whole base summary.
+        #
+        # `rate` is None -- never 0.0 -- when the base book cannot express one.
+        # A book that lost money and a book with no drawdown are not "rate zero";
+        # they are two distinct ungradeable states, and `why` says which, so a
+        # consumer ranking on the rate can drop them rather than sort them to the
+        # bottom as if measured (docs/CLAUDE-RULES-CANONICAL.md, "Collapsed
+        # states").
+        def _base_book(d: dict) -> dict:
+            def _f(k):
+                try:
+                    v = d.get(k)
+                    return float(v) if v is not None else None
+                except (TypeError, ValueError):
+                    return None
+            n, dd = _f("net_total_r"), _f("max_drawdown_r")
+            if n is None or dd is None:
+                rate, why = None, "unreadable"
+            elif n <= 0:
+                rate, why = None, "base_unprofitable"
+            elif dd <= 0:
+                rate, why = None, "base_no_drawdown"
+            else:
+                rate, why = round(n / dd, 4), None
+            return {"net_total_r": n, "max_drawdown_r": dd,
+                    "net_r_per_drawdown_r": rate, "rate_ungradeable_why": why,
+                    "total_trades": d.get("total_trades"),
+                    "net_r_per_capital_day": d.get("net_r_per_capital_day"),
+                    "capital_days": d.get("capital_days"),
+                    "mean_bars_held": d.get("mean_bars_held")}
+
+        leg_v["base_book"] = {"IS": _base_book(base_is),
+                              "OOS": _base_book(base_oos)}
         # M20 P4.4 — dynamic MFE-percentile decay cell: arm at the leg's own
         # P80 winner-MFE (IS window only) instead of a fixed R. Only where the
         # family has the decay lever and the fixed decay cells are in scope.
