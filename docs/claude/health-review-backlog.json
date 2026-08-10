@@ -11097,7 +11097,7 @@
       "id": "BL-20260809-API-TIER-INVENTORY-77PCT-STALE",
       "opened_at": "2026-08-09T23:20:00+00:00",
       "opened_by": "claude (system-review ma0ava)",
-      "status": "open",
+      "status": "resolved",
       "tier": 1,
       "severity": "medium",
       "source": "MEASURED 2026-08-09 by joining every `@router.<verb>(\"...\")` under src/web/api/routers/ to its `APIRouter(prefix=...)` and checking each against docs/api-tier-policy.md, CREDITING the Tier-2.5 family row (which names diag leaves after a sibling full path). Pre-backfill: 62 of 90 absent (69%). A naive exact-string match reports 76% and over-counts. After this session backfilled the diag family + its own three routes: 54 of 90 (60%).",
@@ -11105,7 +11105,16 @@
       "what_to_check": "The file's own header says 'single source of truth for which routes are Tier 1 / 2 / 2.5 / 3', and CLAUDE.md points at it for 'the complete tier inventory'. On the completeness axis that is false: 54 of 90 live routes have no row.\\n\\nThe cause is structural, not neglect. Every sibling inventory that STAYS correct has a CI check behind it — canonical-doc-coherence, provenance-consumer-guard, new-table-wiring-guard, canonical-db-resolver. This one never did, so every route added since S-063 (2026-05-09) could land without a row and none announced itself.\\n\\nAlso corrected in the same pass: the Tier-1 preamble described the VERCEL REWRITE proxying /api/* with CORS as the gate. That stack was retired 2026-05-12 and purged from the repo; today's consumers are Streamlit (server-side), the Svelte SPA (browser-direct), and Android. The TIER was right; the transport rationale was two-and-a-half months stale and read as current.\\n\\nWORTH NOTING FOR WHOEVER BACKFILLS: the completeness figure was miscounted twice while writing the warning banner (77% -> 69% once the family row was credited -> 60% after this PR's own backfill). A hand-counted completeness claim is stale the moment anyone edits the file, INCLUDING the person writing the claim. That is the argument for the guard rather than for a periodic manual audit.",
       "action": "Ship a DIFF-SCOPED guard: a new or changed route under src/web/api/routers/ must carry a row in docs/api-tier-policy.md; the existing 54 are grandfathered. Same shape as diagnostic-provenance-guard, so the backlog shrinks instead of growing and no PR is blocked on a pre-existing gap.\\n\\nThen backfill the 54 as a scoped cleanup. Do NOT bulk-generate the rows: each is a TIER JUDGEMENT about a live surface, and a confidently-wrong tier is worse than a missing one. Until then the banner at the top of the file tells readers to treat it as a partial sample.",
       "resolution_criteria": "The guard is merged and green, and the 54 pre-existing routes are either rowed or explicitly listed as out of scope with a reason.",
-      "snoozed_until": null
+      "snoozed_until": null,
+      "resolved_at": "2026-08-09T23:55:00+00:00",
+      "resolution_note": "RESOLVED. Guard shipped FIRST, then the backfill, per the item's own action. (1) GUARD: scripts/check_api_tier_policy.py, registered as `api-tier-policy-guard` in scripts/ci/run_guards.py, with a failure-path self-test in scripts/ci/guard_selftests.py and 24 unit tests in tests/test_check_api_tier_policy.py. It enumerates routes by AST, joining each @router.<verb> to its APIRouter(prefix=...), and CREDITS the Tier-2.5 family-row convention (a bare leaf resolves against the last full path in the same row) so it does not pressure a correct document into a reformat. (2) BACKFILL: all missing rows written by reading the ACTUAL gate in each router, not the route name. Coverage is now 92/92 (100%), computed by `--list`, and a test asserts the number stated in the doc equals a freshly computed one — the previous banner's figure was hand-miscounted twice (77% -> 69% -> 60%). (3) NUMBERS: this session measured 92 routes / 36 documented where the item recorded 90 / 36 — same documented count, two apart on the denominator, hours later. Not reconciled and not worth reconciling: it is the argument for the guard. The enumerator was instead verified against the LIVE FastAPI route table (app.routes) — it finds exactly those 92 with zero false positives, and the only live routes outside its population are GET /api/health plus FastAPI's four built-in docs routes. (4) _GRANDFATHERED ships EMPTY: since the backfill completed in the same PR, nothing needed grandfathering, so an entry there is now a reviewable decision rather than accumulated debt. (5) STRUCTURAL FINDING, recorded not silently reconciled: four routes are gated by a THIRD bearer (DASHBOARD_API_TOKEN) that the four-tier taxonomy had no home for, and the two gates fail in OPPOSITE directions when the var is unset — POST /api/bot/prop/report is fail-CLOSED (503), while GET/DELETE/PATCH on /api/bot/devices are fail-OPEN (serve permissively). They are now a labelled Tier-2 sub-table stating that per row. CLAUDE.md labels the devices rows Tier 1 on the strength of the permissive default; the divergence is documented in place rather than resolved by rewriting either doc, because tightening a gate is a runtime change.",
+      "refs": [
+        "scripts/check_api_tier_policy.py",
+        "docs/api-tier-policy.md",
+        "tests/test_check_api_tier_policy.py",
+        "scripts/ci/run_guards.py",
+        "scripts/ci/guard_selftests.py"
+      ]
     },
     {
       "id": "BL-20260809-XAU-PROXY-DATASET-GONE-VERDICTS-UNREPRODUCIBLE",
@@ -11170,8 +11179,33 @@
         "docs/CLAUDE-RULES-CANONICAL.md",
         "docs/sprint-logs/S-M20-COVERAGE-AND-VERIFY-2026-08-09.md"
       ]
+    },
+    {
+      "id": "BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH",
+      "opened_at": "2026-08-09T23:55:00+00:00",
+      "opened_by": "claude (api-tier-policy-guard-npihz7)",
+      "source": "Observed while registering `api-tier-policy-guard`, then VERIFIED by running `python3 scripts/ci/run_guards.py --only api-tier-policy-guard --all`, which printed `(skipped: step not relevant to this diff)` for the `when`-gated step while the ungated step ran. Mechanism, in scripts/ci/run_guards.py::main: `changed = [] if args.all else changed_files(...)`. `--all` sets force_all, which bypasses relevance for the GUARD, but the per-STEP check in run_guard() calls `is_relevant(step['when'], changed)` against that same EMPTY `changed` list — so a per-step `when` with globs can never match under `--all`.",
+      "title": "Per-step `when` clauses are silently SKIPPED on push/workflow_dispatch, so guards.yml's 'on push, run EVERYTHING' is nominal rather than real for step-gated guards",
+      "tier": 1,
+      "status": "resolved",
+      "snoozed_until": null,
+      "severity": "low",
+      "what_to_check": "guards.yml says in a comment that push/workflow_dispatch runs `--all` because there is no PR diff to scope by, and that this is 'stricter than the retired per-workflow push behaviour, never weaker'. For guards whose SCAN lives in a `when`-gated step that is exactly inverted: the guard is selected, its ungated steps run, and its scan is skipped. AFFECTED (grep for a step dict carrying 'when'): `diagnostic-provenance-guard` — its scan step is `{'argv': [...check_diagnostic_provenance.py, '{pr_diff}'], 'when': {'regex': '^scripts/.*\\\\.py$'}}`, so on a push to main only its self-test runs and the scan does not. Others should be enumerated rather than assumed — I only confirmed the mechanism and the one instance I was sitting next to. NOT a live-trading issue and NOT urgent: the diff-scoped PR path is the one that actually gates merges, and it works. The cost is that the push-time 'run everything' is weaker than the comment claims, which is the sort of thing that reads as coverage when it is not — the same green-that-checked-nothing shape the repo already tracks.",
+      "proposed_fix": "Pick one, deliberately: (a) under force_all, treat a per-step `when` as satisfied rather than evaluating it against an empty list — one line in run_guard(), and it makes the comment true; (b) leave the behaviour and fix the comment in guards.yml so nobody reads push as a full sweep; or (c) leave both and require any guard that wants a real push-time audit to carry an ungated step, which is what `api-tier-policy-guard` does deliberately (see its registry comment). (a) is the smallest change but flips behaviour for every step-gated guard at once, so it wants its own PR and a look at what newly starts running on push — do not fold it into an unrelated change.",
+      "related": [
+        "BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES"
+      ],
+      "refs": [
+        "scripts/ci/run_guards.py",
+        ".github/workflows/guards.yml",
+        "scripts/ci/run_guards.py",
+        ".github/workflows/guards.yml",
+        "tests/test_run_guards_step_scoping.py"
+      ],
+      "resolved_at": "2026-08-10T01:10:00+00:00",
+      "resolution_note": "RESOLVED — but NOT by the fix this item proposed, and the correction is the point. The item offered (a) 'under force_all, treat a per-step `when` as satisfied — one line, and it makes the comment true'. MEASURED before implementing: BOTH step-gated commands in the registry (the only two — `api-tier-policy-guard` and `diagnostic-provenance-guard`) consume `{pr_diff}`, and on push that file is EMPTY. Forcing them to run makes `check_diagnostic_provenance.py` print 'OK - every scanned diagnostic states what it computed' and exit 0 having scanned NOTHING. Option (a) would have made the comment true and the CHECK false — manufacturing exactly the green-that-checked-nothing this repo treats as worse than a red. Substituting the whole-tree equivalent is not a drop-in either: `check_diagnostic_provenance.py --all` exits 1 on 52 pre-existing grandfathered sites (that is WHY it is diff-scoped), so wiring it to push would redden `main` on every merge. SO THE SKIP IS CORRECT AND STAYS. What was actually wrong was that it was INDISTINGUISHABLE from an ordinary not-relevant skip — the reader could not tell 'we asked about this diff and it did not apply' from 'there was no diff to ask about'. SHIPPED: (1) `run_guard()` takes `no_diff_scope`/`unscoped` and names the real reason on the skip line; (2) the run summary prints a 'NOT SCANNED on this event (N)' block listing those steps and stating that a guard needing real push coverage must carry an UNGATED whole-tree step; (3) `guards.yml`'s 'stricter ... never weaker' comment — the actual defect, since it was the claim that made the gap invisible — is corrected in place; (4) `tests/test_run_guards_step_scoping.py` pins the distinction, AND asserts the premise the decision rests on (every step-gated command consumes `{pr_diff}`; the population is exactly those two guards) so a future step that scans the whole tree fails the test rather than silently inheriting reasoning that no longer applies to it. NOTE the affected population was 2, not the 'several' this item guessed at — the guess is corrected here rather than left standing."
     }
   ],
-  "updated_at": "2026-08-10T00:00:00+00:00",
+  "updated_at": "2026-08-10T01:20:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }

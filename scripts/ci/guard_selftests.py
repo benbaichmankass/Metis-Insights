@@ -184,6 +184,47 @@ def selftest_diagnostic_provenance() -> None:
     print("self-test OK — the guard still fails closed (exit 1 on a known-bad input).")
 
 
+def selftest_api_tier_policy() -> None:
+    """A new route with no tier row must be caught.
+
+    Plants a real router file (the guard reads from disk, joining the
+    decorator to its ``APIRouter(prefix=...)``) plus a diff that adds it, and
+    asserts the guard exits 1. If this ever passes, the inventory's "single
+    source of truth" claim is unenforced again — which is the exact state the
+    guard was written to end.
+    """
+    planted = REPO / "src" / "web" / "api" / "routers" / "_selftest_route.py"
+    src = (
+        "from fastapi import APIRouter\n"
+        'router = APIRouter(prefix="/api/bot", tags=["bot"])\n'
+        '@router.get("/selftest-undocumented-route")\n'
+        "def handler():\n"
+        "    return {}\n"
+    )
+    bad_diff = (
+        "--- /dev/null\n"
+        "+++ b/src/web/api/routers/_selftest_route.py\n"
+        "@@ -0,0 +1,5 @@\n"
+        + "".join(f"+{line}\n" for line in src.splitlines())
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".diff", delete=False) as fh:
+        fh.write(bad_diff)
+        diff_path = fh.name
+    try:
+        with _planted(planted, src):
+            rc = _rc(["python3", "scripts/check_api_tier_policy.py", diff_path])
+        if rc != 1:
+            raise SystemExit(
+                f"::error::SELF-TEST FAILED — the guard returned {rc} on a route "
+                "with no tier row (expected 1). Its failure path is broken, so a "
+                "green from it means nothing. Fix the guard before trusting it."
+            )
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            Path(diff_path).unlink()
+    print("self-test OK — the guard still fails closed (exit 1 on an unrowed route).")
+
+
 def selftest_harness_lever_coupling() -> None:
     """An injected unclassified strategy key must be reported as a coupling gap."""
     g = _load("scripts/check_harness_lever_coupling.py")
@@ -237,6 +278,7 @@ def selftest_timestamp_comparison() -> None:
 
 
 SELFTESTS: Dict[str, Callable[[], None]] = {
+    "api-tier-policy": selftest_api_tier_policy,
     "claim-basis": selftest_claim_basis,
     "impossibility-claim": selftest_impossibility_claim,
     "diag-unit-allowlist": selftest_diag_unit_allowlist,

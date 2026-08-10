@@ -102,8 +102,23 @@ jobs:
         run: |
           set +e
           # On push / workflow_dispatch there is no PR diff to scope relevance
-          # by, so run EVERYTHING — stricter than the retired per-workflow
-          # push behaviour, never weaker.
+          # by, so run every GUARD.
+          #
+          # Read that precisely: `--all` disables relevance at the GUARD level.
+          # A guard's individual STEPS may still carry their own `when`, and
+          # those are evaluated against the changed-file list, which is EMPTY
+          # here — so a step gated that way does not run on this event. That is
+          # deliberate, not an oversight: every such step today consumes
+          # `{pr_diff}`, and on push that file is empty, so running it would
+          # report a green having scanned nothing. `run_guards.py` prints those
+          # steps under "NOT SCANNED on this event" rather than letting them
+          # look covered. A guard that needs genuine push-time coverage carries
+          # an UNGATED whole-tree step (see `api-tier-policy-guard`).
+          #
+          # This comment previously read "stricter than the retired
+          # per-workflow push behaviour, never weaker", which was wrong in that
+          # one respect and is corrected here
+          # (BL-20260809-GUARD-STEP-WHEN-SKIPS-ON-PUSH).
           EXTRA=""
           case "${{ github.event_name }}" in
             push|workflow_dispatch) EXTRA="--all" ;;
