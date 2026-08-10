@@ -11106,6 +11106,47 @@
       "action": "Ship a DIFF-SCOPED guard: a new or changed route under src/web/api/routers/ must carry a row in docs/api-tier-policy.md; the existing 54 are grandfathered. Same shape as diagnostic-provenance-guard, so the backlog shrinks instead of growing and no PR is blocked on a pre-existing gap.\\n\\nThen backfill the 54 as a scoped cleanup. Do NOT bulk-generate the rows: each is a TIER JUDGEMENT about a live surface, and a confidently-wrong tier is worse than a missing one. Until then the banner at the top of the file tells readers to treat it as a partial sample.",
       "resolution_criteria": "The guard is merged and green, and the 54 pre-existing routes are either rowed or explicitly listed as out of scope with a reason.",
       "snoozed_until": null
+    },
+    {
+      "id": "BL-20260809-XAU-PROXY-DATASET-GONE-VERDICTS-UNREPRODUCIBLE",
+      "opened_at": "2026-08-09T23:50:00+00:00",
+      "opened_by": "claude (m20-ladder session)",
+      "status": "open",
+      "tier": 1,
+      "severity": "medium",
+      "area": "research-data",
+      "title": "data/XAUUSD_15m_deep.csv is gone from the trainer — ict_scalp_mgc_15m's SHIPPED M27 verdicts cannot be reproduced",
+      "source": "MEASURED 2026-08-09 via trainer-vm-diag #8696 with a positive control (the probe listed 67 files in data/ and matched every other leg's CSV, so the absence is real and not a broken probe). Probed for MGC_*, XAUUSD_*: NONE. Only GC_F_1d.csv and GC_F_1h.csv remain. The 2026-07-28 M27 round (scripts/research/m27/ict_scalp_exit_sweep.py, default --data data/XAUUSD_15m_deep.csv) measured that leg's stale_stop + giveback_stop verdicts on the powered Dukascopy spot-XAU 15m proxy.",
+      "what_to_check": "This is a REPRODUCIBILITY gap, not just a missing input for new work. Two coverage-matrix cells on a LIVE leg (ict_scalp_mgc_15m stale_stop, giveback_stop) currently assert honest_negative on evidence nobody can re-derive. The matrix's own contract is 'statuses only from verified evidence — never inferred'; evidence whose input no longer exists is a weaker claim than the cell reads. Its exit_ladder cell is recorded blocked:data_missing for the same reason.",
+      "action": "Regenerate on a FREE GitHub runner, not the trainer — .github/workflows/research-symbol-p0-build.yml exists for exactly this (Dukascopy fetch + ict_scalp validation, instrument INSTRUMENT_FX_METALS_XAU_USD), and its own header says it was built because the deep XAU fetch kept dying at the trainer relay's 10-min job cap. Then re-run the stale/giveback cells to confirm the existing verdicts still reproduce, and run the new exit_ladder cells.",
+      "resolution_criteria": "The XAU 15m deep proxy is regenerated and its provenance recorded, ict_scalp_mgc_15m's stale_stop/giveback_stop verdicts are confirmed to reproduce (or corrected if they do not), and its exit_ladder cell carries a real verdict instead of blocked:data_missing.",
+      "snoozed_until": null,
+      "refs": [
+        "docs/research/M20-exit-refinement-2026-07-12.md#10.4",
+        "docs/research/exit-refinement-coverage.json",
+        "scripts/research/m27/ict_scalp_exit_sweep.py",
+        ".github/workflows/research-symbol-p0-build.yml"
+      ]
+    },
+    {
+      "id": "BL-20260809-SCALP-HARNESS-LOADS-BTC-YAML-FOR-EVERY-LEG",
+      "opened_at": "2026-08-09T23:52:00+00:00",
+      "opened_by": "claude (m20-ladder session)",
+      "status": "open",
+      "tier": 1,
+      "severity": "low",
+      "area": "research-tooling",
+      "title": "backtest_ict_scalp._load_yaml_params() ALWAYS loads the ict_scalp_5m block — safe today only because the 8 legs happen to be identical",
+      "source": "scripts/backtest_ict_scalp.py::_load_yaml_params hardcodes load_strategy_config().get('ict_scalp_5m'). Every sweep of every ict_scalp leg (m27 sweep, m20_fleet_exit_sweep scalp branch, M27 run_symbol_p0) therefore runs BTC's detection params regardless of --symbol/--timeframe.",
+      "what_to_check": "VERIFIED SAFE AS OF 2026-08-09 — I diffed all eight leg blocks in config/strategies.yaml rather than trusting the 'every ict_scalp leg is a config-exact copy' comment: detection geometry is byte-identical across all eight, and exactly four keys differ (off_cells + vol_spec on xrp_5m; stale_exit_bars + stale_exit_below_r on eth_15m), none of which _load_yaml_params feeds. So today the substitution is a no-op.\n\nThe RISK is that this safety is a coincidence of config, not a property of the code, and nothing detects the day it stops holding. If any leg's detection params are ever tuned independently, every sweep of that leg silently measures BTC's strategy under that leg's name and reports a confident, wrong verdict into the coverage matrix — with no error and no diagnostic naming the substitution. That is textbook UNPROVENANCED DIAGNOSTIC OUTPUT sub-class B (implicit input selection), which diagnostic-provenance-guard exists to catch.",
+      "action": "Either (a) resolve params from the leg actually being swept (the harness already takes --symbol/--timeframe, and the m27 sweep now takes --leg, so the leg name is available), or (b) keep the shared load but ASSERT at startup that the requested leg's detection params equal ict_scalp_5m's and fail loudly with the diff when they do not. (b) is cheaper and turns a silent wrong answer into a stop.",
+      "resolution_criteria": "A sweep of an ict_scalp leg whose detection params diverge from ict_scalp_5m either uses that leg's own params or refuses to run — never silently substitutes BTC's.",
+      "snoozed_until": null,
+      "refs": [
+        "scripts/backtest_ict_scalp.py",
+        "scripts/research/m27/ict_scalp_exit_sweep.py",
+        "CLAUDE.md#diagnostic-provenance"
+      ]
     }
   ],
   "updated_at": "2026-08-09T00:00:00+00:00",
