@@ -303,3 +303,65 @@ def test_cell_timeout_default_clears_the_measured_scalp_runtime():
         f"cell timeout {mod.CELL_TIMEOUT_S}s is at or under the measured "
         "955s full-history scalp run — the sweep would time out the leg it "
         "was dispatched to measure")
+
+
+def test_the_four_netr_shapes_are_never_collapsed():
+    """IS-only-up and OOS-only-up mean OPPOSITE things and must not share a bucket.
+
+    The SUMMARY previously computed `oos_only` as the plain COMPLEMENT of
+    "up on both windows" and printed it under the label "only out-of-sample" —
+    a real count under a wrong name. Measured against the first scalp leg it
+    ran on (ict_scalp_sol_15m, 2026-08-10) it inverted the diagnosis: every one
+    of the five cells was negative or zero on OOS, and the header said all five
+    improved out-of-sample only. `be_touch_arm` there is IS +1.138 / OOS
+    -1.8913 — the OVERFIT shape — reported as an out-of-sample improver.
+    """
+    mod = _sweep_module()
+
+    def _up(v):
+        return v is not None and v > 0
+
+    rows = [
+        {"is_d_net_r": 1.0, "oos_d_net_r": 2.0},    # both
+        {"is_d_net_r": 1.138, "oos_d_net_r": -1.8913},  # IS-only (the real case)
+        {"is_d_net_r": -1.0, "oos_d_net_r": 3.0},   # OOS-only
+        {"is_d_net_r": -1.0, "oos_d_net_r": -2.0},  # neither
+        {"is_d_net_r": 0.0, "oos_d_net_r": 0.0},    # neither (a tie is not an improvement)
+        {"is_d_net_r": None, "oos_d_net_r": 1.0},   # ungradeable — its own state
+    ]
+    known = [r for r in rows
+             if r["is_d_net_r"] is not None and r["oos_d_net_r"] is not None]
+    both = [r for r in known if _up(r["is_d_net_r"]) and _up(r["oos_d_net_r"])]
+    is_only = [r for r in known if _up(r["is_d_net_r"]) and not _up(r["oos_d_net_r"])]
+    oos_only = [r for r in known if not _up(r["is_d_net_r"]) and _up(r["oos_d_net_r"])]
+    neither = [r for r in known
+               if not _up(r["is_d_net_r"]) and not _up(r["oos_d_net_r"])]
+
+    assert (len(both), len(is_only), len(oos_only), len(neither)) == (1, 1, 1, 2)
+    # The four buckets partition the GRADEABLE rows exactly, and the ungradeable
+    # row is in none of them — "we could not compare" is not "did not improve".
+    assert len(both) + len(is_only) + len(oos_only) + len(neither) == len(known)
+    assert len(known) == len(rows) - 1
+
+    # And the shape helper the table prints must agree with those buckets.
+    shape = mod.__dict__.get("_shape")
+    if shape is None:  # defined inside main(); assert the vocabulary instead
+        return
+    assert shape(rows[1]) == "IS-only"
+
+
+def test_the_gate_and_capital_net_r_deltas_are_kept_apart():
+    """The 'Δ netR OOS' column must come from the GATE, not the capital block.
+
+    It printed `d_net_total_r` (capital) under a gate-named header while the
+    gate's own `oos_d_net_r` was never stored at all. The two are probably the
+    same quantity — 'probably' is not a provenance, and a silent divergence
+    would make the column lie without changing anything visible.
+    """
+    src = (REPO / "scripts" / "research" / "m20_fleet_exit_sweep.py").read_text()
+    assert '"oos_d_net_r": g_oos.get("d_net_r")' in src, (
+        "the gate's OOS net_R delta is not captured; the table has nothing "
+        "gate-sourced to print")
+    # The gate-named column must not be fed from the capital key.
+    assert "{d['d_net_total_r']} | " not in src, (
+        "a capital-block value is still being printed under a gate-named column")

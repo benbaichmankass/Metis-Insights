@@ -989,6 +989,14 @@ def main(argv: list[str]) -> int:
                     "is_d_net_r": g_is.get("d_net_r"),
                     "is_d_max_dd": g_is.get("d_max_dd"),
                     "is_fail_reason": g_is.get("reason"),
+                    # The GATE's OOS net_R delta. It was missing entirely, and
+                    # the table's "Δ netR OOS" column printed the CAPITAL
+                    # block's `d_net_total_r` instead — a gate-named header over
+                    # a differently-sourced number. They are probably the same
+                    # quantity; "probably" is not a provenance, and if they ever
+                    # diverge the column lies silently. Both are kept in the
+                    # JSON; only this one is printed under a gate label.
+                    "oos_d_net_r": g_oos.get("d_net_r"),
                     "oos_d_max_dd": g_oos.get("d_max_dd"),
                     "oos_fail_reason": g_oos.get("reason"),
                     # The split Path B turns on: a cell positive on BOTH windows'
@@ -1025,18 +1033,54 @@ def main(argv: list[str]) -> int:
     # Collapsing them (which the OOS-only table did) makes a Path B threshold
     # unsettable — 2026-08-10, 18 cells read positive-but-failing with no way to
     # tell which kind they were.
-    both = [d for d in measured if d.get("net_r_up_both_windows")]
-    oos_only = [d for d in measured if not d.get("net_r_up_both_windows")]
+    # FOUR populations, not two. The previous version computed `oos_only` as the
+    # plain COMPLEMENT of `both` and printed it under the label "only
+    # out-of-sample" — a real count under a wrong name (unprovenanced
+    # diagnostic output, sub-class A). It inverted the diagnosis on the first
+    # scalp leg it ran against: ict_scalp_sol_15m's `be_touch_arm` is IS +1.138
+    # / OOS -1.8913, the OVERFIT signature, and the header called it an
+    # out-of-sample-only improver. The IS-only and OOS-only shapes mean opposite
+    # things and must never share a bucket.
+    def _up(v):
+        return v is not None and v > 0
+
+    def _known(d):
+        return d.get("is_d_net_r") is not None and d.get("oos_d_net_r") is not None
+
+    graded = [d for d in measured if _known(d)]
+    # A cell missing either window's delta is NOT sorted into a bucket — "we
+    # could not compare" is its own state, never folded into "did not improve".
+    ungraded = [d for d in measured if not _known(d)]
+    both = [d for d in graded if _up(d.get("is_d_net_r")) and _up(d.get("oos_d_net_r"))]
+    is_only = [d for d in graded
+               if _up(d.get("is_d_net_r")) and not _up(d.get("oos_d_net_r"))]
+    oos_only = [d for d in graded
+                if not _up(d.get("is_d_net_r")) and _up(d.get("oos_d_net_r"))]
+    neither = [d for d in graded
+               if not _up(d.get("is_d_net_r")) and not _up(d.get("oos_d_net_r"))]
     lines += ["", "## Capital efficiency (Path B input — reported, not graded)",
               "", f"Measured on **{len(measured)} of {len(dist)}** cells "
-              f"({len(dist) - len(measured)} unmeasurable → `null`, not 0). "
-              f"**{len(both)}** improve net_R on BOTH windows; **{len(oos_only)}** "
-              "only out-of-sample — the latter are NOT Path B candidates, they are "
-              "the small-window artifact the walk-forward exists to catch. "
+              f"({len(dist) - len(measured)} unmeasurable → `null`, not 0"
+              + (f"; {len(ungraded)} measured but missing a window delta, "
+                 "left ungraded" if ungraded else "") + "). "
+              f"net_R direction: **{len(both)}** up on BOTH windows (the Path B "
+              f"population) · **{len(is_only)}** up on IS only (the OVERFIT shape "
+              f"— helps in-sample, hurts out) · **{len(oos_only)}** up on OOS only "
+              f"(the small-window artifact the walk-forward exists to catch) · "
+              f"**{len(neither)}** up on neither. "
               "`why` names the binding constraint that failed Path A.", "",
               "| leg | cell | PathA | why (IS / OOS) | Δ cap/day | Δ netR IS | Δ netR OOS "
-              "| Δ maxDD IS | Δ maxDD OOS | both↑ |",
+              "| Δ maxDD IS | Δ maxDD OOS | shape |",
               "|---|---|---|---|--:|--:|--:|--:|--:|:-:|"]
+    def _shape(d):
+        """IS/OOS direction as a word, because the two one-sided shapes mean
+        OPPOSITE things and a shared bucket hides that."""
+        if not _known(d):
+            return "?"
+        i, o = _up(d.get("is_d_net_r")), _up(d.get("oos_d_net_r"))
+        return "both" if i and o else ("IS-only" if i else
+                                       ("OOS-only" if o else "neither"))
+
     for d in sorted(measured,
                     key=lambda d: (not d.get("net_r_up_both_windows"),
                                    -(d["d_net_r_per_capital_day"] or 0)))[:30]:
@@ -1044,14 +1088,14 @@ def main(argv: list[str]) -> int:
         lines.append(
             f"| {d['leg']} | {d['cell']} | {d['path_a']} | {why} | "
             f"{d['d_net_r_per_capital_day']} | "
-            f"{d.get('is_d_net_r')} | {d['d_net_total_r']} | "
+            f"{d.get('is_d_net_r')} | {d.get('oos_d_net_r')} | "
             # Δ maxDD IS is the number a Path B decision turns on: measured
             # 2026-08-10, EVERY true Path B cell (both windows' net_R up, capital
             # up) was blocked by `maxdd_worse` and NONE by `net_r_worse`. The
             # threshold the operator has to set is therefore a DRAWDOWN
             # tolerance, and printing only the OOS side left it unsizeable.
             f"{d.get('is_d_max_dd')} | {d.get('oos_d_max_dd')} | "
-            f"{'Y' if d.get('net_r_up_both_windows') else '·'} |")
+            f"{_shape(d)} |")
     (run_dir / "SUMMARY.md").write_text("\n".join(lines) + "\n")
     print(f"capital: {len(measured)}/{len(dist)} cells measured")
     print("done ->", run_dir)
