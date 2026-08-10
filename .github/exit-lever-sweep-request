@@ -1,0 +1,10 @@
+# Touch this file to fire .github/workflows/m20-exit-lever-sweep.yml from the
+# feature branch. A workflow_dispatch-only workflow is not resolvable by
+# filename until it lands on the default branch (the API 404s), and the sweep
+# is meant to INFORM the merge rather than wait on it.
+#
+# On a push fired this way the workflow takes its input defaults:
+#   legs=<census top-10 by R-left-at-1R>  tp_cap_pct=0.099 (LIVE PARITY)
+#   levers=<all>  split=2025-07-01
+# Use the Actions UI / a dispatch call to vary any of those.
+run: 2026-08-10 — first sweep at live-parity geometry, census-targeted legs.

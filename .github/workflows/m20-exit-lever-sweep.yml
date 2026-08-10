@@ -50,6 +50,16 @@ on:
         description: "IS/OOS split date. A cell is a candidate only if it beats base on BOTH sides."
         required: false
         default: '2025-07-01'
+  # A workflow_dispatch-ONLY workflow is not resolvable by filename until it
+  # exists on the DEFAULT branch — the dispatch API 404s on a feature branch.
+  # This sentinel path is the same escape hatch m20-capture-census.yml uses:
+  # touching it registers the workflow and fires the first run from the branch,
+  # so the sweep does not have to wait on a merge it is meant to inform.
+  push:
+    branches:
+      - 'claude/m20-exit-refinement-continue-g1qv46'
+    paths:
+      - '.github/exit-lever-sweep-request'
 
 permissions:
   contents: read
