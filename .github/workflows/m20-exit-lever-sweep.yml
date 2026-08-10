@@ -364,12 +364,31 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- docs/research/m20-sweep-corpus.jsonl; then
-            echo "corpus unchanged — this run superseded rows identical to the "
-            echo "ones already recorded. Nothing to commit."
+          # The extractor FAILS on zero verdicts files, so reaching this step
+          # means rows were produced. If the file is nonetheless absent, the
+          # extractor and this step disagree about where it writes — a wiring
+          # bug, not an empty run, and it must not exit 0.
+          if [ ! -s docs/research/m20-sweep-corpus.jsonl ]; then
+            echo "::error::the extractor reported success but "
+            echo "docs/research/m20-sweep-corpus.jsonl is missing or empty."
+            exit 1
+          fi
+          # STAGE FIRST, then diff the INDEX.
+          #
+          # `git diff --quiet -- <path>` compares the worktree to the index and
+          # is silent about a file git is not tracking — so on the run that
+          # CREATES the corpus it reports "no change" and this step exits 0
+          # having committed nothing, under a message asserting there was
+          # nothing to commit. That is exactly the unasserted-denominator shape
+          # (an empty result read as a clean negative), and it happened: the
+          # first corpus run (2026-08-10, run 31437165771) went green across all
+          # 12 jobs, produced all 10 artifacts, and left the branch untouched.
+          git add docs/research/m20-sweep-corpus.jsonl
+          if git diff --cached --quiet -- docs/research/m20-sweep-corpus.jsonl; then
+            echo "corpus byte-identical to the committed copy — this run "
+            echo "superseded rows that matched what was already recorded."
             exit 0
           fi
-          git add docs/research/m20-sweep-corpus.jsonl
           # Message via a FILE, not an inline -m: the extractor's summary is
           # multi-line, and embedding it inline here breaks out of this block
           # scalar (which is a YAML parse error, not a runtime one — it fails

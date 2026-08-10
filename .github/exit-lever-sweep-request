@@ -1,6 +1,19 @@
 # Sentinel — touching this file fires m20-exit-lever-sweep from the branch.
 # The `legs:` line below is READ BY THE PLAN JOB, not decoration.
 #
+# 2026-08-10 (5th dispatch) — RE-FIRE: the 4th run's corpus job committed NOTHING.
+#
+# The 4th dispatch swept all ten legs successfully (run 31437165771: 12 jobs,
+# 0 failed, all 10 artifacts uploaded, all 10 SUMMARYs posted) and the corpus
+# job went GREEN having committed nothing. `git diff --quiet -- <path>` compares
+# the worktree to the INDEX and is silent about a file git does not track, so on
+# the run that CREATES the corpus it read "unchanged" and exited 0 under a
+# message asserting there was nothing to commit — an empty result read as a
+# clean negative, in the very job added to stop discarding this evidence.
+# Fixed by staging first and diffing `--cached`, plus a hard failure if the
+# extractor reports success while the file is absent. This run re-fires the
+# identical sweep so the corpus lands.
+#
 # 2026-08-10 (4th dispatch) — THE PATH B FLOOR POPULATION.
 #
 # WHAT THIS RUN IS FOR, and why it is the full census default rather than a
