@@ -72,10 +72,16 @@ VERDICT: no_separation
 
 **WE LOOKED AND FOUND NOTHING** — distinct from `insufficient_population`, which is
 what the 10-leg corpus returned. And read the grid's direction, not just its
-p-values: at **every one of the 15 floors**, the arm the floor would REJECT
-generalises *better* than the arm it would admit (63% vs 89% at 0.975; 43% vs 76% at
-4.76). A floor set anywhere on this evidence would remove the better-generalising
-cells.
+p-values: at **14 of the 15 floors**, the arm the floor would REJECT generalises
+*better* than the arm it would admit (63% vs 89% at 0.975; 43% vs 76% at 4.76). A
+floor set at any of those removes the better-generalising cells.
+
+*(Checked arithmetically rather than by eye, and the check caught me: I first wrote
+"every one of the 15". The exception is floor **1.1619** — admitted 67.5%, rejected
+66.7%, a 0.8-point gap over arms of 40 and 12, which is a tie in substance and not a
+floor working. **14 of 15 is the honest number** and it does not change the
+conclusion, but "every" was an overstatement of my own result and this is the kind of
+number a reader would not re-derive.)*
 
 ### 2c. The second candidate — a `dN/N_b` cap — is also unsupported *as a predictor*
 
