@@ -118,6 +118,7 @@ on:
           - generate-strategy-review-packets
           - grade-closed-trades
           - set-env
+          - get-env
           - scrub-env-noncompliant
           - pause-autoheal
           - resume-autoheal
@@ -169,7 +170,7 @@ on:
           - claude
           - trader
       env_key:
-        description: "Env var name (set-env only; e.g. TELEGRAM_CLAUDE_THREAD_ID)"
+        description: "Env var name (set-env / get-env; e.g. TELEGRAM_CLAUDE_THREAD_ID. get-env accepts ALL)"
         required: false
         default: ""
       env_value:
@@ -177,7 +178,7 @@ on:
         required: false
         default: ""
       service:
-        description: "Service to restart after set-env (e.g. ict-claude-bridge; 'none' to skip)"
+        description: "Service to restart after set-env, or whose env get-env reads (e.g. ict-claude-bridge; 'none' to skip)"
         required: false
         default: ""
       account_id:
@@ -421,7 +422,7 @@ jobs:
                      | grep -i -m1 '^[[:space:]]*target[[:space:]]*:' \
                      | sed -E 's/^[[:space:]]*[Tt]arget[[:space:]]*:[[:space:]]*//' \
                      | tr -d '[:space:]' || true)
-            # set-env: env_key/service are single tokens; env_value
+            # set-env / get-env: env_key/service are single tokens; env_value
             # preserves internal spaces (trailing trim only).
             env_key=$(printf '%s\n' "${ISSUE_BODY}" \
                      | grep -i -m1 '^[[:space:]]*env_key[[:space:]]*:' \
@@ -517,7 +518,7 @@ jobs:
         run: |
           set -euo pipefail
           case "${ACTION}" in
-            status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade)
+            status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
             pull-and-deploy|restart-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|enable-m5-consumer|disable-m5-consumer|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|flatten-ib-position|flatten-bybit-position|flatten-alpaca-position|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids)
@@ -573,14 +574,18 @@ jobs:
             echo "::error::send-ping requires 'message' (workflow_dispatch input) or 'message: <text>' (issue body)."
             exit 1
           fi
-          # set-env requires a valid env_key; service defaults in the wrapper.
-          if [ "${ACTION}" = "set-env" ]; then
+          # set-env / get-env require a valid env_key; service defaults in the
+          # wrapper. The charset guard defends the shell on both sides; get-env
+          # additionally rejects any key outside ALLOWED_KEYS in get_env.py (it
+          # has no freeform key input by design), and 'ALL' means every
+          # allowlisted key.
+          if [ "${ACTION}" = "set-env" ] || [ "${ACTION}" = "get-env" ]; then
             if [ -z "${ENV_KEY// }" ]; then
-              echo "::error::set-env requires 'env_key' (workflow_dispatch input) or 'env_key: <NAME>' (issue body)."
+              echo "::error::${ACTION} requires 'env_key' (workflow_dispatch input) or 'env_key: <NAME>' (issue body)."
               exit 1
             fi
             if ! printf '%s' "${ENV_KEY}" | grep -Eq '^[A-Z][A-Z0-9_]*$'; then
-              echo "::error::set-env env_key '${ENV_KEY}' invalid (allowed: ^[A-Z][A-Z0-9_]*$)."
+              echo "::error::${ACTION} env_key '${ENV_KEY}' invalid (allowed: ^[A-Z][A-Z0-9_]*$)."
               exit 1
             fi
           fi
@@ -894,6 +899,7 @@ jobs:
             send-ping)                          SCRIPT="send_ping_action.sh" ;;
             send-prop-test-ping)                SCRIPT="send_prop_test_ping_action.sh" ;;
             set-env)                            SCRIPT="set_env.sh" ;;
+            get-env)                            SCRIPT="get_env_action.sh" ;;
             scrub-env-noncompliant)             SCRIPT="scrub_env_noncompliant.sh" ;;
             pause-autoheal)                     SCRIPT="pause_autoheal.sh" ;;
             resume-autoheal)                    SCRIPT="resume_autoheal.sh" ;;

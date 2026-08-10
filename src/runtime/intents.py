@@ -1209,19 +1209,35 @@ def aggregate_intents(
        are no non-flat intents at all (or when conflict resolution
        picks a flat winner, which only happens if every intent is flat).
 
-    3. **Same-direction reinforcement: max target_qty wins.** If every
-       non-flat intent is on the same side, the aggregator returns
-       that side with ``target_qty = max(intent.target_qty for intent in
-       intents)``. The entry/sl/tp / winning_intent come from the
-       intent whose ``target_qty`` is the largest (tiebreaker:
-       highest effective priority, then earliest timestamp, then
-       strategy name alphabetical).
+    3. **Same-direction reinforcement.** If every non-flat intent is on
+       the same side, the aggregator returns that side and picks the
+       winning intent by ``(target_qty, effective_priority(), earliest
+       timestamp, strategy name alphabetical)``, with
+       ``target_qty = max(intent.target_qty for intent in intents)``.
 
-       Rationale: two strategies both wanting LONG BTC is conviction
-       reinforcement — keep at least the larger valid target. We do
-       NOT sum, because summing would double-count exposure when both
-       strategies are sizing against the same risk budget. The
-       per-account RiskManager still applies its own cap on top.
+       **In production the first key is inert and the winner is decided
+       entirely by effective_priority → timestamp → name**
+       (BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES).
+       ``target_qty`` is 0.0 for EVERY directional intent on the live
+       path: the sole production entry point
+       ``intent_multiplexer.build_multiplexed_signal`` passes
+       ``target_qty_hint=0.0`` unconditionally, and ``StrategyIntent``'s
+       validator documents 0.0-on-a-directional-side as the deliberate
+       sentinel for "the per-account ``RiskManager.position_size``
+       decides the qty". A sort key that is the same constant for every
+       candidate discriminates nothing, so the "larger target wins" rule
+       below has never actually fired in production — do not reason about
+       live selection as if it had. The key is kept because a caller that
+       genuinely pre-sizes (tests, the backtest harness) still gets the
+       documented ordering; changing or removing it is a Tier-3
+       routing decision, not a doc fix.
+
+       Rationale for the rule as designed: two strategies both wanting
+       LONG BTC is conviction reinforcement — keep at least the larger
+       valid target. We do NOT sum, because summing would double-count
+       exposure when both strategies are sizing against the same risk
+       budget. The per-account RiskManager still applies its own cap on
+       top.
 
     4. **Conflict resolution: deterministic priority.** When at least
        one intent says long and at least one says short, the winner is
@@ -1306,6 +1322,13 @@ def aggregate_intents(
         # spec's "keep at least the larger valid target size" rule.
         # Deterministic tiebreakers prevent flapping when two strategies
         # happen to publish the same target on the same tick.
+        #
+        # NOTE (BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES):
+        # on the LIVE path every candidate's target_qty is the unsized
+        # sentinel 0.0, so the first key is constant and the winner is
+        # decided entirely by the tiebreakers. See the docstring — this
+        # is the inert-conditional class, and reading the line as if the
+        # size comparison discriminated is the mistake it causes.
         winner = max(
             same_side,
             key=lambda i: (
@@ -1329,6 +1352,17 @@ def aggregate_intents(
             actual_winner_strategy=winner.strategy,
             actual_target_qty=float(winner.target_qty),
         )
+        # The reason string must not label the sentinel as a measured max —
+        # "max target_qty=0.0" reads as a size comparison that picked the
+        # winner, and neither half of that is true on the live path
+        # (BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES).
+        # State the basis that actually decided instead.
+        qty_note = (
+            f"max target_qty={winner.target_qty}"
+            if winner.target_qty > 0
+            else "target_qty unsized at this layer (RiskManager sizes per "
+                 "account); winner by priority/timestamp/name"
+        )
         return DesiredPosition(
             symbol=norm_symbol,
             side=agreed_side,
@@ -1337,8 +1371,8 @@ def aggregate_intents(
             winning_intent=winner,
             reason=(
                 f"same_direction_reinforcement: {len(contributing)} "
-                f"intents agree on {agreed_side}; max target_qty="
-                f"{winner.target_qty} from strategy={winner.strategy}"
+                f"intents agree on {agreed_side}; {qty_note} "
+                f"from strategy={winner.strategy}"
             ),
             meta={
                 "resolution": "same_direction",
