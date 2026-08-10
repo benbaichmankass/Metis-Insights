@@ -162,6 +162,7 @@ def _adx(df: pd.DataFrame, period: int) -> pd.Series:
 
 def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  atr_stop_buffer: float, pierce_min: float, exit_style: str,
+                 tp_cap_pct: float = 0.0,
                  tp_r: float, trail_mult: float, timeout_bars: int,
                  cooldown_bars: int, timeframe: str, symbol: str,
                  adx_max: Optional[float] = None, adx_period: int = 14,
@@ -177,6 +178,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     df["dc_lo"] = df["low"].rolling(donchian).min().shift(1)
     df["adx"] = _adx(df, adx_period).shift(1) if adx_max is not None else None
     trades: List[Trade] = []
+    # Per-entry live-TP distance in R; empty when the cap is off.
+    _tp_r_effective: List[float] = []
     n = len(df)
     i = donchian + atr_period + 1
     next_idx = i
@@ -239,6 +242,31 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
             target = (hi + lo) / 2.0
         elif exit_style == "far":
             target = lo if direction == "short" else hi
+        # LIVE-PARITY TAKE-PROFIT CAP. Tracking id on its own line, never wrapped:
+        # BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP
+        #
+        # fade differs from trend/pullback/squeeze, which had NO take-profit exit
+        # at all. This harness HAS one -- but a DIFFERENT one from production.
+        # Live `fade_breakout_4h.py` places tp = min(entry*(1+0.099), entry +
+        # tp_r*risk) with tp_r 50.0, i.e. a resting TP at 9.9% from entry. The
+        # harness instead targets whatever --exit-style selects (default `far`,
+        # the far band of the range), and `trail` has no target at all.
+        #
+        # So the cap is applied as a CEILING on whatever target the style chose,
+        # nearest-wins: a live position physically CANNOT be held past its 9.9%
+        # TP, so the exit happens at the cap at the latest. When the style is
+        # `trail` (target None) the cap becomes the only target, matching live.
+        #
+        # This is a weaker claim than the other three ports, and deliberately so:
+        # there the harness modelled no TP and live had one, which is unambiguous.
+        # Here two different targets coexist and only the CEILING relationship is
+        # certain. Read a fade capped-vs-uncapped delta with that caveat.
+        if tp_cap_pct > 0.0:
+            cap_px = (entry * (1.0 - tp_cap_pct) if direction == "short"
+                      else entry * (1.0 + tp_cap_pct))
+            target = cap_px if target is None else (
+                max(target, cap_px) if direction == "short" else min(target, cap_px))
+            _tp_r_effective.append(abs(target - entry) / risk)
         # A fixed target must sit on the profit side of entry, else the
         # setup is degenerate (entry already past it) — skip.
         if target is not None:
@@ -541,6 +569,11 @@ def main(argv: List[str]) -> int:
     p.add_argument("--exit-style", choices=_EXIT_STYLES, default="far",
                    help="tp1r=fixed 1R | mid=channel midpoint | far=far band | trail=Chandelier.")
     p.add_argument("--tp-r", type=float, default=1.0, help="R target for --exit-style tp1r.")
+    p.add_argument("--tp-cap-pct", type=float, default=0.0,
+                   help="LIVE-PARITY cap: ceiling the chosen target at "
+                        "entry*(1±pct), nearest-wins. Production uses 0.099 "
+                        "(Bybit's ~10%% TP-distance clamp). 0 = off, "
+                        "byte-identical.")
     p.add_argument("--trail-mult", type=float, default=3.0, help="ATR mult for --exit-style trail.")
     p.add_argument("--adx-max", type=float, default=None,
                    help="Regime gate: only fade when ADX < this (chop). Off when unset.")
@@ -586,6 +619,7 @@ def main(argv: List[str]) -> int:
     bt_kwargs = dict(donchian=args.donchian, atr_period=args.atr_period,
                      atr_stop_buffer=args.atr_stop_buffer, pierce_min=args.pierce_min,
                      exit_style=args.exit_style, tp_r=args.tp_r,
+                     tp_cap_pct=args.tp_cap_pct,
                      trail_mult=args.trail_mult, timeout_bars=args.timeout_bars,
                      cooldown_bars=args.cooldown_bars, timeframe=args.timeframe,
                      symbol=args.symbol, adx_max=args.adx_max,

@@ -1,0 +1,220 @@
+# Live exit-monitor cadence and intrabar evaluation — DESIGN
+
+**Status:** design, nothing shipped. Tier-2 (a new runtime loop) to build,
+Tier-3 to let any of it change an exit.
+**Operator directive (2026-08-10):** *"once a trade is open, the trade monitor
+should be evaluating live trades MUCH more often than once-per-bar per the
+strategy trade — no live trade should ever go more than 60s without a realtime
+evaluation, and the monitor should be evaluating all intrabar price movements,
+not just closed bars. we need to build this out correctly (this time) and test
+that it improves performance."*
+
+This document exists because the directive contains two separable asks that the
+codebase answers differently, and one of them is already partly satisfied. Both
+need stating before anything is built, or the build will target the wrong half.
+
+---
+
+## 1. What the live monitor actually does today (VERIFIED 2026-08-10)
+
+Read from the code this session, not from memory or from a prior doc.
+
+| | Fact | Evidence |
+|---|---|---|
+| Cadence | Once per pipeline cycle, **sequentially after** signal generation | `src/main.py` — `with _tick_hook("run_one_tick"): run_one_tick(...)` then `with _tick_hook("order_monitor"): run_monitor_tick(...)`. No thread, no separate schedule. |
+| Measured cycle | **~166 s** = **106.0 s** of tick work + a 60 s sleep | `/api/diag/tick_cost`, 2026-08-10 POST-FIX. **Superseded reading:** this doc was first written against 253.6 s mean / 295.6 s max over 13 ticks, before a concurrent `/system-review` session memoized the per-strategy connector and cached candles in `src/runtime/market_data.py` (251.1 s → 106.0 s warm, 58% off). The 60 s interval is confirmed by their arithmetic: tick1 ended 07:18:01Z, tick3 07:23:33Z → 332 s = 212.0 s ticking + 2×60.0 s sleep. |
+| Price the levers read | `float(candles_df["close"].iloc[-1])` — the **last row's close** | `src/units/strategies/trend_donchian.py::monitor` and siblings |
+| Frame the monitor fetches | `limit=200` candles **at the strategy's own timeframe** (`meta.timeframe`, falling back to the YAML `timeframe`) | `src/main.py::_build_monitor_ohlcv_fetcher` |
+| Who covers SL/TP between evaluations | The **broker bracket**, not the bot | Exchange-side SL/TP placed at entry; the monitor's `sl_cross` branch is documented as belt-and-braces |
+
+### 1.1 The "not just closed bars" half is already partly true
+
+The last row of a live OHLCV fetch is the **forming** bar. Its `close` is the
+latest trade price and its `high`/`low` are the running intrabar extremes. So a
+monitor evaluation at 14:07 on a 1h leg is reading 14:00-14:07 price action, not
+the 13:00 bar close — and MFE-style state built from bar highs is intrabar
+accurate.
+
+What is *not* intrabar is the **level-cross test**. `current_price <= sl` reads
+the forming bar's CLOSE. A dip through the level that recovers before the next
+evaluation is invisible to it. For SL and TP that gap is covered by the broker
+bracket, which fills on the touch. For **stale-exit, giveback, the trailing
+ratchet, and the exit head it is covered by nothing** — those are bot-side only.
+
+So the honest statement of the gap is narrower and sharper than the directive's
+framing, and it is worth having stated correctly before building:
+
+> Bot-side exit levers are evaluated roughly every **2.8 minutes** (was ~5 min
+> before the 2026-08-10 market-data fix), on the forming bar's close. Nothing
+> evaluates them between those samples. The broker covers SL/TP touches; it
+> covers nothing else.
+
+### 1.2 The 60 s target is not reachable by config
+
+`TICK_INTERVAL_SECONDS` is already `60` and is **the small term** — 60 s of sleep
+against 106.0 s of work. Because the monitor runs after signal generation in the
+same sequential loop, its cadence is floored by whatever signal generation
+costs. Setting the interval to 1 would change the cycle from ~166 s to ~106 s.
+
+**The 2026-08-10 market-data fix does not close this.** It removed ~145 s (58%),
+which is a large win and still leaves the monitor at ~2.8 min against a 60 s
+target. The reviewing session's own note is the relevant one: the residual is
+~50 candle FETCHES per tick and the `(symbol, timeframe)` cache only dedupes
+55→48, so **caching is close to exhausted as a lever** and the tick still
+overruns its own 60 s interval by 1.8×.
+
+**Therefore the 60 s ask requires decoupling the monitor from signal generation.
+There is no configuration that reaches it.** That is the design problem.
+
+---
+
+## 2. What we do not know yet, and must before choosing
+
+`attributed_pct` from the per-hook split (`src/runtime/tick_cost.py`, built and
+tested, **awaiting the Tier-2 OK to deploy**) answers the one question that
+selects the design:
+
+- If **signal generation dominates** the remaining 106.0 s, the monitor is cheap and
+  decoupling it is a small, contained change.
+- If the **monitor itself** is a large share, decoupling it does not make it run
+  every 60 s — it makes it run continuously, which is a different and worse
+  problem, and the fix is inside the monitor.
+
+Choosing between §3's options before that number exists would be choosing on a
+guess. The instrumentation is deliberately coarse (two hooks) for this reason:
+it answers the selecting question with the least code, and refines only if the
+answer is surprising.
+
+---
+
+## 3. Options for the cadence half
+
+| | Approach | Hazards |
+|---|---|---|
+| **A** | A second loop **inside the trader process** (thread) on its own 60 s schedule | The heartbeat is on the main thread deliberately — a pipeline hang stops it, which is how liveness reflects pipeline health. A monitor thread must not become a way for the process to look alive while the pipeline is wedged. Concurrent broker reads collide: `BL-20260706-IBACCTUPDATES-COLLISION` is exactly a second IB client touching the same account. |
+| **B** | A **separate systemd service** | Same broker-collision surface, plus two processes writing the money DB. The netting/reconciler paths assume one writer. |
+| **C** | Shrink the tick until the whole cycle is < 60 s | The 2026-08-10 market-data fix took this route and got 251.1 s → 106.0 s; the reviewing session reports the `(symbol, timeframe)` cache now dedupes only 55→48 fetches, so the cheap headroom is spent. Getting from 106 s to < 60 s is a second, harder round, and it fixes the cadence for *everything* — more change than the ask. |
+
+**A is the likely answer and B is the likely trap**, but neither is chosen here.
+Whichever wins, three constraints hold:
+
+1. **The monitor loop must not be able to fake liveness.** The heartbeat stays
+   owned by whatever thread runs the pipeline.
+2. **One broker client per account, ever.** A 60 s monitor that opens its own IB
+   connection re-creates a documented incident. The read must route through the
+   existing readonly-client discipline, or be served from a shared cache the
+   pipeline already populates.
+3. **A missed evaluation must be legible.** "We evaluated and found nothing" and
+   "we did not evaluate" are different states, and the second one is what the
+   directive is about. Whatever ships records its own actual cadence — the same
+   reasoning as `exposure_soak`'s `measured` flag, and the reason
+   `MONITOR_BLINDNESS_ALERT_TICKS` already exists for the per-position case.
+
+---
+
+## 4. The performance half — "test that it improves performance"
+
+This is testable **offline, today**, with no live risk, and it should gate the
+build rather than follow it.
+
+The backtest and live already disagree about exit-evaluation granularity, **in
+both directions**:
+
+- The harnesses evaluate the levers **once per leg bar**, at that bar's close.
+- Live evaluates them **~21 times per bar** on a 1h leg (every ~2.8 min), but on
+  the forming bar's close rather than its extremes.
+
+So neither is a model of the other, and the question "does more frequent
+evaluation help?" has never been asked of the data. The experiment:
+
+> Give the harness a **finer frame for exit evaluation than for signal
+> generation** — a 1h leg's entries decided on 1h bars, its exits evaluated on
+> the 5m bars inside each 1h bar — and run it through the existing Path A / Path
+> B gate with the IS/OOS split and the yearly walk-forward.
+
+Two properties make this the right experiment rather than a plausible one:
+
+- It reuses the gate. A cell that improves net_R on one window and loses on the
+  other is not a finding, and the 2026-08-10 sweep is a standing reminder — five
+  cells passed both windows and still failed the walk-forward.
+- It is **honest about direction**. Finer evaluation is not free: a stale-exit
+  or giveback rule that fires on a 5 m wick exits trades that a 1 h close would
+  have held. That is the same cost the `be_touch_arm` smoke test surfaced
+  (arming break-even on a touch scratched a trade that recovered, −0.022 R on
+  four trades). The experiment can return "evaluating more often is worse", and
+  that would be a result.
+
+`resolve_data` already locates the finest available grain per symbol, so the
+data side is largely in place. The harness change is to carry two frames rather
+than one.
+
+### 4.1 THE LOOKAHEAD TRAP — read this before implementing
+
+Found while reading `scripts/backtest_trend.py::run_backtest` (2026-08-10). The
+obvious implementation is wrong in a way that **manufactures an improvement**,
+which makes it worse than not doing it.
+
+The exit loop today does, per leg bar `j`, in this order:
+
+1. resolve SL/TP against the bar's `high`/`low`;
+2. extend `ext` to the bar's extreme and update `mfe` and the chandelier `trail`;
+3. evaluate the giveback and stale levers against **that bar's close**.
+
+Step 2 uses the WHOLE BAR's extreme. That is sound when the lever is evaluated
+once, at the close, because by then the whole bar has happened. It becomes
+**lookahead the moment a lever is evaluated at a sub-bar close inside that
+bar**: a giveback rule checked at 14:05 would be comparing against a peak set at
+14:47. The rule would appear to exit at the top with uncanny timing, the arm
+would beat baseline, and the result would be an artifact.
+
+So the implementation contract is:
+
+- **`ext` / `mfe` / `trail` must advance on the SUB-BAR clock**, in lockstep with
+  the sub-bar closes the levers read. A peak may only inform a decision taken
+  after it.
+- **Bar-counted parameters stay on the LEG-BAR clock.** `stale_exit_bars`,
+  `trail_decay_stall_bars` and `peak_j` are expressed in the strategy's own
+  bars; converting them to sub-bars silently redefines every threshold and the
+  cell would no longer be the config-exact one. Price evolves finely; the
+  strategy's clock does not.
+- **Run three arms, not two**, because a finer grain moves two variables at once:
+  - **A** baseline — everything on the leg-bar grain (what ships today).
+  - **B** levers on the sub-bar grain, **SL/TP still resolved at leg-bar grain
+    with the SL-first convention**. This isolates the cadence question, which is
+    the operator's actual ask.
+  - **C** everything on the sub-bar grain, including SL/TP ordering. This
+    measures how much of the baseline is the **SL-first artifact** — today a bar
+    trading through both stop and target is scored as a stop, and at a finer
+    grain some of those become target-first. C will look better than A partly
+    for a reason that has nothing to do with exit logic, so reporting C without
+    B would credit the lever for the convention.
+
+A single-arm "intrabar vs baseline" comparison conflates all three effects and
+would be unfalsifiable after the fact. Report all three, or report none.
+
+**Nothing about the live cadence should ship before this returns a verdict.**
+Building a 60 s monitor to apply a rule that a 5 m evaluation makes worse would
+be a faster way to lose money, and the directive's own words — *"build this out
+correctly (this time) and test that it improves performance"* — put the test
+first.
+
+---
+
+## 5. Sub-strategy regime conditioning (operator, 2026-08-10)
+
+*"we've already been trying to use regime classification at the strategy level,
+but if needed we can also use it at the sub-strategy level (e.g. for choosing
+the correct exit mechanism/threshold)."*
+
+Recorded here because it composes with §4 rather than competing with it. The
+2026-08-10 sweep's own evidence is two-sided and says the same thing from the
+other end: `vt_*` regime cells supplied 5 of 17 both-window cells including the
+best one (`trend_donchian_1h vt_hot90`), while on `trend_donchian_sol` the two
+`vt_*` cells were the two WORST, and `stale12` passed on both ETH donchian legs
+while being the worst cell on `trend_donchian`. **No lever is fleet-wide
+correct**, which is precisely the case for selecting the mechanism per regime
+rather than gating one lever by it.
+
+Binding constraints when it is picked up: `.claude/skills/regime-selectivity`
+(no-cosmetic-cell, walk-forward-before-Tier-3, axis-fidelity), and round 1's
+"tightest fired mult wins" precedence. Tier-3 to ship.

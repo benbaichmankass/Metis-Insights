@@ -1,0 +1,29 @@
+# Sentinel — touching this file fires m20-exit-lever-sweep from the branch.
+# The `legs:` line below is READ BY THE PLAN JOB, not decoration.
+#
+# 2026-08-10 (3rd dispatch) — THE TWO LEGS WHOSE BASE WAS NOT CONFIG-EXACT.
+#
+# `base_args::declared_levers()` threaded the stale, giveback and trail-DECAY
+# levers and OMITTED the trail-VOL one, while both harnesses had carried
+# `--trail-vol-*` all along. Exactly two census legs declare an ARMED vol-trail
+# lever, so exactly two legs were measured against a baseline missing a lever
+# that is armed in live:
+#
+#   trend_donchian_eth   below_pctl 0.1 / tight 2.5   (cold tail)
+#   qqq_pullback_1h      above_pctl 0.8 / tight 2.5   (hot tail)
+#
+# Both A/B arms omitted it, so each prior delta is internally consistent; what
+# is unverified is its TRANSPORT to the live book, since exit levers interact —
+# a cold-vol-tightened trail changes which trades a decay or stale rule ever
+# sees. This run measures the same cells against the book we would deploy onto.
+#
+# WHAT IT DECIDES. Rows 1-2 of the Tier-3 promotion packet — `decay_stall10_t2.5`
+# and `stale12_lt0R` on trend_donchian_eth, two of the three live-leg winners —
+# are HELD on this run. If they still clear Path A on the corrected base they
+# ship; if they do not, the packet loses two rows and says so.
+#
+# qqq_pullback_1h carries no held row (its two Path B candidates already failed
+# the folds) — it is here because it is the other affected leg and a rejection
+# measured on a wrong base is no more trustworthy than an acceptance.
+legs: trend_donchian_eth,qqq_pullback_1h
+dispatch: 2026-08-10 re-run on the corrected config-exact base (trail-vol threaded)

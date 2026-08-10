@@ -36,10 +36,23 @@ import pandas as pd
 
 # Ensure src/ is importable when invoked as a script.
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-if str(Path(__file__).resolve().parent) not in sys.path:
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+# The repo root must PRECEDE this script's own directory, not merely be present.
+# `scripts/ml/` is a REGULAR package (it has an `__init__.py`) and it SHADOWS the
+# repo's top-level `ml/` whenever `scripts/` comes first — which it does by
+# default, since Python puts the script's own directory at sys.path[0].
+# An insert-if-absent guard is not enough: run with `PYTHONPATH=<repo root>`
+# (how CI runs the suite) the root is ALREADY on the path, the insert is skipped,
+# `scripts/` stays in front, and `src/runtime/shadow_adapter.py`'s
+# `from ml.predictors.shadow import ShadowPredictor` dies with
+# "No module named 'ml.predictors'" — the harness fails to start at all, which
+# the fleet sweep reports as `harness_error` for every cell.
+# So REPOSITION rather than insert.
+if str(_REPO_ROOT) in sys.path:
+    sys.path.remove(str(_REPO_ROOT))
+sys.path.insert(0, str(_REPO_ROOT))
 
 from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost model)
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
@@ -90,6 +103,47 @@ def _load_candles(path: str) -> pd.DataFrame:
     return df
 
 
+def _date_filter(df: pd.DataFrame, start: Optional[str],
+                 end: Optional[str]) -> pd.DataFrame:
+    """Restrict the frame to [start, end] inclusive. Same contract as
+    ``backtest_trend._date_filter``, with two differences forced by this
+    harness's loader.
+
+    WHY IT DID NOT EXIST: it is the reason the ict_scalp family had never been
+    IS/OOS split. `scripts/research/m20_fleet_exit_sweep.py` passes
+    ``--start``/``--end`` to every cell, and this harness rejected both with an
+    argparse usage error — so the 2026-08-10 scalp sweep failed on all seven
+    legs before running a single backtest, while the CENSUS (which windows
+    nothing) had run the same legs happily minutes earlier. Every scalp verdict
+    on record is therefore full-history: no window split, no walk-forward.
+
+    Difference 1 — TZ. ``_load_candles`` parses timestamps WITHOUT ``utc=True``,
+    so the column can be tz-naive; comparing it to a tz-aware bound raises. The
+    column is normalised to UTC for the comparison only, and the frame's own
+    timestamps are returned untouched, so nothing downstream (the HTF resample,
+    the emitted-trade stamps) sees a changed dtype.
+
+    Difference 2 — A MISSING TIMESTAMP COLUMN IS FATAL, not a silent pass. This
+    harness tolerates a frame with no ``timestamp`` (it falls back to integer
+    indices). Quietly ignoring a requested window on such a frame would return
+    a FULL-HISTORY result labelled `IS` or `OOS` — a real number under a wrong
+    label, which is the exact shape `diagnostic-provenance-guard` exists for.
+    """
+    if not start and not end:
+        return df
+    if "timestamp" not in df.columns:
+        raise ValueError(
+            "--start/--end were given but the frame has no `timestamp` column; "
+            "refusing to return a full-history result under a windowed label")
+    ts = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    mask = ts.notna()
+    if start:
+        mask &= ts >= pd.Timestamp(start, tz="UTC")
+    if end:
+        mask &= ts <= pd.Timestamp(end, tz="UTC")
+    return df[mask].reset_index(drop=True)
+
+
 def _load_yaml_params() -> Dict[str, Any]:
     try:
         cfg = load_strategy_config().get("ict_scalp_5m", {}) or {}
@@ -114,6 +168,7 @@ def _simulate_exit(
     stale_exit_bars: Optional[int] = None,
     stale_exit_below_r: float = 0.0,
     giveback_min_mfe_r: float = 0.0,
+    be_arm_on_touch: bool = False,
     giveback_r: float = 1.0,
     bank_frac: float = 0.0,
     bank_at_r: float = 1.0,
@@ -229,11 +284,34 @@ def _simulate_exit(
                         "banked_index": banked_index}
         if (be_offset_bps is not None and not be_armed
                 and entry is not None and risk_1r and risk_1r > 0):
-            close_j = float(df["close"].iloc[j])
-            if direction == "long" and close_j >= entry + risk_1r:
+            # ARMING BASIS — close vs TOUCH (BL-20260810 intrabar-monitor work).
+            #
+            # The live monitor reads `candles_df["close"].iloc[-1]`, so the
+            # ratchet arms on a bar CLOSE >= 1R. But MFE is the intrabar HIGH,
+            # and the 2026-08-10 census found 24 scalp trades (1.01% of 2,385
+            # losers) that reached >= 90% of a 1.5R target and still closed at
+            # -1R: price touched near-target, closed back below 1R, and the
+            # ratchet never armed. `--be-arm-on-touch` models arming on the
+            # intrabar EXTREME instead.
+            #
+            # CONSERVATIVE BY CONSTRUCTION, and the understatement is
+            # deliberate: this block runs AFTER the SL/TP checks have already
+            # returned for bar j, so (a) a bar that trades through the stop
+            # takes the stop and never arms — SL-first is preserved exactly —
+            # and (b) the armed stop only protects from bar j+1 onward, whereas
+            # a real intrabar monitor could arm mid-bar. So a positive result
+            # here is a FLOOR on the live benefit, not a ceiling. Modelling
+            # mid-bar arming would need sub-bar data this harness does not have,
+            # and inventing it would be the fabrication class the provenance
+            # rules exist to stop.
+            if be_arm_on_touch:
+                trigger = bar_high if direction == "long" else bar_low
+            else:
+                trigger = float(df["close"].iloc[j])
+            if direction == "long" and trigger >= entry + risk_1r:
                 cur_sl = entry * (1 + be_offset_bps / 10000.0)
                 be_armed = True
-            elif direction == "short" and close_j <= entry - risk_1r:
+            elif direction == "short" and trigger <= entry - risk_1r:
                 cur_sl = entry * (1 - be_offset_bps / 10000.0)
                 be_armed = True
     # Timeout: close at the last bar's close.
@@ -343,6 +421,7 @@ def run_backtest(
     vol_spec: Optional[Dict[str, Any]] = None,
     stamp_regime: bool = False,
     sim_breakeven: bool = False,
+    be_arm_on_touch: bool = False,
     stale_exit_bars: Optional[int] = None,
     stale_exit_below_r: float = 0.0,
     giveback_min_mfe_r: float = 0.0,
@@ -423,6 +502,7 @@ def run_backtest(
             tp=tp,
             timeout_bars=timeout_bars,
             entry=entry,
+            be_arm_on_touch=be_arm_on_touch,
             be_offset_bps=(
                 float(cfg.get("be_offset_bps", 0.0) or 0.0)
                 if sim_breakeven else None
@@ -831,14 +911,29 @@ def _fmt_sweep(sw: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def main(argv: List[str]) -> int:
-    global FEE_BPS_ROUNDTRIP, SLIPPAGE_BPS_ROUNDTRIP, FUNDING_BPS_PER_WINDOW, FUNDING_WINDOW_HOURS
+def build_parser() -> argparse.ArgumentParser:
+    """The harness's argument parser, extracted so it can be checked
+    WITHOUT running a backtest.
+
+    The 2026-08-10 scalp sweep failed all seven legs on an argparse usage
+    error (`--start`/`--end` were not declared here) and nothing in the repo
+    could assert that the sweep's argv and this parser agree, because the
+    parser was a local inside main(). Extracting it makes that a cheap
+    in-process test instead of a subprocess exit-code guess.
+    """
     p = argparse.ArgumentParser(
         description="Backtest ict_scalp_5m (net-of-cost: fee+slippage+funding).")
     p.add_argument("--data", default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"),
                    help="OHLCV CSV path (default: $BACKTEST_DATA_PATH or data/backtest_candles.csv).")
     p.add_argument("--timeframe", default="5m", help="Strategy timeframe label (default: 5m).")
     p.add_argument("--symbol", default="BTCUSDT")
+    p.add_argument("--start", default=None,
+                   help="Window start (ISO date, inclusive). Applied BEFORE "
+                        "--warmup-bars, so the window's own first bars pay the "
+                        "warm-up — matching backtest_trend/pullback, which is "
+                        "what makes an IS/OOS split comparable across families.")
+    p.add_argument("--end", default=None,
+                   help="Window end (ISO date, inclusive).")
     p.add_argument("--warmup-bars", type=int, default=50,
                    help="Skip the first N bars to give lookback windows room (default: 50).")
     p.add_argument("--timeout-bars", type=int, default=24,
@@ -886,6 +981,13 @@ def main(argv: List[str]) -> int:
                         "model_id}) extracted from the registry head serving the live vol stamp. "
                         "Without it --stamp-regime leaves vol_regime=unknown (never recomputed "
                         "from backtest data — that would not be parity).")
+    p.add_argument("--be-arm-on-touch", action="store_true",
+                   help="Arm the break-even ratchet on an intrabar TOUCH of 1R "
+                        "(bar high/low) instead of a bar CLOSE >= 1R. Models the "
+                        "intrabar monitor; only meaningful with --sim-breakeven. "
+                        "Conservative: the armed stop protects from the NEXT bar, "
+                        "and SL-first ordering is preserved, so a positive result "
+                        "is a FLOOR on the live benefit (BL-20260810).")
     p.add_argument("--sim-breakeven", action="store_true",
                    help="Simulate the LIVE monitor's break-even trail (monitor_breakeven_sl: once a "
                         "bar closes >= 1R in favour, SL moves to entry +/- be_offset_bps from YAML). "
@@ -913,6 +1015,12 @@ def main(argv: List[str]) -> int:
     p.add_argument("--giveback-r", type=float, default=1.0, metavar="R",
                    help="Once armed, exit when >= this many R has been surrendered "
                         "from the peak (default 1.0).")
+    return p
+
+
+def main(argv: List[str]) -> int:
+    global FEE_BPS_ROUNDTRIP, SLIPPAGE_BPS_ROUNDTRIP, FUNDING_BPS_PER_WINDOW, FUNDING_WINDOW_HOURS
+    p = build_parser()
     args = p.parse_args(argv[1:])
     # Mandatory venue-aware cost policy (operator directive 2026-08-04): a faithful
     # backtest is net-of-real-cost by default. Unset flags resolve to the venue-aware
@@ -929,8 +1037,17 @@ def main(argv: List[str]) -> int:
 
     try:
         df = _load_candles(args.data)
+        df = _date_filter(df, args.start, args.end)
     except Exception as exc:
         print(f"ERROR: failed to load candles from {args.data}: {exc}", file=sys.stderr)
+        return 1
+    if (args.start or args.end) and df.empty:
+        # An empty window is a real answer, but it must not arrive as a
+        # confident zero-trade summary indistinguishable from "the strategy
+        # took no trades". Say which window emptied the frame.
+        print(f"ERROR: window start={args.start} end={args.end} selected 0 bars "
+              f"from {args.data} — no overlap between the window and the frame",
+              file=sys.stderr)
         return 1
 
     cfg_overrides = {} if args.ignore_yaml else _load_yaml_params()
@@ -953,6 +1070,7 @@ def main(argv: List[str]) -> int:
         vol_spec=vol_spec,
         stamp_regime=bool(args.stamp_regime),
         sim_breakeven=bool(args.sim_breakeven),
+        be_arm_on_touch=bool(args.be_arm_on_touch),
         stale_exit_bars=(int(args.stale_exit_bars)
                          if args.stale_exit_bars is not None else None),
         stale_exit_below_r=float(args.stale_exit_below_r),
