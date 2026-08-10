@@ -63,6 +63,7 @@ def _client_cache_key(settings: Dict[str, Any]) -> Optional[tuple]:
         testnet_raw = str(os.environ.get("BYBIT_TESTNET", "true")).strip().lower()
         return (
             "bybit",
+            _connector_class_id("src.exchange.bybit_connector", "BybitConnector"),
             testnet_raw not in {"false", "0", "no"},
             settings.get("BYBIT_API_KEY"),
             settings.get("BYBIT_API_SECRET"),
@@ -70,12 +71,45 @@ def _client_cache_key(settings: Dict[str, Any]) -> Optional[tuple]:
     if name == "alpaca":
         return (
             "alpaca",
+            _connector_class_id("src.exchange.alpaca_connector", "AlpacaMarketData"),
             settings.get("ALPACA_API_KEY_ID"),
             settings.get("ALPACA_API_SECRET_KEY"),
         )
     if name == "oanda":
-        return ("oanda", settings.get("OANDA_API_TOKEN"))
+        return (
+            "oanda",
+            _connector_class_id("src.exchange.oanda_connector", "OandaMarketData"),
+            settings.get("OANDA_API_TOKEN"),
+        )
     return None
+
+
+def _connector_class_id(module_path: str, attr: str):
+    """Identity of the class ``_build_exchange_client_uncached`` WOULD construct.
+
+    Part of the cache key so the cache is keyed on *what would actually be
+    built*, not merely on the credentials. Without this the memo returns a
+    stale client after the connector class is swapped — which is exactly how
+    it broke ``test_default_is_bybit``: an earlier test in the full suite
+    warmed the cache with a real ``BybitConnector``, so a later
+    ``monkeypatch.setattr(... BybitConnector, _FakeBybit)`` had NO effect and
+    the caller silently got the pre-patch object.
+
+    That is a real defect, not merely a test artifact: any caller that swaps
+    the connector class at runtime would likewise be handed the old one with
+    no signal. Resolving the attribute here (a cached module lookup, not an
+    import cost) makes such a swap MISS the cache and rebuild, which is the
+    correct behaviour in both production and tests.
+
+    Returns ``None`` when the module cannot be imported, which propagates to a
+    ``None`` cache key and disables caching for that exchange — fail-safe:
+    never serve a client we cannot identify.
+    """
+    try:
+        import importlib
+        return id(getattr(importlib.import_module(module_path), attr))
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _build_exchange_client(settings: Dict[str, Any]):
