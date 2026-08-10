@@ -13,8 +13,9 @@
 # at live-parity TP geometry (tp_cap_pct 0.099), and every scalp verdict on
 # record predates BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP.
 #
-# Legs (m27_data vintage, per the family-aware plan job):
-#   ict_scalp_5m, ict_scalp_sol_5m, ict_scalp_xrp_5m, ict_scalp_avax_5m,
-#   ict_scalp_eth_15m, ict_scalp_sol_15m, ict_scalp_xrp_15m
+# The `legs:` line below is READ BY THE PLAN JOB, not decoration. A push
+# carries no dispatch inputs, so without it this file's prose would say "scalp
+# family" while the run swept the ten-leg donchian/pullback default.
 # ict_scalp_mgc_15m is deliberately absent — blocked:data_missing.
+legs: ict_scalp_5m,ict_scalp_sol_5m,ict_scalp_xrp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_sol_15m,ict_scalp_xrp_15m
 dispatch: 2026-08-10 scalp family, live-parity geometry

@@ -128,7 +128,29 @@ jobs:
           cfg = yaml.safe_load(open("config/strategies.yaml"))
           declared = set(cfg.get("strategies", cfg))
           want = [s.strip() for s in os.environ.get("LEGS", "").split(",") if s.strip()]
+          # A `push` to the sentinel carries no dispatch inputs, so `legs` is
+          # empty and the run would fall through to the donchian/pullback
+          # DEFAULT — silently sweeping ten legs nobody asked for while the
+          # sentinel's own prose says "scalp family". The sentinel is therefore
+          # authoritative for the run it fires: a `legs:` line in it is read as
+          # the selection. An explicit dispatch input still wins, and a sentinel
+          # with no `legs:` line still means "the census default", stated rather
+          # than inferred.
+          src_of_selection = "dispatch input"
+          if not want:
+              try:
+                  for line in open(".github/exit-lever-sweep-request"):
+                      line = line.strip()
+                      if line.startswith("legs:"):
+                          want = [s.strip() for s in line.split(":", 1)[1].split(",")
+                                  if s.strip()]
+                          src_of_selection = "sentinel file"
+                          break
+              except OSError:
+                  pass
           sel = want or DEFAULT
+          if not want:
+              src_of_selection = "census default"
           # Validate against config, not against the default list — a leg renamed
           # in config must fail loudly here rather than sweep nothing downstream.
           unknown = [s for s in sel if s not in declared]
@@ -149,8 +171,8 @@ jobs:
           for row in out:
               print(f"  {row['leg']:26s} family={row['family']:9s} src={row['src']}",
                     file=sys.stderr)
-          print(f"sweeping {len(out)} leg(s) "
-                f"({'explicit' if want else 'census default'})", file=sys.stderr)
+          print(f"sweeping {len(out)} leg(s) — selection from {src_of_selection}",
+                file=sys.stderr)
           print("legs=" + json.dumps(out))
           PY
 
