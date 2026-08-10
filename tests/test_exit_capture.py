@@ -159,3 +159,39 @@ def test_mfe_floor_is_reported_so_the_robust_mean_is_interpretable():
     """A statistic computed against a floor must say which floor."""
     assert ec.summarize([], target_r=1.0)["mfe_floor_r"] == ec.DEFAULT_MFE_FLOOR_R
     assert ec.summarize([], target_r=1.0, mfe_floor_r=0.25)["mfe_floor_r"] == 0.25
+
+
+# ------------------------------------- a declared target is not an operative one
+def test_disabled_tp_sentinel_does_not_print_a_reassuring_zero():
+    """Eight pullback legs declare `tp_r: 50.0` -- a 50R take-profit on a
+    trailing strategy, i.e. a DISABLED-TP sentinel. The first census treated it
+    as a real target and printed near_miss_90_pct = 0.0 for eth_pullback_2h,
+    the very leg the operator cited. Of course nothing reached 45R.
+
+    The test is derived from the population, not a magic cut-off: if no trade
+    ever reached the declared target, the target is not operative.
+    """
+    s = ec.summarize([_t(-1.0, 0.4), _t(2.1, 3.0)], target_r=50.0)
+    assert s["near_miss_90_pct"] is None
+    assert s["near_miss_80_pct"] is None and s["near_miss_95_pct"] is None
+    assert s["near_miss_not_applicable"] == "target_never_approached_by_any_trade"
+    assert s["target_r_reached_n"] == 0
+    # capture is still measured -- only the near-miss half is inapplicable
+    assert s["capture_median"] is not None
+
+
+def test_an_operative_target_still_reports_near_miss():
+    """The guard must not suppress a real 1.5R bracket the book actually reaches."""
+    s = ec.summarize([_t(-1.0, 1.45), _t(1.5, 1.6)], target_r=1.5)
+    assert s["target_r_reached_n"] == 1
+    assert s["near_miss_not_applicable"] is None
+    assert s["near_miss_90_pct"] == 100.0     # the one loser, at 96.7% of target
+
+
+def test_trail_leg_reason_is_distinct_from_disabled_target_reason():
+    """Two different 'not applicable' causes must stay distinguishable -- one is
+    'this family has no target', the other is 'the declared target is dead'."""
+    assert ec.summarize([_t(1.0, 2.0)], target_r=None)["near_miss_not_applicable"] \
+        == "no_declared_target"
+    assert ec.summarize([_t(1.0, 2.0)], target_r=99.0)["near_miss_not_applicable"] \
+        == "target_never_approached_by_any_trade"

@@ -58,6 +58,7 @@ KEYS = ("n_trades", "n_winners", "n_losers",
         "target_r", "near_miss_measured_n",
         "near_miss_80_pct", "near_miss_90_pct", "near_miss_95_pct",
         "near_miss_r_left_on_table", "mfe_r_measured_n",
+        "near_miss_not_applicable", "target_r_reached_n",
         "mfe_floor_r", "capture_lowmfe_n", "capture_mean_robust")
 
 # Below this MFE the capture RATIO is denominator-noise, not a capture reading.
@@ -159,13 +160,48 @@ def summarize(trades: Iterable[Dict[str, Any]], *,
                                 if robust else None),
     }
 
+    def _no_near_miss(reason: str) -> Dict[str, Any]:
+        out.update({"near_miss_measured_n": None, "near_miss_80_pct": None,
+                    "near_miss_90_pct": None, "near_miss_95_pct": None,
+                    "near_miss_r_left_on_table": None,
+                    "near_miss_not_applicable": reason})
+        return out
+
+    out["near_miss_not_applicable"] = None
+    # None, not 0: with no declared target, "how many reached it" is undefined,
+    # and a 0 would read as "nothing ever reached the target" — a claim about
+    # the book rather than about the absence of a target.
+    out["target_r_reached_n"] = None
     tr = _num(target_r)
     if tr is None or tr <= 0:
         # Trail-exit leg: near-miss is UNDEFINED, not zero. See module docstring.
-        out.update({"near_miss_measured_n": None, "near_miss_80_pct": None,
-                    "near_miss_90_pct": None, "near_miss_95_pct": None,
-                    "near_miss_r_left_on_table": None})
-        return out
+        return _no_near_miss("no_declared_target")
+
+    # A DECLARED TARGET IS NOT NECESSARILY AN OPERATIVE ONE.
+    # Measured 2026-08-10: eight pullback legs declare `tp_r: 50.0` — a 50R
+    # take-profit on a trailing strategy, i.e. a DISABLED-TP sentinel, not a
+    # target. Treating it as one made the census print `near_miss_90_pct: 0.0`
+    # for `eth_pullback_2h` — reading as "0% near-misses, all clear" for the
+    # very leg the operator cited as sitting 149 bars at -0.33R. Of course no
+    # loser reached 45R.
+    #
+    # The test is derived from the POPULATION, not from a magic cut-off: if not
+    # one trade in the book ever reached the declared target, the target is not
+    # operative and every near-miss band computed against it is noise. `None`
+    # plus a stated reason, never 0.0 — a fabricated zero here is the
+    # reassuring-negative that `docs/CLAUDE-RULES-CANONICAL.md` § "Collapsed
+    # states" and the unasserted-denominator class both exist to stop.
+    # The operative test reuses the WIDEST band already reported (80%) rather
+    # than inventing a second constant: if not one trade in the book ever
+    # entered even the loosest near-miss band, all three bands are structurally
+    # empty and reporting 0.0 for them is noise dressed as an all-clear.
+    #   sentinel case  max_mfe 3.0 vs target 50  -> 3.0 < 40   -> not operative
+    #   real bracket   max_mfe 1.49 vs target 1.5 -> 1.49 >= 1.2 -> operative,
+    #                  and 1.49 IS a near-miss, which is the point.
+    measured_mfes = [m for m in mfes if m is not None]
+    out["target_r_reached_n"] = sum(1 for m in measured_mfes if m >= tr)
+    if not measured_mfes or max(measured_mfes) < 0.80 * tr:
+        return _no_near_miss("target_never_approached_by_any_trade")
 
     # Population is LOSING trades with a measured MFE — the denominator the
     # complaint is about. A loser with no MFE reading is excluded from both
@@ -185,5 +221,6 @@ def empty() -> Dict[str, Any]:
     """The zero-trade block — every key present and None/0, never a fake rate."""
     out: Dict[str, Any] = {k: None for k in KEYS}
     out.update({"n_trades": 0, "n_winners": 0, "n_losers": 0,
-                "capture_measured_n": 0, "mfe_r_measured_n": 0})
+                "capture_measured_n": 0, "mfe_r_measured_n": 0,
+                "target_r_reached_n": 0})
     return out
