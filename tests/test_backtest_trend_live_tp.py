@@ -57,7 +57,7 @@ def _load(name):
 
 bt = _load("backtest_trend") if HAVE_PANDAS else None
 bp = _load("backtest_pullback") if HAVE_PANDAS else None
-HARNESSES = ("backtest_trend", "backtest_pullback")
+HARNESSES = ("backtest_trend", "backtest_pullback", "backtest_squeeze")
 
 
 def _frame(bars):

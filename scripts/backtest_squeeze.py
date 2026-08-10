@@ -118,6 +118,8 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                  emit_path: Optional[str] = None,
                  min_confidence: float = 0.0,
                  stale_exit_bars: int = 0, stale_exit_below_r: float = 0.0,
+                 tp_cap_pct: float = 0.0,
+                 tp_r: float = 50.0,
                  giveback_min_mfe_r: float = 0.0,
                  giveback_r: float = 1.0) -> Dict[str, Any]:
     df = df.reset_index(drop=True)
@@ -135,6 +137,8 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
     df["_sqz_now"] = sqz_on
     df["_basis"] = basis
     trades: List[Trade] = []
+    # Per-entry live-TP distance in R; empty when the lever is off.
+    _tp_r_effective: List[float] = []
     n = len(df)
     i = bb_period + atr_period + 1
     next_idx = i
@@ -167,6 +171,20 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
         if risk <= 0:
             i += 1
             continue
+        # LIVE-PARITY TAKE-PROFIT. Tracking id on its own line, never wrapped:
+        # BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP
+        # squeeze_breakout_4h.py carries _TP_SENTINEL_CAP_PCT = 0.099 like
+        # trend_donchian and htf_pullback, so production places a real resting
+        # TP ~9.9% from entry -- while this harness had NO take-profit exit at
+        # all (its outcomes were stop / trail_stop / stale_stop / giveback_stop
+        # / timeout). DEFAULT OFF so prior verdicts stay reproducible.
+        tp_price: Optional[float] = None
+        if tp_cap_pct > 0.0:
+            if direction == "long":
+                tp_price = min(entry * (1.0 + tp_cap_pct), entry + tp_r * risk)
+            else:
+                tp_price = max(entry * (1.0 - tp_cap_pct), entry - tp_r * risk)
+            _tp_r_effective.append(abs(tp_price - entry) / risk)
         ext = entry
         trail = sl
         exit_price: Optional[float] = None
@@ -180,6 +198,10 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                     exit_price, exit_idx = trail, j
                     exit_reason = "trail_stop" if trail > sl else "stop"
                     break
+                if tp_price is not None and bh >= tp_price:
+                    exit_price, exit_idx = tp_price, j
+                    exit_reason = "take_profit"
+                    break
                 ext = max(ext, bh)
                 trail = max(trail, ext - trail_mult * atr)
                 mfe = max(mfe, (ext - entry) / risk)
@@ -187,6 +209,10 @@ def run_backtest(df: pd.DataFrame, *, bb_period: int, bb_std: float,
                 if bh >= trail:
                     exit_price, exit_idx = trail, j
                     exit_reason = "trail_stop" if trail < sl else "stop"
+                    break
+                if tp_price is not None and bl <= tp_price:
+                    exit_price, exit_idx = tp_price, j
+                    exit_reason = "take_profit"
                     break
                 ext = min(ext, bl)
                 trail = min(trail, ext + trail_mult * atr)
@@ -443,6 +469,13 @@ def main(argv):
     p.add_argument("--stale-exit-bars", type=int, default=0,
                    help="M20 stale-stop: close at bar close after N bars if still below --stale-exit-below-r (0=off).")
     p.add_argument("--stale-exit-below-r", type=float, default=0.0)
+    p.add_argument("--tp-cap-pct", type=float, default=0.0,
+                   help="LIVE-PARITY take-profit: min(entry*(1+pct), entry + "
+                        "tp_r*risk), exit there. Production uses 0.099 (Bybit's "
+                        "~10%% TP-distance clamp). 0 = off, byte-identical.")
+    p.add_argument("--tp-r", type=float, default=50.0,
+                   help="Declared tp_r sentinel; only consulted when "
+                        "--tp-cap-pct > 0, and the cap normally binds.")
     p.add_argument("--giveback-min-mfe-r", type=float, default=0.0,
                    help="M20 giveback-stop: arm once peak open profit reaches this many R (0=off).")
     p.add_argument("--giveback-r", type=float, default=1.0,
@@ -473,6 +506,7 @@ def main(argv):
                      cooldown_bars=a.cooldown_bars, timeframe=a.timeframe,
                      symbol=a.symbol, stale_exit_bars=a.stale_exit_bars,
                      stale_exit_below_r=a.stale_exit_below_r,
+                     tp_cap_pct=a.tp_cap_pct, tp_r=a.tp_r,
                      giveback_min_mfe_r=a.giveback_min_mfe_r,
                      giveback_r=a.giveback_r)
     if a.confidence_sweep:
