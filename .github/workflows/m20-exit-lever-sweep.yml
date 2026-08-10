@@ -305,10 +305,21 @@ jobs:
               core.setFailed(`no PR found for ${context.sha} — sweep for ${leg} computed but has nowhere to go`);
               return;
             }
+            // The banner states what the run REQUESTED, never what was applied.
+            // `base_args` applies --tp-cap-pct only to LIVE_TP_CAPPED_FAMILIES
+            // (only those units carry _TP_SENTINEL_CAP_PCT), so this banner used
+            // to print "LIVE-PARITY (capped TP 0.099)" on the 8 ict_scalp legs
+            // and fvg_range_15m, whose units carry no cap at all — asserting a
+            // geometry the code did not apply, on the one line whose entire job
+            // is to say which geometry produced the numbers below it.
+            // The APPLIED, per-leg truth is emitted by the sweep (which owns the
+            // family and the allowlist) as a `- geometry (leg): ...` line in the
+            // SUMMARY embedded below; duplicating the allowlist here would be a
+            // second source of truth free to drift from the deciding one.
             const cap = process.env.TP_CAP_PCT;
             const geom = (cap && cap !== '0')
-              ? `**LIVE-PARITY (capped TP ${cap})** — what production actually places`
-              : `legacy (no TP) — the geometry every pre-2026-08-10 verdict used, NOT what production runs`;
+              ? `capped TP \`${cap}\` REQUESTED — applied only to families whose unit carries the cap; see the per-leg \`geometry\` line below for what this leg actually ran`
+              : `legacy (no TP cap) requested — the geometry every pre-2026-08-10 verdict used, NOT what production runs`;
             await github.rest.issues.createComment({
               owner: context.repo.owner, repo: context.repo.repo,
               issue_number: pr.number,

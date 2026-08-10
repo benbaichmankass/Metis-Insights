@@ -702,3 +702,41 @@ def test_every_cfg_key_base_args_reads_is_declared_by_some_strategy():
     assert not dead, (
         "base_args reads cfg key(s) that NO strategy declares — each silently "
         "drops its flag and lets the harness default stand in: " + str(dead))
+
+
+# --------------------------------- the geometry banner must state what RAN
+#
+# `base_args` applies --tp-cap-pct ONLY to LIVE_TP_CAPPED_FAMILIES, because only
+# those units carry `_TP_SENTINEL_CAP_PCT`. Measured 2026-08-10: ict_scalp.py
+# contains ZERO occurrences of it. The PR-comment banner read the RUN-LEVEL flag
+# and printed "LIVE-PARITY (capped TP 0.099)" on all 8 scalp legs anyway --
+# asserting a geometry the code did not apply, on the one line whose whole job is
+# to say which geometry produced the numbers below it.
+
+
+def test_the_cap_is_not_applied_to_a_family_whose_unit_has_no_cap():
+    """`base_args` must not pass --tp-cap-pct to a family that cannot use it."""
+    mod = _sweep_module()
+    assert "scalp" not in mod.LIVE_TP_CAPPED_FAMILIES
+    capped = mod.base_args("x", {}, "pullback", "d", None, 0.099)
+    uncapped = mod.base_args("x", {}, "scalp", "d", None, 0.099)
+    assert "--tp-cap-pct" in capped, "the allowlisted family lost its cap"
+    assert "--tp-cap-pct" not in uncapped, (
+        "a family whose unit carries no _TP_SENTINEL_CAP_PCT was handed the cap")
+
+
+def test_the_scalp_unit_really_has_no_cap_so_the_allowlist_is_not_arbitrary():
+    """Anchored on the UNIT, not on the allowlist restating itself.
+
+    If `ict_scalp` ever gains a `_TP_SENTINEL_CAP_PCT`, the allowlist is then
+    wrong and this fails -- which is the direction that matters, because the
+    silent outcome would be a scalp sweep measuring a geometry production no
+    longer runs.
+    """
+    unit = REPO / "src" / "units" / "strategies" / "ict_scalp.py"
+    assert unit.exists()
+    mod = _sweep_module()
+    has_cap = "_TP_SENTINEL_CAP_PCT" in unit.read_text()
+    assert has_cap == ("scalp" in mod.LIVE_TP_CAPPED_FAMILIES), (
+        "the scalp unit's cap and the sweep's allowlist disagree -- one of them "
+        "moved and the sweep is now measuring the wrong geometry")

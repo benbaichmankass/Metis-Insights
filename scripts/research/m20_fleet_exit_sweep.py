@@ -1104,7 +1104,7 @@ def main(argv: list[str]) -> int:
             verdicts[leg] = {"status": "harness_error",
                              "error": base_is.get("error") or base_oos.get("error")}
             continue
-        leg_v = {"proxy": p["proxy"], "levers": {},
+        leg_v = {"proxy": p["proxy"], "family": p["family"], "levers": {},
                  # Cells the grid deliberately did not ask, and why. Without
                  # this the verdict file cannot distinguish a cell that was
                  # never run from one that ran and moved nothing.
@@ -1335,7 +1335,48 @@ def main(argv: list[str]) -> int:
         {"generated_at": datetime.now(timezone.utc).isoformat(),
          "split": a.split, "tp_cap_pct": a.tp_cap_pct,
          "skipped": skipped, "verdicts": verdicts}, indent=1))
+    # THE GEOMETRY THIS LEG ACTUALLY RAN, not the one the run requested.
+    #
+    # `--tp-cap-pct` is applied by `base_args` ONLY when the leg's family is in
+    # LIVE_TP_CAPPED_FAMILIES, because only those units carry
+    # `_TP_SENTINEL_CAP_PCT`. The PR-comment banner, however, reads the RUN-LEVEL
+    # flag and printed "LIVE-PARITY (capped TP 0.099)" on every leg — including
+    # the 8 `ict_scalp` legs and `fvg_range_15m`, whose units carry no cap at all
+    # (verified 2026-08-10: `grep -c _TP_SENTINEL_CAP_PCT
+    # src/units/strategies/ict_scalp.py` -> 0). A banner asserting a geometry the
+    # code did not apply is `diagnostic-provenance-guard` sub-class A, and it is
+    # worse here than most: the banner's ONLY job is to tell the reader which
+    # geometry produced the numbers underneath it.
+    #
+    # Emitted from the sweep rather than the workflow because THIS is where the
+    # family and the allowlist live; duplicating the allowlist into YAML would be
+    # a second source of truth free to drift from the one that decides.
     lines = ["# M20 fleet exit-lever sweep", ""]
+    for _leg, _v in verdicts.items():
+        _fam = _v.get("family")
+        if _fam is None:
+            # A leg that never reached the sweep (skipped / harness error)
+            # records no family, so the geometry is UNKNOWN -- which is not the
+            # same as "applied", and must not be printed as either.
+            lines.append(f"- geometry (`{_leg}`): unknown — this leg did not run "
+                         f"({_v.get('status') or 'no status recorded'}), so no "
+                         f"geometry was applied to report")
+            continue
+        if a.tp_cap_pct <= 0.0:
+            _geo = ("legacy (no TP cap) — the geometry every pre-2026-08-10 "
+                    "verdict used, NOT what production runs")
+        elif _fam in LIVE_TP_CAPPED_FAMILIES:
+            _geo = (f"**capped TP {a.tp_cap_pct} APPLIED** — live parity; this "
+                    f"family's unit places the capped TP")
+        else:
+            _geo = (f"**capped TP NOT APPLIED** (requested {a.tp_cap_pct}) — the "
+                    f"`{_fam}` family's unit carries no `_TP_SENTINEL_CAP_PCT`, so "
+                    f"there is no cap to model. This is live parity FOR THIS LEG, "
+                    f"and it is why the `Live TP reach` table is absent below: the "
+                    f"quantity does not exist here, which is a different statement "
+                    f"from 'the TP is far away' or 'the cap was off'.")
+        lines.append(f"- geometry (`{_leg}`): {_geo}")
+    lines.append("")
     for leg, v in verdicts.items():
         if "levers" not in v:
             lines.append(f"- **{leg}**: {v.get('status')} ({v.get('error', '')[:80]})")
