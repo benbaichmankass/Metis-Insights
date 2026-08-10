@@ -365,3 +365,64 @@ def test_the_gate_and_capital_net_r_deltas_are_kept_apart():
     # The gate-named column must not be fed from the capital key.
     assert "{d['d_net_total_r']} | " not in src, (
         "a capital-block value is still being printed under a gate-named column")
+
+
+def test_a_giveback_rung_at_or_above_the_fixed_tp_is_withheld_with_a_reason():
+    """A cell that CANNOT fire must not be reported as one that fired flat.
+
+    Every live ict_scalp leg is tp_at_r 1.5 and the grid emitted
+    gb1R_afterMFE2R for all of them. The harness's exit order settles that it
+    is a PROVABLE no-op, not a rare one: the TP check returns before the
+    giveback block is reached, so no trade is ever alive at MFE >= 2R. Three
+    legs (sol_15m, xrp_15m, eth_15m) duly reported it at exactly 0.0 on net_R,
+    maxDD and capital/day across BOTH windows — under the gate reason
+    `tie_no_improvement`, which reads as "measured, made no difference".
+
+    Withheld, not silently dropped: "not asked" and "asked and flat" are
+    different states.
+    """
+    mod = _sweep_module()
+    scalp = {"timeframe": "15m", "symbols": ["ETHUSDT"], "tp_at_r": 1.5}
+    inert = []
+    cells = mod.cells_for(scalp, "scalp", skipped=inert)
+    tags = [c[0] for c in cells]
+    assert "gb1R_afterMFE2R" not in tags
+    assert [s["cell"] for s in inert] == ["gb1R_afterMFE2R"]
+    assert "provable_noop" in inert[0]["reason"]
+    assert "tp_at_r=1.5" in inert[0]["reason"]
+    # The 1R rung is BELOW the bracket and stays — it measured non-zero on all
+    # three of those legs, so the predicate must not over-reach.
+    assert "gb1R_afterMFE1R" in tags
+
+
+def test_a_leg_with_no_fixed_bracket_keeps_every_rung():
+    """The predicate is about a FIXED bracket, not about giveback in general.
+
+    A donchian/pullback leg declares no tp_at_r (it trails to a far sentinel),
+    so both rungs are reachable and withholding either would delete real
+    coverage — the opposite failure to the cosmetic cell.
+    """
+    mod = _sweep_module()
+    inert = []
+    cells = mod.cells_for({"timeframe": "1h", "symbols": ["BTCUSDT"],
+                           "trail_mult": 3.0}, "donchian", skipped=inert)
+    gb = [c[0] for c in cells if c[1] == "giveback_stop"]
+    assert gb == ["gb1R_afterMFE1R", "gb1R_afterMFE2R"]
+    assert inert == []
+    # And a wider fixed bracket keeps both too — 2R < 3R is reachable.
+    inert2 = []
+    cells2 = mod.cells_for({"timeframe": "15m", "symbols": ["X"], "tp_at_r": 3.0},
+                           "scalp", skipped=inert2)
+    assert "gb1R_afterMFE2R" in [c[0] for c in cells2]
+    assert inert2 == []
+
+
+def test_inert_reason_is_none_when_the_rung_is_reachable():
+    mod = _sweep_module()
+    assert mod.inert_giveback_reason({"tp_at_r": 1.5}, 1.0) is None
+    assert mod.inert_giveback_reason({"tp_at_r": 1.5}, 1.5) is not None  # at == inert
+    assert mod.inert_giveback_reason({"tp_at_r": 1.5}, 2.0) is not None
+    # Unparseable / absent / non-positive tp_at_r must NOT be read as a bracket
+    # — guessing there would delete a reachable cell.
+    for cfg in ({}, {"tp_at_r": None}, {"tp_at_r": "x"}, {"tp_at_r": 0}):
+        assert mod.inert_giveback_reason(cfg, 2.0) is None

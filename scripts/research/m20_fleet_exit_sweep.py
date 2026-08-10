@@ -272,16 +272,66 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
     return a
 
 
-def cells_for(cfg: dict, fam: str | None = None) -> list[tuple[str, str, list[str]]]:
-    """(cell_tag, matrix_lever, extra_args). Config-exact base is implied."""
+def inert_giveback_reason(cfg: dict, min_mfe_r: float) -> str | None:
+    """Why a giveback rung CANNOT fire on this leg, or None if it can.
+
+    A fixed-bracket leg exits at ``tp_at_r``. A giveback rung that requires
+    peak open profit >= tp_at_r therefore needs the trade to be alive at an R
+    the bracket already closed — and the harness's exit order settles it: the
+    TP check RETURNS before the giveback block is reached
+    (``backtest_ict_scalp._simulate_exit``), so the rung is a PROVABLE no-op,
+    not merely a rare one. Same reasoning the harness already documents for
+    ``--bank-at-r`` ("a rung at bank_at_r >= tp_at_r is a provable no-op").
+
+    MEASURED 2026-08-10: every live ict_scalp leg is ``tp_at_r: 1.5`` and the
+    grid emitted ``gb1R_afterMFE2R`` for all of them. Three legs reported it at
+    EXACTLY 0.0 on net_R, maxDD and capital/day across both windows, under the
+    gate reason ``tie_no_improvement`` — which reads as "we measured it and it
+    made no difference". It was never measurable. That is the cosmetic-cell
+    anti-pattern (`BL-20260730-DONCHIAN-COSMETIC-SHORT-CELLS`): a row that
+    occupies a line in the verdict table, consumes two harness runs per window,
+    and answers a question nobody can act on.
+
+    Returning the REASON rather than a bool is the point — the cell is recorded
+    as skipped-and-why, never silently dropped, so "not run" stays
+    distinguishable from "run and flat".
+    """
+    tp = cfg.get("tp_at_r")
+    try:
+        tp = float(tp) if tp is not None else None
+    except (TypeError, ValueError):
+        return None
+    if tp is None or tp <= 0:
+        return None  # no fixed bracket declared — the rung is reachable
+    if min_mfe_r >= tp:
+        return (f"provable_noop: giveback arms at MFE>={min_mfe_r:g}R but the leg "
+                f"takes profit at tp_at_r={tp:g}R, and the harness's TP check "
+                f"returns before the giveback block")
+    return None
+
+
+def cells_for(cfg: dict, fam: str | None = None,
+              skipped: list | None = None) -> list[tuple[str, str, list[str]]]:
+    """(cell_tag, matrix_lever, extra_args). Config-exact base is implied.
+
+    ``skipped``, when given, collects ``{cell, lever, reason}`` for every cell
+    withheld as structurally inert, so the run reports what it did NOT ask as
+    well as what it did.
+    """
     out = [
         ("stale8_lt0R", "stale_stop", ["--stale-exit-bars", "8"]),
         ("stale12_lt0R", "stale_stop", ["--stale-exit-bars", "12"]),
-        ("gb1R_afterMFE1R", "giveback_stop",
-         ["--giveback-min-mfe-r", "1.0", "--giveback-r", "1.0"]),
-        ("gb1R_afterMFE2R", "giveback_stop",
-         ["--giveback-min-mfe-r", "2.0", "--giveback-r", "1.0"]),
     ]
+    for tag, min_mfe in (("gb1R_afterMFE1R", 1.0), ("gb1R_afterMFE2R", 2.0)):
+        reason = inert_giveback_reason(cfg, min_mfe)
+        if reason:
+            if skipped is not None:
+                skipped.append({"cell": tag, "lever": "giveback_stop",
+                                "reason": reason})
+            continue
+        out.append((tag, "giveback_stop",
+                    ["--giveback-min-mfe-r", f"{min_mfe:g}",
+                     "--giveback-r", "1.0"]))
     # INTRABAR BREAK-EVEN ARMING — scalp only, because it is the only family
     # whose live monitor ratchets to break-even at all (monitor_breakeven_sl;
     # the trail families have no such ratchet to re-base).
@@ -669,16 +719,25 @@ def main(argv: list[str]) -> int:
             skipped.append({"leg": name, "reason": f"data_missing:{sym}"})
             continue
         harness = FAMILY_HARNESS[fam]
+        inert: list = []
+        cells = cells_for(cfg, fam, skipped=inert)
         plan.append({"leg": name, "family": fam, "symbol": sym, "tf": tf,
                      "harness": harness, "data": data, "proxy": proxy,
                      "resample": resample,
+                     # Cells withheld as structurally inert ride WITH the leg
+                     # rather than vanishing: a cell that is absent from the
+                     # table and a cell that ran flat must stay tellable apart.
+                     "inert_cells": inert,
                      "base": base_args(name, cfg, fam, data, resample, a.tp_cap_pct),
-                     "cells": [c for c in cells_for(cfg, fam)
+                     "cells": [c for c in cells
                                if not levers or c[1] in levers]})
 
     print(f"plan: {len(plan)} legs runnable, {len(skipped)} skipped")
     for s in skipped:
         print(f"  SKIP {s['leg']}: {s['reason']}")
+    for p in plan:
+        for c in p["inert_cells"]:
+            print(f"  INERT {p['leg']}: {c['cell']} — {c['reason']}")
     if a.list:
         for p in plan:
             print(f"  RUN  {p['leg']:28s} {p['harness'].split('/')[-1]:22s} "
@@ -848,7 +907,11 @@ def main(argv: list[str]) -> int:
             verdicts[leg] = {"status": "harness_error",
                              "error": base_is.get("error") or base_oos.get("error")}
             continue
-        leg_v = {"proxy": p["proxy"], "levers": {}}
+        leg_v = {"proxy": p["proxy"], "levers": {},
+                 # Cells the grid deliberately did not ask, and why. Without
+                 # this the verdict file cannot distinguish a cell that was
+                 # never run from one that ran and moved nothing.
+                 "inert_cells": p.get("inert_cells") or []}
         # HOW FAR AWAY IS THE LIVE TP, IN R? Measured from THIS leg's own frame,
         # not assumed. `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`
         # was reported to the operator with an ILLUSTRATIVE "1.3-2.0R" derived
