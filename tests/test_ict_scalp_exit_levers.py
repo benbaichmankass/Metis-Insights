@@ -406,3 +406,165 @@ def test_capital_weighted_hold_is_shorter_than_the_full_hold():
     assert capital_weighted < full
     # Just over half the capital-time of holding the whole position throughout.
     assert capital_weighted / full == pytest.approx(0.5238, abs=1e-3)
+
+
+# --------------------------------------------------------------------------
+# --start / --end : the IS/OOS window. Absent until 2026-08-10, which is why
+# the ict_scalp family had never been window-split — the fleet sweep passes
+# both to every cell and this harness rejected them with an argparse usage
+# error, failing all seven legs before a single backtest ran.
+# --------------------------------------------------------------------------
+
+def _window_frame(n: int = 6, start: str = "2024-01-01", tz: bool = True) -> pd.DataFrame:
+    ts = pd.date_range(start, periods=n, freq="5min", tz="UTC" if tz else None)
+    return pd.DataFrame({
+        "timestamp": ts,
+        "open": [100.0] * n, "high": [101.0] * n,
+        "low": [99.0] * n, "close": [100.5] * n, "volume": [1.0] * n,
+    })
+
+
+def test_date_filter_is_inclusive_on_both_bounds():
+    df = _window_frame(6)  # 00:00, 00:05, 00:10, 00:15, 00:20, 00:25
+    out = bts._date_filter(df, "2024-01-01T00:05", "2024-01-01T00:15")
+    assert len(out) == 3
+    assert str(out["timestamp"].iloc[0]).startswith("2024-01-01 00:05")
+    assert str(out["timestamp"].iloc[-1]).startswith("2024-01-01 00:15")
+
+
+def test_date_filter_handles_a_tz_naive_frame():
+    """_load_candles parses WITHOUT utc=True, so the column can be tz-naive.
+
+    Comparing a naive column to a tz-aware bound raises, which would have
+    surfaced as a generic load failure rather than as a window problem.
+    """
+    df = _window_frame(6, tz=False)
+    assert df["timestamp"].dt.tz is None
+    out = bts._date_filter(df, "2024-01-01T00:10", None)
+    assert len(out) == 4
+    # The frame's own dtype is returned untouched — the UTC coercion is for
+    # the comparison only, so the HTF resample downstream sees what it always saw.
+    assert out["timestamp"].dt.tz is None
+
+
+def test_date_filter_without_bounds_is_the_identity():
+    df = _window_frame(4)
+    out = bts._date_filter(df, None, None)
+    assert out.equals(df)
+
+
+def test_date_filter_refuses_a_window_it_cannot_apply():
+    """A frame with no timestamp column + a requested window must RAISE.
+
+    This harness falls back to integer indices when `timestamp` is absent.
+    Silently ignoring the window there would return a FULL-HISTORY result
+    under an `IS` or `OOS` label — a real number with a wrong label, which is
+    strictly worse than an error.
+    """
+    df = _window_frame(4).drop(columns=["timestamp"])
+    with pytest.raises(ValueError, match="no `timestamp` column"):
+        bts._date_filter(df, "2024-01-01", None)
+    # ...but with no window requested the same frame is still fine.
+    assert bts._date_filter(df, None, None).equals(df)
+
+
+def test_is_and_oos_partition_the_full_run(tmp_path):
+    """The split must be a partition, not an approximation.
+
+    Measured on data/backtest_candles.csv (5,000 1-min bars, 2022-07-23..27)
+    with the config-exact base: full history is 4 trades / -0.6535 netR, and
+    the split at 2022-07-25 gives 1 / -0.1210 and 3 / -0.5325 — trades and R
+    both add up exactly. A silent off-by-one in the window would show here as
+    a lost or duplicated trade.
+    """
+    import json
+    import subprocess
+    data = REPO_ROOT / "data" / "backtest_candles.csv"
+    if not data.exists():
+        pytest.skip("sample frame not present")
+
+    def run(*extra):
+        out = tmp_path / f"o{len(extra)}{abs(hash(extra))}.json"
+        subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / "backtest_ict_scalp.py"),
+             "--data", str(data), "--symbol", "BTCUSDT", "--timeframe", "5m",
+             "--sim-breakeven", "--json", str(out), *extra],
+            check=True, capture_output=True)
+        return json.loads(out.read_text())
+
+    full = run()
+    is_ = run("--end", "2022-07-25")
+    oos = run("--start", "2022-07-25")
+    assert is_["total_trades"] + oos["total_trades"] == full["total_trades"]
+    assert is_["net_total_r"] + oos["net_total_r"] == pytest.approx(
+        full["net_total_r"], abs=1e-9)
+    # Each side must be a STRICT subset — a window that silently matched
+    # everything would pass the sum check above by being the full run twice.
+    assert is_["bars"] < full["bars"] and oos["bars"] < full["bars"]
+
+
+def test_a_window_with_no_overlap_exits_nonzero(tmp_path):
+    """An empty window must not arrive as a confident zero-trade summary.
+
+    "The window selected no bars" and "the strategy took no trades in this
+    window" are different statements, and the sweep grades the second one.
+    """
+    import subprocess
+    data = REPO_ROOT / "data" / "backtest_candles.csv"
+    if not data.exists():
+        pytest.skip("sample frame not present")
+    p = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "backtest_ict_scalp.py"),
+         "--data", str(data), "--symbol", "BTCUSDT", "--timeframe", "5m",
+         "--start", "2030-01-01", "--json", str(tmp_path / "o.json")],
+        capture_output=True, text=True)
+    assert p.returncode != 0
+    assert "selected 0 bars" in p.stderr
+
+
+def test_the_sweeps_scalp_invocation_is_accepted_end_to_end():
+    """Every flag scripts/research/m20_fleet_exit_sweep.py sends must parse.
+
+    This is the regression the 2026-08-10 dispatch needed and did not have:
+    all seven scalp legs failed with an argparse usage error before running a
+    single backtest, because `--start`/`--end` were undeclared here — and
+    nothing in the repo asserted that the sweep's argv and this parser agree.
+    The census had passed on the same legs minutes earlier, because a census
+    windows nothing.
+    """
+    import importlib.util as _ilu
+    spec = _ilu.spec_from_file_location(
+        "_sweep_argv", REPO_ROOT / "scripts" / "research" / "m20_fleet_exit_sweep.py")
+    sweep = _ilu.module_from_spec(spec)
+    sys.modules["_sweep_argv"] = sweep
+    spec.loader.exec_module(spec and sweep)
+
+    cfg = {"timeframe": "15m", "symbols": ["ETHUSDT"], "min_confidence": 0.3,
+           "htf_filter_timeframe": "1h", "htf_filter_ema_period": 20}
+    base = sweep.base_args("ict_scalp_eth_15m", cfg, "scalp", "x.csv", None)
+    cells = sweep.cells_for(cfg, "scalp")
+    assert cells, "scalp lost its lever cells"
+    # The base alone must parse, and so must base+cell in each window the
+    # gate uses — IS passes --end, OOS passes --start, the walk-forward both.
+    parser = bts.build_parser()
+    windows = ([], ["--end", "2025-07-01"], ["--start", "2025-07-01"],
+               ["--start", "2021-01-01", "--end", "2022-01-01"])
+    for tag, _lever, extra in [("<base>", "", [])] + list(cells):
+        for window in windows:
+            try:
+                parser.parse_args([*base, *extra, *window, "--json", "/dev/null"])
+            except SystemExit as exc:  # argparse exits 2 on an unknown flag
+                raise AssertionError(
+                    f"the sweep's scalp invocation is rejected by this harness: "
+                    f"cell={tag} window={window} ({exc})") from exc
+
+
+def test_build_parser_still_rejects_an_unknown_flag():
+    """The guard above is only meaningful if the parser is strict.
+
+    A parser that silently accepted anything would make the sweep-argv test
+    pass while the real failure persisted — the same class as a probe that
+    cannot find a positive.
+    """
+    with pytest.raises(SystemExit):
+        bts.build_parser().parse_args(["--a-flag-that-does-not-exist", "1"])
