@@ -131,11 +131,30 @@ jobs:
             // The branch that triggered this run — never a hardcoded one, or a
             // re-use posts its verdicts onto an unrelated PR.
             const branch = context.ref.replace('refs/heads/', '');
-            const prs = await github.rest.pulls.list({
-              owner: context.repo.owner, repo: context.repo.repo,
-              head: `${context.repo.owner}:${branch}`, state: 'open',
-            });
-            const num = prs.data[0] && prs.data[0].number;
+            // Resolve the PR from the COMMIT, not from a head-filter query.
+            // The `pulls.list({head: 'owner:branch'})` form silently returned
+            // an empty list for this branch on 2026-08-10 — all 7 legs computed
+            // their verdicts and then dropped them on the floor, each logging a
+            // warning and exiting 0. listPullRequestsAssociatedWithCommit is the
+            // direct question ("which PR contains this sha?") and needs no
+            // guess about the head-ref string format.
+            let num = null;
+            try {
+              const byCommit = await github.rest.repos
+                .listPullRequestsAssociatedWithCommit({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  commit_sha: context.sha,
+                });
+              const open = byCommit.data.filter(p => p.state === 'open');
+              num = open[0] && open[0].number;
+            } catch (e) { core.warning(`commit->PR lookup failed: ${e.message}`); }
+            if (!num) {   // fall back to the head-filter form
+              const prs = await github.rest.pulls.list({
+                owner: context.repo.owner, repo: context.repo.repo,
+                head: `${context.repo.owner}:${branch}`, state: 'open',
+              });
+              num = prs.data[0] && prs.data[0].number;
+            }
             const body = [
               `**exit-sweep verdict — \`${leg}\` (${sym} ${tf})** (run ${context.runId})`,
               `Dataset: \`m27_data/${sym}_${tf}.csv\` — the SAME population every other M27 exit-lever verdict in this row was measured on.`,
@@ -153,5 +172,13 @@ jobs:
                 issue_number: num, body,
               });
             } else {
-              core.warning('No open PR found for branch; verdict not posted.');
+              // FAIL, do not warn. A sweep that computed a verdict and could
+              // not deliver it is a lost result, and a green job that produced
+              // nothing is exactly the "green is not evidence" shape — on
+              // 2026-08-10 all 7 legs did this and the run still read as a
+              // clean success.
+              core.setFailed(
+                `Verdict for ${leg} could NOT be posted: no open PR found for ` +
+                `commit ${context.sha} or branch ${branch}. The result is in ` +
+                `this job's log and must be collected manually.`);
             }
