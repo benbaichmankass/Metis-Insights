@@ -123,6 +123,49 @@ it" are not verification.** If you did not check it in this session, say that
 plainly instead of asserting it — an honest *"I have not verified this"* costs a
 sentence; a confident wrong answer on a live trading system costs money.
 
+### WHAT ENFORCES THIS RULE — measured, because the rule alone enforces nothing
+
+**This section is not decoration. Writing this rule did not prevent its author
+from breaking it twice in the hours after it merged**, including shipping a
+percentage over a denominator containing two cells that did not exist
+(`BL-20260810-ROLLUP-DENOMINATOR-UNASSERTED`). Treat "I know this rule" as
+uncorrelated with compliance, and lean on the mechanisms instead.
+
+Ledger of ten verification failures in the session that wrote this rule, by what
+actually caught each:
+
+| catcher | count | examples |
+|---|--:|---|
+| **CI guards** | 3 | `ruff` `E702`; `check_backlog_refs` on a truncated id; a totals-vs-sets misreading |
+| **assertions inside the author's own script** | 3 | a row count of 48 where the arithmetic said 46; a leg-uniqueness check; a spot-check against source refs |
+| **another session** | 1 | the phantom denominator above |
+| **tooling refusing an unsafe operation** | 1 | git's non-fast-forward rejection, against a safety check run on a since-moved ref |
+| **this rule, as prose** | **0** | — |
+| **never caught by any mechanism** | 2 | a `grep` that could not match the form it was looking for; a truncated file read |
+
+So, in priority order:
+
+1. **Convert a class into a guard with a self-test.** The proven local pattern
+   (`canonical-db-resolver` → `env-gate-guard` → `silent-empty-guard` →
+   `provenance-consumer-guard` → `diagnostic-provenance-guard` →
+   `collapsed-state-guard`). Validate the **artifact**, not the script that
+   produced it — then any bad producer is caught regardless of author. And keep
+   overrides *verified, never presence-only*: a guard cheaper to lie to than to
+   satisfy is worse than no guard.
+2. **Put the assertion inside the transform.** Counts, uniqueness, key
+   completeness, sign checks. This was the only *self*-verification that worked
+   at all, and both structural bugs it caught were invisible to re-reading.
+3. **Accept that the residue is unmechanizable.** An ad-hoc `grep` cannot be
+   validated by CI. For those, the only lever is practice #2 above — prove the
+   probe can find a positive before trusting its silence.
+
+**One environmental factor, since it reproduces:** those failures clustered
+**late in a long session**; the same session's early work (a two-engine
+comparison, negative controls, a three-control instrument validation) held up
+under later scrutiny. If verification is load-bearing for what you are doing,
+treat session length as a risk to it and check the `session-handoff` triggers —
+more guards do not fix a degraded checker.
+
 Mirrored at the top of the root `CLAUDE.md`.
 
 ## If you see something, say something (operator directive 2026-07-19, binding)

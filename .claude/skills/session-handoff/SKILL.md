@@ -99,6 +99,29 @@ finishing the current small thing before closing out.
      is told to stand on it. If a genuinely-blocking check can't be made
      green in-session (real failure outside scope, flaky infra), say so
      explicitly in the handoff and do NOT imply the branch is a ready base.
+     **Green + auto-merge armed is NECESSARY, NOT SUFFICIENT — the gate is
+     about the FOUNDATION, not the CI state** (2026-08-09). A handoff named a
+     branch whose PR was green and auto-merge-armed, and whose artifact was
+     **wrong**: the M20 coverage roll-up divided by a denominator containing two
+     cells that did not exist. The letter of this rule was met and its purpose
+     was not. Before pointing a session at a branch that PRODUCES AN ARTIFACT
+     (a matrix, a corpus, a ledger, a generated doc), verify the artifact
+     itself — not just that the checks are green, since no check was validating
+     it. Cheapest form: assert the output's own denominator/row count/key
+     completeness, and read the summary you printed rather than skimming it
+     (that roll-up printed `None 3` for the missing cells and the author read
+     past it). If you cannot verify the artifact in-session, say so in the
+     handoff and do NOT imply the branch is a ready base.
+   - **Name a branch the next session can start clean on.** Reusing a branch
+     that still carries an open PR puts two sessions on one PR: they diverge,
+     duplicate each other's fixes, and one force-push can discard the other's
+     work. On 2026-08-09 both sessions independently diagnosed and fixed the
+     same truncated backlog id, and a fast-forward check run against a
+     since-moved ref was stopped only by git's non-fast-forward rejection.
+     Prefer a NEW branch name in the prompt, or state explicitly *"restart the
+     branch from `main` only after PR #N merges."* (Joining an open branch IS
+     correct when the point is to fix a defect already in flight on it — that
+     is the one case, and it should be said out loud on the board.)
    - `git status` clean, or every remaining diff explained in the handoff.
    - Every branch you pushed has an open PR (Multi-session coordination's
      "one PR = one concern" still applies — don't leave an orphan branch).
