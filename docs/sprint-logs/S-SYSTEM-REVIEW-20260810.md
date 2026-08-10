@@ -117,4 +117,16 @@ then fix the shadow-stats soak denominator so model promotion becomes decidable.
 - [x] All 88 open backlog items triaged (`count_untriaged` 0)
 - [x] Coordination board START + DONE posted
 - [x] CI green before merge
-- [ ] **Live verification of the tick fix — OWED, not done**
+- [x] **Live verification of the tick fix — PERFORMED 2026-08-10T07:23Z** (n=3, decomposed:
+      cold 128.4s / warm 104.4s / warm 107.6s → warm mean **106.0s** vs pre-fix 251.1s, a 58%
+      reduction; `TICK_INTERVAL_SECONDS` confirmed **60s** by arithmetic, not assumption).
+      **The verification was performed; the FIX IS PARTIAL.** 106s against a 60s interval is
+      still a **1.8x overrun** (down from ~4.2x), so
+      `BL-20260810-TICK-CHAIN-260S-PER-TICK` is deliberately **left OPEN** — this box means
+      "the measurement was taken", NOT "the problem is gone". Residual is ~50 candle fetches
+      per tick.
+- [x] **Live verification of the netting allowlist — PERFORMED 2026-08-10T07:20:40Z.** First
+      applied row confirmed on REAL-MONEY `bybit_2`: `apply_scope: allowlisted`, ETHUSDT
+      trade 4134, 0.02 attributed of 0.06 on a `fifo` basis, `anchor_status: anchored` at a
+      fresh post-restart price, `anchor_basis: divergence_first_observed`. Correct shape;
+      item left OPEN because one row is not a soak.
