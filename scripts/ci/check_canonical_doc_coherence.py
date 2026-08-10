@@ -177,11 +177,155 @@ def check_hierarchy_mirror() -> list[str]:
     return fails
 
 
+# --------------------------------------------------------------------------- #
+# declared values — does the prose match the file that actually sets it?
+# --------------------------------------------------------------------------- #
+#
+# WHY (2026-08-10). The four checks above passed 4/4 while FIVE canonical docs
+# described branch protection incorrectly, because none of them compares a
+# claim about a live setting against the file that sets it. The same session
+# also found `CLAUDE.md` describing `POST /api/bot/prop/report` as PERMISSIVELY
+# token-gated ("when set") when `_require_write_token` is fail-CLOSED (503 when
+# the token is unset). That second one is the shape that reaches the trader: a
+# session reasoning from it would conclude an unauthenticated write path exists
+# where it does not, or vice versa.
+#
+# Same idiom as `check_removed_gates`: a phrase asserting the wrong value is a
+# finding unless the surrounding context marks it historical/corrected.
+#
+# TWO RULES FOR ADDING A CONTRACT — both are the point, not ceremony:
+#
+#  1. THE SOURCE MUST BE IN-REPO. A value that lives only on the VM (e.g. the
+#     live `BYBIT_TPSL_MODE`) is deliberately EXCLUDED: this guard would be
+#     asserting a value it cannot read, which is precisely the defect it
+#     exists to catch. Verify those by diag, not here.
+#  2. AN UNREADABLE SOURCE IS A FAILURE, NOT A PASS. If the extractor stops
+#     matching (someone renames `STRICT=`), the check reports that loudly. A
+#     silently-disabled check is the "green that checked nothing" this repo
+#     already treats as worse than a red.
+#
+# WHAT THIS DOES **NOT** PROVE — stated so the PASS line is not read as more
+# than it is (the same defect one level up):
+#
+#  * It matches KNOWN STALE PHRASINGS, not meaning. A doc can assert the wrong
+#    value in words no pattern here anticipates and this check will pass. It
+#    is a ratchet against recurrence of drift that actually happened, not a
+#    general prover.
+#  * Coverage is deliberately ASYMMETRIC. Each contract lists patterns only
+#    for the value(s) the source does NOT currently hold; the pattern list for
+#    the current value is empty. Flipping a source value therefore does not
+#    immediately start flagging the now-stale prose — the phrases that would
+#    catch it ("unticked", "off since") are the same ones `_HISTORICAL` uses to
+#    suppress corrected text, and conflating those would make the guard fire on
+#    its own retrospective notes. **When you flip a value, sweep its docs by
+#    hand and move the patterns across.**
+#  * It reads REPO state. Anything whose truth lives on the VM is out of scope
+#    by rule 1 above.
+
+_HISTORICAL = re.compile(
+    r"remov|retir|supersed|histor|no longer|was |used to|until |previously|"
+    r"correct|~~|deprecat|before 20|off since|unticked|past tense|RESOLVED",
+    re.I,
+)
+
+# (id, source_file, extractor, {value: [patterns asserting THAT value]})
+VALUE_CONTRACTS = [
+    {
+        "id": "branch-protection require-up-to-date",
+        "source": ".github/workflows/branch-protection-sync.yml",
+        "extract": re.compile(r"^\s*STRICT=(true|false)\s*$", re.M),
+        "asserts": {
+            "true": [
+                re.compile(r"safety net is .{0,40}branch.protection \(require-up-to-date\)", re.I),
+                re.compile(r'"?Require branches to be up to date[^\n]{0,60}\b(is ON|ticked|enabled)', re.I),
+                re.compile(r"sync to `?main`? LAST, right before merging", re.I),
+            ],
+            "false": [],
+        },
+    },
+    {
+        "id": "POST /api/bot/prop/report write gate",
+        "source": "src/web/api/routers/prop.py",
+        # fail-closed iff the token-unset branch raises 503.
+        "extract": lambda t: "fail_closed" if re.search(
+            r"def _require_write_token.*?status_code=503", t, re.S) else "permissive",
+        "asserts": {
+            "permissive": [
+                re.compile(r"prop/report[^\n]{0,200}token-gated[^\n]{0,60}\bwhen set\b", re.I),
+            ],
+            "fail_closed": [],
+        },
+    },
+    {
+        "id": "/api/bot/devices admin-token gate",
+        "source": "src/web/api/routers/devices.py",
+        # permissive iff the token-unset branch returns instead of raising.
+        "extract": lambda t: "permissive" if re.search(
+            r"def _check_admin_token.*?if not expected:\s*\n\s*return", t, re.S) else "fail_closed",
+        "asserts": {
+            "fail_closed": [
+                re.compile(r"/devices[^\n]{0,120}\bfail-?closed\b", re.I),
+                re.compile(r"/devices[^\n]{0,120}\b503\b", re.I),
+            ],
+            "permissive": [],
+        },
+    },
+]
+
+# Docs where a claim about a live gate misleads a session. Broader than
+# ACTIVE_DOCS: the 2026-08-10 drift was in the runbook and the board JSON,
+# neither of which the other checks read.
+_VALUE_DOC_EXTRAS = [
+    "docs/runbooks/merge-queue.md",
+    "docs/claude/coordination-board.md",
+    "docs/claude/session-board.json",
+]
+
+
+def check_declared_values() -> list[str]:
+    """A doc must not assert a live setting's value that the source contradicts."""
+    fails: list[str] = []
+    files = _active_files()
+    files += [ROOT / p for p in _VALUE_DOC_EXTRAS if (ROOT / p).exists()]
+
+    for c in VALUE_CONTRACTS:
+        src = ROOT / c["source"]
+        if not src.exists():
+            fails.append(f"{c['source']}: source for '{c['id']}' is missing — "
+                         f"this check cannot run; fix the path or drop the contract")
+            continue
+        text = src.read_text(encoding="utf-8")
+        ex = c["extract"]
+        if callable(ex) and not hasattr(ex, "search"):
+            actual = ex(text)
+        else:
+            m = ex.search(text)
+            actual = m.group(1) if m else None
+        if actual is None:
+            fails.append(f"{c['source']}: could not read the current value for "
+                         f"'{c['id']}' — the extractor no longer matches, so this "
+                         f"check is silently disabled. Fix it, do not ignore it")
+            continue
+
+        wrong = [(v, pats) for v, pats in c["asserts"].items() if v != actual]
+        for claimed, patterns in wrong:
+            for rel, i, line, context in _iter_windows(files):
+                for pat in patterns:
+                    if pat.search(line) and not _HISTORICAL.search(context):
+                        fails.append(
+                            f"{rel}:{i}: says '{c['id']}' is {claimed!r}, but "
+                            f"{c['source']} sets it to {actual!r} -> {line.strip()[:110]}"
+                        )
+                        break
+    return fails
+
+
 CHECKS = [
     ("dead VM IP single-source", check_dead_vm_ip),
     ("removed gates not described as live", check_removed_gates),
     ("no 7-stage ML ladder in catalog", check_seven_stage_ladder),
     ("instruction-hierarchy mirror", check_hierarchy_mirror),
+    ("declared values match their source", check_declared_values),
 ]
 
 

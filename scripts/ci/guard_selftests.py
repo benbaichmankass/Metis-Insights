@@ -43,7 +43,23 @@ def _load(path: str, name: str = "g"):
 
 @contextlib.contextmanager
 def _planted(path: Path, content: str = ""):
-    """Create a file for the duration of the test, then always remove it."""
+    """Create a file for the duration of the test, then always remove it.
+
+    Directories this creates are removed too. Every earlier planter wrote into
+    a directory that already existed, so the omission was invisible; the first
+    one that did not (``canonical-doc-values``, planting under
+    ``.claude/skills/``) left an empty ``_selftest_*`` directory behind on
+    every run. Git does not track empty directories, so ``git status`` stayed
+    clean and the litter was silent — while sitting inside the skills tree a
+    catalog scan walks. Only directories this call created are removed, and
+    only while empty, so a planter aimed at a real directory can never delete
+    it.
+    """
+    created: list[Path] = []
+    probe = path.parent
+    while not probe.exists():
+        created.append(probe)
+        probe = probe.parent
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     try:
@@ -51,6 +67,9 @@ def _planted(path: Path, content: str = ""):
     finally:
         with contextlib.suppress(FileNotFoundError):
             path.unlink()
+        for leaf in created:  # innermost first
+            with contextlib.suppress(OSError):
+                leaf.rmdir()
 
 
 def _rc(argv) -> int:
@@ -184,6 +203,44 @@ def selftest_diagnostic_provenance() -> None:
     print("self-test OK — the guard still fails closed (exit 1 on a known-bad input).")
 
 
+def selftest_canonical_doc_values() -> None:
+    """A doc asserting a live gate's WRONG value must be caught.
+
+    `canonical-doc-coherence` passed 4/4 on 2026-08-10 while five canonical
+    docs described branch protection incorrectly — none of its checks compared
+    a claim against the file that sets it. The `declared values` check closes
+    that. Its failure path is exercised here because the check is otherwise
+    only ever seen passing, and a doc-drift guard that cannot fail is the drift.
+    """
+    planted = REPO / ".claude" / "skills" / "_selftest_doc_values" / "SKILL.md"
+    # The exact stale phrasing that shipped: prose asserting require-up-to-date
+    # is the safety net, while branch-protection-sync.yml sets STRICT=false.
+    bad = ("# selftest\n"
+           "The hard safety net is GitHub branch-protection (require-up-to-date).\n")
+    with _planted(planted, bad):
+        rc = _rc(["python3", "scripts/ci/check_canonical_doc_coherence.py"])
+    if rc == 0:
+        raise SystemExit(
+            "::error::SELF-TEST FAILED — canonical-doc-coherence returned 0 on a doc "
+            "asserting a value its source contradicts. The declared-values check is "
+            "not detecting drift, so its PASS means nothing. Fix it before trusting it."
+        )
+    # And it must be quiet on the corrected, historically-marked form — a guard
+    # that fires on its own retraction notes gets silenced wholesale.
+    ok = ("# selftest\n"
+          "This previously read: the safety net is branch-protection "
+          "(require-up-to-date). No longer true as of 2026-08-10.\n")
+    with _planted(planted, ok):
+        rc_ok = _rc(["python3", "scripts/ci/check_canonical_doc_coherence.py"])
+    if rc_ok != 0:
+        raise SystemExit(
+            "::error::SELF-TEST FAILED — canonical-doc-coherence flagged a CORRECTED, "
+            "historically-marked statement. A guard that fires on its own retraction "
+            "notes trains contributors to ignore it."
+        )
+    print("self-test OK — declared-values drift is caught, corrected prose is not.")
+
+
 def selftest_api_tier_policy() -> None:
     """A new route with no tier row must be caught.
 
@@ -279,6 +336,7 @@ def selftest_timestamp_comparison() -> None:
 
 SELFTESTS: Dict[str, Callable[[], None]] = {
     "api-tier-policy": selftest_api_tier_policy,
+    "canonical-doc-values": selftest_canonical_doc_values,
     "claim-basis": selftest_claim_basis,
     "impossibility-claim": selftest_impossibility_claim,
     "diag-unit-allowlist": selftest_diag_unit_allowlist,
