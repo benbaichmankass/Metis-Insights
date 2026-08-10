@@ -511,3 +511,63 @@ def test_path_b_predicate_needs_both_windows_and_capital_up():
                 {"d_net_r_per_capital_day": None}, {}):
         assert mod.is_path_b_candidate(
             {"d_net_r": 1.0}, {"d_net_r": 1.0}, cap) is False
+
+
+def test_the_derived_tolerance_discriminates_where_a_fleet_scalar_cannot():
+    """The evidence-based Path B tolerance (operator directive 2026-08-10).
+
+    No scalar: a cell may deepen drawdown only if net_R per unit of drawdown
+    does not get worse, so the allowance is derived from each leg's own base.
+    The same +1.0R-for-+2.0R ask must be REJECTED on an efficient book and
+    allowed on an inefficient one — a fleet-wide "+2R is fine" passes both.
+    """
+    mod = _sweep_module()
+    ask = lambda nb, db: mod.drawdown_exchange_rate(  # noqa: E731
+        {"net_total_r": nb + 1.0, "max_drawdown_r": db + 2.0},
+        {"net_total_r": nb, "max_drawdown_r": db})
+
+    efficient = ask(40.0, 12.0)          # base rate 3.33 R per R of drawdown
+    assert efficient["passes"] is False
+    assert efficient["allowed_d_max_dd"] == 0.3
+    assert efficient["headroom"] == -1.7
+
+    inefficient = ask(4.0, 9.0)          # base rate 0.44
+    assert inefficient["passes"] is True
+    assert inefficient["allowed_d_max_dd"] == 2.25
+    assert inefficient["headroom"] == 0.25
+
+
+def test_the_ratio_and_marginal_forms_agree():
+    """N_c/D_c >= N_b/D_b  <=>  dN/dD >= N_b/D_b.
+
+    Asserted rather than trusted: the docstring claims the two readings are the
+    same condition, and a divergence would mean the reported `allowed`/`headroom`
+    (derived from the marginal form) disagreed with the `passes` flag (computed
+    by cross-multiplication).
+    """
+    mod = _sweep_module()
+    for nb, db in ((40.0, 12.0), (4.0, 9.0), (7.5, 3.25)):
+        for d_net in (0.1, 1.0, 5.0, 12.0):
+            for d_dd in (0.05, 0.5, 2.0, 6.0):
+                r = mod.drawdown_exchange_rate(
+                    {"net_total_r": nb + d_net, "max_drawdown_r": db + d_dd},
+                    {"net_total_r": nb, "max_drawdown_r": db})
+                marginal_ok = (d_net / d_dd) >= (nb / db)
+                assert r["passes"] == marginal_ok, (nb, db, d_net, d_dd)
+                # headroom sign must agree with the verdict too.
+                assert (r["headroom"] >= 0) == marginal_ok, (nb, db, d_net, d_dd)
+
+
+def test_ungradeable_is_never_a_pass():
+    mod = _sweep_module()
+    cell = {"net_total_r": 6.0, "max_drawdown_r": 10.0}
+    cases = {
+        "base_unprofitable": {"net_total_r": -5.0, "max_drawdown_r": 9.0},
+        "base_no_drawdown": {"net_total_r": 5.0, "max_drawdown_r": 0.0},
+        "unreadable": {"net_total_r": 5.0},
+    }
+    for reason, base in cases.items():
+        r = mod.drawdown_exchange_rate(cell, base)
+        assert r["passes"] is None, reason
+        assert r["reason"] == reason
+        assert r["allowed_d_max_dd"] is None

@@ -566,6 +566,97 @@ def beats(cell: dict, base: dict) -> bool:
     return cn >= bn and cd <= bd and (cn > bn or cd < bd)
 
 
+def drawdown_exchange_rate(cell: dict, base: dict) -> dict:
+    """Does the cell buy drawdown at a better rate than the book already pays?
+
+    THE PATH B THRESHOLD, DERIVED RATHER THAN CHOSEN (operator directive
+    2026-08-10: "let's get an evidence based number for the drawdown tolerance
+    instead of guessing").
+
+    The design note left both Path B thresholds unset, which was right — but the
+    thing to avoid is not just an ARBITRARY scalar, it is a scalar at all. A
+    single fleet-wide "accept up to +X R of drawdown" cannot be evidence-based,
+    because the legs are not commensurable: a leg whose base book earns 40R
+    against a 12R drawdown is being asked a different question from one earning
+    4R against 9R, and one number answers both wrongly. It also collides with
+    the per-leg direction the sweep's own heterogeneity forces (be_touch_arm:
+    +10.72R on ict_scalp_sol_5m, -11.18R on ict_scalp_avax_5m).
+
+    So the criterion is a RATE, not an allowance, and it carries no tunable:
+
+        the cell may deepen drawdown only if net_R per unit of drawdown
+        does not get worse ==>  N_c / D_c  >=  N_b / D_b
+
+    The book's own realised ratio is the evidence. A cell clearing it buys
+    drawdown at least as cheaply as the strategy already does, in the currency
+    the strategy already trades in; a cell failing it is asking the operator to
+    accept a worse exchange rate than the status quo, which is a decision no
+    threshold should smuggle through.
+
+    ``allowed_d_max_dd`` is that rate expressed back as an allowance for THIS
+    leg — ``D_b * (d_net_r / N_b)`` — so the operator can read the implied
+    tolerance per leg beside the drawdown the cell actually asks for. That is
+    the "evidence-based number": measured per leg from its own base, not chosen
+    once for the fleet.
+
+    EQUIVALENT MARGINAL FORM (algebraically identical, and the more intuitive
+    reading): ``N_c/D_c >= N_b/D_b`` rearranges to ``ΔN/ΔD >= N_b/D_b`` — the
+    net_R bought at the MARGIN must beat the rate the book earns on AVERAGE.
+
+    STATED PROPERTY, not a hidden one: the criterion is strict on an efficient
+    book and permissive on an inefficient one, because a poor average rate is a
+    low bar to clear. Worked, on the same +1.0R-for-+2.0R ask (marginal 0.50):
+
+        base 40R / 12R dd (rate 3.33) -> REJECT (allowed +0.30, headroom -1.70)
+        base  4R /  9R dd (rate 0.44) -> PASS   (allowed +2.25, headroom +0.25)
+
+    A fleet-wide "+2R of drawdown is acceptable" scalar passes BOTH. Whether the
+    permissive half is desirable is an operator judgement — one could add a floor
+    on the base rate, but that reintroduces exactly the free parameter this
+    avoids, so it is left unset and surfaced rather than decided here.
+
+    Compared by cross-multiplication rather than division (both drawdowns are
+    positive magnitudes — ``mdd = max(mdd, peak - cum)``), so no ratio has to be
+    formed to make the decision.
+
+    UNGRADEABLE IS ITS OWN ANSWER, never a pass:
+      * ``base_unprofitable`` (N_b <= 0) — a book that loses money has no
+        exchange rate worth preserving, and "improved a negative ratio" is not a
+        statement about drawdown at all.
+      * ``base_no_drawdown`` (D_b <= 0) — nothing to scale the allowance from.
+      * ``unreadable`` — a missing field is not a failed comparison.
+    """
+    out: Dict[str, Any] = {
+        "passes": None, "reason": None,
+        "base_net_r": None, "base_max_dd": None,
+        "cell_net_r": None, "cell_max_dd": None,
+        "d_net_r": None, "d_max_dd": None,
+        "allowed_d_max_dd": None, "headroom": None,
+    }
+    try:
+        n_c, n_b = float(cell["net_total_r"]), float(base["net_total_r"])
+        d_c, d_b = float(cell["max_drawdown_r"]), float(base["max_drawdown_r"])
+    except (KeyError, TypeError, ValueError):
+        out["reason"] = "unreadable"
+        return out
+    out.update({"base_net_r": round(n_b, 4), "base_max_dd": round(d_b, 4),
+                "cell_net_r": round(n_c, 4), "cell_max_dd": round(d_c, 4),
+                "d_net_r": round(n_c - n_b, 4), "d_max_dd": round(d_c - d_b, 4)})
+    if n_b <= 0:
+        out["reason"] = "base_unprofitable"
+        return out
+    if d_b <= 0:
+        out["reason"] = "base_no_drawdown"
+        return out
+    allowed = d_b * ((n_c - n_b) / n_b)
+    out["allowed_d_max_dd"] = round(allowed, 4)
+    # Positive headroom = the cell asks for LESS drawdown than its net_R gain
+    # entitles it to at the book's own rate.
+    out["headroom"] = round(allowed - (d_c - d_b), 4)
+    out["passes"] = (n_c * d_b) >= (n_b * d_c)
+    return out
+
+
 def is_path_b_candidate(g_is: dict, g_oos: dict, cap_oos: dict) -> bool:
     """net_R up on BOTH windows and capital/day up, but Path A said no.
 
@@ -1067,6 +1158,14 @@ def main(argv: list[str]) -> int:
                 entry["walkforward"] = wf["summary"]
                 entry["walkforward_folds"] = wf["folds"]
                 entry["path_b_candidate"] = True
+                # THE DERIVED TOLERANCE, per window and per leg. Reported, not
+                # enforced — this is the evidence the operator's Path B decision
+                # rests on, and a criterion that promoted on its own would be
+                # the same Tier-3 short-circuit the sweep exists to avoid.
+                entry["dd_exchange_rate"] = {
+                    "IS": drawdown_exchange_rate(c_is, base_is),
+                    "OOS": drawdown_exchange_rate(c_oos, base_oos),
+                }
                 entry["verdict"] = ("path_b_wf_pass" if wf["usable"] >= 4
                                     and wf["wins"] * 3 >= wf["usable"] * 2
                                     else "path_b_wf_fail")
@@ -1257,6 +1356,45 @@ def main(argv: list[str]) -> int:
             # tolerance, and printing only the OOS side left it unsizeable.
             f"{d.get('is_d_max_dd')} | {d.get('oos_d_max_dd')} | "
             f"{_shape(d)} |")
+    # ---- The DERIVED drawdown tolerance, per Path B candidate ---------------
+    # Operator directive 2026-08-10: an evidence-based number, not a guess. The
+    # evidence is each leg's OWN net_R-per-drawdown rate; `allowed` is that rate
+    # expressed as an allowance for this leg's net_R gain, and `asked` is the
+    # drawdown the cell actually wants. headroom = allowed - asked.
+    pb = []
+    for _leg, _v in verdicts.items():
+        for _entries in (_v.get("levers") or {}).values():
+            for _e in _entries:
+                if _e.get("dd_exchange_rate"):
+                    pb.append((_leg, _e))
+    if pb:
+        lines += ["", "## Path B — the drawdown tolerance each leg's own book implies",
+                  "",
+                  "No fleet-wide scalar. A cell may deepen drawdown only if net_R per unit "
+                  "of drawdown does not get worse (`N_c/D_c >= N_b/D_b`), so the allowance "
+                  "is **derived per leg** from that leg's measured base: "
+                  "`allowed = base_maxDD x (d_netR / base_netR)`. **Positive headroom on "
+                  "BOTH windows** means the cell buys drawdown at least as cheaply as the "
+                  "strategy already does. `ungradeable` is NOT a pass — a base book that "
+                  "loses money has no exchange rate to preserve.", "",
+                  "| leg | cell | win | base netR | base maxDD | d netR | asked d maxDD "
+                  "| allowed d maxDD | headroom | rate ok |",
+                  "|---|---|---|--:|--:|--:|--:|--:|--:|:-:|"]
+        for _leg, _e in pb:
+            for _w in ("IS", "OOS"):
+                _r = _e["dd_exchange_rate"][_w]
+                if _r.get("reason"):
+                    lines.append(
+                        f"| {_leg} | {_e['cell']} | {_w} | {_r.get('base_net_r')} "
+                        f"| {_r.get('base_max_dd')} | {_r.get('d_net_r')} "
+                        f"| {_r.get('d_max_dd')} | - | - | "
+                        f"ungradeable: {_r['reason']} |")
+                    continue
+                lines.append(
+                    f"| {_leg} | {_e['cell']} | {_w} | {_r['base_net_r']} "
+                    f"| {_r['base_max_dd']} | {_r['d_net_r']} | {_r['d_max_dd']} "
+                    f"| {_r['allowed_d_max_dd']} | {_r['headroom']} "
+                    f"| {'Y' if _r['passes'] else 'N'} |")
     (run_dir / "SUMMARY.md").write_text("\n".join(lines) + "\n")
     print(f"capital: {len(measured)}/{len(dist)} cells measured")
     print("done ->", run_dir)
