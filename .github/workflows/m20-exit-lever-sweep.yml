@@ -50,6 +50,10 @@ on:
         description: "IS/OOS split date. A cell is a candidate only if it beats base on BOTH sides."
         required: false
         default: '2025-07-01'
+      fee_bps_roundtrip:
+        description: "Roundtrip fee in bps. Empty = the harness default (7.5). Set 15 for the fee-SURVIVAL arm — SRQ-20260618-003 rejected the 5m scalp alts because they were +50R at 7.5bps and -38R at 15bps, and the entire corpus is 7.5bps, so that arm was unrunnable until now."
+        required: false
+        default: ''
   # A workflow_dispatch-ONLY workflow is not resolvable by filename until it
   # exists on the DEFAULT branch — the dispatch API 404s on a feature branch.
   # This sentinel path is the same escape hatch m20-capture-census.yml uses:
@@ -240,6 +244,7 @@ jobs:
         env:
           LEG: ${{ matrix.leg.leg }}
           TP_CAP_PCT: ${{ inputs.tp_cap_pct || '0.099' }}
+          FEE_BPS: ${{ inputs.fee_bps_roundtrip }}
           LEVERS: ${{ inputs.levers }}
           SPLIT: ${{ inputs.split || '2025-07-01' }}
         run: |
@@ -249,6 +254,7 @@ jobs:
             --only "${LEG}" \
             --split "${SPLIT}" \
             --tp-cap-pct "${TP_CAP_PCT}" \
+            ${FEE_BPS:+--fee-bps-roundtrip "${FEE_BPS}"} \
             ${LEVERS:+--levers "${LEVERS}"} \
             --out "out/${LEG}" 2>&1 | tee sweep.out
 

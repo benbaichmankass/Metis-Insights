@@ -384,3 +384,36 @@ def test_a_legacy_run_records_no_floor_not_floor_zero():
     assert rows
     for r in rows:
         assert r["min_oos_trades_floor"] is None, r
+
+
+# --- the FEE BAND is part of the measurement, not metadata -------------------
+#
+# SRQ-20260618-003 is the worked example: the 5m scalp alts were +50R at 7.5bps
+# and -38R at 15bps, so a base measured at ONE fee level cannot answer a
+# fee-SURVIVAL question. The whole corpus is 7.5bps (the harness default), which
+# made the 15bps arm unrunnable.
+
+def test_fee_band_flag_is_passed_through_when_set():
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m"}
+    a = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, 15.0)
+    assert "--fee-bps-roundtrip" in a
+    assert a[a.index("--fee-bps-roundtrip") + 1] == "15.0"
+
+
+def test_fee_band_none_emits_nothing_rather_than_stamping_the_default():
+    """None means "this run did not declare a fee", which is NOT the same as
+    "measured at 7.5" — stamping the default would assert a recording we never
+    made, the same substitution `regime_router` exists to stop."""
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m"}
+    a = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, None)
+    assert "--fee-bps-roundtrip" not in a
+
+
+def test_two_fee_bands_produce_different_base_args():
+    """The A/B has to differ in exactly one dimension, or it is not an A/B."""
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m"}
+    lo = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, 7.5)
+    hi = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, 15.0)
+    assert lo != hi
+    assert [x for x in lo if x not in hi] == ["7.5"]
+    assert [x for x in hi if x not in lo] == ["15.0"]

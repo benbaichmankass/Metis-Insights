@@ -173,7 +173,8 @@ def resolve_data(symbol: str, tf: str, data_dir: Path) -> tuple[str | None, bool
 
 
 def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  # inert: `name` — the leg id, kept because FIVE external callers pass it positionally (m20_flip_replay_sweep, m21_entry_head_round, m20_exit_head_round, m21_entry_sweep, and this module); every arg is built from `cfg`, so dropping it would be a cross-script signature break for no behavioural gain. It affects NOTHING here — do not add a doc claiming otherwise.
-              tp_cap_pct: float = 0.0) -> list[str]:
+              tp_cap_pct: float = 0.0,
+              fee_bps_roundtrip: float | None = None) -> list[str]:
     tf = str(cfg.get("timeframe") or "1h")
     sym = (cfg.get("symbols") or ["?"])[0]
     a = ["--data", data, "--symbol", sym, "--timeframe", tf]
@@ -287,6 +288,13 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
         opt("--vol-skip-below-pctl", "vol_skip_below_pctl")
         opt("--vol-pctl-window", "vol_pctl_window")
         declared_levers()
+    # FEE BAND. Passed through verbatim when set, so a fee-survival A/B measures
+    # the SAME base at two cost levels rather than two different books. None means
+    # "the harness's own default" and is recorded as such -- never silently stamped
+    # as 7.5, because a row that did not declare its fee is not a row measured at
+    # the default, it is a row whose fee we did not record.
+    if fee_bps_roundtrip is not None:
+        a += ["--fee-bps-roundtrip", str(fee_bps_roundtrip)]
     # Live-parity TP: only for families whose live unit actually clamps.
     if tp_cap_pct > 0.0 and fam in LIVE_TP_CAPPED_FAMILIES:
         a += ["--tp-cap-pct", str(tp_cap_pct)]
@@ -989,6 +997,16 @@ def main(argv: list[str]) -> int:
                          "trail_decay) — skips already-verdicted cells on a re-run")
     ap.add_argument("--list", action="store_true",
                     help="print the run plan (leg -> harness/data/cells) and exit")
+    ap.add_argument("--fee-bps-roundtrip", type=float, default=None,
+                    help="Override the harness roundtrip fee (bps). Default None "
+                         "= the harness's own execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP "
+                         "(7.5). Exists because a base measured at ONE fee level "
+                         "cannot answer a fee-SURVIVAL question: SRQ-20260618-003 "
+                         "rejected the 5m scalp alts precisely because they were "
+                         "+50R at 7.5bps and -38R at 15bps, and the whole 15m "
+                         "hypothesis is that fewer, larger-R trades escape that "
+                         "band. The corpus is entirely 7.5bps, so the 15bps arm "
+                         "was unrunnable without this flag.")
     ap.add_argument("--tp-cap-pct", type=float, default=0.0,
                     help="Run with the LIVE-PARITY take-profit "
                          "(production: 0.099 -- the Bybit ~10%% TP-distance "
@@ -1055,7 +1073,8 @@ def main(argv: list[str]) -> int:
                      # rather than vanishing: a cell that is absent from the
                      # table and a cell that ran flat must stay tellable apart.
                      "inert_cells": inert,
-                     "base": base_args(name, cfg, fam, data, resample, a.tp_cap_pct),
+                     "base": base_args(name, cfg, fam, data, resample, a.tp_cap_pct,
+                                       a.fee_bps_roundtrip),
                      "cells": [c for c in cells
                                if not levers or c[1] in levers]})
 
@@ -1547,6 +1566,12 @@ def main(argv: list[str]) -> int:
          # thin cell and a refused one share a row. A run predating the field
          # records nothing, and the extractor keys None distinctly.
          "min_oos_trades_floor": MIN_OOS_TRADES,
+         # THE FEE BAND THIS RUN MEASURED. Identity, not metadata: the same cell at
+         # 7.5bps and at 15bps are two different books, and SRQ-20260618-003 is the
+         # worked example -- the 5m alts flipped from +50R to -38R across exactly
+         # that gap. None = the harness default was used and this run did not
+         # declare one.
+         "fee_bps_roundtrip": a.fee_bps_roundtrip,
          "regime_policy_readable": off_legs is not None,
          "regime_policy_off_legs": sorted(off_legs) if off_legs is not None else None,
          "skipped": skipped, "verdicts": verdicts}, indent=1))
