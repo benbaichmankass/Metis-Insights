@@ -36,8 +36,11 @@ on:
         description: "Comma list of folds (A,B) — becomes the job matrix."
         default: "A,B"
       policies:
-        description: "Arms to run. `hold` is the incumbent, `hold_confgap` is the live override."
-        default: "hold,hold_confgap,reverse"
+        description: >-
+          Arms. `hold` = incumbent · `hold_confgap` = the LIVE (TF-blind) override ·
+          `hold_confgap_crossclock` / `hold_confgap_sameclock` = M26 P1 counterfactual
+          gates that NO live code path implements · `reverse` = reference.
+        default: "hold,hold_confgap,hold_confgap_crossclock,hold_confgap_sameclock"
       confgap_threshold:
         description: "Confidence gap for the override arm (LIVE VALUE 0.15)."
         default: "0.15"
@@ -188,7 +191,37 @@ jobs:
                     f"{ov.get('conflicts_observed','—')} | {ov.get('overrides_fired','—')} |")
           print("\n**Read `fired` before reading the PnL.** A `hold_confgap` row with "
                 "`fired = 0` did not test the arm at all — it is the incumbent under "
-                "another name, and its PnL matching `hold` means nothing.")
+                "another name, and its PnL matching `hold` means nothing.\n")
+
+          # THE M26 SPLIT. The first production run CAPTURED by_tf_class and never
+          # printed it, and a PM-side session cannot download run artifacts — so the
+          # one question M26 P0 calls decisive was unreachable from a completed,
+          # successful run. Captured-but-unreadable is not measured.
+          print("### Conflicts by M26 TF class\n")
+          print("`cross_clock` = tf_ratio >= 4 (coexistence) · `same_clock` = < 4 "
+                "(transition) · `unknown` = clocks unresolved, never folded into "
+                "either.\n")
+          print("| fold | half | policy | tf_class | conflicts | fired | would fire (TF-blind) | suppressed by filter |")
+          print("|---|---|---|---|---|---|---|---|")
+          any_row = False
+          for c in d.get("cells", []):
+              ov = (c["summary"].get("evidence", {}) or {}).get("flip_override", {}) or {}
+              for klass, b in sorted((ov.get("by_tf_class") or {}).items()):
+                  any_row = True
+                  print(f"| {c['fold']} | {c['half']} | {c['policy']} | {klass} | "
+                        f"{b.get('conflicts', 0)} | {b.get('overrides_fired', 0)} | "
+                        f"{b.get('would_fire_tf_blind', 0)} | "
+                        f"{b.get('suppressed_by_tf_filter', 0)} |")
+          if not any_row:
+              print("| — | — | — | _no conflicts observed_ | 0 | 0 | 0 | 0 |")
+          print("\n**`suppressed by filter` is the measurement** on a `*_crossclock` / "
+                "`*_sameclock` row: those are live fires a TF-aware gate would remove. "
+                "It is 0 by construction on `hold_confgap`, which IS the live shape.\n")
+          print("> The two `Verdict` criteria the driver prints compare `hold` vs "
+                "`reverse` (the May 2026 question) and say **nothing** about the "
+                "override arms. Since 2026-08-11 a criterion this run cannot evaluate "
+                "reports **NOT TESTED** rather than FAIL — a single-fold shard used to "
+                "print `Overall: FAIL` purely because the other fold's cells were absent.")
           PY
 
       - uses: actions/upload-artifact@v4

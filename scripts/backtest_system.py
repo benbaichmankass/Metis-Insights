@@ -663,6 +663,47 @@ def _m26_tf_class(ratio: Optional[float]) -> str:
     return "cross_clock" if ratio >= _M26_TF_RATIO_K else "same_clock"
 
 
+_M26_TF_CLASSES = ("cross_clock", "same_clock", "unknown")
+
+
+def _tf_class_allowed(tf_class: str, allowed: Optional[frozenset]) -> bool:
+    """Is this conflict inside the arm's TF-class restriction?
+
+    ``None`` means UNRESTRICTED and is the live shape: the deployed override is
+    TF-ratio blind, so the arm that mirrors production must be too. A non-None
+    set is a COUNTERFACTUAL research arm (M26 P1 `A_coexist_crossclock`) that no
+    live code path implements — it exists to answer whether the blind arm's loss
+    is concentrated in one class, which is the question M26 P0 calls decisive.
+
+    `unknown` fires only if named EXPLICITLY. It is not folded into either class
+    because "we could not resolve the two clocks" is not evidence of coexistence
+    OR of transition — the same three-state discipline `_m26_tf_class` applies.
+    A consequence worth stating because it is a reconciliation check, not a
+    rounding error: cross-only fires + same-only fires need NOT equal the blind
+    arm's fires, and the shortfall is exactly the `unknown` bucket.
+    """
+    if allowed is None:
+        return True
+    return tf_class in allowed
+
+
+def _parse_tf_classes(spec: Optional[str]) -> Optional[frozenset]:
+    """CSV -> class filter. Empty/`all`/None => None (unrestricted, = live)."""
+    if spec is None:
+        return None
+    raw = [s.strip().lower() for s in str(spec).split(",") if s.strip()]
+    if not raw or raw == ["all"]:
+        return None
+    bad = [s for s in raw if s not in _M26_TF_CLASSES]
+    if bad:
+        # Loud, not permissive: silently dropping an unrecognised class would
+        # run a DIFFERENT arm than the one asked for and label it as asked.
+        raise ValueError(
+            f"unknown tf class(es) {bad!r}; expected a subset of {list(_M26_TF_CLASSES)} "
+            f"(or 'all' / empty for the unrestricted, live-shaped arm)")
+    return frozenset(raw)
+
+
 def _position_age_hours(pos, now_ts) -> Optional[float]:
     try:
         delta = pd.Timestamp(now_ts) - pd.Timestamp(pos.entry_ts)
@@ -686,36 +727,49 @@ def _eval_flip_override(desired, pos, now_ts, row) -> Optional[str]:
         desired, float(pos.confidence or 0.0), _position_age_hours(pos, now_ts))
 
 
-def _conflict_record(pos, new_strategy, row, now_ts, override_reason) -> Dict[str, Any]:
+def _conflict_record(pos, new_strategy, row, now_ts, override_reason,
+                     *, tf_class: str,
+                     would_fire_tf_blind: bool) -> Dict[str, Any]:
     """One row per opposite-direction conflict seen under the `hold` arm.
 
     This is the run's DENOMINATOR. A run reporting "no PnL difference" is
     uninterpretable without it: zero fired overrides and a genuinely neutral
     arm render identically in the headline, and only this ledger separates
     them.
+
+    THE TWO FIRE FIELDS ARE NOT REDUNDANT and must not be collapsed:
+    ``override_fired`` is what THIS arm did; ``would_fire_tf_blind`` is what the
+    LIVE (TF-blind) override does at the same conflict. They are equal on the
+    unrestricted arm by construction, and their difference on a restricted arm
+    IS the measurement — the set of live fires that a TF-aware gate suppresses.
+    Recording only the former would make a suppressed conflict indistinguishable
+    from one the predicate never wanted, which is the whole quantity of interest.
     """
-    ratio = _tf_ratio(new_strategy, pos.owner)
     age_h = _position_age_hours(pos, now_ts)
     new_conf = float(row.get("confidence", 0.0) or 0.0)
     old_conf = float(pos.confidence or 0.0)
+    ratio = _tf_ratio(new_strategy, pos.owner)
     return {
         "ts": str(now_ts),
         "held_strategy": pos.owner,
         "new_strategy": new_strategy,
         "held_side": pos.side,
         "tf_ratio": round(ratio, 3) if ratio is not None else None,
-        "tf_class": _m26_tf_class(ratio),
+        "tf_class": tf_class,
         "new_confidence": round(new_conf, 4),
         "held_confidence": round(old_conf, 4),
         "confidence_gap": round(new_conf - old_conf, 4),
         "age_hours": round(age_h, 3) if age_h is not None else None,
         "override_fired": override_reason is not None,
+        "would_fire_tf_blind": bool(would_fire_tf_blind),
+        "suppressed_by_tf_filter": bool(would_fire_tf_blind) and override_reason is None,
         "override_reason": override_reason,
     }
 
 
 def _summarize_conflicts(conflicts: List[Dict[str, Any]],
-                         threshold: float, min_age_hours: float) -> Dict[str, Any]:
+                         threshold: float, min_age_hours: float,
+                         tf_classes: Optional[frozenset] = None) -> Dict[str, Any]:
     """Roll the conflict ledger up into the gate-by-gate attrition of the
     override predicate, so a zero-fire run says WHICH precondition bound."""
     fired = [c for c in conflicts if c["override_fired"]]
@@ -724,15 +778,32 @@ def _summarize_conflicts(conflicts: List[Dict[str, Any]],
               if c["age_hours"] is not None and c["age_hours"] >= min_age_hours]
     by_class: Dict[str, Dict[str, int]] = {}
     for c in conflicts:
-        b = by_class.setdefault(c["tf_class"], {"conflicts": 0, "overrides_fired": 0})
+        b = by_class.setdefault(c["tf_class"], {
+            "conflicts": 0, "overrides_fired": 0,
+            "would_fire_tf_blind": 0, "suppressed_by_tf_filter": 0})
         b["conflicts"] += 1
         if c["override_fired"]:
             b["overrides_fired"] += 1
+        if c.get("would_fire_tf_blind"):
+            b["would_fire_tf_blind"] += 1
+        if c.get("suppressed_by_tf_filter"):
+            b["suppressed_by_tf_filter"] += 1
     return {
         "arm": {"flip_confidence_threshold": threshold,
-                "flip_min_position_age_hours": min_age_hours},
+                "flip_min_position_age_hours": min_age_hours,
+                # None is the LIVE shape (TF-blind). A list is a counterfactual
+                # research arm; stating it in the payload means a reader can
+                # never mistake a restricted result for the deployed one.
+                "tf_class_filter": (sorted(tf_classes) if tf_classes else None),
+                "tf_ratio_k": _M26_TF_RATIO_K},
         "conflicts_observed": len(conflicts),
         "overrides_fired": len(fired),
+        # What the DEPLOYED override would do over this same population. Equal
+        # to overrides_fired on the unrestricted arm; the gap on a restricted
+        # arm is what the TF filter bought or cost.
+        "would_fire_tf_blind": sum(1 for c in conflicts if c.get("would_fire_tf_blind")),
+        "suppressed_by_tf_filter": sum(1 for c in conflicts
+                                       if c.get("suppressed_by_tf_filter")),
         # Gate attrition: how many conflicts cleared EACH precondition
         # independently. Both must hold for a fire, so these bound the fire
         # count from above and identify the binding constraint.
@@ -752,6 +823,7 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                         flip_policy: str = "reverse",
                         flip_confidence_threshold: float = 0.0,
                         flip_min_position_age_hours: float = 0.0,
+                        flip_confgap_tf_classes: Optional[frozenset] = None,
                         reentry_policy: str = "suppress",
                         attach_full: bool = False,
                         vol_verdict: str = "frozen",
@@ -1297,8 +1369,19 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                 _override_reason = None
                 if flip_policy == "hold":
                     _override_reason = _eval_flip_override(desired, pos, ts.iloc[i], row)
+                    # What LIVE does here, captured BEFORE the research-only TF
+                    # filter can suppress it — the filter changes this arm's
+                    # behaviour, and the deployed baseline has to survive that
+                    # for the two to be comparable at all.
+                    _would_fire_blind = _override_reason is not None
+                    _tf_class = _m26_tf_class(_tf_ratio(win_name, pos.owner))
+                    if _override_reason is not None and not _tf_class_allowed(
+                            _tf_class, flip_confgap_tf_classes):
+                        _override_reason = None
                     _conflicts.append(_conflict_record(
-                        pos, win_name, row, ts.iloc[i], _override_reason))
+                        pos, win_name, row, ts.iloc[i], _override_reason,
+                        tf_class=_tf_class,
+                        would_fire_tf_blind=_would_fire_blind))
                 if flip_policy == "hold" and _override_reason is None:
                     pass
                 else:
@@ -1347,6 +1430,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
                                  "clock_tf": clock_tf, "flip_policy": flip_policy,
                                  "flip_confidence_threshold": flip_confidence_threshold,
                                  "flip_min_position_age_hours": flip_min_position_age_hours,
+                                 "flip_confgap_tf_classes": (sorted(flip_confgap_tf_classes)
+                                                             if flip_confgap_tf_classes else None),
                                  "reentry_policy": reentry_policy,
                                  # Evidence-layer knobs (Designs A/B), echoed so a
                                  # reader knows exactly what ran.
@@ -1397,7 +1482,8 @@ def run_system_backtest(base5m: pd.DataFrame, *, roster: List[str], start, end,
         # equally mean "the arm is neutral" or "the arm never fired".
         "flip_override": _summarize_conflicts(
             _conflicts, float(flip_confidence_threshold or 0.0),
-            float(flip_min_position_age_hours or 0.0)),
+            float(flip_min_position_age_hours or 0.0),
+            flip_confgap_tf_classes),
     }
     if attach_full:
         summary["flip_conflicts"] = _conflicts
@@ -1617,6 +1703,16 @@ def main(argv: List[str]) -> int:
                    help="Minimum age of the held position before the confidence "
                         "override may flip it (live: FLIP_MIN_POSITION_AGE_HOURS). "
                         "0 = no age requirement. BOTH gates must pass. LIVE VALUE 4.0.")
+    p.add_argument("--flip-confgap-tf-classes", dest="flip_confgap_tf_classes",
+                   default=None, metavar="CSV",
+                   help="RESEARCH-ONLY counterfactual: restrict the confidence "
+                        "override to conflicts of these M26 P1 TF classes "
+                        "(cross_clock,same_clock,unknown; 'all' or unset = "
+                        "unrestricted). NO LIVE CODE PATH IMPLEMENTS THIS -- the "
+                        "deployed override is TF-blind, so unset is the arm that "
+                        "mirrors production and any value here is a proposed gate "
+                        "(M26 A_coexist_crossclock), not a measurement of the "
+                        "current one. `unknown` is never implied by either class.")
     p.add_argument("--reentry-policy", default="suppress", choices=["suppress", "net"],
                    help="Same-direction re-entry while a position is open: "
                         "suppress (Option-A fix / single-position, default) or "
@@ -1726,6 +1822,7 @@ def main(argv: List[str]) -> int:
         flip_policy=args.flip_policy,
         flip_confidence_threshold=args.flip_confidence_threshold,
         flip_min_position_age_hours=args.flip_min_position_age_hours,
+        flip_confgap_tf_classes=_parse_tf_classes(args.flip_confgap_tf_classes),
         reentry_policy=args.reentry_policy,
         vol_verdict=args.vol_verdict, ml_vol_threshold=args.ml_vol_threshold,
         ml_stage=args.ml_stage, ml_model_id=args.ml_model_id,
