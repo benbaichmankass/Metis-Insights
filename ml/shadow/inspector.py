@@ -395,6 +395,12 @@ def soak_start_basis(stats: ModelStats, cov: LogCoverage) -> str:
 # module owns only the SEMANTICS.
 
 SOAK_START_REGISTRY = "registry"
+#: Registered directly at the stage and never promoted — `created_at` IS the
+#: entry. Kept DISTINCT from `registry` (a recorded transition) because the two
+#: are different evidence: one is an event, the other is an inference from the
+#: absence of events plus the current stage. Both are rotation-proof, which is
+#: what makes them better than the log; only the first is an observation.
+SOAK_START_REGISTRY_REGISTRATION = "registry_registration"
 
 
 def stage_entry_times(
@@ -452,6 +458,58 @@ def stage_entry_times(
     return out
 
 
+def stage_registration_times(
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    stage: str,
+) -> dict[str, datetime]:
+    """``model_id`` -> ``created_at``, for models REGISTERED DIRECTLY at *stage*.
+
+    This is NOT the `created_at` fallback that `stage_entry_times` deliberately
+    refuses, and the difference is the whole reason both exist. That fallback
+    would date a model created at `candidate` and promoted months later from
+    its CREATION, inflating the soak. This function applies only when:
+
+      * the row has NO `stage_history` at all (so it was never promoted —
+        `ModelRegistry.promote_stage` always appends an event), AND
+      * its CURRENT `target_deployment_stage` is the stage being asked about.
+
+    Under both conditions the model has been sitting at that stage since it was
+    registered, so `created_at` IS the stage entry, not a proxy for it.
+
+    Measured on the live trainer registry 2026-08-11 (trainer-diag #8773) —
+    this is why the function exists rather than being a hypothetical: of 29
+    `shadow` models, only 14 carry a transition record. The other 15 were
+    registered straight to shadow (the auto-wire default) and have no event to
+    read, so transitions alone recover barely half the fleet. All 3 `advisory`
+    models do carry one.
+    """
+    try:
+        want = canonical_stage(stage)
+    except ValueError:
+        return {}
+
+    out: dict[str, datetime] = {}
+    for row in rows:
+        model_id = row.get("model_id")
+        if not model_id:
+            continue
+        if row.get("stage_history"):
+            continue                       # promoted at least once — not this case
+        raw_stage = row.get("target_deployment_stage")
+        if not raw_stage:
+            continue
+        try:
+            if canonical_stage(str(raw_stage)) != want:
+                continue
+        except ValueError:
+            continue
+        created = _parse_dt(row.get("created_at"))
+        if created is not None:
+            out[str(model_id)] = created
+    return out
+
+
 def _parse_dt(raw: Any) -> datetime | None:
     """Parse a registry timestamp to an aware UTC datetime, else None."""
     if isinstance(raw, datetime):
@@ -494,9 +552,18 @@ class SoakStart:
 
     @property
     def is_measured(self) -> bool:
-        """True only for a registry-sourced start. `observed` is good evidence
-        but still bounded by retention; only the registry is rotation-proof."""
-        return self.basis == SOAK_START_REGISTRY
+        """True for either REGISTRY-sourced start, false for the log ones.
+
+        The binary that matters to a promotion gate is "is this a real soak
+        start or a retention-bounded lower bound", and both registry sources
+        answer the first. `observed` is good evidence but still bounded by
+        retention; only the registry is rotation-proof. The transition-vs-
+        registration distinction is preserved in `basis` rather than collapsed
+        into this flag, because it is a difference of EVIDENCE (an event vs an
+        inference) rather than of trustworthiness.
+        """
+        return self.basis in (SOAK_START_REGISTRY,
+                              SOAK_START_REGISTRY_REGISTRATION)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -517,23 +584,36 @@ def resolve_soak_start(
     cov: LogCoverage,
     *,
     registry_entered_at: Mapping[str, datetime] | None = None,
+    registry_registered_at: Mapping[str, datetime] | None = None,
     now: datetime | None = None,
 ) -> SoakStart:
     """Best available soak start for *stats*, preferring the durable record.
 
-    Precedence is registry -> log. The registry wins whenever it has a
-    transition for this model, because it is the only source rotation cannot
-    truncate; the log-derived answer is the fallback and carries its own
-    censoring verdict so a lower bound is never reported as a measurement.
+    Precedence: recorded transition -> registration-at-stage -> log. Both
+    registry sources beat the log because rotation cannot truncate them; the
+    transition beats registration because it is an observed event rather than
+    an inference from the absence of events. The log-derived answer is last and
+    carries its own censoring verdict, so a lower bound is never reported as a
+    measurement.
+
+    Measured coverage of the two registry sources on the live fleet
+    (trainer-diag #8773, 2026-08-11): transitions alone cover 14/29 shadow +
+    3/3 advisory; adding registration covers essentially the rest. Without the
+    second source this resolver would silently leave half the shadow fleet on
+    the censored log basis — correct, but not a recovery.
     """
     now = now or datetime.now(timezone.utc)
-    entered = (registry_entered_at or {}).get(stats.model_id)
-    if entered is not None:
-        return SoakStart(
-            model_id=stats.model_id, stage=stats.stage, started_at=entered,
-            basis=SOAK_START_REGISTRY,
-            days=(now - entered).total_seconds() / 86400.0,
-        )
+    for source, basis_name in (
+        (registry_entered_at, SOAK_START_REGISTRY),
+        (registry_registered_at, SOAK_START_REGISTRY_REGISTRATION),
+    ):
+        entered = (source or {}).get(stats.model_id)
+        if entered is not None:
+            return SoakStart(
+                model_id=stats.model_id, stage=stats.stage, started_at=entered,
+                basis=basis_name,
+                days=(now - entered).total_seconds() / 86400.0,
+            )
 
     basis = soak_start_basis(stats, cov)
     started = stats.first_seen

@@ -39,6 +39,7 @@ from ml.shadow.inspector import (
     resolve_soak_start,
     soak_start_basis,
     stage_entry_times,
+    stage_registration_times,
 )
 
 from src.utils.paths import runtime_logs_dir
@@ -98,11 +99,15 @@ def _stage_entry_lookup(rows: list[dict[str, Any]]):
     default-arg cache — a module-level cache would go stale the moment the
     mirror rsyncs, serving a soak start from a registry that has since changed.
     """
-    cache: dict[str, dict[str, datetime]] = {}
+    cache: dict[str, tuple[dict[str, datetime], dict[str, datetime]]] = {}
 
-    def lookup(stage: str) -> dict[str, datetime]:
+    def lookup(stage: str) -> tuple[dict[str, datetime], dict[str, datetime]]:
+        """(transitions, registrations) for *stage*."""
         if stage not in cache:
-            cache[stage] = stage_entry_times(rows, stage=stage)
+            cache[stage] = (
+                stage_entry_times(rows, stage=stage),
+                stage_registration_times(rows, stage=stage),
+            )
         return cache[stage]
 
     return lookup
@@ -293,8 +298,12 @@ def stats(
         # censoring. Resolved per row because the entry map is keyed on the
         # row's OWN stage — a model at `advisory` and the same model's earlier
         # `shadow` rows have different soak starts.
+        entered, registered = entered_for_stage(s.stage)
         soak = resolve_soak_start(
-            s, cov, registry_entered_at=entered_for_stage(s.stage))
+            s, cov,
+            registry_entered_at=entered,
+            registry_registered_at=registered,
+        )
         return {
             "model_id": s.model_id,
             "stage": s.stage,

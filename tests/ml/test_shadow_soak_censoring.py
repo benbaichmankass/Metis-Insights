@@ -20,6 +20,7 @@ from ml.shadow.inspector import (
     SOAK_START_LOG_CENSORED,
     SOAK_START_OBSERVED,
     SOAK_START_REGISTRY,
+    SOAK_START_REGISTRY_REGISTRATION,
     SOAK_START_UNKNOWN,
     ModelStats,
     ShadowRecord,
@@ -29,6 +30,7 @@ from ml.shadow.inspector import (
     resolve_soak_start,
     soak_start_basis,
     stage_entry_times,
+    stage_registration_times,
 )
 
 BASE = datetime(2026, 8, 5, 23, 36, tzinfo=timezone.utc)
@@ -266,3 +268,69 @@ def test_the_four_bases_are_all_reachable_and_distinct():
     became indistinguishable the surface would still render plausibly."""
     assert len({SOAK_START_REGISTRY, SOAK_START_OBSERVED,
                 SOAK_START_LOG_CENSORED, SOAK_START_UNKNOWN}) == 4
+
+
+# --- Registered-at-stage: the OTHER half of the registry ------------------
+#
+# Measured on the live trainer registry (trainer-diag #8773, 2026-08-11): only
+# 14 of 29 `shadow` models carry a transition event. The other 15 were
+# registered straight to shadow and never promoted, so transitions alone would
+# leave half the fleet on the censored log basis.
+
+
+def test_registered_directly_at_stage_uses_created_at():
+    rows = [{"model_id": "direct", "target_deployment_stage": "shadow",
+             "created_at": "2026-05-22T10:14:14+00:00"}]
+    assert list(stage_registration_times(rows, stage="shadow")) == ["direct"]
+
+
+def test_a_promoted_model_is_NOT_a_registration():
+    """It has an event, so the event is the answer. Counting it here as well
+    would let `created_at` win for a model created long before it was
+    promoted — the exact inflation `stage_entry_times` refuses."""
+    rows = [{"model_id": "promoted", "target_deployment_stage": "shadow",
+             "created_at": "2026-01-01T00:00:00+00:00",
+             "stage_history": [{"to_stage": "shadow",
+                                "at": "2026-07-03T11:47:38+00:00"}]}]
+    assert stage_registration_times(rows, stage="shadow") == {}
+
+
+def test_a_model_at_another_stage_never_counts_as_registered_here():
+    """A history-less `candidate` was never at shadow, so it has no shadow
+    soak. Without the current-stage check this would invent one."""
+    rows = [{"model_id": "cand", "target_deployment_stage": "candidate",
+             "created_at": "2026-01-01T00:00:00+00:00"}]
+    assert stage_registration_times(rows, stage="shadow") == {}
+
+
+def test_transition_beats_registration_in_the_resolver():
+    recs = _series("m1", 0, 300, 100)
+    stats, cov = _stats_for(recs, "m1"), coverage(recs)
+    got = resolve_soak_start(
+        stats, cov,
+        registry_entered_at={"m1": BASE - timedelta(days=5)},
+        registry_registered_at={"m1": BASE - timedelta(days=90)},
+        now=BASE + timedelta(days=1),
+    )
+    assert got.basis == SOAK_START_REGISTRY
+    assert got.days < 10          # the transition, not the far-earlier creation
+
+
+def test_registration_beats_the_log_and_counts_as_measured():
+    recs = _series("m1", 0, 300, 100)          # log start is a rotation edge
+    stats, cov = _stats_for(recs, "m1"), coverage(recs)
+    got = resolve_soak_start(
+        stats, cov,
+        registry_registered_at={"m1": BASE - timedelta(days=30)},
+        now=BASE + timedelta(days=1),
+    )
+    assert got.basis == SOAK_START_REGISTRY_REGISTRATION
+    assert got.is_measured                      # rotation-proof
+    assert got.to_dict()["soak_days_is_lower_bound"] is False
+    assert got.days > 30
+
+
+def test_the_two_registry_bases_stay_distinguishable():
+    """Both are measured, but they are different EVIDENCE — an event vs an
+    inference from the absence of events. Collapsing them would hide which."""
+    assert SOAK_START_REGISTRY != SOAK_START_REGISTRY_REGISTRATION
