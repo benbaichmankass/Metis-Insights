@@ -244,6 +244,91 @@ geometry, *not* live realized PnL, and the two must not be conflated — the liv
 way** — whether a leg keeps real-money routing is your call, not mine, and both
 remedies (route to `bybit_1` paper, or `execution: shadow`) are one-line declares.
 
+### 🟢 RESOLVED — the P1 is REFUTED, with a mechanism (2026-08-11, measured)
+
+**Do not act on the table above for `ict_scalp_5m`.** I ran the comparison the
+limit-statement called for, and it does not merely fail to confirm the concern —
+it inverts it, and names the reason.
+
+**The live real-money record** (`/api/bot/performance?window=all`, real-money only
+by construction — paper and backtest rows excluded):
+
+| | trades | win rate | totalPnl | totalPnlMeasured | pnlCoverage | totalR |
+|---|--:|--:|--:|--:|--:|--:|
+| `ict_scalp_5m` | **16** | **75.0%** | **+$13.53** | **+$13.53** | **1.00** | **+46.80R** |
+
+It is the **best real-money leg in the book by PnL** (the `perStrategy` list is
+sorted descending and it is first of 12), and **`pnlCoverage` is 1.00** — 16 of 16
+rows MEASURED, zero fabricated, zero unverified. So the
+`PB-20260807` fabricated-provenance caveat I attached **does not apply to this
+population**; that was a reasonable hedge and it turns out to be unnecessary here.
+The 30d window agrees in sign (4 trades, +$3.17, coverage 1.00).
+
+**The mechanism — the two numbers measure DIFFERENT BOOKS.** This is not "n=16 got
+lucky":
+
+- `config/regime_policy.yaml` authors **two fully-off `trend_vol` cells** for this
+  exact leg — `trending/volatile` and `chop/volatile`, both `long: false,
+  short: false`. Live, it is **refused outright in volatile regimes**.
+- It trades **BTCUSDT**, the one symbol where that gate actually bites: an advisory
+  ML vol head resolves the label, `trend_vol` cells are authored, and BTC
+  real-money enforce has been **live since 2026-06-28**.
+- **My sweep measured it with the gate OFF.** `m20_fleet_exit_sweep` passes no
+  `--regime-router`, so `backtest_system` takes its own default (`"off"`) and sets
+  `REGIME_ROUTER_DISABLED=1`.
+
+So **−48.88R is the ungated book — including precisely the volatile-regime trades
+production refuses — while +46.80R is the gated book the leg actually trades.** The
+gate was authored to remove that losing regime, and the live record is what it
+looks like when it works. The low live trade count (16 lifetime) is the same fact
+seen from the other side.
+
+**What was wrong with the P1, precisely:** not the arithmetic — the base figures are
+correct for what they measured — but the *population*. I compared a live routing
+decision against a book that routing does not produce, and the corpus recorded
+nothing that would have caught it (see § 4c). The limit I stated was the right
+instinct aimed at the wrong risk: I hedged on provenance, and the defect was the
+regime book.
+
+**No Tier-3 action is warranted.** Neither remedy should be applied. The leg keeps
+its real-money routing on this evidence. What remains open is the honest residual:
+**16 trades is a thin sample**, so this refutes the concern rather than
+establishing the leg as good — it belongs in the `/performance-review` cadence as a
+leg to keep watching, not as a P1.
+
+### 4c. Every base book in this corpus is the UNGATED book
+
+The above generalises, so it is stated once here rather than per-leg. All 604 rows
+were measured at `--regime-router off` while the live router is **baseline-on**, and
+until 2026-08-11 nothing in the corpus recorded that — zero `regime` keys. That is
+`diagnostic-provenance-guard` sub-class **B** (a function default substituted for
+the live input) plus **C** (nothing in the output reveals it).
+
+**What survives, and what does not:**
+
+- ✅ **Every DELTA comparison survives intact.** Both arms of a cell share the same
+  ungated base, so `d_net_r`, `d_max_dd`, Path A's `beats()` and the walk-forward
+  are all comparisons over ONE consistent population. No lever verdict in this
+  document changes.
+- ❌ **Base-book LEVEL reads do not survive** for a policy-named leg. `base_net_r`,
+  `base_rate`, and therefore **Path B's derived tolerance `D_b × (dN/N_b)`**,
+  describe a book production refuses to trade. The § 4 table above is exactly such
+  a read, which is how the P1 happened.
+
+**Bounded: 6 of 51 legs / 56 of 604 rows** are named in `regime_policy.yaml`
+(`fvg_range_15m`, `gld_pullback_1h`, `htf_pullback_trend_2h`, `ict_scalp_5m`,
+`squeeze_breakout_4h`, `trend_donchian`).
+
+**§ 1's answer is ROBUST to this — measured, not asserted.** Only 2 of the 22
+analysed legs are policy-named (`gld_pullback_1h`, `htf_pullback_trend_2h`;
+`ict_scalp_5m` is not among them, since its unprofitable IS book already left it
+ungradeable). Re-running both predictors with those legs excluded — 52 → 45 cells,
+22 → 20 legs — leaves **both at `no_separation`**. **Do not set a floor** stands.
+
+The corpus, the sweep and the floor analysis now all record and report this;
+`regime_router` joins the measurement-identity key so a future gated run can never
+be averaged together with an ungated one.
+
 ---
 
 ## 5. Nothing from this sweep is recommended for promotion

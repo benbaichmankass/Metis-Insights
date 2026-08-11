@@ -173,6 +173,11 @@ def _hook_view() -> Dict[str, Any]:
     This is the same discipline as `rCoverage` / `pnlCoverage`: report how much
     of the population the number covers, never a bare figure over an unstated
     denominator.
+
+    Per-hook `pct_of_total` is each hook's own share of tick time and is correct
+    for a CHILD too (`monitor.foo` really did consume that share). What is NOT
+    valid is summing parents and children together — see `snapshot()`, where the
+    coverage denominator deliberately counts top-level hooks only.
     """
     out: Dict[str, Any] = {}
     for name, s in _hooks.items():
@@ -196,7 +201,30 @@ def snapshot() -> Dict[str, Any]:
     mean = (_sum_ms / _ticks) if _ticks else None
     # Sum of per-hook time attributed to THIS process's ticks, expressed per
     # tick so it is directly comparable to `mean_ms`.
-    hook_sum_ms = sum(s["sum_ms"] for s in _hooks.values())
+    #
+    # TOP-LEVEL HOOKS ONLY — a NESTED hook's time is already inside its parent's,
+    # so summing both double-counts. Measured 2026-08-11, first read after the
+    # 14-phase monitor split deployed: `attributed_pct` came back **136.8%**, a
+    # share of a whole exceeding the whole. The flat sum was correct while every
+    # wrap was a sibling (`run_one_tick` + `order_monitor`) and became wrong the
+    # moment `monitor.*` children were added underneath one of them — by me, the
+    # day before, without touching this function.
+    #
+    # That is worth naming rather than quietly patching: the field exists to state
+    # the coverage of a split, and it silently mis-stated it as soon as the split
+    # gained a level. `100 - attributed_pct` was documented as "every other hook
+    # COMBINED"; at 136.8% it read as **-36.8%** of uninstrumented time, which is
+    # not a conservative error — it is an impossible one, and only obvious because
+    # a percentage over 100 cannot be squinted past. A double-count that had
+    # landed at 95% would have read as excellent coverage.
+    #
+    # The hierarchy is carried by the NAME: a dotted name (`monitor.foo`) is a
+    # child of some parent wrap; an undotted one is top-level. That convention is
+    # ours and is the whole contract — a caller that invents a dotted name without
+    # a parent wrap drops itself out of the coverage denominator, so `nested_hooks`
+    # below is published to make the hierarchy visible rather than assumed.
+    top_level = {n: s for n, s in _hooks.items() if "." not in n}
+    hook_sum_ms = sum(s["sum_ms"] for s in top_level.values())
     attributed_mean = (hook_sum_ms / _ticks) if _ticks else None
     return {
         "hooks": _hook_view(),
@@ -206,6 +234,12 @@ def snapshot() -> Dict[str, Any]:
         # a tick yet" is not "0% of the tick is attributed".
         "attributed_pct": (round(100.0 * hook_sum_ms / _sum_ms, 1)
                            if _sum_ms > 0 else None),
+        # How many hooks are CHILDREN (dotted names), i.e. excluded from the
+        # coverage sum above because their time is already inside a parent. Shipped
+        # always so the hierarchy is visible: a reader comparing `attributed_pct`
+        # against the `hooks` block can otherwise not tell why the listed means do
+        # not add up to it. 0 means the block is flat and the two agree exactly.
+        "nested_hooks": sum(1 for n in _hooks if "." in n),
         # Non-zero means a caller generated hook names dynamically and the split
         # is PARTIAL. Shipped always so a truncated view cannot read as complete.
         "hook_names_refused": _hook_overflow,
