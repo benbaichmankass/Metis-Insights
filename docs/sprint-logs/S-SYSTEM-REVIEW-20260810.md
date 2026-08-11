@@ -111,6 +111,111 @@ higher TFs from the smallest TF, scoped to crypto with a ratio bound.
 Verify the tick fix on the live trader and review the first netting `apply` rows;
 then fix the shadow-stats soak denominator so model promotion becomes decidable.
 
+
+---
+
+## Session Part 2 — operator-authorised autonomous continuation (2026-08-10 evening)
+
+The operator authorised merging and autonomous overnight work, with **Tier-3
+decisions explicitly reserved for the morning**. Three PRs merged.
+
+### What shipped
+
+| PR | Merged | Content |
+|---|---|---|
+| **#8744** | `64622091` | Conviction-arbitration null-qty fix · shadow-soak censoring (`soak_start_basis`) · the `get-env` read surface |
+| **#8754** | `cdf61d18` | `get-env` ENV_KEY forwarding + a guard for "declared in every registry but never wired" |
+| **#8757** | `51c71727` | `get-env` reads the unit's inline `Environment=` too · both first-run findings |
+
+### The thing this was all for — CLOSED BY MEASUREMENT
+
+`CONVICTION_SIZING_ACCOUNTS = 'bybit_1'`, agreeing on **both** sides (running
+process `/proc/<MainPID>/environ` AND the unit's declared env), alongside
+`MODE=apply` / `DIRECTION=reductive`. That matches `ROADMAP.md` M16 exactly:
+the reductive apply path is live and **DEMO-ONLY**; real-money `bybit_2` is not
+in scope, and the empty-allowlist hazard (empty = ALL accounts) is absent.
+`BL-20260810-CONVICTION-SIZING-APPLY-LIVE-VS-DOC` → **resolved**.
+
+Same run confirmed against their documented values: `BYBIT_TPSL_MODE=partial`,
+`NETTING_ATTRIBUTION_MODE=apply` on `bybit_1,bybit_2`,
+`REGIME_ML_VERDICT_MODE=use`, `NEWS_SOURCE=rss`.
+
+**It took three PRs to read one string.** That is the honest measure of how
+unreachable the value was, and the reason the read surface was worth building.
+
+### ⚠️ Tier-3 finding — RAISED, NOT ENACTED
+
+`BL-20260810-FLIP-CONFIDENCE-OVERRIDE-LIVE-WITHOUT-RECORD` (high, tier 3).
+
+```
+FLIP_CONFIDENCE_THRESHOLD    process '0.15'  declared '0.15'
+FLIP_MIN_POSITION_AGE_HOURS  process '4.0'   declared '4.0'
+FLIP_POLICY                  <unset> -> defaults to 'hold'
+```
+
+`CLAUDE.md` documents both as default `0.0`, disabled, and *"requires operator
+approval (Tier-3 order-routing change) before deploying"*.
+`docs/research/M26-regime-transition-conflict-DESIGN.md:45` calls them *"dormant
+… built, default-off … never validated"*. The 2026-07-17 system report states
+the threshold *"is 0.0 = disabled"*.
+
+They are on, re-opening the flip path against the `hold` default on **every
+account including real money**.
+
+**Limits of the check, stated so the next reader does not over-trust it:**
+searched `ROADMAP.md`, `docs/sprint-logs/*.md`, `docs/claude/*.md` — nothing.
+Could NOT check the `.env`'s edit history (not in git) or the operator's chat.
+So the supportable claim is **"no authorization record exists in the repo"**,
+NOT "this was unauthorized".
+
+### Two defects the work found in ITSELF
+
+Both fixed, both with regression tests **verified to catch the original defect
+by planting it**:
+
+1. **`get-env` failed its first dispatch** — allowlisted, tier-classified,
+   script-mapped, in `EXPECTED_ACTIONS` and `notify_run.sh`, documented, and
+   still non-functional: the `ENV_KEY` forwarding branch was `set-env`-only, so
+   the parameter never crossed the SSH boundary. **A missing wire renders as a
+   bad request.** New guard: every action VALIDATED as needing a param must also
+   FORWARD it — the suite checked actions were *declared*, never that their
+   inputs *arrive*.
+2. **`get-env` then invented a pending restart.** `TICK_INTERVAL_SECONDS` /
+   `HEARTBEAT_INTERVAL_SECONDS` are pinned inline on the unit
+   (`deploy/ict-trader-live.service:29-30`) and absent from `.env`; reading only
+   `EnvironmentFiles` reported `declared: <unset>` against a live `60`. A
+   diagnostic that INVENTS a discrepancy is worse than one that reports nothing.
+   `declared` now merges `Environment=` with `EnvironmentFiles=`; a key defined
+   in both with different values reports `both_conflict` rather than being
+   resolved, because systemd applies them in directive order that
+   `systemctl show` does not expose.
+
+### Also filed
+
+- `BL-20260730-PR-CI-NOT-ATTACHING` **escalated medium → high**: recurred on
+  PR #8744 hours after the same PR attached checks normally, which closes the
+  "stale observation?" question — delivery IS intermittent on a single PR. Three
+  consecutive pushes attached ZERO checks; a later push attached 3 of 4. The
+  failure **renders identically to green** (`total_count: 0` is an unasserted
+  denominator), and recovery is the `workflow_dispatch` hatch — which
+  `repo-inventory` only had because this session added it that morning.
+- `BL-20260810-IMPOSSIBILITY-GUARD-LINENO-VS-WORKTREE-OFFSET` (new): the guard
+  takes line numbers from a `base...HEAD` **commit** diff but resolves its ±6
+  window against the **working tree**, so uncommitted edits above a claim
+  produce a false failure that clears on commit. Reproduced twice. Filed with
+  the fix that must NOT be used (widening the window trades a false positive for
+  a false negative its own comments warn about).
+
+### Process note worth keeping
+
+A green I reported to the operator was computed on a **stale population** — the
+full-suite run predated the `get-env` commit, and I reported it as if it covered
+the tree I was describing. CI caught the gap *because I had not*. Re-measured
+against the real head: 48 failed / 9707 passed, the 48 matching the clean-`main`
+baseline, 44 of them `ModuleNotFoundError` (httpx ×37, dotenv ×5, psutil,
+fastapi) and the rest the same import class; zero touching the changed surface.
+
+
 ## Wrap-Up Check
 - [x] Grading ran and is committed
 - [x] Report rendered `--strict` + committed
