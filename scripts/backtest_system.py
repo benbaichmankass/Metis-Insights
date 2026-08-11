@@ -123,6 +123,11 @@ FUNDING_WINDOW_HOURS = execution_costs.FUNDING_WINDOW_HOURS
 _CONVICTION_RISK_BUDGET = 0.02
 _SIG_CACHE = _REPO_ROOT / "runtime_logs" / "system_backtest" / "signals"
 
+#: One-shot latch so a missing parquet engine warns once per process rather
+#: than once per (strategy, window). See the cache write in
+#: ``generate_signal_stream``.
+_CACHE_WRITE_WARNED = False
+
 
 # --------------------------------------------------------------------------
 # Roster: name -> (module path, timeframe). The order_package + monitor are
@@ -331,9 +336,25 @@ def generate_signal_stream(name: str, base5m: pd.DataFrame, *, start, end,
     try:
         cache.parent.mkdir(parents=True, exist_ok=True)
         out.to_parquet(cache)
-    except Exception:  # noqa: BLE001 — caching is an optimization; a missing
-        # parquet engine (or unwritable dir) must not abort the backtest.
-        pass
+    except Exception as exc:  # noqa: BLE001 — caching is an optimization; a
+        # missing parquet engine (or unwritable dir) must not abort the
+        # backtest. But it must not be SILENT either: with no engine installed
+        # every cell regenerates every stream, so `--prebuild-cache` becomes a
+        # documented flag that does nothing and a walk-forward runs ~6x longer
+        # for no reason (measured: a 4-strategy x 4-window precache wrote 0 of
+        # 16 parquet files and every one of the 24 cells then re-derived them).
+        # Warned ONCE per process — the condition is per-environment, not
+        # per-call, so a per-call warning would be pure noise.
+        global _CACHE_WRITE_WARNED
+        if not _CACHE_WRITE_WARNED:
+            _CACHE_WRITE_WARNED = True
+            print(
+                f"WARNING: signal-stream cache is not being written "
+                f"({type(exc).__name__}: {exc}). The run will still be correct, "
+                f"but every cell re-derives every stream — install a parquet "
+                f"engine (`pip install pyarrow`) to make --prebuild-cache real.",
+                file=sys.stderr, flush=True,
+            )
     return out
 
 

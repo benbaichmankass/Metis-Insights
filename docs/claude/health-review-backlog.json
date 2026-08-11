@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260811-BACKTEST-SIGNAL-CACHE-SILENTLY-INERT-WITHOUT-PARQUET",
+      "opened_at": "2026-08-11T15:20:00+00:00",
+      "opened_by": "claude (system-review continuation 2026-08-11)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "title": "backtest_system's signal-stream cache write is `except: pass`, so with no parquet engine `--prebuild-cache` is a documented flag that does nothing — silently, and the run just takes ~6x longer",
+      "source": "Found while running the BL-20260811 flip-override walk-forward on a sandbox with no parquet engine.\n\nPOPULATION / MEASUREMENT: one walkforward_flip_policy run, 4mem roster x 2 folds x 2 halves = 16 (strategy, window) precache targets, over ~25 minutes on 2026-08-11 before the process was lost. 0 of 16 parquet files were written to runtime_logs/system_backtest/signals/ and the directory was empty afterwards. Neither `pyarrow` nor `fastparquet` was importable. Nothing in stdout or stderr said so.",
+      "description": "scripts/backtest_system.py::generate_signal_stream wraps its `out.to_parquet(cache)` in a bare `except Exception: pass`. Declining to abort is correct — caching IS an optimization — but going fully silent means `--prebuild-cache` reports nothing while doing nothing, and each of the run's 24 cells then re-derives all 4 streams: 96 generations instead of 16, roughly a 6x cost multiplier on a run already measured in hours. The read side has the same broad except, so a corrupt cache file is equally silent.",
+      "why_critical": "Medium, not high: no result is WRONG, only slow. But it is the silent-empty shape the repo already has a guard for (`silent-empty-guard` catches the producer that returns [] from a broad except), applied to a research tool where the cost surfaces as 'the walk-forward is taking forever' rather than as an error — which is exactly the kind of thing a session attributes to the backtest being inherently slow and stops investigating. It also silently changes what `--prebuild-cache` MEANS between environments: on the trainer (pyarrow present) it precaches; in a fresh sandbox or a runner without the extra it is a no-op, and the two look identical from the outside.",
+      "next_action": "FIXED IN-SESSION for the write path (warn once per process, naming the exception and the remedy) — a one-shot latch, since the condition is per-environment not per-call and a per-call warning would be the desensitized-alarm pattern. STILL OPEN: (a) the READ path's identical broad except, which would hide a corrupt/partial parquet by silently regenerating; (b) whether the CI/trainer environments that run this harness actually have a parquet engine, which nobody has verified — if the trainer lacks it too, every sweep ever run there paid the 6x and no one knew; (c) consider adding `pyarrow` to the research requirements rather than leaving it implicit.",
+      "checked": "checked: scripts/backtest_system.py cache write (bare except) + read (bare except); pyarrow and fastparquet both unimportable in this sandbox; signals/ dir empty after a full precache pass. NOT checked: whether the trainer VM or the CI runners have a parquet engine installed."
+    },
+    {
       "id": "BL-20260811-TICKCOST-ATTRIBUTED-PCT-DOUBLE-COUNTS-NESTED-HOOKS",
       "opened_at": "2026-08-11T15:00:00+00:00",
       "opened_by": "claude (system-review continuation 2026-08-11)",
@@ -12703,6 +12717,6 @@
       "resolution_criteria": "A walk-forward result exists for the live override values, judged against `hold` on a shared population and split by TF-ratio class; the values are then kept, tuned, or rolled back on that evidence."
     }
   ],
-  "updated_at": "2026-08-11T15:00:00+00:00",
+  "updated_at": "2026-08-11T15:20:00+00:00",
   "generated_at": "2026-07-30T14:40:00+00:00"
 }
