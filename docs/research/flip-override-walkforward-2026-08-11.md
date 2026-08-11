@@ -89,13 +89,39 @@ per-fold artifacts (`flip-override-walkforward-fold-{A,B}`, 14-day retention).
   cannot download run artifacts. So the "does it lose on same-clock specifically?" question
   — the one M26 P0 says is decisive — **is not answered here**. Fix: print `by_tf_class`
   in the workflow summary and re-run. Tracked as the follow-up below.
+  <br>**Update (2026-08-11, PR #8784):** built and dispatched — the summary now prints a
+  per-cell TF-class table, and the split is no longer only a *report*: two counterfactual
+  arms (`hold_confgap_crossclock` / `hold_confgap_sameclock`) run the same live predicate
+  restricted to one class, so the question gets an A/B on the same cells instead of a
+  post-hoc PnL attribution nothing could check. Run `31529876774`; result pending as of
+  this edit and tracked in `BL-20260811-FLIP-OVERRIDE-TFCLASS-REARM`. **It cannot change
+  the disarm below** — see the re-arm bar recorded there.
 - **The driver's `Verdict: … Overall: FAIL` lines in each job are an ARTIFACT, not a
   finding.** `_evaluate_pass_criteria` spans both folds, but the matrix runs one fold per
   job, so the other fold's cells are always `missing_cell` → automatic FAIL. Those criteria
   also test `hold` vs `reverse` (the May question), not the override. **Do not read them as
   this run's verdict.** Fix: compute the verdict only over folds present in the run.
 
-## Recommendation (Tier-3 — proposed, NOT enacted)
+## Outcome (Tier-3 — APPROVED AND ENACTED 2026-08-11)
+
+> **The operator approved the disarm in-conversation on 2026-08-11 and it is LIVE.**
+> `set-env FLIP_CONFIDENCE_THRESHOLD=0.0` + `ict-trader-live` restart at **20:14:09Z**
+> (issue #8785, run `31531849716`). `FLIP_MIN_POSITION_AGE_HOURS` was deliberately left at
+> `4.0` — inert while the threshold is 0, and clearing both would make a future re-arm
+> ambiguous about which value was the tested one.
+>
+> **Verified on the running process, not the file.** The wrapper reported `active` one
+> second after the restart, which establishes neither that the process carries the new value
+> nor that it survived startup. `get-env` (#8787) read `/proc/<MainPID>/environ`:
+> **`process: '0.0'`, `declared: '0.0'`**. `status-check` (#8788, 20:18Z) then confirmed the
+> trader is *ticking*, not merely running — heartbeat age **42s**, PID 402857 elapsed 231s
+> (consistent with the 20:14 restart), pipeline evaluating MGC at 20:17:55, loadavg 0.12.
+>
+> **Re-arm bar, fixed here so it is not fitted later:** a re-arm proposal must clear **plain
+> `hold`** on net without worsening maxDD. Clearing the blind-override arm is *not*
+> sufficient — that arm loses, so beating it proves nothing.
+
+The recommendation as it stood, for the record:
 
 **Disarm the override**: set `FLIP_CONFIDENCE_THRESHOLD=0.0` on the live VM, which returns
 routing to the walk-forward-validated `hold`. One env flip + restart, no redeploy, and
@@ -113,4 +139,5 @@ this test did not cover, or the tf_ratio split showing it is strongly positive o
 move is a TF-aware gate (M26's `A_coexist_crossclock`), not the current TF-blind one.
 Both are cheap now that the harness and workflow exist.
 
-This is a **Tier-3 order-routing change on real money** and is the operator's call.
+This was a **Tier-3 order-routing change on real money** and was the operator's call —
+made, and enacted, on 2026-08-11. See the Outcome block above.
