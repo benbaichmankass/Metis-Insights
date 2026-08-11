@@ -11,7 +11,7 @@
   real money since ~2026-08-10 with no backtest behind it
   (`BL-20260811-FLIP-OVERRIDE-NEVER-WALKFORWARDED`).
 - Secondary goals: settle whether a **TF-class-restricted** re-arm is warranted;
-  get a warm-process `tick_cost` read for `BL-20260810-TICK-CHAIN`; recover the
+  get a warm-process `tick_cost` read for `BL-20260810-TICK-CHAIN-260S-PER-TICK`; recover the
   registry-sourced shadow-stats soak start.
 
 ## Tier
@@ -138,7 +138,7 @@
   ~30s and both attempts here ran 5+ minutes.
 
 ## Risks and Follow-Ups
-- **Remaining technical risks:** `BL-20260810-TICK-CHAIN` stays **open**. 107s still
+- **Remaining technical risks:** `BL-20260810-TICK-CHAIN-260S-PER-TICK` stays **open**. 107s still
   misses the operator's 60s evaluation bar by ~1.8×, and a live position is
   re-evaluated once per tick. The row's resolution criteria ask for the dominant
   term to be justified or reduced; halving is neither.
