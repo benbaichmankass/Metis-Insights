@@ -67,7 +67,51 @@ re-derived per harness, or a cross-harness comparison means nothing.
 shorter hold); a harness that does not track the release bar must report
 `capital_bars == position_bars` and say so, never fabricate a weighting.
 
-⚠️ **Path B's two thresholds ("improves materially", "the net_R floor") are
+### The GRANT CAP — `dN/N_b ≤ 1.0` (operator-approved 2026-08-11, Tier-3)
+
+The sweep implements Path B's drawdown clause as a **derived tolerance** rather
+than a flat "maxDD does not worsen": `allowed = D_b × (dN / N_b)`
+(`m20_fleet_exit_sweep.py::drawdown_exchange_rate`). Read `allowed` as a
+**fraction of the base book's entire drawdown**, and note the fraction was
+unbounded above — measured over the 604-row corpus, **31 rows were entitled to
+more than the whole base drawdown**, the largest at **1.70×**. Past 1.0 the
+allowance has stopped being a share of the book's risk budget and become an
+**expansion** of it, so the entitlement is now capped at `D_b`.
+
+**The cap is structural, not fitted** — it is the exact point where a share
+becomes an expansion. That is why it needs no statistical case, unlike the
+base-rate floor, which was a *prediction* claim and **failed** it
+(`no_separation` on both candidate predictors —
+`docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md`).
+
+⚠️ **HOW TO READ A CAPPED ROW — three misreadings, all easy:**
+
+1. **It caps the ENTITLEMENT, never the ASK.** A cell asking for less than the
+   cap is untouched. `grant_capped: true` does **not** mean "too risky" — it
+   means "its entitlement was absurd; its ask may well have been fine." Most
+   capped rows *improve* drawdown (`tlt_pullback_1h trail4`: ratio 1.70, ask
+   **−0.69R**).
+2. **It changes ZERO verdicts on the measured population, and that is not a
+   defect.** Of the 31 over-entitled rows, **none** asks for more drawdown than
+   `D_b` (largest real ask among them: **+0.78R** against a 15.35R base). It is
+   **prophylactic** — a bound on a future cell, not a correction of a present
+   one. Re-graded against the corpus: **5 rows capped, 0 verdicts changed.**
+   *(An earlier version of this recommendation claimed it "binds 1 of 18 rows".
+   That was wrong — measured before shipping. A risk control that controls
+   nothing, described as one that does, is worse than no control.)*
+3. **`grant_ratio > 1.0` is not a failing row — read `passes`.** A genuine cap
+   refusal carries `reason: "grant_exceeds_base_drawdown"`, which is
+   deliberately distinct from a rate refusal: they call for opposite follow-ups
+   (tighten the cell's drawdown vs improve its net_R).
+
+The cap enters `passes`, not only the reported allowance — clamping the printed
+number while the decision used the uncapped one would be a diagnostic describing
+a policy the code does not apply. `allowed_d_max_dd_uncapped` is still reported
+so a reader can see **what** was clamped.
+
+**This is a THIRD threshold, and it does not set the other two.**
+
+⚠️ **Path B's two original thresholds ("improves materially", "the net_R floor") are
 NOT yet set, and MUST NOT be invented.** No sweep has yet reported the
 `net_r_per_capital_day` distribution, and a threshold with no distribution
 behind it is the exposure-ceiling mistake

@@ -579,6 +579,15 @@ def run_cell(harness: str, args: list[str], start=None, end=None) -> dict:
     return dict(out)
 
 
+# What counts as an out-of-sample window too thin for its verdict to be
+# comparable to a full one. REPORTING ONLY — nothing gates on it. Set at 20
+# because the 2026-08-10 fleet sweep produced Path A PASSes on OOS windows of
+# 3, 4 and 5 trades, and the daily legs cluster there while the hourly ones sit
+# in the hundreds; 20 separates those two populations without pretending to be
+# a statistical threshold. It is a LABEL, not a gate.
+_THIN_OOS_TRADES = 20
+
+
 def beats(cell: dict, base: dict) -> bool:
     """net_R AND maxDD both no worse (strict net_R improvement OR dd improvement).
 
@@ -682,12 +691,54 @@ def drawdown_exchange_rate(cell: dict, base: dict) -> dict:
     if d_b <= 0:
         out["reason"] = "base_no_drawdown"
         return out
-    allowed = d_b * ((n_c - n_b) / n_b)
+    # ---------------------------------------------------------- THE GRANT CAP
+    #
+    # Operator-approved 2026-08-11 (Tier-3). `allowed = D_b x (dN / N_b)` is a
+    # FRACTION of the base book's entire drawdown, and the fraction is unbounded
+    # above: measured over the 604-row corpus, 31 rows are entitled to MORE than
+    # the whole base drawdown, the largest at 1.70x (`tlt_pullback_1h trail4`).
+    # Past 1.0 the allowance has stopped being a share of the book's risk budget
+    # and become an expansion of it, so the cap is `dN/N_b <= 1.0` — structural,
+    # the point where a share becomes an expansion, NOT a fitted parameter.
+    #
+    # ⚠️ HOW TO READ THIS — the cap is easy to misread in three ways:
+    #
+    #  1. IT CAPS THE ENTITLEMENT, NEVER THE ASK. A cell asking for less than
+    #     the cap is untouched. `grant_capped: true` does NOT mean "this cell was
+    #     too risky" — it means "its entitlement was absurd; its actual ask may
+    #     well have been fine." Most capped rows IMPROVE drawdown.
+    #  2. IT CHANGES ZERO VERDICTS ON THE MEASURED POPULATION, and that is not a
+    #     defect. Of the 31 over-entitled rows, ZERO actually ask for more
+    #     drawdown than D_b (largest real ask among them: +0.78R against a
+    #     15.35R base). It is PROPHYLACTIC — a bound on a future cell, not a
+    #     correction of a present one. An earlier version of this
+    #     recommendation claimed it "binds 1 of 18 rows"; that was WRONG, and
+    #     shipping it on that claim would have been a risk control that controls
+    #     nothing, sold as one that does.
+    #  3. A `grant_ratio > 1.0` ROW IS NOT A FAILING ROW. Read `passes`.
+    #
+    # The cap enters `passes`, not just the reported allowance — clamping only
+    # the printed number while the decision used the uncapped one would be a
+    # diagnostic that describes a policy the code does not apply.
+    grant_ratio = (n_c - n_b) / n_b
+    allowed_uncapped = d_b * grant_ratio
+    allowed = min(allowed_uncapped, d_b)
+    asked = d_c - d_b
+    out["grant_ratio"] = round(grant_ratio, 4)
+    out["allowed_d_max_dd_uncapped"] = round(allowed_uncapped, 4)
+    # Strict `<`: a row exactly at the cap is not "capped", it is at the bound.
+    out["grant_capped"] = bool(allowed < allowed_uncapped)
     out["allowed_d_max_dd"] = round(allowed, 4)
     # Positive headroom = the cell asks for LESS drawdown than its net_R gain
-    # entitles it to at the book's own rate.
-    out["headroom"] = round(allowed - (d_c - d_b), 4)
-    out["passes"] = (n_c * d_b) >= (n_b * d_c)
+    # entitles it to at the book's own rate, AFTER the cap.
+    out["headroom"] = round(allowed - asked, 4)
+    # The rate test by cross-multiplication (no ratio formed), AND the cap. The
+    # rate half is unchanged; `asked <= d_b` is the new conjunct.
+    out["passes"] = ((n_c * d_b) >= (n_b * d_c)) and (asked <= d_b)
+    if not out["passes"] and (n_c * d_b) >= (n_b * d_c):
+        # Name WHICH half refused, so a cap refusal is never read as a rate
+        # refusal — they call for opposite follow-ups.
+        out["reason"] = "grant_exceeds_base_drawdown"
     return out
 
 
@@ -1095,7 +1146,7 @@ def main(argv: list[str]) -> int:
             verdicts[leg] = {"status": "harness_error",
                              "error": base_is.get("error") or base_oos.get("error")}
             continue
-        leg_v = {"proxy": p["proxy"], "levers": {},
+        leg_v = {"proxy": p["proxy"], "family": p["family"], "levers": {},
                  # Cells the grid deliberately did not ask, and why. Without
                  # this the verdict file cannot distinguish a cell that was
                  # never run from one that ran and moved nothing.
@@ -1114,6 +1165,54 @@ def main(argv: list[str]) -> int:
             w: {k: d.get(f"tp_r_effective_{k}") for k in ("n", "median", "min", "max")}
             for w, d in (("IS", base_is), ("OOS", base_oos))
         }
+        # THE BASE BOOK, PER WINDOW — recorded for EVERY leg, unconditionally.
+        #
+        # `drawdown_exchange_rate` already computes `base_net_r`/`base_max_dd`,
+        # but only inside a Path B candidate's entry — so the one axis a Path B
+        # FLOOR would be defined on (`net_R per unit of drawdown`, the rate the
+        # allowance is scaled from) was recorded ONLY for cells that had already
+        # passed the Path B predicate. Deriving a floor from that corpus would
+        # condition on the outcome: the legs whose rate is low enough to be the
+        # problem are exactly the ones most likely to admit a candidate, so they
+        # are over-represented, and the legs that produced no candidate at all
+        # contribute nothing — the denominator is missing by construction.
+        #
+        # The operator's ask (2026-08-10) is a floor derived from capital-
+        # utilisation + PnL data rather than picked. That requires the rate for
+        # the WHOLE population, which is what this block records. It is free:
+        # `run_cell` already returned the whole base summary.
+        #
+        # `rate` is None -- never 0.0 -- when the base book cannot express one.
+        # A book that lost money and a book with no drawdown are not "rate zero";
+        # they are two distinct ungradeable states, and `why` says which, so a
+        # consumer ranking on the rate can drop them rather than sort them to the
+        # bottom as if measured (docs/CLAUDE-RULES-CANONICAL.md, "Collapsed
+        # states").
+        def _base_book(d: dict) -> dict:
+            def _f(k):
+                try:
+                    v = d.get(k)
+                    return float(v) if v is not None else None
+                except (TypeError, ValueError):
+                    return None
+            n, dd = _f("net_total_r"), _f("max_drawdown_r")
+            if n is None or dd is None:
+                rate, why = None, "unreadable"
+            elif n <= 0:
+                rate, why = None, "base_unprofitable"
+            elif dd <= 0:
+                rate, why = None, "base_no_drawdown"
+            else:
+                rate, why = round(n / dd, 4), None
+            return {"net_total_r": n, "max_drawdown_r": dd,
+                    "net_r_per_drawdown_r": rate, "rate_ungradeable_why": why,
+                    "total_trades": d.get("total_trades"),
+                    "net_r_per_capital_day": d.get("net_r_per_capital_day"),
+                    "capital_days": d.get("capital_days"),
+                    "mean_bars_held": d.get("mean_bars_held")}
+
+        leg_v["base_book"] = {"IS": _base_book(base_is),
+                              "OOS": _base_book(base_oos)}
         # M20 P4.4 — dynamic MFE-percentile decay cell: arm at the leg's own
         # P80 winner-MFE (IS window only) instead of a fixed R. Only where the
         # family has the decay lever and the fixed decay cells are in scope.
@@ -1203,6 +1302,27 @@ def main(argv: list[str]) -> int:
                 entry["verdict"] = ("path_b_wf_pass" if wf["usable"] >= 4
                                     and wf["wins"] * 3 >= wf["usable"] * 2
                                     else "path_b_wf_fail")
+                # THE VERDICT NAME DOES NOT MEAN THE RATE GATE PASSED, and at
+                # fleet scale 6 of 18 `path_b_wf_pass` rows failed it (2026-08-10,
+                # 43-leg corpus) — including `tlt_pullback_1h trail4`, whose OOS
+                # base is UNGRADEABLE and whose grant is the largest in the fleet
+                # at 170% of the base book's whole drawdown. The docstring above
+                # disclaims it, the per-row `rate ok` column reports it, and a
+                # reader scanning a table of `path_b_wf_pass` rows still would not
+                # guess that a third of them fail the gate the prose describes.
+                # That is a label not describing what was computed.
+                #
+                # THREE-STATE, never collapsed to a boolean: `False` (a gradeable
+                # window said no) and `None` (no window could be graded at all)
+                # are opposite findings, and folding "we could not look" into
+                # either "ok" or "failed" is the exact defect
+                # `collapsed-state-guard` exists for. Carried on the entry so the
+                # corpus and every downstream table can key on it.
+                _r = [entry["dd_exchange_rate"][w]["passes"] for w in ("IS", "OOS")]
+                _graded = [v for v in _r if v is not None]
+                entry["path_b_rate_ok"] = (
+                    None if not _graded else all(_graded))
+                entry["path_b_rate_windows_graded"] = len(_graded)
             else:
                 entry["verdict"] = "is_oos_fail"
             leg_v["levers"].setdefault(lever, []).append(entry)
@@ -1225,21 +1345,113 @@ def main(argv: list[str]) -> int:
                                      if e.get("path_b_candidate")),
             "path_b_wf_pass": sum(1 for e in _all_entries
                                   if e.get("verdict") == "path_b_wf_pass"),
+            # The same count split by the gate the name does NOT test, so the
+            # roll-up cannot present 18 Path B passes when 12 of them are what a
+            # reader means by that. `rate_ungradeable` is its own bucket.
+            "path_b_wf_pass_rate_ok": sum(
+                1 for e in _all_entries
+                if e.get("verdict") == "path_b_wf_pass"
+                and e.get("path_b_rate_ok") is True),
+            "path_b_wf_pass_rate_failed": sum(
+                1 for e in _all_entries
+                if e.get("verdict") == "path_b_wf_pass"
+                and e.get("path_b_rate_ok") is False),
+            "path_b_wf_pass_rate_ungradeable": sum(
+                1 for e in _all_entries
+                if e.get("verdict") == "path_b_wf_pass"
+                and e.get("path_b_rate_ok") is None),
         }
         verdicts[leg] = leg_v
 
+    # `tp_cap_pct` is part of the MEASUREMENT IDENTITY, not a run detail.
+    #
+    # The same (leg, cell, split) measured at the legacy no-TP geometry and at
+    # live parity are two different numbers about two different books
+    # (BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP: the harnesses
+    # modelled no take-profit at all while production places a 9.9%-clamped one,
+    # and `tqqq_trend_long_1d` went 32 -> 75 trades once the real geometry was
+    # used). A verdicts file that records `split` but not the geometry lets a
+    # downstream corpus mix the two vintages under one label — the same defect
+    # one level up from where it was originally found.
     (run_dir / "verdicts.json").write_text(json.dumps(
         {"generated_at": datetime.now(timezone.utc).isoformat(),
-         "split": a.split, "skipped": skipped, "verdicts": verdicts}, indent=1))
+         "split": a.split, "tp_cap_pct": a.tp_cap_pct,
+         "skipped": skipped, "verdicts": verdicts}, indent=1))
+    # THE GEOMETRY THIS LEG ACTUALLY RAN, not the one the run requested.
+    #
+    # `--tp-cap-pct` is applied by `base_args` ONLY when the leg's family is in
+    # LIVE_TP_CAPPED_FAMILIES, because only those units carry
+    # `_TP_SENTINEL_CAP_PCT`. The PR-comment banner, however, reads the RUN-LEVEL
+    # flag and printed "LIVE-PARITY (capped TP 0.099)" on every leg — including
+    # the 8 `ict_scalp` legs and `fvg_range_15m`, whose units carry no cap at all
+    # (verified 2026-08-10: `grep -c _TP_SENTINEL_CAP_PCT
+    # src/units/strategies/ict_scalp.py` -> 0). A banner asserting a geometry the
+    # code did not apply is `diagnostic-provenance-guard` sub-class A, and it is
+    # worse here than most: the banner's ONLY job is to tell the reader which
+    # geometry produced the numbers underneath it.
+    #
+    # Emitted from the sweep rather than the workflow because THIS is where the
+    # family and the allowlist live; duplicating the allowlist into YAML would be
+    # a second source of truth free to drift from the one that decides.
     lines = ["# M20 fleet exit-lever sweep", ""]
+    for _leg, _v in verdicts.items():
+        _fam = _v.get("family")
+        if _fam is None:
+            # A leg that never reached the sweep (skipped / harness error)
+            # records no family, so the geometry is UNKNOWN -- which is not the
+            # same as "applied", and must not be printed as either.
+            lines.append(f"- geometry (`{_leg}`): unknown — this leg did not run "
+                         f"({_v.get('status') or 'no status recorded'}), so no "
+                         f"geometry was applied to report")
+            continue
+        if a.tp_cap_pct <= 0.0:
+            _geo = ("legacy (no TP cap) — the geometry every pre-2026-08-10 "
+                    "verdict used, NOT what production runs")
+        elif _fam in LIVE_TP_CAPPED_FAMILIES:
+            _geo = (f"**capped TP {a.tp_cap_pct} APPLIED** — live parity; this "
+                    f"family's unit places the capped TP")
+        else:
+            _geo = (f"**capped TP NOT APPLIED** (requested {a.tp_cap_pct}) — the "
+                    f"`{_fam}` family's unit carries no `_TP_SENTINEL_CAP_PCT`, so "
+                    f"there is no cap to model. This is live parity FOR THIS LEG, "
+                    f"and it is why the `Live TP reach` table is absent below: the "
+                    f"quantity does not exist here, which is a different statement "
+                    f"from 'the TP is far away' or 'the cap was off'.")
+        lines.append(f"- geometry (`{_leg}`): {_geo}")
+    lines.append("")
     for leg, v in verdicts.items():
         if "levers" not in v:
             lines.append(f"- **{leg}**: {v.get('status')} ({v.get('error', '')[:80]})")
             continue
         passes = [e["cell"] for es in v["levers"].values() for e in es
                   if e.get("verdict") == "PASS"]
+        # THE VERDICT'S OWN DENOMINATOR, on the same line as the verdict.
+        #
+        # `beats()` compares net_R and maxDD and requires NO minimum trade
+        # count, so a PASS over a 3-trade out-of-sample window prints
+        # identically to a PASS over 400. Measured 2026-08-10 on the fleet
+        # sweep: `spy_trend_long_1d` returned FOUR PASSes on an OOS window of
+        # THREE trades (one cell on +0.08R in-sample), `qqq_trend_long_1d` two
+        # on four, `scha_trend_long_1d` three on five — while `mgc_trend_1h`
+        # returned one on 97, which is a different kind of claim entirely.
+        # A reader scanning this list for promotion candidates cannot tell them
+        # apart, which is the unasserted-denominator failure applied to the
+        # gate's own output.
+        #
+        # This REPORTS the counts; it does not change the gate. Adding a
+        # minimum-n to `beats()` would change what gets promoted and is the
+        # operator's call, not a reporting fix's.
+        bb = v.get("base_book") or {}
+        n_is = (bb.get("IS") or {}).get("total_trades")
+        n_oos = (bb.get("OOS") or {}).get("total_trades")
+        n_note = f" · base n IS={n_is} OOS={n_oos}"
+        thin = (isinstance(n_oos, (int, float)) and n_oos < _THIN_OOS_TRADES)
         lines.append(f"- **{leg}**{' [PROXY]' if v['proxy'] else ''}: "
-                     + (f"PASS {passes}" if passes else "all honest negatives"))
+                     + (f"PASS {passes}" if passes else "all honest negatives")
+                     + n_note
+                     + (f" ⚠️ **THIN OOS** (<{_THIN_OOS_TRADES} trades — a verdict "
+                        "here is not comparable to one on a full window)"
+                        if thin else ""))
     for s in skipped:
         lines.append(f"- **{s['leg']}**: SKIPPED — {s['reason']}")
 
@@ -1411,9 +1623,27 @@ def main(argv: list[str]) -> int:
                   "BOTH windows** means the cell buys drawdown at least as cheaply as the "
                   "strategy already does. `ungradeable` is NOT a pass — a base book that "
                   "loses money has no exchange rate to preserve.", "",
+                  # THE VERDICT NAME IS NOT THE GATE. Measured over the 43-leg
+                  # corpus, 6 of 18 `path_b_wf_pass` rows FAIL this table's `rate
+                  # ok` column -- the verdict says only that the net_R gain held
+                  # up across folds. Stated here because this is the table a
+                  # reader scans when deciding, and the two were previously only
+                  # reconcilable by reading both columns and knowing they meant
+                  # different things.
+                  "**`path_b_wf_pass` does NOT mean `rate ok`** -- that verdict "
+                  "says only that the net_R gain held across folds. Read the "
+                  "`rate ok` column, and read `grant%` beside it.", "",
+                  # `grant%` = dN/N_b as a PERCENTAGE OF THE BASE BOOK'S WHOLE
+                  # DRAWDOWN, which is what `allowed` literally is. It was
+                  # derivable from the existing columns and nobody derived it,
+                  # so a cell being granted 170% of the base book's entire
+                  # drawdown (tlt_pullback_1h trail4) read as an ordinary row.
+                  "`grant%` is `allowed` as a share of the base book's ENTIRE "
+                  "drawdown. Above 100% the allowance has stopped being a share "
+                  "of the risk budget and become an expansion of it.", "",
                   "| leg | cell | win | base netR | base maxDD | d netR | asked d maxDD "
-                  "| allowed d maxDD | headroom | rate ok |",
-                  "|---|---|---|--:|--:|--:|--:|--:|--:|:-:|"]
+                  "| allowed d maxDD | grant% | headroom | rate ok |",
+                  "|---|---|---|--:|--:|--:|--:|--:|--:|--:|:-:|"]
         for _leg, _e in pb:
             for _w in ("IS", "OOS"):
                 _r = _e["dd_exchange_rate"][_w]
@@ -1421,13 +1651,17 @@ def main(argv: list[str]) -> int:
                     lines.append(
                         f"| {_leg} | {_e['cell']} | {_w} | {_r.get('base_net_r')} "
                         f"| {_r.get('base_max_dd')} | {_r.get('d_net_r')} "
-                        f"| {_r.get('d_max_dd')} | - | - | "
+                        f"| {_r.get('d_max_dd')} | - | - | - | "
                         f"ungradeable: {_r['reason']} |")
                     continue
+                # `base_net_r > 0` is guaranteed here -- a non-positive base
+                # returned `base_unprofitable` above and took the branch that
+                # continues, so this division cannot be by zero or invert sign.
+                _grant = round(100.0 * _r['d_net_r'] / _r['base_net_r'])
                 lines.append(
                     f"| {_leg} | {_e['cell']} | {_w} | {_r['base_net_r']} "
                     f"| {_r['base_max_dd']} | {_r['d_net_r']} | {_r['d_max_dd']} "
-                    f"| {_r['allowed_d_max_dd']} | {_r['headroom']} "
+                    f"| {_r['allowed_d_max_dd']} | {_grant}% | {_r['headroom']} "
                     f"| {'Y' if _r['passes'] else 'N'} |")
     (run_dir / "SUMMARY.md").write_text("\n".join(lines) + "\n")
     print(f"capital: {len(measured)}/{len(dist)} cells measured")

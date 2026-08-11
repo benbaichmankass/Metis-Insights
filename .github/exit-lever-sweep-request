@@ -1,29 +1,37 @@
 # Sentinel — touching this file fires m20-exit-lever-sweep from the branch.
 # The `legs:` line below is READ BY THE PLAN JOB, not decoration.
 #
-# 2026-08-10 (3rd dispatch) — THE TWO LEGS WHOSE BASE WAS NOT CONFIG-EXACT.
+# 2026-08-10 (7th dispatch) — THE 8 ict_scalp LEGS. The last unmeasured part of
+# the fleet, and the part where the live capped TP bites hardest.
 #
-# `base_args::declared_levers()` threaded the stale, giveback and trail-DECAY
-# levers and OMITTED the trail-VOL one, while both harnesses had carried
-# `--trail-vol-*` all along. Exactly two census legs declare an ARMED vol-trail
-# lever, so exactly two legs were measured against a baseline missing a lever
-# that is armed in live:
+# WHY THEY GOT THEIR OWN DISPATCH. The census timed one full-history scalp run at
+# 955s, and a sweep is base x 2 windows + cells x 2 windows + a walk-forward per
+# candidate. Folding them into the 33-leg run would have held 33 finished legs
+# behind a 4.5h worst case for 8. They are cheap in wall-clock terms only because
+# every leg is its own matrix job (max-parallel 10, 330-min job cap, 1800s per
+# cell), so a leg that overruns costs that leg and nothing else.
 #
-#   trend_donchian_eth   below_pctl 0.1 / tight 2.5   (cold tail)
-#   qqq_pullback_1h      above_pctl 0.8 / tight 2.5   (hot tail)
+# WHAT THIS RUN IS FOR — and what it is NOT for.
 #
-# Both A/B arms omitted it, so each prior delta is internally consistent; what
-# is unverified is its TRANSPORT to the live book, since exit levers interact —
-# a cold-vol-tightened trail changes which trades a decay or stale rule ever
-# sees. This run measures the same cells against the book we would deploy onto.
+# NOT for finding a Path B floor. That question is CLOSED as of the 43-leg corpus
+# (docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md): both candidate
+# predictors returned `no_separation`, and at every floor the arm a floor would
+# reject generalised BETTER than the arm it would admit. More legs cannot revive a
+# predictor that points the wrong way; they would only re-run a settled test.
 #
-# WHAT IT DECIDES. Rows 1-2 of the Tier-3 promotion packet — `decay_stall10_t2.5`
-# and `stale12_lt0R` on trend_donchian_eth, two of the three live-leg winners —
-# are HELD on this run. If they still clear Path A on the corrected base they
-# ship; if they do not, the packet loses two rows and says so.
+# It is for the ONE question the scalps are uniquely placed to answer: these legs
+# have the tightest frames in the fleet, so `tp = min(entry*(1+cap), entry +
+# tp_r*risk)` should bind on them far more often than on the 1d/1h legs measured
+# so far (whose live-TP-reach medians came back at 2-12R — i.e. the 9.9% clamp is
+# nowhere near). If the clamp is ordinary on a 5m scalp frame, that is a live
+# geometry finding about production orders, not a backtest artifact, and
+# BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP is the item it closes.
 #
-# qqq_pullback_1h carries no held row (its two Path B candidates already failed
-# the folds) — it is here because it is the other affected leg and a rejection
-# measured on a wrong base is no more trustworthy than an acceptance.
-legs: trend_donchian_eth,qqq_pullback_1h
-dispatch: 2026-08-10 re-run on the corrected config-exact base (trail-vol threaded)
+# The `Live TP reach` table is therefore the PRIMARY output of this run. The
+# lever verdicts are secondary and, given the fleet result above, are expected to
+# be honest negatives.
+#
+# SCOPE: all 8 enabled ict_scalp legs. `ict_scalp_sol_15m bank0.5@1R` (TASK 3)
+# is deliberately NOT bundled here — it is a BUILD, not a cell, and rushing it
+# into a sweep dispatch is how it would get done badly.
+legs: ict_scalp_5m,ict_scalp_avax_5m,ict_scalp_eth_15m,ict_scalp_mgc_15m,ict_scalp_sol_15m,ict_scalp_sol_5m,ict_scalp_xrp_15m,ict_scalp_xrp_5m

@@ -12685,6 +12685,32 @@
         "BL-20260810-FLIP-CONFIDENCE-OVERRIDE-LIVE-WITHOUT-RECORD"
       ],
       "resolution_criteria": "A walk-forward result exists for the live override values, judged against `hold` on a shared population and split by TF-ratio class; the values are then kept, tuned, or rolled back on that evidence."
+    },
+    {
+      "id": "BL-20260810-PATHA-GATE-HAS-NO-MINIMUM-N",
+      "opened_at": "2026-08-10T23:00:00+00:00",
+      "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 Path B floor)",
+      "severity": "P2",
+      "status": "open",
+      "area": "research/backtest",
+      "title": "[exits] the M20 Path A gate has no minimum trade count: 9 of 21 fleet PASSes sit on an OOS base under 20 trades",
+      "summary": "m20_fleet_exit_sweep::beats plus the walk-forward decide which exit-lever cells get PROPOSED for promotion, and neither requires a minimum number of trades. Measured over the 43-leg fleet corpus, 9 of the 21 Path A PASSes rest on an out-of-sample base of fewer than 20 trades, and spy_trend_long_1d has FOUR PASSes on a three-trade window.",
+      "evidence": "checked: docs/research/m20-sweep-corpus.jsonl (575 cells / 43 legs, run 2026-08-10) and scripts/research/m20_fleet_exit_sweep.py. PASSes by OOS base n: spy_trend_long_1d n=3 (4 PASSes), qqq_trend_long_1d n=4 (2), scha_trend_long_1d n=5 (3), uso_trend_1h n=27 (1), gld_pullback_1h n=31 (1), trend_donchian_xrp_4h n=32 (2), trend_donchian_avax_4h n=34 (6), mgc_trend_1h n=97 (1), trend_donchian_1h n=168 (1). The sweep's per-leg verdict line already prints base n IS=/OOS= and a THIN OOS label, so the information is present and simply is not gated on.",
+      "why_not_fixed": "Deliberate scope call. beats() governs what gets proposed for promotion, so adding a minimum-n changes promotion STANDARDS rather than fixing a defect, and it should be decided on its own rather than as a side effect of the Path B floor investigation that surfaced it. Written up in docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md section 4.",
+      "suggested_action": "Decide a minimum OOS trade count for a Path A PASS, or decide explicitly that thin-n PASSes stay reportable but never promotable. Either way the count must ride WITH the verdict so a thin PASS can never be read as a thick one."
+    },
+    {
+      "id": "BL-20260810-SWEEP-DATA-DIR-MISSING-MGC",
+      "opened_at": "2026-08-10T23:00:00+00:00",
+      "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 scalp sweep)",
+      "severity": "P3",
+      "status": "open",
+      "area": "research/backtest",
+      "title": "[exits] the exit-lever sweep data dir has no 15m MGC candles, so ict_scalp_mgc_15m skips",
+      "summary": "The sweep's data dir on the runner (/home/ubuntu/m27_data) serves MGC on 1h and 1d but not on the 15m frame, so ict_scalp_mgc_15m returns SKIPPED - data_missing:MGC and contributes no cells to the fleet corpus. The gap is scalp-timeframe MGC specifically, not MGC as an instrument.",
+      "evidence": "checked: the PR #8756 sweep comment for ict_scalp_mgc_15m (2026-08-10), which reads 'ict_scalp_mgc_15m: SKIPPED - data_missing:MGC' with 0 of 0 cells; and docs/research/m20-sweep-corpus.jsonl, where mgc_trend_1h and mgc_pullback_1d both carry full cell rows from the same dir in the 33-leg run.",
+      "why_not_fixed": "The skip is honest rather than silent: it lands as a leg_status row, so nothing downstream reports a shrunken denominator as a complete one. But the scalp sweep exists to test whether the live capped TP (0.099) actually binds on tight frames, and MGC's contract geometry is where that would be most informative, so the leg is worth recovering.",
+      "suggested_action": "Backfill 15m MGC candles into the sweep data dir from the same source as the 1h/1d MGC frames already present, then re-dispatch that one leg. The corpus supersedes by measurement key, so a re-run replaces rather than duplicates."
     }
   ],
   "updated_at": "2026-08-10T01:20:00+00:00",

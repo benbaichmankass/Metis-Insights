@@ -2324,6 +2324,20 @@
       ],
       "action": "SUPERSEDED as originally scoped. Do NOT open a Tier-2 bracket-path fix on the strength of the -8.41R figure.\n\n1. Re-derive the ict_scalp capture statistics (giveback, realized R) over MEASURED/ESTIMATED-provenance rows ONLY — /api/bot/performance now exposes totalPnlMeasured + pnlCoverage per strategy for exactly this, and /api/bot/trades/closed carries per-row pnlProvenance. A capture claim computed over fabricated exits measures the reconstruction, not the strategy.\n2. The close-PATH finding (7 of 10 by reconciler) is provenance-independent and IS worth chasing on its own terms — that is the surviving lead.\n3. Only after (1) yields a measured giveback should any Tier-3 stop-geometry or Tier-2 bracket change be proposed.",
       "updated_at": "2026-08-10T05:05:00+00:00"
+    },
+    {
+      "id": "PB-20260811-ICTSCALP5M-REALMONEY-NEGATIVE-BOTH-WINDOWS",
+      "opened_at": "2026-08-11T01:00:00+00:00",
+      "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 scalp exit-lever sweep)",
+      "severity": "P1",
+      "status": "open",
+      "area": "strategy/performance",
+      "title": "[strategy] ict_scalp_5m is the fleet's most negative base book AND the only negative-on-both-windows leg routed to real money",
+      "summary": "The M20 exit-lever sweep measures each leg's config-exact BASE book before any cell is applied. Over the 51-leg corpus, 4 of the 50 legs with a readable base are negative on BOTH the IS and OOS windows. Exactly one of those four is enabled, execution: live, AND routed to a real_money account -- ict_scalp_5m on bybit_2 -- and it is the most negative of the four by a wide margin: IS -48.88R, OOS -13.31R.",
+      "evidence": "checked: docs/research/m20-sweep-corpus.jsonl (604 rows / 603 cells / 51 legs, live-parity geometry, IS/OOS split 2025-07-01, committed f4225f7) for the base books, and config/accounts.yaml + config/strategies.yaml for routing. The four negative-on-both legs: ict_scalp_5m (IS -48.88 / OOS -13.31, enabled, live, REAL MONEY bybit_2); ict_scalp_avax_5m (-37.98 / -23.17, paper only); trend_donchian_1h (-34.19 / -21.21, enabled: false + shadow, inert); fvg_range_15m (-1.88 / -4.68, routed to bybit_2 but execution: shadow, so it places no live order). Denominator for context: 32 of 50 legs are positive on both windows, 14 negative on one.",
+      "why_not_fixed": "Out of tier and out of scope for the session that found it. Whether a strategy trades at all is Tier-3, and this is a STRATEGY-PERFORMANCE question, not the exit-lever question the sweep was run to answer -- no exit lever fixes a base book that loses on both windows, and the sweep confirmed that directly: all 4 ict_scalp_5m cells are honest negatives, and the one cell that cleared IS/OOS on both axes (gb1R_afterMFE1R) then FAILED its walk-forward.",
+      "caveat": "This is the config-exact BACKTEST base, not live realized PnL, and the two must not be conflated -- the live journal's ict_scalp rows also carry a known fabricated-provenance problem (see PB-20260807-ICTSCALP-STOP-DID-NOT-CONTAIN-8R). The claim here is strictly about the backtested base book on the live-parity geometry.",
+      "suggested_action": "A /performance-review pass should compare this backtested base against the leg's MEASURED-provenance live PnL (/api/bot/performance totalPnlMeasured + pnlCoverage per strategy). If live agrees with the backtest, the Tier-3 question is whether ict_scalp_5m should keep its real-money routing on bybit_2 -- demote to bybit_1 paper, or set execution: shadow, both of which are one-line declares. If live disagrees, that disagreement is itself the finding."
     }
   ],
   "updated_at": "2026-08-07T14:55:00+00:00"
