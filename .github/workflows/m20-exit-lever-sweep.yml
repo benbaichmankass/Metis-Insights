@@ -54,6 +54,10 @@ on:
         description: "Roundtrip fee in bps. Empty = the harness default (7.5). Set 15 for the fee-SURVIVAL arm — SRQ-20260618-003 rejected the 5m scalp alts because they were +50R at 7.5bps and -38R at 15bps, and the entire corpus is 7.5bps, so that arm was unrunnable until now."
         required: false
         default: ''
+      min_confidence_override:
+        description: "Entry-selectivity floor imposed on EVERY leg, replacing its config-declared min_confidence. Empty = config-exact (each leg keeps its own). The surviving arm of SRQ-20260618-003: the 15bps run showed halving the trade COUNT does not clear the fee band, leaving 'raise the edge per trade' untested. Note an explicit 0 is NOT empty — it imposes a zero floor on legs that declare one."
+        required: false
+        default: ''
   # A workflow_dispatch-ONLY workflow is not resolvable by filename until it
   # exists on the DEFAULT branch — the dispatch API 404s on a feature branch.
   # This sentinel path is the same escape hatch m20-capture-census.yml uses:
@@ -245,6 +249,7 @@ jobs:
           LEG: ${{ matrix.leg.leg }}
           TP_CAP_PCT: ${{ inputs.tp_cap_pct || '0.099' }}
           FEE_BPS: ${{ inputs.fee_bps_roundtrip }}
+          MIN_CONF: ${{ inputs.min_confidence_override }}
           LEVERS: ${{ inputs.levers }}
           SPLIT: ${{ inputs.split || '2025-07-01' }}
         run: |
@@ -255,6 +260,7 @@ jobs:
             --split "${SPLIT}" \
             --tp-cap-pct "${TP_CAP_PCT}" \
             ${FEE_BPS:+--fee-bps-roundtrip "${FEE_BPS}"} \
+            ${MIN_CONF:+--min-confidence-override "${MIN_CONF}"} \
             ${LEVERS:+--levers "${LEVERS}"} \
             --out "out/${LEG}" 2>&1 | tee sweep.out
 

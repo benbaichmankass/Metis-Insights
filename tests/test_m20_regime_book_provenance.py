@@ -431,3 +431,74 @@ def test_two_fee_bands_produce_different_base_args():
     assert lo != hi
     assert [x for x in lo if x not in hi] == ["7.5"]
     assert [x for x in hi if x not in lo] == ["15.0"]
+
+
+# --- the ENTRY-SELECTIVITY BAND (min_confidence override) --------------------
+#
+# The surviving arm of SRQ-20260618-003. The 15bps run refuted "fewer, larger-R
+# trades escape the fee band" (every 15m leg flipped negative on BOTH windows at
+# unchanged trade counts, so it was pure cost). What that did NOT test is whether
+# raising the EDGE per trade clears the band — ict_scalp's confidence is a real
+# continuous blend, so a floor is a genuine selectivity axis.
+#
+# The failure this axis is written to avoid is the one the fee axis committed:
+# recorded in verdicts.json, never propagated to the extractor, 12 rows claiming
+# `fee: None` while BEING the 15bps arm. So every hop is covered here.
+
+def test_confidence_override_replaces_the_declared_floor():
+    """Not stacks on it. argparse would take the last of two flags and reach the
+    same number, but the emitted command IS the evidence for what a row measured,
+    and a command carrying two contradictory floors cannot be read back."""
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m", "min_confidence": 0.10}
+    a = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, None, 0.30)
+    assert a.count("--min-confidence") == 1
+    assert a[a.index("--min-confidence") + 1] == "0.3"
+    assert "0.1" not in a
+
+
+def test_confidence_override_applies_to_a_leg_that_declares_none():
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m"}
+    a = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, None, 0.30)
+    assert a[a.index("--min-confidence") + 1] == "0.3"
+
+
+def test_no_override_leaves_the_config_exact_floor_untouched():
+    """None means "use each leg's declared value" — NOT "floor 0". A leg that
+    declares 0.10 must still run at 0.10, or the config-exact base is not."""
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m", "min_confidence": 0.10}
+    a = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, None, None)
+    assert a[a.index("--min-confidence") + 1] == "0.1"
+
+
+def test_two_confidence_bands_differ_in_exactly_one_dimension():
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m"}
+    lo = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, 15.0, 0.0)
+    hi = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, 15.0, 0.30)
+    assert [x for x in lo if x not in hi] == ["0.0"]
+    assert [x for x in hi if x not in lo] == ["0.3"]
+
+
+def test_confidence_override_travels_in_the_measurement_identity():
+    """Two rows identical but for the override are two populations, not one."""
+    base = {"kind": "cell", "leg": "ict_scalp_sol_15m", "cell": "stale8",
+            "split": "2025-07-01", "tp_cap_pct": 0.099, "regime_router": "off",
+            "min_oos_trades_floor": 25, "fee_bps_roundtrip": 15.0}
+    declared = dict(base, min_confidence_override=None)
+    imposed = dict(base, min_confidence_override=0.30)
+    assert extract.measurement_key(declared) != extract.measurement_key(imposed)
+
+
+def test_extractor_propagates_the_override_onto_every_row():
+    """Including leg_status rows for SKIPPED legs, which never reach `verdicts`
+    and so are the rows a per-verdict propagation would miss."""
+    rows = extract.rows_from_verdicts(_doc(min_confidence_override=0.30), "r1")
+    assert rows
+    assert all(r.get("min_confidence_override") == 0.30 for r in rows)
+    assert any(r.get("kind") == "leg_status" for r in rows)
+
+
+def test_a_run_without_the_override_records_none_not_zero():
+    """`None` = every leg ran its own declared floor. `0.0` = a floor of zero was
+    imposed on all of them. Those are different runs and must not share a key."""
+    rows = extract.rows_from_verdicts(_doc(), "r1")
+    assert all(r.get("min_confidence_override") is None for r in rows)

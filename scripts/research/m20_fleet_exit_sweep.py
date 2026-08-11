@@ -174,7 +174,8 @@ def resolve_data(symbol: str, tf: str, data_dir: Path) -> tuple[str | None, bool
 
 def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  # inert: `name` — the leg id, kept because FIVE external callers pass it positionally (m20_flip_replay_sweep, m21_entry_head_round, m20_exit_head_round, m21_entry_sweep, and this module); every arg is built from `cfg`, so dropping it would be a cross-script signature break for no behavioural gain. It affects NOTHING here — do not add a doc claiming otherwise.
               tp_cap_pct: float = 0.0,
-              fee_bps_roundtrip: float | None = None) -> list[str]:
+              fee_bps_roundtrip: float | None = None,
+              min_confidence_override: float | None = None) -> list[str]:
     tf = str(cfg.get("timeframe") or "1h")
     sym = (cfg.get("symbols") or ["?"])[0]
     a = ["--data", data, "--symbol", sym, "--timeframe", tf]
@@ -295,6 +296,28 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
     # the default, it is a row whose fee we did not record.
     if fee_bps_roundtrip is not None:
         a += ["--fee-bps-roundtrip", str(fee_bps_roundtrip)]
+    # ENTRY-SELECTIVITY BAND. The surviving thread of SRQ-20260618-003 after the
+    # 15bps arm refuted the "fewer, larger-R trades escape the fee band"
+    # hypothesis: if halving the trade COUNT does not clear the band, does
+    # raising the per-trade EDGE? ict_scalp's confidence is a genuine continuous
+    # blend (0.4*body_to_range + 0.3*sweep_depth_atr + 0.3*fvg_size_norm, capped
+    # at 1.0), so a floor is a real selectivity axis and not a two-valued switch.
+    #
+    # REPLACES the cfg-derived floor rather than stacking on it. argparse would
+    # take the last of two `--min-confidence` flags and get the same NUMBER, but
+    # the recorded command IS the evidence for what a row measured, and a command
+    # carrying two contradictory floors cannot be read back as a claim about
+    # either. Strip-then-append so the emitted args say exactly one thing.
+    if min_confidence_override is not None:
+        stripped: list[str] = []
+        i = 0
+        while i < len(a):
+            if a[i] == "--min-confidence":
+                i += 2          # drop the flag AND its value
+                continue
+            stripped.append(a[i])
+            i += 1
+        a = stripped + ["--min-confidence", str(min_confidence_override)]
     # Live-parity TP: only for families whose live unit actually clamps.
     if tp_cap_pct > 0.0 and fam in LIVE_TP_CAPPED_FAMILIES:
         a += ["--tp-cap-pct", str(tp_cap_pct)]
@@ -1007,6 +1030,15 @@ def main(argv: list[str]) -> int:
                          "hypothesis is that fewer, larger-R trades escape that "
                          "band. The corpus is entirely 7.5bps, so the 15bps arm "
                          "was unrunnable without this flag.")
+    ap.add_argument("--min-confidence-override", type=float, default=None,
+                    help="Override every leg's config-declared min_confidence "
+                         "(entry-selectivity floor). Default None = use each "
+                         "leg's own declared value, i.e. the config-exact base. "
+                         "Exists for the surviving arm of SRQ-20260618-003: the "
+                         "15bps run refuted 'fewer trades escape the fee band', "
+                         "leaving 'higher edge per trade' untested. A row swept "
+                         "with an override is NOT comparable to a config-exact "
+                         "row, so the value joins the corpus measurement key.")
     ap.add_argument("--tp-cap-pct", type=float, default=0.0,
                     help="Run with the LIVE-PARITY take-profit "
                          "(production: 0.099 -- the Bybit ~10%% TP-distance "
@@ -1074,7 +1106,8 @@ def main(argv: list[str]) -> int:
                      # table and a cell that ran flat must stay tellable apart.
                      "inert_cells": inert,
                      "base": base_args(name, cfg, fam, data, resample, a.tp_cap_pct,
-                                       a.fee_bps_roundtrip),
+                                       a.fee_bps_roundtrip,
+                                       a.min_confidence_override),
                      "cells": [c for c in cells
                                if not levers or c[1] in levers]})
 
@@ -1572,6 +1605,13 @@ def main(argv: list[str]) -> int:
          # that gap. None = the harness default was used and this run did not
          # declare one.
          "fee_bps_roundtrip": a.fee_bps_roundtrip,
+         # THE ENTRY-SELECTIVITY BAND THIS RUN MEASURED. Identity for the same
+         # reason as the fee: a leg swept at its declared floor and the same leg
+         # swept at an imposed one are two different populations, and the whole
+         # point of the arm is that they score differently. None = no override,
+         # i.e. every leg ran at its own config-exact declared value -- which is
+         # NOT the same statement as "floor 0", since a leg may declare one.
+         "min_confidence_override": a.min_confidence_override,
          "regime_policy_readable": off_legs is not None,
          "regime_policy_off_legs": sorted(off_legs) if off_legs is not None else None,
          "skipped": skipped, "verdicts": verdicts}, indent=1))

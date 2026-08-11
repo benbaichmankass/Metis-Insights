@@ -117,10 +117,17 @@ def measurement_key(row: dict) -> tuple:
     verdicts — `is_oos_pass` vs `insufficient_base` — so merging the vintages
     would let an ungraded thin cell and a floor-refused one share a row. `None`
     is "ungraded by any floor", which is NOT floor 0.
+
+    `min_confidence_override` joins it on the same grounds as the fee, one axis
+    over: a leg swept at its config-declared entry floor and the same leg swept
+    at an imposed one measured two different populations, and the arm exists
+    precisely because they are expected to score differently. `None` = no
+    override was applied, which is NOT "floor 0" — a leg may declare its own.
     """
     return (row.get("kind"), row.get("leg"), row.get("cell"),
             row.get("split"), row.get("tp_cap_pct"), row.get("regime_router"),
-            row.get("min_oos_trades_floor"), row.get("fee_bps_roundtrip"))
+            row.get("min_oos_trades_floor"), row.get("fee_bps_roundtrip"),
+            row.get("min_confidence_override"))
 
 
 def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
@@ -150,6 +157,13 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
     # corpus after the run, not by the tests, because the tests covered base_args and
     # the verdicts doc but never the extractor hop. None = the run did not declare one.
     fee_bps = doc.get("fee_bps_roundtrip")
+    # THE ENTRY-SELECTIVITY BAND this run measured. Threaded here in the SAME
+    # commit that adds the flag, deliberately: the fee field two lines up was
+    # shipped into verdicts.json and then not propagated to this hop, and the
+    # result was 12 rows reading `fee: None` while being the whole 15bps arm.
+    # Repeating that on a second axis would be a choice, not an oversight.
+    # None = no override, i.e. each leg ran its own declared floor.
+    min_conf_override = doc.get("min_confidence_override")
     # Per-leg gate delta. The sweep stamps it onto each verdict, but SKIPPED legs
     # never reach `verdicts`, so it is also derivable here from the doc-level
     # off-leg list. Three states preserved end-to-end: None on a legacy run (the
@@ -177,6 +191,7 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                     "regime_router": regime_router,
                     "min_oos_trades_floor": min_oos_floor,
                     "fee_bps_roundtrip": fee_bps,
+                    "min_confidence_override": min_conf_override,
                     "regime_gate_delta": _gate_delta(str(s.get("leg"))),
                     "leg": s.get("leg"), "cell": None,
                     "leg_status": "skipped", "leg_status_why": s.get("reason")})
@@ -191,6 +206,7 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                         "regime_router": regime_router,
                         "min_oos_trades_floor": min_oos_floor,
                         "fee_bps_roundtrip": fee_bps,
+                        "min_confidence_override": min_conf_override,
                         "regime_gate_delta": _gate_delta(
                             leg, v.get("regime_gate_delta")),
                         "leg_status": v.get("status") or "no_levers",
@@ -215,6 +231,7 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
             "regime_router": regime_router,
             "min_oos_trades_floor": min_oos_floor,
             "fee_bps_roundtrip": fee_bps,
+            "min_confidence_override": min_conf_override,
             "regime_gate_delta": _gate_delta(leg, v.get("regime_gate_delta")),
             "base_book_present": base_present,
             "cells_tried": sel.get("cells_tried"),
