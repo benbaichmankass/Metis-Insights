@@ -106,9 +106,16 @@ def measurement_key(row: dict) -> tuple:
     `regime_gate_delta` is deliberately NOT in the key: it describes how the base
     compares to the CURRENT live policy, not what the run measured, so a policy
     edit must not retroactively split rows that measured the same book.
+
+    `min_oos_trades_floor` joins it too (operator decision 2026-08-11, value 25):
+    the same cell graded with no floor and graded at 25 can carry DIFFERENT
+    verdicts — `is_oos_pass` vs `insufficient_base` — so merging the vintages
+    would let an ungraded thin cell and a floor-refused one share a row. `None`
+    is "ungraded by any floor", which is NOT floor 0.
     """
     return (row.get("kind"), row.get("leg"), row.get("cell"),
-            row.get("split"), row.get("tp_cap_pct"), row.get("regime_router"))
+            row.get("split"), row.get("tp_cap_pct"), row.get("regime_router"),
+            row.get("min_oos_trades_floor"))
 
 
 def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
@@ -126,6 +133,11 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
     # `"off"` means the harness ran with REGIME_ROUTER_DISABLED=1, i.e. the base
     # book is the UNGATED book while the live router is baseline-on.
     regime_router = doc.get("regime_router")
+    # The FLOOR that graded this run (operator decision 2026-08-11: 25). None on a
+    # run predating it -- which is NOT floor 0, it is "ungraded by any floor", and
+    # keying them distinctly stops a thin-but-unflagged cell sharing a row with a
+    # refused one. Same discipline as `tp_cap_pct` two lines up.
+    min_oos_floor = doc.get("min_oos_trades_floor")
     # Per-leg gate delta. The sweep stamps it onto each verdict, but SKIPPED legs
     # never reach `verdicts`, so it is also derivable here from the doc-level
     # off-leg list. Three states preserved end-to-end: None on a legacy run (the
@@ -151,6 +163,7 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
         out.append({"kind": "leg_status", "run_id": run_id,
                     "sweep_generated_at": gen, "split": split, "tp_cap_pct": tp_cap,
                     "regime_router": regime_router,
+                    "min_oos_trades_floor": min_oos_floor,
                     "regime_gate_delta": _gate_delta(str(s.get("leg"))),
                     "leg": s.get("leg"), "cell": None,
                     "leg_status": "skipped", "leg_status_why": s.get("reason")})
@@ -163,6 +176,7 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                         "sweep_generated_at": gen, "split": split,
                         "tp_cap_pct": tp_cap, "leg": leg, "cell": None,
                         "regime_router": regime_router,
+                        "min_oos_trades_floor": min_oos_floor,
                         "regime_gate_delta": _gate_delta(
                             leg, v.get("regime_gate_delta")),
                         "leg_status": v.get("status") or "no_levers",
@@ -185,6 +199,7 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
             # them — are NOT statements about the book production trades. The
             # per-cell deltas are unaffected (both arms share this base).
             "regime_router": regime_router,
+            "min_oos_trades_floor": min_oos_floor,
             "regime_gate_delta": _gate_delta(leg, v.get("regime_gate_delta")),
             "base_book_present": base_present,
             "cells_tried": sel.get("cells_tried"),

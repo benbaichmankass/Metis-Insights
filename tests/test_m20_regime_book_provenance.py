@@ -345,3 +345,42 @@ def test_a_readable_policy_prints_nothing(tmp_path, monkeypatch, capsys):
     assert sweep._policy_off_legs() == {"a_leg"}
     out = capsys.readouterr()
     assert out.err == "" and out.out == ""
+
+
+# --- the MIN-OOS-TRADES FLOOR (operator decision 2026-08-11: 25) --------------
+#
+# A DENOMINATOR REQUIREMENT, not a fitted threshold. Its own verdict state,
+# because "we did not look at enough trades" and "we looked and the lever failed"
+# are opposite findings — collapsing them makes a thin book indistinguishable from
+# a refuted lever.
+
+def test_floor_value_is_25_and_declared_once():
+    assert sweep.MIN_OOS_TRADES == 25
+
+
+def test_floor_travels_in_the_measurement_identity():
+    """A cell graded with no floor and graded at 25 can carry DIFFERENT verdicts,
+    so merging the vintages would let an ungraded thin cell and a floor-refused
+    one share a row."""
+    a = {"kind": "cell", "leg": "l", "cell": "c", "split": "s",
+         "tp_cap_pct": 0.099, "regime_router": "off", "min_oos_trades_floor": 25}
+    unfloored = dict(a, min_oos_trades_floor=None)
+    floor10 = dict(a, min_oos_trades_floor=10)
+    assert extract.measurement_key(a) != extract.measurement_key(unfloored)
+    assert extract.measurement_key(a) != extract.measurement_key(floor10)
+
+
+def test_extractor_propagates_the_floor_onto_every_row():
+    rows = extract.rows_from_verdicts(_doc(min_oos_trades_floor=25), "run1")
+    assert rows
+    for r in rows:
+        assert r["min_oos_trades_floor"] == 25, r
+
+
+def test_a_legacy_run_records_no_floor_not_floor_zero():
+    """`None` is "ungraded by any floor". Recording 0 would assert that every
+    thin cell in the existing 604-row corpus had been considered and admitted."""
+    rows = extract.rows_from_verdicts(_doc(), "run1")
+    assert rows
+    for r in rows:
+        assert r["min_oos_trades_floor"] is None, r

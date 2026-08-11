@@ -296,6 +296,16 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
     return a
 
 
+# MIN-OOS-TRADES FLOOR — operator decision 2026-08-11, value 25.
+#
+# A DENOMINATOR REQUIREMENT, not a fitted threshold (contrast the Path B rate
+# floor, measured the same day and REFUSED: `no_separation` on both candidate
+# predictors over 604 rows). Chosen from the coverage cost curve, not a fit --
+# floor 10 keeps 34 of 51 legs / 27 passes, floor 25 keeps 32 legs / 27 passes,
+# floor 50 keeps 20 legs / 7 passes. 10->25 is free (two legs, zero passes) and
+# 25->50 is the cliff. Full rationale + the honest limit at the enforcement site.
+MIN_OOS_TRADES = 25
+
 REGIME_POLICY_PATH = REPO / "config" / "regime_policy.yaml"
 
 # The three states of "does the LIVE regime gate narrow this leg's book?".
@@ -1335,7 +1345,57 @@ def main(argv: list[str]) -> int:
             # be unable to answer the question it was added for.
             entry["capital"] = {"IS": capital_delta(c_is, base_is),
                                 "OOS": capital_delta(c_oos, base_oos)}
-            if candidate:
+            # THE MIN-OOS-TRADES FLOOR (operator decision 2026-08-11: 25).
+            #
+            # Path A's `beats()` had NO minimum trade count, so a cell cleared it
+            # over a book that might hold THREE trades and then posted a "6/6
+            # walk-forward" over folds that were nearly empty. Measured over the
+            # 603-cell corpus: 35.8% of cells sat on an OOS base under 10 trades,
+            # 65.2% under 50, and 33 of the 40 PASSING cells (82%) were under 50
+            # with 13 under 10. `spy_trend_long_1d vt_hot90_t2` passed on 3 OOS
+            # trades at +0.80R with a maxDD delta of EXACTLY 0.0 -- the lever
+            # never touched the drawdown path.
+            #
+            # Unlike the Path B RATE floor (measured the same day and REFUSED --
+            # both candidate predictors returned `no_separation` over 604 rows),
+            # this is NOT a fitted threshold. It is a DENOMINATOR REQUIREMENT,
+            # the shape `research_results_gate.min_trades` already ships, and it
+            # needs no separation test. The VALUE came from the cost curve, not
+            # from a fit: floor 10 -> 34 of 51 legs / 27 passes; floor 25 -> 32
+            # legs / 27 passes; floor 50 -> 20 legs / 7 passes. So 10->25 costs
+            # two legs and ZERO passes (free), and the cliff is 25->50. 25 is the
+            # last point before coverage is paid for. A floor of 50+ would also
+            # structurally exclude every DAILY-timeframe leg, which cannot reach
+            # 50 trades in a ~1y OOS window -- rejecting them for bar size, not
+            # for a bad lever.
+            #
+            # ITS OWN STATE, never folded into `is_oos_fail`: "we did not look at
+            # enough trades" and "we looked and the lever failed" are opposite
+            # findings, and collapsing them would make a thin book indistinguish-
+            # able from a refuted lever. The cell's numbers are still recorded --
+            # they are evidence -- and the walk-forward is skipped (it would be
+            # measuring the same too-thin book, and it is the expensive step).
+            #
+            # HONEST LIMIT: this floor is a PROXY for the statistic that actually
+            # matters -- how many trades the LEVER fired on, and whether the
+            # effect exceeds its own noise. A ΔmaxDD of exactly 0.0 is the lever
+            # reporting that it barely fired, and this floor would NOT catch a
+            # cell on a 200-trade base that modified two exits. The corpus does
+            # not record per-cell fire counts; that gap stays open.
+            _base_oos_n = base_oos.get("total_trades")
+            _thin = (isinstance(_base_oos_n, (int, float))
+                     and _base_oos_n < MIN_OOS_TRADES)
+            entry["base_trades_oos"] = _base_oos_n
+            entry["min_oos_trades_floor"] = MIN_OOS_TRADES
+            if _thin:
+                # Record what it WOULD have been, so the floor's effect on this
+                # cell is auditable rather than invisible.
+                entry["would_have_been"] = (
+                    "is_oos_pass" if candidate else "is_oos_fail")
+                entry["verdict"] = "insufficient_base"
+                entry["insufficient_base_why"] = (
+                    f"OOS base {_base_oos_n} trades < floor {MIN_OOS_TRADES}")
+            elif candidate:
                 wf = walkforward(p["harness"], p["base"], args, log_result,
                                  leg, tag, require_dd=True)
                 entry["walkforward"] = wf["summary"]
@@ -1481,6 +1541,12 @@ def main(argv: list[str]) -> int:
          # rather than asserted, so a future run that does pass the flag records
          # the difference instead of inheriting this comment.
          "regime_router": "off",
+         # The FLOOR THAT GRADED THIS RUN. Part of the measurement identity for
+         # the same reason `tp_cap_pct` and `regime_router` are: a corpus mixing
+         # floor-0 and floor-25 vintages under one label would let an ungraded
+         # thin cell and a refused one share a row. A run predating the field
+         # records nothing, and the extractor keys None distinctly.
+         "min_oos_trades_floor": MIN_OOS_TRADES,
          "regime_policy_readable": off_legs is not None,
          "regime_policy_off_legs": sorted(off_legs) if off_legs is not None else None,
          "skipped": skipped, "verdicts": verdicts}, indent=1))
