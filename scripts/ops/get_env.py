@@ -17,9 +17,19 @@ Two sources, and the disagreement is the point
 ----------------------------------------------
 * **process** — `/proc/<MainPID>/environ` of the running unit. AUTHORITATIVE:
   what the process actually holds. A restart is the only thing that changes it.
-* **file** — the unit's `EnvironmentFiles`, asked of systemd rather than
-  hardcoded (field beats comment: the unit declares its own files). DECLARED:
-  what the next restart will pick up.
+* **declared** — the unit's inline `Environment=` directives MERGED with the
+  contents of its `EnvironmentFiles=`, both asked of systemd rather than
+  hardcoded (field beats comment: the unit declares its own configuration).
+  What the next restart will pick up.
+
+**Both halves of `declared` are required.** The first version read only
+`EnvironmentFiles`, so `TICK_INTERVAL_SECONDS` / `HEARTBEAT_INTERVAL_SECONDS`
+— pinned inline on `ict-trader-live.service` and absent from `.env` — reported
+`declared: <unset>` against a live process holding `60`, and the tool announced
+a **pending restart that did not exist** (first real run, issue #8755). A
+diagnostic that invents a discrepancy is worse than one that reports nothing,
+and this one would have sent a reader to look for a phantom deploy. Each row
+now also carries `declared_source` so the origin is visible rather than assumed.
 
 They can differ, and that difference is a real, otherwise-invisible condition:
 the `.env` was edited and the service never re-read it. This is exactly how
@@ -242,35 +252,111 @@ def _parse_env_file(path: str) -> dict[str, str]:
     return out
 
 
-def read_file_env(unit: str) -> tuple[dict[str, str] | None, list[str], str | None]:
-    """The unit's DECLARED env, merged across its systemd EnvironmentFiles.
+def _parse_unit_environment(raw: str) -> dict[str, str]:
+    """systemd's ``Environment=`` assignments, as rendered by `systemctl show`.
 
-    The file list comes from systemd, not from a constant here — the unit is the
-    authority on which files it reads, and hardcoding a path is how a doc drifts
-    from the deployment.
+    One space-separated line of ``KEY=VALUE``; a value containing spaces is
+    quoted. shlex handles the quoting rather than a naive split.
     """
-    raw = _systemctl_show(unit, "EnvironmentFiles")
-    if raw is None:
+    import shlex
+
+    out: dict[str, str] = {}
+    try:
+        tokens = shlex.split(raw)
+    except ValueError:
+        tokens = raw.split()
+    for token in tokens:
+        name, sep, value = token.partition("=")
+        if sep:
+            out[name] = value
+    return out
+
+
+def read_file_env(unit: str) -> tuple[dict[str, str] | None, list[str], str | None]:
+    """The unit's DECLARED env: its inline ``Environment=`` directives merged
+    with the contents of its ``EnvironmentFiles=``.
+
+    **Both halves are required, and missing one produces a confident wrong
+    answer.** The first version of this read only parsed EnvironmentFiles, so
+    `TICK_INTERVAL_SECONDS` and `HEARTBEAT_INTERVAL_SECONDS` — pinned inline on
+    `ict-trader-live.service` (lines 29-30) and absent from `.env` — reported
+    ``declared: <unset>`` against a live process holding `60`, and the tool
+    announced a **pending restart that did not exist** (observed on the first
+    real run, issue #8755). A diagnostic that invents a discrepancy is worse
+    than one that reports nothing.
+
+    Both lists come from systemd, never from a constant here: the unit is the
+    authority on its own configuration, and hardcoding either is how a doc
+    drifts from the deployment.
+
+    Precedence: inline ``Environment=`` is applied ON TOP of the files, which
+    matches the ordering in this repo's units (EnvironmentFile= first). Because
+    `systemctl show` does not expose directive ORDER, a key defined in both with
+    DIFFERENT values is reported via ``declared_sources`` as a conflict rather
+    than silently resolved — see :func:`declared_sources`.
+    """
+    raw_files = _systemctl_show(unit, "EnvironmentFiles")
+    raw_inline = _systemctl_show(unit, "Environment")
+    if raw_files is None and raw_inline is None:
         return None, [], "systemctl unavailable or unit unknown"
+
     paths: list[str] = []
-    for token in raw.split("\n"):
+    for token in (raw_files or "").split("\n"):
         token = token.strip()
         if not token:
             continue
         # systemd renders each as "/path/to/file (ignore_errors=no)".
         paths.append(re.sub(r"\s*\(ignore_errors=(?:yes|no)\)\s*$", "", token))
-    if not paths:
-        return None, [], "unit declares no EnvironmentFiles"
-    merged: dict[str, str] = {}
+
+    inline = _parse_unit_environment(raw_inline or "")
+
+    from_files: dict[str, str] = {}
     errors: list[str] = []
     for path in paths:
         try:
-            merged.update(_parse_env_file(path))
+            from_files.update(_parse_env_file(path))
         except OSError as exc:
             errors.append(f"{path}: {exc}")
-    if errors and not merged:
+
+    if not paths and not inline:
+        return None, [], "unit declares no Environment= and no EnvironmentFiles"
+    if errors and not from_files and not inline:
         return None, paths, "; ".join(errors)
+
+    merged = {**from_files, **inline}
     return merged, paths, ("; ".join(errors) or None)
+
+
+def declared_sources(unit: str) -> dict[str, str]:
+    """Per-key origin of the declared value: ``unit_environment`` /
+    ``env_file`` / ``both_agree`` / ``both_conflict``.
+
+    ``both_conflict`` is reported rather than resolved: systemd applies
+    ``Environment=`` and ``EnvironmentFile=`` in DIRECTIVE ORDER, which
+    `systemctl show` does not expose, so picking a winner would be a guess
+    dressed as a fact.
+    """
+    raw_files = _systemctl_show(unit, "EnvironmentFiles")
+    inline = _parse_unit_environment(_systemctl_show(unit, "Environment") or "")
+    from_files: dict[str, str] = {}
+    for token in (raw_files or "").split("\n"):
+        token = token.strip()
+        if not token:
+            continue
+        path = re.sub(r"\s*\(ignore_errors=(?:yes|no)\)\s*$", "", token)
+        try:
+            from_files.update(_parse_env_file(path))
+        except OSError:
+            continue
+    out: dict[str, str] = {}
+    for key in set(inline) | set(from_files):
+        if key in inline and key in from_files:
+            out[key] = "both_agree" if inline[key] == from_files[key] else "both_conflict"
+        elif key in inline:
+            out[key] = "unit_environment"
+        else:
+            out[key] = "env_file"
+    return out
 
 
 def classify(env: dict[str, str] | None, key: str, why: str | None) -> dict:
@@ -302,6 +388,7 @@ def agreement(process: dict, declared: dict) -> str:
 def build_report(unit: str, keys: list[str]) -> dict:
     proc_env, proc_why = read_process_env(unit)
     file_env, file_paths, file_why = read_file_env(unit)
+    sources = declared_sources(unit)
 
     entries = []
     for key in keys:
@@ -312,6 +399,7 @@ def build_report(unit: str, keys: list[str]) -> dict:
             "secret_name": bool(SECRET_NAME.search(key)),
             "process": process,
             "declared": declared,
+            "declared_source": sources.get(key),
             "agreement": agreement(process, declared),
         })
 
@@ -357,6 +445,12 @@ def render_text(report: dict) -> str:
         elif e["agreement"] == "undetermined":
             lines.append("      (agreement undetermined — one side was unreadable, "
                          "which is NOT evidence they match)")
+        if e.get("declared_source"):
+            lines.append(f"      declared via: {e['declared_source']}")
+        if e.get("declared_source") == "both_conflict":
+            lines.append("      ** the unit's Environment= and its EnvironmentFile "
+                         "disagree; systemd resolves by directive order, which "
+                         "`systemctl show` does not expose — NOT resolved here **")
         if e["secret_name"]:
             lines.append("      (secret-named: fingerprint only, value never printed)")
     return "\n".join(lines)
