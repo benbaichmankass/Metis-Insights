@@ -20,6 +20,7 @@ flag in the response envelope.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -35,7 +36,9 @@ from ml.shadow.inspector import (
     filter_records,
     iter_records,
     mean_cadence_seconds,
+    resolve_soak_start,
     soak_start_basis,
+    stage_entry_times,
 )
 
 from src.utils.paths import runtime_logs_dir
@@ -43,6 +46,66 @@ from src.utils.paths import runtime_logs_dir
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bot/shadow", tags=["shadow"])
+
+# The published registry mirror on THIS host. The trainer VM keeps its own
+# `ml/registry-store/registry.jsonl`; the live VM reads the mirror rsynced by
+# `scripts/ops/publish_trainer_mirror.sh` — the same file
+# `training_center.get_registry` serves, resolved the same way so the two can
+# never disagree about where the registry is.
+_REGISTRY_MIRROR = ("trainer_mirror", "registry.jsonl")
+
+
+def _registry_path() -> Path:
+    return runtime_logs_dir().joinpath(*_REGISTRY_MIRROR)
+
+
+def _registry_rows() -> tuple[list[dict[str, Any]], bool]:
+    """Registry rows from the mirror, plus whether we could actually read it.
+
+    The bool is NOT `bool(rows)`: an unreadable mirror and a genuinely empty
+    one are different facts, and only the first means "we could not look".
+    Collapsing them would let a missing mirror render as "no model has a
+    registry soak start", which is the shape of the bug this fixes.
+    """
+    path = _registry_path()
+    if not path.exists():
+        return [], False
+    rows: list[dict[str, Any]] = []
+    try:
+        with path.open(encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue          # one bad row must not blind the surface
+                if isinstance(obj, dict):
+                    rows.append(obj)
+    except OSError as exc:
+        logger.warning("shadow: registry mirror unreadable at %s: %s", path, exc)
+        return [], False
+    return rows, True
+
+
+def _stage_entry_lookup(rows: list[dict[str, Any]]):
+    """Return a `stage -> {model_id: entered_at}` lookup memoised per request.
+
+    `aggregate` returns many rows sharing a stage (19 live models over ~3
+    stages), and without memoising, the whole registry would be re-scanned once
+    per row. Deliberately a closure over a request-local dict rather than a
+    default-arg cache — a module-level cache would go stale the moment the
+    mirror rsyncs, serving a soak start from a registry that has since changed.
+    """
+    cache: dict[str, dict[str, datetime]] = {}
+
+    def lookup(stage: str) -> dict[str, datetime]:
+        if stage not in cache:
+            cache[stage] = stage_entry_times(rows, stage=stage)
+        return cache[stage]
+
+    return lookup
 
 
 def _log_path() -> Path:
@@ -221,8 +284,18 @@ def stats(
         stage=stage,
         since=since_dt,
     )
-    rows = [
-        {
+    registry_rows, registry_present = _registry_rows()
+    entered_for_stage = _stage_entry_lookup(registry_rows)
+
+    def _row(s: Any) -> dict[str, Any]:
+        # The soak start PREFERS the registry's durable stage-transition
+        # record; the log-derived answer is the fallback and declares its own
+        # censoring. Resolved per row because the entry map is keyed on the
+        # row's OWN stage — a model at `advisory` and the same model's earlier
+        # `shadow` rows have different soak starts.
+        soak = resolve_soak_start(
+            s, cov, registry_entered_at=entered_for_stage(s.stage))
+        return {
             "model_id": s.model_id,
             "stage": s.stage,
             "count": s.count,
@@ -232,13 +305,33 @@ def stats(
             "first_seen": s.first_seen.isoformat() if s.first_seen else None,
             "last_seen": s.last_seen.isoformat() if s.last_seen else None,
             # Whether `first_seen` is this model's real start or the log's edge.
+            # Retained unchanged: it describes the LOG, and stays readable even
+            # when the registry supplies a better soak start.
             "soak_start_basis": soak_start_basis(s, cov),
             "cadence_seconds_est": mean_cadence_seconds(s),
             "row_keys_seen": sorted(s.row_keys_seen),
+            # The recovery half — read `soak_days` under `soak_start_basis`.
+            **{k: v for k, v in soak.to_dict().items()
+               if k not in ("model_id", "stage")},
         }
-        for s in aggregate(records)
-    ]
+
+    rows = [_row(s) for s in aggregate(records)]
     envelope = _envelope(log, rows)
+    envelope["registry_soak_source"] = {
+        "present": registry_present,
+        "rows": len(registry_rows),
+        "path": str(_registry_path()),
+        "note": (
+            "The durable, rotation-independent soak start comes from the model "
+            "registry's stage_history (published mirror). When present, a row's "
+            "soak_start_basis is 'registry' and soak_days is MEASURED. When "
+            "absent (present:false, or no stage_history for that model), the row "
+            "falls back to the log and says so via 'observed' / 'log_censored' / "
+            "'unknown' — a 'log_censored' soak_days is a LOWER BOUND, never the "
+            "soak. present:false means we could not look; it does not mean the "
+            "models have no soak history."
+        ),
+    }
     envelope["log_coverage"] = {
         "oldest_retained": cov.oldest.isoformat() if cov.oldest else None,
         "newest_retained": cov.newest.isoformat() if cov.newest else None,

@@ -31,6 +31,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, MutableMapping
 
+# Stage-name canonicalisation, so a legacy registry row (`research_only` /
+# `limited_live`) still matches a canonical stage query. Light import — the
+# module pulls only stdlib + yaml.
+from ml.manifest import canonical_stage
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -371,6 +376,175 @@ def soak_start_basis(stats: ModelStats, cov: LogCoverage) -> str:
     if lead_in <= _CENSOR_CADENCE_TOLERANCE * cadence:
         return SOAK_START_LOG_CENSORED
     return SOAK_START_OBSERVED
+
+
+# --- Registry-sourced soak start (the recovery half) ----------------------
+#
+# `soak_start_basis` above DISCLOSES that a `first_seen` may be a rotation
+# boundary. Disclosure alone still leaves the promotion gate without a
+# denominator: knowing a number is a lower bound does not tell you the real
+# one. The durable, rotation-independent record of when a model entered a
+# stage is the model REGISTRY's `stage_history` — it is written once at the
+# transition and never touched by log rotation.
+#
+# This module does NOT resolve a registry path. The trainer VM reads
+# `ml/registry-store/registry.jsonl`; the live VM reads the published mirror at
+# `runtime_logs/trainer_mirror/registry.jsonl` (see
+# `src/web/api/routers/training_center.py::get_registry`). Baking either path
+# in here would be wrong on the other host, so callers pass rows in and this
+# module owns only the SEMANTICS.
+
+SOAK_START_REGISTRY = "registry"
+
+
+def stage_entry_times(
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    stage: str,
+) -> dict[str, datetime]:
+    """``model_id`` -> when it last ENTERED *stage*, from registry rows.
+
+    Reads `stage_history[].{to_stage, at}`. Takes the LATEST matching event,
+    matching `ml/promotion/gates.py::_stage_entered_at` — a model demoted and
+    re-promoted is soaking from the re-promotion, not from the first one.
+
+    Deliberately does NOT fall back to `created_at` when a row has no matching
+    transition. `gates.py` does, and that fallback is itself a collapsed state:
+    "the registry records when this entered shadow" and "we substituted the
+    model's creation date" are different claims, and the second silently
+    inflates the soak of a model that was created early and promoted late.
+    A row with no matching event is simply absent from the returned map, so
+    the caller falls through to the log-based basis and SAYS so.
+
+    Stage strings are canonicalised on both sides (the ladder collapsed 7->3
+    in 2026-06; legacy rows still carry `research_only` / `limited_live`), so a
+    legacy `to_stage` still matches a canonical query. An unrecognised stage on
+    a row is skipped rather than raising — one malformed registry row must not
+    blind the whole surface.
+    """
+    try:
+        want = canonical_stage(stage)
+    except ValueError:
+        return {}
+
+    out: dict[str, datetime] = {}
+    for row in rows:
+        model_id = row.get("model_id")
+        if not model_id:
+            continue
+        for ev in row.get("stage_history") or ():
+            if not isinstance(ev, Mapping):
+                continue
+            raw_to = ev.get("to_stage")
+            if not raw_to:
+                continue
+            try:
+                if canonical_stage(str(raw_to)) != want:
+                    continue
+            except ValueError:
+                continue
+            at = _parse_dt(ev.get("at"))
+            if at is None:
+                continue
+            prev = out.get(str(model_id))
+            if prev is None or at > prev:
+                out[str(model_id)] = at
+    return out
+
+
+def _parse_dt(raw: Any) -> datetime | None:
+    """Parse a registry timestamp to an aware UTC datetime, else None."""
+    if isinstance(raw, datetime):
+        dt = raw
+    elif isinstance(raw, str):
+        try:
+            dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+
+@dataclass(frozen=True)
+class SoakStart:
+    """When a model's soak actually began, and how confidently we know it.
+
+    ``basis`` is the load-bearing field and is never collapsed:
+
+      * ``registry``     — a durable stage-transition record. ``started_at`` is
+                           the real soak start and ``days`` is a MEASURED
+                           duration.
+      * ``observed``     — no registry transition available, but the model's
+                           first log row sits well inside the retained window,
+                           so the log did capture its first sighting.
+      * ``log_censored`` — no registry transition, and the first row hugs the
+                           log's oldest edge. ``days`` is a LOWER BOUND, not
+                           the soak. A gate reading this as the soak length
+                           under-counts, which is the direction that defers a
+                           promotion that is already due.
+      * ``unknown``      — we could not look. Distinct from a short soak.
+    """
+
+    model_id: str
+    stage: str
+    started_at: datetime | None
+    basis: str
+    days: float | None
+
+    @property
+    def is_measured(self) -> bool:
+        """True only for a registry-sourced start. `observed` is good evidence
+        but still bounded by retention; only the registry is rotation-proof."""
+        return self.basis == SOAK_START_REGISTRY
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "model_id": self.model_id,
+            "stage": self.stage,
+            "soak_started_at": (
+                self.started_at.isoformat(timespec="seconds")
+                if self.started_at else None
+            ),
+            "soak_start_basis": self.basis,
+            "soak_days": round(self.days, 2) if self.days is not None else None,
+            "soak_days_is_lower_bound": self.basis == SOAK_START_LOG_CENSORED,
+        }
+
+
+def resolve_soak_start(
+    stats: ModelStats,
+    cov: LogCoverage,
+    *,
+    registry_entered_at: Mapping[str, datetime] | None = None,
+    now: datetime | None = None,
+) -> SoakStart:
+    """Best available soak start for *stats*, preferring the durable record.
+
+    Precedence is registry -> log. The registry wins whenever it has a
+    transition for this model, because it is the only source rotation cannot
+    truncate; the log-derived answer is the fallback and carries its own
+    censoring verdict so a lower bound is never reported as a measurement.
+    """
+    now = now or datetime.now(timezone.utc)
+    entered = (registry_entered_at or {}).get(stats.model_id)
+    if entered is not None:
+        return SoakStart(
+            model_id=stats.model_id, stage=stats.stage, started_at=entered,
+            basis=SOAK_START_REGISTRY,
+            days=(now - entered).total_seconds() / 86400.0,
+        )
+
+    basis = soak_start_basis(stats, cov)
+    started = stats.first_seen
+    days = ((now - started).total_seconds() / 86400.0) if started else None
+    if basis == SOAK_START_UNKNOWN:
+        # Keep `started_at` for context but refuse to publish a duration: a
+        # single-row model has no measurable soak and printing "0.0 days"
+        # would read as a fact.
+        return SoakStart(stats.model_id, stats.stage, started,
+                         SOAK_START_UNKNOWN, None)
+    return SoakStart(stats.model_id, stats.stage, started, basis, days)
 
 
 def format_inspect_table(
