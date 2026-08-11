@@ -299,3 +299,85 @@ def test_main_tick_hook_is_inert_when_the_measurement_module_is_unimportable():
         else:
             sys.modules.pop("src.runtime.tick_cost", None)
     assert ran == ["body", "still ran"]
+
+
+# --- Attribution coverage must be a coverage -------------------------------
+#
+# BL-20260811-TICKCOST-ATTRIBUTED-PCT-DOUBLE-COUNTS-NESTED-HOOKS. The wraps
+# NEST — `order_monitor` wraps 14 `monitor.*` hooks — and summing every slot
+# counted each parent together with its own children. Live that read
+# `attributed_pct: 136.8`, and the documented interpretation
+# ("100 - attributed_pct is every other hook COMBINED") then yields -36.8%,
+# which is not a quantity. No test asserted the bound, which is how it shipped.
+
+
+def _nested_tick(monkeypatch, *, parent_ms: float, child_ms: float, n_children: int):
+    """One tick: a top-level hook wrapping `n_children` nested hooks."""
+    clock = {"t": 0.0}
+    monkeypatch.setattr(tc.time, "monotonic", lambda: clock["t"])
+    tc.begin_tick()
+    with tc.hook("order_monitor"):
+        for i in range(n_children):
+            with tc.hook(f"monitor.child_{i}"):
+                clock["t"] += child_ms / 1000.0
+        clock["t"] += parent_ms / 1000.0
+    tc.end_tick()
+
+
+def test_attributed_pct_never_exceeds_100_with_nested_hooks(monkeypatch):
+    """The regression. Pre-fix this reported ~190% for these numbers."""
+    _nested_tick(monkeypatch, parent_ms=10.0, child_ms=30.0, n_children=3)
+    snap = tc.snapshot()
+    assert snap["attributed_pct"] is not None
+    assert snap["attributed_pct"] <= 100.0, (
+        f"attribution counted parents with their children: {snap['attributed_pct']}%")
+
+
+def test_the_documented_reading_yields_a_real_remainder(monkeypatch):
+    """`100 - attributed_pct` is the UNATTRIBUTED share, so it must be >= 0.
+    That subtraction is what CLAUDE.md tells a reader to perform."""
+    _nested_tick(monkeypatch, parent_ms=10.0, child_ms=30.0, n_children=3)
+    assert 100.0 - tc.snapshot()["attributed_pct"] >= 0.0
+
+
+def test_a_nested_hook_is_marked_nested_and_a_top_level_one_is_not(monkeypatch):
+    """The per-hook `pct_of_total` column still sums past 100 by design (each
+    row is measured against the TICK). `nested` is how a reader knows why."""
+    _nested_tick(monkeypatch, parent_ms=10.0, child_ms=30.0, n_children=2)
+    hooks = tc.snapshot()["hooks"]
+    assert hooks["order_monitor"]["nested"] is False
+    assert hooks["monitor.child_0"]["nested"] is True
+
+
+def test_nested_time_is_still_reported_per_hook(monkeypatch):
+    """Excluding children from the SUM must not hide them from the SPLIT —
+    'where does the tick go' is the question the per-hook block answers."""
+    _nested_tick(monkeypatch, parent_ms=10.0, child_ms=30.0, n_children=2)
+    hooks = tc.snapshot()["hooks"]
+    assert hooks["monitor.child_0"]["mean_ms"] == pytest.approx(30.0, abs=1.0)
+    assert hooks["monitor.child_0"]["pct_of_total"] > 0
+
+
+def test_a_direct_record_hook_call_still_counts(monkeypatch):
+    """Back-compat: `record_hook` used outside the context manager defaults to
+    top-level, so an existing direct caller is not silently dropped."""
+    _tick(100.0, monkeypatch)
+    tc.record_hook("direct", 40.0)
+    snap = tc.snapshot()
+    assert snap["hooks"]["direct"]["nested"] is False
+    assert snap["hooks_attributed_mean_ms"] == pytest.approx(40.0, abs=0.1)
+
+
+def test_sequential_top_level_hooks_both_attribute(monkeypatch):
+    """Two hooks that do NOT nest must both count — the fix must not
+    over-correct by attributing only the first."""
+    clock = {"t": 0.0}
+    monkeypatch.setattr(tc.time, "monotonic", lambda: clock["t"])
+    tc.begin_tick()
+    for name in ("run_one_tick", "order_monitor"):
+        with tc.hook(name):
+            clock["t"] += 0.050
+    tc.end_tick()
+    snap = tc.snapshot()
+    assert snap["hooks_attributed_mean_ms"] == pytest.approx(100.0, abs=2.0)
+    assert snap["attributed_pct"] == pytest.approx(100.0, abs=2.0)

@@ -65,6 +65,12 @@ _tick_start: Optional[float] = None
 # payload can never quietly become a partial view presented as a whole one.
 _hooks: Dict[str, Dict[str, Any]] = {}
 _hook_overflow: int = 0
+# Nesting depth of the CURRENTLY-open `hook()` contexts. Load-bearing for the
+# attribution sum: the wraps nest (`order_monitor` wraps 14 `monitor.*` hooks),
+# so adding every slot's time together counts the parent AND its children and
+# yields a "coverage" above 100% — measured live at 136.8%
+# (BL-20260811-TICKCOST-ATTRIBUTED-PCT-DOUBLE-COUNTS-NESTED-HOOKS).
+_hook_depth: int = 0
 
 
 def write_cadence_seconds() -> float:
@@ -121,8 +127,15 @@ def end_tick() -> Optional[float]:
         return None
 
 
-def record_hook(name: str, elapsed_ms: float) -> None:
-    """Fold one hook's duration into the per-hook accumulators. Never raises."""
+def record_hook(name: str, elapsed_ms: float, *, top_level: bool = True) -> None:
+    """Fold one hook's duration into the per-hook accumulators. Never raises.
+
+    ``top_level`` says whether this hook ran OUTSIDE any other timed hook. Only
+    top-level time is summed into the attribution coverage, because a nested
+    hook's duration is already inside its parent's. It defaults True so a direct
+    ``record_hook`` caller (tests, any future non-context-manager use) is
+    unchanged and counted once.
+    """
     global _hook_overflow
     try:
         slot = _hooks.get(name)
@@ -130,10 +143,14 @@ def record_hook(name: str, elapsed_ms: float) -> None:
             if len(_hooks) >= _MAX_HOOK_NAMES:
                 _hook_overflow += 1
                 return
-            slot = {"n": 0, "sum_ms": 0.0, "max_ms": None, "max_at_utc": None}
+            slot = {"n": 0, "sum_ms": 0.0, "max_ms": None, "max_at_utc": None,
+                    "n_top": 0, "sum_ms_top": 0.0}
             _hooks[name] = slot
         slot["n"] += 1
         slot["sum_ms"] += elapsed_ms
+        if top_level:
+            slot["n_top"] = slot.get("n_top", 0) + 1
+            slot["sum_ms_top"] = slot.get("sum_ms_top", 0.0) + elapsed_ms
         if slot["max_ms"] is None or elapsed_ms > slot["max_ms"]:
             slot["max_ms"] = elapsed_ms
             slot["max_at_utc"] = datetime.now(timezone.utc).isoformat()
@@ -151,12 +168,17 @@ def hook(name: str) -> Iterator[None]:
     a hook that raises still shows up in the split rather than vanishing from it
     — a hook that costs 40s and then throws is precisely the one worth seeing.
     """
+    global _hook_depth
     t0 = time.monotonic()
+    was_top_level = (_hook_depth == 0)
+    _hook_depth += 1
     try:
         yield
     finally:
+        _hook_depth = max(0, _hook_depth - 1)
         try:
-            record_hook(name, (time.monotonic() - t0) * 1000.0)
+            record_hook(name, (time.monotonic() - t0) * 1000.0,
+                        top_level=was_top_level)
         except Exception:  # noqa: BLE001
             pass
 
@@ -187,6 +209,12 @@ def _hook_view() -> Dict[str, Any]:
             # when hooks fire on different cadences.
             "pct_of_total": (round(100.0 * s["sum_ms"] / _sum_ms, 1)
                              if _sum_ms > 0 else None),
+            # True when this hook ONLY ever ran inside another timed hook, so a
+            # reader knows why the pct column sums past 100: a nested hook's
+            # time is also counted in its parent's row. `pct_of_total` is still
+            # correct PER ROW (it is measured against the tick, not against the
+            # hook sum) — it is the COLUMN TOTAL that is not a partition.
+            "nested": bool(s.get("n", 0) > 0 and s.get("n_top", 0) == 0),
         }
     return out
 
@@ -196,7 +224,14 @@ def snapshot() -> Dict[str, Any]:
     mean = (_sum_ms / _ticks) if _ticks else None
     # Sum of per-hook time attributed to THIS process's ticks, expressed per
     # tick so it is directly comparable to `mean_ms`.
-    hook_sum_ms = sum(s["sum_ms"] for s in _hooks.values())
+    # TOP-LEVEL time only. Summing every slot double-counts a parent with its
+    # own children and produced a 136.8% "coverage" live
+    # (BL-20260811-TICKCOST-ATTRIBUTED-PCT-DOUBLE-COUNTS-NESTED-HOOKS): the 14
+    # `monitor.*` rows summed to 99.5% of the `order_monitor` parent, and
+    # parents+children reconciled to the reported figure within 0.3ms. A
+    # coverage that can exceed 100% is not a coverage, and the documented
+    # reading `100 - attributed_pct` then yields a negative.
+    hook_sum_ms = sum(s.get("sum_ms_top", 0.0) for s in _hooks.values())
     attributed_mean = (hook_sum_ms / _ticks) if _ticks else None
     return {
         "hooks": _hook_view(),
@@ -280,7 +315,13 @@ def _reset_for_tests() -> None:
     """Test-only accumulator reset."""
     global _ticks, _last_ms, _max_ms, _max_at_utc, _sum_ms
     global _started_utc, _last_write_ts, _tick_start, _hook_overflow
+    global _hook_depth
     _ticks, _last_ms, _max_ms, _max_at_utc = 0, None, None, None
     _sum_ms, _started_utc, _last_write_ts, _tick_start = 0.0, None, None, None
     _hooks.clear()
     _hook_overflow = 0
+    # Reset the nesting depth too. `hook()` decrements in a `finally` so a
+    # raising hook cannot strand it in production, but a test that reaches in
+    # and leaves it positive would silently mark every LATER top-level hook as
+    # nested, dropping it from the attribution sum.
+    _hook_depth = 0
