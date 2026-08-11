@@ -247,6 +247,72 @@ that it is clearly systematic rather than incidental, ~0.47 s across ~52 strateg
 is the cheaper and safer lever, it needs no concurrency, and the next probe is timing
 INSIDE it per-strategy. Recommendation unchanged, now with a firmer number behind it.
 
+### 4d. THE MONITOR IS TWO HALVES, NOT ONE HOT PHASE — and that changes the design
+
+Read at 23:44:18Z, n=7, same process (started 23:25:22Z), diag #8797. This is the first
+sample where **all 14 children are populated**, so the monitor can be checked as a whole
+rather than by its largest child:
+
+| | mean ms | max ms | % of monitor (mean) |
+|---|---|---|---|
+| `strategy_monitor_loop` | 24,304.7 | 28,221.0 | **49.3** |
+| `reconcile_open_trades` | 5,020.3 | 5,315.4 | 10.2 |
+| `check_broker_naked_equity_positions` | 4,619.9 | 4,631.0 | 9.4 |
+| `reconcile_orphan_exchange_positions` | 3,512.5 | 3,972.8 | 7.1 |
+| `check_broker_naked_ib_positions` | 3,486.0 | 6,651.4 | 7.1 |
+| `reconcile_netting_partial_closes` | 2,906.1 | 3,355.6 | 5.9 |
+| `check_broker_naked_bybit_positions` | 2,856.4 | 3,063.6 | 5.8 |
+| `watchdog_stuck_strategies` | 2,201.6 | 2,443.6 | 4.5 |
+| the other 6 phases combined | 200.3 | — | 0.4 |
+| **`order_monitor` (parent)** | **49,297.6** | **56,799.0** | 100 |
+
+**The decomposition is essentially complete**: children sum to 49,107.8 ms against a
+parent of 49,297.6 — **189.8 ms unattributed, 0.39%**. So this is not a partial view
+with a hiding place left in it. (`attributed_pct: 98.4` also reconciles exactly:
+59,734.7 + 49,297.6 = 109,032.3 over a 110,820.1 ms tick.)
+
+The structure it reveals is **two comparable halves**, which is not what "one dominant
+phase" predicted: `strategy_monitor_loop` at 24.3 s (49.3%) and **everything else at
+24.8 s (50.3%)** — of which six broker-facing reconcilers/sweeps are 22.4 s (45.4%).
+
+**Why that is decision-relevant.** The 60-second ask is about **exit evaluation**, and
+`strategy_monitor_loop` is the only phase that evaluates exits. The other 24.8 s are
+reconciliation, self-heal and broker-state hygiene: they answer *"has the journal caught
+up with the broker?"*, not *"should this trade exit now?"*. At least one of them
+(`check_broker_naked_ib_positions`) is **already gated to 300 s** by
+`IB_BROKER_NAKED_CHECK_SECONDS` and is deliberately not per-tick. Their required cadence
+is a per-phase question — I am **not** claiming any of them is safe at an arbitrary
+cadence — but it is demonstrably **not the 60 s the ask names**.
+
+Taking the worst-case gap between two evaluations of the same package as one pass
+duration (ordering is deterministic, so a package lands at a stable offset in each pass):
+
+| design | worst-case gap | margin vs 60 s |
+|---|---|---|
+| whole `order_monitor` on a thread | **56.80 s** | **+3.20 s (5.3%)** |
+| `strategy_monitor_loop` alone on a thread | **28.22 s** | **+31.78 s (53.0%)** |
+
+**The approved whole-monitor design does not robustly clear the bar it was approved to
+hit.** 3.20 s of margin is 5.3%, and it is measured against a max over **seven ticks** —
+a lower bound on the population max, not the population max (the n=123 warm read put it
+at 54.5 s; this n=7 sample already exceeds that at 56.8 s). Drop the stable-ordering
+assumption and allow a gap of up to two passes and the whole-monitor design **fails
+outright** at 113.6 s, while the exit-loop-only design still holds at 56.4 s.
+
+**Revised recommendation: decouple the EXIT LOOP, not the monitor.** Move
+`strategy_monitor_loop` to its own loop and leave the reconcilers/sweeps on the tick
+where they are. This is strictly less code than the approved design (no phase needs a
+new cadence, nothing else moves), it clears the target with 53% margin instead of 5.3%,
+and it does not depend on halving anything first — which supersedes § 6.5's "decompose
+24.5 s first" ordering. The four prerequisites in § 6.1–6.4 still apply in full, and
+**6.1 is unchanged and still load-bearing**: whatever runs on the thread leaves the
+liveness watchdog's coverage, because that coverage IS the inline execution.
+
+One caveat this does not resolve: `reconcile_open_trades` (5.0 s) participates in close
+detection, so *its* latency governs how quickly the journal learns a position closed.
+That is a real requirement — it is simply a different one from exit-evaluation latency,
+and conflating the two is what made the whole monitor look like one indivisible unit.
+
 ### 4c. A defect in this instrumentation, found by reading its own output
 
 The first post-deploy read returned **`attributed_pct: 136.8`** — a share of a whole
@@ -334,6 +400,13 @@ That is: a monitor loop + its own heartbeat + a second watchdog target + a cost 
 **The margin it buys is 5.5 s** (§ 4b). Every one of the four items above is a
 prerequisite rather than a nicety, and shipping the loop without 6.1 would trade a
 measured 5.5 s gain for an unbounded silent-wedge risk.
+
+> ⚠️ **SUPERSEDED by § 4d (n=7 full decomposition).** The paragraph below reasoned from
+> a partial split in which `strategy_monitor_loop` was the only large child measured, and
+> concluded that halving it was the better lever. With all 14 children populated the
+> monitor is **two comparable halves**, and the better lever is to move only the exit half
+> onto the loop — 53% margin instead of 5.3%, and *less* code than the approved design,
+> with no halving required first. § 6.1–6.4 stand unchanged. Kept for the record:
 
 **Recommendation unchanged from § 3(4), and now with the split behind it:**
 `strategy_monitor_loop` is **44.4%** of the monitor in one un-decomposed phase. Halving
