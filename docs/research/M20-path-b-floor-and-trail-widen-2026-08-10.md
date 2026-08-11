@@ -188,6 +188,64 @@ is a decision about promotion standards rather than a bug.
 
 ---
 
+## 4b. The scalp family (added 2026-08-11) — and the one thing in it you should look at
+
+The 8 `ict_scalp` legs swept after the fleet run; the corpus is now **604 rows / 603
+cells / 51 legs** (`f4225f7`). 7 legs produced 28 cells — `ict_scalp_mgc_15m` skipped
+on missing 15m frames (`BL-20260810-SWEEP-DATA-DIR-MISSING-MGC`), recorded as a
+`leg_status` row rather than vanishing.
+
+**Neither floor verdict moved, and the reason is worth stating**: both re-ran at
+exactly `no_separation` over the *same* 52 cells / 22 legs. The scalp family added
+**zero** rows to the analysed population — 2 of its 28 cells reached a walk-forward,
+and **both lack `base_rate_IS`** because their IS base books are unprofitable. The
+family that most needed a permissive criterion is the one the existing
+`base_unprofitable` guard refuses outright.
+
+**Lever verdicts: 26 `is_oos_fail`, 1 `wf_fail`, 1 `path_b_wf_pass`.** The two cells
+up on both windows:
+
+| leg · cell | verdict | note |
+|---|---|---|
+| `ict_scalp_5m · gb1R_afterMFE1R` | `wf_fail` | cleared IS+OOS on **both** axes (ΔnetR +3.19/+0.08, ΔmaxDD −3.19/−0.08), then failed the folds. The OOS gain is +0.08R against +3.19R in-sample — the exact shape the walk-forward exists to reject |
+| `ict_scalp_sol_5m · be_touch_arm` | `path_b_wf_pass` | IS base **−77.07R** ⇒ rate **ungradeable**; only OOS is graded (grant 24%, headroom +2.68). The `tlt_pullback_1h trail4` shape again |
+
+**And the lowest base rate in the entire fleet is a scalp leg**: `ict_scalp_sol_15m`
+at **0.111** (base +1.98R over a 17.82R drawdown) — a quarter of the 0.40 that
+motivated the floor. It produced **no Path B candidate at all**, so the most
+permissive book in the fleet never once exercised the permissiveness. With the
+scalps in, 7 of 39 gradeable legs sit below rate 1.0.
+
+### 🔴 The finding that is not about exit levers at all
+
+Measuring every leg's base book surfaced something the sweep was not looking for.
+**4 of the 50 legs with a readable base are negative on BOTH windows**, and exactly
+one of those is enabled, `execution: live`, **and routed to a real-money account**:
+
+| leg | IS | OOS | status |
+|---|--:|--:|---|
+| **`ict_scalp_5m`** | **−48.88R** | **−13.31R** | enabled · live · **REAL MONEY (`bybit_2`)** |
+| `ict_scalp_avax_5m` | −37.98R | −23.17R | paper only |
+| `trend_donchian_1h` | −34.19R | −21.21R | `enabled: false` + shadow — inert |
+| `fvg_range_15m` | −1.88R | −4.68R | routed to `bybit_2` but `execution: shadow` — places no order |
+
+It is the most negative leg in the fleet *and* the only one of the four that can lose
+real money. For context: 32 of 50 legs are positive on both windows.
+
+**No exit lever fixes this, and the sweep proved it directly** — all 4 of that leg's
+cells are honest negatives, and its one both-axes candidate failed its walk-forward.
+
+**Stated with its limit:** this is the config-exact **backtest** base on live-parity
+geometry, *not* live realized PnL, and the two must not be conflated — the live
+`ict_scalp` journal rows carry a known fabricated-provenance problem
+(`PB-20260807-ICTSCALP-STOP-DID-NOT-CONTAIN-8R`). Filed as
+**`PB-20260811-ICTSCALP5M-REALMONEY-NEGATIVE-BOTH-WINDOWS` (P1)** for a
+`/performance-review` pass to compare it against `totalPnlMeasured`. **Tier-3 either
+way** — whether a leg keeps real-money routing is your call, not mine, and both
+remedies (route to `bybit_1` paper, or `execution: shadow`) are one-line declares.
+
+---
+
 ## 5. Nothing from this sweep is recommended for promotion
 
 - **Path A PASS: 21 rows / 9 legs** — but see § 4: nearly half sit on a
