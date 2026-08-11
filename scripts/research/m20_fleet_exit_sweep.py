@@ -691,12 +691,54 @@ def drawdown_exchange_rate(cell: dict, base: dict) -> dict:
     if d_b <= 0:
         out["reason"] = "base_no_drawdown"
         return out
-    allowed = d_b * ((n_c - n_b) / n_b)
+    # ---------------------------------------------------------- THE GRANT CAP
+    #
+    # Operator-approved 2026-08-11 (Tier-3). `allowed = D_b x (dN / N_b)` is a
+    # FRACTION of the base book's entire drawdown, and the fraction is unbounded
+    # above: measured over the 604-row corpus, 31 rows are entitled to MORE than
+    # the whole base drawdown, the largest at 1.70x (`tlt_pullback_1h trail4`).
+    # Past 1.0 the allowance has stopped being a share of the book's risk budget
+    # and become an expansion of it, so the cap is `dN/N_b <= 1.0` — structural,
+    # the point where a share becomes an expansion, NOT a fitted parameter.
+    #
+    # ⚠️ HOW TO READ THIS — the cap is easy to misread in three ways:
+    #
+    #  1. IT CAPS THE ENTITLEMENT, NEVER THE ASK. A cell asking for less than
+    #     the cap is untouched. `grant_capped: true` does NOT mean "this cell was
+    #     too risky" — it means "its entitlement was absurd; its actual ask may
+    #     well have been fine." Most capped rows IMPROVE drawdown.
+    #  2. IT CHANGES ZERO VERDICTS ON THE MEASURED POPULATION, and that is not a
+    #     defect. Of the 31 over-entitled rows, ZERO actually ask for more
+    #     drawdown than D_b (largest real ask among them: +0.78R against a
+    #     15.35R base). It is PROPHYLACTIC — a bound on a future cell, not a
+    #     correction of a present one. An earlier version of this
+    #     recommendation claimed it "binds 1 of 18 rows"; that was WRONG, and
+    #     shipping it on that claim would have been a risk control that controls
+    #     nothing, sold as one that does.
+    #  3. A `grant_ratio > 1.0` ROW IS NOT A FAILING ROW. Read `passes`.
+    #
+    # The cap enters `passes`, not just the reported allowance — clamping only
+    # the printed number while the decision used the uncapped one would be a
+    # diagnostic that describes a policy the code does not apply.
+    grant_ratio = (n_c - n_b) / n_b
+    allowed_uncapped = d_b * grant_ratio
+    allowed = min(allowed_uncapped, d_b)
+    asked = d_c - d_b
+    out["grant_ratio"] = round(grant_ratio, 4)
+    out["allowed_d_max_dd_uncapped"] = round(allowed_uncapped, 4)
+    # Strict `<`: a row exactly at the cap is not "capped", it is at the bound.
+    out["grant_capped"] = bool(allowed < allowed_uncapped)
     out["allowed_d_max_dd"] = round(allowed, 4)
     # Positive headroom = the cell asks for LESS drawdown than its net_R gain
-    # entitles it to at the book's own rate.
-    out["headroom"] = round(allowed - (d_c - d_b), 4)
-    out["passes"] = (n_c * d_b) >= (n_b * d_c)
+    # entitles it to at the book's own rate, AFTER the cap.
+    out["headroom"] = round(allowed - asked, 4)
+    # The rate test by cross-multiplication (no ratio formed), AND the cap. The
+    # rate half is unchanged; `asked <= d_b` is the new conjunct.
+    out["passes"] = ((n_c * d_b) >= (n_b * d_c)) and (asked <= d_b)
+    if not out["passes"] and (n_c * d_b) >= (n_b * d_c):
+        # Name WHICH half refused, so a cap refusal is never read as a rate
+        # refusal — they call for opposite follow-ups.
+        out["reason"] = "grant_exceeds_base_drawdown"
     return out
 
 

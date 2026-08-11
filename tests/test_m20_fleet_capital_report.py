@@ -740,3 +740,94 @@ def test_the_scalp_unit_really_has_no_cap_so_the_allowlist_is_not_arbitrary():
     assert has_cap == ("scalp" in mod.LIVE_TP_CAPPED_FAMILIES), (
         "the scalp unit's cap and the sweep's allowlist disagree -- one of them "
         "moved and the sweep is now measuring the wrong geometry")
+
+
+# ------------------------------------- the GRANT CAP (dN/N_b <= 1.0, Tier-3)
+#
+# `allowed = D_b x (dN/N_b)` is a FRACTION of the base book's whole drawdown and
+# is unbounded above: 31 corpus rows are entitled to more than the entire base
+# drawdown, the largest at 1.70x. The cap is structural -- the point where a
+# share becomes an expansion -- not a fitted number.
+#
+# It is easy to misread, so the misreadings are what these tests pin.
+
+
+def _rate(nb, db, dn, dd):
+    mod = _sweep_module()
+    return mod.drawdown_exchange_rate(
+        {"net_total_r": nb + dn, "max_drawdown_r": db + dd},
+        {"net_total_r": nb, "max_drawdown_r": db})
+
+
+def test_the_cap_enters_the_decision_not_just_the_printed_allowance():
+    """Clamping only the reported number would describe a policy code ignores.
+
+    The case must be one the RATE test admits and only the CAP refuses --
+    otherwise it proves nothing about the cap. Base 10R net / 10R dd (rate 1.0);
+    cell 30R net / 25R dd, so the rate test passes (30/25 >= 10/10) while the ask
+    of +15R exceeds the 10R the cap allows.
+
+    My first draft of this test used dd=15 with dn=10, which fails the RATE
+    (200 < 250) and would have passed while testing nothing.
+    """
+    out = _rate(nb=10.0, db=10.0, dn=20.0, dd=15.0)
+    assert out["grant_ratio"] == 2.0
+    assert out["allowed_d_max_dd_uncapped"] == 20.0
+    assert out["allowed_d_max_dd"] == 10.0, "the cap is D_b"
+    assert out["passes"] is False
+    assert out["reason"] == "grant_exceeds_base_drawdown", (
+        "a cap refusal must not read as a rate refusal -- they call for "
+        "opposite follow-ups")
+
+
+def test_a_capped_entitlement_is_not_a_rejection():
+    """THE misreading. The cap binds the ENTITLEMENT; the ask is what decides.
+
+    This is `tlt_pullback_1h trail4`'s real shape: ratio 1.70, so the
+    entitlement is clamped -- and the cell asks for LESS drawdown than the base
+    (it IMPROVES it), so it passes untouched. Reading `grant_capped: true` as
+    "too risky" would reject a cell that reduced drawdown.
+    """
+    out = _rate(nb=20.8991, db=27.7805, dn=35.4716, dd=-0.6916)
+    assert out["grant_capped"] is True
+    assert out["allowed_d_max_dd_uncapped"] > out["allowed_d_max_dd"]
+    assert out["allowed_d_max_dd"] == 27.7805, "the cap is D_b itself"
+    assert out["passes"] is True, "a capped entitlement rejected a drawdown IMPROVEMENT"
+    assert out["reason"] is None
+
+
+def test_the_cap_is_prophylactic_on_the_measured_population():
+    """Zero verdicts change on the corpus -- stated in code, not just in prose.
+
+    Of 31 over-entitled corpus rows, none actually asks for more drawdown than
+    D_b. If a future sweep makes this test's premise false, the cap has started
+    binding real cells and that is a finding, not a regression.
+    """
+    # The five real capped rows, with their real asks. All must still pass.
+    for nb, db, dn, dd in [
+        (12.8, 15.3471, 13.8853, 0.778),      # eth_pullback_prop_2h decay_stall10_t1.8
+        (20.8991, 27.7805, 35.4716, -0.6916),  # tlt_pullback_1h trail4
+    ]:
+        out = _rate(nb, db, dn, dd)
+        assert out["grant_capped"] is True
+        assert out["passes"] is True, f"the cap refused a real corpus row: {out}"
+
+
+def test_a_row_exactly_at_the_cap_is_not_marked_capped():
+    """Strict `<`: at the bound is not clamped, and the flag must not blur that."""
+    out = _rate(nb=10.0, db=10.0, dn=10.0, dd=0.0)   # ratio exactly 1.0
+    assert out["grant_ratio"] == 1.0
+    assert out["grant_capped"] is False
+    assert out["allowed_d_max_dd"] == out["allowed_d_max_dd_uncapped"]
+
+
+def test_the_uncapped_entitlement_is_still_reported():
+    """A reader must be able to see WHAT was clamped, not just the result.
+
+    Reporting only the clamped value would hide the very thing that motivated
+    the cap -- an entitlement 1.7x the base book's whole drawdown.
+    """
+    out = _rate(nb=10.0, db=10.0, dn=17.0, dd=-1.0)
+    assert out["allowed_d_max_dd_uncapped"] == 17.0
+    assert out["allowed_d_max_dd"] == 10.0
+    assert out["grant_ratio"] == 1.7
