@@ -227,6 +227,84 @@ sibling brief describes, and it happened inside the field built to prevent it.
 
 ---
 
+## 6. APPROVED DESIGN — thread in-process (operator, 2026-08-11) + three prerequisites the proposal missed
+
+Operator chose **thread in-process** over a separate service. Recorded here because
+implementing it surfaced **three consequences that are not "move one call"**, each
+confirmed against the code rather than anticipated.
+
+### 6.1 The liveness watchdog stops covering the monitor — this is the load-bearing one
+
+`src/main.py:901` says it outright, deliberately:
+
+> *"…still stops the heartbeat because we run inline on the main [thread]"*
+
+**The watchdog's coverage of the monitor IS its inline execution.** Move the monitor to
+a thread and a wedged monitor leaves the main-thread heartbeat ticking normally —
+`ict-liveness-watchdog` sees a healthy trader and never restarts. That is the exact
+June-2026 wedge class (`MB-20260609-001`, `BL-20260609-001`) re-armed, and it is the
+one outcome **strictly worse than a slow monitor**: today a wedged monitor freezes the
+heartbeat and gets auto-healed within 8 minutes; after a naive decouple it would wedge
+silently and indefinitely while positions went unmanaged.
+
+**So the monitor needs its own dead-man switch, in the same change — not after it.**
+`heartbeat.write_heartbeat` already accepts a `path=`, so the file half is trivial; the
+work is teaching `scripts/check_heartbeat.py` (stdlib-only, deliberately) a second
+target and deciding its stale threshold from the monitor's own measured max, not from
+the tick's.
+
+### 6.2 `tick_cost._hooks` is an unlocked module-level dict
+
+`src/runtime/tick_cost.py:66` — a plain `Dict`, mutated by `record_hook` at :124 with
+**no lock**, and the `len(_hooks) >= _MAX_HOOK_NAMES` check-then-insert at :130 is not
+atomic. The 14 `monitor.*` phases call it. Run them from a second thread and they race
+the main tick's writes.
+
+Either add a lock, or give the monitor loop its own accumulator. **Do not** call
+`begin_tick`/`end_tick` from the monitor thread — those mutate the same globals and
+would corrupt the tick's own measurement.
+
+### 6.3 `attributed_pct` breaks AGAIN, for the opposite reason
+
+Fixed today (§ 4c) because nested children were double-counted into a share of the
+tick. After the decouple the monitor is **no longer in the tick at all**, so counting
+`order_monitor` against tick time measures a share of something that no longer contains
+it. The field would read wrong a second time, in one day, from a change in a different
+file — which is itself the argument for the monitor owning its own cost surface rather
+than borrowing the tick's.
+
+### 6.4 IB has a REGISTRY lock, not a USAGE lock
+
+`src/units/accounts/ib_client.py:2317` holds `_REGISTRY_LOCK` — it guards the **client
+dict**, not concurrent use of a live socket. Nothing stops the monitor thread and the
+trader thread both driving `reqHistoricalData` / `reqAllOpenOrders` on the **same
+clientId**, which is the documented multi-client collision class
+(`BL-20260706-IBACCTUPDATES-COLLISION`, where a second subscriber simply never got its
+`accountDownloadEnd`). The monitor's own `_check_broker_naked_ib_positions` is an
+account-wide `reqAllOpenOrders` — precisely the expensive, collision-prone call.
+
+An explicit lock around IB *access* (not just registry lookup) is required, and it
+partially re-serialises the two loops on IB — so the decouple's benefit is full for
+Bybit/Alpaca and **reduced for IB**, which is worth stating before measuring the result.
+
+### 6.5 Scope, honestly
+
+That is: a monitor loop + its own heartbeat + a second watchdog target + a cost surface
++ an IB usage lock + tests — six files touching the live money loop, not one call moved.
+**The margin it buys is 5.5 s** (§ 4b). Every one of the four items above is a
+prerequisite rather than a nicety, and shipping the loop without 6.1 would trade a
+measured 5.5 s gain for an unbounded silent-wedge risk.
+
+**Recommendation unchanged from § 3(4), and now with the split behind it:**
+`strategy_monitor_loop` is **44.4%** of the monitor in one un-decomposed phase. Halving
+*that* buys more than the decouple does, needs no new concurrency, and cannot re-arm a
+wedge. It is also the cheaper experiment. The loop should still be built — the operator
+has approved it — but building 6.1–6.4 first is what makes it safe, and decomposing
+19.6 s first is what tells us whether 5.5 s is the best available margin or merely the
+first one found.
+
+---
+
 ## 5. What is NOT claimed here
 
 - **Not** that 104 s is the steady state. 18 ticks, one process, one 49-minute window.
