@@ -34,7 +34,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
@@ -78,6 +78,29 @@ FOLDS: Dict[str, Dict[str, Tuple[str, str]]] = {
 }
 
 POLICIES = ("reverse", "hold", "flat")
+
+# BL-20260811 — the LIVE flip-confidence override as its own ARM.
+#
+# It is deliberately NOT a fourth `flip_policy`: live it is `hold` PLUS a
+# predicate (`FLIP_CONFIDENCE_THRESHOLD` / `FLIP_MIN_POSITION_AGE_HOURS`), so
+# the arm is the triple (flip_policy="hold", threshold>0, min_age>0). Carrying
+# it as a named arm here keeps the May 2026 fold / roster / cell structure
+# byte-identical, which is the point: the incumbent `hold` earned its place on
+# these exact cells (docs/audits/walkforward-flip-policy-2026-05-30.md), and an
+# arm that displaced it has to be judged on the SAME population, not a fresh
+# one chosen after the fact.
+CONFGAP_ARM = "hold_confgap"
+
+# Arm name -> (flip_policy, threshold, min_age_hours). `None` threshold/age
+# means "leave at 0" (the override is inert), so the three legacy policies keep
+# byte-identical behaviour.
+_ARM_SPECS: Dict[str, Tuple[str, Optional[float], Optional[float]]] = {
+    "reverse": ("reverse", None, None),
+    "hold": ("hold", None, None),
+    "flat": ("flat", None, None),
+    CONFGAP_ARM: ("hold", None, None),   # thresholds injected from CLI at run time
+}
+
 OUT_DIR = _REPO_ROOT / "runtime_logs" / "system_backtest" / "walkforward"
 
 
@@ -115,23 +138,39 @@ def _prebuild_cache(base5m, roster: List[str], folds: Dict[str, Dict[str, Tuple[
 
 def _run_cell(base5m, *, fold: str, half: str, roster_name: str, policy: str,
               start: str, end: str, balance: float, risk_pct: float,
-              daily_loss_pct: float, ttl: int) -> Cell:
+              daily_loss_pct: float, ttl: int,
+              confgap_threshold: float = 0.0,
+              confgap_min_age_hours: float = 0.0) -> Cell:
     roster = ROSTERS[roster_name]
-    print(f"[run ] fold={fold} half={half} roster={roster_name} policy={policy} ...", flush=True)
+    flip_policy, _, _ = _ARM_SPECS.get(policy, (policy, None, None))
+    # Only the confgap arm arms the predicate; every other arm passes 0/0 so the
+    # override is inert and the legacy cells stay byte-identical.
+    thr = confgap_threshold if policy == CONFGAP_ARM else 0.0
+    age = confgap_min_age_hours if policy == CONFGAP_ARM else 0.0
+    print(f"[run ] fold={fold} half={half} roster={roster_name} policy={policy}"
+          f"{f' (gap>={thr} age>={age}h)' if policy == CONFGAP_ARM else ''} ...", flush=True)
     out = run_system_backtest(
         base5m, roster=roster, start=start, end=end,
         initial_balance=balance, risk_pct=risk_pct,
         daily_loss_pct=daily_loss_pct, signal_ttl_bars=ttl,
         overrides={}, refresh=False, clock_tf="15m",
-        flip_policy=policy,
+        flip_policy=flip_policy,
+        flip_confidence_threshold=thr,
+        flip_min_position_age_hours=age,
     )
     cell = Cell(fold=fold, half=half, roster=roster_name, policy=policy,
                 start=start, end=end, summary=out)
     s = out
+    # Report BOTH flip kinds. A confgap arm's churn lands under `flip_confgap`,
+    # so printing only `flip` would show the override arm as flips=0 — visually
+    # identical to the incumbent `hold` while it was actively flipping.
+    flips = s["by_exit_reason"].get("flip", 0)
+    confgap_flips = s["by_exit_reason"].get("flip_confgap", 0)
+    fired = (s.get("evidence", {}).get("flip_override", {}) or {}).get("overrides_fired")
     print(f"[done] {fold}/{half}/{roster_name}/{policy}  "
           f"net=${s['net_pnl']:.0f}  maxDD={s['max_drawdown_pct']:.2f}%  "
           f"ret/DD={s.get('return_dd_ratio')}  trades={s['total_trades']}  "
-          f"flips={s['by_exit_reason'].get('flip', 0)}", flush=True)
+          f"flips={flips}  confgap_flips={confgap_flips}  fired={fired}", flush=True)
     return cell
 
 
@@ -195,29 +234,41 @@ def _evaluate_pass_criteria(cells: List[Cell]) -> Dict[str, Any]:
     }
 
 
-def _markdown_summary(cells: List[Cell], verdict: Dict[str, Any]) -> str:
+def _markdown_summary(cells: List[Cell], verdict: Dict[str, Any],
+                      policies: Optional[List[str]] = None) -> str:
+    policies = list(policies or POLICIES)
     lines: List[str] = ["# Walk-forward — flip-policy conflict resolution\n"]
     lines.append(f"Generated {datetime.now(tz=timezone.utc).isoformat()}\n")
-    for roster_name in ROSTERS:
+    rosters_present = [r for r in ROSTERS if any(c.roster == r for c in cells)]
+    for roster_name in rosters_present:
         lines.append(f"\n## Roster = {roster_name}\n")
-        lines.append("| fold | half | policy | net | maxDD% | ret/DD | trades | flips |")
-        lines.append("|---|---|---|---|---|---|---|---|")
+        # `conflicts` / `fired` are the override arm's DENOMINATOR. Without them
+        # a confgap row that never fired is indistinguishable from one that
+        # fired and tied — the two have opposite meanings for the decision.
+        lines.append("| fold | half | policy | net | maxDD% | ret/DD | trades "
+                     "| flips | confgap flips | conflicts | fired |")
+        lines.append("|---|---|---|---|---|---|---|---|---|---|---|")
         for fold_id in FOLDS:
             for half_id in ("train", "oos"):
-                for pol in POLICIES:
+                for pol in policies:
                     c = next((x for x in cells
                               if x.fold == fold_id and x.half == half_id
                               and x.roster == roster_name and x.policy == pol),
                              None)
                     if c is None:
-                        lines.append(f"| {fold_id} | {half_id} | {pol} | n/a | n/a | n/a | n/a | n/a |")
+                        lines.append(f"| {fold_id} | {half_id} | {pol} | n/a | n/a "
+                                     f"| n/a | n/a | n/a | n/a | n/a | n/a |")
                         continue
                     s = c.summary
                     flips = s["by_exit_reason"].get("flip", 0)
+                    confgap_flips = s["by_exit_reason"].get("flip_confgap", 0)
+                    ov = (s.get("evidence", {}).get("flip_override", {}) or {})
                     lines.append(
                         f"| {fold_id} | {half_id} | {pol} | "
                         f"${s['net_pnl']:.0f} | {s['max_drawdown_pct']:.2f}% | "
-                        f"{s.get('return_dd_ratio')} | {s['total_trades']} | {flips} |"
+                        f"{s.get('return_dd_ratio')} | {s['total_trades']} | {flips} | "
+                        f"{confgap_flips} | {ov.get('conflicts_observed', '—')} | "
+                        f"{ov.get('overrides_fired', '—')} |"
                     )
     lines.append("\n## Verdict\n")
     c1 = verdict["criterion_1_4member_hold_dominates_reverse"]
@@ -238,6 +289,17 @@ def main(argv: List[str]) -> int:
                    help="Comma list of rosters to test (subset of {4mem,6mem}).")
     p.add_argument("--folds", default="A,B",
                    help="Comma list of folds to test (subset of {A,B}).")
+    p.add_argument("--policies", default=",".join(POLICIES),
+                   help=f"Comma list of arms to run (subset of "
+                        f"{{{','.join(POLICIES)},{CONFGAP_ARM}}}). Default = the "
+                        f"three legacy policies, so an unchanged invocation "
+                        f"reproduces the May 2026 run exactly.")
+    p.add_argument("--confgap-threshold", type=float, default=0.15,
+                   help="Confidence gap for the '%s' arm (live value 0.15)."
+                        % CONFGAP_ARM)
+    p.add_argument("--confgap-min-age-hours", type=float, default=4.0,
+                   help="Minimum held-position age for the '%s' arm (live value 4.0)."
+                        % CONFGAP_ARM)
     p.add_argument("--initial-balance", type=float, default=10_000.0)
     p.add_argument("--risk-pct", type=float, default=0.3)
     p.add_argument("--daily-loss-pct", type=float, default=3.0)
@@ -255,9 +317,19 @@ def main(argv: List[str]) -> int:
 
     rosters = [r for r in args.rosters.split(",") if r in ROSTERS]
     folds = {f: FOLDS[f] for f in args.folds.split(",") if f in FOLDS}
-    if not rosters or not folds:
-        print("ERROR: --rosters and --folds must each pick at least one valid value",
+    requested = [p.strip() for p in args.policies.split(",") if p.strip()]
+    policies = [p for p in requested if p in _ARM_SPECS]
+    unknown = [p for p in requested if p not in _ARM_SPECS]
+    if unknown:
+        # Loud, not silent. A typo'd arm name that is quietly dropped produces a
+        # run whose comparison table is simply missing a column — which reads as
+        # "the arm was tested and tied" to anyone who did not count the rows.
+        print(f"ERROR: unknown arm(s) {unknown}; valid = {sorted(_ARM_SPECS)}",
               file=sys.stderr)
+        return 1
+    if not rosters or not folds or not policies:
+        print("ERROR: --rosters, --folds and --policies must each pick at least "
+              "one valid value", file=sys.stderr)
         return 1
 
     try:
@@ -276,7 +348,7 @@ def main(argv: List[str]) -> int:
     for fold_id, halves in folds.items():
         for half_id, (s, e) in halves.items():
             for roster_name in rosters:
-                for policy in POLICIES:
+                for policy in policies:
                     cells.append(_run_cell(
                         base5m, fold=fold_id, half=half_id,
                         roster_name=roster_name, policy=policy,
@@ -285,6 +357,8 @@ def main(argv: List[str]) -> int:
                         risk_pct=args.risk_pct,
                         daily_loss_pct=args.daily_loss_pct,
                         ttl=args.signal_ttl_bars,
+                        confgap_threshold=args.confgap_threshold,
+                        confgap_min_age_hours=args.confgap_min_age_hours,
                     ))
 
     verdict = _evaluate_pass_criteria(cells)
@@ -302,6 +376,9 @@ def main(argv: List[str]) -> int:
             "risk_pct": args.risk_pct,
             "daily_loss_pct": args.daily_loss_pct,
             "signal_ttl_bars": args.signal_ttl_bars,
+            "policies": policies,
+            "confgap_threshold": args.confgap_threshold,
+            "confgap_min_age_hours": args.confgap_min_age_hours,
         },
         "cells": [
             {"fold": c.fold, "half": c.half, "roster": c.roster, "policy": c.policy,
@@ -311,7 +388,7 @@ def main(argv: List[str]) -> int:
         "verdict": verdict,
     }
     json_path.write_text(json.dumps(payload, indent=2, default=str))
-    md = _markdown_summary(cells, verdict)
+    md = _markdown_summary(cells, verdict, policies)
     md_path.write_text(md)
     print(f"\nJSON -> {json_path}", file=sys.stderr)
     print(f"MD   -> {md_path}", file=sys.stderr)
