@@ -42,7 +42,7 @@ book's take-all is deeply net-negative in non-directional stretches.
 | Piece | Where | Reuse |
 |---|---|---|
 | Conflict events, already logged | intent audit rows (`hold` policy deltas, `signal_audit.jsonl` + signals dual-write) | P0's raw material — no new instrumentation needed to mine history |
-| Dormant flip-override knobs | `FLIP_CONFIDENCE_THRESHOLD` / `FLIP_MIN_POSITION_AGE_HOURS` (built, default-off, Tier-3) | P3 policy arm (b) — already implemented, never validated |
+| **LIVE** flip-override knobs | `FLIP_CONFIDENCE_THRESHOLD=0.15` / `FLIP_MIN_POSITION_AGE_HOURS=4.0` (measured on the live trader 2026-08-10 via `get-env`, issue #8755; operator-confirmed deliberate 2026-08-11) | P3 policy arm (b) — **no longer dormant**, but still **never walk-forward validated**. The arm is running in production ahead of its own evidence gate; P3 should now MEASURE the live arm rather than propose enabling it (`BL-20260811-FLIP-OVERRIDE-NEVER-WALKFORWARDED`) |
 | Flip-policy backtest arms | `scripts/backtest_system.py --flip-policy` | P3 harness — extend with new arms rather than writing a new harness |
 | Regime router + cells | `config/regime_policy.yaml`, `intents.py` hard gate | P2 integration point for a transition axis |
 | Exit levers (tighten/trail) | M20 exit-refinement lever library + exit-head soaks | P3 arm (d) — transition-triggered exit tightening |

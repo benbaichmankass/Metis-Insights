@@ -12651,7 +12651,7 @@
       "id": "BL-20260810-FLIP-CONFIDENCE-OVERRIDE-LIVE-WITHOUT-RECORD",
       "opened_at": "2026-08-10T22:15:00+00:00",
       "opened_by": "claude (system-review 2026-08-10, first successful get-env run)",
-      "status": "open",
+      "status": "resolved",
       "severity": "high",
       "tier": 3,
       "title": "FLIP_CONFIDENCE_THRESHOLD=0.15 and FLIP_MIN_POSITION_AGE_HOURS=4.0 are LIVE on the trader — a Tier-3 order-routing override that CLAUDE.md documents as default-off and 'requires operator approval before deploying', with no authorization record I can find",
@@ -12664,7 +12664,27 @@
       "related": [
         "BL-20260810-CONVICTION-SIZING-APPLY-LIVE-VS-DOC"
       ],
-      "resolution_criteria": "The live value and the canonical docs agree, and the authorization (or the rollback) is recorded."
+      "resolution_criteria": "The live value and the canonical docs agree, and the authorization (or the rollback) is recorded.",
+      "resolved_at": "2026-08-11T00:00:00+00:00",
+      "resolution": "RESOLVED — disposition (1): the operator confirmed 2026-08-11 that the flip-override values are deliberate. No rollback. The finding was 'no authorization record in the repo', which was accurate; the record now exists.\n\nDocs corrected to match reality, all three that contradicted it:\n  * CLAUDE.md — both env rows now state the LIVE values (0.15 / 4.0), the operator confirmation + date, and the combined effect; the stale 'default 0.0 = disabled' framing is explicitly flagged as not describing live routing.\n  * docs/research/M26-regime-transition-conflict-DESIGN.md:45 — the knobs were listed as 'Dormant ... built, default-off'; they are LIVE, and P3's job changes from 'propose enabling' to 'measure the arm already running'.\n  * ROADMAP.md M26 — the row asserted 'No live change before P3 beats the incumbent hold policy out-of-sample'. A live change WAS made before that gate. Corrected in place rather than quietly dropped, because a roadmap that overstates its own gate-keeping is worse than one that admits an exception.\n\nWHAT IS NOT RESOLVED, and is deliberately split out rather than closed with this item: approval is not validation. No walk-forward has ever tested a positive threshold. Tracked as BL-20260811-FLIP-OVERRIDE-NEVER-WALKFORWARDED."
+    },
+    {
+      "id": "BL-20260811-FLIP-OVERRIDE-NEVER-WALKFORWARDED",
+      "opened_at": "2026-08-11T00:00:00+00:00",
+      "opened_by": "claude (system-review 2026-08-10, split from the flip-override finding)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 3,
+      "title": "The live flip-override (FLIP_CONFIDENCE_THRESHOLD=0.15 / FLIP_MIN_POSITION_AGE_HOURS=4.0) is operator-approved but has NEVER been walk-forward validated — the evidence gate the incumbent hold policy passed",
+      "checked": "checked: docs/research/M26-regime-transition-conflict-DESIGN.md (records the knobs as implemented-but-never-validated) and comms/reports/daily/20260717T055600Z/report.md (recommends backtesting a positive threshold, i.e. none had been)",
+      "source": "Split from BL-20260810-FLIP-CONFIDENCE-OVERRIDE-LIVE-WITHOUT-RECORD when the operator confirmed the values were deliberate. Approval closed the authorization question; it does not close the evidence question.",
+      "what_to_check": "The incumbent it overrides earned its place: FLIP_POLICY=hold became the default on 2026-05-31 (PR #2451) only AFTER a 24-cell walk-forward verified PASS (docs/audits/walkforward-flip-policy-2026-05-30.md). The override now running against it has no comparable evidence — M26's own design doc calls the knobs 'never validated', and the 2026-07-17 system report was still RECOMMENDING that a positive threshold be backtested.\n\nSo the asymmetry is the finding: `hold` was displaced by an unvalidated arm, when the repo's own rule (regime-selectivity § walk-forward-before-Tier-3) is that a policy is displaced by evidence, not theory. This is NOT an allegation that the values are wrong — 0.15/4.0 are narrow and may well be right. It is that nobody can currently say whether they are, and the harness to find out already exists.",
+      "why_critical": "Medium, not high, because the operator has accepted the risk knowingly and the gate is narrow (BOTH a >=0.15 confidence gap AND a >4h position age must hold). But it is a live order-routing arm on every account including real money whose expected value is unmeasured, and the M26 P0 findings show flip decisions are a FAT-TAIL split rather than a uniform effect: same/near-TF conflicts bled -$2.3k held while cross-TF (>=4x) made +$3.5k held, and `trend_donchian` specifically would have lost $21k if flipped. A blanket confidence threshold does not distinguish those cases, so the live arm may be doing the right thing on one strategy class and the 2026-07 incident's thing on another.",
+      "next_action": "Run the arm through the harness that already exists rather than building anything: `scripts/backtest_system.py --flip-policy` with the override armed at the live values, walk-forward, split by the M26 P1 taxonomy (tf_ratio >= 4 coexist vs < 4 transition) so the fat-tail split is visible instead of averaged away. Compare against the incumbent `hold` on the SAME cells the May walk-forward used, so the two are judged on one population. Report per-strategy-class, and specifically whether `trend_donchian` (which holds correctly, +$10.1k) is protected by the 4h age gate or exposed by it.",
+      "related": [
+        "BL-20260810-FLIP-CONFIDENCE-OVERRIDE-LIVE-WITHOUT-RECORD"
+      ],
+      "resolution_criteria": "A walk-forward result exists for the live override values, judged against `hold` on a shared population and split by TF-ratio class; the values are then kept, tuned, or rolled back on that evidence."
     }
   ],
   "updated_at": "2026-08-10T01:20:00+00:00",
