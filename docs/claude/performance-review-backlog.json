@@ -2326,6 +2326,34 @@
       "updated_at": "2026-08-10T05:05:00+00:00"
     },
     {
+      "id": "PB-20260811-M20-GATE-NO-MIN-TRADES-82PCT-THIN",
+      "opened_at": "2026-08-11T15:05:00+00:00",
+      "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 exit-lever fleet sweep)",
+      "severity": "P2",
+      "status": "open",
+      "area": "research/gate",
+      "title": "[research] The M20 exit-lever gate has NO minimum trade count, and 82% of the cells it passes sit on an OOS base under 50 trades",
+      "summary": "Path A's beats() predicate (net_R AND maxDD no worse on BOTH windows, then a yearly walk-forward) has no minimum trade count. Measured over the 603 corpus cells with a readable OOS base: 35.8% have an OOS base under 10 trades, 65.2% under 50 (median 34, mean 50.0, max 358). Of the 40 cells the sweep PASSES (Path A or path_b_wf_pass), 33 (82%) sit on an OOS base under 50 trades and 13 sit on fewer than 10. So a cell clears the gate by improving net_R and maxDD over a book that may contain three trades, and can then post a 6/6 walk-forward over folds that are nearly empty.",
+      "evidence": "checked: docs/research/m20-sweep-corpus.jsonl (604 rows / 603 cells / 51 legs, committed) via a distribution over base_trades_OOS. Concrete instances from the PASS list: spy_trend_long_1d vt_hot90_t2 passes on an OOS base of 3 trades (d_net_r_OOS +0.7995, d_max_dd_OOS exactly 0.0, walk-forward 6/6); qqq_trend_long_1d vt_hot90_t2 on 4 trades (d_net_r_OOS +0.1015, d_max_dd_OOS 0.0, wf 6/6); scha_trend_long_1d vt_hot90_t2 on 5 trades. A d_max_dd of exactly 0.0 is the tell that the lever never touched the drawdown path. The single PASS in the corpus on a solid denominator is trend_donchian_1h vt_hot90_t2.5 (OOS base 168) and that leg reads enabled: false + execution: shadow, retired and unshippable.",
+      "why_not_fixed": "Setting the floor VALUE is the operator's call, and fitting one from the same corpus it will judge would be the exposure-ceiling mistake (gross-exposure-governance-DESIGN sections 6-7: a ceiling with no distribution behind it silently throttles correct work). The exit-refinement SKILL already prescribes the procedure for an unset threshold: the sweep REPORTS the distribution, the operator sets the value. This item reports it.",
+      "caveat": "Unlike the Path B RATE floor answered the same day (`do not set one` -- a rate floor is a PREDICTION claim and both candidate predictors returned no_separation over 604 rows), a minimum trade count is a DENOMINATOR REQUIREMENT, not a fitted threshold, and needs no separation test. The repo already ships this exact shape as research_results_gate.min_trades. Do not conflate the two: one says do not fit a threshold, the other says a missing denominator floor is letting 3-trade books pass.",
+      "suggested_action": "Operator sets a min-OOS-trades floor on the M20 gate (and ideally min-IS too). What the distribution says: a floor of 50 retains 7 of the 40 current passes; a floor of 10 retains 27 of 40. Then re-grade the corpus and re-read docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md section 5, whose PASS list is currently not floored. Blocks PB-20260811-M20-REGIME-CONDITIONED-EXITS-UNPROVEN, because the floor decides whether those passes are real."
+    },
+    {
+      "id": "PB-20260811-M20-REGIME-CONDITIONED-EXITS-UNPROVEN",
+      "opened_at": "2026-08-11T15:05:00+00:00",
+      "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 exit-lever fleet sweep)",
+      "severity": "P3",
+      "status": "open",
+      "area": "research/exits",
+      "title": "[research] Regime-conditioned exit selection passes 8/123 vs 13/480 (6.5% vs 2.7%), Fisher p=0.052 -- suggestive, not established",
+      "summary": "vol_trail (vt_hot90 / vt_hot80 / vt_cold10) already IS regime-conditioned exit selection: it keys the trail multiple on a causal ATR percentile rank over a 200-bar window (scripts/backtest_pullback.py:263). Across 41 legs / 123 cells it passes Path A at 6.5% (8/123) vs 2.7% (13/480) for all other exit cells; including path_b_wf_pass, 10.6% vs 5.6%. Fisher exact two-sided p=0.052 (Path A) / 0.065 (either path), BEFORE any correction for the comparison having been chosen after seeing the data. A ~2.4x pass-rate ratio is a lead worth a purpose-built test; it is not a result.",
+      "evidence": "checked: docs/research/m20-sweep-corpus.jsonl, partitioning cells on lever == vol_trail (or a vt_ prefixed cell name) and running a stdlib Fisher exact via math.comb. Also checked: an artifact hypothesis of mine was REFUTED. I expected conditioning to thin the population each cell acts on, inflating spurious passes; it does not. Thin OOS bases are fleet-wide, not specific to conditioned cells: median OOS base 32 (vt_*) vs 34 (everything else), 68.3% vs 64.4% under 50 trades; among PASSING cells 29 vs 32 median. So thinness does not explain the gap; it is PB-20260811-M20-GATE-NO-MIN-TRADES-82PCT-THIN, which applies to both arms equally.",
+      "why_not_fixed": "Not supported at this n, so there is nothing to build yet. 12 of the 13 vt_* passes sit on an OOS base under 50 trades, so the min-trades floor decides whether any of them are real. Blocked on that item, not on more sweeping.",
+      "caveat": "Two designs exist and are NOT interchangeable. (A) condition on realized vol -- what vol_trail already does: self-contained, causal, no ML dependency, implementable in the live monitor from candles, and NO axis-fidelity problem because it is not trying to match the router's axis. (B) condition on the router's regime label (ml_vol_regime_for_symbol -> predict_proba(row)[volatile]): matches the ENTRY gate's axis but inherits the advisory head's per-symbol availability (BTC + SOL only) and carries the full regime-selectivity Rule 3 axis-fidelity burden. Recommendation is NEITHER yet: (A) is already measured and does not clear a significance bar, and (B) would add an ML dependency to the exit path to chase an effect (A) has not established.",
+      "suggested_action": "Park until the min-trades floor is set. If the floor leaves a defensible vt_* population, run a purpose-built test (a pre-registered comparison, not a post-hoc partition of a sweep run for another question) before any Tier-3 exit-conditioning proposal."
+    },
+    {
       "id": "PB-20260811-ICTSCALP5M-REALMONEY-NEGATIVE-BOTH-WINDOWS",
       "opened_at": "2026-08-11T01:00:00+00:00",
       "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 scalp exit-lever sweep)",

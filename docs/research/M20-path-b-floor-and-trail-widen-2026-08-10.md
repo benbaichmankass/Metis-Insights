@@ -331,6 +331,97 @@ be averaged together with an ungated one.
 
 ---
 
+## 4d. 🔴 THE GATE HAS NO MINIMUM TRADE COUNT, and 82% of what it passes is thin
+
+This is the largest general caveat on this whole document, and it is not about any one
+leg. Measured over the 603 corpus cells with a readable OOS base:
+
+| OOS base trades | cells | share |
+|---|--:|--:|
+| **< 10** | **216** | **35.8%** |
+| < 25 | 226 | 37.5% |
+| < 50 | 393 | 65.2% |
+| < 100 | 533 | 88.4% |
+| < 168 | 559 | 92.7% |
+
+median **34** · mean 50.0 · max 358.
+
+**Of the 40 cells this sweep PASSES (Path A or `path_b_wf_pass`), 33 — 82% — sit on an
+OOS base under 50 trades, and 13 sit on fewer than 10.** Path A's `beats()` has **no
+minimum trade count**, so a cell clears it by improving net_R and maxDD over a book
+that may contain **three trades**, and can then post a "6/6 walk-forward" over folds
+that are nearly empty.
+
+Concrete instances from § 5's PASS list: `spy_trend_long_1d vt_hot90_t2` passes on an
+OOS base of **3 trades** (ΔnetR +0.80R, ΔmaxDD **0.0**, wf 6/6), and
+`qqq_trend_long_1d vt_hot90_t2` on **4 trades** (ΔnetR **+0.10R**, ΔmaxDD 0.0, wf 6/6).
+A ΔmaxDD of exactly 0.0 is the tell that the lever never touched the drawdown path.
+**A 6/6 walk-forward over 4 trades is not evidence; it is the shape that manufactures a
+confident wrong conclusion** — the same thing the regime-selectivity skill's Rule 3a
+says about a verdict over zero trades ("not a negative finding; it is no finding").
+
+**This calls for a min-trades floor, and — unlike the Path B rate floor in § 1 — that
+is NOT a fitted threshold.** § 1 refused to fit a floor because a *rate* floor is a
+prediction claim and the data refused to support one. A minimum trade count is a
+different kind of object: a **denominator requirement**, the same shape as
+`research_results_gate.min_trades`, which the repo already ships. It needs no
+separation test.
+
+**Per this repo's own procedure for an unset threshold, the distribution above is
+REPORTED and the value is the operator's** (`exit-refinement` SKILL: *"The first sweep
+REPORTS the distribution; the operator sets the two values from it"*). Fitting one here
+from the same corpus it will judge would be the exposure-ceiling mistake. What the
+distribution says: a floor of 50 would retain 7 of 40 current passes; a floor of 10
+would retain 27 of 40.
+
+**Until a floor is set, read every PASS in § 5 beside its OOS base.** The one PASS in
+this document on a genuinely solid denominator is `trend_donchian_1h vt_hot90_t2.5`
+(OOS base **168**) — and that leg is `enabled: false` / `execution: shadow`, retired
+and unshippable, which is why § 5 already flags it.
+
+## 4e. Regime-conditioned exits: suggestive, NOT established (task #6)
+
+`vol_trail` (`vt_hot90` / `vt_hot80` / `vt_cold10`) already *is* regime-conditioned exit
+selection — it keys the trail multiple on a **causal ATR percentile rank** over a
+200-bar window (`scripts/backtest_pullback.py:263`), computed per bar. Measured across
+41 legs / 123 cells:
+
+| population | cells | Path A PASS | PASS or `path_b_wf_pass` |
+|---|--:|--:|--:|
+| vol-conditional (`vt_*`) | 123 | 8 (**6.5%**) | 13 (10.6%) |
+| all other exit cells | 480 | 13 (**2.7%**) | 27 (5.6%) |
+
+**Fisher exact p = 0.052** (Path A) / **0.065** (either path) — and that is *before* any
+correction for the fact that this comparison was chosen after seeing the data. **So:
+not supported at this n.** A ~2.4× pass-rate ratio is a lead worth a purpose-built
+test; it is not a result.
+
+**A hypothesis I had for the gap, and it is REFUTED.** I expected conditioning to thin
+the population each cell acts on, inflating spurious passes. It does not: thin OOS
+bases are **fleet-wide**, not specific to conditioned cells — median OOS base 32
+(`vt_*`) vs 34 (everything else), 68.3% vs 64.4% under 50 trades. Among *passing* cells,
+29 vs 32 median. Conditioning is not measurably thinner, so thinness does not explain
+the gap. It is § 4d's problem, and § 4d applies to both arms equally.
+
+**Two designs exist and are not interchangeable** — worth recording before anyone
+builds:
+
+- **(A) condition on realized vol** (what `vol_trail` already does). Self-contained,
+  causal, no ML dependency, implementable in the live monitor from candles. **No
+  axis-fidelity problem**, because it is not trying to match the router's axis.
+- **(B) condition on the router's regime label** (`ml_vol_regime_for_symbol` →
+  `predict_proba(row)["volatile"]`). Matches the *entry* gate's axis, but inherits the
+  advisory head's per-symbol availability (BTC + SOL only) and carries the full Rule-3
+  axis-fidelity burden.
+
+**Recommendation: neither, yet.** (A) is already measured and does not clear a
+significance bar; (B) adds an ML dependency to the exit path to chase an effect (A)
+has not established. #6 should stay parked until § 4d's floor is set, because **the
+floor decides whether any of these passes are real** — 12 of the 13 `vt_*` passes sit
+under 50 OOS trades.
+
+---
+
 ## 5. Nothing from this sweep is recommended for promotion
 
 - **Path A PASS: 21 rows / 9 legs** — but see § 4: nearly half sit on a
