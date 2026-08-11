@@ -207,6 +207,46 @@ made the margin *thinner*, which is what a max does as its sample grows. That
 strengthens § 3's "must ship with a budget" rather than weakening it, and it means
 60 s should not be treated as safely cleared on any sample this size.
 
+### 4b-bis. CORROBORATED on better samples (2026-08-12) — the ordering held, the absolutes moved
+
+My § 4b split was **n=3** and I flagged it provisional, claiming only that the ORDERING
+would survive. Two independent reads have since landed. Both agree, and they correct the
+absolutes upward:
+
+| | my n=3 | sibling warm **n=51** (#8792) | fresh n=5 (diag #8795) |
+|---|--:|--:|--:|
+| tick mean | — | **107.2 s** | 108.7 s |
+| tick max | — | 122.2 s | 124.9 s |
+| `run_one_tick` | — | 56.2 s (52.4%) | 57.4 s (52.8%) |
+| `order_monitor` mean | 44.2 s | **49.3 s** (46.0%) | 49.7 s (45.8%) |
+| `order_monitor` **max** | 48.9 s | *(not reported)* | **53.0 s** |
+| `strategy_monitor_loop` | 19.6 s | **24.5 s** | 24.7 s (max 24.9 s) |
+
+**The ordering survived exactly as claimed; my absolutes were ~20% low.** The
+per-strategy loop is a *stable* **~24.5 s** — mean and max within 0.2 s at n=5 — which
+is **~49.6% of the monitor**, not the 44.4% I reported. It is still the single largest
+item by a wide margin, and the seven sweeps make up the other half
+(reconcile_open_trades 5.0 s · check_broker_naked_equity 4.6 s ·
+reconcile_orphan_exchange 3.6 s · check_broker_naked_ib 3.6 s · netting_partial 2.9 s ·
+check_broker_naked_bybit 2.8 s · watchdog_stuck 2.2 s).
+
+**The 60 s margin is unchanged and now triangulated.** Monitor max: **54.5 s** at n=123
+(my pre-restart read, still the largest sample and therefore the number to quote),
+**53.0 s** at n=5. So decoupling clears 60 s by **~5.5 s** — the § 4b figure, corroborated
+rather than revised. Note the trader restarted twice today (20:14 Z, 23:25 Z), so every
+`ticks_measured` resets with it; quote the denominator or the peak means nothing.
+
+**My nesting fix is confirmed on live data, twice.** `attributed_pct` now reads **98.4**
+(n=51) and **98.6** (n=5) with `nested_hooks: 14`, and in both the two top-level hooks
+sum to the reported total EXACTLY (52.4+46.0 = 98.4; 52.8+45.8 = 98.6). That is the
+arithmetic the 136.8% bug violated, checked against production rather than a planted case.
+
+**What this sharpens for § 6.5.** The decouple buys ~5.5 s for six files and a re-armed
+wedge risk. `strategy_monitor_loop` is 24.5 s in ONE un-decomposed phase — stable enough
+that it is clearly systematic rather than incidental, ~0.47 s across ~52 strategies. That
+is the cheaper and safer lever, it needs no concurrency, and the next probe is timing
+INSIDE it per-strategy. Recommendation unchanged, now with a firmer number behind it.
+
 ### 4c. A defect in this instrumentation, found by reading its own output
 
 The first post-deploy read returned **`attributed_pct: 136.8`** — a share of a whole
