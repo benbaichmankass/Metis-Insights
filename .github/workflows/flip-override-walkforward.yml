@@ -1,0 +1,218 @@
+name: flip-override-walkforward
+
+# BL-20260811-FLIP-OVERRIDE-NEVER-WALKFORWARDED — walk-forward the LIVE
+# flip-confidence override (FLIP_CONFIDENCE_THRESHOLD=0.15 /
+# FLIP_MIN_POSITION_AGE_HOURS=4.0) against the incumbent `hold` on the SAME
+# folds/rosters the May 2026 run used (docs/audits/walkforward-flip-policy-2026-05-30.md).
+#
+# WHY A WORKFLOW rather than a session-local run: the sandbox container is not a
+# viable host for this. Two separate multi-hour attempts were killed by container
+# restarts ~40 minutes apart on 2026-08-11, losing the run both times. That is
+# also the repo's standing resource rule (docs/claude/vm-resource-management.md):
+# CPU-heavy research goes to a free GH runner, never the 1-OCPU trainer.
+#
+# WHY A FOLD MATRIX: measured ~4 min per (strategy, window) signal build. The full
+# 4mem x {A,B} x {train,oos} precache is 16 windows (~64 min) plus the cells, which
+# does not fit one 90-min job. One job per FOLD halves it (8 windows + its cells)
+# and the two run in parallel.
+#
+# pyarrow is installed deliberately: without a parquet engine the signal cache is
+# inert and every cell re-derives every stream (~6x cost) — see
+# BL-20260811-BACKTEST-SIGNAL-CACHE-SILENTLY-INERT-WITHOUT-PARQUET. The harness now
+# warns when that happens; this workflow makes sure it does not.
+#
+# Safety: READ-only research. Fetches PUBLIC candles (Binance-vision), runs the
+# read-only backtest harness, uploads artifacts and comments a comparison. No push,
+# no deploy, no DB / config / order-path write. It ENACTS nothing — a Tier-3 change
+# to the live knobs remains an operator decision informed by this output.
+
+on:
+  workflow_dispatch:
+    inputs:
+      rosters:
+        description: "Comma list of rosters (4mem,6mem). 6mem adds turtle_soup + ict_scalp_5m and is much slower."
+        default: "4mem"
+      folds:
+        description: "Comma list of folds (A,B) — becomes the job matrix."
+        default: "A,B"
+      policies:
+        description: "Arms to run. `hold` is the incumbent, `hold_confgap` is the live override."
+        default: "hold,hold_confgap,reverse"
+      confgap_threshold:
+        description: "Confidence gap for the override arm (LIVE VALUE 0.15)."
+        default: "0.15"
+      confgap_min_age_hours:
+        description: "Min held-position age for the override arm (LIVE VALUE 4.0)."
+        default: "4.0"
+      symbol:
+        description: "Symbol to fetch + backtest."
+        default: "BTCUSDT"
+      start_date:
+        description: "Candle start (the May run's base was 2020-06)."
+        default: "2020-06-01"
+      end_date:
+        description: "Candle end."
+        default: "2026-02-28"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: flip-override-walkforward-${{ github.event_name }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  walkforward:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'flip-override-walkforward-request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        fold: ["A", "B"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve params
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          EV: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EV" = "issues" ]; then
+            get() { printf '%s' "$ISSUE_BODY" | grep -iE "^$1:" | head -1 | cut -d: -f2- | xargs || true; }
+            ROSTERS=$(get rosters); POLICIES=$(get policies); THR=$(get confgap_threshold)
+            AGE=$(get confgap_min_age_hours); SYM=$(get symbol)
+            SD=$(get start_date); ED=$(get end_date)
+          else
+            ROSTERS="${{ github.event.inputs.rosters }}"; POLICIES="${{ github.event.inputs.policies }}"
+            THR="${{ github.event.inputs.confgap_threshold }}"; AGE="${{ github.event.inputs.confgap_min_age_hours }}"
+            SYM="${{ github.event.inputs.symbol }}"
+            SD="${{ github.event.inputs.start_date }}"; ED="${{ github.event.inputs.end_date }}"
+          fi
+          {
+            echo "WF_ROSTERS=${ROSTERS:-4mem}"
+            echo "WF_POLICIES=${POLICIES:-hold,hold_confgap,reverse}"
+            echo "WF_THR=${THR:-0.15}"
+            echo "WF_AGE=${AGE:-4.0}"
+            echo "WF_SYMBOL=${SYM:-BTCUSDT}"
+            echo "WF_START=${SD:-2020-06-01}"
+            echo "WF_END=${ED:-2026-02-28}"
+          } >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        # pyarrow is load-bearing here, not incidental — see the header note.
+        # requests is for fetch_backtest_candles.py (Binance-vision; Bybit
+        # geoblocks US runners).
+        run: pip install --quiet pyyaml pandas numpy requests pyarrow
+
+      - name: Fetch candles
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/wf
+          python scripts/ops/fetch_backtest_candles.py \
+            --symbol "$WF_SYMBOL" --interval 5 \
+            --start-date "$WF_START" --end-date "$WF_END" \
+            --source binance_vision \
+            --output "artifacts/wf/${WF_SYMBOL}_5m.csv"
+          # Assert a plausible non-zero denominator before spending an hour on
+          # it: a short/empty feed must fail LOUDLY here, not silently produce a
+          # walk-forward over nothing that reads as a clean negative result.
+          rows=$(wc -l < "artifacts/wf/${WF_SYMBOL}_5m.csv")
+          echo "fetched rows=$rows"
+          if [ "$rows" -lt 100000 ]; then
+            echo "::error::feed too short ($rows rows) for a multi-year walk-forward — refusing to run"
+            exit 1
+          fi
+
+      - name: Walk-forward fold ${{ matrix.fold }}
+        run: |
+          set -euo pipefail
+          python scripts/walkforward_flip_policy.py \
+            --data "artifacts/wf/${WF_SYMBOL}_5m.csv" \
+            --rosters "$WF_ROSTERS" \
+            --folds "${{ matrix.fold }}" \
+            --policies "$WF_POLICIES" \
+            --confgap-threshold "$WF_THR" \
+            --confgap-min-age-hours "$WF_AGE" \
+            --prebuild-cache \
+            --json-out "artifacts/wf/wf_fold${{ matrix.fold }}.json" \
+            --md-out "artifacts/wf/wf_fold${{ matrix.fold }}.md" \
+            2>&1 | tee "artifacts/wf/wf_fold${{ matrix.fold }}.log"
+        # The driver exits 2 when its PASS criteria fail, which is a RESULT, not
+        # an infrastructure error — the whole point is to find out. Only a real
+        # crash should fail the job.
+        continue-on-error: true
+
+      - name: Summarize
+        if: always()
+        run: |
+          set -euo pipefail
+          F="artifacts/wf/wf_fold${{ matrix.fold }}.json"
+          if [ ! -s "$F" ]; then
+            echo "## fold ${{ matrix.fold }} — NO RESULT" >> "$GITHUB_STEP_SUMMARY"
+            echo "The run produced no JSON. Tail of the log:" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -30 "artifacts/wf/wf_fold${{ matrix.fold }}.log" 2>/dev/null >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python - "$F" >> "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          p = d.get("params", {})
+          print(f"## fold {list(d.get('folds', {}))} — flip-override walk-forward\n")
+          print(f"Arm under test: gap >= **{p.get('confgap_threshold')}**, "
+                f"held-position age >= **{p.get('confgap_min_age_hours')}h** "
+                f"(the LIVE values). Arms: `{', '.join(p.get('policies', []))}`.\n")
+          print("| fold | half | roster | policy | net | maxDD% | ret/DD | trades | flips | confgap flips | conflicts | fired |")
+          print("|---|---|---|---|---|---|---|---|---|---|---|---|")
+          for c in d.get("cells", []):
+              s = c["summary"]; ov = (s.get("evidence", {}) or {}).get("flip_override", {}) or {}
+              print(f"| {c['fold']} | {c['half']} | {c['roster']} | {c['policy']} | "
+                    f"${s['net_pnl']:.0f} | {s['max_drawdown_pct']:.2f} | {s.get('return_dd_ratio')} | "
+                    f"{s['total_trades']} | {s['by_exit_reason'].get('flip',0)} | "
+                    f"{s['by_exit_reason'].get('flip_confgap',0)} | "
+                    f"{ov.get('conflicts_observed','—')} | {ov.get('overrides_fired','—')} |")
+          print("\n**Read `fired` before reading the PnL.** A `hold_confgap` row with "
+                "`fired = 0` did not test the arm at all — it is the incumbent under "
+                "another name, and its PnL matching `hold` means nothing.")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flip-override-walkforward-fold-${{ matrix.fold }}
+          path: artifacts/wf/
+          retention-days: 14
+
+      - name: Comment back
+        if: always() && github.event_name == 'issues'
+        uses: actions/github-script@v7
+        env:
+          FOLD: ${{ matrix.fold }}
+        with:
+          script: |
+            const fs = require('fs');
+            const f = `artifacts/wf/wf_fold${process.env.FOLD}.md`;
+            let body = `**flip-override-walkforward** — fold ${process.env.FOLD}\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n`;
+            body += fs.existsSync(f)
+              ? '```\n' + fs.readFileSync(f, 'utf8').slice(0, 50000) + '\n```'
+              : 'No markdown result was produced — see the run log and the job summary.';
+            body += '\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number, body,
+            });
