@@ -12795,7 +12795,7 @@
       "why_critical": "Not critical -- nothing trades on it. But it degrades the exact tool a session reaches for to answer 'is the trader healthy', and it does so in the direction that HIDES a real problem: a genuinely stale heartbeat and a genuinely missing process both look the same as this. The pid lookup also silently drops the DATA_DIR env dump, which is the part that would diagnose a path-bifurcation incident -- the very failure class status-check grew that section for.",
       "next_action": "Fix the pid lookup (resolve via `systemctl show -p MainPID ict-trader-live.service`, which is what get_env.py already does correctly and reliably -- do not re-derive a pgrep pattern). Make the failure three-state so 'unit reports no MainPID' is distinguishable from '/proc read denied'. Either drop the repo-path heartbeat line or label it '(legacy pre-cutover path -- NOT the live heartbeat; see the heartbeat section above)'. Tier 1.",
       "related": [
-        "BL-20260811-TRAINER-RELAY-BLAMES-THE-VM-WHEN-ONLY-THE-REQUEST-FAILED"
+        "BL-20260811-TRAINER-RELAY-BLAMES-THE-VM-WHEN-ONLY-THE-COMMENT-POST-FAILED"
       ],
       "resolution_criteria": "A status-check run whose runtime-data path diagnostic actually resolves the trader PID and dumps its DATA_DIR env, and whose output cannot be read as reporting a stale heartbeat when the live one is fresh."
     }
