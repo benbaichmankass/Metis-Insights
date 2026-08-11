@@ -94,9 +94,21 @@ def measurement_key(row: dict) -> tuple:
     live parity are two different measurements. `None` (a run predating the
     field) keys distinctly from every known geometry rather than merging into
     one — an unknown book is its own state, not the current book.
+
+    `regime_router` joins it for exactly the same reason, one axis over (added
+    2026-08-11): the same cell measured with the hard gate off and with it on are
+    two different books for any policy-named leg, and merging them would average
+    a gated and an ungated measurement under one label. `None` (a run predating
+    the field) again keys distinctly rather than being assumed `"off"` — even
+    though every run to date WAS off, asserting that of a row we never recorded
+    is the substitution this field exists to stop.
+
+    `regime_gate_delta` is deliberately NOT in the key: it describes how the base
+    compares to the CURRENT live policy, not what the run measured, so a policy
+    edit must not retroactively split rows that measured the same book.
     """
     return (row.get("kind"), row.get("leg"), row.get("cell"),
-            row.get("split"), row.get("tp_cap_pct"))
+            row.get("split"), row.get("tp_cap_pct"), row.get("regime_router"))
 
 
 def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
@@ -108,6 +120,29 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
     # geometry, which would silently relabel a legacy no-TP measurement as
     # live-parity and merge two different books under one key.
     tp_cap = doc.get("tp_cap_pct")
+    # WHICH REGIME BOOK this run measured. A run predating the field records
+    # None — the same discipline as `tp_cap_pct` directly above, and for the same
+    # reason: a legacy row must not be relabelled with the current run's state.
+    # `"off"` means the harness ran with REGIME_ROUTER_DISABLED=1, i.e. the base
+    # book is the UNGATED book while the live router is baseline-on.
+    regime_router = doc.get("regime_router")
+    # Per-leg gate delta. The sweep stamps it onto each verdict, but SKIPPED legs
+    # never reach `verdicts`, so it is also derivable here from the doc-level
+    # off-leg list. Three states preserved end-to-end: None on a legacy run (the
+    # field did not exist), "unknown" when the run could not read the policy,
+    # "none"/"narrower_live" otherwise.
+    _off = doc.get("regime_policy_off_legs")
+    _readable = doc.get("regime_policy_readable")
+
+    def _gate_delta(leg: str, stamped: object = None) -> str | None:
+        if isinstance(stamped, str):
+            return stamped
+        if regime_router is None and _readable is None:
+            return None                       # legacy run: the field did not exist
+        if not _readable:
+            return "unknown"                  # the run looked and could not read it
+        return "narrower_live" if leg in (_off or []) else "none"
+
     verdicts = doc.get("verdicts") or {}
 
     # Legs the planner skipped never reach `verdicts` at all. They are part of
@@ -115,6 +150,8 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
     for s in doc.get("skipped") or []:
         out.append({"kind": "leg_status", "run_id": run_id,
                     "sweep_generated_at": gen, "split": split, "tp_cap_pct": tp_cap,
+                    "regime_router": regime_router,
+                    "regime_gate_delta": _gate_delta(str(s.get("leg"))),
                     "leg": s.get("leg"), "cell": None,
                     "leg_status": "skipped", "leg_status_why": s.get("reason")})
 
@@ -125,6 +162,9 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
             out.append({"kind": "leg_status", "run_id": run_id,
                         "sweep_generated_at": gen, "split": split,
                         "tp_cap_pct": tp_cap, "leg": leg, "cell": None,
+                        "regime_router": regime_router,
+                        "regime_gate_delta": _gate_delta(
+                            leg, v.get("regime_gate_delta")),
                         "leg_status": v.get("status") or "no_levers",
                         "leg_status_why": v.get("error")})
             continue
@@ -139,6 +179,13 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
         leg_common = {
             "run_id": run_id, "sweep_generated_at": gen, "split": split,
             "tp_cap_pct": tp_cap, "leg": leg, "proxy": v.get("proxy"),
+            # WHICH REGIME BOOK the base figures below describe. `narrower_live`
+            # means the live gate refuses trades this base includes, so
+            # `base_net_r_*` / `base_rate_*` — and Path B's tolerance derived from
+            # them — are NOT statements about the book production trades. The
+            # per-cell deltas are unaffected (both arms share this base).
+            "regime_router": regime_router,
+            "regime_gate_delta": _gate_delta(leg, v.get("regime_gate_delta")),
             "base_book_present": base_present,
             "cells_tried": sel.get("cells_tried"),
             "cells_withheld_inert": sel.get("cells_withheld_inert"),

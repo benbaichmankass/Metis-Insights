@@ -239,3 +239,71 @@ def test_total_pnl_measured_present_and_zero_on_empty(tmp_path):
     consumer never has to guess whether it's missing."""
     assert _agg(tmp_path, [])["totalPnlMeasured"] == 0.0
     assert _empty("7d", None, error=True)["totalPnlMeasured"] == 0.0
+
+
+# --- The per-strategy pair must be RECONCILABLE (2026-08-11) ----------------
+#
+# Found by reading the LIVE payload, not the code: two of 51 strategy rows on
+# the real book returned `pnlCoverage: 0.0` beside a NON-ZERO
+# `totalPnlMeasured`, with no published field able to explain it.
+#
+#   trend_donchian_avax_4h  cov 0.0  measured -5415.1698  totalPnl -5415.1698
+#   pairs_bnb_btc_a         cov 0.0  measured    -2.9610  totalPnl  -211.0840
+#
+# Both are CORRECT: the count is MEASURED-only, the sum is MEASURED+ESTIMATED,
+# and the R4 gate depends on that asymmetry. But with `pnlEstimatedCount`
+# unpublished at this level the only available inference was "the measured sum
+# falls back to the raw sum" — which the SECOND row disproves, and which is why
+# one row would not have been enough to diagnose it. Hence both shapes below.
+
+
+def test_per_strategy_all_estimated_is_reconcilable(tmp_path):
+    """The avax shape: every row ESTIMATED, so the measured sum equals totalPnl
+    while coverage is 0.0. `pnlEstimatedCount` is the field that makes that
+    readable instead of looking like a fallback bug."""
+    agg = _agg(tmp_path, [
+        ("est_only", "AVAXUSDT", -2707.5849, "candle_at_close"),
+        ("est_only", "AVAXUSDT", -2707.5849, "candle_at_close"),
+    ])
+    s = {x["name"]: x for x in agg["perStrategy"]}["est_only"]
+    assert s["pnlMeasuredCount"] == 0
+    assert s["pnlCoverage"] == 0.0
+    # the sum is non-zero AND equals totalPnl — the shape that read as a fallback
+    assert s["totalPnlMeasured"] == pytest.approx(-5415.1698)
+    assert s["totalPnl"] == pytest.approx(-5415.1698)
+    # ...and THIS is what explains it. Absent before 2026-08-11.
+    assert s["pnlEstimatedCount"] == 2
+
+
+def test_per_strategy_mixed_estimated_sum_differs_from_total(tmp_path):
+    """The pairs shape: ESTIMATED + FABRICATED, so the measured sum does NOT
+    equal totalPnl at coverage 0.0. This is the row that rules out 'fallback'."""
+    agg = _agg(tmp_path, [
+        ("mixed", "BNBUSDT", -2.961, "candle_at_close"),
+        ("mixed", "BNBUSDT", -208.123, "local_markprice"),
+    ])
+    s = {x["name"]: x for x in agg["perStrategy"]}["mixed"]
+    assert s["pnlMeasuredCount"] == 0
+    assert s["pnlCoverage"] == 0.0
+    assert s["pnlEstimatedCount"] == 1
+    assert s["totalPnlMeasured"] == pytest.approx(-2.961)
+    assert s["totalPnl"] == pytest.approx(-211.084)
+    # the two differ — so the sum is a real subset, not a copy of the raw total
+    assert s["totalPnlMeasured"] != pytest.approx(s["totalPnl"])
+
+
+def test_per_strategy_counts_never_exceed_trades(tmp_path):
+    """measured + estimated <= trades, on every row. A count that outran its own
+    denominator would be the unasserted-denominator defect in the field added to
+    prevent it."""
+    agg = _agg(tmp_path, [
+        ("a", "BTCUSDT", 5.0, "bybit_closed_pnl"),
+        ("a", "BTCUSDT", -1.0, "candle_at_close"),
+        ("a", "BTCUSDT", 9000.0, "local_markprice"),
+        ("b", "ETHUSDT", 2.0, "candle_at_close"),
+    ])
+    assert agg["perStrategy"], "no strategy rows to check"
+    for s in agg["perStrategy"]:
+        assert s["pnlMeasuredCount"] + s["pnlEstimatedCount"] <= s["trades"], s
+    a = {x["name"]: x for x in agg["perStrategy"]}["a"]
+    assert (a["trades"], a["pnlMeasuredCount"], a["pnlEstimatedCount"]) == (3, 1, 1)

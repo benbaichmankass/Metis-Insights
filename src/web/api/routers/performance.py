@@ -337,7 +337,7 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         bucket = per.setdefault(
             name,
             {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0,
-             "r": 0.0, "rc": 0.0, "pnl_measured": 0.0},
+             "r": 0.0, "rc": 0.0, "pnl_measured": 0.0, "pnl_estimated": 0.0},
         )
         bucket["trades"] += 1
         if pnl > 0:
@@ -345,6 +345,10 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         bucket["pnl"] += pnl
         if pnl_bucket == MEASURED:
             bucket["pnl_measured"] += 1
+        elif pnl_bucket == ESTIMATED:
+            # Counted SEPARATELY and published, because the count and the sum
+            # below are over DIFFERENT populations (see the per-strategy dict).
+            bucket["pnl_estimated"] += 1
         if pnl_is_measured:
             bucket["pnl_measured_sum"] += pnl
         if rr is not None:
@@ -406,7 +410,27 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             # Per-strategy PnL provenance. This is the field that must be read
             # BEFORE tuning a strategy: a bucket at pnlCoverage 0.0 is being
             # judged entirely on manufactured money.
+            #
+            # ⚠️ THE COUNT AND THE SUM ARE OVER DIFFERENT POPULATIONS, ON PURPOSE.
+            # `pnlCoverage`/`pnlMeasuredCount` are MEASURED-only (the canonical
+            # `provenance.coverage` population — ESTIMATED is deliberately NOT
+            # "covered"); `totalPnlMeasured` above sums MEASURED **and** ESTIMATED.
+            # The R4 gate depends on exactly that asymmetry — a MEASURED-only
+            # floor decides whether the wider measured sum is trustworthy at all
+            # (`research_results_gate.leg_verdict`) — so neither definition is a
+            # bug and neither may be "harmonised" to match the other.
+            #
+            # `pnlEstimatedCount` is published so the pair is RECONCILABLE. It was
+            # missing until 2026-08-11, and its absence made a correct row read as
+            # a broken one: `trend_donchian_avax_4h` returned `pnlCoverage: 0.0`
+            # beside `totalPnlMeasured: -5415.17` (both rows ESTIMATED, so the sum
+            # equalled `totalPnl` exactly) and the only available inference was
+            # "the measured sum is falling back to the raw sum" — which is false.
+            # A second row, `pairs_bnb_btc_a`, showed 0.0 coverage with a measured
+            # sum that did NOT equal totalPnl (-2.961 vs -211.08), which is what
+            # ruled that inference out. Two of 51 strategy rows on the live book.
             "pnlMeasuredCount": int(b["pnl_measured"]),
+            "pnlEstimatedCount": int(b["pnl_estimated"]),
             "pnlCoverage": (
                 round(b["pnl_measured"] / b["trades"], 4) if b["trades"] else None
             ),

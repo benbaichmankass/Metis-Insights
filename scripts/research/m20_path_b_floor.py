@@ -230,6 +230,31 @@ def analyse(rows: list[dict], axis: str, direction: str = "floor") -> dict:
     pop["axis_is_derived"] = axis in DERIVED_AXES
     pop["direction"] = direction
     pop["legs_represented"] = len({r.get("leg") for r, _, _ in usable})
+    # HOW MUCH OF THIS POPULATION HAS AN UNGATED BASE BOOK (added 2026-08-11).
+    #
+    # Every axis here is derived from the base book (`base_rate` is net_R per
+    # drawdown OF THE BASE), and the sweep measures that base with the regime
+    # hard gate OFF while the live router is baseline-on. For a leg named in
+    # `config/regime_policy.yaml` the base therefore includes trades production
+    # refuses, so its predictor value describes a book the live leg never trades.
+    #
+    # REPORTED, never silently excluded — the `rCoverage`/`pnlCoverage`
+    # discipline: transparency, not a quiet population change. A verdict that
+    # dropped these rows without saying so would be selection over an unstated
+    # denominator, which is the thing this whole script exists to refuse.
+    #
+    # Three states, because a corpus predating the field must not read as "none
+    # are gated": None = not recorded on these rows, else the real count.
+    deltas = {r.get("regime_gate_delta") for r, _, _ in usable}
+    if deltas == {None}:
+        pop["cells_ungated_base"] = None
+        pop["legs_ungated_base"] = None
+        pop["ungated_base_why"] = "regime_gate_delta not recorded on this corpus"
+    else:
+        ung = [r for r, _, _ in usable if r.get("regime_gate_delta") == "narrower_live"]
+        pop["cells_ungated_base"] = len(ung)
+        pop["legs_ungated_base"] = len({r.get("leg") for r in ung})
+        pop["ungated_base_why"] = None
 
     out: dict = {"population": pop, "alpha_is_a_convention": ALPHA,
                  "min_arm": MIN_ARM, "grid": [], "verdict": None,
@@ -411,6 +436,19 @@ def render(res: dict) -> str:
          f"- walk-forwarded: **{p['cells_walkforwarded']}**, "
          f"of which missing `{p['axis']}`: **{p['cells_missing_axis']}**",
          f"- **analysed: {p['analysed']}** across **{p['legs_represented']}** legs"]
+    # WHICH BOOK the predictor describes. Printed unconditionally — a reader must
+    # never have to know to ask, and "not recorded" is itself an answer.
+    if p.get("cells_ungated_base") is None:
+        L.append(f"- ungated-base share: **not recorded** "
+                 f"({p.get('ungated_base_why') or 'field absent'}) — the sweep runs "
+                 "the harness at `--regime-router off` while the live router is "
+                 "baseline-on, so a policy-named leg's base includes trades "
+                 "production refuses")
+    else:
+        L.append(f"- ungated base book (live gate would narrow it): "
+                 f"**{p['cells_ungated_base']} cells / {p['legs_ungated_base']} legs** "
+                 "— reported, NOT excluded; their axis value describes a book the "
+                 "live leg does not trade")
     d = res.get("axis_distribution")
     if d:
         L += ["", f"`{p['axis']}` over the analysed cells: min {d['min']} · "

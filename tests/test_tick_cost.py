@@ -299,3 +299,75 @@ def test_main_tick_hook_is_inert_when_the_measurement_module_is_unimportable():
         else:
             sys.modules.pop("src.runtime.tick_cost", None)
     assert ran == ["body", "still ran"]
+
+
+# ---------------------------------------------------------------------------
+# NESTED hooks must not be double-counted into the coverage figure
+#
+# Found by reading the live payload on 2026-08-11, the first read after the
+# 14-phase monitor split deployed: `attributed_pct` came back **136.8%** — a
+# share of a whole exceeding the whole. The flat sum was correct while every wrap
+# was a sibling and became wrong the moment `monitor.*` children were added under
+# one of them. `100 - attributed_pct` was documented as "every other hook
+# COMBINED"; at 136.8% that read as -36.8% of uninstrumented time.
+#
+# Worth pinning hard because the >100% case is the LUCKY one — it is impossible on
+# its face. A double-count landing at 95% would have read as excellent coverage.
+# ---------------------------------------------------------------------------
+
+def test_attributed_pct_excludes_nested_children(monkeypatch):
+    """A child's time is already inside its parent's; counting both is the bug."""
+    import time
+    tc._reset_for_tests()
+    for _ in range(3):
+        tc.begin_tick()
+        with tc.hook("parent"):
+            with tc.hook("parent_thing.child_a"):
+                time.sleep(0.01)
+            with tc.hook("parent_thing.child_b"):
+                time.sleep(0.01)
+        tc.end_tick()
+    s = tc.snapshot()
+    # the whole tick is inside `parent`, so coverage is ~100 and CANNOT exceed it
+    assert s["attributed_pct"] <= 100.0, s["attributed_pct"]
+    assert s["attributed_pct"] > 50.0, s["attributed_pct"]
+    # the children are still REPORTED — excluded from the denominator, not hidden
+    assert s["hooks"]["parent_thing.child_a"]["n"] == 3
+    assert s["hooks"]["parent_thing.child_b"]["n"] == 3
+    assert s["nested_hooks"] == 2
+
+
+def test_flat_block_reports_zero_nested_and_agrees_with_its_hooks(monkeypatch):
+    """With no children the two views must agree exactly — otherwise the
+    exclusion rule is silently dropping a top-level hook."""
+    import time
+    tc._reset_for_tests()
+    for _ in range(2):
+        tc.begin_tick()
+        with tc.hook("a"):
+            time.sleep(0.01)
+        with tc.hook("b"):
+            time.sleep(0.01)
+        tc.end_tick()
+    s = tc.snapshot()
+    assert s["nested_hooks"] == 0
+    flat = sum(h["mean_ms"] for h in s["hooks"].values())
+    assert flat == pytest.approx(s["hooks_attributed_mean_ms"], rel=0.02)
+
+
+def test_a_child_keeps_its_own_share_of_total(monkeypatch):
+    """`pct_of_total` is per-hook and stays valid for a child — the child really
+    did consume that share. Only SUMMING parents with children is invalid."""
+    import time
+    tc._reset_for_tests()
+    for _ in range(3):
+        tc.begin_tick()
+        with tc.hook("parent"):
+            with tc.hook("parent_thing.child"):
+                time.sleep(0.02)
+        tc.end_tick()
+    s = tc.snapshot()
+    child = s["hooks"]["parent_thing.child"]["pct_of_total"]
+    parent = s["hooks"]["parent"]["pct_of_total"]
+    assert child is not None and parent is not None
+    assert 0.0 < child <= parent + 1.0, (child, parent)

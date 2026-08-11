@@ -155,6 +155,78 @@ positions. Measure first, then design the memo around that contract explicitly.
 
 ---
 
+## 4b. THE SPLIT DEPLOYED — the prediction holds, but is wrong about dominance
+
+Merged `2a289dd`, trader restarted 14:15:35Z, read at 14:28Z. **n = 3 ticks**, so
+every number here is provisional — a max over 3 ticks is not the claim a max over
+3000 is, and I am not going to pretend otherwise. What *is* robust at n=3 is the
+**ordering**, because the top gap is ~4×, not 10%.
+
+**The monitor's 44.2 s, split (mean ms, n=3):**
+
+| phase | mean ms | share of monitor |
+|---|--:|--:|
+| **`strategy_monitor_loop`** | **19,636** | **44.4%** |
+| `reconcile_open_trades` | 5,131 | 11.6% |
+| `check_broker_naked_equity_positions` | 4,658 | 10.5% |
+| `reconcile_orphan_exchange_positions` | 3,705 | 8.4% |
+| `check_broker_naked_ib_positions` | 3,701 | 8.4% |
+| `check_broker_naked_bybit_positions` | 2,633 | 6.0% |
+| `watchdog_stuck_strategies` | 2,317 | 5.2% |
+| `reconcile_netting_partial_closes` | 2,033 | 4.6% |
+| the other 6 phases, combined | 225 | 0.5% |
+
+The 14 phases sum to **44,038 ms against the parent's 44,248 ms — 99.5%**, so the
+split is essentially complete; only 210 ms of the monitor is unattributed.
+
+**Verdict on § 4's prediction: the four DB-only phases came back cheap as predicted
+(225 ms combined, all six sub-250 ms), and all three `account_open_positions` phases
+are in the top seven — so the hypothesis is not refuted. But it is WRONG about
+dominance, which is what it was for.** The three predicted phases total **11,152 ms
+= 25.2%** of the monitor. `strategy_monitor_loop` alone is **19,636 ms = 44.4%** —
+**1.76× the three combined**, and § 4 never named it. A perfect `account_open_positions`
+memo cannot touch it.
+
+So the honest read: **the memo is worth a few seconds, not the lever.** It stays
+worth doing (a third of ~11 s, bounded by the fact that those phases also do DB work,
+so well under 7 s) and its collapsed-state hazard in § 4 is unchanged — but the first
+question is now *what is the per-strategy loop spending 19.6 s on*, which this split
+does not answer because the loop is wrapped as one phase.
+
+**Correction to § 2's margin, from a bigger sample.** A pre-restart read at **n=123**
+(vs the original 18) put the monitor's max at **54,537 ms**, not 52,828 ms:
+
+```
+tick total      mean 106,555 ms   max 135,648 ms      (123 ticks, one process)
+  run_one_tick  mean  56,614 ms   max  92,388 ms   53.1%
+  order_monitor mean  48,215 ms   max  54,537 ms   45.2%
+```
+
+So decoupling clears 60 s by **5.5 s, not 7 s — 9% headroom, not 13%.** More data
+made the margin *thinner*, which is what a max does as its sample grows. That
+strengthens § 3's "must ship with a budget" rather than weakening it, and it means
+60 s should not be treated as safely cleared on any sample this size.
+
+### 4c. A defect in this instrumentation, found by reading its own output
+
+The first post-deploy read returned **`attributed_pct: 136.8`** — a share of a whole
+exceeding the whole. `snapshot()` summed **all** hooks flat to compute coverage,
+which was correct while every wrap was a sibling (`run_one_tick` + `order_monitor`)
+and became wrong the moment `monitor.*` children were added *underneath one of
+them* — by me, the day before, without touching that function. `100 − attributed_pct`
+is documented as "every other hook COMBINED"; at 136.8% it read as **−36.8%**.
+
+Fixed: the coverage denominator now counts **top-level hooks only** (a dotted name is
+a child), and `nested_hooks` is published so a reader can see why the listed means do
+not add up to it. Reproduced at **199.5%** on a planted two-child case before the fix.
+
+Worth stating plainly: **>100% is the lucky version of this bug.** It is impossible on
+its face, so it announced itself. A double-count that had landed at 95% would have
+read as excellent coverage and been believed — which is exactly the shape § 4c of the
+sibling brief describes, and it happened inside the field built to prevent it.
+
+---
+
 ## 5. What is NOT claimed here
 
 - **Not** that 104 s is the steady state. 18 ticks, one process, one 49-minute window.
