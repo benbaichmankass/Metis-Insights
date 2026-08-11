@@ -12343,7 +12343,7 @@
       "id": "BL-20260810-CONVICTION-SIZING-APPLY-LIVE-VS-DOC",
       "opened_at": "2026-08-10T09:50:00+00:00",
       "opened_by": "claude (system-review 2026-08-10, soak audit)",
-      "status": "open",
+      "status": "resolved",
       "severity": "low",
       "tier": 1,
       "title": "CLAUDE.md's CONVICTION_SIZING_MODE row is STALE — it says off/annotate while ROADMAP.md records the operator-approved 2026-08-05 apply/reductive/bybit_1 flip. Config is correct; the doc is not.",
@@ -12378,7 +12378,9 @@
           "evidence_based": true,
           "note": "Operator directed building the read surface now rather than backlogging it, so the verification can actually be closed. Shipped `get-env` as a Tier-1 read-only system-action (scripts/ops/get_env.py + get_env_action.sh, wired into system-actions.yml + docs/claude/system-actions.md).\n\nIt reports BOTH /proc/<MainPID>/environ (authoritative — what the running process holds) and the unit's systemd-declared EnvironmentFiles (what the next restart picks up), flagging a mismatch as `pending_restart`. Four states per source, never collapsed: set / set_empty / unset / unreadable — `set_empty` vs `unset` being the load-bearing pair for THIS item, since an empty CONVICTION_SIZING_ACCOUNTS means ALL accounts including real money. Agreement is asserted only when both sides were readable (`undetermined` otherwise), so a failed measurement cannot manufacture a finding. Fixed key allowlist, no freeform input; secret-NAMED keys are fingerprinted and never printed because the action's stdout is commented onto a PUBLIC issue.\n\nVerified the self-test catches a positive: planting the exact defect it exists to catch (collapsing set_empty into unset) makes it FAIL, exit 1. Also confirmed the mechanism is reachable — scripts/ops/status_check.sh already reads /proc/<TRADER_PID>/environ successfully over the same relay, it just greps four hardcoded path vars and so could never answer this key.\n\nSTILL NOT VERIFIED: the live CONVICTION_SIZING_ACCOUNTS value. The system-actions workflow dispatches from the DEFAULT BRANCH and the wrapper runs from the VM's checkout, so `get-env` is only usable once this lands on main and ict-git-sync pulls it. That is a sequencing constraint, not a new blocker."
         }
-      ]
+      ],
+      "resolved_at": "2026-08-10T22:10:00+00:00",
+      "resolution": "RESOLVED — VERIFIED, not inferred. get-env run #8755 read the live trader and returned CONVICTION_SIZING_ACCOUNTS = 'bybit_1' on BOTH sides (process /proc/<MainPID>/environ AND the unit's declared env, agreement='agree', so not a pending-restart artifact), alongside CONVICTION_SIZING_MODE='apply' and CONVICTION_SIZING_DIRECTION='reductive'.\n\nThat matches ROADMAP.md M16 exactly: the reductive apply path is live and DEMO-ONLY. Real-money bybit_2 is NOT in scope, and the empty-allowlist hazard (empty = ALL accounts) is not present. The doc half was fixed earlier in the session; this closes the scope half that had been DOCUMENTED but never MEASURED.\n\nPath to the answer, for the record: the read surface did not exist, so it was built (get-env, #8744), its first dispatch failed because ENV_KEY never crossed the SSH boundary (#8753, fixed in #8754), and the retry (#8755) returned the value. Three PRs to read one string — which is the measure of how unreachable it was."
     },
     {
       "id": "BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES",
@@ -12644,6 +12646,25 @@
         "scripts/research/m20_fleet_exit_sweep.py",
         "tests/test_m20_fleet_capital_report.py"
       ]
+    },
+    {
+      "id": "BL-20260810-FLIP-CONFIDENCE-OVERRIDE-LIVE-WITHOUT-RECORD",
+      "opened_at": "2026-08-10T22:15:00+00:00",
+      "opened_by": "claude (system-review 2026-08-10, first successful get-env run)",
+      "status": "open",
+      "severity": "high",
+      "tier": 3,
+      "title": "FLIP_CONFIDENCE_THRESHOLD=0.15 and FLIP_MIN_POSITION_AGE_HOURS=4.0 are LIVE on the trader — a Tier-3 order-routing override that CLAUDE.md documents as default-off and 'requires operator approval before deploying', with no authorization record I can find",
+      "checked": "checked: issue #8755 (get-env ALL against ict-trader-live.service, reading /proc/<MainPID>/environ AND the unit's declared env) plus CLAUDE.md's env table, docs/research/M26-regime-transition-conflict-DESIGN.md, and comms/reports/daily/20260717T055600Z/report.md",
+      "source": "Surfaced by the first successful run of the new get-env read surface — the exact class of finding it was built to make visible.",
+      "what_to_check": "MEASURED on the live trader, both sides agreeing (so this is not a pending-restart artifact):\n  FLIP_CONFIDENCE_THRESHOLD  process '0.15'  declared '0.15'\n  FLIP_MIN_POSITION_AGE_HOURS process '4.0'  declared '4.0'\n  FLIP_POLICY                 process <unset> declared <unset>  -> defaults to 'hold'\n\nWHAT THE DOCS SAY. CLAUDE.md's env table, verbatim, for FLIP_CONFIDENCE_THRESHOLD: \"Default `0.0` — **disabled, hold-policy behaviour is unchanged**\" and \"**Requires operator approval (Tier-3 order-routing change) before deploying.**\" For FLIP_MIN_POSITION_AGE_HOURS: \"Default `0.0`\".\n\ndocs/research/M26-regime-transition-conflict-DESIGN.md line 45 lists BOTH as \"Dormant flip-override knobs ... built, default-off, Tier-3\" and \"already implemented, NEVER VALIDATED\".\n\nThe 2026-07-17 system report (comms/reports/daily/20260717T055600Z/report.md:19,31) states the threshold \"is 0.0 = disabled\" and RECOMMENDS backtesting a small positive value. So as of 2026-07-17 it was off; it is on now.\n\nWHAT THIS DOES. With FLIP_POLICY at its 'hold' default, an opposing signal is normally refused and the position rides to its stop. These two knobs re-open that path: a new signal whose confidence exceeds the held position's entry confidence by >= 0.15, on a position older than 4h, OVERRIDES the hold and flips (close + reopen opposite). Both conditions must hold, so it is narrow — but it is a live order-routing behaviour on EVERY account including real money, not a demo-scoped one like CONVICTION_SIZING_ACCOUNTS.",
+      "why_critical": "This is a Tier-3 order-path setting whose own documentation says it must not be deployed without operator approval, running with a non-default value. Under 'field beats comment' the field is the truth and the doc gets fixed — but that rule presumes the field's state was INTENDED. A Tier-3 order-routing override is exactly where 'it was already like that' is not an acceptable disposition, because the same reasoning would have accepted the MULTI_SYMBOL_ENABLED and netting-guard regressions.\n\nNote the asymmetry with the sibling finding from the same run: CONVICTION_SIZING_ACCOUNTS came back 'bybit_1', matching ROADMAP.md M16 exactly — authorized, demo-scoped, correct. This one has no such record. That contrast is the argument for the read surface existing at all: one run distinguished a correctly-scoped Tier-3 setting from an unrecorded one, and neither was checkable before tonight.",
+      "limits_of_this_check": "STATED PLAINLY so the next reader does not over-trust it. I searched ROADMAP.md, docs/sprint-logs/*.md and docs/claude/*.md for either variable name and found NOTHING. I did NOT and cannot check: the .env's own edit history (it is not in git), the operator's Telegram/chat history, or any approval given in a session whose log I have not read. So the honest claim is 'no authorization record exists in the repo', NOT 'this was unauthorized'. It may well have been an approved experiment that was never written down — which is itself worth fixing, because an undocumented Tier-3 flip is indistinguishable from an unauthorized one.",
+      "next_action": "OPERATOR DECISION, deliberately not enacted (Tier-3, and the operator is asleep):\n(1) Was this deliberate? If YES -> record it: CLAUDE.md's env table still says default-off/'requires approval before deploying', ROADMAP.md has no entry, and the M26 design doc still calls both knobs dormant and never-validated. All three need correcting, with the approval date and the evidence that cleared the gate.\n(2) If NO -> this is an unauthorized live order-routing change; the rollback is FLIP_CONFIDENCE_THRESHOLD=0.0 via set-env + restart (Tier-2), which restores pure hold-policy behaviour.\n(3) Either way, ask what the M26 design doc asks: has a walk-forward ever validated a positive threshold? The doc says never. A live Tier-3 order-routing knob with no validation behind it is the shape regime-selectivity's 'walk-forward-before-Tier-3' rule exists to prevent.",
+      "related": [
+        "BL-20260810-CONVICTION-SIZING-APPLY-LIVE-VS-DOC"
+      ],
+      "resolution_criteria": "The live value and the canonical docs agree, and the authorization (or the rollback) is recorded."
     }
   ],
   "updated_at": "2026-08-10T01:20:00+00:00",

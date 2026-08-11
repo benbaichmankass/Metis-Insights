@@ -164,3 +164,87 @@ def test_self_test_passes(ge):
     """The script's own embedded self-test, run under pytest so a regression in
     it is caught by CI rather than only by a human remembering to run it."""
     assert ge._self_test() == 0
+
+
+# --- `declared` must include the unit's INLINE Environment=, not just files ---
+#
+# Regression for the first real run (issue #8755): reading only
+# EnvironmentFiles made two inline-pinned keys report `declared: <unset>`
+# against a live process holding a value, and the tool announced a pending
+# restart that did not exist.
+
+
+def test_unit_environment_parsing_handles_systemd_quoting(ge):
+    parsed = ge._parse_unit_environment('A=1 B=two C="three four" D=')
+    assert parsed["A"] == "1"
+    assert parsed["B"] == "two"
+    assert parsed["C"] == "three four", "quoted value with a space was split"
+    assert parsed["D"] == "", "an explicitly-empty inline value is set_empty, not absent"
+
+
+def test_unit_environment_parsing_never_raises_on_bad_quoting(ge):
+    # An unbalanced quote must degrade, not explode — this runs on the live VM.
+    parsed = ge._parse_unit_environment('A=1 B="unterminated')
+    assert parsed.get("A") == "1"
+
+
+def test_inline_pinned_key_is_not_reported_as_a_pending_restart(ge, monkeypatch):
+    """The exact #8755 false positive: process holds 60 from the unit's
+    `Environment=`, the .env says nothing, and that is AGREEMENT, not drift."""
+    monkeypatch.setattr(ge, "_systemctl_show", lambda unit, prop: {
+        "EnvironmentFiles": "/fake/.env (ignore_errors=no)",
+        "Environment": "TICK_INTERVAL_SECONDS=60",
+        "MainPID": "0",
+    }.get(prop))
+    monkeypatch.setattr(ge, "_parse_env_file", lambda path: {})  # .env lacks it
+    declared, _paths, _why = ge.read_file_env("u")
+    assert declared == {"TICK_INTERVAL_SECONDS": "60"}
+
+    monkeypatch.setattr(ge, "read_process_env",
+                        lambda unit: ({"TICK_INTERVAL_SECONDS": "60"}, None))
+    monkeypatch.setattr(ge, "read_file_env", lambda unit: (declared, ["/fake/.env"], None))
+    e = _entry(ge.build_report("u", ["TICK_INTERVAL_SECONDS"]), "TICK_INTERVAL_SECONDS")
+    assert e["agreement"] == "agree", "inline-pinned key still reads as pending_restart"
+    assert e["declared_source"] == "unit_environment"
+
+
+def test_env_file_and_inline_are_both_merged(ge, monkeypatch):
+    monkeypatch.setattr(ge, "_systemctl_show", lambda unit, prop: {
+        "EnvironmentFiles": "/fake/.env (ignore_errors=no)",
+        "Environment": "FROM_UNIT=a",
+    }.get(prop))
+    monkeypatch.setattr(ge, "_parse_env_file", lambda path: {"FROM_FILE": "b"})
+    declared, _p, _w = ge.read_file_env("u")
+    assert declared == {"FROM_FILE": "b", "FROM_UNIT": "a"}
+    src = ge.declared_sources("u")
+    assert src["FROM_UNIT"] == "unit_environment"
+    assert src["FROM_FILE"] == "env_file"
+
+
+def test_a_key_defined_in_both_with_different_values_is_flagged_not_resolved(ge, monkeypatch):
+    """systemd resolves by DIRECTIVE ORDER, which `systemctl show` does not
+    expose. Picking a winner would be a guess dressed as a fact."""
+    monkeypatch.setattr(ge, "_systemctl_show", lambda unit, prop: {
+        "EnvironmentFiles": "/fake/.env (ignore_errors=no)",
+        "Environment": "K=from_unit",
+    }.get(prop))
+    monkeypatch.setattr(ge, "_parse_env_file", lambda path: {"K": "from_file"})
+    assert ge.declared_sources("u")["K"] == "both_conflict"
+
+
+def test_agreeing_definitions_are_not_flagged_as_conflict(ge, monkeypatch):
+    monkeypatch.setattr(ge, "_systemctl_show", lambda unit, prop: {
+        "EnvironmentFiles": "/fake/.env (ignore_errors=no)",
+        "Environment": "K=same",
+    }.get(prop))
+    monkeypatch.setattr(ge, "_parse_env_file", lambda path: {"K": "same"})
+    assert ge.declared_sources("u")["K"] == "both_agree"
+
+
+def test_unit_with_neither_source_is_unreadable_not_empty(ge, monkeypatch):
+    """No Environment= and no EnvironmentFiles is 'nothing declared here' —
+    which must not masquerade as 'every key is unset'."""
+    monkeypatch.setattr(ge, "_systemctl_show", lambda unit, prop: "")
+    declared, _p, why = ge.read_file_env("u")
+    assert declared is None
+    assert why and "no Environment" in why
