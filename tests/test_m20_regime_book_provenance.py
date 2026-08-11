@@ -297,3 +297,51 @@ def test_ungated_rows_are_reported_not_dropped():
         "base_rate_IS", "floor")["population"]
     assert with_flags["analysed"] == bare["analysed"] == 6
     assert with_flags["legs_represented"] == bare["legs_represented"] == 6
+
+
+# --- an unreadable policy is LOUD, not just three-state ----------------------
+#
+# `silent-empty-guard` rejected the original broad `except Exception` here and was
+# right to. Returning None made the STATE honest ("we did not look") while leaving
+# the CAUSE silent: a run whose policy read failed would stamp every leg `unknown`
+# with nothing saying why. Legible-but-unactionable is not good enough.
+
+def test_unreadable_policy_announces_itself_on_stderr(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(sweep, "REGIME_POLICY_PATH", tmp_path / "does_not_exist.yaml")
+    assert sweep._policy_off_legs() is None
+    err = capsys.readouterr().err
+    assert "regime policy unreadable" in err
+    # it must say what the consequence is, not just that something failed
+    assert "unknown" in err and "`none`" in err
+
+
+def test_malformed_policy_is_also_announced(tmp_path, monkeypatch, capsys):
+    """A YAML file that parses to a LIST, not a mapping — reads fine, is unusable.
+    Distinct from the read failure above and must not be mistaken for `none`."""
+    p = tmp_path / "policy.yaml"
+    p.write_text("- not\n- a\n- mapping\n")
+    monkeypatch.setattr(sweep, "REGIME_POLICY_PATH", p)
+    assert sweep._policy_off_legs() is None
+    assert "expected a mapping" in capsys.readouterr().err
+
+
+def test_a_malformed_nested_section_degrades_it_does_not_raise(tmp_path, monkeypatch):
+    """trend_vol as a scalar would have raised past the now-narrow except. The
+    walker is isinstance-guarded at both levels, so it degrades to the sections it
+    CAN read instead of taking the whole sweep down."""
+    p = tmp_path / "policy.yaml"
+    p.write_text("trending:\n  a_leg:\n    long: false\ntrend_vol: nonsense\n")
+    monkeypatch.setattr(sweep, "REGIME_POLICY_PATH", p)
+    off = sweep._policy_off_legs()
+    assert off == {"a_leg"}
+
+
+def test_a_readable_policy_prints_nothing(tmp_path, monkeypatch, capsys):
+    """The happy path stays quiet — an announcement that fires every run is the
+    desensitized-alarm failure mode."""
+    p = tmp_path / "policy.yaml"
+    p.write_text("trending:\n  a_leg:\n    long: false\n")
+    monkeypatch.setattr(sweep, "REGIME_POLICY_PATH", p)
+    assert sweep._policy_off_legs() == {"a_leg"}
+    out = capsys.readouterr()
+    assert out.err == "" and out.out == ""

@@ -312,11 +312,28 @@ def _policy_off_legs() -> set[str] | None:
 
     None (not an empty set) when the policy cannot be read — an unreadable file
     must not be reported as "no leg is gated".
+
+    The exception list is NARROW on purpose, and `silent-empty-guard` was right to
+    reject the broad `except Exception` this started as. Returning `None` made the
+    STATE honest ("we did not look") while leaving the CAUSE silent, so a run whose
+    policy read failed would stamp every leg `unknown` with nothing on stdout
+    saying why — the reader sees a legible state and cannot act on it. Now the
+    three realistic failures of "read a file, parse YAML" are caught by type and
+    **announced**, and anything else propagates: an unexpected exception here is a
+    bug in this function, not a condition to absorb.
     """
     try:
         import yaml
         doc = yaml.safe_load(REGIME_POLICY_PATH.read_text()) or {}
-    except Exception:  # noqa: BLE001 — any read/parse failure is "we did not look"
+    except (OSError, ImportError, yaml.YAMLError) as exc:
+        # LOUD, not silent — the whole point of the guard's objection.
+        print(f"  !! regime policy unreadable ({type(exc).__name__}: {exc}) — "
+              f"every leg's gate delta will be reported `unknown`, NOT `none`",
+              file=sys.stderr)
+        return None
+    if not isinstance(doc, dict):
+        print(f"  !! regime policy is {type(doc).__name__}, expected a mapping — "
+              f"gate deltas will be reported `unknown`", file=sys.stderr)
         return None
     off: set[str] = set()
 
@@ -329,11 +346,15 @@ def _policy_off_legs() -> set[str] | None:
 
     for section in ("trending", "transitional", "chop"):
         scan(doc.get(section))
-    # trend_vol is nested one level deeper: {trend: {vol: {strategy: sides}}}
-    for vols in (doc.get("trend_vol") or {}).values():
-        if isinstance(vols, dict):
-            for strats in vols.values():
-                scan(strats)
+    # trend_vol is nested one level deeper: {trend: {vol: {strategy: sides}}}.
+    # isinstance-guarded at BOTH levels so a malformed file degrades to a smaller
+    # `off` set rather than raising past the narrow except above.
+    trend_vol = doc.get("trend_vol")
+    if isinstance(trend_vol, dict):
+        for vols in trend_vol.values():
+            if isinstance(vols, dict):
+                for strats in vols.values():
+                    scan(strats)
     return off
 
 
