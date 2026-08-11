@@ -306,3 +306,131 @@ def test_unknown_tf_class_is_its_own_state(monkeypatch):
     assert bs._tf_ratio("not_a_strategy", "trend_donchian") is None
     assert bs._m26_tf_class(3.99) == "same_clock"
     assert bs._m26_tf_class(4.0) == "cross_clock"
+
+
+# ---------------------------------------------------------------------------
+# M26 P1 counterfactual arm — restrict the override to one TF class
+# ---------------------------------------------------------------------------
+# The blind arm's measured loss (-$1,280 over 34 fires, run 31523739722) is one
+# number over a MIXED population, and M26 P0 says the split is where the signal
+# lives. These arms make the split an A/B on the same cells instead of a
+# post-hoc PnL attribution, which would need an unverifiable counterfactual per
+# fire. NOTHING LIVE IMPLEMENTS THEM — unrestricted is the deployed shape.
+def test_parse_tf_classes_treats_unrestricted_as_the_live_shape():
+    """None / empty / 'all' must all mean UNRESTRICTED, because that is what
+    production does. A parser that turned an omitted flag into an empty set
+    would silently run a never-fires arm and label it as the live override."""
+    assert bs._parse_tf_classes(None) is None
+    assert bs._parse_tf_classes("") is None
+    assert bs._parse_tf_classes("  ") is None
+    assert bs._parse_tf_classes("all") is None
+    assert bs._parse_tf_classes("cross_clock") == frozenset({"cross_clock"})
+    assert bs._parse_tf_classes("Cross_Clock, same_clock") == frozenset(
+        {"cross_clock", "same_clock"})
+
+
+def test_parse_tf_classes_refuses_an_unknown_class_rather_than_dropping_it():
+    """Silently dropping an unrecognised name would run a DIFFERENT arm than the
+    one requested and report it under the requested label — the unprovenanced-
+    diagnostic shape. Fail loudly instead."""
+    with pytest.raises(ValueError) as e:
+        bs._parse_tf_classes("cross_clock,crossclock")
+    assert "crossclock" in str(e.value)
+
+
+def test_unknown_class_is_never_implied_by_either_real_class():
+    """`unknown` fires only when named EXPLICITLY. Folding it into cross_clock
+    would assert coexistence the run did not measure; folding it into same_clock
+    would assert a transition it did not measure either."""
+    assert bs._tf_class_allowed("unknown", None) is True          # unrestricted
+    assert bs._tf_class_allowed("unknown", frozenset({"cross_clock"})) is False
+    assert bs._tf_class_allowed("unknown", frozenset({"same_clock"})) is False
+    assert bs._tf_class_allowed("unknown", frozenset({"unknown"})) is True
+    assert bs._tf_class_allowed("cross_clock", frozenset({"cross_clock"})) is True
+
+
+def test_matching_class_filter_is_identical_to_the_unrestricted_arm(monkeypatch):
+    """The fixture's conflict is cross_clock (1h vs 5m, ratio 12). Restricting
+    to cross_clock must therefore change NOTHING — a filter that also perturbed
+    the matching case would make the same/cross comparison uninterpretable."""
+    base, roster = _inject_conflict(monkeypatch)
+    blind = _run(base, roster, flip_confidence_threshold=0.15,
+                 flip_min_position_age_hours=4.0)
+    same = _run(base, roster, flip_confidence_threshold=0.15,
+                flip_min_position_age_hours=4.0,
+                flip_confgap_tf_classes=frozenset({"cross_clock"}))
+    assert _ov(blind)["overrides_fired"] >= 1, "positive control did not fire"
+    assert _ov(same)["overrides_fired"] == _ov(blind)["overrides_fired"]
+    assert same["net_pnl"] == pytest.approx(blind["net_pnl"])
+    assert _ov(same)["suppressed_by_tf_filter"] == 0
+
+
+def test_non_matching_filter_suppresses_the_fire_AND_records_that_it_would_have(
+        monkeypatch):
+    """The measurement IS the difference between the two fields.
+
+    Restricting to same_clock on a cross_clock conflict must suppress the fire —
+    and must still record `would_fire_tf_blind`, because a suppressed conflict
+    and one the predicate never wanted are indistinguishable otherwise, and the
+    set of live fires a TF gate would remove is exactly the quantity of interest.
+
+    NOT asserted: that the two arms see the SAME number of would-fire conflicts.
+    They do not, and the first version of this test wrongly demanded it (2 vs 1).
+    Once the blind arm flips, its position history diverges from the suppressed
+    arm's, so the two stop observing the same conflict population — the arm that
+    keeps holding simply meets the still-in-TTL challenger again next bar. That
+    is inherent to any policy A/B (and is stated as a limit in
+    docs/research/flip-override-walkforward-2026-08-11.md), so the cross-arm
+    equality is not a property to test. What IS testable is each arm's INTERNAL
+    consistency, which is what the assertions below check.
+    """
+    base, roster = _inject_conflict(monkeypatch)
+    blind = _run(base, roster, flip_confidence_threshold=0.15,
+                 flip_min_position_age_hours=4.0)
+    other = _run(base, roster, flip_confidence_threshold=0.15,
+                 flip_min_position_age_hours=4.0, attach_full=True,
+                 flip_confgap_tf_classes=frozenset({"same_clock"}))
+    assert _ov(blind)["overrides_fired"] >= 1, "positive control did not fire"
+    # The blind arm's two fields agree by construction — nothing is filtered.
+    assert _ov(blind)["would_fire_tf_blind"] == _ov(blind)["overrides_fired"]
+    assert _ov(blind)["suppressed_by_tf_filter"] == 0
+
+    assert _ov(other)["overrides_fired"] == 0
+    # ...but the run still KNOWS live would have flipped here, and says how often.
+    assert _ov(other)["would_fire_tf_blind"] >= 1
+    assert _ov(other)["suppressed_by_tf_filter"] == _ov(other)["would_fire_tf_blind"]
+    rec = other["flip_conflicts"][0]
+    assert rec["override_fired"] is False
+    assert rec["would_fire_tf_blind"] is True
+    assert rec["suppressed_by_tf_filter"] is True
+    # Suppressed => it behaves as the incumbent `hold`: no confgap exit at all.
+    assert other["by_exit_reason"].get("flip_confgap", 0) == 0
+
+
+def test_a_suppressed_arm_equals_plain_hold(monkeypatch):
+    """The strongest statement of the above: when the filter suppresses every
+    fire, the arm must be the incumbent, not a third thing. If these diverge the
+    filter is doing something beyond gating the override."""
+    base, roster = _inject_conflict(monkeypatch)
+    hold = _run(base, roster)  # arm inert
+    suppressed = _run(base, roster, flip_confidence_threshold=0.15,
+                      flip_min_position_age_hours=4.0,
+                      flip_confgap_tf_classes=frozenset({"same_clock"}))
+    assert suppressed["net_pnl"] == pytest.approx(hold["net_pnl"])
+    assert suppressed["total_trades"] == hold["total_trades"]
+
+
+def test_the_filter_is_declared_in_the_payload(monkeypatch):
+    """A restricted result must never be mistakable for the deployed one, so the
+    arm block states the filter. `None` is the live shape and says so."""
+    base, roster = _inject_conflict(monkeypatch)
+    live_shape = _run(base, roster, flip_confidence_threshold=0.15,
+                      flip_min_position_age_hours=4.0)
+    assert _ov(live_shape)["arm"]["tf_class_filter"] is None
+    restricted = _run(base, roster, flip_confidence_threshold=0.15,
+                      flip_min_position_age_hours=4.0,
+                      flip_confgap_tf_classes=frozenset({"cross_clock"}))
+    assert _ov(restricted)["arm"]["tf_class_filter"] == ["cross_clock"]
+    # The K that defines the split ships too — a reader cannot reproduce the
+    # classification without it.
+    assert _ov(restricted)["arm"]["tf_ratio_k"] == bs._M26_TF_RATIO_K

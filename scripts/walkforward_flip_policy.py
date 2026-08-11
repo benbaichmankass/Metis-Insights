@@ -43,6 +43,7 @@ if str(_REPO_ROOT) not in sys.path:
 # Import after sys.path adjustment so the live aggregator import chain works.
 from scripts.backtest_system import (  # noqa: E402
     _load_candles,
+    _parse_tf_classes,
     generate_signal_stream,
     run_system_backtest,
 )
@@ -91,6 +92,28 @@ POLICIES = ("reverse", "hold", "flat")
 # one chosen after the fact.
 CONFGAP_ARM = "hold_confgap"
 
+# M26 P1 counterfactual arms: the SAME live predicate, restricted to one TF
+# class. NO LIVE CODE PATH IMPLEMENTS THESE -- the deployed override is TF-blind
+# (`CONFGAP_ARM` is the arm that mirrors production). They exist because the
+# blind arm's loss is a single number over a mixed population, and M26 P0 says
+# the split is where the signal lives: same/near-TF conflicts bled -$2.3k held
+# while cross-TF (>=4x) made +$3.5k held. Running the restriction as its own arm
+# answers "is the loss confined to one class?" with an A/B on the same cells,
+# rather than by attributing PnL to conflicts after the fact -- which would need
+# a counterfactual per fire and could not be checked.
+CONFGAP_CROSSCLOCK_ARM = "hold_confgap_crossclock"
+CONFGAP_SAMECLOCK_ARM = "hold_confgap_sameclock"
+
+# Every arm that arms the override predicate. Membership here (not a name
+# comparison) decides whether a cell gets the live threshold/age injected, so
+# adding an arm cannot silently produce a row labelled as the override while
+# running the inert incumbent.
+_CONFGAP_ARMS: Dict[str, Optional[str]] = {
+    CONFGAP_ARM: None,                       # None => unrestricted == the LIVE shape
+    CONFGAP_CROSSCLOCK_ARM: "cross_clock",
+    CONFGAP_SAMECLOCK_ARM: "same_clock",
+}
+
 # Arm name -> (flip_policy, threshold, min_age_hours). `None` threshold/age
 # means "leave at 0" (the override is inert), so the three legacy policies keep
 # byte-identical behaviour.
@@ -99,6 +122,8 @@ _ARM_SPECS: Dict[str, Tuple[str, Optional[float], Optional[float]]] = {
     "hold": ("hold", None, None),
     "flat": ("flat", None, None),
     CONFGAP_ARM: ("hold", None, None),   # thresholds injected from CLI at run time
+    CONFGAP_CROSSCLOCK_ARM: ("hold", None, None),
+    CONFGAP_SAMECLOCK_ARM: ("hold", None, None),
 }
 
 OUT_DIR = _REPO_ROOT / "runtime_logs" / "system_backtest" / "walkforward"
@@ -145,10 +170,15 @@ def _run_cell(base5m, *, fold: str, half: str, roster_name: str, policy: str,
     flip_policy, _, _ = _ARM_SPECS.get(policy, (policy, None, None))
     # Only the confgap arm arms the predicate; every other arm passes 0/0 so the
     # override is inert and the legacy cells stay byte-identical.
-    thr = confgap_threshold if policy == CONFGAP_ARM else 0.0
-    age = confgap_min_age_hours if policy == CONFGAP_ARM else 0.0
+    is_confgap = policy in _CONFGAP_ARMS
+    thr = confgap_threshold if is_confgap else 0.0
+    age = confgap_min_age_hours if is_confgap else 0.0
+    tf_spec = _CONFGAP_ARMS.get(policy) if is_confgap else None
+    tf_classes = _parse_tf_classes(tf_spec)
     print(f"[run ] fold={fold} half={half} roster={roster_name} policy={policy}"
-          f"{f' (gap>={thr} age>={age}h)' if policy == CONFGAP_ARM else ''} ...", flush=True)
+          f"{f' (gap>={thr} age>={age}h' if is_confgap else ''}"
+          f"{f' tf={tf_spec}' if tf_spec else ''}"
+          f"{')' if is_confgap else ''} ...", flush=True)
     out = run_system_backtest(
         base5m, roster=roster, start=start, end=end,
         initial_balance=balance, risk_pct=risk_pct,
@@ -157,6 +187,7 @@ def _run_cell(base5m, *, fold: str, half: str, roster_name: str, policy: str,
         flip_policy=flip_policy,
         flip_confidence_threshold=thr,
         flip_min_position_age_hours=age,
+        flip_confgap_tf_classes=tf_classes,
     )
     cell = Cell(fold=fold, half=half, roster=roster_name, policy=policy,
                 start=start, end=end, summary=out)
@@ -166,23 +197,64 @@ def _run_cell(base5m, *, fold: str, half: str, roster_name: str, policy: str,
     # identical to the incumbent `hold` while it was actively flipping.
     flips = s["by_exit_reason"].get("flip", 0)
     confgap_flips = s["by_exit_reason"].get("flip_confgap", 0)
-    fired = (s.get("evidence", {}).get("flip_override", {}) or {}).get("overrides_fired")
+    ov = (s.get("evidence", {}).get("flip_override", {}) or {})
+    fired = ov.get("overrides_fired")
+    # by_tf_class was CAPTURED by the first production run and never printed, so
+    # the one question M26 P0 calls decisive could not be read off the output at
+    # all (the artifacts were unreachable from a PM-side session). Printing it
+    # per cell is the cheap half of the fix.
+    tfc = ov.get("by_tf_class") or {}
+    tf_str = " ".join(
+        f"{k}={v.get('overrides_fired', 0)}/{v.get('conflicts', 0)}"
+        for k, v in sorted(tfc.items())) or "-"
     print(f"[done] {fold}/{half}/{roster_name}/{policy}  "
           f"net=${s['net_pnl']:.0f}  maxDD={s['max_drawdown_pct']:.2f}%  "
           f"ret/DD={s.get('return_dd_ratio')}  trades={s['total_trades']}  "
-          f"flips={flips}  confgap_flips={confgap_flips}  fired={fired}", flush=True)
+          f"flips={flips}  confgap_flips={confgap_flips}  fired={fired}  "
+          f"suppressed_by_tf={ov.get('suppressed_by_tf_filter')}  "
+          f"tf[fired/conflicts]: {tf_str}", flush=True)
     return cell
 
 
 def _evaluate_pass_criteria(cells: List[Cell]) -> Dict[str, Any]:
-    """Apply the scope doc's pass / fail criteria to the result grid."""
+    """Apply the scope doc's pass / fail criteria to the result grid.
+
+    SCOPED TO WHAT THE RUN ACTUALLY COVERED. Both criteria compare `hold` vs
+    `reverse` -- the MAY 2026 question -- over the full fold x roster grid. A run
+    that does not span that grid cannot answer them, and until 2026-08-11 this
+    function said so by calling them FAILED: it looped over the module-level
+    `FOLDS` and a hardcoded roster regardless of the run, so every absent cell
+    became `missing_cell` and `overall_pass` was False by construction.
+
+    That mattered in production, not in theory. The flip-override walk-forward
+    (run 31523739722) shards ONE FOLD PER JOB for wall-clock, so each job saw the
+    other fold's cells as missing and printed `Overall: FAIL` -- next to a result
+    about a DIFFERENT arm (the confgap override) that the criteria never test.
+    A reader has to already know the harness to discount it, and the ones who do
+    not read a red verdict as the finding.
+
+    So the applicability is now three-state, the same discipline
+    `_m26_tf_class`/`exit_anchor` apply: `pass=True` (tested, met) / `pass=False`
+    (tested, not met) / `pass=None` + `applicable=False` (NOT TESTED -- the arms
+    or rosters this criterion needs were not in the run). "We did not look" and
+    "we looked and it failed" are opposite statements and neither may wear the
+    other's label. `overall_pass` is likewise None when nothing was applicable,
+    never a vacuous True and never a fabricated False.
+    """
     by_key = {(c.fold, c.half, c.roster, c.policy): c for c in cells}
+    ran_folds = sorted({c.fold for c in cells}) or list(FOLDS)
+    ran_policies = {c.policy for c in cells}
+    ran_rosters = {c.roster for c in cells}
+    # Both criteria are hold-vs-reverse tests; without BOTH arms present there is
+    # nothing to compare, whatever else the run measured.
+    hold_reverse_ran = {"hold", "reverse"} <= ran_policies
 
     # Criterion 1: 4-member hold > reverse in NET AND maxDD% across all
     # (fold, half) cells.
     crit1_cells: List[Dict[str, Any]] = []
     crit1_pass = True
-    for fold_id in FOLDS:
+    crit1_applicable = hold_reverse_ran and "4mem" in ran_rosters
+    for fold_id in (ran_folds if crit1_applicable else []):
         for half_id in ("train", "oos"):
             h = by_key.get((fold_id, half_id, "4mem", "hold"))
             r = by_key.get((fold_id, half_id, "4mem", "reverse"))
@@ -207,7 +279,8 @@ def _evaluate_pass_criteria(cells: List[Cell]) -> Dict[str, Any]:
     # both folds (looser test because the 6-member book bleeds anyway).
     crit2_cells: List[Dict[str, Any]] = []
     crit2_pass = True
-    for fold_id in FOLDS:
+    crit2_applicable = hold_reverse_ran and "6mem" in ran_rosters
+    for fold_id in (ran_folds if crit2_applicable else []):
         h = by_key.get((fold_id, "oos", "6mem", "hold"))
         r = by_key.get((fold_id, "oos", "6mem", "reverse"))
         if h is None or r is None:
@@ -223,15 +296,46 @@ def _evaluate_pass_criteria(cells: List[Cell]) -> Dict[str, Any]:
             "reverse_oos_net": r.summary["net_pnl"],
         })
 
+    applicable = [p for a, p in ((crit1_applicable, crit1_pass),
+                                 (crit2_applicable, crit2_pass)) if a]
+    def _blk(ok: bool, applic: bool, cells_: List[Dict[str, Any]],
+             need: str) -> Dict[str, Any]:
+        return {
+            # None, not False: an untested criterion has no verdict.
+            "pass": (ok if applic else None),
+            "applicable": applic,
+            "not_applicable_reason": (None if applic else
+                                      f"run did not include {need}"),
+            "cells": cells_,
+        }
     return {
-        "criterion_1_4member_hold_dominates_reverse": {
-            "pass": crit1_pass, "cells": crit1_cells,
-        },
-        "criterion_2_6member_hold_not_worse_than_reverse_oos": {
-            "pass": crit2_pass, "cells": crit2_cells,
-        },
-        "overall_pass": crit1_pass and crit2_pass,
+        "scope": {"folds_in_run": ran_folds,
+                  "rosters_in_run": sorted(ran_rosters),
+                  "policies_in_run": sorted(ran_policies),
+                  # Stated so a single-fold shard can never read as a full grid.
+                  "is_full_fold_grid": sorted(ran_folds) == sorted(FOLDS)},
+        "criterion_1_4member_hold_dominates_reverse":
+            _blk(crit1_pass, crit1_applicable, crit1_cells,
+                 "both `hold` and `reverse` on the 4mem roster"),
+        "criterion_2_6member_hold_not_worse_than_reverse_oos":
+            _blk(crit2_pass, crit2_applicable, crit2_cells,
+                 "both `hold` and `reverse` on the 6mem roster"),
+        # None => nothing applicable was run. Deliberately not True (which would
+        # be a vacuous pass) and not False (which is the bug this replaces).
+        "overall_pass": (all(applicable) if applicable else None),
     }
+
+
+def _exit_code_for(verdict: Dict[str, Any]) -> int:
+    """Three-state exit, matching the verdict: 0 = passed OR not applicable,
+    2 = genuinely failed.
+
+    Exiting 2 on "nothing to judge" would reproduce the collapsed state one
+    level up, where a caller (a CI step, a workflow) sees only the code and
+    cannot tell an untested criterion from a failed one. Split out of `main`
+    so it is testable without running a walk-forward.
+    """
+    return 2 if verdict.get("overall_pass") is False else 0
 
 
 def _markdown_summary(cells: List[Cell], verdict: Dict[str, Any],
@@ -271,13 +375,40 @@ def _markdown_summary(cells: List[Cell], verdict: Dict[str, Any],
                         f"{ov.get('overrides_fired', '—')} |"
                     )
     lines.append("\n## Verdict\n")
+
+    def _badge(block_or_pass) -> str:
+        """PASS / FAIL / NOT TESTED -- three states, never two.
+
+        A criterion the run could not evaluate renders as NOT TESTED, not FAIL.
+        Rendering it as FAIL is what made every single-fold shard of the
+        flip-override run print `Overall: FAIL` beside a result about a
+        different arm entirely.
+        """
+        ok = (block_or_pass.get("pass") if isinstance(block_or_pass, dict)
+              else block_or_pass)
+        if ok is None:
+            reason = (block_or_pass.get("not_applicable_reason")
+                      if isinstance(block_or_pass, dict) else None)
+            return f"NOT TESTED**{f' — {reason}' if reason else ''}" if reason \
+                else "NOT TESTED"
+        return "PASS" if ok else "FAIL"
+
     c1 = verdict["criterion_1_4member_hold_dominates_reverse"]
     c2 = verdict["criterion_2_6member_hold_not_worse_than_reverse_oos"]
+    scope = verdict.get("scope", {})
+    if scope and not scope.get("is_full_fold_grid", True):
+        lines.append(
+            f"> This run covered folds {scope.get('folds_in_run')} only, so any "
+            f"criterion spanning the full grid is reported NOT TESTED rather "
+            f"than failed.\n")
     lines.append(f"- Criterion 1 (4-member hold dominates reverse, all 4 cells): "
-                 f"**{'PASS' if c1['pass'] else 'FAIL'}**")
+                 f"**{_badge(c1)}**")
     lines.append(f"- Criterion 2 (6-member hold not worse than reverse OOS, both folds): "
-                 f"**{'PASS' if c2['pass'] else 'FAIL'}**")
-    lines.append(f"- Overall: **{'PASS' if verdict['overall_pass'] else 'FAIL'}**")
+                 f"**{_badge(c2)}**")
+    lines.append(f"- Overall: **{_badge(verdict['overall_pass'])}**")
+    lines.append("\n_Both criteria test `hold` vs `reverse` (the May 2026 question). "
+                 "They say NOTHING about the `hold_confgap*` override arms — read "
+                 "those from the per-cell table above._")
     return "\n".join(lines)
 
 
@@ -393,7 +524,7 @@ def main(argv: List[str]) -> int:
     print(f"\nJSON -> {json_path}", file=sys.stderr)
     print(f"MD   -> {md_path}", file=sys.stderr)
     print("\n" + md)
-    return 0 if verdict["overall_pass"] else 2
+    return _exit_code_for(verdict)
 
 
 if __name__ == "__main__":
