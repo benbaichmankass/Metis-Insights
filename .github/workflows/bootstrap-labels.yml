@@ -440,6 +440,11 @@ jobs:
                 color: '0e8a16',
                 description: 'Triggers econ-calendar-survey-backfill — reconstruct the SURVEY-consensus side from FXStreet history, raising M3\'s joinable overlap.',
               },
+              {
+                name: 'flip-override-walkforward-request',
+                color: '5319e7',
+                description: 'Triggers flip-override-walkforward — the live 0.15/4.0 confidence-flip arm vs the incumbent hold.',
+              },
               // NOTE: `econ-event-study-now` is deliberately NOT re-declared here — it is
               // already declared above. A second entry for the same name is DEAD TEXT, not a
               // second declaration: the loop is get-then-skip, so an existing label is left

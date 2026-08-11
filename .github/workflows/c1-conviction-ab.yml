@@ -82,7 +82,16 @@ jobs:
       - name: Install deps
         # `requests` for fetch_backtest_candles.py (Binance-vision fetch — Bybit
         # geoblocks the US runner, so force the vision archive fallback).
-        run: pip install --quiet pyyaml pandas numpy requests
+        #
+        # `pyarrow` added 2026-08-11: backtest_system.py caches its signal
+        # streams to parquet behind a bare `except: pass`, so without an engine
+        # the cache was silently inert and each arm re-derived streams the other
+        # had already built. This workflow was the ONLY CI consumer of that cache
+        # (measured: no other backtest workflow runs backtest_system.py), and the
+        # timing budget reasoned about in the header above was calibrated against
+        # that regenerate-every-time behaviour — expect runs to come in under it
+        # now. See BL-20260811-BACKTEST-SIGNAL-CACHE-SILENTLY-INERT-WITHOUT-PARQUET.
+        run: pip install --quiet pyyaml pandas numpy requests pyarrow
 
       - name: Run the budget-matched net-of-cost A/B
         run: |
