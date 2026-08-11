@@ -1,0 +1,123 @@
+{
+  "request_id": "performance-review-20260811-175000",
+  "reviewed_at": "2026-08-11T17:50:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-08-10T04:37:26+00:00",
+  "window_end": "2026-08-11T17:45:00+00:00",
+  "overall_assessment": "investigate",
+  "_headline": "THE WINDOW CANNOT GRADE ANY STRATEGY, and that is the finding. Of 39 journal rows inspected the exit_reason histogram is {None x26, reconciler_filled x6, pairs_revert x4, pairs_stop x2, netting_attributed x1} -- ZERO clean bracket exits, so ZERO bucket-A gradeable rows. All 14 paper closes are unmeasured (pnlMeasuredCount 0, pnlEstimatedCount 8, pnlUnverifiedCount 6, pnlCoverage 0.0). The paper book's -$226.46 / 21.4% win rate is a RECORD-QUALITY ARTIFACT, not a strategy signal, and must not be read as one. This is the 2026-06-26 shape recurring (docs/audits/order-packages-zero-qty-2026-06-26.md, 0/48 gradeable).",
+
+  "strategy_performance": [
+    {
+      "strategy": "eth_pullback_2h",
+      "account_class": "real_money",
+      "n_decisions": null,
+      "n_filled": 1,
+      "n_closed": 1,
+      "win_rate": 100.0,
+      "pnl_total": 1.2096,
+      "pnl_total_measured": 1.2096,
+      "total_r": 1.0235,
+      "pnl_coverage": 1.0,
+      "bucket_split": {"A": "unverified", "B": 1, "C": 0},
+      "note": "The ONLY real-money close in the window, and the only MEASURED pnl anywhere in it. +$1.21 / +1.02R on a 14-day hold (opened 2026-07-28, closed 2026-08-11T10:05Z). This is also the first real-money close on the leg since the operator-approved Tier-3 trail lever (trail_decay_stall_bars 10 / tight_mult 2.5) deployed 2026-08-10 -- a win, but n=1 says nothing about the lever. Bucket is provisional: the API's closeReason='other' would put it in B, while the M13 cache reports exit_reason='sl_cross' which would make it A. Trade 4134 is below the id range of the journal pull (4542..4580) so I could NOT verify it. Not resolved."
+    },
+    {
+      "strategy": "_paper_book_aggregate",
+      "account_class": "paper",
+      "n_closed": 14,
+      "win_rate": 21.4,
+      "pnl_total": -226.461,
+      "pnl_coverage": 0.0,
+      "max_drawdown": -730.4688,
+      "bucket_split": {"A": 0, "B": 21, "C": 0},
+      "note": "DO NOT USE THESE NUMBERS TO JUDGE ANY STRATEGY. 0 of 14 closes broker-measured; 21 of 21 classified records fall in bucket B (12 unclassified:other + 10 truncated_no_bracket:reconciler over the 22 recoverable rows). Per-strategy paper figures in this window are reconstructions of reconciler closes."
+    },
+    {
+      "strategy": "pairs_sleeve (pairs_sol_eth_a/b, pairs_bnb_btc_a/b)",
+      "account_class": "paper",
+      "n_closed": 6,
+      "pnl_total": -23.66,
+      "pnl_coverage": 0.0,
+      "note": "POSITIVE MECHANICAL FINDING, not a PnL verdict. The sleeve is CLOSING for the first time: 4x pairs_revert + 2x pairs_stop. Before the max_hold_bars fix the soak carried 29 opens and ZERO closes (BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED). Verified from the journal, independent of the soak log. Net -$23.66 at n=6, all unverified/estimated -- directional at best."
+    }
+  ],
+
+  "trade_decision_grades_coverage": {
+    "order_packages_in_window": 26,
+    "graded_this_run": 2,
+    "coverage": 0.077,
+    "why_not_complete": "The /api/bot/order-packages relay payload truncated at ~11KB of 177KB (each signal_logic+meta blob is ~4KB), so only 2 of 26 packages were retrievable with their signal_logic. Grading anchors on signal_logic, so the other 24 are UNGRADED, not graded-clean. Declared rather than left implicit."
+  },
+  "trade_decision_grades": [
+    {"order_package_id": "pkg-0ad6782b432a46ae", "trade_id": "4577", "strategy": "ict_scalp_xrp_15m", "decision_grade": "C", "entry_quality": "acceptable", "exit_quality": "unknown", "risk_management": "correct"},
+    {"order_package_id": "pkg-349cebc854c04ff7", "trade_id": null, "strategy": "tlt_pullback_1h", "decision_grade": "D", "entry_quality": "should_skip", "exit_quality": "unknown", "risk_management": "sl_too_tight"}
+  ],
+
+  "insights_review": [
+    {
+      "severity": "drift",
+      "claim": "M13 summary reports 'Top exit reasons: sl_cross (1)' for the 24h window.",
+      "check": "/api/bot/trades/closed reports closeReason='other' for the same single trade (4134). The journal pull could not adjudicate -- trade 4134 sits below its id range (4542..4580).",
+      "note": "Either the cache reads a different field than the API surfaces, or one of them is wrong. This is not cosmetic: it decides whether the window has 1 gradeable row or 0, and a consumer grading exit quality off closeReason would mis-read it. ONE targeted check settles it: journal exit_reason for trade 4134."
+    },
+    {
+      "severity": "nit",
+      "claim": "M13 grade='good' with win rate 100.0% (1W/0L).",
+      "check": "Matches the real-money block exactly (1 trade, +$1.21). Arithmetic agrees.",
+      "note": "But 'good' over n=1 while the paper book is 0/14-measured is a thin basis for a headline grade. model_id='template:v1' (template renderer, not an LLM), cache_age 616s -- fresh."
+    }
+  ],
+
+  "proposed_tweaks": [
+    {
+      "scope": "config/strategies.yaml::tlt_pullback_1h.tp_r",
+      "current_value": 50.0,
+      "proposed_value": "a real target, or removal of the sentinel",
+      "evidence": "pkg-349cebc854c04ff7: entry 82.255, sl 82.5836, tp 74.1118 -- tp_r=50.0 against risk_per_unit 0.3286 on a 1h bond pullback. A 50R take-profit is a sentinel, not a plan; the leg never reaches it, so the exit is whatever the trail/stop does.",
+      "tier": 3,
+      "risk_note": "Changing tp_r changes realised R distribution and every backtest baseline for this leg. Re-run the leg's config-exact base before/after; do not compare against the corpus, whose base is ungated."
+    },
+    {
+      "scope": "config/strategies.yaml::tlt_pullback_1h.adx_min",
+      "current_value": null,
+      "proposed_value": "an ADX floor (value from a sweep, NOT from this window)",
+      "evidence": "pkg-349cebc854c04ff7 fired in regime='chop' at adx_14 16.39 with adx_min AND adx_max both null -- no trend gate at all. This is exactly the refinement SRQ-20260618-002 exists to add, and the axis is available: ADX resolves and is stamped on 2 of 2 packages read.",
+      "tier": 3,
+      "risk_note": "An ADX floor removes trades; on a leg with no measured record it could remove the only profitable regime. Needs the SRQ-20260618-002 re-sweep FIRST -- do not fit the value from this 37h window."
+    }
+  ],
+
+  "backlog_coverage": {"open_at_start": 55, "triaged": 55, "resolved": 2, "fixed_now": 2, "closed_stale": 0, "kept_open": 51, "count_untriaged": 0},
+  "backlog_drain_summary": "All 55 open items stamped with review_2026_08_11. RESOLVED 2: PB-20260609-002 (the ict_scalp_5m regime_policy cells now EXIST and are the mechanism behind today's P1 refutation) and PB-20260616-002 (ict_scalp_5m live edge verified: 16 trades, 75.0% WR, +$13.53 at pnlCoverage 1.00 -- inverts the item's premise). 10 items re-validated with fresh window evidence; the remaining 43 carry an honest 'no new evidence in this window' with the blocker restated. SRQ queue: 3 of 3 triaged, SRQ-20260618-003 advanced (its requested 15m alternative is now wired and soaking).",
+
+  "paper_book_tracker": null,
+  "_paper_book_tracker_why_null": "NOT RUN. The tracker needs the full bybit_1 closed book as rows JSON; the relay truncates each path at ~18KB, so a full-book pull is unavailable and a partial one would append a snapshot over an unstated population -- the exact defect this review is otherwise reporting. Appending a wrong snapshot to an append-only history is worse than skipping it. Unblock: run scripts/ops/paper_book_tracker.py ON the VM via a system-action, not through the relay.",
+
+  "real_money_allocation_benchmark": {
+    "incumbent": "bybit_2 (real money)",
+    "candidate": "alpaca ETF sleeve via alpaca_paper / alpaca_portfolio proxy",
+    "incumbent_expectancy_r": 1.0235,
+    "candidate_expectancy_r": null,
+    "incumbent_max_dd": 0.0,
+    "candidate_max_dd": null,
+    "correlation_estimate": null,
+    "diversifies": null,
+    "verdict": "does_not_clear",
+    "proposed_action": "Keep the sleeve shelved. Restore alpaca_portfolio buying power before the next review so the benchmark becomes runnable.",
+    "note": "does_not_clear FOR WANT OF A MEASURABLE CANDIDATE, not on the merits -- an important distinction. alpaca_portfolio reads balance=$99,609.11 with available_usd=$53.90 and returned 'risk_refused: sized_qty=0' on the tlt_pullback_1h dispatch: a book that cannot take a position is not an execution proxy, and any correlation/drawdown estimate would be measuring refusals. The incumbent side is also too thin to compare (1 closed trade, n=1, expectancy_r over a single row). Paper-proxy caveat stands regardless: alpaca_live is dry_run and logs packages without filling."
+  },
+
+  "anomalies": [
+    {"severity": "high", "kind": "data_integrity", "note": "Trade 4575 (ict_scalp_sol_5m, bybit_1, ~$169k paper notional) is status='closed' with exit_price=NULL and pnl=NULL, exit_reason='reconciler_filled'. A close with no recorded outcome at all -- not an estimated one, an absent one. It is counted in the 14-trade paper population while contributing no measurable result."},
+    {"severity": "high", "kind": "pipeline_health_ROUTE_TO_HEALTH_REVIEW", "note": "A PRIMARY stuck-package cascade path MISSED and the system said so itself. pkg-0ad6782b432a46ae alerted stuck at 16:28:22Z and was force-closed at 17:24:51Z by the SECOND-LINE sweep (~56 min wedged). The banner's own words: 'a non-zero count means a primary cascade path missed; worth a look.' /health-review owns this file; flagging loudly here because this skill may not write that backlog."},
+    {"severity": "medium", "kind": "capital_utilization", "note": "alpaca_portfolio: balance $99,609.11 vs available_usd $53.90 -- fully deployed, silently refusing every new signal via risk_refused. The paper-portfolio mirror is therefore no longer mirroring the live portfolio's DECISIONS, which breaks its purpose as a proxy for anyone reading it."},
+    {"severity": "medium", "kind": "provenance", "note": "Trade 4577 carries exit_reason='netting_attributed' with a non-null pnl (-$306.04) and cost_source='estimate' on bybit_1 -- i.e. NETTING_ATTRIBUTION_MODE is APPLYing on that account, consistent with the documented 2026-08-06 staging decision, while CLAUDE.md's row still describes the default as 'annotate'. Worth one get-env to confirm process and declared agree; do not infer the global mode from one row."},
+    {"severity": "medium", "kind": "regime_axis", "note": "The FROZEN vol detector is emitting vol_regime='unknown' with rolling_log_return_vol=NULL on 2 of 2 readable packages -- it is not computing the vol series, not merely failing to bucket it. Consequence: a 2-D trend_vol OFF-cell keyed on the frozen label cannot fire for any symbol without an advisory head. Sharpens PB-20260609-001."},
+    {"severity": "low", "kind": "grade_drift_not_assessable", "note": "The A/B-vs-D/F outcome cross-check REQUIRED by this skill could not be run: with 0 bucket-A rows and 2 graded decisions (1 rejected, 1 unmeasured exit), there is no measured-outcome cohort to correlate grades against. Stated rather than reported as 'no drift found'."}
+  ],
+
+  "recommended_action": "Treat this window as UNGRADEABLE and fix the record, not the strategies. Nothing in it supports a strategy tweak, a demote, or a promotion -- and per the underperformance rule, the red paper numbers are a diagnose-trigger whose diagnosis is EXECUTION/RECORD, not strategy capability. Three concrete unblocks, in order: (1) restore alpaca_portfolio buying power (unblocks the recurring allocation benchmark); (2) settle trade 4134's journal exit_reason (decides 1-vs-0 gradeable rows and the M13 drift); (3) route the missed primary stuck-cascade path to /health-review. The two proposed_tweaks are real but BOTH are gated on the SRQ-20260618-002 re-sweep -- do not fit either value from a 37h window.",
+  "operator_attention_required": true,
+  "claude_channel_ping": "/performance-review 08-10..08-11: 26 pkgs, 1 real close +$1.21 (measured), 14 paper closes 0% measured. ZERO gradeable rows (39 journal rows, no bracket exits) - paper -$226 is a record artifact, not strategy. 2 tweaks proposed, 55/55 backlog triaged, 2 resolved. Pairs sleeve now closing."
+}

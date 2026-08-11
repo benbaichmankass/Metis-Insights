@@ -4,6 +4,7 @@
   "items": [
     {
       "id": "SRQ-20260715-REALMONEY-ALLOC-BENCHMARK",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "RECURRING BENCHMARK -- NOT RUNNABLE this window, and the reason IS the finding. The candidate proxy is alpaca_paper/alpaca_portfolio, and alpaca_portfolio is OUT OF BUYING POWER: balance=$99,609.11 with available_usd=$53.90, producing 'risk_refused: sized_qty=0' on the tlt_pullback_1h dispatch. A book that cannot take a position is not a usable execution proxy -- any correlation/drawdown estimate would be measuring refusals. The incumbent side is also too thin: bybit_2 booked 1 closed trade in 24h (+$1.21, +1.02R, measured). Verdict: does_not_clear FOR WANT OF A MEASURABLE CANDIDATE, not on the merits. Unblock = restore alpaca_portfolio buying power."},
       "opened_at": "2026-07-15T06:30:00+00:00",
       "opened_by": "claude (operator directive 2026-07-15)",
       "source": "Operator directive when shelving alpaca_live to dry_run (PR shelve-alpaca-live-dryrun): set the standing bar for putting strategies on live real-money accounts.",
@@ -55,6 +56,7 @@
     },
     {
       "id": "PB-20260707-IBKR-STK-ETF-SUPPORT",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-07T10:55:00+00:00",
       "opened_by": "claude (routing-coverage audit 2026-07-07, operator-directed 'scope the build')",
       "source": "Operator question 2026-07-07: 'check if anything trading on alpaca paper can trade on ibkr paper as well.' Finding: NO, as built. IBClient._build_contract (src/units/accounts/ib_client.py) wires ONLY three FUTURES contracts — MES (CME), MGC + MHG (COMEX) — and raises ValueError for any other symbol; there is ZERO equity/ETF (STK) support anywhere in the IB path (no secType='STK', no Stock() construction). alpaca_paper trades equity ETFs (SPY/QQQ/GLD/IWM/TLT/IEF/SLV/USO/GDX/TQQQ/QLD). So none of the alpaca ETF strategies can run on ib_paper without first building STK support. Operator answer 2026-07-07: 'Yes — scope the build.'",
@@ -141,6 +143,7 @@
     },
     {
       "id": "PB-20260630-002",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-30T20:10:00+00:00",
       "opened_by": "claude (leveraged-etf-research session 2026-06-30, operator directive)",
       "source": "Leveraged Nasdaq-100 ETF research + wiring (docs/research/leveraged-etf-research-2026-06-30.md; PR #5239). tqqq_trend_long_1d (3x) + qld_trend_long_1d (2x) wired to alpaca_paper (PAPER money, execution:live) reusing the trend_donchian unit at the qqq_trend_long_1d params. Backtest on the actual leveraged price series (decay + ~0.95% expense embedded): TQQQ +13.8R / QLD +12.7R OOS 2019-2026, both paper_ready (net-positive + 2x-fee headroom) but NOT every-fold (both took a loss in the 2022-bear fold) — one rung BELOW live_ready. TQQQ beat the live QQQ cell. account_compat_matrix run this session (verdict recorded in the PR / system-review).",
@@ -173,6 +176,7 @@
     },
     {
       "id": "PB-20260630-001",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "RE-VALIDATED: contamination is ONGOING, not historical. htf_pullback_trend_2h closed again this window (trade 4535, BTCUSDT, bybit_1) at -$560.77, pnlProvenance='estimated', journal exit_reason='reconciler_filled' -- a reconciler close, not a bracket hit, so bucket B/C and inadmissible to a win-rate. Of 39 journal rows inspected, ZERO carry a clean bracket exit_reason. The leg stays unassessable for the June-7 reason, now by a live mechanism rather than a one-off mass reconciliation. Blocker: bucket-A rows must accrue."},
       "opened_at": "2026-06-30T09:30:00+00:00",
       "opened_by": "claude (paper-trading-strategies session 2026-06-30)",
       "source": "Diag relay issues #5194 (all-trades pull, first 55K bytes) + #5196 (htf_pullback_trend_2h filtered, 200 rows asc via filter_col=strategy_name). Prompted by the large divergence between bybit_2 live (6 trades, 33.3% WR, +$12.71) and bybit_1 paper (36 trades, 16.7% WR, -$11,987) for htf_pullback_trend_2h.",
@@ -217,6 +221,7 @@
     },
     {
       "id": "PB-20260628-001",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-28T07:15:00+00:00",
       "opened_by": "claude (roadmap-status session 2026-06-28, operator directive)",
       "source": "Follow-up to PB-20260626-001 (alpaca_live undercapitalized, fund to >=$2,000). The operator funded the live Alpaca account with a small amount and added SMALL-TICKET strategies so an order can size >=1 share on a low balance: slv_pullback_1d + gdx_pullback_1d added 2026-06-27 (Tier-3, PR #592a83b), risk_pct raised to 0.02 (2%) on alpaca_live specifically for min-order sizing. Keys are confirmed correct (AK65, HTTP 200 from api.alpaca.markets) - the api_ok:false on /api/bot/accounts/balances is the known misleading balance-read surface (execute.py shouts 'check ALPACA keys' whenever balance() returns None), NOT an auth failure. Verified 2026-06-28 07:00-07:12 UTC: alpaca_live has 0 open + 0 closed trades; last-session SLV audit (2026-06-27 21:30-23:59 UTC) shows only skipped/no_signal rows (no qualifying setup) and ZERO no_fill/sized_qty=0 rejections - so the small-ticket path is wired and NOT blocked by capital; we simply have not yet caught a small-ticket SETUP firing during an open, funded RTH window to confirm a real fill end-to-end.",
@@ -248,6 +253,7 @@
     },
     {
       "id": "PB-20260625-002",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "RE-VALIDATED indirectly and the signal is AMBIGUOUS, which is itself the record. /api/bot/notifications returned count=2 with kinds {all_accounts_failed, stuck_package_sweep} and NO 'orphan_unreconciled' banner. That banner fires on real-money status='orphaned' rows awaiting reconciliation, so either the 26 bybit_2 orphans are reconciled OR the banner is not detecting them. I did NOT distinguish those two this run -- a direct count of real-money orphaned rows is the check. Do not read the absent banner as proof the orphans are gone."},
       "opened_at": "2026-06-25T06:30:00+00:00",
       "opened_by": "claude (orphan-flap #5 historical reconciliation wrap-up)",
       "source": "The reconcile-orphan-history --apply pass on the live trade_journal.db (system-action issue #4516, backup trade_journal.db.reconcile-orphan-bak-20260625T061404Z): 169 orphan-flagged rows across 38 physical positions were collapsed to one canonical each (12 reconciled to their order package, 26 flagged 'unreconciled'), with 131 phantom flap duplicates void-flagged 'superseded'.",
@@ -279,6 +285,7 @@
     },
     {
       "id": "PB-20260625-001",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-25T09:20:00+00:00",
       "opened_by": "claude (prop-trade-pipeline-debug — eth_pullback prop go-live follow-up)",
       "source": "PR #4533 promoted eth_pullback_prop_2h (tp_r 6 / trail 3.5) shadow->live and routed eth_pullback_2h live to the breakout_1 prop account, on the CORRECTED Breakout swap of 0.033%/day (the prior eval used 0.09%/day from an outdated review; Breakout's help centre confirms 0.033%/day). Funded-EV gate at the real rate (config/prop_rulesets/breakout.yaml, 1.5% risk): variant realised post-swap +$421/5y, 12-mo EV +$603 @75.9%, ROI/fees 4.2, walk-forward 4/4 folds, realised break-even swap 0.10%/day (3x headroom); the live exits are +$166, 4/4 folds. Eval: docs/research/eth-pullback-prop-swap-aware-2026-06-25.md (trainer relay #4530/#4532). Deploy confirmed live 2026-06-25 — both legs in /api/bot/strategies loaded_strategies, bot_running.",
@@ -327,6 +334,7 @@
     },
     {
       "id": "PB-20260622-002",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-22T18:10:00+00:00",
       "opened_by": "claude (ETF pullback backtest follow-up)",
       "source": "Surfaced by the PB-20260622-001 backtest (scripts/backtest_pullback.py, net-of-fee @2bps, yfinance daily 2015-01-02..2026-06-18). Across the daily ETF PULLBACK trio (gld/tlt/ief_pullback_1d), a min_confidence floor produced a mild SLEEVE improvement (baseline 167t +67.32R -> min_confidence 0.10 163t +71.85R) that was concentrated almost entirely in TLT: tlt_pullback_1d went 17.60R (exp 0.345) at min_confidence 0.0 -> 25.87R (exp 0.528) at 0.10. GLD/IEF were ~flat to the floor. The trend trio showed no comparable min_confidence benefit. The current config ships min_confidence: 0.0 for the whole sleeve (PB-20260622-001 resolved: keep the sleeve UNFILTERED), so this is the ONE per-symbol exception worth tracking — NOT acted on, deliberately.",
@@ -378,6 +386,7 @@
     },
     {
       "id": "PB-20260617-002",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-17T22:00:00+00:00",
       "opened_by": "claude (S-DTP-EXITPLAN-2026-06-17)",
       "source": "Dynamic-take-profit consistency ExitPlan layer P1-P3 + watcher endpoint shipped observe-only (PRs #3920/#3921/#3922/#3923, main @ 2ebd035). The exit-ladder soak (runtime_logs/exit_ladder_soak.jsonl, also at /api/bot/exit-ladder/soak) now records, per live executed order, the materialized laddered exit (partial-TP rungs + final + stop, sized to the real qty) vs the single SL/TP target actually placed. Nothing reads it back yet.",
@@ -459,6 +468,7 @@
     },
     {
       "id": "PB-20260609-002",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "resolved", "note": "RESOLVED. The cells now EXIST in config/regime_policy.yaml: trend_vol.trending.volatile.ict_scalp_5m {long:false, short:false} and trend_vol.chop.volatile.ict_scalp_5m {long:false, short:false} -- refused outright in both volatile regimes. Verified by reading the config this run, and load-bearing: those two cells are the MECHANISM that refuted PB-20260811-ICTSCALP5M-REALMONEY-NEGATIVE-BOTH-WINDOWS (the -48.88R base was measured with the router OFF; the live gated book is +46.80R over 16 trades at pnlCoverage 1.00). A regression test now anchors on the real file (tests/test_m20_regime_book_provenance.py)."},
       "opened_at": "2026-06-09T21:30:00+00:00",
       "opened_by": "claude (M7 closeout, S-M7-STRATEGY-REVIEW-GATE-2026-06-09 addendum)",
       "source": "M7 packet runs surface every ict_scalp_5m cell with `policy: unknown` because `config/regime_policy.yaml` has no rows for ict_scalp_5m at all. This is intentional default-permissive behavior, but it means the gate can't read per-regime evidence for the strategy.",
@@ -467,7 +477,7 @@
       "tier": 3,
       "trigger_condition": "ict_scalp_5m has ≥30 closed trades distributed across ≥3 (trend, vol) cells.",
       "resolution_criteria": "A Tier-3 PR proposes the ict_scalp_5m block in regime_policy.yaml, citing the per-cell PnL evidence from a recent M7 packet run.",
-      "status": "kept_open",
+      "status": "resolved",
       "snoozed_until": null,
       "updates": [
         "2026-07-20 (/system-review): now have per-regime-cell PnL from the 06-30 M7 packet (18 closed): the only losing cell is trending+volatile (-$8.53/25%); all other cells positive. This is enough signal to draft the regime_policy.yaml 2-D cell block for ict_scalp_5m (trending/volatile OFF) once cell-level n>=30 accrues. Currently execution:shadow so no live exposure. Directly actionable next: cross-check n per (trend,vol) cell and, if >=30 in trending/volatile, propose the OFF cell (Tier-3).",
@@ -486,6 +496,7 @@
     },
     {
       "id": "PB-20260609-001",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "RE-VALIDATED, still open, with a SHARPER diagnosis. Both order packages readable this window stamp vol_regime='unknown' WITH rolling_log_return_vol=null and vol_regime_source='vol-bucket-edges' (tlt_pullback_1h pkg-349cebc854c04ff7; ict_scalp_xrp_15m pkg-0ad6782b432a46ae) -- the FROZEN vol detector is not computing the vol series at all on these legs, not merely failing to bucket it. 2 of 2 packages inspected. Consequence: a 2-D trend_vol OFF-cell keyed on the frozen label cannot fire on a leg whose symbol has no advisory head. Blocker unchanged (trace the detector's null-series path)."},
       "opened_at": "2026-06-09T21:30:00+00:00",
       "opened_by": "claude (M7 closeout, S-M7-STRATEGY-REVIEW-GATE-2026-06-09 addendum)",
       "source": "M7 packet output (final run, issue #3130) shows many cells with `vol: unknown` — packages carry `regime` but null `vol_regime`. The vol axis stamp comes from `src.runtime.regime.vol_detector` which requires frozen `vol_bucket` edges per `(symbol, timeframe)` — htf_pullback_trend_2h's 2h timeframe and ict_scalp_5m's 5m timeframe likely lack edges in `btc-regime-5m-baseline-v1`.",
@@ -619,6 +630,7 @@
     },
     {
       "id": "PERF-20260531-001",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-05-31",
       "created": "2026-05-31",
       "opened_by": "claude (continuation session, SPX re-tune of trend_donchian)",
@@ -701,6 +713,7 @@
     },
     {
       "id": "PERF-20260601-002",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-01T11:00:00+00:00",
       "opened_by": "claude (regime study)",
       "source": "Regime-aware-routing initiative (operator 2026-06-01: complementarity across REGIMES). Relays #2557-#2559; handoff docs/research/session-handoff-2026-06-01.md.",
@@ -816,6 +829,7 @@
     },
     {
       "id": "PERF-20260601-007",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-01T16:30:00+00:00",
       "opened_by": "claude (regime-router phase 2 ship)",
       "source": "Regime router design doc § 5.4. Phase 4 is the soft-weight graduation after hard gates prove out.",
@@ -907,6 +921,7 @@
     },
     {
       "id": "PERF-20260601-010",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-01T19:30:00+00:00",
       "opened_by": "claude (/performance-review)",
       "source": "/performance-review 2026-06-01 — order_packages pull showed vwap AND htf_pullback_trend_2h emitting confidence=1.0 on every package.",
@@ -954,6 +969,7 @@
     },
     {
       "id": "PERF-20260601-011",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "RECURRING TEST RUN, result PARTIAL. Regime stamping IS firing: both readable packages carry regime='chop'/'trending', regime_source='adx-14', numeric adx_14 (16.39 / 25.97); advisory_decision returned action='no_scores' with all three regime heads in excluded_regime, as designed. BUT the VOL axis is dead on these legs -- vol_regime='unknown' on a null series (see PB-20260609-001) -- so a 2-D trend_vol cell keyed on the frozen label cannot resolve, and only a symbol with an advisory head (BTC, SOL) can gate on vol at all. Trend axis verified, vol axis unverifiable. 2 of 2 packages inspected."},
       "opened_at": "2026-06-01T19:45:00+00:00",
       "opened_by": "claude (/performance-review, operator request)",
       "source": "Operator 2026-06-01: after choosing Option 2 for the regime router, asked to log that the gates need to be tested periodically and their performance monitored — folded into the strategy review as a recurring check.",
@@ -1027,6 +1043,7 @@
     },
     {
       "id": "PB-20260611-M15-1",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-11T19:00:00+00:00",
       "opened_by": "claude (M15 soak session)",
       "source": "M15 WS-C alt sweep + k-fold validation (docs/research/m15-ws-c-alt-sweep-2026-06-11.md; trainer #3380/#3381). Operator endorsed the 3-fold gate and adopted eth_pullback_2h ONLY (#3378).",
@@ -1052,6 +1069,7 @@
     },
     {
       "id": "PB-20260611-M15-2",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-11T19:00:00+00:00",
       "opened_by": "claude (M15 soak session)",
       "source": "eth_pullback_2h adopted + deployed 2026-06-11 (#3378/#3403, verified loaded #3408). NOTE: its first two signals (15:30Z/16:04Z shorts) were exchange-rejected on the lot-step bug fixed in #3406 (BL-20260611-002 flavour) — the soak clock effectively starts after that deploy (16:20Z).",
@@ -1080,6 +1098,7 @@
     },
     {
       "id": "PB-20260611-M15-3",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-11T19:00:00+00:00",
       "opened_by": "claude (M15 soak session)",
       "source": "WS-B verdict (docs/research/m15-ws-b-spy-qqq-walkforward-2026-06-11.md) + WS-C ict k-folds (#3418).",
@@ -1105,6 +1124,7 @@
     },
     {
       "id": "PB-20260614-IBMHG-1",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-14T07:30:00+00:00",
       "opened_by": "claude (session close-out — IB position-read fix #3490)",
       "source": "2026-06-14 session investigating the IB integration. trade #2539 (mhg_pullback_1d, ib_paper, 2026-06-12 00:02Z) was journalled exchange_rejected on IBKR Error 10349 (TIF=DAY) but ACTUALLY FILLED — a 3-contract MHG (Micro Copper) paper position exists on ib_paper. The reverse-reconciler has been adopting it as an orphan, closing on a transient disappear, and re-adopting (trades #2540 closed, #2575 open).",
@@ -1152,8 +1172,9 @@
     },
     {
       "id": "PB-20260616-002",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "resolved", "note": "RESOLVED by measurement, and the answer INVERTS the premise. Live real-money, window=all: 16 trades, 75.0% win rate, +$13.53, totalPnlMeasured +$13.53, pnlCoverage 1.00 (16 of 16 rows broker-MEASURED), +46.80R -- the best real-money leg in the 12-row perStrategy list. The 3-yr backtest negativity is explained, not contradicted: the sweep measured the UNGATED book while live refuses both volatile regimes (see PB-20260609-002). Residual: n=16 is thin, so this refutes the concern rather than establishing the leg -- carried as a watch line, not a P1."},
       "title": "Verify ict_scalp_5m live edge — net-negative in 3-yr prop backtest",
-      "status": "kept_open",
+      "status": "resolved",
       "tier": 3,
       "opened_at": "2026-06-16T17:00:00+00:00",
       "opened_by": "claude (Breakout prop POC session 2026-06-16)",
@@ -1183,6 +1204,7 @@
     },
     {
       "id": "PB-20260616-004",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "title": "trend_donchian is +EV on Bybit high-vol alts (SOL/ETH/BNB) — prop candidate validated + WIRED (SOL live long-only, ETH shadow); soak follow-ups remain (Tier-3)",
       "status": "kept_open",
       "tier": 3,
@@ -1241,6 +1263,7 @@
     },
     {
       "id": "PB-20260618-001",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-18T11:45:00+00:00",
       "opened_by": "claude (/performance-review)",
       "source": "/performance-review 06-18 — trades pull (journal table=trades)",
@@ -1308,6 +1331,7 @@
     },
     {
       "id": "PB-20260618-012",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-18T16:20:00+00:00",
       "opened_by": "claude (S-RECOMB-SWEEP)",
       "source": "Direction-1/2 follow-up #2",
@@ -1331,6 +1355,7 @@
     },
     {
       "id": "PB-20260618-013",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-18T22:45:00+00:00",
       "opened_by": "claude (S-CROSS-ASSET-PROBE step 3)",
       "source": "docs/research/cross-asset-feature-probe-2026-06-18.md § 7. Directional cross-asset probe was a WEAK-POSITIVE: +cross-asset lifts ETH 5-bar forward-sign accuracy from a coin-flip 50.6% to 51.5% (leak-free, purged-WF-CV) — a classifier-accuracy edge, NOT yet a demonstrated PnL edge.",
@@ -1354,6 +1379,7 @@
     },
     {
       "id": "PB-20260618-014",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-18T22:45:00+00:00",
       "opened_by": "claude (S-RECOMB-SWEEP follow-up)",
       "source": "docs/research/recombination-sweep-2026-06-18.md. The ADX×family interaction was OOP-validated on the PULLBACK side (eth/sol/xrp/ada/avax) and shipped (S-STRAT-REFINE-0618). The TREND-side recombination survivors were never put through an out-of-pool holdout.",
@@ -1377,6 +1403,7 @@
     },
     {
       "id": "PB-20260618-015",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-18T22:45:00+00:00",
       "opened_by": "claude (S-STRAT-REFINE-0618 watch)",
       "source": "S-STRAT-REFINE-0618: eth_pullback_2h was promoted to bybit_2 REAL MONEY (operator-directed live test) + the ADX>=25 gate ported into the live htf_pullback unit on the 5 bybit_1 paper pullback cells. As of 2026-06-18 evening the market was quiet — no ETH fills on bybit_2 and no ADX-gate rejections observed yet.",
@@ -1410,6 +1437,7 @@
     },
     {
       "id": "PB-20260620-001",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-20T18:00:00+00:00",
       "opened_by": "claude (S-EXPANSION-ETF-BREADTH-2026-06-20 wrap-up)",
       "source": "Expansion-backtesting sprint: the 6 intraday ETF cells (gld/slv/spy/qqq/tlt/uso `_1h`) were wired to alpaca_paper ahead of soak (PRs #4067 intraday pilot + #4069 rollout-2b, both deployed). They have NOT yet been observed producing live paper fills — wired ahead of the next US RTH session.",
@@ -1447,6 +1475,7 @@
     },
     {
       "id": "PB-20260620-002",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-20T18:00:00+00:00",
       "opened_by": "claude (S-EXPANSION-ETF-BREADTH-2026-06-20 wrap-up)",
       "source": "Expansion-backtesting research (docs/research/expansion-backtesting-research-2026-06-20.md § 0c): the funding-carry sleeve (scripts/backtest_funding_carry.py) was investigated and found dormant/regime-dependent — the 2023-24 perp-funding edge had decayed by 2025-26.",
@@ -1526,6 +1555,7 @@
     },
     {
       "id": "PB-20260626-003",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-26T07:40:00+00:00",
       "opened_by": "claude (P1 book composition observation)",
       "source": "P1 portfolio_combine by_source breakdown (relay #4675): fvg_range_BTCUSDT_15m net_r=-40.9968 over 272 trades, the single worst sleeve in the 5-yr book.",
@@ -1551,6 +1581,7 @@
     },
     {
       "id": "PB-20260626-004",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-26T08:32:00+00:00",
       "opened_by": "claude (P7 cross-sectional momentum first pass)",
       "source": "scripts/backtest_xsec_momentum.py (PR #4680) on a 6-coin daily universe (ETH/SOL/ADA/AVAX/BNB/LINK, 2020-2026); relays #4678 (universe) + #4679 (run).",
@@ -1687,6 +1718,7 @@
     },
     {
       "id": "PB-20260630-003",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-06-30",
       "opened_by": "claude",
       "source": "strategy-quality M7 pass (#5245/#5246)",
@@ -1712,6 +1744,7 @@
     },
     {
       "id": "PB-20260706-ETH-BOOK-RECHECK",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-06T15:40:00+00:00",
       "opened_by": "claude (ETH book review, post vol-gate evidence session)",
       "source": "ETH/SOL vol-gate evidence (PR #5747): the ungated ETH backtest book is net-negative in 3 of 4 yearly folds (2022-2025), driven by trend_donchian_eth trending-calm-long (-$435/121t) + trending-volatile-short cells. M7 packets 2026-07-06 (issue #5766, 30d window): ALL THREE ETH strategies = hold on low-n (trend_donchian_eth 0 fills/0 closed; _4h 1 fill/0 closed; eth_pullback_2h 3 fills/2 closed +$0.24) - the gate correctly refuses to act without live evidence (PR #1358 lesson).",
@@ -1736,6 +1769,7 @@
     },
     {
       "id": "PB-20260707-MGC-PULLBACK-1H-WALKFORWARD",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-07T20:45:00+00:00",
       "opened_by": "claude (S-IB-NATIVE-FUTURES-RESEARCH-2026-07-07, doc-freshness decision-landing)",
       "source": "docs/research/ib-intraday-shortlist-backtest-2026-07-07.md (#5902). MGC pullback 1h on native roll-adjusted continuous data = +185.3R over ~3.3y, +0.56R expectancy, positive in EVERY calendar year (2023 +71/2024 +28/2025 +51/2026 +36), both sides contributing, shallow DD. Live mgc_pullback_1d params applied to 1h, NOT tuned. The single genuine intraday edge found in the whole IB survey.",
@@ -1762,6 +1796,7 @@
     },
     {
       "id": "PB-20260707-MGC-TREND-1H-STRUCTURAL",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-07T20:45:00+00:00",
       "opened_by": "claude (S-IB-NATIVE-FUTURES-RESEARCH-2026-07-07, doc-freshness decision-landing)",
       "source": "docs/research/mgc-trend-1h-walkforward-2026-07-07.md (#5907) + ib-metals-native-backtest-2026-07-07.md. Aligned walk-forward refuted BOTH the roll-artifact (-11% impact) and 2023-concentration (+77R on the 2023-excluded 2024-01..2026-06 window) hypotheses. mgc_trend_1h native MGC continuous is +77R where GC=F is -15.5R and spot -50.7R on the identical window -> unresolved STRUCTURAL cross-series conflict (instrument/vendor/session).",
@@ -1788,6 +1823,7 @@
     },
     {
       "id": "PB-20260707-NATIVE-MES-PULL",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-07T20:45:00+00:00",
       "opened_by": "claude (S-IB-NATIVE-FUTURES-RESEARCH-2026-07-07, doc-freshness decision-landing)",
       "source": "docs/research/ib-intraday-shortlist-backtest-2026-07-07.md (#5902). MES pullback 1h (+10.1R/41t) and MES fvg 15m (4t) are directionally encouraging but DATA-STARVED — the trainer MES shard is ~1y (2025-07..2026-07). MES scalp 5m flat (consistent with the ict_scalp_5m demote).",
@@ -1814,6 +1850,7 @@
     },
     {
       "id": "PB-20260707-SPLG-IAUM-PROMOTION",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-07T20:45:00+00:00",
       "opened_by": "claude (S-IB-NATIVE-FUTURES-RESEARCH-2026-07-07, doc-freshness decision-landing)",
       "source": "docs/research/alpaca-live-splg-iaum-promotion-sizing-2026-07-07.md (#5916). Both cheap ETF proxies clear account_compat_matrix and backtest positively (SPLG +33.6R/16y durable; IAUM +21.1R/5y but 2025-concentrated). Affordability floor 1.93%/1.03%; survival ceiling 2.0% at 5%-dd. Recommend risk_pct~2.0% both.",
@@ -1860,6 +1897,7 @@
     },
     {
       "id": "PB-20260712-PROP-BANKING-EV",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-12T08:35:00+00:00",
       "opened_by": "claude (S-M20 phase-2)",
       "source": "M20 phase-2 harness sweep (trainer relay #6169): partial-TP banking lowered net_R in all 20 cells but consistently lowered maxDD and raised win rate — wrong trade for standard accounts, potentially RIGHT under prop breach rules where survival is part of EV.",
@@ -1883,6 +1921,7 @@
     },
     {
       "id": "PB-20260712-PULLBACK-TRAIL4-WALKFORWARD",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-12T08:35:00+00:00",
       "opened_by": "claude (S-M20 phase-2)",
       "source": "M20 phase-2 sweep (relay #6169): htf_pullback_trend_2h BTC trail_mult 5->4 flips OOS net_R -3.7 -> +9.1 with better OOS maxDD and better IS net_R; only IS maxDD slips 11.7->12.6 (near-pass on the M20 gate).",
@@ -1906,6 +1945,7 @@
     },
     {
       "id": "PB-20260715-CHOP-SCALP-NEGATIVE",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-15T11:30:00+00:00",
       "opened_by": "claude (chop-scalp research session, PR #6479)",
       "source": "scripts/research/chop_scalp_study.py over 3yr trainer BTC+ETH 5m (2023-01..2026-02, IS/OOS split, trainer run #6480). Full evidence: docs/research/chop-scalp-capital-efficiency-2026-07-15.md.",
@@ -1929,6 +1969,7 @@
     },
     {
       "id": "PB-20260715-MAKER-CARRY",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-15T12:45:00+00:00",
       "opened_by": "claude (M22 small-TF program, PR #6491)",
       "source": "M22 P1 maker-fee economics re-scorer (scripts/research/maker_economics.py) + P3 sleeve backtests (trainer #6489/#6490). Design: docs/research/small-tf-directions-2026-07-15.md.",
@@ -1953,6 +1994,7 @@
     },
     {
       "id": "PB-20260715-PAIRS-SLEEVE",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "MATERIAL PROGRESS: the sleeve is now CLOSING, which it previously never did. 6 closes this window -- 4x exit_reason='pairs_revert' + 2x 'pairs_stop' -- across pairs_sol_eth_a/b and pairs_bnb_btc_a/b. Before the max_hold_bars fix the soak carried 29 opens and ZERO closes (BL-20260810-PAIRS-MAX-HOLD-BARS-NOT-ENFORCED), so this is that fix landing, verified from the journal rather than the soak log. Net across the 6: -$23.66, all unverified/estimated provenance -- directional, not a PnL verdict at n=6. Kept open: the Tier-3 decision needs measured closes and more n."},
       "opened_at": "2026-07-15T15:35:00+00:00",
       "opened_by": "claude (M22 wave-2 D2, PR follow-up)",
       "source": "M22 wave-2 D2 (trainer #6498/#6500/#6501/#6506/#6509). Design: docs/research/small-tf-directions-2026-07-15.md; proposal: docs/research/pairs-sleeve-PROPOSAL-2026-07-15.md.",
@@ -1977,6 +2019,7 @@
     },
     {
       "id": "PRB-20260716-HTF-CROSSBOOK-NEG",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-16",
       "opened_by": "performance-review 2026-07-15",
       "source": "real-money + paper attribution cross-check",
@@ -2002,6 +2045,7 @@
     },
     {
       "id": "PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-20",
       "opened_by": "operator chat directive 2026-07-20",
       "source": "operator decision — options in the broker portfolio",
@@ -2027,6 +2071,7 @@
     },
     {
       "id": "PB-20260720-M27-SCALP-EXPANSION",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "created": "2026-07-20",
       "priority": "P1",
       "status": "kept_open",
@@ -2060,6 +2105,7 @@
     },
     {
       "id": "PB-20260721-ICTSCALP-ALTCOIN-PAPER-SOAK-CHECK",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "CANNOT BE PERFORMED on the current record quality -- that is the finding, not a deferral. All four altcoin scalp legs DID close (ict_scalp_sol_5m, sol_15m x3, xrp_5m, xrp_15m, avax_5m) but every one is exit_reason='reconciler_filled' or 'netting_attributed' with pnlProvenance estimated/unverified: 0 of 14 paper closes broker-measured (pnlMeasuredCount=0, pnlEstimatedCount=8, pnlUnverifiedCount=6). Comparing that to an M27 backtest would compare a reconstruction to a simulation. Worse: trade 4575 (ict_scalp_sol_5m) is status='closed' with exit_price=NULL and pnl=NULL. Blocker: measured exits."},
       "date": "2026-07-21",
       "status": "kept_open",
       "severity": "P3",
@@ -2105,6 +2151,7 @@
     },
     {
       "id": "SRQ-20260728-M27-WINNERS-SHIP",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-28T05:30:00+00:00",
       "opened_by": "claude (Track-1 continuation session)",
       "source": "Operator directive (overnight Track-1 plan) + M27 P1 promotion evidence.",
@@ -2143,6 +2190,7 @@
     },
     {
       "id": "PB-20260728-ICTSCALP-GOLD-GATE-CONFIG",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-28T14:00:00+00:00",
       "opened_by": "claude (Track-1, deep XAU/MGC runner re-validation)",
       "source": "Deep 4-fold walk-forward on Dukascopy spot XAU 15m (2012->now) under MGC economics, run on a free GH runner (research-symbol-p0-build, issue #7845). Full read in docs/research/M27-P0-MGC-15m-findings-2026-07-28.md ADDENDUM.",
@@ -2192,6 +2240,7 @@
     },
     {
       "id": "PB-20260729-ALLOCATOR-VENUE-FEE",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-29T00:00:00+00:00",
       "opened_by": "claude (rec #5 continuation / spy_pullback_1h sign-flip investigation)",
       "source": "M24 net-R re-grade sign-flip investigation: the close-path cost estimate was made venue-aware (profile_loader.roundtrip_fee_bps_for → 0 bps for commission-free Alpaca-spot equities), but allocator_ev.candidate_ev_score still applies the flat DEFAULT_FEE_BPS_ROUNDTRIP (7.5 bps) to every venue.",
@@ -2220,6 +2269,7 @@
     },
     {
       "id": "PB-20260730-REGIME-EVIDENCE-VENUE-FEE-REGRADE",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-30T06:00:00+00:00",
       "opened_by": "claude (research-program session, roadmap-progress-work-plan-xp7f9h)",
       "source": "regime_debt_matrix.py hardcoded --fee-bps-roundtrip 7.5 for EVERY symbol, incl. all 14 commission-free (alpaca, spot) instruments (SPY QQQ TQQQ QLD GLD IWM TLT IEF SLV USO GDX SPLG IAUM SCHA); regime_cell_walkforward inherited it via rdm.build_harness_cmd. #7930 fixed the identical bug in the live close path on 2026-07-29 but missed the research harness built the day before — the harness that SOURCES Tier-3 regime cells. Fixed in this session (T1); the AFFECTED CONCLUSIONS have not yet been re-run.",
@@ -2257,6 +2307,7 @@
     },
     {
       "id": "PB-20260730-SCALP-CAPTURE-STANDING-WATCH",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-07-30T13:00:00+00:00",
       "opened_by": "claude (full-system-review-807m08)",
       "source": "The scalp exit leak (5m bybit scalps closing reconciler_filled after multi-hour holds, giving back MFE) is REAL and quantified, but its root cause is OPEN: BYBIT_TPSL_MODE=partial was already live since ~07-21 (BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-TPSL-PREMISE), so partial-vs-full is NOT the fix. The real cause is under investigation by the concurrent 2026-07-30 session (Bybit partial-leg desync / naked-bracket, fixed in PR #8000; leg over-accumulation BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING; NULL exit_price/pnl on reconciler closes BL-20260730-CLOSED-TRADE-NULL-EXITPRICE-PNL).",
@@ -2283,6 +2334,7 @@
     },
     {
       "id": "PB-20260801-SLV-TREND-DEGENERATE-CONFIDENCE",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "Triaged this run against the window's data; NO new evidence bearing on this item. The window is uninformative for it: 1 real-money close (eth_pullback_2h, +$1.21, measured) and 14 paper closes of which ZERO are broker-measured and ZERO are bucket-A gradeable (39 journal rows inspected; the exit_reason histogram carried no clean bracket exit). Blocker unchanged; re-check when gradeable rows accrue or the named gate/backtest lands."},
       "opened_at": "2026-08-01T08:40:00+00:00",
       "opened_by": "claude (/system-review weekly, session full-system-review-zajauh)",
       "source": "2nd consecutive review: RPT-20260730-045200 flagged slv_trend_1h emitting degenerate low-confidence should-skip entries (0.06/0.15 conf, 0/4 win, -$629 paper, 2x D-grade); this weekly's grading (#8239) added another D at confidence 0.04 (pkg-95331aecaa864931, trade 4247, sl_cross -1.04R paper).",
@@ -2302,6 +2354,7 @@
     },
     {
       "id": "PB-20260807-ICTSCALP-STOP-DID-NOT-CONTAIN-8R",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "kept_open", "note": "RE-VALIDATED: the superseding premise HOLDS, blocker unchanged. This item was already re-scoped to 'the -8.41R is substantially an exit-price reconstruction artifact'. This window is more of the same substrate: every ict_scalp close is reconciler_filled/netting_attributed at estimated/unverified provenance, 0 measured. The surviving lead (the close-PATH question) is provenance-independent and remains the thing to chase. One new instance of the strongest form: trade 4575 closed with exit_price NULL."},
       "opened_at": "2026-08-07T14:55:00+00:00",
       "opened_by": "claude (/system-review since-last, session full-system-review-ma0ava)",
       "source": "/system-review 2026-08-07: m20_exit_analysis per-trade dump (trainer-diag #8592) + /api/bot/trades/closed + grade-closed-trades output (#8589). POPULATION: n=10 ict_scalp closes in the window 2026-08-04 to 2026-08-07, all paper, from a total of 15 paper closes the harness returned. The -8.41R figure is ONE trade (4413) of those 10; the family-level statistic over the same n=10 is mean giveback 1.92R and 7 of 10 closed by reconciler rather than by stop or target. 4 of the 15 harness rows carry a clamped hold_h and are excluded from hold conclusions (BL-20260807-M20EXIT-HOLD-CLAMP-UNMARKED).",
@@ -2327,6 +2380,7 @@
     },
     {
       "id": "PB-20260811-M20-GATE-NO-MIN-TRADES-82PCT-THIN",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "fixed_now", "note": "Filed THIS run from the M20 fleet-sweep corpus; born triaged. See docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md sections 4d/4e."},
       "opened_at": "2026-08-11T15:05:00+00:00",
       "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 exit-lever fleet sweep)",
       "severity": "P2",
@@ -2341,6 +2395,7 @@
     },
     {
       "id": "PB-20260811-M20-REGIME-CONDITIONED-EXITS-UNPROVEN",
+      "review_2026_08_11": {"reviewed_at": "2026-08-11T17:50:00+00:00", "window": "2026-08-10T04:37:26Z..2026-08-11T17:45Z", "reviewer": "claude (/performance-review)", "verdict": "fixed_now", "note": "Filed THIS run from the M20 fleet-sweep corpus; born triaged. See docs/research/M20-path-b-floor-and-trail-widen-2026-08-10.md sections 4d/4e."},
       "opened_at": "2026-08-11T15:05:00+00:00",
       "opened_by": "claude (session_011iUN3roukhbRWwuioX8pRD, M20 exit-lever fleet sweep)",
       "severity": "P3",
