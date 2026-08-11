@@ -296,6 +296,63 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
     return a
 
 
+REGIME_POLICY_PATH = REPO / "config" / "regime_policy.yaml"
+
+# The three states of "does the LIVE regime gate narrow this leg's book?".
+# Deliberately three, not a boolean: "we could not read the policy" and "the
+# policy does not name this leg" are opposite statements about our knowledge,
+# and collapsing them would let an unreadable file read as "no gating anywhere".
+GATE_DELTA_NONE = "none"                    # not named in the policy: base == live
+GATE_DELTA_NARROWER = "narrower_live"       # named with an OFF side: live trades LESS
+GATE_DELTA_UNKNOWN = "unknown"              # policy unreadable — we did not look
+
+
+def _policy_off_legs() -> set[str] | None:
+    """Strategy names the live regime policy REFUSES in at least one cell.
+
+    None (not an empty set) when the policy cannot be read — an unreadable file
+    must not be reported as "no leg is gated".
+    """
+    try:
+        import yaml
+        doc = yaml.safe_load(REGIME_POLICY_PATH.read_text()) or {}
+    except Exception:  # noqa: BLE001 — any read/parse failure is "we did not look"
+        return None
+    off: set[str] = set()
+
+    def scan(strats: object) -> None:
+        if not isinstance(strats, dict):
+            return
+        for name, sides in strats.items():
+            if isinstance(sides, dict) and any(v is False for v in sides.values()):
+                off.add(str(name))
+
+    for section in ("trending", "transitional", "chop"):
+        scan(doc.get(section))
+    # trend_vol is nested one level deeper: {trend: {vol: {strategy: sides}}}
+    for vols in (doc.get("trend_vol") or {}).values():
+        if isinstance(vols, dict):
+            for strats in vols.values():
+                scan(strats)
+    return off
+
+
+def regime_gate_delta(leg: str, off_legs: set[str] | None) -> str:
+    """Whether the LIVE hard gate would narrow *leg*'s book vs this sweep's base.
+
+    The sweep runs the harness at its `--regime-router off` default, which sets
+    `REGIME_ROUTER_DISABLED=1` — so every base book here is the UNGATED book,
+    while the live router is BASELINE-ON. For a leg the policy never names the
+    two coincide and the base IS the live book; for a leg with an authored OFF
+    cell the base includes trades production refuses, and a base-book LEVEL read
+    (`base_net_r`, `base_rate`, and therefore Path B's derived tolerance) is a
+    statement about a book the live leg does not trade.
+    """
+    if off_legs is None:
+        return GATE_DELTA_UNKNOWN
+    return GATE_DELTA_NARROWER if leg in off_legs else GATE_DELTA_NONE
+
+
 def inert_giveback_reason(cfg: dict, min_mfe_r: float) -> str | None:
     """Why a giveback rung CANNOT fire on this leg, or None if it can.
 
@@ -1373,9 +1430,38 @@ def main(argv: list[str]) -> int:
     # used). A verdicts file that records `split` but not the geometry lets a
     # downstream corpus mix the two vintages under one label — the same defect
     # one level up from where it was originally found.
+    # THE REGIME BOOK IS PART OF THE MEASUREMENT IDENTITY TOO — same argument as
+    # `tp_cap_pct` above, one axis over.
+    #
+    # This sweep never passes `--regime-router`, so `backtest_system` takes its
+    # own default (`"off"`) and sets `REGIME_ROUTER_DISABLED=1`. The LIVE router
+    # is BASELINE-ON. So every base book measured here is the UNGATED book, and
+    # until 2026-08-11 nothing in `verdicts.json` or the corpus said so — 604
+    # rows with zero `regime` keys. A function default standing in for the live
+    # input, with nothing in the output revealing the substitution, is
+    # `diagnostic-provenance-guard` sub-class B + C.
+    #
+    # What this costs, stated precisely, because it is NOT "the corpus is void":
+    #   * DELTA comparisons survive intact. Both arms of a cell share the same
+    #     ungated base, so `d_net_r`, `d_max_dd`, Path A's `beats()` and the
+    #     walk-forward are all comparisons over ONE consistent population.
+    #   * Base-book LEVEL reads do NOT survive for a policy-named leg —
+    #     `base_net_r`, `base_rate`, and therefore Path B's derived tolerance
+    #     `D_b x (dN/N_b)`, describe a book production refuses to trade.
+    # Measured 2026-08-11: 6 of 51 legs / 56 of 604 rows are policy-named.
+    off_legs = _policy_off_legs()
+    for leg, leg_v in verdicts.items():
+        if isinstance(leg_v, dict):
+            leg_v["regime_gate_delta"] = regime_gate_delta(leg, off_legs)
     (run_dir / "verdicts.json").write_text(json.dumps(
         {"generated_at": datetime.now(timezone.utc).isoformat(),
          "split": a.split, "tp_cap_pct": a.tp_cap_pct,
+         # The router value ACTUALLY used by the harness runs above — recorded
+         # rather than asserted, so a future run that does pass the flag records
+         # the difference instead of inheriting this comment.
+         "regime_router": "off",
+         "regime_policy_readable": off_legs is not None,
+         "regime_policy_off_legs": sorted(off_legs) if off_legs is not None else None,
          "skipped": skipped, "verdicts": verdicts}, indent=1))
     # THE GEOMETRY THIS LEG ACTUALLY RAN, not the one the run requested.
     #
