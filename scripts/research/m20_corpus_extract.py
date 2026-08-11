@@ -107,6 +107,11 @@ def measurement_key(row: dict) -> tuple:
     compares to the CURRENT live policy, not what the run measured, so a policy
     edit must not retroactively split rows that measured the same book.
 
+    `fee_bps_roundtrip` joins it as well, and SRQ-20260618-003 is the reason it must:
+    the same three 15m scalp legs read +15.09/+1.98/-2.79 IS at 7.5bps and
+    -1.98/-10.58/-16.51 at 15bps. Two different books by any standard, and a corpus
+    that merged them would average a surviving leg with a dead one.
+
     `min_oos_trades_floor` joins it too (operator decision 2026-08-11, value 25):
     the same cell graded with no floor and graded at 25 can carry DIFFERENT
     verdicts — `is_oos_pass` vs `insufficient_base` — so merging the vintages
@@ -115,7 +120,7 @@ def measurement_key(row: dict) -> tuple:
     """
     return (row.get("kind"), row.get("leg"), row.get("cell"),
             row.get("split"), row.get("tp_cap_pct"), row.get("regime_router"),
-            row.get("min_oos_trades_floor"))
+            row.get("min_oos_trades_floor"), row.get("fee_bps_roundtrip"))
 
 
 def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
@@ -138,6 +143,13 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
     # keying them distinctly stops a thin-but-unflagged cell sharing a row with a
     # refused one. Same discipline as `tp_cap_pct` two lines up.
     min_oos_floor = doc.get("min_oos_trades_floor")
+    # THE FEE BAND this run measured. Shipped into verdicts.json in the same commit
+    # that added the --fee-bps-roundtrip flag, and then NOT propagated here -- so the
+    # first 15bps run produced 12 rows that read `fee: None`, i.e. claimed not to have
+    # declared a fee while being the entire point of the run. Caught by reading the
+    # corpus after the run, not by the tests, because the tests covered base_args and
+    # the verdicts doc but never the extractor hop. None = the run did not declare one.
+    fee_bps = doc.get("fee_bps_roundtrip")
     # Per-leg gate delta. The sweep stamps it onto each verdict, but SKIPPED legs
     # never reach `verdicts`, so it is also derivable here from the doc-level
     # off-leg list. Three states preserved end-to-end: None on a legacy run (the
@@ -164,6 +176,7 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                     "sweep_generated_at": gen, "split": split, "tp_cap_pct": tp_cap,
                     "regime_router": regime_router,
                     "min_oos_trades_floor": min_oos_floor,
+                    "fee_bps_roundtrip": fee_bps,
                     "regime_gate_delta": _gate_delta(str(s.get("leg"))),
                     "leg": s.get("leg"), "cell": None,
                     "leg_status": "skipped", "leg_status_why": s.get("reason")})
@@ -177,6 +190,7 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
                         "tp_cap_pct": tp_cap, "leg": leg, "cell": None,
                         "regime_router": regime_router,
                         "min_oos_trades_floor": min_oos_floor,
+                        "fee_bps_roundtrip": fee_bps,
                         "regime_gate_delta": _gate_delta(
                             leg, v.get("regime_gate_delta")),
                         "leg_status": v.get("status") or "no_levers",
@@ -200,6 +214,7 @@ def rows_from_verdicts(doc: dict, run_id: str) -> list[dict]:
             # per-cell deltas are unaffected (both arms share this base).
             "regime_router": regime_router,
             "min_oos_trades_floor": min_oos_floor,
+            "fee_bps_roundtrip": fee_bps,
             "regime_gate_delta": _gate_delta(leg, v.get("regime_gate_delta")),
             "base_book_present": base_present,
             "cells_tried": sel.get("cells_tried"),

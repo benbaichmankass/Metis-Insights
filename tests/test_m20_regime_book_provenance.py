@@ -212,19 +212,33 @@ def test_measurement_key_ignores_the_gate_delta():
 
 # --- the committed corpus is honest about its own vintage --------------------
 
-def test_committed_corpus_predates_the_field_and_says_so():
-    """The 604 committed rows were all measured ungated. They must read `None`
-    (unrecorded), NOT `"off"` — we are inferring their state from the code path,
-    which is evidence, not a recording. A future re-sweep records it for real.
+def test_committed_corpus_separates_legacy_rows_from_stamped_ones():
+    """PREMISE UPDATED 2026-08-11. The original assertion was "no committed row
+    claims a recorded router state", which held while the whole corpus was legacy.
+    A real 15bps run has since stamped 12 rows, so that assertion is obsolete —
+    but the INTENT it protected is not, and is what this checks now:
+
+      * the legacy rows still read None on EVERY provenance axis, i.e. nothing
+        retroactively relabelled them as "off"/7.5 on the strength of an inference;
+      * a stamped row is stamped on ALL axes — never half-labelled, which would be
+        a row asserting one axis while silently defaulting another. That is exactly
+        the bug that shipped on 2026-08-11: the sweep recorded fee_bps_roundtrip in
+        verdicts.json, the extractor dropped it, and 12 rows claimed no declared fee
+        while BEING the 15bps arm.
     """
     path = REPO / "docs" / "research" / "m20-sweep-corpus.jsonl"
     rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
     assert rows, "corpus empty"
+    legacy = [r for r in rows if r.get("regime_router") is None]
     stamped = [r for r in rows if r.get("regime_router") is not None]
-    assert not stamped, (
-        f"{len(stamped)} committed rows claim a recorded router state; the "
-        "existing corpus predates the field and must read None")
-
+    assert legacy, "no legacy rows — did something relabel the whole corpus?"
+    for r in legacy:
+        assert r.get("fee_bps_roundtrip") is None, r.get("leg")
+        assert r.get("min_oos_trades_floor") is None, r.get("leg")
+    for r in stamped:
+        assert r.get("fee_bps_roundtrip") is not None, (
+            f"{r.get('leg')} is stamped for router/floor but declares no fee — "
+            "the extractor dropped it")
 
 # --- the floor analysis READS the field (not a write-only signal) ------------
 #
