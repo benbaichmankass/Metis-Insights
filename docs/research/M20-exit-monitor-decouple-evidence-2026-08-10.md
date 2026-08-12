@@ -393,6 +393,57 @@ An explicit lock around IB *access* (not just registry lookup) is required, and 
 partially re-serialises the two loops on IB — so the decouple's benefit is full for
 Bybit/Alpaca and **reduced for IB**, which is worth stating before measuring the result.
 
+### 6.6 IMPLEMENTATION STATUS (2026-08-12) — four of five prerequisites landed
+
+Operator approved the revised scope (§ 4d: move the exit loop only) on 2026-08-12.
+What is on `claude/m20-exit-refinement-continue-g1qv46`, none of it yet moving
+anything onto a thread:
+
+| | state | notes |
+|---|---|---|
+| **prereq 0** — active-close marker | **DONE** | Not in the original § 6 list. The exit half WRITES `_TICK_ACTIVE_CLOSE_SYMBOLS` and the reconciler half READS it at four sites — sound only while they share a tick. Now a lock-guarded, self-pruning, time-bounded map (`ACTIVE_CLOSE_WINDOW_S`, 90s). 13 tests. |
+| **the split** | **DONE** | `run_exit_evaluation_tick` / `run_reconciliation_tick`, `run_monitor_tick` a wrapper. Pure refactor, order + merged summaries asserted. |
+| **6.1** liveness | **DONE** | `src/runtime/exit_loop_health.py` — four states, latched alert-only, `max_pass_ms` to check the ~28s claim in production. 15 tests. |
+| **6.2** `_hooks` lock | **DONE** | And the comment CORRECTED: the lost-update race is **not reproducible** here (8×20k increments at `setswitchinterval(1e-9)`, zero lost; tests pass with the lock stubbed). Defensive correctness, not an observed bug. |
+| **6.3** `attributed_pct` | **DONE** | Segregated by **thread identity**, not a name prefix — a naming rule is a contract a caller can break, a thread id is not. Off-loop time is published with no share and excluded from attribution. |
+| **6.4** IB usage lock | **NOT DONE** | Design below. |
+| **the wiring** | **NOT DONE** | Gated on 6.4. |
+
+#### 6.4, verified and specified — plus a hazard the original note missed
+
+The § 6.4 claim checks out: `ib_client.py:2317`'s `_REGISTRY_LOCK` guards only the
+lookup/creation inside `ib_read_client_for` (:2400–2412). Once it returns, two
+threads hold the **same** `IBClient`, and that object wraps one `ib_insync.IB` —
+a single socket on a single clientId, driven by an asyncio loop that is explicitly
+not thread-safe. This is worse than `BL-20260706-IBACCTUPDATES-COLLISION`, which
+was two *different* clients on one account; here it is two threads on one socket.
+
+Surface needing the guard: 17 public methods, ~14 touching the socket —
+`connect` · `disconnect` · `place` · `place_protective` · `modify_protective` ·
+`close` · `cancel_resting_protection` · `has_protective_orders` · `cancel` ·
+`status` · `balance` · `positions` · `executions` · `self_test`.
+
+**THE HAZARD THE ORIGINAL NOTE MISSED: it must be an `RLock`, not a `Lock`.**
+Several of these call each other — `close` cancels resting protection then
+re-reads `positions`; `connect` runs the liveness probe and the account warm-up.
+A non-reentrant lock self-deadlocks the trader on the first such path, and the
+symptom would be a frozen exit loop, i.e. exactly the condition 6.1 alerts on,
+arriving via the fix meant to make the loop safe.
+
+**Accepted cost, stated:** the two loops SERIALISE on IB. Each call is already
+bounded (`IB_FETCH_TIMEOUT_S` 8s, `IB_PLACE_CONFIRM_S` 3s, `IB_CLOSE_CONFIRM_S`
+6s), so the main tick's worst-case wait is bounded rather than unbounded — but the
+decouple's benefit is FULL for Bybit/Alpaca and REDUCED for IB, and the 53% margin
+in § 4d is a Bybit-side number.
+
+**Why it is not in this branch:** `ib_client.py` is the most incident-prone file in
+the repo (`BL-20260609`, `BL-20260610-009`, `BL-20260706-IBWARMUP`,
+`BL-20260706-IBACCTUPDATES-COLLISION`, `BL-20260709-IB-POSTRESTART-RECONNECT-WEDGE`).
+A lock placed wrong there deadlocks the live trader. It wants a session with the
+budget to read all ~14 call paths for reentrancy first, which is a bounded piece of
+work and the correct next step — not something to squeeze in beside four other
+changes.
+
 ### 6.5 Scope, honestly
 
 That is: a monitor loop + its own heartbeat + a second watchdog target + a cost surface
