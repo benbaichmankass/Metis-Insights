@@ -33,6 +33,9 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 
+from src.runtime.exit_loop_health import (
+    STATE_FILE_NAME as EXIT_LOOP_HEALTH_STATE_FILE,
+)
 from src.utils.paths import runtime_logs_dir, trade_journal_db_path
 from src.web.api._account_read_executor import run_account_read
 from src.web.runtime_status import _resolve_git_sha
@@ -229,6 +232,9 @@ _NETTING_ATTRIBUTION_SOAK_LOG = (
     runtime_logs_dir() / "netting_attribution_soak.jsonl"
 )
 _ORPHAN_EVENTS_LOG = runtime_logs_dir() / "orphan_events.jsonl"
+# Exit-loop liveness state (M20 decouple, #8778). NOT a .jsonl — a single
+# small JSON object rewritten atomically by exit_loop_health.write_state_file.
+_EXIT_LOOP_HEALTH_STATE = runtime_logs_dir() / EXIT_LOOP_HEALTH_STATE_FILE
 
 _LOG_FILES: dict[str, Path] = {
     "audit": _AUDIT_LOG,
@@ -318,6 +324,19 @@ _LOG_FILES: dict[str, Path] = {
     # `annotate` this is the exact row list to review before flipping
     # NETTING_ATTRIBUTION_MODE=apply. Absent until the first confirmed divergence.
     "netting_attribution_soak": _NETTING_ATTRIBUTION_SOAK_LOG,
+    # Exit-loop liveness (M20 decouple, #8778). The exit evaluation now runs on
+    # its OWN thread, which took it outside the liveness watchdog's coverage --
+    # that coverage was never a probe, it was the fact that exit evaluation ran
+    # INLINE on the tick the heartbeat measures. So a stalled exit loop is now a
+    # condition nothing else can see, and this is how a relay-bound session sees
+    # it. Four states, so the field can say WE DID NOT LOOK: `unknown` (module
+    # unreadable) / `never_ran` (loop not started, or decouple disabled --
+    # emphatically NOT "healthy") / `fresh` / `stale`. Read `max_pass_ms` beside
+    # `passes`: a max over 3 passes is not the claim a max over 3000 is.
+    # Shipped WITHOUT this entry in #8778 -- write_state_file's own docstring
+    # says "for the diag surface" while the only surface a relay can reach did
+    # not serve it, the written-but-not-readable shape of #8665's exposure block.
+    "exit_loop_health": _EXIT_LOOP_HEALTH_STATE,
     # Broker-account-down + trainer-down latch state (BL-20260707-DIAG-
     # ALLOWLIST-REACHABILITY-LOG): the health-review skill reads these to see
     # which accounts / whether the trainer are currently latched down —

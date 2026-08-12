@@ -109,6 +109,41 @@ number while the decision used the uncapped one would be a diagnostic describing
 a policy the code does not apply. `allowed_d_max_dd_uncapped` is still reported
 so a reader can see **what** was clamped.
 
+### The MIN-OOS-TRADES FLOOR — `MIN_OOS_TRADES = 25` (operator-set 2026-08-11)
+
+**Both paths now require the cell's base book to hold ≥ 25 OOS trades.** A cell below it
+gets its own verdict **`insufficient_base`** and no walk-forward.
+
+**This is a DENOMINATOR REQUIREMENT, not a fitted threshold** — the opposite kind of
+object from the base-rate floor above, which was a *prediction* claim and failed its
+separation test. A minimum trade count needs no statistical case, the same way
+`research_results_gate.min_trades` doesn't.
+
+Why it exists: Path A's `beats()` had **no** minimum trade count, so **33 of the 40
+cells the sweep passed (82%) sat on an OOS base under 50 trades, 13 under 10** —
+`spy_trend_long_1d vt_hot90_t2` passed on **3 OOS trades** with a 6/6 walk-forward and a
+ΔmaxDD of *exactly* 0.0.
+
+The **value** came from the coverage cost curve, not a fit: floor 10 → 34 of 51 legs /
+27 passes · **floor 25 → 32 legs / 27 passes** · floor 50 → 20 legs / 7 passes. 10→25 is
+free (two legs, zero passes); 25→50 is the cliff. **50+ would structurally exclude every
+daily-timeframe leg**, which cannot reach 50 trades in a ~1y OOS window.
+
+⚠️ **Two things to read correctly:**
+
+1. **`insufficient_base` is NOT a failure.** It says the population was too thin to
+   judge. Folding it into `is_oos_fail` would make a thin book indistinguishable from a
+   refuted lever. `would_have_been` records the counterfactual verdict so the floor's
+   effect is auditable.
+2. **The floor is a PROXY for what actually matters** — the trades the *lever* fired on,
+   and whether the effect exceeds its own noise. It will **not** catch a cell on a
+   200-trade base that modified two exits (ΔmaxDD 0.0 is that cell announcing itself).
+   Per-cell fire counts are not recorded; that gap is open.
+
+`min_oos_trades_floor` travels in the corpus **measurement-identity key** — the same cell
+graded unfloored and graded at 25 can carry different verdicts, and `None` means
+*"ungraded by any floor"*, never floor 0.
+
 **This is a THIRD threshold, and it does not set the other two.**
 
 ⚠️ **Path B's two original thresholds ("improves materially", "the net_R floor") are

@@ -220,7 +220,7 @@ def test_bybit_sweep_rearms_naked(tmp_path, monkeypatch):
         stop_legs={"XRPUSDT": []},  # NO resting leg → naked
     )
     _patch_accounts(monkeypatch, client)
-    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+    om._TICK_ACTIVE_CLOSE_AT.clear()
 
     summary = om._check_broker_naked_bybit_positions(db)
     assert summary["checked"] == 1
@@ -241,7 +241,7 @@ def test_bybit_sweep_skips_protected_full(tmp_path, monkeypatch):
     client = _FakeBybit(
         positions={"ETHUSDT": {"size": "0.06", "stopLoss": "1979.0"}})
     _patch_accounts(monkeypatch, client)
-    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+    om._TICK_ACTIVE_CLOSE_AT.clear()
 
     summary = om._check_broker_naked_bybit_positions(db)
     assert summary["broker_naked"] == 0 and summary["rearmed"] == 0
@@ -255,7 +255,7 @@ def test_bybit_sweep_skips_on_read_failure(tmp_path, monkeypatch):
             created_at="2026-07-01T00:00:00+00:00", status="open")
     client = _FakeBybit(raise_pos=True)  # unconfirmed → never re-arm
     _patch_accounts(monkeypatch, client)
-    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+    om._TICK_ACTIVE_CLOSE_AT.clear()
 
     summary = om._check_broker_naked_bybit_positions(db)
     assert summary["broker_naked"] == 0 and summary["rearmed"] == 0
@@ -270,12 +270,12 @@ def test_bybit_sweep_skips_active_close(tmp_path, monkeypatch):
     client = _FakeBybit(positions={"XRPUSDT": {"size": "100", "stopLoss": ""}},
                         stop_legs={"XRPUSDT": []})  # naked, WOULD re-arm
     _patch_accounts(monkeypatch, client)
-    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
-    om._TICK_ACTIVE_CLOSE_SYMBOLS.add(("bybit_2", "XRPUSDT"))
+    om._TICK_ACTIVE_CLOSE_AT.clear()
+    om.mark_active_close("bybit_2", "XRPUSDT")
     try:
         summary = om._check_broker_naked_bybit_positions(db)
     finally:
-        om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+        om._TICK_ACTIVE_CLOSE_AT.clear()
     assert summary["broker_naked"] == 0 and summary["rearmed"] == 0
     assert client.stops_set == []
 
@@ -316,7 +316,7 @@ def test_sweep_flags_leg_OVER_accumulation(tmp_path, monkeypatch, caplog):
         ]},
     )
     _patch_accounts(monkeypatch, client)
-    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+    om._TICK_ACTIVE_CLOSE_AT.clear()
 
     with caplog.at_level("ERROR"):
         summary = om._check_broker_naked_bybit_positions(db)
@@ -347,7 +347,7 @@ def test_sweep_flags_journal_vs_broker_qty_divergence(tmp_path, monkeypatch, cap
         ]},
     )
     _patch_accounts(monkeypatch, client)
-    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+    om._TICK_ACTIVE_CLOSE_AT.clear()
 
     with caplog.at_level("ERROR"):
         summary = om._check_broker_naked_bybit_positions(db)
@@ -375,7 +375,7 @@ def test_sweep_tops_up_a_real_partial_gap(tmp_path, monkeypatch):
         ]},
     )
     _patch_accounts(monkeypatch, client)
-    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+    om._TICK_ACTIVE_CLOSE_AT.clear()
 
     calls = {}
 

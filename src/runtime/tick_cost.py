@@ -33,6 +33,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterator, Optional
@@ -59,12 +60,64 @@ _sum_ms: float = 0.0
 _started_utc: Optional[str] = None
 _last_write_ts: Optional[float] = None
 _tick_start: Optional[float] = None
+# WHICH THREAD owns the main tick (section 6.3). Set at begin_tick; every
+# record_hook from a DIFFERENT thread is another loop's time and must not be
+# divided by this tick's elapsed time.
+_tick_thread: Optional[int] = None
 
 # Per-hook accumulators: {name: {"n", "sum_ms", "max_ms", "max_at_utc"}}.
 # Bounded by _MAX_HOOK_NAMES; `_hook_overflow` counts names refused so the
 # payload can never quietly become a partial view presented as a whole one.
 _hooks: Dict[str, Dict[str, Any]] = {}
 _hook_overflow: int = 0
+
+# OFF-LOOP hooks — recorded by a thread that does NOT own the main tick.
+#
+# Section 6.3, and this is the SECOND time this field has broken in the opposite
+# direction. Adding `monitor.*` children under `order_monitor` made a flat sum
+# double-count and `attributed_pct` read 136.8%. Decoupling the exit half breaks
+# it the other way: `monitor.strategy_monitor_loop` would still be recorded, but
+# from the exit loop's thread, so its ~24s would be summed into a numerator whose
+# DENOMINATOR is the main tick's elapsed time. Two loops running concurrently do
+# not share a clock, and dividing one's cost by the other's duration is not a
+# percentage of anything.
+#
+# Segregating by THREAD rather than by a name convention is deliberate: a naming
+# rule is a contract a caller can silently break (exactly what `nested_hooks`
+# exists to make visible), whereas the thread identity is a fact. The exit loop's
+# own cost is owned by `exit_loop_health.record_pass`, which measures it against
+# the right denominator — its own pass. This block exists so that time is still
+# VISIBLE here rather than silently dropped, with its own count and no share.
+_offloop_hooks: Dict[str, Dict[str, Any]] = {}
+
+# DECOUPLE PREREQUISITE (section 6.2, 2026-08-12). Until now exactly ONE thread
+# ever called `record_hook` — the trader's main loop — so unsynchronised state was
+# correct by construction. Moving the exit half onto its own loop makes two
+# threads record concurrently, and two sequences below are not atomic BY THE
+# LANGUAGE: `slot["n"] += 1` / `slot["sum_ms"] += ms` are read-modify-write, and
+# `if len(_hooks) >= _MAX_HOOK_NAMES` then insert is check-then-act (two threads
+# could both pass the check and over-admit past the bound whose whole job is to
+# keep `hook_names_refused` honest).
+#
+# HONEST ABOUT THE EVIDENCE, because the first version of this comment was not:
+# it asserted "a concurrent pair can LOSE an update" as though measured. It is not.
+# I tried to reproduce it — 8 threads x 20k increments on a shared dict slot at
+# `sys.setswitchinterval(1e-9)`, three trials — and lost ZERO updates every time;
+# the accumulator tests below also pass with this lock stubbed out. CPython's GIL
+# makes these sequences very hard to actually interleave in practice.
+#
+# So this lock is DEFENSIVE CORRECTNESS, not a fix for observed corruption. It is
+# kept because the guarantee is a CPython implementation detail rather than a
+# language promise, because the failure mode would be silent and in the
+# flattering direction (a lost sample makes a hook look cheaper), and because an
+# uncontended acquire costs nothing measurable next to a 24-second hook. The
+# tests are REGRESSION guards — they would catch a refactor that moves work
+# outside the lock or introduces a genuinely non-atomic step — and they are
+# explicitly NOT evidence that the race occurs today.
+#
+# The lock is held only around the accumulator arithmetic — never around a hook's
+# actual execution — so it cannot serialise the two loops it exists to support.
+_hooks_lock = threading.Lock()
 
 
 def write_cadence_seconds() -> float:
@@ -81,9 +134,10 @@ def write_cadence_seconds() -> float:
 
 def begin_tick() -> None:
     """Mark the start of the tick's hook chain. Never raises."""
-    global _tick_start, _started_utc
+    global _tick_start, _started_utc, _tick_thread
     try:
         _tick_start = time.monotonic()
+        _tick_thread = threading.get_ident()
         if _started_utc is None:
             _started_utc = datetime.now(timezone.utc).isoformat()
     except Exception:  # noqa: BLE001
@@ -125,18 +179,23 @@ def record_hook(name: str, elapsed_ms: float) -> None:
     """Fold one hook's duration into the per-hook accumulators. Never raises."""
     global _hook_overflow
     try:
-        slot = _hooks.get(name)
-        if slot is None:
-            if len(_hooks) >= _MAX_HOOK_NAMES:
-                _hook_overflow += 1
-                return
-            slot = {"n": 0, "sum_ms": 0.0, "max_ms": None, "max_at_utc": None}
-            _hooks[name] = slot
-        slot["n"] += 1
-        slot["sum_ms"] += elapsed_ms
-        if slot["max_ms"] is None or elapsed_ms > slot["max_ms"]:
-            slot["max_ms"] = elapsed_ms
-            slot["max_at_utc"] = datetime.now(timezone.utc).isoformat()
+        with _hooks_lock:
+            # Another loop's thread → the off-loop block, never the tick's.
+            table = (_hooks if (_tick_thread is None
+                                or threading.get_ident() == _tick_thread)
+                     else _offloop_hooks)
+            slot = table.get(name)
+            if slot is None:
+                if len(table) >= _MAX_HOOK_NAMES:
+                    _hook_overflow += 1
+                    return
+                slot = {"n": 0, "sum_ms": 0.0, "max_ms": None, "max_at_utc": None}
+                table[name] = slot
+            slot["n"] += 1
+            slot["sum_ms"] += elapsed_ms
+            if slot["max_ms"] is None or elapsed_ms > slot["max_ms"]:
+                slot["max_ms"] = elapsed_ms
+                slot["max_at_utc"] = datetime.now(timezone.utc).isoformat()
     except Exception:  # noqa: BLE001 — measurement must never break the tick
         return
 
@@ -180,7 +239,13 @@ def _hook_view() -> Dict[str, Any]:
     coverage denominator deliberately counts top-level hooks only.
     """
     out: Dict[str, Any] = {}
-    for name, s in _hooks.items():
+    # Copy under the lock, then compute outside it. A live iteration of `_hooks`
+    # while the exit-loop thread inserts a name raises "dictionary changed size
+    # during iteration" — inside the diag read path, i.e. the observability would
+    # break exactly when two loops are running and it is most needed.
+    with _hooks_lock:
+        items = [(name, dict(slot)) for name, slot in _hooks.items()]
+    for name, s in items:
         n = s["n"] or 0
         out[name] = {
             "n": n,
@@ -223,7 +288,16 @@ def snapshot() -> Dict[str, Any]:
     # ours and is the whole contract — a caller that invents a dotted name without
     # a parent wrap drops itself out of the coverage denominator, so `nested_hooks`
     # below is published to make the hierarchy visible rather than assumed.
-    top_level = {n: s for n, s in _hooks.items() if "." not in n}
+    with _hooks_lock:
+        _hooks_view = [(n, dict(sl)) for n, sl in _hooks.items()]
+        _offloop_view = {n: {"n": sl["n"],
+                             "mean_ms": (round(sl["sum_ms"] / sl["n"], 1)
+                                         if sl["n"] else None),
+                             "max_ms": (round(sl["max_ms"], 1)
+                                        if sl["max_ms"] is not None else None),
+                             "max_at_utc": sl["max_at_utc"]}
+                        for n, sl in _offloop_hooks.items()}
+    top_level = {n: s for n, s in _hooks_view if "." not in n}
     hook_sum_ms = sum(s["sum_ms"] for s in top_level.values())
     attributed_mean = (hook_sum_ms / _ticks) if _ticks else None
     return {
@@ -239,7 +313,14 @@ def snapshot() -> Dict[str, Any]:
         # always so the hierarchy is visible: a reader comparing `attributed_pct`
         # against the `hooks` block can otherwise not tell why the listed means do
         # not add up to it. 0 means the block is flat and the two agree exactly.
-        "nested_hooks": sum(1 for n in _hooks if "." in n),
+        "nested_hooks": sum(1 for n, _ in _hooks_view if "." in n),
+        # Hooks recorded by a thread that does not own the main tick (the
+        # decoupled exit loop). REPORTED, and deliberately absent from
+        # `attributed_pct` above: their denominator is their own loop's duration,
+        # not this tick's. `{}` once the exit loop is decoupled and idle is a real
+        # answer; a non-empty block here while `attributed_pct` looks healthy is
+        # the two-loops-running state, not an inconsistency.
+        "offloop_hooks": _offloop_view,
         # Non-zero means a caller generated hook names dynamically and the split
         # is PARTIAL. Shipped always so a truncated view cannot read as complete.
         "hook_names_refused": _hook_overflow,
@@ -316,5 +397,9 @@ def _reset_for_tests() -> None:
     global _started_utc, _last_write_ts, _tick_start, _hook_overflow
     _ticks, _last_ms, _max_ms, _max_at_utc = 0, None, None, None
     _sum_ms, _started_utc, _last_write_ts, _tick_start = 0.0, None, None, None
-    _hooks.clear()
+    global _tick_thread
+    with _hooks_lock:
+        _hooks.clear()
+        _offloop_hooks.clear()
     _hook_overflow = 0
+    _tick_thread = None

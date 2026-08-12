@@ -173,7 +173,9 @@ def resolve_data(symbol: str, tf: str, data_dir: Path) -> tuple[str | None, bool
 
 
 def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  # inert: `name` — the leg id, kept because FIVE external callers pass it positionally (m20_flip_replay_sweep, m21_entry_head_round, m20_exit_head_round, m21_entry_sweep, and this module); every arg is built from `cfg`, so dropping it would be a cross-script signature break for no behavioural gain. It affects NOTHING here — do not add a doc claiming otherwise.
-              tp_cap_pct: float = 0.0) -> list[str]:
+              tp_cap_pct: float = 0.0,
+              fee_bps_roundtrip: float | None = None,
+              min_confidence_override: float | None = None) -> list[str]:
     tf = str(cfg.get("timeframe") or "1h")
     sym = (cfg.get("symbols") or ["?"])[0]
     a = ["--data", data, "--symbol", sym, "--timeframe", tf]
@@ -287,6 +289,35 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
         opt("--vol-skip-below-pctl", "vol_skip_below_pctl")
         opt("--vol-pctl-window", "vol_pctl_window")
         declared_levers()
+    # FEE BAND. Passed through verbatim when set, so a fee-survival A/B measures
+    # the SAME base at two cost levels rather than two different books. None means
+    # "the harness's own default" and is recorded as such -- never silently stamped
+    # as 7.5, because a row that did not declare its fee is not a row measured at
+    # the default, it is a row whose fee we did not record.
+    if fee_bps_roundtrip is not None:
+        a += ["--fee-bps-roundtrip", str(fee_bps_roundtrip)]
+    # ENTRY-SELECTIVITY BAND. The surviving thread of SRQ-20260618-003 after the
+    # 15bps arm refuted the "fewer, larger-R trades escape the fee band"
+    # hypothesis: if halving the trade COUNT does not clear the band, does
+    # raising the per-trade EDGE? ict_scalp's confidence is a genuine continuous
+    # blend (0.4*body_to_range + 0.3*sweep_depth_atr + 0.3*fvg_size_norm, capped
+    # at 1.0), so a floor is a real selectivity axis and not a two-valued switch.
+    #
+    # REPLACES the cfg-derived floor rather than stacking on it. argparse would
+    # take the last of two `--min-confidence` flags and get the same NUMBER, but
+    # the recorded command IS the evidence for what a row measured, and a command
+    # carrying two contradictory floors cannot be read back as a claim about
+    # either. Strip-then-append so the emitted args say exactly one thing.
+    if min_confidence_override is not None:
+        stripped: list[str] = []
+        i = 0
+        while i < len(a):
+            if a[i] == "--min-confidence":
+                i += 2          # drop the flag AND its value
+                continue
+            stripped.append(a[i])
+            i += 1
+        a = stripped + ["--min-confidence", str(min_confidence_override)]
     # Live-parity TP: only for families whose live unit actually clamps.
     if tp_cap_pct > 0.0 and fam in LIVE_TP_CAPPED_FAMILIES:
         a += ["--tp-cap-pct", str(tp_cap_pct)]
@@ -295,6 +326,16 @@ def base_args(name: str, cfg: dict, fam: str, data: str, resample: str | None,  
             a += ["--tp-r", str(tpr)]
     return a
 
+
+# MIN-OOS-TRADES FLOOR — operator decision 2026-08-11, value 25.
+#
+# A DENOMINATOR REQUIREMENT, not a fitted threshold (contrast the Path B rate
+# floor, measured the same day and REFUSED: `no_separation` on both candidate
+# predictors over 604 rows). Chosen from the coverage cost curve, not a fit --
+# floor 10 keeps 34 of 51 legs / 27 passes, floor 25 keeps 32 legs / 27 passes,
+# floor 50 keeps 20 legs / 7 passes. 10->25 is free (two legs, zero passes) and
+# 25->50 is the cliff. Full rationale + the honest limit at the enforcement site.
+MIN_OOS_TRADES = 25
 
 REGIME_POLICY_PATH = REPO / "config" / "regime_policy.yaml"
 
@@ -979,6 +1020,25 @@ def main(argv: list[str]) -> int:
                          "trail_decay) — skips already-verdicted cells on a re-run")
     ap.add_argument("--list", action="store_true",
                     help="print the run plan (leg -> harness/data/cells) and exit")
+    ap.add_argument("--fee-bps-roundtrip", type=float, default=None,
+                    help="Override the harness roundtrip fee (bps). Default None "
+                         "= the harness's own execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP "
+                         "(7.5). Exists because a base measured at ONE fee level "
+                         "cannot answer a fee-SURVIVAL question: SRQ-20260618-003 "
+                         "rejected the 5m scalp alts precisely because they were "
+                         "+50R at 7.5bps and -38R at 15bps, and the whole 15m "
+                         "hypothesis is that fewer, larger-R trades escape that "
+                         "band. The corpus is entirely 7.5bps, so the 15bps arm "
+                         "was unrunnable without this flag.")
+    ap.add_argument("--min-confidence-override", type=float, default=None,
+                    help="Override every leg's config-declared min_confidence "
+                         "(entry-selectivity floor). Default None = use each "
+                         "leg's own declared value, i.e. the config-exact base. "
+                         "Exists for the surviving arm of SRQ-20260618-003: the "
+                         "15bps run refuted 'fewer trades escape the fee band', "
+                         "leaving 'higher edge per trade' untested. A row swept "
+                         "with an override is NOT comparable to a config-exact "
+                         "row, so the value joins the corpus measurement key.")
     ap.add_argument("--tp-cap-pct", type=float, default=0.0,
                     help="Run with the LIVE-PARITY take-profit "
                          "(production: 0.099 -- the Bybit ~10%% TP-distance "
@@ -1045,7 +1105,9 @@ def main(argv: list[str]) -> int:
                      # rather than vanishing: a cell that is absent from the
                      # table and a cell that ran flat must stay tellable apart.
                      "inert_cells": inert,
-                     "base": base_args(name, cfg, fam, data, resample, a.tp_cap_pct),
+                     "base": base_args(name, cfg, fam, data, resample, a.tp_cap_pct,
+                                       a.fee_bps_roundtrip,
+                                       a.min_confidence_override),
                      "cells": [c for c in cells
                                if not levers or c[1] in levers]})
 
@@ -1335,7 +1397,57 @@ def main(argv: list[str]) -> int:
             # be unable to answer the question it was added for.
             entry["capital"] = {"IS": capital_delta(c_is, base_is),
                                 "OOS": capital_delta(c_oos, base_oos)}
-            if candidate:
+            # THE MIN-OOS-TRADES FLOOR (operator decision 2026-08-11: 25).
+            #
+            # Path A's `beats()` had NO minimum trade count, so a cell cleared it
+            # over a book that might hold THREE trades and then posted a "6/6
+            # walk-forward" over folds that were nearly empty. Measured over the
+            # 603-cell corpus: 35.8% of cells sat on an OOS base under 10 trades,
+            # 65.2% under 50, and 33 of the 40 PASSING cells (82%) were under 50
+            # with 13 under 10. `spy_trend_long_1d vt_hot90_t2` passed on 3 OOS
+            # trades at +0.80R with a maxDD delta of EXACTLY 0.0 -- the lever
+            # never touched the drawdown path.
+            #
+            # Unlike the Path B RATE floor (measured the same day and REFUSED --
+            # both candidate predictors returned `no_separation` over 604 rows),
+            # this is NOT a fitted threshold. It is a DENOMINATOR REQUIREMENT,
+            # the shape `research_results_gate.min_trades` already ships, and it
+            # needs no separation test. The VALUE came from the cost curve, not
+            # from a fit: floor 10 -> 34 of 51 legs / 27 passes; floor 25 -> 32
+            # legs / 27 passes; floor 50 -> 20 legs / 7 passes. So 10->25 costs
+            # two legs and ZERO passes (free), and the cliff is 25->50. 25 is the
+            # last point before coverage is paid for. A floor of 50+ would also
+            # structurally exclude every DAILY-timeframe leg, which cannot reach
+            # 50 trades in a ~1y OOS window -- rejecting them for bar size, not
+            # for a bad lever.
+            #
+            # ITS OWN STATE, never folded into `is_oos_fail`: "we did not look at
+            # enough trades" and "we looked and the lever failed" are opposite
+            # findings, and collapsing them would make a thin book indistinguish-
+            # able from a refuted lever. The cell's numbers are still recorded --
+            # they are evidence -- and the walk-forward is skipped (it would be
+            # measuring the same too-thin book, and it is the expensive step).
+            #
+            # HONEST LIMIT: this floor is a PROXY for the statistic that actually
+            # matters -- how many trades the LEVER fired on, and whether the
+            # effect exceeds its own noise. A ΔmaxDD of exactly 0.0 is the lever
+            # reporting that it barely fired, and this floor would NOT catch a
+            # cell on a 200-trade base that modified two exits. The corpus does
+            # not record per-cell fire counts; that gap stays open.
+            _base_oos_n = base_oos.get("total_trades")
+            _thin = (isinstance(_base_oos_n, (int, float))
+                     and _base_oos_n < MIN_OOS_TRADES)
+            entry["base_trades_oos"] = _base_oos_n
+            entry["min_oos_trades_floor"] = MIN_OOS_TRADES
+            if _thin:
+                # Record what it WOULD have been, so the floor's effect on this
+                # cell is auditable rather than invisible.
+                entry["would_have_been"] = (
+                    "is_oos_pass" if candidate else "is_oos_fail")
+                entry["verdict"] = "insufficient_base"
+                entry["insufficient_base_why"] = (
+                    f"OOS base {_base_oos_n} trades < floor {MIN_OOS_TRADES}")
+            elif candidate:
                 wf = walkforward(p["harness"], p["base"], args, log_result,
                                  leg, tag, require_dd=True)
                 entry["walkforward"] = wf["summary"]
@@ -1481,6 +1593,25 @@ def main(argv: list[str]) -> int:
          # rather than asserted, so a future run that does pass the flag records
          # the difference instead of inheriting this comment.
          "regime_router": "off",
+         # The FLOOR THAT GRADED THIS RUN. Part of the measurement identity for
+         # the same reason `tp_cap_pct` and `regime_router` are: a corpus mixing
+         # floor-0 and floor-25 vintages under one label would let an ungraded
+         # thin cell and a refused one share a row. A run predating the field
+         # records nothing, and the extractor keys None distinctly.
+         "min_oos_trades_floor": MIN_OOS_TRADES,
+         # THE FEE BAND THIS RUN MEASURED. Identity, not metadata: the same cell at
+         # 7.5bps and at 15bps are two different books, and SRQ-20260618-003 is the
+         # worked example -- the 5m alts flipped from +50R to -38R across exactly
+         # that gap. None = the harness default was used and this run did not
+         # declare one.
+         "fee_bps_roundtrip": a.fee_bps_roundtrip,
+         # THE ENTRY-SELECTIVITY BAND THIS RUN MEASURED. Identity for the same
+         # reason as the fee: a leg swept at its declared floor and the same leg
+         # swept at an imposed one are two different populations, and the whole
+         # point of the arm is that they score differently. None = no override,
+         # i.e. every leg ran at its own config-exact declared value -- which is
+         # NOT the same statement as "floor 0", since a leg may declare one.
+         "min_confidence_override": a.min_confidence_override,
          "regime_policy_readable": off_legs is not None,
          "regime_policy_off_legs": sorted(off_legs) if off_legs is not None else None,
          "skipped": skipped, "verdicts": verdicts}, indent=1))

@@ -371,3 +371,171 @@ def test_a_child_keeps_its_own_share_of_total(monkeypatch):
     parent = s["hooks"]["parent"]["pct_of_total"]
     assert child is not None and parent is not None
     assert 0.0 < child <= parent + 1.0, (child, parent)
+
+
+# --- section 6.2: the accumulators are thread-safe (decouple prerequisite) ----
+#
+# READ THIS BEFORE TRUSTING THESE AS RACE DEMONSTRATIONS — THEY ARE NOT.
+# All three pass with `_hooks_lock` stubbed out to a no-op, and a direct attempt
+# to lose an update (8 threads x 20k increments on a shared dict slot at
+# `sys.setswitchinterval(1e-9)`) lost zero across three trials. CPython's GIL
+# makes read-modify-write on a dict slot very hard to actually interleave.
+#
+# They are REGRESSION guards for a lock kept on defensive grounds: the atomicity
+# is a CPython implementation detail rather than a language guarantee, and the
+# failure mode would be silent and flattering (a lost sample makes a hook look
+# cheaper). They would catch a refactor that moves work outside the lock or
+# introduces a genuinely non-atomic step. They are not evidence of a live bug.
+
+def test_concurrent_record_hook_loses_no_samples():
+    tc._reset_for_tests()
+    import threading
+    PER, THREADS = 500, 4
+
+    def worker() -> None:
+        for _ in range(PER):
+            tc.record_hook("order_monitor", 1.0)
+
+    threads = [threading.Thread(target=worker) for _ in range(THREADS)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    slot = tc._hooks["order_monitor"]
+    assert slot["n"] == PER * THREADS, f"lost {PER * THREADS - slot['n']} samples"
+    assert slot["sum_ms"] == pytest.approx(float(PER * THREADS))
+
+
+def test_concurrent_distinct_names_respect_the_bound_exactly():
+    """The check-then-insert could over-admit past _MAX_HOOK_NAMES, whose whole
+    job is keeping `hook_names_refused` an honest count."""
+    tc._reset_for_tests()
+    import threading
+
+    def worker(lo: int) -> None:
+        for i in range(lo, lo + 40):
+            tc.record_hook(f"h{i}", 1.0)
+
+    threads = [threading.Thread(target=worker, args=(n * 40,)) for n in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(tc._hooks) == tc._MAX_HOOK_NAMES, len(tc._hooks)
+    # 160 attempted, _MAX_HOOK_NAMES admitted, the rest counted as refused.
+    assert len(tc._hooks) + tc._hook_overflow == 160
+
+
+def test_snapshot_does_not_raise_while_a_writer_is_active():
+    """`_hook_view`/`snapshot` iterated `_hooks` live. A concurrent insert makes
+    that 'dictionary changed size during iteration' — inside the diag read path,
+    i.e. observability breaking exactly when two loops run and it matters most."""
+    tc._reset_for_tests()
+    import threading
+    tc.begin_tick()
+    tc.end_tick()
+    stop = threading.Event()
+    errors: list[BaseException] = []
+
+    def writer() -> None:
+        i = 0
+        while not stop.is_set():
+            tc.record_hook(f"h{i % 20}", 1.0)
+            i += 1
+
+    def reader() -> None:
+        try:
+            for _ in range(400):
+                tc.snapshot()
+        except BaseException as exc:   # noqa: BLE001 — the failure under test
+            errors.append(exc)
+
+    w = threading.Thread(target=writer, daemon=True)
+    r = threading.Thread(target=reader)
+    w.start()
+    r.start()
+    r.join()
+    stop.set()
+    w.join(timeout=5)
+    assert not errors, f"snapshot raised under a concurrent writer: {errors[0]!r}"
+
+
+# --- section 6.3: off-loop hooks get their own block, not the tick's ----------
+#
+# This field has now broken TWICE in opposite directions. Adding monitor.* children
+# made a flat sum double-count and attributed_pct read 136.8%. Decoupling the exit
+# half breaks it the other way: the exit loop's ~24s would be summed into a
+# numerator whose denominator is the MAIN tick's elapsed time. Two concurrent loops
+# do not share a clock.
+
+def test_offloop_hook_does_not_enter_attributed_pct():
+    tc._reset_for_tests()
+    tc.begin_tick()
+    tc.record_hook("run_one_tick", 60_000.0)
+    tc.end_tick()
+
+    import threading
+    def other_loop() -> None:
+        tc.record_hook("monitor.strategy_monitor_loop", 24_000.0)
+    t = threading.Thread(target=other_loop)
+    t.start()
+    t.join()
+
+    snap = tc.snapshot()
+    assert "monitor.strategy_monitor_loop" not in snap["hooks"], (
+        "another loop's time landed in the main tick's block")
+    assert "monitor.strategy_monitor_loop" in snap["offloop_hooks"]
+    # THE invariant, stated so it does not depend on the tick's real duration
+    # (microseconds under test, so any absolute pct here is meaningless): recording
+    # the off-loop hook must not MOVE attribution at all.
+    before = snap["attributed_pct"]
+    def other_loop_again() -> None:
+        tc.record_hook("monitor.strategy_monitor_loop", 99_000.0)
+    t2 = threading.Thread(target=other_loop_again)
+    t2.start()
+    t2.join()
+    assert tc.snapshot()["attributed_pct"] == before, (
+        "off-loop time moved attributed_pct — its denominator is the wrong clock")
+
+
+def test_offloop_block_reports_count_and_max_but_no_share():
+    """Visible, not silently dropped — but with no `pct_of_total`, because its
+    denominator is its own loop's duration, which this module does not measure."""
+    tc._reset_for_tests()
+    tc.begin_tick()
+    tc.end_tick()
+    import threading
+    def other_loop() -> None:
+        tc.record_hook("monitor.strategy_monitor_loop", 20_000.0)
+        tc.record_hook("monitor.strategy_monitor_loop", 30_000.0)
+    t = threading.Thread(target=other_loop)
+    t.start()
+    t.join()
+    blk = tc.snapshot()["offloop_hooks"]["monitor.strategy_monitor_loop"]
+    assert blk["n"] == 2
+    assert blk["max_ms"] == 30_000.0
+    assert blk["mean_ms"] == 25_000.0
+    assert "pct_of_total" not in blk
+
+
+def test_same_thread_hooks_still_land_in_the_tick_block():
+    """The segregation must key on the thread that owns the TICK, so the existing
+    single-threaded behaviour is byte-identical."""
+    tc._reset_for_tests()
+    tc.begin_tick()
+    tc.record_hook("order_monitor", 49_000.0)
+    tc.record_hook("monitor.strategy_monitor_loop", 24_000.0)
+    tc.end_tick()
+    snap = tc.snapshot()
+    assert "order_monitor" in snap["hooks"]
+    assert "monitor.strategy_monitor_loop" in snap["hooks"]
+    assert snap["offloop_hooks"] == {}
+
+
+def test_hooks_recorded_before_any_tick_are_not_treated_as_offloop():
+    """`_tick_thread` is None before the first begin_tick. Routing those to the
+    off-loop block would hide a hook recorded during startup."""
+    tc._reset_for_tests()
+    tc.record_hook("order_monitor", 1_000.0)
+    assert "order_monitor" in tc._hooks
+    assert tc._offloop_hooks == {}

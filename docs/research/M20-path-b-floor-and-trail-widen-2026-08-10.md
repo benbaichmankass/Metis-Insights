@@ -367,12 +367,58 @@ different kind of object: a **denominator requirement**, the same shape as
 `research_results_gate.min_trades`, which the repo already ships. It needs no
 separation test.
 
-**Per this repo's own procedure for an unset threshold, the distribution above is
-REPORTED and the value is the operator's** (`exit-refinement` SKILL: *"The first sweep
-REPORTS the distribution; the operator sets the two values from it"*). Fitting one here
-from the same corpus it will judge would be the exposure-ceiling mistake. What the
-distribution says: a floor of 50 would retain 7 of 40 current passes; a floor of 10
-would retain 27 of 40.
+**Per this repo's own procedure for an unset threshold, the distribution was REPORTED
+and the value was the operator's** (`exit-refinement` SKILL: *"The first sweep REPORTS
+the distribution; the operator sets the two values from it"*). Fitting one from the same
+corpus it will judge would be the exposure-ceiling mistake.
+
+### ✅ SET: `MIN_OOS_TRADES = 25` (operator decision 2026-08-11)
+
+The full cost curve, which is what the value was chosen from — **not** a fit:
+
+| floor | legs surviving | cells | passes |
+|---|--:|--:|--:|
+| 0 (as shipped) | 50 / 51 | 603 | 40 |
+| **10** | 34 / 51 | 387 | **27** |
+| **25 ← SET** | 32 / 51 | 377 | **27** |
+| 50 | 20 / 51 | 210 | 7 |
+| 100 | 10 / 51 | 70 | 2 |
+
+**The curve is not smooth, because `base_trades_OOS` is a property of the LEG, not the
+cell** — a floor deletes whole legs (~12 cells each) rather than filtering weak cells.
+Two things follow, and they decided the value:
+
+- **10 → 25 is free**: two legs, **zero** passes. And floor 10 already kills all 13
+  thin passes — every one sits on ≤ 7 OOS trades (`spy`/`qqq`/`scha_trend_long_1d`,
+  `slv`/`mhg_pullback_1d`) at ΔnetR +0.10R…+1.75R with ΔmaxDD of **exactly 0.0**.
+- **25 → 50 is the cliff**: 32 → 20 legs, 27 → 7 passes. And a floor of 50+ would
+  **structurally exclude every daily-timeframe leg**, which cannot reach 50 trades in a
+  ~1y OOS window — rejecting them for bar size, not for a bad lever.
+
+So 25 is the last point before coverage is paid for.
+
+**It has its own verdict, `insufficient_base` — never folded into `is_oos_fail`.** "We
+did not look at enough trades" and "we looked and the lever failed" are opposite
+findings; the cell's numbers are still recorded (they are evidence), `would_have_been`
+records what the verdict would have been so the floor's effect is auditable rather than
+invisible, and the walk-forward is skipped (it would measure the same too-thin book, and
+it is the expensive step).
+
+**It does NOT retroactively question anything live.** `eth_pullback_2h` — the leg
+carrying the operator-approved Tier-3 trail lever — has an OOS base of **65 trades**,
+clearing every floor considered.
+
+**The existing 604-row corpus keeps `min_oos_trades_floor: null`**, which is *"ungraded
+by any floor"* and NOT floor 0; recording 0 would assert that every thin cell in it had
+been considered and admitted. The field joins the measurement-identity key, because the
+same cell graded unfloored and graded at 25 can carry **different verdicts**.
+
+**HONEST LIMIT, restated because it survives the decision:** this floor is a proxy for
+the statistic that actually matters — how many trades the **lever** fired on, and
+whether the effect exceeds its own noise. ΔmaxDD of exactly 0.0 is the lever reporting
+that it barely fired, and a base-trade floor would **not** catch a cell on a 200-trade
+base that modified two exits. The corpus records no per-cell fire counts; that gap is
+open.
 
 **Until a floor is set, read every PASS in § 5 beside its OOS base.** The one PASS in
 this document on a genuinely solid denominator is `trend_donchian_1h vt_hot90_t2.5`

@@ -3,6 +3,26 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260812-SWEEP-CORPUS-RECORDS-NO-FRAME-FINGERPRINT",
+      "opened_at": "2026-08-12T00:25:00+00:00",
+      "opened_by": "claude (overnight M20 research 2026-08-12)",
+      "status": "open",
+      "severity": "low",
+      "tier": 1,
+      "title": "The M20 sweep corpus records every CONFIG axis of a measurement (split, tp_cap, fee, regime book, trades floor, confidence floor) but NOT the DATA it ran on — structural gap, NO observed instance: the 0.20 arm reproduced the 15bps control on 3 of 3 legs across a 50-minute frame-refetch gap",
+      "source": "Filed and corrected 2026-08-12 while running the SRQ-20260618-003 confidence arms on PR #8778 (control run 31544988689 at ~23:04Z; arms 31548326840/31548334325/31548340442 at ~23:56Z).\n\nPOPULATION for the replication claim: 3 legs (ict_scalp_{eth,sol,xrp}_15m), all 3 reproduced the control exactly at min_confidence=0.20 — a floor that is provably inert for this family (config/strategies.yaml::ict_scalp_5m sets min_displacement_body_to_range 0.55, enforced as an ENTRY REJECTION at src/units/strategies/ict_scalp.py:222, and confidence at :537 is 0.4*body_to_range + two non-negative terms, so every admitted setup scores >= 0.4*0.55 = 0.22 > 0.20; the harness reads that same value at scripts/backtest_ict_scalp.py:487). So the arm doubled as an unplanned determinism check and passed on 3 of 3.",
+      "why_it_matters": "The corpus measurement_key was extended four times this week — tp_cap_pct, regime_router, min_oos_trades_floor, fee_bps_roundtrip — each on the argument that two runs differing on that axis measured DIFFERENT BOOKS and must not merge under one label. The frames are the same kind of axis and the one nobody records: a row asserts what was CONFIGURED and is silent on what was MEASURED. That remains true. What is NOT true, and what this item originally claimed, is that it has bitten.",
+      "action": "LOW priority, and deliberately not urgent. If picked up: stamp a per-leg frame fingerprint (row count + first/last bar timestamp + a content hash, all three so a truncated frame and a shifted one stay distinguishable) into verdicts.json and propagate it to the corpus row the way fee_bps_roundtrip is. RECORD but do NOT add it to measurement_key — keying on it would stop a re-run ever superseding an older row, which is the opposite of what the merge exists for; the right analogue is regime_gate_delta, recorded and deliberately excluded from the key. A reported mismatch when two rows share a key and differ on frames is the useful half.",
+      "evidence_paths": [
+        "scripts/research/m20_fleet_exit_sweep.py",
+        "scripts/research/m20_corpus_extract.py",
+        "docs/research/m20-sweep-corpus.jsonl",
+        ".github/workflows/m20-exit-lever-sweep.yml"
+      ],
+      "snoozed_until": null,
+      "correction_2026_08_12": "CORRECTED 2026-08-12T00:35Z, SAME SESSION, BEFORE THIS ITEM WAS EVER READ BY ANYONE ELSE. As first filed, this item's central claim was FALSE and I am recording that rather than editing the numbers quietly.\n\nWHAT I FILED: that ict_scalp_sol_15m moved OOS 142 -> 141 between the 15bps control and the min_confidence=0.20 arm with 'no config difference that could cause it', and that the delta was therefore data-side drift.\n\nWHAT WAS ACTUALLY TRUE: the 141 reading belongs to the **0.30** arm, not the 0.20 arm. I attributed a PR sweep comment to the wrong run. The corpus — which does key on min_confidence_override — says plainly: at 0.20 sol is 280/142 and at 0.30 it is 280/141. The 0.30 floor skipped one sol entry; that is a CONFIG difference, fully explaining the delta.\n\nTHE EVIDENCE INVERTS. The 0.20 arm reproduced the control on ALL THREE legs — eth 257/130, sol 280/142, xrp 227/134 — with byte-identical cell tables, across frames re-fetched from the trainer ~50 minutes after the control's. That is a clean replication, i.e. positive evidence that the frames were STABLE over that window, which is the opposite of the drift I filed.\n\nROOT CAUSE OF MY ERROR, and it is the point worth keeping: the PR sweep comment did not name the arm. Three near-identical comments were in flight and the only distinguishing field was a trade count I had to guess from. I had ALREADY identified that gap and fixed the banner (commit 21032b5, fee + confidence floor now printed) — and then fell into it anyway on the runs that predated the fix. An identity field that is missing does not just cost a reader time; it actively produced a confident wrong finding from correct raw data.\n\nDISPOSITION: severity medium -> LOW and the claim rescoped to what it is — a STRUCTURAL gap with no observed instance. It is still real (a re-run months from now genuinely would read different frames, and nothing in a corpus row would say so), but it is not urgent and it is explicitly NOT supported by tonight's data. Do not cite this item as evidence that drift has been seen."
+    },
+    {
       "id": "BL-20260812-DIAG-SHADOW-STATS-MISSING-SOAK-BASIS",
       "opened_at": "2026-08-12T00:45:00+00:00",
       "opened_by": "claude (session_01SxTAh, overnight autonomous run)",

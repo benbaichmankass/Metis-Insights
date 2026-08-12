@@ -206,7 +206,7 @@ def test_broker_naked_sweep_skips_active_close(tmp_path, monkeypatch):
     """BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT: the re-arm must NOT re-protect a
     position the monitor is actively closing this tick — else it re-holds the
     shares the close is trying to sell and the two fight forever (the QQQ #3269
-    perpetual close-failure). A symbol in ``_TICK_ACTIVE_CLOSE_SYMBOLS`` is
+    perpetual close-failure). A symbol marked via ``mark_active_close`` is
     skipped entirely (no broker read, no re-arm)."""
     db = _FakeDB(tmp_path / "j.db")
     _insert(db, id=1, account_id="alpaca_paper", symbol="QQQ", direction="long",
@@ -221,12 +221,12 @@ def test_broker_naked_sweep_skips_active_close(tmp_path, monkeypatch):
         "src.units.accounts.clients.alpaca_client_for", lambda acc: fake
     )
     # The monitor attempted a close on QQQ this tick.
-    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
-    om._TICK_ACTIVE_CLOSE_SYMBOLS.add(("alpaca_paper", "QQQ"))
+    om._TICK_ACTIVE_CLOSE_AT.clear()
+    om.mark_active_close("alpaca_paper", "QQQ")
     try:
         summary = om._check_broker_naked_equity_positions(db)
     finally:
-        om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+        om._TICK_ACTIVE_CLOSE_AT.clear()
     # Skipped before the broker read → not counted broker_naked, never re-armed.
     assert summary["broker_naked"] == 0
     assert summary["rearmed"] == 0

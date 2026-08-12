@@ -20,12 +20,39 @@ from pathlib import Path
 SRC = Path(__file__).resolve().parents[1] / "src" / "runtime" / "order_monitor.py"
 
 
-def _run_monitor_tick_body() -> list[str]:
+# THE TICK WAS SPLIT 2026-08-12 (Tier-2 decouple): the phases now live in TWO
+# functions -- `run_exit_evaluation_tick` (the exit half, 1 phase) and
+# `run_reconciliation_tick` (the hygiene half, 13) -- with `run_monitor_tick`
+# reduced to a wrapper that calls both. Scoping this scan to `run_monitor_tick`
+# alone would have made it pass over a body containing ZERO phases, i.e. a
+# vacuous green: the completeness property these tests exist to protect is about
+# the phases WHEREVER they live, so the scan follows them.
+_TICK_FUNCS = ("def run_exit_evaluation_tick", "def run_reconciliation_tick")
+
+
+def _func_body(prefix: str) -> list[str]:
     lines = SRC.read_text().splitlines()
-    i = next(k for k, ln in enumerate(lines) if ln.startswith("def run_monitor_tick"))
+    i = next(k for k, ln in enumerate(lines) if ln.startswith(prefix))
     j = next((k for k in range(i + 1, len(lines)) if lines[k].startswith("def ")),
              len(lines))
     return lines[i:j]
+
+
+def _run_monitor_tick_body() -> list[str]:
+    """Both halves concatenated — the region the old single function covered."""
+    body: list[str] = []
+    for prefix in _TICK_FUNCS:
+        body += _func_body(prefix)
+    return body
+
+
+def test_the_split_covers_both_halves_not_just_one():
+    """Guards the scan itself. If a half is renamed, `_run_monitor_tick_body`
+    must fail loudly rather than silently scan a smaller region and pass."""
+    for prefix in _TICK_FUNCS:
+        assert _func_body(prefix), f"{prefix} not found — the scan lost a half"
+    assert 'with _phase("strategy_monitor_loop")' in "\n".join(
+        _func_body("def run_exit_evaluation_tick")), "exit half lost its phase"
 
 
 def test_every_guarded_monitor_phase_is_inside_the_split():
