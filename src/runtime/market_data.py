@@ -397,6 +397,49 @@ def reset_candle_cache() -> None:
         _CANDLE_CACHE.clear()
 
 
+def _fetch_phase(name: str):
+    """Time ONE venue candle fetch into the per-tick cost record. NO-OP fallback.
+
+    WHY. The 2026-08-12 warm read (96 ticks, one process) put `pipeline.signal_build`
+    at **43.3% of the whole tick** — ~46.7s of a 107.9s tick, over 23 symbols. That
+    localises the dominant cost but does NOT say whether it is FETCH-bound (venue
+    round-trips, which parallelise) or COMPUTE-bound (indicator math on the frames,
+    which on a 2-core box does not). Those two have near-opposite fixes, so shipping
+    either without this split would be a guess.
+
+    Keyed on TIMEFRAME because that also sizes a second, cheaper hypothesis derived
+    from the code alone: `_candle_cache_ttl` is `min(bar_seconds * frac, 60.0)`, and
+    consecutive ticks are >= 108s apart, so **the cache cannot hit across ticks for
+    ANY timeframe** — its only value today is within-tick sharing between strategies
+    on the same (symbol, timeframe, limit). The 60s cap binds for every bar >= 10m
+    (a 1h frame wants 360s, a 4h frame 1440s), which are exactly the frames where a
+    ~108s-old copy is safest — a 4h bar is 0.75% formed at that age. If the miss
+    counts here are dominated by >= 15m frames, raising the cap is a large win for a
+    one-line change; if they are dominated by 5m (30s TTL, legitimately fresh), it
+    buys nothing. The counts decide it, not the argument.
+
+    ⚠️ **CROSS-CUTTING — do NOT sum these into a parent's subtree.** Unlike
+    `monitor.*` (all under `order_monitor`) and `pipeline.*` (all under
+    `run_one_tick`), `fetch_candles` is called from BOTH halves of the tick: by the
+    signal builders under `run_one_tick`, and by the monitor's ohlcv fetcher under
+    `order_monitor`. The names are dotted so `tick_cost.snapshot()` counts them as
+    children and keeps them out of `attributed_pct` (no double-count), and each
+    one's own `pct_of_total` stays valid — but the `fetch.*` family does not belong
+    to either parent, and a reader adding it to `pipeline.*` would over-count.
+
+    `fetch.cache_hit` is recorded for its **`n`, not its duration** (a hit is a dict
+    lookup). Hits vs per-timeframe misses is the direct empirical test of the
+    never-hits-across-ticks claim above, rather than leaving it as arithmetic.
+    """
+    try:
+        from src.runtime.tick_cost import hook
+        return hook(f"fetch.{name}")
+    except Exception:  # noqa: BLE001
+        # An instrumentation import error must never stop a live fetch.
+        import contextlib
+        return contextlib.nullcontext()
+
+
 def fetch_candles(
     symbol: str,
     timeframe: str,
@@ -459,10 +502,31 @@ def fetch_candles(
     cache_key = _candle_cache_key(exchange_client, symbol, timeframe, limit, since)
     cached = _candle_cache_get(cache_key)
     if cached is not None:
+        # Counted for its `n` (see _fetch_phase): hits vs misses is the empirical
+        # test of whether the cache reaches across ticks at all.
+        with _fetch_phase("cache_hit"):
+            pass
         # .copy() is load-bearing: a builder that mutates the frame (adds an
         # indicator column) must not corrupt the copy the next builder sees.
         return cached.copy()
 
+    _tf_label = str(timeframe).strip().lower() or "unknown"
+    with _fetch_phase(_tf_label):
+        return _fetch_candles_uncached(
+            exchange_client, symbol, timeframe, limit, since, cache_key
+        )
+
+
+def _fetch_candles_uncached(
+    exchange_client: Any,
+    symbol: str,
+    timeframe: str,
+    limit: int,
+    since: Optional[int],
+    cache_key: Optional[tuple],
+) -> Optional[pd.DataFrame]:
+    """The venue round-trip + normalisation, split out so `_fetch_phase` wraps
+    exactly the uncached path and nothing else. Behaviour is unchanged."""
     try:
         if since is not None:
             candles_raw = exchange_client.get_ohlcv(
