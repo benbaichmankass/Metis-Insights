@@ -138,10 +138,31 @@ place rather than quietly superseded.**
    already written that a 5.3% margin was *"one added reconciler away from being
    gone"* — it needed no new reconciler, just a larger sample of the ones already
    there.
-2. **A truncated backlog id** — cited `BL-20260810-TICK-CHAIN` where the filed id is
-   `BL-20260810-TICK-CHAIN-260S-PER-TICK`. Caught by `artifact-validity-guard`.
-   **Second occurrence this session** for that guard (earlier: `BL-20260706-IBWARMUP`,
-   prose-only, never filed).
+2. **A truncated backlog id** — cited the tick-chain item **without its
+   `-260S-PER-TICK` suffix**, so the reference resolved to nothing while reading as
+   tracked (the filed id is `BL-20260810-TICK-CHAIN-260S-PER-TICK`). Caught by
+   `artifact-validity-guard`. **Second occurrence this session**: earlier I cited an
+   `IBWARMUP`-suffixed id that appears in `CLAUDE.md` prose but was **never filed as
+   a backlog row at all**.
+
+   ⚠️ **And a third occurrence, on this very sprint log.** The first draft of this
+   section quoted both bad ids *verbatim while describing them as bad* — and the
+   guard, correctly, does not read intent: a non-resolving `BL-` token in a changed
+   doc is a finding regardless of the sentence around it. **Writing about a broken
+   reference reintroduces the broken reference.** The fix is to name the defect
+   without emitting the literal (as above), NOT to add an escape hatch — a guard
+   cheaper to silence than to satisfy is the `new-table-wiring-guard` marker lesson.
+
+   **Why it reached CI despite being run locally first: my local run was a VACUOUS
+   PASS over an empty diff.** This guard is diff-scoped against `HEAD`, not the
+   working tree, and I ran it *before* committing — so it compared `origin/main` to a
+   `HEAD` that did not yet contain the doc changes, found nothing to check, and
+   printed the same "OK — every tracking id this change introduces resolves" a real
+   pass prints. **The output is identical for "checked and clean" and "checked
+   nothing"**, which is sub-class C (unasserted denominator) of the diagnostic-
+   provenance rule — and I had documented that class earlier the same day. Run this
+   guard **after** committing, or read its denominator; a clean line over an empty
+   diff is not evidence.
 3. **A fabricated commit sha in a coordination-board claim** (`f1e3ef8`, which does
    not exist; the real head was `4789432`). Corrected on the board.
 
