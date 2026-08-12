@@ -162,7 +162,13 @@ def _family_of(strategy: str) -> str | None:
     try:
         sys.path.insert(0, str(REPO / "scripts" / "research"))
         from m20_fleet_exit_sweep import classify
-    except Exception:  # noqa: BLE001
+    except ImportError:
+        # ONLY an import failure is tolerated, and it is reported (the caller
+        # sets `classifier_available: False`), never treated as "no staleness".
+        # A broad `except Exception` here would also swallow a `classify()`
+        # crash on a real leg name, which would silently mark the WHOLE fleet
+        # unclassifiable and make the caveat vanish — the failure looking like
+        # a clean result, which is the thing this file exists to stop.
         return None
     return classify(strategy)
 
