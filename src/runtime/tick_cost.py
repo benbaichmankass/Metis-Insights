@@ -31,6 +31,7 @@ the sampling gap.
 from __future__ import annotations
 
 import contextlib
+import contextvars
 import json
 import os
 import threading
@@ -48,7 +49,47 @@ _DEFAULT_WRITE_CADENCE_S = 300.0
 # dynamically (a per-symbol or per-account label would grow the payload with the
 # book, and the module's whole contract is a fixed-size write on a 2-core box).
 # Overflow is RECORDED, never silently dropped — see `_hook_overflow`.
-_MAX_HOOK_NAMES = 32
+#
+# Raised 32 -> 64 on 2026-08-12 when the `fetchby.*` consumer cut was added. The
+# bound is a backstop against DYNAMIC name generation (per-symbol / per-account
+# labels that would grow the payload with the book), not a budget the static
+# chain is meant to sit near: the chain was already at 27 of 32 before this cut,
+# so a second CUT of the same fetches would have silently overflowed and been
+# reported as `hook_names_refused` — a truncated split reading as a complete one
+# is precisely what the counter exists to prevent, and running one name away
+# from that is not a margin. 64 still bounds the fixed-size write.
+_MAX_HOOK_NAMES = 64
+
+# The innermost non-fetch hook currently on the stack, per execution context.
+#
+# WHY A CONTEXTVAR AND NOT A PARAMETER. `fetch_candles` is called from a dozen
+# sites across the signal builders, the regime scorer and the monitor's exit
+# path, and none of them knows which tick phase it is under — threading a
+# `consumer=` argument through every one would be a wide, error-prone diff whose
+# omissions would be invisible (a missed call site would just report the wrong
+# consumer, not fail). `hook()` already brackets every phase, so the phase name
+# is available for free at exactly the moment a fetch runs beneath it.
+#
+# Off-loop threads get their own context automatically, so the decoupled exit
+# loop's fetches attribute to their own phase rather than to whatever the tick
+# thread happened to be doing at the same instant.
+_current_phase: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "tick_cost_current_phase", default=None
+)
+
+
+def current_phase() -> Optional[str]:
+    """Innermost non-`fetch.*` hook on the stack, or ``None`` outside any hook.
+
+    ``None`` is a real answer and must stay distinguishable from a named phase:
+    it means the fetch ran outside every instrumented phase (a startup warm-up,
+    an API-server request, a test), NOT that the phase could not be determined.
+    Callers render it as its own bucket rather than folding it into a neighbour.
+    """
+    try:
+        return _current_phase.get()
+    except Exception:  # noqa: BLE001 — measurement must never break the caller
+        return None
 
 # Process-lifetime accumulators. Deliberately fixed-size: this must not grow
 # with uptime on a 2-core box whose memory pressure is already load-bearing.
@@ -209,11 +250,30 @@ def hook(name: str) -> Iterator[None]:
     error handling exactly. The duration is recorded either way (``finally``), so
     a hook that raises still shows up in the split rather than vanishing from it
     — a hook that costs 40s and then throws is precisely the one worth seeing.
+
+    Also publishes the hook's name as the CURRENT PHASE (see `_current_phase`) so
+    a `fetch_candles` running beneath it can attribute itself to the phase that
+    asked for the candles. `fetch.*` names are excluded from that publication:
+    they are the leaf being attributed, and letting one overwrite the phase would
+    make every fetch attribute to itself.
     """
     t0 = time.monotonic()
+    token = None
+    try:
+        if not name.startswith("fetch"):
+            token = _current_phase.set(name)
+    except Exception:  # noqa: BLE001 — never let bookkeeping break the caller
+        token = None
     try:
         yield
     finally:
+        # Reset BEFORE recording: an exception inside record_hook must not leave
+        # a stale phase pinned on this context for every later fetch.
+        if token is not None:
+            try:
+                _current_phase.reset(token)
+            except Exception:  # noqa: BLE001
+                pass
         try:
             record_hook(name, (time.monotonic() - t0) * 1000.0)
         except Exception:  # noqa: BLE001
