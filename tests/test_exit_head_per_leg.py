@@ -19,6 +19,7 @@ against a broken implementation is worse than no test.
 from __future__ import annotations
 
 import copy
+import json
 import importlib.util
 from pathlib import Path
 
@@ -162,3 +163,82 @@ def test_split_by_leg_partitions_on_the_strategy_field():
     out = teh.split_by_leg(trades)
     assert set(out) == {"ict_scalp_sol_15m", "ict_scalp_xrp_15m"}
     assert set(out["ict_scalp_sol_15m"]) == {"t1", "t3"}
+
+
+# --------------------------------------------------------------- vintage cut
+#
+# The coverage headline is computed over a population whose verdicts were
+# largely measured against a TP geometry production does not run
+# (BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP). These pin the
+# caveat's scoping, because a caveat that over-claims becomes alarm fatigue and
+# one that under-claims hides the defect.
+
+def _rollup():
+    spec = importlib.util.spec_from_file_location(
+        "m20_coverage_rollup",
+        REPO / "scripts" / "research" / "m20_coverage_rollup.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+rollup = _rollup()
+
+
+def _matrix(rows):
+    return {"lever_columns": ["stale_stop"], "legend": {}, "rows": rows}
+
+
+def _row(strategy, status="honest_negative", ref="sweep 2026-07-12"):
+    return {"strategy": strategy, "symbol": "X", "tf": "1h",
+            "execution": "live", "stale_stop": {"status": status, "ref": ref}}
+
+
+def test_the_scalp_family_is_not_swept_into_the_geometry_caveat():
+    """ict_scalp's harness MODELS its TP, so its verdicts are not stale.
+
+    Blanket-flagging every family would make the caveat unusable — the
+    desensitized-alarm failure the repo treats as its own P1.
+    """
+    v = rollup.evidence_vintage(_matrix([_row("ict_scalp_sol_15m")]))
+    assert v["classifier_available"]
+    assert v["affected_legs"] == 0 and v["clean_legs"] == 1
+    assert v["pre_cutover"] == 0
+
+
+def test_an_affected_family_leg_with_old_evidence_is_counted_stale():
+    v = rollup.evidence_vintage(_matrix([_row("trend_donchian_eth_4h")]))
+    assert v["affected_legs"] == 1
+    assert v["pre_cutover"] == 1
+    assert v["stale_cells"][0][4] == "2026-07-12"
+
+
+def test_evidence_at_or_after_the_cutover_is_not_stale():
+    v = rollup.evidence_vintage(
+        _matrix([_row("trend_donchian_eth_4h", ref="re-swept 2026-08-11")]))
+    assert v["pre_cutover"] == 0 and v["post_cutover"] == 1
+
+
+def test_an_undated_ref_is_its_own_bucket_not_silently_clean():
+    """No date is 'we cannot tell', which is not the same as 'current'."""
+    v = rollup.evidence_vintage(
+        _matrix([_row("trend_donchian_eth_4h", ref="no date here")]))
+    assert v["undated"] == 1
+    assert v["pre_cutover"] == 0 and v["post_cutover"] == 0
+
+
+def test_an_open_cell_is_not_counted_as_stale_evidence():
+    """A pending cell owes a measurement regardless — counting it as stale
+    would double-count it against the done-condition."""
+    v = rollup.evidence_vintage(
+        _matrix([_row("trend_donchian_eth_4h", status="pending", ref="x 2026-07-12")]))
+    assert v["pre_cutover"] == 0 and v["undated"] == 0
+
+
+def test_the_vintage_denominator_equals_the_declared_lever_set():
+    """Guards the comment's claim that the lever filter currently filters
+    nothing — if a lever is dropped from the sensitive set, the caveat's
+    denominator silently shrinks and the staleness reads better than it is."""
+    matrix = json.loads(
+        (REPO / "docs" / "research" / "exit-refinement-coverage.json").read_text())
+    assert set(matrix["lever_columns"]) <= rollup.GEOMETRY_SENSITIVE_LEVERS

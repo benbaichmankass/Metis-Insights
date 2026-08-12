@@ -78,6 +78,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -95,6 +96,116 @@ HEADLINE = VALIDATED + ("blocked",)
 # Statuses that still owe work. `blocked` owes work that is gated elsewhere
 # (data, harness) rather than on an exit sweep — hence its own bucket.
 OPEN_STATUSES = ("pending", "blocked")
+
+# ---------------------------------------------------------------- vintage
+#
+# BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP (open, severity
+# critical) established that three live units clamp their 50R "sentinel" TP to
+# 9.9% from entry — `tp = min(entry * 1.099, entry + tp_r * risk)` — because
+# Bybit rejects a TP further out, while their harnesses modelled NO take-profit
+# at all. At the ATR levels these legs actually run, that live TP sits at
+# ~1.3-5R: an ordinary, frequently-touched target, not a sentinel. A trail lever
+# tuned where the trail is the SOLE exit is not the same lever where a hard TP
+# truncates the right tail first.
+#
+# The backlog row states the consequence plainly: it "sits underneath M20's
+# honest_negatives". So the coverage headline is computed over a population
+# whose verdicts were largely measured on a book production does not run — and
+# NOTHING in the matrix says so (measured 2026-08-12: 0 of 396 non-empty refs
+# mention the geometry). That is the "always state the population" rule applied
+# to the milestone's own progress metric.
+#
+# WHICH LEGS — verified 2026-08-12 by reading each live unit against its
+# harness, NOT inherited from the backlog row's prose:
+#
+#   AFFECTED   `_TP_SENTINEL_CAP_PCT` in the live unit + no TP in the harness
+#              trend_donchian.py · htf_pullback_trend_2h.py · squeeze_breakout_4h.py
+#              (fade_breakout_4h.py also carries the cap but has no live leg)
+#   CLEAN      ict_scalp — live places `tp = entry ± tp_at_r * risk` (no cap) and
+#              backtest_ict_scalp.py MODELS it (`bar_high >= tp -> tp_hit`)
+#   CLEAN      fvg_range_15m — live `tp = R` (the opposite range boundary), a real
+#              bounded target; its harness takes `--tp-r`
+#
+# So this is NOT a blanket "every verdict is suspect" — scoping it to the three
+# families is the difference between a usable caveat and alarm fatigue.
+GEOMETRY_CUTOVER = "2026-08-10"
+TP_PARITY_AFFECTED_FAMILIES = frozenset({"donchian", "pullback", "squeeze"})
+
+# Levers whose verdict is a claim about the exit path, and so is conditioned on
+# the TP geometry the harness modelled. `exit_head_ml` is included: its E0 rows
+# come from the same `--emit-trades` harness paths.
+#
+# ⚠️ THIS CURRENTLY CONTAINS EVERY DECLARED LEVER — it filters NOTHING today,
+# and saying so is the point. Every one of the eight columns is a claim about
+# the exit path, so the honest scoping happens on the FAMILY axis, not this one.
+# The set exists so that a future non-exit column (an entry-side lever, say)
+# cannot be swept into the geometry caveat by default. A reader comparing the
+# vintage denominator against the lever list should find them equal; if they
+# ever diverge, this is the line that explains why.
+GEOMETRY_SENSITIVE_LEVERS = frozenset({
+    "trail_geometry", "stale_stop", "giveback_stop", "trail_decay",
+    "vol_trail", "exit_ladder", "regime_flip_exit", "exit_head_ml",
+})
+
+_DATE = re.compile(r"20\d{2}-\d{2}-\d{2}")
+
+
+def _family_of(strategy: str) -> str | None:
+    """Resolve a leg's harness family via the sweep's own `classify`.
+
+    Imported, never re-implemented: a second copy of the family split would be
+    free to drift from the one that actually picks the harness, and the failure
+    it produces (a leg attributed to the wrong family) looks like a clean
+    result rather than a bug. Returns None when the import is unavailable —
+    a third state the caller reports rather than guessing around.
+    """
+    try:
+        sys.path.insert(0, str(REPO / "scripts" / "research"))
+        from m20_fleet_exit_sweep import classify
+    except Exception:  # noqa: BLE001
+        return None
+    return classify(strategy)
+
+
+def evidence_vintage(matrix: dict[str, Any]) -> dict[str, Any]:
+    """How much of the closed population predates the TP-parity cutover."""
+    out = {
+        "cutover": GEOMETRY_CUTOVER,
+        "affected_families": sorted(TP_PARITY_AFFECTED_FAMILIES),
+        "classifier_available": True,
+        "pre_cutover": 0, "post_cutover": 0, "undated": 0,
+        "affected_legs": 0, "clean_legs": 0,
+        "stale_cells": [],
+    }
+    for row in matrix["rows"]:
+        if row.get("execution") != "live":
+            continue
+        fam = _family_of(row["strategy"])
+        if fam is None:
+            out["classifier_available"] = False
+            return out
+        if fam not in TP_PARITY_AFFECTED_FAMILIES:
+            out["clean_legs"] += 1
+            continue
+        out["affected_legs"] += 1
+        for col in matrix["lever_columns"]:
+            if col not in GEOMETRY_SENSITIVE_LEVERS:
+                continue
+            cell = row.get(col) or {}
+            if base(cell.get("status")) in OPEN_STATUSES + ("MISSING",):
+                continue  # an open cell owes a measurement anyway
+            if base(cell.get("status")) == "n/a":
+                continue  # structurally inapplicable — no measurement to age
+            dates = _DATE.findall(cell.get("ref") or "")
+            if not dates:
+                out["undated"] += 1
+            elif max(dates) < GEOMETRY_CUTOVER:
+                out["pre_cutover"] += 1
+                out["stale_cells"].append(
+                    (row["strategy"], row["symbol"], row["tf"], col, max(dates)))
+            else:
+                out["post_cutover"] += 1
+    return out
 
 
 def base(status: str | None) -> str:
@@ -189,6 +300,7 @@ def rollup(matrix: dict[str, Any]) -> dict[str, Any]:
         "cells_to_done": per_status["pending"] + per_status["blocked"],
         "open_cells": {k: sorted(v) for k, v in open_cells.items()},
         "matrix_updated_at": matrix.get("updated_at"),
+        "evidence_vintage": evidence_vintage(matrix),
     }
 
 
@@ -220,6 +332,34 @@ def render(r: dict[str, Any]) -> str:
         "",
         "status counts:",
     ]
+    v = r.get("evidence_vintage") or {}
+    if not v.get("classifier_available", True):
+        out[2:2] = [
+            "",
+            "  ⚠️  EVIDENCE VINTAGE: NOT COMPUTED — the family classifier could",
+            "      not be imported. This is not 'no staleness found'.",
+        ]
+    elif v.get("pre_cutover") or v.get("undated"):
+        graded = v["pre_cutover"] + v["post_cutover"] + v["undated"]
+        pct = round(100 * v["pre_cutover"] / graded, 1) if graded else 0.0
+        out[2:2] = [
+            "",
+            f"  ⚠️  EVIDENCE VINTAGE — {v['pre_cutover']} of {graded} closed cells"
+            f" ({pct}%) on the {v['affected_legs']} legs whose harness modelled",
+            f"      NO take-profit were measured BEFORE {v['cutover']}"
+            f" ({v['undated']} more carry no date at all).",
+            "      BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP: those"
+            " live units clamp the TP to 9.9%",
+            "      from entry (~1.3-5R at real ATR), so the lever was tuned"
+            " against a book production does not run.",
+            f"      Families: {', '.join(v['affected_families'])}."
+            f" The other {v['clean_legs']} legs (scalp, fvg) place a real target"
+            " their harness models.",
+            "      The headline above is NOT wrong — it counts cells that were"
+            " genuinely processed. It is",
+            "      conditioned on that geometry, and until 2026-08-12 nothing"
+            " anywhere said so.",
+        ]
     for s, n in sorted(r["per_status"].items(), key=lambda kv: -kv[1]):
         out.append(f"    {s:<22} {n:>4}")
     out += ["", "per-lever open cells (pending + blocked):"]
