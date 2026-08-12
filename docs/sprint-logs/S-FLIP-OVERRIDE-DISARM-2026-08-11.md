@@ -230,6 +230,83 @@ account mode, or a live parameter.
   be falsifiable (if the log floor and the registry date coincide by luck, that
   is explicitly NOT a confirmation).
 
+## Day-2 continuation (2026-08-12, post-merge)
+
+After #8796 merged and `git-sync` pulled `1a5126a`, the session continued at
+operator direction. All Tier-1.
+
+### The tick question got its answer
+The post-deploy warm read (diag #8804 — 96 ticks, one process from 09:56Z) gave
+mean **107.9s** / max **127.7s**, consistent with the pre-split 107.2s, and the
+new `pipeline.*` children localised the dominant cost:
+
+| | share of tick | per tick |
+|---|---|---|
+| `pipeline.signal_build` | **43.3%** | ~46.7s |
+| `monitor.strategy_monitor_loop` | 21.9% | ~23.6s |
+| `pipeline.regime_bar_scoring` | 5.4% | ~5.8s |
+| `pipeline.news_score` / `dispatch` | 0.1% / 0.2% | negligible (n=13 / n=7) |
+
+**Read the `n`:** `pipeline.*` children carry n=2208 against the parents' n=96 —
+exactly 23 symbols per tick — so their `mean_ms` is per SYMBOL, not per tick.
+`pct_of_total` is the comparable field. Arithmetic checks: monitor children sum
+to 44.3% vs the parent's 44.5%; the two parents sum to 98.4 vs `attributed_pct`
+98.3. What this RULES OUT is as useful as what it finds — news and dispatch fire
+only on actionable signals, and the other ten hooks are 1.6% combined.
+
+### A cache that structurally cannot hit
+Derived from code, no deploy needed: `_candle_cache_ttl` is
+`min(bar_seconds × frac, 60.0)` while consecutive ticks are ≥108s apart, so **the
+candle cache cannot hit across ticks for any timeframe** — its only value today is
+within-tick sharing. The 60s cap binds for every bar ≥10m (a 1h frame wants 360s,
+a 4h frame 1440s), which are exactly the frames where a ~108s-old copy is safest.
+Shipped as a MEASUREMENT (`fetch.<timeframe>` + `fetch.cache_hit`, PR #8805), not
+as the fix: if the misses are ≥15m-dominated, raising the cap is a one-line win;
+if they are 5m-dominated it buys nothing. The counts decide, not the argument.
+
+### `main` was red, and not because of us
+`test_exchange_fills_list_rows.py::test_newest_first` failed on CLEAN main
+(verified by reverting). A **time bomb that detonated 2026-08-12**: absolute
+fixture dates against a 7-day window measured from the real clock, so the "old"
+fill (2026-08-05) crossed the boundary and is now correctly dropped. The
+production code is right; the test aged out. Fixed the CLASS — `_fill` defaults to
+2026-08-06 and eight other calls query the same window, all one day from the same
+failure — by injecting `now` throughout, the pattern the sibling test already used.
+
+### Backlog hygiene, and the guard it produced
+Two HIGH rows were **already fixed and still open**: the trend-harness fork
+(closed by convergence — 624→1022 lines / 30→45 flags in the canonical harness,
+the other reduced to a 106-line shim) and the shadow-stats soak start
+(live-verified: `soak_days` 82.18d where the rotation floor said ~6.7d, a 12×
+understatement on the promotion gate's own denominator). A third,
+`TICK-TAKES-253S`, was reconciled — its number is superseded by 107.9s, its
+concern is not.
+
+Both had the same cause: **no `resolution_criteria`**. So a diff-scoped guard now
+requires new rows to state what done looks like. Scope chosen from measurement —
+114 of 262 open rows (43%) lack usable criteria, so a whole-tree gate would fail
+on day one and be switched off; the census ships advisory alongside so the debt
+stays visible. Placeholders rejected and a length floor applied, because a guard
+cheaper to lie to than to satisfy is worse than none.
+
+### Duplicate-netted-pnl: done, and the residue is false positives
+Census (#8809, read-only): **already marked 29, to mark 4**. The whole `bybit_1`
+population — 29 rows, $24,270.53, the actual research-integrity problem — was
+already applied. The 4 residual `bybit_2` rows are **rounding collisions, not
+duplicates**: a stamped netted record is identical to the cent (the confirmed
+cluster was −2970.99 across 60× sizes), while these differ at the 3rd decimal
+(1.38330527 vs 1.38136254; −1.13104541 vs −1.12674735). Recommend NOT marking
+them — $5.02 total, and marking a correct row destroys real information.
+
+### Day-2 gaps
+- The probe's counts need hours of ticks; nothing is decidable until then, and the
+  three branches are pre-specified so the decision cannot be fitted to the data.
+- The two downstream re-validations on the duplicate-pnl row (re-run the P1.x
+  fidelity trust map post-exclusion; check ML labels spanning those rows) are
+  **not** done — deliberately not started late in a long session, since they are
+  trainer-VM jobs that would land with nobody to read them.
+- `status-check`'s row still needs one post-deploy dispatch to close.
+
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries — `intents.py`
       was read to confirm the `threshold <= 0` early return is what makes the age
