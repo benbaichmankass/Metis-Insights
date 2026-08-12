@@ -93,6 +93,14 @@ def main(argv: list[str]) -> int:
             continue
         emit = out / "emit" / f"{leg}.jsonl"
         args = base_args(leg, cfg, fam, data, resample)
+        # The scalp harness stamped a HARDCODED `strategy: "ict_scalp_5m"` on
+        # every emitted row, so a 15m ETH trade and a 5m XRP trade were
+        # indistinguishable in the E0 dataset and every per-leg verdict would
+        # have been attributed to one arbitrary leg name. Pass the real leg.
+        # Scalp-only: the other harnesses do not accept the flag, and adding it
+        # blindly would turn a working round into an argparse usage error.
+        if fam == "scalp":
+            args = [*args, "--strategy-name", leg]
         p = sh([sys.executable, REPO / FAMILY_HARNESS[fam], *args,
                 "--emit-trades", emit, "--json", "/tmp/eh_round_cell.json"])
         if p.returncode != 0:

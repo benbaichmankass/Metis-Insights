@@ -428,6 +428,7 @@ def run_backtest(
     giveback_r: float = 1.0,
     bank_frac: float = 0.0,
     bank_at_r: float = 1.0,
+    strategy_name: str = "ict_scalp_5m",
 ) -> Dict[str, Any]:
     cfg = {"symbol": symbol, "timeframe": timeframe, **cfg_overrides}
     htf_df = _build_htf_series(df, htf_rule=htf_rule, ema_period=htf_ema_period)
@@ -604,7 +605,24 @@ def run_backtest(
             for t in trades:
                 cb = _cost_breakdown(t)
                 fh.write(json.dumps({
-                    "strategy": "ict_scalp_5m", "entry_time": str(t.entry_time),
+                    # `strategy` was the HARDCODED literal "ict_scalp_5m" for
+                    # every row of every leg, and `symbol`/`exit_time` were not
+                    # emitted at top level at all (exit_time only reached
+                    # `meta`). That made the emit unusable by the E0 exit-head
+                    # builder, which requires exit_time and drops any row
+                    # without it: the 2026-08-12 ict_scalp round emitted 1170
+                    # trades and built ZERO rows. It also made per-LEG
+                    # attribution impossible — a 15m ETH trade and a 5m XRP
+                    # trade were indistinguishable, both labelled ict_scalp_5m,
+                    # which is the multileg conflation
+                    # BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS
+                    # exists to prevent one layer up.
+                    #
+                    # `strategy_name` DEFAULTS to the old literal, so a caller
+                    # that does not pass it emits byte-identically.
+                    "strategy": strategy_name, "symbol": symbol,
+                    "entry_time": str(t.entry_time),
+                    "exit_time": str(t.exit_time),
                     "direction": t.direction, "gross_r": t.r_multiple,
                     "net_r": round(t.r_multiple - cb["total_cost_r"], 4),
                     "net_r_fee_only": round(t.r_multiple - cb["fee_r"], 4),
@@ -969,6 +987,12 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Skip entries whose live order_package() confidence is below this.")
     p.add_argument("--confidence-sweep", default=None, metavar="GRID",
                    help="Sweep min_confidence over GRID ('0:0.6:0.05' or '0,0.1,0.2') and tabulate.")
+    p.add_argument("--strategy-name", default="ict_scalp_5m", metavar="NAME",
+                   help="Leg name stamped on every emitted row's `strategy` "
+                        "field. Defaults to the historical literal so an "
+                        "existing caller emits byte-identically; the exit-head "
+                        "round passes the real leg so per-leg verdicts are "
+                        "attributable.")
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write one per-trade JSONL object per closed trade to PATH "
                         "(for the ML backtest-label recorder; single-run only, not with --confidence-sweep).")
@@ -1086,7 +1110,9 @@ def main(argv: List[str]) -> int:
             print(_fmt_sweep(summary))
         else:
             summary = run_backtest(df, min_confidence=float(args.min_confidence),
-                                   emit_path=args.emit_trades, **bt_kwargs)
+                                   emit_path=args.emit_trades,
+                                   strategy_name=args.strategy_name,
+                                   **bt_kwargs)
             print(_format_text(summary))
     except Exception as exc:
         print(f"ERROR: backtest failed: {exc}", file=sys.stderr)

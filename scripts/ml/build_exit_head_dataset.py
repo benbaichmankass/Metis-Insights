@@ -33,6 +33,7 @@ import math
 import sqlite3
 import sys
 from bisect import bisect_right
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -155,21 +156,47 @@ def family_of(strategy: str) -> str:
     return s or "unknown"
 
 
-def load_harness_trades(paths: List[Path]) -> List[dict]:
+def load_harness_trades(paths: List[Path], report: Optional[dict] = None) -> List[dict]:
+    """Load emitted harness trades, COUNTING what is dropped and why.
+
+    ⚠️ THE SKIP COUNTERS ARE THE POINT, not decoration. Every unusable row was
+    silently `continue`d and the only downstream signal was `no trades loaded`
+    on an empty list — an unasserted denominator (CLAUDE.md § "Diagnostic
+    provenance", sub-class C): a total drop and an empty input file produce the
+    identical message, so a reader cannot tell "the harness emitted nothing"
+    from "the harness emitted 1170 rows in a shape I reject".
+
+    That is not hypothetical. Measured 2026-08-12: the ict_scalp round emitted
+    387 + 422 + 361 = 1170 trades and this function returned ZERO, because
+    `backtest_ict_scalp.py` wrote `entry_time` but no `exit_time` — one missing
+    key dropping 100% of the population, reported as "no trades loaded". The
+    round had never been runnable for that family, and the message could not
+    say so.
+    """
     trades = []
+    skipped: Counter = Counter()
+    seen = 0
     for p in paths:
         for line in p.open():
             line = line.strip()
             if not line:
                 continue
+            seen += 1
             try:
                 r = json.loads(line)
             except json.JSONDecodeError:
+                skipped["bad_json"] += 1
                 continue
             t0 = _epoch(r.get("entry_time"))
             t1 = _epoch(r.get("exit_time"))
             entry, sl = _f(r.get("entry")), _f(r.get("sl"))
             if None in (t0, t1, entry, sl):
+                # Name the MISSING FIELD, not just "unusable" — the whole cost
+                # of the 2026-08-12 failure was not knowing which key was absent.
+                for key, val in (("entry_time", t0), ("exit_time", t1),
+                                 ("entry", entry), ("sl", sl)):
+                    if val is None:
+                        skipped[f"missing:{key}"] += 1
                 continue
             trades.append({
                 "source": "harness",
@@ -185,6 +212,10 @@ def load_harness_trades(paths: List[Path]) -> List[dict]:
                 # emits, None-safe downstream.
                 "confidence": _f(r.get("confidence")),
             })
+    if report is not None:
+        report["rows_seen"] = seen
+        report["rows_loaded"] = len(trades)
+        report["skipped"] = dict(skipped)
     return trades
 
 
@@ -493,11 +524,24 @@ def main(argv: List[str]) -> int:
             return 2
         candle_map[sym] = Path(path)
 
-    trades = load_harness_trades([Path(t) for t in a.trades])
+    harness_report: dict = {}
+    trades = load_harness_trades([Path(t) for t in a.trades], harness_report)
     if a.db:
         trades += load_live_trades(Path(a.db), Path(a.instruments))
     if not trades:
-        print("no trades loaded", file=sys.stderr)
+        # State the population and the reason. "no trades loaded" over a
+        # 1170-row input is a different failure from the same message over an
+        # empty one, and the old message could not tell them apart.
+        print(f"no trades loaded — read {harness_report.get('rows_seen', 0)} "
+              f"harness row(s), loaded {harness_report.get('rows_loaded', 0)}",
+              file=sys.stderr)
+        for reason, n in sorted((harness_report.get("skipped") or {}).items(),
+                                key=lambda kv: -kv[1]):
+            print(f"    dropped {n}: {reason}", file=sys.stderr)
+        if harness_report.get("rows_seen"):
+            print("    ^ the harness DID emit rows; they were rejected on "
+                  "shape, not absent. Fix the emit schema, not the data.",
+                  file=sys.stderr)
         return 1
 
     tf_s = TF_S[a.tf]
