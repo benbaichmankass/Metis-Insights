@@ -3,6 +3,20 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB",
+      "opened_at": "2026-08-12T22:55:00+00:00",
+      "opened_by": "claude (overnight continuation session, S-FLIP-OVERRIDE-DISARM day 3)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "title": "A stray trade_journal.db sits at the TRAINER's repo root holding 15,644 signals rows — the CWD-relative-fallback artifact canonical-db-resolver exists to prevent, and it nearly cost a false 'sync is 10 days stale' alarm",
+      "source": "MEASURED on the trainer VM 2026-08-12 via trainer-vm-diag #8817 and #8818. TWO journal DBs exist on that box:\n\n  8,495,104 bytes   mtime 2026-08-02 04:50:22   /home/ubuntu/ict-trading-bot/trade_journal.db     <- STRAY (repo root)\n  804,184,064 bytes mtime 2026-08-12 05:00:12   /home/ubuntu/ict-trading-bot/data/trade_journal.db <- the real one\n\nContents of the stray, read directly: `trades` 0 rows, `order_packages` 0 rows, **`signals` 15,644 rows**. Tables present: backtest_results, trades, strategy_versions, order_packages, signals, device_tokens, insights_history, insights_usage, balance_snapshots, learning_progress — i.e. a full schema, lazily created, with only the signals dual-write ever populating it.\n\nSTATE THE POPULATION: one filesystem read of one VM at one moment. I did NOT establish which process wrote it, and do not claim one — the mtime (2026-08-02) says only that nothing has written since, not what wrote before.",
+      "why_it_matters": "Two distinct harms.\n\n(1) IT ALREADY CAUSED A FALSE ALARM, in this session. Querying the repo-root path returned `trades 0` and a 2026-08-02 mtime, and I reported the live->trainer DB sync as ten days stale before checking further. It is not: the real copy is 804 MB and fresh. A stray DB at the conventional path is a trap for exactly the read a session reaches for first, and the next session will reach for it the same way.\n\n(2) It is the failure the `canonical-db-resolver` guard was built to prevent — the CWD-relative fallback that 'seeded the stray duplicate journals under each process's working directory' (CLAUDE.md, § Canonical persistence model). The guard forbids the pattern in tracked code, so either a writer predating the guard created this and it was never cleaned up, or something still resolves a repo-relative path on the trainer. Those need different fixes and I have not distinguished them.\n\nThe 15,644 stranded signals rows are a secondary matter: they are audit rows that never reached the canonical store, so any historical audit_query over that window on the trainer is short by an unknown amount.",
+      "resolution_criteria": "Determine which process wrote the stray (grep the trainer's units + any cron for a bare `trade_journal.db` / a CWD-relative resolver, and check whether `signals` there has rows newer than 2026-08-02 on a later read — a growing count means a live writer, a frozen one means a historical artifact). THEN either fix the writer's path resolution, or, if it is confirmed historical, delete the stray and record that a later trainer-vm-diag `find / -name 'trade_journal*.db'` returns exactly ONE path. Deleting it before knowing which is the case would destroy the evidence of the writer.",
+      "next_action": "One trainer-vm-diag read: re-stat the file and count signals rows to see whether it is still growing. Tier-1, read-only, and it decides between the two fixes.",
+      "updates": []
+    },
+    {
       "id": "BL-20260812-PR-CHECKS-NOT-ATTACHING-WAS-A-MERGE-CONFLICT",
       "opened_at": "2026-08-12T22:50:00+00:00",
       "opened_by": "claude (overnight continuation session, S-FLIP-OVERRIDE-DISARM day 3)",
