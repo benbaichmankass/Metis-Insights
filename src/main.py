@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 
 from dotenv import load_dotenv
@@ -298,6 +299,83 @@ def _tick_hook(name: str):
     except Exception:  # noqa: BLE001
         import contextlib
         return contextlib.nullcontext()
+
+
+def _truthy(value) -> bool:
+    """Env-flag truthiness, matching the repo's other kill-switches."""
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def exit_loop_interval_seconds() -> float:
+    """Cadence between exit-evaluation passes.
+
+    Default 30s against a measured ~28s pass, i.e. effectively back-to-back with a
+    little slack. An unparseable or non-positive value falls back to the default
+    rather than pausing the loop — a typo must not silently stop exit evaluation,
+    which is the one thing this loop exists to do (the EXPOSURE_SOAK_SECONDS
+    fail-ON discipline). Pausing is not offered as a value at all; the rollback is
+    EXIT_LOOP_DECOUPLE_DISABLED, which puts the work back on the tick rather than
+    dropping it.
+    """
+    try:
+        v = float(os.environ.get("EXIT_LOOP_INTERVAL_SECONDS", "") or 30.0)
+    except (TypeError, ValueError):
+        return 30.0
+    return v if v > 0 else 30.0
+
+
+def _exit_loop(settings: dict) -> None:
+    """Evaluate every open package's exit on our own cadence, forever.
+
+    Deliberately structured so that NOTHING can stop the loop permanently:
+
+      * each pass is individually wrapped, so a raising pass is logged and the next
+        one still runs. A crash-loop here would be invisible from the main
+        heartbeat, which is why the pass count is what `exit_loop_health` watches
+        rather than the thread being alive — a thread can be alive and useless.
+      * `record_pass` is called AFTER the pass returns, so a pass that hangs leaves
+        liveness ageing and the latched alert fires. A pass that hung while still
+        refreshing liveness would be the silent wedge this whole design avoids.
+      * if a pass overruns the interval, the next starts immediately rather than
+        queueing — the cadence is a floor on frequency, not a schedule to catch up
+        on. Piling up passes on one shared IB socket is how the June 2026 wedges
+        started.
+    """
+    from src.runtime.exit_loop_health import record_pass, write_state_file
+    from src.runtime.order_monitor import run_exit_evaluation_tick
+
+    while True:
+        started = time.monotonic()
+        try:
+            run_exit_evaluation_tick(
+                ohlcv_fetcher=_build_monitor_ohlcv_fetcher(settings),
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("exit_loop: pass failed")
+        elapsed_ms = (time.monotonic() - started) * 1000.0
+        record_pass(elapsed_ms)
+        write_state_file()
+        slack = exit_loop_interval_seconds() - (elapsed_ms / 1000.0)
+        if slack > 0:
+            time.sleep(slack)
+
+
+def _start_exit_loop(settings: dict) -> None:
+    """Start the exit loop as a daemon thread. Never raises into startup.
+
+    Daemon so it can never block shutdown. If the thread fails to start at all,
+    that is logged AND left visible: `exit_loop_health` stays at `never_ran`, the
+    tick's check does not alert on that state by design, but the diag surface shows
+    zero passes — so the failure is legible rather than mistaken for health.
+    """
+    try:
+        t = threading.Thread(
+            target=_exit_loop, args=(settings,),
+            name="exit-evaluation-loop", daemon=True,
+        )
+        t.start()
+    except Exception:  # noqa: BLE001
+        logger.exception("exit_loop: FAILED TO START — exits ride nothing now")
 
 
 def _build_monitor_ohlcv_fetcher(settings: dict):
@@ -635,6 +713,36 @@ def main() -> None:
         run_one_tick(settings, exchange_client, telegram_client)
         return
 
+    # ------------------------------------------------------------------ exit loop
+    # THE DECOUPLE (Tier-2, operator-approved 2026-08-12; evidence
+    # docs/research/M20-exit-monitor-decouple-evidence-2026-08-10.md § 4d).
+    #
+    # Exit evaluation used to ride this tick, so a live trade waited a mean 104s /
+    # peak 125s between evaluations against the operator's 60s ask. Measurement
+    # (n=7, all 14 monitor children summing to 99.6% of the parent) split the
+    # monitor into two comparable halves: the exit loop at 24.3s mean / 28.2s max,
+    # and 24.8s of reconcilers that answer "has the journal caught up with the
+    # broker?" rather than "should this trade exit now?". Only the first half is
+    # what the 60s ask is about, so only the first half moves.
+    #
+    # Whole-monitor on a thread would clear 60s by 3.20s (5.3%, on a max over seven
+    # ticks). This half alone clears it by 31.78s (53%).
+    #
+    # ROLLBACK IS ONE ENV FLIP, NO REDEPLOY: EXIT_LOOP_DECOUPLE_DISABLED truthy →
+    # no thread starts and the tick calls run_monitor_tick (both halves inline,
+    # byte-for-byte today's behaviour). Default-OFF kill-switch over an ON
+    # capability, the REGIME_ROUTER_DISABLED shape — NOT a default-off *_ENABLED
+    # gate in front of a required capability (Prime Directive).
+    decoupled = not _truthy(os.environ.get("EXIT_LOOP_DECOUPLE_DISABLED"))
+    if decoupled:
+        _start_exit_loop(settings)
+        logger.info("exit-evaluation loop DECOUPLED onto its own thread")
+    else:
+        logger.warning(
+            "EXIT_LOOP_DECOUPLE_DISABLED set — exit evaluation rides the main "
+            "tick (pre-2026-08-12 behaviour); the 60s ask is NOT met in this mode"
+        )
+
     logger.info("Starting continuous loop. TICK_INTERVAL_SECONDS=%s", interval)
     tick_count = 0
     last_tick_status = "starting"
@@ -696,12 +804,38 @@ def main() -> None:
             # verdicts to the DB unit. Best-effort; never raises.
             with _tick_hook("order_monitor"):
                 try:
-                    from src.runtime.order_monitor import run_monitor_tick
-                    run_monitor_tick(
-                        ohlcv_fetcher=_build_monitor_ohlcv_fetcher(settings),
-                    )
+                    if decoupled:
+                        # The exit half runs on its own loop; this tick keeps the
+                        # reconcilers/sweeps, whose latency governs how fast the
+                        # JOURNAL catches up with the broker (a real requirement,
+                        # a different one from exit-evaluation latency).
+                        from src.runtime.order_monitor import (
+                            run_reconciliation_tick,
+                        )
+                        run_reconciliation_tick(
+                            ohlcv_fetcher=_build_monitor_ohlcv_fetcher(settings),
+                        )
+                    else:
+                        from src.runtime.order_monitor import run_monitor_tick
+                        run_monitor_tick(
+                            ohlcv_fetcher=_build_monitor_ohlcv_fetcher(settings),
+                        )
                 except Exception:  # noqa: BLE001
                     logger.exception("order_monitor tick failed")
+
+            # The exit loop left this thread, so it left the liveness watchdog's
+            # coverage — that coverage IS the inline execution. This is the only
+            # place a check can observe an exit-loop wedge, because the main loop
+            # is the one thing still known alive when the exit loop is not.
+            # Latched alert, never autoheal (see exit_loop_health for why).
+            if decoupled:
+                try:
+                    from src.runtime.exit_loop_health import (
+                        run_exit_loop_health_check,
+                    )
+                    run_exit_loop_health_check()
+                except Exception:  # noqa: BLE001
+                    logger.exception("exit_loop_health check failed")
 
             # Market-neutral pairs sleeve (M22 D2): an ISOLATED 2-leg executor
             # that does NOT fit the single-symbol intent model, so it runs as
@@ -898,8 +1032,17 @@ def main() -> None:
         # rather than "did the last tick complete in the last 15 min".
         # Cadence is HEARTBEAT_INTERVAL_SECONDS (default 60 s — one
         # write per minute is free on a loopback FS). A pipeline hang
-        # still stops the heartbeat because we run inline on the main
-        # thread; a daemon-thread writer would falsely report alive.
+        # still stops the heartbeat because SIGNAL GENERATION and the
+        # reconcilers run inline on this thread; a daemon-thread writer
+        # would falsely report alive.
+        #
+        # CORRECTED 2026-08-12: this used to say "a pipeline hang stops the
+        # heartbeat" without qualification, which stopped being the whole
+        # truth when exit evaluation moved to its own thread. An exit-loop
+        # wedge does NOT stop this heartbeat — that is precisely the gap
+        # `exit_loop_health` exists to cover, and it is checked in the tick
+        # above. Leaving the old wording would have left a comment asserting
+        # coverage the code no longer provides.
         heartbeat_interval = int(
             os.environ.get("HEARTBEAT_INTERVAL_SECONDS", "60")
         )
