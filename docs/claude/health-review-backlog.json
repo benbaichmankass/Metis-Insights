@@ -3,6 +3,23 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260812-DIAG-SHADOW-STATS-MISSING-SOAK-BASIS",
+      "opened_at": "2026-08-12T00:45:00+00:00",
+      "opened_by": "claude (session_01SxTAh, overnight autonomous run)",
+      "status": "resolved",
+      "severity": "medium",
+      "tier": 1,
+      "title": "/api/diag/shadow_stats served the UNDISCLOSED first_seen — the soak-basis disclosure and registry recovery (#8774) landed only on /api/bot/shadow/stats, which a relay-bound session cannot reach",
+      "source": "Found 2026-08-12 while trying to VERIFY #8774 end-to-end (diag #8800). The diag mirror built its own row dicts (model_id/stage/count/score_*/first_seen/last_seen) and never gained the fields #8774 added to the public handler: `soak_start_basis`, `soak_started_at`, `soak_days`, `soak_days_is_lower_bound`, plus the `log_coverage` and `registry_soak_source` envelope blocks.\nMEASURED on the live fleet in the same read: all 30 models reported `first_seen` inside a ~2-minute band (2026-08-05T23:35-23:37) on a 20.6 MB log — a rotation boundary, not 30 simultaneous soak starts. BOTH advisory heads were promoted BEFORE that boundary (sol-regime-15m-lgbm-fc-pcv-v2 2026-08-02, btc-regime-15m-lgbm-fc-pcv-v2 2026-08-04), so their soak read ~6.0 days against a genuinely longer one. That is exactly the `log_censored` case #8774 built the recovery for, and it was invisible here.",
+      "what_to_check": "src/web/api/routers/diag.py::get_shadow_stats vs src/web/api/routers/shadow.py::stats. The divergence is the general risk, not this one field: any future enrichment of the public handler would have skipped the mirror the same way.",
+      "why_critical": "The mirror's stated purpose (FU-20260516-001) is 'so Layer-2 health reviews can audit WITHOUT SSH' — so it is the ONLY shadow-stats surface a PM-side/relay-bound session can reach, and the health/ml review skills judge promotion readiness from exactly that surface. #8774's whole point was that `first_seen` is a LOWER BOUND after rotation and must never be read bare, because the error makes a long soak look short and a promotion that is DUE reads as not-yet-ready. Shipping the disclosure only where the relay cannot see it left the fix reachable everywhere except where it was needed — the same written-but-not-readable shape as the exposure block that had no reader (#8665).",
+      "next_action": "RESOLVED 2026-08-12: the diag route now DELEGATES to the public handler rather than re-deriving rows, so there is ONE definition of a soak start instead of two free to drift. Verified against a synthetic rotated log: the delegated response returns soak_start_basis='log_censored' with soak_days_is_lower_bound set, plus the log_coverage + registry_soak_source envelope blocks. Log-path resolution was confirmed byte-equivalent between the two before delegating, so this changes no file being read. Re-confirm on the live fleet after merge + git-sync via a fresh `shadow_stats` diag.",
+      "related": [
+        "BL-20260810-SHADOW-STATS-FIRSTSEEN-IS-LOG-ROTATION-NOT-SOAK-START"
+      ],
+      "resolution_criteria": "A relay `shadow_stats` read that carries soak_start_basis per row and the registry_soak_source envelope — i.e. a relay-bound session can tell a censored lower-bound soak from a real one without SSH."
+    },
+    {
       "id": "BL-20260812-ACTIONS-RUNNER-TLS-VERIFY-FAILS-AS-RED",
       "opened_at": "2026-08-12T00:05:00+00:00",
       "opened_by": "claude (session_01SxTAh, overnight autonomous run)",
