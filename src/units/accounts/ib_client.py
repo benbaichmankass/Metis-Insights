@@ -366,6 +366,33 @@ class IBClient:
         self.account = str(account) if account else None
         self.symbol = str(symbol or "MES").upper()
         self.readonly = bool(readonly)
+        # SECTION 6.4 — PER-CLIENT USAGE LOCK (decouple prerequisite, 2026-08-12).
+        #
+        # `_REGISTRY_LOCK` (bottom of this file) guards only the LOOKUP/CREATION of
+        # a client in `_CONN_REGISTRY`. Once it hands one back, every caller shares
+        # this instance — and this instance wraps ONE `ib_insync.IB`, i.e. one
+        # socket on one clientId driven by an asyncio loop that is explicitly not
+        # thread-safe. Two threads on one socket is strictly worse than
+        # BL-20260706-IBACCTUPDATES-COLLISION, which was two DIFFERENT clients on
+        # one account and still corrupted `accountDownloadEnd` delivery.
+        #
+        # Inline, that could not happen: the trader was single-threaded. The exit-half
+        # decouple makes it possible, so the guard has to exist BEFORE the loop does.
+        #
+        # RLock, NOT Lock — measured, not assumed. Twelve of the seventeen public
+        # methods call `self.connect()`, and `modify_protective` calls
+        # `place_protective` while `self_test` calls `balance`. A non-reentrant lock
+        # would self-deadlock on essentially every operation, and the symptom would
+        # be a frozen exit loop: exactly the condition `exit_loop_health` alerts on,
+        # arriving through the fix meant to make the loop safe.
+        #
+        # ACCEPTED COST, stated rather than discovered later: the two loops SERIALISE
+        # on IB. Every call is already individually bounded (IB_FETCH_TIMEOUT_S 8s,
+        # IB_PLACE_CONFIRM_S 3s, IB_CLOSE_CONFIRM_S 6s, warm-up 8s + one retry), so a
+        # waiter blocks for a bounded time rather than indefinitely — but the
+        # decouple's benefit is FULL for Bybit/Alpaca and REDUCED for IB. The 53%
+        # coverage margin in the evidence doc § 4d is a Bybit-side number.
+        self._usage_lock = threading.RLock()
         self.timeout = float(timeout)
         self._ib_factory = _ib_factory
         self._ib: Any = None
@@ -429,6 +456,10 @@ class IBClient:
         Raises :class:`IBConnectionError` when the Gateway is unreachable
         (e.g. not running, wrong port, or the clientId is taken).
         """
+        with self._usage_lock:
+            return self._locked_connect()
+
+    def _locked_connect(self) -> Any:
         # Re-assert the loop FIRST, on every call — including the cached-return
         # path below. ib_insync resolves the loop afresh on each sync call, and
         # other code (e.g. Telegram alerts via asyncio.run) sets the thread's
@@ -989,11 +1020,26 @@ class IBClient:
             return False
 
     @property
+    # DELIBERATELY OUTSIDE `_usage_lock`: `connected`, `connection_state` and
+    # `fingerprint` are state INTROSPECTION, not socket operations. Locking them
+    # would make an observability read block behind a broker call — `connect()`
+    # can hold the lock for ~20s worst case (probe + retry + warm-up + retry), and
+    # `write_ib_state_file` runs on the main tick specifically to report that the
+    # client is wedged. A diag surface that hangs whenever the thing it is
+    # describing is busy reports nothing exactly when it is needed, which is the
+    # same reasoning that makes `exit_loop_health` alert-only rather than blocking.
+    # These read plain attributes plus `ib.isConnected()` (a local flag, no round
+    # trip), so a torn read is at worst one tick stale — strictly better than a
+    # blocked one.
     def connected(self) -> bool:
         return self._ib is not None and self._is_connected(self._ib)
 
     def disconnect(self) -> None:
         """Close the Gateway connection if open (best-effort)."""
+        with self._usage_lock:
+            return self._locked_disconnect()
+
+    def _locked_disconnect(self) -> None:
         if self._ib is not None:
             try:
                 self._ib.disconnect()
@@ -1104,6 +1150,10 @@ class IBClient:
         on success; ``{"retCode": <non-zero>, "retMsg": "<reason>"}`` on
         rejection.
         """
+        with self._usage_lock:
+            return self._locked_place(order=order)
+
+    def _locked_place(self, order: Dict[str, Any]) -> Dict[str, Any]:
         if self.readonly:
             raise IBConnectionError(
                 "IBClient.place: client is read-only — refusing to transmit "
@@ -1248,6 +1298,10 @@ class IBClient:
         :meth:`place`: ``{"retCode": 0, "result": {"orderId": ...}, ...}``
         on success, ``{"retCode": <non-zero>, "retMsg": ...}`` on refusal.
         """
+        with self._usage_lock:
+            return self._locked_place_protective(order=order)
+
+    def _locked_place_protective(self, order: Dict[str, Any]) -> Dict[str, Any]:
         if self.readonly:
             raise IBConnectionError(
                 "IBClient.place_protective: client is read-only — refusing "
@@ -1380,6 +1434,10 @@ class IBClient:
         existing (un-cancelled) bracket in place and the strategy re-emits the
         verdict next tick.
         """
+        with self._usage_lock:
+            return self._locked_modify_protective(order=order)
+
+    def _locked_modify_protective(self, order: Dict[str, Any]) -> Dict[str, Any]:
         if self.readonly:
             return {
                 "retCode": 1,
@@ -1438,6 +1496,15 @@ class IBClient:
         success; ``{"retCode": <non-zero>, "retMsg": "<reason>"}`` on any
         refusal / failure (the monitor leaves the DB row open + retries).
         """
+        with self._usage_lock:
+            return self._locked_close(symbol=symbol, side=side, qty=qty)
+
+    def _locked_close(
+        self,
+        symbol: Optional[str],
+        side: str,
+        qty: float,
+    ) -> Dict[str, Any]:
         if self.readonly:
             return {
                 "retCode": 1,
@@ -1640,6 +1707,10 @@ class IBClient:
         This sweeps them after a reconciler flat-close. Never raises; returns a
         retCode envelope mirroring the other client methods.
         """
+        with self._usage_lock:
+            return self._locked_cancel_resting_protection(symbol=symbol)
+
+    def _locked_cancel_resting_protection(self, symbol: Optional[str]) -> Dict[str, Any]:
         if self.readonly:
             return {"retCode": 1, "retMsg": "client is read-only"}
         sym = str(symbol or self.symbol or "").upper()
@@ -1730,6 +1801,10 @@ class IBClient:
         :meth:`positions`, and the journal/reconciler use, so the caller passes
         the base root (a futures month-code is normalised away upstream).
         """
+        with self._usage_lock:
+            return self._locked_has_protective_orders(symbol=symbol)
+
+    def _locked_has_protective_orders(self, symbol: Optional[str]) -> Optional[bool]:
         sym = str(symbol or self.symbol or "").upper()
         if not sym:
             return None
@@ -1809,6 +1884,10 @@ class IBClient:
 
     def cancel(self, order_id: str) -> Dict[str, Any]:
         """Cancel an open order by its (parent) order id."""
+        with self._usage_lock:
+            return self._locked_cancel(order_id=order_id)
+
+    def _locked_cancel(self, order_id: str) -> Dict[str, Any]:
         ib = self.connect()
         target = None
         for trade in self._open_trades(ib):
@@ -1834,6 +1913,10 @@ class IBClient:
         reconciler can consume IB the same way:
         ``{"order_id", "status", "filled_qty", "avg_price", "exec_time"}``.
         """
+        with self._usage_lock:
+            return self._locked_status(order_id=order_id)
+
+    def _locked_status(self, order_id: str) -> Dict[str, Any]:
         ib = self.connect()
         for trade in self._all_trades(ib):
             if str(getattr(trade.order, "orderId", "")) == str(order_id):
@@ -1860,6 +1943,10 @@ class IBClient:
         "currency": str, "account": str}``. Reads IB's account summary
         tags; falls back to 0.0 when a tag is absent.
         """
+        with self._usage_lock:
+            return self._locked_balance()
+
+    def _locked_balance(self) -> Dict[str, Any]:
         ib = self.connect()
         net_liq = 0.0
         avail = 0.0
@@ -1926,6 +2013,10 @@ class IBClient:
           the stack already treats as "not measured" (broker-truth
           unavailable), not a fabricated zero.
         """
+        with self._usage_lock:
+            return self._locked_positions()
+
+    def _locked_positions(self) -> list:
         ib = self.connect()
         try:
             if self.readonly:
@@ -2121,6 +2212,10 @@ class IBClient:
         collision risk that forced ``positions()`` off ``reqAccountUpdates``
         (BL-20260706-IBACCTUPDATES-COLLISION).
         """
+        with self._usage_lock:
+            return self._locked_executions(since=since)
+
+    def _locked_executions(self, since: str) -> Optional[list]:
         if not str(since or "").strip():
             return None
         try:
@@ -2243,6 +2338,10 @@ class IBClient:
         places an order. Used by ``scripts/ib_connect_check.py`` and the
         operator runbook to verify the Gateway is reachable.
         """
+        with self._usage_lock:
+            return self._locked_self_test()
+
+    def _locked_self_test(self) -> Dict[str, Any]:
         snap: Dict[str, Any] = {
             "connected": False,
             "host": self.host,
