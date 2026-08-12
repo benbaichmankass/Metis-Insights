@@ -220,11 +220,27 @@ def test_committed_corpus_separates_legacy_rows_from_stamped_ones():
 
       * the legacy rows still read None on EVERY provenance axis, i.e. nothing
         retroactively relabelled them as "off"/7.5 on the strength of an inference;
-      * a stamped row is stamped on ALL axes — never half-labelled, which would be
-        a row asserting one axis while silently defaulting another. That is exactly
-        the bug that shipped on 2026-08-11: the sweep recorded fee_bps_roundtrip in
-        verdicts.json, the extractor dropped it, and 12 rows claimed no declared fee
-        while BEING the 15bps arm.
+      * a stamped RUN is internally consistent — every row sharing a run_id agrees
+        on every provenance axis, so a run can never be half-labelled.
+
+    PREMISE CORRECTED AGAIN 2026-08-12, and the correction is the interesting part.
+    This test previously asserted that every stamped row must carry a NON-None
+    `fee_bps_roundtrip`, on the theory that a stamped row declaring no fee meant the
+    extractor had dropped it. That is FALSE, and it broke the moment a legitimate run
+    exercised it: the tlt_pullback_1d/1h confidence-floor run declared no fee override
+    at all, so its rows correctly read `fee_bps_roundtrip: None` — the documented
+    meaning of which is "this run did not declare a fee", NOT "the fee is missing".
+    The old assertion made "used the harness default" indistinguishable from "the
+    extractor dropped it", which is precisely the collapsed-state error the whole
+    provenance family exists to prevent — committed here, in the test written to
+    enforce it.
+
+    The extractor-hop bug it was reaching for is covered where it can actually be
+    seen: `test_extractor_propagates_the_fee_band_onto_every_row` and its floor/router
+    siblings drive `rows_from_verdicts` with a doc that DOES declare a fee. From the
+    committed corpus alone you cannot tell "declared 7.5 and dropped" from "declared
+    nothing", because both land as None — so this test now checks the invariant that
+    IS visible here: per-run agreement.
     """
     path = REPO / "docs" / "research" / "m20-sweep-corpus.jsonl"
     rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
@@ -235,10 +251,22 @@ def test_committed_corpus_separates_legacy_rows_from_stamped_ones():
     for r in legacy:
         assert r.get("fee_bps_roundtrip") is None, r.get("leg")
         assert r.get("min_oos_trades_floor") is None, r.get("leg")
+    # A run is one measurement: every row it produced must agree on every axis.
+    # A partial drop (some rows carrying the fee, some not) is the detectable
+    # signature of an extractor hop that fires inconsistently; a TOTAL drop is
+    # invisible from here by construction, which is why the unit tests own it.
+    AXES = ("regime_router", "fee_bps_roundtrip", "min_oos_trades_floor",
+            "min_confidence_override", "tp_cap_pct", "split")
+    by_run: dict = {}
     for r in stamped:
-        assert r.get("fee_bps_roundtrip") is not None, (
-            f"{r.get('leg')} is stamped for router/floor but declares no fee — "
-            "the extractor dropped it")
+        by_run.setdefault(r.get("run_id"), []).append(r)
+    for run_id, group in by_run.items():
+        for axis in AXES:
+            seen = {json.dumps(g.get(axis)) for g in group}
+            assert len(seen) == 1, (
+                f"run {run_id} disagrees with itself on `{axis}`: {sorted(seen)} — "
+                f"one run is one measurement, so a split value means a hop fired "
+                f"for some rows and not others")
 
 # --- the floor analysis READS the field (not a write-only signal) ------------
 #
