@@ -177,6 +177,24 @@ GUARDS: List[Dict[str, Any]] = [
                 "argv": ["python3", "scripts/ops/check_backlog_refs.py", "--base", "origin/{base_ref}"],
                 "pr_only": True,
             },
+            # A NEW row must say what DONE looks like. Diff-scoped on purpose:
+            # the standing debt is 114 of 262 open rows (measured 2026-08-12),
+            # so a whole-tree gate would fail on day one and get switched off —
+            # strictly worse than grandfathering the past and holding the
+            # future to the rule. Motivated by two HIGH rows found
+            # finished-but-open the same day, both for want of criteria.
+            {
+                "argv": ["python3", "scripts/ops/check_backlog_criteria.py", "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
+            # The debt stays VISIBLE rather than forgotten — advisory, never
+            # blocking, so it cannot become the reason someone disables the
+            # blocking half above.
+            {
+                "argv": ["python3", "scripts/ops/check_backlog_criteria.py", "--all"],
+                "allow_fail": True,
+            },
+            ["python3", "scripts/ops/check_backlog_criteria.py", "--self-test"],
             {
                 "argv": ["python3", "scripts/ops/check_backlog_refs.py", "--all"],
                 "allow_fail": True,
