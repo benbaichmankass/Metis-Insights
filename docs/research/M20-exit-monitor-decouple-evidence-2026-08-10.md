@@ -378,8 +378,8 @@ number and never re-read, the published margin would have stayed wrong while the
 was fine — the least visible kind of error.
 
 **Still open, unchanged:** the tick itself is mean **96.5 s** / max **115.7 s**
-(`run_one_tick` 70.0 s mean, `pipeline.signal_build` 53.7% of tick). `BL-20260810-TICK-CHAIN`
-is untouched by this work and stays open.
+(`run_one_tick` 70.0 s mean, `pipeline.signal_build` 53.7% of tick).
+`BL-20260810-TICK-CHAIN-260S-PER-TICK` is untouched by this work and stays open.
 
 The paragraph below is preserved as written, because it was true of the read it describes
 (diag #8806) and dating it is the point.
