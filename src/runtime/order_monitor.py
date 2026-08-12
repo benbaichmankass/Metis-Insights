@@ -8680,39 +8680,31 @@ def _phase(name: str):
         return contextlib.nullcontext()
 
 
-def run_monitor_tick(
+def run_exit_evaluation_tick(
     *,
     db_path: Optional[str] = None,
     ohlcv_fetcher: Optional[Callable[[str, Optional[str]], Any]] = None,
     strategies: Optional[List[str]] = None,
     strategy_cfg: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict[str, Dict[str, Any]]:
-    """Run one monitor tick across every enabled strategy's open
-    packages. Returns a per-strategy summary dict.
+    """THE EXIT HALF — evaluate every open package's monitor() and apply verdicts.
 
-    Parameters
-    ----------
-    db_path : str, optional
-        Override the trade-journal path. Defaults to
-        ``TRADE_JOURNAL_DB`` env var or ``<repo>/trade_journal.db``.
-    ohlcv_fetcher : callable, optional
-        ``(symbol, timeframe) → DataFrame`` source of fresh candles.
-        When None, ``monitor()`` is called with ``candles_df=None`` —
-        most strategies' v1 monitor logic returns None on missing
-        data, which is the safe default.
-    strategies : list[str], optional
-        Override the strategy list (tests use this). Defaults to the
-        production ``STRATEGIES`` list.
-    strategy_cfg : dict, optional
-        ``{strategy_name: cfg_dict}`` passed through to each
-        ``monitor()`` call. Defaults to an empty cfg per strategy.
+    Split out of `run_monitor_tick` on 2026-08-12 (Tier-2, operator-approved) so
+    it can run on its OWN cadence. The measurement that forced the split
+    (`docs/research/M20-exit-monitor-decouple-evidence-2026-08-10.md` § 4d, n=7,
+    all 14 children populated and summing to 99.6% of the parent):
 
-    Returns
-    -------
-    dict
-        ``{strategy_name: {open, updated, closed, no_change, errors,
-        error_messages}}``. Empty dict on a hard failure (DB
-        inaccessible, etc.).
+        strategy_monitor_loop   24.3 s mean / 28.2 s max   (49.3% of the monitor)
+        every reconciler/sweep  24.8 s mean                (50.3%)
+
+    The 60-second exit-evaluation ask is about THIS function. The reconcilers ask
+    "has the journal caught up with the broker?", not "should this trade exit
+    now?", and one is already gated to 300 s. Running the WHOLE monitor on its
+    own loop clears the 60 s bar by 3.20 s (5.3%, on a max over seven ticks);
+    running only this half clears it by 31.78 s (53%).
+
+    Callers must NOT assume this and the reconciler half share a tick — that
+    coupling is what `mark_active_close`/`is_active_close` replaced.
     """
     summaries: Dict[str, Dict[str, Any]] = {}
     # Reset the per-tick active-close set (BL-20260708-ALPACA-REARM-VS-CLOSE-
@@ -8847,6 +8839,34 @@ def run_monitor_tick(
                     summary.updated_count, summary.closed_count,
                     summary.no_change_count, summary.error_count,
                 )
+
+    return summaries
+
+
+def run_reconciliation_tick(
+    *,
+    db_path: Optional[str] = None,
+    ohlcv_fetcher: Optional[Callable[[str, Optional[str]], Any]] = None,
+    strategies: Optional[List[str]] = None,
+    strategy_cfg: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Dict[str, Dict[str, Any]]:
+    """THE HYGIENE HALF — reconcilers, sweeps, watchdogs, broker-naked checks.
+
+    The other 50.3% of the old `run_monitor_tick`. Latency here governs how fast
+    the JOURNAL learns what the broker already did (and how fast a naked position
+    is re-armed) — a real requirement, but a different one from exit-evaluation
+    latency. Conflating the two is what made the monitor look indivisible.
+
+    Reads the active-close markers the exit half wrote via `is_active_close`,
+    which is time-bounded precisely so this function need not run in the same
+    tick as the writer.
+    """
+    summaries: Dict[str, Dict[str, Any]] = {}
+    try:
+        db = _resolve_db(db_path)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("order_monitor: DB unavailable: %s", exc)
+        return summaries
 
     # BUG-042: write-back reconciler. Runs unconditionally every tick
     # (the MONITOR_RECONCILE_ENABLED gate was removed 2026-06-15,
@@ -9078,4 +9098,30 @@ def run_monitor_tick(
     from src.runtime._closed_flat_wiring import maybe_run_closed_flat_check
     maybe_run_closed_flat_check(db, summaries)
 
+    return summaries
+
+
+def run_monitor_tick(
+    *,
+    db_path: Optional[str] = None,
+    ohlcv_fetcher: Optional[Callable[[str, Optional[str]], Any]] = None,
+    strategies: Optional[List[str]] = None,
+    strategy_cfg: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Dict[str, Dict[str, Any]]:
+    """BACK-COMPAT WRAPPER — both halves, in the original order.
+
+    Every existing caller (`src/main.py`, tests, ops scripts) keeps working and
+    behaves EXACTLY as before: same phases, same order, one tick. The split
+    above is what makes the exit half schedulable on its own cadence; nothing
+    is decoupled until a caller actually calls the halves separately, so this
+    commit is a refactor with no behavioural change.
+    """
+    summaries = run_exit_evaluation_tick(
+        db_path=db_path, ohlcv_fetcher=ohlcv_fetcher,
+        strategies=strategies, strategy_cfg=strategy_cfg,
+    )
+    summaries.update(run_reconciliation_tick(
+        db_path=db_path, ohlcv_fetcher=ohlcv_fetcher,
+        strategies=strategies, strategy_cfg=strategy_cfg,
+    ))
     return summaries
