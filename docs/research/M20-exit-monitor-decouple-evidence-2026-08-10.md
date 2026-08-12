@@ -437,8 +437,11 @@ decouple's benefit is FULL for Bybit/Alpaca and REDUCED for IB, and the 53% marg
 in § 4d is a Bybit-side number.
 
 **Why it is not in this branch:** `ib_client.py` is the most incident-prone file in
-the repo (`BL-20260609`, `BL-20260610-009`, `BL-20260706-IBWARMUP`,
-`BL-20260706-IBACCTUPDATES-COLLISION`, `BL-20260709-IB-POSTRESTART-RECONNECT-WEDGE`).
+the repo (`BL-20260609`, `BL-20260610-009`, `BL-20260706-IBACCTUPDATES-COLLISION`,
+`BL-20260709-IB-POSTRESTART-RECONNECT-WEDGE`, plus the account-warm-up race
+recorded in `CLAUDE.md` § `IB_ACCOUNT_WARMUP_TIMEOUT_S` — that one is prose in
+the env table, NOT a filed backlog row, so it is described here rather than
+cited by an id that resolves to nothing).
 A lock placed wrong there deadlocks the live trader. It wants a session with the
 budget to read all ~14 call paths for reentrancy first, which is a bounded piece of
 work and the correct next step — not something to squeeze in beside four other
