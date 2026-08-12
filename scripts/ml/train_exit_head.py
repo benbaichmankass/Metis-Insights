@@ -520,8 +520,9 @@ def main(argv: List[str]) -> int:
             "One verdict per STRATEGY LEG — the coverage matrix's unit. The "
             "family-level blocks above pool every symbol in the family, which "
             "is the right unit to TRAIN on and the wrong one to record a "
-            "verdict from (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-"
-            "STATUS). `insufficient_base` means the leg's OOS book was too "
+            "verdict from "
+            "(BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). "
+            "`insufficient_base` means the leg's OOS book was too "
             "thin to judge — NOT that the head failed on it; "
             "`would_have_been` records the counterfactual so the floor's "
             "effect stays auditable."),
