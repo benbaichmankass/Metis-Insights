@@ -3,6 +3,24 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "BL-20260812-ACTIONS-RUNNER-TLS-VERIFY-FAILS-AS-RED",
+      "opened_at": "2026-08-12T00:05:00+00:00",
+      "opened_by": "claude (session_01SxTAh, overnight autonomous run)",
+      "status": "open",
+      "severity": "medium",
+      "tier": 1,
+      "title": "GitHub Actions runners intermittently fail git over TLS ('server certificate verification failed'), and the job reports conclusion=failure indistinguishable from a real test/guard failure",
+      "source": "Observed THREE times in ~70 minutes on 2026-08-11/12, across two different workflows and two different steps, on PR #8796:\n  (a) guards run 31545035369 attempt 1 (sha f4cae14) -- actions/checkout could not clone; three retries (19s/10s/final), all TLS-failed, job over in ~30s.\n  (b) pytest-collect run 31548473662 (sha 3002a33) -- failed in the CHANGED-FILES step's `git diff` against the base ref, i.e. AFTER checkout succeeded.\nError is identical in both: `fatal: unable to access 'https://github.com/benbaichmankass/Metis-Insights/': server certificate verification failed. CAfile: none CRLfile: none`.\nBoth cleared on `rerun_failed_jobs` against the IDENTICAL sha, which is what establishes them as infra rather than content.",
+      "what_to_check": "Whether this is a GitHub-side incident (check githubstatus.com history for 2026-08-11 ~22:40-00:00Z) or something about this repo's runner image. Note Actions was ALSO degraded on latency that night -- guards normally completes in ~30s and both attempts on run 31545035369 ran 5+ minutes -- so the TLS failures may be one symptom of a broader incident rather than a standing defect.",
+      "why_critical": "Not critical to trading -- nothing trades on CI. It matters because of HOW it presents: the webhook and the check-run API both report `conclusion: failure` with the check name (`guards`, `pytest-collect`), which is byte-identical to a real guard/test failure. A session reacting to the notification without opening the log will hunt for a defect in its own diff that does not exist, and -- worse -- a session that has learned to expect this may start waving off REAL reds as 'probably the TLS thing'. That second failure mode is the desensitized-alarm P1 shape the repo's 'if you see something, say something' rule names explicitly.",
+      "next_action": "No code fix proposed yet -- this is a runner/infra condition, and a retry wrapper around checkout would MASK the signal rather than fix it. Minimum viable: teach the reader to tell them apart, which is cheap and already true -- a TLS-infra failure dies in the first ~30s at checkout or the first git command and never prints the guard summary, whereas a real guards failure gets past checkout and prints `PASS n / FAIL n` plus a named failing guard. If it recurs beyond this window, consider `actions/checkout` with a retry, but only with the failure still SURFACED (e.g. an annotation) so a masked flake cannot read as a clean pass.",
+      "related": [
+        "BL-20260730-PR-CI-NOT-ATTACHING",
+        "BL-20260806-CI-FANOUT-AMPLIFIES-ACTIONS-OUTAGES"
+      ],
+      "resolution_criteria": "Either (a) a week with no further TLS-verify failures, closing it as a transient GitHub incident with the date range recorded; or (b) if it persists, a documented way for a session to distinguish infra-red from real-red WITHOUT opening the job log, since opening the log is the step a rushed session skips."
+    },
+    {
       "id": "BL-20260811-TRAINER-RELAY-BLAMES-THE-VM-WHEN-ONLY-THE-COMMENT-POST-FAILED",
       "opened_at": "2026-08-11T18:40:00+00:00",
       "opened_by": "claude (system-review continuation 2026-08-11)",
