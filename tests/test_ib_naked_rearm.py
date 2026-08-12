@@ -184,9 +184,9 @@ def _reset_cadence():
     # guarantees the window has elapsed regardless of the process's monotonic
     # clock), and clear the active-close set.
     om._LAST_IB_BROKER_NAKED_CHECK_MONO = -1e9
-    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+    om._TICK_ACTIVE_CLOSE_AT.clear()
     yield
-    om._TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+    om._TICK_ACTIVE_CLOSE_AT.clear()
 
 
 def _patch_accounts(monkeypatch, fake):
@@ -271,7 +271,7 @@ def test_ib_sweep_skips_active_close(tmp_path, monkeypatch):
             created_at="2026-06-25T00:00:00+00:00", status="open")
     fake = _FakeIBClient(protected=False)  # broker-naked, WOULD re-arm normally
     _patch_accounts(monkeypatch, fake)
-    om._TICK_ACTIVE_CLOSE_SYMBOLS.add(("ib_paper", "MHG"))
+    om.mark_active_close("ib_paper", "MHG")
 
     summary = om._check_broker_naked_ib_positions(db)
     # Skipped before the broker read → not counted broker_naked, never re-armed.

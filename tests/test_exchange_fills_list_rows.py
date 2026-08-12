@@ -15,6 +15,8 @@ The tests pin two things the aggregates got to skip:
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 
 from src.runtime.exchange_fills_store import init_db, list_fills, upsert_fills
@@ -38,12 +40,39 @@ def _fill(exec_id, *, account="bybit_1", symbol="AVAX/USDT:USDT",
     }
 
 
+# A FIXED clock for every window-dependent read below.
+#
+# `list_fills(days=...)` measures its cutoff from `datetime.now()`, while every
+# fixture date in this file is an August-2026 literal. That combination makes
+# tests which are not about the window AT ALL — ordering, filters, SQL binding,
+# truncation — quietly depend on the date they are RUN on.
+#
+# It detonated on 2026-08-12: the 7-day cutoff crossed the 2026-08-05 fill in
+# `test_newest_first`, so `main` went red over an ORDERING assertion for a
+# reason that has nothing to do with ordering. And it was still loaded —
+# measured against clean `main` with the module clock advanced a day, 7 of the
+# 13 tests here fail, because `_fill` defaults to 2026-08-06.
+#
+# `test_window_excludes_older_fills` already injected its own `now` for exactly
+# this reason, and its docstring argues the point ("so the assertion is
+# deterministic"). The lesson had been learned in one test and not applied to
+# its neighbours. Injecting by DEFAULT is what makes it stick: a test added
+# here by copy-paste now inherits determinism instead of inheriting the bomb.
+_NOW = datetime(2026, 8, 7, 12, 0, tzinfo=timezone.utc)
+
+
+def _list(days: int = 7, **kw):
+    """`list_fills` read on the fixed clock. Pass `now=` to override."""
+    kw.setdefault("now", _NOW)
+    return list_fills(days, **kw)
+
+
 def test_returns_rows_not_sums(fills_db):
     upsert_fills([
         _fill("e1", price=6.692, qty=10.0),
         _fill("e2", price=6.416, qty=10.0, side="Sell"),
     ], path=fills_db)
-    rows = list_fills(7, path=fills_db)
+    rows = _list(7, path=fills_db)
     assert len(rows) == 2
     # The per-fill PRICES are what an aggregate destroys and an attribution needs.
     assert {r["price"] for r in rows} == {6.692, 6.416}
@@ -57,14 +86,14 @@ def test_symbol_filter_is_exact_and_bound(fills_db):
         _fill("a1", symbol="AVAX/USDT:USDT"),
         _fill("s1", symbol="SOL/USDT:USDT"),
     ], path=fills_db)
-    rows = list_fills(7, path=fills_db, symbol="AVAX/USDT:USDT")
+    rows = _list(7, path=fills_db, symbol="AVAX/USDT:USDT")
     assert [r["exec_id"] for r in rows] == ["a1"]
 
 
 def test_symbol_filter_does_not_accept_sql(fills_db):
     """The value is bound — a SQL fragment matches nothing, it does not execute."""
     upsert_fills([_fill("a1")], path=fills_db)
-    rows = list_fills(7, path=fills_db, symbol="' OR '1'='1")
+    rows = _list(7, path=fills_db, symbol="' OR '1'='1")
     assert rows == []
 
 
@@ -73,7 +102,7 @@ def test_account_filter_scopes(fills_db):
         _fill("b1", account="bybit_1"),
         _fill("b2", account="bybit_2"),
     ], path=fills_db)
-    assert [r["exec_id"] for r in list_fills(7, path=fills_db, account_id="bybit_1")] == ["b1"]
+    assert [r["exec_id"] for r in _list(7, path=fills_db, account_id="bybit_1")] == ["b1"]
 
 
 def test_newest_first(fills_db):
@@ -81,7 +110,7 @@ def test_newest_first(fills_db):
         _fill("old", when="2026-08-05T10:00:00+00:00"),
         _fill("new", when="2026-08-06T10:00:00+00:00"),
     ], path=fills_db)
-    assert [r["exec_id"] for r in list_fills(7, path=fills_db)] == ["new", "old"]
+    assert [r["exec_id"] for r in _list(7, path=fills_db)] == ["new", "old"]
 
 
 def test_window_excludes_older_fills(fills_db):
@@ -108,28 +137,28 @@ def test_window_excludes_older_fills(fills_db):
 
 def test_limit_is_clamped_and_truncation_is_detectable(fills_db):
     upsert_fills([_fill(f"e{i}") for i in range(10)], path=fills_db)
-    rows = list_fills(7, path=fills_db, limit=3)
+    rows = _list(7, path=fills_db, limit=3)
     assert len(rows) == 3
     # THE denominator assertion: hitting the cap is indistinguishable from a
     # complete short population unless the caller can see it. The route surfaces
     # this as `truncated`; here we pin that the cap actually binds.
-    assert len(list_fills(7, path=fills_db, limit=100)) == 10
+    assert len(_list(7, path=fills_db, limit=100)) == 10
 
 
 @pytest.mark.parametrize("bad", [0, -1, -999])
 def test_non_positive_days_returns_empty(fills_db, bad):
     upsert_fills([_fill("e1")], path=fills_db)
-    assert list_fills(bad, path=fills_db) == []
+    assert _list(bad, path=fills_db) == []
 
 
 def test_missing_store_returns_empty_not_error(tmp_path):
     """A store that was never created is an empty read, never a 5xx."""
-    assert list_fills(7, path=tmp_path / "nope.sqlite") == []
+    assert _list(7, path=tmp_path / "nope.sqlite") == []
 
 
 def test_rows_carry_the_join_keys_an_attributor_needs(fills_db):
     upsert_fills([_fill("e1", order_id="ord-123")], path=fills_db)
-    row = list_fills(7, path=fills_db)[0]
+    row = _list(7, path=fills_db)[0]
     for key in ("exec_id", "order_id", "account_id", "symbol", "side",
                 "price", "qty", "fee", "exec_time"):
         assert key in row, f"{key} is needed to attribute a fill to a trade"
@@ -139,4 +168,4 @@ def test_rows_carry_the_join_keys_an_attributor_needs(fills_db):
 def test_raw_column_is_not_exposed(fills_db):
     """`raw` is the venue payload — not part of the read contract."""
     upsert_fills([_fill("e1")], path=fills_db)
-    assert "raw" not in list_fills(7, path=fills_db)[0]
+    assert "raw" not in _list(7, path=fills_db)[0]

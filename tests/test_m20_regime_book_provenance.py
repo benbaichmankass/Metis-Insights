@@ -212,19 +212,61 @@ def test_measurement_key_ignores_the_gate_delta():
 
 # --- the committed corpus is honest about its own vintage --------------------
 
-def test_committed_corpus_predates_the_field_and_says_so():
-    """The 604 committed rows were all measured ungated. They must read `None`
-    (unrecorded), NOT `"off"` — we are inferring their state from the code path,
-    which is evidence, not a recording. A future re-sweep records it for real.
+def test_committed_corpus_separates_legacy_rows_from_stamped_ones():
+    """PREMISE UPDATED 2026-08-11. The original assertion was "no committed row
+    claims a recorded router state", which held while the whole corpus was legacy.
+    A real 15bps run has since stamped 12 rows, so that assertion is obsolete —
+    but the INTENT it protected is not, and is what this checks now:
+
+      * the legacy rows still read None on EVERY provenance axis, i.e. nothing
+        retroactively relabelled them as "off"/7.5 on the strength of an inference;
+      * a stamped RUN is internally consistent — every row sharing a run_id agrees
+        on every provenance axis, so a run can never be half-labelled.
+
+    PREMISE CORRECTED AGAIN 2026-08-12, and the correction is the interesting part.
+    This test previously asserted that every stamped row must carry a NON-None
+    `fee_bps_roundtrip`, on the theory that a stamped row declaring no fee meant the
+    extractor had dropped it. That is FALSE, and it broke the moment a legitimate run
+    exercised it: the tlt_pullback_1d/1h confidence-floor run declared no fee override
+    at all, so its rows correctly read `fee_bps_roundtrip: None` — the documented
+    meaning of which is "this run did not declare a fee", NOT "the fee is missing".
+    The old assertion made "used the harness default" indistinguishable from "the
+    extractor dropped it", which is precisely the collapsed-state error the whole
+    provenance family exists to prevent — committed here, in the test written to
+    enforce it.
+
+    The extractor-hop bug it was reaching for is covered where it can actually be
+    seen: `test_extractor_propagates_the_fee_band_onto_every_row` and its floor/router
+    siblings drive `rows_from_verdicts` with a doc that DOES declare a fee. From the
+    committed corpus alone you cannot tell "declared 7.5 and dropped" from "declared
+    nothing", because both land as None — so this test now checks the invariant that
+    IS visible here: per-run agreement.
     """
     path = REPO / "docs" / "research" / "m20-sweep-corpus.jsonl"
     rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
     assert rows, "corpus empty"
+    legacy = [r for r in rows if r.get("regime_router") is None]
     stamped = [r for r in rows if r.get("regime_router") is not None]
-    assert not stamped, (
-        f"{len(stamped)} committed rows claim a recorded router state; the "
-        "existing corpus predates the field and must read None")
-
+    assert legacy, "no legacy rows — did something relabel the whole corpus?"
+    for r in legacy:
+        assert r.get("fee_bps_roundtrip") is None, r.get("leg")
+        assert r.get("min_oos_trades_floor") is None, r.get("leg")
+    # A run is one measurement: every row it produced must agree on every axis.
+    # A partial drop (some rows carrying the fee, some not) is the detectable
+    # signature of an extractor hop that fires inconsistently; a TOTAL drop is
+    # invisible from here by construction, which is why the unit tests own it.
+    AXES = ("regime_router", "fee_bps_roundtrip", "min_oos_trades_floor",
+            "min_confidence_override", "tp_cap_pct", "split")
+    by_run: dict = {}
+    for r in stamped:
+        by_run.setdefault(r.get("run_id"), []).append(r)
+    for run_id, group in by_run.items():
+        for axis in AXES:
+            seen = {json.dumps(g.get(axis)) for g in group}
+            assert len(seen) == 1, (
+                f"run {run_id} disagrees with itself on `{axis}`: {sorted(seen)} — "
+                f"one run is one measurement, so a split value means a hop fired "
+                f"for some rows and not others")
 
 # --- the floor analysis READS the field (not a write-only signal) ------------
 #
@@ -345,3 +387,146 @@ def test_a_readable_policy_prints_nothing(tmp_path, monkeypatch, capsys):
     assert sweep._policy_off_legs() == {"a_leg"}
     out = capsys.readouterr()
     assert out.err == "" and out.out == ""
+
+
+# --- the MIN-OOS-TRADES FLOOR (operator decision 2026-08-11: 25) --------------
+#
+# A DENOMINATOR REQUIREMENT, not a fitted threshold. Its own verdict state,
+# because "we did not look at enough trades" and "we looked and the lever failed"
+# are opposite findings — collapsing them makes a thin book indistinguishable from
+# a refuted lever.
+
+def test_floor_value_is_25_and_declared_once():
+    assert sweep.MIN_OOS_TRADES == 25
+
+
+def test_floor_travels_in_the_measurement_identity():
+    """A cell graded with no floor and graded at 25 can carry DIFFERENT verdicts,
+    so merging the vintages would let an ungraded thin cell and a floor-refused
+    one share a row."""
+    a = {"kind": "cell", "leg": "l", "cell": "c", "split": "s",
+         "tp_cap_pct": 0.099, "regime_router": "off", "min_oos_trades_floor": 25}
+    unfloored = dict(a, min_oos_trades_floor=None)
+    floor10 = dict(a, min_oos_trades_floor=10)
+    assert extract.measurement_key(a) != extract.measurement_key(unfloored)
+    assert extract.measurement_key(a) != extract.measurement_key(floor10)
+
+
+def test_extractor_propagates_the_floor_onto_every_row():
+    rows = extract.rows_from_verdicts(_doc(min_oos_trades_floor=25), "run1")
+    assert rows
+    for r in rows:
+        assert r["min_oos_trades_floor"] == 25, r
+
+
+def test_a_legacy_run_records_no_floor_not_floor_zero():
+    """`None` is "ungraded by any floor". Recording 0 would assert that every
+    thin cell in the existing 604-row corpus had been considered and admitted."""
+    rows = extract.rows_from_verdicts(_doc(), "run1")
+    assert rows
+    for r in rows:
+        assert r["min_oos_trades_floor"] is None, r
+
+
+# --- the FEE BAND is part of the measurement, not metadata -------------------
+#
+# SRQ-20260618-003 is the worked example: the 5m scalp alts were +50R at 7.5bps
+# and -38R at 15bps, so a base measured at ONE fee level cannot answer a
+# fee-SURVIVAL question. The whole corpus is 7.5bps (the harness default), which
+# made the 15bps arm unrunnable.
+
+def test_fee_band_flag_is_passed_through_when_set():
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m"}
+    a = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, 15.0)
+    assert "--fee-bps-roundtrip" in a
+    assert a[a.index("--fee-bps-roundtrip") + 1] == "15.0"
+
+
+def test_fee_band_none_emits_nothing_rather_than_stamping_the_default():
+    """None means "this run did not declare a fee", which is NOT the same as
+    "measured at 7.5" — stamping the default would assert a recording we never
+    made, the same substitution `regime_router` exists to stop."""
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m"}
+    a = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, None)
+    assert "--fee-bps-roundtrip" not in a
+
+
+def test_two_fee_bands_produce_different_base_args():
+    """The A/B has to differ in exactly one dimension, or it is not an A/B."""
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m"}
+    lo = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, 7.5)
+    hi = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, 15.0)
+    assert lo != hi
+    assert [x for x in lo if x not in hi] == ["7.5"]
+    assert [x for x in hi if x not in lo] == ["15.0"]
+
+
+# --- the ENTRY-SELECTIVITY BAND (min_confidence override) --------------------
+#
+# The surviving arm of SRQ-20260618-003. The 15bps run refuted "fewer, larger-R
+# trades escape the fee band" (every 15m leg flipped negative on BOTH windows at
+# unchanged trade counts, so it was pure cost). What that did NOT test is whether
+# raising the EDGE per trade clears the band — ict_scalp's confidence is a real
+# continuous blend, so a floor is a genuine selectivity axis.
+#
+# The failure this axis is written to avoid is the one the fee axis committed:
+# recorded in verdicts.json, never propagated to the extractor, 12 rows claiming
+# `fee: None` while BEING the 15bps arm. So every hop is covered here.
+
+def test_confidence_override_replaces_the_declared_floor():
+    """Not stacks on it. argparse would take the last of two flags and reach the
+    same number, but the emitted command IS the evidence for what a row measured,
+    and a command carrying two contradictory floors cannot be read back."""
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m", "min_confidence": 0.10}
+    a = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, None, 0.30)
+    assert a.count("--min-confidence") == 1
+    assert a[a.index("--min-confidence") + 1] == "0.3"
+    assert "0.1" not in a
+
+
+def test_confidence_override_applies_to_a_leg_that_declares_none():
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m"}
+    a = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, None, 0.30)
+    assert a[a.index("--min-confidence") + 1] == "0.3"
+
+
+def test_no_override_leaves_the_config_exact_floor_untouched():
+    """None means "use each leg's declared value" — NOT "floor 0". A leg that
+    declares 0.10 must still run at 0.10, or the config-exact base is not."""
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m", "min_confidence": 0.10}
+    a = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, None, None)
+    assert a[a.index("--min-confidence") + 1] == "0.1"
+
+
+def test_two_confidence_bands_differ_in_exactly_one_dimension():
+    cfg = {"symbols": ["SOLUSDT"], "timeframe": "15m"}
+    lo = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, 15.0, 0.0)
+    hi = sweep.base_args("ict_scalp_sol_15m", cfg, "scalp", "d", None, 0.0, 15.0, 0.30)
+    assert [x for x in lo if x not in hi] == ["0.0"]
+    assert [x for x in hi if x not in lo] == ["0.3"]
+
+
+def test_confidence_override_travels_in_the_measurement_identity():
+    """Two rows identical but for the override are two populations, not one."""
+    base = {"kind": "cell", "leg": "ict_scalp_sol_15m", "cell": "stale8",
+            "split": "2025-07-01", "tp_cap_pct": 0.099, "regime_router": "off",
+            "min_oos_trades_floor": 25, "fee_bps_roundtrip": 15.0}
+    declared = dict(base, min_confidence_override=None)
+    imposed = dict(base, min_confidence_override=0.30)
+    assert extract.measurement_key(declared) != extract.measurement_key(imposed)
+
+
+def test_extractor_propagates_the_override_onto_every_row():
+    """Including leg_status rows for SKIPPED legs, which never reach `verdicts`
+    and so are the rows a per-verdict propagation would miss."""
+    rows = extract.rows_from_verdicts(_doc(min_confidence_override=0.30), "r1")
+    assert rows
+    assert all(r.get("min_confidence_override") == 0.30 for r in rows)
+    assert any(r.get("kind") == "leg_status" for r in rows)
+
+
+def test_a_run_without_the_override_records_none_not_zero():
+    """`None` = every leg ran its own declared floor. `0.0` = a floor of zero was
+    imposed on all of them. Those are different runs and must not share a key."""
+    rows = extract.rows_from_verdicts(_doc(), "r1")
+    assert all(r.get("min_confidence_override") is None for r in rows)

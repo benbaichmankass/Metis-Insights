@@ -50,6 +50,7 @@ import importlib
 import json
 import logging
 import os
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -827,10 +828,9 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         # broker-naked equity re-arm (which runs later in the same tick) does not
         # re-place a protective OCO on a position we're trying to flatten — that
         # fight is BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT (see the set's comment).
-        _TICK_ACTIVE_CLOSE_SYMBOLS.add((
-            str(matched_trade.get("account_id") or ""),
-            str(matched_trade.get("symbol") or "").upper(),
-        ))
+        mark_active_close(
+            matched_trade.get("account_id"), matched_trade.get("symbol"),
+        )
 
         # Exchange-first: attempt the live close BEFORE any DB write.
         ex_result = _send_close_to_exchange(matched_trade)
@@ -1919,7 +1919,63 @@ _PENDING_WATCHDOG_FLAT_CONFIRM: Dict[int, datetime] = {}
 # market close flatten the position. In-process, per-tick (a restart / next tick
 # rebuilds it — fail-safe: a genuinely naked position with no active close is
 # still re-armed as before).
-_TICK_ACTIVE_CLOSE_SYMBOLS: set = set()
+# DECOUPLE PREREQUISITE (2026-08-12) — this was a per-TICK set and the exit half
+# WROTE it while the reconciler half READ it, which is only sound while both run
+# inside one `run_monitor_tick` call. Moving the exit loop onto its own cadence
+# breaks that silently: the clear-at-top either wipes the set before a reconciler
+# reads it, or the reconciler reads a set built at an unrelated moment. Neither
+# fails loudly — the re-arm just quietly resumes fighting an in-flight close,
+# which is BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT returning by the back door.
+#
+# So the membership test becomes TIME-bounded rather than tick-bounded: a key is
+# "actively closing" if a close was attempted within `_ACTIVE_CLOSE_WINDOW_S`.
+# Lock-guarded because the two halves are two threads once the loop lands.
+#
+# TRADEOFF, stated rather than buried: the window is deliberately SHORT. Longer is
+# safer against the re-arm fight but strictly worse for a close that fails
+# PERMANENTLY — that position stays un-re-armed for the whole window, and an
+# un-re-armed naked position is the condition the sweep exists to correct. 90s
+# covers an in-flight close (IB_CLOSE_CONFIRM_S is 6s; Alpaca's
+# cancel-then-flatten is slower) while letting a dead close resume re-arming
+# within ~2 passes.
+_ACTIVE_CLOSE_WINDOW_S_DEFAULT = 90.0
+_ACTIVE_CLOSE_LOCK = threading.Lock()
+_TICK_ACTIVE_CLOSE_AT: Dict[tuple, float] = {}
+
+
+def _active_close_window_s() -> float:
+    """Seconds a close-attempt marker suppresses the protective re-arm.
+
+    Read at call time. An unparseable or non-positive value falls back to the
+    default rather than disabling suppression — a typo must not silently
+    re-enable the re-arm fight (the `EXPOSURE_SOAK_SECONDS` discipline).
+    """
+    try:
+        v = float(os.environ.get("ACTIVE_CLOSE_WINDOW_S", "") or _ACTIVE_CLOSE_WINDOW_S_DEFAULT)
+    except (TypeError, ValueError):
+        return _ACTIVE_CLOSE_WINDOW_S_DEFAULT
+    return v if v > 0 else _ACTIVE_CLOSE_WINDOW_S_DEFAULT
+
+
+def mark_active_close(account_id: str, symbol: str) -> None:
+    """Record that a close is in flight for (account, symbol)."""
+    key = (str(account_id or ""), str(symbol or "").upper())
+    with _ACTIVE_CLOSE_LOCK:
+        _TICK_ACTIVE_CLOSE_AT[key] = time.monotonic()
+
+
+def is_active_close(account_id: str, symbol: str) -> bool:
+    """True when a close was attempted for this key inside the window.
+
+    Also prunes expired keys, so the map cannot grow with uptime — it is bounded
+    by the number of distinct (account, symbol) pairs closed in one window.
+    """
+    key = (str(account_id or ""), str(symbol or "").upper())
+    cutoff = time.monotonic() - _active_close_window_s()
+    with _ACTIVE_CLOSE_LOCK:
+        for k in [k for k, ts in _TICK_ACTIVE_CLOSE_AT.items() if ts < cutoff]:
+            _TICK_ACTIVE_CLOSE_AT.pop(k, None)
+        return key in _TICK_ACTIVE_CLOSE_AT
 
 # Bybit V5 ``orderStatus`` values that mean "order is still live on
 # the exchange and has not reached a terminal state". A DB row whose
@@ -6364,7 +6420,7 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         # (BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT). Re-arming a protective OCO
         # on it would re-hold the shares the close is trying to sell, and the two
         # fight forever (the QQQ #3269 perpetual close-failure). Let the close win.
-        if (account_id, symbol.upper()) in _TICK_ACTIVE_CLOSE_SYMBOLS:
+        if is_active_close(account_id, symbol):
             logger.info(
                 "_check_broker_naked_equity_positions: skipping re-arm for "
                 "%s/%s — an active close is in flight this tick (let it flatten)",
@@ -6511,7 +6567,7 @@ def _check_broker_naked_ib_positions(db) -> Dict[str, int]:
         # Skip a position the monitor is ACTIVELY CLOSING this tick — re-arming
         # a protective OCA on it would fight the in-flight close (mirrors the
         # equity sweep's BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT guard).
-        if (account_id, symbol.upper()) in _TICK_ACTIVE_CLOSE_SYMBOLS:
+        if is_active_close(account_id, symbol):
             logger.info(
                 "_check_broker_naked_ib_positions: skipping re-arm for "
                 "%s/%s — an active close is in flight this tick (let it flatten)",
@@ -7023,7 +7079,7 @@ def _reconcile_netting_partial_closes(db) -> Dict[str, int]:
     for (aid, sym, direction), key_rows in sorted(by_key.items()):
         summary["checked"] += 1
         try:
-            if (aid, sym) in _TICK_ACTIVE_CLOSE_SYMBOLS:
+            if is_active_close(aid, sym):
                 continue  # an active close is in flight — let it settle
             cache_key = (aid, sym)
             if cache_key not in protection:
@@ -7443,7 +7499,7 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
         symbol = str(row["symbol"] or "")
         if not symbol:
             continue
-        if (account_id, symbol.upper()) in _TICK_ACTIVE_CLOSE_SYMBOLS:
+        if is_active_close(account_id, symbol):
             continue  # an active close is in flight this tick — let it flatten
         try:
             acc = acc_by_id[account_id]
@@ -8624,46 +8680,41 @@ def _phase(name: str):
         return contextlib.nullcontext()
 
 
-def run_monitor_tick(
+def run_exit_evaluation_tick(
     *,
     db_path: Optional[str] = None,
     ohlcv_fetcher: Optional[Callable[[str, Optional[str]], Any]] = None,
     strategies: Optional[List[str]] = None,
     strategy_cfg: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict[str, Dict[str, Any]]:
-    """Run one monitor tick across every enabled strategy's open
-    packages. Returns a per-strategy summary dict.
+    """THE EXIT HALF — evaluate every open package's monitor() and apply verdicts.
 
-    Parameters
-    ----------
-    db_path : str, optional
-        Override the trade-journal path. Defaults to
-        ``TRADE_JOURNAL_DB`` env var or ``<repo>/trade_journal.db``.
-    ohlcv_fetcher : callable, optional
-        ``(symbol, timeframe) → DataFrame`` source of fresh candles.
-        When None, ``monitor()`` is called with ``candles_df=None`` —
-        most strategies' v1 monitor logic returns None on missing
-        data, which is the safe default.
-    strategies : list[str], optional
-        Override the strategy list (tests use this). Defaults to the
-        production ``STRATEGIES`` list.
-    strategy_cfg : dict, optional
-        ``{strategy_name: cfg_dict}`` passed through to each
-        ``monitor()`` call. Defaults to an empty cfg per strategy.
+    Split out of `run_monitor_tick` on 2026-08-12 (Tier-2, operator-approved) so
+    it can run on its OWN cadence. The measurement that forced the split
+    (`docs/research/M20-exit-monitor-decouple-evidence-2026-08-10.md` § 4d, n=7,
+    all 14 children populated and summing to 99.6% of the parent):
 
-    Returns
-    -------
-    dict
-        ``{strategy_name: {open, updated, closed, no_change, errors,
-        error_messages}}``. Empty dict on a hard failure (DB
-        inaccessible, etc.).
+        strategy_monitor_loop   24.3 s mean / 28.2 s max   (49.3% of the monitor)
+        every reconciler/sweep  24.8 s mean                (50.3%)
+
+    The 60-second exit-evaluation ask is about THIS function. The reconcilers ask
+    "has the journal caught up with the broker?", not "should this trade exit
+    now?", and one is already gated to 300 s. Running the WHOLE monitor on its
+    own loop clears the 60 s bar by 3.20 s (5.3%, on a max over seven ticks);
+    running only this half clears it by 31.78 s (53%).
+
+    Callers must NOT assume this and the reconciler half share a tick — that
+    coupling is what `mark_active_close`/`is_active_close` replaced.
     """
     summaries: Dict[str, Dict[str, Any]] = {}
     # Reset the per-tick active-close set (BL-20260708-ALPACA-REARM-VS-CLOSE-
     # FIGHT). The strategy monitor loop below populates it as it attempts closes;
     # the broker-naked equity re-arm later in this tick reads it to avoid re-arming
     # a position we're actively flattening.
-    _TICK_ACTIVE_CLOSE_SYMBOLS.clear()
+    # NO per-tick clear any more: the active-close map is TIME-bounded and
+    # self-pruning (see `is_active_close`). Clearing here would re-introduce
+    # exactly the coupling the decouple removes — the exit half's markers must
+    # outlive its own pass to be visible to the reconciler half.
     try:
         db = _resolve_db(db_path)
     except Exception as exc:  # noqa: BLE001
@@ -8788,6 +8839,34 @@ def run_monitor_tick(
                     summary.updated_count, summary.closed_count,
                     summary.no_change_count, summary.error_count,
                 )
+
+    return summaries
+
+
+def run_reconciliation_tick(
+    *,
+    db_path: Optional[str] = None,
+    ohlcv_fetcher: Optional[Callable[[str, Optional[str]], Any]] = None,
+    strategies: Optional[List[str]] = None,
+    strategy_cfg: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Dict[str, Dict[str, Any]]:
+    """THE HYGIENE HALF — reconcilers, sweeps, watchdogs, broker-naked checks.
+
+    The other 50.3% of the old `run_monitor_tick`. Latency here governs how fast
+    the JOURNAL learns what the broker already did (and how fast a naked position
+    is re-armed) — a real requirement, but a different one from exit-evaluation
+    latency. Conflating the two is what made the monitor look indivisible.
+
+    Reads the active-close markers the exit half wrote via `is_active_close`,
+    which is time-bounded precisely so this function need not run in the same
+    tick as the writer.
+    """
+    summaries: Dict[str, Dict[str, Any]] = {}
+    try:
+        db = _resolve_db(db_path)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("order_monitor: DB unavailable: %s", exc)
+        return summaries
 
     # BUG-042: write-back reconciler. Runs unconditionally every tick
     # (the MONITOR_RECONCILE_ENABLED gate was removed 2026-06-15,
@@ -9019,4 +9098,30 @@ def run_monitor_tick(
     from src.runtime._closed_flat_wiring import maybe_run_closed_flat_check
     maybe_run_closed_flat_check(db, summaries)
 
+    return summaries
+
+
+def run_monitor_tick(
+    *,
+    db_path: Optional[str] = None,
+    ohlcv_fetcher: Optional[Callable[[str, Optional[str]], Any]] = None,
+    strategies: Optional[List[str]] = None,
+    strategy_cfg: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Dict[str, Dict[str, Any]]:
+    """BACK-COMPAT WRAPPER — both halves, in the original order.
+
+    Every existing caller (`src/main.py`, tests, ops scripts) keeps working and
+    behaves EXACTLY as before: same phases, same order, one tick. The split
+    above is what makes the exit half schedulable on its own cadence; nothing
+    is decoupled until a caller actually calls the halves separately, so this
+    commit is a refactor with no behavioural change.
+    """
+    summaries = run_exit_evaluation_tick(
+        db_path=db_path, ohlcv_fetcher=ohlcv_fetcher,
+        strategies=strategies, strategy_cfg=strategy_cfg,
+    )
+    summaries.update(run_reconciliation_tick(
+        db_path=db_path, ohlcv_fetcher=ohlcv_fetcher,
+        strategies=strategies, strategy_cfg=strategy_cfg,
+    ))
     return summaries
