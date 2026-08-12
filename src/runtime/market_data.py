@@ -332,6 +332,38 @@ def _candle_cache_ttl(timeframe: str) -> float:
 
     Set the fraction to 0 to serve every request fresh (the rollback path,
     one env flip + restart, no redeploy).
+
+    THE CAP IS THE BINDING TERM, NOT THE FRACTION (measured 2026-08-12). The cap
+    was written to bound absolute staleness — "a 1d bar cannot serve an hours-old
+    frame" — but it caps every bar >= 10m, which is every bar the fraction was
+    designed for, so in practice the declared `bar_seconds * fraction` contract
+    governs only 1m/5m frames and the cap governs the rest. Against a tick that
+    measured 83.9s mean / 187.2s max (50 ticks, one process, 2026-08-12T21:55Z),
+    consecutive ticks are ~144s apart, so a 60s TTL cannot survive a tick gap for
+    ANY timeframe and the cache is a within-tick device only. The live counters
+    agree: 548 hits against 1954 misses on-loop, and the misses are 73.2% by
+    count / 84.7% by time at >= 15m — the frames the cap, not the fraction,
+    excluded.
+
+    WHY THE VALUE IS STILL 60.0. Raising it is NOT the free win it looks like,
+    and this is the reason it ships as a knob at the incumbent default rather
+    than as a new number. Strategies read `candles_df["close"].iloc[-1]` as the
+    CURRENT PRICE for entry geometry (`_base.py`, `trend_donchian.py`,
+    `turtle_soup.py`, `vwap.py`, `ict_scalp.py`, ...) and the monitor reads the
+    same field for exit decisions, so cache TTL is not merely a freshness
+    setting on a chart — it bounds how stale the price behind a live order may
+    be. That makes the VALUE an order-path decision (Tier-3), separable from
+    making it settable (Tier-1), which is the split this change draws.
+
+    The context an operator needs to choose it: the tick's own duration ALREADY
+    imposes 84s mean / 187s max of price staleness on a strategy evaluated late
+    in the fan-out, independent of any cache — so the incumbent 60s cap is
+    stricter than the staleness the system imposes on itself anyway, and a cap
+    around 300s would convert the 1h/2h/4h/1d misses (18.8s per tick on-loop)
+    into hits while raising worst-case staleness to the same order of magnitude
+    the slow tick already produces. Shortening the tick also shortens that
+    inherent term, so the two move together rather than trading off cleanly.
+    None of that decides it; the operator does.
     """
     base = _TF_SECONDS.get(str(timeframe).strip().lower())
     if not base:
@@ -342,8 +374,18 @@ def _candle_cache_ttl(timeframe: str) -> float:
         frac = 0.10
     if frac <= 0:
         return 0.0
-    # Cap so a 1d bar cannot serve an hours-old frame: at most 60s of staleness.
-    return min(base * frac, 60.0)
+    try:
+        cap = float(os.environ.get("CANDLE_CACHE_TTL_MAX_S", "60.0"))
+    except (TypeError, ValueError):
+        cap = 60.0
+    # A non-positive cap is a typo, not a request to disable caching: the
+    # sanctioned off-switch is the fraction (documented above, and the one the
+    # rollback runbook names). Falling back to the default here keeps a
+    # mistyped cap from silently switching the cache off — the same fail-safe
+    # the fraction's own parse already applies in the other direction.
+    if cap <= 0:
+        cap = 60.0
+    return min(base * frac, cap)
 
 
 def _candle_cache_key(client: Any, symbol: str, timeframe: str,
@@ -430,13 +472,52 @@ def _fetch_phase(name: str):
     `fetch.cache_hit` is recorded for its **`n`, not its duration** (a hit is a dict
     lookup). Hits vs per-timeframe misses is the direct empirical test of the
     never-hits-across-ticks claim above, rather than leaving it as arithmetic.
+
+    SECOND CUT — `fetchby.<phase>` (added 2026-08-12). The timeframe cut answered
+    "which frames miss" and the answer was ">= 15m ones" (73.2% by count / 84.7%
+    by time, 50 ticks). It cannot answer the question that decides what to DO
+    about it: WHICH CONSUMER asked. That matters because the consumers have
+    different tolerances for a stale frame, and the safe fix depends on which one
+    dominates. `pipeline.regime_bar_scoring` is observe-only and explicitly
+    dedups to one record per CLOSED bar, so it can take a long TTL with no order
+    consequence at all; `pipeline.signal_build` feeds `close.iloc[-1]` straight
+    into entry geometry, so its TTL is an order-path decision. If the >= 15m
+    misses turn out to be regime-dominated, a consumer-scoped TTL is a large win
+    that never touches the price behind a trade — and if they are signal-build
+    dominated, that option is off the table. Same measure-before-fixing rule the
+    timeframe cut was added under; the counts decide, not the argument.
+
+    ⚠️ `fetch.*` and `fetchby.*` are TWO CUTS OF THE SAME SECONDS, not additive.
+    Each fetch records once in each family, so summing across the two double-
+    counts every fetch exactly once. Compare within a family, never across.
     """
     try:
-        from src.runtime.tick_cost import hook
-        return hook(f"fetch.{name}")
+        from src.runtime.tick_cost import current_phase, hook
     except Exception:  # noqa: BLE001
         # An instrumentation import error must never stop a live fetch.
         import contextlib
+        return contextlib.nullcontext()
+
+    import contextlib
+
+    @contextlib.contextmanager
+    def _both():
+        # `current_phase()` is read INSIDE the timeframe hook so it reports the
+        # phase that asked for the candles, not `fetch.<tf>` itself (which
+        # `hook` deliberately does not publish as a phase).
+        phase = current_phase()
+        # Strip the family prefix: the phase is already unambiguous without it
+        # and `fetchby.pipeline.signal_build` buys nothing over
+        # `fetchby.signal_build`. `None` keeps its own bucket rather than being
+        # folded into a neighbour — a fetch outside every instrumented phase is
+        # a real, different answer from one under a known phase.
+        label = (phase or "unattributed").split(".")[-1]
+        with hook(f"fetch.{name}"), hook(f"fetchby.{label}"):
+            yield
+
+    try:
+        return _both()
+    except Exception:  # noqa: BLE001
         return contextlib.nullcontext()
 
 
