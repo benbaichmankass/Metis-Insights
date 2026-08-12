@@ -458,3 +458,79 @@ def test_snapshot_does_not_raise_while_a_writer_is_active():
     stop.set()
     w.join(timeout=5)
     assert not errors, f"snapshot raised under a concurrent writer: {errors[0]!r}"
+
+
+# --- section 6.3: off-loop hooks get their own block, not the tick's ----------
+#
+# This field has now broken TWICE in opposite directions. Adding monitor.* children
+# made a flat sum double-count and attributed_pct read 136.8%. Decoupling the exit
+# half breaks it the other way: the exit loop's ~24s would be summed into a
+# numerator whose denominator is the MAIN tick's elapsed time. Two concurrent loops
+# do not share a clock.
+
+def test_offloop_hook_does_not_enter_attributed_pct():
+    tc._reset_for_tests()
+    tc.begin_tick()
+    tc.record_hook("run_one_tick", 60_000.0)
+    tc.end_tick()
+
+    import threading
+    def other_loop() -> None:
+        tc.record_hook("monitor.strategy_monitor_loop", 24_000.0)
+    t = threading.Thread(target=other_loop)
+    t.start(); t.join()
+
+    snap = tc.snapshot()
+    assert "monitor.strategy_monitor_loop" not in snap["hooks"], (
+        "another loop's time landed in the main tick's block")
+    assert "monitor.strategy_monitor_loop" in snap["offloop_hooks"]
+    # THE invariant, stated so it does not depend on the tick's real duration
+    # (microseconds under test, so any absolute pct here is meaningless): recording
+    # the off-loop hook must not MOVE attribution at all.
+    before = snap["attributed_pct"]
+    def other_loop_again() -> None:
+        tc.record_hook("monitor.strategy_monitor_loop", 99_000.0)
+    t2 = threading.Thread(target=other_loop_again)
+    t2.start(); t2.join()
+    assert tc.snapshot()["attributed_pct"] == before, (
+        "off-loop time moved attributed_pct — its denominator is the wrong clock")
+
+
+def test_offloop_block_reports_count_and_max_but_no_share():
+    """Visible, not silently dropped — but with no `pct_of_total`, because its
+    denominator is its own loop's duration, which this module does not measure."""
+    tc._reset_for_tests()
+    tc.begin_tick(); tc.end_tick()
+    import threading
+    def other_loop() -> None:
+        tc.record_hook("monitor.strategy_monitor_loop", 20_000.0)
+        tc.record_hook("monitor.strategy_monitor_loop", 30_000.0)
+    t = threading.Thread(target=other_loop); t.start(); t.join()
+    blk = tc.snapshot()["offloop_hooks"]["monitor.strategy_monitor_loop"]
+    assert blk["n"] == 2
+    assert blk["max_ms"] == 30_000.0
+    assert blk["mean_ms"] == 25_000.0
+    assert "pct_of_total" not in blk
+
+
+def test_same_thread_hooks_still_land_in_the_tick_block():
+    """The segregation must key on the thread that owns the TICK, so the existing
+    single-threaded behaviour is byte-identical."""
+    tc._reset_for_tests()
+    tc.begin_tick()
+    tc.record_hook("order_monitor", 49_000.0)
+    tc.record_hook("monitor.strategy_monitor_loop", 24_000.0)
+    tc.end_tick()
+    snap = tc.snapshot()
+    assert "order_monitor" in snap["hooks"]
+    assert "monitor.strategy_monitor_loop" in snap["hooks"]
+    assert snap["offloop_hooks"] == {}
+
+
+def test_hooks_recorded_before_any_tick_are_not_treated_as_offloop():
+    """`_tick_thread` is None before the first begin_tick. Routing those to the
+    off-loop block would hide a hook recorded during startup."""
+    tc._reset_for_tests()
+    tc.record_hook("order_monitor", 1_000.0)
+    assert "order_monitor" in tc._hooks
+    assert tc._offloop_hooks == {}
