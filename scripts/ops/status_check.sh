@@ -182,8 +182,31 @@ echo "--- docker/containerd containers (gateway isolated 2026-06-10 — expect n
 # ---------------------------------------------------------------------------
 echo
 echo "===== runtime-data path diagnostic ====="
-TRADER_PID="$(pgrep -f 'python3 -u -B -m src.main' | head -n 1 2>/dev/null || true)"
-if [ -n "${TRADER_PID}" ] && [ -r "/proc/${TRADER_PID}/environ" ]; then
+# Resolve the trader PID from systemd, NOT from a pgrep pattern.
+#
+# BL-20260811-STATUSCHECK-PID-LOOKUP-AND-STALE-REPO-HEARTBEAT: this used to be
+# `pgrep -f 'python3 -u -B -m src.main'`, which matches nothing on the live VM —
+# the venv drop-in's ExecStart is `<repo>/.venv/bin/python -u -B -m src.main`
+# (`python`, not `python3`). So status-check #8788 printed "trader pid not found"
+# while its OWN ps output listed the trader at PID 402857 and systemctl reported
+# the unit active. `systemctl show -p MainPID` is what the unit itself knows and
+# is what `get_env.py` already uses correctly — do not re-derive a pgrep pattern,
+# it will drift again the next time the ExecStart changes.
+TRADER_PID="$(systemctl show -p MainPID --value ict-trader-live.service 2>/dev/null || true)"
+# systemd reports 0 for "no main process"; normalise that to empty.
+[ "${TRADER_PID:-0}" = "0" ] && TRADER_PID=""
+
+# THREE states, never collapsed into one string (CLAUDE.md § "Collapsed states"):
+# the unit has no MainPID (not running) · we have a PID but /proc is unreadable
+# (we could not look) · we read it. The previous single message conflated the
+# first two, which is precisely the distinction that makes this section useful —
+# a genuinely-dead trader and a permissions problem are opposite diagnoses.
+if [ -z "${TRADER_PID}" ]; then
+    echo "(ict-trader-live reports no MainPID — the unit is not running; env dump skipped)"
+elif [ ! -r "/proc/${TRADER_PID}/environ" ]; then
+    echo "trader pid: ${TRADER_PID}"
+    echo "(/proc/${TRADER_PID}/environ unreadable — WE COULD NOT LOOK; this is NOT evidence the env is unset. Re-run with sufficient privilege.)"
+else
     echo "trader pid: ${TRADER_PID}"
     env_match="$(tr '\0' '\n' < "/proc/${TRADER_PID}/environ" 2>/dev/null \
         | grep -E '^(DATA_DIR|RUNTIME_LOGS_DIR|RUNTIME_STATE_DIR|ARTIFACTS_DIR)=' \
@@ -191,14 +214,24 @@ if [ -n "${TRADER_PID}" ] && [ -r "/proc/${TRADER_PID}/environ" ]; then
     if [ -n "${env_match}" ]; then
         echo "${env_match}"
     else
-        echo "(no DATA_DIR / RUNTIME_LOGS_DIR / RUNTIME_STATE_DIR / ARTIFACTS_DIR in trader env)"
+        echo "(read the trader env successfully; no DATA_DIR / RUNTIME_LOGS_DIR / RUNTIME_STATE_DIR / ARTIFACTS_DIR set in it)"
     fi
-else
-    echo "(trader pid not found or /proc unreadable — env dump skipped)"
 fi
 
 echo
-echo "--- runtime_logs canonical files (repo path) ---"
+# ⚠️ LEGACY PRE-CUTOVER PATH — these are NOT the live runtime files.
+#
+# BL-20260811-STATUSCHECK-PID-LOOKUP-AND-STALE-REPO-HEARTBEAT: the live heartbeat
+# lives under DATA_DIR (/data/bot-data/runtime_logs/) since the 2026-06-14 Ampere
+# cutover, and the repo-path copy has been dead ever since. Status-check #8788
+# printed this heartbeat.txt at mtime 2026-06-14 — TWO MONTHS STALE — directly
+# above the "===== heartbeat =====" section that correctly showed the live file at
+# age 42s. One report, two heartbeat mtimes two months apart, and nothing said
+# which one governs. A reader skimming a health check for a stale heartbeat can
+# read the wrong line and reach a confident wrong conclusion, so the label now
+# says so outright rather than relying on "(repo path)" being noticed.
+echo "--- runtime_logs at the REPO path (LEGACY, pre-cutover — NOT the live files;"
+echo "    the live heartbeat is under DATA_DIR, see the '===== heartbeat =====' section) ---"
 for f in \
     "${REPO_DIR}/runtime_logs/heartbeat.txt" \
     "${REPO_DIR}/runtime_logs/runtime_status.json" \
@@ -278,15 +311,18 @@ fi
 
 echo
 echo "--- trader CWD (from /proc/<pid>/cwd) ---"
-if [ -n "${TRADER_PID}" ] && [ -r "/proc/${TRADER_PID}/cwd" ]; then
+# Same three-state split as the env dump above — see the comment there.
+if [ -z "${TRADER_PID}" ]; then
+    echo "(ict-trader-live reports no MainPID — the unit is not running)"
+elif [ ! -r "/proc/${TRADER_PID}/cwd" ]; then
+    echo "(/proc/${TRADER_PID}/cwd unreadable — WE COULD NOT LOOK, not proof of anything about the CWD)"
+else
     cwd="$(readlink "/proc/${TRADER_PID}/cwd" 2>/dev/null || true)"
     if [ -n "${cwd}" ]; then
         echo "${cwd}"
     else
         echo "(cwd readlink returned empty)"
     fi
-else
-    echo "(trader pid not found or /proc/<pid>/cwd unreadable)"
 fi
 
 echo
