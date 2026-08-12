@@ -150,6 +150,21 @@ GEOMETRY_SENSITIVE_LEVERS = frozenset({
 _DATE = re.compile(r"20\d{2}-\d{2}-\d{2}")
 
 
+def _declared_strategies() -> set[str] | None:
+    """Leg names declared in config/strategies.yaml, or None if unreadable.
+
+    None is a THIRD state the caller reports as "not validated" — never as
+    "all names are fine". An unreadable config must not read as a clean pass.
+    """
+    try:
+        import yaml
+        cfg = yaml.safe_load((REPO / "config" / "strategies.yaml").read_text())
+    except (ImportError, OSError, ValueError):
+        return None
+    strategies = (cfg or {}).get("strategies")
+    return set(strategies) if isinstance(strategies, dict) else None
+
+
 def _family_of(strategy: str) -> str | None:
     """Resolve a leg's harness family via the sweep's own `classify`.
 
@@ -245,6 +260,34 @@ def validate(matrix: dict[str, Any]) -> list[str]:
     legend = set(matrix.get("legend") or {})
     if not legend:
         problems.append("legend is empty — cannot validate statuses")
+
+    # EVERY LIVE LEG MUST RESOLVE IN config/strategies.yaml.
+    #
+    # Found 2026-08-12: 7 of 47 live rows were keyed `spy_trend_1d`,
+    # `qqq_trend_1d`, … while config declares `spy_trend_long_1d` etc. — the
+    # `_long` infix was missing. That is not a cosmetic key mismatch. Every
+    # tool that acts on a matrix row resolves it against strategies.yaml, and
+    # `m20-exit-lever-sweep`'s plan job FAILS on an unknown leg by design
+    # (an input that is declared but silently ignored is worse than no input),
+    # so those 7 legs could not be swept AT ALL — which is the most likely
+    # reason their cells sat `pending` while neighbours were processed.
+    #
+    # A row naming a leg that does not exist also inflates the denominator:
+    # the milestone counts it, and no work can ever close it.
+    declared = _declared_strategies()
+    if declared is None:
+        problems.append(
+            "config/strategies.yaml could not be read — leg names NOT "
+            "validated (this is 'unchecked', not 'clean')")
+    else:
+        for row in matrix["rows"]:
+            if row.get("execution") != "live":
+                continue
+            if row.get("strategy") not in declared:
+                problems.append(
+                    f"{row.get('strategy')}/{row.get('symbol')}/{row.get('tf')}: "
+                    "live leg is not declared in config/strategies.yaml — no "
+                    "sweep can resolve it, so its cells can never be closed")
 
     for row, col, status in cells(matrix, live_only=False):
         who = f"{row.get('strategy')}/{row.get('symbol')}/{row.get('tf')}"
