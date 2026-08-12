@@ -2,7 +2,9 @@
 
 ## Date Range
 - Start: 2026-08-11 ~17:20Z
-- End: 2026-08-11 ~23:15Z
+- End: 2026-08-12 (session continued overnight at operator direction — see
+  "Overnight continuation" below; everything above this line describes the work
+  through ~23:15Z and is left as written)
 
 ## Objective
 - Primary goal: measure the **live, un-walk-forwarded** flip-confidence override
@@ -162,6 +164,71 @@
 - **Required verification before starting:** a fresh `tick_cost` read to confirm the
   process has not been restarted (the counters are per-process; `process_started_utc`
   says from when), so the next measurement is not compared against a different population.
+
+## Overnight continuation (2026-08-12, operator-directed)
+
+The operator directed the session to continue autonomously overnight, working the
+remaining list and reserving every Tier-3 decision for the morning. No Tier-3
+action was taken in this window — nothing here changes strategy logic, risk caps,
+account mode, or a live parameter.
+
+- **Split the OTHER half of the tick** (`BL-20260810-TICK-CHAIN-260S-PER-TICK`,
+  still open). `src/runtime/pipeline.py` gained a `_phase()` helper mirroring
+  `order_monitor`'s, wrapping four children: `regime_bar_scoring` · `signal_build`
+  · `news_score` · `dispatch`. Chosen because their **fixes differ** — a
+  cadence-gated fetch, a per-strategy candle fan-out (batchable), a network call
+  (cacheable), and broker round-trips (**not** reducible without touching the
+  order path) — so guessing between them was not good enough. Names are dotted,
+  so `snapshot()` counts them as children and `attributed_pct` cannot regress
+  into the >100% double-count. Budget 20 of 32 names.
+- **Incidental finding worth keeping:** only `run_one_tick` and `order_monitor`
+  are instrumented at top level, so the measured `attributed_pct: 98.4` means all
+  **ten** other tick hooks COMBINED are **1.6%**. They are genuinely cheap; the
+  entire tick cost is in those two halves. That retires "maybe it's the prop
+  prompts / soaks" as a hypothesis without further measurement.
+- **Fixed `status-check`'s two diagnostic defects**
+  (`BL-20260811-STATUSCHECK-PID-LOOKUP-AND-STALE-REPO-HEARTBEAT` — **fix shipped,
+  row deliberately left OPEN**). Its resolution criteria demand a status-check run
+  whose diagnostic actually resolves the PID and dumps `DATA_DIR`, and that cannot
+  be satisfied from a branch: `ict-git-sync` deploys from `main`, so a run today
+  would exercise the OLD script and a green result would prove nothing. The row
+  closes on a post-merge run, not on this commit.
+  The PID lookup used a `pgrep` pattern matching `python3` where the venv
+  ExecStart is `python`, so the tool printed "trader pid not found" while its own
+  `ps` output listed the process; it now resolves via
+  `systemctl show -p MainPID` — **the idiom the repo already uses** in `get-env`
+  and the mounted-storage runbook, so this aligns with convention rather than
+  inventing a second answer. Failure is now three-state (no MainPID / could-not-
+  read `/proc` / read-ok). The legacy repo-path `runtime_logs` header now says
+  outright that it is pre-cutover and NOT the live heartbeat, which is what let a
+  two-month-stale mtime sit unlabelled beside a 42s-old live one.
+- **Filed `BL-20260812-ACTIONS-RUNNER-TLS-VERIFY-FAILS-AS-RED`.** Three runner TLS
+  failures in ~70 minutes across two workflows and two different steps, all
+  clearing on rerun against the identical sha. Filed for how it PRESENTS — the
+  webhook reports `conclusion: failure` with the check name, byte-identical to a
+  real guard failure, and I chased a phantom defect in my own diff once before
+  reading the log. Deliberately proposes no retry-wrapper: masking a flake so it
+  reads as a clean pass is worse than a loud one.
+- **Doc-vs-reality drift I introduced, then fixed:** `CLAUDE.md`'s
+  `/api/diag/tick_cost` row said `order_monitor` "is a PARENT of 14 children",
+  naming one parent. Adding the `pipeline.*` children made that incomplete the
+  moment it shipped, so the row now states both parents, the cross-symbol `n`
+  caveat, and the name budget.
+
+### Overnight validation
+- `guards` PASS, `pytest-collect` PASS, `repo-inventory` PASS on the head
+  carrying the pipeline split; `tests/test_tick_cost.py` 22 passed locally.
+- The 4 failures in `tests/test_smoke_test_pipeline.py` were confirmed
+  **pre-existing** by stashing and re-running on clean `main` — identical set.
+  Not caused by this work.
+- The three-state PID resolver was exercised across all branches **including a
+  positive control** (a real readable pid reads `ok`), so the probe is shown able
+  to find a positive rather than only to stay quiet.
+- `canonical-doc-coherence` passes locally (all 5 checks).
+- **Still not verified:** the registry-sourced shadow soak start (#8774) against
+  the live fleet — diag request #8799 is open for it, and the read is written to
+  be falsifiable (if the log floor and the registry date coincide by luck, that
+  is explicitly NOT a confirmation).
 
 ## Wrap-Up Check
 - [x] Code was inspected directly, not inferred only from summaries — `intents.py`
