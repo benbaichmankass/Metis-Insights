@@ -478,7 +478,8 @@ def test_offloop_hook_does_not_enter_attributed_pct():
     def other_loop() -> None:
         tc.record_hook("monitor.strategy_monitor_loop", 24_000.0)
     t = threading.Thread(target=other_loop)
-    t.start(); t.join()
+    t.start()
+    t.join()
 
     snap = tc.snapshot()
     assert "monitor.strategy_monitor_loop" not in snap["hooks"], (
@@ -491,7 +492,8 @@ def test_offloop_hook_does_not_enter_attributed_pct():
     def other_loop_again() -> None:
         tc.record_hook("monitor.strategy_monitor_loop", 99_000.0)
     t2 = threading.Thread(target=other_loop_again)
-    t2.start(); t2.join()
+    t2.start()
+    t2.join()
     assert tc.snapshot()["attributed_pct"] == before, (
         "off-loop time moved attributed_pct — its denominator is the wrong clock")
 
@@ -500,12 +502,15 @@ def test_offloop_block_reports_count_and_max_but_no_share():
     """Visible, not silently dropped — but with no `pct_of_total`, because its
     denominator is its own loop's duration, which this module does not measure."""
     tc._reset_for_tests()
-    tc.begin_tick(); tc.end_tick()
+    tc.begin_tick()
+    tc.end_tick()
     import threading
     def other_loop() -> None:
         tc.record_hook("monitor.strategy_monitor_loop", 20_000.0)
         tc.record_hook("monitor.strategy_monitor_loop", 30_000.0)
-    t = threading.Thread(target=other_loop); t.start(); t.join()
+    t = threading.Thread(target=other_loop)
+    t.start()
+    t.join()
     blk = tc.snapshot()["offloop_hooks"]["monitor.strategy_monitor_loop"]
     assert blk["n"] == 2
     assert blk["max_ms"] == 30_000.0
