@@ -371,3 +371,90 @@ def test_a_child_keeps_its_own_share_of_total(monkeypatch):
     parent = s["hooks"]["parent"]["pct_of_total"]
     assert child is not None and parent is not None
     assert 0.0 < child <= parent + 1.0, (child, parent)
+
+
+# --- section 6.2: the accumulators are thread-safe (decouple prerequisite) ----
+#
+# READ THIS BEFORE TRUSTING THESE AS RACE DEMONSTRATIONS — THEY ARE NOT.
+# All three pass with `_hooks_lock` stubbed out to a no-op, and a direct attempt
+# to lose an update (8 threads x 20k increments on a shared dict slot at
+# `sys.setswitchinterval(1e-9)`) lost zero across three trials. CPython's GIL
+# makes read-modify-write on a dict slot very hard to actually interleave.
+#
+# They are REGRESSION guards for a lock kept on defensive grounds: the atomicity
+# is a CPython implementation detail rather than a language guarantee, and the
+# failure mode would be silent and flattering (a lost sample makes a hook look
+# cheaper). They would catch a refactor that moves work outside the lock or
+# introduces a genuinely non-atomic step. They are not evidence of a live bug.
+
+def test_concurrent_record_hook_loses_no_samples():
+    tc._reset_for_tests()
+    import threading
+    PER, THREADS = 500, 4
+
+    def worker() -> None:
+        for _ in range(PER):
+            tc.record_hook("order_monitor", 1.0)
+
+    threads = [threading.Thread(target=worker) for _ in range(THREADS)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    slot = tc._hooks["order_monitor"]
+    assert slot["n"] == PER * THREADS, f"lost {PER * THREADS - slot['n']} samples"
+    assert slot["sum_ms"] == pytest.approx(float(PER * THREADS))
+
+
+def test_concurrent_distinct_names_respect_the_bound_exactly():
+    """The check-then-insert could over-admit past _MAX_HOOK_NAMES, whose whole
+    job is keeping `hook_names_refused` an honest count."""
+    tc._reset_for_tests()
+    import threading
+
+    def worker(lo: int) -> None:
+        for i in range(lo, lo + 40):
+            tc.record_hook(f"h{i}", 1.0)
+
+    threads = [threading.Thread(target=worker, args=(n * 40,)) for n in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(tc._hooks) == tc._MAX_HOOK_NAMES, len(tc._hooks)
+    # 160 attempted, _MAX_HOOK_NAMES admitted, the rest counted as refused.
+    assert len(tc._hooks) + tc._hook_overflow == 160
+
+
+def test_snapshot_does_not_raise_while_a_writer_is_active():
+    """`_hook_view`/`snapshot` iterated `_hooks` live. A concurrent insert makes
+    that 'dictionary changed size during iteration' — inside the diag read path,
+    i.e. observability breaking exactly when two loops run and it matters most."""
+    tc._reset_for_tests()
+    import threading
+    tc.begin_tick()
+    tc.end_tick()
+    stop = threading.Event()
+    errors: list[BaseException] = []
+
+    def writer() -> None:
+        i = 0
+        while not stop.is_set():
+            tc.record_hook(f"h{i % 20}", 1.0)
+            i += 1
+
+    def reader() -> None:
+        try:
+            for _ in range(400):
+                tc.snapshot()
+        except BaseException as exc:   # noqa: BLE001 — the failure under test
+            errors.append(exc)
+
+    w = threading.Thread(target=writer, daemon=True)
+    r = threading.Thread(target=reader)
+    w.start()
+    r.start()
+    r.join()
+    stop.set()
+    w.join(timeout=5)
+    assert not errors, f"snapshot raised under a concurrent writer: {errors[0]!r}"

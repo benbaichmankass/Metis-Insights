@@ -33,6 +33,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterator, Optional
@@ -65,6 +66,35 @@ _tick_start: Optional[float] = None
 # payload can never quietly become a partial view presented as a whole one.
 _hooks: Dict[str, Dict[str, Any]] = {}
 _hook_overflow: int = 0
+
+# DECOUPLE PREREQUISITE (section 6.2, 2026-08-12). Until now exactly ONE thread
+# ever called `record_hook` — the trader's main loop — so unsynchronised state was
+# correct by construction. Moving the exit half onto its own loop makes two
+# threads record concurrently, and two sequences below are not atomic BY THE
+# LANGUAGE: `slot["n"] += 1` / `slot["sum_ms"] += ms` are read-modify-write, and
+# `if len(_hooks) >= _MAX_HOOK_NAMES` then insert is check-then-act (two threads
+# could both pass the check and over-admit past the bound whose whole job is to
+# keep `hook_names_refused` honest).
+#
+# HONEST ABOUT THE EVIDENCE, because the first version of this comment was not:
+# it asserted "a concurrent pair can LOSE an update" as though measured. It is not.
+# I tried to reproduce it — 8 threads x 20k increments on a shared dict slot at
+# `sys.setswitchinterval(1e-9)`, three trials — and lost ZERO updates every time;
+# the accumulator tests below also pass with this lock stubbed out. CPython's GIL
+# makes these sequences very hard to actually interleave in practice.
+#
+# So this lock is DEFENSIVE CORRECTNESS, not a fix for observed corruption. It is
+# kept because the guarantee is a CPython implementation detail rather than a
+# language promise, because the failure mode would be silent and in the
+# flattering direction (a lost sample makes a hook look cheaper), and because an
+# uncontended acquire costs nothing measurable next to a 24-second hook. The
+# tests are REGRESSION guards — they would catch a refactor that moves work
+# outside the lock or introduces a genuinely non-atomic step — and they are
+# explicitly NOT evidence that the race occurs today.
+#
+# The lock is held only around the accumulator arithmetic — never around a hook's
+# actual execution — so it cannot serialise the two loops it exists to support.
+_hooks_lock = threading.Lock()
 
 
 def write_cadence_seconds() -> float:
@@ -125,18 +155,19 @@ def record_hook(name: str, elapsed_ms: float) -> None:
     """Fold one hook's duration into the per-hook accumulators. Never raises."""
     global _hook_overflow
     try:
-        slot = _hooks.get(name)
-        if slot is None:
-            if len(_hooks) >= _MAX_HOOK_NAMES:
-                _hook_overflow += 1
-                return
-            slot = {"n": 0, "sum_ms": 0.0, "max_ms": None, "max_at_utc": None}
-            _hooks[name] = slot
-        slot["n"] += 1
-        slot["sum_ms"] += elapsed_ms
-        if slot["max_ms"] is None or elapsed_ms > slot["max_ms"]:
-            slot["max_ms"] = elapsed_ms
-            slot["max_at_utc"] = datetime.now(timezone.utc).isoformat()
+        with _hooks_lock:
+            slot = _hooks.get(name)
+            if slot is None:
+                if len(_hooks) >= _MAX_HOOK_NAMES:
+                    _hook_overflow += 1
+                    return
+                slot = {"n": 0, "sum_ms": 0.0, "max_ms": None, "max_at_utc": None}
+                _hooks[name] = slot
+            slot["n"] += 1
+            slot["sum_ms"] += elapsed_ms
+            if slot["max_ms"] is None or elapsed_ms > slot["max_ms"]:
+                slot["max_ms"] = elapsed_ms
+                slot["max_at_utc"] = datetime.now(timezone.utc).isoformat()
     except Exception:  # noqa: BLE001 — measurement must never break the tick
         return
 
@@ -180,7 +211,13 @@ def _hook_view() -> Dict[str, Any]:
     coverage denominator deliberately counts top-level hooks only.
     """
     out: Dict[str, Any] = {}
-    for name, s in _hooks.items():
+    # Copy under the lock, then compute outside it. A live iteration of `_hooks`
+    # while the exit-loop thread inserts a name raises "dictionary changed size
+    # during iteration" — inside the diag read path, i.e. the observability would
+    # break exactly when two loops are running and it is most needed.
+    with _hooks_lock:
+        items = [(name, dict(slot)) for name, slot in _hooks.items()]
+    for name, s in items:
         n = s["n"] or 0
         out[name] = {
             "n": n,
@@ -223,7 +260,9 @@ def snapshot() -> Dict[str, Any]:
     # ours and is the whole contract — a caller that invents a dotted name without
     # a parent wrap drops itself out of the coverage denominator, so `nested_hooks`
     # below is published to make the hierarchy visible rather than assumed.
-    top_level = {n: s for n, s in _hooks.items() if "." not in n}
+    with _hooks_lock:
+        _hooks_view = [(n, dict(sl)) for n, sl in _hooks.items()]
+    top_level = {n: s for n, s in _hooks_view if "." not in n}
     hook_sum_ms = sum(s["sum_ms"] for s in top_level.values())
     attributed_mean = (hook_sum_ms / _ticks) if _ticks else None
     return {
@@ -239,7 +278,7 @@ def snapshot() -> Dict[str, Any]:
         # always so the hierarchy is visible: a reader comparing `attributed_pct`
         # against the `hooks` block can otherwise not tell why the listed means do
         # not add up to it. 0 means the block is flat and the two agree exactly.
-        "nested_hooks": sum(1 for n in _hooks if "." in n),
+        "nested_hooks": sum(1 for n, _ in _hooks_view if "." in n),
         # Non-zero means a caller generated hook names dynamically and the split
         # is PARTIAL. Shipped always so a truncated view cannot read as complete.
         "hook_names_refused": _hook_overflow,
@@ -316,5 +355,6 @@ def _reset_for_tests() -> None:
     global _started_utc, _last_write_ts, _tick_start, _hook_overflow
     _ticks, _last_ms, _max_ms, _max_at_utc = 0, None, None, None
     _sum_ms, _started_utc, _last_write_ts, _tick_start = 0.0, None, None, None
-    _hooks.clear()
+    with _hooks_lock:
+        _hooks.clear()
     _hook_overflow = 0
