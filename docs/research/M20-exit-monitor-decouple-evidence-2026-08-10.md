@@ -313,6 +313,84 @@ detection, so *its* latency governs how quickly the journal learns a position cl
 That is a real requirement — it is simply a different one from exit-evaluation latency,
 and conflating the two is what made the whole monitor look like one indivisible unit.
 
+### 4e. POST-MERGE RE-READ AT n=172 — the split reproduces, both published MAXES were optimistic
+
+§ 4d derived the design from **n=7**. The first post-merge read (diag #8806, 2026-08-12T18:12Z,
+`ticks_measured: 172`, one process since 09:56Z) is a **25× larger sample**, and it splits the
+result cleanly: **the structural finding holds, the two margin figures I published do not.**
+
+**What reproduces — the two-halves claim, almost exactly:**
+
+| | § 4d (n=7) | n=172 | |
+|---|--:|--:|---|
+| exit half (`strategy_monitor_loop`) | 24.3 s · 49.3% | **22.43 s · 48.4%** | mean |
+| the 13 reconcilers | 24.8 s · 50.3% | **23.71 s · 51.1%** | mean |
+| children ÷ parent | 99.6% | **99.5%** | coverage |
+
+Two comparable halves, neither dominant, at 25× the sample. That is the finding the design
+rests on, and it is now measured rather than indicated.
+
+**What does NOT reproduce — the maxes, and the direction is against me.** The max is the
+load-bearing statistic here (a mean that clears while the peak does not IS the 2026-06-09
+incident shape), and both figures in the PR body and the board claim were taken from the
+small sample:
+
+| | published (n=7) | n=172 | verdict at 60 s |
+|---|--:|--:|---|
+| whole monitor on a thread | 56.80 s → clears by **+3.20 s (5.3%)** | **61.82 s** | **−1.82 s — FAILS** |
+| exit loop only (shipped) | 28.22 s → clears by **+31.78 s (53%)** | **34.89 s** | **+25.11 s (41.8%)** |
+
+So the shipped option still clears the ask with real headroom, but by **41.8%, not the 53% I
+published** — and the option I rejected does not merely have a thin margin, it **exceeds 60 s
+outright** on this sample. The decision is more clearly right than the evidence I gave for it;
+the numbers I gave for it were wrong. Both are worth stating, and the second is the one that
+would otherwise quietly rot into a cited figure.
+
+I had already written that a 5.3% margin was "one added reconciler away from being gone."
+It did not need another reconciler — it needed a larger sample of the reconcilers already there.
+
+### 4f. LIVE CONFIRMATION (diag #8808, 2026-08-12T18:44Z) — deployed, and it works
+
+`git_sha 64ee435f`, process up since 18:14:03Z. All three post-merge checks now have
+answers rather than intentions.
+
+**1. Thread segregation works, and is visible.** `offloop_hooks` carries exactly
+`monitor.strategy_monitor_loop` — `n: 55`, mean **16.24 s**, max **34.13 s** — and that
+name is **absent from the main `hooks` table**, where it sat before. Both halves of the
+claim: the exit phase moved, and its cost is no longer divided by the main tick's clock.
+An empty `offloop_hooks` would have been the silent failure; it is populated.
+
+**2. `attributed_pct: 98.4`** (≤ 100), `nested_hooks: 16` = 13 `monitor.*` + 3 `pipeline.*`
+— reconciles exactly, one child having left for the off-loop table and `pipeline.dispatch`
+absent for want of a dispatch in the window. No double-count.
+
+**3. The cadence, and the number that matters.** 55 passes over 1661 s of wall time is an
+observed period of **30.2 s** against `EXIT_LOOP_INTERVAL_SECONDS=30`, with 54% of wall
+time spent in-pass. The loop is period-targeting (`slack = interval − elapsed`), so the
+inter-evaluation interval is `max(interval, pass)` — **30.0 s typical, 34.1 s worst**,
+clearing the 60 s ask by **25.87 s (43.1%)**. Exit evaluation went from once per ~96 s
+tick to once per 30.2 s: a **3.2× rate increase**, which is the deliverable.
+
+**And the § 4e correction validated itself.** Live max **34.13 s** sits within **2.2%** of
+the n=172 figure (34.89 s) and **21% above** the original n=7 claim (28.22 s). The small
+sample was optimistic in the direction § 4e said it was; had I shipped on the original
+number and never re-read, the published margin would have stayed wrong while the system
+was fine — the least visible kind of error.
+
+**Still open, unchanged:** the tick itself is mean **96.5 s** / max **115.7 s**
+(`run_one_tick` 70.0 s mean, `pipeline.signal_build` 53.7% of tick).
+`BL-20260810-TICK-CHAIN-260S-PER-TICK` is untouched by this work and stays open.
+
+The paragraph below is preserved as written, because it was true of the read it describes
+(diag #8806) and dating it is the point.
+
+**Not yet verifiable, and stated rather than assumed:** the same read shows `git_sha 1a5126a1`
+with `bot_uptime_s 29724` (process up since 09:56Z), i.e. the trader is **still running #8796's
+code** — the merge had not been pulled + restarted at read time. So `exit_loop_health`,
+`offloop_hooks`, and the live `max_pass_ms` are all **unobserved, not confirmed**. The
+`attributed_pct: 98.3` / `nested_hooks: 18` above IS confirmed, and it is the pre-decouple
+baseline for the ≤100 check, not evidence about the decouple.
+
 ### 4c. A defect in this instrumentation, found by reading its own output
 
 The first post-deploy read returned **`attributed_pct: 136.8`** — a share of a whole
