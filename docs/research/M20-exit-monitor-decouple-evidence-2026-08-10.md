@@ -349,6 +349,41 @@ would otherwise quietly rot into a cited figure.
 I had already written that a 5.3% margin was "one added reconciler away from being gone."
 It did not need another reconciler — it needed a larger sample of the reconcilers already there.
 
+### 4f. LIVE CONFIRMATION (diag #8808, 2026-08-12T18:44Z) — deployed, and it works
+
+`git_sha 64ee435f`, process up since 18:14:03Z. All three post-merge checks now have
+answers rather than intentions.
+
+**1. Thread segregation works, and is visible.** `offloop_hooks` carries exactly
+`monitor.strategy_monitor_loop` — `n: 55`, mean **16.24 s**, max **34.13 s** — and that
+name is **absent from the main `hooks` table**, where it sat before. Both halves of the
+claim: the exit phase moved, and its cost is no longer divided by the main tick's clock.
+An empty `offloop_hooks` would have been the silent failure; it is populated.
+
+**2. `attributed_pct: 98.4`** (≤ 100), `nested_hooks: 16` = 13 `monitor.*` + 3 `pipeline.*`
+— reconciles exactly, one child having left for the off-loop table and `pipeline.dispatch`
+absent for want of a dispatch in the window. No double-count.
+
+**3. The cadence, and the number that matters.** 55 passes over 1661 s of wall time is an
+observed period of **30.2 s** against `EXIT_LOOP_INTERVAL_SECONDS=30`, with 54% of wall
+time spent in-pass. The loop is period-targeting (`slack = interval − elapsed`), so the
+inter-evaluation interval is `max(interval, pass)` — **30.0 s typical, 34.1 s worst**,
+clearing the 60 s ask by **25.87 s (43.1%)**. Exit evaluation went from once per ~96 s
+tick to once per 30.2 s: a **3.2× rate increase**, which is the deliverable.
+
+**And the § 4e correction validated itself.** Live max **34.13 s** sits within **2.2%** of
+the n=172 figure (34.89 s) and **21% above** the original n=7 claim (28.22 s). The small
+sample was optimistic in the direction § 4e said it was; had I shipped on the original
+number and never re-read, the published margin would have stayed wrong while the system
+was fine — the least visible kind of error.
+
+**Still open, unchanged:** the tick itself is mean **96.5 s** / max **115.7 s**
+(`run_one_tick` 70.0 s mean, `pipeline.signal_build` 53.7% of tick). `BL-20260810-TICK-CHAIN`
+is untouched by this work and stays open.
+
+The paragraph below is preserved as written, because it was true of the read it describes
+(diag #8806) and dating it is the point.
+
 **Not yet verifiable, and stated rather than assumed:** the same read shows `git_sha 1a5126a1`
 with `bot_uptime_s 29724` (process up since 09:56Z), i.e. the trader is **still running #8796's
 code** — the merge had not been pulled + restarted at read time. So `exit_loop_health`,
