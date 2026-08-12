@@ -339,6 +339,49 @@ def multiplexed_signal_builder(settings: dict) -> Dict[str, Any]:
 
 
 
+def _phase(name: str):
+    """Time ONE pipeline phase into the per-tick cost record. NO-OP fallback.
+
+    WHY THIS EXISTS. The warm read on 2026-08-11 (51 ticks, one process,
+    `/api/diag/tick_cost`) put the tick at 107.2s mean / 122.2s max against the
+    operator's 60s exit-evaluation ask, split almost exactly in half:
+    `run_one_tick` 56.2s and `order_monitor` 49.3s. The monitor half is already
+    broken out into fourteen `monitor.*` phases; THIS half is still one opaque
+    wrap, so nothing can say which part of signal generation spends the 56.2s.
+
+    That is the difference between a reducible cost and an irreducible one, and
+    it is not guessable: the plausible candidates have very different fixes --
+    per-bar regime scoring is a cadence-gated fetch (already budgeted, should be
+    near-zero on most ticks), the strategy builder fans out candle fetches per
+    strategy (batchable), the news score is a network call (cacheable), and
+    dispatch is broker round-trips (not reducible without touching the order
+    path). Measuring first is what keeps the fix off the order path.
+
+    MEASUREMENT ONLY -- no phase is skipped, reordered, or budgeted. Each phase
+    keeps its own existing `try/except`; this wrapper records in `finally` and
+    never swallows, so a phase that burns time and then throws still appears in
+    the split rather than vanishing from it (the shape that would hide the
+    expensive failure).
+
+    Names are prefixed `pipeline.` so they cannot collide with `src/main.py`'s
+    top-level hooks or the `monitor.*` children, and they are CHILDREN of the
+    `run_one_tick` top-level hook -- `tick_cost.snapshot()` counts only
+    undotted names toward `attributed_pct`, so adding these cannot double-count
+    into the >100% coverage bug that the nesting fix corrected. Note these
+    aggregate ACROSS symbols (the tick fans out per symbol), so `n` is
+    symbols x ticks, not ticks; that is deliberate -- the question here is which
+    PHASE is expensive, and per-symbol is a separate cut that would cost one
+    name per instrument against the `_MAX_HOOK_NAMES` bound.
+    """
+    try:
+        from src.runtime.tick_cost import hook
+        return hook(f"pipeline.{name}")
+    except Exception:  # noqa: BLE001
+        # An instrumentation import error must never stop a live tick.
+        import contextlib
+        return contextlib.nullcontext()
+
+
 def run_pipeline(
     settings: dict,
     exchange_client: Any = None,
@@ -359,11 +402,12 @@ def run_pipeline(
     # only writes shadow_predictions.jsonl, never the order path; dedup keeps
     # it to one record per closed bar; it never raises. Kill-switch:
     # REGIME_BAR_SCORING_DISABLED.
-    try:
-        from src.runtime.regime_bar_scoring import emit_regime_bar_predictions
-        emit_regime_bar_predictions(settings)
-    except Exception:  # noqa: BLE001 — observe-only hook must never break a tick
-        logger.warning("per-bar regime scoring hook failed", exc_info=False)
+    with _phase("regime_bar_scoring"):
+        try:
+            from src.runtime.regime_bar_scoring import emit_regime_bar_predictions
+            emit_regime_bar_predictions(settings)
+        except Exception:  # noqa: BLE001 — observe-only hook must never break a tick
+            logger.warning("per-bar regime scoring hook failed", exc_info=False)
 
     strategy_name = str(os.environ.get("STRATEGY", "multiplexed")).strip().lower()
 
@@ -415,7 +459,8 @@ def run_pipeline(
             builder = multiplexed_signal_builder
 
     logger.info("Using strategy builder: %s", strategy_name)
-    signal = builder(settings)
+    with _phase("signal_build"):
+        signal = builder(settings)
     _write_ict_signals_from_meta(signal, settings)
 
     if signal.get("side") in ("buy", "sell"):
@@ -462,7 +507,8 @@ def run_pipeline(
         if _base.endswith("USDT"):
             _base = _base[:-4]
         _tags = list(dict.fromkeys(t for t in [_base, _sym] if t))
-        news_result = get_news_score(settings, symbol_tags=_tags)
+        with _phase("news_score"):
+            news_result = get_news_score(settings, symbol_tags=_tags)
 
         # Stamp the news score onto the signal meta so it rides into pkg.meta
         # (order_bridge copies signal["meta"]) and the coordinator's reductive
@@ -697,9 +743,10 @@ def run_pipeline(
                             [_sig_pkg], {"balance": _bal}
                         )
                         if _alloc_pkgs:
-                            multi_results = coord.multi_account_execute_typed(
-                                _alloc_pkgs
-                            )
+                            with _phase("dispatch"):
+                                multi_results = coord.multi_account_execute_typed(
+                                    _alloc_pkgs
+                                )
                             logger.info(
                                 "CENTRALIZED_ALLOCATOR typed dispatch: "
                                 "strategy=%s symbol=%s side=%s pkgs=%d",
@@ -711,13 +758,15 @@ def run_pipeline(
                         else:
                             # Allocator produced nothing — fall back to legacy path.
                             pkg = _signal_to_order_package(signal, settings)
-                            multi_results = coord.multi_account_execute(pkg)
+                            with _phase("dispatch"):
+                                multi_results = coord.multi_account_execute(pkg)
                             _sized_qty = (pkg.meta or {}).get(
                                 "sized_qty_by_account", {}
                             )
                     else:
                         pkg = _signal_to_order_package(signal, settings)
-                        multi_results = coord.multi_account_execute(pkg)
+                        with _phase("dispatch"):
+                            multi_results = coord.multi_account_execute(pkg)
                         _sized_qty = (pkg.meta or {}).get(
                             "sized_qty_by_account", {}
                         )

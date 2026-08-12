@@ -1173,55 +1173,35 @@ def get_shadow_stats(
     aggregate shadow-prediction stats through the authenticated diag surface
     so Layer-2 health reviews can cross-tab audit actionable signals against
     shadow prediction counts without requiring SSH.
+
+    DELEGATES to the public handler rather than re-deriving the rows
+    (BL-20260812-DIAG-SHADOW-STATS-MISSING-SOAK-BASIS). This route used to build
+    its own row dicts, and when #8774 added the soak-start disclosure
+    (`soak_start_basis`) plus the registry-sourced recovery (`soak_started_at` /
+    `soak_days`) to the public handler, THIS mirror silently kept serving the
+    undisclosed `first_seen` -- on the ONLY surface a relay-bound session can
+    reach, which is the surface this endpoint exists for. Measured live on
+    2026-08-12 (diag #8800): all 30 models reported `first_seen` inside a
+    ~2-minute band at the log's rotation boundary, and BOTH advisory heads had
+    been promoted BEFORE it (sol-...-fc-pcv-v2 2026-08-02, btc-...-fc-pcv-v2
+    2026-08-04), so their soak read ~6.0 days against a genuinely longer one --
+    exactly the `log_censored` case, invisible here.
+
+    A second copy of "what is a soak start" would be free to drift from the one
+    the promotion gate reads, so there is now one definition and this is a thin
+    auth wrapper around it.
     """
     _require_diag_token(request)
     try:
-        from ml.shadow.inspector import aggregate, filter_records, iter_records
+        from src.web.api.routers.shadow import stats as _shadow_stats
     except ImportError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={"error": "shadow_inspector_unavailable", "detail": str(exc)},
         ) from exc
-
-    override = __import__("os").environ.get("SHADOW_PREDICTIONS_LOG")
-    log = (
-        __import__("pathlib").Path(override)
-        if override
-        else runtime_logs_dir() / "shadow_predictions.jsonl"
-    )
-
-    since_dt = None
-    if since is not None:
-        try:
-            from datetime import timezone
-            ts = __import__("datetime").datetime.fromisoformat(since)
-            if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
-            since_dt = ts
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail={"error": "invalid_since", "detail": str(exc)}) from exc
-
-    records = filter_records(iter_records(log), model_id=model_id, stage=stage, since=since_dt)
-    stats = aggregate(records)
-    rows = [
-        {
-            "model_id": s.model_id,
-            "stage": s.stage,
-            "count": s.count,
-            "score_mean": s.score_mean,
-            "score_min": s.score_min if s.count else None,
-            "score_max": s.score_max if s.count else None,
-            "first_seen": s.first_seen.isoformat() if s.first_seen else None,
-            "last_seen": s.last_seen.isoformat() if s.last_seen else None,
-        }
-        for s in stats
-    ]
-    return {
-        "log_present": log.is_file(),
-        "log_path": str(log),
-        "records": rows,
-        "count": len(rows),
-    }
+    # The public handler owns `since` parsing (and its 400 on a bad value), the
+    # log-path resolution, the log_coverage envelope, and the registry lookup.
+    return _shadow_stats(model_id=model_id, stage=stage, since=since)
 
 
 @router.get("/exchange_positions")
