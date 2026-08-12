@@ -207,6 +207,28 @@ def _permissive_provenance(monkeypatch, predicate=lambda row: True):
     monkeypatch.setattr(prov, "pnl_is_trustworthy", predicate)
 
 
+def _break_provenance_import(monkeypatch):
+    """Make `from src.runtime import provenance` raise inside `_live_rows`.
+
+    Intercepting the name "src.runtime.provenance" does NOT work: that form
+    calls `__import__("src.runtime", fromlist=("provenance",))`, so the name
+    seen is the PACKAGE. Keying on the fromlist is what actually reaches the
+    fallback — the first version of this helper keyed on the dotted name, the
+    ImportError never fired, and the test correctly failed rather than passing
+    over a mock that did nothing.
+    """
+    import builtins
+
+    real_import = builtins.__import__
+
+    def _boom(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "src.runtime" and "provenance" in (fromlist or ()):
+            raise ImportError("simulated: provenance unavailable")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", _boom)
+
+
 class TestDbReadersAndTrustMap:
     def test_readers_and_trust_map(self, tmp_path, monkeypatch):
         _permissive_provenance(monkeypatch)
@@ -242,6 +264,65 @@ class TestDbReadersAndTrustMap:
         assert diag["rows_scanned"] == 2
         assert diag["rows_trusted"] == 1
         assert diag["r_coverage"] == 1.0
+        # The filter RAN, and the output says so — see the unavailable case below.
+        assert diag["trust_filter"] == "applied"
+
+    def test_trust_filter_reports_applied_when_provenance_imports(
+        self, tmp_path, monkeypatch
+    ):
+        _permissive_provenance(monkeypatch)
+        live_db = str(tmp_path / "j.db")
+        _seed(live_db, [_risky(1.0, symbol="X")], 0)
+        _, diag = cal._live_rows(live_db, "s", "X")
+        assert diag["trust_filter"] == "applied"
+
+    def test_trust_filter_says_unavailable_when_provenance_cannot_import(
+        self, tmp_path, monkeypatch
+    ):
+        """An unimportable provenance module must not read as a spotless leg.
+
+        `_live_rows` falls back to `trust = None`, which applies NO filter — so
+        `rows_trusted` equals `rows_scanned` and, without this field, the output
+        is byte-identical to a leg where every row genuinely passed. That
+        silently WIDENS the population to include fabricated pnl while reporting
+        a 100% trusted rate, inverting the meaning of the number the module
+        exists to produce.
+        """
+        _break_provenance_import(monkeypatch)
+
+        live_db = str(tmp_path / "j.db")
+        _seed(live_db, [_risky(1.0, symbol="X"),
+                        _risky(1.0, symbol="X", notes="fab")], 0)
+        rows, diag = cal._live_rows(live_db, "s", "X")
+
+        # Nothing was filtered — that is the fallback's actual behaviour.
+        assert diag["rows_scanned"] == 2
+        assert diag["rows_trusted"] == 2
+        # ...and the output DECLARES it rather than implying a clean leg.
+        assert diag["trust_filter"] == "unavailable"
+
+    def test_applied_and_unavailable_are_distinguishable_at_equal_counts(
+        self, tmp_path, monkeypatch
+    ):
+        """The whole point: identical counts, different provenance of those counts.
+
+        A permissive filter that passes everything and a filter that never ran
+        both yield rows_trusted == rows_scanned. Only `trust_filter` separates
+        them, so assert the counts MATCH and the field still differs — otherwise
+        the field could be silently keyed off the counts and prove nothing.
+        """
+        live_db = str(tmp_path / "j.db")
+        _seed(live_db, [_risky(1.0, symbol="X")], 0)
+
+        _permissive_provenance(monkeypatch)  # passes every row
+        _, applied = cal._live_rows(live_db, "s", "X")
+
+        _break_provenance_import(monkeypatch)
+        _, unavailable = cal._live_rows(live_db, "s", "X")
+
+        assert applied["rows_trusted"] == unavailable["rows_trusted"]
+        assert applied["rows_scanned"] == unavailable["rows_scanned"]
+        assert applied["trust_filter"] != unavailable["trust_filter"]
 
 
 class TestStopDistanceR:
