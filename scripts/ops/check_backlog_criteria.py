@@ -4,7 +4,7 @@
 WHY THIS EXISTS. Two high-severity rows were found finished-but-open on
 2026-08-12, and both had the same cause — no ``resolution_criteria``:
 
-* ``BL-20260808-TREND-HARNESS-FORK`` — the fork had been closed by convergence
+* ``BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE`` — the fork had been closed by convergence
   (the 15 levers ported into the canonical harness, the other copy reduced to a
   shim) and the row sat ``open``/``high`` for four days after the fix landed.
 * ``BL-20260806-DUPLICATE-PNL-NETTED-SIBLING-ROWS`` — 29 of 33 suspect rows had
