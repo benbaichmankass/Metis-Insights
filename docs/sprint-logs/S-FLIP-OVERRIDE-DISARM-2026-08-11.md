@@ -316,3 +316,118 @@ them — $5.02 total, and marking a correct row destroys real information.
 - [x] Roadmap status was checked (M26).
 - [x] Contradictions were recorded — including the CI one I did not cause.
 - [x] Remaining unknowns were stated clearly, above, rather than rounded to done.
+
+## Day-3 overnight continuation (2026-08-12 21:50Z →, operator asleep)
+
+Operator handed the session off for autonomous overnight work with two
+conditional Tier-2 pre-approvals and an hourly Telegram cadence. All Tier-1
+except where noted; no Tier-3 was enacted.
+
+### The tick question is answered: branch (a), and the fix is not the one-liner
+
+The probe returned its first WARM read — **`ticks_measured` 50, one process from
+19:56:48Z, payload 21:55:42Z** (diag #8811). Population stated because the prior
+reading was 3 cold ticks.
+
+| on-loop | n | mean_ms | per tick | % of tick |
+|---|---|---|---|---|
+| `fetch.1d` | 160 | 3633.8 | 11.63s | 13.9 |
+| `fetch.15m` | 341 | 1386.7 | 9.46s | 11.3 |
+| `fetch.1h` | 446 | 570.1 | 5.09s | 6.1 |
+| `fetch.5m` | 473 | 516.9 | 4.89s | 5.8 |
+| `fetch.4h` | 265 | 220.4 | 1.17s | 1.4 |
+| `fetch.2h` | 219 | 214.5 | 0.94s | 1.1 |
+| `fetch.1m` | 50 | 226.3 | 0.23s | 0.3 |
+| `fetch.cache_hit` | 548 | — | — | — |
+
+Misses at ≥15m are **1431 of 1954 = 73.2% by count, 84.7% by time** → branch (a).
+Arithmetic reconciles: fetch is 33.4s/tick, the `pct_of_total` column sums to
+39.9%, and 33.4/83.868 = 39.8%.
+
+**Branch (c) was ruled out independently**, which matters because it did not rely
+on the same instrument: status-check #8813 in the same window shows loadavg
+**0.24 on 2 cores** and the trader at 21.2% CPU while a tick takes 83.9s. The
+tick is I/O-wait, not compute.
+
+**But the pre-specified fix was wrong, and that is the finding.** Branch (a) was
+written as "raising the cap is the fix… Tier-2". Strategies read
+`candles_df["close"].iloc[-1]` as the CURRENT PRICE for entry geometry
+(`_base.py:145`, `trend_donchian.py:831`, `turtle_soup.py:476`, `vwap.py:1039`,
+`ict_scalp.py:773`) and the monitor reads the same field for exits — so the TTL
+bounds how stale the price behind a live order may be. The VALUE is an
+order-path decision (Tier-3); making it SETTABLE is Tier-1. PR #8815 ships that
+split: `CANDLE_CACHE_TTL_MAX_S` at the incumbent `60.0`, byte-for-byte unchanged,
+one env flip to move. I did not take the pre-approval as licence to ship a
+change whose tier I had just discovered was different from the one approved.
+
+Also shipped `fetchby.<consumer>`, the cut that decides whether a SAFE fix
+exists: if the ≥15m misses are `regime_bar_scoring` (observe-only, dedups to
+closed bars) there is a large win that never touches an order's price; if they
+are `signal_build`, there is not.
+
+**A reading that would have been misread:** the tick mean fell 107.9s → 83.9s,
+and that is NOT an improvement — the M20 decouple moved `strategy_monitor_loop`
+into `offloop_hooks`, so the work went concurrent, not away.
+
+### The duplicate-pnl question is answered, and the answer is the worse one
+
+Marking applied 2026-08-06 23:25–23:29Z (#8543, verified #8545); all 29 present
+in the trainer's real journal (#8818).
+
+All 29 carried `pre_remediation_exit_price_source = 'bybit_closed_pnl'` →
+**MEASURED**, and `pnl_is_trustworthy` **ADMITTED 29 of 29** pre-marking (#8823,
+full population). Exposure was real, not nil. Scope differs by family and the
+difference is load-bearing: `conviction_meta` and `setup_candidates` exclude
+paper and every marked row is `bybit_1` (`account_class: paper`), so those two
+were never exposed; `trade_outcomes` / `setup_labels` / `setup_labels_audit`
+filter only `status` + `is_backtest`, so for those three the rows were fully
+admissible labels until 2026-08-06. `trade_outcomes` labels `won = pnl > 0`, so
+a pnl duplicated across 5 rows manufactured 5 labels from 1 outcome. The current
+fleet is clean — the newest runs (2026-08-12 01:41–01:47) postdate the marking.
+
+**The class it exposes** (`BL-20260812-MEASURED-PROVENANCE-CANNOT-SEE-MISATTRIBUTION`):
+those rows wore MEASURED and were CORRECT to. `bybit_closed_pnl` accurately
+names the source; one netted close's record was written to N siblings, so each
+row has genuine broker provenance and the wrong OWNER. Provenance grades where a
+number came from, not whether it belongs to this row — an orthogonal axis with
+no field. That is why every provenance sweep passed them and an ARITHMETIC
+impossibility (R = −99.5 on 0.012 BTC ⇒ a ~$247k move) is what surfaced them. A
+per-row grade cannot see a cross-row duplication.
+
+### Also fixed, found on the way
+- **`backtest_fidelity_calibrate`** silently widened its population when
+  `provenance` failed to import — `rows_trusted` equalled `rows_scanned`, byte-
+  identical to a spotless leg. Now declares `trust_filter: applied|unavailable`.
+  The decisive test asserts the two at EQUAL counts so the field cannot be keyed
+  off the counts.
+- **`status_check.sh`'s could-not-look branch** now has a test that extracts the
+  block from the shipped script text; verified against the ACTUAL pre-fix string.
+
+### Two corrections of my own work, both caught by checking rather than by luck
+- My `json.dump` used `indent=1` and re-serialised the whole backlog (12,948-line
+  diff), which made `impossibility-claim-guard` attribute 13 long-standing claims
+  to this PR. Fixed to `indent=2` + prepend → 58 lines. **The trap:** my first
+  "baseline" comparison was against my own bad commit, and a pristine
+  `origin/main` worktree returned `0` — which was VACUOUS (diffing main against
+  itself scans nothing). I nearly took that as a clean bill of health.
+- I reported the trainer DB sync as 10 days stale. Wrong: I had queried a stray
+  repo-root `trade_journal.db` (8.5 MB, 0 trades, 15,644 signals — itself the
+  CWD-fallback artifact `canonical-db-resolver` exists to kill). The real copy is
+  804 MB, fresh 05:00.
+
+### CI: "checks not attaching" was a merge conflict, not a GitHub flake
+`get_check_runs` returned `total_count: 0` across three pushes. An empty commit
+did not help. The cause was `mergeable_state: dirty` — `main` had advanced to
+`1a2922c` (#8814, another session documenting the same decouple) and GitHub does
+not run PR checks on an unmergeable PR. Resolving the `CLAUDE.md` conflict
+restored them immediately. **First thing to check on a not-attaching PR is
+`mergeable_state`, before reaching for workarounds.** The conflict was resolved
+by MERGING both versions, not picking one — theirs is richer on `offloop_hooks`
+(thread identity, empty-means-broken), mine had `fetchby.*` and the measured
+27-of-32 name budget.
+
+### Open / handed forward
+- The cap VALUE (Tier-3) — operator's, with the numbers above.
+- `fetchby.*` needs a post-deploy read before the consumer-scoped TTL is decidable.
+- The fidelity trust-map re-run: excluded by construction, but no committed
+  artifact exists so the recorded verdict could not be dated.

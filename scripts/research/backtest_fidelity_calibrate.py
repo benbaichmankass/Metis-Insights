@@ -383,6 +383,22 @@ def _live_rows(
                     "won": pnl > 0})
     diag = {
         "r_basis": r_basis,
+        # THREE states, never collapsed (CLAUDE.md § "Collapsed states"):
+        #   applied     — the provenance filter ran; `rows_trusted` is a real filter result
+        #   unavailable — `src.runtime.provenance` would not import, so NOTHING was
+        #                 filtered and `rows_trusted` equals `rows_scanned` by default
+        #
+        # Without this field those two are indistinguishable in the output: an
+        # import failure silently WIDENS the population to include fabricated pnl
+        # and then reports a 100% trusted rate, which reads as an exceptionally
+        # clean leg rather than as an unfiltered one. That inverts the meaning of
+        # the number this whole module exists to produce — the docstring's first
+        # trust-discipline bullet is "live population is measured-provenance only".
+        #
+        # The sibling loader already got this right: `setup_candidates._load_live_trades`
+        # logs a WARNING naming the skipped filter rather than returning a silently
+        # unfiltered population. This is that same disclosure, as a field.
+        "trust_filter": "applied" if trust is not None else "unavailable",
         "rows_scanned": scanned,
         "rows_trusted": trusted,
         "rows_r_measured": len(out),
