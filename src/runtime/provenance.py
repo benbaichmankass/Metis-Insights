@@ -93,7 +93,27 @@ __all__ = [
 
 # --- Buckets -----------------------------------------------------------------
 MEASURED = "measured"
-"""The value came from the venue or an actual recorded fill."""
+"""The value came from the venue or an actual recorded fill.
+
+**SCOPE — this grades a value's SOURCE, not its OWNER.** ``MEASURED`` says the
+number came from the venue; it does NOT say the number belongs to the row it is
+stored on, and no bucket in this module can. Misattribution is an orthogonal
+axis with no field here, and a per-row grade cannot detect it in principle:
+duplication is a property of a SET of rows.
+
+This is not hypothetical. Measured 2026-08-12 (trainer-diag #8823, n=29 of 29):
+every row in the netted-duplicate population carried ``bybit_closed_pnl`` and so
+classified ``MEASURED``, and :func:`pnl_is_trustworthy` admitted all 29 — because
+the grade was CORRECT. Bybit really did return that realized-pnl record; the
+defect was that ONE netted close's record was written to N sibling rows at full
+magnitude, so each row held genuine broker provenance and the wrong owner. Every
+provenance sweep over those rows passed them, rightly, for months. What surfaced
+them was an ARITHMETIC impossibility — R = −99.5 on a 0.012 BTC position, implying
+a ~$247,000 move — not a provenance check.
+
+So do not read a ``MEASURED`` grade as "this value was checked for ownership".
+Cross-row integrity is a separate obligation
+(``BL-20260812-MEASURED-PROVENANCE-CANNOT-SEE-MISATTRIBUTION``)."""
 
 ESTIMATED = "estimated"
 """The value was DERIVED from a defensible anchor — e.g. the OHLC bar covering
