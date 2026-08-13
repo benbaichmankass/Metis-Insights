@@ -651,11 +651,20 @@
           "disposition": "do_now",
           "evidence_based": true,
           "note": "STAYS OPEN and is now actionable: severity + tier + a concrete next_action are set, so it can be sorted, routed and picked up. Enumerate which (symbol, timeframe) pairs have frozen vol_bucket edges vs which do not, land a Tier-1 audit doc stating which absences are intentional, and note that the ML verdict path resolves per-SYMBOL (ml_vol_regime_for_symbol) so it has a different coverage shape than the frozen detector. A bounded audit, not a research question."
+        },
+        {
+          "at": "2026-08-13T10:12:00+00:00",
+          "by": "claude (full-system-audit + system-review 2026-08-13), diag #8989",
+          "disposition": "kept_open",
+          "evidence_based": true,
+          "note": "ATTEMPTED TWO WAYS, NOT SETTLED — but the attempt narrowed WHERE the answer lives, which is why this is not just a carry-forward.\n\n1. REPO SIDE — checked first, and it cannot answer the question. src/runtime/regime/vol_detector.py holds NO static edge table. It resolves vol_bucket_labels / vol_bucket_edges out of the REGISTRY regime specs at runtime (_SOURCE = 'vol-bucket-edges'), and adopts edges only from a head whose estimator matches rolling_log_return_vol. So the coverage set is a property of the LIVE REGISTRY, not of checked-in code, and no local enumeration is possible. That also means a head can exist for a pair and still contribute no usable edge — a THIRD state the row's binary framing (has-edges / lacks-edges) does not have a slot for, and which must not be folded into 'no head'.\n\n2. /api/bot/ml/registry (diag #8989) — INSUFFICIENT. The page truncated, and within what returned there were 5 distinct model_ids, ZERO occurrences of the key `vol_bucket_edges`, and zero regime heads. I am NOT reading that as 'no head carries edges': the absence is equally explained by the endpoint not exposing model_state at all, which I did not verify. A zero over an unestablished denominator is not a finding.\n\nSeverity stays LOW and this is explicitly NOT worth more relay round-trips against the higher-value rows in flight — recording the narrowing so the next session starts from the right surface instead of repeating both dead ends.",
+          "next_check": "Confirm FIRST whether /api/bot/ml/registry exposes model_state.vol_bucket_edges at all (read the router, not the payload). If it does not, this needs the trainer-vm-diag relay against the registry directly — not the live-VM diag API. Then enumerate three states, not two: head-with-usable-edges / head-without-usable-edges / no-head, and state the per-SYMBOL advisory set separately since ml_vol_regime_for_symbol has a deliberately different coverage shape."
         }
       ],
       "severity": "low",
       "disposition": "do_now",
-      "next_action": "Enumerate which (symbol, timeframe) pairs have frozen vol_bucket edges vs which do not, land a Tier-1 audit doc stating which absences are intentional, and note that the ML verdict path resolves per-SYMBOL (ml_vol_regime_for_symbol) so it has a different coverage shape than the frozen detector. A bounded audit, not a research question."
+      "next_action": "Enumerate which (symbol, timeframe) pairs have frozen vol_bucket edges vs which do not, land a Tier-1 audit doc stating which absences are intentional, and note that the ML verdict path resolves per-SYMBOL (ml_vol_regime_for_symbol) so it has a different coverage shape than the frozen detector. A bounded audit, not a research question.",
+      "updated_at": "2026-08-13T10:12:00+00:00"
     },
     {
       "id": "PB-20260607-001",
