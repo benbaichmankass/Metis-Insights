@@ -318,3 +318,72 @@ geometries; they agree on 7 and disagree on one (`iaum_pullback_1d`:
 `honest_negative` under trade-folds, `candidate` under calendar-folds), which is
 the report's own "not comparable evidence" warning showing up as an actual
 verdict flip.
+
+## 9. Hindsight-free τ selection — the measurement §§ 5 and 7 asked for
+
+*Measured 2026-08-13, relay #9077, 31 reports, 514 scored folds.* § 7 measured
+the *random*-τ bound; this measures actual **causal selection rules**. `folds`
+is built sequentially by `fold_blocks`, so per leg it is chronological, and a
+selection rule using only prior folds is computable **with no retraining**:
+
+- **PREV** — the τ with the highest `net_r` on the leg's previous fold.
+- **EXPAND** — the τ with the highest cumulative `net_r` over all prior folds.
+
+Fold 1 of each leg has no prior and is excluded (reported as `skip1st`, so the
+denominator is never silently short).
+
+**Fleet totals, 514 folds:**
+
+| τ chosen by | mean vs actual | median | folds positive |
+|---|---:|---:|---:|
+| **best arm (what the gate credits — HINDSIGHT)** | **+1.217R** | +1.220R | **70.2%** |
+| EXPAND (causal) | **−0.341R** | +0.285R | **54.1%** |
+| PREV (causal) | **−0.674R** | +0.065R | **50.8%** |
+| EXPAND vs `stale_8_0` | −0.163R | +0.320R | 54.9% |
+| PREV vs `stale_8_0` | −0.496R | +0.160R | 53.3% |
+
+**The fleet-level edge is the hindsight.** Choose τ causally and the mean goes
+negative and the hit rate falls to a coin flip.
+
+**But the family split survives both causal rules, which is the finding that
+matters.** Every scalp group stays positive vs actual under PREV *and* EXPAND
+(`ict_scalp_5m` +5.638 / +6.304, `xrp_5m` +4.525 / +4.980, `avax_5m` +3.538 /
++3.284, `sol_15m` +3.027 / +3.477, `xrp_15m` +3.118 / +3.578, `sol_5m` +2.714 /
++3.102, `eth_15m` +0.630 / +0.066 — the weakest). Every non-scalp group is
+negative under both (`allmix` −1.707 / −1.250, `pullback` b=50 −1.350 / −0.919,
+`donchian` b=15 −1.488 / −0.723, `donchian` calendar −2.628 / −2.537).
+
+**Against the hard levers, even scalp mostly does not clear.** PREV vs
+`stale_8_0`, per scalp leg: `sol_15m` **+2.723**, `ict_scalp_5m` **+1.564**,
+`sol_5m` +0.340, `avax_5m` +0.229, `xrp_15m` −0.010, `xrp_5m` **−0.470**,
+`eth_15m` **−1.658**. So **2 of 7** scalp legs show a meaningful edge over an
+eight-bar stale-stop once τ is picked without hindsight; the rest sit at or
+below zero.
+
+### What this does and does not license
+
+- **It does not say the deployed head would be negative.** PREV and EXPAND are
+  *lower* bounds on a well-designed selection: they pick τ from earlier folds
+  only, so they eat regime drift between folds, and EXPAND already beats PREV
+  (−0.341 vs −0.674), which says selection quality matters and better rules
+  exist. Picking τ on the *training half of the same fold* would be
+  contemporaneous and should do better. **The achievable value lies between
+  EXPAND and best**, and where in that interval is still unmeasured.
+- **It does say the gate's figure cannot be read as a deployment expectation.**
+  The interval `[−0.341R, +1.217R]` straddles zero and is wider than the effect
+  being claimed. A `candidate` verdict currently means "some τ beat the
+  baselines on this test fold", not "this head is expected to help".
+- **Read mean and median together.** They diverge (PREV: mean −0.674, median
+  +0.065), so the mean carries a negative tail of a few bad folds. `frac_positive`
+  is the robust statistic here and it is ~51–55% for every causal rule against
+  every baseline — a coin flip.
+- **`slv_trend_1h` (3 scored), `uso_trend_1h` (2), `eth_15m` / `xrp_15m` (5),
+  `sol_15m` (6) are too thin to weigh individually** and none of the conclusions
+  above rests on them.
+
+This is the direct mechanism behind
+`BL-20260813-EXIT-HEAD-HARNESS-PASS-DOES-NOT-SURVIVE-THE-LIVE-BOOK`:
+`ict_scalp_5m` passed 3/3 harness folds on the best-arm figure and then had
+*every* τ lose on the live book. A gate scored on the max of seven arms will do
+that whenever the arm ordering is unstable — and § 7's flip rate (23–50% of
+non-scalp folds) says it is.
