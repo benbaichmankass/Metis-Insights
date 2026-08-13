@@ -83,6 +83,23 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # Do not re-add it.
     "ict-trader-live.service",
     "ict-web-api.service",
+    # 2026-08-13 (BL-20260813-CADDY-HTTPS-TRANSPORT-UNDOCUMENTED-AND-UNWATCHED).
+    # The HTTPS front for the Svelte SPA: ict-bot.duckdns.org ->
+    # reverse_proxy localhost:8001 (deploy/caddy/Caddyfile, installed by
+    # scripts/ops/install_caddy.sh). /ws/market streams WSS through it.
+    #
+    # THIS ENTRY IS HAND-MAINTAINED AND NO GUARD PROTECTS IT. Every other
+    # unit here is cross-checked by scripts/check_diag_unit_allowlist.py,
+    # but that guard globs deploy/*.service + deploy/*.timer and caddy
+    # ships NO unit file of ours (it comes from the Caddy apt package), so
+    # caddy.service is outside the guard's scan entirely -- it is neither
+    # flagged as uncovered nor flagged as stale if this line is deleted.
+    # That invisibility is exactly why it went unwatched: a Caddy outage
+    # takes the SPA + WSS down while Streamlit (which calls the API
+    # server-side over plain HTTP) stays green, so nothing else reports it.
+    # Do not remove without giving the SPA transport another liveness
+    # surface first.
+    "caddy.service",
     "ict-telegram-bot.service",
     # NB: the retired daily-digest unit "ict-heartbeat.service" was removed here
     # (2026-07-26 full-system audit, WS-B). The daily operator digest was retired
